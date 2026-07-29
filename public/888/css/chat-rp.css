@@ -1,6 +1,6 @@
 /* css/chat-rp.css */
 
-/* ---------- Send red packet page ---------- */
+/* ---------- Send red packet page（固定尺度，避免忽大忽小） ---------- */
 .chat-rp-send-main {
   display: flex;
   flex-direction: column;
@@ -11,142 +11,251 @@
 .chat-rp-send-body {
   flex: 1;
   overflow-y: auto;
-  padding: 14px 12px 20px;
+  padding: 12px 14px 18px;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
-  max-width: none;
   width: 100%;
   margin: 0;
   box-sizing: border-box;
 }
-.chat-rp-preview {
-  background: var(--color-primary-gradient);
-  border-radius: var(--radius-lg);
-  padding: 32px 16px 24px;
-  text-align: center;
-  color: #fff;
-  box-shadow: var(--shadow-warm);
-  margin-bottom: 14px;
+.chat-rp-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
-.chat-rp-preview-icon { font-size: 48px; line-height: 1; filter: drop-shadow(0 4px 8px rgba(0,0,0,.15)); }
-.chat-rp-preview-bless {
-  margin-top: 12px;
-  font-size: var(--font-size-lg);
+
+/* 预览：固定高度红包卡 */
+.chat-rp-send-pane .chat-rp-preview,
+#tabMessages .chat-rp-send-pane .chat-rp-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 132px;
+  height: 132px;
+  padding: 18px 16px 16px !important;
+  margin: 0 0 12px !important;
+  border-radius: 16px !important;
+  border: none !important;
+  background: linear-gradient(160deg, #E94B3C 0%, #C61114 58%, #A50F12 100%) !important;
+  box-shadow: 0 10px 22px rgba(180, 30, 25, 0.28), inset 0 1px 0 rgba(255,255,255,.25) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  color: #fff;
+  text-align: center;
+  box-sizing: border-box;
+}
+.chat-rp-preview-seal {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
   font-weight: 800;
-  letter-spacing: 0.5px;
-  text-shadow: var(--text-shadow-gold);
+  color: #C61114;
+  background: linear-gradient(180deg, #ffe9b0 0%, #f0b04a 100%);
+  box-shadow: 0 4px 10px rgba(0,0,0,.18);
+  flex-shrink: 0;
+}
+.chat-rp-preview-bless {
+  margin-top: 10px;
+  font-size: 17px !important;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  line-height: 1.25;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(80, 10, 8, 0.25);
 }
 .chat-rp-preview-sub {
   margin-top: 6px;
-  font-size: var(--font-size-xs);
-  opacity: 0.9;
+  font-size: 12px !important;
+  line-height: 1.3;
+  opacity: 0.92;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .chat-rp-balance-hint {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-hint);
-  margin-bottom: 14px;
+  font-size: 12px !important;
+  color: #9a8574;
+  margin: 0 0 12px;
   text-align: center;
+  line-height: 1.4;
 }
 .chat-rp-balance-hint strong {
-  color: var(--color-amount);
-  font-weight: 900;
+  color: #C61114;
+  font-weight: 800;
+  font-size: 13px;
 }
-.chat-rp-field {
-  background: var(--color-bg-card-warm);
-  border-radius: var(--radius-md);
-  padding: 14px 16px;
-  margin-bottom: 12px;
-  border: 1px solid var(--color-border-warm);
-  box-shadow: var(--shadow-card);
+
+/* 表单行：统一高度与字号 */
+.chat-rp-send-pane .chat-rp-field {
+  background: #fff;
+  border-radius: 14px;
+  padding: 12px 14px;
+  margin: 0;
+  border: 1px solid rgba(224, 122, 34, 0.18);
+  box-shadow: 0 4px 12px rgba(170, 120, 55, 0.06);
+  box-sizing: border-box;
 }
-.chat-rp-field label {
+.chat-rp-send-pane .chat-rp-field label {
   display: block;
-  font-size: var(--font-size-xs);
-  color: var(--color-text-hint);
+  font-size: 12px !important;
+  color: #9a8574;
   margin-bottom: 8px;
   font-weight: 600;
+  line-height: 1.2;
 }
-.chat-rp-field input[type="number"],
-.chat-rp-field input[type="text"] {
+.chat-rp-send-pane .chat-rp-field input[type="number"],
+.chat-rp-send-pane .chat-rp-field input[type="text"] {
   width: 100%;
-  border: none;
+  height: 36px;
+  border: none !important;
   outline: none;
-  font-size: var(--font-size-md);
-  color: var(--color-text-main);
-  background: transparent;
-  padding: 0;
+  font-size: 16px !important;
+  font-weight: 600;
+  color: #3d2e22;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  line-height: 36px;
+  box-sizing: border-box;
+  -moz-appearance: textfield;
 }
-.chat-rp-amount-row {
+.chat-rp-send-pane .chat-rp-field input::-webkit-outer-spin-button,
+.chat-rp-send-pane .chat-rp-field input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.chat-rp-amount-row,
+.chat-rp-inline-ctrl {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  min-height: 36px;
 }
 .chat-rp-yuan {
-  font-size: var(--font-size-xl);
-  font-weight: 900;
-  color: var(--color-amount);
+  font-size: 22px !important;
+  font-weight: 800;
+  color: #C61114;
+  line-height: 1;
+  flex-shrink: 0;
 }
-#chatRpAmount {
-  font-size: var(--font-size-amount) !important;
-  font-weight: 900 !important;
-  color: var(--color-amount) !important;
+.chat-rp-send-pane #chatRpAmount {
+  font-size: 28px !important;
+  font-weight: 800 !important;
+  color: #C61114 !important;
+  height: 40px !important;
+  line-height: 40px !important;
   flex: 1;
-  line-height: 1.1;
+  min-width: 0;
+}
+.chat-rp-unit {
+  font-size: 14px;
+  color: #9a8574;
+  flex-shrink: 0;
 }
 .chat-rp-field-hint {
-  margin-top: 6px;
-  font-size: 11px;
-  color: var(--color-text-hint);
+  margin-top: 8px;
+  font-size: 11px !important;
+  line-height: 1.4;
+  color: #a89888;
 }
 .chat-rp-field.is-private #chatRpCount {
-  opacity: 0.5;
+  opacity: 0.55;
   pointer-events: none;
 }
-.chat-rp-type-tabs { display: flex; gap: 8px; }
-.chat-rp-type-btn {
-  flex: 1;
-  border: 1px solid var(--color-border-light);
-  background: var(--color-bg-disabled);
-  color: var(--color-text-disabled);
-  border-radius: var(--radius-pill);
-  padding: 10px 8px;
-  font-size: var(--font-size-sm);
-  font-weight: 700;
+
+/* 类型：等宽分段，高度固定 */
+.chat-rp-type-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.chat-rp-send-pane .chat-rp-type-btn,
+#tabMessages .chat-rp-send-pane .chat-rp-type-btn {
+  height: 40px;
+  min-height: 40px;
+  max-height: 40px;
+  padding: 0 6px !important;
+  border-radius: 999px !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
   cursor: pointer;
-  box-shadow: none;
+  box-sizing: border-box;
+  border: 1px solid rgba(224, 122, 34, 0.22) !important;
+  background: #fffaf4 !important;
+  color: #7a6554 !important;
+  box-shadow: none !important;
 }
-.chat-rp-type-btn.active {
-  border: none;
-  background: var(--color-primary-gradient);
-  color: #fff;
-  box-shadow: var(--shadow-warm);
+.chat-rp-send-pane .chat-rp-type-btn.active,
+#tabMessages .chat-rp-send-pane .chat-rp-type-btn.active {
+  border: none !important;
+  background: linear-gradient(to right, #E63022, #C61114) !important;
+  color: #fff !important;
+  box-shadow: 0 4px 12px rgba(198, 17, 20, 0.28) !important;
 }
+
+/* 埋雷说明：短卡片，不撑版 */
+.chat-rp-mine-card {
+  background: linear-gradient(180deg, #fff8f0 0%, #fff 100%) !important;
+}
+.chat-rp-mine-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #9a8574;
+  margin-bottom: 8px;
+}
+.chat-rp-mine-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #C61114;
+  background: rgba(230, 48, 34, 0.08);
+  border: 1px solid rgba(230, 48, 34, 0.16);
+}
+
 .chat-rp-send-ft {
-  padding: 12px 12px calc(12px + env(safe-area-inset-bottom, 0px));
-  background: var(--color-bg-card);
-  border-top: 1px solid var(--color-border-warm);
-  max-width: none;
+  padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+  background: #fffdf9;
+  border-top: 1px solid rgba(224, 122, 34, 0.12);
   width: 100%;
   margin: 0;
   box-sizing: border-box;
   flex-shrink: 0;
 }
-.chat-rp-submit-btn {
+.chat-rp-send-pane .chat-rp-submit-btn,
+#tabMessages .chat-rp-send-pane .chat-rp-submit-btn {
   width: 100%;
-  border: none;
-  border-radius: var(--radius-pill);
-  padding: 14px;
-  font-size: var(--font-size-md);
-  font-weight: 800;
-  color: #fff;
+  height: 48px;
+  min-height: 48px;
+  max-height: 48px;
+  border: none !important;
+  border-radius: 999px !important;
+  padding: 0 !important;
+  font-size: 16px !important;
+  font-weight: 800 !important;
+  color: #fff !important;
   cursor: pointer;
-  background: var(--color-primary-gradient);
-  box-shadow: var(--shadow-warm);
+  background: linear-gradient(to right, #E63022, #C61114) !important;
+  box-shadow: 0 8px 18px rgba(198, 17, 20, 0.28) !important;
+  box-sizing: border-box;
 }
-.chat-rp-submit-btn:disabled {
-  background: var(--color-bg-disabled);
-  color: var(--color-text-disabled);
-  box-shadow: none;
+.chat-rp-send-pane .chat-rp-submit-btn:disabled {
+  background: #e8e4df !important;
+  color: #a89a90 !important;
+  box-shadow: none !important;
   cursor: default;
   opacity: 1;
 }

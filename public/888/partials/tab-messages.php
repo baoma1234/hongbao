@@ -426,46 +426,56 @@
                     <span class="chat-hero-spacer"></span>
                 </div>
                 <div class="chat-rp-send-main">
-                <div class="chat-rp-send-body">
-                    <div class="chat-rp-preview" id="chatRpPreview">
-                            <div class="chat-rp-preview-icon">🧧</div>
+                    <div class="chat-rp-send-body">
+                        <div class="chat-rp-preview" id="chatRpPreview">
+                            <div class="chat-rp-preview-seal">红</div>
                             <div class="chat-rp-preview-bless" id="chatRpPreviewBless">恭喜发财</div>
                             <div class="chat-rp-preview-sub" id="chatRpPreviewSub">拼手气红包</div>
-                    </div>
-                        <div class="chat-rp-balance-hint"><span data-copy="chat_rp_balance_hint">可用红利余额：</span><strong id="chatRpBalance">￥0.00</strong></div>
-
-                    <div class="chat-rp-field">
-                            <label for="chatRpAmount" data-copy="chat_rp_amount_label">金额（元）</label>
-                        <div class="chat-rp-amount-row">
-                            <span class="chat-rp-yuan">￥</span>
-                                <input type="number" id="chatRpAmount" inputmode="decimal" step="0.01" min="10" data-copy-placeholder="chat_rp_amount_ph" placeholder="最低 10">
-                            </div>
-                    </div>
-
-                    <div class="chat-rp-field" id="chatRpCountWrap">
-                            <label for="chatRpCount" data-copy="chat_rp_count_label">红包个数</label>
-                            <input type="number" id="chatRpCount" inputmode="numeric" min="5" max="10" value="5" placeholder="5-10">
-                            <div class="chat-rp-field-hint" id="chatRpCountHint" data-copy="chat_rp_count_hint">群聊 5～10 个，私聊固定 1 个</div>
-                    </div>
-
-                    <div class="chat-rp-field">
-                            <label data-copy="chat_rp_type_label">红包类型</label>
-                        <div class="chat-rp-type-tabs" id="chatRpTypeTabs">
-                                <button type="button" class="chat-rp-type-btn active" data-type="2" data-copy="chat_rp_type_lucky">拼手气</button>
-                                <button type="button" class="chat-rp-type-btn" data-type="1" data-copy="chat_rp_type_avg">人均</button>
-                                <button type="button" class="chat-rp-type-btn" data-type="3" data-copy="chat_rp_type_mine">埋雷</button>
-                            </div>
                         </div>
 
-                        <div class="chat-rp-field" id="chatRpMineWrap" style="display:none">
-                            <label for="chatRpMineDigit" data-copy="chat_rp_mine_digit">官方雷号（波场开奖）</label>
-                            <input type="number" id="chatRpMineDigit" inputmode="numeric" min="0" max="9" step="1" value="0" placeholder="开奖后揭晓" disabled style="opacity:.7">
-                            <div class="chat-rp-field-hint" data-copy="chat_rp_mine_hint">抢完后锁定波场区块哈希，末位映射 0～9 为官方雷号；金额尾数等于雷号则中雷。可去 TronScan 全球核对。</div>
+                        <div class="chat-rp-balance-hint">
+                            <span data-copy="chat_rp_balance_hint">可用红利余额：</span>
+                            <strong id="chatRpBalance">￥0.00</strong>
                         </div>
 
-                        <div class="chat-rp-field">
-                            <label for="chatRpBlessing" data-copy="chat_rp_blessing_label">红包封面语</label>
-                            <input type="text" id="chatRpBlessing" maxlength="100" data-copy-placeholder="chat_rp_blessing_ph" placeholder="恭喜发财，大吉大利" value="恭喜发财">
+                        <div class="chat-rp-form">
+                            <div class="chat-rp-field chat-rp-field--amount">
+                                <label for="chatRpAmount" data-copy="chat_rp_amount_label">金额</label>
+                                <div class="chat-rp-amount-row">
+                                    <span class="chat-rp-yuan">￥</span>
+                                    <input type="number" id="chatRpAmount" inputmode="decimal" step="0.01" min="10" data-copy-placeholder="chat_rp_amount_ph" placeholder="0.00">
+                                </div>
+                            </div>
+
+                            <div class="chat-rp-field" id="chatRpCountWrap">
+                                <label for="chatRpCount" data-copy="chat_rp_count_label">个数</label>
+                                <div class="chat-rp-inline-ctrl">
+                                    <input type="number" id="chatRpCount" inputmode="numeric" min="5" max="10" value="5" placeholder="5-10">
+                                    <span class="chat-rp-unit">个</span>
+                                </div>
+                                <div class="chat-rp-field-hint" id="chatRpCountHint" data-copy="chat_rp_count_hint">群聊 5～10 个 · 私聊固定 1 个</div>
+                            </div>
+
+                            <div class="chat-rp-field chat-rp-field--type">
+                                <label data-copy="chat_rp_type_label">类型</label>
+                                <div class="chat-rp-type-tabs" id="chatRpTypeTabs" role="tablist">
+                                    <button type="button" class="chat-rp-type-btn active" data-type="2" data-copy="chat_rp_type_lucky">拼手气</button>
+                                    <button type="button" class="chat-rp-type-btn" data-type="1" data-copy="chat_rp_type_avg">人均</button>
+                                    <button type="button" class="chat-rp-type-btn" data-type="3" data-copy="chat_rp_type_mine">埋雷</button>
+                                </div>
+                            </div>
+
+                            <div class="chat-rp-field chat-rp-mine-card" id="chatRpMineWrap" hidden>
+                                <div class="chat-rp-mine-title" data-copy="chat_rp_mine_digit">官方雷号 · 波场开奖</div>
+                                <div class="chat-rp-mine-badge">开奖后揭晓 0～9</div>
+                                <input type="hidden" id="chatRpMineDigit" value="0">
+                                <div class="chat-rp-field-hint" data-copy="chat_rp_mine_hint">抢完锁定波场区块，哈希末位定雷，可去 TronScan 核对。</div>
+                            </div>
+
+                            <div class="chat-rp-field">
+                                <label for="chatRpBlessing" data-copy="chat_rp_blessing_label">祝福语</label>
+                                <input type="text" id="chatRpBlessing" maxlength="40" data-copy-placeholder="chat_rp_blessing_ph" placeholder="恭喜发财，大吉大利" value="恭喜发财">
+                            </div>
                         </div>
                     </div>
                     <div class="chat-rp-send-ft">

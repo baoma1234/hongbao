@@ -9,7 +9,13 @@
     var wrap = $('chatRpMineWrap');
     if (!wrap) return;
     var type = getRpPacketType();
-    wrap.style.display = type === 3 ? '' : 'none';
+    if (type === 3) {
+      wrap.hidden = false;
+      wrap.style.display = '';
+    } else {
+      wrap.hidden = true;
+      wrap.style.display = 'none';
+    }
   }
 
   function updateRpPreview() {
@@ -18,7 +24,6 @@
     var blessInput = $('chatRpBlessing');
     var amountInput = $('chatRpAmount');
     var countInput = $('chatRpCount');
-    var mineInput = $('chatRpMineDigit');
     if (blessEl && blessInput) {
       var t = String(blessInput.value || '').trim();
       blessEl.textContent = t || chatT('chat_rp_blessing_default');
@@ -27,19 +32,12 @@
       var type = getRpPacketType();
       var count = countInput ? (parseInt(countInput.value, 10) || 1) : 1;
       var amount = amountInput ? (parseFloat(amountInput.value) || 0) : 0;
-      var typeLabel = type === 1 ? '人均红包' : (type === 3 ? '埋雷红包' : '拼手气红包');
-      var mine = mineInput ? (parseInt(mineInput.value, 10) || 0) : 0;
-      if (type === 3) {
-        if (amount > 0 && count > 0) {
-          subEl.textContent = typeLabel + ' · 波场定雷 · 共' + count + '个 · ￥' + amount.toFixed(2);
-        } else {
-          subEl.textContent = typeLabel + ' · 波场定雷';
-        }
-      } else if (amount > 0 && count > 0) {
-        subEl.textContent = typeLabel + ' · 共' + count + '个 · ￥' + amount.toFixed(2);
-      } else {
-        subEl.textContent = typeLabel;
-      }
+      var typeLabel = type === 1 ? '人均' : (type === 3 ? '埋雷' : '拼手气');
+      var parts = [typeLabel];
+      if (type === 3) parts.push('波场定雷');
+      if (count > 0) parts.push(count + '个');
+      if (amount > 0) parts.push('￥' + amount.toFixed(2));
+      subEl.textContent = parts.join(' · ');
     }
     syncRpMineField();
     var balEl = $('chatRpBalance');
