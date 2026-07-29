@@ -1,0 +1,118 @@
+<div class="panel panel-default">
+    <div class="panel-heading">用户详情 #{$row.id}</div>
+    <div class="panel-body">
+        <table class="table table-bordered">
+            <tr><th width="140">手机号</th><td>{$detail.user.mobile|default='-'|htmlentities}</td></tr>
+            <tr><th>注册时间</th><td>{if $detail.user.jointime}{$detail.user.jointime|datetime}{else/}-{/if}</td></tr>
+            <tr><th>最后登录</th><td>{if $detail.user.logintime}{$detail.user.logintime|datetime}{else/}-{/if}</td></tr>
+            <tr><th>最后登录IP</th><td>{$detail.user.loginip|default='-'|htmlentities}</td></tr>
+            <tr><th>上线</th><td>
+                {if !empty($detail.inviter)}
+                ID {$detail.inviter.inviter_user_id|htmlentities}
+                {if $detail.inviter.mobile} / {$detail.inviter.mobile|htmlentities}{/if}
+                {else/}-
+                {/if}
+            </td></tr>
+            <tr><th>股份</th><td>{$detail.account.rights}</td></tr>
+            <tr><th>锁定股份(T+1)</th><td>{$detail.account.rights_locked|default='0'}</td></tr>
+            <tr><th>锁定归属日</th><td>{$detail.account.rights_lock_day|default='-'}</td></tr>
+            <tr><th>余额</th><td>{$detail.account.balance}</td></tr>
+            <tr><th>红宝</th><td>{$detail.account.hongbao|default='0'}</td></tr>
+            <tr><th>主站账号</th><td>{$detail.account.main_uid|default='-'|htmlentities}</td></tr>
+            <tr><th>待审账号</th><td>{$detail.account.main_uid_pending|default='-'|htmlentities}</td></tr>
+            <tr><th>账号审核</th><td>
+                {switch name="detail.account.main_uid_audit"}
+                {case value="pending"}<span class="label label-danger">待核销</span>{/case}
+                {case value="approved"}<span class="label label-success">已通过</span>{/case}
+                {case value="rejected"}<span class="label label-warning">已拒绝</span>{/case}
+                {default /}<span class="label label-default">未提交</span>
+                {/switch}
+                {if $detail.account.main_uid_reject_reason}
+                <div class="text-muted" style="margin-top:4px;">原因：{$detail.account.main_uid_reject_reason|htmlentities}</div>
+                {/if}
+            </td></tr>
+            <tr><th>VIP等级</th><td>
+                {if isset($memberLevelList[$detail.account.member_level])}
+                VIP{$detail.account.member_level} - {$memberLevelList[$detail.account.member_level]['name']|htmlentities}
+                {elseif isset($detail.account.member_level) && $detail.account.member_level !== '' && $detail.account.member_level !== null}
+                VIP{$detail.account.member_level}
+                {else/}-
+                {/if}
+            </td></tr>
+            <tr><th>流程阶段</th><td>{$detail.account.flow_stage}</td></tr>
+            <tr><th>账户状态</th><td>{$detail.account.status}</td></tr>
+        </table>
+
+        {if !empty($detail.phase2)}
+        <h4>星火二期</h4>
+        <table class="table table-bordered">
+            <tr><th width="140">用户态</th><td>{eq name="detail.phase2.user_mode" value="master"}团长{else/}新手{/eq}</td></tr>
+            <tr><th>连续签到</th><td>{$detail.phase2.fission_streak_days} 天 {if !$detail.phase2.fission_streak_qualified}<span class="label label-warning">连签已冻结</span>{/if}</td></tr>
+            <tr><th>最后签到日</th><td>{$detail.phase2.fission_last_checkin_date|default='-'|htmlentities}</td></tr>
+            <tr><th>下线提现数</th><td>{$detail.phase2.sub_withdrawn_count}</td></tr>
+            <tr><th>荣誉段位</th><td>{$detail.phase2.honor_tier_name|default='未晋升'|htmlentities}（{$detail.phase2.honor_tier_claimed}）</td></tr>
+            <tr><th>邀请人数</th><td>{$detail.phase2.invite_count}</td></tr>
+            <tr><th>新手首提</th><td>{if $detail.phase2.first_withdraw_done}<span class="label label-success">已完成</span>{else/}<span class="label label-default">未完成</span>{/if}</td></tr>
+        </table>
+
+        <h4>最近签到记录</h4>
+        <table class="table table-striped table-bordered">
+            <thead><tr><th>日期</th><th>模式</th><th>基础</th><th>暴击</th><th>暴击解锁</th><th>连续天</th><th>第7天</th></tr></thead>
+            <tbody>
+            {volist name="detail.checkins" id="ci"}
+            <tr>
+                <td>{$ci.checkin_date|htmlentities}</td>
+                <td>{eq name="ci.mode" value="violent"}暴力分享{else/}普通打卡{/eq}</td>
+                <td>{$ci.base_amount}</td>
+                <td>{$ci.bonus_amount}</td>
+                <td>{if $ci.bonus_unlocked}<span class="label label-success">已解锁</span>{else/}<span class="label label-warning">待解锁</span>{/if}</td>
+                <td>{$ci.streak_day}</td>
+                <td>{if $ci.day7_settled}<span class="label label-info">是</span>{else/}-{/if}</td>
+            </tr>
+            {/volist}
+            {empty name="detail.checkins"}
+            <tr><td colspan="7" class="text-center text-muted">暂无签到记录</td></tr>
+            {/empty}
+            </tbody>
+        </table>
+        {/if}
+
+        <h4>最近登录记录</h4>
+        <table class="table table-striped table-bordered">
+            <thead><tr><th>时间</th><th>IP</th><th>设备指纹</th><th>UA</th></tr></thead>
+            <tbody>
+            {volist name="detail.login_logs" id="log"}
+            <tr>
+                <td>{$log.createtime|datetime}</td>
+                <td>{$log.ip|htmlentities}</td>
+                <td style="word-break:break-all;">{$log.device_fingerprint|default='-'|htmlentities}</td>
+                <td style="word-break:break-all;">{$log.user_agent|htmlentities}</td>
+            </tr>
+            {/volist}
+            {empty name="detail.login_logs"}
+            <tr><td colspan="4" class="text-center text-muted">暂无记录</td></tr>
+            {/empty}
+            </tbody>
+        </table>
+
+        <h4>任务记录</h4>
+        <table class="table table-striped table-bordered">
+            <thead><tr><th>时间</th><th>类型</th><th>通道</th><th>股份</th><th>余额</th><th>备注</th></tr></thead>
+            <tbody>
+            {volist name="detail.tasks" id="task"}
+            <tr>
+                <td>{$task.createtime|datetime}</td>
+                <td>{$task.task_type}</td>
+                <td>{$task.channel|default='-'|htmlentities}</td>
+                <td>{$task.rights}</td>
+                <td>{$task.balance}</td>
+                <td>{$task.extra|htmlentities}</td>
+            </tr>
+            {/volist}
+            {empty name="detail.tasks"}
+            <tr><td colspan="6" class="text-center text-muted">暂无记录</td></tr>
+            {/empty}
+            </tbody>
+        </table>
+    </div>
+</div>

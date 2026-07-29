@@ -1,0 +1,62 @@
+﻿no open_account
+
+==== uid-section @ 6001 ====
+ <div class="match-card" style="padding:15px;">
+                    <div class="uid-section visible" id="uidSection">
+                        <label class="uid-label" for="mainStationID" data-copy="uid_label">馃攽 绗竴姝ワ細璇疯緭鍏ユ偍鍦ㄦ姠绾㈠疂鐜伴噾绔欐敞鍐屾垚鍔熺殑璐﹀彿</label>
+                        <input
+                            type="text"
+                            id="mainStationID"
+                            class="id-input-box"
+                            name="fanshub_ga
+
+==== footer_line @ 10143 ====
+7786; text-align: center; line-height: 1.6;">
+                    <p data-copy="footer_line1">棣冩惓 閺堫剙閽╅崣鐗堚偓褑宸濇稉鎭掆偓?55.bio 鐎规ɑ鏌熷ú鏄忕┈缁绗ｆ惔锔侥侀幏鐔侯洿閸掆晜甯归獮鑳儉闁库偓娴滄帒濮╃拫鍐╃叀婢堆冨泛閵?/p>
+                    <p data-copy="footer_line2">鐎瑰鍙忛幍鑳嚡閿涙艾鍙忛惄妯绘￥鐠у嫰鍣鹃崗鍛偓鐓庡弳閸欙絻鈧倹澧嶉張澶庡亗娴犺棄寮烽悺婊冨瀻缁俱垹鍩勯崸鍥х潣娴滃海鏁ら幋閿嬫た鐠哄啫瀹抽崘鍛村劥缁傚繐鍩勯妴鍌烆暙閸欐牜瀛╅崚鈺冪埠娑撯偓閻㈠崬鐣奸?
+==== share-promo @ 4321 ====
+iv>
+                <div id="newbiePromoBlock">
+                    <div class="share-promo-card" id="sharePromoCard" role="button" tabindex="0" onclick="copyShareLink()">
+                        <div class="share-promo-glow"></div>
+                        <div class="share-promo-inner single-line">
+                            <span class="share-promo-text" id="sharePromoText" data-copy="share_promo_btn">棣冩憴 闁偓鐠?1 娴滃搫绱戦幋?閴冣槄绗?妫版繂顦婚柅?1 娴犲€熷亗 (婢舵岸鍊嬫径姘繁)</spa
+
+==== jackpot-meta @ 307 ====
+ 555.bio 閸忋劎缍夐悽鐔糕偓浣哥杽閺冭泛銇囩仦</div>
+                <div class="jackpot-meta" id="jackpotPartners">棣冩惐 瑜版挸澧犻崗銊х秹閼测€插敜娴滅儤鏆熼敍?,000 娴?( 棣冩畬 娴犲﹥妫╅弳瀛樺畾 +0 娴?)</div>
+                <div class="jackpot-pool-label" id="jackpotPoolLabel" data-copy="jackpot_pool_label">棣冩尩 楠炲啿褰村鑼柈鐠佲€茶礋閸氬牅绱禍鍝勫灡闁姳鐜崐</div>
+                <div class="jackpot-val" id="jackpotNum">锟?,000.00</div>
+                <div class="jackpot-pri
+
+==== asset-label @ 1318 ====
+<div class="asset-card asset-card-rights">
+                        <span class="asset-label" data-copy="asset_rights_label">鑲′唤</span>
+                        <strong class="asset-value asset-value-gold"><span id="myTicketPool">5.00</span> <span class="asset-unit" data-copy="asset_rights_unit">浠?/span></strong>
+                        <div class="asset-valuation-hint" id="rightsValuationHint"></div>
+                    </div>
+                    <div class="asset-card-divider" aria-hidden="
+
+==== app-core moji snippets ====
+/ 閺堝秴濮熺粩顖氭倱濮濄儲妞傛禒銉︽箛閸旓紕顏稉鍝勫櫙閿涘牊鏁幐浣哥唨閺侀绗呯拫?鏉烆垶銆婇崶鐐舵儰閿涘绱濋張顒€婀寸粋鑽ゅ殠濡€崇础閹靛秵顥濇潪顔煎涧濞?
+---
+               }) || ('棣冩尠 鐎圭偞妞傜粋蹇撳焺娴溿倓绨版径褍宸?(閸忋劎缍?' + formatCountNum(fissionUserCount) 
+---
+          // 鏉烆喛顕楁潪濠氬櫤濡€崇础閿涙艾褰ч崚宄般亣閻╂ɑ鏆熺€涙绱濇稉宥夊櫢缁犳妫崗鎴炲絹缁€?婢垛晜顫?---
+            // 娑撳秴鍟€閻劍妫悧?localStorage 閾忔岸鐝懖鈥茬幆鐟曞棛娲婃径褍鐫嗛敍娑氱搼 config/jackpot 閺堝秴濮熺粩顖欑幆 force 鐎?---
+ = label || fc('lottery_close_btn') || '閸忔娊妫?;
+---
+ed(true, fc('lottery_close_btn') || '閺€鏈电瑓閼测€插敜 璺?鏉╂稑鍙嗘径褍宸?);
+---
+  // 娴犲懘澹岄弶鍐ㄣ亼閺佸牊绔?token閿涙稓顒烽崥?缂冩垹绮堕惉顒佹闁挎瑨顕ゆ穱婵堟殌閿涘矂浼╅崗宥呭煕閺傛媽顕ら幒澶屽殠
+---
+            // 閺堫剙婀村顕€鍣哄姘З娣囨繃瀵旂憴鍡氼潕娑撳﹥瀹氶敍娑欐箛閸旓紕顏В?8s 閺嶁€冲櫙娑撯偓濞嗏槄绱欓梽宥堫嚞濮瑰倿
+---
+                // 閻ц缍嶆い鍏哥瑝閹?jackpot閿涙稖绻橀崗銉ャ亣閸樺懎鎮楅崘?startJackpotSync()
+---
+                // 閸楀厖濞囬幒銉ュ經婢惰精瑙︽稊鐔哥閺堫剙婀撮惂璇茬秿閹?
+---
+ fc('phase2_btn_day7_cash') || '缁斿宓嗘稉鈧柨顕€妫崗鎴濆毉濞?, style: 'gold', onClick: function()
+---
+el: fc('phase2_btn_honor_withdraw') || '閻㈢喐鍨氶懡锝堢崟閻滃鈧懎鐦戞禒?璺?閸樼粯褰侀悳', style: 'gold', onCli
+---

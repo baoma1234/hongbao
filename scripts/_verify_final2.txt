@@ -1,0 +1,10 @@
+﻿val=绔嬮€?2 浠藉ぇ鐩樿偂銆?hex=e7ab8be98081203220e4bbbde5a4a7e79b98e882a1e38082
+has_song=1
+has_period=1
+footer_ok=1
+claim_sub=鍥炲～鐜伴噾绔欐父鎴忚处鍙?鈫?鎻愪氦鏍搁攢 鈫?鐢熸垚瀵嗕护鑱旂郴瀹㈡湇涓婂垎
+has_chatT_promo=1
+has_hard_promo=0
+en_swap=Asset exchange
+en_footer=馃搳 This platform is the [official 555.bio
+en_uid=馃攽 Step 1: Enter the account you registered on the 555.bio cash site

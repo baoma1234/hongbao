@@ -1,0 +1,1678 @@
+/* js/chat/02-room.js — list, room, group, media */
+
+  function renderList() {
+    var box = $('chatConvList');
+    if (!box) return;
+    if (!state.list.length) {
+      box.innerHTML = '<div class="chat-empty" data-copy="chat_empty_no_conv">' + escapeHtml(chatT('chat_empty_no_conv')).replace(/\n/g, '<br>') + '</div>';
+      return;
+    }
+    var kw = String(state.listKeyword || '').trim().toLowerCase();
+    var list = state.list;
+    if (kw) {
+      list = state.list.filter(function (item) {
+        var type = item.conversation_type | 0;
+        var titleRaw = item.title || (type === 2 ? ('群 ' + (item.group_id || item.conversation_id)) : ('用户' + (item.peer_user_id || '')));
+        var prev = previewText(item.last_message) || '';
+        var hay = (titleRaw + ' ' + prev + ' ' + (item.conversation_id || '') + ' ' + (item.peer_user_id || '')).toLowerCase();
+        return hay.indexOf(kw) >= 0;
+      });
+    }
+    if (!list.length) {
+      box.innerHTML = '<div class="chat-empty">' + escapeHtml(chatT('chat_search_empty')) + '</div>';
+      return;
+    }
+    box.innerHTML = list.map(function (item) {
+      var type = item.conversation_type | 0;
+      var id = type === 2 ? (item.group_id || item.conversation_id) : item.conversation_id;
+      var key = convKey(type, id);
+      var unread = state.unread[key] | 0;
+      var titleRaw = item.title || (type === 2 ? ('群 ' + id) : ('用户' + (item.peer_user_id || '')));
+      if (item.is_im_admin && titleRaw && titleRaw.indexOf('客服') < 0 && type === 1) {
+        titleRaw = '客服 · ' + titleRaw;
+      } else if (item.is_im_admin && type === 1 && (!item.title || item.title.indexOf('ID') === 0)) {
+        titleRaw = item.title || '客服';
+      }
+      var title = escapeHtml(titleRaw);
+      var prev = escapeHtml(previewText(item.last_message) || (item.is_im_admin ? '点击开始咨询' : '暂无消息'));
+      var time = formatTime(item.updatetime || (item.last_message && item.last_message.createtime));
+      var avatarHtml = avatarImgHtml(item.avatar);
+      var adminBadge = item.is_im_admin ? '<span class="chat-admin-tag">客服</span>' : '';
+      return (
+        '<button type="button" class="chat-conv-item' + (item.is_im_admin ? ' is-admin' : '') + '" data-type="' + type + '" data-id="' + escapeHtml(String(id)) + '" data-peer="' + (item.peer_user_id | 0) + '" data-title="' + title + '">' +
+          '<div class="chat-avatar' + (type === 2 ? ' group' : '') + (item.is_im_admin ? ' admin' : '') + '">' + avatarHtml + '</div>' +
+          '<div class="chat-conv-body">' +
+            '<div class="chat-conv-title"><span>' + title + adminBadge + '</span><span class="chat-conv-time">' + time + '</span></div>' +
+            '<div class="chat-conv-preview">' + prev + '</div>' +
+          '</div>' +
+          (unread ? '<span class="chat-badge">' + (unread > 99 ? '99+' : unread) + '</span>' : '') +
+        '</button>'
+      );
+    }).join('');
+  }
+
+  function canRecallMessage(msg) {
+    if (!msg || (msg.status | 0) === 2) return false;
+    if ((msg.msg_type | 0) === 3) return false;
+    var mine = (msg.from_user_id | 0) === state.userId;
+    if (state.isImAdmin) return true;
+    if (!mine) return false;
+    return (timeSec() - (msg.createtime | 0)) <= 120;
+  }
+
+  function timeSec() {
+    return Math.floor(Date.now() / 1000);
+  }
+
+  function formatFileSize(n) {
+    n = n | 0;
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+    return (n / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  function msgActionsHtml(msg, mine) {
+    if (!canRecallMessage(msg)) return '';
+    return '<button type="button" class="chat-msg-recall" data-id="' + (msg.id | 0) + '">撤回</button>';
+  }
+
+  function groupPolicy() {
+    return (state.groupMeta && state.groupMeta.policy) || {};
+  }
+
+  function mergeGroupMeta(data) {
+    data = data || {};
+    var prev = state.groupMeta || {};
+    state.groupMeta = {
+      group: data.group || prev.group || null,
+      my_role: (data.my_role != null ? data.my_role : prev.my_role) | 0,
+      mute_all: data.mute_all != null ? !!data.mute_all : !!prev.mute_all,
+      member_count: (data.member_count != null ? data.member_count : prev.member_count) | 0,
+      member_list_hidden: data.member_list_hidden != null ? !!data.member_list_hidden : !!prev.member_list_hidden,
+      can_speak: data.can_speak !== false,
+      policy: data.policy || prev.policy || {}
+    };
+    if (state.groupMeta.policy && state.groupMeta.policy.member_list_hidden != null) {
+      state.groupMeta.member_list_hidden = !!state.groupMeta.policy.member_list_hidden;
+    }
+    return state.groupMeta;
+  }
+
+  function cacheSender(userId, info) {
+    userId = userId | 0;
+    if (userId > 0 && info) state.senderCache[userId] = info;
+  }
+
+  function getSenderBrief(userId) {
+    userId = userId | 0;
+    if (state.senderCache[userId]) return state.senderCache[userId];
+    var found = null;
+    (state.members || []).some(function (m) {
+      if ((m.user_id | 0) === userId) { found = m; return true; }
+      return false;
+    });
+    if (found) {
+      var brief = { user_id: userId, nickname: found.nickname, avatar: found.avatar };
+      cacheSender(userId, brief);
+      return brief;
+    }
+    return { user_id: userId, nickname: 'ID' + userId, avatar: '' };
+  }
+
+  var CHAT_BACK_SVG = '<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path fill="currentColor" d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"/></svg>';
+
+  function ensureChatOverlays() {
+    var room = $('chatRoomPane');
+    // 挂到会话页同级，避免被 .chat-room-pane .chat-hero-back{font-size:0} 藏掉返回键
+    var root = (room && room.parentNode) || document.body;
+    if (!$('chatUserProfilePane')) {
+      root.insertAdjacentHTML('beforeend',
+        '<div class="chat-action-sheet" id="chatUserProfilePane" aria-hidden="true">' +
+          '<div class="chat-action-sheet-mask" id="chatUserProfileMask"></div>' +
+          '<div class="chat-action-sheet-panel chat-profile-panel">' +
+            '<div class="chat-profile-avatar" id="chatProfileAvatar">U</div>' +
+            '<div class="chat-profile-name" id="chatProfileName">用户</div>' +
+            '<div class="chat-profile-id" id="chatProfileId"></div>' +
+            '<button type="button" class="chat-action-item" id="chatProfileAddFriend" style="display:none">加好友</button>' +
+            '<button type="button" class="chat-action-item" id="chatProfilePrivateChat" style="display:none">发私信</button>' +
+            '<button type="button" class="chat-action-item cancel" id="chatProfileClose">关闭</button>' +
+          '</div></div>');
+    }
+    if (!$('chatRpDetailPane')) {
+      root.insertAdjacentHTML('beforeend',
+        '<div class="chat-sub-pane" id="chatRpDetailPane" aria-hidden="true">' +
+          '<div class="chat-hero-hd">' +
+            '<button type="button" class="chat-hero-back" id="chatRpDetailBack" aria-label="返回">' + CHAT_BACK_SVG + '</button>' +
+            '<div class="chat-hero-title">红包详情</div><span class="chat-hero-spacer"></span></div>' +
+          '<div class="chat-sub-main">' +
+            '<div class="chat-rp-detail-head" id="chatRpDetailHead"></div>' +
+            '<div class="chat-rp-detail-list" id="chatRpDetailList"></div>' +
+            '<button type="button" class="chat-rp-detail-grab-btn" id="chatRpDetailGrabBtn" style="display:none">开红包</button>' +
+          '</div></div>');
+    } else {
+      var rpPane = $('chatRpDetailPane');
+      if (room && rpPane && rpPane.parentNode === room) {
+        root.appendChild(rpPane);
+      }
+      var rpBack = $('chatRpDetailBack');
+      if (rpBack && !rpBack.querySelector('svg')) {
+        rpBack.innerHTML = CHAT_BACK_SVG;
+        rpBack.setAttribute('aria-label', '返回');
+      }
+    }
+    if (!$('chatGroupModeBlock') && $('chatGroupEditBlock')) {
+      $('chatGroupEditBlock').insertAdjacentHTML('beforeend',
+        '<div id="chatGroupModeBlock" style="display:none;margin-top:12px;">' +
+          '<label class="chat-setting-label">群属性</label>' +
+          '<select class="chat-setting-input" id="chatGroupPrivacyMode">' +
+            '<option value="open">🔓 开放群（公开社交）</option>' +
+            '<option value="private">🔒 隐私群（防挖人）</option>' +
+          '</select>' +
+          '<label class="chat-setting-label" style="margin-top:8px;">互动模式</label>' +
+          '<select class="chat-setting-input" id="chatGroupChatMode">' +
+            '<option value="chat">聊天模式（自由发言/发红包）</option>' +
+            '<option value="grab">红宝模式（全员禁言，仅管理员发红包）</option>' +
+          '</select>' +
+          '<button type="button" class="chat-setting-save-btn" id="chatGroupModeSaveBtn" style="margin-top:8px;">保存群属性</button>' +
+        '</div>');
+    }
+  }
+
+  function renderSenderAvatarHtml(userId, clickable) {
+    var brief = getSenderBrief(userId);
+    var av = avatarImgHtml(brief.avatar);
+    var cls = 'chat-msg-avatar' + (clickable ? ' clickable' : ' locked');
+    if (clickable) {
+      return '<button type="button" class="' + cls + '" data-uid="' + (userId | 0) + '">' + av + '</button>';
+    }
+    return '<div class="' + cls + '">' + av + '</div>';
+  }
+
+  var RP_ICON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12z"/><circle cx="12" cy="12" r="3.5"/><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zm0 8c-1.65 0-3-1.35-3-3s1.35-3 3-3 3 1.35 3 3-1.35 3-3 3z"/></svg>';
+  var NOTICE_ICON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12z"/><path d="M12 11c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>';
+
+  function sysNoticeHtml(text) {
+    return '<div class="sys-notice"><div class="notice-inner">' + NOTICE_ICON_SVG + escapeHtml(text || '') + '</div></div>';
+  }
+
+  function sysTimeHtml(label) {
+    return '<div class="sys-time"><span>' + escapeHtml(label || '') + '</span></div>';
+  }
+
+  function renderRpCardHtml(extra, msg, time) {
+    var pid = (extra && extra.packet_id) || 0;
+    var bless = escapeHtml((extra && extra.blessing) || msg.content || '恭喜发财，大吉大利');
+    var amt = extra && (extra.total_amount != null) ? parseFloat(extra.total_amount) : NaN;
+    var cnt = extra && (extra.total_count != null) ? (extra.total_count | 0) : 0;
+    var ptype = extra && (extra.packet_type != null) ? (extra.packet_type | 0) : 2;
+    var mine = extra && (extra.mine_digit != null) ? (extra.mine_digit | 0) : 0;
+    var minePending = !!(extra && extra.mine_pending);
+    var blockNum = extra && (extra.tron_block_num != null) ? (extra.tron_block_num | 0) : 0;
+    var desc = '';
+    if (!isNaN(amt) && amt > 0) {
+      desc = amt.toFixed(2) + ' 元' + (cnt > 0 ? (' / ' + cnt + '个包') : '');
+      if (ptype === 3) {
+        desc += minePending
+          ? (blockNum ? (' · 锁块#' + blockNum) : ' · 波场定雷')
+          : (' · 雷' + mine);
+      }
+    } else {
+      desc = time || '红包';
+    }
+    var bottom = '红包福利';
+    if (ptype === 3) bottom = minePending ? '埋雷红包·波场开奖' : '埋雷红包';
+    else if (ptype === 2) bottom = '拼手气红包';
+    else if (ptype === 1) bottom = '人均红包';
+    if (extra && extra.mode_label) bottom = String(extra.mode_label);
+    bottom = escapeHtml(bottom);
+    return (
+      '<button type="button" class="chat-rp-card bubble-rp" data-packet="' + (pid | 0) + '">' +
+        '<div class="rp-top">' +
+          '<div class="rp-icon-box">' + RP_ICON_SVG + '</div>' +
+          '<div class="rp-info">' +
+            '<div class="rp-title">' + bless + '</div>' +
+            '<div class="rp-desc">' + escapeHtml(desc) + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="rp-bottom">' + bottom + '</div>' +
+      '</button>'
+    );
+  }
+
+  function groupMessageWrap(mine, fromUserId, innerHtml, actions, msgId) {
+    msgId = msgId | 0;
+    var midAttr = msgId ? (' data-mid="' + msgId + '"') : '';
+    var isGroup = state.room && state.room.type === 2;
+    var uid = mine ? (state.userId | 0) : (fromUserId | 0);
+    // 已关闭：点击头像/昵称查看资料
+    var clickable = false;
+    var nickHtml = '';
+    if (isGroup && !mine) {
+      var brief = getSenderBrief(fromUserId);
+      nickHtml = '<div class="chat-msg-nick locked" data-uid="' + (fromUserId | 0) + '">' +
+        escapeHtml(brief.nickname || ('ID' + fromUserId)) + '</div>';
+    }
+    return (
+      '<div class="chat-msg-row' + (mine ? ' me' : '') + (isGroup && !mine ? ' group-msg' : '') + '"' + midAttr + '>' +
+        renderSenderAvatarHtml(uid, clickable) +
+        '<div class="chat-msg-main">' + nickHtml + innerHtml + (actions || '') + '</div>' +
+      '</div>'
+    );
+  }
+
+  async function openUserProfile() {
+    // 全站关闭点击头像看资料
+  }
+
+  function closeUserProfile() {
+    var pane = $('chatUserProfilePane');
+    if (pane) { pane.classList.remove('open'); pane.setAttribute('aria-hidden', 'true'); }
+    state.profileTarget = null;
+  }
+
+  async function openRedPacketDetail(packetId) {
+    packetId = packetId | 0;
+    if (!packetId) return;
+    ensureChatOverlays();
+    try {
+      var packet = await send('redpacket.detail', { packet_id: packetId });
+      var data = packet.data || {};
+      var head = $('chatRpDetailHead');
+      var list = $('chatRpDetailList');
+      var grabBtn = $('chatRpDetailGrabBtn');
+      var p = data.packet || {};
+      var bless = p.blessing || '恭喜发财';
+      var locked = data.rp_detail_locked === true || data.profile_clickable === false;
+      var privacyMode = (data.privacy_mode || (data.policy && data.policy.privacy_mode) || '').toString();
+      if (privacyMode !== 'open' && privacyMode !== 'private') {
+        privacyMode = locked ? 'private' : 'open';
+      }
+      if (head) {
+        var fairHash = p.tron_block_id || p.fair_hash || '';
+        var fairBits = '';
+        var blockNum = p.tron_block_num || p.targetBlockNum || 0;
+        var ptype = p.packet_type | 0;
+        var minePending = !!p.mine_pending || ((ptype === 3) && !(p.tron_block_id));
+        var mineLine = '';
+        if (ptype === 3) {
+          if (minePending) {
+            mineLine = '<div class="chat-rp-detail-meta">\u5b98\u65b9\u96f7\u53f7\uff1a\u6ce2\u573a\u5f00\u5956\u540e\u63ed\u6653'
+              + (blockNum ? ('\uff08\u9501\u5b9a\u533a\u5757 #' + blockNum + '\uff09') : '') + '</div>';
+          } else {
+            mineLine = '<div class="chat-rp-detail-meta">\u5b98\u65b9\u96f7\u53f7\uff1a<strong>' + (p.mine_digit | 0) + '</strong>'
+              + (p.tron_lucky ? ('\uff08\u54c8\u5e0c\u672b\u4f4d ' + escapeHtml(String(p.tron_lucky)) + '\uff09') : '')
+              + '</div>';
+          }
+        }
+        if ((fairHash || blockNum) && ptype !== 1) {
+          var pno = encodeURIComponent(p.packet_no || '');
+          var hashLabel = blockNum ? ('TRON #' + blockNum) : 'TRON';
+          var tronTarget = blockNum ? String(blockNum) : String(fairHash || '');
+          var tronHref = tronTarget
+            ? ('https://tronscan.org/#/block/' + encodeURIComponent(tronTarget))
+            : '';
+          fairBits = '<div class="chat-rp-fair-hash"><span class="chat-rp-fair-label">' + hashLabel + '</span><code>' + escapeHtml(fairHash || '\u5f00\u5956\u540e\u516c\u5f00') + '</code></div>';
+          if (fairHash && tronHref) {
+            fairBits += '<a class="chat-rp-tron-btn" href="' + tronHref + '" target="_blank" rel="noopener">\u524d\u5f80\u6ce2\u573a\u9a8c\u8bc1</a>';
+          } else if (blockNum && tronHref) {
+            fairBits += '<a class="chat-rp-tron-btn" href="' + tronHref + '" target="_blank" rel="noopener">\u67e5\u770b\u9501\u5b9a\u533a\u5757</a>';
+          }
+          fairBits += '<a class="chat-rp-fair-link" href="fair-verify.html?packet_no=' + pno + '" target="_blank" rel="noopener">\u672c\u7ad9\u9a8c\u8bc1\u8be6\u60c5</a>';
+        }
+        head.innerHTML = '<div class="chat-rp-detail-bless">' + escapeHtml(bless) + '</div>' +
+          '<div class="chat-rp-detail-meta">\u5171 ' + (p.total_count | 0) + ' \u4e2a \u00b7 \uffe5' + (parseFloat(p.total_amount || 0).toFixed(2)) + '</div>' +
+          mineLine +
+          fairBits +
+          (locked
+            ? '<div class="chat-rp-privacy-tip locked">🔒 \u9690\u79c1\u7fa4\uff1a\u9886\u53d6\u4eba\u8d44\u6599\u5df2\u9690\u85cf</div>'
+            : '');
+      }
+      if (list) {
+        list.classList.toggle('is-private', locked);
+        list.classList.toggle('is-open', !locked);
+        var rows = data.records || [];
+        if (!rows.length) {
+          list.innerHTML = '<div class="chat-empty">' + escapeHtml(chatT('chat_no_claims')) + '</div>';
+        } else {
+          list.innerHTML = rows.map(function (r) {
+            var uid = r.user_id | 0;
+            var isSelf = uid === (state.userId | 0);
+            var gray = locked && !isSelf;
+            var nick = r.nickname || ('ID' + uid);
+            var avInner;
+            if (!gray && r.avatar) {
+              avInner = '<img src="' + escapeHtml(encodeUriPath(r.avatar)) + '" alt="">';
+            } else if (!gray) {
+              avInner = avatarImgHtml('');
+            } else {
+              avInner = escapeHtml((nick || 'U').charAt(0));
+            }
+            var avHtml = '<div class="chat-rp-record-avatar locked' + (gray ? ' is-gray' : '') + '" aria-disabled="true">' + avInner + '</div>';
+            var nameCls = 'chat-rp-record-name locked' + (gray ? ' is-masked' : '');
+            var lockIcon = gray ? '<span class="chat-rp-lock" aria-hidden="true">🔒</span>' : '';
+            return (
+              '<div class="chat-rp-record-item' + (gray ? ' is-locked' : '') + '">' + avHtml +
+                '<div class="chat-rp-record-main">' +
+                  '<div class="' + nameCls + '" data-uid="' + uid + '">' +
+                    lockIcon + escapeHtml(nick) +
+                  '</div>' +
+                  '<div class="chat-rp-record-amt">￥' + parseFloat(r.amount || 0).toFixed(2) +
+                    (r.is_best ? ' 手气最佳' : '') +
+                    (r.is_worst ? ' 手气最差' : '') +
+                    (r.is_mine_hit ? ' 中雷' : '') +
+                  '</div>' +
+                '</div></div>'
+            );
+          }).join('');
+        }
+      }
+      if (grabBtn) {
+        var grabbed = !!data.mine;
+        var finished = (p.remain_count | 0) <= 0;
+        grabBtn.style.display = (!grabbed && !finished) ? '' : 'none';
+        grabBtn.setAttribute('data-packet', String(packetId));
+      }
+      openSubPane('chatRpDetailPane');
+    } catch (e) {
+      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '加载失败', 'error');
+    }
+  }
+
+  function scrollMsgToLatest() {
+    var box = $('chatMsgScroll');
+    if (!box) return;
+    var go = function () {
+      try {
+        box.scrollTop = box.scrollHeight;
+      } catch (e) {}
+    };
+    go();
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(function () {
+        go();
+        requestAnimationFrame(go);
+      });
+    }
+    setTimeout(go, 60);
+    setTimeout(go, 180);
+    setTimeout(go, 400);
+  }
+
+  function renderMessages() {
+    var box = $('chatMsgScroll');
+    if (!box) return;
+    if (!state.messages.length) {
+      box.innerHTML = '<div class="chat-empty">' + escapeHtml(chatT('chat_no_messages')) + '</div>';
+      return;
+    }
+    var lastTs = 0;
+    box.innerHTML = state.messages.map(function (msg) {
+      var mine = (msg.from_user_id | 0) === state.userId;
+      var time = formatTime(msg.createtime);
+      var type = msg.msg_type | 0;
+      var recalled = (msg.status | 0) === 2;
+      var ts = msg.createtime | 0;
+      var timeSep = '';
+      if (!lastTs || Math.abs(ts - lastTs) >= 300) {
+        timeSep = sysTimeHtml(time);
+      }
+      lastTs = ts || lastTs;
+      if (recalled) {
+        return timeSep +
+          '<div class="chat-msg-row system" data-mid="' + (msg.id | 0) + '">' +
+            sysNoticeHtml(mine ? '你撤回了一条消息' : '对方撤回了一条消息') +
+          '</div>';
+      }
+      if (type === 3) {
+        return timeSep +
+          '<div class="chat-msg-row system">' +
+            sysNoticeHtml(msg.content || '') +
+          '</div>';
+      }
+      var actions = msgActionsHtml(msg, mine);
+      if (type === 2) {
+        var extra = parseExtra(msg);
+        return timeSep + groupMessageWrap(mine, msg.from_user_id,
+          renderRpCardHtml(extra, msg, time), actions, msg.id | 0);
+      }
+      if (type === 4) {
+        var imgExtra = parseExtra(msg);
+        var imgUrl = mediaUrl(imgExtra);
+        var imgHtml = imgUrl
+          ? '<img class="chat-media-img" src="' + escapeHtml(imgUrl) + '" alt="图片" data-preview="' + escapeHtml(imgUrl) + '" data-preview-type="image">'
+          : escapeHtml(msg.content || '[图片]');
+        return timeSep + groupMessageWrap(mine, msg.from_user_id,
+          '<div class="chat-bubble media">' + imgHtml + '<span class="meta">' + time + '</span></div>', actions, msg.id | 0);
+      }
+      if (type === 5) {
+        var vidExtra = parseExtra(msg);
+        var vidUrl = mediaUrl(vidExtra);
+        var vidHtml = vidUrl
+          ? ('<div class="chat-media-video-wrap">' +
+              '<video class="chat-media-video" src="' + escapeHtml(vidUrl) + '" controls playsinline preload="metadata"></video>' +
+              '<button type="button" class="chat-media-zoom-btn" data-preview="' + escapeHtml(vidUrl) + '" data-preview-type="video" title="放大">放大</button>' +
+            '</div>')
+          : escapeHtml(msg.content || '[视频]');
+        return timeSep + groupMessageWrap(mine, msg.from_user_id,
+          '<div class="chat-bubble media">' + vidHtml + '<span class="meta">' + time + '</span></div>', actions, msg.id | 0);
+      }
+      if (type === 6) {
+        var stExtra = parseExtra(msg);
+        var stUrl = mediaUrl(stExtra);
+        var stCode = stExtra.code || '';
+        var stHtml = stUrl
+          ? '<img class="chat-sticker-img" src="' + escapeHtml(stUrl) + '" alt="' + escapeHtml(stCode || '表情') + '" data-preview="' + escapeHtml(stUrl) + '" data-preview-type="image">'
+          : escapeHtml(msg.content || '[表情]');
+        return timeSep + groupMessageWrap(mine, msg.from_user_id,
+          '<div class="chat-bubble sticker">' + stHtml + '<span class="meta">' + time + '</span></div>', actions, msg.id | 0);
+      }
+      if (type === 7) {
+        var fileExtra = parseExtra(msg);
+        var fileUrl = mediaUrl(fileExtra);
+        var fileName = fileExtra.name || '文件';
+        var fileSize = fileExtra.size ? (' · ' + formatFileSize(fileExtra.size)) : '';
+        var fileHtml = fileUrl
+          ? ('<a class="chat-file-card" href="' + escapeHtml(fileUrl) + '" target="_blank" rel="noopener">' +
+              '<span class="chat-file-icon">📎</span>' +
+              '<span class="chat-file-meta"><span class="chat-file-name">' + escapeHtml(fileName) + '</span>' +
+              '<span class="chat-file-size">' + escapeHtml((fileExtra.ext || '') + fileSize) + '</span></span></a>')
+          : escapeHtml(msg.content || '[文件]');
+        return timeSep + groupMessageWrap(mine, msg.from_user_id,
+          '<div class="chat-bubble media">' + fileHtml + '<span class="meta">' + time + '</span></div>', actions, msg.id | 0);
+      }
+      // 兼容：旧版 IM 把表情包误存成文本
+      if (type === 1) {
+        var recovered = resolveStickerFromContent(msg.content || '');
+        if (recovered) {
+          var rUrl = mediaUrl(recovered);
+          var rHtml = rUrl
+            ? '<img class="chat-sticker-img" src="' + escapeHtml(rUrl) + '" alt="' + escapeHtml(recovered.code || '表情') + '" data-preview="' + escapeHtml(rUrl) + '" data-preview-type="image">'
+            : escapeHtml(msg.content || '');
+          return timeSep + groupMessageWrap(mine, msg.from_user_id,
+            '<div class="chat-bubble sticker">' + rHtml + '<span class="meta">' + time + '</span></div>', actions, msg.id | 0);
+        }
+      }
+      var text = msg.content || '';
+      var emojiOnly = isEmojiOnlyText(text);
+      return timeSep + groupMessageWrap(mine, msg.from_user_id,
+        '<div class="chat-bubble' + (emojiOnly ? ' emoji-only' : '') + '">' + escapeHtml(text) +
+          '<span class="meta">' + time + '</span></div>', actions, msg.id | 0);
+    }).join('');
+    scrollMsgToLatest();
+  }
+
+  function applyRecalledMessage(msg) {
+    if (!msg || !msg.id) return;
+    var found = false;
+    for (var i = 0; i < state.messages.length; i++) {
+      if ((state.messages[i].id | 0) === (msg.id | 0) || state.messages[i].msg_id === msg.msg_id) {
+        state.messages[i] = Object.assign({}, state.messages[i], msg, { status: 2, content: '[已撤回]' });
+        found = true;
+        break;
+      }
+    }
+    if (found) renderMessages();
+    upsertListFromMessage(Object.assign({}, msg, { status: 2, content: '[已撤回]' }));
+  }
+
+  async function recallMessage(messageId) {
+    messageId = messageId | 0;
+    if (!messageId) return;
+    try {
+      var packet = await send('message.recall', { message_id: messageId });
+      var msg = packet.data && packet.data.message;
+      if (msg) applyRecalledMessage(msg);
+    } catch (e) {
+      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '撤回失败', 'error');
+    }
+  }
+
+  function upsertListFromMessage(msg) {
+    if (!msg) return;
+    var type = msg.conversation_type | 0;
+    var id = type === 2 ? (msg.group_id || msg.conversation_id) : msg.conversation_id;
+    var peer = type === 1 ? peerFromMsg(msg) : 0;
+    var found = null;
+    for (var i = 0; i < state.list.length; i++) {
+      var it = state.list[i];
+      var iid = (it.conversation_type | 0) === 2 ? (it.group_id || it.conversation_id) : it.conversation_id;
+      if ((it.conversation_type | 0) === type && String(iid) === String(id)) {
+        found = it;
+        break;
+      }
+    }
+    if (!found) {
+      found = {
+        conversation_type: type,
+        conversation_id: String(msg.conversation_id),
+        peer_user_id: peer,
+        group_id: type === 2 ? (msg.group_id | 0) : 0,
+        title: type === 2 ? ('群 ' + id) : ('ID ' + peer),
+        avatar: '',
+        last_message: msg,
+        updatetime: msg.createtime | 0
+      };
+      state.list.unshift(found);
+    } else {
+      found.last_message = msg;
+      found.updatetime = msg.createtime | 0;
+      state.list.sort(function (a, b) { return (b.updatetime | 0) - (a.updatetime | 0); });
+    }
+    renderList();
+  }
+
+  function appendMessage(msg) {
+    if (!msg || !msg.msg_id) return;
+    for (var i = 0; i < state.messages.length; i++) {
+      if (state.messages[i].msg_id === msg.msg_id || (state.messages[i].id && state.messages[i].id === msg.id)) {
+        return;
+      }
+    }
+    state.messages.push(msg);
+    renderMessages();
+  }
+
+  function scheduleUnreadSync() {
+    if (state.unreadSyncTimer) clearTimeout(state.unreadSyncTimer);
+    state.unreadSyncTimer = setTimeout(function () {
+      state.unreadSyncTimer = null;
+      refreshList().catch(function () {});
+    }, 500);
+  }
+
+  function onIncomingMessage(msg) {
+    upsertListFromMessage(msg);
+    var type = msg.conversation_type | 0;
+    var id = type === 2 ? (msg.group_id || msg.conversation_id) : msg.conversation_id;
+    if (state.room && state.room.type === type && String(state.room.id) === String(id)) {
+      appendMessage(msg);
+      markRead(type, id, msg.id);
+    } else if ((msg.from_user_id | 0) !== state.userId) {
+      bumpUnread(type, id, msg.id);
+      scheduleUnreadSync();
+    }
+  }
+
+  async function refreshList() {
+    var packet = await send('conversation.list', { limit: 50 });
+    var prevUnread = state.unread || {};
+    state.list = (packet.data && packet.data.list) || [];
+    state.unread = {};
+    state.list.forEach(function (item) {
+      var type = item.conversation_type | 0;
+      var id = type === 2 ? (item.group_id || item.conversation_id) : item.conversation_id;
+      var key = convKey(type, id);
+      var serverUnread = item.unread_count | 0;
+      var localUnread = prevUnread[key] | 0;
+      var merged = Math.max(serverUnread, localUnread);
+      if (merged > 0) {
+        state.unread[key] = merged;
+      }
+    });
+    updateTabBadge();
+    renderList();
+  }
+
+  async function openRoom(opts) {
+    closeComposerPanels();
+    closeGroupSubPanes();
+    ensureStickersLoaded(false);
+    state.room = {
+      type: opts.type | 0,
+      id: opts.id,
+      peer: opts.peer | 0,
+      title: opts.title || ''
+    };
+    state.messages = [];
+    state.groupMeta = null;
+    hideNoticePin();
+    var titleEl = $('chatRoomTitle');
+    if (titleEl) titleEl.textContent = state.room.title || (state.room.type === 2 ? chatT('chat_group_default_name') : chatT('chat_private'));
+    var moreBtn = $('chatGroupMoreBtn');
+    var heroSpacer = $('chatRoomHeroSpacer');
+    if (moreBtn) {
+      moreBtn.hidden = false;
+      moreBtn.style.display = '';
+      moreBtn.setAttribute('aria-label', state.room.type === 2 ? '群设置' : '更多');
+    }
+    if (heroSpacer) {
+      heroSpacer.hidden = true;
+      heroSpacer.style.display = 'none';
+    }
+    var pane = $('chatRoomPane');
+    if (pane) pane.classList.add('open');
+    document.body.classList.add('chat-room-open');
+    var dash = $('mainDashboardView');
+    if (dash) dash.classList.add('chat-room-open');
+    if (typeof setBottomActionBarVisible === 'function') setBottomActionBarVisible(false);
+    setComposerMuted(false, '');
+    renderMessages();
+    scrollMsgToLatest();
+
+    var histPayload = { conversation_type: state.room.type, limit: 40 };
+    if (state.room.type === 1) {
+      histPayload.to_user_id = state.room.peer;
+      histPayload.conversation_id = String(state.room.id);
+    } else {
+      histPayload.group_id = state.room.id | 0;
+    }
+    try {
+      var packet = await send('history', histPayload);
+      state.messages = (packet.data && packet.data.list) || [];
+      renderMessages();
+      scrollMsgToLatest();
+      var last = state.messages.length ? state.messages[state.messages.length - 1] : null;
+      markRead(state.room.type, state.room.id, last ? last.id : 0);
+      if (state.room.type === 2) {
+        await refreshGroupMeta();
+        scrollMsgToLatest();
+      }
+    } catch (e) {
+      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '加载失败', 'error');
+    }
+  }
+
+  function closeRoom() {
+    closeRpSendPage();
+    closeComposerPanels();
+    closeMediaLightbox();
+    closeGroupSubPanes();
+    closeMemberSheets();
+    state.room = null;
+    state.groupMeta = null;
+    setComposerMuted(false, '');
+    hideNoticePin();
+    var moreBtn = $('chatGroupMoreBtn');
+    if (moreBtn) {
+      moreBtn.hidden = false;
+      moreBtn.style.display = '';
+    }
+    var heroSpacer = $('chatRoomHeroSpacer');
+    if (heroSpacer) {
+      heroSpacer.hidden = true;
+      heroSpacer.style.display = 'none';
+    }
+    var pane = $('chatRoomPane');
+    if (pane) pane.classList.remove('open');
+    document.body.classList.remove('chat-room-open');
+    var dash = $('mainDashboardView');
+    if (dash) dash.classList.remove('chat-room-open');
+    if (typeof setBottomActionBarVisible === 'function') setBottomActionBarVisible(true);
+    renderList();
+  }
+
+  function setComposerMuted(muted, placeholder) {
+    var wrap = $('chatComposerWrap');
+    var input = $('chatInput');
+    var sendBtn = $('chatSendBtn');
+    if (wrap) wrap.classList.toggle('is-muted', !!muted);
+    if (input) {
+      input.disabled = !!muted;
+      input.placeholder = muted
+        ? (placeholder || '全员禁言中，仅管理员可发言')
+        : '输入消息…';
+    }
+    if (sendBtn) sendBtn.disabled = !!muted;
+  }
+
+  function applySpeakState(meta) {
+    if (!state.room || state.room.type !== 2) {
+      setComposerMuted(false, '');
+      return;
+    }
+    var canSpeak = !(meta && meta.can_speak === false);
+    if (!canSpeak) {
+      var tip = (meta && meta.mute_all) ? '全员禁言中，仅管理员可发言' : '你已被禁言，暂时无法发言';
+      setComposerMuted(true, tip);
+    } else {
+      setComposerMuted(false, '');
+    }
+  }
+
+  async function refreshGroupMeta() {
+    if (!state.room || state.room.type !== 2) return null;
+    var packet = await send('group.info', { group_id: state.room.id | 0 });
+    var data = packet.data || {};
+    state.groupMeta = mergeGroupMeta(data);
+    applySpeakState(state.groupMeta);
+    applyGroupRoomHeader(state.groupMeta);
+    renderGroupSettings();
+    updateComposerPolicy();
+    return state.groupMeta;
+  }
+
+  function updateComposerPolicy() {
+    var policy = groupPolicy();
+    var rpBtn = $('chatAttachRpBtn');
+    if (rpBtn && state.room && state.room.type === 2) {
+      rpBtn.style.display = policy.can_send_rp === false ? 'none' : '';
+    }
+  }
+
+  function applyGroupRoomHeader(meta) {
+    meta = meta || state.groupMeta || {};
+    var g = meta.group || {};
+    if (!state.room || state.room.type !== 2) {
+      hideNoticePin();
+      return;
+    }
+    var name = g.name || state.room.title || '群聊';
+    state.room.title = name;
+    var titleEl = $('chatRoomTitle');
+    if (titleEl) titleEl.textContent = name;
+    applyNoticePin(g.notice || '');
+    // 同步会话列表标题/头像
+    var gid = state.room.id | 0;
+    state.list.forEach(function (it) {
+      if ((it.conversation_type | 0) === 2 && ((it.group_id | 0) === gid || String(it.conversation_id) === String(gid))) {
+        it.title = name;
+        if (g.avatar != null) it.avatar = g.avatar || '';
+      }
+    });
+    renderList();
+  }
+
+  function hideNoticePin() {
+    var pin = $('chatNoticePin');
+    if (!pin) return;
+    pin.style.display = 'none';
+    pin.setAttribute('aria-hidden', 'true');
+    pin.classList.remove('is-expanded');
+  }
+
+  function applyNoticePin(notice) {
+    var pin = $('chatNoticePin');
+    var textEl = $('chatNoticePinText');
+    if (!pin || !textEl) return;
+    notice = String(notice || '').trim();
+    if (!notice || !state.room || state.room.type !== 2) {
+      hideNoticePin();
+      return;
+    }
+    var gid = String(state.room.id);
+    if (state.noticeDismissed[gid] === notice) {
+      hideNoticePin();
+      return;
+    }
+    textEl.textContent = notice;
+    pin.style.display = '';
+    pin.setAttribute('aria-hidden', 'false');
+    pin.classList.remove('is-expanded');
+  }
+
+  function dismissNoticePin() {
+    if (!state.room || state.room.type !== 2) return;
+    var g = (state.groupMeta && state.groupMeta.group) || {};
+    var notice = String(g.notice || '').trim();
+    if (notice) state.noticeDismissed[String(state.room.id)] = notice;
+    hideNoticePin();
+  }
+
+  function closeGroupSubPanes() {
+    ['chatGroupSettingsPane', 'chatGroupMembersPane', 'chatGroupInvitePane', 'chatAddFriendPane', 'chatFriendReqPane', 'chatQrScanPane'].forEach(function (id) {
+      var el = $(id);
+      if (el) {
+        el.classList.remove('open');
+        el.setAttribute('aria-hidden', 'true');
+      }
+    });
+  }
+
+  function openSubPane(id) {
+    var el = $(id);
+    if (!el) return;
+    el.classList.add('open');
+    el.setAttribute('aria-hidden', 'false');
+  }
+
+  function closeSubPane(id) {
+    var el = $(id);
+    if (!el) return;
+    el.classList.remove('open');
+    el.setAttribute('aria-hidden', 'true');
+  }
+
+  function openCreateGroupPane() {
+    var pane = $('chatCreateGroupPane');
+    if (!pane) return;
+    state.createGroup.privacy = 'private';
+    state.createGroup.chatMode = 'chat';
+    state.createGroup.submitting = false;
+    var nameInput = $('chatCreateGroupName');
+    if (nameInput) nameInput.value = '';
+    var av = $('chatCreateGroupAvatar');
+    if (av) av.textContent = state.createGroup.avatarEmoji || '🐵';
+    syncCreateGroupCards();
+    pane.classList.add('open');
+    pane.setAttribute('aria-hidden', 'false');
+    setTimeout(function () {
+      if (nameInput) nameInput.focus();
+    }, 50);
+  }
+
+  function closeCreateGroupPane() {
+    var pane = $('chatCreateGroupPane');
+    if (!pane) return;
+    pane.classList.remove('open');
+    pane.setAttribute('aria-hidden', 'true');
+  }
+
+  function syncCreateGroupCards() {
+    var privacy = state.createGroup.privacy || 'private';
+    var mode = state.createGroup.chatMode || 'chat';
+    var privacyCards = document.querySelectorAll('#chatCgPrivacyCards .chat-cg-card');
+    Array.prototype.forEach.call(privacyCards, function (card) {
+      var val = card.getAttribute('data-privacy');
+      card.classList.toggle('active', val === privacy);
+      card.classList.remove('active-light');
+    });
+    var modeCards = document.querySelectorAll('#chatCgModeCards .chat-cg-card');
+    Array.prototype.forEach.call(modeCards, function (card) {
+      var val = card.getAttribute('data-mode');
+      var on = val === mode;
+      card.classList.toggle('active', on && val === 'grab');
+      card.classList.toggle('active-light', on && val === 'chat');
+    });
+  }
+
+  function cycleCreateGroupAvatar() {
+    var cur = state.createGroup.avatarEmoji || '🐵';
+    var idx = CREATE_GROUP_AVATARS.indexOf(cur);
+    var next = CREATE_GROUP_AVATARS[(idx + 1 + CREATE_GROUP_AVATARS.length) % CREATE_GROUP_AVATARS.length];
+    state.createGroup.avatarEmoji = next;
+    var av = $('chatCreateGroupAvatar');
+    if (av) av.textContent = next;
+  }
+
+  async function submitCreateGroup() {
+    if (state.createGroup.submitting) return;
+    var nameInput = $('chatCreateGroupName');
+    var name = nameInput ? String(nameInput.value || '').trim() : '';
+    if (!name) {
+      if (typeof showFanshubToast === 'function') showFanshubToast('请输入群名称', 'error');
+      if (nameInput) nameInput.focus();
+      return;
+    }
+    state.createGroup.submitting = true;
+    ['chatCreateGroupNext', 'chatCreateGroupNextTop'].forEach(function (id) {
+      var btn = $(id);
+      if (btn) btn.disabled = true;
+    });
+    try {
+      var packet = await send('group.create', {
+        name: name,
+        member_ids: [],
+        privacy_mode: state.createGroup.privacy || 'private',
+        chat_mode: state.createGroup.chatMode || 'chat'
+      });
+      var g = packet.data && packet.data.group;
+      if (!g) throw new Error('创建失败');
+      closeCreateGroupPane();
+      refreshList().catch(function () {});
+      openRoom({ type: 2, id: g.id, peer: 0, title: g.name || name || '群聊' });
+      if (typeof showFanshubToast === 'function') showFanshubToast('群聊已创建', 'success');
+    } catch (e) {
+      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '创建失败', 'error');
+    } finally {
+      state.createGroup.submitting = false;
+      ['chatCreateGroupNext', 'chatCreateGroupNextTop'].forEach(function (id) {
+        var btn = $(id);
+        if (btn) btn.disabled = false;
+      });
+    }
+  }
+
+  function closeMemberSheets() {
+    ['chatMemberActionSheet', 'chatMuteDurationSheet'].forEach(function (id) {
+      var el = $(id);
+      if (el) {
+        el.classList.remove('open');
+        el.setAttribute('aria-hidden', 'true');
+      }
+    });
+    state.memberActionTarget = null;
+  }
+
+  function roleLabel(role) {
+    if ((role | 0) === 3) return '群主';
+    if ((role | 0) === 2) return '管理员';
+    return '';
+  }
+
+  function renderGroupSettings() {
+    var meta = state.groupMeta || {};
+    var g = meta.group || {};
+    var myRole = meta.my_role | 0;
+    var canEdit = myRole >= 2;
+    var policy = groupPolicy();
+    var nameEl = $('chatGroupSettingsName');
+    var metaEl = $('chatGroupSettingsMeta');
+    var noticeEl = $('chatGroupNoticeHint');
+    var muteRow = $('chatMuteAllRow');
+    var muteSwitch = $('chatMuteAllSwitch');
+    var editBlock = $('chatGroupEditBlock');
+    var nameInput = $('chatGroupNameInput');
+    var noticeInput = $('chatGroupNoticeInput');
+    var avImg = $('chatGroupSettingsAvatar');
+    var avFb = $('chatGroupSettingsAvatarFb');
+    var avBtn = $('chatGroupAvatarBtn');
+    var avEditHint = $('chatGroupAvatarEditHint');
+    var name = g.name || (state.room && state.room.title) || '群聊';
+    if (nameEl) nameEl.textContent = name;
+    if (metaEl) {
+      var cnt = meta.member_count | 0;
+      var policy = groupPolicy();
+      var tag = policy.privacy_label ? (' · ' + policy.privacy_label) : '';
+      var modeTag = policy.chat_mode_label ? (' · ' + policy.chat_mode_label) : '';
+      metaEl.textContent = chatT('chat_group_members_count', { count: cnt }) + tag + modeTag + (meta.member_list_hidden ? '' : (' · ' + (roleLabel(meta.my_role) || '成员')));
+    }
+    var viewBtn = $('chatViewMembersBtn');
+    if (viewBtn) viewBtn.style.display = meta.member_list_hidden ? 'none' : '';
+    if (noticeEl) {
+      noticeEl.textContent = canEdit ? '' : (g.notice ? ('群公告：' + g.notice) : '暂无群公告');
+      noticeEl.style.display = canEdit ? 'none' : '';
+    }
+    if (muteRow) muteRow.style.display = canEdit ? '' : 'none';
+    if (muteSwitch) {
+      muteSwitch.checked = !!meta.mute_all;
+      muteSwitch.disabled = !canEdit;
+    }
+    if (editBlock) editBlock.style.display = canEdit ? '' : 'none';
+    if (nameInput && canEdit) nameInput.value = g.name || '';
+    if (noticeInput && canEdit) noticeInput.value = g.notice || '';
+    var avUrl = avatarSrc(g.avatar);
+    if (avImg && avFb) {
+      avImg.src = avUrl;
+      avImg.style.display = '';
+      avFb.style.display = 'none';
+    }
+    if (avBtn) avBtn.classList.toggle('can-edit', canEdit);
+    if (avEditHint) avEditHint.style.display = canEdit ? '' : 'none';
+    ensureChatOverlays();
+    var modeBlock = $('chatGroupModeBlock');
+    var privacySel = $('chatGroupPrivacyMode');
+    var chatModeSel = $('chatGroupChatMode');
+    if (modeBlock) modeBlock.style.display = (canEdit && myRole >= 3) ? '' : 'none';
+    if (privacySel) privacySel.value = (g.privacy_mode === 'open' || policy.privacy_mode === 'open') ? 'open' : 'private';
+    if (chatModeSel) chatModeSel.value = (g.chat_mode === 'grab' || policy.chat_mode === 'grab') ? 'grab' : 'chat';
+  }
+
+  async function saveGroupModes() {
+    if (!state.room || state.room.type !== 2) return;
+    var meta = state.groupMeta || {};
+    if ((meta.my_role | 0) < 3) return;
+    var privacySel = $('chatGroupPrivacyMode');
+    var chatModeSel = $('chatGroupChatMode');
+    if (!privacySel || !chatModeSel) return;
+    var btn = $('chatGroupModeSaveBtn');
+    if (btn) btn.disabled = true;
+    try {
+      var packet = await send('group.update', {
+        group_id: state.room.id | 0,
+        privacy_mode: privacySel.value,
+        chat_mode: chatModeSel.value
+      });
+      if (packet.data && packet.data.group) {
+        state.groupMeta.group = packet.data.group;
+        await refreshGroupMeta();
+      }
+      if (typeof showFanshubToast === 'function') showFanshubToast('群属性已保存', 'success');
+    } catch (e) {
+      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '保存失败', 'error');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  async function saveGroupProfile() {
+    if (!state.room || state.room.type !== 2) return;
+    var meta = state.groupMeta || {};
+    if ((meta.my_role | 0) < 2) return;
+    var g = meta.group || {};
+    var nameInput = $('chatGroupNameInput');
+    var noticeInput = $('chatGroupNoticeInput');
+    var name = nameInput ? String(nameInput.value || '').trim() : '';
+    var notice = noticeInput ? String(noticeInput.value || '') : '';
+    if (!name) {
+      if (typeof showFanshubToast === 'function') showFanshubToast('请输入群名称', 'error');
+      return;
+    }
+    var payload = { group_id: state.room.id | 0 };
+    var changed = false;
+    if (name !== String(g.name || '')) {
+      payload.name = name;
+      changed = true;
+    }
+    if (notice !== String(g.notice || '')) {
+      payload.notice = notice;
+      changed = true;
+    }
+    if (!changed) {
+      if (typeof showFanshubToast === 'function') showFanshubToast('没有修改', 'info');
+      return;
+    }
+    var btn = $('chatGroupSaveBtn');
+    if (btn) btn.disabled = true;
+    try {
+      var packet = await send('group.update', payload);
+      if (packet.data && packet.data.group) {
+        state.groupMeta = state.groupMeta || {};
+        state.groupMeta.group = packet.data.group;
+        // 公告变更后重新展示置顶
+        if (payload.notice != null) {
+          delete state.noticeDismissed[String(state.room.id)];
+        }
+        applyGroupRoomHeader(state.groupMeta);
+        renderGroupSettings();
+      }
+      if (typeof showFanshubToast === 'function') showFanshubToast('已保存', 'success');
+    } catch (e) {
+      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '保存失败', 'error');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  async function uploadGroupAvatar(file) {
+    if (!state.room || state.room.type !== 2) return;
+    var meta = state.groupMeta || {};
+    if ((meta.my_role | 0) < 2) return;
+    if (!file) return;
+    try {
+      var uploaded = await uploadChatFile(file);
+      var url = uploaded.url || uploaded.fullurl || '';
+      if (!url) throw new Error('上传失败');
+      var packet = await send('group.update', {
+        group_id: state.room.id | 0,
+        avatar: url
+      });
+      if (packet.data && packet.data.group) {
+        state.groupMeta = state.groupMeta || {};
+        state.groupMeta.group = packet.data.group;
+        applyGroupRoomHeader(state.groupMeta);
+        renderGroupSettings();
+      }
+      if (typeof showFanshubToast === 'function') showFanshubToast('群头像已更新', 'success');
+    } catch (e) {
+      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '上传失败', 'error');
+    }
+  }
+
+  async function openGroupSettings() {
+    if (!state.room || state.room.type !== 2) return;
+    try {
+      await refreshGroupMeta();
+      openSubPane('chatGroupSettingsPane');
+    } catch (e) {
+      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '加载失败', 'error');
+    }
+  }
+
+  function openPrivateRoomMore() {
+    if (!state.room || state.room.type !== 1) return;
+    ensureChatOverlays();
+    var peer = state.room.peer | 0;
+    var brief = getSenderBrief(peer);
+    var name = state.room.title || brief.nickname || ('ID' + peer);
+    var nameEl = $('chatProfileName');
+    var idEl = $('chatProfileId');
+    var avEl = $('chatProfileAvatar');
+    var addBtn = $('chatProfileAddFriend');
+    var chatBtn = $('chatProfilePrivateChat');
+    var copyBtn = $('chatProfileCopyId');
+    if (nameEl) nameEl.textContent = name;
+    if (idEl) idEl.textContent = peer ? ('会员ID ' + peer) : '';
+    if (avEl) {
+      avEl.innerHTML = avatarImgHtml(brief.avatar);
+    }
+    if (addBtn) addBtn.style.display = 'none';
+    if (chatBtn) chatBtn.style.display = 'none';
+    if (!copyBtn && $('chatProfileClose')) {
+      copyBtn = document.createElement('button');
+      copyBtn.type = 'button';
+      copyBtn.className = 'chat-action-item';
+      copyBtn.id = 'chatProfileCopyId';
+      copyBtn.textContent = chatT('chat_copy_member_id');
+      $('chatProfileClose').parentNode.insertBefore(copyBtn, $('chatProfileClose'));
+      copyBtn.onclick = function () {
+        var id = String((state.room && state.room.peer) || '');
+        if (!id) return;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(id).then(function () {
+            if (typeof showFanshubToast === 'function') showFanshubToast('已复制会员ID', 'success');
+          }).catch(function () {
+            if (typeof showFanshubToast === 'function') showFanshubToast(id, 'info');
+          });
+        } else if (typeof showFanshubToast === 'function') {
+          showFanshubToast(id, 'info');
+        }
+        closeUserProfile();
+      };
+    } else if (copyBtn) {
+      copyBtn.style.display = '';
+    }
+    var pane = $('chatUserProfilePane');
+    if (pane) {
+      pane.classList.add('open');
+      pane.setAttribute('aria-hidden', 'false');
+    }
+  }
+
+  function openRoomMore() {
+    if (!state.room) return;
+    if (state.room.type === 2) {
+      openGroupSettings();
+      return;
+    }
+    openPrivateRoomMore();
+  }
+
+  function renderMemberList() {
+    var box = $('chatMemberList');
+    if (!box) return;
+    var myRole = (state.groupMeta && state.groupMeta.my_role) | 0;
+    var addBtn = $('chatAddMemberBtn');
+    if (addBtn) addBtn.style.display = myRole >= 2 ? '' : 'none';
+    if (!state.members.length) {
+      box.innerHTML = '<div class="chat-empty">' + escapeHtml(chatT('chat_no_members')) + '</div>';
+      return;
+    }
+    box.innerHTML = state.members.map(function (m) {
+      var tags = '';
+      if ((m.role | 0) === 3) tags += '<span class="chat-member-tag owner">群主</span>';
+      if ((m.role | 0) === 2) tags += '<span class="chat-member-tag admin">管理员</span>';
+      if (m.is_muted) tags += '<span class="chat-member-tag muted">禁言</span>';
+      var av = avatarImgHtml(m.avatar);
+      cacheSender(m.user_id | 0, m);
+      var canMod = myRole >= 2 && (m.user_id | 0) !== state.userId && (m.role | 0) < myRole;
+      var canProfile = false;
+      var canTap = canMod;
+      return (
+        '<button type="button" class="chat-member-item" data-uid="' + (m.user_id | 0) + '" data-mod="' + (canMod ? '1' : '0') + '" data-profile="0"' + (canTap ? '' : ' disabled') + '>' +
+          '<div class="chat-member-avatar">' + av + '</div>' +
+          '<div class="chat-member-main">' +
+            '<div class="chat-member-name">' + escapeHtml(m.nickname || ('ID' + m.user_id)) + '</div>' +
+            '<div class="chat-member-sub">ID ' + (m.user_id | 0) + '</div>' +
+          '</div>' +
+          '<div class="chat-member-tags">' + tags + '</div>' +
+        '</button>'
+      );
+    }).join('');
+  }
+
+  async function loadMembers(keyword) {
+    if (!state.room || state.room.type !== 2) return;
+    var packet = await send('group.members', {
+      group_id: state.room.id | 0,
+      keyword: keyword || ''
+    });
+    var data = packet.data || {};
+    state.members = data.list || [];
+    mergeGroupMeta(data);
+    (state.members || []).forEach(function (m) { cacheSender(m.user_id | 0, m); });
+    applySpeakState(state.groupMeta);
+    renderMemberList();
+    renderGroupSettings();
+  }
+
+  async function openGroupMembers() {
+    if (!state.room || state.room.type !== 2) return;
+    if (state.groupMeta && state.groupMeta.member_list_hidden && (state.groupMeta.my_role | 0) < 2) {
+      if (typeof showFanshubToast === 'function') showFanshubToast('隐私群已隐藏成员列表', 'info');
+      return;
+    }
+    state.memberKeyword = '';
+    var search = $('chatMemberSearch');
+    if (search) search.value = '';
+    try {
+      await loadMembers('');
+      openSubPane('chatGroupMembersPane');
+    } catch (e) {
+      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '加载失败', 'error');
+    }
+  }
+
+  function openMemberAction(member) {
+    if (!member) return;
+    state.memberActionTarget = member;
+    var myRole = (state.groupMeta && state.groupMeta.my_role) | 0;
+    var title = $('chatMemberActionTitle');
+    if (title) title.textContent = (member.nickname || ('ID' + member.user_id)) + ' · 操作';
+    var muteBtn = $('chatActMute');
+    var unmuteBtn = $('chatActUnmute');
+    var setAdmin = $('chatActSetAdmin');
+    var unsetAdmin = $('chatActUnsetAdmin');
+    var kickBtn = $('chatActKick');
+    if (muteBtn) muteBtn.style.display = member.is_muted ? 'none' : '';
+    if (unmuteBtn) unmuteBtn.style.display = member.is_muted ? '' : 'none';
+    if (setAdmin) setAdmin.style.display = (myRole === 3 && (member.role | 0) === 1) ? '' : 'none';
+    if (unsetAdmin) unsetAdmin.style.display = (myRole === 3 && (member.role | 0) === 2) ? '' : 'none';
+    if (kickBtn) kickBtn.style.display = (myRole >= 2 && (member.role | 0) < myRole) ? '' : 'none';
+    var sheet = $('chatMemberActionSheet');
+    if (sheet) {
+      sheet.classList.add('open');
+      sheet.setAttribute('aria-hidden', 'false');
+    }
+  }
+
+  function openMuteDurationSheet() {
+    var sheet = $('chatMuteDurationSheet');
+    if (sheet) {
+      sheet.classList.add('open');
+      sheet.setAttribute('aria-hidden', 'false');
+    }
+  }
+
+  async function doKickMember() {
+    var target = state.memberActionTarget;
+    if (!target || !state.room) return;
+    if (!window.confirm('确定将该成员移出群组？')) return;
+    try {
+      await send('group.kick', {
+        group_id: state.room.id | 0,
+        user_id: target.user_id | 0
+      });
+      closeMemberSheets();
+      if (typeof showFanshubToast === 'function') showFanshubToast('已移出', 'success');
+      await loadMembers(state.memberKeyword);
+    } catch (e) {
+      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '操作失败', 'error');
+    }
+  }
+
+  async function doMuteMember(seconds) {
+    var target = state.memberActionTarget;
+    if (!target || !state.room) return;
+    try {
+      await send('group.mute', {
+        group_id: state.room.id | 0,
+        user_id: target.user_id | 0,
+        seconds: seconds | 0
+      });
+      closeMemberSheets();
+      if (typeof showFanshubToast === 'function') {
+        showFanshubToast(seconds > 0 ? '已禁言' : '已取消禁言', 'success');
+      }
+      await loadMembers(state.memberKeyword);
+    } catch (e) {
+      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '操作失败', 'error');
+    }
+  }
+
+  async function doSetAdmin(isAdmin) {
+    var target = state.memberActionTarget;
+    if (!target || !state.room) return;
+    try {
+      await send('group.set_admin', {
+        group_id: state.room.id | 0,
+        user_id: target.user_id | 0,
+        is_admin: !!isAdmin
+      });
+      closeMemberSheets();
+      if (typeof showFanshubToast === 'function') {
+        showFanshubToast(isAdmin ? '已设为管理员' : '已取消管理员', 'success');
+      }
+      await loadMembers(state.memberKeyword);
+    } catch (e) {
+      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '操作失败', 'error');
+    }
+  }
+
+  async function toggleMuteAll(enabled) {
+    if (!state.room || state.room.type !== 2) return;
+    try {
+      var packet = await send('group.mute_all', {
+        group_id: state.room.id | 0,
+        enabled: !!enabled
+      });
+      if (packet.data) {
+        state.groupMeta = state.groupMeta || {};
+        state.groupMeta.group = packet.data.group || state.groupMeta.group;
+        state.groupMeta.mute_all = !!packet.data.mute_all;
+        state.groupMeta.can_speak = packet.data.can_speak !== false;
+        applySpeakState(state.groupMeta);
+        renderGroupSettings();
+      }
+    } catch (e) {
+      var sw = $('chatMuteAllSwitch');
+      if (sw) sw.checked = !enabled;
+      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '操作失败', 'error');
+    }
+  }
+
+  function renderInviteList() {
+    var box = $('chatInviteList');
+    var btn = $('chatInviteConfirmBtn');
+    if (!box) return;
+    var selectedCount = Object.keys(state.inviteSelected).filter(function (k) {
+      return state.inviteSelected[k];
+    }).length;
+    if (btn) {
+      btn.disabled = selectedCount <= 0;
+      btn.textContent = chatT('chat_confirm_add', { count: selectedCount });
+    }
+    if (!state.candidates.length) {
+      box.innerHTML = '<div class="chat-empty">' + escapeHtml(chatT('chat_no_candidates')) + '</div>';
+      return;
+    }
+    box.innerHTML = state.candidates.map(function (u) {
+      var uid = u.user_id | 0;
+      var checked = !!state.inviteSelected[uid];
+      var av = avatarImgHtml(u.avatar);
+      return (
+        '<label class="chat-member-item chat-invite-item">' +
+          '<input type="checkbox" class="chat-invite-check" data-uid="' + uid + '"' + (checked ? ' checked' : '') + '>' +
+          '<div class="chat-member-avatar">' + av + '</div>' +
+          '<div class="chat-member-main">' +
+            '<div class="chat-member-name">' + escapeHtml(u.nickname || ('ID' + uid)) + '</div>' +
+            '<div class="chat-member-sub">ID ' + uid + (u.mobile ? (' · ' + escapeHtml(u.mobile)) : '') + '</div>' +
+          '</div>' +
+        '</label>'
+      );
+    }).join('');
+  }
+
+  async function loadCandidates(keyword) {
+    if (!state.room || state.room.type !== 2) return;
+    var packet = await send('group.candidates', {
+      group_id: state.room.id | 0,
+      keyword: keyword || '',
+      limit: 50
+    });
+    state.candidates = (packet.data && packet.data.list) || [];
+    renderInviteList();
+  }
+
+  async function openGroupInvite() {
+    if (!state.room || state.room.type !== 2) return;
+    state.inviteSelected = {};
+    state.inviteKeyword = '';
+    var search = $('chatInviteSearch');
+    if (search) search.value = '';
+    try {
+      await loadCandidates('');
+      openSubPane('chatGroupInvitePane');
+    } catch (e) {
+      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '加载失败', 'error');
+    }
+  }
+
+  async function confirmInvite() {
+    if (!state.room || state.room.type !== 2) return;
+    var ids = Object.keys(state.inviteSelected).filter(function (k) {
+      return state.inviteSelected[k];
+    }).map(function (k) { return parseInt(k, 10); });
+    if (!ids.length) return;
+    var btn = $('chatInviteConfirmBtn');
+    if (btn) btn.disabled = true;
+    try {
+      await send('group.add_members', {
+        group_id: state.room.id | 0,
+        member_ids: ids
+      });
+      if (typeof showFanshubToast === 'function') showFanshubToast('已添加 ' + ids.length + ' 人', 'success');
+      closeSubPane('chatGroupInvitePane');
+      await loadMembers(state.memberKeyword);
+      await refreshGroupMeta();
+    } catch (e) {
+      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '添加失败', 'error');
+      renderInviteList();
+    }
+  }
+
+  async function sendPayload(payload) {
+    if (!state.room) throw new Error('请先打开会话');
+    closeComposerPanels();
+    if (state.room.type === 1) {
+      payload.to_user_id = state.room.peer;
+      var packet = await send('private.send', payload);
+      return packet.data && packet.data.message;
+    }
+    payload.group_id = state.room.id | 0;
+    var gpacket = await send('group.send', payload);
+    if (gpacket.data && gpacket.data.balance != null) {
+      state.money = parseFloat(gpacket.data.balance);
+      updateMoneyLabel();
+    }
+    return gpacket.data && gpacket.data.message;
+  }
+
+  function appendSentMessage(msg) {
+    if (!msg) return;
+    appendMessage(msg);
+    upsertListFromMessage(msg);
+  }
+
+  async function uploadChatFile(file) {
+    var fd = new FormData();
+    fd.append('file', file);
+    var headers = {};
+    var t = token();
+    if (t) headers.token = t;
+    var res = await fetch(apiBase() + '/api/common/upload', { method: 'POST', headers: headers, body: fd });
+    var data;
+    try { data = await res.json(); } catch (e) { throw new Error('上传失败'); }
+    if (data.code !== 1) throw new Error(data.msg || data.message || '上传失败');
+    return data.data || {};
+  }
+
+  async function sendMedia(msgType, extra) {
+    if (!state.room) {
+      if (typeof showFanshubToast === 'function') showFanshubToast('请先打开会话', 'info');
+      return;
+    }
+    try {
+      var label = '[图片]';
+      if (msgType === 5) label = '[视频]';
+      if (msgType === 7) label = '[文件]' + ((extra && extra.name) || '');
+      var msg = await sendPayload({
+        msg_type: msgType,
+        content: label,
+        extra: extra
+      });
+      appendSentMessage(msg);
+    } catch (e) {
+      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '发送失败', 'error');
+    }
+  }
+
+  async function handleGenericFile(file) {
+    if (!file || !state.room) return;
+    var maxSize = 30 * 1024 * 1024;
+    if (file.size > maxSize) {
+      if (typeof showFanshubToast === 'function') showFanshubToast('文件不能超过30MB', 'error');
+      return;
+    }
+    if (typeof showFanshubToast === 'function') showFanshubToast('上传中…', 'info');
+    try {
+      var uploaded = await uploadChatFile(file);
+      var url = uploaded.url || '';
+      if (!url) throw new Error('上传失败');
+      var name = file.name || 'file';
+      var ext = '';
+      var dot = name.lastIndexOf('.');
+      if (dot >= 0) ext = name.slice(dot + 1).toLowerCase();
+      await sendMedia(7, {
+        url: url,
+        fullurl: uploaded.fullurl || '',
+        name: name,
+        size: file.size | 0,
+        ext: ext,
+        mime: file.type || ''
+      });
+      if (typeof showFanshubToast === 'function') showFanshubToast('已发送', 'success');
+    } catch (e) {
+      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '上传失败', 'error');
+    }
+  }
+
+  async function handleMediaFile(file, kind) {
+    if (!file || !state.room) return;
+    var maxSize = kind === 'video' ? (20 * 1024 * 1024) : (8 * 1024 * 1024);
+    if (file.size > maxSize) {
+      if (typeof showFanshubToast === 'function') {
+        showFanshubToast(kind === 'video' ? '视频不能超过20MB' : '图片不能超过8MB', 'error');
+      }
+      return;
+    }
+    if (typeof showFanshubToast === 'function') showFanshubToast('上传中…', 'info');
+    try {
+      var uploaded = await uploadChatFile(file);
+      var url = uploaded.url || '';
+      if (!url) throw new Error('上传失败');
+      var extra = {
+        url: url,
+        fullurl: uploaded.fullurl || '',
+        name: file.name || ''
+      };
+      if (kind === 'image' && file.type && file.type.indexOf('image/') === 0) {
+        try {
+          var dim = await readImageSize(file);
+          extra.w = dim.w;
+          extra.h = dim.h;
+        } catch (e) {}
+      }
+      await sendMedia(kind === 'video' ? 5 : 4, extra);
+      if (typeof showFanshubToast === 'function') showFanshubToast('已发送', 'success');
+    } catch (e) {
+      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '上传失败', 'error');
+    }
+  }
+
+  function readImageSize(file) {
+    return new Promise(function (resolve, reject) {
+      var img = new Image();
+      var objUrl = URL.createObjectURL(file);
+      img.onload = function () {
+        var w = img.naturalWidth || img.width || 0;
+        var h = img.naturalHeight || img.height || 0;
+        URL.revokeObjectURL(objUrl);
+        resolve({ w: w, h: h });
+      };
+      img.onerror = function () {
+        URL.revokeObjectURL(objUrl);
+        reject(new Error('bad image'));
+      };
+      img.src = objUrl;
+    });
+  }
+
+  async function sendText() {
+    var input = $('chatInput');
+    if (!input || !state.room) return;
+    if (input.disabled || ($('chatComposerWrap') && $('chatComposerWrap').classList.contains('is-muted'))) {
+      if (typeof showFanshubToast === 'function') {
+        showFanshubToast(input.placeholder || '当前无法发言', 'error');
+      }
+      return;
+    }
+    var text = String(input.value || '').trim();
+    if (!text) return;
+    input.value = '';
+    try {
+      var msg = await sendPayload({ content: text, msg_type: 1 });
+      appendSentMessage(msg);
+    } catch (e) {
+      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '发送失败', 'error');
+    }
+  }
+
+  async function grabPacket(packetId, sliderPayload) {
+    packetId = packetId | 0;
+    if (!packetId) return;
+    if (state._grabBusy && !(sliderPayload && sliderPayload.slider_token)) {
+      return;
+    }
+    state._grabBusy = true;
+    var grabBtn = $('chatRpDetailGrabBtn');
+    var prevGrabText = '';
+    if (grabBtn && !(sliderPayload && sliderPayload.slider_token)) {
+      prevGrabText = grabBtn.textContent || '开红包';
+      grabBtn.disabled = true;
+      grabBtn.textContent = '领取中…';
+    }
+    function restoreGrabBtn() {
+      state._grabBusy = false;
+      if (grabBtn) {
+        grabBtn.disabled = false;
+        if (prevGrabText) grabBtn.textContent = prevGrabText;
+      }
+    }
+    function mapGrabError(msg) {
+      msg = String(msg || '');
+      var map = {
+        already_grabbed: '你已经抢过这个红包了',
+        'already grabbed': '你已经抢过这个红包了',
+        'packet empty': '手慢了，红包已被抢完',
+        'packet expired': '红包已过期',
+        'packet closed': '红包已结束',
+        'packet not found': '红包不存在',
+        'not in group': '你不在该群内',
+        balance_not_enough_for_compensate: '余额不足以覆盖赔付，无法参与',
+        slider_required: '请完成滑块验证后再抢',
+        'grab cancelled': '已取消验证'
+      };
+      return map[msg] || msg || '领取失败';
+    }
+    try {
+      var data = { packet_id: packetId };
+      try {
+        var fp = localStorage.getItem('fans_hub_device_fp') || '';
+        if (fp) data.device_fp = fp;
+      } catch (e0) {}
+      if (sliderPayload && typeof sliderPayload === 'object') {
+        if (sliderPayload.slider_token) data.slider_token = sliderPayload.slider_token;
+        if (sliderPayload.slider_x != null) data.slider_x = sliderPayload.slider_x | 0;
+        if (sliderPayload.slider_duration != null) data.slider_duration = sliderPayload.slider_duration | 0;
+        if (sliderPayload.slider_max != null) data.slider_max = sliderPayload.slider_max | 0;
+      }
+      var packet = await send('redpacket.grab', data);
+      if (packet && packet.type === 'redpacket.challenge' && packet.data && packet.data.code === 'slider_required') {
+        await new Promise(function (resolve, reject) {
+          var opener = (typeof window.openGrabSliderCaptcha === 'function')
+            ? window.openGrabSliderCaptcha
+            : (typeof window.openSliderCaptcha === 'function' ? window.openSliderCaptcha : null);
+          if (!opener) {
+            if (typeof showFanshubToast === 'function') {
+              showFanshubToast(packet.data.message || '请完成滑块验证后重试', 'error');
+            }
+            reject(new Error(packet.data.message || 'slider_required'));
+            return;
+          }
+          if (grabBtn) grabBtn.textContent = '验证中…';
+          if (typeof showFanshubToast === 'function' && !(sliderPayload && sliderPayload.slider_token)) {
+            showFanshubToast(packet.data.message || '请完成滑块验证', 'info');
+          }
+          opener('', function (payload) {
+            if (grabBtn) grabBtn.textContent = '领取中…';
+            if (typeof showFanshubToast === 'function') {
+              showFanshubToast('验证通过，正在抢包…', 'success');
+            }
+            state._grabBusy = false;
+            grabPacket(packetId, payload || {}).then(resolve).catch(reject);
+          }, function () {
+            reject(new Error('grab cancelled'));
+          });
+        });
+        return;
+      }
+      var amt = packet.data && packet.data.amount;
+      if (packet.data && packet.data.balance != null) {
+        state.money = parseFloat(packet.data.balance);
+        updateMoneyLabel();
+      }
+      if (typeof showFanshubToast === 'function') {
+        showFanshubToast(amt != null ? ('抢到 ￥' + parseFloat(amt).toFixed(2)) : '领取成功', 'success');
+      }
+      // 详情打开时刷新列表/按钮状态
+      if ($('chatRpDetailPane') && $('chatRpDetailPane').classList.contains('open')) {
+        try { openRedPacketDetail(packetId); } catch (e1) {}
+      }
+    } catch (e) {
+      if (typeof showFanshubToast === 'function') {
+        showFanshubToast(mapGrabError(e && e.message), 'error');
+      }
+    } finally {
+      restoreGrabBtn();
+    }
+  }

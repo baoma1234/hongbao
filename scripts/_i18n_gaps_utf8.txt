@@ -1,0 +1,173 @@
+## public/888/partials/bottom-and-overlays.php (1)
+  [text] 鈼
+## public/888/partials/header.php (5)
+  [text] 默认
+  [text] 激情中国红
+  [text] 皇家高级蓝
+  [text] 科技冷银灰
+  [title] 抢红宝
+## public/888/partials/modals.php (4)
+  [text] 馃幆
+  [text] 红宝专属客服
+  [text] 官方红宝聊天App
+  [text] 禄
+## public/888/partials/profile-subpages.php (27)
+  [text] 充值
+  [text] 充值红宝金额（元）
+  [text] 确认充值
+  [text] 提现
+  [text] 可提现红宝：
+  [text] 累计流水：￥0.00
+  [text] 提现红宝金额（元）
+  [text] 收款方式
+  [text] 银行卡 (102)
+  [text] 支付宝 (101)
+  [text] 收款人姓名
+  [text] 收款账号
+  [text] 银行名称
+  [text] 支行（可选）
+  [text] 省市（可选）
+  [text] 确认提现
+  [text] 我的二维码
+  [text] 会员ID：
+  [text] 好友扫一扫即可添加你
+  [text] 复制会员ID
+  [placeholder] 请输入金额
+  [placeholder] 真实姓名 / 支付宝实名
+  [placeholder] 银行卡号 / 支付宝账号
+  [placeholder] 如：工商银行；支付宝填：支付宝
+  [placeholder] 开户支行
+  [placeholder] 省
+  [placeholder] 市
+## public/888/partials/tab-exchange.php (15)
+  [text] 资产兑换
+  [text] 可用 —
+  [text] 转出
+  [text] 股
+  [text] 股份
+  [text] 红利
+  [text] 红宝
+  [text] 全部
+  [text] 单次最低 1
+  [text] 兑换比例
+  [text] 预计到账
+  [text] 确认兑换
+  [aria-label] 转出资产
+  [aria-label] 互换方向
+  [aria-label] 兑换目标
+## public/888/partials/tab-home.php (5)
+  [text] 馃搱 褰撳墠鍏ㄧ綉鑲′唤浜烘暟锛?,000 浜?( 馃殌 浠婃棩鏆存定 +0 浜?)
+  [text] 馃拵 浠婃棩澶х洏瀹炴椂鎸佷粨琛屾潈浠凤細￥.00 / 浠?( 馃敟 杈冩槰鏃ュぇ鐩樻媺鍗?+0% )
+  [text] 红宝
+  [text] 馃挸 娌℃湁璐﹀彿锛熺偣鍑?[555.bio瀹樻柟鏋侀€熷紑鎴穄
+  [text] 绔嬮€?2 浠藉ぇ鐩樿偂銆
+## public/888/partials/tab-messages.php (97)
+  [text] 扫一扫
+  [text] 取消
+  [text] 官方社群
+  [text] 我的群组
+  [text] 好友列表
+  [text] 最新发布
+  [text] 推广赚钱
+  [text] 广告发布
+  [text] 游戏规则
+  [text] 累计佣金
+  [text] 提现
+  [text] 可提现
+  [text] 今日收益
+  [text] 红包返佣
+  [text] 推广结算
+  [text] 收益明细
+  [text] 提现记录
+  [text] 最近结算
+  [text] 登录后查看佣金明细
+  [text] 将好友二维码放入框内即可自动识别
+  [text] 从相册选择图片
+  [text] 会话
+  [text] 群公告
+  [text] 图片
+  [text] 视频
+  [text] 文件
+  [text] 红包
+  [text] 群设置
+  [text] 群
+  [text] 更换
+  [text] 群聊
+  [text] 0 名成员
+  [text] 群名称
+  [text] 群公告（聊天页置顶）
+  [text] 保存修改
+  [text] 查看群成员
+  [text] 全员禁言
+  [text] 群成员
+  [text] ＋ 添加群成员
+  [text] 添加群成员
+  [text] 确认添加 (0 人)
+  [text] 成员操作
+  [text] 单人禁言
+  [text] 取消禁言
+  [text] 设为管理员
+  [text] 取消管理员
+  [text] 踢出群组
+  [text] 选择禁言时长
+  [text] 10 分钟
+  [text] 1 小时
+  [text] 24 小时
+  [text] 关闭
+  [text] 发红包
+  [text] 恭喜发财
+  [text] 拼手气红包
+  [text] 金额（元）
+  [text] 红包个数
+  [text] 群聊 5～10 个，私聊固定 1 个
+  [text] 红包类型
+  [text] 拼手气
+  [text] 人均
+  [text] 埋雷
+  [text] 雷号（尾数 0-9）
+  [text] 领取金额尾数等于雷号则中雷，赔付整包金额
+  [text] 红包封面语
+  [text] 塞钱进红包
+  [text] 创建新群聊
+  [text] 下一步
+  [text] 群类型
+  [text] 可查看成员资料，支持自由加好友
+  [text] 隐藏成员列表，陌生人不可互加
+  [text] 运行模式
+  [text] 自由聊天，可发普通/手气/埋雷红包
+  [text] 全员禁言，仅管理员/机器人可发红包
+  [text] 群主可后续在群设置中修改
+  [placeholder] 输入群名称
+  [placeholder] 输入群公告，成员进入聊天可见
+  [placeholder] 搜索成员昵称/ID
+  [placeholder] 搜索用户名/手机号/ID
+  [placeholder] 最低 10
+  [placeholder] 恭喜发财，大吉大利
+  [placeholder] 请输入群名称
+  [aria-label] 搜索
+  [aria-label] 更多
+  [aria-label] 社群分类
+  [aria-label] 公告分类
+  [aria-label] 返回
+  [aria-label] 区号
+  [aria-label] 收起
+  [aria-label] 表情
+  [aria-label] 关闭
+  [title] 搜索
+  [title] 更多
+  [title] 表情
+  [title] 更换群头像
+  [title] 点击切换头像
+  [value] 恭喜发财
+## public/888/partials/tab-profile.php (11)
+  [text] 抢红宝
+  [text] 官方会员
+  [text] 二维码
+  [text] 扫一扫
+  [text] 充值
+  [text] 提现
+  [text] 资产服务
+  [text] 账号与安全
+  [text] 抢红宝官方 · 会员中心
+  [aria-label] 会员资料
+  [aria-label] 常用功能

@@ -1,0 +1,19 @@
+﻿bad_count=0
+file_efbfbd=0
+file_size=41794
+
+--- seed ---
+<?php
+
+define('APP_PATH', dirname(__DIR__) . '/application/');
+require dirname(__DIR__) . '/thinkphp/base.php';
+\think\App::initCommon();
+
+$path = APP_PATH . 'extra' . DS . 'fanshub.php';
+$config = is_file($path) ? include $path : [];
+if (!is_array($config)) {
+    $config = [];
+}
+$saved = isset($config['h5_copy']) && is_array($config['h5_copy']) ? $config['h5_copy'] : [];
+$config['h5_copy'] = \app\common\library\FansHubService::mergeH5CopyDefaults($saved);
+if (!\app\common\library\F

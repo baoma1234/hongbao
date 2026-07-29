@@ -1,0 +1,79 @@
+<?php
+
+namespace app\admin\controller\fanshub;
+
+use app\admin\library\traits\FanshubExport;
+use app\common\controller\Backend;
+
+/**
+ * 福利资产流水
+ *
+ * @icon fa fa-list
+ */
+class Ledger extends Backend
+{
+    use FanshubExport;
+
+    protected $model = null;
+    protected $relationSearch = true;
+
+    public function _initialize()
+    {
+        parent::_initialize();
+        $this->model = new \app\admin\model\fanshub\Ledger;
+        $this->view->assign('typeList', $this->model->getTypeList());
+    }
+
+    public function index()
+    {
+        $this->request->filter(['strip_tags', 'trim']);
+        if ($this->request->isAjax()) {
+            if ($this->request->request('keyField')) {
+                return $this->selectpage();
+            }
+            list($where, $sort, $order, $offset, $limit) = $this->buildparams();
+            $list = $this->model
+                ->with(['user'])
+                ->where($where)
+                ->order($sort, $order)
+                ->paginate($limit);
+            foreach ($list as $row) {
+                if ($row->getRelation('user')) {
+                    $row->getRelation('user')->visible(['id', 'mobile']);
+                }
+            }
+            $result = ['total' => $list->total(), 'rows' => $list->items()];
+            return json($result);
+        }
+        return $this->view->fetch();
+    }
+
+    public function export()
+    {
+        $this->request->filter(['strip_tags', 'trim']);
+        list($where, $sort, $order) = $this->buildparams();
+        $rows = $this->exportQueryRows(
+            $this->model->with(['user'])->where($where)->order($sort, $order)
+        );
+        $typeList = $this->model->getTypeList();
+        $data = [];
+        foreach ($rows as $row) {
+            $data[] = [
+                $row->id,
+                $row->user_id,
+                $row->user ? $row->user->mobile : '',
+                $typeList[$row->type] ?? $row->type,
+                $row->rights_change,
+                $row->balance_change,
+                $row->rights_after,
+                $row->balance_after,
+                $row->remark,
+                $row->channel,
+                $row->createtime ? date('Y-m-d H:i:s', $row->createtime) : '',
+            ];
+        }
+        $this->exportXlsx('fanshub_ledger_' . date('Ymd_His'), [
+            'ID', '会员ID', '手机号', '类型', '股份变动', '余额变动', '股份结余', '余额结余', '备注', '通道', '时间',
+        ], $data);
+    }
+}

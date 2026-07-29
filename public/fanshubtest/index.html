@@ -1,0 +1,3930 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>【历史】555.bio官方直营 - fanshubtest</title>
+    <style>
+        :root {
+            --bg-main: #F4F6F9; 
+            --bg-card: #FFFFFF; 
+            --primary: #00C853; 
+            --secondary: #FF9100; 
+            --accent: #0071FF; 
+            --text-main: #1A212D; 
+            --text-muted: #657786; 
+            --danger: #FF3B30; 
+            --gold-grad: linear-gradient(135deg, #FFE082 0%, #FFB300 100%);
+            --gold-btn: linear-gradient(135deg, #FFD54F 0%, #FF8F00 50%, #FF6F00 100%);
+            --top-bar-height: 44px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; outline: none; }
+        body { background-color: var(--bg-main); color: var(--text-main); font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: calc(var(--top-bar-height) + 10px) 15px 15px; font-size: 14px; line-height: 1.4; }
+        
+        .page-view { display: none; }
+        .page-view.active { display: block; }
+
+        .login-wrapper { max-width: 400px; margin: 40px auto 0; padding: 30px 20px; background: #FFF; border-radius: 16px; box-shadow: 0 4px 25px rgba(0,0,0,0.06); border: 1px solid #E1E8ED; text-align: center; }
+        .login-logo { font-size: 26px; font-weight: 900; color: var(--accent); font-family: "Impact", sans-serif; margin-bottom: 5px; letter-spacing: -0.5px; }
+        .login-subtitle { font-size: 13px; color: var(--text-muted); margin-bottom: 25px; font-weight: 500; }
+        .input-group { position: relative; margin-bottom: 18px; text-align: left; }
+        .input-label { font-size: 12px; font-weight: bold; color: var(--text-main); margin-bottom: 6px; display: block; }
+        .login-input { width: 100%; padding: 12px 14px; border: 1px solid #CCD6DD; border-radius: 8px; font-size: 14px; font-weight: bold; color: var(--text-main); background: #F8F9FA; transition: all 0.2s; }
+        .login-input:focus { border-color: var(--accent); background: #FFF; }
+        .captcha-btn { position: absolute; right: 8px; bottom: 5px; background: var(--accent); color: #FFF; border: none; padding: 7px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer; }
+        .captcha-btn.disabled { background: #CCD6DD; color: #657786; cursor: not-allowed; }
+
+        .slider-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 9999; align-items: center; justify-content: center; padding: 20px; }
+        .slider-modal.show { display: flex; }
+        .slider-box { background: #FFF; border-radius: 14px; width: 100%; max-width: 320px; padding: 16px; box-shadow: 0 10px 40px rgba(0,0,0,.18); }
+        .slider-box-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+        .slider-box-title { font-size: 16px; font-weight: bold; color: var(--text-main); }
+        .slider-box-refresh { border: none; background: transparent; color: var(--accent); font-size: 12px; cursor: pointer; }
+        .slider-box-hint { font-size: 12px; color: var(--text-muted); margin-bottom: 14px; text-align: center; }
+        .slider-track { position: relative; height: 46px; background: #F4F6F9; border-radius: 23px; border: 1px solid #E1E8ED; overflow: hidden; touch-action: none; }
+        .slider-track-fill { position: absolute; left: 0; top: 0; height: 100%; width: 0; background: rgba(0,113,255,.12); pointer-events: none; }
+        .slider-track-hint { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--text-muted); pointer-events: none; }
+        .slider-thumb { position: absolute; left: 0; top: 2px; width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, #0071FF 0%, #00C853 100%); color: #FFF; display: flex; align-items: center; justify-content: center; cursor: grab; touch-action: none; user-select: none; z-index: 2; box-shadow: 0 2px 8px rgba(0,113,255,.35); }
+        .slider-thumb:active { cursor: grabbing; }
+        .btn-login-submit { width: 100%; background: linear-gradient(135deg, #0071FF 0%, #00C853 100%); color: #FFF; border: none; padding: 14px; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 12px rgba(0,113,255,0.2); margin-top: 10px; }
+        
+        .jackpot-container { background: linear-gradient(135deg, #0071FF 0%, #00C853 100%); padding: 22px 15px; border-radius: 14px; margin-bottom: 12px; box-shadow: 0 6px 25px rgba(0, 113, 255, 0.25); text-align: center; position: relative; overflow: hidden; }
+        .jackpot-container::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: linear-gradient(45deg, transparent 45%, rgba(255,255,255,0.15) 50%, transparent 55%); animation: lightSweep 3.5s infinite linear; }
+        .jackpot-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #FFFFFF; opacity: 0.9; font-weight: bold; }
+        .jackpot-val { font-size: 34px; font-weight: 900; margin: 4px 0; font-family: "Impact", monospace, sans-serif; color: #FFFFFF; text-shadow: 0 2px 8px rgba(0,0,0,0.2); letter-spacing: -0.5px; }
+        .jackpot-meta {
+            position: relative;
+            z-index: 1;
+            font-size: 12px;
+            font-weight: 800;
+            color: #FFE082;
+            margin: 4px 0 2px;
+            line-height: 1.4;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .jackpot-pool-label {
+            position: relative;
+            z-index: 1;
+            font-size: 11px;
+            font-weight: 700;
+            color: rgba(255,255,255,0.9);
+            margin-top: 4px;
+        }
+        .jackpot-price-line {
+            position: relative;
+            z-index: 1;
+            font-size: 13px;
+            font-weight: 900;
+            color: #FFF;
+            margin: 2px 0 6px;
+            text-shadow: 0 1px 6px rgba(0,0,0,0.22);
+        }
+        .jackpot-hint-line {
+            position: relative;
+            z-index: 1;
+            font-size: 11px;
+            color: #FFF;
+            opacity: 0.72;
+            margin-top: 2px;
+            line-height: 1.35;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .asset-valuation-hint {
+            margin-top: calc(6px * var(--asset-scale));
+            font-size: calc(11px * var(--asset-scale));
+            font-weight: 700;
+            color: #E65100;
+            line-height: 1.35;
+            position: relative;
+            z-index: 1;
+            white-space: nowrap;
+        }
+        .welcome-lottery-mask {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 12000;
+            background: radial-gradient(circle at 50% 35%, rgba(255, 193, 7, 0.18) 0%, rgba(0, 0, 0, 0.94) 55%);
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .welcome-lottery-mask.show { display: flex; }
+        .welcome-lottery-panel {
+            width: min(92vw, 340px);
+            text-align: center;
+            padding: 28px 20px 20px;
+            border-radius: 18px;
+            background: linear-gradient(160deg, #1A1A1A 0%, #2B2114 45%, #1A1408 100%);
+            border: 2px solid rgba(255, 193, 7, 0.55);
+            box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 215, 64, 0.25);
+            position: relative;
+        }
+        .welcome-lottery-title {
+            font-size: 15px;
+            font-weight: 900;
+            color: #FFE082;
+            margin-bottom: 18px;
+            letter-spacing: 0.5px;
+        }
+        .welcome-lottery-chest {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 14px;
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 64px;
+            line-height: 1;
+            cursor: pointer;
+            background: linear-gradient(145deg, #3E2723 0%, #1A1A1A 40%, #5D4037 100%);
+            border: 3px solid #FFB300;
+            box-shadow: 0 10px 28px rgba(255, 179, 0, 0.35), inset 0 2px 8px rgba(255, 255, 255, 0.12);
+            transition: transform 0.15s ease;
+            user-select: none;
+        }
+        .welcome-lottery-chest:active { transform: scale(0.96); }
+        .welcome-lottery-chest.shaking {
+            animation: lotteryChestShake 0.12s linear infinite;
+        }
+        @keyframes lotteryChestShake {
+            0% { transform: rotate(0deg) scale(1); }
+            25% { transform: rotate(-6deg) scale(1.04); }
+            50% { transform: rotate(6deg) scale(1.02); }
+            75% { transform: rotate(-4deg) scale(1.05); }
+            100% { transform: rotate(0deg) scale(1); }
+        }
+        .welcome-lottery-shares {
+            font-size: 22px;
+            font-weight: 900;
+            color: #FFD54F;
+            margin-bottom: 6px;
+            font-family: "Impact", monospace, sans-serif;
+        }
+        .welcome-lottery-price {
+            font-size: 28px;
+            font-weight: 900;
+            color: #FFF;
+            margin-bottom: 10px;
+            font-family: "Impact", monospace, sans-serif;
+            text-shadow: 0 2px 10px rgba(255, 193, 7, 0.35);
+            min-height: 34px;
+        }
+        .welcome-lottery-hint {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.72);
+            line-height: 1.45;
+            margin-bottom: 14px;
+        }
+        .welcome-lottery-close-btn {
+            width: 100%;
+            border: none;
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 800;
+            cursor: pointer;
+            background: linear-gradient(135deg, #FFB300 0%, #FF8F00 100%);
+            color: #3E2723;
+            box-shadow: 0 4px 14px rgba(255, 179, 0, 0.35);
+            transition: opacity 0.2s ease, transform 0.15s ease;
+        }
+        .welcome-lottery-close-btn:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        .welcome-lottery-close-btn:not(:disabled):active {
+            transform: scale(0.98);
+        }
+        .share-promo-inner.single-line {
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 12px 10px;
+            gap: 6px;
+        }
+        .share-promo-inner.single-line .share-promo-text {
+            width: 100%;
+            max-width: 100%;
+            text-align: center;
+            font-size: 10px;
+            line-height: 1.25;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .share-promo-inner.single-line .btn-share-action {
+            flex: 0 0 auto;
+            align-self: center;
+            margin: 0 auto;
+            min-width: 0;
+            padding: 6px 16px;
+            font-size: 11px;
+        }
+        #newbiePromoBlock {
+            display: flex;
+            justify-content: center;
+            margin-top: 4px;
+        }
+        #newbiePromoBlock .share-promo-card {
+            width: 100%;
+            max-width: 300px;
+            margin-top: 8px;
+        }
+        @keyframes lightSweep { 0% { transform: translate(-30%, -30%) rotate(0deg); } 100% { transform: translate(30%, 30%) rotate(0deg); } }
+        
+        .header-panel {
+            background-color: var(--bg-card);
+            padding: 15px;
+            border-radius: 14px;
+            margin-bottom: 15px;
+            border: 1px solid #E1E8ED;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+        }
+        .user-info {
+            margin-top: 12px;
+            margin-bottom: 12px;
+            padding-top: 12px;
+            border-top: 1px dashed #E1E8ED;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+        .user-id {
+            font-weight: 700;
+            color: var(--text-main);
+            font-size: 12px;
+        }
+        .user-id #displayBindPhone {
+            font-weight: 700;
+            color: var(--text-main);
+            font-size: 12px;
+        }
+        .user-id #userStatusTag {
+            color: #00C853;
+            font-size: 10px;
+            background: rgba(0, 200, 83, 0.08);
+            padding: 3px 8px;
+            border-radius: 6px;
+            margin-left: 6px;
+            font-weight: bold;
+        }
+        .user-id #userStatusTag.master-tag {
+            color: #5E35B1;
+            background: rgba(94, 53, 177, 0.1);
+        }
+        .status-tag {
+            background: linear-gradient(135deg, #FFE082 0%, #FFB300 100%);
+            color: #5D4037;
+            font-size: 11px;
+            font-weight: 800;
+            padding: 4px 10px;
+            border-radius: 20px;
+            box-shadow: 0 2px 8px rgba(255, 179, 0, 0.25);
+            white-space: nowrap;
+        }
+        .assets-grid {
+            --asset-scale: 0.8;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: calc(10px * var(--asset-scale));
+            align-items: stretch;
+        }
+        .asset-card {
+            border-radius: calc(12px * var(--asset-scale));
+            padding: calc(14px * var(--asset-scale)) calc(10px * var(--asset-scale)) calc(12px * var(--asset-scale));
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid transparent;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+            height: 100%;
+            min-height: calc(92px * var(--asset-scale));
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+        }
+        .asset-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            opacity: 0.55;
+            pointer-events: none;
+        }
+        .asset-card-rights {
+            background: linear-gradient(145deg, #FFF8E7 0%, #FFECB3 48%, #FFE082 100%);
+            border-color: rgba(255, 179, 0, 0.35);
+            overflow: visible;
+        }
+        .asset-card-rights::before {
+            background: radial-gradient(circle at 85% 15%, rgba(255, 255, 255, 0.65) 0%, transparent 55%);
+        }
+        .asset-card-balance {
+            background: linear-gradient(145deg, #E8F8EF 0%, #C8F0DA 45%, #A5E6BF 100%);
+            border-color: rgba(0, 200, 83, 0.35);
+        }
+        .asset-card-balance::before {
+            background: radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.7) 0%, transparent 50%);
+        }
+        .asset-label {
+            font-size: calc(11px * var(--asset-scale));
+            color: color-mix(in srgb, var(--text-main) 72%, transparent);
+            margin-bottom: calc(8px * var(--asset-scale));
+            font-weight: 700;
+            position: relative;
+            z-index: 1;
+        }
+        .asset-value {
+            font-size: calc(24px * var(--asset-scale));
+            font-weight: 900;
+            font-family: "Impact", "DIN Alternate", monospace, sans-serif;
+            letter-spacing: -0.5px;
+            line-height: 1.1;
+            position: relative;
+            z-index: 1;
+            text-shadow: 0 2px 6px rgba(0, 0, 0, 0.12), 0 1px 0 rgba(255, 255, 255, 0.45);
+        }
+        .asset-value-gold { color: #E65100; }
+        .asset-value-green { color: #007A33; }
+        .asset-currency {
+            font-size: calc(16px * var(--asset-scale));
+            font-weight: 800;
+            margin-right: 2px;
+            opacity: 0.92;
+        }
+        .asset-unit { font-size: calc(12px * var(--asset-scale)); font-weight: bold; }
+        .asset-progress-wrap {
+            margin-top: calc(10px * var(--asset-scale));
+            position: relative;
+            z-index: 1;
+        }
+        .asset-progress-bar {
+            height: calc(5px * var(--asset-scale));
+            background: rgba(255, 255, 255, 0.55);
+            border-radius: 999px;
+            overflow: hidden;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
+        }
+        .asset-progress-fill {
+            height: 100%;
+            width: 0;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #00C853, #FF9100);
+            transition: width 0.45s ease;
+        }
+        .asset-progress-hint {
+            margin-top: calc(6px * var(--asset-scale));
+            font-size: calc(10px * var(--asset-scale));
+            color: color-mix(in srgb, var(--text-main) 58%, transparent);
+            font-weight: 600;
+            line-height: 1.35;
+        }
+        .asset-progress-hint.ready {
+            color: #007A33;
+            font-weight: 700;
+        }
+
+        .share-promo-card {
+            width: 100%;
+            margin-top: 12px;
+            border: none;
+            padding: 0;
+            border-radius: 10px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            text-align: left;
+            background: linear-gradient(120deg, #FF6D00 0%, #FF9100 42%, #FFB300 100%);
+            box-shadow: 0 6px 20px rgba(255, 109, 0, 0.32);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .share-promo-card:active {
+            transform: scale(0.985);
+            box-shadow: 0 3px 12px rgba(255, 109, 0, 0.28);
+        }
+        .share-promo-glow {
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.22) 0%, transparent 42%),
+                repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.06) 0 6px, transparent 6px 12px);
+            animation: shareShimmer 4s linear infinite;
+            pointer-events: none;
+        }
+        @keyframes shareShimmer {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(24px); }
+        }
+        .share-promo-inner {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 12px 12px 10px;
+        }
+        .share-promo-icon {
+            flex: 0 0 auto;
+            font-size: 22px;
+            line-height: 1;
+            animation: sharePulse 2s ease-in-out infinite;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
+        }
+        @keyframes sharePulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.12); }
+        }
+        .share-promo-text {
+            flex: 1;
+            color: #FFF;
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 1.45;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+        }
+        .btn-share-action {
+            flex: 0 0 auto;
+            border: none;
+            background: #FFF;
+            color: #E65100;
+            font-size: 12px;
+            font-weight: 800;
+            padding: 8px 12px;
+            border-radius: 999px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+            white-space: nowrap;
+        }
+        .btn-share-action:active {
+            transform: scale(0.96);
+        }
+
+        .cta-open-account {
+            width: 100%;
+            max-width: 300px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            border: none;
+            padding: 10px 14px;
+            border-radius: 10px;
+            cursor: pointer;
+            background: linear-gradient(135deg, #0066FF 0%, #0071FF 38%, #00B4FF 100%);
+            color: #FFF;
+            font-size: 12px;
+            font-weight: 800;
+            box-shadow: 0 6px 22px rgba(0, 113, 255, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .cta-open-account::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -120%;
+            width: 80%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.28), transparent);
+            animation: ctaSweep 2.8s ease-in-out infinite;
+        }
+        @keyframes ctaSweep {
+            0% { left: -120%; }
+            55%, 100% { left: 140%; }
+        }
+        .cta-open-account:active {
+            transform: scale(0.98);
+            box-shadow: 0 4px 14px rgba(0, 113, 255, 0.35);
+        }
+        .cta-open-account-label {
+            position: relative;
+            z-index: 1;
+            display: block;
+            width: 100%;
+            font-size: 11px;
+            line-height: 1.3;
+            text-align: center;
+        }
+        .cta-open-account-badge {
+            position: relative;
+            z-index: 1;
+            display: inline-block;
+            width: auto;
+            max-width: 100%;
+            margin: 0 auto;
+            background: linear-gradient(135deg, #FFE082 0%, #FFB300 100%);
+            color: #5D4037;
+            font-size: 10px;
+            font-weight: 900;
+            padding: 3px 10px;
+            border-radius: 999px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            animation: badgeBlink 1.6s ease-in-out infinite;
+        }
+        @keyframes badgeBlink {
+            0%, 100% { transform: scale(1); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15); }
+            50% { transform: scale(1.06); box-shadow: 0 3px 12px rgba(255, 179, 0, 0.45); }
+        }
+
+        .fanshub-toast {
+            position: fixed;
+            left: 50%;
+            bottom: 88px;
+            transform: translateX(-50%) translateY(120%);
+            z-index: 12000;
+            max-width: min(92vw, 360px);
+            padding: 12px 16px;
+            border-radius: 12px;
+            background: rgba(26, 33, 45, 0.94);
+            color: #FFF;
+            font-size: 13px;
+            font-weight: 600;
+            line-height: 1.45;
+            text-align: center;
+            white-space: pre-line;
+            box-shadow: 0 10px 32px rgba(0, 0, 0, 0.28);
+            opacity: 0;
+            transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.35s ease;
+            pointer-events: none;
+        }
+        .fanshub-toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+        .fanshub-toast.success {
+            background: linear-gradient(135deg, rgba(0, 122, 51, 0.96), rgba(0, 200, 83, 0.92));
+        }
+        .fanshub-toast.error {
+            background: linear-gradient(135deg, rgba(198, 40, 40, 0.96), rgba(229, 57, 53, 0.92));
+        }
+        .fanshub-toast.info {
+            background: linear-gradient(135deg, rgba(0, 87, 184, 0.96), rgba(0, 113, 255, 0.92));
+        }
+
+        .flow-stepper {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 2px;
+            margin: 10px 0 4px;
+            padding: 10px 6px 8px;
+            background: #F7F9FC;
+            border: 1px solid #E1E8ED;
+            border-radius: 10px;
+        }
+        .flow-step {
+            flex: 1;
+            text-align: center;
+            position: relative;
+            min-width: 0;
+        }
+        .flow-step:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            top: 11px;
+            left: calc(50% + 14px);
+            right: calc(-50% + 14px);
+            height: 2px;
+            background: #D0D7DE;
+            z-index: 0;
+        }
+        .flow-step.done:not(:last-child)::after,
+        .flow-step.active:not(:last-child)::after {
+            background: linear-gradient(90deg, #00C853, #FFB300);
+        }
+        .flow-step .n {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #E8EEF3;
+            color: #657786;
+            font-size: 11px;
+            font-weight: 800;
+            position: relative;
+            z-index: 1;
+            margin-bottom: 4px;
+        }
+        .flow-step.done .n {
+            background: #00C853;
+            color: #FFF;
+        }
+        .flow-step.active .n {
+            background: #0071FF;
+            color: #FFF;
+            box-shadow: 0 0 0 3px rgba(0, 113, 255, 0.18);
+        }
+        .flow-step .t {
+            display: block;
+            font-size: 10px;
+            font-weight: 700;
+            color: #657786;
+            line-height: 1.2;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .flow-step.done .t,
+        .flow-step.active .t {
+            color: var(--text-main);
+        }
+
+        .bottom-action-bar {
+            display: none;
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 9000;
+            padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px));
+            background: rgba(255, 255, 255, 0.97);
+            border-top: 1px solid #E1E8ED;
+            box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.06);
+            backdrop-filter: blur(8px);
+            gap: 2px;
+        }
+        .bottom-action-bar.show { display: flex; }
+        .bottom-action-bar .tab-btn {
+            flex: 1;
+            border: none;
+            background: transparent;
+            border-radius: 10px;
+            padding: 8px 2px 6px;
+            font-size: 10px;
+            font-weight: 800;
+            cursor: pointer;
+            line-height: 1.15;
+            color: #90A4AE;
+        }
+        .bottom-action-bar .tab-btn .tab-ico {
+            display: block;
+            font-size: 16px;
+            margin-bottom: 2px;
+            line-height: 1;
+        }
+        .bottom-action-bar .tab-btn.active {
+            color: #0071FF;
+            background: rgba(0, 113, 255, 0.08);
+        }
+        .bottom-action-bar .tab-btn.tab-master.active { color: #E65100; background: rgba(255, 143, 0, 0.12); }
+        #mainDashboardView.has-bottom-bar {
+            padding-bottom: 78px;
+        }
+        .tab-page { display: none; animation: fadeSlideIn 0.28s ease; }
+        .tab-page.active { display: block; }
+        .page-hero-title {
+            font-size: 15px;
+            font-weight: 900;
+            color: var(--text-main);
+            margin: 0 0 12px;
+            letter-spacing: 0.2px;
+        }
+        .page-hero-sub {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin: -6px 0 14px;
+            line-height: 1.45;
+            font-weight: 600;
+        }
+        .home-quick-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 12px 0 4px;
+        }
+        .home-quick-btn {
+            border: none;
+            border-radius: 12px;
+            padding: 14px 12px;
+            text-align: left;
+            cursor: pointer;
+            font-weight: 800;
+            font-size: 13px;
+            color: #FFF;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+        }
+        .home-quick-btn span { display: block; font-size: 11px; opacity: 0.9; font-weight: 600; margin-top: 4px; }
+        .hq-exchange { background: linear-gradient(135deg, #FFB300, #FF6F00); color: #3E2723; }
+        .hq-claim { background: linear-gradient(135deg, #0071FF, #00C853); }
+        .hq-master { background: linear-gradient(135deg, #FF9100, #E65100); }
+        .hq-social { background: linear-gradient(135deg, #5C6BC0, #3949AB); }
+        .master-lock-card {
+            background: linear-gradient(135deg, #FFF3E0, #FFE0B2);
+            border: 1px solid rgba(255, 143, 0, 0.35);
+            border-radius: 14px;
+            padding: 18px 14px;
+            text-align: center;
+            margin-bottom: 12px;
+        }
+        .master-lock-card h3 { font-size: 16px; color: #E65100; margin-bottom: 8px; }
+        .master-lock-card p { font-size: 12px; color: #6D4C41; line-height: 1.55; font-weight: 600; }
+
+        .honor-ladder-card {
+            width: 100%;
+            margin-top: 12px;
+            border-radius: 12px;
+            padding: 14px 12px;
+            cursor: pointer;
+            background: linear-gradient(135deg, #FFF3E0 0%, #FFE0B2 45%, #FFCC80 100%);
+            border: 1px solid rgba(255, 143, 0, 0.35);
+            box-shadow: 0 4px 16px rgba(255, 143, 0, 0.18);
+            position: relative;
+            overflow: hidden;
+        }
+        .honor-ladder-title { font-size: 12px; font-weight: 800; color: #E65100; margin-bottom: 10px; }
+        .honor-ladder-track {
+            height: 8px;
+            background: rgba(255, 255, 255, 0.55);
+            border-radius: 999px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .honor-ladder-fill {
+            height: 100%;
+            width: 0;
+            background: linear-gradient(90deg, #FF9100, #FF3D00, #FFD600);
+            background-size: 200% 100%;
+            animation: honorFlow 2.5s linear infinite;
+            transition: width 0.45s ease;
+        }
+        @keyframes honorFlow { 0% { background-position: 0 0; } 100% { background-position: 200% 0; } }
+        .honor-ladder-nodes {
+            display: flex;
+            justify-content: space-between;
+            gap: 3px;
+            margin-bottom: 4px;
+        }
+        .honor-node {
+            flex: 1;
+            text-align: center;
+            font-size: 9px;
+            font-weight: 700;
+            color: #8D6E63;
+            line-height: 1.2;
+        }
+        .honor-node.reached { color: #E65100; }
+        .honor-node .chest {
+            font-size: 18px;
+            line-height: 1;
+            margin-bottom: 2px;
+            display: block;
+            filter: drop-shadow(0 0 4px rgba(255, 193, 7, 0.85));
+            animation: chestPulse 1.8s ease-in-out infinite;
+        }
+        .honor-node.reached .chest { animation-duration: 1.1s; }
+        @keyframes chestPulse {
+            0%, 100% { transform: scale(1); filter: drop-shadow(0 0 3px rgba(255, 193, 7, 0.6)); }
+            50% { transform: scale(1.12); filter: drop-shadow(0 0 8px rgba(255, 152, 0, 0.95)); }
+        }
+        .honor-node .dot {
+            width: 10px; height: 10px; border-radius: 50%;
+            background: #FFCC80; margin: 2px auto 3px;
+            border: 2px solid #FFF;
+        }
+        .honor-node.reached .dot { background: #FF6D00; box-shadow: 0 0 8px rgba(255, 109, 0, 0.5); }
+        .honor-node .reward {
+            display: block;
+            margin-top: 3px;
+            font-size: 8px;
+            font-weight: 800;
+            color: #C62828;
+            line-height: 1.25;
+            text-shadow: 0 0 1px rgba(255, 215, 0, 0.4);
+        }
+        .honor-node.reached .reward { color: #BF360C; }
+        .honor-ladder-hint { font-size: 11px; color: #BF360C; font-weight: 800; line-height: 1.45; }
+
+        .checkin-streak-bar {
+            height: 6px;
+            background: #F0F0F0;
+            border-radius: 999px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+        .checkin-streak-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #FFB300, #FF6D00);
+            transition: width 0.35s ease;
+        }
+        .checkin-streak-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        .checkin-ledger {
+            margin: 0 0 10px;
+            padding: 9px 10px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 800;
+            line-height: 1.55;
+            color: #BF360C;
+            background: linear-gradient(135deg, #FFF8E1 0%, #FFECB3 55%, #FFE082 100%);
+            border: 1px solid rgba(255, 109, 0, 0.45);
+            box-shadow: 0 0 0 1px rgba(255, 193, 7, 0.15);
+            animation: ledgerBlink 2.2s ease-in-out infinite;
+        }
+        @keyframes ledgerBlink {
+            0%, 100% { box-shadow: 0 0 0 1px rgba(255, 109, 0, 0.25), 0 0 6px rgba(255, 152, 0, 0.25); }
+            50% { box-shadow: 0 0 0 2px rgba(255, 61, 0, 0.45), 0 0 14px rgba(255, 61, 0, 0.35); }
+        }
+        .checkin-streak-frozen {
+            font-size: 11px;
+            color: var(--danger);
+            background: #FFEBEE;
+            border-radius: 8px;
+            padding: 8px 10px;
+            margin-bottom: 10px;
+            font-weight: 600;
+            line-height: 1.45;
+        }
+        .status-tag.master-tag {
+            background: linear-gradient(135deg, #7E57C2 0%, #5E35B1 100%);
+            color: #FFF;
+        }
+
+        .checkin-panel {
+            background: var(--bg-card);
+            border-radius: 14px;
+            padding: 14px;
+            margin-bottom: 15px;
+            border: 1px solid #E1E8ED;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+        }
+        .checkin-violent-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .checkin-pending-box {
+            font-size: 11px;
+            color: #E65100;
+            background: #FFF8E1;
+            border-radius: 8px;
+            padding: 8px 10px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        .btn-checkin-main {
+            width: 100%;
+            border: none;
+            padding: 13px 12px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 800;
+            cursor: pointer;
+            background: var(--gold-btn);
+            color: #3E2723;
+            box-shadow: 0 4px 14px rgba(255, 143, 0, 0.35);
+            transition: background 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, transform 0.15s ease;
+        }
+        .btn-checkin-main:disabled { opacity: 0.55; cursor: not-allowed; }
+        .btn-checkin-main.is-done {
+            background: linear-gradient(135deg, #00C853 0%, #009624 100%);
+            color: #FFFFFF;
+            box-shadow: 0 4px 14px rgba(0, 200, 83, 0.35);
+        }
+        .btn-checkin-main.is-done:active { transform: scale(0.98); }
+
+        .team-radar-panel {
+            background: var(--bg-card);
+            border-radius: 14px;
+            padding: 12px 14px;
+            margin-bottom: 15px;
+            border: 1px solid #E1E8ED;
+            max-height: 320px;
+            overflow-y: auto;
+        }
+        .team-radar-title { font-size: 13px; font-weight: 800; color: var(--accent); margin-bottom: 10px; }
+        .team-radar-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 10px 0;
+            border-bottom: 1px dashed #E8ECEF;
+            font-size: 11px;
+        }
+        .team-radar-row:last-child { border-bottom: none; }
+        .btn-urge {
+            flex: 0 0 auto;
+            border: none;
+            background: linear-gradient(135deg, #FF5252, #D32F2F);
+            color: #FFF;
+            font-size: 10px;
+            font-weight: 800;
+            padding: 6px 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .team-radar-done { color: var(--primary); font-weight: 700; font-size: 10px; }
+
+        .phase2-modal-mask {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.72);
+            z-index: 13000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .phase2-modal-mask.show { display: flex; }
+        .phase2-modal-box {
+            background: #FFF;
+            border-radius: 16px;
+            padding: 22px 18px;
+            max-width: 380px;
+            width: 100%;
+            max-height: 88vh;
+            overflow-y: auto;
+            text-align: center;
+        }
+        .phase2-modal-title { font-size: 17px; font-weight: 900; margin-bottom: 12px; color: var(--text-main); }
+        .phase2-modal-body { font-size: 12px; color: var(--text-muted); line-height: 1.65; text-align: left; white-space: pre-line; margin-bottom: 16px; }
+        .phase2-modal-actions { display: flex; flex-direction: column; gap: 8px; }
+        .phase2-modal-btn {
+            width: 100%;
+            border: none;
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 800;
+            cursor: pointer;
+        }
+        .phase2-modal-btn.primary { background: var(--accent); color: #FFF; }
+        .phase2-modal-btn.gold { background: var(--gold-btn); color: #3E2723; }
+        .phase2-modal-btn.muted { background: #F0F0F0; color: var(--text-muted); }
+
+        .user-panel { background-color: var(--bg-card); border-radius: 12px; padding: 8px 12px; margin-bottom: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); border: 1px solid #E1E8ED; display: flex; justify-content: center; }
+        .task-btn { width: 100%; background-color: #F8F9FA; color: var(--text-main); border: 1px solid #CCD6DD; border-radius: 10px; padding: 12px 5px; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; transition: background 0.15s ease; }
+        .task-btn:active { background-color: #E1E8ED; }
+        .match-card { background-color: var(--bg-card); border-radius: 14px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); border: 1px solid #E1E8ED; position: relative; margin-bottom: 15px; }
+        .match-tag { background-color: rgba(0, 113, 255, 0.08); color: var(--accent); font-size: 11px; padding: 5px 10px; border-radius: 6px; font-weight: 700; display: inline-block; margin-bottom: 12px; }
+        .match-title { font-size: 16px; font-weight: bold; margin-bottom: 12px; color: var(--text-main); letter-spacing: -0.3px; }
+        .teams-versus { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; gap: 12px; }
+        .team-option { flex: 1; background-color: #F8F9FA; border: 2px solid #E1E8ED; border-radius: 10px; padding: 14px 5px; cursor: pointer; text-align: center; transition: all 0.2s; color: var(--text-main); }
+        .team-option.selected { border-color: var(--primary); background-color: rgba(0, 200, 83, 0.03); color: var(--primary); font-weight: bold; box-shadow: 0 4px 10px rgba(0,200,83,0.1); }
+        .team-name { font-weight: 700; font-size: 14px; margin-bottom: 3px; }
+        .team-support { font-size: 11px; color: var(--text-muted); }
+        .chip-controller { background-color: #F8F9FA; border-radius: 10px; padding: 12px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border: 1px solid #E1E8ED; }
+        .chip-label { font-size: 13px; color: var(--text-muted); font-weight: 700; }
+        .counter-group { display: flex; align-items: center; gap: 6px; }
+        .btn-calc { width: 34px; height: 34px; background-color: #FFFFFF; border: 1px solid #CCD6DD; border-radius: 8px; color: var(--text-main); font-size: 20px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .btn-calc:active { background-color: #E1E8ED; }
+        .val-input { width: 45px; text-align: center; font-size: 17px; font-weight: bold; color: var(--text-main); background: transparent; border: none; font-family: monospace; }
+        .profit-hint { background-color: rgba(255, 145, 0, 0.04); border-radius: 10px; padding: 12px; text-align: left; font-size: 12px; color: var(--text-muted); border-left: 4px solid var(--secondary); margin-bottom: 18px; line-height: 1.6; }
+        .profit-highlight { color: var(--primary); font-weight: bold; font-size: 14px; }
+
+        .uid-section { display: none; margin-bottom: 18px; text-align: left; animation: fadeSlideIn 0.4s ease; }
+        .uid-section.visible { display: block; }
+        @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+        .uid-label { font-size: 13px; color: var(--accent); font-weight: bold; display: block; margin-bottom: 6px; }
+        .id-input-box { width: 100%; background: #F0F7FF; border: 2px solid var(--accent); border-radius: 8px; padding: 12px; color: #1A212D; font-size: 14px; font-weight: bold; text-align: center; letter-spacing: 1px; }
+        .id-input-box:focus { border-color: var(--primary); background: #FFF; }
+        .id-input-box:disabled { opacity: 0.85; cursor: not-allowed; }
+        .uid-status-hint { margin-top: 8px; font-size: 12px; line-height: 1.5; color: #64748B; text-align: center; }
+        .uid-status-hint.pending { color: #C2410C; }
+        .uid-status-hint.approved { color: #15803D; }
+        .uid-status-hint.rejected { color: #B91C1C; }
+        .uid-submit-row { margin-top: 10px; }
+        .btn-uid-submit { width: 100%; background: var(--accent); color: #fff; border: none; padding: 11px 12px; border-radius: 8px; font-size: 14px; font-weight: 800; cursor: pointer; letter-spacing: 0.3px; }
+        .btn-uid-submit:active { opacity: 0.92; transform: scale(0.98); }
+        .btn-uid-submit:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+        .cta-section { margin-bottom: 12px; }
+        .btn-golden-main { width: 100%; background: var(--gold-btn); color: #3E2723; border: none; padding: 11px 12px; border-radius: 10px; font-size: 14px; font-weight: 800; cursor: pointer; box-shadow: 0 3px 12px rgba(255, 143, 0, 0.35); letter-spacing: 0.3px; transition: transform 0.15s; }
+        .btn-golden-main:active { transform: scale(0.98); }
+        .btn-golden-main:disabled { opacity: 0.6; cursor: not-allowed; }
+        .cta-hint { text-align: center; font-size: 10px; color: var(--text-muted); margin-top: 6px; line-height: 1.5; }
+
+        .btn-manual-settle { width: 100%; background: linear-gradient(135deg, #5C6BC0 0%, #3949AB 100%); color: #FFF; border: none; padding: 10px 12px; border-radius: 10px; font-size: 13px; font-weight: bold; cursor: pointer; box-shadow: 0 3px 10px rgba(57, 73, 171, 0.3); margin-bottom: 15px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+        .btn-manual-settle .sub-label { font-size: 10px; opacity: 0.85; font-weight: normal; }
+        .btn-manual-settle:active { opacity: 0.9; }
+
+        .marquee-box { background-color: #E1E8ED; border-radius: 10px; padding: 10px 12px; margin-top: 15px; overflow: hidden; white-space: nowrap; font-size: 12px; color: var(--text-main); font-weight: 500; }
+        .marquee-content { display: inline-block; animation: scrollMarquee 25s linear infinite; }
+        .marquee-item { display: inline-block; margin-right: 40px; }
+        .marquee-item span { color: var(--danger); font-weight: bold; }
+        @keyframes scrollMarquee { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
+        
+        .comment-scroll-box { max-height: 250px; overflow-y: scroll; display: flex; flex-direction: column; gap: 10px; font-size: 12px; padding-right: 5px; -webkit-overflow-scrolling: touch; }
+        .leaderboard-list { font-size: 13px; }
+        .leaderboard-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px dashed #E1E8ED; }
+        .leaderboard-item:last-child { border-bottom: none; }
+        .leaderboard-rank { width: 28px; font-weight: 900; color: var(--accent); display: inline-block; }
+        .leaderboard-count { color: var(--primary); font-weight: bold; }
+        .comment-item { border-bottom: 1px solid #E1E8ED; padding-bottom: 8px; text-align: left; }
+        .comment-user { font-weight: bold; color: var(--accent); margin-bottom: 2px; display: flex; justify-content: space-between; }
+        .comment-time { color: var(--text-muted); font-size: 11px; font-weight: normal; }
+        
+        .modal-mask { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.65); z-index: 1000; align-items: center; justify-content: center; padding: 20px; }
+        .modal-box { background: #FFF; border-radius: 16px; padding: 24px 20px; max-width: 380px; width: 100%; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.2); max-height: 90vh; overflow-y: auto; }
+        .modal-title { font-size: 17px; font-weight: 900; color: var(--text-main); margin-bottom: 12px; }
+        .modal-money { font-size: 32px; font-weight: 900; color: var(--secondary); font-family: "Impact", sans-serif; margin: 8px 0 16px; }
+        .modal-desc { font-size: 12px; color: var(--text-muted); line-height: 1.6; text-align: left; margin-bottom: 16px; }
+        .secret-code-box { background: #F8F9FA; border: 2px dashed var(--accent); border-radius: 10px; padding: 14px 10px; font-family: monospace; font-size: 13px; font-weight: bold; color: var(--accent); word-break: break-all; cursor: pointer; margin-bottom: 10px; }
+        .secret-timer { font-size: 12px; color: var(--danger); font-weight: bold; margin-bottom: 14px; }
+        .secret-timer span { font-family: monospace; font-size: 14px; }
+        .cs-step-card { background: rgba(0, 113, 255, 0.05); border: 1px solid rgba(0, 113, 255, 0.15); border-radius: 10px; padding: 14px; text-align: left; margin-bottom: 14px; }
+        .cs-step-card .step-num { display: inline-block; background: var(--accent); color: #FFF; width: 20px; height: 20px; border-radius: 50%; text-align: center; line-height: 20px; font-size: 11px; font-weight: bold; margin-right: 6px; }
+        .cs-step-card p { font-size: 12px; color: var(--text-main); line-height: 1.6; margin-bottom: 8px; }
+        .cs-step-card p:last-child { margin-bottom: 0; }
+        .modal-action-btn { width: 100%; border: none; padding: 14px; border-radius: 10px; font-size: 14px; font-weight: bold; cursor: pointer; margin-bottom: 8px; }
+        .modal-action-btn.primary { background: var(--accent); color: #FFF; }
+        .modal-action-btn.gold { background: var(--gold-btn); color: #3E2723; }
+        .modal-action-btn.secondary { background: #F0F0F0; color: var(--text-muted); }
+        .modal-action-btn.success { background: var(--primary); color: #FFF; }
+        .modal-close-btn { width: 100%; background: #F0F0F0; color: var(--text-muted); border: none; padding: 12px; border-radius: 10px; font-size: 13px; cursor: pointer; }
+        .block-icon { font-size: 48px; margin-bottom: 10px; }
+        .progress-bar-wrap { background: #E1E8ED; border-radius: 8px; height: 10px; margin: 12px 0; overflow: hidden; }
+        .progress-bar-fill { background: linear-gradient(90deg, var(--primary), var(--secondary)); height: 100%; border-radius: 8px; transition: width 0.5s; }
+
+        /* ===== 顶部横排悬浮头 ===== */
+        .floating-top-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: var(--top-bar-height);
+            z-index: 1100;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 12px;
+            background: color-mix(in srgb, var(--bg-card) 94%, transparent);
+            border-bottom: 1px solid color-mix(in srgb, var(--text-muted) 18%, transparent);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+            transition: border-color .15s ease, box-shadow .15s ease;
+        }
+        .floating-top-bar.skin-changed {
+            border-bottom-color: color-mix(in srgb, var(--primary) 50%, transparent);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08),
+                        0 2px 0 color-mix(in srgb, var(--primary) 35%, transparent);
+        }
+        .top-bar-brand {
+            font-size: 15px;
+            font-weight: 900;
+            color: var(--accent);
+            font-family: "Impact", sans-serif;
+            letter-spacing: -0.3px;
+            white-space: nowrap;
+        }
+        .skin-dropdown-wrap {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 8px;
+            flex: 0 0 auto;
+            padding: 0;
+            border: none;
+            background: transparent;
+            box-shadow: none;
+        }
+        .skin-dropdown-label {
+            display: block;
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 900;
+            margin-bottom: 0;
+            white-space: nowrap;
+        }
+        .skin-dropdown {
+            width: 132px;
+            appearance: none;
+            -webkit-appearance: none;
+            background: color-mix(in srgb, var(--bg-main) 6%, var(--bg-card) 94%);
+            color: var(--text-main);
+            border: 1px solid color-mix(in srgb, var(--text-muted) 26%, transparent);
+            border-radius: 10px;
+            padding: 6px 28px 6px 10px;
+            font-size: 12px;
+            font-weight: 900;
+            cursor: pointer;
+            outline: none;
+            background-image:
+                linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
+                linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+            background-position:
+                calc(100% - 16px) calc(50% + 1px),
+                calc(100% - 11px) calc(50% + 1px);
+            background-size: 5px 5px, 5px 5px;
+            background-repeat: no-repeat;
+            transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+        }
+        .skin-dropdown:hover {
+            border-color: color-mix(in srgb, var(--primary) 28%, transparent);
+            background: color-mix(in srgb, var(--bg-main) 2%, var(--bg-card) 98%);
+        }
+        .skin-dropdown:focus-visible {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 28%, transparent);
+        }
+        .skin-dropdown option { color: var(--text-main); }
+
+        .top-bar-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 0 0 auto;
+        }
+        .lang-dropdown-wrap {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .lang-dropdown {
+            width: 96px;
+            appearance: none;
+            -webkit-appearance: none;
+            background: color-mix(in srgb, var(--bg-main) 6%, var(--bg-card) 94%);
+            color: var(--text-main);
+            border: 1px solid color-mix(in srgb, var(--text-muted) 26%, transparent);
+            border-radius: 10px;
+            padding: 6px 24px 6px 8px;
+            font-size: 11px;
+            font-weight: 800;
+            cursor: pointer;
+            background-image:
+                linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
+                linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+            background-position:
+                calc(100% - 14px) calc(50% + 1px),
+                calc(100% - 9px) calc(50% + 1px);
+            background-size: 5px 5px, 5px 5px;
+            background-repeat: no-repeat;
+        }
+        .phone-row {
+            display: flex;
+            gap: 8px;
+            align-items: stretch;
+        }
+        .country-select {
+            flex: 0 0 118px;
+            width: 118px;
+            padding: 12px 6px;
+            border: 1px solid #CCD6DD;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: bold;
+            color: var(--text-main);
+            background: #F8F9FA;
+        }
+        .phone-row .login-input {
+            flex: 1;
+            min-width: 0;
+        }
+
+        @media (max-width: 480px) {
+            :root { --top-bar-height: 40px; }
+            .top-bar-brand { font-size: 14px; }
+            .skin-dropdown-label { font-size: 10px; }
+            .skin-dropdown {
+                width: 108px;
+                padding: 5px 24px 5px 8px;
+                font-size: 11px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="fanshubTestBadge" style="position:fixed;left:8px;bottom:78px;z-index:99999;background:rgba(69,90,100,.92);color:#fff;font-size:11px;font-weight:800;padding:6px 10px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.25);pointer-events:none;">历史版 /fanshubtest · 正式入口 /888/</div>
+    <header class="floating-top-bar" id="floatingTopBar" data-copy-aria="aria_top_bar" aria-label="顶部工具栏">
+        <div class="top-bar-brand" data-copy="brand_name">555.bio</div>
+        <div class="top-bar-actions">
+            <div class="lang-dropdown-wrap">
+                <select id="localeSelect" class="lang-dropdown" data-copy-aria="aria_lang_select" aria-label="选择语言"></select>
+            </div>
+            <div class="skin-dropdown-wrap" data-copy-aria="aria_skin_wrap" aria-label="一键换肤">
+                <label class="skin-dropdown-label" for="skinSelect" data-copy="skin_label">换肤</label>
+                <select id="skinSelect" class="skin-dropdown" data-copy-aria="aria_skin_select" aria-label="选择皮肤">
+                <option value="default">默认</option>
+                <option value="a">激情中国红</option>
+                <option value="b">皇家高级蓝</option>
+                <option value="d">科技冷银灰</option>
+            </select>
+            </div>
+        </div>
+    </header>
+
+    <div class="page-view active" id="loginView">
+        <div class="login-wrapper">
+            <div class="login-logo" data-copy="brand_name">555.bio</div>
+            <div class="login-subtitle" data-copy="login_subtitle">🛡️ 官方福利通道激活：请输您的手机号码</div>
+            
+            <div class="input-group">
+                <label class="input-label" data-copy="login_phone_label">📱 散户特权登记：请输入您的手机号码</label>
+                <div class="phone-row">
+                    <select id="countrySelect" class="country-select" data-copy-aria="aria_country_select" aria-label="选择国家区号"></select>
+                    <input type="tel" id="loginPhone" class="login-input" data-copy-placeholder="login_phone_placeholder" placeholder="请输入11位中国大陆手机号" maxlength="11" inputmode="numeric">
+                </div>
+            </div>
+            
+            <div class="input-group">
+                <label class="input-label" data-copy="login_captcha_label">🔑 动态安全验校</label>
+                <input type="number" id="loginCaptcha" class="login-input" data-copy-placeholder="login_captcha_placeholder" placeholder="请输入短信验证码" maxlength="6">
+                <button class="captcha-btn" id="captchaBtn" onclick="sendMockCaptcha()" data-copy="login_captcha_btn">获取验证码</button>
+            </div>
+            
+            <button class="btn-login-submit" id="loginSubmitBtn" onclick="submitLogin()" data-copy="login_submit_btn">进入官方福利大厅 ｜ 瓜分888888彩金</button>
+        </div>
+    </div>
+
+    <div class="page-view" id="mainDashboardView">
+
+        <!-- 1. 大厅 / 资产 -->
+        <div class="tab-page active" id="tabHome" data-tab="home">
+            <div class="jackpot-container">
+                <div class="jackpot-label" data-copy="jackpot_label">📊 555.bio 全网生态实时大屏</div>
+                <div class="jackpot-meta" id="jackpotPartners">📈 当前全网股份人数：8,000 人 ( 🚀 今日暴涨 +0 人 )</div>
+                <div class="jackpot-pool-label" id="jackpotPoolLabel" data-copy="jackpot_pool_label">💰 平台已累计为合伙人创造价值</div>
+                <div class="jackpot-val" id="jackpotNum">￥888,888.00</div>
+                <div class="jackpot-price-line" id="jackpotSharePrice">💎 今日大盘实时持仓行权价：￥5.00 / 份 ( 🔥 较昨日大盘拉升 +0% )</div>
+                <div class="jackpot-hint-line" id="jackpotHint" data-copy="jackpot_hint">💡 等额闪兑销毁股份 · 累计价值只涨不跌 · 股价由达标转化人数驱动</div>
+            </div>
+
+            <div class="header-panel">
+                <div class="assets-grid">
+                    <div class="asset-card asset-card-rights">
+                        <div class="asset-label" data-copy="asset_rights_label">持有资产 (未清算)</div>
+                        <div class="asset-value asset-value-gold"><span id="myTicketPool">5.00</span> <span class="asset-unit" data-copy="asset_rights_unit">份</span></div>
+                        <div class="asset-valuation-hint" id="rightsValuationHint"></div>
+                    </div>
+                    <div class="asset-card asset-card-balance">
+                        <div class="asset-label" data-copy="asset_balance_label">红利可提现余额</div>
+                        <div class="asset-value asset-value-green">
+                            <span class="asset-currency" id="balanceCurrencySym">￥</span><span id="myUserBalance">0.00</span>
+                        </div>
+                        <div class="asset-progress-wrap">
+                            <div class="asset-progress-bar"><div class="asset-progress-fill" id="balanceProgressFill"></div></div>
+                            <div class="asset-progress-hint" id="balanceProgressHint">已达提现门槛的 0%</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="user-info">
+                    <div class="user-id">资产账户状态: <span id="displayBindPhone">138****8888</span> <span id="userStatusTag">密匙防护已开启</span></div>
+                    <div id="userRank" class="status-tag" data-copy="user_rank_default">特权确权账户</div>
+                </div>
+                <div class="flow-stepper" id="flowStepper" aria-label="福利进度">
+                    <div class="flow-step done" data-step="1"><span class="n">1</span><span class="t" data-copy="stepper_1">入厅</span></div>
+                    <div class="flow-step" data-step="2"><span class="n">2</span><span class="t" data-copy="stepper_2">开户</span></div>
+                    <div class="flow-step" data-step="3"><span class="n">3</span><span class="t" data-copy="stepper_3">闪兑</span></div>
+                    <div class="flow-step" data-step="4"><span class="n">4</span><span class="t" data-copy="stepper_4">账号</span></div>
+                    <div class="flow-step" data-step="5"><span class="n">5</span><span class="t" data-copy="stepper_5">领取</span></div>
+                </div>
+                <div id="newbiePromoBlock">
+                    <div class="share-promo-card" id="sharePromoCard" role="button" tabindex="0" onclick="copyShareLink()">
+                        <div class="share-promo-glow"></div>
+                        <div class="share-promo-inner single-line">
+                            <span class="share-promo-text" id="sharePromoText" data-copy="share_promo_btn">📢 邀请 1 人开户 ➡️ 额外送 1 份股 (多邀多得)</span>
+                            <button type="button" class="btn-share-action" id="sharePromoActionBtn" data-copy="share_promo_action_btn" onclick="event.stopPropagation(); copyShareLink();">点击立即分享</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="user-panel" id="newbieOpenPanel">
+                <button type="button" class="cta-open-account" id="openAccountBtn" onclick="goToMainStation()">
+                    <span class="cta-open-account-label" id="openAccountBtnLabel">💳 没有账号？点击 [555.bio官方极速开户]</span>
+                    <span class="cta-open-account-badge" id="openAccountBadge">立送 2 份大盘股。</span>
+                </button>
+            </div>
+
+            <div class="home-quick-grid">
+                <button type="button" class="home-quick-btn hq-exchange" onclick="switchTab('exchange')">⚡ 去闪兑<span>股份秒变红利余额</span></button>
+                <button type="button" class="home-quick-btn hq-claim" onclick="switchTab('claim')">🏦 去领取<span>VIP 核销上分通道</span></button>
+                <button type="button" class="home-quick-btn hq-master" onclick="switchTab('master')">👑 团长大厅<span>天梯 + 7天星火暴击</span></button>
+                <button type="button" class="home-quick-btn hq-social" onclick="switchTab('social')">💬 互动大厅<span>排行榜 · 实时留言</span></button>
+            </div>
+
+            <div class="marquee-box" style="margin-top:14px;">
+                <div class="marquee-content" id="marqueeNode"></div>
+            </div>
+        </div>
+
+        <!-- 2. 闪兑 -->
+        <div class="tab-page" id="tabExchange" data-tab="exchange">
+            <div class="page-hero-title">⚡ VIP 闪兑大厅</div>
+            <div class="page-hero-sub">选通道 · 调股数 · 一行看清到账金额，专注冲余额门槛</div>
+            <div class="match-card">
+                <div class="match-tag" data-copy="exchange_tag">💎 核心模块：官方直营 VIP 福利派发大厅</div>
+                <div class="match-title" data-copy="exchange_title">请选择您本次福利向主站充值划转的专属通道：</div>
+                <div class="teams-versus">
+                    <div class="team-option selected" id="optTeamA" data-channel="a" onclick="selectTeam('a')">
+                        <div class="team-name" data-copy="channel_a_name">通道一：极速秒到免审通道</div>
+                        <div class="team-support" data-copy="channel_a_desc">内网自动通过率 54%</div>
+                    </div>
+                    <div class="team-option" id="optTeamB" data-channel="b" onclick="selectTeam('b')">
+                        <div class="team-name" data-copy="channel_b_name">通道二：VIP防护加款通道</div>
+                        <div class="team-support" data-copy="channel_b_desc">人工特批核准率 46%</div>
+                    </div>
+                </div>
+                <div class="chip-controller">
+                    <div class="chip-label" data-copy="exchange_chip_label">本次申请兑换行使的股份数</div>
+                    <div class="counter-group">
+                        <button class="btn-calc" onclick="adjustCount(-1)">-</button>
+                        <input type="number" id="ticketCount" class="val-input" value="1" readonly>
+                        <button class="btn-calc" onclick="adjustCount(1)">+</button>
+                    </div>
+                </div>
+                <div class="profit-hint" id="profitHintBox" data-copy-html="1" data-copy="exchange_profit_hint">
+                    💡 当前股份单价与大屏一致：<span style="color:#1A212D; font-weight:bold;" id="exchangeUnitPrice">￥5.00</span> / 份。<br>
+                    行权后，您投入的 <span id="hintTickets" style="color:#1A212D; font-weight:bold;">1</span> 股，将按单价 100% 闪兑为：<br>
+                    <span class="profit-highlight" id="hintProfit">￥5.00 元内部红利余额</span>
+                </div>
+            </div>
+            <div class="cta-section">
+                <button class="btn-golden-main" id="btnGoldenMain" onclick="handleGoldenCashOut()" data-copy="exchange_btn_template">⚡ 立即闪兑 1 股 · 开启黄金领取通道</button>
+                <div class="cta-hint" id="ctaHint" data-copy-html="1" data-copy="exchange_cta_hint">官方直营送福利 · 点击后将<strong>本次选定股数</strong>闪兑为可领取余额 · 满 ￥50 即可发起 VIP 特批领取</div>
+            </div>
+        </div>
+
+        <!-- 3. 领取 -->
+        <div class="tab-page" id="tabClaim" data-tab="claim">
+            <div class="page-hero-title">🏦 VIP 特批领取</div>
+            <div class="page-hero-sub">回填现金站游戏账号 → 提交核销 → 生成密令联系客服上分</div>
+            <div class="header-panel" style="margin-bottom:12px;">
+                <div class="assets-grid">
+                    <div class="asset-card asset-card-balance" style="grid-column:1 / -1;">
+                        <div class="asset-label">当前可领取红利余额</div>
+                        <div class="asset-value asset-value-green">
+                            <span class="asset-currency">￥</span><span id="claimBalanceEcho">0.00</span>
+                        </div>
+                        <div class="asset-progress-hint" id="claimProgressHint" style="margin-top:8px;">满 ￥50 可发起 VIP 特批领取</div>
+                    </div>
+                </div>
+            </div>
+            <div class="match-card" style="padding:15px;">
+                <div class="uid-section visible" id="uidSection">
+                    <label class="uid-label" data-copy="uid_label">🔑 第一步：请输入您在555.bio现金站注册成功的账号</label>
+                    <input type="text" id="mainStationID" class="id-input-box" maxlength="32" autocomplete="off" data-copy-placeholder="uid_placeholder" placeholder="例如：555bio（必须使用同手机号注册），否则小妹无法在后台核销上分" oninput="onUidInput()">
+                    <div class="uid-submit-row">
+                        <button type="button" class="btn-uid-submit" id="btnUidSubmit" onclick="submitUID()" data-copy="uid_submit_btn">提交账号审核</button>
+                    </div>
+                    <div class="uid-status-hint" id="uidStatusHint" data-copy="uid_hint_idle">请填写游戏账号（数字或英文数字组合均可），提交后由客服后台核销上分</div>
+                </div>
+            </div>
+            <button class="btn-manual-settle" id="btnManualSettle" onclick="openWithdrawModal()">
+                <span id="manualSettleTitle" data-copy="settle_title_low">🏦 申请 VIP 人工加急特批绿通</span>
+                <span class="sub-label" id="manualSettleSub" data-copy="settle_sub_low">金额不足时也可提前联系专属客服协助凑数</span>
+            </button>
+        </div>
+
+        <!-- 4. 团长二期 -->
+        <div class="tab-page" id="tabMaster" data-tab="master">
+            <div class="page-hero-title">👑 团长专属 · 二期大厅</div>
+            <div class="page-hero-sub">荣誉天梯明牌奖励 · 7天星火暴击终极账本 · 战队催活雷达</div>
+            <div id="masterLockCard" class="master-lock-card" style="display:none;">
+                <h3>🔒 团长通道待解锁</h3>
+                <p>完成首笔 VIP 福利核销后，将开放：荣誉天梯宝箱、7天星火暴击（￥175 核爆总池）、战队催活雷达。先去「领取」页冲刺门槛吧！</p>
+                <button type="button" class="btn-uid-submit" style="margin-top:12px;" onclick="switchTab('claim')">前往领取页</button>
+            </div>
+            <div id="masterHonorBlock" style="display:none;">
+                <div class="honor-ladder-card" id="honorLadderCard" role="button" tabindex="0" onclick="copySharePromoOnly()">
+                    <div class="honor-ladder-title" data-copy="phase2_honor_title">🏅 长期荣誉团长天梯</div>
+                    <div class="honor-ladder-nodes" id="honorLadderNodes"></div>
+                    <div class="honor-ladder-track"><div class="honor-ladder-fill" id="honorLadderFill"></div></div>
+                    <div class="honor-ladder-hint" id="honorLadderHint">加载中...</div>
+                </div>
+            </div>
+            <div id="masterPhase2Block" style="display:none;">
+                <div class="checkin-panel">
+                    <div class="checkin-streak-label" id="checkinStreakLabel">🔥 7天星火暴击：连续 0 / 7 天</div>
+                    <div class="checkin-streak-bar"><div class="checkin-streak-fill" id="checkinStreakFill" style="width:0%"></div></div>
+                    <div class="checkin-ledger" id="checkinLedgerHint" data-copy="phase2_checkin_ledger">🔥 终极账本：今日已锁0天。连续暴力打卡满7天，终极触发5倍核爆总池，直接保底到账 ￥175.00 元筹码秒提现！由于断签会导致大奖降级、直接损失 ￥140.00 元，请务必每天保持发群不中断！</div>
+                    <div class="checkin-streak-frozen" id="checkinStreakFrozen" style="display:none;"></div>
+                    <div class="checkin-violent-row">
+                        <input type="checkbox" id="checkinViolentToggle" checked>
+                        <label for="checkinViolentToggle" id="checkinViolentLabel">激活【5倍暴力分享签到】（今日最高 ￥5.00）</label>
+                    </div>
+                    <div class="checkin-pending-box" id="checkinPendingBox" style="display:none;"></div>
+                    <button type="button" class="btn-checkin-main" id="btnCheckinMain" onclick="handleCheckinClick()">🔘 立即执行 [暴力分享签到]</button>
+                </div>
+                <div class="team-radar-panel">
+                    <div class="team-radar-title" data-copy="phase2_radar_title">📡 战队催活雷达 · 实时列表</div>
+                    <div id="teamRadarList"><div style="font-size:12px;color:var(--text-muted);">加载中...</div></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. 互动 -->
+        <div class="tab-page" id="tabSocial" data-tab="social">
+            <div class="page-hero-title">💬 互动大厅</div>
+            <div class="page-hero-sub">看排行 · 刷视频文 · 蹭气氛，专注拉新与晒单</div>
+            <div class="match-card" style="margin-top: 0; padding: 15px; text-align: left;">
+                <h4 style="font-size: 14px; margin-bottom: 10px; color: var(--secondary);" data-copy="leaderboard_title">🏆 邀请裂变排行榜 TOP10</h4>
+                <div class="leaderboard-list" id="leaderboardList">
+                    <div class="text-muted" style="font-size:12px;" data-copy="leaderboard_loading">加载中...</div>
+                </div>
+            </div>
+            <div class="match-card" style="margin-top: 15px; padding: 15px; text-align: left;">
+                <h4 style="font-size: 14px; margin-bottom: 10px; color: var(--accent);" id="commentHallTitle" data-copy="comment_title">💬 实时福利交互大厅 (全网 8,000 名真实会员在线)</h4>
+                <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                    <input type="text" id="userCommentInput" data-copy-placeholder="comment_placeholder" placeholder="分享几个群就能凑满50，加客服App直接人工加款，今晚稳稳拿去冲..." style="flex: 1; background: #F8F9FA; border: 1px solid #CCD6DD; border-radius: 6px; padding: 8px 12px; color: #1A212D; font-size: 13px;">
+                    <button id="commentSubmitBtn" style="padding: 8px 15px; font-size: 13px; background: var(--accent); color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold;" onclick="submitComment()" data-copy="comment_submit_btn">发表</button>
+                </div>
+                <div class="comment-scroll-box" id="commentScrollBox" onscroll="handleCommentScroll()"></div>
+                <div style="text-align:center; font-size:11px; color:var(--text-muted); margin-top:8px;" data-copy="comment_scroll_hint">🔽 已加载最新实时福利战报，向上滑动查看更多历史记录</div>
+            </div>
+            <div style="margin-top: 25px; padding: 10px; font-size: 10px; color: #657786; text-align: center; line-height: 1.6;">
+                <p data-copy="footer_line1">📊 本平台性质为【555.bio 官方活跃粉丝度模拟福利推广营销互动调查大厅】</p>
+                <p data-copy="footer_line2">安全承诺：全盘无资金充值入口。所有股份及瓜分红利均属于用户活跃度内部福利。领取红利统一由官方 VIP 福利中心人工核准，并采用安全方式精准充值至您的 555.bio 主站账户中。活动最终解释权归 555.bio 官方所有。</p>
+                <p data-copy="footer_line3">© 2026 555.bio Open-Marketing Platform. 服务协议 | 合规声明</p>
+            </div>
+        </div>
+    </div>
+
+<!-- 凑数阻断弹窗：金额不足 50 元 -->
+    <div class="modal-mask" id="thresholdBlockModal">
+        <div class="modal-box">
+            <div class="block-icon">🎯</div>
+            <div class="modal-title" data-copy="threshold_modal_title">还差一步即可解锁领取！</div>
+            <div class="modal-desc" id="thresholdModalDesc" data-copy-html="1" data-copy="threshold_modal_desc">
+                您的闪兑余额为 <strong style="color:var(--secondary);">￥<span id="blockCurrentAmt">0.00</span></strong>，
+                距官方福利起领门槛 <strong>￥50.00</strong> 还差 <strong style="color:var(--danger);">￥<span id="blockShortAmt">0.00</span></strong>。
+                <div class="progress-bar-wrap"><div class="progress-bar-fill" id="blockProgressBar" style="width:0%"></div></div>
+                为保障您的专属配额不被释放，请尽快完成主站开户或邀请好友占位凑数！
+            </div>
+            <button class="modal-action-btn success" id="thresholdOpenBtn" onclick="goToMainStationFromBlock()" data-copy="threshold_modal_btn_open">💳 立即前往 555.bio 官方主站开户（送 2 股）</button>
+            <button class="modal-action-btn secondary" onclick="closeThresholdBlockModal()" data-copy="threshold_modal_btn_later">稍后再说，继续攒股份</button>
+        </div>
+    </div>
+
+    <!-- 福利派发 / 客服引流弹窗 -->
+    <div class="modal-mask" id="withdrawModal">
+        <div class="modal-box">
+            <div class="modal-title" id="withdrawModalTitle" data-copy="withdraw_title_default">🔒 官方 VIP 福利派发中心</div>
+            <div style="font-size:12px; color:var(--text-muted);" data-copy="withdraw_amount_label">当前待领取福利总金额</div>
+            <div class="modal-money" id="modalBalanceWrap">￥0.00</div>
+            
+            <div style="font-size:12px; color:var(--accent); font-weight:bold; margin-bottom:6px;" data-copy="withdraw_secret_label">🔐 您的专属密令（请点击复制）</div>
+            <div class="secret-code-box" id="billCodeText" onclick="copySecretCode()" data-copy="withdraw_secret_loading">FH-LOADING</div>
+            <div class="secret-timer"><span data-copy="withdraw_secret_timer">⏳ 专属密令安全锁定剩余：</span><span id="secretCountdown">15:00</span></div>
+
+            <div class="cs-step-card">
+                <p data-copy-html="1" data-copy="withdraw_step1"><span class="step-num">1</span>点击下方按钮，一键复制密令并跳转<strong>官方在线客服</strong></p>
+                <p data-copy-html="1" data-copy="withdraw_step2"><span class="step-num">2</span>将密令发送给在线客服小妹，获取<strong>官方安全聊天 App</strong>下载指引</p>
+                <p data-copy-html="1" data-copy="withdraw_step3"><span class="step-num">3</span>下载并添加官方 App 后，客服将为您完成主站账号充值（保障资金与账号绝对安全）</p>
+            </div>
+            
+            <button class="modal-action-btn primary" id="btnJumpCS" onclick="jumpToCustomerService()" data-copy="withdraw_btn_cs">💬 一键复制密令 · 匹配专属客服</button>
+            <button class="modal-action-btn gold" id="withdrawAppBtn" onclick="copyText(CONFIG.APP_DOWNLOAD_URL, fc('withdraw_app_copy_ok'))" data-copy="withdraw_btn_app">📥 下载官方安全聊天 App</button>
+            <button class="modal-close-btn" onclick="closeWithdrawModal()" data-copy="withdraw_btn_close">返回继续攒股份</button>
+        </div>
+    </div>
+
+    <div class="slider-modal" id="sliderCaptchaModal" onclick="if(event.target===this)closeSliderCaptcha()">
+        <div class="slider-box" onclick="event.stopPropagation()">
+            <div class="slider-box-hd">
+                <div class="slider-box-title" data-copy="slider_modal_title">安全验证</div>
+            </div>
+            <div class="slider-box-hint" id="sliderModalHint" data-copy="slider_modal_hint">请按住滑块，拖动到最右侧</div>
+            <div class="slider-track" id="sliderTrack">
+                <div class="slider-track-fill" id="sliderTrackFill"></div>
+                <div class="slider-track-hint" id="sliderTrackHint" data-copy="slider_track_hint">拖动滑块到右侧 →</div>
+                <div class="slider-thumb" id="sliderThumb">»</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="i18n/countries.js"></script>
+    <script src="i18n/manager.js"></script>
+    <script src="i18n/locales.bundle.js"></script>
+    <script src="copy.defaults.js"></script>
+<script>
+        const API_BASE = '';
+        const CONFIG = { 
+            MAX_VOTE_PERCENT: 1,
+            SINGLE_TICKET_VALUE: 5.00,
+            SHARE_PRICE_BASE: 5.00,
+            SHARE_PRICE_MAX: 7.00,
+            SEED_TOTAL_SHARES: 177777.6,
+            MARKET_VIRTUAL_BASE: 8000,
+            WITHDRAW_THRESHOLD: 50.00,
+            CUSTOMER_SERVICE_URL: '',
+            APP_DOWNLOAD_URL: 'https://your-app.com',
+            MAIN_STATION_URL: 'https://555.bio',
+            SECRET_LOCK_SECONDS: 900,
+            JACKPOT_AUTO_GROW: true,
+            JACKPOT_SERVER_SYNC: true,
+            JACKPOT_GROW_MIN: 15,
+            JACKPOT_GROW_MAX: 23,
+            SMS_SLIDER_ENABLED: true,
+            SMS_SEND_INTERVAL: 60
+        };
+        const SMS_COOLDOWN_KEY = 'fanshub_sms_cooldown';
+        let smsCooldownTimer = null;
+        let jackpotPollTimer = null;
+        let jackpotLocalTimer = null;
+        let fissionMarketTimer = null;
+        let fissionUserCount = 0;
+        let partnerTodayUp = 0;
+        let priceUpPct = 0;
+        let currentSharePrice = 5;
+        let lotteryOpening = false;
+        let lotteryFinalAmount = null;
+        const LOTTERY_VAL_KEY = 'fans_hub_lottery_val';
+        const LOTTERY_DONE_KEY = 'fans_hub_lottery_done';
+        const FISSON_COUNT_KEY = 'fans_hub_fission_count';
+        const SHARE_PRICE_KEY = 'fans_hub_share_price';
+        const LOTTERY_SHARES = 5;
+        let COPY = window.FANSHUB_COPY_DEFAULTS || {};
+        let COPY_VARS = buildCopyVars({});
+
+        function buildCopyVars(cfg) {
+            var currency = (window.FanshubI18n && FanshubI18n.currencySymbol()) || '￥';
+            var price = (typeof getSharePrice === 'function') ? getSharePrice() : (CONFIG.SINGLE_TICKET_VALUE || 5);
+            var partners = fissionUserCount || (cfg && cfg.partner_count) || 8000;
+            var seedShares = (cfg && cfg.seed_total_shares !== undefined) ? cfg.seed_total_shares : (CONFIG.SEED_TOTAL_SHARES || 177777.6);
+            var avg = partners > 0 ? (seedShares / partners) : 0;
+            return {
+                threshold: (CONFIG.WITHDRAW_THRESHOLD || 50).toFixed(2),
+                ticket_value: Number(price).toFixed(2),
+                current_share_price: Number(price).toFixed(2),
+                partner_count: formatCountNum(partners),
+                fission_user_count: formatCountNum(partners),
+                partner_today_up: formatCountNum(partnerTodayUp || (cfg && cfg.partner_today_up) || 0),
+                price_up_pct: (priceUpPct || (cfg && cfg.price_up_pct) || 0).toFixed ? Number(priceUpPct || (cfg && cfg.price_up_pct) || 0).toFixed(1) : '0.0',
+                seed_total_shares: Number(seedShares).toLocaleString('en-US', { maximumFractionDigits: 1 }),
+                avg_shares: avg.toFixed(1),
+                register_rights: cfg && cfg.register_rights !== undefined ? cfg.register_rights : 5,
+                open_account_rights: cfg && cfg.open_account_rights !== undefined ? cfg.open_account_rights : 2,
+                share_rights: cfg && cfg.share_rights !== undefined ? cfg.share_rights : 1,
+                percent: Math.round((CONFIG.MAX_VOTE_PERCENT || 1) * 100) + '%',
+                currency: currency,
+            };
+        }
+
+        function fc(key, extra) {
+            let tpl = '';
+            if (window.FanshubI18n) {
+                tpl = FanshubI18n.text(key, COPY);
+            }
+            if (!tpl) tpl = COPY[key] || '';
+            const vars = Object.assign({}, COPY_VARS, extra || {});
+            Object.keys(vars).forEach(function(k) {
+                tpl = tpl.replace(new RegExp('\\{' + k + '\\}', 'g'), vars[k]);
+            });
+            return tpl;
+        }
+
+        function formatMoney(amount) {
+            const sym = (window.FanshubI18n && FanshubI18n.currencySymbol()) || '￥';
+            const num = parseFloat(amount);
+            const val = isNaN(num) ? 0 : num;
+            return sym + val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function formatCountNum(num) {
+            return Number(num || 0).toLocaleString('en-US');
+        }
+
+        function formatSharePrice(price) {
+            const p = parseFloat(price);
+            const val = (!isNaN(p) && p > 0) ? p : 5;
+            return val.toFixed(2);
+        }
+
+        function getSharePrice() {
+            const p = parseFloat(currentSharePrice);
+            return (!isNaN(p) && p > 0) ? p : (CONFIG.SINGLE_TICKET_VALUE || 5);
+        }
+
+        /** 服务端控盘股价为准；force 时覆盖本地旧缓存（禁止用过期 localStorage 顶掉大屏单价） */
+        function applySharePrice(price, force) {
+            let p = parseFloat(price);
+            if (isNaN(p) || p <= 0) return getSharePrice();
+            const floor = parseFloat(CONFIG.SHARE_PRICE_BASE) || 5;
+            const ceiling = parseFloat(CONFIG.SHARE_PRICE_MAX) || 7;
+            p = Math.min(ceiling, Math.max(floor, p));
+            p = Math.round(p * 100) / 100;
+            if (!force && currentSharePrice && p + 0.005 < currentSharePrice) {
+                // 仅本地微跳动时允许棘轮；服务端 sync 必须 force 对齐
+                p = currentSharePrice;
+            }
+            currentSharePrice = p;
+            CONFIG.SINGLE_TICKET_VALUE = p;
+            localStorage.setItem(SHARE_PRICE_KEY, String(p));
+            return p;
+        }
+
+        function applyMarketScreen(data) {
+            if (!data) return;
+            if (data.partner_count !== undefined || data.fission_user_count !== undefined) {
+                const nextCount = parseInt(data.partner_count !== undefined ? data.partner_count : data.fission_user_count, 10) || 0;
+                fissionUserCount = Math.max(fissionUserCount || 0, nextCount);
+            }
+            if (data.partner_today_up !== undefined) {
+                partnerTodayUp = Math.max(0, parseInt(data.partner_today_up, 10) || 0);
+            }
+            if (data.price_up_pct !== undefined) {
+                priceUpPct = Math.max(0, parseFloat(data.price_up_pct) || 0);
+            }
+            if (data.share_price !== undefined) {
+                applySharePrice(data.share_price, true);
+            }
+            if (data.seed_total_shares !== undefined) {
+                CONFIG.SEED_TOTAL_SHARES = parseFloat(data.seed_total_shares) || CONFIG.SEED_TOTAL_SHARES;
+            }
+            const amount = data.cumulative_payout !== undefined ? data.cumulative_payout : data.amount;
+            if (amount !== undefined) {
+                const node = document.getElementById('jackpotNum');
+                if (node) {
+                    const prev = parseFloat(String(node.innerText).replace(/[^\d.]/g, '')) || 0;
+                    const next = parseFloat(amount) || prev;
+                    node.innerText = formatMoney(Math.max(prev, next));
+                }
+            }
+            updateJackpotMeta();
+        }
+
+        function calcRightsValuation(rights) {
+            const r = parseFloat(rights);
+            if (isNaN(r) || r <= 0) return 0;
+            return Math.round(r * getSharePrice() * 100) / 100;
+        }
+
+        function lotteryValuationForShares(shares) {
+            const s = parseFloat(shares);
+            const n = (!isNaN(s) && s > 0) ? s : LOTTERY_SHARES;
+            return Math.round(n * getSharePrice() * 100) / 100;
+        }
+
+        function updateJackpotMeta() {
+            COPY_VARS = buildCopyVars({
+                partner_count: fissionUserCount,
+                partner_today_up: partnerTodayUp,
+                price_up_pct: priceUpPct,
+                seed_total_shares: CONFIG.SEED_TOTAL_SHARES
+            });
+            const partners = document.getElementById('jackpotPartners');
+            if (partners) {
+                partners.textContent = fc('jackpot_partners', {
+                    partner_count: formatCountNum(fissionUserCount),
+                    partner_today_up: formatCountNum(partnerTodayUp)
+                }) || ('📈 当前全网股份人数：' + formatCountNum(fissionUserCount) + ' 人 ( 🚀 今日暴涨 +' + formatCountNum(partnerTodayUp) + ' 人 )');
+            }
+            const commentTitle = document.getElementById('commentHallTitle');
+            if (commentTitle) {
+                commentTitle.textContent = fc('comment_title', {
+                    partner_count: formatCountNum(fissionUserCount)
+                }) || ('💬 实时福利交互大厅 (全网 ' + formatCountNum(fissionUserCount) + ' 名真实会员在线)');
+            }
+            const poolLabel = document.getElementById('jackpotPoolLabel');
+            if (poolLabel) {
+                poolLabel.textContent = fc('jackpot_pool_label') || '💰 平台已累计为合伙人创造价值';
+            }
+            const priceLine = document.getElementById('jackpotSharePrice');
+            if (priceLine) {
+                const p2 = formatSharePrice(getSharePrice());
+                const pct = Number(priceUpPct || 0).toFixed(1);
+                priceLine.textContent = fc('jackpot_price_line', {
+                    current_share_price: p2,
+                    price_up_pct: pct
+                }) || ('💎 今日大盘实时持仓行权价：￥' + p2 + ' / 份 ( 🔥 较昨日大盘拉升 +' + pct + '% )');
+            }
+            restoreLotteryValuation();
+            refreshPriceLinkedHints();
+        }
+
+        function refreshPriceLinkedHints() {
+            const ticketInput = document.getElementById('ticketCount');
+            const count = ticketInput ? (parseInt(ticketInput.value, 10) || 1) : 1;
+            const unit = getSharePrice();
+            const unitText = formatSharePrice(unit);
+            const profit = (Math.round(count * unit * 100) / 100).toFixed(2);
+            const currency = (window.FanshubI18n && FanshubI18n.currencySymbol()) || '￥';
+            const profitBox = document.getElementById('profitHintBox');
+            if (profitBox) {
+                profitBox.innerHTML = fc('exchange_profit_hint', {
+                    count: count,
+                    profit: profit,
+                    ticket_value: unitText,
+                    currency: currency
+                });
+            }
+            const unitEl = document.getElementById('exchangeUnitPrice');
+            if (unitEl) unitEl.textContent = currency + unitText;
+            const btn = document.getElementById('btnGoldenMain');
+            if (btn) btn.innerText = fc('exchange_btn_template', { count: count });
+            const cta = document.getElementById('ctaHint');
+            if (cta) cta.innerHTML = fc('exchange_cta_hint', { count: count });
+        }
+
+        function initFissionMarketTicker() {
+            // 不再用旧版 localStorage 虚高股价覆盖大屏；等 config/jackpot 服务端价 force 对齐
+            if (!fissionUserCount) {
+                fissionUserCount = CONFIG.MARKET_VIRTUAL_BASE || 8000;
+            }
+            updateJackpotMeta();
+            if (fissionMarketTimer) {
+                clearInterval(fissionMarketTimer);
+                fissionMarketTimer = null;
+            }
+            if (!CONFIG.JACKPOT_SERVER_SYNC) {
+                fissionMarketTimer = setInterval(function() {
+                    const hour = new Date().getHours();
+                    const isDay = hour >= 8 && hour < 23;
+                    const add = isDay
+                        ? (3 + Math.floor(Math.random() * 10))
+                        : Math.floor(Math.random() * 3);
+                    fissionUserCount += add;
+                    updateJackpotMeta();
+                }, 60000);
+            }
+        }
+
+        function updateRightsValuationHint(amount) {
+            const node = document.getElementById('rightsValuationHint');
+            if (!node) return;
+            const amt = parseFloat(amount);
+            if (isNaN(amt) || amt <= 0) {
+                node.style.display = 'none';
+                node.textContent = '';
+                return;
+            }
+            const text = fc('asset_valuation_hint', { amount: amt.toFixed(2) });
+            node.textContent = text || ('（ 💡 当前估值：￥' + amt.toFixed(2) + ' 元 ）');
+            node.style.display = 'block';
+        }
+
+        function restoreLotteryValuation() {
+            const rights = parseFloat(account.rights) || 0;
+            if (rights <= 0) {
+                updateRightsValuationHint(0);
+                return;
+            }
+            const amount = calcRightsValuation(rights);
+            localStorage.setItem(LOTTERY_VAL_KEY, String(amount));
+            updateRightsValuationHint(amount);
+        }
+
+        function finishWelcomeLottery(finalAmount) {
+            const amount = (finalAmount !== undefined && finalAmount !== null)
+                ? finalAmount
+                : lotteryValuationForShares(LOTTERY_SHARES);
+            localStorage.setItem(LOTTERY_VAL_KEY, String(amount));
+            localStorage.setItem(LOTTERY_DONE_KEY, '1');
+            sessionStorage.removeItem('fans_hub_show_lottery');
+            account.rights = LOTTERY_SHARES;
+            const pool = document.getElementById('myTicketPool');
+            if (pool) pool.innerText = LOTTERY_SHARES.toFixed(2);
+            updateRightsValuationHint(amount);
+            lotteryFinalAmount = null;
+            lotteryOpening = false;
+            renderUI();
+        }
+
+        function closeWelcomeLotteryModal() {
+            const mask = document.getElementById('welcomeLotteryMask');
+            const closeBtn = document.getElementById('welcomeLotteryCloseBtn');
+            if (closeBtn && closeBtn.disabled) return;
+            if (lotteryFinalAmount !== null) {
+                finishWelcomeLottery(lotteryFinalAmount);
+            } else {
+                lotteryOpening = false;
+                lotteryFinalAmount = null;
+            }
+            if (mask) mask.classList.remove('show');
+        }
+
+        function setWelcomeLotteryCloseEnabled(enabled, label) {
+            const closeBtn = document.getElementById('welcomeLotteryCloseBtn');
+            if (!closeBtn) return;
+            closeBtn.disabled = !enabled;
+            closeBtn.textContent = label || fc('lottery_close_btn') || '关闭';
+        }
+
+        function openWelcomeLotteryModal() {
+            if (localStorage.getItem(LOTTERY_DONE_KEY)) {
+                restoreLotteryValuation();
+                return;
+            }
+            const mask = document.getElementById('welcomeLotteryMask');
+            if (!mask) return;
+            lotteryOpening = false;
+            lotteryFinalAmount = null;
+            const chest = document.getElementById('welcomeLotteryChest');
+            const price = document.getElementById('welcomeLotteryPrice');
+            const shares = document.getElementById('welcomeLotteryShares');
+            const hint = document.getElementById('welcomeLotteryHint');
+            if (chest) chest.classList.remove('shaking');
+            if (price) price.textContent = '￥--';
+            if (shares) shares.textContent = LOTTERY_SHARES.toFixed(2) + ' 份';
+            if (hint) hint.textContent = fc('lottery_chest_hint') || '点击黑金宝箱 · 开启新手股份';
+            setWelcomeLotteryCloseEnabled(false, fc('lottery_close_wait') || '请先开启宝箱');
+            mask.classList.add('show');
+        }
+
+        function scheduleWelcomeLottery() {
+            if (localStorage.getItem(LOTTERY_DONE_KEY)) {
+                restoreLotteryValuation();
+                return;
+            }
+            if (sessionStorage.getItem('fans_hub_show_lottery') !== '1') return;
+            setTimeout(openWelcomeLotteryModal, 1000);
+        }
+
+        function handleWelcomeLotteryChestClick() {
+            if (lotteryOpening || localStorage.getItem(LOTTERY_DONE_KEY)) return;
+            lotteryOpening = true;
+            const chest = document.getElementById('welcomeLotteryChest');
+            const price = document.getElementById('welcomeLotteryPrice');
+            const hint = document.getElementById('welcomeLotteryHint');
+            const finalAmount = lotteryValuationForShares(LOTTERY_SHARES);
+            const unit = getSharePrice();
+            if (chest) chest.classList.add('shaking');
+            if (hint) hint.textContent = fc('lottery_opening') || '开箱中…';
+            const jumpTimer = setInterval(function() {
+                // 跳动区间紧贴「股数×综合开盘价」，结束后锁死精确估值
+                const wobble = (Math.random() - 0.5) * Math.min(1.2, unit * 0.08);
+                const jump = Math.max(unit, Math.round((finalAmount + wobble) * 100) / 100);
+                if (price) price.textContent = '￥' + jump.toFixed(2);
+            }, 70);
+            setTimeout(function() {
+                clearInterval(jumpTimer);
+                if (chest) chest.classList.remove('shaking');
+                if (price) price.textContent = '￥' + finalAmount.toFixed(2);
+                if (hint) hint.textContent = fc('lottery_result_shares') || ('已锁定 ' + LOTTERY_SHARES.toFixed(2) + ' 份股份');
+                lotteryFinalAmount = finalAmount;
+                lotteryOpening = false;
+                setWelcomeLotteryCloseEnabled(true, fc('lottery_close_btn') || '关闭');
+            }, 1000);
+        }
+
+        function getLoginMobileE164() {
+            if (!window.FanshubI18n) {
+                const raw = (document.getElementById('loginPhone') || {}).value || '';
+                return raw.trim();
+            }
+            return FanshubI18n.toE164((document.getElementById('loginPhone') || {}).value || '');
+        }
+
+        function syncLoginPhoneUi() {
+            if (!window.FanshubI18n) return;
+            const phoneInput = document.getElementById('loginPhone');
+            const countrySelect = document.getElementById('countrySelect');
+            if (!phoneInput) return;
+            const country = FanshubI18n.getCountry();
+            const placeholderKey = country.placeholderKey || 'login_phone_placeholder';
+            phoneInput.placeholder = fc(placeholderKey);
+            phoneInput.maxLength = country.maxlen || 11;
+            if (countrySelect) countrySelect.value = FanshubI18n.country;
+        }
+
+        function initI18nControls() {
+            if (!window.FanshubI18n) return;
+            FanshubI18n.applyDocumentLang();
+            const localeSelect = document.getElementById('localeSelect');
+            const countrySelect = document.getElementById('countrySelect');
+            if (localeSelect) {
+                FanshubI18n.fillLocaleSelect(localeSelect, function (key) { return fc(key); });
+                localeSelect.value = FanshubI18n.locale;
+                localeSelect.addEventListener('change', function () {
+                    FanshubI18n.setLocale(localeSelect.value);
+                });
+            }
+            if (countrySelect) {
+                FanshubI18n.fillCountrySelect(countrySelect, function (key) { return fc(key); });
+                countrySelect.addEventListener('change', function () {
+                    FanshubI18n.setCountry(countrySelect.value);
+                });
+            }
+            syncLoginPhoneUi();
+        }
+
+        window.onFanshubLocaleChange = function () {
+            COPY_VARS = buildCopyVars({});
+            applyPageCopy();
+            initI18nControls();
+            syncSmsCooldownFromStorage();
+            restoreLotteryValuation();
+        };
+
+        window.onFanshubCountryChange = function () {
+            syncLoginPhoneUi();
+            syncSmsCooldownFromStorage();
+        };
+
+        function applyPageCopy() {
+            document.title = fc('page_title');
+            document.querySelectorAll('[data-copy]').forEach(function(el) {
+                if (el.id === 'userRank' || el.id === 'userStatusTag' || el.id === 'displayBindPhone' || el.id === 'jackpotMeta' || el.id === 'jackpotPartners' || el.id === 'jackpotSharePrice' || el.id === 'commentHallTitle' || el.id === 'profitHintBox' || el.id === 'btnGoldenMain' || el.id === 'ctaHint' || el.id === 'manualSettleTitle' || el.id === 'manualSettleSub' || el.id === 'withdrawModalTitle' || el.id === 'billCodeText' || el.id === 'checkinLedgerHint' || el.id === 'honorLadderHint') {
+                    return;
+                }
+                const key = el.getAttribute('data-copy');
+                const val = fc(key);
+                if (el.getAttribute('data-copy-html') === '1') {
+                    el.innerHTML = val;
+                } else {
+                    el.textContent = val;
+                }
+            });
+            document.querySelectorAll('[data-copy-placeholder]').forEach(function(el) {
+                if (el.id === 'loginPhone') {
+                    syncLoginPhoneUi();
+                    return;
+                }
+                el.placeholder = fc(el.getAttribute('data-copy-placeholder'));
+            });
+            document.querySelectorAll('[data-copy-aria]').forEach(function(el) {
+                const key = el.getAttribute('data-copy-aria');
+                if (key) el.setAttribute('aria-label', fc(key));
+            });
+            updateDynamicCopy();
+        }
+
+        function updateDynamicCopy() {
+            refreshPriceLinkedHints();
+            const jackpotHint = document.getElementById('jackpotHint');
+            if (jackpotHint) jackpotHint.textContent = fc('jackpot_hint');
+            updateJackpotMeta();
+            const loginBtn = document.getElementById('loginSubmitBtn');
+            if (loginBtn) loginBtn.textContent = fc('login_submit_btn');
+            const openBtn = document.getElementById('openAccountBtn');
+            if (openBtn) updateOpenAccountCta();
+            const shareActionBtn = document.getElementById('sharePromoActionBtn');
+            if (shareActionBtn) shareActionBtn.textContent = fc('share_promo_action_btn') || '点击立即分享';
+            const thresholdOpenBtn = document.getElementById('thresholdOpenBtn');
+            if (thresholdOpenBtn) thresholdOpenBtn.textContent = fc('threshold_modal_btn_open');
+            const thresholdDesc = document.getElementById('thresholdModalDesc');
+            if (thresholdDesc) thresholdDesc.innerHTML = fc('threshold_modal_desc');
+            if (document.getElementById('optTeamA') && document.getElementById('optTeamA').classList.contains('selected')) {
+                currentSelectedTeam = fc('channel_a_name');
+            } else if (document.getElementById('optTeamB')) {
+                currentSelectedTeam = fc('channel_b_name');
+            }
+            applySkinOptions();
+        }
+
+        function parseOpenAccountCta(raw) {
+            const bracket = raw.match(/^(.+?)\[(.+?)\]\((.+?)\)\s*$/);
+            if (bracket) {
+                return { label: (bracket[1] + '[' + bracket[2] + ']').trim(), badge: bracket[3].trim() };
+            }
+            const paren = raw.match(/^(.+?)\(([^)]+)\)\s*$/);
+            if (paren) {
+                return { label: paren[1].trim(), badge: paren[2].trim() };
+            }
+            const rights = COPY_VARS.open_account_rights || 2;
+            return {
+                label: raw,
+                badge: '立送 ' + rights + ' 份大盘股。'
+            };
+        }
+
+        function updateOpenAccountCta() {
+            const parts = parseOpenAccountCta(fc('open_account_btn'));
+            const label = document.getElementById('openAccountBtnLabel');
+            const badge = document.getElementById('openAccountBadge');
+            if (label) label.textContent = parts.label;
+            if (badge) badge.textContent = parts.badge;
+        }
+
+        function balanceProgressHintText(progressPct, ready) {
+            const loc = (window.FanshubI18n && FanshubI18n.locale) || 'zh-CN';
+            if (ready) {
+                const readyMap = {
+                    'zh-CN': '✓ 已达提现门槛，可立即提现',
+                    'en-PH': '✓ Withdrawal threshold reached',
+                    'id-ID': '✓ Ambang penarikan tercapai',
+                    'vi-VN': '✓ Đã đạt ngưỡng rút tiền',
+                    'ms-MY': '✓ Ambang pengeluaran dicapai',
+                    'km-KH': '✓ ឈានដល់កម្រិតដកប្រាក់'
+                };
+                return readyMap[loc] || readyMap['en-PH'];
+            }
+            const pct = Math.round(progressPct);
+            const hintMap = {
+                'zh-CN': '已达提现门槛的 ' + pct + '%',
+                'en-PH': pct + '% of withdrawal threshold',
+                'id-ID': pct + '% dari ambang penarikan',
+                'vi-VN': 'Đạt ' + pct + '% ngưỡng rút tiền',
+                'ms-MY': pct + '% ambang pengeluaran',
+                'km-KH': 'ឈានដល់ ' + pct + '% កម្រិតដកប្រាក់'
+            };
+            return hintMap[loc] || hintMap['en-PH'];
+        }
+
+        function updateBalanceProgress() {
+            const balance = account.balance || 0;
+            const threshold = CONFIG.WITHDRAW_THRESHOLD || 50;
+            const progress = threshold > 0 ? Math.min(100, (balance / threshold) * 100) : 0;
+            const ready = balance >= threshold;
+            const fill = document.getElementById('balanceProgressFill');
+            const hint = document.getElementById('balanceProgressHint');
+            const sym = document.getElementById('balanceCurrencySym');
+            if (sym) sym.textContent = (window.FanshubI18n && FanshubI18n.currencySymbol()) || '￥';
+            if (fill) fill.style.width = progress + '%';
+            if (hint) {
+                hint.textContent = balanceProgressHintText(progress, ready);
+                hint.classList.toggle('ready', ready);
+            }
+        }
+
+        let fanshubToastTimer = null;
+        function showFanshubToast(message, type, durationMs) {
+            let el = document.getElementById('fanshubToast');
+            if (!el) {
+                el = document.createElement('div');
+                el.id = 'fanshubToast';
+                el.className = 'fanshub-toast';
+                document.body.appendChild(el);
+            }
+            const text = String(message || '').replace(/\\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+            el.textContent = text;
+            const kind = (type === 'error' || type === 'info') ? type : 'success';
+            el.className = 'fanshub-toast show ' + kind;
+            clearTimeout(fanshubToastTimer);
+            const ms = durationMs || Math.min(6500, Math.max(2600, text.length * 45));
+            fanshubToastTimer = setTimeout(function() {
+                el.classList.remove('show');
+            }, ms);
+        }
+
+        function setBottomActionBarVisible(visible) {
+            const bar = document.getElementById('bottomActionBar');
+            const dash = document.getElementById('mainDashboardView');
+            if (bar) bar.classList.toggle('show', !!visible);
+            if (dash) dash.classList.toggle('has-bottom-bar', !!visible);
+        }
+
+        let currentTab = 'home';
+        let socialLoaded = false;
+        function switchTab(tab) {
+            const map = {
+                home: 'tabHome',
+                exchange: 'tabExchange',
+                claim: 'tabClaim',
+                master: 'tabMaster',
+                social: 'tabSocial'
+            };
+            if (!map[tab]) tab = 'home';
+            currentTab = tab;
+            document.querySelectorAll('#mainDashboardView .tab-page').forEach(function(el) {
+                el.classList.toggle('active', el.id === map[tab]);
+            });
+            document.querySelectorAll('#bottomActionBar .tab-btn').forEach(function(btn) {
+                btn.classList.toggle('active', btn.getAttribute('data-tab') === tab);
+            });
+            try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, 0); }
+            if (tab === 'claim') syncClaimPageEcho();
+            if (tab === 'social' && !socialLoaded) {
+                socialLoaded = true;
+                if (typeof loadLeaderboard === 'function') loadLeaderboard();
+                if (typeof initComments === 'function') initComments();
+            }
+            if (tab === 'master' && phase2State && phase2State.user_mode === 'master') {
+                if (typeof loadTeamRadar === 'function') loadTeamRadar();
+            }
+            if (tab === 'exchange' && typeof refreshPriceLinkedHints === 'function') {
+                refreshPriceLinkedHints();
+            }
+        }
+
+        function syncClaimPageEcho() {
+            const bal = (parseFloat(account.balance) || 0);
+            const echo = document.getElementById('claimBalanceEcho');
+            if (echo) echo.textContent = bal.toFixed(2);
+            const hint = document.getElementById('claimProgressHint');
+            const thr = CONFIG.WITHDRAW_THRESHOLD || 50;
+            if (hint) {
+                if (bal >= thr) {
+                    hint.textContent = '已达标 ￥' + thr + ' · 可直接申请 VIP 特批领取';
+                } else {
+                    hint.textContent = '还差 ￥' + Math.max(0, thr - bal).toFixed(2) + ' 达标 · 先去闪兑凑余额';
+                }
+            }
+        }
+
+        function updateFlowStepper() {
+            const uid = ((document.getElementById('mainStationID') || {}).value || '').trim();
+            const opened = flowStage === 'stage2' || !!uid;
+            const exchanged = (parseFloat(account.balance) || 0) > 0;
+            const claimReady = (parseFloat(account.balance) || 0) >= (CONFIG.WITHDRAW_THRESHOLD || 50);
+            const doneFlags = [true, opened, exchanged, !!uid, claimReady];
+            let current = 1;
+            for (let i = 0; i < doneFlags.length; i++) {
+                if (doneFlags[i]) current = i + 1;
+                else {
+                    current = i + 1;
+                    break;
+                }
+            }
+            if (claimReady) current = 5;
+            document.querySelectorAll('#flowStepper .flow-step').forEach(function(el) {
+                const step = parseInt(el.getAttribute('data-step'), 10) || 0;
+                el.classList.remove('done', 'active');
+                if (doneFlags[step - 1]) el.classList.add('done');
+                else if (step === current) el.classList.add('active');
+            });
+        }
+
+        function applySkinOptions() {
+            const map = {
+                default: 'skin_option_default',
+                a: 'skin_option_a',
+                b: 'skin_option_b',
+                d: 'skin_option_d'
+            };
+            Object.keys(map).forEach(function(val) {
+                const opt = document.querySelector('#skinSelect option[value="' + val + '"]');
+                if (opt) opt.textContent = fc(map[val]);
+            });
+        }
+        const PAGE_INVITE_CODE = new URLSearchParams(window.location.search).get('code')
+            || new URLSearchParams(window.location.search).get('invite') || '';
+        let API_SIGN_ENABLED = false;
+        let API_SIGN_SECRET = '';
+        let DEVICE_FINGERPRINT = localStorage.getItem('fans_hub_device_fp') || '';
+        let configReadyPromise = null;
+        let serverConfigLoaded = false;
+
+        function ensureServerConfig() {
+            if (serverConfigLoaded) {
+                return Promise.resolve(true);
+            }
+            if (configReadyPromise) {
+                return configReadyPromise;
+            }
+            configReadyPromise = apiRequest('config', 'GET').then(function(cfg) {
+                applyServerConfig(cfg);
+                serverConfigLoaded = true;
+                return true;
+            }).catch(function(e) {
+                configReadyPromise = null;
+                console.warn('加载签名/活动配置失败', e);
+                throw e;
+            });
+            return configReadyPromise;
+        }
+
+        function shouldClearTokenOnProfileError(err) {
+            const msg = String((err && err.message) || '');
+            if (!msg) return false;
+            // 仅鉴权失效清 token；签名/网络瞬时错误保留，避免刷新误掉线
+            return /请登录|未登录|登录失效|登录后操作|token|Token|授权|认证|鉴权/i.test(msg);
+        }
+
+        async function restoreSessionProfile() {
+            await ensureServerConfig();
+            try {
+                return await apiRequest('profile', 'GET');
+            } catch (e) {
+                if (shouldClearTokenOnProfileError(e)) {
+                    throw e;
+                }
+                // 配置可能未就绪或密钥瞬态问题：强制重拉 config 再试一次
+                serverConfigLoaded = false;
+                configReadyPromise = null;
+                await ensureServerConfig();
+                return await apiRequest('profile', 'GET');
+            }
+        }
+
+        function hasSubtleCrypto() {
+            return !!(window.crypto && window.crypto.subtle && typeof window.crypto.subtle.digest === 'function');
+        }
+
+        function bytesToHex(bytes) {
+            return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        function utf8ToBytes(str) {
+            if (typeof TextEncoder !== 'undefined') {
+                return new TextEncoder().encode(str);
+            }
+            const utf8 = unescape(encodeURIComponent(str));
+            const out = new Uint8Array(utf8.length);
+            for (let i = 0; i < utf8.length; i++) out[i] = utf8.charCodeAt(i);
+            return out;
+        }
+
+        function sha256Bytes(data) {
+            const K = new Uint32Array([
+                0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+                0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+                0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+                0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+                0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+                0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+                0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+                0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2
+            ]);
+            const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+            const bitLen = bytes.length * 8;
+            const withOne = new Uint8Array(((bytes.length + 9 + 63) >> 6) << 6);
+            withOne.set(bytes);
+            withOne[bytes.length] = 0x80;
+            const view = new DataView(withOne.buffer);
+            view.setUint32(withOne.length - 4, bitLen, false);
+            const h = new Uint32Array([0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19]);
+            const w = new Uint32Array(64);
+            for (let i = 0; i < withOne.length; i += 64) {
+                for (let j = 0; j < 16; j++) w[j] = view.getUint32(i + j * 4, false);
+                for (let j = 16; j < 64; j++) {
+                    const s0 = ((w[j-15] >>> 7) | (w[j-15] << 25)) ^ ((w[j-15] >>> 18) | (w[j-15] << 14)) ^ (w[j-15] >>> 3);
+                    const s1 = ((w[j-2] >>> 17) | (w[j-2] << 15)) ^ ((w[j-2] >>> 19) | (w[j-2] << 13)) ^ (w[j-2] >>> 10);
+                    w[j] = (w[j-16] + s0 + w[j-7] + s1) >>> 0;
+                }
+                let a=h[0],b=h[1],c=h[2],d=h[3],e=h[4],f=h[5],g=h[6],hh=h[7];
+                for (let j = 0; j < 64; j++) {
+                    const S1 = ((e >>> 6) | (e << 26)) ^ ((e >>> 11) | (e << 21)) ^ ((e >>> 25) | (e << 7));
+                    const ch = (e & f) ^ (~e & g);
+                    const t1 = (hh + S1 + ch + K[j] + w[j]) >>> 0;
+                    const S0 = ((a >>> 2) | (a << 30)) ^ ((a >>> 13) | (a << 19)) ^ ((a >>> 22) | (a << 10));
+                    const maj = (a & b) ^ (a & c) ^ (b & c);
+                    const t2 = (S0 + maj) >>> 0;
+                    hh = g; g = f; f = e; e = (d + t1) >>> 0; d = c; c = b; b = a; a = (t1 + t2) >>> 0;
+                }
+                h[0]=(h[0]+a)>>>0; h[1]=(h[1]+b)>>>0; h[2]=(h[2]+c)>>>0; h[3]=(h[3]+d)>>>0;
+                h[4]=(h[4]+e)>>>0; h[5]=(h[5]+f)>>>0; h[6]=(h[6]+g)>>>0; h[7]=(h[7]+hh)>>>0;
+            }
+            const out = new Uint8Array(32);
+            const outView = new DataView(out.buffer);
+            for (let i = 0; i < 8; i++) outView.setUint32(i * 4, h[i], false);
+            return out;
+        }
+
+        function sha256HexSync(str) {
+            return bytesToHex(sha256Bytes(utf8ToBytes(str)));
+        }
+
+        function hmacSha256HexSync(message, secret) {
+            const blockSize = 64;
+            let key = utf8ToBytes(secret);
+            if (key.length > blockSize) key = sha256Bytes(key);
+            if (key.length < blockSize) {
+                const padded = new Uint8Array(blockSize);
+                padded.set(key);
+                key = padded;
+            }
+            const inner = new Uint8Array(blockSize + utf8ToBytes(message).length);
+            const outer = new Uint8Array(blockSize + 32);
+            for (let i = 0; i < blockSize; i++) {
+                inner[i] = key[i] ^ 0x36;
+                outer[i] = key[i] ^ 0x5c;
+            }
+            inner.set(utf8ToBytes(message), blockSize);
+            outer.set(sha256Bytes(inner), blockSize);
+            return bytesToHex(sha256Bytes(outer));
+        }
+
+        async function sha256Hex(str) {
+            if (hasSubtleCrypto()) {
+                try {
+                    const buf = await crypto.subtle.digest('SHA-256', utf8ToBytes(str));
+                    return bytesToHex(new Uint8Array(buf));
+                } catch (e) {}
+            }
+            return sha256HexSync(str);
+        }
+
+        async function hmacSha256Hex(message, secret) {
+            if (hasSubtleCrypto()) {
+                try {
+                    const enc = new TextEncoder();
+                    const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+                    const sig = await crypto.subtle.sign('HMAC', key, enc.encode(message));
+                    return bytesToHex(new Uint8Array(sig));
+                } catch (e) {}
+            }
+            return hmacSha256HexSync(message, secret);
+        }
+
+        async function getDeviceFingerprint() {
+            if (DEVICE_FINGERPRINT) return DEVICE_FINGERPRINT;
+            const parts = [
+                navigator.userAgent || '',
+                navigator.language || '',
+                screen.width + 'x' + screen.height,
+                screen.colorDepth || '',
+                new Date().getTimezoneOffset(),
+                navigator.platform || ''
+            ];
+            try {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                ctx.textBaseline = 'top';
+                ctx.font = '14px Arial';
+                ctx.fillText('fanshub_fp', 2, 2);
+                parts.push(canvas.toDataURL());
+            } catch (e) {}
+            DEVICE_FINGERPRINT = await sha256Hex(parts.join('|'));
+            localStorage.setItem('fans_hub_device_fp', DEVICE_FINGERPRINT);
+            return DEVICE_FINGERPRINT;
+        }
+
+        async function apiRequest(action, method, body) {
+            const headers = { 'Content-Type': 'application/json' };
+            const token = localStorage.getItem('fans_hub_token');
+            if (token) headers['token'] = token;
+            const locale = (window.FanshubI18n && FanshubI18n.locale) || 'zh-CN';
+            headers['X-Fanshub-Locale'] = locale;
+            const httpMethod = (method || 'POST').toUpperCase();
+            let url = API_BASE + '/api/fanshub/' + action;
+            let bodyStr = '';
+            const localeQs = 'locale=' + encodeURIComponent(locale);
+            if (httpMethod === 'GET') {
+                const qs = body ? (new URLSearchParams(body).toString() + '&' + localeQs) : localeQs;
+                url += '?' + qs;
+            } else if (body) {
+                bodyStr = JSON.stringify(Object.assign({}, body, { locale: locale }));
+            } else {
+                bodyStr = JSON.stringify({ locale: locale });
+            }
+            if (API_SIGN_ENABLED && API_SIGN_SECRET) {
+                const ts = Math.floor(Date.now() / 1000);
+                const nonce = newRequestId('nonce');
+                const path = '/api/fanshub/' + action;
+                const payload = ts + '\n' + nonce + '\n' + httpMethod + '\n' + path + '\n' + (httpMethod === 'GET' ? '' : bodyStr);
+                headers['X-Fanshub-Timestamp'] = String(ts);
+                headers['X-Fanshub-Nonce'] = nonce;
+                headers['X-Fanshub-Sign'] = await hmacSha256Hex(payload, API_SIGN_SECRET);
+            }
+            const opts = { method: httpMethod, headers };
+            if (bodyStr) opts.body = bodyStr;
+            const res = await fetch(url, opts);
+            let data;
+            try {
+                data = await res.json();
+            } catch (e) {
+                throw new Error(fc('alert_api_bad_response'));
+            }
+            if (data.code !== 1) {
+                const err = new Error(data.msg || data.message || fc('alert_api_request_fail'));
+                err.payload = data.data || null;
+                throw err;
+            }
+            return data.data;
+        }
+
+        function getSmsCooldownRemain(phone) {
+            if (!phone) return 0;
+            try {
+                const map = JSON.parse(localStorage.getItem(SMS_COOLDOWN_KEY) || '{}');
+                const until = map[phone];
+                if (!until) return 0;
+                const remain = Math.ceil((until - Date.now()) / 1000);
+                return remain > 0 ? remain : 0;
+            } catch (e) {
+                return 0;
+            }
+        }
+
+        function setSmsCooldownUntil(phone, seconds) {
+            if (!phone || seconds <= 0) return;
+            try {
+                const map = JSON.parse(localStorage.getItem(SMS_COOLDOWN_KEY) || '{}');
+                map[phone] = Date.now() + seconds * 1000;
+                localStorage.setItem(SMS_COOLDOWN_KEY, JSON.stringify(map));
+            } catch (e) {}
+        }
+
+        function startSmsCooldown(phone, seconds) {
+            const btn = document.getElementById('captchaBtn');
+            if (!btn) return;
+            const total = Math.max(1, parseInt(seconds, 10) || CONFIG.SMS_SEND_INTERVAL || 60);
+            setSmsCooldownUntil(phone, total);
+            btn.classList.add('disabled');
+            btn.disabled = true;
+            if (smsCooldownTimer) clearInterval(smsCooldownTimer);
+            let count = total;
+            function tick() {
+                if (count <= 0) {
+                    clearInterval(smsCooldownTimer);
+                    smsCooldownTimer = null;
+                    btn.classList.remove('disabled');
+                    btn.disabled = false;
+                    btn.innerText = fc('login_captcha_btn');
+                    return;
+                }
+                btn.innerText = fc('login_captcha_resend', { count: count });
+                count--;
+            }
+            tick();
+            smsCooldownTimer = setInterval(tick, 1000);
+        }
+
+        function syncSmsCooldownFromStorage() {
+            const phone = getLoginMobileE164();
+            const remain = getSmsCooldownRemain(phone);
+            if (remain > 0) {
+                startSmsCooldown(phone, remain);
+            }
+        }
+
+        function detectBrowserLocale() {
+            var langs = navigator.languages || [navigator.language || ''];
+            var map = {
+                'zh-cn': 'zh-CN', 'zh': 'zh-CN',
+                'en-ph': 'en-PH', 'fil': 'en-PH', 'tl': 'en-PH',
+                'en': 'en-PH',
+                'km': 'km-KH', 'km-kh': 'km-KH',
+                'id': 'id-ID', 'id-id': 'id-ID',
+                'vi': 'vi-VN', 'vi-vn': 'vi-VN',
+                'ms': 'ms-MY', 'ms-my': 'ms-MY'
+            };
+            for (var i = 0; i < langs.length; i++) {
+                var raw = String(langs[i] || '').toLowerCase();
+                if (map[raw]) return map[raw];
+                var short = raw.split('-')[0];
+                if (map[short]) return map[short];
+            }
+            return null;
+        }
+
+        function applyDefaultLocale(cfg) {
+            if (!window.FanshubI18n || !cfg) return;
+            try {
+                if (localStorage.getItem('fans_hub_locale')) return;
+                var locale = cfg.default_locale || 'zh-CN';
+                if (cfg.locale_auto_detect !== false) {
+                    var detected = detectBrowserLocale();
+                    if (detected) locale = detected;
+                }
+                if (window.FANSHUB_LOCALE_META && window.FANSHUB_LOCALE_META[locale]) {
+                    FanshubI18n.setLocale(locale);
+                }
+            } catch (e) {}
+        }
+
+        function stopJackpotTimers() {
+            if (jackpotPollTimer) {
+                clearInterval(jackpotPollTimer);
+                jackpotPollTimer = null;
+            }
+            if (jackpotLocalTimer) {
+                clearInterval(jackpotLocalTimer);
+                jackpotLocalTimer = null;
+            }
+        }
+
+        function tickJackpotLocal() {
+            if (!CONFIG.JACKPOT_AUTO_GROW) return;
+            const jackpotNode = document.getElementById('jackpotNum');
+            if (!jackpotNode) return;
+            let currentAmt = parseFloat(jackpotNode.innerText.replace(/[^\d.]/g, ''));
+            const minG = CONFIG.JACKPOT_GROW_MIN || 15;
+            const maxG = CONFIG.JACKPOT_GROW_MAX || 23;
+            const growth = minG + (Math.random() * Math.max(0, maxG - minG));
+            jackpotNode.innerText = formatMoney(currentAmt + growth);
+        }
+
+        async function pollJackpotFromServer() {
+            try {
+                const data = await apiRequest('jackpot', 'GET');
+                applyMarketScreen(data);
+            } catch (e) {
+                console.warn('jackpot poll failed', e);
+            }
+        }
+
+        function startJackpotSync() {
+            stopJackpotTimers();
+            const dash = document.getElementById('mainDashboardView');
+            if (!dash || !dash.classList.contains('active')) {
+                return;
+            }
+            if (CONFIG.JACKPOT_SERVER_SYNC) {
+                pollJackpotFromServer();
+                jackpotPollTimer = setInterval(pollJackpotFromServer, 2000);
+                return;
+            }
+            if (CONFIG.JACKPOT_AUTO_GROW) {
+                jackpotLocalTimer = setInterval(tickJackpotLocal, 2000);
+            }
+        }
+
+        function applyServerConfig(cfg) {
+            if (!cfg) return;
+            applyDefaultLocale(cfg);
+            CONFIG.SHARE_PRICE_BASE = parseFloat(cfg.market_share_price_base || cfg.single_ticket_value) || CONFIG.SHARE_PRICE_BASE || 5;
+            CONFIG.SHARE_PRICE_MAX = parseFloat(cfg.market_share_price_max || cfg.share_price_max) || CONFIG.SHARE_PRICE_MAX || 7;
+            CONFIG.SEED_TOTAL_SHARES = parseFloat(cfg.seed_total_shares || cfg.market_total_shares_seed) || CONFIG.SEED_TOTAL_SHARES || 177777.6;
+            CONFIG.MARKET_VIRTUAL_BASE = parseInt(cfg.market_virtual_base, 10) || CONFIG.MARKET_VIRTUAL_BASE || 8000;
+            const cfgPrice = parseFloat(cfg.current_share_price || cfg.single_ticket_value);
+            if (!isNaN(cfgPrice) && cfgPrice > 0) {
+                applySharePrice(cfgPrice, true);
+            }
+            if (cfg.partner_count !== undefined || cfg.fission_user_count !== undefined) {
+                const pc = parseInt(cfg.partner_count !== undefined ? cfg.partner_count : cfg.fission_user_count, 10) || 0;
+                fissionUserCount = Math.max(fissionUserCount || 0, pc, CONFIG.MARKET_VIRTUAL_BASE);
+            }
+            if (cfg.partner_today_up !== undefined) {
+                partnerTodayUp = Math.max(0, parseInt(cfg.partner_today_up, 10) || 0);
+            }
+            if (cfg.price_up_pct !== undefined) {
+                priceUpPct = Math.max(0, parseFloat(cfg.price_up_pct) || 0);
+            }
+            CONFIG.WITHDRAW_THRESHOLD = parseFloat(cfg.withdraw_threshold) || CONFIG.WITHDRAW_THRESHOLD;
+            CONFIG.MAX_VOTE_PERCENT = parseFloat(cfg.max_vote_percent) || CONFIG.MAX_VOTE_PERCENT;
+            CONFIG.SECRET_LOCK_SECONDS = parseInt(cfg.secret_lock_seconds, 10) || CONFIG.SECRET_LOCK_SECONDS;
+            CONFIG.CUSTOMER_SERVICE_URL = cfg.customer_service_url || CONFIG.CUSTOMER_SERVICE_URL;
+            CONFIG.APP_DOWNLOAD_URL = cfg.app_download_url || CONFIG.APP_DOWNLOAD_URL;
+            CONFIG.MAIN_STATION_URL = cfg.main_station_url || CONFIG.MAIN_STATION_URL;
+            marqueeItems = Array.isArray(cfg.marquee_items) ? cfg.marquee_items : [];
+            CONFIG.JACKPOT_AUTO_GROW = cfg.jackpot_auto_grow !== false;
+            CONFIG.JACKPOT_SERVER_SYNC = cfg.jackpot_server_sync !== false;
+            CONFIG.JACKPOT_GROW_MIN = parseFloat(cfg.jackpot_grow_min) || 15;
+            CONFIG.JACKPOT_GROW_MAX = parseFloat(cfg.jackpot_grow_max) || 23;
+            const jackpotAmt = cfg.jackpot_current !== undefined
+                ? parseFloat(cfg.jackpot_current)
+                : (parseFloat(cfg.jackpot_base) || 888888);
+            const jackpotNode = document.getElementById('jackpotNum');
+            if (jackpotNode) {
+                const prev = parseFloat(String(jackpotNode.innerText).replace(/[^\d.]/g, '')) || 0;
+                jackpotNode.innerText = formatMoney(Math.max(prev, jackpotAmt || 0));
+            }
+            CONFIG.SMS_SLIDER_ENABLED = cfg.sms_slider_enabled !== false;
+            CONFIG.SMS_SEND_INTERVAL = parseInt(cfg.sms_send_interval, 10) || 60;
+            CONFIG.PHASE2_ENABLED = cfg.phase2_enabled !== false;
+            CONFIG.CHECKIN_VIOLENT_BONUS = parseFloat(cfg.checkin_violent_bonus) || 4;
+            API_SIGN_ENABLED = !!cfg.api_sign_enabled;
+            API_SIGN_SECRET = cfg.api_sign_secret || '';
+            serverConfigLoaded = true;
+            COPY = Object.assign({}, window.FANSHUB_COPY_DEFAULTS || {}, cfg.copy && typeof cfg.copy === 'object' ? cfg.copy : {});
+            COPY_VARS = buildCopyVars(cfg);
+            applyPageCopy();
+            initI18nControls();
+            initFissionMarketTicker();
+            // 登录页不拉 jackpot；进入大厅后再 startJackpotSync()
+        }
+
+        function newRequestId(prefix) {
+            return prefix + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
+        }
+
+        function applyProfile(profile) {
+            if (!profile) return;
+            const p2 = profile.phase2 || {};
+            account.balance = parseFloat(profile.balance) || 0;
+            account.rights = parseFloat(profile.rights) || 0;
+            account.phone = profile.mobile || account.phone;
+            account.main_uid = profile.main_uid || '';
+            account.main_uid_pending = profile.main_uid_pending || '';
+            account.main_uid_audit = profile.main_uid_audit || '';
+            flowStage = profile.flow_stage || flowStage;
+            if (profile.mobile_mask) {
+                document.getElementById('displayBindPhone').innerText = profile.mobile_mask;
+            }
+            const uidInput = document.getElementById('mainStationID');
+            if (uidInput) {
+                const displayUid = account.main_uid || account.main_uid_pending || '';
+                if (displayUid) {
+                    uidInput.value = displayUid;
+                }
+                uidInput.disabled = account.main_uid_audit === 'approved';
+            }
+            updateUidSubmitButton();
+            updateUidStatusHint(profile);
+            if (profile.invite_rank) {
+                const rank = profile.invite_rank;
+                const rankNode = document.getElementById('userRank');
+                if (rankNode) {
+                    rankNode.classList.remove('master-tag');
+                    if (p2.enabled && p2.user_mode === 'master') {
+                        rankNode.innerText = '🎖️ 荣誉团长 · 已邀' + (p2.total_register_count || rank.invite_count || 0) + '人';
+                        rankNode.classList.add('master-tag');
+                    } else if (rank.invite_count > 0) {
+                        rankNode.innerText = fc('user_rank_template', { rank: rank.rank, count: rank.invite_count });
+                    } else {
+                        rankNode.innerText = fc('user_rank_default');
+                    }
+                }
+            }
+            const statusTag = document.getElementById('userStatusTag');
+            if (statusTag) {
+                const shieldText = fc('user_status_shield');
+                statusTag.textContent = shieldText || '密匙防护已开启';
+            }
+            renderUI();
+            updateFlowUI();
+            updateManualSettleButton();
+            updatePhase2UI(profile);
+        }
+
+        function updatePhase2UI(profile) {
+            const p2 = (profile && profile.phase2) || {};
+            phase2State = p2;
+            const isMaster = p2.enabled && p2.user_mode === 'master';
+            const newbiePromo = document.getElementById('newbiePromoBlock');
+            const masterHonor = document.getElementById('masterHonorBlock');
+            const newbieOpen = document.getElementById('newbieOpenPanel');
+            const masterBlock = document.getElementById('masterPhase2Block');
+            const lockCard = document.getElementById('masterLockCard');
+            if (newbiePromo) newbiePromo.style.display = isMaster ? 'none' : '';
+            if (masterHonor) masterHonor.style.display = isMaster ? '' : 'none';
+            if (newbieOpen) newbieOpen.style.display = isMaster ? 'none' : '';
+            if (masterBlock) masterBlock.style.display = isMaster ? '' : 'none';
+            if (lockCard) lockCard.style.display = isMaster ? 'none' : '';
+            if (isMaster) {
+                renderHonorLadder(p2.honor || {});
+                renderCheckinPanel(p2.checkin || {});
+                if (currentTab === 'master') loadTeamRadar();
+                syncBonusUnlockPoll(p2.checkin || {});
+            } else {
+                syncBonusUnlockPoll(null);
+            }
+            if (p2.events && p2.events.length) {
+                showPhase2Events(p2.events);
+            }
+            syncClaimPageEcho();
+        }
+
+        let bonusUnlockPollTimer = null;
+        function syncBonusUnlockPoll(checkin) {
+            const needPoll = !!(checkin
+                && checkin.checked_today
+                && checkin.today_mode === 'violent'
+                && !checkin.bonus_unlocked);
+            if (!needPoll) {
+                if (bonusUnlockPollTimer) {
+                    clearInterval(bonusUnlockPollTimer);
+                    bonusUnlockPollTimer = null;
+                }
+                return;
+            }
+            if (bonusUnlockPollTimer) return;
+            bonusUnlockPollTimer = setInterval(async function() {
+                if (!localStorage.getItem('fans_hub_token')) {
+                    syncBonusUnlockPoll(null);
+                    return;
+                }
+                try {
+                    const profile = await apiRequest('profile', 'GET');
+                    const next = (profile && profile.phase2 && profile.phase2.checkin) || {};
+                    if (next.bonus_unlocked || !next.checked_today) {
+                        applyProfile(profile);
+                        return;
+                    }
+                    // 仅刷新签到状态，避免无事件时整页重复渲染
+                    if (profile && profile.phase2) {
+                        phase2State = profile.phase2;
+                        renderCheckinPanel(next);
+                        if (profile.phase2.events && profile.phase2.events.length) {
+                            applyProfile(profile);
+                        }
+                    }
+                } catch (e) {}
+            }, 8000);
+        }
+
+        function renderHonorLadder(honor) {
+            const nodesEl = document.getElementById('honorLadderNodes');
+            const fillEl = document.getElementById('honorLadderFill');
+            const hintEl = document.getElementById('honorLadderHint');
+            if (!nodesEl || !fillEl || !hintEl) return;
+            const nodes = honor.nodes || [];
+            nodesEl.innerHTML = nodes.map(function(n) {
+                const icon = n.icon || '🎁';
+                const rightsText = (n.rights != null && n.rights !== '')
+                    ? String(n.rights).replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '')
+                    : '';
+                const reward = n.reward_line
+                    || (n.balance > 0
+                        ? ('解禁 ' + (rightsText || n.rights_val || 0) + '股（￥' + (n.rights_val || 0) + '）＋ 额外直发 ' + Math.round(n.balance || 0) + '元 现金')
+                        : ('解禁 ' + (rightsText || n.rights_val || 0) + '股（￥' + (n.rights_val || 0) + '）'));
+                return '<div class="honor-node' + (n.reached ? ' reached' : '') + '">'
+                    + '<span class="chest" aria-hidden="true">🎁</span>'
+                    + '<div class="dot"></div>'
+                    + icon + ' ' + n.name + '<br>(' + n.threshold + '人)'
+                    + '<span class="reward">【' + reward + (n.balance > 0 ? (n.id >= 5 ? ' 👑' : ' 🎁') : ' 🔓') + '】</span>'
+                    + '</div>';
+            }).join('');
+            fillEl.style.width = (honor.progress_percent || 0) + '%';
+            if (honor.capped) {
+                const top = honor.top_pack_total || 3500;
+                hintEl.textContent = fc('phase2_honor_capped', { pack_total: top })
+                    || ('👑 长期天梯已封顶 · 通关累计可打包最高 ￥' + top + ' · 点击复制推广密令继续带队');
+            } else if (honor.next_tier) {
+                const need = honor.next_tier.need != null
+                    ? honor.next_tier.need
+                    : (honor.next_tier.threshold - (honor.sub_withdrawn_count || 0));
+                const pack = honor.next_tier.pack_total || 0;
+                hintEl.textContent = fc('phase2_honor_progress', {
+                    count: honor.sub_withdrawn_count || 0,
+                    name: honor.next_tier.name,
+                    need: Math.max(0, need),
+                    pack_total: pack
+                }) || ('距离解锁【' + honor.next_tier.name + '宝箱】拿 ￥' + pack + ' 福利只差最后 ' + Math.max(0, need) + ' 人 · 点击复制密令');
+            } else {
+                hintEl.textContent = fc('phase2_honor_hint') || '点击复制专属推广密令，带队冲榜';
+            }
+        }
+
+        function renderCheckinPanel(checkin) {
+            const btn = document.getElementById('btnCheckinMain');
+            const toggle = document.getElementById('checkinViolentToggle');
+            const pending = document.getElementById('checkinPendingBox');
+            const streakLabel = document.getElementById('checkinStreakLabel');
+            const streakFill = document.getElementById('checkinStreakFill');
+            const streakFrozen = document.getElementById('checkinStreakFrozen');
+            const ledger = document.getElementById('checkinLedgerHint');
+            const toggleLabel = document.getElementById('checkinViolentLabel');
+            const streak = (checkin && checkin.streak_day) || 0;
+            const bonusAmt = (CONFIG.CHECKIN_VIOLENT_BONUS || 4).toFixed(2);
+            if (toggleLabel) toggleLabel.textContent = fc('phase2_checkin_toggle', { amount: (1 + parseFloat(bonusAmt)).toFixed(2) }) || toggleLabel.textContent;
+            if (streakLabel) streakLabel.textContent = fc('phase2_checkin_streak', { streak: streak }) || ('🔥 7天星火暴击：连续 ' + streak + ' / 7 天');
+            if (streakFill) streakFill.style.width = Math.min(100, Math.round(streak / 7 * 100)) + '%';
+            if (ledger) {
+                ledger.textContent = fc('phase2_checkin_ledger', {
+                    streak: streak,
+                    jackpot: '175.00',
+                    loss: '140.00'
+                }) || ('🔥 终极账本：今日已锁' + streak + '天。连续暴力打卡满7天，终极触发5倍核爆总池，直接保底到账 ￥175.00 元筹码秒提现！由于断签会导致大奖降级、直接损失 ￥140.00 元，请务必每天保持发群不中断！');
+            }
+            if (streakFrozen) {
+                if (phase2State.streak_frozen) {
+                    streakFrozen.style.display = '';
+                    const need = Math.max(0, 2 - (phase2State.today_invite_count || 0));
+                    streakFrozen.textContent = need > 0
+                        ? (fc('phase2_checkin_frozen', { need: need }) || ('⚠️ 断签冻结中：今日再拉 ' + need + ' 人注册可复活 175 元暴击资格'))
+                        : (fc('phase2_checkin_revive_ready') || '🔥 今日已拉满 2 人，暴击资格将自动复活');
+                } else {
+                    streakFrozen.style.display = 'none';
+                }
+            }
+            if (!btn) return;
+            const violent = toggle ? toggle.checked : true;
+            if (checkin.checked_today) {
+                btn.disabled = false;
+                btn.classList.add('is-done');
+                const mode = checkin.today_mode === 'violent'
+                    ? (fc('phase2_checkin_mode_violent') || '暴力')
+                    : (fc('phase2_checkin_mode_normal') || '普通');
+                btn.textContent = '✅ 今日已签到 (' + mode + ') · 点击再复制推广链接';
+            } else {
+                btn.disabled = false;
+                btn.classList.remove('is-done');
+                btn.textContent = violent
+                    ? (fc('phase2_checkin_violent_btn') || '🔘 立即执行 [暴力分享签到] （一键复制今日密令 · 锁定制胜7天全勤）')
+                    : (fc('phase2_checkin_normal_btn') || '⚪ 仅执行 [普通打卡] （今日仅得 1 元 · 放弃 7 天 175 元大奖资格）');
+            }
+            if (pending) {
+                if (checkin.checked_today && checkin.today_mode === 'violent' && !checkin.bonus_unlocked) {
+                    pending.style.display = '';
+                    pending.textContent = fc('phase2_checkin_pending', { amount: bonusAmt }) || ('🔒 今日暴力对账箱：￥' + bonusAmt + ' 元 (等待散户新客注册中... ⏳)');
+                } else if (checkin.checked_today && checkin.today_mode === 'violent' && checkin.bonus_unlocked) {
+                    pending.style.display = '';
+                    pending.textContent = fc('phase2_checkin_pending_ok', { amount: bonusAmt }) || ('✅ 对账成功，今日额外 ￥' + bonusAmt + ' 已全额到账！');
+                } else {
+                    pending.style.display = 'none';
+                }
+            }
+        }
+
+        async function loadTeamRadar() {
+            const box = document.getElementById('teamRadarList');
+            if (!box) return;
+            try {
+                const data = await apiRequest('teamradar', 'GET');
+                const list = data.list || [];
+                if (!list.length) {
+                    box.innerHTML = '<div style="font-size:12px;color:var(--text-muted);">' + (fc('phase2_radar_empty') || '暂无直属下线，快去复制密令拉人占位') + '</div>';
+                    return;
+                }
+                box.innerHTML = list.map(function(row) {
+                    const prog = fc('phase2_radar_progress', {
+                        balance: row.balance.toFixed(2),
+                        threshold: row.threshold.toFixed(0)
+                    }) || ('进度：' + row.balance.toFixed(2) + ' / ' + row.threshold.toFixed(0) + ' 元');
+                    const right = row.withdrawn
+                        ? '<span class="team-radar-done">' + (fc('phase2_radar_done') || '已达标 ✅') + '</span>'
+                        : '<button type="button" class="btn-urge" onclick="urgeTeammate(' + row.user_id + ')">' + (fc('phase2_radar_urge') || '一键催促老哥提现') + '</button>';
+                    return '<div class="team-radar-row"><div>📱 ' + row.mobile_mask + '<br>' + prog + '</div>' + right + '</div>';
+                }).join('');
+            } catch (e) {
+                box.innerHTML = '<div style="font-size:12px;color:var(--danger);">' + (fc('phase2_radar_fail') || '加载失败') + '</div>';
+            }
+        }
+
+        async function urgeTeammate(userId) {
+            try {
+                const data = await apiRequest('urgecopy', 'POST', { invitee_user_id: userId });
+                await copyTextSilent(data.text || '');
+                showFanshubToast(fc('phase2_toast_urge_ok') || '催活文案已复制，去群里@他！');
+            } catch (e) {
+                showFanshubToast(e.message || (fc('phase2_toast_copy_fail') || '复制失败'), 'error');
+            }
+        }
+
+        function showPhase2Modal(title, body, actions, useHtml) {
+            const mask = document.getElementById('phase2ModalMask');
+            const bodyEl = document.getElementById('phase2ModalBody');
+            document.getElementById('phase2ModalTitle').textContent = title || '';
+            if (useHtml) {
+                bodyEl.innerHTML = (body || '').replace(/\n/g, '<br>');
+            } else {
+                bodyEl.textContent = body || '';
+            }
+            const actEl = document.getElementById('phase2ModalActions');
+            actEl.innerHTML = '';
+            (actions || []).forEach(function(act) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'phase2-modal-btn ' + (act.style || 'primary');
+                btn.textContent = act.label;
+                btn.onclick = function() {
+                    mask.classList.remove('show');
+                    if (typeof act.onClick === 'function') act.onClick();
+                };
+                actEl.appendChild(btn);
+            });
+            mask.classList.add('show');
+        }
+
+        function closePhase2Modal() {
+            const mask = document.getElementById('phase2ModalMask');
+            if (mask) mask.classList.remove('show');
+        }
+
+        function showPhase2Events(events) {
+            if (!events || !events.length) return;
+            const ev = events[0];
+            const useHtml = !!ev.html;
+            if (ev.type === 'confirm_normal') {
+                showPhase2Modal(ev.title, ev.message, [
+                    { label: fc('phase2_btn_persist_1') || '坚持领 1 元（放弃大奖）', style: 'muted', onClick: function() { doCheckin(false, true); } },
+                    { label: fc('phase2_btn_reselect_violent') || '重选暴力分享（多拿5倍）', style: 'gold', onClick: function() {
+                        const t = document.getElementById('checkinViolentToggle');
+                        if (t) t.checked = true;
+                        renderCheckinPanel(phase2State.checkin || {});
+                        doCheckin(true, true);
+                    }}
+                ], useHtml);
+                return;
+            }
+            const actions = [{ label: fc('phase2_btn_know') || '知道了', style: 'primary', onClick: closePhase2Modal }];
+            if (ev.type === 'day7_explosion') {
+                actions.unshift({ label: fc('phase2_btn_day7_cash') || '立即一键闪兑出款', style: 'gold', onClick: function() {
+                    closePhase2Modal();
+                    document.getElementById('btnGoldenMain').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }});
+            } else if (ev.type === 'honor_tier') {
+                if (ev.capped) {
+                    actions.unshift({ label: fc('phase2_btn_honor_withdraw') || '生成荣誉王者密令 · 去提现', style: 'gold', onClick: function() {
+                        closePhase2Modal();
+                        openWithdrawModal();
+                    }});
+                } else {
+                    actions.unshift({ label: fc('phase2_btn_honor_exchange') || '立即前往步进器变现', style: 'gold', onClick: function() {
+                        closePhase2Modal();
+                        document.getElementById('btnGoldenMain').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }});
+                }
+            } else if (ev.type === 'mode_master') {
+                actions[0].label = fc('phase2_btn_enter_master') || '进入团长大厅';
+            }
+            showPhase2Modal(ev.title, ev.message, actions, useHtml);
+            if (events.length > 1) {
+                setTimeout(function() { showPhase2Events(events.slice(1)); }, 1400);
+            }
+        }
+
+        async function copySharePromoOnly() {
+            try {
+                const data = await apiRequest('share', 'POST', { copy_only: 1 });
+                await copyTextSilent(data.share_text || '');
+                showFanshubToast(fc('phase2_toast_promo_ok') || '推广密令已复制，去群里群发！');
+            } catch (e) {
+                showFanshubToast(e.message || (fc('phase2_toast_copy_fail') || '复制失败'), 'error');
+            }
+        }
+
+        async function handleCheckinClick() {
+            const checkin = (phase2State && phase2State.checkin) || {};
+            if (checkin.checked_today) {
+                await copySharePromoOnly();
+                return;
+            }
+            const toggle = document.getElementById('checkinViolentToggle');
+            const violent = toggle ? toggle.checked : true;
+            await doCheckin(violent, false);
+        }
+
+        async function doCheckin(violent, confirmed) {
+            try {
+                const data = await apiRequest('checkin', 'POST', { violent: violent ? 1 : 0, confirmed: confirmed ? 1 : 0 });
+                if (data.need_confirm) {
+                    showPhase2Events(data.events || []);
+                    return;
+                }
+                if (data.share && data.share.share_text) {
+                    await copyTextSilent(data.share.share_text);
+                }
+                if (data.profile) applyProfile(data.profile);
+                showPhase2Events(data.events || []);
+                showFanshubToast(fc('phase2_toast_checkin_ok') || '签到成功 · 推广密令已复制');
+            } catch (e) {
+                showFanshubToast(e.message || (fc('phase2_toast_checkin_fail') || '签到失败'), 'error');
+            }
+        }
+
+        const SKIN_STORAGE_KEY = 'fans_hub_skin';
+        const SKINS = {
+            default: {
+                '--bg-main': '#F4F6F9',
+                '--bg-card': '#FFFFFF',
+                '--primary': '#00C853',
+                '--secondary': '#FF9100',
+                '--accent': '#0071FF',
+                '--text-main': '#1A212D',
+                '--text-muted': '#657786',
+                '--danger': '#FF3B30'
+            },
+            a: {
+                '--bg-main': '#FAFAFA',
+                '--bg-card': '#FFFFFF',
+                '--primary': '#E53935',
+                '--secondary': '#FFB300',
+                '--accent': '#D32F2F',
+                '--text-main': '#212121',
+                '--text-muted': '#757575',
+                '--danger': '#FF3B30'
+            },
+            b: {
+                '--bg-main': '#EDF2F7',
+                '--bg-card': '#FFFFFF',
+                '--primary': '#00C853',
+                '--secondary': '#FF9100',
+                '--accent': '#1A365D',
+                '--text-main': '#2D3748',
+                '--text-muted': '#718096',
+                '--danger': '#FF3B30'
+            },
+            d: {
+                '--bg-main': '#F6F7FB',
+                '--bg-card': '#FFFFFF',
+                '--primary': '#3F51B5',
+                '--secondary': '#00BCD4',
+                '--accent': '#1E3A8A',
+                '--text-main': '#111827',
+                '--text-muted': '#6B7280',
+                '--danger': '#EF4444'
+            }
+        };
+
+        function applySkin(skinId) {
+            const effectiveId = SKINS[skinId] ? skinId : 'default';
+            const skin = SKINS[effectiveId];
+            Object.entries(skin).forEach(([key, value]) => {
+                document.documentElement.style.setProperty(key, value);
+            });
+            const select = document.getElementById('skinSelect');
+            if (select) select.value = effectiveId;
+
+            const bar = document.getElementById('floatingTopBar');
+            if (bar) {
+                bar.classList.remove('skin-changed');
+                void bar.offsetWidth;
+                bar.classList.add('skin-changed');
+                setTimeout(() => bar.classList.remove('skin-changed'), 420);
+            }
+
+            try { localStorage.setItem(SKIN_STORAGE_KEY, effectiveId); } catch (e) {}
+        }
+
+        (function initSkinSwitcher() {
+            const savedSkin = (() => {
+                try { return localStorage.getItem(SKIN_STORAGE_KEY); } catch (e) { return null; }
+            })();
+            const initialSkin = savedSkin && SKINS[savedSkin] ? savedSkin : 'default';
+            applySkin(initialSkin);
+
+            const select = document.getElementById('skinSelect');
+            if (!select) return;
+            select.value = initialSkin;
+            select.addEventListener('change', () => {
+                const nextId = select.value;
+                if (!SKINS[nextId]) return;
+                applySkin(nextId);
+            });
+        })();
+
+        let account = { balance: 0.00, rights: 0, phone: '', main_uid: '', main_uid_pending: '', main_uid_audit: '' };
+        let phase2State = { enabled: false, user_mode: 'newbie', checkin: {} };
+        let flowStage = 'stage1';
+        let currentSelectedTeam = '';
+        let secretTimerInterval = null;
+        let currentSecretCode = '';
+        let isConverting = false;
+        let commentPage = 1;
+        let commentHasMore = true;
+        let commentLoading = false;
+        let commentLoadedCount = 0;
+        const COMMENT_PAGE_SIZE = 20;
+
+        (function bootstrapCopy() {
+            if (window.FanshubI18n) {
+                initI18nControls();
+            }
+            if (window.FANSHUB_COPY_DEFAULTS) {
+                COPY = Object.assign({}, window.FANSHUB_COPY_DEFAULTS);
+                COPY_VARS = buildCopyVars({});
+                applyPageCopy();
+            }
+        })();
+
+        document.addEventListener('DOMContentLoaded', function() {
+            ensureServerConfig().then(function() {
+                syncSmsCooldownFromStorage();
+            }).catch(function(e) {
+                console.warn('预加载配置失败', e);
+            });
+            const phoneInput = document.getElementById('loginPhone');
+            if (phoneInput) {
+                phoneInput.addEventListener('input', syncSmsCooldownFromStorage);
+            }
+            const shareCard = document.getElementById('sharePromoCard');
+            if (shareCard) {
+                shareCard.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        copyShareLink();
+                    }
+                });
+            }
+            const honorCard = document.getElementById('honorLadderCard');
+            if (honorCard) {
+                honorCard.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        copySharePromoOnly();
+                    }
+                });
+            }
+            const checkinToggle = document.getElementById('checkinViolentToggle');
+            if (checkinToggle) {
+                checkinToggle.addEventListener('change', function() {
+                    renderCheckinPanel(phase2State.checkin || {});
+                });
+            }
+            initFissionMarketTicker();
+            const lotteryChest = document.getElementById('welcomeLotteryChest');
+            if (lotteryChest) {
+                lotteryChest.addEventListener('click', handleWelcomeLotteryChestClick);
+                lotteryChest.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleWelcomeLotteryChestClick();
+                    }
+                });
+            }
+            const lotteryCloseBtn = document.getElementById('welcomeLotteryCloseBtn');
+            if (lotteryCloseBtn) {
+                lotteryCloseBtn.addEventListener('click', closeWelcomeLotteryModal);
+            }
+        });
+
+        window.onload = async function() {
+            try {
+                // 必须先拉到 api_sign_*，再发需签名的接口；否则刷新时 profile 无签名被拒并误清 token
+                await ensureServerConfig();
+            } catch (e) { console.warn('加载配置失败', e); }
+            initMarqueeInterval();
+            const token = localStorage.getItem('fans_hub_token');
+            if (token) {
+                try {
+                    applyProfile(await restoreSessionProfile());
+                    document.getElementById('loginView').classList.remove('active');
+                    document.getElementById('mainDashboardView').classList.add('active');
+                    setBottomActionBarVisible(true);
+                    switchTab('home');
+                    startJackpotSync();
+                } catch (e) {
+                    console.warn('恢复登录失败', e);
+                    if (shouldClearTokenOnProfileError(e)) {
+                        localStorage.removeItem('fans_hub_token');
+                        setBottomActionBarVisible(false);
+                        stopJackpotTimers();
+                    } else {
+                        showFanshubToast(e.message || fc('api_operation_fail'), 'error');
+                    }
+                }
+            }
+            renderUI();
+            updateFlowUI();
+            updateManualSettleButton();
+            syncSmsCooldownFromStorage();
+            scheduleWelcomeLottery();
+            restoreLotteryValuation();
+        };
+
+        document.addEventListener('visibilitychange', async function() {
+            if (!document.hidden && sessionStorage.getItem('fans_hub_pending_open') === 'true') {
+                sessionStorage.removeItem('fans_hub_pending_open');
+                sessionStorage.setItem('fans_hub_pending_open_reward', 'true');
+                updateFlowUI();
+                await tryClaimOpenAccountReward(true);
+            }
+        });
+
+        async function tryClaimOpenAccountReward(showAlert) {
+            if (!localStorage.getItem('fans_hub_token')) return;
+            const uid = (account.main_uid || '').trim();
+            if (!uid || account.main_uid_audit !== 'approved') {
+                updateFlowUI();
+                if (showAlert) {
+                    if ((account.main_uid_audit || '') === 'pending') {
+                        showFanshubToast(fc('uid_hint_pending'), 'info');
+                    } else {
+                        showFanshubToast(fc('alert_uid_required'), 'info');
+                    }
+                }
+                return;
+            }
+            try {
+                applyProfile(await apiRequest('openaccount', 'POST', {}));
+                sessionStorage.removeItem('fans_hub_pending_open_reward');
+                updateFlowUI();
+                renderUI();
+                if (showAlert) {
+                    showFanshubToast(fc('api_open_account_ok'), 'success');
+                }
+            } catch (e) {
+                updateFlowUI();
+                if (showAlert) {
+                    showFanshubToast(e.message || fc('alert_open_reward_fail'), 'error');
+                }
+            }
+        }
+
+        function shouldShowUidSection() {
+            // 游戏账号回填区常驻展示（核销对账）
+            return true;
+        }
+
+        function updateUidStatusHint(profile) {
+            const hint = document.getElementById('uidStatusHint');
+            if (!hint) return;
+            const audit = (profile && profile.main_uid_audit) || account.main_uid_audit || '';
+            const reason = (profile && profile.main_uid_reject_reason) || '';
+            hint.classList.remove('pending', 'approved', 'rejected');
+            if (audit === 'pending') {
+                hint.classList.add('pending');
+                hint.textContent = fc('uid_hint_pending');
+            } else if (audit === 'approved') {
+                hint.classList.add('approved');
+                hint.textContent = fc('uid_hint_approved');
+            } else if (audit === 'rejected') {
+                hint.classList.add('rejected');
+                hint.textContent = reason ? (fc('uid_hint_rejected') + '：' + reason) : fc('uid_hint_rejected');
+            } else {
+                hint.textContent = fc('uid_hint_idle');
+            }
+        }
+
+        function updateFlowUI() {
+            const uidSection = document.getElementById('uidSection');
+            if (shouldShowUidSection()) {
+                uidSection.classList.add('visible');
+            } else {
+                uidSection.classList.remove('visible');
+            }
+            updateUidStatusHint();
+            updateFlowStepper();
+            const dash = document.getElementById('mainDashboardView');
+            setBottomActionBarVisible(!!(dash && dash.classList.contains('active')));
+        }
+
+        function updateUidSubmitButton() {
+            const btn = document.getElementById('btnUidSubmit');
+            if (!btn) return;
+            const approved = account.main_uid_audit === 'approved';
+            btn.disabled = approved;
+            btn.style.display = approved ? 'none' : '';
+        }
+
+        function onUidInput() {
+            const input = document.getElementById('mainStationID');
+            if (!input || input.disabled) return;
+            const uid = String(input.value || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 32);
+            if (input.value !== uid) input.value = uid;
+            updateFlowStepper();
+        }
+
+        let uidSubmitting = false;
+        async function submitUID() {
+            const input = document.getElementById('mainStationID');
+            const btn = document.getElementById('btnUidSubmit');
+            if (!input || input.disabled || uidSubmitting) return;
+            const uid = String(input.value || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 32);
+            input.value = uid;
+            if (uid.length < 2) {
+                showFanshubToast(fc('srv_uid_format_invalid') || fc('alert_uid_required'), 'error');
+                return;
+            }
+            if (!localStorage.getItem('fans_hub_token')) {
+                showFanshubToast(fc('api_operation_fail'), 'error');
+                return;
+            }
+            if (uid === lastSubmittedUid && account.main_uid_audit === 'pending') {
+                showFanshubToast(fc('uid_hint_pending'), 'info');
+                return;
+            }
+            uidSubmitting = true;
+            if (btn) btn.disabled = true;
+            try {
+                const profile = await apiRequest('binduid', 'POST', { main_uid: uid });
+                lastSubmittedUid = uid;
+                applyProfile(profile);
+                showFanshubToast(fc('api_bind_ok'), 'success');
+            } catch (e) {
+                showFanshubToast(e.message || fc('api_operation_fail'), 'error');
+                updateUidSubmitButton();
+            } finally {
+                uidSubmitting = false;
+                if (btn && account.main_uid_audit !== 'approved') btn.disabled = false;
+            }
+        }
+
+        let lastSubmittedUid = '';
+
+        function updateManualSettleButton() {
+            const title = document.getElementById('manualSettleTitle');
+            const sub = document.getElementById('manualSettleSub');
+            if (account.balance >= CONFIG.WITHDRAW_THRESHOLD) {
+                title.innerText = fc('settle_title_high');
+                sub.innerText = fc('settle_sub_high');
+            } else {
+                title.innerText = fc('settle_title_low');
+                sub.innerText = fc('settle_sub_low');
+            }
+        }
+
+        function startSecretCountdown() {
+            if (secretTimerInterval) clearInterval(secretTimerInterval);
+            let remaining = CONFIG.SECRET_LOCK_SECONDS;
+            const el = document.getElementById('secretCountdown');
+            function tick() {
+                const m = Math.floor(remaining / 60);
+                const s = remaining % 60;
+                el.innerText = String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+                if (remaining <= 0) {
+                    clearInterval(secretTimerInterval);
+                    el.innerText = fc('withdraw_secret_expired');
+                    el.parentElement.style.color = '#999';
+                }
+                remaining--;
+            }
+            tick();
+            secretTimerInterval = setInterval(tick, 1000);
+        }
+
+        let sliderCaptchaState = {
+            challenge: null,
+            dragX: 0,
+            dragging: false,
+            startTime: 0,
+            maxX: 0,
+            onSuccess: null,
+            phone: ''
+        };
+
+        function closeSliderCaptcha() {
+            document.getElementById('sliderCaptchaModal').classList.remove('show');
+            resetSliderThumb();
+            sliderCaptchaState.dragging = false;
+        }
+
+        function resetSliderThumb() {
+            sliderCaptchaState.dragX = 0;
+            const thumb = document.getElementById('sliderThumb');
+            const fill = document.getElementById('sliderTrackFill');
+            thumb.style.left = '0px';
+            fill.style.width = '0px';
+            document.getElementById('sliderTrackHint').style.opacity = '1';
+        }
+
+        function renderSliderChallenge(ch) {
+            document.getElementById('sliderModalHint').innerText = (ch && ch.hint) ? ch.hint : fc('slider_modal_hint');
+            const track = document.getElementById('sliderTrack');
+            const thumb = document.getElementById('sliderThumb');
+            const trackWidth = track.clientWidth || 280;
+            sliderCaptchaState.maxX = Math.max(0, trackWidth - thumb.offsetWidth - 4);
+            resetSliderThumb();
+        }
+
+        async function openSliderCaptcha(phone, onSuccess) {
+            sliderCaptchaState.phone = phone;
+            sliderCaptchaState.onSuccess = onSuccess;
+            try {
+                const data = await apiRequest('slidercaptcha', 'GET');
+                if (!data || data.enabled === false) {
+                    onSuccess({});
+                    return;
+                }
+                sliderCaptchaState.challenge = data;
+                document.getElementById('sliderCaptchaModal').classList.add('show');
+                setTimeout(function() { renderSliderChallenge(data); }, 0);
+                bindSliderDrag();
+            } catch (e) {
+                showFanshubToast(e.message || fc('srv_slider_create_fail'), 'error');
+            }
+        }
+
+        function bindSliderDrag() {
+            const thumb = document.getElementById('sliderThumb');
+            const track = document.getElementById('sliderTrack');
+            if (thumb._sliderBound) return;
+            thumb._sliderBound = true;
+
+            function setDragX(x) {
+                const maxX = sliderCaptchaState.maxX;
+                x = Math.max(0, Math.min(maxX, x));
+                sliderCaptchaState.dragX = x;
+                thumb.style.left = x + 'px';
+                document.getElementById('sliderTrackFill').style.width = (x + thumb.offsetWidth / 2) + 'px';
+                document.getElementById('sliderTrackHint').style.opacity = x > 8 ? '0' : '1';
+            }
+
+            function pointerDown(clientX) {
+                sliderCaptchaState.dragging = true;
+                sliderCaptchaState.startTime = Date.now();
+                sliderCaptchaState._startClientX = clientX;
+                sliderCaptchaState._startDragX = sliderCaptchaState.dragX;
+            }
+
+            function pointerMove(clientX) {
+                if (!sliderCaptchaState.dragging) return;
+                const delta = clientX - sliderCaptchaState._startClientX;
+                setDragX(sliderCaptchaState._startDragX + delta);
+            }
+
+            function pointerUp() {
+                if (!sliderCaptchaState.dragging) return;
+                sliderCaptchaState.dragging = false;
+                const maxX = sliderCaptchaState.maxX;
+                const passX = Math.floor(maxX * 0.85);
+                if (sliderCaptchaState.dragX < passX) {
+                    resetSliderThumb();
+                    return;
+                }
+                const ch = sliderCaptchaState.challenge;
+                const payload = {
+                    slider_token: ch.token,
+                    slider_x: Math.round(sliderCaptchaState.dragX),
+                    slider_max: Math.round(maxX),
+                    slider_duration: Date.now() - sliderCaptchaState.startTime
+                };
+                closeSliderCaptcha();
+                if (typeof sliderCaptchaState.onSuccess === 'function') {
+                    sliderCaptchaState.onSuccess(payload);
+                }
+            }
+
+            thumb.addEventListener('mousedown', function(e) { e.preventDefault(); pointerDown(e.clientX); });
+            thumb.addEventListener('touchstart', function(e) { pointerDown(e.touches[0].clientX); }, { passive: true });
+            document.addEventListener('mousemove', function(e) { pointerMove(e.clientX); });
+            document.addEventListener('touchmove', function(e) { if (sliderCaptchaState.dragging) pointerMove(e.touches[0].clientX); }, { passive: true });
+            document.addEventListener('mouseup', pointerUp);
+            document.addEventListener('touchend', pointerUp);
+        }
+
+        async function doSendSms(phone, sliderPayload) {
+            try {
+                const payload = Object.assign({
+                    mobile: phone,
+                    country_code: window.FanshubI18n ? FanshubI18n.country : 'CN'
+                }, sliderPayload || {});
+                const data = await apiRequest('sendsms', 'POST', payload);
+                const interval = (data && data.retry_after) ? parseInt(data.retry_after, 10) : (CONFIG.SMS_SEND_INTERVAL || 60);
+                startSmsCooldown(phone, interval);
+                const hint = (data && data.hint) ? data.hint : fc('alert_sms_hint_default');
+                showFanshubToast(fc('alert_sms_sent') + '\n' + hint, 'success');
+            } catch (e) {
+                if (e.payload && e.payload.retry_after) {
+                    startSmsCooldown(phone, e.payload.retry_after);
+                }
+                showFanshubToast(e.message || fc('alert_sms_fail'), 'error');
+            }
+        }
+
+        async function sendMockCaptcha() {
+            const phone = getLoginMobileE164();
+            if (!phone || (window.FanshubI18n && !FanshubI18n.isValidNational(document.getElementById('loginPhone').value))) {
+                showFanshubToast(fc('alert_phone_invalid'), 'error');
+                return;
+            }
+            const remain = getSmsCooldownRemain(phone);
+            if (remain > 0) {
+                startSmsCooldown(phone, remain);
+                showFanshubToast(fc('api_sms_too_frequent_wait', { seconds: remain }), 'error');
+                return;
+            }
+            if (CONFIG.SMS_SLIDER_ENABLED) {
+                openSliderCaptcha(phone, function(sliderPayload) {
+                    doSendSms(phone, sliderPayload);
+                });
+                return;
+            }
+            await doSendSms(phone, {});
+        }
+
+        async function submitLogin() {
+            const phone = getLoginMobileE164();
+            let captcha = document.getElementById('loginCaptcha').value.trim();
+            if (!phone || (window.FanshubI18n && !FanshubI18n.isValidNational(document.getElementById('loginPhone').value))) {
+                showFanshubToast(fc('alert_phone_required'), 'error');
+                return;
+            }
+            if (!captcha) {
+                showFanshubToast(fc('alert_captcha_required'), 'error');
+                return;
+            }
+            try {
+                await ensureServerConfig();
+                const data = await apiRequest('login', 'POST', {
+                    mobile: phone,
+                    country_code: window.FanshubI18n ? FanshubI18n.country : 'CN',
+                    captcha: captcha,
+                    code: PAGE_INVITE_CODE,
+                    invite: PAGE_INVITE_CODE,
+                    device_fp: await getDeviceFingerprint()
+                });
+                localStorage.setItem('fans_hub_token', data.token);
+                applyProfile(data.profile);
+                document.getElementById('loginView').classList.remove('active');
+                document.getElementById('mainDashboardView').classList.add('active');
+                if (data.is_new) {
+                    sessionStorage.setItem('fans_hub_show_lottery', '1');
+                }
+                scheduleWelcomeLottery();
+                setBottomActionBarVisible(true);
+                switchTab('home');
+                startJackpotSync();
+                updateFlowStepper();
+                showFanshubToast(data.is_new ? fc('alert_login_new') : fc('alert_login_back'), 'success');
+            } catch (e) {
+                showFanshubToast(e.message || fc('alert_login_fail'), 'error');
+            }
+        }
+
+        async function loadLeaderboard() {
+            const node = document.getElementById('leaderboardList');
+            if (!node) return;
+            try {
+                const rows = await apiRequest('inviteleaderboard', 'GET', { limit: 10 });
+                if (!rows || !rows.length) {
+                    node.innerHTML = '<div class="text-muted" style="font-size:12px;">' + fc('leaderboard_empty') + '</div>';
+                    return;
+                }
+                node.innerHTML = rows.map(item => {
+                    const medal = item.rank <= 3 ? ['🥇','🥈','🥉'][item.rank - 1] : item.rank;
+                    const name = item.mobile_mask || fc('leaderboard_user_fallback');
+                    const inviteText = fc('leaderboard_invite_template', { count: item.invite_count });
+                    return '<div class="leaderboard-item"><div><span class="leaderboard-rank">' + medal + '</span> ' + name + '</div><div class="leaderboard-count">' + inviteText + '</div></div>';
+                }).join('');
+            } catch (e) {
+                node.innerHTML = '<div class="text-muted" style="font-size:12px;">' + fc('leaderboard_fail') + '</div>';
+            }
+        }
+
+        function renderUI() {
+            document.getElementById('myUserBalance').innerText = account.balance.toFixed(2);
+            document.getElementById('myTicketPool').innerText = account.rights.toFixed(2);
+
+            let inputNode = document.getElementById('ticketCount');
+            let allowedMax = Math.floor(account.rights * CONFIG.MAX_VOTE_PERCENT);
+            if (allowedMax < 1 && account.rights > 0) allowedMax = 1;
+            let currentInput = parseInt(inputNode.value) || 1;
+            if (account.rights <= 0) {
+                currentInput = 1;
+            } else if (currentInput > allowedMax) {
+                currentInput = allowedMax;
+            } else if (currentInput < 1) {
+                currentInput = 1;
+            }
+            inputNode.value = currentInput;
+            updateDynamicCopy();
+            updateBalanceProgress();
+            document.getElementById('btnGoldenMain').disabled = account.rights <= 0;
+            updateManualSettleButton();
+            restoreLotteryValuation();
+            updateFlowStepper();
+            syncClaimPageEcho();
+        }
+
+        function adjustCount(amount) {
+            let inputNode = document.getElementById('ticketCount');
+            let currentVal = parseInt(inputNode.value);
+            let nextVal = currentVal + amount;
+            let allowedMax = Math.floor(account.rights * CONFIG.MAX_VOTE_PERCENT);
+            if (allowedMax < 1) allowedMax = 1;
+            if (nextVal >= 1 && nextVal <= allowedMax) {
+                inputNode.value = nextVal;
+                renderUI();
+            } else if (nextVal > allowedMax) {
+                showFanshubToast(fc('alert_exchange_limit', { max: allowedMax }), 'error');
+            }
+        }
+
+        function selectTeam(channel) {
+            if (channel === 'a') {
+                currentSelectedTeam = fc('channel_a_name');
+                document.getElementById('optTeamA').classList.add('selected');
+                document.getElementById('optTeamB').classList.remove('selected');
+            } else {
+                currentSelectedTeam = fc('channel_b_name');
+                document.getElementById('optTeamA').classList.remove('selected');
+                document.getElementById('optTeamB').classList.add('selected');
+            }
+        }
+
+        async function handleGoldenCashOut() {
+            if (isConverting) return;
+
+            if (account.rights <= 0) {
+                if (account.balance >= CONFIG.WITHDRAW_THRESHOLD) {
+                    onFlashComplete(0, 0);
+                } else {
+                    showFanshubToast(fc('alert_no_rights'), 'error');
+                }
+                return;
+            }
+
+            let selectCount = parseInt(document.getElementById('ticketCount').value);
+            if (isNaN(selectCount) || selectCount < 1) {
+                showFanshubToast(fc('alert_select_count'), 'error');
+                return;
+            }
+
+            isConverting = true;
+            document.getElementById('btnGoldenMain').disabled = true;
+
+            try {
+                const profile = await apiRequest('exchange', 'POST', {
+                    count: selectCount,
+                    channel: currentSelectedTeam,
+                    request_id: newRequestId('ex')
+                });
+                const addValue = selectCount * getSharePrice();
+                let startVal = account.balance;
+                account.rights = parseFloat(profile.rights) || 0;
+                let endVal = parseFloat(profile.balance) || 0;
+                let current = startVal;
+                let steps = 25;
+                let perStep = (endVal - startVal) / steps;
+                let timer = setInterval(() => {
+                    current += perStep;
+                    if (current >= endVal) {
+                        current = endVal;
+                        clearInterval(timer);
+                        applyProfile(profile);
+                        isConverting = false;
+                        document.getElementById('btnGoldenMain').disabled = account.rights <= 0;
+                        onFlashComplete(selectCount, addValue);
+                    } else {
+                        document.getElementById('myUserBalance').innerText = current.toFixed(2);
+                    }
+                }, 25);
+            } catch (e) {
+                isConverting = false;
+                document.getElementById('btnGoldenMain').disabled = account.rights <= 0;
+                showFanshubToast(e.message || fc('alert_exchange_fail'), 'error');
+            }
+        }
+
+        function onFlashComplete(selectCount, addValue) {
+            const convertedMsg = selectCount > 0
+                ? fc('alert_exchange_success', { count: selectCount, amount: addValue.toFixed(2), balance: account.balance.toFixed(2) })
+                : fc('alert_exchange_balance_only', { balance: account.balance.toFixed(2) });
+
+            if (account.balance < CONFIG.WITHDRAW_THRESHOLD) {
+                if (selectCount > 0) showFanshubToast(convertedMsg, 'success');
+                showThresholdBlockModal();
+            } else if (flowStage === 'stage2') {
+                const uid = document.getElementById('mainStationID').value.trim();
+                if (uid) {
+                    showFanshubToast(convertedMsg + '\n\n' + fc('alert_exchange_vip_ready'), 'success');
+                } else {
+                    showFanshubToast(convertedMsg + '\n\n' + fc('alert_exchange_vip_need_uid'), 'info');
+                }
+            } else {
+                showFanshubToast(convertedMsg + '\n\n' + fc('alert_exchange_need_open'), 'info');
+            }
+        }
+
+        function showThresholdBlockModal() {
+            const balance = account.balance;
+            const shortAmt = CONFIG.WITHDRAW_THRESHOLD - balance;
+            const progress = Math.min(100, (balance / CONFIG.WITHDRAW_THRESHOLD) * 100);
+            document.getElementById('blockCurrentAmt').innerText = balance.toFixed(2);
+            document.getElementById('blockShortAmt').innerText = shortAmt.toFixed(2);
+            document.getElementById('blockProgressBar').style.width = progress + '%';
+            document.getElementById('thresholdBlockModal').style.display = 'flex';
+        }
+
+        function closeThresholdBlockModal() {
+            document.getElementById('thresholdBlockModal').style.display = 'none';
+        }
+
+        function goToMainStationFromBlock() {
+            closeThresholdBlockModal();
+            goToMainStation();
+        }
+
+        let currentSecretRequestId = '';
+
+        async function openWithdrawModal() {
+            if (typeof switchTab === 'function') switchTab('claim');
+            let balance = account.balance;
+            let playerUID = document.getElementById('mainStationID').value.trim();
+            const isVipTier = balance >= CONFIG.WITHDRAW_THRESHOLD;
+
+            if (isVipTier && flowStage === 'stage2' && (account.main_uid_audit !== 'approved' || !account.main_uid)) {
+                showFanshubToast(
+                    account.main_uid_audit === 'pending' ? fc('uid_hint_pending') : fc('alert_uid_required'),
+                    'error'
+                );
+                document.getElementById('uidSection').classList.add('visible');
+                return;
+            }
+
+            if (isVipTier && flowStage === 'stage1') {
+                showFanshubToast(fc('alert_open_first'), 'error');
+                return;
+            }
+
+            try {
+                if (!currentSecretRequestId) {
+                    currentSecretRequestId = newRequestId('sec');
+                }
+                const data = await apiRequest('createsecret', 'POST', { request_id: currentSecretRequestId });
+                currentSecretCode = data.secret.code;
+                if (data.customer_service_url) CONFIG.CUSTOMER_SERVICE_URL = data.customer_service_url;
+                if (data.app_download_url) CONFIG.APP_DOWNLOAD_URL = data.app_download_url;
+                applyProfile(data.profile);
+                document.getElementById('billCodeText').innerText = currentSecretCode;
+                document.getElementById('modalBalanceWrap').innerText = formatMoney(balance);
+
+                if (isVipTier) {
+                    document.getElementById('withdrawModalTitle').innerText = fc('withdraw_title_vip');
+                } else {
+                    document.getElementById('withdrawModalTitle').innerText = fc('withdraw_title_green');
+                }
+
+                CONFIG.SECRET_LOCK_SECONDS = data.secret.lock_seconds || CONFIG.SECRET_LOCK_SECONDS;
+                document.getElementById('secretCountdown').parentElement.style.color = 'var(--danger)';
+                startSecretCountdown();
+                document.getElementById('withdrawModal').style.display = 'flex';
+            } catch (e) {
+                showFanshubToast(e.message || fc('alert_secret_fail'), 'error');
+            }
+        }
+
+        function closeWithdrawModal() {
+            document.getElementById('withdrawModal').style.display = 'none';
+            if (secretTimerInterval) clearInterval(secretTimerInterval);
+            currentSecretRequestId = '';
+        }
+
+        function copySecretCode() {
+            copyText(currentSecretCode, fc('alert_secret_copied_clipboard'));
+        }
+
+        function resolveCsIdentifier() {
+            const uid = document.getElementById('mainStationID').value.trim();
+            if (uid) return uid;
+            if (account.phone) return account.phone;
+            return '';
+        }
+
+        async function jumpToCustomerService() {
+            if (!currentSecretCode) {
+                showFanshubToast(fc('alert_secret_required'), 'error');
+                return;
+            }
+            const csUrl = CONFIG.CUSTOMER_SERVICE_URL;
+            if (!csUrl) {
+                showFanshubToast(fc('alert_cs_not_configured'), 'error');
+                return;
+            }
+            await copyTextSilent(currentSecretCode);
+            showFanshubToast(fc('alert_secret_copied'), 'success');
+            window.open(csUrl, '_blank');
+        }
+
+        function copyTextSilent(text) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                return navigator.clipboard.writeText(text).catch(() => fallbackCopySilent(text));
+            }
+            return Promise.resolve(fallbackCopySilent(text));
+        }
+
+        function fallbackCopySilent(text) {
+            let tempInput = document.createElement("input");
+            tempInput.value = text;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand("copy");
+            document.body.removeChild(tempInput);
+        }
+
+        async function copyShareLink() {
+            try {
+                const data = await apiRequest('share', 'POST', {});
+                if (data.rewarded) {
+                    applyProfile(data.profile);
+                }
+                await copyTextSilent(data.share_text || '');
+                let toastMsg = data.message || '';
+                if (!toastMsg) {
+                    toastMsg = data.rewarded
+                        ? fc('alert_share_rewarded')
+                        : fc('alert_share_copied', { message: fc('alert_share_wait_default') });
+                }
+                toastMsg = toastMsg.replace(/【[^】]*】/g, '').replace(/\\n+/g, ' ').trim();
+                showFanshubToast(toastMsg || '分享文案已复制');
+            } catch (e) {
+                showFanshubToast(e.message || fc('alert_share_fail'), 'error');
+            }
+        }
+
+        function goToMainStation() {
+            sessionStorage.setItem('fans_hub_pending_open', 'true');
+            // 提前亮出 UID，回站后可先绑定再领开户奖励
+            sessionStorage.setItem('fans_hub_pending_open_reward', 'true');
+            updateFlowUI();
+            showFanshubToast(fc('alert_open_account'), 'info');
+            setTimeout(() => {
+                window.open(CONFIG.MAIN_STATION_URL);
+            }, 800);
+        }
+
+        let marqueeItems = [];
+
+        function renderCommentItem(item, isMine) {
+            let div = document.createElement('div');
+            div.className = 'comment-item';
+            const userHtml = isMine
+                ? '<span style="color:var(--danger)">' + fc('comment_user_mine', { user: item.user }) + '</span>'
+                : '<span>' + fc('comment_user_other', { user: item.user }) + '</span>';
+            const textStyle = isMine ? 'color: var(--danger); font-weight:bold;' : 'color: var(--text-main);';
+            div.innerHTML = `<div class="comment-user">${userHtml}<span class="comment-time">${item.time}</span></div><div style="${textStyle}">${item.text}</div>`;
+            return div;
+        }
+
+        function getCommentLoadMoreEl(create) {
+            let el = document.getElementById('commentLoadMore');
+            if (!el && create) {
+                el = document.createElement('div');
+                el.id = 'commentLoadMore';
+                el.style.cssText = 'text-align:center;color:var(--text-muted);padding:12px 0;font-size:12px;';
+                document.getElementById('commentScrollBox').appendChild(el);
+            }
+            return el;
+        }
+
+        async function loadComments(page, append) {
+            if (commentLoading) return;
+            commentLoading = true;
+            const box = document.getElementById('commentScrollBox');
+            if (append) {
+                const loader = getCommentLoadMoreEl(true);
+                loader.innerText = fc('leaderboard_loading');
+                loader.style.display = 'block';
+            }
+            try {
+                const data = await apiRequest('comments', 'GET', { page: page, limit: COMMENT_PAGE_SIZE });
+                const list = (data && data.list) ? data.list : [];
+                const total = data && data.total !== undefined ? data.total : list.length;
+                if (!append) {
+                    box.innerHTML = '';
+                    commentLoadedCount = 0;
+                }
+                const loaderEl = getCommentLoadMoreEl(false);
+                if (loaderEl) loaderEl.remove();
+                if (!list.length && page === 1) {
+                    box.innerHTML = '<div class="comment-empty-placeholder" style="text-align:center;color:var(--text-muted);padding:20px 0;">' + fc('comment_empty') + '</div>';
+                    commentHasMore = false;
+                    return;
+                }
+                list.forEach(item => box.appendChild(renderCommentItem(item, false)));
+                commentPage = page;
+                commentLoadedCount += list.length;
+                commentHasMore = commentLoadedCount < total;
+                if (commentHasMore) {
+                    const hint = getCommentLoadMoreEl(true);
+                    hint.innerText = fc('comment_scroll_hint');
+                }
+            } catch (e) {
+                if (!append) {
+                    box.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:20px 0;">' + fc('comment_fail') + '</div>';
+                }
+                commentHasMore = false;
+            } finally {
+                commentLoading = false;
+            }
+        }
+
+        async function initComments() {
+            commentPage = 1;
+            commentHasMore = true;
+            await loadComments(1, false);
+        }
+
+        function handleCommentScroll() {
+            const box = document.getElementById('commentScrollBox');
+            if (!commentHasMore || commentLoading) return;
+            if (box.scrollTop + box.clientHeight >= box.scrollHeight - 48) {
+                loadComments(commentPage + 1, true);
+            }
+        }
+
+        async function submitComment() {
+            let input = document.getElementById('userCommentInput');
+            const text = input.value.trim();
+            if (!text) return;
+            if (!localStorage.getItem('fans_hub_token')) {
+                showFanshubToast(fc('alert_comment_login'), 'success');
+                return;
+            }
+            try {
+                const data = await apiRequest('postcomment', 'POST', { content: text });
+                let box = document.getElementById('commentScrollBox');
+                if (box.querySelector('.comment-empty-placeholder')) box.innerHTML = '';
+                if (data.auto_show) {
+                    box.insertBefore(renderCommentItem(data, true), box.firstChild);
+                }
+                box.scrollTop = 0;
+                input.value = '';
+                showFanshubToast(data.auto_show ? fc('alert_comment_ok') : fc('alert_comment_pending'), 'success');
+            } catch (e) {
+                showFanshubToast(e.message || fc('alert_comment_fail'), 'error');
+            }
+        }
+
+        function initMarqueeInterval() {
+            let node = document.getElementById('marqueeNode');
+            const items = marqueeItems.length ? marqueeItems : [fc('marquee_fallback_prefix') + fc('marquee_fallback')];
+            node.innerHTML = items.map(text => `<div class="marquee-item">${text}</div>`).join('');
+        }
+
+        function copyText(text, successMsg) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(() => {
+                    showFanshubToast(successMsg || fc('alert_copy_ok'), 'success');
+                }).catch(() => fallbackCopy(text, successMsg));
+            } else {
+                fallbackCopy(text, successMsg);
+            }
+        }
+
+        function fallbackCopy(text, successMsg) {
+            let tempInput = document.createElement("input");
+            tempInput.value = text;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand("copy");
+            document.body.removeChild(tempInput);
+            showFanshubToast(successMsg || fc('alert_copy_ok'), 'success');
+        }
+    </script>
+    <div class="bottom-action-bar" id="bottomActionBar">
+        <button type="button" class="tab-btn active" data-tab="home" onclick="switchTab('home')"><span class="tab-ico">🏠</span>大厅</button>
+        <button type="button" class="tab-btn" data-tab="exchange" onclick="switchTab('exchange')"><span class="tab-ico">⚡</span>闪兑</button>
+        <button type="button" class="tab-btn" data-tab="claim" onclick="switchTab('claim')"><span class="tab-ico">🏦</span>领取</button>
+        <button type="button" class="tab-btn tab-master" data-tab="master" onclick="switchTab('master')"><span class="tab-ico">👑</span>团长</button>
+        <button type="button" class="tab-btn" data-tab="social" onclick="switchTab('social')"><span class="tab-ico">💬</span>互动</button>
+    </div>
+    <div id="fanshubToast" class="fanshub-toast" aria-live="polite"></div>
+    <div class="welcome-lottery-mask" id="welcomeLotteryMask">
+        <div class="welcome-lottery-panel">
+            <div class="welcome-lottery-title">🎁 新手黑金宝箱</div>
+            <div class="welcome-lottery-chest" id="welcomeLotteryChest" role="button" tabindex="0" aria-label="开启宝箱">🎁</div>
+            <div class="welcome-lottery-shares" id="welcomeLotteryShares">5.00 份</div>
+            <div class="welcome-lottery-price" id="welcomeLotteryPrice">￥--</div>
+            <div class="welcome-lottery-hint" id="welcomeLotteryHint" data-copy="lottery_chest_hint">点击黑金宝箱 · 开启新手股份</div>
+            <button type="button" class="welcome-lottery-close-btn" id="welcomeLotteryCloseBtn" disabled>请先开启宝箱</button>
+        </div>
+    </div>
+    <div class="phase2-modal-mask" id="phase2ModalMask">
+        <div class="phase2-modal-box">
+            <div class="phase2-modal-title" id="phase2ModalTitle"></div>
+            <div class="phase2-modal-body" id="phase2ModalBody"></div>
+            <div class="phase2-modal-actions" id="phase2ModalActions"></div>
+        </div>
+    </div>
+</body>
+</html>

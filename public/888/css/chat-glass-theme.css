@@ -1,0 +1,723 @@
+/* css/chat-glass-theme.css — 红宝模块：红金渐变顶栏 + 加厚玻璃，修复列表/建群布局 */
+
+#tabMessages,
+.chat-create-group-pane,
+.chat-rp-send-pane {
+  --hg-red-a: #E63022;
+  --hg-red-b: #C61114;
+  --hg-red-grad: linear-gradient(to right, #E63022, #C61114);
+  --hg-gold-edge: rgba(253, 228, 179, 0.55);
+  --hg-border-grad: linear-gradient(145deg, #ffe9b0 0%, #f0b04a 42%, #e07a22 100%);
+  --hg-border-grad-soft: linear-gradient(145deg, rgba(255, 233, 176, 0.95) 0%, rgba(240, 176, 74, 0.75) 50%, rgba(224, 122, 34, 0.85) 100%);
+  --hg-ink: #3d2e22;
+  --hg-muted: #9a8574;
+  --hg-inset: inset 0 2px 0 rgba(255, 255, 255, 0.95), inset 0 -2px 5px rgba(200, 140, 60, 0.12);
+  --hg-inset-sm: inset 0 1px 0 rgba(255, 255, 255, 0.92), inset 0 -1px 3px rgba(200, 140, 60, 0.1);
+  --hg-lift: 0 10px 24px rgba(176, 120, 50, 0.16);
+  --hg-lift-sm: 0 6px 14px rgba(170, 120, 55, 0.12);
+  --hg-hero-glass:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0) 55%),
+    linear-gradient(to right, #E63022, #C61114);
+}
+
+/* ---------- 页面底：浅灰，顶栏红金 ---------- */
+body.tab-messages {
+  background: #f3f4f6 !important;
+}
+
+#tabMessages .chat-list-pane,
+#tabMessages .chat-sub-pane,
+#tabMessages .chat-room-pane,
+.chat-create-group-pane,
+.chat-rp-send-pane {
+  background: #f3f4f6 !important;
+}
+
+/* 暖色盖板主体：恢复白底 + 上叠顶栏 */
+#tabMessages .chat-list-main,
+#tabMessages .chat-sub-main,
+#tabMessages .chat-rp-send-main {
+  background: #fffdf9 !important;
+  border-top-left-radius: 18px;
+  border-top-right-radius: 18px;
+  margin-top: -24px !important;
+  position: relative;
+  z-index: 2;
+  box-shadow:
+    0 -2px 0 rgba(255, 255, 255, 0.5),
+    0 8px 24px rgba(180, 40, 30, 0.08) !important;
+}
+
+/* ---------- 顶栏：红金渐变 + 加厚玻璃高光 ---------- */
+#tabMessages .chat-list-hero,
+#tabMessages .chat-sub-pane > .chat-hero-hd,
+#tabMessages .chat-room-pane > .chat-hero-hd,
+.chat-create-group-pane .chat-cg-header,
+.chat-rp-send-pane > .chat-hero-hd {
+  background: var(--hg-hero-glass) !important;
+  color: #fff !important;
+  border-bottom: 1px solid var(--hg-gold-edge) !important;
+  border-image: none !important;
+  box-shadow:
+    0 10px 24px rgba(180, 30, 25, 0.28),
+    inset 0 2px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.12) !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+#tabMessages .chat-list-hero {
+  padding: 14px 14px 44px !important;
+}
+
+#tabMessages .chat-list-hero .chat-hero-title {
+  color: #fff !important;
+  text-align: left !important;
+  font-size: 22px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.5px;
+  text-shadow: 0 2px 4px rgba(120, 20, 10, 0.35) !important;
+  font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif !important;
+}
+
+#tabMessages .chat-sub-pane .chat-hero-title,
+#tabMessages .chat-room-pane .chat-hero-title,
+.chat-create-group-pane .chat-cg-title,
+.chat-rp-send-pane .chat-hero-title {
+  color: #fff !important;
+  text-shadow: 0 1px 3px rgba(80, 10, 8, 0.3) !important;
+  font-weight: 800;
+}
+
+#tabMessages .chat-list-hero .chat-hero-icon-btn {
+  border: 1.5px solid rgba(255, 255, 255, 0.5) !important;
+  background: rgba(255, 255, 255, 0.2) !important;
+  color: #fff !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+  border-radius: 50% !important;
+}
+
+#tabMessages .chat-plus-menu {
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    linear-gradient(145deg, #ffe9b0 0%, #f0b04a 42%, #e07a22 100%) border-box;
+  box-shadow: 0 12px 28px rgba(176, 80, 40, 0.2);
+}
+
+#tabMessages .chat-home-search-cancel {
+  color: #C61114 !important;
+}
+
+#tabMessages .chat-sub-pane .chat-hero-back,
+#tabMessages .chat-room-pane .chat-hero-back,
+#tabMessages .chat-room-pane .chat-hero-more,
+.chat-rp-send-pane .chat-hero-back:not(#chatRpCancelBtn),
+.chat-create-group-pane .chat-cg-back {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0;
+  box-sizing: border-box !important;
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  max-width: 40px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 1.5px solid rgba(253, 228, 179, 0.45) !important;
+  background: rgba(255, 255, 255, 0.18) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+  border-radius: 50% !important;
+  color: #fff !important;
+  line-height: 1 !important;
+  font-size: 0 !important;
+  font-weight: 400 !important;
+  transform: none !important;
+  text-indent: 0 !important;
+}
+
+.chat-rp-send-pane #chatRpCancelBtn.chat-hero-back {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: auto !important;
+  min-width: 40px !important;
+  max-width: none !important;
+  height: 40px !important;
+  padding: 0 8px !important;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  color: #fff !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  transform: none !important;
+}
+
+#tabMessages .chat-room-pane .chat-hero-more {
+  margin-left: auto !important;
+  letter-spacing: 0 !important;
+}
+
+#tabMessages .chat-room-pane .chat-hero-more svg {
+  display: block;
+  width: 22px;
+  height: 22px;
+}
+
+#tabMessages .chat-room-pane .chat-hero-more[hidden],
+#tabMessages .chat-room-pane .chat-hero-spacer[hidden] {
+  display: none !important;
+}
+
+#tabMessages .chat-sub-pane .chat-hero-back svg,
+#tabMessages .chat-room-pane .chat-hero-back svg,
+.chat-rp-send-pane .chat-hero-back svg,
+.chat-create-group-pane .chat-cg-back svg {
+  display: block;
+  width: 24px;
+  height: 24px;
+  margin: 0 auto;
+  transform: none;
+}
+
+#tabMessages .chat-hero-spacer,
+#tabMessages .chat-sub-spacer,
+.chat-rp-send-pane .chat-hero-spacer {
+  width: 40px !important;
+  min-width: 40px !important;
+  flex-shrink: 0;
+}
+
+/* ---------- 会话列表：全宽居中白底，不再偏移 ---------- */
+#tabMessages .chat-home-panel {
+  background: transparent !important;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+#tabMessages .chat-conv-list {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: #fff !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  border: none !important;
+  overflow: hidden;
+}
+
+#tabMessages .chat-conv-item {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  border: none !important;
+  border-bottom: 1px solid #f0f0f0 !important;
+  border-radius: 0 !important;
+  background: #fff !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  padding: 13px 14px !important;
+  padding-right: 28px !important;
+  box-sizing: border-box;
+}
+
+#tabMessages .chat-conv-item:active {
+  background: #fff8f2 !important;
+  transform: none;
+}
+
+#tabMessages .chat-empty {
+  color: var(--hg-muted);
+  font-weight: 600;
+  text-align: center;
+  padding: 28px 16px;
+  background: #fff;
+}
+
+/* ---------- 搜索 / Tab：分段控件铺满 ---------- */
+#tabMessages .chat-home-search-box,
+#tabMessages .chat-home-tabs-row {
+  border: 1.5px solid transparent !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 248, 238, 0.88) 100%) padding-box,
+    var(--hg-border-grad-soft) border-box !important;
+  box-shadow: var(--hg-inset-sm), 0 4px 12px rgba(170, 120, 55, 0.08) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 22px !important;
+}
+
+#tabMessages .chat-home-search-box {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+#tabMessages .chat-home-tabs-row {
+  display: flex !important;
+  align-items: stretch !important;
+  gap: 0 !important;
+  padding: 3px !important;
+  overflow: hidden !important;
+  min-height: 44px;
+}
+
+#tabMessages .chat-home-tab-divider {
+  display: none !important;
+}
+
+#tabMessages .chat-home-tab {
+  flex: 1 1 0 !important;
+  width: auto !important;
+  min-width: 0 !important;
+  height: auto !important;
+  min-height: 38px !important;
+  color: var(--hg-muted) !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  font-weight: 700;
+  border-radius: 18px !important;
+  margin: 0 !important;
+}
+
+#tabMessages .chat-home-tab.active {
+  color: #fff !important;
+  background: var(--hg-red-grad) !important;
+  border-radius: 18px !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
+}
+
+#tabMessages .chat-home-tab.active::after {
+  display: none !important;
+}
+
+/* ---------- 通用子页卡片 / 按钮（不含建群/会话列表） ---------- */
+#tabMessages .chat-setting-card,
+#tabMessages .chat-add-friend-card,
+#tabMessages .chat-qr-scan-frame,
+#tabMessages .chat-action-sheet-panel,
+#tabMessages .chat-rp-preview {
+  border: 1.5px solid transparent !important;
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 246, 232, 0.7) 100%) padding-box,
+    var(--hg-border-grad) border-box !important;
+  box-shadow: var(--hg-lift), var(--hg-inset) !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-radius: 22px !important;
+}
+
+#tabMessages button.chat-setting-save-btn,
+#tabMessages button.chat-invite-confirm-btn,
+#tabMessages button.chat-friend-req-btn.accept,
+#tabMessages button.chat-add-member-btn,
+#tabMessages button.chat-rp-submit-btn,
+.chat-rp-send-pane button.chat-rp-submit-btn {
+  border: 1.5px solid transparent !important;
+  background:
+    linear-gradient(165deg, rgba(255, 200, 160, 0.95) 0%, #E63022 55%, #C61114 100%) padding-box,
+    var(--hg-border-grad) border-box !important;
+  color: #fff !important;
+  box-shadow:
+    0 8px 18px rgba(198, 17, 20, 0.28),
+    inset 0 2px 0 rgba(255, 255, 255, 0.35) !important;
+  font-weight: 700;
+}
+
+#tabMessages button.chat-friend-req-btn.reject,
+#tabMessages button.chat-action-item.danger {
+  border: 1.5px solid transparent !important;
+  background:
+    linear-gradient(180deg, #fff5f5 0%, #ffe0dc 100%) padding-box,
+    linear-gradient(145deg, #ffd0c4, #c62828) border-box !important;
+  color: #a12818 !important;
+}
+
+#tabMessages button.chat-friend-req-tab,
+#tabMessages button.chat-rp-type-btn,
+#tabMessages button.chat-action-item,
+#tabMessages button.chat-attach-item {
+  border: 1.5px solid transparent !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 246, 232, 0.85) 100%) padding-box,
+    var(--hg-border-grad-soft) border-box !important;
+  color: var(--hg-ink) !important;
+  box-shadow: var(--hg-lift-sm), var(--hg-inset-sm) !important;
+}
+
+#tabMessages button.chat-friend-req-tab.active,
+#tabMessages button.chat-rp-type-btn.active {
+  background: var(--hg-red-grad) !important;
+  color: #fff !important;
+  border-color: transparent !important;
+}
+
+#tabMessages .chat-setting-row,
+#tabMessages .chat-member-row,
+#tabMessages .chat-friend-req-item {
+  border: 1.5px solid transparent !important;
+  background:
+    linear-gradient(180deg, #fff 0%, #fffaf4 100%) padding-box,
+    var(--hg-border-grad-soft) border-box !important;
+  box-shadow: var(--hg-lift-sm), var(--hg-inset-sm) !important;
+  border-radius: 16px !important;
+}
+
+#tabMessages .chat-search-input,
+#tabMessages .chat-setting-input,
+#tabMessages .chat-setting-textarea,
+#tabMessages .chat-add-friend-country,
+#tabMessages .chat-add-friend-mobile,
+.chat-rp-send-pane input,
+.chat-rp-send-pane textarea {
+  border: 1.5px solid transparent !important;
+  background:
+    linear-gradient(180deg, #fff 0%, #fffaf4 100%) padding-box,
+    var(--hg-border-grad-soft) border-box !important;
+  box-shadow: var(--hg-inset-sm) !important;
+}
+
+/* ---------- 会话输入栏：清爽微信风（覆盖玻璃误伤） ---------- */
+#tabMessages .chat-room-pane .chat-composer-wrap,
+#tabMessages .chat-room-pane .chat-composer,
+#tabMessages .chat-room-pane .chat-emoji-panel,
+#tabMessages .chat-room-pane .chat-attach-panel {
+  background: rgba(248, 249, 250, 0.92) !important;
+  border-top: 1px solid rgba(0, 0, 0, 0.06) !important;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.04) !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+#tabMessages .chat-room-pane .chat-composer .input-box,
+#tabMessages .chat-room-pane #chatInput {
+  border: 1px solid rgba(0, 0, 0, 0.06) !important;
+  background: #fff !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.03) !important;
+  border-radius: 10px !important;
+  min-height: 40px;
+}
+
+#tabMessages .chat-room-pane .chat-composer #chatSendBtn {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #C61114 !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  padding: 8px 6px !important;
+  min-width: auto !important;
+  border-radius: 0 !important;
+}
+
+#tabMessages .chat-room-pane .chat-composer #chatSendBtn:disabled {
+  color: #b0b0b0 !important;
+  background: transparent !important;
+  opacity: 1 !important;
+}
+
+#tabMessages .chat-room-pane .chat-composer .chat-tool-icon {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #5a5a5a !important;
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 50% !important;
+}
+
+#tabMessages .chat-room-pane .chat-composer .btn-plus,
+#tabMessages .chat-room-pane .chat-composer #chatAttachBtn.btn-plus {
+  width: 38px !important;
+  height: 38px !important;
+  min-width: 38px !important;
+  border: none !important;
+  border-radius: 50% !important;
+  background: linear-gradient(135deg, #E63022 0%, #C61114 100%) !important;
+  box-shadow: 0 6px 14px rgba(198, 17, 20, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
+  color: #fff !important;
+  padding: 0 !important;
+}
+
+#tabMessages .chat-room-pane .chat-composer .btn-plus svg,
+#tabMessages .chat-room-pane .chat-composer #chatAttachBtn.btn-plus svg {
+  display: block !important;
+  width: 20px !important;
+  height: 20px !important;
+  fill: #fff !important;
+  color: #fff !important;
+  stroke: none !important;
+  opacity: 1 !important;
+}
+
+#tabMessages .chat-notice-pin {
+  border: 1.5px solid transparent !important;
+  background:
+    linear-gradient(180deg, #fff 0%, #fff6ec 100%) padding-box,
+    var(--hg-border-grad) border-box !important;
+  box-shadow: var(--hg-lift-sm), var(--hg-inset-sm) !important;
+}
+
+/* ---------- 建群页：修复 header / main 叠层，避免被全局覆盖 ---------- */
+.chat-create-group-pane {
+  background: #f3f4f6 !important;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.chat-create-group-pane.open {
+  display: flex !important;
+}
+
+.chat-create-group-pane .chat-cg-header {
+  flex-shrink: 0;
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 14px 44px !important;
+  background: var(--hg-hero-glass) !important;
+  color: #fff !important;
+  border: none !important;
+  border-bottom: 1px solid var(--hg-gold-edge) !important;
+  box-shadow:
+    0 10px 24px rgba(180, 30, 25, 0.28),
+    inset 0 2px 0 rgba(255, 255, 255, 0.28) !important;
+  position: relative;
+  z-index: 1;
+}
+
+.chat-create-group-pane .chat-cg-title {
+  flex: 1;
+  text-align: center;
+  color: #fff !important;
+  font-size: 20px !important;
+  font-weight: 800 !important;
+  text-shadow: 0 1px 3px rgba(80, 10, 8, 0.3) !important;
+}
+
+.chat-create-group-pane .chat-cg-back {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  max-width: 40px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 1.5px solid rgba(253, 228, 179, 0.45) !important;
+  background: rgba(255, 255, 255, 0.18) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+  border-radius: 50% !important;
+  color: #fff !important;
+  font-size: 0 !important;
+  font-weight: 400 !important;
+  line-height: 1 !important;
+  transform: none !important;
+  backdrop-filter: none !important;
+}
+.chat-create-group-pane .chat-cg-back svg {
+  display: block;
+  width: 24px;
+  height: 24px;
+}
+
+.chat-create-group-pane .chat-cg-next-top {
+  border: 1px solid rgba(255, 255, 255, 0.55) !important;
+  background: rgba(255, 255, 255, 0.22) !important;
+  color: #fff !important;
+  border-radius: 999px !important;
+  padding: 6px 14px !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  min-width: 40px;
+  flex-shrink: 0;
+}
+
+.chat-create-group-pane .chat-cg-next-top:disabled {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  opacity: 1 !important;
+  filter: none !important;
+}
+
+.chat-create-group-pane .chat-cg-main {
+  flex: 1;
+  min-height: 0;
+  margin-top: -24px !important;
+  padding: 20px 14px 24px !important;
+  background: #fffdf9 !important;
+  border-top-left-radius: 18px;
+  border-top-right-radius: 18px;
+  position: relative;
+  z-index: 2;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  box-shadow: 0 -2px 0 rgba(255, 255, 255, 0.45) !important;
+}
+
+/* 建群内部控件：不要用全站 button 玻璃乱盖 */
+.chat-create-group-pane .chat-cg-avatar {
+  border: 2px solid #fff !important;
+  background: radial-gradient(circle, #ffebd6, #ffcc99) !important;
+  box-shadow: 0 4px 10px rgba(255, 100, 0, 0.15) !important;
+  border-radius: 50% !important;
+  color: inherit !important;
+}
+
+.chat-create-group-pane .chat-cg-input-box {
+  border: 1.5px solid transparent !important;
+  background:
+    linear-gradient(180deg, #fff 0%, #fffaf4 100%) padding-box,
+    var(--hg-border-grad-soft) border-box !important;
+  box-shadow: var(--hg-inset-sm), 0 2px 10px rgba(0, 0, 0, 0.03) !important;
+  border-radius: 999px !important;
+}
+
+.chat-create-group-pane .chat-cg-input-box input {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.chat-create-group-pane .chat-cg-next-inner {
+  border: none !important;
+  background: linear-gradient(to right, #E63022, #C61114) !important;
+  color: #fff !important;
+  border-radius: 20px !important;
+  box-shadow: 0 2px 6px rgba(198, 17, 20, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+}
+
+.chat-create-group-pane .chat-cg-card {
+  border: 1.5px solid transparent !important;
+  background:
+    linear-gradient(180deg, #fff 0%, #fffaf4 100%) padding-box,
+    var(--hg-border-grad-soft) border-box !important;
+  box-shadow: var(--hg-lift-sm), var(--hg-inset-sm) !important;
+  border-radius: 16px !important;
+  overflow: hidden;
+  color: inherit !important;
+}
+
+.chat-create-group-pane .chat-cg-card.active,
+.chat-create-group-pane .chat-cg-card.active-light {
+  border-color: transparent !important;
+  background:
+    linear-gradient(180deg, #fff8f0 0%, #ffe8d6 100%) padding-box,
+    linear-gradient(145deg, #ffe9b0, #E63022) border-box !important;
+  box-shadow:
+    0 8px 18px rgba(198, 17, 20, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+}
+
+.chat-create-group-pane .chat-cg-section-title span {
+  background: #ffebd6;
+  color: #a84b22;
+}
+
+.chat-rp-send-pane .chat-rp-balance-hint {
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(180deg, #fff 0%, #fff6ec 100%) padding-box,
+    var(--hg-border-grad-soft) border-box;
+  border-radius: 16px;
+  padding: 10px 14px;
+  box-shadow: var(--hg-inset-sm);
+}
+
+#tabMessages button:disabled,
+.chat-rp-send-pane button:disabled {
+  opacity: 0.55 !important;
+}
+
+/* ---------- 非社群子页细节打磨 ---------- */
+#tabMessages .chat-sub-main {
+  padding: 14px 14px 24px !important;
+}
+
+#tabMessages .chat-sub-pane .chat-hero-hd,
+#tabMessages .chat-room-pane .chat-hero-hd {
+  align-items: center;
+}
+
+#tabMessages .chat-sub-pane .chat-hero-title {
+  font-size: 18px !important;
+  font-weight: 700 !important;
+}
+
+#tabMessages .chat-add-friend-card,
+#tabMessages .chat-setting-card {
+  padding: 16px !important;
+  margin-bottom: 12px;
+}
+
+#tabMessages .chat-friend-req-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+#tabMessages .chat-friend-req-tab {
+  flex: 1;
+  min-height: 40px;
+  border-radius: 12px !important;
+  font-weight: 700;
+}
+
+#tabMessages .chat-qr-scan-hint {
+  text-align: center;
+  color: var(--hg-muted);
+  font-size: 13px;
+  margin: 12px 0 16px;
+}
+
+#tabMessages .chat-setting-label {
+  color: var(--hg-muted);
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+#tabMessages .chat-setting-save-btn,
+#tabMessages .chat-invite-confirm-btn {
+  width: 100%;
+  min-height: 46px;
+  border-radius: 14px !important;
+  margin-top: 12px;
+}
+
+#tabMessages .chat-msg-scroll {
+  background: #f3f4f6 !important;
+}
+
+#tabMessages .chat-profile-panel {
+  padding-top: 20px;
+}
+
+#tabMessages .chat-profile-avatar {
+  margin: 0 auto 10px;
+}
+
+#tabMessages .chat-profile-name {
+  text-align: center;
+  font-weight: 800;
+  color: var(--hg-ink);
+}
+
+#tabMessages .chat-profile-id {
+  text-align: center;
+  color: var(--hg-muted);
+  font-size: 13px;
+  margin-bottom: 12px;
+}

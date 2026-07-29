@@ -1,0 +1,36 @@
+<form id="add-form" class="form-horizontal" role="form" data-toggle="validator" method="POST" action="">
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">会员ID:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[user_id]" type="number" required placeholder="对外发言的会员ID">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">备注名:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[label]" type="text" placeholder="如：客服1号">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">范围:</label>
+        <div class="col-xs-12 col-sm-8">
+            <select class="form-control" name="row[scope]">
+                <option value="all">私聊+群聊</option>
+                <option value="private">仅私聊</option>
+                <option value="group">仅群聊</option>
+            </select>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">加友自动回复:</label>
+        <div class="col-xs-12 col-sm-8">
+            <textarea class="form-control" name="row[friend_reply]" rows="2" placeholder="用户添加该客服并通过后自动发送；留空用全局默认"></textarea>
+        </div>
+    </div>
+    <div class="form-group layer-footer">
+        <label class="control-label col-xs-12 col-sm-2"></label>
+        <div class="col-xs-12 col-sm-8">
+            <button type="submit" class="btn btn-primary btn-embossed disabled">{:__('OK')}</button>
+        </div>
+    </div>
+</form>

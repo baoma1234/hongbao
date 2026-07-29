@@ -1,0 +1,133 @@
+<div class="panel panel-default panel-intro">
+    <div class="panel-heading">
+        <div class="panel-lead"><em>会员等级配置</em> 按邀请人等级发放不同邀请奖励股份</div>
+        <div class="panel-actions">
+            <a href="fanshub.config" class="btn btn-xs btn-default addtabsit"><i class="fa fa-arrow-left"></i> 返回活动配置</a>
+            <a href="fanshub/account" class="btn btn-xs btn-primary addtabsit"><i class="fa fa-user"></i> 用户账户</a>
+        </div>
+    </div>
+    <div class="panel-body">
+        <form id="memberlevel-form" class="form-horizontal" role="form" data-toggle="validator" method="POST" action="{:url('fanshub.memberlevel/save')}">
+            <div class="form-group">
+                <label class="control-label col-xs-12 col-sm-2">功能开关:</label>
+                <div class="col-xs-12 col-sm-8">
+                    <label class="checkbox-inline">
+                        <input type="checkbox" name="member_level_enabled" value="1" {if condition="!empty($config.member_level_enabled)"}checked{/if}>
+                        开启会员等级（按邀请人等级发放不同邀请奖励股份）
+                    </label>
+                    <span class="help-block">关闭时，所有用户邀请奖励统一使用活动配置中的「分享送股」：<strong>{$shareRights|default='1'}</strong> 股/人。</span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="control-label col-xs-12 col-sm-2">新用户默认等级:</label>
+                <div class="col-xs-12 col-sm-8">
+                    <input class="form-control" id="default-member-level" name="default_member_level" type="number" value="{$config.default_member_level|default='1'}" min="1" style="max-width:160px;">
+                    <span class="help-block">新注册用户自动获得的会员等级，须在下方等级列表中存在。</span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="control-label col-xs-12 col-sm-2">等级列表:</label>
+                <div class="col-xs-12 col-sm-10">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover" id="levels-table" style="margin-bottom:10px;">
+                            <thead>
+                            <tr class="active">
+                                <th style="width:100px;">等级编号</th>
+                                <th>等级名称</th>
+                                <th style="width:160px;">邀请奖励（股/人）</th>
+                                <th style="width:80px;">操作</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {volist name="levelsList" id="row"}
+                            <tr class="level-row">
+                                <td><input class="form-control input-sm level-no" type="number" name="levels[{$row.level}][level]" value="{$row.level}" min="1" required></td>
+                                <td><input class="form-control input-sm" type="text" name="levels[{$row.level}][name]" value="{$row.name|htmlentities}" placeholder="如：普通会员" required></td>
+                                <td><input class="form-control input-sm" type="number" name="levels[{$row.level}][invite_reward]" value="{$row.invite_reward}" min="0" step="0.1" required></td>
+                                <td><button type="button" class="btn btn-xs btn-danger btn-remove-level"><i class="fa fa-trash"></i></button></td>
+                            </tr>
+                            {/volist}
+                            </tbody>
+                        </table>
+                    </div>
+                    <button type="button" class="btn btn-success btn-sm" id="btn-add-level"><i class="fa fa-plus"></i> 添加等级</button>
+                    <span class="help-block">邀请奖励：每成功邀请 1 位新用户，邀请人获得的股份数。可在「用户账户」中单独调整某用户的等级。</span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="control-label col-xs-12 col-sm-2">荣誉团长天梯:</label>
+                <div class="col-xs-12 col-sm-10">
+                    <p class="help-block" style="margin-top:0;">二期团长态：按直属下线完成新手提现人数（sub_withdrawn_count）自动晋升并发放奖励。<strong>解禁股份</strong>为实际入账股数（与前台「解禁 X股」一致）；约￥按配置「股价基数」折算，不跟实时浮动价。</p>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover" style="margin-bottom:10px;">
+                            <thead>
+                            <tr class="active">
+                                <th style="width:80px;">段位</th>
+                                <th>名称</th>
+                                <th style="width:100px;">成型人数</th>
+                                <th style="width:100px;">解禁股份(股)</th>
+                                <th style="width:120px;">现金加赠(元)</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {volist name="honorTiers" id="ht"}
+                            <tr>
+                                <td><input class="form-control input-sm" type="number" name="honor_tiers[{$ht.id}][id]" value="{$ht.id}" min="1" required></td>
+                                <td><input class="form-control input-sm" type="text" name="honor_tiers[{$ht.id}][name]" value="{$ht.name|htmlentities}" required></td>
+                                <td><input class="form-control input-sm" type="number" name="honor_tiers[{$ht.id}][threshold]" value="{$ht.threshold}" min="1" required></td>
+                                <td><input class="form-control input-sm" type="number" name="honor_tiers[{$ht.id}][rights]" value="{$ht.rights}" min="0" step="0.1" required></td>
+                                <td><input class="form-control input-sm" type="number" name="honor_tiers[{$ht.id}][balance]" value="{$ht.balance}" min="0" step="0.01" required></td>
+                            </tr>
+                            {/volist}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group layer-footer">
+                <label class="control-label col-xs-12 col-sm-2"></label>
+                <div class="col-xs-12 col-sm-8">
+                    <button type="submit" class="btn btn-primary btn-embossed">保存会员等级配置</button>
+                </div>
+            </div>
+        </form>
+
+        <div class="box box-default" style="margin-top:20px;">
+            <div class="box-header with-border">
+                <h3 class="box-title">各等级用户分布</h3>
+            </div>
+            <div class="box-body" style="padding:0;">
+                <table class="table table-striped" style="margin:0;">
+                    <thead>
+                    <tr><th>等级</th><th>名称</th><th>邀请奖励</th><th>用户数</th></tr>
+                    </thead>
+                    <tbody>
+                    {volist name="levelStats" id="stat"}
+                    <tr>
+                        <td>{$stat.level}</td>
+                        <td>{$stat.name|htmlentities}</td>
+                        <td>{$stat.invite_reward} 股/人</td>
+                        <td><span class="label label-info">{$stat.count}</span></td>
+                    </tr>
+                    {/volist}
+                    {empty name="levelStats"}
+                    <tr><td colspan="4" class="text-center text-muted">暂无用户数据</td></tr>
+                    {/empty}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/html" id="level-row-tpl">
+    <tr class="level-row">
+        <td><input class="form-control input-sm level-no" type="number" name="levels[__LEVEL__][level]" value="__LEVEL__" min="1" required></td>
+        <td><input class="form-control input-sm" type="text" name="levels[__LEVEL__][name]" value="等级__LEVEL__" placeholder="如：普通会员" required></td>
+        <td><input class="form-control input-sm" type="number" name="levels[__LEVEL__][invite_reward]" value="1" min="0" step="0.1" required></td>
+        <td><button type="button" class="btn btn-xs btn-danger btn-remove-level"><i class="fa fa-trash"></i></button></td>
+    </tr>
+</script>

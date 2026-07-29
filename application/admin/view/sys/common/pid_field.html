@@ -1,0 +1,12 @@
+<div class="form-group">
+    <label class="control-label col-xs-12 col-sm-2">{:__('Pid')}:</label>
+    <div class="col-xs-12 col-sm-8">
+        <div class="btn-group platform-pid-group" data-toggle="buttons">
+            {foreach name="pidList" item="vo"}
+            <label class="btn btn-primary {eq name='key' value='$row.pid|default=1'}active{/eq}">
+                <input type="radio" name="row[pid]" value="{$key}" autocomplete="off" {eq name='key' value='$row.pid|default=1'}checked{/eq}> {$vo}
+            </label>
+            {/foreach}
+        </div>
+    </div>
+</div>

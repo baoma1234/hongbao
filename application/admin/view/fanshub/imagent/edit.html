@@ -1,0 +1,41 @@
+<form id="edit-form" class="form-horizontal" role="form" method="POST" action="">
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">消息ID:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" type="text" value="{$row.id|htmlentities}" readonly>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">发送方:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" type="text" value="{$row.from_user_id|htmlentities}" readonly>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">内容:</label>
+        <div class="col-xs-12 col-sm-8">
+            <textarea class="form-control" name="content" rows="5" required>{$row.content|htmlentities}</textarea>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">状态:</label>
+        <div class="col-xs-12 col-sm-8">
+            <select class="form-control" name="status">
+                <option value="1" {if $row.status==1}selected{/if}>正常</option>
+                <option value="2" {if $row.status==2}selected{/if}>撤回</option>
+                <option value="3" {if $row.status==3}selected{/if}>删除</option>
+            </select>
+        </div>
+    </div>
+    <div class="form-group layer-footer">
+        <label class="control-label col-xs-12 col-sm-2"></label>
+        <div class="col-xs-12 col-sm-8">
+            <button type="submit" class="btn btn-primary btn-embossed">保存</button>
+        </div>
+    </div>
+</form>
+<script>
+require(['form'], function (Form) {
+    Form.api.bindevent($("#edit-form"));
+});
+</script>

@@ -1,0 +1,20 @@
+<div class="panel panel-default panel-intro">
+    <div class="panel-heading">
+        <div class="panel-lead"><em>{$sectionTitle}</em>
+            <span class="text-muted" style="font-size:12px;margin-left:8px;">{$sectionDesc}</span>
+        </div>
+    </div>
+    <div class="panel-body">
+        {include file="fanshub/config/_nav" /}
+        <form id="config-form" class="form-horizontal" role="form" data-toggle="validator" method="POST" action="{:url('fanshub.config/save')}">
+            <input type="hidden" name="section" value="security">
+            {include file="fanshub/config/section_security" /}
+            <div class="form-group layer-footer">
+                <label class="control-label col-xs-12 col-sm-2"></label>
+                <div class="col-xs-12 col-sm-8">
+                    <button type="submit" class="btn btn-primary btn-embossed">保存本页配置</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>

@@ -1,0 +1,19 @@
+﻿== master_lock_title ==
+馃敀 鍥㈤暱閫氶亾寰呰В閿?hex=f09f949220e59ba2e995bfe9809ae98193e5be85e8a7a3e99481
+
+== master_lock_desc ==
+瀹屾垚棣栫瑪 VIP 绂忓埄鏍搁攢鍚庯紝灏嗗紑鏀撅細鑽ｈ獕澶╂瀹濈銆?澶╂槦鐏毚鍑伙紙锟?75 鏍哥垎鎬绘睜锛夈€佹垬闃熷偓娲婚浄杈俱€傚厛鍘汇€岄鍙栥€嶉〉鍐插埡闂ㄦ鍚э紒
+hex=e5ae8ce68890e9a696e7ac942056495020e7a68fe588a9e6a0b8e99480e5908eefbc8ce5b086e5bc80e694beefbc9ae88da3e8aa89e5a4a9e6a2afe5ae9de7aeb1e3808137e5a4a9e6989fe781abe69ab4e587bbefbc88efbfa531373520e6a0b8e78886e680bbe6b1a0efbc89e38081e68898e9989fe582ace6b4bbe99bb7e8bebee38082e58588e58ebbe3808ce9a286e58f96e3808de9a1b5e586b2e588bae997a8e6a79be590a7efbc81
+
+== page_hero_exchange_title ==
+鈿?VIP 闂厬澶у巺
+hex=e29aa12056495020e997aae58591e5a4a7e58e85
+
+== page_hero_master_sub ==
+鑽ｈ獕澶╂鏄庣墝濂栧姳 路 7澶╂槦鐏毚鍑荤粓鏋佽处鏈?路 鎴橀槦鍌椿闆疯揪
+hex=e88da3e8aa89e5a4a9e6a2afe6988ee7898ce5a596e58ab120c2b72037e5a4a9e6989fe781abe69ab4e587bbe7bb88e69e81e8b4a6e69cac20c2b720e68898e9989fe582ace6b4bbe99bb7e8bebe
+
+== page_hero_claim_sub ==
+鍥炲～鐜伴噾绔欐父鎴忚处鍙?鈫?鎻愪氦鏍搁攢 鈫?鐢熸垚瀵嗕护鑱旂郴瀹㈡湇涓婂垎
+hex=e59b9ee5a1abe78eb0e98791e7ab99e6b8b8e6888fe8b4a6e58fb720e2869220e68f90e4baa4e6a0b8e9948020e2869220e7949fe68890e5af86e4bba4e88194e7b3bbe5aea2e69c8de4b88ae58886
+

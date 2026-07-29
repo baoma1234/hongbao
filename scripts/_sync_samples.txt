@@ -1,0 +1,11 @@
+﻿want=鍥炲～鐜伴噾绔欐父鎴忚处鍙?鈫?鎻愪氦鏍搁攢 鈫?鐢熸垚瀵嗕护鑱旂郴瀹㈡湇涓婂垎
+got=鍥炲～鐜伴噾绔欐父鎴忚处鍙?鈫?鎻愪氦鏍搁攢 鈫?鐢熸垚瀵嗕护鑱旂郴瀹㈡湇涓婂垎
+want_hex=e59b9ee5a1abe78eb0e98791e7ab99e6b8b8e6888fe8b4a6e58fb720e2869220e68f90e4baa4e6a0b8e9948020e2869220e7949fe68890e5af86e4bba4e88194e7b3bbe5aea2e69c8de4b88ae58886
+got_hex=e59b9ee5a1abe78eb0e98791e7ab99e6b8b8e6888fe8b4a6e58fb720e2869220e68f90e4baa4e6a0b8e9948020e2869220e7949fe68890e5af86e4bba4e88194e7b3bbe5aea2e69c8de4b88ae58886
+match=1
+tab-master.php page_hero_master_title ok=exact html=馃憫 鍥㈤暱涓撳睘 路 浜屾湡澶у巺
+tab-master.php page_hero_master_sub ok=exact html=鑽ｈ獕澶╂鏄庣墝濂栧姳 路 7澶╂槦鐏毚鍑荤粓鏋佽处鏈?路 鎴橀槦鍌椿闆疯揪
+tab-master.php master_lock_title ok=exact html=馃敀 鍥㈤暱閫氶亾寰呰В閿?tab-exchange.php swap_title ok=exact html=璧勪骇鍏戞崲
+tab-exchange.php page_hero_exchange_title ok=exact html=鈿?VIP 闂厬澶у巺
+tab-messages.php chat_community_title ok=exact html=绾㈠疂绀惧尯
+tab-messages.php chat_tab_commission ok=exact html=浣ｉ噾

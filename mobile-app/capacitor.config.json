@@ -1,0 +1,35 @@
+{
+  "appId": "com.qianghongbao.app",
+  "appName": "红宝",
+  "webDir": "dist",
+  "server": {
+    "url": "https://555fx1.bio/888/",
+    "cleartext": false,
+    "allowNavigation": [
+      "555fx1.bio",
+      "*.555fx1.bio",
+      "555.bio",
+      "*.555.bio"
+    ]
+  },
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#FFFFFF"
+  },
+  "ios": {
+    "contentInset": "automatic",
+    "backgroundColor": "#FFFFFF"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": true,
+      "launchShowDuration": 800,
+      "backgroundColor": "#FFFFFF",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#FFFFFF"
+    }
+  }
+}

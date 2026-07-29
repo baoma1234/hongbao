@@ -1,0 +1,20 @@
+<div class="panel panel-default panel-intro">
+    {:build_heading()}
+    <div class="panel-body">
+        <div class="alert alert-info" style="margin-bottom:15px;">
+            <strong>汇总（成功流水）</strong>
+            平台抽水：¥{$summary.platform_fee.amount|default='0.00'}（{$summary.platform_fee.count|default=0}笔） |
+            代理返点：¥{$summary.agent_rebate.amount|default='0.00'}（{$summary.agent_rebate.count|default=0}笔） |
+            赔付：¥{$summary.compensate.amount|default='0.00'}（{$summary.compensate.count|default=0}笔） |
+            退回：¥{$summary.refund.amount|default='0.00'}（{$summary.refund.count|default=0}笔）
+            <br>
+            待结算红包：{$summary.pending_settle_packets|default=0} |
+            赔付失败红包：{$summary.fail_compensate_packets|default=0}
+            <button type="button" class="btn btn-xs btn-warning" id="btnRetryBatch" style="margin-left:10px;">批量重试待结算</button>
+        </div>
+        <div id="toolbar" class="toolbar">
+            <a href="javascript:;" class="btn btn-primary btn-refresh" title="{:__('Refresh')}"><i class="fa fa-refresh"></i></a>
+        </div>
+        <table id="table" class="table table-striped table-bordered table-hover" width="100%"></table>
+    </div>
+</div>

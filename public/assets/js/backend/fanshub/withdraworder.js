@@ -1,0 +1,97 @@
+define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefined, Backend, Table, Form) {
+    var Controller = {
+        index: function () {
+            Table.api.init({
+                extend: {
+                    index_url: 'fanshub/withdraworder/index',
+                    table: 'fans_withdraw_order',
+                }
+            });
+            var table = $("#table");
+            table.bootstrapTable({
+                url: $.fn.bootstrapTable.defaults.extend.index_url,
+                pk: 'id',
+                sortName: 'id',
+                sortOrder: 'desc',
+                columns: [[
+                    {checkbox: true},
+                    {field: 'id', title: 'ID', sortable: true},
+                    {field: 'order_no', title: '订单号', operate: 'LIKE'},
+                    {field: 'user_id', title: '会员ID', sortable: true},
+                    {field: 'user.mobile', title: '手机号', operate: 'LIKE'},
+                    {field: 'channel.name', title: '通道', operate: false},
+                    {field: 'amount', title: '金额', sortable: true},
+                    {field: 'turnover_snapshot', title: '当时流水', operate: false},
+                    {field: 'account_info_text', title: '收款信息', operate: false},
+                    {field: 'handler', title: '处理器', operate: 'LIKE'},
+                    {
+                        field: 'status',
+                        title: '状态',
+                        searchList: {"pending": "待处理", "processing": "处理中", "paid": "已打款", "rejected": "已拒绝", "cancelled": "已取消"},
+                        formatter: Table.api.formatter.status
+                    },
+                    {field: 'remark', title: '备注', operate: 'LIKE'},
+                    {field: 'createtime', title: '创建时间', operate: 'RANGE', addclass: 'datetimerange', formatter: Table.api.formatter.datetime, sortable: true},
+                    {field: 'updatetime', title: '更新时间', operate: 'RANGE', addclass: 'datetimerange', formatter: Table.api.formatter.datetime},
+                    {
+                        field: 'operate',
+                        title: __('Operate'),
+                        table: table,
+                        events: {
+                            'click .btn-markpaid': function (e, value, row) {
+                                e.stopPropagation();
+                                Layer.confirm('确认已打款完成？', function (index) {
+                                    Backend.api.ajax({
+                                        url: 'fanshub/withdraworder/markpaid',
+                                        data: {ids: row.id}
+                                    }, function () {
+                                        Layer.close(index);
+                                        table.bootstrapTable('refresh');
+                                        return false;
+                                    });
+                                });
+                            },
+                            'click .btn-reject': function (e, value, row) {
+                                e.stopPropagation();
+                                Layer.prompt({title: '拒绝原因（可选，将退回余额）', formType: 2}, function (remark, index) {
+                                    Backend.api.ajax({
+                                        url: 'fanshub/withdraworder/reject',
+                                        data: {ids: row.id, remark: remark || ''}
+                                    }, function () {
+                                        Layer.close(index);
+                                        table.bootstrapTable('refresh');
+                                        return false;
+                                    });
+                                });
+                            },
+                            'click .btn-bs-query': function (e, value, row) {
+                                e.stopPropagation();
+                                Backend.api.ajax({
+                                    url: 'fanshub/withdraworder/querygateway',
+                                    data: {ids: row.id}
+                                }, function (data, ret) {
+                                    Layer.msg(ret.msg || '查单完成', {icon: 1});
+                                    table.bootstrapTable('refresh');
+                                    return false;
+                                });
+                            }
+                        },
+                        formatter: function (value, row) {
+                            var html = [];
+                            if (row.status === 'pending' || row.status === 'processing') {
+                                html.push('<a href="javascript:;" class="btn btn-xs btn-success btn-markpaid" title="确认打款"><i class="fa fa-check"></i> 打款</a>');
+                                html.push('<a href="javascript:;" class="btn btn-xs btn-danger btn-reject" title="拒绝退回"><i class="fa fa-times"></i> 拒绝</a>');
+                            }
+                            if (row.handler === 'bs' && (row.status === 'pending' || row.status === 'processing')) {
+                                html.push('<a href="javascript:;" class="btn btn-xs btn-info btn-bs-query" title="BS查单"><i class="fa fa-search"></i> BS查单</a>');
+                            }
+                            return html.join(' ');
+                        }
+                    }
+                ]]
+            });
+            Table.api.bindevent(table);
+        }
+    };
+    return Controller;
+});

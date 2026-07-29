@@ -1,0 +1,28 @@
+﻿en_keys=669
+CN footer_line1=馃搳 鏈钩鍙版€ц川涓恒€?55.bio 瀹樻柟娲昏穬绮変笣搴︽ā鎷熺鍒╂帹骞胯惀閿€浜掑姩璋冩煡澶у巺銆?CN swap_title=璧勪骇鍏戞崲
+CN chat_scan=鎵竴鎵?CN uid_label=馃攽 绗竴姝ワ細璇疯緭鍏ユ偍鍦?55.bio鐜伴噾绔欐敞鍐屾垚鍔熺殑璐﹀彿
+CN chat_tab_commission=浣ｉ噾
+EN page_hero_master_title=馃憫 Master Hall 路 Phase 2
+CN brand_name=绾㈠疂
+EN login_submit_btn=Enter Official Rewards Hall 鈥?Get {register_rights} free shares
+
+en-PH.php keys=167
+src footer_line1=MISS
+src swap_title=MISS
+src uid_label=MISS
+src brand_name=绾㈠疂
+
+L369 hex=696620286d6f6465203d3d3d202770726f6d6f2729207b
+L369 txt=if (mode === 'promo') {
+
+L370 hex=696620287469746c6529207469746c652e74657874436f6e74656e74203d2027e68ea8e5b9bfe7bb93e7ae97273b
+L370 txt=if (title) title.textContent = '鎺ㄥ箍缁撶畻';
+
+L379 hex=696620287469746c6529207469746c652e74657874436f6e74656e74203d2027e69c80e8bf91e7bb93e7ae97273b
+L379 txt=if (title) title.textContent = '鏈€杩戠粨绠?;
+
+L412 hex=6c697374456c2e696e6e657248544d4c203d20273c64697620636c6173733d22636861742d656d70747920636861742d656d7074792d676c617373223ee799bbe5bd95e5908ee69fa5e79c8be4bda3e9
+L412 txt=listEl.innerHTML = '<div class="chat-empty chat-empty-glass">鐧诲綍鍚庢煡鐪嬩剑閲戞槑缁?/div>';
+
+L416 hex=6c697374456c2e696e6e657248544d4c203d20273c64697620636c6173733d22636861742d656d70747920636861742d656d7074792d676c617373223ee58aa0e8bdbde4b8ade280a63c2f6469763e27
+L416 txt=listEl.innerHTML = '<div class="chat-empty chat-empty-glass">鍔犺浇涓€?/div>';

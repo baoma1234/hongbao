@@ -1,0 +1,16 @@
+﻿keys=669 err=No error
+footer_line1=馃搳 鏈钩鍙版€ц川涓恒€?55.bio 瀹樻柟娲昏穬绮変笣搴︽ā鎷熺鍒╂帹骞胯惀閿€浜掑姩璋冩煡澶у巺銆?swap_title=璧勪骇鍏戞崲
+chat_scan=鎵竴鎵?uid_label=馃攽 绗竴姝ワ細璇疯緭鍏ユ偍鍦?55.bio鐜伴噾绔欐敞鍐屾垚鍔熺殑璐﹀彿
+page_hero_master_title=馃憫 鍥㈤暱涓撳睘 路 浜屾湡澶у巺
+
+--- related lines ---
+49: let COPY = {};
+53: function syncCopyFromLocale(serverCopy) {
+58: COPY = Object.assign({}, pack);
+472: syncCopyFromLocale(lastServerCopy);
+473: applyPageCopy();
+494: function applyPageCopy() {
+1266: syncCopyFromLocale(cfg.copy);
+1268: applyPageCopy();
+2476: window.applyPageCopy = applyPageCopy;
+2477: window.syncCopyFromLocale = syncCopyFromLocale;

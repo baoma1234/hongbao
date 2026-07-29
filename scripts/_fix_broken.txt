@@ -1,0 +1,8 @@
+﻿btn_ok
+openAccountBtn" onclick="goToMainStation()"><span class="cta-open-account-label" id="openAccountBtnLabel" data-copy="open_account_badge_fallback">绔嬮€?2 浠藉ぇ鐩樿偂銆?/span><span class="cta-open-account-badge" id="openAccountBadge" data-copy="open_account_badge_fallback">绔嬮€?2 浠藉ぇ鐩樿偂銆?/span></button>
+            </div>
+
+            <div class="home-claim-section" id="homeClaimSection">
+                
+broken_closer_left=0
+moji_left=0

@@ -1,0 +1,252 @@
+{
+    "public\/888\/partials\/bottom-and-overlays.php": [
+        {
+            "kind": "text",
+            "tag": "div",
+            "text": "鈼",
+            "attrs": "class=\"wl-chest-lock\""
+        }
+    ],
+    "public\/888\/partials\/header.php": [
+        {
+            "kind": "title",
+            "tag": "",
+            "text": "抢红宝",
+            "attrs": ""
+        }
+    ],
+    "public\/888\/partials\/modals.php": [
+        {
+            "kind": "text",
+            "tag": "div",
+            "text": "馃幆",
+            "attrs": "class=\"block-icon\""
+        },
+        {
+            "kind": "text",
+            "tag": "strong",
+            "text": "红宝专属客服",
+            "attrs": ""
+        },
+        {
+            "kind": "text",
+            "tag": "strong",
+            "text": "官方红宝聊天App",
+            "attrs": ""
+        },
+        {
+            "kind": "text",
+            "tag": "div",
+            "text": "禄",
+            "attrs": "class=\"slider-thumb\" id=\"sliderThumb\""
+        }
+    ],
+    "public\/888\/partials\/profile-subpages.php": [
+        {
+            "kind": "text",
+            "tag": "div",
+            "text": "累计流水：￥0.00",
+            "attrs": "class=\"profile-meta-line\" id=\"profileTurnoverLine\" data-turnover-prefix-key=\"profile_turnover_prefix\""
+        }
+    ],
+    "public\/888\/partials\/tab-exchange.php": [
+        {
+            "kind": "text",
+            "tag": "div",
+            "text": "可用 —",
+            "attrs": "class=\"share-swap-avail\" id=\"shareSwapAvail\""
+        },
+        {
+            "kind": "text",
+            "tag": "div",
+            "text": "红利",
+            "attrs": "class=\"share-swap-summary-label\" id=\"shareSwapEstAsset\""
+        },
+        {
+            "kind": "aria-label",
+            "tag": "",
+            "text": "转出资产",
+            "attrs": ""
+        },
+        {
+            "kind": "aria-label",
+            "tag": "",
+            "text": "互换方向",
+            "attrs": ""
+        },
+        {
+            "kind": "aria-label",
+            "tag": "",
+            "text": "兑换目标",
+            "attrs": ""
+        }
+    ],
+    "public\/888\/partials\/tab-home.php": [
+        {
+            "kind": "text",
+            "tag": "div",
+            "text": "馃搱 褰撳墠鍏ㄧ綉鑲′唤浜烘暟锛?,000 浜?( 馃殌 浠婃棩鏆存定 +0 浜?)",
+            "attrs": "class=\"jackpot-meta\" id=\"jackpotPartners\""
+        },
+        {
+            "kind": "text",
+            "tag": "div",
+            "text": "馃拵 浠婃棩澶х洏瀹炴椂鎸佷粨琛屾潈浠凤細￥.00 \/ 浠?( 馃敟 杈冩槰鏃ュぇ鐩樻媺鍗?+0% )",
+            "attrs": "class=\"jackpot-price-line\" id=\"jackpotSharePrice\""
+        },
+        {
+            "kind": "text",
+            "tag": "span",
+            "text": "红宝",
+            "attrs": "class=\"asset-label\""
+        },
+        {
+            "kind": "text",
+            "tag": "span",
+            "text": "馃挸 娌℃湁璐﹀彿锛熺偣鍑?[555.bio瀹樻柟鏋侀€熷紑鎴穄",
+            "attrs": "class=\"cta-open-account-label\" id=\"openAccountBtnLabel\""
+        },
+        {
+            "kind": "text",
+            "tag": "span",
+            "text": "绔嬮€?2 浠藉ぇ鐩樿偂銆",
+            "attrs": "class=\"cta-open-account-badge\" id=\"openAccountBadge\""
+        }
+    ],
+    "public\/888\/partials\/tab-messages.php": [
+        {
+            "kind": "text",
+            "tag": "div",
+            "text": "会话",
+            "attrs": "class=\"chat-hero-title chat-room-title\" id=\"chatRoomTitle\""
+        },
+        {
+            "kind": "text",
+            "tag": "div",
+            "text": "群聊",
+            "attrs": "class=\"chat-setting-name\" id=\"chatGroupSettingsName\""
+        },
+        {
+            "kind": "text",
+            "tag": "div",
+            "text": "0 名成员",
+            "attrs": "class=\"chat-setting-meta\" id=\"chatGroupSettingsMeta\""
+        },
+        {
+            "kind": "text",
+            "tag": "button",
+            "text": "确认添加 (0 人)",
+            "attrs": "type=\"button\" class=\"chat-invite-confirm-btn\" id=\"chatInviteConfirmBtn\" disabled"
+        },
+        {
+            "kind": "text",
+            "tag": "div",
+            "text": "恭喜发财",
+            "attrs": "class=\"chat-rp-preview-bless\" id=\"chatRpPreviewBless\""
+        },
+        {
+            "kind": "text",
+            "tag": "div",
+            "text": "拼手气红包",
+            "attrs": "class=\"chat-rp-preview-sub\" id=\"chatRpPreviewSub\""
+        },
+        {
+            "kind": "aria-label",
+            "tag": "",
+            "text": "搜索",
+            "attrs": ""
+        },
+        {
+            "kind": "aria-label",
+            "tag": "",
+            "text": "更多",
+            "attrs": ""
+        },
+        {
+            "kind": "aria-label",
+            "tag": "",
+            "text": "社群分类",
+            "attrs": ""
+        },
+        {
+            "kind": "aria-label",
+            "tag": "",
+            "text": "公告分类",
+            "attrs": ""
+        },
+        {
+            "kind": "aria-label",
+            "tag": "",
+            "text": "返回",
+            "attrs": ""
+        },
+        {
+            "kind": "aria-label",
+            "tag": "",
+            "text": "区号",
+            "attrs": ""
+        },
+        {
+            "kind": "aria-label",
+            "tag": "",
+            "text": "收起",
+            "attrs": ""
+        },
+        {
+            "kind": "aria-label",
+            "tag": "",
+            "text": "表情",
+            "attrs": ""
+        },
+        {
+            "kind": "aria-label",
+            "tag": "",
+            "text": "关闭",
+            "attrs": ""
+        },
+        {
+            "kind": "title",
+            "tag": "",
+            "text": "搜索",
+            "attrs": ""
+        },
+        {
+            "kind": "title",
+            "tag": "",
+            "text": "更多",
+            "attrs": ""
+        },
+        {
+            "kind": "title",
+            "tag": "",
+            "text": "表情",
+            "attrs": ""
+        },
+        {
+            "kind": "title",
+            "tag": "",
+            "text": "更换群头像",
+            "attrs": ""
+        },
+        {
+            "kind": "title",
+            "tag": "",
+            "text": "点击切换头像",
+            "attrs": ""
+        }
+    ],
+    "public\/888\/partials\/tab-profile.php": [
+        {
+            "kind": "aria-label",
+            "tag": "",
+            "text": "会员资料",
+            "attrs": ""
+        },
+        {
+            "kind": "aria-label",
+            "tag": "",
+            "text": "常用功能",
+            "attrs": ""
+        }
+    ]
+}

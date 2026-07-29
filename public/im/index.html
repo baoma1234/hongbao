@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FansHub IM 调试台</title>
+  <style>
+    :root { --bg:#0f1419; --card:#1a2332; --line:#2d3a4d; --text:#e7ecf3; --muted:#8b9bb4; --accent:#3d8bfd; --ok:#3dd68c; --danger:#ff6b6b; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background:var(--bg); color:var(--text); }
+    .wrap { max-width: 960px; margin: 0 auto; padding: 16px; }
+    h1 { font-size: 18px; margin: 0 0 12px; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+    input, select, button, textarea { background:var(--card); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:8px 10px; font-size:13px; }
+    button { background:var(--accent); border-color:var(--accent); cursor:pointer; font-weight:700; }
+    button.secondary { background:transparent; }
+    button.danger { background:var(--danger); border-color:var(--danger); }
+    #log { height: 280px; overflow:auto; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px; font-family: ui-monospace, monospace; font-size:12px; line-height:1.45; }
+    .ok { color: var(--ok); } .err { color: var(--danger); } .muted { color: var(--muted); }
+    .panel { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:12px; }
+    label { font-size:12px; color:var(--muted); display:block; margin-bottom:4px; }
+    .grow { flex:1; min-width:140px; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>FansHub IM 调试台</h1>
+  <div class="panel">
+    <div class="row">
+      <div class="grow"><label>WS 地址</label><input id="wsUrl" value="" style="width:100%"></div>
+      <div class="grow"><label>Token（fans_hub_token）</label><input id="token" style="width:100%" placeholder="粘贴登录 token"></div>
+      <div><label>&nbsp;</label><button id="btnConnect">连接并鉴权</button></div>
+      <div><label>&nbsp;</label><button class="secondary" id="btnDisconnect">断开</button></div>
+    </div>
+    <div class="muted" id="status">未连接</div>
+  </div>
+
+  <div class="panel">
+    <div class="row">
+      <div><label>私聊对方 user_id</label><input id="toUid" type="number" value="0"></div>
+      <div class="grow"><label>私聊内容</label><input id="privateText" style="width:100%" placeholder="纯文本"></div>
+      <div><label>&nbsp;</label><button id="btnPrivate">发私聊</button></div>
+    </div>
+    <div class="row">
+      <div><label>群 ID</label><input id="groupId" type="number" value="0"></div>
+      <div class="grow"><label>群聊内容</label><input id="groupText" style="width:100%" placeholder="纯文本"></div>
+      <div><label>&nbsp;</label><button id="btnGroup">发群聊</button></div>
+      <div><label>&nbsp;</label><button class="secondary" id="btnCreateGroup">建群(含自己)</button></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="row">
+      <div><label>红包范围</label>
+        <select id="rpScope"><option value="2">群聊</option><option value="1">私聊</option></select>
+      </div>
+      <div><label>类型</label>
+        <select id="rpType"><option value="2">拼手气</option><option value="1">普通</option></select>
+      </div>
+      <div><label>金额(元)</label><input id="rpAmount" type="number" step="0.01" value="1"></div>
+      <div><label>个数</label><input id="rpCount" type="number" value="3"></div>
+      <div class="grow"><label>祝福语</label><input id="rpBless" style="width:100%" value="恭喜发财"></div>
+      <div><label>&nbsp;</label><button id="btnSendRp">发红包</button></div>
+    </div>
+    <div class="row">
+      <div><label>packet_id</label><input id="rpId" type="number" value="0"></div>
+      <div><label>&nbsp;</label><button class="danger" id="btnGrabRp">红宝</button></div>
+      <div><label>&nbsp;</label><button class="secondary" id="btnRpDetail">红包详情</button></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="row" style="justify-content:space-between;align-items:center;">
+      <strong>日志</strong>
+      <button class="secondary" id="btnClear">清空</button>
+    </div>
+    <div id="log"></div>
+  </div>
+</div>
+<script>
+(function () {
+  const logEl = document.getElementById('log');
+  const statusEl = document.getElementById('status');
+  let ws = null;
+  let reqSeq = 1;
+  const pending = {};
+
+  function defaultWs() {
+    const host = location.hostname || '127.0.0.1';
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return proto + '//' + host + ':7272';
+  }
+  document.getElementById('wsUrl').value = defaultWs();
+  try {
+    const t = localStorage.getItem('fans_hub_token');
+    if (t) document.getElementById('token').value = t;
+  } catch (e) {}
+
+  function log(msg, cls) {
+    const line = document.createElement('div');
+    if (cls) line.className = cls;
+    line.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+    logEl.appendChild(line);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function send(type, data) {
+    if (!ws || ws.readyState !== 1) {
+      log('未连接', 'err');
+      return;
+    }
+    const reqId = 'r' + (reqSeq++);
+    ws.send(JSON.stringify({ type: type, data: data || {}, req_id: reqId }));
+    return reqId;
+  }
+
+  document.getElementById('btnConnect').onclick = function () {
+    if (ws) try { ws.close(); } catch (e) {}
+    const url = document.getElementById('wsUrl').value.trim();
+    const token = document.getElementById('token').value.trim();
+    ws = new WebSocket(url);
+    statusEl.textContent = '连接中…';
+    ws.onopen = function () {
+      statusEl.textContent = '已连接，鉴权中…';
+      log('WS open ' + url, 'ok');
+      send('auth', { token: token });
+    };
+    ws.onclose = function () {
+      statusEl.textContent = '已断开';
+      log('WS close', 'muted');
+    };
+    ws.onerror = function () {
+      log('WS error', 'err');
+    };
+    ws.onmessage = function (ev) {
+      let packet;
+      try { packet = JSON.parse(ev.data); } catch (e) {
+        log('<< ' + ev.data, 'muted');
+        return;
+      }
+      log('<< ' + packet.type + ' ' + JSON.stringify(packet.data || {}), packet.type === 'error' ? 'err' : 'ok');
+      if (packet.type === 'auth.ok') {
+        statusEl.textContent = '已登录 user_id=' + (packet.data && packet.data.user_id);
+      }
+      if (packet.type === 'redpacket.sent' && packet.data && packet.data.packet_id) {
+        document.getElementById('rpId').value = packet.data.packet_id;
+      }
+      if (packet.type === 'group.created' && packet.data && packet.data.group) {
+        document.getElementById('groupId').value = packet.data.group.id;
+      }
+    };
+  };
+
+  document.getElementById('btnDisconnect').onclick = function () {
+    if (ws) ws.close();
+  };
+  document.getElementById('btnClear').onclick = function () { logEl.innerHTML = ''; };
+
+  document.getElementById('btnPrivate').onclick = function () {
+    send('private.send', {
+      to_user_id: parseInt(document.getElementById('toUid').value, 10) || 0,
+      content: document.getElementById('privateText').value
+    });
+  };
+  document.getElementById('btnGroup').onclick = function () {
+    send('group.send', {
+      group_id: parseInt(document.getElementById('groupId').value, 10) || 0,
+      content: document.getElementById('groupText').value
+    });
+  };
+  document.getElementById('btnCreateGroup').onclick = function () {
+    const name = prompt('群名称', '测试群') || '';
+    send('group.create', { name: name, member_ids: [] });
+  };
+  document.getElementById('btnSendRp').onclick = function () {
+    const scope = parseInt(document.getElementById('rpScope').value, 10);
+    const data = {
+      scope_type: scope,
+      packet_type: parseInt(document.getElementById('rpType').value, 10),
+      total_amount: parseFloat(document.getElementById('rpAmount').value) || 0,
+      total_count: parseInt(document.getElementById('rpCount').value, 10) || 0,
+      blessing: document.getElementById('rpBless').value
+    };
+    if (scope === 2) data.group_id = parseInt(document.getElementById('groupId').value, 10) || 0;
+    else data.to_user_id = parseInt(document.getElementById('toUid').value, 10) || 0;
+    send('redpacket.send', data);
+  };
+  document.getElementById('btnGrabRp').onclick = function () {
+    send('redpacket.grab', { packet_id: parseInt(document.getElementById('rpId').value, 10) || 0 });
+  };
+  document.getElementById('btnRpDetail').onclick = function () {
+    send('redpacket.detail', { packet_id: parseInt(document.getElementById('rpId').value, 10) || 0 });
+  };
+})();
+</script>
+</body>
+</html>

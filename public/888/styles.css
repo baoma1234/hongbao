@@ -1,0 +1,6 @@
+/* Compat shim — index.php loads css/*.css directly */
+@import url('css/core.css');
+@import url('css/home.css');
+@import url('css/profile.css');
+@import url('css/tabs-extra.css');
+@import url('css/social-modals.css');

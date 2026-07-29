@@ -1,0 +1,49 @@
+<form id="batch-form" class="form-horizontal" role="form" method="POST" action="">
+    <div class="alert alert-info">
+        商户 <strong>{$row.name|htmlentities}</strong>（{$row.merchant_no|htmlentities}）<br>
+        勾选钱包后批量创建充值/代付通道；凭证统一用总商户，通道只区分 <code>payment_channel</code>。
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">钱包通道:</label>
+        <div class="col-xs-12 col-sm-8" style="max-height:280px;overflow:auto;border:1px solid #eee;padding:10px;">
+            <label class="checkbox-inline" style="display:block;margin:0 0 6px;">
+                <input type="checkbox" id="chkAllWallets"> 全选
+            </label>
+            <hr style="margin:8px 0;">
+            {foreach name="walletList" item="label" key="code"}
+            <label class="checkbox-inline" style="display:block;margin:0 0 4px;">
+                <input type="checkbox" name="wallets[]" value="{$code}" {eq name="code" value="Bobi"}checked{/eq}> {$label}（{$code}）
+            </label>
+            {/foreach}
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">创建类型:</label>
+        <div class="col-xs-12 col-sm-8">
+            <label class="checkbox-inline"><input type="checkbox" name="make_recharge" value="1" checked> 充值通道</label>
+            <label class="checkbox-inline"><input type="checkbox" name="make_withdraw" value="1" checked> 代付通道</label>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">初始状态:</label>
+        <div class="col-xs-12 col-sm-8">
+            <select name="status" class="form-control">
+                <option value="hidden" selected>隐藏（上线前先配好再显示）</option>
+                <option value="normal">直接前台显示</option>
+            </select>
+        </div>
+    </div>
+    <div class="form-group layer-footer">
+        <label class="control-label col-xs-12 col-sm-2"></label>
+        <div class="col-xs-12 col-sm-8">
+            <button type="submit" class="btn btn-success btn-embossed">批量创建</button>
+        </div>
+    </div>
+</form>
+<script>
+require(['jquery'], function ($) {
+    $('#chkAllWallets').on('change', function () {
+        $('input[name="wallets[]"]').prop('checked', this.checked);
+    });
+});
+</script>

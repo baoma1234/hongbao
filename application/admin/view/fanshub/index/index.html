@@ -1,0 +1,233 @@
+<div class="panel panel-default panel-intro">
+    <div class="panel-heading">
+        <div class="panel-lead"><em>福利大厅</em> 运营总览与转化漏斗</div>
+    </div>
+    <div class="panel-body">
+        <form class="form-inline" method="get" style="margin-bottom:15px;">
+            <label>统计区间：</label>
+            <input type="date" name="start" class="form-control" value="{$start|default=''|htmlentities}" placeholder="开始日期" style="width:160px;">
+            <span> ~ </span>
+            <input type="date" name="end" class="form-control" value="{$end|default=''|htmlentities}" placeholder="结束日期" style="width:160px;">
+            <button type="submit" class="btn btn-primary"><i class="fa fa-filter"></i> 筛选</button>
+            <a href="fanshub/index" class="btn btn-default">重置</a>
+        </form>
+
+        <div class="row">
+            <div class="col-sm-3 col-xs-6">
+                <div class="info-box bg-aqua">
+                    <span class="info-box-icon"><i class="fa fa-users"></i></span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">参与用户</span>
+                        <span class="info-box-number">{$stats.registered|default=0}</span>
+                        <span class="progress-description">今日新增 {$stats.new_today|default=0}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-3 col-xs-6">
+                <div class="info-box bg-yellow">
+                    <span class="info-box-icon"><i class="fa fa-ticket"></i></span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">待处理领取工单</span>
+                        <span class="info-box-number">{$stats.secret_pending|default=0}</span>
+                        <span class="progress-description">今日登录 {$stats.login_today|default=0}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-3 col-xs-6">
+                <div class="info-box bg-green">
+                    <span class="info-box-icon"><i class="fa fa-money"></i></span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">累计可领余额</span>
+                        <span class="info-box-number">￥{$stats.balance_sum|default='0.00'}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-3 col-xs-6">
+                <div class="info-box bg-purple">
+                    <span class="info-box-icon"><i class="fa fa-line-chart"></i></span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">流通股份</span>
+                        <span class="info-box-number">{$stats.rights_sum|default=0}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-8">
+                <div class="box box-primary">
+                    <div class="box-header with-border"><h3 class="box-title">转化漏斗</h3></div>
+                    <div class="box-body">
+                        <table class="table table-bordered table-striped">
+                            <thead>
+                            <tr><th>阶段</th><th>人数/次数</th><th>转化率</th></tr>
+                            </thead>
+                            <tbody>
+                            <tr><td>注册参与</td><td>{$stats.registered|default=0}</td><td>100%</td></tr>
+                            <tr><td>进入阶段二</td><td>{$stats.stage2|default=0}</td><td>{$stats.rates.stage2|default=0}%</td></tr>
+                            <tr><td>主站开户</td><td>{$stats.open_account|default=0}</td><td>{$stats.rates.open_account|default=0}%</td></tr>
+                            <tr><td>完成闪兑</td><td>{$stats.exchanged|default=0}</td><td>{$stats.rates.exchange|default=0}%</td></tr>
+                            <tr><td>产生邀请</td><td>{$stats.invite_total|default=0}</td><td>{$stats.rates.invite|default=0}%</td></tr>
+                            <tr><td>分享行为</td><td>{$stats.shared|default=0}</td><td>-</td></tr>
+                            <tr><td>生成密令</td><td>{$stats.secret_created|default=0}（VIP {$stats.secret_vip|default=0}）</td><td>{$stats.rates.secret|default=0}%</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="box box-warning">
+                    <div class="box-header with-border">
+                        <h3 class="box-title">邀请排行榜 TOP10</h3>
+                        <div class="box-tools pull-right">
+                            <a href="fanshub/invite/leaderboard" class="btn btn-xs btn-default addtabsit">查看全部</a>
+                        </div>
+                    </div>
+                    <div class="box-body" style="padding:0;">
+                        <table class="table table-striped" style="margin:0;">
+                            <thead><tr><th>排名</th><th>用户</th><th>邀请数</th></tr></thead>
+                            <tbody>
+                            {volist name="stats.leaderboard" id="item"}
+                            <tr>
+                                <td>{$item.rank}</td>
+                                <td>{$item.mobile_mask|htmlentities}</td>
+                                <td><span class="label label-success">{$item.invite_count}</span></td>
+                            </tr>
+                            {/volist}
+                            {empty name="stats.leaderboard"}
+                            <tr><td colspan="3" class="text-center text-muted">暂无数据</td></tr>
+                            {/empty}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {if isset($stats.phase2.enabled) && $stats.phase2.enabled}
+        <div class="row" style="margin-top:10px;">
+            <div class="col-sm-12"><h4 class="text-muted" style="margin-bottom:12px;"><i class="fa fa-fire"></i> 星火二期 · 团长与签到</h4></div>
+            <div class="col-sm-3 col-xs-6">
+                <div class="info-box bg-red">
+                    <span class="info-box-icon"><i class="fa fa-star"></i></span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">团长 / 新手</span>
+                        <span class="info-box-number">{$stats.phase2.master_count|default=0} / {$stats.phase2.newbie_count|default=0}</span>
+                        <span class="progress-description">首提完成 {$stats.phase2.first_withdraw_done|default=0}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-3 col-xs-6">
+                <div class="info-box bg-teal">
+                    <span class="info-box-icon"><i class="fa fa-calendar-check-o"></i></span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">今日签到</span>
+                        <span class="info-box-number">{$stats.phase2.checkin_today|default=0}</span>
+                        <span class="progress-description">暴力分享 {$stats.phase2.checkin_violent_today|default=0} · 待解锁暴击 {$stats.phase2.checkin_bonus_pending|default=0}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-3 col-xs-6">
+                <div class="info-box bg-maroon">
+                    <span class="info-box-icon"><i class="fa fa-snowflake-o"></i></span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">连签冻结</span>
+                        <span class="info-box-number">{$stats.phase2.streak_frozen|default=0}</span>
+                        <span class="progress-description">区间签到 {$stats.phase2.checkin_total|default=0} 次</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-3 col-xs-6">
+                <div class="info-box bg-navy">
+                    <span class="info-box-icon"><i class="fa fa-users"></i></span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">下线提现累计</span>
+                        <span class="info-box-number">{$stats.phase2.sub_withdrawn_total|default=0}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-5">
+                <div class="box box-success">
+                    <div class="box-header with-border"><h3 class="box-title">二期流水（区间内）</h3></div>
+                    <div class="box-body" style="padding:0;">
+                        <table class="table table-striped" style="margin:0;">
+                            <thead><tr><th>类型</th><th>笔数</th></tr></thead>
+                            <tbody>
+                            <tr><td>签到基础</td><td>{$stats.phase2.ledger.checkin|default=0}</td></tr>
+                            <tr><td>签到暴击</td><td>{$stats.phase2.ledger.checkin_bonus|default=0}</td></tr>
+                            <tr><td>第7天奖励</td><td>{$stats.phase2.ledger.checkin_day7|default=0}</td></tr>
+                            <tr><td>荣誉段位</td><td>{$stats.phase2.ledger.honor_tier|default=0}</td></tr>
+                            <tr><td>注册奖励</td><td>{$stats.phase2.ledger.register_bonus|default=0}</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="box box-info">
+                    <div class="box-header with-border"><h3 class="box-title">荣誉段位分布</h3></div>
+                    <div class="box-body" style="padding:0;">
+                        <table class="table table-striped" style="margin:0;">
+                            <thead><tr><th>段位</th><th>人数</th></tr></thead>
+                            <tbody>
+                            {volist name="stats.phase2.honor_distribution" id="honor"}
+                            <tr><td>{$honor.name|htmlentities}</td><td>{$honor.count}</td></tr>
+                            {/volist}
+                            {empty name="stats.phase2.honor_distribution"}
+                            <tr><td colspan="2" class="text-center text-muted">暂无团长数据</td></tr>
+                            {/empty}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="box box-danger">
+                    <div class="box-header with-border">
+                        <h3 class="box-title">团长榜 TOP10（下线提现）</h3>
+                        <div class="box-tools pull-right">
+                            <a href="fanshub/checkin" class="btn btn-xs btn-default addtabsit">签到记录</a>
+                        </div>
+                    </div>
+                    <div class="box-body" style="padding:0;">
+                        <table class="table table-striped" style="margin:0;">
+                            <thead><tr><th>排名</th><th>用户</th><th>下线提现</th><th>段位</th></tr></thead>
+                            <tbody>
+                            {volist name="stats.phase2.top_masters" id="master"}
+                            <tr>
+                                <td>{$master.rank}</td>
+                                <td>{$master.mobile_mask|htmlentities}</td>
+                                <td><span class="label label-danger">{$master.sub_withdrawn_count}</span></td>
+                                <td>{$master.honor_tier_claimed}</td>
+                            </tr>
+                            {/volist}
+                            {empty name="stats.phase2.top_masters"}
+                            <tr><td colspan="4" class="text-center text-muted">暂无数据</td></tr>
+                            {/empty}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {/if}
+
+        <div class="row" style="margin-top:10px;">
+            <div class="col-sm-12">
+                <a href="fanshub/account" class="btn btn-primary addtabsit"><i class="fa fa-user"></i> 用户账户</a>
+                <a href="fanshub/ledger" class="btn btn-info addtabsit"><i class="fa fa-list"></i> 资产流水</a>
+                <a href="fanshub/secret" class="btn btn-warning addtabsit"><i class="fa fa-key"></i> 福利领取工单</a>
+                <a href="fanshub.config" class="btn btn-success addtabsit"><i class="fa fa-cog"></i> 活动配置</a>
+                <a href="fanshub.memberlevel" class="btn btn-success addtabsit"><i class="fa fa-star"></i> 会员等级</a>
+                <a href="fanshub/task" class="btn btn-warning addtabsit"><i class="fa fa-tasks"></i> 任务记录</a>
+                <a href="fanshub/invite" class="btn btn-info addtabsit"><i class="fa fa-share-alt"></i> 邀请记录</a>
+                <a href="fanshub/invite/leaderboard" class="btn btn-info addtabsit"><i class="fa fa-trophy"></i> 邀请排行榜</a>
+                <a href="fanshub/checkin" class="btn btn-danger addtabsit"><i class="fa fa-calendar-check-o"></i> 签到记录</a>
+                <a href="/888/" target="_blank" class="btn btn-default"><i class="fa fa-external-link"></i> 打开 H5 前台</a>
+            </div>
+        </div>
+    </div>
+</div>

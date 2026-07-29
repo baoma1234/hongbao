@@ -1,0 +1,43 @@
+<div class="panel panel-default panel-intro">
+<style>
+.bootstrap-table .merch-status-toggle.is-on { color: #18bc9c !important; }
+.bootstrap-table .merch-status-toggle.is-off { color: #ccc !important; }
+</style>
+    <div class="panel-heading">
+        {:build_heading(null,FALSE)}
+        {include file="sys/common/pid_tabs" /}
+        <ul class="nav nav-tabs" data-field="status">
+            <li class="{:$Think.get.status === null ? 'active' : ''}"><a href="#t-all" data-value="" data-toggle="tab">{:__('All')}</a></li>
+            {foreach name="statusList" item="vo"}
+            <li class="{:$Think.get.status === (string)$key ? 'active' : ''}"><a href="#t-{$key}" data-value="{$key}" data-toggle="tab">{$vo}</a></li>
+            {/foreach}
+        </ul>
+    </div>
+    <div class="panel-body">
+        <div id="myTabContent" class="tab-content">
+            <div class="tab-pane fade active in" id="one">
+                <div class="widget-body no-padding">
+                    <div id="toolbar" class="toolbar">
+                        <a href="javascript:;" class="btn btn-primary btn-refresh" title="{:__('Refresh')}"><i class="fa fa-refresh"></i></a>
+                        <a href="javascript:;" class="btn btn-info btn-sync-merch {:$auth->check('sys/merch_channel/sync')?'':'hide'}" title="同步商户通道"><i class="fa fa-cloud-download"></i> 同步商户</a>
+                        <a href="javascript:;" class="btn btn-success btn-add {:$auth->check('sys/merch_channel/add')?'':'hide'}" title="{:__('Add')}"><i class="fa fa-plus"></i> {:__('Add')}</a>
+                        <a href="javascript:;" class="btn btn-success btn-edit btn-disabled disabled {:$auth->check('sys/merch_channel/edit')?'':'hide'}" title="{:__('Edit')}"><i class="fa fa-pencil"></i> {:__('Edit')}</a>
+                        <a href="javascript:;" class="btn btn-danger btn-del btn-disabled disabled {:$auth->check('sys/merch_channel/del')?'':'hide'}" title="{:__('Delete')}"><i class="fa fa-trash"></i> {:__('Delete')}</a>
+                        <div class="dropdown btn-group {:$auth->check('sys/merch_channel/multi')?'':'hide'}">
+                            <a class="btn btn-primary btn-more dropdown-toggle btn-disabled disabled" data-toggle="dropdown"><i class="fa fa-cog"></i> 批量启停</a>
+                            <ul class="dropdown-menu text-left" role="menu">
+                                <li><a class="btn btn-link btn-multi btn-disabled disabled" href="javascript:" data-params="status=normal"><i class="fa fa-check-circle text-success"></i> 批量启用</a></li>
+                                <li><a class="btn btn-link btn-multi btn-disabled disabled" href="javascript:" data-params="status=hidden"><i class="fa fa-ban text-danger"></i> 批量停用</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                    <table id="table" class="table table-striped table-bordered table-hover table-nowrap"
+                           data-operate-edit="{:$auth->check('sys/merch_channel/edit')}"
+                           data-operate-del="{:$auth->check('sys/merch_channel/del')}"
+                           width="100%">
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

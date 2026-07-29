@@ -1,0 +1,39 @@
+<form id="add-form" class="form-horizontal" role="form" data-toggle="validator" method="POST" action="">
+
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">{:__('Inviter_id')}:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input id="c-inviter_id" data-rule="required" min="0" data-source="inviter/index" class="form-control selectpage" name="row[inviter_id]" type="text" value="">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">{:__('Invitee_id')}:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input id="c-invitee_id" data-rule="required" min="0" data-source="invitee/index" class="form-control selectpage" name="row[invitee_id]" type="text" value="">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">{:__('Is_recharge')}:</label>
+        <div class="col-xs-12 col-sm-8">
+                        
+            <select  id="c-is_recharge" class="form-control selectpicker" name="row[is_recharge]">
+                {foreach name="isRechargeList" item="vo"}
+                    <option value="{$key}" {in name="key" value="0"}selected{/in}>{$vo}</option>
+                {/foreach}
+            </select>
+
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">{:__('Recharge_amount')}:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input id="c-recharge_amount" class="form-control" step="0.01" name="row[recharge_amount]" type="number" value="0.00">
+        </div>
+    </div>
+    <div class="form-group layer-footer">
+        <label class="control-label col-xs-12 col-sm-2"></label>
+        <div class="col-xs-12 col-sm-8">
+            <button type="submit" class="btn btn-primary btn-embossed disabled">{:__('OK')}</button>
+        </div>
+    </div>
+</form>

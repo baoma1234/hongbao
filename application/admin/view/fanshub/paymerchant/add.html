@@ -1,0 +1,31 @@
+<form id="add-form" class="form-horizontal" role="form" data-toggle="validator" method="POST" action="">
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">备注名:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[name]" type="text" placeholder="如：BS主商户 / 万汇通主商户">
+        </div>
+    </div>
+    {include file="fanshub/paymerchant/gateway_fields" /}
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">备注:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[remark]" type="text">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">状态:</label>
+        <div class="col-xs-12 col-sm-8">
+            <select name="row[status]" class="form-control selectpicker">
+                {foreach name="statusList" item="vo"}
+                <option value="{$key}" {eq name="key" value="normal"}selected{/eq}>{$vo}</option>
+                {/foreach}
+            </select>
+        </div>
+    </div>
+    <div class="form-group layer-footer">
+        <label class="control-label col-xs-12 col-sm-2"></label>
+        <div class="col-xs-12 col-sm-8">
+            <button type="submit" class="btn btn-primary btn-embossed disabled">{:__('OK')}</button>
+        </div>
+    </div>
+</form>

@@ -1,0 +1,14 @@
+﻿copy_keys_added=189 total=669
+field_groups_injected=1
+patched public/888/partials/tab-exchange.php
+patched public/888/partials/header.php
+patched public/888/partials/tab-profile.php
+patched public/888/partials/profile-subpages.php
+WARN messages miss: id="chatPickImageBtn">\n                                <spa
+WARN messages miss: id="chatPickVideoBtn">\n                                <spa
+WARN messages miss: id="chatPickFileBtn">\n                                <span
+WARN messages miss: id="chatAttachRpBtn">\n                                <span
+WARN messages miss: title="鏇村" aria-label="鏇村">\n                       
+messages_miss=5
+patched public/888/partials/tab-messages.php
+DONE_HTML

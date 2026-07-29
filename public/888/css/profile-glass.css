@@ -1,0 +1,636 @@
+/* css/profile-glass.css — 我的：官方高级会员中心 + 二级页 */
+
+#tabProfile,
+.profile-sub-pane {
+  --pg-cream-top: #fffbf3;
+  --pg-cream-mid: #f8efe3;
+  --pg-cream-bot: #f0dfc8;
+  --pg-red-grad: linear-gradient(to right, #E63022, #C61114);
+  --pg-red-deep: linear-gradient(135deg, #E63022 0%, #9E1014 55%, #7A0C10 100%);
+  --pg-border-grad: linear-gradient(145deg, #ffe9b0 0%, #f0b04a 42%, #e07a22 100%);
+  --pg-border-soft: linear-gradient(145deg, rgba(255, 233, 176, 0.95) 0%, rgba(240, 176, 74, 0.7) 55%, rgba(224, 122, 34, 0.8) 100%);
+  --pg-gold: #D4A84B;
+  --pg-ink: #1f1714;
+  --pg-muted: #8a7a6e;
+  --pg-inset: inset 0 2px 0 rgba(255, 255, 255, 0.95), inset 0 -2px 5px rgba(200, 140, 60, 0.12);
+  --pg-inset-sm: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -1px 3px rgba(200, 140, 60, 0.1);
+  --pg-lift: 0 10px 24px rgba(176, 120, 50, 0.14);
+  --pg-lift-sm: 0 6px 14px rgba(170, 120, 55, 0.1);
+}
+
+/* ---------- 我的主页：浅灰底，官方留白 ---------- */
+#tabProfile.tab-page.active {
+  background: #fff;
+  padding: 10px 0 32px;
+  box-sizing: border-box;
+  font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+}
+
+@keyframes profileVipIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- 会员身份卡 ---------- */
+#tabProfile .profile-vip-hero {
+  position: relative;
+  margin: 0 0 12px;
+  padding: 24px 18px 22px;
+  border-radius: 18px;
+  overflow: hidden;
+  color: #fff;
+  background: var(--pg-red-deep);
+  box-shadow:
+    0 14px 32px rgba(158, 16, 20, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.26);
+  animation: profileVipIn 0.36s ease both;
+}
+
+#tabProfile .profile-vip-hero-shine {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(110% 70% at 100% -8%, rgba(255, 214, 140, 0.38) 0%, transparent 48%),
+    radial-gradient(70% 55% at -5% 110%, rgba(0, 0, 0, 0.22) 0%, transparent 52%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.14) 0%, transparent 40%);
+}
+
+#tabProfile .profile-vip-watermark {
+  pointer-events: none;
+  position: absolute;
+  right: -6px;
+  bottom: -18px;
+  z-index: 0;
+  font-size: 64px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: rgba(255, 255, 255, 0.07);
+  line-height: 1;
+  white-space: nowrap;
+  user-select: none;
+}
+
+#tabProfile .profile-vip-identity {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+#tabProfile .profile-vip-avatar {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+#tabProfile .profile-vip-avatar .profile-avatar-img,
+#tabProfile .profile-vip-avatar .profile-avatar-fallback {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(253, 228, 179, 0.95);
+  box-shadow:
+    0 0 0 3px rgba(198, 17, 20, 0.28),
+    0 8px 16px rgba(0, 0, 0, 0.2);
+  background: linear-gradient(145deg, #fff6e8, #f0d4a8);
+  object-fit: cover;
+}
+
+#tabProfile .profile-vip-avatar .profile-avatar-fallback {
+  color: #8B4512;
+  font-size: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#tabProfile .profile-vip-text {
+  flex: 1;
+  min-width: 0;
+}
+
+#tabProfile .profile-vip-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  min-width: 0;
+}
+
+#tabProfile .profile-vip-name-row .profile-summary-name {
+  margin: 0;
+  color: #fff;
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#tabProfile .profile-vip-badge {
+  flex-shrink: 0;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #5a3210;
+  background: linear-gradient(135deg, #ffe9b0 0%, #f0b04a 55%, #e07a22 100%);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.16);
+}
+
+#tabProfile .profile-vip-hero .profile-meta-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 5px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+#tabProfile .profile-vip-hero .profile-meta-line:last-child {
+  margin-bottom: 0;
+}
+
+#tabProfile .profile-vip-hero .profile-meta-line strong {
+  color: #fff;
+  font-weight: 800;
+  letter-spacing: 0.35px;
+}
+
+#tabProfile .profile-vip-hero .profile-copy-uid-btn {
+  border: 1px solid rgba(253, 228, 179, 0.55) !important;
+  background: rgba(255, 255, 255, 0.14) !important;
+  color: #ffe9b0 !important;
+  box-shadow: none !important;
+  padding: 2px 10px !important;
+  border-radius: 999px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+}
+
+#tabProfile .profile-vip-hero .profile-copy-uid-btn:active {
+  background: rgba(255, 255, 255, 0.26) !important;
+  transform: scale(0.97);
+}
+
+/* ---------- 快捷入口：一整块官方面板 ---------- */
+#tabProfile .profile-quick-sheet {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0 0 16px;
+  padding: 6px 2px 4px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid rgba(40, 20, 10, 0.04);
+  box-shadow: 0 8px 22px rgba(40, 20, 10, 0.045);
+  animation: profileVipIn 0.4s ease 0.05s both;
+}
+
+#tabProfile .profile-quick-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 4px 12px;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+  color: var(--pg-ink);
+  transition: transform 0.12s ease;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+#tabProfile .profile-quick-item:active {
+  transform: scale(0.96);
+}
+
+#tabProfile .profile-quick-ico {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #C61114;
+  background: linear-gradient(160deg, #fff5f3 0%, #ffe3df 100%);
+}
+
+#tabProfile .profile-quick-ico-gold {
+  color: #b8751a;
+  background: linear-gradient(160deg, #fff8ee 0%, #ffe8cc 100%);
+}
+
+#tabProfile .profile-quick-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #3d2e22;
+  letter-spacing: 0.15px;
+}
+
+/* ---------- 分组菜单 ---------- */
+#tabProfile .profile-section {
+  margin: 0 0 14px;
+  animation: profileVipIn 0.42s ease 0.08s both;
+}
+
+#tabProfile .profile-section-label {
+  margin: 0 6px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #9a8b7e;
+  letter-spacing: 0.8px;
+}
+
+#tabProfile .profile-menu-sheet {
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid rgba(40, 20, 10, 0.04);
+  box-shadow: 0 8px 22px rgba(40, 20, 10, 0.045);
+  overflow: hidden;
+}
+
+#tabProfile .profile-menu-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: none !important;
+  border-bottom: 1px solid rgba(40, 20, 10, 0.055) !important;
+  background: #fff !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+  padding: 16px 14px !important;
+  color: var(--pg-ink) !important;
+  text-align: left;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+#tabProfile .profile-menu-row:last-child {
+  border-bottom: none !important;
+}
+
+#tabProfile .profile-menu-row:active {
+  background: #faf8f6 !important;
+  transform: none;
+}
+
+#tabProfile .profile-menu-ico {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #C61114;
+  background: linear-gradient(160deg, #fff5f3, #ffe3df);
+}
+
+#tabProfile .profile-menu-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+#tabProfile .profile-menu-main strong {
+  color: var(--pg-ink);
+  font-size: 15px;
+  font-weight: 750;
+  letter-spacing: 0.15px;
+}
+
+#tabProfile .profile-menu-main small {
+  color: var(--pg-muted);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+#tabProfile .profile-menu-arrow {
+  color: #c9bbb0;
+  font-size: 22px;
+  font-weight: 300;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+#tabProfile .profile-logout-btn {
+  width: 100%;
+  margin: 6px 0 12px !important;
+  border: 1px solid rgba(198, 17, 20, 0.16) !important;
+  background: #fff !important;
+  color: #C61114 !important;
+  border-radius: 14px !important;
+  padding: 14px !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 14px rgba(40, 20, 10, 0.035) !important;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+}
+
+#tabProfile .profile-logout-btn:active {
+  background: #fff5f4 !important;
+  transform: translateY(1px);
+}
+
+#tabProfile .profile-foot-note {
+  margin: 2px 0 0;
+  text-align: center;
+  font-size: 11px;
+  color: #b8aaa0;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
+/* 兼容旧选择器（二级页卡片） */
+.profile-sub-pane .match-card.profile-card,
+.profile-sub-pane .wallet-ledger-list {
+  border: 1.5px solid transparent !important;
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    linear-gradient(145deg, #ffe9b0 0%, #f0b04a 42%, #e07a22 100%) border-box !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-radius: 22px !important;
+}
+
+.profile-sub-pane {
+  background:
+    radial-gradient(120% 70% at 50% -8%, rgba(255, 236, 210, 0.95) 0%, transparent 55%),
+    linear-gradient(180deg, var(--pg-cream-top) 0%, var(--pg-cream-mid) 50%, var(--pg-cream-bot) 100%) !important;
+}
+.profile-sub-pane .profile-sub-hd {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0) 55%),
+    var(--pg-red-grad) !important;
+  border-bottom: 1px solid rgba(253, 228, 179, 0.55) !important;
+  box-shadow:
+    0 10px 24px rgba(180, 30, 25, 0.26),
+    inset 0 2px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.1) !important;
+  padding: 12px 12px 14px !important;
+  color: #fff;
+}
+
+.profile-sub-pane .profile-sub-title {
+  color: #fff !important;
+  text-shadow: 0 1px 3px rgba(80, 10, 8, 0.3);
+  font-weight: 800;
+}
+
+/* 返回按钮：严格居中，修正字符视觉右偏 */
+.profile-sub-pane .profile-sub-hd {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.profile-sub-pane .profile-back-btn,
+.profile-sub-pane .chat-back-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0;
+  box-sizing: border-box !important;
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  max-width: 36px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 1.5px solid rgba(253, 228, 179, 0.45) !important;
+  background: rgba(255, 255, 255, 0.18) !important;
+  border-radius: 50% !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+  color: #fff !important;
+  font-size: 22px !important;
+  font-weight: 400 !important;
+  line-height: 1 !important;
+  /* ‹ / 〈 字形本身偏右，光学回正 */
+  transform: translateX(-0.5px);
+  text-indent: 0;
+}
+
+.profile-sub-pane .profile-sub-spacer {
+  width: 36px !important;
+  min-width: 36px !important;
+  flex-shrink: 0;
+}
+
+.profile-sub-pane .profile-sub-body {
+  padding-top: 16px;
+}
+
+/* ---------- 我的页：退出登录保持简洁（复制按钮样式见 VIP 卡内） ---------- */
+#tabProfile .profile-logout-btn {
+  border-radius: 14px !important;
+}
+
+/* 二级页主按钮：白底 + 红金边框 */
+.profile-sub-pane .btn-uid-submit,
+.profile-sub-pane .profile-sms-row .btn-captcha,
+.profile-sub-pane .wallet-ledger-more {
+  border: 1.5px solid transparent !important;
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    linear-gradient(145deg, #ffe9b0 0%, #f0b04a 42%, #e07a22 100%) border-box !important;
+  color: #3d2e22 !important;
+  box-shadow: 0 4px 12px rgba(176, 120, 50, 0.1) !important;
+  font-weight: 800;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.profile-sub-pane .btn-uid-submit {
+  border-radius: 14px !important;
+  padding: 12px !important;
+  margin-top: 8px;
+}
+
+.profile-sub-pane .profile-sms-row .btn-captcha {
+  border-radius: 12px !important;
+}
+
+.profile-sub-pane .btn-uid-submit:active,
+.profile-sub-pane .profile-sms-row .btn-captcha:active,
+.profile-sub-pane .wallet-ledger-more:active {
+  background:
+    linear-gradient(#fffaf4, #fffaf4) padding-box,
+    linear-gradient(145deg, #ffe9b0 0%, #f0b04a 42%, #e07a22 100%) border-box !important;
+  transform: translateY(1px) scale(0.98);
+  filter: none;
+}
+
+/* 模式切换按钮 */
+.profile-sub-pane .profile-mode-btn {
+  border: 1.5px solid transparent !important;
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    linear-gradient(145deg, #ffe9b0 0%, #f0b04a 42%, #e07a22 100%) border-box !important;
+  color: #9a8574 !important;
+  box-shadow: 0 4px 10px rgba(176, 120, 50, 0.08) !important;
+  border-radius: 12px !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  font-weight: 700;
+}
+
+.profile-sub-pane .profile-mode-btn.active {
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    linear-gradient(to right, #E63022, #C61114) border-box !important;
+  color: #C61114 !important;
+  box-shadow: 0 4px 12px rgba(198, 17, 20, 0.14) !important;
+}
+
+/* 输入框毛玻璃 */
+.profile-sub-pane .profile-field input,
+.profile-sub-pane .profile-field select,
+.profile-sub-pane .profile-sms-row input {
+  border: 1.5px solid transparent !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 248, 238, 0.85) 100%) padding-box,
+    var(--pg-border-soft) border-box !important;
+  box-shadow: var(--pg-inset-sm) !important;
+  border-radius: 12px !important;
+  color: var(--pg-ink);
+}
+
+.profile-sub-pane .profile-field label {
+  color: var(--pg-muted);
+}
+
+/* 充值/提现通道 */
+.profile-sub-pane .wallet-channel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.profile-sub-pane .wallet-channel-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1.5px solid transparent !important;
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    linear-gradient(145deg, #ffe9b0 0%, #f0b04a 42%, #e07a22 100%) border-box !important;
+  box-shadow: 0 4px 10px rgba(176, 120, 50, 0.08) !important;
+  border-radius: 14px !important;
+  padding: 10px 14px;
+  text-align: left;
+  cursor: pointer;
+  color: #3d2e22;
+  font-weight: 700;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.profile-sub-pane .wallet-channel-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #f6f6f6;
+}
+
+.profile-sub-pane .wallet-channel-icon--placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 800;
+  color: #c45a1a;
+  background: linear-gradient(145deg, #fff4e0, #ffe0b0);
+}
+
+.profile-sub-pane .wallet-channel-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.profile-sub-pane .wallet-amount-panel {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(192, 120, 50, 0.28);
+}
+
+.profile-sub-pane .wallet-amount-panel[hidden],
+.profile-sub-pane .wallet-amount-panel:not(.is-open) {
+  display: none !important;
+}
+
+.profile-sub-pane .wallet-amount-panel.is-open {
+  display: block !important;
+}
+
+.profile-sub-pane .wallet-channel-item.active {
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    linear-gradient(to right, #E63022, #C61114) border-box !important;
+  box-shadow: 0 4px 12px rgba(198, 17, 20, 0.14) !important;
+  color: #C61114;
+}
+
+.profile-sub-pane .wallet-channel-item small {
+  display: block;
+  margin-top: 4px;
+  color: var(--pg-muted);
+  font-weight: 600;
+}
+
+/* 流水列表 */
+.profile-sub-pane .wallet-ledger-list {
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    linear-gradient(145deg, #ffe9b0 0%, #f0b04a 42%, #e07a22 100%) border-box !important;
+  overflow: hidden;
+}
+
+.profile-sub-pane .wallet-ledger-item {
+  border-bottom: 1px solid rgba(224, 122, 34, 0.1) !important;
+  background: transparent;
+}
+
+.profile-sub-pane .wallet-ledger-more {
+  border-radius: 14px !important;
+}
+
+/* 二维码卡 */
+.profile-sub-pane .profile-qr-canvas-wrap {
+  border: 1.5px solid transparent !important;
+  background:
+    linear-gradient(180deg, #fff 0%, #fffaf4 100%) padding-box,
+    var(--pg-border-grad) border-box !important;
+  box-shadow: var(--pg-lift-sm), var(--pg-inset-sm) !important;
+}
+
+.profile-sub-pane .profile-meta-line {
+  color: var(--pg-muted);
+}
+
+.profile-sub-pane .profile-meta-line strong {
+  color: var(--pg-ink);
+}

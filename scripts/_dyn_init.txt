@@ -1,0 +1,8 @@
+﻿moji_left=0
+OA_CTX=     </div>
+
+            <div class="user-panel" id="newbieOpenPanel">
+                <button type="button" class="cta-open-account" id="openAccountBtn" onclick="goToMainStation()">
+                    <span class="cta-open-account-label" id="openAccountBtnLabel" data-copy="open_account_badge_fallback">绔嬮€?2 浠藉ぇ鐩樿偂銆?/span>
+         
+exchange_avail_fixed

@@ -1,0 +1,51 @@
+﻿## public/888/partials/tab-home.php
+  mojibake=11 unwired=5 missing_keys=0
+  MOJI <div> wired=1 棣冩惓 555.bio 閸忋劎缍夐悽鐔糕偓浣哥杽閺冭泛銇囩仦
+  MOJI <div> wired=0 棣冩惐 瑜版挸澧犻崗銊х秹閼测€插敜娴滅儤鏆熼敍?,000 娴?( 棣冩畬 娴犲﹥妫╅弳瀛樺畾 +0 娴?)
+  MOJI <div> wired=1 棣冩尩 楠炲啿褰村鑼柈鐠佲€茶礋閸氬牅绱禍鍝勫灡闁姳鐜崐
+  MOJI <div> wired=0 棣冩嫷 娴犲﹥妫╂径褏娲忕€圭偞妞傞幐浣风波鐞涘本娼堟禒鍑ょ窗锟?00 / 娴?( 棣冩暉 鏉堝啯妲伴弮銉ャ亣閻╂ɑ濯洪崡?+0% )
+  MOJI <div> wired=1 棣冩寱 缁涘顤傞梻顏勫幀闁库偓濮ｄ浇鍋傛禒?璺?缁鳖垵顓告禒宄扳偓鐓庡涧濞戙劋绗夌捄?璺?閼测€茬幆閻㈣精鎻弽鍥祮閸栨牔姹夐弫浼粹攳閸?  MOJI <span> wired=1 闂傤亜鍘?  MOJI <span> wired=1 棣冩憴 闁偓鐠?1 娴滃搫绱戦幋?閴冣槄绗?妫版繂顦婚柅?1 娴犲€熷亗 (婢舵岸鍊嬫径姘繁)
+  MOJI <span> wired=0 棣冩尭 濞屸剝婀佺拹锕€褰块敍鐔哄仯閸?[555.bio鐎规ɑ鏌熼弸渚€鈧喎绱戦幋绌?  MOJI <div> wired=1 棣冩尠 娴滄帒濮╂径褍宸?  MOJI <p> wired=1 棣冩惓 閺堫剙閽╅崣鐗堚偓褑宸濇稉鎭掆偓?55.bio 鐎规ɑ鏌熷ú鏄忕┈缁绗ｆ惔锔侥侀幏鐔侯洿閸掆晜甯归獮鑳儉闁库偓娴滄帒濮╃拫鍐╃叀婢堆冨泛閵?  MOJI <p> wired=1 鐎瑰鍙忛幍鑳嚡閿涙艾鍙忛惄妯绘￥鐠у嫰鍣鹃崗鍛偓鐓庡弳閸欙絻鈧倹澧嶉張澶庡亗娴犺棄寮烽悺婊冨瀻缁俱垹鍩勯崸鍥х潣娴滃海鏁ら幋閿嬫た鐠哄啫瀹抽崘鍛村劥缁傚繐鍩勯妴鍌烆暙閸欐牜瀛╅崚鈺冪埠娑撯偓閻㈠崬鐣奸弬?VIP 缁傚繐鍩勬稉顓?  UNWIRE <div> 棣冩惐 瑜版挸澧犻崗銊х秹閼测€插敜娴滅儤鏆熼敍?,000 娴?( 棣冩畬 娴犲﹥妫╅弳瀛樺畾 +0 娴?) [MOJI]
+  UNWIRE <div> 棣冩嫷 娴犲﹥妫╂径褏娲忕€圭偞妞傞幐浣风波鐞涘本娼堟禒鍑ょ窗锟?00 / 娴?( 棣冩暉 鏉堝啯妲伴弮銉ャ亣閻╂ɑ濯洪崡?+0% ) [MOJI]
+  UNWIRE <span> 棣冩尭 濞屸剝婀佺拹锕€褰块敍鐔哄仯閸?[555.bio鐎规ɑ鏌熼弸渚€鈧喎绱戦幋绌?[MOJI]
+  UNWIRE <span> 缁斿鈧?2 娴犺棄銇囬惄妯垮亗閵?  UNWIRE <placeholder> 渚嬪锛?55bio锛堝繀椤讳娇鐢ㄥ悓鎵嬫満鍙锋敞鍐岋級锛屽惁鍒欏皬濡规棤娉曞湪鍚庡彴鏍搁攢涓婂垎
+
+## public/888/partials/tab-exchange.php
+  mojibake=0 unwired=2 missing_keys=0
+  UNWIRE <div> 鍙敤 鈥?  UNWIRE <div> 绾㈠埄
+
+## public/888/partials/tab-messages.php
+  mojibake=0 unwired=6 missing_keys=0
+  UNWIRE <div> 浼氳瘽
+  UNWIRE <div> 缇よ亰
+  UNWIRE <div> 0 鍚嶆垚鍛?  UNWIRE <button> 纭娣诲姞 (0 浜?
+  UNWIRE <div> 鎭枩鍙戣储
+  UNWIRE <div> 鎷兼墜姘旂孩鍖?
+## public/888/partials/tab-master.php
+  mojibake=0 unwired=0 missing_keys=0
+
+## public/888/partials/tab-profile.php
+  mojibake=0 unwired=0 missing_keys=0
+
+## public/888/partials/profile-subpages.php
+  mojibake=0 unwired=1 missing_keys=0
+  UNWIRE <div> 绱娴佹按锛氾骏0.00
+
+## public/888/partials/bottom-and-overlays.php
+  mojibake=2 unwired=1 missing_keys=0
+  MOJI <div> wired=1 鏉炴槒袝瀵偓閸?璺?闁夸礁鐣鹃崗銉ユ簚閼测€插敜
+  MOJI <div> wired=1 闁夸礁鐣?5.00 娴?  UNWIRE <div> 閳?
+## public/888/partials/modals.php
+  mojibake=9 unwired=4 missing_keys=0
+  MOJI <div> wired=0 棣冨箚
+  MOJI <div> wired=1 鏉╂ê妯婃稉鈧銉ュ祮閸欘垵袙闁夸線顣崣鏍电磼
+  MOJI <button> wired=1 棣冩尭 缁斿宓嗛崜宥呯窔 555.bio 鐎规ɑ鏌熸稉鑽ょ彲瀵偓閹村嚖绱欓柅?2 閼测槄绱?  MOJI <button> wired=1 缁嬪秴鎮楅崘宥堫嚛閿涘瞼鎴风紒顓熸晙閼测€插敜
+  MOJI <div> wired=1 棣冩晙 鐎规ɑ鏌?VIP 缁傚繐鍩勫ú鎯у絺娑擃厼绺?  MOJI <div> wired=1 瑜版挸澧犲鍛搭暙閸欐牜顩撮崚鈺傗偓濠氬櫨妫?  MOJI <div> wired=1 棣冩敿 閹劎娈戞稉鎾崇潣鐎靛棔鎶ら敍鍫ｎ嚞閻愮懓鍤径宥呭煑閿?  MOJI <span> wired=1 閳?娑撴挸鐫樼€靛棔鎶ょ€瑰鍙忛柨浣哥暰閸撯晙缍戦敍
+  MOJI <div> wired=1 鐠囬攱瀵滄担蹇旂拨閸ф绱濋幏鏍уЗ閸掔増娓堕崣鍏呮櫠
+  UNWIRE <div> 棣冨箚 [MOJI]
+  UNWIRE <strong> 绾㈠疂涓撳睘瀹㈡湇
+  UNWIRE <strong> 瀹樻柟绾㈠疂鑱婂ぉApp
+  UNWIRE <div> 绂?
+## public/888/partials/login.php
+  mojibake=2 unwired=0 missing_keys=0
+  MOJI <label> wired=1 棣冩懌 閺侊絾鍩涢悧瑙勬綀閻ф槒顔囬敍姘愁嚞鏉堟挸鍙嗛幃銊ф畱閹靛婧€閸欓鐖?  MOJI <label> wired=1 棣冩斀 閸斻劍鈧礁鐣ㄩ崗銊╃崣閺?

@@ -1,0 +1,53 @@
+﻿files_with_gaps=8
+
+## public/888/partials/bottom-and-overlays.php (1)
+  [text] <div> 閳?
+## public/888/partials/header.php (1)
+  [title] 鎶㈢孩瀹?
+## public/888/partials/modals.php (4)
+  [text] <div> 棣冨箚
+  [text] <strong> 绾㈠疂涓撳睘瀹㈡湇
+  [text] <strong> 瀹樻柟绾㈠疂鑱婂ぉApp
+  [text] <div> 绂?
+## public/888/partials/profile-subpages.php (1)
+  [text] <div> 绱娴佹按锛氾骏0.00
+
+## public/888/partials/tab-exchange.php (5)
+  [text] <div> 鍙敤 鈥?  [text] <div> 绾㈠埄
+  [aria-label] 杞嚭璧勪骇
+  [aria-label] 浜掓崲鏂瑰悜
+  [aria-label] 鍏戞崲鐩爣
+
+## public/888/partials/tab-home.php (5)
+  [text] <div> 棣冩惐 瑜版挸澧犻崗銊х秹閼测€插敜娴滅儤鏆熼敍?,000 娴?( 棣冩畬 娴犲﹥妫╅弳瀛樺畾 +0 娴?)
+  [text] <div> 棣冩嫷 娴犲﹥妫╂径褏娲忕€圭偞妞傞幐浣风波鐞涘本娼堟禒鍑ょ窗锟?00 / 娴?( 棣冩暉 鏉堝啯妲伴弮銉ャ亣閻╂ɑ濯洪崡?+0% )
+  [text] <span> 绾㈠疂
+  [text] <span> 棣冩尭 濞屸剝婀佺拹锕€褰块敍鐔哄仯閸?[555.bio鐎规ɑ鏌熼弸渚€鈧喎绱戦幋绌?  [text] <span> 缁斿鈧?2 娴犺棄銇囬惄妯垮亗閵?
+## public/888/partials/tab-messages.php (24)
+  [text] <div> 浼氳瘽
+  [text] <span> 鍥剧墖
+  [text] <span> 瑙嗛
+  [text] <span> 鏂囦欢
+  [text] <span> 绾㈠寘
+  [text] <div> 缇よ亰
+  [text] <div> 0 鍚嶆垚鍛?  [text] <button> 纭娣诲姞 (0 浜?
+  [text] <div> 鎭枩鍙戣储
+  [text] <div> 鎷兼墜姘旂孩鍖?  [aria-label] 鎼滅储
+  [aria-label] 鏇村
+  [aria-label] 绀剧兢鍒嗙被
+  [aria-label] 鍏憡鍒嗙被
+  [aria-label] 杩斿洖
+  [aria-label] 鍖哄彿
+  [aria-label] 鏀惰捣
+  [aria-label] 琛ㄦ儏
+  [aria-label] 鍏抽棴
+  [title] 鎼滅储
+  [title] 鏇村
+  [title] 琛ㄦ儏
+  [title] 鏇存崲缇ゅご鍍?  [title] 鐐瑰嚮鍒囨崲澶村儚
+
+## public/888/partials/tab-profile.php (2)
+  [aria-label] 浼氬憳璧勬枡
+  [aria-label] 甯哥敤鍔熻兘
+
+TOTAL_GAPS=43

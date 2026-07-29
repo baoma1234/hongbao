@@ -1,0 +1,30 @@
+{
+  "name": "qianghongbao-app",
+  "version": "1.0.0",
+  "description": "红宝官方 App 壳（Capacitor WebView）",
+  "type": "module",
+  "scripts": {
+    "config": "node scripts/write-cap-config.mjs",
+    "start": "npm run config && vite",
+    "build": "npm run config && vite build",
+    "sync": "npm run build && npx cap sync",
+    "android:open": "npm run sync && npx cap open android",
+    "ios:open": "npm run sync && npx cap open ios",
+    "android:add": "npm run config && npx cap add android",
+    "ios:add": "npm run config && npx cap add ios"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.4.2",
+    "@capacitor/app": "^7.0.2",
+    "@capacitor/browser": "^7.0.2",
+    "@capacitor/core": "^7.4.2",
+    "@capacitor/splash-screen": "^7.0.2",
+    "@capacitor/status-bar": "^7.0.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.4.2",
+    "typescript": "^7.0.2",
+    "vite": "^7.3.1"
+  },
+  "license": "UNLICENSED"
+}

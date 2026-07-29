@@ -1,0 +1,1337 @@
+<?php
+
+namespace Im\Service;
+
+use Im\Support\Db;
+use Im\Support\TronFair;
+use Im\Support\IdGenerator;
+use Im\Support\RedisClient;
+use Im\Support\PushBus;
+use Workerman\Timer;
+
+class RedPacketService
+{
+    /** @var array */
+    protected $cfg;
+    /** @var MessageService */
+    protected $messages;
+    /** @var GroupService */
+    protected $groups;
+    /** @var WalletService */
+    protected $wallet;
+
+    public function __construct(array $appCfg, MessageService $messages, GroupService $groups)
+    {
+        $this->cfg = $appCfg['red_packet'] ?? [];
+        $this->messages = $messages;
+        $this->groups = $groups;
+        $this->wallet = new WalletService($appCfg);
+    }
+
+    /**
+     * 发红包：扣余额 → 落库 → Redis 预拆包队列（分）
+     * 支持 packet_type: 1普通 2手气 3埋雷；可选 mine_digit / skin_id
+     */
+    public function send(array $params)
+    {
+        $fromUserId = (int)($params['from_user_id'] ?? 0);
+        $scopeType = (int)($params['scope_type'] ?? 2); // 1私聊 2群聊
+        $groupId = (int)($params['group_id'] ?? 0);
+        $toUserId = (int)($params['to_user_id'] ?? 0);
+        $packetType = (int)($params['packet_type'] ?? 2); // 1普通 2手气 3埋雷
+        $totalAmount = round((float)($params['total_amount'] ?? 0), 2);
+        $totalCount = (int)($params['total_count'] ?? 0);
+        $mineDigit = (int)($params['mine_digit'] ?? 0);
+        $skinId = (int)($params['skin_id'] ?? 0);
+        $blessing = mb_substr(trim((string)($params['blessing'] ?? '恭喜发财')), 0, 100);
+        if ($blessing === '') {
+            $blessing = '恭喜发财';
+        }
+        if (!in_array($packetType, [1, 2, 3], true)) {
+            throw new \InvalidArgumentException('invalid packet_type');
+        }
+        if ($packetType === 3) {
+            if ($mineDigit < 0 || $mineDigit > 9) {
+                throw new \InvalidArgumentException('mine_digit must be 0-9');
+            }
+        } else {
+            $mineDigit = 0;
+        }
+
+        $minCent = (int)($this->cfg['min_amount_cent'] ?? 1);
+        $maxCount = (int)($this->cfg['max_count'] ?? 10);
+        $expireSec = (int)($this->cfg['expire_seconds'] ?? 60);
+        $globalMinAmount = round((float)($this->cfg['min_amount'] ?? 10), 2);
+        $feeRate = round((float)($this->cfg['platform_fee_rate'] ?? 0.03), 4);
+        $agentRate = round((float)($this->cfg['agent_rebate_rate_default'] ?? 0.01), 4);
+        $platformUserId = (int)($this->cfg['platform_user_id'] ?? 0);
+
+        if ($fromUserId <= 0 || $totalAmount <= 0 || $totalCount <= 0) {
+            throw new \InvalidArgumentException('invalid red packet params');
+        }
+        if ($totalCount > $maxCount) {
+            throw new \InvalidArgumentException('too many packets');
+        }
+
+        // 平台抽水在发送时从总额划出：例 100×3%=3，可抢池=97；赔付仍按 total_amount=100
+        $platformFee = round($totalAmount * $feeRate, 2);
+        if ($platformFee < 0) {
+            $platformFee = 0.0;
+        }
+        $poolAmount = round($totalAmount - $platformFee, 2);
+        if ($poolAmount <= 0) {
+            throw new \InvalidArgumentException('amount too small after fee');
+        }
+        $poolCent = (int)round($poolAmount * 100);
+        if ($poolCent < $totalCount * $minCent) {
+            throw new \InvalidArgumentException('amount too small');
+        }
+
+        $group = null;
+        $agentUserId = 0;
+        if ($scopeType === 2) {
+            if ($groupId <= 0 || !$this->groups->isMember($groupId, $fromUserId)) {
+                throw new \RuntimeException('not in group');
+            }
+            $this->groups->assertCanSendGroupRedPacket($groupId, $fromUserId);
+            $group = $this->groups->get($groupId);
+            if (!$group) {
+                throw new \RuntimeException('invalid group');
+            }
+            $this->assertGroupRpLimits($group, $packetType, $totalAmount, $totalCount, $globalMinAmount);
+            // 代理 = 群主；默认 1%，群 rp_agent_rebate_rate>0 时覆盖
+            $agentUserId = (int)($group['owner_user_id'] ?? 0);
+            if ((int)($group['is_vip_group'] ?? 0) === 1) {
+                $agentRate = round((float)($this->cfg['agent_rebate_rate_vip'] ?? 0.01), 4);
+            }
+            $grpRate = round((float)($group['rp_agent_rebate_rate'] ?? 0), 4);
+            if ($grpRate > 0) {
+                $agentRate = $grpRate;
+            }
+            if ($agentUserId <= 0 || $agentUserId === $fromUserId) {
+                $agentUserId = 0;
+            }
+            $conversationId = (string)$groupId;
+        } else {
+            if ($toUserId <= 0 || $toUserId === $fromUserId) {
+                throw new \InvalidArgumentException('invalid private target');
+            }
+            if ($totalAmount < $globalMinAmount) {
+                throw new \InvalidArgumentException('amount below min ' . $globalMinAmount);
+            }
+            $conversationId = IdGenerator::privateConversationId($fromUserId, $toUserId);
+            $groupId = 0;
+            $agentUserId = 0;
+        }
+
+        $bgImage = '';
+        if ($skinId > 0) {
+            $skin = Db::fetch(
+                'SELECT * FROM ' . Db::table('chat_red_packet_skins')
+                . ' WHERE id=? AND status=? LIMIT 1',
+                [$skinId, 'normal']
+            );
+            if (!$skin) {
+                throw new \InvalidArgumentException('invalid skin');
+            }
+            $st = (int)$skin['packet_type'];
+            if ($st !== 0 && $st !== $packetType) {
+                throw new \InvalidArgumentException('skin type mismatch');
+            }
+            $bgImage = (string)$skin['image'];
+        }
+
+        $cents = $packetType === 1
+            ? $this->splitEqual($poolCent, $totalCount, $minCent)
+            : $this->splitLucky($poolCent, $totalCount, $minCent);
+        if (array_sum($cents) !== $poolCent) {
+            throw new \RuntimeException('split sum mismatch');
+        }
+
+        if ($platformFee > 0 && $platformUserId <= 0) {
+            throw new \RuntimeException('platform_user_id not configured');
+        }
+
+        $packetNo = IdGenerator::packetNo();
+        $now = time();
+        $expireAt = $now + max(1, $expireSec);
+        $field = $this->wallet->field();
+
+        // 拼手气/扫雷：发包即锁定未来波场区块高度（全球可查的开奖锚点）
+        $tronBlockNum = 0;
+        if (in_array($packetType, [2, 3], true)) {
+            $tronBlockNum = TronFair::commitTargetBlockNum();
+        }
+
+        Db::begin();
+        try {
+            // 发包人一次扣 total_amount；其中 platform_fee 入平台户，pool 进可抢池
+            $this->wallet->change(
+                $fromUserId,
+                -$totalAmount,
+                'red_packet_send',
+                '发红包扣款 ' . $packetNo,
+                ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => 0]
+            );
+            if ($platformFee > 0) {
+                $this->wallet->change(
+                    $platformUserId,
+                    $platformFee,
+                    'red_packet_fee_in',
+                    '收到红包手续费 ' . $packetNo,
+                    ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => 0]
+                );
+            }
+            Db::exec(
+                'INSERT INTO ' . Db::table('chat_red_packets')
+                . ' (packet_no,scope_type,conversation_id,group_id,to_user_id,from_user_id,agent_user_id,'
+                . 'packet_type,mine_digit,skin_id,bg_image,blessing,'
+                . 'tron_block_num,tron_block_id,tron_lucky,tron_status,'
+                . 'fair_hash,fair_seed,fair_cents,fair_payload,'
+                . 'total_amount,total_count,remain_amount,remain_count,'
+                . 'platform_fee_rate,platform_fee,pool_amount,sender_pay_amount,'
+                . 'agent_rebate_rate,status,expiretime,createtime,updatetime)'
+                . ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?)',
+                [
+                    $packetNo, $scopeType, $conversationId, $groupId, $toUserId, $fromUserId, $agentUserId,
+                    $packetType, $mineDigit, $skinId, $bgImage, $blessing,
+                    $tronBlockNum, '', '', 0,
+                    '', '', '', '',
+                    sprintf('%.2f', $totalAmount), $totalCount, sprintf('%.2f', $poolAmount), $totalCount,
+                    sprintf('%.4f', $feeRate), sprintf('%.2f', $platformFee), sprintf('%.2f', $poolAmount),
+                    sprintf('%.2f', $totalAmount),
+                    sprintf('%.4f', $agentRate),
+                    $expireAt, $now, $now,
+                ]
+            );
+            $packetId = Db::lastId();
+            // 回填 ref_id：流水已写入，可忽略；后续用 packet_no 对账
+            Db::commit();
+        } catch (\Throwable $e) {
+            Db::rollBack();
+            throw $e;
+        }
+
+        $this->seedRedis($packetId, $cents, $expireAt, [
+            'packet_no'    => $packetNo,
+            'scope_type'   => $scopeType,
+            'group_id'     => $groupId,
+            'to_user_id'   => $toUserId,
+            'from_user_id' => $fromUserId,
+            'total_amount' => sprintf('%.2f', $totalAmount),
+            'total_count'  => $totalCount,
+            'total_cent'   => $poolCent,
+            'packet_type'  => $packetType,
+            'mine_digit'   => $mineDigit,
+        ]);
+
+        $extra = [
+            'packet_id'      => $packetId,
+            'packet_no'      => $packetNo,
+            'total_amount'   => $totalAmount,
+            'total_count'    => $totalCount,
+            'packet_type'    => $packetType,
+            'mine_digit'     => $mineDigit,
+            'tron_block_num' => $tronBlockNum,
+            'mine_pending'   => $packetType === 3,
+            'skin_id'        => $skinId,
+            'bg_image'       => $bgImage,
+            'blessing'       => $blessing,
+            'expiretime'     => $expireAt,
+            'proof_type'     => in_array($packetType, [2, 3], true) ? 'tron' : '',
+        ];
+        if ($scopeType === 2) {
+            $msg = $this->messages->sendGroup($fromUserId, $groupId, '[红包]' . $blessing, 2, $extra);
+        } else {
+            $msg = $this->messages->sendPrivate($fromUserId, $toUserId, '[红包]' . $blessing, 2, $extra);
+        }
+
+        return [
+            'packet_id'  => $packetId,
+            'packet_no'  => $packetNo,
+            'expiretime' => $expireAt,
+            'message'    => $msg,
+            'wallet'     => $field,
+            'balance'    => $this->wallet->getBalance($fromUserId),
+        ];
+    }
+
+    /**
+     * 群限额与允许类型校验
+     */
+    protected function assertGroupRpLimits(array $group, $packetType, $totalAmount, $totalCount, $globalMinAmount)
+    {
+        $minAmount = round((float)($group['rp_min_amount'] ?? 0), 2);
+        if ($minAmount <= 0) {
+            $minAmount = $globalMinAmount;
+        }
+        if ($totalAmount < $minAmount) {
+            throw new \InvalidArgumentException('amount below group min ' . $minAmount);
+        }
+        $isVip = (int)($group['is_vip_group'] ?? 0) === 1;
+        $minCount = (int)($group['rp_min_count'] ?? 0);
+        $maxCount = (int)($group['rp_max_count'] ?? 0);
+        if ($minCount <= 0) {
+            $minCount = $isVip
+                ? (int)($this->cfg['vip_min_count'] ?? 5)
+                : (int)($this->cfg['min_count'] ?? 5);
+        }
+        if ($maxCount <= 0) {
+            $maxCount = $isVip
+                ? (int)($this->cfg['vip_max_count'] ?? 10)
+                : (int)($this->cfg['max_count'] ?? 10);
+        }
+        if ($totalCount < $minCount || $totalCount > $maxCount) {
+            throw new \InvalidArgumentException("count must be {$minCount}-{$maxCount}");
+        }
+        $enabled = (string)($group['rp_enabled_types'] ?? '2,3');
+        $allowed = array_filter(array_map('intval', explode(',', $enabled)));
+        if ($allowed && !in_array((int)$packetType, $allowed, true)) {
+            throw new \InvalidArgumentException('packet type not allowed in this group');
+        }
+    }
+
+    /**
+     * 管理端：强制对指定包结算
+     */
+    public function adminSettle($packetId)
+    {
+        $packetId = (int)$packetId;
+        $packet = Db::fetch(
+            'SELECT id, packet_type, tron_status FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1',
+            [$packetId]
+        );
+        if ($packet && (int)$packet['packet_type'] === 3 && (int)($packet['tron_status'] ?? 0) !== 2) {
+            TronFair::processReveal($packetId);
+        }
+        $result = (new RedPacketSettlementService($this->wallet, ['red_packet' => $this->cfg]))
+            ->settleAfterFinished($packetId);
+        if (!empty($result['settled']) && $packet && (int)$packet['packet_type'] === 2) {
+            $this->revealFairProof($packetId);
+        }
+        return $result;
+    }
+
+    /**
+     * 管理端：强制过期退回（可不检查 expiretime）
+     */
+    public function adminRefund($packetId, $force = false)
+    {
+        $packetId = (int)$packetId;
+        $packet = Db::fetch('SELECT * FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1', [$packetId]);
+        if (!$packet) {
+            throw new \RuntimeException('packet not found');
+        }
+        if ((int)$packet['status'] !== 1) {
+            throw new \RuntimeException('packet not open');
+        }
+        if (!$force && (int)$packet['expiretime'] > time()) {
+            // 强制标记为已到期再退
+            Db::exec(
+                'UPDATE ' . Db::table('chat_red_packets') . ' SET expiretime=? WHERE id=? AND status=1',
+                [time() - 1, $packetId]
+            );
+            $packet['expiretime'] = time() - 1;
+        }
+        $this->refundOne($packet);
+        return ['packet_id' => $packetId, 'refunded' => true];
+    }
+
+    /**
+     * 管理端：强制关包（清 Redis，不退款）
+     */
+    public function adminClose($packetId)
+    {
+        $packetId = (int)$packetId;
+        $now = time();
+        Db::begin();
+        try {
+            $packet = Db::fetch(
+                'SELECT * FROM ' . Db::table('chat_red_packets') . ' WHERE id=? FOR UPDATE',
+                [$packetId]
+            );
+            if (!$packet || (int)$packet['status'] !== 1) {
+                Db::rollBack();
+                throw new \RuntimeException('packet not open');
+            }
+            Db::exec(
+                'UPDATE ' . Db::table('chat_red_packets')
+                . ' SET status=4, updatetime=? WHERE id=?',
+                [$now, $packetId]
+            );
+            Db::commit();
+        } catch (\Throwable $e) {
+            Db::rollBack();
+            throw $e;
+        }
+        try {
+            $r = RedisClient::conn();
+            $r->del(
+                RedisClient::key('rp:' . $packetId . ':queue'),
+                RedisClient::key('rp:' . $packetId . ':grabbed'),
+                RedisClient::key('rp:' . $packetId . ':meta')
+            );
+        } catch (\Throwable $e) {
+            // ignore
+        }
+        return ['packet_id' => $packetId, 'closed' => true];
+    }
+
+    /**
+     * 红宝（高并发安全）：
+     * 1) 验资拦截（手气包/埋雷包：余额必须 ≥ 红包总金额，否则无法覆盖赔付）
+     * 2) Redis Lua 原子 LPOP + 占坑（防超发/防重复抢）
+     * 3) MySQL 写领取明细 + 入账
+     * 4) 若为最后一个包，触发 Settlement 结算（中雷/最差赔付）
+     */
+    public function grab($packetId, $userId)
+    {
+        $packetId = (int)$packetId;
+        $userId = (int)$userId;
+        if ($packetId <= 0 || $userId <= 0) {
+            throw new \InvalidArgumentException('invalid grab');
+        }
+
+        $packet = $this->packetMetaForGrab($packetId);
+        $fromRedisMeta = $packet !== null;
+        if (!$packet) {
+            $packet = Db::fetch('SELECT * FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1', [$packetId]);
+            if (!$packet) {
+                throw new \RuntimeException('packet not found');
+            }
+        }
+        if ((int)$packet['scope_type'] === 2) {
+            if (!$this->groups->isMember((int)$packet['group_id'], $userId)) {
+                throw new \RuntimeException('not in group');
+            }
+        } elseif ((int)$packet['scope_type'] === 1) {
+            if ($userId !== (int)$packet['to_user_id'] && $userId !== (int)$packet['from_user_id']) {
+                throw new \RuntimeException('not in conversation');
+            }
+        }
+        if (!$fromRedisMeta && (int)$packet['status'] !== 1) {
+            throw new \RuntimeException('packet closed');
+        }
+        $expireAt = (int)($packet['expiretime'] ?? ($packet['expire_at'] ?? 0));
+        if ($expireAt > 0 && $expireAt < time()) {
+            throw new \RuntimeException('packet expired');
+        }
+
+        $packetType = (int)$packet['packet_type'];
+        $totalAmount = round((float)$packet['total_amount'], 2);
+        $packetNo = (string)$packet['packet_no'];
+
+        // ---------- 关键节点：验资拦截（必须在 Redis 弹队列之前）----------
+        // 手气包(2)/埋雷包(3) 存在「赔付整包总额」风险，余额不足则禁止参与。
+        // 余额走短缓存；明显充足不打库，不足才回库确认（防误拒）。
+        if (in_array($packetType, [2, 3], true)) {
+            if (!$this->wallet->hasEnoughBalance($userId, $totalAmount)) {
+                error_log(sprintf(
+                    '[RP_GRAB][ERROR] balance gate reject user=%d packet_id=%d packet_no=%s need=%.2f type=%d',
+                    $userId,
+                    $packetId,
+                    $packetNo,
+                    $totalAmount,
+                    $packetType
+                ));
+                throw new \RuntimeException('balance_not_enough_for_compensate');
+            }
+        }
+
+        $queueKey = RedisClient::key('rp:' . $packetId . ':queue');
+        $grabbedKey = RedisClient::key('rp:' . $packetId . ':grabbed');
+        $metaKey = RedisClient::key('rp:' . $packetId . ':meta');
+
+        // 若 Redis 队列丢失但库仍可抢，尝试按剩余均分补种（兜底）
+        if (!$fromRedisMeta) {
+            $this->ensureRedisSeeded($packet, $queueKey, $metaKey);
+        }
+
+        // ---------- 关键节点：Redis 原子弹队列（Lua LPOP + SADD，防并发超发）----------
+        $result = $this->evalGrabPacket($queueKey, $grabbedKey, $metaKey, $userId);
+        if (!is_array($result)) {
+            throw new \RuntimeException('grab lua failed');
+        }
+        $code = (int)($result['code'] ?? -1);
+        if ($code === 410 && $fromRedisMeta) {
+            $fullPacket = Db::fetch('SELECT * FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1', [$packetId]);
+            if ($fullPacket) {
+                if ((int)$fullPacket['status'] !== 1) {
+                    throw new \RuntimeException('packet closed');
+                }
+                if ((int)$fullPacket['expiretime'] > 0 && (int)$fullPacket['expiretime'] < time()) {
+                    throw new \RuntimeException('packet expired');
+                }
+                $this->ensureRedisSeeded($fullPacket, $queueKey, $metaKey);
+                $retry = $this->evalGrabPacket($queueKey, $grabbedKey, $metaKey, $userId);
+                if (is_array($retry)) {
+                    $result = $retry;
+                    $code = (int)($result['code'] ?? -1);
+                    $packet = $fullPacket;
+                    $fromRedisMeta = false;
+                }
+            }
+        }
+        if ($code === 409) {
+            $exists = Db::fetch(
+                'SELECT amount FROM ' . Db::table('chat_red_packet_records') . ' WHERE packet_id=? AND user_id=? LIMIT 1',
+                [$packetId, $userId]
+            );
+            if ($exists) {
+                $remainCount = isset($result['remain']) ? (int)$result['remain'] : 0;
+                $statusNow = $remainCount <= 0 ? 2 : 1;
+                return [
+                    'packet_id'    => $packetId,
+                    'amount'       => round((float)$exists['amount'], 2),
+                    'remain_count' => $remainCount,
+                    'status'       => $statusNow,
+                    'already'      => true,
+                    'balance'      => $this->wallet->getBalance($userId),
+                    'packet'       => [
+                        'scope_type'   => (int)($packet['scope_type'] ?? 0),
+                        'group_id'     => (int)($packet['group_id'] ?? 0),
+                        'from_user_id' => (int)($packet['from_user_id'] ?? 0),
+                        'to_user_id'   => (int)($packet['to_user_id'] ?? 0),
+                    ],
+                ];
+            }
+            throw new \RuntimeException('already grabbed');
+        }
+        if ($code === 410) {
+            $msg = (string)($result['msg'] ?? 'empty');
+            error_log('[RP_GRAB] redis empty/expired packet_id=' . $packetId . ' user=' . $userId . ' msg=' . $msg);
+            throw new \RuntimeException($msg === 'expired' ? 'packet expired' : 'packet empty');
+        }
+        if ($code !== 0) {
+            error_log('[RP_GRAB][ERROR] lua code=' . $code . ' packet_id=' . $packetId . ' user=' . $userId);
+            throw new \RuntimeException('grab failed');
+        }
+
+        $amountCent = (int)$result['amount_cent'];
+        $amount = round($amountCent / 100, 2);
+        $tailDigit = $amountCent % 10;
+        $remain = (int)$result['remain'];
+        $now = time();
+
+        $status = $remain <= 0 ? 2 : 1;
+        $walletChange = null;
+        Db::begin();
+        try {
+            // 条件更新扣剩余（去掉 SELECT FOR UPDATE，缩短锁等待）
+            $affected = Db::exec(
+                'UPDATE ' . Db::table('chat_red_packets')
+                . ' SET remain_count=?, remain_amount=GREATEST(0, ROUND(remain_amount-?, 2)),'
+                . ' status=?, finished_time=IF(?=2,?,finished_time), updatetime=?'
+                . ' WHERE id=? AND status=1',
+                [$remain, sprintf('%.2f', $amount), $status, $status, $now, $now, $packetId]
+            );
+            if ($affected <= 0) {
+                throw new \RuntimeException('packet closed');
+            }
+
+            // 写领取明细（含尾数，供埋雷结算）
+            Db::exec(
+                'INSERT INTO ' . Db::table('chat_red_packet_records')
+                . ' (packet_id,packet_no,user_id,amount,amount_cent,tail_digit,is_best,is_worst,is_mine_hit,createtime)'
+                . ' VALUES (?,?,?,?,?,?,0,0,0,?)',
+                [$packetId, $packetNo, $userId, sprintf('%.2f', $amount), $amountCent, $tailDigit, $now]
+            );
+
+            $walletChange = $this->wallet->change(
+                $userId,
+                $amount,
+                'red_packet_grab',
+                '红宝入账 ' . $packetNo,
+                ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId]
+            );
+            Db::commit();
+        } catch (\Throwable $e) {
+            Db::rollBack();
+            // MySQL 失败必须原子回滚 Redis 占坑，避免吞金额 / 双花占坑
+            error_log('[RP_GRAB][ERROR] mysql fail rollback redis packet_id=' . $packetId . ' user=' . $userId . ' err=' . $e->getMessage());
+            try {
+                RedisClient::evalFile('grab_rollback.lua', [$queueKey, $grabbedKey], [
+                    (string)$userId,
+                    (string)$amountCent,
+                ]);
+            } catch (\Throwable $ignore) {
+                error_log('[RP_GRAB][ERROR] redis rollback fail packet_id=' . $packetId . ' ' . $ignore->getMessage());
+            }
+            if (stripos($e->getMessage(), 'Duplicate') !== false || stripos($e->getMessage(), '1062') !== false) {
+                throw new \RuntimeException('already grabbed');
+            }
+            throw $e;
+        }
+
+        $settleInfo = null;
+        $nextRoundMessage = null;
+        $settlePending = false;
+        // ---------- 抢完最后一个包：结算/开奖异步，缩短抢包响应 ----------
+        if ($remain <= 0) {
+            if ($packetType === 3) {
+                // 扫雷：先锚定波场，开奖后再结算
+                $this->revealFairProof($packetId);
+                $settlePending = true;
+            } else {
+                $this->scheduleSettleAfterFinished($packetId, $packet);
+                $settlePending = true;
+            }
+        }
+
+        return [
+            'packet_id'           => $packetId,
+            'amount'              => $amount,
+            'remain_count'        => $remain,
+            'status'              => $status,
+            'balance'             => round((float)($walletChange['after'] ?? 0), 2),
+            'settlement'          => $settleInfo,
+            'settle_pending'      => $settlePending,
+            'next_round_message'  => $nextRoundMessage,
+            'packet'              => [
+                'scope_type'   => (int)($packet['scope_type'] ?? 0),
+                'group_id'     => (int)($packet['group_id'] ?? 0),
+                'from_user_id' => (int)($packet['from_user_id'] ?? 0),
+                'to_user_id'   => (int)($packet['to_user_id'] ?? 0),
+            ],
+        ];
+    }
+
+    /**
+     * 抢完后异步结算（赔付/抽水/返点/机器人续发/波场证明）
+     * 不阻塞 redpacket.grabbed；worker0 5s 轮询仍作兜底。
+     */
+    public function scheduleSettleAfterFinished($packetId, array $packetHint = [])
+    {
+        $packetId = (int)$packetId;
+        if ($packetId <= 0) {
+            return false;
+        }
+        $lockKey = RedisClient::key('rp:' . $packetId . ':settle_sched');
+        try {
+            if (!RedisClient::conn()->set($lockKey, (string)time(), ['nx', 'ex' => 30])) {
+                return false;
+            }
+        } catch (\Throwable $e) {
+        }
+        $hint = [
+            'packet_type'  => (int)($packetHint['packet_type'] ?? 0),
+            'scope_type'   => (int)($packetHint['scope_type'] ?? 0),
+            'group_id'     => (int)($packetHint['group_id'] ?? 0),
+            'from_user_id' => (int)($packetHint['from_user_id'] ?? 0),
+            'to_user_id'   => (int)($packetHint['to_user_id'] ?? 0),
+            'total_amount' => (float)($packetHint['total_amount'] ?? 0),
+            'total_count'  => (int)($packetHint['total_count'] ?? 0),
+            'blessing'     => (string)($packetHint['blessing'] ?? ''),
+            'id'           => $packetId,
+        ];
+        try {
+            Timer::add(0.05, function () use ($packetId, $hint) {
+                $this->runSettleAfterFinished($packetId, $hint);
+            }, [], false);
+            return true;
+        } catch (\Throwable $e) {
+            error_log('[RP_SETTLE] Timer::add fail packet=' . $packetId . ' ' . $e->getMessage());
+            // Timer 不可用时同步兜底，避免只靠 5s 轮询
+            $this->runSettleAfterFinished($packetId, $hint);
+            return true;
+        }
+    }
+
+    protected function runSettleAfterFinished($packetId, array $hint = [])
+    {
+        $packetId = (int)$packetId;
+        $packetType = (int)($hint['packet_type'] ?? 0);
+        if ($packetType <= 0 || (int)($hint['scope_type'] ?? 0) <= 0) {
+            $row = Db::fetch(
+                'SELECT id, packet_type, scope_type, group_id, from_user_id, to_user_id, total_amount, total_count, blessing'
+                . ' FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1',
+                [$packetId]
+            );
+            if ($row) {
+                $hint = array_merge($hint, $row);
+                $packetType = (int)$row['packet_type'];
+            }
+        }
+        try {
+            if ($packetType === 1) {
+                $this->markBestLuck($packetId);
+            }
+            $settleInfo = (new RedPacketSettlementService($this->wallet, [
+                'red_packet' => $this->cfg,
+            ]))->settleAfterFinished($packetId);
+            $settled = !empty($settleInfo['settled']);
+            if ($settled) {
+                error_log('[RP_SETTLE] async ok packet_id=' . $packetId);
+            }
+            if ($settled && $packetType === 2 && (int)($hint['scope_type'] ?? 0) === 2) {
+                $full = $hint;
+                if (empty($full['blessing']) || empty($full['total_amount']) || empty($full['total_count'])) {
+                    $row = Db::fetch('SELECT * FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1', [$packetId]);
+                    if ($row) {
+                        $full = $row;
+                    }
+                }
+                $this->trySendRobotNextRound($full);
+            }
+            if (in_array($packetType, [2, 3], true)) {
+                $this->revealFairProof($packetId);
+            }
+            if ($settled) {
+                $this->notifySettled($packetId, $hint, $settleInfo);
+            }
+        } catch (\Throwable $e) {
+            error_log('[RP_SETTLE][ERROR] async fail packet_id=' . $packetId . ' err=' . $e->getMessage());
+        } finally {
+            try {
+                RedisClient::conn()->del(RedisClient::key('rp:' . $packetId . ':settle_sched'));
+            } catch (\Throwable $e) {
+            }
+        }
+    }
+
+    protected function notifySettled($packetId, array $hint, array $settleInfo)
+    {
+        $event = [
+            'packet_id' => (int)$packetId,
+            'settled'   => true,
+            'settlement'=> [
+                'settled'          => true,
+                'compensate_users' => $settleInfo['compensate_users'] ?? [],
+                'platform_fee'     => $settleInfo['platform_fee'] ?? 0,
+                'agent_rebate'     => $settleInfo['agent_rebate'] ?? 0,
+            ],
+        ];
+        try {
+            if ((int)($hint['scope_type'] ?? 0) === 2 && (int)($hint['group_id'] ?? 0) > 0) {
+                $uids = $this->groups->memberUserIds((int)$hint['group_id']);
+                if ($uids) {
+                    PushBus::toUsers($uids, 'redpacket.update', $event);
+                }
+            } else {
+                $uids = array_values(array_unique(array_filter([
+                    (int)($hint['from_user_id'] ?? 0),
+                    (int)($hint['to_user_id'] ?? 0),
+                ])));
+                if ($uids) {
+                    PushBus::toUsers($uids, 'redpacket.update', $event);
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+    }
+
+    /**
+     * 拼手气群包结算后：平台机器人以相同金额/个数/祝福语再发一轮。
+     * 余额不足或发送失败仅记日志，不抛错。
+     *
+     * @return array|null 新红包消息（若已发出）
+     */
+    public function trySendRobotNextRound(array $packet)
+    {
+        $groupId = (int)($packet['group_id'] ?? 0);
+        $platformUid = (int)($this->cfg['platform_user_id'] ?? 0);
+        if ($groupId <= 0 || $platformUid <= 0) {
+            return null;
+        }
+        if ((int)($packet['packet_type'] ?? 0) !== 2) {
+            return null;
+        }
+        $amount = round((float)($packet['total_amount'] ?? 0), 2);
+        $count = (int)($packet['total_count'] ?? 0);
+        if ($amount <= 0 || $count <= 0) {
+            return null;
+        }
+        $bal = $this->wallet->getBalance($platformUid);
+        if ($bal + 0.00001 < $amount) {
+            error_log(sprintf(
+                '[RP_ROBOT] skip next round: platform balance=%.2f need=%.2f group=%d packet_id=%d',
+                $bal,
+                $amount,
+                $groupId,
+                (int)($packet['id'] ?? 0)
+            ));
+            return null;
+        }
+        try {
+            // 确保机器人在群内且可在红宝模式发红包（管理员）
+            if (!$this->groups->isMember($groupId, $platformUid)) {
+                $this->groups->addMembers($groupId, [$platformUid], 2);
+            } elseif ($this->groups->memberRole($groupId, $platformUid) < 2) {
+                $this->groups->addMembers($groupId, [$platformUid], 2);
+            }
+            $result = $this->send([
+                'from_user_id' => $platformUid,
+                'scope_type'   => 2,
+                'group_id'     => $groupId,
+                'packet_type'  => 2,
+                'total_amount' => $amount,
+                'total_count'  => $count,
+                'blessing'     => (string)($packet['blessing'] ?? '恭喜发财'),
+            ]);
+            $msg = $result['message'] ?? null;
+            if (is_array($msg)) {
+                try {
+                    $uids = $this->groups->memberUserIds($groupId);
+                    \Im\Support\PushBus::toUsers($uids, 'group.message', ['message' => $msg]);
+                } catch (\Throwable $e) {
+                    error_log('[RP_ROBOT] push fail group=' . $groupId . ' ' . $e->getMessage());
+                }
+            }
+            error_log(sprintf(
+                '[RP_ROBOT] next round sent group=%d amount=%.2f count=%d from_packet=%d',
+                $groupId,
+                $amount,
+                $count,
+                (int)($packet['id'] ?? 0)
+            ));
+            return is_array($msg) ? $msg : null;
+        } catch (\Throwable $e) {
+            error_log('[RP_ROBOT] next round fail group=' . $groupId . ' err=' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 过期退回：发出 1 分钟后未抢完 → 剩余金额原路退回发包方。
+     * 由 Workerman Timer 每 5 秒扫描（worker0），幂等依赖 status/expire_status。
+     * @return int 处理单数
+     */
+    public function refundExpired($limit = 50)
+    {
+        $limit = max(1, min(200, (int)$limit));
+        $now = time();
+        $rows = Db::fetchAll(
+            'SELECT * FROM ' . Db::table('chat_red_packets')
+            . ' WHERE status=1 AND expire_status=0 AND expiretime>0 AND expiretime<?'
+            . ' ORDER BY id ASC LIMIT ' . $limit,
+            [$now]
+        );
+        $done = 0;
+        foreach ($rows as $packet) {
+            try {
+                $this->refundOne($packet);
+                $done++;
+                error_log('[RP_EXPIRE] refunded packet_id=' . (int)$packet['id'] . ' no=' . $packet['packet_no']);
+            } catch (\Throwable $e) {
+                error_log('[RP_EXPIRE][ERROR] packet_id=' . (int)$packet['id'] . ' ' . $e->getMessage());
+            }
+        }
+        return $done;
+    }
+
+    /**
+     * 抢完但结算失败（status=2）的补偿重试：中雷/手续费/返点。
+     * @return int 成功结算数
+     */
+    public function retryPendingSettlements($limit = 30)
+    {
+        $limit = max(1, min(100, (int)$limit));
+        $rows = Db::fetchAll(
+            'SELECT id, packet_type, tron_status FROM ' . Db::table('chat_red_packets')
+            . ' WHERE status=2 AND remain_count<=0'
+            . ' ORDER BY id ASC LIMIT ' . $limit
+        );
+        $done = 0;
+        $settler = new RedPacketSettlementService($this->wallet, ['red_packet' => $this->cfg]);
+        foreach ($rows as $row) {
+            $packetId = (int)$row['id'];
+            $ptype = (int)$row['packet_type'];
+            try {
+                // 扫雷必须先有波场开奖结果
+                if ($ptype === 3 && (int)($row['tron_status'] ?? 0) !== 2) {
+                    $this->revealFairProof($packetId);
+                    continue;
+                }
+                $info = $settler->settleAfterFinished($packetId);
+                if (!empty($info['settled'])) {
+                    $done++;
+                    error_log('[RP_SETTLE_RETRY] ok packet_id=' . $packetId);
+                    if ($ptype === 2) {
+                        $full = Db::fetch(
+                            'SELECT * FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1',
+                            [$packetId]
+                        );
+                        if ($full && (int)($full['scope_type'] ?? 0) === 2) {
+                            $this->trySendRobotNextRound($full);
+                        }
+                    }
+                }
+                if ($ptype === 1) {
+                    $this->markBestLuck($packetId);
+                }
+                if (in_array($ptype, [2, 3], true) && (int)($row['tron_status'] ?? 0) !== 2) {
+                    $this->revealFairProof($packetId);
+                }
+            } catch (\Throwable $e) {
+                error_log('[RP_SETTLE_RETRY][ERROR] packet_id=' . $packetId . ' ' . $e->getMessage());
+            }
+        }
+        return $done;
+    }
+
+    /**
+     * 单包过期退回（事务）：剩余金额退发包方 + status=3 / expire_status=1，成功后再清 Redis
+     */
+    protected function refundOne(array $packet)
+    {
+        $packetId = (int)$packet['id'];
+        $queueKey = RedisClient::key('rp:' . $packetId . ':queue');
+        $grabbedKey = RedisClient::key('rp:' . $packetId . ':grabbed');
+        $metaKey = RedisClient::key('rp:' . $packetId . ':meta');
+
+        // 先读 Redis 剩余（事务成功后再删，避免 DB 失败丢队列）
+        $refundCent = 0;
+        $hasRedisLeft = false;
+        try {
+            $r = RedisClient::conn();
+            $left = $r->lRange($queueKey, 0, -1);
+            if (is_array($left) && $left) {
+                $hasRedisLeft = true;
+                foreach ($left as $c) {
+                    $refundCent += (int)$c;
+                }
+            }
+        } catch (\Throwable $e) {
+            $refundCent = 0;
+        }
+        if ($refundCent <= 0) {
+            $refundCent = (int)round((float)$packet['remain_amount'] * 100);
+        }
+        $refund = round($refundCent / 100, 2);
+        $now = time();
+
+        Db::begin();
+        try {
+            $fresh = Db::fetch(
+                'SELECT * FROM ' . Db::table('chat_red_packets') . ' WHERE id=? FOR UPDATE',
+                [$packetId]
+            );
+            if (!$fresh || (int)$fresh['status'] !== 1 || (int)($fresh['expire_status'] ?? 0) === 1) {
+                Db::rollBack();
+                return;
+            }
+            // 已在过期瞬间被抢完：交给结算，不再退回
+            if ((int)$fresh['remain_count'] <= 0) {
+                Db::rollBack();
+                return;
+            }
+            // 库内 remain 更保守时，取较小者避免超退
+            $dbRemain = round((float)$fresh['remain_amount'], 2);
+            if ($dbRemain > 0 && ($refund <= 0 || $refund > $dbRemain)) {
+                $refund = $dbRemain;
+            }
+
+            $packetNo = (string)$fresh['packet_no'];
+            $fromUserId = (int)$fresh['from_user_id'];
+            $neverGrabbed = ((int)$fresh['remain_count'] === (int)$fresh['total_count']);
+            $feeRefund = 0.0;
+            if ($neverGrabbed) {
+                $feeRefund = round((float)($fresh['platform_fee'] ?? 0), 2);
+            }
+            $platformUserId = (int)($this->cfg['platform_user_id'] ?? 0);
+            $ledgerId = 0;
+            $totalRefund = $refund;
+            if ($refund > 0) {
+                $out = $this->wallet->change(
+                    $fromUserId,
+                    $refund,
+                    'red_packet_refund',
+                    '红包过期退回 ' . $packetNo,
+                    ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId]
+                );
+                $ledgerId = (int)($out['ledger_id'] ?? 0);
+            }
+            // 无人领取时，发时已扣的平台手续费从平台账户原路退回发包人
+            if ($feeRefund > 0 && $platformUserId > 0) {
+                $this->wallet->change(
+                    $platformUserId,
+                    -$feeRefund,
+                    'red_packet_fee',
+                    '红包未领手续费退回支出 ' . $packetNo,
+                    ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId]
+                );
+                $feeOut = $this->wallet->change(
+                    $fromUserId,
+                    $feeRefund,
+                    'red_packet_refund',
+                    '红包手续费退回 ' . $packetNo,
+                    ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId]
+                );
+                if ($ledgerId <= 0) {
+                    $ledgerId = (int)($feeOut['ledger_id'] ?? 0);
+                }
+                $totalRefund = round($totalRefund + $feeRefund, 2);
+            }
+            Db::exec(
+                'UPDATE ' . Db::table('chat_red_packets')
+                . ' SET remain_count=0, remain_amount=0, status=3, expire_status=1,'
+                . ' refund_amount=?, updatetime=? WHERE id=?',
+                [sprintf('%.2f', $totalRefund), $now, $packetId]
+            );
+            if ($refund > 0 || $feeRefund > 0) {
+                Db::exec(
+                    'INSERT INTO ' . Db::table('chat_red_packet_settlements')
+                    . ' (packet_id,packet_no,settle_type,from_user_id,to_user_id,amount,ledger_id,status,remark,createtime)'
+                    . ' VALUES (?,?,?,?,?,?,?,?,?,?)',
+                    [
+                        $packetId,
+                        $packetNo,
+                        'refund',
+                        $feeRefund > 0 ? $platformUserId : 0,
+                        $fromUserId,
+                        sprintf('%.2f', $totalRefund),
+                        $ledgerId,
+                        1,
+                        $neverGrabbed && $feeRefund > 0
+                            ? '过期无人领取，池+手续费原路退回'
+                            : '过期未抢完退回剩余池',
+                        $now,
+                    ]
+                );
+            }
+            Db::commit();
+        } catch (\Throwable $e) {
+            Db::rollBack();
+            throw $e;
+        }
+
+        try {
+            RedisClient::conn()->del($queueKey, $grabbedKey, $metaKey);
+        } catch (\Throwable $e) {
+            if ($hasRedisLeft) {
+                error_log('[RP_EXPIRE] redis cleanup fail packet_id=' . $packetId . ' ' . $e->getMessage());
+            }
+        }
+        $this->revealFairProof($packetId);
+    }
+
+    protected function ensureRedisSeeded(array $packet, $queueKey, $metaKey)
+    {
+        try {
+            $r = RedisClient::conn();
+            $len = (int)$r->lLen($queueKey);
+            $remainCount = (int)$packet['remain_count'];
+            if ($len > 0 || $remainCount <= 0 || (int)$packet['status'] !== 1) {
+                return;
+            }
+            $packetId = (int)$packet['id'];
+            $lockKey = RedisClient::key('rp:' . $packetId . ':reseed_lock');
+            // 防多 worker 同时补种导致队列翻倍
+            if (!$r->set($lockKey, (string)time(), ['nx', 'ex' => 8])) {
+                return;
+            }
+            try {
+                if ((int)$r->lLen($queueKey) > 0) {
+                    return;
+                }
+                $remainCent = (int)round((float)$packet['remain_amount'] * 100);
+                $minCent = (int)($this->cfg['min_amount_cent'] ?? 1);
+                if ($remainCent < $remainCount * $minCent) {
+                    return;
+                }
+                $cents = $this->splitEqual($remainCent, $remainCount, $minCent);
+                $expireAt = (int)$packet['expiretime'];
+                // 关键：补种不得清空 grabbed，否则已领用户可再抢造成超发压力
+                $this->seedRedis($packetId, $cents, $expireAt, [
+                    'packet_no'    => $packet['packet_no'],
+                    'scope_type'   => (int)$packet['scope_type'],
+                    'group_id'     => (int)$packet['group_id'],
+                    'to_user_id'   => (int)$packet['to_user_id'],
+                    'from_user_id' => (int)$packet['from_user_id'],
+                    'total_amount' => sprintf('%.2f', (float)$packet['total_amount']),
+                    'total_count'  => (int)$packet['total_count'],
+                    'total_cent'   => (int)round((float)$packet['total_amount'] * 100),
+                    'packet_type'  => (int)$packet['packet_type'],
+                    'mine_digit'   => (int)$packet['mine_digit'],
+                    'reseed'       => '1',
+                ], false);
+            } finally {
+                try {
+                    $r->del($lockKey);
+                } catch (\Throwable $e) {
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+    }
+
+    /**
+     * @param bool $resetGrabbed 首次播种 true；队列丢失补种必须 false（保留已领集合）
+     */
+    protected function seedRedis($packetId, array $cents, $expireAt, array $meta, $resetGrabbed = true)
+    {
+        $r = RedisClient::conn();
+        $queueKey = RedisClient::key('rp:' . $packetId . ':queue');
+        $grabbedKey = RedisClient::key('rp:' . $packetId . ':grabbed');
+        $metaKey = RedisClient::key('rp:' . $packetId . ':meta');
+        if ($resetGrabbed) {
+            $r->del($queueKey, $grabbedKey, $metaKey);
+        } else {
+            $r->del($queueKey);
+            // 保留 grabbed；刷新 meta
+            $r->del($metaKey);
+        }
+        if ($cents) {
+            $r->rPush($queueKey, ...array_map('strval', $cents));
+        }
+        $r->hMSet($metaKey, array_merge($meta, [
+            'expire_at' => (string)$expireAt,
+            'packet_id' => (string)$packetId,
+        ]));
+        $ttl = max(60, $expireAt - time() + 3600);
+        $r->expire($queueKey, $ttl);
+        $r->expire($grabbedKey, $ttl);
+        $r->expire($metaKey, $ttl);
+    }
+
+    protected function evalGrabPacket($queueKey, $grabbedKey, $metaKey, $userId)
+    {
+        $raw = RedisClient::evalFile('grab_red_packet.lua', [$queueKey, $grabbedKey, $metaKey], [
+            (string)$userId,
+            (string)time(),
+        ]);
+        $result = json_decode((string)$raw, true);
+        if (!is_array($result)) {
+            error_log('[RP_GRAB][ERROR] lua invalid response user=' . (int)$userId . ' raw=' . substr((string)$raw, 0, 200));
+            return null;
+        }
+        return $result;
+    }
+
+    protected function packetMetaForGrab($packetId)
+    {
+        try {
+            $meta = RedisClient::conn()->hMGet(
+                RedisClient::key('rp:' . (int)$packetId . ':meta'),
+                ['packet_no', 'scope_type', 'group_id', 'to_user_id', 'from_user_id', 'total_amount', 'total_count', 'packet_type', 'mine_digit', 'expire_at']
+            );
+            if (!is_array($meta) || trim((string)($meta['packet_no'] ?? '')) === '') {
+                return null;
+            }
+            return [
+                'id'           => (int)$packetId,
+                'packet_no'    => (string)$meta['packet_no'],
+                'scope_type'   => (int)($meta['scope_type'] ?? 0),
+                'group_id'     => (int)($meta['group_id'] ?? 0),
+                'to_user_id'   => (int)($meta['to_user_id'] ?? 0),
+                'from_user_id' => (int)($meta['from_user_id'] ?? 0),
+                'total_amount' => round((float)($meta['total_amount'] ?? 0), 2),
+                'total_count'  => (int)($meta['total_count'] ?? 0),
+                'packet_type'  => (int)($meta['packet_type'] ?? 0),
+                'mine_digit'   => (int)($meta['mine_digit'] ?? 0),
+                'expire_at'    => (int)($meta['expire_at'] ?? 0),
+            ];
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    protected function splitEqual($totalCent, $count, $minCent)
+    {
+        $base = intdiv($totalCent, $count);
+        if ($base < $minCent) {
+            throw new \InvalidArgumentException('equal split too small');
+        }
+        $arr = array_fill(0, $count, $base);
+        $arr[$count - 1] += $totalCent - $base * $count;
+        return $arr;
+    }
+
+    /** 二倍均值法（整数分） */
+    protected function splitLucky($totalCent, $count, $minCent)
+    {
+        $leftCent = $totalCent;
+        $leftCount = $count;
+        $arr = [];
+        for ($i = 0; $i < $count - 1; $i++) {
+            $max = (int)floor($leftCent / $leftCount * 2);
+            $max = max($minCent, $max);
+            $money = random_int($minCent, max($minCent, $max));
+            $remainAfter = $leftCent - $money;
+            $remainPeople = $leftCount - 1;
+            if ($remainAfter < $remainPeople * $minCent) {
+                $money = $leftCent - $remainPeople * $minCent;
+            }
+            $arr[] = $money;
+            $leftCent -= $money;
+            $leftCount--;
+        }
+        $arr[] = $leftCent;
+        shuffle($arr);
+        return $arr;
+    }
+
+    protected function markBestLuck($packetId)
+    {
+        $row = Db::fetch(
+            'SELECT id FROM ' . Db::table('chat_red_packet_records')
+            . ' WHERE packet_id=? ORDER BY amount DESC, id ASC LIMIT 1',
+            [(int)$packetId]
+        );
+        if ($row) {
+            Db::exec(
+                'UPDATE ' . Db::table('chat_red_packet_records') . ' SET is_best=1 WHERE id=?',
+                [(int)$row['id']]
+            );
+        }
+    }
+
+    public function detail($packetId, $userId = 0, $viewerRole = 0)
+    {
+        $packet = Db::fetch('SELECT * FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1', [(int)$packetId]);
+        if (!$packet) {
+            return null;
+        }
+        $userId = (int)$userId;
+        // 授权：群红包须为成员；私聊红包须为收/发双方
+        if ($userId <= 0) {
+            throw new \RuntimeException('forbidden');
+        }
+        if ((int)$packet['scope_type'] === 2) {
+            if (!$this->groups->isMember((int)$packet['group_id'], $userId)) {
+                throw new \RuntimeException('not in group');
+            }
+        } elseif ((int)$packet['scope_type'] === 1) {
+            if ($userId !== (int)$packet['to_user_id'] && $userId !== (int)$packet['from_user_id']) {
+                throw new \RuntimeException('not in conversation');
+            }
+        } else {
+            throw new \RuntimeException('forbidden');
+        }
+        $records = Db::fetchAll(
+            'SELECT * FROM ' . Db::table('chat_red_packet_records') . ' WHERE packet_id=? ORDER BY id ASC',
+            [(int)$packetId]
+        );
+        $mine = null;
+        foreach ($records as $r) {
+            if ((int)$r['user_id'] === (int)$userId) {
+                $mine = $r;
+                break;
+            }
+        }
+        $balance = null;
+        if ((int)$userId > 0) {
+            try {
+                $balance = $this->wallet->getBalance($userId);
+            } catch (\Throwable $e) {
+            }
+        }
+        $policy = null;
+        $profileClickable = true;
+        $privacyMode = 'open';
+        if ((int)$packet['scope_type'] === 2 && (int)$packet['group_id'] > 0) {
+            $group = $this->groups->get((int)$packet['group_id']) ?: [];
+            $role = (int)$viewerRole;
+            if ($role <= 0 && (int)$userId > 0) {
+                $role = $this->groups->memberRole((int)$packet['group_id'], (int)$userId);
+            }
+            $policy = $this->groups->buildPolicy($group, $role);
+            $privacyMode = (string)($policy['privacy_mode'] ?? 'private');
+            $profileClickable = empty($policy['rp_detail_locked']);
+        }
+        $uids = array_map(function ($r) {
+            return (int)$r['user_id'];
+        }, $records);
+        $users = (new AuthService([]))->usersBriefMap($uids);
+        $enriched = [];
+        foreach ($records as $r) {
+            $uid = (int)$r['user_id'];
+            $u = $users[$uid] ?? null;
+            $nick = '';
+            $avatar = '';
+            if ($u) {
+                $nick = trim((string)($u['nickname'] ?: $u['username'] ?: ''));
+                $avatar = (string)($u['avatar'] ?? '');
+                if ($nick === '' && !empty($u['mobile'])) {
+                    $mob = (string)$u['mobile'];
+                    $nick = strlen($mob) >= 7 ? (substr($mob, 0, 3) . '****' . substr($mob, -4)) : $mob;
+                }
+            }
+            if ($nick === '') {
+                $nick = 'ID' . $uid;
+            }
+            $isSelf = $uid === (int)$userId;
+            $rowClickable = $profileClickable && !$isSelf;
+            // 隐私群：他人昵称脱敏、头像清空（前端置灰占位）；自己可看真实信息但不可点他人
+            if (!$profileClickable && !$isSelf) {
+                $nick = $this->groups->maskNickname($nick, $uid);
+                $avatar = '';
+            }
+            $enriched[] = array_merge($r, [
+                'nickname'          => $nick,
+                'avatar'            => $avatar,
+                'profile_clickable' => $rowClickable,
+                'avatar_gray'       => !$profileClickable && !$isSelf,
+                'name_masked'       => !$profileClickable && !$isSelf,
+            ]);
+        }
+        return [
+            'packet'             => $this->sanitizePacketFair($packet),
+            'records'            => $enriched,
+            'mine'               => $mine,
+            'balance'            => $balance,
+            'wallet'             => $this->wallet->field(),
+            'profile_clickable'  => $profileClickable,
+            'privacy_mode'       => $privacyMode,
+            'rp_detail_locked'   => !$profileClickable,
+            'policy'             => $policy,
+        ];
+    }
+
+    /**
+     * 开奖：绑定波场官方区块哈希（异步，无 sleep）
+     * 分润结算仍在抢完/过期路径同步执行；此处只负责 Tron 证明。
+     */
+    public function revealFairProof($packetId)
+    {
+        return TronFair::scheduleReveal((int)$packetId);
+    }
+
+  /**
+   * 按单号查询公平性（公开接口）
+   */
+    public function publicFairByNo($packetNo)
+    {
+        $packetNo = trim((string)$packetNo);
+        if ($packetNo === '') {
+            return null;
+        }
+        $packet = Db::fetch(
+            'SELECT * FROM ' . Db::table('chat_red_packets') . ' WHERE packet_no=? LIMIT 1',
+            [$packetNo]
+        );
+        if (!$packet) {
+            return null;
+        }
+        if (!in_array((int)($packet['packet_type'] ?? 0), [2, 3], true)) {
+            return null;
+        }
+        $records = [];
+        if ((int)($packet['tron_status'] ?? 0) === 2 || (int)($packet['fair_revealed_at'] ?? 0) > 0) {
+            $records = Db::fetchAll(
+                'SELECT user_id, amount, amount_cent, tail_digit, is_best, is_worst, is_mine_hit, createtime'
+                . ' FROM ' . Db::table('chat_red_packet_records') . ' WHERE packet_id=? ORDER BY id ASC',
+                [(int)$packet['id']]
+            );
+        }
+        return TronFair::publicView($packet, $records);
+    }
+
+    protected function sanitizePacketFair(array $packet)
+    {
+        // 未开出波场哈希前不暴露 block_id / lucky；扫雷官方雷号也待开奖后公示
+        if ((int)($packet['tron_status'] ?? 0) !== 2) {
+            unset($packet['tron_block_id'], $packet['tron_lucky'], $packet['fair_seed'], $packet['fair_cents'], $packet['fair_payload']);
+            if ((int)($packet['packet_type'] ?? 0) === 3) {
+                $packet['mine_pending'] = true;
+                // 目标区块高度可提前公示（发包已锁定），便于玩家去盯盘
+            }
+        } else {
+            $packet['mine_pending'] = false;
+            if ((int)($packet['packet_type'] ?? 0) === 3 && trim((string)($packet['tron_block_id'] ?? '')) !== '') {
+                $packet['mine_digit'] = \Im\Support\TronBlockClient::luckyDigitFromBlockId($packet['tron_block_id']);
+            }
+        }
+        return $packet;
+    }
+}

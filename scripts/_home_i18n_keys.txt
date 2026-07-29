@@ -1,0 +1,53 @@
+﻿=== EN ===
+uid_label=MISS
+uid_placeholder=MISS
+uid_submit_btn=MISS
+uid_hint_idle=MISS
+settle_title_low=MISS
+settle_sub_low=MISS
+settle_title_high=MISS
+footer_line1=MISS
+footer_line2=MISS
+footer_line3=MISS
+marquee_text=MISS
+marquee_fallback=MISS
+marquee_fallback_prefix=MISS
+page_hero_claim_title=馃彟 VIP Claim Desk
+page_hero_claim_sub=Fill game account 鈫?submit 鈫?generate code 鈫?contact support to credit
+uid_submit_pending=MISS
+uid_submit_approved=MISS
+=== ZH ===
+uid_label=馃攽 绗竴姝ワ細璇疯緭鍏ユ偍鍦?55.bio鐜伴噾绔欐敞鍐屾垚鍔熺殑璐﹀彿
+uid_placeholder=渚嬪锛?55bio锛堝繀椤讳娇鐢ㄥ悓鎵嬫満鍙锋敞鍐岋級锛屽惁鍒欏皬濡规棤娉曞湪鍚庡彴鏍搁攢涓婂垎
+uid_submit_btn=鎻愪氦璐﹀彿瀹℃牳
+uid_hint_idle=璇峰～鍐欐父鎴忚处鍙凤紙鏁板瓧鎴栬嫳鏂囨暟瀛楃粍鍚堝潎鍙級锛屾瘡涓处鍙蜂粎鍙彁浜や竴娆″鏍?settle_title_low=馃彟 鐢宠 VIP 浜哄伐鍔犳€ョ壒鎵圭豢閫?settle_sub_low=閲戦涓嶈冻鏃朵篃鍙彁鍓嶈仈绯讳笓灞炲鏈嶅崗鍔╁噾鏁?settle_title_high=馃洝锔?瀹夊叏闃叉姢娲惧彂閫氶亾 路 VIP 缁堟瀬棰嗗彇
+footer_line1=馃搳 鏈钩鍙版€ц川涓恒€?55.bio 瀹樻柟娲昏穬绮変笣搴︽ā鎷熺鍒╂帹骞胯惀閿€浜掑姩璋冩煡澶у巺銆?footer_line2=瀹夊叏鎵胯锛氬叏鐩樻棤璧勯噾鍏呭€煎叆鍙ｃ€傛墍鏈夎偂浠藉強鐡滃垎绾㈠埄鍧囧睘浜庣敤鎴锋椿璺冨害鍐呴儴绂忓埄銆傞鍙栫孩鍒╃粺涓€鐢卞畼鏂?VIP 绂忓埄涓績浜哄伐鏍稿噯锛屽苟閲囩敤瀹夊叏鏂瑰紡绮惧噯鍏呭€艰嚦鎮ㄧ殑 555.bio 涓荤珯璐︽埛涓€傛椿鍔ㄦ渶缁堣В閲婃潈褰?555.bio 瀹樻柟鎵€鏈夈€?footer_line3=漏 2026 555.bio Open-Marketing Platform. 鏈嶅姟鍗忚 | 鍚堣澹版槑
+marquee_text=鏍稿績鍥㈤槦闀?鑰丄鍥㈤槦 3鍒嗛挓鍓嶆垚鍔熷厬鎹?80鑲?鑲′唤锛屽凡鑱旂郴涓撳睘瀹㈡湇鎴愬姛棰嗗彇 400.00 鍏冨畼鏂圭孩鍒╋紒
+鐢ㄦ埛 555_vip99 鍒氬垰鍑€?555.bio瀹樻柟鏋侀€熷紑鎴?涓?3浜哄崰浣?鎴愬姛棰嗗彇50鍏冪孩鍒╋紝璺戞弧娓告垙娴佹按宸茶璐㈠姟浜哄伐鎵规斁锛?鏁ｆ埛 鐩樺彛鏀跺壊鏈?鍒氬垰閫氳繃閫氶亾涓€鎴愬姛琛屼娇 15鑲★紝閫氳繃瀹樻柟瀹夊叏绀句氦杞欢瀹屾垚绉掑埌璐︿笂娆?75.00 鍏冿紒
+marquee_fallback=娆㈣繋鏉ュ埌 555.bio 瀹樻柟绂忓埄澶у巺
+marquee_fallback_prefix=馃帀 
+page_hero_claim_title=馃彟 VIP 鐗规壒棰嗗彇
+page_hero_claim_sub=鍥炲～鐜伴噾绔欐父鎴忚处鍙?鈫?鎻愪氦鏍搁攢 鈫?鐢熸垚瀵嗕护鑱旂郴瀹㈡湇涓婂垎
+uid_submit_pending=姝ｅ湪瀹℃牳涓?uid_submit_approved=宸查€氳繃鏍搁攢
+
+=== applyPageCopy skip line ===
+516:                if (el.id === 'userRank' || el.id === 'userStatusTag' || el.id === 'displayBindPhone' || el.id === 'jackpotMeta' || el.id === 'jackpotPartners' || el.id === 'jackpotSharePrice' || el.id === 'commentHallTitle' || el.id === 'profitHintBox' || el.id === 'btnGoldenMain' || el.id === 'ctaHint' || el.id === 'manualSettleTitle' || el.id === 'manualSettleSub' || el.id === 'withdrawModalTitle' || el.id === 'billCodeText' || el.id === 'checkinLedgerHint' || el.id === 'honorLadderHint' || el.id === 'balanceProgressHint' || el.id === 'claimProgressHint' || el.id === 'btnCheckinMain' || el.id === 'checkinViolentLabel' || el.id === 'checkinStreakLabel' || el.id === 'welcomeLotteryShares' || el.id === 'welcomeLotteryCloseBtn' || el.id === 'welcomeLotteryHint') {
+557:        function updateDynamicCopy() {
+
+=== app-boot marquee/settle ===
+183:        function updateUidStatusHint(profile) {
+223:                    btn.textContent = fc('uid_submit_approved') || '瀹告煡鈧俺绻冮弽鎼佹敘';
+227:                    btn.textContent = fc('uid_submit_pending') || '濮濓絽婀€光剝鐗虫稉';
+231:                    btn.textContent = fc('uid_submit_btn') || '閹绘劒姘︾拹锕€褰跨€光剝鐗?;
+234:            updateUidStatusHint(profile);
+250:        function updateUidSubmitButton() {
+339:            const title = document.getElementById('manualSettleTitle');
+340:            const sub = document.getElementById('manualSettleSub');
+342:                title.innerText = fc('settle_title_high');
+345:                title.innerText = fc('settle_title_low');
+1040:            const fromCopy = parseMarqueeCopyText(fc('marquee_text'));
+1041:            // 闈炰腑鏂囦紭鍏堢敤澶氳瑷€鏂囨锛涗腑鏂囦紭鍏堢敤娲诲姩閰嶇疆 marquee_text锛堟帴鍙ｄ笅鍙戯級
+1043:            if (marqueeItems.length) return marqueeItems;
+1045:            return [fc('marquee_fallback_prefix') + fc('marquee_fallback')];
+1049:            const node = document.getElementById('marqueeNode');
+1053:                return '<div class="marquee-item">' + text + '</div>';

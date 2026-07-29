@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>波场官方哈希验证</title>
+<link rel="stylesheet" href="css/fair-verify.css?v=202607292255">
+</head>
+<body>
+<div class="wrap">
+<h1>波场官方哈希验证</h1>
+<p class="sub">发包即锁定未来区块高度；开奖后绑定 TRON 区块哈希。扫雷官方雷号 = 哈希末位映射 0～9。可在 TronScan / OKLink 全球核对。</p>
+<div class="card">
+<label for="packetNo">红包单号 packet_no</label>
+<input id="packetNo" type="text" placeholder="rp..." autocomplete="off">
+<button type="button" id="btnVerify">查询波场哈希</button>
+<div id="formErr" class="err" style="display:none"></div>
+</div>
+<div id="result" style="display:none"></div>
+</div>
+<script src="js/fair-verify.js?v=202607292255"></script>
+</body>
+</html>

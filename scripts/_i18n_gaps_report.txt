@@ -1,0 +1,125 @@
+﻿files_with_gaps=8
+
+## public/888/partials/bottom-and-overlays.php (1)
+  [text] <div> 閳?
+## public/888/partials/header.php (5)
+  [text] <option> 榛樿
+  [text] <option> 婵€鎯呬腑鍥界孩
+  [text] <option> 鐨囧楂樼骇钃?  [text] <option> 绉戞妧鍐烽摱鐏?  [title] 鎶㈢孩瀹?
+## public/888/partials/modals.php (4)
+  [text] <div> 棣冨箚
+  [text] <strong> 绾㈠疂涓撳睘瀹㈡湇
+  [text] <strong> 瀹樻柟绾㈠疂鑱婂ぉApp
+  [text] <div> 绂?
+## public/888/partials/profile-subpages.php (27)
+  [text] <div> 鍏呭€?  [text] <label> 鍏呭€肩孩瀹濋噾棰濓紙鍏冿級
+  [text] <button> 纭鍏呭€?  [text] <div> 鎻愮幇
+  [text] <div> 鍙彁鐜扮孩瀹濓細
+  [text] <div> 绱娴佹按锛氾骏0.00
+  [text] <label> 鎻愮幇绾㈠疂閲戦锛堝厓锛?  [text] <label> 鏀舵鏂瑰紡
+  [text] <option> 閾惰鍗?(102)
+  [text] <option> 鏀粯瀹?(101)
+  [text] <label> 鏀舵浜哄鍚?  [text] <label> 鏀舵璐﹀彿
+  [text] <label> 閾惰鍚嶇О
+  [text] <label> 鏀锛堝彲閫夛級
+  [text] <label> 鐪佸競锛堝彲閫夛級
+  [text] <button> 纭鎻愮幇
+  [text] <div> 鎴戠殑浜岀淮鐮?  [text] <div> 浼氬憳ID锛?  [text] <p> 濂藉弸鎵竴鎵嵆鍙坊鍔犱綘
+  [text] <button> 澶嶅埗浼氬憳ID
+  [placeholder] 璇疯緭鍏ラ噾棰?  [placeholder] 鐪熷疄濮撳悕 / 鏀粯瀹濆疄鍚?  [placeholder] 閾惰鍗″彿 / 鏀粯瀹濊处鍙?  [placeholder] 濡傦細宸ュ晢閾惰锛涙敮浠樺疂濉細鏀粯瀹?  [placeholder] 寮€鎴锋敮琛?  [placeholder] 鐪?  [placeholder] 甯?
+## public/888/partials/tab-exchange.php (15)
+  [text] <div> 璧勪骇鍏戞崲
+  [text] <div> 鍙敤 鈥?  [text] <div> 杞嚭
+  [text] <div> 鑲?  [text] <option> 鑲′唤
+  [text] <option> 绾㈠埄
+  [text] <option> 绾㈠疂
+  [text] <button> 鍏ㄩ儴
+  [text] <div> 鍗曟鏈€浣?1
+  [text] <div> 鍏戞崲姣斾緥
+  [text] <div> 棰勮鍒拌处
+  [text] <button> 纭鍏戞崲
+  [aria-label] 杞嚭璧勪骇
+  [aria-label] 浜掓崲鏂瑰悜
+  [aria-label] 鍏戞崲鐩爣
+
+## public/888/partials/tab-home.php (5)
+  [text] <div> 棣冩惐 瑜版挸澧犻崗銊х秹閼测€插敜娴滅儤鏆熼敍?,000 娴?( 棣冩畬 娴犲﹥妫╅弳瀛樺畾 +0 娴?)
+  [text] <div> 棣冩嫷 娴犲﹥妫╂径褏娲忕€圭偞妞傞幐浣风波鐞涘本娼堟禒鍑ょ窗锟?00 / 娴?( 棣冩暉 鏉堝啯妲伴弮銉ャ亣閻╂ɑ濯洪崡?+0% )
+  [text] <span> 绾㈠疂
+  [text] <span> 棣冩尭 濞屸剝婀佺拹锕€褰块敍鐔哄仯閸?[555.bio鐎规ɑ鏌熼弸渚€鈧喎绱戦幋绌?  [text] <span> 缁斿鈧?2 娴犺棄銇囬惄妯垮亗閵?
+## public/888/partials/tab-messages.php (97)
+  [text] <span> 鎵竴鎵?  [text] <button> 鍙栨秷
+  [text] <button> 瀹樻柟绀剧兢
+  [text] <button> 鎴戠殑缇ょ粍
+  [text] <button> 濂藉弸鍒楄〃
+  [text] <button> 鏈€鏂板彂甯?  [text] <button> 鎺ㄥ箍璧氶挶
+  [text] <button> 骞垮憡鍙戝竷
+  [text] <button> 娓告垙瑙勫垯
+  [text] <span> 绱浣ｉ噾
+  [text] <button> 鎻愮幇
+  [text] <span> 鍙彁鐜?  [text] <span> 浠婃棩鏀剁泭
+  [text] <span> 绾㈠寘杩斾剑
+  [text] <span> 鎺ㄥ箍缁撶畻
+  [text] <span> 鏀剁泭鏄庣粏
+  [text] <span> 鎻愮幇璁板綍
+  [text] <div> 鏈€杩戠粨绠?  [text] <div> 鐧诲綍鍚庢煡鐪嬩剑閲戞槑缁?  [text] <p> 灏嗗ソ鍙嬩簩缁寸爜鏀惧叆妗嗗唴鍗冲彲鑷姩璇嗗埆
+  [text] <button> 浠庣浉鍐岄€夋嫨鍥剧墖
+  [text] <div> 浼氳瘽
+  [text] <div> 缇ゅ叕鍛?  [text] <span> 鍥剧墖
+  [text] <span> 瑙嗛
+  [text] <span> 鏂囦欢
+  [text] <span> 绾㈠寘
+  [text] <div> 缇よ缃?  [text] <span> 缇?  [text] <span> 鏇存崲
+  [text] <div> 缇よ亰
+  [text] <div> 0 鍚嶆垚鍛?  [text] <label> 缇ゅ悕绉?  [text] <label> 缇ゅ叕鍛婏紙鑱婂ぉ椤电疆椤讹級
+  [text] <button> 淇濆瓨淇敼
+  [text] <span> 鏌ョ湅缇ゆ垚鍛?  [text] <span> 鍏ㄥ憳绂佽█
+  [text] <div> 缇ゆ垚鍛?  [text] <button> 锛?娣诲姞缇ゆ垚鍛?  [text] <div> 娣诲姞缇ゆ垚鍛?  [text] <button> 纭娣诲姞 (0 浜?
+  [text] <div> 鎴愬憳鎿嶄綔
+  [text] <button> 鍗曚汉绂佽█
+  [text] <button> 鍙栨秷绂佽█
+  [text] <button> 璁句负绠＄悊鍛?  [text] <button> 鍙栨秷绠＄悊鍛?  [text] <button> 韪㈠嚭缇ょ粍
+  [text] <div> 閫夋嫨绂佽█鏃堕暱
+  [text] <button> 10 鍒嗛挓
+  [text] <button> 1 灏忔椂
+  [text] <button> 24 灏忔椂
+  [text] <button> 鍏抽棴
+  [text] <div> 鍙戠孩鍖?  [text] <div> 鎭枩鍙戣储
+  [text] <div> 鎷兼墜姘旂孩鍖?  [text] <label> 閲戦锛堝厓锛?  [text] <label> 绾㈠寘涓暟
+  [text] <div> 缇よ亰 5锝?0 涓紝绉佽亰鍥哄畾 1 涓?  [text] <label> 绾㈠寘绫诲瀷
+  [text] <button> 鎷兼墜姘?  [text] <button> 浜哄潎
+  [text] <button> 鍩嬮浄
+  [text] <label> 闆峰彿锛堝熬鏁?0-9锛?  [text] <div> 棰嗗彇閲戦灏炬暟绛変簬闆峰彿鍒欎腑闆凤紝璧斾粯鏁村寘閲戦
+  [text] <label> 绾㈠寘灏侀潰璇?  [text] <button> 濉為挶杩涚孩鍖?  [text] <div> 鍒涘缓鏂扮兢鑱?  [text] <button> 涓嬩竴姝?  [text] <span> 缇ょ被鍨?  [text] <span> 鍙煡鐪嬫垚鍛樿祫鏂欙紝鏀寔鑷敱鍔犲ソ鍙?  [text] <span> 闅愯棌鎴愬憳鍒楄〃锛岄檶鐢熶汉涓嶅彲浜掑姞
+  [text] <span> 杩愯妯″紡
+  [text] <span> 鑷敱鑱婂ぉ锛屽彲鍙戞櫘閫?鎵嬫皵/鍩嬮浄绾㈠寘
+  [text] <span> 鍏ㄥ憳绂佽█锛屼粎绠＄悊鍛?鏈哄櫒浜哄彲鍙戠孩鍖?  [text] <div> 缇や富鍙悗缁湪缇よ缃腑淇敼
+  [placeholder] 杈撳叆缇ゅ悕绉?  [placeholder] 杈撳叆缇ゅ叕鍛婏紝鎴愬憳杩涘叆鑱婂ぉ鍙
+  [placeholder] 鎼滅储鎴愬憳鏄电О/ID
+  [placeholder] 鎼滅储鐢ㄦ埛鍚?鎵嬫満鍙?ID
+  [placeholder] 鏈€浣?10
+  [placeholder] 鎭枩鍙戣储锛屽ぇ鍚夊ぇ鍒?  [placeholder] 璇疯緭鍏ョ兢鍚嶇О
+  [aria-label] 鎼滅储
+  [aria-label] 鏇村
+  [aria-label] 绀剧兢鍒嗙被
+  [aria-label] 鍏憡鍒嗙被
+  [aria-label] 杩斿洖
+  [aria-label] 鍖哄彿
+  [aria-label] 鏀惰捣
+  [aria-label] 琛ㄦ儏
+  [aria-label] 鍏抽棴
+  [title] 鎼滅储
+  [title] 鏇村
+  [title] 琛ㄦ儏
+  [title] 鏇存崲缇ゅご鍍?  [title] 鐐瑰嚮鍒囨崲澶村儚
+  [value] 鎭枩鍙戣储
+
+## public/888/partials/tab-profile.php (11)
+  [text] <div> 鎶㈢孩瀹?  [text] <span> 瀹樻柟浼氬憳
+  [text] <span> 浜岀淮鐮?  [text] <span> 鎵竴鎵?  [text] <span> 鍏呭€?  [text] <span> 鎻愮幇
+  [text] <h3> 璧勪骇鏈嶅姟
+  [text] <h3> 璐﹀彿涓庡畨鍏?  [text] <p> 鎶㈢孩瀹濆畼鏂?路 浼氬憳涓績
+  [aria-label] 浼氬憳璧勬枡
+  [aria-label] 甯哥敤鍔熻兘
+
+TOTAL_GAPS=165

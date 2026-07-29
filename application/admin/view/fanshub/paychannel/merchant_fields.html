@@ -1,0 +1,145 @@
+    <div class="form-group merchant-fields bs-fields" style="display:none;">
+        <label class="control-label col-xs-12 col-sm-2">总商户:</label>
+        <div class="col-xs-12 col-sm-8">
+            <select class="form-control selectpicker" name="row[merchant_id]" id="bsMerchantId" data-live-search="true">
+                <option value="0">— 请选择 BS 总商户 —</option>
+                {foreach name="bsMerchantList" item="m"}
+                <option value="{$m.id}" {if condition="isset($row.merchant_id) && $row.merchant_id == $m.id"}selected{/if}>{$m.name}（{$m.merchant_no}）</option>
+                {/foreach}
+            </select>
+            <span class="help-block">
+                RSA 密钥在「支付总商户」维护；此处只选币种与回调参数。
+                <a href="javascript:;" onclick="Backend.api.addtabs('fanshub/paymerchant','支付总商户')">打开总商户</a>
+            </span>
+        </div>
+    </div>
+    <div class="form-group merchant-fields wanhuitong-fields" style="display:none;">
+        <label class="control-label col-xs-12 col-sm-2">总商户:</label>
+        <div class="col-xs-12 col-sm-8">
+            <select class="form-control selectpicker" name="row[merchant_id]" id="wanhuiMerchantId" data-live-search="true">
+                <option value="0">— 请选择万汇通总商户 —</option>
+                {foreach name="merchantList" item="m"}
+                <option value="{$m.id}" {if condition="isset($row.merchant_id) && $row.merchant_id == $m.id"}selected{/if}>{$m.name}（{$m.merchant_no}）</option>
+                {/foreach}
+            </select>
+            <span class="help-block">
+                先在「支付总商户」维护一套商户号+RSA 密钥，再在此挂钱包通道。
+                <a href="javascript:;" onclick="Backend.api.addtabs('fanshub/paymerchant','支付总商户')">打开总商户</a>
+            </span>
+        </div>
+    </div>
+    <div class="form-group merchant-fields">
+        <label class="control-label col-xs-12 col-sm-2">提交URL:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[submit_url]" type="text" placeholder="https://平台域名 或完整接口地址">
+            <span class="help-block">久远：填平台根地址。wanhuipay / BS 可留空自动用官方地址。</span>
+        </div>
+    </div>
+    <div class="form-group merchant-fields">
+        <label class="control-label col-xs-12 col-sm-2">商户号:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[merchant_no]" id="wanhuiMerchantNo" type="text" placeholder="merchantId / merchant_no" readonly>
+            <span class="help-block wanhuitong-fields" style="display:none;">选总商户后自动带入（只读）。</span>
+            <span class="help-block bs-fields" style="display:none;">选 BS 总商户后自动带入（只读）。</span>
+        </div>
+    </div>
+    <div class="form-group merchant-fields md5-key-fields jiuyuan-channel-fields">
+        <label class="control-label col-xs-12 col-sm-2">商户密钥:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[merchant_key]" type="text" placeholder="MD5密钥（仅久远通道）">
+        </div>
+    </div>
+    <div class="form-group merchant-fields bs-fields" style="display:none;">
+        <label class="control-label col-xs-12 col-sm-2">回调汇率:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[callback_exchange_rate]" type="text" value="{$row.callback_exchange_rate|default=''}" placeholder="可选，留空用系统汇率">
+        </div>
+    </div>
+    <div class="form-group merchant-fields bs-fields bs-recharge-only" style="display:none;">
+        <label class="control-label col-xs-12 col-sm-2">充值模式:</label>
+        <div class="col-xs-12 col-sm-8">
+            <select class="form-control" name="row[recharge_mode]">
+                <option value="cashier" {if condition="($row.recharge_mode|default='cashier') == 'cashier'"}selected{/if}>收银台（返回 payUrl）</option>
+                <option value="api" {if condition="($row.recharge_mode|default='cashier') == 'api'"}selected{/if}>接口（返回收款地址）</option>
+            </select>
+        </div>
+    </div>
+    <div class="form-group merchant-fields wanhuitong-fields" style="display:none;">
+        <label class="control-label col-xs-12 col-sm-2">钱包通道:</label>
+        <div class="col-xs-12 col-sm-8">
+            <select class="form-control selectpicker" name="row[pay_channel]" id="wanhuiPayChannel" data-live-search="true">
+                {foreach name="walletList" item="label" key="code"}
+                <option value="{$code}" {if condition="isset($row.pay_channel) && $row.pay_channel == $code"}selected{/if}>{$label} — {$code}</option>
+                {/foreach}
+                {foreach name="quickWalletList" item="label" key="code"}
+                <option value="{$code}" {if condition="isset($row.pay_channel) && $row.pay_channel == $code"}selected{/if}>{$label} — {$code}</option>
+                {/foreach}
+            </select>
+            <span class="help-block">官方 payment_channel；选后可自动填通道名称。</span>
+        </div>
+    </div>
+    <div class="form-group merchant-fields bs-fields" style="display:none;">
+        <label class="control-label col-xs-12 col-sm-2">USDT币种:</label>
+        <div class="col-xs-12 col-sm-8">
+            <select class="form-control selectpicker" name="row[pay_channel]" id="bsPayChannel" data-live-search="true">
+                {foreach name="bsCoinList" item="label" key="code"}
+                <option value="{$code}" {if condition="isset($row.pay_channel) && $row.pay_channel == $code"}selected{/if}>{$label} — {$code}</option>
+                {/foreach}
+            </select>
+        </div>
+    </div>
+    <div class="form-group merchant-fields md5-key-fields">
+        <label class="control-label col-xs-12 col-sm-2">支付类型:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[pay_type]" type="text" placeholder="可选；久远填 pay_bankcode 如 932">
+        </div>
+    </div>
+    <div class="form-group merchant-fields md5-key-fields jiuyuan-channel-fields">
+        <label class="control-label col-xs-12 col-sm-2">支付通道:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[pay_channel_md5]" type="text" value="{$row.pay_channel|default=''}" placeholder="久远填 pay_cid（保存时写入 pay_channel）">
+            <span class="help-block">久远通道用此框；万汇通/BS 请用上方下拉。</span>
+        </div>
+    </div>
+    <div class="form-group merchant-fields wanhuitong-fields" style="display:none;">
+        <label class="control-label col-xs-12 col-sm-2">代付类型:</label>
+        <div class="col-xs-12 col-sm-8">
+            <select class="form-control" name="row[withdraw_type]">
+                <option value="2" {if condition="($row.withdraw_type|default='2') == '2'"}selected{/if}>2 钱包代付</option>
+                <option value="1" {if condition="($row.withdraw_type|default='2') == '1'"}selected{/if}>1 三方支付</option>
+            </select>
+        </div>
+    </div>
+    <div class="form-group merchant-fields wanhuitong-fields" style="display:none;">
+        <label class="control-label col-xs-12 col-sm-2">代付反查URL:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" type="text" readonly value="{$row.verify_url|default=''}" placeholder="保存后显示；填到 wanhuipay 商户后台">
+            <span class="help-block">wanhuipay：<code>/api/pay/withdrawverify?channel_id=xx</code></span>
+        </div>
+    </div>
+    <div class="form-group merchant-fields bs-fields" style="display:none;">
+        <label class="control-label col-xs-12 col-sm-2">代付反查URL:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" type="text" readonly value="{$row.verify_url|default=''}" placeholder="保存后显示；填到 BS 商户后台">
+            <span class="help-block">BS：<code>/api/pay/withdrawverify?channel_id=xx</code>，回调 IP：8.217.236.95</span>
+        </div>
+    </div>
+    <div class="form-group merchant-fields">
+        <label class="control-label col-xs-12 col-sm-2">服务器通知URL:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[notify_url]" type="text" placeholder="留空则保存后自动生成">
+            <span class="help-block bs-fields" style="display:none;">回调 IP 白名单：8.217.236.95</span>
+        </div>
+    </div>
+    <div class="form-group merchant-fields">
+        <label class="control-label col-xs-12 col-sm-2">页面跳转URL:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[return_url]" type="text" placeholder="留空默认 /888/#profile">
+        </div>
+    </div>
+    <div class="form-group merchant-fields">
+        <label class="control-label col-xs-12 col-sm-2">商品名称:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[product_name]" type="text" placeholder="账户充值 / 账户提现">
+        </div>
+    </div>

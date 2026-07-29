@@ -1,0 +1,19 @@
+<div class="panel panel-default panel-intro">
+    <div class="panel-heading">
+        <div class="panel-lead"><em>短信配置</em></div>
+        <div class="panel-actions">
+            <a href="fanshub.config" class="btn btn-xs btn-default addtabsit"><i class="fa fa-arrow-left"></i> 返回活动配置</a>
+        </div>
+    </div>
+    <div class="panel-body">
+        <form id="sms-form" class="form-horizontal" role="form" data-toggle="validator" method="POST" action="{:url('fanshub.sms/save')}">
+            {include file="fanshub/config/sms_fields" /}
+            <div class="form-group layer-footer">
+                <label class="control-label col-xs-12 col-sm-2"></label>
+                <div class="col-xs-12 col-sm-8">
+                    <button type="submit" class="btn btn-primary btn-embossed">保存短信配置</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>

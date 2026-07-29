@@ -1,0 +1,4 @@
+﻿/* Compat shim — IM CSS is lazy-loaded via FansHubAssets.ensureChat() */
+@import url('css/chat-core.css');
+@import url('css/chat-rp.css');
+@import url('css/chat-create-group.css');

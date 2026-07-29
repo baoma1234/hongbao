@@ -1,0 +1,170 @@
+<?php
+
+namespace Im\Service;
+
+use Im\Support\Db;
+use Im\Support\IdGenerator;
+
+/**
+ * IM 可私聊管理员 = fa_chat_agent_accounts 启用账号
+ */
+class AdminService
+{
+    public static function isImAdmin($userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return false;
+        }
+        $row = Db::fetch(
+            'SELECT id FROM ' . Db::table('chat_agent_accounts')
+            . ' WHERE user_id=? AND status=1 LIMIT 1',
+            [$userId]
+        );
+        return (bool)$row;
+    }
+
+    /**
+     * @return int[]
+     */
+    public static function adminUserIds()
+    {
+        $rows = Db::fetchAll(
+            'SELECT user_id FROM ' . Db::table('chat_agent_accounts')
+            . ' WHERE status=1 ORDER BY id ASC'
+        );
+        $ids = [];
+        foreach ($rows as $row) {
+            $uid = (int)$row['user_id'];
+            if ($uid > 0) {
+                $ids[] = $uid;
+            }
+        }
+        return array_values(array_unique($ids));
+    }
+
+    /**
+     * @return array<int, array{user_id:int,label:string}>
+     */
+    public static function adminRows()
+    {
+        $rows = Db::fetchAll(
+            'SELECT user_id, label FROM ' . Db::table('chat_agent_accounts')
+            . ' WHERE status=1 ORDER BY id ASC'
+        );
+        $out = [];
+        foreach ($rows as $row) {
+            $uid = (int)$row['user_id'];
+            if ($uid <= 0) {
+                continue;
+            }
+            $out[$uid] = [
+                'user_id' => $uid,
+                'label'   => (string)($row['label'] ?? ''),
+            ];
+        }
+        return $out;
+    }
+
+    /**
+     * 普通用户只能私聊管理员；管理员可私聊任意用户
+     */
+    public static function assertCanPrivateChat($fromUserId, $toUserId)
+    {
+        $fromUserId = (int)$fromUserId;
+        $toUserId = (int)$toUserId;
+        if (self::isImAdmin($fromUserId) || self::isImAdmin($toUserId)) {
+            return;
+        }
+        $contacts = new ContactService();
+        if ($contacts->isFriend($fromUserId, $toUserId)) {
+            return;
+        }
+        throw new \RuntimeException('private chat only with admin or friend');
+    }
+
+    /**
+     * 客服号被加好友时的自动回复语（账号级优先，否则默认）
+     */
+    public static function csFriendReply($adminUserId)
+    {
+        $adminUserId = (int)$adminUserId;
+        if ($adminUserId <= 0) {
+            return '';
+        }
+        $row = Db::fetch(
+            'SELECT friend_reply FROM ' . Db::table('chat_agent_accounts')
+            . ' WHERE user_id=? AND status=1 LIMIT 1',
+            [$adminUserId]
+        );
+        $text = trim((string)($row['friend_reply'] ?? ''));
+        if ($text !== '') {
+            return mb_substr($text, 0, 500);
+        }
+        // 全局默认（可被后台「客服加友回复」写入 config 表/文件；此处兜底）
+        $cfgFile = dirname(__DIR__, 3) . '/application/extra/fanshub.php';
+        if (is_file($cfgFile)) {
+            $cfg = include $cfgFile;
+            if (is_array($cfg)) {
+                $def = trim((string)($cfg['im_cs_friend_reply'] ?? ''));
+                if ($def !== '') {
+                    return mb_substr($def, 0, 500);
+                }
+                $welcome = trim((string)($cfg['h5_copy']['chat_admin_welcome'] ?? ''));
+                if ($welcome !== '') {
+                    return mb_substr($welcome, 0, 500);
+                }
+            }
+        }
+        return '您好，我是平台客服，有问题随时私聊我。';
+    }
+
+    /**
+     * 给新用户写入每位管理员的欢迎私聊（会话列表可见）
+     */
+    public static function seedWelcomeMessages($userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return 0;
+        }
+        $admins = self::adminUserIds();
+        $msgTable = Db::table('chat_messages');
+        $done = 0;
+        $now = time();
+        foreach ($admins as $adminId) {
+            if ($adminId === $userId) {
+                continue;
+            }
+            $conv = IdGenerator::privateConversationId($adminId, $userId);
+            $exists = Db::fetch(
+                "SELECT id FROM {$msgTable} WHERE conversation_type=1 AND conversation_id=? AND status=1 LIMIT 1",
+                [$conv]
+            );
+            if ($exists) {
+                continue;
+            }
+            $msgId = IdGenerator::msgId();
+            $welcome = self::csFriendReply($adminId);
+            if ($welcome === '') {
+                $welcome = '您好，我是平台客服，有问题随时私聊我。';
+            }
+            Db::exec(
+                "INSERT INTO {$msgTable}
+                (msg_id,conversation_type,conversation_id,group_id,from_user_id,to_user_id,msg_type,content,extra,status,createtime)
+                VALUES (?,?,?,0,?,?,1,?,NULL,1,?)",
+                [
+                    $msgId,
+                    1,
+                    $conv,
+                    $adminId,
+                    $userId,
+                    $welcome,
+                    $now,
+                ]
+            );
+            $done++;
+        }
+        return $done;
+    }
+}

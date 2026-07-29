@@ -1,0 +1,126 @@
+﻿        <!-- 1. 婢堆冨泛 / 鐠у嫪楠?-->
+        <div class="tab-page active" id="tabHome" data-tab="home">
+            <div class="jackpot-container">
+                <div class="jackpot-label" data-copy="jackpot_label">棣冩惓 555.bio 閸忋劎缍夐悽鐔糕偓浣哥杽閺冭泛銇囩仦</div>
+                <div class="jackpot-meta" id="jackpotPartners">棣冩惐 瑜版挸澧犻崗銊х秹閼测€插敜娴滅儤鏆熼敍?,000 娴?( 棣冩畬 娴犲﹥妫╅弳瀛樺畾 +0 娴?)</div>
+                <div class="jackpot-pool-label" id="jackpotPoolLabel" data-copy="jackpot_pool_label">棣冩尩 楠炲啿褰村鑼柈鐠佲€茶礋閸氬牅绱禍鍝勫灡闁姳鐜崐</div>
+                <div class="jackpot-val" id="jackpotNum">锟?,000.00</div>
+                <div class="jackpot-price-line" id="jackpotSharePrice">棣冩嫷 娴犲﹥妫╂径褏娲忕€圭偞妞傞幐浣风波鐞涘本娼堟禒鍑ょ窗锟?00 / 娴?( 棣冩暉 鏉堝啯妲伴弮銉ャ亣閻╂ɑ濯洪崡?+0% )</div>
+                <div class="jackpot-hint-line" id="jackpotHint" data-copy="jackpot_hint">棣冩寱 缁涘顤傞梻顏勫幀闁库偓濮ｄ浇鍋傛禒?璺?缁鳖垵顓告禒宄扳偓鐓庡涧濞戙劋绗夌捄?璺?閼测€茬幆閻㈣精鎻弽鍥祮閸栨牔姹夐弫浼粹攳閸?/div>
+            </div>
+
+            <div class="header-panel">
+                <div class="assets-grid">
+                    <div class="asset-card asset-card-rights">
+                        <span class="asset-label" data-copy="asset_rights_label">鑲′唤</span>
+                        <strong class="asset-value asset-value-gold"><span id="myTicketPool">5.00</span> <span class="asset-unit" data-copy="asset_rights_unit">浠?/span></strong>
+                        <div class="asset-valuation-hint" id="rightsValuationHint"></div>
+                    </div>
+                    <div class="asset-card-divider" aria-hidden="true"></div>
+                    <div class="asset-card asset-card-balance">
+                        <span class="asset-label" data-copy="asset_balance_label">绾㈠埄浣欓</span>
+                        <strong class="asset-value asset-value-green">
+                            <span class="asset-currency" id="balanceCurrencySym">锟?/span><span id="myUserBalance">0.00</span>
+                        </strong>
+                        <div class="asset-progress-wrap">
+                            <div class="asset-progress-bar"><div class="asset-progress-fill" id="balanceProgressFill"></div></div>
+                            <div class="asset-progress-hint" id="balanceProgressHint" data-copy="balance_progress_pct">宸茶揪鎻愮幇闂ㄦ鐨?0%</div>
+                        </div>
+                    </div>
+                    <div class="asset-card-divider" aria-hidden="true"></div>
+                    <div class="asset-card asset-card-hongbao">
+                        <span class="asset-label">绾㈠疂</span>
+                        <strong class="asset-value"><span id="myHongbaoPool">0.00</span></strong>
+                    </div>
+                </div>
+                <div class="user-info">
+                    <div class="user-id"><span data-copy="user_account_status">鐠у嫪楠囩拹锔藉煕閻樿埖鈧?</span> <span id="displayBindPhone">138****8888</span> <span id="userStatusTag" data-copy="user_status_shield">鐎靛棗瀵甸梼鍙夊Б瀹告彃绱戦崥</span></div>
+                    <div id="userRank" class="status-tag" data-copy="user_rank_default">閻楄娼堢涵顔芥綀鐠愶附鍩?/div>
+                </div>
+                <div class="flow-stepper" id="flowStepper" data-copy-aria="aria_flow_stepper" aria-label="缁傚繐鍩勬潻娑樺">
+                    <div class="flow-step done" data-step="1"><span class="n">1</span><span class="t" data-copy="stepper_1">閸忋儱宸?/span></div>
+                    <div class="flow-step" data-step="2"><span class="n">2</span><span class="t" data-copy="stepper_2">瀵偓閹?/span></div>
+                    <div class="flow-step" data-step="3"><span class="n">3</span><span class="t" data-copy="stepper_3">闂傤亜鍘?/span></div>
+                    <div class="flow-step" data-step="4"><span class="n">4</span><span class="t" data-copy="stepper_4">鐠愶箑褰?/span></div>
+                    <div class="flow-step" data-step="5"><span class="n">5</span><span class="t" data-copy="stepper_5">妫板棗褰?/span></div>
+                </div>
+                <div id="newbiePromoBlock">
+                    <div class="share-promo-card" id="sharePromoCard" role="button" tabindex="0" onclick="copyShareLink()">
+                        <div class="share-promo-glow"></div>
+                        <div class="share-promo-inner single-line">
+                            <span class="share-promo-text" id="sharePromoText" data-copy="share_promo_btn">棣冩憴 闁偓鐠?1 娴滃搫绱戦幋?閴冣槄绗?妫版繂顦婚柅?1 娴犲€熷亗 (婢舵岸鍊嬫径姘繁)</span>
+                            <button type="button" class="btn-share-action" id="sharePromoActionBtn" data-copy="share_promo_action_btn" onclick="event.stopPropagation(); copyShareLink();">閻愮懓鍤粩瀣祮閸掑棔闊?/button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="user-panel" id="newbieOpenPanel">
+                <button type="button" class="cta-open-account" id="openAccountBtn" onclick="goToMainStation()">
+                    <span class="cta-open-account-label" id="openAccountBtnLabel">棣冩尭 濞屸剝婀佺拹锕€褰块敍鐔哄仯閸?[555.bio鐎规ɑ鏌熼弸渚€鈧喎绱戦幋绌?/span>
+                    <span class="cta-open-account-badge" id="openAccountBadge">缁斿鈧?2 娴犺棄銇囬惄妯垮亗閵?/span>
+                </button>
+            </div>
+
+            <div class="home-claim-section" id="homeClaimSection">
+                <div class="page-hero-title" data-copy="page_hero_claim_title">馃彟 VIP 鐗规潈棰嗗彇</div>
+                <div class="page-hero-sub" data-copy="page_hero_claim_sub">鍥炲～鐜伴噾绔欐父鎴忚处鍙?鈫?鎻愪氦鏍搁攢 鈫?鐢熸垚瀵嗕护鑱旂郴瀹㈡湇涓婂垎</div>
+                <div class="match-card" style="padding:15px;">
+                    <div class="uid-section visible" id="uidSection">
+                        <label class="uid-label" for="mainStationID" data-copy="uid_label">馃攽 绗竴姝ワ細璇疯緭鍏ユ偍鍦ㄦ姠绾㈠疂鐜伴噾绔欐敞鍐屾垚鍔熺殑璐﹀彿</label>
+                        <input
+                            type="text"
+                            id="mainStationID"
+                            class="id-input-box"
+                            name="fanshub_game_uid"
+                            maxlength="32"
+                            autocomplete="off"
+                            autocapitalize="off"
+                            autocorrect="off"
+                            spellcheck="false"
+                            inputmode="text"
+                            enterkeyhint="done"
+                            data-copy-placeholder="uid_placeholder"
+                            placeholder="渚嬪锛?55bio锛堝繀椤讳娇鐢ㄥ悓鎵嬫満鍙锋敞鍐岋級锛屽惁鍒欏皬濡规棤娉曞湪鍚庡彴鏍搁攢涓婂垎"
+                        >
+                        <div class="uid-submit-row">
+                            <button type="button" class="btn-uid-submit" id="btnUidSubmit" onclick="submitUID()" data-copy="uid_submit_btn">鎻愪氦璐﹀彿瀹℃牳</button>
+                        </div>
+                        <div class="uid-status-hint" id="uidStatusHint" data-copy="uid_hint_idle">璇峰～鍐欐父鎴忚处鍙凤紙鏁板瓧鎴栬嫳鏂囨暟瀛楃粍鍚堝潎鍙級锛屾瘡涓处鍙蜂粎鍙彁浜や竴娆″鏍?/div>
+                    </div>
+                </div>
+                <button class="btn-manual-settle" id="btnManualSettle" onclick="openWithdrawModal()">
+                    <span id="manualSettleTitle" data-copy="settle_title_low">馃彟 鐢宠 VIP 浜哄伐鍔犳€ョ壒鎵圭豢閫?/span>
+                    <span class="sub-label" id="manualSettleSub" data-copy="settle_sub_low">閲戦涓嶈冻鏃朵篃鍙彁鍓嶈仈绯讳笓灞炲鏈嶅崗鍔╅噾娆?/span>
+                </button>
+            </div>
+
+            <div class="home-quick-grid">
+                <button type="button" class="home-quick-btn hq-exchange" onclick="switchTab('exchange')"><span data-copy="home_quick_exchange">鈿?鍘婚棯鍏?/span><span data-copy="home_quick_exchange_sub">鑲′唤绉掑彉绾㈠埄浣欓</span></button>
+                <button type="button" class="home-quick-btn hq-master" onclick="switchTab('master')"><span data-copy="home_quick_master">馃憫 鍥㈤暱澶у巺</span><span data-copy="home_quick_master_sub">澶╂ + 7澶╂槦鐏毚鍑?/span></button>
+                <button type="button" class="home-quick-btn hq-messages" onclick="switchTab('messages')"><span data-copy="home_quick_messages">绾㈠疂绀惧尯</span><span data-copy="home_quick_messages_sub">绉佽亰 路 缇よ亰 路 绾㈠寘</span></button>
+                <button type="button" class="home-quick-btn hq-profile" onclick="switchTab('profile')"><span data-copy="home_quick_profile">馃懁 涓汉涓績</span><span data-copy="home_quick_profile_sub">璧勬枡 路 瀵嗙爜 路 閫€鍑?/span></button>
+            </div>
+
+            <div class="marquee-box" style="margin-top:14px;">
+                <div class="marquee-content" id="marqueeNode"></div>
+            </div>
+
+            <div class="home-social-section" id="homeSocialSection">
+                <div class="page-hero-title" data-copy="page_hero_social_title">棣冩尠 娴滄帒濮╂径褍宸?/div>
+                <div class="page-hero-sub" data-copy="page_hero_social_sub">閻甯撶悰?璺?閸掔柉顫嬫０鎴炴瀮 璺?闊厽鐨靛娑崇礉娑撴挻鏁為幏澶嬫煀娑撳孩妾奸崡</div>
+                <div class="match-card" style="margin-top: 0; padding: 15px; text-align: left;">
+                    <h4 style="font-size: 14px; margin-bottom: 10px; color: var(--secondary);" data-copy="leaderboard_title">馃弳 閭€璇疯鍙樻帓琛屾 TOP10</h4>
+                    <div class="leaderboard-list" id="leaderboardList">
+                        <div class="text-muted" style="font-size:12px;" data-copy="leaderboard_loading">鍔犺浇涓?..</div>
+                    </div>
+                </div>
+                <div style="margin-top: 25px; padding: 10px; font-size: 10px; color: #657786; text-align: center; line-height: 1.6;">
+                    <p data-copy="footer_line1">棣冩惓 閺堫剙閽╅崣鐗堚偓褑宸濇稉鎭掆偓?55.bio 鐎规ɑ鏌熷ú鏄忕┈缁绗ｆ惔锔侥侀幏鐔侯洿閸掆晜甯归獮鑳儉闁库偓娴滄帒濮╃拫鍐╃叀婢堆冨泛閵?/p>
+                    <p data-copy="footer_line2">鐎瑰鍙忛幍鑳嚡閿涙艾鍙忛惄妯绘￥鐠у嫰鍣鹃崗鍛偓鐓庡弳閸欙絻鈧倹澧嶉張澶庡亗娴犺棄寮烽悺婊冨瀻缁俱垹鍩勯崸鍥х潣娴滃海鏁ら幋閿嬫た鐠哄啫瀹抽崘鍛村劥缁傚繐鍩勯妴鍌烆暙閸欐牜瀛╅崚鈺冪埠娑撯偓閻㈠崬鐣奸弬?VIP 缁傚繐鍩勬稉顓炵妇娴滃搫浼愰弽绋垮櫙閿涘苯鑻熼柌鍥╂暏鐎瑰鍙忛弬鐟扮础缁儳鍣崗鍛偓鑹板殾閹劎娈?555.bio 娑撹崵鐝拹锔藉煕娑擃厹鈧倹妞块崝銊︽付缂佸牐袙闁插﹥娼堣ぐ?555.bio 鐎规ɑ鏌熼幍鈧張澶堚偓</p>
+                    <p data-copy="footer_line3">婕?2026 555.bio Open-Marketing Platform. 閺堝秴濮熼崡蹇氼唴 | 閸氬牐顫夋竟鐗堟</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. 闂傤亜鍘?-->

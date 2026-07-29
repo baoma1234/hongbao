@@ -1,0 +1,44 @@
+<div class="panel panel-default panel-intro">
+    {:build_heading()}
+    <div class="panel-body">
+        <form id="csreply-form" class="form-horizontal" method="POST" action="{:url('fanshub.csreply/save')}">
+            {:token()}
+            <div class="form-group">
+                <label class="control-label col-xs-12 col-sm-2">全局默认回复</label>
+                <div class="col-xs-12 col-sm-8">
+                    <textarea class="form-control" name="default_reply" rows="3" placeholder="客服号未单独配置时使用">{$defaultReply|htmlentities}</textarea>
+                    <span class="help-block">用户添加客服号并通过后，客服自动发送此回复（账号级优先）。</span>
+                </div>
+            </div>
+            <hr>
+            <h4 style="margin:12px 0 16px;">各客服号独立回复</h4>
+            {if empty($agents)}
+            <div class="alert alert-warning">暂无客服托管账号，请先在「IM管理员/代聊」中添加。</div>
+            {else /}
+            {volist name="agents" id="ag"}
+            <div class="form-group">
+                <label class="control-label col-xs-12 col-sm-2">
+                    {$ag.label|default='客服'|htmlentities}
+                    <br><small class="text-muted">UID {$ag.user_id}</small>
+                </label>
+                <div class="col-xs-12 col-sm-8">
+                    <textarea class="form-control" name="friend_reply[{$ag.id}]" rows="2" placeholder="留空则用全局默认">{$ag.friend_reply|default=''|htmlentities}</textarea>
+                    <span class="help-block">状态：{if $ag.status==1}<span class="text-success">启用</span>{else /}<span class="text-muted">停用</span>{/if}</span>
+                </div>
+            </div>
+            {/volist}
+            {/if}
+            <div class="form-group layer-footer">
+                <label class="control-label col-xs-12 col-sm-2"></label>
+                <div class="col-xs-12 col-sm-8">
+                    <button type="submit" class="btn btn-primary btn-embossed">保存</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+require(['form'], function (Form) {
+    Form.api.bindevent($("#csreply-form"));
+});
+</script>

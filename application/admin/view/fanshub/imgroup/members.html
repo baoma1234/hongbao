@@ -1,0 +1,34 @@
+<div class="panel panel-default panel-intro">
+    <div class="panel-heading">
+        <strong>群成员</strong>
+        — {$group.name|htmlentities}
+        <span class="text-muted">（ID {$group.id} · 当前 {$group.member_count} 人）</span>
+        {eq name="group.status" value="3"}
+        <span class="label label-danger">全员禁言中</span>
+        {/eq}
+    </div>
+    <div class="panel-body">
+        <div id="toolbar" class="toolbar" style="margin-bottom:10px;">
+            <div class="input-group" style="max-width:320px;display:inline-flex;">
+                <input type="text" class="form-control" id="member-keyword" placeholder="搜索昵称/手机/ID">
+                <span class="input-group-btn">
+                    <button type="button" class="btn btn-primary" id="btn-member-search"><i class="fa fa-search"></i></button>
+                </span>
+            </div>
+            <a href="fanshub/imgroup/invite/ids/{$group_id}" class="btn btn-success btn-dialog"
+               data-area='["90%","90%"]'
+               title="添加群成员"><i class="fa fa-user-plus"></i> 添加群成员</a>
+            {eq name="group.status" value="3"}
+            <a href="javascript:;" class="btn btn-warning btn-muteall" data-enabled="0"><i class="fa fa-volume-up"></i> 关闭全员禁言</a>
+            {else/}
+            <a href="javascript:;" class="btn btn-warning btn-muteall" data-enabled="1"><i class="fa fa-bell-slash"></i> 开启全员禁言</a>
+            {/eq}
+        </div>
+        <table id="member-table" class="table table-striped table-bordered table-hover table-nowrap" width="100%"></table>
+    </div>
+</div>
+<script>
+    window.ImgroupMembersConfig = {
+        group_id: {$group_id|default=0}
+    };
+</script>

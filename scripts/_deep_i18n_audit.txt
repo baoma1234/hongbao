@@ -1,0 +1,49 @@
+## public/888/partials/tab-home.php
+  mojibake=3 unwired=5 missing_keys=0
+  MOJI <div> wired=0 馃搱 褰撳墠鍏ㄧ綉鑲′唤浜烘暟锛?,000 浜?( 馃殌 浠婃棩鏆存定 +0 浜?)
+  MOJI <div> wired=0 馃拵 浠婃棩澶х洏瀹炴椂鎸佷粨琛屾潈浠凤細￥.00 / 浠?( 馃敟 杈冩槰鏃ュぇ鐩樻媺鍗?+0% )
+  MOJI <span> wired=0 馃挸 娌℃湁璐﹀彿锛熺偣鍑?[555.bio瀹樻柟鏋侀€熷紑鎴穄
+  UNWIRE <div> 馃搱 褰撳墠鍏ㄧ綉鑲′唤浜烘暟锛?,000 浜?( 馃殌 浠婃棩鏆存定 +0 浜?) [MOJI]
+  UNWIRE <div> 馃拵 浠婃棩澶х洏瀹炴椂鎸佷粨琛屾潈浠凤細￥.00 / 浠?( 馃敟 杈冩槰鏃ュぇ鐩樻媺鍗?+0% ) [MOJI]
+  UNWIRE <span> 馃挸 娌℃湁璐﹀彿锛熺偣鍑?[555.bio瀹樻柟鏋侀€熷紑鎴穄 [MOJI]
+  UNWIRE <span> 绔嬮€?2 浠藉ぇ鐩樿偂銆
+  UNWIRE <placeholder> 例如：555bio（必须使用同手机号注册），否则小妹无法在后台核销上分
+
+## public/888/partials/tab-exchange.php
+  mojibake=0 unwired=2 missing_keys=0
+  UNWIRE <div> 可用 —
+  UNWIRE <div> 红利
+
+## public/888/partials/tab-messages.php
+  mojibake=0 unwired=6 missing_keys=0
+  UNWIRE <div> 会话
+  UNWIRE <div> 群聊
+  UNWIRE <div> 0 名成员
+  UNWIRE <button> 确认添加 (0 人)
+  UNWIRE <div> 恭喜发财
+  UNWIRE <div> 拼手气红包
+
+## public/888/partials/tab-master.php
+  mojibake=0 unwired=0 missing_keys=0
+
+## public/888/partials/tab-profile.php
+  mojibake=0 unwired=0 missing_keys=0
+
+## public/888/partials/profile-subpages.php
+  mojibake=0 unwired=1 missing_keys=0
+  UNWIRE <div> 累计流水：￥0.00
+
+## public/888/partials/bottom-and-overlays.php
+  mojibake=0 unwired=1 missing_keys=0
+  UNWIRE <div> 鈼
+
+## public/888/partials/modals.php
+  mojibake=1 unwired=4 missing_keys=0
+  MOJI <div> wired=0 馃幆
+  UNWIRE <div> 馃幆 [MOJI]
+  UNWIRE <strong> 红宝专属客服
+  UNWIRE <strong> 官方红宝聊天App
+  UNWIRE <div> 禄
+
+## public/888/partials/login.php
+  mojibake=0 unwired=0 missing_keys=0

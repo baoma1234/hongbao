@@ -1,0 +1,155 @@
+<form id="add-form" class="form-horizontal" role="form" data-toggle="validator" method="POST" action="">
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">昵称 (中文):</label>
+        <div class="col-xs-12 col-sm-8">
+            <input type="text" class="form-control" name="row[author_name]" value="红宝官方公告" data-rule="required" maxlength="64">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">昵称多语言:</label>
+        <div class="col-xs-12 col-sm-8">
+            {foreach name="localeList" item="locLabel" key="locCode"}
+            {if condition="$locCode != 'zh-CN'"}
+            <div style="margin-bottom:6px;">
+                <label class="text-muted" style="font-weight:normal;">{$locLabel} ({$locCode})</label>
+                <input type="text" class="form-control" name="row[author_name_i18n][{$locCode}]" maxlength="64" placeholder="留空则用中文昵称">
+            </div>
+            {/if}
+            {/foreach}
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">头像:</label>
+        <div class="col-xs-12 col-sm-8">
+            <div class="input-group">
+                <input id="c-author_avatar" class="form-control" name="row[author_avatar]" type="text">
+                <div class="input-group-addon no-border no-padding">
+                    <span><button type="button" id="faupload-author_avatar" class="btn btn-danger faupload" data-input-id="c-author_avatar" data-mimetype="image/gif,image/jpeg,image/png,image/jpg,image/bmp,image/webp" data-multiple="false" data-preview-id="p-author_avatar"><i class="fa fa-upload"></i> {:__('Upload')}</button></span>
+                </div>
+            </div>
+            <ul class="row list-inline faupload-preview" id="p-author_avatar"></ul>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">二级分类:</label>
+        <div class="col-xs-12 col-sm-8">
+            <select name="row[category]" class="form-control selectpicker" data-rule="required">
+                {foreach name="categoryList" item="vo" key="k"}
+                <option value="{$k}" {eq name="k" value="latest"}selected{/eq}>{$vo}</option>
+                {/foreach}
+            </select>
+            <span class="help-block">最新发布 / 推广赚钱 / 广告发布 / 游戏规则</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">正文 (中文):</label>
+        <div class="col-xs-12 col-sm-8">
+            <textarea class="form-control" name="row[content]" rows="6" data-rule="required" placeholder="完整展示，不折叠"></textarea>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">正文多语言:</label>
+        <div class="col-xs-12 col-sm-8">
+            {foreach name="localeList" item="locLabel" key="locCode"}
+            {if condition="$locCode != 'zh-CN'"}
+            <div style="margin-bottom:10px;">
+                <label class="text-muted" style="font-weight:normal;">{$locLabel} ({$locCode})</label>
+                <textarea class="form-control" name="row[content_i18n][{$locCode}]" rows="4" placeholder="留空则前端回退显示中文正文"></textarea>
+            </div>
+            {/if}
+            {/foreach}
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">配图:</label>
+        <div class="col-xs-12 col-sm-8">
+            <div class="input-group">
+                <input id="c-images" class="form-control" name="row[images]" type="text" placeholder="多图用逗号分隔，或上传后自动拼接">
+                <div class="input-group-addon no-border no-padding">
+                    <span><button type="button" id="faupload-images" class="btn btn-danger faupload" data-input-id="c-images" data-mimetype="image/gif,image/jpeg,image/png,image/jpg,image/bmp,image/webp" data-multiple="true" data-preview-id="p-images"><i class="fa fa-upload"></i> {:__('Upload')}</button></span>
+                </div>
+            </div>
+            <ul class="row list-inline faupload-preview" id="p-images"></ul>
+            <span class="help-block">支持单图 / 多图九宫格</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">视频:</label>
+        <div class="col-xs-12 col-sm-8">
+            <div class="input-group">
+                <input id="c-video" class="form-control" name="row[video]" type="text">
+                <div class="input-group-addon no-border no-padding">
+                    <span><button type="button" id="faupload-video" class="btn btn-danger faupload" data-input-id="c-video" data-mimetype="video/mp4,video/webm,video/ogg" data-multiple="false"><i class="fa fa-upload"></i> {:__('Upload')}</button></span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">主按钮类型:</label>
+        <div class="col-xs-12 col-sm-8">
+            <select name="row[action_type]" class="form-control selectpicker">
+                <option value="none">无</option>
+                <option value="link">外链/跳转</option>
+                <option value="share">分享推广</option>
+                <option value="buttons">多按钮</option>
+            </select>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">主按钮文案 (中文):</label>
+        <div class="col-xs-12 col-sm-8">
+            <input type="text" class="form-control" name="row[action_label]" maxlength="64" placeholder="如：规则更新">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">按钮文案多语言:</label>
+        <div class="col-xs-12 col-sm-8">
+            {foreach name="localeList" item="locLabel" key="locCode"}
+            {if condition="$locCode != 'zh-CN'"}
+            <div style="margin-bottom:6px;">
+                <label class="text-muted" style="font-weight:normal;">{$locLabel} ({$locCode})</label>
+                <input type="text" class="form-control" name="row[action_label_i18n][{$locCode}]" maxlength="64" placeholder="留空则用中文按钮文案">
+            </div>
+            {/if}
+            {/foreach}
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">主按钮链接:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input type="text" class="form-control" name="row[action_url]" maxlength="512">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">多按钮JSON:</label>
+        <div class="col-xs-12 col-sm-8">
+            <textarea class="form-control" name="row[action_buttons]" rows="3" placeholder='[{"label":"参与接力","url":""}]'></textarea>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">发布时间:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input type="text" class="form-control datetimepicker" data-date-format="YYYY-MM-DD HH:mm:ss" name="row[publishtime]" value="{:date('Y-m-d H:i:s')}" data-rule="required">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">排序:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input type="number" class="form-control" name="row[weigh]" value="0">
+            <span class="help-block">越大越靠前</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">状态:</label>
+        <div class="col-xs-12 col-sm-8">
+            {:build_radios('row[status]', $statusList, 'published')}
+        </div>
+    </div>
+    <div class="form-group layer-footer">
+        <label class="control-label col-xs-12 col-sm-2"></label>
+        <div class="col-xs-12 col-sm-8">
+            <button type="submit" class="btn btn-success btn-embossed">{:__('OK')}</button>
+            <button type="reset" class="btn btn-default btn-embossed">{:__('Reset')}</button>
+        </div>
+    </div>
+</form>

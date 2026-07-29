@@ -1,0 +1,179 @@
+[
+    {
+        "file": "public\/888\/partials\/tab-home.php",
+        "mojibake": [
+            {
+                "tag": "div",
+                "text": "馃搱 褰撳墠鍏ㄧ綉鑲′唤浜烘暟锛?,000 浜?( 馃殌 浠婃棩鏆存定 +0 浜?)",
+                "wired": false
+            },
+            {
+                "tag": "div",
+                "text": "馃拵 浠婃棩澶х洏瀹炴椂鎸佷粨琛屾潈浠凤細￥.00 \/ 浠?( 馃敟 杈冩槰鏃ュぇ鐩樻媺鍗?+0% )",
+                "wired": false
+            },
+            {
+                "tag": "span",
+                "text": "馃挸 娌℃湁璐﹀彿锛熺偣鍑?[555.bio瀹樻柟鏋侀€熷紑鎴穄",
+                "wired": false
+            }
+        ],
+        "unwired": [
+            {
+                "tag": "div",
+                "text": "馃搱 褰撳墠鍏ㄧ綉鑲′唤浜烘暟锛?,000 浜?( 馃殌 浠婃棩鏆存定 +0 浜?) [MOJI]",
+                "attrs": "class=\"jackpot-meta\" id=\"jackpotPartners\""
+            },
+            {
+                "tag": "div",
+                "text": "馃拵 浠婃棩澶х洏瀹炴椂鎸佷粨琛屾潈浠凤細￥.00 \/ 浠?( 馃敟 杈冩槰鏃ュぇ鐩樻媺鍗?+0% ) [MOJI]",
+                "attrs": "class=\"jackpot-price-line\" id=\"jackpotSharePrice\""
+            },
+            {
+                "tag": "span",
+                "text": "馃挸 娌℃湁璐﹀彿锛熺偣鍑?[555.bio瀹樻柟鏋侀€熷紑鎴穄 [MOJI]",
+                "attrs": "class=\"cta-open-account-label\" id=\"openAccountBtnLabel\""
+            },
+            {
+                "tag": "span",
+                "text": "绔嬮€?2 浠藉ぇ鐩樿偂銆",
+                "attrs": "class=\"cta-open-account-badge\" id=\"openAccountBadge\""
+            },
+            {
+                "tag": "placeholder",
+                "text": "例如：555bio（必须使用同手机号注册），否则小妹无法在后台核销上分",
+                "attrs": ""
+            }
+        ],
+        "missing_keys": []
+    },
+    {
+        "file": "public\/888\/partials\/tab-exchange.php",
+        "mojibake": [],
+        "unwired": [
+            {
+                "tag": "div",
+                "text": "可用 —",
+                "attrs": "class=\"share-swap-avail\" id=\"shareSwapAvail\""
+            },
+            {
+                "tag": "div",
+                "text": "红利",
+                "attrs": "class=\"share-swap-summary-label\" id=\"shareSwapEstAsset\""
+            }
+        ],
+        "missing_keys": []
+    },
+    {
+        "file": "public\/888\/partials\/tab-messages.php",
+        "mojibake": [],
+        "unwired": [
+            {
+                "tag": "div",
+                "text": "会话",
+                "attrs": "class=\"chat-hero-title chat-room-title\" id=\"chatRoomTitle\""
+            },
+            {
+                "tag": "div",
+                "text": "群聊",
+                "attrs": "class=\"chat-setting-name\" id=\"chatGroupSettingsName\""
+            },
+            {
+                "tag": "div",
+                "text": "0 名成员",
+                "attrs": "class=\"chat-setting-meta\" id=\"chatGroupSettingsMeta\""
+            },
+            {
+                "tag": "button",
+                "text": "确认添加 (0 人)",
+                "attrs": "type=\"button\" class=\"chat-invite-confirm-btn\" id=\"chatInviteConfirmBtn\" disabled"
+            },
+            {
+                "tag": "div",
+                "text": "恭喜发财",
+                "attrs": "class=\"chat-rp-preview-bless\" id=\"chatRpPreviewBless\""
+            },
+            {
+                "tag": "div",
+                "text": "拼手气红包",
+                "attrs": "class=\"chat-rp-preview-sub\" id=\"chatRpPreviewSub\""
+            }
+        ],
+        "missing_keys": []
+    },
+    {
+        "file": "public\/888\/partials\/tab-master.php",
+        "mojibake": [],
+        "unwired": [],
+        "missing_keys": []
+    },
+    {
+        "file": "public\/888\/partials\/tab-profile.php",
+        "mojibake": [],
+        "unwired": [],
+        "missing_keys": []
+    },
+    {
+        "file": "public\/888\/partials\/profile-subpages.php",
+        "mojibake": [],
+        "unwired": [
+            {
+                "tag": "div",
+                "text": "累计流水：￥0.00",
+                "attrs": "class=\"profile-meta-line\" id=\"profileTurnoverLine\" data-turnover-prefix-key=\"profile_turnover_prefix\""
+            }
+        ],
+        "missing_keys": []
+    },
+    {
+        "file": "public\/888\/partials\/bottom-and-overlays.php",
+        "mojibake": [],
+        "unwired": [
+            {
+                "tag": "div",
+                "text": "鈼",
+                "attrs": "class=\"wl-chest-lock\""
+            }
+        ],
+        "missing_keys": []
+    },
+    {
+        "file": "public\/888\/partials\/modals.php",
+        "mojibake": [
+            {
+                "tag": "div",
+                "text": "馃幆",
+                "wired": false
+            }
+        ],
+        "unwired": [
+            {
+                "tag": "div",
+                "text": "馃幆 [MOJI]",
+                "attrs": "class=\"block-icon\""
+            },
+            {
+                "tag": "strong",
+                "text": "红宝专属客服",
+                "attrs": ""
+            },
+            {
+                "tag": "strong",
+                "text": "官方红宝聊天App",
+                "attrs": ""
+            },
+            {
+                "tag": "div",
+                "text": "禄",
+                "attrs": "class=\"slider-thumb\" id=\"sliderThumb\""
+            }
+        ],
+        "missing_keys": []
+    },
+    {
+        "file": "public\/888\/partials\/login.php",
+        "mojibake": [],
+        "unwired": [],
+        "missing_keys": []
+    }
+]

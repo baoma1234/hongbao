@@ -1,0 +1,13 @@
+{
+  "appId": "com.qianghongbao.app",
+  "appName": "红宝",
+  "version": "1.0.0",
+  "h5Url": "https://555fx1.bio/888/",
+  "allowNavigation": [
+    "555fx1.bio",
+    "*.555fx1.bio",
+    "555.bio",
+    "*.555.bio"
+  ],
+  "comment": "上线前请把 h5Url 改成正式 HTTPS 大厅地址；allowNavigation 填会跳转的同系域名"
+}

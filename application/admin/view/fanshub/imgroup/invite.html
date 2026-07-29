@@ -1,0 +1,26 @@
+<div class="panel panel-default panel-intro">
+    <div class="panel-heading">
+        <strong>添加群成员</strong>
+        — {$group.name|htmlentities}
+        <span class="text-muted">（仅展示尚未入群的用户）</span>
+    </div>
+    <div class="panel-body">
+        <div id="toolbar" class="toolbar" style="margin-bottom:10px;">
+            <div class="input-group" style="max-width:360px;display:inline-flex;">
+                <input type="text" class="form-control" id="invite-keyword" placeholder="搜索用户名/手机号/ID">
+                <span class="input-group-btn">
+                    <button type="button" class="btn btn-primary" id="btn-invite-search"><i class="fa fa-search"></i></button>
+                </span>
+            </div>
+            <button type="button" class="btn btn-success" id="btn-invite-confirm" disabled>
+                <i class="fa fa-check"></i> 确认添加 (<span id="invite-selected-count">0</span> 人)
+            </button>
+        </div>
+        <table id="invite-table" class="table table-striped table-bordered table-hover table-nowrap" width="100%"></table>
+    </div>
+</div>
+<script>
+    window.ImgroupInviteConfig = {
+        group_id: {$group_id|default=0}
+    };
+</script>

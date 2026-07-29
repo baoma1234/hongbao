@@ -1,0 +1,86 @@
+<div class="panel panel-default">
+    <div class="panel-heading">
+        红包详情 #{$row.id}
+        <div class="pull-right">
+            {if condition="in_array($row.status, [1,2])"}
+            <a href="javascript:;" class="btn btn-xs btn-warning btn-retrysettle" data-id="{$row.id}">重试结算</a>
+            {/if}
+            {if condition="$row.status == 1"}
+            <a href="javascript:;" class="btn btn-xs btn-info btn-refundnow" data-id="{$row.id}">过期退回</a>
+            <a href="javascript:;" class="btn btn-xs btn-danger btn-forceclose" data-id="{$row.id}">强制关包</a>
+            {/if}
+            <a href="fanshub/account/adjust" class="btn btn-xs btn-default" target="_blank">异常补账</a>
+        </div>
+    </div>
+    <div class="panel-body">
+        <table class="table table-bordered">
+            <tr><th width="140">单号</th><td>{$row.packet_no|htmlentities}</td><th width="140">类型</th><td>{$typeList[$row.packet_type]|default=$row.packet_type}</td></tr>
+            <tr><th>状态</th><td>{$statusList[$row.status]|default=$row.status}</td><th>发包人</th><td>{$fromLabel|htmlentities}</td></tr>
+            <tr><th>总金额</th><td>{$row.total_amount}</td><th>个数</th><td>{$row.total_count}（剩余 {$row.remain_count}）</td></tr>
+            <tr><th>雷号</th><td>{$row.mine_digit|default='-'}</td><th>群ID</th><td>{$row.group_id|default=0}</td></tr>
+            <tr><th>平台抽水</th><td>{$row.platform_fee|default='0.00'}（比例 {$row.platform_fee_rate|default='-'}）</td><th>代理返点</th><td>{$row.agent_rebate_amount|default='0.00'} → UID {$row.agent_user_id|default=0}</td></tr>
+            <tr><th>赔付</th><td>{$row.compensate_amount|default='0.00'} / 状态 {$row.compensate_status|default=0}</td><th>退回</th><td>{$row.refund_amount|default='0.00'}</td></tr>
+            <tr><th>祝福语</th><td colspan="3">{$row.blessing|htmlentities}</td></tr>
+            <tr><th>创建/过期</th><td colspan="3">{:date('Y-m-d H:i:s',$row.createtime)} → {:date('Y-m-d H:i:s',$row.expiretime)}</td></tr>
+        </table>
+
+        <h4>领取明细</h4>
+        <table class="table table-striped table-bordered">
+            <thead>
+            <tr>
+                <th>ID</th><th>用户</th><th>金额</th><th>尾数</th><th>最佳</th><th>最差</th><th>中雷</th><th>赔付状态</th><th>时间</th>
+            </tr>
+            </thead>
+            <tbody>
+            {volist name="records" id="r"}
+            <tr>
+                <td>{$r.id}</td>
+                <td>{$r.user_label|htmlentities}</td>
+                <td>{$r.amount}</td>
+                <td>{$r.tail_digit|default=0}</td>
+                <td>{eq name="r.is_best" value="1"}是{else/}-{/eq}</td>
+                <td>{eq name="r.is_worst" value="1"}是{else/}-{/eq}</td>
+                <td>{eq name="r.is_mine_hit" value="1"}是{else/}-{/eq}</td>
+                <td>
+                    {switch name="r.compensate_status"}
+                    {case value="1"}待赔{/case}
+                    {case value="2"}已赔{/case}
+                    {case value="3"}失败{/case}
+                    {default /}-
+                    {/switch}
+                    {if condition="$r.compensate_amount > 0"}（{$r.compensate_amount}）{/if}
+                </td>
+                <td>{:date('Y-m-d H:i:s',$r.createtime)}</td>
+            </tr>
+            {/volist}
+            {empty name="records"}
+            <tr><td colspan="9" class="text-center text-muted">暂无领取</td></tr>
+            {/empty}
+            </tbody>
+        </table>
+
+        <h4>结算流水</h4>
+        <table class="table table-striped table-bordered">
+            <thead>
+            <tr><th>ID</th><th>类型</th><th>出账</th><th>入账</th><th>金额</th><th>状态</th><th>备注</th><th>时间</th></tr>
+            </thead>
+            <tbody>
+            {volist name="settlements" id="s"}
+            <tr>
+                <td>{$s.id}</td>
+                <td>{$s.type_text|htmlentities}</td>
+                <td>{$s.from_label|htmlentities}</td>
+                <td>{$s.to_label|htmlentities}</td>
+                <td>{$s.amount}</td>
+                <td>{$s.status}</td>
+                <td>{$s.remark|htmlentities}</td>
+                <td>{:date('Y-m-d H:i:s',$s.createtime)}</td>
+            </tr>
+            {/volist}
+            {empty name="settlements"}
+            <tr><td colspan="8" class="text-center text-muted">暂无结算记录</td></tr>
+            {/empty}
+            </tbody>
+        </table>
+    </div>
+</div>

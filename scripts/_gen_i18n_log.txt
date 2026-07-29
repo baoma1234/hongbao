@@ -1,0 +1,9 @@
+﻿Wrote C:\wwwroot\caijin.com_7111/public/888/i18n (6 locales, ver=20260725144451)
+Wrote C:\wwwroot\caijin.com_7111/public/fanshub/i18n (6 locales, ver=20260725144451)
+Wrote C:\wwwroot\caijin.com_7111/public/fanshubtest/i18n (6 locales, ver=20260725144451)
+  zh-CN: 669 keys, ~36.9KB
+  en-PH: 669 keys, ~36.8KB
+  id-ID: 669 keys, ~36.8KB
+  vi-VN: 669 keys, ~37.2KB
+  ms-MY: 669 keys, ~36.8KB
+  km-KH: 669 keys, ~38.9KB

@@ -1,0 +1,150 @@
+﻿=== settle 330-360 ===
+330:            input.addEventListener('keydown', function(e) {
+331:                if (e.key === 'Enter') {
+332:                    e.preventDefault();
+333:                    submitUID();
+334:                }
+335:            });
+336:        })();
+337:
+338:        function updateManualSettleButton() {
+339:            const title = document.getElementById('manualSettleTitle');
+340:            const sub = document.getElementById('manualSettleSub');
+341:            if ((Number(account.hongbao) || 0) >= CONFIG.WITHDRAW_THRESHOLD) {
+342:                title.innerText = fc('settle_title_high');
+343:                sub.innerText = fc('settle_sub_high');
+344:            } else {
+345:                title.innerText = fc('settle_title_low');
+346:                sub.innerText = fc('settle_sub_low');
+347:            }
+348:        }
+349:
+350:        function startSecretCountdown() {
+351:            if (secretTimerInterval) clearInterval(secretTimerInterval);
+352:            let remaining = CONFIG.SECRET_LOCK_SECONDS;
+353:            const el = document.getElementById('secretCountdown');
+354:            function tick() {
+355:                const m = Math.floor(remaining / 60);
+356:                const s = remaining % 60;
+357:                el.innerText = String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+358:                if (remaining <= 0) {
+359:                    clearInterval(secretTimerInterval);
+360:                    el.innerText = fc('withdraw_secret_expired');
+=== marquee 1020-1070 ===
+1020:                }
+1021:                box.scrollTop = 0;
+1022:                input.value = '';
+1023:                showFanshubToast(data.auto_show ? fc('alert_comment_ok') : fc('alert_comment_pending'), 'success');
+1024:            } catch (e) {
+1025:                showFanshubToast(e.message || fc('alert_comment_fail'), 'error');
+1026:            }
+1027:        }
+1028:
+1029:        function parseMarqueeCopyText(text) {
+1030:            return String(text || '')
+1031:                .replace(/\r\n/g, '\n')
+1032:                .replace(/\r/g, '\n')
+1033:                .split('\n')
+1034:                .map(function(line) { return line.trim(); })
+1035:                .filter(Boolean);
+1036:        }
+1037:
+1038:        function getMarqueeItems() {
+1039:            const loc = (window.FanshubI18n && FanshubI18n.locale) || 'zh-CN';
+1040:            const fromCopy = parseMarqueeCopyText(fc('marquee_text'));
+1041:            // 闈炰腑鏂囦紭鍏堢敤澶氳瑷€鏂囨锛涗腑鏂囦紭鍏堢敤娲诲姩閰嶇疆 marquee_text锛堟帴鍙ｄ笅鍙戯級
+1042:            if (loc !== 'zh-CN' && fromCopy.length) return fromCopy;
+1043:            if (marqueeItems.length) return marqueeItems;
+1044:            if (fromCopy.length) return fromCopy;
+1045:            return [fc('marquee_fallback_prefix') + fc('marquee_fallback')];
+1046:        }
+1047:
+1048:        function initMarqueeInterval() {
+1049:            const node = document.getElementById('marqueeNode');
+1050:            if (!node) return;
+1051:            const items = getMarqueeItems();
+1052:            node.innerHTML = items.map(function(text) {
+1053:                return '<div class="marquee-item">' + text + '</div>';
+1054:            }).join('');
+1055:        }
+1056:
+1057:        function copyText(text, successMsg) {
+1058:            if (navigator.clipboard && navigator.clipboard.writeText) {
+1059:                navigator.clipboard.writeText(text).then(() => {
+1060:                    showFanshubToast(successMsg || fc('alert_copy_ok'), 'success');
+1061:                }).catch(() => fallbackCopy(text, successMsg));
+1062:            } else {
+1063:                fallbackCopy(text, successMsg);
+1064:            }
+1065:        }
+1066:
+1067:        function fallbackCopy(text, successMsg) {
+1068:            let tempInput = document.createElement("input");
+1069:            tempInput.value = text;
+1070:            document.body.appendChild(tempInput);
+=== updateDynamicCopy 557-620 ===
+557:        function updateDynamicCopy() {
+558:            refreshPriceLinkedHints();
+559:            const jackpotHint = document.getElementById('jackpotHint');
+560:            if (jackpotHint) jackpotHint.textContent = fc('jackpot_hint');
+561:            updateJackpotMeta();
+562:            const loginBtn = document.getElementById('loginSubmitBtn');
+563:            if (loginBtn) loginBtn.textContent = fc('login_submit_btn');
+564:            const openBtn = document.getElementById('openAccountBtn');
+565:            if (openBtn) updateOpenAccountCta();
+566:            const shareActionBtn = document.getElementById('sharePromoActionBtn');
+567:            if (shareActionBtn) shareActionBtn.textContent = fc('share_promo_action_btn') || '閻愮懓鍤粩瀣祮閸掑棔闊?;
+568:            const thresholdOpenBtn = document.getElementById('thresholdOpenBtn');
+569:            if (thresholdOpenBtn) thresholdOpenBtn.textContent = fc('threshold_modal_btn_open');
+570:            const thresholdDesc = document.getElementById('thresholdModalDesc');
+571:            if (thresholdDesc) thresholdDesc.innerHTML = fc('threshold_modal_desc');
+572:            currentSelectedTeam = fc('channel_a_name') || 'A';
+573:            const optA = document.getElementById('optTeamA');
+574:            if (optA) optA.classList.add('selected');
+575:            applySkinOptions();
+576:            const statusTag = document.getElementById('userStatusTag');
+577:            if (statusTag) statusTag.textContent = fc('user_status_shield');
+578:            const lotteryShares = document.getElementById('welcomeLotteryShares');
+579:            if (lotteryShares && !lotteryOpening) {
+580:                lotteryShares.textContent = fc('lottery_shares_locked', { shares: LOTTERY_SHARES.toFixed(2) });
+581:            }
+582:            const lotteryClose = document.getElementById('welcomeLotteryCloseBtn');
+583:            if (lotteryClose && lotteryClose.disabled) {
+584:                lotteryClose.textContent = fc('lottery_close_wait');
+585:            }
+586:            const lotteryHint = document.getElementById('welcomeLotteryHint');
+587:            if (lotteryHint && !lotteryOpening) {
+588:                lotteryHint.textContent = fc('lottery_chest_hint');
+589:            }
+590:            updateBalanceProgress();
+591:            syncClaimPageEcho();
+592:            initMarqueeInterval();
+593:        }
+594:
+595:        function parseOpenAccountCta(raw) {
+596:            const bracket = raw.match(/^(.+?)\[(.+?)\]\((.+?)\)\s*$/);
+597:            if (bracket) {
+598:                return { label: (bracket[1] + '[' + bracket[2] + ']').trim(), badge: bracket[3].trim() };
+599:            }
+600:            const paren = raw.match(/^(.+?)\(([^)]+)\)\s*$/);
+601:            if (paren) {
+602:                return { label: paren[1].trim(), badge: paren[2].trim() };
+603:            }
+604:            const rights = COPY_VARS.open_account_rights || 2;
+605:            return {
+606:                label: raw,
+607:                badge: fc('open_account_badge_fallback', { open_account_rights: rights }) || ('绔嬪緱 ' + rights + ' 浠藉ぇ鐩樿偂銆?)
+608:            };
+609:        }
+610:
+611:        function updateOpenAccountCta() {
+612:            const parts = parseOpenAccountCta(fc('open_account_btn'));
+613:            const label = document.getElementById('openAccountBtnLabel');
+614:            const badge = document.getElementById('openAccountBadge');
+615:            if (label) label.textContent = parts.label;
+616:            if (badge) badge.textContent = parts.badge;
+617:        }
+618:
+619:        function balanceProgressHintText(progressPct, ready) {
+620:            if (ready) {
+en count=167

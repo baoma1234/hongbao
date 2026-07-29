@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>新手黑金宝箱 · 样式选型 /textbox/</title>
+    <style>
+        :root {
+            --bg: #0c0b0a;
+            --card: #16130f;
+            --line: rgba(255, 213, 79, 0.28);
+            --text: #FFF8E1;
+            --muted: rgba(255, 236, 179, 0.65);
+            --gold: #FFD54F;
+            --pick: #00C853;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+            background:
+                radial-gradient(ellipse at 20% 0%, rgba(255, 193, 7, 0.12), transparent 45%),
+                radial-gradient(ellipse at 80% 100%, rgba(255, 87, 34, 0.08), transparent 40%),
+                var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 24px 16px 80px;
+        }
+        .page-head {
+            max-width: 1100px;
+            margin: 0 auto 22px;
+        }
+        .page-head h1 {
+            font-size: 22px;
+            font-weight: 900;
+            letter-spacing: 1px;
+            font-family: "Songti SC", "STSong", Georgia, serif;
+            color: #FFE566;
+            text-shadow: 0 0 18px rgba(255, 215, 0, 0.35);
+        }
+        .page-head p {
+            margin-top: 8px;
+            font-size: 13px;
+            color: var(--muted);
+            line-height: 1.55;
+        }
+        .pick-bar {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            max-width: 1100px;
+            margin: 0 auto 18px;
+            padding: 12px 14px;
+            border-radius: 14px;
+            background: rgba(22, 19, 15, 0.92);
+            border: 1px solid var(--line);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .pick-bar strong { color: var(--gold); }
+        .pick-bar .hint { font-size: 12px; color: var(--muted); }
+        .grid {
+            max-width: 1100px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 18px;
+        }
+        .style-card {
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+        }
+        .style-card.selected {
+            border-color: var(--pick);
+            box-shadow: 0 0 0 1px rgba(0, 200, 83, 0.35), 0 12px 40px rgba(0, 200, 83, 0.15);
+            transform: translateY(-2px);
+        }
+        .style-meta {
+            padding: 14px 14px 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .style-meta .tag {
+            display: inline-block;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            color: #FFECB3;
+            border: 1px solid rgba(255, 213, 79, 0.45);
+            border-radius: 999px;
+            padding: 3px 10px;
+            margin-bottom: 8px;
+            background: rgba(255, 193, 7, 0.1);
+        }
+        .style-meta h2 {
+            font-size: 16px;
+            font-weight: 900;
+            margin-bottom: 4px;
+        }
+        .style-meta p {
+            font-size: 12px;
+            color: var(--muted);
+            line-height: 1.45;
+        }
+        .preview-stage {
+            position: relative;
+            min-height: 420px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 18px 12px;
+        }
+        .style-actions {
+            display: flex;
+            gap: 8px;
+            padding: 12px 14px 14px;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .style-actions button {
+            flex: 1;
+            border: none;
+            border-radius: 10px;
+            padding: 11px 10px;
+            font-size: 13px;
+            font-weight: 800;
+            cursor: pointer;
+        }
+        .btn-demo {
+            background: rgba(255, 255, 255, 0.08);
+            color: #FFF8E1;
+        }
+        .btn-pick {
+            background: linear-gradient(135deg, #00E676, #00C853);
+            color: #063018;
+        }
+        .style-card.selected .btn-pick {
+            background: linear-gradient(135deg, #69F0AE, #00E676);
+        }
+
+        /* ===== shared mini panel ===== */
+        .wl-panel {
+            width: 100%;
+            max-width: 300px;
+            text-align: center;
+            padding: 22px 16px 16px;
+            border-radius: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+        .wl-shine {
+            position: absolute;
+            inset: -40% -60%;
+            pointer-events: none;
+            animation: shineSweep 4.5s ease-in-out infinite;
+        }
+        @keyframes shineSweep {
+            0% { transform: translateX(-30%) rotate(12deg); }
+            100% { transform: translateX(40%) rotate(12deg); }
+        }
+        .wl-eyebrow, .wl-title, .wl-sub, .wl-shares, .wl-price, .wl-hint, .wl-btn {
+            position: relative; z-index: 1;
+        }
+        .wl-eyebrow {
+            display: inline-block;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 2px;
+            border-radius: 999px;
+            padding: 4px 12px;
+            margin-bottom: 8px;
+        }
+        .wl-title {
+            font-size: 18px;
+            font-weight: 900;
+            letter-spacing: 1.2px;
+            margin-bottom: 4px;
+            font-family: "Songti SC", "STSong", Georgia, serif;
+        }
+        .wl-sub {
+            font-size: 11px;
+            margin-bottom: 14px;
+            opacity: 0.9;
+        }
+        .wl-chest-wrap {
+            position: relative;
+            width: 150px;
+            height: 150px;
+            margin: 0 auto 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .wl-ring {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        .wl-ring-a { width: 132px; height: 132px; border-style: dashed; animation: spin 10s linear infinite; }
+        .wl-ring-b { width: 150px; height: 150px; animation: spin 16s linear infinite reverse; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .wl-chest {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            user-select: none;
+            animation: sway 2.6s ease-in-out infinite;
+        }
+        @keyframes sway {
+            0%, 55%, 100% { transform: rotate(0deg) translateY(0); }
+            8%  { transform: rotate(-12deg) translateY(-2px); }
+            16% { transform: rotate(12deg) translateY(-3px); }
+            24% { transform: rotate(-10deg) translateY(-2px); }
+            32% { transform: rotate(9deg) translateY(-4px); }
+            40% { transform: rotate(-5deg) translateY(-1px); }
+            48% { transform: rotate(3deg) translateY(-2px); }
+        }
+        .wl-chest.shaking { animation: hardShake 0.11s linear infinite !important; }
+        @keyframes hardShake {
+            0% { transform: rotate(0) scale(1); }
+            25% { transform: rotate(-10deg) scale(1.05); }
+            50% { transform: rotate(10deg) scale(1.03); }
+            75% { transform: rotate(-7deg) scale(1.06); }
+            100% { transform: rotate(0) scale(1); }
+        }
+        .wl-chest.opened {
+            animation: none !important;
+            transform: scale(1.06) rotate(0);
+        }
+        .wl-chest.opened .lid { transform: rotateX(-78deg) translateY(-6px); }
+        .wl-body {
+            position: relative;
+            width: 64px;
+            height: 52px;
+            border-radius: 8px 8px 10px 10px;
+        }
+        .lid {
+            position: absolute;
+            left: -3px; right: -3px; top: -16px;
+            height: 24px;
+            border-radius: 10px 10px 4px 4px;
+            transform-origin: bottom center;
+            transition: transform 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.15);
+        }
+        .lid::after {
+            content: '';
+            position: absolute;
+            left: 50%; top: 5px;
+            width: 22px; height: 5px;
+            transform: translateX(-50%);
+            border-radius: 3px;
+        }
+        .lock {
+            position: absolute;
+            left: 50%; top: 12px;
+            transform: translateX(-50%);
+            width: 18px; height: 18px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 10px; font-weight: 900;
+            z-index: 2;
+        }
+        .glow {
+            position: absolute;
+            inset: 8px 10px auto;
+            height: 10px;
+            border-radius: 50%;
+            filter: blur(4px);
+            animation: glowPulse 1.8s ease-in-out infinite;
+        }
+        @keyframes glowPulse {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 1; }
+        }
+        .sparkles { position: absolute; inset: 0; pointer-events: none; }
+        .sparkles i {
+            position: absolute; width: 4px; height: 4px; border-radius: 50%;
+            animation: spark 2.4s ease-in-out infinite; opacity: 0;
+        }
+        .sparkles i:nth-child(1) { top: 12%; left: 18%; }
+        .sparkles i:nth-child(2) { top: 20%; right: 14%; animation-delay: .4s; }
+        .sparkles i:nth-child(3) { bottom: 22%; left: 12%; animation-delay: .8s; }
+        .sparkles i:nth-child(4) { bottom: 16%; right: 18%; animation-delay: 1.2s; }
+        .sparkles i:nth-child(5) { top: 46%; left: 6%; animation-delay: .2s; }
+        .sparkles i:nth-child(6) { top: 50%; right: 6%; animation-delay: 1s; }
+        @keyframes spark {
+            0%, 100% { opacity: 0; transform: scale(.4); }
+            40% { opacity: 1; transform: scale(1.3); }
+            70% { opacity: .45; transform: scale(.7); }
+        }
+        .burst {
+            position: absolute; inset: 0; border-radius: 50%; pointer-events: none; opacity: 0;
+        }
+        .burst.show { animation: burstFlash .7s ease-out forwards; }
+        @keyframes burstFlash {
+            0% { opacity: 0; transform: scale(.4); }
+            35% { opacity: 1; transform: scale(1.15); }
+            100% { opacity: 0; transform: scale(1.55); }
+        }
+        .wl-shares { font-size: 12px; font-weight: 800; margin-bottom: 2px; letter-spacing: 1px; }
+        .wl-price {
+            font-size: 28px; font-weight: 900; min-height: 34px; margin-bottom: 8px;
+            font-family: Impact, "Arial Black", sans-serif;
+        }
+        .wl-price.revealed { animation: pricePop .55s cubic-bezier(.2,.9,.3,1.2); }
+        @keyframes pricePop {
+            0% { transform: scale(.6); opacity: .2; }
+            60% { transform: scale(1.12); }
+            100% { transform: scale(1); }
+        }
+        .wl-hint { font-size: 11px; margin-bottom: 12px; line-height: 1.45; opacity: .9; }
+        .wl-btn {
+            width: 100%; border: none; border-radius: 11px; padding: 11px;
+            font-size: 13px; font-weight: 800; cursor: pointer;
+        }
+        .wl-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+        /* ========== STYLE A: 当前线上亮金 ========== */
+        .s-a .preview-stage {
+            background:
+                radial-gradient(ellipse at 50% 30%, rgba(255, 193, 7, 0.35), transparent 50%),
+                #100c08;
+        }
+        .s-a .wl-panel {
+            background: linear-gradient(165deg, rgba(255,213,79,.28), transparent 34%), linear-gradient(160deg, #2a1f10, #1a1208 42%, #120e08);
+            border: 1.5px solid rgba(255,213,79,.85);
+            box-shadow: 0 18px 40px rgba(0,0,0,.55), 0 0 32px rgba(255,193,7,.22);
+        }
+        .s-a .wl-shine { background: linear-gradient(115deg, transparent 35%, rgba(255,248,200,.28) 50%, transparent 65%); }
+        .s-a .wl-eyebrow { color:#FFECB3; border:1px solid rgba(255,213,79,.75); background:linear-gradient(135deg,rgba(255,193,7,.35),rgba(255,152,0,.22)); }
+        .s-a .wl-title { color:#FFE566; text-shadow:0 0 18px rgba(255,215,0,.55); }
+        .s-a .wl-sub { color:#FFECB3; }
+        .s-a .wl-ring { border:1.5px solid rgba(255,213,79,.65); }
+        .s-a .wl-ring-b { border-color:rgba(255,224,130,.45); box-shadow:0 0 24px rgba(255,193,7,.25); }
+        .s-a .wl-chest {
+            background: radial-gradient(circle at 50% 22%, rgba(255,236,179,.55), transparent 48%), linear-gradient(155deg,#5D4037,#3E2723 40%,#1A0E08);
+            border: 2.5px solid #FFD54F;
+            box-shadow: 0 10px 28px rgba(0,0,0,.45), 0 0 0 4px rgba(255,193,7,.25), 0 0 28px rgba(255,193,7,.5);
+        }
+        .s-a .wl-body { background:linear-gradient(180deg,#6D4C41,#3E2723 55%,#1B1008); border:2px solid #FFC107; }
+        .s-a .lid { background:linear-gradient(180deg,#FFB300,#FF8F00 45%,#E65100); border:2px solid #FFE082; }
+        .s-a .lid::after { background:linear-gradient(90deg,#FF6F00,#FFF59D,#FFD54F,#FF6F00); }
+        .s-a .lock { color:#3E2723; background:radial-gradient(circle at 35% 30%,#FFFDE7,#FFEB3B 40%,#FFC107 70%,#FF8F00); box-shadow:0 0 14px rgba(255,235,59,.85); }
+        .s-a .glow { background:rgba(255,236,179,.55); }
+        .s-a .sparkles i { background:#FFF59D; box-shadow:0 0 10px #FFEB3B; }
+        .s-a .burst { background:radial-gradient(circle,rgba(255,235,59,.75),transparent 55%); }
+        .s-a .wl-shares,.s-a .wl-hint { color:#FFE082; }
+        .s-a .wl-price { color:#FFFDE7; text-shadow:0 0 18px rgba(255,235,59,.6); }
+        .s-a .wl-price.revealed { color:#FFEB3B; }
+        .s-a .wl-btn { background:linear-gradient(135deg,#FFF59D,#FFD54F 35%,#FFB300 70%,#FF8F00); color:#3E2723; }
+
+        /* ========== STYLE B: 古典哑光黑金 ========== */
+        .s-b .preview-stage {
+            background: radial-gradient(circle at 50% 40%, rgba(184,134,11,.2), transparent 55%), #090907;
+        }
+        .s-b .wl-panel {
+            background: linear-gradient(165deg, rgba(212,175,55,.12), transparent 30%), linear-gradient(160deg, #14110c, #0b0a08);
+            border: 1px solid rgba(212,175,55,.5);
+            box-shadow: 0 18px 40px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,236,179,.2);
+        }
+        .s-b .wl-shine { background: linear-gradient(115deg, transparent 40%, rgba(212,175,55,.1) 50%, transparent 60%); }
+        .s-b .wl-eyebrow { color:#D4AF37; border:1px solid rgba(212,175,55,.4); background:rgba(212,175,55,.08); border-radius:4px; letter-spacing:3px; }
+        .s-b .wl-title { color:#E8D5A3; text-shadow:none; }
+        .s-b .wl-sub { color:rgba(232,213,163,.7); }
+        .s-b .wl-ring { border:1px solid rgba(212,175,55,.3); }
+        .s-b .wl-chest {
+            background: linear-gradient(160deg, #1c1914, #0a0908);
+            border: 2px solid #C9A227;
+            box-shadow: 0 10px 24px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,236,180,.2);
+            border-radius: 12px;
+        }
+        .s-b .wl-body { background:linear-gradient(180deg,#2a2418,#100e0a); border:1.5px solid #B8860B; }
+        .s-b .lid { background:linear-gradient(180deg,#3a3020,#1a140c); border:1.5px solid #D4AF37; }
+        .s-b .lid::after { background:linear-gradient(90deg,#8a7020,#F5D76E,#8a7020); }
+        .s-b .lock { color:#1a1208; background:radial-gradient(circle at 30% 30%,#FFE082,#C9A227 65%,#8a6b12); box-shadow:0 0 8px rgba(212,175,55,.45); }
+        .s-b .glow { background:rgba(212,175,55,.2); }
+        .s-b .sparkles i { background:#D4AF37; box-shadow:0 0 6px #C9A227; }
+        .s-b .burst { background:radial-gradient(circle,rgba(212,175,55,.45),transparent 55%); }
+        .s-b .wl-shares { color:#C9A227; }
+        .s-b .wl-price { color:#F5E6C4; text-shadow:none; }
+        .s-b .wl-price.revealed { color:#F5D76E; }
+        .s-b .wl-hint { color:rgba(245,230,196,.7); }
+        .s-b .wl-btn { background:linear-gradient(135deg,#D4AF37,#B8860B); color:#1A1208; border-radius:6px; }
+
+        /* ========== STYLE C: 霓虹琥珀 ========== */
+        .s-c .preview-stage {
+            background:
+                radial-gradient(circle at 50% 35%, rgba(255,87,34,.28), transparent 50%),
+                radial-gradient(circle at 70% 70%, rgba(255,0,128,.12), transparent 40%),
+                #0a0610;
+        }
+        .s-c .wl-panel {
+            background: linear-gradient(160deg, #1a0a18, #120818 50%, #0a0612);
+            border: 1.5px solid rgba(255, 110, 64, .75);
+            box-shadow: 0 0 40px rgba(255,87,34,.25), 0 18px 40px rgba(0,0,0,.6);
+        }
+        .s-c .wl-shine { background: linear-gradient(115deg, transparent 35%, rgba(255,110,64,.22) 50%, transparent 65%); }
+        .s-c .wl-eyebrow {
+            color:#FFCCBC; border:1px solid rgba(255,110,64,.7);
+            background:linear-gradient(135deg,rgba(255,87,34,.4),rgba(255,0,128,.2));
+            box-shadow:0 0 12px rgba(255,87,34,.35);
+        }
+        .s-c .wl-title { color:#FFAB40; text-shadow:0 0 20px rgba(255,87,34,.7), 0 0 40px rgba(255,0,128,.3); }
+        .s-c .wl-sub { color:#FFCCBC; }
+        .s-c .wl-ring { border:1.5px solid rgba(255,110,64,.55); box-shadow:0 0 16px rgba(255,87,34,.25); }
+        .s-c .wl-chest {
+            background: radial-gradient(circle at 50% 20%, rgba(255,171,64,.45), transparent 50%), linear-gradient(155deg,#4A148C,#1A0033 50%,#0D001A);
+            border: 2.5px solid #FF6E40;
+            box-shadow: 0 0 0 4px rgba(255,87,34,.2), 0 0 36px rgba(255,87,34,.55), 0 0 60px rgba(255,0,128,.2);
+            border-radius: 50%;
+            width: 108px; height: 108px;
+        }
+        .s-c .wl-body { background:linear-gradient(180deg,#6A1B9A,#311B92); border:2px solid #FFAB40; border-radius:12px; }
+        .s-c .lid { background:linear-gradient(180deg,#FF6E40,#FF3D00); border:2px solid #FFAB40; border-radius:50% 50% 6px 6px; }
+        .s-c .lid::after { background:linear-gradient(90deg,#FF1744,#FFD740,#FF6E40); }
+        .s-c .lock { color:#2D0030; background:radial-gradient(circle at 30% 30%,#FFE57F,#FFAB40,#FF6E40); box-shadow:0 0 16px rgba(255,171,64,.9); }
+        .s-c .glow { background:rgba(255,110,64,.5); }
+        .s-c .sparkles i { background:#FFAB40; box-shadow:0 0 12px #FF6E40; }
+        .s-c .burst { background:radial-gradient(circle,rgba(255,110,64,.8),transparent 55%); }
+        .s-c .wl-shares,.s-c .wl-hint { color:#FFAB40; }
+        .s-c .wl-price { color:#FFF3E0; text-shadow:0 0 20px rgba(255,87,34,.7); }
+        .s-c .wl-price.revealed { color:#FFAB40; }
+        .s-c .wl-btn { background:linear-gradient(135deg,#FFAB40,#FF6E40,#FF3D00); color:#1A0008; }
+
+        /* ========== STYLE D: 红金帝豪 ========== */
+        .s-d .preview-stage {
+            background: radial-gradient(circle at 50% 30%, rgba(183,28,28,.35), transparent 55%), #120505;
+        }
+        .s-d .wl-panel {
+            background: linear-gradient(165deg, rgba(255,193,7,.15), transparent 32%), linear-gradient(160deg, #2b0a0a, #140404);
+            border: 1.5px solid rgba(255, 82, 82, .55);
+            box-shadow: 0 18px 40px rgba(0,0,0,.6), 0 0 28px rgba(183,28,28,.25);
+        }
+        .s-d .wl-shine { background: linear-gradient(115deg, transparent 35%, rgba(255,215,64,.18) 50%, transparent 65%); }
+        .s-d .wl-eyebrow {
+            color:#FFECB3; border:1px solid rgba(255,193,7,.6);
+            background:linear-gradient(135deg,rgba(183,28,28,.55),rgba(255,193,7,.2));
+        }
+        .s-d .wl-title { color:#FFD54F; text-shadow:0 0 16px rgba(255,82,82,.45), 0 0 20px rgba(255,193,7,.4); }
+        .s-d .wl-sub { color:#FFCDD2; }
+        .s-d .wl-ring { border:1.5px solid rgba(255,193,7,.45); }
+        .s-d .wl-ring-b { border-color:rgba(255,82,82,.35); }
+        .s-d .wl-chest {
+            background: radial-gradient(circle at 50% 25%, rgba(255,213,79,.35), transparent 48%), linear-gradient(155deg,#B71C1C,#6A0000 45%,#1A0505);
+            border: 2.5px solid #FFD54F;
+            box-shadow: 0 10px 28px rgba(0,0,0,.5), 0 0 0 4px rgba(183,28,28,.25), 0 0 30px rgba(255,193,7,.4);
+        }
+        .s-d .wl-body { background:linear-gradient(180deg,#C62828,#7F0000); border:2px solid #FFD54F; }
+        .s-d .lid { background:linear-gradient(180deg,#FFD54F,#FFA000 50%,#E65100); border:2px solid #FFF59D; }
+        .s-d .lid::after { background:linear-gradient(90deg,#B71C1C,#FFF59D,#FFD54F,#B71C1C); }
+        .s-d .lock { color:#4A0000; background:radial-gradient(circle at 30% 30%,#FFFDE7,#FFD54F,#FF8F00); box-shadow:0 0 14px rgba(255,213,79,.8); }
+        .s-d .glow { background:rgba(255,213,79,.4); }
+        .s-d .sparkles i { background:#FFD54F; box-shadow:0 0 10px #FF5252; }
+        .s-d .burst { background:radial-gradient(circle,rgba(255,82,82,.55),transparent 50%), radial-gradient(circle,rgba(255,213,79,.55),transparent 60%); }
+        .s-d .wl-shares { color:#FFD54F; }
+        .s-d .wl-price { color:#FFF8E1; text-shadow:0 0 16px rgba(255,82,82,.5); }
+        .s-d .wl-price.revealed { color:#FFD54F; }
+        .s-d .wl-hint { color:#FFCDD2; }
+        .s-d .wl-btn { background:linear-gradient(135deg,#FFD54F,#FF8F00); color:#4A0000; }
+
+        /* ========== STYLE E: 极简金章 ========== */
+        .s-e .preview-stage {
+            background: radial-gradient(circle at 50% 45%, rgba(255,215,64,.18), transparent 50%), #0b0c10;
+        }
+        .s-e .wl-panel {
+            background: linear-gradient(180deg, #151820, #0c0d12);
+            border: 1px solid rgba(255,215,64,.35);
+            box-shadow: 0 18px 40px rgba(0,0,0,.55);
+            border-radius: 28px;
+        }
+        .s-e .wl-shine { opacity: .5; background: linear-gradient(115deg, transparent 40%, rgba(255,255,255,.08) 50%, transparent 60%); }
+        .s-e .wl-eyebrow {
+            color:#90CAF9; border:1px solid rgba(144,202,249,.35);
+            background:rgba(144,202,249,.08); letter-spacing:3px;
+        }
+        .s-e .wl-title { color:#FFF; font-family:inherit; letter-spacing:4px; font-size:15px; text-shadow:none; }
+        .s-e .wl-sub { color:rgba(255,255,255,.55); }
+        .s-e .wl-ring { border:1px solid rgba(255,215,64,.25); }
+        .s-e .wl-ring-a { border-style: solid; width: 120px; height: 120px; }
+        .s-e .wl-ring-b { width: 140px; height: 140px; border-color:rgba(144,202,249,.2); }
+        .s-e .wl-chest {
+            width: 96px; height: 96px; border-radius: 50%;
+            background: conic-gradient(from 210deg, #FFD54F, #FFF8E1, #FFB300, #FFD54F, #FFE082, #FFD54F);
+            border: none;
+            box-shadow: 0 0 0 6px #0b0c10, 0 0 0 8px rgba(255,213,79,.5), 0 12px 30px rgba(255,215,64,.25);
+            animation: swayMedal 3s ease-in-out infinite;
+        }
+        @keyframes swayMedal {
+            0%,100% { transform: rotate(-4deg); }
+            50% { transform: rotate(4deg); }
+        }
+        .s-e .wl-body {
+            width: 72px; height: 72px; border-radius: 50%;
+            background: radial-gradient(circle at 35% 30%, #2a2f3a, #0d1016 70%);
+            border: 2px solid rgba(255,215,64,.6);
+            display:flex; align-items:center; justify-content:center;
+        }
+        .s-e .lid, .s-e .glow { display: none; }
+        .s-e .lock {
+            position: static; transform: none; width: auto; height: auto;
+            background: none; box-shadow: none; color: #FFD54F;
+            font-size: 28px; line-height: 1;
+        }
+        .s-e .sparkles i { background:#90CAF9; box-shadow:0 0 8px #64B5F6; }
+        .s-e .burst { background:radial-gradient(circle,rgba(255,215,64,.6),transparent 55%); }
+        .s-e .wl-chest.opened { box-shadow: 0 0 0 6px #0b0c10, 0 0 0 10px rgba(255,215,64,.7), 0 0 40px rgba(255,215,64,.45); }
+        .s-e .wl-shares { color:rgba(255,255,255,.6); font-weight:600; letter-spacing:2px; }
+        .s-e .wl-price { color:#FFD54F; text-shadow:0 0 16px rgba(255,215,64,.35); }
+        .s-e .wl-hint { color:rgba(255,255,255,.5); }
+        .s-e .wl-btn {
+            background: transparent; color:#FFD54F;
+            border: 1px solid rgba(255,215,64,.55);
+            border-radius: 999px;
+        }
+
+        /* ========== STYLE F: 翡翠绿金 ========== */
+        .s-f .preview-stage {
+            background: radial-gradient(circle at 50% 35%, rgba(0,200,83,.22), transparent 50%), #06110a;
+        }
+        .s-f .wl-panel {
+            background: linear-gradient(165deg, rgba(255,215,64,.14), transparent 30%), linear-gradient(160deg, #0d2116, #07140d);
+            border: 1.5px solid rgba(105,240,174,.45);
+            box-shadow: 0 18px 40px rgba(0,0,0,.55), 0 0 28px rgba(0,200,83,.15);
+        }
+        .s-f .wl-shine { background: linear-gradient(115deg, transparent 35%, rgba(105,240,174,.18) 50%, transparent 65%); }
+        .s-f .wl-eyebrow {
+            color:#C8E6C9; border:1px solid rgba(105,240,174,.5);
+            background:linear-gradient(135deg,rgba(0,200,83,.25),rgba(255,215,64,.15));
+        }
+        .s-f .wl-title { color:#FFD54F; text-shadow:0 0 16px rgba(0,200,83,.35); }
+        .s-f .wl-sub { color:#A5D6A7; }
+        .s-f .wl-ring { border:1.5px solid rgba(105,240,174,.4); }
+        .s-f .wl-ring-b { border-color:rgba(255,215,64,.35); }
+        .s-f .wl-chest {
+            background: radial-gradient(circle at 50% 20%, rgba(105,240,174,.35), transparent 50%), linear-gradient(155deg,#1B5E20,#0D3311 45%,#051a0a);
+            border: 2.5px solid #FFD54F;
+            box-shadow: 0 10px 28px rgba(0,0,0,.45), 0 0 0 4px rgba(0,200,83,.18), 0 0 28px rgba(105,240,174,.35);
+        }
+        .s-f .wl-body { background:linear-gradient(180deg,#2E7D32,#1B5E20); border:2px solid #FFD54F; }
+        .s-f .lid { background:linear-gradient(180deg,#FFD54F,#FFB300); border:2px solid #FFF59D; }
+        .s-f .lid::after { background:linear-gradient(90deg,#00C853,#FFF59D,#FFD54F,#00C853); }
+        .s-f .lock { color:#063018; background:radial-gradient(circle at 30% 30%,#FFFDE7,#FFD54F,#00C853); box-shadow:0 0 14px rgba(105,240,174,.7); }
+        .s-f .glow { background:rgba(105,240,174,.4); }
+        .s-f .sparkles i { background:#69F0AE; box-shadow:0 0 10px #00E676; }
+        .s-f .burst { background:radial-gradient(circle,rgba(105,240,174,.65),transparent 55%); }
+        .s-f .wl-shares,.s-f .wl-hint { color:#A5D6A7; }
+        .s-f .wl-price { color:#E8F5E9; text-shadow:0 0 16px rgba(0,200,83,.4); }
+        .s-f .wl-price.revealed { color:#69F0AE; }
+        .s-f .wl-btn { background:linear-gradient(135deg,#69F0AE,#00C853); color:#063018; }
+
+        .toast {
+            position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(20px);
+            background: rgba(0,0,0,.88); color: #fff; padding: 10px 16px; border-radius: 10px;
+            font-size: 13px; font-weight: 700; opacity: 0; pointer-events: none;
+            transition: .25s ease; z-index: 100; white-space: nowrap;
+            border: 1px solid rgba(0,200,83,.4);
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    </style>
+</head>
+<body>
+    <header class="page-head">
+        <h1>新手黑金宝箱 · 样式选型</h1>
+        <p>共 6 套方案。可点「演示开箱」看动画，点「选用」记下偏好。选好后告诉我编号（A–F），我再落到正式 `/888/`。</p>
+    </header>
+
+    <div class="pick-bar">
+        <div>
+            <div>当前选择：<strong id="pickLabel">尚未选择</strong></div>
+            <div class="hint" id="pickHint">点击任意卡片底部「选用此风格」</div>
+        </div>
+        <div class="hint">路由：/textbox/</div>
+    </div>
+
+    <div class="grid" id="styleGrid"></div>
+    <div class="toast" id="toast"></div>
+
+    <script>
+        const STYLES = [
+            { id: 'A', name: '亮金黑箱（当前线上）', desc: '高饱和金边 + 橙金箱盖 + 强光晕，冲击力最强，适合博彩转化。' },
+            { id: 'B', name: '古典哑光黑金', desc: '克制哑光金、方角气质，更偏高端会所，不那么“燃”。' },
+            { id: 'C', name: '霓虹琥珀圆箱', desc: '紫黑底 + 橙霓虹，圆形宝箱，夜店氛围更强。' },
+            { id: 'D', name: '红金帝豪', desc: '中国红底托金箔，更贴激情中国红品牌感。' },
+            { id: 'E', name: '极简金章', desc: '圆形勋章式开启物，极简冷调，适合「身份徽章」表达。' },
+            { id: 'F', name: '翡翠绿金', desc: '绿金配色，贴近现有主CTA绿，和大厅按钮体系更统一。' }
+        ];
+
+        let selected = localStorage.getItem('textbox_chest_style') || 'A';
+        const LANDED = 'A'; // 已落地到 /888/
+
+        function chestHTML(styleId) {
+            const lockText = styleId === 'E' ? '✦' : '◆';
+            return `
+            <div class="wl-panel">
+                <div class="wl-shine"></div>
+                <div class="wl-eyebrow">555.bio · VIP 入厅礼</div>
+                <div class="wl-title">黑金新手宝箱</div>
+                <div class="wl-sub">轻触开启 · 锁定入场股份</div>
+                <div class="wl-chest-wrap">
+                    <div class="wl-ring wl-ring-a"></div>
+                    <div class="wl-ring wl-ring-b"></div>
+                    <div class="wl-chest" data-chest="${styleId}" role="button" tabindex="0">
+                        <div class="wl-body">
+                            <div class="lid"></div>
+                            <div class="lock">${lockText}</div>
+                            <div class="glow"></div>
+                        </div>
+                        <div class="sparkles"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+                    </div>
+                    <div class="burst" data-burst="${styleId}"></div>
+                </div>
+                <div class="wl-shares">锁定 5.00 份</div>
+                <div class="wl-price" data-price="${styleId}">￥--</div>
+                <div class="wl-hint" data-hint="${styleId}">点击黑金宝箱 · 开启新手股份</div>
+                <button type="button" class="wl-btn" data-close="${styleId}" disabled>请先开启宝箱</button>
+            </div>`;
+        }
+
+        function render() {
+            const grid = document.getElementById('styleGrid');
+            grid.innerHTML = STYLES.map(s => `
+                <article class="style-card s-${s.id.toLowerCase()} ${(selected === s.id || s.id === LANDED) ? 'selected' : ''}" data-style="${s.id}">
+                    <div class="style-meta">
+                        <div class="tag">STYLE ${s.id}</div>
+                        <h2>${s.name}</h2>
+                        <p>${s.desc}</p>
+                    </div>
+                    <div class="preview-stage">${chestHTML(s.id)}</div>
+                    <div class="style-actions">
+                        <button type="button" class="btn-demo" data-demo="${s.id}">演示开箱</button>
+                        <button type="button" class="btn-pick" data-pick="${s.id}">${s.id === LANDED ? '✓ 已落地 /888/' : (selected === s.id ? '✓ 已选用' : '选用此风格')}</button>
+                    </div>
+                </article>
+            `).join('');
+            syncPickBar();
+        }
+
+        function syncPickBar() {
+            const item = STYLES.find(s => s.id === selected);
+            document.getElementById('pickLabel').textContent = item ? (item.id + ' · ' + item.name) : '尚未选择';
+            const landedItem = STYLES.find(s => s.id === LANDED);
+            document.getElementById('pickHint').textContent = landedItem
+                ? ('正式环境已落地：' + landedItem.id + ' · ' + landedItem.name + ' → /888/')
+                : (item
+                    ? '已记录到本机。回复我说「用 ' + item.id + '」即可落地到 /888/'
+                    : '点击任意卡片底部「选用此风格」');
+        }
+
+        function toast(msg) {
+            const el = document.getElementById('toast');
+            el.textContent = msg;
+            el.classList.add('show');
+            clearTimeout(toast._t);
+            toast._t = setTimeout(() => el.classList.remove('show'), 2200);
+        }
+
+        function demoOpen(styleId) {
+            const chest = document.querySelector('[data-chest="' + styleId + '"]');
+            const price = document.querySelector('[data-price="' + styleId + '"]');
+            const hint = document.querySelector('[data-hint="' + styleId + '"]');
+            const burst = document.querySelector('[data-burst="' + styleId + '"]');
+            const closeBtn = document.querySelector('[data-close="' + styleId + '"]');
+            if (!chest || chest.classList.contains('opened')) {
+                // reset then replay
+                if (chest) {
+                    chest.classList.remove('opened', 'shaking');
+                    if (price) { price.textContent = '￥--'; price.classList.remove('revealed'); }
+                    if (hint) hint.textContent = '点击黑金宝箱 · 开启新手股份';
+                    if (closeBtn) { closeBtn.disabled = true; closeBtn.textContent = '请先开启宝箱'; }
+                }
+            }
+            chest.classList.add('shaking');
+            if (hint) hint.textContent = '开箱中… 金光涌动';
+            let n = 0;
+            const timer = setInterval(() => {
+                n++;
+                if (price) price.textContent = '￥' + (24 + Math.random() * 2).toFixed(2);
+                if (n > 10) {
+                    clearInterval(timer);
+                    chest.classList.remove('shaking');
+                    chest.classList.add('opened');
+                    if (burst) {
+                        burst.classList.remove('show');
+                        void burst.offsetWidth;
+                        burst.classList.add('show');
+                    }
+                    if (price) {
+                        price.textContent = '￥25.00';
+                        price.classList.add('revealed');
+                    }
+                    if (hint) hint.textContent = '已锁定 5.00 份股份 · 可前往闪兑';
+                    if (closeBtn) {
+                        closeBtn.disabled = false;
+                        closeBtn.textContent = '收下股份 · 进入大厅';
+                    }
+                }
+            }, 70);
+        }
+
+        function pick(styleId) {
+            selected = styleId;
+            localStorage.setItem('textbox_chest_style', styleId);
+            document.querySelectorAll('.style-card').forEach(card => {
+                const id = card.getAttribute('data-style');
+                const on = id === selected;
+                card.classList.toggle('selected', on || id === LANDED);
+                const btn = card.querySelector('[data-pick]');
+                if (btn) {
+                    if (id === LANDED) btn.textContent = '✓ 已落地 /888/';
+                    else btn.textContent = on ? '✓ 已选用' : '选用此风格';
+                }
+            });
+            syncPickBar();
+            toast(styleId === LANDED
+                ? '风格 A 已在 /888/ 正式生效'
+                : ('已选用风格 ' + styleId + '（当前正式仍为 A，换用请再告知）'));
+        }
+
+        document.getElementById('styleGrid').addEventListener('click', function(e) {
+            const demo = e.target.closest('[data-demo]');
+            const pickBtn = e.target.closest('[data-pick]');
+            const chest = e.target.closest('[data-chest]');
+            if (demo) demoOpen(demo.getAttribute('data-demo'));
+            if (pickBtn) pick(pickBtn.getAttribute('data-pick'));
+            if (chest) demoOpen(chest.getAttribute('data-chest'));
+        });
+
+        render();
+    </script>
+</body>
+</html>

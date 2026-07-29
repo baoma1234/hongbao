@@ -1,0 +1,153 @@
+﻿OK  footer_line1 = 馃搳 鏈钩鍙版€ц川涓恒€?55.bio 瀹樻柟娲昏穬绮変笣搴︽ā鎷熺鍒╂帹骞胯惀閿€浜掑姩璋冩煡澶у巺銆?OK  footer_line2 = 瀹夊叏鎵胯锛氬叏鐩樻棤璧勯噾鍏呭€煎叆鍙ｃ€傛墍鏈夎偂浠藉強鐡滃垎绾㈠埄鍧囧睘浜庣敤鎴锋椿璺冨害鍐呴儴绂忓埄銆傞鍙栫孩鍒╃粺涓€鐢卞畼鏂?VIP 绂忓埄涓績浜哄伐鏍稿噯锛屽苟閲囩敤瀹夊叏鏂瑰紡绮惧噯鍏呭€艰嚦鎮ㄧ殑 555.bio 涓荤珯璐︽埛涓€傛椿鍔ㄦ渶缁堣В閲婃潈褰?555.bio 瀹樻柟鎵€鏈夈€?OK  footer_line3 = 漏 2026 555.bio Open-Marketing Platform. 鏈嶅姟鍗忚 | 鍚堣澹版槑
+OK  uid_label = 馃攽 绗竴姝ワ細璇疯緭鍏ユ偍鍦?55.bio鐜伴噾绔欐敞鍐屾垚鍔熺殑璐﹀彿
+OK  uid_placeholder = 渚嬪锛?55bio锛堝繀椤讳娇鐢ㄥ悓鎵嬫満鍙锋敞鍐岋級锛屽惁鍒欏皬濡规棤娉曞湪鍚庡彴鏍搁攢涓婂垎
+OK  uid_submit_btn = 鎻愪氦璐﹀彿瀹℃牳
+OK  uid_hint_idle = 璇峰～鍐欐父鎴忚处鍙凤紙鏁板瓧鎴栬嫳鏂囨暟瀛楃粍鍚堝潎鍙級锛屾瘡涓处鍙蜂粎鍙彁浜や竴娆″鏍?OK  uid_hint_pending = 姝ｅ湪瀹℃牳涓紝璇疯€愬績绛夊緟瀹㈡湇鍚庡彴鏍搁攢涓婂垎
+MISSING uid_hint_ok
+MISSING uid_hint_fail
+OK  open_account_btn = 馃挸 娌℃湁璐﹀彿锛熺偣鍑?[555.bio瀹樻柟鏋侀€熷紑鎴穄(绔嬮€?{open_account_rights} 浠藉ぇ鐩樿偂銆?
+OK  open_account_badge_fallback = 绔嬮€?{open_account_rights} 浠藉ぇ鐩樿偂銆?OK  settle_title_low = 馃彟 鐢宠 VIP 浜哄伐鍔犳€ョ壒鎵圭豢閫?OK  settle_sub_low = 閲戦涓嶈冻鏃朵篃鍙彁鍓嶈仈绯讳笓灞炲鏈嶅崗鍔╁噾鏁?OK  swap_title = 璧勪骇鍏戞崲
+OK  swap_avail = 鍙敤 鈥?OK  swap_submit = 纭鍏戞崲
+OK  swap_to_label = 鍏戞崲鐩爣
+OK  swap_rate_label = 鍏戞崲姣斾緥
+OK  page_hero_master_title = 馃憫 鍥㈤暱涓撳睘 路 浜屾湡澶у巺
+OK  page_hero_master_sub = 鑽ｈ獕澶╂鏄庣墝濂栧姳 路 7澶╂槦鐏毚鍑荤粓鏋佽处鏈?路 鎴橀槦鍌椿闆疯揪
+OK  page_hero_exchange_title = 鈿?VIP 闂厬澶у巺
+OK  chat_community_title = 绾㈠疂绀惧尯
+OK  chat_tab_chat = 鑱婂ぉ
+OK  chat_tab_community = 绀剧兢
+OK  chat_tab_notice = 鍏憡
+OK  chat_tab_commission = 浣ｉ噾
+OK  profile_vip_badge = 瀹樻柟浼氬憳
+OK  profile_section_asset = 璧勪骇鏈嶅姟
+OK  jackpot_label = 馃搳 555.bio 鍏ㄧ綉鐢熸€佸疄鏃跺ぇ灞?OK  jackpot_hint = 馃挕 绛夐闂厬閿€姣佽偂浠?路 绱浠峰€煎彧娑ㄤ笉璺?路 鑲′环鐢辫揪鏍囪浆鍖栦汉鏁伴┍鍔?
+--- home uid-section snippet ---
+div>
+                <div class="match-card" style="padding:15px;">
+                    <div class="uid-section visible" id="uidSection">
+                        <label class="uid-label" for="mainStationID" data-copy="uid_label">馃攽 绗竴姝ワ細璇疯緭鍏ユ偍鍦ㄦ姠绾㈠疂鐜伴噾绔欐敞鍐屾垚鍔熺殑璐﹀彿</label>
+                        <input
+                            type="text"
+                            id="mainStationID"
+                            class="id-input-box"
+                            name="fanshub_game_uid"
+                            maxlength="32"
+                            autocomplete="off"
+                            autocapitalize="off"
+                            autocorrect="off"
+                            spellcheck="false"
+                            inputmode="text"
+                            enterkeyhint="done"
+                            data-copy-placeholder="uid_placeholder"
+                            placeholder="渚嬪锛?55bio锛堝繀椤讳娇鐢ㄥ悓鎵嬫満鍙锋敞鍐岋級锛屽惁鍒欏皬濡规棤娉曞湪鍚庡彴鏍搁攢涓婂垎"
+                        >
+                        <div class="uid-submit-row">
+                            <button type="button" class="btn-uid-submit" id="btnUidSubmit" onclick="submitUID()" data-copy="uid_submit_btn">鎻愪氦璐﹀彿瀹℃牳</button>
+                        </div>
+                        <div class="uid-status-hint" id="uidStatusHint" data-copy="uid_hint_idle">璇峰～鍐欐父鎴忚处鍙凤紙鏁板瓧鎴栬嫳鏂囨暟瀛楃粍鍚堝潎鍙級锛屾瘡涓处鍙蜂粎鍙彁浜や竴娆″鏍?/div>
+                    </div>
+                </div>
+                <button class="btn-manual-settle" id="btnManualSettle" onclick="openWithdrawModal()">
+                    <span id="manualSettleTitle" data-copy="settle_title_low">馃彟 鐢宠 VIP 浜哄伐鍔犳€ョ壒鎵圭豢閫?/span>
+                    <span class="sub-label" id="manualSettleSub" data-copy="settle_sub_low">閲戦涓嶈冻鏃朵篃鍙彁鍓嶈仈绯讳笓灞炲鏈嶅崗鍔╅噾娆?/span>
+                </button>
+            </div>
+
+            <div class="home-quick-grid">
+                <button type="button" class="home-quick-btn hq-exchange" onclick="switchTab('exchange')"><span data-copy="home_quick_exchange">鈿?鍘婚棯鍏?/span><span data-copy="home_quick_exchange_sub">鑲′唤绉掑彉绾㈠埄浣欓</span></button>
+                <button type="button" class="home-quick-btn hq-master" onclick="switchTab('master')"><span data-copy="home_quick_master">馃憫 鍥㈤暱澶у巺</span><span data-copy="home_quick_mas
+
+--- master partial head ---
+        <!-- 4. 鍥㈤暱浜屾湡 -->
+        <div class="tab-page" id="tabMaster" data-tab="master">
+            <div class="page-hero-title" data-copy="page_hero_master_title">馃憫 鍥㈤暱涓撳睘 路 浜屾湡澶у巺</div>
+            <div class="page-hero-sub" data-copy="page_hero_master_sub">鑽ｈ獕澶╂鏄庣墝濂栧姳 路 7澶╂槦鐏毚鍑荤粓鏋佽处鏈?路 鎴橀槦鍌椿闆疯揪</div>
+            <div id="masterLockCard" class="master-lock-card" style="display:none;">
+                <h3 data-copy="master_lock_title">馃敀 鍥㈤暱閫氶亾寰呰В閿?/h3>
+                <p data-copy="master_lock_desc">瀹屾垚棣栫瑪 VIP 绂忓埄鏍搁攢鍚庯紝灏嗗紑鏀撅細鑽ｈ獕澶╂瀹濈銆?澶╂槦鐏毚鍑伙紙锟?75 鏍哥垎鎬绘睜锛夈€佹垬闃熷偓娲婚浄杈俱€傚厛鍘汇€岄鍙栥€嶉〉鍐插埡闂ㄦ鍚э紒</p>
+                <button type="button" class="btn-uid-submit" style="margin-top:12px;" onclick="switchTab('home'); setTimeout(function(){ var el=document.getElementById('homeClaimSection'); if(el) try{el.scrollIntoView({behavior:'smooth',block:'start'});}catch(e){} }, 80);" data-copy="master_lock_btn">鍓嶅線棰嗗彇鍖?/button>
+            </div>
+            <div id="masterHonorBlock" style="display:none;">
+                <div class="honor-ladder-card" id="honorLadderCard" role="button" tabindex="0" onclick="copySharePromoOnly()">
+                    <div class="honor-ladder-title" data-copy="phase2_honor_title">馃弲 闀挎湡鑽ｈ獕鍥㈤暱澶╂</div>
+                    <div class="honor-ladder-nodes" id="honorLadderNodes"></div>
+                    <div class="honor-ladder-track"><div class="honor-ladder-fill" id="honorLadderFill"></div></div>
+                    <div class="honor-ladder-hint" id="honorLadderHint" data-copy="loading_generic">鍔犺浇涓?..</div>
+                </div>
+            </div>
+            <div id="masterPhase2Block" style="display:none;">
+                <div class="checkin-panel">
+                    <div class="checkin-streak-label" id="checkinStreakLabel" data-copy="phase2_checkin_streak">馃敟 7
+
+--- exchange share-swap ---
+        <!-- 2. 闂厬 -->
+        <div class="tab-page" id="tabExchange" data-tab="exchange">
+            <div class="page-hero-title" data-copy="page_hero_exchange_title">鈿?VIP 闂厬澶у巺</div>
+            <div class="page-hero-sub" data-copy="page_hero_exchange_sub">璋冩暣鑲℃暟 路 瀹炴椂棰勪及鍒拌处 路 鍐插埡棰嗗彇闂ㄦ</div>
+            <div class="exchange-closed-banner" id="exchangeClosedBanner" style="display:none;" data-copy="profile_ex_r2b_closed">绾㈠寘鍏戞崲绾㈠埄宸插叧闂?/div>
+
+            <!-- 涓夎祫浜т簰鍏戯細鑲′唤 / 绾㈠埄 / 绾㈠疂 -->
+            <div class="share-swap" id="dualExchangeSection">
+                <div class="share-swap-panel" id="shareSwapPanel">
+                    <div class="share-swap-header">
+                        <div class="share-swap-title" id="shareSwapTitle" data-copy="swap_title">璧勪骇鍏戞崲</div>
+                        <div class="share-swap-avail" id="shareSwapAvail">鍙敤 鈥?/div>
+                    </div>
+
+                    <div class="share-swap-section-title" id="shareSwapFromLabel" data-copy="swap_from_label">杞嚭</div>
+                    <div class="share-swap-input-card share-swap-select-card">
+                        <div class="share-swap-icon-circle" id="shareSwapFromIcon" data-copy="swap_unit_share">鑲?/div>
+                        <select class="share-swap-select" id="shareSwapFromSelect" aria-label="杞嚭璧勪骇" data-copy-aria="swap_aria_from" onchange="onShareSwapFromChange(this.value)" data-copy-aria="swap_aria_from">
+                            <option value="rights" data-copy="swap_asset_rights">鑲′唤</option>
+                            <option value="balance" data-copy="swap_asset_balance">绾㈠埄</option>
+                            <option value="hongbao" data-copy="swap_asset_hongbao">绾㈠疂</option>
+                        </select>
+                        <span class="share-swap-chevron" aria-hidden="true">鈻?/span>
+                    </div>
+                    <div class="share-swap-input-card">
+                        <div class="share-swap-icon-circle">#</div>
+                        <input type="number" class="share-swap-input" id="shareSwapAmount" inputmode="decimal" min="1" step="0.01" value="1">
+                        <button type="button" class="share-swap-btn-all" id="shareSwapAllBtn" onclick="fillDualExchangeAll()" data-copy="swap_all_btn">鍏ㄩ儴</button>
+                    </div>
+                    <div class="share-swap-hint" id="shareSwapHint" data-copy="swap_min_hint">鍗曟鏈€浣?1</div>
+
+                    <div class="share-swap-divider">
+                        <button type="button" class="share-swap-arrow" id="shareSwapFlipBtn" onclick="flipShareSwapDirection()" aria-label="浜掓崲鏂瑰悜" data-copy-aria="swap_aria_flip">
+                            <svg viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
+                        </button>
+                    </div>
+
+                    <div class="share-swap-section-title">
+                        <svg class="share-swap-icon-prefix" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12zm-8-3c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3z"/></svg>
+                        <span data-copy="swap_to_label">鍏戞崲鐩爣</span>
+                    </div>
+                    <div class="share-swap-input-card share-swap-select-card">
+                        <div class="share-swap-icon-circle" id="shareSwapToIcon">楼</div>
+                        <select class="share-swap-select" id="shareSwapToSelect" aria-label="鍏戞崲鐩爣" data-copy-aria="swap_aria_to" onchange="onShareSwapToChange(this.value)" data-copy-aria="swap_aria_to">
+                            <option value="balance" data-copy="swap_asset_balance">绾㈠埄</option>
+                            <option value="rights" data-copy="swap_asset_rights">鑲′唤</option>
+                            <option value="hongbao" data-copy="swap_asset_hongbao">绾㈠疂</option>
+                        </select>
+                        <span class="share-swap-chevron" aria-hidden="true">鈻?/span>
+                    </div>
+
+                    <div class="share-swap-summary">
+                        <div class="share-swap-summary-left">
+                            <div class="share-swap-summary-label" data-copy="swap_rate_label">鍏戞崲姣斾緥</div>
+                            <div class="share-swap-summary-value" id="shareSwapRate">鈥?/div>
+                            <div class="share-swap-summary-currency" id="shareSwapCurrency">CNY</div>
+                            <div class="share-swap-summary-time" id="shareSwapTime"></div>
+                        </div>
+                        <div class="share-swap-vdiv" aria-hidden="true"></div>
+                        <div class="share-swap-summary-right">
+                            <div class="share-swap-summary-label" id="shareSwapEstLabel" data-copy="swap_est_label">棰勮鍒拌处</div>
+                            <div class="share-swap-amount" id="shareSwapEst">0</div>
+                            <div class="share-swap-summary-label" id="shareSwapEstAsset">绾㈠埄</div>
+                        </div>
+                    </div>
+
+                    <button type="button" class="share-swap-submit" id="shareSwapSubmitBtn" onclick="submitShareSwap()" data-copy="swap_submit">纭鍏戞崲</button>
+                    <div class="share-swap-closed" id="shareSwapClosed" style="display:none;"></div>
+                </div>
+            </div>
+        </div>

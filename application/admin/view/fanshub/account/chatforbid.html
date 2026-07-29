@@ -1,0 +1,50 @@
+<form id="chatforbid-form" class="form-horizontal" role="form" method="POST" action="">
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-3">会员</label>
+        <div class="col-xs-12 col-sm-8">
+            <p class="form-control-static">ID {$row.id}
+                {if $user}
+                / {$user.nickname|default=''|htmlentities}
+                {if $user.mobile} / {$user.mobile|htmlentities}{/if}
+                {/if}
+            </p>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-3">快捷</label>
+        <div class="col-xs-12 col-sm-8">
+            <button type="button" class="btn btn-default btn-sm" id="btnForbidAll">全选禁止</button>
+            <button type="button" class="btn btn-default btn-sm" id="btnForbidNone">全部取消</button>
+            <span class="help-block" style="margin:6px 0 0;">勾选即禁止对应能力；可单独勾选，也可全选。</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-3">禁言项</label>
+        <div class="col-xs-12 col-sm-8">
+            {foreach name="flagDefs" id="label" key="key"}
+            <div class="checkbox">
+                <label>
+                    <input type="checkbox" class="forbid-flag" name="forbid[{$key}]" value="1" {if !empty($current[$key])}checked{/if}> {$label}
+                </label>
+            </div>
+            {/foreach}
+        </div>
+    </div>
+    <div class="form-group layer-footer">
+        <label class="control-label col-xs-12 col-sm-3"></label>
+        <div class="col-xs-12 col-sm-8">
+            <button type="submit" class="btn btn-danger btn-embossed">保存禁言</button>
+            <button type="reset" class="btn btn-default btn-embossed">重置</button>
+        </div>
+    </div>
+</form>
+<script>
+require(['jquery'], function ($) {
+    $('#btnForbidAll').on('click', function () {
+        $('#chatforbid-form .forbid-flag').prop('checked', true);
+    });
+    $('#btnForbidNone').on('click', function () {
+        $('#chatforbid-form .forbid-flag').prop('checked', false);
+    });
+});
+</script>

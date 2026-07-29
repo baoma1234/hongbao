@@ -1,0 +1,882 @@
+/* js/chat/04-net.js — ws, bindUi, exports */
+
+  function startPing() {
+    stopPing();
+    state.pingTimer = setInterval(function () {
+      if (state.ws && state.ws.readyState === 1) {
+        try { state.ws.send(JSON.stringify({ type: 'ping', data: {}, req_id: 'ping' })); } catch (e) {}
+      }
+    }, 25000);
+  }
+
+  function stopPing() {
+    if (state.pingTimer) {
+      clearInterval(state.pingTimer);
+      state.pingTimer = null;
+    }
+  }
+
+  function scheduleReconnect() {
+    if (state.reconnectTimer) return;
+    if (!token()) return;
+    state.reconnectTimer = setTimeout(function () {
+      state.reconnectTimer = null;
+      connect(true);
+    }, 3000);
+  }
+
+  function handlePacket(packet) {
+    if (resolvePending(packet)) {
+      if (packet.type === 'auth.ok') return;
+    }
+    switch (packet.type) {
+      case 'hello':
+        break;
+      case 'auth.ok':
+        state.connected = true;
+        state.userId = (packet.data && packet.data.user_id) | 0;
+        state.isImAdmin = !!(packet.data && packet.data.is_im_admin);
+        state.canCreateGroup = !!(packet.data && packet.data.can_create_group);
+        var bal = packet.data && packet.data.user && (packet.data.user.balance != null ? packet.data.user.balance : packet.data.user.money);
+        state.money = bal != null ? parseFloat(bal) : state.money;
+        setConnStatus(chatT('chat_conn_ok'), 'ok');
+        updateMoneyLabel();
+        syncBalanceFromAccount();
+        var newPrivateBtn = $('chatNewPrivateBtn');
+        if (newPrivateBtn) newPrivateBtn.style.display = state.isImAdmin ? '' : 'none';
+        var newGroupBtn = $('chatNewGroupBtn');
+        if (newGroupBtn) newGroupBtn.style.display = state.canCreateGroup ? '' : 'none';
+        var addFriendBtn = $('chatAddFriendBtn');
+        if (addFriendBtn) addFriendBtn.style.display = state.isImAdmin ? 'none' : '';
+        refreshList().catch(function () {});
+        break;
+      case 'private.message':
+      case 'group.message':
+        if (packet.data && packet.data.message) onIncomingMessage(packet.data.message);
+        break;
+      case 'message.recalled':
+        if (packet.data && packet.data.message) applyRecalledMessage(packet.data.message);
+        break;
+      case 'admin.notify':
+        // 仅后台托管账号使用；H5 普通用户忽略
+        break;
+      case 'group.created':
+      case 'group.invited':
+        refreshList().catch(function () {});
+        break;
+      case 'group.kicked':
+        if (state.room && state.room.type === 2 && String(state.room.id) === String((packet.data && packet.data.group_id) || '')) {
+          if (typeof showFanshubToast === 'function') showFanshubToast('你已被移出群组', 'error');
+          closeRoom();
+        }
+        refreshList().catch(function () {});
+        break;
+      case 'group.mute_all_changed':
+        if (state.room && state.room.type === 2 && String(state.room.id) === String((packet.data && packet.data.group_id) || '')) {
+          refreshGroupMeta().catch(function () {});
+        }
+        break;
+      case 'group.updated':
+        if (packet.data && packet.data.group) {
+          var ug = packet.data.group;
+          var ugid = (packet.data.group_id | 0) || (ug.id | 0);
+          state.list.forEach(function (it) {
+            if ((it.conversation_type | 0) === 2 && ((it.group_id | 0) === ugid || String(it.conversation_id) === String(ugid))) {
+              if (ug.name != null) it.title = ug.name;
+              if (ug.avatar != null) it.avatar = ug.avatar || '';
+            }
+          });
+          renderList();
+          if (state.room && state.room.type === 2 && String(state.room.id) === String(ugid)) {
+            state.groupMeta = state.groupMeta || {};
+            var prevNotice = String(((state.groupMeta.group || {}).notice) || '');
+            state.groupMeta.group = ug;
+            if (packet.data.policy) state.groupMeta.policy = packet.data.policy;
+            if (String(ug.notice || '') !== prevNotice) {
+              delete state.noticeDismissed[String(ugid)];
+            }
+            applyGroupRoomHeader(state.groupMeta);
+            renderGroupSettings();
+            updateComposerPolicy();
+            renderMessages();
+          }
+        }
+        break;
+      case 'group.members_changed':
+        if (state.room && state.room.type === 2 && String(state.room.id) === String((packet.data && packet.data.group_id) || '')) {
+          if ($('chatGroupMembersPane') && $('chatGroupMembersPane').classList.contains('open')) {
+            loadMembers(state.memberKeyword).catch(function () {});
+          } else {
+            refreshGroupMeta().catch(function () {});
+          }
+        }
+        break;
+      case 'redpacket.update':
+        (function () {
+          var d = packet.data || {};
+          var pid = d.packet_id | 0;
+          if (!pid) return;
+          // 开奖后刷新红包卡片上的锁定区块/雷号提示
+          if (d.tron_revealed && d.tron && state.messages && state.messages.length) {
+            var tron = d.tron;
+            var changed = false;
+            state.messages.forEach(function (m) {
+              if (!m || (m.msg_type | 0) !== 2) return;
+              var ex = m.extra || {};
+              if ((ex.packet_id | 0) !== pid) return;
+              ex.tron_block_num = tron.tron_block_num || tron.targetBlockNum || ex.tron_block_num;
+              if (tron.revealed) {
+                ex.mine_pending = false;
+                if (tron.mine_digit != null) ex.mine_digit = tron.mine_digit | 0;
+                if (tron.tron_lucky) ex.tron_lucky = tron.tron_lucky;
+                if (tron.tron_block_id) ex.tron_block_id = tron.tron_block_id;
+              }
+              m.extra = ex;
+              changed = true;
+            });
+            if (changed) renderMessages();
+          }
+          // 若正打开该红包详情，自动重载（防抖，避免抢完+结算连续 update 打两次）
+          var pane = $('chatRpDetailPane');
+          var grabBtn = $('chatRpDetailGrabBtn');
+          if (pane && pane.classList.contains('open') && grabBtn) {
+            var cur = parseInt(grabBtn.getAttribute('data-packet'), 10) || 0;
+            if (cur === pid && typeof openRedPacketDetail === 'function') {
+              if (state._rpDetailReloadTimer) clearTimeout(state._rpDetailReloadTimer);
+              state._rpDetailReloadTimer = setTimeout(function () {
+                state._rpDetailReloadTimer = null;
+                openRedPacketDetail(pid);
+              }, 180);
+            }
+          }
+          if (d.tron_revealed && typeof showFanshubToast === 'function') {
+            var t = d.tron || {};
+            var tip = '波场已开奖';
+            if (t.tron_block_num) tip += ' · 区块#' + t.tron_block_num;
+            if (t.lucky_digit != null && (t.packet_type | 0) === 3) tip += ' · 雷' + t.lucky_digit;
+            showFanshubToast(tip, 'success');
+          }
+        })();
+        break;
+      case 'error':
+        if (packet.data && packet.data.message === 'auth_failed') {
+          setConnStatus(chatT('chat_conn_auth_fail'), 'err');
+        }
+        break;
+      default:
+        break;
+    }
+  }
+
+  function connect(force) {
+    var t = token();
+    if (!t) {
+      setConnStatus(chatT('chat_conn_not_login'), 'err');
+      return;
+    }
+    if (state.connecting) return;
+    if (state.ws && (state.ws.readyState === 0 || state.ws.readyState === 1) && !force) return;
+
+    if (state.ws) {
+      try { state.ws.onclose = null; state.ws.close(); } catch (e) {}
+      state.ws = null;
+    }
+
+    state.connecting = true;
+    state.connected = false;
+    setConnStatus(chatT('chat_conn_connecting'), '');
+    var url = defaultWsUrl();
+    var ws;
+    try {
+      ws = new WebSocket(url);
+    } catch (e) {
+      state.connecting = false;
+      setConnStatus(chatT('chat_conn_unreachable'), 'err');
+      scheduleReconnect();
+      return;
+    }
+    state.ws = ws;
+    ws.onopen = function () {
+      state.connecting = false;
+      setConnStatus(chatT('chat_conn_authing'), '');
+      try {
+        ws.send(JSON.stringify({ type: 'auth', data: { token: t, device_fp: (localStorage.getItem('fans_hub_device_fp') || '') }, req_id: 'auth' }));
+      } catch (e) {}
+      startPing();
+    };
+    ws.onmessage = function (ev) {
+      var packet;
+      try { packet = JSON.parse(ev.data); } catch (e) { return; }
+      handlePacket(packet);
+    };
+    ws.onclose = function () {
+      state.connecting = false;
+      state.connected = false;
+      stopPing();
+      setConnStatus(chatT('chat_conn_reconnecting'), 'err');
+      scheduleReconnect();
+    };
+    ws.onerror = function () {
+      setConnStatus(chatT('chat_conn_error'), 'err');
+    };
+  }
+
+  function disconnect() {
+    if (state.reconnectTimer) {
+      clearTimeout(state.reconnectTimer);
+      state.reconnectTimer = null;
+    }
+    stopPing();
+    if (state.ws) {
+      try { state.ws.onclose = null; state.ws.close(); } catch (e) {}
+      state.ws = null;
+    }
+    state.connected = false;
+    state.connecting = false;
+    setConnStatus(chatT('chat_conn_off'), '');
+  }
+
+  function bindUi() {
+    ensureChatOverlays();
+    buildEmojiPanel();
+    var search = $('chatConvSearch');
+    if (search && !search._bound) {
+      search._bound = true;
+      search.addEventListener('input', function () {
+        clearTimeout(state.listSearchTimer);
+        state.listSearchTimer = setTimeout(function () {
+          state.listKeyword = String(search.value || '').trim();
+          renderList();
+        }, 180);
+      });
+    }
+    var list = $('chatConvList');
+    if (list && !list._bound) {
+      list._bound = true;
+      list.addEventListener('click', function (ev) {
+        var btn = ev.target.closest('.chat-conv-item');
+        if (!btn) return;
+        openRoom({
+          type: parseInt(btn.getAttribute('data-type'), 10) || 1,
+          id: btn.getAttribute('data-id'),
+          peer: parseInt(btn.getAttribute('data-peer'), 10) || 0,
+          title: btn.getAttribute('data-title') || ''
+        });
+      });
+    }
+    var back = $('chatBackBtn');
+    if (back && !back._bound) {
+      back._bound = true;
+      back.onclick = closeRoom;
+    }
+    var moreBtn = $('chatGroupMoreBtn');
+    if (moreBtn && !moreBtn._bound) {
+      moreBtn._bound = true;
+      moreBtn.onclick = function () { openRoomMore(); };
+    }
+    var noticeClose = $('chatNoticePinClose');
+    if (noticeClose && !noticeClose._bound) {
+      noticeClose._bound = true;
+      noticeClose.onclick = function (ev) {
+        ev.stopPropagation();
+        dismissNoticePin();
+      };
+    }
+    var noticePin = $('chatNoticePin');
+    if (noticePin && !noticePin._bound) {
+      noticePin._bound = true;
+      noticePin.addEventListener('click', function (ev) {
+        if (ev.target && ev.target.id === 'chatNoticePinClose') return;
+        noticePin.classList.toggle('is-expanded');
+      });
+    }
+    var groupSaveBtn = $('chatGroupSaveBtn');
+    if (groupSaveBtn && !groupSaveBtn._bound) {
+      groupSaveBtn._bound = true;
+      groupSaveBtn.onclick = function () { saveGroupProfile(); };
+    }
+    var groupAvBtn = $('chatGroupAvatarBtn');
+    var groupAvInput = $('chatGroupAvatarInput');
+    if (groupAvBtn && groupAvInput && !groupAvBtn._bound) {
+      groupAvBtn._bound = true;
+      groupAvBtn.onclick = function () {
+        var meta = state.groupMeta || {};
+        if ((meta.my_role | 0) < 2) return;
+        groupAvInput.click();
+      };
+      groupAvInput.onchange = function () {
+        var file = groupAvInput.files && groupAvInput.files[0];
+        groupAvInput.value = '';
+        if (file) uploadGroupAvatar(file);
+      };
+    }
+    var settingsBack = $('chatGroupSettingsBack');
+    if (settingsBack && !settingsBack._bound) {
+      settingsBack._bound = true;
+      settingsBack.onclick = function () { closeSubPane('chatGroupSettingsPane'); };
+    }
+    var viewMembersBtn = $('chatViewMembersBtn');
+    if (viewMembersBtn && !viewMembersBtn._bound) {
+      viewMembersBtn._bound = true;
+      viewMembersBtn.onclick = function () { openGroupMembers(); };
+    }
+    var muteAllSwitch = $('chatMuteAllSwitch');
+    if (muteAllSwitch && !muteAllSwitch._bound) {
+      muteAllSwitch._bound = true;
+      muteAllSwitch.addEventListener('change', function () {
+        toggleMuteAll(!!muteAllSwitch.checked);
+      });
+    }
+    var membersBack = $('chatGroupMembersBack');
+    if (membersBack && !membersBack._bound) {
+      membersBack._bound = true;
+      membersBack.onclick = function () { closeSubPane('chatGroupMembersPane'); };
+    }
+    var addMemberBtn = $('chatAddMemberBtn');
+    if (addMemberBtn && !addMemberBtn._bound) {
+      addMemberBtn._bound = true;
+      addMemberBtn.onclick = function () { openGroupInvite(); };
+    }
+    var memberSearch = $('chatMemberSearch');
+    if (memberSearch && !memberSearch._bound) {
+      memberSearch._bound = true;
+      memberSearch.addEventListener('input', function () {
+        state.memberKeyword = memberSearch.value || '';
+        if (state.memberSearchTimer) clearTimeout(state.memberSearchTimer);
+        state.memberSearchTimer = setTimeout(function () {
+          loadMembers(state.memberKeyword).catch(function () {});
+        }, 250);
+      });
+    }
+    var memberList = $('chatMemberList');
+    if (memberList && !memberList._bound) {
+      memberList._bound = true;
+      memberList.addEventListener('click', function (ev) {
+        var item = ev.target.closest('.chat-member-item');
+        if (!item || item.disabled) return;
+        var uid = parseInt(item.getAttribute('data-uid'), 10) || 0;
+        var member = null;
+        for (var i = 0; i < state.members.length; i++) {
+          if ((state.members[i].user_id | 0) === uid) {
+            member = state.members[i];
+            break;
+          }
+        }
+        if (member) {
+          if (item.getAttribute('data-mod') === '1') openMemberAction(member);
+        }
+      });
+    }
+    var inviteBack = $('chatGroupInviteBack');
+    if (inviteBack && !inviteBack._bound) {
+      inviteBack._bound = true;
+      inviteBack.onclick = function () { closeSubPane('chatGroupInvitePane'); };
+    }
+    var inviteSearch = $('chatInviteSearch');
+    if (inviteSearch && !inviteSearch._bound) {
+      inviteSearch._bound = true;
+      inviteSearch.addEventListener('input', function () {
+        state.inviteKeyword = inviteSearch.value || '';
+        if (state.inviteSearchTimer) clearTimeout(state.inviteSearchTimer);
+        state.inviteSearchTimer = setTimeout(function () {
+          loadCandidates(state.inviteKeyword).catch(function () {});
+        }, 250);
+      });
+    }
+    var inviteList = $('chatInviteList');
+    if (inviteList && !inviteList._bound) {
+      inviteList._bound = true;
+      inviteList.addEventListener('change', function (ev) {
+        var cb = ev.target.closest('.chat-invite-check');
+        if (!cb) return;
+        var uid = parseInt(cb.getAttribute('data-uid'), 10) || 0;
+        if (cb.checked) state.inviteSelected[uid] = true;
+        else delete state.inviteSelected[uid];
+        var selectedCount = Object.keys(state.inviteSelected).filter(function (k) {
+          return state.inviteSelected[k];
+        }).length;
+        var btn = $('chatInviteConfirmBtn');
+        if (btn) {
+          btn.disabled = selectedCount <= 0;
+          btn.textContent = '确认添加 (' + selectedCount + ' 人)';
+        }
+      });
+    }
+    var inviteConfirm = $('chatInviteConfirmBtn');
+    if (inviteConfirm && !inviteConfirm._bound) {
+      inviteConfirm._bound = true;
+      inviteConfirm.onclick = function () { confirmInvite(); };
+    }
+    var actionCancel = $('chatMemberActionCancel');
+    if (actionCancel && !actionCancel._bound) {
+      actionCancel._bound = true;
+      actionCancel.onclick = closeMemberSheets;
+    }
+    var actionMask = $('chatMemberActionMask');
+    if (actionMask && !actionMask._bound) {
+      actionMask._bound = true;
+      actionMask.onclick = closeMemberSheets;
+    }
+    var actionSheet = $('chatMemberActionSheet');
+    if (actionSheet && !actionSheet._bound) {
+      actionSheet._bound = true;
+      actionSheet.addEventListener('click', function (ev) {
+        var btn = ev.target.closest('.chat-action-item[data-act]');
+        if (!btn) return;
+        var act = btn.getAttribute('data-act');
+        if (act === 'kick') doKickMember();
+        else if (act === 'mute') openMuteDurationSheet();
+        else if (act === 'unmute') doMuteMember(0);
+        else if (act === 'set_admin') doSetAdmin(true);
+        else if (act === 'unset_admin') doSetAdmin(false);
+      });
+    }
+    var muteDurCancel = $('chatMuteDurationCancel');
+    if (muteDurCancel && !muteDurCancel._bound) {
+      muteDurCancel._bound = true;
+      muteDurCancel.onclick = function () {
+        var sheet = $('chatMuteDurationSheet');
+        if (sheet) {
+          sheet.classList.remove('open');
+          sheet.setAttribute('aria-hidden', 'true');
+        }
+      };
+    }
+    var muteDurMask = $('chatMuteDurationMask');
+    if (muteDurMask && !muteDurMask._bound) {
+      muteDurMask._bound = true;
+      muteDurMask.onclick = function () {
+        var sheet = $('chatMuteDurationSheet');
+        if (sheet) {
+          sheet.classList.remove('open');
+          sheet.setAttribute('aria-hidden', 'true');
+        }
+      };
+    }
+    var muteDurSheet = $('chatMuteDurationSheet');
+    if (muteDurSheet && !muteDurSheet._bound) {
+      muteDurSheet._bound = true;
+      muteDurSheet.addEventListener('click', function (ev) {
+        var btn = ev.target.closest('[data-mute-sec]');
+        if (!btn) return;
+        doMuteMember(parseInt(btn.getAttribute('data-mute-sec'), 10) || 0);
+      });
+    }
+    var sendBtn = $('chatSendBtn');
+    if (sendBtn && !sendBtn._bound) {
+      sendBtn._bound = true;
+      sendBtn.onclick = function () { sendText(); };
+    }
+    var emojiBtn = $('chatEmojiBtn');
+    if (emojiBtn && !emojiBtn._bound) {
+      emojiBtn._bound = true;
+      emojiBtn.onclick = function () { toggleEmojiPanel(); };
+    }
+    var attachBtn = $('chatAttachBtn');
+    if (attachBtn && !attachBtn._bound) {
+      attachBtn._bound = true;
+      attachBtn.onclick = function () { toggleAttachPanel(); };
+    }
+    var pickImageBtn = $('chatPickImageBtn');
+    if (pickImageBtn && !pickImageBtn._bound) {
+      pickImageBtn._bound = true;
+      pickImageBtn.onclick = function () {
+        var input = $('chatImageInput');
+        if (input) input.click();
+      };
+    }
+    var pickVideoBtn = $('chatPickVideoBtn');
+    if (pickVideoBtn && !pickVideoBtn._bound) {
+      pickVideoBtn._bound = true;
+      pickVideoBtn.onclick = function () {
+        var input = $('chatVideoInput');
+        if (input) input.click();
+      };
+    }
+    var pickFileBtn = $('chatPickFileBtn');
+    if (pickFileBtn && !pickFileBtn._bound) {
+      pickFileBtn._bound = true;
+      pickFileBtn.onclick = function () {
+        var input = $('chatFileInput');
+        if (input) input.click();
+      };
+    }
+    var attachRpBtn = $('chatAttachRpBtn');
+    if (attachRpBtn && !attachRpBtn._bound) {
+      attachRpBtn._bound = true;
+      attachRpBtn.onclick = function () {
+        closeComposerPanels();
+        openRpSendPage();
+      };
+    }
+    var imageInput = $('chatImageInput');
+    if (imageInput && !imageInput._bound) {
+      imageInput._bound = true;
+      imageInput.addEventListener('change', function () {
+        var file = imageInput.files && imageInput.files[0];
+        imageInput.value = '';
+        if (file) handleMediaFile(file, 'image');
+      });
+    }
+    var videoInput = $('chatVideoInput');
+    if (videoInput && !videoInput._bound) {
+      videoInput._bound = true;
+      videoInput.addEventListener('change', function () {
+        var file = videoInput.files && videoInput.files[0];
+        videoInput.value = '';
+        if (file) handleMediaFile(file, 'video');
+      });
+    }
+    var fileInput = $('chatFileInput');
+    if (fileInput && !fileInput._bound) {
+      fileInput._bound = true;
+      fileInput.addEventListener('change', function () {
+        var file = fileInput.files && fileInput.files[0];
+        fileInput.value = '';
+        if (file) handleGenericFile(file);
+      });
+    }
+    var msgScroll = $('chatMsgScroll');
+    if (msgScroll && !msgScroll._recallBound) {
+      msgScroll._recallBound = true;
+      msgScroll.addEventListener('click', function (ev) {
+        var btn = ev.target.closest('.chat-msg-recall');
+        if (!btn) return;
+        ev.preventDefault();
+        var id = parseInt(btn.getAttribute('data-id'), 10) || 0;
+        if (!id) return;
+        if (!window.confirm('确定撤回这条消息？')) return;
+        recallMessage(id);
+      });
+    }
+    var stickerUploadInput = $('chatStickerUploadInput');
+    if (stickerUploadInput && !stickerUploadInput._bound) {
+      stickerUploadInput._bound = true;
+      stickerUploadInput.addEventListener('change', function () {
+        var file = stickerUploadInput.files && stickerUploadInput.files[0];
+        stickerUploadInput.value = '';
+        if (file) uploadCustomSticker(file);
+      });
+    }
+    var rpCancel = $('chatRpCancelBtn');
+    if (rpCancel && !rpCancel._bound) {
+      rpCancel._bound = true;
+      rpCancel.onclick = closeRpSendPage;
+    }
+    var rpSubmit = $('chatRpSubmitBtn');
+    if (rpSubmit && !rpSubmit._bound) {
+      rpSubmit._bound = true;
+      rpSubmit.onclick = function () { submitRedPacket(); };
+    }
+    var rpBless = $('chatRpBlessing');
+    if (rpBless && !rpBless._bound) {
+      rpBless._bound = true;
+      rpBless.addEventListener('input', updateRpPreview);
+    }
+    var rpAmount = $('chatRpAmount');
+    if (rpAmount && !rpAmount._bound) {
+      rpAmount._bound = true;
+      rpAmount.addEventListener('input', updateRpPreview);
+    }
+    var rpCount = $('chatRpCount');
+    if (rpCount && !rpCount._bound) {
+      rpCount._bound = true;
+      rpCount.addEventListener('input', updateRpPreview);
+    }
+    var rpTypeTabs = $('chatRpTypeTabs');
+    if (rpTypeTabs && !rpTypeTabs._bound) {
+      rpTypeTabs._bound = true;
+      rpTypeTabs.addEventListener('click', function (ev) {
+        var btn = ev.target.closest('.chat-rp-type-btn');
+        if (!btn) return;
+        rpTypeTabs.querySelectorAll('.chat-rp-type-btn').forEach(function (b) {
+          b.classList.toggle('active', b === btn);
+        });
+        updateRpPreview();
+      });
+    }
+    var rpMine = $('chatRpMineDigit');
+    if (rpMine && !rpMine._bound) {
+      rpMine._bound = true;
+      rpMine.addEventListener('input', updateRpPreview);
+    }
+    var input = $('chatInput');
+    if (input && !input._bound) {
+      input._bound = true;
+      input.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter') {
+          ev.preventDefault();
+          sendText();
+        }
+      });
+    }
+    var msgScroll = $('chatMsgScroll');
+    if (msgScroll && !msgScroll._bound) {
+      msgScroll._bound = true;
+      msgScroll.addEventListener('click', function (ev) {
+        var card = ev.target.closest('.chat-rp-card');
+        if (card) {
+          openRedPacketDetail(parseInt(card.getAttribute('data-packet'), 10) || 0);
+          return;
+        }
+        var zoomBtn = ev.target.closest('.chat-media-zoom-btn');
+        if (zoomBtn) {
+          ev.preventDefault();
+          openMediaLightbox(zoomBtn.getAttribute('data-preview') || '', zoomBtn.getAttribute('data-preview-type') || 'video');
+          return;
+        }
+        var previewEl = ev.target.closest('[data-preview]');
+        if (previewEl && (previewEl.classList.contains('chat-media-img') || previewEl.classList.contains('chat-sticker-img'))) {
+          ev.preventDefault();
+          openMediaLightbox(
+            previewEl.getAttribute('data-preview') || previewEl.getAttribute('src') || '',
+            previewEl.getAttribute('data-preview-type') || 'image'
+          );
+        }
+      });
+    }
+    var lightbox = ensureMediaLightbox();
+    if (lightbox && !lightbox._bound) {
+      lightbox._bound = true;
+      lightbox.addEventListener('click', function (ev) {
+        if (ev.target === lightbox || ev.target.id === 'chatMediaLightboxClose' || ev.target.closest('#chatMediaLightboxClose')) {
+          closeMediaLightbox();
+        }
+      });
+      document.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape') closeMediaLightbox();
+      });
+    }
+    var newPrivate = $('chatNewPrivateBtn');
+    if (newPrivate && !newPrivate._bound) {
+      newPrivate._bound = true;
+      newPrivate.onclick = function () {
+        if (!state.isImAdmin) {
+          if (typeof showFanshubToast === 'function') showFanshubToast('请直接点击列表中的客服会话', 'info');
+          return;
+        }
+        var peer = prompt('请输入会员ID');
+        if (!peer) return;
+        var pid = parseInt(String(peer).trim(), 10) || 0;
+        if (pid <= 0) {
+          if (typeof showFanshubToast === 'function') showFanshubToast('无效的ID', 'error');
+          return;
+        }
+        if (pid === state.userId) {
+          if (typeof showFanshubToast === 'function') showFanshubToast('不能和自己聊天', 'error');
+          return;
+        }
+        var a = Math.min(state.userId, pid);
+        var b = Math.max(state.userId, pid);
+        openRoom({ type: 1, id: a + '_' + b, peer: pid, title: 'ID ' + pid });
+      };
+    }
+    var addFriend = $('chatAddFriendBtn');
+    if (addFriend && !addFriend._bound) {
+      addFriend._bound = true;
+      addFriend.onclick = function () {
+        var menu = $('chatPlusMenu');
+        if (menu) menu.hidden = true;
+        if (typeof openAddFriendPane === 'function') {
+          openAddFriendPane();
+          return;
+        }
+      };
+    }
+    var newGroup = $('chatNewGroupBtn');
+    if (newGroup && !newGroup._bound) {
+      newGroup._bound = true;
+      newGroup.onclick = function () {
+        var menu = $('chatPlusMenu');
+        if (menu) menu.hidden = true;
+        openCreateGroupPane();
+      };
+    }
+    var createGroupBack = $('chatCreateGroupBack');
+    if (createGroupBack && !createGroupBack._bound) {
+      createGroupBack._bound = true;
+      createGroupBack.onclick = function () { closeCreateGroupPane(); };
+    }
+    var createGroupNext = $('chatCreateGroupNext');
+    if (createGroupNext && !createGroupNext._bound) {
+      createGroupNext._bound = true;
+      createGroupNext.onclick = function () { submitCreateGroup(); };
+    }
+    var createGroupNextTop = $('chatCreateGroupNextTop');
+    if (createGroupNextTop && !createGroupNextTop._bound) {
+      createGroupNextTop._bound = true;
+      createGroupNextTop.onclick = function () { submitCreateGroup(); };
+    }
+    var createGroupAvatar = $('chatCreateGroupAvatar');
+    if (createGroupAvatar && !createGroupAvatar._bound) {
+      createGroupAvatar._bound = true;
+      createGroupAvatar.onclick = function () { cycleCreateGroupAvatar(); };
+    }
+    var createGroupName = $('chatCreateGroupName');
+    if (createGroupName && !createGroupName._bound) {
+      createGroupName._bound = true;
+      createGroupName.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter') {
+          ev.preventDefault();
+          submitCreateGroup();
+        }
+      });
+    }
+    var privacyCards = $('chatCgPrivacyCards');
+    if (privacyCards && !privacyCards._bound) {
+      privacyCards._bound = true;
+      privacyCards.addEventListener('click', function (ev) {
+        var card = ev.target.closest('.chat-cg-card[data-privacy]');
+        if (!card) return;
+        state.createGroup.privacy = card.getAttribute('data-privacy') || 'private';
+        syncCreateGroupCards();
+      });
+    }
+    var modeCards = $('chatCgModeCards');
+    if (modeCards && !modeCards._bound) {
+      modeCards._bound = true;
+      modeCards.addEventListener('click', function (ev) {
+        var card = ev.target.closest('.chat-cg-card[data-mode]');
+        if (!card) return;
+        state.createGroup.chatMode = card.getAttribute('data-mode') || 'chat';
+        syncCreateGroupCards();
+      });
+    }
+    var profileClose = $('chatProfileClose');
+    var profileMask = $('chatUserProfileMask');
+    if (profileClose && !profileClose._bound) {
+      profileClose._bound = true;
+      profileClose.onclick = closeUserProfile;
+    }
+    if (profileMask && !profileMask._bound) {
+      profileMask._bound = true;
+      profileMask.onclick = closeUserProfile;
+    }
+    var profileAdd = $('chatProfileAddFriend');
+    if (profileAdd && !profileAdd._bound) {
+      profileAdd._bound = true;
+      // 已关闭：禁止通过资料页加好友，仅允许手机号/会员ID搜索
+      profileAdd.onclick = function () {
+        if (typeof showFanshubToast === 'function') {
+          showFanshubToast(chatT('chat_add_friend_hint') || '请通过手机号或8位会员ID添加好友', 'info');
+        }
+        closeUserProfile();
+        if (typeof openAddFriendPane === 'function') openAddFriendPane();
+      };
+    }
+    var profileChat = $('chatProfilePrivateChat');
+    if (profileChat && !profileChat._bound) {
+      profileChat._bound = true;
+      profileChat.onclick = function () {
+        var t = state.profileTarget;
+        if (!t) return;
+        closeUserProfile();
+        var a = Math.min(state.userId, t.user_id | 0);
+        var b = Math.max(state.userId, t.user_id | 0);
+        openRoom({ type: 1, id: a + '_' + b, peer: t.user_id | 0, title: t.nickname || ('ID' + t.user_id) });
+      };
+    }
+    var rpDetailBack = $('chatRpDetailBack');
+    if (rpDetailBack && !rpDetailBack._bound) {
+      rpDetailBack._bound = true;
+      rpDetailBack.onclick = function () { closeSubPane('chatRpDetailPane'); };
+    }
+    var rpDetailList = $('chatRpDetailList');
+    if (rpDetailList && !rpDetailList._bound) {
+      rpDetailList._bound = true;
+      // 已关闭：红包详情点击头像看资料
+    }
+    var rpDetailGrab = $('chatRpDetailGrabBtn');
+    if (rpDetailGrab && !rpDetailGrab._bound) {
+      rpDetailGrab._bound = true;
+      rpDetailGrab.onclick = function () {
+        var pid = parseInt(rpDetailGrab.getAttribute('data-packet'), 10) || 0;
+        if (!pid) return;
+        grabPacket(pid).then(function () {
+          openRedPacketDetail(pid);
+        }).catch(function () {});
+      };
+    }
+    var modeSave = $('chatGroupModeSaveBtn');
+    if (modeSave && !modeSave._bound) {
+      modeSave._bound = true;
+      modeSave.onclick = function () { saveGroupModes(); };
+    }
+  }
+
+  function onTabEnter() {
+    bindUi();
+    syncBalanceFromAccount();
+    updateMoneyLabel();
+    connect(false);
+    if (state.connected) {
+      refreshList().catch(function () {});
+    }
+    state.loadedOnce = true;
+  }
+
+  function onLocaleChange(opts) {
+    opts = opts || {};
+    const skipNetwork = !!opts.skipNetwork;
+    updateMoneyLabel();
+    refreshConnStatusLabel();
+    renderList();
+    var balEl = $('chatRpBalance');
+    if (balEl && state.money != null && !isNaN(state.money)) {
+      balEl.textContent = moneyText(state.money);
+    }
+    if (typeof setCommissionListMode === 'function') {
+      try { setCommissionListMode(state.commissionListMode || 'recent'); } catch (e1) {}
+    }
+    // 切语言：有缓存则只重绘，不强制打佣金接口
+    if (typeof refreshCommissionPanel === 'function') {
+      try {
+        if (skipNetwork && state.commissionData) {
+          setCommissionListMode(state.commissionListMode || 'recent');
+          if ($('chatCommissionTotal')) $('chatCommissionTotal').textContent = (typeof formatMoneyYuan === 'function' ? formatMoneyYuan(state.commissionData.total_money) : String(state.commissionData.total_money || 0));
+          if ($('chatCommissionWithdrawable')) $('chatCommissionWithdrawable').textContent = (typeof formatMoneyYuan === 'function' ? formatMoneyYuan(state.commissionData.withdrawable) : String(state.commissionData.withdrawable || 0));
+          if ($('chatCommissionToday')) $('chatCommissionToday').textContent = (typeof formatMoneyYuan === 'function' ? formatMoneyYuan(state.commissionData.today_money) : String(state.commissionData.today_money || 0));
+          if ($('chatCommissionRebate')) $('chatCommissionRebate').textContent = (typeof formatMoneyYuan === 'function' ? formatMoneyYuan(state.commissionData.rebate_money) : String(state.commissionData.rebate_money || 0));
+        } else if (!skipNetwork) {
+          refreshCommissionPanel(true);
+        }
+      } catch (e2) {}
+    }
+  }
+
+  function onLogin() {
+    bindUi();
+    state.stickerLoaded = false;
+    state.stickerManifest = null;
+    syncBalanceFromAccount();
+    connect(true);
+  }
+
+  function onLogout() {
+    closeRoom();
+    disconnect();
+    state.list = [];
+    state.messages = [];
+    state.stickerLoaded = false;
+    state.stickerManifest = null;
+    state.stickerQuota = { count: 0, limit: 50, is_admin: false };
+    state.userId = 0;
+    state.money = null;
+    state.listKeyword = '';
+    var search = $('chatConvSearch');
+    if (search) search.value = '';
+    renderList();
+    updateTabBadge();
+    updateMoneyLabel();
+  }
+
+  global.FansHubChat = {
+    onTabEnter: onTabEnter,
+    onLogin: onLogin,
+    onLogout: onLogout,
+    onLocaleChange: onLocaleChange,
+    connect: connect,
+    disconnect: disconnect,
+    closeRoom: closeRoom,
+    addFriendByMemberId: null
+  };

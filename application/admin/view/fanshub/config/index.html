@@ -1,0 +1,60 @@
+<div class="panel panel-default panel-intro">
+    <div class="panel-heading">
+        <div class="panel-lead"><em>活动配置</em>
+            <span class="text-muted" style="font-size:12px;margin-left:8px;">按功能拆分，避免单页过长</span>
+        </div>
+    </div>
+    <div class="panel-body">
+        {include file="fanshub/config/_nav" /}
+        <div class="row">
+            <div class="col-sm-4" style="margin-bottom:12px;">
+                <a href="{:url('fanshub.config/basic')}" class="btn btn-default btn-block btn-lg addtabsit" style="text-align:left;padding:16px 18px;">
+                    <i class="fa fa-sliders text-primary"></i> <strong>基础参数</strong>
+                    <div class="text-muted" style="font-size:12px;margin-top:6px;white-space:normal;">面值、提现门槛、送股、外链、默认语言、生产检查</div>
+                </a>
+            </div>
+            <div class="col-sm-4" style="margin-bottom:12px;">
+                <a href="{:url('fanshub.config/exchange')}" class="btn btn-default btn-block btn-lg addtabsit" style="text-align:left;padding:16px 18px;">
+                    <i class="fa fa-exchange text-success"></i> <strong>资产闪兑</strong>
+                    <div class="text-muted" style="font-size:12px;margin-top:6px;white-space:normal;">股份 / 红利 / 红宝 互兑开关与单次最低额</div>
+                </a>
+            </div>
+            <div class="col-sm-4" style="margin-bottom:12px;">
+                <a href="{:url('fanshub.config/invite')}" class="btn btn-default btn-block btn-lg addtabsit" style="text-align:left;padding:16px 18px;">
+                    <i class="fa fa-share-alt text-info"></i> <strong>邀请分享</strong>
+                    <div class="text-muted" style="font-size:12px;margin-top:6px;white-space:normal;">落地页域名、邀请码、分享/跑马灯、防刷</div>
+                </a>
+            </div>
+            <div class="col-sm-4" style="margin-bottom:12px;">
+                <a href="{:url('fanshub.config/copy')}" class="btn btn-default btn-block btn-lg addtabsit" style="text-align:left;padding:16px 18px;">
+                    <i class="fa fa-file-text-o text-warning"></i> <strong>H5文案</strong>
+                    <div class="text-muted" style="font-size:12px;margin-top:6px;white-space:normal;">大厅界面文案字段（中文默认稿）</div>
+                </a>
+            </div>
+            <div class="col-sm-4" style="margin-bottom:12px;">
+                <a href="{:url('fanshub.config/market')}" class="btn btn-default btn-block btn-lg addtabsit" style="text-align:left;padding:16px 18px;">
+                    <i class="fa fa-line-chart" style="color:#9b59b6;"></i> <strong>大盘控盘</strong>
+                    <div class="text-muted" style="font-size:12px;margin-top:6px;white-space:normal;">虚拟人数、股价公式、创造价值奖池</div>
+                </a>
+            </div>
+            <div class="col-sm-4" style="margin-bottom:12px;">
+                <a href="{:url('fanshub.config/security')}" class="btn btn-default btn-block btn-lg addtabsit" style="text-align:left;padding:16px 18px;">
+                    <i class="fa fa-shield text-danger"></i> <strong>安全校验</strong>
+                    <div class="text-muted" style="font-size:12px;margin-top:6px;white-space:normal;">API 签名、设备指纹、主站 UID 校验</div>
+                </a>
+            </div>
+            <div class="col-sm-4" style="margin-bottom:12px;">
+                <a href="{:url('fanshub.config/i18n')}" class="btn btn-default btn-block btn-lg addtabsit" style="text-align:left;padding:16px 18px;">
+                    <i class="fa fa-language" style="color:#16a085;"></i> <strong>多语言</strong>
+                    <div class="text-muted" style="font-size:12px;margin-top:6px;white-space:normal;">各语言批量对照编辑</div>
+                </a>
+            </div>
+            <div class="col-sm-4" style="margin-bottom:12px;">
+                <a href="{:url('fanshub.sms/index')}" class="btn btn-default btn-block btn-lg addtabsit" style="text-align:left;padding:16px 18px;">
+                    <i class="fa fa-envelope text-info"></i> <strong>短信配置</strong>
+                    <div class="text-muted" style="font-size:12px;margin-top:6px;white-space:normal;">大狗短信 / 国际短信通道参数</div>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,80 @@
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">网关类型:</label>
+        <div class="col-xs-12 col-sm-8">
+            <select name="row[gateway]" id="payMerchantGateway" class="form-control selectpicker">
+                {foreach name="gatewayList" item="label" key="code"}
+                <option value="{$code}" {if condition="isset($row.gateway) && $row.gateway == $code"}selected{elseif condition="!isset($row.gateway) && $code == 'wanhuitong'"/}selected{/if}>{$label}</option>
+                {/foreach}
+            </select>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">商户号:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[merchant_no]" id="payMerchantNo" type="text" data-rule="required" value="{$row.merchant_no|default=''|htmlentities}" placeholder="WH… / merchantId">
+            <span class="help-block paymerchant-wanhuitong-only">万汇通：同一凭证可挂多个钱包充/提通道。</span>
+            <span class="help-block paymerchant-bs-only" style="display:none;">BS：平台分配的 merchantId。</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">商户私钥 RSA:</label>
+        <div class="col-xs-12 col-sm-8">
+            <textarea class="form-control" rows="5" name="row[private_key]" id="payMerchantPrivateKey" {if condition="!isset($row.id)"}data-rule="required"{/if} placeholder="PKCS#8，可带 BEGIN/END">{$row.private_key|default=''}</textarea>
+            {if condition="isset($row.id)"}<span class="help-block">留空则不修改</span>{/if}
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">平台公钥 RSA:</label>
+        <div class="col-xs-12 col-sm-8">
+            <textarea class="form-control" rows="5" name="row[platform_public_key]" id="payMerchantPlatformKey" {if condition="!isset($row.id)"}data-rule="required"{/if} placeholder="回调验签用平台公钥">{$row.platform_public_key|default=''}</textarea>
+        </div>
+    </div>
+    <div class="form-group paymerchant-bs-only" style="display:none;">
+        <label class="control-label col-xs-12 col-sm-2">签名方式:</label>
+        <div class="col-xs-12 col-sm-8">
+            <select class="form-control" name="row[sign_type]">
+                <option value="RSA" {if condition="($row.sign_type|default='RSA') == 'RSA'"}selected{/if}>RSA（默认 SHA1withRSA）</option>
+                <option value="MD5" {if condition="($row.sign_type|default='RSA') == 'MD5'"}selected{/if}>MD5</option>
+            </select>
+        </div>
+    </div>
+    <div class="form-group paymerchant-bs-only" style="display:none;">
+        <label class="control-label col-xs-12 col-sm-2">MD5密钥:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[merchant_key]" type="text" value="{$row.merchant_key|default=''|htmlentities}" placeholder="signType=MD5 时填写">
+        </div>
+    </div>
+    <div class="form-group paymerchant-bs-only" style="display:none;">
+        <label class="control-label col-xs-12 col-sm-2">API版本:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[api_version]" type="text" value="{$row.api_version|default='2.0.0'|htmlentities}">
+        </div>
+    </div>
+    <div class="form-group paymerchant-bs-only" style="display:none;">
+        <label class="control-label col-xs-12 col-sm-2">回调币种:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[callback_currency_code]" type="text" value="{$row.callback_currency_code|default='CNY'|htmlentities}">
+        </div>
+    </div>
+    <div class="form-group paymerchant-bs-only" style="display:none;">
+        <label class="control-label col-xs-12 col-sm-2">默认充值模式:</label>
+        <div class="col-xs-12 col-sm-8">
+            <select class="form-control" name="row[recharge_mode]">
+                <option value="cashier" {if condition="($row.recharge_mode|default='cashier') == 'cashier'"}selected{/if}>收银台</option>
+                <option value="api" {if condition="($row.recharge_mode|default='cashier') == 'api'"}selected{/if}>接口（返回地址）</option>
+            </select>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">公网域名:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[site]" type="text" value="{$row.site|default=''|htmlentities}" placeholder="https://你的域名（生成 notify / 反查地址用）">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">回调IP白名单:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[callback_ips]" id="payMerchantCallbackIps" type="text" value="{$row.callback_ips|default='18.162.71.242,95.40.141.160'|htmlentities}">
+            <span class="help-block paymerchant-bs-only" style="display:none;">BS 默认：8.217.236.95</span>
+        </div>
+    </div>

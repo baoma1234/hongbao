@@ -1,0 +1,12 @@
+﻿== threshold_modal_title ==
+杩樺樊涓€姝ュ嵆鍙В閿侀鍙栵紒
+
+== threshold_modal_desc ==
+鎮ㄧ殑闂厬浣欓涓?<strong style="color:var(--secondary);">{currency}<span id="blockCurrentAmt">0.00</span></strong>锛岃窛瀹樻柟绂忓埄璧烽闂ㄦ <strong>{currency}{threshold}</strong> 杩樺樊 <strong style="color:var(--danger);">{currency}<span id="blockShortAmt">0.00</span></strong>銆?div class="progress-bar-wrap"><div class="progress-bar-fill" id="blockProgressBar" style="width:0%"></div></div>涓轰繚闅滄偍鐨勪笓灞為厤棰濅笉琚噴鏀撅紝璇峰敖蹇畬鎴愪富绔欏紑鎴锋垨閭€璇峰ソ鍙嬪崰浣嶅噾鏁帮紒
+
+== threshold_modal_btn_open ==
+馃挸 绔嬪嵆鍓嶅線 555.bio 瀹樻柟涓荤珯寮€鎴凤紙閫?{open_account_rights} 鑲★級
+
+== threshold_modal_btn_later ==
+绋嶅悗鍐嶈锛岀户缁敀鑲′唤
+

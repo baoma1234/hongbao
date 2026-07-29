@@ -1,0 +1,126 @@
+<form id="edit-form" class="form-horizontal" role="form" data-toggle="validator" method="POST" action="">
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">群名称:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input type="text" class="form-control" name="row[name]" value="{$row.name|htmlentities}" data-rule="required">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">群主会员ID:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input type="number" class="form-control" name="row[owner_user_id]" value="{$row.owner_user_id}" data-rule="required">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">群管理员ID:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input type="text" class="form-control" name="row[admin_user_ids]" value="{$row.admin_user_ids|htmlentities}" placeholder="多个用逗号分隔">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">追加普通成员:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input type="text" class="form-control" name="row[member_user_ids]" value="" placeholder="填写要新增的成员ID，已有成员可留空">
+            <span class="help-block">当前普通成员：{$row.member_user_ids|default='无'|htmlentities}</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">群公告:</label>
+        <div class="col-xs-12 col-sm-8">
+            <textarea class="form-control" name="row[notice]" rows="3">{$row.notice|htmlentities}</textarea>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">群属性:</label>
+        <div class="col-xs-12 col-sm-8">
+            {:build_radios('row[privacy_mode]', ['open'=>'🔓 开放群', 'private'=>'🔒 隐私群'], (isset($row['privacy_mode']) && $row['privacy_mode'] !== '') ? $row['privacy_mode'] : 'private')}
+            <span class="help-block">开放群：成员可见、可互加好友；隐私群：防挖人、资料锁定</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">推荐社群:</label>
+        <div class="col-xs-12 col-sm-8">
+            {:build_radios('row[is_recommend]', ['1'=>'是', '0'=>'否'], isset($row['is_recommend']) ? (string)$row['is_recommend'] : '0')}
+            <span class="help-block">开启后出现在 H5「社群」页第一行推荐位（建议设为开放群）</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">互动模式:</label>
+        <div class="col-xs-12 col-sm-8">
+            {:build_radios('row[chat_mode]', ['chat'=>'聊天模式', 'grab'=>'红宝模式'], (isset($row['chat_mode']) && $row['chat_mode'] !== '') ? $row['chat_mode'] : 'chat')}
+            <span class="help-block">红宝模式：全员禁言，仅管理员/机器人可发红包</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">展示人数:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input type="number" class="form-control" name="row[display_member_count]" value="{$row.display_member_count|default=0}" min="0">
+            <span class="help-block">0=显示真实人数；填写后前台仅展示该数字</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">隐藏成员列表:</label>
+        <div class="col-xs-12 col-sm-8">
+            {:build_radios('row[hide_member_list]', ['1'=>'是', '0'=>'否'], isset($row['hide_member_list']) ? (string)$row['hide_member_list'] : '1')}
+            <span class="help-block">隐私群会自动隐藏；开放群会自动公开</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">状态:</label>
+        <div class="col-xs-12 col-sm-8">
+            {:build_radios('row[status]', ['1'=>'正常', '2'=>'解散', '3'=>'全员禁言'], $row.status)}
+        </div>
+    </div>
+    <fieldset>
+        <legend style="margin:10px 0 15px;font-size:14px;">红包规则</legend>
+        <div class="form-group">
+            <label class="control-label col-xs-12 col-sm-2">VIP 红包群:</label>
+            <div class="col-xs-12 col-sm-8">
+                {:build_radios('row[is_vip_group]', ['1'=>'是', '0'=>'否'], isset($row['is_vip_group']) ? (string)$row['is_vip_group'] : '0')}
+                <span class="help-block">VIP 可用更少个数，并默认 1% 代理返点（可被下方比例覆盖）</span>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="control-label col-xs-12 col-sm-2">本群最低金额:</label>
+            <div class="col-xs-12 col-sm-4">
+                <input type="number" step="0.01" min="0" class="form-control" name="row[rp_min_amount]" value="{$row.rp_min_amount|default='10.00'}">
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="control-label col-xs-12 col-sm-2">本群个数:</label>
+            <div class="col-xs-12 col-sm-6">
+                <div class="input-group">
+                    <span class="input-group-addon">最少</span>
+                    <input type="number" class="form-control" name="row[rp_min_count]" value="{$row.rp_min_count|default=5}" min="1">
+                    <span class="input-group-addon">最多</span>
+                    <input type="number" class="form-control" name="row[rp_max_count]" value="{$row.rp_max_count|default=10}" min="1">
+                </div>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="control-label col-xs-12 col-sm-2">允许类型:</label>
+            <div class="col-xs-12 col-sm-8">
+                <?php
+                    $enabled = array_filter(array_map('trim', explode(',', (string)($row['rp_enabled_types'] ?? '2,3'))));
+                ?>
+                <label class="checkbox-inline"><input type="checkbox" name="row[rp_enabled_types][]" value="2" <?php echo in_array('2', $enabled, true) ? 'checked' : ''; ?>> 手气包</label>
+                <label class="checkbox-inline"><input type="checkbox" name="row[rp_enabled_types][]" value="3" <?php echo in_array('3', $enabled, true) ? 'checked' : ''; ?>> 埋雷包</label>
+                <label class="checkbox-inline"><input type="checkbox" name="row[rp_enabled_types][]" value="1" <?php echo in_array('1', $enabled, true) ? 'checked' : ''; ?>> 普通均分</label>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="control-label col-xs-12 col-sm-2">代理返点比例:</label>
+            <div class="col-xs-12 col-sm-4">
+                <input type="number" step="0.0001" min="0" max="1" class="form-control" name="row[rp_agent_rebate_rate]" value="{$row.rp_agent_rebate_rate|default='0.0100'}">
+                <span class="help-block">默认 0.01=1%（群主返佣）；填 0 则用全局默认 1%</span>
+            </div>
+        </div>
+    </fieldset>
+    <div class="form-group layer-footer">
+        <label class="control-label col-xs-12 col-sm-2"></label>
+        <div class="col-xs-12 col-sm-8">
+            <button type="submit" class="btn btn-success btn-embossed disabled">{:__('OK')}</button>
+            <button type="reset" class="btn btn-default btn-embossed">{:__('Reset')}</button>
+        </div>
+    </div>
+</form>

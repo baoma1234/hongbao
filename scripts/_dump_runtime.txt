@@ -1,0 +1,258 @@
+﻿==== C:\wwwroot\caijin.com_7111/public/888/js/app-core.js 49-120 ====
+49:         let COPY = {};
+50:         let COPY_VARS = {};
+51:         let lastServerCopy = null;
+52: 
+53:         function syncCopyFromLocale(serverCopy) {
+54:             if (serverCopy && typeof serverCopy === 'object') {
+55:                 lastServerCopy = serverCopy;
+56:             }
+57:             const pack = (window.FanshubI18n && FanshubI18n.currentPack()) || {};
+58:             COPY = Object.assign({}, pack);
+59:             if (lastServerCopy) {
+60:                 Object.keys(lastServerCopy).forEach(function(k) {
+61:                     if (lastServerCopy[k] != null && lastServerCopy[k] !== '') {
+62:                         COPY[k] = lastServerCopy[k];
+63:                     }
+64:                 });
+65:             }
+66:             COPY_VARS = buildCopyVars({});
+67:         }
+68: 
+69:         function buildCopyVars(cfg) {
+70:             var currency = (window.FanshubI18n && FanshubI18n.currencySymbol()) || '锟?;
+71:             var price = (typeof getSharePrice === 'function') ? getSharePrice() : (CONFIG.SINGLE_TICKET_VALUE || 5);
+72:             var partners = fissionUserCount || (cfg && cfg.partner_count) || 8000;
+73:             var seedShares = (cfg && cfg.seed_total_shares !== undefined) ? cfg.seed_total_shares : (CONFIG.SEED_TOTAL_SHARES || 177777.6);
+74:             var avg = partners > 0 ? (seedShares / partners) : 0;
+75:             return {
+76:                 threshold: (CONFIG.WITHDRAW_THRESHOLD || 50).toFixed(2),
+77:                 ticket_value: Number(price).toFixed(2),
+78:                 current_share_price: Number(price).toFixed(2),
+79:                 partner_count: formatCountNum(partners),
+80:                 fission_user_count: formatCountNum(partners),
+81:                 partner_today_up: formatCountNum(partnerTodayUp || (cfg && cfg.partner_today_up) || 0),
+82:                 price_up_pct: (priceUpPct || (cfg && cfg.price_up_pct) || 0).toFixed ? Number(priceUpPct || (cfg && cfg.price_up_pct) || 0).toFixed(1) : '0.0',
+83:                 seed_total_shares: Number(seedShares).toLocaleString('en-US', { maximumFractionDigits: 1 }),
+84:                 avg_shares: avg.toFixed(1),
+85:                 register_rights: cfg && cfg.register_rights !== undefined ? cfg.register_rights : 5,
+86:                 open_account_rights: cfg && cfg.open_account_rights !== undefined ? cfg.open_account_rights : 2,
+87:                 share_rights: cfg && cfg.share_rights !== undefined ? cfg.share_rights : 1,
+88:                 percent: Math.round((CONFIG.MAX_VOTE_PERCENT || 1) * 100) + '%',
+89:                 currency: currency,
+90:             };
+91:         }
+92: 
+93:         function fc(key, extra) {
+94:             let tpl = '';
+95:             if (window.FanshubI18n) {
+96:                 tpl = FanshubI18n.text(key, COPY);
+97:             }
+98:             if (!tpl) tpl = COPY[key] || '';
+99:             const vars = Object.assign({}, COPY_VARS, extra || {});
+100:             Object.keys(vars).forEach(function(k) {
+101:                 tpl = tpl.replace(new RegExp('\\{' + k + '\\}', 'g'), vars[k]);
+102:             });
+103:             return tpl;
+104:         }
+105: 
+106:         function formatMoney(amount) {
+107:             const sym = (window.FanshubI18n && FanshubI18n.currencySymbol()) || '锟?;
+108:             const num = parseFloat(amount);
+109:             const val = isNaN(num) ? 0 : num;
+110:             return sym + val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+111:         }
+112: 
+113:         function formatCountNum(num) {
+114:             return Number(num || 0).toLocaleString('en-US');
+115:         }
+116: 
+117:         function formatSharePrice(price) {
+118:             const p = parseFloat(price);
+119:             const val = (!isNaN(p) && p > 0) ? p : 5;
+120:             return val.toFixed(2);
+==== C:\wwwroot\caijin.com_7111/public/888/js/chat/04-net.js 770-820 ====
+770:     state.loadedOnce = true;
+771:   }
+772: 
+773:   function onLocaleChange() {
+774:     updateMoneyLabel();
+775:     refreshConnStatusLabel();
+776:     renderList();
+777:     var balEl = $('chatRpBalance');
+778:     if (balEl && state.money != null && !isNaN(state.money)) {
+779:       balEl.textContent = moneyText(state.money);
+780:     }
+781:   }
+782: 
+783:   function onLogin() {
+784:     bindUi();
+785:     state.stickerLoaded = false;
+786:     state.stickerManifest = null;
+787:     syncBalanceFromAccount();
+788:     connect(true);
+789:   }
+790: 
+791:   function onLogout() {
+792:     closeRoom();
+793:     disconnect();
+794:     state.list = [];
+795:     state.messages = [];
+796:     state.stickerLoaded = false;
+797:     state.stickerManifest = null;
+798:     state.stickerQuota = { count: 0, limit: 50, is_admin: false };
+799:     state.userId = 0;
+800:     state.money = null;
+801:     state.listKeyword = '';
+802:     var search = $('chatConvSearch');
+803:     if (search) search.value = '';
+804:     renderList();
+805:     updateTabBadge();
+806:     updateMoneyLabel();
+807:   }
+808: 
+809:   global.FansHubChat = {
+810:     onTabEnter: onTabEnter,
+811:     onLogin: onLogin,
+812:     onLogout: onLogout,
+813:     onLocaleChange: onLocaleChange,
+814:     connect: connect,
+815:     disconnect: disconnect,
+816:     closeRoom: closeRoom,
+817:     addFriendByMemberId: null
+818:   };==== C:\wwwroot\caijin.com_7111/public/888/js/chat/05-community.js 698-760 ====
+698:     if (state.connected) refreshFriendRequests().catch(function () {});
+699:   };
+700: 
+701:   var _origOnLocaleChange = onLocaleChange;
+702:   onLocaleChange = function () {
+703:     _origOnLocaleChange();
+704:     fillAddFriendCountries();
+705:     renderRecommendGroups();
+706:     renderMyGroups();
+707:     renderFriendFeed();
+708:     renderFriendReqList();
+709:   };
+710: 
+711:   var _origOnLogin = onLogin;
+712:   onLogin = function () {
+713:     _origOnLogin();
+714:     bindCommunityUi();
+715:   };
+716: 
+717:   var _origHandlePacket = handlePacket;
+718:   handlePacket = function (packet) {
+719:     _origHandlePacket(packet);
+720:     if (!packet || !packet.type) return;
+721:     if (packet.type === 'auth.ok') {
+722:       refreshFriendRequests().catch(function () {});
+723:     } else if (packet.type === 'friend.request') {
+724:       refreshFriendRequests().then(function () {
+725:         if ($('chatFriendReqPane') && $('chatFriendReqPane').classList.contains('open')) {
+726:           renderFriendReqList();
+727:         }
+728:         if (typeof showFanshubToast === 'function') {
+729:           var fu = (packet.data && packet.data.from_user) || {};
+730:           showFanshubToast(chatT('chat_friend_req_incoming_toast', { name: fu.nickname || ('ID' + ((packet.data && packet.data.from_user_id) || '')) }), 'info');
+731:         }
+732:       }).catch(function () {});
+733:     } else if (packet.type === 'friend.accepted' || packet.type === 'friend.rejected') {
+734:       refreshFriendRequests().then(function () {
+735:         if ($('chatFriendReqPane') && $('chatFriendReqPane').classList.contains('open')) {
+736:           renderFriendReqList();
+737:         }
+738:       }).catch(function () {});
+739:       refreshList().catch(function () {});
+740:       refreshCommunity().catch(function () {});
+741:     }
+742:   };
+743: 
+744:   // After auth.ok in handlePacket 鈥?enhance create-group visibility via bindCommunityUi polling
+745:   var _origBindUi = bindUi;
+746:   bindUi = function () {
+747:     _origBindUi();
+748:     bindCommunityUi();
+749:     var homeCreate = $('chatHomeCreateGroupBtn');
+750:     if (homeCreate) homeCreate.style.display = state.canCreateGroup ? '' : 'none';
+751:     var addFriendBtn = $('chatAddFriendBtn');
+752:     if (addFriendBtn) addFriendBtn.style.display = '';
+753:   };
+754: 
+755:   if (global.FansHubChat) {
+756:     global.FansHubChat.onTabEnter = onTabEnter;
+757:     global.FansHubChat.onLocaleChange = onLocaleChange;
+758:     global.FansHubChat.onLogin = onLogin;
+759:     global.FansHubChat.addFriendByMemberId = addFriendByMemberId;
+760:   }
+==== C:\wwwroot\caijin.com_7111/public/888/js/chat/06-notice.js 360-430 ====
+360:         +   '<div class="chat-commission-row-amt' + (out ? ' is-out' : '') + '">' + noticeEscape(amt) + '</div>'
+361:         + '</div>';
+362:     }).join('');
+363:   }
+364: 
+365:   function setCommissionListMode(mode) {
+366:     state.commissionListMode = mode || 'recent';
+367:     var data = state.commissionData || {};
+368:     var title = $('chatCommissionListTitle');
+369:     if (mode === 'promo') {
+370:       if (title) title.textContent = '鎺ㄥ箍缁撶畻';
+371:       renderCommissionRows(data.promo_recent, '鏆傛棤鎺ㄥ箍缁撶畻璁板綍');
+372:     } else if (mode === 'rebate') {
+373:       if (title) title.textContent = '绾㈠寘杩斾剑';
+374:       renderCommissionRows(data.rebate_recent, '鏆傛棤绾㈠寘杩斾剑璁板綍');
+375:     } else if (mode === 'withdraw_list') {
+376:       if (title) title.textContent = '鎻愮幇璁板綍';
+377:       renderCommissionRows(data.withdraw_recent, '鏆傛棤鎻愮幇璁板綍');
+378:     } else {
+379:       if (title) title.textContent = '鏈€杩戠粨绠?;
+380:       renderCommissionRows(data.recent, '鏆傛棤缁撶畻璁板綍锛岄個璇峰ソ鍙嬪嵆鍙幏寰?);
+381:     }
+382:   }
+383: 
+384:   function openCommissionWallet(which) {
+385:     if (typeof global.openProfileSubPage === 'function') {
+386:       global.openProfileSubPage(which);
+387:       return;
+388:     }
+389:     if (window.FansHubAssets && typeof FansHubAssets.ensureWallet === 'function') {
+390:       FansHubAssets.ensureWallet().then(function () {
+391:         if (typeof global.openProfileWalletPage === 'function') global.openProfileWalletPage(which);
+392:       }).catch(function () {
+393:         if (typeof showFanshubToast === 'function') showFanshubToast('閽卞寘妯″潡鍔犺浇澶辫触', 'error');
+394:       });
+395:       return;
+396:     }
+397:     if (typeof global.openProfileWalletPage === 'function') {
+398:       global.openProfileWalletPage(which);
+399:       return;
+400:     }
+401:     if (typeof showFanshubToast === 'function') showFanshubToast('璇峰厛鎵撳紑銆屾垜鐨勩€嶄娇鐢ㄩ挶鍖?, 'info');
+402:   }
+403: 
+404:   async function refreshCommissionPanel(force) {
+405:     var listEl = $('chatCommissionList');
+406:     if (!listEl) return;
+407:     if (!token()) {
+408:       if ($('chatCommissionTotal')) $('chatCommissionTotal').textContent = '楼 0.00';
+409:       if ($('chatCommissionWithdrawable')) $('chatCommissionWithdrawable').textContent = '楼 0.00';
+410:       if ($('chatCommissionToday')) $('chatCommissionToday').textContent = '楼 0.00';
+411:       if ($('chatCommissionRebate')) $('chatCommissionRebate').textContent = '楼 0.00';
+412:       listEl.innerHTML = '<div class="chat-empty chat-empty-glass">鐧诲綍鍚庢煡鐪嬩剑閲戞槑缁?/div>';
+413:       return;
+414:     }
+415:     if (!force && listEl._loaded) return;
+416:     listEl.innerHTML = '<div class="chat-empty chat-empty-glass">鍔犺浇涓€?/div>';
+417:     try {
+418:       var data = await global.apiRequest('commission', 'GET', {});
+419:       state.commissionData = data || {};
+420:       if ($('chatCommissionTotal')) $('chatCommissionTotal').textContent = formatMoneyYuan(data.total_money);
+421:       if ($('chatCommissionWithdrawable')) $('chatCommissionWithdrawable').textContent = formatMoneyYuan(data.withdrawable);
+422:       if ($('chatCommissionToday')) $('chatCommissionToday').textContent = formatMoneyYuan(data.today_money);
+423:       if ($('chatCommissionRebate')) $('chatCommissionRebate').textContent = formatMoneyYuan(data.rebate_money);
+424:       setCommissionListMode(state.commissionListMode || 'recent');
+425:       listEl._loaded = true;
+426:     } catch (e) {
+427:       listEl.innerHTML = '<div class="chat-empty chat-empty-glass">' + noticeEscape(e.message || '鍔犺浇澶辫触') + '</div>';
+428:     }
+429:   }
+430: 
