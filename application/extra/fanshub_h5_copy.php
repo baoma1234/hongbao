@@ -622,6 +622,7 @@ return array (
   'wallet_bind_address_invalid' => '钱包地址格式不正确',
   'wallet_bind_address_taken' => '该钱包地址已被其他用户绑定',
   'wallet_bind_type_mismatch' => '绑定地址与当前钱包类型不匹配',
+  'wallet_partition_empty' => '当前分区暂无可用通道',
   'wallet_turnover_need' => '流水需≥{need}',
   'wallet_turnover_ratio_suffix' => '，且不少于提现额×{ratio}',
   'wallet_turnover_line' => '累计流水：{amount}',

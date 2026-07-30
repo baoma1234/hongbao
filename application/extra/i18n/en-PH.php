@@ -197,6 +197,7 @@ return array (
   'wallet_bind_address_invalid' => 'Invalid wallet address',
   'wallet_bind_address_taken' => 'This wallet address is already bound by another user',
   'wallet_bind_type_mismatch' => 'Bound address does not match this wallet type',
+  'wallet_partition_empty' => 'No channels in this section right now',
   'wallet_turnover_need' => 'Turnover must be ≥{need}',
   'wallet_turnover_ratio_suffix' => ', and at least withdraw ×{ratio}',
   'wallet_turnover_line' => 'Total turnover: {amount}',

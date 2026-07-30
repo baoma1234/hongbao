@@ -695,10 +695,10 @@
 .profile-sub-pane .wallet-bind-form .btn-uid-submit {
   margin-top: 8px;
 }
-  display: block;
-  margin-top: 4px;
-  color: var(--pg-muted);
-  font-weight: 600;
+
+.profile-sub-pane .wallet-channel-empty--inline {
+  margin: 0;
+  padding: 10px 12px;
 }
 
 /* 流水列表 */

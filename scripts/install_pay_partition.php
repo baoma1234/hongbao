@@ -123,10 +123,16 @@ foreach ($rows as $r) {
     }
     $type = $r['type'] === 'withdraw' ? 'withdraw' : 'recharge';
     $handler = strtolower((string)$r['handler']);
-    $pay = trim((string)$r['pay_channel']);
-    $name = (string)$r['name'];
-    $isWallet = in_array($handler, $walletHandlers, true)
-        || preg_match('/钱包|PAY|UsDT|TRC|Nopay|Okpay|Topay|Gopay|K豆|万币/i', $name . $pay);
+    $pay = strtolower(trim((string)$r['pay_channel']));
+    $walletCodes = [
+        'kdou','abpay','cbi','jdpay','sanliuwu','hdpay','mbpay','qianneng','fpay','jiubaba',
+        'balingba','ersansi','vippay','upay','okpay','topay','gopay','nopay','goubaopay',
+        'agpay','wanbi','biqu','bobi','mpay','usdt_trc20'
+    ];
+    $isWallet = in_array($handler, $walletHandlers, true) || in_array($pay, $walletCodes, true);
+    if ($handler === 'merchant' && strpos($pay, 'test_') === 0) {
+        $isWallet = false;
+    }
     $code = $isWallet ? 'wallet' : 'self_service';
     $pid = $map[$type . ':' . $code] ?? 0;
     if ($pid > 0) {

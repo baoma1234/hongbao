@@ -342,14 +342,17 @@
     var html = '';
     partitions.forEach(function (part) {
       var chs = part.channels || [];
-      if (!chs.length) return;
       var partKey = String(part.code || part.id || 'part');
       var useMore = part.code === 'wallet' || part.bind_mode === 'wallet';
       if (part.name) {
         html += '<div class="wallet-partition-title">' + escapeHtml(part.name) + '</div>';
       }
       html += '<div class="wallet-partition-block" data-part="' + escapeHtml(partKey) + '">';
-      html += renderChannelGroupHtml(chs, type, sel, partKey, useMore);
+      if (!chs.length) {
+        html += '<div class="wallet-channel-empty wallet-channel-empty--inline">' + escapeHtml(wt('wallet_partition_empty', '当前分区暂无可用通道')) + '</div>';
+      } else {
+        html += renderChannelGroupHtml(chs, type, sel, partKey, useMore);
+      }
       html += '</div>';
     });
     box.innerHTML = html;

@@ -224,10 +224,8 @@ class FansHubWallet
             }
         }
 
-        // 去掉空分区
-        $partitions = array_values(array_filter($partitions, function ($p) {
-            return !empty($p['channels']);
-        }));
+        // 保留空分区：前台也要显示「自助 / 钱包地址」标题
+        $partitions = array_values($partitions);
 
         $out = [
             'partitions' => $partitions,
