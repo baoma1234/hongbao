@@ -205,27 +205,43 @@
     var amt = extra && (extra.total_amount != null) ? parseFloat(extra.total_amount) : NaN;
     var cnt = extra && (extra.total_count != null) ? (extra.total_count | 0) : 0;
     var ptype = extra && (extra.packet_type != null) ? (extra.packet_type | 0) : 2;
-    var mine = extra && (extra.mine_digit != null) ? (extra.mine_digit | 0) : 0;
+    var mineRaw = extra && extra.mine_digit;
+    var mine = (mineRaw != null && mineRaw !== '') ? (parseInt(mineRaw, 10) || 0) : null;
+    if (mine != null && (mine < 0 || mine > 9)) mine = 0;
+    var cover = (state.rpCover && state.rpCover[pid]) || {};
+    var grabbed = !!(cover.grabbed || (extra && extra.cover_grabbed));
+    var expired = !!(cover.expired || (extra && extra.cover_expired));
+    if (!expired && extra && (extra.expiretime | 0) > 0) {
+      expired = (Math.floor(Date.now() / 1000) >= (extra.expiretime | 0));
+    }
+    var faded = !!(cover.faded || (extra && extra.cover_faded) || grabbed || expired);
     var desc = '';
     if (!isNaN(amt) && amt > 0) {
       desc = amt.toFixed(2) + ' 元' + (cnt > 0 ? (' / ' + cnt + '个包') : '');
-      if (ptype === 3) {
+      if (ptype === 3 && mine != null) {
         desc += ' · 雷' + mine;
       }
     } else {
       desc = time || '红包';
     }
     var bottom = '红包福利';
-    if (ptype === 3) bottom = '埋雷红包 · 雷' + mine;
+    if (ptype === 3) bottom = mine != null ? ('埋雷红包 · 雷' + mine) : '埋雷红包';
     else if (ptype === 2) bottom = '拼手气红包';
     else if (ptype === 1) bottom = '人均红包';
     if (extra && extra.mode_label) bottom = String(extra.mode_label);
+    if (grabbed) bottom = '已领取';
+    else if (expired) bottom = '已过期';
     bottom = escapeHtml(bottom);
-    var mineBadge = (ptype === 3)
+    var mineBadge = (ptype === 3 && mine != null)
       ? ('<div class="rp-mine-badge" aria-label="埋雷数字"><span class="rp-mine-badge-lab">雷</span><span class="rp-mine-badge-num">' + mine + '</span></div>')
       : '';
+    var cls = 'chat-rp-card bubble-rp'
+      + (ptype === 3 ? ' is-mine' : '')
+      + (faded ? ' is-faded' : '')
+      + (grabbed ? ' is-grabbed' : '')
+      + (expired ? ' is-expired' : '');
     return (
-      '<button type="button" class="chat-rp-card bubble-rp' + (ptype === 3 ? ' is-mine' : '') + '" data-packet="' + (pid | 0) + '">' +
+      '<button type="button" class="' + cls + '" data-packet="' + (pid | 0) + '">' +
         '<div class="rp-top">' +
           '<div class="rp-icon-box">' + RP_ICON_SVG + '</div>' +
           '<div class="rp-info">' +
@@ -237,6 +253,33 @@
         '<div class="rp-bottom">' + bottom + '</div>' +
       '</button>'
     );
+  }
+
+  function markRpCover(packetId, patch) {
+    packetId = packetId | 0;
+    if (!packetId) return;
+    if (!state.rpCover) state.rpCover = {};
+    var cur = state.rpCover[packetId] || {};
+    var next = Object.assign({}, cur, patch || {});
+    if (next.grabbed || next.expired) next.faded = true;
+    state.rpCover[packetId] = next;
+    // 同步到消息 extra，重渲染时保留
+    if (state.messages && state.messages.length) {
+      state.messages.forEach(function (m) {
+        if (!m || (m.msg_type | 0) !== 2) return;
+        var ex = m.extra;
+        if (typeof ex === 'string') {
+          try { ex = JSON.parse(ex); } catch (e) { ex = {}; }
+        }
+        if (!ex || typeof ex !== 'object') ex = {};
+        if ((ex.packet_id | 0) !== packetId) return;
+        if (next.grabbed) ex.cover_grabbed = true;
+        if (next.expired) ex.cover_expired = true;
+        if (next.faded) ex.cover_faded = true;
+        if (patch && patch.mine_digit != null) ex.mine_digit = patch.mine_digit | 0;
+        m.extra = ex;
+      });
+    }
   }
 
   function groupMessageWrap(mine, fromUserId, innerHtml, actions, msgId) {
@@ -381,7 +424,21 @@
       if (grabBtn) {
         var grabbed = !!data.mine;
         var finished = (p.remain_count | 0) <= 0;
-        grabBtn.style.display = (!grabbed && !finished) ? '' : 'none';
+        var st = (p.status | 0);
+        var expired = st === 3 || st === 4 || ((p.expiretime | 0) > 0 && Math.floor(Date.now() / 1000) >= (p.expiretime | 0) && st !== 2 && st !== 5);
+        if (grabbed || expired) {
+          markRpCover(packetId, {
+            grabbed: grabbed,
+            expired: expired,
+            faded: true,
+            mine_digit: (p.packet_type | 0) === 3 ? (p.mine_digit | 0) : undefined
+          });
+          try { renderMessages(); } catch (eCover) {}
+        } else if ((p.packet_type | 0) === 3 && p.mine_digit != null) {
+          markRpCover(packetId, { mine_digit: p.mine_digit | 0 });
+          try { renderMessages(); } catch (eMine) {}
+        }
+        grabBtn.style.display = (!grabbed && !finished && !expired) ? '' : 'none';
         grabBtn.setAttribute('data-packet', String(packetId));
       }
       openSubPane('chatRpDetailPane');
@@ -637,6 +694,7 @@
     };
     state.messages = [];
     state.groupMeta = null;
+    state.rpCover = {};
     hideNoticePin();
     var titleEl = $('chatRoomTitle');
     if (titleEl) titleEl.textContent = state.room.title || (state.room.type === 2 ? chatT('chat_group_default_name') : chatT('chat_private'));
@@ -1688,6 +1746,8 @@
         state.money = parseFloat(packet.data.balance);
         updateMoneyLabel();
       }
+      markRpCover(packetId, { grabbed: true, faded: true });
+      try { renderMessages(); } catch (eRender) {}
       if (typeof showFanshubToast === 'function') {
         showFanshubToast(amt != null ? ('抢到 ￥' + parseFloat(amt).toFixed(2)) : '领取成功', 'success');
       }

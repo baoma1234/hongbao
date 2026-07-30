@@ -48,6 +48,7 @@
     recommendGroups: [],
     myGroups: [],
     friends: [],
+    rpCover: {},
     senderCache: {},
     profileTarget: null,
     createGroup: {

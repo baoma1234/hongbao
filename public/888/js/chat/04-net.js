@@ -116,7 +116,18 @@
           var d = packet.data || {};
           var pid = d.packet_id | 0;
           if (!pid) return;
-          // 开奖后刷新红包卡片上的锁定区块/雷号提示
+          var byUid = d.by_user_id | 0;
+          if (byUid && byUid === (state.userId | 0)) {
+            markRpCover(pid, { grabbed: true, faded: true });
+            try { renderMessages(); } catch (e1) {}
+          }
+          var grab = d.grab || {};
+          var st = grab.status | 0;
+          if (st === 3 || st === 4) {
+            markRpCover(pid, { expired: true, faded: true });
+            try { renderMessages(); } catch (e2) {}
+          }
+          // 开奖后刷新红包卡片上的锁定区块提示（不覆盖发包人手填雷号）
           if (d.tron_revealed && d.tron && state.messages && state.messages.length) {
             var tron = d.tron;
             var changed = false;
@@ -127,7 +138,10 @@
               ex.tron_block_num = tron.tron_block_num || tron.targetBlockNum || ex.tron_block_num;
               if (tron.revealed) {
                 ex.mine_pending = false;
-                if (tron.mine_digit != null) ex.mine_digit = tron.mine_digit | 0;
+                // 埋雷数字以发包为准；仅在消息里缺失时才用波场旁证补齐
+                if (ex.mine_digit == null && tron.mine_digit != null) {
+                  ex.mine_digit = tron.mine_digit | 0;
+                }
                 if (tron.tron_lucky) ex.tron_lucky = tron.tron_lucky;
                 if (tron.tron_block_id) ex.tron_block_id = tron.tron_block_id;
               }

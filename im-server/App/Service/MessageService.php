@@ -551,6 +551,16 @@ class MessageService
             if (isset($extra['packet_type'])) {
                 $clean['packet_type'] = (int)$extra['packet_type'];
             }
+            // 扫雷雷号须落库到消息 extra，封面才能显示准确数字（0 也要保留）
+            if (array_key_exists('mine_digit', $extra) && $extra['mine_digit'] !== null && $extra['mine_digit'] !== '') {
+                $clean['mine_digit'] = max(0, min(9, (int)$extra['mine_digit']));
+            }
+            if (isset($extra['expiretime'])) {
+                $clean['expiretime'] = max(0, (int)$extra['expiretime']);
+            }
+            if (!empty($extra['skin_id'])) {
+                $clean['skin_id'] = (int)$extra['skin_id'];
+            }
             if (isset($extra['blessing'])) {
                 $clean['blessing'] = mb_substr(trim((string)$extra['blessing']), 0, 100);
             }

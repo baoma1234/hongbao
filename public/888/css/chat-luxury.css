@@ -465,6 +465,18 @@ body.chat-room-open .bottom-action-bar {
   font-weight: 900;
   color: #B71C1C;
 }
+/* 自己领过 / 已过期：封面红色变浅 */
+.chat-room-pane .chat-rp-card.is-faded .rp-top {
+  background: linear-gradient(145deg, #E89A9A, #D47A7A);
+}
+.chat-room-pane .chat-rp-card.is-faded {
+  opacity: 0.88;
+  filter: saturate(0.72);
+}
+.chat-room-pane .chat-rp-card.is-faded .rp-bottom {
+  background: #f3d4d4;
+  color: rgba(120, 40, 40, 0.72);
+}
 .chat-room-pane .chat-rp-card .rp-title {
   font-size: 16px;
   font-weight: 600;

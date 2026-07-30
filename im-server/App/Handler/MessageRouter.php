@@ -487,6 +487,7 @@ class MessageRouter
             }
         }
         $list = $this->messages->history($ctype, $cid, (int)($payload['before_id'] ?? 0), (int)($payload['limit'] ?? 30));
+        $list = $this->redPackets->enrichMessageExtras($list, (int)$uid);
         $this->send($connection, 'history', ['list' => $list], $reqId);
     }
 

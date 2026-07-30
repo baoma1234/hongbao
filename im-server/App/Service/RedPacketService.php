@@ -1379,6 +1379,95 @@ class RedPacketService
         return TronFair::publicView($packet, $records);
     }
 
+    /**
+     * 历史消息补齐红包封面字段（雷号 / 过期 / 本人是否已领）
+     */
+    public function enrichMessageExtras(array $messages, $userId)
+    {
+        $userId = (int)$userId;
+        $pids = [];
+        foreach ($messages as $m) {
+            if ((int)($m['msg_type'] ?? 0) !== 2) {
+                continue;
+            }
+            $ex = $m['extra'] ?? null;
+            if (is_string($ex) && $ex !== '') {
+                $ex = json_decode($ex, true);
+            }
+            if (!is_array($ex)) {
+                continue;
+            }
+            $pid = (int)($ex['packet_id'] ?? 0);
+            if ($pid > 0) {
+                $pids[$pid] = true;
+            }
+        }
+        if (!$pids) {
+            return $messages;
+        }
+        $idList = array_keys($pids);
+        $placeholders = implode(',', array_fill(0, count($idList), '?'));
+        $packets = Db::fetchAll(
+            'SELECT id, packet_type, mine_digit, status, expiretime, remain_count'
+            . ' FROM ' . Db::table('chat_red_packets')
+            . ' WHERE id IN (' . $placeholders . ')',
+            $idList
+        );
+        $byId = [];
+        foreach ($packets as $p) {
+            $byId[(int)$p['id']] = $p;
+        }
+        $grabbed = [];
+        if ($userId > 0 && $idList) {
+            $recs = Db::fetchAll(
+                'SELECT packet_id FROM ' . Db::table('chat_red_packet_records')
+                . ' WHERE user_id=? AND packet_id IN (' . $placeholders . ')',
+                array_merge([$userId], $idList)
+            );
+            foreach ($recs as $r) {
+                $grabbed[(int)$r['packet_id']] = true;
+            }
+        }
+        $now = time();
+        foreach ($messages as &$m) {
+            if ((int)($m['msg_type'] ?? 0) !== 2) {
+                continue;
+            }
+            $ex = $m['extra'] ?? null;
+            if (is_string($ex) && $ex !== '') {
+                $ex = json_decode($ex, true);
+            }
+            if (!is_array($ex)) {
+                $ex = [];
+            }
+            $pid = (int)($ex['packet_id'] ?? 0);
+            $p = $pid > 0 ? ($byId[$pid] ?? null) : null;
+            if ($p) {
+                if ((int)$p['packet_type'] === 3) {
+                    $ex['mine_digit'] = (int)($p['mine_digit'] ?? 0);
+                }
+                $ex['packet_type'] = (int)$p['packet_type'];
+                $ex['expiretime'] = (int)($p['expiretime'] ?? 0);
+                $ex['packet_status'] = (int)($p['status'] ?? 0);
+                $ex['remain_count'] = (int)($p['remain_count'] ?? 0);
+            }
+            $isGrabbed = $pid > 0 && !empty($grabbed[$pid]);
+            $status = (int)($ex['packet_status'] ?? 0);
+            $expireAt = (int)($ex['expiretime'] ?? 0);
+            $isExpired = $status === 3 || ($expireAt > 0 && $now >= $expireAt && $status !== 2 && $status !== 5);
+            // status: 1进行中 2已抢完 3已过期 4已关闭 5已结算
+            if (in_array($status, [3, 4], true)) {
+                $isExpired = true;
+            }
+            $ex['cover_grabbed'] = $isGrabbed;
+            $ex['cover_expired'] = $isExpired;
+            $ex['cover_faded'] = $isGrabbed || $isExpired;
+            $m['extra'] = $ex;
+        }
+        unset($m);
+        return $messages;
+    }
+
     protected function sanitizePacketFair(array $packet)
     {
         // 未开出波场哈希前不暴露 block_id；埋雷数字在发包时已确定，始终公示
