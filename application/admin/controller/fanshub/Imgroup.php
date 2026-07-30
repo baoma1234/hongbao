@@ -478,12 +478,27 @@ class Imgroup extends Backend
     public function addmembers()
     {
         $groupId = (int)$this->request->post('group_id');
-        $userIds = $this->request->post('user_ids/a');
-        if (!$userIds) {
-            $raw = (string)$this->request->post('user_ids', '');
-            $userIds = $this->parseIdList($raw);
+        // 前端可能传数组，也可能传 "1,2,3"；勿用 post('user_ids/a')，否则字符串会被当成单元素再 intval 只剩第一个
+        $raw = $this->request->post('user_ids');
+        if (is_array($raw)) {
+            $userIds = [];
+            foreach ($raw as $item) {
+                if (is_array($item)) {
+                    continue;
+                }
+                $s = trim((string)$item);
+                if (strpos($s, ',') !== false || strpos($s, '，') !== false) {
+                    $userIds = array_merge($userIds, $this->parseIdList($s));
+                } else {
+                    $id = (int)$s;
+                    if ($id > 0) {
+                        $userIds[] = $id;
+                    }
+                }
+            }
+            $userIds = array_values(array_unique($userIds));
         } else {
-            $userIds = array_values(array_unique(array_filter(array_map('intval', $userIds))));
+            $userIds = $this->parseIdList((string)$raw);
         }
         $group = Db::name('chat_groups')->where('id', $groupId)->find();
         if (!$group) {
