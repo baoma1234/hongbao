@@ -218,14 +218,11 @@
     var desc = '';
     if (!isNaN(amt) && amt > 0) {
       desc = amt.toFixed(2) + ' 元' + (cnt > 0 ? (' / ' + cnt + '个包') : '');
-      if (ptype === 3 && mine != null) {
-        desc += ' · 雷' + mine;
-      }
     } else {
       desc = time || '红包';
     }
     var bottom = '红包福利';
-    if (ptype === 3) bottom = mine != null ? ('埋雷红包 · 雷' + mine) : '埋雷红包';
+    if (ptype === 3) bottom = '埋雷红包';
     else if (ptype === 2) bottom = '拼手气红包';
     else if (ptype === 1) bottom = '人均红包';
     if (extra && extra.mode_label) bottom = String(extra.mode_label);
