@@ -62,7 +62,7 @@ class RedPacketService
         $maxCount = (int)($this->cfg['max_count'] ?? 10);
         $expireSec = (int)($this->cfg['expire_seconds'] ?? 60);
         if ($packetType === 3) {
-            $expireSec = max(1, (int)($this->cfg['mine_expire_seconds'] ?? 100));
+            $expireSec = max(1, (int)($this->cfg['mine_expire_seconds'] ?? 180));
         }
         $globalMinAmount = round((float)($this->cfg['min_amount'] ?? 10), 2);
         $feeRate = round((float)($this->cfg['platform_fee_rate'] ?? 0.03), 4);

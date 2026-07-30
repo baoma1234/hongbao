@@ -103,7 +103,7 @@ return array_replace_recursive([
     'red_packet' => [
         'expire_seconds'             => 60,
         // 扫雷红包单独过期（后台可配，默认 100 秒）
-        'mine_expire_seconds'        => 100,
+        'mine_expire_seconds'        => 180,
         'min_amount_cent'            => 1,
         'max_count'                  => 10,
         'min_count'                  => 5,

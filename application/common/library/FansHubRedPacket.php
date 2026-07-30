@@ -21,7 +21,7 @@ class FansHubRedPacket
             'agent_rebate_rate_default' => '0.0100',
             'agent_rebate_rate_vip'     => '0.0100',
             'expire_seconds'            => '60',
-            'mine_expire_seconds'       => '100',
+            'mine_expire_seconds'       => '180',
             'platform_user_id'          => '56960815',
             'skin_width'                => '750',
             'skin_height'               => '1000',
@@ -90,7 +90,7 @@ class FansHubRedPacket
         $map = self::configMap();
         $rp = [
             'expire_seconds'            => max(1, (int)$map['expire_seconds']),
-            'mine_expire_seconds'       => max(1, (int)($map['mine_expire_seconds'] ?? 100)),
+            'mine_expire_seconds'       => max(1, (int)($map['mine_expire_seconds'] ?? 180)),
             'platform_fee_rate'         => (float)$map['platform_fee_rate'],
             'agent_rebate_rate_default' => (float)$map['agent_rebate_rate_default'],
             'agent_rebate_rate_vip'     => (float)$map['agent_rebate_rate_vip'],

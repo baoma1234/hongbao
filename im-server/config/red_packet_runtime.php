@@ -4,7 +4,7 @@ return array (
   'red_packet' => 
   array (
     'expire_seconds' => 60,
-    'mine_expire_seconds' => 100,
+    'mine_expire_seconds' => 180,
     'platform_fee_rate' => 0.03,
     'agent_rebate_rate_default' => 0.01,
     'agent_rebate_rate_vip' => 0.01,
