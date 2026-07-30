@@ -277,22 +277,62 @@
     return '';
   }
 
+  function channelIconHtml(ch, name) {
+    var icon = (ch && ch.icon || '').trim();
+    if (icon) {
+      return '<img class="wallet-channel-icon" src="' + escapeHtml(icon) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'">';
+    }
+    return '<span class="wallet-channel-icon wallet-channel-icon--placeholder">' +
+      escapeHtml((name || '?').charAt(0)) + '</span>';
+  }
+
+  /** 简短展示名：NO钱包 / 234钱包 … */
+  function shortWalletName(ch) {
+    if (!ch) return '';
+    var info = walletChannelKey(ch.name, ch.payment_channel || ch.wallet_type);
+    var key = String(info.key || '');
+    var known = {
+      no: 'NO钱包',
+      '234': '234钱包',
+      '808': '808钱包',
+      '988': '988钱包',
+      'k豆': 'K豆钱包',
+      jd: 'JD钱包',
+      'c币': 'C币钱包',
+      ok: 'OK钱包',
+      to: 'TO钱包',
+      go: 'GO钱包',
+      '万币': '万币钱包'
+    };
+    if (known[key]) return known[key];
+    if (key && /^\d+$/.test(key)) return key + '钱包';
+    if (key && WALLET_PIN_ORDER.indexOf(key) >= 0) {
+      return String(key).toUpperCase() + '钱包';
+    }
+    var s = String(ch.name || '')
+      .replace(/\s+/g, '')
+      .replace(/(快捷)?(充值|代付|提现|支付)$/g, '')
+      .replace(/收银台/g, '')
+      .trim();
+    if (!s) s = '钱包';
+    if (!/钱包$/.test(s) && s.length <= 8) s += '钱包';
+    return s;
+  }
+
   function channelButtonHtml(ch, type, sel) {
     var active = sel === (ch.id | 0) ? ' active' : '';
-    var name = ch.name || wt('wallet_channel_fallback', '通道{id}', { id: ch.id });
-    var icon = (ch.icon || '').trim();
-    var iconHtml = icon
-      ? '<img class="wallet-channel-icon" src="' + escapeHtml(icon) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'">'
-      : '<span class="wallet-channel-icon wallet-channel-icon--placeholder">' + escapeHtml((name || '?').charAt(0)) + '</span>';
-    var tip = (ch.tip || '').trim();
-    if (/^wanhuipay\b/i.test(tip)) tip = '';
-    var lim = formatLimitHint(ch);
+    var isWallet = String(ch.bind_mode || '') === 'wallet'
+      || /^(wanhuitong|bs)$/i.test(String(ch.handler || ''));
+    var name = isWallet
+      ? shortWalletName(ch)
+      : (String(ch.name || '').replace(/(充值|代付|提现)$/g, '').trim() || ch.name
+        || wt('wallet_channel_fallback', '通道{id}', { id: ch.id }));
+    var iconHtml = channelIconHtml(ch, name);
     return (
       '<button type="button" class="wallet-channel-item' + active + '" data-id="' + ch.id + '" data-type="' + type + '">' +
         iconHtml +
         '<span class="wallet-channel-meta">' +
           '<span class="wallet-channel-name">' + escapeHtml(name) + '</span>' +
-          (lim ? '<small>' + escapeHtml(lim) + '</small>' : (tip ? '<small>' + escapeHtml(tip) + '</small>' : '')) +
         '</span>' +
       '</button>'
     );
@@ -322,18 +362,37 @@
   }
 
   function channelSelectHtml(list, type, sel) {
-    var opts = '<option value="0">' + escapeHtml(wt('wallet_select_placeholder', '请选择钱包')) + '</option>';
+    var selected = null;
     (list || []).forEach(function (ch) {
-      var id = ch.id | 0;
-      var name = ch.name || wt('wallet_channel_fallback', '通道{id}', { id: id });
-      var lim = formatLimitHint(ch);
-      var label = lim ? (name + '（' + lim + '）') : name;
-      opts += '<option value="' + id + '"' + (sel === id ? ' selected' : '') + '>' + escapeHtml(label) + '</option>';
+      if ((ch.id | 0) === sel) selected = ch;
     });
+    var triggerName = selected
+      ? shortWalletName(selected)
+      : wt('wallet_select_placeholder', '请选择钱包');
+    var triggerIcon = selected
+      ? channelIconHtml(selected, triggerName)
+      : '<span class="wallet-channel-icon wallet-channel-icon--placeholder">$</span>';
+
+    var options = (list || []).map(function (ch) {
+      var id = ch.id | 0;
+      var name = shortWalletName(ch);
+      var active = sel === id ? ' active' : '';
+      return (
+        '<button type="button" class="wallet-picker-option' + active + '" data-id="' + id + '" data-type="' + type + '">' +
+          channelIconHtml(ch, name) +
+          '<span class="wallet-picker-option-name">' + escapeHtml(name) + '</span>' +
+        '</button>'
+      );
+    }).join('');
+
     return (
-      '<div class="profile-field wallet-channel-select-wrap">' +
-        '<label data-copy="wallet_select_label">' + escapeHtml(wt('wallet_select_label', '选择钱包')) + '</label>' +
-        '<select class="login-input wallet-channel-select" data-type="' + type + '">' + opts + '</select>' +
+      '<div class="wallet-picker" data-type="' + type + '">' +
+        '<button type="button" class="wallet-picker-trigger" aria-haspopup="listbox" aria-expanded="false">' +
+          triggerIcon +
+          '<span class="wallet-picker-trigger-name">' + escapeHtml(triggerName) + '</span>' +
+          '<span class="wallet-picker-caret" aria-hidden="true"></span>' +
+        '</button>' +
+        '<div class="wallet-picker-menu" hidden role="listbox">' + options + '</div>' +
       '</div>'
     );
   }
@@ -421,7 +480,39 @@
     box.onclick = function (ev) {
       var t = ev.target;
       if (!t) return;
-      if (t.tagName === 'SELECT' || (t.closest && t.closest('select'))) return;
+
+      var trigger = t.closest ? t.closest('.wallet-picker-trigger') : null;
+      if (trigger) {
+        ev.preventDefault();
+        var picker = trigger.closest('.wallet-picker');
+        if (!picker) return;
+        var menu = picker.querySelector('.wallet-picker-menu');
+        var open = menu && !menu.hidden;
+        document.querySelectorAll('.wallet-picker-menu').forEach(function (m) {
+          m.hidden = true;
+          var p = m.closest('.wallet-picker');
+          var tr = p && p.querySelector('.wallet-picker-trigger');
+          if (tr) tr.setAttribute('aria-expanded', 'false');
+        });
+        if (menu && !open) {
+          menu.hidden = false;
+          trigger.setAttribute('aria-expanded', 'true');
+        }
+        return;
+      }
+
+      var opt = t.closest ? t.closest('.wallet-picker-option') : null;
+      if (opt) {
+        ev.preventDefault();
+        var id = parseInt(opt.getAttribute('data-id'), 10) || 0;
+        if (type === 'recharge') walletState.selectedRecharge = id;
+        else walletState.selectedWithdraw = id;
+        var items = box.querySelectorAll('.wallet-channel-item');
+        for (var i = 0; i < items.length; i++) items[i].classList.remove('active');
+        renderChannels(box.id, type === 'recharge' ? walletState.recharge : walletState.withdraw, type);
+        return;
+      }
+
       var btn = t.closest ? t.closest('.wallet-channel-item') : null;
       if (!btn && t.classList && t.classList.contains('wallet-channel-item')) btn = t;
       if (!btn) {
@@ -436,27 +527,11 @@
       }
       if (!btn) return;
       ev.preventDefault();
-      var items = box.querySelectorAll('.wallet-channel-item');
-      for (var i = 0; i < items.length; i++) items[i].classList.remove('active');
-      btn.classList.add('active');
-      var id = parseInt(btn.getAttribute('data-id'), 10) || 0;
-      if (type === 'recharge') walletState.selectedRecharge = id;
-      else walletState.selectedWithdraw = id;
-      var sel = box.querySelector('.wallet-channel-select');
-      if (sel) sel.value = '0';
-      showAmountPanel(type, id);
+      var cid = parseInt(btn.getAttribute('data-id'), 10) || 0;
+      if (type === 'recharge') walletState.selectedRecharge = cid;
+      else walletState.selectedWithdraw = cid;
+      renderChannels(box.id, type === 'recharge' ? walletState.recharge : walletState.withdraw, type);
     };
-    var select = box.querySelector('.wallet-channel-select');
-    if (select) {
-      select.onchange = function () {
-        var id = parseInt(select.value, 10) || 0;
-        if (type === 'recharge') walletState.selectedRecharge = id;
-        else walletState.selectedWithdraw = id;
-        var items = box.querySelectorAll('.wallet-channel-item');
-        for (var i = 0; i < items.length; i++) items[i].classList.remove('active');
-        showAmountPanel(type, id);
-      };
-    }
   }
 
   function renderChannels(boxId, list, type) {
