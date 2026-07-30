@@ -284,10 +284,6 @@
                                 <span class="chat-attach-icon">🎬</span>
                                 <span data-copy="chat_attach_video">视频</span>
                         </button>
-                        <button type="button" class="chat-attach-item" id="chatPickFileBtn">
-                                <span class="chat-attach-icon">📎</span>
-                                <span data-copy="chat_attach_file">文件</span>
-                        </button>
                         <button type="button" class="chat-attach-item" id="chatAttachRpBtn">
                                 <span class="chat-attach-icon">🧧</span>
                                 <span data-copy="chat_attach_rp">红包</span>
@@ -312,7 +308,6 @@
                     </div>
                     <input type="file" id="chatImageInput" accept="image/jpeg,image/png,image/gif,image/webp,image/bmp" hidden>
                     <input type="file" id="chatVideoInput" accept="video/mp4,video/webm,video/quicktime" hidden>
-                    <input type="file" id="chatFileInput" hidden>
                     <input type="file" id="chatStickerUploadInput" accept="image/jpeg,image/png,image/gif" hidden>
                 </div>
             </div>

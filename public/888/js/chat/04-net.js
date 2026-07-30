@@ -493,14 +493,6 @@
         if (input) input.click();
       };
     }
-    var pickFileBtn = $('chatPickFileBtn');
-    if (pickFileBtn && !pickFileBtn._bound) {
-      pickFileBtn._bound = true;
-      pickFileBtn.onclick = function () {
-        var input = $('chatFileInput');
-        if (input) input.click();
-      };
-    }
     var attachRpBtn = $('chatAttachRpBtn');
     if (attachRpBtn && !attachRpBtn._bound) {
       attachRpBtn._bound = true;
@@ -525,15 +517,6 @@
         var file = videoInput.files && videoInput.files[0];
         videoInput.value = '';
         if (file) handleMediaFile(file, 'video');
-      });
-    }
-    var fileInput = $('chatFileInput');
-    if (fileInput && !fileInput._bound) {
-      fileInput._bound = true;
-      fileInput.addEventListener('change', function () {
-        var file = fileInput.files && fileInput.files[0];
-        fileInput.value = '';
-        if (file) handleGenericFile(file);
       });
     }
     var msgScroll = $('chatMsgScroll');

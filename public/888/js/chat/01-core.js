@@ -59,7 +59,10 @@
   };
 
   var CREATE_GROUP_AVATARS = ['🐵', '🐼', '🦊', '🐯', '🦁', '🐶', '🐱', '🐰', '🐻', '🐨', '🐸', '🐷'];
-  var EMOJI_DATA_URL = 'data/emoji-tree.json';
+  var EMOJI_DATA_URL = (function () {
+    var ver = (global.FANSHUB_ASSETS && global.FANSHUB_ASSETS.ver) || '';
+    return 'data/emoji-tree.json' + (ver ? ('?v=' + encodeURIComponent(ver)) : '');
+  })();
   var STICKERS_DATA_URL = 'data/stickers.json';
 
   function chatT(key, extra) {
@@ -331,13 +334,54 @@
     return i18n.zh_CN || i18n.zh || item.name || '';
   }
 
+  /** 过滤旧系统常显示为方块的新 emoji（如 🫡 U+1FAE1） */
+  function emojiCodesTooNew(codes) {
+    var parts = String(codes || '').split(/[^0-9A-Fa-f]+/);
+    var ignore = {
+      FE0E: 1, FE0F: 1, '200D': 1, '20E3': 1,
+      '1F3FB': 1, '1F3FC': 1, '1F3FD': 1, '1F3FE': 1, '1F3FF': 1
+    };
+    for (var i = 0; i < parts.length; i++) {
+      var hex = parts[i];
+      if (!hex || ignore[hex.toUpperCase()]) continue;
+      var cp = parseInt(hex, 16);
+      if (!cp && cp !== 0) continue;
+      if (cp >= 0x1FA00 && cp <= 0x1FAFF) return true;
+      if (cp === 0x1F90C) return true;
+    }
+    return false;
+  }
+
+  function filterCompatibleEmojiTree(tree) {
+    if (!Array.isArray(tree)) return [];
+    function walk(list) {
+      var out = [];
+      (list || []).forEach(function (node) {
+        if (!node) return;
+        if (node.list) {
+          var child = walk(node.list);
+          if (child.length) {
+            var copy = {};
+            Object.keys(node).forEach(function (k) { copy[k] = node[k]; });
+            copy.list = child;
+            out.push(copy);
+          }
+          return;
+        }
+        if (node.char && !emojiCodesTooNew(node.codes)) out.push(node);
+      });
+      return out;
+    }
+    return walk(tree);
+  }
+
   function flattenEmojiGroup(group) {
     var list = [];
     if (!group || !group.list) return list;
     group.list.forEach(function (sub) {
       if (!sub || !sub.list) return;
       sub.list.forEach(function (item) {
-        if (item && item.char) list.push(item);
+        if (item && item.char && !emojiCodesTooNew(item.codes)) list.push(item);
       });
     });
     return list;
@@ -485,7 +529,8 @@
       if (!res.ok) throw new Error('load failed');
       var tree = await res.json();
       if (!Array.isArray(tree) || !tree.length) throw new Error('empty emoji data');
-      state.emojiTree = tree;
+      state.emojiTree = filterCompatibleEmojiTree(tree);
+      if (!state.emojiTree.length) throw new Error('empty emoji data');
       state.emojiLoaded = true;
       state.emojiGroupIdx = 0;
     } catch (e) {
