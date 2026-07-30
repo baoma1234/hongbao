@@ -184,11 +184,20 @@ class RedPacketService
             $fairCentsJson = json_encode($cents, JSON_UNESCAPED_UNICODE);
             $fairRevealedAt = $now;
         } elseif ($packetType === 3) {
-            $latest = TronHashCache::getOrRefresh(4);
-            $tronBlockNum = (int)$latest['block_num'];
-            $hashDigit = TronBlockClient::luckyDigitFromBlockId($latest['block_id']);
-            if ($hashDigit === (int)$mineDigit) {
-                $tronBlockId = (string)$latest['block_id'];
+            // 优先本地 Redis：按雷号命中最近缓存块（O(1)，不打波场）
+            $matched = TronHashCache::findByDigit((int)$mineDigit);
+            if (!$matched) {
+                $latest = TronHashCache::getOrRefresh(4);
+                $tronBlockNum = (int)$latest['block_num'];
+                if (TronBlockClient::luckyDigitFromBlockId($latest['block_id']) === (int)$mineDigit) {
+                    $matched = $latest;
+                }
+            } else {
+                $tronBlockNum = (int)$matched['block_num'];
+            }
+            if ($matched) {
+                $tronBlockNum = (int)$matched['block_num'];
+                $tronBlockId = (string)$matched['block_id'];
                 $tronLucky = TronBlockClient::luckyFromBlockId($tronBlockId);
                 $cents = $this->splitLuckyFromHash($poolCent, $totalCount, $minCent, $tronBlockId, $packetNo);
                 $tronStatus = TronFair::STATUS_DONE;
@@ -196,7 +205,13 @@ class RedPacketService
                 $fairRevealedAt = $now;
                 $minePending = false;
             } else {
-                // 锁定当前高度起向后匹配；暂不拆金额、不可抢
+                if ($tronBlockNum <= 0) {
+                    try {
+                        $tronBlockNum = (int)(TronHashCache::getOrRefresh(4)['block_num'] ?? 0);
+                    } catch (\Throwable $e) {
+                        $tronBlockNum = 0;
+                    }
+                }
                 $tronStatus = TronFair::STATUS_PENDING;
                 $minePending = true;
                 $cents = [];

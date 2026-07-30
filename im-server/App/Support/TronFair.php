@@ -205,6 +205,21 @@ class TronFair
     $packetId = (int)$packetId;
     $startNum = max(1, (int)$startNum);
     $mineDigit = max(0, min(9, (int)($packet['mine_digit'] ?? 0)));
+
+    // 先读本地 Redis 末位索引（不打节点）
+    $cached = TronHashCache::findByDigit($mineDigit);
+    if ($cached) {
+      try {
+        $app = require dirname(__DIR__, 2) . '/config/app.php';
+        $svc = new \Im\Service\RedPacketService($app, new \Im\Service\MessageService(), new \Im\Service\GroupService());
+        if ($svc->activateMineWithBlock($packetId, $cached)) {
+          return true;
+        }
+      } catch (\Throwable $e) {
+        error_log('[TRON] mine activate from cache fail packet=' . $packetId . ' ' . $e->getMessage());
+      }
+    }
+
     $nowHeight = TronBlockClient::getNowBlockNum(4);
     if ($nowHeight < $startNum) {
       // 目标高度尚未出块，稍后重试

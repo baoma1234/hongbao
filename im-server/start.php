@@ -104,7 +104,7 @@ $worker->onWorkerStart = function (Worker $worker) use ($cfg) {
 
     // 过期红包退回（5s）+ 抢完未结算兜底（2s）+ 波场最新哈希轮询（仅 worker0）
     if ((int)$worker->id === 0) {
-        // 全局唯一：每 3 秒拉一次最新真实区块哈希写入 Redis，业务只读缓存拆包
+        // 全局唯一：每 1 秒拉最新区块哈希写入 Redis（含末位数字索引），业务只读本地
         try {
             \Im\Support\TronHashCache::refresh(4);
         } catch (\Throwable $e) {

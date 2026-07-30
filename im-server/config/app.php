@@ -84,8 +84,10 @@ return array_replace_recursive([
     'tron' => [
         'api_url' => 'https://api.trongrid.io',
         'api_key' => 'aaa8e343-c0f7-43ef-8acc-4dbbd1865fd2',
-        // 全局唯一线程：每 N 秒拉最新真实区块哈希写入 Redis；拆包只读缓存
-        'hash_poll_interval' => 3,
+        // 全局唯一线程：每 1 秒拉最新真实区块哈希写入 Redis；拆包/扫雷只读本地缓存
+        'hash_poll_interval' => 1,
+        // 最近缓存块数量（按末位数字索引，加快扫雷命中）
+        'hash_recent_limit'  => 40,
         // 兼容旧 pending 包开奖（新包发包即用缓存哈希拆完）
         'commit_offset' => 2,
         'reveal_delay'  => 8,
