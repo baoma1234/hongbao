@@ -437,6 +437,34 @@ body.chat-room-open .bottom-action-bar {
   z-index: 1;
   min-width: 0;
 }
+.chat-room-pane .chat-rp-card .rp-mine-badge {
+  margin-left: auto;
+  z-index: 2;
+  flex-shrink: 0;
+  min-width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 248, 220, 0.96);
+  border: 1.5px solid rgba(253, 228, 179, 0.95);
+  box-shadow: 0 4px 10px rgba(80, 10, 8, 0.22);
+  line-height: 1;
+}
+.chat-room-pane .chat-rp-card .rp-mine-badge-lab {
+  font-size: 10px;
+  font-weight: 700;
+  color: #8A6427;
+  letter-spacing: 0.5px;
+}
+.chat-room-pane .chat-rp-card .rp-mine-badge-num {
+  margin-top: 2px;
+  font-size: 20px;
+  font-weight: 900;
+  color: #B71C1C;
+}
 .chat-room-pane .chat-rp-card .rp-title {
   font-size: 16px;
   font-weight: 600;

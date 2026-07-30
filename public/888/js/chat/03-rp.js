@@ -32,6 +32,37 @@
     });
   }
 
+  function syncRpCountField() {
+    var type = getRpPacketType();
+    var isGroup = state.room && state.room.type === 2;
+    var tabs = $('chatRpCountTabs');
+    var inputWrap = $('chatRpCountInputWrap');
+    var countInput = $('chatRpCount');
+    var hint = $('chatRpCountHint');
+    var mineMode = isGroup && type === 3;
+    if (tabs) {
+      tabs.hidden = !mineMode;
+      tabs.style.display = mineMode ? '' : 'none';
+    }
+    if (inputWrap) {
+      inputWrap.style.display = mineMode ? 'none' : '';
+      if (!isGroup) inputWrap.style.display = 'none';
+    }
+    if (mineMode && countInput) {
+      var cur = parseInt(countInput.value, 10) || 5;
+      if ([5, 7, 9].indexOf(cur) < 0) cur = 5;
+      countInput.value = String(cur);
+      if (tabs) {
+        tabs.querySelectorAll('.chat-rp-count-btn').forEach(function (b) {
+          b.classList.toggle('active', (parseInt(b.getAttribute('data-count'), 10) || 0) === cur);
+        });
+      }
+      if (hint) hint.textContent = '扫雷固定 5 / 7 / 9 个';
+    } else if (hint) {
+      hint.textContent = isGroup ? '群聊 5～10 个 · 私聊固定 1 个' : '私聊固定 1 个';
+    }
+  }
+
   function syncRpMineField() {
     var wrap = $('chatRpMineWrap');
     if (!wrap) return;
@@ -44,6 +75,7 @@
       wrap.hidden = true;
       wrap.style.display = 'none';
     }
+    syncRpCountField();
   }
 
   function updateRpPreview() {
@@ -160,6 +192,10 @@
     }
     if (state.room.type === 2 && (totalCount < 5 || totalCount > 10)) {
       if (typeof showFanshubToast === 'function') showFanshubToast('个数须为 5～10', 'error');
+      return;
+    }
+    if (packetType === 3 && state.room.type === 2 && [5, 7, 9].indexOf(totalCount) < 0) {
+      if (typeof showFanshubToast === 'function') showFanshubToast('扫雷红包个数仅可选 5 / 7 / 9', 'error');
       return;
     }
     if (packetType === 3 && (mineDigit < 0 || mineDigit > 9)) {

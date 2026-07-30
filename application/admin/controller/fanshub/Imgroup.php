@@ -3,6 +3,7 @@
 namespace app\admin\controller\fanshub;
 
 use app\common\controller\Backend;
+use app\common\library\FansHubService;
 use think\Db;
 
 /**
@@ -14,6 +15,49 @@ class Imgroup extends Backend
 {
     protected $noNeedRight = [];
 
+    public function _initialize()
+    {
+        parent::_initialize();
+        $this->view->assign('localeList', FansHubService::i18nLocaleCodes());
+    }
+
+    protected function decodeNoticeI18n($raw)
+    {
+        if (is_array($raw)) {
+            return $raw;
+        }
+        $raw = trim((string)$raw);
+        if ($raw === '') {
+            return [];
+        }
+        $arr = json_decode($raw, true);
+        return is_array($arr) ? $arr : [];
+    }
+
+    protected function encodeNoticeI18n($raw)
+    {
+        if (is_string($raw)) {
+            $decoded = json_decode($raw, true);
+            if (is_array($decoded)) {
+                $raw = $decoded;
+            } else {
+                return '{}';
+            }
+        }
+        if (!is_array($raw)) {
+            return '{}';
+        }
+        $out = [];
+        foreach ($raw as $k => $v) {
+            $k = trim((string)$k);
+            $v = trim((string)$v);
+            if ($k === '' || $k === 'zh-CN' || $v === '') {
+                continue;
+            }
+            $out[$k] = mb_substr($v, 0, 500);
+        }
+        return json_encode($out, JSON_UNESCAPED_UNICODE);
+    }
     public function index()
     {
         $this->request->filter(['strip_tags', 'trim']);
@@ -63,6 +107,7 @@ class Imgroup extends Backend
             $adminIds = $this->parseIdList($params['admin_user_ids'] ?? '');
             $memberIds = $this->parseIdList($params['member_user_ids'] ?? '');
             $notice = trim((string)($params['notice'] ?? ''));
+            $noticeI18n = $this->encodeNoticeI18n($params['notice_i18n'] ?? []);
             if ($name === '' || $ownerId <= 0) {
                 $this->error('请填写群名称和群主会员ID');
             }
@@ -78,6 +123,7 @@ class Imgroup extends Backend
                     'avatar'        => '',
                     'owner_user_id' => $ownerId,
                     'notice'        => mb_substr($notice, 0, 500),
+                    'notice_i18n'   => $noticeI18n,
                     'member_count'  => count($all),
                     'max_members'   => 500,
                     'status'        => 1,
@@ -127,6 +173,7 @@ class Imgroup extends Backend
             $adminIds = $this->parseIdList($params['admin_user_ids'] ?? '');
             $memberIds = $this->parseIdList($params['member_user_ids'] ?? '');
             $notice = trim((string)($params['notice'] ?? ''));
+            $noticeI18n = $this->encodeNoticeI18n($params['notice_i18n'] ?? []);
             $status = (int)($params['status'] ?? 1);
             if ($name === '' || $ownerId <= 0) {
                 $this->error('请填写群名称和群主会员ID');
@@ -156,6 +203,7 @@ class Imgroup extends Backend
                     'name'                 => mb_substr($name, 0, 64),
                     'owner_user_id'        => $ownerId,
                     'notice'               => mb_substr($notice, 0, 500),
+                    'notice_i18n'          => $noticeI18n,
                     'status'               => $finalStatus,
                     'display_member_count' => max(0, (int)($params['display_member_count'] ?? $row['display_member_count'] ?? 0)),
                     'hide_member_list'     => ($privacy === 'private') ? 1 : 0,
@@ -213,6 +261,7 @@ class Imgroup extends Backend
             ->column('user_id');
         $row['admin_user_ids'] = implode(',', $admins);
         $row['member_user_ids'] = implode(',', $members);
+        $row['notice_i18n_map'] = $this->decodeNoticeI18n($row['notice_i18n'] ?? '');
         $agents = Db::name('chat_agent_accounts')->where('status', 1)->order('id desc')->select();
         $this->view->assign('row', $row);
         $this->view->assign('agents', $agents);

@@ -101,8 +101,9 @@ return array_replace_recursive([
         'multi_group_limit' => 3,
     ],
     'red_packet' => [
-        // 发出后未抢完则 60 秒过期退回（Workerman Timer 轮询）
         'expire_seconds'             => 60,
+        // 扫雷红包单独过期（后台可配，默认 100 秒）
+        'mine_expire_seconds'        => 100,
         'min_amount_cent'            => 1,
         'max_count'                  => 10,
         'min_count'                  => 5,

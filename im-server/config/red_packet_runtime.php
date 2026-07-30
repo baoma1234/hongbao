@@ -1,9 +1,10 @@
 <?php
-// auto-updated by scripts/patch_red_packet_rules_20260725.php
+// auto-generated — do not edit
 return array (
   'red_packet' => 
   array (
     'expire_seconds' => 60,
+    'mine_expire_seconds' => 100,
     'platform_fee_rate' => 0.03,
     'agent_rebate_rate_default' => 0.01,
     'agent_rebate_rate_vip' => 0.01,

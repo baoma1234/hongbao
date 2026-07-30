@@ -216,19 +216,23 @@
       desc = time || '红包';
     }
     var bottom = '红包福利';
-    if (ptype === 3) bottom = '埋雷红包';
+    if (ptype === 3) bottom = '埋雷红包 · 雷' + mine;
     else if (ptype === 2) bottom = '拼手气红包';
     else if (ptype === 1) bottom = '人均红包';
     if (extra && extra.mode_label) bottom = String(extra.mode_label);
     bottom = escapeHtml(bottom);
+    var mineBadge = (ptype === 3)
+      ? ('<div class="rp-mine-badge" aria-label="埋雷数字"><span class="rp-mine-badge-lab">雷</span><span class="rp-mine-badge-num">' + mine + '</span></div>')
+      : '';
     return (
-      '<button type="button" class="chat-rp-card bubble-rp" data-packet="' + (pid | 0) + '">' +
+      '<button type="button" class="chat-rp-card bubble-rp' + (ptype === 3 ? ' is-mine' : '') + '" data-packet="' + (pid | 0) + '">' +
         '<div class="rp-top">' +
           '<div class="rp-icon-box">' + RP_ICON_SVG + '</div>' +
           '<div class="rp-info">' +
             '<div class="rp-title">' + bless + '</div>' +
             '<div class="rp-desc">' + escapeHtml(desc) + '</div>' +
           '</div>' +
+          mineBadge +
         '</div>' +
         '<div class="rp-bottom">' + bottom + '</div>' +
       '</button>'
@@ -768,7 +772,7 @@
     state.room.title = name;
     var titleEl = $('chatRoomTitle');
     if (titleEl) titleEl.textContent = name;
-    applyNoticePin(g.notice || '');
+    applyNoticePin(resolveGroupNotice(g));
     // 同步会话列表标题/头像
     var gid = state.room.id | 0;
     state.list.forEach(function (it) {
@@ -788,10 +792,26 @@
     pin.classList.remove('is-expanded');
   }
 
+  function resolveGroupNotice(g) {
+    g = g || {};
+    var base = String(g.notice || '').trim();
+    var map = g.notice_i18n;
+    if (typeof map === 'string') {
+      try { map = JSON.parse(map); } catch (e) { map = null; }
+    }
+    if (!map || typeof map !== 'object') return base;
+    var loc = (global.FanshubI18n && global.FanshubI18n.locale) || 'zh-CN';
+    var local = String(map[loc] || '').trim();
+    return local || base;
+  }
+
   function applyNoticePin(notice) {
     var pin = $('chatNoticePin');
     var textEl = $('chatNoticePinText');
     if (!pin || !textEl) return;
+    if (notice == null) {
+      notice = resolveGroupNotice((state.groupMeta && state.groupMeta.group) || {});
+    }
     notice = String(notice || '').trim();
     if (!notice || !state.room || state.room.type !== 2) {
       hideNoticePin();
@@ -810,8 +830,7 @@
 
   function dismissNoticePin() {
     if (!state.room || state.room.type !== 2) return;
-    var g = (state.groupMeta && state.groupMeta.group) || {};
-    var notice = String(g.notice || '').trim();
+    var notice = resolveGroupNotice((state.groupMeta && state.groupMeta.group) || {});
     if (notice) state.noticeDismissed[String(state.room.id)] = notice;
     hideNoticePin();
   }

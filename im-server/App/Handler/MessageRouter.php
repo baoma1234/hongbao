@@ -203,6 +203,12 @@ class MessageRouter
         if ($msg === 'balance_not_enough_for_compensate') {
             return '您的余额不足以支付赔付金，无法参与抢包';
         }
+        if ($msg === 'balance_below_mine_min') {
+            return '余额须大于本群最低金额限制，才能领取扫雷红包';
+        }
+        if ($msg === 'mine count must be 5, 7 or 9') {
+            return '扫雷红包个数仅可选 5 / 7 / 9';
+        }
         if ($msg === 'account frozen') {
             return '账户已冻结';
         }
@@ -525,6 +531,12 @@ class MessageRouter
             throw new \RuntimeException('not in group');
         }
         $group = $this->groups->get($groupId);
+        if ($group && !empty($group['notice_i18n']) && is_string($group['notice_i18n'])) {
+            $map = json_decode($group['notice_i18n'], true);
+            $group['notice_i18n'] = is_array($map) ? $map : new \stdClass();
+        } elseif ($group) {
+            $group['notice_i18n'] = new \stdClass();
+        }
         $myRole = $this->groups->memberRole($groupId, $uid);
         $policy = $this->groups->buildPolicy($group ?: [], $myRole);
         $this->send($connection, 'group.info', [

@@ -444,7 +444,12 @@
 
                             <div class="chat-rp-field" id="chatRpCountWrap">
                                 <label for="chatRpCount" data-copy="chat_rp_count_label">个数</label>
-                                <div class="chat-rp-inline-ctrl">
+                                <div class="chat-rp-count-tabs" id="chatRpCountTabs" hidden role="group" aria-label="扫雷个数">
+                                    <button type="button" class="chat-rp-count-btn active" data-count="5">5</button>
+                                    <button type="button" class="chat-rp-count-btn" data-count="7">7</button>
+                                    <button type="button" class="chat-rp-count-btn" data-count="9">9</button>
+                                </div>
+                                <div class="chat-rp-inline-ctrl" id="chatRpCountInputWrap">
                                     <input type="number" id="chatRpCount" inputmode="numeric" min="5" max="10" value="5" placeholder="5-10">
                                     <span class="chat-rp-unit">个</span>
                                 </div>

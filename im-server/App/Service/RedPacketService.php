@@ -61,6 +61,9 @@ class RedPacketService
         $minCent = (int)($this->cfg['min_amount_cent'] ?? 1);
         $maxCount = (int)($this->cfg['max_count'] ?? 10);
         $expireSec = (int)($this->cfg['expire_seconds'] ?? 60);
+        if ($packetType === 3) {
+            $expireSec = max(1, (int)($this->cfg['mine_expire_seconds'] ?? 100));
+        }
         $globalMinAmount = round((float)($this->cfg['min_amount'] ?? 10), 2);
         $feeRate = round((float)($this->cfg['platform_fee_rate'] ?? 0.03), 4);
         $agentRate = round((float)($this->cfg['agent_rebate_rate_default'] ?? 0.01), 4);
@@ -281,7 +284,12 @@ class RedPacketService
                 ? (int)($this->cfg['vip_max_count'] ?? 10)
                 : (int)($this->cfg['max_count'] ?? 10);
         }
-        if ($totalCount < $minCount || $totalCount > $maxCount) {
+        if ($packetType === 3) {
+            // 扫雷固定 5 / 7 / 9 个
+            if (!in_array($totalCount, [5, 7, 9], true)) {
+                throw new \InvalidArgumentException('mine count must be 5, 7 or 9');
+            }
+        } elseif ($totalCount < $minCount || $totalCount > $maxCount) {
             throw new \InvalidArgumentException("count must be {$minCount}-{$maxCount}");
         }
         $enabled = (string)($group['rp_enabled_types'] ?? '2,3');
@@ -424,8 +432,31 @@ class RedPacketService
 
         // ---------- 关键节点：验资拦截（必须在 Redis 弹队列之前）----------
         // 手气包(2)/埋雷包(3) 存在「赔付整包总额」风险，余额不足则禁止参与。
-        // 余额走短缓存；明显充足不打库，不足才回库确认（防误拒）。
+        // 扫雷额外：余额必须严格大于最低限制（如 10 元），才可领取。
         if (in_array($packetType, [2, 3], true)) {
+            if ($packetType === 3) {
+                $minGate = round((float)($this->cfg['min_amount'] ?? 10), 2);
+                if ((int)($packet['scope_type'] ?? 0) === 2 && (int)($packet['group_id'] ?? 0) > 0) {
+                    $g = $this->groups->get((int)$packet['group_id']);
+                    $gMin = round((float)($g['rp_min_amount'] ?? 0), 2);
+                    if ($gMin > 0) {
+                        $minGate = $gMin;
+                    }
+                }
+                if ($minGate > 0) {
+                    $bal = $this->wallet->getBalance($userId);
+                    if ($bal <= $minGate + 0.00001) {
+                        error_log(sprintf(
+                            '[RP_GRAB][ERROR] mine min gate reject user=%d packet_id=%d bal=%.2f need_gt=%.2f',
+                            $userId,
+                            $packetId,
+                            $bal,
+                            $minGate
+                        ));
+                        throw new \RuntimeException('balance_below_mine_min');
+                    }
+                }
+            }
             if (!$this->wallet->hasEnoughBalance($userId, $totalAmount)) {
                 error_log(sprintf(
                     '[RP_GRAB][ERROR] balance gate reject user=%d packet_id=%d packet_no=%s need=%.2f type=%d',

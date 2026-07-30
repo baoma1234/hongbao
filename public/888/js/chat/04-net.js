@@ -578,6 +578,21 @@
         updateRpPreview();
       });
     }
+    var rpCountTabs = $('chatRpCountTabs');
+    if (rpCountTabs && !rpCountTabs._bound) {
+      rpCountTabs._bound = true;
+      rpCountTabs.addEventListener('click', function (ev) {
+        var btn = ev.target.closest('.chat-rp-count-btn');
+        if (!btn) return;
+        var n = parseInt(btn.getAttribute('data-count'), 10) || 5;
+        var countInput = $('chatRpCount');
+        if (countInput) countInput.value = String(n);
+        rpCountTabs.querySelectorAll('.chat-rp-count-btn').forEach(function (b) {
+          b.classList.toggle('active', b === btn);
+        });
+        updateRpPreview();
+      });
+    }
     var rpMine = $('chatRpMineDigit');
     if (rpMine && !rpMine._bound) {
       rpMine._bound = true;

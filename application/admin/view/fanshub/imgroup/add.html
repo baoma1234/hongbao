@@ -27,9 +27,20 @@
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">群公告:</label>
         <div class="col-xs-12 col-sm-8">
-            <textarea class="form-control" name="row[notice]" rows="3"></textarea>
+            <textarea class="form-control" name="row[notice]" rows="3" placeholder="中文默认公告，前台置顶显示"></textarea>
+            <span class="help-block">置顶公告（中文默认）；其它语言在下方填写</span>
         </div>
     </div>
+    {volist name="localeList" id="locCode"}
+    {neq name="locCode" value="zh-CN"}
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">公告 ({$locCode}):</label>
+        <div class="col-xs-12 col-sm-8">
+            <textarea class="form-control" name="row[notice_i18n][{$locCode}]" rows="2" maxlength="500" placeholder="留空则用中文公告"></textarea>
+        </div>
+    </div>
+    {/neq}
+    {/volist}
     {if $agents}
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">快捷托管账号:</label>

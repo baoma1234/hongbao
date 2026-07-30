@@ -30,6 +30,7 @@ class Redpacketconfig extends Backend
             $rebate = round((float)($row['agent_rebate_rate_default'] ?? 0.01), 4);
             $rebateVip = round((float)($row['agent_rebate_rate_vip'] ?? 0.01), 4);
             $expire = max(1, (int)($row['expire_seconds'] ?? 60));
+            $mineExpire = max(1, (int)($row['mine_expire_seconds'] ?? 100));
             $platformUid = (int)($row['platform_user_id'] ?? 0);
             if ($minAmount <= 0) {
                 $this->error('最低金额无效');
@@ -56,6 +57,7 @@ class Redpacketconfig extends Backend
                 'agent_rebate_rate_default' => sprintf('%.4f', $rebate),
                 'agent_rebate_rate_vip'     => sprintf('%.4f', $rebateVip),
                 'expire_seconds'            => (string)$expire,
+                'mine_expire_seconds'       => (string)$mineExpire,
                 'platform_user_id'          => (string)$platformUid,
                 'skin_width'                => '750',
                 'skin_height'               => '1000',
@@ -68,7 +70,8 @@ class Redpacketconfig extends Backend
                 'platform_fee_rate'         => '平台抽水比例',
                 'agent_rebate_rate_default' => '代理默认返佣',
                 'agent_rebate_rate_vip'     => 'VIP群返佣',
-                'expire_seconds'            => '过期秒数',
+                'expire_seconds'            => '普通/手气过期秒数',
+                'mine_expire_seconds'       => '扫雷过期秒数',
                 'platform_user_id'          => '平台收款用户',
                 'skin_width'                => '皮肤宽',
                 'skin_height'               => '皮肤高',
