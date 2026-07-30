@@ -141,13 +141,15 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
         members: function () {
             var groupId = (window.ImgroupMembersConfig && window.ImgroupMembersConfig.group_id) || 0;
             var table = $('#member-table');
+            // 弹窗 URL 含 /members/ids/xx，相对路径会拼错；且须 server 模式才能解析 {total,rows}
             table.bootstrapTable({
-                url: 'fanshub/imgroup/members/ids/' + groupId,
+                url: Fast.api.fixurl('fanshub/imgroup/members/ids/' + groupId),
                 pk: 'user_id',
                 sortName: 'role',
                 commonSearch: false,
                 search: false,
                 pagination: false,
+                sidePagination: 'server',
                 queryParams: function (params) {
                     params.keyword = $('#member-keyword').val() || '';
                     return params;
@@ -268,7 +270,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                 $('#btn-invite-confirm').prop('disabled', n <= 0);
             };
             table.bootstrapTable({
-                url: 'fanshub/imgroup/candidates',
+                url: Fast.api.fixurl('fanshub/imgroup/candidates'),
                 pk: 'user_id',
                 sortName: 'id',
                 commonSearch: false,
