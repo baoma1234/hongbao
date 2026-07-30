@@ -4,15 +4,20 @@
   var walletState = {
     recharge: [],
     withdraw: [],
+    rechargePartitions: [],
+    withdrawPartitions: [],
+    binds: {},
     selectedRecharge: 0,
     selectedWithdraw: 0,
     info: null,
-    rechargeExpanded: false
+    rechargeExpanded: {},
+    withdrawExpanded: {},
+    rebinding: false
   };
 
-  /** 充值页优先展示顺序（其余收入「更多」） */
-  var RECHARGE_PIN_ORDER = ['no', '234', '808', '988', 'k豆', 'jd', 'c币', 'ok', 'to', 'go', '万币'];
-  var RECHARGE_PIN_ALIAS = {
+  /** 钱包分区优先展示顺序（其余收入「更多」） */
+  var WALLET_PIN_ORDER = ['no', '234', '808', '988', 'k豆', 'jd', 'c币', 'ok', 'to', 'go', '万币'];
+  var WALLET_PIN_ALIAS = {
     nopay: 'no',
     kdou: 'k豆',
     cbi: 'c币',
@@ -29,51 +34,41 @@
     '234pay': '234'
   };
 
-  function rechargeChannelKey(name, paymentChannel) {
+  function walletChannelKey(name, paymentChannel) {
     var code = String(paymentChannel || '').replace(/\s+/g, '');
     var codeQuick = /_quick$/i.test(code);
     if (code) {
       code = code.replace(/_quick$/i, '');
       var codeKey = code.toLowerCase();
-      if (RECHARGE_PIN_ALIAS[codeKey]) codeKey = RECHARGE_PIN_ALIAS[codeKey];
-      // 数字通道如 234 / 808 / 988
-      if (/^\d+$/.test(codeKey) || RECHARGE_PIN_ORDER.indexOf(codeKey) >= 0) {
+      if (WALLET_PIN_ALIAS[codeKey]) codeKey = WALLET_PIN_ALIAS[codeKey];
+      if (/^\d+$/.test(codeKey) || WALLET_PIN_ORDER.indexOf(codeKey) >= 0) {
         return { key: codeKey, quick: codeQuick };
       }
-      // Nopay / Topay 等
-      if (RECHARGE_PIN_ALIAS[codeKey] || RECHARGE_PIN_ORDER.indexOf(codeKey) >= 0) {
-        return { key: RECHARGE_PIN_ALIAS[codeKey] || codeKey, quick: codeQuick };
-      }
-      // 用编码去掉 pay 后缀再匹配
       var stripped = codeKey.replace(/pay$/i, '');
-      if (RECHARGE_PIN_ALIAS[stripped]) stripped = RECHARGE_PIN_ALIAS[stripped];
-      if (RECHARGE_PIN_ORDER.indexOf(stripped) >= 0) {
+      if (WALLET_PIN_ALIAS[stripped]) stripped = WALLET_PIN_ALIAS[stripped];
+      if (WALLET_PIN_ORDER.indexOf(stripped) >= 0) {
         return { key: stripped, quick: codeQuick };
       }
     }
     var s = String(name || '').replace(/\s+/g, '');
     var quick = codeQuick || /快捷|_quick/i.test(s);
-    s = s
-      .replace(/快捷(支付)?/g, '')
-      .replace(/钱包/g, '')
-      .replace(/支付$/g, '')
-      .replace(/pay$/i, '');
+    s = s.replace(/快捷(支付)?/g, '').replace(/钱包/g, '').replace(/支付$/g, '').replace(/pay$/i, '');
     var key = s.toLowerCase();
-    if (RECHARGE_PIN_ALIAS[key]) key = RECHARGE_PIN_ALIAS[key];
+    if (WALLET_PIN_ALIAS[key]) key = WALLET_PIN_ALIAS[key];
     return { key: key, quick: quick };
   }
 
-  function rechargePinIndex(ch) {
-    var info = rechargeChannelKey(ch && ch.name, ch && ch.payment_channel);
+  function walletPinIndex(ch) {
+    var info = walletChannelKey(ch && ch.name, ch && ch.payment_channel);
     if (info.quick) return -1;
-    return RECHARGE_PIN_ORDER.indexOf(info.key);
+    return WALLET_PIN_ORDER.indexOf(info.key);
   }
 
-  function organizeRechargeChannels(list) {
+  function organizeWalletChannels(list) {
     var pinned = [];
     var more = [];
     (list || []).forEach(function (ch, idx) {
-      var pin = rechargePinIndex(ch);
+      var pin = walletPinIndex(ch);
       if (pin >= 0) pinned.push({ ch: ch, pin: pin, idx: idx });
       else more.push({ ch: ch, idx: idx });
     });
@@ -86,27 +81,6 @@
       pinned: pinned.map(function (x) { return x.ch; }),
       more: more.map(function (x) { return x.ch; })
     };
-  }
-
-  function channelButtonHtml(ch, type, sel) {
-    var active = sel === (ch.id | 0) ? ' active' : '';
-    var name = ch.name || wt('wallet_channel_fallback', '通道{id}', { id: ch.id });
-    var icon = (ch.icon || '').trim();
-    var iconHtml = icon
-      ? '<img class="wallet-channel-icon" src="' + escapeHtml(icon) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'">'
-      : '<span class="wallet-channel-icon wallet-channel-icon--placeholder">' + escapeHtml((name || '?').charAt(0)) + '</span>';
-    var tip = (ch.tip || '').trim();
-    if (/^wanhuipay\b/i.test(tip)) tip = '';
-    var lim = formatLimitHint(ch);
-    return (
-      '<button type="button" class="wallet-channel-item' + active + '" data-id="' + ch.id + '" data-type="' + type + '">' +
-        iconHtml +
-        '<span class="wallet-channel-meta">' +
-          '<span class="wallet-channel-name">' + escapeHtml(name) + '</span>' +
-          (lim ? '<small>' + escapeHtml(lim) + '</small>' : (tip ? '<small>' + escapeHtml(tip) : '')) +
-        '</span>' +
-      '</button>'
-    );
   }
 
   function findChannel(list, id) {
@@ -143,6 +117,36 @@
       : wt('profile_amount_ph', '请输入金额');
   }
 
+  function syncWithdrawBindUI(ch) {
+    var bindPanel = document.getElementById('profileWithdrawWalletBind');
+    var convPanel = document.getElementById('profileWithdrawConventional');
+    var submitBtn = document.getElementById('profileWithdrawSubmit');
+    if (!ch) {
+      if (bindPanel) { bindPanel.hidden = true; }
+      if (convPanel) { convPanel.style.display = ''; }
+      return;
+    }
+    var mode = String(ch.bind_mode || '');
+    var isWallet = mode === 'wallet';
+    if (bindPanel) bindPanel.hidden = !isWallet;
+    if (convPanel) convPanel.style.display = isWallet ? 'none' : '';
+    if (!isWallet) {
+      if (submitBtn) submitBtn.style.display = '';
+      walletState.rebinding = false;
+      return;
+    }
+    var wtype = String(ch.wallet_type || ch.payment_channel || '');
+    var bind = (walletState.binds && walletState.binds[wtype]) || null;
+    var cur = document.getElementById('profileWithdrawBindCurrent');
+    var form = document.getElementById('profileWithdrawBindForm');
+    var addr = document.getElementById('profileWithdrawBoundAddr');
+    var needBind = !bind || walletState.rebinding;
+    if (cur) cur.hidden = !bind || walletState.rebinding;
+    if (form) form.style.display = needBind ? '' : 'none';
+    if (addr && bind) addr.textContent = bind.account_no || '-';
+    if (submitBtn) submitBtn.style.display = needBind ? 'none' : '';
+  }
+
   function showAmountPanel(type, channelId) {
     var isRecharge = type === 'recharge';
     var list = isRecharge ? walletState.recharge : walletState.withdraw;
@@ -162,6 +166,8 @@
     if (hint) hint.textContent = formatLimitHint(ch);
     applyAmountLimits(isRecharge ? 'profileRechargeAmount' : 'profileWithdrawAmount', ch);
     if (!isRecharge) {
+      walletState.rebinding = false;
+      syncWithdrawBindUI(ch);
       var isBsUsdt = ch && String(ch.handler || '').toLowerCase() === 'bs';
       var nameWrap = document.getElementById('profileWithdrawName');
       var nameField = nameWrap && nameWrap.closest ? nameWrap.closest('.profile-field') : null;
@@ -169,22 +175,24 @@
       var branchWrap = document.getElementById('profileWithdrawBranchWrap');
       var regionWrap = document.getElementById('profileWithdrawRegionWrap');
       var accountInput = document.getElementById('profileWithdrawAccount');
-      if (isBsUsdt) {
-        if (nameField) nameField.style.display = 'none';
-        if (bankWrap) bankWrap.style.display = 'none';
-        if (branchWrap) branchWrap.style.display = 'none';
-        if (regionWrap) regionWrap.style.display = 'none';
-        if (accountInput) accountInput.placeholder = 'USDT 收款地址（TRC20）';
-      } else {
-        if (nameField) nameField.style.display = '';
-        if (bankWrap) bankWrap.style.display = '';
-        if (branchWrap) branchWrap.style.display = 'none';
-        if (regionWrap) regionWrap.style.display = 'none';
-        if (accountInput) accountInput.placeholder = wt('profile_withdraw_account_ph', '钱包地址 / 银行卡号 / 支付宝账号');
-      }
-      var bank = document.getElementById('profileWithdrawBank');
-      if (bank && !(bank.value || '').trim() && ch.name && !isBsUsdt) {
-        bank.value = String(ch.name).replace(/(充值|代付|提现)$/, '') || ch.name;
+      if (String(ch.bind_mode || '') !== 'wallet') {
+        if (isBsUsdt) {
+          if (nameField) nameField.style.display = 'none';
+          if (bankWrap) bankWrap.style.display = 'none';
+          if (branchWrap) branchWrap.style.display = 'none';
+          if (regionWrap) regionWrap.style.display = 'none';
+          if (accountInput) accountInput.placeholder = 'USDT 收款地址（TRC20）';
+        } else {
+          if (nameField) nameField.style.display = '';
+          if (bankWrap) bankWrap.style.display = '';
+          if (branchWrap) branchWrap.style.display = 'none';
+          if (regionWrap) regionWrap.style.display = 'none';
+          if (accountInput) accountInput.placeholder = wt('profile_withdraw_account_ph', '钱包地址 / 银行卡号 / 支付宝账号');
+        }
+        var bank = document.getElementById('profileWithdrawBank');
+        if (bank && !(bank.value || '').trim() && ch.name && !isBsUsdt) {
+          bank.value = String(ch.name).replace(/(充值|代付|提现)$/, '') || ch.name;
+        }
       }
     }
     try {
@@ -229,6 +237,45 @@
     );
   }
 
+  function moreButtonHtml(type, partKey, expanded) {
+    return (
+      '<button type="button" class="wallet-channel-item wallet-channel-more-btn' + (expanded ? ' is-open' : '') + '" data-more-type="' + type + '" data-more-part="' + escapeHtml(partKey) + '" aria-expanded="' + (expanded ? 'true' : 'false') + '">' +
+        '<span class="wallet-channel-icon wallet-channel-icon--placeholder" aria-hidden="true">' + (expanded ? '−' : '+') + '</span>' +
+        '<span class="wallet-channel-meta">' +
+          '<span class="wallet-channel-name">' +
+            escapeHtml(expanded ? wt('wallet_channel_less', '收起') : wt('wallet_channel_more', '更多钱包')) +
+          '</span>' +
+          '<small>' + escapeHtml(expanded
+            ? wt('wallet_channel_less_hint', '点击收起其余通道')
+            : wt('wallet_channel_more_hint', '点击查看全部通道')) + '</small>' +
+        '</span>' +
+      '</button>'
+    );
+  }
+
+  function renderChannelGroupHtml(list, type, sel, partKey, useMore) {
+    if (!useMore) {
+      return (list || []).map(function (ch) { return channelButtonHtml(ch, type, sel); }).join('');
+    }
+    var groups = organizeWalletChannels(list);
+    var html = '';
+    var expandedMap = type === 'recharge' ? walletState.rechargeExpanded : walletState.withdrawExpanded;
+    if (!groups.pinned.length) {
+      return groups.more.map(function (ch) { return channelButtonHtml(ch, type, sel); }).join('');
+    }
+    html = groups.pinned.map(function (ch) { return channelButtonHtml(ch, type, sel); }).join('');
+    if (groups.more.length) {
+      var selInMore = groups.more.some(function (ch) { return (ch.id | 0) === sel; });
+      if (selInMore) expandedMap[partKey] = true;
+      var expanded = !!expandedMap[partKey];
+      html += moreButtonHtml(type, partKey, expanded);
+      html += '<div class="wallet-channel-more-list"' + (expanded ? '' : ' hidden') + '>' +
+        groups.more.map(function (ch) { return channelButtonHtml(ch, type, sel); }).join('') +
+        '</div>';
+    }
+    return html;
+  }
+
   function bindChannelListClicks(box, type) {
     box.onclick = function (ev) {
       var t = ev.target;
@@ -237,8 +284,10 @@
       if (!moreBtn && t.classList && t.classList.contains('wallet-channel-more-btn')) moreBtn = t;
       if (moreBtn) {
         ev.preventDefault();
-        walletState.rechargeExpanded = !walletState.rechargeExpanded;
-        renderChannels(box.id, walletState.recharge, 'recharge');
+        var partKey = moreBtn.getAttribute('data-more-part') || 'wallet';
+        var expandedMap = type === 'recharge' ? walletState.rechargeExpanded : walletState.withdrawExpanded;
+        expandedMap[partKey] = !expandedMap[partKey];
+        renderChannels(box.id, type === 'recharge' ? walletState.recharge : walletState.withdraw, type);
         return;
       }
       var btn = t.closest ? t.closest('.wallet-channel-item') : null;
@@ -253,7 +302,7 @@
           node = node.parentNode;
         }
       }
-      if (!btn) return;
+      if (!btn || btn.classList.contains('wallet-channel-more-btn')) return;
       ev.preventDefault();
       var items = box.querySelectorAll('.wallet-channel-item');
       for (var i = 0; i < items.length; i++) items[i].classList.remove('active');
@@ -268,69 +317,42 @@
   function renderChannels(boxId, list, type) {
     var box = document.getElementById(boxId);
     if (!box) return;
-    if (!list || !list.length) {
+    var partitions = type === 'recharge' ? walletState.rechargePartitions : walletState.withdrawPartitions;
+    var sel = (type === 'recharge' ? walletState.selectedRecharge : walletState.selectedWithdraw) | 0;
+    var flat = list || [];
+    if (!flat.length && !(partitions && partitions.length)) {
       box.innerHTML = '<div class="wallet-channel-empty">' + escapeHtml(wt('wallet_channel_empty', '暂无可用通道，请联系客服')) + '</div>';
       showAmountPanel(type, 0);
       return;
     }
-    var sel = (type === 'recharge' ? walletState.selectedRecharge : walletState.selectedWithdraw) | 0;
-
-    if (type === 'recharge') {
-      var groups = organizeRechargeChannels(list);
-      var ordered = groups.pinned.length
-        ? groups.pinned.concat(groups.more)
-        : groups.more.slice();
-      if (!sel && ordered[0]) {
-        walletState.selectedRecharge = ordered[0].id | 0;
-        sel = walletState.selectedRecharge;
-      }
-      var html = '';
-      if (!groups.pinned.length) {
-        html = ordered.map(function (ch) {
-          return channelButtonHtml(ch, type, sel);
-        }).join('');
-      } else {
-        html = groups.pinned.map(function (ch) {
-          return channelButtonHtml(ch, type, sel);
-        }).join('');
-        if (groups.more.length) {
-          var selInMore = groups.more.some(function (ch) { return (ch.id | 0) === sel; });
-          if (selInMore) walletState.rechargeExpanded = true;
-          var expanded = !!walletState.rechargeExpanded;
-          html +=
-            '<button type="button" class="wallet-channel-item wallet-channel-more-btn' + (expanded ? ' is-open' : '') + '" aria-expanded="' + (expanded ? 'true' : 'false') + '">' +
-              '<span class="wallet-channel-icon wallet-channel-icon--placeholder" aria-hidden="true">' + (expanded ? '−' : '+') + '</span>' +
-              '<span class="wallet-channel-meta">' +
-                '<span class="wallet-channel-name">' +
-                  escapeHtml(expanded
-                    ? wt('wallet_channel_less', '收起')
-                    : wt('wallet_channel_more', '更多钱包')) +
-                '</span>' +
-                '<small>' + escapeHtml(expanded
-                  ? wt('wallet_channel_less_hint', '点击收起其余通道')
-                  : wt('wallet_channel_more_hint', '点击查看全部通道')) + '</small>' +
-              '</span>' +
-            '</button>' +
-            '<div class="wallet-channel-more-list"' + (expanded ? '' : ' hidden') + '>' +
-              groups.more.map(function (ch) {
-                return channelButtonHtml(ch, type, sel);
-              }).join('') +
-            '</div>';
-        }
-      }
-      box.innerHTML = html;
-      bindChannelListClicks(box, type);
-      showAmountPanel(type, sel);
-      return;
+    if (!partitions || !partitions.length) {
+      partitions = [{ id: 0, code: 'all', name: '', bind_mode: 'none', channels: flat }];
     }
-
-    box.innerHTML = list.map(function (ch) {
-      return channelButtonHtml(ch, type, sel);
-    }).join('');
-    if (!sel && list[0]) {
-      walletState.selectedWithdraw = list[0].id | 0;
-      sel = walletState.selectedWithdraw;
+    if (!sel) {
+      var first = null;
+      for (var p = 0; p < partitions.length && !first; p++) {
+        if (partitions[p].channels && partitions[p].channels[0]) first = partitions[p].channels[0];
+      }
+      if (first) {
+        if (type === 'recharge') walletState.selectedRecharge = first.id | 0;
+        else walletState.selectedWithdraw = first.id | 0;
+        sel = first.id | 0;
+      }
     }
+    var html = '';
+    partitions.forEach(function (part) {
+      var chs = part.channels || [];
+      if (!chs.length) return;
+      var partKey = String(part.code || part.id || 'part');
+      var useMore = part.code === 'wallet' || part.bind_mode === 'wallet';
+      if (part.name) {
+        html += '<div class="wallet-partition-title">' + escapeHtml(part.name) + '</div>';
+      }
+      html += '<div class="wallet-partition-block" data-part="' + escapeHtml(partKey) + '">';
+      html += renderChannelGroupHtml(chs, type, sel, partKey, useMore);
+      html += '</div>';
+    });
+    box.innerHTML = html;
     bindChannelListClicks(box, type);
     showAmountPanel(type, sel);
   }
@@ -508,13 +530,15 @@
   function loadWalletData() {
     return Promise.all([
       api('walletinfo', {}).catch(function () { return {}; }),
-      api('rechargechannels', {}).catch(function () { return { list: [] }; }),
-      api('withdrawchannels', {}).catch(function () { return { list: [] }; })
+      api('rechargechannels', {}).catch(function () { return { list: [], partitions: [] }; }),
+      api('withdrawchannels', {}).catch(function () { return { list: [], partitions: [], binds: {} }; })
     ]).then(function (res) {
-      // apiRequest 已解包 data
       walletState.info = res[0] || {};
       walletState.recharge = (res[1] && res[1].list) || [];
+      walletState.rechargePartitions = (res[1] && res[1].partitions) || [];
       walletState.withdraw = (res[2] && res[2].list) || [];
+      walletState.withdrawPartitions = (res[2] && res[2].partitions) || [];
+      walletState.binds = (res[2] && res[2].binds) || {};
       var hint = document.getElementById('profileWithdrawHint');
       if (hint && walletState.info) {
         var need = Math.max(walletState.info.withdraw_turnover_min || 0, 0);
@@ -589,7 +613,12 @@
     // 每次打开重置选中，先选通道再填金额
     if (which === 'recharge') {
       walletState.selectedRecharge = 0;
-      walletState.rechargeExpanded = false;
+      walletState.rechargeExpanded = {};
+    }
+    if (which === 'withdraw') {
+      walletState.selectedWithdraw = 0;
+      walletState.withdrawExpanded = {};
+      walletState.rebinding = false;
     }
     if (which === 'withdraw') walletState.selectedWithdraw = 0;
     loadWalletData().then(function () {
@@ -667,6 +696,15 @@
       toast(err, 'error');
       return;
     }
+    var isWalletBind = ch && String(ch.bind_mode || '') === 'wallet';
+    var wtype = ch ? String(ch.wallet_type || ch.payment_channel || '') : '';
+    var bind = isWalletBind ? ((walletState.binds && walletState.binds[wtype]) || null) : null;
+    if (isWalletBind && !bind) {
+      toast(wt('wallet_need_bind', '请先绑定该钱包地址'), 'error');
+      syncWithdrawBindUI(ch);
+      return;
+    }
+
     var accountname = ((document.getElementById('profileWithdrawName') || {}).value || '').trim();
     var cardnumber = ((document.getElementById('profileWithdrawAccount') || {}).value || '').trim();
     var bankname = ((document.getElementById('profileWithdrawBank') || {}).value || '').trim();
@@ -674,26 +712,33 @@
     var province = ((document.getElementById('profileWithdrawProvince') || {}).value || '').trim();
     var city = ((document.getElementById('profileWithdrawCity') || {}).value || '').trim();
     var payChanel = ((document.getElementById('profileWithdrawChanel') || {}).value || '102').trim();
-    var isBsUsdt = ch && String(ch.handler || '').toLowerCase() === 'bs';
-    if (isBsUsdt) {
-      if (!cardnumber) {
-        toast(wt('wallet_need_usdt_address', '请填写 USDT 收款地址'), 'error');
+    var accountInfo;
+    if (isWalletBind) {
+      accountInfo = {
+        bind_id: bind.id,
+        wallet_type: wtype,
+        accountname: bind.account_name || '钱包用户',
+        cardnumber: bind.account_no,
+        account: bind.account_no,
+        account_or_address: bind.account_no,
+        bankname: bind.bank_name || wtype
+      };
+    } else {
+      var isBsUsdt = ch && String(ch.handler || '').toLowerCase() === 'bs';
+      if (isBsUsdt) {
+        if (!cardnumber) {
+          toast(wt('wallet_need_usdt_address', '请填写 USDT 收款地址'), 'error');
+          return;
+        }
+        if (!accountname) accountname = 'USDT';
+      } else if (!accountname || !cardnumber) {
+        toast(wt('wallet_need_payee', '请填写收款人姓名与账号'), 'error');
         return;
       }
-      if (!accountname) accountname = 'USDT';
-    } else if (!accountname || !cardnumber) {
-      toast(wt('wallet_need_payee', '请填写收款人姓名与账号'), 'error');
-      return;
-    }
-    if (!bankname) {
-      bankname = (ch && ch.name) ? String(ch.name).replace(/(充值|代付|提现)$/, '') : '钱包';
-    }
-    var btn = document.getElementById('profileWithdrawSubmit');
-    if (btn) btn.disabled = true;
-    api('withdraw', {
-      channel_id: cid,
-      amount: amount,
-      account_info: {
+      if (!bankname) {
+        bankname = (ch && ch.name) ? String(ch.name).replace(/(充值|代付|提现)$/, '') : '钱包';
+      }
+      accountInfo = {
         accountname: accountname,
         cardnumber: cardnumber,
         account: cardnumber,
@@ -703,7 +748,14 @@
         province: province,
         city: city,
         pay_chanel: payChanel
-      }
+      };
+    }
+    var btn = document.getElementById('profileWithdrawSubmit');
+    if (btn) btn.disabled = true;
+    api('withdraw', {
+      channel_id: cid,
+      amount: amount,
+      account_info: accountInfo
     }).then(function (data) {
       toast((data && data.message) || wt('wallet_withdraw_ok', '提现申请已提交'), 'success');
       if (data && data.url) window.open(data.url, '_blank');
@@ -715,6 +767,54 @@
       if (btn) btn.disabled = false;
     });
   };
+
+  global.submitProfileWalletBind = function () {
+    var cid = walletState.selectedWithdraw | 0;
+    var ch = findChannel(walletState.withdraw, cid);
+    if (!ch || String(ch.bind_mode || '') !== 'wallet') {
+      toast(wt('wallet_need_channel', '请先选择通道'), 'error');
+      return;
+    }
+    var wtype = String(ch.wallet_type || ch.payment_channel || '');
+    var accountNo = ((document.getElementById('profileWithdrawBindAddress') || {}).value || '').trim();
+    var accountName = ((document.getElementById('profileWithdrawBindName') || {}).value || '').trim();
+    if (!accountNo) {
+      toast(wt('wallet_bind_address_required', '请填写钱包地址'), 'error');
+      return;
+    }
+    var btn = document.getElementById('profileWithdrawBindSubmit');
+    if (btn) btn.disabled = true;
+    api('bindwallet', {
+      wallet_type: wtype,
+      account_info: {
+        account_no: accountNo,
+        account_name: accountName || String(ch.name || '').replace(/(充值|代付|提现)$/, ''),
+        bank_name: wtype,
+        bind_mode: 'wallet'
+      }
+    }).then(function (data) {
+      walletState.binds = (data && data.binds) || walletState.binds || {};
+      walletState.rebinding = false;
+      toast(wt('wallet_bind_ok', '钱包地址已绑定'), 'success');
+      var addrInput = document.getElementById('profileWithdrawBindAddress');
+      if (addrInput) addrInput.value = '';
+      syncWithdrawBindUI(ch);
+    }).catch(function (e) {
+      toast((e && e.message) || wt('wallet_fail', '失败'), 'error');
+    }).then(function () {
+      if (btn) btn.disabled = false;
+    });
+  };
+
+  document.addEventListener('click', function (ev) {
+    var t = ev.target;
+    if (!t) return;
+    if (t.id === 'profileWithdrawRebindBtn' || (t.closest && t.closest('#profileWithdrawRebindBtn'))) {
+      walletState.rebinding = true;
+      var ch = findChannel(walletState.withdraw, walletState.selectedWithdraw | 0);
+      syncWithdrawBindUI(ch);
+    }
+  });
 
   global.refreshProfileLedgerCopy = function () {
     if (ledgerState.list && ledgerState.list.length) {

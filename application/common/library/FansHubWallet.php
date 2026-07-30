@@ -130,7 +130,41 @@ class FansHubWallet
 
     public static function listChannels($type)
     {
+        $payload = self::listChannelsGrouped($type);
+        return $payload['list'];
+    }
+
+    /**
+     * 分区 + 通道列表（供 H5）
+     * @return array{partitions:array,list:array,binds?:array}
+     */
+    public static function listChannelsGrouped($type, $userId = 0)
+    {
         $type = $type === 'withdraw' ? 'withdraw' : 'recharge';
+        $locale = FansHubService::requestLocale();
+        $partitions = [];
+        try {
+            $prows = Db::name('fans_pay_partition')
+                ->where(['type' => $type, 'status' => 'normal'])
+                ->order('weigh desc,id asc')
+                ->select();
+        } catch (\Throwable $e) {
+            $prows = [];
+        }
+        $partMap = [];
+        foreach ($prows ?: [] as $p) {
+            $pid = (int)$p['id'];
+            $item = [
+                'id'        => $pid,
+                'code'      => (string)$p['code'],
+                'name'      => self::localizePartitionName($p, $locale),
+                'bind_mode' => (string)($p['bind_mode'] ?? 'none'),
+                'channels'  => [],
+            ];
+            $partitions[] = $item;
+            $partMap[$pid] = count($partitions) - 1;
+        }
+
         $rows = Db::name('fans_pay_channel')
             ->where(['type' => $type, 'status' => 'normal'])
             ->order('weigh desc,id desc')
@@ -138,11 +172,9 @@ class FansHubWallet
         $list = [];
         foreach ($rows as $row) {
             $icon = trim((string)($row['icon'] ?? ''));
-            // 无图标通道不向前台展示
             if ($icon === '') {
                 continue;
             }
-            // 本地 /assets 图标勿走 CDN（CDN 上通常没有这些文件）
             if (!preg_match('#^(https?:)?//#i', $icon) && !preg_match('#^data:#i', $icon)) {
                 if ($icon[0] !== '/') {
                     $icon = '/' . ltrim($icon, '/');
@@ -150,27 +182,217 @@ class FansHubWallet
             } else {
                 $icon = cdnurl($icon, true);
             }
-            $cfg = [];
-            $rawCfg = $row['config'] ?? '';
-            if (is_string($rawCfg) && $rawCfg !== '') {
-                $decoded = json_decode($rawCfg, true);
-                if (is_array($decoded)) {
-                    $cfg = $decoded;
+            $cfg = self::decodeConfig($row['config'] ?? '');
+            $payChannel = trim((string)($row['pay_channel'] ?? $cfg['payment_channel'] ?? $cfg['pay_channel'] ?? ''));
+            $pid = (int)($row['partition_id'] ?? 0);
+            $bindMode = 'none';
+            $partCode = '';
+            if ($pid > 0 && isset($partMap[$pid])) {
+                $bindMode = $partitions[$partMap[$pid]]['bind_mode'];
+                $partCode = $partitions[$partMap[$pid]]['code'];
+            } elseif ($pid === 0 && $partitions) {
+                // 未归属：按处理器猜测
+                $handler = strtolower((string)$row['handler']);
+                $guess = in_array($handler, ['wanhuitong', 'bs'], true) ? 'wallet' : 'self_service';
+                foreach ($partitions as $idx => $p) {
+                    if ($p['code'] === $guess) {
+                        $pid = $p['id'];
+                        $bindMode = $p['bind_mode'];
+                        $partCode = $p['code'];
+                        break;
+                    }
                 }
             }
-            $payChannel = trim((string)($row['pay_channel'] ?? $cfg['payment_channel'] ?? $cfg['pay_channel'] ?? ''));
-            $list[] = [
+            $walletType = self::resolveWalletType($row, $cfg);
+            $ch = [
                 'id'              => (int)$row['id'],
                 'name'            => (string)$row['name'],
                 'icon'            => $icon,
                 'tip'             => (string)($row['tip'] ?? ''),
                 'handler'         => (string)$row['handler'],
                 'payment_channel' => $payChannel,
+                'wallet_type'     => $walletType,
+                'partition_id'    => $pid,
+                'partition_code'  => $partCode,
+                'bind_mode'       => $bindMode,
                 'min_amount'      => (float)$row['min_amount'],
                 'max_amount'      => (float)$row['max_amount'],
             ];
+            $list[] = $ch;
+            if ($pid > 0 && isset($partMap[$pid])) {
+                $partitions[$partMap[$pid]]['channels'][] = $ch;
+            }
         }
-        return $list;
+
+        // 去掉空分区
+        $partitions = array_values(array_filter($partitions, function ($p) {
+            return !empty($p['channels']);
+        }));
+
+        $out = [
+            'partitions' => $partitions,
+            'list'       => $list,
+        ];
+        if ($type === 'withdraw' && (int)$userId > 0) {
+            $out['binds'] = self::listWalletBinds((int)$userId);
+        }
+        return $out;
+    }
+
+    public static function localizePartitionName(array $row, $locale = 'zh-CN')
+    {
+        $name = trim((string)($row['name'] ?? ''));
+        if ($locale === '' || $locale === 'zh-CN') {
+            return $name;
+        }
+        $map = [];
+        $raw = $row['name_i18n'] ?? '';
+        if (is_string($raw) && $raw !== '') {
+            $decoded = json_decode($raw, true);
+            if (is_array($decoded)) {
+                $map = $decoded;
+            }
+        } elseif (is_array($raw)) {
+            $map = $raw;
+        }
+        $t = trim((string)($map[$locale] ?? ''));
+        return $t !== '' ? $t : $name;
+    }
+
+    public static function resolveWalletType(array $channel, array $cfg = [])
+    {
+        if (!$cfg) {
+            $cfg = self::decodeConfig($channel['config'] ?? '');
+        }
+        $handler = strtolower((string)($channel['handler'] ?? ''));
+        if ($handler === 'bs') {
+            $coin = trim((string)($cfg['coin_type'] ?? $channel['pay_channel'] ?? 'USDT'));
+            return 'BS_' . strtoupper($coin !== '' ? $coin : 'USDT');
+        }
+        $pay = trim((string)($channel['pay_channel'] ?? $cfg['payment_channel'] ?? $cfg['pay_channel'] ?? ''));
+        if ($pay !== '') {
+            return preg_replace('/_quick$/i', '', $pay);
+        }
+        $name = trim((string)($channel['name'] ?? ''));
+        return $name !== '' ? ('NAME_' . md5($name)) : 'UNKNOWN';
+    }
+
+    public static function normalizeAccountNo($accountNo)
+    {
+        $s = trim((string)$accountNo);
+        $s = preg_replace('/\s+/u', '', $s);
+        return $s;
+    }
+
+    public static function accountHash($accountNo)
+    {
+        return hash('sha256', strtolower(self::normalizeAccountNo($accountNo)));
+    }
+
+    public static function listWalletBinds($userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return [];
+        }
+        try {
+            $rows = Db::name('fans_wallet_bind')->where('user_id', $userId)->select();
+        } catch (\Throwable $e) {
+            return [];
+        }
+        $map = [];
+        foreach ($rows ?: [] as $r) {
+            $type = (string)$r['wallet_type'];
+            $map[$type] = [
+                'id'           => (int)$r['id'],
+                'wallet_type'  => $type,
+                'bind_mode'    => (string)$r['bind_mode'],
+                'account_name' => (string)$r['account_name'],
+                'account_no'   => (string)$r['account_no'],
+                'bank_name'    => (string)$r['bank_name'],
+            ];
+        }
+        return $map;
+    }
+
+    /**
+     * 绑定钱包地址（同一 wallet_type 一用户一条；同类型地址全局不可重复）
+     */
+    public static function bindWalletAddress($userId, $walletType, array $info)
+    {
+        $userId = (int)$userId;
+        $walletType = trim((string)$walletType);
+        $accountNo = self::normalizeAccountNo($info['account_no'] ?? $info['cardnumber'] ?? $info['account'] ?? '');
+        $accountName = trim((string)($info['account_name'] ?? $info['accountname'] ?? ''));
+        $bankName = trim((string)($info['bank_name'] ?? $info['bankname'] ?? ''));
+        $bindMode = trim((string)($info['bind_mode'] ?? 'wallet'));
+        if ($userId <= 0 || $walletType === '' || $accountNo === '') {
+            FansHubService::throwCopy('api_params_incomplete');
+        }
+        if ($bindMode === 'wallet' && mb_strlen($accountNo) < 6) {
+            throw new \RuntimeException(FansHubService::h5CopyText('wallet_bind_address_invalid') ?: '钱包地址格式不正确');
+        }
+        $hash = self::accountHash($accountNo);
+        $now = time();
+        $dup = Db::name('fans_wallet_bind')
+            ->where('wallet_type', $walletType)
+            ->where('account_hash', $hash)
+            ->where('user_id', '<>', $userId)
+            ->find();
+        if ($dup) {
+            throw new \RuntimeException(FansHubService::h5CopyText('wallet_bind_address_taken') ?: '该钱包地址已被其他用户绑定');
+        }
+        $exist = Db::name('fans_wallet_bind')
+            ->where(['user_id' => $userId, 'wallet_type' => $walletType])
+            ->find();
+        $data = [
+            'account_name' => mb_substr($accountName, 0, 64),
+            'account_no'   => mb_substr($accountNo, 0, 255),
+            'account_hash' => $hash,
+            'bank_name'    => mb_substr($bankName, 0, 64),
+            'bind_mode'    => $bindMode !== '' ? $bindMode : 'wallet',
+            'updatetime'   => $now,
+        ];
+        try {
+            if ($exist) {
+                // 换绑时也要确保新地址未被占用（上面已查）
+                Db::name('fans_wallet_bind')->where('id', (int)$exist['id'])->update($data);
+            } else {
+                $data['user_id'] = $userId;
+                $data['wallet_type'] = $walletType;
+                $data['createtime'] = $now;
+                Db::name('fans_wallet_bind')->insert($data);
+            }
+        } catch (\Throwable $e) {
+            $msg = $e->getMessage();
+            if (stripos($msg, 'Duplicate') !== false || stripos($msg, 'uk_type_hash') !== false) {
+                throw new \RuntimeException(FansHubService::h5CopyText('wallet_bind_address_taken') ?: '该钱包地址已被其他用户绑定');
+            }
+            throw $e;
+        }
+        return self::listWalletBinds($userId);
+    }
+
+    public static function getWalletBind($userId, $walletType)
+    {
+        $binds = self::listWalletBinds($userId);
+        return $binds[$walletType] ?? null;
+    }
+
+    public static function channelBindMode(array $channel)
+    {
+        $pid = (int)($channel['partition_id'] ?? 0);
+        if ($pid > 0) {
+            try {
+                $p = Db::name('fans_pay_partition')->where('id', $pid)->find();
+                if ($p) {
+                    return (string)($p['bind_mode'] ?? 'none');
+                }
+            } catch (\Throwable $e) {
+            }
+        }
+        $handler = strtolower((string)($channel['handler'] ?? ''));
+        return in_array($handler, ['wanhuitong', 'bs'], true) ? 'wallet' : 'conventional';
     }
 
     public static function recharge($userId, $channelId, $amount)
@@ -250,6 +472,35 @@ class FansHubWallet
         }
         $channel = self::getChannel($channelId, 'withdraw');
         self::assertAmount($amount, $channel);
+        $bindMode = self::channelBindMode($channel);
+        $walletType = self::resolveWalletType($channel);
+        if ($bindMode === 'wallet') {
+            $bindId = (int)($accountInfo['bind_id'] ?? 0);
+            $bind = null;
+            if ($bindId > 0) {
+                $bind = Db::name('fans_wallet_bind')->where(['id' => $bindId, 'user_id' => $userId])->find();
+            }
+            if (!$bind) {
+                $bind = Db::name('fans_wallet_bind')
+                    ->where(['user_id' => $userId, 'wallet_type' => $walletType])
+                    ->find();
+            }
+            if (!$bind) {
+                throw new \RuntimeException(FansHubService::h5CopyText('wallet_need_bind') ?: '请先绑定该钱包地址');
+            }
+            if ((string)$bind['wallet_type'] !== $walletType) {
+                throw new \RuntimeException(FansHubService::h5CopyText('wallet_bind_type_mismatch') ?: '绑定地址与当前钱包类型不匹配');
+            }
+            $accountInfo = array_merge($accountInfo, [
+                'accountname'         => (string)$bind['account_name'] ?: '钱包用户',
+                'cardnumber'          => (string)$bind['account_no'],
+                'account'             => (string)$bind['account_no'],
+                'account_or_address'  => (string)$bind['account_no'],
+                'bankname'            => (string)$bind['bank_name'] !== '' ? (string)$bind['bank_name'] : $walletType,
+                'wallet_type'         => $walletType,
+                'bind_id'             => (int)$bind['id'],
+            ]);
+        }
         $account = FansHubService::getOrCreateAccount($userId);
         if ((string)$account->status === 'frozen') {
             FansHubService::throwCopy('srv_account_frozen');

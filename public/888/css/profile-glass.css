@@ -644,6 +644,57 @@
 .profile-sub-pane .wallet-channel-more-list[hidden] {
   display: none !important;
 }
+
+.profile-sub-pane .wallet-partition-title {
+  margin: 14px 0 8px;
+  padding: 0 2px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #8a4f1f;
+  letter-spacing: 0.02em;
+}
+
+.profile-sub-pane .wallet-partition-title:first-child {
+  margin-top: 4px;
+}
+
+.profile-sub-pane .wallet-partition-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.profile-sub-pane .wallet-bind-panel {
+  margin: 10px 0 12px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(#fff8f0, #fff8f0) padding-box,
+    linear-gradient(145deg, #ffe9b0 0%, #f0b04a 42%, #e07a22 100%) border-box;
+}
+
+.profile-sub-pane .wallet-bind-current {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.profile-sub-pane .wallet-bind-rebind {
+  align-self: flex-start;
+  border: none;
+  background: transparent;
+  color: #C61114;
+  font-weight: 700;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.profile-sub-pane .wallet-bind-form .btn-uid-submit {
+  margin-top: 8px;
+}
   display: block;
   margin-top: 4px;
   color: var(--pg-muted);

@@ -95,16 +95,37 @@
             <div class="match-card profile-card">
                 <div class="profile-meta-line"><span data-copy="profile_withdraw_avail_prefix">可提现红宝：</span><strong id="profileWithdrawBalance">￥0.00</strong></div>
                 <div class="profile-meta-line" id="profileTurnoverLine" data-turnover-prefix-key="profile_turnover_prefix">累计流水：￥0.00</div>
-                <div class="profile-field">
-                    <label data-copy="profile_withdraw_channel_label">选择提现通道</label>
-                </div>
-                <div id="profileWithdrawChannels" class="wallet-channel-list"></div>
-                <div id="profileWithdrawForm" class="wallet-amount-panel" hidden>
+                    <div class="profile-field">
+                        <label data-copy="profile_withdraw_channel_label">选择提现通道</label>
+                    </div>
+                    <div id="profileWithdrawChannels" class="wallet-channel-list"></div>
+                    <div id="profileWithdrawForm" class="wallet-amount-panel" hidden>
                     <div class="profile-meta-line" id="profileWithdrawLimitHint"></div>
                     <div class="profile-field">
                         <label data-copy="profile_withdraw_amount_label">提现红宝金额（元）</label>
                         <input type="number" id="profileWithdrawAmount" step="0.01" min="1" data-copy-placeholder="profile_amount_ph" placeholder="请输入金额">
                     </div>
+                    <!-- 钱包地址绑定区 -->
+                    <div id="profileWithdrawWalletBind" class="wallet-bind-panel" hidden>
+                        <div class="profile-meta-line" id="profileWithdrawBindHint" data-copy="wallet_bind_hint">请先绑定该钱包收款地址（每个钱包类型独立，地址不可重复）</div>
+                        <div class="wallet-bind-current" id="profileWithdrawBindCurrent" hidden>
+                            <div class="profile-meta-line"><span data-copy="wallet_bound_label">已绑定地址：</span><strong id="profileWithdrawBoundAddr">-</strong></div>
+                            <button type="button" class="wallet-bind-rebind" id="profileWithdrawRebindBtn" data-copy="wallet_rebind_btn">更换地址</button>
+                        </div>
+                        <div class="wallet-bind-form" id="profileWithdrawBindForm">
+                            <div class="profile-field">
+                                <label data-copy="wallet_bind_address_label">钱包地址</label>
+                                <input type="text" id="profileWithdrawBindAddress" data-copy-placeholder="wallet_bind_address_ph" placeholder="请输入钱包收款地址">
+                            </div>
+                            <div class="profile-field">
+                                <label data-copy="wallet_bind_name_label">备注姓名（可选）</label>
+                                <input type="text" id="profileWithdrawBindName" data-copy-placeholder="wallet_bind_name_ph" placeholder="可选">
+                            </div>
+                            <button type="button" class="btn-uid-submit" id="profileWithdrawBindSubmit" onclick="submitProfileWalletBind()" data-copy="wallet_bind_submit">确认绑定</button>
+                        </div>
+                    </div>
+                    <!-- 常规绑定（支付宝/银行卡） -->
+                    <div id="profileWithdrawConventional" class="wallet-conventional-panel">
                     <div class="profile-field" id="profileWithdrawChanelWrap" style="display:none;">
                         <label data-copy="profile_withdraw_method">收款方式</label>
                         <select id="profileWithdrawChanel" class="login-input">
@@ -134,6 +155,7 @@
                             <input type="text" id="profileWithdrawProvince" data-copy-placeholder="profile_withdraw_province_ph" placeholder="省">
                             <input type="text" id="profileWithdrawCity" data-copy-placeholder="profile_withdraw_city_ph" placeholder="市">
                         </div>
+                    </div>
                     </div>
                     <button type="button" class="btn-uid-submit" id="profileWithdrawSubmit" onclick="submitProfileWithdraw()" data-copy="profile_withdraw_submit">确认提现</button>
                 </div>

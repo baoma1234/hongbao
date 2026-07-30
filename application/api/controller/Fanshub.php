@@ -600,7 +600,7 @@ class Fanshub extends Api
      */
     public function rechargechannels()
     {
-        $this->success('ok', ['list' => \app\common\library\FansHubWallet::listChannels('recharge')]);
+        $this->success('ok', \app\common\library\FansHubWallet::listChannelsGrouped('recharge', $this->auth->id));
     }
 
     /**
@@ -608,7 +608,34 @@ class Fanshub extends Api
      */
     public function withdrawchannels()
     {
-        $this->success('ok', ['list' => \app\common\library\FansHubWallet::listChannels('withdraw')]);
+        $this->success('ok', \app\common\library\FansHubWallet::listChannelsGrouped('withdraw', $this->auth->id));
+    }
+
+    /**
+     * 绑定提现钱包地址（按钱包类型唯一）
+     */
+    public function bindwallet()
+    {
+        $walletType = trim((string)$this->request->post('wallet_type', ''));
+        $accountInfo = $this->request->post('account_info/a', []);
+        if (!is_array($accountInfo)) {
+            $accountInfo = [];
+        }
+        // 兼容扁平字段
+        foreach (['account_no', 'account_name', 'bank_name', 'cardnumber', 'accountname', 'bankname'] as $k) {
+            if (!isset($accountInfo[$k]) && $this->request->post($k) !== null) {
+                $accountInfo[$k] = $this->request->post($k);
+            }
+        }
+        $accountInfo['bind_mode'] = 'wallet';
+        try {
+            $binds = \app\common\library\FansHubWallet::bindWalletAddress($this->auth->id, $walletType, $accountInfo);
+            $this->success(FansHubService::h5CopyText('wallet_bind_ok') ?: '钱包地址已绑定', ['binds' => $binds]);
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: FansHubService::h5CopyText('api_operation_fail'));
+        }
     }
 
     /**

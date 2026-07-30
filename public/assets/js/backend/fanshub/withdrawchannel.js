@@ -22,6 +22,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                     {checkbox: true},
                     {field: 'id', title: 'ID'},
                     {field: 'name', title: '名称', operate: 'LIKE'},
+                    {field: 'partition_name', title: '分区', operate: false},
                     {field: 'merchant_name', title: '总商户', operate: false},
                     {field: 'merchant_no', title: '商户号', operate: 'LIKE'},
                     {field: 'wallet_label', title: '钱包', operate: false},

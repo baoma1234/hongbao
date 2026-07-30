@@ -19,6 +19,8 @@ class Paychannel extends Backend
     protected $searchFields = 'id,name,handler,merchant_no,pay_channel';
     /** @var string 固定通道类型 recharge|withdraw，空则不限制（兼容旧菜单） */
     protected $fixedType = '';
+    /** @var array */
+    protected $partitionList = [];
 
     public function _initialize()
     {
@@ -45,6 +47,27 @@ class Paychannel extends Backend
         $this->view->assign('walletList', FansHubWanhuitongGateway::paymentChannels());
         $this->view->assign('quickWalletList', FansHubWanhuitongGateway::quickPaymentChannels());
         $this->view->assign('bsCoinList', FansHubBsGateway::coinTypes());
+        $partType = $this->fixedType === 'withdraw' ? 'withdraw' : ($this->fixedType === 'recharge' ? 'recharge' : '');
+        $partQuery = Db::name('fans_pay_partition')->where('status', 'normal')->order('weigh desc,id asc');
+        if ($partType !== '') {
+            $partQuery->where('type', $partType);
+        }
+        $partitions = [];
+        try {
+            $partitions = $partQuery->select();
+        } catch (\Throwable $e) {
+            $partitions = [];
+        }
+        $this->partitionList = [0 => '未分区'];
+        foreach ($partitions ?: [] as $p) {
+            $label = (string)$p['name'] . ' (' . $p['code'] . ')';
+            if ($partType === '') {
+                $label = ($p['type'] === 'withdraw' ? '[提现]' : '[充值]') . $label;
+            }
+            $this->partitionList[(int)$p['id']] = $label;
+        }
+        $this->view->assign('partitionList', $this->partitionList);
+        $this->assignconfig('partitionList', $this->partitionList);
         $this->assignconfig('walletList', FansHubWanhuitongGateway::allPaymentChannels());
         $this->assignconfig('bsCoinList', FansHubBsGateway::coinTypes());
         $this->assignconfig('merchantMap', $this->buildMerchantMap($merchants ?: []));
@@ -104,6 +127,8 @@ class Paychannel extends Backend
                 $row['wallet_label'] = ($row['handler'] ?? '') === 'wanhuitong'
                     ? FansHubWanhuitongGateway::walletLabel((string)($row['pay_channel'] ?? ''))
                     : '';
+                $pid = (int)($row['partition_id'] ?? 0);
+                $row['partition_name'] = $pid > 0 ? (string)($this->partitionList[$pid] ?? ('#' . $pid)) : '未分区';
             }
             unset($row);
             return json(['total' => $list->total(), 'rows' => $rows]);
@@ -213,6 +238,7 @@ class Paychannel extends Backend
             $type = $this->fixedType;
             $params['type'] = $type;
         }
+        $params['partition_id'] = max(0, (int)($params['partition_id'] ?? 0));
         $handler = (string)($params['handler'] ?? '');
         // 非万汇通：文本框可能用 pay_channel_md5
         if ($handler !== 'wanhuitong' && trim((string)($params['pay_channel'] ?? '')) === ''
