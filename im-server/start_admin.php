@@ -100,12 +100,8 @@ $http->onMessage = function (TcpConnection $connection, Request $request) use ($
         }
         if ($path === '/agent/send_redpacket' && strtoupper($request->method()) === 'POST') {
             $sendUid = (int)($body['agent_user_id'] ?? 0);
-            // bot_mode=1：自动发抢任务可用普通会员发包（admin_key 已鉴权）；否则仍须登记托管客服
-            if (!empty($body['bot_mode'])) {
-                assertUserExists($sendUid);
-            } else {
-                assertAgent($sendUid, (int)($body['admin_id'] ?? 0));
-            }
+            // 自动任务 / 托管客服均可：admin_key 已鉴权，只需用户存在
+            assertUserExists($sendUid);
             $scopeType = (int)($body['scope_type'] ?? 0);
             if ($scopeType !== 1 && $scopeType !== 2) {
                 throw new InvalidArgumentException('invalid scope_type');

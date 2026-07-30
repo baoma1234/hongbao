@@ -98,6 +98,9 @@ class FansHubRpAuto
             throw new Exception('金额/个数无效');
         }
 
+        // 兼容未重启的旧 IM 桥接：旧版要求发包 UID 必须在托管客服表
+        self::ensureAgentAccount($sendUid);
+
         $result = FansHubImBridge::post('/agent/send_redpacket', [
             'agent_user_id' => $sendUid,
             'scope_type'    => 2,
@@ -212,6 +215,50 @@ class FansHubRpAuto
             }
         }
         return array_values($out);
+    }
+
+    /**
+     * 确保发包用户在 fa_chat_agent_accounts（兼容旧版 IM 桥接 assertAgent）
+     */
+    protected static function ensureAgentAccount($userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return;
+        }
+        $user = Db::name('user')->where('id', $userId)->find();
+        if (!$user) {
+            throw new Exception('发包用户不存在: ' . $userId);
+        }
+        $row = Db::name('chat_agent_accounts')->where('user_id', $userId)->find();
+        $now = time();
+        if ($row) {
+            if ((int)$row['status'] !== 1) {
+                Db::name('chat_agent_accounts')->where('id', (int)$row['id'])->update([
+                    'status'     => 1,
+                    'updatetime' => $now,
+                ]);
+            }
+            return;
+        }
+        try {
+            Db::name('chat_agent_accounts')->insert([
+                'user_id'      => $userId,
+                'admin_id'     => 0,
+                'label'        => '红包自动任务',
+                'scope'        => 'all',
+                'friend_reply' => '',
+                'status'       => 1,
+                'createtime'   => $now,
+                'updatetime'   => $now,
+            ]);
+        } catch (\Throwable $e) {
+            // 并发插入唯一键冲突时再查一次
+            $again = Db::name('chat_agent_accounts')->where('user_id', $userId)->where('status', 1)->find();
+            if (!$again) {
+                throw new Exception('登记托管客服失败: ' . $e->getMessage());
+            }
+        }
     }
 
     protected static function touchError($taskId, $msg)
