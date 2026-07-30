@@ -84,11 +84,11 @@ return array_replace_recursive([
     'tron' => [
         'api_url' => 'https://api.trongrid.io',
         'api_key' => 'aaa8e343-c0f7-43ef-8acc-4dbbd1865fd2',
-        // 发包时锁定「当前高度 + N」作为本局官方开奖区块（防抢包瞬间出块套利）
+        // 全局唯一线程：每 N 秒拉最新真实区块哈希写入 Redis；拆包只读缓存
+        'hash_poll_interval' => 3,
+        // 兼容旧 pending 包开奖（新包发包即用缓存哈希拆完）
         'commit_offset' => 2,
-        // 抢完后延迟拉取区块哈希的秒数
         'reveal_delay'  => 8,
-        // TronGrid 降本：最新高度短缓存（秒）、历史块长缓存（秒）
         'now_cache_ttl'   => 2,
         'block_cache_ttl' => 86400,
     ],

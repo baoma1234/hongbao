@@ -102,8 +102,22 @@ $worker->onWorkerStart = function (Worker $worker) use ($cfg) {
         });
     }
 
-    // 过期红包退回（5s）+ 抢完未结算兜底（2s）+ 波场开奖轮询（5s）：仅 worker0
+    // 过期红包退回（5s）+ 抢完未结算兜底（2s）+ 波场最新哈希轮询（仅 worker0）
     if ((int)$worker->id === 0) {
+        // 全局唯一：每 3 秒拉一次最新真实区块哈希写入 Redis，业务只读缓存拆包
+        try {
+            \Im\Support\TronHashCache::refresh(4);
+        } catch (\Throwable $e) {
+            error_log('[TRON_HASH] boot refresh fail ' . $e->getMessage());
+        }
+        $hashPoll = \Im\Support\TronHashCache::pollIntervalSec();
+        Timer::add((float)$hashPoll, function () {
+            try {
+                \Im\Support\TronHashCache::refresh(4);
+            } catch (\Throwable $e) {
+                error_log('[TRON_HASH] poll fail ' . $e->getMessage());
+            }
+        });
         Timer::add(5, function () use ($redPackets) {
             try {
                 $redPackets->refundExpired(50);

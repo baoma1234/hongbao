@@ -5,6 +5,7 @@ namespace Im\Service;
 use Im\Support\Db;
 use Im\Support\TronFair;
 use Im\Support\TronBlockClient;
+use Im\Support\TronHashCache;
 use Im\Support\IdGenerator;
 use Im\Support\RedisClient;
 use Im\Support\PushBus;
@@ -158,26 +159,36 @@ class RedPacketService
             $bgImage = (string)$skin['image'];
         }
 
-        $cents = $packetType === 1
-            ? $this->splitEqual($poolCent, $totalCount, $minCent)
-            : $this->splitLucky($poolCent, $totalCount, $minCent);
+        $packetNo = IdGenerator::packetNo();
+        $now = time();
+        $expireAt = $now + max(1, $expireSec);
+        $field = $this->wallet->field();
+
+        // 拼手气/扫雷：从 Redis 最新波场哈希立刻链下拆包（零打节点、可马上抢）
+        $tronBlockNum = 0;
+        $tronBlockId = '';
+        $tronLucky = '';
+        $tronStatus = 0;
+        $fairCentsJson = '';
+        $fairRevealedAt = 0;
+        if (in_array($packetType, [2, 3], true)) {
+            $latest = TronHashCache::getOrRefresh(4);
+            $tronBlockNum = (int)$latest['block_num'];
+            $tronBlockId = (string)$latest['block_id'];
+            $tronLucky = TronBlockClient::luckyFromBlockId($tronBlockId);
+            $cents = $this->splitLuckyFromHash($poolCent, $totalCount, $minCent, $tronBlockId, $packetNo);
+            $tronStatus = TronFair::STATUS_DONE;
+            $fairCentsJson = json_encode($cents, JSON_UNESCAPED_UNICODE);
+            $fairRevealedAt = $now;
+        } else {
+            $cents = $this->splitEqual($poolCent, $totalCount, $minCent);
+        }
         if (array_sum($cents) !== $poolCent) {
             throw new \RuntimeException('split sum mismatch');
         }
 
         if ($platformFee > 0 && $platformUserId <= 0) {
             throw new \RuntimeException('platform_user_id not configured');
-        }
-
-        $packetNo = IdGenerator::packetNo();
-        $now = time();
-        $expireAt = $now + max(1, $expireSec);
-        $field = $this->wallet->field();
-
-        // 拼手气/扫雷：发包即锁定未来波场区块高度（全球可查的开奖锚点）
-        $tronBlockNum = 0;
-        if (in_array($packetType, [2, 3], true)) {
-            $tronBlockNum = TronFair::commitTargetBlockNum();
         }
 
         Db::begin();
@@ -204,16 +215,16 @@ class RedPacketService
                 . ' (packet_no,scope_type,conversation_id,group_id,to_user_id,from_user_id,agent_user_id,'
                 . 'packet_type,mine_digit,skin_id,bg_image,blessing,'
                 . 'tron_block_num,tron_block_id,tron_lucky,tron_status,'
-                . 'fair_hash,fair_seed,fair_cents,fair_payload,'
+                . 'fair_hash,fair_seed,fair_cents,fair_payload,fair_revealed_at,'
                 . 'total_amount,total_count,remain_amount,remain_count,'
                 . 'platform_fee_rate,platform_fee,pool_amount,sender_pay_amount,'
                 . 'agent_rebate_rate,status,expiretime,createtime,updatetime)'
-                . ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?)',
+                . ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?)',
                 [
                     $packetNo, $scopeType, $conversationId, $groupId, $toUserId, $fromUserId, $agentUserId,
                     $packetType, $mineDigit, $skinId, $bgImage, $blessing,
-                    $tronBlockNum, '', '', 0,
-                    '', '', '', '',
+                    $tronBlockNum, $tronBlockId, $tronLucky, $tronStatus,
+                    $tronBlockId, '', $fairCentsJson, '', $fairRevealedAt,
                     sprintf('%.2f', $totalAmount), $totalCount, sprintf('%.2f', $poolAmount), $totalCount,
                     sprintf('%.4f', $feeRate), sprintf('%.2f', $platformFee), sprintf('%.2f', $poolAmount),
                     sprintf('%.2f', $totalAmount),
@@ -242,6 +253,16 @@ class RedPacketService
             'mine_digit'   => $mineDigit,
         ]);
 
+        if ($tronStatus === TronFair::STATUS_DONE && $tronBlockId !== '') {
+            try {
+                $row = Db::fetch('SELECT * FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1', [$packetId]);
+                if ($row) {
+                    TronFair::cachePut($row);
+                }
+            } catch (\Throwable $e) {
+            }
+        }
+
         $extra = [
             'packet_id'      => $packetId,
             'packet_no'      => $packetNo,
@@ -250,7 +271,10 @@ class RedPacketService
             'packet_type'    => $packetType,
             'mine_digit'     => $mineDigit,
             'tron_block_num' => $tronBlockNum,
-            'mine_pending'   => $packetType === 3, // 待匹配波场哈希末位证明
+            'tron_block_id'  => $tronBlockId,
+            'tron_lucky'     => $tronLucky,
+            'tron_status'    => $tronStatus,
+            'mine_pending'   => false,
             'skin_id'        => $skinId,
             'bg_image'       => $bgImage,
             'blessing'       => $blessing,
@@ -261,29 +285,6 @@ class RedPacketService
             $msg = $this->messages->sendGroup($fromUserId, $groupId, '[红包]' . $blessing, 2, $extra);
         } else {
             $msg = $this->messages->sendPrivate($fromUserId, $toUserId, '[红包]' . $blessing, 2, $extra);
-        }
-
-        // 扫雷：发包后立即开始匹配「哈希末位=手填雷号」的波场区块（不必等抢完）
-        if ($packetType === 3) {
-            try {
-                $nowH = 0;
-                try {
-                    $nowH = TronBlockClient::getNowBlockNum(3);
-                } catch (\Throwable $e) {
-                    $nowH = 0;
-                }
-                if ($nowH > 0) {
-                    Db::exec(
-                        'UPDATE ' . Db::table('chat_red_packets')
-                        . ' SET tron_block_num=?, tron_status=?, updatetime=? WHERE id=? AND tron_status<>?',
-                        [$nowH, TronFair::STATUS_PENDING, time(), $packetId, TronFair::STATUS_DONE]
-                    );
-                }
-                // 约 1 秒后开始扫描；未找到会自动继续向后找
-                TronFair::scheduleReveal($packetId, 1);
-            } catch (\Throwable $e) {
-                error_log('[TRON] mine match on send fail packet=' . $packetId . ' ' . $e->getMessage());
-            }
         }
 
         return [
@@ -369,11 +370,6 @@ class RedPacketService
             'SELECT id, packet_type, tron_status FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1',
             [$packetId]
         );
-        if ($packet && (int)$packet['packet_type'] === 3 && (int)($packet['tron_status'] ?? 0) !== 2) {
-            // 扫雷须等波场哈希末位揭晓后再结算
-            TronFair::scheduleReveal($packetId);
-            return ['settled' => false, 'pending_tron' => true, 'packet_id' => $packetId];
-        }
         $result = (new RedPacketSettlementService($this->wallet, ['red_packet' => $this->cfg]))
             ->settleAfterFinished($packetId);
         if (!empty($result['settled']) && $packet && (int)$packet['packet_type'] === 2) {
@@ -750,7 +746,7 @@ class RedPacketService
                 $this->markBestLuck($packetId);
             }
             if ($packetType === 3) {
-                // 扫雷：必须等波场哈希末位作为官方雷号后再结算
+                // 扫雷：发包已写入波场哈希拆包；抢完即可按手填雷号结算
                 $row = Db::fetch(
                     'SELECT id, status, tron_status, remain_count, scope_type, group_id, from_user_id, to_user_id, packet_type'
                     . ' FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1',
@@ -765,6 +761,7 @@ class RedPacketService
                         $this->notifySettled($packetId, array_merge($hint, $row), $settleInfo);
                     }
                 } else {
+                    // 旧包兜底：尚未写入哈希时再调度开奖
                     $this->revealFairProof($packetId);
                 }
                 return;
@@ -990,10 +987,6 @@ class RedPacketService
             $packetId = (int)$row['id'];
             $ptype = (int)$row['packet_type'];
             try {
-                if ($ptype === 3 && (int)($row['tron_status'] ?? 0) !== 2) {
-                    $this->revealFairProof($packetId);
-                    continue;
-                }
                 $info = $settler->settleAfterFinished($packetId);
                 if (!empty($info['settled'])) {
                     $done++;
@@ -1292,7 +1285,7 @@ class RedPacketService
         return $arr;
     }
 
-    /** 二倍均值法（整数分） */
+    /** 二倍均值法（整数分，本地随机；普通等额以外兜底） */
     protected function splitLucky($totalCent, $count, $minCent)
     {
         $leftCent = $totalCent;
@@ -1313,6 +1306,62 @@ class RedPacketService
         }
         $arr[] = $leftCent;
         shuffle($arr);
+        return $arr;
+    }
+
+    /**
+     * 用波场区块哈希 + 包号确定性拆拼手气（可复算、不打节点）
+     * @return int[]
+     */
+    protected function splitLuckyFromHash($totalCent, $count, $minCent, $blockId, $packetNo)
+    {
+        $totalCent = (int)$totalCent;
+        $count = (int)$count;
+        $minCent = max(1, (int)$minCent);
+        if ($count <= 0 || $totalCent < $count * $minCent) {
+            throw new \InvalidArgumentException('invalid hash split params');
+        }
+        $state = hash('sha256', strtolower(trim((string)$blockId)) . '|' . trim((string)$packetNo) . '|rp-split', true);
+        $nextInt = function ($min, $max) use (&$state) {
+            $min = (int)$min;
+            $max = (int)$max;
+            if ($max <= $min) {
+                return $min;
+            }
+            $state = hash('sha256', $state, true);
+            $u = unpack('N', substr($state, 0, 4));
+            $n = (int)$u[1];
+            if ($n < 0) {
+                $n = $n & 0x7fffffff;
+            }
+            return $min + ($n % ($max - $min + 1));
+        };
+
+        $leftCent = $totalCent;
+        $leftCount = $count;
+        $arr = [];
+        for ($i = 0; $i < $count - 1; $i++) {
+            $max = (int)floor($leftCent / $leftCount * 2);
+            $max = max($minCent, $max);
+            $money = $nextInt($minCent, max($minCent, $max));
+            $remainAfter = $leftCent - $money;
+            $remainPeople = $leftCount - 1;
+            if ($remainAfter < $remainPeople * $minCent) {
+                $money = $leftCent - $remainPeople * $minCent;
+            }
+            $arr[] = $money;
+            $leftCent -= $money;
+            $leftCount--;
+        }
+        $arr[] = $leftCent;
+
+        // 确定性洗牌
+        for ($i = count($arr) - 1; $i > 0; $i--) {
+            $j = $nextInt(0, $i);
+            $tmp = $arr[$i];
+            $arr[$i] = $arr[$j];
+            $arr[$j] = $tmp;
+        }
         return $arr;
     }
 

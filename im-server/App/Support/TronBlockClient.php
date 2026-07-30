@@ -26,6 +26,16 @@ class TronBlockClient
       return (int)self::$memNow['num'];
     }
 
+    // 优先读全局最新哈希缓存（由 TronHashCache 轮询写入）
+    try {
+      $latest = TronHashCache::get();
+      if ($latest !== null && (int)$latest['block_num'] > 0) {
+        self::$memNow = ['num' => (int)$latest['block_num'], 'at' => $now];
+        return (int)$latest['block_num'];
+      }
+    } catch (\Throwable $e) {
+    }
+
     $cacheKey = 'tron:now_num';
     try {
       $r = RedisClient::conn();
@@ -38,18 +48,50 @@ class TronBlockClient
     } catch (\Throwable $e) {
     }
 
+    $block = self::fetchNowBlock($timeout);
+    $num = (int)$block['block_num'];
+    self::$memNow = ['num' => $num, 'at' => $now];
+    return $num;
+  }
+
+  /**
+   * 拉取最新块（含 blockID），供全局哈希轮询写入 Redis
+   * @return array{block_num:int,block_id:string,confirmed:bool}
+   */
+  public static function fetchNowBlock($timeout = 4)
+  {
     $json = self::post('/wallet/getnowblock', new \stdClass(), $timeout);
     $num = $json['block_header']['raw_data']['number'] ?? null;
     if ($num === null || (int)$num <= 0) {
       throw new \RuntimeException('tron getnowblock: missing block number');
     }
+    $blockId = strtolower(trim((string)($json['blockID'] ?? $json['block_id'] ?? '')));
+    if ($blockId === '') {
+      throw new \RuntimeException('tron getnowblock: empty blockID');
+    }
     $num = (int)$num;
-    self::$memNow = ['num' => $num, 'at' => $now];
+    $out = [
+      'block_id'  => $blockId,
+      'block_num' => $num,
+      'confirmed' => true,
+    ];
+    self::$memNow = ['num' => $num, 'at' => microtime(true)];
     try {
-      RedisClient::conn()->setex(RedisClient::key($cacheKey), max(1, (int)ceil($ttl)), (string)$num);
+      RedisClient::conn()->setex(
+        RedisClient::key('tron:now_num'),
+        max(1, (int)ceil(self::nowCacheTtl())),
+        (string)$num
+      );
     } catch (\Throwable $e) {
     }
-    return $num;
+    self::cachePutBlock($out);
+    return $out;
+  }
+
+  /** 供 TronHashCache 写入按高度缓存 */
+  public static function cachePutBlockPublic(array $block)
+  {
+    self::cachePutBlock($block);
   }
 
   public static function getBlockByNum($blockNum, $timeout = 5)

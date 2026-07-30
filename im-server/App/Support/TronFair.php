@@ -5,10 +5,10 @@ namespace Im\Support;
 use Workerman\Timer;
 
 /**
- * IM 侧波场开奖调度：Timer 延迟 + 写入 think-queue delayed（双通道，无 sleep）
- *
- * 扫雷：发包人手填雷号；开奖时从锁定高度起向后找「哈希末位=雷号」的区块作证明，再结算。
- * 拼手气：金额输赢仍按金额结算；区块哈希用于全球可查公示。
+ * IM 侧波场公平性：
+ * - 全局 TronHashCache 每 3s 刷最新哈希到 Redis
+ * - 拼手气/扫雷发包时读缓存立刻拆金额并写入 tron_*（可马上抢）
+ * - 旧 pending 包仍可由 scheduleReveal / pollPendingReveals 兜底开奖
  */
 class TronFair
 {
@@ -378,10 +378,10 @@ class TronFair
             $n = $u ? trim((string)($u['nickname'] ?: $u['username'] ?: '')) : '';
             $names[] = $n !== '' ? $n : ('ID' . $hid);
           }
-          $text = '埋雷结算：雷号 ' . $mineDigit . '（已匹配波场哈希末位） · 中雷 ' . count($hitUids) . ' 人（'
+          $text = '埋雷结算：雷号 ' . $mineDigit . ' · 中雷 ' . count($hitUids) . ' 人（'
             . implode('、', $names) . '）';
         } else {
-          $text = '埋雷结算：雷号 ' . $mineDigit . '（已匹配波场哈希末位） · 本局无人中雷';
+          $text = '埋雷结算：雷号 ' . $mineDigit . ' · 本局无人中雷';
         }
         $sys = (new \Im\Service\MessageService())->sendGroupSystem($groupId, $text, 0, [
           'packet_id'  => $packetId,
@@ -441,10 +441,10 @@ class TronFair
           PushBus::toUsers($uids, 'redpacket.update', $event);
         }
         $ptype = (int)($packet['packet_type'] ?? 0);
-          $text = '波场官方开奖：区块 #' . $blockNum
+          $text = '波场哈希拆包：区块 #' . $blockNum
           . ' · 哈希末位 ' . $luckyChar;
         if ($ptype === 3) {
-          $text .= ' · 埋雷数字 ' . (int)($packet['mine_digit'] ?? 0) . '（已匹配）';
+          $text .= ' · 埋雷数字 ' . (int)($packet['mine_digit'] ?? 0);
         }
         $text .= '（可点红包详情前往 TronScan 核对）';
         $sys = (new \Im\Service\MessageService())->sendGroupSystem($groupId, $text, 0, [
@@ -538,7 +538,7 @@ class TronFair
       'type_label'        => $label,
       // 扫雷雷号 = 发包人手填；波场区块为末位吻合的证明
       'mine_digit'        => $mineDigit,
-      'mine_pending'      => $type === 3 && !$revealed,
+      'mine_pending'      => false,
       'total_amount'      => (float)($packet['total_amount'] ?? 0),
       'pool_amount'       => (float)($packet['pool_amount'] ?? 0),
       'total_count'       => (int)($packet['total_count'] ?? 0),
@@ -559,12 +559,9 @@ class TronFair
         ? ('https://tronscan.org/#/block/' . $blockNum)
         : ($blockId !== '' ? ('https://tronscan.org/#/block/' . $blockId) : ''),
       'verify_hint'       => $revealed
-        ? ('TronScan 核对区块 #' . $blockNum . ' 的 Block Hash 末位是否为 ' . $luckyChar
-          . ($type === 3 ? ('（吻合埋雷数字 ' . (int)$mineDigit . '）') : '')
-          . (ctype_digit((string)$luckyChar) ? '' : ('（末位 ' . $luckyChar . ' → ' . (int)$luckyDigit . '）')))
-        : ($type === 3
-          ? ('已锁定高度 #' . $blockNum . '，正在查找哈希末位=' . (int)($packet['mine_digit'] ?? 0) . ' 的官方区块')
-          : ($blockNum > 0 ? ('已锁定官方区块高度 #' . $blockNum . '，出块后开奖') : '待锁定波场区块')),
+        ? ('本包金额由区块 #' . $blockNum . ' 的 Block Hash 链下拆分；可在 TronScan 核对哈希末位 ' . $luckyChar
+          . ($type === 3 ? ('；中雷看金额尾数是否等于埋雷 ' . (int)$mineDigit) : ''))
+        : ($blockNum > 0 ? ('已锁定区块高度 #' . $blockNum) : '待写入波场哈希'),
     ];
     return $out;
   }

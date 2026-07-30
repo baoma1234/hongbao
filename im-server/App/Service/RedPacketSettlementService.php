@@ -92,35 +92,21 @@ class RedPacketSettlementService
             $fromUserId = (int)$packet['from_user_id'];
             $totalCount = (int)($packet['total_count'] ?? 0);
             $compensateAmount = $totalAmount;
+            $mineDigit = max(0, min(9, (int)($packet['mine_digit'] ?? 0)));
             if ($packetType === 3) {
-                // 须先找到「哈希末位=手填雷号」的波场证明后再结算
+                // 金额由发包时 Redis 最新波场哈希拆出；中雷看金额尾数 vs 手填雷号
                 if ((int)($packet['tron_status'] ?? 0) !== 2 || trim((string)($packet['tron_block_id'] ?? '')) === '') {
                     Db::rollBack();
-                    error_log('[RP_SETTLE] mine wait tron match packet_id=' . $packetId);
-                    $this->releaseLock($lockKey, $gotLock);
-                    return $result;
-                }
-                $mineDigit = max(0, min(9, (int)($packet['mine_digit'] ?? 0)));
-                $hashDigit = \Im\Support\TronBlockClient::luckyDigitFromBlockId($packet['tron_block_id']);
-                if ($hashDigit !== $mineDigit) {
-                    Db::rollBack();
-                    error_log(sprintf(
-                        '[RP_SETTLE] mine hash mismatch packet_id=%d mine=%d hash_digit=%d',
-                        $packetId,
-                        $mineDigit,
-                        $hashDigit
-                    ));
+                    error_log('[RP_SETTLE] mine missing tron hash packet_id=' . $packetId);
                     $this->releaseLock($lockKey, $gotLock);
                     return $result;
                 }
                 $compensateAmount = $this->mineCompensateAmount($totalAmount, $totalCount);
-            } else {
-                $mineDigit = (int)($packet['mine_digit'] ?? 0);
             }
             $now = time();
             $bizMeta = ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId];
 
-            // 埋雷：金额尾数等于手填雷号则中雷（可多人同时中雷）；波场区块为末位吻合证明
+            // 埋雷：金额尾数等于手填雷号则中雷；波场哈希为拆包随机源公示
 
             $records = Db::fetchAll(
                 'SELECT * FROM ' . Db::table('chat_red_packet_records') . ' WHERE packet_id=? FOR UPDATE',
