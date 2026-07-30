@@ -91,10 +91,15 @@ class RedPacketSettlementService
             $packetNo = (string)$packet['packet_no'];
             $fromUserId = (int)$packet['from_user_id'];
             $mineDigit = (int)($packet['mine_digit'] ?? 0);
+            $totalCount = (int)($packet['total_count'] ?? 0);
+            $compensateAmount = $totalAmount;
+            if ($packetType === 3) {
+                $compensateAmount = $this->mineCompensateAmount($totalAmount, $totalCount);
+            }
             $now = time();
             $bizMeta = ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId];
 
-            // 埋雷：使用发包人手填雷号；尾数匹配才中雷，也可能无人中雷
+            // 埋雷：使用发包人手填雷号；尾数匹配才中雷，也可能无人中雷 / 多人同时中雷
             // （波场开奖仅作金额公平旁证，不再覆盖雷号、也不再阻塞结算）
 
             $records = Db::fetchAll(
@@ -131,7 +136,7 @@ class RedPacketSettlementService
                 Db::exec(
                     'UPDATE ' . Db::table('chat_red_packet_records')
                     . ' SET is_worst=1, need_compensate=1, compensate_amount=?, compensate_status=1 WHERE id=?',
-                    [sprintf('%.2f', $totalAmount), (int)$worst['id']]
+                    [sprintf('%.2f', $compensateAmount), (int)$worst['id']]
                 );
                 $losers[(int)$worst['id']] = 'worst';
             } elseif ($packetType === 3) {
@@ -142,14 +147,14 @@ class RedPacketSettlementService
                         Db::exec(
                             'UPDATE ' . Db::table('chat_red_packet_records')
                             . ' SET is_mine_hit=1, need_compensate=1, compensate_amount=?, compensate_status=1 WHERE id=?',
-                            [sprintf('%.2f', $totalAmount), (int)$row['id']]
+                            [sprintf('%.2f', $compensateAmount), (int)$row['id']]
                         );
                         $losers[(int)$row['id']] = 'mine';
                     }
                 }
             }
 
-            // ---------- 2) 赔付：中雷/最差 → 扣 total_amount 给发包方（失败即抛，整单回滚）----------
+            // ---------- 2) 赔付：中雷/最差 → 扣赔付金给发包方（失败即抛，整单回滚）----------
             $compensateUsers = [];
             $compensateTotal = 0.0;
             foreach ($losers as $recordId => $reason) {
@@ -168,9 +173,9 @@ class RedPacketSettlementService
                 $remarkPay = ($reason === 'mine' ? '中雷赔付 ' : '手气最差赔付 ') . $packetNo;
                 $remarkIn = ($reason === 'mine' ? '收到中雷赔付 ' : '收到手气最差赔付 ') . $packetNo;
 
-                $out = $this->wallet->change($payerId, -$totalAmount, $payType, $remarkPay, $bizMeta);
+                $out = $this->wallet->change($payerId, -$compensateAmount, $payType, $remarkPay, $bizMeta);
                 $ledgerOutId = (int)($out['ledger_id'] ?? 0);
-                $this->wallet->change($fromUserId, $totalAmount, 'red_packet_compensate_in', $remarkIn, $bizMeta);
+                $this->wallet->change($fromUserId, $compensateAmount, 'red_packet_compensate_in', $remarkIn, $bizMeta);
 
                 Db::exec(
                     'UPDATE ' . Db::table('chat_red_packet_records')
@@ -179,22 +184,33 @@ class RedPacketSettlementService
                 );
                 $this->insertSettlement(
                     $packetId, $packetNo, 'compensate', $payerId, $fromUserId,
-                    $totalAmount, $ledgerOutId, 1, $remarkPay
+                    $compensateAmount, $ledgerOutId, 1, $remarkPay
                 );
                 $compensateUsers[] = $payerId;
-                $compensateTotal = round($compensateTotal + $totalAmount, 2);
-                error_log('[RP_SETTLE] compensate ok packet_id=' . $packetId . ' payer=' . $payerId . ' amount=' . $totalAmount . ' reason=' . $reason);
+                $compensateTotal = round($compensateTotal + $compensateAmount, 2);
+                error_log('[RP_SETTLE] compensate ok packet_id=' . $packetId . ' payer=' . $payerId . ' amount=' . $compensateAmount . ' reason=' . $reason);
             }
 
             // ---------- 3) 平台抽水：发时已扣则不再扣发包人；仍补结算流水 ----------
             $feeRate = round((float)($packet['platform_fee_rate'] ?? 0), 4);
             if ($feeRate <= 0) {
-                $feeRate = round((float)($this->cfg['platform_fee_rate'] ?? 0.03), 4);
+                if ($packetType === 3) {
+                    $feeRate = round((float)($this->cfg['mine_platform_fee_rate']
+                        ?? $this->cfg['platform_fee_rate'] ?? 0.03), 4);
+                } else {
+                    $feeRate = round((float)($this->cfg['platform_fee_rate'] ?? 0.03), 4);
+                }
             }
             if ($feeRate <= 0) {
                 $feeRate = 0.03;
             }
             $platformUserId = (int)($this->cfg['platform_user_id'] ?? 0);
+            if ($packetType === 3) {
+                $minePlatformUid = (int)($this->cfg['mine_platform_user_id'] ?? 0);
+                if ($minePlatformUid > 0) {
+                    $platformUserId = $minePlatformUid;
+                }
+            }
             $prepaidFee = round((float)($packet['platform_fee'] ?? 0), 2);
             $platformFee = $prepaidFee > 0
                 ? $prepaidFee
@@ -248,7 +264,7 @@ class RedPacketSettlementService
             $agentUserId = (int)($packet['agent_user_id'] ?? 0);
             $agentRate = round((float)($packet['agent_rebate_rate'] ?? 0), 4);
             if ($agentUserId <= 0 || $agentRate <= 0) {
-                $resolved = $this->resolveAgent($fromUserId, (int)($packet['group_id'] ?? 0));
+                $resolved = $this->resolveAgent($fromUserId, (int)($packet['group_id'] ?? 0), $packetType);
                 if ($agentUserId <= 0) {
                     $agentUserId = (int)$resolved['agent_user_id'];
                 }
@@ -344,12 +360,16 @@ class RedPacketSettlementService
      *
      * @return array{agent_user_id:int,rate:float}
      */
-    protected function resolveAgent($fromUserId, $groupId)
+    protected function resolveAgent($fromUserId, $groupId, $packetType = 0)
     {
         $fromUserId = (int)$fromUserId;
         $groupId = (int)$groupId;
+        $packetType = (int)$packetType;
         $agentId = 0;
         $rate = round((float)($this->cfg['agent_rebate_rate_default'] ?? 0.01), 4);
+        if ($packetType === 3) {
+            $rate = round((float)($this->cfg['mine_agent_rebate_rate_default'] ?? $rate), 4);
+        }
 
         if ($groupId > 0) {
             $group = Db::fetch(
@@ -362,7 +382,12 @@ class RedPacketSettlementService
                 if ($grpRate > 0) {
                     $rate = $grpRate;
                 } elseif ((int)($group['is_vip_group'] ?? 0) === 1) {
-                    $rate = round((float)($this->cfg['agent_rebate_rate_vip'] ?? 0.01), 4);
+                    if ($packetType === 3) {
+                        $rate = round((float)($this->cfg['mine_agent_rebate_rate_vip']
+                            ?? $this->cfg['agent_rebate_rate_vip'] ?? 0.01), 4);
+                    } else {
+                        $rate = round((float)($this->cfg['agent_rebate_rate_vip'] ?? 0.01), 4);
+                    }
                 }
             }
         }
@@ -372,6 +397,26 @@ class RedPacketSettlementService
         }
 
         return ['agent_user_id' => $agentId, 'rate' => $rate];
+    }
+
+    /**
+     * 扫雷中雷赔付倍率：5→1.5 / 7→1.2 / 9→1.0（后台可配）
+     */
+    protected function mineCompensateMultiplier($totalCount)
+    {
+        $totalCount = (int)$totalCount;
+        $defaults = [5 => 1.5, 7 => 1.2, 9 => 1.0];
+        $key = 'mine_compensate_rate_' . $totalCount;
+        $rate = isset($this->cfg[$key]) ? (float)$this->cfg[$key] : ($defaults[$totalCount] ?? 1.0);
+        if ($rate <= 0) {
+            $rate = $defaults[$totalCount] ?? 1.0;
+        }
+        return round($rate, 4);
+    }
+
+    protected function mineCompensateAmount($totalAmount, $totalCount)
+    {
+        return round((float)$totalAmount * $this->mineCompensateMultiplier($totalCount), 2);
     }
 
     protected function releaseLock($lockKey, $gotLock)

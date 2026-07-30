@@ -200,8 +200,14 @@ class MessageRouter
         if ($msg === 'insufficient balance') {
             return '余额不足，请先闪兑凑够红利余额';
         }
-        if ($msg === 'balance_not_enough_for_compensate') {
-            return '您的余额不足以支付赔付金，无法参与抢包';
+        if ($msg === 'balance_not_enough_for_compensate' || strpos($msg, 'balance_not_enough_for_compensate:') === 0) {
+            $need = '';
+            if (strpos($msg, ':') !== false) {
+                $need = trim(substr($msg, strpos($msg, ':') + 1));
+            }
+            return $need !== ''
+                ? ('余额不足赔付门槛 ￥' . $need . '，无法领取扫雷红包')
+                : '您的余额不足以支付赔付金，无法参与抢包';
         }
         if ($msg === 'balance_below_mine_min') {
             return '余额须大于本群最低金额限制，才能领取扫雷红包';

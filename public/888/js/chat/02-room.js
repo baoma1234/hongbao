@@ -1682,6 +1682,14 @@
     }
     function mapGrabError(msg) {
       msg = String(msg || '');
+      if (msg.indexOf('balance_not_enough_for_compensate') === 0) {
+        var need = '';
+        var idx = msg.indexOf(':');
+        if (idx >= 0) need = msg.slice(idx + 1).trim();
+        return need
+          ? ('余额不足赔付门槛 ￥' + need + '，无法领取扫雷红包')
+          : '余额不足以覆盖赔付，无法参与';
+      }
       var map = {
         already_grabbed: '你已经抢过这个红包了',
         'already grabbed': '你已经抢过这个红包了',
@@ -1690,7 +1698,7 @@
         'packet closed': '红包已结束',
         'packet not found': '红包不存在',
         'not in group': '你不在该群内',
-        balance_not_enough_for_compensate: '余额不足以覆盖赔付，无法参与',
+        balance_below_mine_min: '余额须大于本群最低金额限制，才能领取扫雷红包',
         slider_required: '请完成滑块验证后再抢',
         'grab cancelled': '已取消验证'
       };

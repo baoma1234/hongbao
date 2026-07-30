@@ -68,6 +68,14 @@ class RedPacketService
         $feeRate = round((float)($this->cfg['platform_fee_rate'] ?? 0.03), 4);
         $agentRate = round((float)($this->cfg['agent_rebate_rate_default'] ?? 0.01), 4);
         $platformUserId = (int)($this->cfg['platform_user_id'] ?? 0);
+        if ($packetType === 3) {
+            $feeRate = round((float)($this->cfg['mine_platform_fee_rate'] ?? $feeRate), 4);
+            $agentRate = round((float)($this->cfg['mine_agent_rebate_rate_default'] ?? $agentRate), 4);
+            $minePlatformUid = (int)($this->cfg['mine_platform_user_id'] ?? 0);
+            if ($minePlatformUid > 0) {
+                $platformUserId = $minePlatformUid;
+            }
+        }
 
         if ($fromUserId <= 0 || $totalAmount <= 0 || $totalCount <= 0) {
             throw new \InvalidArgumentException('invalid red packet params');
@@ -76,7 +84,7 @@ class RedPacketService
             throw new \InvalidArgumentException('too many packets');
         }
 
-        // 平台抽水在发送时从总额划出：例 100×3%=3，可抢池=97；赔付仍按 total_amount=100
+        // 平台抽水在发送时从总额划出：例 100×3%=3，可抢池=97；扫雷赔付按倍率×total_amount
         $platformFee = round($totalAmount * $feeRate, 2);
         if ($platformFee < 0) {
             $platformFee = 0.0;
@@ -105,7 +113,12 @@ class RedPacketService
             // 代理 = 群主；默认 1%，群 rp_agent_rebate_rate>0 时覆盖
             $agentUserId = (int)($group['owner_user_id'] ?? 0);
             if ((int)($group['is_vip_group'] ?? 0) === 1) {
-                $agentRate = round((float)($this->cfg['agent_rebate_rate_vip'] ?? 0.01), 4);
+                if ($packetType === 3) {
+                    $agentRate = round((float)($this->cfg['mine_agent_rebate_rate_vip']
+                        ?? $this->cfg['agent_rebate_rate_vip'] ?? 0.01), 4);
+                } else {
+                    $agentRate = round((float)($this->cfg['agent_rebate_rate_vip'] ?? 0.01), 4);
+                }
             }
             $grpRate = round((float)($group['rp_agent_rebate_rate'] ?? 0), 4);
             if ($grpRate > 0) {
@@ -257,6 +270,29 @@ class RedPacketService
             'wallet'     => $field,
             'balance'    => $this->wallet->getBalance($fromUserId),
         ];
+    }
+
+    /**
+     * 扫雷中雷赔付倍率：5→1.5 / 7→1.2 / 9→1.0（后台可配）
+     */
+    public function mineCompensateMultiplier($totalCount)
+    {
+        $totalCount = (int)$totalCount;
+        $defaults = [5 => 1.5, 7 => 1.2, 9 => 1.0];
+        $key = 'mine_compensate_rate_' . $totalCount;
+        $rate = isset($this->cfg[$key]) ? (float)$this->cfg[$key] : ($defaults[$totalCount] ?? 1.0);
+        if ($rate <= 0) {
+            $rate = $defaults[$totalCount] ?? 1.0;
+        }
+        return round($rate, 4);
+    }
+
+    /**
+     * 扫雷中雷应赔金额 = 发包总额 × 倍率
+     */
+    public function mineCompensateAmount($totalAmount, $totalCount)
+    {
+        return round((float)$totalAmount * $this->mineCompensateMultiplier($totalCount), 2);
     }
 
     /**
@@ -431,10 +467,15 @@ class RedPacketService
         $packetNo = (string)$packet['packet_no'];
 
         // ---------- 关键节点：验资拦截（必须在 Redis 弹队列之前）----------
-        // 手气包(2)/埋雷包(3) 存在「赔付整包总额」风险，余额不足则禁止参与。
+        // 手气包(2) 赔付整包总额；扫雷包(3) 按个数倍率赔付（如 5 包 1.5 倍）。
         // 扫雷额外：余额必须严格大于最低限制（如 10 元），才可领取。
         if (in_array($packetType, [2, 3], true)) {
+            $needCompensate = $totalAmount;
             if ($packetType === 3) {
+                $needCompensate = $this->mineCompensateAmount(
+                    $totalAmount,
+                    (int)($packet['total_count'] ?? 0)
+                );
                 $minGate = round((float)($this->cfg['min_amount'] ?? 10), 2);
                 if ((int)($packet['scope_type'] ?? 0) === 2 && (int)($packet['group_id'] ?? 0) > 0) {
                     $g = $this->groups->get((int)$packet['group_id']);
@@ -457,16 +498,16 @@ class RedPacketService
                     }
                 }
             }
-            if (!$this->wallet->hasEnoughBalance($userId, $totalAmount)) {
+            if (!$this->wallet->hasEnoughBalance($userId, $needCompensate)) {
                 error_log(sprintf(
                     '[RP_GRAB][ERROR] balance gate reject user=%d packet_id=%d packet_no=%s need=%.2f type=%d',
                     $userId,
                     $packetId,
                     $packetNo,
-                    $totalAmount,
+                    $needCompensate,
                     $packetType
                 ));
-                throw new \RuntimeException('balance_not_enough_for_compensate');
+                throw new \RuntimeException('balance_not_enough_for_compensate:' . sprintf('%.2f', $needCompensate));
             }
         }
 

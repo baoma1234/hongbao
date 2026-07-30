@@ -100,9 +100,9 @@ return array_replace_recursive([
         'multi_window_ms'   => 2000,
         'multi_group_limit' => 3,
     ],
-    'red_packet' => [
+        'red_packet' => [
         'expire_seconds'             => 60,
-        // 扫雷红包单独过期（后台可配，默认 100 秒）
+        // 扫雷红包单独过期（后台可配，默认 180 秒=3 分钟）
         'mine_expire_seconds'        => 180,
         'min_amount_cent'            => 1,
         'max_count'                  => 10,
@@ -115,6 +115,14 @@ return array_replace_recursive([
         'agent_rebate_rate_vip'      => 0.01,   // VIP 群代理返点 1%
         // 平台手续费入账用户（须在 fa_fans_account 有账户）；请按环境改成真实平台户
         'platform_user_id'           => 56960815,
+        // 扫雷单独：赔付倍率 / 抽水 / 返点 / 收款户
+        'mine_compensate_rate_5'         => 1.5,
+        'mine_compensate_rate_7'         => 1.2,
+        'mine_compensate_rate_9'         => 1.0,
+        'mine_platform_fee_rate'         => 0.03,
+        'mine_agent_rebate_rate_default' => 0.01,
+        'mine_agent_rebate_rate_vip'     => 0.01,
+        'mine_platform_user_id'          => 56960815,
         // 福利大厅余额 fa_fans_account.balance
         'account_table'              => 'fans_account',
         'ledger_table'               => 'fans_ledger',

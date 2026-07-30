@@ -32,6 +32,13 @@ class Redpacketconfig extends Backend
             $expire = max(1, (int)($row['expire_seconds'] ?? 60));
             $mineExpire = max(1, (int)($row['mine_expire_seconds'] ?? 180));
             $platformUid = (int)($row['platform_user_id'] ?? 0);
+            $mineFee = round((float)($row['mine_platform_fee_rate'] ?? $fee), 4);
+            $mineRebate = round((float)($row['mine_agent_rebate_rate_default'] ?? $rebate), 4);
+            $mineRebateVip = round((float)($row['mine_agent_rebate_rate_vip'] ?? $rebateVip), 4);
+            $minePlatformUid = (int)($row['mine_platform_user_id'] ?? $platformUid);
+            $rate5 = round((float)($row['mine_compensate_rate_5'] ?? 1.5), 4);
+            $rate7 = round((float)($row['mine_compensate_rate_7'] ?? 1.2), 4);
+            $rate9 = round((float)($row['mine_compensate_rate_9'] ?? 1.0), 4);
             if ($minAmount <= 0) {
                 $this->error('最低金额无效');
             }
@@ -44,37 +51,60 @@ class Redpacketconfig extends Backend
             if ($fee < 0 || $fee > 1 || $rebate < 0 || $rebate > 1 || $rebateVip < 0 || $rebateVip > 1) {
                 $this->error('比例须在 0～1 之间（如 0.03=3%）');
             }
+            if ($mineFee < 0 || $mineFee > 1 || $mineRebate < 0 || $mineRebate > 1 || $mineRebateVip < 0 || $mineRebateVip > 1) {
+                $this->error('扫雷比例须在 0～1 之间（如 0.03=3%）');
+            }
+            if ($rate5 <= 0 || $rate7 <= 0 || $rate9 <= 0) {
+                $this->error('扫雷赔付倍率须大于 0');
+            }
             if ($platformUid <= 0) {
                 $this->error('请填写平台收款用户 ID');
             }
+            if ($minePlatformUid <= 0) {
+                $this->error('请填写扫雷平台收款用户 ID');
+            }
             FansHubRedPacket::saveConfig([
-                'min_amount'                => sprintf('%.2f', $minAmount),
-                'min_count'                 => (string)$minCount,
-                'max_count'                 => (string)$maxCount,
-                'vip_min_count'             => (string)$vipMin,
-                'vip_max_count'             => (string)$vipMax,
-                'platform_fee_rate'         => sprintf('%.4f', $fee),
-                'agent_rebate_rate_default' => sprintf('%.4f', $rebate),
-                'agent_rebate_rate_vip'     => sprintf('%.4f', $rebateVip),
-                'expire_seconds'            => (string)$expire,
-                'mine_expire_seconds'       => (string)$mineExpire,
-                'platform_user_id'          => (string)$platformUid,
-                'skin_width'                => '750',
-                'skin_height'               => '1000',
+                'min_amount'                      => sprintf('%.2f', $minAmount),
+                'min_count'                       => (string)$minCount,
+                'max_count'                       => (string)$maxCount,
+                'vip_min_count'                   => (string)$vipMin,
+                'vip_max_count'                   => (string)$vipMax,
+                'platform_fee_rate'               => sprintf('%.4f', $fee),
+                'agent_rebate_rate_default'       => sprintf('%.4f', $rebate),
+                'agent_rebate_rate_vip'           => sprintf('%.4f', $rebateVip),
+                'expire_seconds'                  => (string)$expire,
+                'mine_expire_seconds'             => (string)$mineExpire,
+                'platform_user_id'                => (string)$platformUid,
+                'mine_compensate_rate_5'          => sprintf('%.4f', $rate5),
+                'mine_compensate_rate_7'          => sprintf('%.4f', $rate7),
+                'mine_compensate_rate_9'          => sprintf('%.4f', $rate9),
+                'mine_platform_fee_rate'          => sprintf('%.4f', $mineFee),
+                'mine_agent_rebate_rate_default'  => sprintf('%.4f', $mineRebate),
+                'mine_agent_rebate_rate_vip'      => sprintf('%.4f', $mineRebateVip),
+                'mine_platform_user_id'           => (string)$minePlatformUid,
+                'skin_width'                      => '750',
+                'skin_height'                     => '1000',
             ], [
-                'min_amount'                => '普通群最低金额',
-                'min_count'                 => '普通群最少个数',
-                'max_count'                 => '普通群最多个数',
-                'vip_min_count'             => 'VIP群最少个数',
-                'vip_max_count'             => 'VIP群最多个数',
-                'platform_fee_rate'         => '平台抽水比例',
-                'agent_rebate_rate_default' => '代理默认返佣',
-                'agent_rebate_rate_vip'     => 'VIP群返佣',
-                'expire_seconds'            => '普通/手气过期秒数',
-                'mine_expire_seconds'       => '扫雷过期秒数（默认180=3分钟）',
-                'platform_user_id'          => '平台收款用户',
-                'skin_width'                => '皮肤宽',
-                'skin_height'               => '皮肤高',
+                'min_amount'                      => '普通群最低金额',
+                'min_count'                       => '普通群最少个数',
+                'max_count'                       => '普通群最多个数',
+                'vip_min_count'                   => 'VIP群最少个数',
+                'vip_max_count'                   => 'VIP群最多个数',
+                'platform_fee_rate'               => '平台抽水比例',
+                'agent_rebate_rate_default'       => '代理默认返佣',
+                'agent_rebate_rate_vip'           => 'VIP群返佣',
+                'expire_seconds'                  => '普通/手气过期秒数',
+                'mine_expire_seconds'             => '扫雷过期秒数（默认180=3分钟）',
+                'platform_user_id'                => '平台收款用户',
+                'mine_compensate_rate_5'          => '扫雷5包赔付倍率',
+                'mine_compensate_rate_7'          => '扫雷7包赔付倍率',
+                'mine_compensate_rate_9'          => '扫雷9包赔付倍率',
+                'mine_platform_fee_rate'          => '扫雷平台抽水比例',
+                'mine_agent_rebate_rate_default'  => '扫雷代理返佣（普通）',
+                'mine_agent_rebate_rate_vip'      => '扫雷代理返佣（VIP）',
+                'mine_platform_user_id'           => '扫雷平台收款用户',
+                'skin_width'                      => '皮肤宽',
+                'skin_height'                     => '皮肤高',
             ]);
             $this->success('已保存（IM 需重启后读取最新过期/抽水配置）');
         }
