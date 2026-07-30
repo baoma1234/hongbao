@@ -236,6 +236,8 @@ Retail trader just exercised 15 shares via Channel A and received 75.00 instantl
   'marquee_fallback_prefix' => '🎉 ',
   'uid_hint_approved' => 'Game account verified — locked',
   'uid_hint_rejected' => 'Review failed',
+  'srv_uid_verify_failed' => 'Main-site account not found or account opening not completed',
+  'srv_uid_sugar_not_verified' => 'Main-site account mobile is not verified yet',
   'leaderboard_title' => '🏆 Invite fission TOP10',
   'leaderboard_loading' => 'Loading…',
   'swap_unit_hongbao' => 'HB',

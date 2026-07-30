@@ -166,4 +166,6 @@ return array (
   'profile_foot_note' => '红宝官方 · 会员中心',
   'aria_profile_vip' => '会员资料',
   'aria_profile_quick' => '常用功能',
+  'srv_uid_verify_failed' => 'Akun situs utama tidak ditemukan atau belum selesai buka akun',
+  'srv_uid_sugar_not_verified' => 'Nomor HP akun situs utama belum diverifikasi',
 );

@@ -194,8 +194,16 @@
                 hint.textContent = fc('uid_hint_approved') || '娓告垙璐﹀彿宸查€氳繃鏍搁攢锛岃处鍙峰凡閿佸畾';
             } else if (audit === 'rejected') {
                 hint.classList.add('rejected');
-                const base = fc('uid_hint_rejected') || '瀹℃牳澶辫触';
-                hint.textContent = reason ? (base + '锛' +  reason) : base;
+                const base = fc('uid_hint_rejected') || '审核失败';
+                let reasonText = '';
+                if (reason) {
+                    if (/^(srv_|uid_|api_|alert_)/.test(reason)) {
+                        reasonText = fc(reason) || reason;
+                    } else {
+                        reasonText = reason;
+                    }
+                }
+                hint.textContent = reasonText ? (base + '：' + reasonText) : base;
             } else {
                 hint.textContent = fc('uid_hint_idle') || '璇峰～鍐欐父鎴忚处鍙凤紙鏁板瓧鎴栬嫳鏂囨暟瀛楃粍鍚堝潎鍙級锛屾瘡涓处鍙蜂粎鍙彁浜や竴娆″鏍';
             }

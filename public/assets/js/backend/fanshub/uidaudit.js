@@ -69,7 +69,14 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                             return '<span class="label ' + cls + '">' + text + '</span>';
                         }
                     },
-                    {field: 'main_uid_reject_reason', title: '拒绝原因', operate: 'LIKE', formatter: function (v) { return v || '-'; }},
+                    {field: 'main_uid_reject_reason', title: '拒绝原因', operate: 'LIKE', formatter: function (v) {
+                        if (!v) return '-';
+                        var map = {
+                            srv_uid_verify_failed: '主站未找到该账号或尚未完成开户',
+                            srv_uid_sugar_not_verified: '主站账号手机号尚未验证，无法核销通过'
+                        };
+                        return map[v] || v;
+                    }},
                     {field: 'updatetime', title: '更新时间', operate: 'RANGE', addclass: 'datetimerange', formatter: Table.api.formatter.datetime},
                     {
                         field: 'operate', title: '操作', table: table, operate: false,
@@ -80,7 +87,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                             classname: 'btn btn-xs btn-success btn-ajax',
                             icon: 'fa fa-check',
                             url: 'fanshub/uidaudit/approve',
-                            confirm: '确认核销通过该游戏账号？将请求 SugarCRM 校验手机号已验证。',
+                            confirm: '确认核销通过？将请求 SugarCRM：若手机未验证或账号不存在/未开户，将自动拒绝并回前台。',
                             visible: function (row) {
                                 return row.main_uid_audit === 'pending' && !!row.main_uid_pending;
                             },

@@ -3337,18 +3337,27 @@ class FansHubService
     }
 
     /**
-     * 强制校验 SugarCRM：账号存在且 mobilestatus=Verified（后台手动核销必走）
-     * @return array 会员信息
+     * 后台「通过核销」遇业务失败时可自动拒绝并回前台的 copy key
+     * @return string[]
      */
-    public static function assertUidMobileVerifiedBySugarCrm($userId, $playername, array $options = [])
+    public static function sugarCrmAutoRejectCopyKeys()
+    {
+        return ['srv_uid_verify_failed', 'srv_uid_sugar_not_verified'];
+    }
+
+    /**
+     * 查询 SugarCRM 核销结果：成功返回会员数组；失败返回 copy key 字符串
+     * @return array|string
+     */
+    public static function resolveUidViaSugarCrm($userId, $playername, array $options = [])
     {
         $userId = (int)$userId;
         $playername = self::normalizeMainUid($playername);
         if ($playername === '') {
-            self::throwCopy('srv_uid_required');
+            return 'srv_uid_required';
         }
         if (!SugarCrm::enabled()) {
-            self::throwCopy('srv_uid_sugar_disabled');
+            return 'srv_uid_sugar_disabled';
         }
 
         $member = SugarCrm::instance()->findByPlayername($playername, [
@@ -3356,17 +3365,30 @@ class FansHubService
             'trigger' => (string)($options['trigger'] ?? 'uid_verify'),
         ]);
         if ($member === false) {
-            self::throwCopy('srv_uid_verify_unreachable');
+            return 'srv_uid_verify_unreachable';
         }
         if ($member === null) {
-            self::throwCopy('srv_uid_verify_failed');
+            return 'srv_uid_verify_failed';
         }
         if (!SugarCrm::isMobileVerified($member)) {
-            self::throwCopy('srv_uid_sugar_not_verified');
+            return 'srv_uid_sugar_not_verified';
         }
 
         // 核销只认 mobilestatus=Verified，不比对 CRM 手机号与本站手机号
         return $member;
+    }
+
+    /**
+     * 强制校验 SugarCRM：账号存在且 mobilestatus=Verified（后台手动核销必走）
+     * @return array 会员信息
+     */
+    public static function assertUidMobileVerifiedBySugarCrm($userId, $playername, array $options = [])
+    {
+        $result = self::resolveUidViaSugarCrm($userId, $playername, $options);
+        if (is_string($result)) {
+            self::throwCopy($result);
+        }
+        return $result;
     }
 
     /**
@@ -3407,6 +3429,8 @@ class FansHubService
      *
      * @param int   $userId
      * @param array $options skip_sugarcrm=true 跳过接口（仅内部已校验后使用）
+     *                       auto_reject_on_fail=true 账号不存在/手机未验证时自动拒绝并回前台
+     * @return array{status:string,reason_code?:string}
      */
     public static function approveMainUid($userId, array $options = [])
     {
@@ -3419,7 +3443,15 @@ class FansHubService
         self::assertMainUidAvailable($userId, $pending);
 
         if (empty($options['skip_sugarcrm'])) {
-            self::assertUidMobileVerifiedBySugarCrm($userId, $pending, ['trigger' => 'admin_approve']);
+            $sugar = self::resolveUidViaSugarCrm($userId, $pending, ['trigger' => 'admin_approve']);
+            if (is_string($sugar)) {
+                $autoKeys = self::sugarCrmAutoRejectCopyKeys();
+                if (!empty($options['auto_reject_on_fail']) && in_array($sugar, $autoKeys, true)) {
+                    self::rejectMainUid($userId, $sugar);
+                    return ['status' => 'rejected', 'reason_code' => $sugar];
+                }
+                self::throwCopy($sugar);
+            }
         }
 
         try {
@@ -3439,11 +3471,12 @@ class FansHubService
             }
             throw $e;
         }
-        return true;
+        return ['status' => 'approved'];
     }
 
     /**
      * 后台拒绝 UID
+     * @param string $reason 可存文案或 copy key（如 srv_uid_verify_failed），前台按多语言解析
      */
     public static function rejectMainUid($userId, $reason = '')
     {
@@ -3458,6 +3491,22 @@ class FansHubService
             'updatetime'             => time(),
         ]);
         return true;
+    }
+
+    /**
+     * 将拒绝原因解析为当前语言展示文案（支持 copy key 或旧版纯文本）
+     */
+    public static function resolveUidRejectReasonText($reason)
+    {
+        $reason = trim((string)$reason);
+        if ($reason === '') {
+            return '';
+        }
+        if (preg_match('/^(srv_|uid_|api_|alert_)/', $reason)) {
+            $text = self::h5CopyText($reason);
+            return $text !== '' ? $text : $reason;
+        }
+        return $reason;
     }
 
     public static function openAccountReward($userId)

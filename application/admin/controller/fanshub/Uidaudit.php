@@ -64,10 +64,15 @@ class Uidaudit extends Backend
             $this->error(__('No Results were found'));
         }
         try {
-            // 必须请求 SugarCRM，mobilestatus=Verified 才可核销通过
-            FansHubService::approveMainUid($row->user_id);
+            // 必须请求 SugarCRM；账号不存在/手机未验证时自动拒绝并回前台
+            $result = FansHubService::approveMainUid($row->user_id, ['auto_reject_on_fail' => true]);
         } catch (\Throwable $e) {
             $this->error($e->getMessage());
+        }
+        if (is_array($result) && ($result['status'] ?? '') === 'rejected') {
+            $reasonCode = (string)($result['reason_code'] ?? '');
+            $reasonText = FansHubService::resolveUidRejectReasonText($reasonCode);
+            $this->success('已自动拒绝并回前台：' . ($reasonText !== '' ? $reasonText : $reasonCode));
         }
         $this->success('已核销通过（SugarCRM 已验证）');
     }
@@ -134,7 +139,9 @@ class Uidaudit extends Backend
                 $row->main_uid_pending ?? '',
                 $row->main_uid,
                 $uidAuditList[$row->main_uid_audit ?? ''] ?? ($row->main_uid_audit ?? ''),
-                $row->main_uid_reject_reason ?? '',
+                $row->main_uid_reject_reason
+                    ? FansHubService::resolveUidRejectReasonText($row->main_uid_reject_reason)
+                    : '',
                 $row->updatetime ? date('Y-m-d H:i:s', $row->updatetime) : '',
             ];
         }

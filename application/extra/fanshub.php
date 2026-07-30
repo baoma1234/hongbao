@@ -121,7 +121,7 @@ return array (
   'sugarcrm_enabled' => true,
   'sugarcrm_api_url' => 'https://sgcrm.rsei686nnw5n.com',
   'sugarcrm_x_env' => '555bioprod',
-  'sugarcrm_skey' => '9eT8zVu3z1ubzUPxkpFlDuZpX6A1q42', // 无空格；构造时再 trim
+  'sugarcrm_skey' => '109AY0JUC3D1jB2tOP3aFJlboCd6T5VF', // 无空格；构造时再 trim
   // TronGrid API Key（红包波场哈希开奖）
   'trongrid_api_key' => 'aaa8e343-c0f7-43ef-8acc-4dbbd1865fd2',
   'trongrid_api_url' => 'https://api.trongrid.io',
@@ -396,7 +396,7 @@ return array (
     'srv_uid_verify_not_configured' => '账号校验接口未配置，请联系管理员',
     'srv_uid_verify_unreachable' => '账号校验服务暂不可用，请稍后重试',
     'srv_uid_verify_phone_mismatch' => '该游戏账号与当前手机号不匹配',
-    'srv_uid_sugar_not_verified' => '主站账号手机号尚未验证（mobilestatus≠Verified），无法核销通过',
+    'srv_uid_sugar_not_verified' => '主站账号手机号尚未验证，无法核销通过',
     'srv_uid_sugar_disabled' => 'SugarCRM 核销校验未开启，请先在配置中启用 sugarcrm_enabled',
     'srv_open_account_required' => '请先完成主站开户',
     'srv_open_account_uid_required' => '请先提交主站游戏账号，客服后台核销通过后才能领取开户奖励',
