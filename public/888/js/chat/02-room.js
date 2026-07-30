@@ -206,21 +206,17 @@
     var cnt = extra && (extra.total_count != null) ? (extra.total_count | 0) : 0;
     var ptype = extra && (extra.packet_type != null) ? (extra.packet_type | 0) : 2;
     var mine = extra && (extra.mine_digit != null) ? (extra.mine_digit | 0) : 0;
-    var minePending = !!(extra && extra.mine_pending);
-    var blockNum = extra && (extra.tron_block_num != null) ? (extra.tron_block_num | 0) : 0;
     var desc = '';
     if (!isNaN(amt) && amt > 0) {
       desc = amt.toFixed(2) + ' 元' + (cnt > 0 ? (' / ' + cnt + '个包') : '');
       if (ptype === 3) {
-        desc += minePending
-          ? (blockNum ? (' · 锁块#' + blockNum) : ' · 波场定雷')
-          : (' · 雷' + mine);
+        desc += ' · 雷' + mine;
       }
     } else {
       desc = time || '红包';
     }
     var bottom = '红包福利';
-    if (ptype === 3) bottom = minePending ? '埋雷红包·波场开奖' : '埋雷红包';
+    if (ptype === 3) bottom = '埋雷红包';
     else if (ptype === 2) bottom = '拼手气红包';
     else if (ptype === 1) bottom = '人均红包';
     if (extra && extra.mode_label) bottom = String(extra.mode_label);
@@ -292,17 +288,9 @@
         var fairBits = '';
         var blockNum = p.tron_block_num || p.targetBlockNum || 0;
         var ptype = p.packet_type | 0;
-        var minePending = !!p.mine_pending || ((ptype === 3) && !(p.tron_block_id));
         var mineLine = '';
         if (ptype === 3) {
-          if (minePending) {
-            mineLine = '<div class="chat-rp-detail-meta">\u5b98\u65b9\u96f7\u53f7\uff1a\u6ce2\u573a\u5f00\u5956\u540e\u63ed\u6653'
-              + (blockNum ? ('\uff08\u9501\u5b9a\u533a\u5757 #' + blockNum + '\uff09') : '') + '</div>';
-          } else {
-            mineLine = '<div class="chat-rp-detail-meta">\u5b98\u65b9\u96f7\u53f7\uff1a<strong>' + (p.mine_digit | 0) + '</strong>'
-              + (p.tron_lucky ? ('\uff08\u54c8\u5e0c\u672b\u4f4d ' + escapeHtml(String(p.tron_lucky)) + '\uff09') : '')
-              + '</div>';
-          }
+          mineLine = '<div class="chat-rp-detail-meta">埋雷数字：<strong>' + (p.mine_digit | 0) + '</strong></div>';
         }
         if ((fairHash || blockNum) && ptype !== 1) {
           var pno = encodeURIComponent(p.packet_no || '');
@@ -311,26 +299,34 @@
           var tronHref = tronTarget
             ? ('https://tronscan.org/#/block/' + encodeURIComponent(tronTarget))
             : '';
-          fairBits = '<div class="chat-rp-fair-hash"><span class="chat-rp-fair-label">' + hashLabel + '</span><code>' + escapeHtml(fairHash || '\u5f00\u5956\u540e\u516c\u5f00') + '</code></div>';
+          fairBits = '<div class="chat-rp-fair-hash"><span class="chat-rp-fair-label">' + hashLabel + '</span><code>' + escapeHtml(fairHash || '开奖后公开') + '</code></div>';
           if (fairHash && tronHref) {
-            fairBits += '<a class="chat-rp-tron-btn" href="' + tronHref + '" target="_blank" rel="noopener">\u524d\u5f80\u6ce2\u573a\u9a8c\u8bc1</a>';
+            fairBits += '<a class="chat-rp-tron-btn" href="' + tronHref + '" target="_blank" rel="noopener">前往波场验证</a>';
           } else if (blockNum && tronHref) {
-            fairBits += '<a class="chat-rp-tron-btn" href="' + tronHref + '" target="_blank" rel="noopener">\u67e5\u770b\u9501\u5b9a\u533a\u5757</a>';
+            fairBits += '<a class="chat-rp-tron-btn" href="' + tronHref + '" target="_blank" rel="noopener">查看锁定区块</a>';
           }
-          fairBits += '<a class="chat-rp-fair-link" href="fair-verify.html?packet_no=' + pno + '" target="_blank" rel="noopener">\u672c\u7ad9\u9a8c\u8bc1\u8be6\u60c5</a>';
+          fairBits += '<a class="chat-rp-fair-link" href="fair-verify.html?packet_no=' + pno + '" target="_blank" rel="noopener">本站验证详情</a>';
         }
         head.innerHTML = '<div class="chat-rp-detail-bless">' + escapeHtml(bless) + '</div>' +
-          '<div class="chat-rp-detail-meta">\u5171 ' + (p.total_count | 0) + ' \u4e2a \u00b7 \uffe5' + (parseFloat(p.total_amount || 0).toFixed(2)) + '</div>' +
+          '<div class="chat-rp-detail-meta">共 ' + (p.total_count | 0) + ' 个 · ￥' + (parseFloat(p.total_amount || 0).toFixed(2)) + '</div>' +
           mineLine +
           fairBits +
           (locked
-            ? '<div class="chat-rp-privacy-tip locked">🔒 \u9690\u79c1\u7fa4\uff1a\u9886\u53d6\u4eba\u8d44\u6599\u5df2\u9690\u85cf</div>'
+            ? '<div class="chat-rp-privacy-tip locked">🔒 隐私群：领取人资料已隐藏</div>'
             : '');
       }
       if (list) {
         list.classList.toggle('is-private', locked);
         list.classList.toggle('is-open', !locked);
         var rows = data.records || [];
+        var ptype2 = (p.packet_type | 0);
+        var settled = (p.status | 0) === 5;
+        if (ptype2 === 3 && settled && head) {
+          var hitN = rows.filter(function (r) { return (r.is_mine_hit | 0) === 1; }).length;
+          var sumCls = hitN > 0 ? 'chat-rp-mine-summary' : 'chat-rp-mine-summary is-safe';
+          var sumText = hitN > 0 ? ('本局中雷 ' + hitN + ' 人') : '本局无人中雷';
+          head.insertAdjacentHTML('beforeend', '<div class="' + sumCls + '">' + sumText + '</div>');
+        }
         if (!rows.length) {
           list.innerHTML = '<div class="chat-empty">' + escapeHtml(chatT('chat_no_claims')) + '</div>';
         } else {
@@ -350,16 +346,28 @@
             var avHtml = '<div class="chat-rp-record-avatar locked' + (gray ? ' is-gray' : '') + '" aria-disabled="true">' + avInner + '</div>';
             var nameCls = 'chat-rp-record-name locked' + (gray ? ' is-masked' : '');
             var lockIcon = gray ? '<span class="chat-rp-lock" aria-hidden="true">🔒</span>' : '';
+            var tags = '';
+            if (r.is_best) tags += ' 手气最佳';
+            if (r.is_worst) tags += ' 手气最差';
+            if (ptype2 === 3) {
+              var tail = (r.tail_digit != null) ? (r.tail_digit | 0) : null;
+              var hit = (r.is_mine_hit | 0) === 1;
+              if (settled || hit) {
+                tags += hit
+                  ? ' <span class="is-mine-hit">中雷</span>'
+                  : ' <span class="is-mine-safe">未中雷</span>';
+              }
+              if (tail != null) tags += ' · 尾' + tail;
+            } else if (r.is_mine_hit) {
+              tags += ' 中雷';
+            }
             return (
               '<div class="chat-rp-record-item' + (gray ? ' is-locked' : '') + '">' + avHtml +
                 '<div class="chat-rp-record-main">' +
                   '<div class="' + nameCls + '" data-uid="' + uid + '">' +
                     lockIcon + escapeHtml(nick) +
                   '</div>' +
-                  '<div class="chat-rp-record-amt">￥' + parseFloat(r.amount || 0).toFixed(2) +
-                    (r.is_best ? ' 手气最佳' : '') +
-                    (r.is_worst ? ' 手气最差' : '') +
-                    (r.is_mine_hit ? ' 中雷' : '') +
+                  '<div class="chat-rp-record-amt">￥' + parseFloat(r.amount || 0).toFixed(2) + tags +
                   '</div>' +
                 '</div></div>'
             );

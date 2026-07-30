@@ -233,7 +233,7 @@ class RedPacketService
             'packet_type'    => $packetType,
             'mine_digit'     => $mineDigit,
             'tron_block_num' => $tronBlockNum,
-            'mine_pending'   => $packetType === 3,
+            'mine_pending'   => false,
             'skin_id'        => $skinId,
             'bg_image'       => $bgImage,
             'blessing'       => $blessing,
@@ -302,7 +302,8 @@ class RedPacketService
             [$packetId]
         );
         if ($packet && (int)$packet['packet_type'] === 3 && (int)($packet['tron_status'] ?? 0) !== 2) {
-            TronFair::processReveal($packetId);
+            // 埋雷已改为手填雷号，结算不再依赖波场；波场证明仍可异步拉取
+            TronFair::scheduleReveal($packetId);
         }
         $result = (new RedPacketSettlementService($this->wallet, ['red_packet' => $this->cfg]))
             ->settleAfterFinished($packetId);
@@ -568,14 +569,9 @@ class RedPacketService
         $settlePending = false;
         // ---------- 抢完最后一个包：结算/开奖异步，缩短抢包响应 ----------
         if ($remain <= 0) {
-            if ($packetType === 3) {
-                // 扫雷：先锚定波场，开奖后再结算
-                $this->revealFairProof($packetId);
-                $settlePending = true;
-            } else {
-                $this->scheduleSettleAfterFinished($packetId, $packet);
-                $settlePending = true;
-            }
+            // 埋雷也按发包雷号立即结算；波场证明仅作金额公平性旁证
+            $this->scheduleSettleAfterFinished($packetId, $packet);
+            $settlePending = true;
         }
 
         return [
@@ -691,8 +687,9 @@ class RedPacketService
 
     protected function notifySettled($packetId, array $hint, array $settleInfo)
     {
+        $packetId = (int)$packetId;
         $event = [
-            'packet_id' => (int)$packetId,
+            'packet_id' => $packetId,
             'settled'   => true,
             'settlement'=> [
                 'settled'          => true,
@@ -707,6 +704,44 @@ class RedPacketService
                 if ($uids) {
                     PushBus::toUsers($uids, 'redpacket.update', $event);
                 }
+                // 埋雷结算后群内公示中雷结果，所有人可见
+                if ((int)($hint['packet_type'] ?? 0) === 3) {
+                    $packet = Db::fetch(
+                        'SELECT mine_digit FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1',
+                        [$packetId]
+                    );
+                    $mineDigit = (int)($packet['mine_digit'] ?? 0);
+                    $hits = Db::fetchAll(
+                        'SELECT user_id FROM ' . Db::table('chat_red_packet_records')
+                        . ' WHERE packet_id=? AND is_mine_hit=1 ORDER BY id ASC',
+                        [$packetId]
+                    );
+                    $hitUids = array_map(function ($r) {
+                        return (int)$r['user_id'];
+                    }, $hits ?: []);
+                    if ($hitUids) {
+                        $briefs = (new AuthService([]))->usersBriefMap($hitUids);
+                        $names = [];
+                        foreach ($hitUids as $hid) {
+                            $u = $briefs[$hid] ?? null;
+                            $n = $u ? trim((string)($u['nickname'] ?: $u['username'] ?: '')) : '';
+                            $names[] = $n !== '' ? $n : ('ID' . $hid);
+                        }
+                        $text = '埋雷结算：雷号 ' . $mineDigit . ' · 中雷 ' . count($hitUids) . ' 人（'
+                            . implode('、', $names) . '）';
+                    } else {
+                        $text = '埋雷结算：雷号 ' . $mineDigit . ' · 本局无人中雷';
+                    }
+                    $sys = $this->messages->sendGroupSystem((int)$hint['group_id'], $text, 0, [
+                        'packet_id'  => $packetId,
+                        'mine_digit' => $mineDigit,
+                        'hit_count'  => count($hitUids),
+                        'kind'       => 'mine_settle',
+                    ]);
+                    if ($uids && is_array($sys)) {
+                        PushBus::toUsers($uids, 'group.message', ['message' => $sys]);
+                    }
+                }
             } else {
                 $uids = array_values(array_unique(array_filter([
                     (int)($hint['from_user_id'] ?? 0),
@@ -717,6 +752,7 @@ class RedPacketService
                 }
             }
         } catch (\Throwable $e) {
+            error_log('[RP_SETTLE] notifySettled fail packet=' . $packetId . ' ' . $e->getMessage());
         }
     }
 
@@ -837,11 +873,6 @@ class RedPacketService
             $packetId = (int)$row['id'];
             $ptype = (int)$row['packet_type'];
             try {
-                // 扫雷必须先有波场开奖结果
-                if ($ptype === 3 && (int)($row['tron_status'] ?? 0) !== 2) {
-                    $this->revealFairProof($packetId);
-                    continue;
-                }
                 $info = $settler->settleAfterFinished($packetId);
                 if (!empty($info['settled'])) {
                     $done++;
@@ -1319,18 +1350,13 @@ class RedPacketService
 
     protected function sanitizePacketFair(array $packet)
     {
-        // 未开出波场哈希前不暴露 block_id / lucky；扫雷官方雷号也待开奖后公示
+        // 未开出波场哈希前不暴露 block_id；埋雷数字在发包时已确定，始终公示
         if ((int)($packet['tron_status'] ?? 0) !== 2) {
             unset($packet['tron_block_id'], $packet['tron_lucky'], $packet['fair_seed'], $packet['fair_cents'], $packet['fair_payload']);
-            if ((int)($packet['packet_type'] ?? 0) === 3) {
-                $packet['mine_pending'] = true;
-                // 目标区块高度可提前公示（发包已锁定），便于玩家去盯盘
-            }
-        } else {
+        }
+        if ((int)($packet['packet_type'] ?? 0) === 3) {
             $packet['mine_pending'] = false;
-            if ((int)($packet['packet_type'] ?? 0) === 3 && trim((string)($packet['tron_block_id'] ?? '')) !== '') {
-                $packet['mine_digit'] = \Im\Support\TronBlockClient::luckyDigitFromBlockId($packet['tron_block_id']);
-            }
+            $packet['mine_digit'] = (int)($packet['mine_digit'] ?? 0);
         }
         return $packet;
     }

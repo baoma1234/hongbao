@@ -373,12 +373,12 @@ class MessageRouter
         if ($msgType === 1) {
             $trim = trim($content);
             if (preg_match('/^(\d+(?:\.\d+)?)[\/\-](\d+)[\/\-](\d)$/', $trim, $m)) {
-                // 第三段雷号保留兼容，实际官方雷号由波场哈希开奖决定
+                // 金额/个数/雷号 → 埋雷红包
                 $this->sendRedPacketFromChatParse($connection, $uid, $groupId, [
                     'packet_type'  => 3,
                     'total_amount' => (float)$m[1],
                     'total_count'  => (int)$m[2],
-                    'mine_digit'   => 0,
+                    'mine_digit'   => (int)$m[3],
                 ], $reqId);
                 return;
             }

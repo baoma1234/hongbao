@@ -225,6 +225,46 @@
   background: rgba(230, 48, 34, 0.08);
   border: 1px solid rgba(230, 48, 34, 0.16);
 }
+.chat-rp-mine-digits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.chat-rp-mine-digit-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid rgba(230, 48, 34, 0.22);
+  background: #fff;
+  color: #C61114;
+  font-size: 15px;
+  font-weight: 800;
+  padding: 0;
+  cursor: pointer;
+  line-height: 1;
+}
+.chat-rp-mine-digit-btn.active {
+  background: linear-gradient(180deg, #E63022 0%, #C61114 100%);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 4px 10px rgba(198, 17, 20, 0.25);
+}
+.chat-rp-record-amt .is-mine-hit {
+  color: #C61114;
+  font-weight: 800;
+}
+.chat-rp-record-amt .is-mine-safe {
+  color: #7a8799;
+}
+.chat-rp-mine-summary {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #C61114;
+}
+.chat-rp-mine-summary.is-safe {
+  color: #3d7a4a;
+}
 
 .chat-rp-send-ft {
   padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));

@@ -461,10 +461,10 @@
                             </div>
 
                             <div class="chat-rp-field chat-rp-mine-card" id="chatRpMineWrap" hidden>
-                                <div class="chat-rp-mine-title" data-copy="chat_rp_mine_digit">官方雷号 · 波场开奖</div>
-                                <div class="chat-rp-mine-badge">开奖后揭晓 0～9</div>
+                                <div class="chat-rp-mine-title" data-copy="chat_rp_mine_digit">埋雷数字（0～9）</div>
+                                <div class="chat-rp-mine-digits" id="chatRpMineDigits" role="group" aria-label="选择雷号"></div>
                                 <input type="hidden" id="chatRpMineDigit" value="0">
-                                <div class="chat-rp-field-hint" data-copy="chat_rp_mine_hint">抢完锁定波场区块，哈希末位定雷，可去 TronScan 核对。</div>
+                                <div class="chat-rp-field-hint" data-copy="chat_rp_mine_hint">金额尾数等于雷号即中雷，赔付发包人整包金额；也可能本局无人中雷。</div>
                             </div>
 
                             <div class="chat-rp-field">

@@ -94,26 +94,8 @@ class RedPacketSettlementService
             $now = time();
             $bizMeta = ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId];
 
-            // 扫雷：必须等波场开奖，雷号 = 区块哈希末位映射 0-9（覆盖发包预埋）
-            if ($packetType === 3) {
-                $tronStatus = (int)($packet['tron_status'] ?? 0);
-                $blockId = trim((string)($packet['tron_block_id'] ?? ''));
-                if ($tronStatus !== 2 || $blockId === '') {
-                    Db::rollBack();
-                    $this->releaseLock($lockKey, $gotLock);
-                    error_log('[RP_SETTLE] wait tron reveal packet_id=' . $packetId . ' tron_status=' . $tronStatus);
-                    return $result;
-                }
-                $mineDigit = \Im\Support\TronBlockClient::luckyDigitFromBlockId($blockId);
-                // 落库官方雷号，便于详情/验证页展示
-                if ((int)($packet['mine_digit'] ?? -1) !== $mineDigit) {
-                    Db::exec(
-                        'UPDATE ' . Db::table('chat_red_packets') . ' SET mine_digit=? WHERE id=?',
-                        [$mineDigit, $packetId]
-                    );
-                    $packet['mine_digit'] = $mineDigit;
-                }
-            }
+            // 埋雷：使用发包人手填雷号；尾数匹配才中雷，也可能无人中雷
+            // （波场开奖仅作金额公平旁证，不再覆盖雷号、也不再阻塞结算）
 
             $records = Db::fetchAll(
                 'SELECT * FROM ' . Db::table('chat_red_packet_records') . ' WHERE packet_id=? FOR UPDATE',

@@ -147,11 +147,11 @@ class TronFair
       $luckyChar = TronBlockClient::luckyFromBlockId($block['block_id']);
       $luckyDigit = TronBlockClient::luckyDigitFromBlockId($block['block_id']);
       $now = time();
-      // tron_lucky 存末位字符；扫雷官方雷号写入 mine_digit（开奖后覆盖预埋）
+      // 不覆盖 mine_digit：埋雷数字由发包人手填；波场哈希仅作公平性旁证
       Db::exec(
         'UPDATE ' . Db::table('chat_red_packets')
         . ' SET tron_block_num=?, tron_block_id=?, tron_lucky=?, tron_status=?, fair_revealed_at=?,'
-        . ' fair_hash=?, fair_seed=\'\', fair_payload=\'\', mine_digit=?, updatetime=?'
+        . ' fair_hash=?, fair_seed=\'\', fair_payload=\'\', updatetime=?'
         . ' WHERE id=? AND tron_status<>?',
         [
           (int)$block['block_num'],
@@ -160,7 +160,6 @@ class TronFair
           self::STATUS_DONE,
           $now,
           $block['block_id'],
-          $luckyDigit,
           $now,
           $packetId,
           self::STATUS_DONE,
@@ -193,7 +192,7 @@ class TronFair
   }
 
   /**
-   * 波场开奖完成后：扫雷包若仍 status=2（已抢完未结算），按官方雷号结算
+   * 波场开奖完成后：兼容旧扫雷包（曾等待开奖才结算）若仍 status=2，按发包雷号补结算
    */
   public static function maybeSettleAfterReveal($packetId)
   {
@@ -206,9 +205,6 @@ class TronFair
       return;
     }
     if ((int)($packet['packet_type'] ?? 0) !== 3) {
-      return;
-    }
-    if ((int)($packet['tron_status'] ?? 0) !== self::STATUS_DONE) {
       return;
     }
     if ((int)($packet['status'] ?? 0) !== 2) {
@@ -264,15 +260,15 @@ class TronFair
         $ptype = (int)($packet['packet_type'] ?? 0);
         $text = '波场官方开奖：区块 #' . $blockNum
           . ' · 哈希末位 ' . $luckyChar;
-        if ($ptype === 3 && $luckyDigit !== null) {
-          $text .= ' · 官方雷号 ' . (int)$luckyDigit;
+        if ($ptype === 3) {
+          $text .= ' · 埋雷数字 ' . (int)($packet['mine_digit'] ?? 0);
         }
         $text .= '（可点红包详情前往 TronScan 核对）';
         $sys = (new \Im\Service\MessageService())->sendGroupSystem($groupId, $text, 0, [
           'packet_id'      => $packetId,
           'tron_block_num' => $blockNum,
           'tron_lucky'     => $luckyChar,
-          'mine_digit'     => $luckyDigit,
+          'mine_digit'     => (int)($packet['mine_digit'] ?? 0),
           'kind'           => 'tron_reveal',
         ]);
         if ($uids && is_array($sys)) {
@@ -346,11 +342,13 @@ class TronFair
     $luckyDigit = $revealed ? TronBlockClient::luckyDigitFromBlockId($blockId) : null;
     $type = (int)($packet['packet_type'] ?? 0);
     $label = $type === 2 ? '拼手气接龙' : ($type === 3 ? '扫雷' : '红包');
+    $senderMine = (int)($packet['mine_digit'] ?? 0);
     $out = [
       'packet_no'         => (string)($packet['packet_no'] ?? ''),
       'packet_type'       => $type,
       'type_label'        => $label,
-      'mine_digit'        => $revealed ? (int)$luckyDigit : null,
+      // 埋雷数字 = 发包人手填；波场 lucky_digit 仅作旁证
+      'mine_digit'        => $type === 3 ? $senderMine : ($revealed ? (int)$luckyDigit : null),
       'total_amount'      => (float)($packet['total_amount'] ?? 0),
       'pool_amount'       => (float)($packet['pool_amount'] ?? 0),
       'total_count'       => (int)($packet['total_count'] ?? 0),
@@ -372,7 +370,7 @@ class TronFair
         : ($blockId !== '' ? ('https://tronscan.org/#/block/' . $blockId) : ''),
       'verify_hint'       => $revealed
         ? ('TronScan 核对区块 #' . $blockNum . ' 的 Block Hash 末位是否为 ' . $luckyChar
-          . '；扫雷官方雷号=' . (int)$luckyDigit
+          . ($type === 3 ? ('；本局埋雷数字=' . $senderMine) : '')
           . (ctype_digit((string)$luckyChar) ? '' : ('（末位 ' . $luckyChar . ' → ' . (int)$luckyDigit . '）')))
         : ($blockNum > 0 ? ('已锁定官方区块高度 #' . $blockNum . '，出块后开奖') : '待锁定波场区块'),
     ];

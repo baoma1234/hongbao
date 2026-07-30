@@ -153,7 +153,7 @@
             var t = d.tron || {};
             var tip = '波场已开奖';
             if (t.tron_block_num) tip += ' · 区块#' + t.tron_block_num;
-            if (t.lucky_digit != null && (t.packet_type | 0) === 3) tip += ' · 雷' + t.lucky_digit;
+            if ((t.packet_type | 0) === 3 && t.mine_digit != null) tip += ' · 雷' + (t.mine_digit | 0);
             showFanshubToast(tip, 'success');
           }
         })();

@@ -5,11 +5,39 @@
     return active ? (parseInt(active.getAttribute('data-type'), 10) || 2) : 2;
   }
 
+  function ensureRpMineDigits() {
+    var box = $('chatRpMineDigits');
+    var input = $('chatRpMineDigit');
+    if (!box || box._built) return;
+    box._built = true;
+    var cur = input ? (parseInt(input.value, 10) || 0) : 0;
+    if (cur < 0 || cur > 9) cur = 0;
+    if (input) input.value = String(cur);
+    var html = '';
+    for (var i = 0; i <= 9; i++) {
+      html += '<button type="button" class="chat-rp-mine-digit-btn' + (i === cur ? ' active' : '') +
+        '" data-digit="' + i + '">' + i + '</button>';
+    }
+    box.innerHTML = html;
+    box.addEventListener('click', function (ev) {
+      var btn = ev.target.closest('.chat-rp-mine-digit-btn');
+      if (!btn) return;
+      var d = parseInt(btn.getAttribute('data-digit'), 10);
+      if (isNaN(d) || d < 0 || d > 9) return;
+      if (input) input.value = String(d);
+      box.querySelectorAll('.chat-rp-mine-digit-btn').forEach(function (b) {
+        b.classList.toggle('active', b === btn);
+      });
+      updateRpPreview();
+    });
+  }
+
   function syncRpMineField() {
     var wrap = $('chatRpMineWrap');
     if (!wrap) return;
     var type = getRpPacketType();
     if (type === 3) {
+      ensureRpMineDigits();
       wrap.hidden = false;
       wrap.style.display = '';
     } else {
@@ -24,6 +52,7 @@
     var blessInput = $('chatRpBlessing');
     var amountInput = $('chatRpAmount');
     var countInput = $('chatRpCount');
+    var mineInput = $('chatRpMineDigit');
     if (blessEl && blessInput) {
       var t = String(blessInput.value || '').trim();
       blessEl.textContent = t || chatT('chat_rp_blessing_default');
@@ -32,9 +61,10 @@
       var type = getRpPacketType();
       var count = countInput ? (parseInt(countInput.value, 10) || 1) : 1;
       var amount = amountInput ? (parseFloat(amountInput.value) || 0) : 0;
+      var mineDigit = mineInput ? (parseInt(mineInput.value, 10) || 0) : 0;
       var typeLabel = type === 1 ? '人均' : (type === 3 ? '埋雷' : '拼手气');
       var parts = [typeLabel];
-      if (type === 3) parts.push('波场定雷');
+      if (type === 3) parts.push('雷' + mineDigit);
       if (count > 0) parts.push(count + '个');
       if (amount > 0) parts.push('￥' + amount.toFixed(2));
       subEl.textContent = parts.join(' · ');
@@ -115,7 +145,7 @@
     var packetType = getRpPacketType();
     var bless = String(blessInput && blessInput.value || '').trim() || '恭喜发财';
     var mineDigit = mineInput ? parseInt(mineInput.value, 10) : 0;
-    if (isNaN(mineDigit)) mineDigit = 0;
+    if (isNaN(mineDigit) || mineDigit < 0 || mineDigit > 9) mineDigit = 0;
     if (totalAmount <= 0) {
       if (typeof showFanshubToast === 'function') showFanshubToast('请输入红包金额', 'error');
       return;
@@ -132,6 +162,10 @@
       if (typeof showFanshubToast === 'function') showFanshubToast('个数须为 5～10', 'error');
       return;
     }
+    if (packetType === 3 && (mineDigit < 0 || mineDigit > 9)) {
+      if (typeof showFanshubToast === 'function') showFanshubToast('请选择埋雷数字 0～9', 'error');
+      return;
+    }
     if (state.money != null && totalAmount > state.money + 0.0001) {
       if (typeof showFanshubToast === 'function') showFanshubToast('红利余额不足', 'error');
       return;
@@ -144,8 +178,7 @@
       blessing: bless
     };
     if (packetType === 3) {
-      // 官方雷号由波场哈希开奖决定，发包不再手填
-      data.mine_digit = 0;
+      data.mine_digit = mineDigit;
     }
     if (state.room.type === 2) data.group_id = state.room.id | 0;
     else data.to_user_id = state.room.peer | 0;
