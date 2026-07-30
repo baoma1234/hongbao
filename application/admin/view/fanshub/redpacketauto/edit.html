@@ -2,25 +2,25 @@
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">任务名:</label>
         <div class="col-xs-12 col-sm-8">
-            <input class="form-control" name="row[name]" type="text">
+            <input class="form-control" name="row[name]" type="text" value="{$row.name|htmlentities}">
         </div>
     </div>
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">群ID:</label>
         <div class="col-xs-12 col-sm-8">
-            <input class="form-control" name="row[group_id]" type="number" data-rule="required" min="1">
+            <input class="form-control" name="row[group_id]" type="number" data-rule="required" min="1" value="{$row.group_id}">
         </div>
     </div>
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">自动发包:</label>
         <div class="col-xs-12 col-sm-8">
-            <label class="checkbox-inline"><input type="checkbox" name="row[auto_send]" value="1"> 开启</label>
+            <label class="checkbox-inline"><input type="checkbox" name="row[auto_send]" value="1" {eq name="row.auto_send" value="1"}checked{/eq}> 开启</label>
         </div>
     </div>
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">发包用户ID:</label>
         <div class="col-xs-12 col-sm-8">
-            <input class="form-control" name="row[send_user_id]" type="number" min="1">
+            <input class="form-control" name="row[send_user_id]" type="number" min="1" value="{$row.send_user_id}">
         </div>
     </div>
     <div class="form-group">
@@ -28,7 +28,7 @@
         <div class="col-xs-12 col-sm-8">
             <select name="row[packet_type]" class="form-control selectpicker">
                 {foreach name="packetTypeList" item="vo"}
-                <option value="{$key}">{$vo}</option>
+                <option value="{$key}" {eq name="key" value="$row.packet_type"}selected{/eq}>{$vo}</option>
                 {/foreach}
             </select>
         </div>
@@ -38,46 +38,49 @@
         <div class="col-xs-12 col-sm-4">
             <div class="input-group">
                 <span class="input-group-addon">金额</span>
-                <input class="form-control" name="row[total_amount]" type="number" step="0.01" min="0.01">
+                <input class="form-control" name="row[total_amount]" type="number" step="0.01" min="0.01" value="{$row.total_amount}">
                 <span class="input-group-addon">个数</span>
-                <input class="form-control" name="row[total_count]" type="number" min="1">
+                <input class="form-control" name="row[total_count]" type="number" min="1" value="{$row.total_count}">
             </div>
         </div>
     </div>
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">祝福语:</label>
         <div class="col-xs-12 col-sm-8">
-            <input class="form-control" name="row[blessing]" type="text">
+            <input class="form-control" name="row[blessing]" type="text" value="{$row.blessing|htmlentities}">
         </div>
     </div>
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">埋雷数字:</label>
         <div class="col-xs-12 col-sm-8">
-            <input class="form-control" name="row[mine_digit]" type="number" min="0" max="9">
+            <input class="form-control" name="row[mine_digit]" type="number" min="0" max="9" value="{$row.mine_digit}">
+            <span class="help-block">仅埋雷包有效，0-9</span>
         </div>
     </div>
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">发包间隔(秒):</label>
         <div class="col-xs-12 col-sm-8">
-            <input class="form-control" name="row[interval_sec]" type="number" min="5">
+            <input class="form-control" name="row[interval_sec]" type="number" min="5" value="{$row.interval_sec}">
         </div>
     </div>
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">每日上限:</label>
         <div class="col-xs-12 col-sm-8">
-            <input class="form-control" name="row[max_per_day]" type="number" min="0">
+            <input class="form-control" name="row[max_per_day]" type="number" min="0" value="{$row.max_per_day}">
+            <span class="help-block">每日最多自动发包次数，0=不限</span>
         </div>
     </div>
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">自动抢包:</label>
         <div class="col-xs-12 col-sm-8">
-            <label class="checkbox-inline"><input type="checkbox" name="row[auto_grab]" value="1"> 开启</label>
+            <label class="checkbox-inline"><input type="checkbox" name="row[auto_grab]" value="1" {eq name="row.auto_grab" value="1"}checked{/eq}> 开启</label>
         </div>
     </div>
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">抢包用户ID:</label>
         <div class="col-xs-12 col-sm-8">
-            <input class="form-control" name="row[grab_user_ids]" type="text" placeholder="多个用逗号分隔">
+            <input class="form-control" name="row[grab_user_ids]" type="text" value="{$row.grab_user_ids|htmlentities}" placeholder="多个用逗号分隔">
+            <span class="help-block">机器人须已在群内；手气/埋雷需余额≥整包金额</span>
         </div>
     </div>
     <div class="form-group">
@@ -85,9 +88,9 @@
         <div class="col-xs-12 col-sm-4">
             <div class="input-group">
                 <span class="input-group-addon">最小</span>
-                <input class="form-control" name="row[grab_delay_min_ms]" type="number" min="0">
+                <input class="form-control" name="row[grab_delay_min_ms]" type="number" min="0" value="{$row.grab_delay_min_ms}">
                 <span class="input-group-addon">最大</span>
-                <input class="form-control" name="row[grab_delay_max_ms]" type="number" min="0">
+                <input class="form-control" name="row[grab_delay_max_ms]" type="number" min="0" value="{$row.grab_delay_max_ms}">
             </div>
         </div>
     </div>
@@ -96,7 +99,7 @@
         <div class="col-xs-12 col-sm-8">
             <select name="row[status]" class="form-control selectpicker">
                 {foreach name="statusList" item="vo"}
-                <option value="{$key}">{$vo}</option>
+                <option value="{$key}" {eq name="key" value="$row.status"}selected{/eq}>{$vo}</option>
                 {/foreach}
             </select>
         </div>
@@ -104,7 +107,7 @@
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">备注:</label>
         <div class="col-xs-12 col-sm-8">
-            <input class="form-control" name="row[remark]" type="text">
+            <input class="form-control" name="row[remark]" type="text" value="{$row.remark|htmlentities}">
         </div>
     </div>
     <div class="form-group layer-footer">
