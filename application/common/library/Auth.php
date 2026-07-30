@@ -164,7 +164,7 @@ class Auth
             'avatar'   => '',
         ];
         $params = array_merge($data, [
-            'nickname'  => preg_match("/^1[3-9]{1}\d{9}$/", $username) ? substr_replace($username, '****', 3, 4) : $username,
+            'nickname'  => self::defaultRegisterNickname($mobile !== '' ? $mobile : $username),
             'salt'      => Random::alnum(),
             'jointime'  => $time,
             'joinip'    => $ip,
@@ -175,6 +175,10 @@ class Auth
         ]);
         $params['password'] = $this->getEncryptPassword($password, $params['salt']);
         $params = array_merge($params, $extend);
+        // 未显式传昵称时，统一用「红宝+手机后三位+随机三位数」
+        if (!isset($extend['nickname']) || trim((string)$extend['nickname']) === '') {
+            $params['nickname'] = self::defaultRegisterNickname($mobile !== '' ? $mobile : $username);
+        }
         // 会员 ID：随机不重复八位数（可由 $extend['id'] 显式指定）
         if (empty($params['id'])) {
             $params['id'] = \app\common\library\FansHubService::allocUserId();
@@ -205,6 +209,26 @@ class Auth
             return false;
         }
         return true;
+    }
+
+    /**
+     * 新注册默认昵称：红宝 + 手机号后三位 + 随机三位数（如 红宝834729）
+     */
+    public static function defaultRegisterNickname($mobile)
+    {
+        $digits = preg_replace('/\D+/', '', (string)$mobile);
+        if ($digits === '') {
+            $digits = (string)mt_rand(100, 999);
+        }
+        $tail = strlen($digits) >= 3 ? substr($digits, -3) : str_pad($digits, 3, '0', STR_PAD_LEFT);
+        for ($i = 0; $i < 30; $i++) {
+            $rand = str_pad((string)mt_rand(0, 999), 3, '0', STR_PAD_LEFT);
+            $nick = '红宝' . $tail . $rand;
+            if (!User::getByNickname($nick)) {
+                return $nick;
+            }
+        }
+        return '红宝' . $tail . substr((string)time(), -3);
     }
 
     /**

@@ -127,7 +127,7 @@
             markRpCover(pid, { expired: true, faded: true });
             try { renderMessages(); } catch (e2) {}
           }
-          // 开奖后刷新红包卡片上的锁定区块提示（不覆盖发包人手填雷号）
+          // 开奖后刷新红包卡片：官方雷号 = 波场哈希末位
           if (d.tron_revealed && d.tron && state.messages && state.messages.length) {
             var tron = d.tron;
             var changed = false;
@@ -138,10 +138,8 @@
               ex.tron_block_num = tron.tron_block_num || tron.targetBlockNum || ex.tron_block_num;
               if (tron.revealed) {
                 ex.mine_pending = false;
-                // 埋雷数字以发包为准；仅在消息里缺失时才用波场旁证补齐
-                if (ex.mine_digit == null && tron.mine_digit != null) {
-                  ex.mine_digit = tron.mine_digit | 0;
-                }
+                if (tron.mine_digit != null) ex.mine_digit = tron.mine_digit | 0;
+                else if (tron.lucky_digit != null) ex.mine_digit = tron.lucky_digit | 0;
                 if (tron.tron_lucky) ex.tron_lucky = tron.tron_lucky;
                 if (tron.tron_block_id) ex.tron_block_id = tron.tron_block_id;
               }

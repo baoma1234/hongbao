@@ -51,9 +51,8 @@ class RedPacketService
             throw new \InvalidArgumentException('invalid packet_type');
         }
         if ($packetType === 3) {
-            if ($mineDigit < 0 || $mineDigit > 9) {
-                throw new \InvalidArgumentException('mine_digit must be 0-9');
-            }
+            // 官方雷号 = 波场区块哈希末位；发包时占位，开奖后写入
+            $mineDigit = 0;
         } else {
             $mineDigit = 0;
         }
@@ -249,7 +248,7 @@ class RedPacketService
             'packet_type'    => $packetType,
             'mine_digit'     => $mineDigit,
             'tron_block_num' => $tronBlockNum,
-            'mine_pending'   => false,
+            'mine_pending'   => $packetType === 3,
             'skin_id'        => $skinId,
             'bg_image'       => $bgImage,
             'blessing'       => $blessing,
@@ -346,8 +345,9 @@ class RedPacketService
             [$packetId]
         );
         if ($packet && (int)$packet['packet_type'] === 3 && (int)($packet['tron_status'] ?? 0) !== 2) {
-            // 埋雷已改为手填雷号，结算不再依赖波场；波场证明仍可异步拉取
+            // 扫雷须等波场哈希末位揭晓后再结算
             TronFair::scheduleReveal($packetId);
+            return ['settled' => false, 'pending_tron' => true, 'packet_id' => $packetId];
         }
         $result = (new RedPacketSettlementService($this->wallet, ['red_packet' => $this->cfg]))
             ->settleAfterFinished($packetId);
@@ -641,7 +641,7 @@ class RedPacketService
         $settlePending = false;
         // ---------- 抢完最后一个包：结算/开奖异步，缩短抢包响应 ----------
         if ($remain <= 0) {
-            // 埋雷也按发包雷号立即结算；波场证明仅作金额公平性旁证
+            // 扫雷：先开波场再按哈希末位雷号结算；手气/普通：直接结算
             $this->scheduleSettleAfterFinished($packetId, $packet);
             $settlePending = true;
         }
@@ -724,6 +724,26 @@ class RedPacketService
             if ($packetType === 1) {
                 $this->markBestLuck($packetId);
             }
+            if ($packetType === 3) {
+                // 扫雷：必须等波场哈希末位作为官方雷号后再结算
+                $row = Db::fetch(
+                    'SELECT id, status, tron_status, remain_count, scope_type, group_id, from_user_id, to_user_id, packet_type'
+                    . ' FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1',
+                    [$packetId]
+                );
+                if ($row && (int)($row['remain_count'] ?? 1) <= 0 && (int)($row['tron_status'] ?? 0) === 2) {
+                    $settleInfo = (new RedPacketSettlementService($this->wallet, [
+                        'red_packet' => $this->cfg,
+                    ]))->settleAfterFinished($packetId);
+                    if (!empty($settleInfo['settled'])) {
+                        error_log('[RP_SETTLE] async mine ok packet_id=' . $packetId);
+                        $this->notifySettled($packetId, array_merge($hint, $row), $settleInfo);
+                    }
+                } else {
+                    $this->revealFairProof($packetId);
+                }
+                return;
+            }
             $settleInfo = (new RedPacketSettlementService($this->wallet, [
                 'red_packet' => $this->cfg,
             ]))->settleAfterFinished($packetId);
@@ -741,7 +761,7 @@ class RedPacketService
                 }
                 $this->trySendRobotNextRound($full);
             }
-            if (in_array($packetType, [2, 3], true)) {
+            if ($packetType === 2) {
                 $this->revealFairProof($packetId);
             }
             if ($settled) {
@@ -945,6 +965,10 @@ class RedPacketService
             $packetId = (int)$row['id'];
             $ptype = (int)$row['packet_type'];
             try {
+                if ($ptype === 3 && (int)($row['tron_status'] ?? 0) !== 2) {
+                    $this->revealFairProof($packetId);
+                    continue;
+                }
                 $info = $settler->settleAfterFinished($packetId);
                 if (!empty($info['settled'])) {
                     $done++;
@@ -958,11 +982,14 @@ class RedPacketService
                             $this->trySendRobotNextRound($full);
                         }
                     }
+                    if ($ptype === 3) {
+                        $this->notifySettled($packetId, $row, $info);
+                    }
                 }
                 if ($ptype === 1) {
                     $this->markBestLuck($packetId);
                 }
-                if (in_array($ptype, [2, 3], true) && (int)($row['tron_status'] ?? 0) !== 2) {
+                if ($ptype === 2 && (int)($row['tron_status'] ?? 0) !== 2) {
                     $this->revealFairProof($packetId);
                 }
             } catch (\Throwable $e) {
@@ -1449,7 +1476,7 @@ class RedPacketService
         $idList = array_keys($pids);
         $placeholders = implode(',', array_fill(0, count($idList), '?'));
         $packets = Db::fetchAll(
-            'SELECT id, packet_type, mine_digit, status, expiretime, remain_count'
+            'SELECT id, packet_type, mine_digit, status, expiretime, remain_count, tron_status, tron_block_id'
             . ' FROM ' . Db::table('chat_red_packets')
             . ' WHERE id IN (' . $placeholders . ')',
             $idList
@@ -1485,7 +1512,14 @@ class RedPacketService
             $p = $pid > 0 ? ($byId[$pid] ?? null) : null;
             if ($p) {
                 if ((int)$p['packet_type'] === 3) {
-                    $ex['mine_digit'] = (int)($p['mine_digit'] ?? 0);
+                    $tronDone = (int)($p['tron_status'] ?? 0) === 2
+                        && trim((string)($p['tron_block_id'] ?? '')) !== '';
+                    $ex['mine_pending'] = !$tronDone;
+                    if ($tronDone) {
+                        $ex['mine_digit'] = \Im\Support\TronBlockClient::luckyDigitFromBlockId($p['tron_block_id']);
+                    } else {
+                        unset($ex['mine_digit']);
+                    }
                 }
                 $ex['packet_type'] = (int)$p['packet_type'];
                 $ex['expiretime'] = (int)($p['expiretime'] ?? 0);
@@ -1511,13 +1545,19 @@ class RedPacketService
 
     protected function sanitizePacketFair(array $packet)
     {
-        // 未开出波场哈希前不暴露 block_id；埋雷数字在发包时已确定，始终公示
-        if ((int)($packet['tron_status'] ?? 0) !== 2) {
+        // 未开出波场哈希前不暴露 block_id；扫雷雷号开奖后才公示
+        $tronDone = (int)($packet['tron_status'] ?? 0) === 2
+            && trim((string)($packet['tron_block_id'] ?? '')) !== '';
+        if (!$tronDone) {
             unset($packet['tron_block_id'], $packet['tron_lucky'], $packet['fair_seed'], $packet['fair_cents'], $packet['fair_payload']);
         }
         if ((int)($packet['packet_type'] ?? 0) === 3) {
-            $packet['mine_pending'] = false;
-            $packet['mine_digit'] = (int)($packet['mine_digit'] ?? 0);
+            $packet['mine_pending'] = !$tronDone;
+            if ($tronDone) {
+                $packet['mine_digit'] = \Im\Support\TronBlockClient::luckyDigitFromBlockId($packet['tron_block_id']);
+            } else {
+                unset($packet['mine_digit']);
+            }
         }
         return $packet;
     }

@@ -90,17 +90,32 @@ class RedPacketSettlementService
             $totalAmount = round((float)$packet['total_amount'], 2);
             $packetNo = (string)$packet['packet_no'];
             $fromUserId = (int)$packet['from_user_id'];
-            $mineDigit = (int)($packet['mine_digit'] ?? 0);
             $totalCount = (int)($packet['total_count'] ?? 0);
             $compensateAmount = $totalAmount;
             if ($packetType === 3) {
+                // 扫雷官方雷号 = 波场区块哈希末位；未开奖不得结算
+                if ((int)($packet['tron_status'] ?? 0) !== 2 || trim((string)($packet['tron_block_id'] ?? '')) === '') {
+                    Db::rollBack();
+                    error_log('[RP_SETTLE] mine wait tron packet_id=' . $packetId);
+                    $this->releaseLock($lockKey, $gotLock);
+                    return $result;
+                }
+                $mineDigit = \Im\Support\TronBlockClient::luckyDigitFromBlockId($packet['tron_block_id']);
+                if ((int)($packet['mine_digit'] ?? -1) !== $mineDigit) {
+                    Db::exec(
+                        'UPDATE ' . Db::table('chat_red_packets') . ' SET mine_digit=? WHERE id=?',
+                        [$mineDigit, $packetId]
+                    );
+                    $packet['mine_digit'] = $mineDigit;
+                }
                 $compensateAmount = $this->mineCompensateAmount($totalAmount, $totalCount);
+            } else {
+                $mineDigit = (int)($packet['mine_digit'] ?? 0);
             }
             $now = time();
             $bizMeta = ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId];
 
-            // 埋雷：使用发包人手填雷号；尾数匹配才中雷，也可能无人中雷 / 多人同时中雷
-            // （波场开奖仅作金额公平旁证，不再覆盖雷号、也不再阻塞结算）
+            // 埋雷：金额尾数等于波场哈希末位雷号则中雷（可多人同时中雷）
 
             $records = Db::fetchAll(
                 'SELECT * FROM ' . Db::table('chat_red_packet_records') . ' WHERE packet_id=? FOR UPDATE',
