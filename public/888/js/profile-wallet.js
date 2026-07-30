@@ -12,6 +12,8 @@
     info: null,
     rechargeExpanded: {},
     withdrawExpanded: {},
+    rechargePartitionKey: '',
+    withdrawPartitionKey: '',
     rebinding: false
   };
 
@@ -276,6 +278,63 @@
     return html;
   }
 
+  function partitionStateKey(type) {
+    return type === 'recharge' ? 'rechargePartitionKey' : 'withdrawPartitionKey';
+  }
+
+  function partitionTabBoxId(type) {
+    return type === 'recharge' ? 'profileRechargePartitionTabs' : 'profileWithdrawPartitionTabs';
+  }
+
+  function getActivePartition(partitions, type) {
+    if (!partitions || !partitions.length) return null;
+    var key = walletState[partitionStateKey(type)] || '';
+    for (var i = 0; i < partitions.length; i++) {
+      if (partitions[i].code === key) return partitions[i];
+    }
+    walletState[partitionStateKey(type)] = partitions[0].code;
+    return partitions[0];
+  }
+
+  function renderPartitionTabs(partitions, type) {
+    var box = document.getElementById(partitionTabBoxId(type));
+    if (!box) return;
+    if (!partitions || partitions.length < 2) {
+      box.innerHTML = '';
+      box.hidden = true;
+      return;
+    }
+    box.hidden = false;
+    var activeKey = walletState[partitionStateKey(type)] || partitions[0].code;
+    var hasActive = partitions.some(function (part) {
+      return String(part.code || '') === String(activeKey);
+    });
+    if (!hasActive) {
+      activeKey = partitions[0].code;
+      walletState[partitionStateKey(type)] = activeKey;
+    }
+    box.innerHTML = partitions.map(function (part) {
+      var key = String(part.code || part.id || 'part');
+      var active = key === String(activeKey) ? ' active' : '';
+      var label = part.name || key;
+      return '<button type="button" class="wallet-partition-tab' + active + '" data-part-key="' + escapeHtml(key) + '" data-type="' + type + '">' + escapeHtml(label) + '</button>';
+    }).join('');
+    box.onclick = function (ev) {
+      var t = ev.target;
+      if (!t) return;
+      var btn = t.closest ? t.closest('.wallet-partition-tab') : null;
+      if (!btn && t.classList && t.classList.contains('wallet-partition-tab')) btn = t;
+      if (!btn) return;
+      ev.preventDefault();
+      var key = btn.getAttribute('data-part-key') || '';
+      if (!key || walletState[partitionStateKey(type)] === key) return;
+      walletState[partitionStateKey(type)] = key;
+      if (type === 'recharge') walletState.selectedRecharge = 0;
+      else walletState.selectedWithdraw = 0;
+      renderChannels(type === 'recharge' ? 'profileRechargeChannels' : 'profileWithdrawChannels', type === 'recharge' ? walletState.recharge : walletState.withdraw, type);
+    };
+  }
+
   function bindChannelListClicks(box, type) {
     box.onclick = function (ev) {
       var t = ev.target;
@@ -321,6 +380,7 @@
     var sel = (type === 'recharge' ? walletState.selectedRecharge : walletState.selectedWithdraw) | 0;
     var flat = list || [];
     if (!flat.length && !(partitions && partitions.length)) {
+      renderPartitionTabs([], type);
       box.innerHTML = '<div class="wallet-channel-empty">' + escapeHtml(wt('wallet_channel_empty', '暂无可用通道，请联系客服')) + '</div>';
       showAmountPanel(type, 0);
       return;
@@ -328,33 +388,34 @@
     if (!partitions || !partitions.length) {
       partitions = [{ id: 0, code: 'all', name: '', bind_mode: 'none', channels: flat }];
     }
-    if (!sel) {
-      var first = null;
-      for (var p = 0; p < partitions.length && !first; p++) {
-        if (partitions[p].channels && partitions[p].channels[0]) first = partitions[p].channels[0];
-      }
-      if (first) {
-        if (type === 'recharge') walletState.selectedRecharge = first.id | 0;
-        else walletState.selectedWithdraw = first.id | 0;
-        sel = first.id | 0;
+    renderPartitionTabs(partitions, type);
+    var activePart = getActivePartition(partitions, type);
+    var chs = activePart ? (activePart.channels || []) : flat;
+    var partKey = activePart ? String(activePart.code || activePart.id || 'part') : 'all';
+    var useMore = !!(activePart && (activePart.code === 'wallet' || activePart.bind_mode === 'wallet'));
+
+    if (!sel && chs[0]) {
+      if (type === 'recharge') walletState.selectedRecharge = chs[0].id | 0;
+      else walletState.selectedWithdraw = chs[0].id | 0;
+      sel = chs[0].id | 0;
+    } else if (sel && !findChannel(chs, sel)) {
+      if (chs[0]) {
+        if (type === 'recharge') walletState.selectedRecharge = chs[0].id | 0;
+        else walletState.selectedWithdraw = chs[0].id | 0;
+        sel = chs[0].id | 0;
+      } else {
+        if (type === 'recharge') walletState.selectedRecharge = 0;
+        else walletState.selectedWithdraw = 0;
+        sel = 0;
       }
     }
+
     var html = '';
-    partitions.forEach(function (part) {
-      var chs = part.channels || [];
-      var partKey = String(part.code || part.id || 'part');
-      var useMore = part.code === 'wallet' || part.bind_mode === 'wallet';
-      if (part.name) {
-        html += '<div class="wallet-partition-title">' + escapeHtml(part.name) + '</div>';
-      }
-      html += '<div class="wallet-partition-block" data-part="' + escapeHtml(partKey) + '">';
-      if (!chs.length) {
-        html += '<div class="wallet-channel-empty wallet-channel-empty--inline">' + escapeHtml(wt('wallet_partition_empty', '当前分区暂无可用通道')) + '</div>';
-      } else {
-        html += renderChannelGroupHtml(chs, type, sel, partKey, useMore);
-      }
-      html += '</div>';
-    });
+    if (!chs.length) {
+      html = '<div class="wallet-channel-empty wallet-channel-empty--inline">' + escapeHtml(wt('wallet_partition_empty', '当前分区暂无可用通道')) + '</div>';
+    } else {
+      html = renderChannelGroupHtml(chs, type, sel, partKey, useMore);
+    }
     box.innerHTML = html;
     bindChannelListClicks(box, type);
     showAmountPanel(type, sel);
@@ -616,14 +677,15 @@
     // 每次打开重置选中，先选通道再填金额
     if (which === 'recharge') {
       walletState.selectedRecharge = 0;
+      walletState.rechargePartitionKey = '';
       walletState.rechargeExpanded = {};
     }
     if (which === 'withdraw') {
       walletState.selectedWithdraw = 0;
+      walletState.withdrawPartitionKey = '';
       walletState.withdrawExpanded = {};
       walletState.rebinding = false;
     }
-    if (which === 'withdraw') walletState.selectedWithdraw = 0;
     loadWalletData().then(function () {
       if (which === 'recharge') {
         renderChannels('profileRechargeChannels', walletState.recharge, 'recharge');

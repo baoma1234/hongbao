@@ -70,6 +70,7 @@
             <div class="match-card profile-card">
                 <div class="profile-field">
                     <label data-copy="profile_recharge_channel_label">选择充值通道</label>
+                    <div id="profileRechargePartitionTabs" class="wallet-partition-tabs" hidden></div>
                 </div>
                 <div id="profileRechargeChannels" class="wallet-channel-list"></div>
                 <div id="profileRechargeForm" class="wallet-amount-panel" hidden>
@@ -97,6 +98,7 @@
                 <div class="profile-meta-line" id="profileTurnoverLine" data-turnover-prefix-key="profile_turnover_prefix">累计流水：￥0.00</div>
                     <div class="profile-field">
                         <label data-copy="profile_withdraw_channel_label">选择提现通道</label>
+                        <div id="profileWithdrawPartitionTabs" class="wallet-partition-tabs" hidden></div>
                     </div>
                     <div id="profileWithdrawChannels" class="wallet-channel-list"></div>
                     <div id="profileWithdrawForm" class="wallet-amount-panel" hidden>
