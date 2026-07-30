@@ -698,6 +698,7 @@ return array (
   'chat_rp_type_mine' => '埋雷',
   'chat_rp_mine_digit' => '雷号（尾数 0-9）',
   'chat_rp_mine_hint' => '领取金额尾数等于雷号则中雷，赔付整包金额',
+  'chat_rp_grab_need_compensate' => '未达到赔付该包金额无法领取',
   'chat_rp_blessing_label' => '红包封面语',
   'chat_rp_submit' => '塞钱进红包',
   'chat_create_group_title' => '创建新群聊',

@@ -170,4 +170,5 @@ return array (
   'srv_uid_sugar_not_verified' => 'Nombor telefon akaun tapak utama belum disahkan',
   'wallet_channel_more' => 'Lebih banyak dompet',
   'wallet_channel_less' => 'Tutup',
+  'chat_rp_grab_need_compensate' => 'Baki belum mencapai amaun pampasan paket ini, tidak boleh tuntut',
 );

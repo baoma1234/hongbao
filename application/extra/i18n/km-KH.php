@@ -170,4 +170,5 @@ return array (
   'srv_uid_sugar_not_verified' => 'លេខទូរស័ព្ទគណនីគេហទំព័រដើមមិនទាន់ផ្ទៀងផ្ទាត់',
   'wallet_channel_more' => 'កាបូបបន្ថែម',
   'wallet_channel_less' => 'បង្រួម',
+  'chat_rp_grab_need_compensate' => 'សមតុល្យមិនគ្រប់ចំនួនសំណងកញ្ចប់នេះ មិនអាចទទួលបាន',
 );

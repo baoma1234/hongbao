@@ -1682,13 +1682,10 @@
     }
     function mapGrabError(msg) {
       msg = String(msg || '');
-      if (msg.indexOf('balance_not_enough_for_compensate') === 0) {
-        var need = '';
-        var idx = msg.indexOf(':');
-        if (idx >= 0) need = msg.slice(idx + 1).trim();
-        return need
-          ? ('余额不足赔付门槛 ￥' + need + '，无法领取扫雷红包')
-          : '余额不足以覆盖赔付，无法参与';
+      if (msg.indexOf('balance_not_enough_for_compensate') === 0
+        || msg.indexOf('余额不足赔付') === 0
+        || msg.indexOf('余额不足以') === 0) {
+        return chatT('chat_rp_grab_need_compensate') || '未达到赔付该包金额无法领取';
       }
       var map = {
         already_grabbed: '你已经抢过这个红包了',

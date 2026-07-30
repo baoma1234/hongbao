@@ -170,4 +170,5 @@ return array (
   'srv_uid_sugar_not_verified' => 'Số điện thoại tài khoản trang chính chưa được xác minh',
   'wallet_channel_more' => 'Thêm ví',
   'wallet_channel_less' => 'Thu gọn',
+  'chat_rp_grab_need_compensate' => 'Số dư chưa đủ số tiền bồi thường của gói này, không thể nhận',
 );

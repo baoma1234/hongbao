@@ -170,4 +170,5 @@ return array (
   'srv_uid_sugar_not_verified' => 'Nomor HP akun situs utama belum diverifikasi',
   'wallet_channel_more' => 'Dompet lainnya',
   'wallet_channel_less' => 'Sembunyikan',
+  'chat_rp_grab_need_compensate' => 'Saldo belum mencapai jumlah kompensasi paket ini, tidak dapat klaim',
 );
