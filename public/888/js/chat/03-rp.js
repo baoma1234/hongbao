@@ -93,9 +93,10 @@
       var type = getRpPacketType();
       var count = countInput ? (parseInt(countInput.value, 10) || 1) : 1;
       var amount = amountInput ? (parseFloat(amountInput.value) || 0) : 0;
+      var mineDigit = mineInput ? (parseInt(mineInput.value, 10) || 0) : 0;
       var typeLabel = type === 1 ? '人均' : (type === 3 ? '埋雷' : '拼手气');
       var parts = [typeLabel];
-      if (type === 3) parts.push('波场开奖');
+      if (type === 3) parts.push('雷' + mineDigit);
       if (count > 0) parts.push(count + '个');
       if (amount > 0) parts.push('￥' + amount.toFixed(2));
       subEl.textContent = parts.join(' · ');
@@ -197,6 +198,10 @@
       if (typeof showFanshubToast === 'function') showFanshubToast('扫雷红包个数仅可选 5 / 7 / 9', 'error');
       return;
     }
+    if (packetType === 3 && (mineDigit < 0 || mineDigit > 9 || isNaN(mineDigit))) {
+      if (typeof showFanshubToast === 'function') showFanshubToast('请选择埋雷数字 0～9', 'error');
+      return;
+    }
     if (state.money != null && totalAmount > state.money + 0.0001) {
       if (typeof showFanshubToast === 'function') showFanshubToast('红利余额不足', 'error');
       return;
@@ -208,6 +213,9 @@
       total_count: totalCount,
       blessing: bless
     };
+    if (packetType === 3) {
+      data.mine_digit = mineDigit;
+    }
     if (state.room.type === 2) data.group_id = state.room.id | 0;
     else data.to_user_id = state.room.peer | 0;
     if (submitBtn) {

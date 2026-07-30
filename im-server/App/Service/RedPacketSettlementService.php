@@ -93,20 +93,25 @@ class RedPacketSettlementService
             $totalCount = (int)($packet['total_count'] ?? 0);
             $compensateAmount = $totalAmount;
             if ($packetType === 3) {
-                // 扫雷官方雷号 = 波场区块哈希末位；未开奖不得结算
+                // 须先找到「哈希末位=手填雷号」的波场证明后再结算
                 if ((int)($packet['tron_status'] ?? 0) !== 2 || trim((string)($packet['tron_block_id'] ?? '')) === '') {
                     Db::rollBack();
-                    error_log('[RP_SETTLE] mine wait tron packet_id=' . $packetId);
+                    error_log('[RP_SETTLE] mine wait tron match packet_id=' . $packetId);
                     $this->releaseLock($lockKey, $gotLock);
                     return $result;
                 }
-                $mineDigit = \Im\Support\TronBlockClient::luckyDigitFromBlockId($packet['tron_block_id']);
-                if ((int)($packet['mine_digit'] ?? -1) !== $mineDigit) {
-                    Db::exec(
-                        'UPDATE ' . Db::table('chat_red_packets') . ' SET mine_digit=? WHERE id=?',
-                        [$mineDigit, $packetId]
-                    );
-                    $packet['mine_digit'] = $mineDigit;
+                $mineDigit = max(0, min(9, (int)($packet['mine_digit'] ?? 0)));
+                $hashDigit = \Im\Support\TronBlockClient::luckyDigitFromBlockId($packet['tron_block_id']);
+                if ($hashDigit !== $mineDigit) {
+                    Db::rollBack();
+                    error_log(sprintf(
+                        '[RP_SETTLE] mine hash mismatch packet_id=%d mine=%d hash_digit=%d',
+                        $packetId,
+                        $mineDigit,
+                        $hashDigit
+                    ));
+                    $this->releaseLock($lockKey, $gotLock);
+                    return $result;
                 }
                 $compensateAmount = $this->mineCompensateAmount($totalAmount, $totalCount);
             } else {
@@ -115,7 +120,7 @@ class RedPacketSettlementService
             $now = time();
             $bizMeta = ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId];
 
-            // 埋雷：金额尾数等于波场哈希末位雷号则中雷（可多人同时中雷）
+            // 埋雷：金额尾数等于手填雷号则中雷（可多人同时中雷）；波场区块为末位吻合证明
 
             $records = Db::fetchAll(
                 'SELECT * FROM ' . Db::table('chat_red_packet_records') . ' WHERE packet_id=? FOR UPDATE',

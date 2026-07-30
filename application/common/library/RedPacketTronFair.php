@@ -167,23 +167,80 @@ class RedPacketTronFair
                     'updatetime'     => time(),
                 ]);
             }
-            // 已锁定高度直接拉块（Redis 缓存）；未出块失败后由队列重试
-            $block = TronBlockClient::getBlockByNum($blockNum, 6);
-            $lucky = TronBlockClient::luckyFromBlockId($block['block_id']);
-            $luckyDigit = TronBlockClient::luckyDigitFromBlockId($block['block_id']);
-            $now = time();
-            Db::name('chat_red_packets')->where('id', $packetId)->update([
-                'tron_block_num'   => (int)$block['block_num'],
-                'tron_block_id'    => $block['block_id'],
-                'tron_lucky'       => $lucky,
-                'tron_status'      => self::STATUS_DONE,
-                'fair_revealed_at' => $now,
-                'fair_hash'        => $block['block_id'],
-                'fair_seed'        => '',
-                'fair_payload'     => '',
-                'mine_digit'       => $luckyDigit,
-                'updatetime'       => $now,
-            ]);
+            // 拼手气：锁定高度直接开奖；扫雷：向后找哈希末位=手填雷号的区块（不改 mine_digit）
+            $packetType = (int)($packet['packet_type'] ?? 0);
+            $mineDigit = max(0, min(9, (int)($packet['mine_digit'] ?? 0)));
+            if ($packetType === 3) {
+                $nowHeight = TronBlockClient::getNowBlockNum(4);
+                if ($nowHeight < $blockNum) {
+                    if ($allowRetry) {
+                        try {
+                            Queue::later(3, 'app\\job\\TronRedPacketReveal', ['packet_id' => $packetId]);
+                        } catch (\Throwable $ignore) {
+                        }
+                    }
+                    return ['ok' => false, 'msg' => 'block not ready'];
+                }
+                $scan = 40;
+                $endNum = min($nowHeight, $blockNum + $scan - 1);
+                $found = null;
+                $lastTried = $blockNum - 1;
+                for ($n = $blockNum; $n <= $endNum; $n++) {
+                    $lastTried = $n;
+                    try {
+                        $block = TronBlockClient::getBlockByNum($n, 6);
+                    } catch (\Throwable $e) {
+                        break;
+                    }
+                    if (TronBlockClient::luckyDigitFromBlockId($block['block_id']) === $mineDigit) {
+                        $found = $block;
+                        break;
+                    }
+                }
+                if (!$found) {
+                    $next = $lastTried + 1;
+                    Db::name('chat_red_packets')->where('id', $packetId)->where('tron_status', '<>', self::STATUS_DONE)->update([
+                        'tron_block_num' => $next,
+                        'tron_status'    => self::STATUS_PENDING,
+                        'updatetime'     => time(),
+                    ]);
+                    if ($allowRetry) {
+                        try {
+                            Queue::later(3, 'app\\job\\TronRedPacketReveal', ['packet_id' => $packetId]);
+                        } catch (\Throwable $ignore) {
+                        }
+                    }
+                    return ['ok' => false, 'msg' => 'mine match continue'];
+                }
+                $lucky = TronBlockClient::luckyFromBlockId($found['block_id']);
+                $now = time();
+                Db::name('chat_red_packets')->where('id', $packetId)->update([
+                    'tron_block_num'   => (int)$found['block_num'],
+                    'tron_block_id'    => $found['block_id'],
+                    'tron_lucky'       => $lucky,
+                    'tron_status'      => self::STATUS_DONE,
+                    'fair_revealed_at' => $now,
+                    'fair_hash'        => $found['block_id'],
+                    'fair_seed'        => '',
+                    'fair_payload'     => '',
+                    'updatetime'       => $now,
+                ]);
+            } else {
+                $block = TronBlockClient::getBlockByNum($blockNum, 6);
+                $lucky = TronBlockClient::luckyFromBlockId($block['block_id']);
+                $now = time();
+                Db::name('chat_red_packets')->where('id', $packetId)->update([
+                    'tron_block_num'   => (int)$block['block_num'],
+                    'tron_block_id'    => $block['block_id'],
+                    'tron_lucky'       => $lucky,
+                    'tron_status'      => self::STATUS_DONE,
+                    'fair_revealed_at' => $now,
+                    'fair_hash'        => $block['block_id'],
+                    'fair_seed'        => '',
+                    'fair_payload'     => '',
+                    'updatetime'       => $now,
+                ]);
+            }
             $packet = Db::name('chat_red_packets')->where('id', $packetId)->find();
             $view = self::publicView($packet ?: []);
             self::cachePut($view);

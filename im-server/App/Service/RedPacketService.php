@@ -51,8 +51,9 @@ class RedPacketService
             throw new \InvalidArgumentException('invalid packet_type');
         }
         if ($packetType === 3) {
-            // 官方雷号 = 波场区块哈希末位；发包时占位，开奖后写入
-            $mineDigit = 0;
+            if ($mineDigit < 0 || $mineDigit > 9) {
+                throw new \InvalidArgumentException('mine_digit must be 0-9');
+            }
         } else {
             $mineDigit = 0;
         }
@@ -248,7 +249,7 @@ class RedPacketService
             'packet_type'    => $packetType,
             'mine_digit'     => $mineDigit,
             'tron_block_num' => $tronBlockNum,
-            'mine_pending'   => $packetType === 3,
+            'mine_pending'   => $packetType === 3, // 待匹配波场哈希末位证明
             'skin_id'        => $skinId,
             'bg_image'       => $bgImage,
             'blessing'       => $blessing,
@@ -1514,12 +1515,8 @@ class RedPacketService
                 if ((int)$p['packet_type'] === 3) {
                     $tronDone = (int)($p['tron_status'] ?? 0) === 2
                         && trim((string)($p['tron_block_id'] ?? '')) !== '';
+                    $ex['mine_digit'] = (int)($p['mine_digit'] ?? 0);
                     $ex['mine_pending'] = !$tronDone;
-                    if ($tronDone) {
-                        $ex['mine_digit'] = \Im\Support\TronBlockClient::luckyDigitFromBlockId($p['tron_block_id']);
-                    } else {
-                        unset($ex['mine_digit']);
-                    }
                 }
                 $ex['packet_type'] = (int)$p['packet_type'];
                 $ex['expiretime'] = (int)($p['expiretime'] ?? 0);
@@ -1545,7 +1542,7 @@ class RedPacketService
 
     protected function sanitizePacketFair(array $packet)
     {
-        // 未开出波场哈希前不暴露 block_id；扫雷雷号开奖后才公示
+        // 未开出波场哈希前不暴露 block_id；扫雷雷号为发包人手填，始终公示
         $tronDone = (int)($packet['tron_status'] ?? 0) === 2
             && trim((string)($packet['tron_block_id'] ?? '')) !== '';
         if (!$tronDone) {
@@ -1553,11 +1550,7 @@ class RedPacketService
         }
         if ((int)($packet['packet_type'] ?? 0) === 3) {
             $packet['mine_pending'] = !$tronDone;
-            if ($tronDone) {
-                $packet['mine_digit'] = \Im\Support\TronBlockClient::luckyDigitFromBlockId($packet['tron_block_id']);
-            } else {
-                unset($packet['mine_digit']);
-            }
+            $packet['mine_digit'] = (int)($packet['mine_digit'] ?? 0);
         }
         return $packet;
     }

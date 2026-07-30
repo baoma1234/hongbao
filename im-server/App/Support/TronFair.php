@@ -7,7 +7,7 @@ use Workerman\Timer;
 /**
  * IM 侧波场开奖调度：Timer 延迟 + 写入 think-queue delayed（双通道，无 sleep）
  *
- * 扫雷：抢完后等区块哈希揭晓，用哈希末位映射 0-9 作为官方雷号再结算。
+ * 扫雷：发包人手填雷号；开奖时从锁定高度起向后找「哈希末位=雷号」的区块作证明，再结算。
  * 拼手气：金额输赢仍按金额结算；区块哈希用于全球可查公示。
  */
 class TronFair
@@ -16,6 +16,9 @@ class TronFair
   const STATUS_PENDING = 1;
   const STATUS_DONE = 2;
   const STATUS_FAIL = 3;
+
+  /** 单次扫描最多向前找多少个块（未找到则推进游标并重试） */
+  const MINE_MATCH_SCAN = 40;
 
   public static function revealDelaySec()
   {
@@ -133,6 +136,7 @@ class TronFair
       return true;
     }
     $blockNum = (int)($packet['tron_block_num'] ?? 0);
+    $packetType = (int)($packet['packet_type'] ?? 0);
     try {
       if ($blockNum <= 0) {
         $blockNum = TronBlockClient::getNowBlockNum(4) + self::commitOffset();
@@ -141,57 +145,37 @@ class TronFair
           [$blockNum, self::STATUS_PENDING, time(), $packetId]
         );
       }
-      // 已锁定高度：直接拉块（有 Redis 缓存）；未出块由 getblockbynum 失败触发重试
-      // 不再额外 getnowblock，节省一半 TronGrid 调用
+
+      // 扫雷：从锁定高度起向后找哈希末位 == 手填雷号 的区块
+      if ($packetType === 3) {
+        return self::processMineMatchReveal($packetId, $packet, $blockNum);
+      }
+
+      // 拼手气：锁定高度直接开奖
       $block = TronBlockClient::getBlockByNum($blockNum, 6);
       $luckyChar = TronBlockClient::luckyFromBlockId($block['block_id']);
-      $luckyDigit = TronBlockClient::luckyDigitFromBlockId($block['block_id']);
       $now = time();
-      $packetType = (int)($packet['packet_type'] ?? 0);
-      // 扫雷：官方雷号 = 区块哈希末位映射 0-9
-      if ($packetType === 3) {
-        Db::exec(
-          'UPDATE ' . Db::table('chat_red_packets')
-          . ' SET tron_block_num=?, tron_block_id=?, tron_lucky=?, tron_status=?, fair_revealed_at=?,'
-          . ' fair_hash=?, fair_seed=\'\', fair_payload=\'\', mine_digit=?, updatetime=?'
-          . ' WHERE id=? AND tron_status<>?',
-          [
-            (int)$block['block_num'],
-            $block['block_id'],
-            $luckyChar,
-            self::STATUS_DONE,
-            $now,
-            $block['block_id'],
-            $luckyDigit,
-            $now,
-            $packetId,
-            self::STATUS_DONE,
-          ]
-        );
-      } else {
-        Db::exec(
-          'UPDATE ' . Db::table('chat_red_packets')
-          . ' SET tron_block_num=?, tron_block_id=?, tron_lucky=?, tron_status=?, fair_revealed_at=?,'
-          . ' fair_hash=?, fair_seed=\'\', fair_payload=\'\', updatetime=?'
-          . ' WHERE id=? AND tron_status<>?',
-          [
-            (int)$block['block_num'],
-            $block['block_id'],
-            $luckyChar,
-            self::STATUS_DONE,
-            $now,
-            $block['block_id'],
-            $now,
-            $packetId,
-            self::STATUS_DONE,
-          ]
-        );
-      }
+      Db::exec(
+        'UPDATE ' . Db::table('chat_red_packets')
+        . ' SET tron_block_num=?, tron_block_id=?, tron_lucky=?, tron_status=?, fair_revealed_at=?,'
+        . ' fair_hash=?, fair_seed=\'\', fair_payload=\'\', updatetime=?'
+        . ' WHERE id=? AND tron_status<>?',
+        [
+          (int)$block['block_num'],
+          $block['block_id'],
+          $luckyChar,
+          self::STATUS_DONE,
+          $now,
+          $block['block_id'],
+          $now,
+          $packetId,
+          self::STATUS_DONE,
+        ]
+      );
       $packet = Db::fetch('SELECT * FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1', [$packetId]);
       if ($packet) {
         self::cachePut($packet);
       }
-      self::maybeSettleAfterReveal($packetId);
       self::notifyRevealDone($packetId);
       return true;
     } catch (\Throwable $e) {
@@ -214,7 +198,110 @@ class TronFair
   }
 
   /**
-   * 波场开奖完成后：扫雷包若已抢完(status=2)则按哈希末位雷号结算并通知
+   * 扫雷开奖：寻找哈希末位（映射 0-9）与手填雷号一致的波场区块
+   */
+  protected static function processMineMatchReveal($packetId, array $packet, $startNum)
+  {
+    $packetId = (int)$packetId;
+    $startNum = max(1, (int)$startNum);
+    $mineDigit = max(0, min(9, (int)($packet['mine_digit'] ?? 0)));
+    $nowHeight = TronBlockClient::getNowBlockNum(4);
+    if ($nowHeight < $startNum) {
+      // 目标高度尚未出块，稍后重试
+      self::scheduleRevealRetry($packetId, 3.0);
+      return false;
+    }
+    $endNum = min($nowHeight, $startNum + self::MINE_MATCH_SCAN - 1);
+    $found = null;
+    $lastTried = $startNum - 1;
+    for ($n = $startNum; $n <= $endNum; $n++) {
+      $lastTried = $n;
+      try {
+        $block = TronBlockClient::getBlockByNum($n, 6);
+      } catch (\Throwable $e) {
+        // 个别高度失败：停在该高度，下次从这里继续
+        error_log('[TRON] mine match getblock fail packet=' . $packetId . ' #' . $n . ' ' . $e->getMessage());
+        break;
+      }
+      $digit = TronBlockClient::luckyDigitFromBlockId($block['block_id']);
+      if ($digit === $mineDigit) {
+        $found = $block;
+        break;
+      }
+    }
+    if (!$found) {
+      $next = $lastTried + 1;
+      Db::exec(
+        'UPDATE ' . Db::table('chat_red_packets')
+        . ' SET tron_block_num=?, tron_status=?, updatetime=? WHERE id=? AND tron_status<>?',
+        [$next, self::STATUS_PENDING, time(), $packetId, self::STATUS_DONE]
+      );
+      error_log(sprintf(
+        '[TRON] mine match continue packet=%d mine=%d scanned=%d..%d next=#%d',
+        $packetId,
+        $mineDigit,
+        $startNum,
+        $lastTried,
+        $next
+      ));
+      self::scheduleRevealRetry($packetId, 2.5);
+      return false;
+    }
+
+    $luckyChar = TronBlockClient::luckyFromBlockId($found['block_id']);
+    $now = time();
+    // 不改 mine_digit：保留发包人手填；写入匹配到的哈希证明
+    Db::exec(
+      'UPDATE ' . Db::table('chat_red_packets')
+      . ' SET tron_block_num=?, tron_block_id=?, tron_lucky=?, tron_status=?, fair_revealed_at=?,'
+      . ' fair_hash=?, fair_seed=\'\', fair_payload=\'\', updatetime=?'
+      . ' WHERE id=? AND tron_status<>?',
+      [
+        (int)$found['block_num'],
+        $found['block_id'],
+        $luckyChar,
+        self::STATUS_DONE,
+        $now,
+        $found['block_id'],
+        $now,
+        $packetId,
+        self::STATUS_DONE,
+      ]
+    );
+    $fresh = Db::fetch('SELECT * FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1', [$packetId]);
+    if ($fresh) {
+      self::cachePut($fresh);
+    }
+    error_log(sprintf(
+      '[TRON] mine match ok packet=%d mine=%d block=#%d hash_tail=%s',
+      $packetId,
+      $mineDigit,
+      (int)$found['block_num'],
+      $luckyChar
+    ));
+    self::maybeSettleAfterReveal($packetId);
+    self::notifyRevealDone($packetId);
+    return true;
+  }
+
+  protected static function scheduleRevealRetry($packetId, $delaySec = 3.0)
+  {
+    $packetId = (int)$packetId;
+    $delaySec = max(1.0, (float)$delaySec);
+    try {
+      Timer::add($delaySec, function () use ($packetId) {
+        try {
+          self::processReveal($packetId);
+        } catch (\Throwable $ignore) {
+        }
+      }, [], false);
+    } catch (\Throwable $e) {
+      error_log('[TRON] scheduleRevealRetry fail packet=' . $packetId . ' ' . $e->getMessage());
+    }
+  }
+
+  /**
+   * 波场证明完成后：扫雷包若已抢完(status=2)则按手填雷号结算并通知
    */
   public static function maybeSettleAfterReveal($packetId)
   {
@@ -291,10 +378,10 @@ class TronFair
             $n = $u ? trim((string)($u['nickname'] ?: $u['username'] ?: '')) : '';
             $names[] = $n !== '' ? $n : ('ID' . $hid);
           }
-          $text = '埋雷结算：雷号 ' . $mineDigit . '（波场哈希末位） · 中雷 ' . count($hitUids) . ' 人（'
+          $text = '埋雷结算：雷号 ' . $mineDigit . '（已匹配波场哈希末位） · 中雷 ' . count($hitUids) . ' 人（'
             . implode('、', $names) . '）';
         } else {
-          $text = '埋雷结算：雷号 ' . $mineDigit . '（波场哈希末位） · 本局无人中雷';
+          $text = '埋雷结算：雷号 ' . $mineDigit . '（已匹配波场哈希末位） · 本局无人中雷';
         }
         $sys = (new \Im\Service\MessageService())->sendGroupSystem($groupId, $text, 0, [
           'packet_id'  => $packetId,
@@ -440,9 +527,8 @@ class TronFair
     $label = $type === 2 ? '拼手气接龙' : ($type === 3 ? '扫雷' : '红包');
     $mineDigit = null;
     if ($type === 3) {
-      $mineDigit = $revealed
-        ? (int)($luckyDigit !== null ? $luckyDigit : ($packet['mine_digit'] ?? 0))
-        : null;
+      // 手填雷号始终公示；开奖后 tron lucky 应与之吻合
+      $mineDigit = (int)($packet['mine_digit'] ?? 0);
     } elseif ($revealed) {
       $mineDigit = (int)$luckyDigit;
     }
@@ -450,7 +536,7 @@ class TronFair
       'packet_no'         => (string)($packet['packet_no'] ?? ''),
       'packet_type'       => $type,
       'type_label'        => $label,
-      // 扫雷官方雷号 = 波场哈希末位；未开奖前为 null
+      // 扫雷雷号 = 发包人手填；波场区块为末位吻合的证明
       'mine_digit'        => $mineDigit,
       'mine_pending'      => $type === 3 && !$revealed,
       'total_amount'      => (float)($packet['total_amount'] ?? 0),
@@ -474,9 +560,11 @@ class TronFair
         : ($blockId !== '' ? ('https://tronscan.org/#/block/' . $blockId) : ''),
       'verify_hint'       => $revealed
         ? ('TronScan 核对区块 #' . $blockNum . ' 的 Block Hash 末位是否为 ' . $luckyChar
-          . ($type === 3 && $mineDigit !== null ? ('；本局埋雷数字=' . $mineDigit) : '')
+          . ($type === 3 ? ('（吻合埋雷数字 ' . (int)$mineDigit . '）') : '')
           . (ctype_digit((string)$luckyChar) ? '' : ('（末位 ' . $luckyChar . ' → ' . (int)$luckyDigit . '）')))
-        : ($blockNum > 0 ? ('已锁定官方区块高度 #' . $blockNum . '，出块后开奖') : '待锁定波场区块'),
+        : ($type === 3
+          ? ('已锁定高度 #' . $blockNum . '，正在查找哈希末位=' . (int)($packet['mine_digit'] ?? 0) . ' 的官方区块')
+          : ($blockNum > 0 ? ('已锁定官方区块高度 #' . $blockNum . '，出块后开奖') : '待锁定波场区块')),
     ];
     return $out;
   }

@@ -207,7 +207,7 @@
     var ptype = extra && (extra.packet_type != null) ? (extra.packet_type | 0) : 2;
     var mineRaw = extra && extra.mine_digit;
     var pending = !!(extra && extra.mine_pending);
-    var mine = (!pending && mineRaw != null && mineRaw !== '') ? (parseInt(mineRaw, 10) || 0) : null;
+    var mine = (mineRaw != null && mineRaw !== '') ? (parseInt(mineRaw, 10) || 0) : null;
     if (mine != null && (mine < 0 || mine > 9)) mine = 0;
     var cover = (state.rpCover && state.rpCover[pid]) || {};
     var grabbed = !!(cover.grabbed || (extra && extra.cover_grabbed));
@@ -223,14 +223,14 @@
       desc = time || '红包';
     }
     var bottom = '红包福利';
-    if (ptype === 3) bottom = pending ? '埋雷红包 · 待开奖' : '埋雷红包';
+    if (ptype === 3) bottom = pending ? '埋雷红包 · 匹配证明中' : '埋雷红包';
     else if (ptype === 2) bottom = '拼手气红包';
     else if (ptype === 1) bottom = '人均红包';
     if (extra && extra.mode_label) bottom = String(extra.mode_label);
     if (grabbed) bottom = '已领取';
     else if (expired) bottom = '已过期';
     bottom = escapeHtml(bottom);
-    var mineBadge = (ptype === 3 && mine != null && !pending)
+    var mineBadge = (ptype === 3 && mine != null)
       ? ('<div class="rp-mine-badge" aria-label="埋雷数字"><span class="rp-mine-badge-lab">雷</span><span class="rp-mine-badge-num">' + mine + '</span></div>')
       : '';
     var cls = 'chat-rp-card bubble-rp'
@@ -335,11 +335,9 @@
         var ptype = p.packet_type | 0;
         var mineLine = '';
         if (ptype === 3) {
-          if (p.mine_pending || p.mine_digit == null) {
-            mineLine = '<div class="chat-rp-detail-meta">埋雷数字：<strong>待波场开奖</strong></div>';
-          } else {
-            mineLine = '<div class="chat-rp-detail-meta">埋雷数字：<strong>' + (p.mine_digit | 0) + '</strong>（波场哈希末位）</div>';
-          }
+          mineLine = '<div class="chat-rp-detail-meta">埋雷数字：<strong>' + (p.mine_digit | 0) + '</strong>'
+            + (p.mine_pending ? '（匹配波场哈希末位中）' : '（已匹配波场哈希末位）')
+            + '</div>';
         }
         if ((fairHash || blockNum) && ptype !== 1) {
           var pno = encodeURIComponent(p.packet_no || '');

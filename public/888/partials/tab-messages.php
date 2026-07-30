@@ -466,9 +466,10 @@
                             </div>
 
                             <div class="chat-rp-field chat-rp-mine-card" id="chatRpMineWrap" hidden>
-                                <div class="chat-rp-mine-title" data-copy="chat_rp_mine_digit">埋雷说明</div>
+                                <div class="chat-rp-mine-title" data-copy="chat_rp_mine_digit">埋雷数字（0～9）</div>
+                                <div class="chat-rp-mine-digits" id="chatRpMineDigits" role="group" aria-label="选择雷号"></div>
                                 <input type="hidden" id="chatRpMineDigit" value="0">
-                                <div class="chat-rp-field-hint" data-copy="chat_rp_mine_hint">雷号由波场区块哈希末位开奖揭晓；金额尾数等于雷号即中雷，可多人同时中雷。</div>
+                                <div class="chat-rp-field-hint" data-copy="chat_rp_mine_hint">手填雷号；开奖后匹配哈希末位相同的波场区块作证明。金额尾数等于雷号即中雷，可多人同时中雷。</div>
                             </div>
 
                             <div class="chat-rp-field">
