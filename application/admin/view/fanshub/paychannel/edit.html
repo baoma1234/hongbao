@@ -24,7 +24,7 @@
         <div class="col-xs-12 col-sm-8">
             <select name="row[partition_id]" class="form-control selectpicker">
                 {foreach name="partitionList" item="vo" key="k"}
-                <option value="{$k}" {if condition="(isset($row.partition_id) ? $row.partition_id : '0') == $k"}selected{/if}>{$vo}</option>
+                <option value="{$k}" {eq name="row.partition_id" value="$k"}selected{/eq}>{$vo}</option>
                 {/foreach}
             </select>
             <span class="help-block">前台按分区分组展示；可在「财务管理 → 充提分区」编辑分区名称/多语言</span>
