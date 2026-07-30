@@ -4,12 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>波场官方哈希验证</title>
-<link rel="stylesheet" href="css/fair-verify.css?v=202607310255">
+<link rel="stylesheet" href="css/fair-verify.css?v=202607310300">
 </head>
 <body>
 <div class="wrap">
 <h1>波场官方哈希验证</h1>
-<p class="sub">拼手气/扫雷金额由「波场 Block Hash + 红包单号」链下确定性拆分。本页核对：区块哈希、拆包金额序列、实际领取金额是否一致。可在 TronScan / OKLink 全球核验区块。</p>
+<p class="sub">拼手气金额由「波场 Block Hash + 单号」链下拆分。扫雷另要求：哈希末位必须等于手填雷号后才拆包开抢；中雷看金额尾数。可在 TronScan / OKLink 核验。</p>
 <div class="card">
 <label for="packetNo">红包单号 packet_no</label>
 <input id="packetNo" type="text" placeholder="rp..." autocomplete="off">
@@ -19,6 +19,6 @@
 </div>
 <div id="result" style="display:none"></div>
 </div>
-<script src="js/fair-verify.js?v=202607310255"></script>
+<script src="js/fair-verify.js?v=202607310300"></script>
 </body>
 </html>

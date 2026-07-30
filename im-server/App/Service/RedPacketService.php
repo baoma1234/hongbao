@@ -164,14 +164,17 @@ class RedPacketService
         $expireAt = $now + max(1, $expireSec);
         $field = $this->wallet->field();
 
-        // 拼手气/扫雷：从 Redis 最新波场哈希立刻链下拆包（零打节点、可马上抢）
+        // 拼手气：Redis 最新哈希立刻拆包
+        // 扫雷：哈希末位必须等于手填雷号；匹配后才拆包开抢，否则 pending
         $tronBlockNum = 0;
         $tronBlockId = '';
         $tronLucky = '';
         $tronStatus = 0;
         $fairCentsJson = '';
         $fairRevealedAt = 0;
-        if (in_array($packetType, [2, 3], true)) {
+        $cents = [];
+        $minePending = false;
+        if ($packetType === 2) {
             $latest = TronHashCache::getOrRefresh(4);
             $tronBlockNum = (int)$latest['block_num'];
             $tronBlockId = (string)$latest['block_id'];
@@ -180,10 +183,28 @@ class RedPacketService
             $tronStatus = TronFair::STATUS_DONE;
             $fairCentsJson = json_encode($cents, JSON_UNESCAPED_UNICODE);
             $fairRevealedAt = $now;
+        } elseif ($packetType === 3) {
+            $latest = TronHashCache::getOrRefresh(4);
+            $tronBlockNum = (int)$latest['block_num'];
+            $hashDigit = TronBlockClient::luckyDigitFromBlockId($latest['block_id']);
+            if ($hashDigit === (int)$mineDigit) {
+                $tronBlockId = (string)$latest['block_id'];
+                $tronLucky = TronBlockClient::luckyFromBlockId($tronBlockId);
+                $cents = $this->splitLuckyFromHash($poolCent, $totalCount, $minCent, $tronBlockId, $packetNo);
+                $tronStatus = TronFair::STATUS_DONE;
+                $fairCentsJson = json_encode($cents, JSON_UNESCAPED_UNICODE);
+                $fairRevealedAt = $now;
+                $minePending = false;
+            } else {
+                // 锁定当前高度起向后匹配；暂不拆金额、不可抢
+                $tronStatus = TronFair::STATUS_PENDING;
+                $minePending = true;
+                $cents = [];
+            }
         } else {
             $cents = $this->splitEqual($poolCent, $totalCount, $minCent);
         }
-        if (array_sum($cents) !== $poolCent) {
+        if ($cents && array_sum($cents) !== $poolCent) {
             throw new \RuntimeException('split sum mismatch');
         }
 
@@ -251,6 +272,8 @@ class RedPacketService
             'total_cent'   => $poolCent,
             'packet_type'  => $packetType,
             'mine_digit'   => $mineDigit,
+            'tron_status'  => (string)$tronStatus,
+            'mine_pending' => $minePending ? '1' : '0',
         ]);
 
         if ($tronStatus === TronFair::STATUS_DONE && $tronBlockId !== '') {
@@ -260,6 +283,15 @@ class RedPacketService
                     TronFair::cachePut($row);
                 }
             } catch (\Throwable $e) {
+            }
+        }
+
+        // 扫雷未匹配：异步向后找哈希末位=雷号的区块，匹配后再拆包开抢
+        if ($packetType === 3 && $minePending) {
+            try {
+                TronFair::scheduleReveal($packetId, 1);
+            } catch (\Throwable $e) {
+                error_log('[TRON] mine match schedule fail packet=' . $packetId . ' ' . $e->getMessage());
             }
         }
 
@@ -274,7 +306,7 @@ class RedPacketService
             'tron_block_id'  => $tronBlockId,
             'tron_lucky'     => $tronLucky,
             'tron_status'    => $tronStatus,
-            'mine_pending'   => false,
+            'mine_pending'   => $minePending,
             'skin_id'        => $skinId,
             'bg_image'       => $bgImage,
             'blessing'       => $blessing,
@@ -295,6 +327,100 @@ class RedPacketService
             'wallet'     => $field,
             'balance'    => $this->wallet->getBalance($fromUserId),
         ];
+    }
+
+    /**
+     * 扫雷：哈希末位匹配手填雷号后，用该块哈希拆金额并开放抢包
+     * @param array{block_num:int,block_id:string} $block
+     */
+    public function activateMineWithBlock($packetId, array $block)
+    {
+        $packetId = (int)$packetId;
+        $blockId = strtolower(trim((string)($block['block_id'] ?? '')));
+        $blockNum = (int)($block['block_num'] ?? 0);
+        if ($packetId <= 0 || $blockId === '' || $blockNum <= 0) {
+            return false;
+        }
+        $packet = Db::fetch('SELECT * FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1', [$packetId]);
+        if (!$packet || (int)($packet['packet_type'] ?? 0) !== 3) {
+            return false;
+        }
+        if ((int)($packet['tron_status'] ?? 0) === TronFair::STATUS_DONE
+            && trim((string)($packet['tron_block_id'] ?? '')) !== '') {
+            return true;
+        }
+        $mineDigit = max(0, min(9, (int)($packet['mine_digit'] ?? 0)));
+        $hashDigit = TronBlockClient::luckyDigitFromBlockId($blockId);
+        if ($hashDigit !== $mineDigit) {
+            return false;
+        }
+        $poolCent = (int)round((float)($packet['pool_amount'] ?? 0) * 100);
+        $totalCount = (int)($packet['total_count'] ?? 0);
+        $minCent = max(1, (int)($this->cfg['min_amount_cent'] ?? 1));
+        $packetNo = (string)($packet['packet_no'] ?? '');
+        $cents = $this->splitLuckyFromHash($poolCent, $totalCount, $minCent, $blockId, $packetNo);
+        if (array_sum($cents) !== $poolCent) {
+            throw new \RuntimeException('mine split sum mismatch');
+        }
+        $luckyChar = TronBlockClient::luckyFromBlockId($blockId);
+        $now = time();
+        $fairCentsJson = json_encode($cents, JSON_UNESCAPED_UNICODE);
+        $n = Db::exec(
+            'UPDATE ' . Db::table('chat_red_packets')
+            . ' SET tron_block_num=?, tron_block_id=?, tron_lucky=?, tron_status=?, fair_revealed_at=?,'
+            . ' fair_hash=?, fair_cents=?, fair_seed=\'\', fair_payload=\'\', updatetime=?'
+            . ' WHERE id=? AND tron_status<>?',
+            [
+                $blockNum,
+                $blockId,
+                $luckyChar,
+                TronFair::STATUS_DONE,
+                $now,
+                $blockId,
+                $fairCentsJson,
+                $now,
+                $packetId,
+                TronFair::STATUS_DONE,
+            ]
+        );
+        if ($n <= 0) {
+            // 可能并发已完成
+            $fresh = Db::fetch(
+                'SELECT tron_status, tron_block_id FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1',
+                [$packetId]
+            );
+            return $fresh && (int)($fresh['tron_status'] ?? 0) === TronFair::STATUS_DONE
+                && trim((string)($fresh['tron_block_id'] ?? '')) !== '';
+        }
+        $expireAt = (int)($packet['expiretime'] ?? ($now + 180));
+        $this->seedRedis($packetId, $cents, $expireAt, [
+            'packet_no'    => $packetNo,
+            'scope_type'   => (int)$packet['scope_type'],
+            'group_id'     => (int)$packet['group_id'],
+            'to_user_id'   => (int)$packet['to_user_id'],
+            'from_user_id' => (int)$packet['from_user_id'],
+            'total_amount' => sprintf('%.2f', (float)$packet['total_amount']),
+            'total_count'  => $totalCount,
+            'total_cent'   => $poolCent,
+            'packet_type'  => 3,
+            'mine_digit'   => $mineDigit,
+            'tron_status'  => (string)TronFair::STATUS_DONE,
+            'mine_pending' => '0',
+        ]);
+        $fresh = Db::fetch('SELECT * FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1', [$packetId]);
+        if ($fresh) {
+            TronFair::cachePut($fresh);
+        }
+        error_log(sprintf(
+            '[TRON] mine activate ok packet=%d mine=%d block=#%d hash_tail=%s',
+            $packetId,
+            $mineDigit,
+            $blockNum,
+            $luckyChar
+        ));
+        TronFair::maybeSettleAfterReveal($packetId);
+        TronFair::notifyRevealDone($packetId);
+        return true;
     }
 
     /**
@@ -486,6 +612,19 @@ class RedPacketService
         $packetType = (int)$packet['packet_type'];
         $totalAmount = round((float)$packet['total_amount'], 2);
         $packetNo = (string)$packet['packet_no'];
+
+        // 扫雷：须等哈希末位匹配手填雷号并拆包后才能抢
+        if ($packetType === 3) {
+            $tronRow = Db::fetch(
+                'SELECT tron_status, tron_block_id FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1',
+                [$packetId]
+            );
+            $ts = (int)($tronRow['tron_status'] ?? ($packet['tron_status'] ?? 0));
+            $bid = trim((string)($tronRow['tron_block_id'] ?? ($packet['tron_block_id'] ?? '')));
+            if ($ts !== TronFair::STATUS_DONE || $bid === '') {
+                throw new \RuntimeException('mine_hash_pending');
+            }
+        }
 
         // ---------- 关键节点：验资拦截（必须在 Redis 弹队列之前）----------
         // 手气包(2) 赔付整包总额；扫雷包(3) 按个数倍率赔付（如 5 包 1.5 倍）。
@@ -841,10 +980,10 @@ class RedPacketService
                             $n = $u ? trim((string)($u['nickname'] ?: $u['username'] ?: '')) : '';
                             $names[] = $n !== '' ? $n : ('ID' . $hid);
                         }
-                        $text = '埋雷结算：雷号 ' . $mineDigit . ' · 中雷 ' . count($hitUids) . ' 人（'
+                        $text = '埋雷结算：雷号 ' . $mineDigit . '（哈希末位已匹配） · 中雷 ' . count($hitUids) . ' 人（'
                             . implode('、', $names) . '）';
                     } else {
-                        $text = '埋雷结算：雷号 ' . $mineDigit . ' · 本局无人中雷';
+                        $text = '埋雷结算：雷号 ' . $mineDigit . '（哈希末位已匹配） · 本局无人中雷';
                     }
                     $sys = $this->messages->sendGroupSystem((int)$hint['group_id'], $text, 0, [
                         'packet_id'  => $packetId,

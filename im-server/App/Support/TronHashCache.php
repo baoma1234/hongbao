@@ -67,6 +67,11 @@ class TronHashCache
         ]);
       } catch (\Throwable $e) {
       }
+      try {
+        TronFair::onLatestHash($payload);
+      } catch (\Throwable $e) {
+        error_log('[TRON_HASH] onLatestHash fail: ' . $e->getMessage());
+      }
       return $payload;
     } catch (\Throwable $e) {
       error_log('[TRON_HASH] refresh fail: ' . $e->getMessage());

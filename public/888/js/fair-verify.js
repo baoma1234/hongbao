@@ -141,6 +141,12 @@
           ? ynTag(!!av.match_grabs, '\u524d\u7f00\u4e00\u81f4', '\u4e0d\u4e00\u81f4')
           : '<span class="tag wait">\u5c1a\u65e0\u9886\u53d6</span>')
       );
+      if ((d.packet_type | 0) === 3) {
+        cardAmt += tag(D, 'row',
+          '<span>\u54c8\u5e0c\u672b\u4f4d=\u624b\u586b\u96f7\u53f7</span>' +
+          ynTag(!!av.mine_digit_match, '\u5df2\u5339\u914d ' + esc(String(mineDigit)) , '\u4e0d\u5339\u914d')
+        );
+      }
       cardAmt += '<label style="margin-top:10px">\u94fe\u4e0b\u590d\u7b97\u91d1\u989d\u5e8f\u5217</label>' + centsChips(computed);
       if (stored && stored.length) {
         cardAmt += '<label style="margin-top:10px">\u5165\u5e93 fair_cents</label>' + centsChips(stored);

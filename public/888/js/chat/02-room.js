@@ -1699,6 +1699,7 @@
         'packet not found': '红包不存在',
         'not in group': '你不在该群内',
         balance_below_mine_min: '余额须大于本群最低金额限制，才能领取扫雷红包',
+        mine_hash_pending: '扫雷开奖中：等待波场哈希末位匹配雷号后再抢',
         slider_required: '请完成滑块验证后再抢',
         'grab cancelled': '已取消验证'
       };

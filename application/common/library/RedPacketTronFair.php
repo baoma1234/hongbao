@@ -373,15 +373,22 @@ class RedPacketTronFair
             $matchGrab = true; // 尚未有人领取，拆包序列本身可核对
         }
 
+        $mineDigitMatch = true;
+        if ($type === 3 && $revealed && $luckyDigit !== null) {
+            $mineDigitMatch = ((int)$luckyDigit === (int)$mineDigit);
+        }
+
         $amountOk = $computedCents !== [] && ($storedCents === [] || $matchStored)
             && ($grabCents === [] || $matchGrab)
-            && array_sum($computedCents) === $poolCent;
+            && array_sum($computedCents) === $poolCent
+            && $mineDigitMatch;
 
         $out = [
             'packet_no'        => $packetNo,
             'packet_type'      => $type,
             'type_label'       => self::typeLabel($type),
             'mine_digit'       => $mineDigit,
+            'mine_pending'     => $type === 3 && !$revealed,
             'total_amount'     => (float)($packet['total_amount'] ?? 0),
             'pool_amount'      => $poolAmount,
             'pool_cent'        => $poolCent,
@@ -402,9 +409,11 @@ class RedPacketTronFair
             'fair_revealed_at' => (int)($packet['fair_revealed_at'] ?? 0),
             'tronscan_url'     => $blockNum > 0 ? ('https://tronscan.org/#/block/' . $blockNum) : ($blockId !== '' ? ('https://tronscan.org/#/block/' . $blockId) : ''),
             'verify_hint'      => $revealed
-                ? ('金额由 Block Hash + 单号链下拆分；可核对哈希末位 ' . $luckyChar
-                    . ($type === 3 ? ('；中雷看金额尾数是否等于埋雷 ' . (int)$mineDigit) : ''))
-                : ($blockNum > 0 ? ('已锁定区块高度 #' . $blockNum) : '待写入波场哈希'),
+                ? ('金额由 Block Hash + 单号链下拆分；哈希末位 ' . $luckyChar
+                    . ($type === 3 ? (' 须等于埋雷 ' . (int)$mineDigit . '；中雷看金额尾数') : ''))
+                : ($type === 3
+                    ? ('等待哈希末位=' . (int)$mineDigit . ' 的官方区块')
+                    : ($blockNum > 0 ? ('已锁定区块高度 #' . $blockNum) : '待写入波场哈希')),
             'fair_cents'       => $storedCents,
             'computed_cents'   => $computedCents,
             'grab_cents'       => $grabCents,
@@ -414,6 +423,7 @@ class RedPacketTronFair
                 'sum_ok'          => $computedCents !== [] && array_sum($computedCents) === $poolCent,
                 'match_stored'    => $matchStored || ($storedCents === [] && $computedCents !== []),
                 'match_grabs'     => $matchGrab,
+                'mine_digit_match'=> $mineDigitMatch,
                 'has_stored'      => $storedCents !== [],
                 'has_grabs'       => $grabCents !== [],
                 'algorithm'       => 'sha256(block_id|packet_no|rp-split) + double-mean',

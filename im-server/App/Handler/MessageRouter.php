@@ -207,6 +207,9 @@ class MessageRouter
         if ($msg === 'balance_below_mine_min') {
             return '余额须大于本群最低金额限制，才能领取扫雷红包';
         }
+        if ($msg === 'mine_hash_pending') {
+            return 'mine_hash_pending';
+        }
         if ($msg === 'mine count must be 5, 7 or 9') {
             return '扫雷红包个数仅可选 5 / 7 / 9';
         }

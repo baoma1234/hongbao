@@ -94,10 +94,22 @@ class RedPacketSettlementService
             $compensateAmount = $totalAmount;
             $mineDigit = max(0, min(9, (int)($packet['mine_digit'] ?? 0)));
             if ($packetType === 3) {
-                // 金额由发包时 Redis 最新波场哈希拆出；中雷看金额尾数 vs 手填雷号
+                // 须哈希末位匹配手填雷号后再结算
                 if ((int)($packet['tron_status'] ?? 0) !== 2 || trim((string)($packet['tron_block_id'] ?? '')) === '') {
                     Db::rollBack();
-                    error_log('[RP_SETTLE] mine missing tron hash packet_id=' . $packetId);
+                    error_log('[RP_SETTLE] mine wait hash match packet_id=' . $packetId);
+                    $this->releaseLock($lockKey, $gotLock);
+                    return $result;
+                }
+                $hashDigit = \Im\Support\TronBlockClient::luckyDigitFromBlockId($packet['tron_block_id']);
+                if ($hashDigit !== $mineDigit) {
+                    Db::rollBack();
+                    error_log(sprintf(
+                        '[RP_SETTLE] mine hash mismatch packet_id=%d mine=%d hash_digit=%d',
+                        $packetId,
+                        $mineDigit,
+                        $hashDigit
+                    ));
                     $this->releaseLock($lockKey, $gotLock);
                     return $result;
                 }
@@ -106,7 +118,7 @@ class RedPacketSettlementService
             $now = time();
             $bizMeta = ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId];
 
-            // 埋雷：金额尾数等于手填雷号则中雷；波场哈希为拆包随机源公示
+            // 埋雷：金额尾数=手填雷号中雷；波场哈希末位须等于手填雷号
 
             $records = Db::fetchAll(
                 'SELECT * FROM ' . Db::table('chat_red_packet_records') . ' WHERE packet_id=? FOR UPDATE',
