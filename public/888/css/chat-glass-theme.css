@@ -209,7 +209,12 @@ body.tab-messages {
   border-radius: 0 !important;
   box-shadow: none !important;
   border: none !important;
-  overflow: hidden;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 #tabMessages .chat-conv-item {

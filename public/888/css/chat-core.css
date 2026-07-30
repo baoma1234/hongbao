@@ -352,9 +352,8 @@ body.tab-messages .bottom-action-bar {
 }
 .chat-list-main {
   padding: 12px 0 8px;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
+  /* 列表滚动交给 .chat-conv-list / 各面板内部，避免 flex 子项撑高后无法滚动 */
+  overflow: hidden;
   box-shadow: none;
 }
 .chat-sub-main,
@@ -408,6 +407,7 @@ body.tab-messages .bottom-action-bar {
   font-size: 11px;
   color: var(--color-text-hint);
   margin: 0 12px 4px;
+  flex-shrink: 0;
 }
 .chat-conn.ok { color: var(--color-primary-end); }
 .chat-conn.err { color: var(--color-primary-start); }
@@ -415,6 +415,7 @@ body.tab-messages .bottom-action-bar {
   font-size: 12px;
   color: var(--color-text-hint);
   margin: 0 12px 8px;
+  flex-shrink: 0;
 }
 
 /* ---------- Conversation list ---------- */
@@ -422,7 +423,12 @@ body.tab-messages .bottom-action-bar {
   background: var(--color-bg-card);
   border: none;
   border-radius: 0;
-  overflow: hidden;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   box-shadow: none;
 }
 .chat-conv-item {
@@ -1145,6 +1151,7 @@ body.tab-messages .bottom-action-bar {
   flex-direction: column;
   gap: 10px;
   margin: 0 12px 10px;
+  flex-shrink: 0;
 }
 .chat-home-search-row {
   display: flex;
@@ -1260,7 +1267,7 @@ body.tab-messages .bottom-action-bar {
   flex-shrink: 0;
 }
 .chat-home-tab-create:active { color: var(--color-primary-start); }
-.chat-home-panel { min-height: 0; flex: 1; display: flex; flex-direction: column; }
+.chat-home-panel { min-height: 0; flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 .chat-empty-sm { padding: 16px 8px; font-size: 12px; color: var(--color-text-hint); text-align: center; }
 
 .chat-community-section { margin: 0 12px 8px; }
