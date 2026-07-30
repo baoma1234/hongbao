@@ -89,14 +89,14 @@
     };
   }
 
-  /** 有「更多钱包」时默认选置顶通道，避免选中隐藏项导致列表被强制展开 */
-  function pickDefaultChannel(list, useMore) {
+  /** 有「钱包下拉」时：优先选 BS 收银台按钮；否则不预选下拉项 */
+  function pickDefaultChannel(list, useSelect, type) {
     var arr = list || [];
     if (!arr.length) return null;
-    if (!useMore) return arr[0];
-    var groups = organizeWalletChannels(arr);
-    if (groups.pinned.length) return groups.pinned[0];
-    return groups.more[0] || arr[0];
+    if (!useSelect) return arr[0];
+    var split = splitWalletChannels(arr, type);
+    if (split.featured.length) return split.featured[0];
+    return null;
   }
 
   function findChannel(list, id) {
@@ -133,34 +133,76 @@
       : wt('profile_amount_ph', '请输入金额');
   }
 
+  function withdrawPayeeReady(ch) {
+    if (!ch) return false;
+    if (String(ch.bind_mode || '') === 'wallet') {
+      var wtype = String(ch.wallet_type || ch.payment_channel || '');
+      return !!(walletState.binds && walletState.binds[wtype]);
+    }
+    var account = ((document.getElementById('profileWithdrawAccount') || {}).value || '').trim();
+    var name = ((document.getElementById('profileWithdrawName') || {}).value || '').trim();
+    var isBsUsdt = String(ch.handler || '').toLowerCase() === 'bs';
+    if (isBsUsdt) return !!account;
+    return !!(account && name);
+  }
+
+  function setWithdrawAmountGate(open) {
+    var gate = document.getElementById('profileWithdrawAmountGate');
+    if (!gate) return;
+    if (open) {
+      gate.removeAttribute('hidden');
+      gate.style.display = '';
+    } else {
+      gate.setAttribute('hidden', 'hidden');
+      gate.style.display = 'none';
+    }
+  }
+
   function syncWithdrawBindUI(ch) {
     var bindPanel = document.getElementById('profileWithdrawWalletBind');
     var convPanel = document.getElementById('profileWithdrawConventional');
     var submitBtn = document.getElementById('profileWithdrawSubmit');
     if (!ch) {
       if (bindPanel) { bindPanel.hidden = true; }
-      if (convPanel) { convPanel.style.display = ''; }
+      if (convPanel) { convPanel.style.display = 'none'; }
+      setWithdrawAmountGate(false);
       return;
     }
     var mode = String(ch.bind_mode || '');
     var isWallet = mode === 'wallet';
     if (bindPanel) bindPanel.hidden = !isWallet;
     if (convPanel) convPanel.style.display = isWallet ? 'none' : '';
-    if (!isWallet) {
-      if (submitBtn) submitBtn.style.display = '';
-      walletState.rebinding = false;
+    if (isWallet) {
+      var wtype = String(ch.wallet_type || ch.payment_channel || '');
+      var bind = (walletState.binds && walletState.binds[wtype]) || null;
+      var cur = document.getElementById('profileWithdrawBindCurrent');
+      var form = document.getElementById('profileWithdrawBindForm');
+      var addr = document.getElementById('profileWithdrawBoundAddr');
+      var needBind = !bind;
+      if (cur) cur.hidden = !bind;
+      if (form) form.style.display = needBind ? '' : 'none';
+      if (addr && bind) addr.textContent = bind.account_no || '-';
+      setWithdrawAmountGate(!needBind);
+      if (submitBtn) submitBtn.style.display = needBind ? 'none' : '';
       return;
     }
-    var wtype = String(ch.wallet_type || ch.payment_channel || '');
-    var bind = (walletState.binds && walletState.binds[wtype]) || null;
-    var cur = document.getElementById('profileWithdrawBindCurrent');
-    var form = document.getElementById('profileWithdrawBindForm');
-    var addr = document.getElementById('profileWithdrawBoundAddr');
-    var needBind = !bind;
-    if (cur) cur.hidden = !bind;
-    if (form) form.style.display = needBind ? '' : 'none';
-    if (addr && bind) addr.textContent = bind.account_no || '-';
-    if (submitBtn) submitBtn.style.display = needBind ? 'none' : '';
+    // 常规/银行：先填收款信息，再解锁金额
+    var ready = withdrawPayeeReady(ch);
+    setWithdrawAmountGate(ready);
+    if (submitBtn) submitBtn.style.display = ready ? '' : 'none';
+  }
+
+  function bindWithdrawPayeeWatch() {
+    ['profileWithdrawAccount', 'profileWithdrawName', 'profileWithdrawBank'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (!el || el._walletGateBound) return;
+      el._walletGateBound = true;
+      el.addEventListener('input', function () {
+        var ch = findChannel(walletState.withdraw, walletState.selectedWithdraw | 0);
+        if (!ch || String(ch.bind_mode || '') === 'wallet') return;
+        syncWithdrawBindUI(ch);
+      });
+    });
   }
 
   function showAmountPanel(type, channelId) {
@@ -174,6 +216,7 @@
       panel.setAttribute('hidden', 'hidden');
       panel.style.display = 'none';
       panel.classList.remove('is-open');
+      if (!isRecharge) setWithdrawAmountGate(false);
       return;
     }
     panel.removeAttribute('hidden');
@@ -182,6 +225,7 @@
     if (hint) hint.textContent = formatLimitHint(ch);
     applyAmountLimits(isRecharge ? 'profileRechargeAmount' : 'profileWithdrawAmount', ch);
     if (!isRecharge) {
+      bindWithdrawPayeeWatch();
       syncWithdrawBindUI(ch);
       var isBsUsdt = ch && String(ch.handler || '').toLowerCase() === 'bs';
       var nameWrap = document.getElementById('profileWithdrawName');
@@ -208,6 +252,8 @@
         if (bank && !(bank.value || '').trim() && ch.name && !isBsUsdt) {
           bank.value = String(ch.name).replace(/(充值|代付|提现)$/, '') || ch.name;
         }
+        // 银行名自动填后重新判断是否可解锁金额
+        syncWithdrawBindUI(ch);
       }
     }
     try {
@@ -252,41 +298,64 @@
     );
   }
 
-  function moreButtonHtml(type, partKey, expanded) {
+  /** BS USDT 收银台充值：单独按钮，不进钱包下拉 */
+  function isBsCashierRecharge(ch, type) {
+    if (type !== 'recharge' || !ch) return false;
+    if (String(ch.handler || '').toLowerCase() !== 'bs') return false;
+    var mode = String(ch.recharge_mode || '').toLowerCase();
+    if (mode === 'api') return false;
+    // 默认/空/cashier 都视为收银台
+    if (mode === '' || mode === 'cashier') return true;
+    return /收银台|cashier/i.test(String(ch.name || ''));
+  }
+
+  function splitWalletChannels(list, type) {
+    var featured = [];
+    var dropdown = [];
+    (list || []).forEach(function (ch) {
+      if (isBsCashierRecharge(ch, type)) featured.push(ch);
+      else dropdown.push(ch);
+    });
+    var groups = organizeWalletChannels(dropdown);
+    var ordered = groups.pinned.concat(groups.more);
+    return { featured: featured, dropdown: ordered };
+  }
+
+  function channelSelectHtml(list, type, sel) {
+    var opts = '<option value="0">' + escapeHtml(wt('wallet_select_placeholder', '请选择钱包')) + '</option>';
+    (list || []).forEach(function (ch) {
+      var id = ch.id | 0;
+      var name = ch.name || wt('wallet_channel_fallback', '通道{id}', { id: id });
+      var lim = formatLimitHint(ch);
+      var label = lim ? (name + '（' + lim + '）') : name;
+      opts += '<option value="' + id + '"' + (sel === id ? ' selected' : '') + '>' + escapeHtml(label) + '</option>';
+    });
     return (
-      '<button type="button" class="wallet-channel-item wallet-channel-more-btn' + (expanded ? ' is-open' : '') + '" data-more-type="' + type + '" data-more-part="' + escapeHtml(partKey) + '" aria-expanded="' + (expanded ? 'true' : 'false') + '">' +
-        '<span class="wallet-channel-icon wallet-channel-icon--placeholder" aria-hidden="true">' + (expanded ? '−' : '+') + '</span>' +
-        '<span class="wallet-channel-meta">' +
-          '<span class="wallet-channel-name">' +
-            escapeHtml(expanded ? wt('wallet_channel_less', '收起') : wt('wallet_channel_more', '更多钱包')) +
-          '</span>' +
-          '<small>' + escapeHtml(expanded
-            ? wt('wallet_channel_less_hint', '点击收起其余通道')
-            : wt('wallet_channel_more_hint', '点击查看全部通道')) + '</small>' +
-        '</span>' +
-      '</button>'
+      '<div class="profile-field wallet-channel-select-wrap">' +
+        '<label data-copy="wallet_select_label">' + escapeHtml(wt('wallet_select_label', '选择钱包')) + '</label>' +
+        '<select class="login-input wallet-channel-select" data-type="' + type + '">' + opts + '</select>' +
+      '</div>'
     );
   }
 
-  function renderChannelGroupHtml(list, type, sel, partKey, useMore) {
-    if (!useMore) {
+  function renderChannelGroupHtml(list, type, sel, partKey, useSelect) {
+    if (!useSelect) {
       return (list || []).map(function (ch) { return channelButtonHtml(ch, type, sel); }).join('');
     }
-    var groups = organizeWalletChannels(list);
+    var split = splitWalletChannels(list, type);
     var html = '';
-    var expandedMap = type === 'recharge' ? walletState.rechargeExpanded : walletState.withdrawExpanded;
-    if (!groups.pinned.length) {
-      return groups.more.map(function (ch) { return channelButtonHtml(ch, type, sel); }).join('');
-    }
-    html = groups.pinned.map(function (ch) { return channelButtonHtml(ch, type, sel); }).join('');
-    if (groups.more.length) {
-      var selInMore = groups.more.some(function (ch) { return (ch.id | 0) === sel; });
-      if (selInMore) expandedMap[partKey] = true;
-      var expanded = !!expandedMap[partKey];
-      html += moreButtonHtml(type, partKey, expanded);
-      html += '<div class="wallet-channel-more-list"' + (expanded ? '' : ' hidden') + '>' +
-        groups.more.map(function (ch) { return channelButtonHtml(ch, type, sel); }).join('') +
+    if (split.featured.length) {
+      html += '<div class="wallet-channel-featured">' +
+        split.featured.map(function (ch) { return channelButtonHtml(ch, type, sel); }).join('') +
         '</div>';
+    }
+    if (split.dropdown.length) {
+      // 若当前选中是收银台按钮，下拉保持「请选择」
+      var selInDrop = split.dropdown.some(function (ch) { return (ch.id | 0) === sel; });
+      html += channelSelectHtml(split.dropdown, type, selInDrop ? sel : 0);
+    } else if (!split.featured.length) {
+      html = '<div class="wallet-channel-empty wallet-channel-empty--inline">' +
+        escapeHtml(wt('wallet_partition_empty', '当前分区暂无可用通道')) + '</div>';
     }
     return html;
   }
@@ -352,30 +421,7 @@
     box.onclick = function (ev) {
       var t = ev.target;
       if (!t) return;
-      var moreBtn = t.closest ? t.closest('.wallet-channel-more-btn') : null;
-      if (!moreBtn && t.classList && t.classList.contains('wallet-channel-more-btn')) moreBtn = t;
-      if (moreBtn) {
-        ev.preventDefault();
-        var partKey = moreBtn.getAttribute('data-more-part') || 'wallet';
-        var expandedMap = type === 'recharge' ? walletState.rechargeExpanded : walletState.withdrawExpanded;
-        var willExpand = !expandedMap[partKey];
-        expandedMap[partKey] = willExpand;
-        // 收起时若当前选中在「更多」里，改选置顶通道，否则 render 会因选中项强制再次展开
-        if (!willExpand) {
-          var partitions = type === 'recharge' ? walletState.rechargePartitions : walletState.withdrawPartitions;
-          var activePart = getActivePartition(partitions, type);
-          var chs = activePart ? (activePart.channels || []) : (type === 'recharge' ? walletState.recharge : walletState.withdraw);
-          var groups = organizeWalletChannels(chs);
-          var sel = (type === 'recharge' ? walletState.selectedRecharge : walletState.selectedWithdraw) | 0;
-          var inMore = groups.more.some(function (ch) { return (ch.id | 0) === sel; });
-          if (inMore && groups.pinned[0]) {
-            if (type === 'recharge') walletState.selectedRecharge = groups.pinned[0].id | 0;
-            else walletState.selectedWithdraw = groups.pinned[0].id | 0;
-          }
-        }
-        renderChannels(box.id, type === 'recharge' ? walletState.recharge : walletState.withdraw, type);
-        return;
-      }
+      if (t.tagName === 'SELECT' || (t.closest && t.closest('select'))) return;
       var btn = t.closest ? t.closest('.wallet-channel-item') : null;
       if (!btn && t.classList && t.classList.contains('wallet-channel-item')) btn = t;
       if (!btn) {
@@ -388,7 +434,7 @@
           node = node.parentNode;
         }
       }
-      if (!btn || btn.classList.contains('wallet-channel-more-btn')) return;
+      if (!btn) return;
       ev.preventDefault();
       var items = box.querySelectorAll('.wallet-channel-item');
       for (var i = 0; i < items.length; i++) items[i].classList.remove('active');
@@ -396,8 +442,21 @@
       var id = parseInt(btn.getAttribute('data-id'), 10) || 0;
       if (type === 'recharge') walletState.selectedRecharge = id;
       else walletState.selectedWithdraw = id;
+      var sel = box.querySelector('.wallet-channel-select');
+      if (sel) sel.value = '0';
       showAmountPanel(type, id);
     };
+    var select = box.querySelector('.wallet-channel-select');
+    if (select) {
+      select.onchange = function () {
+        var id = parseInt(select.value, 10) || 0;
+        if (type === 'recharge') walletState.selectedRecharge = id;
+        else walletState.selectedWithdraw = id;
+        var items = box.querySelectorAll('.wallet-channel-item');
+        for (var i = 0; i < items.length; i++) items[i].classList.remove('active');
+        showAmountPanel(type, id);
+      };
+    }
   }
 
   function renderChannels(boxId, list, type) {
@@ -419,17 +478,17 @@
     var activePart = getActivePartition(partitions, type);
     var chs = activePart ? (activePart.channels || []) : flat;
     var partKey = activePart ? String(activePart.code || activePart.id || 'part') : 'all';
-    var useMore = !!(activePart && (activePart.code === 'wallet' || activePart.bind_mode === 'wallet'));
+    var useSelect = !!(activePart && (activePart.code === 'wallet' || activePart.bind_mode === 'wallet'));
 
     if (!sel) {
-      var def = pickDefaultChannel(chs, useMore);
+      var def = pickDefaultChannel(chs, useSelect, type);
       if (def) {
         if (type === 'recharge') walletState.selectedRecharge = def.id | 0;
         else walletState.selectedWithdraw = def.id | 0;
         sel = def.id | 0;
       }
     } else if (!findChannel(chs, sel)) {
-      var fallback = pickDefaultChannel(chs, useMore);
+      var fallback = pickDefaultChannel(chs, useSelect, type);
       if (fallback) {
         if (type === 'recharge') walletState.selectedRecharge = fallback.id | 0;
         else walletState.selectedWithdraw = fallback.id | 0;
@@ -445,7 +504,7 @@
     if (!chs.length) {
       html = '<div class="wallet-channel-empty wallet-channel-empty--inline">' + escapeHtml(wt('wallet_partition_empty', '当前分区暂无可用通道')) + '</div>';
     } else {
-      html = renderChannelGroupHtml(chs, type, sel, partKey, useMore);
+      html = renderChannelGroupHtml(chs, type, sel, partKey, useSelect);
     }
     box.innerHTML = html;
     bindChannelListClicks(box, type);

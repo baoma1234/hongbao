@@ -215,6 +215,7 @@ class FansHubWallet
                 'partition_id'    => $pid,
                 'partition_code'  => $partCode,
                 'bind_mode'       => $bindMode,
+                'recharge_mode'   => strtolower(trim((string)($cfg['recharge_mode'] ?? ''))),
                 'min_amount'      => (float)$row['min_amount'],
                 'max_amount'      => (float)$row['max_amount'],
             ];

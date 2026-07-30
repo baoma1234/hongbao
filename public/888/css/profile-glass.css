@@ -677,6 +677,45 @@
   box-shadow: 0 4px 12px rgba(224, 122, 34, 0.28);
 }
 
+.profile-sub-pane .wallet-channel-featured {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.profile-sub-pane .wallet-channel-select-wrap {
+  margin: 0 0 4px;
+}
+
+.profile-sub-pane .wallet-channel-select-wrap label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #8a4f1f;
+}
+
+.profile-sub-pane .wallet-channel-select {
+  width: 100%;
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1.5px solid #f0b04a;
+  background: #fff8f0;
+  color: #5a3210;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 10px 12px;
+}
+
+.profile-sub-pane .wallet-amount-gate {
+  margin-top: 12px;
+}
+
+.profile-sub-pane .wallet-amount-gate[hidden] {
+  display: none !important;
+}
+
 .profile-sub-pane .wallet-bind-panel {
   margin: 10px 0 12px;
   padding: 12px;

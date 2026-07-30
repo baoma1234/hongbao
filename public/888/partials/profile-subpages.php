@@ -102,12 +102,7 @@
                     </div>
                     <div id="profileWithdrawChannels" class="wallet-channel-list"></div>
                     <div id="profileWithdrawForm" class="wallet-amount-panel" hidden>
-                    <div class="profile-meta-line" id="profileWithdrawLimitHint"></div>
-                    <div class="profile-field">
-                        <label data-copy="profile_withdraw_amount_label">提现红宝金额（元）</label>
-                        <input type="number" id="profileWithdrawAmount" step="0.01" min="1" data-copy-placeholder="profile_amount_ph" placeholder="请输入金额">
-                    </div>
-                    <!-- 钱包地址绑定区 -->
+                    <!-- 钱包地址绑定区（先绑定再填金额） -->
                     <div id="profileWithdrawWalletBind" class="wallet-bind-panel" hidden>
                         <div class="profile-meta-line" id="profileWithdrawBindHint" data-copy="wallet_bind_hint">请先绑定该钱包收款地址（每个钱包类型独立，地址不可重复）</div>
                         <div class="wallet-bind-current" id="profileWithdrawBindCurrent" hidden>
@@ -158,7 +153,14 @@
                         </div>
                     </div>
                     </div>
+                    <div id="profileWithdrawAmountGate" class="wallet-amount-gate" hidden>
+                    <div class="profile-meta-line" id="profileWithdrawLimitHint"></div>
+                    <div class="profile-field">
+                        <label data-copy="profile_withdraw_amount_label">提现红宝金额（元）</label>
+                        <input type="number" id="profileWithdrawAmount" step="0.01" min="1" data-copy-placeholder="profile_amount_ph" placeholder="请输入金额">
+                    </div>
                     <button type="button" class="btn-uid-submit" id="profileWithdrawSubmit" onclick="submitProfileWithdraw()" data-copy="profile_withdraw_submit">确认提现</button>
+                    </div>
                 </div>
             </div>
         </div>
