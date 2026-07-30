@@ -85,6 +85,16 @@
     };
   }
 
+  /** 有「更多钱包」时默认选置顶通道，避免选中隐藏项导致列表被强制展开 */
+  function pickDefaultChannel(list, useMore) {
+    var arr = list || [];
+    if (!arr.length) return null;
+    if (!useMore) return arr[0];
+    var groups = organizeWalletChannels(arr);
+    if (groups.pinned.length) return groups.pinned[0];
+    return groups.more[0] || arr[0];
+  }
+
   function findChannel(list, id) {
     id = id | 0;
     for (var i = 0; i < (list || []).length; i++) {
@@ -345,7 +355,21 @@
         ev.preventDefault();
         var partKey = moreBtn.getAttribute('data-more-part') || 'wallet';
         var expandedMap = type === 'recharge' ? walletState.rechargeExpanded : walletState.withdrawExpanded;
-        expandedMap[partKey] = !expandedMap[partKey];
+        var willExpand = !expandedMap[partKey];
+        expandedMap[partKey] = willExpand;
+        // 收起时若当前选中在「更多」里，改选置顶通道，否则 render 会因选中项强制再次展开
+        if (!willExpand) {
+          var partitions = type === 'recharge' ? walletState.rechargePartitions : walletState.withdrawPartitions;
+          var activePart = getActivePartition(partitions, type);
+          var chs = activePart ? (activePart.channels || []) : (type === 'recharge' ? walletState.recharge : walletState.withdraw);
+          var groups = organizeWalletChannels(chs);
+          var sel = (type === 'recharge' ? walletState.selectedRecharge : walletState.selectedWithdraw) | 0;
+          var inMore = groups.more.some(function (ch) { return (ch.id | 0) === sel; });
+          if (inMore && groups.pinned[0]) {
+            if (type === 'recharge') walletState.selectedRecharge = groups.pinned[0].id | 0;
+            else walletState.selectedWithdraw = groups.pinned[0].id | 0;
+          }
+        }
         renderChannels(box.id, type === 'recharge' ? walletState.recharge : walletState.withdraw, type);
         return;
       }
@@ -394,15 +418,19 @@
     var partKey = activePart ? String(activePart.code || activePart.id || 'part') : 'all';
     var useMore = !!(activePart && (activePart.code === 'wallet' || activePart.bind_mode === 'wallet'));
 
-    if (!sel && chs[0]) {
-      if (type === 'recharge') walletState.selectedRecharge = chs[0].id | 0;
-      else walletState.selectedWithdraw = chs[0].id | 0;
-      sel = chs[0].id | 0;
-    } else if (sel && !findChannel(chs, sel)) {
-      if (chs[0]) {
-        if (type === 'recharge') walletState.selectedRecharge = chs[0].id | 0;
-        else walletState.selectedWithdraw = chs[0].id | 0;
-        sel = chs[0].id | 0;
+    if (!sel) {
+      var def = pickDefaultChannel(chs, useMore);
+      if (def) {
+        if (type === 'recharge') walletState.selectedRecharge = def.id | 0;
+        else walletState.selectedWithdraw = def.id | 0;
+        sel = def.id | 0;
+      }
+    } else if (!findChannel(chs, sel)) {
+      var fallback = pickDefaultChannel(chs, useMore);
+      if (fallback) {
+        if (type === 'recharge') walletState.selectedRecharge = fallback.id | 0;
+        else walletState.selectedWithdraw = fallback.id | 0;
+        sel = fallback.id | 0;
       } else {
         if (type === 'recharge') walletState.selectedRecharge = 0;
         else walletState.selectedWithdraw = 0;
