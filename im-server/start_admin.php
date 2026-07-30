@@ -6,6 +6,7 @@
  * POST /agent/send_private  {agent_user_id, to_user_id, content, msg_type?, extra?, admin_key}
  * POST /agent/send_group    {agent_user_id, group_id, content, msg_type?, extra?, admin_key}
  * POST /agent/send_redpacket {agent_user_id, scope_type, group_id|to_user_id, packet_type, total_amount, total_count, blessing?, admin_key}
+ * POST /agent/grab_redpacket {agent_user_id, packet_id, admin_key}
  * GET  /health
  */
 
@@ -119,6 +120,41 @@ $http->onMessage = function (TcpConnection $connection, Request $request) use ($
             if (is_array($msg)) {
                 $type = $scopeType === 2 ? 'group.message' : 'private.message';
                 publishNotify($type, $msg);
+            }
+            $connection->send(jsonResponse(200, $result));
+            return;
+        }
+        if ($path === '/agent/grab_redpacket' && strtoupper($request->method()) === 'POST') {
+            $agentUid = (int)($body['agent_user_id'] ?? 0);
+            $packetId = (int)($body['packet_id'] ?? 0);
+            if ($agentUid <= 0 || $packetId <= 0) {
+                throw new InvalidArgumentException('agent_user_id and packet_id required');
+            }
+            // 抢包机器人只需是合法用户（admin_key 已鉴权），不必登记为托管客服
+            $userOk = Db::fetch('SELECT id FROM ' . Db::table('user') . ' WHERE id=? LIMIT 1', [$agentUid]);
+            if (!$userOk) {
+                throw new RuntimeException('grab user not found');
+            }
+            $result = $redPackets->grab($packetId, $agentUid);
+            $packet = $result['packet'] ?? null;
+            if (is_array($packet)) {
+                $event = [
+                    'packet_id'  => $packetId,
+                    'grab'       => $result,
+                    'by_user_id' => $agentUid,
+                ];
+                if ((int)($packet['scope_type'] ?? 0) === 2) {
+                    $uids = $groups->memberUserIds((int)$packet['group_id']);
+                    if ($uids) {
+                        \Im\Support\PushBus::toUsers($uids, 'redpacket.update', $event);
+                    }
+                } else {
+                    \Im\Support\PushBus::toUsers(
+                        [(int)$packet['from_user_id'], (int)$packet['to_user_id']],
+                        'redpacket.update',
+                        $event
+                    );
+                }
             }
             $connection->send(jsonResponse(200, $result));
             return;

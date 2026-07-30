@@ -21,4 +21,5 @@ return [
     'app\command\FanshubMaintain',
     'app\command\FanshubUidSugar',
     'app\command\RedpacketTronReveal',
+    'app\command\RedpacketAuto',
 ];

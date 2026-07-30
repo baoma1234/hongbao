@@ -1,0 +1,116 @@
+<form id="edit-form" class="form-horizontal" role="form" data-toggle="validator" method="POST" action="">
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">任务名:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[name]" type="text">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">群ID:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[group_id]" type="number" data-rule="required" min="1">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">自动发包:</label>
+        <div class="col-xs-12 col-sm-8">
+            <label class="checkbox-inline"><input type="checkbox" name="row[auto_send]" value="1"> 开启</label>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">发包用户ID:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[send_user_id]" type="number" min="1">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">红包类型:</label>
+        <div class="col-xs-12 col-sm-8">
+            <select name="row[packet_type]" class="form-control selectpicker">
+                {foreach name="packetTypeList" item="vo"}
+                <option value="{$key}">{$vo}</option>
+                {/foreach}
+            </select>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">金额/个数:</label>
+        <div class="col-xs-12 col-sm-4">
+            <div class="input-group">
+                <span class="input-group-addon">金额</span>
+                <input class="form-control" name="row[total_amount]" type="number" step="0.01" min="0.01">
+                <span class="input-group-addon">个数</span>
+                <input class="form-control" name="row[total_count]" type="number" min="1">
+            </div>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">祝福语:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[blessing]" type="text">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">埋雷数字:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[mine_digit]" type="number" min="0" max="9">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">发包间隔(秒):</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[interval_sec]" type="number" min="5">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">每日上限:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[max_per_day]" type="number" min="0">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">自动抢包:</label>
+        <div class="col-xs-12 col-sm-8">
+            <label class="checkbox-inline"><input type="checkbox" name="row[auto_grab]" value="1"> 开启</label>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">抢包用户ID:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[grab_user_ids]" type="text" placeholder="多个用逗号分隔">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">抢包延迟ms:</label>
+        <div class="col-xs-12 col-sm-4">
+            <div class="input-group">
+                <span class="input-group-addon">最小</span>
+                <input class="form-control" name="row[grab_delay_min_ms]" type="number" min="0">
+                <span class="input-group-addon">最大</span>
+                <input class="form-control" name="row[grab_delay_max_ms]" type="number" min="0">
+            </div>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">状态:</label>
+        <div class="col-xs-12 col-sm-8">
+            <select name="row[status]" class="form-control selectpicker">
+                {foreach name="statusList" item="vo"}
+                <option value="{$key}">{$vo}</option>
+                {/foreach}
+            </select>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">备注:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[remark]" type="text">
+        </div>
+    </div>
+    <div class="form-group layer-footer">
+        <label class="control-label col-xs-12 col-sm-2"></label>
+        <div class="col-xs-12 col-sm-8">
+            <button type="submit" class="btn btn-primary btn-embossed disabled">{:__('OK')}</button>
+        </div>
+    </div>
+</form>
