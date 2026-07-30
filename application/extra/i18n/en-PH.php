@@ -179,6 +179,8 @@ return array (
   'wallet_load_fail' => 'Failed to load',
   'wallet_channel_empty' => 'No channels available. Contact support',
   'wallet_channel_fallback' => 'Channel {id}',
+  'wallet_channel_more' => 'More wallets',
+  'wallet_channel_less' => 'Show less',
   'wallet_turnover_need' => 'Turnover must be ≥{need}',
   'wallet_turnover_ratio_suffix' => ', and at least withdraw ×{ratio}',
   'wallet_turnover_line' => 'Total turnover: {amount}',

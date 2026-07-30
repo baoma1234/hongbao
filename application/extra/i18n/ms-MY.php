@@ -168,4 +168,6 @@ return array (
   'aria_profile_quick' => '常用功能',
   'srv_uid_verify_failed' => 'Akaun tapak utama tidak dijumpai atau belum selesai buka akaun',
   'srv_uid_sugar_not_verified' => 'Nombor telefon akaun tapak utama belum disahkan',
+  'wallet_channel_more' => 'Lebih banyak dompet',
+  'wallet_channel_less' => 'Tutup',
 );

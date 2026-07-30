@@ -666,6 +666,8 @@ class FansHubService
                 'wallet_load_fail' => '加载失败',
                 'wallet_channel_empty' => '无通道',
                 'wallet_channel_fallback' => '通道兜底（{id}）',
+                'wallet_channel_more' => '更多钱包',
+                'wallet_channel_less' => '收起',
                 'wallet_turnover_need' => '流水不足（{need}）',
                 'wallet_turnover_ratio_suffix' => '流水倍数后缀（{ratio}）',
                 'wallet_turnover_line' => '累计流水行（{amount}）',

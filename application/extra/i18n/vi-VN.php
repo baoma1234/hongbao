@@ -168,4 +168,6 @@ return array (
   'aria_profile_quick' => '常用功能',
   'srv_uid_verify_failed' => 'Không tìm thấy tài khoản trang chính hoặc chưa hoàn tất mở tài khoản',
   'srv_uid_sugar_not_verified' => 'Số điện thoại tài khoản trang chính chưa được xác minh',
+  'wallet_channel_more' => 'Thêm ví',
+  'wallet_channel_less' => 'Thu gọn',
 );

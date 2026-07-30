@@ -168,4 +168,6 @@ return array (
   'aria_profile_quick' => '常用功能',
   'srv_uid_verify_failed' => 'Akun situs utama tidak ditemukan atau belum selesai buka akun',
   'srv_uid_sugar_not_verified' => 'Nomor HP akun situs utama belum diverifikasi',
+  'wallet_channel_more' => 'Dompet lainnya',
+  'wallet_channel_less' => 'Sembunyikan',
 );

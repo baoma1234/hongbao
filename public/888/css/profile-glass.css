@@ -595,6 +595,55 @@
 }
 
 .profile-sub-pane .wallet-channel-item small {
+  font-weight: 500;
+  color: #9a6a3a;
+  margin-top: 2px;
+}
+
+.profile-sub-pane .wallet-channel-more-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 2px 0 0;
+  padding: 10px 14px;
+  border: 1.5px dashed rgba(192, 120, 50, 0.45) !important;
+  border-radius: 14px !important;
+  background: rgba(255, 248, 238, 0.7) !important;
+  color: #a86428;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: none !important;
+}
+
+.profile-sub-pane .wallet-channel-more-btn::after {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  margin-top: -3px;
+  transition: transform 0.18s ease;
+}
+
+.profile-sub-pane .wallet-channel-more-btn.is-open::after {
+  transform: rotate(-135deg);
+  margin-top: 3px;
+}
+
+.profile-sub-pane .wallet-channel-more-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.profile-sub-pane .wallet-channel-more-list[hidden] {
+  display: none !important;
+}
   display: block;
   margin-top: 4px;
   color: var(--pg-muted);

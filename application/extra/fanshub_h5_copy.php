@@ -604,6 +604,8 @@ return array (
   'wallet_load_fail' => '加载失败',
   'wallet_channel_empty' => '暂无可用通道，请联系客服',
   'wallet_channel_fallback' => '通道{id}',
+  'wallet_channel_more' => '更多钱包',
+  'wallet_channel_less' => '收起',
   'wallet_turnover_need' => '流水需≥{need}',
   'wallet_turnover_ratio_suffix' => '，且不少于提现额×{ratio}',
   'wallet_turnover_line' => '累计流水：{amount}',

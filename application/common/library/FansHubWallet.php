@@ -150,14 +150,24 @@ class FansHubWallet
             } else {
                 $icon = cdnurl($icon, true);
             }
+            $cfg = [];
+            $rawCfg = $row['config'] ?? '';
+            if (is_string($rawCfg) && $rawCfg !== '') {
+                $decoded = json_decode($rawCfg, true);
+                if (is_array($decoded)) {
+                    $cfg = $decoded;
+                }
+            }
+            $payChannel = trim((string)($row['pay_channel'] ?? $cfg['payment_channel'] ?? $cfg['pay_channel'] ?? ''));
             $list[] = [
-                'id'         => (int)$row['id'],
-                'name'       => (string)$row['name'],
-                'icon'       => $icon,
-                'tip'        => (string)($row['tip'] ?? ''),
-                'handler'    => (string)$row['handler'],
-                'min_amount' => (float)$row['min_amount'],
-                'max_amount' => (float)$row['max_amount'],
+                'id'              => (int)$row['id'],
+                'name'            => (string)$row['name'],
+                'icon'            => $icon,
+                'tip'             => (string)($row['tip'] ?? ''),
+                'handler'         => (string)$row['handler'],
+                'payment_channel' => $payChannel,
+                'min_amount'      => (float)$row['min_amount'],
+                'max_amount'      => (float)$row['max_amount'],
             ];
         }
         return $list;

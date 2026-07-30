@@ -1,7 +1,113 @@
 (function (global) {
   'use strict';
 
-  var walletState = { recharge: [], withdraw: [], selectedRecharge: 0, selectedWithdraw: 0, info: null };
+  var walletState = {
+    recharge: [],
+    withdraw: [],
+    selectedRecharge: 0,
+    selectedWithdraw: 0,
+    info: null,
+    rechargeExpanded: false
+  };
+
+  /** 充值页优先展示顺序（其余收入「更多」） */
+  var RECHARGE_PIN_ORDER = ['no', '234', '808', '988', 'k豆', 'jd', 'c币', 'ok', 'to', 'go', '万币'];
+  var RECHARGE_PIN_ALIAS = {
+    nopay: 'no',
+    kdou: 'k豆',
+    cbi: 'c币',
+    jdpay: 'jd',
+    okpay: 'ok',
+    topay: 'to',
+    gopay: 'go',
+    wanbi: '万币',
+    ersansi: '234',
+    balingba: '808',
+    jiubaba: '988',
+    '988pay': '988',
+    '808pay': '808',
+    '234pay': '234'
+  };
+
+  function rechargeChannelKey(name, paymentChannel) {
+    var code = String(paymentChannel || '').replace(/\s+/g, '');
+    var codeQuick = /_quick$/i.test(code);
+    if (code) {
+      code = code.replace(/_quick$/i, '');
+      var codeKey = code.toLowerCase();
+      if (RECHARGE_PIN_ALIAS[codeKey]) codeKey = RECHARGE_PIN_ALIAS[codeKey];
+      // 数字通道如 234 / 808 / 988
+      if (/^\d+$/.test(codeKey) || RECHARGE_PIN_ORDER.indexOf(codeKey) >= 0) {
+        return { key: codeKey, quick: codeQuick };
+      }
+      // Nopay / Topay 等
+      if (RECHARGE_PIN_ALIAS[codeKey] || RECHARGE_PIN_ORDER.indexOf(codeKey) >= 0) {
+        return { key: RECHARGE_PIN_ALIAS[codeKey] || codeKey, quick: codeQuick };
+      }
+      // 用编码去掉 pay 后缀再匹配
+      var stripped = codeKey.replace(/pay$/i, '');
+      if (RECHARGE_PIN_ALIAS[stripped]) stripped = RECHARGE_PIN_ALIAS[stripped];
+      if (RECHARGE_PIN_ORDER.indexOf(stripped) >= 0) {
+        return { key: stripped, quick: codeQuick };
+      }
+    }
+    var s = String(name || '').replace(/\s+/g, '');
+    var quick = codeQuick || /快捷|_quick/i.test(s);
+    s = s
+      .replace(/快捷(支付)?/g, '')
+      .replace(/钱包/g, '')
+      .replace(/支付$/g, '')
+      .replace(/pay$/i, '');
+    var key = s.toLowerCase();
+    if (RECHARGE_PIN_ALIAS[key]) key = RECHARGE_PIN_ALIAS[key];
+    return { key: key, quick: quick };
+  }
+
+  function rechargePinIndex(ch) {
+    var info = rechargeChannelKey(ch && ch.name, ch && ch.payment_channel);
+    if (info.quick) return -1;
+    return RECHARGE_PIN_ORDER.indexOf(info.key);
+  }
+
+  function organizeRechargeChannels(list) {
+    var pinned = [];
+    var more = [];
+    (list || []).forEach(function (ch, idx) {
+      var pin = rechargePinIndex(ch);
+      if (pin >= 0) pinned.push({ ch: ch, pin: pin, idx: idx });
+      else more.push({ ch: ch, idx: idx });
+    });
+    pinned.sort(function (a, b) {
+      if (a.pin !== b.pin) return a.pin - b.pin;
+      return a.idx - b.idx;
+    });
+    more.sort(function (a, b) { return a.idx - b.idx; });
+    return {
+      pinned: pinned.map(function (x) { return x.ch; }),
+      more: more.map(function (x) { return x.ch; })
+    };
+  }
+
+  function channelButtonHtml(ch, type, sel) {
+    var active = sel === (ch.id | 0) ? ' active' : '';
+    var name = ch.name || wt('wallet_channel_fallback', '通道{id}', { id: ch.id });
+    var icon = (ch.icon || '').trim();
+    var iconHtml = icon
+      ? '<img class="wallet-channel-icon" src="' + escapeHtml(icon) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'">'
+      : '<span class="wallet-channel-icon wallet-channel-icon--placeholder">' + escapeHtml((name || '?').charAt(0)) + '</span>';
+    var tip = (ch.tip || '').trim();
+    if (/^wanhuipay\b/i.test(tip)) tip = '';
+    var lim = formatLimitHint(ch);
+    return (
+      '<button type="button" class="wallet-channel-item' + active + '" data-id="' + ch.id + '" data-type="' + type + '">' +
+        iconHtml +
+        '<span class="wallet-channel-meta">' +
+          '<span class="wallet-channel-name">' + escapeHtml(name) + '</span>' +
+          (lim ? '<small>' + escapeHtml(lim) + '</small>' : (tip ? '<small>' + escapeHtml(tip) : '')) +
+        '</span>' +
+      '</button>'
+    );
+  }
 
   function findChannel(list, id) {
     id = id | 0;
@@ -102,43 +208,41 @@
     return '';
   }
 
-  function renderChannels(boxId, list, type) {
-    var box = document.getElementById(boxId);
-    if (!box) return;
-    if (!list || !list.length) {
-      box.innerHTML = '<div class="wallet-channel-empty">' + escapeHtml(wt('wallet_channel_empty', '暂无可用通道，请联系客服')) + '</div>';
-      showAmountPanel(type, 0);
-      return;
-    }
-    var sel = (type === 'recharge' ? walletState.selectedRecharge : walletState.selectedWithdraw) | 0;
-    box.innerHTML = list.map(function (ch) {
-      var active = sel === (ch.id | 0) ? ' active' : '';
-      var name = ch.name || wt('wallet_channel_fallback', '通道{id}', { id: ch.id });
-      var icon = (ch.icon || '').trim();
-      var iconHtml = icon
-        ? '<img class="wallet-channel-icon" src="' + escapeHtml(icon) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'">'
-        : '<span class="wallet-channel-icon wallet-channel-icon--placeholder">' + escapeHtml((name || '?').charAt(0)) + '</span>';
-      var tip = (ch.tip || '').trim();
-      if (/^wanhuipay\b/i.test(tip)) tip = '';
-      var lim = formatLimitHint(ch);
-      return (
-        '<button type="button" class="wallet-channel-item' + active + '" data-id="' + ch.id + '" data-type="' + type + '">' +
-          iconHtml +
-          '<span class="wallet-channel-meta">' +
-            '<span class="wallet-channel-name">' + escapeHtml(name) + '</span>' +
-            (lim ? '<small>' + escapeHtml(lim) + '</small>' : (tip ? '<small>' + escapeHtml(tip) + '</small>' : '')) +
-          '</span>' +
-        '</button>'
-      );
-    }).join('');
+  function channelButtonHtml(ch, type, sel) {
+    var active = sel === (ch.id | 0) ? ' active' : '';
+    var name = ch.name || wt('wallet_channel_fallback', '通道{id}', { id: ch.id });
+    var icon = (ch.icon || '').trim();
+    var iconHtml = icon
+      ? '<img class="wallet-channel-icon" src="' + escapeHtml(icon) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'">'
+      : '<span class="wallet-channel-icon wallet-channel-icon--placeholder">' + escapeHtml((name || '?').charAt(0)) + '</span>';
+    var tip = (ch.tip || '').trim();
+    if (/^wanhuipay\b/i.test(tip)) tip = '';
+    var lim = formatLimitHint(ch);
+    return (
+      '<button type="button" class="wallet-channel-item' + active + '" data-id="' + ch.id + '" data-type="' + type + '">' +
+        iconHtml +
+        '<span class="wallet-channel-meta">' +
+          '<span class="wallet-channel-name">' + escapeHtml(name) + '</span>' +
+          (lim ? '<small>' + escapeHtml(lim) + '</small>' : (tip ? '<small>' + escapeHtml(tip) + '</small>' : '')) +
+        '</span>' +
+      '</button>'
+    );
+  }
 
-    // 事件委托，避免个别环境 onclick 绑定失败
+  function bindChannelListClicks(box, type) {
     box.onclick = function (ev) {
       var t = ev.target;
       if (!t) return;
+      var moreBtn = t.closest ? t.closest('.wallet-channel-more-btn') : null;
+      if (!moreBtn && t.classList && t.classList.contains('wallet-channel-more-btn')) moreBtn = t;
+      if (moreBtn) {
+        ev.preventDefault();
+        walletState.rechargeExpanded = !walletState.rechargeExpanded;
+        renderChannels(box.id, walletState.recharge, 'recharge');
+        return;
+      }
       var btn = t.closest ? t.closest('.wallet-channel-item') : null;
       if (!btn && t.classList && t.classList.contains('wallet-channel-item')) btn = t;
-      // 兼容无 closest 的旧 WebView
       if (!btn) {
         var node = t;
         while (node && node !== box) {
@@ -159,6 +263,67 @@
       else walletState.selectedWithdraw = id;
       showAmountPanel(type, id);
     };
+  }
+
+  function renderChannels(boxId, list, type) {
+    var box = document.getElementById(boxId);
+    if (!box) return;
+    if (!list || !list.length) {
+      box.innerHTML = '<div class="wallet-channel-empty">' + escapeHtml(wt('wallet_channel_empty', '暂无可用通道，请联系客服')) + '</div>';
+      showAmountPanel(type, 0);
+      return;
+    }
+    var sel = (type === 'recharge' ? walletState.selectedRecharge : walletState.selectedWithdraw) | 0;
+
+    if (type === 'recharge') {
+      var groups = organizeRechargeChannels(list);
+      var ordered = groups.pinned.length
+        ? groups.pinned.concat(groups.more)
+        : groups.more.slice();
+      if (!sel && ordered[0]) {
+        walletState.selectedRecharge = ordered[0].id | 0;
+        sel = walletState.selectedRecharge;
+      }
+      var html = '';
+      if (!groups.pinned.length) {
+        html = ordered.map(function (ch) {
+          return channelButtonHtml(ch, type, sel);
+        }).join('');
+      } else {
+        html = groups.pinned.map(function (ch) {
+          return channelButtonHtml(ch, type, sel);
+        }).join('');
+        if (groups.more.length) {
+          var selInMore = groups.more.some(function (ch) { return (ch.id | 0) === sel; });
+          if (selInMore) walletState.rechargeExpanded = true;
+          var expanded = !!walletState.rechargeExpanded;
+          html +=
+            '<button type="button" class="wallet-channel-more-btn' + (expanded ? ' is-open' : '') + '" aria-expanded="' + (expanded ? 'true' : 'false') + '">' +
+              escapeHtml(expanded
+                ? wt('wallet_channel_less', '收起')
+                : wt('wallet_channel_more', '更多钱包')) +
+            '</button>' +
+            '<div class="wallet-channel-more-list"' + (expanded ? '' : ' hidden') + '>' +
+              groups.more.map(function (ch) {
+                return channelButtonHtml(ch, type, sel);
+              }).join('') +
+            '</div>';
+        }
+      }
+      box.innerHTML = html;
+      bindChannelListClicks(box, type);
+      showAmountPanel(type, sel);
+      return;
+    }
+
+    box.innerHTML = list.map(function (ch) {
+      return channelButtonHtml(ch, type, sel);
+    }).join('');
+    if (!sel && list[0]) {
+      walletState.selectedWithdraw = list[0].id | 0;
+      sel = walletState.selectedWithdraw;
+    }
+    bindChannelListClicks(box, type);
     showAmountPanel(type, sel);
   }
   var ledgerState = { page: 1, loading: false, hasMore: false, list: [] };
@@ -414,7 +579,10 @@
       return;
     }
     // 每次打开重置选中，先选通道再填金额
-    if (which === 'recharge') walletState.selectedRecharge = 0;
+    if (which === 'recharge') {
+      walletState.selectedRecharge = 0;
+      walletState.rechargeExpanded = false;
+    }
     if (which === 'withdraw') walletState.selectedWithdraw = 0;
     loadWalletData().then(function () {
       if (which === 'recharge') {

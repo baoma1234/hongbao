@@ -168,4 +168,6 @@ return array (
   'aria_profile_quick' => '常用功能',
   'srv_uid_verify_failed' => 'រកមិនឃើញគណនីគេហទំព័រដើម ឬមិនទាន់បើកគណនី',
   'srv_uid_sugar_not_verified' => 'លេខទូរស័ព្ទគណនីគេហទំព័រដើមមិនទាន់ផ្ទៀងផ្ទាត់',
+  'wallet_channel_more' => 'កាបូបបន្ថែម',
+  'wallet_channel_less' => 'បង្រួម',
 );
