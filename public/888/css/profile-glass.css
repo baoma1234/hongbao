@@ -601,38 +601,38 @@
 }
 
 .profile-sub-pane .wallet-channel-more-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  width: 100%;
-  box-sizing: border-box;
-  margin: 2px 0 0;
-  padding: 10px 14px;
-  border: 1.5px dashed rgba(192, 120, 50, 0.45) !important;
-  border-radius: 14px !important;
-  background: rgba(255, 248, 238, 0.7) !important;
-  color: #a86428;
-  font-weight: 700;
-  font-size: 13px;
-  cursor: pointer;
-  box-shadow: none !important;
+  position: relative;
 }
 
 .profile-sub-pane .wallet-channel-more-btn::after {
   content: '';
-  width: 7px;
-  height: 7px;
-  border-right: 2px solid currentColor;
-  border-bottom: 2px solid currentColor;
+  width: 8px;
+  height: 8px;
+  margin-left: auto;
+  flex-shrink: 0;
+  border-right: 2px solid #c45a1a;
+  border-bottom: 2px solid #c45a1a;
   transform: rotate(45deg);
-  margin-top: -3px;
   transition: transform 0.18s ease;
 }
 
 .profile-sub-pane .wallet-channel-more-btn.is-open::after {
   transform: rotate(-135deg);
-  margin-top: 3px;
+  margin-top: 4px;
+}
+
+.profile-sub-pane .wallet-channel-more-btn:active,
+.profile-sub-pane .wallet-channel-more-btn.is-open {
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    linear-gradient(to right, #E63022, #C61114) border-box !important;
+  box-shadow: 0 4px 12px rgba(198, 17, 20, 0.14) !important;
+  color: #C61114;
+}
+
+.profile-sub-pane .wallet-channel-more-btn.is-open .wallet-channel-icon--placeholder {
+  color: #C61114;
+  background: linear-gradient(145deg, #ffe8e4, #ffd0cc);
 }
 
 .profile-sub-pane .wallet-channel-more-list {

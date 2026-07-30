@@ -181,6 +181,8 @@ return array (
   'wallet_channel_fallback' => 'Channel {id}',
   'wallet_channel_more' => 'More wallets',
   'wallet_channel_less' => 'Show less',
+  'wallet_channel_more_hint' => 'Tap to show all channels',
+  'wallet_channel_less_hint' => 'Tap to collapse',
   'wallet_turnover_need' => 'Turnover must be ≥{need}',
   'wallet_turnover_ratio_suffix' => ', and at least withdraw ×{ratio}',
   'wallet_turnover_line' => 'Total turnover: {amount}',

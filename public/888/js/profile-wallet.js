@@ -298,10 +298,18 @@
           if (selInMore) walletState.rechargeExpanded = true;
           var expanded = !!walletState.rechargeExpanded;
           html +=
-            '<button type="button" class="wallet-channel-more-btn' + (expanded ? ' is-open' : '') + '" aria-expanded="' + (expanded ? 'true' : 'false') + '">' +
-              escapeHtml(expanded
-                ? wt('wallet_channel_less', '收起')
-                : wt('wallet_channel_more', '更多钱包')) +
+            '<button type="button" class="wallet-channel-item wallet-channel-more-btn' + (expanded ? ' is-open' : '') + '" aria-expanded="' + (expanded ? 'true' : 'false') + '">' +
+              '<span class="wallet-channel-icon wallet-channel-icon--placeholder" aria-hidden="true">' + (expanded ? '−' : '+') + '</span>' +
+              '<span class="wallet-channel-meta">' +
+                '<span class="wallet-channel-name">' +
+                  escapeHtml(expanded
+                    ? wt('wallet_channel_less', '收起')
+                    : wt('wallet_channel_more', '更多钱包')) +
+                '</span>' +
+                '<small>' + escapeHtml(expanded
+                  ? wt('wallet_channel_less_hint', '点击收起其余通道')
+                  : wt('wallet_channel_more_hint', '点击查看全部通道')) + '</small>' +
+              '</span>' +
             '</button>' +
             '<div class="wallet-channel-more-list"' + (expanded ? '' : ' hidden') + '>' +
               groups.more.map(function (ch) {

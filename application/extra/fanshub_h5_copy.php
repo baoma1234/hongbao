@@ -606,6 +606,8 @@ return array (
   'wallet_channel_fallback' => '通道{id}',
   'wallet_channel_more' => '更多钱包',
   'wallet_channel_less' => '收起',
+  'wallet_channel_more_hint' => '点击查看全部通道',
+  'wallet_channel_less_hint' => '点击收起其余通道',
   'wallet_turnover_need' => '流水需≥{need}',
   'wallet_turnover_ratio_suffix' => '，且不少于提现额×{ratio}',
   'wallet_turnover_line' => '累计流水：{amount}',
