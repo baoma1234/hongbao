@@ -4,20 +4,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>波场官方哈希验证</title>
-<link rel="stylesheet" href="css/fair-verify.css?v=202607292255">
+<link rel="stylesheet" href="css/fair-verify.css?v=202607310255">
 </head>
 <body>
 <div class="wrap">
 <h1>波场官方哈希验证</h1>
-<p class="sub">发包即锁定未来区块高度；开奖后绑定 TRON 区块哈希。扫雷官方雷号 = 哈希末位映射 0～9。可在 TronScan / OKLink 全球核对。</p>
+<p class="sub">拼手气/扫雷金额由「波场 Block Hash + 红包单号」链下确定性拆分。本页核对：区块哈希、拆包金额序列、实际领取金额是否一致。可在 TronScan / OKLink 全球核验区块。</p>
 <div class="card">
 <label for="packetNo">红包单号 packet_no</label>
 <input id="packetNo" type="text" placeholder="rp..." autocomplete="off">
-<button type="button" id="btnVerify">查询波场哈希</button>
+<button type="button" id="btnVerify">查询并验证</button>
+<button type="button" class="button2" onclick="window.location.href='/888'">返回首页</button>
 <div id="formErr" class="err" style="display:none"></div>
 </div>
 <div id="result" style="display:none"></div>
 </div>
-<script src="js/fair-verify.js?v=202607292255"></script>
+<script src="js/fair-verify.js?v=202607310255"></script>
 </body>
 </html>

@@ -316,14 +316,77 @@ class RedPacketTronFair
             ? (string)($packet['tron_lucky'] ?? TronBlockClient::luckyFromBlockId($blockId))
             : '';
         $luckyDigit = $revealed ? TronBlockClient::luckyDigitFromBlockId($blockId) : null;
+        $mineDigit = $type === 3 ? (int)($packet['mine_digit'] ?? 0) : ($revealed ? (int)$luckyDigit : null);
+        $packetNo = (string)($packet['packet_no'] ?? '');
+        $poolAmount = (float)($packet['pool_amount'] ?? 0);
+        $totalCount = (int)($packet['total_count'] ?? 0);
+        $poolCent = (int)round($poolAmount * 100);
+        $minCent = 1;
+
+        $storedCents = [];
+        $rawFairCents = trim((string)($packet['fair_cents'] ?? ''));
+        if ($rawFairCents !== '') {
+            $decoded = json_decode($rawFairCents, true);
+            if (is_array($decoded)) {
+                foreach ($decoded as $c) {
+                    $storedCents[] = (int)$c;
+                }
+            }
+        }
+
+        $computedCents = [];
+        if ($revealed && $blockId !== '' && $poolCent > 0 && $totalCount > 0) {
+            try {
+                $computedCents = self::splitLuckyFromHash($poolCent, $totalCount, $minCent, $blockId, $packetNo);
+            } catch (\Throwable $e) {
+                $computedCents = [];
+            }
+        }
+
+        $grabCents = [];
+        $grabRows = [];
+        if ($records) {
+            foreach ($records as $r) {
+                if (isset($r['amount_cent'])) {
+                    $cent = (int)$r['amount_cent'];
+                } else {
+                    $cent = (int)round((float)($r['amount'] ?? 0) * 100);
+                }
+                $grabCents[] = $cent;
+                $grabRows[] = [
+                    'amount'      => round($cent / 100, 2),
+                    'amount_cent' => $cent,
+                    'tail_digit'  => isset($r['tail_digit']) ? (int)$r['tail_digit'] : ($cent % 10),
+                    'is_best'     => (int)($r['is_best'] ?? 0),
+                    'is_worst'    => (int)($r['is_worst'] ?? 0),
+                    'is_mine_hit' => (int)($r['is_mine_hit'] ?? 0),
+                ];
+            }
+        }
+
+        $matchStored = $computedCents !== [] && $storedCents !== [] && $computedCents === $storedCents;
+        $matchGrab = false;
+        if ($computedCents !== [] && $grabCents !== []) {
+            $prefix = array_slice($computedCents, 0, count($grabCents));
+            $matchGrab = $prefix === $grabCents;
+        } elseif ($computedCents !== [] && $grabCents === []) {
+            $matchGrab = true; // 尚未有人领取，拆包序列本身可核对
+        }
+
+        $amountOk = $computedCents !== [] && ($storedCents === [] || $matchStored)
+            && ($grabCents === [] || $matchGrab)
+            && array_sum($computedCents) === $poolCent;
+
         $out = [
-            'packet_no'        => (string)($packet['packet_no'] ?? ''),
+            'packet_no'        => $packetNo,
             'packet_type'      => $type,
             'type_label'       => self::typeLabel($type),
-            'mine_digit'       => $revealed ? (int)$luckyDigit : null,
+            'mine_digit'       => $mineDigit,
             'total_amount'     => (float)($packet['total_amount'] ?? 0),
-            'pool_amount'      => (float)($packet['pool_amount'] ?? 0),
-            'total_count'      => (int)($packet['total_count'] ?? 0),
+            'pool_amount'      => $poolAmount,
+            'pool_cent'        => $poolCent,
+            'total_count'      => $totalCount,
+            'min_cent'         => $minCent,
             'status'           => (int)($packet['status'] ?? 0),
             'proof_type'       => 'tron',
             'targetBlockNum'   => $blockNum,
@@ -339,22 +402,78 @@ class RedPacketTronFair
             'fair_revealed_at' => (int)($packet['fair_revealed_at'] ?? 0),
             'tronscan_url'     => $blockNum > 0 ? ('https://tronscan.org/#/block/' . $blockNum) : ($blockId !== '' ? ('https://tronscan.org/#/block/' . $blockId) : ''),
             'verify_hint'      => $revealed
-                ? ('TronScan 核对区块 #' . $blockNum . ' 的 Block Hash 末位是否为 ' . $luckyChar
-                    . '；扫雷官方雷号=' . (int)$luckyDigit
-                    . (ctype_digit((string)$luckyChar) ? '' : ('（末位 ' . $luckyChar . ' → ' . (int)$luckyDigit . '）')))
-                : ($blockNum > 0 ? ('已锁定官方区块高度 #' . $blockNum . '，出块后开奖') : '待锁定波场区块'),
+                ? ('金额由 Block Hash + 单号链下拆分；可核对哈希末位 ' . $luckyChar
+                    . ($type === 3 ? ('；中雷看金额尾数是否等于埋雷 ' . (int)$mineDigit) : ''))
+                : ($blockNum > 0 ? ('已锁定区块高度 #' . $blockNum) : '待写入波场哈希'),
+            'fair_cents'       => $storedCents,
+            'computed_cents'   => $computedCents,
+            'grab_cents'       => $grabCents,
+            'grab_records'     => $grabRows,
+            'amount_verify'    => [
+                'ok'              => $amountOk,
+                'sum_ok'          => $computedCents !== [] && array_sum($computedCents) === $poolCent,
+                'match_stored'    => $matchStored || ($storedCents === [] && $computedCents !== []),
+                'match_grabs'     => $matchGrab,
+                'has_stored'      => $storedCents !== [],
+                'has_grabs'       => $grabCents !== [],
+                'algorithm'       => 'sha256(block_id|packet_no|rp-split) + double-mean',
+            ],
         ];
-        if ($revealed && $records) {
-            $grabCents = [];
-            foreach ($records as $r) {
-                if (isset($r['amount_cent'])) {
-                    $grabCents[] = (int)$r['amount_cent'];
-                } else {
-                    $grabCents[] = (int)round((float)($r['amount'] ?? 0) * 100);
-                }
-            }
-            $out['grab_cents'] = $grabCents;
-        }
         return $out;
+    }
+
+    /**
+     * 与 IM RedPacketService::splitLuckyFromHash 一致：用哈希确定性拆分（分）
+     * @return int[]
+     */
+    public static function splitLuckyFromHash($totalCent, $count, $minCent, $blockId, $packetNo)
+    {
+        $totalCent = (int)$totalCent;
+        $count = (int)$count;
+        $minCent = max(1, (int)$minCent);
+        if ($count <= 0 || $totalCent < $count * $minCent) {
+            throw new \InvalidArgumentException('invalid hash split params');
+        }
+        $state = hash('sha256', strtolower(trim((string)$blockId)) . '|' . trim((string)$packetNo) . '|rp-split', true);
+        $nextInt = function ($min, $max) use (&$state) {
+            $min = (int)$min;
+            $max = (int)$max;
+            if ($max <= $min) {
+                return $min;
+            }
+            $state = hash('sha256', $state, true);
+            $u = unpack('N', substr($state, 0, 4));
+            $n = (int)$u[1];
+            if ($n < 0) {
+                $n = $n & 0x7fffffff;
+            }
+            return $min + ($n % ($max - $min + 1));
+        };
+
+        $leftCent = $totalCent;
+        $leftCount = $count;
+        $arr = [];
+        for ($i = 0; $i < $count - 1; $i++) {
+            $max = (int)floor($leftCent / $leftCount * 2);
+            $max = max($minCent, $max);
+            $money = $nextInt($minCent, max($minCent, $max));
+            $remainAfter = $leftCent - $money;
+            $remainPeople = $leftCount - 1;
+            if ($remainAfter < $remainPeople * $minCent) {
+                $money = $leftCent - $remainPeople * $minCent;
+            }
+            $arr[] = $money;
+            $leftCent -= $money;
+            $leftCount--;
+        }
+        $arr[] = $leftCent;
+
+        for ($i = count($arr) - 1; $i > 0; $i--) {
+            $j = $nextInt(0, $i);
+            $tmp = $arr[$i];
+            $arr[$i] = $arr[$j];
+            $arr[$j] = $tmp;
+        }
+        return $arr;
     }
 }

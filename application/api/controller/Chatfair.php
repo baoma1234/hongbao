@@ -24,7 +24,8 @@ class Chatfair extends Api
             $this->error('请提供红包单号 packet_no');
         }
         $cached = RedPacketTronFair::cacheGet($packetNo);
-        if (is_array($cached) && !empty($cached['revealed']) && !empty($cached['block_id'])) {
+        if (is_array($cached) && !empty($cached['revealed']) && !empty($cached['block_id'])
+            && isset($cached['amount_verify']) && isset($cached['computed_cents'])) {
             $this->success('ok', $cached);
         }
         $packet = Db::name('chat_red_packets')->where('packet_no', $packetNo)->find();
