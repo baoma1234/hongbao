@@ -4,6 +4,7 @@ namespace Im\Service;
 
 use Im\Support\Db;
 use Im\Support\TronFair;
+use Im\Support\TronBlockClient;
 use Im\Support\IdGenerator;
 use Im\Support\RedisClient;
 use Im\Support\PushBus;
@@ -260,6 +261,29 @@ class RedPacketService
             $msg = $this->messages->sendGroup($fromUserId, $groupId, '[红包]' . $blessing, 2, $extra);
         } else {
             $msg = $this->messages->sendPrivate($fromUserId, $toUserId, '[红包]' . $blessing, 2, $extra);
+        }
+
+        // 扫雷：发包后立即开始匹配「哈希末位=手填雷号」的波场区块（不必等抢完）
+        if ($packetType === 3) {
+            try {
+                $nowH = 0;
+                try {
+                    $nowH = TronBlockClient::getNowBlockNum(3);
+                } catch (\Throwable $e) {
+                    $nowH = 0;
+                }
+                if ($nowH > 0) {
+                    Db::exec(
+                        'UPDATE ' . Db::table('chat_red_packets')
+                        . ' SET tron_block_num=?, tron_status=?, updatetime=? WHERE id=? AND tron_status<>?',
+                        [$nowH, TronFair::STATUS_PENDING, time(), $packetId, TronFair::STATUS_DONE]
+                    );
+                }
+                // 约 1 秒后开始扫描；未找到会自动继续向后找
+                TronFair::scheduleReveal($packetId, 1);
+            } catch (\Throwable $e) {
+                error_log('[TRON] mine match on send fail packet=' . $packetId . ' ' . $e->getMessage());
+            }
         }
 
         return [

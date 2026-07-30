@@ -62,7 +62,7 @@ class TronFair
   }
 
   /**
-   * 抢完/过期后调用：标记 pending → 延迟拉取官方区块哈希
+   * 调度开奖：拼手气多在抢完后调用；扫雷可在发包后立即调用以匹配哈希末位
    */
   public static function scheduleReveal($packetId, $delaySec = null)
   {
@@ -441,10 +441,10 @@ class TronFair
           PushBus::toUsers($uids, 'redpacket.update', $event);
         }
         $ptype = (int)($packet['packet_type'] ?? 0);
-        $text = '波场官方开奖：区块 #' . $blockNum
+          $text = '波场官方开奖：区块 #' . $blockNum
           . ' · 哈希末位 ' . $luckyChar;
         if ($ptype === 3) {
-          $text .= ' · 埋雷数字 ' . (int)($packet['mine_digit'] ?? 0);
+          $text .= ' · 埋雷数字 ' . (int)($packet['mine_digit'] ?? 0) . '（已匹配）';
         }
         $text .= '（可点红包详情前往 TronScan 核对）';
         $sys = (new \Im\Service\MessageService())->sendGroupSystem($groupId, $text, 0, [
