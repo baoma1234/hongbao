@@ -112,7 +112,6 @@
                         <div class="profile-meta-line" id="profileWithdrawBindHint" data-copy="wallet_bind_hint">请先绑定该钱包收款地址（每个钱包类型独立，地址不可重复）</div>
                         <div class="wallet-bind-current" id="profileWithdrawBindCurrent" hidden>
                             <div class="profile-meta-line"><span data-copy="wallet_bound_label">已绑定地址：</span><strong id="profileWithdrawBoundAddr">-</strong></div>
-                            <button type="button" class="wallet-bind-rebind" id="profileWithdrawRebindBtn" data-copy="wallet_rebind_btn">更换地址</button>
                         </div>
                         <div class="wallet-bind-form" id="profileWithdrawBindForm">
                             <div class="profile-field">

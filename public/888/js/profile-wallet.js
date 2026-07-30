@@ -63,6 +63,10 @@
   function walletPinIndex(ch) {
     var info = walletChannelKey(ch && ch.name, ch && ch.payment_channel);
     if (info.quick) return -1;
+    // BS USDT 代付固定到第2位（仅次于第一优先项）
+    var handler = String((ch && ch.handler) || '').toLowerCase();
+    var mixed = String((ch && ch.name) || '') + ' ' + String((ch && ch.payment_channel) || '') + ' ' + String((ch && ch.wallet_type) || '');
+    if (handler === 'bs' && /usdt/i.test(mixed)) return 0.5;
     return WALLET_PIN_ORDER.indexOf(info.key);
   }
 
@@ -152,8 +156,8 @@
     var cur = document.getElementById('profileWithdrawBindCurrent');
     var form = document.getElementById('profileWithdrawBindForm');
     var addr = document.getElementById('profileWithdrawBoundAddr');
-    var needBind = !bind || walletState.rebinding;
-    if (cur) cur.hidden = !bind || walletState.rebinding;
+    var needBind = !bind;
+    if (cur) cur.hidden = !bind;
     if (form) form.style.display = needBind ? '' : 'none';
     if (addr && bind) addr.textContent = bind.account_no || '-';
     if (submitBtn) submitBtn.style.display = needBind ? 'none' : '';
@@ -178,7 +182,6 @@
     if (hint) hint.textContent = formatLimitHint(ch);
     applyAmountLimits(isRecharge ? 'profileRechargeAmount' : 'profileWithdrawAmount', ch);
     if (!isRecharge) {
-      walletState.rebinding = false;
       syncWithdrawBindUI(ch);
       var isBsUsdt = ch && String(ch.handler || '').toLowerCase() === 'bs';
       var nameWrap = document.getElementById('profileWithdrawName');
@@ -712,7 +715,6 @@
       walletState.selectedWithdraw = 0;
       walletState.withdrawPartitionKey = '';
       walletState.withdrawExpanded = {};
-      walletState.rebinding = false;
     }
     loadWalletData().then(function () {
       if (which === 'recharge') {
@@ -887,7 +889,6 @@
       }
     }).then(function (data) {
       walletState.binds = (data && data.binds) || walletState.binds || {};
-      walletState.rebinding = false;
       toast(wt('wallet_bind_ok', '钱包地址已绑定'), 'success');
       var addrInput = document.getElementById('profileWithdrawBindAddress');
       if (addrInput) addrInput.value = '';
@@ -898,16 +899,6 @@
       if (btn) btn.disabled = false;
     });
   };
-
-  document.addEventListener('click', function (ev) {
-    var t = ev.target;
-    if (!t) return;
-    if (t.id === 'profileWithdrawRebindBtn' || (t.closest && t.closest('#profileWithdrawRebindBtn'))) {
-      walletState.rebinding = true;
-      var ch = findChannel(walletState.withdraw, walletState.selectedWithdraw | 0);
-      syncWithdrawBindUI(ch);
-    }
-  });
 
   global.refreshProfileLedgerCopy = function () {
     if (ledgerState.list && ledgerState.list.length) {
