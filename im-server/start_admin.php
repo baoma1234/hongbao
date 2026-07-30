@@ -99,13 +99,19 @@ $http->onMessage = function (TcpConnection $connection, Request $request) use ($
             return;
         }
         if ($path === '/agent/send_redpacket' && strtoupper($request->method()) === 'POST') {
-            assertAgent((int)$body['agent_user_id'], (int)($body['admin_id'] ?? 0));
+            $sendUid = (int)($body['agent_user_id'] ?? 0);
+            // bot_mode=1：自动发抢任务可用普通会员发包（admin_key 已鉴权）；否则仍须登记托管客服
+            if (!empty($body['bot_mode'])) {
+                assertUserExists($sendUid);
+            } else {
+                assertAgent($sendUid, (int)($body['admin_id'] ?? 0));
+            }
             $scopeType = (int)($body['scope_type'] ?? 0);
             if ($scopeType !== 1 && $scopeType !== 2) {
                 throw new InvalidArgumentException('invalid scope_type');
             }
             $result = $redPackets->send([
-                'from_user_id' => (int)$body['agent_user_id'],
+                'from_user_id' => $sendUid,
                 'scope_type'   => $scopeType,
                 'group_id'     => (int)($body['group_id'] ?? 0),
                 'to_user_id'   => (int)($body['to_user_id'] ?? 0),
@@ -131,10 +137,7 @@ $http->onMessage = function (TcpConnection $connection, Request $request) use ($
                 throw new InvalidArgumentException('agent_user_id and packet_id required');
             }
             // 抢包机器人只需是合法用户（admin_key 已鉴权），不必登记为托管客服
-            $userOk = Db::fetch('SELECT id FROM ' . Db::table('user') . ' WHERE id=? LIMIT 1', [$agentUid]);
-            if (!$userOk) {
-                throw new RuntimeException('grab user not found');
-            }
+            assertUserExists($agentUid);
             $result = $redPackets->grab($packetId, $agentUid);
             $packet = $result['packet'] ?? null;
             if (is_array($packet)) {
@@ -199,6 +202,18 @@ function parseExtra($extra)
 function jsonResponse($code, array $data)
 {
     return new Response($code, ['Content-Type' => 'application/json; charset=utf-8'], json_encode($data, JSON_UNESCAPED_UNICODE));
+}
+
+function assertUserExists($userId)
+{
+    $userId = (int)$userId;
+    if ($userId <= 0) {
+        throw new InvalidArgumentException('agent_user_id required');
+    }
+    $row = Db::fetch('SELECT id FROM ' . Db::table('user') . ' WHERE id=? LIMIT 1', [$userId]);
+    if (!$row) {
+        throw new RuntimeException('user not found: ' . $userId);
+    }
 }
 
 function assertAgent($agentUserId, $adminId = 0)

@@ -107,6 +107,7 @@ class FansHubRpAuto
             'total_count'   => $count,
             'blessing'      => (string)($task['blessing'] ?: '恭喜发财'),
             'mine_digit'    => (int)($task['mine_digit'] ?? 0),
+            'bot_mode'      => 1,
         ]);
 
         $packetId = (int)($result['packet_id'] ?? ($result['packet']['id'] ?? 0));
