@@ -59,8 +59,8 @@
         <label class="control-label col-xs-12 col-sm-2">充值模式:</label>
         <div class="col-xs-12 col-sm-8">
             <select class="form-control" name="row[recharge_mode]">
-                <option value="cashier" {if condition="($row.recharge_mode|default='cashier') == 'cashier'"}selected{/if}>收银台（返回 payUrl）</option>
-                <option value="api" {if condition="($row.recharge_mode|default='cashier') == 'api'"}selected{/if}>接口（返回收款地址）</option>
+                <option value="cashier" {if condition="(isset($row.recharge_mode) ? $row.recharge_mode : 'cashier') == 'cashier'"}selected{/if}>收银台（返回 payUrl）</option>
+                <option value="api" {if condition="(isset($row.recharge_mode) ? $row.recharge_mode : 'cashier') == 'api'"}selected{/if}>接口（返回收款地址）</option>
             </select>
         </div>
     </div>
@@ -105,8 +105,8 @@
         <label class="control-label col-xs-12 col-sm-2">代付类型:</label>
         <div class="col-xs-12 col-sm-8">
             <select class="form-control" name="row[withdraw_type]">
-                <option value="2" {if condition="($row.withdraw_type|default='2') == '2'"}selected{/if}>2 钱包代付</option>
-                <option value="1" {if condition="($row.withdraw_type|default='2') == '1'"}selected{/if}>1 三方支付</option>
+                <option value="2" {if condition="(isset($row.withdraw_type) ? $row.withdraw_type : '2') == '2'"}selected{/if}>2 钱包代付</option>
+                <option value="1" {if condition="(isset($row.withdraw_type) ? $row.withdraw_type : '2') == '1'"}selected{/if}>1 三方支付</option>
             </select>
         </div>
     </div>
