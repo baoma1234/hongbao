@@ -465,6 +465,72 @@ class MessageService
         }
     }
 
+    /**
+     * inbox 里只有群时，私聊不会出现在列表；把库里仍有消息的私聊补回来并回填 inbox。
+     */
+    protected function mergeMissingPrivateConversations($userId, array &$items, $limit = 50)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return;
+        }
+        $have = [];
+        foreach ($items as $it) {
+            if ((int)($it['conversation_type'] ?? 0) === 1) {
+                $have[(string)$it['conversation_id']] = true;
+            }
+        }
+        $msgTable = Db::table('chat_messages');
+        $limit = max(1, min(100, (int)$limit));
+        try {
+            $privates = Db::fetchAll(
+                "SELECT m.* FROM {$msgTable} m
+                 INNER JOIN (
+                    SELECT conversation_id, MAX(id) AS max_id FROM (
+                        SELECT conversation_id, id FROM {$msgTable}
+                        WHERE conversation_type=1 AND status=1 AND from_user_id=?
+                        UNION ALL
+                        SELECT conversation_id, id FROM {$msgTable}
+                        WHERE conversation_type=1 AND status=1 AND to_user_id=?
+                    ) u
+                    GROUP BY conversation_id
+                 ) t ON m.id = t.max_id
+                 ORDER BY m.id DESC LIMIT {$limit}",
+                [$userId, $userId]
+            );
+        } catch (\Throwable $e) {
+            return;
+        }
+        $added = [];
+        foreach ($privates as $row) {
+            $cid = (string)($row['conversation_id'] ?? '');
+            if ($cid === '' || isset($have[$cid])) {
+                continue;
+            }
+            $m = $this->slimLastMessage($this->normalizeMessage($row));
+            $peerId = ((int)$m['from_user_id'] === $userId)
+                ? (int)$m['to_user_id']
+                : (int)$m['from_user_id'];
+            $it = [
+                'conversation_type' => 1,
+                'conversation_id'   => $cid,
+                'peer_user_id'      => $peerId,
+                'group_id'          => 0,
+                'title'             => '',
+                'avatar'            => '',
+                'last_message'      => $m,
+                'updatetime'        => (int)$m['createtime'],
+                'unread_count'      => 0,
+            ];
+            $items[] = $it;
+            $added[] = $it;
+            $have[$cid] = true;
+        }
+        if ($added) {
+            $this->seedInboxFromItems($userId, $added);
+        }
+    }
+
     public function history($conversationType, $conversationId, $beforeId = 0, $limit = 30)
     {
         $limit = max(1, min(100, (int)$limit));
@@ -837,6 +903,9 @@ class MessageService
             $this->seedInboxFromItems($userId, $items);
         }
 
+        // inbox 非空时只会走 Redis 会话；私聊若不在 inbox 会被丢掉（例如只有群在 inbox）
+        $this->mergeMissingPrivateConversations($userId, $items, $limit);
+
         usort($items, function ($a, $b) {
             return ((int)$b['updatetime']) <=> ((int)$a['updatetime']);
         });
@@ -844,18 +913,27 @@ class MessageService
         // 普通用户：会话列表始终包含全部 IM 管理员（即使尚未聊天）
         if (!AdminService::isImAdmin($userId)) {
             $havePeers = [];
-            foreach ($items as $it) {
+            foreach ($items as $idx => $it) {
                 if ((int)$it['conversation_type'] === 1 && (int)$it['peer_user_id'] > 0) {
-                    $havePeers[(int)$it['peer_user_id']] = true;
+                    $havePeers[(int)$it['peer_user_id']] = $idx;
                 }
             }
             $adminRows = AdminService::adminRows();
             $adminMap = AdminService::adminIdMap();
-            $now = time();
             foreach ($adminRows as $adminId => $adminMeta) {
-                if ($adminId === $userId || isset($havePeers[$adminId])) {
+                $adminId = (int)$adminId;
+                if ($adminId === $userId) {
                     continue;
                 }
+                if (isset($havePeers[$adminId])) {
+                    $idx = $havePeers[$adminId];
+                    $items[$idx]['is_im_admin'] = true;
+                    if ($items[$idx]['title'] === '' && !empty($adminMeta['label'])) {
+                        $items[$idx]['title'] = (string)$adminMeta['label'];
+                    }
+                    continue;
+                }
+                // 未聊过：固定 updatetime=0，禁止用 time()（否则每次刷新时间都变「刚刚」）
                 $items[] = [
                     'conversation_type' => 1,
                     'conversation_id'   => IdGenerator::privateConversationId($userId, $adminId),
@@ -865,7 +943,7 @@ class MessageService
                     'avatar'            => '',
                     'last_message'      => null,
                     'is_im_admin'       => true,
-                    'updatetime'        => $now,
+                    'updatetime'        => 0,
                     'unread_count'      => 0,
                 ];
             }
