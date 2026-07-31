@@ -329,128 +329,126 @@
     state.profileTarget = null;
   }
 
-  async function openRedPacketDetail(packetId) {
-    packetId = packetId | 0;
-    if (!packetId) return;
-    ensureChatOverlays();
-    try {
-      var packet = await send('redpacket.detail', { packet_id: packetId });
-      var data = packet.data || {};
-      var head = $('chatRpDetailHead');
-      var list = $('chatRpDetailList');
-      var grabBtn = $('chatRpDetailGrabBtn');
-      var p = data.packet || {};
-      var bless = p.blessing || '恭喜发财';
-      var locked = data.rp_detail_locked === true || data.profile_clickable === false;
-      var privacyMode = (data.privacy_mode || (data.policy && data.policy.privacy_mode) || '').toString();
-      if (privacyMode !== 'open' && privacyMode !== 'private') {
-        privacyMode = locked ? 'private' : 'open';
+  function applyRedPacketDetailData(packetId, data) {
+    data = data || {};
+    var head = $('chatRpDetailHead');
+    var list = $('chatRpDetailList');
+    var grabBtn = $('chatRpDetailGrabBtn');
+    var p = data.packet || {};
+    var bless = p.blessing || '恭喜发财';
+    var locked = data.rp_detail_locked === true || data.profile_clickable === false;
+    var privacyMode = (data.privacy_mode || (data.policy && data.policy.privacy_mode) || '').toString();
+    if (privacyMode !== 'open' && privacyMode !== 'private') {
+      privacyMode = locked ? 'private' : 'open';
+    }
+    if (head) {
+      var fairHash = p.tron_block_id || p.fair_hash || '';
+      var fairBits = '';
+      var blockNum = p.tron_block_num || p.targetBlockNum || 0;
+      var ptype = p.packet_type | 0;
+      var mineLine = '';
+      if (ptype === 3) {
+        mineLine = '<div class="chat-rp-detail-meta">埋雷数字：<strong>' + (p.mine_digit | 0) + '</strong>'
+          + (p.mine_pending ? '（匹配波场哈希末位中）' : '（已匹配波场哈希末位）')
+          + '</div>';
       }
-      if (head) {
-        var fairHash = p.tron_block_id || p.fair_hash || '';
-        var fairBits = '';
-        var blockNum = p.tron_block_num || p.targetBlockNum || 0;
-        var ptype = p.packet_type | 0;
-        var mineLine = '';
-        if (ptype === 3) {
-          mineLine = '<div class="chat-rp-detail-meta">埋雷数字：<strong>' + (p.mine_digit | 0) + '</strong>'
-            + (p.mine_pending ? '（匹配波场哈希末位中）' : '（已匹配波场哈希末位）')
-            + '</div>';
+      if ((fairHash || blockNum) && ptype !== 1) {
+        var pno = encodeURIComponent(p.packet_no || '');
+        var hashLabel = blockNum ? ('TRON #' + blockNum) : 'TRON';
+        var tronTarget = blockNum ? String(blockNum) : String(fairHash || '');
+        var tronHref = tronTarget
+          ? ('https://tronscan.org/#/block/' + encodeURIComponent(tronTarget))
+          : '';
+        fairBits = '<div class="chat-rp-fair-hash"><span class="chat-rp-fair-label">' + hashLabel + '</span><code>' + escapeHtml(fairHash || '开奖后公开') + '</code></div>';
+        if (fairHash && tronHref) {
+          fairBits += '<a class="chat-rp-tron-btn" href="' + tronHref + '" target="_blank" rel="noopener">前往波场验证</a>';
+        } else if (blockNum && tronHref) {
+          fairBits += '<a class="chat-rp-tron-btn" href="' + tronHref + '" target="_blank" rel="noopener">查看锁定区块</a>';
         }
-        if ((fairHash || blockNum) && ptype !== 1) {
-          var pno = encodeURIComponent(p.packet_no || '');
-          var hashLabel = blockNum ? ('TRON #' + blockNum) : 'TRON';
-          var tronTarget = blockNum ? String(blockNum) : String(fairHash || '');
-          var tronHref = tronTarget
-            ? ('https://tronscan.org/#/block/' + encodeURIComponent(tronTarget))
-            : '';
-          fairBits = '<div class="chat-rp-fair-hash"><span class="chat-rp-fair-label">' + hashLabel + '</span><code>' + escapeHtml(fairHash || '开奖后公开') + '</code></div>';
-          if (fairHash && tronHref) {
-            fairBits += '<a class="chat-rp-tron-btn" href="' + tronHref + '" target="_blank" rel="noopener">前往波场验证</a>';
-          } else if (blockNum && tronHref) {
-            fairBits += '<a class="chat-rp-tron-btn" href="' + tronHref + '" target="_blank" rel="noopener">查看锁定区块</a>';
+        fairBits += '<a class="chat-rp-fair-link" href="fair-verify.html?packet_no=' + pno + '" target="_blank" rel="noopener">本站验证详情</a>';
+      }
+      head.innerHTML = '<div class="chat-rp-detail-bless">' + escapeHtml(bless) + '</div>' +
+        '<div class="chat-rp-detail-meta">共 ' + (p.total_count | 0) + ' 个 · ￥' + (parseFloat(p.total_amount || 0).toFixed(2)) + '</div>' +
+        (p.createtime
+          ? ('<div class="chat-rp-detail-send-time">发送时间 ' + escapeHtml(formatTimeSec(p.createtime)) + '</div>')
+          : '') +
+        mineLine +
+        fairBits +
+        (locked
+          ? '<div class="chat-rp-privacy-tip locked">🔒 隐私群：领取人资料已隐藏</div>'
+          : '');
+    }
+    if (list) {
+      list.classList.toggle('is-private', locked);
+      list.classList.toggle('is-open', !locked);
+      var rows = data.records || [];
+      var ptype2 = (p.packet_type | 0);
+      var settled = (p.status | 0) === 5;
+      if (ptype2 === 3 && settled && head) {
+        var hitN = rows.filter(function (r) { return (r.is_mine_hit | 0) === 1; }).length;
+        var sumCls = hitN > 0 ? 'chat-rp-mine-summary' : 'chat-rp-mine-summary is-safe';
+        var sumText = hitN > 0 ? ('本局中雷 ' + hitN + ' 人') : '本局无人中雷';
+        head.insertAdjacentHTML('beforeend', '<div class="' + sumCls + '">' + sumText + '</div>');
+      }
+      if (!rows.length) {
+        list.innerHTML = '<div class="chat-empty">' + escapeHtml(chatT('chat_no_claims')) + '</div>';
+      } else {
+        list.innerHTML = rows.map(function (r) {
+          var uid = r.user_id | 0;
+          var isSelf = uid === (state.userId | 0);
+          var gray = locked && !isSelf;
+          var nick = r.nickname || ('ID' + uid);
+          var avInner;
+          if (!gray && r.avatar) {
+            avInner = '<img src="' + escapeHtml(encodeUriPath(r.avatar)) + '" alt="">';
+          } else if (!gray) {
+            avInner = avatarImgHtml('');
+          } else {
+            avInner = escapeHtml((nick || 'U').charAt(0));
           }
-          fairBits += '<a class="chat-rp-fair-link" href="fair-verify.html?packet_no=' + pno + '" target="_blank" rel="noopener">本站验证详情</a>';
-        }
-        head.innerHTML = '<div class="chat-rp-detail-bless">' + escapeHtml(bless) + '</div>' +
-          '<div class="chat-rp-detail-meta">共 ' + (p.total_count | 0) + ' 个 · ￥' + (parseFloat(p.total_amount || 0).toFixed(2)) + '</div>' +
-          (p.createtime
-            ? ('<div class="chat-rp-detail-send-time">发送时间 ' + escapeHtml(formatTimeSec(p.createtime)) + '</div>')
-            : '') +
-          mineLine +
-          fairBits +
-          (locked
-            ? '<div class="chat-rp-privacy-tip locked">🔒 隐私群：领取人资料已隐藏</div>'
-            : '');
-      }
-      if (list) {
-        list.classList.toggle('is-private', locked);
-        list.classList.toggle('is-open', !locked);
-        var rows = data.records || [];
-        var ptype2 = (p.packet_type | 0);
-        var settled = (p.status | 0) === 5;
-        if (ptype2 === 3 && settled && head) {
-          var hitN = rows.filter(function (r) { return (r.is_mine_hit | 0) === 1; }).length;
-          var sumCls = hitN > 0 ? 'chat-rp-mine-summary' : 'chat-rp-mine-summary is-safe';
-          var sumText = hitN > 0 ? ('本局中雷 ' + hitN + ' 人') : '本局无人中雷';
-          head.insertAdjacentHTML('beforeend', '<div class="' + sumCls + '">' + sumText + '</div>');
-        }
-        if (!rows.length) {
-          list.innerHTML = '<div class="chat-empty">' + escapeHtml(chatT('chat_no_claims')) + '</div>';
-        } else {
-          list.innerHTML = rows.map(function (r) {
-            var uid = r.user_id | 0;
-            var isSelf = uid === (state.userId | 0);
-            var gray = locked && !isSelf;
-            var nick = r.nickname || ('ID' + uid);
-            var avInner;
-            if (!gray && r.avatar) {
-              avInner = '<img src="' + escapeHtml(encodeUriPath(r.avatar)) + '" alt="">';
-            } else if (!gray) {
-              avInner = avatarImgHtml('');
-            } else {
-              avInner = escapeHtml((nick || 'U').charAt(0));
+          var avHtml = '<div class="chat-rp-record-avatar locked' + (gray ? ' is-gray' : '') + '" aria-disabled="true">' + avInner + '</div>';
+          var nameCls = 'chat-rp-record-name locked' + (gray ? ' is-masked' : '');
+          var lockIcon = gray ? '<span class="chat-rp-lock" aria-hidden="true">🔒</span>' : '';
+          var tags = '';
+          if (r.is_best) tags += ' 手气最佳';
+          if (r.is_worst) tags += ' 手气最差';
+          if (ptype2 === 3) {
+            var tail = (r.tail_digit != null) ? (r.tail_digit | 0) : null;
+            var hit = (r.is_mine_hit | 0) === 1;
+            if (settled || hit) {
+              tags += hit
+                ? ' <span class="is-mine-hit">中雷</span>'
+                : ' <span class="is-mine-safe">未中雷</span>';
             }
-            var avHtml = '<div class="chat-rp-record-avatar locked' + (gray ? ' is-gray' : '') + '" aria-disabled="true">' + avInner + '</div>';
-            var nameCls = 'chat-rp-record-name locked' + (gray ? ' is-masked' : '');
-            var lockIcon = gray ? '<span class="chat-rp-lock" aria-hidden="true">🔒</span>' : '';
-            var tags = '';
-            if (r.is_best) tags += ' 手气最佳';
-            if (r.is_worst) tags += ' 手气最差';
-            if (ptype2 === 3) {
-              var tail = (r.tail_digit != null) ? (r.tail_digit | 0) : null;
-              var hit = (r.is_mine_hit | 0) === 1;
-              if (settled || hit) {
-                tags += hit
-                  ? ' <span class="is-mine-hit">中雷</span>'
-                  : ' <span class="is-mine-safe">未中雷</span>';
-              }
-              if (tail != null) tags += ' · 尾' + tail;
-            } else if (r.is_mine_hit) {
-              tags += ' 中雷';
-            }
-            var grabTime = r.createtime ? formatTimeSec(r.createtime) : '';
-            return (
-              '<div class="chat-rp-record-item' + (gray ? ' is-locked' : '') + '">' + avHtml +
-                '<div class="chat-rp-record-main">' +
-                  '<div class="' + nameCls + '" data-uid="' + uid + '">' +
-                    lockIcon + escapeHtml(nick) +
-                  '</div>' +
-                  '<div class="chat-rp-record-amt">￥' + parseFloat(r.amount || 0).toFixed(2) + tags +
-                  '</div>' +
-                  (grabTime
-                    ? ('<div class="chat-rp-record-time">领取时间 ' + escapeHtml(grabTime) + '</div>')
-                    : '') +
-                '</div></div>'
-            );
-          }).join('');
-        }
+            if (tail != null) tags += ' · 尾' + tail;
+          } else if (r.is_mine_hit) {
+            tags += ' 中雷';
+          }
+          var grabTime = r.createtime ? formatTimeSec(r.createtime) : '';
+          return (
+            '<div class="chat-rp-record-item' + (gray ? ' is-locked' : '') + '">' + avHtml +
+              '<div class="chat-rp-record-main">' +
+                '<div class="' + nameCls + '" data-uid="' + uid + '">' +
+                  lockIcon + escapeHtml(nick) +
+                '</div>' +
+                '<div class="chat-rp-record-amt">￥' + parseFloat(r.amount || 0).toFixed(2) + tags +
+                '</div>' +
+                (grabTime
+                  ? ('<div class="chat-rp-record-time">领取时间 ' + escapeHtml(grabTime) + '</div>')
+                  : '') +
+              '</div></div>'
+          );
+        }).join('');
       }
-      if (grabBtn) {
-        var grabbed = !!data.mine;
-        var finished = (p.remain_count | 0) <= 0;
-        var st = (p.status | 0);
-        var expired = st === 3 || st === 4 || ((p.expiretime | 0) > 0 && Math.floor(Date.now() / 1000) >= (p.expiretime | 0) && st !== 2 && st !== 5);
+    }
+    if (grabBtn) {
+      var grabbed = !!data.mine;
+      var finished = (p.remain_count | 0) <= 0;
+      var st = (p.status | 0);
+      var expired = st === 3 || st === 4 || ((p.expiretime | 0) > 0 && Math.floor(Date.now() / 1000) >= (p.expiretime | 0) && st !== 2 && st !== 5);
+      // 封面状态延后更新，避免阻塞详情页首帧
+      setTimeout(function () {
+        if (state._rpDetailPacketId !== packetId) return;
         if (grabbed || expired) {
           markRpCover(packetId, {
             grabbed: grabbed,
@@ -458,16 +456,49 @@
             faded: true,
             mine_digit: (p.packet_type | 0) === 3 ? (p.mine_digit | 0) : undefined
           });
-          try { renderMessages(); } catch (eCover) {}
+          try { renderMessages(true); } catch (eCover) {}
         } else if ((p.packet_type | 0) === 3 && p.mine_digit != null) {
           markRpCover(packetId, { mine_digit: p.mine_digit | 0 });
-          try { renderMessages(); } catch (eMine) {}
+          try { renderMessages(true); } catch (eMine) {}
         }
-        grabBtn.style.display = (!grabbed && !finished && !expired) ? '' : 'none';
-        grabBtn.setAttribute('data-packet', String(packetId));
-      }
-      openSubPane('chatRpDetailPane');
+      }, 0);
+      grabBtn.style.display = (!grabbed && !finished && !expired) ? '' : 'none';
+      grabBtn.setAttribute('data-packet', String(packetId));
+    }
+  }
+
+  async function openRedPacketDetail(packetId) {
+    packetId = packetId | 0;
+    if (!packetId) return;
+    ensureChatOverlays();
+    state._rpDetailPacketId = packetId;
+    var head = $('chatRpDetailHead');
+    var list = $('chatRpDetailList');
+    var grabBtn = $('chatRpDetailGrabBtn');
+    if (grabBtn) grabBtn.style.display = 'none';
+    if (head) {
+      head.innerHTML = '<div class="chat-rp-detail-bless">红包</div>' +
+        '<div class="chat-rp-detail-meta">加载中…</div>';
+    }
+    if (list) {
+      list.classList.remove('is-private', 'is-open');
+      list.innerHTML = '<div class="chat-empty">加载中…</div>';
+    }
+    // 先打开面板，再异步拉数据（避免点击卡顿）
+    openSubPane('chatRpDetailPane');
+    try {
+      var packet = await send('redpacket.detail', { packet_id: packetId });
+      if (state._rpDetailPacketId !== packetId) return;
+      applyRedPacketDetailData(packetId, packet.data || {});
     } catch (e) {
+      if (state._rpDetailPacketId !== packetId) return;
+      if (head) {
+        head.innerHTML = '<div class="chat-rp-detail-bless">红包</div>' +
+          '<div class="chat-rp-detail-meta">加载失败</div>';
+      }
+      if (list) {
+        list.innerHTML = '<div class="chat-empty">' + escapeHtml((e && e.message) || '加载失败') + '</div>';
+      }
       if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '加载失败', 'error');
     }
   }
@@ -477,8 +508,16 @@
     if (!box) return;
     var go = function () {
       try {
-        box.scrollTop = box.scrollHeight;
-      } catch (e) {}
+        var rows = box.querySelectorAll('.chat-msg-row');
+        var last = rows.length ? rows[rows.length - 1] : null;
+        if (last && last.scrollIntoView) {
+          last.scrollIntoView({ block: 'end', inline: 'nearest', behavior: 'auto' });
+        }
+        // flex/图片高度变化时再顶一次到底
+        box.scrollTop = Math.max(box.scrollHeight - box.clientHeight, 0);
+      } catch (e) {
+        try { box.scrollTop = box.scrollHeight; } catch (e2) {}
+      }
     };
     go();
     if (typeof requestAnimationFrame === 'function') {
@@ -490,6 +529,54 @@
     setTimeout(go, 60);
     setTimeout(go, 180);
     setTimeout(go, 400);
+  }
+
+  /** 打开会话：有未读滚到首条未读，否则滚到底 */
+  function scrollRoomOnOpen(lastReadId, unreadCount) {
+    var box = $('chatMsgScroll');
+    if (!box) return;
+    lastReadId = lastReadId | 0;
+    unreadCount = unreadCount | 0;
+    var targetMid = 0;
+    if (unreadCount > 0) {
+      for (var i = 0; i < state.messages.length; i++) {
+        var m = state.messages[i];
+        var mid = m.id | 0;
+        if (mid <= 0) continue;
+        if (lastReadId > 0 && mid <= lastReadId) continue;
+        if ((m.from_user_id | 0) === (state.userId | 0)) continue;
+        if ((m.status | 0) === 2) continue;
+        targetMid = mid;
+        break;
+      }
+    }
+    var go = function () {
+      if (targetMid > 0) {
+        var el = box.querySelector('.chat-msg-row[data-mid="' + targetMid + '"]');
+        if (el) {
+          try {
+            el.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'auto' });
+            return;
+          } catch (e0) {
+            try {
+              box.scrollTop = Math.max(0, el.offsetTop - 12);
+              return;
+            } catch (e1) {}
+          }
+        }
+      }
+      scrollMsgToLatest();
+    };
+    go();
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(function () {
+        go();
+        requestAnimationFrame(go);
+      });
+    }
+    setTimeout(go, 60);
+    setTimeout(go, 200);
+    setTimeout(go, 450);
   }
 
   function buildMessageRowHtml(msg) {
@@ -573,7 +660,7 @@
         '<span class="meta">' + time + '</span></div>', actions, msg.id | 0);
   }
 
-  function renderMessages() {
+  function renderMessages(skipScroll) {
     var box = $('chatMsgScroll');
     if (!box) return;
     if (!state.messages.length) {
@@ -591,7 +678,7 @@
       lastTs = ts || lastTs;
       return timeSep + buildMessageRowHtml(msg);
     }).join('');
-    scrollMsgToLatest();
+    if (!skipScroll) scrollMsgToLatest();
   }
 
   function applyRecalledMessage(msg) {
@@ -816,6 +903,10 @@
     state.groupMeta = null;
     state.rpCover = {};
     hideNoticePin();
+    var roomKey = convKey(state.room.type, state.room.id);
+    var openUnread = state.unread[roomKey] | 0;
+    var openLastRead = 0;
+    try { openLastRead = (loadReadMap()[roomKey] | 0); } catch (eRead) { openLastRead = 0; }
     var titleEl = $('chatRoomTitle');
     if (titleEl) titleEl.textContent = state.room.title || (state.room.type === 2 ? chatT('chat_group_default_name') : chatT('chat_private'));
     var moreBtn = $('chatGroupMoreBtn');
@@ -854,8 +945,8 @@
         applyGroupRoomHeader(state.groupMeta);
         updateComposerPolicy();
       }
-      renderMessages();
-      scrollMsgToLatest();
+      renderMessages(true);
+      scrollRoomOnOpen(openLastRead, openUnread);
       var last = state.messages.length ? state.messages[state.messages.length - 1] : null;
       markRead(state.room.type, state.room.id, last ? last.id : 0);
       // 兜底：若 history 未带 group 信息再补一次（不阻塞首屏）
