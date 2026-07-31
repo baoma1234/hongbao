@@ -1575,8 +1575,13 @@
                     el.setAttribute('aria-hidden', 'true');
                 }
             });
-            if (currentTab === 'profile' && typeof setBottomActionBarVisible === 'function') {
-                setBottomActionBarVisible(true);
+            // 从消息/佣金等 Tab 打开钱包子页后关闭时也要恢复底栏（原先只在 profile Tab 恢复）
+            if (typeof setBottomActionBarVisible === 'function'
+                && !document.body.classList.contains('chat-room-open')) {
+                var dash = document.getElementById('mainDashboardView');
+                if (dash && dash.classList.contains('active')) {
+                    setBottomActionBarVisible(true);
+                }
             }
         }
 

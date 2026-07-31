@@ -537,6 +537,13 @@
     } else if (mode === 'withdraw_list') {
       if (title) title.textContent = chatT('chat_commission_nav_withdraw');
       renderCommissionRows(data.withdraw_recent, chatT('chat_commission_empty_withdraw'));
+    } else if (mode === 'ledger' || mode === 'recent') {
+      if (title) {
+        title.textContent = mode === 'ledger'
+          ? chatT('chat_commission_nav_ledger')
+          : chatT('chat_commission_recent');
+      }
+      renderCommissionRows(data.recent, chatT('chat_commission_empty_recent'));
     } else {
       if (title) title.textContent = chatT('chat_commission_recent');
       renderCommissionRows(data.recent, chatT('chat_commission_empty_recent'));
@@ -627,13 +634,9 @@
         var btn = ev.target.closest('[data-commission-nav]');
         if (!btn) return;
         var kind = btn.getAttribute('data-commission-nav') || '';
-        if (kind === 'ledger') {
-          openCommissionWallet('ledger');
-          return;
-        }
-        if (kind === 'promo' || kind === 'rebate' || kind === 'withdraw_list') {
-          setCommissionListMode(kind);
-          // 勿用 scrollIntoView：会把 chat-home-tabs-row 滚出视口且外层无法滚回
+        // 四宫格全部留在佣金页切换下方列表，避免打开钱包全屏页把底栏藏掉
+        if (kind === 'promo' || kind === 'rebate' || kind === 'withdraw_list' || kind === 'ledger') {
+          setCommissionListMode(kind === 'ledger' ? 'ledger' : kind);
           nav.querySelectorAll('[data-commission-nav]').forEach(function (el) {
             el.classList.toggle('is-active', el === btn);
           });
