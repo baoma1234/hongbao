@@ -559,7 +559,7 @@ class MessageRouter
             'chat_mode'    => (string)($payload['chat_mode'] ?? 'chat'),
         ]);
         $this->send($connection, 'group.created', ['group' => $group], $reqId);
-        foreach ($this->groups->memberUserIds((int)$group['id']) as $memberId) {
+        foreach ($this->groups->onlineMemberIds((int)$group['id']) as $memberId) {
             $this->pushToUser($memberId, 'group.created', ['group' => $group]);
         }
     }
@@ -1214,9 +1214,8 @@ class MessageRouter
 
     protected function pushToGroup($groupId, $type, array $data, $exceptConnId = '')
     {
-        $uids = $this->groups->memberUserIds($groupId);
-        // 只推在线，避免万人群把离线 uid 塞进跨进程队列
-        $uids = ConnMap::filterOnlineUserIds($uids ?: []);
+        // 万人群：SINTER(online, members)，禁止拉全员再过滤
+        $uids = $this->groups->onlineMemberIds($groupId);
         if ($uids) {
             PushBus::toUsers($uids, $type, $data, $exceptConnId);
         }

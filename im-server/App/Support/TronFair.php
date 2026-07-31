@@ -387,7 +387,7 @@ class TronFair
       ];
       if ((int)($hint['scope_type'] ?? 0) === 2 && (int)($hint['group_id'] ?? 0) > 0) {
         $groupId = (int)$hint['group_id'];
-        $uidList = (new \Im\Service\GroupService())->memberUserIds($groupId);
+        $uidList = (new \Im\Service\GroupService())->onlineMemberIds($groupId);
         if ($uidList) {
           PushBus::toUsers($uidList, 'redpacket.update', $event);
         }
@@ -470,7 +470,7 @@ class TronFair
     try {
       if ((int)($packet['scope_type'] ?? 0) === 2 && (int)($packet['group_id'] ?? 0) > 0) {
         $groupId = (int)$packet['group_id'];
-        $uids = (new \Im\Service\GroupService())->memberUserIds($groupId);
+        $uids = (new \Im\Service\GroupService())->onlineMemberIds($groupId);
         if ($uids) {
           PushBus::toUsers($uids, 'redpacket.update', $event);
         }

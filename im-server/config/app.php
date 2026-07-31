@@ -140,4 +140,9 @@ return array_replace_recursive([
     'admin_bridge' => [
         'key' => '758fa83a00956f0419cd8abae1b0e86acffa7c166acb9784',
     ],
+    // 万人群：成员 Redis Set + 在线交集推送；超限截断避免单条消息打爆
+    'group' => [
+        'max_members'     => 10000, // 单群人数上限（写入 chat_groups.max_members）
+        'max_push_online' => 2500,  // 单条消息最多推送在线人数
+    ],
 ], $override);

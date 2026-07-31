@@ -5,7 +5,6 @@ namespace Im\Service;
 use Im\Support\Db;
 use Im\Support\IdGenerator;
 use Im\Support\RedisClient;
-use Im\Support\ConnMap;
 
 class MessageService
 {
@@ -150,8 +149,7 @@ class MessageService
             }
         } else {
             try {
-                $all = (new GroupService())->memberUserIds((int)($payload['group_id'] ?? $cid));
-                $uids = ConnMap::filterOnlineUserIds($all);
+                $uids = (new GroupService())->onlineMemberIds((int)($payload['group_id'] ?? $cid));
                 $uids = array_values(array_filter($uids, function ($uid) use ($from) {
                     return (int)$uid !== $from;
                 }));
@@ -301,8 +299,7 @@ class MessageService
             $uids = $from > 0 ? [$from] : [];
             try {
                 $gid = (int)($payload['group_id'] ?? $cid);
-                $all = (new GroupService())->memberUserIds($gid);
-                $online = ConnMap::filterOnlineUserIds($all);
+                $online = (new GroupService())->onlineMemberIds($gid);
                 foreach ($online as $uid) {
                     $uids[] = (int)$uid;
                 }

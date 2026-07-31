@@ -36,7 +36,7 @@ class NotifyDispatcher
             if (!$groups) {
                 $groups = new GroupService();
             }
-            $uids = $groups->memberUserIds((int)($message['group_id'] ?? 0));
+            $uids = $groups->onlineMemberIds((int)($message['group_id'] ?? 0));
         } else {
             $uids = array_filter([
                 (int)($message['from_user_id'] ?? 0),

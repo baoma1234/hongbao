@@ -988,7 +988,7 @@ class RedPacketService
         ];
         try {
             if ((int)($hint['scope_type'] ?? 0) === 2 && (int)($hint['group_id'] ?? 0) > 0) {
-                $uids = $this->groups->memberUserIds((int)$hint['group_id']);
+                $uids = $this->groups->onlineMemberIds((int)$hint['group_id']);
                 if ($uids) {
                     PushBus::toUsers($uids, 'redpacket.update', $event);
                 }
@@ -1095,7 +1095,7 @@ class RedPacketService
             $msg = $result['message'] ?? null;
             if (is_array($msg)) {
                 try {
-                    $uids = $this->groups->memberUserIds($groupId);
+                    $uids = $this->groups->onlineMemberIds($groupId);
                     \Im\Support\PushBus::toUsers($uids, 'group.message', ['message' => $msg]);
                 } catch (\Throwable $e) {
                     error_log('[RP_ROBOT] push fail group=' . $groupId . ' ' . $e->getMessage());

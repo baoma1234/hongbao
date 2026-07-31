@@ -7,8 +7,45 @@ use Im\Support\RedisClient;
 
 class GroupService
 {
-    /** 群成员列表 Redis 缓存秒数 */
+    /** 旧版 JSON 成员列表缓存（兼容过渡） */
     const MEMBER_CACHE_TTL = 60;
+    /** 成员 Redis Set 缓存 */
+    const MEMBER_SET_TTL = 604800; // 7 天
+
+    public static function maxMembers()
+    {
+        static $n = null;
+        if ($n !== null) {
+            return $n;
+        }
+        $n = 10000;
+        try {
+            $app = require dirname(__DIR__, 2) . '/config/app.php';
+            if (isset($app['group']['max_members'])) {
+                $n = max(100, (int)$app['group']['max_members']);
+            }
+        } catch (\Throwable $e) {
+        }
+        return $n;
+    }
+
+    /** 单条消息最多推送的在线人数（防止万人群同时在线打爆） */
+    public static function maxPushOnline()
+    {
+        static $n = null;
+        if ($n !== null) {
+            return $n;
+        }
+        $n = 2500;
+        try {
+            $app = require dirname(__DIR__, 2) . '/config/app.php';
+            if (isset($app['group']['max_push_online'])) {
+                $n = max(100, (int)$app['group']['max_push_online']);
+            }
+        } catch (\Throwable $e) {
+        }
+        return $n;
+    }
 
     public function create($ownerUserId, $name, array $memberIds = [], array $adminIds = [], array $options = [])
     {
@@ -33,7 +70,7 @@ class GroupService
             Db::exec(
                 'INSERT INTO ' . Db::table('chat_groups')
                 . ' (name,owner_user_id,member_count,max_members,status,privacy_mode,chat_mode,hide_member_list,createtime,updatetime) VALUES (?,?,?,?,?,?,?,?,?,?)',
-                [$name, $ownerUserId, count($members), 500, $status, $privacy, $chatMode, $hideList, $now, $now]
+                [$name, $ownerUserId, count($members), self::maxMembers(), $status, $privacy, $chatMode, $hideList, $now, $now]
             );
             $groupId = Db::lastId();
             foreach ($members as $uid) {
@@ -56,6 +93,7 @@ class GroupService
             throw $e;
         }
         $this->invalidateMembersCache($groupId);
+        $this->ensureMemberSet($groupId);
         return $this->get($groupId);
     }
 
@@ -64,18 +102,54 @@ class GroupService
         return Db::fetch('SELECT * FROM ' . Db::table('chat_groups') . ' WHERE id=? LIMIT 1', [(int)$groupId]);
     }
 
+    /**
+     * 确保群成员 Redis Set 存在（万人群用 SISMEMBER / SINTER，避免每次拉全量 JSON）
+     */
+    public function ensureMemberSet($groupId)
+    {
+        $groupId = (int)$groupId;
+        if ($groupId <= 0) {
+            return;
+        }
+        $setKey = RedisClient::key('g:' . $groupId . ':mset');
+        try {
+            $r = RedisClient::conn();
+            if ($r->exists($setKey)) {
+                $r->expire($setKey, self::MEMBER_SET_TTL);
+                return;
+            }
+            $rows = Db::fetchAll(
+                'SELECT user_id FROM ' . Db::table('chat_group_members') . ' WHERE group_id=? AND status=1',
+                [$groupId]
+            );
+            $r->multi(\Redis::PIPELINE);
+            $r->del($setKey);
+            foreach ($rows as $row) {
+                $uid = (int)$row['user_id'];
+                if ($uid > 0) {
+                    $r->sAdd($setKey, (string)$uid);
+                }
+            }
+            $r->expire($setKey, self::MEMBER_SET_TTL);
+            // 清掉旧 JSON 缓存
+            $r->del(RedisClient::key('g:' . $groupId . ':members'));
+            $r->exec();
+        } catch (\Throwable $e) {
+        }
+    }
+
     public function memberUserIds($groupId)
     {
         $groupId = (int)$groupId;
-        $cacheKey = RedisClient::key('g:' . $groupId . ':members');
+        $this->ensureMemberSet($groupId);
         try {
-            $r = RedisClient::conn();
-            $cached = $r->get($cacheKey);
-            if ($cached !== false && $cached !== null && $cached !== '') {
-                $ids = json_decode($cached, true);
-                if (is_array($ids)) {
-                    return array_map('intval', $ids);
-                }
+            $ids = RedisClient::conn()->sMembers(RedisClient::key('g:' . $groupId . ':mset'));
+            if (is_array($ids) && $ids) {
+                return array_map('intval', $ids);
+            }
+            // 空群也算命中
+            if (is_array($ids)) {
+                return [];
             }
         } catch (\Throwable $e) {
         }
@@ -84,20 +158,86 @@ class GroupService
             'SELECT user_id FROM ' . Db::table('chat_group_members') . ' WHERE group_id=? AND status=1',
             [$groupId]
         );
-        $ids = array_map(function ($r) {
+        return array_map(function ($r) {
             return (int)$r['user_id'];
         }, $rows);
-        try {
-            RedisClient::conn()->setex($cacheKey, self::MEMBER_CACHE_TTL, json_encode($ids));
-        } catch (\Throwable $e) {
+    }
+
+    /**
+     * 群内当前在线成员：online ∩ members（O(较小集合)，万人群关键）
+     * @return int[]
+     */
+    public function onlineMemberIds($groupId)
+    {
+        $groupId = (int)$groupId;
+        if ($groupId <= 0) {
+            return [];
         }
-        return $ids;
+        $this->ensureMemberSet($groupId);
+        try {
+            $ids = RedisClient::conn()->sInter(
+                RedisClient::key('online'),
+                RedisClient::key('g:' . $groupId . ':mset')
+            );
+            $out = array_values(array_unique(array_filter(array_map('intval', $ids ?: []))));
+            $cap = self::maxPushOnline();
+            if (count($out) > $cap) {
+                // 超大在线：截断并打日志，避免单条消息推送数万帧
+                error_log('[IM] group online fanout capped gid=' . $groupId . ' online=' . count($out) . ' cap=' . $cap);
+                $out = array_slice($out, 0, $cap);
+            }
+            return $out;
+        } catch (\Throwable $e) {
+            return \Im\Support\ConnMap::filterOnlineUserIds($this->memberUserIds($groupId));
+        }
     }
 
     public function invalidateMembersCache($groupId)
     {
         try {
-            RedisClient::conn()->del(RedisClient::key('g:' . (int)$groupId . ':members'));
+            $gid = (int)$groupId;
+            RedisClient::conn()->del(
+                RedisClient::key('g:' . $gid . ':members'),
+                RedisClient::key('g:' . $gid . ':mset')
+            );
+        } catch (\Throwable $e) {
+        }
+    }
+
+    /** 增量维护成员 Set，避免踢人/加人后整表重建 */
+    public function memberSetAdd($groupId, $userId)
+    {
+        $groupId = (int)$groupId;
+        $userId = (int)$userId;
+        if ($groupId <= 0 || $userId <= 0) {
+            return;
+        }
+        try {
+            $this->ensureMemberSet($groupId);
+            $r = RedisClient::conn();
+            $key = RedisClient::key('g:' . $groupId . ':mset');
+            $r->sAdd($key, (string)$userId);
+            $r->expire($key, self::MEMBER_SET_TTL);
+            $r->del(RedisClient::key('g:' . $groupId . ':members'));
+        } catch (\Throwable $e) {
+        }
+    }
+
+    public function memberSetRem($groupId, $userId)
+    {
+        $groupId = (int)$groupId;
+        $userId = (int)$userId;
+        if ($groupId <= 0 || $userId <= 0) {
+            return;
+        }
+        try {
+            $r = RedisClient::conn();
+            $key = RedisClient::key('g:' . $groupId . ':mset');
+            if ($r->exists($key)) {
+                $r->sRem($key, (string)$userId);
+                $r->expire($key, self::MEMBER_SET_TTL);
+            }
+            $r->del(RedisClient::key('g:' . $groupId . ':members'));
         } catch (\Throwable $e) {
         }
     }
@@ -115,7 +255,7 @@ class GroupService
     {
         return Db::fetchAll(
             'SELECT * FROM ' . Db::table('chat_group_members')
-            . ' WHERE group_id=? AND status=1 ORDER BY role DESC, id ASC',
+            . ' WHERE group_id=? AND status=1 ORDER BY role DESC, id ASC LIMIT 200',
             [(int)$groupId]
         );
     }
@@ -127,9 +267,13 @@ class GroupService
         if ($groupId <= 0 || $userId <= 0) {
             return false;
         }
-        $ids = $this->memberUserIds($groupId);
-        if ($ids) {
-            return in_array($userId, $ids, true);
+        $this->ensureMemberSet($groupId);
+        try {
+            return (bool)RedisClient::conn()->sIsMember(
+                RedisClient::key('g:' . $groupId . ':mset'),
+                (string)$userId
+            );
+        } catch (\Throwable $e) {
         }
         $row = Db::fetch(
             'SELECT id FROM ' . Db::table('chat_group_members')
@@ -165,10 +309,16 @@ class GroupService
         $out = [];
         foreach ($rows as $g) {
             $gid = (int)$g['id'];
-            $memberIds = $this->memberUserIds($gid);
-            $onlineCnt = count(\Im\Support\ConnMap::filterOnlineUserIds($memberIds));
+            $onlineCnt = count($this->onlineMemberIds($gid));
             $display = (int)($g['display_member_count'] ?? 0);
-            $memberCount = $display > 0 ? $display : (int)($g['member_count'] ?? count($memberIds));
+            $memberCount = $display > 0 ? $display : (int)($g['member_count'] ?? 0);
+            if ($memberCount <= 0) {
+                try {
+                    $memberCount = (int)RedisClient::conn()->sCard(RedisClient::key('g:' . $gid . ':mset'));
+                } catch (\Throwable $e) {
+                    $memberCount = 0;
+                }
+            }
             $joined = $userId > 0 ? $this->isMember($gid, $userId) : false;
             $out[] = [
                 'id'            => $gid,
@@ -208,9 +358,12 @@ class GroupService
         if ($this->isMember($groupId, $userId)) {
             return $this->get($groupId);
         }
-        $max = (int)($group['max_members'] ?? 500);
+        $max = (int)($group['max_members'] ?? 0);
+        if ($max <= 0) {
+            $max = self::maxMembers();
+        }
         $cnt = (int)($group['member_count'] ?? 0);
-        if ($max > 0 && $cnt >= $max) {
+        if ($cnt >= $max) {
             throw new \RuntimeException('group full');
         }
         $this->addMembers($groupId, [$userId], 1);
@@ -526,7 +679,7 @@ class GroupService
             [$now, (int)$groupId, (int)$targetId]
         );
         $this->refreshMemberCount($groupId);
-        $this->invalidateMembersCache($groupId);
+        $this->memberSetRem($groupId, $targetId);
         $this->invalidateUserGroupsCache($targetId);
         return true;
     }
@@ -588,8 +741,7 @@ class GroupService
     {
         $this->assertCanModerate($groupId, $operatorId, 0);
         $limit = max(1, min(100, (int)$limit));
-        $existIds = $this->memberUserIds($groupId);
-        $existMap = array_fill_keys($existIds, true);
+        $this->ensureMemberSet($groupId);
         $kw = trim((string)$keyword);
         $userTable = Db::table('user');
         $sql = "SELECT id, username, nickname, mobile, avatar, status FROM {$userTable} WHERE status='normal'";
@@ -610,7 +762,7 @@ class GroupService
         $list = [];
         foreach ($rows as $u) {
             $uid = (int)$u['id'];
-            if (isset($existMap[$uid])) {
+            if ($this->isMember($groupId, $uid)) {
                 continue;
             }
             $nick = trim((string)($u['nickname'] ?: $u['username'] ?: ''));
@@ -742,15 +894,38 @@ class GroupService
         $groupId = (int)$groupId;
         $role = in_array((int)$role, [1, 2, 3], true) ? (int)$role : 1;
         $now = time();
-        foreach (array_unique(array_map('intval', $memberIds)) as $uid) {
-            if ($uid <= 0) {
+        $group = $this->get($groupId);
+        if (!$group) {
+            throw new \InvalidArgumentException('invalid group');
+        }
+        $max = (int)($group['max_members'] ?? 0);
+        if ($max <= 0) {
+            $max = self::maxMembers();
+        }
+        $cnt = (int)($group['member_count'] ?? 0);
+        $ids = array_values(array_unique(array_filter(array_map('intval', $memberIds), function ($uid) {
+            return $uid > 0;
+        })));
+        $toAdd = [];
+        foreach ($ids as $uid) {
+            if ($this->isMember($groupId, $uid)) {
+                // 已在群：仍可升级角色
+                $this->ensureMember($groupId, $uid, $role, $now);
                 continue;
             }
+            $toAdd[] = $uid;
+        }
+        if ($toAdd && ($cnt + count($toAdd)) > $max) {
+            throw new \RuntimeException('group full');
+        }
+        foreach ($toAdd as $uid) {
             $this->ensureMember($groupId, $uid, $role, $now);
+            $this->memberSetAdd($groupId, $uid);
             $this->invalidateUserGroupsCache($uid);
         }
-        $this->refreshMemberCount($groupId);
-        $this->invalidateMembersCache($groupId);
+        if ($toAdd) {
+            $this->refreshMemberCount($groupId);
+        }
         return $this->members($groupId);
     }
 
