@@ -33,15 +33,23 @@ return [
 
 ## 启动
 
-```bash
-# WebSocket IM（端口 7272）
-php start.php start
+用户 H5：**列表/历史优先 HTTP** `:7273/im/*`；**推送/发消息仍走 WS** `:7272`。
 
-# 后台代聊 HTTP 桥（端口 7273，另开终端）
-php start_admin.php start
+```text
+POST /im/conversations  {token, limit?}
+POST /im/history        {token, conversation_type, conversation_id|group_id|to_user_id, ...}
+GET  /health
 ```
 
-Windows 下 `count=1`，前台运行，`Ctrl+C` 停止。Linux 默认 `count=4`（可在 `local.php` 改），可用 `php start.php start -d` 守护。
+```bash
+# WebSocket IM（端口 7272）
+php start.php start -d
+
+# HTTP 只读 API + 后台代聊桥（端口 7273）
+php start_admin.php start -d
+```
+
+Windows 下 `count=1`，前台运行，`Ctrl+C` 停止。Linux 默认 WS `count=8`、HTTP `http_api.count=4`（可在 `local.php` 改）。
 
 ### 约 5000 同时在线（Linux）
 

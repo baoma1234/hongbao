@@ -73,6 +73,10 @@ return array_replace_recursive([
         'drain_interval' => 0.02, // 消费跨进程队列间隔（秒）
         'drain_batch'    => 300,  // 16 Worker 时可适当加大
     ],
+    // 7273 HTTP 只读 API 进程数（列表/历史）；与 WS count 独立
+    'http_api' => [
+        'count' => (PHP_OS_FAMILY === 'Windows') ? 1 : 4,
+    ],
     'db'    => $db,
     'redis' => $redis,
     'auth'  => [

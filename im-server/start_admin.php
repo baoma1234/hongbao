@@ -1,15 +1,17 @@
 <?php
 /**
- * 简易 HTTP 管理桥：后台用托管账号发私聊/群聊/红包
+ * 简易 HTTP 桥：
+ * - 用户只读：会话列表 / 历史（token 鉴权）→ 减轻 WS Worker 压力
+ * - 后台代聊：发私聊/群聊/红包（admin_key）
  * 监听: http://0.0.0.0:7273
  *
- * POST /agent/send_private  {agent_user_id, to_user_id, content, msg_type?, extra?, admin_key}
- * POST /agent/send_group    {agent_user_id, group_id, content, msg_type?, extra?, admin_key}
- * POST /agent/send_redpacket {agent_user_id, scope_type, group_id|to_user_id, packet_type, total_amount, total_count, blessing?, admin_key}
- * POST /agent/grab_redpacket {agent_user_id, packet_id, admin_key}
+ * POST /im/conversations  {token, limit?}
+ * POST /im/history        {token, conversation_type, conversation_id|group_id|to_user_id, before_id?, limit?}
  * GET  /health
+ * POST /agent/*           admin_key
  */
 
+use Im\Http\UserReadApi;
 use Im\Service\GroupService;
 use Im\Service\MessageService;
 use Im\Service\RedPacketService;
@@ -29,15 +31,24 @@ Db::init($cfg['db']);
 RedisClient::init($cfg['redis']);
 
 $adminKey = $cfg['admin_bridge']['key'] ?? 'change-me-im-admin';
+$httpCount = (int)($cfg['http_api']['count'] ?? ((PHP_OS_FAMILY === 'Windows') ? 1 : 4));
 
 $http = new Worker('http://0.0.0.0:7273');
-$http->count = 1;
-$http->name = 'FansHubIM-AdminBridge';
+$http->count = max(1, $httpCount);
+$http->name = 'FansHubIM-HttpApi';
 
 $http->onMessage = function (TcpConnection $connection, Request $request) use ($cfg, $adminKey) {
     $path = parse_url($request->uri(), PHP_URL_PATH) ?: '/';
+    $method = strtoupper($request->method());
+
+    // CORS：H5 与 7273 跨端口
+    if ($method === 'OPTIONS') {
+        $connection->send(corsResponse(204, ''));
+        return;
+    }
+
     if ($path === '/health') {
-        $connection->send(new Response(200, ['Content-Type' => 'application/json'], json_encode(['ok' => true])));
+        $connection->send(corsJson(200, ['ok' => true]));
         return;
     }
 
@@ -48,9 +59,37 @@ $http->onMessage = function (TcpConnection $connection, Request $request) use ($
     if (!is_array($body)) {
         $body = [];
     }
+
+    // -------- 用户只读 API（会员 token，无需 admin_key）--------
+    if (strpos($path, '/im/') === 0) {
+        try {
+            $token = (string)($body['token'] ?? $request->header('x-fans-token') ?? $request->get('token') ?? '');
+            $api = new UserReadApi($cfg);
+            $uid = $api->userIdByToken($token);
+            if ($uid <= 0) {
+                $connection->send(corsJson(401, ['message' => 'unauthorized']));
+                return;
+            }
+            if ($path === '/im/conversations' && $method === 'POST') {
+                $data = $api->conversations($uid, (int)($body['limit'] ?? 50));
+                $connection->send(corsJson(200, array_merge(['code' => 1], $data)));
+                return;
+            }
+            if ($path === '/im/history' && $method === 'POST') {
+                $data = $api->history($uid, $body);
+                $connection->send(corsJson(200, array_merge(['code' => 1], $data)));
+                return;
+            }
+            $connection->send(corsJson(404, ['message' => 'not found']));
+        } catch (\Throwable $e) {
+            $connection->send(corsJson(400, ['message' => $e->getMessage()]));
+        }
+        return;
+    }
+
     $key = (string)($body['admin_key'] ?? $request->header('x-im-admin-key') ?? '');
     if (!hash_equals((string)$adminKey, $key)) {
-        $connection->send(jsonResponse(403, ['message' => 'forbidden']));
+        $connection->send(corsJson(403, ['message' => 'forbidden']));
         return;
     }
 
@@ -59,7 +98,7 @@ $http->onMessage = function (TcpConnection $connection, Request $request) use ($
     $redPackets = new RedPacketService($cfg, $messages, $groups);
 
     try {
-        if ($path === '/agent/send_private' && strtoupper($request->method()) === 'POST') {
+        if ($path === '/agent/send_private' && $method === 'POST') {
             assertAgent((int)$body['agent_user_id'], (int)($body['admin_id'] ?? 0));
             $extra = parseExtra($body['extra'] ?? null);
             $msg = $messages->sendPrivate(
@@ -70,21 +109,21 @@ $http->onMessage = function (TcpConnection $connection, Request $request) use ($
                 $extra
             );
             publishNotify('private.message', $msg);
-            $connection->send(jsonResponse(200, ['message' => $msg]));
+            $connection->send(corsJson(200, ['message' => $msg]));
             return;
         }
-        if ($path === '/internal/push' && strtoupper($request->method()) === 'POST') {
+        if ($path === '/internal/push' && $method === 'POST') {
             $type = (string)($body['type'] ?? '');
             $msg = $body['message'] ?? null;
             if ($type === '' || !is_array($msg)) {
-                $connection->send(jsonResponse(400, ['message' => 'type and message required']));
+                $connection->send(corsJson(400, ['message' => 'type and message required']));
                 return;
             }
             publishNotify($type, $msg, !empty($body['admin_only']));
-            $connection->send(jsonResponse(200, ['ok' => true]));
+            $connection->send(corsJson(200, ['ok' => true]));
             return;
         }
-        if ($path === '/agent/send_group' && strtoupper($request->method()) === 'POST') {
+        if ($path === '/agent/send_group' && $method === 'POST') {
             assertAgent((int)$body['agent_user_id'], (int)($body['admin_id'] ?? 0));
             $extra = parseExtra($body['extra'] ?? null);
             $msg = $messages->sendGroup(
@@ -95,10 +134,10 @@ $http->onMessage = function (TcpConnection $connection, Request $request) use ($
                 $extra
             );
             publishNotify('group.message', $msg);
-            $connection->send(jsonResponse(200, ['message' => $msg]));
+            $connection->send(corsJson(200, ['message' => $msg]));
             return;
         }
-        if ($path === '/agent/send_redpacket' && strtoupper($request->method()) === 'POST') {
+        if ($path === '/agent/send_redpacket' && $method === 'POST') {
             $sendUid = (int)($body['agent_user_id'] ?? 0);
             // 自动任务 / 托管客服均可：admin_key 已鉴权，只需用户存在
             assertUserExists($sendUid);
@@ -123,10 +162,10 @@ $http->onMessage = function (TcpConnection $connection, Request $request) use ($
                 $type = $scopeType === 2 ? 'group.message' : 'private.message';
                 publishNotify($type, $msg);
             }
-            $connection->send(jsonResponse(200, $result));
+            $connection->send(corsJson(200, $result));
             return;
         }
-        if ($path === '/agent/grab_redpacket' && strtoupper($request->method()) === 'POST') {
+        if ($path === '/agent/grab_redpacket' && $method === 'POST') {
             $agentUid = (int)($body['agent_user_id'] ?? 0);
             $packetId = (int)($body['packet_id'] ?? 0);
             if ($agentUid <= 0 || $packetId <= 0) {
@@ -155,31 +194,31 @@ $http->onMessage = function (TcpConnection $connection, Request $request) use ($
                     );
                 }
             }
-            $connection->send(jsonResponse(200, $result));
+            $connection->send(corsJson(200, $result));
             return;
         }
-        if ($path === '/agent/settle_packet' && strtoupper($request->method()) === 'POST') {
+        if ($path === '/agent/settle_packet' && $method === 'POST') {
             $packetId = (int)($body['packet_id'] ?? 0);
             $result = $redPackets->adminSettle($packetId);
-            $connection->send(jsonResponse(200, $result));
+            $connection->send(corsJson(200, $result));
             return;
         }
-        if ($path === '/agent/refund_packet' && strtoupper($request->method()) === 'POST') {
+        if ($path === '/agent/refund_packet' && $method === 'POST') {
             $packetId = (int)($body['packet_id'] ?? 0);
             $force = !empty($body['force']);
             $result = $redPackets->adminRefund($packetId, $force);
-            $connection->send(jsonResponse(200, $result));
+            $connection->send(corsJson(200, $result));
             return;
         }
-        if ($path === '/agent/close_packet' && strtoupper($request->method()) === 'POST') {
+        if ($path === '/agent/close_packet' && $method === 'POST') {
             $packetId = (int)($body['packet_id'] ?? 0);
             $result = $redPackets->adminClose($packetId);
-            $connection->send(jsonResponse(200, $result));
+            $connection->send(corsJson(200, $result));
             return;
         }
-        $connection->send(jsonResponse(404, ['message' => 'not found']));
+        $connection->send(corsJson(404, ['message' => 'not found']));
     } catch (\Throwable $e) {
-        $connection->send(jsonResponse(400, ['message' => $e->getMessage()]));
+        $connection->send(corsJson(400, ['message' => $e->getMessage()]));
     }
 };
 
@@ -195,9 +234,26 @@ function parseExtra($extra)
     return null;
 }
 
-function jsonResponse($code, array $data)
+function corsHeaders()
 {
-    return new Response($code, ['Content-Type' => 'application/json; charset=utf-8'], json_encode($data, JSON_UNESCAPED_UNICODE));
+    return [
+        'Content-Type'                => 'application/json; charset=utf-8',
+        'Access-Control-Allow-Origin' => '*',
+        'Access-Control-Allow-Methods'=> 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers'=> 'Content-Type, X-Fans-Token, X-Im-Admin-Key',
+    ];
+}
+
+function corsJson($code, array $data)
+{
+    return new Response((int)$code, corsHeaders(), json_encode($data, JSON_UNESCAPED_UNICODE));
+}
+
+function corsResponse($code, $body)
+{
+    $headers = corsHeaders();
+    $headers['Content-Type'] = 'text/plain; charset=utf-8';
+    return new Response((int)$code, $headers, (string)$body);
 }
 
 function assertUserExists($userId)

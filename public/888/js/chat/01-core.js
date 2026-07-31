@@ -878,7 +878,7 @@
     } catch (e) {}
   }
 
-  function send(type, data) {
+  function sendViaWs(type, data) {
     return new Promise(function (resolve, reject) {
       if (!state.ws || state.ws.readyState !== 1) {
         reject(new Error('未连接'));
@@ -894,6 +894,63 @@
         }
       }, 15000);
     });
+  }
+
+  function defaultImHttpBase() {
+    try {
+      if (window.FANS_HUB_IM_HTTP) return String(window.FANS_HUB_IM_HTTP).replace(/\/$/, '');
+    } catch (e0) {}
+    var proto = (location.protocol === 'https:') ? 'https:' : 'http:';
+    // 与 WS 同主机，7273 提供只读 API
+    return proto + '//' + location.hostname + ':7273';
+  }
+
+  /** HTTP 拉列表/历史（失败则回退 WS） */
+  function sendViaHttp(type, data) {
+    var path = '';
+    if (type === 'conversation.list') path = '/im/conversations';
+    else if (type === 'history') path = '/im/history';
+    else return Promise.reject(new Error('no http route'));
+    var body = Object.assign({ token: token() }, data || {});
+    var ctrl = null;
+    var timer = null;
+    try { ctrl = new AbortController(); } catch (e1) { ctrl = null; }
+    var fetchOpts = {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Fans-Token': token() },
+      body: JSON.stringify(body),
+      credentials: 'omit'
+    };
+    if (ctrl) fetchOpts.signal = ctrl.signal;
+    var p = fetch(defaultImHttpBase() + path, fetchOpts).then(function (res) {
+      return res.json().then(function (json) {
+        if (!res.ok || (json && json.code === 0)) {
+          throw new Error((json && json.message) || ('HTTP ' + res.status));
+        }
+        // 兼容 {code:1,list:...} / {list:...}
+        var payload = json || {};
+        if (payload.data && typeof payload.data === 'object') payload = payload.data;
+        return { type: type, data: payload, via: 'http' };
+      });
+    });
+    if (ctrl) {
+      timer = setTimeout(function () { try { ctrl.abort(); } catch (e2) {} }, 12000);
+      p = p.then(function (v) { clearTimeout(timer); return v; }, function (err) {
+        clearTimeout(timer);
+        throw err;
+      });
+    }
+    return p;
+  }
+
+  function send(type, data) {
+    // 列表/历史优先 HTTP，不占 WS Worker；失败再走 WS
+    if (type === 'conversation.list' || type === 'history') {
+      return sendViaHttp(type, data).catch(function () {
+        return sendViaWs(type, data);
+      });
+    }
+    return sendViaWs(type, data);
   }
 
   function resolvePending(packet) {

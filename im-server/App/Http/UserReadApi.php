@@ -1,0 +1,189 @@
+<?php
+
+namespace Im\Http;
+
+use Im\Service\AdminService;
+use Im\Service\AuthService;
+use Im\Service\GroupService;
+use Im\Service\MessageService;
+use Im\Service\RedPacketService;
+use Im\Support\IdGenerator;
+use Im\Support\RedisClient;
+
+/**
+ * 用户侧只读接口：会话列表 / 历史（HTTP，减轻 WS Worker 压力）
+ */
+class UserReadApi
+{
+    /** @var array */
+    protected $cfg;
+    /** @var AuthService */
+    protected $auth;
+    /** @var MessageService */
+    protected $messages;
+    /** @var GroupService */
+    protected $groups;
+    /** @var RedPacketService */
+    protected $redPackets;
+
+    public function __construct(array $cfg)
+    {
+        $this->cfg = $cfg;
+        $this->auth = new AuthService($cfg);
+        $this->messages = new MessageService();
+        $this->groups = new GroupService();
+        $this->redPackets = new RedPacketService($cfg, $this->messages, $this->groups);
+    }
+
+    public function userIdByToken($token)
+    {
+        return (int)$this->auth->userIdByToken($token);
+    }
+
+    /**
+     * @return array{list:array}
+     */
+    public function conversations($userId, $limit = 50)
+    {
+        $userId = (int)$userId;
+        $limit = max(1, min(100, (int)$limit));
+        $cacheKey = RedisClient::key('convlist:' . $userId . ':' . $limit);
+        try {
+            $cached = RedisClient::conn()->get($cacheKey);
+            if ($cached !== false && $cached !== null && $cached !== '') {
+                $decoded = json_decode((string)$cached, true);
+                if (is_array($decoded)) {
+                    return ['list' => $decoded];
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+
+        $list = $this->messages->listConversations($userId, $limit);
+        $peerIds = [];
+        foreach ($list as $item) {
+            if ((int)$item['conversation_type'] === 1 && (int)$item['peer_user_id'] > 0) {
+                $peerIds[] = (int)$item['peer_user_id'];
+            }
+        }
+        $users = $this->auth->usersBriefMap($peerIds);
+        $adminMap = AdminService::adminIdMap();
+        foreach ($list as &$item) {
+            if ((int)$item['conversation_type'] !== 1) {
+                continue;
+            }
+            $peer = $users[(int)$item['peer_user_id']] ?? null;
+            if ($peer) {
+                $item['peer'] = $peer;
+                $nick = trim((string)($peer['nickname'] ?: $peer['username'] ?: ''));
+                if ($nick === '' && !empty($peer['mobile'])) {
+                    $mob = (string)$peer['mobile'];
+                    $nick = strlen($mob) >= 7 ? (substr($mob, 0, 3) . '****' . substr($mob, -4)) : $mob;
+                }
+                if ($nick === '' && !empty($item['title'])) {
+                    $nick = (string)$item['title'];
+                }
+                $item['title'] = $nick !== '' ? $nick : ('ID' . (int)$item['peer_user_id']);
+                $item['avatar'] = (string)($peer['avatar'] ?? '');
+            } else {
+                $item['title'] = $item['title'] !== '' ? (string)$item['title'] : ('ID' . (int)$item['peer_user_id']);
+            }
+            $item['is_im_admin'] = isset($adminMap[(int)$item['peer_user_id']]);
+            if ($item['is_im_admin'] && empty($item['title'])) {
+                $item['title'] = '客服';
+            }
+        }
+        unset($item);
+
+        try {
+            RedisClient::conn()->setex($cacheKey, 3, json_encode($list, JSON_UNESCAPED_UNICODE));
+        } catch (\Throwable $e) {
+        }
+        return ['list' => $list];
+    }
+
+    /**
+     * @return array{list:array,group?:mixed,policy?:array,...}
+     */
+    public function history($userId, array $payload)
+    {
+        $userId = (int)$userId;
+        $ctype = (int)($payload['conversation_type'] ?? 1);
+        $cid = (string)($payload['conversation_id'] ?? '');
+        if ($cid === '' && $ctype === 1) {
+            $other = (int)($payload['to_user_id'] ?? 0);
+            $cid = IdGenerator::privateConversationId($userId, $other);
+        }
+        $gid = 0;
+        if ($ctype === 2) {
+            $gid = (int)($payload['group_id'] ?? $cid);
+            if (!$this->groups->isMember($gid, $userId)) {
+                throw new \RuntimeException('not in group');
+            }
+            $cid = (string)$gid;
+        } elseif ($ctype === 1) {
+            if (!$this->canAccessPrivate($userId, $cid)) {
+                throw new \RuntimeException('forbidden');
+            }
+        } else {
+            throw new \RuntimeException('invalid conversation');
+        }
+
+        $list = $this->messages->history(
+            $ctype,
+            $cid,
+            (int)($payload['before_id'] ?? 0),
+            (int)($payload['limit'] ?? 30)
+        );
+        $list = $this->redPackets->enrichMessageExtras($list, $userId);
+        $data = ['list' => $list];
+        if ($ctype === 2 && $gid > 0) {
+            $data = array_merge($data, $this->groupInfoPayload($gid, $userId));
+        }
+        return $data;
+    }
+
+    protected function canAccessPrivate($uid, $conversationId)
+    {
+        $uid = (int)$uid;
+        if ($uid <= 0 || !preg_match('/^(\d+)_(\d+)$/', trim((string)$conversationId), $m)) {
+            return false;
+        }
+        $a = (int)$m[1];
+        $b = (int)$m[2];
+        if ($a <= 0 || $b <= 0 || $a === $b) {
+            return false;
+        }
+        return $uid === $a || $uid === $b;
+    }
+
+    protected function groupInfoPayload($groupId, $uid)
+    {
+        $groupId = (int)$groupId;
+        $uid = (int)$uid;
+        $group = $this->groups->get($groupId);
+        if ($group && !empty($group['notice_i18n']) && is_string($group['notice_i18n'])) {
+            $map = json_decode($group['notice_i18n'], true);
+            $group['notice_i18n'] = is_array($map) ? $map : new \stdClass();
+        } elseif ($group) {
+            $group['notice_i18n'] = new \stdClass();
+        }
+        $myRole = $this->groups->memberRole($groupId, $uid);
+        $policy = $this->groups->buildPolicy($group ?: [], $myRole);
+        $canSpeak = true;
+        try {
+            $this->groups->assertCanSpeak($groupId, $uid);
+        } catch (\Throwable $e) {
+            $canSpeak = false;
+        }
+        return [
+            'group'              => $group,
+            'my_role'            => $myRole,
+            'mute_all'           => $this->groups->isMuteAll($groupId),
+            'member_count'       => $this->groups->publicMemberCount($group ?: []),
+            'member_list_hidden' => !empty($policy['member_list_hidden']),
+            'can_speak'          => $canSpeak,
+            'policy'             => $policy,
+        ];
+    }
+}
