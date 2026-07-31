@@ -113,6 +113,7 @@ class MessageService
         ];
         $this->cacheRecent($payload);
         $this->touchInbox($payload);
+        $this->bumpUnreadCounters($payload);
         return $payload;
     }
 
@@ -125,6 +126,84 @@ class MessageService
             $r->lTrim($key, 0, 99);
             $r->expire($key, 86400 * 7);
         } catch (\Throwable $e) {
+        }
+    }
+
+    /**
+     * Redis 未读计数：收件人 INCR；已读时清零。列表优先读计数，避免 50× COUNT
+     */
+    protected function bumpUnreadCounters(array $payload)
+    {
+        $type = (int)($payload['conversation_type'] ?? 0);
+        $cid = (string)($payload['conversation_id'] ?? '');
+        $from = (int)($payload['from_user_id'] ?? 0);
+        if (($type !== 1 && $type !== 2) || $cid === '' || $from <= 0) {
+            return;
+        }
+        $uids = [];
+        if ($type === 1) {
+            $to = (int)($payload['to_user_id'] ?? 0);
+            if ($to > 0 && $to !== $from) {
+                $uids[] = $to;
+            }
+        } else {
+            try {
+                foreach ((new GroupService())->memberUserIds((int)($payload['group_id'] ?? $cid)) as $uid) {
+                    $uid = (int)$uid;
+                    if ($uid > 0 && $uid !== $from) {
+                        $uids[] = $uid;
+                    }
+                }
+            } catch (\Throwable $e) {
+            }
+        }
+        if (!$uids) {
+            return;
+        }
+        try {
+            $r = RedisClient::conn();
+            foreach ($uids as $uid) {
+                $key = RedisClient::key('unread:' . $uid . ':' . $type . ':' . $cid);
+                $r->incr($key);
+                $r->expire($key, 86400 * 30);
+            }
+        } catch (\Throwable $e) {
+        }
+    }
+
+    protected function clearUnreadCounter($userId, $conversationType, $conversationId)
+    {
+        try {
+            RedisClient::conn()->del(
+                RedisClient::key('unread:' . (int)$userId . ':' . (int)$conversationType . ':' . (string)$conversationId)
+            );
+        } catch (\Throwable $e) {
+        }
+    }
+
+    /** @return array<string,int>|null null=redis 不可用 */
+    protected function unreadFromRedis($userId, array $targets)
+    {
+        try {
+            $r = RedisClient::conn();
+            $out = [];
+            $miss = 0;
+            foreach ($targets as $key => $t) {
+                $raw = $r->get(RedisClient::key('unread:' . (int)$userId . ':' . (int)$t['type'] . ':' . (string)$t['id']));
+                if ($raw === false || $raw === null) {
+                    $miss++;
+                    $out[$key] = -1; // 未缓存，需 SQL
+                } else {
+                    $out[$key] = max(0, (int)$raw);
+                }
+            }
+            // 全部未命中则退回 SQL；部分命中则混合
+            if ($miss === count($targets)) {
+                return null;
+            }
+            return $out;
+        } catch (\Throwable $e) {
+            return null;
         }
     }
 
@@ -196,6 +275,42 @@ class MessageService
         }
     }
 
+    protected function cachedMyGroups($userId)
+    {
+        $userId = (int)$userId;
+        $cacheKey = RedisClient::key('uid:' . $userId . ':my_groups');
+        try {
+            $raw = RedisClient::conn()->get($cacheKey);
+            if ($raw) {
+                $j = json_decode((string)$raw, true);
+                if (is_array($j)) {
+                    return $j;
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+        $groups = Db::fetchAll(
+            'SELECT g.* FROM ' . Db::table('chat_groups') . ' g'
+            . ' INNER JOIN ' . Db::table('chat_group_members') . ' m ON m.group_id=g.id'
+            . ' WHERE m.user_id=? AND m.status=1 AND g.status IN (1,3)',
+            [$userId]
+        );
+        try {
+            RedisClient::conn()->setex($cacheKey, 60, json_encode($groups, JSON_UNESCAPED_UNICODE));
+        } catch (\Throwable $e) {
+        }
+        return $groups;
+    }
+
+    /** 入群/退群后清缓存 */
+    public function invalidateMyGroupsCache($userId)
+    {
+        try {
+            RedisClient::conn()->del(RedisClient::key('uid:' . (int)$userId . ':my_groups'));
+        } catch (\Throwable $e) {
+        }
+    }
+
     protected function seedInboxFromItems($userId, array $items)
     {
         $userId = (int)$userId;
@@ -231,16 +346,21 @@ class MessageService
         if ($beforeId <= 0) {
             try {
                 $key = RedisClient::key('conv:' . $conversationType . ':' . $conversationId . ':recent');
-                $rawList = RedisClient::conn()->lRange($key, 0, $limit - 1);
-                if (is_array($rawList) && count($rawList) >= $limit) {
+                $r = RedisClient::conn();
+                $llen = (int)$r->lLen($key);
+                $need = $limit;
+                // 缓存条数够，或标记为「已完整」且条数>0 → 直接用 Redis
+                $full = $r->get(RedisClient::key('conv:' . $conversationType . ':' . $conversationId . ':recent_full'));
+                if ($llen > 0 && ($llen >= $need || $full === '1')) {
+                    $rawList = $r->lRange($key, 0, $need - 1);
                     $rows = [];
-                    foreach ($rawList as $raw) {
+                    foreach ($rawList ?: [] as $raw) {
                         $j = json_decode((string)$raw, true);
                         if (is_array($j) && !empty($j['id'])) {
                             $rows[] = $this->normalizeMessage($j);
                         }
                     }
-                    if (count($rows) >= $limit) {
+                    if ($rows) {
                         return array_reverse($rows);
                     }
                 }
@@ -262,6 +382,7 @@ class MessageService
         if ($beforeId <= 0 && $list) {
             try {
                 $key = RedisClient::key('conv:' . $conversationType . ':' . $conversationId . ':recent');
+                $fullKey = RedisClient::key('conv:' . $conversationType . ':' . $conversationId . ':recent_full');
                 $r = RedisClient::conn();
                 $r->del($key);
                 foreach ($list as $m) {
@@ -269,6 +390,12 @@ class MessageService
                 }
                 $r->lTrim($key, 0, 99);
                 $r->expire($key, 86400 * 7);
+                // DB 返回不足 limit → 说明会话消息已全部在缓存
+                if (count($list) < $limit) {
+                    $r->setex($fullKey, 86400 * 7, '1');
+                } else {
+                    $r->del($fullKey);
+                }
             } catch (\Throwable $e) {
             }
         }
@@ -324,7 +451,7 @@ class MessageService
         $limit = max(1, min(100, (int)$limit));
         $msgTable = Db::table('chat_messages');
         $items = [];
-        $inbox = $this->inboxMap($userId, max(80, $limit * 2));
+        $inbox = $this->inboxMap($userId, $limit + 20);
 
         if ($inbox) {
             $msgIds = array_values(array_unique(array_filter(array_map('intval', array_values($inbox)))));
@@ -393,13 +520,8 @@ class MessageService
                 }
             }
 
-            // 补全未出现在 inbox 的群（尚无消息）
-            $groups = Db::fetchAll(
-                'SELECT g.* FROM ' . Db::table('chat_groups') . ' g'
-                . ' INNER JOIN ' . Db::table('chat_group_members') . ' m ON m.group_id=g.id'
-                . ' WHERE m.user_id=? AND m.status=1 AND g.status IN (1,3)',
-                [$userId]
-            );
+            // 补全未出现在 inbox 的群（尚无消息）— 群列表 Redis 缓存 60s
+            $groups = $this->cachedMyGroups($userId);
             $haveG = [];
             foreach ($items as $it) {
                 if ((int)$it['conversation_type'] === 2) {
@@ -485,12 +607,7 @@ class MessageService
                 ];
             }
 
-            $groups = Db::fetchAll(
-                'SELECT g.* FROM ' . Db::table('chat_groups') . ' g'
-                . ' INNER JOIN ' . Db::table('chat_group_members') . ' m ON m.group_id=g.id'
-                . ' WHERE m.user_id=? AND m.status=1 AND g.status IN (1,3)',
-                [$userId]
-            );
+            $groups = $this->cachedMyGroups($userId);
             $groupIds = [];
             foreach ($groups as $g) {
                 $groupIds[] = (string)((int)$g['id']);
@@ -659,16 +776,32 @@ class MessageService
             $lastIds[$ik] = (int)(($it['last_message']['id'] ?? 0));
         }
 
-        // 拆成按会话的 COUNT UNION ALL，强制走 idx_conv_time，避免巨型 OR 选错索引
-        $unions = [];
-        $params = [];
+        // 优先 Redis 未读计数；仅对未命中的会话回退 SQL COUNT
+        $needSql = [];
+        $redisMap = $this->unreadFromRedis($userId, $targets);
         foreach ($targets as $key => $t) {
             $lastId = (int)($lastIds[$key] ?? 0);
             $cursor = (int)($cursors[$key] ?? 0);
             if ($lastId <= 0 || $lastId <= $cursor) {
                 $out[$key] = 0;
+                $this->clearUnreadCounter($userId, $t['type'], $t['id']);
                 continue;
             }
+            if ($redisMap !== null && isset($redisMap[$key]) && $redisMap[$key] >= 0) {
+                $out[$key] = (int)$redisMap[$key];
+                continue;
+            }
+            $needSql[$key] = $t;
+        }
+
+        if (!$needSql) {
+            return $out;
+        }
+
+        $unions = [];
+        $params = [];
+        foreach ($needSql as $key => $t) {
+            $cursor = (int)($cursors[$key] ?? 0);
             $unions[] = 'SELECT ? AS conversation_type, ? AS conversation_id, COUNT(*) AS c FROM '
                 . Db::table('chat_messages')
                 . ' WHERE conversation_type=? AND conversation_id=? AND status=1 AND id>? AND from_user_id<>?';
@@ -679,13 +812,24 @@ class MessageService
             $params[] = $cursor;
             $params[] = $userId;
         }
-        if (!$unions) {
-            return $out;
-        }
         $countRows = Db::fetchAll(implode(' UNION ALL ', $unions), $params);
-        foreach ($countRows as $row) {
-            $key = ((int)$row['conversation_type']) . ':' . (string)$row['conversation_id'];
-            $out[$key] = (int)($row['c'] ?? 0);
+        try {
+            $r = RedisClient::conn();
+            foreach ($countRows as $row) {
+                $key = ((int)$row['conversation_type']) . ':' . (string)$row['conversation_id'];
+                $c = (int)($row['c'] ?? 0);
+                $out[$key] = $c;
+                $r->setex(
+                    RedisClient::key('unread:' . $userId . ':' . ((int)$row['conversation_type']) . ':' . (string)$row['conversation_id']),
+                    86400 * 30,
+                    (string)$c
+                );
+            }
+        } catch (\Throwable $e) {
+            foreach ($countRows as $row) {
+                $key = ((int)$row['conversation_type']) . ':' . (string)$row['conversation_id'];
+                $out[$key] = (int)($row['c'] ?? 0);
+            }
         }
         return $out;
     }
@@ -733,6 +877,7 @@ class MessageService
                 );
             }
         }
+        $this->clearUnreadCounter($userId, $conversationType, $conversationId);
     }
 
     public function countUnread($userId, $conversationType, $conversationId)

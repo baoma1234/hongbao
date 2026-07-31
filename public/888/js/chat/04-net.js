@@ -48,7 +48,7 @@
         if (newGroupBtn) newGroupBtn.style.display = state.canCreateGroup ? '' : 'none';
         var addFriendBtn = $('chatAddFriendBtn');
         if (addFriendBtn) addFriendBtn.style.display = state.isImAdmin ? 'none' : '';
-        refreshList().catch(function () {});
+        refreshList(true).catch(function () {});
         break;
       case 'private.message':
       case 'group.message':
@@ -62,14 +62,14 @@
         break;
       case 'group.created':
       case 'group.invited':
-        refreshList().catch(function () {});
+        refreshList(true).catch(function () {});
         break;
       case 'group.kicked':
         if (state.room && state.room.type === 2 && String(state.room.id) === String((packet.data && packet.data.group_id) || '')) {
           if (typeof showFanshubToast === 'function') showFanshubToast('你已被移出群组', 'error');
           closeRoom();
         }
-        refreshList().catch(function () {});
+        refreshList(true).catch(function () {});
         break;
       case 'group.mute_all_changed':
         if (state.room && state.room.type === 2 && String(state.room.id) === String((packet.data && packet.data.group_id) || '')) {
@@ -820,7 +820,8 @@
     updateMoneyLabel();
     connect(false);
     if (state.connected) {
-      refreshList().catch(function () {});
+      // auth.ok 刚刷新过则跳过，避免进消息 Tab 连打两次 conversation.list
+      refreshList(false).catch(function () {});
     }
     state.loadedOnce = true;
   }

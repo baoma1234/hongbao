@@ -479,6 +479,7 @@ class MessageRouter
             $other = (int)($payload['to_user_id'] ?? 0);
             $cid = IdGenerator::privateConversationId($uid, $other);
         }
+        $gid = 0;
         if ($ctype === 2) {
             $gid = (int)($payload['group_id'] ?? $cid);
             if (!$this->groups->isMember($gid, $uid)) {
@@ -493,7 +494,39 @@ class MessageRouter
         }
         $list = $this->messages->history($ctype, $cid, (int)($payload['before_id'] ?? 0), (int)($payload['limit'] ?? 30));
         $list = $this->redPackets->enrichMessageExtras($list, (int)$uid);
-        $this->send($connection, 'history', ['list' => $list], $reqId);
+        $data = ['list' => $list];
+        // 群聊首屏附带 group.info，省去客户端二次请求
+        if ($ctype === 2 && $gid > 0) {
+            $data = array_merge($data, $this->buildGroupInfoPayload($gid, $uid));
+        }
+        $this->send($connection, 'history', $data, $reqId);
+    }
+
+    /**
+     * @return array{group:mixed,my_role:int,mute_all:bool,member_count:int,member_list_hidden:bool,can_speak:bool,policy:array}
+     */
+    protected function buildGroupInfoPayload($groupId, $uid)
+    {
+        $groupId = (int)$groupId;
+        $uid = (int)$uid;
+        $group = $this->groups->get($groupId);
+        if ($group && !empty($group['notice_i18n']) && is_string($group['notice_i18n'])) {
+            $map = json_decode($group['notice_i18n'], true);
+            $group['notice_i18n'] = is_array($map) ? $map : new \stdClass();
+        } elseif ($group) {
+            $group['notice_i18n'] = new \stdClass();
+        }
+        $myRole = $this->groups->memberRole($groupId, $uid);
+        $policy = $this->groups->buildPolicy($group ?: [], $myRole);
+        return [
+            'group'              => $group,
+            'my_role'            => $myRole,
+            'mute_all'           => $this->groups->isMuteAll($groupId),
+            'member_count'       => $this->groups->publicMemberCount($group ?: []),
+            'member_list_hidden' => !empty($policy['member_list_hidden']),
+            'can_speak'          => $this->canSpeakSafe($groupId, $uid),
+            'policy'             => $policy,
+        ];
     }
 
     /**
@@ -536,24 +569,7 @@ class MessageRouter
         if (!$this->groups->isMember($groupId, $uid)) {
             throw new \RuntimeException('not in group');
         }
-        $group = $this->groups->get($groupId);
-        if ($group && !empty($group['notice_i18n']) && is_string($group['notice_i18n'])) {
-            $map = json_decode($group['notice_i18n'], true);
-            $group['notice_i18n'] = is_array($map) ? $map : new \stdClass();
-        } elseif ($group) {
-            $group['notice_i18n'] = new \stdClass();
-        }
-        $myRole = $this->groups->memberRole($groupId, $uid);
-        $policy = $this->groups->buildPolicy($group ?: [], $myRole);
-        $this->send($connection, 'group.info', [
-            'group'              => $group,
-            'my_role'            => $myRole,
-            'mute_all'           => $this->groups->isMuteAll($groupId),
-            'member_count'       => $this->groups->publicMemberCount($group ?: []),
-            'member_list_hidden' => !empty($policy['member_list_hidden']),
-            'can_speak'          => $this->canSpeakSafe($groupId, $uid),
-            'policy'             => $policy,
-        ], $reqId);
+        $this->send($connection, 'group.info', $this->buildGroupInfoPayload($groupId, $uid), $reqId);
     }
 
     protected function handleGroupUpdate(TcpConnection $connection, $uid, array $payload, $reqId)

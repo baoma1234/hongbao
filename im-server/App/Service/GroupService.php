@@ -102,6 +102,15 @@ class GroupService
         }
     }
 
+    /** 清用户「我的群」列表缓存（MessageService 60s 缓存） */
+    public function invalidateUserGroupsCache($userId)
+    {
+        try {
+            RedisClient::conn()->del(RedisClient::key('uid:' . (int)$userId . ':my_groups'));
+        } catch (\Throwable $e) {
+        }
+    }
+
     public function members($groupId)
     {
         return Db::fetchAll(
@@ -518,6 +527,7 @@ class GroupService
         );
         $this->refreshMemberCount($groupId);
         $this->invalidateMembersCache($groupId);
+        $this->invalidateUserGroupsCache($targetId);
         return true;
     }
 
@@ -737,6 +747,7 @@ class GroupService
                 continue;
             }
             $this->ensureMember($groupId, $uid, $role, $now);
+            $this->invalidateUserGroupsCache($uid);
         }
         $this->refreshMemberCount($groupId);
         $this->invalidateMembersCache($groupId);

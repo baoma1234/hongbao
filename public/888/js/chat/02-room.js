@@ -235,7 +235,7 @@
     } else {
       desc = '红包';
     }
-    var sendTime = time || formatTime((msg && msg.createtime) || 0);
+    var sendTime = time || formatTimeSec((msg && msg.createtime) || 0);
     var timeHtml = sendTime
       ? ('<div class="rp-time">' + escapeHtml(sendTime) + '</div>')
       : '';
@@ -375,7 +375,7 @@
         head.innerHTML = '<div class="chat-rp-detail-bless">' + escapeHtml(bless) + '</div>' +
           '<div class="chat-rp-detail-meta">共 ' + (p.total_count | 0) + ' 个 · ￥' + (parseFloat(p.total_amount || 0).toFixed(2)) + '</div>' +
           (p.createtime
-            ? ('<div class="chat-rp-detail-send-time">发送时间 ' + escapeHtml(formatTime(p.createtime)) + '</div>')
+            ? ('<div class="chat-rp-detail-send-time">发送时间 ' + escapeHtml(formatTimeSec(p.createtime)) + '</div>')
             : '') +
           mineLine +
           fairBits +
@@ -429,7 +429,7 @@
             } else if (r.is_mine_hit) {
               tags += ' 中雷';
             }
-            var grabTime = r.createtime ? formatTime(r.createtime) : '';
+            var grabTime = r.createtime ? formatTimeSec(r.createtime) : '';
             return (
               '<div class="chat-rp-record-item' + (gray ? ' is-locked' : '') + '">' + avHtml +
                 '<div class="chat-rp-record-main">' +
@@ -508,7 +508,7 @@
     var actions = msgActionsHtml(msg, mine);
     if (type === 2) {
       var extra = parseExtra(msg);
-      return groupMessageWrap(mine, msg.from_user_id, renderRpCardHtml(extra, msg, time), actions, msg.id | 0);
+      return groupMessageWrap(mine, msg.from_user_id, renderRpCardHtml(extra, msg, formatTimeSec(msg.createtime)), actions, msg.id | 0);
     }
     if (type === 4) {
       var imgExtra = parseExtra(msg);
@@ -688,11 +688,11 @@
 
   function scheduleUnreadSync() {
     if (state.unreadSyncTimer) clearTimeout(state.unreadSyncTimer);
-    // 推送已 upsert 列表；延迟全量刷新仅校准未读，避免频繁重载拖慢会话列表
+    // 本地 upsert 已更新预览；全量列表仅作低频校准
     state.unreadSyncTimer = setTimeout(function () {
       state.unreadSyncTimer = null;
-      refreshList().catch(function () {});
-    }, 2500);
+      refreshList(false).catch(function () {});
+    }, 8000);
   }
 
   function onIncomingMessage(msg) {
@@ -708,24 +708,40 @@
     }
   }
 
-  async function refreshList() {
-    var packet = await send('conversation.list', { limit: 50 });
-    var prevUnread = state.unread || {};
-    state.list = (packet.data && packet.data.list) || [];
-    state.unread = {};
-    state.list.forEach(function (item) {
-      var type = item.conversation_type | 0;
-      var id = type === 2 ? (item.group_id || item.conversation_id) : item.conversation_id;
-      var key = convKey(type, id);
-      var serverUnread = item.unread_count | 0;
-      var localUnread = prevUnread[key] | 0;
-      var merged = Math.max(serverUnread, localUnread);
-      if (merged > 0) {
-        state.unread[key] = merged;
+  async function refreshList(force) {
+    var now = Date.now();
+    if (!force && state._listFetchAt && (now - state._listFetchAt) < 1500 && state.list && state.list.length) {
+      scheduleRenderList();
+      return;
+    }
+    if (state._listFetching) {
+      return state._listFetching;
+    }
+    state._listFetching = (async function () {
+      try {
+        var packet = await send('conversation.list', { limit: 50 });
+        var prevUnread = state.unread || {};
+        state.list = (packet.data && packet.data.list) || [];
+        state.unread = {};
+        state.list.forEach(function (item) {
+          var type = item.conversation_type | 0;
+          var id = type === 2 ? (item.group_id || item.conversation_id) : item.conversation_id;
+          var key = convKey(type, id);
+          var serverUnread = item.unread_count | 0;
+          var localUnread = prevUnread[key] | 0;
+          var merged = Math.max(serverUnread, localUnread);
+          if (merged > 0) {
+            state.unread[key] = merged;
+          }
+        });
+        state._listFetchAt = Date.now();
+        updateTabBadge();
+        renderList();
+      } finally {
+        state._listFetching = null;
       }
-    });
-    updateTabBadge();
-    renderList();
+    })();
+    return state._listFetching;
   }
 
   async function openRoom(opts) {
@@ -762,23 +778,31 @@
     if (dash) dash.classList.add('chat-room-open');
     if (typeof setBottomActionBarVisible === 'function') setBottomActionBarVisible(false);
     setComposerMuted(false, '');
-    var histPayload = { conversation_type: state.room.type, limit: 40 };
+    var histPayload = { conversation_type: state.room.type, limit: 30 };
     if (state.room.type === 1) {
       histPayload.to_user_id = state.room.peer;
       histPayload.conversation_id = String(state.room.id);
     } else {
       histPayload.group_id = state.room.id | 0;
+      histPayload.with_group = 1;
     }
     try {
+      // 群聊：history 内联 group 元数据，省掉二次 round-trip
       var packet = await send('history', histPayload);
       state.messages = (packet.data && packet.data.list) || [];
+      if (state.room.type === 2 && packet.data && (packet.data.group || packet.data.policy)) {
+        state.groupMeta = mergeGroupMeta(packet.data);
+        applySpeakState(state.groupMeta);
+        applyGroupRoomHeader(state.groupMeta);
+        updateComposerPolicy();
+      }
       renderMessages();
       scrollMsgToLatest();
       var last = state.messages.length ? state.messages[state.messages.length - 1] : null;
       markRead(state.room.type, state.room.id, last ? last.id : 0);
-      if (state.room.type === 2) {
-        await refreshGroupMeta();
-        scrollMsgToLatest();
+      // 兜底：若 history 未带 group 信息再补一次（不阻塞首屏）
+      if (state.room.type === 2 && !state.groupMeta) {
+        refreshGroupMeta().catch(function () {});
       }
     } catch (e) {
       if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '加载失败', 'error');
@@ -874,7 +898,7 @@
     var titleEl = $('chatRoomTitle');
     if (titleEl) titleEl.textContent = name;
     applyNoticePin(resolveGroupNotice(g));
-    // 同步会话列表标题/头像
+    // 同步会话列表标题/头像（不强制整表重绘，交给防抖）
     var gid = state.room.id | 0;
     state.list.forEach(function (it) {
       if ((it.conversation_type | 0) === 2 && ((it.group_id | 0) === gid || String(it.conversation_id) === String(gid))) {
@@ -882,7 +906,7 @@
         if (g.avatar != null) it.avatar = g.avatar || '';
       }
     });
-    renderList();
+    scheduleRenderList();
   }
 
   function hideNoticePin() {

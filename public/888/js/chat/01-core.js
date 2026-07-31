@@ -796,6 +796,18 @@
     return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + hh;
   }
 
+  /** 红包发送/领取：精确到秒 */
+  function formatTimeSec(ts) {
+    ts = (ts | 0) * 1000;
+    if (!ts) return '';
+    var d = new Date(ts);
+    var now = new Date();
+    var pad = function (n) { return ('0' + n).slice(-2); };
+    var hms = pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+    if (d.toDateString() === now.toDateString()) return hms;
+    return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + hms;
+  }
+
   function previewText(msg) {
     if (!msg) return '暂无消息';
     if ((msg.status | 0) === 2) return '[已撤回]';
