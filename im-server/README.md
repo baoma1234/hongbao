@@ -22,11 +22,14 @@ mysql -u用户 -p 库名 < ../sql/chat_im.sql
 ```php
 // im-server/config/local.php
 return [
-  'websocket' => ['listen' => 'websocket://0.0.0.0:7272', 'count' => 1],
+  // Linux 高配：count 建议 ≈ CPU 核数，常见 8，最高可试 16（先确认 MySQL max_connections / Redis）
+  'websocket' => ['listen' => 'websocket://0.0.0.0:7272', 'count' => 8],
   'admin_bridge' => ['key' => '你的后台密钥'],
   'redis' => ['host' => '127.0.0.1', 'port' => 6379, 'db' => 2, 'prefix' => 'im:'],
 ];
 ```
+
+> 推送已按「用户所在 Worker」定向投递；`count=16` 时不会再把每条消息全量复制到全部进程。
 
 ## 启动
 

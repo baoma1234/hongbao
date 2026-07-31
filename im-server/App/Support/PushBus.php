@@ -92,30 +92,135 @@ class PushBus
 
     public static function publish(array $envelope)
     {
-        // 本进程立即投递（低延迟）
+        // 本进程立即投递（只命中本机连接）
         self::deliverLocal($envelope);
 
-        $others = self::otherAliveWorkers();
-        if (!$others) {
+        $uids = $envelope['uids'] ?? [];
+        if (!is_array($uids) || !$uids) {
+            return;
+        }
+        // 按「用户当前所在 Worker」定向投递，避免 count=16 时每条消息复制 15 份全量 uid 列表
+        $byWorker = self::routeUidsToRemoteWorkers($uids);
+        if (!$byWorker) {
             return;
         }
         try {
             $r = RedisClient::conn();
-            $json = json_encode($envelope, JSON_UNESCAPED_UNICODE);
-            if ($json === false) {
-                return;
-            }
-            foreach ($others as $wid) {
+            foreach ($byWorker as $wid => $subset) {
+                if (!$subset) {
+                    continue;
+                }
+                $env = $envelope;
+                $env['uids'] = array_values($subset);
+                $json = json_encode($env, JSON_UNESCAPED_UNICODE);
+                if ($json === false) {
+                    continue;
+                }
                 $key = RedisClient::key('w:' . $wid . ':push');
                 $r->lPush($key, $json);
                 $r->lTrim($key, 0, 19999);
             }
-            // 轻量唤醒：让其他 Worker 尽快 drain（订阅端可选；无订阅也不影响）
             try {
                 $r->publish(RedisClient::key('push_wake'), (string)self::$workerId);
             } catch (\Throwable $e) {
             }
         } catch (\Throwable $e) {
+        }
+    }
+
+    /**
+     * 根据 uid→conn 映射，把用户分到远程 Worker（排除本进程）
+     *
+     * @param int[] $uids
+     * @return array<string, array<int,int>> wid => [uid=>uid]
+     */
+    protected static function routeUidsToRemoteWorkers(array $uids)
+    {
+        $uids = array_values(array_unique(array_filter(array_map('intval', $uids))));
+        if (!$uids) {
+            return [];
+        }
+        $me = (string)self::$workerId;
+        $map = [];
+        try {
+            $r = RedisClient::conn();
+            $chunkSize = 150;
+            for ($i = 0; $i < count($uids); $i += $chunkSize) {
+                $chunk = array_slice($uids, $i, $chunkSize);
+                $r->multi(\Redis::PIPELINE);
+                foreach ($chunk as $uid) {
+                    $r->sMembers(RedisClient::key('uid:' . $uid . ':conns'));
+                }
+                $results = $r->exec();
+                if (!is_array($results)) {
+                    continue;
+                }
+                foreach ($chunk as $j => $uid) {
+                    $members = $results[$j] ?? [];
+                    if (!is_array($members) || !$members) {
+                        continue;
+                    }
+                    foreach ($members as $member) {
+                        $member = (string)$member;
+                        $pos = strpos($member, ':');
+                        if ($pos === false) {
+                            continue;
+                        }
+                        $wid = substr($member, 0, $pos);
+                        if ($wid === '' || $wid === $me) {
+                            continue;
+                        }
+                        // 只投给仍标记存活的 Worker
+                        if (!isset($map[$wid]) && !self::isWorkerAlive($wid)) {
+                            continue;
+                        }
+                        $map[$wid][$uid] = $uid;
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            // 路由失败时回退：广播给其他存活 Worker（旧行为，保证不漏推）
+            return self::broadcastFallback($uids);
+        }
+        return $map;
+    }
+
+    /** @return array<string, array<int,int>> */
+    protected static function broadcastFallback(array $uids)
+    {
+        $me = (string)self::$workerId;
+        $subset = [];
+        foreach ($uids as $uid) {
+            $uid = (int)$uid;
+            if ($uid > 0) {
+                $subset[$uid] = $uid;
+            }
+        }
+        $out = [];
+        foreach (self::otherAliveWorkers() as $wid) {
+            $out[(string)$wid] = $subset;
+        }
+        return $out;
+    }
+
+    /** @var array<string,int> wid => expireAt */
+    protected static $aliveCache = [];
+
+    protected static function isWorkerAlive($wid)
+    {
+        $wid = (string)$wid;
+        $now = time();
+        if (isset(self::$aliveCache[$wid]) && self::$aliveCache[$wid] >= $now) {
+            return true;
+        }
+        try {
+            $ok = (bool)RedisClient::conn()->exists(RedisClient::key('worker:' . $wid . ':alive'));
+            if ($ok) {
+                self::$aliveCache[$wid] = $now + 2;
+            }
+            return $ok;
+        } catch (\Throwable $e) {
+            return false;
         }
     }
 

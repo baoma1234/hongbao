@@ -63,14 +63,15 @@ if (is_file($rpRuntime)) {
 return array_replace_recursive([
     'websocket' => [
         'listen'   => 'websocket://0.0.0.0:7272',
-        // Windows 只能 1；Linux 建议设为 CPU 核数（如 4～8）以支撑约 5000 在线
-        'count'    => (PHP_OS_FAMILY === 'Windows') ? 1 : 4,
+        // Windows 只能 1；Linux 建议 ≈ CPU 核数，常见 4～8，高配可到 16（需配合 MySQL/Redis 连接数）
+        // local.php 可覆盖：'websocket' => ['count' => 16]
+        'count'    => (PHP_OS_FAMILY === 'Windows') ? 1 : 8,
         'name'     => 'FansHubIM',
         'heartbeat'=> 50,
     ],
     'push' => [
         'drain_interval' => 0.02, // 消费跨进程队列间隔（秒）
-        'drain_batch'    => 200,
+        'drain_batch'    => 300,  // 16 Worker 时可适当加大
     ],
     'db'    => $db,
     'redis' => $redis,
