@@ -1,6 +1,126 @@
 /* js/chat/02-room.js — list, room, group, media */
 
   var _renderListTimer = null;
+  var _saveListCacheTimer = null;
+  var _saveHistCacheTimer = null;
+  var LIST_CACHE_PREFIX = 'fans_hub_chat_list_v1_';
+  var HIST_CACHE_PREFIX = 'fans_hub_chat_hist_v1_';
+  var CACHE_UID_KEY = 'fans_hub_chat_cache_uid';
+
+  function cacheUid() {
+    var uid = state.userId | 0;
+    if (uid > 0) {
+      try { localStorage.setItem(CACHE_UID_KEY, String(uid)); } catch (e0) {}
+      return uid;
+    }
+    try { return parseInt(localStorage.getItem(CACHE_UID_KEY) || '0', 10) || 0; } catch (e1) { return 0; }
+  }
+
+  function loadListCache() {
+    var uid = cacheUid();
+    if (!uid) return null;
+    try {
+      var raw = localStorage.getItem(LIST_CACHE_PREFIX + uid);
+      if (!raw) return null;
+      var j = JSON.parse(raw);
+      if (!j || !Array.isArray(j.list) || !j.list.length) return null;
+      if (j.at && (Date.now() - (j.at | 0)) > 7 * 86400000) return null;
+      return j;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function saveListCache() {
+    var uid = cacheUid();
+    if (!uid || !state.list || !state.list.length) return;
+    try {
+      localStorage.setItem(LIST_CACHE_PREFIX + uid, JSON.stringify({
+        at: Date.now(),
+        list: state.list,
+        unread: state.unread || {}
+      }));
+    } catch (e) {}
+  }
+
+  function scheduleSaveListCache() {
+    if (_saveListCacheTimer) return;
+    _saveListCacheTimer = setTimeout(function () {
+      _saveListCacheTimer = null;
+      saveListCache();
+    }, 400);
+  }
+
+  /** 用本地缓存秒开列表；无缓存返回 false */
+  function hydrateListFromCache() {
+    if (state.list && state.list.length) return true;
+    var j = loadListCache();
+    if (!j) return false;
+    state.list = j.list || [];
+    var cachedUnread = j.unread || {};
+    Object.keys(cachedUnread).forEach(function (k) {
+      state.unread[k] = Math.max(state.unread[k] | 0, cachedUnread[k] | 0);
+    });
+    renderList();
+    updateTabBadge();
+    return true;
+  }
+
+  function showListSkeleton() {
+    var box = $('chatConvList');
+    if (!box) return;
+    if (box.querySelector('.chat-conv-item')) return;
+    var html = '';
+    for (var i = 0; i < 7; i++) {
+      html += '<div class="chat-conv-skel" aria-hidden="true">' +
+        '<div class="sk-av"></div>' +
+        '<div class="sk-body"><div class="sk-line w70"></div><div class="sk-line w45"></div></div>' +
+      '</div>';
+    }
+    box.innerHTML = html;
+  }
+
+  function histCacheStorageKey(type, id) {
+    return HIST_CACHE_PREFIX + cacheUid() + '_' + (type | 0) + '_' + String(id);
+  }
+
+  function loadHistCache(type, id) {
+    if (!cacheUid()) return null;
+    try {
+      var raw = localStorage.getItem(histCacheStorageKey(type, id));
+      if (!raw) return null;
+      var j = JSON.parse(raw);
+      if (!j || !Array.isArray(j.messages) || !j.messages.length) return null;
+      if (j.at && (Date.now() - (j.at | 0)) > 3 * 86400000) return null;
+      return j;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function saveHistCache(type, id, messages, groupMeta) {
+    if (!cacheUid() || !messages || !messages.length) return;
+    try {
+      // 只留最近 40 条，控制 localStorage 体积
+      var slice = messages.length > 40 ? messages.slice(messages.length - 40) : messages;
+      localStorage.setItem(histCacheStorageKey(type, id), JSON.stringify({
+        at: Date.now(),
+        messages: slice,
+        groupMeta: groupMeta || null
+      }));
+    } catch (e) {}
+  }
+
+  function scheduleSaveHistCache() {
+    if (!state.room) return;
+    if (_saveHistCacheTimer) clearTimeout(_saveHistCacheTimer);
+    _saveHistCacheTimer = setTimeout(function () {
+      _saveHistCacheTimer = null;
+      if (!state.room) return;
+      saveHistCache(state.room.type, state.room.id, state.messages, state.groupMeta);
+    }, 500);
+  }
+
   function scheduleRenderList() {
     if (_renderListTimer) return;
     _renderListTimer = setTimeout(function () {
@@ -788,6 +908,7 @@
       state.list.sort(function (a, b) { return (b.updatetime | 0) - (a.updatetime | 0); });
     }
     scheduleRenderList();
+    scheduleSaveListCache();
   }
 
   function appendMessage(msg) {
@@ -815,11 +936,13 @@
         html += buildMessageRowHtml(msg);
         box.insertAdjacentHTML('beforeend', html);
         scrollMsgToLatest();
+        scheduleSaveHistCache();
         return;
       } catch (eInc) {}
     }
     renderMessages();
     scrollMsgToLatest();
+    scheduleSaveHistCache();
   }
 
   function scheduleUnreadSync() {
@@ -903,6 +1026,10 @@
   }
 
   async function refreshList(force) {
+    // 先出缓存/骨架，网络回来再覆盖
+    if (!state.list.length) {
+      if (!hydrateListFromCache()) showListSkeleton();
+    }
     var now = Date.now();
     if (!force && state._listFetchAt && (now - state._listFetchAt) < 3000 && state.list && state.list.length) {
       scheduleRenderList();
@@ -931,6 +1058,7 @@
         state._listFetchAt = Date.now();
         updateTabBadge();
         renderList();
+        saveListCache();
       } finally {
         state._listFetching = null;
       }
@@ -976,6 +1104,22 @@
     if (dash) dash.classList.add('chat-room-open');
     if (typeof setBottomActionBarVisible === 'function') setBottomActionBarVisible(false);
     setComposerMuted(false, '');
+    // 先用本地历史秒开对话框，再拉最新
+    var cachedHist = loadHistCache(state.room.type, state.room.id);
+    if (cachedHist && cachedHist.messages && cachedHist.messages.length) {
+      state.messages = cachedHist.messages;
+      if (state.room.type === 2 && cachedHist.groupMeta) {
+        state.groupMeta = cachedHist.groupMeta;
+        applySpeakState(state.groupMeta);
+        applyGroupRoomHeader(state.groupMeta);
+        updateComposerPolicy();
+      }
+      renderMessages(true);
+      scrollRoomOnOpen(openLastRead, openUnread);
+    } else {
+      var box = $('chatMsgScroll');
+      if (box) box.innerHTML = '<div class="chat-empty">加载中…</div>';
+    }
     var histPayload = { conversation_type: state.room.type, limit: 30 };
     if (state.room.type === 1) {
       histPayload.to_user_id = state.room.peer;
@@ -987,6 +1131,10 @@
     try {
       // 群聊：history 内联 group 元数据，省掉二次 round-trip
       var packet = await send('history', histPayload);
+      // 若用户已切到别的会话，丢弃过期响应
+      if (!state.room || state.room.type !== (opts.type | 0) || String(state.room.id) !== String(opts.id)) {
+        return;
+      }
       state.messages = (packet.data && packet.data.list) || [];
       if (state.room.type === 2 && packet.data && (packet.data.group || packet.data.policy)) {
         state.groupMeta = mergeGroupMeta(packet.data);
@@ -998,12 +1146,15 @@
       scrollRoomOnOpen(openLastRead, openUnread);
       var last = state.messages.length ? state.messages[state.messages.length - 1] : null;
       markRead(state.room.type, state.room.id, last ? last.id : 0);
+      saveHistCache(state.room.type, state.room.id, state.messages, state.groupMeta);
       // 兜底：若 history 未带 group 信息再补一次（不阻塞首屏）
       if (state.room.type === 2 && !state.groupMeta) {
         refreshGroupMeta().catch(function () {});
       }
     } catch (e) {
-      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '加载失败', 'error');
+      if (typeof showFanshubToast === 'function' && !(cachedHist && cachedHist.messages && cachedHist.messages.length)) {
+        showFanshubToast(e.message || '加载失败', 'error');
+      }
     }
   }
 

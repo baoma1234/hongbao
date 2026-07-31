@@ -538,6 +538,40 @@ body.tab-messages .bottom-action-bar {
   line-height: 1.5;
 }
 
+/* 会话列表骨架：无缓存时先占位，避免白屏等待 */
+.chat-conv-skel {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(0,0,0,.04);
+  pointer-events: none;
+}
+.chat-conv-skel .sk-av {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: linear-gradient(90deg, #eceff3 25%, #f6f7f9 37%, #eceff3 63%);
+  background-size: 400% 100%;
+  animation: chat-skel-shine 1.2s ease-in-out infinite;
+}
+.chat-conv-skel .sk-body { flex: 1; min-width: 0; }
+.chat-conv-skel .sk-line {
+  height: 10px;
+  border-radius: 6px;
+  margin: 8px 0;
+  background: linear-gradient(90deg, #eceff3 25%, #f6f7f9 37%, #eceff3 63%);
+  background-size: 400% 100%;
+  animation: chat-skel-shine 1.2s ease-in-out infinite;
+}
+.chat-conv-skel .sk-line.w70 { width: 70%; }
+.chat-conv-skel .sk-line.w45 { width: 45%; }
+@keyframes chat-skel-shine {
+  0% { background-position: 100% 0; }
+  100% { background-position: 0 0; }
+}
+
 /* ---------- Fixed panes (room / sub / send) — full bleed ---------- */
 .chat-room-pane,
 .chat-sub-pane,

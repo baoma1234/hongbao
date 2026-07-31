@@ -35,6 +35,9 @@
       case 'auth.ok':
         state.connected = true;
         state.userId = (packet.data && packet.data.user_id) | 0;
+        try {
+          if (state.userId > 0) localStorage.setItem('fans_hub_chat_cache_uid', String(state.userId));
+        } catch (eUid) {}
         state.isImAdmin = !!(packet.data && packet.data.is_im_admin);
         state.canCreateGroup = !!(packet.data && packet.data.can_create_group);
         var bal = packet.data && packet.data.user && (packet.data.user.balance != null ? packet.data.user.balance : packet.data.user.money);
@@ -826,6 +829,8 @@
     bindUi();
     syncBalanceFromAccount();
     updateMoneyLabel();
+    // 进消息页立刻出缓存列表，再后台校准
+    if (!hydrateListFromCache()) showListSkeleton();
     connect(false);
     if (state.connected) {
       // auth.ok 刚刷新过则跳过，避免进消息 Tab 连打两次 conversation.list
@@ -870,6 +875,7 @@
     state.stickerLoaded = false;
     state.stickerManifest = null;
     syncBalanceFromAccount();
+    hydrateListFromCache();
   }
 
   function onLogout() {
