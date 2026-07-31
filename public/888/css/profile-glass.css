@@ -716,6 +716,41 @@
   cursor: pointer;
 }
 
+.profile-sub-pane .wallet-quick-amounts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 8px 0 10px;
+}
+
+.profile-sub-pane .wallet-quick-amt {
+  min-height: 36px;
+  padding: 8px 4px;
+  border-radius: 10px;
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    linear-gradient(145deg, #ffe9b0 0%, #f0b04a 42%, #e07a22 100%) border-box;
+  color: #8a4f1f;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.profile-sub-pane .wallet-quick-amt.active {
+  color: #C61114;
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    linear-gradient(to right, #E63022, #C61114) border-box;
+  box-shadow: 0 3px 10px rgba(198, 17, 20, 0.12);
+}
+
+.profile-sub-pane .wallet-quick-amt.is-disabled,
+.profile-sub-pane .wallet-quick-amt:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
 .profile-sub-pane .wallet-partition-tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;

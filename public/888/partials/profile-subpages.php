@@ -77,6 +77,7 @@
                     <div class="profile-meta-line" id="profileRechargeLimitHint"></div>
                     <div class="profile-field">
                         <label data-copy="profile_recharge_amount_label">充值红宝金额（元）</label>
+                        <div id="profileRechargeQuickAmounts" class="wallet-quick-amounts" aria-label="快捷金额"></div>
                         <input type="number" id="profileRechargeAmount" step="0.01" min="1" data-copy-placeholder="profile_amount_ph" placeholder="请输入金额">
                     </div>
                     <button type="button" class="btn-uid-submit" id="profileRechargeSubmit" onclick="submitProfileRecharge()" data-copy="profile_recharge_submit">确认充值</button>

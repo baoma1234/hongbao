@@ -129,6 +129,47 @@
       : wt('profile_amount_ph', '请输入金额');
   }
 
+  var RECHARGE_QUICK_AMOUNTS = [50, 100, 500, 1000, 5000, 10000, 50000, 100000];
+
+  function formatQuickAmtLabel(n) {
+    n = Number(n) || 0;
+    return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+
+  function renderRechargeQuickAmounts(ch) {
+    var box = document.getElementById('profileRechargeQuickAmounts');
+    if (!box) return;
+    var min = Number(ch && ch.min_amount) || 0;
+    var max = Number(ch && ch.max_amount) || 0;
+    var cur = parseFloat((document.getElementById('profileRechargeAmount') || {}).value) || 0;
+    box.innerHTML = RECHARGE_QUICK_AMOUNTS.map(function (a) {
+      var disabled = (min > 0 && a < min - 0.00001) || (max > 0 && a > max + 0.00001);
+      var active = !disabled && Math.abs(cur - a) < 0.00001 ? ' active' : '';
+      return (
+        '<button type="button" class="wallet-quick-amt' + active + (disabled ? ' is-disabled' : '') +
+          '" data-amt="' + a + '"' + (disabled ? ' disabled' : '') + '>' +
+          formatQuickAmtLabel(a) +
+        '</button>'
+      );
+    }).join('');
+    if (!box._quickBound) {
+      box._quickBound = true;
+      box.addEventListener('click', function (ev) {
+        var btn = ev.target && ev.target.closest ? ev.target.closest('.wallet-quick-amt') : null;
+        if (!btn || btn.disabled) return;
+        var amt = parseFloat(btn.getAttribute('data-amt')) || 0;
+        var input = document.getElementById('profileRechargeAmount');
+        if (input) {
+          input.value = String(amt);
+          try { input.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {}
+        }
+        [].forEach.call(box.querySelectorAll('.wallet-quick-amt'), function (b) {
+          b.classList.toggle('active', b === btn);
+        });
+      });
+    }
+  }
+
   function withdrawPayeeReady(ch) {
     if (!ch) return false;
     if (String(ch.bind_mode || '') === 'wallet') {
@@ -262,6 +303,9 @@
     panel.classList.add('is-open');
     if (hint) hint.textContent = formatLimitHint(ch);
     applyAmountLimits(isRecharge ? 'profileRechargeAmount' : 'profileWithdrawAmount', ch);
+    if (isRecharge) {
+      renderRechargeQuickAmounts(ch);
+    }
     if (!isRecharge) {
       bindWithdrawPayeeWatch();
       syncWithdrawBindUI(ch);
@@ -317,6 +361,10 @@
 
   function channelIconHtml(ch, name) {
     var icon = (ch && ch.icon || '').trim();
+    // BS USDT：统一使用站内 Tether logo
+    if (ch && String(ch.handler || '').toLowerCase() === 'bs') {
+      icon = 'img/pay/usdt.png';
+    }
     if (icon) {
       return '<img class="wallet-channel-icon" src="' + escapeHtml(icon) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'">';
     }
