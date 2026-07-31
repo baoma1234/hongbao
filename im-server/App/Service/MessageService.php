@@ -653,39 +653,36 @@ class MessageService
             }
         }
 
-        $params = [$userId];
-        $ors = [];
         $lastIds = [];
         foreach ($items as $it) {
             $ik = ((int)($it['conversation_type'] ?? 0)) . ':' . (string)($it['conversation_id'] ?? '');
             $lastIds[$ik] = (int)(($it['last_message']['id'] ?? 0));
         }
+
+        // 拆成按会话的 COUNT UNION ALL，强制走 idx_conv_time，避免巨型 OR 选错索引
+        $unions = [];
+        $params = [];
         foreach ($targets as $key => $t) {
             $lastId = (int)($lastIds[$key] ?? 0);
             $cursor = (int)($cursors[$key] ?? 0);
-            if ($lastId > 0 && $lastId <= $cursor) {
+            if ($lastId <= 0 || $lastId <= $cursor) {
                 $out[$key] = 0;
                 continue;
             }
-            // 无消息 / 仅自己发过且已读游标落后：仍可能有未读，交给 COUNT；无 last 则跳过
-            if ($lastId <= 0) {
-                $out[$key] = 0;
-                continue;
-            }
-            $ors[] = '(conversation_type=? AND conversation_id=? AND id>?)';
+            $unions[] = 'SELECT ? AS conversation_type, ? AS conversation_id, COUNT(*) AS c FROM '
+                . Db::table('chat_messages')
+                . ' WHERE conversation_type=? AND conversation_id=? AND status=1 AND id>? AND from_user_id<>?';
+            $params[] = $t['type'];
+            $params[] = $t['id'];
             $params[] = $t['type'];
             $params[] = $t['id'];
             $params[] = $cursor;
+            $params[] = $userId;
         }
-        if (!$ors) {
+        if (!$unions) {
             return $out;
         }
-        $countRows = Db::fetchAll(
-            'SELECT conversation_type, conversation_id, COUNT(*) AS c FROM ' . Db::table('chat_messages')
-            . ' WHERE status=1 AND from_user_id<>? AND (' . implode(' OR ', $ors) . ')'
-            . ' GROUP BY conversation_type, conversation_id',
-            $params
-        );
+        $countRows = Db::fetchAll(implode(' UNION ALL ', $unions), $params);
         foreach ($countRows as $row) {
             $key = ((int)$row['conversation_type']) . ':' . (string)$row['conversation_id'];
             $out[$key] = (int)($row['c'] ?? 0);

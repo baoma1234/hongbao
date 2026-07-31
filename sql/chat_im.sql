@@ -30,7 +30,8 @@ CREATE TABLE IF NOT EXISTS `fa_chat_messages` (
   KEY `idx_from_user` (`from_user_id`, `id`),
   KEY `idx_to_user` (`to_user_id`, `id`),
   KEY `idx_priv_from_conv` (`conversation_type`, `status`, `from_user_id`, `conversation_id`, `id`),
-  KEY `idx_priv_to_conv` (`conversation_type`, `status`, `to_user_id`, `conversation_id`, `id`)
+  KEY `idx_priv_to_conv` (`conversation_type`, `status`, `to_user_id`, `conversation_id`, `id`),
+  KEY `idx_conv_status_id` (`conversation_type`, `conversation_id`, `status`, `id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='IM消息';
 
 -- ----------------------------
