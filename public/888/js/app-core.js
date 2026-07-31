@@ -770,9 +770,21 @@
         let teamRadarLoaded = false;
         function ensureSocialLoaded() {
             if (socialLoaded) return;
-            socialLoaded = true;
-            if (typeof loadLeaderboard === 'function') loadLeaderboard();
-            if (typeof initComments === 'function' && document.getElementById('commentScrollBox')) initComments();
+            var run = function () {
+                if (socialLoaded) return;
+                socialLoaded = true;
+                if (typeof loadLeaderboard === 'function') loadLeaderboard();
+                if (typeof initComments === 'function' && document.getElementById('commentScrollBox')) initComments();
+            };
+            try {
+                if (typeof requestIdleCallback === 'function') {
+                    requestIdleCallback(run, { timeout: 2800 });
+                } else {
+                    setTimeout(run, 900);
+                }
+            } catch (e) {
+                setTimeout(run, 900);
+            }
         }
         function switchTab(tab) {
             const map = {
@@ -827,18 +839,13 @@
                     fissionMarketTimer = null;
                 }
             }
-            // 任意 Tab：登录后优先保活 IM WebSocket（不等到进消息页）
-            if (localStorage.getItem('fans_hub_token')) {
-                if (window.FansHubAssets && typeof FansHubAssets.ensureChat === 'function') {
-                    FansHubAssets.ensureChat().then(function () {
-                        if (window.FansHubChat) {
-                            if (typeof FansHubChat.ensureConnected === 'function') FansHubChat.ensureConnected();
-                            else if (typeof FansHubChat.connect === 'function') FansHubChat.connect(false);
-                        }
-                    }).catch(function () {});
-                } else if (window.FansHubChat) {
+            // IM：消息 Tab 立即加载；其它 Tab 已加载则保活 WS，否则空闲预取（不与首页接口抢带宽）
+            if (localStorage.getItem('fans_hub_token') && tab !== 'messages') {
+                if (window.FansHubChat) {
                     if (typeof FansHubChat.ensureConnected === 'function') FansHubChat.ensureConnected();
                     else if (typeof FansHubChat.connect === 'function') FansHubChat.connect(false);
+                } else if (window.FansHubAssets && typeof FansHubAssets.prefetchChat === 'function') {
+                    FansHubAssets.prefetchChat();
                 }
             }
             if (tab === 'messages') {
@@ -1316,7 +1323,8 @@
             }
             if (CONFIG.JACKPOT_SERVER_SYNC) {
                 pollJackpotFromServer();
-                jackpotPollTimer = setInterval(pollJackpotFromServer, 2000);
+                // 12s 一次即可；config/profile 已带首屏快照，2s 轮询浪费带宽
+                jackpotPollTimer = setInterval(pollJackpotFromServer, 12000);
             }
         }
 

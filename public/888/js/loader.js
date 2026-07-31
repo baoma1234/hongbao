@@ -114,13 +114,25 @@
   }
 
   function prefetchChat() {
+    var run = function () {
+      ensureChat().then(function () {
+        try {
+          if (!localStorage.getItem('fans_hub_token')) return;
+          if (global.FansHubChat && typeof global.FansHubChat.onLogin === 'function') {
+            global.FansHubChat.onLogin();
+          }
+        } catch (e2) {}
+      }).catch(function () {});
+    };
     try {
       if ('requestIdleCallback' in global) {
-        global.requestIdleCallback(function () { ensureChat().catch(function () {}); }, { timeout: 4000 });
+        global.requestIdleCallback(run, { timeout: 4000 });
       } else {
-        setTimeout(function () { ensureChat().catch(function () {}); }, 2500);
+        setTimeout(run, 2200);
       }
-    } catch (e) {}
+    } catch (e) {
+      setTimeout(run, 2200);
+    }
   }
 
   global.FansHubAssets = {

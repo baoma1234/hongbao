@@ -581,6 +581,10 @@
       listEl.innerHTML = '<div class="chat-empty chat-empty-glass">' + noticeEscape(chatT('chat_commission_login_hint')) + '</div>';
       return;
     }
+    if (!force && listEl._loaded && listEl._loadedAt && (Date.now() - listEl._loadedAt) < 45000) {
+      setCommissionListMode(state.commissionListMode || 'recent');
+      return;
+    }
     if (!force && listEl._loaded) return;
     listEl.innerHTML = '<div class="chat-empty chat-empty-glass">' + noticeEscape(chatT('chat_notice_loading')) + '</div>';
     try {
@@ -592,6 +596,7 @@
       if ($('chatCommissionRebate')) $('chatCommissionRebate').textContent = formatMoneyYuan(data.rebate_money);
       setCommissionListMode(state.commissionListMode || 'recent');
       listEl._loaded = true;
+      listEl._loadedAt = Date.now();
     } catch (e) {
       listEl.innerHTML = '<div class="chat-empty chat-empty-glass">' + noticeEscape(e.message || '加载失败') + '</div>';
     }
@@ -653,7 +658,11 @@
       syncPromoteEarnPanel();
       refreshNoticeFeed().catch(function () {});
     }
-    if (state.homeTab === 'commission') refreshCommissionPanel(true).catch(function () {});
+    if (state.homeTab === 'commission') {
+      var listEl = $('chatCommissionList');
+      var stale = !listEl || !listEl._loadedAt || (Date.now() - listEl._loadedAt) > 45000;
+      refreshCommissionPanel(stale).catch(function () {});
+    }
   };
 
   var _origOnLocaleNotice = onLocaleChange;

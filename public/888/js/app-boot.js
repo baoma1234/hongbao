@@ -104,13 +104,11 @@
                     switchTab('home');
                     initMarqueeInterval();
                     startJackpotSync();
-                    if (window.FansHubAssets && typeof FansHubAssets.ensureChat === 'function') {
-                    FansHubAssets.ensureChat().then(function () {
-                        if (window.FansHubChat) FansHubChat.onLogin();
-                    }).catch(function (e) { console.warn('chat load fail', e); });
-                } else if (window.FansHubChat) {
-                    FansHubChat.onLogin();
-                }
+                    if (window.FansHubAssets && typeof FansHubAssets.prefetchChat === 'function') {
+                        FansHubAssets.prefetchChat();
+                    } else if (window.FansHubChat && typeof FansHubChat.onLogin === 'function') {
+                        FansHubChat.onLogin();
+                    }
                 } catch (e) {
                     console.warn('鎭㈠鐧诲綍澶辫触', e);
                     if (shouldClearTokenOnProfileError(e)) {
@@ -717,11 +715,9 @@
                 switchTab('home');
                 startJackpotSync();
                 updateFlowStepper();
-                if (window.FansHubAssets && typeof FansHubAssets.ensureChat === 'function') {
-                    FansHubAssets.ensureChat().then(function () {
-                        if (window.FansHubChat) FansHubChat.onLogin();
-                    }).catch(function (e) { console.warn('chat load fail', e); });
-                } else if (window.FansHubChat) {
+                if (window.FansHubAssets && typeof FansHubAssets.prefetchChat === 'function') {
+                    FansHubAssets.prefetchChat();
+                } else if (window.FansHubChat && typeof FansHubChat.onLogin === 'function') {
                     FansHubChat.onLogin();
                 }
                 showFanshubToast(data.is_new ? fc('alert_login_new') : fc('alert_login_back'), 'success');

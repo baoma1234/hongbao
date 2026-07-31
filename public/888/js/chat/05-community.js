@@ -423,10 +423,15 @@
     }
   }
 
-  function refreshFriendRequests() {
+  function refreshFriendRequests(force) {
     if (!state.connected) return Promise.resolve(friendReqCache);
+    if (!force && state._friendReqAt && (Date.now() - state._friendReqAt) < 30000) {
+      updateFriendReqBadge((friendReqCache && friendReqCache.pending_count) | 0);
+      return Promise.resolve(friendReqCache);
+    }
     return send('friend.requests', {}).then(function (packet) {
       friendReqCache = packet.data || { incoming: [], outgoing: [], pending_count: 0 };
+      state._friendReqAt = Date.now();
       updateFriendReqBadge(friendReqCache.pending_count | 0);
       return friendReqCache;
     });
@@ -695,7 +700,7 @@
     if (state.homeTab === 'community' && state.connected) {
       refreshCommunity().catch(function () {});
     }
-    if (state.connected) refreshFriendRequests().catch(function () {});
+    if (state.connected) refreshFriendRequests(false).catch(function () {});
   };
 
   var _origOnLocaleChange = onLocaleChange;
@@ -726,9 +731,9 @@
     _origHandlePacket(packet);
     if (!packet || !packet.type) return;
     if (packet.type === 'auth.ok') {
-      refreshFriendRequests().catch(function () {});
+      refreshFriendRequests(true).catch(function () {});
     } else if (packet.type === 'friend.request') {
-      refreshFriendRequests().then(function () {
+      refreshFriendRequests(true).then(function () {
         if ($('chatFriendReqPane') && $('chatFriendReqPane').classList.contains('open')) {
           renderFriendReqList();
         }
@@ -738,7 +743,7 @@
         }
       }).catch(function () {});
     } else if (packet.type === 'friend.accepted' || packet.type === 'friend.rejected') {
-      refreshFriendRequests().then(function () {
+      refreshFriendRequests(true).then(function () {
         if ($('chatFriendReqPane') && $('chatFriendReqPane').classList.contains('open')) {
           renderFriendReqList();
         }
