@@ -1160,6 +1160,70 @@ class FansHubService
         return FansHubMarket::screenPayload($tick, $lite);
     }
 
+    /**
+     * 登录/进厅合并包：一次返回 config + 奖池快照 +（已登录）profile/排行榜
+     * @param int $userId 0=游客
+     * @param array $opts include_home / include_commission / tick_market
+     */
+    public static function bootstrapPayload($userId = 0, array $opts = [])
+    {
+        $userId = (int)$userId;
+        $includeHome = !isset($opts['include_home']) || !empty($opts['include_home']);
+        $includeCommission = !empty($opts['include_commission']);
+        $tickMarket = !empty($opts['tick_market']);
+
+        $out = [
+            'config' => self::publicConfig(),
+            'market' => self::jackpotPayload($tickMarket, true),
+            'profile' => null,
+            'home' => null,
+            'commission' => null,
+            'server_time' => time(),
+        ];
+
+        if ($userId > 0) {
+            try {
+                self::expireSecrets();
+                $out['profile'] = self::profilePayload($userId);
+            } catch (\Throwable $e) {
+                $out['profile'] = null;
+                $out['profile_error'] = $e->getMessage();
+            }
+            if ($includeHome) {
+                try {
+                    $out['home'] = [
+                        'leaderboard' => self::inviteLeaderboard(10),
+                    ];
+                } catch (\Throwable $e) {
+                    $out['home'] = ['leaderboard' => []];
+                }
+            }
+            if ($includeCommission) {
+                try {
+                    $out['commission'] = self::commissionSummary($userId);
+                } catch (\Throwable $e) {
+                    $out['commission'] = null;
+                }
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * 钱包页合并包：余额 + 充值/提现通道（含 binds）
+     */
+    public static function walletBootstrapPayload($userId)
+    {
+        $userId = (int)$userId;
+        return [
+            'info'     => \app\common\library\FansHubWallet::walletInfo($userId),
+            'recharge' => \app\common\library\FansHubWallet::listChannelsGrouped('recharge', $userId),
+            'withdraw' => \app\common\library\FansHubWallet::listChannelsGrouped('withdraw', $userId),
+            'server_time' => time(),
+        ];
+    }
+
     public static function publicConfig()
     {
         $cfg = self::config();

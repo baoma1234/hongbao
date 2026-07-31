@@ -715,6 +715,9 @@
                 switchTab('home');
                 startJackpotSync();
                 updateFlowStepper();
+                if (typeof window.hydrateAfterLogin === 'function') {
+                    window.hydrateAfterLogin().catch(function () {});
+                }
                 if (window.FansHubAssets && typeof FansHubAssets.prefetchChat === 'function') {
                     FansHubAssets.prefetchChat();
                 } else if (window.FansHubChat && typeof FansHubChat.onLogin === 'function') {
@@ -799,7 +802,19 @@
             // 大厅优先展示虚拟裂变榜（营销氛围）；若接口有真实数据则合并后按邀请数重排 TOP10
             let rows = buildVirtualLeaderboard(10);
             try {
-                const real = await apiRequest('inviteleaderboard', 'GET', { limit: 10 });
+                let real = window._bootstrapLeaderboard;
+                if (Array.isArray(real) && real.length) {
+                    window._bootstrapLeaderboard = null; // 只用一次，之后走短缓存
+                    window._leaderboardCacheAt = Date.now();
+                    window._leaderboardCacheRows = real;
+                } else if (window._leaderboardCacheRows && window._leaderboardCacheAt
+                    && (Date.now() - window._leaderboardCacheAt) < 60000) {
+                    real = window._leaderboardCacheRows;
+                } else {
+                    real = await apiRequest('inviteleaderboard', 'GET', { limit: 10 });
+                    window._leaderboardCacheAt = Date.now();
+                    window._leaderboardCacheRows = real;
+                }
                 if (Array.isArray(real) && real.length) {
                     const map = {};
                     real.forEach(function (r) {

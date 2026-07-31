@@ -804,17 +804,15 @@
   }
 
   function loadWalletData() {
-    return Promise.all([
-      api('walletinfo', {}).catch(function () { return {}; }),
-      api('rechargechannels', {}).catch(function () { return { list: [], partitions: [] }; }),
-      api('withdrawchannels', {}).catch(function () { return { list: [], partitions: [], binds: {} }; })
-    ]).then(function (res) {
-      walletState.info = res[0] || {};
-      walletState.recharge = (res[1] && res[1].list) || [];
-      walletState.rechargePartitions = (res[1] && res[1].partitions) || [];
-      walletState.withdraw = (res[2] && res[2].list) || [];
-      walletState.withdrawPartitions = (res[2] && res[2].partitions) || [];
-      walletState.binds = (res[2] && res[2].binds) || {};
+    var applyBundle = function (bundle) {
+      walletState.info = (bundle && bundle.info) || {};
+      var recharge = (bundle && bundle.recharge) || {};
+      var withdraw = (bundle && bundle.withdraw) || {};
+      walletState.recharge = recharge.list || [];
+      walletState.rechargePartitions = recharge.partitions || [];
+      walletState.withdraw = withdraw.list || [];
+      walletState.withdrawPartitions = withdraw.partitions || [];
+      walletState.binds = withdraw.binds || {};
       var hint = document.getElementById('profileWithdrawHint');
       if (hint && walletState.info) {
         var need = Math.max(walletState.info.withdraw_turnover_min || 0, 0);
@@ -828,6 +826,32 @@
       }
       var line = document.getElementById('profileTurnoverLine');
       if (line && walletState.info) line.textContent = wt('wallet_turnover_line', '累计流水：{amount}', { amount: money(walletState.info.turnover) });
+    };
+
+    // 60s 内复用，避免反复开钱包打 3 次接口
+    if (walletState._bootAt && walletState._bootBundle && (Date.now() - walletState._bootAt) < 60000) {
+      applyBundle(walletState._bootBundle);
+      return Promise.resolve(walletState._bootBundle);
+    }
+
+    return api('walletbootstrap', {}).then(function (bundle) {
+      walletState._bootBundle = bundle || {};
+      walletState._bootAt = Date.now();
+      applyBundle(walletState._bootBundle);
+      return walletState._bootBundle;
+    }).catch(function () {
+      // 旧接口兜底
+      return Promise.all([
+        api('walletinfo', {}).catch(function () { return {}; }),
+        api('rechargechannels', {}).catch(function () { return { list: [], partitions: [] }; }),
+        api('withdrawchannels', {}).catch(function () { return { list: [], partitions: [], binds: {} }; })
+      ]).then(function (res) {
+        var bundle = { info: res[0] || {}, recharge: res[1] || {}, withdraw: res[2] || {} };
+        walletState._bootBundle = bundle;
+        walletState._bootAt = Date.now();
+        applyBundle(bundle);
+        return bundle;
+      });
     });
   }
 

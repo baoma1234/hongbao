@@ -17,7 +17,7 @@ use think\Validate;
  */
 class Fanshub extends Api
 {
-    protected $noNeedLogin = ['config', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'rpfair'];
+    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'rpfair'];
     protected $noNeedRight = '*';
 
     public function _initialize()
@@ -25,7 +25,7 @@ class Fanshub extends Api
         FansHubSms::boot();
         parent::_initialize();
         $action = strtolower($this->request->action());
-        $exempt = ['config', 'comments', 'inviteleaderboard', 'slidercaptcha', 'grabslider', 'jackpot', 'notices', 'rpfair'];
+        $exempt = ['config', 'bootstrap', 'comments', 'inviteleaderboard', 'slidercaptcha', 'grabslider', 'jackpot', 'notices', 'rpfair'];
         if (in_array($action, $exempt, true)) {
             return;
         }
@@ -44,6 +44,46 @@ class Fanshub extends Api
     public function config()
     {
         $this->success('ok', FansHubService::publicConfig());
+    }
+
+    /**
+     * 进厅合并包：config + market +（登录后）profile / 排行榜
+     * GET /api/fanshub/bootstrap?include=home,commission
+     */
+    public function bootstrap()
+    {
+        $include = strtolower((string)$this->request->get('include', $this->request->post('include', 'home')));
+        $parts = array_filter(array_map('trim', explode(',', $include)));
+        $uid = 0;
+        try {
+            if ($this->auth && $this->auth->isLogin()) {
+                $uid = (int)$this->auth->id;
+            }
+        } catch (\Throwable $e) {
+            $uid = 0;
+        }
+        $data = FansHubService::bootstrapPayload($uid, [
+            'include_home'       => in_array('home', $parts, true) || $include === '' || $include === 'home',
+            'include_commission' => in_array('commission', $parts, true),
+            'tick_market'        => false,
+        ]);
+        // 带了 token 却没拿到 profile：按未登录返回，前端决定是否清 token
+        $this->success('ok', $data);
+    }
+
+    /**
+     * 钱包页合并包（需登录）
+     * GET/POST /api/fanshub/walletbootstrap
+     */
+    public function walletbootstrap()
+    {
+        try {
+            $this->success('ok', FansHubService::walletBootstrapPayload($this->auth->id));
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: FansHubService::h5CopyText('api_operation_fail'));
+        }
     }
 
     /**

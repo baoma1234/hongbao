@@ -950,20 +950,67 @@
         }
 
         async function restoreSessionProfile() {
-            await ensureServerConfig();
             try {
-                return await apiRequest('profile', 'GET');
+                const data = await apiRequest('bootstrap', 'GET', { include: 'home' });
+                if (data && data.config) {
+                    await applyServerConfig(data.config);
+                    serverConfigLoaded = true;
+                    configReadyPromise = Promise.resolve(true);
+                } else {
+                    await ensureServerConfig();
+                }
+                if (data && data.market) {
+                    try { applyMarketScreen(data.market, true); } catch (eM) {}
+                }
+                if (data && data.home && Array.isArray(data.home.leaderboard)) {
+                    window._bootstrapLeaderboard = data.home.leaderboard;
+                }
+                if (data && data.profile) {
+                    return data.profile;
+                }
+                throw new Error(fc('alert_need_login') || '请登录');
             } catch (e) {
                 if (shouldClearTokenOnProfileError(e)) {
                     throw e;
                 }
-                // 閰嶇疆鍙兘鏈氨缁垨瀵嗛挜鐬€侀棶棰橈細寮哄埗閲嶆媺 config 鍐嶈瘯涓€娆?
+                // 旧路径兜底：config + profile
                 serverConfigLoaded = false;
                 configReadyPromise = null;
                 await ensureServerConfig();
-                return await apiRequest('profile', 'GET');
+                try {
+                    return await apiRequest('profile', 'GET');
+                } catch (e2) {
+                    if (shouldClearTokenOnProfileError(e2)) throw e2;
+                    serverConfigLoaded = false;
+                    configReadyPromise = null;
+                    await ensureServerConfig();
+                    return await apiRequest('profile', 'GET');
+                }
             }
         }
+
+        /** 登录后补齐大盘/排行榜（login 已带 profile，不必再打 profile） */
+        async function hydrateAfterLogin() {
+            try {
+                const data = await apiRequest('bootstrap', 'GET', { include: 'home' });
+                if (data && data.config) {
+                    await applyServerConfig(data.config);
+                    serverConfigLoaded = true;
+                }
+                if (data && data.market) {
+                    try { applyMarketScreen(data.market, true); } catch (eM) {}
+                }
+                if (data && data.home && Array.isArray(data.home.leaderboard)) {
+                    window._bootstrapLeaderboard = data.home.leaderboard;
+                }
+                if (data && data.profile && typeof applyProfile === 'function') {
+                    applyProfile(data.profile);
+                }
+            } catch (e) {
+                console.warn('bootstrap hydrate fail', e);
+            }
+        }
+        window.hydrateAfterLogin = hydrateAfterLogin;
 
         function hasSubtleCrypto() {
             return !!(window.crypto && window.crypto.subtle && typeof window.crypto.subtle.digest === 'function');
