@@ -827,6 +827,20 @@
                     fissionMarketTimer = null;
                 }
             }
+            // 任意 Tab：登录后优先保活 IM WebSocket（不等到进消息页）
+            if (localStorage.getItem('fans_hub_token')) {
+                if (window.FansHubAssets && typeof FansHubAssets.ensureChat === 'function') {
+                    FansHubAssets.ensureChat().then(function () {
+                        if (window.FansHubChat) {
+                            if (typeof FansHubChat.ensureConnected === 'function') FansHubChat.ensureConnected();
+                            else if (typeof FansHubChat.connect === 'function') FansHubChat.connect(false);
+                        }
+                    }).catch(function () {});
+                } else if (window.FansHubChat) {
+                    if (typeof FansHubChat.ensureConnected === 'function') FansHubChat.ensureConnected();
+                    else if (typeof FansHubChat.connect === 'function') FansHubChat.connect(false);
+                }
+            }
             if (tab === 'messages') {
                 if (window.FansHubAssets && typeof FansHubAssets.ensureChat === 'function') {
                     FansHubAssets.ensureChat().then(function () {

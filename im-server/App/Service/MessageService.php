@@ -725,14 +725,40 @@ class MessageService
             return $out;
         }
 
-        $cursors = [];
+        $lastIds = [];
+        foreach ($items as $it) {
+            $ik = ((int)($it['conversation_type'] ?? 0)) . ':' . (string)($it['conversation_id'] ?? '');
+            $lastIds[$ik] = (int)(($it['last_message']['id'] ?? 0));
+        }
+
+        // 优先 Redis 未读：命中则跳过读游标 SQL；仅 miss 再查 cursor + COUNT
+        $needSql = [];
+        $redisMap = $this->unreadFromRedis($userId, $targets);
         foreach ($targets as $key => $t) {
+            $lastId = (int)($lastIds[$key] ?? 0);
+            if ($lastId <= 0) {
+                $out[$key] = 0;
+                continue;
+            }
+            if ($redisMap !== null && isset($redisMap[$key]) && $redisMap[$key] >= 0) {
+                $out[$key] = (int)$redisMap[$key];
+                continue;
+            }
+            $needSql[$key] = $t;
+        }
+
+        if (!$needSql) {
+            return $out;
+        }
+
+        $cursors = [];
+        foreach ($needSql as $key => $t) {
             $cursors[$key] = 0;
         }
         if ($this->readTableReady()) {
             $params = [$userId];
             $ors = [];
-            foreach ($targets as $t) {
+            foreach ($needSql as $t) {
                 $ors[] = '(conversation_type=? AND conversation_id=?)';
                 $params[] = $t['type'];
                 $params[] = $t['id'];
@@ -749,7 +775,7 @@ class MessageService
         }
 
         $groupIds = [];
-        foreach ($targets as $t) {
+        foreach ($needSql as $t) {
             if ($t['type'] === 2) {
                 $gid = (int)$t['id'];
                 if ($gid > 0) {
@@ -770,28 +796,14 @@ class MessageService
             }
         }
 
-        $lastIds = [];
-        foreach ($items as $it) {
-            $ik = ((int)($it['conversation_type'] ?? 0)) . ':' . (string)($it['conversation_id'] ?? '');
-            $lastIds[$ik] = (int)(($it['last_message']['id'] ?? 0));
-        }
-
-        // 优先 Redis 未读计数；仅对未命中的会话回退 SQL COUNT
-        $needSql = [];
-        $redisMap = $this->unreadFromRedis($userId, $targets);
-        foreach ($targets as $key => $t) {
+        foreach ($needSql as $key => $t) {
             $lastId = (int)($lastIds[$key] ?? 0);
             $cursor = (int)($cursors[$key] ?? 0);
-            if ($lastId <= 0 || $lastId <= $cursor) {
+            if ($lastId <= $cursor) {
                 $out[$key] = 0;
+                unset($needSql[$key]);
                 $this->clearUnreadCounter($userId, $t['type'], $t['id']);
-                continue;
             }
-            if ($redisMap !== null && isset($redisMap[$key]) && $redisMap[$key] >= 0) {
-                $out[$key] = (int)$redisMap[$key];
-                continue;
-            }
-            $needSql[$key] = $t;
         }
 
         if (!$needSql) {

@@ -836,6 +836,11 @@ class RedPacketService
             $settlePending = true;
         }
 
+        try {
+            RedisClient::conn()->incr(RedisClient::key('rp:detail:ver:' . $packetId));
+        } catch (\Throwable $e) {
+        }
+
         return [
             'packet_id'           => $packetId,
             'amount'              => $amount,
@@ -1551,15 +1556,34 @@ class RedPacketService
 
     public function detail($packetId, $userId = 0, $viewerRole = 0)
     {
-        $packet = Db::fetch('SELECT * FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1', [(int)$packetId]);
-        if (!$packet) {
-            return null;
-        }
+        $packetId = (int)$packetId;
         $userId = (int)$userId;
-        // 授权：群红包须为成员；私聊红包须为收/发双方
         if ($userId <= 0) {
             throw new \RuntimeException('forbidden');
         }
+        // 短缓存：同一用户连点/回刷详情时免重复多表查询（抢包后 bump ver 失效）
+        $ver = 0;
+        try {
+            $ver = (int)RedisClient::conn()->get(RedisClient::key('rp:detail:ver:' . $packetId));
+        } catch (\Throwable $e) {
+        }
+        $cacheKey = RedisClient::key('rp:detail:' . $packetId . ':' . $userId . ':' . (int)$viewerRole . ':v' . $ver);
+        try {
+            $cached = RedisClient::conn()->get($cacheKey);
+            if ($cached !== false && $cached !== null && $cached !== '') {
+                $decoded = json_decode($cached, true);
+                if (is_array($decoded)) {
+                    return $decoded;
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+
+        $packet = Db::fetch('SELECT * FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1', [$packetId]);
+        if (!$packet) {
+            return null;
+        }
+        // 授权：群红包须为成员；私聊红包须为收/发双方
         if ((int)$packet['scope_type'] === 2) {
             if (!$this->groups->isMember((int)$packet['group_id'], $userId)) {
                 throw new \RuntimeException('not in group');
@@ -1572,31 +1596,27 @@ class RedPacketService
             throw new \RuntimeException('forbidden');
         }
         $records = Db::fetchAll(
-            'SELECT * FROM ' . Db::table('chat_red_packet_records') . ' WHERE packet_id=? ORDER BY id ASC',
-            [(int)$packetId]
+            'SELECT id,packet_id,user_id,amount,is_best,is_worst,is_mine_hit,tail_digit,createtime FROM '
+            . Db::table('chat_red_packet_records') . ' WHERE packet_id=? ORDER BY id ASC',
+            [$packetId]
         );
         $mine = null;
         foreach ($records as $r) {
-            if ((int)$r['user_id'] === (int)$userId) {
+            if ((int)$r['user_id'] === $userId) {
                 $mine = $r;
                 break;
             }
         }
+        // 详情页不拉钱包余额（抢包接口会回写）；省一次账户表查询
         $balance = null;
-        if ((int)$userId > 0) {
-            try {
-                $balance = $this->wallet->getBalance($userId);
-            } catch (\Throwable $e) {
-            }
-        }
         $policy = null;
         $profileClickable = true;
         $privacyMode = 'open';
         if ((int)$packet['scope_type'] === 2 && (int)$packet['group_id'] > 0) {
             $group = $this->groups->get((int)$packet['group_id']) ?: [];
             $role = (int)$viewerRole;
-            if ($role <= 0 && (int)$userId > 0) {
-                $role = $this->groups->memberRole((int)$packet['group_id'], (int)$userId);
+            if ($role <= 0) {
+                $role = $this->groups->memberRole((int)$packet['group_id'], $userId);
             }
             $policy = $this->groups->buildPolicy($group, $role);
             $privacyMode = (string)($policy['privacy_mode'] ?? 'private');
@@ -1623,7 +1643,7 @@ class RedPacketService
             if ($nick === '') {
                 $nick = 'ID' . $uid;
             }
-            $isSelf = $uid === (int)$userId;
+            $isSelf = $uid === $userId;
             $rowClickable = $profileClickable && !$isSelf;
             // 隐私群：他人昵称脱敏、头像清空（前端置灰占位）；自己可看真实信息但不可点他人
             if (!$profileClickable && !$isSelf) {
@@ -1638,7 +1658,7 @@ class RedPacketService
                 'name_masked'       => !$profileClickable && !$isSelf,
             ]);
         }
-        return [
+        $result = [
             'packet'             => $this->sanitizePacketFair($packet),
             'records'            => $enriched,
             'mine'               => $mine,
@@ -1649,6 +1669,11 @@ class RedPacketService
             'rp_detail_locked'   => !$profileClickable,
             'policy'             => $policy,
         ];
+        try {
+            RedisClient::conn()->setex($cacheKey, 3, json_encode($result, JSON_UNESCAPED_UNICODE));
+        } catch (\Throwable $e) {
+        }
+        return $result;
     }
 
     /**

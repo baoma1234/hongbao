@@ -695,6 +695,63 @@
     }, 8000);
   }
 
+  function playIncomingBeep() {
+    try {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      if (!state._audioCtx) state._audioCtx = new Ctx();
+      var ctx = state._audioCtx;
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(function () {});
+      }
+      var o = ctx.createOscillator();
+      var g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.value = 920;
+      g.gain.value = 0.05;
+      o.connect(g);
+      g.connect(ctx.destination);
+      var t0 = ctx.currentTime;
+      o.start(t0);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.22);
+      o.stop(t0 + 0.24);
+    } catch (e) {}
+  }
+
+  function notifyIncomingMessage(msg) {
+    if (!msg || ((msg.from_user_id | 0) === (state.userId | 0))) return;
+    var type = msg.conversation_type | 0;
+    var id = type === 2 ? (msg.group_id || msg.conversation_id) : msg.conversation_id;
+    // 正在看该会话：气泡已出现，不再弹提示
+    if (state.room && state.room.type === type && String(state.room.id) === String(id)) {
+      return;
+    }
+    var isRp = (msg.msg_type | 0) === 2;
+    var prev = '';
+    try { prev = previewText(msg) || ''; } catch (e0) { prev = msg.content || ''; }
+    var tip = isRp ? ('🧧 ' + (prev || '收到红包')) : ('💬 ' + (prev || '新消息'));
+    // 节流：1.2s 内最多一条 toast，避免刷屏
+    var now = Date.now();
+    if (!state._lastIncomingToastAt || (now - state._lastIncomingToastAt) > 1200) {
+      state._lastIncomingToastAt = now;
+      if (typeof showFanshubToast === 'function') {
+        showFanshubToast(tip, 'info', 2600);
+      }
+    }
+    playIncomingBeep();
+    try {
+      if (document.hidden || !document.hasFocus()) {
+        var oldTitle = document.title || '';
+        var bare = oldTitle.replace(/^【[^】]*】\s*/, '');
+        document.title = (isRp ? '【红包】' : '【新消息】') + bare;
+        clearTimeout(state._titleFlashTimer);
+        state._titleFlashTimer = setTimeout(function () {
+          document.title = bare;
+        }, 2500);
+      }
+    } catch (e1) {}
+  }
+
   function onIncomingMessage(msg) {
     upsertListFromMessage(msg);
     var type = msg.conversation_type | 0;
@@ -704,6 +761,7 @@
       markRead(type, id, msg.id);
     } else if ((msg.from_user_id | 0) !== state.userId) {
       bumpUnread(type, id, msg.id);
+      notifyIncomingMessage(msg);
       scheduleUnreadSync();
     }
   }

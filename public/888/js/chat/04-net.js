@@ -233,6 +233,14 @@
     };
   }
 
+  /** 任意页面保活：已连或连接中则跳过 */
+  function ensureConnected() {
+    if (!token()) return;
+    if (state.connected || state.connecting) return;
+    if (state.ws && (state.ws.readyState === 0 || state.ws.readyState === 1)) return;
+    connect(false);
+  }
+
   function disconnect() {
     if (state.reconnectTimer) {
       clearTimeout(state.reconnectTimer);
@@ -856,11 +864,12 @@
   }
 
   function onLogin() {
+    // 先连 WS，再绑 UI / 拉余额（任意页都能收推送）
+    connect(true);
     bindUi();
     state.stickerLoaded = false;
     state.stickerManifest = null;
     syncBalanceFromAccount();
-    connect(true);
   }
 
   function onLogout() {
@@ -887,6 +896,7 @@
     onLogout: onLogout,
     onLocaleChange: onLocaleChange,
     connect: connect,
+    ensureConnected: ensureConnected,
     disconnect: disconnect,
     closeRoom: closeRoom,
     addFriendByMemberId: null

@@ -137,6 +137,20 @@
                 return;
             }
             resumeBackgroundTimers();
+            // 回到前台：确保 IM WebSocket 已连接，才能收红包/新消息提示
+            if (localStorage.getItem('fans_hub_token')) {
+                if (window.FansHubAssets && typeof FansHubAssets.ensureChat === 'function') {
+                    FansHubAssets.ensureChat().then(function () {
+                        if (window.FansHubChat) {
+                            if (typeof FansHubChat.ensureConnected === 'function') FansHubChat.ensureConnected();
+                            else if (typeof FansHubChat.connect === 'function') FansHubChat.connect(false);
+                        }
+                    }).catch(function () {});
+                } else if (window.FansHubChat) {
+                    if (typeof FansHubChat.ensureConnected === 'function') FansHubChat.ensureConnected();
+                    else if (typeof FansHubChat.connect === 'function') FansHubChat.connect(false);
+                }
+            }
             if (sessionStorage.getItem('fans_hub_pending_open') === 'true') {
                 sessionStorage.removeItem('fans_hub_pending_open');
                 sessionStorage.setItem('fans_hub_pending_open_reward', 'true');
