@@ -921,7 +921,8 @@
     map[key] = Math.max(map[key] | 0, lastMsgId | 0);
     saveReadMap(map);
     updateTabBadge();
-    renderList();
+    if (typeof scheduleRenderList === 'function') scheduleRenderList();
+    else renderList();
     if (state.connected && lastMsgId > 0) {
       send('conversation.read', {
         conversation_type: type | 0,
@@ -941,5 +942,6 @@
     if (msgId > 0 && (msgId | 0) <= (map[key] | 0)) return;
     state.unread[key] = (state.unread[key] | 0) + 1;
     updateTabBadge();
-    renderList();
+    if (typeof scheduleRenderList === 'function') scheduleRenderList();
+    else renderList();
   }

@@ -112,6 +112,7 @@ class MessageService
             'createtime'        => $now,
         ];
         $this->cacheRecent($payload);
+        $this->touchInbox($payload);
         return $payload;
     }
 
@@ -127,19 +128,151 @@ class MessageService
         }
     }
 
+    /**
+     * 维护每人最近会话 ZSET（score=消息 id），列表 O(logN) 取 Top，避免消息表 GROUP BY 越扫越慢
+     */
+    protected function touchInbox(array $payload)
+    {
+        $type = (int)($payload['conversation_type'] ?? 0);
+        $cid = (string)($payload['conversation_id'] ?? '');
+        $msgId = (int)($payload['id'] ?? 0);
+        if (($type !== 1 && $type !== 2) || $cid === '' || $msgId <= 0) {
+            return;
+        }
+        $member = $type . ':' . $cid;
+        $uids = [];
+        if ($type === 1) {
+            $uids = [(int)$payload['from_user_id'], (int)$payload['to_user_id']];
+        } else {
+            try {
+                $uids = (new GroupService())->memberUserIds((int)($payload['group_id'] ?? $cid));
+            } catch (\Throwable $e) {
+                $uids = [(int)$payload['from_user_id']];
+            }
+        }
+        try {
+            $r = RedisClient::conn();
+            foreach ($uids as $uid) {
+                $uid = (int)$uid;
+                if ($uid <= 0) {
+                    continue;
+                }
+                $key = RedisClient::key('inbox:' . $uid);
+                $r->zAdd($key, $msgId, $member);
+                // 只保留最近 200 个会话键
+                $r->zRemRangeByRank($key, 0, -201);
+                $r->expire($key, 86400 * 30);
+            }
+        } catch (\Throwable $e) {
+        }
+    }
+
+    /** @return array<string,int> member => last_msg_id */
+    protected function inboxMap($userId, $limit = 80)
+    {
+        $userId = (int)$userId;
+        $limit = max(1, min(200, (int)$limit));
+        try {
+            $rows = RedisClient::conn()->zRevRange(
+                RedisClient::key('inbox:' . $userId),
+                0,
+                $limit - 1,
+                true
+            );
+            if (!is_array($rows) || !$rows) {
+                return [];
+            }
+            $out = [];
+            foreach ($rows as $member => $score) {
+                $member = (string)$member;
+                if ($member === '' || strpos($member, ':') === false) {
+                    continue;
+                }
+                $out[$member] = (int)$score;
+            }
+            return $out;
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    protected function seedInboxFromItems($userId, array $items)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0 || !$items) {
+            return;
+        }
+        try {
+            $r = RedisClient::conn();
+            $key = RedisClient::key('inbox:' . $userId);
+            foreach ($items as $it) {
+                $type = (int)($it['conversation_type'] ?? 0);
+                $cid = (string)($it['conversation_id'] ?? '');
+                $lastId = (int)(($it['last_message']['id'] ?? 0));
+                if (($type !== 1 && $type !== 2) || $cid === '' || $lastId <= 0) {
+                    continue;
+                }
+                $r->zAdd($key, $lastId, $type . ':' . $cid);
+            }
+            $r->zRemRangeByRank($key, 0, -201);
+            $r->expire($key, 86400 * 30);
+        } catch (\Throwable $e) {
+        }
+    }
+
     public function history($conversationType, $conversationId, $beforeId = 0, $limit = 30)
     {
         $limit = max(1, min(100, (int)$limit));
+        $conversationType = (int)$conversationType;
+        $conversationId = (string)$conversationId;
+        $beforeId = (int)$beforeId;
+
+        // 首屏：优先 Redis recent（写入时已 LPUSH），避免每次打开会话扫表
+        if ($beforeId <= 0) {
+            try {
+                $key = RedisClient::key('conv:' . $conversationType . ':' . $conversationId . ':recent');
+                $rawList = RedisClient::conn()->lRange($key, 0, $limit - 1);
+                if (is_array($rawList) && count($rawList) >= $limit) {
+                    $rows = [];
+                    foreach ($rawList as $raw) {
+                        $j = json_decode((string)$raw, true);
+                        if (is_array($j) && !empty($j['id'])) {
+                            $rows[] = $this->normalizeMessage($j);
+                        }
+                    }
+                    if (count($rows) >= $limit) {
+                        return array_reverse($rows);
+                    }
+                }
+            } catch (\Throwable $e) {
+            }
+        }
+
         $sql = 'SELECT * FROM ' . Db::table('chat_messages')
             . ' WHERE conversation_type=? AND conversation_id=? AND status IN (1,2)';
-        $bind = [(int)$conversationType, (string)$conversationId];
-        if ((int)$beforeId > 0) {
+        $bind = [$conversationType, $conversationId];
+        if ($beforeId > 0) {
             $sql .= ' AND id < ?';
-            $bind[] = (int)$beforeId;
+            $bind[] = $beforeId;
         }
         $sql .= ' ORDER BY id DESC LIMIT ' . $limit;
         $rows = Db::fetchAll($sql, $bind);
-        return array_map([$this, 'normalizeMessage'], array_reverse($rows));
+        $list = array_map([$this, 'normalizeMessage'], array_reverse($rows));
+        // 回填 recent，供下次秒开（LPUSH 后左侧为最新）
+        if ($beforeId <= 0 && $list) {
+            try {
+                $key = RedisClient::key('conv:' . $conversationType . ':' . $conversationId . ':recent');
+                $r = RedisClient::conn();
+                $r->del($key);
+                foreach ($list as $m) {
+                    $r->lPush($key, json_encode($m, JSON_UNESCAPED_UNICODE));
+                }
+                $r->lTrim($key, 0, 99);
+                $r->expire($key, 86400 * 7);
+            } catch (\Throwable $e) {
+            }
+        }
+        return $list;
     }
 
     /**
@@ -183,7 +316,7 @@ class MessageService
     }
 
     /**
-     * 会话列表：私聊（按最近消息）+ 我的群
+     * 会话列表：优先 Redis inbox（按最近消息 id），冷启动再回退 SQL 并回填
      */
     public function listConversations($userId, $limit = 50)
     {
@@ -191,82 +324,213 @@ class MessageService
         $limit = max(1, min(100, (int)$limit));
         $msgTable = Db::table('chat_messages');
         $items = [];
+        $inbox = $this->inboxMap($userId, max(80, $limit * 2));
 
-        $privates = Db::fetchAll(
-            "SELECT m.* FROM {$msgTable} m
-             INNER JOIN (
-                SELECT conversation_id, MAX(id) AS max_id
-                FROM {$msgTable}
-                WHERE conversation_type=1 AND status=1
-                  AND (from_user_id=? OR to_user_id=?)
-                GROUP BY conversation_id
-             ) t ON m.id = t.max_id
-             ORDER BY m.id DESC LIMIT {$limit}",
-            [$userId, $userId]
-        );
-        foreach ($privates as $m) {
-            $m = $this->normalizeMessage($m);
-            $peerId = ((int)$m['from_user_id'] === $userId)
-                ? (int)$m['to_user_id']
-                : (int)$m['from_user_id'];
-            $convId = (string)$m['conversation_id'];
-            $items[] = [
-                'conversation_type' => 1,
-                'conversation_id'   => $convId,
-                'peer_user_id'      => $peerId,
-                'group_id'          => 0,
-                'title'             => '',
-                'avatar'            => '',
-                'last_message'      => $m,
-                'updatetime'        => (int)$m['createtime'],
-                'unread_count'      => 0,
-            ];
-        }
+        if ($inbox) {
+            $msgIds = array_values(array_unique(array_filter(array_map('intval', array_values($inbox)))));
+            $msgById = [];
+            if ($msgIds) {
+                $in = implode(',', array_fill(0, count($msgIds), '?'));
+                $rows = Db::fetchAll(
+                    "SELECT * FROM {$msgTable} WHERE id IN ({$in}) AND status=1",
+                    $msgIds
+                );
+                foreach ($rows as $row) {
+                    $msgById[(int)$row['id']] = $this->normalizeMessage($row);
+                }
+            }
 
-        $groups = Db::fetchAll(
-            'SELECT g.* FROM ' . Db::table('chat_groups') . ' g'
-            . ' INNER JOIN ' . Db::table('chat_group_members') . ' m ON m.group_id=g.id'
-            . ' WHERE m.user_id=? AND m.status=1 AND g.status IN (1,3)',
-            [$userId]
-        );
-        $groupIds = [];
-        foreach ($groups as $g) {
-            $groupIds[] = (string)((int)$g['id']);
-        }
-        $lastByGroup = [];
-        if ($groupIds) {
-            $in = implode(',', array_fill(0, count($groupIds), '?'));
-            $lastRows = Db::fetchAll(
+            $groupIdsNeeded = [];
+            foreach ($inbox as $member => $lastId) {
+                $parts = explode(':', $member, 2);
+                if (count($parts) !== 2) {
+                    continue;
+                }
+                $ctype = (int)$parts[0];
+                $cid = (string)$parts[1];
+                $m = $msgById[(int)$lastId] ?? null;
+                if ($ctype === 1) {
+                    $peerId = 0;
+                    if ($m) {
+                        $peerId = ((int)$m['from_user_id'] === $userId)
+                            ? (int)$m['to_user_id']
+                            : (int)$m['from_user_id'];
+                    } else {
+                        $bits = explode('_', $cid);
+                        if (count($bits) === 2) {
+                            $a = (int)$bits[0];
+                            $b = (int)$bits[1];
+                            $peerId = ($a === $userId) ? $b : $a;
+                        }
+                    }
+                    $items[] = [
+                        'conversation_type' => 1,
+                        'conversation_id'   => $cid,
+                        'peer_user_id'      => $peerId,
+                        'group_id'          => 0,
+                        'title'             => '',
+                        'avatar'            => '',
+                        'last_message'      => $m,
+                        'updatetime'        => $m ? (int)$m['createtime'] : (int)$lastId,
+                        'unread_count'      => 0,
+                    ];
+                } elseif ($ctype === 2) {
+                    $gid = (int)$cid;
+                    if ($gid > 0) {
+                        $groupIdsNeeded[$gid] = true;
+                        $items[] = [
+                            'conversation_type' => 2,
+                            'conversation_id'   => (string)$gid,
+                            'peer_user_id'      => 0,
+                            'group_id'          => $gid,
+                            'title'             => '',
+                            'avatar'            => '',
+                            'last_message'      => $m,
+                            'updatetime'        => $m ? (int)$m['createtime'] : (int)$lastId,
+                            'unread_count'      => 0,
+                        ];
+                    }
+                }
+            }
+
+            // 补全未出现在 inbox 的群（尚无消息）
+            $groups = Db::fetchAll(
+                'SELECT g.* FROM ' . Db::table('chat_groups') . ' g'
+                . ' INNER JOIN ' . Db::table('chat_group_members') . ' m ON m.group_id=g.id'
+                . ' WHERE m.user_id=? AND m.status=1 AND g.status IN (1,3)',
+                [$userId]
+            );
+            $haveG = [];
+            foreach ($items as $it) {
+                if ((int)$it['conversation_type'] === 2) {
+                    $haveG[(int)$it['group_id']] = true;
+                }
+            }
+            $needMeta = array_keys($groupIdsNeeded);
+            $metaById = [];
+            if ($needMeta) {
+                $in = implode(',', array_fill(0, count($needMeta), '?'));
+                $metaRows = Db::fetchAll(
+                    'SELECT id,name,avatar,updatetime,createtime FROM ' . Db::table('chat_groups')
+                    . " WHERE id IN ({$in})",
+                    $needMeta
+                );
+                foreach ($metaRows as $g) {
+                    $metaById[(int)$g['id']] = $g;
+                }
+            }
+            foreach ($items as &$it) {
+                if ((int)$it['conversation_type'] !== 2) {
+                    continue;
+                }
+                $g = $metaById[(int)$it['group_id']] ?? null;
+                if ($g) {
+                    $it['title'] = (string)($g['name'] ?? '');
+                    $it['avatar'] = (string)($g['avatar'] ?? '');
+                    if (empty($it['last_message'])) {
+                        $it['updatetime'] = (int)($g['updatetime'] ?: $g['createtime']);
+                    }
+                }
+            }
+            unset($it);
+            foreach ($groups as $g) {
+                $gid = (int)$g['id'];
+                if (isset($haveG[$gid])) {
+                    continue;
+                }
+                $items[] = [
+                    'conversation_type' => 2,
+                    'conversation_id'   => (string)$gid,
+                    'peer_user_id'      => 0,
+                    'group_id'          => $gid,
+                    'title'             => (string)($g['name'] ?? ''),
+                    'avatar'            => (string)($g['avatar'] ?? ''),
+                    'last_message'      => null,
+                    'updatetime'        => (int)($g['updatetime'] ?: $g['createtime']),
+                    'unread_count'      => 0,
+                ];
+            }
+        } else {
+            // 冷启动：UNION 替代 OR，减轻私聊聚合扫描；结果回填 inbox
+            $privates = Db::fetchAll(
                 "SELECT m.* FROM {$msgTable} m
                  INNER JOIN (
-                    SELECT conversation_id, MAX(id) AS max_id
-                    FROM {$msgTable}
-                    WHERE conversation_type=2 AND status=1 AND conversation_id IN ({$in})
+                    SELECT conversation_id, MAX(id) AS max_id FROM (
+                        SELECT conversation_id, id FROM {$msgTable}
+                        WHERE conversation_type=1 AND status=1 AND from_user_id=?
+                        UNION ALL
+                        SELECT conversation_id, id FROM {$msgTable}
+                        WHERE conversation_type=1 AND status=1 AND to_user_id=?
+                    ) u
                     GROUP BY conversation_id
-                 ) t ON m.id = t.max_id",
-                $groupIds
+                 ) t ON m.id = t.max_id
+                 ORDER BY m.id DESC LIMIT {$limit}",
+                [$userId, $userId]
             );
-            foreach ($lastRows as $row) {
-                $lastByGroup[(string)$row['conversation_id']] = $this->normalizeMessage($row);
+            foreach ($privates as $m) {
+                $m = $this->normalizeMessage($m);
+                $peerId = ((int)$m['from_user_id'] === $userId)
+                    ? (int)$m['to_user_id']
+                    : (int)$m['from_user_id'];
+                $items[] = [
+                    'conversation_type' => 1,
+                    'conversation_id'   => (string)$m['conversation_id'],
+                    'peer_user_id'      => $peerId,
+                    'group_id'          => 0,
+                    'title'             => '',
+                    'avatar'            => '',
+                    'last_message'      => $m,
+                    'updatetime'        => (int)$m['createtime'],
+                    'unread_count'      => 0,
+                ];
             }
-        }
-        foreach ($groups as $g) {
-            $gid = (int)$g['id'];
-            $convId = (string)$gid;
-            $last = $lastByGroup[$convId] ?? null;
-            $items[] = [
-                'conversation_type' => 2,
-                'conversation_id'   => $convId,
-                'peer_user_id'      => 0,
-                'group_id'          => $gid,
-                'title'             => (string)($g['name'] ?? ''),
-                'avatar'            => (string)($g['avatar'] ?? ''),
-                'last_message'      => $last,
-                'updatetime'        => $last
-                    ? (int)$last['createtime']
-                    : (int)($g['updatetime'] ?: $g['createtime']),
-                'unread_count'      => 0,
-            ];
+
+            $groups = Db::fetchAll(
+                'SELECT g.* FROM ' . Db::table('chat_groups') . ' g'
+                . ' INNER JOIN ' . Db::table('chat_group_members') . ' m ON m.group_id=g.id'
+                . ' WHERE m.user_id=? AND m.status=1 AND g.status IN (1,3)',
+                [$userId]
+            );
+            $groupIds = [];
+            foreach ($groups as $g) {
+                $groupIds[] = (string)((int)$g['id']);
+            }
+            $lastByGroup = [];
+            if ($groupIds) {
+                $in = implode(',', array_fill(0, count($groupIds), '?'));
+                $lastRows = Db::fetchAll(
+                    "SELECT m.* FROM {$msgTable} m
+                     INNER JOIN (
+                        SELECT conversation_id, MAX(id) AS max_id
+                        FROM {$msgTable}
+                        WHERE conversation_type=2 AND status=1 AND conversation_id IN ({$in})
+                        GROUP BY conversation_id
+                     ) t ON m.id = t.max_id",
+                    $groupIds
+                );
+                foreach ($lastRows as $row) {
+                    $lastByGroup[(string)$row['conversation_id']] = $this->normalizeMessage($row);
+                }
+            }
+            foreach ($groups as $g) {
+                $gid = (int)$g['id'];
+                $convId = (string)$gid;
+                $last = $lastByGroup[$convId] ?? null;
+                $items[] = [
+                    'conversation_type' => 2,
+                    'conversation_id'   => $convId,
+                    'peer_user_id'      => 0,
+                    'group_id'          => $gid,
+                    'title'             => (string)($g['name'] ?? ''),
+                    'avatar'            => (string)($g['avatar'] ?? ''),
+                    'last_message'      => $last,
+                    'updatetime'        => $last
+                        ? (int)$last['createtime']
+                        : (int)($g['updatetime'] ?: $g['createtime']),
+                    'unread_count'      => 0,
+                ];
+            }
+            $this->seedInboxFromItems($userId, $items);
         }
 
         usort($items, function ($a, $b) {
@@ -311,7 +575,6 @@ class MessageService
             });
         }
 
-        // 先截断再算未读，避免对全部群做 COUNT
         $items = array_slice($items, 0, $limit);
         $unreadMap = $this->batchUnreadCounts($userId, $items);
         foreach ($items as &$it) {
@@ -392,11 +655,30 @@ class MessageService
 
         $params = [$userId];
         $ors = [];
+        $lastIds = [];
+        foreach ($items as $it) {
+            $ik = ((int)($it['conversation_type'] ?? 0)) . ':' . (string)($it['conversation_id'] ?? '');
+            $lastIds[$ik] = (int)(($it['last_message']['id'] ?? 0));
+        }
         foreach ($targets as $key => $t) {
+            $lastId = (int)($lastIds[$key] ?? 0);
+            $cursor = (int)($cursors[$key] ?? 0);
+            if ($lastId > 0 && $lastId <= $cursor) {
+                $out[$key] = 0;
+                continue;
+            }
+            // 无消息 / 仅自己发过且已读游标落后：仍可能有未读，交给 COUNT；无 last 则跳过
+            if ($lastId <= 0) {
+                $out[$key] = 0;
+                continue;
+            }
             $ors[] = '(conversation_type=? AND conversation_id=? AND id>?)';
             $params[] = $t['type'];
             $params[] = $t['id'];
-            $params[] = (int)($cursors[$key] ?? 0);
+            $params[] = $cursor;
+        }
+        if (!$ors) {
+            return $out;
         }
         $countRows = Db::fetchAll(
             'SELECT conversation_type, conversation_id, COUNT(*) AS c FROM ' . Db::table('chat_messages')
