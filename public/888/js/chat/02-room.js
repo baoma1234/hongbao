@@ -220,6 +220,94 @@
     }).join('');
   }
 
+  function sortConvListInPlace() {
+    state.list.sort(function (a, b) {
+      var ap = a.pinned ? 1 : 0;
+      var bp = b.pinned ? 1 : 0;
+      if (ap !== bp) return bp - ap;
+      return (b.updatetime | 0) - (a.updatetime | 0);
+    });
+  }
+
+  var _convActionTarget = null;
+
+  function closeConvActionSheet() {
+    var sheet = $('chatConvActionSheet');
+    if (!sheet) return;
+    sheet.classList.remove('open');
+    sheet.setAttribute('aria-hidden', 'true');
+    _convActionTarget = null;
+  }
+
+  function openConvActionSheet(item) {
+    if (!item) return;
+    _convActionTarget = item;
+    var sheet = $('chatConvActionSheet');
+    var titleEl = $('chatConvActionTitle');
+    var pinBtn = $('chatConvActPin');
+    var unpinBtn = $('chatConvActUnpin');
+    if (!sheet) return;
+    var title = item.title || (item.conversation_type === 2 ? ('群 ' + (item.group_id || item.conversation_id)) : '会话');
+    if (titleEl) titleEl.textContent = title;
+    if (pinBtn) pinBtn.style.display = item.pinned ? 'none' : '';
+    if (unpinBtn) unpinBtn.style.display = item.pinned ? '' : 'none';
+    sheet.classList.add('open');
+    sheet.setAttribute('aria-hidden', 'false');
+  }
+
+  function findConvItemFromBtn(btn) {
+    if (!btn) return null;
+    var type = parseInt(btn.getAttribute('data-type'), 10) || 1;
+    var id = btn.getAttribute('data-id') || '';
+    for (var i = 0; i < state.list.length; i++) {
+      var it = state.list[i];
+      var iid = (it.conversation_type | 0) === 2 ? (it.group_id || it.conversation_id) : it.conversation_id;
+      if ((it.conversation_type | 0) === type && String(iid) === String(id)) return it;
+    }
+    return {
+      conversation_type: type,
+      conversation_id: String(id),
+      group_id: type === 2 ? (parseInt(id, 10) || 0) : 0,
+      peer_user_id: parseInt(btn.getAttribute('data-peer'), 10) || 0,
+      title: btn.getAttribute('data-title') || '',
+      pinned: btn.getAttribute('data-pinned') === '1'
+    };
+  }
+
+  async function toggleConvPin(pinned) {
+    var item = _convActionTarget;
+    closeConvActionSheet();
+    if (!item) return;
+    var type = item.conversation_type | 0;
+    var cid = String(type === 2 ? (item.group_id || item.conversation_id) : item.conversation_id);
+    try {
+      await send(pinned ? 'conversation.pin' : 'conversation.unpin', {
+        conversation_type: type,
+        conversation_id: cid,
+        group_id: type === 2 ? (item.group_id | 0) : 0,
+        to_user_id: type === 1 ? (item.peer_user_id | 0) : 0
+      });
+      item.pinned = !!pinned;
+      // sync into state.list
+      for (var i = 0; i < state.list.length; i++) {
+        var it = state.list[i];
+        var iid = (it.conversation_type | 0) === 2 ? (it.group_id || it.conversation_id) : it.conversation_id;
+        if ((it.conversation_type | 0) === type && String(iid) === String(cid)) {
+          it.pinned = !!pinned;
+          break;
+        }
+      }
+      sortConvListInPlace();
+      scheduleRenderList();
+      scheduleSaveListCache();
+      if (typeof showFanshubToast === 'function') {
+        showFanshubToast(pinned ? '已置顶' : '已取消置顶', 'success');
+      }
+    } catch (e) {
+      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '操作失败', 'error');
+    }
+  }
+
   function buildConvItemHtml(item) {
     var type = item.conversation_type | 0;
     var id = type === 2 ? (item.group_id || item.conversation_id) : item.conversation_id;
@@ -236,11 +324,12 @@
     var time = formatTime(item.updatetime || (item.last_message && item.last_message.createtime));
     var avatarHtml = avatarImgHtml(item.avatar);
     var adminBadge = item.is_im_admin ? '<span class="chat-admin-tag">客服</span>' : '';
+    var pinMark = item.pinned ? '<span class="chat-conv-pin" aria-hidden="true">📌</span>' : '';
     return (
-      '<button type="button" class="chat-conv-item' + (item.is_im_admin ? ' is-admin' : '') + '" data-type="' + type + '" data-id="' + escapeHtml(String(id)) + '" data-peer="' + (item.peer_user_id | 0) + '" data-title="' + title + '">' +
+      '<button type="button" class="chat-conv-item' + (item.is_im_admin ? ' is-admin' : '') + (item.pinned ? ' is-pinned' : '') + '" data-type="' + type + '" data-id="' + escapeHtml(String(id)) + '" data-peer="' + (item.peer_user_id | 0) + '" data-title="' + title + '" data-pinned="' + (item.pinned ? '1' : '0') + '">' +
         '<div class="chat-avatar' + (type === 2 ? ' group' : '') + (item.is_im_admin ? ' admin' : '') + '">' + avatarHtml + '</div>' +
         '<div class="chat-conv-body">' +
-          '<div class="chat-conv-title"><span>' + title + adminBadge + '</span><span class="chat-conv-time">' + time + '</span></div>' +
+          '<div class="chat-conv-title"><span>' + pinMark + title + adminBadge + '</span><span class="chat-conv-time">' + time + '</span></div>' +
           '<div class="chat-conv-preview">' + prev + '</div>' +
         '</div>' +
         (unread ? '<span class="chat-badge">' + (unread > 99 ? '99+' : unread) + '</span>' : '') +
@@ -955,14 +1044,15 @@
         title: type === 2 ? ('群 ' + id) : ('ID ' + peer),
         avatar: '',
         last_message: msg,
-        updatetime: msg.createtime | 0
+        updatetime: msg.createtime | 0,
+        pinned: false
       };
       state.list.unshift(found);
     } else {
       found.last_message = msg;
       found.updatetime = msg.createtime | 0;
-      state.list.sort(function (a, b) { return (b.updatetime | 0) - (a.updatetime | 0); });
     }
+    sortConvListInPlace();
     scheduleRenderList();
     scheduleSaveListCache();
   }
@@ -1099,6 +1189,7 @@
         var packet = await send('conversation.list', { limit: 50 });
         var prevUnread = state.unread || {};
         state.list = (packet.data && packet.data.list) || [];
+        sortConvListInPlace();
         state.unread = {};
         state.list.forEach(function (item) {
           var type = item.conversation_type | 0;

@@ -145,6 +145,12 @@ class MessageRouter
                 case 'conversation.read':
                     $this->handleConversationRead($connection, $uid, $payload, $reqId);
                     break;
+                case 'conversation.pin':
+                    $this->handleConversationPin($connection, $uid, $payload, $reqId, true);
+                    break;
+                case 'conversation.unpin':
+                    $this->handleConversationPin($connection, $uid, $payload, $reqId, false);
+                    break;
                 case 'redpacket.send':
                     $this->handleRedSend($connection, $uid, $payload, $reqId);
                     break;
@@ -1063,6 +1069,24 @@ class MessageRouter
         }
         $this->messages->markConversationRead($uid, $convType, $convId, $lastId);
         $this->send($connection, 'conversation.read.ok', ['ok' => true], $reqId);
+    }
+
+    protected function handleConversationPin(TcpConnection $connection, $uid, array $payload, $reqId, $pinned)
+    {
+        $convType = (int)($payload['conversation_type'] ?? 0);
+        $convId = (string)($payload['conversation_id'] ?? '');
+        if ($convType === 2 && $convId === '' && !empty($payload['group_id'])) {
+            $convId = (string)((int)$payload['group_id']);
+        }
+        if ($convType === 1 && $convId === '' && !empty($payload['to_user_id'])) {
+            $convId = IdGenerator::privateConversationId($uid, (int)$payload['to_user_id']);
+        }
+        try {
+            $result = $this->messages->pinConversation($uid, $convType, $convId, (bool)$pinned);
+            $this->send($connection, $pinned ? 'conversation.pin.ok' : 'conversation.unpin.ok', $result, $reqId);
+        } catch (\Throwable $e) {
+            $this->error($connection, $e->getMessage() ?: 'pin failed', $reqId);
+        }
     }
 
     protected function handleConversationList(TcpConnection $connection, $uid, array $payload, $reqId)

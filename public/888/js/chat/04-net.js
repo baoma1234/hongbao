@@ -277,6 +277,16 @@
     var list = $('chatConvList');
     if (list && !list._bound) {
       list._bound = true;
+      var longPressTimer = null;
+      var longPressBtn = null;
+      var skipNextClick = false;
+      function clearLongPress() {
+        if (longPressTimer) {
+          clearTimeout(longPressTimer);
+          longPressTimer = null;
+        }
+        longPressBtn = null;
+      }
       // 手指按下即预拉历史，等 click 打开时多半已进本地缓存
       list.addEventListener('pointerdown', function (ev) {
         var btn = ev.target.closest('.chat-conv-item');
@@ -286,8 +296,37 @@
           id: btn.getAttribute('data-id'),
           peer: parseInt(btn.getAttribute('data-peer'), 10) || 0
         });
+        clearLongPress();
+        longPressBtn = btn;
+        longPressTimer = setTimeout(function () {
+          longPressTimer = null;
+          if (!longPressBtn) return;
+          skipNextClick = true;
+          openConvActionSheet(findConvItemFromBtn(longPressBtn));
+          try { if (navigator.vibrate) navigator.vibrate(12); } catch (eV) {}
+        }, 480);
       }, { passive: true });
+      list.addEventListener('pointerup', clearLongPress, { passive: true });
+      list.addEventListener('pointercancel', clearLongPress, { passive: true });
+      list.addEventListener('pointermove', function (ev) {
+        if (!longPressTimer || !longPressBtn) return;
+        if (Math.abs(ev.movementX) + Math.abs(ev.movementY) > 8) clearLongPress();
+      }, { passive: true });
+      list.addEventListener('contextmenu', function (ev) {
+        var btn = ev.target.closest('.chat-conv-item');
+        if (!btn) return;
+        ev.preventDefault();
+        clearLongPress();
+        skipNextClick = true;
+        openConvActionSheet(findConvItemFromBtn(btn));
+      });
       list.addEventListener('click', function (ev) {
+        if (skipNextClick) {
+          skipNextClick = false;
+          ev.preventDefault();
+          ev.stopPropagation();
+          return;
+        }
         var btn = ev.target.closest('.chat-conv-item');
         if (!btn) return;
         openRoom({
@@ -297,6 +336,26 @@
           title: btn.getAttribute('data-title') || ''
         });
       });
+    }
+    var convSheetMask = $('chatConvActionMask');
+    var convSheetCancel = $('chatConvActionCancel');
+    var convActPin = $('chatConvActPin');
+    var convActUnpin = $('chatConvActUnpin');
+    if (convSheetMask && !convSheetMask._bound) {
+      convSheetMask._bound = true;
+      convSheetMask.onclick = function () { closeConvActionSheet(); };
+    }
+    if (convSheetCancel && !convSheetCancel._bound) {
+      convSheetCancel._bound = true;
+      convSheetCancel.onclick = function () { closeConvActionSheet(); };
+    }
+    if (convActPin && !convActPin._bound) {
+      convActPin._bound = true;
+      convActPin.onclick = function () { toggleConvPin(true); };
+    }
+    if (convActUnpin && !convActUnpin._bound) {
+      convActUnpin._bound = true;
+      convActUnpin.onclick = function () { toggleConvPin(false); };
     }
     var back = $('chatBackBtn');
     if (back && !back._bound) {

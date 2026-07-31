@@ -459,6 +459,14 @@ body.tab-messages .bottom-action-bar {
 }
 .chat-conv-item:last-child { border-bottom: none; }
 .chat-conv-item:active { background: #fff7f0; }
+.chat-conv-item.is-pinned { background: rgba(245, 154, 35, 0.08); }
+.chat-conv-pin {
+  display: inline-block;
+  margin-right: 4px;
+  color: #f59a23;
+  font-size: 12px;
+  vertical-align: 1px;
+}
 
 .chat-avatar {
   width: 48px;

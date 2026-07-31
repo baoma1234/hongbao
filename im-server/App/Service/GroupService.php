@@ -298,11 +298,13 @@ class GroupService
     {
         $userId = (int)$userId;
         $hasCol = $this->hasRecommendColumn();
+        // 官方社群：以 is_recommend=1 为准（后台已勾选推荐即可展示），不要求 privacy_mode=open
         $sql = 'SELECT g.* FROM ' . Db::table('chat_groups') . ' g'
-            . ' WHERE g.status IN (1,3)'
-            . " AND (g.privacy_mode='open' OR (IFNULL(g.privacy_mode,'')='' AND IFNULL(g.hide_member_list,1)=0))";
+            . ' WHERE g.status IN (1,3)';
         if ($hasCol) {
             $sql .= ' AND IFNULL(g.is_recommend,0)=1';
+        } else {
+            $sql .= " AND (g.privacy_mode='open' OR (IFNULL(g.privacy_mode,'')='' AND IFNULL(g.hide_member_list,1)=0))";
         }
         $sql .= ' ORDER BY g.id DESC LIMIT 30';
         $rows = Db::fetchAll($sql);
@@ -328,7 +330,7 @@ class GroupService
                 'member_count'  => $memberCount,
                 'online_count'  => $onlineCnt,
                 'is_member'     => $joined,
-                'privacy_mode'  => 'open',
+                'privacy_mode'  => (string)($g['privacy_mode'] ?? 'private'),
                 'chat_mode'     => (string)($g['chat_mode'] ?? 'chat'),
                 'is_recommend'  => 1,
             ];
@@ -349,11 +351,10 @@ class GroupService
         }
         $mode = (string)($group['privacy_mode'] ?? '');
         $isOpen = ($mode === 'open') || ($mode === '' && (int)($group['hide_member_list'] ?? 1) === 0);
-        if (!$isOpen) {
+        $isRecommend = $this->hasRecommendColumn() && (int)($group['is_recommend'] ?? 0) === 1;
+        // 开放群 或 官方推荐群 都可从「官方社群」加入
+        if (!$isOpen && !$isRecommend) {
             throw new \RuntimeException('private group');
-        }
-        if ($this->hasRecommendColumn() && (int)($group['is_recommend'] ?? 0) !== 1) {
-            // 允许加入任意开放群；推荐位仅展示，不强制
         }
         if ($this->isMember($groupId, $userId)) {
             return $this->get($groupId);

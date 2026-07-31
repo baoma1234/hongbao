@@ -919,7 +919,6 @@ class MessageService
                 }
             }
             $adminRows = AdminService::adminRows();
-            $adminMap = AdminService::adminIdMap();
             foreach ($adminRows as $adminId => $adminMeta) {
                 $adminId = (int)$adminId;
                 if ($adminId === $userId) {
@@ -947,15 +946,18 @@ class MessageService
                     'unread_count'      => 0,
                 ];
             }
-            usort($items, function ($a, $b) use ($adminMap) {
-                $aAdmin = !empty($a['is_im_admin']) || isset($adminMap[(int)($a['peer_user_id'] ?? 0)]);
-                $bAdmin = !empty($b['is_im_admin']) || isset($adminMap[(int)($b['peer_user_id'] ?? 0)]);
-                if ($aAdmin !== $bAdmin) {
-                    return $aAdmin ? -1 : 1;
-                }
-                return ((int)$b['updatetime']) <=> ((int)$a['updatetime']);
-            });
+            // 客服仍出现在列表，但按最后消息时间排序（有新消息的群应排最前）
         }
+
+        $this->applyPinnedFlags($userId, $items);
+        usort($items, function ($a, $b) {
+            $ap = !empty($a['pinned']) ? 1 : 0;
+            $bp = !empty($b['pinned']) ? 1 : 0;
+            if ($ap !== $bp) {
+                return $bp <=> $ap;
+            }
+            return ((int)$b['updatetime']) <=> ((int)$a['updatetime']);
+        });
 
         $items = array_slice($items, 0, $limit);
         $unreadMap = $this->batchUnreadCounts($userId, $items);
@@ -966,6 +968,100 @@ class MessageService
         unset($it);
 
         return $items;
+    }
+
+    /** @return array<string,int> key => pin_score */
+    protected function pinnedKeyMap($userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return [];
+        }
+        try {
+            $rows = RedisClient::conn()->zRevRange(
+                RedisClient::key('pins:' . $userId),
+                0,
+                49,
+                true
+            );
+            if (!is_array($rows) || !$rows) {
+                return [];
+            }
+            $out = [];
+            foreach ($rows as $member => $score) {
+                $member = (string)$member;
+                if ($member === '' || strpos($member, ':') === false) {
+                    continue;
+                }
+                $out[$member] = (int)$score;
+            }
+            return $out;
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    protected function applyPinnedFlags($userId, array &$items)
+    {
+        $pins = $this->pinnedKeyMap($userId);
+        foreach ($items as &$it) {
+            $key = ((int)($it['conversation_type'] ?? 0)) . ':' . (string)($it['conversation_id'] ?? '');
+            $it['pinned'] = isset($pins[$key]);
+            if ($it['pinned']) {
+                $it['pin_time'] = (int)$pins[$key];
+            }
+        }
+        unset($it);
+    }
+
+    public function pinConversation($userId, $conversationType, $conversationId, $pinned = true)
+    {
+        $userId = (int)$userId;
+        $ctype = (int)$conversationType;
+        $cid = (string)$conversationId;
+        if ($userId <= 0 || ($ctype !== 1 && $ctype !== 2) || $cid === '') {
+            throw new \InvalidArgumentException('invalid conversation');
+        }
+        if ($ctype === 2) {
+            $cid = (string)((int)$cid);
+            if ((int)$cid <= 0) {
+                throw new \InvalidArgumentException('invalid group');
+            }
+            if (!(new GroupService())->isMember((int)$cid, $userId)) {
+                throw new \RuntimeException('not in group');
+            }
+        } else {
+            // 私聊：允许客服会话即使尚无消息
+            $bits = explode('_', $cid);
+            if (count($bits) !== 2) {
+                throw new \InvalidArgumentException('invalid conversation');
+            }
+            $a = (int)$bits[0];
+            $b = (int)$bits[1];
+            if ($userId !== $a && $userId !== $b) {
+                throw new \RuntimeException('forbidden');
+            }
+        }
+        $member = $ctype . ':' . $cid;
+        try {
+            $r = RedisClient::conn();
+            $key = RedisClient::key('pins:' . $userId);
+            if ($pinned) {
+                $r->zAdd($key, time(), $member);
+                $r->zRemRangeByRank($key, 0, -21); // 最多 20 个置顶
+            } else {
+                $r->zRem($key, $member);
+            }
+            $r->expire($key, 86400 * 365);
+        } catch (\Throwable $e) {
+            throw new \RuntimeException('pin failed');
+        }
+        $this->invalidateConvListCache($userId);
+        return [
+            'conversation_type' => $ctype,
+            'conversation_id'   => $cid,
+            'pinned'            => (bool)$pinned,
+        ];
     }
 
     /**
