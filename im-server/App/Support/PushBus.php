@@ -110,6 +110,11 @@ class PushBus
                 $r->lPush($key, $json);
                 $r->lTrim($key, 0, 19999);
             }
+            // 轻量唤醒：让其他 Worker 尽快 drain（订阅端可选；无订阅也不影响）
+            try {
+                $r->publish(RedisClient::key('push_wake'), (string)self::$workerId);
+            } catch (\Throwable $e) {
+            }
         } catch (\Throwable $e) {
         }
     }

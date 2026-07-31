@@ -436,6 +436,7 @@ class MessageRouter
         if (is_array($msg)) {
             $this->pushToGroup((int)$groupId, 'group.message', ['message' => $msg]);
         }
+        PushBus::drainOwnQueue(200);
     }
 
     protected function handleRecall(TcpConnection $connection, $uid, array $payload, $reqId)
@@ -1057,6 +1058,7 @@ class MessageRouter
             }
         }
         $users = $this->auth->usersBriefMap($peerIds);
+        $adminMap = AdminService::adminIdMap();
         foreach ($list as &$item) {
             if ((int)$item['conversation_type'] === 1) {
                 $peer = $users[(int)$item['peer_user_id']] ?? null;
@@ -1075,7 +1077,7 @@ class MessageRouter
                 } else {
                     $item['title'] = $item['title'] !== '' ? (string)$item['title'] : ('ID' . (int)$item['peer_user_id']);
                 }
-                $item['is_im_admin'] = AdminService::isImAdmin((int)$item['peer_user_id']);
+                $item['is_im_admin'] = isset($adminMap[(int)$item['peer_user_id']]);
                 if ($item['is_im_admin'] && empty($item['title'])) {
                     $item['title'] = '客服';
                 }
@@ -1098,6 +1100,8 @@ class MessageRouter
             $this->pushToUser((int)$msg['to_user_id'], 'private.message', ['message' => $msg]);
             $this->pushToUser($uid, 'private.message', ['message' => $msg], (string)$connection->id);
         }
+        // 立刻消费本机跨进程队列，降低多 Worker 漏推/延迟
+        PushBus::drainOwnQueue(200);
     }
 
     protected function handleRedGrab(TcpConnection $connection, $uid, array $payload, $reqId)
@@ -1171,11 +1175,11 @@ class MessageRouter
         PushBus::toUsers([$userId], $type, $data, $exceptConnId);
     }
 
-    protected function pushToGroup($groupId, $type, array $data)
+    protected function pushToGroup($groupId, $type, array $data, $exceptConnId = '')
     {
         $uids = $this->groups->memberUserIds($groupId);
         if ($uids) {
-            PushBus::toUsers($uids, $type, $data);
+            PushBus::toUsers($uids, $type, $data, $exceptConnId);
         }
     }
 

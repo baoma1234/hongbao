@@ -282,6 +282,7 @@ class MessageService
                 }
             }
             $adminRows = AdminService::adminRows();
+            $adminMap = AdminService::adminIdMap();
             $now = time();
             foreach ($adminRows as $adminId => $adminMeta) {
                 if ($adminId === $userId || isset($havePeers[$adminId])) {
@@ -300,9 +301,9 @@ class MessageService
                     'unread_count'      => 0,
                 ];
             }
-            usort($items, function ($a, $b) {
-                $aAdmin = !empty($a['is_im_admin']) || AdminService::isImAdmin((int)($a['peer_user_id'] ?? 0));
-                $bAdmin = !empty($b['is_im_admin']) || AdminService::isImAdmin((int)($b['peer_user_id'] ?? 0));
+            usort($items, function ($a, $b) use ($adminMap) {
+                $aAdmin = !empty($a['is_im_admin']) || isset($adminMap[(int)($a['peer_user_id'] ?? 0)]);
+                $bAdmin = !empty($b['is_im_admin']) || isset($adminMap[(int)($b['peer_user_id'] ?? 0)]);
                 if ($aAdmin !== $bAdmin) {
                     return $aAdmin ? -1 : 1;
                 }
@@ -310,6 +311,8 @@ class MessageService
             });
         }
 
+        // 先截断再算未读，避免对全部群做 COUNT
+        $items = array_slice($items, 0, $limit);
         $unreadMap = $this->batchUnreadCounts($userId, $items);
         foreach ($items as &$it) {
             $key = ((int)$it['conversation_type']) . ':' . (string)$it['conversation_id'];
@@ -317,7 +320,7 @@ class MessageService
         }
         unset($it);
 
-        return array_slice($items, 0, $limit);
+        return $items;
     }
 
     /**
@@ -745,6 +748,9 @@ class MessageService
         $row['msg_type'] = (int)($row['msg_type'] ?? 1);
         $row['status'] = (int)($row['status'] ?? 1);
         $row['createtime'] = (int)($row['createtime'] ?? 0);
+        if (empty($row['msg_id']) && $row['id'] > 0) {
+            $row['msg_id'] = (string)$row['id'];
+        }
         return $row;
     }
 }

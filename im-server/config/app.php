@@ -69,8 +69,8 @@ return array_replace_recursive([
         'heartbeat'=> 50,
     ],
     'push' => [
-        'drain_interval' => 0.05, // 消费跨进程队列间隔（秒）
-        'drain_batch'    => 100,
+        'drain_interval' => 0.02, // 消费跨进程队列间隔（秒）
+        'drain_batch'    => 200,
     ],
     'db'    => $db,
     'redis' => $redis,

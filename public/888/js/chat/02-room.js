@@ -220,8 +220,12 @@
     if (!isNaN(amt) && amt > 0) {
       desc = amt.toFixed(2) + ' 元' + (cnt > 0 ? (' / ' + cnt + '个包') : '');
     } else {
-      desc = time || '红包';
+      desc = '红包';
     }
+    var sendTime = time || formatTime((msg && msg.createtime) || 0);
+    var timeHtml = sendTime
+      ? ('<div class="rp-time">' + escapeHtml(sendTime) + '</div>')
+      : '';
     var bottom = '红包福利';
     if (ptype === 3) bottom = pending ? '埋雷红包 · 匹配证明中' : '埋雷红包';
     else if (ptype === 2) bottom = '拼手气红包';
@@ -245,6 +249,7 @@
           '<div class="rp-info">' +
             '<div class="rp-title">' + bless + '</div>' +
             '<div class="rp-desc">' + escapeHtml(desc) + '</div>' +
+            timeHtml +
           '</div>' +
           mineBadge +
         '</div>' +
@@ -356,6 +361,9 @@
         }
         head.innerHTML = '<div class="chat-rp-detail-bless">' + escapeHtml(bless) + '</div>' +
           '<div class="chat-rp-detail-meta">共 ' + (p.total_count | 0) + ' 个 · ￥' + (parseFloat(p.total_amount || 0).toFixed(2)) + '</div>' +
+          (p.createtime
+            ? ('<div class="chat-rp-detail-send-time">发送时间 ' + escapeHtml(formatTime(p.createtime)) + '</div>')
+            : '') +
           mineLine +
           fairBits +
           (locked
@@ -408,6 +416,7 @@
             } else if (r.is_mine_hit) {
               tags += ' 中雷';
             }
+            var grabTime = r.createtime ? formatTime(r.createtime) : '';
             return (
               '<div class="chat-rp-record-item' + (gray ? ' is-locked' : '') + '">' + avHtml +
                 '<div class="chat-rp-record-main">' +
@@ -416,6 +425,9 @@
                   '</div>' +
                   '<div class="chat-rp-record-amt">￥' + parseFloat(r.amount || 0).toFixed(2) + tags +
                   '</div>' +
+                  (grabTime
+                    ? ('<div class="chat-rp-record-time">领取时间 ' + escapeHtml(grabTime) + '</div>')
+                    : '') +
                 '</div></div>'
             );
           }).join('');
@@ -631,22 +643,26 @@
   }
 
   function appendMessage(msg) {
-    if (!msg || !msg.msg_id) return;
+    if (!msg) return;
+    if (!msg.msg_id && !(msg.id | 0)) return;
     for (var i = 0; i < state.messages.length; i++) {
-      if (state.messages[i].msg_id === msg.msg_id || (state.messages[i].id && state.messages[i].id === msg.id)) {
+      if ((msg.msg_id && state.messages[i].msg_id === msg.msg_id)
+        || ((msg.id | 0) && (state.messages[i].id | 0) === (msg.id | 0))) {
         return;
       }
     }
     state.messages.push(msg);
     renderMessages();
+    scrollMsgToLatest();
   }
 
   function scheduleUnreadSync() {
     if (state.unreadSyncTimer) clearTimeout(state.unreadSyncTimer);
+    // 推送已 upsert 列表；延迟全量刷新仅校准未读，避免频繁重载拖慢会话列表
     state.unreadSyncTimer = setTimeout(function () {
       state.unreadSyncTimer = null;
       refreshList().catch(function () {});
-    }, 500);
+    }, 2500);
   }
 
   function onIncomingMessage(msg) {

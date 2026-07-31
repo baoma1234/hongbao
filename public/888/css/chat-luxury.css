@@ -493,6 +493,13 @@ body.chat-room-open .bottom-action-bar {
   font-weight: 400;
   margin: 0;
 }
+.chat-room-pane .chat-rp-card .rp-time {
+  font-size: 11px;
+  opacity: 0.78;
+  font-weight: 400;
+  margin: 0;
+  letter-spacing: 0.02em;
+}
 .chat-room-pane .chat-rp-card .rp-bottom {
   background: rgba(255, 255, 255, 0.95);
   padding: 10px 16px;

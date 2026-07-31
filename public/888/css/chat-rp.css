@@ -389,6 +389,29 @@
   margin-bottom: 14px;
 }
 
+/* Red packet detail — head 固定，列表独立滚动，领完后仍可看全记录 */
+#chatRpDetailPane .chat-sub-main {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+}
+#chatRpDetailPane .chat-rp-detail-head {
+  flex-shrink: 0;
+}
+#chatRpDetailPane .chat-rp-detail-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+#chatRpDetailPane .chat-rp-detail-grab-btn {
+  flex-shrink: 0;
+  margin-top: 12px;
+}
+
 /* Red packet detail */
 .chat-rp-detail-head { text-align: center; padding: 12px 0 16px; }
 .chat-rp-detail-bless {
@@ -401,6 +424,17 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-hint);
   margin-top: 6px;
+}
+.chat-rp-detail-send-time {
+  font-size: 12px;
+  color: var(--color-text-hint);
+  margin-top: 4px;
+}
+.chat-rp-record-time {
+  font-size: 11px;
+  color: var(--color-text-hint);
+  margin-top: 2px;
+  font-weight: 500;
 }
 .chat-rp-fair-hash {
   margin-top: 10px;

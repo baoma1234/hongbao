@@ -10,18 +10,37 @@ use Im\Support\IdGenerator;
  */
 class AdminService
 {
+    /** @var array<int,true>|null */
+    protected static $adminIdMap = null;
+
     public static function isImAdmin($userId)
     {
         $userId = (int)$userId;
         if ($userId <= 0) {
             return false;
         }
-        $row = Db::fetch(
-            'SELECT id FROM ' . Db::table('chat_agent_accounts')
-            . ' WHERE user_id=? AND status=1 LIMIT 1',
-            [$userId]
-        );
-        return (bool)$row;
+        return isset(self::adminIdMap()[$userId]);
+    }
+
+    /**
+     * @return array<int,true>
+     */
+    public static function adminIdMap()
+    {
+        if (self::$adminIdMap !== null) {
+            return self::$adminIdMap;
+        }
+        self::$adminIdMap = [];
+        foreach (self::adminUserIds() as $id) {
+            self::$adminIdMap[(int)$id] = true;
+        }
+        return self::$adminIdMap;
+    }
+
+    /** 后台改客服账号后可清缓存 */
+    public static function clearAdminCache()
+    {
+        self::$adminIdMap = null;
     }
 
     /**

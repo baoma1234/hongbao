@@ -175,7 +175,13 @@ class RedPacketService
         $cents = [];
         $minePending = false;
         if ($packetType === 2) {
-            $latest = TronHashCache::getOrRefresh(4);
+            $latest = TronHashCache::get();
+            if (!$latest) {
+                $latest = TronHashCache::refresh(2);
+            }
+            if (!$latest) {
+                throw new \RuntimeException('tron latest hash unavailable');
+            }
             $tronBlockNum = (int)$latest['block_num'];
             $tronBlockId = (string)$latest['block_id'];
             $tronLucky = TronBlockClient::luckyFromBlockId($tronBlockId);
@@ -187,10 +193,19 @@ class RedPacketService
             // 优先本地 Redis：按雷号命中最近缓存块（O(1)，不打波场）
             $matched = TronHashCache::findByDigit((int)$mineDigit);
             if (!$matched) {
-                $latest = TronHashCache::getOrRefresh(4);
-                $tronBlockNum = (int)$latest['block_num'];
-                if (TronBlockClient::luckyDigitFromBlockId($latest['block_id']) === (int)$mineDigit) {
+                $latest = TronHashCache::get();
+                if (!$latest) {
+                    try {
+                        $latest = TronHashCache::refresh(2);
+                    } catch (\Throwable $e) {
+                        $latest = null;
+                    }
+                }
+                if ($latest && TronBlockClient::luckyDigitFromBlockId($latest['block_id']) === (int)$mineDigit) {
                     $matched = $latest;
+                }
+                if ($latest) {
+                    $tronBlockNum = (int)$latest['block_num'];
                 }
             } else {
                 $tronBlockNum = (int)$matched['block_num'];
@@ -207,7 +222,7 @@ class RedPacketService
             } else {
                 if ($tronBlockNum <= 0) {
                     try {
-                        $tronBlockNum = (int)(TronHashCache::getOrRefresh(4)['block_num'] ?? 0);
+                        $tronBlockNum = (int)((TronHashCache::get() ?: [])['block_num'] ?? 0);
                     } catch (\Throwable $e) {
                         $tronBlockNum = 0;
                     }
