@@ -35,33 +35,82 @@
       box.innerHTML = '<div class="chat-empty">' + escapeHtml(chatT('chat_search_empty')) + '</div>';
       return;
     }
+    // 顺序未变时只改预览/时间/角标，避免整表 innerHTML 卡顿
+    if (!kw && patchConvListDom(box, list)) {
+      return;
+    }
     box.innerHTML = list.map(function (item) {
-      var type = item.conversation_type | 0;
-      var id = type === 2 ? (item.group_id || item.conversation_id) : item.conversation_id;
-      var key = convKey(type, id);
-      var unread = state.unread[key] | 0;
-      var titleRaw = item.title || (type === 2 ? ('群 ' + id) : ('用户' + (item.peer_user_id || '')));
-      if (item.is_im_admin && titleRaw && titleRaw.indexOf('客服') < 0 && type === 1) {
-        titleRaw = '客服 · ' + titleRaw;
-      } else if (item.is_im_admin && type === 1 && (!item.title || item.title.indexOf('ID') === 0)) {
-        titleRaw = item.title || '客服';
-      }
-      var title = escapeHtml(titleRaw);
-      var prev = escapeHtml(previewText(item.last_message) || (item.is_im_admin ? '点击开始咨询' : '暂无消息'));
-      var time = formatTime(item.updatetime || (item.last_message && item.last_message.createtime));
-      var avatarHtml = avatarImgHtml(item.avatar);
-      var adminBadge = item.is_im_admin ? '<span class="chat-admin-tag">客服</span>' : '';
-      return (
-        '<button type="button" class="chat-conv-item' + (item.is_im_admin ? ' is-admin' : '') + '" data-type="' + type + '" data-id="' + escapeHtml(String(id)) + '" data-peer="' + (item.peer_user_id | 0) + '" data-title="' + title + '">' +
-          '<div class="chat-avatar' + (type === 2 ? ' group' : '') + (item.is_im_admin ? ' admin' : '') + '">' + avatarHtml + '</div>' +
-          '<div class="chat-conv-body">' +
-            '<div class="chat-conv-title"><span>' + title + adminBadge + '</span><span class="chat-conv-time">' + time + '</span></div>' +
-            '<div class="chat-conv-preview">' + prev + '</div>' +
-          '</div>' +
-          (unread ? '<span class="chat-badge">' + (unread > 99 ? '99+' : unread) + '</span>' : '') +
-        '</button>'
-      );
+      return buildConvItemHtml(item);
     }).join('');
+  }
+
+  function buildConvItemHtml(item) {
+    var type = item.conversation_type | 0;
+    var id = type === 2 ? (item.group_id || item.conversation_id) : item.conversation_id;
+    var key = convKey(type, id);
+    var unread = state.unread[key] | 0;
+    var titleRaw = item.title || (type === 2 ? ('群 ' + id) : ('用户' + (item.peer_user_id || '')));
+    if (item.is_im_admin && titleRaw && titleRaw.indexOf('客服') < 0 && type === 1) {
+      titleRaw = '客服 · ' + titleRaw;
+    } else if (item.is_im_admin && type === 1 && (!item.title || item.title.indexOf('ID') === 0)) {
+      titleRaw = item.title || '客服';
+    }
+    var title = escapeHtml(titleRaw);
+    var prev = escapeHtml(previewText(item.last_message) || (item.is_im_admin ? '点击开始咨询' : '暂无消息'));
+    var time = formatTime(item.updatetime || (item.last_message && item.last_message.createtime));
+    var avatarHtml = avatarImgHtml(item.avatar);
+    var adminBadge = item.is_im_admin ? '<span class="chat-admin-tag">客服</span>' : '';
+    return (
+      '<button type="button" class="chat-conv-item' + (item.is_im_admin ? ' is-admin' : '') + '" data-type="' + type + '" data-id="' + escapeHtml(String(id)) + '" data-peer="' + (item.peer_user_id | 0) + '" data-title="' + title + '">' +
+        '<div class="chat-avatar' + (type === 2 ? ' group' : '') + (item.is_im_admin ? ' admin' : '') + '">' + avatarHtml + '</div>' +
+        '<div class="chat-conv-body">' +
+          '<div class="chat-conv-title"><span>' + title + adminBadge + '</span><span class="chat-conv-time">' + time + '</span></div>' +
+          '<div class="chat-conv-preview">' + prev + '</div>' +
+        '</div>' +
+        (unread ? '<span class="chat-badge">' + (unread > 99 ? '99+' : unread) + '</span>' : '') +
+      '</button>'
+    );
+  }
+
+  function patchConvListDom(box, list) {
+    var nodes = box.querySelectorAll('.chat-conv-item');
+    if (!nodes || nodes.length !== list.length) return false;
+    for (var i = 0; i < list.length; i++) {
+      var item = list[i];
+      var type = item.conversation_type | 0;
+      var id = String(type === 2 ? (item.group_id || item.conversation_id) : item.conversation_id);
+      var el = nodes[i];
+      if ((el.getAttribute('data-type') || '') !== String(type) || (el.getAttribute('data-id') || '') !== id) {
+        return false;
+      }
+    }
+    for (var j = 0; j < list.length; j++) {
+      var it = list[j];
+      var t = it.conversation_type | 0;
+      var cid = t === 2 ? (it.group_id || it.conversation_id) : it.conversation_id;
+      var key = convKey(t, cid);
+      var unread = state.unread[key] | 0;
+      var el2 = nodes[j];
+      var prevEl = el2.querySelector('.chat-conv-preview');
+      var timeEl = el2.querySelector('.chat-conv-time');
+      var prev = previewText(it.last_message) || (it.is_im_admin ? '点击开始咨询' : '暂无消息');
+      var time = formatTime(it.updatetime || (it.last_message && it.last_message.createtime));
+      if (prevEl && prevEl.textContent !== prev) prevEl.textContent = prev;
+      if (timeEl && timeEl.textContent !== time) timeEl.textContent = time;
+      var badge = el2.querySelector('.chat-badge');
+      if (unread > 0) {
+        var text = unread > 99 ? '99+' : String(unread);
+        if (!badge) {
+          badge = document.createElement('span');
+          badge.className = 'chat-badge';
+          el2.appendChild(badge);
+        }
+        if (badge.textContent !== text) badge.textContent = text;
+      } else if (badge && badge.parentNode) {
+        badge.parentNode.removeChild(badge);
+      }
+    }
+    return true;
   }
 
   function canRecallMessage(msg) {
@@ -855,7 +904,7 @@
 
   async function refreshList(force) {
     var now = Date.now();
-    if (!force && state._listFetchAt && (now - state._listFetchAt) < 1500 && state.list && state.list.length) {
+    if (!force && state._listFetchAt && (now - state._listFetchAt) < 3000 && state.list && state.list.length) {
       scheduleRenderList();
       return;
     }

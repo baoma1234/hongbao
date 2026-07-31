@@ -188,22 +188,82 @@ class MessageService
             $r = RedisClient::conn();
             $out = [];
             $miss = 0;
+            $keys = [];
+            $order = [];
             foreach ($targets as $key => $t) {
-                $raw = $r->get(RedisClient::key('unread:' . (int)$userId . ':' . (int)$t['type'] . ':' . (string)$t['id']));
+                $keys[] = RedisClient::key('unread:' . (int)$userId . ':' . (int)$t['type'] . ':' . (string)$t['id']);
+                $order[] = $key;
+            }
+            if (!$keys) {
+                return $out;
+            }
+            // 一次 MGET，避免 N 次 RTT
+            $vals = $r->mGet($keys);
+            if (!is_array($vals)) {
+                return null;
+            }
+            foreach ($order as $i => $key) {
+                $raw = $vals[$i] ?? false;
                 if ($raw === false || $raw === null) {
                     $miss++;
-                    $out[$key] = -1; // 未缓存，需 SQL
+                    $out[$key] = -1;
                 } else {
                     $out[$key] = max(0, (int)$raw);
                 }
             }
-            // 全部未命中则退回 SQL；部分命中则混合
             if ($miss === count($targets)) {
                 return null;
             }
             return $out;
         } catch (\Throwable $e) {
             return null;
+        }
+    }
+
+    /** 列表预览用：去掉超长 content / 无用 extra */
+    protected function slimLastMessage($msg)
+    {
+        if (!$msg || !is_array($msg)) {
+            return null;
+        }
+        $content = (string)($msg['content'] ?? '');
+        if (function_exists('mb_strlen') && mb_strlen($content) > 80) {
+            $msg['content'] = mb_substr($content, 0, 80) . '…';
+        } elseif (strlen($content) > 80) {
+            $msg['content'] = substr($content, 0, 80) . '…';
+        }
+        $msgType = (int)($msg['msg_type'] ?? 1);
+        if (isset($msg['extra']) && is_array($msg['extra'])) {
+            if ($msgType === 2) {
+                // 红包预览只需 blessing/packet_id 等少量字段
+                $keep = [];
+                foreach (['packet_id', 'blessing', 'packet_type', 'total_amount', 'remain_count', 'status'] as $k) {
+                    if (array_key_exists($k, $msg['extra'])) {
+                        $keep[$k] = $msg['extra'][$k];
+                    }
+                }
+                $msg['extra'] = $keep ?: null;
+            } elseif ($msgType === 7) {
+                $msg['extra'] = ['name' => (string)($msg['extra']['name'] ?? '')];
+            } elseif ($msgType === 6) {
+                $msg['extra'] = ['code' => (string)($msg['extra']['code'] ?? '')];
+            } else {
+                unset($msg['extra']);
+            }
+        }
+        return $msg;
+    }
+
+    protected function invalidateConvListCache($userId)
+    {
+        try {
+            $uid = (int)$userId;
+            RedisClient::conn()->del(
+                RedisClient::key('convlist:' . $uid . ':50'),
+                RedisClient::key('convlist:' . $uid . ':100'),
+                RedisClient::key('convlist:' . $uid)
+            );
+        } catch (\Throwable $e) {
         }
     }
 
@@ -241,6 +301,11 @@ class MessageService
                 // 只保留最近 200 个会话键
                 $r->zRemRangeByRank($key, 0, -201);
                 $r->expire($key, 86400 * 30);
+                $r->del(
+                    RedisClient::key('convlist:' . $uid . ':50'),
+                    RedisClient::key('convlist:' . $uid . ':100'),
+                    RedisClient::key('convlist:' . $uid)
+                );
             }
         } catch (\Throwable $e) {
         }
@@ -458,12 +523,15 @@ class MessageService
             $msgById = [];
             if ($msgIds) {
                 $in = implode(',', array_fill(0, count($msgIds), '?'));
+                // 列表只要预览字段，避免 SELECT * 拉超长 content/extra
                 $rows = Db::fetchAll(
-                    "SELECT * FROM {$msgTable} WHERE id IN ({$in}) AND status=1",
+                    "SELECT id,msg_id,conversation_type,conversation_id,group_id,from_user_id,to_user_id,"
+                    . "msg_type,content,extra,status,createtime FROM {$msgTable}"
+                    . " WHERE id IN ({$in}) AND status=1",
                     $msgIds
                 );
                 foreach ($rows as $row) {
-                    $msgById[(int)$row['id']] = $this->normalizeMessage($row);
+                    $msgById[(int)$row['id']] = $this->slimLastMessage($this->normalizeMessage($row));
                 }
             }
 
@@ -520,7 +588,7 @@ class MessageService
                 }
             }
 
-            // 补全未出现在 inbox 的群（尚无消息）— 群列表 Redis 缓存 60s
+            // 优先用 my_groups 缓存填群名/头像，缺的再补查
             $groups = $this->cachedMyGroups($userId);
             $haveG = [];
             foreach ($items as $it) {
@@ -528,14 +596,22 @@ class MessageService
                     $haveG[(int)$it['group_id']] = true;
                 }
             }
-            $needMeta = array_keys($groupIdsNeeded);
             $metaById = [];
-            if ($needMeta) {
-                $in = implode(',', array_fill(0, count($needMeta), '?'));
+            foreach ($groups as $g) {
+                $metaById[(int)$g['id']] = $g;
+            }
+            $missingMeta = [];
+            foreach (array_keys($groupIdsNeeded) as $gid) {
+                if (!isset($metaById[$gid])) {
+                    $missingMeta[] = $gid;
+                }
+            }
+            if ($missingMeta) {
+                $in = implode(',', array_fill(0, count($missingMeta), '?'));
                 $metaRows = Db::fetchAll(
                     'SELECT id,name,avatar,updatetime,createtime FROM ' . Db::table('chat_groups')
                     . " WHERE id IN ({$in})",
-                    $needMeta
+                    $missingMeta
                 );
                 foreach ($metaRows as $g) {
                     $metaById[(int)$g['id']] = $g;
@@ -590,7 +666,7 @@ class MessageService
                 [$userId, $userId]
             );
             foreach ($privates as $m) {
-                $m = $this->normalizeMessage($m);
+                $m = $this->slimLastMessage($this->normalizeMessage($m));
                 $peerId = ((int)$m['from_user_id'] === $userId)
                     ? (int)$m['to_user_id']
                     : (int)$m['from_user_id'];
@@ -626,7 +702,7 @@ class MessageService
                     $groupIds
                 );
                 foreach ($lastRows as $row) {
-                    $lastByGroup[(string)$row['conversation_id']] = $this->normalizeMessage($row);
+                    $lastByGroup[(string)$row['conversation_id']] = $this->slimLastMessage($this->normalizeMessage($row));
                 }
             }
             foreach ($groups as $g) {
@@ -890,6 +966,7 @@ class MessageService
             }
         }
         $this->clearUnreadCounter($userId, $conversationType, $conversationId);
+        $this->invalidateConvListCache($userId);
     }
 
     public function countUnread($userId, $conversationType, $conversationId)

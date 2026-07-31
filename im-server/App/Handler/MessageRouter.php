@@ -12,6 +12,7 @@ use Im\Service\RedPacketService;
 use Im\Support\ConnMap;
 use Im\Support\IdGenerator;
 use Im\Support\PushBus;
+use Im\Support\RedisClient;
 use Im\Support\AdminNotify;
 use Im\Support\NotifyDispatcher;
 use Im\Support\GrabGuard;
@@ -1066,7 +1067,23 @@ class MessageRouter
 
     protected function handleConversationList(TcpConnection $connection, $uid, array $payload, $reqId)
     {
-        $list = $this->messages->listConversations($uid, (int)($payload['limit'] ?? 50));
+        $uid = (int)$uid;
+        $limit = (int)($payload['limit'] ?? 50);
+        // 短缓存：吸收 auth.ok / 进 Tab / 未读校准连打
+        $cacheKey = RedisClient::key('convlist:' . $uid . ':' . $limit);
+        try {
+            $cached = RedisClient::conn()->get($cacheKey);
+            if ($cached !== false && $cached !== null && $cached !== '') {
+                $decoded = json_decode((string)$cached, true);
+                if (is_array($decoded)) {
+                    $this->send($connection, 'conversation.list', ['list' => $decoded], $reqId);
+                    return;
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+
+        $list = $this->messages->listConversations($uid, $limit);
         $peerIds = [];
         foreach ($list as $item) {
             if ((int)$item['conversation_type'] === 1 && (int)$item['peer_user_id'] > 0) {
@@ -1100,6 +1117,10 @@ class MessageRouter
             }
         }
         unset($item);
+        try {
+            RedisClient::conn()->setex($cacheKey, 3, json_encode($list, JSON_UNESCAPED_UNICODE));
+        } catch (\Throwable $e) {
+        }
         $this->send($connection, 'conversation.list', ['list' => $list], $reqId);
     }
 

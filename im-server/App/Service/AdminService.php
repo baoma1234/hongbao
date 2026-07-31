@@ -4,6 +4,7 @@ namespace Im\Service;
 
 use Im\Support\Db;
 use Im\Support\IdGenerator;
+use Im\Support\RedisClient;
 
 /**
  * IM 可私聊管理员 = fa_chat_agent_accounts 启用账号
@@ -12,6 +13,10 @@ class AdminService
 {
     /** @var array<int,true>|null */
     protected static $adminIdMap = null;
+    /** @var array<int, array{user_id:int,label:string}>|null */
+    protected static $adminRowsCache = null;
+    /** @var int */
+    protected static $adminRowsAt = 0;
 
     public static function isImAdmin($userId)
     {
@@ -31,7 +36,7 @@ class AdminService
             return self::$adminIdMap;
         }
         self::$adminIdMap = [];
-        foreach (self::adminUserIds() as $id) {
+        foreach (array_keys(self::adminRows()) as $id) {
             self::$adminIdMap[(int)$id] = true;
         }
         return self::$adminIdMap;
@@ -41,6 +46,12 @@ class AdminService
     public static function clearAdminCache()
     {
         self::$adminIdMap = null;
+        self::$adminRowsCache = null;
+        self::$adminRowsAt = 0;
+        try {
+            RedisClient::conn()->del(RedisClient::key('admin:rows'));
+        } catch (\Throwable $e) {
+        }
     }
 
     /**
@@ -48,18 +59,7 @@ class AdminService
      */
     public static function adminUserIds()
     {
-        $rows = Db::fetchAll(
-            'SELECT user_id FROM ' . Db::table('chat_agent_accounts')
-            . ' WHERE status=1 ORDER BY id ASC'
-        );
-        $ids = [];
-        foreach ($rows as $row) {
-            $uid = (int)$row['user_id'];
-            if ($uid > 0) {
-                $ids[] = $uid;
-            }
-        }
-        return array_values(array_unique($ids));
+        return array_map('intval', array_keys(self::adminRows()));
     }
 
     /**
@@ -67,6 +67,34 @@ class AdminService
      */
     public static function adminRows()
     {
+        if (self::$adminRowsCache !== null && (time() - self::$adminRowsAt) < 60) {
+            return self::$adminRowsCache;
+        }
+        try {
+            $raw = RedisClient::conn()->get(RedisClient::key('admin:rows'));
+            if ($raw) {
+                $j = json_decode((string)$raw, true);
+                if (is_array($j)) {
+                    $out = [];
+                    foreach ($j as $uid => $meta) {
+                        $uid = (int)$uid;
+                        if ($uid <= 0 || !is_array($meta)) {
+                            continue;
+                        }
+                        $out[$uid] = [
+                            'user_id' => $uid,
+                            'label'   => (string)($meta['label'] ?? ''),
+                        ];
+                    }
+                    self::$adminRowsCache = $out;
+                    self::$adminRowsAt = time();
+                    self::$adminIdMap = null; // 下次从 rows 重建
+                    return $out;
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+
         $rows = Db::fetchAll(
             'SELECT user_id, label FROM ' . Db::table('chat_agent_accounts')
             . ' WHERE status=1 ORDER BY id ASC'
@@ -81,6 +109,12 @@ class AdminService
                 'user_id' => $uid,
                 'label'   => (string)($row['label'] ?? ''),
             ];
+        }
+        self::$adminRowsCache = $out;
+        self::$adminRowsAt = time();
+        try {
+            RedisClient::conn()->setex(RedisClient::key('admin:rows'), 60, json_encode($out, JSON_UNESCAPED_UNICODE));
+        } catch (\Throwable $e) {
         }
         return $out;
     }
