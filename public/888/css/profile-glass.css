@@ -516,14 +516,19 @@
   color: var(--pg-muted);
 }
 
-/* 充值/提现通道：一排四个，图标瓷砖 */
-.profile-sub-pane .wallet-channel-list,
+/* 充值/提现通道：外层容器普通流，内层 grid 一排四个 */
+.profile-sub-pane .wallet-channel-list {
+  display: block;
+  margin: 12px 0;
+}
+
 .profile-sub-pane .wallet-channel-list.is-grid,
 .profile-sub-pane .wallet-channel-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
-  margin: 12px 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .profile-sub-pane .wallet-channel-item {
@@ -533,6 +538,7 @@
   justify-content: flex-start;
   gap: 6px;
   width: 100%;
+  max-width: 100%;
   box-sizing: border-box;
   border: 1.5px solid transparent !important;
   background:
@@ -546,8 +552,16 @@
   color: #3d2e22;
   font-weight: 700;
   min-height: 78px;
+  position: relative;
+  padding-right: 4px !important;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+}
+
+/* 覆盖 chat-rp 列表箭头，避免瓷砖右侧错位 */
+.profile-sub-pane .wallet-channel-item::after {
+  content: none !important;
+  display: none !important;
 }
 
 .profile-sub-pane .wallet-channel-icon {
@@ -575,6 +589,7 @@
   align-items: center;
   min-width: 0;
   width: 100%;
+  flex: none;
 }
 
 .profile-sub-pane .wallet-channel-name {
@@ -594,6 +609,14 @@
   font-weight: 500;
   color: #2e7d32;
   margin-top: 2px;
+}
+
+.profile-sub-pane .wallet-channel-empty,
+.profile-sub-pane .wallet-channel-empty--inline {
+  grid-column: 1 / -1;
+  color: #9a6a3a;
+  font-size: 13px;
+  padding: 8px 0;
 }
 
 .profile-sub-pane .wallet-amount-panel {
@@ -630,7 +653,8 @@
 }
 
 .profile-sub-pane .wallet-channel-more-btn::after {
-  content: none;
+  content: none !important;
+  display: none !important;
 }
 
 .profile-sub-pane .wallet-channel-more-btn:active,
@@ -725,10 +749,7 @@
 }
 
 .profile-sub-pane .wallet-channel-featured {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 10px;
+  display: contents;
 }
 
 .profile-sub-pane .wallet-picker {
