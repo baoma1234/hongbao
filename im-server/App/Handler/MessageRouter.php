@@ -1215,6 +1215,8 @@ class MessageRouter
     protected function pushToGroup($groupId, $type, array $data, $exceptConnId = '')
     {
         $uids = $this->groups->memberUserIds($groupId);
+        // 只推在线，避免万人群把离线 uid 塞进跨进程队列
+        $uids = ConnMap::filterOnlineUserIds($uids ?: []);
         if ($uids) {
             PushBus::toUsers($uids, $type, $data, $exceptConnId);
         }

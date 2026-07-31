@@ -106,6 +106,7 @@ class ConnMap
 
     /**
      * 过滤出当前在线用户（跨进程 Redis online 集合；失败时回退本进程）
+     * 大批量会员时用 pipeline SISMEMBER，避免每次 SMEMBERS 全站在线集
      *
      * @param int[] $userIds
      * @return int[]
@@ -118,20 +119,48 @@ class ConnMap
         }
         try {
             $r = RedisClient::conn();
-            $online = $r->sMembers(RedisClient::key('online'));
-            if (!is_array($online) || !$online) {
-                return array_values(array_filter($userIds, function ($uid) {
-                    return self::isLocalOnline($uid);
-                }));
-            }
-            $map = [];
-            foreach ($online as $v) {
-                $map[(int)$v] = true;
+            $onlineKey = RedisClient::key('online');
+            // 少量目标：读全站 online 再过滤；大量目标：逐个 SISMEMBER（1 次 pipeline RTT）
+            if (count($userIds) <= 80) {
+                $online = $r->sMembers($onlineKey);
+                if (!is_array($online) || !$online) {
+                    return array_values(array_filter($userIds, function ($uid) {
+                        return self::isLocalOnline($uid);
+                    }));
+                }
+                $map = [];
+                foreach ($online as $v) {
+                    $map[(int)$v] = true;
+                }
+                $out = [];
+                foreach ($userIds as $uid) {
+                    if (isset($map[$uid]) || self::isLocalOnline($uid)) {
+                        $out[] = $uid;
+                    }
+                }
+                return $out;
             }
             $out = [];
-            foreach ($userIds as $uid) {
-                if (isset($map[$uid]) || self::isLocalOnline($uid)) {
-                    $out[] = $uid;
+            $chunkSize = 200;
+            for ($i = 0; $i < count($userIds); $i += $chunkSize) {
+                $chunk = array_slice($userIds, $i, $chunkSize);
+                $r->multi(\Redis::PIPELINE);
+                foreach ($chunk as $uid) {
+                    $r->sIsMember($onlineKey, (string)$uid);
+                }
+                $flags = $r->exec();
+                if (!is_array($flags)) {
+                    foreach ($chunk as $uid) {
+                        if (self::isLocalOnline($uid)) {
+                            $out[] = $uid;
+                        }
+                    }
+                    continue;
+                }
+                foreach ($chunk as $j => $uid) {
+                    if (!empty($flags[$j]) || self::isLocalOnline($uid)) {
+                        $out[] = $uid;
+                    }
                 }
             }
             return $out;

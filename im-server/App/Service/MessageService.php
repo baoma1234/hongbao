@@ -5,6 +5,7 @@ namespace Im\Service;
 use Im\Support\Db;
 use Im\Support\IdGenerator;
 use Im\Support\RedisClient;
+use Im\Support\ConnMap;
 
 class MessageService
 {
@@ -131,6 +132,7 @@ class MessageService
 
     /**
      * Redis 未读计数：收件人 INCR；已读时清零。列表优先读计数，避免 50× COUNT
+     * 群聊：只给在线成员 INCR（全员扇出在万人群会打爆 Redis）；离线用户靠游标/SQL 回退
      */
     protected function bumpUnreadCounters(array $payload)
     {
@@ -148,12 +150,11 @@ class MessageService
             }
         } else {
             try {
-                foreach ((new GroupService())->memberUserIds((int)($payload['group_id'] ?? $cid)) as $uid) {
-                    $uid = (int)$uid;
-                    if ($uid > 0 && $uid !== $from) {
-                        $uids[] = $uid;
-                    }
-                }
+                $all = (new GroupService())->memberUserIds((int)($payload['group_id'] ?? $cid));
+                $uids = ConnMap::filterOnlineUserIds($all);
+                $uids = array_values(array_filter($uids, function ($uid) use ($from) {
+                    return (int)$uid !== $from;
+                }));
             } catch (\Throwable $e) {
             }
         }
@@ -162,12 +163,23 @@ class MessageService
         }
         try {
             $r = RedisClient::conn();
+            $r->multi(\Redis::PIPELINE);
             foreach ($uids as $uid) {
-                $key = RedisClient::key('unread:' . $uid . ':' . $type . ':' . $cid);
+                $key = RedisClient::key('unread:' . (int)$uid . ':' . $type . ':' . $cid);
                 $r->incr($key);
                 $r->expire($key, 86400 * 30);
             }
+            $r->exec();
         } catch (\Throwable $e) {
+            try {
+                $r = RedisClient::conn();
+                foreach ($uids as $uid) {
+                    $key = RedisClient::key('unread:' . (int)$uid . ':' . $type . ':' . $cid);
+                    $r->incr($key);
+                    $r->expire($key, 86400 * 30);
+                }
+            } catch (\Throwable $e2) {
+            }
         }
     }
 
@@ -269,6 +281,8 @@ class MessageService
 
     /**
      * 维护每人最近会话 ZSET（score=消息 id），列表 O(logN) 取 Top，避免消息表 GROUP BY 越扫越慢
+     * 群聊：只更新发送者 + 在线成员 inbox（全员写 inbox 在万人群不可扩展）
+     * 另写 g:{gid}:last 供列表侧补活跃群
      */
     protected function touchInbox(array $payload)
     {
@@ -283,16 +297,36 @@ class MessageService
         if ($type === 1) {
             $uids = [(int)$payload['from_user_id'], (int)$payload['to_user_id']];
         } else {
+            $from = (int)($payload['from_user_id'] ?? 0);
+            $uids = $from > 0 ? [$from] : [];
             try {
-                $uids = (new GroupService())->memberUserIds((int)($payload['group_id'] ?? $cid));
+                $gid = (int)($payload['group_id'] ?? $cid);
+                $all = (new GroupService())->memberUserIds($gid);
+                $online = ConnMap::filterOnlineUserIds($all);
+                foreach ($online as $uid) {
+                    $uids[] = (int)$uid;
+                }
+                // 群维度最后一条：O(1)，离线用户回列表时可并入
+                try {
+                    RedisClient::conn()->setex(
+                        RedisClient::key('g:' . $gid . ':last'),
+                        86400 * 30,
+                        json_encode([
+                            'id'         => $msgId,
+                            'createtime' => (int)($payload['createtime'] ?? time()),
+                            'from'       => $from,
+                        ], JSON_UNESCAPED_UNICODE)
+                    );
+                } catch (\Throwable $eLast) {
+                }
             } catch (\Throwable $e) {
-                $uids = [(int)$payload['from_user_id']];
             }
+            $uids = array_values(array_unique(array_filter(array_map('intval', $uids))));
         }
         try {
             $r = RedisClient::conn();
+            $r->multi(\Redis::PIPELINE);
             foreach ($uids as $uid) {
-                $uid = (int)$uid;
                 if ($uid <= 0) {
                     continue;
                 }
@@ -301,14 +335,48 @@ class MessageService
                 // 只保留最近 200 个会话键
                 $r->zRemRangeByRank($key, 0, -201);
                 $r->expire($key, 86400 * 30);
-                $r->del(
-                    RedisClient::key('convlist:' . $uid . ':50'),
-                    RedisClient::key('convlist:' . $uid . ':100'),
-                    RedisClient::key('convlist:' . $uid)
-                );
+            }
+            $r->exec();
+            // 列表短缓存靠 TTL 自然过期，避免群消息对上千在线用户逐个 DEL
+        } catch (\Throwable $e) {
+        }
+    }
+
+    /** @return array<int,array{id:int,createtime:int}> */
+    protected function groupLastMap(array $groupIds)
+    {
+        $out = [];
+        $groupIds = array_values(array_unique(array_filter(array_map('intval', $groupIds))));
+        if (!$groupIds) {
+            return $out;
+        }
+        try {
+            $r = RedisClient::conn();
+            $keys = [];
+            foreach ($groupIds as $gid) {
+                $keys[] = RedisClient::key('g:' . $gid . ':last');
+            }
+            $vals = $r->mGet($keys);
+            if (!is_array($vals)) {
+                return $out;
+            }
+            foreach ($groupIds as $i => $gid) {
+                $raw = $vals[$i] ?? false;
+                if ($raw === false || $raw === null || $raw === '') {
+                    continue;
+                }
+                $j = json_decode((string)$raw, true);
+                if (!is_array($j) || empty($j['id'])) {
+                    continue;
+                }
+                $out[$gid] = [
+                    'id'         => (int)$j['id'],
+                    'createtime' => (int)($j['createtime'] ?? 0),
+                ];
             }
         } catch (\Throwable $e) {
         }
+        return $out;
     }
 
     /** @return array<string,int> member => last_msg_id */
@@ -631,22 +699,68 @@ class MessageService
                 }
             }
             unset($it);
+            // 不再把「无消息的空群」塞进主会话列表（万人群会把列表撑爆）
+            // 离线期间错过 inbox 扇出的活跃群：用 g:{id}:last 补进列表并回填 inbox
+            $missGids = [];
             foreach ($groups as $g) {
                 $gid = (int)$g['id'];
-                if (isset($haveG[$gid])) {
-                    continue;
+                if ($gid > 0 && !isset($haveG[$gid])) {
+                    $missGids[] = $gid;
                 }
-                $items[] = [
-                    'conversation_type' => 2,
-                    'conversation_id'   => (string)$gid,
-                    'peer_user_id'      => 0,
-                    'group_id'          => $gid,
-                    'title'             => (string)($g['name'] ?? ''),
-                    'avatar'            => (string)($g['avatar'] ?? ''),
-                    'last_message'      => null,
-                    'updatetime'        => (int)($g['updatetime'] ?: $g['createtime']),
-                    'unread_count'      => 0,
-                ];
+            }
+            if ($missGids) {
+                $lastMap = $this->groupLastMap($missGids);
+                $extraMsgIds = [];
+                foreach ($missGids as $gid) {
+                    $lastId = (int)($lastMap[$gid]['id'] ?? 0);
+                    if ($lastId <= 0) {
+                        continue;
+                    }
+                    $extraMsgIds[$lastId] = true;
+                    $haveG[$gid] = true;
+                    $g = $metaById[$gid] ?? null;
+                    $items[] = [
+                        'conversation_type' => 2,
+                        'conversation_id'   => (string)$gid,
+                        'peer_user_id'      => 0,
+                        'group_id'          => $gid,
+                        'title'             => $g ? (string)($g['name'] ?? '') : '',
+                        'avatar'            => $g ? (string)($g['avatar'] ?? '') : '',
+                        'last_message'      => null,
+                        'updatetime'        => (int)($lastMap[$gid]['createtime'] ?? 0),
+                        'unread_count'      => 0,
+                        '_last_msg_id'      => $lastId,
+                    ];
+                }
+                $extraIds = array_keys($extraMsgIds);
+                if ($extraIds) {
+                    $in = implode(',', array_fill(0, count($extraIds), '?'));
+                    $rows = Db::fetchAll(
+                        "SELECT id,msg_id,conversation_type,conversation_id,group_id,from_user_id,to_user_id,"
+                        . "msg_type,content,extra,status,createtime FROM {$msgTable}"
+                        . " WHERE id IN ({$in}) AND status=1",
+                        $extraIds
+                    );
+                    $byId = [];
+                    foreach ($rows as $row) {
+                        $byId[(int)$row['id']] = $this->slimLastMessage($this->normalizeMessage($row));
+                    }
+                    foreach ($items as &$it2) {
+                        if (empty($it2['_last_msg_id'])) {
+                            continue;
+                        }
+                        $mid = (int)$it2['_last_msg_id'];
+                        if (isset($byId[$mid])) {
+                            $it2['last_message'] = $byId[$mid];
+                            $it2['updatetime'] = (int)$byId[$mid]['createtime'];
+                        }
+                        unset($it2['_last_msg_id']);
+                    }
+                    unset($it2);
+                }
+                $this->seedInboxFromItems($userId, array_filter($items, function ($it) {
+                    return (int)($it['conversation_type'] ?? 0) === 2 && !empty($it['last_message']);
+                }));
             }
         } else {
             // 冷启动：UNION 替代 OR，减轻私聊聚合扫描；结果回填 inbox
