@@ -89,14 +89,10 @@
     };
   }
 
-  /** 有「钱包下拉」时：优先选 BS 收银台按钮；否则不预选下拉项 */
+  /** 有通道时默认选第一个（含钱包分区网格） */
   function pickDefaultChannel(list, useSelect, type) {
-    var arr = list || [];
-    if (!arr.length) return null;
-    if (!useSelect) return arr[0];
-    var split = splitWalletChannels(arr, type);
-    if (split.featured.length) return split.featured[0];
-    return null;
+    var arr = flattenChannelList(list, type, useSelect);
+    return arr.length ? arr[0] : null;
   }
 
   function findChannel(list, id) {
@@ -178,15 +174,57 @@
       var cur = document.getElementById('profileWithdrawBindCurrent');
       var form = document.getElementById('profileWithdrawBindForm');
       var addr = document.getElementById('profileWithdrawBoundAddr');
+      var hint = document.getElementById('profileWithdrawBindHint');
       var needBind = !bind;
       if (cur) cur.hidden = !bind;
-      if (form) form.style.display = needBind ? '' : 'none';
       if (addr && bind) addr.textContent = bind.account_no || '-';
-      setWithdrawAmountGate(!needBind);
-      if (submitBtn) submitBtn.style.display = needBind ? 'none' : '';
+      if (needBind) {
+        if (hint) {
+          hint.innerHTML = escapeHtml(wt('wallet_bind_need_payee', '请先绑定该钱包收款地址')) +
+            ' <button type="button" class="wallet-go-payee-btn" id="profileWithdrawGoPayee">' +
+            escapeHtml(wt('profile_menu_payee', '钱包地址')) + '</button>';
+        }
+        if (form) form.style.display = 'none';
+        setWithdrawAmountGate(false);
+        if (submitBtn) submitBtn.style.display = 'none';
+        var goBtn = document.getElementById('profileWithdrawGoPayee');
+        if (goBtn && !goBtn._bound) {
+          goBtn._bound = true;
+          goBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            toast(wt('wallet_bind_goto_payee', '请先在钱包地址中完成绑定'), 'info');
+            global.openProfileSubPage('payee');
+          });
+        }
+        return;
+      }
+      if (hint) hint.textContent = wt('wallet_bind_hint', '请先绑定该钱包收款地址（每个钱包类型独立，地址不可重复）');
+      if (form) form.style.display = 'none';
+      setWithdrawAmountGate(true);
+      if (submitBtn) submitBtn.style.display = '';
       return;
     }
-    // 常规/银行：先填收款信息，再解锁金额
+    // 常规/银行：优先用已绑定的银行卡/支付宝；先填收款信息，再解锁金额
+    if (!isWallet) {
+      var bankBind = walletState.binds && walletState.binds.BANK;
+      var aliBind = walletState.binds && walletState.binds.ALIPAY;
+      var nameEl = document.getElementById('profileWithdrawName');
+      var accEl = document.getElementById('profileWithdrawAccount');
+      var bankEl = document.getElementById('profileWithdrawBank');
+      if (nameEl && !String(nameEl.value || '').trim()) {
+        if (aliBind && aliBind.account_name) nameEl.value = aliBind.account_name;
+        else if (bankBind && bankBind.account_name) nameEl.value = bankBind.account_name;
+      }
+      if (accEl && !String(accEl.value || '').trim()) {
+        if (aliBind && aliBind.account_no) {
+          accEl.value = aliBind.account_no;
+          if (bankEl && !String(bankEl.value || '').trim()) bankEl.value = '支付宝';
+        } else if (bankBind && bankBind.account_no) {
+          accEl.value = bankBind.account_no;
+          if (bankEl && !String(bankEl.value || '').trim()) bankEl.value = bankBind.bank_name || '';
+        }
+      }
+    }
     var ready = withdrawPayeeReady(ch);
     setWithdrawAmountGate(ready);
     if (submitBtn) submitBtn.style.display = ready ? '' : 'none';
@@ -328,11 +366,19 @@
       : (String(ch.name || '').replace(/(充值|代付|提现)$/g, '').trim() || ch.name
         || wt('wallet_channel_fallback', '通道{id}', { id: ch.id }));
     var iconHtml = channelIconHtml(ch, name);
+    var boundHint = '';
+    if (type === 'withdraw' && isWallet) {
+      var wtype = String(ch.wallet_type || ch.payment_channel || '');
+      if (wtype && walletState.binds && walletState.binds[wtype]) {
+        boundHint = '<span class="wallet-channel-bound">' + escapeHtml(wt('wallet_bound_short', '已绑定')) + '</span>';
+      }
+    }
     return (
       '<button type="button" class="wallet-channel-item' + active + '" data-id="' + ch.id + '" data-type="' + type + '">' +
         iconHtml +
         '<span class="wallet-channel-meta">' +
           '<span class="wallet-channel-name">' + escapeHtml(name) + '</span>' +
+          boundHint +
         '</span>' +
       '</button>'
     );
@@ -344,7 +390,6 @@
     if (String(ch.handler || '').toLowerCase() !== 'bs') return false;
     var mode = String(ch.recharge_mode || '').toLowerCase();
     if (mode === 'api') return false;
-    // 默认/空/cashier 都视为收银台
     if (mode === '' || mode === 'cashier') return true;
     return /收银台|cashier/i.test(String(ch.name || ''));
   }
@@ -361,62 +406,38 @@
     return { featured: featured, dropdown: ordered };
   }
 
-  function channelSelectHtml(list, type, sel) {
-    var selected = null;
-    (list || []).forEach(function (ch) {
-      if ((ch.id | 0) === sel) selected = ch;
-    });
-    var triggerName = selected
-      ? shortWalletName(selected)
-      : wt('wallet_select_placeholder', '请选择钱包');
-    var triggerIcon = selected
-      ? channelIconHtml(selected, triggerName)
-      : '<span class="wallet-channel-icon wallet-channel-icon--placeholder">$</span>';
-
-    var options = (list || []).map(function (ch) {
-      var id = ch.id | 0;
-      var name = shortWalletName(ch);
-      var active = sel === id ? ' active' : '';
-      return (
-        '<button type="button" class="wallet-picker-option' + active + '" data-id="' + id + '" data-type="' + type + '">' +
-          channelIconHtml(ch, name) +
-          '<span class="wallet-picker-option-name">' + escapeHtml(name) + '</span>' +
-        '</button>'
-      );
-    }).join('');
-
-    return (
-      '<div class="wallet-picker" data-type="' + type + '">' +
-        '<button type="button" class="wallet-picker-trigger" aria-haspopup="listbox" aria-expanded="false">' +
-          triggerIcon +
-          '<span class="wallet-picker-trigger-name">' + escapeHtml(triggerName) + '</span>' +
-          '<span class="wallet-picker-caret" aria-hidden="true"></span>' +
-        '</button>' +
-        '<div class="wallet-picker-menu" hidden role="listbox">' + options + '</div>' +
-      '</div>'
-    );
+  function flattenChannelList(list, type, useSelect) {
+    if (!useSelect) return (list || []).slice();
+    var split = splitWalletChannels(list, type);
+    return split.featured.concat(split.dropdown);
   }
 
+  var CHANNEL_GRID_VISIBLE = 8;
+
   function renderChannelGroupHtml(list, type, sel, partKey, useSelect) {
-    if (!useSelect) {
-      return (list || []).map(function (ch) { return channelButtonHtml(ch, type, sel); }).join('');
-    }
-    var split = splitWalletChannels(list, type);
-    var html = '';
-    if (split.featured.length) {
-      html += '<div class="wallet-channel-featured">' +
-        split.featured.map(function (ch) { return channelButtonHtml(ch, type, sel); }).join('') +
-        '</div>';
-    }
-    if (split.dropdown.length) {
-      // 若当前选中是收银台按钮，下拉保持「请选择」
-      var selInDrop = split.dropdown.some(function (ch) { return (ch.id | 0) === sel; });
-      html += channelSelectHtml(split.dropdown, type, selInDrop ? sel : 0);
-    } else if (!split.featured.length) {
-      html = '<div class="wallet-channel-empty wallet-channel-empty--inline">' +
+    var all = flattenChannelList(list, type, useSelect);
+    if (!all.length) {
+      return '<div class="wallet-channel-empty wallet-channel-empty--inline">' +
         escapeHtml(wt('wallet_partition_empty', '当前分区暂无可用通道')) + '</div>';
     }
-    return html;
+    var expMap = type === 'recharge' ? walletState.rechargeExpanded : walletState.withdrawExpanded;
+    var expanded = !!(expMap && expMap[partKey]);
+    var shown = expanded || all.length <= CHANNEL_GRID_VISIBLE
+      ? all
+      : all.slice(0, CHANNEL_GRID_VISIBLE);
+    var html = shown.map(function (ch) { return channelButtonHtml(ch, type, sel); }).join('');
+    if (all.length > CHANNEL_GRID_VISIBLE) {
+      html += (
+        '<button type="button" class="wallet-channel-item wallet-channel-more-btn' + (expanded ? ' is-open' : '') +
+          '" data-more="1" data-part-key="' + escapeHtml(partKey) + '" data-type="' + type + '">' +
+          '<span class="wallet-channel-icon wallet-channel-icon--placeholder">' + (expanded ? '−' : '+') + '</span>' +
+          '<span class="wallet-channel-meta"><span class="wallet-channel-name">' +
+            escapeHtml(expanded ? wt('wallet_channel_less', '收起') : wt('wallet_channel_more', '更多')) +
+          '</span></span>' +
+        '</button>'
+      );
+    }
+    return '<div class="wallet-channel-grid">' + html + '</div>';
   }
 
   function partitionStateKey(type) {
@@ -481,34 +502,12 @@
       var t = ev.target;
       if (!t) return;
 
-      var trigger = t.closest ? t.closest('.wallet-picker-trigger') : null;
-      if (trigger) {
+      var moreBtn = t.closest ? t.closest('.wallet-channel-more-btn') : null;
+      if (moreBtn) {
         ev.preventDefault();
-        var picker = trigger.closest('.wallet-picker');
-        if (!picker) return;
-        var menu = picker.querySelector('.wallet-picker-menu');
-        var open = menu && !menu.hidden;
-        document.querySelectorAll('.wallet-picker-menu').forEach(function (m) {
-          m.hidden = true;
-          var p = m.closest('.wallet-picker');
-          var tr = p && p.querySelector('.wallet-picker-trigger');
-          if (tr) tr.setAttribute('aria-expanded', 'false');
-        });
-        if (menu && !open) {
-          menu.hidden = false;
-          trigger.setAttribute('aria-expanded', 'true');
-        }
-        return;
-      }
-
-      var opt = t.closest ? t.closest('.wallet-picker-option') : null;
-      if (opt) {
-        ev.preventDefault();
-        var id = parseInt(opt.getAttribute('data-id'), 10) || 0;
-        if (type === 'recharge') walletState.selectedRecharge = id;
-        else walletState.selectedWithdraw = id;
-        var items = box.querySelectorAll('.wallet-channel-item');
-        for (var i = 0; i < items.length; i++) items[i].classList.remove('active');
+        var pk = moreBtn.getAttribute('data-part-key') || 'part';
+        var expMap = type === 'recharge' ? walletState.rechargeExpanded : walletState.withdrawExpanded;
+        expMap[pk] = !expMap[pk];
         renderChannels(box.id, type === 'recharge' ? walletState.recharge : walletState.withdraw, type);
         return;
       }
@@ -525,7 +524,7 @@
           node = node.parentNode;
         }
       }
-      if (!btn) return;
+      if (!btn || btn.getAttribute('data-more') === '1') return;
       ev.preventDefault();
       var cid = parseInt(btn.getAttribute('data-id'), 10) || 0;
       if (type === 'recharge') walletState.selectedRecharge = cid;
@@ -823,7 +822,12 @@
 
   global.openProfileWalletPage = function (which) {
     if (typeof global.closeProfileSubPage === 'function') global.closeProfileSubPage();
-    var map = { recharge: 'profileRechargePane', withdraw: 'profileWithdrawPane', ledger: 'profileLedgerPane' };
+    var map = {
+      recharge: 'profileRechargePane',
+      withdraw: 'profileWithdrawPane',
+      ledger: 'profileLedgerPane',
+      payee: 'profilePayeePane'
+    };
     var id = map[which];
     var pane = document.getElementById(id);
     if (!pane) return;
@@ -837,6 +841,17 @@
       pane.setAttribute('aria-hidden', 'false');
       if (typeof global.setBottomActionBarVisible === 'function') global.setBottomActionBarVisible(false);
       fetchLedger(1, false);
+      return;
+    }
+    if (which === 'payee') {
+      pane.classList.add('open');
+      pane.setAttribute('aria-hidden', 'false');
+      if (typeof global.setBottomActionBarVisible === 'function') global.setBottomActionBarVisible(false);
+      loadWalletData().then(function () {
+        initPayeePage();
+      }).catch(function () {
+        initPayeePage();
+      });
       return;
     }
     // 每次打开重置选中，先选通道再填金额
@@ -864,7 +879,7 @@
 
   var origOpen = global.openProfileSubPage;
   global.openProfileSubPage = function (which) {
-    if (which === 'recharge' || which === 'withdraw' || which === 'ledger') {
+    if (which === 'recharge' || which === 'withdraw' || which === 'ledger' || which === 'payee') {
       if (global.FansHubAssets && typeof global.FansHubAssets.ensureWallet === 'function') {
         global.FansHubAssets.ensureWallet().then(function () {
           global.openProfileWalletPage(which);
@@ -881,7 +896,7 @@
 
   var origClose = global.closeProfileSubPage;
   global.closeProfileSubPage = function () {
-    ['profileRechargePane', 'profileWithdrawPane', 'profileLedgerPane'].forEach(function (id) {
+    ['profileRechargePane', 'profileWithdrawPane', 'profileLedgerPane', 'profilePayeePane'].forEach(function (id) {
       var el = document.getElementById(id);
       if (el) { el.classList.remove('open'); el.setAttribute('aria-hidden', 'true'); }
     });
@@ -1039,6 +1054,276 @@
       renderLedgerList();
     }
   };
+
+  var payeeState = { tab: 'bank', selectedWalletType: '', walletTypes: [] };
+
+  function payeeTypeMeta(kind) {
+    var map = {
+      bank: { wallet_type: 'BANK', bind_mode: 'bank', label: wt('profile_payee_tab_bank', '银行卡') },
+      alipay: { wallet_type: 'ALIPAY', bind_mode: 'alipay', label: wt('profile_payee_tab_alipay', '支付宝') },
+      wechat: { wallet_type: 'WECHAT', bind_mode: 'wechat', label: wt('profile_payee_tab_wechat', '微信') }
+    };
+    return map[kind] || null;
+  }
+
+  function collectWithdrawWalletTypes() {
+    var seen = {};
+    var out = [];
+    var parts = walletState.withdrawPartitions || [];
+    var lists = [walletState.withdraw || []];
+    parts.forEach(function (p) {
+      if (p && p.channels) lists.push(p.channels);
+    });
+    lists.forEach(function (list) {
+      (list || []).forEach(function (ch) {
+        if (String(ch.bind_mode || '') !== 'wallet') return;
+        var wt0 = String(ch.wallet_type || ch.payment_channel || '').trim();
+        if (!wt0 || seen[wt0]) return;
+        seen[wt0] = true;
+        out.push({
+          wallet_type: wt0,
+          name: shortWalletName(ch),
+          icon: ch.icon || '',
+          channel: ch
+        });
+      });
+    });
+    out.sort(function (a, b) {
+      return walletPinIndex(a.channel) - walletPinIndex(b.channel);
+    });
+    return out;
+  }
+
+  function fillPayeeBoundHints() {
+    [['bank', 'profilePayeeBankBound'], ['alipay', 'profilePayeeAlipayBound'], ['wechat', 'profilePayeeWechatBound']].forEach(function (pair) {
+      var meta = payeeTypeMeta(pair[0]);
+      var el = document.getElementById(pair[1]);
+      if (!meta || !el) return;
+      var bind = walletState.binds && walletState.binds[meta.wallet_type];
+      if (!bind) {
+        el.hidden = true;
+        el.textContent = '';
+        return;
+      }
+      el.hidden = false;
+      el.textContent = wt('wallet_bound_label', '已绑定：') + (bind.account_no || '') +
+        (bind.account_name ? (' / ' + bind.account_name) : '') +
+        (bind.bank_name ? (' / ' + bind.bank_name) : '');
+    });
+  }
+
+  function renderPayeeWalletTypes() {
+    var box = document.getElementById('profilePayeeWalletTypes');
+    if (!box) return;
+    payeeState.walletTypes = collectWithdrawWalletTypes();
+    if (!payeeState.walletTypes.length) {
+      box.innerHTML = '<div class="wallet-channel-empty">' + escapeHtml(wt('wallet_partition_empty', '暂无可用数字钱包类型')) + '</div>';
+      return;
+    }
+    var sel = payeeState.selectedWalletType;
+    var VISIBLE = 8;
+    var expanded = !!walletState.rechargeExpanded.__payee_wallet__;
+    var all = payeeState.walletTypes;
+    var shown = expanded || all.length <= VISIBLE ? all : all.slice(0, VISIBLE);
+    var html = shown.map(function (item) {
+      var active = sel === item.wallet_type ? ' active' : '';
+      var bind = walletState.binds && walletState.binds[item.wallet_type];
+      var ch = item.channel || { name: item.name, icon: item.icon, wallet_type: item.wallet_type };
+      return (
+        '<button type="button" class="wallet-channel-item' + active + '" data-payee-wtype="' + escapeHtml(item.wallet_type) + '">' +
+          channelIconHtml(ch, item.name) +
+          '<span class="wallet-channel-meta">' +
+            '<span class="wallet-channel-name">' + escapeHtml(item.name) + '</span>' +
+            (bind ? '<span class="wallet-channel-bound">' + escapeHtml(wt('wallet_bound_short', '已绑定')) + '</span>' : '') +
+          '</span>' +
+        '</button>'
+      );
+    }).join('');
+    if (all.length > VISIBLE) {
+      html += (
+        '<button type="button" class="wallet-channel-item wallet-channel-more-btn' + (expanded ? ' is-open' : '') +
+          '" data-payee-more="1">' +
+          '<span class="wallet-channel-icon wallet-channel-icon--placeholder">' + (expanded ? '−' : '+') + '</span>' +
+          '<span class="wallet-channel-meta"><span class="wallet-channel-name">' +
+            escapeHtml(expanded ? wt('wallet_channel_less', '收起') : wt('wallet_channel_more', '更多')) +
+          '</span></span></button>'
+      );
+    }
+    box.innerHTML = html;
+    box.classList.add('is-grid');
+    if (!box._payeeClickBound) {
+      box._payeeClickBound = true;
+      box.addEventListener('click', function (ev) {
+        var more = ev.target && ev.target.closest && ev.target.closest('[data-payee-more]');
+        if (more) {
+          walletState.rechargeExpanded.__payee_wallet__ = !walletState.rechargeExpanded.__payee_wallet__;
+          renderPayeeWalletTypes();
+          return;
+        }
+        var btn = ev.target && ev.target.closest && ev.target.closest('[data-payee-wtype]');
+        if (!btn) return;
+        payeeState.selectedWalletType = btn.getAttribute('data-payee-wtype') || '';
+        renderPayeeWalletTypes();
+        syncPayeeWalletForm();
+      });
+    }
+  }
+
+  function syncPayeeWalletForm() {
+    var form = document.getElementById('profilePayeeWalletForm');
+    var wtype = payeeState.selectedWalletType;
+    if (!form) return;
+    if (!wtype) {
+      form.hidden = true;
+      return;
+    }
+    form.hidden = false;
+    var label = document.getElementById('profilePayeeWalletTypeLabel');
+    var boundLine = document.getElementById('profilePayeeWalletBoundLine');
+    var boundAddr = document.getElementById('profilePayeeWalletBoundAddr');
+    var item = null;
+    payeeState.walletTypes.forEach(function (x) {
+      if (x.wallet_type === wtype) item = x;
+    });
+    if (label) label.textContent = (item && item.name) || wtype;
+    var bind = walletState.binds && walletState.binds[wtype];
+    if (boundLine) boundLine.hidden = !bind;
+    if (boundAddr) boundAddr.textContent = bind ? (bind.account_no || '-') : '-';
+    var addr = document.getElementById('profilePayeeWalletAddress');
+    var name = document.getElementById('profilePayeeWalletName');
+    if (addr) addr.value = bind ? (bind.account_no || '') : '';
+    if (name) name.value = bind ? (bind.account_name || '') : '';
+  }
+
+  function switchPayeeTab(tab) {
+    payeeState.tab = tab || 'bank';
+    var tabs = document.getElementById('profilePayeeTabs');
+    if (tabs) {
+      [].forEach.call(tabs.querySelectorAll('.wallet-payee-tab'), function (btn) {
+        btn.classList.toggle('active', btn.getAttribute('data-payee-tab') === payeeState.tab);
+      });
+    }
+    ['bank', 'alipay', 'wechat', 'wallet'].forEach(function (k) {
+      var panel = document.querySelector('[data-payee-panel="' + k + '"]');
+      if (panel) panel.hidden = k !== payeeState.tab;
+    });
+    fillPayeeBoundHints();
+    if (payeeState.tab === 'wallet') {
+      renderPayeeWalletTypes();
+      syncPayeeWalletForm();
+    }
+  }
+
+  function initPayeePage() {
+    var tabs = document.getElementById('profilePayeeTabs');
+    if (tabs && !tabs._payeeTabBound) {
+      tabs._payeeTabBound = true;
+      tabs.addEventListener('click', function (ev) {
+        var btn = ev.target && ev.target.closest && ev.target.closest('.wallet-payee-tab');
+        if (!btn) return;
+        switchPayeeTab(btn.getAttribute('data-payee-tab') || 'bank');
+      });
+    }
+    // 预填常规绑定
+    var bank = walletState.binds && walletState.binds.BANK;
+    var ali = walletState.binds && walletState.binds.ALIPAY;
+    var wx = walletState.binds && walletState.binds.WECHAT;
+    var setVal = function (id, v) {
+      var el = document.getElementById(id);
+      if (el) el.value = v || '';
+    };
+    if (bank) {
+      setVal('profilePayeeBankAccountName', bank.account_name);
+      setVal('profilePayeeBankAccountNo', bank.account_no);
+      setVal('profilePayeeBankName', bank.bank_name);
+    }
+    if (ali) {
+      setVal('profilePayeeAlipayName', ali.account_name);
+      setVal('profilePayeeAlipayNo', ali.account_no);
+    }
+    if (wx) {
+      setVal('profilePayeeWechatName', wx.account_name);
+      setVal('profilePayeeWechatNo', wx.account_no);
+    }
+    switchPayeeTab(payeeState.tab || 'bank');
+  }
+
+  global.submitProfilePayeeBind = function (kind) {
+    kind = String(kind || payeeState.tab || 'bank');
+    var payload = { bind_mode: kind };
+    var walletType = '';
+    if (kind === 'bank') {
+      walletType = 'BANK';
+      payload.account_name = ((document.getElementById('profilePayeeBankAccountName') || {}).value || '').trim();
+      payload.account_no = ((document.getElementById('profilePayeeBankAccountNo') || {}).value || '').trim();
+      payload.bank_name = ((document.getElementById('profilePayeeBankName') || {}).value || '').trim();
+      payload.bind_mode = 'bank';
+      if (!payload.account_no || !payload.account_name) {
+        toast(wt('profile_payee_bank_incomplete', '请填写开户名与银行卡号'), 'error');
+        return;
+      }
+    } else if (kind === 'alipay') {
+      walletType = 'ALIPAY';
+      payload.account_name = ((document.getElementById('profilePayeeAlipayName') || {}).value || '').trim();
+      payload.account_no = ((document.getElementById('profilePayeeAlipayNo') || {}).value || '').trim();
+      payload.bank_name = '支付宝';
+      payload.bind_mode = 'alipay';
+      if (!payload.account_no || !payload.account_name) {
+        toast(wt('profile_payee_alipay_incomplete', '请填写支付宝实名与账号'), 'error');
+        return;
+      }
+    } else if (kind === 'wechat') {
+      walletType = 'WECHAT';
+      payload.account_name = ((document.getElementById('profilePayeeWechatName') || {}).value || '').trim();
+      payload.account_no = ((document.getElementById('profilePayeeWechatNo') || {}).value || '').trim();
+      payload.bank_name = '微信';
+      payload.bind_mode = 'wechat';
+      if (!payload.account_no) {
+        toast(wt('profile_payee_wechat_incomplete', '请填写微信号或收款账号'), 'error');
+        return;
+      }
+    } else {
+      walletType = payeeState.selectedWalletType;
+      payload.account_no = ((document.getElementById('profilePayeeWalletAddress') || {}).value || '').trim();
+      payload.account_name = ((document.getElementById('profilePayeeWalletName') || {}).value || '').trim();
+      payload.bind_mode = 'wallet';
+      if (!walletType) {
+        toast(wt('wallet_need_channel', '请先选择钱包'), 'error');
+        return;
+      }
+      if (!payload.account_no || payload.account_no.length < 6) {
+        toast(wt('wallet_bind_address_invalid', '钱包地址格式不正确'), 'error');
+        return;
+      }
+    }
+    api('bindwallet', {
+      wallet_type: walletType,
+      account_info: payload,
+      bind_mode: payload.bind_mode
+    }).then(function (data) {
+      walletState.binds = (data && data.binds) || walletState.binds || {};
+      toast(wt('wallet_bind_ok', '绑定成功'), 'success');
+      initPayeePage();
+    }).catch(function (e) {
+      toast((e && e.message) || wt('wallet_fail', '失败'), 'error');
+    });
+  };
+
+  // 提现未绑定：点「去绑定」
+  (function bindGoPayeeOnce() {
+    var panel = document.getElementById('profileWithdrawWalletBind');
+    if (!panel || panel._goPayeeBound) return;
+    panel._goPayeeBound = true;
+    panel.addEventListener('click', function (ev) {
+      var btn = ev.target && (ev.target.id === 'profileWithdrawGoPayee'
+        ? ev.target
+        : (ev.target.closest && ev.target.closest('#profileWithdrawGoPayee')));
+      if (!btn) return;
+      ev.preventDefault();
+      toast(wt('wallet_bind_goto_payee', '请先在钱包地址中完成绑定'), 'info');
+      global.openProfileSubPage('payee');
+    });
+  })();
 
   global.FansHubWallet = { loaded: true, reload: loadWalletData, refreshLedgerCopy: global.refreshProfileLedgerCopy };
 })(window);

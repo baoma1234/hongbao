@@ -516,18 +516,22 @@
   color: var(--pg-muted);
 }
 
-/* 充值/提现通道 */
-.profile-sub-pane .wallet-channel-list {
-  display: flex;
-  flex-direction: column;
+/* 充值/提现通道：一排四个，图标瓷砖 */
+.profile-sub-pane .wallet-channel-list,
+.profile-sub-pane .wallet-channel-list.is-grid,
+.profile-sub-pane .wallet-channel-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
   margin: 12px 0;
 }
 
 .profile-sub-pane .wallet-channel-item {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 12px;
+  justify-content: flex-start;
+  gap: 6px;
   width: 100%;
   box-sizing: border-box;
   border: 1.5px solid transparent !important;
@@ -535,19 +539,20 @@
     linear-gradient(#fff, #fff) padding-box,
     linear-gradient(145deg, #ffe9b0 0%, #f0b04a 42%, #e07a22 100%) border-box !important;
   box-shadow: 0 4px 10px rgba(176, 120, 50, 0.08) !important;
-  border-radius: 14px !important;
-  padding: 10px 14px;
-  text-align: left;
+  border-radius: 12px !important;
+  padding: 10px 4px 8px;
+  text-align: center;
   cursor: pointer;
   color: #3d2e22;
   font-weight: 700;
+  min-height: 78px;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
 
 .profile-sub-pane .wallet-channel-icon {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border-radius: 10px;
   object-fit: cover;
   flex-shrink: 0;
@@ -558,7 +563,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 800;
   color: #c45a1a;
   background: linear-gradient(145deg, #fff4e0, #ffe0b0);
@@ -567,8 +572,28 @@
 .profile-sub-pane .wallet-channel-meta {
   display: flex;
   flex-direction: column;
+  align-items: center;
   min-width: 0;
-  flex: 1;
+  width: 100%;
+}
+
+.profile-sub-pane .wallet-channel-name {
+  display: block;
+  width: 100%;
+  font-size: 11px;
+  line-height: 1.25;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-sub-pane .wallet-channel-item .wallet-channel-bound {
+  display: block;
+  font-size: 9px;
+  font-weight: 500;
+  color: #2e7d32;
+  margin-top: 2px;
 }
 
 .profile-sub-pane .wallet-amount-panel {
@@ -605,20 +630,7 @@
 }
 
 .profile-sub-pane .wallet-channel-more-btn::after {
-  content: '';
-  width: 8px;
-  height: 8px;
-  margin-left: auto;
-  flex-shrink: 0;
-  border-right: 2px solid #c45a1a;
-  border-bottom: 2px solid #c45a1a;
-  transform: rotate(45deg);
-  transition: transform 0.18s ease;
-}
-
-.profile-sub-pane .wallet-channel-more-btn.is-open::after {
-  transform: rotate(-135deg);
-  margin-top: 4px;
+  content: none;
 }
 
 .profile-sub-pane .wallet-channel-more-btn:active,
@@ -635,14 +647,49 @@
   background: linear-gradient(145deg, #ffe8e4, #ffd0cc);
 }
 
-.profile-sub-pane .wallet-channel-more-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.profile-sub-pane .wallet-channel-featured {
+  display: contents;
 }
 
-.profile-sub-pane .wallet-channel-more-list[hidden] {
-  display: none !important;
+.profile-sub-pane .wallet-payee-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.profile-sub-pane .wallet-payee-tab {
+  min-height: 36px;
+  padding: 8px 4px;
+  border-radius: 10px;
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(#fff8f0, #fff8f0) padding-box,
+    linear-gradient(145deg, #ffe9b0 0%, #f0b04a 42%, #e07a22 100%) border-box;
+  color: #8a4f1f;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.profile-sub-pane .wallet-payee-tab.active {
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    linear-gradient(to right, #E63022, #C61114) border-box;
+  color: #C61114;
+}
+
+.profile-sub-pane .wallet-go-payee-btn {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(to right, #E63022, #C61114);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .profile-sub-pane .wallet-partition-tabs {

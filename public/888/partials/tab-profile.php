@@ -56,6 +56,16 @@
             <section class="profile-section">
                 <h3 class="profile-section-label" data-copy="profile_section_asset">资产服务</h3>
                 <div class="profile-menu-sheet">
+                    <button type="button" class="profile-menu-row" onclick="openProfileSubPage('payee')">
+                        <span class="profile-menu-ico" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M3 6h18v3H3V6zm0 5h18v7a2 2 0 01-2 2H5a2 2 0 01-2-2v-7zm3 2v2h4v-2H6z"/></svg>
+                        </span>
+                        <span class="profile-menu-main">
+                            <strong data-copy="profile_menu_payee">钱包地址</strong>
+                            <small data-copy="profile_menu_payee_sub">绑定银行卡、支付宝、微信与数字钱包</small>
+                        </span>
+                        <span class="profile-menu-arrow">›</span>
+                    </button>
                     <button type="button" class="profile-menu-row" onclick="openProfileSubPage('ledger')">
                         <span class="profile-menu-ico" aria-hidden="true">
                             <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M7 3h10a2 2 0 012 2v14a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2zm1 4v2h8V7H8zm0 4v2h8v-2H8zm0 4v2h5v-2H8z"/></svg>

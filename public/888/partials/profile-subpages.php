@@ -166,6 +166,88 @@
         </div>
     </div>
 
+    <!-- 个人中心：钱包地址绑定 -->
+    <div class="profile-sub-pane" id="profilePayeePane" aria-hidden="true">
+        <div class="profile-sub-hd">
+            <button type="button" class="chat-back-btn profile-back-btn" onclick="closeProfileSubPage()" data-copy-aria="profile_back" aria-label="返回">‹</button>
+            <div class="profile-sub-title" data-copy="profile_payee_title">钱包地址</div>
+            <span class="profile-sub-spacer"></span>
+        </div>
+        <div class="profile-sub-body">
+            <div class="match-card profile-card">
+                <div class="wallet-payee-tabs" id="profilePayeeTabs" role="tablist">
+                    <button type="button" class="wallet-payee-tab active" data-payee-tab="bank" data-copy="profile_payee_tab_bank">银行卡</button>
+                    <button type="button" class="wallet-payee-tab" data-payee-tab="alipay" data-copy="profile_payee_tab_alipay">支付宝</button>
+                    <button type="button" class="wallet-payee-tab" data-payee-tab="wechat" data-copy="profile_payee_tab_wechat">微信</button>
+                    <button type="button" class="wallet-payee-tab" data-payee-tab="wallet" data-copy="profile_payee_tab_wallet">数字钱包</button>
+                </div>
+
+                <div class="wallet-payee-panel" id="profilePayeePanelBank" data-payee-panel="bank">
+                    <div class="profile-meta-line" id="profilePayeeBankBound" hidden></div>
+                    <div class="profile-field">
+                        <label data-copy="profile_payee_bank_name_label">开户名</label>
+                        <input type="text" id="profilePayeeBankAccountName" placeholder="持卡人姓名">
+                    </div>
+                    <div class="profile-field">
+                        <label data-copy="profile_payee_bank_no_label">银行卡号</label>
+                        <input type="text" id="profilePayeeBankAccountNo" placeholder="请输入银行卡号">
+                    </div>
+                    <div class="profile-field">
+                        <label data-copy="profile_payee_bank_label">开户行</label>
+                        <input type="text" id="profilePayeeBankName" placeholder="如：中国工商银行">
+                    </div>
+                    <button type="button" class="btn-uid-submit" onclick="submitProfilePayeeBind('bank')" data-copy="profile_payee_save_bank">保存银行卡</button>
+                </div>
+
+                <div class="wallet-payee-panel" id="profilePayeePanelAlipay" data-payee-panel="alipay" hidden>
+                    <div class="profile-meta-line" id="profilePayeeAlipayBound" hidden></div>
+                    <div class="profile-field">
+                        <label data-copy="profile_payee_alipay_name_label">支付宝实名</label>
+                        <input type="text" id="profilePayeeAlipayName" placeholder="支付宝实名姓名">
+                    </div>
+                    <div class="profile-field">
+                        <label data-copy="profile_payee_alipay_no_label">支付宝账号</label>
+                        <input type="text" id="profilePayeeAlipayNo" placeholder="手机号 / 邮箱">
+                    </div>
+                    <button type="button" class="btn-uid-submit" onclick="submitProfilePayeeBind('alipay')" data-copy="profile_payee_save_alipay">保存支付宝</button>
+                </div>
+
+                <div class="wallet-payee-panel" id="profilePayeePanelWechat" data-payee-panel="wechat" hidden>
+                    <div class="profile-meta-line" id="profilePayeeWechatBound" hidden></div>
+                    <div class="profile-field">
+                        <label data-copy="profile_payee_wechat_name_label">微信实名</label>
+                        <input type="text" id="profilePayeeWechatName" placeholder="微信实名姓名">
+                    </div>
+                    <div class="profile-field">
+                        <label data-copy="profile_payee_wechat_no_label">微信号 / 收款账号</label>
+                        <input type="text" id="profilePayeeWechatNo" placeholder="微信号或绑定手机号">
+                    </div>
+                    <button type="button" class="btn-uid-submit" onclick="submitProfilePayeeBind('wechat')" data-copy="profile_payee_save_wechat">保存微信</button>
+                </div>
+
+                <div class="wallet-payee-panel" id="profilePayeePanelWallet" data-payee-panel="wallet" hidden>
+                    <p class="profile-meta-line" data-copy="profile_payee_wallet_hint">选择钱包类型，展示并管理已绑定地址（与提现钱包一致）</p>
+                    <div id="profilePayeeWalletTypes" class="wallet-channel-list is-grid"></div>
+                    <div id="profilePayeeWalletForm" class="wallet-bind-panel" hidden>
+                        <div class="profile-meta-line"><span data-copy="wallet_bound_label">当前类型：</span><strong id="profilePayeeWalletTypeLabel">-</strong></div>
+                        <div class="profile-meta-line" id="profilePayeeWalletBoundLine" hidden>
+                            <span data-copy="wallet_bound_label">已绑定地址：</span><strong id="profilePayeeWalletBoundAddr">-</strong>
+                        </div>
+                        <div class="profile-field">
+                            <label data-copy="wallet_bind_address_label">钱包地址</label>
+                            <input type="text" id="profilePayeeWalletAddress" placeholder="请输入钱包收款地址">
+                        </div>
+                        <div class="profile-field">
+                            <label data-copy="wallet_bind_name_label">备注姓名（可选）</label>
+                            <input type="text" id="profilePayeeWalletName" placeholder="可选">
+                        </div>
+                        <button type="button" class="btn-uid-submit" onclick="submitProfilePayeeBind('wallet')" data-copy="wallet_bind_submit">确认绑定</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 个人中心：资金流水 -->
     <div class="profile-sub-pane" id="profileLedgerPane" aria-hidden="true">
         <div class="profile-sub-hd">

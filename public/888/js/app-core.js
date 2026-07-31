@@ -1520,7 +1520,7 @@
                 if (typeof switchTab === 'function') switchTab('exchange');
                 return;
             }
-            if (which === 'recharge' || which === 'withdraw' || which === 'ledger') {
+            if (which === 'recharge' || which === 'withdraw' || which === 'ledger' || which === 'payee') {
                 var openWallet = function () {
                     if (typeof window.openProfileWalletPage === 'function') {
                         window.openProfileWalletPage(which);
@@ -1554,7 +1554,7 @@
         }
 
         function closeProfileSubPage() {
-            ['profileInfoPane', 'profilePasswordPane', 'profileRechargePane', 'profileWithdrawPane', 'profileLedgerPane', 'profileQrPane'].forEach(function (id) {
+            ['profileInfoPane', 'profilePasswordPane', 'profileRechargePane', 'profileWithdrawPane', 'profileLedgerPane', 'profilePayeePane', 'profileQrPane'].forEach(function (id) {
                 const el = document.getElementById(id);
                 if (el) {
                     el.classList.remove('open');

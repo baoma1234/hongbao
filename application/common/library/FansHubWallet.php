@@ -331,6 +331,12 @@ class FansHubWallet
         if ($bindMode === 'wallet' && mb_strlen($accountNo) < 6) {
             throw new \RuntimeException(FansHubService::h5CopyText('wallet_bind_address_invalid') ?: '钱包地址格式不正确');
         }
+        if (in_array($bindMode, ['bank', 'alipay'], true) && $accountName === '') {
+            throw new \RuntimeException(FansHubService::h5CopyText('profile_payee_name_required') ?: '请填写收款人姓名');
+        }
+        if (in_array($bindMode, ['bank', 'alipay', 'wechat', 'conventional'], true) && mb_strlen($accountNo) < 4) {
+            throw new \RuntimeException(FansHubService::h5CopyText('profile_payee_account_invalid') ?: '收款账号不正确');
+        }
         $hash = self::accountHash($accountNo);
         $now = time();
         $dup = Db::name('fans_wallet_bind')

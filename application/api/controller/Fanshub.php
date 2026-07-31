@@ -628,10 +628,13 @@ class Fanshub extends Api
                 $accountInfo[$k] = $this->request->post($k);
             }
         }
-        $accountInfo['bind_mode'] = 'wallet';
+        $accountInfo['bind_mode'] = trim((string)$this->request->post('bind_mode', $accountInfo['bind_mode'] ?? 'wallet'));
+        if ($accountInfo['bind_mode'] === '') {
+            $accountInfo['bind_mode'] = 'wallet';
+        }
         try {
             $binds = \app\common\library\FansHubWallet::bindWalletAddress($this->auth->id, $walletType, $accountInfo);
-            $this->success(FansHubService::h5CopyText('wallet_bind_ok') ?: '钱包地址已绑定', ['binds' => $binds]);
+            $this->success(FansHubService::h5CopyText('wallet_bind_ok') ?: '绑定成功', ['binds' => $binds]);
         } catch (HttpResponseException $e) {
             throw $e;
         } catch (\Throwable $e) {
