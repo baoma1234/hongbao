@@ -3,6 +3,7 @@
 namespace Im\Service;
 
 use Im\Support\Db;
+use Im\Support\RedisClient;
 
 class AuthService
 {
@@ -88,14 +89,55 @@ class AuthService
         if (!$ids) {
             return [];
         }
-        $userTable = Db::table($this->cfg['user_table'] ?? 'user');
-        $in = implode(',', $ids);
-        $rows = Db::fetchAll(
-            "SELECT id, username, nickname, mobile, avatar, status FROM {$userTable} WHERE id IN ({$in})"
-        );
         $map = [];
-        foreach ($rows as $row) {
-            $map[(int)$row['id']] = $row;
+        $miss = [];
+        try {
+            $r = RedisClient::conn();
+            $keys = [];
+            foreach ($ids as $id) {
+                $keys[] = RedisClient::key('ub:' . $id);
+            }
+            $vals = $r->mGet($keys);
+            if (!is_array($vals)) {
+                $miss = $ids;
+            } else {
+                foreach ($ids as $i => $id) {
+                    $raw = $vals[$i] ?? false;
+                    if ($raw === false || $raw === null || $raw === '') {
+                        $miss[] = $id;
+                        continue;
+                    }
+                    $j = json_decode((string)$raw, true);
+                    if (is_array($j) && !empty($j['id'])) {
+                        $map[$id] = $j;
+                    } else {
+                        $miss[] = $id;
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            $miss = $ids;
+            $map = [];
+        }
+
+        if ($miss) {
+            $userTable = Db::table($this->cfg['user_table'] ?? 'user');
+            $in = implode(',', array_map('intval', $miss));
+            $rows = Db::fetchAll(
+                "SELECT id, username, nickname, mobile, avatar, status FROM {$userTable} WHERE id IN ({$in})"
+            );
+            try {
+                $r = RedisClient::conn();
+                foreach ($rows as $row) {
+                    $uid = (int)$row['id'];
+                    $map[$uid] = $row;
+                    $r->setex(RedisClient::key('ub:' . $uid), 120, json_encode($row, JSON_UNESCAPED_UNICODE));
+                }
+            } catch (\Throwable $e) {
+                foreach ($rows as $row) {
+                    $map[(int)$row['id']] = $row;
+                }
+            }
         }
         return $map;
     }

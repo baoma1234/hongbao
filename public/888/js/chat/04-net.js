@@ -45,6 +45,7 @@
         setConnStatus(chatT('chat_conn_ok'), 'ok');
         updateMoneyLabel();
         syncBalanceFromAccount();
+        hydrateListFromCache();
         var newPrivateBtn = $('chatNewPrivateBtn');
         if (newPrivateBtn) newPrivateBtn.style.display = state.isImAdmin ? '' : 'none';
         var newGroupBtn = $('chatNewGroupBtn');
@@ -276,6 +277,16 @@
     var list = $('chatConvList');
     if (list && !list._bound) {
       list._bound = true;
+      // 手指按下即预拉历史，等 click 打开时多半已进本地缓存
+      list.addEventListener('pointerdown', function (ev) {
+        var btn = ev.target.closest('.chat-conv-item');
+        if (!btn) return;
+        prefetchHistory({
+          type: parseInt(btn.getAttribute('data-type'), 10) || 1,
+          id: btn.getAttribute('data-id'),
+          peer: parseInt(btn.getAttribute('data-peer'), 10) || 0
+        });
+      }, { passive: true });
       list.addEventListener('click', function (ev) {
         var btn = ev.target.closest('.chat-conv-item');
         if (!btn) return;

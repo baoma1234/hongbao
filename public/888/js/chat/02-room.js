@@ -121,6 +121,62 @@
     }, 500);
   }
 
+  var _histPrefetching = {};
+  /** 后台预拉会话历史写入本地缓存，点开时可秒开 */
+  function prefetchHistory(opts) {
+    opts = opts || {};
+    var type = opts.type | 0;
+    var id = opts.id;
+    if (!type || id == null || id === '') return Promise.resolve();
+    if (!state.connected) return Promise.resolve();
+    var key = type + ':' + String(id);
+    if (_histPrefetching[key]) return _histPrefetching[key];
+    var cached = loadHistCache(type, id);
+    if (cached && cached.at && (Date.now() - (cached.at | 0)) < 60000) {
+      return Promise.resolve(cached);
+    }
+    var payload = { conversation_type: type, limit: 30 };
+    if (type === 1) {
+      payload.to_user_id = opts.peer | 0;
+      payload.conversation_id = String(id);
+    } else {
+      payload.group_id = parseInt(id, 10) || 0;
+      payload.with_group = 1;
+    }
+    _histPrefetching[key] = send('history', payload).then(function (packet) {
+      var list = (packet.data && packet.data.list) || [];
+      var meta = null;
+      if (type === 2 && packet.data && (packet.data.group || packet.data.policy)) {
+        try { meta = mergeGroupMeta(packet.data); } catch (e0) { meta = null; }
+      }
+      saveHistCache(type, id, list, meta);
+      return { messages: list, groupMeta: meta, at: Date.now() };
+    }).catch(function () {
+      return null;
+    }).then(function (res) {
+      delete _histPrefetching[key];
+      return res;
+    });
+    return _histPrefetching[key];
+  }
+
+  function prefetchTopHistories() {
+    if (!state.connected || !state.list || !state.list.length) return;
+    var n = 0;
+    for (var i = 0; i < state.list.length && n < 5; i++) {
+      var item = state.list[i];
+      var type = item.conversation_type | 0;
+      var id = type === 2 ? (item.group_id || item.conversation_id) : item.conversation_id;
+      if (!id) continue;
+      (function (t, cid, peer, delay) {
+        setTimeout(function () {
+          prefetchHistory({ type: t, id: cid, peer: peer | 0 });
+        }, delay);
+      })(type, id, item.peer_user_id | 0, 80 + n * 140);
+      n++;
+    }
+  }
+
   function scheduleRenderList() {
     if (_renderListTimer) return;
     _renderListTimer = setTimeout(function () {
@@ -1059,6 +1115,7 @@
         updateTabBadge();
         renderList();
         saveListCache();
+        setTimeout(function () { prefetchTopHistories(); }, 200);
       } finally {
         state._listFetching = null;
       }
@@ -1106,6 +1163,7 @@
     setComposerMuted(false, '');
     // 先用本地历史秒开对话框，再拉最新
     var cachedHist = loadHistCache(state.room.type, state.room.id);
+    var cacheAge = (cachedHist && cachedHist.at) ? (Date.now() - (cachedHist.at | 0)) : 1e15;
     if (cachedHist && cachedHist.messages && cachedHist.messages.length) {
       state.messages = cachedHist.messages;
       if (state.room.type === 2 && cachedHist.groupMeta) {
@@ -1128,10 +1186,7 @@
       histPayload.group_id = state.room.id | 0;
       histPayload.with_group = 1;
     }
-    try {
-      // 群聊：history 内联 group 元数据，省掉二次 round-trip
-      var packet = await send('history', histPayload);
-      // 若用户已切到别的会话，丢弃过期响应
+    var applyHistoryPacket = function (packet) {
       if (!state.room || state.room.type !== (opts.type | 0) || String(state.room.id) !== String(opts.id)) {
         return;
       }
@@ -1147,10 +1202,20 @@
       var last = state.messages.length ? state.messages[state.messages.length - 1] : null;
       markRead(state.room.type, state.room.id, last ? last.id : 0);
       saveHistCache(state.room.type, state.room.id, state.messages, state.groupMeta);
-      // 兜底：若 history 未带 group 信息再补一次（不阻塞首屏）
       if (state.room.type === 2 && !state.groupMeta) {
         refreshGroupMeta().catch(function () {});
       }
+    };
+    // 预拉缓存很新（按下预取 / 后台预热）：先标已读，后台静默刷新，不挡首屏
+    if (cacheAge < 8000 && cachedHist && cachedHist.messages && cachedHist.messages.length) {
+      var lastCached = state.messages.length ? state.messages[state.messages.length - 1] : null;
+      markRead(state.room.type, state.room.id, lastCached ? lastCached.id : 0);
+      send('history', histPayload).then(applyHistoryPacket).catch(function () {});
+      return;
+    }
+    try {
+      var packet = await send('history', histPayload);
+      applyHistoryPacket(packet);
     } catch (e) {
       if (typeof showFanshubToast === 'function' && !(cachedHist && cachedHist.messages && cachedHist.messages.length)) {
         showFanshubToast(e.message || '加载失败', 'error');
