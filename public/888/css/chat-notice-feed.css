@@ -390,6 +390,10 @@
   opacity: 0.88;
   transform: scale(0.98);
 }
+.chat-commission-nav-item.is-active {
+  background: #fff7f0;
+  box-shadow: inset 0 0 0 1.5px rgba(255, 140, 66, 0.45);
+}
 
 .chat-commission-recent-card {
   background: #fff;

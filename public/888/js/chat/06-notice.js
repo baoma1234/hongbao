@@ -633,10 +633,10 @@
         }
         if (kind === 'promo' || kind === 'rebate' || kind === 'withdraw_list') {
           setCommissionListMode(kind);
-          var listCard = document.querySelector('#chatHomePanelCommission .chat-commission-recent-card');
-          if (listCard && listCard.scrollIntoView) {
-            try { listCard.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {}
-          }
+          // 勿用 scrollIntoView：会把 chat-home-tabs-row 滚出视口且外层无法滚回
+          nav.querySelectorAll('[data-commission-nav]').forEach(function (el) {
+            el.classList.toggle('is-active', el === btn);
+          });
         }
       });
     }
