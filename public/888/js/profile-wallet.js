@@ -1270,7 +1270,7 @@
       var active = sel === item.wallet_type ? ' active' : '';
       var bound = false;
       if (item.multi) {
-        bound = usdtBindsStatus().complete;
+        bound = usdtBindsStatus().ok > 0;
       } else {
         bound = !!(walletState.binds && walletState.binds[item.wallet_type]);
       }
@@ -1476,8 +1476,9 @@
         for (var i = 0; i < USDT_BIND_CHAINS.length; i++) {
           var c = USDT_BIND_CHAINS[i];
           var no = ((document.getElementById(c.inputId) || {}).value || '').trim();
-          if (!no || no.length < 6) {
-            toast(wt('profile_payee_usdt_need_all', '请填写完整的 {chain} 地址（需同时绑定三个）', { chain: c.label }), 'error');
+          if (!no) continue;
+          if (no.length < 6) {
+            toast(wt('profile_payee_usdt_invalid', '{chain} 地址格式不正确', { chain: c.label }), 'error');
             return;
           }
           chainPayloads.push({
@@ -1489,6 +1490,10 @@
             },
             bind_mode: 'wallet'
           });
+        }
+        if (!chainPayloads.length) {
+          toast(wt('profile_payee_usdt_need_one', '请至少填写一条 USDT 地址（TRC20 / ERC20 / TON）'), 'error');
+          return;
         }
         var btn = document.querySelector('#profilePayeeWalletForm .btn-uid-submit');
         if (btn) btn.disabled = true;

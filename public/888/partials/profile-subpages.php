@@ -245,7 +245,7 @@
                             </div>
                         </div>
                         <div id="profilePayeeUsdtChainFields" hidden>
-                            <p class="profile-meta-line" data-copy="profile_payee_usdt_hint">USDT 需同时绑定 TRC20 / ERC20 / TON 三个地址</p>
+                            <p class="profile-meta-line" data-copy="profile_payee_usdt_hint">USDT 分三条填写：TRC20 / ERC20 / TON，可只绑其中一条或几条</p>
                             <div class="profile-field">
                                 <label>TRC20 地址</label>
                                 <input type="text" id="profilePayeeUsdtTrc20" placeholder="USDT-TRC20 收款地址">
