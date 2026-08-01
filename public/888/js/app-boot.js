@@ -101,6 +101,9 @@
             await FansHubAssets.ensureDashboard();
             await FansHubAssets.ensureTab('home');
             bindDashboardDomUi();
+            if (opts.profile) {
+                applyProfile(opts.profile);
+            }
             if (window.FanshubI18n && typeof applyPageCopy === 'function') {
                 try { applyPageCopy(); } catch (eCopy) {}
             }
@@ -115,9 +118,11 @@
                 startJackpotSync();
             }
             if (typeof updateFlowStepper === 'function') updateFlowStepper();
-            if (typeof renderUI === 'function') renderUI();
-            if (typeof updateFlowUI === 'function') updateFlowUI();
-            if (typeof updateManualSettleButton === 'function') updateManualSettleButton();
+            if (!opts.profile) {
+                if (typeof renderUI === 'function') renderUI();
+                if (typeof updateFlowUI === 'function') updateFlowUI();
+                if (typeof updateManualSettleButton === 'function') updateManualSettleButton();
+            }
             if (window.FansHubAssets && typeof FansHubAssets.prefetchChat === 'function') {
                 FansHubAssets.prefetchChat();
             } else if (window.FansHubChat && typeof FansHubChat.onLogin === 'function') {
@@ -137,8 +142,8 @@
             const token = localStorage.getItem('fans_hub_token');
             if (token) {
                 try {
-                    applyProfile(await restoreSessionProfile());
-                    await enterAppAfterAuth({});
+                    const profile = await restoreSessionProfile();
+                    await enterAppAfterAuth({ profile: profile });
                     scheduleWelcomeLottery();
                     restoreLotteryValuation();
                 } catch (e) {
@@ -738,12 +743,11 @@
                     device_fp: await getDeviceFingerprint()
                 });
                 localStorage.setItem('fans_hub_token', data.token);
-                applyProfile(data.profile);
                 if (data.is_new) {
                     sessionStorage.setItem('fans_hub_show_lottery', '1');
                 }
                 try {
-                    await enterAppAfterAuth({});
+                    await enterAppAfterAuth({ profile: data.profile });
                 } catch (eDash) {
                     showFanshubToast((eDash && eDash.message) || '大厅加载失败', 'error');
                     return;

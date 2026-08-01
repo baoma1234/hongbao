@@ -1503,7 +1503,8 @@
             account.main_uid_reject_reason = profile.main_uid_reject_reason || '';
             flowStage = profile.flow_stage || flowStage;
             if (profile.mobile_mask) {
-                document.getElementById('displayBindPhone').innerText = profile.mobile_mask;
+                const phoneEl = document.getElementById('displayBindPhone');
+                if (phoneEl) phoneEl.innerText = profile.mobile_mask;
             }
             const uidInput = document.getElementById('mainStationID');
             if (uidInput) {
@@ -2770,7 +2771,9 @@
         function showPhase2Modal(title, body, actions, useHtml) {
             const mask = document.getElementById('phase2ModalMask');
             const bodyEl = document.getElementById('phase2ModalBody');
-            document.getElementById('phase2ModalTitle').textContent = title || '';
+            const titleEl = document.getElementById('phase2ModalTitle');
+            if (!mask || !bodyEl || !titleEl) return;
+            titleEl.textContent = title || '';
             if (useHtml) {
                 bodyEl.innerHTML = (body || '').replace(/\n/g, '<br>');
             } else {
