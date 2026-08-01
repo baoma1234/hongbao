@@ -173,7 +173,8 @@ class FansHubWallet
         foreach ($rows as $row) {
             $icon = trim((string)($row['icon'] ?? ''));
             if ($icon === '') {
-                continue;
+                // 无图标时用默认图，避免通道从自助/钱包分区「消失」
+                $icon = '/assets/img/wallets/default-wallet.png';
             }
             if (!preg_match('#^(https?:)?//#i', $icon) && !preg_match('#^data:#i', $icon)) {
                 if ($icon[0] !== '/') {
