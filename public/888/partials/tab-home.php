@@ -24,7 +24,6 @@
                         </strong>
                         <div class="asset-progress-wrap">
                             <div class="asset-progress-bar"><div class="asset-progress-fill" id="balanceProgressFill"></div></div>
-                            <div class="asset-progress-hint" id="balanceProgressHint" data-copy="balance_progress_pct">已达提现门槛的 {pct}%</div>
                         </div>
                     </div>
                 </div>

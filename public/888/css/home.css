@@ -642,21 +642,6 @@
             background: linear-gradient(90deg, #00C853, #FF9100);
             transition: width 0.45s ease;
         }
-        .asset-progress-hint {
-            margin-top: 4px;
-            font-size: 9px;
-            color: var(--text-muted);
-            font-weight: 600;
-            line-height: 1.3;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .asset-progress-hint.ready {
-            color: #15803d;
-            font-weight: 700;
-        }
-
         .share-promo-card {
             width: 100%;
             margin-top: 12px;

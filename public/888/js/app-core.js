@@ -552,7 +552,7 @@
             const skipNetwork = !!opts.skipNetwork;
             document.title = fc('page_title');
             document.querySelectorAll('[data-copy]').forEach(function(el) {
-                if (el.id === 'userRank' || el.id === 'userStatusTag' || el.id === 'displayBindPhone' || el.id === 'jackpotMeta' || el.id === 'jackpotPartners' || el.id === 'jackpotSharePrice' || el.id === 'commentHallTitle' || el.id === 'profitHintBox' || el.id === 'btnGoldenMain' || el.id === 'ctaHint' || el.id === 'withdrawModalTitle' || el.id === 'billCodeText' || el.id === 'checkinLedgerHint' || el.id === 'honorLadderHint' || el.id === 'balanceProgressHint' || el.id === 'claimProgressHint' || el.id === 'btnCheckinMain' || el.id === 'checkinViolentLabel' || el.id === 'checkinStreakLabel' || el.id === 'welcomeLotteryShares' || el.id === 'welcomeLotteryCloseBtn' || el.id === 'welcomeLotteryHint') {
+                if (el.id === 'userRank' || el.id === 'userStatusTag' || el.id === 'displayBindPhone' || el.id === 'jackpotMeta' || el.id === 'jackpotPartners' || el.id === 'jackpotSharePrice' || el.id === 'commentHallTitle' || el.id === 'profitHintBox' || el.id === 'btnGoldenMain' || el.id === 'ctaHint' || el.id === 'withdrawModalTitle' || el.id === 'billCodeText' || el.id === 'checkinLedgerHint' || el.id === 'honorLadderHint' || el.id === 'claimProgressHint' || el.id === 'btnCheckinMain' || el.id === 'checkinViolentLabel' || el.id === 'checkinStreakLabel' || el.id === 'welcomeLotteryShares' || el.id === 'welcomeLotteryCloseBtn' || el.id === 'welcomeLotteryHint') {
                     return;
                 }
                 const key = el.getAttribute('data-copy');
@@ -713,29 +713,15 @@
             if (badge) badge.textContent = parts.badge;
         }
 
-        function balanceProgressHintText(progressPct, ready) {
-            if (ready) {
-                return fc('balance_progress_ready') || '鉁?宸茶揪鎻愮幇闂ㄦ锛屽彲绔嬪嵆鎻愮幇';
-            }
-            const pct = Math.round(progressPct);
-            return fc('balance_progress_pct', { pct: pct }) || ('宸茶揪鎻愮幇闂ㄦ鐨?' + pct + '%');
-        }
-
         function updateBalanceProgress() {
             // 提现门槛进度按红宝
             const balance = Number(account.hongbao) || 0;
             const threshold = CONFIG.WITHDRAW_THRESHOLD || 50;
             const progress = threshold > 0 ? Math.min(100, (balance / threshold) * 100) : 0;
-            const ready = balance >= threshold;
             const fill = document.getElementById('balanceProgressFill');
-            const hint = document.getElementById('balanceProgressHint');
             const sym = document.getElementById('balanceCurrencySym');
             if (sym) sym.textContent = (window.FanshubI18n && FanshubI18n.currencySymbol()) || '￥';
             if (fill) fill.style.width = progress + '%';
-            if (hint) {
-                hint.textContent = balanceProgressHintText(progress, ready);
-                hint.classList.toggle('ready', ready);
-            }
         }
 
         let fanshubToastTimer = null;
