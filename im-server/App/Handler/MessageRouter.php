@@ -176,6 +176,10 @@ class MessageRouter
                 case 'conversation.unpin':
                     $this->handleConversationPin($connection, $uid, $payload, $reqId, false);
                     break;
+                case 'conversation.hide':
+                case 'conversation.delete':
+                    $this->handleConversationHide($connection, $uid, $payload, $reqId);
+                    break;
                 case 'redpacket.send':
                     $this->handleRedSend($connection, $uid, $payload, $reqId);
                     break;
@@ -1123,6 +1127,26 @@ class MessageRouter
             $this->send($connection, $pinned ? 'conversation.pin.ok' : 'conversation.unpin.ok', $result, $reqId);
         } catch (\Throwable $e) {
             $this->error($connection, $e->getMessage() ?: 'pin failed', $reqId);
+        }
+    }
+
+    protected function handleConversationHide(TcpConnection $connection, $uid, array $payload, $reqId)
+    {
+        $convType = (int)($payload['conversation_type'] ?? 1);
+        $convId = (string)($payload['conversation_id'] ?? '');
+        $peerId = (int)($payload['to_user_id'] ?? $payload['peer_user_id'] ?? 0);
+        if ($convType !== 1) {
+            $this->error($connection, 'only private conversation can be deleted', $reqId);
+            return;
+        }
+        if ($convId === '' && $peerId > 0) {
+            $convId = IdGenerator::privateConversationId($uid, $peerId);
+        }
+        try {
+            $result = $this->messages->hidePrivateConversation($uid, $convId, $peerId);
+            $this->send($connection, 'conversation.hide.ok', $result, $reqId);
+        } catch (\Throwable $e) {
+            $this->error($connection, $e->getMessage() ?: 'delete failed', $reqId);
         }
     }
 

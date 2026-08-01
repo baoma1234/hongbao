@@ -246,11 +246,14 @@
     var titleEl = $('chatConvActionTitle');
     var pinBtn = $('chatConvActPin');
     var unpinBtn = $('chatConvActUnpin');
+    var delBtn = $('chatConvActDelete');
     if (!sheet) return;
     var title = item.title || (item.conversation_type === 2 ? ('群 ' + (item.group_id || item.conversation_id)) : '会话');
     if (titleEl) titleEl.textContent = title;
     if (pinBtn) pinBtn.style.display = item.pinned ? 'none' : '';
     if (unpinBtn) unpinBtn.style.display = item.pinned ? '' : 'none';
+    // 仅私聊可删除会话（备份到删除表，本端列表隐藏）
+    if (delBtn) delBtn.style.display = ((item.conversation_type | 0) === 1) ? '' : 'none';
     sheet.classList.add('open');
     sheet.setAttribute('aria-hidden', 'false');
   }
@@ -305,6 +308,49 @@
       }
     } catch (e) {
       if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '操作失败', 'error');
+    }
+  }
+
+  async function deletePrivateConvFromList() {
+    var item = _convActionTarget;
+    closeConvActionSheet();
+    if (!item || (item.conversation_type | 0) !== 1) return;
+    var cid = String(item.conversation_id || '');
+    var peer = item.peer_user_id | 0;
+    if (!cid && peer > 0) {
+      // 兜底：无 conversation_id 时由服务端用 to_user_id 拼
+      cid = '';
+    }
+    if (!window.confirm('删除后将从会话列表移除（对方不受影响）。确定删除？')) {
+      return;
+    }
+    try {
+      await send('conversation.hide', {
+        conversation_type: 1,
+        conversation_id: cid,
+        to_user_id: peer
+      });
+      var key = convKey(1, cid || item.conversation_id);
+      state.list = state.list.filter(function (it) {
+        if ((it.conversation_type | 0) !== 1) return true;
+        var iid = String(it.conversation_id || '');
+        if (cid && iid === cid) return false;
+        if (peer > 0 && (it.peer_user_id | 0) === peer) return false;
+        return true;
+      });
+      if (key && state.unread) delete state.unread[key];
+      // 正在看这个私聊时关掉房间
+      if (state.room && (state.room.type | 0) === 1) {
+        var rid = String(state.room.id || '');
+        if ((cid && rid === cid) || (peer > 0 && (state.room.peer | 0) === peer)) {
+          if (typeof closeRoom === 'function') closeRoom();
+        }
+      }
+      scheduleRenderList();
+      scheduleSaveListCache();
+      if (typeof showFanshubToast === 'function') showFanshubToast('已删除聊天', 'success');
+    } catch (e) {
+      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '删除失败', 'error');
     }
   }
 

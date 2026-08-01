@@ -392,6 +392,7 @@
                     <div class="chat-action-sheet-title" id="chatConvActionTitle">会话操作</div>
                     <button type="button" class="chat-action-item" id="chatConvActPin">置顶聊天</button>
                     <button type="button" class="chat-action-item" id="chatConvActUnpin" style="display:none">取消置顶</button>
+                    <button type="button" class="chat-action-item danger" id="chatConvActDelete" style="display:none">删除聊天</button>
                     <button type="button" class="chat-action-item cancel" id="chatConvActionCancel">取消</button>
                 </div>
             </div>

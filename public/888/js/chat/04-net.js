@@ -354,6 +354,7 @@
     var convSheetCancel = $('chatConvActionCancel');
     var convActPin = $('chatConvActPin');
     var convActUnpin = $('chatConvActUnpin');
+    var convActDelete = $('chatConvActDelete');
     if (convSheetMask && !convSheetMask._bound) {
       convSheetMask._bound = true;
       convSheetMask.onclick = function () { closeConvActionSheet(); };
@@ -369,6 +370,10 @@
     if (convActUnpin && !convActUnpin._bound) {
       convActUnpin._bound = true;
       convActUnpin.onclick = function () { toggleConvPin(false); };
+    }
+    if (convActDelete && !convActDelete._bound) {
+      convActDelete._bound = true;
+      convActDelete.onclick = function () { deletePrivateConvFromList(); };
     }
     var back = $('chatBackBtn');
     if (back && !back._bound) {

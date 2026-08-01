@@ -337,6 +337,14 @@ class MessageService
             // 列表短缓存靠 TTL 自然过期，避免群消息对上千在线用户逐个 DEL
         } catch (\Throwable $e) {
         }
+        // 私聊有新消息：恢复双方「已删除」隐藏，会话重新出现在列表
+        if ($type === 1) {
+            foreach ($uids as $uid) {
+                if ((int)$uid > 0) {
+                    $this->restoreHiddenPrivateConversation((int)$uid, $cid);
+                }
+            }
+        }
     }
 
     /** @return array<int,array{id:int,createtime:int}> */
@@ -501,10 +509,11 @@ class MessageService
         } catch (\Throwable $e) {
             return;
         }
+        $hidden = $this->hiddenPrivateCidMap($userId);
         $added = [];
         foreach ($privates as $row) {
             $cid = (string)($row['conversation_id'] ?? '');
-            if ($cid === '' || isset($have[$cid])) {
+            if ($cid === '' || isset($have[$cid]) || isset($hidden[$cid])) {
                 continue;
             }
             $m = $this->slimLastMessage($this->normalizeMessage($row));
@@ -902,6 +911,7 @@ class MessageService
                     'unread_count'      => 0,
                 ];
             }
+            $this->filterHiddenPrivateConversations($userId, $items);
             $this->seedInboxFromItems($userId, $items);
         }
 
@@ -950,6 +960,9 @@ class MessageService
             }
             // 客服仍出现在列表，但按最后消息时间排序（有新消息的群应排最前）
         }
+
+        // 用户主动删除的私聊：从列表隐藏（新消息会 restore）
+        $this->filterHiddenPrivateConversations($userId, $items);
 
         $this->applyPinnedFlags($userId, $items);
         usort($items, function ($a, $b) {
@@ -1064,6 +1077,242 @@ class MessageService
             'conversation_id'   => $cid,
             'pinned'            => (bool)$pinned,
         ];
+    }
+
+    /**
+     * 删除私聊会话（仅对本用户隐藏列表）：备份消息到删除表，不删对方可见的原消息
+     */
+    public function hidePrivateConversation($userId, $conversationId, $peerUserId = 0)
+    {
+        $userId = (int)$userId;
+        $cid = (string)$conversationId;
+        $peerUserId = (int)$peerUserId;
+        if ($userId <= 0) {
+            throw new \InvalidArgumentException('invalid user');
+        }
+        if ($cid === '' && $peerUserId > 0) {
+            $cid = IdGenerator::privateConversationId($userId, $peerUserId);
+        }
+        $bits = explode('_', $cid);
+        if (count($bits) !== 2) {
+            throw new \InvalidArgumentException('invalid conversation');
+        }
+        $a = (int)$bits[0];
+        $b = (int)$bits[1];
+        if ($userId !== $a && $userId !== $b) {
+            throw new \RuntimeException('forbidden');
+        }
+        if ($peerUserId <= 0) {
+            $peerUserId = ($a === $userId) ? $b : $a;
+        }
+
+        $msgTable = Db::table('chat_messages');
+        $delTable = Db::table('chat_conversation_deleted');
+        $bakTable = Db::table('chat_messages_deleted_backup');
+        $now = time();
+
+        // 全量备份（含撤回），便于审计恢复
+        $rows = Db::fetchAll(
+            "SELECT id,msg_id,conversation_type,conversation_id,group_id,from_user_id,to_user_id,"
+            . "msg_type,content,extra,status,createtime FROM {$msgTable}"
+            . " WHERE conversation_type=1 AND conversation_id=? ORDER BY id ASC",
+            [$cid]
+        );
+        $lastMsgId = 0;
+        $lastPreview = null;
+        if ($rows) {
+            $last = $rows[count($rows) - 1];
+            $lastMsgId = (int)($last['id'] ?? 0);
+            $lastPreview = [
+                'id'         => $lastMsgId,
+                'msg_type'   => (int)($last['msg_type'] ?? 0),
+                'content'    => (string)($last['content'] ?? ''),
+                'status'     => (int)($last['status'] ?? 0),
+                'createtime' => (int)($last['createtime'] ?? 0),
+            ];
+        }
+        $payloadJson = json_encode([
+            'peer_user_id' => $peerUserId,
+            'last_message' => $lastPreview,
+            'msg_count'    => count($rows),
+        ], JSON_UNESCAPED_UNICODE);
+
+        Db::begin();
+        try {
+            Db::exec(
+                "INSERT INTO {$delTable}"
+                . " (user_id,conversation_type,conversation_id,peer_user_id,deleted_at,restored_at,backup_msg_count,last_msg_id,payload_json)"
+                . " VALUES (?,?,?,?,?,0,?,?,?)",
+                [
+                    $userId,
+                    1,
+                    $cid,
+                    $peerUserId,
+                    $now,
+                    count($rows),
+                    $lastMsgId,
+                    $payloadJson,
+                ]
+            );
+            $backupId = Db::lastId();
+            if ($rows) {
+                $chunkSize = 80;
+                for ($i = 0; $i < count($rows); $i += $chunkSize) {
+                    $chunk = array_slice($rows, $i, $chunkSize);
+                    $placeholders = [];
+                    $bind = [];
+                    foreach ($chunk as $row) {
+                        $placeholders[] = '(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)';
+                        $extra = $row['extra'] ?? null;
+                        if (is_array($extra)) {
+                            $extra = json_encode($extra, JSON_UNESCAPED_UNICODE);
+                        }
+                        $bind[] = $backupId;
+                        $bind[] = $userId;
+                        $bind[] = (int)$row['id'];
+                        $bind[] = (string)($row['msg_id'] ?? '');
+                        $bind[] = (int)($row['conversation_type'] ?? 1);
+                        $bind[] = (string)($row['conversation_id'] ?? $cid);
+                        $bind[] = (int)($row['group_id'] ?? 0);
+                        $bind[] = (int)($row['from_user_id'] ?? 0);
+                        $bind[] = (int)($row['to_user_id'] ?? 0);
+                        $bind[] = (int)($row['msg_type'] ?? 1);
+                        $bind[] = (string)($row['content'] ?? '');
+                        $bind[] = $extra;
+                        $bind[] = (int)($row['status'] ?? 1);
+                        $bind[] = (int)($row['createtime'] ?? 0);
+                        $bind[] = $now;
+                    }
+                    Db::exec(
+                        "INSERT INTO {$bakTable}"
+                        . " (backup_id,user_id,orig_msg_id,msg_id,conversation_type,conversation_id,group_id,"
+                        . "from_user_id,to_user_id,msg_type,content,extra,status,createtime,backed_up_at)"
+                        . " VALUES " . implode(',', $placeholders),
+                        $bind
+                    );
+                }
+            }
+            Db::commit();
+        } catch (\Throwable $e) {
+            try {
+                Db::rollBack();
+            } catch (\Throwable $e2) {
+            }
+            throw new \RuntimeException('delete backup failed');
+        }
+
+        $member = '1:' . $cid;
+        try {
+            $r = RedisClient::conn();
+            $r->zRem(RedisClient::key('inbox:' . $userId), $member);
+            $r->zRem(RedisClient::key('pins:' . $userId), $member);
+            $r->del(RedisClient::key('unread:' . $userId . ':1:' . $cid));
+            $hk = RedisClient::key('hidden:' . $userId);
+            $r->sAdd($hk, $cid);
+            $r->expire($hk, 86400 * 365);
+        } catch (\Throwable $e) {
+        }
+        $this->invalidateConvListCache($userId);
+
+        return [
+            'conversation_type' => 1,
+            'conversation_id'   => $cid,
+            'peer_user_id'      => $peerUserId,
+            'backup_id'         => (int)$backupId,
+            'backup_msg_count'  => count($rows),
+            'deleted'           => true,
+        ];
+    }
+
+    /** @return array<string,bool> conversation_id => true */
+    protected function hiddenPrivateCidMap($userId)
+    {
+        $userId = (int)$userId;
+        $out = [];
+        if ($userId <= 0) {
+            return $out;
+        }
+        try {
+            $rows = Db::fetchAll(
+                'SELECT conversation_id FROM ' . Db::table('chat_conversation_deleted')
+                . ' WHERE user_id=? AND conversation_type=1 AND restored_at=0',
+                [$userId]
+            );
+            foreach ($rows as $row) {
+                $cid = (string)($row['conversation_id'] ?? '');
+                if ($cid !== '') {
+                    $out[$cid] = true;
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+        return $out;
+    }
+
+    protected function filterHiddenPrivateConversations($userId, array &$items)
+    {
+        $hidden = $this->hiddenPrivateCidMap($userId);
+        if (!$hidden) {
+            return;
+        }
+        try {
+            $r = RedisClient::conn();
+            $ikey = RedisClient::key('inbox:' . (int)$userId);
+            foreach (array_keys($hidden) as $cid) {
+                $r->zRem($ikey, '1:' . $cid);
+            }
+        } catch (\Throwable $e) {
+        }
+        $items = array_values(array_filter($items, function ($it) use ($hidden) {
+            if ((int)($it['conversation_type'] ?? 0) !== 1) {
+                return true;
+            }
+            $cid = (string)($it['conversation_id'] ?? '');
+            return $cid === '' || !isset($hidden[$cid]);
+        }));
+    }
+
+    protected function restoreHiddenPrivateConversation($userId, $conversationId)
+    {
+        $userId = (int)$userId;
+        $cid = (string)$conversationId;
+        if ($userId <= 0 || $cid === '') {
+            return;
+        }
+        $wasHidden = false;
+        try {
+            $wasHidden = (bool)RedisClient::conn()->sIsMember(RedisClient::key('hidden:' . $userId), $cid);
+        } catch (\Throwable $e) {
+        }
+        if (!$wasHidden) {
+            // Redis 未命中时也查库，避免漏恢复
+            try {
+                $row = Db::fetch(
+                    'SELECT id FROM ' . Db::table('chat_conversation_deleted')
+                    . ' WHERE user_id=? AND conversation_type=1 AND conversation_id=? AND restored_at=0 LIMIT 1',
+                    [$userId, $cid]
+                );
+                $wasHidden = !empty($row);
+            } catch (\Throwable $e) {
+                return;
+            }
+        }
+        if (!$wasHidden) {
+            return;
+        }
+        try {
+            Db::exec(
+                'UPDATE ' . Db::table('chat_conversation_deleted')
+                . ' SET restored_at=? WHERE user_id=? AND conversation_type=1 AND conversation_id=? AND restored_at=0',
+                [time(), $userId, $cid]
+            );
+        } catch (\Throwable $e) {
+        }
+        try {
+            RedisClient::conn()->sRem(RedisClient::key('hidden:' . $userId), $cid);
+        } catch (\Throwable $e) {
+        }
+        $this->invalidateConvListCache($userId);
     }
 
     /**
