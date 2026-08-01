@@ -384,6 +384,10 @@
     var mine = (msg.from_user_id | 0) === state.userId;
     if (state.isImAdmin) return true;
     if (!mine) return false;
+    var isPrivate = ((state.room && state.room.type) | 0) === 1
+      || (msg.conversation_type | 0) === 1;
+    // 私聊本人可随时删除；群聊仍限 2 分钟撤回
+    if (isPrivate) return true;
     return (timeSec() - (msg.createtime | 0)) <= 120;
   }
 
@@ -400,6 +404,11 @@
 
   function msgActionsHtml(msg, mine) {
     if (!canRecallMessage(msg)) return '';
+    var isPrivate = ((state.room && state.room.type) | 0) === 1
+      || (msg.conversation_type | 0) === 1;
+    if (isPrivate) {
+      return '<button type="button" class="chat-msg-recall chat-msg-delete" data-id="' + (msg.id | 0) + '">删除</button>';
+    }
     return '<button type="button" class="chat-msg-recall" data-id="' + (msg.id | 0) + '">撤回</button>';
   }
 
@@ -899,8 +908,13 @@
     var type = msg.msg_type | 0;
     var recalled = (msg.status | 0) === 2;
     if (recalled) {
+      var isPrivate = ((state.room && state.room.type) | 0) === 1
+        || (msg.conversation_type | 0) === 1;
+      var tip = isPrivate
+        ? (mine ? '你删除了一条消息' : '对方删除了一条消息')
+        : (mine ? '你撤回了一条消息' : '对方撤回了一条消息');
       return '<div class="chat-msg-row system" data-mid="' + (msg.id | 0) + '">' +
-        sysNoticeHtml(mine ? '你撤回了一条消息' : '对方撤回了一条消息') +
+        sysNoticeHtml(tip) +
       '</div>';
     }
     if (type === 3) {

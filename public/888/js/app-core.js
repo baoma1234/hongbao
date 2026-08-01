@@ -2390,7 +2390,7 @@
                 const iconSrc = 'img/honor/' + ico + '.svg';
                 return '<div class="honor-tier honor-tier--' + ico + stateClass + '">'
                     + '<div class="honor-tier-main">'
-                    +   '<img class="honor-tier-ico" src="' + iconSrc + '" alt="" width="44" height="44" loading="lazy">'
+                    +   '<img class="honor-tier-ico" src="' + iconSrc + '" alt="" width="34" height="34" loading="lazy">'
                     +   '<div class="honor-tier-info">'
                     +     '<div class="honor-tier-name">' + name + '</div>'
                     +     '<div class="honor-tier-req">' + (fc('phase2_honor_need_people', { n: people }) || ('达标需 ' + people + ' 人')) + '</div>'

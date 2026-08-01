@@ -621,7 +621,9 @@ class MessageService
         if (!$isOwner && !$isAdmin) {
             throw new \RuntimeException('no permission');
         }
-        if ($isOwner && !$isAdmin) {
+        // 私聊：本人可随时删除（前端展示为「删除」）；群聊本人仍限 2 分钟撤回
+        $isPrivate = (int)($row['conversation_type'] ?? 0) === 1;
+        if ($isOwner && !$isAdmin && !$isPrivate) {
             $age = time() - (int)$row['createtime'];
             if ($age > 120) {
                 throw new \RuntimeException('recall expired');
@@ -632,7 +634,7 @@ class MessageService
             [$messageId]
         );
         $row['status'] = 2;
-        $row['content'] = '[已撤回]';
+        $row['content'] = $isPrivate ? '[已删除]' : '[已撤回]';
         $normalized = $this->normalizeMessage($row);
         $this->cacheRecent($normalized);
         return $normalized;

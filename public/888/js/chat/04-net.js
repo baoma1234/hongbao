@@ -621,7 +621,8 @@
         ev.preventDefault();
         var id = parseInt(btn.getAttribute('data-id'), 10) || 0;
         if (!id) return;
-        if (!window.confirm('确定撤回这条消息？')) return;
+        var isDelete = btn.classList.contains('chat-msg-delete');
+        if (!window.confirm(isDelete ? '确定删除这条消息？' : '确定撤回这条消息？')) return;
         recallMessage(id);
       });
     }

@@ -1,17 +1,17 @@
 /* css/home.css */
 
-        .jackpot-container { background: linear-gradient(135deg, #0071FF 0%, #00C853 100%); padding: 22px 15px; border-radius: 14px; margin-bottom: 12px; box-shadow: 0 6px 25px rgba(0, 113, 255, 0.25); text-align: center; position: relative; overflow: hidden; }
+        .jackpot-container { background: linear-gradient(135deg, #0071FF 0%, #00C853 100%); padding: 12px 14px 10px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 4px 16px rgba(0, 113, 255, 0.22); text-align: center; position: relative; overflow: hidden; }
         .jackpot-container::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: linear-gradient(45deg, transparent 45%, rgba(255,255,255,0.12) 50%, transparent 55%); transform: translate(-10%, -10%); pointer-events: none; }
-        .jackpot-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #FFFFFF; opacity: 0.9; font-weight: bold; }
-        .jackpot-val { font-size: 34px; font-weight: 900; margin: 4px 0; font-family: "Impact", monospace, sans-serif; color: #FFFFFF; text-shadow: 0 2px 8px rgba(0,0,0,0.2); letter-spacing: -0.5px; }
+        .jackpot-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: #FFFFFF; opacity: 0.88; font-weight: bold; line-height: 1.2; }
+        .jackpot-val { font-size: 26px; font-weight: 900; margin: 2px 0; font-family: "Impact", monospace, sans-serif; color: #FFFFFF; text-shadow: 0 2px 6px rgba(0,0,0,0.18); letter-spacing: -0.5px; line-height: 1.15; }
         .jackpot-meta {
             position: relative;
             z-index: 1;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 800;
             color: #FFE082;
-            margin: 4px 0 2px;
-            line-height: 1.4;
+            margin: 2px 0 1px;
+            line-height: 1.25;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -19,28 +19,30 @@
         .jackpot-pool-label {
             position: relative;
             z-index: 1;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 700;
-            color: rgba(255,255,255,0.9);
-            margin-top: 4px;
+            color: rgba(255,255,255,0.88);
+            margin-top: 2px;
+            line-height: 1.2;
         }
         .jackpot-price-line {
             position: relative;
             z-index: 1;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 900;
             color: #FFF;
-            margin: 2px 0 6px;
-            text-shadow: 0 1px 6px rgba(0,0,0,0.22);
+            margin: 1px 0 3px;
+            text-shadow: 0 1px 4px rgba(0,0,0,0.2);
+            line-height: 1.25;
         }
         .jackpot-hint-line {
             position: relative;
             z-index: 1;
-            font-size: 11px;
+            font-size: 10px;
             color: #FFF;
-            opacity: 0.72;
-            margin-top: 2px;
-            line-height: 1.35;
+            opacity: 0.7;
+            margin-top: 1px;
+            line-height: 1.25;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;

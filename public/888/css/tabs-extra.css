@@ -295,55 +295,66 @@
         .honor-ladder-nodes {
             display: flex;
             flex-direction: column;
-            gap: 10px;
-            margin-bottom: 10px;
+            gap: 7px;
+            margin-bottom: 8px;
         }
 
         /* 每级完整卡片：名称不截断 */
         .honor-tier {
             position: relative;
-            padding: 12px;
-            border-radius: 16px;
-            background: linear-gradient(180deg, #FFFFFF 0%, #FFF5EA 100%);
-            border: 1px solid rgba(255, 170, 90, 0.4);
-            box-shadow: 0 3px 10px rgba(140, 40, 20, 0.08), inset 0 1px 0 #FFF;
+            padding: 8px 10px;
+            border-radius: 14px;
+            background: linear-gradient(180deg, #FFFFFF 0%, #FFF7EE 100%);
+            border: 1px solid rgba(255, 170, 90, 0.35);
+            box-shadow: 0 2px 8px rgba(140, 40, 20, 0.06), inset 0 1px 0 #FFF;
             transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        }
+        .honor-tier--bronze {
+            background: linear-gradient(180deg, #FFFCF8 0%, #F5E6D3 100%);
+            border-color: rgba(176, 125, 72, 0.4);
         }
         .honor-tier.is-reached {
             background: linear-gradient(180deg, #FFF9E8 0%, #FFE7B0 100%);
             border-color: rgba(255, 179, 0, 0.75);
-            box-shadow: 0 4px 14px rgba(255, 143, 0, 0.18), inset 0 1px 0 #FFF;
+            box-shadow: 0 3px 10px rgba(255, 143, 0, 0.14), inset 0 1px 0 #FFF;
         }
         .honor-tier.is-current {
-            border-color: #F44336;
+            border-color: #E53935;
             box-shadow:
-                0 0 0 2px rgba(244, 67, 54, 0.22),
-                0 8px 20px rgba(198, 40, 40, 0.2),
+                0 0 0 1.5px rgba(229, 57, 53, 0.28),
+                0 4px 12px rgba(198, 40, 40, 0.16),
                 inset 0 1px 0 #FFF;
-            animation: honorCurrentPulse 2.4s ease-in-out infinite;
+            animation: honorCurrentPulse 2.6s ease-in-out infinite;
+        }
+        .honor-tier--bronze.is-current {
+            border-color: #C1782A;
+            box-shadow:
+                0 0 0 1.5px rgba(193, 120, 42, 0.3),
+                0 4px 12px rgba(140, 80, 20, 0.14),
+                inset 0 1px 0 #FFF;
         }
         .honor-tier.is-locked {
             opacity: 0.78;
         }
         @keyframes honorCurrentPulse {
             0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-2px); }
+            50% { transform: translateY(-1px); }
         }
 
         .honor-tier-main {
             display: flex;
             align-items: center;
-            gap: 10px;
-            margin-bottom: 10px;
+            gap: 8px;
+            margin-bottom: 6px;
         }
         .honor-tier-ico {
             flex: 0 0 auto;
-            width: 44px;
-            height: 44px;
+            width: 34px;
+            height: 34px;
             display: block;
             object-fit: contain;
             border-radius: 50%;
-            box-shadow: 0 3px 8px rgba(0,0,0,0.18);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.14);
             background: #FFF;
         }
         .honor-tier-info {
@@ -351,11 +362,11 @@
             min-width: 0;
         }
         .honor-tier-name {
-            font-size: 15px;
+            font-size: 13px;
             font-weight: 900;
             color: #4E1F08;
-            line-height: 1.25;
-            letter-spacing: 0.3px;
+            line-height: 1.2;
+            letter-spacing: 0.2px;
             word-break: keep-all;
             white-space: normal;
         }
@@ -364,19 +375,19 @@
             color: #B71C1C;
         }
         .honor-tier-req {
-            margin-top: 3px;
-            font-size: 11px;
+            margin-top: 1px;
+            font-size: 10px;
             font-weight: 700;
             color: #A05A28;
-            line-height: 1.3;
+            line-height: 1.25;
         }
         .honor-tier-badge {
             flex: 0 0 auto;
-            padding: 5px 9px;
+            padding: 3px 8px;
             border-radius: 999px;
-            font-size: 10px;
+            font-size: 9px;
             font-weight: 900;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.4px;
             white-space: nowrap;
             color: #8B4513;
             background: rgba(255, 236, 179, 0.85);
@@ -394,42 +405,46 @@
             border-color: transparent;
             box-shadow: 0 2px 8px rgba(211, 47, 47, 0.35);
         }
+        .honor-tier--bronze.is-current .honor-tier-badge {
+            background: linear-gradient(180deg, #E0A35A, #B87333);
+            box-shadow: 0 2px 6px rgba(140, 80, 20, 0.28);
+        }
 
         .honor-tier-rewards {
             display: grid;
             grid-template-columns: 1.2fr 1fr;
-            gap: 8px;
+            gap: 6px;
         }
         .honor-reward {
             display: flex;
             flex-direction: column;
             align-items: flex-start;
-            gap: 2px;
-            padding: 8px 10px;
-            border-radius: 12px;
+            gap: 1px;
+            padding: 5px 8px;
+            border-radius: 10px;
             background:
                 linear-gradient(180deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0) 42%),
                 linear-gradient(180deg, #FF8A65 0%, #F4511E 50%, #C62828 100%);
             border: 1px solid rgba(255,255,255,0.45);
-            box-shadow: 0 2px 0 #8B1A00, inset 0 1px 0 rgba(255,255,255,0.4);
+            box-shadow: 0 1px 0 #8B1A00, inset 0 1px 0 rgba(255,255,255,0.4);
             color: #FFF;
-            min-height: 54px;
+            min-height: 0;
         }
         .honor-reward em {
             font-style: normal;
-            font-size: 10px;
+            font-size: 9px;
             font-weight: 700;
             opacity: 0.88;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.4px;
         }
         .honor-reward strong {
-            font-size: 14px;
+            font-size: 12px;
             font-weight: 900;
-            line-height: 1.2;
+            line-height: 1.15;
             text-shadow: 0 1px 1px rgba(0,0,0,0.25);
         }
         .honor-reward span {
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 800;
             opacity: 0.95;
         }
