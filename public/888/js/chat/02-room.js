@@ -524,7 +524,7 @@
     return '<div class="' + cls + '">' + av + '</div>';
   }
 
-  var RP_ICON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12z"/><circle cx="12" cy="12" r="3.5"/><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zm0 8c-1.65 0-3-1.35-3-3s1.35-3 3-3 3 1.35 3 3-1.35 3-3 3z"/></svg>';
+  var RP_ICON_SVG = '<span class="rp-seal-char" aria-hidden="true">開</span>';
   var NOTICE_ICON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12z"/><path d="M12 11c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>';
 
   function sysNoticeHtml(text) {
@@ -559,9 +559,6 @@
       desc = '红包';
     }
     var sendTime = time || formatTimeSec((msg && msg.createtime) || 0);
-    var timeHtml = sendTime
-      ? ('<div class="rp-time">' + escapeHtml(sendTime) + '</div>')
-      : '';
     var bottom = '红包福利';
     if (ptype === 3) bottom = pending ? '埋雷红包 · 匹配证明中' : '埋雷红包';
     else if (ptype === 2) bottom = '拼手气红包';
@@ -578,6 +575,9 @@
       + (faded ? ' is-faded' : '')
       + (grabbed ? ' is-grabbed' : '')
       + (expired ? ' is-expired' : '');
+    var bottomRight = sendTime
+      ? ('<span class="rp-time">' + escapeHtml(sendTime) + '</span>')
+      : '';
     return (
       '<button type="button" class="' + cls + '" data-packet="' + (pid | 0) + '">' +
         '<div class="rp-top">' +
@@ -585,11 +585,10 @@
           '<div class="rp-info">' +
             '<div class="rp-title">' + bless + '</div>' +
             '<div class="rp-desc">' + escapeHtml(desc) + '</div>' +
-            timeHtml +
           '</div>' +
           mineBadge +
         '</div>' +
-        '<div class="rp-bottom">' + bottom + '</div>' +
+        '<div class="rp-bottom"><span class="rp-bottom-lab">' + bottom + '</span>' + bottomRight + '</div>' +
       '</button>'
     );
   }
