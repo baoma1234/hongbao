@@ -196,6 +196,29 @@
     }
   }
 
+  function syncWithdrawVerifyAddr(ch, bind) {
+    var wrap = document.getElementById('profileWithdrawVerifyAddrWrap');
+    var label = document.getElementById('profileWithdrawVerifyAddrLabel');
+    var addrEl = document.getElementById('profileWithdrawVerifyAddr');
+    if (!wrap || !addrEl) return;
+    var addr = '';
+    if (bind && bind.account_no) {
+      addr = String(bind.account_no || '').trim();
+    } else if (ch && String(ch.bind_mode || '') !== 'wallet') {
+      addr = ((document.getElementById('profileWithdrawAccount') || {}).value || '').trim();
+    }
+    if (!addr) {
+      wrap.hidden = true;
+      addrEl.textContent = '-';
+      return;
+    }
+    wrap.hidden = false;
+    if (label) {
+      label.textContent = walletAddressLabel(shortWalletName(ch));
+    }
+    addrEl.textContent = addr;
+  }
+
   function syncWithdrawBindUI(ch) {
     var bindPanel = document.getElementById('profileWithdrawWalletBind');
     var convPanel = document.getElementById('profileWithdrawConventional');
@@ -204,6 +227,7 @@
       if (bindPanel) { bindPanel.hidden = true; }
       if (convPanel) { convPanel.style.display = 'none'; }
       setWithdrawAmountGate(false);
+      syncWithdrawVerifyAddr(null, null);
       return;
     }
     var mode = String(ch.bind_mode || '');
@@ -230,13 +254,17 @@
       if (addr && bind) addr.textContent = bind.account_no || '-';
       if (needBind) {
         if (hint) {
-          hint.innerHTML = escapeHtml(wt('wallet_bind_need_payee', '请先绑定该钱包收款地址')) +
+          hint.innerHTML = escapeHtml(wt(
+            'wallet_bind_unbound_hint',
+            '请先为该钱包绑定收款地址，每种钱包类型独立绑定，地址不可重复使用。'
+          )) +
             ' <button type="button" class="wallet-go-payee-btn" id="profileWithdrawGoPayee">' +
             escapeHtml(wt('profile_menu_payee', '钱包地址')) + '</button>';
         }
         if (form) form.style.display = 'none';
         setWithdrawAmountGate(false);
         if (submitBtn) submitBtn.style.display = 'none';
+        syncWithdrawVerifyAddr(ch, null);
         var goBtn = document.getElementById('profileWithdrawGoPayee');
         if (goBtn && !goBtn._bound) {
           goBtn._bound = true;
@@ -248,10 +276,16 @@
         }
         return;
       }
-      if (hint) hint.textContent = wt('wallet_bind_hint', '请先绑定该钱包收款地址（每个钱包类型独立，地址不可重复）');
+      if (hint) {
+        hint.textContent = wt(
+          'wallet_bind_bound_hint',
+          '该钱包收款地址已绑定，每种钱包类型独立绑定，地址不可重复使用。'
+        );
+      }
       if (form) form.style.display = 'none';
       setWithdrawAmountGate(true);
       if (submitBtn) submitBtn.style.display = '';
+      syncWithdrawVerifyAddr(ch, bind);
       return;
     }
     // 常规/银行：优先用已绑定的银行卡/支付宝；先填收款信息，再解锁金额
@@ -285,6 +319,7 @@
     var ready = withdrawPayeeReady(ch);
     setWithdrawAmountGate(ready);
     if (submitBtn) submitBtn.style.display = ready ? '' : 'none';
+    syncWithdrawVerifyAddr(ch, null);
   }
 
   function bindWithdrawPayeeWatch() {

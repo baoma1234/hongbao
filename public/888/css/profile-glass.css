@@ -903,6 +903,41 @@
   display: none !important;
 }
 
+.profile-sub-pane .wallet-amount-limit-row .wallet-amount-limit-hd {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.profile-sub-pane .wallet-amount-limit-row .wallet-amount-limit-hd label {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.profile-sub-pane .wallet-limit-inline {
+  font-size: 12px;
+  color: #8a7a68;
+  text-align: right;
+  line-height: 1.35;
+}
+
+.profile-sub-pane .wallet-withdraw-verify-addr {
+  margin: 8px 0 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f7f3ec;
+  word-break: break-all;
+}
+
+.profile-sub-pane .wallet-withdraw-verify-addr strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 13px;
+  color: #2b2118;
+}
+
 .profile-sub-pane .wallet-bind-panel {
   margin: 10px 0 12px;
   padding: 12px;

@@ -105,7 +105,7 @@
                     <div id="profileWithdrawForm" class="wallet-amount-panel" hidden>
                     <!-- 钱包地址绑定区（先绑定再填金额） -->
                     <div id="profileWithdrawWalletBind" class="wallet-bind-panel" hidden>
-                        <div class="profile-meta-line" id="profileWithdrawBindHint" data-copy="wallet_bind_hint">请先绑定该钱包收款地址（每个钱包类型独立，地址不可重复）</div>
+                        <div class="profile-meta-line" id="profileWithdrawBindHint" data-copy="wallet_bind_unbound_hint">请先为该钱包绑定收款地址，每种钱包类型独立绑定，地址不可重复使用。</div>
                         <div class="wallet-bind-current" id="profileWithdrawBindCurrent" hidden>
                             <div class="profile-meta-line"><span id="profileWithdrawBoundLabel">钱包地址：</span><strong id="profileWithdrawBoundAddr">-</strong></div>
                         </div>
@@ -155,10 +155,16 @@
                     </div>
                     </div>
                     <div id="profileWithdrawAmountGate" class="wallet-amount-gate" hidden>
-                    <div class="profile-meta-line" id="profileWithdrawLimitHint"></div>
-                    <div class="profile-field">
-                        <label data-copy="profile_withdraw_amount_label">提现红宝金额（元）</label>
+                    <div class="profile-field wallet-amount-limit-row">
+                        <div class="wallet-amount-limit-hd">
+                            <label data-copy="profile_withdraw_amount_label">提现红宝金额（元）</label>
+                            <span class="wallet-limit-inline" id="profileWithdrawLimitHint"></span>
+                        </div>
                         <input type="number" id="profileWithdrawAmount" step="0.01" min="1" data-copy-placeholder="profile_amount_ph" placeholder="请输入金额">
+                    </div>
+                    <div class="profile-meta-line wallet-withdraw-verify-addr" id="profileWithdrawVerifyAddrWrap" hidden>
+                        <span id="profileWithdrawVerifyAddrLabel">钱包地址</span>
+                        <strong id="profileWithdrawVerifyAddr">-</strong>
                     </div>
                     <button type="button" class="btn-uid-submit" id="profileWithdrawSubmit" onclick="submitProfileWithdraw()" data-copy="profile_withdraw_submit">确认提现</button>
                     </div>
