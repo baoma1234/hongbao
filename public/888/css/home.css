@@ -113,18 +113,17 @@
         @media (prefers-reduced-motion: reduce) {
             .jackpot-container::before,
             .jackpot-label,
+            .jackpot-label::after,
             .jackpot-val,
             .jackpot-meta,
             .jackpot-pool-label,
             .jackpot-price-line,
             .jackpot-hint-line { animation: none !important; }
             .jackpot-label {
-                -webkit-text-fill-color: #fff;
-                color: #fff;
-                background: none;
-                filter: none;
+                opacity: 1;
                 transform: none;
             }
+            .jackpot-label::after { display: none; }
         }
         .jackpot-meta {
             position: relative;
@@ -185,6 +184,22 @@
             overflow: visible;
             word-break: break-word;
             overflow-wrap: anywhere;
+        }
+
+        /* 大厅领取/互动区标题（原在 profile.css，懒加载后进大厅会丢样式） */
+        .page-hero-title {
+            font-size: 15px;
+            font-weight: 900;
+            color: var(--text-main);
+            margin: 0 0 12px;
+            letter-spacing: 0.2px;
+        }
+        .page-hero-sub {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin: -6px 0 14px;
+            line-height: 1.45;
+            font-weight: 600;
         }
         .welcome-lottery-mask {
             display: none;
