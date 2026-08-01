@@ -879,7 +879,7 @@
 
   function syncBalanceFromAccount() {
     try {
-      var el = document.getElementById('myUserBalance');
+      var el = document.getElementById('myHongbaoPool') || document.getElementById('myUserBalance');
       if (el) {
         var n = parseFloat(String(el.textContent || '').replace(/,/g, ''));
         if (!isNaN(n)) {

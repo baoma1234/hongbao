@@ -851,17 +851,18 @@
         };
 
         function renderUI() {
-            const balEl = document.getElementById('myUserBalance');
             const rightsEl = document.getElementById('myTicketPool');
-            if (balEl) balEl.innerText = account.balance.toFixed(2);
             if (rightsEl) rightsEl.innerText = account.rights.toFixed(2);
             const hbHome = document.getElementById('myHongbaoPool');
             if (hbHome) hbHome.innerText = Number(account.hongbao || 0).toFixed(2);
+            // 兼容旧节点
+            const balEl = document.getElementById('myUserBalance');
+            if (balEl) balEl.innerText = Number(account.hongbao || 0).toFixed(2);
             const exRights = document.getElementById('exchangeRightsEcho');
             const exBal = document.getElementById('exchangeBalanceEcho');
             const exSym = document.getElementById('exchangeBalSym');
             if (exRights) exRights.textContent = Number(account.rights || 0).toFixed(2);
-            if (exBal) exBal.textContent = Number(account.balance || 0).toFixed(2);
+            if (exBal) exBal.textContent = Number(account.hongbao || 0).toFixed(2);
             if (exSym) exSym.textContent = (window.FanshubI18n && FanshubI18n.currencySymbol()) || '￥';
             const exHb = document.getElementById('exchangeHongbaoEcho');
             if (exHb) exHb.textContent = Number(account.hongbao || 0).toFixed(2);
@@ -988,7 +989,7 @@
                 account.rights_free = profile.rights_free != null
                     ? (parseFloat(profile.rights_free) || 0)
                     : Math.max(0, account.rights - account.rights_locked);
-                let endVal = parseFloat(profile.balance) || 0;
+                let endVal = parseFloat(profile.hongbao != null ? profile.hongbao : profile.balance) || 0;
                 let current = startVal;
                 let steps = 25;
                 let perStep = (endVal - startVal) / steps;
@@ -1002,7 +1003,8 @@
                         document.getElementById('btnGoldenMain').disabled = freeRights() <= 0;
                         onFlashComplete(selectCount, addValue);
                     } else {
-                        document.getElementById('myUserBalance').innerText = current.toFixed(2);
+                        const hb = document.getElementById('myHongbaoPool') || document.getElementById('myUserBalance');
+                        if (hb) hb.innerText = current.toFixed(2);
                     }
                 }, 25);
             } catch (e) {

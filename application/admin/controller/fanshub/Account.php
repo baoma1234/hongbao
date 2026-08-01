@@ -158,13 +158,11 @@ class Account extends Backend
         }
 
         $oldRights = (float)$row->rights;
-        $oldBalance = (float)$row->balance;
-        $oldHongbao = (float)($row->hongbao ?? 0);
+        $oldHongbao = (float)($row->hongbao ?? 0) + (float)($row->balance ?? 0);
         $newRights = isset($params['rights']) ? round((float)$params['rights'], 2) : $oldRights;
-        $newBalance = isset($params['balance']) ? round((float)$params['balance'], 2) : $oldBalance;
         $newHongbao = isset($params['hongbao']) ? round((float)$params['hongbao'], 2) : $oldHongbao;
         $rightsDelta = round($newRights - $oldRights, 2);
-        $balanceDelta = round($newBalance - $oldBalance, 2);
+        $balanceDelta = 0.0;
         $hongbaoDelta = round($newHongbao - $oldHongbao, 2);
         unset($params['rights'], $params['balance'], $params['hongbao']);
 
@@ -270,14 +268,15 @@ class Account extends Backend
         }
         if ($this->request->isPost()) {
             $rightsDelta = (float)$this->request->post('rights_delta', 0);
-            $balanceDelta = (float)$this->request->post('balance_delta', 0);
             $hongbaoDelta = (float)$this->request->post('hongbao_delta', 0);
+            // 兼容旧字段 balance_delta → 红宝
+            $hongbaoDelta += (float)$this->request->post('balance_delta', 0);
             $remark = trim((string)$this->request->post('remark', '人工调账'));
-            if ($rightsDelta == 0 && $balanceDelta == 0 && $hongbaoDelta == 0) {
+            if ($rightsDelta == 0 && $hongbaoDelta == 0) {
                 $this->error('请填写调整数值');
             }
             try {
-                FansHubService::changeAssets($row->user_id, $rightsDelta, $balanceDelta, 'admin_adjust', $remark, $this->auth->id, '', $hongbaoDelta);
+                FansHubService::changeAssets($row->user_id, $rightsDelta, 0, 'admin_adjust', $remark, $this->auth->id, '', $hongbaoDelta);
             } catch (\Throwable $e) {
                 $this->error($e->getMessage());
             }

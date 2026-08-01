@@ -6,7 +6,7 @@ use Im\Support\Db;
 use Im\Support\RedisClient;
 
 /**
- * 福利大厅钱包：fa_fans_account.balance + fa_fans_ledger
+ * 福利大厅钱包：fa_fans_account.hongbao（红宝）+ fa_fans_ledger
  *
  * getBalance 走进程内存 + Redis 短缓存，change() 后立即回写，
  * 降低抢包验资门槛的重复打库。
@@ -28,11 +28,15 @@ class WalletService
         $this->cfg = [
             'account_table'     => (string)($rp['account_table'] ?? 'fans_account'),
             'ledger_table'      => (string)($rp['ledger_table'] ?? 'fans_ledger'),
-            'field'             => (string)($rp['wallet_field'] ?? 'balance'),
+            'field'             => (string)($rp['wallet_field'] ?? 'hongbao'),
             'balance_cache_ttl' => (int)($rp['balance_cache_ttl'] ?? self::BALANCE_CACHE_TTL),
         ];
         if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $this->cfg['field'])) {
-            $this->cfg['field'] = 'balance';
+            $this->cfg['field'] = 'hongbao';
+        }
+        // 余额已并入红宝，禁止再写 balance
+        if ($this->cfg['field'] === 'balance') {
+            $this->cfg['field'] = 'hongbao';
         }
     }
 
@@ -154,17 +158,21 @@ class WalletService
         $refType = mb_substr((string)($meta['ref_type'] ?? ''), 0, 32);
         $refId = (int)($meta['ref_id'] ?? 0);
 
+        $field = $this->cfg['field'];
+        $useHongbaoLedger = ($field === 'hongbao');
         Db::exec(
             'INSERT INTO ' . Db::table($this->cfg['ledger_table'])
-            . ' (user_id,type,rights_change,balance_change,rights_after,balance_after,remark,channel,biz_no,ref_type,ref_id,admin_id,createtime)'
-            . ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            . ' (user_id,type,rights_change,balance_change,hongbao_change,rights_after,balance_after,hongbao_after,remark,channel,biz_no,ref_type,ref_id,admin_id,createtime)'
+            . ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
             [
                 $userId,
                 (string)$type,
                 '0.00',
-                sprintf('%.2f', $delta),
+                $useHongbaoLedger ? '0.00' : sprintf('%.2f', $delta),
+                $useHongbaoLedger ? sprintf('%.2f', $delta) : '0.00',
                 sprintf('%.2f', (float)($row['rights'] ?? 0)),
-                sprintf('%.2f', $after),
+                $useHongbaoLedger ? '0.00' : sprintf('%.2f', $after),
+                $useHongbaoLedger ? sprintf('%.2f', $after) : '0.00',
                 mb_substr((string)$remark, 0, 255),
                 'im_red_packet',
                 $bizNo,

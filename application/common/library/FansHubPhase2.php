@@ -569,7 +569,7 @@ class FansHubPhase2
         $extra = 145.0;
         FansHubService::changeAssets($userId, 0, $extra, 'checkin_day7', '7天星火暴击差额补齐');
         Checkin::where('user_id', $userId)->where('streak_day', 7)->update(['day7_settled' => 1]);
-        $balance = (float)FansHubService::getOrCreateAccount($userId)->balance;
+        $balance = (float)(FansHubService::getOrCreateAccount($userId)->hongbao ?? 0);
         $events[] = [
             'type'    => 'day7_explosion',
             'title'   => FansHubService::h5CopyText('phase2_day7_title'),

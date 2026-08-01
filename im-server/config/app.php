@@ -133,7 +133,7 @@ return array_replace_recursive([
         // 福利大厅余额 fa_fans_account.balance
         'account_table'              => 'fans_account',
         'ledger_table'               => 'fans_ledger',
-        'wallet_field'               => 'balance',
+        'wallet_field'               => 'hongbao',
         // 抢包验资余额短缓存（秒）；change() 后立即回写
         'balance_cache_ttl'          => 3,
     ],

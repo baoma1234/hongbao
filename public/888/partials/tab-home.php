@@ -17,20 +17,15 @@
                         <div class="asset-valuation-hint" id="rightsValuationHint"></div>
                     </div>
                     <div class="asset-card-divider" aria-hidden="true"></div>
-                    <div class="asset-card asset-card-balance">
-                        <span class="asset-label" data-copy="asset_balance_label">余额</span>
+                    <div class="asset-card asset-card-hongbao">
+                        <span class="asset-label" data-copy="asset_hongbao_label">红宝</span>
                         <strong class="asset-value asset-value-green">
-                            <span class="asset-currency" id="balanceCurrencySym">￥</span><span id="myUserBalance">0.00</span>
+                            <span class="asset-currency" id="balanceCurrencySym">￥</span><span id="myHongbaoPool">0.00</span>
                         </strong>
                         <div class="asset-progress-wrap">
                             <div class="asset-progress-bar"><div class="asset-progress-fill" id="balanceProgressFill"></div></div>
                             <div class="asset-progress-hint" id="balanceProgressHint" data-copy="balance_progress_pct">已达提现门槛的 {pct}%</div>
                         </div>
-                    </div>
-                    <div class="asset-card-divider" aria-hidden="true"></div>
-                    <div class="asset-card asset-card-hongbao">
-                        <span class="asset-label" data-copy="asset_hongbao_label">红宝</span>
-                        <strong class="asset-value"><span id="myHongbaoPool">0.00</span></strong>
                     </div>
                 </div>
                 <div class="user-info">
@@ -93,7 +88,7 @@
             </div>
 
             <div class="home-quick-grid">
-                <button type="button" class="home-quick-btn hq-exchange" onclick="switchTab('exchange')"><span data-copy="home_quick_exchange">⚡ 去闪兑</span><span data-copy="home_quick_exchange_sub">股份秒变余额</span></button>
+                <button type="button" class="home-quick-btn hq-exchange" onclick="switchTab('exchange')"><span data-copy="home_quick_exchange">⚡ 去闪兑</span><span data-copy="home_quick_exchange_sub">股份秒变红宝</span></button>
                 <button type="button" class="home-quick-btn hq-master" onclick="switchTab('master')"><span data-copy="home_quick_master">👑 团长大厅</span><span data-copy="home_quick_master_sub">天梯 + 7天星火暴击</span></button>
                 <button type="button" class="home-quick-btn hq-messages" onclick="switchTab('messages')"><span data-copy="home_quick_messages">红宝社区</span><span data-copy="home_quick_messages_sub">私聊 · 群聊 · 红包</span></button>
                 <button type="button" class="home-quick-btn hq-profile" onclick="switchTab('profile')"><span data-copy="home_quick_profile">👤 个人中心</span><span data-copy="home_quick_profile_sub">资料 · 密码 · 退出</span></button>

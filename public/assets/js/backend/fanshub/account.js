@@ -30,7 +30,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                         return value ? value : '-';
                     }},
                     {field: 'rights', title: '股份', operate: 'BETWEEN'},
-                    {field: 'balance', title: '余额', operate: 'BETWEEN'},
+                    {field: 'hongbao', title: '红宝', operate: 'BETWEEN'},
                     {field: 'main_uid', title: '主站账号', operate: 'LIKE'},
                     {field: 'member_level', title: 'VIP等级', searchList: $.extend({}, Config.memberLevelList || {}), formatter: function (value, row) {
                         var map = Config.memberLevelList || {};

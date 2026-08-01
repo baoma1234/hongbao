@@ -23,9 +23,9 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                         "exchange": "闪兑", "admin_adjust": "人工调整"
                     }, formatter: Table.api.formatter.normal},
                     {field: 'rights_change', title: '股份变动'},
-                    {field: 'balance_change', title: '余额变动'},
+                    {field: 'hongbao_change', title: '红宝变动', operate: false},
                     {field: 'rights_after', title: '股份结余'},
-                    {field: 'balance_after', title: '余额结余'},
+                    {field: 'hongbao_after', title: '红宝结余', operate: false},
                     {field: 'remark', title: '备注', operate: 'LIKE'},
                     {field: 'channel', title: '通道', operate: 'LIKE'},
                     {field: 'createtime', title: '时间', operate: 'RANGE', addclass: 'datetimerange', formatter: Table.api.formatter.datetime}

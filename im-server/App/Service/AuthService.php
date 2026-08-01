@@ -70,7 +70,7 @@ class AuthService
         $row = Db::fetch(
             "SELECT t.user_id, t.expiretime,
                     u.id, u.username, u.nickname, u.mobile, u.avatar, u.money, u.score, u.status AS user_status,
-                    IFNULL(a.balance, 0) AS balance
+                    IFNULL(a.hongbao, 0) AS balance
              FROM {$tokenTable} t
              LEFT JOIN {$userTable} u ON u.id = t.user_id
              LEFT JOIN " . Db::table('fans_account') . " a ON a.user_id = t.user_id
@@ -149,7 +149,7 @@ class AuthService
         $userTable = Db::table($this->cfg['user_table'] ?? 'user');
         $row = Db::fetch(
             "SELECT u.id, u.username, u.nickname, u.mobile, u.avatar, u.money, u.score, u.status,
-                    IFNULL(a.balance, 0) AS balance
+                    IFNULL(a.hongbao, 0) AS balance
              FROM {$userTable} u
              LEFT JOIN " . Db::table('fans_account') . " a ON a.user_id = u.id
              WHERE u.id = ? LIMIT 1",

@@ -1247,10 +1247,10 @@ class FansHubService
             'withdraw_turnover_ratio' => max(0, (float)($cfg['withdraw_turnover_ratio'] ?? 1)),
             'im_member_can_create_group' => !isset($cfg['im_member_can_create_group']) || !empty($cfg['im_member_can_create_group']),
             'max_vote_percent'     => (float)($cfg['max_vote_percent'] ?? 1),
-            'exchange_rights_to_balance_enabled' => self::exchangePairEnabled('rights', 'balance'),
-            'exchange_balance_to_rights_enabled' => self::exchangePairEnabled('balance', 'rights'),
-            'exchange_r2b_min'     => self::exchangePairMin('rights', 'balance'),
-            'exchange_b2r_min'     => self::exchangePairMin('balance', 'rights'),
+            'exchange_rights_to_balance_enabled' => self::exchangePairEnabled('rights', 'hongbao'),
+            'exchange_balance_to_rights_enabled' => self::exchangePairEnabled('hongbao', 'rights'),
+            'exchange_r2b_min'     => self::exchangePairMin('rights', 'hongbao'),
+            'exchange_b2r_min'     => self::exchangePairMin('hongbao', 'rights'),
             'hongbao_unit_value'   => self::hongbaoUnitValue(),
             'exchange_pairs'       => (function () {
                 $pairs = [];
@@ -1398,7 +1398,7 @@ class FansHubService
             'secret_vip'      => $secretVip,
             'login_today'     => $loginToday,
             'new_today'       => $newToday,
-            'balance_sum'     => round((float)Account::sum('balance'), 2),
+            'balance_sum'     => round((float)Account::sum('hongbao'), 2),
             'rights_sum'      => round((float)Account::sum('rights'), 2),
             'secret_pending'  => Secret::where('status', 'pending')->count(),
             'rates'           => [
@@ -1975,7 +1975,8 @@ class FansHubService
             'rights_locked'=> (float)$lockSnap['locked'],
             'rights_free' => (float)$lockSnap['free'],
             'rights_lock_day' => $lockSnap['lock_day'] !== '' ? $lockSnap['lock_day'] : null,
-            'balance'     => (float)$account->balance,
+            // balance 兼容字段：已并入红宝
+            'balance'     => (float)($account->hongbao ?? 0),
             'hongbao'     => (float)($account->hongbao ?? 0),
             'turnover'    => (float)($account->turnover ?? 0),
             'main_uid'              => (string)$account->main_uid,
@@ -2687,18 +2688,25 @@ class FansHubService
         if ($user && $user->status !== 'normal') {
             self::throwCopy('srv_account_frozen');
         }
+        // 余额已并入红宝：原 balance 增量全部落到 hongbao
+        $rightsDelta = round((float)$rightsDelta, 2);
+        $balanceDelta = round((float)$balanceDelta, 2);
+        $hongbaoDelta = round((float)$hongbaoDelta, 2);
+        if (abs($balanceDelta) > 1e-8) {
+            $hongbaoDelta = round($hongbaoDelta + $balanceDelta, 2);
+            $balanceDelta = 0.0;
+        }
         $snap = self::releaseExpiredRightsLock($account, false);
         $locked = (float)$snap['locked'];
         $lockDay = $snap['lock_day'];
-        $rightsAfter = round((float)$account->rights + (float)$rightsDelta, 2);
-        $balanceAfter = round((float)$account->balance + (float)$balanceDelta, 2);
-        $hongbaoAfter = round((float)($account->hongbao ?? 0) + (float)$hongbaoDelta, 2);
-        if ($rightsAfter < 0 || $balanceAfter < 0 || $hongbaoAfter < 0) {
+        $rightsAfter = round((float)$account->rights + $rightsDelta, 2);
+        $hongbaoAfter = round((float)($account->hongbao ?? 0) + $hongbaoDelta, 2);
+        if ($rightsAfter < 0 || $hongbaoAfter < 0) {
             self::throwCopy('srv_insufficient_assets');
         }
         // 扣减股份时优先动用可兑（分享等自由股）；不足再扣锁定
-        if ((float)$rightsDelta < 0) {
-            $need = abs((float)$rightsDelta);
+        if ($rightsDelta < 0) {
+            $need = abs($rightsDelta);
             $free = max(0, (float)$account->rights - $locked);
             if ($need > $free + 1e-8) {
                 $locked = max(0, round($locked - ($need - $free), 2));
@@ -2714,7 +2722,7 @@ class FansHubService
             'rights'          => $rightsAfter,
             'rights_locked'   => $locked,
             'rights_lock_day' => $lockDay !== '' ? $lockDay : null,
-            'balance'         => $balanceAfter,
+            'balance'         => 0,
             'hongbao'         => $hongbaoAfter,
             'updatetime'      => $now,
         ]);
@@ -2722,18 +2730,18 @@ class FansHubService
             'user_id'         => $userId,
             'type'            => $type,
             'rights_change'   => $rightsDelta,
-            'balance_change'  => $balanceDelta,
+            'balance_change'  => 0,
             'hongbao_change'  => $hongbaoDelta,
             'rights_after'    => $rightsAfter,
-            'balance_after'   => $balanceAfter,
+            'balance_after'   => 0,
             'hongbao_after'   => $hongbaoAfter,
             'remark'          => $remark,
             'channel'         => (string)$channel,
             'admin_id'        => $adminId,
             'createtime'      => $now,
         ]);
-        if ((float)$rightsDelta > 0) {
-            FansHubMarket::onSharesGranted((float)$rightsDelta);
+        if ($rightsDelta > 0) {
+            FansHubMarket::onSharesGranted($rightsDelta);
         }
         return $account;
     }
@@ -2741,22 +2749,23 @@ class FansHubService
     /** @return string[] */
     public static function exchangeAssets()
     {
-        return ['rights', 'balance', 'hongbao'];
+        return ['rights', 'hongbao'];
     }
 
     public static function exchangeAssetLabel($asset)
     {
         $map = [
             'rights'  => '股份',
-            'balance' => '余额',
             'hongbao' => '红宝',
+            'balance' => '红宝', // 兼容旧调用
         ];
         return $map[$asset] ?? (string)$asset;
     }
 
     public static function exchangePairCode($from, $to)
     {
-        $map = ['rights' => 'r', 'balance' => 'b', 'hongbao' => 'h'];
+        // 兼容旧 balance 代号：b → h
+        $map = ['rights' => 'r', 'balance' => 'h', 'hongbao' => 'h'];
         return ($map[$from] ?? '') . ($map[$to] ?? '');
     }
 
@@ -2767,53 +2776,40 @@ class FansHubService
 
     public static function assetUnitValue($asset)
     {
-        if ($asset === 'balance') {
-            return 1.0;
-        }
-        if ($asset === 'hongbao') {
-            return self::hongbaoUnitValue();
+        if ($asset === 'balance' || $asset === 'hongbao') {
+            return $asset === 'hongbao' ? self::hongbaoUnitValue() : 1.0;
         }
         return max(0.0001, (float)self::getSharePrice(false));
     }
 
     public static function exchangePairEnabled($from, $to)
     {
+        $from = $from === 'balance' ? 'hongbao' : $from;
+        $to = $to === 'balance' ? 'hongbao' : $to;
         $code = self::exchangePairCode($from, $to);
-        if ($code === '') {
+        if ($code === '' || $from === $to) {
+            return false;
+        }
+        // 仅保留股份↔红宝
+        if ($code !== 'rh' && $code !== 'hr') {
             return false;
         }
         $cfg = self::config();
         $key = 'exchange_' . $code . '_enabled';
-        if ($code === 'rb') {
-            return !isset($cfg[$key])
-                ? (!isset($cfg['exchange_rights_to_balance_enabled']) || !empty($cfg['exchange_rights_to_balance_enabled']))
-                : !empty($cfg[$key]);
-        }
-        if ($code === 'br') {
-            return !isset($cfg[$key])
-                ? (!isset($cfg['exchange_balance_to_rights_enabled']) || !empty($cfg['exchange_balance_to_rights_enabled']))
-                : !empty($cfg[$key]);
-        }
-        // 新通道默认开启（未配置时）
         return !isset($cfg[$key]) || !empty($cfg[$key]);
     }
 
     public static function exchangePairMin($from, $to)
     {
+        $from = $from === 'balance' ? 'hongbao' : $from;
+        $to = $to === 'balance' ? 'hongbao' : $to;
         $code = self::exchangePairCode($from, $to);
         $cfg = self::config();
-        // 仅余额↔红宝保留最低额；其余方向最低 1
-        if ($code === 'bh') {
-            return max(1, (float)($cfg['exchange_bh_min'] ?? 50));
+        if ($code === 'rh') {
+            return max(1, (float)($cfg['exchange_rh_min'] ?? $cfg['exchange_rb_min'] ?? $cfg['exchange_r2b_min'] ?? 1));
         }
-        if ($code === 'hb') {
-            return max(1, (float)($cfg['exchange_hb_min'] ?? 50));
-        }
-        if ($code === 'rb') {
-            return max(1, (float)($cfg['exchange_rb_min'] ?? $cfg['exchange_r2b_min'] ?? 1));
-        }
-        if ($code === 'br') {
-            return max(1, (float)($cfg['exchange_br_min'] ?? $cfg['exchange_b2r_min'] ?? 1));
+        if ($code === 'hr') {
+            return max(1, (float)($cfg['exchange_hr_min'] ?? $cfg['exchange_br_min'] ?? $cfg['exchange_b2r_min'] ?? 1));
         }
         return max(1, (float)($cfg['exchange_' . $code . '_min'] ?? 1));
     }
@@ -2829,12 +2825,12 @@ class FansHubService
 
     public static function exchangeR2bMin()
     {
-        return self::exchangePairMin('rights', 'balance');
+        return self::exchangePairMin('rights', 'hongbao');
     }
 
     public static function exchangeB2rMin()
     {
-        return self::exchangePairMin('balance', 'rights');
+        return self::exchangePairMin('hongbao', 'rights');
     }
 
     /** @deprecated use exchangeR2bMin / exchangeB2rMin */
@@ -2845,22 +2841,28 @@ class FansHubService
 
     public static function exchangeRightsToBalanceEnabled()
     {
-        return self::exchangePairEnabled('rights', 'balance');
+        return self::exchangePairEnabled('rights', 'hongbao');
     }
 
     public static function exchangeBalanceToRightsEnabled()
     {
-        return self::exchangePairEnabled('balance', 'rights');
+        return self::exchangePairEnabled('hongbao', 'rights');
     }
 
     /**
-     * 三资产互兑：股份 / 余额(=红宝) / 红宝钱包
+     * 双资产互兑：股份 / 红宝
      * $amount 以转出资产计量；每次兑换校验后台该方向最低限额
      */
     public static function swapAssets($userId, $from, $to, $amount, $channel = '', $requestKey = '')
     {
         $from = strtolower(trim((string)$from));
         $to = strtolower(trim((string)$to));
+        if ($from === 'balance') {
+            $from = 'hongbao';
+        }
+        if ($to === 'balance') {
+            $to = 'hongbao';
+        }
         $allowed = self::exchangeAssets();
         if (!in_array($from, $allowed, true) || !in_array($to, $allowed, true) || $from === $to) {
             self::throwCopy('srv_exchange_pair_invalid');
@@ -2916,7 +2918,7 @@ class FansHubService
             . ' → ' . rtrim(rtrim(number_format($credit, 2, '.', ''), '0'), '.')
             . ($channel ? ' [' . $channel . ']' : '');
 
-        $deltas = ['rights' => 0.0, 'balance' => 0.0, 'hongbao' => 0.0];
+        $deltas = ['rights' => 0.0, 'hongbao' => 0.0];
         $deltas[$from] -= $amount;
         $deltas[$to] += $credit;
 
@@ -2944,11 +2946,10 @@ class FansHubService
 
             $cur = [
                 'rights'  => (float)$account->rights,
-                'balance' => (float)$account->balance,
                 'hongbao' => (float)($account->hongbao ?? 0),
             ];
             if ($from === 'rights') {
-                // 兑出股份只能用可兑份额（分享送股等）；当日余额/红宝兑入的锁定至次日
+                // 兑出股份只能用可兑份额（分享送股等）；当日红宝兑入的锁定至次日
                 if ($amount > $free + 1e-8) {
                     self::throwCopy('srv_rights_t1_locked', [
                         'free'   => (int)floor($free),
@@ -2968,20 +2969,16 @@ class FansHubService
                 if ($from === 'rights') {
                     self::throwCopy('srv_insufficient_rights');
                 }
-                if ($from === 'balance') {
-                    self::throwCopy('srv_insufficient_balance');
-                }
                 self::throwCopy('srv_insufficient_hongbao');
             }
 
             $after = [
                 'rights'  => round($cur['rights'] + $deltas['rights'], 2),
-                'balance' => round($cur['balance'] + $deltas['balance'], 2),
                 'hongbao' => round($cur['hongbao'] + $deltas['hongbao'], 2),
             ];
 
-            // 余额/红宝 → 股份：计入当日锁定，次日才可再兑出（防反复刷）
-            if ($to === 'rights' && ($from === 'balance' || $from === 'hongbao')) {
+            // 红宝 → 股份：计入当日锁定，次日才可再兑出（防反复刷）
+            if ($to === 'rights' && $from === 'hongbao') {
                 $locked = round($locked + $credit, 2);
                 $lockDay = $today;
             }
@@ -2996,7 +2993,7 @@ class FansHubService
                 'rights'          => $after['rights'],
                 'rights_locked'   => $locked,
                 'rights_lock_day' => $lockDay !== '' ? $lockDay : null,
-                'balance'         => $after['balance'],
+                'balance'         => 0,
                 'hongbao'         => $after['hongbao'],
                 'updatetime'      => $now,
             ]);
@@ -3004,22 +3001,22 @@ class FansHubService
                 'user_id'         => $userId,
                 'type'            => 'exchange_swap',
                 'rights_change'   => $deltas['rights'],
-                'balance_change'  => $deltas['balance'],
+                'balance_change'  => 0,
                 'hongbao_change'  => $deltas['hongbao'],
                 'rights_after'    => $after['rights'],
-                'balance_after'   => $after['balance'],
+                'balance_after'   => 0,
                 'hongbao_after'   => $after['hongbao'],
                 'remark'          => $remark,
                 'channel'         => $channel,
                 'admin_id'        => 0,
                 'createtime'      => $now,
             ]);
-            self::recordTask($userId, 'exchange_swap', $deltas['rights'], $deltas['balance'], $channel, $remark);
+            self::recordTask($userId, 'exchange_swap', $deltas['rights'], 0, $channel, $remark);
             if ($deltas['rights'] > 0) {
                 FansHubMarket::onSharesGranted($deltas['rights']);
             }
-            if ($deltas['balance'] > 0) {
-                FansHubMarket::bumpCumulative($deltas['balance']);
+            if ($deltas['hongbao'] > 0) {
+                FansHubMarket::bumpCumulative($deltas['hongbao']);
             }
             Db::commit();
         } catch (\Throwable $e) {
@@ -3031,15 +3028,15 @@ class FansHubService
 
     public static function exchange($userId, $ticketCount, $channel = '', $requestKey = '')
     {
-        return self::swapAssets($userId, 'rights', 'balance', $ticketCount, $channel, $requestKey);
+        return self::swapAssets($userId, 'rights', 'hongbao', $ticketCount, $channel, $requestKey);
     }
 
     /**
-     * 余额 → 股份
+     * 红宝 → 股份
      */
     public static function exchangeBalanceToRights($userId, $amount, $requestKey = '')
     {
-        return self::swapAssets($userId, 'balance', 'rights', $amount, '', $requestKey);
+        return self::swapAssets($userId, 'hongbao', 'rights', $amount, '', $requestKey);
     }
 
     public static function productionChecklist()

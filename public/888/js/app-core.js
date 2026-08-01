@@ -1490,13 +1490,13 @@
             if (!profile) return;
             lastProfile = profile;
             const p2 = profile.phase2 || {};
-            account.balance = parseFloat(profile.balance) || 0;
+            account.hongbao = parseFloat(profile.hongbao != null ? profile.hongbao : profile.balance) || 0;
+            account.balance = account.hongbao; // 兼容：余额=红宝
             account.rights = parseFloat(profile.rights) || 0;
             account.rights_locked = parseFloat(profile.rights_locked) || 0;
             account.rights_free = profile.rights_free != null
                 ? (parseFloat(profile.rights_free) || 0)
                 : Math.max(0, account.rights - account.rights_locked);
-            account.hongbao = parseFloat(profile.hongbao) || 0;
             account.has_pay_password = !!profile.has_pay_password;
             account.phone = profile.mobile || account.phone;
             account.main_uid = profile.main_uid || '';
@@ -1663,48 +1663,44 @@
         }
 
         let shareSwapFrom = 'rights';
-        let shareSwapTo = 'balance';
-        const SHARE_SWAP_ASSETS = ['rights', 'balance', 'hongbao'];
+        let shareSwapTo = 'hongbao';
+        const SHARE_SWAP_ASSETS = ['rights', 'hongbao'];
         const SHARE_SWAP_DEFAULT_MAX = 99999;
 
         function shareSwapAssetLabel(asset) {
-            if (asset === 'balance') return fc('swap_asset_balance') || fc('asset_balance_label') || '余额';
-            if (asset === 'hongbao') return fc('swap_asset_hongbao') || fc('asset_hongbao_label') || '红宝';
+            if (asset === 'hongbao' || asset === 'balance') return fc('swap_asset_hongbao') || fc('asset_hongbao_label') || '红宝';
             return fc('swap_asset_rights') || fc('asset_shares_label') || '股份';
         }
 
         function shareSwapAssetIcon(asset) {
-            if (asset === 'balance') return fc('swap_unit_balance') || '¥';
-            if (asset === 'hongbao') return fc('swap_unit_hongbao') || '宝';
+            if (asset === 'hongbao' || asset === 'balance') return fc('swap_unit_hongbao') || '宝';
             return fc('swap_unit_share') || '股';
         }
 
         function shareSwapIsBhPair(from, to) {
-            return (from === 'balance' && to === 'hongbao') || (from === 'hongbao' && to === 'balance');
+            return false;
         }
 
         function shareSwapPairInfo(from, to) {
+            if (from === 'balance') from = 'hongbao';
+            if (to === 'balance') to = 'hongbao';
             const key = from + '_' + to;
             const pairs = CONFIG.EXCHANGE_PAIRS || {};
             if (pairs[key]) {
                 const p = pairs[key];
                 return {
                     enabled: p.enabled !== false,
-                    min: Number(p.min) || (shareSwapIsBhPair(from, to) ? 50 : 1),
+                    min: Number(p.min) || 1,
                     max: Number(p.max) || SHARE_SWAP_DEFAULT_MAX
                 };
             }
-            // 兼容旧配置：仅余额↔红宝保留最低额，其余上限 99999
-            if (shareSwapIsBhPair(from, to)) {
-                return { enabled: true, min: 50, max: SHARE_SWAP_DEFAULT_MAX };
-            }
-            if (from === 'rights' && to === 'balance') {
+            if (from === 'rights' && to === 'hongbao') {
                 return { enabled: CONFIG.EXCHANGE_R2B_ENABLED !== false, min: CONFIG.EXCHANGE_R2B_MIN || 1, max: SHARE_SWAP_DEFAULT_MAX };
             }
-            if (from === 'balance' && to === 'rights') {
+            if (from === 'hongbao' && to === 'rights') {
                 return { enabled: CONFIG.EXCHANGE_B2R_ENABLED !== false, min: CONFIG.EXCHANGE_B2R_MIN || 1, max: SHARE_SWAP_DEFAULT_MAX };
             }
-            return { enabled: true, min: 1, max: Number(CONFIG.EXCHANGE_MAX) || SHARE_SWAP_DEFAULT_MAX };
+            return { enabled: false, min: 1, max: SHARE_SWAP_DEFAULT_MAX };
         }
 
         /** 上方转出选定后，下方允许的兑换目标 */
@@ -1716,27 +1712,19 @@
         }
 
         function shareSwapUnitValue(asset) {
-            if (asset === 'balance') return 1;
-            if (asset === 'hongbao') return Math.max(0.0001, Number(CONFIG.HONGBAO_UNIT_VALUE) || 1);
+            if (asset === 'hongbao' || asset === 'balance') return Math.max(0.0001, Number(CONFIG.HONGBAO_UNIT_VALUE) || 1);
             return Math.max(0.0001, (typeof getSharePrice === 'function') ? getSharePrice() : (CONFIG.SINGLE_TICKET_VALUE || 5));
         }
 
         function shareSwapAvail(asset) {
-            if (asset === 'balance') return Number(account.balance || 0);
-            if (asset === 'hongbao') return Number(account.hongbao || 0);
+            if (asset === 'hongbao' || asset === 'balance') return Number(account.hongbao || 0);
             // 股份兑出仅可用可兑份额（分享送股等）；当日兑入锁定至 T+1
             if (typeof freeRights === 'function') return freeRights();
             return Math.max(0, Number(account.rights_free != null ? account.rights_free : ((account.rights || 0) - (account.rights_locked || 0))));
         }
 
         function shareSwapInsufficientMsg(avail) {
-            const label = shareSwapAssetLabel(shareSwapFrom);
-            if (shareSwapFrom === 'balance') {
-                const currency = (window.FanshubI18n && FanshubI18n.currencySymbol()) || '￥';
-                return fc('alert_exchange_insufficient', { avail: currency + Number(avail).toFixed(2) })
-                    || ('数量不足，当前可用余额 ' + currency + Number(avail).toFixed(2));
-            }
-            if (shareSwapFrom === 'hongbao') {
+            if (shareSwapFrom === 'hongbao' || shareSwapFrom === 'balance') {
                 return fc('alert_exchange_insufficient', { avail: Number(avail).toFixed(2) })
                     || ('数量不足，当前可用红宝 ' + Number(avail).toFixed(2));
             }
@@ -1747,28 +1735,27 @@
         function setProfileExchangeMode(mode) {
             // 兼容旧入口：r2b / b2r
             if (mode === 'b2r') {
-                shareSwapFrom = 'balance';
+                shareSwapFrom = 'hongbao';
                 shareSwapTo = 'rights';
             } else if (mode === 'r2b') {
                 shareSwapFrom = 'rights';
-                shareSwapTo = 'balance';
+                shareSwapTo = 'hongbao';
             }
             refreshProfileExchangeUi();
         }
 
         function onShareSwapFromChange(value) {
-            const next = (value === 'balance' || value === 'hongbao') ? value : 'rights';
+            const next = (value === 'hongbao' || value === 'balance') ? 'hongbao' : 'rights';
             shareSwapFrom = next;
-            // 转出不限制；仅按转出约束下方目标
             const allowed = shareSwapAllowedToList(shareSwapFrom);
             if (allowed.indexOf(shareSwapTo) < 0) {
-                shareSwapTo = allowed[0] || (shareSwapFrom === 'rights' ? 'balance' : 'rights');
+                shareSwapTo = allowed[0] || (shareSwapFrom === 'rights' ? 'hongbao' : 'rights');
             }
             refreshProfileExchangeUi();
         }
 
         function onShareSwapToChange(value) {
-            const next = (value === 'balance' || value === 'hongbao') ? value : 'rights';
+            const next = (value === 'hongbao' || value === 'balance') ? 'hongbao' : 'rights';
             const allowed = shareSwapAllowedToList(shareSwapFrom);
             if (allowed.indexOf(next) < 0) {
                 showFanshubToast(fc('alert_exchange_pair_invalid') || '当前转出资产不支持该兑换目标', 'error');

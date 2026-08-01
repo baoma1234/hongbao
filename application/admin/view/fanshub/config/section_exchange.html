@@ -1,1 +1,26 @@
-<div class="form-group"><label class="control-label col-xs-12 col-sm-2">三资产互兑:</label><div class="col-xs-12 col-sm-8"><p class="help-block">配置权益、余额和红包之间的兑换</p><table class="table table-bordered"><thead><tr><th>方向</th><th>启用</th><th>最低兑换额</th></tr></thead><tbody><tr><td>权益 → 余额</td><td><input type="checkbox" name="exchange_rb_enabled" value="1" {if condition="!isset($config.exchange_rb_enabled) || !empty($config.exchange_rb_enabled)"}checked{/if}></td><td><input class="form-control" name="exchange_rb_min" type="number" step="1" value="{$config.exchange_rb_min|default='1'}"></td></tr><tr><td>余额 → 权益</td><td><input type="checkbox" name="exchange_br_enabled" value="1" {if condition="!isset($config.exchange_br_enabled) || !empty($config.exchange_br_enabled)"}checked{/if}></td><td><input class="form-control" name="exchange_br_min" type="number" step="0.01" value="{$config.exchange_br_min|default='1'}"></td></tr><tr><td>权益 → 红包</td><td><input type="checkbox" name="exchange_rh_enabled" value="1" {if condition="!isset($config.exchange_rh_enabled) || !empty($config.exchange_rh_enabled)"}checked{/if}></td><td><input class="form-control" name="exchange_rh_min" type="number" step="1" value="{$config.exchange_rh_min|default='1'}"></td></tr><tr><td>红包 → 权益</td><td><input type="checkbox" name="exchange_hr_enabled" value="1" {if condition="!isset($config.exchange_hr_enabled) || !empty($config.exchange_hr_enabled)"}checked{/if}></td><td><input class="form-control" name="exchange_hr_min" type="number" step="0.01" value="{$config.exchange_hr_min|default='1'}"></td></tr><tr><td>余额 → 红包</td><td><input type="checkbox" name="exchange_bh_enabled" value="1" {if condition="!isset($config.exchange_bh_enabled) || !empty($config.exchange_bh_enabled)"}checked{/if}></td><td><input class="form-control" name="exchange_bh_min" type="number" step="0.01" value="{$config.exchange_bh_min|default='1'}"></td></tr><tr><td>红包 → 余额</td><td><input type="checkbox" name="exchange_hb_enabled" value="1" {if condition="!isset($config.exchange_hb_enabled) || !empty($config.exchange_hb_enabled)"}checked{/if}></td><td><input class="form-control" name="exchange_hb_min" type="number" step="0.01" value="{$config.exchange_hb_min|default='1'}"></td></tr></tbody></table><label>红包单位价值</label><input class="form-control" name="hongbao_unit_value" type="number" step="0.0001" value="{$config.hongbao_unit_value|default='1'}"></div></div>
+<div class="form-group">
+    <label class="control-label col-xs-12 col-sm-2">资产闪兑:</label>
+    <div class="col-xs-12 col-sm-8">
+        <p class="help-block">仅股份 ↔ 红宝（余额已并入红宝）</p>
+        <table class="table table-bordered">
+            <thead>
+            <tr><th>方向</th><th>启用</th><th>最低兑换额</th></tr>
+            </thead>
+            <tbody>
+            <tr>
+                <td>股份 → 红宝</td>
+                <td><input type="checkbox" name="exchange_rh_enabled" value="1" {if condition="!isset($config.exchange_rh_enabled) || !empty($config.exchange_rh_enabled)"}checked{/if}></td>
+                <td><input class="form-control" name="exchange_rh_min" type="number" step="1" value="{$config.exchange_rh_min|default='1'}"></td>
+            </tr>
+            <tr>
+                <td>红宝 → 股份</td>
+                <td><input type="checkbox" name="exchange_hr_enabled" value="1" {if condition="!isset($config.exchange_hr_enabled) || !empty($config.exchange_hr_enabled)"}checked{/if}></td>
+                <td><input class="form-control" name="exchange_hr_min" type="number" step="0.01" value="{$config.exchange_hr_min|default='1'}"></td>
+            </tr>
+            </tbody>
+        </table>
+        <label>红宝单位价值（元）</label>
+        <input class="form-control" name="hongbao_unit_value" type="number" step="0.0001" value="{$config.hongbao_unit_value|default='1'}">
+        <span class="help-block">1 红宝折合多少元；股份单价取大盘实时价</span>
+    </div>
+</div>
