@@ -3,7 +3,7 @@
         <div class="col-xs-12 col-sm-8">
             <select name="row[gateway]" id="payMerchantGateway" class="form-control selectpicker">
                 {foreach name="gatewayList" item="label" key="code"}
-                <option value="{$code}" {if condition="isset($row.gateway) && $row.gateway == $code"}selected{elseif condition="!isset($row.gateway) && $code == 'wanhuitong'"/}selected{/if}>{$label}</option>
+                <option value="{$code}" {if condition="isset($row['gateway']) && $row['gateway'] == $code"}selected{elseif condition="!isset($row['gateway']) && $code == 'wanhuitong'"}selected{/if}>{$label}</option>
                 {/foreach}
             </select>
         </div>
@@ -19,22 +19,22 @@
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">商户私钥 RSA:</label>
         <div class="col-xs-12 col-sm-8">
-            <textarea class="form-control" rows="5" name="row[private_key]" id="payMerchantPrivateKey" {if condition="!isset($row.id)"}data-rule="required"{/if} placeholder="PKCS#8，可带 BEGIN/END">{$row.private_key|default=''}</textarea>
-            {if condition="isset($row.id)"}<span class="help-block">留空则不修改</span>{/if}
+            <textarea class="form-control" rows="5" name="row[private_key]" id="payMerchantPrivateKey" {if condition="!isset($row['id'])"}data-rule="required"{/if} placeholder="PKCS#8，可带 BEGIN/END">{$row.private_key|default=''}</textarea>
+            {if condition="isset($row['id'])"}<span class="help-block">留空则不修改</span>{/if}
         </div>
     </div>
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">平台公钥 RSA:</label>
         <div class="col-xs-12 col-sm-8">
-            <textarea class="form-control" rows="5" name="row[platform_public_key]" id="payMerchantPlatformKey" {if condition="!isset($row.id)"}data-rule="required"{/if} placeholder="回调验签用平台公钥">{$row.platform_public_key|default=''}</textarea>
+            <textarea class="form-control" rows="5" name="row[platform_public_key]" id="payMerchantPlatformKey" {if condition="!isset($row['id'])"}data-rule="required"{/if} placeholder="回调验签用平台公钥">{$row.platform_public_key|default=''}</textarea>
         </div>
     </div>
     <div class="form-group paymerchant-bs-only" style="display:none;">
         <label class="control-label col-xs-12 col-sm-2">签名方式:</label>
         <div class="col-xs-12 col-sm-8">
             <select class="form-control" name="row[sign_type]">
-                <option value="RSA" {if condition="($row.sign_type|default='RSA') == 'RSA'"}selected{/if}>RSA（默认 SHA1withRSA）</option>
-                <option value="MD5" {if condition="($row.sign_type|default='RSA') == 'MD5'"}selected{/if}>MD5</option>
+                <option value="RSA" {if condition="!isset($row['sign_type']) || $row['sign_type'] == 'RSA' || $row['sign_type'] == ''"}selected{/if}>RSA（默认 SHA1withRSA）</option>
+                <option value="MD5" {if condition="isset($row['sign_type']) && $row['sign_type'] == 'MD5'"}selected{/if}>MD5</option>
             </select>
         </div>
     </div>
@@ -60,8 +60,8 @@
         <label class="control-label col-xs-12 col-sm-2">默认充值模式:</label>
         <div class="col-xs-12 col-sm-8">
             <select class="form-control" name="row[recharge_mode]">
-                <option value="cashier" {if condition="($row.recharge_mode|default='cashier') == 'cashier'"}selected{/if}>收银台</option>
-                <option value="api" {if condition="($row.recharge_mode|default='cashier') == 'api'"}selected{/if}>接口（返回地址）</option>
+                <option value="cashier" {if condition="!isset($row['recharge_mode']) || $row['recharge_mode'] == 'cashier' || $row['recharge_mode'] == ''"}selected{/if}>收银台</option>
+                <option value="api" {if condition="isset($row['recharge_mode']) && $row['recharge_mode'] == 'api'"}selected{/if}>接口（返回地址）</option>
             </select>
         </div>
     </div>
