@@ -145,7 +145,7 @@ return array (
   'swap_from_label' => '转出',
   'swap_unit_share' => '股',
   'swap_asset_rights' => '股份',
-  'swap_asset_balance' => '红利',
+  'swap_asset_balance' => '余额',
   'swap_asset_hongbao' => '红宝',
   'swap_all_btn' => '全部',
   'swap_min_hint' => '单次最低 1',

@@ -924,7 +924,7 @@
       }
       if (item.remark) subParts.push(item.remark);
       if (item.hongbao_after != null && hb !== 0) subParts.push(wt('wallet_unit_hongbao', '红宝') + ' ' + money(item.hongbao_after));
-      else if (item.balance_after != null && bal !== 0) subParts.push(wt('wallet_unit_balance', '红利') + ' ' + money(item.balance_after));
+      else if (item.balance_after != null && bal !== 0) subParts.push(wt('wallet_unit_balance', '余额') + ' ' + money(item.balance_after));
       return (
         '<div class="wallet-ledger-item">' +
           '<div class="wallet-ledger-main">' +

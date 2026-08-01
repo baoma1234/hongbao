@@ -953,7 +953,7 @@
                     showFanshubToast(fc('srv_rights_t1_locked', {
                         free: 0,
                         locked: Math.ceil(account.rights_locked || 0)
-                    }) || '红利兑入的股份需次日（T+1）才可兑出', 'error');
+                    }) || '兑入的股份需次日（T+1）才可兑出', 'error');
                 } else {
                     showFanshubToast(fc('alert_no_rights'), 'error');
                 }

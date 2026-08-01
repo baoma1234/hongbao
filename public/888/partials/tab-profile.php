@@ -72,7 +72,7 @@
                         </span>
                         <span class="profile-menu-main">
                             <strong data-copy="profile_menu_ledger">资金流水</strong>
-                            <small data-copy="profile_menu_ledger_sub">红宝、红利与股份变动明细</small>
+                            <small data-copy="profile_menu_ledger_sub">红宝与股份变动明细</small>
                         </span>
                         <span class="profile-menu-arrow">›</span>
                     </button>

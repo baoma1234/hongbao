@@ -2,9 +2,9 @@
         <div class="tab-page" id="tabExchange" data-tab="exchange">
             <div class="page-hero-title" data-copy="page_hero_exchange_title">⚡ VIP 闪兑大厅</div>
             <div class="page-hero-sub" data-copy="page_hero_exchange_sub">调整股数 · 实时预估到账 · 冲刺领取门槛</div>
-            <div class="exchange-closed-banner" id="exchangeClosedBanner" style="display:none;" data-copy="profile_ex_r2b_closed">红包兑换红利已关闭</div>
+            <div class="exchange-closed-banner" id="exchangeClosedBanner" style="display:none;" data-copy="profile_ex_r2b_closed">股份兑换余额已关闭</div>
 
-            <!-- 三资产互兑：股份 / 红利 / 红宝 -->
+            <!-- 三资产互兑：股份 / 余额(=红宝) / 红宝钱包 -->
             <div class="share-swap" id="dualExchangeSection">
                 <div class="share-swap-panel" id="shareSwapPanel">
                     <div class="share-swap-header">
@@ -17,7 +17,7 @@
                         <div class="share-swap-icon-circle" id="shareSwapFromIcon" data-copy="swap_unit_share">股</div>
                         <select class="share-swap-select" id="shareSwapFromSelect" aria-label="转出资产" data-copy-aria="swap_aria_from" onchange="onShareSwapFromChange(this.value)" data-copy-aria="swap_aria_from">
                             <option value="rights" data-copy="swap_asset_rights">股份</option>
-                            <option value="balance" data-copy="swap_asset_balance">红利</option>
+                            <option value="balance" data-copy="swap_asset_balance">余额</option>
                             <option value="hongbao" data-copy="swap_asset_hongbao">红宝</option>
                         </select>
                         <span class="share-swap-chevron" aria-hidden="true">▾</span>
@@ -42,7 +42,7 @@
                     <div class="share-swap-input-card share-swap-select-card">
                         <div class="share-swap-icon-circle" id="shareSwapToIcon">¥</div>
                         <select class="share-swap-select" id="shareSwapToSelect" aria-label="兑换目标" data-copy-aria="swap_aria_to" onchange="onShareSwapToChange(this.value)" data-copy-aria="swap_aria_to">
-                            <option value="balance" data-copy="swap_asset_balance">红利</option>
+                            <option value="balance" data-copy="swap_asset_balance">余额</option>
                             <option value="rights" data-copy="swap_asset_rights">股份</option>
                             <option value="hongbao" data-copy="swap_asset_hongbao">红宝</option>
                         </select>
@@ -60,7 +60,7 @@
                         <div class="share-swap-summary-right">
                             <div class="share-swap-summary-label" id="shareSwapEstLabel" data-copy="swap_est_label">预计到账</div>
                             <div class="share-swap-amount" id="shareSwapEst">0</div>
-                            <div class="share-swap-summary-label" id="shareSwapEstAsset">红利</div>
+                            <div class="share-swap-summary-label" id="shareSwapEstAsset">余额</div>
                         </div>
                     </div>
 

@@ -438,7 +438,7 @@
                         </div>
 
                         <div class="chat-rp-balance-hint">
-                            <span data-copy="chat_rp_balance_hint">可用红利余额：</span>
+                            <span data-copy="chat_rp_balance_hint">可用红宝：</span>
                             <strong id="chatRpBalance">￥0.00</strong>
                         </div>
 

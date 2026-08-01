@@ -335,7 +335,7 @@ class Fanshub extends Api
     }
 
     /**
-     * 红宝（股份）→ 红利余额
+     * 股份 → 余额（红宝）
      */
     public function exchange()
     {
@@ -353,7 +353,7 @@ class Fanshub extends Api
     }
 
     /**
-     * 红利余额 → 红宝（股份）
+     * 余额 → 股份
      */
     public function exchangebalance()
     {

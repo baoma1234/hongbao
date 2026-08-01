@@ -1668,7 +1668,7 @@
         const SHARE_SWAP_DEFAULT_MAX = 99999;
 
         function shareSwapAssetLabel(asset) {
-            if (asset === 'balance') return fc('swap_asset_balance') || fc('asset_balance_label') || '红利';
+            if (asset === 'balance') return fc('swap_asset_balance') || fc('asset_balance_label') || '余额';
             if (asset === 'hongbao') return fc('swap_asset_hongbao') || fc('asset_hongbao_label') || '红宝';
             return fc('swap_asset_rights') || fc('asset_shares_label') || '股份';
         }
@@ -1694,7 +1694,7 @@
                     max: Number(p.max) || SHARE_SWAP_DEFAULT_MAX
                 };
             }
-            // 兼容旧配置：仅红利↔红宝保留最低额，其余上限 99999
+            // 兼容旧配置：仅余额↔红宝保留最低额，其余上限 99999
             if (shareSwapIsBhPair(from, to)) {
                 return { enabled: true, min: 50, max: SHARE_SWAP_DEFAULT_MAX };
             }
@@ -1734,7 +1734,7 @@
             if (shareSwapFrom === 'balance') {
                 const currency = (window.FanshubI18n && FanshubI18n.currencySymbol()) || '￥';
                 return fc('alert_exchange_insufficient', { avail: currency + Number(avail).toFixed(2) })
-                    || ('数量不足，当前可用红利 ' + currency + Number(avail).toFixed(2));
+                    || ('数量不足，当前可用余额 ' + currency + Number(avail).toFixed(2));
             }
             if (shareSwapFrom === 'hongbao') {
                 return fc('alert_exchange_insufficient', { avail: Number(avail).toFixed(2) })

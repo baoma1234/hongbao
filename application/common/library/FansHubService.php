@@ -575,7 +575,7 @@ class FansHubService
                 'swap_from_label' => '转出标签',
                 'swap_unit_share' => '股份单位缩写',
                 'swap_asset_rights' => '资产-股份',
-                'swap_asset_balance' => '资产-红利',
+                'swap_asset_balance' => '资产-余额',
                 'swap_asset_hongbao' => '资产-红宝',
                 'swap_all_btn' => '全部按钮',
                 'swap_min_hint' => '最低额度提示',
@@ -635,7 +635,7 @@ class FansHubService
                 'wallet_not_login' => '未登录',
                 'wallet_unit_share' => '单位-股',
                 'wallet_unit_hongbao' => '单位-红宝',
-                'wallet_unit_balance' => '单位-红利',
+                'wallet_unit_balance' => '单位-余额',
                 'wallet_ledger_empty' => '流水空态',
                 'wallet_ledger_other' => '其他类型',
                 'wallet_ledger_type_register' => '流水类型-注册赠送',
@@ -848,20 +848,20 @@ class FansHubService
                 'profile_menu_exchange'  => '我的-兑换菜单',
                 'profile_menu_exchange_sub' => '我的-兑换副标题',
                 'profile_exchange_title' => '兑换页标题',
-                'profile_ex_r2b_title'   => '红宝兑红利标题',
-                'profile_ex_r2b_desc'    => '红宝兑红利说明',
-                'profile_ex_r2b_label'   => '红宝兑红利输入标签',
-                'profile_ex_r2b_btn'     => '红宝兑红利按钮',
-                'profile_ex_b2r_title'   => '红利兑股份标题',
-                'profile_ex_b2r_desc'    => '红利兑股份说明',
-                'profile_ex_b2r_label'   => '红利兑股份输入标签',
-                'profile_ex_b2r_btn'     => '红利兑股份按钮',
+                'profile_ex_r2b_title'   => '股份兑余额标题',
+                'profile_ex_r2b_desc'    => '股份兑余额说明',
+                'profile_ex_r2b_label'   => '股份兑余额输入标签',
+                'profile_ex_r2b_btn'     => '股份兑余额按钮',
+                'profile_ex_b2r_title'   => '余额兑股份标题',
+                'profile_ex_b2r_desc'    => '余额兑股份说明',
+                'profile_ex_b2r_label'   => '余额兑股份输入标签',
+                'profile_ex_b2r_btn'     => '余额兑股份按钮',
                 'profile_ex_min_hint'    => '最低下限提示（{min}）',
-                'profile_ex_preview_r2b' => '红宝兑红利预估（{amount}）',
-                'profile_ex_preview_b2r' => '红利兑股份预估（{count}）',
+                'profile_ex_preview_r2b' => '股份兑余额预估（{amount}）',
+                'profile_ex_preview_b2r' => '余额兑股份预估（{count}）',
                 'profile_ex_closed'      => '兑换全关提示',
-                'profile_ex_r2b_closed'  => '红宝兑红利关闭',
-                'profile_ex_b2r_closed'  => '红利兑股份关闭',
+                'profile_ex_r2b_closed'  => '股份兑余额关闭',
+                'profile_ex_b2r_closed'  => '余额兑股份关闭',
             ],
             '领取与账号回填' => [
                 'claim_balance_label'    => '领取页余额标签',
@@ -2748,7 +2748,7 @@ class FansHubService
     {
         $map = [
             'rights'  => '股份',
-            'balance' => '红利',
+            'balance' => '余额',
             'hongbao' => '红宝',
         ];
         return $map[$asset] ?? (string)$asset;
@@ -2802,7 +2802,7 @@ class FansHubService
     {
         $code = self::exchangePairCode($from, $to);
         $cfg = self::config();
-        // 仅红利↔红宝保留最低额；其余方向最低 1
+        // 仅余额↔红宝保留最低额；其余方向最低 1
         if ($code === 'bh') {
             return max(1, (float)($cfg['exchange_bh_min'] ?? 50));
         }
@@ -2854,7 +2854,7 @@ class FansHubService
     }
 
     /**
-     * 三资产互兑：股份 / 红利 / 红宝
+     * 三资产互兑：股份 / 余额(=红宝) / 红宝钱包
      * $amount 以转出资产计量；每次兑换校验后台该方向最低限额
      */
     public static function swapAssets($userId, $from, $to, $amount, $channel = '', $requestKey = '')
@@ -2948,7 +2948,7 @@ class FansHubService
                 'hongbao' => (float)($account->hongbao ?? 0),
             ];
             if ($from === 'rights') {
-                // 兑出股份只能用可兑份额（分享送股等）；当日红利/红宝兑入的锁定至次日
+                // 兑出股份只能用可兑份额（分享送股等）；当日余额/红宝兑入的锁定至次日
                 if ($amount > $free + 1e-8) {
                     self::throwCopy('srv_rights_t1_locked', [
                         'free'   => (int)floor($free),
@@ -2980,7 +2980,7 @@ class FansHubService
                 'hongbao' => round($cur['hongbao'] + $deltas['hongbao'], 2),
             ];
 
-            // 红利/红宝 → 股份：计入当日锁定，次日才可再兑出（防反复刷）
+            // 余额/红宝 → 股份：计入当日锁定，次日才可再兑出（防反复刷）
             if ($to === 'rights' && ($from === 'balance' || $from === 'hongbao')) {
                 $locked = round($locked + $credit, 2);
                 $lockDay = $today;
@@ -3035,7 +3035,7 @@ class FansHubService
     }
 
     /**
-     * 红利余额 → 股份
+     * 余额 → 股份
      */
     public static function exchangeBalanceToRights($userId, $amount, $requestKey = '')
     {

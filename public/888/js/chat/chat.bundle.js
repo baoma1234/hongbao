@@ -3651,7 +3651,7 @@
       return;
     }
     if (state.money != null && totalAmount > state.money + 0.0001) {
-      if (typeof showFanshubToast === 'function') showFanshubToast('红利余额不足', 'error');
+      if (typeof showFanshubToast === 'function') showFanshubToast(chatT('alert_insufficient_balance') || '红宝余额不足', 'error');
       return;
     }
     var data = {

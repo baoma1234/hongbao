@@ -18,7 +18,7 @@
                     </div>
                     <div class="asset-card-divider" aria-hidden="true"></div>
                     <div class="asset-card asset-card-balance">
-                        <span class="asset-label" data-copy="asset_balance_label">红利余额</span>
+                        <span class="asset-label" data-copy="asset_balance_label">余额</span>
                         <strong class="asset-value asset-value-green">
                             <span class="asset-currency" id="balanceCurrencySym">￥</span><span id="myUserBalance">0.00</span>
                         </strong>
@@ -93,7 +93,7 @@
             </div>
 
             <div class="home-quick-grid">
-                <button type="button" class="home-quick-btn hq-exchange" onclick="switchTab('exchange')"><span data-copy="home_quick_exchange">⚡ 去闪兑</span><span data-copy="home_quick_exchange_sub">股份秒变红利余额</span></button>
+                <button type="button" class="home-quick-btn hq-exchange" onclick="switchTab('exchange')"><span data-copy="home_quick_exchange">⚡ 去闪兑</span><span data-copy="home_quick_exchange_sub">股份秒变余额</span></button>
                 <button type="button" class="home-quick-btn hq-master" onclick="switchTab('master')"><span data-copy="home_quick_master">👑 团长大厅</span><span data-copy="home_quick_master_sub">天梯 + 7天星火暴击</span></button>
                 <button type="button" class="home-quick-btn hq-messages" onclick="switchTab('messages')"><span data-copy="home_quick_messages">红宝社区</span><span data-copy="home_quick_messages_sub">私聊 · 群聊 · 红包</span></button>
                 <button type="button" class="home-quick-btn hq-profile" onclick="switchTab('profile')"><span data-copy="home_quick_profile">👤 个人中心</span><span data-copy="home_quick_profile_sub">资料 · 密码 · 退出</span></button>
@@ -114,7 +114,7 @@
                 </div>
                 <div style="margin-top: 25px; padding: 10px; font-size: 10px; color: #657786; text-align: center; line-height: 1.6;">
                     <p data-copy="footer_line1">📊 本平台性质为【红宝 官方活跃粉丝度模拟福利推广营销互动调查大厅】</p>
-                    <p data-copy="footer_line2">安全承诺：全盘无资金充值入口。所有股份及瓜分红利均属于用户活跃度内部福利。领取红利统一由官方 VIP 福利中心人工核准，并采用安全方式精准充值至您的 红宝 主站账户中。活动最终解释权归 红宝 官方所有。</p>
+                    <p data-copy="footer_line2">安全承诺：全盘无资金充值入口。所有股份及红宝余额均属于用户活跃度内部福利。领取统一由官方 VIP 福利中心人工核准，并采用安全方式精准充值至您的 红宝 主站账户中。活动最终解释权归 红宝 官方所有。</p>
                     <p data-copy="footer_line3">© 2026 红宝 Open-Marketing Platform. 服务协议 | 合规声明</p>
                 </div>
             </div>
