@@ -898,17 +898,16 @@
       return;
     }
     box.innerHTML = ledgerState.list.map(function (item) {
-      var bal = parseFloat(item.balance_change) || 0;
       var rights = parseFloat(item.rights_change) || 0;
       var hb = parseFloat(item.hongbao_change) || 0;
+      var bal = parseFloat(item.balance_change) || 0;
+      // 旧流水 balance_change 并入红宝展示
+      if (hb === 0 && bal !== 0) hb = bal;
       var amountCls = '';
       var amountText = '';
       if (hb !== 0) {
         amountText = fmtSignedHongbao(hb);
         amountCls = hb > 0 ? ' plus' : ' minus';
-      } else if (bal !== 0) {
-        amountText = fmtSignedMoney(bal);
-        amountCls = bal > 0 ? ' plus' : ' minus';
       } else if (rights !== 0) {
         amountText = (rights > 0 ? '+' : '') + rights.toFixed(2) + wt('wallet_unit_share', '股');
         amountCls = rights > 0 ? ' plus' : ' minus';
@@ -916,15 +915,17 @@
         amountText = '0.00';
       }
       var subParts = [];
-      if (hb !== 0 && (bal !== 0 || rights !== 0)) {
-        if (bal !== 0) subParts.push(fmtSignedMoney(bal));
-        if (rights !== 0) subParts.push(fmtSignedRights(rights));
-      } else if (bal !== 0 && rights !== 0) {
+      if (hb !== 0 && rights !== 0) {
         subParts.push(fmtSignedRights(rights));
       }
       if (item.remark) subParts.push(item.remark);
-      if (item.hongbao_after != null && hb !== 0) subParts.push(wt('wallet_unit_hongbao', '红宝') + ' ' + money(item.hongbao_after));
-      else if (item.balance_after != null && bal !== 0) subParts.push(wt('wallet_unit_balance', '余额') + ' ' + money(item.balance_after));
+      var afterHb = item.hongbao_after;
+      if ((afterHb == null || afterHb === '') && hb !== 0 && item.balance_after != null) {
+        afterHb = item.balance_after;
+      }
+      if (afterHb != null && afterHb !== '' && hb !== 0) {
+        subParts.push(wt('wallet_unit_hongbao', '红宝') + ' ' + money(afterHb));
+      }
       return (
         '<div class="wallet-ledger-item">' +
           '<div class="wallet-ledger-main">' +

@@ -493,6 +493,7 @@
     var h = Number(row.hongbao_change || 0);
     var b = Number(row.balance_change || 0);
     var r = Number(row.rights_change || 0);
+    // 旧流水 balance_change 视为红宝
     var money = h || b || r;
     if (!money) return '¥ 0.00';
     var abs = Math.abs(money).toFixed(2);

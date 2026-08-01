@@ -440,7 +440,7 @@ class Account extends Backend
                 $inv ? $inv['inviter_user_id'] : '',
                 $inv ? $inv['mobile'] : '',
                 $row->rights,
-                $row->balance,
+                $row->hongbao ?? 0,
                 $row->main_uid,
                 $row->main_uid_pending ?? '',
                 $uidAuditList[$row->main_uid_audit ?? ''] ?? ($row->main_uid_audit ?? ''),
@@ -452,7 +452,7 @@ class Account extends Backend
             ];
         }
         $this->exportXlsx('fanshub_account_' . date('Ymd_His'), [
-            '会员ID', '手机号', '上线ID', '上线手机', '股份', '余额', '主站账号', '待审账号', '账号审核', 'VIP等级', '阶段', '状态', '创建时间', '更新时间',
+            '会员ID', '手机号', '上线ID', '上线手机', '股份', '红宝', '主站账号', '待审账号', '账号审核', 'VIP等级', '阶段', '状态', '创建时间', '更新时间',
         ], $data);
     }
 }

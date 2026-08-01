@@ -109,7 +109,7 @@
                 </div>
                 <div style="margin-top: 25px; padding: 10px; font-size: 10px; color: #657786; text-align: center; line-height: 1.6;">
                     <p data-copy="footer_line1">📊 本平台性质为【红宝 官方活跃粉丝度模拟福利推广营销互动调查大厅】</p>
-                    <p data-copy="footer_line2">安全承诺：全盘无资金充值入口。所有股份及红宝余额均属于用户活跃度内部福利。领取统一由官方 VIP 福利中心人工核准，并采用安全方式精准充值至您的 红宝 主站账户中。活动最终解释权归 红宝 官方所有。</p>
+                    <p data-copy="footer_line2">安全承诺：全盘无资金充值入口。所有股份及红宝均属于用户活跃度内部福利。领取统一由官方 VIP 福利中心人工核准，并采用安全方式精准充值至您的 红宝 主站账户中。活动最终解释权归 红宝 官方所有。</p>
                     <p data-copy="footer_line3">© 2026 红宝 Open-Marketing Platform. 服务协议 | 合规声明</p>
                 </div>
             </div>

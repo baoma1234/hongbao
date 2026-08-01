@@ -22,7 +22,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', './common'], function ($, und
                     }},
                     {field: 'channel', title: '通道', operate: 'LIKE'},
                     {field: 'rights', title: '股份变动'},
-                    {field: 'balance', title: '余额变动'},
+                    {field: 'balance', title: '红宝变动'},
                     {field: 'extra', title: '备注', operate: 'LIKE'},
                     {field: 'ip', title: 'IP'},
                     {field: 'createtime', title: '时间', operate: 'RANGE', addclass: 'datetimerange', formatter: Table.api.formatter.datetime}

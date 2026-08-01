@@ -2,7 +2,7 @@
         <div class="modal-box">
             <div class="block-icon" aria-hidden="true">🚧</div>
             <div class="modal-title" data-copy="threshold_modal_title">还差一步即可解锁领取！</div>
-            <div class="modal-desc" id="thresholdModalDesc" data-copy-html="1" data-copy="threshold_modal_desc">您的闪兑余额为 <strong style="color:var(--secondary);">{currency}<span id="blockCurrentAmt">0.00</span></strong>，距官方福利起领门槛 <strong>{currency}{threshold}</strong> 还差 <strong style="color:var(--danger);">{currency}<span id="blockShortAmt">0.00</span></strong>。<div class="progress-bar-wrap"><div class="progress-bar-fill" id="blockProgressBar" style="width:0%"></div></div>为保障您的专属配额不被释放，请尽快完成主站开户或邀请好友占位凑数！</div>
+            <div class="modal-desc" id="thresholdModalDesc" data-copy-html="1" data-copy="threshold_modal_desc">您的红宝为 <strong style="color:var(--secondary);">{currency}<span id="blockCurrentAmt">0.00</span></strong>，距官方福利起领门槛 <strong>{currency}{threshold}</strong> 还差 <strong style="color:var(--danger);">{currency}<span id="blockShortAmt">0.00</span></strong>。<div class="progress-bar-wrap"><div class="progress-bar-fill" id="blockProgressBar" style="width:0%"></div></div>为保障您的专属配额不被释放，请尽快完成主站开户或邀请好友占位凑数！</div>
             <button type="button" class="modal-action-btn success" id="thresholdOpenBtn" onclick="goToMainStationFromBlock()" data-copy="threshold_modal_btn_open">💳 立即前往 红宝 官方主站开户（送 {open_account_rights} 股）</button>
             <button type="button" class="modal-action-btn secondary" onclick="closeThresholdBlockModal()" data-copy="threshold_modal_btn_later">稍后再说，继续攒股份</button>
         </div>

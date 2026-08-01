@@ -64,16 +64,21 @@ class Ledger extends Backend
                 $row->user ? $row->user->mobile : '',
                 $typeList[$row->type] ?? $row->type,
                 $row->rights_change,
-                $row->balance_change,
+                // 红宝变动：优先 hongbao_change，旧流水回退 balance_change
+                (abs((float)($row->hongbao_change ?? 0)) > 1e-8)
+                    ? $row->hongbao_change
+                    : $row->balance_change,
                 $row->rights_after,
-                $row->balance_after,
+                (isset($row->hongbao_after) && $row->hongbao_after !== null && $row->hongbao_after !== '')
+                    ? $row->hongbao_after
+                    : $row->balance_after,
                 $row->remark,
                 $row->channel,
                 $row->createtime ? date('Y-m-d H:i:s', $row->createtime) : '',
             ];
         }
         $this->exportXlsx('fanshub_ledger_' . date('Ymd_His'), [
-            'ID', '会员ID', '手机号', '类型', '股份变动', '余额变动', '股份结余', '余额结余', '备注', '通道', '时间',
+            'ID', '会员ID', '手机号', '类型', '股份变动', '红宝变动', '股份结余', '红宝结余', '备注', '通道', '时间',
         ], $data);
     }
 }

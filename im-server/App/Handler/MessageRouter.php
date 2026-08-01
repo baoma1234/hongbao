@@ -230,7 +230,7 @@ class MessageRouter
     {
         $msg = $e->getMessage();
         if ($msg === 'insufficient balance') {
-            return '余额不足，请先闪兑凑够红宝余额';
+            return '红宝不足，请先闪兑凑够红宝';
         }
         if ($msg === 'balance_not_enough_for_compensate' || strpos($msg, 'balance_not_enough_for_compensate:') === 0) {
             // 原样返回错误码，由 H5 多语言文案 chat_rp_grab_need_compensate 展示

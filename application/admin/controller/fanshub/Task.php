@@ -64,7 +64,7 @@ class Task extends Backend
             ];
         }
         $this->exportXlsx('fanshub_task_' . date('Ymd_His'), [
-            'ID', '会员ID', '手机号', '任务类型', '通道', '股份', '余额', '备注', 'IP', '时间',
+            'ID', '会员ID', '手机号', '任务类型', '通道', '股份', '红宝', '备注', 'IP', '时间',
         ], $data);
     }
 }

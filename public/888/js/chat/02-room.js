@@ -2328,7 +2328,8 @@
       msg = String(msg || '');
       if (msg.indexOf('balance_not_enough_for_compensate') === 0
         || msg.indexOf('余额不足赔付') === 0
-        || msg.indexOf('余额不足以') === 0) {
+        || msg.indexOf('余额不足以') === 0
+        || msg.indexOf('红宝不足') === 0) {
         return chatT('chat_rp_grab_need_compensate') || '未达到赔付该包金额无法领取';
       }
       var map = {
@@ -2339,7 +2340,7 @@
         'packet closed': '红包已结束',
         'packet not found': '红包不存在',
         'not in group': '你不在该群内',
-        balance_below_mine_min: '余额须大于本群最低金额限制，才能领取扫雷红包',
+        balance_below_mine_min: '红宝须大于本群最低金额限制，才能领取扫雷红包',
         mine_hash_pending: '扫雷开奖中：等待波场哈希末位匹配雷号后再抢',
         slider_required: '请完成滑块验证后再抢',
         'grab cancelled': '已取消验证'
