@@ -380,91 +380,80 @@ body.chat-room-open .bottom-action-bar {
 }
 .chat-room-pane .chat-bubble.media::before { display: none; }
 
-/* ---------- 旗舰红包卡片（紧凑） ---------- */
+/* ---------- 旗舰红包卡片 ---------- */
 .chat-room-pane .chat-rp-card,
 .chat-room-pane .bubble-rp {
-  width: 228px;
-  max-width: min(228px, 70vw);
-  background: #fff;
-  border-radius: 10px;
+  width: 232px;
+  max-width: min(232px, 72vw);
+  background: #fffaf5;
+  border-radius: 12px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   box-shadow:
-    0 6px 16px rgba(180, 30, 25, 0.22),
-    0 1px 0 rgba(255, 255, 255, 0.35) inset;
+    0 8px 20px rgba(150, 28, 22, 0.22),
+    0 1px 0 rgba(255, 255, 255, 0.4) inset;
   cursor: pointer;
   position: relative;
-  border: none;
+  border: 1px solid rgba(198, 17, 20, 0.12);
   transition: transform 0.18s ease, box-shadow 0.18s ease;
   padding: 0;
   text-align: left;
   color: inherit;
   font: inherit;
+  isolation: isolate;
 }
 .chat-room-pane .chat-rp-card:active {
-  transform: scale(0.97);
-  box-shadow: 0 3px 10px rgba(180, 30, 25, 0.18);
+  transform: scale(0.975);
+  box-shadow: 0 4px 12px rgba(150, 28, 22, 0.16);
 }
-.chat-room-pane .chat-msg-row:not(.me) .chat-rp-card { border-top-left-radius: 3px; }
-.chat-room-pane .chat-msg-row.me .chat-rp-card { border-top-right-radius: 3px; }
+.chat-room-pane .chat-msg-row:not(.me) .chat-rp-card { border-top-left-radius: 4px; }
+.chat-room-pane .chat-msg-row.me .chat-rp-card { border-top-right-radius: 4px; }
 
 .chat-room-pane .chat-rp-card .rp-top {
-  background: linear-gradient(155deg, #FF5A4E 0%, #E63022 45%, #C61114 100%);
-  padding: 9px 11px;
+  background:
+    radial-gradient(ellipse 90% 70% at 8% 0%, rgba(255, 210, 140, 0.28), transparent 48%),
+    radial-gradient(ellipse 60% 50% at 100% 100%, rgba(0, 0, 0, 0.14), transparent 55%),
+    linear-gradient(160deg, #F24A3D 0%, #D9211A 48%, #A80F12 100%);
+  padding: 10px 12px 11px;
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 10px;
   position: relative;
-  min-height: 52px;
+  min-height: 56px;
   box-sizing: border-box;
-}
-.chat-room-pane .chat-rp-card .rp-top::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 8px;
-  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.12));
-  pointer-events: none;
-  z-index: 0;
 }
 .chat-room-pane .chat-rp-card .rp-top::after {
   content: '';
   position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(ellipse 70% 80% at 12% 20%, rgba(255, 255, 255, 0.22), transparent 55%),
-    radial-gradient(circle at 92% 8%, rgba(255, 220, 140, 0.18), transparent 40%);
+  left: 12px;
+  right: 12px;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(253, 228, 179, 0.55), transparent);
   pointer-events: none;
+  z-index: 2;
 }
 .chat-room-pane .chat-rp-card .rp-icon-box {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
+  width: 36px;
+  height: 40px;
   display: flex;
   justify-content: center;
   align-items: center;
   flex-shrink: 0;
   z-index: 1;
-  background: linear-gradient(180deg, #FFE9B0 0%, #F0B04A 100%);
-  box-shadow:
-    0 2px 6px rgba(0, 0, 0, 0.22),
-    0 1px 0 rgba(255, 255, 255, 0.55) inset;
+  filter: drop-shadow(0 3px 6px rgba(60, 8, 6, 0.28));
 }
-.chat-room-pane .chat-rp-card .rp-seal-char {
-  font-size: 14px;
-  font-weight: 800;
-  line-height: 1;
-  color: #C61114;
-  letter-spacing: 0;
+.chat-room-pane .chat-rp-card .rp-env-svg {
+  width: 36px;
+  height: 40px;
+  display: block;
 }
 .chat-room-pane .chat-rp-card .rp-info {
-  color: #FFF6D8;
+  color: #FFF8E7;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   z-index: 1;
   min-width: 0;
   flex: 1;
@@ -473,98 +462,140 @@ body.chat-room-open .bottom-action-bar {
   margin-left: auto;
   z-index: 2;
   flex-shrink: 0;
-  min-width: 34px;
-  height: 34px;
-  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 248, 220, 0.96);
-  border: 1px solid rgba(253, 228, 179, 0.95);
-  box-shadow: 0 2px 6px rgba(80, 10, 8, 0.2);
+  background: linear-gradient(180deg, #FFF6D6 0%, #F0C86A 100%);
+  border: 1.5px solid rgba(255, 248, 220, 0.95);
+  box-shadow:
+    0 2px 8px rgba(60, 10, 8, 0.28),
+    0 0 0 2px rgba(198, 17, 20, 0.18);
   line-height: 1;
-  padding: 0 4px;
+  padding: 0;
 }
 .chat-room-pane .chat-rp-card .rp-mine-badge-lab {
-  font-size: 9px;
-  font-weight: 700;
+  font-size: 8px;
+  font-weight: 800;
   color: #8A6427;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.5px;
+  margin-top: 1px;
 }
 .chat-room-pane .chat-rp-card .rp-mine-badge-num {
-  margin-top: 1px;
-  font-size: 15px;
+  margin-top: 0;
+  font-size: 13px;
   font-weight: 900;
   color: #B71C1C;
+  font-variant-numeric: tabular-nums;
 }
-/* 自己领过 / 已过期：封面红色变浅 */
+.chat-room-pane .chat-rp-card.is-mine .rp-top {
+  background:
+    radial-gradient(ellipse 90% 70% at 8% 0%, rgba(255, 210, 140, 0.32), transparent 48%),
+    radial-gradient(ellipse 60% 50% at 100% 100%, rgba(0, 0, 0, 0.16), transparent 55%),
+    linear-gradient(160deg, #E83D2E 0%, #C21818 50%, #8E0C10 100%);
+}
 .chat-room-pane .chat-rp-card.is-faded .rp-top {
-  background: linear-gradient(155deg, #ECA0A0 0%, #D47A7A 100%);
+  background: linear-gradient(160deg, #D9A0A0 0%, #C47E7E 55%, #B06A6A 100%);
 }
 .chat-room-pane .chat-rp-card.is-faded {
-  opacity: 0.9;
-  filter: saturate(0.7);
-  box-shadow: 0 4px 12px rgba(120, 60, 55, 0.14);
+  opacity: 0.92;
+  filter: saturate(0.65);
+  box-shadow: 0 4px 12px rgba(120, 60, 55, 0.12);
+  border-color: rgba(160, 100, 100, 0.18);
+}
+.chat-room-pane .chat-rp-card.is-faded .rp-ribbon {
+  background: linear-gradient(90deg, #E8C9A0, #D4B07A, #E8C9A0);
+  opacity: 0.55;
 }
 .chat-room-pane .chat-rp-card.is-faded .rp-bottom {
-  background: #f7e4e4;
-  color: rgba(120, 40, 40, 0.72);
+  background: #f5e8e4;
+}
+.chat-room-pane .chat-rp-card.is-faded .rp-bottom-lab {
+  color: #9a6a6a;
 }
 .chat-room-pane .chat-rp-card .rp-title {
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 700;
-  letter-spacing: 0.3px;
-  text-shadow: 0 1px 2px rgba(80, 10, 8, 0.28);
+  letter-spacing: 0.2px;
+  text-shadow: 0 1px 2px rgba(60, 8, 6, 0.35);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.25;
+  color: #FFF8E7;
 }
 .chat-room-pane .chat-rp-card .rp-desc,
 .chat-room-pane .chat-rp-card .rp-sub {
-  font-size: 11px;
-  opacity: 0.9;
-  font-weight: 500;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
   margin: 0;
-  line-height: 1.2;
+  line-height: 1.15;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
+  min-width: 0;
+}
+.chat-room-pane .chat-rp-card .rp-amt {
+  font-size: 13px;
+  font-weight: 800;
+  color: #FFE9A8;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 1px rgba(60, 8, 6, 0.25);
+}
+.chat-room-pane .chat-rp-card .rp-yen {
+  font-size: 11px;
+  font-weight: 700;
+  margin-right: 1px;
+  opacity: 0.92;
+}
+.chat-room-pane .chat-rp-card .rp-cnt {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: rgba(255, 248, 231, 0.78);
+}
+.chat-room-pane .chat-rp-card .rp-ribbon {
+  height: 3px;
+  background: linear-gradient(90deg, #C9A24A 0%, #F5E0A8 45%, #E3B268 55%, #C9A24A 100%);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.35) inset;
+  flex-shrink: 0;
 }
 .chat-room-pane .chat-rp-card .rp-bottom {
-  background: linear-gradient(180deg, #fffefb 0%, #fff8f0 100%);
-  padding: 5px 11px;
+  background: linear-gradient(180deg, #FFFDF9 0%, #FFF5EA 100%);
+  padding: 6px 12px;
   font-size: 11px;
-  color: #9a6b4a;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  border-top: 1px solid rgba(230, 48, 34, 0.12);
-  min-height: 26px;
+  min-height: 28px;
   box-sizing: border-box;
 }
 .chat-room-pane .chat-rp-card .rp-bottom-lab {
-  font-weight: 600;
-  color: #C61114;
+  font-weight: 700;
+  color: #B71C1C;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
+  letter-spacing: 0.02em;
 }
 .chat-room-pane .chat-rp-card .rp-time {
   font-size: 10px;
-  opacity: 0.75;
   font-weight: 500;
   margin: 0;
   letter-spacing: 0.02em;
-  color: #a89888;
+  color: #B5A090;
   flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
 }
 .chat-room-pane .chat-rp-card.is-grabbed .rp-bottom-lab,
 .chat-room-pane .chat-rp-card.is-expired .rp-bottom-lab {
-  color: rgba(120, 40, 40, 0.72);
+  color: #9a6a6a;
+  font-weight: 600;
 }
 .chat-room-pane .chat-rp-card .meta {
   display: none;

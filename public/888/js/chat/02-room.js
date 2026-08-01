@@ -524,7 +524,15 @@
     return '<div class="' + cls + '">' + av + '</div>';
   }
 
-  var RP_ICON_SVG = '<span class="rp-seal-char" aria-hidden="true">開</span>';
+  var RP_ICON_SVG =
+    '<svg class="rp-env-svg" viewBox="0 0 40 46" aria-hidden="true">' +
+      '<rect x="4" y="12" width="32" height="30" rx="3.2" fill="#F8E2A8"/>' +
+      '<path d="M4 15.2L20 27.2L36 15.2V13.2c0-1.9-1.4-3.2-3.2-3.2H7.2C5.4 10 4 11.3 4 13.2v2z" fill="#E3B268"/>' +
+      '<path d="M4 15.2L20 27.2L36 15.2" stroke="rgba(138,100,39,.35)" stroke-width="1" fill="none"/>' +
+      '<circle cx="20" cy="25" r="8.2" fill="#C61114"/>' +
+      '<circle cx="20" cy="25" r="8.2" fill="none" stroke="rgba(253,228,179,.85)" stroke-width="1.2"/>' +
+      '<text x="20" y="28.2" text-anchor="middle" font-size="9.5" font-weight="800" fill="#FDE4B3" font-family="PingFang SC,Microsoft YaHei,sans-serif">開</text>' +
+    '</svg>';
   var NOTICE_ICON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12z"/><path d="M12 11c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>';
 
   function sysNoticeHtml(text) {
@@ -552,15 +560,16 @@
       expired = (Math.floor(Date.now() / 1000) >= (extra.expiretime | 0));
     }
     var faded = !!(cover.faded || (extra && extra.cover_faded) || grabbed || expired);
-    var desc = '';
+    var descHtml;
     if (!isNaN(amt) && amt > 0) {
-      desc = amt.toFixed(2) + ' 元' + (cnt > 0 ? (' / ' + cnt + '个包') : '');
+      descHtml = '<span class="rp-amt"><span class="rp-yen">¥</span>' + amt.toFixed(2) + '</span>'
+        + (cnt > 0 ? '<span class="rp-cnt">' + cnt + '个</span>' : '');
     } else {
-      desc = '红包';
+      descHtml = '<span class="rp-amt">红包</span>';
     }
     var sendTime = time || formatTimeSec((msg && msg.createtime) || 0);
     var bottom = '红包福利';
-    if (ptype === 3) bottom = pending ? '埋雷红包 · 匹配证明中' : '埋雷红包';
+    if (ptype === 3) bottom = pending ? '埋雷 · 匹配中' : '埋雷红包';
     else if (ptype === 2) bottom = '拼手气红包';
     else if (ptype === 1) bottom = '人均红包';
     if (extra && extra.mode_label) bottom = String(extra.mode_label);
@@ -584,10 +593,11 @@
           '<div class="rp-icon-box">' + RP_ICON_SVG + '</div>' +
           '<div class="rp-info">' +
             '<div class="rp-title">' + bless + '</div>' +
-            '<div class="rp-desc">' + escapeHtml(desc) + '</div>' +
+            '<div class="rp-desc">' + descHtml + '</div>' +
           '</div>' +
           mineBadge +
         '</div>' +
+        '<div class="rp-ribbon" aria-hidden="true"></div>' +
         '<div class="rp-bottom"><span class="rp-bottom-lab">' + bottom + '</span>' + bottomRight + '</div>' +
       '</button>'
     );
