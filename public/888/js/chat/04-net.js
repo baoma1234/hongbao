@@ -19,10 +19,14 @@
   function scheduleReconnect() {
     if (state.reconnectTimer) return;
     if (!token()) return;
+    state.reconnectAttempt = (state.reconnectAttempt | 0) + 1;
+    var n = Math.min(state.reconnectAttempt | 0, 6);
+    // 2s → 4s → 8s → 16s → 30s…，避免断线风暴
+    var delay = Math.min(30000, 2000 * Math.pow(2, Math.max(0, n - 1)));
     state.reconnectTimer = setTimeout(function () {
       state.reconnectTimer = null;
       connect(true);
-    }, 3000);
+    }, delay);
   }
 
   function handlePacket(packet) {
@@ -34,6 +38,7 @@
         break;
       case 'auth.ok':
         state.connected = true;
+        state.reconnectAttempt = 0;
         state.userId = (packet.data && packet.data.user_id) | 0;
         try {
           if (state.userId > 0) localStorage.setItem('fans_hub_chat_cache_uid', String(state.userId));
@@ -123,13 +128,13 @@
           var byUid = d.by_user_id | 0;
           if (byUid && byUid === (state.userId | 0)) {
             markRpCover(pid, { grabbed: true, faded: true });
-            try { renderMessages(); } catch (e1) {}
+            try { refreshRpOrMessages(pid, true); } catch (e1) {}
           }
           var grab = d.grab || {};
           var st = grab.status | 0;
           if (st === 3 || st === 4) {
             markRpCover(pid, { expired: true, faded: true });
-            try { renderMessages(); } catch (e2) {}
+            try { refreshRpOrMessages(pid, true); } catch (e2) {}
           }
           // 开奖后刷新红包卡片：官方雷号 = 波场哈希末位
           if (d.tron_revealed && d.tron && state.messages && state.messages.length) {
@@ -150,7 +155,9 @@
               m.extra = ex;
               changed = true;
             });
-            if (changed) renderMessages();
+            if (changed) {
+              try { refreshRpOrMessages(pid, true); } catch (e3) {}
+            }
           }
           // 若正打开该红包详情，自动重载（防抖，避免抢完+结算连续 update 打两次）
           var pane = $('chatRpDetailPane');

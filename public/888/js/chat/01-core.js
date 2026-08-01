@@ -15,6 +15,7 @@
     unread: {},
     unreadSyncTimer: null,
     reconnectTimer: null,
+    reconnectAttempt: 0,
     pingTimer: null,
     loadedOnce: false,
     emojiLoaded: false,

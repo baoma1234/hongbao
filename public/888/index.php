@@ -6,7 +6,7 @@
  * ???????css/*.css
  * ???????js/app-core.js + js/app-boot.js
  */
-$assetVer = '202608011720';
+$assetVer = '202608011900';
 $v = htmlspecialchars($assetVer, ENT_QUOTES, 'UTF-8');
 ?><!DOCTYPE html>
 <html lang="zh-CN">

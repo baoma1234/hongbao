@@ -630,6 +630,52 @@
     }
   }
 
+  /** 只替换对应红包卡片，避免整表 innerHTML 重绘 */
+  function refreshRpCardsInDom(packetId) {
+    packetId = packetId | 0;
+    if (!packetId) return false;
+    var box = $('chatMsgScroll');
+    if (!box) return false;
+    var cards = box.querySelectorAll('.chat-rp-card[data-packet="' + packetId + '"]');
+    if (!cards.length) return false;
+    var msg = null;
+    var i;
+    for (i = 0; i < state.messages.length; i++) {
+      var m = state.messages[i];
+      if (!m || (m.msg_type | 0) !== 2) continue;
+      var ex = m.extra;
+      if (typeof ex === 'string') {
+        try { ex = JSON.parse(ex); } catch (e) { ex = {}; }
+      }
+      if (!ex || typeof ex !== 'object') continue;
+      if ((ex.packet_id | 0) === packetId) {
+        msg = m;
+        break;
+      }
+    }
+    if (!msg) return false;
+    var extra = msg.extra;
+    if (typeof extra === 'string') {
+      try { extra = JSON.parse(extra); } catch (e2) { extra = {}; }
+    }
+    var html = renderRpCardHtml(extra || {}, msg, formatTimeSec(msg.createtime));
+    var tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    var neu = tmp.firstElementChild;
+    if (!neu) return false;
+    for (i = 0; i < cards.length; i++) {
+      var card = cards[i];
+      var node = (i === cards.length - 1) ? neu : neu.cloneNode(true);
+      if (card.parentNode) card.parentNode.replaceChild(node, card);
+    }
+    return true;
+  }
+
+  function refreshRpOrMessages(packetId, skipScroll) {
+    if (refreshRpCardsInDom(packetId)) return;
+    try { renderMessages(!!skipScroll); } catch (e) {}
+  }
+
   function groupMessageWrap(mine, fromUserId, innerHtml, actions, msgId) {
     msgId = msgId | 0;
     var midAttr = msgId ? (' data-mid="' + msgId + '"') : '';
@@ -788,10 +834,10 @@
             faded: true,
             mine_digit: (p.packet_type | 0) === 3 ? (p.mine_digit | 0) : undefined
           });
-          try { renderMessages(true); } catch (eCover) {}
+          try { refreshRpOrMessages(packetId, true); } catch (eCover) {}
         } else if ((p.packet_type | 0) === 3 && p.mine_digit != null) {
           markRpCover(packetId, { mine_digit: p.mine_digit | 0 });
-          try { renderMessages(true); } catch (eMine) {}
+          try { refreshRpOrMessages(packetId, true); } catch (eMine) {}
         }
       }, 0);
       grabBtn.style.display = (!grabbed && !finished && !expired) ? '' : 'none';
@@ -2348,7 +2394,7 @@
         updateMoneyLabel();
       }
       markRpCover(packetId, { grabbed: true, faded: true });
-      try { renderMessages(); } catch (eRender) {}
+      try { refreshRpOrMessages(packetId, true); } catch (eRender) {}
       if (typeof showFanshubToast === 'function') {
         showFanshubToast(amt != null ? ('抢到 ￥' + parseFloat(amt).toFixed(2)) : '领取成功', 'success');
       }

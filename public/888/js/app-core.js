@@ -1371,7 +1371,7 @@
             if (CONFIG.JACKPOT_SERVER_SYNC) {
                 pollJackpotFromServer();
                 // 12s 一次即可；config/profile 已带首屏快照，2s 轮询浪费带宽
-                jackpotPollTimer = setInterval(pollJackpotFromServer, 12000);
+                jackpotPollTimer = setInterval(pollJackpotFromServer, 20000);
             }
         }
 

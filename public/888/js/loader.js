@@ -50,50 +50,20 @@
     return Promise.all((paths || []).map(loadCss));
   }
 
-  function fetchText(path) {
-    return fetch(url(path), { credentials: 'same-origin' }).then(function (res) {
-      if (!res.ok) throw new Error('Fetch fail: ' + path + ' ' + res.status);
-      return res.text();
-    });
-  }
-
   function ensureChat() {
     if (global.FansHubChat) return Promise.resolve(global.FansHubChat);
     if (chatPromise) return chatPromise;
-    var cssPaths = [
-      'css/chat-core.css',
-      'css/chat-luxury.css',
-      'css/chat-rp.css',
-      'css/chat-create-group.css',
-      'css/chat-community.css',
-      'css/chat-notice-feed.css',
-      'css/chat-glass-theme.css'
-    ];
-    var jsParts = [
-      'js/chat/01-core.js',
-      'js/chat/02-room.js',
-      'js/chat/03-rp.js',
-      'js/chat/04-net.js',
-      'js/chat/05-community.js',
-      'js/chat/06-notice.js'
-    ];
-    chatPromise = loadCssMany(cssPaths)
-      .then(function () {
-        return Promise.all(jsParts.map(fetchText));
-      })
-      .then(function (texts) {
-        var code = '(function (global) {\n"use strict";\n'
-          + texts.join('\n')
-          + '\n})(window);';
-        // eslint-disable-next-line no-eval
-        (0, eval)(code);
-        if (!global.FansHubChat) throw new Error('FansHubChat missing after load');
-        return global.FansHubChat;
-      })
-      .catch(function (err) {
-        chatPromise = null;
-        throw err;
-      });
+    // 单包：1 CSS + 1 JS（避免 7+6 请求与 fetch+eval）
+    chatPromise = Promise.all([
+      loadCss('css/chat.bundle.css'),
+      loadJs('js/chat/chat.bundle.js')
+    ]).then(function () {
+      if (!global.FansHubChat) throw new Error('FansHubChat missing after load');
+      return global.FansHubChat;
+    }).catch(function (err) {
+      chatPromise = null;
+      throw err;
+    });
     return chatPromise;
   }
 
@@ -114,6 +84,7 @@
   }
 
   function prefetchChat() {
+    // 空闲预拉单包后再连 WS（延迟加长，减少与首页接口争抢）
     var run = function () {
       ensureChat().then(function () {
         try {
@@ -126,12 +97,12 @@
     };
     try {
       if ('requestIdleCallback' in global) {
-        global.requestIdleCallback(run, { timeout: 4000 });
+        global.requestIdleCallback(run, { timeout: 8000 });
       } else {
-        setTimeout(run, 2200);
+        setTimeout(run, 4500);
       }
     } catch (e) {
-      setTimeout(run, 2200);
+      setTimeout(run, 4500);
     }
   }
 
