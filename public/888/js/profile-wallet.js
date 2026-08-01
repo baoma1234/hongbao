@@ -28,6 +28,7 @@
     topay: 'to',
     gopay: 'go',
     wanbi: '万币',
+    bobi: '波币',
     ersansi: '234',
     balingba: '808',
     jiubaba: '988',
@@ -212,11 +213,19 @@
     if (isWallet) {
       var wtype = String(ch.wallet_type || ch.payment_channel || '');
       var bind = (walletState.binds && walletState.binds[wtype]) || null;
+      // BS USDT：优先用已绑定的 TRC20 地址
+      if (!bind && String(ch.handler || '').toLowerCase() === 'bs') {
+        bind = (walletState.binds && (walletState.binds.BS_USDT_TRC20 || walletState.binds.USDT_TRC20)) || null;
+      }
       var cur = document.getElementById('profileWithdrawBindCurrent');
       var form = document.getElementById('profileWithdrawBindForm');
       var addr = document.getElementById('profileWithdrawBoundAddr');
+      var boundLabel = document.getElementById('profileWithdrawBoundLabel');
       var hint = document.getElementById('profileWithdrawBindHint');
       var needBind = !bind;
+      if (boundLabel) {
+        boundLabel.textContent = walletAddressLabel(shortWalletName(ch));
+      }
       if (cur) cur.hidden = !bind;
       if (addr && bind) addr.textContent = bind.account_no || '-';
       if (needBind) {
@@ -249,9 +258,16 @@
     if (!isWallet) {
       var bankBind = walletState.binds && walletState.binds.BANK;
       var aliBind = walletState.binds && walletState.binds.ALIPAY;
+      var usdtBind = walletState.binds && (walletState.binds.BS_USDT_TRC20 || walletState.binds.USDT_TRC20);
       var nameEl = document.getElementById('profileWithdrawName');
       var accEl = document.getElementById('profileWithdrawAccount');
       var bankEl = document.getElementById('profileWithdrawBank');
+      var isBsUsdtConv = String(ch.handler || '').toLowerCase() === 'bs';
+      if (isBsUsdtConv && usdtBind && accEl && !String(accEl.value || '').trim()) {
+        accEl.value = usdtBind.account_no || '';
+        if (nameEl && !String(nameEl.value || '').trim()) nameEl.value = usdtBind.account_name || 'USDT';
+        if (bankEl && !String(bankEl.value || '').trim()) bankEl.value = 'USDT-TRC20';
+      }
       if (nameEl && !String(nameEl.value || '').trim()) {
         if (aliBind && aliBind.account_name) nameEl.value = aliBind.account_name;
         else if (bankBind && bankBind.account_name) nameEl.value = bankBind.account_name;
@@ -375,6 +391,9 @@
   /** 简短展示名：NO钱包 / 234钱包 … */
   function shortWalletName(ch) {
     if (!ch) return '';
+    if (String(ch.wallet_type || '') === 'USDT_MULTI' || (String(ch.handler || '').toLowerCase() === 'bs' && /usdt/i.test(String(ch.name || '') + String(ch.payment_channel || '')))) {
+      return 'USDT钱包';
+    }
     var info = walletChannelKey(ch.name, ch.payment_channel || ch.wallet_type);
     var key = String(info.key || '');
     var known = {
@@ -388,7 +407,9 @@
       ok: 'OK钱包',
       to: 'TO钱包',
       go: 'GO钱包',
-      '万币': '万币钱包'
+      '万币': '万币钱包',
+      bobi: '波币钱包',
+      '波币': '波币钱包'
     };
     if (known[key]) return known[key];
     if (key && /^\d+$/.test(key)) return key + '钱包';
@@ -403,6 +424,13 @@
     if (!s) s = '钱包';
     if (!/钱包$/.test(s) && s.length <= 8) s += '钱包';
     return s;
+  }
+
+  /** 如「波币钱包地址」 */
+  function walletAddressLabel(walletName) {
+    var n = String(walletName || '').trim() || wt('profile_payee_tab_wallet', '数字钱包');
+    if (/地址$/.test(n)) return n;
+    return n + '地址';
   }
 
   function channelButtonHtml(ch, type, sel) {
@@ -1129,6 +1157,30 @@
 
   var payeeState = { tab: 'bank', selectedWalletType: '', walletTypes: [] };
 
+  var USDT_BIND_CHAINS = [
+    { chain: 'TRC20', wallet_type: 'BS_USDT_TRC20', inputId: 'profilePayeeUsdtTrc20', label: 'TRC20' },
+    { chain: 'ERC20', wallet_type: 'BS_USDT_ERC20', inputId: 'profilePayeeUsdtErc20', label: 'ERC20' },
+    { chain: 'TON', wallet_type: 'BS_USDT_TON', inputId: 'profilePayeeUsdtTon', label: 'TON' }
+  ];
+
+  function isUsdtMultiType(wtype) {
+    return String(wtype || '') === 'USDT_MULTI';
+  }
+
+  function usdtBindsStatus() {
+    var binds = walletState.binds || {};
+    var ok = 0;
+    var parts = [];
+    USDT_BIND_CHAINS.forEach(function (c) {
+      var b = binds[c.wallet_type];
+      if (b && b.account_no) {
+        ok += 1;
+        parts.push(c.label + ':' + b.account_no);
+      }
+    });
+    return { ok: ok, total: USDT_BIND_CHAINS.length, complete: ok === USDT_BIND_CHAINS.length, summary: parts.join(' / ') };
+  }
+
   function payeeTypeMeta(kind) {
     var map = {
       bank: { wallet_type: 'BANK', bind_mode: 'bank', label: wt('profile_payee_tab_bank', '银行卡') },
@@ -1138,30 +1190,47 @@
     return map[kind] || null;
   }
 
-  function collectWithdrawWalletTypes() {
+  /** 与充值「钱包地址」分区同序；USDT 多链置前（与充值 BS 展示一致） */
+  function collectPayeeWalletTypes() {
     var seen = {};
     var out = [];
-    var parts = walletState.withdrawPartitions || [];
-    var lists = [walletState.withdraw || []];
-    parts.forEach(function (p) {
-      if (p && p.channels) lists.push(p.channels);
+    var walletChs = [];
+    (walletState.rechargePartitions || []).forEach(function (p) {
+      if (p && (String(p.code || '') === 'wallet' || String(p.bind_mode || '') === 'wallet')) {
+        walletChs = (p.channels || []).slice();
+      }
     });
-    lists.forEach(function (list) {
-      (list || []).forEach(function (ch) {
-        if (String(ch.bind_mode || '') !== 'wallet') return;
-        var wt0 = String(ch.wallet_type || ch.payment_channel || '').trim();
-        if (!wt0 || seen[wt0]) return;
-        seen[wt0] = true;
-        out.push({
-          wallet_type: wt0,
-          name: shortWalletName(ch),
-          icon: ch.icon || '',
-          channel: ch
-        });
+    if (!walletChs.length) {
+      (walletState.withdrawPartitions || []).forEach(function (p) {
+        if (p && (String(p.code || '') === 'wallet' || String(p.bind_mode || '') === 'wallet')) {
+          walletChs = (p.channels || []).slice();
+        }
       });
+    }
+    var list = walletChs.slice();
+    list.unshift({
+      id: 0,
+      name: 'USDT钱包',
+      handler: 'bs',
+      bind_mode: 'wallet',
+      wallet_type: 'USDT_MULTI',
+      payment_channel: 'USDT',
+      recharge_mode: 'cashier',
+      icon: 'img/pay/usdt.png'
     });
-    out.sort(function (a, b) {
-      return walletPinIndex(a.channel) - walletPinIndex(b.channel);
+    var ordered = flattenChannelList(list, 'recharge', true);
+    ordered.forEach(function (ch) {
+      var wt0 = String(ch.wallet_type || ch.payment_channel || '').trim();
+      if (!wt0 || seen[wt0]) return;
+      if (String(ch.handler || '').toLowerCase() === 'bs' && !isUsdtMultiType(wt0)) return;
+      seen[wt0] = true;
+      out.push({
+        wallet_type: wt0,
+        name: shortWalletName(ch),
+        icon: ch.icon || '',
+        channel: ch,
+        multi: isUsdtMultiType(wt0)
+      });
     });
     return out;
   }
@@ -1178,7 +1247,7 @@
         return;
       }
       el.hidden = false;
-      el.textContent = wt('wallet_bound_label', '已绑定：') + (bind.account_no || '') +
+      el.textContent = wt('wallet_bound_short', '已绑定') + '：' + (bind.account_no || '') +
         (bind.account_name ? (' / ' + bind.account_name) : '') +
         (bind.bank_name ? (' / ' + bind.bank_name) : '');
     });
@@ -1187,7 +1256,7 @@
   function renderPayeeWalletTypes() {
     var box = document.getElementById('profilePayeeWalletTypes');
     if (!box) return;
-    payeeState.walletTypes = collectWithdrawWalletTypes();
+    payeeState.walletTypes = collectPayeeWalletTypes();
     if (!payeeState.walletTypes.length) {
       box.innerHTML = '<div class="wallet-channel-empty">' + escapeHtml(wt('wallet_partition_empty', '暂无可用数字钱包类型')) + '</div>';
       return;
@@ -1199,14 +1268,19 @@
     var shown = expanded || all.length <= VISIBLE ? all : all.slice(0, VISIBLE);
     var html = shown.map(function (item) {
       var active = sel === item.wallet_type ? ' active' : '';
-      var bind = walletState.binds && walletState.binds[item.wallet_type];
-      var ch = item.channel || { name: item.name, icon: item.icon, wallet_type: item.wallet_type };
+      var bound = false;
+      if (item.multi) {
+        bound = usdtBindsStatus().complete;
+      } else {
+        bound = !!(walletState.binds && walletState.binds[item.wallet_type]);
+      }
+      var ch = item.channel || { name: item.name, icon: item.icon, wallet_type: item.wallet_type, handler: item.multi ? 'bs' : '' };
       return (
         '<button type="button" class="wallet-channel-item' + active + '" data-payee-wtype="' + escapeHtml(item.wallet_type) + '">' +
           channelIconHtml(ch, item.name) +
           '<span class="wallet-channel-meta">' +
             '<span class="wallet-channel-name">' + escapeHtml(item.name) + '</span>' +
-            (bind ? '<span class="wallet-channel-bound">' + escapeHtml(wt('wallet_bound_short', '已绑定')) + '</span>' : '') +
+            (bound ? '<span class="wallet-channel-bound">' + escapeHtml(wt('wallet_bound_short', '已绑定')) + '</span>' : '') +
           '</span>' +
         '</button>'
       );
@@ -1253,11 +1327,47 @@
     var label = document.getElementById('profilePayeeWalletTypeLabel');
     var boundLine = document.getElementById('profilePayeeWalletBoundLine');
     var boundAddr = document.getElementById('profilePayeeWalletBoundAddr');
+    var boundLabel = document.getElementById('profilePayeeWalletBoundLabel');
+    var addrLabel = document.getElementById('profilePayeeWalletAddressLabel');
+    var singleBox = document.getElementById('profilePayeeWalletSingleFields');
+    var usdtBox = document.getElementById('profilePayeeUsdtChainFields');
     var item = null;
     payeeState.walletTypes.forEach(function (x) {
       if (x.wallet_type === wtype) item = x;
     });
-    if (label) label.textContent = (item && item.name) || wtype;
+    var wname = (item && item.name) || shortWalletName({ name: wtype, wallet_type: wtype }) || wtype;
+    if (label) label.textContent = wname;
+    if (boundLabel) boundLabel.textContent = walletAddressLabel(wname) + '：';
+    if (addrLabel) addrLabel.textContent = walletAddressLabel(wname);
+
+    var multi = isUsdtMultiType(wtype) || !!(item && item.multi);
+    if (singleBox) singleBox.hidden = !!multi;
+    if (usdtBox) usdtBox.hidden = !multi;
+
+    if (multi) {
+      var st = usdtBindsStatus();
+      if (boundLine) boundLine.hidden = st.ok === 0;
+      if (boundAddr) {
+        boundAddr.textContent = st.complete
+          ? st.summary
+          : (st.ok ? (wt('profile_payee_usdt_partial', '已绑定 {n}/3', { n: st.ok }) + ' · ' + st.summary) : '-');
+      }
+      USDT_BIND_CHAINS.forEach(function (c) {
+        var el = document.getElementById(c.inputId);
+        var b = walletState.binds && walletState.binds[c.wallet_type];
+        if (el) el.value = b ? (b.account_no || '') : '';
+      });
+      var nameEl = document.getElementById('profilePayeeUsdtName');
+      var firstBind = null;
+      USDT_BIND_CHAINS.forEach(function (c) {
+        if (!firstBind && walletState.binds && walletState.binds[c.wallet_type]) {
+          firstBind = walletState.binds[c.wallet_type];
+        }
+      });
+      if (nameEl) nameEl.value = firstBind ? (firstBind.account_name || '') : '';
+      return;
+    }
+
     var bind = walletState.binds && walletState.binds[wtype];
     if (boundLine) boundLine.hidden = !bind;
     if (boundAddr) boundAddr.textContent = bind ? (bind.account_no || '-') : '-';
@@ -1356,13 +1466,53 @@
       }
     } else {
       walletType = payeeState.selectedWalletType;
-      payload.account_no = ((document.getElementById('profilePayeeWalletAddress') || {}).value || '').trim();
-      payload.account_name = ((document.getElementById('profilePayeeWalletName') || {}).value || '').trim();
-      payload.bind_mode = 'wallet';
       if (!walletType) {
         toast(wt('wallet_need_channel', '请先选择钱包'), 'error');
         return;
       }
+      if (isUsdtMultiType(walletType)) {
+        var usdtName = ((document.getElementById('profilePayeeUsdtName') || {}).value || '').trim();
+        var chainPayloads = [];
+        for (var i = 0; i < USDT_BIND_CHAINS.length; i++) {
+          var c = USDT_BIND_CHAINS[i];
+          var no = ((document.getElementById(c.inputId) || {}).value || '').trim();
+          if (!no || no.length < 6) {
+            toast(wt('profile_payee_usdt_need_all', '请填写完整的 {chain} 地址（需同时绑定三个）', { chain: c.label }), 'error');
+            return;
+          }
+          chainPayloads.push({
+            wallet_type: c.wallet_type,
+            account_info: {
+              account_no: no,
+              account_name: usdtName,
+              bind_mode: 'wallet'
+            },
+            bind_mode: 'wallet'
+          });
+        }
+        var btn = document.querySelector('#profilePayeeWalletForm .btn-uid-submit');
+        if (btn) btn.disabled = true;
+        var seq = Promise.resolve();
+        chainPayloads.forEach(function (p) {
+          seq = seq.then(function () {
+            return api('bindwallet', p).then(function (data) {
+              if (data && data.binds) walletState.binds = data.binds;
+            });
+          });
+        });
+        seq.then(function () {
+          toast(wt('wallet_bind_ok', '绑定成功'), 'success');
+          initPayeePage();
+        }).catch(function (e) {
+          toast((e && e.message) || wt('wallet_fail', '失败'), 'error');
+        }).then(function () {
+          if (btn) btn.disabled = false;
+        });
+        return;
+      }
+      payload.account_no = ((document.getElementById('profilePayeeWalletAddress') || {}).value || '').trim();
+      payload.account_name = ((document.getElementById('profilePayeeWalletName') || {}).value || '').trim();
+      payload.bind_mode = 'wallet';
       if (!payload.account_no || payload.account_no.length < 6) {
         toast(wt('wallet_bind_address_invalid', '钱包地址格式不正确'), 'error');
         return;

@@ -107,7 +107,7 @@
                     <div id="profileWithdrawWalletBind" class="wallet-bind-panel" hidden>
                         <div class="profile-meta-line" id="profileWithdrawBindHint" data-copy="wallet_bind_hint">请先绑定该钱包收款地址（每个钱包类型独立，地址不可重复）</div>
                         <div class="wallet-bind-current" id="profileWithdrawBindCurrent" hidden>
-                            <div class="profile-meta-line"><span data-copy="wallet_bound_label">已绑定地址：</span><strong id="profileWithdrawBoundAddr">-</strong></div>
+                            <div class="profile-meta-line"><span id="profileWithdrawBoundLabel">钱包地址：</span><strong id="profileWithdrawBoundAddr">-</strong></div>
                         </div>
                         <div class="wallet-bind-form" id="profileWithdrawBindForm">
                             <div class="profile-field">
@@ -230,17 +230,38 @@
                     <p class="profile-meta-line" data-copy="profile_payee_wallet_hint">选择钱包类型，展示并管理已绑定地址（与提现钱包一致）</p>
                     <div id="profilePayeeWalletTypes" class="wallet-channel-list is-grid"></div>
                     <div id="profilePayeeWalletForm" class="wallet-bind-panel" hidden>
-                        <div class="profile-meta-line"><span data-copy="wallet_bound_label">当前类型：</span><strong id="profilePayeeWalletTypeLabel">-</strong></div>
+                        <div class="profile-meta-line"><span data-copy="profile_payee_wallet_type_label">当前钱包：</span><strong id="profilePayeeWalletTypeLabel">-</strong></div>
                         <div class="profile-meta-line" id="profilePayeeWalletBoundLine" hidden>
-                            <span data-copy="wallet_bound_label">已绑定地址：</span><strong id="profilePayeeWalletBoundAddr">-</strong>
+                            <span id="profilePayeeWalletBoundLabel">钱包地址：</span><strong id="profilePayeeWalletBoundAddr">-</strong>
                         </div>
-                        <div class="profile-field">
-                            <label data-copy="wallet_bind_address_label">钱包地址</label>
-                            <input type="text" id="profilePayeeWalletAddress" placeholder="请输入钱包收款地址">
+                        <div id="profilePayeeWalletSingleFields">
+                            <div class="profile-field">
+                                <label id="profilePayeeWalletAddressLabel" data-copy="wallet_bind_address_label">钱包地址</label>
+                                <input type="text" id="profilePayeeWalletAddress" placeholder="请输入钱包收款地址">
+                            </div>
+                            <div class="profile-field">
+                                <label data-copy="wallet_bind_name_label">备注姓名（可选）</label>
+                                <input type="text" id="profilePayeeWalletName" placeholder="可选">
+                            </div>
                         </div>
-                        <div class="profile-field">
-                            <label data-copy="wallet_bind_name_label">备注姓名（可选）</label>
-                            <input type="text" id="profilePayeeWalletName" placeholder="可选">
+                        <div id="profilePayeeUsdtChainFields" hidden>
+                            <p class="profile-meta-line" data-copy="profile_payee_usdt_hint">USDT 需同时绑定 TRC20 / ERC20 / TON 三个地址</p>
+                            <div class="profile-field">
+                                <label>TRC20 地址</label>
+                                <input type="text" id="profilePayeeUsdtTrc20" placeholder="USDT-TRC20 收款地址">
+                            </div>
+                            <div class="profile-field">
+                                <label>ERC20 地址</label>
+                                <input type="text" id="profilePayeeUsdtErc20" placeholder="USDT-ERC20 收款地址">
+                            </div>
+                            <div class="profile-field">
+                                <label>TON 地址</label>
+                                <input type="text" id="profilePayeeUsdtTon" placeholder="USDT-TON 收款地址">
+                            </div>
+                            <div class="profile-field">
+                                <label data-copy="wallet_bind_name_label">备注姓名（可选）</label>
+                                <input type="text" id="profilePayeeUsdtName" placeholder="可选">
+                            </div>
                         </div>
                         <button type="button" class="btn-uid-submit" onclick="submitProfilePayeeBind('wallet')" data-copy="wallet_bind_submit">确认绑定</button>
                     </div>
