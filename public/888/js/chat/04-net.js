@@ -293,6 +293,9 @@
       var longPressTimer = null;
       var longPressBtn = null;
       var skipNextClick = false;
+      var SWIPE_DEL_W = 76;
+      var swipeState = null; // { row, front, startX, startY, baseX, moved, horizontal }
+
       function clearLongPress() {
         if (longPressTimer) {
           clearTimeout(longPressTimer);
@@ -300,8 +303,43 @@
         }
         longPressBtn = null;
       }
+
+      function closeAllSwipeRows(except) {
+        var rows = list.querySelectorAll('.chat-conv-swipe.open, .chat-conv-swipe.is-dragging');
+        for (var i = 0; i < rows.length; i++) {
+          var row = rows[i];
+          if (except && row === except) continue;
+          row.classList.remove('open', 'is-dragging');
+          var front = row.querySelector('.chat-conv-item');
+          if (front) front.style.transform = '';
+        }
+      }
+
+      function setSwipeOffset(row, front, x, withTransition) {
+        if (!row || !front) return;
+        var nx = Math.max(-SWIPE_DEL_W, Math.min(0, x));
+        if (!withTransition) row.classList.add('is-dragging');
+        else row.classList.remove('is-dragging');
+        front.style.transform = nx ? ('translateX(' + nx + 'px)') : '';
+        if (nx <= -SWIPE_DEL_W / 2) row.classList.add('open');
+        else row.classList.remove('open');
+      }
+
+      function snapSwipe(row, front, open) {
+        if (!row || !front) return;
+        row.classList.remove('is-dragging');
+        if (open) {
+          row.classList.add('open');
+          front.style.transform = 'translateX(-' + SWIPE_DEL_W + 'px)';
+        } else {
+          row.classList.remove('open');
+          front.style.transform = '';
+        }
+      }
+
       // 手指按下即预拉历史，等 click 打开时多半已进本地缓存
       list.addEventListener('pointerdown', function (ev) {
+        if (ev.target.closest('.chat-conv-swipe-del')) return;
         var btn = ev.target.closest('.chat-conv-item');
         if (!btn) return;
         prefetchHistory({
@@ -313,27 +351,99 @@
         longPressBtn = btn;
         longPressTimer = setTimeout(function () {
           longPressTimer = null;
-          if (!longPressBtn) return;
+          if (!longPressBtn || (swipeState && swipeState.horizontal)) return;
           skipNextClick = true;
+          closeAllSwipeRows();
           openConvActionSheet(findConvItemFromBtn(longPressBtn));
           try { if (navigator.vibrate) navigator.vibrate(12); } catch (eV) {}
         }, 480);
-      }, { passive: true });
-      list.addEventListener('pointerup', clearLongPress, { passive: true });
-      list.addEventListener('pointercancel', clearLongPress, { passive: true });
+
+        var row = btn.closest('.chat-conv-swipe');
+        if (!row || (parseInt(btn.getAttribute('data-type'), 10) || 1) !== 1) {
+          swipeState = null;
+          return;
+        }
+        var baseX = 0;
+        if (row.classList.contains('open')) baseX = -SWIPE_DEL_W;
+        var t = btn.style.transform || '';
+        var m = t.match(/translateX\((-?\d+(?:\.\d+)?)px\)/);
+        if (m) baseX = parseFloat(m[1]) || baseX;
+        swipeState = {
+          row: row,
+          front: btn,
+          startX: ev.clientX,
+          startY: ev.clientY,
+          baseX: baseX,
+          moved: false,
+          horizontal: false,
+          pointerId: ev.pointerId
+        };
+        try { row.setPointerCapture(ev.pointerId); } catch (eCap) {}
+      });
+
       list.addEventListener('pointermove', function (ev) {
-        if (!longPressTimer || !longPressBtn) return;
-        if (Math.abs(ev.movementX) + Math.abs(ev.movementY) > 8) clearLongPress();
-      }, { passive: true });
+        if (longPressTimer && longPressBtn) {
+          if (Math.abs(ev.movementX) + Math.abs(ev.movementY) > 8) clearLongPress();
+        }
+        if (!swipeState || swipeState.pointerId !== ev.pointerId) return;
+        var dx = ev.clientX - swipeState.startX;
+        var dy = ev.clientY - swipeState.startY;
+        if (!swipeState.horizontal) {
+          if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+          if (Math.abs(dx) <= Math.abs(dy)) {
+            // 纵向滚动：放弃左滑
+            swipeState = null;
+            return;
+          }
+          swipeState.horizontal = true;
+          clearLongPress();
+          closeAllSwipeRows(swipeState.row);
+        }
+        swipeState.moved = true;
+        setSwipeOffset(swipeState.row, swipeState.front, swipeState.baseX + dx, false);
+        try { ev.preventDefault(); } catch (ePrev) {}
+      }, { passive: false });
+
+      function endSwipe(ev) {
+        if (!swipeState || (ev && swipeState.pointerId !== ev.pointerId)) {
+          clearLongPress();
+          return;
+        }
+        var st = swipeState;
+        swipeState = null;
+        clearLongPress();
+        if (!st.horizontal) return;
+        var t = st.front.style.transform || '';
+        var m = t.match(/translateX\((-?\d+(?:\.\d+)?)px\)/);
+        var cur = m ? parseFloat(m[1]) : 0;
+        var open = cur <= -SWIPE_DEL_W * 0.4;
+        snapSwipe(st.row, st.front, open);
+        if (st.moved) skipNextClick = true;
+      }
+
+      list.addEventListener('pointerup', endSwipe);
+      list.addEventListener('pointercancel', endSwipe);
+
       list.addEventListener('contextmenu', function (ev) {
         var btn = ev.target.closest('.chat-conv-item');
         if (!btn) return;
         ev.preventDefault();
         clearLongPress();
         skipNextClick = true;
+        closeAllSwipeRows();
         openConvActionSheet(findConvItemFromBtn(btn));
       });
       list.addEventListener('click', function (ev) {
+        var delBtn = ev.target.closest('.chat-conv-swipe-del');
+        if (delBtn) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          var row = delBtn.closest('.chat-conv-swipe');
+          var itemBtn = row && row.querySelector('.chat-conv-item');
+          closeAllSwipeRows();
+          if (itemBtn) deletePrivateConvFromList(findConvItemFromBtn(itemBtn));
+          return;
+        }
         if (skipNextClick) {
           skipNextClick = false;
           ev.preventDefault();
@@ -341,7 +451,19 @@
           return;
         }
         var btn = ev.target.closest('.chat-conv-item');
-        if (!btn) return;
+        if (!btn) {
+          closeAllSwipeRows();
+          return;
+        }
+        var swipeRow = btn.closest('.chat-conv-swipe');
+        if (swipeRow && swipeRow.classList.contains('open')) {
+          // 已左滑展开时，点会话先收回，不进房间
+          closeAllSwipeRows();
+          ev.preventDefault();
+          return;
+        }
+        // 点其他行时收起已展开的
+        if (!swipeRow || !swipeRow.classList.contains('open')) closeAllSwipeRows();
         openRoom({
           type: parseInt(btn.getAttribute('data-type'), 10) || 1,
           id: btn.getAttribute('data-id'),

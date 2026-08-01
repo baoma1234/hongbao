@@ -431,6 +431,50 @@ body.tab-messages .bottom-action-bar {
   overscroll-behavior: contain;
   box-shadow: none;
 }
+.chat-conv-swipe {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background: #fff;
+  touch-action: pan-y;
+}
+.chat-conv-swipe-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 76px;
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-end;
+  z-index: 0;
+}
+.chat-conv-swipe-del {
+  width: 76px;
+  border: none;
+  margin: 0;
+  padding: 0;
+  background: #fa5151;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+}
+.chat-conv-swipe-del:active { background: #e04343; }
+.chat-conv-swipe .chat-conv-item {
+  position: relative;
+  z-index: 1;
+  background: #fff;
+  transition: transform 0.2s ease;
+  will-change: transform;
+}
+.chat-conv-swipe.open .chat-conv-item {
+  transform: translateX(-76px);
+}
+.chat-conv-swipe.is-dragging .chat-conv-item {
+  transition: none;
+}
 .chat-conv-item {
   display: flex;
   align-items: center;

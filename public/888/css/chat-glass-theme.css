@@ -217,6 +217,14 @@ body.tab-messages {
   overscroll-behavior: contain;
 }
 
+#tabMessages .chat-conv-swipe {
+  width: 100% !important;
+  background: #fff !important;
+}
+#tabMessages .chat-conv-swipe .chat-conv-item {
+  background: #fff !important;
+}
+
 #tabMessages .chat-conv-item {
   width: 100% !important;
   max-width: none !important;

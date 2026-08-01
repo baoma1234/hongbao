@@ -311,14 +311,13 @@
     }
   }
 
-  async function deletePrivateConvFromList() {
-    var item = _convActionTarget;
+  async function deletePrivateConvFromList(fromItem) {
+    var item = fromItem || _convActionTarget;
     closeConvActionSheet();
     if (!item || (item.conversation_type | 0) !== 1) return;
     var cid = String(item.conversation_id || '');
     var peer = item.peer_user_id | 0;
     if (!cid && peer > 0) {
-      // 兜底：无 conversation_id 时由服务端用 to_user_id 拼
       cid = '';
     }
     if (!window.confirm('删除后将从会话列表移除（对方不受影响）。确定删除？')) {
@@ -339,7 +338,6 @@
         return true;
       });
       if (key && state.unread) delete state.unread[key];
-      // 正在看这个私聊时关掉房间
       if (state.room && (state.room.type | 0) === 1) {
         var rid = String(state.room.id || '');
         if ((cid && rid === cid) || (peer > 0 && (state.room.peer | 0) === peer)) {
@@ -371,7 +369,7 @@
     var avatarHtml = avatarImgHtml(item.avatar);
     var adminBadge = item.is_im_admin ? '<span class="chat-admin-tag">客服</span>' : '';
     var pinMark = item.pinned ? '<span class="chat-conv-pin" aria-hidden="true">📌</span>' : '';
-    return (
+    var btn =
       '<button type="button" class="chat-conv-item' + (item.is_im_admin ? ' is-admin' : '') + (item.pinned ? ' is-pinned' : '') + '" data-type="' + type + '" data-id="' + escapeHtml(String(id)) + '" data-peer="' + (item.peer_user_id | 0) + '" data-title="' + title + '" data-pinned="' + (item.pinned ? '1' : '0') + '">' +
         '<div class="chat-avatar' + (type === 2 ? ' group' : '') + (item.is_im_admin ? ' admin' : '') + '">' + avatarHtml + '</div>' +
         '<div class="chat-conv-body">' +
@@ -379,8 +377,19 @@
           '<div class="chat-conv-preview">' + prev + '</div>' +
         '</div>' +
         (unread ? '<span class="chat-badge">' + (unread > 99 ? '99+' : unread) + '</span>' : '') +
-      '</button>'
-    );
+      '</button>';
+    // 私聊：左滑露出删除
+    if (type === 1) {
+      return (
+        '<div class="chat-conv-swipe" data-type="1" data-id="' + escapeHtml(String(id)) + '" data-peer="' + (item.peer_user_id | 0) + '">' +
+          '<div class="chat-conv-swipe-actions">' +
+            '<button type="button" class="chat-conv-swipe-del" data-act="delete">删除</button>' +
+          '</div>' +
+          btn +
+        '</div>'
+      );
+    }
+    return btn;
   }
 
   function patchConvListDom(box, list) {
