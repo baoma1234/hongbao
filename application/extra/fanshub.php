@@ -718,6 +718,7 @@ return array (
     'wallet_channel_less_hint' => '点击收起其余通道',
     'wallet_bind_hint' => '请先绑定该钱包收款地址（每个钱包类型独立，地址不可重复）',
     'wallet_bound_label' => '钱包地址：',
+    'wallet_bound_short' => '已绑定',
     'wallet_rebind_btn' => '更换地址',
     'wallet_bind_address_label' => '钱包地址',
     'wallet_bind_address_ph' => '请输入钱包收款地址',
