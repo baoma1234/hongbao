@@ -162,9 +162,9 @@
 }
 
 .chat-group-card .icon-box {
-  width: 66.666%;
+  width: 100%;
   height: auto;
-  aspect-ratio: 3 / 2;
+  aspect-ratio: 1 / 1;
   margin: 6px auto 10px;
   border-radius: 18px;
   overflow: hidden;
@@ -461,9 +461,9 @@
     font-size: 12px;
   }
   .chat-group-card .icon-box {
-    width: 66.666%;
+    width: 100%;
     height: auto;
-    aspect-ratio: 3 / 2;
+    aspect-ratio: 1 / 1;
     font-size: 26px;
   }
   .chat-group-card .title { font-size: 11px; }
