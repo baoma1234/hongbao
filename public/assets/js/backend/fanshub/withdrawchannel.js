@@ -69,80 +69,102 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                 Form.api.bindevent($("form[role=form]"));
             },
             refreshSelect: function ($el) {
-                if ($el.length && $el.data('selectpicker')) {
-                    $el.selectpicker('refresh');
+                if ($el.length && typeof $el.selectpicker === 'function') {
+                    try {
+                        $el.selectpicker('refresh');
+                    } catch (e) {}
                 }
             },
-            setActiveMerchantSelect: function (which) {
-                var $w = $('#wanhuiMerchantId');
-                var $b = $('#bsMerchantId');
+            setActivePayChannel: function (which) {
                 var $wp = $('#wanhuiPayChannel');
                 var $bp = $('#bsPayChannel');
                 if (which === 'wanhui') {
-                    $w.prop('disabled', false).attr('name', 'row[merchant_id]');
-                    $b.prop('disabled', true).removeAttr('name');
                     $wp.prop('disabled', false).attr('name', 'row[pay_channel]');
                     $bp.prop('disabled', true).removeAttr('name');
                 } else if (which === 'bs') {
-                    $b.prop('disabled', false).attr('name', 'row[merchant_id]');
-                    $w.prop('disabled', true).removeAttr('name');
                     $bp.prop('disabled', false).attr('name', 'row[pay_channel]');
                     $wp.prop('disabled', true).removeAttr('name');
                 } else {
-                    $w.prop('disabled', true).removeAttr('name');
-                    $b.prop('disabled', true).removeAttr('name');
                     $wp.prop('disabled', true).removeAttr('name');
                     $bp.prop('disabled', true).removeAttr('name');
                 }
-                Controller.api.refreshSelect($w);
-                Controller.api.refreshSelect($b);
                 Controller.api.refreshSelect($wp);
                 Controller.api.refreshSelect($bp);
             },
+            fillMerchantOptions: function (handler, keepId) {
+                var $sel = $('#channelMerchantId');
+                if (!$sel.length) {
+                    return;
+                }
+                var lists = Config.merchantLists || {};
+                var list = handler === 'bs' ? (lists.bs || []) : (lists.wanhuitong || []);
+                var cur = keepId != null ? String(keepId) : String($sel.val() || '0');
+                var html = '<option value="0">— 请选择总商户 —</option>';
+                for (var i = 0; i < list.length; i++) {
+                    var m = list[i] || {};
+                    var id = String(m.id || '');
+                    var label = (m.name || '') + '（' + (m.merchant_no || '') + '）';
+                    html += '<option value="' + id + '"' + (id === cur ? ' selected' : '') + '>' + label + '</option>';
+                }
+                $sel.html(html);
+                if (cur && cur !== '0') {
+                    $sel.val(cur);
+                }
+                Controller.api.refreshSelect($sel);
+            },
+            syncMerchantNo: function (handler) {
+                var mid = String($('#channelMerchantId').val() || '0');
+                var map = handler === 'bs' ? (Config.bsMerchantMap || {}) : (Config.merchantMap || {});
+                var info = map[mid];
+                if (info && info.merchant_no) {
+                    $('#wanhuiMerchantNo').val(info.merchant_no);
+                }
+            },
             toggleMerchantFields: function () {
                 var $handler = $("select[name='row[handler]']");
-                var merchantMap = Config.merchantMap || {};
-                var bsMerchantMap = Config.bsMerchantMap || {};
                 var walletList = Config.walletList || {};
                 var bsCoinList = Config.bsCoinList || {};
                 var fixedType = Config.fixedType || 'withdraw';
-                var refresh = function () {
+                var refresh = function (preserveMerchant) {
                     var v = $handler.val();
                     var show = (v === 'merchant' || v === 'jiuyuan' || v === 'wanhuitong' || v === 'bs');
+                    var needMerchant = (v === 'wanhuitong' || v === 'bs');
                     $(".merchant-fields").toggle(show);
+                    $(".merchant-id-fields").toggle(needMerchant);
                     $(".wanhuitong-fields").toggle(v === 'wanhuitong');
                     $(".bs-fields").toggle(v === 'bs');
                     $(".bs-recharge-only").toggle(false);
                     $(".md5-key-fields").toggle(v === 'merchant' || v === 'jiuyuan' || v === 'bs');
                     $(".jiuyuan-channel-fields").toggle(v === 'jiuyuan');
                     var $mno = $('#wanhuiMerchantNo');
+                    var $msel = $('#channelMerchantId');
+                    var keepId = preserveMerchant ? $msel.val() : '0';
                     if (v === 'wanhuitong') {
                         $mno.prop('readonly', true);
-                        Controller.api.setActiveMerchantSelect('wanhui');
+                        Controller.api.setActivePayChannel('wanhui');
+                        if (!preserveMerchant || $msel.find('option[value!="0"]').length === 0) {
+                            Controller.api.fillMerchantOptions('wanhuitong', keepId);
+                        } else {
+                            Controller.api.refreshSelect($msel);
+                        }
+                        Controller.api.syncMerchantNo('wanhuitong');
                         $("input[name='row[pay_channel_md5]']").prop('disabled', true);
                     } else if (v === 'bs') {
                         $mno.prop('readonly', true);
-                        Controller.api.setActiveMerchantSelect('bs');
+                        Controller.api.setActivePayChannel('bs');
+                        if (!preserveMerchant || $msel.find('option[value!="0"]').length === 0) {
+                            Controller.api.fillMerchantOptions('bs', keepId);
+                        } else {
+                            Controller.api.refreshSelect($msel);
+                        }
+                        Controller.api.syncMerchantNo('bs');
                         $("input[name='row[pay_channel_md5]']").prop('disabled', true);
                     } else {
                         $mno.prop('readonly', false);
-                        Controller.api.setActiveMerchantSelect('none');
+                        Controller.api.setActivePayChannel('none');
                         $("input[name='row[pay_channel_md5]']").prop('disabled', false);
                     }
-                };
-                var syncBsMerchant = function () {
-                    var mid = String($('#bsMerchantId').val() || '0');
-                    var info = bsMerchantMap[mid];
-                    if (info && info.merchant_no) {
-                        $('#wanhuiMerchantNo').val(info.merchant_no);
-                    }
-                };
-                var syncMerchant = function () {
-                    var mid = String($('#wanhuiMerchantId').val() || '0');
-                    var info = merchantMap[mid];
-                    if (info && info.merchant_no) {
-                        $('#wanhuiMerchantNo').val(info.merchant_no);
-                    }
+                    Controller.api.refreshSelect($('#channelMerchantId'));
                 };
                 var syncName = function () {
                     var v = $handler.val();
@@ -153,9 +175,12 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                         $name.val(label + (fixedType === 'withdraw' ? '代付' : '充值'));
                     }
                 };
-                $handler.on("changed.bs.select change", refresh);
-                $('#wanhuiMerchantId').on('changed.bs.select change', syncMerchant);
-                $('#bsMerchantId').on('changed.bs.select change', syncBsMerchant);
+                $handler.on("changed.bs.select change", function () {
+                    refresh(false);
+                });
+                $('#channelMerchantId').on('changed.bs.select change', function () {
+                    Controller.api.syncMerchantNo($handler.val());
+                });
                 $('#wanhuiPayChannel').on('changed.bs.select change', syncName);
                 $('#bsPayChannel').on('changed.bs.select change', syncName);
                 $("input[name='row[name]']").on('input', function () {
@@ -165,9 +190,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                 if ($.trim($nameInit.val() || '') !== '') {
                     $nameInit.data('touched', true);
                 }
-                refresh();
-                syncMerchant();
-                syncBsMerchant();
+                refresh(true);
             }
         }
     };

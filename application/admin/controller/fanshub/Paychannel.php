@@ -34,20 +34,13 @@ class Paychannel extends Backend
         $this->view->assign('statusList', $this->model->getStatusList());
         $this->view->assign('handlerList', $this->model->getHandlerList());
         $this->view->assign('fixedType', $this->fixedType);
-        $this->merchantList = Db::name('fans_pay_merchant')
-            ->where('gateway', 'wanhuitong')
-            ->where('status', 'normal')
-            ->order('id', 'desc')
-            ->field('id,name,merchant_no')
-            ->select() ?: [];
-        $this->bsMerchantList = Db::name('fans_pay_merchant')
-            ->where('gateway', 'bs')
-            ->where('status', 'normal')
-            ->order('id', 'desc')
-            ->field('id,name,merchant_no')
-            ->select() ?: [];
+        $this->merchantList = $this->loadMerchantList('wanhuitong');
+        $this->bsMerchantList = $this->loadMerchantList('bs');
         $this->view->assign('merchantList', $this->merchantList);
         $this->view->assign('bsMerchantList', $this->bsMerchantList);
+        // 默认展示万汇通列表；edit/add 会按 handler 再覆盖 activeMerchantList
+        $this->view->assign('activeMerchantList', $this->merchantList);
+        $this->view->assign('showMerchantSelect', false);
         $this->view->assign('walletList', FansHubWanhuitongGateway::paymentChannels());
         $this->view->assign('quickWalletList', FansHubWanhuitongGateway::quickPaymentChannels());
         $this->view->assign('bsCoinList', FansHubBsGateway::coinTypes());
@@ -76,6 +69,10 @@ class Paychannel extends Backend
         $this->assignconfig('bsCoinList', FansHubBsGateway::coinTypes());
         $this->assignconfig('merchantMap', $this->buildMerchantMap($this->merchantList));
         $this->assignconfig('bsMerchantMap', $this->buildMerchantMap($this->bsMerchantList));
+        $this->assignconfig('merchantLists', [
+            'wanhuitong' => array_values($this->merchantList),
+            'bs'         => array_values($this->bsMerchantList),
+        ]);
         $this->assignconfig('fixedType', $this->fixedType);
         $authPrefix = 'fanshub/paychannel';
         if ($this->fixedType === 'recharge') {
@@ -84,6 +81,29 @@ class Paychannel extends Backend
             $authPrefix = 'fanshub/withdrawchannel';
         }
         $this->view->assign('authPrefix', $authPrefix);
+    }
+
+    protected function loadMerchantList($gateway)
+    {
+        $rows = Db::name('fans_pay_merchant')
+            ->where('gateway', $gateway)
+            ->order('status desc,id desc')
+            ->field('id,name,merchant_no,status')
+            ->select();
+        $list = [];
+        foreach ($rows ?: [] as $m) {
+            $name = (string)$m['name'];
+            if ((string)($m['status'] ?? '') !== 'normal') {
+                $name .= '（已停用）';
+            }
+            $list[] = [
+                'id'          => (int)$m['id'],
+                'name'        => $name,
+                'merchant_no' => (string)$m['merchant_no'],
+                'status'      => (string)($m['status'] ?? ''),
+            ];
+        }
+        return $list;
     }
 
     protected function buildMerchantMap($list)
@@ -96,6 +116,25 @@ class Paychannel extends Backend
             ];
         }
         return $map;
+    }
+
+    protected function assignActiveMerchantSelect($handler, $merchantId = 0)
+    {
+        $handler = (string)$handler;
+        $show = in_array($handler, ['wanhuitong', 'bs'], true);
+        $list = $handler === 'bs' ? $this->bsMerchantList : $this->merchantList;
+        if ($merchantId > 0) {
+            $this->ensureMerchantInSelectLists($merchantId, $handler);
+            $list = $handler === 'bs' ? $this->bsMerchantList : $this->merchantList;
+        }
+        $this->view->assign('activeMerchantList', $list);
+        $this->view->assign('showMerchantSelect', $show);
+        $this->assignconfig('merchantLists', [
+            'wanhuitong' => array_values($this->merchantList),
+            'bs'         => array_values($this->bsMerchantList),
+        ]);
+        $this->assignconfig('merchantMap', $this->buildMerchantMap($this->merchantList));
+        $this->assignconfig('bsMerchantMap', $this->buildMerchantMap($this->bsMerchantList));
     }
 
     public function index()
@@ -167,7 +206,9 @@ class Paychannel extends Backend
             'notify_url'              => '',
             'return_url'              => '',
             'product_name'            => '',
+            'handler'                 => '',
         ]);
+        $this->assignActiveMerchantSelect('', 0);
         return $this->view->fetch();
     }
 
@@ -199,7 +240,9 @@ class Paychannel extends Backend
             }
         }
         // 编辑时若当前总商户不在下拉列表（已隐藏等），补进选项以免丢失
-        $this->ensureMerchantInSelectLists((int)($row['merchant_id'] ?? 0), (string)($row['handler'] ?? ''));
+        $handler = (string)($row['handler'] ?? '');
+        $merchantId = (int)($row['merchant_id'] ?? 0);
+        $this->assignActiveMerchantSelect($handler, $merchantId);
         $this->view->assign('row', $row);
         return $this->view->fetch();
     }

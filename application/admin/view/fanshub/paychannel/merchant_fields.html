@@ -1,29 +1,14 @@
-    <div class="form-group merchant-fields bs-fields" style="display:none;">
+    <div class="form-group merchant-fields merchant-id-fields" {if condition="!$showMerchantSelect"}style="display:none;"{/if}>
         <label class="control-label col-xs-12 col-sm-2">总商户:</label>
         <div class="col-xs-12 col-sm-8">
-            <select class="form-control selectpicker" name="row[merchant_id]" id="bsMerchantId" data-live-search="true">
-                <option value="0">— 请选择 BS 总商户 —</option>
-                {foreach name="bsMerchantList" item="m"}
+            <select class="form-control selectpicker" name="row[merchant_id]" id="channelMerchantId" data-live-search="true">
+                <option value="0">— 请选择总商户 —</option>
+                {foreach name="activeMerchantList" item="m"}
                 <option value="{$m.id}" {if condition="isset($row.merchant_id) && $row.merchant_id == $m.id"}selected{/if}>{$m.name}（{$m.merchant_no}）</option>
                 {/foreach}
             </select>
             <span class="help-block">
-                RSA 密钥在「支付总商户」维护；此处只选币种与回调参数。
-                <a href="javascript:;" onclick="Backend.api.addtabs('fanshub/paymerchant','支付总商户')">打开总商户</a>
-            </span>
-        </div>
-    </div>
-    <div class="form-group merchant-fields wanhuitong-fields" style="display:none;">
-        <label class="control-label col-xs-12 col-sm-2">总商户:</label>
-        <div class="col-xs-12 col-sm-8">
-            <select class="form-control selectpicker" name="row[merchant_id]" id="wanhuiMerchantId" data-live-search="true">
-                <option value="0">— 请选择万汇通总商户 —</option>
-                {foreach name="merchantList" item="m"}
-                <option value="{$m.id}" {if condition="isset($row.merchant_id) && $row.merchant_id == $m.id"}selected{/if}>{$m.name}（{$m.merchant_no}）</option>
-                {/foreach}
-            </select>
-            <span class="help-block">
-                先在「支付总商户」维护一套商户号+RSA 密钥，再在此挂钱包通道。
+                万汇通 / BS：先在「支付总商户」维护凭证，再在此选择。
                 <a href="javascript:;" onclick="Backend.api.addtabs('fanshub/paymerchant','支付总商户')">打开总商户</a>
             </span>
         </div>
