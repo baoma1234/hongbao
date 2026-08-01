@@ -61,42 +61,68 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
         edit: function () { Controller.api.bindevent(); Controller.api.toggleMerchantFields(); },
         api: {
             bindevent: function () { Form.api.bindevent($("form[role=form]")); },
+            refreshSelect: function ($el) {
+                if ($el.length && $el.data('selectpicker')) {
+                    $el.selectpicker('refresh');
+                }
+            },
+            setActiveMerchantSelect: function (which) {
+                var $w = $('#wanhuiMerchantId');
+                var $b = $('#bsMerchantId');
+                var $wp = $('#wanhuiPayChannel');
+                var $bp = $('#bsPayChannel');
+                // 两个下拉同名 row[merchant_id]/row[pay_channel]，必须去掉未激活项的 name，否则后提交的空值会覆盖总商户
+                if (which === 'wanhui') {
+                    $w.prop('disabled', false).attr('name', 'row[merchant_id]');
+                    $b.prop('disabled', true).removeAttr('name');
+                    $wp.prop('disabled', false).attr('name', 'row[pay_channel]');
+                    $bp.prop('disabled', true).removeAttr('name');
+                } else if (which === 'bs') {
+                    $b.prop('disabled', false).attr('name', 'row[merchant_id]');
+                    $w.prop('disabled', true).removeAttr('name');
+                    $bp.prop('disabled', false).attr('name', 'row[pay_channel]');
+                    $wp.prop('disabled', true).removeAttr('name');
+                } else {
+                    $w.prop('disabled', true).removeAttr('name');
+                    $b.prop('disabled', true).removeAttr('name');
+                    $wp.prop('disabled', true).removeAttr('name');
+                    $bp.prop('disabled', true).removeAttr('name');
+                }
+                Controller.api.refreshSelect($w);
+                Controller.api.refreshSelect($b);
+                Controller.api.refreshSelect($wp);
+                Controller.api.refreshSelect($bp);
+            },
             toggleMerchantFields: function () {
                 var $handler = $("select[name='row[handler]']");
                 var merchantMap = Config.merchantMap || {};
                 var bsMerchantMap = Config.bsMerchantMap || {};
                 var walletList = Config.walletList || {};
+                var bsCoinList = Config.bsCoinList || {};
+                var fixedType = Config.fixedType || '';
                 var refresh = function () {
                     var v = $handler.val();
                     var show = (v === 'merchant' || v === 'jiuyuan' || v === 'wanhuitong' || v === 'bs');
+                    var chType = fixedType || $("select[name='row[type]']").val() || $("input[name='row[type]']").val() || 'recharge';
                     $(".merchant-fields").toggle(show);
                     $(".wanhuitong-fields").toggle(v === 'wanhuitong');
                     $(".bs-fields").toggle(v === 'bs');
-                    $(".bs-recharge-only").toggle(v === 'bs' && ($("select[name='row[type]']").val() || Config.fixedType || 'recharge') !== 'withdraw');
+                    $(".bs-recharge-only").toggle(v === 'bs' && chType !== 'withdraw');
                     $(".md5-key-fields").toggle(v === 'merchant' || v === 'jiuyuan' || v === 'bs');
                     $(".jiuyuan-channel-fields").toggle(v === 'jiuyuan');
                     var $mno = $('#wanhuiMerchantNo');
                     if (v === 'wanhuitong') {
                         $mno.prop('readonly', true);
-                        $('#wanhuiMerchantId').prop('disabled', false);
-                        $('#bsMerchantId').prop('disabled', true);
-                        $('#wanhuiPayChannel').prop('disabled', false);
-                        $('#bsPayChannel').prop('disabled', true);
+                        Controller.api.setActiveMerchantSelect('wanhui');
                         $("input[name='row[pay_channel_md5]']").prop('disabled', true);
                     } else if (v === 'bs') {
                         $mno.prop('readonly', true);
-                        $('#wanhuiMerchantId').prop('disabled', true);
-                        $('#bsMerchantId').prop('disabled', false);
-                        $('#wanhuiPayChannel').prop('disabled', true);
-                        $('#bsPayChannel').prop('disabled', false);
+                        Controller.api.setActiveMerchantSelect('bs');
                         $("input[name='row[pay_channel_md5]']").prop('disabled', true);
                         $('.bs-md5-fields').hide();
                     } else {
-                        $('#wanhuiMerchantId').prop('disabled', true);
-                        $('#bsMerchantId').prop('disabled', true);
                         $mno.prop('readonly', false);
-                        $('#wanhuiPayChannel').prop('disabled', true);
-                        $('#bsPayChannel').prop('disabled', true);
+                        Controller.api.setActiveMerchantSelect('none');
                         $("input[name='row[pay_channel_md5]']").prop('disabled', false);
                     }
                 };
@@ -117,9 +143,8 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                 var syncName = function () {
                     var v = $handler.val();
                     var code = v === 'bs' ? $('#bsPayChannel').val() : $('#wanhuiPayChannel').val();
-                    var bsCoinList = Config.bsCoinList || {};
                     var label = v === 'bs' ? (bsCoinList[code] || code) : (walletList[code] || code);
-                    var type = $("select[name='row[type]']").val();
+                    var type = fixedType || $("select[name='row[type]']").val() || $("input[name='row[type]']").val();
                     var $name = $("input[name='row[name]']");
                     if (!$name.data('touched') && label) {
                         $name.val(label + (type === 'withdraw' ? '代付' : '充值'));
@@ -134,6 +159,11 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                 $("input[name='row[name]']").on('input', function () {
                     $(this).data('touched', true);
                 });
+                // 编辑页已有名称时，禁止自动覆盖
+                var $nameInit = $("input[name='row[name]']");
+                if ($.trim($nameInit.val() || '') !== '') {
+                    $nameInit.data('touched', true);
+                }
                 refresh();
                 syncMerchant();
                 syncBsMerchant();

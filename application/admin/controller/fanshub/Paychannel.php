@@ -21,6 +21,10 @@ class Paychannel extends Backend
     protected $fixedType = '';
     /** @var array */
     protected $partitionList = [];
+    /** @var array */
+    protected $merchantList = [];
+    /** @var array */
+    protected $bsMerchantList = [];
 
     public function _initialize()
     {
@@ -30,20 +34,20 @@ class Paychannel extends Backend
         $this->view->assign('statusList', $this->model->getStatusList());
         $this->view->assign('handlerList', $this->model->getHandlerList());
         $this->view->assign('fixedType', $this->fixedType);
-        $merchants = Db::name('fans_pay_merchant')
+        $this->merchantList = Db::name('fans_pay_merchant')
             ->where('gateway', 'wanhuitong')
             ->where('status', 'normal')
             ->order('id', 'desc')
             ->field('id,name,merchant_no')
-            ->select();
-        $bsMerchants = Db::name('fans_pay_merchant')
+            ->select() ?: [];
+        $this->bsMerchantList = Db::name('fans_pay_merchant')
             ->where('gateway', 'bs')
             ->where('status', 'normal')
             ->order('id', 'desc')
             ->field('id,name,merchant_no')
-            ->select();
-        $this->view->assign('merchantList', $merchants ?: []);
-        $this->view->assign('bsMerchantList', $bsMerchants ?: []);
+            ->select() ?: [];
+        $this->view->assign('merchantList', $this->merchantList);
+        $this->view->assign('bsMerchantList', $this->bsMerchantList);
         $this->view->assign('walletList', FansHubWanhuitongGateway::paymentChannels());
         $this->view->assign('quickWalletList', FansHubWanhuitongGateway::quickPaymentChannels());
         $this->view->assign('bsCoinList', FansHubBsGateway::coinTypes());
@@ -70,8 +74,8 @@ class Paychannel extends Backend
         $this->assignconfig('partitionList', $this->partitionList);
         $this->assignconfig('walletList', FansHubWanhuitongGateway::allPaymentChannels());
         $this->assignconfig('bsCoinList', FansHubBsGateway::coinTypes());
-        $this->assignconfig('merchantMap', $this->buildMerchantMap($merchants ?: []));
-        $this->assignconfig('bsMerchantMap', $this->buildMerchantMap($bsMerchants ?: []));
+        $this->assignconfig('merchantMap', $this->buildMerchantMap($this->merchantList));
+        $this->assignconfig('bsMerchantMap', $this->buildMerchantMap($this->bsMerchantList));
         $this->assignconfig('fixedType', $this->fixedType);
         $authPrefix = 'fanshub/paychannel';
         if ($this->fixedType === 'recharge') {
@@ -148,6 +152,22 @@ class Paychannel extends Backend
             }
             return parent::add();
         }
+        // 与 merchant_fields 共用模板，避免未定义 $row
+        $this->view->assign('row', [
+            'merchant_id'             => 0,
+            'pay_channel'             => '',
+            'recharge_mode'           => 'cashier',
+            'withdraw_type'           => '2',
+            'callback_exchange_rate'  => '',
+            'verify_url'              => '',
+            'submit_url'              => '',
+            'merchant_no'             => '',
+            'merchant_key'            => '',
+            'pay_type'                => '',
+            'notify_url'              => '',
+            'return_url'              => '',
+            'product_name'            => '',
+        ]);
         return $this->view->fetch();
     }
 
@@ -178,8 +198,45 @@ class Paychannel extends Backend
                 $row['config'] = json_encode($cfg, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
             }
         }
+        // 编辑时若当前总商户不在下拉列表（已隐藏等），补进选项以免丢失
+        $this->ensureMerchantInSelectLists((int)($row['merchant_id'] ?? 0), (string)($row['handler'] ?? ''));
         $this->view->assign('row', $row);
         return $this->view->fetch();
+    }
+
+    /**
+     * 保证编辑页总商户下拉能选中当前 merchant_id
+     */
+    protected function ensureMerchantInSelectLists($merchantId, $handler)
+    {
+        if ($merchantId <= 0) {
+            return;
+        }
+        $m = Db::name('fans_pay_merchant')->where('id', $merchantId)->field('id,name,merchant_no,gateway,status')->find();
+        if (!$m) {
+            return;
+        }
+        $item = ['id' => (int)$m['id'], 'name' => (string)$m['name'], 'merchant_no' => (string)$m['merchant_no']];
+        $isBs = $handler === 'bs' || (string)$m['gateway'] === 'bs';
+        if ($isBs) {
+            foreach ($this->bsMerchantList as $row) {
+                if ((int)$row['id'] === $merchantId) {
+                    return;
+                }
+            }
+            array_unshift($this->bsMerchantList, $item);
+            $this->view->assign('bsMerchantList', $this->bsMerchantList);
+            $this->assignconfig('bsMerchantMap', $this->buildMerchantMap($this->bsMerchantList));
+            return;
+        }
+        foreach ($this->merchantList as $row) {
+            if ((int)$row['id'] === $merchantId) {
+                return;
+            }
+        }
+        array_unshift($this->merchantList, $item);
+        $this->view->assign('merchantList', $this->merchantList);
+        $this->assignconfig('merchantMap', $this->buildMerchantMap($this->merchantList));
     }
 
     /**
