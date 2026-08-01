@@ -1357,8 +1357,9 @@ body.tab-messages .bottom-action-bar {
   font-weight: 700;
 }
 .chat-group-card .icon-box {
-  width: 46px;
-  height: 46px;
+  width: 66.666%;
+  height: auto;
+  aspect-ratio: 3 / 2;
   margin: 0 auto 8px;
   border-radius: 12px;
   overflow: hidden;

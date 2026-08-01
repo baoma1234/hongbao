@@ -28,6 +28,7 @@
     }
     if (tab === 'community') {
       setCommunitySubTab(state.communitySubTab || 'official');
+      // 官方走 API；我的群组/好友仍走 WS（在 refreshCommunity 后半段）
       refreshCommunity().catch(function () {});
     }
   }
@@ -199,24 +200,18 @@
   }
 
   async function refreshCommunity() {
-    // 官方社群走 HTTP 缓存接口，不依赖 WS，避免慢查询
+    // 官方社群：仅 HTTP API，完全不走 WS；先渲染再拉我的群组/好友
+    state.recommendGroups = [];
     try {
       if (typeof global.apiRequest === 'function') {
         var recApi = await global.apiRequest('communityrecommend', 'GET', {});
         state.recommendGroups = (recApi && recApi.list) || [];
-      } else {
-        throw new Error('no api');
       }
     } catch (eApi) {
-      if (state.connected) {
-        try {
-          var rec = await send('group.recommend', {});
-          state.recommendGroups = (rec.data && rec.data.list) || [];
-        } catch (e) { state.recommendGroups = []; }
-      } else {
-        state.recommendGroups = [];
-      }
+      state.recommendGroups = [];
     }
+    renderRecommendGroups();
+
     if (state.connected) {
       try {
         var mine = await send('group.list', {});
@@ -227,7 +222,6 @@
         state.friends = (fr.data && fr.data.list) || [];
       } catch (e3) { state.friends = []; }
     }
-    // 用我的群组补全 is_member（缓存列表可能稍旧）
     try {
       var mineIds = {};
       (state.myGroups || []).forEach(function (g) { mineIds[g.id | 0] = true; });
@@ -238,6 +232,27 @@
     renderRecommendGroups();
     renderMyGroups();
     renderFriendFeed();
+  }
+
+  /** 仅刷新官方社群（API），不触碰 WS */
+  async function refreshOfficialCommunities() {
+    state.recommendGroups = [];
+    try {
+      if (typeof global.apiRequest === 'function') {
+        var recApi = await global.apiRequest('communityrecommend', 'GET', {});
+        state.recommendGroups = (recApi && recApi.list) || [];
+      }
+    } catch (eApi) {
+      state.recommendGroups = [];
+    }
+    try {
+      var mineIds = {};
+      (state.myGroups || []).forEach(function (g) { mineIds[g.id | 0] = true; });
+      (state.recommendGroups || []).forEach(function (g) {
+        if (mineIds[g.id | 0]) g.is_member = true;
+      });
+    } catch (eM) {}
+    renderRecommendGroups();
   }
 
   async function openRecommendOrMyGroup(groupId) {
@@ -690,7 +705,13 @@
       communitySeg.addEventListener('click', function (ev) {
         var btn = ev.target.closest('[data-community-tab]');
         if (!btn) return;
-        setCommunitySubTab(btn.getAttribute('data-community-tab') || 'official');
+        var sub = btn.getAttribute('data-community-tab') || 'official';
+        setCommunitySubTab(sub);
+        if (sub === 'official') {
+          refreshOfficialCommunities().catch(function () {});
+        } else {
+          refreshCommunity().catch(function () {});
+        }
       });
     }
     var homeCreate = $('chatHomeCreateGroupBtn');

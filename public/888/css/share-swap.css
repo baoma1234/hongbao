@@ -29,9 +29,11 @@
 .share-swap-header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-end;
+    align-items: baseline;
     margin-bottom: 14px;
-    gap: 10px;
+    gap: 8px;
+    flex-wrap: nowrap;
+    min-width: 0;
 }
 
 .share-swap-title {
@@ -39,6 +41,11 @@
     font-weight: 600;
     color: var(--ss-text-title);
     letter-spacing: 0.2px;
+    white-space: nowrap;
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .share-swap-avail {
@@ -46,6 +53,10 @@
     font-weight: 600;
     color: var(--ss-primary);
     white-space: nowrap;
+    flex: 0 0 auto;
+    max-width: 58%;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .share-swap-section-title {

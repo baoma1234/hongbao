@@ -37,12 +37,20 @@
             ensureServerConfig().then(function() {
                 syncSmsCooldownFromStorage();
             }).catch(function(e) {
-                console.warn('棰勫姞杞介厤缃け璐', e);
+                console.warn('预加载配置失败', e);
             });
-            bindProfileUi();
+            // 业务 DOM 登录后再 bind（防未登录页挂载大厅节点）
             const phoneInput = document.getElementById('loginPhone');
             if (phoneInput) {
                 phoneInput.addEventListener('input', syncSmsCooldownFromStorage);
+            }
+        });
+
+        function bindDashboardDomUi() {
+            if (window.__fanshubDashUiBound) return;
+            window.__fanshubDashUiBound = true;
+            if (typeof bindProfileUi === 'function') {
+                try { bindProfileUi(); } catch (e0) {}
             }
             const shareCard = document.getElementById('sharePromoCard');
             if (shareCard) {
@@ -83,7 +91,40 @@
             if (lotteryCloseBtn) {
                 lotteryCloseBtn.addEventListener('click', closeWelcomeLotteryModal);
             }
-        });
+        }
+
+        async function enterAppAfterAuth(opts) {
+            opts = opts || {};
+            if (!window.FansHubAssets || typeof FansHubAssets.ensureDashboard !== 'function') {
+                throw new Error('资产加载器不可用');
+            }
+            await FansHubAssets.ensureDashboard();
+            await FansHubAssets.ensureTab('home');
+            bindDashboardDomUi();
+            if (window.FanshubI18n && typeof applyPageCopy === 'function') {
+                try { applyPageCopy(); } catch (eCopy) {}
+            }
+            var login = document.getElementById('loginView');
+            var dash = document.getElementById('mainDashboardView');
+            if (login) login.classList.remove('active');
+            if (dash) dash.classList.add('active');
+            setBottomActionBarVisible(true);
+            switchTab('home');
+            if (!opts.skipJackpot) {
+                initMarqueeInterval();
+                startJackpotSync();
+            }
+            if (typeof updateFlowStepper === 'function') updateFlowStepper();
+            if (typeof renderUI === 'function') renderUI();
+            if (typeof updateFlowUI === 'function') updateFlowUI();
+            if (typeof updateManualSettleButton === 'function') updateManualSettleButton();
+            if (window.FansHubAssets && typeof FansHubAssets.prefetchChat === 'function') {
+                FansHubAssets.prefetchChat();
+            } else if (window.FansHubChat && typeof FansHubChat.onLogin === 'function') {
+                FansHubChat.onLogin();
+            }
+        }
+        window.enterAppAfterAuth = enterAppAfterAuth;
 
         window.onload = async function() {
             try {
@@ -91,42 +132,35 @@
                     await FanshubI18n.ensureLocaleLoaded();
                     syncCopyFromLocale(null);
                 }
-                // 蹇呴』鍏堟媺鍒?api_sign_*锛屽啀鍙戦渶绛惧悕鐨勬帴鍙ｏ紱鍚﹀垯鍒锋柊鏃?profile 鏃犵鍚嶈鎷掑苟璇竻 token
                 await ensureServerConfig();
-            } catch (e) { console.warn('鍔犺浇閰嶇疆澶辫触', e); }
+            } catch (e) { console.warn('加载配置失败', e); }
             const token = localStorage.getItem('fans_hub_token');
             if (token) {
                 try {
                     applyProfile(await restoreSessionProfile());
-                    document.getElementById('loginView').classList.remove('active');
-                    document.getElementById('mainDashboardView').classList.add('active');
-                    setBottomActionBarVisible(true);
-                    switchTab('home');
-                    initMarqueeInterval();
-                    startJackpotSync();
-                    if (window.FansHubAssets && typeof FansHubAssets.prefetchChat === 'function') {
-                        FansHubAssets.prefetchChat();
-                    } else if (window.FansHubChat && typeof FansHubChat.onLogin === 'function') {
-                        FansHubChat.onLogin();
-                    }
+                    await enterAppAfterAuth({});
+                    scheduleWelcomeLottery();
+                    restoreLotteryValuation();
                 } catch (e) {
-                    console.warn('鎭㈠鐧诲綍澶辫触', e);
+                    console.warn('恢复登录失败', e);
                     if (shouldClearTokenOnProfileError(e)) {
                         localStorage.removeItem('fans_hub_token');
                         setBottomActionBarVisible(false);
                         stopJackpotTimers();
+                        if (window.FansHubAssets && typeof FansHubAssets.clearDashboard === 'function') {
+                            FansHubAssets.clearDashboard();
+                        }
+                        window.__fanshubDashUiBound = false;
                         if (window.FansHubChat) FansHubChat.onLogout();
                     } else {
                         showFanshubToast(e.message || fc('api_operation_fail'), 'error');
                     }
                 }
+            } else {
+                // 未登录：不渲染大厅、不拉业务资源
+                setBottomActionBarVisible(false);
+                syncSmsCooldownFromStorage();
             }
-            renderUI();
-            updateFlowUI();
-            updateManualSettleButton();
-            syncSmsCooldownFromStorage();
-            scheduleWelcomeLottery();
-            restoreLotteryValuation();
         };
 
         document.addEventListener('visibilitychange', async function() {
@@ -705,23 +739,18 @@
                 });
                 localStorage.setItem('fans_hub_token', data.token);
                 applyProfile(data.profile);
-                document.getElementById('loginView').classList.remove('active');
-                document.getElementById('mainDashboardView').classList.add('active');
                 if (data.is_new) {
                     sessionStorage.setItem('fans_hub_show_lottery', '1');
                 }
+                try {
+                    await enterAppAfterAuth({});
+                } catch (eDash) {
+                    showFanshubToast((eDash && eDash.message) || '大厅加载失败', 'error');
+                    return;
+                }
                 scheduleWelcomeLottery();
-                setBottomActionBarVisible(true);
-                switchTab('home');
-                startJackpotSync();
-                updateFlowStepper();
                 if (typeof window.hydrateAfterLogin === 'function') {
                     window.hydrateAfterLogin().catch(function () {});
-                }
-                if (window.FansHubAssets && typeof FansHubAssets.prefetchChat === 'function') {
-                    FansHubAssets.prefetchChat();
-                } else if (window.FansHubChat && typeof FansHubChat.onLogin === 'function') {
-                    FansHubChat.onLogin();
                 }
                 showFanshubToast(data.is_new ? fc('alert_login_new') : fc('alert_login_back'), 'success');
             } catch (e) {

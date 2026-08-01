@@ -1358,8 +1358,9 @@ body.tab-messages .bottom-action-bar {
   font-weight: 700;
 }
 .chat-group-card .icon-box {
-  width: 46px;
-  height: 46px;
+  width: 66.666%;
+  height: auto;
+  aspect-ratio: 3 / 2;
   margin: 0 auto 8px;
   border-radius: 12px;
   overflow: hidden;
@@ -3855,8 +3856,9 @@ body.chat-room-open .bottom-action-bar {
 }
 
 .chat-group-card .icon-box {
-  width: 58px;
-  height: 58px;
+  width: 66.666%;
+  height: auto;
+  aspect-ratio: 3 / 2;
   margin: 6px auto 10px;
   border-radius: 18px;
   overflow: hidden;
@@ -4153,8 +4155,9 @@ body.chat-room-open .bottom-action-bar {
     font-size: 12px;
   }
   .chat-group-card .icon-box {
-    width: 48px;
-    height: 48px;
+    width: 66.666%;
+    height: auto;
+    aspect-ratio: 3 / 2;
     font-size: 26px;
   }
   .chat-group-card .title { font-size: 11px; }

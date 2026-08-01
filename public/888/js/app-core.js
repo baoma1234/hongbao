@@ -790,6 +790,8 @@
                 scrollTargetId = 'homeSocialSection';
             }
             if (!map[tab]) tab = 'home';
+
+            var runSwitch = function () {
             const prevTab = currentTab;
             currentTab = tab;
             document.body.classList.toggle('tab-home', tab === 'home');
@@ -858,6 +860,16 @@
             if (tab === 'profile') {
                 closeProfileSubPage();
                 renderProfilePanel();
+            }
+            };
+
+            if (window.FansHubAssets && typeof FansHubAssets.ensureTab === 'function' && localStorage.getItem('fans_hub_token')) {
+                FansHubAssets.ensureTab(tab).then(runSwitch).catch(function (e) {
+                    console.warn('tab assets fail', e);
+                    showFanshubToast((e && e.message) || '页面资源加载失败', 'error');
+                });
+            } else {
+                runSwitch();
             }
         }
 
@@ -2056,6 +2068,10 @@
             }
             stopJackpotTimers();
             setBottomActionBarVisible(false);
+            if (window.FansHubAssets && typeof FansHubAssets.clearDashboard === 'function') {
+                try { FansHubAssets.clearDashboard(); } catch (e3) {}
+            }
+            window.__fanshubDashUiBound = false;
             const dash = document.getElementById('mainDashboardView');
             const login = document.getElementById('loginView');
             if (dash) dash.classList.remove('active');
