@@ -34,7 +34,7 @@ return array (
   'balance_progress_pct' => '已达提现门槛的 {pct}%',
   'share_promo_btn' => '📢 邀请 1 人开户 ➡️ 额外送 1 份股 (多邀多得)',
   'share_promo_action_btn' => '点击立即分享',
-  'asset_valuation_hint' => '（ 💡 当前估值：￥{amount} 元 ）',
+  'asset_valuation_hint' => '(💡当前估值:￥{amount} 元 )',
   'lottery_eyebrow' => '红宝 · VIP 入厅礼',
   'lottery_title' => '黑金新手宝箱',
   'lottery_subtitle' => '轻触开启 · 锁定入场股份',

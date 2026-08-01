@@ -312,8 +312,9 @@
                 node.textContent = '';
                 return;
             }
-            const text = fc('asset_valuation_hint', { amount: amt.toFixed(2) });
-            node.textContent = text || ('(💡当前估值:￥' + amt.toFixed(2) + ' 元 )');
+            // 固定展示格式，避免后台旧文案覆盖
+            const cur = (window.FanshubI18n && FanshubI18n.currencySymbol()) || '￥';
+            node.textContent = '(💡当前估值:' + cur + amt.toFixed(2) + ' 元 )';
             node.style.display = 'block';
         }
 
