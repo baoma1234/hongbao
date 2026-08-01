@@ -123,11 +123,29 @@
                 if (typeof updateFlowUI === 'function') updateFlowUI();
                 if (typeof updateManualSettleButton === 'function') updateManualSettleButton();
             }
-            if (window.FansHubAssets && typeof FansHubAssets.prefetchChat === 'function') {
-                FansHubAssets.prefetchChat();
+            // 登录后立刻预热红宝包（preload + 短延迟拉取）
+            if (window.FansHubAssets) {
+                if (typeof FansHubAssets.preloadChatHints === 'function') FansHubAssets.preloadChatHints();
+                if (typeof FansHubAssets.prefetchChat === 'function') FansHubAssets.prefetchChat();
             } else if (window.FansHubChat && typeof FansHubChat.onLogin === 'function') {
                 FansHubChat.onLogin();
             }
+            bindMessagesTabWarmup();
+        }
+
+        function bindMessagesTabWarmup() {
+            var bar = document.getElementById('bottomActionBar');
+            if (!bar || bar._chatWarmBound) return;
+            bar._chatWarmBound = true;
+            var warm = function (ev) {
+                var btn = ev.target && ev.target.closest ? ev.target.closest('.tab-btn[data-tab="messages"]') : null;
+                if (!btn) return;
+                if (window.FansHubAssets && typeof FansHubAssets.warmChat === 'function') {
+                    FansHubAssets.warmChat();
+                }
+            };
+            bar.addEventListener('pointerdown', warm, { passive: true });
+            bar.addEventListener('touchstart', warm, { passive: true });
         }
         window.enterAppAfterAuth = enterAppAfterAuth;
 

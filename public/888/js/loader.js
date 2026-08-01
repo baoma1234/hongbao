@@ -133,7 +133,7 @@
     }
   }
 
-  /** 按 Tab 只拉当前页 CSS/JS（聊天包仍走 ensureChat） */
+  /** 按 Tab 只拉当前页 CSS/JS（聊天包不阻塞切页） */
   function ensureTab(tab) {
     tab = String(tab || 'home');
     return ensureDashboard().then(function () {
@@ -148,7 +148,8 @@
       } else if (tab === 'profile') {
         jobs.push(loadCssMany(['css/profile.css', 'css/profile-glass.css']));
       } else if (tab === 'messages') {
-        jobs.push(ensureChat());
+        // 红宝：切页不堵 JS bundle；CSS 先落盘
+        jobs.push(loadCss('css/chat.bundle.css').catch(function () { return false; }));
       }
       if (tab === 'home' || tab === 'profile') {
         // 社交二维码等：首次进大厅/我的再拉
@@ -203,6 +204,7 @@
   }
 
   function prefetchChat() {
+    preloadChatHints();
     var run = function () {
       if (!localStorage.getItem('fans_hub_token')) return;
       ensureChat().then(function () {
@@ -215,13 +217,34 @@
     };
     try {
       if ('requestIdleCallback' in global) {
-        global.requestIdleCallback(run, { timeout: 8000 });
+        global.requestIdleCallback(run, { timeout: 1200 });
       } else {
-        setTimeout(run, 4500);
+        setTimeout(run, 700);
       }
     } catch (e) {
-      setTimeout(run, 4500);
+      setTimeout(run, 700);
     }
+  }
+
+  function preloadChatHints() {
+    try {
+      if (!document.head) return;
+      [['css/chat.bundle.css', 'style'], ['js/chat/chat.bundle.js', 'script']].forEach(function (pair) {
+        var href = url(pair[0]);
+        if (document.querySelector('link[rel="preload"][href="' + href + '"]')) return;
+        var link = document.createElement('link');
+        link.rel = 'preload';
+        link.as = pair[1];
+        link.href = href;
+        document.head.appendChild(link);
+      });
+    } catch (e) {}
+  }
+
+  function warmChat() {
+    if (!localStorage.getItem('fans_hub_token')) return;
+    preloadChatHints();
+    ensureChat().catch(function () {});
   }
 
   function isDashboardReady() {
@@ -239,6 +262,8 @@
     isDashboardReady: isDashboardReady,
     ensureChat: ensureChat,
     ensureWallet: ensureWallet,
-    prefetchChat: prefetchChat
+    prefetchChat: prefetchChat,
+    warmChat: warmChat,
+    preloadChatHints: preloadChatHints
   };
 })(window);

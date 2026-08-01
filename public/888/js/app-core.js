@@ -828,7 +828,7 @@
                     fissionMarketTimer = null;
                 }
             }
-            // IM：消息 Tab 立即加载；其它 Tab 已加载则保活 WS，否则空闲预取（不与首页接口抢带宽）
+            // IM：消息 Tab 立即加载；其它 Tab 已加载则保活 WS，否则空闲预取
             if (localStorage.getItem('fans_hub_token') && tab !== 'messages') {
                 if (window.FansHubChat) {
                     if (typeof FansHubChat.ensureConnected === 'function') FansHubChat.ensureConnected();
@@ -838,6 +838,10 @@
                 }
             }
             if (tab === 'messages') {
+                var listBox = document.getElementById('chatConvList');
+                if (listBox && !window.FansHubChat && !listBox.querySelector('.chat-conv-item, .chat-conv-swipe')) {
+                    listBox.innerHTML = '<div class="chat-empty" style="padding:28px 16px;text-align:center;color:#888;font-size:13px;">红宝加载中…</div>';
+                }
                 if (window.FansHubAssets && typeof FansHubAssets.ensureChat === 'function') {
                     FansHubAssets.ensureChat().then(function () {
                         if (window.FansHubChat) FansHubChat.onTabEnter();
@@ -864,10 +868,17 @@
             }
             };
 
+            // 红宝：按下就开拉；切页不等 bundle，先亮 Tab
+            if (tab === 'messages' && window.FansHubAssets) {
+                if (typeof FansHubAssets.warmChat === 'function') FansHubAssets.warmChat();
+                else if (typeof FansHubAssets.ensureChat === 'function') FansHubAssets.ensureChat().catch(function () {});
+            }
+
             if (window.FansHubAssets && typeof FansHubAssets.ensureTab === 'function' && localStorage.getItem('fans_hub_token')) {
                 FansHubAssets.ensureTab(tab).then(runSwitch).catch(function (e) {
                     console.warn('tab assets fail', e);
                     showFanshubToast((e && e.message) || '页面资源加载失败', 'error');
+                    runSwitch();
                 });
             } else {
                 runSwitch();
