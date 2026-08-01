@@ -17,6 +17,7 @@ use Im\Support\AdminNotify;
 use Im\Support\NotifyDispatcher;
 use Im\Support\GrabGuard;
 use Workerman\Connection\TcpConnection;
+use Workerman\Timer;
 
 class MessageRouter
 {
@@ -52,6 +53,30 @@ class MessageRouter
             'server' => 'FansHubIM',
             'ts'     => time(),
         ]);
+    }
+
+    /**
+     * WebSocket 握手阶段暂存 query；握手完成后下一 tick 鉴权（此时可安全发帧）
+     */
+    public function onWebSocketConnect(TcpConnection $connection)
+    {
+        $connection->handshakeToken = trim((string)($_GET['token'] ?? ''));
+        $connection->handshakeFp = strtolower(trim((string)($_GET['device_fp'] ?? '')));
+        $token = $connection->handshakeToken;
+        if ($token === '') {
+            return;
+        }
+        $fp = $connection->handshakeFp;
+        // 等握手响应发出后再 auth.ok，避免在握手回调里直接 send 帧
+        Timer::add(0.01, function () use ($connection, $token, $fp) {
+            if (empty($connection->id) || !empty($connection->authOkSent)) {
+                return;
+            }
+            $this->handleAuth($connection, [
+                'token'     => $token,
+                'device_fp' => $fp,
+            ], 'auth');
+        }, null, false);
     }
 
     public function onClose(TcpConnection $connection)
@@ -342,23 +367,35 @@ class MessageRouter
     protected function handleAuth(TcpConnection $connection, array $payload, $reqId)
     {
         $token = (string)($payload['token'] ?? '');
-        $userId = $this->auth->userIdByToken($token);
+        $session = $this->auth->authByToken($token);
+        $userId = (int)($session['user_id'] ?? 0);
         if ($userId <= 0) {
             $this->error($connection, 'auth_failed', $reqId);
+            return;
+        }
+        $already = ConnMap::userIdOf((string)$connection->id);
+        // 握手已鉴权、客户端又发 auth：直接回已有结果，避免重复绑连接
+        if ($already === $userId && !empty($connection->authOkSent) && is_array($connection->authOkPayload ?? null)) {
+            $this->send($connection, 'auth.ok', $connection->authOkPayload, $reqId);
             return;
         }
         ConnMap::bind((string)$connection->id, $userId);
         $fp = strtolower(trim((string)($payload['device_fp'] ?? '')));
         if ($fp !== '') {
             $connection->deviceFp = substr($fp, 0, 64);
+        } elseif (!empty($connection->handshakeFp)) {
+            $connection->deviceFp = substr((string)$connection->handshakeFp, 0, 64);
         }
-        $brief = $this->auth->userBrief($userId);
-        $this->send($connection, 'auth.ok', [
-            'user_id'     => $userId,
-            'user'        => $brief,
-            'is_im_admin' => AdminService::isImAdmin($userId),
+        $brief = $session['user'] ?? $this->auth->userBrief($userId);
+        $payloadOut = [
+            'user_id'          => $userId,
+            'user'             => $brief,
+            'is_im_admin'      => AdminService::isImAdmin($userId),
             'can_create_group' => $this->memberCanCreateGroup($userId),
-        ], $reqId);
+        ];
+        $connection->authOkSent = true;
+        $connection->authOkPayload = $payloadOut;
+        $this->send($connection, 'auth.ok', $payloadOut, $reqId);
     }
 
     protected function handlePrivateSend(TcpConnection $connection, $uid, array $payload, $reqId)

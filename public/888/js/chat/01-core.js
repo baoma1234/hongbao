@@ -105,6 +105,18 @@
     return proto + '//' + host + ':7272';
   }
 
+  /** 握手 URL 带 token，服务端 onConnect 即可鉴权（少一轮 RTT） */
+  function connectWsUrl() {
+    var base = defaultWsUrl();
+    var t = token();
+    if (!t) return base;
+    var fp = '';
+    try { fp = localStorage.getItem('fans_hub_device_fp') || ''; } catch (e) {}
+    var q = 'token=' + encodeURIComponent(t);
+    if (fp) q += '&device_fp=' + encodeURIComponent(fp);
+    return base + (base.indexOf('?') >= 0 ? '&' : '?') + q;
+  }
+
   function token() {
     try { return localStorage.getItem('fans_hub_token') || ''; } catch (e) { return ''; }
   }

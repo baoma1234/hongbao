@@ -47,6 +47,9 @@ $worker->onWorkerStart = function (Worker $worker) use ($cfg) {
         $connection->lastMessageTime = time();
         $router->onConnect($connection);
     };
+    $worker->onWebSocketConnect = function ($connection) use ($router) {
+        $router->onWebSocketConnect($connection);
+    };
     $worker->onMessage = function ($connection, $data) use ($router) {
         $connection->lastMessageTime = time();
         $router->onMessage($connection, $data);

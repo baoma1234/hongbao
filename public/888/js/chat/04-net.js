@@ -208,7 +208,7 @@
     state.connecting = true;
     state.connected = false;
     setConnStatus(chatT('chat_conn_connecting'), '');
-    var url = defaultWsUrl();
+    var url = connectWsUrl();
     var ws;
     try {
       ws = new WebSocket(url);
@@ -221,11 +221,17 @@
     state.ws = ws;
     ws.onopen = function () {
       state.connecting = false;
+      startPing();
+      // 握手鉴权通常已在途；未成功则补发 auth（兼容旧 IM / 无 query 代理）
+      if (state.connected) return;
       setConnStatus(chatT('chat_conn_authing'), '');
       try {
-        ws.send(JSON.stringify({ type: 'auth', data: { token: t, device_fp: (localStorage.getItem('fans_hub_device_fp') || '') }, req_id: 'auth' }));
+        ws.send(JSON.stringify({
+          type: 'auth',
+          data: { token: t, device_fp: (localStorage.getItem('fans_hub_device_fp') || '') },
+          req_id: 'auth'
+        }));
       } catch (e) {}
-      startPing();
     };
     ws.onmessage = function (ev) {
       var packet;
