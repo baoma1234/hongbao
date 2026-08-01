@@ -1,51 +1,123 @@
 /* css/home.css */
 
-        .jackpot-container { background: linear-gradient(135deg, #0071FF 0%, #00C853 100%); padding: 12px 14px 10px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 4px 16px rgba(0, 113, 255, 0.22); text-align: center; position: relative; overflow: hidden; }
-        .jackpot-container::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: linear-gradient(45deg, transparent 45%, rgba(255,255,255,0.12) 50%, transparent 55%); transform: translate(-10%, -10%); pointer-events: none; }
-        .jackpot-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: #FFFFFF; opacity: 0.88; font-weight: bold; line-height: 1.2; }
-        .jackpot-val { font-size: 26px; font-weight: 900; margin: 2px 0; font-family: "Impact", monospace, sans-serif; color: #FFFFFF; text-shadow: 0 2px 6px rgba(0,0,0,0.18); letter-spacing: -0.5px; line-height: 1.15; }
+        .jackpot-container {
+            background: linear-gradient(135deg, #0071FF 0%, #00C853 100%);
+            padding: 20px 16px 18px;
+            border-radius: 14px;
+            margin-bottom: 12px;
+            box-shadow: 0 6px 20px rgba(0, 113, 255, 0.28);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            min-height: 168px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 6px;
+        }
+        .jackpot-container::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent 45%, rgba(255,255,255,0.14) 50%, transparent 55%);
+            animation: jackpotShine 4.5s linear infinite;
+            pointer-events: none;
+        }
+        @keyframes jackpotShine {
+            0% { transform: translate(-30%, -30%) rotate(0deg); }
+            100% { transform: translate(10%, 10%) rotate(0deg); }
+        }
+        .jackpot-label {
+            position: relative;
+            z-index: 1;
+            font-size: 14px;
+            text-transform: none;
+            letter-spacing: 0.4px;
+            color: #FFFFFF;
+            opacity: 1;
+            font-weight: 800;
+            line-height: 1.35;
+            animation: jackpotTextPulse 2.8s ease-in-out infinite;
+        }
+        .jackpot-val {
+            position: relative;
+            z-index: 1;
+            font-size: 30px;
+            font-weight: 900;
+            margin: 4px 0;
+            font-family: "Impact", monospace, sans-serif;
+            color: #FFFFFF;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.22), 0 0 18px rgba(255, 224, 130, 0.35);
+            letter-spacing: -0.5px;
+            line-height: 1.15;
+            animation: jackpotNumGlow 2.2s ease-in-out infinite;
+        }
+        @keyframes jackpotNumGlow {
+            0%, 100% { transform: scale(1); filter: brightness(1); }
+            50% { transform: scale(1.03); filter: brightness(1.08); }
+        }
+        @keyframes jackpotTextPulse {
+            0%, 100% { opacity: 0.92; text-shadow: 0 0 0 rgba(255,255,255,0); }
+            50% { opacity: 1; text-shadow: 0 0 10px rgba(255,255,255,0.35); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .jackpot-container::before,
+            .jackpot-label,
+            .jackpot-val,
+            .jackpot-meta,
+            .jackpot-pool-label,
+            .jackpot-price-line,
+            .jackpot-hint-line { animation: none !important; }
+        }
         .jackpot-meta {
             position: relative;
             z-index: 1;
-            font-size: 11px;
+            font-size: 14px;
             font-weight: 800;
             color: #FFE082;
-            margin: 2px 0 1px;
-            line-height: 1.25;
+            margin: 0;
+            line-height: 1.4;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            animation: jackpotTextPulse 3.2s ease-in-out infinite;
         }
         .jackpot-pool-label {
             position: relative;
             z-index: 1;
-            font-size: 10px;
+            font-size: 14px;
             font-weight: 700;
-            color: rgba(255,255,255,0.88);
-            margin-top: 2px;
-            line-height: 1.2;
+            color: rgba(255,255,255,0.95);
+            margin: 0;
+            line-height: 1.35;
+            animation: jackpotTextPulse 3s ease-in-out 0.2s infinite;
         }
         .jackpot-price-line {
             position: relative;
             z-index: 1;
-            font-size: 12px;
-            font-weight: 900;
+            font-size: 14px;
+            font-weight: 800;
             color: #FFF;
-            margin: 1px 0 3px;
+            margin: 0;
             text-shadow: 0 1px 4px rgba(0,0,0,0.2);
-            line-height: 1.25;
+            line-height: 1.4;
+            animation: jackpotTextPulse 2.6s ease-in-out 0.35s infinite;
         }
         .jackpot-hint-line {
             position: relative;
             z-index: 1;
-            font-size: 10px;
+            font-size: 13px;
             color: #FFF;
-            opacity: 0.7;
-            margin-top: 1px;
-            line-height: 1.25;
+            opacity: 0.92;
+            margin: 0;
+            line-height: 1.35;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            animation: jackpotTextPulse 3.4s ease-in-out 0.5s infinite;
         }
         .asset-valuation-hint {
             margin-top: 4px;

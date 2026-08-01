@@ -313,7 +313,7 @@
                 return;
             }
             const text = fc('asset_valuation_hint', { amount: amt.toFixed(2) });
-            node.textContent = text || ('（ 当前估值：￥' + amt.toFixed(2) + ' 元 ）');
+            node.textContent = text || ('(💡当前估值:￥' + amt.toFixed(2) + ' 元 )');
             node.style.display = 'block';
         }
 
