@@ -33,14 +33,41 @@
         .jackpot-label {
             position: relative;
             z-index: 1;
-            font-size: 14px;
+            font-size: 17px;
             text-transform: none;
-            letter-spacing: 0.4px;
-            color: #FFFFFF;
-            opacity: 1;
-            font-weight: 800;
-            line-height: 1.35;
-            animation: jackpotTextPulse 2.8s ease-in-out infinite;
+            letter-spacing: 0.6px;
+            font-weight: 900;
+            line-height: 1.4;
+            margin: 0 0 2px;
+            color: #fff;
+            background: linear-gradient(
+                110deg,
+                #ffffff 0%,
+                #ffe082 28%,
+                #ffffff 50%,
+                #b9f6ca 72%,
+                #ffffff 100%
+            );
+            background-size: 220% 100%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.28));
+            animation: jackpotLabelShine 2.8s linear infinite, jackpotLabelBreath 2.4s ease-in-out infinite;
+        }
+        @keyframes jackpotLabelShine {
+            0% { background-position: 100% 50%; }
+            100% { background-position: -100% 50%; }
+        }
+        @keyframes jackpotLabelBreath {
+            0%, 100% {
+                transform: scale(1);
+                filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.28)) brightness(1);
+            }
+            50% {
+                transform: scale(1.04);
+                filter: drop-shadow(0 2px 10px rgba(255, 224, 130, 0.55)) brightness(1.12);
+            }
         }
         .jackpot-val {
             position: relative;
