@@ -124,6 +124,7 @@ class Sms
      */
     public static function flush($mobile, $event = 'default')
     {
+        \app\common\library\FansHubSms::markLogUsed($mobile, $event);
         \app\common\model\Sms::where(['mobile' => $mobile, 'event' => $event])
             ->delete();
         Hook::listen('sms_flush');

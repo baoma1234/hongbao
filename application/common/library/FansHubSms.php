@@ -30,6 +30,66 @@ class FansHubSms
     }
 
     /**
+     * 写入短信发送日志（后台可查验证码）
+     */
+    public static function writeLog($mobile, $code, $event = 'fanshub_login', $channel = 'default')
+    {
+        $mobile = trim((string)$mobile);
+        $code = trim((string)$code);
+        if ($mobile === '' || $code === '') {
+            return;
+        }
+        try {
+            \app\common\model\fanshub\SmsLog::create([
+                'event'      => substr((string)$event, 0, 32),
+                'mobile'     => substr($mobile, 0, 32),
+                'code'       => substr($code, 0, 16),
+                'channel'    => substr((string)$channel, 0, 32),
+                'ip'         => substr((string)request()->ip(), 0, 64),
+                'status'     => 'sent',
+                'createtime' => time(),
+                'usedtime'   => null,
+            ]);
+        } catch (\Throwable $e) {
+            // 日志失败不影响发短信
+        }
+    }
+
+    /**
+     * 验证成功 / flush 时标记最近一条为已使用
+     */
+    public static function markLogUsed($mobile, $event = 'fanshub_login')
+    {
+        $mobile = trim((string)$mobile);
+        if ($mobile === '') {
+            return;
+        }
+        try {
+            $row = \app\common\model\fanshub\SmsLog::where([
+                'mobile' => $mobile,
+                'event'  => $event,
+                'status' => 'sent',
+            ])->order('id', 'DESC')->find();
+            if ($row) {
+                $row->save(['status' => 'used', 'usedtime' => time()]);
+            }
+            // 兼容网关入库号与 E.164 不一致
+            $alt = FansHubMobile::smsRecipient($mobile);
+            if ($alt !== '' && $alt !== $mobile) {
+                $row2 = \app\common\model\fanshub\SmsLog::where([
+                    'mobile' => $alt,
+                    'event'  => $event,
+                    'status' => 'sent',
+                ])->order('id', 'DESC')->find();
+                if ($row2) {
+                    $row2->save(['status' => 'used', 'usedtime' => time()]);
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+    }
+
+    /**
      * 发送登录验证码（E.164 入库，网关格式外发）
      */
     public static function sendLoginCode($mobileE164, $code = null)
@@ -45,18 +105,34 @@ class FansHubSms
 
         if ($country === 'CN' && FansHubDagouSms::enabled()) {
             $national = FansHubMobile::stripToNational($mobileE164, 'CN');
-            return FansHubDagouSms::send($mobileE164, $national, $code);
+            $ok = FansHubDagouSms::send($mobileE164, $national, $code);
+            if ($ok) {
+                self::writeLog($mobileE164, $code, 'fanshub_login', 'dagou');
+            }
+            return $ok;
         }
 
         if ($country !== 'CN' && FansHubUnaSms::enabled()) {
-            return FansHubUnaSms::send($mobileE164, $code);
+            $ok = FansHubUnaSms::send($mobileE164, $code);
+            if ($ok) {
+                self::writeLog($mobileE164, $code, 'fanshub_login', 'una');
+            }
+            return $ok;
         }
 
         if (FansHubService::config('sms_http_enabled')) {
-            return self::sendHttp($mobileE164, $gatewayMobile, $code);
+            $ok = self::sendHttp($mobileE164, $gatewayMobile, $code);
+            if ($ok) {
+                self::writeLog($mobileE164, $code, 'fanshub_login', 'http');
+            }
+            return $ok;
         }
 
-        return Sms::send($gatewayMobile, $code, 'fanshub_login');
+        $ok = Sms::send($gatewayMobile, $code, 'fanshub_login');
+        if ($ok) {
+            self::writeLog($mobileE164 !== '' ? $mobileE164 : $gatewayMobile, $code, 'fanshub_login', 'default');
+        }
+        return $ok;
     }
 
     protected static function dispatchHttp($sms)

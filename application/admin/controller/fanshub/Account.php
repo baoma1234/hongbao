@@ -140,6 +140,23 @@ class Account extends Backend
             }
         }
 
+        // 支付密码：清除 / 重置
+        $clearPayPwd = !empty($params['clear_pay_password']);
+        $newPayPwd = isset($params['pay_password']) ? trim((string)$params['pay_password']) : '';
+        unset($params['clear_pay_password'], $params['pay_password']);
+        $payPwdMeta = [];
+        if ($clearPayPwd) {
+            $payPwdMeta['pay_password'] = '';
+            $payPwdMeta['pay_salt'] = '';
+        } elseif ($newPayPwd !== '') {
+            if (strlen($newPayPwd) < 6 || strlen($newPayPwd) > 32) {
+                $this->error('支付密码长度需为6-32位');
+            }
+            $paySalt = \fast\Random::alnum();
+            $payPwdMeta['pay_password'] = md5(md5($newPayPwd) . $paySalt);
+            $payPwdMeta['pay_salt'] = $paySalt;
+        }
+
         $oldRights = (float)$row->rights;
         $oldBalance = (float)$row->balance;
         $oldHongbao = (float)($row->hongbao ?? 0);
@@ -200,6 +217,9 @@ class Account extends Backend
                     $meta['main_uid_reject_reason'] = '';
                 }
             }
+        }
+        if ($payPwdMeta) {
+            $meta = array_merge($meta, $payPwdMeta);
         }
 
         $inviterRef = $this->request->post('inviter_ref', null);

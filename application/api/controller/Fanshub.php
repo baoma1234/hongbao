@@ -260,6 +260,7 @@ class Fanshub extends Api
         if (FansHubService::config('sms_mock_enabled')) {
             FansHubService::markSmsSent($mobile);
             $mockCode = (string)FansHubService::config('sms_mock_code', '123456');
+            \app\common\library\FansHubSms::writeLog($mobile, $mockCode, 'fanshub_login', 'mock');
             $this->success(FansHubService::h5CopyText('api_sms_mock_title'), [
                 'mock'        => true,
                 'mock_code'   => $mockCode,

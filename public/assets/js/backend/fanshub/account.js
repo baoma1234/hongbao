@@ -47,6 +47,9 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                     {field: 'honor_tier_claimed', title: '荣誉段位', operate: 'BETWEEN'},
                     {field: 'fission_streak_days', title: '连签天', operate: 'BETWEEN'},
                     {field: 'status', title: '状态', searchList: {"normal": "正常", "frozen": "冻结"}, formatter: Table.api.formatter.status},
+                    {field: 'pay_password', title: '支付密码', operate: false, formatter: function (value) {
+                        return value ? '<span class="label label-success">已设置</span>' : '<span class="text-muted">未设置</span>';
+                    }},
                     {field: 'chat_forbid', title: '聊天禁言', operate: false, formatter: function (value) {
                         if (!value) return '<span class="text-muted">-</span>';
                         var map = {text:'文字', image:'图片', sticker:'表情', video:'视频', file:'文件', rp_send:'发红包', rp_grab:'领红包'};
