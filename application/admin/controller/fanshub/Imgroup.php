@@ -62,7 +62,7 @@ class Imgroup extends Backend
     {
         $this->request->filter(['strip_tags', 'trim']);
         if ($this->request->isAjax()) {
-            $sort = $this->request->get('sort', 'id');
+            $sort = $this->request->get('sort', 'weigh');
             $order = $this->request->get('order', 'desc');
             $offset = (int)$this->request->get('offset', 0);
             $limit = (int)$this->request->get('limit', 20);
@@ -126,6 +126,8 @@ class Imgroup extends Backend
                     'notice_i18n'   => $noticeI18n,
                     'member_count'  => count($all),
                     'max_members'   => 500,
+                    'is_recommend'  => ((int)($params['is_recommend'] ?? 0) === 1) ? 1 : 0,
+                    'weigh'         => (int)($params['weigh'] ?? 0),
                     'status'        => 1,
                     'createtime'    => $now,
                     'updatetime'    => $now,
@@ -153,6 +155,7 @@ class Imgroup extends Backend
                 Db::rollback();
                 $this->error($e->getMessage());
             }
+            FansHubService::clearOfficialCommunityCache();
             $this->success('群组已创建');
         }
         $agents = Db::name('chat_agent_accounts')->where('status', 1)->order('id desc')->select();
@@ -210,6 +213,7 @@ class Imgroup extends Backend
                     'privacy_mode'         => $privacy,
                     'chat_mode'            => $chatMode,
                     'is_recommend'         => ((int)($params['is_recommend'] ?? 0) === 1) ? 1 : 0,
+                    'weigh'                => (int)($params['weigh'] ?? ($row['weigh'] ?? 0)),
                     'is_vip_group'         => ((int)($params['is_vip_group'] ?? 0) === 1) ? 1 : 0,
                     'rp_min_amount'        => sprintf('%.2f', max(0, (float)($params['rp_min_amount'] ?? 10))),
                     'rp_min_count'         => $rpMinCount,
@@ -250,6 +254,7 @@ class Imgroup extends Backend
                 Db::rollback();
                 $this->error($e->getMessage());
             }
+            FansHubService::clearOfficialCommunityCache();
             $this->success('已保存');
         }
         $admins = Db::name('chat_group_members')
@@ -277,6 +282,7 @@ class Imgroup extends Backend
         }
         $now = time();
         Db::name('chat_groups')->where('id', 'in', $idArr)->update(['status' => 2, 'updatetime' => $now]);
+        FansHubService::clearOfficialCommunityCache();
         $this->success('已解散');
     }
 
@@ -369,6 +375,7 @@ class Imgroup extends Backend
         ]);
         $this->refreshMemberCount($groupId);
         $this->insertSystemMessage($groupId, '管理员将 ' . $this->userLabel($userId) . ' 移出了群组');
+        FansHubService::clearOfficialCommunityCache();
         $this->success('已移出');
     }
 
@@ -436,6 +443,7 @@ class Imgroup extends Backend
             $groupId,
             $enabled ? '管理员 开启了 全员禁言' : '管理员 关闭了 全员禁言'
         );
+        FansHubService::clearOfficialCommunityCache();
         $this->success($enabled ? '已开启全员禁言（仅管理员可发言）' : '已关闭全员禁言');
     }
 
@@ -580,6 +588,7 @@ class Imgroup extends Backend
             . (count($added) > 5 ? (' 等' . count($added) . '人') : '')
             . ' 加入了群组';
         $this->insertSystemMessage($groupId, $text);
+        FansHubService::clearOfficialCommunityCache();
         $this->success('已添加 ' . count($added) . ' 人');
     }
 

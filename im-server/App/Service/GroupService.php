@@ -298,6 +298,7 @@ class GroupService
     {
         $userId = (int)$userId;
         $hasCol = $this->hasRecommendColumn();
+        $hasWeigh = $this->hasWeighColumn();
         // 官方社群：以 is_recommend=1 为准（后台已勾选推荐即可展示），不要求 privacy_mode=open
         $sql = 'SELECT g.* FROM ' . Db::table('chat_groups') . ' g'
             . ' WHERE g.status IN (1,3)';
@@ -306,32 +307,44 @@ class GroupService
         } else {
             $sql .= " AND (g.privacy_mode='open' OR (IFNULL(g.privacy_mode,'')='' AND IFNULL(g.hide_member_list,1)=0))";
         }
-        $sql .= ' ORDER BY g.id DESC LIMIT 30';
+        if ($hasWeigh) {
+            $sql .= ' ORDER BY IFNULL(g.weigh,0) DESC, g.id DESC LIMIT 50';
+        } else {
+            $sql .= ' ORDER BY g.id DESC LIMIT 50';
+        }
         $rows = Db::fetchAll($sql);
+        $ids = [];
+        foreach ($rows as $g) {
+            $ids[] = (int)$g['id'];
+        }
+        $joined = [];
+        if ($userId > 0 && $ids) {
+            $ph = implode(',', array_fill(0, count($ids), '?'));
+            $memRows = Db::fetchAll(
+                'SELECT group_id FROM ' . Db::table('chat_group_members')
+                . ' WHERE user_id=? AND status=1 AND group_id IN (' . $ph . ')',
+                array_merge([$userId], $ids)
+            );
+            foreach ($memRows as $mr) {
+                $joined[(int)$mr['group_id']] = true;
+            }
+        }
         $out = [];
         foreach ($rows as $g) {
             $gid = (int)$g['id'];
-            $onlineCnt = count($this->onlineMemberIds($gid));
             $display = (int)($g['display_member_count'] ?? 0);
             $memberCount = $display > 0 ? $display : (int)($g['member_count'] ?? 0);
-            if ($memberCount <= 0) {
-                try {
-                    $memberCount = (int)RedisClient::conn()->sCard(RedisClient::key('g:' . $gid . ':mset'));
-                } catch (\Throwable $e) {
-                    $memberCount = 0;
-                }
-            }
-            $joined = $userId > 0 ? $this->isMember($gid, $userId) : false;
             $out[] = [
                 'id'            => $gid,
                 'name'          => (string)($g['name'] ?? ''),
                 'avatar'        => (string)($g['avatar'] ?? ''),
                 'notice'        => (string)($g['notice'] ?? ''),
                 'member_count'  => $memberCount,
-                'online_count'  => $onlineCnt,
-                'is_member'     => $joined,
+                'online_count'  => 0,
+                'is_member'     => !empty($joined[$gid]),
                 'privacy_mode'  => (string)($g['privacy_mode'] ?? 'private'),
                 'chat_mode'     => (string)($g['chat_mode'] ?? 'chat'),
+                'weigh'         => (int)($g['weigh'] ?? 0),
                 'is_recommend'  => 1,
             ];
         }
@@ -379,6 +392,21 @@ class GroupService
         }
         try {
             $row = Db::fetch('SHOW COLUMNS FROM ' . Db::table('chat_groups') . " LIKE 'is_recommend'");
+            $cached = (bool)$row;
+        } catch (\Throwable $e) {
+            $cached = false;
+        }
+        return $cached;
+    }
+
+    protected function hasWeighColumn()
+    {
+        static $cached = null;
+        if ($cached !== null) {
+            return $cached;
+        }
+        try {
+            $row = Db::fetch('SHOW COLUMNS FROM ' . Db::table('chat_groups') . " LIKE 'weigh'");
             $cached = (bool)$row;
         } catch (\Throwable $e) {
             $cached = false;

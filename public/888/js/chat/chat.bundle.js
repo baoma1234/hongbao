@@ -4893,19 +4893,42 @@
   }
 
   async function refreshCommunity() {
-    if (!state.connected) return;
+    // 官方社群走 HTTP 缓存接口，不依赖 WS，避免慢查询
     try {
-      var rec = await send('group.recommend', {});
-      state.recommendGroups = (rec.data && rec.data.list) || [];
-    } catch (e) { state.recommendGroups = []; }
+      if (typeof global.apiRequest === 'function') {
+        var recApi = await global.apiRequest('communityrecommend', 'GET', {});
+        state.recommendGroups = (recApi && recApi.list) || [];
+      } else {
+        throw new Error('no api');
+      }
+    } catch (eApi) {
+      if (state.connected) {
+        try {
+          var rec = await send('group.recommend', {});
+          state.recommendGroups = (rec.data && rec.data.list) || [];
+        } catch (e) { state.recommendGroups = []; }
+      } else {
+        state.recommendGroups = [];
+      }
+    }
+    if (state.connected) {
+      try {
+        var mine = await send('group.list', {});
+        state.myGroups = (mine.data && mine.data.list) || [];
+      } catch (e2) { state.myGroups = []; }
+      try {
+        var fr = await send('friend.list', {});
+        state.friends = (fr.data && fr.data.list) || [];
+      } catch (e3) { state.friends = []; }
+    }
+    // 用我的群组补全 is_member（缓存列表可能稍旧）
     try {
-      var mine = await send('group.list', {});
-      state.myGroups = (mine.data && mine.data.list) || [];
-    } catch (e2) { state.myGroups = []; }
-    try {
-      var fr = await send('friend.list', {});
-      state.friends = (fr.data && fr.data.list) || [];
-    } catch (e3) { state.friends = []; }
+      var mineIds = {};
+      (state.myGroups || []).forEach(function (g) { mineIds[g.id | 0] = true; });
+      (state.recommendGroups || []).forEach(function (g) {
+        if (mineIds[g.id | 0]) g.is_member = true;
+      });
+    } catch (eM) {}
     renderRecommendGroups();
     renderMyGroups();
     renderFriendFeed();

@@ -52,7 +52,14 @@
         <label class="control-label col-xs-12 col-sm-2">推荐社群:</label>
         <div class="col-xs-12 col-sm-8">
             {:build_radios('row[is_recommend]', ['1'=>'是', '0'=>'否'], isset($row['is_recommend']) ? (string)$row['is_recommend'] : '0')}
-            <span class="help-block">开启后出现在 H5「社群」页第一行推荐位（建议设为开放群）</span>
+            <span class="help-block">开启后出现在 H5「社群」页官方社群列表</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">排序权重:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input type="number" class="form-control" name="row[weigh]" value="{$row.weigh|default=0}">
+            <span class="help-block">数字越大越靠前；修改后自动刷新前台官方社群缓存</span>
         </div>
     </div>
     <div class="form-group">

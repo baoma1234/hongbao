@@ -4112,4 +4112,128 @@ class FansHubService
             'tasks'      => collection($tasks)->toArray(),
         ];
     }
+
+    /** 官方社群列表缓存（后台增删改时清除，不设短 TTL 轮询） */
+    const CACHE_OFFICIAL_COMMUNITIES = 'fanshub_official_communities_v1';
+
+    public static function clearOfficialCommunityCache()
+    {
+        try {
+            \think\Cache::rm(self::CACHE_OFFICIAL_COMMUNITIES);
+        } catch (\Throwable $e) {
+            // ignore
+        }
+    }
+
+    /**
+     * H5「官方社群」列表：缓存公共字段；登录后批量标记 is_member
+     * @param int $userId
+     * @return array{list:array}
+     */
+    public static function officialCommunities($userId = 0)
+    {
+        $userId = (int)$userId;
+        $list = \think\Cache::get(self::CACHE_OFFICIAL_COMMUNITIES);
+        if (!is_array($list)) {
+            $list = self::buildOfficialCommunityList();
+            // 长期缓存；仅后台操作时 rm
+            \think\Cache::set(self::CACHE_OFFICIAL_COMMUNITIES, $list, 86400 * 30);
+        }
+
+        $joined = [];
+        if ($userId > 0 && $list) {
+            $ids = array_column($list, 'id');
+            $ids = array_values(array_filter(array_map('intval', $ids)));
+            if ($ids) {
+                $joined = Db::name('chat_group_members')
+                    ->where('user_id', $userId)
+                    ->where('status', 1)
+                    ->where('group_id', 'in', $ids)
+                    ->column('group_id');
+                $joined = array_fill_keys(array_map('intval', (array)$joined), true);
+            }
+        }
+
+        $out = [];
+        foreach ($list as $g) {
+            $gid = (int)($g['id'] ?? 0);
+            $item = $g;
+            $item['is_member'] = !empty($joined[$gid]);
+            $item['online_count'] = 0;
+            $out[] = $item;
+        }
+        return ['list' => $out];
+    }
+
+    protected static function buildOfficialCommunityList()
+    {
+        $hasRecommend = self::chatGroupsHasColumn('is_recommend');
+        $hasWeigh = self::chatGroupsHasColumn('weigh');
+        $query = Db::name('chat_groups')->where('status', 'in', [1, 3]);
+        if ($hasRecommend) {
+            $query->where('is_recommend', 1);
+        } else {
+            $query->where(function ($q) {
+                $q->where('privacy_mode', 'open')
+                    ->whereOr(function ($q2) {
+                        $q2->where('privacy_mode', '')->where('hide_member_list', 0);
+                    })
+                    ->whereOr(function ($q3) {
+                        $q3->whereNull('privacy_mode')->where('hide_member_list', 0);
+                    });
+            });
+        }
+        if ($hasWeigh) {
+            $query->order('weigh', 'desc')->order('id', 'desc');
+        } else {
+            $query->order('id', 'desc');
+        }
+        $rows = $query->limit(50)->select();
+        $out = [];
+        foreach ($rows as $g) {
+            $display = (int)($g['display_member_count'] ?? 0);
+            $memberCount = $display > 0 ? $display : (int)($g['member_count'] ?? 0);
+            $out[] = [
+                'id'           => (int)$g['id'],
+                'name'         => (string)($g['name'] ?? ''),
+                'avatar'       => (string)($g['avatar'] ?? ''),
+                'notice'       => (string)($g['notice'] ?? ''),
+                'member_count' => $memberCount,
+                'privacy_mode' => (string)($g['privacy_mode'] ?? 'private'),
+                'chat_mode'    => (string)($g['chat_mode'] ?? 'chat'),
+                'weigh'        => (int)($g['weigh'] ?? 0),
+                'is_recommend' => 1,
+            ];
+        }
+        return $out;
+    }
+
+    protected static function chatGroupsHasColumn($column)
+    {
+        static $cache = [];
+        $column = preg_replace('/[^a-z0-9_]/i', '', (string)$column);
+        if ($column === '') {
+            return false;
+        }
+        if (array_key_exists($column, $cache)) {
+            return $cache[$column];
+        }
+        try {
+            $prefix = (string)Config::get('database.prefix');
+            if ($prefix === '') {
+                $prefix = 'fa_';
+            }
+            $table = $prefix . 'chat_groups';
+            $rows = Db::query('SHOW COLUMNS FROM `' . $table . '` LIKE \'' . $column . '\'');
+            $cache[$column] = !empty($rows);
+        } catch (\Throwable $e) {
+            // 已知线上已加字段时兜底，避免误判导致官方社群为空
+            if (in_array($column, ['is_recommend', 'weigh'], true)) {
+                $cache[$column] = true;
+            } else {
+                $cache[$column] = false;
+            }
+        }
+        return $cache[$column];
+    }
 }

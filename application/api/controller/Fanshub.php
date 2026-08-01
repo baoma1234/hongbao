@@ -17,7 +17,7 @@ use think\Validate;
  */
 class Fanshub extends Api
 {
-    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'rpfair'];
+    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'rpfair', 'communityrecommend'];
     protected $noNeedRight = '*';
 
     public function _initialize()
@@ -25,7 +25,7 @@ class Fanshub extends Api
         FansHubSms::boot();
         parent::_initialize();
         $action = strtolower($this->request->action());
-        $exempt = ['config', 'bootstrap', 'comments', 'inviteleaderboard', 'slidercaptcha', 'grabslider', 'jackpot', 'notices', 'rpfair'];
+        $exempt = ['config', 'bootstrap', 'comments', 'inviteleaderboard', 'slidercaptcha', 'grabslider', 'jackpot', 'notices', 'rpfair', 'communityrecommend'];
         if (in_array($action, $exempt, true)) {
             return;
         }
@@ -95,6 +95,23 @@ class Fanshub extends Api
         $limit = (int)$this->request->get('limit', $this->request->post('limit', 20));
         $category = (string)$this->request->get('category', $this->request->post('category', ''));
         $this->success('ok', FansHubService::noticeFeed($page, $limit, $category));
+    }
+
+    /**
+     * 官方社群列表（HTTP + 缓存；后台增删改时清缓存）
+     * GET /api/fanshub/communityrecommend
+     */
+    public function communityrecommend()
+    {
+        $uid = 0;
+        try {
+            if ($this->auth && $this->auth->isLogin()) {
+                $uid = (int)$this->auth->id;
+            }
+        } catch (\Throwable $e) {
+            $uid = 0;
+        }
+        $this->success('ok', FansHubService::officialCommunities($uid));
     }
 
     /**

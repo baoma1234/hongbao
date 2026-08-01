@@ -14,11 +14,13 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
             table.bootstrapTable({
                 url: $.fn.bootstrapTable.defaults.extend.index_url,
                 pk: 'id',
-                sortName: 'id',
+                sortName: 'weigh',
+                sortOrder: 'desc',
                 columns: [
                     [
                         {checkbox: true},
                         {field: 'id', title: 'ID', sortable: true},
+                        {field: 'weigh', title: '排序', sortable: true, operate: false},
                         {field: 'name', title: '群名称', operate: 'LIKE'},
                         {field: 'owner_user_id', title: '群主ID'},
                         {field: 'owner_label', title: '群主', operate: false},
