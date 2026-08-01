@@ -102,6 +102,16 @@
                         </span>
                         <span class="profile-menu-arrow">›</span>
                     </button>
+                    <button type="button" class="profile-menu-row" onclick="openProfileSubPage('paypassword')">
+                        <span class="profile-menu-ico" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 1a5 5 0 015 5v2h1.5A1.5 1.5 0 0120 9.5v11A1.5 1.5 0 0118.5 22h-13A1.5 1.5 0 014 20.5v-11A1.5 1.5 0 015.5 8H7V6a5 5 0 015-5zm0 2a3 3 0 00-3 3v2h6V6a3 3 0 00-3-3zm0 9.25a1.75 1.75 0 100 3.5 1.75 1.75 0 000-3.5z"/></svg>
+                        </span>
+                        <span class="profile-menu-main">
+                            <strong data-copy="profile_menu_pay_password">支付密码</strong>
+                            <small data-copy="profile_menu_pay_password_sub">提现与绑定地址校验</small>
+                        </span>
+                        <span class="profile-menu-arrow">›</span>
+                    </button>
                 </div>
             </section>
 

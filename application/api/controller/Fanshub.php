@@ -673,6 +673,7 @@ class Fanshub extends Api
             $accountInfo['bind_mode'] = 'wallet';
         }
         try {
+            FansHubService::assertPayPassword($this->auth->id, (string)$this->request->post('pay_password', ''));
             $binds = \app\common\library\FansHubWallet::bindWalletAddress($this->auth->id, $walletType, $accountInfo);
             $this->success(FansHubService::h5CopyText('wallet_bind_ok') ?: '绑定成功', ['binds' => $binds]);
         } catch (HttpResponseException $e) {
@@ -711,8 +712,56 @@ class Fanshub extends Api
             $accountInfo = [];
         }
         try {
+            FansHubService::assertPayPassword($this->auth->id, (string)$this->request->post('pay_password', ''));
             $data = \app\common\library\FansHubWallet::withdraw($this->auth->id, $channelId, $amount, $accountInfo);
             $this->success('提现申请已提交', $data);
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: FansHubService::h5CopyText('api_operation_fail'));
+        }
+    }
+
+    /**
+     * 首次设置支付密码（无需短信）
+     */
+    public function setpaypassword()
+    {
+        $pwd = (string)$this->request->post('pay_password', $this->request->post('password', ''));
+        $confirm = (string)$this->request->post('confirm_password', '');
+        if ($confirm !== '' && $pwd !== $confirm) {
+            $this->error(FansHubService::h5CopyText('api_password_mismatch'));
+        }
+        try {
+            $profile = FansHubService::setPayPassword($this->auth->id, $pwd);
+            $this->success(FansHubService::h5CopyText('api_pay_password_set_ok') ?: '支付密码已设置', [
+                'profile' => $profile,
+                'has_pay_password' => true,
+            ]);
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: FansHubService::h5CopyText('api_operation_fail'));
+        }
+    }
+
+    /**
+     * 修改支付密码（已设置后需短信验证码）
+     */
+    public function changepaypassword()
+    {
+        $pwd = (string)$this->request->post('pay_password', $this->request->post('new_password', ''));
+        $confirm = (string)$this->request->post('confirm_password', '');
+        $captcha = (string)$this->request->post('captcha', '');
+        if ($confirm !== '' && $pwd !== $confirm) {
+            $this->error(FansHubService::h5CopyText('api_password_mismatch'));
+        }
+        try {
+            $profile = FansHubService::changePayPassword($this->auth->id, $pwd, $captcha);
+            $this->success(FansHubService::h5CopyText('api_pay_password_change_ok') ?: '支付密码已修改', [
+                'profile' => $profile,
+                'has_pay_password' => true,
+            ]);
         } catch (HttpResponseException $e) {
             throw $e;
         } catch (\Throwable $e) {

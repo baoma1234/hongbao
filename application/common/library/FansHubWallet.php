@@ -42,6 +42,7 @@ class FansHubWallet
             'can_withdraw'             => $turnover >= $minTurnover,
             'withdraw_threshold'       => (float)($cfg['withdraw_threshold'] ?? 50),
             'wallet_asset'             => 'hongbao',
+            'has_pay_password'         => FansHubService::hasPayPassword($userId),
         ];
     }
 

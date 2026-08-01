@@ -1497,6 +1497,7 @@
                 ? (parseFloat(profile.rights_free) || 0)
                 : Math.max(0, account.rights - account.rights_locked);
             account.hongbao = parseFloat(profile.hongbao) || 0;
+            account.has_pay_password = !!profile.has_pay_password;
             account.phone = profile.mobile || account.phone;
             account.main_uid = profile.main_uid || '';
             account.main_uid_pending = profile.main_uid_pending || '';
@@ -1609,11 +1610,13 @@
             }
             closeProfileSubPage();
             const id = which === 'password' ? 'profilePasswordPane'
-                : (which === 'qrcode' ? 'profileQrPane' : 'profileInfoPane');
+                : (which === 'paypassword' ? 'profilePayPasswordPane'
+                : (which === 'qrcode' ? 'profileQrPane' : 'profileInfoPane'));
             const pane = document.getElementById(id);
             if (!pane) return;
             renderProfilePanel();
             if (which === 'password') setProfilePwdMode(profilePwdMode || 'old');
+            if (which === 'paypassword') syncPayPasswordPage();
             pane.classList.add('open');
             pane.setAttribute('aria-hidden', 'false');
             if (typeof setBottomActionBarVisible === 'function') setBottomActionBarVisible(false);
@@ -1623,7 +1626,7 @@
         }
 
         function closeProfileSubPage() {
-            ['profileInfoPane', 'profilePasswordPane', 'profileRechargePane', 'profileWithdrawPane', 'profileLedgerPane', 'profilePayeePane', 'profileQrPane'].forEach(function (id) {
+            ['profileInfoPane', 'profilePasswordPane', 'profilePayPasswordPane', 'profileRechargePane', 'profileWithdrawPane', 'profileLedgerPane', 'profilePayeePane', 'profileQrPane'].forEach(function (id) {
                 const el = document.getElementById(id);
                 if (el) {
                     el.classList.remove('open');
@@ -2116,21 +2119,27 @@
         }
 
         function startProfileSmsCooldown(seconds) {
-            const btn = document.getElementById('profileSmsSendBtn');
-            if (!btn) return;
+            const buttons = [
+                document.getElementById('profileSmsSendBtn'),
+                document.getElementById('profilePayPwdSmsBtn')
+            ].filter(Boolean);
+            if (!buttons.length) return;
             const total = Math.max(1, parseInt(seconds, 10) || CONFIG.SMS_SEND_INTERVAL || 60);
-            btn.disabled = true;
+            buttons.forEach(function (btn) { btn.disabled = true; });
             if (profileSmsTimer) clearInterval(profileSmsTimer);
             let count = total;
             function tick() {
                 if (count <= 0) {
                     clearInterval(profileSmsTimer);
                     profileSmsTimer = null;
-                    btn.disabled = false;
-                    btn.textContent = fc('profile_sms_send_btn') || fc('login_captcha_btn');
+                    buttons.forEach(function (btn) {
+                        btn.disabled = false;
+                        btn.textContent = fc('profile_sms_send_btn') || fc('login_captcha_btn');
+                    });
                     return;
                 }
-                btn.textContent = fc('login_captcha_resend', { count: count }) || (count + 's');
+                const text = fc('login_captcha_resend', { count: count }) || (count + 's');
+                buttons.forEach(function (btn) { btn.textContent = text; });
                 count--;
             }
             tick();
@@ -2199,6 +2208,87 @@
             try {
                 await apiRequest('changepassword', 'POST', body);
                 forceLogoutToLogin(fc('alert_password_ok'));
+            } catch (e) {
+                showFanshubToast(e.message || fc('alert_api_request_fail'), 'error');
+            }
+        }
+
+        function syncPayPasswordPage() {
+            const has = !!(lastProfile && lastProfile.has_pay_password) || !!(account && account.has_pay_password);
+            const hint = document.getElementById('profilePayPasswordHint');
+            const smsWrap = document.getElementById('profilePayPwdSmsWrap');
+            const btn = document.getElementById('profilePayPasswordBtn');
+            if (hint) {
+                hint.textContent = has
+                    ? (fc('profile_pay_password_change_hint') || '修改支付密码需短信验证码')
+                    : (fc('profile_pay_password_set_hint') || '首次可直接设置支付密码；用于提现与绑定地址');
+            }
+            if (smsWrap) {
+                if (has) {
+                    smsWrap.removeAttribute('hidden');
+                    smsWrap.style.display = '';
+                } else {
+                    smsWrap.setAttribute('hidden', 'hidden');
+                    smsWrap.style.display = 'none';
+                }
+            }
+            if (btn) btn.textContent = has
+                ? (fc('profile_pay_password_change_btn') || '确认修改支付密码')
+                : (fc('profile_pay_password_set_btn') || '设置支付密码');
+            const n = document.getElementById('profilePayPasswordNew');
+            const c = document.getElementById('profilePayPasswordConfirm');
+            const s = document.getElementById('profilePayPwdSmsCode');
+            if (n) n.value = '';
+            if (c) c.value = '';
+            if (s) s.value = '';
+        }
+
+        let payPwdSmsTimer = null;
+        async function sendPayPasswordSms() {
+            return sendProfileSmsCode();
+        }
+
+        async function submitPayPasswordForm() {
+            const pwd = String((document.getElementById('profilePayPasswordNew') || {}).value || '');
+            const confirm = String((document.getElementById('profilePayPasswordConfirm') || {}).value || '');
+            if (pwd.length < 6) {
+                showFanshubToast(fc('alert_password_short') || '密码至少6位', 'error');
+                return;
+            }
+            if (pwd !== confirm) {
+                showFanshubToast(fc('alert_password_mismatch') || '两次密码不一致', 'error');
+                return;
+            }
+            const has = !!(lastProfile && lastProfile.has_pay_password) || !!(account && account.has_pay_password);
+            try {
+                let data;
+                if (!has) {
+                    data = await apiRequest('setpaypassword', 'POST', {
+                        pay_password: pwd,
+                        confirm_password: confirm
+                    });
+                } else {
+                    const captcha = String((document.getElementById('profilePayPwdSmsCode') || {}).value || '');
+                    if (!captcha) {
+                        showFanshubToast(fc('api_params_incomplete') || '请填写短信验证码', 'error');
+                        return;
+                    }
+                    data = await apiRequest('changepaypassword', 'POST', {
+                        pay_password: pwd,
+                        confirm_password: confirm,
+                        captcha: captcha
+                    });
+                }
+                if (data && data.profile) applyProfile(data.profile);
+                else if (lastProfile) lastProfile.has_pay_password = true;
+                if (account) account.has_pay_password = true;
+                showFanshubToast(
+                    has
+                        ? (fc('api_pay_password_change_ok') || '支付密码已修改')
+                        : (fc('api_pay_password_set_ok') || '支付密码已设置'),
+                    'success'
+                );
+                syncPayPasswordPage();
             } catch (e) {
                 showFanshubToast(e.message || fc('alert_api_request_fail'), 'error');
             }
@@ -2911,4 +3001,17 @@
         window.renderProfilePanel = renderProfilePanel;
         window.getSharePrice = getSharePrice;
         window.startJackpotSync = startJackpotSync;
+        window.applyProfile = applyProfile;
+        Object.defineProperty(window, 'lastProfile', {
+            get: function () { return lastProfile; },
+            set: function (v) { lastProfile = v; },
+            configurable: true
+        });
+        window.submitProfilePassword = submitProfilePassword;
+        window.sendProfileSmsCode = sendProfileSmsCode;
+        window.saveProfileNickname = saveProfileNickname;
+        window.handleProfileLogout = handleProfileLogout;
+        window.sendPayPasswordSms = sendPayPasswordSms;
+        window.submitPayPasswordForm = submitPayPasswordForm;
+        window.syncPayPasswordPage = syncPayPasswordPage;
 

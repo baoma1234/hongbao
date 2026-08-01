@@ -1989,6 +1989,7 @@ class FansHubService
             'logintime'   => (int)($user->logintime ?? 0),
             'loginip'     => (string)($user->loginip ?? ''),
             'invite_rank' => self::inviteRankForUser($userId),
+            'has_pay_password' => self::hasPayPassword($userId),
         ];
         if (!empty(self::config('member_level_enabled'))) {
             $level = (int)($account->member_level ?? 1);
@@ -2132,6 +2133,102 @@ class FansHubService
             'need_relogin' => true,
             'profile'      => self::profilePayload($userId),
         ];
+    }
+
+    public static function hasPayPassword($userId)
+    {
+        $account = self::getOrCreateAccount((int)$userId);
+        return $account && trim((string)($account->pay_password ?? '')) !== '';
+    }
+
+    protected static function encryptPayPassword($password, $salt)
+    {
+        $auth = \app\common\library\Auth::instance();
+        return $auth->getEncryptPassword((string)$password, (string)$salt);
+    }
+
+    /**
+     * 首次设置支付密码（无需短信）
+     */
+    public static function setPayPassword($userId, $password)
+    {
+        $userId = (int)$userId;
+        $password = (string)$password;
+        if (strlen($password) < 6 || strlen($password) > 32) {
+            self::throwCopy('api_password_length');
+        }
+        $account = self::getOrCreateAccount($userId);
+        if (trim((string)($account->pay_password ?? '')) !== '') {
+            throw new \RuntimeException(FansHubService::h5CopyText('api_pay_password_already_set') ?: '已设置支付密码，请通过短信验证修改');
+        }
+        $salt = Random::alnum();
+        $account->save([
+            'pay_password' => self::encryptPayPassword($password, $salt),
+            'pay_salt'     => $salt,
+            'updatetime'   => time(),
+        ]);
+        return self::profilePayload($userId);
+    }
+
+    /**
+     * 修改支付密码（需短信验证码）
+     */
+    public static function changePayPassword($userId, $password, $captcha)
+    {
+        $userId = (int)$userId;
+        $password = (string)$password;
+        $captcha = trim((string)$captcha);
+        if (strlen($password) < 6 || strlen($password) > 32) {
+            self::throwCopy('api_password_length');
+        }
+        if ($captcha === '') {
+            self::throwCopy('api_params_incomplete');
+        }
+        $account = self::getOrCreateAccount($userId);
+        if (trim((string)($account->pay_password ?? '')) === '') {
+            // 未设置时走首次设置，不要求短信
+            return self::setPayPassword($userId, $password);
+        }
+        $user = User::get($userId);
+        if (!$user) {
+            self::throwCopy('srv_user_not_found');
+        }
+        $mobile = (string)$user->mobile;
+        if ($mobile === '' || !self::verifyCaptcha($mobile, $captcha, 'fanshub_login')) {
+            self::throwCopy('api_sms_code_wrong');
+        }
+        Sms::flush($mobile, 'fanshub_login');
+        $alt = FansHubMobile::smsRecipient($mobile);
+        if ($alt !== $mobile) {
+            Sms::flush($alt, 'fanshub_login');
+        }
+        $salt = Random::alnum();
+        $account->save([
+            'pay_password' => self::encryptPayPassword($password, $salt),
+            'pay_salt'     => $salt,
+            'updatetime'   => time(),
+        ]);
+        return self::profilePayload($userId);
+    }
+
+    /**
+     * 校验支付密码（提现 / 绑定地址）
+     */
+    public static function assertPayPassword($userId, $password)
+    {
+        $userId = (int)$userId;
+        $password = (string)$password;
+        $account = self::getOrCreateAccount($userId);
+        if (trim((string)($account->pay_password ?? '')) === '') {
+            throw new \RuntimeException(FansHubService::h5CopyText('api_pay_password_required_set') ?: '请先设置支付密码');
+        }
+        if ($password === '') {
+            throw new \RuntimeException(FansHubService::h5CopyText('api_pay_password_required') ?: '请输入支付密码');
+        }
+        $enc = self::encryptPayPassword($password, (string)($account->pay_salt ?? ''));
+        if (!hash_equals((string)$account->pay_password, $enc)) {
+            throw new \RuntimeException(FansHubService::h5CopyText('api_pay_password_wrong') ?: '支付密码错误');
+        }
     }
 
     public static function smsSendInterval()

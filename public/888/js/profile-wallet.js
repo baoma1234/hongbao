@@ -14,8 +14,109 @@
     withdrawExpanded: {},
     rechargePartitionKey: '',
     withdrawPartitionKey: '',
-    rebinding: false
+    rebinding: false,
+    hasPayPassword: false
   };
+
+  function syncHasPayPasswordFromProfile(profile) {
+    if (profile && profile.has_pay_password != null) {
+      walletState.hasPayPassword = !!profile.has_pay_password;
+    }
+  }
+
+  function hasPayPassword() {
+    if (walletState.hasPayPassword) return true;
+    try {
+      if (global.lastProfile && global.lastProfile.has_pay_password) return true;
+    } catch (e) {}
+    return false;
+  }
+
+  function setHasPayPasswordFlag(v) {
+    walletState.hasPayPassword = !!v;
+    try {
+      if (global.lastProfile) global.lastProfile.has_pay_password = !!v;
+    } catch (e2) {}
+  }
+
+  /** 弹层输入支付密码；首次设置时带确认框 */
+  function promptPayPassword(opts) {
+    opts = opts || {};
+    var isSet = !!opts.forceSet || !hasPayPassword();
+    return new Promise(function (resolve, reject) {
+      var modal = document.getElementById('walletPayPwdModal');
+      var title = document.getElementById('walletPayPwdTitle');
+      var desc = document.getElementById('walletPayPwdDesc');
+      var input = document.getElementById('walletPayPwdInput');
+      var confirmWrap = document.getElementById('walletPayPwdConfirmWrap');
+      var confirm = document.getElementById('walletPayPwdConfirm');
+      var ok = document.getElementById('walletPayPwdOk');
+      var cancel = document.getElementById('walletPayPwdCancel');
+      if (!modal || !input || !ok) {
+        reject(new Error(wt('api_pay_password_required', '请输入支付密码')));
+        return;
+      }
+      if (title) title.textContent = isSet
+        ? wt('profile_pay_password_set_title', '设置支付密码')
+        : wt('profile_pay_password_enter_title', '请输入支付密码');
+      if (desc) {
+        desc.textContent = isSet
+          ? wt('profile_pay_password_set_hint', '首次设置支付密码，用于提现与绑定地址')
+          : '';
+      }
+      if (confirmWrap) confirmWrap.hidden = !isSet;
+      input.value = '';
+      if (confirm) confirm.value = '';
+      modal.hidden = false;
+      try { input.focus(); } catch (e0) {}
+
+      function cleanup() {
+        modal.hidden = true;
+        ok.onclick = null;
+        cancel.onclick = null;
+      }
+      cancel.onclick = function () {
+        cleanup();
+        reject(new Error('cancelled'));
+      };
+      ok.onclick = function () {
+        var pwd = String(input.value || '');
+        if (pwd.length < 6) {
+          toast(wt('alert_password_short', '密码至少6位'), 'error');
+          return;
+        }
+        if (isSet) {
+          var c = String((confirm && confirm.value) || '');
+          if (pwd !== c) {
+            toast(wt('alert_password_mismatch', '两次密码不一致'), 'error');
+            return;
+          }
+        }
+        cleanup();
+        resolve(pwd);
+      };
+    });
+  }
+
+  /** 确保已有支付密码并拿到本次输入，再执行业务 */
+  function withPayPassword(run) {
+    var needSet = !hasPayPassword();
+    return promptPayPassword({ forceSet: needSet }).then(function (pwd) {
+      if (needSet) {
+        return api('setpaypassword', {
+          pay_password: pwd,
+          confirm_password: pwd
+        }).then(function (data) {
+          setHasPayPasswordFlag(true);
+          if (data && data.profile && typeof global.applyProfile === 'function') {
+            try { global.applyProfile(data.profile); } catch (e) {}
+          }
+          return run(pwd);
+        });
+      }
+      return run(pwd);
+    });
+  }
 
   /** 钱包分区优先展示顺序（其余收入「更多」） */
   var WALLET_PIN_ORDER = ['no', '234', '808', '988', 'k豆', 'jd', 'c币', 'ok', 'to', 'go', '万币'];
@@ -116,6 +217,18 @@
     return wt('wallet_limit_none', '金额不限');
   }
 
+  function formatLimitPlaceholder(ch) {
+    if (!ch) return wt('profile_amount_ph', '请输入金额');
+    var min = Number(ch.min_amount) || 0;
+    var max = Number(ch.max_amount) || 0;
+    if (min > 0 && max > 0) {
+      return wt('wallet_amount_ph_range', '限额 {min} ～ {max}', { min: money(min), max: money(max) });
+    }
+    if (min > 0) return wt('wallet_amount_ph_min', '请输入金额，最低 {min}', { min: money(min) });
+    if (max > 0) return wt('wallet_amount_ph_max', '请输入金额，最高 {max}', { max: money(max) });
+    return wt('profile_amount_ph', '请输入金额');
+  }
+
   function applyAmountLimits(inputId, ch) {
     var el = document.getElementById(inputId);
     if (!el) return;
@@ -125,9 +238,7 @@
     else el.removeAttribute('min');
     if (max > 0) el.max = String(max);
     else el.removeAttribute('max');
-    el.placeholder = min > 0
-      ? wt('wallet_amount_ph_min', '请输入金额，最低 {min}', { min: money(min) })
-      : wt('profile_amount_ph', '请输入金额');
+    el.placeholder = formatLimitPlaceholder(ch);
   }
 
   var RECHARGE_QUICK_AMOUNTS = [50, 100, 500, 1000, 5000, 10000, 50000, 100000];
@@ -236,11 +347,8 @@
     if (convPanel) convPanel.style.display = isWallet ? 'none' : '';
     if (isWallet) {
       var wtype = String(ch.wallet_type || ch.payment_channel || '');
+      // 严格按当前通道 wallet_type 取绑定，禁止回落到其它钱包地址
       var bind = (walletState.binds && walletState.binds[wtype]) || null;
-      // BS USDT：优先用已绑定的 TRC20 地址
-      if (!bind && String(ch.handler || '').toLowerCase() === 'bs') {
-        bind = (walletState.binds && (walletState.binds.BS_USDT_TRC20 || walletState.binds.USDT_TRC20)) || null;
-      }
       var cur = document.getElementById('profileWithdrawBindCurrent');
       var form = document.getElementById('profileWithdrawBindForm');
       var addr = document.getElementById('profileWithdrawBoundAddr');
@@ -251,7 +359,7 @@
         boundLabel.textContent = walletAddressLabel(shortWalletName(ch));
       }
       if (cur) cur.hidden = !bind;
-      if (addr && bind) addr.textContent = bind.account_no || '-';
+      if (addr) addr.textContent = bind ? (bind.account_no || '-') : '-';
       if (needBind) {
         if (hint) {
           hint.innerHTML = escapeHtml(wt(
@@ -340,7 +448,6 @@
     var list = isRecharge ? walletState.recharge : walletState.withdraw;
     var ch = findChannel(list, channelId);
     var panel = document.getElementById(isRecharge ? 'profileRechargeForm' : 'profileWithdrawForm');
-    var hint = document.getElementById(isRecharge ? 'profileRechargeLimitHint' : 'profileWithdrawLimitHint');
     if (!panel) return;
     if (!ch) {
       panel.setAttribute('hidden', 'hidden');
@@ -352,7 +459,6 @@
     panel.removeAttribute('hidden');
     panel.style.display = 'block';
     panel.classList.add('is-open');
-    if (hint) hint.textContent = formatLimitHint(ch);
     applyAmountLimits(isRecharge ? 'profileRechargeAmount' : 'profileWithdrawAmount', ch);
     if (isRecharge) {
       renderRechargeQuickAmounts(ch);
@@ -876,6 +982,11 @@
       walletState.withdraw = withdraw.list || [];
       walletState.withdrawPartitions = withdraw.partitions || [];
       walletState.binds = withdraw.binds || {};
+      if (walletState.info && walletState.info.has_pay_password != null) {
+        setHasPayPasswordFlag(!!walletState.info.has_pay_password);
+      } else {
+        syncHasPayPasswordFromProfile(global.lastProfile);
+      }
       var hint = document.getElementById('profileWithdrawHint');
       if (hint && walletState.info) {
         var need = Math.max(walletState.info.withdraw_turnover_min || 0, 0);
@@ -1131,16 +1242,20 @@
     }
     var btn = document.getElementById('profileWithdrawSubmit');
     if (btn) btn.disabled = true;
-    api('withdraw', {
-      channel_id: cid,
-      amount: amount,
-      account_info: accountInfo
+    withPayPassword(function (payPwd) {
+      return api('withdraw', {
+        channel_id: cid,
+        amount: amount,
+        account_info: accountInfo,
+        pay_password: payPwd
+      });
     }).then(function (data) {
       toast((data && data.message) || wt('wallet_withdraw_ok', '提现申请已提交'), 'success');
       if (data && data.url) window.open(data.url, '_blank');
       if (typeof global.refreshProfile === 'function') global.refreshProfile();
       loadWalletData();
     }).catch(function (e) {
+      if (e && String(e.message || '') === 'cancelled') return;
       toast((e && e.message) || wt('wallet_fail', '失败'), 'error');
     }).then(function () {
       if (btn) btn.disabled = false;
@@ -1163,14 +1278,17 @@
     }
     var btn = document.getElementById('profileWithdrawBindSubmit');
     if (btn) btn.disabled = true;
-    api('bindwallet', {
-      wallet_type: wtype,
-      account_info: {
-        account_no: accountNo,
-        account_name: accountName || String(ch.name || '').replace(/(充值|代付|提现)$/, ''),
-        bank_name: wtype,
-        bind_mode: 'wallet'
-      }
+    withPayPassword(function (payPwd) {
+      return api('bindwallet', {
+        wallet_type: wtype,
+        account_info: {
+          account_no: accountNo,
+          account_name: accountName || String(ch.name || '').replace(/(充值|代付|提现)$/, ''),
+          bank_name: wtype,
+          bind_mode: 'wallet'
+        },
+        pay_password: payPwd
+      });
     }).then(function (data) {
       walletState.binds = (data && data.binds) || walletState.binds || {};
       toast(wt('wallet_bind_ok', '钱包地址已绑定'), 'success');
@@ -1178,6 +1296,7 @@
       if (addrInput) addrInput.value = '';
       syncWithdrawBindUI(ch);
     }).catch(function (e) {
+      if (e && String(e.message || '') === 'cancelled') return;
       toast((e && e.message) || wt('wallet_fail', '失败'), 'error');
     }).then(function () {
       if (btn) btn.disabled = false;
@@ -1532,18 +1651,22 @@
         }
         var btn = document.querySelector('#profilePayeeWalletForm .btn-uid-submit');
         if (btn) btn.disabled = true;
-        var seq = Promise.resolve();
-        chainPayloads.forEach(function (p) {
-          seq = seq.then(function () {
-            return api('bindwallet', p).then(function (data) {
-              if (data && data.binds) walletState.binds = data.binds;
+        withPayPassword(function (payPwd) {
+          var seq = Promise.resolve();
+          chainPayloads.forEach(function (p) {
+            p.pay_password = payPwd;
+            seq = seq.then(function () {
+              return api('bindwallet', p).then(function (data) {
+                if (data && data.binds) walletState.binds = data.binds;
+              });
             });
           });
-        });
-        seq.then(function () {
+          return seq;
+        }).then(function () {
           toast(wt('wallet_bind_ok', '绑定成功'), 'success');
           initPayeePage();
         }).catch(function (e) {
+          if (e && String(e.message || '') === 'cancelled') return;
           toast((e && e.message) || wt('wallet_fail', '失败'), 'error');
         }).then(function () {
           if (btn) btn.disabled = false;
@@ -1558,15 +1681,19 @@
         return;
       }
     }
-    api('bindwallet', {
-      wallet_type: walletType,
-      account_info: payload,
-      bind_mode: payload.bind_mode
+    withPayPassword(function (payPwd) {
+      return api('bindwallet', {
+        wallet_type: walletType,
+        account_info: payload,
+        bind_mode: payload.bind_mode,
+        pay_password: payPwd
+      });
     }).then(function (data) {
       walletState.binds = (data && data.binds) || walletState.binds || {};
       toast(wt('wallet_bind_ok', '绑定成功'), 'success');
       initPayeePage();
     }).catch(function (e) {
+      if (e && String(e.message || '') === 'cancelled') return;
       toast((e && e.message) || wt('wallet_fail', '失败'), 'error');
     });
   };

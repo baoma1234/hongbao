@@ -59,6 +59,56 @@
         </div>
     </div>
 
+    <!-- 个人中心：支付密码 -->
+    <div class="profile-sub-pane" id="profilePayPasswordPane" aria-hidden="true">
+        <div class="profile-sub-hd">
+            <button type="button" class="chat-back-btn profile-back-btn" onclick="closeProfileSubPage()" data-copy-aria="profile_back" aria-label="返回">‹</button>
+            <div class="profile-sub-title" data-copy="profile_pay_password_title">支付密码</div>
+            <span class="profile-sub-spacer"></span>
+        </div>
+        <div class="profile-sub-body">
+            <div class="match-card profile-card">
+                <p class="profile-meta-line" id="profilePayPasswordHint">首次可直接设置；修改需短信验证码。</p>
+                <div class="profile-field" id="profilePayPwdSmsWrap" hidden>
+                    <label data-copy="profile_sms_code_label">短信验证码</label>
+                    <div class="profile-sms-row">
+                        <input type="text" id="profilePayPwdSmsCode" inputmode="numeric" maxlength="8" placeholder="请输入验证码">
+                        <button type="button" class="btn-captcha" id="profilePayPwdSmsBtn" onclick="sendPayPasswordSms()">获取验证码</button>
+                    </div>
+                </div>
+                <div class="profile-field">
+                    <label data-copy="profile_pay_password_label">支付密码</label>
+                    <input type="password" id="profilePayPasswordNew" autocomplete="new-password" maxlength="32" placeholder="6-32位支付密码">
+                </div>
+                <div class="profile-field">
+                    <label data-copy="profile_pay_password_confirm_label">确认支付密码</label>
+                    <input type="password" id="profilePayPasswordConfirm" autocomplete="new-password" maxlength="32" placeholder="再次输入支付密码">
+                </div>
+                <button type="button" class="btn-uid-submit" id="profilePayPasswordBtn" onclick="submitPayPasswordForm()">保存支付密码</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 支付密码输入弹层（提现/绑定） -->
+    <div id="walletPayPwdModal" class="wallet-paypwd-modal" hidden>
+        <div class="wallet-paypwd-sheet" role="dialog" aria-modal="true">
+            <div class="wallet-paypwd-title" id="walletPayPwdTitle">请输入支付密码</div>
+            <p class="wallet-paypwd-desc" id="walletPayPwdDesc"></p>
+            <div class="profile-field">
+                <label id="walletPayPwdInputLabel">支付密码</label>
+                <input type="password" id="walletPayPwdInput" maxlength="32" placeholder="请输入支付密码">
+            </div>
+            <div class="profile-field" id="walletPayPwdConfirmWrap" hidden>
+                <label>确认支付密码</label>
+                <input type="password" id="walletPayPwdConfirm" maxlength="32" placeholder="再次输入">
+            </div>
+            <div class="wallet-paypwd-actions">
+                <button type="button" class="wallet-paypwd-cancel" id="walletPayPwdCancel">取消</button>
+                <button type="button" class="btn-uid-submit wallet-paypwd-ok" id="walletPayPwdOk">确认</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 个人中心：充值 -->
     <div class="profile-sub-pane" id="profileRechargePane" aria-hidden="true">
         <div class="profile-sub-hd">
@@ -74,7 +124,6 @@
                 </div>
                 <div id="profileRechargeChannels" class="wallet-channel-list"></div>
                 <div id="profileRechargeForm" class="wallet-amount-panel" hidden>
-                    <div class="profile-meta-line" id="profileRechargeLimitHint"></div>
                     <div class="profile-field">
                         <label data-copy="profile_recharge_amount_label">充值红宝金额（元）</label>
                         <div id="profileRechargeQuickAmounts" class="wallet-quick-amounts" aria-label="快捷金额"></div>
@@ -155,11 +204,8 @@
                     </div>
                     </div>
                     <div id="profileWithdrawAmountGate" class="wallet-amount-gate" hidden>
-                    <div class="profile-field wallet-amount-limit-row">
-                        <div class="wallet-amount-limit-hd">
-                            <label data-copy="profile_withdraw_amount_label">提现红宝金额（元）</label>
-                            <span class="wallet-limit-inline" id="profileWithdrawLimitHint"></span>
-                        </div>
+                    <div class="profile-field">
+                        <label data-copy="profile_withdraw_amount_label">提现红宝金额（元）</label>
                         <input type="number" id="profileWithdrawAmount" step="0.01" min="1" data-copy-placeholder="profile_amount_ph" placeholder="请输入金额">
                     </div>
                     <div class="profile-meta-line wallet-withdraw-verify-addr" id="profileWithdrawVerifyAddrWrap" hidden>
