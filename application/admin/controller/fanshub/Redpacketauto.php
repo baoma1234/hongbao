@@ -88,6 +88,9 @@ class Redpacketauto extends Backend
                 $this->error($err !== '' ? $err : '未发出红包（请检查群ID、余额、待领包与任务配置）', null, $total);
             }
             $this->success($msg, null, $total);
+        } catch (\think\exception\HttpResponseException $e) {
+            // success/error 通过抛出该异常结束请求，必须原样抛出
+            throw $e;
         } catch (\Throwable $e) {
             $msg = trim($e->getMessage());
             if ($msg === '') {
