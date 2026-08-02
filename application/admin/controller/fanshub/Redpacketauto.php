@@ -45,6 +45,7 @@ class Redpacketauto extends Backend
 
     /**
      * 立即执行一次（可指定 ids，逗号分隔）
+     * 强制发包：不受 IM 心跳「跳过」与间隔限制；群内仍有待领包时仍会跳过并说明原因
      */
     public function runonce($ids = null)
     {
@@ -57,17 +58,20 @@ class Redpacketauto extends Backend
             }
         }
         try {
-            $total = ['send' => 0, 'grab' => 0, 'skip' => 0, 'errors' => []];
+            $total = ['send' => 0, 'grab' => 0, 'skip' => 0, 'errors' => [], 'via' => 'admin_force'];
             if (!$idList) {
-                $stat = FansHubRpAuto::run(0);
+                $stat = FansHubRpAuto::run(0, true);
                 $total = $stat;
             } else {
                 foreach ($idList as $id) {
-                    $stat = FansHubRpAuto::run($id);
+                    $stat = FansHubRpAuto::run($id, true);
                     $total['send'] += (int)$stat['send'];
                     $total['grab'] += (int)$stat['grab'];
                     $total['skip'] += (int)$stat['skip'];
                     $total['errors'] = array_merge($total['errors'], $stat['errors'] ?: []);
+                    if (!empty($stat['via'])) {
+                        $total['via'] = $stat['via'];
+                    }
                 }
             }
             $msg = sprintf(
@@ -76,15 +80,20 @@ class Redpacketauto extends Backend
                 (int)$total['grab'],
                 (int)$total['skip']
             );
-            if (!empty($total['via']) && $total['via'] === 'im_ws') {
-                $msg = '自动发抢已由 IM WebSocket 进程执行（无需 crontab）。后台「立即执行」在 IM 在线时会跳过，避免双发。';
-            }
             if (!empty($total['errors'])) {
-                $msg .= '；错误: ' . implode('; ', $total['errors']);
+                $msg .= '；说明: ' . implode('; ', $total['errors']);
+            }
+            if ((int)$total['send'] <= 0 && (int)$total['grab'] <= 0) {
+                $err = trim(implode('; ', $total['errors'] ?: []));
+                $this->error($err !== '' ? $err : '未发出红包（请检查群ID、余额、待领包与任务配置）', null, $total);
             }
             $this->success($msg, null, $total);
         } catch (\Throwable $e) {
-            $this->error($e->getMessage());
+            $msg = trim($e->getMessage());
+            if ($msg === '') {
+                $msg = '执行失败: ' . get_class($e);
+            }
+            $this->error($msg);
         }
     }
 
@@ -119,6 +128,10 @@ class Redpacketauto extends Backend
         }
         if ($params['group_id'] <= 0) {
             $this->error('请填写群 ID');
+        }
+        $group = \think\Db::name('chat_groups')->where('id', $params['group_id'])->find();
+        if (!$group) {
+            $this->error('群不存在: #' . $params['group_id']);
         }
         if ($params['auto_send'] && $params['send_user_id'] <= 0) {
             $this->error('自动发包需填写发包用户 ID');

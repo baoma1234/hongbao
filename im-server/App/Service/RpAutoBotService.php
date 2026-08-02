@@ -454,6 +454,10 @@ class RpAutoBotService
     {
         $groupId = (int)$groupId;
         $userId = (int)$userId;
+        $group = $this->groups->get($groupId);
+        if (!$group) {
+            throw new \RuntimeException('群不存在: #' . $groupId);
+        }
         if (!$this->groups->isMember($groupId, $userId)) {
             $this->groups->addMembers($groupId, [$userId], 2);
             return;

@@ -14,12 +14,13 @@ use think\Exception;
 class FansHubRpAuto
 {
     /**
-     * @param int $taskId 0=全部启用任务
-     * @return array{send:int,grab:int,skip:int,errors:array,via?:string}
+     * @param int  $taskId 0=全部启用任务
+     * @param bool $force  后台「立即执行」：无视 IM 心跳跳过与发包间隔
+     * @return array{send:int,grab:int,skip:int,errors:array,via?:string,message?:string}
      */
-    public static function run($taskId = 0)
+    public static function run($taskId = 0, $force = false)
     {
-        if (self::isImBotActive()) {
+        if (!$force && self::isImBotActive()) {
             return [
                 'send'   => 0,
                 'grab'   => 0,
@@ -30,21 +31,42 @@ class FansHubRpAuto
             ];
         }
 
-        $stat = ['send' => 0, 'grab' => 0, 'skip' => 0, 'errors' => [], 'via' => 'cli'];
+        $stat = [
+            'send'   => 0,
+            'grab'   => 0,
+            'skip'   => 0,
+            'errors' => [],
+            'via'    => $force ? 'admin_force' : 'cli',
+        ];
         $q = Db::name('chat_rp_auto_task')->where('status', 'normal');
         if ((int)$taskId > 0) {
             $q->where('id', (int)$taskId);
         }
         $rows = $q->order('id', 'asc')->select();
+        if (!$rows) {
+            if ((int)$taskId > 0) {
+                $stat['errors'][] = '任务 #' . (int)$taskId . ' 不存在或未启用';
+            } else {
+                $stat['errors'][] = '没有启用中的自动发抢任务';
+            }
+            return $stat;
+        }
         foreach ($rows ?: [] as $task) {
             try {
-                $one = self::runOne($task);
+                $one = self::runOne($task, $force);
                 $stat['send'] += (int)$one['send'];
                 $stat['grab'] += (int)$one['grab'];
                 $stat['skip'] += (int)$one['skip'];
+                if (!empty($one['reason'])) {
+                    $stat['errors'][] = 'task#' . (int)$task['id'] . ': ' . $one['reason'];
+                }
             } catch (\Throwable $e) {
-                $stat['errors'][] = 'task#' . (int)$task['id'] . ': ' . $e->getMessage();
-                self::touchError((int)$task['id'], $e->getMessage());
+                $msg = trim($e->getMessage());
+                if ($msg === '') {
+                    $msg = get_class($e);
+                }
+                $stat['errors'][] = 'task#' . (int)$task['id'] . ': ' . $msg;
+                self::touchError((int)$task['id'], $msg);
             }
         }
         return $stat;
@@ -95,14 +117,17 @@ class FansHubRpAuto
         }
     }
 
-    protected static function runOne(array $task)
+    protected static function runOne(array $task, $force = false)
     {
-        $out = ['send' => 0, 'grab' => 0, 'skip' => 0];
+        $out = ['send' => 0, 'grab' => 0, 'skip' => 0, 'reason' => ''];
         $id = (int)$task['id'];
         $groupId = (int)$task['group_id'];
         if ($groupId <= 0) {
-            $out['skip']++;
-            return $out;
+            throw new Exception('未配置群 ID');
+        }
+        $group = Db::name('chat_groups')->where('id', $groupId)->find();
+        if (!$group) {
+            throw new Exception('群不存在: #' . $groupId . '（请核对任务群 ID）');
         }
 
         $today = date('Y-m-d');
@@ -118,12 +143,13 @@ class FansHubRpAuto
 
         $packetId = 0;
         if ((int)$task['auto_send'] === 1) {
-            $sent = self::maybeSend($task);
+            $sent = self::maybeSend($task, $force);
             if ($sent['sent']) {
                 $out['send'] = 1;
                 $packetId = (int)$sent['packet_id'];
             } else {
                 $out['skip']++;
+                $out['reason'] = (string)($sent['reason'] ?? '未发包');
             }
         }
 
@@ -135,20 +161,20 @@ class FansHubRpAuto
         return $out;
     }
 
-    protected static function maybeSend(array $task)
+    protected static function maybeSend(array $task, $force = false)
     {
         $id = (int)$task['id'];
         $interval = self::effectiveIntervalSec(max(5, (int)$task['interval_sec']));
         $last = (int)$task['last_send_time'];
-        if ($last > 0 && (time() - $last) < $interval) {
-            return ['sent' => false, 'packet_id' => 0];
+        if (!$force && $last > 0 && (time() - $last) < $interval) {
+            return ['sent' => false, 'packet_id' => 0, 'reason' => '未到发包间隔（剩余 ' . ($interval - (time() - $last)) . ' 秒）'];
         }
         $maxDay = (int)$task['max_per_day'];
         if ($maxDay > 0 && (int)$task['today_count'] >= $maxDay) {
-            return ['sent' => false, 'packet_id' => 0];
+            return ['sent' => false, 'packet_id' => 0, 'reason' => '已达今日发包上限 ' . $maxDay];
         }
         $groupId = (int)$task['group_id'];
-        // 有待领取则不发（与 WS 机器人一致）
+        // 有待领取则不发（与 WS 机器人一致）；强制执行时也遵守，避免叠包
         $openCnt = (int)Db::name('chat_red_packets')
             ->where('group_id', $groupId)
             ->where('scope_type', 2)
@@ -156,7 +182,7 @@ class FansHubRpAuto
             ->where('remain_count', '>', 0)
             ->count();
         if ($openCnt > 0) {
-            return ['sent' => false, 'packet_id' => 0];
+            return ['sent' => false, 'packet_id' => 0, 'reason' => '群内仍有 ' . $openCnt . ' 个待领取红包'];
         }
 
         $sendUid = (int)$task['send_user_id'];
@@ -194,6 +220,9 @@ class FansHubRpAuto
             }
             $packetId = (int)($extra['packet_id'] ?? 0);
         }
+        if ($packetId <= 0) {
+            throw new Exception('发包失败：桥接未返回 packet_id');
+        }
 
         Db::name('chat_rp_auto_task')->where('id', $id)->update([
             'last_send_time' => time(),
@@ -203,7 +232,7 @@ class FansHubRpAuto
             'updatetime'     => time(),
         ]);
 
-        return ['sent' => true, 'packet_id' => $packetId];
+        return ['sent' => true, 'packet_id' => $packetId, 'reason' => ''];
     }
 
     protected static function maybeGrab(array $task, $preferPacketId = 0)
