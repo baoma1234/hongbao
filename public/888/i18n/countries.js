@@ -8,12 +8,12 @@ window.FANSHUB_COUNTRIES = [
     { code: 'ID', dial: '62',  flagIso: 'id', labelKey: 'country_id', maxlen: 12, placeholderKey: 'login_phone_placeholder_id' }
 ];
 
-/** 语言切换顺序：中文 + 英文(菲律宾) / 越南 / 马来 / 柬埔寨 / 印尼 */
+/** 语言切换顺序：中文 + 英文 / 越南 / 马来 / 柬埔寨 / 印尼（英文用语种用英国旗） */
 window.FANSHUB_LOCALE_ORDER = ['zh-CN', 'en-PH', 'vi-VN', 'ms-MY', 'km-KH', 'id-ID'];
 
 window.FANSHUB_LOCALE_META = {
     'zh-CN': { labelKey: 'lang_zh', country: 'CN', htmlLang: 'zh-CN', currency: '￥', flagIso: 'cn' },
-    'en-PH': { labelKey: 'lang_en', country: 'PH', htmlLang: 'en', currency: '₱', flagIso: 'ph' },
+    'en-PH': { labelKey: 'lang_en', country: 'PH', htmlLang: 'en', currency: '₱', flagIso: 'gb' },
     'vi-VN': { labelKey: 'lang_vi', country: 'VN', htmlLang: 'vi', currency: '₫', flagIso: 'vn' },
     'ms-MY': { labelKey: 'lang_ms', country: 'MY', htmlLang: 'ms', currency: 'RM', flagIso: 'my' },
     'km-KH': { labelKey: 'lang_km', country: 'KH', htmlLang: 'km', currency: '៛', flagIso: 'kh' },

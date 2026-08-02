@@ -22,8 +22,8 @@
         if (flagIso) return String(flagIso).toLowerCase();
         var c = String(code || '').toUpperCase();
         var localeMap = {
-            'EN-PH': 'ph', 'VI-VN': 'vn', 'MS-MY': 'my', 'KM-KH': 'kh', 'ID-ID': 'id', 'ZH-CN': 'cn',
-            'PH': 'ph', 'VN': 'vn', 'MY': 'my', 'KH': 'kh', 'ID': 'id', 'CN': 'cn'
+            'EN-PH': 'gb', 'VI-VN': 'vn', 'MS-MY': 'my', 'KM-KH': 'kh', 'ID-ID': 'id', 'ZH-CN': 'cn',
+            'PH': 'ph', 'VN': 'vn', 'MY': 'my', 'KH': 'kh', 'ID': 'id', 'CN': 'cn', 'GB': 'gb', 'UK': 'gb'
         };
         if (localeMap[c]) return localeMap[c];
         var parts = String(code || '').split('-');
