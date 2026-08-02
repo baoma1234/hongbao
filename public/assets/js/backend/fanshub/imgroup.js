@@ -125,6 +125,16 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                                     success: function () {
                                         table.bootstrapTable('refresh');
                                     }
+                                },
+                                {
+                                    name: 'harddel',
+                                    text: '硬删除',
+                                    title: '硬删除群组（不可恢复）',
+                                    classname: 'btn btn-xs btn-danger btn-harddel-one',
+                                    icon: 'fa fa-times-circle',
+                                    visible: function () {
+                                        return $('.toolbar .btn-harddel').length > 0 && !$('.toolbar .btn-harddel').hasClass('hide');
+                                    }
                                 }
                             ],
                             formatter: Table.api.formatter.operate
@@ -133,6 +143,54 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                 ]
             });
             Table.api.bindevent(table);
+
+            var doHardDelete = function (ids) {
+                ids = (ids || []).map(function (x) { return parseInt(x, 10) || 0; }).filter(function (x) { return x > 0; });
+                if (!ids.length) {
+                    Toastr.warning('请先选择群组');
+                    return;
+                }
+                Layer.prompt({
+                    title: '硬删除将永久清除群成员/消息/红包等，不可恢复。请输入 DELETE 确认',
+                    formType: 0,
+                    value: ''
+                }, function (value, index) {
+                    if (String(value || '').trim().toUpperCase() !== 'DELETE') {
+                        Toastr.error('请输入 DELETE 才能继续');
+                        return;
+                    }
+                    Layer.close(index);
+                    Fast.api.ajax({
+                        url: 'fanshub/imgroup/harddel',
+                        data: {ids: ids.join(',')}
+                    }, function () {
+                        table.bootstrapTable('refresh');
+                        return false;
+                    });
+                });
+            };
+
+            $('.btn-harddel').on('click', function () {
+                var ids = Table.api.selectedids(table);
+                doHardDelete(ids);
+            });
+            table.on('click', '.btn-harddel-one', function () {
+                var row = table.bootstrapTable('getData') || [];
+                var tr = $(this).closest('tr');
+                var index = tr.data('index');
+                var data = typeof index === 'number' ? table.bootstrapTable('getData')[index] : null;
+                if (!data) {
+                    // fallback: parse from operate area
+                    var $tr = $(this).closest('tr');
+                    data = $tr.data('index') != null ? table.bootstrapTable('getData')[$tr.data('index')] : null;
+                }
+                if (!data || !data.id) {
+                    Toastr.warning('无法获取群ID');
+                    return false;
+                }
+                doHardDelete([data.id]);
+                return false;
+            });
         },
         add: function () {
             Controller.api.bindevent();

@@ -289,6 +289,103 @@ class Imgroup extends Backend
     }
 
     /**
+     * 硬删除：物理删除群组及成员/消息/红包/自动任务等关联数据（不可恢复）
+     */
+    public function harddel($ids = null)
+    {
+        $ids = $ids ?: $this->request->post('ids');
+        $idArr = array_values(array_unique(array_filter(array_map('intval', explode(',', (string)$ids)))));
+        if (!$idArr) {
+            $this->error(__('Parameter %s can not be empty', 'ids'));
+        }
+        $ok = 0;
+        $errors = [];
+        foreach ($idArr as $gid) {
+            try {
+                $this->purgeGroupHard((int)$gid);
+                $ok++;
+            } catch (\Throwable $e) {
+                $errors[] = '群' . $gid . ': ' . $e->getMessage();
+            }
+        }
+        FansHubService::clearOfficialCommunityCache();
+        if ($ok <= 0) {
+            $this->error($errors ? implode('；', $errors) : '硬删除失败');
+        }
+        $msg = '已硬删除 ' . $ok . ' 个群';
+        if ($errors) {
+            $msg .= '；部分失败：' . implode('；', $errors);
+        }
+        $this->success($msg);
+    }
+
+    /**
+     * 物理清理单个群及其关联数据
+     */
+    protected function purgeGroupHard($groupId)
+    {
+        $groupId = (int)$groupId;
+        if ($groupId <= 0) {
+            throw new \InvalidArgumentException('invalid group id');
+        }
+        $row = Db::name('chat_groups')->where('id', $groupId)->find();
+        if (!$row) {
+            throw new \RuntimeException('群不存在或已删除');
+        }
+
+        Db::startTrans();
+        try {
+            $packetIds = Db::name('chat_red_packets')->where('group_id', $groupId)->column('id');
+            $packetIds = array_values(array_filter(array_map('intval', (array)$packetIds)));
+            if ($packetIds) {
+                Db::name('chat_red_packet_records')->where('packet_id', 'in', $packetIds)->delete();
+                try {
+                    Db::name('chat_red_packet_settlements')->where('packet_id', 'in', $packetIds)->delete();
+                } catch (\Throwable $e) {
+                }
+                Db::name('chat_red_packets')->where('id', 'in', $packetIds)->delete();
+            }
+
+            $this->safeDeleteByGroup('chat_rp_auto_task', $groupId);
+            $this->safeDeleteByGroup('chat_group_msg_cleared', $groupId);
+
+            Db::name('chat_messages')->where('group_id', $groupId)->delete();
+            Db::name('chat_messages')
+                ->where(['conversation_type' => 2, 'conversation_id' => (string)$groupId])
+                ->delete();
+
+            try {
+                Db::name('chat_conversation_read')
+                    ->where(['conversation_type' => 2, 'conversation_id' => (string)$groupId])
+                    ->delete();
+            } catch (\Throwable $e) {
+            }
+            try {
+                Db::name('chat_conversation_deleted')
+                    ->where(['conversation_type' => 2, 'conversation_id' => (string)$groupId])
+                    ->delete();
+            } catch (\Throwable $e) {
+            }
+
+            Db::name('chat_group_members')->where('group_id', $groupId)->delete();
+            Db::name('chat_groups')->where('id', $groupId)->delete();
+            Db::commit();
+        } catch (\Throwable $e) {
+            Db::rollback();
+            throw $e;
+        }
+    }
+
+    protected function safeDeleteByGroup($table, $groupId)
+    {
+        try {
+            Db::name($table)->where('group_id', (int)$groupId)->delete();
+        } catch (\Throwable $e) {
+            // 表可能未建
+        }
+    }
+
+    /**
      * 查看/管理群成员
      */
     public function members($ids = null)
