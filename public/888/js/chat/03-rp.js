@@ -1,8 +1,45 @@
 /* js/chat/03-rp.js — red packet send/grab */
 
+  /** 按群允许类型显示/隐藏红宝类型 Tab；仅一种时仍显示该按钮（如扫雷群只显示埋雷） */
+  function syncRpTypeTabs() {
+    var tabs = $('chatRpTypeTabs');
+    if (!tabs) return;
+    var isPrivate = !!(state.room && state.room.type === 1);
+    if (isPrivate) {
+      tabs.style.display = 'none';
+      tabs.hidden = true;
+      return;
+    }
+    var enabled = enabledRpTypes();
+    var btns = tabs.querySelectorAll('.chat-rp-type-btn');
+    var firstVisible = null;
+    btns.forEach(function (btn) {
+      var t = parseInt(btn.getAttribute('data-type'), 10) || 0;
+      var ok = enabled.indexOf(t) >= 0;
+      btn.hidden = !ok;
+      btn.style.display = ok ? '' : 'none';
+      if (ok && !firstVisible) firstVisible = btn;
+    });
+    var active = tabs.querySelector('.chat-rp-type-btn.active');
+    var activeOk = active && !active.hidden && active.style.display !== 'none';
+    if (!activeOk) {
+      btns.forEach(function (b) { b.classList.remove('active'); });
+      if (firstVisible) firstVisible.classList.add('active');
+    }
+    // 至少有一种允许类型就展示 Tab（单类型也要让用户看到「埋雷」）
+    var show = enabled.length > 0;
+    tabs.hidden = !show;
+    tabs.style.display = show ? '' : 'none';
+  }
+
   function getRpPacketType() {
     var active = document.querySelector('#chatRpTypeTabs .chat-rp-type-btn.active');
-    return active ? (parseInt(active.getAttribute('data-type'), 10) || 2) : 2;
+    if (active && !active.hidden && active.style.display !== 'none') {
+      return parseInt(active.getAttribute('data-type'), 10) || 2;
+    }
+    var enabled = enabledRpTypes();
+    if (enabled.length) return enabled[0];
+    return 2;
   }
 
   function enabledRpTypes() {
@@ -33,29 +70,6 @@
       fixed = parseFloat(state.groupMeta.group.rp_fixed_amount) || 0;
     }
     return fixed > 0 ? Math.round(fixed * 100) / 100 : 0;
-  }
-
-  /** 按群允许类型显示/隐藏红宝类型 Tab；扫雷群仅勾埋雷时只留「埋雷」 */
-  function syncRpTypeTabs() {
-    var tabs = $('chatRpTypeTabs');
-    if (!tabs) return;
-    var enabled = enabledRpTypes();
-    var btns = tabs.querySelectorAll('.chat-rp-type-btn');
-    var firstVisible = null;
-    btns.forEach(function (btn) {
-      var t = parseInt(btn.getAttribute('data-type'), 10) || 0;
-      var ok = enabled.indexOf(t) >= 0;
-      btn.hidden = !ok;
-      btn.style.display = ok ? '' : 'none';
-      if (ok && !firstVisible) firstVisible = btn;
-    });
-    var active = tabs.querySelector('.chat-rp-type-btn.active');
-    if (!active || active.hidden || active.style.display === 'none') {
-      btns.forEach(function (b) { b.classList.remove('active'); });
-      if (firstVisible) firstVisible.classList.add('active');
-    }
-    tabs.style.display = enabled.length <= 1 ? 'none' : '';
-    tabs.hidden = enabled.length <= 1;
   }
 
   function syncRpFixedAmountField() {
@@ -302,6 +316,9 @@
       }
       var hint = $('chatRpCountHint');
       if (hint) hint.textContent = '私聊红包仅对方可领 · 无手续费';
+    } else {
+      // 群聊：切到允许类型后刷新埋雷数字/个数区
+      try { syncRpMineField(); } catch (eMine) {}
     }
     var amountInput = $('chatRpAmount');
     if (amountInput && !amountInput.value && !(groupRpFixedAmount() > 0)) amountInput.value = '';
