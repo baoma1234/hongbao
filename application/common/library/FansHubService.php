@@ -1278,6 +1278,14 @@ class FansHubService
             'app_download_url'     => self::utf8Safe($cfg['app_download_url'] ?? ''),
             'main_station_url'     => self::utf8Safe($cfg['main_station_url'] ?? ''),
             'im_ws_url'            => self::utf8Safe($cfg['im_ws_url'] ?? ''),
+            'mine_compensate_rates'=> (function () {
+                $rp = FansHubRedPacket::configMap();
+                return [
+                    5 => round(max(0.01, (float)($rp['mine_compensate_rate_5'] ?? 1.5)), 4),
+                    7 => round(max(0.01, (float)($rp['mine_compensate_rate_7'] ?? 1.2)), 4),
+                    9 => round(max(0.01, (float)($rp['mine_compensate_rate_9'] ?? 1.0)), 4),
+                ];
+            })(),
             'share_text'           => self::utf8Safe($cfg['share_text'] ?? ''),
             'invite_base_url'      => self::utf8Safe($cfg['invite_base_url'] ?? ''),
             'invite_code_offset'   => self::inviteCodeOffset(),

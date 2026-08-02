@@ -168,14 +168,18 @@
 }
 .chat-rp-count-btn {
   flex: 1;
-  height: 36px;
+  min-height: 40px;
+  height: auto;
+  padding: 6px 4px;
   border-radius: 10px;
   border: 1px solid rgba(230, 48, 34, 0.22);
   background: #fff;
   color: #C61114;
-  font-size: 15px;
+  font-size: 12px;
   font-weight: 800;
+  line-height: 1.25;
   cursor: pointer;
+  white-space: nowrap;
 }
 .chat-rp-count-btn.active {
   background: linear-gradient(180deg, #E63022 0%, #C61114 100%);

@@ -17,6 +17,7 @@
             APP_DOWNLOAD_URL: 'https://your-app.com',
             MAIN_STATION_URL: 'https://555.bio',
             IM_WS_URL: '',
+            MINE_COMPENSATE_RATES: { 5: 1.5, 7: 1.2, 9: 1.0 },
             SECRET_LOCK_SECONDS: 900,
             JACKPOT_AUTO_GROW: true,
             JACKPOT_SERVER_SYNC: true,
@@ -1452,6 +1453,13 @@
             CONFIG.APP_DOWNLOAD_URL = cfg.app_download_url || CONFIG.APP_DOWNLOAD_URL;
             CONFIG.MAIN_STATION_URL = cfg.main_station_url || CONFIG.MAIN_STATION_URL;
             CONFIG.IM_WS_URL = cfg.im_ws_url || CONFIG.IM_WS_URL || '';
+            if (cfg.mine_compensate_rates && typeof cfg.mine_compensate_rates === 'object') {
+                CONFIG.MINE_COMPENSATE_RATES = Object.assign(
+                    { 5: 1.5, 7: 1.2, 9: 1.0 },
+                    CONFIG.MINE_COMPENSATE_RATES || {},
+                    cfg.mine_compensate_rates
+                );
+            }
             marqueeItems = Array.isArray(cfg.marquee_items) ? cfg.marquee_items : [];
             CONFIG.JACKPOT_AUTO_GROW = cfg.jackpot_auto_grow !== false;
             CONFIG.JACKPOT_SERVER_SYNC = cfg.jackpot_server_sync !== false;

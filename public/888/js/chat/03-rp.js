@@ -99,6 +99,59 @@
     });
   }
 
+  function formatMineRate(rate) {
+    var n = Number(rate);
+    if (!isFinite(n) || n <= 0) n = 1;
+    var s = n.toFixed(4).replace(/\.?0+$/, '');
+    return s || '1';
+  }
+
+  function mineCompensateRates() {
+    var defaults = { 5: 1.5, 7: 1.2, 9: 1.0 };
+    var src = (global.CONFIG && CONFIG.MINE_COMPENSATE_RATES) || {};
+    function pick(k) {
+      var v = src[k] != null ? src[k] : src[String(k)];
+      var n = Number(v);
+      return (isFinite(n) && n > 0) ? n : defaults[k];
+    }
+    return { 5: pick(5), 7: pick(7), 9: pick(9) };
+  }
+
+  function rpCountTabLabel(count, rate) {
+    return String(count) + '包/' + formatMineRate(rate) + '倍';
+  }
+
+  function ensureRpCountTabs() {
+    var tabs = $('chatRpCountTabs');
+    if (!tabs) return;
+    var rates = mineCompensateRates();
+    var counts = [5, 7, 9];
+    var countInput = $('chatRpCount');
+    var cur = countInput ? (parseInt(countInput.value, 10) || 5) : 5;
+    if (counts.indexOf(cur) < 0) cur = 5;
+    var needRebuild = !tabs._rpRateBuilt;
+    if (!needRebuild) {
+      var btns = tabs.querySelectorAll('.chat-rp-count-btn');
+      if (btns.length !== counts.length) needRebuild = true;
+      else {
+        for (var i = 0; i < btns.length; i++) {
+          var c = parseInt(btns[i].getAttribute('data-count'), 10) || 0;
+          var expect = rpCountTabLabel(c, rates[c]);
+          if (String(btns[i].textContent || '').trim() !== expect) {
+            needRebuild = true;
+            break;
+          }
+        }
+      }
+    }
+    if (!needRebuild) return;
+    tabs._rpRateBuilt = true;
+    tabs.innerHTML = counts.map(function (c) {
+      return '<button type="button" class="chat-rp-count-btn' + (c === cur ? ' active' : '')
+        + '" data-count="' + c + '">' + escapeHtml(rpCountTabLabel(c, rates[c])) + '</button>';
+    }).join('');
+  }
+
   function syncRpCountField() {
     var type = getRpPacketType();
     var isGroup = state.room && state.room.type === 2;
@@ -116,6 +169,8 @@
       if (!isGroup) inputWrap.style.display = 'none';
     }
     if (mineMode && countInput) {
+      ensureRpCountTabs();
+      var rates = mineCompensateRates();
       var cur = parseInt(countInput.value, 10) || 5;
       if ([5, 7, 9].indexOf(cur) < 0) cur = 5;
       countInput.value = String(cur);
@@ -124,7 +179,12 @@
           b.classList.toggle('active', (parseInt(b.getAttribute('data-count'), 10) || 0) === cur);
         });
       }
-      if (hint) hint.textContent = '扫雷固定 5 / 7 / 9 个';
+      if (hint) {
+        hint.textContent = '中雷赔付：'
+          + rpCountTabLabel(5, rates[5]) + ' · '
+          + rpCountTabLabel(7, rates[7]) + ' · '
+          + rpCountTabLabel(9, rates[9]);
+      }
     } else if (hint) {
       hint.textContent = isGroup ? '群聊 5～10 个 · 私聊固定 1 个' : '私聊固定 1 个';
     }
@@ -163,8 +223,14 @@
       var mineDigit = mineInput ? (parseInt(mineInput.value, 10) || 0) : 0;
       var typeLabel = type === 1 ? '人均' : (type === 3 ? '埋雷' : '拼手气');
       var parts = [typeLabel];
-      if (type === 3) parts.push('雷' + mineDigit);
-      if (count > 0) parts.push(count + '个');
+      if (type === 3) {
+        parts.push('雷' + mineDigit);
+        var rates = mineCompensateRates();
+        if (rates[count]) parts.push(rpCountTabLabel(count, rates[count]));
+        else if (count > 0) parts.push(count + '个');
+      } else if (count > 0) {
+        parts.push(count + '个');
+      }
       if (amount > 0) parts.push('￥' + amount.toFixed(2));
       subEl.textContent = parts.join(' · ');
     }
