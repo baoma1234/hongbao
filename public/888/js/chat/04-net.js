@@ -1011,7 +1011,13 @@
     var rpDetailBack = $('chatRpDetailBack');
     if (rpDetailBack && !rpDetailBack._bound) {
       rpDetailBack._bound = true;
-      rpDetailBack.onclick = function () { closeSubPane('chatRpDetailPane'); };
+      rpDetailBack.onclick = function () {
+        if (isRpFairViewOpen()) {
+          hideRpFairVerify();
+          return;
+        }
+        closeSubPane('chatRpDetailPane');
+      };
     }
     var rpDetailList = $('chatRpDetailList');
     if (rpDetailList && !rpDetailList._bound) {

@@ -2838,6 +2838,16 @@ body.chat-room-open .bottom-action-bar {
   overflow: hidden;
   padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
 }
+#chatRpDetailPane #chatRpDetailBody {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+#chatRpDetailPane #chatRpDetailBody[hidden] {
+  display: none !important;
+}
 #chatRpDetailPane .chat-rp-detail-head {
   flex-shrink: 0;
 }
@@ -2852,6 +2862,122 @@ body.chat-room-open .bottom-action-bar {
 #chatRpDetailPane .chat-rp-detail-grab-btn {
   flex-shrink: 0;
   margin-top: 12px;
+}
+
+/* 内嵌波场验证：与红包详情切换显示 */
+.chat-rp-fair-pane {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 4px 2px 16px;
+}
+.chat-rp-fair-pane[hidden] {
+  display: none !important;
+}
+.chat-rp-fair-err {
+  color: #c62828;
+  font-size: 13px;
+  margin: 0 0 10px;
+}
+.chat-rp-fair-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(200, 120, 80, 0.12);
+}
+.chat-rp-fair-card.is-inset {
+  margin: 12px 0 0;
+  box-shadow: none;
+  background: #fafafa;
+}
+.chat-rp-fair-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  font-size: 14px;
+  border-bottom: 1px dashed #eee;
+}
+.chat-rp-fair-row:last-child { border-bottom: 0; }
+.chat-rp-fair-sub {
+  color: #666;
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 8px 0;
+}
+.chat-rp-fair-label {
+  display: block;
+  font-size: 12px;
+  color: #888;
+  margin: 10px 0 6px;
+}
+.chat-rp-fair-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  word-break: break-all;
+  line-height: 1.5;
+  background: #fafafa;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 10px;
+}
+.chat-rp-fair-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+}
+.chat-rp-fair-tag.ok { background: #e8f5e9; color: #2e7d32; }
+.chat-rp-fair-tag.bad { background: #ffebee; color: #c62828; }
+.chat-rp-fair-tag.wait { background: #fff8e1; color: #f57f17; }
+.chat-rp-fair-cents {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.chat-rp-fair-cent {
+  background: #fff3e0;
+  color: #e65100;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-family: monospace;
+}
+.chat-rp-fair-cent small { opacity: 0.75; font-size: 10px; }
+.chat-rp-fair-tron {
+  display: block;
+  margin-top: 12px;
+  text-align: center;
+  text-decoration: none;
+  padding: 12px;
+  border-radius: 8px;
+  background: #1a1a1a;
+  color: #fff !important;
+  font-size: 14px;
+  font-weight: 700;
+}
+.chat-rp-fair-tron.is-oklink {
+  background: #0d47a1;
+  margin-top: 8px;
+}
+button.chat-rp-fair-link {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  border: none;
+  border-radius: 10px;
+  padding: 11px 12px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+  cursor: pointer;
+  background: linear-gradient(135deg, #E53935, #B71C1C);
+  box-shadow: 0 4px 12px rgba(183, 28, 28, 0.25);
 }
 
 /* Red packet detail */
@@ -2898,14 +3024,6 @@ body.chat-room-open .bottom-action-bar {
   line-height: 1.45;
   word-break: break-all;
   color: #333;
-}
-.chat-rp-fair-link {
-  display: inline-block;
-  margin-top: 8px;
-  font-size: 12px;
-  color: var(--color-primary, #e53935);
-  text-decoration: none;
-  font-weight: 600;
 }
 .chat-rp-tron-btn {
   display: block;

@@ -534,11 +534,17 @@
         '<div class="chat-sub-pane" id="chatRpDetailPane" aria-hidden="true">' +
           '<div class="chat-hero-hd">' +
             '<button type="button" class="chat-hero-back" id="chatRpDetailBack" aria-label="返回">' + CHAT_BACK_SVG + '</button>' +
-            '<div class="chat-hero-title">红包详情</div><span class="chat-hero-spacer"></span></div>' +
+            '<div class="chat-hero-title" id="chatRpDetailTitle">红包详情</div><span class="chat-hero-spacer"></span></div>' +
           '<div class="chat-sub-main">' +
-            '<div class="chat-rp-detail-head" id="chatRpDetailHead"></div>' +
-            '<div class="chat-rp-detail-list" id="chatRpDetailList"></div>' +
-            '<button type="button" class="chat-rp-detail-grab-btn" id="chatRpDetailGrabBtn" style="display:none">开红包</button>' +
+            '<div id="chatRpDetailBody">' +
+              '<div class="chat-rp-detail-head" id="chatRpDetailHead"></div>' +
+              '<div class="chat-rp-detail-list" id="chatRpDetailList"></div>' +
+              '<button type="button" class="chat-rp-detail-grab-btn" id="chatRpDetailGrabBtn" style="display:none">开红包</button>' +
+            '</div>' +
+            '<div id="chatRpFairPane" class="chat-rp-fair-pane" hidden>' +
+              '<div class="chat-rp-fair-err" id="chatRpFairErr" style="display:none"></div>' +
+              '<div class="chat-rp-fair-result" id="chatRpFairResult"></div>' +
+            '</div>' +
           '</div></div>');
     } else {
       var rpPane = $('chatRpDetailPane');
@@ -549,6 +555,25 @@
       if (rpBack && !rpBack.querySelector('svg')) {
         rpBack.innerHTML = CHAT_BACK_SVG;
         rpBack.setAttribute('aria-label', '返回');
+      }
+      // 旧 DOM 补齐内嵌验证层
+      if (rpPane && !$('chatRpFairPane')) {
+        var main = rpPane.querySelector('.chat-sub-main');
+        if (main && !$('chatRpDetailBody')) {
+          var body = document.createElement('div');
+          body.id = 'chatRpDetailBody';
+          while (main.firstChild) body.appendChild(main.firstChild);
+          main.appendChild(body);
+        }
+        if (main) {
+          main.insertAdjacentHTML('beforeend',
+            '<div id="chatRpFairPane" class="chat-rp-fair-pane" hidden>' +
+              '<div class="chat-rp-fair-err" id="chatRpFairErr" style="display:none"></div>' +
+              '<div class="chat-rp-fair-result" id="chatRpFairResult"></div>' +
+            '</div>');
+        }
+        var titleEl = rpPane.querySelector('.chat-hero-title');
+        if (titleEl && !titleEl.id) titleEl.id = 'chatRpDetailTitle';
       }
     }
     if (!$('chatGroupModeBlock') && $('chatGroupEditBlock')) {
@@ -762,6 +787,200 @@
     state.profileTarget = null;
   }
 
+  var _rpFairRetryTimer = null;
+
+  function isRpFairViewOpen() {
+    var fair = $('chatRpFairPane');
+    return !!(fair && !fair.hidden);
+  }
+
+  function hideRpFairVerify() {
+    if (_rpFairRetryTimer) {
+      clearTimeout(_rpFairRetryTimer);
+      _rpFairRetryTimer = null;
+    }
+    var body = $('chatRpDetailBody');
+    var fair = $('chatRpFairPane');
+    var title = $('chatRpDetailTitle');
+    if (body) body.hidden = false;
+    if (fair) {
+      fair.hidden = true;
+      fair.setAttribute('hidden', 'hidden');
+    }
+    if (title) title.textContent = '红包详情';
+    state._rpFairOpen = false;
+  }
+
+  function rpFairApiBase() {
+    var path = location.pathname || '/';
+    var idx = path.indexOf('/888/');
+    if (idx >= 0) return location.origin + path.slice(0, idx) + '/';
+    return location.origin + '/';
+  }
+
+  function rpFairYnTag(ok, okText, badText) {
+    return ok
+      ? '<span class="chat-rp-fair-tag ok">' + escapeHtml(okText || '通过') + '</span>'
+      : '<span class="chat-rp-fair-tag bad">' + escapeHtml(badText || '不一致') + '</span>';
+  }
+
+  function rpFairCentsChips(arr) {
+    if (!arr || !arr.length) return '<span class="chat-rp-fair-sub">—</span>';
+    return '<div class="chat-rp-fair-cents">' + arr.map(function (c, i) {
+      var yuan = (Number(c) / 100).toFixed(2);
+      return '<span class="chat-rp-fair-cent">#' + (i + 1) + ' ¥' + yuan + ' <small>(' + c + '分)</small></span>';
+    }).join('') + '</div>';
+  }
+
+  function rpFairStatusLabel(st) {
+    var m = { 1: '可抢', 2: '已抢完', 3: '已过期', 4: '已关闭', 5: '已结算' };
+    return m[st] || ('status ' + st);
+  }
+
+  function rpFairTronStatusLabel(st) {
+    var m = { 0: '未开奖', 1: '等待区块确认', 2: '已绑定波场哈希', 3: '拉取失败（可重试）' };
+    return m[st] || '';
+  }
+
+  function renderRpFairResultHtml(d) {
+    d = d || {};
+    var blockNum = d.targetBlockNum || d.tron_block_num || 0;
+    var blockId = d.block_id || d.tron_block_id || d.fair_hash || '';
+    var lucky = d.luckyNumber || d.tron_lucky || '';
+    var luckyDigit = d.lucky_digit != null ? d.lucky_digit : null;
+    var mineDigit = d.mine_digit != null ? d.mine_digit : null;
+    var tronscan = d.tronscan_url || (blockNum ? ('https://tronscan.org/#/block/' + blockNum) : (blockId ? ('https://tronscan.org/#/block/' + blockId) : ''));
+    var av = d.amount_verify || {};
+    var computed = d.computed_cents || [];
+    var stored = d.fair_cents || [];
+    var grabs = d.grab_cents || [];
+    var row = function (lab, val) {
+      return '<div class="chat-rp-fair-row"><span>' + lab + '</span><span>' + val + '</span></div>';
+    };
+    var html = '';
+    html += '<div class="chat-rp-fair-card">'
+      + row('玩法', '<strong>' + escapeHtml(d.type_label || '') + '</strong>')
+      + row('红包状态', escapeHtml(rpFairStatusLabel(d.status)))
+      + row('波场开奖', escapeHtml(rpFairTronStatusLabel(d.tron_status | 0)))
+      + row('可抢池', '¥' + Number(d.pool_amount != null ? d.pool_amount : d.total_amount || 0).toFixed(2) + ' / ' + (d.total_count | 0) + '个')
+      + row('发包总额', '¥' + Number(d.total_amount || 0).toFixed(2))
+      + ((d.packet_type | 0) === 3
+        ? row('手填雷号', '<strong>' + escapeHtml(mineDigit != null ? String(mineDigit) : '—') + '</strong>')
+        : '')
+      + '</div>';
+
+    var card2 = '<p class="chat-rp-fair-sub" style="margin-top:0">波场（TRON）官方区块哈希</p>';
+    card2 += row('官方区块高度', '<strong>' + escapeHtml(blockNum || '—') + '</strong>');
+    if (lucky) card2 += row('哈希末位字符', '<strong>' + escapeHtml(lucky) + '</strong>');
+    if (d.revealed && luckyDigit != null) card2 += row('末位映射 0-9', '<strong>' + escapeHtml(String(luckyDigit)) + '</strong>');
+    card2 += '<label class="chat-rp-fair-label">Block Hash</label><div class="chat-rp-fair-mono">' + escapeHtml(blockId || '尚未出块，请稍候刷新') + '</div>';
+    if (d.verify_hint) card2 += '<p class="chat-rp-fair-sub">' + escapeHtml(d.verify_hint) + '</p>';
+    if (tronscan) {
+      card2 += '<a class="chat-rp-fair-tron" href="' + escapeHtml(tronscan) + '" target="_blank" rel="noopener">前往 TronScan 官方核实</a>';
+      card2 += '<a class="chat-rp-fair-tron is-oklink" href="https://www.oklink.com/zh-hans/tron/block/'
+        + encodeURIComponent(String(blockNum || blockId)) + '" target="_blank" rel="noopener">前往 OKLink 核实</a>';
+    }
+    if (!d.revealed) {
+      card2 += '<p class="chat-rp-fair-sub">尚未绑定波场哈希；页面将自动重试</p><span class="chat-rp-fair-tag wait">待开奖</span>';
+    } else {
+      card2 += ' <span class="chat-rp-fair-tag ok">波场哈希已公开</span>';
+    }
+    html += '<div class="chat-rp-fair-card">' + card2 + '</div>';
+
+    if (d.revealed) {
+      var cardAmt = '<p class="chat-rp-fair-sub" style="margin-top:0"><strong>金额验证</strong>（哈希 + 单号链下复算）</p>';
+      cardAmt += row('总体结果', av.ok ? rpFairYnTag(true, '金额校验通过') : rpFairYnTag(false, '金额校验失败'));
+      cardAmt += row('复算合计=可抢池', rpFairYnTag(!!av.sum_ok, '一致', '不一致'));
+      cardAmt += row('与入库拆包序列', av.has_stored
+        ? rpFairYnTag(!!av.match_stored, '完全一致', '不一致')
+        : '<span class="chat-rp-fair-tag wait">无入库序列（旧包）</span>');
+      cardAmt += row('与实际领取顺序', av.has_grabs
+        ? rpFairYnTag(!!av.match_grabs, '前缀一致', '不一致')
+        : '<span class="chat-rp-fair-tag wait">尚无领取</span>');
+      if ((d.packet_type | 0) === 3) {
+        cardAmt += row('哈希末位=手填雷号', rpFairYnTag(!!av.mine_digit_match, '已匹配 ' + escapeHtml(String(mineDigit)), '不匹配'));
+      }
+      cardAmt += '<label class="chat-rp-fair-label">链下复算金额序列</label>' + rpFairCentsChips(computed);
+      if (stored && stored.length) cardAmt += '<label class="chat-rp-fair-label">入库 fair_cents</label>' + rpFairCentsChips(stored);
+      if (grabs && grabs.length) cardAmt += '<label class="chat-rp-fair-label">实际领取（按抢包顺序）</label>' + rpFairCentsChips(grabs);
+      cardAmt += '<div class="chat-rp-fair-card is-inset"><p class="chat-rp-fair-sub" style="margin:0 0 8px"><strong>核对步骤</strong></p>';
+      cardAmt += '<p class="chat-rp-fair-sub" style="margin:0">1. 在 TronScan 核对区块 <strong>#' + escapeHtml(String(blockNum)) + '</strong> 的 Block Hash</p>';
+      cardAmt += '<p class="chat-rp-fair-sub" style="margin:4px 0 0">2. 用该 Hash + 单号 <strong>' + escapeHtml(d.packet_no || '') + '</strong> 按二倍均值法复算金额</p>';
+      cardAmt += '<p class="chat-rp-fair-sub" style="margin:4px 0 0">3. 对比本页「复算序列」与领取金额是否一致</p>';
+      if ((d.packet_type | 0) === 3) {
+        cardAmt += '<p class="chat-rp-fair-sub" style="margin:4px 0 0">4. 扫雷：金额尾数 = 手填雷号 <strong>'
+          + escapeHtml(String(mineDigit != null ? mineDigit : '—')) + '</strong> 即中雷</p>';
+      }
+      cardAmt += '</div>';
+      html += '<div class="chat-rp-fair-card">' + cardAmt + '</div>';
+    }
+    return html;
+  }
+
+  async function loadRpFairVerify(packetNo, opts) {
+    opts = opts || {};
+    var errEl = $('chatRpFairErr');
+    var resultEl = $('chatRpFairResult');
+    if (!resultEl) return;
+    if (errEl) errEl.style.display = 'none';
+    packetNo = String(packetNo || '').trim();
+    if (!packetNo) {
+      if (errEl) {
+        errEl.textContent = '缺少红包单号';
+        errEl.style.display = 'block';
+      }
+      return;
+    }
+    if (!opts.silent) {
+      resultEl.innerHTML = '<div class="chat-empty">验证加载中…</div>';
+    }
+    try {
+      var url = rpFairApiBase() + 'api/fanshub/rpfair?packet_no=' + encodeURIComponent(packetNo);
+      var res = await fetch(url, { credentials: 'same-origin' });
+      var json = await res.json();
+      if (!json || Number(json.code) !== 1) {
+        throw new Error((json && json.msg) ? json.msg : ('HTTP ' + res.status));
+      }
+      if (!state._rpFairOpen) return;
+      var d = json.data || {};
+      resultEl.innerHTML = renderRpFairResultHtml(d);
+      if (_rpFairRetryTimer) {
+        clearTimeout(_rpFairRetryTimer);
+        _rpFairRetryTimer = null;
+      }
+      if (!d.revealed && !opts.noRetry) {
+        _rpFairRetryTimer = setTimeout(function () {
+          if (!state._rpFairOpen) return;
+          loadRpFairVerify(packetNo, { silent: true, noRetry: false }).catch(function () {});
+        }, 3500);
+      }
+    } catch (e) {
+      if (!state._rpFairOpen) return;
+      if (errEl) {
+        errEl.textContent = (e && e.message) || '网络错误';
+        errEl.style.display = 'block';
+      }
+      if (!opts.silent) {
+        resultEl.innerHTML = '';
+      }
+    }
+  }
+
+  function showRpFairVerify(packetNo) {
+    ensureChatOverlays();
+    var body = $('chatRpDetailBody');
+    var fair = $('chatRpFairPane');
+    var title = $('chatRpDetailTitle');
+    if (!fair) return;
+    state._rpFairOpen = true;
+    state._rpFairPacketNo = String(packetNo || '').trim();
+    if (body) body.hidden = true;
+    fair.hidden = false;
+    fair.removeAttribute('hidden');
+    if (title) title.textContent = '波场哈希验证';
+    loadRpFairVerify(state._rpFairPacketNo, {}).catch(function () {});
+  }
+
   function applyRedPacketDetailData(packetId, data) {
     data = data || {};
     var head = $('chatRpDetailHead');
@@ -789,7 +1008,6 @@
           + '</div>';
       }
       if ((fairHash || blockNum) && ptype !== 1) {
-        var pno = encodeURIComponent(p.packet_no || '');
         var hashLabel = blockNum ? ('TRON #' + blockNum) : 'TRON';
         var tronTarget = blockNum ? String(blockNum) : String(fairHash || '');
         var tronHref = tronTarget
@@ -801,22 +1019,8 @@
         } else if (blockNum && tronHref) {
           fairBits += '<a class="chat-rp-tron-btn" href="' + tronHref + '" target="_blank" rel="noopener">查看锁定区块</a>';
         }
-        fairBits += '<a class="chat-rp-fair-link" href="fair-verify.html?packet_no=' + pno
-          + '&packet_id=' + (packetId | 0)
-          + '" data-packet-id="' + (packetId | 0) + '" rel="noopener">本站验证详情</a>';
-        try {
-          sessionStorage.setItem('fans_hub_rp_fair_return', JSON.stringify({
-            packetId: packetId | 0,
-            packetNo: p.packet_no || '',
-            room: state.room ? {
-              type: state.room.type | 0,
-              id: state.room.id,
-              peer: state.room.peer | 0,
-              title: state.room.title || ''
-            } : null,
-            at: Date.now()
-          }));
-        } catch (eStore) {}
+        fairBits += '<button type="button" class="chat-rp-fair-link" data-packet-no="'
+          + escapeHtml(p.packet_no || '') + '">本站验证详情</button>';
       }
       head.innerHTML = '<div class="chat-rp-detail-bless">' + escapeHtml(bless) + '</div>' +
         '<div class="chat-rp-detail-meta">共 ' + (p.total_count | 0) + ' 个 · ￥' + (parseFloat(p.total_amount || 0).toFixed(2)) + '</div>' +
@@ -828,6 +1032,15 @@
         (locked
           ? '<div class="chat-rp-privacy-tip locked">🔒 隐私群：领取人资料已隐藏</div>'
           : '');
+      // 内嵌验证：点击切换，不跳页
+      var fairBtn = head.querySelector('.chat-rp-fair-link');
+      if (fairBtn && !fairBtn._bound) {
+        fairBtn._bound = true;
+        fairBtn.onclick = function (ev) {
+          ev.preventDefault();
+          showRpFairVerify(fairBtn.getAttribute('data-packet-no') || '');
+        };
+      }
     }
     if (list) {
       list.classList.toggle('is-private', locked);
@@ -923,6 +1136,7 @@
     packetId = packetId | 0;
     if (!packetId) return;
     ensureChatOverlays();
+    hideRpFairVerify();
     state._rpDetailPacketId = packetId;
     var head = $('chatRpDetailHead');
     var list = $('chatRpDetailList');
@@ -1687,6 +1901,9 @@
   function closeSubPane(id) {
     var el = $(id);
     if (!el) return;
+    if (id === 'chatRpDetailPane') {
+      try { hideRpFairVerify(); } catch (eFair) {}
+    }
     el.classList.remove('open');
     el.setAttribute('aria-hidden', 'true');
   }
