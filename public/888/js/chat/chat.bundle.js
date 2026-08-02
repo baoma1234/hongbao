@@ -1157,6 +1157,13 @@
     } catch (e) {}
   }
 
+  function clearHistCache(type, id) {
+    if (!cacheUid()) return;
+    try {
+      localStorage.removeItem(histCacheStorageKey(type, id));
+    } catch (e) {}
+  }
+
   function scheduleSaveHistCache() {
     if (!state.room) return;
     if (_saveHistCacheTimer) clearTimeout(_saveHistCacheTimer);
@@ -1298,8 +1305,8 @@
     if (titleEl) titleEl.textContent = title;
     if (pinBtn) pinBtn.style.display = item.pinned ? 'none' : '';
     if (unpinBtn) unpinBtn.style.display = item.pinned ? '' : 'none';
-    // 仅私聊可删除会话（备份到删除表，本端列表隐藏）
-    if (delBtn) delBtn.style.display = ((item.conversation_type | 0) === 1) ? '' : 'none';
+    // 私聊 / 群聊均可删除（群聊为本端软删水位）
+    if (delBtn) delBtn.style.display = '';
     sheet.classList.add('open');
     sheet.setAttribute('aria-hidden', 'false');
   }
@@ -1360,7 +1367,13 @@
   async function deletePrivateConvFromList(fromItem) {
     var item = fromItem || _convActionTarget;
     closeConvActionSheet();
-    if (!item || (item.conversation_type | 0) !== 1) return;
+    if (!item) return;
+    var ctype = item.conversation_type | 0;
+    if (ctype === 2) {
+      await deleteGroupConvFromList(item);
+      return;
+    }
+    if (ctype !== 1) return;
     var cid = String(item.conversation_id || '');
     var peer = item.peer_user_id | 0;
     if (!cid && peer > 0) {
@@ -1398,6 +1411,45 @@
     }
   }
 
+  async function deleteGroupConvFromList(item) {
+    if (!item || (item.conversation_type | 0) !== 2) return;
+    var gid = item.group_id | 0 || parseInt(item.conversation_id, 10) || 0;
+    if (gid <= 0) return;
+    if (!window.confirm('删除后本端将清空该群历史（其他人不受影响）。有新消息时会话会再次出现。确定删除？')) {
+      return;
+    }
+    var clearedMsgId = 0;
+    try {
+      if (item.last_message && item.last_message.id) {
+        clearedMsgId = item.last_message.id | 0;
+      }
+    } catch (e0) {}
+    try {
+      await send('conversation.hide', {
+        conversation_type: 2,
+        conversation_id: String(gid),
+        group_id: gid,
+        cleared_msg_id: clearedMsgId
+      });
+      var key = convKey(2, gid);
+      state.list = state.list.filter(function (it) {
+        if ((it.conversation_type | 0) !== 2) return true;
+        var iid = (it.group_id | 0) || parseInt(it.conversation_id, 10) || 0;
+        return iid !== gid;
+      });
+      if (key && state.unread) delete state.unread[key];
+      try { clearHistCache(2, gid); } catch (e1) {}
+      if (state.room && (state.room.type | 0) === 2 && (state.room.id | 0) === gid) {
+        if (typeof closeRoom === 'function') closeRoom();
+      }
+      scheduleRenderList();
+      scheduleSaveListCache();
+      if (typeof showFanshubToast === 'function') showFanshubToast('已删除群聊记录', 'success');
+    } catch (e) {
+      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '删除失败', 'error');
+    }
+  }
+
   function buildConvItemHtml(item) {
     var type = item.conversation_type | 0;
     var id = type === 2 ? (item.group_id || item.conversation_id) : item.conversation_id;
@@ -1424,10 +1476,10 @@
         '</div>' +
         (unread ? '<span class="chat-badge">' + (unread > 99 ? '99+' : unread) + '</span>' : '') +
       '</button>';
-    // 私聊：左滑露出删除
-    if (type === 1) {
+    // 私聊 / 群聊：左滑露出删除
+    if (type === 1 || type === 2) {
       return (
-        '<div class="chat-conv-swipe" data-type="1" data-id="' + escapeHtml(String(id)) + '" data-peer="' + (item.peer_user_id | 0) + '">' +
+        '<div class="chat-conv-swipe" data-type="' + type + '" data-id="' + escapeHtml(String(id)) + '" data-peer="' + (item.peer_user_id | 0) + '">' +
           '<div class="chat-conv-swipe-actions">' +
             '<button type="button" class="chat-conv-swipe-del" data-act="delete">删除</button>' +
           '</div>' +

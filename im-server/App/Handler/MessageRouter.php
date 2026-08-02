@@ -570,7 +570,7 @@ class MessageRouter
                 throw new \RuntimeException('forbidden');
             }
         }
-        $list = $this->messages->history($ctype, $cid, (int)($payload['before_id'] ?? 0), (int)($payload['limit'] ?? 30));
+        $list = $this->messages->history($ctype, $cid, (int)($payload['before_id'] ?? 0), (int)($payload['limit'] ?? 30), (int)$uid);
         $list = $this->redPackets->enrichMessageExtras($list, (int)$uid);
         $data = ['list' => $list];
         // 群聊首屏附带 group.info，省去客户端二次请求
@@ -1195,8 +1195,19 @@ class MessageRouter
         $convType = (int)($payload['conversation_type'] ?? 1);
         $convId = (string)($payload['conversation_id'] ?? '');
         $peerId = (int)($payload['to_user_id'] ?? $payload['peer_user_id'] ?? 0);
+        if ($convType === 2) {
+            $gid = (int)($payload['group_id'] ?? $convId);
+            $clearedMsgId = (int)($payload['cleared_msg_id'] ?? $payload['message_id'] ?? 0);
+            try {
+                $result = $this->messages->clearGroupConversation($uid, $gid, $clearedMsgId);
+                $this->send($connection, 'conversation.hide.ok', $result, $reqId);
+            } catch (\Throwable $e) {
+                $this->error($connection, $e->getMessage() ?: 'delete failed', $reqId);
+            }
+            return;
+        }
         if ($convType !== 1) {
-            $this->error($connection, 'only private conversation can be deleted', $reqId);
+            $this->error($connection, 'unsupported conversation type', $reqId);
             return;
         }
         if ($convId === '' && $peerId > 0) {

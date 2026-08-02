@@ -133,7 +133,8 @@ class UserReadApi
             $ctype,
             $cid,
             (int)($payload['before_id'] ?? 0),
-            (int)($payload['limit'] ?? 30)
+            (int)($payload['limit'] ?? 30),
+            $userId
         );
         $list = $this->redPackets->enrichMessageExtras($list, $userId);
         $data = ['list' => $list];

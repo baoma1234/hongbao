@@ -548,15 +548,21 @@ class MessageService
         }
     }
 
-    public function history($conversationType, $conversationId, $beforeId = 0, $limit = 30)
+    public function history($conversationType, $conversationId, $beforeId = 0, $limit = 30, $userId = 0)
     {
         $limit = max(1, min(100, (int)$limit));
         $conversationType = (int)$conversationType;
         $conversationId = (string)$conversationId;
         $beforeId = (int)$beforeId;
+        $userId = (int)$userId;
+        $minId = 0;
+        if ($conversationType === 2 && $userId > 0) {
+            $minId = $this->groupClearedMsgId($userId, (int)$conversationId);
+        }
 
         // 首屏：优先 Redis recent（写入时已 LPUSH），避免每次打开会话扫表
-        if ($beforeId <= 0) {
+        // 有软删水位时跳过共享缓存，直接查库，避免漏补较早但仍可见的消息
+        if ($beforeId <= 0 && $minId <= 0) {
             try {
                 $key = RedisClient::key('conv:' . $conversationType . ':' . $conversationId . ':recent');
                 $r = RedisClient::conn();
@@ -584,6 +590,10 @@ class MessageService
         $sql = 'SELECT * FROM ' . Db::table('chat_messages')
             . ' WHERE conversation_type=? AND conversation_id=? AND status IN (1,2)';
         $bind = [$conversationType, $conversationId];
+        if ($minId > 0) {
+            $sql .= ' AND id > ?';
+            $bind[] = $minId;
+        }
         if ($beforeId > 0) {
             $sql .= ' AND id < ?';
             $bind[] = $beforeId;
@@ -591,8 +601,8 @@ class MessageService
         $sql .= ' ORDER BY id DESC LIMIT ' . $limit;
         $rows = Db::fetchAll($sql, $bind);
         $list = array_map([$this, 'normalizeMessage'], array_reverse($rows));
-        // 回填 recent，供下次秒开（LPUSH 后左侧为最新）
-        if ($beforeId <= 0 && $list) {
+        // 回填 recent，供下次秒开（LPUSH 后左侧为最新）；有水位时不写共享缓存
+        if ($beforeId <= 0 && $minId <= 0 && $list) {
             try {
                 $key = RedisClient::key('conv:' . $conversationType . ':' . $conversationId . ':recent');
                 $fullKey = RedisClient::key('conv:' . $conversationType . ':' . $conversationId . ':recent_full');
@@ -733,6 +743,7 @@ class MessageService
                             'last_message'      => $m,
                             'updatetime'        => $m ? (int)$m['createtime'] : (int)$lastId,
                             'unread_count'      => 0,
+                            '_last_msg_id'      => (int)$lastId,
                         ];
                     }
                 }
@@ -920,6 +931,7 @@ class MessageService
                 ];
             }
             $this->filterHiddenPrivateConversations($userId, $items);
+            $this->filterClearedGroupConversations($userId, $items);
             $this->seedInboxFromItems($userId, $items);
         }
 
@@ -971,6 +983,8 @@ class MessageService
 
         // 用户主动删除的私聊：从列表隐藏（新消息会 restore）
         $this->filterHiddenPrivateConversations($userId, $items);
+        // 用户删除的群聊：水位软删，列表仅保留 cleared_msg_id 之后的新消息
+        $this->filterClearedGroupConversations($userId, $items);
 
         $this->applyPinnedFlags($userId, $items);
         usort($items, function ($a, $b) {
@@ -987,6 +1001,7 @@ class MessageService
         foreach ($items as &$it) {
             $key = ((int)$it['conversation_type']) . ':' . (string)$it['conversation_id'];
             $it['unread_count'] = (int)($unreadMap[$key] ?? 0);
+            unset($it['_last_msg_id']);
         }
         unset($it);
 
@@ -1232,6 +1247,195 @@ class MessageService
         ];
     }
 
+    /**
+     * 删除群聊会话（本端软删）：写入水位 cleared_msg_id，历史/列表只展示 id 更大的消息
+     * @param int $clearedMsgId 指定水位；0 则取该群当前最大消息 id
+     */
+    public function clearGroupConversation($userId, $groupId, $clearedMsgId = 0)
+    {
+        $userId = (int)$userId;
+        $groupId = (int)$groupId;
+        $clearedMsgId = (int)$clearedMsgId;
+        if ($userId <= 0 || $groupId <= 0) {
+            throw new \InvalidArgumentException('invalid group');
+        }
+        if (!(new GroupService())->isMember($groupId, $userId)) {
+            throw new \RuntimeException('not in group');
+        }
+
+        if ($clearedMsgId <= 0) {
+            $row = Db::fetch(
+                'SELECT MAX(id) AS mid FROM ' . Db::table('chat_messages')
+                . ' WHERE conversation_type=2 AND conversation_id=? AND status IN (1,2)',
+                [(string)$groupId]
+            );
+            $clearedMsgId = (int)($row['mid'] ?? 0);
+        }
+        if ($clearedMsgId <= 0) {
+            // 无消息也记水位 0，并从 inbox 移除
+            $clearedMsgId = 0;
+        }
+
+        $prev = $this->groupClearedMsgId($userId, $groupId);
+        if ($clearedMsgId < $prev) {
+            $clearedMsgId = $prev;
+        }
+
+        $now = time();
+        $table = Db::table('chat_group_msg_cleared');
+        Db::exec(
+            "INSERT INTO {$table} (user_id, group_id, cleared_msg_id, updatetime, createtime)"
+            . ' VALUES (?,?,?,?,?)'
+            . ' ON DUPLICATE KEY UPDATE cleared_msg_id=GREATEST(cleared_msg_id, VALUES(cleared_msg_id)), updatetime=VALUES(updatetime)',
+            [$userId, $groupId, $clearedMsgId, $now, $now]
+        );
+        $this->bustGroupClearedCache($userId);
+
+        $member = '2:' . $groupId;
+        try {
+            $r = RedisClient::conn();
+            $r->zRem(RedisClient::key('inbox:' . $userId), $member);
+            $r->zRem(RedisClient::key('pins:' . $userId), $member);
+            $r->del(RedisClient::key('unread:' . $userId . ':2:' . $groupId));
+        } catch (\Throwable $e) {
+        }
+        $this->invalidateConvListCache($userId);
+
+        // 同步已读游标，避免未读按旧水位再亮起来
+        if ($clearedMsgId > 0) {
+            try {
+                $this->markConversationRead($userId, 2, (string)$groupId, $clearedMsgId);
+            } catch (\Throwable $e) {
+            }
+        }
+
+        return [
+            'conversation_type' => 2,
+            'conversation_id'   => (string)$groupId,
+            'group_id'          => $groupId,
+            'cleared_msg_id'    => $clearedMsgId,
+            'deleted'           => true,
+        ];
+    }
+
+    public function groupClearedMsgId($userId, $groupId)
+    {
+        $userId = (int)$userId;
+        $groupId = (int)$groupId;
+        if ($userId <= 0 || $groupId <= 0) {
+            return 0;
+        }
+        $map = $this->groupClearedMap($userId);
+        return (int)($map[$groupId] ?? 0);
+    }
+
+    /** @return array<int,int> group_id => cleared_msg_id */
+    protected function groupClearedMap($userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return [];
+        }
+        try {
+            $r = RedisClient::conn();
+            $ck = RedisClient::key('gclear:' . $userId);
+            $cached = $r->get($ck);
+            if ($cached !== false && $cached !== null && $cached !== '') {
+                $decoded = json_decode((string)$cached, true);
+                if (is_array($decoded)) {
+                    $out = [];
+                    foreach ($decoded as $gid => $mid) {
+                        $out[(int)$gid] = (int)$mid;
+                    }
+                    return $out;
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+
+        $out = [];
+        try {
+            $rows = Db::fetchAll(
+                'SELECT group_id, cleared_msg_id FROM ' . Db::table('chat_group_msg_cleared')
+                . ' WHERE user_id=?',
+                [$userId]
+            );
+            foreach ($rows as $row) {
+                $gid = (int)($row['group_id'] ?? 0);
+                if ($gid > 0) {
+                    $out[$gid] = (int)($row['cleared_msg_id'] ?? 0);
+                }
+            }
+        } catch (\Throwable $e) {
+            return [];
+        }
+        try {
+            RedisClient::conn()->setex(
+                RedisClient::key('gclear:' . $userId),
+                300,
+                json_encode($out, JSON_UNESCAPED_UNICODE)
+            );
+        } catch (\Throwable $e) {
+        }
+        return $out;
+    }
+
+    protected function bustGroupClearedCache($userId)
+    {
+        try {
+            RedisClient::conn()->del(RedisClient::key('gclear:' . (int)$userId));
+        } catch (\Throwable $e) {
+        }
+    }
+
+    protected function filterClearedGroupConversations($userId, array &$items)
+    {
+        $cleared = $this->groupClearedMap($userId);
+        if (!$cleared) {
+            return;
+        }
+        $dropMembers = [];
+        $kept = [];
+        foreach ($items as $it) {
+            if ((int)($it['conversation_type'] ?? 0) !== 2) {
+                $kept[] = $it;
+                continue;
+            }
+            $gid = (int)($it['group_id'] ?? $it['conversation_id'] ?? 0);
+            $watermark = (int)($cleared[$gid] ?? 0);
+            if ($watermark <= 0) {
+                $kept[] = $it;
+                continue;
+            }
+            $lastId = (int)(($it['last_message']['id'] ?? 0) ?: ($it['_last_msg_id'] ?? 0));
+            if ($lastId > 0 && $lastId <= $watermark) {
+                $dropMembers[] = '2:' . $gid;
+                continue;
+            }
+            // last_message 已被水位盖住但 inbox 分数未更新：尝试找下一条可见预览
+            if ($lastId <= 0 && empty($it['last_message'])) {
+                $kept[] = $it;
+                continue;
+            }
+            if ($lastId > $watermark) {
+                $kept[] = $it;
+                continue;
+            }
+            $dropMembers[] = '2:' . $gid;
+        }
+        $items = $kept;
+        if ($dropMembers) {
+            try {
+                $r = RedisClient::conn();
+                $ikey = RedisClient::key('inbox:' . (int)$userId);
+                foreach ($dropMembers as $member) {
+                    $r->zRem($ikey, $member);
+                }
+            } catch (\Throwable $e) {
+            }
+        }
+    }
+
     /** @return array<string,bool> conversation_id => true */
     protected function hiddenPrivateCidMap($userId)
     {
@@ -1413,6 +1617,20 @@ class MessageService
             foreach ($memberRows as $row) {
                 $key = '2:' . (string)((int)$row['group_id']);
                 $cursors[$key] = max($cursors[$key] ?? 0, (int)$row['last_read_msg_id']);
+            }
+        }
+
+        // 群软删水位：未读从 cleared_msg_id 之后算起
+        $clearedMap = $this->groupClearedMap($userId);
+        if ($clearedMap) {
+            foreach ($needSql as $key => $t) {
+                if ((int)$t['type'] !== 2) {
+                    continue;
+                }
+                $wm = (int)($clearedMap[(int)$t['id']] ?? 0);
+                if ($wm > 0) {
+                    $cursors[$key] = max($cursors[$key] ?? 0, $wm);
+                }
             }
         }
 
