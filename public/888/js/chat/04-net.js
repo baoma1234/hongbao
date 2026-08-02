@@ -1079,6 +1079,37 @@
     }
   }
 
+  /** 等待 WS 鉴权成功（auth.ok），用于深链回详情等场景 */
+  function waitUntilConnected(timeoutMs) {
+    timeoutMs = timeoutMs || 15000;
+    return new Promise(function (resolve, reject) {
+      if (state.connected && state.ws && state.ws.readyState === 1) {
+        resolve(true);
+        return;
+      }
+      if (!token()) {
+        reject(new Error('未登录'));
+        return;
+      }
+      try { ensureConnected(); } catch (e0) {}
+      if (!state.connected && !state.connecting) {
+        try { connect(true); } catch (e1) {}
+      }
+      var start = Date.now();
+      var timer = setInterval(function () {
+        if (state.connected && state.ws && state.ws.readyState === 1) {
+          clearInterval(timer);
+          resolve(true);
+          return;
+        }
+        if (Date.now() - start >= timeoutMs) {
+          clearInterval(timer);
+          reject(new Error('未连接'));
+        }
+      }, 120);
+    });
+  }
+
   function onLogin() {
     // 先连 WS，再绑 UI / 拉余额（任意页都能收推送）
     connect(true);
@@ -1087,11 +1118,13 @@
     state.stickerManifest = null;
     syncBalanceFromAccount();
     hydrateListFromCache();
-    setTimeout(function () { consumeOpenRpDeepLink(); }, 400);
+    // 等连上再开红包详情，避免「未连接」
+    setTimeout(function () { consumeOpenRpDeepLink(); }, 50);
   }
 
   function consumeOpenRpDeepLink() {
     var pid = 0;
+    var keepPayload = null;
     try {
       var q = new URLSearchParams(location.search || '');
       pid = parseInt(q.get('open_rp') || '0', 10) || 0;
@@ -1100,15 +1133,18 @@
       var raw = sessionStorage.getItem('fans_hub_rp_fair_return');
       if (raw) {
         var j = JSON.parse(raw);
-        if (j && (j.reopen || !pid) && (j.packetId | 0) > 0) {
+        keepPayload = j;
+        if (j && (j.reopen || pid > 0) && (j.packetId | 0) > 0) {
           if (!pid) pid = j.packetId | 0;
-          // 消费后清 reopen，避免反复弹
-          j.reopen = 0;
-          sessionStorage.setItem('fans_hub_rp_fair_return', JSON.stringify(j));
+        } else if (j && !j.reopen && !(pid > 0)) {
+          return;
         }
       }
     } catch (e1) {}
     if (pid <= 0) return;
+    if (state._openingRpDeepLink) return;
+    state._openingRpDeepLink = true;
+
     try {
       var u = new URL(location.href);
       if (u.searchParams.has('open_rp')) {
@@ -1120,40 +1156,50 @@
       if (typeof switchTab === 'function') switchTab('messages');
       else if (typeof global.switchTab === 'function') global.switchTab('messages');
     } catch (e3) {}
-    var room = null;
-    try {
-      var raw2 = sessionStorage.getItem('fans_hub_rp_fair_return');
-      var j2 = raw2 ? JSON.parse(raw2) : null;
-      room = j2 && j2.room ? j2.room : null;
-    } catch (e4) { room = null; }
-    var openDetail = function () {
-      openRedPacketDetail(pid).catch(function () {});
-    };
-    if (room && (room.type | 0) === 2 && room.id) {
-      openRoom({
-        type: room.type | 0,
-        id: room.id,
-        peer: room.peer | 0,
-        title: room.title || ''
-      }).then(function () {
-        setTimeout(openDetail, 200);
-      }).catch(function () {
-        openDetail();
-      });
-    } else if (room && (room.type | 0) === 1 && room.id) {
-      openRoom({
-        type: 1,
-        id: room.id,
-        peer: room.peer | 0,
-        title: room.title || ''
-      }).then(function () {
-        setTimeout(openDetail, 200);
-      }).catch(function () {
-        openDetail();
-      });
-    } else {
-      setTimeout(openDetail, 300);
-    }
+
+    var room = keepPayload && keepPayload.room ? keepPayload.room : null;
+
+    waitUntilConnected(18000).then(function () {
+      // 连接成功后再清 reopen，失败可重试
+      try {
+        if (keepPayload) {
+          keepPayload.reopen = 0;
+          sessionStorage.setItem('fans_hub_rp_fair_return', JSON.stringify(keepPayload));
+        }
+      } catch (eClr) {}
+      var openDetail = function () {
+        return openRedPacketDetail(pid);
+      };
+      if (room && ((room.type | 0) === 1 || (room.type | 0) === 2) && room.id) {
+        return openRoom({
+          type: room.type | 0,
+          id: room.id,
+          peer: room.peer | 0,
+          title: room.title || ''
+        }).then(function () {
+          return openDetail();
+        }).catch(function () {
+          return openDetail();
+        });
+      }
+      return openDetail();
+    }).catch(function (err) {
+      // 保留 reopen，下次进红宝页可再试
+      try {
+        if (keepPayload) {
+          keepPayload.reopen = 1;
+          keepPayload.packetId = pid;
+          sessionStorage.setItem('fans_hub_rp_fair_return', JSON.stringify(keepPayload));
+        }
+      } catch (eKeep) {}
+      if (typeof showFanshubToast === 'function') {
+        showFanshubToast((err && err.message) || '未连接，请稍后重试', 'error');
+      }
+    }).then(function () {
+      state._openingRpDeepLink = false;
+    }, function () {
+      state._openingRpDeepLink = false;
+    });
   }
 
   function onLogout() {

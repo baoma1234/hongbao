@@ -2,7 +2,7 @@
 /**
  * 红宝 H5 入口：未登录只下发登录壳，业务 DOM/CSS 登录后懒加载
  */
-$assetVer = '202608021510';
+$assetVer = '202608021520';
 $v = htmlspecialchars($assetVer, ENT_QUOTES, 'UTF-8');
 ?><!DOCTYPE html>
 <html lang="zh-CN">
