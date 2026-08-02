@@ -88,6 +88,37 @@
     return tpl;
   }
 
+  /** Map IM / WS English error codes to localized copy */
+  function mapChatApiError(msg, fallbackKey) {
+    msg = String(msg || '').trim();
+    var codeMap = {
+      'not in group': 'chat_err_not_in_group',
+      'target not in group': 'chat_err_not_in_group',
+      'private group': 'chat_err_private_group',
+      'group unavailable': 'chat_err_group_unavailable',
+      'group full': 'chat_err_group_full',
+      'user not discoverable': 'chat_err_user_not_discoverable',
+      'no permission': 'chat_err_no_permission',
+      'invalid group': 'chat_err_invalid_group',
+      'invalid params': 'chat_err_invalid_group',
+      '未连接': 'chat_err_not_connected',
+      '超时': 'chat_err_timeout'
+    };
+    if (codeMap[msg]) {
+      return chatT(codeMap[msg]);
+    }
+    if (/^chat_[a-z0-9_]+$/i.test(msg)) {
+      var viaKey = chatT(msg);
+      if (viaKey && viaKey !== msg) return viaKey;
+    }
+    if (msg && /[\u4e00-\u9fff]/.test(msg)) return msg;
+    if (fallbackKey) {
+      var fb = chatT(fallbackKey);
+      if (fb && fb !== fallbackKey) return fb;
+    }
+    return msg || (fallbackKey ? chatT(fallbackKey) : '');
+  }
+
   function moneyText(amount) {
     var n = parseFloat(amount);
     if (isNaN(n)) n = 0;

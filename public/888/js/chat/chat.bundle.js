@@ -91,6 +91,37 @@
     return tpl;
   }
 
+  /** Map IM / WS English error codes to localized copy */
+  function mapChatApiError(msg, fallbackKey) {
+    msg = String(msg || '').trim();
+    var codeMap = {
+      'not in group': 'chat_err_not_in_group',
+      'target not in group': 'chat_err_not_in_group',
+      'private group': 'chat_err_private_group',
+      'group unavailable': 'chat_err_group_unavailable',
+      'group full': 'chat_err_group_full',
+      'user not discoverable': 'chat_err_user_not_discoverable',
+      'no permission': 'chat_err_no_permission',
+      'invalid group': 'chat_err_invalid_group',
+      'invalid params': 'chat_err_invalid_group',
+      '未连接': 'chat_err_not_connected',
+      '超时': 'chat_err_timeout'
+    };
+    if (codeMap[msg]) {
+      return chatT(codeMap[msg]);
+    }
+    if (/^chat_[a-z0-9_]+$/i.test(msg)) {
+      var viaKey = chatT(msg);
+      if (viaKey && viaKey !== msg) return viaKey;
+    }
+    if (msg && /[\u4e00-\u9fff]/.test(msg)) return msg;
+    if (fallbackKey) {
+      var fb = chatT(fallbackKey);
+      if (fb && fb !== fallbackKey) return fb;
+    }
+    return msg || (fallbackKey ? chatT(fallbackKey) : '');
+  }
+
   function moneyText(amount) {
     var n = parseFloat(amount);
     if (isNaN(n)) n = 0;
@@ -2892,11 +2923,9 @@
       var packet = await send('history', histPayload);
       applyHistoryPacket(packet);
     } catch (e) {
-      var errMsg = String((e && e.message) || '加载失败');
-      var friendly = errMsg;
-      if (errMsg === 'not in group') friendly = '你不在该群内';
-      else if (errMsg === '未连接') friendly = '消息服务未连接，请稍候再试';
-      else if (errMsg === '超时') friendly = '加载超时，请重试';
+      var errMsg = String((e && e.message) || '');
+      var friendly = mapChatApiError(errMsg, 'chat_err_load_fail');
+      if (!friendly) friendly = chatT('chat_err_load_fail') || '加载失败';
       if (typeof showFanshubToast === 'function') {
         showFanshubToast(friendly, 'error');
       }
@@ -6015,7 +6044,9 @@
       }
       openRoom({ type: 2, id: groupId, peer: 0, title: (g && g.name) || ('群' + groupId) });
     } catch (e) {
-      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || chatT('chat_join_group_fail'), 'error');
+      if (typeof showFanshubToast === 'function') {
+        showFanshubToast(mapChatApiError(e && e.message, 'chat_join_group_fail'), 'error');
+      }
     }
   }
 
@@ -6120,7 +6151,7 @@
       }
       return true;
     }).catch(function (e) {
-      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || chatT('chat_add_friend_fail'), 'error');
+      if (typeof showFanshubToast === 'function') showFanshubToast(mapChatApiError(e && e.message, 'chat_add_friend_fail'), 'error');
       return false;
     }).then(function (ok) {
       if (btn) btn.disabled = false;
@@ -6166,7 +6197,7 @@
       }
       return true;
     }).catch(function (e) {
-      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || chatT('chat_add_friend_fail'), 'error');
+      if (typeof showFanshubToast === 'function') showFanshubToast(mapChatApiError(e && e.message, 'chat_add_friend_fail'), 'error');
       return false;
     });
   }
@@ -6282,7 +6313,7 @@
           refreshList().catch(function () {});
           refreshCommunity().catch(function () {});
         }).catch(function (e) {
-          if (typeof showFanshubToast === 'function') showFanshubToast(e.message || chatT('chat_friend_req_fail'), 'error');
+          if (typeof showFanshubToast === 'function') showFanshubToast(mapChatApiError(e && e.message, 'chat_friend_req_fail'), 'error');
         }).then(function () { btn.disabled = false; });
       };
     });

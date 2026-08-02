@@ -1792,11 +1792,9 @@
       var packet = await send('history', histPayload);
       applyHistoryPacket(packet);
     } catch (e) {
-      var errMsg = String((e && e.message) || '加载失败');
-      var friendly = errMsg;
-      if (errMsg === 'not in group') friendly = '你不在该群内';
-      else if (errMsg === '未连接') friendly = '消息服务未连接，请稍候再试';
-      else if (errMsg === '超时') friendly = '加载超时，请重试';
+      var errMsg = String((e && e.message) || '');
+      var friendly = mapChatApiError(errMsg, 'chat_err_load_fail');
+      if (!friendly) friendly = chatT('chat_err_load_fail') || '加载失败';
       if (typeof showFanshubToast === 'function') {
         showFanshubToast(friendly, 'error');
       }

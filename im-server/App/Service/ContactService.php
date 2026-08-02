@@ -571,27 +571,8 @@ class ContactService
         if ($targetId <= 0 || $seekerId <= 0 || $targetId === $seekerId) {
             return false;
         }
-        if (AdminService::isImAdmin($seekerId)) {
-            return true;
-        }
-        if ($this->isFriend($seekerId, $targetId)) {
-            return true;
-        }
-        if ($this->shareOpenGroup($seekerId, $targetId)) {
-            return true;
-        }
-        $rows = Db::fetchAll(
-            'SELECT g.privacy_mode, g.hide_member_list FROM ' . Db::table('chat_group_members') . ' m'
-            . ' INNER JOIN ' . Db::table('chat_groups') . ' g ON g.id=m.group_id'
-            . ' WHERE m.user_id=? AND m.status=1 AND g.status IN (1,3)',
-            [$targetId]
-        );
-        foreach ($rows as $row) {
-            $mode = (string)($row['privacy_mode'] ?? '');
-            if ($mode === 'private' || ($mode === '' && (int)($row['hide_member_list'] ?? 1) === 1)) {
-                return false;
-            }
-        }
+        // 手机号 / 会员 ID 精确查找属于主动搜索，不受群隐私模式影响。
+        // privacy_mode / hide_member_list 只约束群内成员列表展示。
         return true;
     }
 

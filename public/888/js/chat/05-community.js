@@ -336,7 +336,9 @@
       }
       openRoom({ type: 2, id: groupId, peer: 0, title: (g && g.name) || ('群' + groupId) });
     } catch (e) {
-      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || chatT('chat_join_group_fail'), 'error');
+      if (typeof showFanshubToast === 'function') {
+        showFanshubToast(mapChatApiError(e && e.message, 'chat_join_group_fail'), 'error');
+      }
     }
   }
 
@@ -441,7 +443,7 @@
       }
       return true;
     }).catch(function (e) {
-      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || chatT('chat_add_friend_fail'), 'error');
+      if (typeof showFanshubToast === 'function') showFanshubToast(mapChatApiError(e && e.message, 'chat_add_friend_fail'), 'error');
       return false;
     }).then(function (ok) {
       if (btn) btn.disabled = false;
@@ -487,7 +489,7 @@
       }
       return true;
     }).catch(function (e) {
-      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || chatT('chat_add_friend_fail'), 'error');
+      if (typeof showFanshubToast === 'function') showFanshubToast(mapChatApiError(e && e.message, 'chat_add_friend_fail'), 'error');
       return false;
     });
   }
@@ -603,7 +605,7 @@
           refreshList().catch(function () {});
           refreshCommunity().catch(function () {});
         }).catch(function (e) {
-          if (typeof showFanshubToast === 'function') showFanshubToast(e.message || chatT('chat_friend_req_fail'), 'error');
+          if (typeof showFanshubToast === 'function') showFanshubToast(mapChatApiError(e && e.message, 'chat_friend_req_fail'), 'error');
         }).then(function () { btn.disabled = false; });
       };
     });
