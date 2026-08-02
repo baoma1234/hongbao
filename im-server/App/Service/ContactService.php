@@ -498,10 +498,14 @@ class ContactService
                 $nick = strlen($mob) >= 7 ? (substr($mob, 0, 3) . '****' . substr($mob, -4)) : $mob;
             }
             $list[] = [
-                'user_id'  => $pid,
-                'nickname' => $nick !== '' ? $nick : ('ID' . $pid),
-                'avatar'   => (string)($row['avatar'] ?? ''),
-                'online'   => false,
+                'user_id'         => $pid,
+                'nickname'        => $nick !== '' ? $nick : ('ID' . $pid),
+                'avatar'          => (string)($row['avatar'] ?? ''),
+                'online'          => false,
+                'is_default_cs'   => AdminService::isDefaultCs($pid),
+                'is_im_admin'     => AdminService::isImAdmin($pid),
+                'pinned'          => AdminService::isDefaultCs($pid),
+                'undeletable'     => AdminService::isDefaultCs($pid),
             ];
         }
         $onlineMap = [];
@@ -512,8 +516,13 @@ class ContactService
             $item['online'] = !empty($onlineMap[(int)$item['user_id']]);
         }
         unset($item);
-        // 在线优先
+        // 默认客服置顶，其余在线优先
         usort($list, function ($a, $b) {
+            $ap = !empty($a['is_default_cs']) ? 1 : 0;
+            $bp = !empty($b['is_default_cs']) ? 1 : 0;
+            if ($ap !== $bp) {
+                return $bp <=> $ap;
+            }
             if (!empty($a['online']) === !empty($b['online'])) {
                 return 0;
             }

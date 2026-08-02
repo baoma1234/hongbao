@@ -987,6 +987,17 @@ class MessageService
         $this->filterClearedGroupConversations($userId, $items);
 
         $this->applyPinnedFlags($userId, $items);
+        foreach ($items as &$it) {
+            if ((int)($it['conversation_type'] ?? 0) === 1 && AdminService::isDefaultCs((int)($it['peer_user_id'] ?? 0))) {
+                $it['pinned'] = true;
+                $it['is_default_cs'] = true;
+                $it['undeletable'] = true;
+                if (empty($it['title'])) {
+                    $it['title'] = '红宝客服';
+                }
+            }
+        }
+        unset($it);
         usort($items, function ($a, $b) {
             $ap = !empty($a['pinned']) ? 1 : 0;
             $bp = !empty($b['pinned']) ? 1 : 0;
@@ -1081,6 +1092,17 @@ class MessageService
             }
         }
         $member = $ctype . ':' . $cid;
+        if (!$pinned && $ctype === 1) {
+            $bits = explode('_', $cid);
+            if (count($bits) === 2) {
+                $a = (int)$bits[0];
+                $b = (int)$bits[1];
+                $peer = ($a === $userId) ? $b : $a;
+                if (AdminService::isDefaultCs($peer)) {
+                    throw new \RuntimeException('红宝客服会话不可取消置顶');
+                }
+            }
+        }
         try {
             $r = RedisClient::conn();
             $key = RedisClient::key('pins:' . $userId);
@@ -1091,6 +1113,8 @@ class MessageService
                 $r->zRem($key, $member);
             }
             $r->expire($key, 86400 * 365);
+        } catch (\RuntimeException $e) {
+            throw $e;
         } catch (\Throwable $e) {
             throw new \RuntimeException('pin failed');
         }
@@ -1127,6 +1151,9 @@ class MessageService
         }
         if ($peerUserId <= 0) {
             $peerUserId = ($a === $userId) ? $b : $a;
+        }
+        if (AdminService::isDefaultCs($peerUserId)) {
+            throw new \RuntimeException('红宝客服会话不可删除');
         }
 
         $msgTable = Db::table('chat_messages');
@@ -1477,6 +1504,10 @@ class MessageService
         }
         $items = array_values(array_filter($items, function ($it) use ($hidden) {
             if ((int)($it['conversation_type'] ?? 0) !== 1) {
+                return true;
+            }
+            // 默认客服会话永不可被「删除聊天」隐藏
+            if (AdminService::isDefaultCs((int)($it['peer_user_id'] ?? 0))) {
                 return true;
             }
             $cid = (string)($it['conversation_id'] ?? '');

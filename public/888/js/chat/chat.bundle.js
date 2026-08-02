@@ -1303,10 +1303,12 @@
     if (!sheet) return;
     var title = item.title || (item.conversation_type === 2 ? ('群 ' + (item.group_id || item.conversation_id)) : '会话');
     if (titleEl) titleEl.textContent = title;
-    if (pinBtn) pinBtn.style.display = item.pinned ? 'none' : '';
-    if (unpinBtn) unpinBtn.style.display = item.pinned ? '' : 'none';
-    // 私聊 / 群聊均可删除（群聊为本端软删水位）
-    if (delBtn) delBtn.style.display = '';
+    if (pinBtn) pinBtn.style.display = (item.pinned || item.undeletable || item.is_default_cs) ? 'none' : '';
+    if (unpinBtn) unpinBtn.style.display = (item.pinned && !item.undeletable && !item.is_default_cs) ? '' : 'none';
+    // 私聊 / 群聊均可删除（群聊为本端软删水位）；默认客服不可删
+    if (delBtn) {
+      delBtn.style.display = (item.undeletable || item.is_default_cs) ? 'none' : '';
+    }
     sheet.classList.add('open');
     sheet.setAttribute('aria-hidden', 'false');
   }
@@ -5666,14 +5668,10 @@
       return;
     }
     box.innerHTML = list.map(function (g, idx) {
-      var online = g.online_count | 0;
       var members = g.member_count | 0;
       var sub = members > 0
-        ? (chatTx('chat_group_members', '{count}人', { count: members })
-          + (online > 0 ? (' · ' + chatTx('chat_group_online', '{count}人在线', { count: online })) : ''))
-        : (online > 0
-          ? chatTx('chat_group_online', '{count}人在线', { count: online })
-          : '');
+        ? chatTx('chat_group_members', '{count}人', { count: members })
+        : '';
       var av = publicUrl(g.avatar || '');
       var icon = '<img src="' + escapeHtml(avatarSrc(g.avatar)) + '" alt="">';
       var showTag = !g.is_member && idx === 0;
@@ -5767,13 +5765,14 @@
     }
     box.innerHTML = list.map(function (f) {
       var online = !!f.online;
+      var isCs = !!f.is_default_cs || !!f.pinned;
       var status = online
         ? chatTx('chat_friend_online', '刚刚在线')
         : chatTx('chat_friend_offline', '暂时离开');
-      return '<button type="button" class="chat-feed-item" data-user-id="' + (f.user_id | 0) + '">'
+      return '<button type="button" class="chat-feed-item' + (isCs ? ' is-pinned-cs' : '') + '" data-user-id="' + (f.user_id | 0) + '">'
         + '<div class="chat-feed-avatar">' + avatarImgHtml(f.avatar) + '<span class="chat-feed-online-dot' + (online ? '' : ' off') + '"></span></div>'
         + '<div class="chat-feed-body">'
-        + '<div class="chat-feed-text">' + escapeHtml(f.nickname || ('ID' + f.user_id)) + '</div>'
+        + '<div class="chat-feed-text">' + (isCs ? '<span class="chat-feed-pin" aria-hidden="true">📌</span>' : '') + escapeHtml(f.nickname || ('ID' + f.user_id)) + '</div>'
         + '<div class="chat-feed-status' + (online ? ' on' : '') + '">' + escapeHtml(status) + '</div>'
         + '</div>'
         + '</button>';

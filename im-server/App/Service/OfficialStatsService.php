@@ -6,7 +6,7 @@ use Im\Support\Db;
 use Im\Support\RedisClient;
 
 /**
- * 官方社群展示人数 / 在线（与 PHP FansHubOfficialStats 公式一致）
+ * 官方社群展示人数（与 PHP FansHubOfficialStats 一致：持久化基数，无秒级抖动）
  */
 class OfficialStatsService
 {
@@ -69,7 +69,7 @@ class OfficialStatsService
         } else {
             $base = (int)$base;
         }
-        return max(1, $base + self::floatDelta('om:' . $groupId));
+        return max(1, $base);
     }
 
     /** @deprecated 兼容旧调用：无 gid 时用默认 */

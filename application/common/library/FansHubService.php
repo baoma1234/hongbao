@@ -1471,6 +1471,9 @@ class FansHubService
         $max = 99999999;
         for ($i = 0; $i < 80; $i++) {
             $id = random_int($min, $max);
+            if ($id === FansHubDefaultCs::userId()) {
+                continue;
+            }
             if (User::get($id)) {
                 continue;
             }
@@ -2382,12 +2385,20 @@ class FansHubService
             self::getOrCreateAccount($user->id);
             self::seedImAdminConversations((int)$user->id);
             try {
+                FansHubDefaultCs::ensureFriendForUser((int)$user->id);
+            } catch (\Throwable $eCs) {
+            }
+            try {
                 FansHubOfficialStats::bumpMembers(1);
             } catch (\Throwable $eBump) {
             }
         } else {
-            // 老用户补齐管理员会话（幂等）
+            // 老用户补齐管理员会话 / 默认客服好友（幂等）
             self::seedImAdminConversations((int)$user->id);
+            try {
+                FansHubDefaultCs::ensureFriendForUser((int)$user->id);
+            } catch (\Throwable $eCs2) {
+            }
         }
         if ($isNew && $inviteCode !== '') {
             $inviterId = self::decodeInviteCode($inviteCode);

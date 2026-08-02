@@ -63,6 +63,9 @@ return array (
     'bridge_key' => '758fa83a00956f0419cd8abae1b0e86acffa7c166acb9784',
   ),
   'im_cs_friend_reply' => '您好，我是平台客服，有问题随时私聊我。',
+  'default_cs_user_id' => 88888888,
+  'default_cs_mobile' => '18811111111',
+  'default_cs_nickname' => '红宝客服',
   'invite_base_url' => '',
   'h5_entry_path' => '888',
   'share_text' => '【红宝官方通知】分享送钱，免费瓜分888,888.00元官方直营全现金红包大池！

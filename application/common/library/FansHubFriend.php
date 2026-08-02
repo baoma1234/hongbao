@@ -69,8 +69,22 @@ class FansHubFriend
         return true;
     }
 
-    protected static function ensureContact($userId, $peerId, $now)
+    /** 双向好友（幂等） */
+    public static function ensureMutual($userId, $peerId, $now = null)
     {
+        $now = $now !== null ? (int)$now : time();
+        self::ensureContact((int)$userId, (int)$peerId, $now);
+        self::ensureContact((int)$peerId, (int)$userId, $now);
+    }
+
+    public static function ensureContact($userId, $peerId, $now = null)
+    {
+        $userId = (int)$userId;
+        $peerId = (int)$peerId;
+        if ($userId <= 0 || $peerId <= 0 || $userId === $peerId) {
+            return;
+        }
+        $now = $now !== null ? (int)$now : time();
         $existing = Db::name('chat_contacts')->where(['user_id' => $userId, 'peer_user_id' => $peerId])->find();
         if ($existing) {
             if ((int)$existing['status'] !== 1) {

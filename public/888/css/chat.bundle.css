@@ -4409,6 +4409,11 @@ button.chat-rp-fair-link {
   transform: translateY(1px);
 }
 
+.chat-feed-pin {
+  margin-right: 4px;
+  font-size: 12px;
+}
+
 .chat-feed-avatar {
   width: 40px;
   height: 40px;

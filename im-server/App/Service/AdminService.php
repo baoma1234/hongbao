@@ -11,12 +11,25 @@ use Im\Support\RedisClient;
  */
 class AdminService
 {
+    /** 默认客服固定会员 ID（与 PHP FansHubDefaultCs 一致） */
+    const DEFAULT_CS_USER_ID = 88888888;
+
     /** @var array<int,true>|null */
     protected static $adminIdMap = null;
     /** @var array<int, array{user_id:int,label:string}>|null */
     protected static $adminRowsCache = null;
     /** @var int */
     protected static $adminRowsAt = 0;
+
+    public static function defaultCsUserId()
+    {
+        return self::DEFAULT_CS_USER_ID;
+    }
+
+    public static function isDefaultCs($userId)
+    {
+        return (int)$userId === self::DEFAULT_CS_USER_ID;
+    }
 
     public static function isImAdmin($userId)
     {

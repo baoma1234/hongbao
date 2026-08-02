@@ -5,10 +5,10 @@ namespace app\common\library;
 use think\Db;
 
 /**
- * 官方社群展示人数 / 在线人数（全端一致）
- * - 每个群各自成员基数（约 1.7万～1.8万，互不相同；注册时各群 +1）
- * - 总人数、在线人数每 2 秒确定性浮动，相对基数上下不超过 10
- * - online = 群固定在线基数(千级) ±10 + 正在看群的人数
+ * 官方社群展示人数（全端一致）
+ * - 每个群各自成员基数（约 1.7万～1.8万；注册时各群 +1）
+ * - 展示值 = 持久化基数（无秒级抖动）；定时任务每日小幅上浮，偶尔 -1/-2
+ * - 在线人数已不再对用户展示
  */
 class FansHubOfficialStats
 {
@@ -16,6 +16,7 @@ class FansHubOfficialStats
     const REDIS_PREFIX = 'im:';
     const KEY_MEMBER_PREFIX = 'official:mbase:';
     const KEY_VIEW_PREFIX = 'official:view:';
+    const KEY_DAILY_DRIFT = 'official:drift:';
     const DEFAULT_BASE = 17888;
     const FLOAT_BUCKET_SEC = 2;
     const FLOAT_MAX = 10;
@@ -23,7 +24,7 @@ class FansHubOfficialStats
     /** @var \Redis|null */
     protected static $redis;
 
-    /** 相对基数的确定性偏移：[-10, 10] */
+    /** 相对基数的确定性偏移：[-10, 10]（兼容旧调用；展示人数已不再叠加） */
     public static function floatDelta($salt, $bucket = null)
     {
         if ($bucket === null) {
@@ -67,7 +68,7 @@ class FansHubOfficialStats
         return $seed;
     }
 
-    /** 展示总人数 = 基数 + [-10,10] */
+    /** 展示总人数 = 持久化基数（全端一致，无秒级抖动） */
     public static function memberCount($groupId, $base = null)
     {
         $groupId = (int)$groupId;
@@ -76,7 +77,88 @@ class FansHubOfficialStats
         } else {
             $base = (int)$base;
         }
-        return max(1, $base + self::floatDelta('om:' . $groupId));
+        return max(1, $base);
+    }
+
+    /**
+     * 每日漂移（幂等）：多数群 +2～+6，约 20% 概率再 -1 或 -2
+     * @return int 处理群数
+     */
+    public static function applyDailyMemberDrift($ymd = null)
+    {
+        $ymd = $ymd !== null ? preg_replace('/\D+/', '', (string)$ymd) : date('Ymd');
+        if ($ymd === '') {
+            $ymd = date('Ymd');
+        }
+        $r = null;
+        try {
+            $r = self::redis();
+        } catch (\Throwable $e) {
+        }
+        $lockKey = self::REDIS_PREFIX . self::KEY_DAILY_DRIFT . $ymd;
+        if ($r) {
+            try {
+                if (!$r->set($lockKey, '1', ['nx', 'ex' => 86400 * 3])) {
+                    return 0;
+                }
+            } catch (\Throwable $e2) {
+            }
+        }
+
+        try {
+            $rows = Db::name('chat_groups')
+                ->where('status', 'in', [1, 3])
+                ->where('is_recommend', 1)
+                ->field('id,display_member_count')
+                ->select();
+        } catch (\Throwable $e3) {
+            return 0;
+        }
+        $now = time();
+        $n = 0;
+        foreach ((array)$rows as $g) {
+            $gid = (int)($g['id'] ?? 0);
+            if ($gid <= 0) {
+                continue;
+            }
+            $h = crc32('drift:' . $ymd . ':' . $gid);
+            if ($h < 0) {
+                $h = -$h;
+            }
+            $up = 2 + ($h % 5); // 2～6
+            $down = 0;
+            if (($h % 10) < 2) {
+                $down = 1 + (($h >> 3) % 2); // 1 或 2
+            }
+            $delta = $up - $down;
+            if ($delta === 0) {
+                continue;
+            }
+            $cur = (int)($g['display_member_count'] ?? 0);
+            if ($cur < 10000) {
+                $cur = self::uniqueSeedForGroup($gid);
+            }
+            $base = max(1000, $cur + $delta);
+            try {
+                Db::name('chat_groups')->where('id', $gid)->update([
+                    'display_member_count' => $base,
+                    'updatetime'           => $now,
+                ]);
+            } catch (\Throwable $e4) {
+                continue;
+            }
+            if ($r) {
+                try {
+                    $r->set(self::REDIS_PREFIX . self::KEY_MEMBER_PREFIX . $gid, $base);
+                } catch (\Throwable $e5) {
+                }
+            }
+            $n++;
+        }
+        if (class_exists(FansHubService::class) && method_exists(FansHubService::class, 'clearOfficialCommunityCache')) {
+            FansHubService::clearOfficialCommunityCache();
+        }
+        return $n;
     }
 
     /** 新注册：所有官方群成员基数各 +1 */
@@ -294,6 +376,12 @@ class FansHubOfficialStats
             FansHubService::clearOfficialCommunityCache();
         }
         return $n;
+    }
+
+    /** @return \Redis|null */
+    public static function redisPublic()
+    {
+        return self::redis();
     }
 
     /** @return \Redis|null */

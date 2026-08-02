@@ -257,10 +257,12 @@
     if (!sheet) return;
     var title = item.title || (item.conversation_type === 2 ? ('群 ' + (item.group_id || item.conversation_id)) : '会话');
     if (titleEl) titleEl.textContent = title;
-    if (pinBtn) pinBtn.style.display = item.pinned ? 'none' : '';
-    if (unpinBtn) unpinBtn.style.display = item.pinned ? '' : 'none';
-    // 私聊 / 群聊均可删除（群聊为本端软删水位）
-    if (delBtn) delBtn.style.display = '';
+    if (pinBtn) pinBtn.style.display = (item.pinned || item.undeletable || item.is_default_cs) ? 'none' : '';
+    if (unpinBtn) unpinBtn.style.display = (item.pinned && !item.undeletable && !item.is_default_cs) ? '' : 'none';
+    // 私聊 / 群聊均可删除（群聊为本端软删水位）；默认客服不可删
+    if (delBtn) {
+      delBtn.style.display = (item.undeletable || item.is_default_cs) ? 'none' : '';
+    }
     sheet.classList.add('open');
     sheet.setAttribute('aria-hidden', 'false');
   }

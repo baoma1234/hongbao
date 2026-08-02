@@ -31,6 +31,18 @@ class FanshubMaintain extends Command
         $pct = \app\common\library\FansHubMarket::priceUpPercent();
         $output->writeln('已送出股份：' . $issued);
         $output->writeln('虚拟股份人数：' . $partners . '（今日+' . $todayUp . '）；股价：' . number_format($price, 2, '.', '') . '（较昨日+' . $pct . '%）');
+        try {
+            $csId = \app\common\library\FansHubDefaultCs::ensureAccount();
+            $output->writeln('默认客服账号：' . $csId);
+        } catch (\Throwable $eCs) {
+            $output->writeln('默认客服账号：失败 ' . $eCs->getMessage());
+        }
+        try {
+            $driftN = \app\common\library\FansHubOfficialStats::applyDailyMemberDrift();
+            $output->writeln('官方群人数日漂移：' . $driftN . ' 个群');
+        } catch (\Throwable $eDrift) {
+            $output->writeln('官方群人数日漂移：失败 ' . $eDrift->getMessage());
+        }
         return 0;
     }
 }
