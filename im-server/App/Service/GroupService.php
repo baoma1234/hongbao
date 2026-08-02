@@ -47,6 +47,25 @@ class GroupService
         return $n;
     }
 
+    /** 新建群默认拉入的机器人 UID（可配置 red_packet.group_robot_user_id） */
+    public static function defaultRobotUserId()
+    {
+        static $uid = null;
+        if ($uid !== null) {
+            return $uid;
+        }
+        $uid = 74282747;
+        try {
+            $app = require dirname(__DIR__, 2) . '/config/app.php';
+            $cfgUid = (int)($app['red_packet']['group_robot_user_id'] ?? 0);
+            if ($cfgUid > 0) {
+                $uid = $cfgUid;
+            }
+        } catch (\Throwable $e) {
+        }
+        return $uid;
+    }
+
     public function create($ownerUserId, $name, array $memberIds = [], array $adminIds = [], array $options = [])
     {
         $ownerUserId = (int)$ownerUserId;
@@ -60,6 +79,11 @@ class GroupService
         $status = ($chatMode === 'grab') ? 3 : 1;
         $now = time();
         $adminIds = array_values(array_unique(array_filter(array_map('intval', $adminIds))));
+        $robotUid = self::defaultRobotUserId();
+        // 默认机器人进群（成员），便于监听拼手气续发；不自动抢包
+        if ($robotUid > 0 && empty($options['skip_default_robot'])) {
+            $memberIds = array_merge($memberIds, [$robotUid]);
+        }
         $members = array_unique(array_merge([$ownerUserId], $adminIds, array_map('intval', $memberIds)));
         $members = array_values(array_filter($members, function ($id) {
             return $id > 0;

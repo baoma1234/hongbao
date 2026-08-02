@@ -1352,7 +1352,8 @@ class RedPacketService
     }
 
     /**
-     * 拼手气群包结算后：扣除抢最少者（结算已付到发包人）→ 由原发包人/机器人续发同规格下一包。
+     * 拼手气群包结算后：由「抢最少」的人扣余额发同规格下一包（流水记在其名下）。
+     * 系统监听全部群；机器人 74282747 仅需在群内，不替代扣款主体。
      * 若群内仍有待领取包则跳过，避免叠包。
      *
      * @return array|null 新红包消息（若已发出）
@@ -1360,11 +1361,12 @@ class RedPacketService
     public function trySendRobotNextRound(array $packet)
     {
         $groupId = (int)($packet['group_id'] ?? 0);
-        $fromUid = (int)($packet['from_user_id'] ?? 0);
-        $platformUid = (int)($this->cfg['platform_user_id'] ?? 0);
-        // 优先原发包人（结算已把最差赔付打入其账户）；否则退回平台号
-        $senderUid = $fromUid > 0 ? $fromUid : $platformUid;
-        if ($groupId <= 0 || $senderUid <= 0) {
+        $packetId = (int)($packet['id'] ?? 0);
+        $robotUid = (int)($this->cfg['group_robot_user_id'] ?? 0);
+        if ($robotUid <= 0) {
+            $robotUid = GroupService::defaultRobotUserId();
+        }
+        if ($groupId <= 0) {
             return null;
         }
         if ((int)($packet['packet_type'] ?? 0) !== 2) {
@@ -1373,6 +1375,14 @@ class RedPacketService
         if ((int)($packet['scope_type'] ?? 0) !== 2) {
             return null;
         }
+
+        // 扣款+发包主体 = 手气最差；找不到则不续发（避免流水落到机器人/原发包人）
+        $senderUid = $this->findWorstGrabberUserId($packetId);
+        if ($senderUid <= 0) {
+            error_log('[RP_ROBOT] skip next round: no worst grabber packet_id=' . $packetId . ' group=' . $groupId);
+            return null;
+        }
+
         $amount = round((float)($packet['total_amount'] ?? 0), 2);
         $count = (int)($packet['total_count'] ?? 0);
         try {
@@ -1400,37 +1410,28 @@ class RedPacketService
         } catch (\Throwable $e) {
         }
 
-        $bal = $this->wallet->getBalance($senderUid);
-        if ($bal + 0.00001 < $amount) {
-            // 发包人余额不足时尝试平台号兜底
-            if ($platformUid > 0 && $platformUid !== $senderUid) {
-                $pbal = $this->wallet->getBalance($platformUid);
-                if ($pbal + 0.00001 >= $amount) {
-                    $senderUid = $platformUid;
-                } else {
-                    error_log(sprintf(
-                        '[RP_ROBOT] skip next round: balance from=%.2f platform=%.2f need=%.2f group=%d packet_id=%d',
-                        $bal,
-                        $pbal,
-                        $amount,
-                        $groupId,
-                        (int)($packet['id'] ?? 0)
-                    ));
-                    return null;
-                }
-            } else {
-                error_log(sprintf(
-                    '[RP_ROBOT] skip next round: sender balance=%.2f need=%.2f group=%d packet_id=%d',
-                    $bal,
-                    $amount,
-                    $groupId,
-                    (int)($packet['id'] ?? 0)
-                ));
-                return null;
+        // 确保默认机器人在群内（监听/可见）；扣款人本身已抢过包，一般已在群
+        if ($robotUid > 0 && !$this->groups->isMember($groupId, $robotUid)) {
+            try {
+                $this->groups->addMembers($groupId, [$robotUid], 1);
+            } catch (\Throwable $eJoin) {
             }
         }
 
-        $doSend = function () use ($groupId, $senderUid, $amount, $count, $packet) {
+        $bal = $this->wallet->getBalance($senderUid);
+        if ($bal + 0.00001 < $amount) {
+            error_log(sprintf(
+                '[RP_ROBOT] skip next round: worst balance=%.2f need=%.2f uid=%d group=%d packet_id=%d',
+                $bal,
+                $amount,
+                $senderUid,
+                $groupId,
+                $packetId
+            ));
+            return null;
+        }
+
+        $doSend = function () use ($groupId, $senderUid, $amount, $count, $packet, $packetId) {
             try {
                 $open = Db::fetch(
                     'SELECT COUNT(*) AS c FROM ' . Db::table('chat_red_packets')
@@ -1441,9 +1442,7 @@ class RedPacketService
                     return null;
                 }
                 if (!$this->groups->isMember($groupId, $senderUid)) {
-                    $this->groups->addMembers($groupId, [$senderUid], 2);
-                } elseif ($this->groups->memberRole($groupId, $senderUid) < 2) {
-                    $this->groups->addMembers($groupId, [$senderUid], 2);
+                    $this->groups->addMembers($groupId, [$senderUid], 1);
                 }
                 $result = $this->send([
                     'from_user_id' => $senderUid,
@@ -1456,6 +1455,15 @@ class RedPacketService
                     'robot_send'   => true,
                     'trusted_robot'=> true,
                 ]);
+                // 标记上一包最差赔付已通过「续发扣款」完成（流水=red_packet_send，user=最差）
+                try {
+                    Db::exec(
+                        'UPDATE ' . Db::table('chat_red_packet_records')
+                        . ' SET compensate_status=2 WHERE packet_id=? AND is_worst=1 AND compensate_status=1',
+                        [$packetId]
+                    );
+                } catch (\Throwable $eMark) {
+                }
                 $msg = $result['message'] ?? null;
                 if (is_array($msg)) {
                     try {
@@ -1474,12 +1482,12 @@ class RedPacketService
                     }
                 }
                 error_log(sprintf(
-                    '[RP_ROBOT] next round sent group=%d amount=%.2f count=%d sender=%d from_packet=%d',
+                    '[RP_ROBOT] next round sent group=%d amount=%.2f count=%d worst_sender=%d from_packet=%d',
                     $groupId,
                     $amount,
                     $count,
                     $senderUid,
-                    (int)($packet['id'] ?? 0)
+                    $packetId
                 ));
                 return is_array($msg) ? $msg : null;
             } catch (\Throwable $e) {
@@ -1498,6 +1506,30 @@ class RedPacketService
         } catch (\Throwable $e) {
             return $doSend();
         }
+    }
+
+    /** 手气最差抢包用户（is_worst=1） */
+    protected function findWorstGrabberUserId($packetId)
+    {
+        $packetId = (int)$packetId;
+        if ($packetId <= 0) {
+            return 0;
+        }
+        $row = Db::fetch(
+            'SELECT user_id FROM ' . Db::table('chat_red_packet_records')
+            . ' WHERE packet_id=? AND is_worst=1 ORDER BY id ASC LIMIT 1',
+            [$packetId]
+        );
+        if ($row) {
+            return (int)($row['user_id'] ?? 0);
+        }
+        // 兜底：按金额最小
+        $row = Db::fetch(
+            'SELECT user_id FROM ' . Db::table('chat_red_packet_records')
+            . ' WHERE packet_id=? ORDER BY amount ASC, id ASC LIMIT 1',
+            [$packetId]
+        );
+        return $row ? (int)($row['user_id'] ?? 0) : 0;
     }
 
     /**

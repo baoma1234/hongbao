@@ -175,7 +175,7 @@ class RedPacketSettlementService
                 }
             }
 
-            // ---------- 2) 赔付：中雷/最差 → 扣赔付金给发包方（失败即抛，整单回滚）----------
+            // ---------- 2) 赔付：中雷 → 扣赔付金给发包方；拼手气最差 → 仅标记，续发时由最差用户直接发包（流水记在其名下）----------
             $compensateUsers = [];
             $compensateTotal = 0.0;
             foreach ($losers as $recordId => $reason) {
@@ -190,6 +190,15 @@ class RedPacketSettlementService
                     throw new \RuntimeException('compensate record missing id=' . $recordId);
                 }
                 $payerId = (int)$rec['user_id'];
+
+                // 拼手气最差：结算不划转，避免「赔给发包人再由其续发」导致流水落在发包人/机器人名下
+                if ($reason === 'worst' && $packetType === 2) {
+                    $compensateUsers[] = $payerId;
+                    $compensateTotal = round($compensateTotal + $compensateAmount, 2);
+                    error_log('[RP_SETTLE] worst marked (defer pay via next send) packet_id=' . $packetId . ' payer=' . $payerId . ' amount=' . $compensateAmount);
+                    continue;
+                }
+
                 $payType = $reason === 'mine' ? 'red_packet_mine_pay' : 'red_packet_worst_pay';
                 $remarkPay = ($reason === 'mine' ? '中雷赔付 ' : '手气最差赔付 ') . $packetNo;
                 $remarkIn = ($reason === 'mine' ? '收到中雷赔付 ' : '收到手气最差赔付 ') . $packetNo;

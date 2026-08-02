@@ -123,6 +123,8 @@ return array_replace_recursive([
         'invite_rebate_rate'         => 0.005,  // 推荐人返佣 0.5%（发时从手续费划转）
         // 平台手续费入账用户（须在 fa_fans_account 有账户）；请按环境改成真实平台户
         'platform_user_id'           => 56960815,
+        // 新建群自动拉入的机器人；拼手气续发由系统监听（扣最差余额发包）
+        'group_robot_user_id'        => 74282747,
         // 扫雷单独：赔付倍率 / 抽水 / 返点 / 收款户
         'mine_compensate_rate_5'         => 1.5,
         'mine_compensate_rate_7'         => 1.2,

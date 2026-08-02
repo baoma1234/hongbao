@@ -115,6 +115,11 @@ class Imgroup extends Backend
                 $this->error('群主会员不存在');
             }
             $now = time();
+            // 新建群自动拉入默认机器人（抢包仍只看后台自动任务配置）
+            $robotUid = (int)\app\common\library\FansHubRedPacket::get('group_robot_user_id', 74282747);
+            if ($robotUid > 0) {
+                $memberIds[] = $robotUid;
+            }
             $all = array_values(array_unique(array_merge([$ownerId], $adminIds, $memberIds)));
             Db::startTrans();
             try {
