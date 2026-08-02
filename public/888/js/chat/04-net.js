@@ -978,7 +978,7 @@
             assets.loadCss('css/share-poster.css'),
             assets.loadJs('js/share-poster.js')
           ]).then(open).catch(function () {
-            if (typeof showFanshubToast === 'function') showFanshubToast('分享页加载失败', 'error');
+            if (typeof showFanshubToast === 'function') showFanshubToast(chatT('chat_share_promo_load_fail') || '分享页加载失败', 'error');
           });
         } else {
           open();

@@ -68,23 +68,23 @@
         </div>
         <div class="profile-sub-body">
             <div class="match-card profile-card">
-                <p class="profile-meta-line" id="profilePayPasswordHint">首次可直接设置；修改需短信验证码。</p>
+                <p class="profile-meta-line" id="profilePayPasswordHint" data-copy="profile_pay_password_set_hint">首次可直接设置支付密码；用于提现与绑定地址</p>
                 <div class="profile-field" id="profilePayPwdSmsWrap" hidden>
                     <label data-copy="profile_sms_code_label">短信验证码</label>
                     <div class="profile-sms-row">
-                        <input type="text" id="profilePayPwdSmsCode" inputmode="numeric" maxlength="8" placeholder="请输入验证码">
-                        <button type="button" class="btn-captcha" id="profilePayPwdSmsBtn" onclick="sendPayPasswordSms()">获取验证码</button>
+                        <input type="text" id="profilePayPwdSmsCode" inputmode="numeric" maxlength="8" data-copy-placeholder="profile_sms_code_ph" placeholder="请输入验证码">
+                        <button type="button" class="btn-captcha" id="profilePayPwdSmsBtn" onclick="sendPayPasswordSms()" data-copy="profile_sms_send_btn">获取验证码</button>
                     </div>
                 </div>
                 <div class="profile-field">
                     <label data-copy="profile_pay_password_label">支付密码</label>
-                    <input type="password" id="profilePayPasswordNew" autocomplete="new-password" maxlength="32" placeholder="6-32位支付密码">
+                    <input type="password" id="profilePayPasswordNew" autocomplete="new-password" maxlength="32" data-copy-placeholder="profile_pay_password_ph" placeholder="6-32位支付密码">
                 </div>
                 <div class="profile-field">
                     <label data-copy="profile_pay_password_confirm_label">确认支付密码</label>
-                    <input type="password" id="profilePayPasswordConfirm" autocomplete="new-password" maxlength="32" placeholder="再次输入支付密码">
+                    <input type="password" id="profilePayPasswordConfirm" autocomplete="new-password" maxlength="32" data-copy-placeholder="profile_pay_password_confirm_ph" placeholder="再次输入支付密码">
                 </div>
-                <button type="button" class="btn-uid-submit" id="profilePayPasswordBtn" onclick="submitPayPasswordForm()">保存支付密码</button>
+                <button type="button" class="btn-uid-submit" id="profilePayPasswordBtn" onclick="submitPayPasswordForm()" data-copy="profile_pay_password_set_btn">设置支付密码</button>
             </div>
         </div>
     </div>
@@ -92,19 +92,19 @@
     <!-- 支付密码输入弹层（提现/绑定） -->
     <div id="walletPayPwdModal" class="wallet-paypwd-modal" hidden>
         <div class="wallet-paypwd-sheet" role="dialog" aria-modal="true">
-            <div class="wallet-paypwd-title" id="walletPayPwdTitle">请输入支付密码</div>
+            <div class="wallet-paypwd-title" id="walletPayPwdTitle" data-copy="profile_pay_password_enter_title">请输入支付密码</div>
             <p class="wallet-paypwd-desc" id="walletPayPwdDesc"></p>
             <div class="profile-field">
-                <label id="walletPayPwdInputLabel">支付密码</label>
-                <input type="password" id="walletPayPwdInput" maxlength="32" placeholder="请输入支付密码">
+                <label id="walletPayPwdInputLabel" data-copy="profile_pay_password_label">支付密码</label>
+                <input type="password" id="walletPayPwdInput" maxlength="32" data-copy-placeholder="api_pay_password_required" placeholder="请输入支付密码">
             </div>
             <div class="profile-field" id="walletPayPwdConfirmWrap" hidden>
-                <label>确认支付密码</label>
-                <input type="password" id="walletPayPwdConfirm" maxlength="32" placeholder="再次输入">
+                <label data-copy="profile_pay_password_confirm_label">确认支付密码</label>
+                <input type="password" id="walletPayPwdConfirm" maxlength="32" data-copy-placeholder="wallet_paypwd_confirm_ph" placeholder="再次输入">
             </div>
             <div class="wallet-paypwd-actions">
-                <button type="button" class="wallet-paypwd-cancel" id="walletPayPwdCancel">取消</button>
-                <button type="button" class="btn-uid-submit wallet-paypwd-ok" id="walletPayPwdOk">确认</button>
+                <button type="button" class="wallet-paypwd-cancel" id="walletPayPwdCancel" data-copy="wallet_paypwd_cancel">取消</button>
+                <button type="button" class="btn-uid-submit wallet-paypwd-ok" id="walletPayPwdOk" data-copy="wallet_paypwd_ok">确认</button>
             </div>
         </div>
     </div>
@@ -156,7 +156,7 @@
                     <div id="profileWithdrawWalletBind" class="wallet-bind-panel" hidden>
                         <div class="profile-meta-line" id="profileWithdrawBindHint" data-copy="wallet_bind_unbound_hint">请先为该钱包绑定收款地址，每种钱包类型独立绑定，地址不可重复使用。</div>
                         <div class="wallet-bind-current" id="profileWithdrawBindCurrent" hidden>
-                            <div class="profile-meta-line"><span id="profileWithdrawBoundLabel">钱包地址：</span><strong id="profileWithdrawBoundAddr">-</strong></div>
+                            <div class="profile-meta-line"><span id="profileWithdrawBoundLabel" data-copy="wallet_bound_label">钱包地址：</span><strong id="profileWithdrawBoundAddr">-</strong></div>
                         </div>
                         <div class="wallet-bind-form" id="profileWithdrawBindForm">
                             <div class="profile-field">
@@ -209,7 +209,7 @@
                         <input type="number" id="profileWithdrawAmount" step="0.01" min="1" data-copy-placeholder="profile_amount_ph" placeholder="请输入金额">
                     </div>
                     <div class="profile-meta-line wallet-withdraw-verify-addr" id="profileWithdrawVerifyAddrWrap" hidden>
-                        <span id="profileWithdrawVerifyAddrLabel">钱包地址</span>
+                        <span id="profileWithdrawVerifyAddrLabel" data-copy="wallet_bind_address_label">钱包地址</span>
                         <strong id="profileWithdrawVerifyAddr">-</strong>
                     </div>
                     <button type="button" class="btn-uid-submit" id="profileWithdrawSubmit" onclick="submitProfileWithdraw()" data-copy="profile_withdraw_submit">确认提现</button>
@@ -239,15 +239,15 @@
                     <div class="profile-meta-line" id="profilePayeeBankBound" hidden></div>
                     <div class="profile-field">
                         <label data-copy="profile_payee_bank_name_label">开户名</label>
-                        <input type="text" id="profilePayeeBankAccountName" placeholder="持卡人姓名">
+                        <input type="text" id="profilePayeeBankAccountName" data-copy-placeholder="profile_payee_bank_name_ph" placeholder="持卡人姓名">
                     </div>
                     <div class="profile-field">
                         <label data-copy="profile_payee_bank_no_label">银行卡号</label>
-                        <input type="text" id="profilePayeeBankAccountNo" placeholder="请输入银行卡号">
+                        <input type="text" id="profilePayeeBankAccountNo" data-copy-placeholder="profile_payee_bank_no_ph" placeholder="请输入银行卡号">
                     </div>
                     <div class="profile-field">
                         <label data-copy="profile_payee_bank_label">开户行</label>
-                        <input type="text" id="profilePayeeBankName" placeholder="如：中国工商银行">
+                        <input type="text" id="profilePayeeBankName" data-copy-placeholder="profile_payee_bank_ph" placeholder="如：中国工商银行">
                     </div>
                     <button type="button" class="btn-uid-submit" onclick="submitProfilePayeeBind('bank')" data-copy="profile_payee_save_bank">保存银行卡</button>
                 </div>
@@ -256,11 +256,11 @@
                     <div class="profile-meta-line" id="profilePayeeAlipayBound" hidden></div>
                     <div class="profile-field">
                         <label data-copy="profile_payee_alipay_name_label">支付宝实名</label>
-                        <input type="text" id="profilePayeeAlipayName" placeholder="支付宝实名姓名">
+                        <input type="text" id="profilePayeeAlipayName" data-copy-placeholder="profile_payee_alipay_name_ph" placeholder="支付宝实名姓名">
                     </div>
                     <div class="profile-field">
                         <label data-copy="profile_payee_alipay_no_label">支付宝账号</label>
-                        <input type="text" id="profilePayeeAlipayNo" placeholder="手机号 / 邮箱">
+                        <input type="text" id="profilePayeeAlipayNo" data-copy-placeholder="profile_payee_alipay_no_ph" placeholder="手机号 / 邮箱">
                     </div>
                     <button type="button" class="btn-uid-submit" onclick="submitProfilePayeeBind('alipay')" data-copy="profile_payee_save_alipay">保存支付宝</button>
                 </div>
@@ -269,11 +269,11 @@
                     <div class="profile-meta-line" id="profilePayeeWechatBound" hidden></div>
                     <div class="profile-field">
                         <label data-copy="profile_payee_wechat_name_label">微信实名</label>
-                        <input type="text" id="profilePayeeWechatName" placeholder="微信实名姓名">
+                        <input type="text" id="profilePayeeWechatName" data-copy-placeholder="profile_payee_wechat_name_ph" placeholder="微信实名姓名">
                     </div>
                     <div class="profile-field">
                         <label data-copy="profile_payee_wechat_no_label">微信号 / 收款账号</label>
-                        <input type="text" id="profilePayeeWechatNo" placeholder="微信号或绑定手机号">
+                        <input type="text" id="profilePayeeWechatNo" data-copy-placeholder="profile_payee_wechat_no_ph" placeholder="微信号或绑定手机号">
                     </div>
                     <button type="button" class="btn-uid-submit" onclick="submitProfilePayeeBind('wechat')" data-copy="profile_payee_save_wechat">保存微信</button>
                 </div>
@@ -284,35 +284,35 @@
                     <div id="profilePayeeWalletForm" class="wallet-bind-panel" hidden>
                         <div class="profile-meta-line"><span data-copy="profile_payee_wallet_type_label">当前钱包：</span><strong id="profilePayeeWalletTypeLabel">-</strong></div>
                         <div class="profile-meta-line" id="profilePayeeWalletBoundLine" hidden>
-                            <span id="profilePayeeWalletBoundLabel">钱包地址：</span><strong id="profilePayeeWalletBoundAddr">-</strong>
+                            <span id="profilePayeeWalletBoundLabel" data-copy="wallet_bound_label">钱包地址：</span><strong id="profilePayeeWalletBoundAddr">-</strong>
                         </div>
                         <div id="profilePayeeWalletSingleFields">
                             <div class="profile-field">
                                 <label id="profilePayeeWalletAddressLabel" data-copy="wallet_bind_address_label">钱包地址</label>
-                                <input type="text" id="profilePayeeWalletAddress" placeholder="请输入钱包收款地址">
+                                <input type="text" id="profilePayeeWalletAddress" data-copy-placeholder="wallet_bind_address_ph" placeholder="请输入钱包收款地址">
                             </div>
                             <div class="profile-field">
                                 <label data-copy="wallet_bind_name_label">备注姓名（可选）</label>
-                                <input type="text" id="profilePayeeWalletName" placeholder="可选">
+                                <input type="text" id="profilePayeeWalletName" data-copy-placeholder="wallet_bind_name_ph" placeholder="可选">
                             </div>
                         </div>
                         <div id="profilePayeeUsdtChainFields" hidden>
                             <p class="profile-meta-line" data-copy="profile_payee_usdt_hint">USDT 分三条填写：TRC20 / ERC20 / TON，可只绑其中一条或几条</p>
                             <div class="profile-field">
-                                <label>TRC20 地址</label>
-                                <input type="text" id="profilePayeeUsdtTrc20" placeholder="USDT-TRC20 收款地址">
+                                <label data-copy="profile_payee_usdt_trc20_label">TRC20 地址</label>
+                                <input type="text" id="profilePayeeUsdtTrc20" data-copy-placeholder="profile_payee_usdt_trc20_ph" placeholder="USDT-TRC20 收款地址">
                             </div>
                             <div class="profile-field">
-                                <label>ERC20 地址</label>
-                                <input type="text" id="profilePayeeUsdtErc20" placeholder="USDT-ERC20 收款地址">
+                                <label data-copy="profile_payee_usdt_erc20_label">ERC20 地址</label>
+                                <input type="text" id="profilePayeeUsdtErc20" data-copy-placeholder="profile_payee_usdt_erc20_ph" placeholder="USDT-ERC20 收款地址">
                             </div>
                             <div class="profile-field">
-                                <label>TON 地址</label>
-                                <input type="text" id="profilePayeeUsdtTon" placeholder="USDT-TON 收款地址">
+                                <label data-copy="profile_payee_usdt_ton_label">TON 地址</label>
+                                <input type="text" id="profilePayeeUsdtTon" data-copy-placeholder="profile_payee_usdt_ton_ph" placeholder="USDT-TON 收款地址">
                             </div>
                             <div class="profile-field">
                                 <label data-copy="wallet_bind_name_label">备注姓名（可选）</label>
-                                <input type="text" id="profilePayeeUsdtName" placeholder="可选">
+                                <input type="text" id="profilePayeeUsdtName" data-copy-placeholder="wallet_bind_name_ph" placeholder="可选">
                             </div>
                         </div>
                         <button type="button" class="btn-uid-submit" onclick="submitProfilePayeeBind('wallet')" data-copy="wallet_bind_submit">确认绑定</button>

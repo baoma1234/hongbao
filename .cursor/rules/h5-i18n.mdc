@@ -1,0 +1,22 @@
+---
+description: H5/IM new UI copy must be wired for i18n
+globs: public/888/**/*.{php,js,html},application/extra/fanshub_h5_copy.php,application/extra/i18n/**
+alwaysApply: false
+---
+
+# Multilingual copy (FansHub H5)
+
+When adding or changing user-visible text in `public/888` (chat, profile, wallet, login):
+
+1. **Do not ship hardcoded Chinese-only labels** in HTML/JS as the sole source.
+2. Add the Chinese string to `application/extra/fanshub_h5_copy.php` with a stable key.
+3. Add English (and any locale-specific) overrides in `application/extra/i18n/en-PH.php` (other langs fall back to EN).
+4. Wire the UI:
+   - Static text: `data-copy="key"`
+   - Placeholders: `data-copy-placeholder="key"`
+   - Aria: `data-copy-aria="key"`
+   - JS strings: `fc('key')` / `chatT('key')` / `wt('key', 'fallback')`
+5. Regenerate packs: `php scripts/generate_i18n_locales.php`
+6. If chat modules change, rebuild `tools/build-888-chat.ps1` and bump `$assetVer` in `public/888/index.php`.
+
+Missing keys show Chinese fallback or the key itself — treat that as a bug before merge.

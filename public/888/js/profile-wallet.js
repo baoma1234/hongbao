@@ -64,6 +64,18 @@
           ? wt('profile_pay_password_set_hint', '首次设置支付密码，用于提现与绑定地址')
           : '';
       }
+      var inputLabel = document.getElementById('walletPayPwdInputLabel');
+      if (inputLabel) inputLabel.textContent = wt('profile_pay_password_label', '支付密码');
+      input.placeholder = isSet
+        ? wt('profile_pay_password_ph', '6-32位支付密码')
+        : wt('api_pay_password_required', '请输入支付密码');
+      if (confirm) {
+        confirm.placeholder = wt('wallet_paypwd_confirm_ph', '再次输入');
+        var confLab = confirmWrap ? confirmWrap.querySelector('label') : null;
+        if (confLab) confLab.textContent = wt('profile_pay_password_confirm_label', '确认支付密码');
+      }
+      if (ok) ok.textContent = wt('wallet_paypwd_ok', '确认');
+      if (cancel) cancel.textContent = wt('wallet_paypwd_cancel', '取消');
       if (confirmWrap) confirmWrap.hidden = !isSet;
       input.value = '';
       if (confirm) confirm.value = '';
