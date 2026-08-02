@@ -1835,7 +1835,22 @@
         } else if (blockNum && tronHref) {
           fairBits += '<a class="chat-rp-tron-btn" href="' + tronHref + '" target="_blank" rel="noopener">查看锁定区块</a>';
         }
-        fairBits += '<a class="chat-rp-fair-link" href="fair-verify.html?packet_no=' + pno + '" target="_blank" rel="noopener">本站验证详情</a>';
+        fairBits += '<a class="chat-rp-fair-link" href="fair-verify.html?packet_no=' + pno
+          + '&packet_id=' + (packetId | 0)
+          + '" data-packet-id="' + (packetId | 0) + '" rel="noopener">本站验证详情</a>';
+        try {
+          sessionStorage.setItem('fans_hub_rp_fair_return', JSON.stringify({
+            packetId: packetId | 0,
+            packetNo: p.packet_no || '',
+            room: state.room ? {
+              type: state.room.type | 0,
+              id: state.room.id,
+              peer: state.room.peer | 0,
+              title: state.room.title || ''
+            } : null,
+            at: Date.now()
+          }));
+        } catch (eStore) {}
       }
       head.innerHTML = '<div class="chat-rp-detail-bless">' + escapeHtml(bless) + '</div>' +
         '<div class="chat-rp-detail-meta">共 ' + (p.total_count | 0) + ' 个 · ￥' + (parseFloat(p.total_amount || 0).toFixed(2)) + '</div>' +
@@ -1876,6 +1891,7 @@
           } else {
             avInner = escapeHtml((nick || 'U').charAt(0));
           }
+          // locked=不可点资料；is-gray=隐私脱敏灰头
           var avHtml = '<div class="chat-rp-record-avatar locked' + (gray ? ' is-gray' : '') + '" aria-disabled="true">' + avInner + '</div>';
           var nameCls = 'chat-rp-record-name locked' + (gray ? ' is-masked' : '');
           var lockIcon = gray ? '<span class="chat-rp-lock" aria-hidden="true">🔒</span>' : '';
@@ -4887,6 +4903,73 @@
     state.stickerManifest = null;
     syncBalanceFromAccount();
     hydrateListFromCache();
+    setTimeout(function () { consumeOpenRpDeepLink(); }, 400);
+  }
+
+  function consumeOpenRpDeepLink() {
+    var pid = 0;
+    try {
+      var q = new URLSearchParams(location.search || '');
+      pid = parseInt(q.get('open_rp') || '0', 10) || 0;
+    } catch (e0) { pid = 0; }
+    try {
+      var raw = sessionStorage.getItem('fans_hub_rp_fair_return');
+      if (raw) {
+        var j = JSON.parse(raw);
+        if (j && (j.reopen || !pid) && (j.packetId | 0) > 0) {
+          if (!pid) pid = j.packetId | 0;
+          // 消费后清 reopen，避免反复弹
+          j.reopen = 0;
+          sessionStorage.setItem('fans_hub_rp_fair_return', JSON.stringify(j));
+        }
+      }
+    } catch (e1) {}
+    if (pid <= 0) return;
+    try {
+      var u = new URL(location.href);
+      if (u.searchParams.has('open_rp')) {
+        u.searchParams.delete('open_rp');
+        history.replaceState(null, '', u.pathname + (u.search || '') + (u.hash || ''));
+      }
+    } catch (e2) {}
+    try {
+      if (typeof switchTab === 'function') switchTab('messages');
+      else if (typeof global.switchTab === 'function') global.switchTab('messages');
+    } catch (e3) {}
+    var room = null;
+    try {
+      var raw2 = sessionStorage.getItem('fans_hub_rp_fair_return');
+      var j2 = raw2 ? JSON.parse(raw2) : null;
+      room = j2 && j2.room ? j2.room : null;
+    } catch (e4) { room = null; }
+    var openDetail = function () {
+      openRedPacketDetail(pid).catch(function () {});
+    };
+    if (room && (room.type | 0) === 2 && room.id) {
+      openRoom({
+        type: room.type | 0,
+        id: room.id,
+        peer: room.peer | 0,
+        title: room.title || ''
+      }).then(function () {
+        setTimeout(openDetail, 200);
+      }).catch(function () {
+        openDetail();
+      });
+    } else if (room && (room.type | 0) === 1 && room.id) {
+      openRoom({
+        type: 1,
+        id: room.id,
+        peer: room.peer | 0,
+        title: room.title || ''
+      }).then(function () {
+        setTimeout(openDetail, 200);
+      }).catch(function () {
+        openDetail();
+      });
+    } else {
+      setTimeout(openDetail, 300);
+    }
   }
 
   function onLogout() {
@@ -4916,8 +4999,23 @@
     ensureConnected: ensureConnected,
     disconnect: disconnect,
     closeRoom: closeRoom,
+    openRedPacketDetail: openRedPacketDetail,
+    consumeOpenRpDeepLink: consumeOpenRpDeepLink,
     addFriendByMemberId: null
   };
+
+  // 从验证页 history.back 回来时 onLogin 不会再跑，靠 pageshow 重开详情
+  try {
+    global.addEventListener('pageshow', function () {
+      try {
+        var raw = sessionStorage.getItem('fans_hub_rp_fair_return');
+        if (!raw) return;
+        var j = JSON.parse(raw);
+        if (!j || !j.reopen || !(j.packetId | 0)) return;
+        consumeOpenRpDeepLink();
+      } catch (ePs) {}
+    });
+  } catch (eBind) {}
 /* === 05-community.js === */
 /**
  * Community tab + phone add-friend (loaded after 04-net.js inside FansHubChat IIFE)

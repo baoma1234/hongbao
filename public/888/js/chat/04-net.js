@@ -1087,6 +1087,73 @@
     state.stickerManifest = null;
     syncBalanceFromAccount();
     hydrateListFromCache();
+    setTimeout(function () { consumeOpenRpDeepLink(); }, 400);
+  }
+
+  function consumeOpenRpDeepLink() {
+    var pid = 0;
+    try {
+      var q = new URLSearchParams(location.search || '');
+      pid = parseInt(q.get('open_rp') || '0', 10) || 0;
+    } catch (e0) { pid = 0; }
+    try {
+      var raw = sessionStorage.getItem('fans_hub_rp_fair_return');
+      if (raw) {
+        var j = JSON.parse(raw);
+        if (j && (j.reopen || !pid) && (j.packetId | 0) > 0) {
+          if (!pid) pid = j.packetId | 0;
+          // 消费后清 reopen，避免反复弹
+          j.reopen = 0;
+          sessionStorage.setItem('fans_hub_rp_fair_return', JSON.stringify(j));
+        }
+      }
+    } catch (e1) {}
+    if (pid <= 0) return;
+    try {
+      var u = new URL(location.href);
+      if (u.searchParams.has('open_rp')) {
+        u.searchParams.delete('open_rp');
+        history.replaceState(null, '', u.pathname + (u.search || '') + (u.hash || ''));
+      }
+    } catch (e2) {}
+    try {
+      if (typeof switchTab === 'function') switchTab('messages');
+      else if (typeof global.switchTab === 'function') global.switchTab('messages');
+    } catch (e3) {}
+    var room = null;
+    try {
+      var raw2 = sessionStorage.getItem('fans_hub_rp_fair_return');
+      var j2 = raw2 ? JSON.parse(raw2) : null;
+      room = j2 && j2.room ? j2.room : null;
+    } catch (e4) { room = null; }
+    var openDetail = function () {
+      openRedPacketDetail(pid).catch(function () {});
+    };
+    if (room && (room.type | 0) === 2 && room.id) {
+      openRoom({
+        type: room.type | 0,
+        id: room.id,
+        peer: room.peer | 0,
+        title: room.title || ''
+      }).then(function () {
+        setTimeout(openDetail, 200);
+      }).catch(function () {
+        openDetail();
+      });
+    } else if (room && (room.type | 0) === 1 && room.id) {
+      openRoom({
+        type: 1,
+        id: room.id,
+        peer: room.peer | 0,
+        title: room.title || ''
+      }).then(function () {
+        setTimeout(openDetail, 200);
+      }).catch(function () {
+        openDetail();
+      });
+    } else {
+      setTimeout(openDetail, 300);
+    }
   }
 
   function onLogout() {
@@ -1116,5 +1183,20 @@
     ensureConnected: ensureConnected,
     disconnect: disconnect,
     closeRoom: closeRoom,
+    openRedPacketDetail: openRedPacketDetail,
+    consumeOpenRpDeepLink: consumeOpenRpDeepLink,
     addFriendByMemberId: null
   };
+
+  // 从验证页 history.back 回来时 onLogin 不会再跑，靠 pageshow 重开详情
+  try {
+    global.addEventListener('pageshow', function () {
+      try {
+        var raw = sessionStorage.getItem('fans_hub_rp_fair_return');
+        if (!raw) return;
+        var j = JSON.parse(raw);
+        if (!j || !j.reopen || !(j.packetId | 0)) return;
+        consumeOpenRpDeepLink();
+      } catch (ePs) {}
+    });
+  } catch (eBind) {}

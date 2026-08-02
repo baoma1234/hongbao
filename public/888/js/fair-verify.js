@@ -20,6 +20,59 @@
     var no = q.get('packet_no') || q.get('no') || '';
     if (no && $('packetNo')) $('packetNo').value = no;
   }
+  function homeBase() {
+    var path = location.pathname || '/';
+    var idx = path.indexOf('/888/');
+    if (idx >= 0) return location.origin + path.slice(0, idx) + '/888/';
+    return location.origin + '/888/';
+  }
+  function resolveReturnPacketId() {
+    var q = new URLSearchParams(location.search);
+    var pid = parseInt(q.get('packet_id') || q.get('pid') || '0', 10) || 0;
+    if (pid > 0) return pid;
+    try {
+      var raw = sessionStorage.getItem('fans_hub_rp_fair_return');
+      if (!raw) return 0;
+      var j = JSON.parse(raw);
+      if (!j) return 0;
+      if (j.at && (Date.now() - (j.at | 0)) > 2 * 3600 * 1000) return 0;
+      return (j.packetId | 0) || 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+  function goBackToRpDetail() {
+    var pid = resolveReturnPacketId();
+    var ref = '';
+    try { ref = String(document.referrer || ''); } catch (e0) { ref = ''; }
+    var from888 = /\/888(\/|$|\?|#)/.test(ref);
+    // 同页跳转过来时优先 history.back，可保留会话/详情栈
+    if (from888 && window.history.length > 1) {
+      try {
+        if (pid > 0) {
+          sessionStorage.setItem('fans_hub_rp_fair_return', JSON.stringify({
+            packetId: pid,
+            at: Date.now(),
+            reopen: 1
+          }));
+        }
+      } catch (e1) {}
+      history.back();
+      return;
+    }
+    var url = homeBase();
+    if (pid > 0) {
+      url += (url.indexOf('?') >= 0 ? '&' : '?') + 'open_rp=' + encodeURIComponent(String(pid));
+      try {
+        sessionStorage.setItem('fans_hub_rp_fair_return', JSON.stringify({
+          packetId: pid,
+          at: Date.now(),
+          reopen: 1
+        }));
+      } catch (e2) {}
+    }
+    location.href = url;
+  }
   function statusLabel(st) {
     var m = { 1: '\u53ef\u62a2', 2: '\u5df2\u62a2\u5b8c', 3: '\u5df2\u8fc7\u671f', 4: '\u5df2\u5173\u95ed', 5: '\u5df2\u7ed3\u7b97' };
     return m[st] || ('status ' + st);
@@ -62,7 +115,12 @@
       return;
     }
     try {
-      history.replaceState(null, '', '?packet_no=' + encodeURIComponent(no));
+      history.replaceState(null, '', '?packet_no=' + encodeURIComponent(no)
+        + (function () {
+          var q = new URLSearchParams(location.search);
+          var pid = q.get('packet_id') || q.get('pid') || '';
+          return pid ? ('&packet_id=' + encodeURIComponent(pid)) : '';
+        })());
     } catch (e) { /* ignore */ }
     var json;
     try {
@@ -184,6 +242,8 @@
       err.style.display = 'block';
     }
   }); });
+  var backBtn = $('btnBackHome');
+  if (backBtn) backBtn.addEventListener('click', goBackToRpDetail);
   readQuery();
   if (($('packetNo').value || '').trim()) {
     verify().catch(function () {});

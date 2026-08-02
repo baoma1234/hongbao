@@ -801,7 +801,22 @@
         } else if (blockNum && tronHref) {
           fairBits += '<a class="chat-rp-tron-btn" href="' + tronHref + '" target="_blank" rel="noopener">查看锁定区块</a>';
         }
-        fairBits += '<a class="chat-rp-fair-link" href="fair-verify.html?packet_no=' + pno + '" target="_blank" rel="noopener">本站验证详情</a>';
+        fairBits += '<a class="chat-rp-fair-link" href="fair-verify.html?packet_no=' + pno
+          + '&packet_id=' + (packetId | 0)
+          + '" data-packet-id="' + (packetId | 0) + '" rel="noopener">本站验证详情</a>';
+        try {
+          sessionStorage.setItem('fans_hub_rp_fair_return', JSON.stringify({
+            packetId: packetId | 0,
+            packetNo: p.packet_no || '',
+            room: state.room ? {
+              type: state.room.type | 0,
+              id: state.room.id,
+              peer: state.room.peer | 0,
+              title: state.room.title || ''
+            } : null,
+            at: Date.now()
+          }));
+        } catch (eStore) {}
       }
       head.innerHTML = '<div class="chat-rp-detail-bless">' + escapeHtml(bless) + '</div>' +
         '<div class="chat-rp-detail-meta">共 ' + (p.total_count | 0) + ' 个 · ￥' + (parseFloat(p.total_amount || 0).toFixed(2)) + '</div>' +
@@ -842,6 +857,7 @@
           } else {
             avInner = escapeHtml((nick || 'U').charAt(0));
           }
+          // locked=不可点资料；is-gray=隐私脱敏灰头
           var avHtml = '<div class="chat-rp-record-avatar locked' + (gray ? ' is-gray' : '') + '" aria-disabled="true">' + avInner + '</div>';
           var nameCls = 'chat-rp-record-name locked' + (gray ? ' is-masked' : '');
           var lockIcon = gray ? '<span class="chat-rp-lock" aria-hidden="true">🔒</span>' : '';
