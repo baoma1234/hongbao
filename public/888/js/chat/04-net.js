@@ -1167,22 +1167,16 @@
           sessionStorage.setItem('fans_hub_rp_fair_return', JSON.stringify(keepPayload));
         }
       } catch (eClr) {}
-      var openDetail = function () {
-        return openRedPacketDetail(pid);
-      };
+      // 先踢开会话壳（不 await 历史），再立刻开详情，避免历史超时挡住详情
       if (room && ((room.type | 0) === 1 || (room.type | 0) === 2) && room.id) {
-        return openRoom({
+        openRoom({
           type: room.type | 0,
           id: room.id,
           peer: room.peer | 0,
           title: room.title || ''
-        }).then(function () {
-          return openDetail();
-        }).catch(function () {
-          return openDetail();
-        });
+        }).catch(function () {});
       }
-      return openDetail();
+      return openRedPacketDetail(pid);
     }).catch(function (err) {
       // 保留 reopen，下次进红宝页可再试
       try {
@@ -1242,6 +1236,10 @@
         if (!raw) return;
         var j = JSON.parse(raw);
         if (!j || !j.reopen || !(j.packetId | 0)) return;
+        try { ensureConnected(); } catch (eC) {}
+        if (!state.connected && !state.connecting) {
+          try { connect(true); } catch (eC2) {}
+        }
         consumeOpenRpDeepLink();
       } catch (ePs) {}
     });

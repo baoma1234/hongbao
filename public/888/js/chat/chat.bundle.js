@@ -894,7 +894,9 @@
     } catch (e) {}
   }
 
-  function sendViaWs(type, data) {
+  function sendViaWs(type, data, opts) {
+    opts = opts || {};
+    var timeoutMs = (opts.timeoutMs | 0) || 15000;
     return new Promise(function (resolve, reject) {
       if (!state.ws || state.ws.readyState !== 1) {
         reject(new Error('未连接'));
@@ -908,7 +910,7 @@
           delete state.pending[reqId];
           reject(new Error('超时'));
         }
-      }, 15000);
+      }, timeoutMs);
     });
   }
 
@@ -1972,21 +1974,39 @@
     }
     // 先打开面板，再异步拉数据（避免点击卡顿）
     openSubPane('chatRpDetailPane');
-    try {
-      var packet = await send('redpacket.detail', { packet_id: packetId });
-      if (state._rpDetailPacketId !== packetId) return;
-      applyRedPacketDetailData(packetId, packet.data || {});
-    } catch (e) {
-      if (state._rpDetailPacketId !== packetId) return;
-      if (head) {
-        head.innerHTML = '<div class="chat-rp-detail-bless">红包</div>' +
-          '<div class="chat-rp-detail-meta">加载失败</div>';
+    var lastErr = null;
+    var attempt = 0;
+    while (attempt < 3) {
+      attempt++;
+      try {
+        if (!state.connected || !state.ws || state.ws.readyState !== 1) {
+          if (typeof waitUntilConnected === 'function') {
+            await waitUntilConnected(12000);
+          } else {
+            try { ensureConnected(); } catch (eC) {}
+            await new Promise(function (r) { setTimeout(r, 400 * attempt); });
+          }
+        }
+        var packet = await send('redpacket.detail', { packet_id: packetId }, { timeoutMs: 20000 });
+        if (state._rpDetailPacketId !== packetId) return;
+        applyRedPacketDetailData(packetId, packet.data || {});
+        return;
+      } catch (e) {
+        lastErr = e;
+        var msg = (e && e.message) || '';
+        if (msg !== '超时' && msg !== '未连接') break;
+        await new Promise(function (r) { setTimeout(r, 350 * attempt); });
       }
-      if (list) {
-        list.innerHTML = '<div class="chat-empty">' + escapeHtml((e && e.message) || '加载失败') + '</div>';
-      }
-      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '加载失败', 'error');
     }
+    if (state._rpDetailPacketId !== packetId) return;
+    if (head) {
+      head.innerHTML = '<div class="chat-rp-detail-bless">红包</div>' +
+        '<div class="chat-rp-detail-meta">加载失败</div>';
+    }
+    if (list) {
+      list.innerHTML = '<div class="chat-empty">' + escapeHtml((lastErr && lastErr.message) || '加载失败') + '</div>';
+    }
+    if (typeof showFanshubToast === 'function') showFanshubToast((lastErr && lastErr.message) || '加载失败', 'error');
   }
 
   function scrollMsgToLatest() {
@@ -4983,22 +5003,16 @@
           sessionStorage.setItem('fans_hub_rp_fair_return', JSON.stringify(keepPayload));
         }
       } catch (eClr) {}
-      var openDetail = function () {
-        return openRedPacketDetail(pid);
-      };
+      // 先踢开会话壳（不 await 历史），再立刻开详情，避免历史超时挡住详情
       if (room && ((room.type | 0) === 1 || (room.type | 0) === 2) && room.id) {
-        return openRoom({
+        openRoom({
           type: room.type | 0,
           id: room.id,
           peer: room.peer | 0,
           title: room.title || ''
-        }).then(function () {
-          return openDetail();
-        }).catch(function () {
-          return openDetail();
-        });
+        }).catch(function () {});
       }
-      return openDetail();
+      return openRedPacketDetail(pid);
     }).catch(function (err) {
       // 保留 reopen，下次进红宝页可再试
       try {
@@ -5058,6 +5072,10 @@
         if (!raw) return;
         var j = JSON.parse(raw);
         if (!j || !j.reopen || !(j.packetId | 0)) return;
+        try { ensureConnected(); } catch (eC) {}
+        if (!state.connected && !state.connecting) {
+          try { connect(true); } catch (eC2) {}
+        }
         consumeOpenRpDeepLink();
       } catch (ePs) {}
     });

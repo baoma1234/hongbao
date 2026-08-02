@@ -938,21 +938,39 @@
     }
     // 先打开面板，再异步拉数据（避免点击卡顿）
     openSubPane('chatRpDetailPane');
-    try {
-      var packet = await send('redpacket.detail', { packet_id: packetId });
-      if (state._rpDetailPacketId !== packetId) return;
-      applyRedPacketDetailData(packetId, packet.data || {});
-    } catch (e) {
-      if (state._rpDetailPacketId !== packetId) return;
-      if (head) {
-        head.innerHTML = '<div class="chat-rp-detail-bless">红包</div>' +
-          '<div class="chat-rp-detail-meta">加载失败</div>';
+    var lastErr = null;
+    var attempt = 0;
+    while (attempt < 3) {
+      attempt++;
+      try {
+        if (!state.connected || !state.ws || state.ws.readyState !== 1) {
+          if (typeof waitUntilConnected === 'function') {
+            await waitUntilConnected(12000);
+          } else {
+            try { ensureConnected(); } catch (eC) {}
+            await new Promise(function (r) { setTimeout(r, 400 * attempt); });
+          }
+        }
+        var packet = await send('redpacket.detail', { packet_id: packetId }, { timeoutMs: 20000 });
+        if (state._rpDetailPacketId !== packetId) return;
+        applyRedPacketDetailData(packetId, packet.data || {});
+        return;
+      } catch (e) {
+        lastErr = e;
+        var msg = (e && e.message) || '';
+        if (msg !== '超时' && msg !== '未连接') break;
+        await new Promise(function (r) { setTimeout(r, 350 * attempt); });
       }
-      if (list) {
-        list.innerHTML = '<div class="chat-empty">' + escapeHtml((e && e.message) || '加载失败') + '</div>';
-      }
-      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '加载失败', 'error');
     }
+    if (state._rpDetailPacketId !== packetId) return;
+    if (head) {
+      head.innerHTML = '<div class="chat-rp-detail-bless">红包</div>' +
+        '<div class="chat-rp-detail-meta">加载失败</div>';
+    }
+    if (list) {
+      list.innerHTML = '<div class="chat-empty">' + escapeHtml((lastErr && lastErr.message) || '加载失败') + '</div>';
+    }
+    if (typeof showFanshubToast === 'function') showFanshubToast((lastErr && lastErr.message) || '加载失败', 'error');
   }
 
   function scrollMsgToLatest() {

@@ -891,7 +891,9 @@
     } catch (e) {}
   }
 
-  function sendViaWs(type, data) {
+  function sendViaWs(type, data, opts) {
+    opts = opts || {};
+    var timeoutMs = (opts.timeoutMs | 0) || 15000;
     return new Promise(function (resolve, reject) {
       if (!state.ws || state.ws.readyState !== 1) {
         reject(new Error('未连接'));
@@ -905,7 +907,7 @@
           delete state.pending[reqId];
           reject(new Error('超时'));
         }
-      }, 15000);
+      }, timeoutMs);
     });
   }
 
