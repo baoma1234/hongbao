@@ -1338,16 +1338,56 @@
     return state._listFetching;
   }
 
+  var _groupViewPingTimer = null;
+  var _viewingGroupId = 0;
+
+  function leaveGroupViewPresence() {
+    if (_groupViewPingTimer) {
+      clearInterval(_groupViewPingTimer);
+      _groupViewPingTimer = null;
+    }
+    var gid = _viewingGroupId | 0;
+    _viewingGroupId = 0;
+    if (gid > 0 && typeof send === 'function') {
+      try { send('group.view.leave', { group_id: gid }).catch(function () {}); } catch (eLeave) {}
+    }
+  }
+
+  function enterGroupViewPresence(groupId) {
+    groupId = groupId | 0;
+    if (groupId <= 0) return;
+    if (_viewingGroupId && _viewingGroupId !== groupId) {
+      leaveGroupViewPresence();
+    }
+    _viewingGroupId = groupId;
+    if (typeof send !== 'function') return;
+    var ping = function () {
+      if ((_viewingGroupId | 0) !== groupId) return;
+      if (!state.room || state.room.type !== 2 || (state.room.id | 0) !== groupId) return;
+      send('group.view.ping', { group_id: groupId }).catch(function () {});
+    };
+    try {
+      send('group.view.enter', { group_id: groupId }).catch(function () {});
+    } catch (eEnter) {}
+    if (_groupViewPingTimer) clearInterval(_groupViewPingTimer);
+    _groupViewPingTimer = setInterval(ping, 40000);
+  }
+
   async function openRoom(opts) {
     closeComposerPanels();
     closeGroupSubPanes();
     ensureStickersLoaded(false);
+    // 离开上一群时扣在线
+    leaveGroupViewPresence();
     state.room = {
       type: opts.type | 0,
       id: opts.id,
       peer: opts.peer | 0,
       title: opts.title || ''
     };
+    if (state.room.type === 2) {
+      enterGroupViewPresence(state.room.id | 0);
+    }
     state.messages = [];
     state.groupMeta = null;
     state.rpCover = {};
@@ -1444,6 +1484,7 @@
     closeMediaLightbox();
     closeGroupSubPanes();
     closeMemberSheets();
+    leaveGroupViewPresence();
     state.room = null;
     state.groupMeta = null;
     setComposerMuted(false, '');

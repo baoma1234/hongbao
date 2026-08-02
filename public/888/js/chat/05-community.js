@@ -1,6 +1,27 @@
 /**
  * Community tab + phone add-friend (loaded after 04-net.js inside FansHubChat IIFE)
  */
+  var _officialOnlinePollTimer = null;
+
+  function stopOfficialOnlinePoll() {
+    if (_officialOnlinePollTimer) {
+      clearInterval(_officialOnlinePollTimer);
+      _officialOnlinePollTimer = null;
+    }
+  }
+
+  function startOfficialOnlinePoll() {
+    stopOfficialOnlinePoll();
+    _officialOnlinePollTimer = setInterval(function () {
+      if (state.homeTab !== 'community' || (state.communitySubTab || 'official') !== 'official') {
+        stopOfficialOnlinePoll();
+        return;
+      }
+      if (document.hidden) return;
+      refreshOfficialCommunitiesQuiet().catch(function () {});
+    }, 7000);
+  }
+
   function setHomeTab(tab) {
     tab = tab === 'community' ? 'community' : 'chat';
     state.homeTab = tab;
@@ -30,12 +51,19 @@
       setCommunitySubTab(state.communitySubTab || 'official');
       // 官方走 API；我的群组/好友仍走 WS（在 refreshCommunity 后半段）
       refreshCommunity().catch(function () {});
+    } else {
+      stopOfficialOnlinePoll();
     }
   }
 
   function setCommunitySubTab(sub) {
     if (sub !== 'mine' && sub !== 'friends') sub = 'official';
     state.communitySubTab = sub;
+    if (sub === 'official' && state.homeTab === 'community') {
+      startOfficialOnlinePoll();
+    } else {
+      stopOfficialOnlinePoll();
+    }
     var map = {
       official: 'chatCommunityPaneOfficial',
       mine: 'chatCommunityPaneMine',
@@ -253,6 +281,23 @@
       });
     } catch (eM) {}
     renderRecommendGroups();
+  }
+
+  /** 静默刷新在线/人数（轮询用，不清空列表避免闪烁） */
+  async function refreshOfficialCommunitiesQuiet() {
+    try {
+      if (typeof global.apiRequest !== 'function') return;
+      var recApi = await global.apiRequest('communityrecommend', 'GET', {});
+      var list = (recApi && recApi.list) || [];
+      if (!list.length) return;
+      var mineIds = {};
+      (state.myGroups || []).forEach(function (g) { mineIds[g.id | 0] = true; });
+      list.forEach(function (g) {
+        if (mineIds[g.id | 0]) g.is_member = true;
+      });
+      state.recommendGroups = list;
+      renderRecommendGroups();
+    } catch (eQ) {}
   }
 
   async function openRecommendOrMyGroup(groupId) {

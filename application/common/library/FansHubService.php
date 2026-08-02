@@ -2381,6 +2381,10 @@ class FansHubService
             $isNew = true;
             self::getOrCreateAccount($user->id);
             self::seedImAdminConversations((int)$user->id);
+            try {
+                FansHubOfficialStats::bumpMembers(1);
+            } catch (\Throwable $eBump) {
+            }
         } else {
             // 老用户补齐管理员会话（幂等）
             self::seedImAdminConversations((int)$user->id);
@@ -4152,11 +4156,14 @@ class FansHubService
         }
 
         $out = [];
+        $memberBase = FansHubOfficialStats::memberBase();
         foreach ($list as $g) {
             $gid = (int)($g['id'] ?? 0);
             $item = $g;
             $item['is_member'] = !empty($joined[$gid]);
-            $item['online_count'] = 0;
+            // 所有官方群统一展示人数；在线人数全端同一公式+正在看群人数
+            $item['member_count'] = $memberBase;
+            $item['online_count'] = FansHubOfficialStats::onlineCount($gid);
             $out[] = $item;
         }
         return ['list' => $out];

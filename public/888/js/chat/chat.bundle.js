@@ -2372,16 +2372,56 @@
     return state._listFetching;
   }
 
+  var _groupViewPingTimer = null;
+  var _viewingGroupId = 0;
+
+  function leaveGroupViewPresence() {
+    if (_groupViewPingTimer) {
+      clearInterval(_groupViewPingTimer);
+      _groupViewPingTimer = null;
+    }
+    var gid = _viewingGroupId | 0;
+    _viewingGroupId = 0;
+    if (gid > 0 && typeof send === 'function') {
+      try { send('group.view.leave', { group_id: gid }).catch(function () {}); } catch (eLeave) {}
+    }
+  }
+
+  function enterGroupViewPresence(groupId) {
+    groupId = groupId | 0;
+    if (groupId <= 0) return;
+    if (_viewingGroupId && _viewingGroupId !== groupId) {
+      leaveGroupViewPresence();
+    }
+    _viewingGroupId = groupId;
+    if (typeof send !== 'function') return;
+    var ping = function () {
+      if ((_viewingGroupId | 0) !== groupId) return;
+      if (!state.room || state.room.type !== 2 || (state.room.id | 0) !== groupId) return;
+      send('group.view.ping', { group_id: groupId }).catch(function () {});
+    };
+    try {
+      send('group.view.enter', { group_id: groupId }).catch(function () {});
+    } catch (eEnter) {}
+    if (_groupViewPingTimer) clearInterval(_groupViewPingTimer);
+    _groupViewPingTimer = setInterval(ping, 40000);
+  }
+
   async function openRoom(opts) {
     closeComposerPanels();
     closeGroupSubPanes();
     ensureStickersLoaded(false);
+    // 离开上一群时扣在线
+    leaveGroupViewPresence();
     state.room = {
       type: opts.type | 0,
       id: opts.id,
       peer: opts.peer | 0,
       title: opts.title || ''
     };
+    if (state.room.type === 2) {
+      enterGroupViewPresence(state.room.id | 0);
+    }
     state.messages = [];
     state.groupMeta = null;
     state.rpCover = {};
@@ -2478,6 +2518,7 @@
     closeMediaLightbox();
     closeGroupSubPanes();
     closeMemberSheets();
+    leaveGroupViewPresence();
     state.room = null;
     state.groupMeta = null;
     setComposerMuted(false, '');
@@ -4878,6 +4919,27 @@
 /**
  * Community tab + phone add-friend (loaded after 04-net.js inside FansHubChat IIFE)
  */
+  var _officialOnlinePollTimer = null;
+
+  function stopOfficialOnlinePoll() {
+    if (_officialOnlinePollTimer) {
+      clearInterval(_officialOnlinePollTimer);
+      _officialOnlinePollTimer = null;
+    }
+  }
+
+  function startOfficialOnlinePoll() {
+    stopOfficialOnlinePoll();
+    _officialOnlinePollTimer = setInterval(function () {
+      if (state.homeTab !== 'community' || (state.communitySubTab || 'official') !== 'official') {
+        stopOfficialOnlinePoll();
+        return;
+      }
+      if (document.hidden) return;
+      refreshOfficialCommunitiesQuiet().catch(function () {});
+    }, 7000);
+  }
+
   function setHomeTab(tab) {
     tab = tab === 'community' ? 'community' : 'chat';
     state.homeTab = tab;
@@ -4907,12 +4969,19 @@
       setCommunitySubTab(state.communitySubTab || 'official');
       // 官方走 API；我的群组/好友仍走 WS（在 refreshCommunity 后半段）
       refreshCommunity().catch(function () {});
+    } else {
+      stopOfficialOnlinePoll();
     }
   }
 
   function setCommunitySubTab(sub) {
     if (sub !== 'mine' && sub !== 'friends') sub = 'official';
     state.communitySubTab = sub;
+    if (sub === 'official' && state.homeTab === 'community') {
+      startOfficialOnlinePoll();
+    } else {
+      stopOfficialOnlinePoll();
+    }
     var map = {
       official: 'chatCommunityPaneOfficial',
       mine: 'chatCommunityPaneMine',
@@ -5130,6 +5199,23 @@
       });
     } catch (eM) {}
     renderRecommendGroups();
+  }
+
+  /** 静默刷新在线/人数（轮询用，不清空列表避免闪烁） */
+  async function refreshOfficialCommunitiesQuiet() {
+    try {
+      if (typeof global.apiRequest !== 'function') return;
+      var recApi = await global.apiRequest('communityrecommend', 'GET', {});
+      var list = (recApi && recApi.list) || [];
+      if (!list.length) return;
+      var mineIds = {};
+      (state.myGroups || []).forEach(function (g) { mineIds[g.id | 0] = true; });
+      list.forEach(function (g) {
+        if (mineIds[g.id | 0]) g.is_member = true;
+      });
+      state.recommendGroups = list;
+      renderRecommendGroups();
+    } catch (eQ) {}
   }
 
   async function openRecommendOrMyGroup(groupId) {

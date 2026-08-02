@@ -8,6 +8,7 @@ use Im\Service\ChatForbidService;
 use Im\Service\ContactService;
 use Im\Service\GroupService;
 use Im\Service\MessageService;
+use Im\Service\OfficialStatsService;
 use Im\Service\RedPacketService;
 use Im\Support\ConnMap;
 use Im\Support\IdGenerator;
@@ -81,6 +82,15 @@ class MessageRouter
 
     public function onClose(TcpConnection $connection)
     {
+        $uid = ConnMap::userIdOf((string)$connection->id);
+        $viewGid = (int)($connection->viewingGroupId ?? 0);
+        if ($uid > 0 && $viewGid > 0) {
+            try {
+                OfficialStatsService::leaveView($viewGid, $uid);
+            } catch (\Throwable $e) {
+            }
+            $connection->viewingGroupId = 0;
+        }
         ConnMap::unbindConn((string)$connection->id);
     }
 
@@ -160,6 +170,13 @@ class MessageRouter
                     break;
                 case 'group.info':
                     $this->handleGroupInfo($connection, $uid, $payload, $reqId);
+                    break;
+                case 'group.view.enter':
+                case 'group.view.ping':
+                    $this->handleGroupView($connection, $uid, $payload, $reqId, true);
+                    break;
+                case 'group.view.leave':
+                    $this->handleGroupView($connection, $uid, $payload, $reqId, false);
                     break;
                 case 'group.update':
                     $this->handleGroupUpdate($connection, $uid, $payload, $reqId);
@@ -566,15 +583,44 @@ class MessageRouter
         }
         $myRole = $this->groups->memberRole($groupId, $uid);
         $policy = $this->groups->buildPolicy($group ?: [], $myRole);
+        $isOfficial = $group && OfficialStatsService::isOfficialRecommend($group);
         return [
             'group'              => $group,
             'my_role'            => $myRole,
             'mute_all'           => $this->groups->isMuteAll($groupId),
             'member_count'       => $this->groups->publicMemberCount($group ?: []),
+            'online_count'       => $isOfficial ? OfficialStatsService::onlineCount($groupId) : 0,
             'member_list_hidden' => !empty($policy['member_list_hidden']),
             'can_speak'          => $this->canSpeakSafe($groupId, $uid),
             'policy'             => $policy,
         ];
+    }
+
+    protected function handleGroupView(TcpConnection $connection, $uid, array $payload, $reqId, $enter)
+    {
+        $gid = (int)($payload['group_id'] ?? 0);
+        if ($gid <= 0) {
+            $this->error($connection, 'group_id required', $reqId);
+            return;
+        }
+        $prev = (int)($connection->viewingGroupId ?? 0);
+        if ($enter) {
+            if ($prev > 0 && $prev !== $gid) {
+                OfficialStatsService::leaveView($prev, $uid);
+            }
+            $online = OfficialStatsService::enterView($gid, $uid);
+            $connection->viewingGroupId = $gid;
+        } else {
+            $online = OfficialStatsService::leaveView($gid, $uid);
+            if ($prev === $gid) {
+                $connection->viewingGroupId = 0;
+            }
+        }
+        $this->send($connection, $enter ? 'group.view.ok' : 'group.view.leave.ok', [
+            'group_id'     => $gid,
+            'online_count' => $online,
+            'member_count' => OfficialStatsService::memberBase(),
+        ], $reqId);
     }
 
     /**

@@ -330,17 +330,16 @@ class GroupService
             }
         }
         $out = [];
+        $memberBase = OfficialStatsService::memberBase();
         foreach ($rows as $g) {
             $gid = (int)$g['id'];
-            $display = (int)($g['display_member_count'] ?? 0);
-            $memberCount = $display > 0 ? $display : (int)($g['member_count'] ?? 0);
             $out[] = [
                 'id'            => $gid,
                 'name'          => (string)($g['name'] ?? ''),
                 'avatar'        => (string)($g['avatar'] ?? ''),
                 'notice'        => (string)($g['notice'] ?? ''),
-                'member_count'  => $memberCount,
-                'online_count'  => 0,
+                'member_count'  => $memberBase,
+                'online_count'  => OfficialStatsService::onlineCount($gid),
                 'is_member'     => !empty($joined[$gid]),
                 'privacy_mode'  => (string)($g['privacy_mode'] ?? 'private'),
                 'chat_mode'     => (string)($g['chat_mode'] ?? 'chat'),
@@ -576,6 +575,9 @@ class GroupService
 
     public function publicMemberCount(array $group)
     {
+        if (OfficialStatsService::isOfficialRecommend($group)) {
+            return OfficialStatsService::memberBase();
+        }
         $display = (int)($group['display_member_count'] ?? 0);
         if ($display > 0) {
             return $display;
