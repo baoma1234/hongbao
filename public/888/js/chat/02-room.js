@@ -1201,6 +1201,11 @@
         }
       }, 0);
       grabBtn.style.display = (!grabbed && !finished && !expired) ? '' : 'none';
+      // 私聊红包：仅对方显示「开红包」
+      if ((p.scope_type | 0) === 1) {
+        var isRecipient = (p.to_user_id | 0) === (state.userId | 0);
+        if (!isRecipient) grabBtn.style.display = 'none';
+      }
       grabBtn.setAttribute('data-packet', String(packetId));
     }
   }

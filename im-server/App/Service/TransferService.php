@@ -6,7 +6,7 @@ use Im\Support\Db;
 use Im\Support\IdGenerator;
 
 /**
- * 私聊即时转账（红宝）：发送即到账，无手续费
+ * 私聊即时转账（红宝）：发送即到账，无手续费、不抽点；仅转给对方本人
  */
 class TransferService
 {

@@ -357,6 +357,9 @@ class MessageRouter
         if ($msg === 'already grabbed') {
             return '你已经抢过这个红包了';
         }
+        if ($msg === 'only recipient can grab' || $msg === 'private red packet: robot grab disabled') {
+            return '私聊红包仅对方可领取';
+        }
         if ($msg === 'packet empty') {
             return '手慢了，红包已被抢完';
         }

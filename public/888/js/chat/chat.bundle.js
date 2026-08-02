@@ -95,6 +95,8 @@
   function mapChatApiError(msg, fallbackKey) {
     msg = String(msg || '').trim();
     var codeMap = {
+      'only recipient can grab': 'chat_rp_only_recipient',
+      'private red packet: robot grab disabled': 'chat_rp_only_recipient',
       'robot only: members cannot send red packets': 'chat_rp_robot_only',
       'grab mode: only admin can send red packets': 'chat_rp_admin_only',
       'packet type not allowed in this group': 'chat_rp_type_not_allowed',
@@ -2335,6 +2337,11 @@
         }
       }, 0);
       grabBtn.style.display = (!grabbed && !finished && !expired) ? '' : 'none';
+      // 私聊红包：仅对方显示「开红包」
+      if ((p.scope_type | 0) === 1) {
+        var isRecipient = (p.to_user_id | 0) === (state.userId | 0);
+        if (!isRecipient) grabBtn.style.display = 'none';
+      }
       grabBtn.setAttribute('data-packet', String(packetId));
     }
   }
@@ -4333,6 +4340,35 @@
     }
     syncRpTypeTabs();
     syncRpFixedAmountField();
+    // 私聊：隐藏类型 Tab，固定普通 1 个、无手续费玩法
+    var isPrivate = state.room.type === 1;
+    var typeTabs = $('chatRpTypeTabs');
+    if (isPrivate) {
+      if (typeTabs) {
+        typeTabs.style.display = 'none';
+        typeTabs.hidden = true;
+        typeTabs.querySelectorAll('.chat-rp-type-btn').forEach(function (b) {
+          b.classList.toggle('active', (parseInt(b.getAttribute('data-type'), 10) || 0) === 1);
+        });
+      }
+      if (countInput) {
+        countInput.value = '1';
+        countInput.min = '1';
+        countInput.max = '1';
+      }
+      var mineWrap = $('chatRpMineWrap');
+      if (mineWrap) {
+        mineWrap.hidden = true;
+        mineWrap.style.display = 'none';
+      }
+      var countTabs = $('chatRpCountTabs');
+      if (countTabs) {
+        countTabs.hidden = true;
+        countTabs.style.display = 'none';
+      }
+      var hint = $('chatRpCountHint');
+      if (hint) hint.textContent = '私聊红包仅对方可领 · 无手续费';
+    }
     var amountInput = $('chatRpAmount');
     if (amountInput && !amountInput.value && !(groupRpFixedAmount() > 0)) amountInput.value = '';
     var blessInput = $('chatRpBlessing');
@@ -4414,7 +4450,13 @@
       data.mine_digit = mineDigit;
     }
     if (state.room.type === 2) data.group_id = state.room.id | 0;
-    else data.to_user_id = state.room.peer | 0;
+    else {
+      data.to_user_id = state.room.peer | 0;
+      // 私聊：后端也会强制；前端一并固定
+      data.packet_type = 1;
+      data.total_count = 1;
+      delete data.mine_digit;
+    }
     if (submitBtn) {
       submitBtn.disabled = true;
       submitBtn.textContent = chatT('chat_rp_sending');

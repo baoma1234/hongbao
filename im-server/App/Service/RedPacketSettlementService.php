@@ -90,10 +90,12 @@ class RedPacketSettlementService
             $totalAmount = round((float)$packet['total_amount'], 2);
             $packetNo = (string)$packet['packet_no'];
             $fromUserId = (int)$packet['from_user_id'];
+            $scopeType = (int)($packet['scope_type'] ?? 0);
+            $isPrivate = ($scopeType === 1);
             $totalCount = (int)($packet['total_count'] ?? 0);
             $compensateAmount = $totalAmount;
             $mineDigit = max(0, min(9, (int)($packet['mine_digit'] ?? 0)));
-            if ($packetType === 3) {
+            if ($packetType === 3 && !$isPrivate) {
                 // 须哈希末位匹配手填雷号后再结算
                 if ((int)($packet['tron_status'] ?? 0) !== 2 || trim((string)($packet['tron_block_id'] ?? '')) === '') {
                     Db::rollBack();
@@ -143,7 +145,8 @@ class RedPacketSettlementService
 
             /** @var array<int,string> $losers record_id => mine|worst */
             $losers = [];
-            if ($packetType === 2 && $records) {
+            // 私聊红包：无最差/中雷赔付、不抽水、不返点
+            if (!$isPrivate && $packetType === 2 && $records) {
                 $worst = $records[0];
                 foreach ($records as $row) {
                     if ((float)$row['amount'] < (float)$worst['amount']) {
@@ -157,7 +160,7 @@ class RedPacketSettlementService
                     [sprintf('%.2f', $compensateAmount), (int)$worst['id']]
                 );
                 $losers[(int)$worst['id']] = 'worst';
-            } elseif ($packetType === 3) {
+            } elseif (!$isPrivate && $packetType === 3) {
                 foreach ($records as $row) {
                     $cent = (int)($row['amount_cent'] ?? round((float)$row['amount'] * 100));
                     $tail = (int)($row['tail_digit'] ?? ($cent % 10));
@@ -210,6 +213,14 @@ class RedPacketSettlementService
             }
 
             // ---------- 3) 平台抽水：发时已扣则不再扣发包人；仍补结算流水 ----------
+            // 私聊：强制 0 手续费 / 0 返点（防止旧包 rate=0 被兜底成 3%）
+            $feeRate = 0.0;
+            $platformFee = 0.0;
+            $platformUserId = 0;
+            $agentUserId = 0;
+            $agentRate = 0.0;
+            $agentRebate = 0.0;
+            if (!$isPrivate) {
             $feeRate = round((float)($packet['platform_fee_rate'] ?? 0), 4);
             if ($feeRate <= 0) {
                 if ($packetType === 3) {
@@ -339,6 +350,7 @@ class RedPacketSettlementService
                     }
                 }
             }
+            } // end !$isPrivate fee/rebate
 
             // ---------- 落库结算态 ----------
             $compStatus = $losers ? 2 : 0;

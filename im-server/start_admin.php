@@ -188,6 +188,14 @@ $http->onMessage = function (TcpConnection $connection, Request $request) use ($
             }
             // 抢包机器人只需是合法用户（admin_key 已鉴权），不必登记为托管客服
             assertUserExists($agentUid);
+            // 私聊红包禁止机器人代抢（仅对方本人可领）
+            $probe = \Im\Support\Db::fetch(
+                'SELECT scope_type FROM ' . \Im\Support\Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1',
+                [$packetId]
+            );
+            if ($probe && (int)($probe['scope_type'] ?? 0) === 1) {
+                throw new RuntimeException('private red packet: robot grab disabled');
+            }
             $result = $redPackets->grab($packetId, $agentUid);
             $packet = $result['packet'] ?? null;
             if (is_array($packet)) {

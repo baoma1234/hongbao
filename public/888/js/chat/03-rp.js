@@ -274,6 +274,35 @@
     }
     syncRpTypeTabs();
     syncRpFixedAmountField();
+    // 私聊：隐藏类型 Tab，固定普通 1 个、无手续费玩法
+    var isPrivate = state.room.type === 1;
+    var typeTabs = $('chatRpTypeTabs');
+    if (isPrivate) {
+      if (typeTabs) {
+        typeTabs.style.display = 'none';
+        typeTabs.hidden = true;
+        typeTabs.querySelectorAll('.chat-rp-type-btn').forEach(function (b) {
+          b.classList.toggle('active', (parseInt(b.getAttribute('data-type'), 10) || 0) === 1);
+        });
+      }
+      if (countInput) {
+        countInput.value = '1';
+        countInput.min = '1';
+        countInput.max = '1';
+      }
+      var mineWrap = $('chatRpMineWrap');
+      if (mineWrap) {
+        mineWrap.hidden = true;
+        mineWrap.style.display = 'none';
+      }
+      var countTabs = $('chatRpCountTabs');
+      if (countTabs) {
+        countTabs.hidden = true;
+        countTabs.style.display = 'none';
+      }
+      var hint = $('chatRpCountHint');
+      if (hint) hint.textContent = '私聊红包仅对方可领 · 无手续费';
+    }
     var amountInput = $('chatRpAmount');
     if (amountInput && !amountInput.value && !(groupRpFixedAmount() > 0)) amountInput.value = '';
     var blessInput = $('chatRpBlessing');
@@ -355,7 +384,13 @@
       data.mine_digit = mineDigit;
     }
     if (state.room.type === 2) data.group_id = state.room.id | 0;
-    else data.to_user_id = state.room.peer | 0;
+    else {
+      data.to_user_id = state.room.peer | 0;
+      // 私聊：后端也会强制；前端一并固定
+      data.packet_type = 1;
+      data.total_count = 1;
+      delete data.mine_digit;
+    }
     if (submitBtn) {
       submitBtn.disabled = true;
       submitBtn.textContent = chatT('chat_rp_sending');

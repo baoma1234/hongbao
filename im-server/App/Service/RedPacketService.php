@@ -80,12 +80,15 @@ class RedPacketService
                 $platformUserId = $minePlatformUid;
             }
         }
-        // 私聊红包不收平台手续费；可抢池 = 全额
+        // 私聊红包：仅对方可领、不抽水不返点；固定 1 个普通包（无赔付玩法）
         if ($scopeType === 1) {
             $feeRate = 0.0;
             $agentRate = 0.0;
             $inviteRate = 0.0;
             $platformUserId = 0;
+            $totalCount = 1;
+            $packetType = 1;
+            $mineDigit = 0;
         }
 
         if ($fromUserId <= 0 || $totalAmount <= 0 || $totalCount <= 0) {
@@ -927,8 +930,9 @@ class RedPacketService
                 throw new \RuntimeException('not in group');
             }
         } elseif ((int)$packet['scope_type'] === 1) {
-            if ($userId !== (int)$packet['to_user_id'] && $userId !== (int)$packet['from_user_id']) {
-                throw new \RuntimeException('not in conversation');
+            // 私聊红包仅对方可领（发包人/机器人不可领）
+            if ($userId !== (int)$packet['to_user_id']) {
+                throw new \RuntimeException('only recipient can grab');
             }
         }
         if (!$fromRedisMeta && (int)$packet['status'] !== 1) {
@@ -959,7 +963,8 @@ class RedPacketService
         // ---------- 关键节点：验资拦截（必须在 Redis 弹队列之前）----------
         // 手气包(2) 赔付整包总额；扫雷包(3) 按个数倍率赔付（如 5 包 1.5 倍）。
         // 扫雷额外：余额必须严格大于最低限制（如 10 元），才可领取。
-        if (in_array($packetType, [2, 3], true)) {
+        // 私聊红包无赔付玩法，跳过验资门槛。
+        if ((int)($packet['scope_type'] ?? 0) !== 1 && in_array($packetType, [2, 3], true)) {
             $needCompensate = $totalAmount;
             if ($packetType === 3) {
                 $needCompensate = $this->mineCompensateAmount(
