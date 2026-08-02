@@ -588,28 +588,7 @@ class MessageRouter
      */
     protected function buildGroupInfoPayload($groupId, $uid)
     {
-        $groupId = (int)$groupId;
-        $uid = (int)$uid;
-        $group = $this->groups->get($groupId);
-        if ($group && !empty($group['notice_i18n']) && is_string($group['notice_i18n'])) {
-            $map = json_decode($group['notice_i18n'], true);
-            $group['notice_i18n'] = is_array($map) ? $map : new \stdClass();
-        } elseif ($group) {
-            $group['notice_i18n'] = new \stdClass();
-        }
-        $myRole = $this->groups->memberRole($groupId, $uid);
-        $policy = $this->groups->buildPolicy($group ?: [], $myRole);
-        $isOfficial = $group && OfficialStatsService::isOfficialRecommend($group);
-        return [
-            'group'              => $group,
-            'my_role'            => $myRole,
-            'mute_all'           => $this->groups->isMuteAll($groupId),
-            'member_count'       => $this->groups->publicMemberCount($group ?: []),
-            'online_count'       => $isOfficial ? OfficialStatsService::onlineCount($groupId) : 0,
-            'member_list_hidden' => !empty($policy['member_list_hidden']),
-            'can_speak'          => $this->canSpeakSafe($groupId, $uid),
-            'policy'             => $policy,
-        ];
+        return $this->groups->viewerInfoPayload($groupId, $uid);
     }
 
     protected function handleGroupView(TcpConnection $connection, $uid, array $payload, $reqId, $enter)
@@ -1318,7 +1297,7 @@ class MessageRouter
         }
         unset($item);
         try {
-            RedisClient::conn()->setex($cacheKey, 3, json_encode($list, JSON_UNESCAPED_UNICODE));
+            RedisClient::conn()->setex($cacheKey, 20, json_encode($list, JSON_UNESCAPED_UNICODE));
         } catch (\Throwable $e) {
         }
         $this->send($connection, 'conversation.list', ['list' => $list], $reqId);

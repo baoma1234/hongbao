@@ -96,7 +96,7 @@ class UserReadApi
         unset($item);
 
         try {
-            RedisClient::conn()->setex($cacheKey, 3, json_encode($list, JSON_UNESCAPED_UNICODE));
+            RedisClient::conn()->setex($cacheKey, 20, json_encode($list, JSON_UNESCAPED_UNICODE));
         } catch (\Throwable $e) {
         }
         return ['list' => $list];
@@ -160,31 +160,6 @@ class UserReadApi
 
     protected function groupInfoPayload($groupId, $uid)
     {
-        $groupId = (int)$groupId;
-        $uid = (int)$uid;
-        $group = $this->groups->get($groupId);
-        if ($group && !empty($group['notice_i18n']) && is_string($group['notice_i18n'])) {
-            $map = json_decode($group['notice_i18n'], true);
-            $group['notice_i18n'] = is_array($map) ? $map : new \stdClass();
-        } elseif ($group) {
-            $group['notice_i18n'] = new \stdClass();
-        }
-        $myRole = $this->groups->memberRole($groupId, $uid);
-        $policy = $this->groups->buildPolicy($group ?: [], $myRole);
-        $canSpeak = true;
-        try {
-            $this->groups->assertCanSpeak($groupId, $uid);
-        } catch (\Throwable $e) {
-            $canSpeak = false;
-        }
-        return [
-            'group'              => $group,
-            'my_role'            => $myRole,
-            'mute_all'           => $this->groups->isMuteAll($groupId),
-            'member_count'       => $this->groups->publicMemberCount($group ?: []),
-            'member_list_hidden' => !empty($policy['member_list_hidden']),
-            'can_speak'          => $canSpeak,
-            'policy'             => $policy,
-        ];
+        return $this->groups->viewerInfoPayload($groupId, $uid);
     }
 }

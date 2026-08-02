@@ -115,6 +115,77 @@ class GroupService
     }
 
     /**
+     * 进房/历史附带的群资料（短缓存，吸收连刷）
+     * @return array{group:mixed,my_role:int,mute_all:bool,member_count:int,online_count:int,member_list_hidden:bool,can_speak:bool,policy:array}
+     */
+    public function viewerInfoPayload($groupId, $uid)
+    {
+        $groupId = (int)$groupId;
+        $uid = (int)$uid;
+        $ver = 0;
+        try {
+            $ver = (int)RedisClient::conn()->get(RedisClient::key('g:' . $groupId . ':infover'));
+        } catch (\Throwable $e) {
+        }
+        $cacheKey = RedisClient::key('ginfo:' . $groupId . ':' . $uid . ':v' . $ver);
+        try {
+            $cached = RedisClient::conn()->get($cacheKey);
+            if ($cached !== false && $cached !== null && $cached !== '') {
+                $decoded = json_decode((string)$cached, true);
+                if (is_array($decoded)) {
+                    return $decoded;
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+
+        $group = $this->get($groupId);
+        if ($group && !empty($group['notice_i18n']) && is_string($group['notice_i18n'])) {
+            $map = json_decode($group['notice_i18n'], true);
+            $group['notice_i18n'] = is_array($map) ? $map : new \stdClass();
+        } elseif ($group) {
+            $group['notice_i18n'] = new \stdClass();
+        }
+        $myRole = $this->memberRole($groupId, $uid);
+        $policy = $this->buildPolicy($group ?: [], $myRole);
+        $canSpeak = true;
+        try {
+            $this->assertCanSpeak($groupId, $uid);
+        } catch (\Throwable $e) {
+            $canSpeak = false;
+        }
+        $isOfficial = $group && OfficialStatsService::isOfficialRecommend($group);
+        $payload = [
+            'group'              => $group,
+            'my_role'            => $myRole,
+            'mute_all'           => $this->isMuteAll($groupId),
+            'member_count'       => $this->publicMemberCount($group ?: []),
+            'online_count'       => $isOfficial ? OfficialStatsService::onlineCount($groupId) : 0,
+            'member_list_hidden' => !empty($policy['member_list_hidden']),
+            'can_speak'          => $canSpeak,
+            'policy'             => $policy,
+        ];
+        try {
+            RedisClient::conn()->setex($cacheKey, 20, json_encode($payload, JSON_UNESCAPED_UNICODE));
+        } catch (\Throwable $e) {
+        }
+        return $payload;
+    }
+
+    /** 群设置/禁言等变更后 bump，使 viewerInfoPayload 缓存失效 */
+    public function bumpViewerInfoCache($groupId)
+    {
+        $groupId = (int)$groupId;
+        if ($groupId <= 0) {
+            return;
+        }
+        try {
+            RedisClient::conn()->incr(RedisClient::key('g:' . $groupId . ':infover'));
+        } catch (\Throwable $e) {
+        }
+    }
+
+    /**
      * 确保群成员 Redis Set 存在（万人群用 SISMEMBER / SINTER，避免每次拉全量 JSON）
      */
     public function ensureMemberSet($groupId)
@@ -771,6 +842,7 @@ class GroupService
             . ' SET mute_until=?, updatetime=? WHERE group_id=? AND user_id=? AND status=1',
             [$until, time(), (int)$groupId, (int)$targetId]
         );
+        $this->bumpViewerInfoCache($groupId);
         return ['mute_until' => $until];
     }
 
@@ -796,6 +868,7 @@ class GroupService
             . ' SET role=?, updatetime=? WHERE group_id=? AND user_id=? AND status=1',
             [$role, time(), (int)$groupId, $targetId]
         );
+        $this->bumpViewerInfoCache($groupId);
         return ['role' => $role];
     }
 
@@ -811,6 +884,7 @@ class GroupService
             'UPDATE ' . Db::table('chat_groups') . ' SET status=?, updatetime=? WHERE id=?',
             [$status, time(), (int)$groupId]
         );
+        $this->bumpViewerInfoCache($groupId);
         return $this->get($groupId);
     }
 
@@ -1054,6 +1128,7 @@ class GroupService
         $bind[] = time();
         $bind[] = $groupId;
         Db::exec('UPDATE ' . Db::table('chat_groups') . ' SET ' . implode(',', $sets) . ' WHERE id=?', $bind);
+        $this->bumpViewerInfoCache($groupId);
         return $this->get($groupId);
     }
 

@@ -1130,6 +1130,7 @@ class RedPacketService
 
         try {
             RedisClient::conn()->incr(RedisClient::key('rp:detail:ver:' . $packetId));
+            RedisClient::conn()->del(RedisClient::key('rp:cover:' . $packetId));
         } catch (\Throwable $e) {
         }
 
@@ -2023,7 +2024,7 @@ class RedPacketService
             'policy'             => $policy,
         ];
         try {
-            RedisClient::conn()->setex($cacheKey, 3, json_encode($result, JSON_UNESCAPED_UNICODE));
+            RedisClient::conn()->setex($cacheKey, 15, json_encode($result, JSON_UNESCAPED_UNICODE));
         } catch (\Throwable $e) {
         }
         return $result;
@@ -2070,6 +2071,7 @@ class RedPacketService
 
     /**
      * 历史消息补齐红包封面字段（雷号 / 过期 / 本人是否已领）
+     * 红包元数据按 packet_id 短缓存；本人领取状态仍按用户查
      */
     public function enrichMessageExtras(array $messages, $userId)
     {
@@ -2095,19 +2097,56 @@ class RedPacketService
             return $messages;
         }
         $idList = array_keys($pids);
-        $placeholders = implode(',', array_fill(0, count($idList), '?'));
-        $packets = Db::fetchAll(
-            'SELECT id, packet_type, mine_digit, status, expiretime, remain_count, tron_status, tron_block_id'
-            . ' FROM ' . Db::table('chat_red_packets')
-            . ' WHERE id IN (' . $placeholders . ')',
-            $idList
-        );
         $byId = [];
-        foreach ($packets as $p) {
-            $byId[(int)$p['id']] = $p;
+        $missing = [];
+        try {
+            $r = RedisClient::conn();
+            $keys = [];
+            foreach ($idList as $pid) {
+                $keys[] = RedisClient::key('rp:cover:' . $pid);
+            }
+            $vals = $r->mGet($keys);
+            if (!is_array($vals)) {
+                $vals = [];
+            }
+            foreach ($idList as $i => $pid) {
+                $raw = $vals[$i] ?? false;
+                if ($raw !== false && $raw !== null && $raw !== '') {
+                    $decoded = json_decode((string)$raw, true);
+                    if (is_array($decoded)) {
+                        $byId[$pid] = $decoded;
+                        continue;
+                    }
+                }
+                $missing[] = $pid;
+            }
+        } catch (\Throwable $e) {
+            $missing = $idList;
+        }
+        if ($missing) {
+            $placeholders = implode(',', array_fill(0, count($missing), '?'));
+            $packets = Db::fetchAll(
+                'SELECT id, packet_type, mine_digit, status, expiretime, remain_count, tron_status, tron_block_id'
+                . ' FROM ' . Db::table('chat_red_packets')
+                . ' WHERE id IN (' . $placeholders . ')',
+                $missing
+            );
+            try {
+                $r = RedisClient::conn();
+                foreach ($packets as $p) {
+                    $pid = (int)$p['id'];
+                    $byId[$pid] = $p;
+                    $r->setex(RedisClient::key('rp:cover:' . $pid), 15, json_encode($p, JSON_UNESCAPED_UNICODE));
+                }
+            } catch (\Throwable $e) {
+                foreach ($packets as $p) {
+                    $byId[(int)$p['id']] = $p;
+                }
+            }
         }
         $grabbed = [];
         if ($userId > 0 && $idList) {
+            $placeholders = implode(',', array_fill(0, count($idList), '?'));
             $recs = Db::fetchAll(
                 'SELECT packet_id FROM ' . Db::table('chat_red_packet_records')
                 . ' WHERE user_id=? AND packet_id IN (' . $placeholders . ')',
