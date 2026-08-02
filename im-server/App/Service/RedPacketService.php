@@ -119,7 +119,8 @@ class RedPacketService
                 throw new \RuntimeException('not in group');
             }
             $this->groups->assertCanSendGroupRedPacket($groupId, $fromUserId, [
-                'robot_send' => !empty($params['robot_send']),
+                'robot_send'    => !empty($params['robot_send']),
+                'trusted_robot' => !empty($params['robot_send']) && !empty($params['trusted_robot']),
             ]);
             $group = $this->groups->get($groupId);
             if (!$group) {
@@ -1453,6 +1454,7 @@ class RedPacketService
                     'total_count'  => $count,
                     'blessing'     => (string)($packet['blessing'] ?? '恭喜发财'),
                     'robot_send'   => true,
+                    'trusted_robot'=> true,
                 ]);
                 $msg = $result['message'] ?? null;
                 if (is_array($msg)) {

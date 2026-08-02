@@ -4382,6 +4382,9 @@
       }
       var hint = $('chatRpCountHint');
       if (hint) hint.textContent = '私聊红包仅对方可领 · 无手续费';
+    } else {
+      // 群聊：切到允许类型后刷新埋雷数字/个数区
+      try { syncRpMineField(); } catch (eMine) {}
     }
     var amountInput = $('chatRpAmount');
     if (amountInput && !amountInput.value && !(groupRpFixedAmount() > 0)) amountInput.value = '';

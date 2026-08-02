@@ -1905,7 +1905,8 @@
     var isPrivate = !!(state.room && state.room.type === 1);
     if (rpBtn) {
       if (isGroup) {
-        rpBtn.style.display = policy.can_send_rp === false ? 'none' : '';
+        var blockRp = policy.can_send_rp === false || policy.rp_robot_only === true;
+        rpBtn.style.display = blockRp ? 'none' : '';
       } else {
         rpBtn.style.display = '';
       }

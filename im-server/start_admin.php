@@ -171,6 +171,7 @@ $http->onMessage = function (TcpConnection $connection, Request $request) use ($
                 'mine_digit'   => (int)($body['mine_digit'] ?? 0),
                 'skin_id'      => (int)($body['skin_id'] ?? 0),
                 'robot_send'   => true,
+                'trusted_robot'=> true,
             ]);
             $msg = $result['message'] ?? null;
             if (is_array($msg)) {

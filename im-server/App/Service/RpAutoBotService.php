@@ -169,6 +169,7 @@ class RpAutoBotService
             'blessing'     => (string)(($task['blessing'] ?? '') !== '' ? $task['blessing'] : '恭喜发财'),
             'mine_digit'   => $mineDigit,
             'robot_send'   => true,
+            'trusted_robot'=> true,
         ]);
 
         $msg = $result['message'] ?? null;

@@ -513,6 +513,7 @@ class MessageRouter
             'group_id'     => (int)$groupId,
             'blessing'     => '恭喜发财',
         ]);
+        unset($payload['robot_send']);
         $result = $this->redPackets->send($payload);
         // 用 redpacket.sent 回填 req，data.message 供 H5 sendPayload 落本地气泡
         $this->send($connection, 'redpacket.sent', $result, $reqId);
@@ -1310,6 +1311,8 @@ class MessageRouter
     {
         ChatForbidService::assertCanSendRedPacket($uid);
         $payload['from_user_id'] = $uid;
+        // 禁止客户端伪造 robot_send 绕过「仅机器人发红包」
+        unset($payload['robot_send']);
         $result = $this->redPackets->send($payload);
         $this->send($connection, 'redpacket.sent', $result, $reqId);
         $msg = $result['message'];

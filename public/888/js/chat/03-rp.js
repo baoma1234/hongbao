@@ -260,7 +260,7 @@
       if (typeof showFanshubToast === 'function') showFanshubToast('请先打开会话', 'info');
       return;
     }
-    if (state.room.type === 2 && groupPolicy().can_send_rp === false) {
+    if (state.room.type === 2 && (groupPolicy().can_send_rp === false || groupPolicy().rp_robot_only === true)) {
       var tip = groupPolicy().rp_robot_only
         ? (chatT('chat_rp_robot_only') || '本群仅自动机器人可发红包')
         : (chatT('chat_rp_admin_only') || '红宝模式下仅管理员可发红包');

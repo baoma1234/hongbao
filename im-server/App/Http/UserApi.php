@@ -115,6 +115,8 @@ class UserApi extends UserReadApi
     {
         ChatForbidService::assertCanSendRedPacket($uid);
         $body['from_user_id'] = $uid;
+        // 禁止 HTTP 客户端伪造 robot_send
+        unset($body['robot_send']);
         $result = $this->redPackets->send($body);
         $msg = $result['message'] ?? null;
         if (is_array($msg)) {

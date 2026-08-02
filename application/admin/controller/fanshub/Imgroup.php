@@ -257,6 +257,7 @@ class Imgroup extends Backend
                 $this->error($e->getMessage());
             }
             FansHubService::clearOfficialCommunityCache();
+            $this->bumpImGroupViewerCache((int)$row['id']);
             $this->success('已保存');
         }
         $admins = Db::name('chat_group_members')
@@ -770,6 +771,40 @@ class Imgroup extends Backend
             'jointime'   => $now,
             'updatetime' => $now,
         ]);
+    }
+
+    /**
+     * 使 IM 进程内 group.info 短缓存失效（rp_robot_only 等即时生效）
+     */
+    protected function bumpImGroupViewerCache($groupId)
+    {
+        $groupId = (int)$groupId;
+        if ($groupId <= 0) {
+            return;
+        }
+        try {
+            $cfgFile = ROOT_PATH . 'im-server' . DS . 'config' . DS . 'app.php';
+            if (!is_file($cfgFile)) {
+                return;
+            }
+            $cfg = include $cfgFile;
+            $r = is_array($cfg) ? ($cfg['redis'] ?? []) : [];
+            if (!class_exists('\\Redis')) {
+                return;
+            }
+            $redis = new \Redis();
+            $redis->connect((string)($r['host'] ?? '127.0.0.1'), (int)($r['port'] ?? 6379), 1.5);
+            if (!empty($r['password'])) {
+                $redis->auth((string)$r['password']);
+            }
+            if (isset($r['db'])) {
+                $redis->select((int)$r['db']);
+            }
+            $prefix = (string)($r['prefix'] ?? 'im:');
+            $redis->incr($prefix . 'g:' . $groupId . ':infover');
+        } catch (\Throwable $e) {
+            // ignore
+        }
     }
 
     protected function parseIdList($raw)

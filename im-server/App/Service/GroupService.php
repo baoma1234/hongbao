@@ -854,7 +854,8 @@ class GroupService
             throw new \RuntimeException('invalid group');
         }
         $robotOnly = (int)($group['rp_robot_only'] ?? 0) === 1;
-        $isRobotSend = !empty($opts['robot_send']);
+        // 仅服务端可信调用（自动任务 / admin agent）可带 robot_send
+        $isRobotSend = !empty($opts['robot_send']) && !empty($opts['trusted_robot']);
         if ($robotOnly) {
             if ($isRobotSend) {
                 return;
