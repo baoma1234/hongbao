@@ -62,7 +62,7 @@
         <label class="control-label col-xs-12 col-sm-2">发包间隔(秒):</label>
         <div class="col-xs-12 col-sm-8">
             <input class="form-control" name="row[interval_sec]" type="number" min="5" value="{$row.interval_sec}">
-            <span class="help-block">仅当群内<strong>没有待领取红包</strong>时才会自动发；拼手气抢完后由机器人续发下一包（已迁入 IM 进程，无需 crontab）</span>
+            <span class="help-block">仅当群内<strong>没有待领取红包</strong>时才会自动发；金额每次 ±5%～10% 抖动。20–23 点间隔减半、0–7 点翻倍。新包前 8～12 秒留给真人。已迁入 IM 进程，无需 crontab。</span>
         </div>
     </div>
     <div class="form-group">

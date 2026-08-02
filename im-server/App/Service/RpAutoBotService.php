@@ -12,8 +12,10 @@ use Workerman\Timer;
  *
  * 规则：
  * - 发包：群内无待领取包时才发；埋雷雷号每发随机 0-9
+ * - 金额：任务基准额 ±5%～10% 抖动
+ * - 节奏：20–23 点发包间隔减半；0–7 点翻倍
  * - 续发：拼手气抢完结算后由 RedPacketService::trySendRobotNextRound（扣最差→发包人→续发）
- * - 抢包：每轮只安排 1 次，延迟 5～15 秒（任务可配置），避免连抢
+ * - 抢包：每轮只安排 1 次；新包前 8～12 秒留给真人，再叠加 5～15 秒随机延迟
  */
 class RpAutoBotService
 {
@@ -21,6 +23,9 @@ class RpAutoBotService
     const TASK_LOCK_PREFIX = 'rp_auto:lock:';
     const GRAB_BUSY_PREFIX = 'rp_auto:grab_busy:';
     const TASK_CACHE_TTL = 8;
+    /** 真人优先：新包发出后机器人至少等待秒数 */
+    const HUMAN_FIRST_MIN_SEC = 8;
+    const HUMAN_FIRST_MAX_SEC = 12;
 
     /** @var RedPacketService */
     protected $redPackets;
@@ -118,7 +123,7 @@ class RpAutoBotService
     {
         $taskId = (int)$task['id'];
         $groupId = (int)$task['group_id'];
-        $interval = max(5, (int)($task['interval_sec'] ?? 60));
+        $interval = $this->effectiveIntervalSec((int)($task['interval_sec'] ?? 60));
         $last = (int)($task['last_send_time'] ?? 0);
         if ($last > 0 && (time() - $last) < $interval) {
             return ['sent' => false, 'packet_id' => 0];
@@ -135,7 +140,8 @@ class RpAutoBotService
         if ($sendUid <= 0) {
             throw new \RuntimeException('未配置发包用户ID');
         }
-        $amount = round((float)($task['total_amount'] ?? 0), 2);
+        $baseAmount = round((float)($task['total_amount'] ?? 0), 2);
+        $amount = $this->jitterAmount($baseAmount);
         $count = (int)($task['total_count'] ?? 0);
         if ($amount <= 0 || $count <= 0) {
             throw new \RuntimeException('金额/个数无效');
@@ -189,11 +195,14 @@ class RpAutoBotService
         $this->bustTaskCache();
 
         error_log(sprintf(
-            '[RP_AUTO] send ok task=%d group=%d type=%d mine=%d packet=%d',
+            '[RP_AUTO] send ok task=%d group=%d type=%d mine=%d amount=%.2f(base=%.2f) interval=%ds packet=%d',
             $taskId,
             $groupId,
             $packetType,
             $mineDigit,
+            $amount,
+            $baseAmount,
+            $interval,
             $packetId
         ));
 
@@ -201,7 +210,8 @@ class RpAutoBotService
     }
 
     /**
-     * 每任务同时最多 1 次待执行抢包；间隔 5～15 秒（可配置）
+     * 每任务同时最多 1 次待执行抢包。
+     * 新包：先等 8～12 秒给人抢，再叠加任务配置的 5～15 秒随机延迟。
      */
     protected function maybeScheduleGrab(array $task, $preferPacketId = 0)
     {
@@ -215,20 +225,24 @@ class RpAutoBotService
             return;
         }
 
-        $packetIds = [];
+        $packets = [];
         if ((int)$preferPacketId > 0) {
-            $packetIds[] = (int)$preferPacketId;
-        }
-        foreach ($this->listOpenPacketIds($groupId, 8) as $pid) {
-            if (!in_array($pid, $packetIds, true)) {
-                $packetIds[] = $pid;
+            $meta = $this->packetMeta((int)$preferPacketId);
+            if ($meta) {
+                $packets[(int)$preferPacketId] = $meta;
             }
         }
-        if (!$packetIds) {
+        foreach ($this->listOpenPackets($groupId, 8) as $row) {
+            $pid = (int)($row['id'] ?? 0);
+            if ($pid > 0 && !isset($packets[$pid])) {
+                $packets[$pid] = $row;
+            }
+        }
+        if (!$packets) {
             return;
         }
 
-        $pair = $this->pickGrabPair($packetIds, $uids);
+        $pair = $this->pickGrabPair(array_keys($packets), $uids);
         if (!$pair) {
             return;
         }
@@ -241,17 +255,23 @@ class RpAutoBotService
         if ($maxMs < $minMs) {
             $maxMs = $minMs;
         }
-        // 默认 / 过短配置抬到 5～15 秒，避免连抢
         if ($maxMs < 5000) {
             $minMs = 5000;
             $maxMs = 15000;
         }
-        $delaySec = ($minMs + ($maxMs > $minMs ? random_int(0, $maxMs - $minMs) : 0)) / 1000.0;
-        $delaySec = max(1.0, min(60.0, $delaySec));
+        $grabDelaySec = ($minMs + ($maxMs > $minMs ? random_int(0, $maxMs - $minMs) : 0)) / 1000.0;
 
-        $this->markGrabBusy($taskId, (int)ceil($delaySec) + 20);
         $packetId = $pair['packet_id'];
         $uid = $pair['user_id'];
+        $created = (int)($packets[$packetId]['createtime'] ?? 0);
+        $age = $created > 0 ? max(0, time() - $created) : 0;
+        $humanNeed = random_int(self::HUMAN_FIRST_MIN_SEC, self::HUMAN_FIRST_MAX_SEC);
+        $humanWait = ($age < $humanNeed) ? ($humanNeed - $age) : 0;
+
+        $delaySec = $humanWait + $grabDelaySec;
+        $delaySec = max(1.0, min(90.0, $delaySec));
+
+        $this->markGrabBusy($taskId, (int)ceil($delaySec) + 20);
 
         Timer::add($delaySec, function () use ($taskId, $packetId, $uid, $groupId) {
             try {
@@ -262,6 +282,60 @@ class RpAutoBotService
                 $this->clearGrabBusy($taskId);
             }
         }, [], false);
+    }
+
+    /** 20–23 点加密；0–7 点放缓 */
+    protected function effectiveIntervalSec($baseSec)
+    {
+        $base = max(5, (int)$baseSec);
+        $hour = (int)date('G');
+        if ($hour >= 20 && $hour <= 23) {
+            return max(15, (int)round($base * 0.5));
+        }
+        if ($hour >= 0 && $hour < 8) {
+            return max($base * 2, (int)round($base * 2.0));
+        }
+        return $base;
+    }
+
+    /** 基准金额 ±5%～10% 抖动（保留 2 位，不低于 0.01） */
+    protected function jitterAmount($baseAmount)
+    {
+        $base = round((float)$baseAmount, 2);
+        if ($base <= 0) {
+            return $base;
+        }
+        $pct = random_int(50, 100) / 1000.0; // 5%～10%
+        if (random_int(0, 1) === 0) {
+            $pct = -$pct;
+        }
+        $amount = round($base * (1 + $pct), 2);
+        if ($amount < 0.01) {
+            $amount = 0.01;
+        }
+        // 抖动后仍不低于基准的一半，避免过小包
+        $floor = round(max(0.01, $base * 0.5), 2);
+        if ($amount < $floor) {
+            $amount = $floor;
+        }
+        return $amount;
+    }
+
+    protected function packetMeta($packetId)
+    {
+        $packetId = (int)$packetId;
+        if ($packetId <= 0) {
+            return null;
+        }
+        $row = Db::fetch(
+            'SELECT id, createtime, remain_count, status FROM ' . Db::table('chat_red_packets')
+            . ' WHERE id=? LIMIT 1',
+            [$packetId]
+        );
+        if (!$row || (int)($row['status'] ?? 0) !== 1 || (int)($row['remain_count'] ?? 0) <= 0) {
+            return null;
+        }
+        return $row;
     }
 
     protected function doGrabOnce($taskId, $packetId, $uid, $groupId)
@@ -350,18 +424,24 @@ class RpAutoBotService
         return (int)($row['c'] ?? 0);
     }
 
-    /** @return int[] */
-    protected function listOpenPacketIds($groupId, $limit = 8)
+    /** @return array[] */
+    protected function listOpenPackets($groupId, $limit = 8)
     {
         $limit = max(1, min(20, (int)$limit));
         $rows = Db::fetchAll(
-            'SELECT id FROM ' . Db::table('chat_red_packets')
+            'SELECT id, createtime, remain_count, status FROM ' . Db::table('chat_red_packets')
             . ' WHERE group_id=? AND scope_type=2 AND status=1 AND remain_count>0'
             . ' ORDER BY id DESC LIMIT ' . $limit,
             [(int)$groupId]
         );
+        return is_array($rows) ? $rows : [];
+    }
+
+    /** @return int[] */
+    protected function listOpenPacketIds($groupId, $limit = 8)
+    {
         $out = [];
-        foreach ($rows ?: [] as $r) {
+        foreach ($this->listOpenPackets($groupId, $limit) as $r) {
             $id = (int)($r['id'] ?? 0);
             if ($id > 0) {
                 $out[] = $id;

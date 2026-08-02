@@ -138,7 +138,7 @@ class FansHubRpAuto
     protected static function maybeSend(array $task)
     {
         $id = (int)$task['id'];
-        $interval = max(5, (int)$task['interval_sec']);
+        $interval = self::effectiveIntervalSec(max(5, (int)$task['interval_sec']));
         $last = (int)$task['last_send_time'];
         if ($last > 0 && (time() - $last) < $interval) {
             return ['sent' => false, 'packet_id' => 0];
@@ -163,7 +163,7 @@ class FansHubRpAuto
         if ($sendUid <= 0) {
             throw new Exception('未配置发包用户ID');
         }
-        $amount = round((float)$task['total_amount'], 2);
+        $amount = self::jitterAmount(round((float)$task['total_amount'], 2));
         $count = (int)$task['total_count'];
         if ($amount <= 0 || $count <= 0) {
             throw new Exception('金额/个数无效');
@@ -290,6 +290,40 @@ class FansHubRpAuto
             }
         }
         return array_values($out);
+    }
+
+    protected static function effectiveIntervalSec($baseSec)
+    {
+        $base = max(5, (int)$baseSec);
+        $hour = (int)date('G');
+        if ($hour >= 20 && $hour <= 23) {
+            return max(15, (int)round($base * 0.5));
+        }
+        if ($hour >= 0 && $hour < 8) {
+            return max($base * 2, (int)round($base * 2.0));
+        }
+        return $base;
+    }
+
+    protected static function jitterAmount($baseAmount)
+    {
+        $base = round((float)$baseAmount, 2);
+        if ($base <= 0) {
+            return $base;
+        }
+        $pct = mt_rand(50, 100) / 1000.0;
+        if (mt_rand(0, 1) === 0) {
+            $pct = -$pct;
+        }
+        $amount = round($base * (1 + $pct), 2);
+        if ($amount < 0.01) {
+            $amount = 0.01;
+        }
+        $floor = round(max(0.01, $base * 0.5), 2);
+        if ($amount < $floor) {
+            $amount = $floor;
+        }
+        return $amount;
     }
 
     protected static function ensureAgentAccount($userId)
