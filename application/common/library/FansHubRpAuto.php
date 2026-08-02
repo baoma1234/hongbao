@@ -6,17 +6,31 @@ use think\Db;
 use think\Exception;
 
 /**
- * 红包自动发 / 自动抢（后台任务 + CLI）
+ * 红包自动发 / 自动抢
+ *
+ * 主路径已迁入 IM Workerman（RpAutoBotService）。
+ * 本类仅作后台「立即执行一次」兜底；若检测到 WS 机器人心跳则跳过，避免双发。
  */
 class FansHubRpAuto
 {
     /**
      * @param int $taskId 0=全部启用任务
-     * @return array{send:int,grab:int,skip:int,errors:array}
+     * @return array{send:int,grab:int,skip:int,errors:array,via?:string}
      */
     public static function run($taskId = 0)
     {
-        $stat = ['send' => 0, 'grab' => 0, 'skip' => 0, 'errors' => []];
+        if (self::isImBotActive()) {
+            return [
+                'send'   => 0,
+                'grab'   => 0,
+                'skip'   => 0,
+                'errors' => [],
+                'via'    => 'im_ws',
+                'message'=> '自动发抢已由 IM WebSocket 进程执行，无需定时任务',
+            ];
+        }
+
+        $stat = ['send' => 0, 'grab' => 0, 'skip' => 0, 'errors' => [], 'via' => 'cli'];
         $q = Db::name('chat_rp_auto_task')->where('status', 'normal');
         if ((int)$taskId > 0) {
             $q->where('id', (int)$taskId);
@@ -34,6 +48,51 @@ class FansHubRpAuto
             }
         }
         return $stat;
+    }
+
+    /** IM worker0 心跳键（与 RpAutoBotService::HEARTBEAT_KEY 一致） */
+    public static function isImBotActive()
+    {
+        try {
+            if (!class_exists('Redis')) {
+                return false;
+            }
+            $host = '127.0.0.1';
+            $port = 6379;
+            $pass = '';
+            $db = 2;
+            $rootEnv = dirname(dirname(dirname(__DIR__))) . DIRECTORY_SEPARATOR . '.env';
+            if (is_file($rootEnv)) {
+                $ini = @parse_ini_file($rootEnv, true);
+                if (is_array($ini) && !empty($ini['redis'])) {
+                    $host = $ini['redis']['hostname'] ?? $host;
+                    $port = (int)($ini['redis']['hostport'] ?? $port);
+                    $pass = (string)($ini['redis']['password'] ?? $pass);
+                }
+            }
+            $imLocal = dirname(dirname(dirname(__DIR__))) . '/im-server/config/local.php';
+            if (is_file($imLocal)) {
+                $local = include $imLocal;
+                if (is_array($local) && !empty($local['redis'])) {
+                    $host = $local['redis']['host'] ?? $host;
+                    $port = (int)($local['redis']['port'] ?? $port);
+                    $pass = (string)($local['redis']['password'] ?? $pass);
+                    $db = (int)($local['redis']['db'] ?? $db);
+                }
+            }
+            $r = new \Redis();
+            if (!$r->connect($host, $port, 1.0)) {
+                return false;
+            }
+            if ($pass !== '') {
+                $r->auth($pass);
+            }
+            $r->select($db);
+            $v = $r->get('im:rp_auto:ws_active');
+            return $v !== false && $v !== null && $v !== '';
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     protected static function runOne(array $task)
@@ -88,6 +147,18 @@ class FansHubRpAuto
         if ($maxDay > 0 && (int)$task['today_count'] >= $maxDay) {
             return ['sent' => false, 'packet_id' => 0];
         }
+        $groupId = (int)$task['group_id'];
+        // 有待领取则不发（与 WS 机器人一致）
+        $openCnt = (int)Db::name('chat_red_packets')
+            ->where('group_id', $groupId)
+            ->where('scope_type', 2)
+            ->where('status', 1)
+            ->where('remain_count', '>', 0)
+            ->count();
+        if ($openCnt > 0) {
+            return ['sent' => false, 'packet_id' => 0];
+        }
+
         $sendUid = (int)$task['send_user_id'];
         if ($sendUid <= 0) {
             throw new Exception('未配置发包用户ID');
@@ -98,18 +169,20 @@ class FansHubRpAuto
             throw new Exception('金额/个数无效');
         }
 
-        // 兼容未重启的旧 IM 桥接：旧版要求发包 UID 必须在托管客服表
         self::ensureAgentAccount($sendUid);
+
+        $packetType = (int)$task['packet_type'] ?: 2;
+        $mineDigit = ($packetType === 3) ? random_int(0, 9) : 0;
 
         $result = FansHubImBridge::post('/agent/send_redpacket', [
             'agent_user_id' => $sendUid,
             'scope_type'    => 2,
-            'group_id'      => (int)$task['group_id'],
-            'packet_type'   => (int)$task['packet_type'] ?: 2,
+            'group_id'      => $groupId,
+            'packet_type'   => $packetType,
             'total_amount'  => $amount,
             'total_count'   => $count,
             'blessing'      => (string)($task['blessing'] ?: '恭喜发财'),
-            'mine_digit'    => (int)($task['mine_digit'] ?? 0),
+            'mine_digit'    => $mineDigit,
             'bot_mode'      => 1,
         ]);
 
@@ -144,7 +217,6 @@ class FansHubRpAuto
         if ((int)$preferPacketId > 0) {
             $packetIds[] = (int)$preferPacketId;
         }
-        // 再扫该群未抢完的包（含人工发的）
         $open = Db::name('chat_red_packets')
             ->where('group_id', $groupId)
             ->where('scope_type', 2)
@@ -163,33 +235,36 @@ class FansHubRpAuto
             return 0;
         }
 
-        $minMs = max(0, (int)$task['grab_delay_min_ms']);
+        // CLI 兜底：只抢 1 次，延迟 5～15 秒量级（短 sleep，避免卡死进程太久）
+        $minMs = max(1000, (int)$task['grab_delay_min_ms']);
         $maxMs = max($minMs, (int)$task['grab_delay_max_ms']);
-        $done = 0;
+        if ($maxMs < 5000) {
+            $minMs = 5000;
+            $maxMs = 15000;
+        }
+        // CLI 最多 sleep 3 秒，真正节奏交给 WS
+        $sleepMs = min(3000, $minMs + ($maxMs > $minMs ? mt_rand(0, $maxMs - $minMs) : 0));
+
+        shuffle($uids);
         foreach ($packetIds as $packetId) {
             foreach ($uids as $uid) {
-                // 已抢过跳过
                 $exists = Db::name('chat_red_packet_records')
                     ->where(['packet_id' => $packetId, 'user_id' => $uid])
                     ->value('id');
                 if ($exists) {
                     continue;
                 }
-                if ($maxMs > 0) {
-                    $sleepMs = $minMs + ($maxMs > $minMs ? mt_rand(0, $maxMs - $minMs) : 0);
-                    if ($sleepMs > 0) {
-                        usleep($sleepMs * 1000);
-                    }
+                if ($sleepMs > 0) {
+                    usleep($sleepMs * 1000);
                 }
                 try {
                     FansHubImBridge::post('/agent/grab_redpacket', [
                         'agent_user_id' => $uid,
                         'packet_id'     => $packetId,
                     ]);
-                    $done++;
+                    return 1;
                 } catch (\Throwable $e) {
                     $msg = $e->getMessage();
-                    // 余额不足/已抢完等常见失败不中断整轮
                     if (stripos($msg, 'already') !== false
                         || stripos($msg, 'empty') !== false
                         || stripos($msg, 'closed') !== false
@@ -202,7 +277,7 @@ class FansHubRpAuto
                 }
             }
         }
-        return $done;
+        return 0;
     }
 
     protected static function parseUserIds($raw)
@@ -217,9 +292,6 @@ class FansHubRpAuto
         return array_values($out);
     }
 
-    /**
-     * 确保发包用户在 fa_chat_agent_accounts（兼容旧版 IM 桥接 assertAgent）
-     */
     protected static function ensureAgentAccount($userId)
     {
         $userId = (int)$userId;
@@ -253,7 +325,6 @@ class FansHubRpAuto
                 'updatetime'   => $now,
             ]);
         } catch (\Throwable $e) {
-            // 并发插入唯一键冲突时再查一次
             $again = Db::name('chat_agent_accounts')->where('user_id', $userId)->where('status', 1)->find();
             if (!$again) {
                 throw new Exception('登记托管客服失败: ' . $e->getMessage());

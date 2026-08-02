@@ -76,6 +76,9 @@ class Redpacketauto extends Backend
                 (int)$total['grab'],
                 (int)$total['skip']
             );
+            if (!empty($total['via']) && $total['via'] === 'im_ws') {
+                $msg = '自动发抢已由 IM WebSocket 进程执行（无需 crontab）。后台「立即执行」在 IM 在线时会跳过，避免双发。';
+            }
             if (!empty($total['errors'])) {
                 $msg .= '；错误: ' . implode('; ', $total['errors']);
             }
@@ -97,13 +100,17 @@ class Redpacketauto extends Backend
         $params['total_amount'] = round((float)($params['total_amount'] ?? 0), 2);
         $params['total_count'] = max(1, (int)($params['total_count'] ?? 5));
         $params['blessing'] = trim((string)($params['blessing'] ?? '恭喜发财')) ?: '恭喜发财';
-        $params['mine_digit'] = max(0, min(9, (int)($params['mine_digit'] ?? 0)));
+        $params['mine_digit'] = 0; // 埋雷雷号运行时随机，后台不配置
         $params['interval_sec'] = max(5, (int)($params['interval_sec'] ?? 60));
         $params['auto_send'] = !empty($params['auto_send']) ? 1 : 0;
         $params['auto_grab'] = !empty($params['auto_grab']) ? 1 : 0;
         $params['grab_user_ids'] = preg_replace('/[^\d,\s;]/', '', (string)($params['grab_user_ids'] ?? ''));
-        $params['grab_delay_min_ms'] = max(0, (int)($params['grab_delay_min_ms'] ?? 300));
-        $params['grab_delay_max_ms'] = max($params['grab_delay_min_ms'], (int)($params['grab_delay_max_ms'] ?? 1200));
+        $params['grab_delay_min_ms'] = max(0, (int)($params['grab_delay_min_ms'] ?? 5000));
+        $params['grab_delay_max_ms'] = max($params['grab_delay_min_ms'], (int)($params['grab_delay_max_ms'] ?? 15000));
+        if ($params['grab_delay_max_ms'] < 5000) {
+            $params['grab_delay_min_ms'] = 5000;
+            $params['grab_delay_max_ms'] = 15000;
+        }
         $params['max_per_day'] = max(0, (int)($params['max_per_day'] ?? 100));
         $params['status'] = ($params['status'] ?? '') === 'normal' ? 'normal' : 'hidden';
         $params['remark'] = mb_substr(trim((string)($params['remark'] ?? '')), 0, 255);

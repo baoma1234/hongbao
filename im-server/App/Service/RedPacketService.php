@@ -1337,19 +1337,25 @@ class RedPacketService
     }
 
     /**
-     * 拼手气群包结算后：平台机器人以相同金额/个数/祝福语再发一轮。
-     * 余额不足或发送失败仅记日志，不抛错。
+     * 拼手气群包结算后：扣除抢最少者（结算已付到发包人）→ 由原发包人/机器人续发同规格下一包。
+     * 若群内仍有待领取包则跳过，避免叠包。
      *
      * @return array|null 新红包消息（若已发出）
      */
     public function trySendRobotNextRound(array $packet)
     {
         $groupId = (int)($packet['group_id'] ?? 0);
+        $fromUid = (int)($packet['from_user_id'] ?? 0);
         $platformUid = (int)($this->cfg['platform_user_id'] ?? 0);
-        if ($groupId <= 0 || $platformUid <= 0) {
+        // 优先原发包人（结算已把最差赔付打入其账户）；否则退回平台号
+        $senderUid = $fromUid > 0 ? $fromUid : $platformUid;
+        if ($groupId <= 0 || $senderUid <= 0) {
             return null;
         }
         if ((int)($packet['packet_type'] ?? 0) !== 2) {
+            return null;
+        }
+        if ((int)($packet['scope_type'] ?? 0) !== 2) {
             return null;
         }
         $amount = round((float)($packet['total_amount'] ?? 0), 2);
@@ -1357,53 +1363,107 @@ class RedPacketService
         if ($amount <= 0 || $count <= 0) {
             return null;
         }
-        $bal = $this->wallet->getBalance($platformUid);
-        if ($bal + 0.00001 < $amount) {
-            error_log(sprintf(
-                '[RP_ROBOT] skip next round: platform balance=%.2f need=%.2f group=%d packet_id=%d',
-                $bal,
-                $amount,
-                $groupId,
-                (int)($packet['id'] ?? 0)
-            ));
-            return null;
-        }
+
+        // 群内还有待领包则不续发（由自动任务在空闲时补发）
         try {
-            // 确保机器人在群内且可在红宝模式发红包（管理员）
-            if (!$this->groups->isMember($groupId, $platformUid)) {
-                $this->groups->addMembers($groupId, [$platformUid], 2);
-            } elseif ($this->groups->memberRole($groupId, $platformUid) < 2) {
-                $this->groups->addMembers($groupId, [$platformUid], 2);
+            $open = Db::fetch(
+                'SELECT COUNT(*) AS c FROM ' . Db::table('chat_red_packets')
+                . ' WHERE group_id=? AND scope_type=2 AND status=1 AND remain_count>0',
+                [$groupId]
+            );
+            if ((int)($open['c'] ?? 0) > 0) {
+                return null;
             }
-            $result = $this->send([
-                'from_user_id' => $platformUid,
-                'scope_type'   => 2,
-                'group_id'     => $groupId,
-                'packet_type'  => 2,
-                'total_amount' => $amount,
-                'total_count'  => $count,
-                'blessing'     => (string)($packet['blessing'] ?? '恭喜发财'),
-            ]);
-            $msg = $result['message'] ?? null;
-            if (is_array($msg)) {
-                try {
-                    $uids = $this->groups->onlineMemberIds($groupId);
-                    \Im\Support\PushBus::toUsers($uids, 'group.message', ['message' => $msg]);
-                } catch (\Throwable $e) {
-                    error_log('[RP_ROBOT] push fail group=' . $groupId . ' ' . $e->getMessage());
-                }
-            }
-            error_log(sprintf(
-                '[RP_ROBOT] next round sent group=%d amount=%.2f count=%d from_packet=%d',
-                $groupId,
-                $amount,
-                $count,
-                (int)($packet['id'] ?? 0)
-            ));
-            return is_array($msg) ? $msg : null;
         } catch (\Throwable $e) {
-            error_log('[RP_ROBOT] next round fail group=' . $groupId . ' err=' . $e->getMessage());
-            return null;
+        }
+
+        $bal = $this->wallet->getBalance($senderUid);
+        if ($bal + 0.00001 < $amount) {
+            // 发包人余额不足时尝试平台号兜底
+            if ($platformUid > 0 && $platformUid !== $senderUid) {
+                $pbal = $this->wallet->getBalance($platformUid);
+                if ($pbal + 0.00001 >= $amount) {
+                    $senderUid = $platformUid;
+                } else {
+                    error_log(sprintf(
+                        '[RP_ROBOT] skip next round: balance from=%.2f platform=%.2f need=%.2f group=%d packet_id=%d',
+                        $bal,
+                        $pbal,
+                        $amount,
+                        $groupId,
+                        (int)($packet['id'] ?? 0)
+                    ));
+                    return null;
+                }
+            } else {
+                error_log(sprintf(
+                    '[RP_ROBOT] skip next round: sender balance=%.2f need=%.2f group=%d packet_id=%d',
+                    $bal,
+                    $amount,
+                    $groupId,
+                    (int)($packet['id'] ?? 0)
+                ));
+                return null;
+            }
+        }
+
+        $doSend = function () use ($groupId, $senderUid, $amount, $count, $packet) {
+            try {
+                $open = Db::fetch(
+                    'SELECT COUNT(*) AS c FROM ' . Db::table('chat_red_packets')
+                    . ' WHERE group_id=? AND scope_type=2 AND status=1 AND remain_count>0',
+                    [$groupId]
+                );
+                if ((int)($open['c'] ?? 0) > 0) {
+                    return null;
+                }
+                if (!$this->groups->isMember($groupId, $senderUid)) {
+                    $this->groups->addMembers($groupId, [$senderUid], 2);
+                } elseif ($this->groups->memberRole($groupId, $senderUid) < 2) {
+                    $this->groups->addMembers($groupId, [$senderUid], 2);
+                }
+                $result = $this->send([
+                    'from_user_id' => $senderUid,
+                    'scope_type'   => 2,
+                    'group_id'     => $groupId,
+                    'packet_type'  => 2,
+                    'total_amount' => $amount,
+                    'total_count'  => $count,
+                    'blessing'     => (string)($packet['blessing'] ?? '恭喜发财'),
+                ]);
+                $msg = $result['message'] ?? null;
+                if (is_array($msg)) {
+                    try {
+                        $uids = $this->groups->onlineMemberIds($groupId);
+                        \Im\Support\PushBus::toUsers($uids, 'group.message', ['message' => $msg]);
+                    } catch (\Throwable $e) {
+                        error_log('[RP_ROBOT] push fail group=' . $groupId . ' ' . $e->getMessage());
+                    }
+                }
+                error_log(sprintf(
+                    '[RP_ROBOT] next round sent group=%d amount=%.2f count=%d sender=%d from_packet=%d',
+                    $groupId,
+                    $amount,
+                    $count,
+                    $senderUid,
+                    (int)($packet['id'] ?? 0)
+                ));
+                return is_array($msg) ? $msg : null;
+            } catch (\Throwable $e) {
+                error_log('[RP_ROBOT] next round fail group=' . $groupId . ' err=' . $e->getMessage());
+                return null;
+            }
+        };
+
+        // 延迟 2～5 秒续发，更像真人节奏
+        $delay = 2.0 + (mt_rand(0, 3000) / 1000.0);
+        try {
+            Timer::add($delay, function () use ($doSend) {
+                $doSend();
+            }, [], false);
+            return ['scheduled' => true, 'delay' => $delay];
+        } catch (\Throwable $e) {
+            return $doSend();
         }
     }
 

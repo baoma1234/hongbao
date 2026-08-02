@@ -140,6 +140,15 @@ $worker->onWorkerStart = function (Worker $worker) use ($cfg) {
                 error_log('[RP_SETTLE_RETRY] timer err ' . $e->getMessage());
             }
         });
+        // 红包自动发/抢：迁入 WS，替代 php think redpacket:auto
+        $rpAuto = new \Im\Service\RpAutoBotService($redPackets, $groups);
+        Timer::add(2, function () use ($rpAuto) {
+            try {
+                $rpAuto->tick();
+            } catch (\Throwable $e) {
+                error_log('[RP_AUTO] timer err ' . $e->getMessage());
+            }
+        });
     }
 
     $heartbeat = (int)($cfg['websocket']['heartbeat'] ?? 50);
