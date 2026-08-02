@@ -552,8 +552,8 @@
   pointer-events: none;
   cursor: not-allowed;
 }
-.chat-rp-record-avatar.is-gray,
-.chat-rp-detail-list.is-private .chat-rp-record-avatar.locked {
+/* 仅隐私脱敏头像变灰；勿用 .locked（不可点资料）误伤正常头像 */
+.chat-rp-record-avatar.is-gray {
   filter: grayscale(1) brightness(0.9);
   background: #d8d8d8;
   color: #888;

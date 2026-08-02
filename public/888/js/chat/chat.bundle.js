@@ -1803,8 +1803,11 @@
     var grabBtn = $('chatRpDetailGrabBtn');
     var p = data.packet || {};
     var bless = p.blessing || '恭喜发财';
-    var locked = data.rp_detail_locked === true || data.profile_clickable === false;
     var privacyMode = (data.privacy_mode || (data.policy && data.policy.privacy_mode) || '').toString();
+    // 隐私隐藏仅看群隐私 / 服务端 rp_detail_locked；不要把「不可点资料」当成隐私脱敏
+    var locked = data.rp_detail_locked === true
+      || privacyMode === 'private'
+      || (privacyMode !== 'open' && data.member_list_hidden === true);
     if (privacyMode !== 'open' && privacyMode !== 'private') {
       privacyMode = locked ? 'private' : 'open';
     }

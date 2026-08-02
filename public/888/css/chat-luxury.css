@@ -498,23 +498,26 @@ body.chat-room-open .bottom-action-bar {
     linear-gradient(160deg, #E83D2E 0%, #C21818 50%, #8E0C10 100%);
 }
 .chat-room-pane .chat-rp-card.is-faded .rp-top {
-  background: linear-gradient(160deg, #D9A0A0 0%, #C47E7E 55%, #B06A6A 100%);
+  background:
+    radial-gradient(ellipse 90% 70% at 8% 0%, rgba(255, 200, 120, 0.22), transparent 48%),
+    radial-gradient(ellipse 60% 50% at 100% 100%, rgba(0, 0, 0, 0.12), transparent 55%),
+    linear-gradient(160deg, #EE5A48 0%, #D12E26 48%, #B0181C 100%);
 }
 .chat-room-pane .chat-rp-card.is-faded {
-  opacity: 0.92;
-  filter: saturate(0.65);
-  box-shadow: 0 4px 12px rgba(120, 60, 55, 0.12);
-  border-color: rgba(160, 100, 100, 0.18);
+  opacity: 0.97;
+  filter: saturate(0.92) brightness(0.98);
+  box-shadow: 0 4px 14px rgba(160, 40, 35, 0.16);
+  border-color: rgba(200, 80, 70, 0.22);
 }
 .chat-room-pane .chat-rp-card.is-faded .rp-ribbon {
-  background: linear-gradient(90deg, #E8C9A0, #D4B07A, #E8C9A0);
-  opacity: 0.55;
+  background: linear-gradient(90deg, #F0D4A0, #E0B86A, #F0D4A0);
+  opacity: 0.78;
 }
 .chat-room-pane .chat-rp-card.is-faded .rp-bottom {
-  background: #f5e8e4;
+  background: #fff2ee;
 }
 .chat-room-pane .chat-rp-card.is-faded .rp-bottom-lab {
-  color: #9a6a6a;
+  color: #c44a3a;
 }
 .chat-room-pane .chat-rp-card .rp-title {
   font-size: 13.5px;
