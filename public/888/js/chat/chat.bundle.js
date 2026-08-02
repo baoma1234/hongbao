@@ -1504,13 +1504,8 @@
   }
 
   function msgActionsHtml(msg, mine) {
-    if (!canRecallMessage(msg)) return '';
-    var isPrivate = ((state.room && state.room.type) | 0) === 1
-      || (msg.conversation_type | 0) === 1;
-    if (isPrivate) {
-      return '<button type="button" class="chat-msg-recall chat-msg-delete" data-id="' + (msg.id | 0) + '">删除</button>';
-    }
-    return '<button type="button" class="chat-msg-recall" data-id="' + (msg.id | 0) + '">撤回</button>';
+    // 会话消息列表不再展示删除/撤回按钮
+    return '';
   }
 
   function groupPolicy() {
