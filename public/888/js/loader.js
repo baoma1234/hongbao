@@ -78,8 +78,14 @@
     moveChildren(tabsFrag, dash);
     moveChildren(extrasFrag, extras);
     dash.removeAttribute('data-shell');
-    extras.removeAttribute('data-shell');
+    // extras 保持 pending，等业务 CSS 就绪后再揭开（见 ensureDashboard）
+    extras.setAttribute('data-shell', 'pending');
     dashboardReady = true;
+  }
+
+  function revealExtrasMount() {
+    var extras = document.getElementById('appExtrasMount');
+    if (extras) extras.removeAttribute('data-shell');
   }
 
   /** 登录后注入业务 DOM（未登录页面不含大厅/闪兑/红宝等） */
@@ -88,24 +94,24 @@
       return Promise.resolve(true);
     }
     if (dashboardPromise) return dashboardPromise;
-    dashboardPromise = fetch(url('partials/dashboard.php'), {
-      credentials: 'same-origin',
-      cache: 'no-store'
-    })
-      .then(function (res) {
+    // HTML 与 CSS 并行；注入后仍待 CSS 完成再揭开 extras，避免弹层裸露
+    dashboardPromise = Promise.all([
+      fetch(url('partials/dashboard.php'), {
+        credentials: 'same-origin',
+        cache: 'no-store'
+      }).then(function (res) {
         if (!res.ok) throw new Error('dashboard HTTP ' + res.status);
         return res.text();
-      })
-      .then(function (html) {
-        injectDashboardHtml(html);
-        // 大厅基础样式 + 底栏/通用弹层
-        return loadCssMany([
-          'css/home.css',
-          'css/tabs-extra.css',
-          'css/social-modals.css'
-        ]);
-      })
-      .then(function () {
+      }),
+      loadCssMany([
+        'css/home.css',
+        'css/tabs-extra.css',
+        'css/social-modals.css'
+      ])
+    ])
+      .then(function (parts) {
+        injectDashboardHtml(parts[0]);
+        revealExtrasMount();
         return true;
       })
       .catch(function (err) {
