@@ -78,6 +78,11 @@ class PushBus
         if (!$ids) {
             return;
         }
+        // HTTP 桥等未 boot 的进程：无本地投递，走跨进程队列
+        if (!self::$localDeliver) {
+            self::toUsersExternal(array_values($ids), $type, $data);
+            return;
+        }
         $envelope = [
             'v'      => 1,
             'type'   => (string)$type,
@@ -88,6 +93,68 @@ class PushBus
             'ts'     => time(),
         ];
         self::publish($envelope);
+    }
+
+    /**
+     * HTTP / 外部进程推送：无本地连接，直接写入各存活 Worker 的 push 队列
+     *
+     * @param int|int[] $userIds
+     */
+    public static function toUsersExternal($userIds, $type, array $data)
+    {
+        if (!is_array($userIds)) {
+            $userIds = [$userIds];
+        }
+        $ids = [];
+        foreach ($userIds as $uid) {
+            $uid = (int)$uid;
+            if ($uid > 0) {
+                $ids[$uid] = $uid;
+            }
+        }
+        if (!$ids) {
+            return;
+        }
+        $envelope = [
+            'v'      => 1,
+            'type'   => (string)$type,
+            'data'   => $data,
+            'uids'   => array_values($ids),
+            'except' => '',
+            'from'   => -1,
+            'ts'     => time(),
+        ];
+        $json = json_encode($envelope, JSON_UNESCAPED_UNICODE);
+        if ($json === false) {
+            return;
+        }
+        try {
+            $r = RedisClient::conn();
+            $workers = $r->sMembers(RedisClient::key('workers'));
+            if (!is_array($workers) || !$workers) {
+                $workers = ['0'];
+            }
+            foreach ($workers as $wid) {
+                $wid = (string)$wid;
+                if ($wid === '') {
+                    continue;
+                }
+                if (!$r->exists(RedisClient::key('worker:' . $wid . ':alive'))) {
+                    // 仍写入 worker0，避免心跳短暂空窗丢推
+                    if ($wid !== '0') {
+                        continue;
+                    }
+                }
+                $key = RedisClient::key('w:' . $wid . ':push');
+                $r->lPush($key, $json);
+                $r->lTrim($key, 0, 19999);
+            }
+            try {
+                $r->publish(RedisClient::key('push_wake'), 'external');
+            } catch (\Throwable $ePub) {
+            }
+        } catch (\Throwable $e) {
+        }
     }
 
     public static function publish(array $envelope)

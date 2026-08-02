@@ -72,12 +72,12 @@ $worker->onWorkerStart = function (Worker $worker) use ($cfg) {
 
     // 仅 worker0 消费后台代聊队列，再经 PushBus 扇出（避免多进程抢消息且漏推）
     if ((int)$worker->id === 0) {
-        Timer::add(0.3, function () use ($groups) {
+        Timer::add(0.1, function () use ($groups) {
             try {
                 $r = RedisClient::conn();
                 $key = RedisClient::key('notify_queue');
-                for ($i = 0; $i < 20; $i++) {
-                    $raw = $r->lPop($key);
+                for ($i = 0; $i < 40; $i++) {
+                    $raw = $r->rPop($key);
                     if (!$raw) {
                         break;
                     }

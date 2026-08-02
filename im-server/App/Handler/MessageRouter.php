@@ -1404,8 +1404,14 @@ class MessageRouter
 
     protected function pushToGroup($groupId, $type, array $data, $exceptConnId = '')
     {
-        // 万人群：SINTER(online, members)，禁止拉全员再过滤
+        $groupId = (int)$groupId;
         $uids = $this->groups->onlineMemberIds($groupId);
+        if (!$uids) {
+            $all = $this->groups->memberUserIds($groupId);
+            if (count($all) <= 200) {
+                $uids = $all;
+            }
+        }
         if ($uids) {
             PushBus::toUsers($uids, $type, $data, $exceptConnId);
         }

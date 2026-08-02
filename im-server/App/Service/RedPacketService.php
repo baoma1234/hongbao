@@ -1436,7 +1436,15 @@ class RedPacketService
                 if (is_array($msg)) {
                     try {
                         $uids = $this->groups->onlineMemberIds($groupId);
-                        \Im\Support\PushBus::toUsers($uids, 'group.message', ['message' => $msg]);
+                        if (!$uids) {
+                            $all = $this->groups->memberUserIds($groupId);
+                            if (count($all) <= 200) {
+                                $uids = $all;
+                            }
+                        }
+                        if ($uids) {
+                            \Im\Support\PushBus::toUsers($uids, 'group.message', ['message' => $msg]);
+                        }
                     } catch (\Throwable $e) {
                         error_log('[RP_ROBOT] push fail group=' . $groupId . ' ' . $e->getMessage());
                     }

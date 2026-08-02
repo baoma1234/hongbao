@@ -180,6 +180,12 @@ class RpAutoBotService
         if (is_array($msg)) {
             try {
                 $uids = $this->groups->onlineMemberIds($groupId);
+                if (!$uids) {
+                    $all = $this->groups->memberUserIds($groupId);
+                    if (count($all) <= 200) {
+                        $uids = $all;
+                    }
+                }
                 if ($uids) {
                     PushBus::toUsers($uids, 'group.message', ['message' => $msg]);
                 }

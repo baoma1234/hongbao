@@ -196,7 +196,14 @@ $http->onMessage = function (TcpConnection $connection, Request $request) use ($
                     'by_user_id' => $agentUid,
                 ];
                 if ((int)($packet['scope_type'] ?? 0) === 2) {
-                    $uids = $groups->onlineMemberIds((int)$packet['group_id']);
+                    $gid = (int)$packet['group_id'];
+                    $uids = $groups->onlineMemberIds($gid);
+                    if (!$uids) {
+                        $all = $groups->memberUserIds($gid);
+                        if (count($all) <= 200) {
+                            $uids = $all;
+                        }
+                    }
                     if ($uids) {
                         \Im\Support\PushBus::toUsers($uids, 'redpacket.update', $event);
                     }

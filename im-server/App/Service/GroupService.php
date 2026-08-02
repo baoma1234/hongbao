@@ -247,7 +247,9 @@ class GroupService
     }
 
     /**
-     * 群内当前在线成员：online ∩ members（O(较小集合)，万人群关键）
+     * 群内当前在线成员（可推送目标）
+     * 小群：按成员表 + ConnMap/Redis online 过滤（含本机已连接但 Redis online 漏记的情况）
+     * 大群：SINTER(online, members)，避免拉全员
      * @return int[]
      */
     public function onlineMemberIds($groupId)
@@ -256,6 +258,23 @@ class GroupService
         if ($groupId <= 0) {
             return [];
         }
+        $cap = self::maxPushOnline();
+
+        // 小群优先准：本机连接 + Redis online / uid:conns，避免 SINTER 漏推
+        try {
+            $members = $this->memberUserIds($groupId);
+            if (count($members) <= 500) {
+                $out = \Im\Support\ConnMap::filterOnlineUserIds($members);
+                // 再并上「有 uid:conns」但未进 online 集合的（TTL/异常场景）
+                $out = $this->mergeMembersWithActiveConns($members, $out);
+                if (count($out) > $cap) {
+                    $out = array_slice($out, 0, $cap);
+                }
+                return $out;
+            }
+        } catch (\Throwable $e) {
+        }
+
         $this->ensureMemberSet($groupId);
         try {
             $ids = RedisClient::conn()->sInter(
@@ -263,9 +282,17 @@ class GroupService
                 RedisClient::key('g:' . $groupId . ':mset')
             );
             $out = array_values(array_unique(array_filter(array_map('intval', $ids ?: []))));
-            $cap = self::maxPushOnline();
+            // 并入本机在线（SINTER 可能漏掉 Redis online 未写入的连接）
+            try {
+                foreach ($this->memberUserIds($groupId) as $uid) {
+                    if (\Im\Support\ConnMap::isLocalOnline($uid)) {
+                        $out[] = (int)$uid;
+                    }
+                }
+                $out = array_values(array_unique(array_filter($out)));
+            } catch (\Throwable $eLocal) {
+            }
             if (count($out) > $cap) {
-                // 超大在线：截断并打日志，避免单条消息推送数万帧
                 error_log('[IM] group online fanout capped gid=' . $groupId . ' online=' . count($out) . ' cap=' . $cap);
                 $out = array_slice($out, 0, $cap);
             }
@@ -273,6 +300,60 @@ class GroupService
         } catch (\Throwable $e) {
             return \Im\Support\ConnMap::filterOnlineUserIds($this->memberUserIds($groupId));
         }
+    }
+
+    /**
+     * 把仍有 Redis 连接登记的成员并入在线列表（修复 online 集合漏记）
+     * @param int[] $members
+     * @param int[] $online
+     * @return int[]
+     */
+    protected function mergeMembersWithActiveConns(array $members, array $online)
+    {
+        $map = [];
+        foreach ($online as $uid) {
+            $uid = (int)$uid;
+            if ($uid > 0) {
+                $map[$uid] = true;
+            }
+        }
+        $missing = [];
+        foreach ($members as $uid) {
+            $uid = (int)$uid;
+            if ($uid > 0 && empty($map[$uid])) {
+                $missing[] = $uid;
+            }
+        }
+        if (!$missing) {
+            return array_keys($map);
+        }
+        try {
+            $r = RedisClient::conn();
+            $chunkSize = 100;
+            for ($i = 0; $i < count($missing); $i += $chunkSize) {
+                $chunk = array_slice($missing, $i, $chunkSize);
+                $r->multi(\Redis::PIPELINE);
+                foreach ($chunk as $uid) {
+                    $r->sCard(RedisClient::key('uid:' . $uid . ':conns'));
+                }
+                $cards = $r->exec();
+                if (!is_array($cards)) {
+                    continue;
+                }
+                foreach ($chunk as $j => $uid) {
+                    if (!empty($cards[$j])) {
+                        $map[$uid] = true;
+                        // 自愈：补回 online 集合
+                        try {
+                            $r->sAdd(RedisClient::key('online'), (string)$uid);
+                        } catch (\Throwable $eAdd) {
+                        }
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+        return array_values(array_keys($map));
     }
 
     public function invalidateMembersCache($groupId)
