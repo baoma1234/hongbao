@@ -1050,20 +1050,21 @@
   }
 
   function send(type, data, opts) {
-    // 非聊天写读优先 HTTP，不占 WS Worker；失败再走 WS
+    // 非聊天写读优先 HTTP，不占 WS Worker；仅网络类失败再回退 WS
+    // 注意：业务错误（如仅机器人可发）必须直接抛出，不可再走 WS，否则旧 Worker 会放行
     if (HTTP_ROUTES[type]) {
       return sendViaHttp(type, data).catch(function (httpErr) {
+        var hm = String((httpErr && httpErr.message) || '');
+        var isBiz = hm && hm !== '未连接' && hm !== '超时'
+          && hm !== 'Failed to fetch'
+          && hm !== 'The user aborted a request.'
+          && hm.indexOf('NetworkError') < 0
+          && hm.indexOf('Load failed') < 0
+          && hm.indexOf('HTTP ') !== 0;
+        if (isBiz) {
+          throw httpErr;
+        }
         return sendViaWs(type, data, opts).catch(function (wsErr) {
-          var hm = String((httpErr && httpErr.message) || '');
-          // 保留业务错误（如 not in group），不要被「未连接/超时」盖掉
-          if (hm && hm !== '未连接' && hm !== '超时'
-            && hm !== 'Failed to fetch'
-            && hm !== 'The user aborted a request.'
-            && hm.indexOf('NetworkError') < 0
-            && hm.indexOf('Load failed') < 0
-            && hm.indexOf('HTTP ') !== 0) {
-            throw httpErr;
-          }
           throw wsErr || httpErr;
         });
       });
@@ -3041,7 +3042,8 @@
     var isPrivate = !!(state.room && state.room.type === 1);
     if (rpBtn) {
       if (isGroup) {
-        rpBtn.style.display = policy.can_send_rp === false ? 'none' : '';
+        var blockRp = policy.can_send_rp === false || policy.rp_robot_only === true;
+        rpBtn.style.display = blockRp ? 'none' : '';
       } else {
         rpBtn.style.display = '';
       }
@@ -4326,7 +4328,7 @@
       if (typeof showFanshubToast === 'function') showFanshubToast('请先打开会话', 'info');
       return;
     }
-    if (state.room.type === 2 && groupPolicy().can_send_rp === false) {
+    if (state.room.type === 2 && (groupPolicy().can_send_rp === false || groupPolicy().rp_robot_only === true)) {
       var tip = groupPolicy().rp_robot_only
         ? (chatT('chat_rp_robot_only') || '本群仅自动机器人可发红包')
         : (chatT('chat_rp_admin_only') || '红宝模式下仅管理员可发红包');

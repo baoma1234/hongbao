@@ -1047,20 +1047,21 @@
   }
 
   function send(type, data, opts) {
-    // 非聊天写读优先 HTTP，不占 WS Worker；失败再走 WS
+    // 非聊天写读优先 HTTP，不占 WS Worker；仅网络类失败再回退 WS
+    // 注意：业务错误（如仅机器人可发）必须直接抛出，不可再走 WS，否则旧 Worker 会放行
     if (HTTP_ROUTES[type]) {
       return sendViaHttp(type, data).catch(function (httpErr) {
+        var hm = String((httpErr && httpErr.message) || '');
+        var isBiz = hm && hm !== '未连接' && hm !== '超时'
+          && hm !== 'Failed to fetch'
+          && hm !== 'The user aborted a request.'
+          && hm.indexOf('NetworkError') < 0
+          && hm.indexOf('Load failed') < 0
+          && hm.indexOf('HTTP ') !== 0;
+        if (isBiz) {
+          throw httpErr;
+        }
         return sendViaWs(type, data, opts).catch(function (wsErr) {
-          var hm = String((httpErr && httpErr.message) || '');
-          // 保留业务错误（如 not in group），不要被「未连接/超时」盖掉
-          if (hm && hm !== '未连接' && hm !== '超时'
-            && hm !== 'Failed to fetch'
-            && hm !== 'The user aborted a request.'
-            && hm.indexOf('NetworkError') < 0
-            && hm.indexOf('Load failed') < 0
-            && hm.indexOf('HTTP ') !== 0) {
-            throw httpErr;
-          }
           throw wsErr || httpErr;
         });
       });
