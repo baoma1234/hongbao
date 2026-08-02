@@ -292,6 +292,10 @@
                                 <span class="chat-attach-icon">🧧</span>
                                 <span data-copy="chat_attach_rp">红包</span>
                         </button>
+                        <button type="button" class="chat-attach-item" id="chatAttachTransferBtn" hidden>
+                                <span class="chat-attach-icon">💸</span>
+                                <span data-copy="chat_attach_transfer">转账</span>
+                        </button>
                     </div>
                         <div class="chat-composer chat-footer">
                             <button type="button" class="chat-tool-icon" id="chatEmojiBtn" title="表情" aria-label="表情" data-copy-title="aria_emoji" data-copy-aria="aria_emoji">
@@ -303,12 +307,12 @@
                                 </svg>
                             </button>
                             <input type="text" id="chatInput" class="input-box" maxlength="2000" data-copy-placeholder="chat_input_placeholder" placeholder="输入消息…">
-                            <button type="button" id="chatSendBtn" data-copy="chat_send">发送</button>
                             <button type="button" class="btn-plus" id="chatAttachBtn" title="更多" aria-label="更多" data-copy-title="aria_more" data-copy-aria="aria_more">
                                 <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
                                     <path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"></path>
                                 </svg>
                             </button>
+                            <button type="button" id="chatSendBtn" data-copy="chat_send">发送</button>
                     </div>
                     <input type="file" id="chatImageInput" accept="image/jpeg,image/png,image/gif,image/webp,image/bmp" hidden>
                     <input type="file" id="chatVideoInput" accept="video/mp4,video/webm,video/quicktime" hidden>
@@ -426,6 +430,43 @@
             <div class="chat-media-lightbox" id="chatMediaLightbox" aria-hidden="true">
                 <button type="button" class="chat-media-lightbox-close" id="chatMediaLightboxClose" aria-label="关闭" data-copy-aria="aria_close">×</button>
                 <div class="chat-media-lightbox-body" id="chatMediaLightboxBody"></div>
+            </div>
+
+            <div class="chat-rp-send-pane chat-transfer-send-pane" id="chatTransferSendPane" aria-hidden="true">
+                <div class="chat-hero-hd">
+                    <button type="button" class="chat-hero-back" id="chatTransferCancelBtn" data-copy="chat_cancel">取消</button>
+                    <div class="chat-hero-title" data-copy="chat_transfer_title">转账</div>
+                    <span class="chat-hero-spacer"></span>
+                </div>
+                <div class="chat-rp-send-main">
+                    <div class="chat-rp-send-body">
+                        <div class="chat-transfer-preview">
+                            <div class="chat-transfer-preview-icon">💸</div>
+                            <div class="chat-transfer-preview-lab">转账给对方</div>
+                            <div class="chat-transfer-preview-amt" id="chatTransferPreviewAmt">￥0.00</div>
+                        </div>
+                        <div class="chat-rp-balance-hint">
+                            <span data-copy="chat_rp_balance_hint">可用红宝：</span>
+                            <strong id="chatTransferBalance">￥0.00</strong>
+                        </div>
+                        <div class="chat-rp-form">
+                            <div class="chat-rp-field chat-rp-field--amount">
+                                <label for="chatTransferAmount" data-copy="chat_transfer_amount_label">金额</label>
+                                <div class="chat-rp-amount-row">
+                                    <span class="chat-rp-yuan">￥</span>
+                                    <input type="number" id="chatTransferAmount" inputmode="decimal" step="0.01" min="0.01" placeholder="0.00">
+                                </div>
+                            </div>
+                            <div class="chat-rp-field">
+                                <label for="chatTransferRemark" data-copy="chat_transfer_remark_label">备注</label>
+                                <input type="text" id="chatTransferRemark" maxlength="40" placeholder="可选填写">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="chat-rp-send-ft">
+                        <button type="button" class="chat-rp-submit-btn chat-transfer-submit-btn" id="chatTransferSubmitBtn">确认转账</button>
+                    </div>
+                </div>
             </div>
 
             <div class="chat-rp-send-pane" id="chatRpSendPane" aria-hidden="true">

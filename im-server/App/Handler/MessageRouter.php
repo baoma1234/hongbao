@@ -10,6 +10,7 @@ use Im\Service\GroupService;
 use Im\Service\MessageService;
 use Im\Service\OfficialStatsService;
 use Im\Service\RedPacketService;
+use Im\Service\TransferService;
 use Im\Support\ConnMap;
 use Im\Support\IdGenerator;
 use Im\Support\PushBus;
@@ -30,6 +31,8 @@ class MessageRouter
     protected $groups;
     /** @var RedPacketService */
     protected $redPackets;
+    /** @var TransferService */
+    protected $transfers;
     /** @var ContactService */
     protected $contacts;
     /** @var \Workerman\Worker */
@@ -44,6 +47,7 @@ class MessageRouter
         $this->messages = $messages;
         $this->groups = $groups;
         $this->redPackets = $redPackets;
+        $this->transfers = new TransferService($cfg);
         $this->contacts = new ContactService();
         $this->cfg = $cfg;
     }
@@ -199,6 +203,9 @@ class MessageRouter
                     break;
                 case 'redpacket.send':
                     $this->handleRedSend($connection, $uid, $payload, $reqId);
+                    break;
+                case 'transfer.send':
+                    $this->handleTransferSend($connection, $uid, $payload, $reqId);
                     break;
                 case 'redpacket.grab':
                     $this->handleRedGrab($connection, $uid, $payload, $reqId);
@@ -425,6 +432,9 @@ class MessageRouter
         $content = (string)($payload['content'] ?? '');
         $msgType = (int)($payload['msg_type'] ?? 1);
         $extra = isset($payload['extra']) ? $payload['extra'] : null;
+        if ($msgType === 8) {
+            throw new \InvalidArgumentException('use transfer.send');
+        }
         ChatForbidService::assertCanSendMessage($uid, $msgType);
         $msg = $this->messages->sendPrivate($uid, $to, $content, $msgType, $extra);
         $this->send($connection, 'private.ack', ['message' => $msg], $reqId);
@@ -442,6 +452,9 @@ class MessageRouter
         $content = (string)($payload['content'] ?? '');
         $msgType = (int)($payload['msg_type'] ?? 1);
         $extra = isset($payload['extra']) ? $payload['extra'] : null;
+        if ($msgType === 8) {
+            throw new \InvalidArgumentException('transfer only in private chat');
+        }
         ChatForbidService::assertCanSendMessage($uid, $msgType);
 
         // 群聊文本快捷发红包：金额/数量/雷号 → 埋雷；金额/数量 → 拼手气（不落文本命令）
@@ -1270,6 +1283,17 @@ class MessageRouter
             $this->pushToUser($uid, 'private.message', ['message' => $msg], (string)$connection->id);
         }
         // 立刻消费本机跨进程队列，降低多 Worker 漏推/延迟
+        PushBus::drainOwnQueue(200);
+    }
+
+    protected function handleTransferSend(TcpConnection $connection, $uid, array $payload, $reqId)
+    {
+        $payload['from_user_id'] = $uid;
+        $result = $this->transfers->send($payload);
+        $this->send($connection, 'transfer.sent', $result, $reqId);
+        $msg = $result['message'];
+        $this->pushToUser((int)$msg['to_user_id'], 'private.message', ['message' => $msg]);
+        $this->pushToUser($uid, 'private.message', ['message' => $msg], (string)$connection->id);
         PushBus::drainOwnQueue(200);
     }
 

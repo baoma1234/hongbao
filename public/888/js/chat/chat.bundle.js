@@ -687,8 +687,11 @@
 
   function isEmojiOnlyText(text) {
     var t = String(text || '').trim();
-    if (!t || t.length > 8) return false;
-    return !/[\u0000-\u007F]/.test(t);
+    if (!t || t.length > 24) return false;
+    // 含中日韩/字母/数字的短句不能当「纯表情」——否则会透明气泡+白色字导致空白
+    if (/[\u4e00-\u9fff\u3400-\u4dbf\u3040-\u30ff\uac00-\ud7af0-9a-zA-Z]/i.test(t)) return false;
+    // 须含 emoji / 杂项符号
+    return /(?:[\uD800-\uDBFF][\uDC00-\uDFFF]|[\u2600-\u27BF])/.test(t);
   }
 
   function closeComposerPanels() {
@@ -830,6 +833,12 @@
     if ((msg.status | 0) === 2) return '[已撤回]';
     var type = msg.msg_type | 0;
     if (type === 2) return '[红包] ' + (msg.content || '').replace(/^\[红包\]/, '');
+    if (type === 8) {
+      var tExtra = parseExtra(msg);
+      var amt = tExtra.amount != null ? Number(tExtra.amount) : NaN;
+      if (!isNaN(amt)) return '[转账] ￥' + amt.toFixed(2);
+      return '[转账]';
+    }
     if (type === 3) return msg.content || '[系统消息]';
     if (type === 4) return '[图片]';
     if (type === 5) return '[视频]';
@@ -1720,6 +1729,30 @@
     );
   }
 
+  function renderTransferCardHtml(extra, msg, time) {
+    var amt = extra && extra.amount != null ? parseFloat(extra.amount) : NaN;
+    var remark = (extra && extra.remark) ? String(extra.remark) : '';
+    var mine = msg && ((msg.from_user_id | 0) === state.userId);
+    var title = remark ? escapeHtml(remark) : (mine ? '转账给对方' : '收到转账');
+    var amtHtml = !isNaN(amt)
+      ? ('<span class="tf-yen">¥</span>' + amt.toFixed(2))
+      : '转账';
+    return (
+      '<div class="chat-transfer-card' + (mine ? ' me' : '') + '">' +
+        '<div class="tf-top">' +
+          '<div class="tf-icon" aria-hidden="true">💸</div>' +
+          '<div class="tf-info">' +
+            '<div class="tf-amt">' + amtHtml + '</div>' +
+            '<div class="tf-title">' + title + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="tf-bottom"><span class="tf-lab">转账</span>' +
+          (time ? '<span class="tf-time">' + escapeHtml(time) + '</span>' : '') +
+        '</div>' +
+      '</div>'
+    );
+  }
+
   function markRpCover(packetId, patch) {
     packetId = packetId | 0;
     if (!packetId) return;
@@ -2323,6 +2356,10 @@
       var extra = parseExtra(msg);
       return groupMessageWrap(mine, msg.from_user_id, renderRpCardHtml(extra, msg, formatTimeSec(msg.createtime)), actions, msg.id | 0);
     }
+    if (type === 8) {
+      var tfExtra = parseExtra(msg);
+      return groupMessageWrap(mine, msg.from_user_id, renderTransferCardHtml(tfExtra, msg, time), actions, msg.id | 0);
+    }
     if (type === 4) {
       var imgExtra = parseExtra(msg);
       var imgUrl = mediaUrl(imgExtra);
@@ -2543,10 +2580,14 @@
     if (state.room && state.room.type === type && String(state.room.id) === String(id)) {
       return;
     }
-    var isRp = (msg.msg_type | 0) === 2;
+    var mtype = msg.msg_type | 0;
+    var isRp = mtype === 2;
+    var isTf = mtype === 8;
     var prev = '';
     try { prev = previewText(msg) || ''; } catch (e0) { prev = msg.content || ''; }
-    var tip = isRp ? ('🧧 ' + (prev || '收到红包')) : ('💬 ' + (prev || '新消息'));
+    var tip = isRp
+      ? ('🧧 ' + (prev || '收到红包'))
+      : (isTf ? ('💸 ' + (prev || '收到转账')) : ('💬 ' + (prev || '新消息')));
     // 节流：1.2s 内最多一条 toast，避免刷屏
     var now = Date.now();
     if (!state._lastIncomingToastAt || (now - state._lastIncomingToastAt) > 1200) {
@@ -2704,6 +2745,7 @@
     if (dash) dash.classList.add('chat-room-open');
     if (typeof setBottomActionBarVisible === 'function') setBottomActionBarVisible(false);
     setComposerMuted(false, '');
+    updateComposerPolicy();
     // 先用本地历史秒开对话框，再拉最新
     var cachedHist = loadHistCache(state.room.type, state.room.id);
     var cacheAge = (cachedHist && cachedHist.at) ? (Date.now() - (cachedHist.at | 0)) : 1e15;
@@ -2768,6 +2810,7 @@
 
   function closeRoom() {
     closeRpSendPage();
+    if (typeof closeTransferSendPage === 'function') closeTransferSendPage();
     closeComposerPanels();
     closeMediaLightbox();
     closeGroupSubPanes();
@@ -2839,8 +2882,19 @@
   function updateComposerPolicy() {
     var policy = groupPolicy();
     var rpBtn = $('chatAttachRpBtn');
-    if (rpBtn && state.room && state.room.type === 2) {
-      rpBtn.style.display = policy.can_send_rp === false ? 'none' : '';
+    var tfBtn = $('chatAttachTransferBtn');
+    var isGroup = !!(state.room && state.room.type === 2);
+    var isPrivate = !!(state.room && state.room.type === 1);
+    if (rpBtn) {
+      if (isGroup) {
+        rpBtn.style.display = policy.can_send_rp === false ? 'none' : '';
+      } else {
+        rpBtn.style.display = '';
+      }
+    }
+    if (tfBtn) {
+      tfBtn.hidden = !isPrivate;
+      tfBtn.style.display = isPrivate ? '' : 'none';
     }
   }
 
@@ -4056,6 +4110,95 @@
     openRpSendPage();
   }
 
+  function updateTransferPreview() {
+    var amountInput = $('chatTransferAmount');
+    var amtEl = $('chatTransferPreviewAmt');
+    var balEl = $('chatTransferBalance');
+    var total = parseFloat(amountInput && amountInput.value) || 0;
+    if (amtEl) amtEl.textContent = '￥' + total.toFixed(2);
+    if (balEl && state.money != null && !isNaN(state.money)) {
+      balEl.textContent = '￥' + Number(state.money).toFixed(2);
+    }
+  }
+
+  function openTransferSendPage() {
+    if (!state.room || state.room.type !== 1) {
+      if (typeof showFanshubToast === 'function') showFanshubToast('仅私聊可转账', 'info');
+      return;
+    }
+    var pane = $('chatTransferSendPane');
+    if (!pane) return;
+    var amountInput = $('chatTransferAmount');
+    if (amountInput && !amountInput.value) amountInput.value = '';
+    var remarkInput = $('chatTransferRemark');
+    if (remarkInput && !String(remarkInput.value || '').trim()) remarkInput.value = '';
+    updateTransferPreview();
+    pane.classList.add('open');
+    pane.setAttribute('aria-hidden', 'false');
+    if (amountInput) setTimeout(function () { amountInput.focus(); }, 80);
+  }
+
+  function closeTransferSendPage() {
+    var pane = $('chatTransferSendPane');
+    if (!pane) return;
+    pane.classList.remove('open');
+    pane.setAttribute('aria-hidden', 'true');
+    var btn = $('chatTransferSubmitBtn');
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '确认转账';
+    }
+  }
+
+  async function submitTransfer() {
+    if (!state.room || state.room.type !== 1) {
+      if (typeof showFanshubToast === 'function') showFanshubToast('仅私聊可转账', 'info');
+      return;
+    }
+    var amountInput = $('chatTransferAmount');
+    var remarkInput = $('chatTransferRemark');
+    var submitBtn = $('chatTransferSubmitBtn');
+    var amount = parseFloat(amountInput && amountInput.value) || 0;
+    var remark = String(remarkInput && remarkInput.value || '').trim();
+    if (amount < 0.01) {
+      if (typeof showFanshubToast === 'function') showFanshubToast('请输入转账金额', 'error');
+      return;
+    }
+    if (state.money != null && amount > state.money + 0.0001) {
+      if (typeof showFanshubToast === 'function') showFanshubToast(chatT('alert_insufficient_balance') || '红宝不足', 'error');
+      return;
+    }
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = '转账中…';
+    }
+    try {
+      var packet = await send('transfer.send', {
+        to_user_id: state.room.peer | 0,
+        amount: amount,
+        remark: remark
+      });
+      if (packet.data && packet.data.balance != null) {
+        state.money = parseFloat(packet.data.balance);
+        updateMoneyLabel();
+      }
+      var msg = packet.data && packet.data.message;
+      if (msg) {
+        appendMessage(msg);
+        upsertListFromMessage(msg);
+      }
+      closeTransferSendPage();
+      if (typeof showFanshubToast === 'function') showFanshubToast('转账成功', 'success');
+    } catch (e) {
+      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '转账失败', 'error');
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '确认转账';
+      }
+    }
+  }
+
 /* === 04-net.js === */
 /* js/chat/04-net.js — ws, bindUi, exports */
 
@@ -4792,6 +4935,29 @@
         closeComposerPanels();
         openRpSendPage();
       };
+    }
+    var attachTfBtn = $('chatAttachTransferBtn');
+    if (attachTfBtn && !attachTfBtn._bound) {
+      attachTfBtn._bound = true;
+      attachTfBtn.onclick = function () {
+        closeComposerPanels();
+        openTransferSendPage();
+      };
+    }
+    var tfCancel = $('chatTransferCancelBtn');
+    if (tfCancel && !tfCancel._bound) {
+      tfCancel._bound = true;
+      tfCancel.onclick = closeTransferSendPage;
+    }
+    var tfSubmit = $('chatTransferSubmitBtn');
+    if (tfSubmit && !tfSubmit._bound) {
+      tfSubmit._bound = true;
+      tfSubmit.onclick = function () { submitTransfer(); };
+    }
+    var tfAmount = $('chatTransferAmount');
+    if (tfAmount && !tfAmount._bound) {
+      tfAmount._bound = true;
+      tfAmount.addEventListener('input', updateTransferPreview);
     }
     var imageInput = $('chatImageInput');
     if (imageInput && !imageInput._bound) {

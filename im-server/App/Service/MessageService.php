@@ -253,6 +253,14 @@ class MessageService
                     }
                 }
                 $msg['extra'] = $keep ?: null;
+            } elseif ($msgType === 8) {
+                $keep = [];
+                foreach (['transfer_no', 'amount', 'remark', 'status'] as $k) {
+                    if (array_key_exists($k, $msg['extra'])) {
+                        $keep[$k] = $msg['extra'][$k];
+                    }
+                }
+                $msg['extra'] = $keep ?: null;
             } elseif ($msgType === 7) {
                 $msg['extra'] = ['name' => (string)($msg['extra']['name'] ?? '')];
             } elseif ($msgType === 6) {
@@ -1576,8 +1584,35 @@ class MessageService
     {
         $msgType = (int)$msgType;
         $content = mb_substr(trim((string)$content), 0, 2000);
-        if (!in_array($msgType, [1, 2, 4, 5, 6, 7], true)) {
+        if (!in_array($msgType, [1, 2, 4, 5, 6, 7, 8], true)) {
             $msgType = 1;
+        }
+        if ($msgType === 8) {
+            if (is_string($extra) && $extra !== '') {
+                $decoded = json_decode($extra, true);
+                $extra = is_array($decoded) ? $decoded : [];
+            }
+            if (!is_array($extra)) {
+                $extra = [];
+            }
+            $clean = [];
+            if (!empty($extra['transfer_no'])) {
+                $clean['transfer_no'] = mb_substr(trim((string)$extra['transfer_no']), 0, 64);
+            }
+            if (isset($extra['amount'])) {
+                $clean['amount'] = round((float)$extra['amount'], 2);
+            }
+            if (isset($extra['remark'])) {
+                $clean['remark'] = mb_substr(trim((string)$extra['remark']), 0, 40);
+            }
+            if (isset($extra['status'])) {
+                $clean['status'] = (int)$extra['status'];
+            }
+            if ($content === '') {
+                $amt = isset($clean['amount']) ? sprintf('%.2f', $clean['amount']) : '0.00';
+                $content = '[转账]￥' . $amt;
+            }
+            return [$content, 8, $clean ?: null];
         }
         if ($msgType === 2) {
             if (is_string($extra) && $extra !== '') {

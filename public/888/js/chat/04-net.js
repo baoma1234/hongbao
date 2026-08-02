@@ -734,6 +734,29 @@
         openRpSendPage();
       };
     }
+    var attachTfBtn = $('chatAttachTransferBtn');
+    if (attachTfBtn && !attachTfBtn._bound) {
+      attachTfBtn._bound = true;
+      attachTfBtn.onclick = function () {
+        closeComposerPanels();
+        openTransferSendPage();
+      };
+    }
+    var tfCancel = $('chatTransferCancelBtn');
+    if (tfCancel && !tfCancel._bound) {
+      tfCancel._bound = true;
+      tfCancel.onclick = closeTransferSendPage;
+    }
+    var tfSubmit = $('chatTransferSubmitBtn');
+    if (tfSubmit && !tfSubmit._bound) {
+      tfSubmit._bound = true;
+      tfSubmit.onclick = function () { submitTransfer(); };
+    }
+    var tfAmount = $('chatTransferAmount');
+    if (tfAmount && !tfAmount._bound) {
+      tfAmount._bound = true;
+      tfAmount.addEventListener('input', updateTransferPreview);
+    }
     var imageInput = $('chatImageInput');
     if (imageInput && !imageInput._bound) {
       imageInput._bound = true;

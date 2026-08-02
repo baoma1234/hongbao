@@ -248,3 +248,92 @@
   function sendRedPacket() {
     openRpSendPage();
   }
+
+  function updateTransferPreview() {
+    var amountInput = $('chatTransferAmount');
+    var amtEl = $('chatTransferPreviewAmt');
+    var balEl = $('chatTransferBalance');
+    var total = parseFloat(amountInput && amountInput.value) || 0;
+    if (amtEl) amtEl.textContent = '￥' + total.toFixed(2);
+    if (balEl && state.money != null && !isNaN(state.money)) {
+      balEl.textContent = '￥' + Number(state.money).toFixed(2);
+    }
+  }
+
+  function openTransferSendPage() {
+    if (!state.room || state.room.type !== 1) {
+      if (typeof showFanshubToast === 'function') showFanshubToast('仅私聊可转账', 'info');
+      return;
+    }
+    var pane = $('chatTransferSendPane');
+    if (!pane) return;
+    var amountInput = $('chatTransferAmount');
+    if (amountInput && !amountInput.value) amountInput.value = '';
+    var remarkInput = $('chatTransferRemark');
+    if (remarkInput && !String(remarkInput.value || '').trim()) remarkInput.value = '';
+    updateTransferPreview();
+    pane.classList.add('open');
+    pane.setAttribute('aria-hidden', 'false');
+    if (amountInput) setTimeout(function () { amountInput.focus(); }, 80);
+  }
+
+  function closeTransferSendPage() {
+    var pane = $('chatTransferSendPane');
+    if (!pane) return;
+    pane.classList.remove('open');
+    pane.setAttribute('aria-hidden', 'true');
+    var btn = $('chatTransferSubmitBtn');
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '确认转账';
+    }
+  }
+
+  async function submitTransfer() {
+    if (!state.room || state.room.type !== 1) {
+      if (typeof showFanshubToast === 'function') showFanshubToast('仅私聊可转账', 'info');
+      return;
+    }
+    var amountInput = $('chatTransferAmount');
+    var remarkInput = $('chatTransferRemark');
+    var submitBtn = $('chatTransferSubmitBtn');
+    var amount = parseFloat(amountInput && amountInput.value) || 0;
+    var remark = String(remarkInput && remarkInput.value || '').trim();
+    if (amount < 0.01) {
+      if (typeof showFanshubToast === 'function') showFanshubToast('请输入转账金额', 'error');
+      return;
+    }
+    if (state.money != null && amount > state.money + 0.0001) {
+      if (typeof showFanshubToast === 'function') showFanshubToast(chatT('alert_insufficient_balance') || '红宝不足', 'error');
+      return;
+    }
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = '转账中…';
+    }
+    try {
+      var packet = await send('transfer.send', {
+        to_user_id: state.room.peer | 0,
+        amount: amount,
+        remark: remark
+      });
+      if (packet.data && packet.data.balance != null) {
+        state.money = parseFloat(packet.data.balance);
+        updateMoneyLabel();
+      }
+      var msg = packet.data && packet.data.message;
+      if (msg) {
+        appendMessage(msg);
+        upsertListFromMessage(msg);
+      }
+      closeTransferSendPage();
+      if (typeof showFanshubToast === 'function') showFanshubToast('转账成功', 'success');
+    } catch (e) {
+      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '转账失败', 'error');
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '确认转账';
+      }
+    }
+  }

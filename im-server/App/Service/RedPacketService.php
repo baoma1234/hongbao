@@ -78,6 +78,12 @@ class RedPacketService
                 $platformUserId = $minePlatformUid;
             }
         }
+        // 私聊红包不收平台手续费；可抢池 = 全额
+        if ($scopeType === 1) {
+            $feeRate = 0.0;
+            $agentRate = 0.0;
+            $platformUserId = 0;
+        }
 
         if ($fromUserId <= 0 || $totalAmount <= 0 || $totalCount <= 0) {
             throw new \InvalidArgumentException('invalid red packet params');

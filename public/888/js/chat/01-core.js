@@ -684,8 +684,11 @@
 
   function isEmojiOnlyText(text) {
     var t = String(text || '').trim();
-    if (!t || t.length > 8) return false;
-    return !/[\u0000-\u007F]/.test(t);
+    if (!t || t.length > 24) return false;
+    // 含中日韩/字母/数字的短句不能当「纯表情」——否则会透明气泡+白色字导致空白
+    if (/[\u4e00-\u9fff\u3400-\u4dbf\u3040-\u30ff\uac00-\ud7af0-9a-zA-Z]/i.test(t)) return false;
+    // 须含 emoji / 杂项符号
+    return /(?:[\uD800-\uDBFF][\uDC00-\uDFFF]|[\u2600-\u27BF])/.test(t);
   }
 
   function closeComposerPanels() {
@@ -827,6 +830,12 @@
     if ((msg.status | 0) === 2) return '[已撤回]';
     var type = msg.msg_type | 0;
     if (type === 2) return '[红包] ' + (msg.content || '').replace(/^\[红包\]/, '');
+    if (type === 8) {
+      var tExtra = parseExtra(msg);
+      var amt = tExtra.amount != null ? Number(tExtra.amount) : NaN;
+      if (!isNaN(amt)) return '[转账] ￥' + amt.toFixed(2);
+      return '[转账]';
+    }
     if (type === 3) return msg.content || '[系统消息]';
     if (type === 4) return '[图片]';
     if (type === 5) return '[视频]';

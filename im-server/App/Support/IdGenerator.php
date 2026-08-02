@@ -14,6 +14,11 @@ class IdGenerator
         return sprintf('rp%s%06d', date('YmdHis'), random_int(0, 999999));
     }
 
+    public static function transferNo()
+    {
+        return sprintf('tf%s%06d', date('YmdHis'), random_int(0, 999999));
+    }
+
     /** 私聊会话键：小uid_大uid */
     public static function privateConversationId($uidA, $uidB)
     {

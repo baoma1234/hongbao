@@ -683,6 +683,30 @@
     );
   }
 
+  function renderTransferCardHtml(extra, msg, time) {
+    var amt = extra && extra.amount != null ? parseFloat(extra.amount) : NaN;
+    var remark = (extra && extra.remark) ? String(extra.remark) : '';
+    var mine = msg && ((msg.from_user_id | 0) === state.userId);
+    var title = remark ? escapeHtml(remark) : (mine ? '转账给对方' : '收到转账');
+    var amtHtml = !isNaN(amt)
+      ? ('<span class="tf-yen">¥</span>' + amt.toFixed(2))
+      : '转账';
+    return (
+      '<div class="chat-transfer-card' + (mine ? ' me' : '') + '">' +
+        '<div class="tf-top">' +
+          '<div class="tf-icon" aria-hidden="true">💸</div>' +
+          '<div class="tf-info">' +
+            '<div class="tf-amt">' + amtHtml + '</div>' +
+            '<div class="tf-title">' + title + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="tf-bottom"><span class="tf-lab">转账</span>' +
+          (time ? '<span class="tf-time">' + escapeHtml(time) + '</span>' : '') +
+        '</div>' +
+      '</div>'
+    );
+  }
+
   function markRpCover(packetId, patch) {
     packetId = packetId | 0;
     if (!packetId) return;
@@ -1286,6 +1310,10 @@
       var extra = parseExtra(msg);
       return groupMessageWrap(mine, msg.from_user_id, renderRpCardHtml(extra, msg, formatTimeSec(msg.createtime)), actions, msg.id | 0);
     }
+    if (type === 8) {
+      var tfExtra = parseExtra(msg);
+      return groupMessageWrap(mine, msg.from_user_id, renderTransferCardHtml(tfExtra, msg, time), actions, msg.id | 0);
+    }
     if (type === 4) {
       var imgExtra = parseExtra(msg);
       var imgUrl = mediaUrl(imgExtra);
@@ -1506,10 +1534,14 @@
     if (state.room && state.room.type === type && String(state.room.id) === String(id)) {
       return;
     }
-    var isRp = (msg.msg_type | 0) === 2;
+    var mtype = msg.msg_type | 0;
+    var isRp = mtype === 2;
+    var isTf = mtype === 8;
     var prev = '';
     try { prev = previewText(msg) || ''; } catch (e0) { prev = msg.content || ''; }
-    var tip = isRp ? ('🧧 ' + (prev || '收到红包')) : ('💬 ' + (prev || '新消息'));
+    var tip = isRp
+      ? ('🧧 ' + (prev || '收到红包'))
+      : (isTf ? ('💸 ' + (prev || '收到转账')) : ('💬 ' + (prev || '新消息')));
     // 节流：1.2s 内最多一条 toast，避免刷屏
     var now = Date.now();
     if (!state._lastIncomingToastAt || (now - state._lastIncomingToastAt) > 1200) {
@@ -1667,6 +1699,7 @@
     if (dash) dash.classList.add('chat-room-open');
     if (typeof setBottomActionBarVisible === 'function') setBottomActionBarVisible(false);
     setComposerMuted(false, '');
+    updateComposerPolicy();
     // 先用本地历史秒开对话框，再拉最新
     var cachedHist = loadHistCache(state.room.type, state.room.id);
     var cacheAge = (cachedHist && cachedHist.at) ? (Date.now() - (cachedHist.at | 0)) : 1e15;
@@ -1731,6 +1764,7 @@
 
   function closeRoom() {
     closeRpSendPage();
+    if (typeof closeTransferSendPage === 'function') closeTransferSendPage();
     closeComposerPanels();
     closeMediaLightbox();
     closeGroupSubPanes();
@@ -1802,8 +1836,19 @@
   function updateComposerPolicy() {
     var policy = groupPolicy();
     var rpBtn = $('chatAttachRpBtn');
-    if (rpBtn && state.room && state.room.type === 2) {
-      rpBtn.style.display = policy.can_send_rp === false ? 'none' : '';
+    var tfBtn = $('chatAttachTransferBtn');
+    var isGroup = !!(state.room && state.room.type === 2);
+    var isPrivate = !!(state.room && state.room.type === 1);
+    if (rpBtn) {
+      if (isGroup) {
+        rpBtn.style.display = policy.can_send_rp === false ? 'none' : '';
+      } else {
+        rpBtn.style.display = '';
+      }
+    }
+    if (tfBtn) {
+      tfBtn.hidden = !isPrivate;
+      tfBtn.style.display = isPrivate ? '' : 'none';
     }
   }
 

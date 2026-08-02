@@ -1137,3 +1137,108 @@ button.chat-rp-fair-link {
   font-size: 13px;
   padding: 8px 0;
 }
+
+/* ---------- 私聊转账 ---------- */
+.chat-transfer-send-pane .chat-transfer-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  padding: 20px 16px;
+  margin: 0 0 12px;
+  border-radius: 16px;
+  background: linear-gradient(155deg, #3cbc87 0%, #1f9a6a 55%, #157a54 100%);
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(31, 154, 106, 0.28);
+}
+.chat-transfer-preview-icon {
+  font-size: 28px;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+.chat-transfer-preview-lab {
+  font-size: 13px;
+  opacity: 0.9;
+  font-weight: 600;
+}
+.chat-transfer-preview-amt {
+  margin-top: 8px;
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+.chat-transfer-submit-btn {
+  background: linear-gradient(135deg, #3cbc87, #1f9a6a) !important;
+  box-shadow: 0 8px 18px rgba(31, 154, 106, 0.35) !important;
+}
+
+.chat-room-pane .chat-transfer-card {
+  display: block;
+  width: 220px;
+  max-width: 72vw;
+  border: none;
+  border-radius: 12px;
+  overflow: hidden;
+  text-align: left;
+  color: #fff;
+  background: linear-gradient(155deg, #3cbc87 0%, #1f9a6a 60%, #157a54 100%);
+  box-shadow: 0 8px 18px rgba(31, 154, 106, 0.25);
+  cursor: default;
+  padding: 0;
+}
+.chat-room-pane .chat-msg-row:not(.me) .chat-transfer-card { border-top-left-radius: 4px; }
+.chat-room-pane .chat-msg-row.me .chat-transfer-card { border-top-right-radius: 4px; }
+.chat-transfer-card .tf-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 14px 12px;
+}
+.chat-transfer-card .tf-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+.chat-transfer-card .tf-info { min-width: 0; flex: 1; }
+.chat-transfer-card .tf-amt {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: 0.02em;
+}
+.chat-transfer-card .tf-yen {
+  font-size: 14px;
+  font-weight: 700;
+  margin-right: 2px;
+  opacity: 0.92;
+}
+.chat-transfer-card .tf-title {
+  margin-top: 4px;
+  font-size: 12px;
+  opacity: 0.9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chat-transfer-card .tf-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  background: rgba(0,0,0,0.12);
+  font-size: 11px;
+}
+.chat-transfer-card .tf-lab { font-weight: 700; opacity: 0.95; }
+.chat-transfer-card .tf-time { opacity: 0.8; }
+
+/* 防「纯表情」误判：自己气泡文字在透明底上仍可读 */
+.chat-room-pane .chat-msg-row.me .chat-bubble.emoji-only {
+  color: var(--lux-text-main, #222);
+}
