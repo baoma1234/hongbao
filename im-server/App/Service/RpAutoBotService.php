@@ -141,7 +141,10 @@ class RpAutoBotService
             throw new \RuntimeException('未配置发包用户ID');
         }
         $baseAmount = round((float)($task['total_amount'] ?? 0), 2);
-        $amount = $this->jitterAmount($baseAmount);
+        $group = $this->groups->get($groupId) ?: [];
+        $fixedAmount = round((float)($group['rp_fixed_amount'] ?? 0), 2);
+        // 群配置了固定金额则不抖动（接龙 50 等）
+        $amount = ($fixedAmount > 0) ? $fixedAmount : $this->jitterAmount($baseAmount);
         $count = (int)($task['total_count'] ?? 0);
         if ($amount <= 0 || $count <= 0) {
             throw new \RuntimeException('金额/个数无效');
@@ -165,6 +168,7 @@ class RpAutoBotService
             'total_count'  => $count,
             'blessing'     => (string)(($task['blessing'] ?? '') !== '' ? $task['blessing'] : '恭喜发财'),
             'mine_digit'   => $mineDigit,
+            'robot_send'   => true,
         ]);
 
         $msg = $result['message'] ?? null;

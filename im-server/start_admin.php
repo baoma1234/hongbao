@@ -170,6 +170,7 @@ $http->onMessage = function (TcpConnection $connection, Request $request) use ($
                 'blessing'     => (string)($body['blessing'] ?? '恭喜发财'),
                 'mine_digit'   => (int)($body['mine_digit'] ?? 0),
                 'skin_id'      => (int)($body['skin_id'] ?? 0),
+                'robot_send'   => true,
             ]);
             $msg = $result['message'] ?? null;
             if (is_array($msg)) {

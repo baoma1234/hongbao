@@ -1909,6 +1909,9 @@
       tfBtn.hidden = !isPrivate;
       tfBtn.style.display = isPrivate ? '' : 'none';
     }
+    try {
+      if (typeof syncRpTypeTabs === 'function') syncRpTypeTabs();
+    } catch (eSync) {}
   }
 
   function applyGroupRoomHeader(meta) {

@@ -66,7 +66,7 @@
         <label class="control-label col-xs-12 col-sm-2">互动模式:</label>
         <div class="col-xs-12 col-sm-8">
             {:build_radios('row[chat_mode]', ['chat'=>'聊天模式', 'grab'=>'红宝模式'], (isset($row['chat_mode']) && $row['chat_mode'] !== '') ? $row['chat_mode'] : 'chat')}
-            <span class="help-block">红宝模式：全员禁言，仅管理员/机器人可发红包</span>
+            <span class="help-block">红宝模式：全员禁言，仅管理员可发红包。若需「仅自动机器人发红包」，请在下方勾选「仅机器人发红包」</span>
         </div>
     </div>
     <div class="form-group">
@@ -124,6 +124,21 @@
                 <label class="checkbox-inline"><input type="checkbox" name="row[rp_enabled_types][]" value="2" <?php echo in_array('2', $enabled, true) ? 'checked' : ''; ?>> 手气包</label>
                 <label class="checkbox-inline"><input type="checkbox" name="row[rp_enabled_types][]" value="3" <?php echo in_array('3', $enabled, true) ? 'checked' : ''; ?>> 埋雷包</label>
                 <label class="checkbox-inline"><input type="checkbox" name="row[rp_enabled_types][]" value="1" <?php echo in_array('1', $enabled, true) ? 'checked' : ''; ?>> 普通均分</label>
+                <span class="help-block">前台发红包页仅显示已勾选类型（如扫雷群只勾埋雷包）</span>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="control-label col-xs-12 col-sm-2">仅机器人发红包:</label>
+            <div class="col-xs-12 col-sm-8">
+                {:build_radios('row[rp_robot_only]', ['1'=>'是', '0'=>'否'], isset($row['rp_robot_only']) ? (string)$row['rp_robot_only'] : '0')}
+                <span class="help-block">开启后成员/群主均不可手动发红包，仅「红包自动任务」与后台代发可代扣代发</span>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="control-label col-xs-12 col-sm-2">固定金额:</label>
+            <div class="col-xs-12 col-sm-4">
+                <input type="number" step="0.01" min="0" class="form-control" name="row[rp_fixed_amount]" value="{$row.rp_fixed_amount|default='0.00'}">
+                <span class="help-block">填 0 不限制；如接龙 50 群填 50，自动发也不再金额抖动</span>
             </div>
         </div>
         <div class="form-group">

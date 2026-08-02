@@ -792,6 +792,14 @@ class GroupService
         $role = (int)$operatorRole;
         $isOpen = $this->isOpenGroup($group);
         $isGrab = $this->isGrabMode($group);
+        $robotOnly = (int)($group['rp_robot_only'] ?? 0) === 1;
+        $fixedAmount = round((float)($group['rp_fixed_amount'] ?? 0), 2);
+        if ($fixedAmount < 0) {
+            $fixedAmount = 0.0;
+        }
+        $enabledTypes = (string)($group['rp_enabled_types'] ?? '2,3');
+        // 仅自动任务/后台代发可发包时，前台任何人（含群主）都不可发
+        $canSendRp = $robotOnly ? false : ($isGrab ? ($role >= 2) : true);
         return [
             'privacy_mode'       => $isOpen ? 'open' : 'private',
             'chat_mode'          => $isGrab ? 'grab' : 'chat',
@@ -803,7 +811,10 @@ class GroupService
             'can_mention'        => $isOpen || $role >= 2,
             // 红宝记录弹窗：隐私群一律锁死（与是否红宝模式无关）
             'rp_detail_locked'   => !$isOpen,
-            'can_send_rp'        => $isGrab ? ($role >= 2) : true,
+            'can_send_rp'        => $canSendRp,
+            'rp_robot_only'      => $robotOnly,
+            'rp_fixed_amount'    => $fixedAmount,
+            'rp_enabled_types'   => $enabledTypes,
         ];
     }
 
@@ -836,11 +847,19 @@ class GroupService
         throw new \RuntimeException('private group: mention disabled');
     }
 
-    public function assertCanSendGroupRedPacket($groupId, $userId)
+    public function assertCanSendGroupRedPacket($groupId, $userId, array $opts = [])
     {
         $group = $this->get($groupId);
         if (!$group) {
             throw new \RuntimeException('invalid group');
+        }
+        $robotOnly = (int)($group['rp_robot_only'] ?? 0) === 1;
+        $isRobotSend = !empty($opts['robot_send']);
+        if ($robotOnly) {
+            if ($isRobotSend) {
+                return;
+            }
+            throw new \RuntimeException('robot only: members cannot send red packets');
         }
         $role = $this->memberRole($groupId, $userId);
         if (!$this->buildPolicy($group, $role)['can_send_rp']) {

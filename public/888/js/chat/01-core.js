@@ -92,6 +92,9 @@
   function mapChatApiError(msg, fallbackKey) {
     msg = String(msg || '').trim();
     var codeMap = {
+      'robot only: members cannot send red packets': 'chat_rp_robot_only',
+      'grab mode: only admin can send red packets': 'chat_rp_admin_only',
+      'packet type not allowed in this group': 'chat_rp_type_not_allowed',
       'not in group': 'chat_err_not_in_group',
       'target not in group': 'chat_err_not_in_group',
       'private group': 'chat_err_private_group',

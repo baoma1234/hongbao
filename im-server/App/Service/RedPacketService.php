@@ -115,7 +115,9 @@ class RedPacketService
             if ($groupId <= 0 || !$this->groups->isMember($groupId, $fromUserId)) {
                 throw new \RuntimeException('not in group');
             }
-            $this->groups->assertCanSendGroupRedPacket($groupId, $fromUserId);
+            $this->groups->assertCanSendGroupRedPacket($groupId, $fromUserId, [
+                'robot_send' => !empty($params['robot_send']),
+            ]);
             $group = $this->groups->get($groupId);
             if (!$group) {
                 throw new \RuntimeException('invalid group');
@@ -773,11 +775,17 @@ class RedPacketService
      */
     protected function assertGroupRpLimits(array $group, $packetType, $totalAmount, $totalCount, $globalMinAmount)
     {
+        $fixedAmount = round((float)($group['rp_fixed_amount'] ?? 0), 2);
+        if ($fixedAmount > 0) {
+            if (abs($totalAmount - $fixedAmount) > 0.001) {
+                throw new \InvalidArgumentException('amount must be ' . number_format($fixedAmount, 2, '.', ''));
+            }
+        }
         $minAmount = round((float)($group['rp_min_amount'] ?? 0), 2);
         if ($minAmount <= 0) {
             $minAmount = $globalMinAmount;
         }
-        if ($totalAmount < $minAmount) {
+        if ($fixedAmount <= 0 && $totalAmount < $minAmount) {
             throw new \InvalidArgumentException('amount below group min ' . $minAmount);
         }
         $isVip = (int)($group['is_vip_group'] ?? 0) === 1;
@@ -1361,6 +1369,14 @@ class RedPacketService
         }
         $amount = round((float)($packet['total_amount'] ?? 0), 2);
         $count = (int)($packet['total_count'] ?? 0);
+        try {
+            $g = $this->groups->get($groupId);
+            $fixed = round((float)($g['rp_fixed_amount'] ?? 0), 2);
+            if ($fixed > 0) {
+                $amount = $fixed;
+            }
+        } catch (\Throwable $eFix) {
+        }
         if ($amount <= 0 || $count <= 0) {
             return null;
         }
@@ -1431,6 +1447,7 @@ class RedPacketService
                     'total_amount' => $amount,
                     'total_count'  => $count,
                     'blessing'     => (string)($packet['blessing'] ?? '恭喜发财'),
+                    'robot_send'   => true,
                 ]);
                 $msg = $result['message'] ?? null;
                 if (is_array($msg)) {

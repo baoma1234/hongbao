@@ -95,6 +95,9 @@
   function mapChatApiError(msg, fallbackKey) {
     msg = String(msg || '').trim();
     var codeMap = {
+      'robot only: members cannot send red packets': 'chat_rp_robot_only',
+      'grab mode: only admin can send red packets': 'chat_rp_admin_only',
+      'packet type not allowed in this group': 'chat_rp_type_not_allowed',
       'not in group': 'chat_err_not_in_group',
       'target not in group': 'chat_err_not_in_group',
       'private group': 'chat_err_private_group',
@@ -3040,6 +3043,9 @@
       tfBtn.hidden = !isPrivate;
       tfBtn.style.display = isPrivate ? '' : 'none';
     }
+    try {
+      if (typeof syncRpTypeTabs === 'function') syncRpTypeTabs();
+    } catch (eSync) {}
   }
 
   function applyGroupRoomHeader(meta) {
@@ -4058,6 +4064,73 @@
     return active ? (parseInt(active.getAttribute('data-type'), 10) || 2) : 2;
   }
 
+  function enabledRpTypes() {
+    var isGroup = !!(state.room && state.room.type === 2);
+    if (!isGroup) return [1, 2, 3];
+    var raw = '';
+    try {
+      var policy = typeof groupPolicy === 'function' ? groupPolicy() : {};
+      if (policy && policy.rp_enabled_types) raw = String(policy.rp_enabled_types);
+    } catch (e0) {}
+    if (!raw && state.groupMeta && state.groupMeta.group) {
+      raw = String(state.groupMeta.group.rp_enabled_types || '');
+    }
+    if (!raw) raw = '1,2,3';
+    var list = raw.split(',').map(function (x) { return parseInt(x, 10); })
+      .filter(function (n) { return n === 1 || n === 2 || n === 3; });
+    return list.length ? list : [2];
+  }
+
+  function groupRpFixedAmount() {
+    if (!(state.room && state.room.type === 2)) return 0;
+    var fixed = 0;
+    try {
+      var policy = typeof groupPolicy === 'function' ? groupPolicy() : {};
+      fixed = parseFloat(policy && policy.rp_fixed_amount) || 0;
+    } catch (e1) {}
+    if (!(fixed > 0) && state.groupMeta && state.groupMeta.group) {
+      fixed = parseFloat(state.groupMeta.group.rp_fixed_amount) || 0;
+    }
+    return fixed > 0 ? Math.round(fixed * 100) / 100 : 0;
+  }
+
+  /** 按群允许类型显示/隐藏红宝类型 Tab；扫雷群仅勾埋雷时只留「埋雷」 */
+  function syncRpTypeTabs() {
+    var tabs = $('chatRpTypeTabs');
+    if (!tabs) return;
+    var enabled = enabledRpTypes();
+    var btns = tabs.querySelectorAll('.chat-rp-type-btn');
+    var firstVisible = null;
+    btns.forEach(function (btn) {
+      var t = parseInt(btn.getAttribute('data-type'), 10) || 0;
+      var ok = enabled.indexOf(t) >= 0;
+      btn.hidden = !ok;
+      btn.style.display = ok ? '' : 'none';
+      if (ok && !firstVisible) firstVisible = btn;
+    });
+    var active = tabs.querySelector('.chat-rp-type-btn.active');
+    if (!active || active.hidden || active.style.display === 'none') {
+      btns.forEach(function (b) { b.classList.remove('active'); });
+      if (firstVisible) firstVisible.classList.add('active');
+    }
+    tabs.style.display = enabled.length <= 1 ? 'none' : '';
+    tabs.hidden = enabled.length <= 1;
+  }
+
+  function syncRpFixedAmountField() {
+    var amountInput = $('chatRpAmount');
+    if (!amountInput) return;
+    var fixed = groupRpFixedAmount();
+    if (fixed > 0) {
+      amountInput.value = fixed.toFixed(2);
+      amountInput.readOnly = true;
+      amountInput.setAttribute('aria-readonly', 'true');
+    } else {
+      amountInput.readOnly = false;
+      amountInput.removeAttribute('aria-readonly');
+    }
+  }
+
   function ensureRpMineDigits() {
     var box = $('chatRpMineDigits');
     var input = $('chatRpMineDigit');
@@ -4167,7 +4240,10 @@
       return;
     }
     if (state.room.type === 2 && groupPolicy().can_send_rp === false) {
-      if (typeof showFanshubToast === 'function') showFanshubToast('红宝模式下仅管理员可发红包', 'error');
+      var tip = groupPolicy().rp_robot_only
+        ? (chatT('chat_rp_robot_only') || '本群仅自动机器人可发红包')
+        : (chatT('chat_rp_admin_only') || '红宝模式下仅管理员可发红包');
+      if (typeof showFanshubToast === 'function') showFanshubToast(tip, 'error');
       return;
     }
     var pane = $('chatRpSendPane');
@@ -4189,8 +4265,10 @@
         }
       }
     }
+    syncRpTypeTabs();
+    syncRpFixedAmountField();
     var amountInput = $('chatRpAmount');
-    if (amountInput && !amountInput.value) amountInput.value = '';
+    if (amountInput && !amountInput.value && !(groupRpFixedAmount() > 0)) amountInput.value = '';
     var blessInput = $('chatRpBlessing');
     if (blessInput && !String(blessInput.value || '').trim()) {
       blessInput.value = '恭喜发财';
@@ -4198,7 +4276,7 @@
     updateRpPreview();
     pane.classList.add('open');
     pane.setAttribute('aria-hidden', 'false');
-    if (amountInput) setTimeout(function () { amountInput.focus(); }, 80);
+    if (amountInput && !amountInput.readOnly) setTimeout(function () { amountInput.focus(); }, 80);
   }
 
   function closeRpSendPage() {

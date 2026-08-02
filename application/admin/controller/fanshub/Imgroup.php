@@ -219,6 +219,8 @@ class Imgroup extends Backend
                     'rp_min_count'         => $rpMinCount,
                     'rp_max_count'         => $rpMaxCount,
                     'rp_enabled_types'     => mb_substr($enabledTypes, 0, 32),
+                    'rp_robot_only'        => ((int)($params['rp_robot_only'] ?? 0) === 1) ? 1 : 0,
+                    'rp_fixed_amount'      => sprintf('%.2f', max(0, (float)($params['rp_fixed_amount'] ?? 0))),
                     'rp_agent_rebate_rate' => sprintf('%.4f', max(0, min(1, (float)($params['rp_agent_rebate_rate'] ?? 0.01)))),
                     'updatetime'           => $now,
                 ]);
