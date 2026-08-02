@@ -1,0 +1,116 @@
+/* css/share-poster.css — 分享推广海报 */
+
+.chat-share-poster-pane .chat-share-poster-main {
+  padding: 16px 14px 28px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background:
+    radial-gradient(120% 60% at 50% -10%, rgba(255, 220, 180, 0.55), transparent 55%),
+    linear-gradient(180deg, #fffaf4 0%, #f6ebe0 100%);
+}
+
+.chat-share-poster-card {
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.96) 0%, rgba(255, 244, 230, 0.9) 100%);
+  border: 1.5px solid transparent;
+  border-radius: 22px;
+  padding: 22px 18px 20px;
+  text-align: center;
+  box-shadow:
+    0 12px 28px rgba(160, 90, 40, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  background-clip: padding-box;
+  border-image: linear-gradient(145deg, #ffe9b0, #f0b04a, #e07a22) 1;
+  border: 1.5px solid rgba(240, 176, 74, 0.55);
+  margin-bottom: 16px;
+}
+
+.chat-share-poster-brand {
+  font-size: 28px;
+  font-weight: 900;
+  color: #C61114;
+  letter-spacing: 2px;
+}
+
+.chat-share-poster-title {
+  margin-top: 6px;
+  font-size: 16px;
+  font-weight: 800;
+  color: #1f1714;
+}
+
+.chat-share-poster-uid {
+  margin-top: 10px;
+  font-size: 13px;
+  color: #8a7a6e;
+}
+
+.chat-share-poster-uid strong {
+  color: #C61114;
+  font-size: 16px;
+  letter-spacing: 0.5px;
+}
+
+.chat-share-poster-qr-wrap {
+  margin: 16px auto 10px;
+  width: 200px;
+  height: 200px;
+  padding: 10px;
+  box-sizing: content-box;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+}
+
+.chat-share-poster-qr-wrap canvas {
+  display: block;
+  width: 200px;
+  height: 200px;
+}
+
+.chat-share-poster-hint {
+  font-size: 12px;
+  color: #9a8574;
+  margin-bottom: 8px;
+}
+
+.chat-share-poster-link {
+  font-size: 11px;
+  color: #5a4638;
+  word-break: break-all;
+  line-height: 1.45;
+  padding: 0 4px;
+}
+
+.chat-share-poster-btn {
+  width: 100%;
+  border: 1.5px solid transparent;
+  border-radius: 14px;
+  padding: 13px 12px;
+  margin-top: 10px;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  color: #3d2e22;
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    linear-gradient(145deg, #ffe9b0, #f0b04a, #e07a22) border-box;
+  box-shadow: 0 4px 12px rgba(176, 120, 50, 0.12);
+}
+
+.chat-share-poster-btn.primary {
+  color: #fff;
+  background: linear-gradient(135deg, #E63022, #C61114);
+  border: none;
+  box-shadow: 0 6px 16px rgba(198, 17, 20, 0.28);
+}
+
+.chat-plus-menu-emoji {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}

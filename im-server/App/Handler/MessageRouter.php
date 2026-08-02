@@ -648,8 +648,9 @@ class MessageRouter
         $name = (string)($payload['name'] ?? '');
         $members = isset($payload['member_ids']) && is_array($payload['member_ids']) ? $payload['member_ids'] : [];
         $group = $this->groups->create($uid, $name, $members, [], [
-            'privacy_mode' => (string)($payload['privacy_mode'] ?? 'private'),
-            'chat_mode'    => (string)($payload['chat_mode'] ?? 'chat'),
+            'privacy_mode'      => (string)($payload['privacy_mode'] ?? 'private'),
+            'chat_mode'         => (string)($payload['chat_mode'] ?? 'chat'),
+            'bind_owner_rebate' => !empty($payload['bind_owner_rebate']),
         ]);
         $this->send($connection, 'group.created', ['group' => $group], $reqId);
         foreach ($this->groups->onlineMemberIds((int)$group['id']) as $memberId) {

@@ -4182,6 +4182,47 @@ button.chat-rp-fair-link {
   text-align: left;
 }
 
+.chat-my-group-create {
+  margin-bottom: 10px;
+}
+
+.chat-my-group-avatar-plus {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1;
+  color: #8A6427;
+  background: linear-gradient(160deg, #FFF8E1 0%, #F0C86A 55%, #E3B268 100%) !important;
+  border: 1.5px solid rgba(253, 228, 179, 0.95) !important;
+  box-shadow:
+    0 3px 10px rgba(180, 120, 40, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85) !important;
+}
+
+.chat-my-group-create-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+  text-align: left;
+}
+
+.chat-my-group-create .chat-my-group-name {
+  white-space: normal;
+  line-height: 1.3;
+}
+
+.chat-my-group-sub {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--cg-muted);
+  line-height: 1.35;
+  white-space: normal;
+}
+
 .chat-pill-item {
   width: 100%;
   border: 1.5px solid transparent;
@@ -4797,6 +4838,11 @@ button.chat-rp-fair-link {
   font-size: 13px;
   font-weight: 700;
   color: #222;
+}
+
+.chat-commission-row.is-dual-rebate .chat-commission-row-title {
+  color: #C61114;
+  font-weight: 900;
 }
 
 .chat-commission-row-time {

@@ -59,7 +59,8 @@
       privacy: 'private',
       chatMode: 'chat',
       avatarEmoji: '🐵',
-      submitting: false
+      submitting: false,
+      bindOwnerRebate: false
     }
   };
 
@@ -2944,14 +2945,18 @@
     el.setAttribute('aria-hidden', 'true');
   }
 
-  function openCreateGroupPane() {
+  function openCreateGroupPane(opts) {
+    opts = opts || {};
     var pane = $('chatCreateGroupPane');
     if (!pane) return;
     state.createGroup.privacy = 'private';
     state.createGroup.chatMode = 'chat';
     state.createGroup.submitting = false;
+    state.createGroup.bindOwnerRebate = !!opts.fromCreateCard;
     var nameInput = $('chatCreateGroupName');
-    if (nameInput) nameInput.value = '';
+    if (nameInput) {
+      nameInput.value = opts.fromCreateCard ? '我的专属保密对战群' : '';
+    }
     var av = $('chatCreateGroupAvatar');
     if (av) av.textContent = state.createGroup.avatarEmoji || '🐵';
     syncCreateGroupCards();
@@ -3015,7 +3020,8 @@
         name: name,
         member_ids: [],
         privacy_mode: state.createGroup.privacy || 'private',
-        chat_mode: state.createGroup.chatMode || 'chat'
+        chat_mode: state.createGroup.chatMode || 'chat',
+        bind_owner_rebate: state.createGroup.bindOwnerRebate ? 1 : 0
       });
       var g = packet.data && packet.data.group;
       if (!g) throw new Error('创建失败');
@@ -4977,6 +4983,34 @@
         openCreateGroupPane();
       };
     }
+    var sharePromo = $('chatSharePromoBtn');
+    if (sharePromo && !sharePromo._bound) {
+      sharePromo._bound = true;
+      sharePromo.onclick = function () {
+        var menu = $('chatPlusMenu');
+        if (menu) menu.hidden = true;
+        var open = function () {
+          if (global.FansHubSharePoster && typeof FansHubSharePoster.open === 'function') {
+            FansHubSharePoster.open();
+          }
+        };
+        if (global.FansHubSharePoster) {
+          open();
+          return;
+        }
+        var assets = global.FansHubAssets;
+        if (assets && typeof assets.loadCss === 'function' && typeof assets.loadJs === 'function') {
+          Promise.all([
+            assets.loadCss('css/share-poster.css'),
+            assets.loadJs('js/share-poster.js')
+          ]).then(open).catch(function () {
+            if (typeof showFanshubToast === 'function') showFanshubToast('分享页加载失败', 'error');
+          });
+        } else {
+          open();
+        }
+      };
+    }
     var createGroupBack = $('chatCreateGroupBack');
     if (createGroupBack && !createGroupBack._bound) {
       createGroupBack._bound = true;
@@ -5471,23 +5505,43 @@
         return String(g.name || '').toLowerCase().indexOf(kw) >= 0;
       });
     }
+    var createCard = ''
+      + '<button type="button" class="chat-my-group-item chat-my-group-create" id="chatMyGroupsCreateCard">'
+      +   '<span class="chat-my-group-main">'
+      +     '<span class="chat-my-group-avatar chat-my-group-avatar-plus" aria-hidden="true">+</span>'
+      +     '<span class="chat-my-group-create-text">'
+      +       '<span class="chat-my-group-name">+ 创建我的专属保密对战群</span>'
+      +       '<span class="chat-my-group-sub">零门槛当群主，躺赚群内 1% 发包管理费津贴</span>'
+      +     '</span>'
+      +   '</span>'
+      + '</button>';
     if (!list.length) {
-      box.innerHTML = '<div class="chat-empty chat-empty-glass">' + escapeHtml(chatTx('chat_my_groups_empty', '暂无群组')) + '</div>';
-      return;
+      box.innerHTML = createCard;
+    } else {
+      box.innerHTML = createCard + list.map(function (g) {
+        var display = g.display_member_count | 0;
+        var cnt = display > 0 ? display : (g.member_count | 0);
+        var name = g.name || ('#' + g.id);
+        return '<button type="button" class="chat-my-group-item" data-group-id="' + (g.id | 0) + '">'
+          + '<span class="chat-my-group-main">'
+          + avatarImgHtml(g.avatar, 'chat-my-group-avatar')
+          + '<span class="chat-my-group-name">' + escapeHtml(name) + '</span>'
+          + '</span>'
+          + '<span class="chat-my-group-count">' + cnt + '<small>人</small></span>'
+          + '</button>';
+      }).join('');
     }
-    box.innerHTML = list.map(function (g) {
-      var display = g.display_member_count | 0;
-      var cnt = display > 0 ? display : (g.member_count | 0);
-      var name = g.name || ('#' + g.id);
-      return '<button type="button" class="chat-my-group-item" data-group-id="' + (g.id | 0) + '">'
-        + '<span class="chat-my-group-main">'
-        + avatarImgHtml(g.avatar, 'chat-my-group-avatar')
-        + '<span class="chat-my-group-name">' + escapeHtml(name) + '</span>'
-        + '</span>'
-        + '<span class="chat-my-group-count">' + cnt + '<small>人</small></span>'
-        + '</button>';
-    }).join('');
-    box.querySelectorAll('.chat-my-group-item').forEach(function (btn) {
+    var createBtn = $('chatMyGroupsCreateCard');
+    if (createBtn) {
+      createBtn.onclick = function () {
+        if (typeof openCreateGroupPane === 'function') {
+          openCreateGroupPane({ fromCreateCard: true });
+        } else if (typeof showFanshubToast === 'function') {
+          showFanshubToast('建群功能暂不可用', 'error');
+        }
+      };
+    }
+    box.querySelectorAll('.chat-my-group-item[data-group-id]').forEach(function (btn) {
       btn.onclick = function () {
         var gid = parseInt(btn.getAttribute('data-group-id'), 10) || 0;
         var g = (state.myGroups || []).find(function (x) { return (x.id | 0) === gid; }) || { id: gid, name: '' };
@@ -6673,6 +6727,20 @@
     return prefix + abs;
   }
 
+  function commissionRowTitle(row) {
+    row = row || {};
+    if (row.type_label) return String(row.type_label);
+    var rt = String(row.revenue_type || '');
+    if (rt === 'dual') return '🔥 群主+推荐双重返佣';
+    if (rt === 'invite') return '🔗 推荐发包返佣';
+    if (rt === 'owner') return '👥 群聊管理津贴';
+    var t = String(row.type || '');
+    if (t === 'red_packet_dual_rebate_in') return '🔥 群主+推荐双重返佣';
+    if (t === 'red_packet_invite_rebate_in' || t === 'red_packet_rebate') return '🔗 推荐发包返佣';
+    if (t === 'red_packet_agent_rebate_in') return '👥 群聊管理津贴';
+    return t || '结算';
+  }
+
   function renderCommissionRows(list, emptyText) {
     var listEl = $('chatCommissionList');
     if (!listEl) return;
@@ -6683,13 +6751,15 @@
     listEl.innerHTML = list.map(function (row) {
       var amt = formatLedgerAmt(row);
       var out = amt.indexOf('-') === 0;
+      var title = commissionRowTitle(row);
+      var dual = String(row.revenue_type || '') === 'dual' || String(row.type || '') === 'red_packet_dual_rebate_in';
       return ''
-        + '<div class="chat-commission-row">'
+        + '<div class="chat-commission-row' + (dual ? ' is-dual-rebate' : '') + '">'
         +   '<div class="chat-commission-row-ico" aria-hidden="true">'
         +     '<svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>'
         +   '</div>'
         +   '<div class="chat-commission-row-main">'
-        +     '<div class="chat-commission-row-title">' + noticeEscape(row.type_label || row.type || '结算') + '</div>'
+        +     '<div class="chat-commission-row-title">' + noticeEscape(title) + '</div>'
         +     '<div class="chat-commission-row-time">' + noticeEscape(noticeRelativeDay(row.createtime) + ' ' + noticeClock(row.createtime)) + '</div>'
         +   '</div>'
         +   '<div class="chat-commission-row-amt' + (out ? ' is-out' : '') + '">' + noticeEscape(amt) + '</div>'

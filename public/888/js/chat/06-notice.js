@@ -501,6 +501,20 @@
     return prefix + abs;
   }
 
+  function commissionRowTitle(row) {
+    row = row || {};
+    if (row.type_label) return String(row.type_label);
+    var rt = String(row.revenue_type || '');
+    if (rt === 'dual') return '🔥 群主+推荐双重返佣';
+    if (rt === 'invite') return '🔗 推荐发包返佣';
+    if (rt === 'owner') return '👥 群聊管理津贴';
+    var t = String(row.type || '');
+    if (t === 'red_packet_dual_rebate_in') return '🔥 群主+推荐双重返佣';
+    if (t === 'red_packet_invite_rebate_in' || t === 'red_packet_rebate') return '🔗 推荐发包返佣';
+    if (t === 'red_packet_agent_rebate_in') return '👥 群聊管理津贴';
+    return t || '结算';
+  }
+
   function renderCommissionRows(list, emptyText) {
     var listEl = $('chatCommissionList');
     if (!listEl) return;
@@ -511,13 +525,15 @@
     listEl.innerHTML = list.map(function (row) {
       var amt = formatLedgerAmt(row);
       var out = amt.indexOf('-') === 0;
+      var title = commissionRowTitle(row);
+      var dual = String(row.revenue_type || '') === 'dual' || String(row.type || '') === 'red_packet_dual_rebate_in';
       return ''
-        + '<div class="chat-commission-row">'
+        + '<div class="chat-commission-row' + (dual ? ' is-dual-rebate' : '') + '">'
         +   '<div class="chat-commission-row-ico" aria-hidden="true">'
         +     '<svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>'
         +   '</div>'
         +   '<div class="chat-commission-row-main">'
-        +     '<div class="chat-commission-row-title">' + noticeEscape(row.type_label || row.type || '结算') + '</div>'
+        +     '<div class="chat-commission-row-title">' + noticeEscape(title) + '</div>'
         +     '<div class="chat-commission-row-time">' + noticeEscape(noticeRelativeDay(row.createtime) + ' ' + noticeClock(row.createtime)) + '</div>'
         +   '</div>'
         +   '<div class="chat-commission-row-amt' + (out ? ' is-out' : '') + '">' + noticeEscape(amt) + '</div>'

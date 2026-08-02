@@ -56,7 +56,8 @@
       privacy: 'private',
       chatMode: 'chat',
       avatarEmoji: '🐵',
-      submitting: false
+      submitting: false,
+      bindOwnerRebate: false
     }
   };
 
@@ -958,14 +959,14 @@
     return p;
   }
 
-  function send(type, data) {
+  function send(type, data, opts) {
     // 列表/历史优先 HTTP，不占 WS Worker；失败再走 WS
     if (type === 'conversation.list' || type === 'history') {
       return sendViaHttp(type, data).catch(function () {
-        return sendViaWs(type, data);
+        return sendViaWs(type, data, opts);
       });
     }
-    return sendViaWs(type, data);
+    return sendViaWs(type, data, opts);
   }
 
   function resolvePending(packet) {

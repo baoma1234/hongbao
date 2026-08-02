@@ -92,6 +92,18 @@ class GroupService
             Db::rollBack();
             throw $e;
         }
+        // 建群引导卡：永久绑定群主 1% 发包管理津贴
+        if (!empty($options['bind_owner_rebate'])) {
+            try {
+                Db::exec(
+                    'UPDATE ' . Db::table('chat_groups')
+                    . ' SET rp_agent_rebate_rate=?, updatetime=? WHERE id=?',
+                    ['0.0100', time(), $groupId]
+                );
+            } catch (\Throwable $eBind) {
+                // 列不存在时忽略，结算侧仍有默认 1%
+            }
+        }
         $this->invalidateMembersCache($groupId);
         $this->ensureMemberSet($groupId);
         return $this->get($groupId);

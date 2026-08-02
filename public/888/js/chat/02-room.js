@@ -1908,14 +1908,18 @@
     el.setAttribute('aria-hidden', 'true');
   }
 
-  function openCreateGroupPane() {
+  function openCreateGroupPane(opts) {
+    opts = opts || {};
     var pane = $('chatCreateGroupPane');
     if (!pane) return;
     state.createGroup.privacy = 'private';
     state.createGroup.chatMode = 'chat';
     state.createGroup.submitting = false;
+    state.createGroup.bindOwnerRebate = !!opts.fromCreateCard;
     var nameInput = $('chatCreateGroupName');
-    if (nameInput) nameInput.value = '';
+    if (nameInput) {
+      nameInput.value = opts.fromCreateCard ? '我的专属保密对战群' : '';
+    }
     var av = $('chatCreateGroupAvatar');
     if (av) av.textContent = state.createGroup.avatarEmoji || '🐵';
     syncCreateGroupCards();
@@ -1979,7 +1983,8 @@
         name: name,
         member_ids: [],
         privacy_mode: state.createGroup.privacy || 'private',
-        chat_mode: state.createGroup.chatMode || 'chat'
+        chat_mode: state.createGroup.chatMode || 'chat',
+        bind_owner_rebate: state.createGroup.bindOwnerRebate ? 1 : 0
       });
       var g = packet.data && packet.data.group;
       if (!g) throw new Error('创建失败');

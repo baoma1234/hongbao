@@ -3961,6 +3961,42 @@ class FansHubService
     }
 
     /**
+     * 红包返佣展示类型：owner=群主1% / invite=推荐0.5% / dual=双吃1.5%
+     */
+    protected static function resolveRpRebateRevenueType($type, $remark = '')
+    {
+        $type = (string)$type;
+        $remark = (string)$remark;
+        if ($type === 'red_packet_dual_rebate_in' || preg_match('/1\.5\s*%|双重|双吃/', $remark)) {
+            return 'dual';
+        }
+        if ($type === 'red_packet_invite_rebate_in'
+            || $type === 'red_packet_rebate'
+            || preg_match('/0\.5\s*%|推荐发包|拉新返佣|邀请返/', $remark)
+        ) {
+            return 'invite';
+        }
+        if ($type === 'red_packet_agent_rebate_in' || preg_match('/1\s*%|群主|管理津贴|代理返/', $remark)) {
+            return 'owner';
+        }
+        return '';
+    }
+
+    protected static function rpRebateTypeLabel($revenueType, $type, array $labelMap, array $labels)
+    {
+        if ($revenueType === 'dual') {
+            return '🔥 群主+推荐双重返佣';
+        }
+        if ($revenueType === 'invite') {
+            return '🔗 推荐发包返佣';
+        }
+        if ($revenueType === 'owner') {
+            return '👥 群聊管理津贴';
+        }
+        return $labelMap[$type] ?? ($labels[$type] ?? $type);
+    }
+
+    /**
      * 推广佣金汇总（邀请/分享/红包返点）
      */
     public static function commissionSummary($userId)
@@ -3970,7 +4006,12 @@ class FansHubService
             self::throwCopy('srv_user_not_found');
         }
         $promoTypes = ['invite', 'share'];
-        $rebateTypes = ['red_packet_rebate', 'red_packet_agent_rebate_in'];
+        $rebateTypes = [
+            'red_packet_rebate',
+            'red_packet_agent_rebate_in',
+            'red_packet_invite_rebate_in',
+            'red_packet_dual_rebate_in',
+        ];
         $allTypes = array_merge($promoTypes, $rebateTypes);
         $inviteCount = (int)Invite::where('inviter_user_id', $userId)->count();
         $todayStart = strtotime(date('Y-m-d 00:00:00'));
@@ -4006,8 +4047,10 @@ class FansHubService
         $labelMap = [
             'invite'                      => '下级拉新奖励',
             'share'                       => '今日推广收益',
-            'red_packet_rebate'           => '红包返佣到账',
-            'red_packet_agent_rebate_in'  => '红包返佣',
+            'red_packet_rebate'           => '🔗 推荐发包返佣',
+            'red_packet_agent_rebate_in'  => '👥 群聊管理津贴',
+            'red_packet_invite_rebate_in' => '🔗 推荐发包返佣',
+            'red_packet_dual_rebate_in'   => '🔥 群主+推荐双重返佣',
         ];
         $buildList = function (array $types, $limit = 20) use ($userId, $labels, $labelMap) {
             $rows = Ledger::where('user_id', $userId)
@@ -4018,14 +4061,17 @@ class FansHubService
             $list = [];
             foreach ($rows as $row) {
                 $type = (string)$row->type;
+                $remark = (string)$row->remark;
+                $revenueType = self::resolveRpRebateRevenueType($type, $remark);
                 $list[] = [
                     'id'             => (int)$row->id,
                     'type'           => $type,
-                    'type_label'     => $labelMap[$type] ?? ($labels[$type] ?? $type),
+                    'revenue_type'   => $revenueType,
+                    'type_label'     => self::rpRebateTypeLabel($revenueType, $type, $labelMap, $labels),
                     'rights_change'  => round((float)$row->rights_change, 2),
                     'balance_change' => round((float)$row->balance_change, 2),
                     'hongbao_change' => round((float)($row->hongbao_change ?? 0), 2),
-                    'remark'         => (string)$row->remark,
+                    'remark'         => $remark,
                     'createtime'     => (int)$row->createtime,
                 ];
             }

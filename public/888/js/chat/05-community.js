@@ -165,23 +165,43 @@
         return String(g.name || '').toLowerCase().indexOf(kw) >= 0;
       });
     }
+    var createCard = ''
+      + '<button type="button" class="chat-my-group-item chat-my-group-create" id="chatMyGroupsCreateCard">'
+      +   '<span class="chat-my-group-main">'
+      +     '<span class="chat-my-group-avatar chat-my-group-avatar-plus" aria-hidden="true">+</span>'
+      +     '<span class="chat-my-group-create-text">'
+      +       '<span class="chat-my-group-name">+ 创建我的专属保密对战群</span>'
+      +       '<span class="chat-my-group-sub">零门槛当群主，躺赚群内 1% 发包管理费津贴</span>'
+      +     '</span>'
+      +   '</span>'
+      + '</button>';
     if (!list.length) {
-      box.innerHTML = '<div class="chat-empty chat-empty-glass">' + escapeHtml(chatTx('chat_my_groups_empty', '暂无群组')) + '</div>';
-      return;
+      box.innerHTML = createCard;
+    } else {
+      box.innerHTML = createCard + list.map(function (g) {
+        var display = g.display_member_count | 0;
+        var cnt = display > 0 ? display : (g.member_count | 0);
+        var name = g.name || ('#' + g.id);
+        return '<button type="button" class="chat-my-group-item" data-group-id="' + (g.id | 0) + '">'
+          + '<span class="chat-my-group-main">'
+          + avatarImgHtml(g.avatar, 'chat-my-group-avatar')
+          + '<span class="chat-my-group-name">' + escapeHtml(name) + '</span>'
+          + '</span>'
+          + '<span class="chat-my-group-count">' + cnt + '<small>人</small></span>'
+          + '</button>';
+      }).join('');
     }
-    box.innerHTML = list.map(function (g) {
-      var display = g.display_member_count | 0;
-      var cnt = display > 0 ? display : (g.member_count | 0);
-      var name = g.name || ('#' + g.id);
-      return '<button type="button" class="chat-my-group-item" data-group-id="' + (g.id | 0) + '">'
-        + '<span class="chat-my-group-main">'
-        + avatarImgHtml(g.avatar, 'chat-my-group-avatar')
-        + '<span class="chat-my-group-name">' + escapeHtml(name) + '</span>'
-        + '</span>'
-        + '<span class="chat-my-group-count">' + cnt + '<small>人</small></span>'
-        + '</button>';
-    }).join('');
-    box.querySelectorAll('.chat-my-group-item').forEach(function (btn) {
+    var createBtn = $('chatMyGroupsCreateCard');
+    if (createBtn) {
+      createBtn.onclick = function () {
+        if (typeof openCreateGroupPane === 'function') {
+          openCreateGroupPane({ fromCreateCard: true });
+        } else if (typeof showFanshubToast === 'function') {
+          showFanshubToast('建群功能暂不可用', 'error');
+        }
+      };
+    }
+    box.querySelectorAll('.chat-my-group-item[data-group-id]').forEach(function (btn) {
       btn.onclick = function () {
         var gid = parseInt(btn.getAttribute('data-group-id'), 10) || 0;
         var g = (state.myGroups || []).find(function (x) { return (x.id | 0) === gid; }) || { id: gid, name: '' };

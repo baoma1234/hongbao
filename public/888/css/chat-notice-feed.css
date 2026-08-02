@@ -450,6 +450,11 @@
   color: #222;
 }
 
+.chat-commission-row.is-dual-rebate .chat-commission-row-title {
+  color: #C61114;
+  font-weight: 900;
+}
+
 .chat-commission-row-time {
   margin-top: 2px;
   font-size: 11px;

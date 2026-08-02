@@ -26,6 +26,10 @@
                                         <span data-copy="chat_friend_req_entry">好友申请</span>
                                         <span class="chat-friend-req-badge" id="chatFriendReqBadge" style="display:none;">0</span>
                                     </button>
+                                    <button type="button" class="chat-plus-menu-item" id="chatSharePromoBtn">
+                                        <span class="chat-plus-menu-emoji" aria-hidden="true">📢</span>
+                                        <span>分享推广赚佣金</span>
+                                    </button>
                                     <button type="button" class="chat-plus-menu-item" id="chatNewGroupBtn" style="display:none;">
                                         <img class="chat-plus-menu-ico-img" src="img/chat/plus_create_group.png" width="28" height="28" alt="" decoding="async">
                                         <span data-copy="chat_create_group_btn">建群</span>

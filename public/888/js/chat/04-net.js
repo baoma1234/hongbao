@@ -924,6 +924,34 @@
         openCreateGroupPane();
       };
     }
+    var sharePromo = $('chatSharePromoBtn');
+    if (sharePromo && !sharePromo._bound) {
+      sharePromo._bound = true;
+      sharePromo.onclick = function () {
+        var menu = $('chatPlusMenu');
+        if (menu) menu.hidden = true;
+        var open = function () {
+          if (global.FansHubSharePoster && typeof FansHubSharePoster.open === 'function') {
+            FansHubSharePoster.open();
+          }
+        };
+        if (global.FansHubSharePoster) {
+          open();
+          return;
+        }
+        var assets = global.FansHubAssets;
+        if (assets && typeof assets.loadCss === 'function' && typeof assets.loadJs === 'function') {
+          Promise.all([
+            assets.loadCss('css/share-poster.css'),
+            assets.loadJs('js/share-poster.js')
+          ]).then(open).catch(function () {
+            if (typeof showFanshubToast === 'function') showFanshubToast('分享页加载失败', 'error');
+          });
+        } else {
+          open();
+        }
+      };
+    }
     var createGroupBack = $('chatCreateGroupBack');
     if (createGroupBack && !createGroupBack._bound) {
       createGroupBack._bound = true;
