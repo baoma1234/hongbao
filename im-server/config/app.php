@@ -118,8 +118,9 @@ return array_replace_recursive([
         'vip_min_count'              => 5,
         'vip_max_count'              => 10,
         'platform_fee_rate'          => 0.03,   // 平台抽水 3%（发时扣入平台户）
-        'agent_rebate_rate_default'  => 0.01,   // 群主代理返点默认 1%
+        'agent_rebate_rate_default'  => 0.01,   // 群主代理返点默认 1%（发时从手续费划转）
         'agent_rebate_rate_vip'      => 0.01,   // VIP 群代理返点 1%
+        'invite_rebate_rate'         => 0.005,  // 推荐人返佣 0.5%（发时从手续费划转）
         // 平台手续费入账用户（须在 fa_fans_account 有账户）；请按环境改成真实平台户
         'platform_user_id'           => 56960815,
         // 扫雷单独：赔付倍率 / 抽水 / 返点 / 收款户
@@ -129,6 +130,7 @@ return array_replace_recursive([
         'mine_platform_fee_rate'         => 0.03,
         'mine_agent_rebate_rate_default' => 0.01,
         'mine_agent_rebate_rate_vip'     => 0.01,
+        'mine_invite_rebate_rate'        => 0.005,
         'mine_platform_user_id'          => 56960815,
         // 福利大厅余额 fa_fans_account.balance
         'account_table'              => 'fans_account',

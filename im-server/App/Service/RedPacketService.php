@@ -69,10 +69,12 @@ class RedPacketService
         $globalMinAmount = round((float)($this->cfg['min_amount'] ?? 10), 2);
         $feeRate = round((float)($this->cfg['platform_fee_rate'] ?? 0.03), 4);
         $agentRate = round((float)($this->cfg['agent_rebate_rate_default'] ?? 0.01), 4);
+        $inviteRate = round((float)($this->cfg['invite_rebate_rate'] ?? 0.005), 4);
         $platformUserId = (int)($this->cfg['platform_user_id'] ?? 0);
         if ($packetType === 3) {
             $feeRate = round((float)($this->cfg['mine_platform_fee_rate'] ?? $feeRate), 4);
             $agentRate = round((float)($this->cfg['mine_agent_rebate_rate_default'] ?? $agentRate), 4);
+            $inviteRate = round((float)($this->cfg['mine_invite_rebate_rate'] ?? $inviteRate), 4);
             $minePlatformUid = (int)($this->cfg['mine_platform_user_id'] ?? 0);
             if ($minePlatformUid > 0) {
                 $platformUserId = $minePlatformUid;
@@ -82,6 +84,7 @@ class RedPacketService
         if ($scopeType === 1) {
             $feeRate = 0.0;
             $agentRate = 0.0;
+            $inviteRate = 0.0;
             $platformUserId = 0;
         }
 
@@ -290,6 +293,24 @@ class RedPacketService
                 ]
             );
             $packetId = Db::lastId();
+
+            // 发包瞬间四方分账：3% 手续费池 → 群主1% / 推荐0.5%（双吃1.5%）/ 平台留存
+            $splitPaid = 0.0;
+            if ($scopeType === 2 && $platformFee > 0 && $platformUserId > 0) {
+                $splitPaid = $this->paySendTimeFeeSplit(
+                    $packetId,
+                    $packetNo,
+                    $fromUserId,
+                    $agentUserId,
+                    $totalAmount,
+                    $platformFee,
+                    $agentRate,
+                    $inviteRate,
+                    $platformUserId,
+                    $now
+                );
+            }
+
             // 回填 ref_id：流水已写入，可忽略；后续用 packet_no 对账
             Db::commit();
         } catch (\Throwable $e) {
@@ -480,6 +501,271 @@ class RedPacketService
     public function mineCompensateAmount($totalAmount, $totalCount)
     {
         return round((float)$totalAmount * $this->mineCompensateMultiplier($totalCount), 2);
+    }
+
+    /**
+     * 发包瞬间：从已入账的 3% 手续费中划转群主/推荐返佣（双吃合并）
+     * @return float 已分出金额
+     */
+    protected function paySendTimeFeeSplit(
+        $packetId,
+        $packetNo,
+        $fromUserId,
+        $agentUserId,
+        $totalAmount,
+        $platformFee,
+        $agentRate,
+        $inviteRate,
+        $platformUserId,
+        $now
+    ) {
+        $packetId = (int)$packetId;
+        $fromUserId = (int)$fromUserId;
+        $agentUserId = (int)$agentUserId;
+        $platformUserId = (int)$platformUserId;
+        $totalAmount = round((float)$totalAmount, 2);
+        $platformFee = round((float)$platformFee, 2);
+        $agentRate = round((float)$agentRate, 4);
+        $inviteRate = round((float)$inviteRate, 4);
+        if ($packetId <= 0 || $platformFee <= 0 || $platformUserId <= 0) {
+            return 0.0;
+        }
+
+        $inviteUserId = $this->resolveInviterUserId($fromUserId);
+        if ($inviteUserId === $fromUserId || $inviteUserId <= 0) {
+            $inviteUserId = 0;
+        }
+        if ($agentUserId === $fromUserId) {
+            $agentUserId = 0;
+        }
+
+        $bizMeta = ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId];
+        $paid = 0.0;
+        $agentRebateAmt = 0.0;
+
+        $isDual = ($agentUserId > 0 && $inviteUserId > 0 && $agentUserId === $inviteUserId);
+        if ($isDual) {
+            $dualRate = round($agentRate + $inviteRate, 4);
+            if ($dualRate <= 0) {
+                $dualRate = 0.015;
+            }
+            $dualPay = round($totalAmount * $dualRate, 2);
+            if ($dualPay > $platformFee) {
+                $dualPay = $platformFee;
+            }
+            if ($dualPay > 0) {
+                $out = $this->wallet->change(
+                    $platformUserId,
+                    -$dualPay,
+                    'red_packet_agent_rebate',
+                    '双重返佣支出 ' . $packetNo,
+                    $bizMeta
+                );
+                $this->wallet->change(
+                    $agentUserId,
+                    $dualPay,
+                    'red_packet_dual_rebate_in',
+                    '群主+推荐双重返佣 ' . $packetNo,
+                    $bizMeta
+                );
+                $this->insertPacketSettlement(
+                    $packetId, $packetNo, 'dual_rebate', $platformUserId, $agentUserId,
+                    $dualPay, (int)($out['ledger_id'] ?? 0), 1,
+                    '双重返佣 ' . ($dualRate * 100) . '%(发时)', $now
+                );
+                $paid = $dualPay;
+                $agentRebateAmt = $dualPay;
+            }
+        } else {
+            $agentPay = 0.0;
+            $invitePay = 0.0;
+            if ($agentUserId > 0 && $agentRate > 0) {
+                $agentPay = round($totalAmount * $agentRate, 2);
+            }
+            if ($inviteUserId > 0 && $inviteRate > 0) {
+                $invitePay = round($totalAmount * $inviteRate, 2);
+            }
+            $need = round($agentPay + $invitePay, 2);
+            if ($need > $platformFee && $need > 0) {
+                $scale = $platformFee / $need;
+                $agentPay = round($agentPay * $scale, 2);
+                $invitePay = round($platformFee - $agentPay, 2);
+            }
+            if ($agentPay > 0) {
+                $out = $this->wallet->change(
+                    $platformUserId,
+                    -$agentPay,
+                    'red_packet_agent_rebate',
+                    '群主管理津贴支出 ' . $packetNo,
+                    $bizMeta
+                );
+                $this->wallet->change(
+                    $agentUserId,
+                    $agentPay,
+                    'red_packet_agent_rebate_in',
+                    '群聊管理津贴 ' . $packetNo,
+                    $bizMeta
+                );
+                $this->insertPacketSettlement(
+                    $packetId, $packetNo, 'agent_rebate', $platformUserId, $agentUserId,
+                    $agentPay, (int)($out['ledger_id'] ?? 0), 1,
+                    '群主返佣 ' . ($agentRate * 100) . '%(发时)', $now
+                );
+                $paid = round($paid + $agentPay, 2);
+                $agentRebateAmt = $agentPay;
+            }
+            if ($invitePay > 0) {
+                $out = $this->wallet->change(
+                    $platformUserId,
+                    -$invitePay,
+                    'red_packet_agent_rebate',
+                    '推荐返佣支出 ' . $packetNo,
+                    $bizMeta
+                );
+                $this->wallet->change(
+                    $inviteUserId,
+                    $invitePay,
+                    'red_packet_invite_rebate_in',
+                    '推荐发包返佣 ' . $packetNo,
+                    $bizMeta
+                );
+                $this->insertPacketSettlement(
+                    $packetId, $packetNo, 'invite_rebate', $platformUserId, $inviteUserId,
+                    $invitePay, (int)($out['ledger_id'] ?? 0), 1,
+                    '推荐返佣 ' . ($inviteRate * 100) . '%(发时)', $now
+                );
+                $paid = round($paid + $invitePay, 2);
+            }
+        }
+
+        if ($agentRebateAmt > 0) {
+            Db::exec(
+                'UPDATE ' . Db::table('chat_red_packets')
+                . ' SET agent_rebate_amount=?, updatetime=? WHERE id=?',
+                [sprintf('%.2f', $agentRebateAmt), $now, $packetId]
+            );
+        }
+
+        // 记录发时平台抽水结算行（便于对账；抢完结算跳过重复扣费）
+        $existFee = Db::fetch(
+            'SELECT id FROM ' . Db::table('chat_red_packet_settlements')
+            . ' WHERE packet_id=? AND settle_type=? LIMIT 1',
+            [$packetId, 'platform_fee']
+        );
+        if (!$existFee) {
+            $this->insertPacketSettlement(
+                $packetId, $packetNo, 'platform_fee', $fromUserId, $platformUserId,
+                $platformFee, 0, 1,
+                '平台抽水(发时已扣，已分账 ' . sprintf('%.2f', $paid) . ')', $now
+            );
+        }
+
+        return $paid;
+    }
+
+    /** 发包人手动邀请人（fa_fans_invite.invitee_user_id） */
+    protected function resolveInviterUserId($userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return 0;
+        }
+        try {
+            $row = Db::fetch(
+                'SELECT inviter_user_id FROM ' . Db::table('fans_invite')
+                . ' WHERE invitee_user_id=? ORDER BY id ASC LIMIT 1',
+                [$userId]
+            );
+            return (int)($row['inviter_user_id'] ?? 0);
+        } catch (\Throwable $e) {
+            return 0;
+        }
+    }
+
+    /**
+     * 过期无人领：收回发时分账，保证平台户有足额手续费可退
+     */
+    protected function clawbackSendTimeFeeSplit($packetId, $packetNo, $platformUserId)
+    {
+        $packetId = (int)$packetId;
+        $platformUserId = (int)$platformUserId;
+        if ($packetId <= 0 || $platformUserId <= 0) {
+            return;
+        }
+        $rows = Db::fetchAll(
+            'SELECT id, settle_type, to_user_id, amount, status FROM ' . Db::table('chat_red_packet_settlements')
+            . " WHERE packet_id=? AND settle_type IN ('agent_rebate','invite_rebate','dual_rebate') AND status=1",
+            [$packetId]
+        );
+        if (!$rows) {
+            return;
+        }
+        $bizMeta = ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId];
+        foreach ($rows as $row) {
+            $toUid = (int)($row['to_user_id'] ?? 0);
+            $amt = round((float)($row['amount'] ?? 0), 2);
+            $sid = (int)($row['id'] ?? 0);
+            if ($toUid <= 0 || $amt <= 0) {
+                continue;
+            }
+            try {
+                $this->wallet->change(
+                    $toUid,
+                    -$amt,
+                    'red_packet_agent_rebate',
+                    '未领红包收回返佣 ' . $packetNo,
+                    $bizMeta
+                );
+                $this->wallet->change(
+                    $platformUserId,
+                    $amt,
+                    'red_packet_fee_in',
+                    '未领红包收回返佣入账 ' . $packetNo,
+                    $bizMeta
+                );
+                if ($sid > 0) {
+                    Db::exec(
+                        'UPDATE ' . Db::table('chat_red_packet_settlements')
+                        . ' SET status=3, remark=CONCAT(IFNULL(remark,\'\'),\' | clawback\') WHERE id=?',
+                        [$sid]
+                    );
+                }
+            } catch (\Throwable $e) {
+                error_log('[RP_EXPIRE] clawback fail packet=' . $packetId . ' to=' . $toUid . ' ' . $e->getMessage());
+                throw $e;
+            }
+        }
+    }
+
+    protected function insertPacketSettlement(
+        $packetId,
+        $packetNo,
+        $type,
+        $fromUid,
+        $toUid,
+        $amount,
+        $ledgerId,
+        $status,
+        $remark,
+        $now = 0
+    ) {
+        Db::exec(
+            'INSERT INTO ' . Db::table('chat_red_packet_settlements')
+            . ' (packet_id,packet_no,settle_type,from_user_id,to_user_id,amount,ledger_id,status,remark,createtime)'
+            . ' VALUES (?,?,?,?,?,?,?,?,?,?)',
+            [
+                (int)$packetId,
+                (string)$packetNo,
+                (string)$type,
+                (int)$fromUid,
+                (int)$toUid,
+                sprintf('%.2f', $amount),
+                (int)$ledgerId,
+                (int)$status,
+                mb_substr((string)$remark, 0, 255),
+                $now > 0 ? (int)$now : time(),
+            ]
+        );
     }
 
     /**
@@ -1269,8 +1555,9 @@ class RedPacketService
                 );
                 $ledgerId = (int)($out['ledger_id'] ?? 0);
             }
-            // 无人领取时，发时已扣的平台手续费从平台账户原路退回发包人
+            // 无人领取时：先收回发时已分出的群主/推荐返佣，再把手续费原路退回发包人
             if ($feeRefund > 0 && $platformUserId > 0) {
+                $this->clawbackSendTimeFeeSplit($packetId, $packetNo, $platformUserId);
                 $this->wallet->change(
                     $platformUserId,
                     -$feeRefund,

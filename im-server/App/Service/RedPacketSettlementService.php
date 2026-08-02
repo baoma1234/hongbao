@@ -11,6 +11,8 @@ use Im\Support\RedisClient;
  * 抢完后在同一 MySQL 事务内完成：
  * 1) 埋雷/手气赔付（按 total_amount 全额）
  * 2) 平台抽水：若发时已记 platform_fee>0 则不再从发包人扣；否则兼容旧包在此扣
+ * 3) 群主/推荐返佣：发时已分账则跳过；否则兼容旧包在结算时从平台户支出
+ * 4) 赔付：扫雷中雷/手气最差等
  * 3) 代理返点：群主 1%（或群配置），由平台手续费账户支出
  * 任一步失败（含余额不足导致负数）→ 全部回滚并抛异常。
  */
@@ -278,47 +280,65 @@ class RedPacketSettlementService
                 }
             }
 
-            // ---------- 4) 代理返点：群主，由平台账户支出 ----------
+            // ---------- 4) 代理返点：发时已分账则跳过，避免重复打款 ----------
             $agentUserId = (int)($packet['agent_user_id'] ?? 0);
             $agentRate = round((float)($packet['agent_rebate_rate'] ?? 0), 4);
-            if ($agentUserId <= 0 || $agentRate <= 0) {
-                $resolved = $this->resolveAgent($fromUserId, (int)($packet['group_id'] ?? 0), $packetType);
-                if ($agentUserId <= 0) {
-                    $agentUserId = (int)$resolved['agent_user_id'];
+            $agentRebate = round((float)($packet['agent_rebate_amount'] ?? 0), 2);
+            $prepaidRebate = Db::fetch(
+                'SELECT id, settle_type, amount FROM ' . Db::table('chat_red_packet_settlements')
+                . " WHERE packet_id=? AND settle_type IN ('agent_rebate','dual_rebate','invite_rebate') AND status=1 LIMIT 1",
+                [$packetId]
+            );
+            if ($prepaidRebate) {
+                // 发时已完成四方分账；此处只汇总金额用于落库
+                if ($agentRebate <= 0) {
+                    $sumRow = Db::fetch(
+                        'SELECT COALESCE(SUM(amount),0) AS s FROM ' . Db::table('chat_red_packet_settlements')
+                        . " WHERE packet_id=? AND settle_type IN ('agent_rebate','dual_rebate') AND status=1",
+                        [$packetId]
+                    );
+                    $agentRebate = round((float)($sumRow['s'] ?? 0), 2);
                 }
-                if ($agentRate <= 0) {
-                    $agentRate = (float)$resolved['rate'];
-                }
-            }
-            if ($agentUserId <= 0 || $agentUserId === $fromUserId) {
-                $agentUserId = 0;
-            }
-            $agentRebate = 0.0;
-            if ($agentUserId > 0 && $agentRate > 0) {
-                $agentRebate = round($totalAmount * $agentRate, 2);
-                if ($agentRebate > 0) {
-                    if ($platformUserId <= 0) {
-                        throw new \RuntimeException('platform_user_id not configured');
+            } else {
+                if ($agentUserId <= 0 || $agentRate <= 0) {
+                    $resolved = $this->resolveAgent($fromUserId, (int)($packet['group_id'] ?? 0), $packetType);
+                    if ($agentUserId <= 0) {
+                        $agentUserId = (int)$resolved['agent_user_id'];
                     }
-                    $rebateOut = $this->wallet->change(
-                        $platformUserId,
-                        -$agentRebate,
-                        'red_packet_agent_rebate',
-                        '红包代理返点支出 ' . $packetNo,
-                        $bizMeta
-                    );
-                    $this->wallet->change(
-                        $agentUserId,
-                        $agentRebate,
-                        'red_packet_agent_rebate_in',
-                        '红包代理返点收益 ' . $packetNo,
-                        $bizMeta
-                    );
-                    $this->insertSettlement(
-                        $packetId, $packetNo, 'agent_rebate', $platformUserId, $agentUserId,
-                        $agentRebate, (int)($rebateOut['ledger_id'] ?? 0), 1,
-                        '代理返点 ' . ($agentRate * 100) . '%'
-                    );
+                    if ($agentRate <= 0) {
+                        $agentRate = (float)$resolved['rate'];
+                    }
+                }
+                if ($agentUserId <= 0 || $agentUserId === $fromUserId) {
+                    $agentUserId = 0;
+                }
+                $agentRebate = 0.0;
+                if ($agentUserId > 0 && $agentRate > 0) {
+                    $agentRebate = round($totalAmount * $agentRate, 2);
+                    if ($agentRebate > 0) {
+                        if ($platformUserId <= 0) {
+                            throw new \RuntimeException('platform_user_id not configured');
+                        }
+                        $rebateOut = $this->wallet->change(
+                            $platformUserId,
+                            -$agentRebate,
+                            'red_packet_agent_rebate',
+                            '红包代理返点支出 ' . $packetNo,
+                            $bizMeta
+                        );
+                        $this->wallet->change(
+                            $agentUserId,
+                            $agentRebate,
+                            'red_packet_agent_rebate_in',
+                            '红包代理返点收益 ' . $packetNo,
+                            $bizMeta
+                        );
+                        $this->insertSettlement(
+                            $packetId, $packetNo, 'agent_rebate', $platformUserId, $agentUserId,
+                            $agentRebate, (int)($rebateOut['ledger_id'] ?? 0), 1,
+                            '代理返点 ' . ($agentRate * 100) . '%'
+                        );
+                    }
                 }
             }
 
