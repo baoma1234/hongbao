@@ -2556,9 +2556,13 @@
     }
     var text = msg.content || '';
     var emojiOnly = isEmojiOnlyText(text);
+    // 文字：内容 + 空格 + 时间（时间贴在最后一行末尾，略小）；纯表情仍单独一行时间
+    var bubbleCls = 'chat-bubble' + (emojiOnly ? ' emoji-only' : ' text-msg');
+    var timeHtml = emojiOnly
+      ? ('<span class="meta">' + time + '</span>')
+      : (' <span class="meta">' + time + '</span>');
     return groupMessageWrap(mine, msg.from_user_id,
-      '<div class="chat-bubble' + (emojiOnly ? ' emoji-only' : '') + '">' + escapeHtml(text) +
-        '<span class="meta">' + time + '</span></div>', actions, msg.id | 0);
+      '<div class="' + bubbleCls + '">' + escapeHtml(text) + timeHtml + '</div>', actions, msg.id | 0);
   }
 
   function renderMessages(skipScroll) {
@@ -2569,7 +2573,7 @@
       return;
     }
     box.innerHTML = state.messages.map(function (msg) {
-      // 不再插入中间 sys-time；时间统一显示在消息气泡下方（精确到秒）
+      // 文字消息时间贴在气泡内容末尾；其它类型仍用气泡内 meta
       return buildMessageRowHtml(msg);
     }).join('');
     if (!skipScroll) scrollMsgToLatest();

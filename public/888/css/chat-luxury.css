@@ -376,6 +376,29 @@ body.chat-room-open .bottom-action-bar {
   text-align: right;
 }
 
+/* 文字消息：内容空格时间，时间在最后一行末尾、字号更小 */
+.chat-room-pane .chat-bubble.text-msg .meta {
+  display: inline-block;
+  float: right;
+  margin: 0.5em 0 0 0.45em;
+  font-size: 11px;
+  line-height: 1;
+  opacity: 0.48;
+  font-weight: 400;
+  text-align: left;
+  white-space: nowrap;
+}
+.chat-room-pane .chat-msg-row.me .chat-bubble.text-msg .meta {
+  color: rgba(255, 255, 255, 0.7);
+  opacity: 1;
+  text-align: left;
+}
+.chat-room-pane .chat-bubble.text-msg::after {
+  content: '';
+  display: table;
+  clear: both;
+}
+
 .chat-room-pane .chat-bubble.sticker,
 .chat-room-pane .chat-bubble.emoji-only {
   background: transparent !important;

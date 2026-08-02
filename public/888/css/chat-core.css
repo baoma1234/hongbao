@@ -773,6 +773,25 @@ body.tab-messages .bottom-action-bar {
 }
 .chat-msg-row.me .chat-bubble .meta { color: rgba(255,255,255,.85); }
 
+/* 文字消息：时间跟在内容后，换行时落在最后一行右侧 */
+.chat-bubble.text-msg .meta {
+  display: inline-block;
+  float: right;
+  clear: none;
+  margin: 0.45em 0 0 0.5em;
+  font-size: 11px;
+  line-height: 1;
+  opacity: 0.5;
+  white-space: nowrap;
+  vertical-align: bottom;
+  letter-spacing: 0;
+}
+.chat-bubble.text-msg::after {
+  content: '';
+  display: table;
+  clear: both;
+}
+
 .chat-sys-tip {
   max-width: 86%;
   padding: 5px 12px;
