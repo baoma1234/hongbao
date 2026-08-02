@@ -345,7 +345,8 @@ body.tab-messages {
 }
 
 #tabMessages button.chat-friend-req-btn.reject,
-#tabMessages button.chat-action-item.danger {
+#tabMessages button.chat-action-item.danger,
+#tabMessages button.chat-setting-leave-btn {
   border: 1.5px solid transparent !important;
   background:
     linear-gradient(180deg, #fff5f5 0%, #ffe0dc 100%) padding-box,

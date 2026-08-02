@@ -358,6 +358,7 @@
                             <span class="chat-switch-slider"></span>
                         </label>
                     </div>
+                    <button type="button" class="chat-setting-leave-btn" id="chatGroupLeaveBtn" data-copy="chat_group_leave">退出群组</button>
                     <input type="file" id="chatGroupAvatarInput" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
                 </div>
             </div>

@@ -157,6 +157,9 @@ class MessageRouter
                 case 'group.kick':
                     $this->handleGroupKick($connection, $uid, $payload, $reqId);
                     break;
+                case 'group.leave':
+                    $this->handleGroupLeave($connection, $uid, $payload, $reqId);
+                    break;
                 case 'group.mute':
                     $this->handleGroupMute($connection, $uid, $payload, $reqId);
                     break;
@@ -1005,6 +1008,47 @@ class MessageRouter
         $this->pushToUser($targetId, 'group.kicked', ['group_id' => $groupId]);
         // 踢人后成员列表已变，仍推给群内剩余成员
         $this->pushToGroup($groupId, 'group.members_changed', ['group_id' => $groupId, 'reason' => 'kick']);
+    }
+
+    protected function handleGroupLeave(TcpConnection $connection, $uid, array $payload, $reqId)
+    {
+        $groupId = (int)($payload['group_id'] ?? 0);
+        $uid = (int)$uid;
+        try {
+            if ($groupId <= 0) {
+                throw new \InvalidArgumentException('invalid group');
+            }
+            if ($this->groups->isOwner($groupId, $uid)) {
+                throw new \RuntimeException('owner cannot leave');
+            }
+            if (!$this->groups->isMember($groupId, $uid)) {
+                throw new \RuntimeException('not in group');
+            }
+            $name = $this->groups->displayName($uid);
+            $sys = $this->messages->sendGroupSystem($groupId, $name . ' 退出了群组', $uid, [
+                'event' => 'leave',
+                'target_user_id' => $uid,
+            ]);
+            $clearedMsgId = (int)($sys['id'] ?? 0);
+            // 本端水位：退群后旧消息不可见；原消息不删，他人不受影响
+            $clearResult = $this->messages->clearGroupConversation($uid, $groupId, $clearedMsgId);
+            $this->groups->leave($groupId, $uid);
+            $this->send($connection, 'group.leave.ok', [
+                'ok'             => true,
+                'group_id'       => $groupId,
+                'cleared_msg_id' => (int)($clearResult['cleared_msg_id'] ?? $clearedMsgId),
+            ], $reqId);
+            $this->pushToGroup($groupId, 'group.message', ['message' => $sys]);
+            $this->pushToGroup($groupId, 'group.members_changed', ['group_id' => $groupId, 'reason' => 'leave']);
+        } catch (\Throwable $e) {
+            $msg = $e->getMessage() ?: 'leave failed';
+            if ($msg === 'owner cannot leave') {
+                $msg = '群主不能退出群组，请先转让群主';
+            } elseif ($msg === 'not in group') {
+                $msg = '你不在该群组中';
+            }
+            $this->error($connection, $msg, $reqId);
+        }
     }
 
     protected function handleGroupMute(TcpConnection $connection, $uid, array $payload, $reqId)

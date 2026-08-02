@@ -729,6 +729,38 @@ class GroupService
         return true;
     }
 
+    /**
+     * 主动退群（群主不可退）
+     * status=0 表示主动退出；踢出为 status=2
+     */
+    public function leave($groupId, $userId)
+    {
+        $groupId = (int)$groupId;
+        $userId = (int)$userId;
+        if ($groupId <= 0 || $userId <= 0) {
+            throw new \InvalidArgumentException('invalid group');
+        }
+        if (!$this->isMember($groupId, $userId)) {
+            throw new \RuntimeException('not in group');
+        }
+        if ($this->isOwner($groupId, $userId)) {
+            throw new \RuntimeException('owner cannot leave');
+        }
+        $now = time();
+        $n = Db::exec(
+            'UPDATE ' . Db::table('chat_group_members')
+            . ' SET status=0, role=1, updatetime=? WHERE group_id=? AND user_id=? AND status=1',
+            [$now, $groupId, $userId]
+        );
+        if (!$n) {
+            throw new \RuntimeException('not in group');
+        }
+        $this->refreshMemberCount($groupId);
+        $this->memberSetRem($groupId, $userId);
+        $this->invalidateUserGroupsCache($userId);
+        return true;
+    }
+
     public function muteMember($groupId, $operatorId, $targetId, $seconds)
     {
         $this->assertCanModerate($groupId, $operatorId, $targetId);

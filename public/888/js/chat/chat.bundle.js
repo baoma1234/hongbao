@@ -3200,6 +3200,54 @@
     if (modeBlock) modeBlock.style.display = (canEdit && myRole >= 3) ? '' : 'none';
     if (privacySel) privacySel.value = (g.privacy_mode === 'open' || policy.privacy_mode === 'open') ? 'open' : 'private';
     if (chatModeSel) chatModeSel.value = (g.chat_mode === 'grab' || policy.chat_mode === 'grab') ? 'grab' : 'chat';
+    var leaveBtn = $('chatGroupLeaveBtn');
+    if (leaveBtn) {
+      // 群主不可退群；普通成员/管理员可退
+      leaveBtn.style.display = (myRole > 0 && myRole < 3) ? '' : 'none';
+    }
+  }
+
+  async function leaveCurrentGroup() {
+    if (!state.room || (state.room.type | 0) !== 2) return;
+    var gid = state.room.id | 0;
+    if (gid <= 0) return;
+    var meta = state.groupMeta || {};
+    if ((meta.my_role | 0) >= 3) {
+      if (typeof showFanshubToast === 'function') {
+        showFanshubToast(chatT('chat_group_leave_owner_deny') || '群主不能退出群组，请先转让群主', 'info');
+      }
+      return;
+    }
+    var confirmText = chatT('chat_group_leave_confirm') || '退出后将清空本端群聊记录，且无法再接收该群消息。确定退出？';
+    if (!window.confirm(confirmText)) return;
+    var btn = $('chatGroupLeaveBtn');
+    if (btn) btn.disabled = true;
+    try {
+      await send('group.leave', { group_id: gid });
+      try { clearHistCache(2, gid); } catch (e0) {}
+      var key = convKey(2, gid);
+      state.list = (state.list || []).filter(function (it) {
+        if ((it.conversation_type | 0) !== 2) return true;
+        var iid = (it.group_id | 0) || parseInt(it.conversation_id, 10) || 0;
+        return iid !== gid;
+      });
+      if (key && state.unread) delete state.unread[key];
+      state.myGroups = (state.myGroups || []).filter(function (g) { return (g.id | 0) !== gid; });
+      try { closeSubPane('chatGroupSettingsPane'); } catch (e1) {}
+      try { closeSubPane('chatGroupMembersPane'); } catch (e2) {}
+      if (typeof closeRoom === 'function') closeRoom();
+      scheduleRenderList();
+      scheduleSaveListCache();
+      if (typeof renderMyGroups === 'function') renderMyGroups();
+      if (typeof showFanshubToast === 'function') {
+        showFanshubToast(chatT('chat_group_leave_ok') || '已退出群组', 'success');
+      }
+    } catch (e) {
+      var msg = (e && e.message) || chatT('chat_group_leave_fail') || '退出失败';
+      if (typeof showFanshubToast === 'function') showFanshubToast(msg, 'error');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
   }
 
   async function saveGroupModes() {
@@ -4797,6 +4845,13 @@
       muteAllSwitch.addEventListener('change', function () {
         toggleMuteAll(!!muteAllSwitch.checked);
       });
+    }
+    var leaveBtn = $('chatGroupLeaveBtn');
+    if (leaveBtn && !leaveBtn._bound) {
+      leaveBtn._bound = true;
+      leaveBtn.onclick = function () {
+        if (typeof leaveCurrentGroup === 'function') leaveCurrentGroup();
+      };
     }
     var membersBack = $('chatGroupMembersBack');
     if (membersBack && !membersBack._bound) {

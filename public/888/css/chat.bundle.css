@@ -3351,6 +3351,27 @@ button.chat-rp-fair-link {
   color: var(--color-text-hint);
   line-height: 1.4;
 }
+.chat-setting-leave-btn {
+  width: 100%;
+  margin-top: 20px;
+  margin-bottom: 12px;
+  padding: 14px 16px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: #fff;
+  color: #E63022;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--shadow-card);
+}
+.chat-setting-leave-btn:active {
+  background: #fff5f4;
+}
+.chat-setting-leave-btn[hidden],
+.chat-setting-leave-btn[style*="display: none"] {
+  display: none !important;
+}
 
 .chat-switch {
   position: relative;
@@ -5533,7 +5554,8 @@ body.tab-messages {
 }
 
 #tabMessages button.chat-friend-req-btn.reject,
-#tabMessages button.chat-action-item.danger {
+#tabMessages button.chat-action-item.danger,
+#tabMessages button.chat-setting-leave-btn {
   border: 1.5px solid transparent !important;
   background:
     linear-gradient(180deg, #fff5f5 0%, #ffe0dc 100%) padding-box,

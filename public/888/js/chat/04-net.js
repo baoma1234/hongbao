@@ -563,6 +563,13 @@
         toggleMuteAll(!!muteAllSwitch.checked);
       });
     }
+    var leaveBtn = $('chatGroupLeaveBtn');
+    if (leaveBtn && !leaveBtn._bound) {
+      leaveBtn._bound = true;
+      leaveBtn.onclick = function () {
+        if (typeof leaveCurrentGroup === 'function') leaveCurrentGroup();
+      };
+    }
     var membersBack = $('chatGroupMembersBack');
     if (membersBack && !membersBack._bound) {
       membersBack._bound = true;
