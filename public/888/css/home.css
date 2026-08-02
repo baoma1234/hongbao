@@ -15,15 +15,6 @@
             justify-content: flex-start;
             align-items: center;
             gap: 8px;
-            font-weight: 400;
-        }
-        .jackpot-container .jackpot-label,
-        .jackpot-container .jackpot-meta,
-        .jackpot-container .jackpot-pool-label,
-        .jackpot-container .jackpot-val,
-        .jackpot-container .jackpot-price-line,
-        .jackpot-container .jackpot-hint-line {
-            font-weight: 400 !important;
         }
         .jackpot-container::before {
             content: '';
