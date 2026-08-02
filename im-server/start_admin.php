@@ -1,17 +1,16 @@
 <?php
 /**
  * 简易 HTTP 桥：
- * - 用户只读：会话列表 / 历史（token 鉴权）→ 减轻 WS Worker 压力
+ * - 用户 API：会话/历史/红包/好友/群管理（token 鉴权）→ 减轻 WS Worker 压力
  * - 后台代聊：发私聊/群聊/红包（admin_key）
  * 监听: http://0.0.0.0:7273
  *
- * POST /im/conversations  {token, limit?}
- * POST /im/history        {token, conversation_type, conversation_id|group_id|to_user_id, before_id?, limit?}
+ * POST /im/*              {token, ...}
  * GET  /health
  * POST /agent/*           admin_key
  */
 
-use Im\Http\UserReadApi;
+use Im\Http\UserApi;
 use Im\Service\GroupService;
 use Im\Service\MessageService;
 use Im\Service\RedPacketService;
@@ -60,29 +59,44 @@ $http->onMessage = function (TcpConnection $connection, Request $request) use ($
         $body = [];
     }
 
-    // -------- 用户只读 API（会员 token，无需 admin_key）--------
+    // -------- 用户 API（会员 token，无需 admin_key）--------
     if (strpos($path, '/im/') === 0) {
         try {
             $token = (string)($body['token'] ?? $request->header('x-fans-token') ?? $request->get('token') ?? '');
-            $api = new UserReadApi($cfg);
+            $api = new UserApi($cfg);
             $uid = $api->userIdByToken($token);
             if ($uid <= 0) {
                 $connection->send(corsJson(401, ['message' => 'unauthorized']));
                 return;
             }
-            if ($path === '/im/conversations' && $method === 'POST') {
-                $data = $api->conversations($uid, (int)($body['limit'] ?? 50));
-                $connection->send(corsJson(200, array_merge(['code' => 1], $data)));
+            if ($method !== 'POST') {
+                $connection->send(corsJson(405, ['message' => 'method not allowed']));
                 return;
             }
-            if ($path === '/im/history' && $method === 'POST') {
-                $data = $api->history($uid, $body);
-                $connection->send(corsJson(200, array_merge(['code' => 1], $data)));
-                return;
+            $meta = ['ip' => ''];
+            try {
+                $meta['ip'] = (string)$connection->getRemoteIp();
+            } catch (\Throwable $eIp) {
             }
-            $connection->send(corsJson(404, ['message' => 'not found']));
+            $out = $api->handle($path, $uid, $body, $meta);
+            $data = isset($out['data']) ? $out['data'] : $out;
+            $payload = ['code' => 1, 'data' => $data];
+            if (!empty($out['ws_type'])) {
+                $payload['ws_type'] = (string)$out['ws_type'];
+            }
+            // 兼容旧客户端：conversations/history 仍可从顶层读 list
+            if (is_array($data)) {
+                foreach (['list', 'group', 'policy', 'my_role', 'mute_all', 'member_count', 'can_speak', 'member_list_hidden'] as $k) {
+                    if (array_key_exists($k, $data) && !array_key_exists($k, $payload)) {
+                        $payload[$k] = $data[$k];
+                    }
+                }
+            }
+            $connection->send(corsJson(200, $payload));
         } catch (\Throwable $e) {
-            $connection->send(corsJson(400, ['message' => $e->getMessage()]));
+            $msg = $e->getMessage();
+            $code = ($msg === 'not found') ? 404 : 400;
+            $connection->send(corsJson($code, ['code' => 0, 'message' => $msg ?: 'error']));
         }
         return;
     }

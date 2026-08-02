@@ -930,12 +930,41 @@
     return proto + '//' + location.hostname + ':7273';
   }
 
-  /** HTTP 拉列表/历史（失败则回退 WS） */
+  /** HTTP 优先路由（失败回退 WS） */
+  var HTTP_ROUTES = {
+    'conversation.list': '/im/conversations',
+    'history': '/im/history',
+    'redpacket.send': '/im/redpacket/send',
+    'redpacket.grab': '/im/redpacket/grab',
+    'redpacket.detail': '/im/redpacket/detail',
+    'transfer.send': '/im/transfer/send',
+    'friend.list': '/im/friend/list',
+    'friend.lookup': '/im/friend/lookup',
+    'friend.request': '/im/friend/request',
+    'friend.add': '/im/friend/add',
+    'friend.requests': '/im/friend/requests',
+    'friend.accept': '/im/friend/accept',
+    'friend.reject': '/im/friend/reject',
+    'friend.cancel': '/im/friend/cancel',
+    'group.list': '/im/group/list',
+    'group.join': '/im/group/join',
+    'group.info': '/im/group/info',
+    'group.leave': '/im/group/leave',
+    'group.create': '/im/group/create',
+    'group.update': '/im/group/update',
+    'group.members': '/im/group/members',
+    'group.kick': '/im/group/kick',
+    'group.mute': '/im/group/mute',
+    'group.set_admin': '/im/group/set_admin',
+    'group.mute_all': '/im/group/mute_all',
+    'group.candidates': '/im/group/candidates',
+    'group.add_members': '/im/group/add_members'
+  };
+
+  /** HTTP 写读接口（失败则回退 WS） */
   function sendViaHttp(type, data) {
-    var path = '';
-    if (type === 'conversation.list') path = '/im/conversations';
-    else if (type === 'history') path = '/im/history';
-    else return Promise.reject(new Error('no http route'));
+    var path = HTTP_ROUTES[type];
+    if (!path) return Promise.reject(new Error('no http route'));
     var body = Object.assign({ token: token() }, data || {});
     var ctrl = null;
     var timer = null;
@@ -952,10 +981,15 @@
         if (!res.ok || (json && json.code === 0)) {
           throw new Error((json && json.message) || ('HTTP ' + res.status));
         }
-        // 兼容 {code:1,list:...} / {list:...}
-        var payload = json || {};
-        if (payload.data && typeof payload.data === 'object') payload = payload.data;
-        return { type: type, data: payload, via: 'http' };
+        var respType = (json && json.ws_type) || type;
+        var payload;
+        if (json && Object.prototype.hasOwnProperty.call(json, 'data') && json.data != null) {
+          payload = json.data;
+        } else {
+          payload = Object.assign({}, json || {});
+          try { delete payload.code; delete payload.ws_type; delete payload.message; } catch (eStrip) {}
+        }
+        return { type: respType, data: payload, via: 'http' };
       });
     });
     if (ctrl) {
@@ -969,8 +1003,8 @@
   }
 
   function send(type, data, opts) {
-    // 列表/历史优先 HTTP，不占 WS Worker；失败再走 WS
-    if (type === 'conversation.list' || type === 'history') {
+    // 非聊天写读优先 HTTP，不占 WS Worker；失败再走 WS
+    if (HTTP_ROUTES[type]) {
       return sendViaHttp(type, data).catch(function () {
         return sendViaWs(type, data, opts);
       });

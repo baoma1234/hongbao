@@ -1230,14 +1230,7 @@
     while (attempt < 3) {
       attempt++;
       try {
-        if (!state.connected || !state.ws || state.ws.readyState !== 1) {
-          if (typeof waitUntilConnected === 'function') {
-            await waitUntilConnected(12000);
-          } else {
-            try { ensureConnected(); } catch (eC) {}
-            await new Promise(function (r) { setTimeout(r, 400 * attempt); });
-          }
-        }
+        // detail 优先走 HTTP，不强制等 WS
         var packet = await send('redpacket.detail', { packet_id: packetId }, { timeoutMs: 20000 });
         if (state._rpDetailPacketId !== packetId) return;
         applyRedPacketDetailData(packetId, packet.data || {});
@@ -1245,7 +1238,7 @@
       } catch (e) {
         lastErr = e;
         var msg = (e && e.message) || '';
-        if (msg !== '超时' && msg !== '未连接') break;
+        if (msg !== '超时' && msg !== '未连接' && msg !== 'The user aborted a request.') break;
         await new Promise(function (r) { setTimeout(r, 350 * attempt); });
       }
     }
