@@ -1,8 +1,8 @@
 <?php
 /**
- * 红宝 H5 入口：未登录只下发登录壳，业务 DOM/CSS 登录后懒加载
+ * 红宝 H5 入口：未登录只下发登录壳，业�?DOM/CSS 登录后懒加载
  */
-$assetVer = '202608021820';
+$assetVer = '202608021900';
 $v = htmlspecialchars($assetVer, ENT_QUOTES, 'UTF-8');
 ?><!DOCTYPE html>
 <html lang="zh-CN">
@@ -12,7 +12,7 @@ $v = htmlspecialchars($assetVer, ENT_QUOTES, 'UTF-8');
     <title>红宝</title>
     <link rel="icon" href="img/logo.png?v=<?= $v ?>" type="image/png">
     <link rel="apple-touch-icon" href="img/logo.png?v=<?= $v ?>">
-    <!-- 登录页仅 core；业务 CSS 按 Tab 懒加载 -->
+    <!-- 登录页仅 core；业�?CSS �?Tab 懒加�?-->
     <link rel="stylesheet" href="css/core.css?v=<?= $v ?>">
 </head>
 <body>

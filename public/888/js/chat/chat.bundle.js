@@ -4289,7 +4289,8 @@
         var newGroupBtn = $('chatNewGroupBtn');
         if (newGroupBtn) newGroupBtn.style.display = state.canCreateGroup ? '' : 'none';
         var addFriendBtn = $('chatAddFriendBtn');
-        if (addFriendBtn) addFriendBtn.style.display = state.isImAdmin ? 'none' : '';
+        // 「添加好友」对所有人常显（含 IM 管理）；勿按 isImAdmin 隐藏，否则 auth.ok/重连后会反复消失
+        if (addFriendBtn) addFriendBtn.style.display = '';
         refreshList(true).catch(function () {});
         break;
       case 'private.message':
