@@ -4156,13 +4156,13 @@ class FansHubService
         }
 
         $out = [];
-        $memberBase = FansHubOfficialStats::memberBase();
         foreach ($list as $g) {
             $gid = (int)($g['id'] ?? 0);
             $item = $g;
             $item['is_member'] = !empty($joined[$gid]);
-            // 所有官方群统一展示人数；在线人数全端同一公式+正在看群人数
-            $item['member_count'] = $memberBase;
+            $base = (int)($g['display_member_count'] ?? $g['member_count'] ?? 0);
+            // 每群各自基数 + 2s 确定性浮动（±10）；在线同理
+            $item['member_count'] = FansHubOfficialStats::memberCount($gid, $base);
             $item['online_count'] = FansHubOfficialStats::onlineCount($gid);
             $out[] = $item;
         }
@@ -4198,15 +4198,16 @@ class FansHubService
             $display = (int)($g['display_member_count'] ?? 0);
             $memberCount = $display > 0 ? $display : (int)($g['member_count'] ?? 0);
             $out[] = [
-                'id'           => (int)$g['id'],
-                'name'         => (string)($g['name'] ?? ''),
-                'avatar'       => (string)($g['avatar'] ?? ''),
-                'notice'       => (string)($g['notice'] ?? ''),
-                'member_count' => $memberCount,
-                'privacy_mode' => (string)($g['privacy_mode'] ?? 'private'),
-                'chat_mode'    => (string)($g['chat_mode'] ?? 'chat'),
-                'weigh'        => (int)($g['weigh'] ?? 0),
-                'is_recommend' => 1,
+                'id'                    => (int)$g['id'],
+                'name'                  => (string)($g['name'] ?? ''),
+                'avatar'                => (string)($g['avatar'] ?? ''),
+                'notice'                => (string)($g['notice'] ?? ''),
+                'member_count'          => $memberCount,
+                'display_member_count'  => $display > 0 ? $display : $memberCount,
+                'privacy_mode'          => (string)($g['privacy_mode'] ?? 'private'),
+                'chat_mode'             => (string)($g['chat_mode'] ?? 'chat'),
+                'weigh'                 => (int)($g['weigh'] ?? 0),
+                'is_recommend'          => 1,
             ];
         }
         return $out;

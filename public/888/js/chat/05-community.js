@@ -19,7 +19,7 @@
       }
       if (document.hidden) return;
       refreshOfficialCommunitiesQuiet().catch(function () {});
-    }, 7000);
+    }, 2000);
   }
 
   function setHomeTab(tab) {
@@ -128,9 +128,12 @@
     box.innerHTML = list.map(function (g, idx) {
       var online = g.online_count | 0;
       var members = g.member_count | 0;
-      var sub = online > 0
-        ? chatTx('chat_group_online', '{count}人在线', { count: online })
-        : chatTx('chat_group_members', '{count}人', { count: members });
+      var sub = members > 0
+        ? (chatTx('chat_group_members', '{count}人', { count: members })
+          + (online > 0 ? (' · ' + chatTx('chat_group_online', '{count}人在线', { count: online })) : ''))
+        : (online > 0
+          ? chatTx('chat_group_online', '{count}人在线', { count: online })
+          : '');
       var av = publicUrl(g.avatar || '');
       var icon = '<img src="' + escapeHtml(avatarSrc(g.avatar)) + '" alt="">';
       var showTag = !g.is_member && idx === 0;

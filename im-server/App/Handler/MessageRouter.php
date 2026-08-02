@@ -619,7 +619,7 @@ class MessageRouter
         $this->send($connection, $enter ? 'group.view.ok' : 'group.view.leave.ok', [
             'group_id'     => $gid,
             'online_count' => $online,
-            'member_count' => OfficialStatsService::memberBase(),
+            'member_count' => OfficialStatsService::memberCount($gid),
         ], $reqId);
     }
 

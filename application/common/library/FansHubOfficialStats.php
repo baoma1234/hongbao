@@ -2,95 +2,154 @@
 
 namespace app\common\library;
 
-use think\Config;
 use think\Db;
 
 /**
  * 官方社群展示人数 / 在线人数（全端一致）
- * - 所有官方群 member_count 共用同一基数（约 1.7万～1.8万，注册 +1）
- * - online_count = 时间桶确定性浮动（千级）+ 当前正在看群的人数
+ * - 每个群各自成员基数（约 1.7万～1.8万，互不相同；注册时各群 +1）
+ * - 总人数、在线人数每 2 秒确定性浮动，相对基数上下不超过 10
+ * - online = 群固定在线基数(千级) ±10 + 正在看群的人数
  */
 class FansHubOfficialStats
 {
     const REDIS_DB = 2;
     const REDIS_PREFIX = 'im:';
-    const KEY_MEMBER_BASE = 'official:mbase';
+    const KEY_MEMBER_PREFIX = 'official:mbase:';
     const KEY_VIEW_PREFIX = 'official:view:';
     const DEFAULT_BASE = 17888;
-    const ONLINE_BUCKET_SEC = 7;
+    const FLOAT_BUCKET_SEC = 2;
+    const FLOAT_MAX = 10;
 
     /** @var \Redis|null */
     protected static $redis;
 
-    public static function memberBase()
+    /** 相对基数的确定性偏移：[-10, 10] */
+    public static function floatDelta($salt, $bucket = null)
     {
+        if ($bucket === null) {
+            $bucket = (int)floor(time() / self::FLOAT_BUCKET_SEC);
+        }
+        $h = crc32((string)$salt . ':' . (int)$bucket);
+        if ($h < 0) {
+            $h = -$h;
+        }
+        return ($h % (self::FLOAT_MAX * 2 + 1)) - self::FLOAT_MAX;
+    }
+
+    /** 每个群固定成员基数（不含浮动） */
+    public static function memberBaseForGroup($groupId)
+    {
+        $groupId = (int)$groupId;
+        if ($groupId <= 0) {
+            return self::DEFAULT_BASE;
+        }
         try {
             $r = self::redis();
             if ($r) {
-                $v = $r->get(self::REDIS_PREFIX . self::KEY_MEMBER_BASE);
+                $v = $r->get(self::REDIS_PREFIX . self::KEY_MEMBER_PREFIX . $groupId);
                 if ($v !== false && $v !== null && $v !== '') {
                     $n = (int)$v;
                     if ($n > 0) {
                         return $n;
                     }
                 }
-                $seed = self::seedBaseFromDb();
-                $r->set(self::REDIS_PREFIX . self::KEY_MEMBER_BASE, $seed);
-                return $seed;
             }
         } catch (\Throwable $e) {
         }
-        return self::seedBaseFromDb();
+        $seed = self::seedBaseForGroup($groupId);
+        try {
+            $r = self::redis();
+            if ($r) {
+                $r->set(self::REDIS_PREFIX . self::KEY_MEMBER_PREFIX . $groupId, $seed);
+            }
+        } catch (\Throwable $e2) {
+        }
+        return $seed;
     }
 
+    /** 展示总人数 = 基数 + [-10,10] */
+    public static function memberCount($groupId, $base = null)
+    {
+        $groupId = (int)$groupId;
+        if ($base === null || (int)$base <= 0) {
+            $base = self::memberBaseForGroup($groupId);
+        } else {
+            $base = (int)$base;
+        }
+        return max(1, $base + self::floatDelta('om:' . $groupId));
+    }
+
+    /** 新注册：所有官方群成员基数各 +1 */
     public static function bumpMembers($delta = 1)
     {
         $delta = (int)$delta;
         if ($delta === 0) {
-            return self::memberBase();
-        }
-        $base = self::memberBase() + $delta;
-        if ($base < 1) {
-            $base = 1;
+            return;
         }
         try {
-            $r = self::redis();
-            if ($r) {
-                $r->set(self::REDIS_PREFIX . self::KEY_MEMBER_BASE, $base);
-            }
+            $rows = Db::name('chat_groups')
+                ->where('status', 'in', [1, 3])
+                ->where('is_recommend', 1)
+                ->field('id,display_member_count')
+                ->select();
         } catch (\Throwable $e) {
+            $rows = [];
         }
-        self::syncDisplayMemberCount($base);
+        $now = time();
+        $r = null;
+        try {
+            $r = self::redis();
+        } catch (\Throwable $e2) {
+        }
+        foreach ((array)$rows as $g) {
+            $gid = (int)($g['id'] ?? 0);
+            if ($gid <= 0) {
+                continue;
+            }
+            $cur = (int)($g['display_member_count'] ?? 0);
+            if ($cur < 10000) {
+                $cur = self::uniqueSeedForGroup($gid);
+            }
+            $base = max(1, $cur + $delta);
+            try {
+                Db::name('chat_groups')->where('id', $gid)->update([
+                    'display_member_count' => $base,
+                    'updatetime'           => $now,
+                ]);
+            } catch (\Throwable $e3) {
+            }
+            if ($r) {
+                try {
+                    $r->set(self::REDIS_PREFIX . self::KEY_MEMBER_PREFIX . $gid, $base);
+                } catch (\Throwable $e4) {
+                }
+            }
+        }
         if (class_exists(FansHubService::class) && method_exists(FansHubService::class, 'clearOfficialCommunityCache')) {
             FansHubService::clearOfficialCommunityCache();
         } else {
             try {
                 \think\Cache::rm('fanshub_official_communities_v1');
-            } catch (\Throwable $e2) {
+            } catch (\Throwable $e5) {
             }
         }
-        return $base;
+    }
+
+    public static function onlineBase($groupId)
+    {
+        $groupId = (int)$groupId;
+        $h = crc32('ob:' . $groupId);
+        if ($h < 0) {
+            $h = -$h;
+        }
+        // 约 2200～4899，每群固定不同
+        return 2200 + ($h % 2700);
     }
 
     public static function onlineCount($groupId)
     {
         $groupId = (int)$groupId;
-        $float = self::floatingOnline($groupId);
-        $viewers = self::viewerCount($groupId);
-        return $float + $viewers;
-    }
-
-    public static function floatingOnline($groupId)
-    {
-        $groupId = (int)$groupId;
-        $bucket = (int)floor(time() / self::ONLINE_BUCKET_SEC);
-        // 全端同一公式 → 同一时间桶大家看到的数字一致
-        $h = crc32('og:' . $groupId . ':' . $bucket);
-        if ($h < 0) {
-            $h = -$h;
-        }
-        // 约 2200～4899
-        return 2200 + ($h % 2700);
+        return max(0, self::onlineBase($groupId) + self::floatDelta('oo:' . $groupId) + self::viewerCount($groupId));
     }
 
     public static function viewerCount($groupId)
@@ -153,46 +212,88 @@ class FansHubOfficialStats
         return self::enterView($groupId, $userId);
     }
 
-    protected static function seedBaseFromDb()
+    /** 每群不同的默认基数：17000～18999 */
+    public static function uniqueSeedForGroup($groupId)
     {
-        try {
-            $max = (int)Db::name('chat_groups')
-                ->where('status', 'in', [1, 3])
-                ->where('is_recommend', 1)
-                ->max('display_member_count');
-            if ($max >= 10000) {
-                return $max;
-            }
-            $max2 = (int)Db::name('chat_groups')->max('display_member_count');
-            if ($max2 >= 10000) {
-                return $max2;
-            }
-        } catch (\Throwable $e) {
+        $groupId = (int)$groupId;
+        $h = crc32('mb:' . $groupId);
+        if ($h < 0) {
+            $h = -$h;
         }
-        return self::DEFAULT_BASE;
+        return 17000 + ($h % 2000);
     }
 
-    public static function syncDisplayMemberCount($base)
+    protected static function seedBaseForGroup($groupId)
     {
-        $base = max(1, (int)$base);
+        $groupId = (int)$groupId;
         try {
-            Db::name('chat_groups')
+            $row = Db::name('chat_groups')->where('id', $groupId)->field('display_member_count')->find();
+            $n = (int)($row['display_member_count'] ?? 0);
+            if ($n >= 10000) {
+                return $n;
+            }
+        } catch (\Throwable $e) {
+        }
+        return self::uniqueSeedForGroup($groupId);
+    }
+
+    /** 为所有官方群写入互不相同的 display_member_count */
+    public static function diversifyOfficialMemberBases()
+    {
+        try {
+            $rows = Db::name('chat_groups')
                 ->where('status', 'in', [1, 3])
                 ->where('is_recommend', 1)
-                ->update([
-                    'display_member_count' => $base,
-                    'updatetime'           => time(),
-                ]);
+                ->field('id,display_member_count')
+                ->select();
         } catch (\Throwable $e) {
+            return 0;
+        }
+        $now = time();
+        $n = 0;
+        $r = null;
+        try {
+            $r = self::redis();
+        } catch (\Throwable $e2) {
+        }
+        $used = [];
+        foreach ((array)$rows as $g) {
+            $gid = (int)($g['id'] ?? 0);
+            if ($gid <= 0) {
+                continue;
+            }
+            $base = self::uniqueSeedForGroup($gid);
+            // 避免偶发碰撞：同值则微调
+            while (isset($used[$base])) {
+                $base++;
+            }
+            $used[$base] = true;
             try {
-                Db::execute(
-                    'UPDATE ' . Db::getTable('chat_groups')
-                    . ' SET display_member_count=?, updatetime=? WHERE status IN (1,3) AND IFNULL(is_recommend,0)=1',
-                    [$base, time()]
-                );
-            } catch (\Throwable $e2) {
+                Db::name('chat_groups')->where('id', $gid)->update([
+                    'display_member_count' => $base,
+                    'updatetime'           => $now,
+                ]);
+            } catch (\Throwable $e3) {
+            }
+            if ($r) {
+                try {
+                    $r->set(self::REDIS_PREFIX . self::KEY_MEMBER_PREFIX . $gid, $base);
+                } catch (\Throwable $e4) {
+                }
+            }
+            $n++;
+        }
+        // 清掉旧的全局键
+        if ($r) {
+            try {
+                $r->del(self::REDIS_PREFIX . 'official:mbase');
+            } catch (\Throwable $e5) {
             }
         }
+        if (class_exists(FansHubService::class) && method_exists(FansHubService::class, 'clearOfficialCommunityCache')) {
+            FansHubService::clearOfficialCommunityCache();
+        }
+        return $n;
     }
 
     /** @return \Redis|null */
@@ -218,7 +319,6 @@ class FansHubOfficialStats
                     $pass = (string)($ini['redis']['password'] ?? $pass);
                 }
             }
-            // IM local override
             $imLocal = dirname(dirname(dirname(__DIR__))) . '/im-server/config/local.php';
             if (is_file($imLocal)) {
                 $local = include $imLocal;

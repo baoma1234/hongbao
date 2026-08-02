@@ -6,48 +6,96 @@ use Im\Support\Db;
 use Im\Support\RedisClient;
 
 /**
- * 官方社群展示人数 / 在线（与 PHP FansHubOfficialStats 共用 Redis 键）
+ * 官方社群展示人数 / 在线（与 PHP FansHubOfficialStats 公式一致）
  */
 class OfficialStatsService
 {
-    const KEY_MEMBER_BASE = 'official:mbase';
+    const KEY_MEMBER_PREFIX = 'official:mbase:';
     const KEY_VIEW_PREFIX = 'official:view:';
     const DEFAULT_BASE = 17888;
-    const ONLINE_BUCKET_SEC = 7;
+    const FLOAT_BUCKET_SEC = 2;
+    const FLOAT_MAX = 10;
 
-    public static function memberBase()
+    public static function floatDelta($salt, $bucket = null)
     {
+        if ($bucket === null) {
+            $bucket = (int)floor(time() / self::FLOAT_BUCKET_SEC);
+        }
+        $h = crc32((string)$salt . ':' . (int)$bucket);
+        if ($h < 0) {
+            $h = -$h;
+        }
+        return ($h % (self::FLOAT_MAX * 2 + 1)) - self::FLOAT_MAX;
+    }
+
+    public static function uniqueSeedForGroup($groupId)
+    {
+        $groupId = (int)$groupId;
+        $h = crc32('mb:' . $groupId);
+        if ($h < 0) {
+            $h = -$h;
+        }
+        return 17000 + ($h % 2000);
+    }
+
+    public static function memberBaseForGroup($groupId)
+    {
+        $groupId = (int)$groupId;
+        if ($groupId <= 0) {
+            return self::DEFAULT_BASE;
+        }
         try {
             $r = RedisClient::conn();
-            $v = $r->get(RedisClient::key(self::KEY_MEMBER_BASE));
+            $v = $r->get(RedisClient::key(self::KEY_MEMBER_PREFIX . $groupId));
             if ($v !== false && $v !== null && $v !== '') {
                 $n = (int)$v;
                 if ($n > 0) {
                     return $n;
                 }
             }
-            $seed = self::seedFromDb();
-            $r->set(RedisClient::key(self::KEY_MEMBER_BASE), $seed);
+            $seed = self::seedFromDb($groupId);
+            $r->set(RedisClient::key(self::KEY_MEMBER_PREFIX . $groupId), $seed);
             return $seed;
         } catch (\Throwable $e) {
-            return self::seedFromDb();
+            return self::seedFromDb($groupId);
         }
     }
 
-    public static function onlineCount($groupId)
-    {
-        return self::floatingOnline((int)$groupId) + self::viewerCount((int)$groupId);
-    }
-
-    public static function floatingOnline($groupId)
+    public static function memberCount($groupId, $base = null)
     {
         $groupId = (int)$groupId;
-        $bucket = (int)floor(time() / self::ONLINE_BUCKET_SEC);
-        $h = crc32('og:' . $groupId . ':' . $bucket);
+        if ($base === null || (int)$base <= 0) {
+            $base = self::memberBaseForGroup($groupId);
+        } else {
+            $base = (int)$base;
+        }
+        return max(1, $base + self::floatDelta('om:' . $groupId));
+    }
+
+    /** @deprecated 兼容旧调用：无 gid 时用默认 */
+    public static function memberBase($groupId = 0)
+    {
+        $groupId = (int)$groupId;
+        if ($groupId > 0) {
+            return self::memberBaseForGroup($groupId);
+        }
+        return self::DEFAULT_BASE;
+    }
+
+    public static function onlineBase($groupId)
+    {
+        $groupId = (int)$groupId;
+        $h = crc32('ob:' . $groupId);
         if ($h < 0) {
             $h = -$h;
         }
         return 2200 + ($h % 2700);
+    }
+
+    public static function onlineCount($groupId)
+    {
+        $groupId = (int)$groupId;
+        return max(0, self::onlineBase($groupId) + self::floatDelta('oo:' . $groupId) + self::viewerCount($groupId));
     }
 
     public static function viewerCount($groupId)
@@ -94,12 +142,13 @@ class OfficialStatsService
         return self::onlineCount($groupId);
     }
 
-    protected static function seedFromDb()
+    protected static function seedFromDb($groupId)
     {
+        $groupId = (int)$groupId;
         try {
             $row = Db::fetch(
-                'SELECT MAX(IFNULL(display_member_count,0)) AS m FROM ' . Db::table('chat_groups')
-                . ' WHERE status IN (1,3) AND IFNULL(is_recommend,0)=1'
+                'SELECT IFNULL(display_member_count,0) AS m FROM ' . Db::table('chat_groups') . ' WHERE id=? LIMIT 1',
+                [$groupId]
             );
             $m = (int)($row['m'] ?? 0);
             if ($m >= 10000) {
@@ -107,7 +156,7 @@ class OfficialStatsService
             }
         } catch (\Throwable $e) {
         }
-        return self::DEFAULT_BASE;
+        return self::uniqueSeedForGroup($groupId);
     }
 
     public static function isOfficialRecommend(array $group)
