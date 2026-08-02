@@ -101,9 +101,10 @@
 
   function defaultWsUrl() {
     if (global.CONFIG && CONFIG.IM_WS_URL) return String(CONFIG.IM_WS_URL);
-    var host = location.hostname || '127.0.0.1';
+    // 同源反代 /im-ws（nginx → 7272），避免直连额外端口被墙
     var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return proto + '//' + host + ':7272';
+    var host = location.host || ((location.hostname || '127.0.0.1') + (location.port ? ':' + location.port : ''));
+    return proto + '//' + host + '/im-ws';
   }
 
   /** 握手 URL 带 token，服务端 onConnect 即可鉴权（少一轮 RTT） */
@@ -925,9 +926,16 @@
     try {
       if (window.FANS_HUB_IM_HTTP) return String(window.FANS_HUB_IM_HTTP).replace(/\/$/, '');
     } catch (e0) {}
-    var proto = (location.protocol === 'https:') ? 'https:' : 'http:';
-    // 与 WS 同主机，7273 提供只读 API
-    return proto + '//' + location.hostname + ':7273';
+    try {
+      if (global.CONFIG && CONFIG.IM_HTTP_BASE) return String(CONFIG.IM_HTTP_BASE).replace(/\/$/, '');
+    } catch (e1) {}
+    // 同源反代 /im-api（nginx → 7273），与页面同端口，避免跨端口/防火墙
+    var origin = '';
+    try { origin = location.origin; } catch (e2) { origin = ''; }
+    if (!origin) {
+      origin = (location.protocol || 'http:') + '//' + (location.host || location.hostname || '127.0.0.1');
+    }
+    return origin.replace(/\/$/, '') + '/im-api';
   }
 
   /** HTTP 优先路由（失败回退 WS） */
@@ -1005,8 +1013,20 @@
   function send(type, data, opts) {
     // 非聊天写读优先 HTTP，不占 WS Worker；失败再走 WS
     if (HTTP_ROUTES[type]) {
-      return sendViaHttp(type, data).catch(function () {
-        return sendViaWs(type, data, opts);
+      return sendViaHttp(type, data).catch(function (httpErr) {
+        return sendViaWs(type, data, opts).catch(function (wsErr) {
+          var hm = String((httpErr && httpErr.message) || '');
+          // 保留业务错误（如 not in group），不要被「未连接/超时」盖掉
+          if (hm && hm !== '未连接' && hm !== '超时'
+            && hm !== 'Failed to fetch'
+            && hm !== 'The user aborted a request.'
+            && hm.indexOf('NetworkError') < 0
+            && hm.indexOf('Load failed') < 0
+            && hm.indexOf('HTTP ') !== 0) {
+            throw httpErr;
+          }
+          throw wsErr || httpErr;
+        });
       });
     }
     return sendViaWs(type, data, opts);

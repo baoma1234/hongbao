@@ -104,9 +104,10 @@
 
   function defaultWsUrl() {
     if (global.CONFIG && CONFIG.IM_WS_URL) return String(CONFIG.IM_WS_URL);
-    var host = location.hostname || '127.0.0.1';
+    // 同源反代 /im-ws（nginx → 7272），避免直连额外端口被墙
     var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return proto + '//' + host + ':7272';
+    var host = location.host || ((location.hostname || '127.0.0.1') + (location.port ? ':' + location.port : ''));
+    return proto + '//' + host + '/im-ws';
   }
 
   /** 握手 URL 带 token，服务端 onConnect 即可鉴权（少一轮 RTT） */
@@ -928,9 +929,16 @@
     try {
       if (window.FANS_HUB_IM_HTTP) return String(window.FANS_HUB_IM_HTTP).replace(/\/$/, '');
     } catch (e0) {}
-    var proto = (location.protocol === 'https:') ? 'https:' : 'http:';
-    // 与 WS 同主机，7273 提供只读 API
-    return proto + '//' + location.hostname + ':7273';
+    try {
+      if (global.CONFIG && CONFIG.IM_HTTP_BASE) return String(CONFIG.IM_HTTP_BASE).replace(/\/$/, '');
+    } catch (e1) {}
+    // 同源反代 /im-api（nginx → 7273），与页面同端口，避免跨端口/防火墙
+    var origin = '';
+    try { origin = location.origin; } catch (e2) { origin = ''; }
+    if (!origin) {
+      origin = (location.protocol || 'http:') + '//' + (location.host || location.hostname || '127.0.0.1');
+    }
+    return origin.replace(/\/$/, '') + '/im-api';
   }
 
   /** HTTP 优先路由（失败回退 WS） */
@@ -1008,8 +1016,20 @@
   function send(type, data, opts) {
     // 非聊天写读优先 HTTP，不占 WS Worker；失败再走 WS
     if (HTTP_ROUTES[type]) {
-      return sendViaHttp(type, data).catch(function () {
-        return sendViaWs(type, data, opts);
+      return sendViaHttp(type, data).catch(function (httpErr) {
+        return sendViaWs(type, data, opts).catch(function (wsErr) {
+          var hm = String((httpErr && httpErr.message) || '');
+          // 保留业务错误（如 not in group），不要被「未连接/超时」盖掉
+          if (hm && hm !== '未连接' && hm !== '超时'
+            && hm !== 'Failed to fetch'
+            && hm !== 'The user aborted a request.'
+            && hm.indexOf('NetworkError') < 0
+            && hm.indexOf('Load failed') < 0
+            && hm.indexOf('HTTP ') !== 0) {
+            throw httpErr;
+          }
+          throw wsErr || httpErr;
+        });
       });
     }
     return sendViaWs(type, data, opts);
@@ -2813,12 +2833,21 @@
       state.messages = cachedHist.messages;
       if (state.room.type === 2 && cachedHist.groupMeta) {
         state.groupMeta = cachedHist.groupMeta;
-        applySpeakState(state.groupMeta);
-        applyGroupRoomHeader(state.groupMeta);
-        updateComposerPolicy();
+        try {
+          applySpeakState(state.groupMeta);
+          applyGroupRoomHeader(state.groupMeta);
+          updateComposerPolicy();
+        } catch (eMeta) {}
       }
-      renderMessages(true);
-      scrollRoomOnOpen(openLastRead, openUnread);
+      try {
+        renderMessages(true);
+        scrollRoomOnOpen(openLastRead, openUnread);
+      } catch (eRender) {
+        state.messages = [];
+        var box0 = $('chatMsgScroll');
+        if (box0) box0.innerHTML = '<div class="chat-empty">加载中…</div>';
+        cacheAge = 1e15; // 强制走网络重拉
+      }
     } else {
       var box = $('chatMsgScroll');
       if (box) box.innerHTML = '<div class="chat-empty">加载中…</div>';
@@ -2831,6 +2860,7 @@
       histPayload.group_id = state.room.id | 0;
       histPayload.with_group = 1;
     }
+    try { if (typeof ensureConnected === 'function') ensureConnected(); } catch (eConn) {}
     var applyHistoryPacket = function (packet) {
       if (!state.room || state.room.type !== (opts.type | 0) || String(state.room.id) !== String(opts.id)) {
         return;
@@ -2862,8 +2892,33 @@
       var packet = await send('history', histPayload);
       applyHistoryPacket(packet);
     } catch (e) {
-      if (typeof showFanshubToast === 'function' && !(cachedHist && cachedHist.messages && cachedHist.messages.length)) {
-        showFanshubToast(e.message || '加载失败', 'error');
+      var errMsg = String((e && e.message) || '加载失败');
+      var friendly = errMsg;
+      if (errMsg === 'not in group') friendly = '你不在该群内';
+      else if (errMsg === '未连接') friendly = '消息服务未连接，请稍候再试';
+      else if (errMsg === '超时') friendly = '加载超时，请重试';
+      if (typeof showFanshubToast === 'function') {
+        showFanshubToast(friendly, 'error');
+      }
+      if (!(cachedHist && cachedHist.messages && cachedHist.messages.length)) {
+        var emptyBox = $('chatMsgScroll');
+        if (emptyBox) {
+          emptyBox.innerHTML = '<div class="chat-empty">' + escapeHtml(friendly) + '</div>';
+        }
+      }
+      if (errMsg === 'not in group' && state.room && (state.room.type | 0) === 2) {
+        var deadGid = state.room.id;
+        state.list = (state.list || []).filter(function (it) {
+          if ((it.conversation_type | 0) !== 2) return true;
+          var iid = it.group_id || it.conversation_id;
+          return String(iid) !== String(deadGid);
+        });
+        try { clearHistCache(2, deadGid); } catch (eClr) {}
+        scheduleRenderList();
+        scheduleSaveListCache();
+        setTimeout(function () {
+          try { closeRoom(); } catch (eClose) {}
+        }, 600);
       }
     }
   }

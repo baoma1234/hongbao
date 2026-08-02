@@ -749,49 +749,49 @@ class MessageService
                 }
             }
 
-            // 优先用 my_groups 缓存填群名/头像，缺的再补查
+            // 仅展示我仍在的群：inbox 残留（退群后）不再补群名，直接剔除并清 inbox
             $groups = $this->cachedMyGroups($userId);
             $haveG = [];
-            foreach ($items as $it) {
-                if ((int)$it['conversation_type'] === 2) {
-                    $haveG[(int)$it['group_id']] = true;
-                }
-            }
             $metaById = [];
             foreach ($groups as $g) {
                 $metaById[(int)$g['id']] = $g;
             }
-            $missingMeta = [];
-            foreach (array_keys($groupIdsNeeded) as $gid) {
-                if (!isset($metaById[$gid])) {
-                    $missingMeta[] = $gid;
-                }
-            }
-            if ($missingMeta) {
-                $in = implode(',', array_fill(0, count($missingMeta), '?'));
-                $metaRows = Db::fetchAll(
-                    'SELECT id,name,avatar,updatetime,createtime FROM ' . Db::table('chat_groups')
-                    . " WHERE id IN ({$in})",
-                    $missingMeta
-                );
-                foreach ($metaRows as $g) {
-                    $metaById[(int)$g['id']] = $g;
-                }
-            }
-            foreach ($items as &$it) {
-                if ((int)$it['conversation_type'] !== 2) {
+            $ghostMembers = [];
+            $keptItems = [];
+            foreach ($items as $it) {
+                if ((int)($it['conversation_type'] ?? 0) !== 2) {
+                    $keptItems[] = $it;
                     continue;
                 }
-                $g = $metaById[(int)$it['group_id']] ?? null;
-                if ($g) {
-                    $it['title'] = (string)($g['name'] ?? '');
-                    $it['avatar'] = (string)($g['avatar'] ?? '');
-                    if (empty($it['last_message'])) {
-                        $it['updatetime'] = (int)($g['updatetime'] ?: $g['createtime']);
+                $gid = (int)($it['group_id'] ?? 0);
+                if ($gid <= 0 || !isset($metaById[$gid])) {
+                    if ($gid > 0) {
+                        $ghostMembers[] = '2:' . $gid;
                     }
+                    continue;
+                }
+                $g = $metaById[$gid];
+                $it['title'] = (string)($g['name'] ?? '');
+                $it['avatar'] = (string)($g['avatar'] ?? '');
+                if (empty($it['last_message'])) {
+                    $it['updatetime'] = (int)($g['updatetime'] ?: $g['createtime']);
+                }
+                $haveG[$gid] = true;
+                $keptItems[] = $it;
+            }
+            $items = $keptItems;
+            if ($ghostMembers) {
+                try {
+                    $r = RedisClient::conn();
+                    $ikey = RedisClient::key('inbox:' . $userId);
+                    foreach (array_unique($ghostMembers) as $member) {
+                        $r->zRem($ikey, $member);
+                        $r->zRem(RedisClient::key('pins:' . $userId), $member);
+                    }
+                } catch (\Throwable $e) {
                 }
             }
-            unset($it);
+            unset($groupIdsNeeded);
             // 不再把「无消息的空群」塞进主会话列表（万人群会把列表撑爆）
             // 离线期间错过 inbox 扇出的活跃群：用 g:{id}:last 补进列表并回填 inbox
             $missGids = [];

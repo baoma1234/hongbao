@@ -1733,12 +1733,21 @@
       state.messages = cachedHist.messages;
       if (state.room.type === 2 && cachedHist.groupMeta) {
         state.groupMeta = cachedHist.groupMeta;
-        applySpeakState(state.groupMeta);
-        applyGroupRoomHeader(state.groupMeta);
-        updateComposerPolicy();
+        try {
+          applySpeakState(state.groupMeta);
+          applyGroupRoomHeader(state.groupMeta);
+          updateComposerPolicy();
+        } catch (eMeta) {}
       }
-      renderMessages(true);
-      scrollRoomOnOpen(openLastRead, openUnread);
+      try {
+        renderMessages(true);
+        scrollRoomOnOpen(openLastRead, openUnread);
+      } catch (eRender) {
+        state.messages = [];
+        var box0 = $('chatMsgScroll');
+        if (box0) box0.innerHTML = '<div class="chat-empty">加载中…</div>';
+        cacheAge = 1e15; // 强制走网络重拉
+      }
     } else {
       var box = $('chatMsgScroll');
       if (box) box.innerHTML = '<div class="chat-empty">加载中…</div>';
@@ -1751,6 +1760,7 @@
       histPayload.group_id = state.room.id | 0;
       histPayload.with_group = 1;
     }
+    try { if (typeof ensureConnected === 'function') ensureConnected(); } catch (eConn) {}
     var applyHistoryPacket = function (packet) {
       if (!state.room || state.room.type !== (opts.type | 0) || String(state.room.id) !== String(opts.id)) {
         return;
@@ -1782,8 +1792,33 @@
       var packet = await send('history', histPayload);
       applyHistoryPacket(packet);
     } catch (e) {
-      if (typeof showFanshubToast === 'function' && !(cachedHist && cachedHist.messages && cachedHist.messages.length)) {
-        showFanshubToast(e.message || '加载失败', 'error');
+      var errMsg = String((e && e.message) || '加载失败');
+      var friendly = errMsg;
+      if (errMsg === 'not in group') friendly = '你不在该群内';
+      else if (errMsg === '未连接') friendly = '消息服务未连接，请稍候再试';
+      else if (errMsg === '超时') friendly = '加载超时，请重试';
+      if (typeof showFanshubToast === 'function') {
+        showFanshubToast(friendly, 'error');
+      }
+      if (!(cachedHist && cachedHist.messages && cachedHist.messages.length)) {
+        var emptyBox = $('chatMsgScroll');
+        if (emptyBox) {
+          emptyBox.innerHTML = '<div class="chat-empty">' + escapeHtml(friendly) + '</div>';
+        }
+      }
+      if (errMsg === 'not in group' && state.room && (state.room.type | 0) === 2) {
+        var deadGid = state.room.id;
+        state.list = (state.list || []).filter(function (it) {
+          if ((it.conversation_type | 0) !== 2) return true;
+          var iid = it.group_id || it.conversation_id;
+          return String(iid) !== String(deadGid);
+        });
+        try { clearHistCache(2, deadGid); } catch (eClr) {}
+        scheduleRenderList();
+        scheduleSaveListCache();
+        setTimeout(function () {
+          try { closeRoom(); } catch (eClose) {}
+        }, 600);
       }
     }
   }
