@@ -1336,7 +1336,7 @@
 
   function buildMessageRowHtml(msg) {
     var mine = (msg.from_user_id | 0) === state.userId;
-    var time = formatTime(msg.createtime);
+    var time = formatTimeSec(msg.createtime);
     var type = msg.msg_type | 0;
     var recalled = (msg.status | 0) === 2;
     if (recalled) {
@@ -1431,16 +1431,9 @@
       box.innerHTML = '<div class="chat-empty">' + escapeHtml(chatT('chat_no_messages')) + '</div>';
       return;
     }
-    var lastTs = 0;
     box.innerHTML = state.messages.map(function (msg) {
-      var time = formatTime(msg.createtime);
-      var ts = msg.createtime | 0;
-      var timeSep = '';
-      if (!lastTs || Math.abs(ts - lastTs) >= 300) {
-        timeSep = sysTimeHtml(time);
-      }
-      lastTs = ts || lastTs;
-      return timeSep + buildMessageRowHtml(msg);
+      // 不再插入中间 sys-time；时间统一显示在消息气泡下方（精确到秒）
+      return buildMessageRowHtml(msg);
     }).join('');
     if (!skipScroll) scrollMsgToLatest();
   }
@@ -1521,16 +1514,7 @@
     var box = $('chatMsgScroll');
     if (box && state.messages.length > 1 && box.querySelector('.chat-msg-row, .sys-time, .sys-notice')) {
       try {
-        var prev = state.messages[state.messages.length - 2];
-        var html = '';
-        var time = formatTime(msg.createtime);
-        var ts = msg.createtime | 0;
-        var lastTs = prev ? (prev.createtime | 0) : 0;
-        if (!lastTs || Math.abs(ts - lastTs) >= 300) {
-          html += sysTimeHtml(time);
-        }
-        html += buildMessageRowHtml(msg);
-        box.insertAdjacentHTML('beforeend', html);
+        box.insertAdjacentHTML('beforeend', buildMessageRowHtml(msg));
         scrollMsgToLatest();
         scheduleSaveHistCache();
         return;

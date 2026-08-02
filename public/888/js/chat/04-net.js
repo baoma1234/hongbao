@@ -359,7 +359,9 @@
         }, 480);
 
         var row = btn.closest('.chat-conv-swipe');
-        if (!row || (parseInt(btn.getAttribute('data-type'), 10) || 1) !== 1) {
+        var ctype = parseInt(btn.getAttribute('data-type'), 10) || 1;
+        // 私聊 / 群聊均可左滑删除
+        if (!row || (ctype !== 1 && ctype !== 2)) {
           swipeState = null;
           return;
         }
