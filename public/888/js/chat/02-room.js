@@ -520,6 +520,29 @@
     return (state.groupMeta && state.groupMeta.policy) || {};
   }
 
+  function groupForbidModes() {
+    var policy = groupPolicy();
+    var fm = (policy && policy.forbid_modes) || (state.groupMeta && state.groupMeta.forbid_modes) || {};
+    return {
+      text: !!fm.text,
+      image: !!fm.image,
+      emoji: !!fm.emoji,
+      video: !!fm.video,
+      rp: !!fm.rp
+    };
+  }
+
+  function canSendCapability(cap) {
+    if (!(state.room && state.room.type === 2)) return true;
+    var policy = groupPolicy();
+    var key = 'can_send_' + cap;
+    if (policy && policy[key] != null) return !!policy[key];
+    var myRole = (state.groupMeta && state.groupMeta.my_role) | 0;
+    if (myRole >= 2) return true;
+    var fm = groupForbidModes();
+    return !fm[cap];
+  }
+
   function mergeGroupMeta(data) {
     data = data || {};
     var prev = state.groupMeta || {};
@@ -527,6 +550,7 @@
       group: data.group || prev.group || null,
       my_role: (data.my_role != null ? data.my_role : prev.my_role) | 0,
       mute_all: data.mute_all != null ? !!data.mute_all : !!prev.mute_all,
+      forbid_modes: data.forbid_modes || (data.policy && data.policy.forbid_modes) || prev.forbid_modes || {},
       member_count: (data.member_count != null ? data.member_count : prev.member_count) | 0,
       member_list_hidden: data.member_list_hidden != null ? !!data.member_list_hidden : !!prev.member_list_hidden,
       can_speak: data.can_speak !== false,
@@ -534,6 +558,9 @@
     };
     if (state.groupMeta.policy && state.groupMeta.policy.member_list_hidden != null) {
       state.groupMeta.member_list_hidden = !!state.groupMeta.policy.member_list_hidden;
+    }
+    if (state.groupMeta.policy && state.groupMeta.policy.forbid_modes) {
+      state.groupMeta.forbid_modes = state.groupMeta.policy.forbid_modes;
     }
     return state.groupMeta;
   }
@@ -1896,10 +1923,15 @@
       setComposerMuted(false, '');
       return;
     }
-    var canSpeak = !(meta && meta.can_speak === false);
-    if (!canSpeak) {
-      var tip = (meta && meta.mute_all) ? '全员禁言中，仅管理员可发言' : '你已被禁言，暂时无法发言';
-      setComposerMuted(true, tip);
+    meta = meta || state.groupMeta || {};
+    var canText = canSendCapability('text');
+    // 个人禁言：policy 允许但 can_speak=false
+    if (meta.can_speak === false && canText) {
+      setComposerMuted(true, '你已被禁言，暂时无法发言');
+      return;
+    }
+    if (!canText) {
+      setComposerMuted(true, '本群禁止发言，仅管理员可发言');
     } else {
       setComposerMuted(false, '');
     }
@@ -1921,15 +1953,27 @@
     var policy = groupPolicy();
     var rpBtn = $('chatAttachRpBtn');
     var tfBtn = $('chatAttachTransferBtn');
+    var imgBtn = $('chatAttachImageBtn') || document.querySelector('[data-attach="image"]');
+    var vidBtn = $('chatAttachVideoBtn') || document.querySelector('[data-attach="video"]');
+    var emojiBtn = $('chatEmojiBtn');
     var isGroup = !!(state.room && state.room.type === 2);
     var isPrivate = !!(state.room && state.room.type === 1);
+    var canImage = !isGroup || canSendCapability('image');
+    var canVideo = !isGroup || canSendCapability('video');
+    var canEmoji = !isGroup || canSendCapability('emoji');
     if (rpBtn) {
       if (isGroup) {
-        var blockRp = policy.can_send_rp === false || policy.rp_robot_only === true;
+        var blockRp = policy.can_send_rp === false || policy.rp_robot_only === true || !canSendCapability('rp');
         rpBtn.style.display = blockRp ? 'none' : '';
       } else {
         rpBtn.style.display = '';
       }
+    }
+    if (imgBtn) imgBtn.style.display = canImage ? '' : 'none';
+    if (vidBtn) vidBtn.style.display = canVideo ? '' : 'none';
+    if (emojiBtn) {
+      emojiBtn.style.opacity = canEmoji ? '' : '0.4';
+      emojiBtn.setAttribute('data-forbid-emoji', canEmoji ? '0' : '1');
     }
     if (tfBtn) {
       tfBtn.hidden = !isPrivate;
@@ -2190,6 +2234,16 @@
     if (muteSwitch) {
       muteSwitch.checked = !!meta.mute_all;
       muteSwitch.disabled = !canEdit;
+    }
+    var forbidBlock = $('chatForbidModesBlock');
+    if (forbidBlock) {
+      forbidBlock.style.display = canEdit ? '' : 'none';
+      var fm = (meta.forbid_modes) || (policy.forbid_modes) || groupForbidModes();
+      forbidBlock.querySelectorAll('[data-forbid]').forEach(function (inp) {
+        var k = inp.getAttribute('data-forbid');
+        inp.checked = !!fm[k];
+        inp.disabled = !canEdit;
+      });
     }
     if (editBlock) editBlock.style.display = canEdit ? '' : 'none';
     if (nameInput && canEdit) nameInput.value = g.name || '';
@@ -2588,17 +2642,42 @@
         enabled: !!enabled
       });
       if (packet.data) {
-        state.groupMeta = state.groupMeta || {};
-        state.groupMeta.group = packet.data.group || state.groupMeta.group;
-        state.groupMeta.mute_all = !!packet.data.mute_all;
-        state.groupMeta.can_speak = packet.data.can_speak !== false;
+        state.groupMeta = mergeGroupMeta(Object.assign({}, state.groupMeta || {}, packet.data));
         applySpeakState(state.groupMeta);
+        updateComposerPolicy();
         renderGroupSettings();
       }
     } catch (e) {
       var sw = $('chatMuteAllSwitch');
       if (sw) sw.checked = !enabled;
       if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '操作失败', 'error');
+    }
+  }
+
+  async function saveGroupForbidModes() {
+    if (!state.room || state.room.type !== 2) return;
+    var box = $('chatForbidModesList');
+    if (!box) return;
+    var flags = { text: 0, image: 0, emoji: 0, video: 0, rp: 0 };
+    box.querySelectorAll('[data-forbid]').forEach(function (inp) {
+      var k = inp.getAttribute('data-forbid');
+      if (flags[k] != null) flags[k] = inp.checked ? 1 : 0;
+    });
+    try {
+      var packet = await send('group.set_forbid', {
+        group_id: state.room.id | 0,
+        forbid_modes: flags
+      });
+      if (packet.data) {
+        state.groupMeta = mergeGroupMeta(Object.assign({}, state.groupMeta || {}, packet.data));
+        applySpeakState(state.groupMeta);
+        updateComposerPolicy();
+        renderGroupSettings();
+      }
+      if (typeof showFanshubToast === 'function') showFanshubToast('禁止模式已更新', 'success');
+    } catch (e) {
+      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '操作失败', 'error');
+      renderGroupSettings();
     }
   }
 
@@ -2722,6 +2801,15 @@
     if (!state.room) {
       if (typeof showFanshubToast === 'function') showFanshubToast('请先打开会话', 'info');
       return;
+    }
+    if (state.room.type === 2) {
+      var need = msgType === 5 ? 'video' : 'image';
+      if (!canSendCapability(need)) {
+        if (typeof showFanshubToast === 'function') {
+          showFanshubToast(need === 'video' ? '本群禁止发视频' : '本群禁止发图', 'error');
+        }
+        return;
+      }
     }
     try {
       var label = '[图片]';

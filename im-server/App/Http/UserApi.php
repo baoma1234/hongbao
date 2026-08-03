@@ -95,7 +95,9 @@ class UserApi extends UserReadApi
             case '/im/group/set_admin':
                 return ['data' => $this->groupSetAdmin($userId, $body)];
             case '/im/group/mute_all':
-                return ['data' => $this->groupMuteAll($userId, $body)];
+                return ['data' => $this->groupMuteAll($userId, $body), 'ws_type' => 'group.mute_all'];
+            case '/im/group/set_forbid':
+                return ['data' => $this->groupSetForbid($userId, $body), 'ws_type' => 'group.set_forbid'];
             case '/im/group/candidates':
                 return ['data' => $this->groups->inviteCandidates(
                     (int)($body['group_id'] ?? 0),
@@ -507,15 +509,54 @@ class UserApi extends UserReadApi
         $groupId = (int)($body['group_id'] ?? 0);
         $enabled = !empty($body['enabled']) || !empty($body['mute_all']);
         $group = $this->groups->setMuteAll($groupId, $uid, $enabled);
+        $forbids = $this->groups->parseForbidModes($group ?: []);
         $uids = $this->groups->onlineMemberIds($groupId);
         if ($uids) {
             PushBus::toUsers($uids, 'group.mute_all_changed', [
                 'group_id' => $groupId,
                 'mute_all' => $enabled,
+                'forbid_modes' => $forbids,
                 'group'    => $group,
             ]);
         }
-        return ['group' => $group, 'mute_all' => $enabled];
+        return [
+            'group' => $group,
+            'mute_all' => $enabled,
+            'forbid_modes' => $forbids,
+            'policy' => $this->groups->buildPolicy($group ?: [], $this->groups->memberRole($groupId, $uid)),
+        ];
+    }
+
+    protected function groupSetForbid($uid, array $body)
+    {
+        $groupId = (int)($body['group_id'] ?? 0);
+        $flags = [];
+        if (isset($body['forbid_modes']) && is_array($body['forbid_modes'])) {
+            $flags = $body['forbid_modes'];
+        } else {
+            foreach (\Im\Service\GroupService::forbidModeKeys() as $k) {
+                if (array_key_exists($k, $body)) {
+                    $flags[$k] = $body[$k];
+                }
+            }
+        }
+        $group = $this->groups->setForbidModes($groupId, $uid, $flags);
+        $forbids = $this->groups->parseForbidModes($group ?: []);
+        $uids = $this->groups->onlineMemberIds($groupId);
+        if ($uids) {
+            PushBus::toUsers($uids, 'group.forbid_changed', [
+                'group_id' => $groupId,
+                'forbid_modes' => $forbids,
+                'mute_all' => $this->groups->isMuteAll($groupId),
+                'group' => $group,
+            ]);
+        }
+        return [
+            'group' => $group,
+            'forbid_modes' => $forbids,
+            'mute_all' => $this->groups->isMuteAll($groupId),
+            'policy' => $this->groups->buildPolicy($group ?: [], $this->groups->memberRole($groupId, $uid)),
+        ];
     }
 
     protected function groupAddMembers($uid, array $body)

@@ -37,8 +37,9 @@ class MessageService
         if ($fromUserId <= 0 || $groupId <= 0) {
             throw new \InvalidArgumentException('invalid group chat');
         }
-        (new GroupService())->assertCanSpeak($groupId, $fromUserId);
         list($content, $msgType, $extra) = $this->prepareOutgoing($content, $msgType, $extra);
+        $mode = GroupService::msgTypeToForbidMode((int)$msgType);
+        (new GroupService())->assertCanSpeak($groupId, $fromUserId, $mode);
         return $this->insertMessage([
             'conversation_type' => 2,
             'conversation_id'   => (string)$groupId,

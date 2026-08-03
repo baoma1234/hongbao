@@ -86,6 +86,18 @@
           refreshGroupMeta().catch(function () {});
         }
         break;
+      case 'group.forbid_changed':
+        if (state.room && state.room.type === 2 && String(state.room.id) === String((packet.data && packet.data.group_id) || '')) {
+          if (packet.data) {
+            state.groupMeta = mergeGroupMeta(Object.assign({}, state.groupMeta || {}, packet.data));
+            applySpeakState(state.groupMeta);
+            updateComposerPolicy();
+            renderGroupSettings();
+          } else {
+            refreshGroupMeta().catch(function () {});
+          }
+        }
+        break;
       case 'group.updated':
         if (packet.data && packet.data.group) {
           var ug = packet.data.group;
@@ -561,6 +573,14 @@
       muteAllSwitch._bound = true;
       muteAllSwitch.addEventListener('change', function () {
         toggleMuteAll(!!muteAllSwitch.checked);
+      });
+    }
+    var forbidList = $('chatForbidModesList');
+    if (forbidList && !forbidList._bound) {
+      forbidList._bound = true;
+      forbidList.addEventListener('change', function (ev) {
+        if (!ev.target || !ev.target.getAttribute('data-forbid')) return;
+        if (typeof saveGroupForbidModes === 'function') saveGroupForbidModes();
       });
     }
     var leaveBtn = $('chatGroupLeaveBtn');

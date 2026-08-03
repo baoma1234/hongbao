@@ -818,7 +818,7 @@ return array (
   'chat_run_mode_chat' => '聊天模式',
   'chat_run_mode_chat_desc' => '自由聊天，可发普通/随机/手气/埋雷红包',
   'chat_run_mode_grab' => '红包对战模式',
-  'chat_run_mode_grab_desc' => '全员禁言，仅管理员/机器人可发红包',
+  'chat_run_mode_grab_desc' => '仅管理员可发红包；发言限制请在群设置「禁止模式」配置',
   'chat_create_group_hint' => '群主可后续在群设置中修改',
   'chat_group_name_ph' => '输入群名称',
   'chat_group_notice_ph' => '输入群公告，成员进入聊天可见',

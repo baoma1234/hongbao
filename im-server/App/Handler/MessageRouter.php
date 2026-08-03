@@ -169,6 +169,9 @@ class MessageRouter
                 case 'group.mute_all':
                     $this->handleGroupMuteAll($connection, $uid, $payload, $reqId);
                     break;
+                case 'group.set_forbid':
+                    $this->handleGroupSetForbid($connection, $uid, $payload, $reqId);
+                    break;
                 case 'group.candidates':
                     $this->handleGroupCandidates($connection, $uid, $payload, $reqId);
                     break;
@@ -741,7 +744,7 @@ class MessageRouter
     protected function canSpeakSafe($groupId, $uid)
     {
         try {
-            $this->groups->assertCanSpeak($groupId, $uid);
+            $this->groups->assertCanSpeak($groupId, $uid, 'text');
             return true;
         } catch (\Throwable $e) {
             return false;
@@ -1106,15 +1109,68 @@ class MessageRouter
             'event' => 'mute_all',
             'enabled' => $enabled ? 1 : 0,
         ]);
+        $forbids = $this->groups->parseForbidModes($group ?: []);
         $this->send($connection, 'group.mute_all', [
             'group' => $group,
             'mute_all' => $enabled,
+            'forbid_modes' => $forbids,
             'can_speak' => $this->canSpeakSafe($groupId, $uid),
+            'policy' => $this->groups->buildPolicy($group ?: [], $role),
         ], $reqId);
         $this->pushToGroup($groupId, 'group.message', ['message' => $sys]);
         $this->pushToGroup($groupId, 'group.mute_all_changed', [
             'group_id' => $groupId,
             'mute_all' => $enabled,
+            'forbid_modes' => $forbids,
+            'group' => $group,
+        ]);
+    }
+
+    protected function handleGroupSetForbid(TcpConnection $connection, $uid, array $payload, $reqId)
+    {
+        $groupId = (int)($payload['group_id'] ?? 0);
+        $flags = [];
+        if (isset($payload['forbid_modes']) && is_array($payload['forbid_modes'])) {
+            $flags = $payload['forbid_modes'];
+        } else {
+            foreach (GroupService::forbidModeKeys() as $k) {
+                if (array_key_exists($k, $payload)) {
+                    $flags[$k] = $payload[$k];
+                }
+            }
+        }
+        $group = $this->groups->setForbidModes($groupId, $uid, $flags);
+        $forbids = $this->groups->parseForbidModes($group ?: []);
+        $role = $this->groups->memberRole($groupId, $uid);
+        $opName = $this->groups->displayName($uid);
+        $who = $role === 3 ? '群主' : '管理员';
+        $labels = GroupService::forbidModeLabels();
+        $on = [];
+        foreach ($forbids as $k => $v) {
+            if ($v) {
+                $on[] = $labels[$k] ?? $k;
+            }
+        }
+        $text = $who . ' ' . $opName . ' 更新了禁止模式'
+            . ($on ? ('：' . implode('、', $on)) : '：无限制');
+        $sys = $this->messages->sendGroupSystem($groupId, $text, $uid, [
+            'event' => 'set_forbid',
+            'forbid_modes' => $forbids,
+        ]);
+        $policy = $this->groups->buildPolicy($group ?: [], $role);
+        $this->send($connection, 'group.set_forbid', [
+            'group' => $group,
+            'forbid_modes' => $forbids,
+            'mute_all' => $this->groups->isMuteAll($groupId),
+            'can_speak' => $this->canSpeakSafe($groupId, $uid),
+            'policy' => $policy,
+        ], $reqId);
+        $this->pushToGroup($groupId, 'group.message', ['message' => $sys]);
+        $this->pushToGroup($groupId, 'group.forbid_changed', [
+            'group_id' => $groupId,
+            'forbid_modes' => $forbids,
+            'mute_all' => $this->groups->isMuteAll($groupId),
+            'group' => $group,
         ]);
     }
 

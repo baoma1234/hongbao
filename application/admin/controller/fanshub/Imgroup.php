@@ -197,7 +197,28 @@ class Imgroup extends Backend
                 }
                 $chatMode = in_array(($params['chat_mode'] ?? ''), ['chat', 'grab'], true)
                     ? $params['chat_mode'] : ($row['chat_mode'] ?? 'chat');
-                $finalStatus = ($status === 2) ? 2 : (($chatMode === 'grab') ? 3 : 1);
+                $finalStatus = ((int)$status === 2) ? 2 : 1;
+                $forbidModesIn = $params['forbid_modes'] ?? [];
+                if (!is_array($forbidModesIn)) {
+                    $forbidModesIn = preg_split('/[,\s]+/', (string)$forbidModesIn) ?: [];
+                }
+                $forbidAllow = ['text', 'image', 'emoji', 'video', 'rp'];
+                $forbidParts = [];
+                foreach ($forbidModesIn as $fm) {
+                    $fm = trim((string)$fm);
+                    if (in_array($fm, $forbidAllow, true)) {
+                        $forbidParts[] = $fm;
+                    }
+                }
+                $forbidParts = array_values(array_unique($forbidParts));
+                $forbidCsv = implode(',', $forbidParts);
+                // 发言类全禁时兼容旧 mute_all（status=3）
+                if ($finalStatus !== 2) {
+                    $speechAll = !array_diff(['text', 'image', 'emoji', 'video'], $forbidParts);
+                    if ($speechAll) {
+                        $finalStatus = 3;
+                    }
+                }
                 $enabledTypes = $params['rp_enabled_types'] ?? '1,2,3,4';
                 if (is_array($enabledTypes)) {
                     $enabledTypes = implode(',', array_map('intval', $enabledTypes));
@@ -218,6 +239,7 @@ class Imgroup extends Backend
                     'hide_member_list'     => ($privacy === 'private') ? 1 : 0,
                     'privacy_mode'         => $privacy,
                     'chat_mode'            => $chatMode,
+                    'forbid_modes'         => mb_substr($forbidCsv, 0, 64),
                     'is_recommend'         => ((int)($params['is_recommend'] ?? 0) === 1) ? 1 : 0,
                     'weigh'                => (int)($params['weigh'] ?? ($row['weigh'] ?? 0)),
                     'is_vip_group'         => ((int)($params['is_vip_group'] ?? 0) === 1) ? 1 : 0,
@@ -541,9 +563,11 @@ class Imgroup extends Backend
             $enabled = (int)$enabled ? 1 : 0;
         }
         $status = $enabled ? 3 : 1;
+        $forbid = $enabled ? 'text,image,emoji,video,rp' : '';
         Db::name('chat_groups')->where('id', $groupId)->update([
-            'status'     => $status,
-            'updatetime' => time(),
+            'status'       => $status,
+            'forbid_modes' => $forbid,
+            'updatetime'   => time(),
         ]);
         $this->insertSystemMessage(
             $groupId,

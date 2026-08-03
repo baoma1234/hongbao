@@ -76,7 +76,7 @@ class GroupService
         $privacy = ((string)($options['privacy_mode'] ?? 'private') === 'open') ? 'open' : 'private';
         $chatMode = ((string)($options['chat_mode'] ?? 'chat') === 'grab') ? 'grab' : 'chat';
         $hideList = ($privacy === 'private') ? 1 : 0;
-        $status = ($chatMode === 'grab') ? 3 : 1;
+        $status = 1;
         $now = time();
         $adminIds = array_values(array_unique(array_filter(array_map('intval', $adminIds))));
         $robotUid = self::defaultRobotUserId();
@@ -183,7 +183,7 @@ class GroupService
         $policy = $this->buildPolicy($group ?: [], $myRole);
         $canSpeak = true;
         try {
-            $this->assertCanSpeak($groupId, $uid);
+            $this->assertCanSpeak($groupId, $uid, 'text');
         } catch (\Throwable $e) {
             $canSpeak = false;
         }
@@ -192,6 +192,7 @@ class GroupService
             'group'              => $group,
             'my_role'            => $myRole,
             'mute_all'           => $this->isMuteAll($groupId),
+            'forbid_modes'       => $this->parseForbidModes($group ?: []),
             'member_count'       => $this->publicMemberCount($group ?: []),
             'online_count'       => $isOfficial ? OfficialStatsService::onlineCount($groupId) : 0,
             'member_list_hidden' => !empty($policy['member_list_hidden']),
@@ -638,16 +639,129 @@ class GroupService
     public function isMuteAll($groupId)
     {
         $g = $this->get($groupId);
-        return $g && (int)$g['status'] === 3;
+        if (!$g) {
+            return false;
+        }
+        // 兼容旧 status=3；新逻辑以 forbid_modes 为准（发言类全禁）
+        if ((int)$g['status'] === 3) {
+            return true;
+        }
+        $modes = $this->parseForbidModes($g);
+        return !empty($modes['text']) && !empty($modes['image']) && !empty($modes['emoji']) && !empty($modes['video']);
+    }
+
+    /** @return string[] */
+    public static function forbidModeKeys()
+    {
+        return ['text', 'image', 'emoji', 'video', 'rp'];
+    }
+
+    public static function forbidModeLabels()
+    {
+        return [
+            'text'  => '禁止发言',
+            'image' => '禁止发图',
+            'emoji' => '禁止发表情',
+            'video' => '禁止发视频',
+            'rp'    => '禁止发红包',
+        ];
     }
 
     /**
-     * 是否允许发言（含全员禁言 / 单人禁言）
+     * msg_type → 禁止能力；系统/红包消息不走发言断言
      */
-    public function assertCanSpeak($groupId, $userId)
+    public static function msgTypeToForbidMode($msgType)
+    {
+        $msgType = (int)$msgType;
+        if ($msgType === 4 || $msgType === 7) {
+            return 'image';
+        }
+        if ($msgType === 5) {
+            return 'video';
+        }
+        if ($msgType === 6) {
+            return 'emoji';
+        }
+        return 'text';
+    }
+
+    /**
+     * @param array|string|null $groupOrRaw
+     * @return array<string,bool>
+     */
+    public function parseForbidModes($groupOrRaw)
+    {
+        $keys = self::forbidModeKeys();
+        $out = [];
+        foreach ($keys as $k) {
+            $out[$k] = false;
+        }
+        $raw = '';
+        $status = 0;
+        if (is_array($groupOrRaw)) {
+            $raw = (string)($groupOrRaw['forbid_modes'] ?? '');
+            $status = (int)($groupOrRaw['status'] ?? 0);
+        } else {
+            $raw = (string)$groupOrRaw;
+        }
+        $raw = trim($raw);
+        if ($raw !== '') {
+            if ($raw[0] === '{' || $raw[0] === '[') {
+                $decoded = json_decode($raw, true);
+                if (is_array($decoded)) {
+                    if (array_keys($decoded) === range(0, count($decoded) - 1)) {
+                        foreach ($decoded as $item) {
+                            $k = trim((string)$item);
+                            if (isset($out[$k])) {
+                                $out[$k] = true;
+                            }
+                        }
+                    } else {
+                        foreach ($keys as $k) {
+                            $out[$k] = !empty($decoded[$k]) && $decoded[$k] !== '0' && $decoded[$k] !== false;
+                        }
+                    }
+                }
+            } else {
+                foreach (preg_split('/[,\s]+/', $raw) ?: [] as $p) {
+                    $k = trim((string)$p);
+                    if (isset($out[$k])) {
+                        $out[$k] = true;
+                    }
+                }
+            }
+        } elseif ($status === 3) {
+            // 旧全员禁言：五种全开（兼容未迁移数据）
+            foreach ($keys as $k) {
+                $out[$k] = true;
+            }
+        }
+        return $out;
+    }
+
+    public function encodeForbidModes(array $flags)
+    {
+        $parts = [];
+        foreach (self::forbidModeKeys() as $k) {
+            if (!empty($flags[$k])) {
+                $parts[] = $k;
+            }
+        }
+        return implode(',', $parts);
+    }
+
+    /**
+     * 是否允许发言/发图/表情/视频（管理员不受禁止模式影响；单人禁言仍生效）
+     * @param string $mode text|image|emoji|video
+     */
+    public function assertCanSpeak($groupId, $userId, $mode = 'text')
     {
         $groupId = (int)$groupId;
         $userId = (int)$userId;
+        $mode = (string)$mode;
+        if (!in_array($mode, ['text', 'image', 'emoji', 'video'], true)) {
+            $mode = 'text';
+        }
         $group = $this->get($groupId);
         if (!$group || (int)$group['status'] === 2) {
             throw new \RuntimeException('group unavailable');
@@ -662,8 +776,24 @@ class GroupService
         if ($muteUntil > $now) {
             throw new \RuntimeException('you are muted');
         }
-        if ((int)$group['status'] === 3 && $role < 2) {
-            throw new \RuntimeException('group muted');
+        // 群主/管理员不受群禁止模式限制
+        if ($role >= 2) {
+            return;
+        }
+        $modes = $this->parseForbidModes($group);
+        if (!empty($modes[$mode])) {
+            $labels = self::forbidModeLabels();
+            throw new \RuntimeException($labels[$mode] ?? 'group muted');
+        }
+    }
+
+    public function canSpeakSafe($groupId, $userId, $mode = 'text')
+    {
+        try {
+            $this->assertCanSpeak($groupId, $userId, $mode);
+            return true;
+        } catch (\Throwable $e) {
+            return false;
         }
     }
 
@@ -831,8 +961,13 @@ class GroupService
             $fixedAmount = 0.0;
         }
         $enabledTypes = (string)($group['rp_enabled_types'] ?? '1,2,3,4');
-        // 仅自动任务/后台代发可发包时，前台任何人（含群主）都不可发
-        $canSendRp = $robotOnly ? false : ($isGrab ? ($role >= 2) : true);
+        $forbids = $this->parseForbidModes($group);
+        $isAdmin = $role >= 2;
+        // 管理员不受群禁止模式影响；机器人专发仍挡所有人
+        $canSendRp = $robotOnly ? false : ($isGrab ? $isAdmin : true);
+        if (!$isAdmin && !empty($forbids['rp'])) {
+            $canSendRp = false;
+        }
         return [
             'privacy_mode'       => $isOpen ? 'open' : 'private',
             'chat_mode'          => $isGrab ? 'grab' : 'chat',
@@ -842,9 +977,13 @@ class GroupService
             'can_view_profile'   => $isOpen || $role >= 2,
             'can_add_friend'     => $isOpen,
             'can_mention'        => $isOpen || $role >= 2,
-            // 红宝记录弹窗：隐私群一律锁死（与是否红宝模式无关）
             'rp_detail_locked'   => !$isOpen,
             'can_send_rp'        => $canSendRp,
+            'can_send_text'      => $isAdmin || empty($forbids['text']),
+            'can_send_image'     => $isAdmin || empty($forbids['image']),
+            'can_send_emoji'     => $isAdmin || empty($forbids['emoji']),
+            'can_send_video'     => $isAdmin || empty($forbids['video']),
+            'forbid_modes'       => $forbids,
             'rp_robot_only'      => $robotOnly,
             'rp_fixed_amount'    => $fixedAmount,
             'rp_enabled_types'   => $enabledTypes,
@@ -895,7 +1034,22 @@ class GroupService
             }
             throw new \RuntimeException('robot only: members cannot send red packets');
         }
+        if ($isRobotSend) {
+            return;
+        }
         $role = $this->memberRole($groupId, $userId);
+        // 管理员不受「禁止发红包」影响
+        if ($role < 2) {
+            $modes = $this->parseForbidModes($group);
+            if (!empty($modes['rp'])) {
+                throw new \RuntimeException('禁止发红包');
+            }
+            $member = $this->getMember($groupId, $userId);
+            $muteUntil = (int)($member['mute_until'] ?? 0);
+            if ($muteUntil > time()) {
+                throw new \RuntimeException('you are muted');
+            }
+        }
         if (!$this->buildPolicy($group, $role)['can_send_rp']) {
             throw new \RuntimeException('grab mode: only admin can send red packets');
         }
@@ -911,9 +1065,25 @@ class GroupService
         if (isset($data['chat_mode'])) {
             $cm = ((string)$data['chat_mode'] === 'grab') ? 'grab' : 'chat';
             $data['chat_mode'] = $cm;
+            // 红宝模式不再强制 status=3；发言限制请用 forbid_modes
+            $curStatus = (int)($before['status'] ?? $data['status'] ?? 1);
+            if ($curStatus !== 2 && isset($data['status']) && (int)$data['status'] === 3 && $cm !== 'grab') {
+                // keep explicit
+            }
+            if ($curStatus !== 2 && !isset($data['status'])) {
+                $data['status'] = 1;
+            }
+        }
+        if (array_key_exists('forbid_modes', $data)) {
+            $flags = is_array($data['forbid_modes'])
+                ? $data['forbid_modes']
+                : $this->parseForbidModes(['forbid_modes' => (string)$data['forbid_modes'], 'status' => 0]);
+            $data['forbid_modes'] = $this->encodeForbidModes($flags);
             $curStatus = (int)($before['status'] ?? $data['status'] ?? 1);
             if ($curStatus !== 2) {
-                $data['status'] = ($cm === 'grab') ? 3 : 1;
+                $speechAll = !empty($flags['text']) && !empty($flags['image'])
+                    && !empty($flags['emoji']) && !empty($flags['video']);
+                $data['status'] = $speechAll ? 3 : 1;
             }
         }
         return $data;
@@ -1008,15 +1178,34 @@ class GroupService
 
     public function setMuteAll($groupId, $operatorId, $enabled)
     {
+        $flags = [];
+        foreach (self::forbidModeKeys() as $k) {
+            $flags[$k] = (bool)$enabled;
+        }
+        return $this->setForbidModes($groupId, $operatorId, $flags);
+    }
+
+    /**
+     * 设置群禁止模式（多选）；不影响管理员
+     * @param array<string,bool|int|string> $flags
+     */
+    public function setForbidModes($groupId, $operatorId, array $flags)
+    {
         $this->assertCanModerate($groupId, $operatorId, 0);
         $group = $this->get($groupId);
         if (!$group || (int)$group['status'] === 2) {
             throw new \RuntimeException('group unavailable');
         }
-        $status = $enabled ? 3 : 1;
+        $norm = [];
+        foreach (self::forbidModeKeys() as $k) {
+            $norm[$k] = !empty($flags[$k]) && $flags[$k] !== '0' && $flags[$k] !== false;
+        }
+        $encoded = $this->encodeForbidModes($norm);
+        $speechAll = !empty($norm['text']) && !empty($norm['image']) && !empty($norm['emoji']) && !empty($norm['video']);
+        $status = $speechAll ? 3 : 1;
         Db::exec(
-            'UPDATE ' . Db::table('chat_groups') . ' SET status=?, updatetime=? WHERE id=?',
-            [$status, time(), (int)$groupId]
+            'UPDATE ' . Db::table('chat_groups') . ' SET forbid_modes=?, status=?, updatetime=? WHERE id=?',
+            [$encoded, $status, time(), (int)$groupId]
         );
         $this->bumpViewerInfoCache($groupId);
         return $this->get($groupId);

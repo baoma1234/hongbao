@@ -369,6 +369,17 @@
                             <span class="chat-switch-slider"></span>
                         </label>
                     </div>
+                    <div class="chat-setting-block" id="chatForbidModesBlock" style="display:none">
+                        <div class="chat-setting-block-title" data-copy="chat_forbid_modes_title">禁止模式</div>
+                        <div class="chat-forbid-modes" id="chatForbidModesList">
+                            <label class="chat-forbid-item"><input type="checkbox" data-forbid="text"> <span>禁止发言</span></label>
+                            <label class="chat-forbid-item"><input type="checkbox" data-forbid="image"> <span>禁止发图</span></label>
+                            <label class="chat-forbid-item"><input type="checkbox" data-forbid="emoji"> <span>禁止发表情</span></label>
+                            <label class="chat-forbid-item"><input type="checkbox" data-forbid="video"> <span>禁止发视频</span></label>
+                            <label class="chat-forbid-item"><input type="checkbox" data-forbid="rp"> <span>禁止发红包</span></label>
+                        </div>
+                        <div class="chat-setting-hint">可多选或全不选，不影响管理员</div>
+                    </div>
                     <button type="button" class="chat-setting-leave-btn" id="chatGroupLeaveBtn" data-copy="chat_group_leave">退出群组</button>
                     <input type="file" id="chatGroupAvatarInput" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
                 </div>
@@ -607,7 +618,7 @@
                             </div>
                             <div class="chat-cg-card-body">
                                 <span class="chat-cg-dot"></span>
-                                <span data-copy="chat_run_mode_grab_desc">全员禁言，仅管理员/机器人可发红包</span>
+                                <span data-copy="chat_run_mode_grab_desc">仅管理员可发红包；发言限制请在群设置「禁止模式」配置</span>
                             </div>
                         </button>
                     </div>

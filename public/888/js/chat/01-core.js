@@ -459,6 +459,10 @@
   }
 
   function insertEmojiIntoInput(em) {
+    if (state.room && state.room.type === 2 && typeof canSendCapability === 'function' && !canSendCapability('emoji')) {
+      if (typeof showFanshubToast === 'function') showFanshubToast('本群禁止发表情', 'error');
+      return;
+    }
     var input = $('chatInput');
     if (!input || !em) return;
     input.value += em;
@@ -670,6 +674,10 @@
       if (typeof showFanshubToast === 'function') showFanshubToast('请先打开会话', 'info');
       return;
     }
+    if (state.room.type === 2 && typeof canSendCapability === 'function' && !canSendCapability('emoji')) {
+      if (typeof showFanshubToast === 'function') showFanshubToast('本群禁止发表情', 'error');
+      return;
+    }
     code = String(code || '').trim();
     relUrl = String(relUrl || '').trim();
     pack = String(pack || 'wechat').trim();
@@ -746,6 +754,10 @@
   }
 
   function toggleEmojiPanel() {
+    if (state.room && state.room.type === 2 && typeof canSendCapability === 'function' && !canSendCapability('emoji')) {
+      if (typeof showFanshubToast === 'function') showFanshubToast('本群禁止发表情', 'error');
+      return;
+    }
     var panel = $('chatEmojiPanel');
     var attachPanel = $('chatAttachPanel');
     var btn = $('chatEmojiBtn');
@@ -1001,6 +1013,7 @@
     'group.mute': '/im/group/mute',
     'group.set_admin': '/im/group/set_admin',
     'group.mute_all': '/im/group/mute_all',
+    'group.set_forbid': '/im/group/set_forbid',
     'group.candidates': '/im/group/candidates',
     'group.add_members': '/im/group/add_members'
   };
