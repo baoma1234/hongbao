@@ -195,4 +195,6 @@ return array (
   'chat_forbid_speak_hint_help' => 'បង្ហាញក្នុងប្រអប់ជជែកពេលហាមអក្សរ',
   'chat_forbid_modes_save' => 'រក្សាទុកការកំណត់ហាម',
   'chat_forbid_modes_saved' => 'បានធ្វើបច្ចុប្បន្នភាព',
+  'chat_group_popup_ok' => 'យល់ហើយ',
+  'chat_group_popup_forever' => 'កុំបង្ហាញម្ដងទៀត',
 );

@@ -6,6 +6,7 @@ use Im\Service\AuthService;
 use Im\Service\AdminService;
 use Im\Service\ChatForbidService;
 use Im\Service\ContactService;
+use Im\Service\GroupPopupService;
 use Im\Service\GroupService;
 use Im\Service\MessageService;
 use Im\Service\OfficialStatsService;
@@ -29,6 +30,8 @@ class MessageRouter
     protected $messages;
     /** @var GroupService */
     protected $groups;
+    /** @var GroupPopupService */
+    protected $groupPopups;
     /** @var RedPacketService */
     protected $redPackets;
     /** @var TransferService */
@@ -46,6 +49,7 @@ class MessageRouter
         $this->auth = $auth;
         $this->messages = $messages;
         $this->groups = $groups;
+        $this->groupPopups = new GroupPopupService($groups);
         $this->redPackets = $redPackets;
         $this->transfers = new TransferService($cfg);
         $this->contacts = new ContactService();
@@ -180,6 +184,12 @@ class MessageRouter
                     break;
                 case 'group.info':
                     $this->handleGroupInfo($connection, $uid, $payload, $reqId);
+                    break;
+                case 'group.popup.list':
+                    $this->handleGroupPopupList($connection, $uid, $payload, $reqId);
+                    break;
+                case 'group.popup.ack':
+                    $this->handleGroupPopupAck($connection, $uid, $payload, $reqId);
                     break;
                 case 'group.view.enter':
                 case 'group.view.ping':
@@ -624,6 +634,27 @@ class MessageRouter
             'online_count' => $online,
             'member_count' => OfficialStatsService::memberCount($gid),
         ], $reqId);
+    }
+
+    protected function handleGroupPopupList(TcpConnection $connection, $uid, array $payload, $reqId)
+    {
+        try {
+            $list = $this->groupPopups->listForUser((int)($payload['group_id'] ?? 0), $uid);
+            $this->send($connection, 'group.popup.list', ['list' => $list], $reqId);
+        } catch (\Throwable $e) {
+            $this->error($connection, $e->getMessage(), $reqId);
+        }
+    }
+
+    protected function handleGroupPopupAck(TcpConnection $connection, $uid, array $payload, $reqId)
+    {
+        try {
+            $forever = !empty($payload['forever']) || !empty($payload['dismiss_forever']);
+            $data = $this->groupPopups->ack((int)($payload['popup_id'] ?? 0), $uid, $forever);
+            $this->send($connection, 'group.popup.ack', $data, $reqId);
+        } catch (\Throwable $e) {
+            $this->error($connection, $e->getMessage(), $reqId);
+        }
     }
 
     /**

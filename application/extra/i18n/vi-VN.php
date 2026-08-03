@@ -195,4 +195,6 @@ return array (
   'chat_forbid_speak_hint_help' => 'Hiện trong ô chat khi cấm chữ; trống = tự theo thao tác còn cho phép',
   'chat_forbid_modes_save' => 'Lưu cài đặt cấm',
   'chat_forbid_modes_saved' => 'Đã cập nhật cài đặt cấm',
+  'chat_group_popup_ok' => 'Đã hiểu',
+  'chat_group_popup_forever' => 'Không hiện lại',
 );

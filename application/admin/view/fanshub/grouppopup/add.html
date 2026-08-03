@@ -1,0 +1,91 @@
+<form id="add-form" class="form-horizontal" role="form" data-toggle="validator" method="POST" action="">
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">所属群:</label>
+        <div class="col-xs-12 col-sm-8">
+            <select name="row[group_id]" class="form-control selectpicker" data-live-search="true" data-rule="required">
+                <option value="">请选择群</option>
+                {foreach name="groupList" item="gname" key="gid"}
+                <option value="{$gid}">[{$gid}] {$gname}</option>
+                {/foreach}
+            </select>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">标题 (中文):</label>
+        <div class="col-xs-12 col-sm-8">
+            <input type="text" class="form-control" name="row[title]" data-rule="required" maxlength="128">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">标题多语言:</label>
+        <div class="col-xs-12 col-sm-8">
+            {foreach name="localeList" item="locLabel" key="locCode"}
+            {if condition="$locCode != 'zh-CN'"}
+            <div style="margin-bottom:6px;">
+                <label class="text-muted" style="font-weight:normal;">{$locLabel} ({$locCode})</label>
+                <input type="text" class="form-control" name="row[title_i18n][{$locCode}]" maxlength="128" placeholder="留空则用中文标题">
+            </div>
+            {/if}
+            {/foreach}
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">正文 (中文):</label>
+        <div class="col-xs-12 col-sm-8">
+            <textarea class="form-control" name="row[content]" rows="5" placeholder="弹窗正文"></textarea>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">正文多语言:</label>
+        <div class="col-xs-12 col-sm-8">
+            {foreach name="localeList" item="locLabel" key="locCode"}
+            {if condition="$locCode != 'zh-CN'"}
+            <div style="margin-bottom:10px;">
+                <label class="text-muted" style="font-weight:normal;">{$locLabel} ({$locCode})</label>
+                <textarea class="form-control" name="row[content_i18n][{$locCode}]" rows="3" placeholder="留空则用中文正文"></textarea>
+            </div>
+            {/if}
+            {/foreach}
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">配图:</label>
+        <div class="col-xs-12 col-sm-8">
+            <div class="input-group">
+                <input id="c-images" class="form-control" name="row[images]" type="text" placeholder="多图用逗号分隔，进群弹窗顶部轮播">
+                <div class="input-group-addon no-border no-padding">
+                    <span><button type="button" id="faupload-images" class="btn btn-danger faupload" data-input-id="c-images" data-mimetype="image/gif,image/jpeg,image/png,image/jpg,image/bmp,image/webp" data-multiple="true" data-preview-id="p-images"><i class="fa fa-upload"></i> {:__('Upload')}</button></span>
+                </div>
+            </div>
+            <ul class="row list-inline faupload-preview" id="p-images"></ul>
+            <span class="help-block">可选；多图时 H5 自动轮播</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">展示规则:</label>
+        <div class="col-xs-12 col-sm-8">
+            {:build_radios('row[show_mode]', $showModeList, 'always')}
+            <span class="help-block">「每次进入」时可让用户勾选永久关闭；「仅一次」关闭后不再展示</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">排序:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input type="number" class="form-control" name="row[weigh]" value="0">
+            <span class="help-block">越大越先弹出；同一群可配置多个弹窗依次展示</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">状态:</label>
+        <div class="col-xs-12 col-sm-8">
+            {:build_radios('row[status]', $statusList, 'normal')}
+        </div>
+    </div>
+    <div class="form-group layer-footer">
+        <label class="control-label col-xs-12 col-sm-2"></label>
+        <div class="col-xs-12 col-sm-8">
+            <button type="submit" class="btn btn-success btn-embossed">{:__('OK')}</button>
+            <button type="reset" class="btn btn-default btn-embossed">{:__('Reset')}</button>
+        </div>
+    </div>
+</form>

@@ -378,6 +378,8 @@ class Imgroup extends Backend
 
             $this->safeDeleteByGroup('chat_rp_auto_task', $groupId);
             $this->safeDeleteByGroup('chat_group_msg_cleared', $groupId);
+            $this->safeDeleteByGroup('chat_group_popup_logs', $groupId);
+            $this->safeDeleteByGroup('chat_group_popups', $groupId);
 
             Db::name('chat_messages')->where('group_id', $groupId)->delete();
             Db::name('chat_messages')

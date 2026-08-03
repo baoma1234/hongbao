@@ -747,6 +747,8 @@ class FansHubService
                 'chat_qr_pick_album' => '相册选图',
                 'chat_session' => '会话默认标题',
                 'chat_group_notice_pin' => '置顶群公告',
+                'chat_group_popup_ok' => '群弹窗确认',
+                'chat_group_popup_forever' => '群弹窗永久关闭',
                 'chat_attach_image' => '附件-图片',
                 'chat_attach_video' => '附件-视频',
                 'chat_attach_file' => '附件-文件',

@@ -548,4 +548,6 @@ Support will appear here automatically',
   'chat_forbid_speak_hint_help' => 'Shown in the chat box when text is forbidden; empty = auto from allowed actions',
   'chat_forbid_modes_save' => 'Save forbid settings',
   'chat_forbid_modes_saved' => 'Forbid settings updated',
+  'chat_group_popup_ok' => 'Got it',
+  'chat_group_popup_forever' => 'Don\'t show this again',
 );

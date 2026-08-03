@@ -195,4 +195,6 @@ return array (
   'chat_forbid_speak_hint_help' => 'Dipapar dalam kotak sembang bila teks dilarang; kosong = auto',
   'chat_forbid_modes_save' => 'Simpan tetapan larangan',
   'chat_forbid_modes_saved' => 'Tetapan larangan dikemas kini',
+  'chat_group_popup_ok' => 'Faham',
+  'chat_group_popup_forever' => 'Jangan tunjuk lagi',
 );

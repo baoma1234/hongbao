@@ -861,6 +861,8 @@ return array (
   'chat_member_id_prefix' => '会员ID {id}',
   'chat_group_notice_prefix' => '群公告：{notice}',
   'chat_group_notice_empty' => '暂无群公告',
+  'chat_group_popup_ok' => '我知道了',
+  'chat_group_popup_forever' => '永久关闭此弹窗',
   'chat_role_member' => '成员',
   'chat_member_action_title' => '{name} · 操作',
   'swap_title_pair' => '{from}兑换{to}',

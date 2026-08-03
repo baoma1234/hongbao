@@ -1871,11 +1871,17 @@
       var lastCached = state.messages.length ? state.messages[state.messages.length - 1] : null;
       markRead(state.room.type, state.room.id, lastCached ? lastCached.id : 0);
       send('history', histPayload).then(applyHistoryPacket).catch(function () {});
+      if ((opts.type | 0) === 2) {
+        maybeShowGroupPopups(opts.id | 0);
+      }
       return;
     }
     try {
       var packet = await send('history', histPayload);
       applyHistoryPacket(packet);
+      if ((opts.type | 0) === 2) {
+        maybeShowGroupPopups(opts.id | 0);
+      }
     } catch (e) {
       var errMsg = String((e && e.message) || '');
       var friendly = mapChatApiError(errMsg, 'chat_err_load_fail');
@@ -1906,6 +1912,180 @@
     }
   }
 
+  function pickPopupI18n(base, map) {
+    base = String(base || '');
+    if (!map || typeof map !== 'object') return base;
+    var locale = (global.FanshubI18n && global.FanshubI18n.locale) || 'zh-CN';
+    var v = map[locale];
+    if (v != null && String(v).trim() !== '') return String(v);
+    if (locale !== 'zh-CN' && locale.indexOf('-') > 0) {
+      var short = locale.split('-')[0];
+      var keys = Object.keys(map);
+      for (var i = 0; i < keys.length; i++) {
+        if (keys[i].indexOf(short) === 0 && String(map[keys[i]] || '').trim() !== '') {
+          return String(map[keys[i]]);
+        }
+      }
+    }
+    return base;
+  }
+
+  function ensureGroupPopupDom() {
+    var el = $('chatGroupPopupModal');
+    if (el) return el;
+    el = document.createElement('div');
+    el.id = 'chatGroupPopupModal';
+    el.className = 'chat-group-popup-modal';
+    el.hidden = true;
+    el.setAttribute('aria-hidden', 'true');
+    el.innerHTML =
+      '<div class="chat-group-popup-mask" id="chatGroupPopupMask"></div>' +
+      '<div class="chat-group-popup-sheet" role="dialog" aria-modal="true">' +
+        '<div class="chat-group-popup-carousel" id="chatGroupPopupCarousel" hidden></div>' +
+        '<div class="chat-group-popup-title" id="chatGroupPopupTitle"></div>' +
+        '<div class="chat-group-popup-body" id="chatGroupPopupBody"></div>' +
+        '<label class="chat-group-popup-forever" id="chatGroupPopupForeverWrap" hidden>' +
+          '<input type="checkbox" id="chatGroupPopupForever">' +
+          '<span id="chatGroupPopupForeverLabel"></span>' +
+        '</label>' +
+        '<button type="button" class="chat-group-popup-ok" id="chatGroupPopupOk"></button>' +
+      '</div>';
+    document.body.appendChild(el);
+    var ok = $('chatGroupPopupOk');
+    if (ok) {
+      ok.addEventListener('click', function () {
+        dismissCurrentGroupPopup();
+      });
+    }
+    return el;
+  }
+
+  function stopGroupPopupCarousel() {
+    if (state.groupPopupCarouselTimer) {
+      clearInterval(state.groupPopupCarouselTimer);
+      state.groupPopupCarouselTimer = 0;
+    }
+  }
+
+  function closeGroupPopupModal(cancelQueue) {
+    stopGroupPopupCarousel();
+    if (cancelQueue) {
+      state.groupPopupToken = (state.groupPopupToken | 0) + 1;
+      state.groupPopupQueue = [];
+      state.groupPopupCurrent = null;
+    }
+    var el = $('chatGroupPopupModal');
+    if (el) {
+      el.hidden = true;
+      el.setAttribute('aria-hidden', 'true');
+      el.classList.remove('show');
+    }
+  }
+
+  function maybeShowGroupPopups(groupId) {
+    groupId = groupId | 0;
+    if (!groupId) return;
+    state.groupPopupToken = (state.groupPopupToken | 0) + 1;
+    var token = state.groupPopupToken;
+    state.groupPopupQueue = [];
+    state.groupPopupCurrent = null;
+    closeGroupPopupModal(false);
+    send('group.popup.list', { group_id: groupId }).then(function (packet) {
+      if (token !== state.groupPopupToken) return;
+      if (!state.room || (state.room.type | 0) !== 2 || String(state.room.id) !== String(groupId)) return;
+      var list = (packet && packet.data && packet.data.list) || [];
+      if (!list.length) return;
+      state.groupPopupQueue = list.slice();
+      showNextGroupPopup();
+    }).catch(function () {});
+  }
+
+  function showNextGroupPopup() {
+    stopGroupPopupCarousel();
+    var item = (state.groupPopupQueue || []).shift();
+    if (!item) {
+      closeGroupPopupModal(false);
+      state.groupPopupCurrent = null;
+      return;
+    }
+    state.groupPopupCurrent = item;
+    var el = ensureGroupPopupDom();
+    var titleEl = $('chatGroupPopupTitle');
+    var bodyEl = $('chatGroupPopupBody');
+    var okBtn = $('chatGroupPopupOk');
+    var foreverWrap = $('chatGroupPopupForeverWrap');
+    var foreverCb = $('chatGroupPopupForever');
+    var foreverLabel = $('chatGroupPopupForeverLabel');
+    var car = $('chatGroupPopupCarousel');
+
+    if (titleEl) titleEl.textContent = pickPopupI18n(item.title, item.title_i18n);
+    if (bodyEl) {
+      var content = pickPopupI18n(item.content, item.content_i18n);
+      bodyEl.textContent = content;
+      bodyEl.hidden = !content;
+    }
+    if (okBtn) okBtn.textContent = chatT('chat_group_popup_ok') || '我知道了';
+    if (foreverLabel) foreverLabel.textContent = chatT('chat_group_popup_forever') || '永久关闭此弹窗';
+    var allowForever = !!(item.allow_forever_close || item.show_mode === 'always');
+    if (foreverWrap) foreverWrap.hidden = !allowForever;
+    if (foreverCb) foreverCb.checked = false;
+
+    var images = Array.isArray(item.images) ? item.images.filter(Boolean) : [];
+    if (car) {
+      if (!images.length) {
+        car.hidden = true;
+        car.innerHTML = '';
+      } else {
+        car.hidden = false;
+        var slides = images.map(function (src, idx) {
+          return '<div class="chat-group-popup-slide' + (idx === 0 ? ' is-active' : '') + '">' +
+            '<img src="' + escapeHtml(publicUrl(src)) + '" alt=""></div>';
+        }).join('');
+        var dots = images.length > 1
+          ? ('<div class="chat-group-popup-dots">' + images.map(function (_, idx) {
+              return '<span class="chat-group-popup-dot' + (idx === 0 ? ' is-active' : '') + '" data-i="' + idx + '"></span>';
+            }).join('') + '</div>')
+          : '';
+        car.innerHTML = '<div class="chat-group-popup-slides">' + slides + '</div>' + dots;
+        if (images.length > 1) {
+          var idx = 0;
+          state.groupPopupCarouselTimer = setInterval(function () {
+            var slidesEl = car.querySelectorAll('.chat-group-popup-slide');
+            var dotsEl = car.querySelectorAll('.chat-group-popup-dot');
+            if (!slidesEl.length) return;
+            slidesEl[idx].classList.remove('is-active');
+            if (dotsEl[idx]) dotsEl[idx].classList.remove('is-active');
+            idx = (idx + 1) % slidesEl.length;
+            slidesEl[idx].classList.add('is-active');
+            if (dotsEl[idx]) dotsEl[idx].classList.add('is-active');
+          }, 3200);
+        }
+      }
+    }
+
+    el.hidden = false;
+    el.setAttribute('aria-hidden', 'false');
+    requestAnimationFrame(function () {
+      el.classList.add('show');
+    });
+  }
+
+  function dismissCurrentGroupPopup() {
+    var cur = state.groupPopupCurrent;
+    var foreverCb = $('chatGroupPopupForever');
+    var forever = !!(foreverCb && foreverCb.checked && cur && (cur.allow_forever_close || cur.show_mode === 'always'));
+    var popupId = cur ? (cur.id | 0) : 0;
+    var token = state.groupPopupToken | 0;
+    state.groupPopupCurrent = null;
+    closeGroupPopupModal(false);
+    if (popupId > 0) {
+      send('group.popup.ack', { popup_id: popupId, forever: forever ? 1 : 0 }).catch(function () {});
+    }
+    if (token === (state.groupPopupToken | 0)) {
+      showNextGroupPopup();
+    }
+  }
+
   function closeRoom() {
     closeRpSendPage();
     if (typeof closeTransferSendPage === 'function') closeTransferSendPage();
@@ -1913,6 +2093,7 @@
     closeMediaLightbox();
     closeGroupSubPanes();
     closeMemberSheets();
+    closeGroupPopupModal(true);
     leaveGroupViewPresence();
     state.room = null;
     state.groupMeta = null;
