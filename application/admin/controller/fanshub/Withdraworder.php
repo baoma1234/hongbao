@@ -46,9 +46,17 @@ class Withdraworder extends Backend
                 $info = $row['account_info'];
                 if (is_string($info) && $info !== '') {
                     $decoded = json_decode($info, true);
-                    $row['account_info_text'] = is_array($decoded)
-                        ? (string)($decoded['account'] ?? json_encode($decoded, JSON_UNESCAPED_UNICODE))
-                        : $info;
+                    if (is_array($decoded)) {
+                        if (($decoded['method'] ?? '') === 'online_coop' || ($decoded['withdraw_mode'] ?? '') === 'online_coop') {
+                            $row['account_info_text'] = '线上合作'
+                                . ' | 平台:' . (string)($decoded['platform'] ?? '')
+                                . ' | 主站账号:' . (string)($decoded['main_uid'] ?? $decoded['account'] ?? '');
+                        } else {
+                            $row['account_info_text'] = (string)($decoded['account'] ?? json_encode($decoded, JSON_UNESCAPED_UNICODE));
+                        }
+                    } else {
+                        $row['account_info_text'] = $info;
+                    }
                 } else {
                     $row['account_info_text'] = '';
                 }

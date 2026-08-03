@@ -208,6 +208,33 @@ class FansHubWallet
                 }
             }
             $walletType = self::resolveWalletType($row, $cfg);
+            $exchangeRate = (float)($cfg['callback_exchange_rate'] ?? $cfg['exchange_rate'] ?? 0);
+            $withdrawMode = strtolower(trim((string)($cfg['withdraw_mode'] ?? '')));
+            if ($withdrawMode === '' && strtolower((string)$row['handler']) === 'manual' && $partCode === 'online_coop') {
+                $withdrawMode = 'online_coop';
+            }
+            // 线上合作：仅已绑定并通过审核的主站账号可见
+            if ($withdrawMode === 'online_coop') {
+                if ((int)$userId <= 0) {
+                    continue;
+                }
+                $acc = Db::name('fans_account')->where('user_id', (int)$userId)->find();
+                $mainUid = trim((string)($acc['main_uid'] ?? ''));
+                $audit = (string)($acc['main_uid_audit'] ?? '');
+                if ($mainUid === '' || $audit !== 'approved') {
+                    continue;
+                }
+            }
+            $platforms = $cfg['platforms'] ?? ['555'];
+            if (!is_array($platforms)) {
+                $platforms = preg_split('/[\s,]+/', (string)$platforms);
+            }
+            $platforms = array_values(array_filter(array_map(function ($p) {
+                return trim((string)$p);
+            }, $platforms)));
+            if (!$platforms) {
+                $platforms = ['555'];
+            }
             $ch = [
                 'id'              => (int)$row['id'],
                 'name'            => (string)$row['name'],
@@ -220,6 +247,9 @@ class FansHubWallet
                 'partition_code'  => $partCode,
                 'bind_mode'       => $bindMode,
                 'recharge_mode'   => strtolower(trim((string)($cfg['recharge_mode'] ?? ''))),
+                'withdraw_mode'   => $withdrawMode,
+                'platforms'       => $platforms,
+                'exchange_rate'   => $exchangeRate > 0 ? $exchangeRate : 0,
                 'min_amount'      => (float)$row['min_amount'],
                 'max_amount'      => (float)$row['max_amount'],
             ];
@@ -481,9 +511,51 @@ class FansHubWallet
         }
         $channel = self::getChannel($channelId, 'withdraw');
         self::assertAmount($amount, $channel);
+        $channelCfg = self::decodeConfig($channel['config'] ?? '');
+        $withdrawMode = strtolower(trim((string)($channelCfg['withdraw_mode'] ?? '')));
+        if ($withdrawMode === '' && strtolower((string)($channel['handler'] ?? '')) === 'manual') {
+            // 兼容分区 code
+            try {
+                $part = Db::name('fans_pay_partition')->where('id', (int)($channel['partition_id'] ?? 0))->find();
+                if ($part && (string)($part['code'] ?? '') === 'online_coop') {
+                    $withdrawMode = 'online_coop';
+                }
+            } catch (\Throwable $ePart) {
+            }
+        }
         $bindMode = self::channelBindMode($channel);
         $walletType = self::resolveWalletType($channel);
-        if ($bindMode === 'wallet') {
+        if ($withdrawMode === 'online_coop') {
+            $bindMode = 'none';
+            $account = FansHubService::getOrCreateAccount($userId);
+            $mainUidApproved = trim((string)($account->main_uid ?? ''));
+            $audit = (string)($account->main_uid_audit ?? '');
+            if ($mainUidApproved === '' || $audit !== 'approved') {
+                throw new \RuntimeException(FansHubService::h5CopyText('profile_withdraw_need_main_uid') ?: '请先绑定并通过主站账号审核后再使用线上合作提现');
+            }
+            $platform = trim((string)($accountInfo['platform'] ?? '555'));
+            if ($platform === '') {
+                $platform = '555';
+            }
+            $mainUid = trim((string)($accountInfo['main_uid'] ?? $accountInfo['account'] ?? ''));
+            if ($mainUid === '') {
+                $mainUid = $mainUidApproved;
+            }
+            if ($mainUid !== $mainUidApproved) {
+                throw new \RuntimeException('主站账号须与已绑定账号一致');
+            }
+            $accountInfo = [
+                'method'              => 'online_coop',
+                'withdraw_mode'       => 'online_coop',
+                'platform'            => $platform,
+                'main_uid'            => $mainUid,
+                'account'             => $mainUid,
+                'account_or_address'  => $mainUid,
+                'accountname'         => '线上合作-' . $platform,
+                'cardnumber'          => $mainUid,
+                'bankname'            => '线上合作/' . $platform,
+            ];
+        } elseif ($bindMode === 'wallet') {
             $bindId = (int)($accountInfo['bind_id'] ?? 0);
             $bind = null;
             if ($bindId > 0) {
@@ -533,7 +605,7 @@ class FansHubWallet
         $orderNo = self::genOrderNo('WD');
         $now = time();
         $handler = (string)$channel['handler'];
-        // 先扣余额 + 入库，再拉起代付；通道失败不回滚余额
+        // 先扣余额 + 入库；全站提现统一人工审核后再出款（不再自动代付）
         Db::startTrans();
         try {
             $locked = Db::name('fans_account')->where('user_id', $userId)->lock(true)->find();
@@ -583,38 +655,37 @@ class FansHubWallet
             throw $e;
         }
 
-        $extra = ['status' => 'pending', 'gateway_ok' => false];
+        $extra = [
+            'action'     => 'manual',
+            'message'    => '提现申请已提交，等待人工审核出款。订单号：' . $orderNo,
+            'order_no'   => $orderNo,
+            'status'     => 'pending',
+            'gateway_ok' => true,
+        ];
+        // 全站提现统一人工审核：不再自动提交代付网关，后台审核通过后再出款
         try {
-            $extra = self::dispatchWithdraw($handler, $channel, $userId, $amount, $orderNo, $accountInfo);
-            $extra['gateway_ok'] = true;
-            $newStatus = isset($extra['status']) ? (string)$extra['status'] : 'pending';
-            if (!in_array($newStatus, ['pending', 'processing', 'paid'], true)) {
-                $newStatus = 'pending';
-            }
+            $rate = (float)($channelCfg['callback_exchange_rate'] ?? $channelCfg['exchange_rate'] ?? 0);
             $upd = [
-                'status'     => $newStatus,
+                'status'     => 'pending',
                 'updatetime' => time(),
+                'remark'     => mb_substr(
+                    '待人工审核'
+                    . ($withdrawMode === 'online_coop'
+                        ? (' | 线上合作 ' . ($accountInfo['platform'] ?? '') . ' / ' . ($accountInfo['main_uid'] ?? ''))
+                        : '')
+                    . ($rate > 0 ? (' | 汇率 ' . $rate . ' → ' . round($amount / $rate, 4) . ' USDT') : ''),
+                    0,
+                    250
+                ),
             ];
-            if (!empty($extra['message'])) {
-                $upd['remark'] = mb_substr((string)$extra['message'], 0, 250);
-            }
             Db::name('fans_withdraw_order')->where('order_no', $orderNo)->update($upd);
         } catch (\Throwable $e) {
-            // 余额已扣、订单已入库：仅记录失败原因，不自动退款（后台可拒绝退回）
-            try {
-                Db::name('fans_withdraw_order')->where('order_no', $orderNo)->update([
-                    'remark'     => mb_substr('通道提交失败：' . $e->getMessage(), 0, 250),
-                    'updatetime' => time(),
-                ]);
-            } catch (\Throwable $e2) {
-            }
-            throw $e;
         }
 
         return array_merge([
             'order_no' => $orderNo,
             'amount'   => $amount,
-            'status'   => isset($extra['status']) ? $extra['status'] : 'pending',
+            'status'   => 'pending',
         ], $extra);
     }
 

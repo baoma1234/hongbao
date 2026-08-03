@@ -294,8 +294,65 @@
     }
   }
 
+  function isOnlineCoopChannel(ch) {
+    return !!(ch && (String(ch.withdraw_mode || '') === 'online_coop' || String(ch.partition_code || '') === 'online_coop'));
+  }
+
+  function channelExchangeRate(ch) {
+    var r = ch ? Number(ch.exchange_rate) : 0;
+    return r > 0 ? r : 0;
+  }
+
+  function updateFxHint(type, ch, amount) {
+    var el = document.getElementById(type === 'recharge' ? 'profileRechargeFxHint' : 'profileWithdrawFxHint');
+    if (!el) return;
+    var rate = channelExchangeRate(ch);
+    if (!(rate > 0)) {
+      el.hidden = true;
+      el.textContent = '';
+      return;
+    }
+    amount = Number(amount) || 0;
+    var usdt = amount > 0 ? (amount / rate) : 0;
+    el.hidden = false;
+    el.textContent = amount > 0
+      ? ('汇率 1 USDT = ' + rate + ' CNY，约合 ' + usdt.toFixed(4) + ' USDT')
+      : ('汇率 1 USDT = ' + rate + ' CNY（输入金额后自动换算）');
+  }
+
+  function bindFxAmountInputs() {
+    var rc = document.getElementById('profileRechargeAmount');
+    if (rc && !rc._fxBound) {
+      rc._fxBound = true;
+      rc.addEventListener('input', function () {
+        var ch = findChannel(walletState.recharge, walletState.selectedRecharge | 0);
+        updateFxHint('recharge', ch, parseFloat(rc.value) || 0);
+      });
+    }
+    var wd = document.getElementById('profileWithdrawAmount');
+    if (wd && !wd._fxBound) {
+      wd._fxBound = true;
+      wd.addEventListener('input', function () {
+        var ch = findChannel(walletState.withdraw, walletState.selectedWithdraw | 0);
+        updateFxHint('withdraw', ch, parseFloat(wd.value) || 0);
+      });
+    }
+  }
+
+  function getApprovedMainUid() {
+    var acc = (global.lastProfile) || global.account || {};
+    if (!acc || typeof acc !== 'object') acc = {};
+    var uid = String(acc.main_uid || '').trim();
+    var audit = String(acc.main_uid_audit || '').trim();
+    if (uid && audit === 'approved') return uid;
+    return '';
+  }
+
   function withdrawPayeeReady(ch) {
     if (!ch) return false;
+    if (isOnlineCoopChannel(ch)) {
+      return !!getApprovedMainUid();
+    }
     if (String(ch.bind_mode || '') === 'wallet') {
       var wtype = String(ch.wallet_type || ch.payment_channel || '');
       return !!(walletState.binds && walletState.binds[wtype]);
@@ -345,18 +402,49 @@
   function syncWithdrawBindUI(ch) {
     var bindPanel = document.getElementById('profileWithdrawWalletBind');
     var convPanel = document.getElementById('profileWithdrawConventional');
+    var coopPanel = document.getElementById('profileWithdrawOnlineCoop');
     var submitBtn = document.getElementById('profileWithdrawSubmit');
     if (!ch) {
       if (bindPanel) { bindPanel.hidden = true; }
       if (convPanel) { convPanel.style.display = 'none'; }
+      if (coopPanel) { coopPanel.hidden = true; }
       setWithdrawAmountGate(false);
       syncWithdrawVerifyAddr(null, null);
+      updateFxHint('withdraw', null, 0);
       return;
     }
+    var isCoop = isOnlineCoopChannel(ch);
     var mode = String(ch.bind_mode || '');
-    var isWallet = mode === 'wallet';
+    var isWallet = !isCoop && mode === 'wallet';
     if (bindPanel) bindPanel.hidden = !isWallet;
-    if (convPanel) convPanel.style.display = isWallet ? 'none' : '';
+    if (convPanel) convPanel.style.display = (isWallet || isCoop) ? 'none' : '';
+    if (coopPanel) coopPanel.hidden = !isCoop;
+
+    if (isCoop) {
+      var mainUid = getApprovedMainUid();
+      var mainInput = document.getElementById('profileWithdrawMainUid');
+      if (mainInput) mainInput.value = mainUid || '';
+      var platSel = document.getElementById('profileWithdrawPlatform');
+      if (platSel) {
+        var plats = Array.isArray(ch.platforms) && ch.platforms.length ? ch.platforms : ['555'];
+        var cur = platSel.value || '555';
+        platSel.innerHTML = plats.map(function (p) {
+          p = String(p);
+          return '<option value="' + escapeHtml(p) + '"' + (p === cur || (cur === '' && p === '555') ? ' selected' : '') + '>' + escapeHtml(p) + '</option>';
+        }).join('');
+        if (!platSel.value) platSel.value = '555';
+      }
+      var readyCoop = !!mainUid;
+      setWithdrawAmountGate(readyCoop);
+      if (submitBtn) submitBtn.style.display = readyCoop ? '' : 'none';
+      syncWithdrawVerifyAddr(null, null);
+      updateFxHint('withdraw', ch, parseFloat((document.getElementById('profileWithdrawAmount') || {}).value) || 0);
+      if (!readyCoop) {
+        toast(wt('profile_withdraw_need_main_uid', '请先绑定并通过主站账号审核'), 'info');
+      }
+      return;
+    }
+
     if (isWallet) {
       var wtype = String(ch.wallet_type || ch.payment_channel || '');
       // 严格按当前通道 wallet_type 取绑定，禁止回落到其它钱包地址
@@ -394,6 +482,7 @@
             global.openProfileSubPage('payee');
           });
         }
+        updateFxHint('withdraw', ch, 0);
         return;
       }
       if (hint) {
@@ -406,12 +495,12 @@
       setWithdrawAmountGate(true);
       if (submitBtn) submitBtn.style.display = '';
       syncWithdrawVerifyAddr(ch, bind);
+      updateFxHint('withdraw', ch, parseFloat((document.getElementById('profileWithdrawAmount') || {}).value) || 0);
       return;
     }
-    // 常规/银行：优先用已绑定的银行卡/支付宝；先填收款信息，再解锁金额
+    // 常规/银行：优先用已绑定的银行卡；先填收款信息，再解锁金额
     if (!isWallet) {
       var bankBind = walletState.binds && walletState.binds.BANK;
-      var aliBind = walletState.binds && walletState.binds.ALIPAY;
       var usdtBind = walletState.binds && (walletState.binds.BS_USDT_TRC20 || walletState.binds.USDT_TRC20);
       var nameEl = document.getElementById('profileWithdrawName');
       var accEl = document.getElementById('profileWithdrawAccount');
@@ -423,14 +512,10 @@
         if (bankEl && !String(bankEl.value || '').trim()) bankEl.value = 'USDT-TRC20';
       }
       if (nameEl && !String(nameEl.value || '').trim()) {
-        if (aliBind && aliBind.account_name) nameEl.value = aliBind.account_name;
-        else if (bankBind && bankBind.account_name) nameEl.value = bankBind.account_name;
+        if (bankBind && bankBind.account_name) nameEl.value = bankBind.account_name;
       }
       if (accEl && !String(accEl.value || '').trim()) {
-        if (aliBind && aliBind.account_no) {
-          accEl.value = aliBind.account_no;
-          if (bankEl && !String(bankEl.value || '').trim()) bankEl.value = '支付宝';
-        } else if (bankBind && bankBind.account_no) {
+        if (bankBind && bankBind.account_no) {
           accEl.value = bankBind.account_no;
           if (bankEl && !String(bankEl.value || '').trim()) bankEl.value = bankBind.bank_name || '';
         }
@@ -440,6 +525,7 @@
     setWithdrawAmountGate(ready);
     if (submitBtn) submitBtn.style.display = ready ? '' : 'none';
     syncWithdrawVerifyAddr(ch, null);
+    updateFxHint('withdraw', ch, parseFloat((document.getElementById('profileWithdrawAmount') || {}).value) || 0);
   }
 
   function bindWithdrawPayeeWatch() {
@@ -472,12 +558,15 @@
     panel.style.display = 'block';
     panel.classList.add('is-open');
     applyAmountLimits(isRecharge ? 'profileRechargeAmount' : 'profileWithdrawAmount', ch);
+    bindFxAmountInputs();
     if (isRecharge) {
       renderRechargeQuickAmounts(ch);
+      updateFxHint('recharge', ch, parseFloat((document.getElementById('profileRechargeAmount') || {}).value) || 0);
     }
     if (!isRecharge) {
       bindWithdrawPayeeWatch();
       syncWithdrawBindUI(ch);
+      var isCoop = isOnlineCoopChannel(ch);
       var isBsUsdt = ch && String(ch.handler || '').toLowerCase() === 'bs';
       var nameWrap = document.getElementById('profileWithdrawName');
       var nameField = nameWrap && nameWrap.closest ? nameWrap.closest('.profile-field') : null;
@@ -485,7 +574,7 @@
       var branchWrap = document.getElementById('profileWithdrawBranchWrap');
       var regionWrap = document.getElementById('profileWithdrawRegionWrap');
       var accountInput = document.getElementById('profileWithdrawAccount');
-      if (String(ch.bind_mode || '') !== 'wallet') {
+      if (!isCoop && String(ch.bind_mode || '') !== 'wallet') {
         if (isBsUsdt) {
           if (nameField) nameField.style.display = 'none';
           if (bankWrap) bankWrap.style.display = 'none';
@@ -497,7 +586,7 @@
           if (bankWrap) bankWrap.style.display = '';
           if (branchWrap) branchWrap.style.display = 'none';
           if (regionWrap) regionWrap.style.display = 'none';
-          if (accountInput) accountInput.placeholder = wt('profile_withdraw_account_ph', '钱包地址 / 银行卡号 / 支付宝账号');
+          if (accountInput) accountInput.placeholder = wt('profile_withdraw_account_ph', '钱包地址 / 银行卡号');
         }
         var bank = document.getElementById('profileWithdrawBank');
         if (bank && !(bank.value || '').trim() && ch.name && !isBsUsdt) {
@@ -1199,7 +1288,8 @@
       toast(err, 'error');
       return;
     }
-    var isWalletBind = ch && String(ch.bind_mode || '') === 'wallet';
+    var isCoop = isOnlineCoopChannel(ch);
+    var isWalletBind = !isCoop && ch && String(ch.bind_mode || '') === 'wallet';
     var wtype = ch ? String(ch.wallet_type || ch.payment_channel || '') : '';
     var bind = isWalletBind ? ((walletState.binds && walletState.binds[wtype]) || null) : null;
     if (isWalletBind && !bind) {
@@ -1208,15 +1298,26 @@
       return;
     }
 
-    var accountname = ((document.getElementById('profileWithdrawName') || {}).value || '').trim();
-    var cardnumber = ((document.getElementById('profileWithdrawAccount') || {}).value || '').trim();
-    var bankname = ((document.getElementById('profileWithdrawBank') || {}).value || '').trim();
-    var subbranch = ((document.getElementById('profileWithdrawBranch') || {}).value || '').trim();
-    var province = ((document.getElementById('profileWithdrawProvince') || {}).value || '').trim();
-    var city = ((document.getElementById('profileWithdrawCity') || {}).value || '').trim();
-    var payChanel = ((document.getElementById('profileWithdrawChanel') || {}).value || '102').trim();
     var accountInfo;
-    if (isWalletBind) {
+    if (isCoop) {
+      var mainUid = getApprovedMainUid();
+      if (!mainUid) {
+        toast(wt('profile_withdraw_need_main_uid', '请先绑定并通过主站账号审核'), 'error');
+        return;
+      }
+      var platform = ((document.getElementById('profileWithdrawPlatform') || {}).value || '555').trim() || '555';
+      accountInfo = {
+        method: 'online_coop',
+        withdraw_mode: 'online_coop',
+        platform: platform,
+        main_uid: mainUid,
+        account: mainUid,
+        account_or_address: mainUid,
+        accountname: '线上合作-' + platform,
+        cardnumber: mainUid,
+        bankname: '线上合作/' + platform
+      };
+    } else if (isWalletBind) {
       accountInfo = {
         bind_id: bind.id,
         wallet_type: wtype,
@@ -1227,6 +1328,13 @@
         bankname: bind.bank_name || wtype
       };
     } else {
+      var accountname = ((document.getElementById('profileWithdrawName') || {}).value || '').trim();
+      var cardnumber = ((document.getElementById('profileWithdrawAccount') || {}).value || '').trim();
+      var bankname = ((document.getElementById('profileWithdrawBank') || {}).value || '').trim();
+      var subbranch = ((document.getElementById('profileWithdrawBranch') || {}).value || '').trim();
+      var province = ((document.getElementById('profileWithdrawProvince') || {}).value || '').trim();
+      var city = ((document.getElementById('profileWithdrawCity') || {}).value || '').trim();
+      var payChanel = ((document.getElementById('profileWithdrawChanel') || {}).value || '102').trim();
       var isBsUsdt = ch && String(ch.handler || '').toLowerCase() === 'bs';
       if (isBsUsdt) {
         if (!cardnumber) {
@@ -1263,7 +1371,7 @@
         pay_password: payPwd
       });
     }).then(function (data) {
-      toast((data && data.message) || wt('wallet_withdraw_ok', '提现申请已提交'), 'success');
+      toast((data && data.message) || wt('wallet_withdraw_ok', '提现申请已提交，等待人工审核'), 'success');
       if (data && data.url) window.open(data.url, '_blank');
       if (typeof global.refreshProfile === 'function') global.refreshProfile();
       loadWalletData();
@@ -1403,7 +1511,7 @@
   }
 
   function fillPayeeBoundHints() {
-    [['bank', 'profilePayeeBankBound'], ['alipay', 'profilePayeeAlipayBound'], ['wechat', 'profilePayeeWechatBound']].forEach(function (pair) {
+    [['bank', 'profilePayeeBankBound']].forEach(function (pair) {
       var meta = payeeTypeMeta(pair[0]);
       var el = document.getElementById(pair[1]);
       if (!meta || !el) return;
@@ -1552,7 +1660,7 @@
         btn.classList.toggle('active', btn.getAttribute('data-payee-tab') === payeeState.tab);
       });
     }
-    ['bank', 'alipay', 'wechat', 'wallet'].forEach(function (k) {
+    ['bank', 'wallet'].forEach(function (k) {
       var panel = document.querySelector('[data-payee-panel="' + k + '"]');
       if (panel) panel.hidden = k !== payeeState.tab;
     });

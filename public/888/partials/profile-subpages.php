@@ -128,6 +128,7 @@
                         <label data-copy="profile_recharge_amount_label">充值红宝金额（元）</label>
                         <div id="profileRechargeQuickAmounts" class="wallet-quick-amounts" aria-label="快捷金额"></div>
                         <input type="number" id="profileRechargeAmount" step="0.01" min="1" data-copy-placeholder="profile_amount_ph" placeholder="请输入金额">
+                        <div class="profile-meta-line wallet-fx-hint" id="profileRechargeFxHint" hidden></div>
                     </div>
                     <button type="button" class="btn-uid-submit" id="profileRechargeSubmit" onclick="submitProfileRecharge()" data-copy="profile_recharge_submit">确认充值</button>
                 </div>
@@ -203,10 +204,25 @@
                         </div>
                     </div>
                     </div>
+                    <!-- 线上合作（主站账号提现） -->
+                    <div id="profileWithdrawOnlineCoop" class="wallet-online-coop-panel" hidden>
+                        <div class="profile-field">
+                            <label data-copy="profile_withdraw_platform_label">合作平台</label>
+                            <select id="profileWithdrawPlatform" class="login-input">
+                                <option value="555" selected>555</option>
+                            </select>
+                        </div>
+                        <div class="profile-field">
+                            <label data-copy="profile_withdraw_main_uid_label">主站账号</label>
+                            <input type="text" id="profileWithdrawMainUid" data-copy-placeholder="profile_withdraw_main_uid_ph" placeholder="请输入已绑定的主站账号" readonly>
+                        </div>
+                        <div class="profile-meta-line" id="profileWithdrawOnlineHint" data-copy="profile_withdraw_online_hint">仅已绑定主站账号的用户可使用线上合作提现，提交后需人工审核出款。</div>
+                    </div>
                     <div id="profileWithdrawAmountGate" class="wallet-amount-gate" hidden>
                     <div class="profile-field">
                         <label data-copy="profile_withdraw_amount_label">提现红宝金额（元）</label>
                         <input type="number" id="profileWithdrawAmount" step="0.01" min="1" data-copy-placeholder="profile_amount_ph" placeholder="请输入金额">
+                        <div class="profile-meta-line wallet-fx-hint" id="profileWithdrawFxHint" hidden></div>
                     </div>
                     <div class="profile-meta-line wallet-withdraw-verify-addr" id="profileWithdrawVerifyAddrWrap" hidden>
                         <span id="profileWithdrawVerifyAddrLabel" data-copy="wallet_bind_address_label">钱包地址</span>
@@ -230,8 +246,6 @@
             <div class="match-card profile-card">
                 <div class="wallet-payee-tabs" id="profilePayeeTabs" role="tablist">
                     <button type="button" class="wallet-payee-tab active" data-payee-tab="bank" data-copy="profile_payee_tab_bank">银行卡</button>
-                    <button type="button" class="wallet-payee-tab" data-payee-tab="alipay" data-copy="profile_payee_tab_alipay">支付宝</button>
-                    <button type="button" class="wallet-payee-tab" data-payee-tab="wechat" data-copy="profile_payee_tab_wechat">微信</button>
                     <button type="button" class="wallet-payee-tab" data-payee-tab="wallet" data-copy="profile_payee_tab_wallet">数字钱包</button>
                 </div>
 
@@ -250,32 +264,6 @@
                         <input type="text" id="profilePayeeBankName" data-copy-placeholder="profile_payee_bank_ph" placeholder="如：中国工商银行">
                     </div>
                     <button type="button" class="btn-uid-submit" onclick="submitProfilePayeeBind('bank')" data-copy="profile_payee_save_bank">保存银行卡</button>
-                </div>
-
-                <div class="wallet-payee-panel" id="profilePayeePanelAlipay" data-payee-panel="alipay" hidden>
-                    <div class="profile-meta-line" id="profilePayeeAlipayBound" hidden></div>
-                    <div class="profile-field">
-                        <label data-copy="profile_payee_alipay_name_label">支付宝实名</label>
-                        <input type="text" id="profilePayeeAlipayName" data-copy-placeholder="profile_payee_alipay_name_ph" placeholder="支付宝实名姓名">
-                    </div>
-                    <div class="profile-field">
-                        <label data-copy="profile_payee_alipay_no_label">支付宝账号</label>
-                        <input type="text" id="profilePayeeAlipayNo" data-copy-placeholder="profile_payee_alipay_no_ph" placeholder="手机号 / 邮箱">
-                    </div>
-                    <button type="button" class="btn-uid-submit" onclick="submitProfilePayeeBind('alipay')" data-copy="profile_payee_save_alipay">保存支付宝</button>
-                </div>
-
-                <div class="wallet-payee-panel" id="profilePayeePanelWechat" data-payee-panel="wechat" hidden>
-                    <div class="profile-meta-line" id="profilePayeeWechatBound" hidden></div>
-                    <div class="profile-field">
-                        <label data-copy="profile_payee_wechat_name_label">微信实名</label>
-                        <input type="text" id="profilePayeeWechatName" data-copy-placeholder="profile_payee_wechat_name_ph" placeholder="微信实名姓名">
-                    </div>
-                    <div class="profile-field">
-                        <label data-copy="profile_payee_wechat_no_label">微信号 / 收款账号</label>
-                        <input type="text" id="profilePayeeWechatNo" data-copy-placeholder="profile_payee_wechat_no_ph" placeholder="微信号或绑定手机号">
-                    </div>
-                    <button type="button" class="btn-uid-submit" onclick="submitProfilePayeeBind('wechat')" data-copy="profile_payee_save_wechat">保存微信</button>
                 </div>
 
                 <div class="wallet-payee-panel" id="profilePayeePanelWallet" data-payee-panel="wallet" hidden>

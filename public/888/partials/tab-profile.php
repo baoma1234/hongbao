@@ -62,7 +62,7 @@
                         </span>
                         <span class="profile-menu-main">
                             <strong data-copy="profile_menu_payee">钱包地址</strong>
-                            <small data-copy="profile_menu_payee_sub">绑定银行卡、支付宝、微信与数字钱包</small>
+                            <small data-copy="profile_menu_payee_sub">绑定银行卡与数字钱包</small>
                         </span>
                         <span class="profile-menu-arrow">›</span>
                     </button>
