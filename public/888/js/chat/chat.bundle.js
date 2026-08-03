@@ -2959,10 +2959,22 @@
     if (typeof setBottomActionBarVisible === 'function') setBottomActionBarVisible(false);
     setComposerMuted(false, '', false);
     updateComposerPolicy();
-    // 进群优先拉弹窗（与历史并行，不挡在 history 之后）
+    try { if (typeof ensureConnected === 'function') ensureConnected(); } catch (eConn) {}
+
+    // 进群：弹窗第一优先级，全部看完（或无弹窗）后再拉历史等
     if ((opts.type | 0) === 2) {
-      maybeShowGroupPopups(opts.id | 0);
+      var boxWait = $('chatMsgScroll');
+      if (boxWait && !(state.messages && state.messages.length)) {
+        boxWait.innerHTML = '<div class="chat-empty">加载中…</div>';
+      }
+      try {
+        await maybeShowGroupPopups(opts.id | 0);
+      } catch (ePop) {}
+      if (!state.room || state.room.type !== (opts.type | 0) || String(state.room.id) !== String(opts.id)) {
+        return;
+      }
     }
+
     // 先用本地历史秒开对话框，再拉最新
     var cachedHist = loadHistCache(state.room.type, state.room.id);
     var cacheAge = (cachedHist && cachedHist.at) ? (Date.now() - (cachedHist.at | 0)) : 1e15;
@@ -2998,7 +3010,6 @@
       histPayload.group_id = state.room.id | 0;
       histPayload.with_group = 1;
     }
-    try { if (typeof ensureConnected === 'function') ensureConnected(); } catch (eConn) {}
     var applyHistoryPacket = function (packet) {
       if (!state.room || state.room.type !== (opts.type | 0) || String(state.room.id) !== String(opts.id)) {
         return;
@@ -3108,6 +3119,14 @@
     return el;
   }
 
+  function finishGroupPopupGate() {
+    var done = state.groupPopupGateResolve;
+    state.groupPopupGateResolve = null;
+    if (typeof done === 'function') {
+      try { done(); } catch (eGate) {}
+    }
+  }
+
   function stopGroupPopupCarousel() {
     if (state.groupPopupCarouselTimer) {
       clearInterval(state.groupPopupCarouselTimer);
@@ -3127,6 +3146,7 @@
       state.groupPopupToken = (state.groupPopupToken | 0) + 1;
       state.groupPopupQueue = [];
       state.groupPopupCurrent = null;
+      finishGroupPopupGate();
     }
     var el = $('chatGroupPopupModal');
     if (el) {
@@ -3136,23 +3156,69 @@
     }
   }
 
+  /** 拉取并展示进群弹窗；全部关闭（或无弹窗）后 resolve，供 openRoom 排队历史加载 */
   function maybeShowGroupPopups(groupId) {
     groupId = groupId | 0;
-    if (!groupId) return;
-    state.groupPopupToken = (state.groupPopupToken | 0) + 1;
-    var token = state.groupPopupToken;
-    state.groupPopupQueue = [];
-    state.groupPopupCurrent = null;
-    closeGroupPopupModal(false);
-    try { if (typeof ensureConnected === 'function') ensureConnected(); } catch (eConn2) {}
-    send('group.popup.list', { group_id: groupId }).then(function (packet) {
-      if (token !== state.groupPopupToken) return;
-      if (!state.room || (state.room.type | 0) !== 2 || String(state.room.id) !== String(groupId)) return;
-      var list = (packet && packet.data && packet.data.list) || [];
-      if (!list.length) return;
-      state.groupPopupQueue = list.slice();
-      showNextGroupPopup();
-    }).catch(function () {});
+    finishGroupPopupGate();
+    return new Promise(function (resolve) {
+      if (!groupId) {
+        resolve();
+        return;
+      }
+      state.groupPopupToken = (state.groupPopupToken | 0) + 1;
+      var token = state.groupPopupToken;
+      state.groupPopupQueue = [];
+      state.groupPopupCurrent = null;
+      state.groupPopupGateResolve = resolve;
+      closeGroupPopupModal(false);
+      try { if (typeof ensureConnected === 'function') ensureConnected(); } catch (eConn2) {}
+
+      var settled = false;
+      function settle() {
+        if (settled) return;
+        if (token !== state.groupPopupToken) {
+          settled = true;
+          resolve();
+          return;
+        }
+        settled = true;
+        if (state.groupPopupGateResolve === resolve) {
+          state.groupPopupGateResolve = null;
+        }
+        resolve();
+      }
+
+      // 防止接口卡住导致永远不进群
+      var timer = setTimeout(function () {
+        settle();
+      }, 8000);
+
+      send('group.popup.list', { group_id: groupId }).then(function (packet) {
+        clearTimeout(timer);
+        if (token !== state.groupPopupToken) {
+          settle();
+          return;
+        }
+        if (!state.room || (state.room.type | 0) !== 2 || String(state.room.id) !== String(groupId)) {
+          settle();
+          return;
+        }
+        var list = (packet && packet.data && packet.data.list) || [];
+        if (!list.length) {
+          settle();
+          return;
+        }
+        // 有弹窗：展示完再 settle（finishGroupPopupGate）
+        state.groupPopupGateResolve = function () {
+          settle();
+        };
+        state.groupPopupQueue = list.slice();
+        showNextGroupPopup();
+      }).catch(function () {
+        clearTimeout(timer);
+        settle();
+      });
+    });
   }
 
   function setGroupPopupSlide(idx, animate) {
@@ -3301,6 +3367,7 @@
     if (!item) {
       closeGroupPopupModal(false);
       state.groupPopupCurrent = null;
+      finishGroupPopupGate();
       return;
     }
     state.groupPopupCurrent = item;
