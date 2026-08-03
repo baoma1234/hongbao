@@ -3108,15 +3108,12 @@
     var canRpSend = canSendCapability('rp')
       && policy.can_send_rp !== false
       && policy.rp_robot_only !== true;
-    if (canRpSend) {
-      parts.push('发红包');
-      parts.push('抢红包');
-    }
+    if (canRpSend) parts.push('发抢红包');
     if (canSendCapability('image')) parts.push('发图片');
     if (canSendCapability('video')) parts.push('发视频');
     if (canSendCapability('emoji')) parts.push('发表情');
     if (!parts.length) return '本群禁止发言，仅管理员可发言';
-    return '仅可进行' + parts.join('、') + '操作';
+    return '仅可' + parts.join('、') + '操作';
   }
 
   function applySpeakState(meta) {
