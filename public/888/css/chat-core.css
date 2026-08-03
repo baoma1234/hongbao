@@ -1061,7 +1061,11 @@ body.tab-messages .bottom-action-bar {
   gap: 6px;
   box-shadow: var(--shadow-card);
 }
-.chat-attach-item:active { background: #fff0e0; }
+.chat-attach-item.is-forbid {
+  opacity: 0.38;
+  filter: grayscale(0.35);
+  cursor: not-allowed;
+}
 .chat-attach-icon { font-size: 26px; line-height: 1; }
 
 /* Media bubbles */

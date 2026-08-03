@@ -360,6 +360,12 @@
           id: btn.getAttribute('data-id'),
           peer: parseInt(btn.getAttribute('data-peer'), 10) || 0
         });
+        // 鼠标/笔：不走左滑与长按拦截，避免桌面轻微抖动导致点不进会话
+        if (ev.pointerType && ev.pointerType !== 'touch') {
+          clearLongPress();
+          swipeState = null;
+          return;
+        }
         clearLongPress();
         longPressBtn = btn;
         longPressTimer = setTimeout(function () {
@@ -753,6 +759,11 @@
     if (pickImageBtn && !pickImageBtn._bound) {
       pickImageBtn._bound = true;
       pickImageBtn.onclick = function () {
+        if (pickImageBtn.disabled || pickImageBtn.classList.contains('is-forbid')
+          || (state.room && state.room.type === 2 && typeof canSendCapability === 'function' && !canSendCapability('image'))) {
+          if (typeof showFanshubToast === 'function') showFanshubToast('本群禁止发图', 'error');
+          return;
+        }
         var input = $('chatImageInput');
         if (input) input.click();
       };
@@ -761,6 +772,11 @@
     if (pickVideoBtn && !pickVideoBtn._bound) {
       pickVideoBtn._bound = true;
       pickVideoBtn.onclick = function () {
+        if (pickVideoBtn.disabled || pickVideoBtn.classList.contains('is-forbid')
+          || (state.room && state.room.type === 2 && typeof canSendCapability === 'function' && !canSendCapability('video'))) {
+          if (typeof showFanshubToast === 'function') showFanshubToast('本群禁止发视频', 'error');
+          return;
+        }
         var input = $('chatVideoInput');
         if (input) input.click();
       };

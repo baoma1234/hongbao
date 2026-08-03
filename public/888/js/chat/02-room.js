@@ -2015,8 +2015,8 @@
     var policy = groupPolicy();
     var rpBtn = $('chatAttachRpBtn');
     var tfBtn = $('chatAttachTransferBtn');
-    var imgBtn = $('chatAttachImageBtn') || document.querySelector('[data-attach="image"]');
-    var vidBtn = $('chatAttachVideoBtn') || document.querySelector('[data-attach="video"]');
+    var imgBtn = $('chatPickImageBtn') || $('chatAttachImageBtn') || document.querySelector('[data-attach="image"]');
+    var vidBtn = $('chatPickVideoBtn') || $('chatAttachVideoBtn') || document.querySelector('[data-attach="video"]');
     var emojiBtn = $('chatEmojiBtn');
     var isGroup = !!(state.room && state.room.type === 2);
     var isPrivate = !!(state.room && state.room.type === 1);
@@ -2027,14 +2027,31 @@
       if (isGroup) {
         var blockRp = policy.can_send_rp === false || policy.rp_robot_only === true || !canSendCapability('rp');
         rpBtn.style.display = blockRp ? 'none' : '';
+        rpBtn.disabled = !!blockRp;
+        rpBtn.classList.toggle('is-forbid', !!blockRp);
       } else {
         rpBtn.style.display = '';
+        rpBtn.disabled = false;
+        rpBtn.classList.remove('is-forbid');
       }
     }
-    if (imgBtn) imgBtn.style.display = canImage ? '' : 'none';
-    if (vidBtn) vidBtn.style.display = canVideo ? '' : 'none';
+    if (imgBtn) {
+      imgBtn.style.display = '';
+      imgBtn.disabled = false;
+      imgBtn.classList.toggle('is-forbid', !canImage);
+      imgBtn.setAttribute('aria-disabled', canImage ? '0' : '1');
+      imgBtn.title = canImage ? '' : '本群禁止发图';
+    }
+    if (vidBtn) {
+      vidBtn.style.display = '';
+      vidBtn.disabled = false;
+      vidBtn.classList.toggle('is-forbid', !canVideo);
+      vidBtn.setAttribute('aria-disabled', canVideo ? '0' : '1');
+      vidBtn.title = canVideo ? '' : '本群禁止发视频';
+    }
     if (emojiBtn) {
       emojiBtn.style.opacity = canEmoji ? '' : '0.4';
+      emojiBtn.disabled = false;
       emojiBtn.setAttribute('data-forbid-emoji', canEmoji ? '0' : '1');
     }
     if (tfBtn) {
