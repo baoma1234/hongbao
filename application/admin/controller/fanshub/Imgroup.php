@@ -133,6 +133,7 @@ class Imgroup extends Backend
                     'max_members'   => 500,
                     'is_recommend'  => ((int)($params['is_recommend'] ?? 0) === 1) ? 1 : 0,
                     'weigh'         => (int)($params['weigh'] ?? 0),
+                    'rp_enabled_types' => '1,2,3,4',
                     'status'        => 1,
                     'createtime'    => $now,
                     'updatetime'    => $now,
@@ -197,13 +198,13 @@ class Imgroup extends Backend
                 $chatMode = in_array(($params['chat_mode'] ?? ''), ['chat', 'grab'], true)
                     ? $params['chat_mode'] : ($row['chat_mode'] ?? 'chat');
                 $finalStatus = ($status === 2) ? 2 : (($chatMode === 'grab') ? 3 : 1);
-                $enabledTypes = $params['rp_enabled_types'] ?? '2,3';
+                $enabledTypes = $params['rp_enabled_types'] ?? '1,2,3,4';
                 if (is_array($enabledTypes)) {
                     $enabledTypes = implode(',', array_map('intval', $enabledTypes));
                 }
                 $enabledTypes = preg_replace('/[^0-9,]/', '', (string)$enabledTypes);
                 if ($enabledTypes === '') {
-                    $enabledTypes = '2,3';
+                    $enabledTypes = '1,2,3,4';
                 }
                 $rpMinCount = max(1, (int)($params['rp_min_count'] ?? $row['rp_min_count'] ?? 5));
                 $rpMaxCount = max($rpMinCount, (int)($params['rp_max_count'] ?? $row['rp_max_count'] ?? 10));

@@ -278,12 +278,18 @@ class RedPacketService
 
         Db::begin();
         try {
-            // 发包人一次扣 total_amount；其中 platform_fee 入平台户，pool 进可抢池
+            // 发包人一次扣 total_amount；流水记在 from_user_id（含机器人代扣/接龙代扣）
+            $sendRemark = '发红包扣款 ' . $packetNo;
+            if (!empty($params['robot_relay'])) {
+                $sendRemark = '拼手气接龙发包扣款 ' . $packetNo;
+            } elseif (!empty($params['robot_send'])) {
+                $sendRemark = '代发红包扣款 ' . $packetNo;
+            }
             $this->wallet->change(
                 $fromUserId,
                 -$totalAmount,
                 'red_packet_send',
-                '发红包扣款 ' . $packetNo,
+                $sendRemark,
                 ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => 0]
             );
             if ($platformFee > 0) {
@@ -841,7 +847,7 @@ class RedPacketService
         } elseif ($totalCount < $minCount || $totalCount > $maxCount) {
             throw new \InvalidArgumentException("count must be {$minCount}-{$maxCount}");
         }
-        $enabled = (string)($group['rp_enabled_types'] ?? '2,3');
+        $enabled = (string)($group['rp_enabled_types'] ?? '1,2,3,4');
         $allowed = array_filter(array_map('intval', explode(',', $enabled)));
         if ($allowed && !in_array((int)$packetType, $allowed, true)) {
             throw new \InvalidArgumentException('packet type not allowed in this group');
@@ -1482,6 +1488,7 @@ class RedPacketService
                     'blessing'     => (string)($packet['blessing'] ?? '恭喜发财'),
                     'robot_send'   => true,
                     'trusted_robot'=> true,
+                    'robot_relay'  => true,
                 ]);
                 // 标记上一包最差赔付已通过「续发扣款」完成（流水=red_packet_send，user=最差）
                 try {

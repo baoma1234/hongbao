@@ -116,13 +116,12 @@ class GroupService
             Db::rollBack();
             throw $e;
         }
-        // 聊天模式用户群默认普通+随机；红宝对战群默认拼手气+埋雷
+        // 前端建群：四种红包类型默认全部开启
         try {
-            $enabledTypes = ($chatMode === 'grab') ? '2,3' : '1,4';
             Db::exec(
                 'UPDATE ' . Db::table('chat_groups')
                 . ' SET rp_enabled_types=?, updatetime=? WHERE id=?',
-                [$enabledTypes, time(), $groupId]
+                ['1,2,3,4', time(), $groupId]
             );
         } catch (\Throwable $eTypes) {
         }
@@ -831,7 +830,7 @@ class GroupService
         if ($fixedAmount < 0) {
             $fixedAmount = 0.0;
         }
-        $enabledTypes = (string)($group['rp_enabled_types'] ?? '2,3');
+        $enabledTypes = (string)($group['rp_enabled_types'] ?? '1,2,3,4');
         // 仅自动任务/后台代发可发包时，前台任何人（含群主）都不可发
         $canSendRp = $robotOnly ? false : ($isGrab ? ($role >= 2) : true);
         return [
