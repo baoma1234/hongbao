@@ -4950,6 +4950,22 @@
     }
   }
 
+  function syncRpTypeDesc() {
+    var el = $('chatRpTypeDesc');
+    if (!el) return;
+    var type = getRpPacketType();
+    var isGroup = !!(state.room && state.room.type === 2);
+    // 仅群聊 + 拼手气时展示简介（多语言文案，后台 H5 文案可改）
+    if (isGroup && type === 2) {
+      el.hidden = false;
+      el.style.display = '';
+      el.textContent = chatT('chat_rp_type_lucky_desc') || '拼手气红包：金额随机分配，手气越好领得越多。';
+    } else {
+      el.hidden = true;
+      el.style.display = 'none';
+    }
+  }
+
   function syncRpMineField() {
     var wrap = $('chatRpMineWrap');
     if (!wrap) return;
@@ -4963,6 +4979,7 @@
       wrap.style.display = 'none';
     }
     syncRpCountField();
+    syncRpTypeDesc();
   }
 
   function updateRpPreview() {
@@ -5066,6 +5083,7 @@
       }
       var hint = $('chatRpCountHint');
       if (hint) hint.textContent = '私聊红包仅对方可领 · 无手续费';
+      try { syncRpTypeDesc(); } catch (eDesc) {}
     } else {
       // 群聊：按本群最少/最多刷新个数区
       try { syncRpMineField(); } catch (eMine) {}
@@ -6190,6 +6208,7 @@
         rpTypeTabs.querySelectorAll('.chat-rp-type-btn').forEach(function (b) {
           b.classList.toggle('active', b === btn);
         });
+        try { syncRpMineField(); } catch (eType) {}
         updateRpPreview();
       });
     }

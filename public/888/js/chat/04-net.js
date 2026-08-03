@@ -887,6 +887,7 @@
         rpTypeTabs.querySelectorAll('.chat-rp-type-btn').forEach(function (b) {
           b.classList.toggle('active', b === btn);
         });
+        try { syncRpMineField(); } catch (eType) {}
         updateRpPreview();
       });
     }

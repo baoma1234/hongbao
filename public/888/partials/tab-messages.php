@@ -550,6 +550,7 @@
                                     <button type="button" class="chat-rp-type-btn" data-type="1" data-copy="chat_rp_type_avg">普通红包</button>
                                     <button type="button" class="chat-rp-type-btn" data-type="4" data-copy="chat_rp_type_random">随机红包</button>
                                 </div>
+                                <div class="chat-rp-field-hint chat-rp-type-desc" id="chatRpTypeDesc" data-copy="chat_rp_type_lucky_desc">拼手气红包：金额随机分配，手气越好领得越多。</div>
                             </div>
 
                             <div class="chat-rp-field chat-rp-mine-card" id="chatRpMineWrap" hidden>

@@ -2917,6 +2917,10 @@ body.chat-room-open .bottom-action-bar {
   line-height: 1.4;
   color: #a89888;
 }
+.chat-rp-type-desc {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 .chat-rp-field.is-private #chatRpCount {
   opacity: 0.55;
   pointer-events: none;

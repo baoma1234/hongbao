@@ -805,6 +805,7 @@ return array (
   'chat_rp_count_hint' => '按本群配置显示个数范围或固定个数',
   'chat_rp_type_label' => '红包类型',
   'chat_rp_type_lucky' => '拼手气',
+  'chat_rp_type_lucky_desc' => '拼手气红包：金额随机分配，手气越好领得越多。',
   'chat_rp_type_avg' => '普通红包',
   'chat_rp_type_mine' => '埋雷',
   'chat_rp_type_random' => '随机红包',
