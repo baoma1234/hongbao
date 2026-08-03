@@ -2025,6 +2025,13 @@ class RedPacketService
                 break;
             }
         }
+        // 未领完（进行中）不公开领取历史，避免未拆完就看到谁领了多少；领完/过期/结算后再展示
+        $remainCount = (int)($packet['remain_count'] ?? 0);
+        $status = (int)($packet['status'] ?? 0);
+        $claimsVisible = ($remainCount <= 0) || in_array($status, [2, 3, 4, 5], true);
+        if (!$claimsVisible) {
+            $records = [];
+        }
         // 详情页不拉钱包余额（抢包接口会回写）；省一次账户表查询
         $balance = null;
         $policy = null;
@@ -2080,6 +2087,7 @@ class RedPacketService
             'packet'             => $this->sanitizePacketFair($packet),
             'records'            => $enriched,
             'mine'               => $mine,
+            'claims_visible'     => $claimsVisible,
             'balance'            => $balance,
             'wallet'             => $this->wallet->field(),
             'profile_clickable'  => $profileClickable,

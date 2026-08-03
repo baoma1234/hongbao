@@ -2258,13 +2258,28 @@
       var rows = data.records || [];
       var ptype2 = (p.packet_type | 0);
       var settled = (p.status | 0) === 5;
+      var remainN = (p.remain_count | 0);
+      var stPkt = (p.status | 0);
+      // 未领完不展示领取历史（优先服务端 claims_visible）
+      var claimsVisible = data.claims_visible;
+      if (claimsVisible == null) {
+        claimsVisible = remainN <= 0 || stPkt === 2 || stPkt === 3 || stPkt === 4 || stPkt === 5;
+      } else {
+        claimsVisible = !!claimsVisible;
+      }
       if (ptype2 === 3 && settled && head) {
         var hitN = rows.filter(function (r) { return (r.is_mine_hit | 0) === 1; }).length;
         var sumCls = hitN > 0 ? 'chat-rp-mine-summary' : 'chat-rp-mine-summary is-safe';
         var sumText = hitN > 0 ? ('本局中雷 ' + hitN + ' 人') : '本局无人中雷';
         head.insertAdjacentHTML('beforeend', '<div class="' + sumCls + '">' + sumText + '</div>');
       }
-      if (!rows.length) {
+      if (!claimsVisible) {
+        var hideTip = chatT('chat_rp_claims_after_finish');
+        if (!hideTip || hideTip === 'chat_rp_claims_after_finish') {
+          hideTip = '红包领完后可查看领取详情';
+        }
+        list.innerHTML = '<div class="chat-empty chat-rp-claims-hidden">' + escapeHtml(hideTip) + '</div>';
+      } else if (!rows.length) {
         list.innerHTML = '<div class="chat-empty">' + escapeHtml(chatT('chat_no_claims')) + '</div>';
       } else {
         list.innerHTML = rows.map(function (r) {

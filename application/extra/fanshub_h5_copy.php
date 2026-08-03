@@ -480,6 +480,7 @@ return array (
   'chat_rp_admin_only' => '红宝模式下仅管理员可发红包',
   'chat_rp_type_not_allowed' => '本群不支持该红包类型',
   'chat_rp_only_recipient' => '私聊红包仅对方可领取',
+  'chat_rp_claims_after_finish' => '红包领完后可查看领取详情',
   'profile_uid_copy_btn' => '复制',
   'profile_uid_copied' => '会员ID已复制',
   'profile_uid_copy_empty' => '暂无会员ID',
