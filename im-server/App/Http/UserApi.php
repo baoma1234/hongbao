@@ -540,7 +540,11 @@ class UserApi extends UserReadApi
                 }
             }
         }
-        $group = $this->groups->setForbidModes($groupId, $uid, $flags);
+        $opts = [];
+        if (array_key_exists('forbid_speak_hint', $body)) {
+            $opts['forbid_speak_hint'] = $body['forbid_speak_hint'];
+        }
+        $group = $this->groups->setForbidModes($groupId, $uid, $flags, $opts);
         $forbids = $this->groups->parseForbidModes($group ?: []);
         $uids = $this->groups->onlineMemberIds($groupId);
         if ($uids) {

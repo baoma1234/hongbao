@@ -578,10 +578,14 @@
     var forbidList = $('chatForbidModesList');
     if (forbidList && !forbidList._bound) {
       forbidList._bound = true;
-      forbidList.addEventListener('change', function (ev) {
-        if (!ev.target || !ev.target.getAttribute('data-forbid')) return;
+      // 勾选后不再自动保存，需点「保存禁止设置」（含禁言提示文案）
+    }
+    var forbidSaveBtn = $('chatForbidModesSaveBtn');
+    if (forbidSaveBtn && !forbidSaveBtn._bound) {
+      forbidSaveBtn._bound = true;
+      forbidSaveBtn.onclick = function () {
         if (typeof saveGroupForbidModes === 'function') saveGroupForbidModes();
-      });
+      };
     }
     var leaveBtn = $('chatGroupLeaveBtn');
     if (leaveBtn && !leaveBtn._bound) {

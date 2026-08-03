@@ -189,4 +189,10 @@ return array (
   'chat_view_members' => 'Xem thành viên',
   'chat_no_candidates' => 'Không có người dùng để thêm',
   'chat_member_search_ph' => 'Tìm biệt danh / ID',
+  'chat_forbid_modes_title' => 'Chế độ cấm',
+  'chat_forbid_speak_hint_label' => 'Gợi ý ô nhập khi cấm chữ',
+  'chat_forbid_speak_hint_ph' => 'Để trống sẽ tự tạo, vd: Chỉ gửi/nhận bao',
+  'chat_forbid_speak_hint_help' => 'Hiện trong ô chat khi cấm chữ; trống = tự theo thao tác còn cho phép',
+  'chat_forbid_modes_save' => 'Lưu cài đặt cấm',
+  'chat_forbid_modes_saved' => 'Đã cập nhật cài đặt cấm',
 );

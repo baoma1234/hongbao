@@ -189,4 +189,10 @@ return array (
   'chat_view_members' => 'Lihat anggota',
   'chat_no_candidates' => 'Tidak ada pengguna untuk ditambahkan',
   'chat_member_search_ph' => 'Cari nama panggilan / ID',
+  'chat_forbid_modes_title' => 'Mode larangan',
+  'chat_forbid_speak_hint_label' => 'Petunjuk input saat dibisukan',
+  'chat_forbid_speak_hint_ph' => 'Kosongkan untuk otomatis, mis. Hanya red packet',
+  'chat_forbid_speak_hint_help' => 'Tampil di kotak chat saat teks dilarang; kosong = otomatis',
+  'chat_forbid_modes_save' => 'Simpan pengaturan larangan',
+  'chat_forbid_modes_saved' => 'Pengaturan larangan diperbarui',
 );

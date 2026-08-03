@@ -984,6 +984,7 @@ class GroupService
             'can_send_emoji'     => $isAdmin || empty($forbids['emoji']),
             'can_send_video'     => $isAdmin || empty($forbids['video']),
             'forbid_modes'       => $forbids,
+            'forbid_speak_hint'  => trim((string)($group['forbid_speak_hint'] ?? '')),
             'rp_robot_only'      => $robotOnly,
             'rp_fixed_amount'    => $fixedAmount,
             'rp_enabled_types'   => $enabledTypes,
@@ -1188,8 +1189,9 @@ class GroupService
     /**
      * 设置群禁止模式（多选）；不影响管理员
      * @param array<string,bool|int|string> $flags
+     * @param array $opts 可选 forbid_speak_hint
      */
-    public function setForbidModes($groupId, $operatorId, array $flags)
+    public function setForbidModes($groupId, $operatorId, array $flags, array $opts = [])
     {
         $this->assertCanModerate($groupId, $operatorId, 0);
         $group = $this->get($groupId);
@@ -1203,9 +1205,16 @@ class GroupService
         $encoded = $this->encodeForbidModes($norm);
         $speechAll = !empty($norm['text']) && !empty($norm['image']) && !empty($norm['emoji']) && !empty($norm['video']);
         $status = $speechAll ? 3 : 1;
+        $sets = ['forbid_modes=?', 'status=?', 'updatetime=?'];
+        $bind = [$encoded, $status, time()];
+        if (array_key_exists('forbid_speak_hint', $opts)) {
+            $sets[] = 'forbid_speak_hint=?';
+            $bind[] = mb_substr(trim((string)$opts['forbid_speak_hint']), 0, 120);
+        }
+        $bind[] = (int)$groupId;
         Db::exec(
-            'UPDATE ' . Db::table('chat_groups') . ' SET forbid_modes=?, status=?, updatetime=? WHERE id=?',
-            [$encoded, $status, time(), (int)$groupId]
+            'UPDATE ' . Db::table('chat_groups') . ' SET ' . implode(', ', $sets) . ' WHERE id=?',
+            $bind
         );
         $this->bumpViewerInfoCache($groupId);
         return $this->get($groupId);
@@ -1432,6 +1441,10 @@ class GroupService
         if (isset($data['display_member_count'])) {
             $sets[] = 'display_member_count=?';
             $bind[] = max(0, (int)$data['display_member_count']);
+        }
+        if (array_key_exists('forbid_speak_hint', $data)) {
+            $sets[] = 'forbid_speak_hint=?';
+            $bind[] = mb_substr(trim((string)$data['forbid_speak_hint']), 0, 120);
         }
         if (!$sets) {
             return $group;

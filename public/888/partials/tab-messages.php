@@ -382,6 +382,10 @@
                             <label class="chat-forbid-item"><input type="checkbox" data-forbid="video"> <span>禁止发视频</span></label>
                             <label class="chat-forbid-item"><input type="checkbox" data-forbid="rp"> <span>禁止发红包</span></label>
                         </div>
+                        <label class="chat-setting-label" for="chatForbidSpeakHintInput" data-copy="chat_forbid_speak_hint_label">禁言输入提示</label>
+                        <input type="text" class="chat-setting-input" id="chatForbidSpeakHintInput" maxlength="120" data-copy-placeholder="chat_forbid_speak_hint_ph" placeholder="留空则自动生成，如：仅可发/抢红包操作">
+                        <div class="chat-setting-hint" data-copy="chat_forbid_speak_hint_help">禁止发文字时输入框显示的文案；留空按允许操作自动生成</div>
+                        <button type="button" class="chat-setting-save-btn" id="chatForbidModesSaveBtn" data-copy="chat_forbid_modes_save" style="margin-top:8px">保存禁止设置</button>
                         <div class="chat-setting-hint">可多选或全不选，不影响管理员</div>
                     </div>
                     <button type="button" class="chat-setting-leave-btn" id="chatGroupLeaveBtn" data-copy="chat_group_leave">退出群组</button>

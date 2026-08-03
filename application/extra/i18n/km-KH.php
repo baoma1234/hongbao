@@ -189,4 +189,10 @@ return array (
   'chat_view_members' => 'មើលសមាជិក',
   'chat_no_candidates' => 'គ្មានអ្នកប្រើប្រាស់សម្រាប់បន្ថែម',
   'chat_member_search_ph' => 'ស្វែងរក ឈ្មោះហៅ / ID',
+  'chat_forbid_modes_title' => 'របៀបហាម',
+  'chat_forbid_speak_hint_label' => 'អត្ថបទណែនាំពេលហាមអក្សរ',
+  'chat_forbid_speak_hint_ph' => 'ទុកទទេសម្រាប់បង្កើតស្វ័យប្រវត្តិ',
+  'chat_forbid_speak_hint_help' => 'បង្ហាញក្នុងប្រអប់ជជែកពេលហាមអក្សរ',
+  'chat_forbid_modes_save' => 'រក្សាទុកការកំណត់ហាម',
+  'chat_forbid_modes_saved' => 'បានធ្វើបច្ចុប្បន្នភាព',
 );

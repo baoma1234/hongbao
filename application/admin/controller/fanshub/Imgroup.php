@@ -240,6 +240,7 @@ class Imgroup extends Backend
                     'privacy_mode'         => $privacy,
                     'chat_mode'            => $chatMode,
                     'forbid_modes'         => mb_substr($forbidCsv, 0, 64),
+                    'forbid_speak_hint'    => mb_substr(trim((string)($params['forbid_speak_hint'] ?? $row['forbid_speak_hint'] ?? '')), 0, 120),
                     'is_recommend'         => ((int)($params['is_recommend'] ?? 0) === 1) ? 1 : 0,
                     'weigh'                => (int)($params['weigh'] ?? ($row['weigh'] ?? 0)),
                     'is_vip_group'         => ((int)($params['is_vip_group'] ?? 0) === 1) ? 1 : 0,

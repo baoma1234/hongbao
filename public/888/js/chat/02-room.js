@@ -1951,14 +1951,17 @@
     if (sendBtn) sendBtn.disabled = !!muted;
   }
 
-  /** 禁止发文字时：按仍允许的能力生成输入框提示 */
+  /** 禁止发文字时输入框提示：优先群自定义，否则按仍允许能力自动生成 */
   function buildForbidSpeakPlaceholder() {
-    var parts = [];
     var policy = groupPolicy();
+    var g = (state.groupMeta && state.groupMeta.group) || {};
+    var custom = String(policy.forbid_speak_hint || g.forbid_speak_hint || '').trim();
+    if (custom) return custom;
+    var parts = [];
     var canRpSend = canSendCapability('rp')
       && policy.can_send_rp !== false
       && policy.rp_robot_only !== true;
-    if (canRpSend) parts.push('发抢红包');
+    if (canRpSend) parts.push('发/抢红包');
     if (canSendCapability('image')) parts.push('发图片');
     if (canSendCapability('video')) parts.push('发视频');
     if (canSendCapability('emoji')) parts.push('发表情');
@@ -2296,6 +2299,14 @@
         inp.checked = !!fm[k];
         inp.disabled = !canEdit;
       });
+      var hintInput = $('chatForbidSpeakHintInput');
+      if (hintInput) {
+        var hint = String(policy.forbid_speak_hint || g.forbid_speak_hint || '').trim();
+        hintInput.value = hint;
+        hintInput.disabled = !canEdit;
+      }
+      var hintSave = $('chatForbidModesSaveBtn');
+      if (hintSave) hintSave.disabled = !canEdit;
     }
     if (editBlock) editBlock.style.display = canEdit ? '' : 'none';
     if (nameInput && canEdit) nameInput.value = g.name || '';
@@ -2715,10 +2726,13 @@
       var k = inp.getAttribute('data-forbid');
       if (flags[k] != null) flags[k] = inp.checked ? 1 : 0;
     });
+    var hintInput = $('chatForbidSpeakHintInput');
+    var hint = hintInput ? String(hintInput.value || '').trim() : '';
     try {
       var packet = await send('group.set_forbid', {
         group_id: state.room.id | 0,
-        forbid_modes: flags
+        forbid_modes: flags,
+        forbid_speak_hint: hint
       });
       if (packet.data) {
         state.groupMeta = mergeGroupMeta(Object.assign({}, state.groupMeta || {}, packet.data));
@@ -2726,7 +2740,7 @@
         updateComposerPolicy();
         renderGroupSettings();
       }
-      if (typeof showFanshubToast === 'function') showFanshubToast('禁止模式已更新', 'success');
+      if (typeof showFanshubToast === 'function') showFanshubToast(chatT('chat_forbid_modes_saved') || '禁止设置已更新', 'success');
     } catch (e) {
       if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '操作失败', 'error');
       renderGroupSettings();

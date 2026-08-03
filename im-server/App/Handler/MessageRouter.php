@@ -691,6 +691,9 @@ class MessageRouter
         if (array_key_exists('notice', $payload)) {
             $data['notice'] = (string)$payload['notice'];
         }
+        if (array_key_exists('forbid_speak_hint', $payload)) {
+            $data['forbid_speak_hint'] = (string)$payload['forbid_speak_hint'];
+        }
         if (array_key_exists('avatar', $payload)) {
             $data['avatar'] = (string)$payload['avatar'];
         }
@@ -1140,7 +1143,11 @@ class MessageRouter
                 }
             }
         }
-        $group = $this->groups->setForbidModes($groupId, $uid, $flags);
+        $opts = [];
+        if (array_key_exists('forbid_speak_hint', $payload)) {
+            $opts['forbid_speak_hint'] = $payload['forbid_speak_hint'];
+        }
+        $group = $this->groups->setForbidModes($groupId, $uid, $flags, $opts);
         $forbids = $this->groups->parseForbidModes($group ?: []);
         $role = $this->groups->memberRole($groupId, $uid);
         $opName = $this->groups->displayName($uid);
