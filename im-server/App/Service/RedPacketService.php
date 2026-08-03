@@ -402,7 +402,19 @@ class RedPacketService
             'proof_type'     => in_array($packetType, [2, 3], true) ? 'tron' : '',
         ];
         if ($scopeType === 2) {
-            $msg = $this->messages->sendGroup($fromUserId, $groupId, '[红包]' . $blessing, 2, $extra);
+            try {
+                $msg = $this->messages->sendGroup($fromUserId, $groupId, '[红包]' . $blessing, 2, $extra);
+            } catch (\Throwable $eMsg) {
+                // 扣款已提交：绝不能因发言限制导致无卡片；再强制落一条红包消息
+                error_log('[RP_SEND] sendGroup fail after debit packet=' . $packetId . ' ' . $eMsg->getMessage());
+                $msg = $this->messages->insertGroupMessageUnchecked(
+                    $fromUserId,
+                    $groupId,
+                    '[红包]' . $blessing,
+                    2,
+                    $extra
+                );
+            }
         } else {
             $msg = $this->messages->sendPrivate($fromUserId, $toUserId, '[红包]' . $blessing, 2, $extra);
         }

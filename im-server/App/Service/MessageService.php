@@ -30,6 +30,29 @@ class MessageService
         ]);
     }
 
+    /**
+     * 插入群消息且不校验发言权限（红包扣款已成功后的兜底落库）
+     */
+    public function insertGroupMessageUnchecked($fromUserId, $groupId, $content, $msgType = 1, $extra = null)
+    {
+        $fromUserId = (int)$fromUserId;
+        $groupId = (int)$groupId;
+        if ($fromUserId <= 0 || $groupId <= 0) {
+            throw new \InvalidArgumentException('invalid group chat');
+        }
+        list($content, $msgType, $extra) = $this->prepareOutgoing($content, $msgType, $extra);
+        return $this->insertMessage([
+            'conversation_type' => 2,
+            'conversation_id'   => (string)$groupId,
+            'group_id'          => $groupId,
+            'from_user_id'      => $fromUserId,
+            'to_user_id'        => 0,
+            'msg_type'          => (int)$msgType,
+            'content'           => $content,
+            'extra'             => $extra,
+        ]);
+    }
+
     public function sendGroup($fromUserId, $groupId, $content, $msgType = 1, $extra = null)
     {
         $fromUserId = (int)$fromUserId;
@@ -38,15 +61,20 @@ class MessageService
             throw new \InvalidArgumentException('invalid group chat');
         }
         list($content, $msgType, $extra) = $this->prepareOutgoing($content, $msgType, $extra);
-        $mode = GroupService::msgTypeToForbidMode((int)$msgType);
-        (new GroupService())->assertCanSpeak($groupId, $fromUserId, $mode);
+        $msgType = (int)$msgType;
+        // msg_type=2 红包：权限已在 RedPacketService::assertCanSendGroupRedPacket 校验；
+        // 禁止发言(text)时仍须能发红包，不可再走 assertCanSpeak→text
+        if ($msgType !== 2) {
+            $mode = GroupService::msgTypeToForbidMode($msgType);
+            (new GroupService())->assertCanSpeak($groupId, $fromUserId, $mode);
+        }
         return $this->insertMessage([
             'conversation_type' => 2,
             'conversation_id'   => (string)$groupId,
             'group_id'          => $groupId,
             'from_user_id'      => $fromUserId,
             'to_user_id'        => 0,
-            'msg_type'          => (int)$msgType,
+            'msg_type'          => $msgType,
             'content'           => $content,
             'extra'             => $extra,
         ]);

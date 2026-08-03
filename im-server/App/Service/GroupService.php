@@ -673,6 +673,10 @@ class GroupService
     public static function msgTypeToForbidMode($msgType)
     {
         $msgType = (int)$msgType;
+        // 红包卡片：走 assertCanSendGroupRedPacket，不按「禁止发言」拦截
+        if ($msgType === 2) {
+            return 'rp';
+        }
         if ($msgType === 4 || $msgType === 7) {
             return 'image';
         }
