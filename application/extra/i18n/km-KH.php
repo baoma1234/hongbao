@@ -181,4 +181,5 @@ return array (
   'chat_friend_need_accept' => 'You can message after they accept',
   'chat_friend_title' => 'Friend {id}',
   'chat_friend_req_fail' => 'Action failed',
+  'chat_friend_req_entry_sub' => 'View received and sent requests',
 );

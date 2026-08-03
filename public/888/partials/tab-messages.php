@@ -223,6 +223,17 @@
                         <span class="chat-hero-spacer"></span>
                     </div>
                     <div class="chat-sub-main">
+                        <button type="button" class="chat-add-friend-req-link" id="chatAddFriendReqLink">
+                            <span class="chat-add-friend-req-link-ico" aria-hidden="true">
+                                <img src="img/chat/plus_friend_req.png" width="28" height="28" alt="" decoding="async">
+                            </span>
+                            <span class="chat-add-friend-req-link-body">
+                                <span class="chat-add-friend-req-link-title" data-copy="chat_friend_req_entry">好友申请</span>
+                                <span class="chat-add-friend-req-link-sub" data-copy="chat_friend_req_entry_sub">查看收到与发出的申请</span>
+                            </span>
+                            <span class="chat-friend-req-badge chat-add-friend-req-badge" id="chatAddFriendReqBadge" style="display:none;">0</span>
+                            <span class="chat-add-friend-req-link-arrow" aria-hidden="true">›</span>
+                        </button>
                         <div class="chat-add-friend-card">
                             <label class="chat-setting-label" data-copy="chat_add_friend_phone_label">对方手机号</label>
                             <div class="chat-add-friend-phone-row">

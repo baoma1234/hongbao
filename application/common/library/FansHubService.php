@@ -714,6 +714,7 @@ class FansHubService
                 'chat_add_friend_submit' => '查找并申请',
                 'chat_create_group_btn' => '建群',
                 'chat_friend_req_entry' => '好友申请入口',
+                'chat_friend_req_entry_sub' => '添加好友页-申请入口副标题',
                 'chat_friend_req_title' => '好友申请标题',
                 'chat_friend_req_incoming' => '收到的',
                 'chat_friend_req_outgoing' => '发出的',

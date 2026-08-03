@@ -1551,6 +1551,67 @@ body.tab-messages .bottom-action-bar {
   border-radius: var(--radius-md);
   padding: 16px 14px;
 }
+.chat-add-friend-req-link {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border-warm);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-card-warm);
+  color: var(--color-text-main);
+  text-align: left;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+.chat-add-friend-req-link:active { opacity: 0.88; }
+.chat-add-friend-req-link-ico {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(232, 74, 69, 0.08);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.chat-add-friend-req-link-ico img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  display: block;
+}
+.chat-add-friend-req-link-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.chat-add-friend-req-link-title {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.chat-add-friend-req-link-sub {
+  font-size: 12px;
+  color: var(--color-text-hint);
+  line-height: 1.35;
+}
+.chat-add-friend-req-badge {
+  flex: 0 0 auto;
+  background: #e84a45;
+  color: #fff;
+}
+.chat-add-friend-req-link-arrow {
+  flex: 0 0 auto;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--color-text-hint);
+  font-weight: 300;
+}
 .chat-add-friend-phone-row {
   display: flex;
   gap: 8px;

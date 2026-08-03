@@ -527,6 +527,7 @@ return array (
   'chat_create_group_btn' => '建群',
   'chat_friend_req_empty' => '暂无申请',
   'chat_friend_req_entry' => '好友申请',
+  'chat_friend_req_entry_sub' => '查看收到与发出的申请',
   'chat_friend_req_incoming' => '收到的',
   'chat_friend_req_outgoing' => '发出的',
   'chat_friend_req_title' => '好友申请',

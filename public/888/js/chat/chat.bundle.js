@@ -6288,6 +6288,7 @@
     var uid = $('chatAddFriendUserId');
     if (uid) uid.value = '';
     openSubPane('chatAddFriendPane');
+    refreshFriendRequests().catch(function () {});
   }
 
   function closeAddFriendPane() {
@@ -6450,14 +6451,17 @@
 
   function updateFriendReqBadge(n) {
     n = n | 0;
-    var badge = $('chatFriendReqBadge');
-    if (!badge) return;
-    if (n > 0) {
-      badge.style.display = '';
-      badge.textContent = n > 99 ? '99+' : String(n);
-    } else {
-      badge.style.display = 'none';
-    }
+    var text = n > 99 ? '99+' : String(n);
+    ['chatFriendReqBadge', 'chatAddFriendReqBadge'].forEach(function (id) {
+      var badge = $(id);
+      if (!badge) return;
+      if (n > 0) {
+        badge.style.display = '';
+        badge.textContent = text;
+      } else {
+        badge.style.display = 'none';
+      }
+    });
   }
 
   function refreshFriendRequests(force) {
@@ -6670,6 +6674,13 @@
       reqEntry._bound = true;
       reqEntry.onclick = function () {
         closePlusMenu();
+        openFriendReqPane('incoming');
+      };
+    }
+    var addFriendReqLink = $('chatAddFriendReqLink');
+    if (addFriendReqLink && !addFriendReqLink._bound) {
+      addFriendReqLink._bound = true;
+      addFriendReqLink.onclick = function () {
         openFriendReqPane('incoming');
       };
     }
