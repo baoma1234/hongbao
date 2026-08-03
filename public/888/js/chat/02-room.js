@@ -1809,6 +1809,10 @@
     if (typeof setBottomActionBarVisible === 'function') setBottomActionBarVisible(false);
     setComposerMuted(false, '', false);
     updateComposerPolicy();
+    // 进群优先拉弹窗（与历史并行，不挡在 history 之后）
+    if ((opts.type | 0) === 2) {
+      maybeShowGroupPopups(opts.id | 0);
+    }
     // 先用本地历史秒开对话框，再拉最新
     var cachedHist = loadHistCache(state.room.type, state.room.id);
     var cacheAge = (cachedHist && cachedHist.at) ? (Date.now() - (cachedHist.at | 0)) : 1e15;
@@ -1871,17 +1875,11 @@
       var lastCached = state.messages.length ? state.messages[state.messages.length - 1] : null;
       markRead(state.room.type, state.room.id, lastCached ? lastCached.id : 0);
       send('history', histPayload).then(applyHistoryPacket).catch(function () {});
-      if ((opts.type | 0) === 2) {
-        maybeShowGroupPopups(opts.id | 0);
-      }
       return;
     }
     try {
       var packet = await send('history', histPayload);
       applyHistoryPacket(packet);
-      if ((opts.type | 0) === 2) {
-        maybeShowGroupPopups(opts.id | 0);
-      }
     } catch (e) {
       var errMsg = String((e && e.message) || '');
       var friendly = mapChatApiError(errMsg, 'chat_err_load_fail');
@@ -1965,6 +1963,12 @@
       clearInterval(state.groupPopupCarouselTimer);
       state.groupPopupCarouselTimer = 0;
     }
+    var car = $('chatGroupPopupCarousel');
+    if (car && car._popupSwipeCleanup) {
+      try { car._popupSwipeCleanup(); } catch (eClean) {}
+      car._popupSwipeCleanup = null;
+    }
+    state.groupPopupSlideIdx = 0;
   }
 
   function closeGroupPopupModal(cancelQueue) {
@@ -1990,6 +1994,7 @@
     state.groupPopupQueue = [];
     state.groupPopupCurrent = null;
     closeGroupPopupModal(false);
+    try { if (typeof ensureConnected === 'function') ensureConnected(); } catch (eConn2) {}
     send('group.popup.list', { group_id: groupId }).then(function (packet) {
       if (token !== state.groupPopupToken) return;
       if (!state.room || (state.room.type | 0) !== 2 || String(state.room.id) !== String(groupId)) return;
@@ -1998,6 +2003,146 @@
       state.groupPopupQueue = list.slice();
       showNextGroupPopup();
     }).catch(function () {});
+  }
+
+  function setGroupPopupSlide(idx, animate) {
+    var car = $('chatGroupPopupCarousel');
+    if (!car) return;
+    var track = car.querySelector('.chat-group-popup-track');
+    var dotsEl = car.querySelectorAll('.chat-group-popup-dot');
+    var total = (state.groupPopupSlideCount | 0) || (dotsEl ? dotsEl.length : 0);
+    if (!track || total <= 0) return;
+    idx = ((idx % total) + total) % total;
+    state.groupPopupSlideIdx = idx;
+    if (animate === false) track.classList.add('is-dragging');
+    else track.classList.remove('is-dragging');
+    track.style.transform = 'translate3d(' + (-idx * 100) + '%,0,0)';
+    for (var i = 0; i < dotsEl.length; i++) {
+      dotsEl[i].classList.toggle('is-active', i === idx);
+    }
+  }
+
+  function bindGroupPopupCarouselSwipe(car, total) {
+    if (!car || total <= 1) return;
+    var track = car.querySelector('.chat-group-popup-track');
+    if (!track) return;
+    var startX = 0;
+    var startY = 0;
+    var deltaX = 0;
+    var dragging = false;
+    var locked = false;
+    var pointerId = null;
+
+    function onStart(e) {
+      var t = e.touches ? e.touches[0] : e;
+      if (!t) return;
+      dragging = true;
+      locked = false;
+      deltaX = 0;
+      startX = t.clientX;
+      startY = t.clientY;
+      pointerId = e.pointerId != null ? e.pointerId : null;
+      track.classList.add('is-dragging');
+      stopGroupPopupAutoplayOnly();
+      if (car.setPointerCapture && pointerId != null) {
+        try { car.setPointerCapture(pointerId); } catch (eCap) {}
+      }
+    }
+
+    function onMove(e) {
+      if (!dragging) return;
+      var t = e.touches ? e.touches[0] : e;
+      if (!t) return;
+      deltaX = t.clientX - startX;
+      var dy = t.clientY - startY;
+      if (!locked) {
+        if (Math.abs(deltaX) < 8 && Math.abs(dy) < 8) return;
+        locked = Math.abs(deltaX) >= Math.abs(dy);
+        if (!locked) {
+          dragging = false;
+          track.classList.remove('is-dragging');
+          return;
+        }
+      }
+      if (e.cancelable) e.preventDefault();
+      var w = car.clientWidth || 1;
+      var base = -(state.groupPopupSlideIdx | 0) * 100;
+      var pct = base + (deltaX / w) * 100;
+      track.style.transform = 'translate3d(' + pct + '%,0,0)';
+    }
+
+    function onEnd() {
+      if (!dragging) return;
+      dragging = false;
+      track.classList.remove('is-dragging');
+      var w = car.clientWidth || 1;
+      var threshold = Math.min(56, w * 0.18);
+      var cur = state.groupPopupSlideIdx | 0;
+      if (deltaX <= -threshold) setGroupPopupSlide(cur + 1, true);
+      else if (deltaX >= threshold) setGroupPopupSlide(cur - 1, true);
+      else setGroupPopupSlide(cur, true);
+      deltaX = 0;
+      startGroupPopupAutoplay(car, total);
+    }
+
+    function onDotClick(e) {
+      var dot = e.target && e.target.closest ? e.target.closest('.chat-group-popup-dot') : null;
+      if (!dot) return;
+      var i = parseInt(dot.getAttribute('data-i'), 10);
+      if (isNaN(i)) return;
+      stopGroupPopupAutoplayOnly();
+      setGroupPopupSlide(i, true);
+      startGroupPopupAutoplay(car, total);
+    }
+
+    if (window.PointerEvent) {
+      car.addEventListener('pointerdown', onStart);
+      car.addEventListener('pointermove', onMove);
+      car.addEventListener('pointerup', onEnd);
+      car.addEventListener('pointercancel', onEnd);
+    } else {
+      car.addEventListener('touchstart', onStart, { passive: true });
+      car.addEventListener('touchmove', onMove, { passive: false });
+      car.addEventListener('touchend', onEnd);
+      car.addEventListener('touchcancel', onEnd);
+      car.addEventListener('mousedown', onStart);
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onEnd);
+    }
+    car.addEventListener('click', onDotClick);
+
+    car._popupSwipeCleanup = function () {
+      if (window.PointerEvent) {
+        car.removeEventListener('pointerdown', onStart);
+        car.removeEventListener('pointermove', onMove);
+        car.removeEventListener('pointerup', onEnd);
+        car.removeEventListener('pointercancel', onEnd);
+      } else {
+        car.removeEventListener('touchstart', onStart);
+        car.removeEventListener('touchmove', onMove);
+        car.removeEventListener('touchend', onEnd);
+        car.removeEventListener('touchcancel', onEnd);
+        car.removeEventListener('mousedown', onStart);
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onEnd);
+      }
+      car.removeEventListener('click', onDotClick);
+    };
+  }
+
+  function stopGroupPopupAutoplayOnly() {
+    if (state.groupPopupCarouselTimer) {
+      clearInterval(state.groupPopupCarouselTimer);
+      state.groupPopupCarouselTimer = 0;
+    }
+  }
+
+  function startGroupPopupAutoplay(car, total) {
+    stopGroupPopupAutoplayOnly();
+    if (!car || total <= 1) return;
+    state.groupPopupCarouselTimer = setInterval(function () {
+      setGroupPopupSlide((state.groupPopupSlideIdx | 0) + 1, true);
+    }, 3200);
   }
 
   function showNextGroupPopup() {
@@ -2031,34 +2176,29 @@
     if (foreverCb) foreverCb.checked = false;
 
     var images = Array.isArray(item.images) ? item.images.filter(Boolean) : [];
+    state.groupPopupSlideCount = images.length;
+    state.groupPopupSlideIdx = 0;
     if (car) {
       if (!images.length) {
         car.hidden = true;
         car.innerHTML = '';
       } else {
         car.hidden = false;
-        var slides = images.map(function (src, idx) {
-          return '<div class="chat-group-popup-slide' + (idx === 0 ? ' is-active' : '') + '">' +
-            '<img src="' + escapeHtml(publicUrl(src)) + '" alt=""></div>';
+        var slides = images.map(function (src) {
+          return '<div class="chat-group-popup-slide">' +
+            '<img src="' + escapeHtml(publicUrl(src)) + '" alt="" draggable="false"></div>';
         }).join('');
         var dots = images.length > 1
           ? ('<div class="chat-group-popup-dots">' + images.map(function (_, idx) {
               return '<span class="chat-group-popup-dot' + (idx === 0 ? ' is-active' : '') + '" data-i="' + idx + '"></span>';
             }).join('') + '</div>')
           : '';
-        car.innerHTML = '<div class="chat-group-popup-slides">' + slides + '</div>' + dots;
+        car.innerHTML = '<div class="chat-group-popup-viewport">' +
+          '<div class="chat-group-popup-track">' + slides + '</div></div>' + dots;
+        setGroupPopupSlide(0, false);
         if (images.length > 1) {
-          var idx = 0;
-          state.groupPopupCarouselTimer = setInterval(function () {
-            var slidesEl = car.querySelectorAll('.chat-group-popup-slide');
-            var dotsEl = car.querySelectorAll('.chat-group-popup-dot');
-            if (!slidesEl.length) return;
-            slidesEl[idx].classList.remove('is-active');
-            if (dotsEl[idx]) dotsEl[idx].classList.remove('is-active');
-            idx = (idx + 1) % slidesEl.length;
-            slidesEl[idx].classList.add('is-active');
-            if (dotsEl[idx]) dotsEl[idx].classList.add('is-active');
-          }, 3200);
+          bindGroupPopupCarouselSwipe(car, images.length);
+          startGroupPopupAutoplay(car, images.length);
         }
       }
     }
