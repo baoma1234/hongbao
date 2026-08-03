@@ -19,8 +19,8 @@ class GroupPopupService
 
     /**
      * @return array{list:array,always:array}
-     * - list: 进群阻塞弹窗（仅 once，未看过）
-     * - always: 每次进入类，挂在群公告下方（今日关闭则当天不出现）
+     * - list: 进群阻塞弹窗（once 未看过 + always 今日未关闭）
+     * - always: 「每次进入」类，永久挂在群设置-群公告下，可点开再看（不受今日关闭影响）
      */
     public function listForUser($groupId, $userId)
     {
@@ -57,13 +57,14 @@ class GroupPopupService
             $mode = ((string)($r['show_mode'] ?? '') === 'once') ? 'once' : 'always';
             $formatted = $this->formatPopup($r, $mode);
             if ($mode === 'always') {
-                if (isset($dismissedToday[$id])) {
-                    continue;
-                }
+                // 群设置里永久展示
                 $always[] = $formatted;
+                // 进群仍弹；勾选「今日不再显示」则当天跳过弹窗
+                if (!isset($dismissedToday[$id])) {
+                    $modal[] = $formatted;
+                }
                 continue;
             }
-            // once：看过或今日关闭后不再弹
             if (isset($viewedOnce[$id]) || isset($dismissedToday[$id])) {
                 continue;
             }

@@ -547,13 +547,17 @@
           if (src && typeof openMediaLightbox === 'function') openMediaLightbox(src, 'image');
           return;
         }
-        var popBtn = ev.target && ev.target.closest ? ev.target.closest('.chat-notice-pin-popup') : null;
-        if (popBtn) {
-          var pid = parseInt(popBtn.getAttribute('data-popup-id'), 10) || 0;
-          if (pid > 0 && typeof openPinnedGroupPopup === 'function') openPinnedGroupPopup(pid);
-          return;
-        }
         noticePin.classList.toggle('is-expanded');
+      });
+    }
+    var settingsPopups = $('chatGroupSettingsPopups');
+    if (settingsPopups && !settingsPopups._bound) {
+      settingsPopups._bound = true;
+      settingsPopups.addEventListener('click', function (ev) {
+        var popBtn = ev.target && ev.target.closest ? ev.target.closest('.chat-setting-popup-item') : null;
+        if (!popBtn) return;
+        var pid = parseInt(popBtn.getAttribute('data-popup-id'), 10) || 0;
+        if (pid > 0 && typeof openPinnedGroupPopup === 'function') openPinnedGroupPopup(pid);
       });
     }
     var groupSaveBtn = $('chatGroupSaveBtn');

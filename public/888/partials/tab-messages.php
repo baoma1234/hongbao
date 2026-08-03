@@ -285,7 +285,6 @@
                             <div class="chat-notice-pin-label" data-copy="chat_group_notice_pin">群公告</div>
                         <div class="chat-notice-pin-text" id="chatNoticePinText"></div>
                         <div class="chat-notice-pin-imgs" id="chatNoticePinImgs" hidden></div>
-                        <div class="chat-notice-pin-popups" id="chatNoticePinPopups" hidden></div>
                         </div>
                         <button type="button" class="chat-notice-pin-close" id="chatNoticePinClose" aria-label="收起" data-copy-aria="aria_collapse">×</button>
                 </div>
@@ -360,6 +359,10 @@
                         <button type="button" class="chat-setting-save-btn" id="chatGroupSaveBtn" data-copy="chat_group_save">保存修改</button>
                     </div>
                     <div class="chat-setting-hint" id="chatGroupNoticeHint"></div>
+                    <div class="chat-setting-block" id="chatGroupSettingsPopupsBlock" hidden>
+                        <div class="chat-setting-block-title" data-copy="chat_group_popup_pin_label">群提醒</div>
+                        <div class="chat-setting-popups" id="chatGroupSettingsPopups"></div>
+                    </div>
                     <button type="button" class="chat-setting-row" id="chatViewMembersBtn">
                         <span data-copy="chat_view_members">查看群成员</span>
                         <span class="chat-setting-arrow">›</span>

@@ -3234,7 +3234,8 @@
           list = list.filter(function (it) { return (it.show_mode || '') !== 'always'; });
         }
         state.groupAlwaysPopups = always.slice();
-        try { applyNoticePin(); } catch (ePin) {}
+        try { renderSettingsAlwaysPopups(); } catch (ePin) {}
+        try { applyNoticePin(); } catch (ePin2) {}
         if (!list.length) {
           settle();
           return;
@@ -3421,7 +3422,7 @@
     renderGroupPopupItem(item, false);
   }
 
-  /** 从群公告下点开「每次进入」弹窗 */
+  /** 从群设置-群公告下点开「每次进入」弹窗 */
   function openPinnedGroupPopup(popupId) {
     popupId = popupId | 0;
     var list = state.groupAlwaysPopups || [];
@@ -3435,6 +3436,27 @@
     if (!item) return;
     state.groupPopupFromPin = true;
     renderGroupPopupItem(item, true);
+  }
+
+  function renderSettingsAlwaysPopups() {
+    var block = $('chatGroupSettingsPopupsBlock');
+    var box = $('chatGroupSettingsPopups');
+    if (!block || !box) return;
+    var always = state.groupAlwaysPopups || [];
+    if (!always.length) {
+      block.hidden = true;
+      box.innerHTML = '';
+      return;
+    }
+    var label = chatT('chat_group_popup_pin_label') || '群提醒';
+    var viewLab = chatT('chat_group_popup_view') || '查看';
+    box.innerHTML = always.map(function (it) {
+      var title = pickPopupI18n(it.title, it.title_i18n) || label;
+      return '<button type="button" class="chat-setting-popup-item" data-popup-id="' + (it.id | 0) + '">' +
+        '<span class="chat-setting-popup-title">' + escapeHtml(title) + '</span>' +
+        '<span class="chat-setting-popup-act">' + escapeHtml(viewLab) + '</span></button>';
+    }).join('');
+    block.hidden = false;
   }
 
   function renderGroupPopupItem(item, fromPin) {
@@ -3519,12 +3541,7 @@
     if (popupId > 0) {
       send('group.popup.ack', { popup_id: popupId, forever: forever ? 1 : 0, dismiss_today: forever ? 1 : 0 }).catch(function () {});
     }
-    if (forever && popupId > 0) {
-      state.groupAlwaysPopups = (state.groupAlwaysPopups || []).filter(function (it) {
-        return (it.id | 0) !== popupId;
-      });
-      try { applyNoticePin(); } catch (ePin2) {}
-    }
+    // 「今日不再显示」只跳过当天进群弹窗；群设置里的入口永久保留
     if (fromPin) {
       return;
     }
@@ -3724,14 +3741,9 @@
     pin.setAttribute('aria-hidden', 'true');
     pin.classList.remove('is-expanded');
     var imgs = $('chatNoticePinImgs');
-    var pops = $('chatNoticePinPopups');
     if (imgs) {
       imgs.hidden = true;
       imgs.innerHTML = '';
-    }
-    if (pops) {
-      pops.hidden = true;
-      pops.innerHTML = '';
     }
   }
 
@@ -3774,7 +3786,6 @@
     var pin = $('chatNoticePin');
     var textEl = $('chatNoticePinText');
     var imgsEl = $('chatNoticePinImgs');
-    var popsEl = $('chatNoticePinPopups');
     if (!pin || !textEl) return;
     if (!state.room || state.room.type !== 2) {
       hideNoticePin();
@@ -3791,11 +3802,10 @@
     }
     notice = String(notice || '').trim();
     var images = resolveNoticeImages(g);
-    var always = state.groupAlwaysPopups || [];
     var textDismissed = !!(notice && state.noticeDismissed[gid] === notice);
     var showText = !!(notice && !textDismissed);
 
-    if (!showText && !images.length && !always.length) {
+    if (!showText && !images.length) {
       hideNoticePin();
       return;
     }
@@ -3813,23 +3823,6 @@
           var url = escapeHtml(publicUrl(src));
           return '<button type="button" class="chat-notice-pin-img" data-src="' + url + '">' +
             '<img src="' + url + '" alt=""></button>';
-        }).join('');
-      }
-    }
-
-    if (popsEl) {
-      if (!always.length) {
-        popsEl.hidden = true;
-        popsEl.innerHTML = '';
-      } else {
-        popsEl.hidden = false;
-        var label = chatT('chat_group_popup_pin_label') || '群提醒';
-        var viewLab = chatT('chat_group_popup_view') || '查看';
-        popsEl.innerHTML = always.map(function (it) {
-          var title = pickPopupI18n(it.title, it.title_i18n) || label;
-          return '<button type="button" class="chat-notice-pin-popup" data-popup-id="' + (it.id | 0) + '">' +
-            '<span class="chat-notice-pin-popup-title">' + escapeHtml(title) + '</span>' +
-            '<span class="chat-notice-pin-popup-act">' + escapeHtml(viewLab) + '</span></button>';
         }).join('');
       }
     }
@@ -4069,6 +4062,7 @@
       // 群主不可退群；普通成员/管理员可退
       leaveBtn.style.display = (myRole > 0 && myRole < 3) ? '' : 'none';
     }
+    try { renderSettingsAlwaysPopups(); } catch (ePop) {}
   }
 
   async function leaveCurrentGroup() {
@@ -6029,13 +6023,17 @@
           if (src && typeof openMediaLightbox === 'function') openMediaLightbox(src, 'image');
           return;
         }
-        var popBtn = ev.target && ev.target.closest ? ev.target.closest('.chat-notice-pin-popup') : null;
-        if (popBtn) {
-          var pid = parseInt(popBtn.getAttribute('data-popup-id'), 10) || 0;
-          if (pid > 0 && typeof openPinnedGroupPopup === 'function') openPinnedGroupPopup(pid);
-          return;
-        }
         noticePin.classList.toggle('is-expanded');
+      });
+    }
+    var settingsPopups = $('chatGroupSettingsPopups');
+    if (settingsPopups && !settingsPopups._bound) {
+      settingsPopups._bound = true;
+      settingsPopups.addEventListener('click', function (ev) {
+        var popBtn = ev.target && ev.target.closest ? ev.target.closest('.chat-setting-popup-item') : null;
+        if (!popBtn) return;
+        var pid = parseInt(popBtn.getAttribute('data-popup-id'), 10) || 0;
+        if (pid > 0 && typeof openPinnedGroupPopup === 'function') openPinnedGroupPopup(pid);
       });
     }
     var groupSaveBtn = $('chatGroupSaveBtn');
