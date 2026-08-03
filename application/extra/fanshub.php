@@ -62,7 +62,9 @@ return array (
     'bridge_url' => 'http://127.0.0.1:7273',
     'bridge_key' => '758fa83a00956f0419cd8abae1b0e86acffa7c166acb9784',
   ),
-  'im_cs_friend_reply' => '您好，我是平台客服，有问题随时私聊我。',
+  'im_cs_friend_reply' => '您好，欢迎来到红宝！
+我是红宝官方客服，将竭诚为您服务。
+如您在使用过程中需要任何帮助，请随时联系我，我会及时为您解答与处理。',
   'default_cs_user_id' => 88888888,
   'default_cs_mobile' => '18811111111',
   'default_cs_nickname' => '红宝客服',
@@ -567,7 +569,9 @@ return array (
     'chat_send' => '发送',
     'chat_input_placeholder' => '输入消息…',
     'chat_admin_only_hint' => '仅可与平台客服管理员私聊，群聊由官方创建',
-    'chat_admin_welcome' => '您好，我是官方客服，有问题随时找我。',
+    'chat_admin_welcome' => '您好，欢迎来到红宝！
+我是红宝官方客服，将竭诚为您服务。
+如您在使用过程中需要任何帮助，请随时联系我，我会及时为您解答与处理。',
     'chat_conn_ok' => '已连接',
     'chat_conn_fail' => '连接失败',
     'profile_menu_info' => '头像与昵称',

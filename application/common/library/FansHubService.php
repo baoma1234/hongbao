@@ -1884,7 +1884,7 @@ class FansHubService
     }
 
     /**
-     * 每位启用的 IM 托管账号（管理员）在用户会话列表可见：写入欢迎私聊（幂等）
+     * 仅默认客服（88888888）写入欢迎私聊（幂等）；其它托管账号不自动出现在新用户会话里
      */
     public static function seedImAdminConversations($userId)
     {
@@ -1892,46 +1892,55 @@ class FansHubService
         if ($userId <= 0) {
             return 0;
         }
-        $admins = Db::name('chat_agent_accounts')->where('status', 1)->column('user_id');
-        if (!$admins) {
+        $adminId = FansHubDefaultCs::userId();
+        if ($adminId <= 0 || $adminId === $userId) {
             return 0;
         }
-        $done = 0;
+        try {
+            FansHubDefaultCs::ensureAccount();
+        } catch (\Throwable $e) {
+        }
         $now = time();
-        $welcome = self::h5CopyText('chat_admin_welcome');
+        $welcome = '';
+        try {
+            $agent = Db::name('chat_agent_accounts')->where('user_id', $adminId)->where('status', 1)->find();
+            if ($agent) {
+                $welcome = trim((string)($agent['friend_reply'] ?? ''));
+            }
+        } catch (\Throwable $e2) {
+        }
+        if ($welcome === '') {
+            $welcome = trim((string)self::config('im_cs_friend_reply', ''));
+        }
+        if ($welcome === '') {
+            $welcome = self::h5CopyText('chat_admin_welcome');
+        }
         if ($welcome === '' || $welcome === 'chat_admin_welcome') {
-            $welcome = '您好，我是平台客服，有问题随时私聊我。';
+            $welcome = "您好，欢迎来到红宝！\n我是红宝官方客服，将竭诚为您服务。\n如您在使用过程中需要任何帮助，请随时联系我，我会及时为您解答与处理。";
         }
-        foreach ($admins as $adminId) {
-            $adminId = (int)$adminId;
-            if ($adminId <= 0 || $adminId === $userId) {
-                continue;
-            }
-            $a = min($adminId, $userId);
-            $b = max($adminId, $userId);
-            $conv = $a . '_' . $b;
-            $exists = Db::name('chat_messages')
-                ->where(['conversation_type' => 1, 'conversation_id' => $conv, 'status' => 1])
-                ->value('id');
-            if ($exists) {
-                continue;
-            }
-            Db::name('chat_messages')->insert([
-                'msg_id'            => sprintf('w%d%d%04d', $adminId, $userId, mt_rand(0, 9999)),
-                'conversation_type' => 1,
-                'conversation_id'   => $conv,
-                'group_id'          => 0,
-                'from_user_id'      => $adminId,
-                'to_user_id'        => $userId,
-                'msg_type'          => 1,
-                'content'           => $welcome,
-                'extra'             => null,
-                'status'            => 1,
-                'createtime'        => $now,
-            ]);
-            $done++;
+        $a = min($adminId, $userId);
+        $b = max($adminId, $userId);
+        $conv = $a . '_' . $b;
+        $exists = Db::name('chat_messages')
+            ->where(['conversation_type' => 1, 'conversation_id' => $conv, 'status' => 1])
+            ->value('id');
+        if ($exists) {
+            return 0;
         }
-        return $done;
+        Db::name('chat_messages')->insert([
+            'msg_id'            => sprintf('w%d%d%04d', $adminId, $userId, mt_rand(0, 9999)),
+            'conversation_type' => 1,
+            'conversation_id'   => $conv,
+            'group_id'          => 0,
+            'from_user_id'      => $adminId,
+            'to_user_id'        => $userId,
+            'msg_type'          => 1,
+            'content'           => $welcome,
+            'extra'             => null,
+            'status'            => 1,
+            'createtime'        => $now,
+        ]);
+        return 1;
     }
 
     public static function getOrCreateAccount($userId)

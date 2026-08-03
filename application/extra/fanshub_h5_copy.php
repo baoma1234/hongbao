@@ -433,7 +433,9 @@ return array (
   'chat_send' => '发送',
   'chat_input_placeholder' => '输入消息…',
   'chat_admin_only_hint' => '仅可与平台客服管理员私聊，群聊由官方创建',
-  'chat_admin_welcome' => '您好，我是官方客服，有问题随时找我。',
+  'chat_admin_welcome' => '您好，欢迎来到红宝！
+我是红宝官方客服，将竭诚为您服务。
+如您在使用过程中需要任何帮助，请随时联系我，我会及时为您解答与处理。',
   'chat_conn_ok' => '已连接',
   'chat_conn_fail' => '连接失败',
   'profile_menu_info' => '头像与昵称',

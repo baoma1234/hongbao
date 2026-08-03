@@ -128,7 +128,11 @@ class FansHubDefaultCs
         }
 
         $agent = Db::name('chat_agent_accounts')->where('user_id', $id)->find();
-        $reply = (string)FansHubService::config('im_cs_friend_reply', '您好，我是平台客服，有问题随时私聊我。');
+        $defaultReply = "您好，欢迎来到红宝！\n我是红宝官方客服，将竭诚为您服务。\n如您在使用过程中需要任何帮助，请随时联系我，我会及时为您解答与处理。";
+        $reply = trim((string)FansHubService::config('im_cs_friend_reply', $defaultReply));
+        if ($reply === '') {
+            $reply = $defaultReply;
+        }
         if (!$agent) {
             try {
                 Db::name('chat_agent_accounts')->insert([
@@ -150,6 +154,15 @@ class FansHubDefaultCs
             }
             if (trim((string)($agent['label'] ?? '')) === '' || (string)$agent['label'] !== $nick) {
                 $upd['label'] = $nick;
+            }
+            $curReply = trim((string)($agent['friend_reply'] ?? ''));
+            $legacy = [
+                '',
+                '您好，我是平台客服，有问题随时私聊我。',
+                '您好，我是官方客服，有问题随时找我。',
+            ];
+            if (in_array($curReply, $legacy, true)) {
+                $upd['friend_reply'] = mb_substr($reply, 0, 500);
             }
             try {
                 Db::name('chat_agent_accounts')->where('id', (int)$agent['id'])->update($upd);

@@ -182,11 +182,11 @@ class AdminService
                 }
             }
         }
-        return '您好，我是平台客服，有问题随时私聊我。';
+        return "您好，欢迎来到红宝！\n我是红宝官方客服，将竭诚为您服务。\n如您在使用过程中需要任何帮助，请随时联系我，我会及时为您解答与处理。";
     }
 
     /**
-     * 给新用户写入每位管理员的欢迎私聊（会话列表可见）
+     * 仅默认客服（88888888）写入欢迎私聊；其它托管账号不自动出现
      */
     public static function seedWelcomeMessages($userId)
     {
@@ -194,43 +194,38 @@ class AdminService
         if ($userId <= 0) {
             return 0;
         }
-        $admins = self::adminUserIds();
-        $msgTable = Db::table('chat_messages');
-        $done = 0;
-        $now = time();
-        foreach ($admins as $adminId) {
-            if ($adminId === $userId) {
-                continue;
-            }
-            $conv = IdGenerator::privateConversationId($adminId, $userId);
-            $exists = Db::fetch(
-                "SELECT id FROM {$msgTable} WHERE conversation_type=1 AND conversation_id=? AND status=1 LIMIT 1",
-                [$conv]
-            );
-            if ($exists) {
-                continue;
-            }
-            $msgId = IdGenerator::msgId();
-            $welcome = self::csFriendReply($adminId);
-            if ($welcome === '') {
-                $welcome = '您好，我是平台客服，有问题随时私聊我。';
-            }
-            Db::exec(
-                "INSERT INTO {$msgTable}
-                (msg_id,conversation_type,conversation_id,group_id,from_user_id,to_user_id,msg_type,content,extra,status,createtime)
-                VALUES (?,?,?,0,?,?,1,?,NULL,1,?)",
-                [
-                    $msgId,
-                    1,
-                    $conv,
-                    $adminId,
-                    $userId,
-                    $welcome,
-                    $now,
-                ]
-            );
-            $done++;
+        $adminId = self::defaultCsUserId();
+        if ($adminId <= 0 || $adminId === $userId) {
+            return 0;
         }
-        return $done;
+        $msgTable = Db::table('chat_messages');
+        $now = time();
+        $conv = IdGenerator::privateConversationId($adminId, $userId);
+        $exists = Db::fetch(
+            "SELECT id FROM {$msgTable} WHERE conversation_type=1 AND conversation_id=? AND status=1 LIMIT 1",
+            [$conv]
+        );
+        if ($exists) {
+            return 0;
+        }
+        $welcome = self::csFriendReply($adminId);
+        if ($welcome === '') {
+            $welcome = "您好，欢迎来到红宝！\n我是红宝官方客服，将竭诚为您服务。\n如您在使用过程中需要任何帮助，请随时联系我，我会及时为您解答与处理。";
+        }
+        Db::exec(
+            "INSERT INTO {$msgTable}
+            (msg_id,conversation_type,conversation_id,group_id,from_user_id,to_user_id,msg_type,content,extra,status,createtime)
+            VALUES (?,?,?,0,?,?,1,?,NULL,1,?)",
+            [
+                IdGenerator::msgId(),
+                1,
+                $conv,
+                $adminId,
+                $userId,
+                $welcome,
+                $now,
+            ]
+        );
+        return 1;
     }
 }
