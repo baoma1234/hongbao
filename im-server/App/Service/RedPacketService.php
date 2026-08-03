@@ -1349,12 +1349,11 @@ class RedPacketService
                         return (int)$r['user_id'];
                     }, $hits ?: []);
                     if ($hitUids) {
-                        $briefs = (new AuthService([]))->usersBriefMap($hitUids);
+                        $authBrief = new AuthService([]);
+                        $briefs = $authBrief->usersBriefMap($hitUids);
                         $names = [];
                         foreach ($hitUids as $hid) {
-                            $u = $briefs[$hid] ?? null;
-                            $n = $u ? trim((string)($u['nickname'] ?: $u['username'] ?: '')) : '';
-                            $names[] = $n !== '' ? $n : ('ID' . $hid);
+                            $names[] = $authBrief->displayNameFromBrief($briefs[$hid] ?? null, $hid);
                         }
                         $text = '埋雷结算：雷号 ' . $mineDigit . '（哈希末位已匹配） · 中雷 ' . count($hitUids) . ' 人（'
                             . implode('、', $names) . '）';
@@ -2092,24 +2091,14 @@ class RedPacketService
         $uids = array_map(function ($r) {
             return (int)$r['user_id'];
         }, $records);
-        $users = (new AuthService([]))->usersBriefMap($uids);
+        $authBrief = new AuthService([]);
+        $users = $authBrief->usersBriefMap($uids);
         $enriched = [];
         foreach ($records as $r) {
             $uid = (int)$r['user_id'];
             $u = $users[$uid] ?? null;
-            $nick = '';
-            $avatar = '';
-            if ($u) {
-                $nick = trim((string)($u['nickname'] ?: $u['username'] ?: ''));
-                $avatar = (string)($u['avatar'] ?? '');
-                if ($nick === '' && !empty($u['mobile'])) {
-                    $mob = (string)$u['mobile'];
-                    $nick = strlen($mob) >= 7 ? (substr($mob, 0, 3) . '****' . substr($mob, -4)) : $mob;
-                }
-            }
-            if ($nick === '') {
-                $nick = 'ID' . $uid;
-            }
+            $nick = $authBrief->displayNameFromBrief($u, $uid);
+            $avatar = is_array($u) ? (string)($u['avatar'] ?? '') : '';
             $isSelf = $uid === $userId;
             $rowClickable = $profileClickable && !$isSelf;
             // 隐私群：他人昵称脱敏、头像清空（前端置灰占位）；自己可看真实信息但不可点他人

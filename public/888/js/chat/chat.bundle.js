@@ -1720,6 +1720,16 @@
     if (userId > 0 && info) state.senderCache[userId] = info;
   }
 
+  function cacheSenderFromMsg(msg) {
+    if (!msg) return;
+    var uid = msg.from_user_id | 0;
+    if (uid <= 0) return;
+    var fu = msg.from_user || {};
+    var nick = String(msg.from_nickname || fu.nickname || fu.username || '').trim();
+    var av = msg.from_avatar || fu.avatar || '';
+    if (nick) cacheSender(uid, { user_id: uid, nickname: nick, avatar: av || '' });
+  }
+
   function getSenderBrief(userId) {
     userId = userId | 0;
     if (state.senderCache[userId]) return state.senderCache[userId];
@@ -1729,11 +1739,12 @@
       return false;
     });
     if (found) {
-      var brief = { user_id: userId, nickname: found.nickname, avatar: found.avatar };
+      var nick = String(found.nickname || found.username || '').trim() || '群友';
+      var brief = { user_id: userId, nickname: nick, avatar: found.avatar || '' };
       cacheSender(userId, brief);
       return brief;
     }
-    return { user_id: userId, nickname: 'ID' + userId, avatar: '' };
+    return { user_id: userId, nickname: '群友', avatar: '' };
   }
 
   var CHAT_BACK_SVG = '<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path fill="currentColor" d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"/></svg>';
@@ -2018,7 +2029,7 @@
     if (isGroup && !mine) {
       var brief = getSenderBrief(fromUserId);
       nickHtml = '<div class="chat-msg-nick locked" data-uid="' + (fromUserId | 0) + '">' +
-        escapeHtml(brief.nickname || ('ID' + fromUserId)) + '</div>';
+        escapeHtml(brief.nickname || '群友') + '</div>';
     }
     return (
       '<div class="chat-msg-row' + (mine ? ' me' : '') + (isGroup && !mine ? ' group-msg' : '') + '"' + midAttr + '>' +
@@ -2327,7 +2338,7 @@
           var uid = r.user_id | 0;
           var isSelf = uid === (state.userId | 0);
           var gray = locked && !isSelf;
-          var nick = r.nickname || ('ID' + uid);
+          var nick = r.nickname || '群友';
           var avInner;
           if (!gray && r.avatar) {
             avInner = '<img src="' + escapeHtml(encodeUriPath(r.avatar)) + '" alt="">';
@@ -2528,6 +2539,7 @@
   }
 
   function buildMessageRowHtml(msg) {
+    cacheSenderFromMsg(msg);
     var mine = (msg.from_user_id | 0) === state.userId;
     var time = formatTimeSec(msg.createtime);
     var type = msg.msg_type | 0;
@@ -2700,6 +2712,7 @@
   function appendMessage(msg) {
     if (!msg) return;
     if (!msg.msg_id && !(msg.id | 0)) return;
+    cacheSenderFromMsg(msg);
     for (var i = 0; i < state.messages.length; i++) {
       if ((msg.msg_id && state.messages[i].msg_id === msg.msg_id)
         || ((msg.id | 0) && (state.messages[i].id | 0) === (msg.id | 0))) {
@@ -2933,6 +2946,7 @@
     var cacheAge = (cachedHist && cachedHist.at) ? (Date.now() - (cachedHist.at | 0)) : 1e15;
     if (cachedHist && cachedHist.messages && cachedHist.messages.length) {
       state.messages = cachedHist.messages;
+      (state.messages || []).forEach(cacheSenderFromMsg);
       if (state.room.type === 2 && cachedHist.groupMeta) {
         state.groupMeta = cachedHist.groupMeta;
         try {
@@ -2968,6 +2982,7 @@
         return;
       }
       state.messages = (packet.data && packet.data.list) || [];
+      (state.messages || []).forEach(cacheSenderFromMsg);
       if (state.room.type === 2 && packet.data && (packet.data.group || packet.data.policy)) {
         state.groupMeta = mergeGroupMeta(packet.data);
         applySpeakState(state.groupMeta);

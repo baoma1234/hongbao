@@ -1272,21 +1272,10 @@ class GroupService
     {
         $userId = (int)$userId;
         $row = Db::fetch(
-            'SELECT nickname, username, mobile FROM ' . Db::table('user') . ' WHERE id=? LIMIT 1',
+            'SELECT id, nickname, username, mobile FROM ' . Db::table('user') . ' WHERE id=? LIMIT 1',
             [$userId]
         );
-        if (!$row) {
-            return 'ID' . $userId;
-        }
-        $nick = trim((string)($row['nickname'] ?: $row['username'] ?: ''));
-        if ($nick !== '') {
-            return $nick;
-        }
-        $mobile = (string)($row['mobile'] ?? '');
-        if ($mobile !== '') {
-            return strlen($mobile) >= 7 ? (substr($mobile, 0, 3) . '****' . substr($mobile, -4)) : $mobile;
-        }
-        return 'ID' . $userId;
+        return (new AuthService([]))->displayNameFromBrief($row ?: null, $userId);
     }
 
     public function setOwner($groupId, $ownerUserId)

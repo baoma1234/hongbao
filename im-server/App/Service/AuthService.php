@@ -233,4 +233,29 @@ class AuthService
         }
         return $map;
     }
+
+    /**
+     * 展示用昵称：昵称 → 用户名 → 脱敏手机号 →「群友」（不回退为 ID{uid}）
+     *
+     * @param array|null $u usersBriefMap 行
+     * @param int        $uid
+     */
+    public function displayNameFromBrief($u, $uid = 0)
+    {
+        $uid = (int)$uid;
+        if (is_array($u)) {
+            $nick = trim((string)($u['nickname'] ?: $u['username'] ?: ''));
+            if ($nick !== '') {
+                return $nick;
+            }
+            if (!empty($u['mobile'])) {
+                $mob = (string)$u['mobile'];
+                return strlen($mob) >= 7 ? (substr($mob, 0, 3) . '****' . substr($mob, -4)) : $mob;
+            }
+            if (!empty($u['id'])) {
+                $uid = (int)$u['id'];
+            }
+        }
+        return '群友';
+    }
 }

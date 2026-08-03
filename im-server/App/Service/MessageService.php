@@ -115,7 +115,66 @@ class MessageService
         $this->cacheRecent($payload);
         $this->touchInbox($payload);
         $this->bumpUnreadCounters($payload);
-        return $payload;
+        // 推送/ACK 附带发送者昵称，避免客户端在隐私群无成员列表时显示 ID
+        return $this->attachSenderFields($payload);
+    }
+
+    /**
+     * 批量为历史消息附带 from_nickname / from_avatar / from_user
+     */
+    public function enrichMessagesWithSenders(array $list)
+    {
+        if (!$list) {
+            return $list;
+        }
+        $ids = [];
+        foreach ($list as $m) {
+            $fid = (int)($m['from_user_id'] ?? 0);
+            if ($fid > 0) {
+                $ids[] = $fid;
+            }
+        }
+        if (!$ids) {
+            return $list;
+        }
+        $auth = new AuthService([]);
+        $map = $auth->usersBriefMap($ids);
+        foreach ($list as &$m) {
+            $m = $this->attachSenderFields($m, $map, $auth);
+        }
+        unset($m);
+        return $list;
+    }
+
+    /**
+     * @param array           $msg
+     * @param array|null      $map  预取的 usersBriefMap；null 则单条查询
+     * @param AuthService|null $auth
+     */
+    public function attachSenderFields(array $msg, $map = null, $auth = null)
+    {
+        $fid = (int)($msg['from_user_id'] ?? 0);
+        if ($fid <= 0) {
+            return $msg;
+        }
+        if ($auth === null) {
+            $auth = new AuthService([]);
+        }
+        if ($map === null) {
+            $map = $auth->usersBriefMap([$fid]);
+        }
+        $u = $map[$fid] ?? null;
+        $nick = $auth->displayNameFromBrief($u, $fid);
+        $avatar = is_array($u) ? (string)($u['avatar'] ?? '') : '';
+        $msg['from_nickname'] = $nick;
+        $msg['from_avatar'] = $avatar;
+        $msg['from_user'] = [
+            'id'       => $fid,
+            'user_id'  => $fid,
+            'nickname' => $nick,
+            'avatar'   => $avatar,
+        ];
+        return $msg;
     }
 
     protected function cacheRecent(array $payload)
