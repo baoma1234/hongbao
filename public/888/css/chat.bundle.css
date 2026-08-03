@@ -1806,7 +1806,7 @@ body.tab-messages .bottom-action-bar {
   overflow: hidden;
   background: #f3f3f3;
   position: relative;
-  touch-action: pan-y;
+  touch-action: none;
   user-select: none;
   -webkit-user-select: none;
 }
