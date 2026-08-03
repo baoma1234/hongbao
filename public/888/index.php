@@ -1,6 +1,6 @@
 <?php
 /**
- * ?? H5 ??????????????? DOM/CSS ??????
+ * 红宝 H5 entrance
  */
 $assetVer = '202608031630';
 $v = htmlspecialchars($assetVer, ENT_QUOTES, 'UTF-8');
@@ -9,10 +9,9 @@ $v = htmlspecialchars($assetVer, ENT_QUOTES, 'UTF-8');
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>??</title>
+    <title>红宝</title>
     <link rel="icon" href="img/logo.png?v=<?= $v ?>" type="image/png">
     <link rel="apple-touch-icon" href="img/logo.png?v=<?= $v ?>">
-    <!-- ???? core??? CSS / Tab ??? -->
     <link rel="stylesheet" href="css/core.css?v=<?= $v ?>">
 </head>
 <body>
