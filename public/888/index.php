@@ -12,7 +12,7 @@ $v = htmlspecialchars($assetVer, ENT_QUOTES, 'UTF-8');
     <title>??</title>
     <link rel="icon" href="img/logo.png?v=<?= $v ?>" type="image/png">
     <link rel="apple-touch-icon" href="img/logo.png?v=<?= $v ?>">
-    <!-- ???? core????CSS ??Tab ????-->
+    <!-- ???? core??? CSS / Tab ??? -->
     <link rel="stylesheet" href="css/core.css?v=<?= $v ?>">
 </head>
 <body>
