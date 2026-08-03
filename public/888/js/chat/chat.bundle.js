@@ -3077,10 +3077,28 @@
     if (input) {
       input.disabled = !!muted;
       input.placeholder = muted
-        ? (placeholder || '全员禁言中，仅管理员可发言')
+        ? (placeholder || '本群禁止发言，仅管理员可发言')
         : '输入消息…';
     }
     if (sendBtn) sendBtn.disabled = !!muted;
+  }
+
+  /** 禁止发文字时：按仍允许的能力生成输入框提示 */
+  function buildForbidSpeakPlaceholder() {
+    var parts = [];
+    var policy = groupPolicy();
+    var canRpSend = canSendCapability('rp')
+      && policy.can_send_rp !== false
+      && policy.rp_robot_only !== true;
+    if (canRpSend) {
+      parts.push('发红包');
+      parts.push('抢红包');
+    }
+    if (canSendCapability('image')) parts.push('发图片');
+    if (canSendCapability('video')) parts.push('发视频');
+    if (canSendCapability('emoji')) parts.push('发表情');
+    if (!parts.length) return '本群禁止发言，仅管理员可发言';
+    return '仅可进行' + parts.join('、') + '操作';
   }
 
   function applySpeakState(meta) {
@@ -3096,7 +3114,7 @@
       return;
     }
     if (!canText) {
-      setComposerMuted(true, '本群禁止发言，仅管理员可发言');
+      setComposerMuted(true, buildForbidSpeakPlaceholder());
     } else {
       setComposerMuted(false, '');
     }
@@ -3147,6 +3165,8 @@
     try {
       if (typeof syncRpTypeTabs === 'function') syncRpTypeTabs();
     } catch (eSync) {}
+    // 附件策略变化时同步禁言提示文案（如仅允许发图/红包）
+    try { applySpeakState(state.groupMeta); } catch (eSpeak) {}
   }
 
   function applyGroupRoomHeader(meta) {

@@ -2,7 +2,7 @@
 /**
  * 红宝 H5 entrance
  */
-$assetVer = '202608031900';
+$assetVer = '202608031910';
 $v = htmlspecialchars($assetVer, ENT_QUOTES, 'UTF-8');
 ?><!DOCTYPE html>
 <html lang="zh-CN">
