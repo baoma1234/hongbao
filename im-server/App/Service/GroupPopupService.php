@@ -5,7 +5,7 @@ namespace Im\Service;
 use Im\Support\Db;
 
 /**
- * 进群弹窗：列表（按用户过滤）+ 展示/永久关闭回执
+ * 进群弹窗：列表（按用户过滤）+ 展示/今日关闭回执
  */
 class GroupPopupService
 {
@@ -18,7 +18,9 @@ class GroupPopupService
     }
 
     /**
-     * 当前用户进入群时应展示的弹窗（已过滤 once / 永久关闭）
+     * @return array{list:array,always:array}
+     * - list: 进群阻塞弹窗（仅 once，未看过）
+     * - always: 每次进入类，挂在群公告下方（今日关闭则当天不出现）
      */
     public function listForUser($groupId, $userId)
     {
@@ -38,33 +40,40 @@ class GroupPopupService
             [$groupId, 'normal']
         );
         if (!$rows) {
-            return [];
+            return ['list' => [], 'always' => []];
         }
 
         $popupIds = [];
         foreach ($rows as $r) {
             $popupIds[] = (int)$r['id'];
         }
-        $dismissed = $this->userActionPopupIds($popupIds, $userId, 'dismiss_forever');
+        $dismissedToday = $this->userDismissedTodayPopupIds($popupIds, $userId);
         $viewedOnce = $this->userActionPopupIds($popupIds, $userId, 'view');
 
-        $out = [];
+        $modal = [];
+        $always = [];
         foreach ($rows as $r) {
             $id = (int)$r['id'];
             $mode = ((string)($r['show_mode'] ?? '') === 'once') ? 'once' : 'always';
-            if (isset($dismissed[$id])) {
+            $formatted = $this->formatPopup($r, $mode);
+            if ($mode === 'always') {
+                if (isset($dismissedToday[$id])) {
+                    continue;
+                }
+                $always[] = $formatted;
                 continue;
             }
-            if ($mode === 'once' && isset($viewedOnce[$id])) {
+            // once：看过或今日关闭后不再弹
+            if (isset($viewedOnce[$id]) || isset($dismissedToday[$id])) {
                 continue;
             }
-            $out[] = $this->formatPopup($r, $mode);
+            $modal[] = $formatted;
         }
-        return $out;
+        return ['list' => $modal, 'always' => $always];
     }
 
     /**
-     * 记录展示；forever=1 时记永久关闭（仅对 always 有意义，once 也可记）
+     * 记录展示；forever=1 时记「今日不再显示」（第二天仍可展示）
      */
     public function ack($popupId, $userId, $forever = false)
     {
@@ -96,9 +105,9 @@ class GroupPopupService
             Db::exec(
                 'INSERT INTO ' . Db::table('chat_group_popup_logs')
                 . ' (popup_id, group_id, user_id, action, createtime) VALUES (?,?,?,?,?)',
-                [$popupId, $groupId, $userId, 'dismiss_forever', $now]
+                [$popupId, $groupId, $userId, 'dismiss_today', $now]
             );
-            $action = 'dismiss_forever';
+            $action = 'dismiss_today';
         }
 
         return [
@@ -106,6 +115,38 @@ class GroupPopupService
             'group_id' => $groupId,
             'action'   => $action,
         ];
+    }
+
+    /**
+     * 今日已关闭的弹窗（含历史 dismiss_forever，按自然日失效）
+     *
+     * @return array<int,true>
+     */
+    protected function userDismissedTodayPopupIds(array $popupIds, $userId)
+    {
+        $popupIds = array_values(array_filter(array_map('intval', $popupIds)));
+        if (!$popupIds) {
+            return [];
+        }
+        $tz = new \DateTimeZone('Asia/Shanghai');
+        $start = (new \DateTime('today', $tz))->getTimestamp();
+        $end = $start + 86400;
+        $ph = implode(',', array_fill(0, count($popupIds), '?'));
+        $params = $popupIds;
+        $params[] = (int)$userId;
+        $params[] = $start;
+        $params[] = $end;
+        $rows = Db::fetchAll(
+            'SELECT DISTINCT popup_id FROM ' . Db::table('chat_group_popup_logs')
+            . " WHERE popup_id IN ($ph) AND user_id=? AND action IN ('dismiss_today','dismiss_forever')"
+            . ' AND createtime>=? AND createtime<?',
+            $params
+        );
+        $map = [];
+        foreach ($rows ?: [] as $r) {
+            $map[(int)$r['popup_id']] = true;
+        }
+        return $map;
     }
 
     protected function userActionPopupIds(array $popupIds, $userId, $action)

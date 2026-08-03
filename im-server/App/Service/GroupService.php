@@ -179,6 +179,9 @@ class GroupService
         } elseif ($group) {
             $group['notice_i18n'] = new \stdClass();
         }
+        if ($group) {
+            $group['notice_images'] = $this->decodeNoticeImages($group['notice_images'] ?? '');
+        }
         $myRole = $this->memberRole($groupId, $uid);
         $policy = $this->buildPolicy($group ?: [], $myRole);
         $canSpeak = true;
@@ -536,6 +539,7 @@ class GroupService
                 'name'          => (string)($g['name'] ?? ''),
                 'avatar'        => (string)($g['avatar'] ?? ''),
                 'notice'        => (string)($g['notice'] ?? ''),
+                'notice_images' => $this->decodeNoticeImages($g['notice_images'] ?? ''),
                 'member_count'  => OfficialStatsService::memberCount($gid, $display),
                 'online_count'  => OfficialStatsService::onlineCount($gid),
                 'is_member'     => !empty($joined[$gid]),
@@ -1495,5 +1499,25 @@ class GroupService
             'UPDATE ' . Db::table('chat_groups') . ' SET member_count=?, updatetime=? WHERE id=?',
             [(int)($cnt['c'] ?? 0), time(), (int)$groupId]
         );
+    }
+
+    /**
+     * @return string[]
+     */
+    protected function decodeNoticeImages($raw)
+    {
+        if (is_array($raw)) {
+            return array_values(array_filter(array_map('strval', $raw)));
+        }
+        $raw = trim((string)$raw);
+        if ($raw === '') {
+            return [];
+        }
+        if ($raw[0] === '[') {
+            $arr = json_decode($raw, true);
+            return is_array($arr) ? array_values(array_filter(array_map('strval', $arr))) : [];
+        }
+        $parts = preg_split('/[\r\n,]+/', $raw);
+        return array_values(array_filter(array_map('trim', $parts ?: [])));
     }
 }

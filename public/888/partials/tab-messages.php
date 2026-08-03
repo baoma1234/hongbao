@@ -284,6 +284,8 @@
                     <div class="chat-notice-pin-body">
                             <div class="chat-notice-pin-label" data-copy="chat_group_notice_pin">群公告</div>
                         <div class="chat-notice-pin-text" id="chatNoticePinText"></div>
+                        <div class="chat-notice-pin-imgs" id="chatNoticePinImgs" hidden></div>
+                        <div class="chat-notice-pin-popups" id="chatNoticePinPopups" hidden></div>
                         </div>
                         <button type="button" class="chat-notice-pin-close" id="chatNoticePinClose" aria-label="收起" data-copy-aria="aria_collapse">×</button>
                 </div>

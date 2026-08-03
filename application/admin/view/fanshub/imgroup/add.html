@@ -41,6 +41,19 @@
     </div>
     {/neq}
     {/volist}
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">公告配图:</label>
+        <div class="col-xs-12 col-sm-8">
+            <div class="input-group">
+                <input id="c-notice_images" class="form-control" name="row[notice_images]" type="text" value="" placeholder="多图用逗号分隔，前台可点击放大">
+                <div class="input-group-addon no-border no-padding">
+                    <span><button type="button" id="faupload-notice_images" class="btn btn-danger faupload" data-input-id="c-notice_images" data-mimetype="image/gif,image/jpeg,image/png,image/jpg,image/bmp,image/webp" data-multiple="true" data-preview-id="p-notice_images"><i class="fa fa-upload"></i> {:__('Upload')}</button></span>
+                </div>
+            </div>
+            <ul class="row list-inline faupload-preview" id="p-notice_images"></ul>
+            <span class="help-block">支持多张；H5 群公告下方展示，点击可放大查看</span>
+        </div>
+    </div>
     {if $agents}
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">快捷托管账号:</label>

@@ -58,6 +58,39 @@ class Imgroup extends Backend
         }
         return json_encode($out, JSON_UNESCAPED_UNICODE);
     }
+
+    /** 群公告配图：存逗号分隔路径，兼容 JSON 数组入参 */
+    protected function encodeNoticeImages($raw)
+    {
+        if (is_array($raw)) {
+            $parts = array_values(array_filter(array_map(function ($v) {
+                return trim((string)$v);
+            }, $raw)));
+            return implode(',', $parts);
+        }
+        $trim = trim((string)$raw);
+        if ($trim === '') {
+            return '';
+        }
+        if ($trim[0] === '[') {
+            $arr = json_decode($trim, true);
+            if (is_array($arr)) {
+                $parts = array_values(array_filter(array_map(function ($v) {
+                    return trim((string)$v);
+                }, $arr)));
+                return implode(',', $parts);
+            }
+        }
+        $parts = preg_split('/[\r\n,]+/', $trim);
+        $parts = array_values(array_filter(array_map('trim', $parts ?: [])));
+        return implode(',', $parts);
+    }
+
+    protected function decodeNoticeImagesDisplay($raw)
+    {
+        return $this->encodeNoticeImages($raw);
+    }
+
     public function index()
     {
         $this->request->filter(['strip_tags', 'trim']);
@@ -108,6 +141,7 @@ class Imgroup extends Backend
             $memberIds = $this->parseIdList($params['member_user_ids'] ?? '');
             $notice = trim((string)($params['notice'] ?? ''));
             $noticeI18n = $this->encodeNoticeI18n($params['notice_i18n'] ?? []);
+            $noticeImages = $this->encodeNoticeImages($params['notice_images'] ?? '');
             if ($name === '' || $ownerId <= 0) {
                 $this->error('请填写群名称和群主会员ID');
             }
@@ -129,6 +163,7 @@ class Imgroup extends Backend
                     'owner_user_id' => $ownerId,
                     'notice'        => mb_substr($notice, 0, 500),
                     'notice_i18n'   => $noticeI18n,
+                    'notice_images' => $noticeImages,
                     'member_count'  => count($all),
                     'max_members'   => 500,
                     'is_recommend'  => ((int)($params['is_recommend'] ?? 0) === 1) ? 1 : 0,
@@ -183,6 +218,7 @@ class Imgroup extends Backend
             $memberIds = $this->parseIdList($params['member_user_ids'] ?? '');
             $notice = trim((string)($params['notice'] ?? ''));
             $noticeI18n = $this->encodeNoticeI18n($params['notice_i18n'] ?? []);
+            $noticeImages = $this->encodeNoticeImages($params['notice_images'] ?? '');
             $status = (int)($params['status'] ?? 1);
             if ($name === '' || $ownerId <= 0) {
                 $this->error('请填写群名称和群主会员ID');
@@ -234,6 +270,7 @@ class Imgroup extends Backend
                     'owner_user_id'        => $ownerId,
                     'notice'               => mb_substr($notice, 0, 500),
                     'notice_i18n'          => $noticeI18n,
+                    'notice_images'        => $noticeImages,
                     'status'               => $finalStatus,
                     'display_member_count' => max(0, (int)($params['display_member_count'] ?? $row['display_member_count'] ?? 0)),
                     'hide_member_list'     => ($privacy === 'private') ? 1 : 0,
@@ -299,6 +336,7 @@ class Imgroup extends Backend
         $row['admin_user_ids'] = implode(',', $admins);
         $row['member_user_ids'] = implode(',', $members);
         $row['notice_i18n_map'] = $this->decodeNoticeI18n($row['notice_i18n'] ?? '');
+        $row['notice_images'] = $this->decodeNoticeImagesDisplay($row['notice_images'] ?? '');
         $agents = Db::name('chat_agent_accounts')->where('status', 1)->order('id desc')->select();
         $this->view->assign('row', $row);
         $this->view->assign('agents', $agents);

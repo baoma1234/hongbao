@@ -540,7 +540,19 @@
     if (noticePin && !noticePin._bound) {
       noticePin._bound = true;
       noticePin.addEventListener('click', function (ev) {
-        if (ev.target && ev.target.id === 'chatNoticePinClose') return;
+        if (ev.target && (ev.target.id === 'chatNoticePinClose' || (ev.target.closest && ev.target.closest('#chatNoticePinClose')))) return;
+        var imgBtn = ev.target && ev.target.closest ? ev.target.closest('.chat-notice-pin-img') : null;
+        if (imgBtn) {
+          var src = imgBtn.getAttribute('data-src') || (imgBtn.querySelector('img') && imgBtn.querySelector('img').src);
+          if (src && typeof openMediaLightbox === 'function') openMediaLightbox(src, 'image');
+          return;
+        }
+        var popBtn = ev.target && ev.target.closest ? ev.target.closest('.chat-notice-pin-popup') : null;
+        if (popBtn) {
+          var pid = parseInt(popBtn.getAttribute('data-popup-id'), 10) || 0;
+          if (pid > 0 && typeof openPinnedGroupPopup === 'function') openPinnedGroupPopup(pid);
+          return;
+        }
         noticePin.classList.toggle('is-expanded');
       });
     }

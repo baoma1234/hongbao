@@ -290,6 +290,10 @@
     var item = _convActionTarget;
     closeConvActionSheet();
     if (!item) return;
+    if (!pinned && (item.undeletable || item.is_default_cs || (item.peer_user_id | 0) === 88888888)) {
+      if (typeof showFanshubToast === 'function') showFanshubToast('红宝客服会话不可取消置顶', 'info');
+      return;
+    }
     var type = item.conversation_type | 0;
     var cid = String(type === 2 ? (item.group_id || item.conversation_id) : item.conversation_id);
     try {
@@ -330,6 +334,10 @@
       return;
     }
     if (ctype !== 1) return;
+    if (item.undeletable || item.is_default_cs || (item.peer_user_id | 0) === 88888888) {
+      if (typeof showFanshubToast === 'function') showFanshubToast('红宝客服会话不可删除', 'info');
+      return;
+    }
     var cid = String(item.conversation_id || '');
     var peer = item.peer_user_id | 0;
     if (!cid && peer > 0) {
@@ -432,8 +440,8 @@
         '</div>' +
         (unread ? '<span class="chat-badge">' + (unread > 99 ? '99+' : unread) + '</span>' : '') +
       '</button>';
-    // 私聊 / 群聊：左滑露出删除
-    if (type === 1 || type === 2) {
+    // 私聊 / 群聊：左滑露出删除（默认客服永久置顶且不可删）
+    if ((type === 1 || type === 2) && !(item.undeletable || item.is_default_cs || (item.peer_user_id | 0) === 88888888)) {
       return (
         '<div class="chat-conv-swipe" data-type="' + type + '" data-id="' + escapeHtml(String(id)) + '" data-peer="' + (item.peer_user_id | 0) + '">' +
           '<div class="chat-conv-swipe-actions">' +
@@ -2019,6 +2027,10 @@
       var token = state.groupPopupToken;
       state.groupPopupQueue = [];
       state.groupPopupCurrent = null;
+      state.groupPopupFromPin = false;
+      state.groupAlwaysPopups = [];
+      if (!state.noticePinClosed) state.noticePinClosed = {};
+      if (groupId) delete state.noticePinClosed[String(groupId)];
       state.groupPopupGateResolve = resolve;
       closeGroupPopupModal(false);
       try { if (typeof ensureConnected === 'function') ensureConnected(); } catch (eConn2) {}
@@ -2038,7 +2050,6 @@
         resolve();
       }
 
-      // 防止接口卡住导致永远不进群
       var timer = setTimeout(function () {
         settle();
       }, 8000);
@@ -2053,12 +2064,20 @@
           settle();
           return;
         }
-        var list = (packet && packet.data && packet.data.list) || [];
+        var data = (packet && packet.data) || {};
+        var list = data.list || [];
+        var always = data.always || [];
+        // 兼容旧服务端：list 里混有 always
+        if (!always.length && list.length) {
+          always = list.filter(function (it) { return (it.show_mode || '') === 'always'; });
+          list = list.filter(function (it) { return (it.show_mode || '') !== 'always'; });
+        }
+        state.groupAlwaysPopups = always.slice();
+        try { applyNoticePin(); } catch (ePin) {}
         if (!list.length) {
           settle();
           return;
         }
-        // 有弹窗：展示完再 settle（finishGroupPopupGate）
         state.groupPopupGateResolve = function () {
           settle();
         };
@@ -2139,6 +2158,7 @@
 
     function onEnd() {
       if (!dragging) return;
+      if (Math.abs(deltaX) > 12) car._popupDidSwipe = true;
       dragging = false;
       track.classList.remove('is-dragging');
       var w = car.clientWidth || 1;
@@ -2161,6 +2181,20 @@
       startGroupPopupAutoplay(car, total);
     }
 
+    function onImgClick(e) {
+      var img = e.target && e.target.closest ? e.target.closest('img') : null;
+      if (!img || !img.getAttribute('src')) return;
+      if (car._popupDidSwipe) {
+        car._popupDidSwipe = false;
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof openMediaLightbox === 'function') {
+        openMediaLightbox(img.getAttribute('src'), 'image');
+      }
+    }
+
     if (window.PointerEvent) {
       car.addEventListener('pointerdown', onStart);
       car.addEventListener('pointermove', onMove);
@@ -2176,6 +2210,7 @@
       window.addEventListener('mouseup', onEnd);
     }
     car.addEventListener('click', onDotClick);
+    car.addEventListener('click', onImgClick);
 
     car._popupSwipeCleanup = function () {
       if (window.PointerEvent) {
@@ -2193,6 +2228,7 @@
         window.removeEventListener('mouseup', onEnd);
       }
       car.removeEventListener('click', onDotClick);
+      car.removeEventListener('click', onImgClick);
     };
   }
 
@@ -2217,10 +2253,32 @@
     if (!item) {
       closeGroupPopupModal(false);
       state.groupPopupCurrent = null;
+      state.groupPopupFromPin = false;
       finishGroupPopupGate();
       return;
     }
+    renderGroupPopupItem(item, false);
+  }
+
+  /** 从群公告下点开「每次进入」弹窗 */
+  function openPinnedGroupPopup(popupId) {
+    popupId = popupId | 0;
+    var list = state.groupAlwaysPopups || [];
+    var item = null;
+    for (var i = 0; i < list.length; i++) {
+      if ((list[i].id | 0) === popupId) {
+        item = list[i];
+        break;
+      }
+    }
+    if (!item) return;
+    state.groupPopupFromPin = true;
+    renderGroupPopupItem(item, true);
+  }
+
+  function renderGroupPopupItem(item, fromPin) {
     state.groupPopupCurrent = item;
+    state.groupPopupFromPin = !!fromPin;
     var el = ensureGroupPopupDom();
     var titleEl = $('chatGroupPopupTitle');
     var bodyEl = $('chatGroupPopupBody');
@@ -2237,7 +2295,7 @@
       bodyEl.hidden = !content;
     }
     if (okBtn) okBtn.textContent = chatT('chat_group_popup_ok') || '我知道了';
-    if (foreverLabel) foreverLabel.textContent = chatT('chat_group_popup_forever') || '永久关闭此弹窗';
+    if (foreverLabel) foreverLabel.textContent = chatT('chat_group_popup_forever') || '今日不再显示';
     var allowForever = !!(item.allow_forever_close || item.show_mode === 'always');
     if (foreverWrap) foreverWrap.hidden = !allowForever;
     if (foreverCb) foreverCb.checked = false;
@@ -2246,6 +2304,10 @@
     state.groupPopupSlideCount = images.length;
     state.groupPopupSlideIdx = 0;
     if (car) {
+      if (car._popupSwipeCleanup) {
+        try { car._popupSwipeCleanup(); } catch (eC) {}
+        car._popupSwipeCleanup = null;
+      }
       if (!images.length) {
         car.hidden = true;
         car.innerHTML = '';
@@ -2253,7 +2315,7 @@
         car.hidden = false;
         var slides = images.map(function (src) {
           return '<div class="chat-group-popup-slide">' +
-            '<img src="' + escapeHtml(publicUrl(src)) + '" alt="" draggable="false"></div>';
+            '<img class="chat-group-popup-zoomable" src="' + escapeHtml(publicUrl(src)) + '" alt="" draggable="false"></div>';
         }).join('');
         var dots = images.length > 1
           ? ('<div class="chat-group-popup-dots">' + images.map(function (_, idx) {
@@ -2266,6 +2328,12 @@
         if (images.length > 1) {
           bindGroupPopupCarouselSwipe(car, images.length);
           startGroupPopupAutoplay(car, images.length);
+        } else {
+          car.addEventListener('click', function onSingle(e) {
+            var img = e.target && e.target.closest ? e.target.closest('img') : null;
+            if (!img || !img.getAttribute('src')) return;
+            if (typeof openMediaLightbox === 'function') openMediaLightbox(img.getAttribute('src'), 'image');
+          });
         }
       }
     }
@@ -2279,14 +2347,25 @@
 
   function dismissCurrentGroupPopup() {
     var cur = state.groupPopupCurrent;
+    var fromPin = !!state.groupPopupFromPin;
     var foreverCb = $('chatGroupPopupForever');
     var forever = !!(foreverCb && foreverCb.checked && cur && (cur.allow_forever_close || cur.show_mode === 'always'));
     var popupId = cur ? (cur.id | 0) : 0;
     var token = state.groupPopupToken | 0;
     state.groupPopupCurrent = null;
+    state.groupPopupFromPin = false;
     closeGroupPopupModal(false);
     if (popupId > 0) {
-      send('group.popup.ack', { popup_id: popupId, forever: forever ? 1 : 0 }).catch(function () {});
+      send('group.popup.ack', { popup_id: popupId, forever: forever ? 1 : 0, dismiss_today: forever ? 1 : 0 }).catch(function () {});
+    }
+    if (forever && popupId > 0) {
+      state.groupAlwaysPopups = (state.groupAlwaysPopups || []).filter(function (it) {
+        return (it.id | 0) !== popupId;
+      });
+      try { applyNoticePin(); } catch (ePin2) {}
+    }
+    if (fromPin) {
+      return;
     }
     if (token === (state.groupPopupToken | 0)) {
       showNextGroupPopup();
@@ -2304,6 +2383,7 @@
     leaveGroupViewPresence();
     state.room = null;
     state.groupMeta = null;
+    state.groupAlwaysPopups = [];
     setComposerMuted(false, '', false);
     hideNoticePin();
     var moreBtn = $('chatGroupMoreBtn');
@@ -2482,6 +2562,16 @@
     pin.style.display = 'none';
     pin.setAttribute('aria-hidden', 'true');
     pin.classList.remove('is-expanded');
+    var imgs = $('chatNoticePinImgs');
+    var pops = $('chatNoticePinPopups');
+    if (imgs) {
+      imgs.hidden = true;
+      imgs.innerHTML = '';
+    }
+    if (pops) {
+      pops.hidden = true;
+      pops.innerHTML = '';
+    }
   }
 
   function resolveGroupNotice(g) {
@@ -2497,24 +2587,92 @@
     return local || base;
   }
 
+  function resolveNoticeImages(g) {
+    g = g || {};
+    var raw = g.notice_images;
+    if (Array.isArray(raw)) {
+      return raw.map(function (s) { return String(s || '').trim(); }).filter(Boolean);
+    }
+    if (typeof raw === 'string') {
+      var t = raw.trim();
+      if (!t) return [];
+      if (t.charAt(0) === '[') {
+        try {
+          var arr = JSON.parse(t);
+          if (Array.isArray(arr)) {
+            return arr.map(function (s) { return String(s || '').trim(); }).filter(Boolean);
+          }
+        } catch (e2) {}
+      }
+      return t.split(/[\r\n,]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+    }
+    return [];
+  }
+
   function applyNoticePin(notice) {
     var pin = $('chatNoticePin');
     var textEl = $('chatNoticePinText');
+    var imgsEl = $('chatNoticePinImgs');
+    var popsEl = $('chatNoticePinPopups');
     if (!pin || !textEl) return;
-    if (notice == null) {
-      notice = resolveGroupNotice((state.groupMeta && state.groupMeta.group) || {});
-    }
-    notice = String(notice || '').trim();
-    if (!notice || !state.room || state.room.type !== 2) {
+    if (!state.room || state.room.type !== 2) {
       hideNoticePin();
       return;
     }
     var gid = String(state.room.id);
-    if (state.noticeDismissed[gid] === notice) {
+    if (state.noticePinClosed && state.noticePinClosed[gid]) {
       hideNoticePin();
       return;
     }
-    textEl.textContent = notice;
+    var g = (state.groupMeta && state.groupMeta.group) || {};
+    if (notice == null) {
+      notice = resolveGroupNotice(g);
+    }
+    notice = String(notice || '').trim();
+    var images = resolveNoticeImages(g);
+    var always = state.groupAlwaysPopups || [];
+    var textDismissed = !!(notice && state.noticeDismissed[gid] === notice);
+    var showText = !!(notice && !textDismissed);
+
+    if (!showText && !images.length && !always.length) {
+      hideNoticePin();
+      return;
+    }
+
+    textEl.textContent = showText ? notice : '';
+    textEl.hidden = !showText;
+
+    if (imgsEl) {
+      if (!images.length) {
+        imgsEl.hidden = true;
+        imgsEl.innerHTML = '';
+      } else {
+        imgsEl.hidden = false;
+        imgsEl.innerHTML = images.map(function (src) {
+          var url = escapeHtml(publicUrl(src));
+          return '<button type="button" class="chat-notice-pin-img" data-src="' + url + '">' +
+            '<img src="' + url + '" alt=""></button>';
+        }).join('');
+      }
+    }
+
+    if (popsEl) {
+      if (!always.length) {
+        popsEl.hidden = true;
+        popsEl.innerHTML = '';
+      } else {
+        popsEl.hidden = false;
+        var label = chatT('chat_group_popup_pin_label') || '群提醒';
+        var viewLab = chatT('chat_group_popup_view') || '查看';
+        popsEl.innerHTML = always.map(function (it) {
+          var title = pickPopupI18n(it.title, it.title_i18n) || label;
+          return '<button type="button" class="chat-notice-pin-popup" data-popup-id="' + (it.id | 0) + '">' +
+            '<span class="chat-notice-pin-popup-title">' + escapeHtml(title) + '</span>' +
+            '<span class="chat-notice-pin-popup-act">' + escapeHtml(viewLab) + '</span></button>';
+        }).join('');
+      }
+    }
+
     pin.style.display = '';
     pin.setAttribute('aria-hidden', 'false');
     pin.classList.remove('is-expanded');
@@ -2522,8 +2680,11 @@
 
   function dismissNoticePin() {
     if (!state.room || state.room.type !== 2) return;
+    var gid = String(state.room.id);
     var notice = resolveGroupNotice((state.groupMeta && state.groupMeta.group) || {});
-    if (notice) state.noticeDismissed[String(state.room.id)] = notice;
+    if (notice) state.noticeDismissed[gid] = notice;
+    if (!state.noticePinClosed) state.noticePinClosed = {};
+    state.noticePinClosed[gid] = true;
     hideNoticePin();
   }
 

@@ -650,8 +650,15 @@ class MessageRouter
     protected function handleGroupPopupList(TcpConnection $connection, $uid, array $payload, $reqId)
     {
         try {
-            $list = $this->groupPopups->listForUser((int)($payload['group_id'] ?? 0), $uid);
-            $this->send($connection, 'group.popup.list', ['list' => $list], $reqId);
+            $data = $this->groupPopups->listForUser((int)($payload['group_id'] ?? 0), $uid);
+            // 兼容：旧客户端只读 list；新字段 always = 挂在群公告下的「每次进入」弹窗
+            if (!is_array($data) || !isset($data['list'])) {
+                $data = ['list' => is_array($data) ? $data : [], 'always' => []];
+            }
+            $this->send($connection, 'group.popup.list', [
+                'list'   => $data['list'] ?? [],
+                'always' => $data['always'] ?? [],
+            ], $reqId);
         } catch (\Throwable $e) {
             $this->error($connection, $e->getMessage(), $reqId);
         }
@@ -660,7 +667,10 @@ class MessageRouter
     protected function handleGroupPopupAck(TcpConnection $connection, $uid, array $payload, $reqId)
     {
         try {
-            $forever = !empty($payload['forever']) || !empty($payload['dismiss_forever']);
+            // forever / dismiss_forever / dismiss_today 均按「今日不再显示」处理
+            $forever = !empty($payload['forever'])
+                || !empty($payload['dismiss_forever'])
+                || !empty($payload['dismiss_today']);
             $data = $this->groupPopups->ack((int)($payload['popup_id'] ?? 0), $uid, $forever);
             $this->send($connection, 'group.popup.ack', $data, $reqId);
         } catch (\Throwable $e) {

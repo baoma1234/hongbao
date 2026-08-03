@@ -19,8 +19,8 @@ class Grouppopup extends Model
     public function getShowModeList()
     {
         return [
-            'always' => '每次进入都展示',
-            'once'   => '仅展示一次',
+            'always' => '每次进入：挂在群公告下，可点开查看（可今日不显示）',
+            'once'   => '仅展示一次（进群弹窗）',
         ];
     }
 
