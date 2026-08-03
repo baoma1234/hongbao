@@ -2,7 +2,8 @@
     <div class="panel-heading">用户详情 #{$row.id}</div>
     <div class="panel-body">
         <table class="table table-bordered">
-            <tr><th width="140">手机号</th><td>{$detail.user.mobile|default='-'|htmlentities}</td></tr>
+            <tr><th width="140">昵称</th><td>{$detail.user.nickname|default='-'|htmlentities}</td></tr>
+            <tr><th>手机号</th><td>{$detail.user.mobile|default='-'|htmlentities}</td></tr>
             <tr><th>注册时间</th><td>{if $detail.user.jointime}{$detail.user.jointime|datetime}{else/}-{/if}</td></tr>
             <tr><th>最后登录</th><td>{if $detail.user.logintime}{$detail.user.logintime|datetime}{else/}-{/if}</td></tr>
             <tr><th>最后登录IP</th><td>{$detail.user.loginip|default='-'|htmlentities}</td></tr>

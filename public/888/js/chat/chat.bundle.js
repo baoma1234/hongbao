@@ -1727,24 +1727,35 @@
     var fu = msg.from_user || {};
     var nick = String(msg.from_nickname || fu.nickname || fu.username || '').trim();
     var av = msg.from_avatar || fu.avatar || '';
-    if (nick) cacheSender(uid, { user_id: uid, nickname: nick, avatar: av || '' });
+    if (!nick || nick === '群友') return;
+    var prev = state.senderCache[uid];
+    // 已有真实昵称时不降级覆盖
+    if (prev && prev.nickname && prev.nickname !== '群友' && !av && prev.avatar) {
+      av = prev.avatar;
+    }
+    cacheSender(uid, { user_id: uid, nickname: nick, avatar: av || (prev && prev.avatar) || '' });
   }
 
   function getSenderBrief(userId) {
     userId = userId | 0;
-    if (state.senderCache[userId]) return state.senderCache[userId];
+    if (state.senderCache[userId] && state.senderCache[userId].nickname && state.senderCache[userId].nickname !== '群友') {
+      return state.senderCache[userId];
+    }
     var found = null;
     (state.members || []).some(function (m) {
       if ((m.user_id | 0) === userId) { found = m; return true; }
       return false;
     });
     if (found) {
-      var nick = String(found.nickname || found.username || '').trim() || '群友';
-      var brief = { user_id: userId, nickname: nick, avatar: found.avatar || '' };
-      cacheSender(userId, brief);
-      return brief;
+      var nick = String(found.nickname || found.username || '').trim();
+      if (nick && nick !== '群友' && nick.indexOf('群友') !== 0) {
+        var brief = { user_id: userId, nickname: nick, avatar: found.avatar || '' };
+        cacheSender(userId, brief);
+        return brief;
+      }
     }
-    return { user_id: userId, nickname: '群友', avatar: '' };
+    if (state.senderCache[userId]) return state.senderCache[userId];
+    return { user_id: userId, nickname: '', avatar: '' };
   }
 
   var CHAT_BACK_SVG = '<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path fill="currentColor" d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"/></svg>';
@@ -2018,8 +2029,10 @@
     try { renderMessages(!!skipScroll); } catch (e) {}
   }
 
-  function groupMessageWrap(mine, fromUserId, innerHtml, actions, msgId) {
-    msgId = msgId | 0;
+  function groupMessageWrap(mine, fromUserId, innerHtml, actions, msgOrId) {
+    var msg = (msgOrId && typeof msgOrId === 'object') ? msgOrId : null;
+    var msgId = msg ? (msg.id | 0) : (msgOrId | 0);
+    if (msg) cacheSenderFromMsg(msg);
     var midAttr = msgId ? (' data-mid="' + msgId + '"') : '';
     var isGroup = state.room && state.room.type === 2;
     var uid = mine ? (state.userId | 0) : (fromUserId | 0);
@@ -2027,9 +2040,14 @@
     var clickable = false;
     var nickHtml = '';
     if (isGroup && !mine) {
-      var brief = getSenderBrief(fromUserId);
+      var fu = (msg && msg.from_user) || {};
+      var nick = String((msg && (msg.from_nickname || fu.nickname || fu.username)) || '').trim();
+      if (!nick || nick === '群友') {
+        nick = String((getSenderBrief(fromUserId).nickname) || '').trim();
+      }
+      if (!nick || nick === '群友') nick = '用户';
       nickHtml = '<div class="chat-msg-nick locked" data-uid="' + (fromUserId | 0) + '">' +
-        escapeHtml(brief.nickname || '群友') + '</div>';
+        escapeHtml(nick) + '</div>';
     }
     return (
       '<div class="chat-msg-row' + (mine ? ' me' : '') + (isGroup && !mine ? ' group-msg' : '') + '"' + midAttr + '>' +
@@ -2338,7 +2356,7 @@
           var uid = r.user_id | 0;
           var isSelf = uid === (state.userId | 0);
           var gray = locked && !isSelf;
-          var nick = r.nickname || '群友';
+          var nick = r.nickname || '用户';
           var avInner;
           if (!gray && r.avatar) {
             avInner = '<img src="' + escapeHtml(encodeUriPath(r.avatar)) + '" alt="">';
@@ -2560,11 +2578,11 @@
     var actions = msgActionsHtml(msg, mine);
     if (type === 2) {
       var extra = parseExtra(msg);
-      return groupMessageWrap(mine, msg.from_user_id, renderRpCardHtml(extra, msg, formatTimeSec(msg.createtime)), actions, msg.id | 0);
+      return groupMessageWrap(mine, msg.from_user_id, renderRpCardHtml(extra, msg, formatTimeSec(msg.createtime)), actions, msg);
     }
     if (type === 8) {
       var tfExtra = parseExtra(msg);
-      return groupMessageWrap(mine, msg.from_user_id, renderTransferCardHtml(tfExtra, msg, time), actions, msg.id | 0);
+      return groupMessageWrap(mine, msg.from_user_id, renderTransferCardHtml(tfExtra, msg, time), actions, msg);
     }
     if (type === 4) {
       var imgExtra = parseExtra(msg);
@@ -2573,7 +2591,7 @@
         ? '<img class="chat-media-img" src="' + escapeHtml(imgUrl) + '" alt="图片" data-preview="' + escapeHtml(imgUrl) + '" data-preview-type="image">'
         : escapeHtml(msg.content || '[图片]');
       return groupMessageWrap(mine, msg.from_user_id,
-        '<div class="chat-bubble media">' + imgHtml + '<span class="meta">' + time + '</span></div>', actions, msg.id | 0);
+        '<div class="chat-bubble media">' + imgHtml + '<span class="meta">' + time + '</span></div>', actions, msg);
     }
     if (type === 5) {
       var vidExtra = parseExtra(msg);
@@ -2585,7 +2603,7 @@
           '</div>')
         : escapeHtml(msg.content || '[视频]');
       return groupMessageWrap(mine, msg.from_user_id,
-        '<div class="chat-bubble media">' + vidHtml + '<span class="meta">' + time + '</span></div>', actions, msg.id | 0);
+        '<div class="chat-bubble media">' + vidHtml + '<span class="meta">' + time + '</span></div>', actions, msg);
     }
     if (type === 6) {
       var stExtra = parseExtra(msg);
@@ -2595,7 +2613,7 @@
         ? '<img class="chat-sticker-img" src="' + escapeHtml(stUrl) + '" alt="' + escapeHtml(stCode || '表情') + '" data-preview="' + escapeHtml(stUrl) + '" data-preview-type="image">'
         : escapeHtml(msg.content || '[表情]');
       return groupMessageWrap(mine, msg.from_user_id,
-        '<div class="chat-bubble sticker">' + stHtml + '<span class="meta">' + time + '</span></div>', actions, msg.id | 0);
+        '<div class="chat-bubble sticker">' + stHtml + '<span class="meta">' + time + '</span></div>', actions, msg);
     }
     if (type === 7) {
       var fileExtra = parseExtra(msg);
@@ -2609,7 +2627,7 @@
             '<span class="chat-file-size">' + escapeHtml((fileExtra.ext || '') + fileSize) + '</span></span></a>')
         : escapeHtml(msg.content || '[文件]');
       return groupMessageWrap(mine, msg.from_user_id,
-        '<div class="chat-bubble media">' + fileHtml + '<span class="meta">' + time + '</span></div>', actions, msg.id | 0);
+        '<div class="chat-bubble media">' + fileHtml + '<span class="meta">' + time + '</span></div>', actions, msg);
     }
     if (type === 1) {
       var recovered = resolveStickerFromContent(msg.content || '');
@@ -2619,7 +2637,7 @@
           ? '<img class="chat-sticker-img" src="' + escapeHtml(rUrl) + '" alt="' + escapeHtml(recovered.code || '表情') + '" data-preview="' + escapeHtml(rUrl) + '" data-preview-type="image">'
           : escapeHtml(msg.content || '');
         return groupMessageWrap(mine, msg.from_user_id,
-          '<div class="chat-bubble sticker">' + rHtml + '<span class="meta">' + time + '</span></div>', actions, msg.id | 0);
+          '<div class="chat-bubble sticker">' + rHtml + '<span class="meta">' + time + '</span></div>', actions, msg);
       }
     }
     var text = msg.content || '';
@@ -2630,7 +2648,7 @@
       ? ('<span class="meta">' + time + '</span>')
       : (' <span class="meta">' + time + '</span>');
     return groupMessageWrap(mine, msg.from_user_id,
-      '<div class="' + bubbleCls + '">' + escapeHtml(text) + timeHtml + '</div>', actions, msg.id | 0);
+      '<div class="' + bubbleCls + '">' + escapeHtml(text) + timeHtml + '</div>', actions, msg);
   }
 
   function renderMessages(skipScroll) {

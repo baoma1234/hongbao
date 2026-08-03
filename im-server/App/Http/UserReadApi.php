@@ -137,6 +137,7 @@ class UserReadApi
             $userId
         );
         $list = $this->redPackets->enrichMessageExtras($list, $userId);
+        $list = $this->messages->enrichMessagesWithSenders($list);
         $data = ['list' => $list];
         if ($ctype === 2 && $gid > 0) {
             $data = array_merge($data, $this->groupInfoPayload($gid, $userId));

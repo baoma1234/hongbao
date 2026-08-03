@@ -22,6 +22,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                 columns: [[
                     {checkbox: true},
                     {field: 'id', title: '会员ID'},
+                    {field: 'user.nickname', title: '昵称', operate: 'LIKE'},
                     {field: 'user.mobile', title: '手机号', operate: 'LIKE'},
                     {field: 'inviter_user_id', title: '上线ID', operate: false, formatter: function (value) {
                         return value ? value : '-';
