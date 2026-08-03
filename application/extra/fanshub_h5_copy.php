@@ -802,7 +802,7 @@ return array (
   'chat_rp_lucky_sub' => '拼手气红包',
   'chat_rp_amount_label' => '金额（元）',
   'chat_rp_count_label' => '红包个数',
-  'chat_rp_count_hint' => '群聊 5～10 个，私聊固定 1 个',
+  'chat_rp_count_hint' => '按本群配置显示个数范围或固定个数',
   'chat_rp_type_label' => '红包类型',
   'chat_rp_type_lucky' => '拼手气',
   'chat_rp_type_avg' => '普通红包',

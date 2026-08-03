@@ -94,8 +94,9 @@ $http->onMessage = function (TcpConnection $connection, Request $request) use ($
             }
             $connection->send(corsJson(200, $payload));
         } catch (\Throwable $e) {
-            $msg = $e->getMessage();
-            $code = ($msg === 'not found') ? 404 : 400;
+            $raw = $e->getMessage();
+            $msg = friendlyImHttpError($raw);
+            $code = ($raw === 'not found') ? 404 : 400;
             $connection->send(corsJson($code, ['code' => 0, 'message' => $msg ?: 'error']));
         }
         return;
@@ -273,6 +274,50 @@ function corsHeaders()
         'Access-Control-Allow-Methods'=> 'GET, POST, OPTIONS',
         'Access-Control-Allow-Headers'=> 'Content-Type, X-Fans-Token, X-Im-Admin-Key',
     ];
+}
+
+function friendlyImHttpError($msg)
+{
+    $msg = trim((string)$msg);
+    if ($msg === '') {
+        return 'error';
+    }
+    // 已是中文直接返回
+    if (preg_match('/[\x{4e00}-\x{9fff}]/u', $msg)) {
+        return $msg;
+    }
+    if ($msg === 'mine count must be 5, 7 or 9') {
+        return '扫雷红包个数仅可选 5 / 7 / 9';
+    }
+    if (strpos($msg, 'count must be') === 0) {
+        $range = trim(substr($msg, strlen('count must be')));
+        if (preg_match('/^(\d+)\s*-\s*\1$/', $range, $m)) {
+            return '本群红包个数固定为 ' . $m[1] . ' 个';
+        }
+        return '红包个数须为 ' . str_replace('-', '～', $range);
+    }
+    if (strpos($msg, 'amount must be') === 0) {
+        return '金额须为 ' . trim(substr($msg, strlen('amount must be'))) . ' 元';
+    }
+    if (strpos($msg, 'amount below group min') === 0) {
+        return '金额不能低于本群最低 ' . trim(substr($msg, strlen('amount below group min'))) . ' 元';
+    }
+    if ($msg === 'insufficient balance') {
+        return '红宝不足，请先闪兑凑够红宝';
+    }
+    if ($msg === 'too many packets' || $msg === 'amount too small' || $msg === 'amount too small after fee') {
+        return '红包金额或个数不符合规则';
+    }
+    if ($msg === 'packet type not allowed in this group') {
+        return '当前群不允许该红包类型';
+    }
+    if ($msg === 'robot only: members cannot send red packets') {
+        return '本群仅自动机器人可发红包';
+    }
+    if ($msg === 'grab mode: only admin can send red packets') {
+        return '红宝模式下仅管理员/机器人可发红包';
+    }
+    return $msg;
 }
 
 function corsJson($code, array $data)

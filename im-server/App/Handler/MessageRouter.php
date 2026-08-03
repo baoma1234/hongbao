@@ -289,6 +289,20 @@ class MessageRouter
         if ($msg === 'mine count must be 5, 7 or 9') {
             return '扫雷红包个数仅可选 5 / 7 / 9';
         }
+        if (strpos($msg, 'count must be') === 0) {
+            $range = trim(substr($msg, strlen('count must be')));
+            if (preg_match('/^(\d+)\s*-\s*\1$/', $range, $m)) {
+                return '本群红包个数固定为 ' . $m[1] . ' 个';
+            }
+            $range = str_replace('-', '～', $range);
+            return '红包个数须为 ' . $range;
+        }
+        if (strpos($msg, 'amount must be') === 0) {
+            return '金额须为 ' . trim(substr($msg, strlen('amount must be'))) . ' 元';
+        }
+        if (strpos($msg, 'amount below group min') === 0) {
+            return '金额不能低于本群最低 ' . trim(substr($msg, strlen('amount below group min'))) . ' 元';
+        }
         if ($msg === 'account frozen') {
             return '账户已冻结';
         }
@@ -324,9 +338,6 @@ class MessageRouter
         }
         if (preg_match('/amount below.*?(\d+(?:\.\d+)?)/', $msg, $m)) {
             return '红包金额过低（最低 ' . $m[1] . ' 元）';
-        }
-        if (strpos($msg, 'count must be') === 0) {
-            return '红包个数须为 ' . trim(substr($msg, strlen('count must be')));
         }
         if ($msg === 'mine_digit must be 0-9') {
             return '雷号须为 0～9';

@@ -72,6 +72,27 @@
     return fixed > 0 ? Math.round(fixed * 100) / 100 : 0;
   }
 
+  /** 本群红包个数区间（后台最少/最多；相等=固定） */
+  function groupRpCountRange() {
+    var min = 0;
+    var max = 0;
+    try {
+      var policy = typeof groupPolicy === 'function' ? groupPolicy() : {};
+      min = parseInt(policy && policy.rp_min_count, 10) || 0;
+      max = parseInt(policy && policy.rp_max_count, 10) || 0;
+    } catch (e2) {}
+    if (!(min > 0) && state.groupMeta && state.groupMeta.group) {
+      min = parseInt(state.groupMeta.group.rp_min_count, 10) || 0;
+    }
+    if (!(max > 0) && state.groupMeta && state.groupMeta.group) {
+      max = parseInt(state.groupMeta.group.rp_max_count, 10) || 0;
+    }
+    if (min <= 0) min = 5;
+    if (max <= 0) max = 10;
+    if (max < min) max = min;
+    return { min: min, max: max, fixed: min === max };
+  }
+
   function syncRpFixedAmountField() {
     var amountInput = $('chatRpAmount');
     if (!amountInput) return;
@@ -174,6 +195,7 @@
     var countInput = $('chatRpCount');
     var hint = $('chatRpCountHint');
     var mineMode = isGroup && type === 3;
+    var range = isGroup ? groupRpCountRange() : { min: 1, max: 1, fixed: true };
     if (tabs) {
       tabs.hidden = !mineMode;
       tabs.style.display = mineMode ? '' : 'none';
@@ -185,34 +207,62 @@
     if (mineMode && countInput) {
       ensureRpCountTabs();
       var rates = mineCompensateRates();
-      var cur = parseInt(countInput.value, 10) || 5;
-      if ([5, 7, 9].indexOf(cur) < 0) cur = 5;
+      var allowed = [5, 7, 9].filter(function (n) {
+        return n >= range.min && n <= range.max;
+      });
+      if (!allowed.length) allowed = [5, 7, 9];
+      var cur = parseInt(countInput.value, 10) || allowed[0];
+      if (allowed.indexOf(cur) < 0) cur = allowed[0];
       countInput.value = String(cur);
+      countInput.readOnly = allowed.length === 1;
+      if (allowed.length === 1) countInput.setAttribute('aria-readonly', 'true');
+      else countInput.removeAttribute('aria-readonly');
       if (tabs) {
         tabs.querySelectorAll('.chat-rp-count-btn').forEach(function (b) {
-          b.classList.toggle('active', (parseInt(b.getAttribute('data-count'), 10) || 0) === cur);
+          var c = parseInt(b.getAttribute('data-count'), 10) || 0;
+          var ok = allowed.indexOf(c) >= 0;
+          b.hidden = !ok;
+          b.style.display = ok ? '' : 'none';
+          b.classList.toggle('active', c === cur);
         });
       }
       if (hint) {
-        hint.textContent = '中雷赔付：'
-          + rpCountTabLabel(5, rates[5]) + ' · '
-          + rpCountTabLabel(7, rates[7]) + ' · '
-          + rpCountTabLabel(9, rates[9]);
+        if (allowed.length === 1) {
+          hint.textContent = '本群扫雷固定 ' + allowed[0] + ' 个 · 中雷赔付 '
+            + rpCountTabLabel(allowed[0], rates[allowed[0]]);
+        } else {
+          hint.textContent = '中雷赔付：' + allowed.map(function (n) {
+            return rpCountTabLabel(n, rates[n]);
+          }).join(' · ');
+        }
       }
     } else if (hint) {
       if (!isGroup) {
         hint.textContent = '私聊固定 1 个';
-      } else if (type === 1 || type === 4) {
-        hint.textContent = '普通/随机红包个数按群与全局配置';
         if (countInput) {
-          countInput.min = '1';
-          countInput.max = '100';
+          countInput.readOnly = true;
+          countInput.value = '1';
         }
       } else {
-        hint.textContent = '群聊 5～10 个 · 私聊固定 1 个';
         if (countInput) {
-          countInput.min = '5';
-          countInput.max = '10';
+          countInput.min = String(range.min);
+          countInput.max = String(range.max);
+          var curN = parseInt(countInput.value, 10) || range.min;
+          if (curN < range.min || curN > range.max) curN = range.min;
+          countInput.value = String(curN);
+          if (range.fixed) {
+            countInput.readOnly = true;
+            countInput.setAttribute('aria-readonly', 'true');
+            hint.textContent = '本群固定 ' + range.min + ' 个';
+          } else {
+            countInput.readOnly = false;
+            countInput.removeAttribute('aria-readonly');
+            hint.textContent = '本群可发 ' + range.min + '～' + range.max + ' 个';
+          }
+        } else {
+          hint.textContent = range.fixed
+            ? ('本群固定 ' + range.min + ' 个')
+            : ('本群可发 ' + range.min + '～' + range.max + ' 个');
         }
       }
     }
@@ -292,12 +342,15 @@
         countInput.value = '1';
         countInput.min = '1';
         countInput.max = '1';
+        countInput.readOnly = true;
       } else {
-        countInput.min = '5';
-        countInput.max = '10';
-        if (!countInput.value || parseInt(countInput.value, 10) < 5) {
-          countInput.value = '5';
-        }
+        var range = groupRpCountRange();
+        countInput.min = String(range.min);
+        countInput.max = String(range.max);
+        var cur = parseInt(countInput.value, 10) || range.min;
+        if (cur < range.min || cur > range.max) cur = range.min;
+        countInput.value = String(cur);
+        countInput.readOnly = !!range.fixed;
       }
     }
     syncRpTypeTabs();
@@ -317,6 +370,7 @@
         countInput.value = '1';
         countInput.min = '1';
         countInput.max = '1';
+        countInput.readOnly = true;
       }
       var mineWrap = $('chatRpMineWrap');
       if (mineWrap) {
@@ -331,7 +385,7 @@
       var hint = $('chatRpCountHint');
       if (hint) hint.textContent = '私聊红包仅对方可领 · 无手续费';
     } else {
-      // 群聊：切到允许类型后刷新埋雷数字/个数区
+      // 群聊：按本群最少/最多刷新个数区
       try { syncRpMineField(); } catch (eMine) {}
     }
     var amountInput = $('chatRpAmount');
@@ -388,13 +442,35 @@
       if (typeof showFanshubToast === 'function') showFanshubToast('请输入红包个数', 'error');
       return;
     }
-    if (state.room.type === 2 && (totalCount < 5 || totalCount > 10)) {
-      if (typeof showFanshubToast === 'function') showFanshubToast('个数须为 5～10', 'error');
-      return;
-    }
-    if (packetType === 3 && state.room.type === 2 && [5, 7, 9].indexOf(totalCount) < 0) {
-      if (typeof showFanshubToast === 'function') showFanshubToast('扫雷红包个数仅可选 5 / 7 / 9', 'error');
-      return;
+    if (state.room.type === 2) {
+      var range = groupRpCountRange();
+      if (packetType === 3) {
+        var mineOk = [5, 7, 9].filter(function (n) {
+          return n >= range.min && n <= range.max;
+        });
+        if (!mineOk.length) mineOk = [5, 7, 9];
+        if (mineOk.indexOf(totalCount) < 0) {
+          if (typeof showFanshubToast === 'function') {
+            showFanshubToast(
+              mineOk.length === 1
+                ? ('本群扫雷红包个数固定为 ' + mineOk[0] + ' 个')
+                : ('扫雷红包个数仅可选 ' + mineOk.join(' / ')),
+              'error'
+            );
+          }
+          return;
+        }
+      } else if (totalCount < range.min || totalCount > range.max) {
+        if (typeof showFanshubToast === 'function') {
+          showFanshubToast(
+            range.fixed
+              ? ('本群红包个数固定为 ' + range.min + ' 个')
+              : ('个数须为 ' + range.min + '～' + range.max),
+            'error'
+          );
+        }
+        return;
+      }
     }
     if (packetType === 3 && (mineDigit < 0 || mineDigit > 9 || isNaN(mineDigit))) {
       if (typeof showFanshubToast === 'function') showFanshubToast('请选择埋雷数字 0～9', 'error');

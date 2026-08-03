@@ -539,7 +539,7 @@
                                     <input type="number" id="chatRpCount" inputmode="numeric" min="5" max="10" value="5" placeholder="5-10">
                                     <span class="chat-rp-unit">个</span>
                                 </div>
-                                <div class="chat-rp-field-hint" id="chatRpCountHint" data-copy="chat_rp_count_hint">群聊 5～10 个 · 私聊固定 1 个</div>
+                                <div class="chat-rp-field-hint" id="chatRpCountHint" data-copy="chat_rp_count_hint">按本群配置显示个数</div>
                             </div>
 
                             <div class="chat-rp-field chat-rp-field--type">

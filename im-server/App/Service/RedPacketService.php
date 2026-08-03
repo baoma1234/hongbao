@@ -819,7 +819,7 @@ class RedPacketService
         $fixedAmount = round((float)($group['rp_fixed_amount'] ?? 0), 2);
         if ($fixedAmount > 0) {
             if (abs($totalAmount - $fixedAmount) > 0.001) {
-                throw new \InvalidArgumentException('amount must be ' . number_format($fixedAmount, 2, '.', ''));
+                throw new \InvalidArgumentException('金额须为 ' . number_format($fixedAmount, 2, '.', '') . ' 元');
             }
         }
         $minAmount = round((float)($group['rp_min_amount'] ?? 0), 2);
@@ -827,7 +827,7 @@ class RedPacketService
             $minAmount = $globalMinAmount;
         }
         if ($fixedAmount <= 0 && $totalAmount < $minAmount) {
-            throw new \InvalidArgumentException('amount below group min ' . $minAmount);
+            throw new \InvalidArgumentException('金额不能低于本群最低 ' . number_format($minAmount, 2, '.', '') . ' 元');
         }
         $isVip = (int)($group['is_vip_group'] ?? 0) === 1;
         $isUserRp = in_array((int)$packetType, [1, 4], true);
@@ -851,13 +851,34 @@ class RedPacketService
                     : (int)($this->cfg['max_count'] ?? 10);
             }
         }
+        if ($minCount < 1) {
+            $minCount = 1;
+        }
+        if ($maxCount < $minCount) {
+            $maxCount = $minCount;
+        }
         if ($packetType === 3) {
-            // 扫雷固定 5 / 7 / 9 个
-            if (!in_array($totalCount, [5, 7, 9], true)) {
-                throw new \InvalidArgumentException('mine count must be 5, 7 or 9');
+            // 扫雷固定 5 / 7 / 9，再按本群个数区间过滤
+            $mineAllowed = [];
+            foreach ([5, 7, 9] as $n) {
+                if ($n >= $minCount && $n <= $maxCount) {
+                    $mineAllowed[] = $n;
+                }
+            }
+            if (!$mineAllowed) {
+                $mineAllowed = [5, 7, 9];
+            }
+            if (!in_array($totalCount, $mineAllowed, true)) {
+                if (count($mineAllowed) === 1) {
+                    throw new \InvalidArgumentException('本群扫雷红包个数固定为 ' . $mineAllowed[0] . ' 个');
+                }
+                throw new \InvalidArgumentException('扫雷红包个数仅可选 ' . implode(' / ', $mineAllowed));
             }
         } elseif ($totalCount < $minCount || $totalCount > $maxCount) {
-            throw new \InvalidArgumentException("count must be {$minCount}-{$maxCount}");
+            if ($minCount === $maxCount) {
+                throw new \InvalidArgumentException('本群红包个数固定为 ' . $minCount . ' 个');
+            }
+            throw new \InvalidArgumentException('红包个数须为 ' . $minCount . '～' . $maxCount);
         }
         $enabled = (string)($group['rp_enabled_types'] ?? '1,2,3,4');
         $allowed = array_filter(array_map('intval', explode(',', $enabled)));

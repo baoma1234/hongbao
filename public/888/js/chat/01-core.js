@@ -112,6 +112,17 @@
     if (codeMap[msg]) {
       return chatT(codeMap[msg]);
     }
+    // 兼容旧英文个数错误：count must be 5-5 / 5-10
+    var countMatch = msg.match(/^count must be\s+(\d+)\s*-\s*(\d+)$/i);
+    if (countMatch) {
+      if (countMatch[1] === countMatch[2]) {
+        return '本群红包个数固定为 ' + countMatch[1] + ' 个';
+      }
+      return '红包个数须为 ' + countMatch[1] + '～' + countMatch[2];
+    }
+    if (/^mine count must be/i.test(msg)) {
+      return '扫雷红包个数仅可选 5 / 7 / 9';
+    }
     if (/^chat_[a-z0-9_]+$/i.test(msg)) {
       var viaKey = chatT(msg);
       if (viaKey && viaKey !== msg) return viaKey;

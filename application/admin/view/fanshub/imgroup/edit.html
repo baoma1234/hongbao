@@ -151,6 +151,7 @@
                     <span class="input-group-addon">最多</span>
                     <input type="number" class="form-control" name="row[rp_max_count]" value="{$row.rp_max_count|default=10}" min="1">
                 </div>
+                <span class="help-block">最少=最多即为固定个数（如两边都填 5，前台只能发 5 个）；扫雷仅可选落在该区间内的 5/7/9</span>
             </div>
         </div>
         <div class="form-group">
