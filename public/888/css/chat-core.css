@@ -897,10 +897,14 @@ body.tab-messages .bottom-action-bar {
 }
 
 .chat-composer-wrap.is-muted .chat-composer { opacity: 0.85; }
+/* 仅禁文字输入/发送；+号与表情由能力策略控制（禁文字但仍可发红包时须可点） */
 .chat-composer-wrap.is-muted #chatInput,
-.chat-composer-wrap.is-muted #chatSendBtn,
-.chat-composer-wrap.is-muted #chatEmojiBtn,
-.chat-composer-wrap.is-muted #chatAttachBtn {
+.chat-composer-wrap.is-muted #chatSendBtn {
+  pointer-events: none;
+  cursor: not-allowed;
+}
+.chat-composer-wrap.is-extras-locked #chatEmojiBtn,
+.chat-composer-wrap.is-extras-locked #chatAttachBtn {
   pointer-events: none;
   cursor: not-allowed;
 }

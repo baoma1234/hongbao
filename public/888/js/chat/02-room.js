@@ -1807,7 +1807,7 @@
     var dash = $('mainDashboardView');
     if (dash) dash.classList.add('chat-room-open');
     if (typeof setBottomActionBarVisible === 'function') setBottomActionBarVisible(false);
-    setComposerMuted(false, '');
+    setComposerMuted(false, '', false);
     updateComposerPolicy();
     // 先用本地历史秒开对话框，再拉最新
     var cachedHist = loadHistCache(state.room.type, state.room.id);
@@ -1916,7 +1916,7 @@
     leaveGroupViewPresence();
     state.room = null;
     state.groupMeta = null;
-    setComposerMuted(false, '');
+    setComposerMuted(false, '', false);
     hideNoticePin();
     var moreBtn = $('chatGroupMoreBtn');
     if (moreBtn) {
@@ -1937,11 +1937,14 @@
     renderList();
   }
 
-  function setComposerMuted(muted, placeholder) {
+  function setComposerMuted(muted, placeholder, extrasLocked) {
     var wrap = $('chatComposerWrap');
     var input = $('chatInput');
     var sendBtn = $('chatSendBtn');
-    if (wrap) wrap.classList.toggle('is-muted', !!muted);
+    if (wrap) {
+      wrap.classList.toggle('is-muted', !!muted);
+      wrap.classList.toggle('is-extras-locked', !!extrasLocked);
+    }
     if (input) {
       input.disabled = !!muted;
       input.placeholder = muted
@@ -1969,22 +1972,30 @@
     return '仅可' + parts.join('、') + '操作';
   }
 
+  function hasComposerExtras() {
+    if (!(state.room && state.room.type === 2)) return true;
+    var policy = groupPolicy();
+    if (canSendCapability('image') || canSendCapability('video') || canSendCapability('emoji')) return true;
+    var canRp = canSendCapability('rp') && policy.can_send_rp !== false && policy.rp_robot_only !== true;
+    return !!canRp;
+  }
+
   function applySpeakState(meta) {
     if (!state.room || state.room.type !== 2) {
-      setComposerMuted(false, '');
+      setComposerMuted(false, '', false);
       return;
     }
     meta = meta || state.groupMeta || {};
     var canText = canSendCapability('text');
-    // 个人禁言：policy 允许但 can_speak=false
+    // 个人禁言：policy 允许但 can_speak=false → 附件也锁
     if (meta.can_speak === false && canText) {
-      setComposerMuted(true, '你已被禁言，暂时无法发言');
+      setComposerMuted(true, '你已被禁言，暂时无法发言', true);
       return;
     }
     if (!canText) {
-      setComposerMuted(true, buildForbidSpeakPlaceholder());
+      setComposerMuted(true, buildForbidSpeakPlaceholder(), !hasComposerExtras());
     } else {
-      setComposerMuted(false, '');
+      setComposerMuted(false, '', false);
     }
   }
 
