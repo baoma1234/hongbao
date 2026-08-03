@@ -6475,10 +6475,18 @@
   }
 
   function friendReqStatusText(st) {
-    if (st === 'accepted') return chatT('chat_friend_req_status_accepted');
-    if (st === 'rejected') return chatT('chat_friend_req_status_rejected');
-    if (st === 'cancelled') return chatT('chat_friend_req_status_cancelled');
-    return chatT('chat_friend_req_status_pending');
+    var key = 'chat_friend_req_status_pending';
+    var fallback = '待处理';
+    if (st === 'accepted') { key = 'chat_friend_req_status_accepted'; fallback = '已通过'; }
+    else if (st === 'rejected') { key = 'chat_friend_req_status_rejected'; fallback = '已拒绝'; }
+    else if (st === 'cancelled') { key = 'chat_friend_req_status_cancelled'; fallback = '已取消'; }
+    var t = chatT(key);
+    return (t && t !== key) ? t : fallback;
+  }
+
+  function friendReqActionLabel(key, fallback) {
+    var t = chatT(key);
+    return (t && t !== key) ? t : fallback;
   }
 
   function renderFriendReqList() {
@@ -6497,13 +6505,13 @@
       if (friendReqTab === 'incoming' && st === 'pending') {
         actions =
           '<div class="chat-friend-req-actions">' +
-            '<button type="button" class="chat-friend-req-btn reject" data-act="reject" data-id="' + (item.id | 0) + '">' + escapeHtml(chatT('chat_friend_req_reject')) + '</button>' +
-            '<button type="button" class="chat-friend-req-btn accept" data-act="accept" data-id="' + (item.id | 0) + '">' + escapeHtml(chatT('chat_friend_req_accept')) + '</button>' +
+            '<button type="button" class="chat-friend-req-btn reject" data-act="reject" data-id="' + (item.id | 0) + '">' + escapeHtml(friendReqActionLabel('chat_friend_req_reject', '拒绝')) + '</button>' +
+            '<button type="button" class="chat-friend-req-btn accept" data-act="accept" data-id="' + (item.id | 0) + '">' + escapeHtml(friendReqActionLabel('chat_friend_req_accept', '通过')) + '</button>' +
           '</div>';
       } else if (friendReqTab === 'outgoing' && st === 'pending') {
         actions =
           '<div class="chat-friend-req-actions">' +
-            '<button type="button" class="chat-friend-req-btn reject" data-act="cancel" data-id="' + (item.id | 0) + '">' + escapeHtml(chatT('chat_friend_req_cancel')) + '</button>' +
+            '<button type="button" class="chat-friend-req-btn reject" data-act="cancel" data-id="' + (item.id | 0) + '">' + escapeHtml(friendReqActionLabel('chat_friend_req_cancel', '取消')) + '</button>' +
           '</div>';
       } else {
         actions = '<div class="chat-friend-req-status">' + escapeHtml(friendReqStatusText(st)) + '</div>';

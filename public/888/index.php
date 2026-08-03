@@ -1,18 +1,18 @@
 <?php
 /**
- * 红宝 H5 入口：未登录只下发登录壳，业务 DOM/CSS 登录后懒加载
+ * ?? H5 ??????????????? DOM/CSS ??????
  */
-$assetVer = '202608031450';
+$assetVer = '202608031500';
 $v = htmlspecialchars($assetVer, ENT_QUOTES, 'UTF-8');
 ?><!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>红宝</title>
+    <title>??</title>
     <link rel="icon" href="img/logo.png?v=<?= $v ?>" type="image/png">
     <link rel="apple-touch-icon" href="img/logo.png?v=<?= $v ?>">
-    <!-- 登录页仅 core；业�?CSS �?Tab 懒加�?-->
+    <!-- ???? core????CSS ??Tab ????-->
     <link rel="stylesheet" href="css/core.css?v=<?= $v ?>">
 </head>
 <body>
@@ -23,6 +23,7 @@ $v = htmlspecialchars($assetVer, ENT_QUOTES, 'UTF-8');
     <div id="appExtrasMount" data-shell="pending"></div>
 
     <script>window.FANSHUB_ASSETS = { ver: '<?= $v ?>', base: '' };</script>
+    <script src="copy.defaults.js?v=<?= $v ?>"></script>
     <script src="i18n/version.js?v=<?= $v ?>"></script>
     <script src="i18n/countries.js?v=<?= $v ?>"></script>
     <script src="i18n/manager.js?v=<?= $v ?>"></script>

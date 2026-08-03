@@ -1,8 +1,5 @@
 <?php
 
-/**
- * FansHub H5 copy — km-KH
- */
 return array (
   'page_title' => '红宝 ផ្លូវការ — មជ្ឈមណ្ឌលចែករំលែកប្រាក់រង្វាន់អ្នកគាំទ្រ ៛888,888',
   'brand_name' => '红宝',
@@ -171,4 +168,17 @@ return array (
   'wallet_channel_more' => 'កាបូបបន្ថែម',
   'wallet_channel_less' => 'បង្រួម',
   'chat_rp_grab_need_compensate' => 'សមតុល្យមិនគ្រប់ចំនួនសំណងកញ្ចប់នេះ មិនអាចទទួលបាន',
+  'chat_friend_req_sent' => 'Request sent. Waiting for approval.',
+  'chat_friend_req_accept' => 'Accept',
+  'chat_friend_req_reject' => 'Decline',
+  'chat_friend_req_cancel' => 'Cancel',
+  'chat_friend_req_accepted' => 'Friend request accepted',
+  'chat_friend_req_status_pending' => 'Pending',
+  'chat_friend_req_status_accepted' => 'Accepted',
+  'chat_friend_req_status_rejected' => 'Declined',
+  'chat_friend_req_status_cancelled' => 'Cancelled',
+  'chat_friend_req_incoming_toast' => '{name} sent you a friend request',
+  'chat_friend_need_accept' => 'You can message after they accept',
+  'chat_friend_title' => 'Friend {id}',
+  'chat_friend_req_fail' => 'Action failed',
 );

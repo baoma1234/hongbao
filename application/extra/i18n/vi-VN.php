@@ -1,8 +1,5 @@
 <?php
 
-/**
- * FansHub H5 copy — vi-VN
- */
 return array (
   'page_title' => '红宝 Chính thức — Trung tâm chia sẻ thưởng hoạt động fan ₫888.888',
   'brand_name' => '红宝',
@@ -171,4 +168,17 @@ return array (
   'wallet_channel_more' => 'Thêm ví',
   'wallet_channel_less' => 'Thu gọn',
   'chat_rp_grab_need_compensate' => 'Số dư chưa đủ số tiền bồi thường của gói này, không thể nhận',
+  'chat_friend_req_sent' => 'Request sent. Waiting for approval.',
+  'chat_friend_req_accept' => 'Accept',
+  'chat_friend_req_reject' => 'Decline',
+  'chat_friend_req_cancel' => 'Cancel',
+  'chat_friend_req_accepted' => 'Friend request accepted',
+  'chat_friend_req_status_pending' => 'Pending',
+  'chat_friend_req_status_accepted' => 'Accepted',
+  'chat_friend_req_status_rejected' => 'Declined',
+  'chat_friend_req_status_cancelled' => 'Cancelled',
+  'chat_friend_req_incoming_toast' => '{name} sent you a friend request',
+  'chat_friend_need_accept' => 'You can message after they accept',
+  'chat_friend_title' => 'Friend {id}',
+  'chat_friend_req_fail' => 'Action failed',
 );
