@@ -728,6 +728,20 @@ body.tab-messages {
   margin-top: 12px;
 }
 
+#chatGroupInvitePane .chat-sub-main,
+#chatGroupMembersPane .chat-sub-main {
+  overflow: hidden !important;
+}
+#chatGroupInvitePane #chatInviteList,
+#chatGroupMembersPane #chatMemberList {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
 #tabMessages .chat-msg-scroll {
   background: #f3f4f6 !important;
 }

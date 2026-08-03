@@ -1076,6 +1076,47 @@ button.chat-rp-fair-link {
   padding: 12px 0 calc(12px + env(safe-area-inset-bottom, 0px));
 }
 
+/* 添加群成员：列表独立滚动，底部确认条固定 */
+#chatGroupInvitePane .chat-sub-main {
+  overflow: hidden;
+  padding-bottom: 8px;
+}
+#chatGroupInvitePane .chat-sub-toolbar {
+  flex-shrink: 0;
+}
+#chatGroupInvitePane .chat-invite-list,
+#chatGroupInvitePane #chatInviteList {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+#chatGroupInvitePane .chat-invite-ft {
+  flex-shrink: 0;
+  margin-top: 8px;
+  padding-top: 4px;
+  background: #fffdf9;
+}
+
+/* 群成员列表同样可滚动 */
+#chatGroupMembersPane .chat-sub-main {
+  overflow: hidden;
+}
+#chatGroupMembersPane .chat-sub-toolbar {
+  flex-shrink: 0;
+}
+#chatGroupMembersPane .chat-member-list,
+#chatGroupMembersPane #chatMemberList {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
 /* Action sheet — 24px radius */
 .chat-action-sheet {
   display: none;
