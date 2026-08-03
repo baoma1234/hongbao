@@ -600,6 +600,11 @@
       addMemberBtn._bound = true;
       addMemberBtn.onclick = function () { openGroupInvite(); };
     }
+    var settingsAddMemberBtn = $('chatSettingsAddMemberBtn');
+    if (settingsAddMemberBtn && !settingsAddMemberBtn._bound) {
+      settingsAddMemberBtn._bound = true;
+      settingsAddMemberBtn.onclick = function () { openGroupInvite(); };
+    }
     var memberSearch = $('chatMemberSearch');
     if (memberSearch && !memberSearch._bound) {
       memberSearch._bound = true;

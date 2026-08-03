@@ -362,6 +362,10 @@
                         <span data-copy="chat_view_members">查看群成员</span>
                         <span class="chat-setting-arrow">›</span>
                     </button>
+                    <button type="button" class="chat-setting-row" id="chatSettingsAddMemberBtn" style="display:none">
+                        <span data-copy="chat_add_members_btn">＋ 添加群成员</span>
+                        <span class="chat-setting-arrow">›</span>
+                    </button>
                     <div class="chat-setting-row chat-setting-toggle-row" id="chatMuteAllRow" style="display:none">
                         <span data-copy="chat_mute_all">全员禁言</span>
                         <label class="chat-switch">

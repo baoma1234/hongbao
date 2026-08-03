@@ -3426,6 +3426,8 @@
     }
     var viewBtn = $('chatViewMembersBtn');
     if (viewBtn) viewBtn.style.display = meta.member_list_hidden ? 'none' : '';
+    var settingsAddBtn = $('chatSettingsAddMemberBtn');
+    if (settingsAddBtn) settingsAddBtn.style.display = canEdit ? '' : 'none';
     if (noticeEl) {
       noticeEl.textContent = canEdit ? '' : (g.notice ? ('群公告：' + g.notice) : '暂无群公告');
       noticeEl.style.display = canEdit ? 'none' : '';
@@ -5383,6 +5385,11 @@
     if (addMemberBtn && !addMemberBtn._bound) {
       addMemberBtn._bound = true;
       addMemberBtn.onclick = function () { openGroupInvite(); };
+    }
+    var settingsAddMemberBtn = $('chatSettingsAddMemberBtn');
+    if (settingsAddMemberBtn && !settingsAddMemberBtn._bound) {
+      settingsAddMemberBtn._bound = true;
+      settingsAddMemberBtn.onclick = function () { openGroupInvite(); };
     }
     var memberSearch = $('chatMemberSearch');
     if (memberSearch && !memberSearch._bound) {

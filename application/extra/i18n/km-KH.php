@@ -182,4 +182,11 @@ return array (
   'chat_friend_title' => 'Friend {id}',
   'chat_friend_req_fail' => 'Action failed',
   'chat_friend_req_entry_sub' => 'View received and sent requests',
+  'chat_add_members_btn' => '+ បន្ថែមសមាជិក',
+  'chat_add_members_title' => 'បន្ថែមសមាជិក',
+  'chat_confirm_add' => 'បន្ថែម ({count})',
+  'chat_invite_search_ph' => 'ស្វែងរក ឈ្មោះ / ទូរស័ព្ទ / ID',
+  'chat_view_members' => 'មើលសមាជិក',
+  'chat_no_candidates' => 'គ្មានអ្នកប្រើប្រាស់សម្រាប់បន្ថែម',
+  'chat_member_search_ph' => 'ស្វែងរក ឈ្មោះហៅ / ID',
 );

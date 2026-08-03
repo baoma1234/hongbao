@@ -2276,6 +2276,8 @@
     }
     var viewBtn = $('chatViewMembersBtn');
     if (viewBtn) viewBtn.style.display = meta.member_list_hidden ? 'none' : '';
+    var settingsAddBtn = $('chatSettingsAddMemberBtn');
+    if (settingsAddBtn) settingsAddBtn.style.display = canEdit ? '' : 'none';
     if (noticeEl) {
       noticeEl.textContent = canEdit ? '' : (g.notice ? ('群公告：' + g.notice) : '暂无群公告');
       noticeEl.style.display = canEdit ? 'none' : '';

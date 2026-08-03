@@ -182,4 +182,11 @@ return array (
   'chat_friend_title' => 'Friend {id}',
   'chat_friend_req_fail' => 'Action failed',
   'chat_friend_req_entry_sub' => 'View received and sent requests',
+  'chat_add_members_btn' => '+ Tambah ahli',
+  'chat_add_members_title' => 'Tambah ahli',
+  'chat_confirm_add' => 'Tambah ({count})',
+  'chat_invite_search_ph' => 'Cari nama / telefon / ID',
+  'chat_view_members' => 'Lihat ahli',
+  'chat_no_candidates' => 'Tiada pengguna untuk ditambah',
+  'chat_member_search_ph' => 'Cari nama panggilan / ID',
 );

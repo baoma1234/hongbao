@@ -1,4 +1,5 @@
 <?php
+
 return array (
   'page_title' => '红宝 Official Direct — ₱888,888 Fan Activity Bonus Sharing Hub',
   'brand_name' => 'Hongbao',
@@ -535,4 +536,10 @@ Support will appear here automatically',
   'promote_earn_detail_multi' => 'Multi-group cashback',
   'promote_earn_detail_exposure' => 'Exposure conversion earnings',
   'promote_earn_refreshed' => 'Earnings data refreshed',
+  'chat_add_members_btn' => '+ Add members',
+  'chat_confirm_add' => 'Add ({count})',
+  'chat_invite_search_ph' => 'Search name / mobile / ID',
+  'chat_view_members' => 'View members',
+  'chat_no_candidates' => 'No users to add',
+  'chat_member_search_ph' => 'Search nickname / ID',
 );

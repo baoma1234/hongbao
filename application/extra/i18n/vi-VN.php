@@ -182,4 +182,11 @@ return array (
   'chat_friend_title' => 'Friend {id}',
   'chat_friend_req_fail' => 'Action failed',
   'chat_friend_req_entry_sub' => 'View received and sent requests',
+  'chat_add_members_btn' => '+ Thêm thành viên',
+  'chat_add_members_title' => 'Thêm thành viên',
+  'chat_confirm_add' => 'Thêm ({count})',
+  'chat_invite_search_ph' => 'Tìm tên / SĐT / ID',
+  'chat_view_members' => 'Xem thành viên',
+  'chat_no_candidates' => 'Không có người dùng để thêm',
+  'chat_member_search_ph' => 'Tìm biệt danh / ID',
 );
