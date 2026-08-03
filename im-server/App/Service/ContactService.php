@@ -341,34 +341,69 @@ class ContactService
 
     public function lookupByPhone($mobile, $seekerId = 0, $countryDial = '')
     {
+        $rawDigits = preg_replace('/\D+/', '', (string)$mobile);
         $candidates = $this->mobileCandidates($mobile, $countryDial);
-        if (!$candidates) {
+        // 区号选错时仍要能查到：合并无区号启发式 + 全部支持区号候选
+        $candidates = array_merge($candidates, $this->mobileCandidates($mobile, ''));
+        foreach ($this->supportedCountryDials() as $d) {
+            if ($d === '' || $d === preg_replace('/\D+/', '', (string)$countryDial)) {
+                continue;
+            }
+            $candidates = array_merge($candidates, $this->mobileCandidates($mobile, $d));
+        }
+        $candidates = array_values(array_unique(array_filter($candidates)));
+        if (!$candidates && $rawDigits === '') {
             throw new \InvalidArgumentException('mobile required');
         }
         // 库内多为 E.164（如 +8613...），查询时同时匹配去 + 后的数字串
         $digitForms = [];
         foreach ($candidates as $c) {
             $d = preg_replace('/\D+/', '', (string)$c);
-            if ($d !== '') {
+            if ($d !== '' && strlen($d) >= 6 && strlen($d) <= 18) {
                 $digitForms[] = $d;
             }
+        }
+        if ($rawDigits !== '' && strlen($rawDigits) >= 6) {
+            $digitForms[] = $rawDigits;
         }
         $digitForms = array_values(array_unique($digitForms));
         if (!$digitForms) {
             return null;
         }
         $placeholders = implode(',', array_fill(0, count($digitForms), '?'));
+        $normExpr = "REPLACE(REPLACE(IFNULL(mobile,''), '+', ''), ' ', '')";
         $row = Db::fetch(
             'SELECT id,nickname,username,mobile,avatar FROM ' . Db::table('user')
-            . " WHERE REPLACE(REPLACE(IFNULL(mobile,''), '+', ''), ' ', '') IN ({$placeholders})"
+            . " WHERE {$normExpr} IN ({$placeholders})"
             . ' ORDER BY id ASC LIMIT 1',
             $digitForms
         );
+        // 兜底：输入本国号时，用「规范化手机号后缀」匹配（避免区号选错查不到）
+        if (!$row && $rawDigits !== '' && strlen($rawDigits) >= 8 && strlen($rawDigits) <= 15) {
+            $row = Db::fetch(
+                'SELECT id,nickname,username,mobile,avatar FROM ' . Db::table('user')
+                . " WHERE {$normExpr} = ? OR {$normExpr} LIKE ?"
+                . ' ORDER BY id ASC LIMIT 1',
+                [$rawDigits, '%' . $rawDigits]
+            );
+            // 后缀命中时要求「整段国家码+本国号」长度合理，降低误匹配
+            if ($row) {
+                $norm = preg_replace('/\D+/', '', (string)($row['mobile'] ?? ''));
+                $ok = ($norm === $rawDigits)
+                    || (strlen($norm) >= strlen($rawDigits) + 1
+                        && strlen($norm) <= strlen($rawDigits) + 4
+                        && substr($norm, -strlen($rawDigits)) === $rawDigits);
+                if (!$ok) {
+                    $row = null;
+                }
+            }
+        }
         if (!$row) {
             return null;
         }
         $uid = (int)$row['id'];
-        if (!$this->isDiscoverableBy($uid, (int)$seekerId)) {
+        // 自己：交给上层返回「不能添加自己」，不要伪装成未找到
+        if ((int)$seekerId > 0 && $uid !== (int)$seekerId && !$this->isDiscoverableBy($uid, (int)$seekerId)) {
             return null;
         }
         $nick = trim((string)($row['nickname'] ?: $row['username'] ?: ''));
@@ -406,7 +441,7 @@ class ContactService
         if (!$row) {
             return null;
         }
-        if (!$this->isDiscoverableBy($uid, (int)$seekerId)) {
+        if ((int)$seekerId > 0 && $uid !== (int)$seekerId && !$this->isDiscoverableBy($uid, (int)$seekerId)) {
             return null;
         }
         $nick = trim((string)($row['nickname'] ?: $row['username'] ?: ''));
@@ -420,6 +455,12 @@ class ContactService
             'avatar'      => (string)($row['avatar'] ?? ''),
             'is_im_admin' => AdminService::isImAdmin($uid),
         ];
+    }
+
+    /** H5 支持的国家区号（与 public/888/i18n/countries.js 对齐） */
+    protected function supportedCountryDials()
+    {
+        return ['86', '63', '84', '60', '855', '62'];
     }
 
     /**
@@ -456,8 +497,14 @@ class ContactService
                 $out[] = '86' . $national;
                 $out[] = '+86' . $national;
             }
+            // 菲律宾：63 + 10 位（9xxxxxxxxx）
+            if ($dial === '63' && preg_match('/^9\d{9}$/', $national)) {
+                $out[] = $national;
+                $out[] = '63' . $national;
+                $out[] = '+63' . $national;
+            }
         } else {
-            // 无区号时也兼容已存 +86xxxxxxxxxxx
+            // 无区号时也兼容已存 +86xxxxxxxxxxx / +63xxxxxxxxxx
             if (preg_match('/^1\d{10}$/', $mobile)) {
                 $out[] = '86' . $mobile;
                 $out[] = '+86' . $mobile;
@@ -465,6 +512,22 @@ class ContactService
             if (preg_match('/^86(1\d{10})$/', $mobile, $m)) {
                 $out[] = $m[1];
                 $out[] = '+' . $mobile;
+            }
+            if (preg_match('/^9\d{9}$/', $mobile)) {
+                $out[] = '63' . $mobile;
+                $out[] = '+63' . $mobile;
+            }
+            if (preg_match('/^63(9\d{9})$/', $mobile, $m)) {
+                $out[] = $m[1];
+                $out[] = '+' . $mobile;
+            }
+            // 粘贴完整 E.164 数字（去 + 后）
+            foreach ($this->supportedCountryDials() as $d) {
+                if (strpos($mobile, $d) === 0 && strlen($mobile) > strlen($d) + 6) {
+                    $rest = substr($mobile, strlen($d));
+                    $out[] = $rest;
+                    $out[] = '+' . $mobile;
+                }
             }
         }
         return array_values(array_unique(array_filter($out)));

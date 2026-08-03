@@ -6299,7 +6299,22 @@
     var mobileEl = $('chatAddFriendMobile');
     var idEl = $('chatAddFriendUserId');
     var dial = dialEl ? String(dialEl.value || '').replace(/\D+/g, '') : '';
-    var mobile = mobileEl ? String(mobileEl.value || '').replace(/\D+/g, '') : '';
+    var mobileRaw = mobileEl ? String(mobileEl.value || '').trim() : '';
+    var mobile = mobileRaw.replace(/\D+/g, '');
+    // 粘贴 +8613... / 8613... 时自动剥掉区号，避免和左侧区号重复拼接
+    if (mobile.length >= 10) {
+      var dials = ['855', '86', '84', '63', '62', '60'];
+      for (var i = 0; i < dials.length; i++) {
+        var d = dials[i];
+        if (mobile.indexOf(d) === 0 && mobile.length > d.length + 6) {
+          if (!dial) dial = d;
+          // 若输入已带国家码，优先用输入里的区号，本国号单独提交
+          mobile = mobile.slice(d.length);
+          dial = d;
+          break;
+        }
+      }
+    }
     var memberId = idEl ? String(idEl.value || '').replace(/\D+/g, '') : '';
     var hasId = /^\d{8}$/.test(memberId);
     var hasMobile = mobile.length >= 6 && mobile.length <= 15;
