@@ -116,6 +116,16 @@ class GroupService
             Db::rollBack();
             throw $e;
         }
+        // 聊天模式用户群默认普通+随机；红宝对战群默认拼手气+埋雷
+        try {
+            $enabledTypes = ($chatMode === 'grab') ? '2,3' : '1,4';
+            Db::exec(
+                'UPDATE ' . Db::table('chat_groups')
+                . ' SET rp_enabled_types=?, updatetime=? WHERE id=?',
+                [$enabledTypes, time(), $groupId]
+            );
+        } catch (\Throwable $eTypes) {
+        }
         // 建群引导卡：永久绑定群主 1% 发包管理津贴
         if (!empty($options['bind_owner_rebate'])) {
             try {

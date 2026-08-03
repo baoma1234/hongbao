@@ -700,7 +700,8 @@
     var bottom = '红包福利';
     if (ptype === 3) bottom = pending ? '埋雷 · 匹配中' : '埋雷红包';
     else if (ptype === 2) bottom = '拼手气红包';
-    else if (ptype === 1) bottom = '人均红包';
+    else if (ptype === 4) bottom = '随机红包';
+    else if (ptype === 1) bottom = '普通红包';
     if (extra && extra.mode_label) bottom = String(extra.mode_label);
     if (grabbed) bottom = '已领取';
     else if (expired) bottom = '已过期';

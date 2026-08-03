@@ -19,7 +19,7 @@ class Redpacketauto extends Model
     public function getPacketTypeList()
     {
         return [
-            '1' => '均分红包',
+            '1' => '普通红包',
             '2' => '拼手气',
             '3' => '埋雷',
         ];

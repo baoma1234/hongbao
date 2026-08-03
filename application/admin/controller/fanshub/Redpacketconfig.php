@@ -39,6 +39,14 @@ class Redpacketconfig extends Backend
             $rate5 = round((float)($row['mine_compensate_rate_5'] ?? 1.5), 4);
             $rate7 = round((float)($row['mine_compensate_rate_7'] ?? 1.2), 4);
             $rate9 = round((float)($row['mine_compensate_rate_9'] ?? 1.0), 4);
+            $userRpExpire = max(1, (int)($row['user_rp_expire_seconds'] ?? 1800));
+            $userRpMinAmount = round((float)($row['user_rp_min_amount'] ?? $minAmount), 2);
+            $userRpMinCount = max(1, (int)($row['user_rp_min_count'] ?? 1));
+            $userRpMaxCount = max($userRpMinCount, (int)($row['user_rp_max_count'] ?? 100));
+            $userRpFee = round((float)($row['user_rp_platform_fee_rate'] ?? $fee), 4);
+            $userRpRebate = round((float)($row['user_rp_agent_rebate_rate_default'] ?? $rebate), 4);
+            $userRpRebateVip = round((float)($row['user_rp_agent_rebate_rate_vip'] ?? $rebateVip), 4);
+            $userRpPlatformUid = (int)($row['user_rp_platform_user_id'] ?? $platformUid);
             if ($minAmount <= 0) {
                 $this->error('最低金额无效');
             }
@@ -54,6 +62,12 @@ class Redpacketconfig extends Backend
             if ($mineFee < 0 || $mineFee > 1 || $mineRebate < 0 || $mineRebate > 1 || $mineRebateVip < 0 || $mineRebateVip > 1) {
                 $this->error('扫雷比例须在 0～1 之间（如 0.03=3%）');
             }
+            if ($userRpFee < 0 || $userRpFee > 1 || $userRpRebate < 0 || $userRpRebate > 1 || $userRpRebateVip < 0 || $userRpRebateVip > 1) {
+                $this->error('普通用户群红宝比例须在 0～1 之间（如 0.03=3%）');
+            }
+            if ($userRpMinAmount <= 0) {
+                $this->error('普通用户群红宝最低金额无效');
+            }
             if ($rate5 <= 0 || $rate7 <= 0 || $rate9 <= 0) {
                 $this->error('扫雷赔付倍率须大于 0');
             }
@@ -62,6 +76,9 @@ class Redpacketconfig extends Backend
             }
             if ($minePlatformUid <= 0) {
                 $this->error('请填写扫雷平台收款用户 ID');
+            }
+            if ($userRpPlatformUid <= 0) {
+                $this->error('请填写普通用户群红宝平台收款用户 ID');
             }
             FansHubRedPacket::saveConfig([
                 'min_amount'                      => sprintf('%.2f', $minAmount),
@@ -82,6 +99,14 @@ class Redpacketconfig extends Backend
                 'mine_agent_rebate_rate_default'  => sprintf('%.4f', $mineRebate),
                 'mine_agent_rebate_rate_vip'      => sprintf('%.4f', $mineRebateVip),
                 'mine_platform_user_id'           => (string)$minePlatformUid,
+                'user_rp_expire_seconds'            => (string)$userRpExpire,
+                'user_rp_min_amount'                => sprintf('%.2f', $userRpMinAmount),
+                'user_rp_min_count'                 => (string)$userRpMinCount,
+                'user_rp_max_count'                 => (string)$userRpMaxCount,
+                'user_rp_platform_fee_rate'         => sprintf('%.4f', $userRpFee),
+                'user_rp_agent_rebate_rate_default' => sprintf('%.4f', $userRpRebate),
+                'user_rp_agent_rebate_rate_vip'     => sprintf('%.4f', $userRpRebateVip),
+                'user_rp_platform_user_id'          => (string)$userRpPlatformUid,
                 'skin_width'                      => '750',
                 'skin_height'                     => '1000',
             ], [
@@ -93,7 +118,7 @@ class Redpacketconfig extends Backend
                 'platform_fee_rate'               => '平台抽水比例',
                 'agent_rebate_rate_default'       => '代理默认返佣',
                 'agent_rebate_rate_vip'           => 'VIP群返佣',
-                'expire_seconds'                  => '普通/手气过期秒数',
+                'expire_seconds'                  => '拼手气过期秒数',
                 'mine_expire_seconds'             => '扫雷过期秒数（默认180=3分钟）',
                 'platform_user_id'                => '平台收款用户',
                 'mine_compensate_rate_5'          => '扫雷5包赔付倍率',
@@ -103,6 +128,14 @@ class Redpacketconfig extends Backend
                 'mine_agent_rebate_rate_default'  => '扫雷代理返佣（普通）',
                 'mine_agent_rebate_rate_vip'      => '扫雷代理返佣（VIP）',
                 'mine_platform_user_id'           => '扫雷平台收款用户',
+                'user_rp_expire_seconds'            => '普通用户群红宝过期秒数（默认1800=30分钟）',
+                'user_rp_min_amount'                => '普通用户群红宝最低金额',
+                'user_rp_min_count'                 => '普通用户群红宝最少个数',
+                'user_rp_max_count'                 => '普通用户群红宝最多个数',
+                'user_rp_platform_fee_rate'         => '普通用户群红宝平台抽水',
+                'user_rp_agent_rebate_rate_default' => '普通用户群红宝代理返佣',
+                'user_rp_agent_rebate_rate_vip'     => '普通用户群红宝代理返佣（VIP）',
+                'user_rp_platform_user_id'          => '普通用户群红宝平台收款用户',
                 'skin_width'                      => '皮肤宽',
                 'skin_height'                     => '皮肤高',
             ]);

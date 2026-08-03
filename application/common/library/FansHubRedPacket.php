@@ -33,6 +33,16 @@ class FansHubRedPacket
             'mine_agent_rebate_rate_vip'      => '0.0100',
             'mine_invite_rebate_rate'         => '0.0050',
             'mine_platform_user_id'           => '56960815',
+            // 普通用户群红宝（普通均分 / 随机）：与扫雷、拼手气配置隔离
+            'user_rp_expire_seconds'            => '1800',
+            'user_rp_min_amount'                => '10.00',
+            'user_rp_min_count'                 => '1',
+            'user_rp_max_count'                 => '100',
+            'user_rp_platform_fee_rate'         => '0.0300',
+            'user_rp_agent_rebate_rate_default' => '0.0100',
+            'user_rp_agent_rebate_rate_vip'     => '0.0100',
+            'user_rp_invite_rebate_rate'        => '0.0050',
+            'user_rp_platform_user_id'          => '56960815',
             'skin_width'                      => '750',
             'skin_height'                     => '1000',
         ];
@@ -115,6 +125,15 @@ class FansHubRedPacket
             'mine_agent_rebate_rate_vip'     => (float)($map['mine_agent_rebate_rate_vip'] ?? $map['agent_rebate_rate_vip']),
             'mine_invite_rebate_rate'        => (float)($map['mine_invite_rebate_rate'] ?? ($map['invite_rebate_rate'] ?? 0.005)),
             'mine_platform_user_id'          => (int)($map['mine_platform_user_id'] ?? $map['platform_user_id']),
+            'user_rp_expire_seconds'            => max(1, (int)($map['user_rp_expire_seconds'] ?? 1800)),
+            'user_rp_min_amount'                => (float)($map['user_rp_min_amount'] ?? $map['min_amount']),
+            'user_rp_min_count'                 => max(1, (int)($map['user_rp_min_count'] ?? 1)),
+            'user_rp_max_count'                 => max(1, (int)($map['user_rp_max_count'] ?? 100)),
+            'user_rp_platform_fee_rate'         => (float)($map['user_rp_platform_fee_rate'] ?? $map['platform_fee_rate']),
+            'user_rp_agent_rebate_rate_default' => (float)($map['user_rp_agent_rebate_rate_default'] ?? $map['agent_rebate_rate_default']),
+            'user_rp_agent_rebate_rate_vip'     => (float)($map['user_rp_agent_rebate_rate_vip'] ?? $map['agent_rebate_rate_vip']),
+            'user_rp_invite_rebate_rate'        => (float)($map['user_rp_invite_rebate_rate'] ?? ($map['invite_rebate_rate'] ?? 0.005)),
+            'user_rp_platform_user_id'          => (int)($map['user_rp_platform_user_id'] ?? $map['platform_user_id']),
             'max_count'                      => max(1, (int)$map['max_count']),
             'min_amount'                     => (float)$map['min_amount'],
             'min_count'                      => (int)$map['min_count'],
@@ -144,9 +163,10 @@ class FansHubRedPacket
     public static function typeList()
     {
         return [
-            1 => '普通均分',
-            2 => '手气包',
+            1 => '普通红包',
+            2 => '拼手气',
             3 => '埋雷包',
+            4 => '随机红包',
         ];
     }
 

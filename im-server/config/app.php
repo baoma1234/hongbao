@@ -134,6 +134,16 @@ return array_replace_recursive([
         'mine_agent_rebate_rate_vip'     => 0.01,
         'mine_invite_rebate_rate'        => 0.005,
         'mine_platform_user_id'          => 56960815,
+        // 普通用户群红宝（普通/随机）单独配置
+        'user_rp_expire_seconds'            => 1800,
+        'user_rp_min_amount'                => 10.0,
+        'user_rp_min_count'                 => 1,
+        'user_rp_max_count'                 => 100,
+        'user_rp_platform_fee_rate'         => 0.03,
+        'user_rp_agent_rebate_rate_default' => 0.01,
+        'user_rp_agent_rebate_rate_vip'     => 0.01,
+        'user_rp_invite_rebate_rate'        => 0.005,
+        'user_rp_platform_user_id'          => 56960815,
         // 福利大厅余额 fa_fans_account.balance
         'account_table'              => 'fans_account',
         'ledger_table'               => 'fans_ledger',

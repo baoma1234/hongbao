@@ -32,7 +32,7 @@ class RedPacketService
 
     /**
      * 发红包：扣余额 → 落库 → Redis 预拆包队列（分）
-     * 支持 packet_type: 1普通 2手气 3埋雷；可选 mine_digit / skin_id
+     * 支持 packet_type: 1普通 2拼手气 3埋雷 4随机；可选 mine_digit / skin_id
      */
     public function send(array $params)
     {
@@ -40,7 +40,7 @@ class RedPacketService
         $scopeType = (int)($params['scope_type'] ?? 2); // 1私聊 2群聊
         $groupId = (int)($params['group_id'] ?? 0);
         $toUserId = (int)($params['to_user_id'] ?? 0);
-        $packetType = (int)($params['packet_type'] ?? 2); // 1普通 2手气 3埋雷
+        $packetType = (int)($params['packet_type'] ?? 2); // 1普通 2拼手气 3埋雷 4随机
         $totalAmount = round((float)($params['total_amount'] ?? 0), 2);
         $totalCount = (int)($params['total_count'] ?? 0);
         $mineDigit = (int)($params['mine_digit'] ?? 0);
@@ -49,7 +49,7 @@ class RedPacketService
         if ($blessing === '') {
             $blessing = '恭喜发财';
         }
-        if (!in_array($packetType, [1, 2, 3], true)) {
+        if (!in_array($packetType, [1, 2, 3, 4], true)) {
             throw new \InvalidArgumentException('invalid packet_type');
         }
         if ($packetType === 3) {
@@ -60,24 +60,35 @@ class RedPacketService
             $mineDigit = 0;
         }
 
+        $isUserRp = in_array($packetType, [1, 4], true);
         $minCent = (int)($this->cfg['min_amount_cent'] ?? 1);
         $maxCount = (int)($this->cfg['max_count'] ?? 10);
         $expireSec = (int)($this->cfg['expire_seconds'] ?? 60);
-        if ($packetType === 3) {
-            $expireSec = max(1, (int)($this->cfg['mine_expire_seconds'] ?? 180));
-        }
         $globalMinAmount = round((float)($this->cfg['min_amount'] ?? 10), 2);
         $feeRate = round((float)($this->cfg['platform_fee_rate'] ?? 0.03), 4);
         $agentRate = round((float)($this->cfg['agent_rebate_rate_default'] ?? 0.01), 4);
         $inviteRate = round((float)($this->cfg['invite_rebate_rate'] ?? 0.005), 4);
         $platformUserId = (int)($this->cfg['platform_user_id'] ?? 0);
         if ($packetType === 3) {
+            $expireSec = max(1, (int)($this->cfg['mine_expire_seconds'] ?? 180));
             $feeRate = round((float)($this->cfg['mine_platform_fee_rate'] ?? $feeRate), 4);
             $agentRate = round((float)($this->cfg['mine_agent_rebate_rate_default'] ?? $agentRate), 4);
             $inviteRate = round((float)($this->cfg['mine_invite_rebate_rate'] ?? $inviteRate), 4);
             $minePlatformUid = (int)($this->cfg['mine_platform_user_id'] ?? 0);
             if ($minePlatformUid > 0) {
                 $platformUserId = $minePlatformUid;
+            }
+        } elseif ($isUserRp) {
+            // 普通用户群红宝：普通/随机单独配置（默认 30 分钟过期）
+            $expireSec = max(1, (int)($this->cfg['user_rp_expire_seconds'] ?? 1800));
+            $maxCount = max(1, (int)($this->cfg['user_rp_max_count'] ?? $maxCount));
+            $globalMinAmount = round((float)($this->cfg['user_rp_min_amount'] ?? $globalMinAmount), 2);
+            $feeRate = round((float)($this->cfg['user_rp_platform_fee_rate'] ?? $feeRate), 4);
+            $agentRate = round((float)($this->cfg['user_rp_agent_rebate_rate_default'] ?? $agentRate), 4);
+            $inviteRate = round((float)($this->cfg['user_rp_invite_rebate_rate'] ?? $inviteRate), 4);
+            $userPlatformUid = (int)($this->cfg['user_rp_platform_user_id'] ?? 0);
+            if ($userPlatformUid > 0) {
+                $platformUserId = $userPlatformUid;
             }
         }
         // 私聊红包：仅对方可领、不抽水不返点；固定 1 个普通包（无赔付玩法）
@@ -88,7 +99,9 @@ class RedPacketService
             $platformUserId = 0;
             $totalCount = 1;
             $packetType = 1;
+            $isUserRp = true;
             $mineDigit = 0;
+            $expireSec = max(1, (int)($this->cfg['user_rp_expire_seconds'] ?? 1800));
         }
 
         if ($fromUserId <= 0 || $totalAmount <= 0 || $totalCount <= 0) {
@@ -132,6 +145,9 @@ class RedPacketService
             if ((int)($group['is_vip_group'] ?? 0) === 1) {
                 if ($packetType === 3) {
                     $agentRate = round((float)($this->cfg['mine_agent_rebate_rate_vip']
+                        ?? $this->cfg['agent_rebate_rate_vip'] ?? 0.01), 4);
+                } elseif ($isUserRp) {
+                    $agentRate = round((float)($this->cfg['user_rp_agent_rebate_rate_vip']
                         ?? $this->cfg['agent_rebate_rate_vip'] ?? 0.01), 4);
                 } else {
                     $agentRate = round((float)($this->cfg['agent_rebate_rate_vip'] ?? 0.01), 4);
@@ -246,6 +262,9 @@ class RedPacketService
                 $minePending = true;
                 $cents = [];
             }
+        } elseif ($packetType === 4) {
+            // 随机红包：本地随机金额，与拼手气（波场哈希）区分，无机器人接龙
+            $cents = $this->splitLucky($poolCent, $totalCount, $minCent);
         } else {
             $cents = $this->splitEqual($poolCent, $totalCount, $minCent);
         }
@@ -793,17 +812,26 @@ class RedPacketService
             throw new \InvalidArgumentException('amount below group min ' . $minAmount);
         }
         $isVip = (int)($group['is_vip_group'] ?? 0) === 1;
+        $isUserRp = in_array((int)$packetType, [1, 4], true);
         $minCount = (int)($group['rp_min_count'] ?? 0);
         $maxCount = (int)($group['rp_max_count'] ?? 0);
         if ($minCount <= 0) {
-            $minCount = $isVip
-                ? (int)($this->cfg['vip_min_count'] ?? 5)
-                : (int)($this->cfg['min_count'] ?? 5);
+            if ($isUserRp) {
+                $minCount = (int)($this->cfg['user_rp_min_count'] ?? 1);
+            } else {
+                $minCount = $isVip
+                    ? (int)($this->cfg['vip_min_count'] ?? 5)
+                    : (int)($this->cfg['min_count'] ?? 5);
+            }
         }
         if ($maxCount <= 0) {
-            $maxCount = $isVip
-                ? (int)($this->cfg['vip_max_count'] ?? 10)
-                : (int)($this->cfg['max_count'] ?? 10);
+            if ($isUserRp) {
+                $maxCount = (int)($this->cfg['user_rp_max_count'] ?? 100);
+            } else {
+                $maxCount = $isVip
+                    ? (int)($this->cfg['vip_max_count'] ?? 10)
+                    : (int)($this->cfg['max_count'] ?? 10);
+            }
         }
         if ($packetType === 3) {
             // 扫雷固定 5 / 7 / 9 个
@@ -1769,7 +1797,14 @@ class RedPacketService
                 if ($remainCent < $remainCount * $minCent) {
                     return;
                 }
-                $cents = $this->splitEqual($remainCent, $remainCount, $minCent);
+                $ptype = (int)($packet['packet_type'] ?? 0);
+                if ($ptype === 4) {
+                    $cents = $this->splitLucky($remainCent, $remainCount, $minCent);
+                } elseif (in_array($ptype, [2, 3], true)) {
+                    $cents = $this->splitLucky($remainCent, $remainCount, $minCent);
+                } else {
+                    $cents = $this->splitEqual($remainCent, $remainCount, $minCent);
+                }
                 $expireAt = (int)$packet['expiretime'];
                 // 关键：补种不得清空 grabbed，否则已领用户可再抢造成超发压力
                 $this->seedRedis($packetId, $cents, $expireAt, [

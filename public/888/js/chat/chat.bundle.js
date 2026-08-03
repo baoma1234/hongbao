@@ -1837,7 +1837,8 @@
     var bottom = '红包福利';
     if (ptype === 3) bottom = pending ? '埋雷 · 匹配中' : '埋雷红包';
     else if (ptype === 2) bottom = '拼手气红包';
-    else if (ptype === 1) bottom = '人均红包';
+    else if (ptype === 4) bottom = '随机红包';
+    else if (ptype === 1) bottom = '普通红包';
     if (extra && extra.mode_label) bottom = String(extra.mode_label);
     if (grabbed) bottom = '已领取';
     else if (expired) bottom = '已过期';
@@ -4140,9 +4141,9 @@
     if (!raw && state.groupMeta && state.groupMeta.group) {
       raw = String(state.groupMeta.group.rp_enabled_types || '');
     }
-    if (!raw) raw = '1,2,3';
+    if (!raw) raw = '1,2,3,4';
     var list = raw.split(',').map(function (x) { return parseInt(x, 10); })
-      .filter(function (n) { return n === 1 || n === 2 || n === 3; });
+      .filter(function (n) { return n === 1 || n === 2 || n === 3 || n === 4; });
     return list.length ? list : [2];
   }
 
@@ -4287,7 +4288,21 @@
           + rpCountTabLabel(9, rates[9]);
       }
     } else if (hint) {
-      hint.textContent = isGroup ? '群聊 5～10 个 · 私聊固定 1 个' : '私聊固定 1 个';
+      if (!isGroup) {
+        hint.textContent = '私聊固定 1 个';
+      } else if (type === 1 || type === 4) {
+        hint.textContent = '普通/随机红包个数按群与全局配置';
+        if (countInput) {
+          countInput.min = '1';
+          countInput.max = '100';
+        }
+      } else {
+        hint.textContent = '群聊 5～10 个 · 私聊固定 1 个';
+        if (countInput) {
+          countInput.min = '5';
+          countInput.max = '10';
+        }
+      }
     }
   }
 
@@ -4322,7 +4337,7 @@
       var count = countInput ? (parseInt(countInput.value, 10) || 1) : 1;
       var amount = amountInput ? (parseFloat(amountInput.value) || 0) : 0;
       var mineDigit = mineInput ? (parseInt(mineInput.value, 10) || 0) : 0;
-      var typeLabel = type === 1 ? '人均' : (type === 3 ? '埋雷' : '拼手气');
+      var typeLabel = type === 1 ? '普通' : (type === 3 ? '埋雷' : (type === 4 ? '随机' : '拼手气'));
       var parts = [typeLabel];
       if (type === 3) {
         parts.push('雷' + mineDigit);

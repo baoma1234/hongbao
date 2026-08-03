@@ -339,11 +339,15 @@ class RpAutoBotService
             return null;
         }
         $row = Db::fetch(
-            'SELECT id, createtime, remain_count, status FROM ' . Db::table('chat_red_packets')
+            'SELECT id, createtime, remain_count, status, packet_type FROM ' . Db::table('chat_red_packets')
             . ' WHERE id=? LIMIT 1',
             [$packetId]
         );
         if (!$row || (int)($row['status'] ?? 0) !== 1 || (int)($row['remain_count'] ?? 0) <= 0) {
+            return null;
+        }
+        // 普通/随机红包不参与机器人抢包监听
+        if (!in_array((int)($row['packet_type'] ?? 0), [2, 3], true)) {
             return null;
         }
         return $row;
@@ -440,8 +444,9 @@ class RpAutoBotService
     {
         $limit = max(1, min(20, (int)$limit));
         $rows = Db::fetchAll(
-            'SELECT id, createtime, remain_count, status FROM ' . Db::table('chat_red_packets')
+            'SELECT id, createtime, remain_count, status, packet_type FROM ' . Db::table('chat_red_packets')
             . ' WHERE group_id=? AND scope_type=2 AND status=1 AND remain_count>0'
+            . ' AND packet_type IN (2,3)'
             . ' ORDER BY id DESC LIMIT ' . $limit,
             [(int)$groupId]
         );

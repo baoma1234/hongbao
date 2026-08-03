@@ -17,7 +17,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                     {field: 'packet_no', title: '单号', operate: 'LIKE'},
                     {
                         field: 'packet_type', title: '类型',
-                        searchList: {1: '普通', 2: '手气包', 3: '埋雷包'},
+                        searchList: {1: '普通红包', 2: '拼手气', 3: '埋雷包', 4: '随机红包'},
                         formatter: function (v, row) { return row.type_text || v; }
                     },
                     {

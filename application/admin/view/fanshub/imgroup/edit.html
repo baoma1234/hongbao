@@ -121,10 +121,11 @@
                 <?php
                     $enabled = array_filter(array_map('trim', explode(',', (string)($row['rp_enabled_types'] ?? '2,3'))));
                 ?>
-                <label class="checkbox-inline"><input type="checkbox" name="row[rp_enabled_types][]" value="2" <?php echo in_array('2', $enabled, true) ? 'checked' : ''; ?>> 手气包</label>
+                <label class="checkbox-inline"><input type="checkbox" name="row[rp_enabled_types][]" value="2" <?php echo in_array('2', $enabled, true) ? 'checked' : ''; ?>> 拼手气</label>
                 <label class="checkbox-inline"><input type="checkbox" name="row[rp_enabled_types][]" value="3" <?php echo in_array('3', $enabled, true) ? 'checked' : ''; ?>> 埋雷包</label>
-                <label class="checkbox-inline"><input type="checkbox" name="row[rp_enabled_types][]" value="1" <?php echo in_array('1', $enabled, true) ? 'checked' : ''; ?>> 普通均分</label>
-                <span class="help-block">前台发红包页仅显示已勾选类型（如扫雷群只勾埋雷包）</span>
+                <label class="checkbox-inline"><input type="checkbox" name="row[rp_enabled_types][]" value="1" <?php echo in_array('1', $enabled, true) ? 'checked' : ''; ?>> 普通红包</label>
+                <label class="checkbox-inline"><input type="checkbox" name="row[rp_enabled_types][]" value="4" <?php echo in_array('4', $enabled, true) ? 'checked' : ''; ?>> 随机红包</label>
+                <span class="help-block">前台发红包页仅显示已勾选类型；普通/随机读取「普通用户群红宝配置」，无机器人接龙</span>
             </div>
         </div>
         <div class="form-group">
