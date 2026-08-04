@@ -41,14 +41,14 @@
             <text class="meta-time">{{ msgTime(m) }}</text>
           </view>
           <view v-else-if="isImage(m)" class="bubble media" @longpress="onMsgLongPress(m)">
-            <image class="media-img" :src="mediaUrl(m)" mode="widthFix" />
+            <image class="media-img" :src="mediaUrl(m)" mode="widthFix" @click.stop="previewImageMsg(m)" />
             <text class="meta-time">{{ msgTime(m) }}</text>
           </view>
           <view v-else-if="isVideo(m)" class="bubble media" @longpress="onMsgLongPress(m)">
             <video class="media-video" :src="mediaUrl(m)" controls playsinline />
             <text class="meta-time">{{ msgTime(m) }}</text>
           </view>
-          <view v-else-if="isFile(m)" class="bubble media file" @longpress="onMsgLongPress(m)">
+          <view v-else-if="isFile(m)" class="bubble media file" @longpress="onMsgLongPress(m)" @click="openFileMsg(m)">
             <text class="file-name">{{ fileName(m) }}</text>
             <text class="file-ext">{{ fileMeta(m) }}</text>
             <text class="meta-time">{{ msgTime(m) }}</text>
@@ -95,6 +95,7 @@
       <button class="tool" size="mini" @click="toggleSticker">贴纸</button>
       <button class="tool" size="mini" @click="pickImage">图片</button>
       <button class="tool" size="mini" @click="pickVideo">视频</button>
+      <button class="tool" size="mini" @click="pickFile">文件</button>
       <button class="tool" size="mini" @click="showRp = true; showEmoji = false; showSticker = false">红包</button>
       <input
         class="input"
@@ -635,6 +636,75 @@ async function pickVideo() {
   }
 }
 
+async function pickFile() {
+  if (mediaSending.value) return
+  try {
+    const chosen = await new Promise((resolve, reject) => {
+      // #ifdef H5
+      if (typeof uni.chooseMessageFile === 'function') {
+        uni.chooseMessageFile({
+          count: 1,
+          type: 'file',
+          success: resolve,
+          fail: reject,
+        })
+        return
+      }
+      // #endif
+      reject(new Error('当前端不支持文件选择'))
+    })
+    const item = (chosen && chosen.tempFiles && chosen.tempFiles[0]) || {}
+    const filePath = String(item.path || '')
+    if (!filePath) return
+    mediaSending.value = true
+    uni.showLoading({ title: '上传中…', mask: true })
+    const up = await uploadCommonFile(filePath)
+    const url = normalizeStickerUrl(up.url || up.fullurl || '')
+    if (!url) throw new Error('上传失败')
+    const rawName = String(item.name || up.name || 'file')
+    const dot = rawName.lastIndexOf('.')
+    const ext = dot >= 0 ? rawName.slice(dot + 1).toLowerCase() : ''
+    await sendMediaMessage(
+      7,
+      { url, fullurl: up.fullurl || url, name: rawName, size: Number(item.size || 0), ext },
+      '[文件]' + rawName
+    )
+    await fetchHistory()
+  } catch (e) {
+    const msg = (e && e.message) || ''
+    if (!/cancel|deny|fail/i.test(msg)) {
+      uni.showToast({ title: msg || '发送失败', icon: 'none' })
+    }
+  } finally {
+    uni.hideLoading()
+    mediaSending.value = false
+  }
+}
+
+function previewImageMsg(m) {
+  const cur = mediaUrl(m)
+  if (!cur) return
+  uni.previewImage({ current: cur, urls: [cur] })
+}
+
+function openFileMsg(m) {
+  const url = mediaUrl(m)
+  if (!url) {
+    uni.showToast({ title: '文件地址无效', icon: 'none' })
+    return
+  }
+  // #ifdef H5
+  if (typeof window !== 'undefined') {
+    window.open(url, '_blank')
+    return
+  }
+  // #endif
+  uni.setClipboardData({
+    data: url,
+    success: () => uni.showToast({ title: '文件链接已复制', icon: 'none' }),
+  })
+}
+
 function goBack() {
   clearActiveChat()
   uni.navigateBack({ fail: () => uni.switchTab({ url: '/pages/messages/messages' }) })
@@ -1039,6 +1109,7 @@ onUnload(() => {
 }
 .bubble.file {
   min-width: 280rpx;
+  border: 1px solid rgba(180, 140, 100, 0.22);
 }
 .file-name {
   display: block;
