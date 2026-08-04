@@ -434,7 +434,7 @@ class RedPacketSettlementService
                         $agentRate = (float)$resolved['rate'];
                     }
                 }
-                if ($agentUserId <= 0 || $agentUserId === $fromUserId) {
+                if ($agentUserId <= 0) {
                     $agentUserId = 0;
                 }
                 $agentRebate = 0.0;
@@ -562,7 +562,7 @@ class RedPacketSettlementService
             }
         }
 
-        if ($agentId <= 0 || $agentId === $fromUserId) {
+        if ($agentId <= 0) {
             $agentId = 0;
         }
 

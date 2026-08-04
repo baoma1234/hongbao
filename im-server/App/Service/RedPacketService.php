@@ -165,6 +165,7 @@ class RedPacketService
             }
             $this->assertGroupRpLimits($group, $packetType, $totalAmount, $totalCount, $globalMinAmount);
             // 代理 = 群主；默认 1%，群 rp_agent_rebate_rate>0 时覆盖
+            // 群主自己发包也拿群主返点（从平台手续费划转，不额外扣发包人）
             $agentUserId = (int)($group['owner_user_id'] ?? 0);
             if ((int)($group['is_vip_group'] ?? 0) === 1) {
                 if ($packetType === 3) {
@@ -184,7 +185,7 @@ class RedPacketService
             if ($grpRate > 0) {
                 $agentRate = $grpRate;
             }
-            if ($agentUserId <= 0 || $agentUserId === $fromUserId) {
+            if ($agentUserId <= 0) {
                 $agentUserId = 0;
             }
             $conversationId = (string)$groupId;
@@ -613,15 +614,18 @@ class RedPacketService
         if ($inviteUserId === $fromUserId || $inviteUserId <= 0) {
             $inviteUserId = 0;
         }
-        if ($agentUserId === $fromUserId) {
-            $agentUserId = 0;
-        }
+        // 群主本人发包：仍发群主返点（从平台手续费划），推荐人≠发包人才发推荐返点
 
         $bizMeta = ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId];
         $paid = 0.0;
         $agentRebateAmt = 0.0;
 
         $isDual = ($agentUserId > 0 && $inviteUserId > 0 && $agentUserId === $inviteUserId);
+        // 群主=推荐人且本人发包：双吃合并会导致「自己推荐自己」语义混乱，改走拆开只发群主返点
+        if ($isDual && $agentUserId === $fromUserId) {
+            $isDual = false;
+            $inviteUserId = 0;
+        }
         if ($isDual) {
             $dualRate = round($agentRate + $inviteRate, 4);
             if ($dualRate <= 0) {

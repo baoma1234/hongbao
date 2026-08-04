@@ -5816,8 +5816,8 @@ body.tab-messages {
   flex-shrink: 0;
 }
 
-/* ---------- 会话列表：全宽居中白底，不再偏移 ---------- */
-#tabMessages .chat-home-panel {
+/* ---------- 会话列表：全宽居中白底，不再偏移（仅聊天面板，勿套社群/公告/佣金） ---------- */
+#tabMessages #chatHomePanelChat.chat-home-panel {
   background: transparent !important;
   width: 100%;
   max-width: none;
