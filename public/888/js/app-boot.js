@@ -791,6 +791,7 @@
                 showFanshubToast(e.message || fc('alert_login_fail'), 'error');
             }
         }
+        window.submitLogin = submitLogin;
 
         function leaderboardDaySeed() {
             const d = new Date();
@@ -1208,6 +1209,7 @@
             }
             return Promise.resolve(fallbackCopySilent(text));
         }
+        window.copyTextSilent = copyTextSilent;
 
         function fallbackCopySilent(text) {
             let tempInput = document.createElement("input");

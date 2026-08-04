@@ -52,6 +52,11 @@ class Account extends Backend
                 return $this->selectpage();
             }
             list($where, $sort, $order, $offset, $limit) = $this->buildparams();
+            // 默认按注册/开户时间倒序（避免按主键 id 乱序）
+            if ($sort === '' || $sort === null || $sort === 'id') {
+                $sort = 'createtime';
+                $order = $order ?: 'desc';
+            }
             $list = $this->model
                 ->with(['user'])
                 ->where($where)
@@ -61,8 +66,15 @@ class Account extends Backend
             foreach ($list as $row) {
                 $userIds[] = (int)$row->user_id;
                 if ($row->getRelation('user')) {
-                    $row->getRelation('user')->visible(['id', 'mobile', 'nickname']);
+                    $row->getRelation('user')->visible(['id', 'mobile', 'nickname', 'username', 'jointime', 'createtime']);
                 }
+                $u = $row->user;
+                $nick = '';
+                if ($u) {
+                    $nick = trim((string)($u->nickname ?: $u->username ?: ''));
+                }
+                $row->nickname = $nick !== '' ? $nick : ('ID' . (int)$row->user_id);
+                $row->jointime = $u && !empty($u->jointime) ? (int)$u->jointime : (int)($row->createtime ?: 0);
             }
             $inviterMap = FansHubService::getInviterInfoMap($userIds);
             foreach ($list as $row) {

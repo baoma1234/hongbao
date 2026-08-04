@@ -443,22 +443,31 @@
         if (typeof showFanshubToast === 'function') showFanshubToast(chatT('chat_add_friend_not_found'), 'error');
         return null;
       }
-      var u = packet.data.user;
-      var tip = chatT('chat_add_friend_confirm', { name: u.nickname || ('ID' + u.user_id) });
+      var u = packet.data.user || {};
+      var peerNick = String(u.nickname || '').trim() || ('ID' + (u.user_id | 0));
+      var tip = chatT('chat_add_friend_confirm', { name: peerNick });
       if (!confirm(tip)) return null;
       // 仅允许手机号 / 8位ID，不传裸 peer_user_id
-      return send('friend.request', requestPayload);
+      return send('friend.request', requestPayload).then(function (packet2) {
+        if (packet2 && packet2.data) {
+          packet2.data._peer_nickname = peerNick;
+          packet2.data._peer_avatar = u.avatar || '';
+        }
+        return packet2;
+      });
     }).then(function (packet2) {
       if (!packet2 || !packet2.data) return false;
       var data = packet2.data;
       var peer = data.peer_user_id | 0;
       var cid = data.conversation_id || '';
+      var nick = String(data._peer_nickname || (data.peer && data.peer.nickname) || (data.to_user && data.to_user.nickname) || '').trim()
+        || ('ID' + peer);
       closeAddFriendPane();
       refreshFriendRequests().catch(function () {});
       refreshList().catch(function () {});
       refreshCommunity().catch(function () {});
       if (data.auto_accepted || data.status === 'accepted' || data.status === 'already_friends') {
-        openRoom({ type: 1, id: cid, peer: peer, title: chatT('chat_friend_title', { id: peer }) });
+        openRoom({ type: 1, id: cid, peer: peer, title: nick, peer_nickname: nick });
         if (typeof showFanshubToast === 'function') showFanshubToast(chatT('chat_add_friend_ok'), 'success');
       } else {
         if (typeof showFanshubToast === 'function') showFanshubToast(chatT('chat_friend_req_sent'), 'success');
@@ -489,22 +498,31 @@
         if (typeof showFanshubToast === 'function') showFanshubToast(chatT('chat_add_friend_not_found'), 'error');
         return null;
       }
-      var u = packet.data.user;
-      var tip = chatT('chat_add_friend_confirm', { name: u.nickname || ('ID' + u.user_id) });
+      var u = packet.data.user || {};
+      var peerNick = String(u.nickname || '').trim() || ('ID' + (u.user_id | 0));
+      var tip = chatT('chat_add_friend_confirm', { name: peerNick });
       if (!confirm(tip)) return null;
-      return send('friend.request', { user_id: id });
+      return send('friend.request', { user_id: id }).then(function (packet2) {
+        if (packet2 && packet2.data) {
+          packet2.data._peer_nickname = peerNick;
+          packet2.data._peer_avatar = u.avatar || '';
+        }
+        return packet2;
+      });
     }).then(function (packet2) {
       if (!packet2 || !packet2.data) return false;
       var data = packet2.data;
       var peer = data.peer_user_id | 0;
       var cid = data.conversation_id || '';
+      var nick = String(data._peer_nickname || (data.peer && data.peer.nickname) || (data.to_user && data.to_user.nickname) || '').trim()
+        || ('ID' + peer);
       closeAddFriendPane();
       if (typeof FansHubFriendQr !== 'undefined' && FansHubFriendQr.closeScanPane) FansHubFriendQr.closeScanPane();
       refreshFriendRequests().catch(function () {});
       refreshList().catch(function () {});
       refreshCommunity().catch(function () {});
       if (data.auto_accepted || data.status === 'accepted' || data.status === 'already_friends') {
-        openRoom({ type: 1, id: cid, peer: peer, title: chatT('chat_friend_title', { id: peer }) });
+        openRoom({ type: 1, id: cid, peer: peer, title: nick, peer_nickname: nick });
         if (typeof showFanshubToast === 'function') showFanshubToast(chatT('chat_add_friend_ok'), 'success');
       } else {
         if (typeof showFanshubToast === 'function') showFanshubToast(chatT('chat_friend_req_sent'), 'success');

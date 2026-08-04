@@ -18,11 +18,17 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
             table.bootstrapTable({
                 url: $.fn.bootstrapTable.defaults.extend.index_url,
                 pk: 'id',
-                sortName: 'id',
+                sortName: 'createtime',
+                sortOrder: 'desc',
                 columns: [[
                     {checkbox: true},
-                    {field: 'id', title: '会员ID'},
-                    {field: 'user.nickname', title: '昵称', operate: 'LIKE'},
+                    {field: 'user_id', title: '会员ID', sortable: true},
+                    {field: 'user.nickname', title: '昵称', operate: 'LIKE', formatter: function (value, row) {
+                        if (row.nickname) return row.nickname;
+                        if (value) return value;
+                        if (row.user && row.user.nickname) return row.user.nickname;
+                        return row.user_id ? ('ID' + row.user_id) : '-';
+                    }},
                     {field: 'user.mobile', title: '手机号', operate: 'LIKE'},
                     {field: 'inviter_user_id', title: '上线ID', operate: false, formatter: function (value) {
                         return value ? value : '-';
@@ -64,7 +70,8 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                         if (!tags.length) return '<span class="text-muted">-</span>';
                         return '<span class="label label-danger" title="' + tags.join('、') + '">禁' + tags.length + '项</span>';
                     }},
-                    {field: 'updatetime', title: '更新时间', operate: 'RANGE', addclass: 'datetimerange', formatter: Table.api.formatter.datetime},
+                    {field: 'createtime', title: '注册时间', operate: 'RANGE', addclass: 'datetimerange', sortable: true, formatter: Table.api.formatter.datetime},
+                    {field: 'updatetime', title: '更新时间', operate: 'RANGE', addclass: 'datetimerange', sortable: true, formatter: Table.api.formatter.datetime},
                     {
                         field: 'operate', title: '操作', table: table,
                         buttons: [{

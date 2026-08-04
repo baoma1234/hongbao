@@ -49,6 +49,7 @@ class ContactService
                 'peer_user_id'    => $toUserId,
                 'conversation_id' => $this->privateConversationId($fromUserId, $toUserId),
                 'auto_accepted'   => true,
+                'peer'            => $this->userBrief($toUserId),
             ];
         }
         if (!$this->isDiscoverableBy($toUserId, $fromUserId)) {
@@ -98,6 +99,7 @@ class ContactService
                 'auto_accepted'   => true,
                 'reply'           => $reply,
                 'message'         => $msg,
+                'peer'            => $this->userBrief($toUserId),
             ];
         }
 
@@ -109,6 +111,7 @@ class ContactService
             'conversation_id' => $this->privateConversationId($fromUserId, $toUserId),
             'auto_accepted'   => false,
             'from_user'       => $this->userBrief($fromUserId),
+            'peer'            => $this->userBrief($toUserId),
             'message'         => $message,
         ];
     }

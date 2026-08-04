@@ -3089,6 +3089,52 @@
     }
   }
 
+  function copyChatMemberId(id) {
+    id = String(id || '').trim();
+    if (!id) return;
+    var done = function () {
+      if (typeof showFanshubToast === 'function') showFanshubToast(chatT('chat_copy_member_id_ok') || '已复制会员ID', 'success');
+    };
+    var failShow = function () {
+      if (typeof showFanshubToast === 'function') showFanshubToast(id, 'info');
+    };
+    try {
+      if (typeof window.copyTextSilent === 'function') {
+        Promise.resolve(window.copyTextSilent(id)).then(done).catch(function () {
+          fallbackCopyChatText(id);
+          done();
+        });
+        return;
+      }
+    } catch (e0) {}
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(id).then(done).catch(function () {
+        if (fallbackCopyChatText(id)) done();
+        else failShow();
+      });
+      return;
+    }
+    if (fallbackCopyChatText(id)) done();
+    else failShow();
+  }
+
+  function fallbackCopyChatText(text) {
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = String(text || '');
+      ta.setAttribute('readonly', 'readonly');
+      ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0;';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return !!ok;
+    } catch (e) {
+      return false;
+    }
+  }
+
   function openPrivateRoomMore() {
     if (!state.room || state.room.type !== 1) return;
     ensureChatOverlays();
@@ -3120,24 +3166,18 @@
       copyBtn.type = 'button';
       copyBtn.className = 'chat-action-item';
       copyBtn.id = 'chatProfileCopyId';
-      copyBtn.textContent = chatT('chat_copy_member_id');
+      copyBtn.textContent = chatT('chat_copy_member_id') || '复制会员ID';
       $('chatProfileClose').parentNode.insertBefore(copyBtn, $('chatProfileClose'));
-      copyBtn.onclick = function () {
-        var id = String((state.room && state.room.peer) || '');
-        if (!id) return;
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(id).then(function () {
-            if (typeof showFanshubToast === 'function') showFanshubToast('已复制会员ID', 'success');
-          }).catch(function () {
-            if (typeof showFanshubToast === 'function') showFanshubToast(id, 'info');
-          });
-        } else if (typeof showFanshubToast === 'function') {
-          showFanshubToast(id, 'info');
-        }
-        closeUserProfile();
-      };
     } else if (copyBtn) {
       copyBtn.style.display = '';
+      copyBtn.textContent = chatT('chat_copy_member_id') || '复制会员ID';
+    }
+    if (copyBtn && !copyBtn._boundCopy) {
+      copyBtn._boundCopy = true;
+      copyBtn.onclick = function () {
+        copyChatMemberId((state.room && state.room.peer) || '');
+        closeUserProfile();
+      };
     }
     if (!remarkBtn && $('chatProfileClose')) {
       remarkBtn = document.createElement('button');
