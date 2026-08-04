@@ -322,7 +322,8 @@ function friendlyImHttpError($msg)
 
 function corsJson($code, array $data)
 {
-    return new Response((int)$code, corsHeaders(), json_encode($data, JSON_UNESCAPED_UNICODE));
+    // 坏 UTF-8 内容不可让 json_encode 失败成空 body（前端会整页「加载失败」）
+    return new Response((int)$code, corsHeaders(), \Im\Support\Json::encode($data));
 }
 
 function corsResponse($code, $body)

@@ -124,8 +124,8 @@ class PushBus
             'from'   => -1,
             'ts'     => time(),
         ];
-        $json = json_encode($envelope, JSON_UNESCAPED_UNICODE);
-        if ($json === false) {
+        $json = \Im\Support\Json::encode($envelope);
+        if ($json === '' || $json === '{"code":0,"message":"encode error"}') {
             return;
         }
         try {

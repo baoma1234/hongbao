@@ -1089,7 +1089,16 @@
     };
     if (ctrl) fetchOpts.signal = ctrl.signal;
     var p = fetch(defaultImHttpBase() + path, fetchOpts).then(function (res) {
-      return res.json().then(function (json) {
+      return res.text().then(function (text) {
+        var json = null;
+        try {
+          json = text ? JSON.parse(text) : null;
+        } catch (eParse) {
+          throw new Error('HTTP bad json');
+        }
+        if (!json) {
+          throw new Error('HTTP empty');
+        }
         if (!res.ok || (json && json.code === 0)) {
           throw new Error((json && json.message) || ('HTTP ' + res.status));
         }
@@ -1123,6 +1132,8 @@
         var isBiz = hm && hm !== '未连接' && hm !== '超时'
           && hm !== 'Failed to fetch'
           && hm !== 'The user aborted a request.'
+          && hm !== 'HTTP bad json'
+          && hm !== 'HTTP empty'
           && hm.indexOf('NetworkError') < 0
           && hm.indexOf('Load failed') < 0
           && hm.indexOf('HTTP ') !== 0;

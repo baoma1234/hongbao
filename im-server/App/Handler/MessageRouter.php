@@ -1449,7 +1449,7 @@ class MessageRouter
         }
         unset($item);
         try {
-            RedisClient::conn()->setex($cacheKey, 20, json_encode($list, JSON_UNESCAPED_UNICODE));
+            RedisClient::conn()->setex($cacheKey, 20, \Im\Support\Json::encode($list));
         } catch (\Throwable $e) {
         }
         $this->send($connection, 'conversation.list', ['list' => $list], $reqId);
@@ -1603,7 +1603,7 @@ class MessageRouter
         if ($reqId !== '') {
             $packet['req_id'] = $reqId;
         }
-        $connection->send(json_encode($packet, JSON_UNESCAPED_UNICODE));
+        $connection->send(\Im\Support\Json::encode($packet));
     }
 
     protected function error(TcpConnection $connection, $message, $reqId = '')

@@ -2163,6 +2163,12 @@ class MessageService
                 $row['extra'] = $decoded;
             }
         }
+        if (isset($row['content']) && is_string($row['content'])) {
+            $row['content'] = \Im\Support\Json::cleanString($row['content']);
+        }
+        if (isset($row['conversation_id']) && is_string($row['conversation_id'])) {
+            $row['conversation_id'] = \Im\Support\Json::cleanString($row['conversation_id']);
+        }
         $row['id'] = (int)($row['id'] ?? 0);
         $row['conversation_type'] = (int)($row['conversation_type'] ?? 1);
         $row['group_id'] = (int)($row['group_id'] ?? 0);

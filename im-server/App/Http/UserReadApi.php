@@ -114,7 +114,7 @@ class UserReadApi
         unset($item);
 
         try {
-            RedisClient::conn()->setex($cacheKey, 20, json_encode($list, JSON_UNESCAPED_UNICODE));
+            RedisClient::conn()->setex($cacheKey, 20, \Im\Support\Json::encode($list));
         } catch (\Throwable $e) {
         }
         return ['list' => $list];
