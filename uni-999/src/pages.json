@@ -33,6 +33,12 @@
       }
     },
     {
+      "path": "pages/group/settings",
+      "style": {
+        "navigationBarTitleText": "群设置"
+      }
+    },
+    {
       "path": "pages/master/master",
       "style": {
         "navigationBarTitleText": "团长"

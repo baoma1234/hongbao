@@ -267,3 +267,53 @@ export function pinConversation(conversationType, conversationId, pinned = true)
     true
   )
 }
+
+export function hideConversation(conversationType, conversationId, extra = {}) {
+  return imSend(
+    'conversation.hide',
+    Object.assign(
+      {
+        conversation_type: conversationType | 0,
+        conversation_id: String(conversationId || ''),
+      },
+      extra || {}
+    ),
+    true
+  )
+}
+
+export function recallMessage(messageId) {
+  return imSend('message.recall', { message_id: messageId | 0 }, true)
+}
+
+export function fetchGroupInfo(groupId) {
+  return imSend('group.info', { group_id: groupId | 0 }, true)
+}
+
+export function fetchGroupMembers(groupId, keyword = '') {
+  return imSend(
+    'group.members',
+    { group_id: groupId | 0, keyword: String(keyword || '') },
+    true
+  )
+}
+
+export function setGroupMuteAll(groupId, enabled) {
+  return imSend(
+    'group.mute_all',
+    { group_id: groupId | 0, enabled: !!enabled },
+    true
+  )
+}
+
+export function updateGroup(groupId, fields = {}) {
+  return imSend(
+    'group.update',
+    Object.assign({ group_id: groupId | 0 }, fields || {}),
+    true
+  )
+}
+
+export function leaveGroup(groupId) {
+  return imSend('group.leave', { group_id: groupId | 0 }, true)
+}

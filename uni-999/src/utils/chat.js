@@ -31,9 +31,26 @@ export function packetTypeLabel(t) {
   return '普通'
 }
 
+export function isRecalled(m) {
+  return !!(m && (m.status | 0) === 2)
+}
+
+export function isSystemMsg(m) {
+  if (!m) return false
+  const mt = msgType(m)
+  return mt === 3 || mt === 99
+}
+
+export function recallTip(m, myId, isPrivate) {
+  const mine = (m && (m.from_user_id | 0)) === (myId | 0)
+  if (isPrivate) return mine ? '你删除了一条消息' : '对方删除了一条消息'
+  return mine ? '你撤回了一条消息' : '对方撤回了一条消息'
+}
+
 export function previewText(last) {
   if (!last) return '暂无消息'
   if (typeof last === 'string') return last
+  if (isRecalled(last)) return '[已撤回]'
   const mt = msgType(last)
   const ex = msgExtra(last)
   if (mt === 2) {

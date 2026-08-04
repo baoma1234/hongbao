@@ -53,6 +53,7 @@ import {
 } from '../../utils/chat.js'
 import {
   getImStatus,
+  hideConversation,
   imConnect,
   listConversations,
   onImEvent,
@@ -130,14 +131,38 @@ function onLongPress(item) {
   const type = item.conversation_type | 0
   const id = resolveConvId(item)
   const pinned = !!item.pinned
+  const items = [pinned ? '取消置顶' : '置顶会话', '删除会话']
   uni.showActionSheet({
-    itemList: [pinned ? '取消置顶' : '置顶会话'],
+    itemList: items,
     success: async (res) => {
-      if (res.tapIndex !== 0) return
       try {
-        await pinConversation(type, id, !pinned)
-        await loadList(true)
-        uni.showToast({ title: pinned ? '已取消置顶' : '已置顶', icon: 'none' })
+        if (res.tapIndex === 0) {
+          await pinConversation(type, id, !pinned)
+          await loadList(true)
+          uni.showToast({ title: pinned ? '已取消置顶' : '已置顶', icon: 'none' })
+          return
+        }
+        if (res.tapIndex === 1) {
+          uni.showModal({
+            title: '删除会话',
+            content: '从列表移除「' + displayTitle(item) + '」？聊天记录不会清空。',
+            success: async (r) => {
+              if (!r.confirm) return
+              try {
+                const extra = {}
+                if (type === 2) extra.group_id = item.group_id || id
+                else {
+                  if (item.peer_user_id) extra.to_user_id = item.peer_user_id
+                }
+                await hideConversation(type, id, extra)
+                list.value = list.value.filter((x) => itemKey(x) !== itemKey(item))
+                uni.showToast({ title: '已删除', icon: 'none' })
+              } catch (e) {
+                uni.showToast({ title: (e && e.message) || '删除失败', icon: 'none' })
+              }
+            },
+          })
+        }
       } catch (e) {
         uni.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
       }

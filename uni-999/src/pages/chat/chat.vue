@@ -1,8 +1,9 @@
 <template>
   <view class="page">
     <view class="nav">
+      <text class="nav-back" @click="goBack">‹</text>
       <text class="nav-title">{{ title }}</text>
-      <text v-if="isPrivate" class="nav-more" @click="openMore">⋯</text>
+      <text class="nav-more" @click="openMore">⋯</text>
     </view>
 
     <scroll-view
@@ -10,20 +11,22 @@
       class="msgs"
       :scroll-into-view="scrollInto"
       scroll-with-animation
+      @click="showEmoji = false"
     >
       <view
         v-for="m in messages"
         :id="'m' + msgId(m)"
         :key="msgId(m)"
         class="row"
-        :class="{ mine: isMine(m) }"
+        :class="{ mine: isMine(m), system: isSysRow(m) }"
       >
-        <!-- 红包卡片 -->
+        <view v-if="isSysRow(m)" class="sys">{{ sysText(m) }}</view>
         <view
-          v-if="isRp(m)"
+          v-else-if="isRp(m)"
           class="rp-card"
           :class="{ faded: rpFaded(m), grabbed: rpGrabbed(m) }"
           @click="onRpTap(m)"
+          @longpress="onMsgLongPress(m)"
         >
           <view class="rp-ico">红</view>
           <view class="rp-main">
@@ -31,20 +34,34 @@
             <text class="rp-sub">{{ rpSub(m) }}</text>
           </view>
         </view>
-        <!-- 普通文本 -->
-        <view v-else class="bubble">
+        <view v-else class="bubble" @longpress="onMsgLongPress(m)">
           <text class="content">{{ m.content || m.text || '[消息]' }}</text>
         </view>
       </view>
     </scroll-view>
 
+    <view class="emoji-panel" v-if="showEmoji">
+      <scroll-view scroll-y class="emoji-scroll">
+        <view class="emoji-grid">
+          <text
+            v-for="(em, idx) in emojis"
+            :key="idx"
+            class="emoji-item"
+            @click="insertEmoji(em)"
+          >{{ em }}</text>
+        </view>
+      </scroll-view>
+    </view>
+
     <view class="composer">
-      <button class="tool" size="mini" @click="showRp = true">红包</button>
+      <button class="tool" size="mini" @click="toggleEmoji">表情</button>
+      <button class="tool" size="mini" @click="showRp = true; showEmoji = false">红包</button>
       <input
         class="input"
         v-model="text"
         confirm-type="send"
         @confirm="sendText"
+        @focus="showEmoji = false"
         placeholder="输入消息"
       />
       <button class="send" size="mini" @click="sendText">发送</button>
@@ -121,7 +138,7 @@
       </view>
     </view>
 
-    <!-- 备注 -->
+    <!-- 私聊更多 -->
     <view class="mask" v-if="moreVisible" @click="moreVisible = false">
       <view class="sheet more" @click.stop>
         <view class="sheet-title">{{ peerNickname || title }}</view>
@@ -137,15 +154,23 @@
 import { computed, reactive, ref } from 'vue'
 import { onLoad, onUnload } from '@dcloudio/uni-app'
 import { fetchProfile, getToken } from '../../utils/auth.js'
-import { msgExtra, msgType, packetTypeLabel } from '../../utils/chat.js'
 import {
-  getImStatus,
+  isRecalled,
+  isSystemMsg,
+  msgExtra,
+  msgType,
+  packetTypeLabel,
+  recallTip,
+} from '../../utils/chat.js'
+import { COMMON_EMOJIS } from '../../utils/emoji.js'
+import {
   grabRedPacket,
   imConnect,
   imSend,
   loadHistory,
   markConversationRead,
   onImEvent,
+  recallMessage,
   redPacketDetail,
   sendRedPacket,
   setPeerRemark,
@@ -159,6 +184,7 @@ const messages = ref([])
 const scrollInto = ref('')
 const meta = ref({ type: 1, peer: 0, group: 0, conversationId: '' })
 const showRp = ref(false)
+const showEmoji = ref(false)
 const rpSending = ref(false)
 const grabbing = ref(false)
 const detailVisible = ref(false)
@@ -166,6 +192,7 @@ const detail = ref(null)
 const moreVisible = ref(false)
 const myGrabAmount = ref('')
 const canGrabDetail = ref(false)
+const emojis = COMMON_EMOJIS
 let myId = 0
 let off = null
 let activePacketId = 0
@@ -198,6 +225,13 @@ function isMine(m) {
 }
 function isRp(m) {
   return msgType(m) === 2
+}
+function isSysRow(m) {
+  return isRecalled(m) || isSystemMsg(m)
+}
+function sysText(m) {
+  if (isRecalled(m)) return recallTip(m, myId, isPrivate.value)
+  return m.content || '[系统消息]'
 }
 function rpBlessing(m) {
   return msgExtra(m).blessing || '恭喜发财'
@@ -233,6 +267,68 @@ function sameRoom(msg) {
   return String(msg.conversation_id || '') === String(meta.value.conversationId) ||
     (msg.from_user_id | 0) === (meta.value.peer | 0) ||
     (msg.to_user_id | 0) === (meta.value.peer | 0)
+}
+
+function applyRecalled(msg) {
+  if (!msg || !sameRoom(msg)) return
+  const id = String(msg.id || msg.msg_id || '')
+  if (!id) return
+  const list = messages.value.slice()
+  const idx = list.findIndex((x) => String(x.id || x.msg_id) === id)
+  if (idx >= 0) {
+    list[idx] = Object.assign({}, list[idx], msg, { status: 2 })
+    messages.value = list
+  }
+}
+
+function canRecallLocal(m) {
+  if (!m || !isMine(m) || isRecalled(m) || isSystemMsg(m)) return false
+  if (isPrivate.value) return true
+  const ts = (m.createtime | 0) || 0
+  const t = ts < 1e12 ? ts : Math.floor(ts / 1000)
+  return t > 0 && Date.now() / 1000 - t <= 120
+}
+
+function onMsgLongPress(m) {
+  if (!canRecallLocal(m)) return
+  const label = isPrivate.value ? '删除消息' : '撤回消息'
+  uni.showActionSheet({
+    itemList: [label],
+    success: async (res) => {
+      if (res.tapIndex !== 0) return
+      try {
+        const packet = await recallMessage(m.id || m.msg_id)
+        const body = (packet && packet.data) || {}
+        const msg = body.message || Object.assign({}, m, { status: 2 })
+        applyRecalled(msg)
+        uni.showToast({ title: isPrivate.value ? '已删除' : '已撤回', icon: 'none' })
+      } catch (e) {
+        uni.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
+      }
+    },
+  })
+}
+
+function toggleEmoji() {
+  showEmoji.value = !showEmoji.value
+}
+
+function insertEmoji(em) {
+  text.value = String(text.value || '') + em
+}
+
+function goBack() {
+  uni.navigateBack({ fail: () => uni.switchTab({ url: '/pages/messages/messages' }) })
+}
+
+function openMore() {
+  if (isPrivate.value) {
+    moreVisible.value = true
+    return
+  }
+  uni.navigateTo({
+    url: '/pages/group/settings?group=' + encodeURIComponent(meta.value.group || meta.value.conversationId),
+  })
 }
 
 async function ensureUser() {
@@ -284,6 +380,7 @@ async function sendText() {
       await imSend('private.send', { to_user_id: meta.value.peer | 0, content }, true)
     }
     text.value = ''
+    showEmoji.value = false
     await fetchHistory()
   } catch (e) {
     uni.showToast({ title: e.message || '发送失败', icon: 'none' })
@@ -344,7 +441,6 @@ async function onRpTap(m) {
     return
   }
   activePacketId = pid
-  // 未领过则先尝试抢
   if (!ex.cover_grabbed && !ex.cover_expired && !isMine(m)) {
     await tryGrab(pid)
   }
@@ -368,7 +464,7 @@ async function tryGrab(packetId) {
   } catch (e) {
     const msg = (e && e.message) || '领取失败'
     if (/already|已领|expired|过期|finished|抢完/i.test(msg)) {
-      // 打开详情即可
+      // open detail
     } else if (/slider/i.test(msg)) {
       uni.showToast({ title: '需要滑动验证', icon: 'none' })
     } else {
@@ -388,7 +484,6 @@ async function openDetail(packetId) {
     const p = data.packet || {}
     const remain = p.remain_count != null ? p.remain_count : p.remain
     canGrabDetail.value = !!(remain > 0 && !data.rp_detail_locked)
-    // 自己是否已领
     const mine = (data.records || []).find((r) => (r.user_id | 0) === myId)
     if (mine && mine.amount != null) myGrabAmount.value = formatAmt(mine.amount)
     detailVisible.value = true
@@ -402,10 +497,6 @@ async function grabFromDetail() {
   await tryGrab(activePacketId)
   await openDetail(activePacketId)
   await fetchHistory()
-}
-
-function openMore() {
-  moreVisible.value = true
 }
 
 function editRemark() {
@@ -459,7 +550,6 @@ onLoad(async (query) => {
   peerNickname.value = decodeURIComponent(query.nickname || '')
   remark.value = decodeURIComponent(query.remark || '')
   if (isPrivate.value) rpForm.packet_type = 1
-  uni.setNavigationBarTitle({ title: title.value })
 
   await ensureUser()
   off = onImEvent((type, data) => {
@@ -473,6 +563,10 @@ onLoad(async (query) => {
           markRead()
         }
       }
+    }
+    if (type === 'message.recalled') {
+      const msg = (data && data.message) || data
+      applyRecalled(msg)
     }
     if (type === 'redpacket.update') {
       fetchHistory().catch(() => {})
@@ -501,12 +595,25 @@ onUnload(() => {
 .nav {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 18rpx 24rpx;
+  gap: 12rpx;
+  padding: 18rpx 20rpx;
   background: linear-gradient(to right, #e63022, #c61114);
   color: #fff;
 }
-.nav-title { font-size: 32rpx; font-weight: 800; }
+.nav-back {
+  font-size: 48rpx;
+  font-weight: 300;
+  line-height: 1;
+  width: 48rpx;
+}
+.nav-title {
+  flex: 1;
+  font-size: 32rpx;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .nav-more {
   font-size: 40rpx;
   font-weight: 700;
@@ -516,6 +623,15 @@ onUnload(() => {
 .msgs { flex: 1; padding: 20rpx 24rpx; box-sizing: border-box; }
 .row { display: flex; margin: 14rpx 0; }
 .row.mine { justify-content: flex-end; }
+.row.system { justify-content: center; }
+.sys {
+  max-width: 90%;
+  font-size: 22rpx;
+  color: #9a8574;
+  background: rgba(255, 255, 255, 0.65);
+  padding: 8rpx 18rpx;
+  border-radius: 999rpx;
+}
 .bubble {
   max-width: 75%;
   padding: 16rpx 20rpx;
@@ -556,6 +672,23 @@ onUnload(() => {
 .rp-main { flex: 1; min-width: 0; }
 .rp-bless { display: block; font-size: 28rpx; font-weight: 800; }
 .rp-sub { display: block; margin-top: 6rpx; font-size: 22rpx; opacity: 0.9; }
+.emoji-panel {
+  height: 360rpx;
+  background: #fffaf5;
+  border-top: 1px solid #eee;
+}
+.emoji-scroll { height: 100%; }
+.emoji-grid {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 12rpx 8rpx 24rpx;
+}
+.emoji-item {
+  width: 12.5%;
+  text-align: center;
+  font-size: 40rpx;
+  line-height: 72rpx;
+}
 .composer {
   display: flex;
   gap: 12rpx;
