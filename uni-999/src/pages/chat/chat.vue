@@ -162,6 +162,7 @@ import {
   packetTypeLabel,
   recallTip,
 } from '../../utils/chat.js'
+import { clearActiveChat, getActiveChat, saveActiveChat } from '../../utils/chat-route.js'
 import { COMMON_EMOJIS } from '../../utils/emoji.js'
 import {
   grabRedPacket,
@@ -318,6 +319,7 @@ function insertEmoji(em) {
 }
 
 function goBack() {
+  clearActiveChat()
   uni.navigateBack({ fail: () => uni.switchTab({ url: '/pages/messages/messages' }) })
 }
 
@@ -540,16 +542,42 @@ onLoad(async (query) => {
     uni.reLaunch({ url: '/pages/login/login' })
     return
   }
-  meta.value = {
-    type: parseInt(query.type || '1', 10) || 1,
-    peer: parseInt(query.peer || '0', 10) || 0,
-    group: parseInt(query.group || '0', 10) || 0,
-    conversationId: decodeURIComponent(query.id || ''),
+  let q = query || {}
+  // 刷新后若 query 丢失，用本地快照补全
+  if (!(q.id || q.peer || q.group)) {
+    const saved = getActiveChat()
+    if (saved) {
+      q = {
+        type: String(saved.type || 1),
+        id: saved.id || '',
+        peer: String(saved.peer || 0),
+        group: String(saved.group || 0),
+        title: saved.title || '',
+        nickname: saved.nickname || '',
+        remark: saved.remark || '',
+      }
+    }
   }
-  title.value = decodeURIComponent(query.title || '聊天')
-  peerNickname.value = decodeURIComponent(query.nickname || '')
-  remark.value = decodeURIComponent(query.remark || '')
+  meta.value = {
+    type: parseInt(q.type || '1', 10) || 1,
+    peer: parseInt(q.peer || '0', 10) || 0,
+    group: parseInt(q.group || '0', 10) || 0,
+    conversationId: decodeURIComponent(q.id || ''),
+  }
+  title.value = decodeURIComponent(q.title || '聊天')
+  peerNickname.value = decodeURIComponent(q.nickname || '')
+  remark.value = decodeURIComponent(q.remark || '')
   if (isPrivate.value) rpForm.packet_type = 1
+
+  saveActiveChat({
+    type: meta.value.type,
+    id: meta.value.conversationId,
+    peer: meta.value.peer,
+    group: meta.value.group,
+    title: title.value,
+    nickname: peerNickname.value,
+    remark: remark.value,
+  })
 
   await ensureUser()
   off = onImEvent((type, data) => {
