@@ -2793,10 +2793,11 @@ class RedPacketService
                 break;
             }
         }
-        // 未领完（进行中）不公开领取历史，避免未拆完就看到谁领了多少；领完/过期/结算后再展示
+        // 本人已领 / 已领完 / 过期结算：展示领取列表；未领过且进行中不公开，避免偷看金额
         $remainCount = (int)($packet['remain_count'] ?? 0);
         $status = (int)($packet['status'] ?? 0);
-        $claimsVisible = ($remainCount <= 0) || in_array($status, [2, 3, 4, 5], true);
+        $finished = ($remainCount <= 0) || in_array($status, [2, 3, 4, 5], true);
+        $claimsVisible = $finished || ($mine !== null);
         if (!$claimsVisible) {
             $records = [];
         }
@@ -2828,17 +2829,13 @@ class RedPacketService
             $avatar = is_array($u) ? (string)($u['avatar'] ?? '') : '';
             $isSelf = $uid === $userId;
             $rowClickable = $profileClickable && !$isSelf;
-            // 隐私群：他人昵称脱敏、头像清空（前端置灰占位）；自己可看真实信息但不可点他人
-            if (!$profileClickable && !$isSelf) {
-                $nick = $this->groups->maskNickname($nick, $uid);
-                $avatar = '';
-            }
+            // 领取列表始终展示真实昵称/头像；隐私群仅禁止点进资料
             $enriched[] = array_merge($r, [
                 'nickname'          => $nick,
                 'avatar'            => $avatar,
                 'profile_clickable' => $rowClickable,
-                'avatar_gray'       => !$profileClickable && !$isSelf,
-                'name_masked'       => !$profileClickable && !$isSelf,
+                'avatar_gray'       => false,
+                'name_masked'       => false,
             ]);
         }
         $result = [

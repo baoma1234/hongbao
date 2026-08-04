@@ -1155,7 +1155,9 @@
           ? ('https://tronscan.org/#/block/' + encodeURIComponent(tronTarget))
           : '';
         fairBits = '<div class="chat-rp-fair-hash"><span class="chat-rp-fair-label">' + hashLabel + '</span><code>' + escapeHtml(fairHash || '开奖后公开') + '</code></div>';
-        var canVerify = !!(data.mine || data.my_record || data.grabbed) && ((p.remain_count | 0) <= 0 || [2, 3, 5].indexOf(p.status | 0) >= 0);
+        var grabbedMe = !!(data.mine || data.my_record || data.grabbed);
+        var pktFinished = ((p.remain_count | 0) <= 0) || [2, 3, 4, 5].indexOf(p.status | 0) >= 0;
+        var canVerify = grabbedMe && pktFinished;
         if (fairHash && tronHref && canVerify) {
           fairBits += '<a class="chat-rp-tron-btn" href="' + tronHref + '" target="_blank" rel="noopener">前往波场验证</a>';
         } else if (blockNum && tronHref && canVerify) {
@@ -1164,6 +1166,8 @@
         if (canVerify) {
           fairBits += '<button type="button" class="chat-rp-fair-link" data-packet-no="'
             + escapeHtml(p.packet_no || '') + '">本站验证详情</button>';
+        } else if (grabbedMe && !pktFinished) {
+          fairBits += '<div class="chat-rp-fair-sub">红包领完后可查询验证</div>';
         } else {
           fairBits += '<div class="chat-rp-fair-sub">领取后且红包领完才可查询验证</div>';
         }
@@ -1176,7 +1180,7 @@
         mineLine +
         fairBits +
         (locked
-          ? '<div class="chat-rp-privacy-tip locked">🔒 隐私群：领取人资料已隐藏</div>'
+          ? '<div class="chat-rp-privacy-tip locked">🔒 隐私群：不可点击查看对方资料</div>'
           : '');
       // 内嵌验证：点击切换，不跳页
       var fairBtn = head.querySelector('.chat-rp-fair-link');
@@ -1196,10 +1200,12 @@
       var settled = (p.status | 0) === 5;
       var remainN = (p.remain_count | 0);
       var stPkt = (p.status | 0);
-      // 未领完不展示领取历史（优先服务端 claims_visible）
+      // 本人已领或整包领完才展示（优先服务端 claims_visible）
       var claimsVisible = data.claims_visible;
       if (claimsVisible == null) {
-        claimsVisible = remainN <= 0 || stPkt === 2 || stPkt === 3 || stPkt === 4 || stPkt === 5;
+        claimsVisible = !!data.mine
+          || remainN <= 0
+          || stPkt === 2 || stPkt === 3 || stPkt === 4 || stPkt === 5;
       } else {
         claimsVisible = !!claimsVisible;
       }
@@ -1210,9 +1216,9 @@
         head.insertAdjacentHTML('beforeend', '<div class="' + sumCls + '">' + sumText + '</div>');
       }
       if (!claimsVisible) {
-        var hideTip = chatT('chat_rp_claims_after_finish');
-        if (!hideTip || hideTip === 'chat_rp_claims_after_finish') {
-          hideTip = '红包领完后可查看领取详情';
+        var hideTip = chatT('chat_rp_claims_after_grab');
+        if (!hideTip || hideTip === 'chat_rp_claims_after_grab') {
+          hideTip = '领取后可查看领取详情';
         }
         list.innerHTML = '<div class="chat-empty chat-rp-claims-hidden">' + escapeHtml(hideTip) + '</div>';
       } else if (!rows.length) {
@@ -1221,7 +1227,8 @@
         list.innerHTML = rows.map(function (r) {
           var uid = r.user_id | 0;
           var isSelf = uid === (state.userId | 0);
-          var gray = locked && !isSelf;
+          // 列表始终展示真实昵称/头像；隐私群仅禁止点资料
+          var gray = !!(r.name_masked || r.avatar_gray) && !isSelf;
           var nick = r.nickname || '用户';
           var avInner;
           if (!gray && r.avatar) {
@@ -1231,9 +1238,12 @@
           } else {
             avInner = escapeHtml((nick || 'U').charAt(0));
           }
-          // locked=不可点资料；is-gray=隐私脱敏灰头
-          var avHtml = '<div class="chat-rp-record-avatar locked' + (gray ? ' is-gray' : '') + '" aria-disabled="true">' + avInner + '</div>';
-          var nameCls = 'chat-rp-record-name locked' + (gray ? ' is-masked' : '');
+          var clickLocked = locked || r.profile_clickable === false;
+          var avHtml = '<div class="chat-rp-record-avatar'
+            + (clickLocked ? ' locked' : '')
+            + (gray ? ' is-gray' : '')
+            + '" aria-disabled="true">' + avInner + '</div>';
+          var nameCls = 'chat-rp-record-name' + (clickLocked ? ' locked' : '') + (gray ? ' is-masked' : '');
           var lockIcon = gray ? '<span class="chat-rp-lock" aria-hidden="true">🔒</span>' : '';
           var tags = '';
           if (r.is_best) tags += ' 手气最佳';

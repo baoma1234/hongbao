@@ -169,13 +169,29 @@
             · {{ (detail.packet && detail.packet.total_amount) || '-' }} 红宝
             / {{ (detail.packet && detail.packet.total_count) || '-' }} 个
           </text>
+          <text class="d-fair-tip" v-if="detailFairTip">{{ detailFairTip }}</text>
+          <button
+            v-if="canFairVerify"
+            class="d-fair-btn"
+            @click="openFairVerify"
+          >查询验证</button>
         </view>
         <scroll-view scroll-y class="detail-list">
           <view v-for="r in detailRecords" :key="r.id || r.user_id" class="d-row">
-            <text>{{ r.nickname || ('ID' + r.user_id) }}</text>
+            <image
+              v-if="r.avatar"
+              class="d-av"
+              :src="r.avatar"
+              mode="aspectFill"
+            />
+            <view v-else class="d-av d-av-fb">{{ (r.nickname || '?').charAt(0) }}</view>
+            <view class="d-main">
+              <text class="d-nick">{{ r.nickname || ('用户' + (r.user_id || '')) }}</text>
+              <text class="d-time" v-if="r.createtime">{{ formatRpTime(r.createtime) }}</text>
+            </view>
             <text class="d-right">{{ formatAmt(r.amount) }}</text>
           </view>
-          <view v-if="!detailRecords.length" class="empty">暂无领取记录</view>
+          <view v-if="!detailRecords.length" class="empty">{{ claimsEmptyTip }}</view>
         </scroll-view>
         <button
           v-if="canGrabDetail"
@@ -274,6 +290,70 @@ const detailRecords = computed(() => {
   if (!d) return []
   return d.records || d.list || []
 })
+
+const claimsEmptyTip = computed(() => {
+  const d = detail.value
+  if (!d) return '暂无领取记录'
+  if (d.claims_visible === false) return '领取后可查看领取详情'
+  return '暂无领取记录'
+})
+
+const canFairVerify = computed(() => {
+  const d = detail.value
+  if (!d) return false
+  const p = d.packet || {}
+  const ptype = (p.packet_type | 0)
+  if (ptype !== 2 && ptype !== 3 && ptype !== 5) return false
+  const remain = p.remain_count != null ? (p.remain_count | 0) : 1
+  const st = (p.status | 0)
+  const finished = remain <= 0 || st === 2 || st === 3 || st === 4 || st === 5
+  const grabbed = !!(d.mine || (d.records || []).some((r) => (r.user_id | 0) === myId))
+  return grabbed && finished
+})
+
+const detailFairTip = computed(() => {
+  const d = detail.value
+  if (!d) return ''
+  const p = d.packet || {}
+  const ptype = (p.packet_type | 0)
+  if (ptype !== 2 && ptype !== 3 && ptype !== 5) return ''
+  if (canFairVerify.value) return ''
+  const grabbed = !!(d.mine || (d.records || []).some((r) => (r.user_id | 0) === myId))
+  const remain = p.remain_count != null ? (p.remain_count | 0) : 1
+  const st = (p.status | 0)
+  const finished = remain <= 0 || st === 2 || st === 3 || st === 4 || st === 5
+  if (grabbed && !finished) return '红包领完后可查询验证'
+  return '领取后且红包领完才可查询验证'
+})
+
+function formatRpTime(ts) {
+  const n = Number(ts) || 0
+  if (!n) return ''
+  const d = new Date(n < 1e12 ? n * 1000 : n)
+  const p = (x) => (x < 10 ? '0' + x : '' + x)
+  return p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes())
+}
+
+function openFairVerify() {
+  const p = (detail.value && detail.value.packet) || {}
+  const no = String(p.packet_no || '').trim()
+  if (!no) {
+    uni.showToast({ title: '缺少红包单号', icon: 'none' })
+    return
+  }
+  const base = getApiBase() || ''
+  // #ifdef H5
+  if (typeof window !== 'undefined') {
+    const url = (base.replace(/\/$/, '') || '') + '/888/fair-verify.html?packet_no=' + encodeURIComponent(no)
+    window.open(url, '_blank')
+    return
+  }
+  // #endif
+  uni.navigateTo({
+    url: '/pages/common/webview?url=' + encodeURIComponent('/888/fair-verify.html?packet_no=' + encodeURIComponent(no)),
+    fail: () => uni.showToast({ title: '请到网页版查询验证', icon: 'none' }),
+  })
+}
 
 function msgId(m) {
   return m.msg_id || m.id || m.createtime || Math.random()
@@ -893,8 +973,9 @@ async function openDetail(packetId) {
     detail.value = data
     const p = data.packet || {}
     const remain = p.remain_count != null ? p.remain_count : p.remain
-    canGrabDetail.value = !!(remain > 0 && !data.rp_detail_locked)
-    const mine = (data.records || []).find((r) => (r.user_id | 0) === myId)
+    const grabbed = !!(data.mine || (data.records || []).some((r) => (r.user_id | 0) === myId))
+    canGrabDetail.value = !!(remain > 0 && !grabbed)
+    const mine = data.mine || (data.records || []).find((r) => (r.user_id | 0) === myId)
     if (mine && mine.amount != null) myGrabAmount.value = formatAmt(mine.amount)
     detailVisible.value = true
   } catch (e) {
@@ -1330,15 +1411,46 @@ onUnload(() => {
 .d-bless { display: block; font-size: 30rpx; font-weight: 800; }
 .d-amt { display: block; margin-top: 8rpx; color: #c61114; font-size: 36rpx; font-weight: 800; }
 .d-meta { display: block; margin-top: 8rpx; color: #9a8574; font-size: 22rpx; }
+.d-fair-tip { display: block; margin-top: 10rpx; color: #b08a60; font-size: 22rpx; }
+.d-fair-btn {
+  margin-top: 14rpx;
+  background: linear-gradient(135deg, #ffe082, #ffb300);
+  color: #8a4b00;
+  font-weight: 800;
+  font-size: 26rpx;
+  border-radius: 999rpx;
+  padding: 12rpx 28rpx;
+  border: none;
+  line-height: 1.3;
+}
 .detail-list { max-height: 420rpx; margin-bottom: 12rpx; }
 .d-row {
   display: flex;
-  justify-content: space-between;
+  align-items: center;
+  gap: 16rpx;
   padding: 16rpx 4rpx;
   border-bottom: 1px solid rgba(224, 122, 34, 0.12);
   font-size: 26rpx;
 }
-.d-right { font-weight: 700; color: #c61114; }
+.d-av {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: #f3e6d8;
+}
+.d-av-fb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8a4b00;
+  font-weight: 800;
+  background: linear-gradient(135deg, #ffe082, #ffb300);
+}
+.d-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4rpx; }
+.d-nick { font-weight: 700; color: #3d2e22; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.d-time { font-size: 20rpx; color: #9a8574; }
+.d-right { font-weight: 700; color: #c61114; flex-shrink: 0; }
 .empty { text-align: center; color: #9a8574; padding: 24rpx; font-size: 24rpx; }
 .more-sub {
   text-align: center;
