@@ -197,7 +197,35 @@ class Config extends Backend
         if (!$this->request->isPost()) {
             $this->error('非法请求');
         }
-        $posted = $this->request->post('i18n/a', []);
+        // 文案键 × 多语言会远超 PHP max_input_vars(默认1000)，改为读取单个 JSON 字段
+        $posted = [];
+        $json = (string)$this->request->post('i18n_json', '');
+        if ($json === '') {
+            $raw = (string)$this->request->getContent();
+            if ($raw !== '' && isset($_SERVER['CONTENT_TYPE']) && stripos((string)$_SERVER['CONTENT_TYPE'], 'application/json') !== false) {
+                $decoded = json_decode($raw, true);
+                if (is_array($decoded)) {
+                    if (isset($decoded['i18n']) && is_array($decoded['i18n'])) {
+                        $posted = $decoded['i18n'];
+                    } elseif (isset($decoded['i18n_json']) && is_string($decoded['i18n_json'])) {
+                        $inner = json_decode($decoded['i18n_json'], true);
+                        $posted = is_array($inner) ? $inner : [];
+                    } else {
+                        $posted = $decoded;
+                    }
+                }
+            }
+        } else {
+            $decoded = json_decode($json, true);
+            $posted = is_array($decoded) ? $decoded : [];
+        }
+        if (!$posted) {
+            // 兼容旧表单 name=i18n[locale][key]（字段少时仍可用）
+            $legacy = $this->request->post('i18n/a', []);
+            if (is_array($legacy) && $legacy) {
+                $posted = $legacy;
+            }
+        }
         if (!is_array($posted) || !$posted) {
             $this->error('没有可保存的文案');
         }

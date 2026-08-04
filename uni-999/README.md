@@ -5,7 +5,7 @@ H5 构建输出：`public/999/`（与现网 `/888` 并行）
 
 ## 已打通
 
-- 分页骨架：登录 / 大厅 / 消息 / 钱包 / 我的 / 聊天室
+- 分页骨架：登录 / 大厅 / 闪兑 / 红宝 / 团长 / 我的（与 `/888` Tab 一致）；钱包从「我的」进入
 - 登录：`/api/fanshub/sendsms` + `login`（token 存 `fans_hub_token`）
 - IM：`uni.connectSocket` → `/im-ws`（或绝对 WS），握手带 token，发 `auth`，拉 `conversation.list` / `history` / 发消息
 - 钱包：余额与流水门槛、充值 / 提现（分区通道、线上合作、钱包绑定、支付密码）、资金流水分页、收款地址绑定

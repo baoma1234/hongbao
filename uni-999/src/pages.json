@@ -14,9 +14,27 @@
       }
     },
     {
+      "path": "pages/exchange/exchange",
+      "style": {
+        "navigationBarTitleText": "闪兑"
+      }
+    },
+    {
       "path": "pages/messages/messages",
       "style": {
-        "navigationBarTitleText": "消息"
+        "navigationBarTitleText": "红宝"
+      }
+    },
+    {
+      "path": "pages/master/master",
+      "style": {
+        "navigationBarTitleText": "团长"
+      }
+    },
+    {
+      "path": "pages/profile/profile",
+      "style": {
+        "navigationBarTitleText": "我的"
       }
     },
     {
@@ -50,12 +68,6 @@
       }
     },
     {
-      "path": "pages/profile/profile",
-      "style": {
-        "navigationBarTitleText": "我的"
-      }
-    },
-    {
       "path": "pages/chat/chat",
       "style": {
         "navigationBarTitleText": "聊天"
@@ -76,19 +88,33 @@
     "list": [
       {
         "pagePath": "pages/home/home",
-        "text": "大厅"
+        "text": "大厅",
+        "iconPath": "static/tab/home.png",
+        "selectedIconPath": "static/tab/home.png"
+      },
+      {
+        "pagePath": "pages/exchange/exchange",
+        "text": "闪兑",
+        "iconPath": "static/tab/exchange.png",
+        "selectedIconPath": "static/tab/exchange.png"
       },
       {
         "pagePath": "pages/messages/messages",
-        "text": "消息"
+        "text": "红宝",
+        "iconPath": "static/tab/hongbao.png",
+        "selectedIconPath": "static/tab/hongbao.png"
       },
       {
-        "pagePath": "pages/wallet/wallet",
-        "text": "钱包"
+        "pagePath": "pages/master/master",
+        "text": "团长",
+        "iconPath": "static/tab/master.png",
+        "selectedIconPath": "static/tab/master.png"
       },
       {
         "pagePath": "pages/profile/profile",
-        "text": "我的"
+        "text": "我的",
+        "iconPath": "static/tab/profile.png",
+        "selectedIconPath": "static/tab/profile.png"
       }
     ]
   }
