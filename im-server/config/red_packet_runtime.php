@@ -28,7 +28,7 @@ return array (
     'user_rp_agent_rebate_rate_vip' => 0.01,
     'user_rp_invite_rebate_rate' => 0.005,
     'user_rp_platform_user_id' => 56960815,
-    'relay_expire_seconds' => 300,
+    'relay_expire_seconds' => 1800,
     'relay_min_amount' => 10.0,
     'relay_min_count' => 5,
     'relay_max_count' => 10,

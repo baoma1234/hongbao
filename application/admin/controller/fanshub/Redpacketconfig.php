@@ -47,7 +47,7 @@ class Redpacketconfig extends Backend
             $userRpRebate = round((float)($row['user_rp_agent_rebate_rate_default'] ?? $rebate), 4);
             $userRpRebateVip = round((float)($row['user_rp_agent_rebate_rate_vip'] ?? $rebateVip), 4);
             $userRpPlatformUid = (int)($row['user_rp_platform_user_id'] ?? $platformUid);
-            $relayExpire = max(1, (int)($row['relay_expire_seconds'] ?? $expire));
+            $relayExpire = max(1, (int)($row['relay_expire_seconds'] ?? 1800));
             $relayMinAmount = round((float)($row['relay_min_amount'] ?? $minAmount), 2);
             $relayMinCount = max(1, (int)($row['relay_min_count'] ?? $minCount));
             $relayMaxCount = max($relayMinCount, (int)($row['relay_max_count'] ?? $maxCount));
@@ -147,7 +147,7 @@ class Redpacketconfig extends Backend
                 'platform_fee_rate'               => '拼手气平台抽水比例',
                 'agent_rebate_rate_default'       => '拼手气代理默认返佣',
                 'agent_rebate_rate_vip'           => '拼手气VIP群返佣',
-                'expire_seconds'                  => '拼手气过期秒数',
+                'expire_seconds'                  => '拼手气过期秒数（默认300=5分钟；超时收回已领后退庄家）',
                 'mine_expire_seconds'             => '扫雷过期秒数（默认180=3分钟）',
                 'platform_user_id'                => '拼手气平台收款用户',
                 'mine_compensate_rate_5'          => '扫雷5包赔付倍率',
@@ -165,7 +165,7 @@ class Redpacketconfig extends Backend
                 'user_rp_agent_rebate_rate_default' => '普通用户群红宝代理返佣',
                 'user_rp_agent_rebate_rate_vip'     => '普通用户群红宝代理返佣（VIP）',
                 'user_rp_platform_user_id'          => '普通用户群红宝平台收款用户',
-                'relay_expire_seconds'             => '接龙过期秒数',
+                'relay_expire_seconds'             => '接龙过期秒数（默认1800=30分钟）',
                 'relay_min_amount'                 => '接龙最低金额',
                 'relay_min_count'                  => '接龙普通群最少个数',
                 'relay_max_count'                  => '接龙普通群最多个数',

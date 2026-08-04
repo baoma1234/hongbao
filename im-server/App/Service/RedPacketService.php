@@ -82,7 +82,7 @@ class RedPacketService
             }
         } elseif ($isRelay) {
             // 接龙红包：独立全局配置（缺省回退拼手气配置，兼容旧数据）
-            $expireSec = max(1, (int)($this->cfg['relay_expire_seconds'] ?? $expireSec));
+            $expireSec = max(1, (int)($this->cfg['relay_expire_seconds'] ?? 1800));
             $maxCount = max(1, (int)($this->cfg['relay_max_count'] ?? $maxCount));
             $globalMinAmount = round((float)($this->cfg['relay_min_amount'] ?? $globalMinAmount), 2);
             $feeRate = round((float)($this->cfg['relay_platform_fee_rate'] ?? $feeRate), 4);
@@ -1732,7 +1732,10 @@ class RedPacketService
     }
 
     /**
-     * 单包过期退回（事务）：剩余金额退发包方 + status=3 / expire_status=1，成功后再清 Redis
+     * 单包过期退回（事务）：
+     * - 拼手气(2)群包：收回全部已领 + 剩余池一并退庄家（进包本金全退；无人领时另退手续费）
+     * - 其它类型：仅退剩余未领；已领保留
+     * 成功后再清 Redis
      */
     protected function refundOne(array $packet)
     {
@@ -1785,7 +1788,79 @@ class RedPacketService
 
             $packetNo = (string)$fresh['packet_no'];
             $fromUserId = (int)$fresh['from_user_id'];
-            $neverGrabbed = ((int)$fresh['remain_count'] === (int)$fresh['total_count']);
+            $packetType = (int)($fresh['packet_type'] ?? 0);
+            $scopeType = (int)($fresh['scope_type'] ?? 0);
+            $bizMeta = ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId];
+            // 拼手气群包：超时作废 → 已领全收回 + 进包本金退庄家
+            $luckyClawback = ($packetType === 2 && $scopeType !== 1);
+
+            $records = Db::fetchAll(
+                'SELECT * FROM ' . Db::table('chat_red_packet_records')
+                . ' WHERE packet_id=? FOR UPDATE',
+                [$packetId]
+            ) ?: [];
+
+            $clawed = 0.0;
+            if ($luckyClawback && $records) {
+                foreach ($records as $rec) {
+                    $uid = (int)($rec['user_id'] ?? 0);
+                    $amt = round((float)($rec['amount'] ?? 0), 2);
+                    $rid = (int)($rec['id'] ?? 0);
+                    $freezeAmt = 0.0;
+                    if ((int)($rec['freeze_status'] ?? 0) === 1) {
+                        $freezeAmt = round((float)($rec['frozen_amount'] ?? 0), 2);
+                    }
+                    if ($uid > 0 && $freezeAmt > 0.00001) {
+                        $this->wallet->unfreeze(
+                            $uid,
+                            $freezeAmt,
+                            'red_packet_unfreeze',
+                            '拼手气过期解冻 ' . $packetNo,
+                            $bizMeta
+                        );
+                        if ($rid > 0) {
+                            Db::exec(
+                                'UPDATE ' . Db::table('chat_red_packet_records')
+                                . ' SET freeze_status=2 WHERE id=?',
+                                [$rid]
+                            );
+                        }
+                    }
+                    if ($uid > 0 && $amt > 0.00001) {
+                        $outCb = $this->wallet->change(
+                            $uid,
+                            -$amt,
+                            'red_packet_expire_clawback',
+                            '拼手气过期收回 ' . $packetNo,
+                            $bizMeta
+                        );
+                        $clawed = round($clawed + $amt, 2);
+                        Db::exec(
+                            'INSERT INTO ' . Db::table('chat_red_packet_settlements')
+                            . ' (packet_id,packet_no,settle_type,from_user_id,to_user_id,amount,ledger_id,status,remark,createtime)'
+                            . ' VALUES (?,?,?,?,?,?,?,?,?,?)',
+                            [
+                                $packetId,
+                                $packetNo,
+                                'expire_clawback',
+                                $uid,
+                                $fromUserId,
+                                sprintf('%.2f', $amt),
+                                (int)($outCb['ledger_id'] ?? 0),
+                                1,
+                                '拼手气过期收回已领',
+                                $now,
+                            ]
+                        );
+                    }
+                }
+                $refund = round($refund + $clawed, 2);
+            }
+
+            $neverGrabbed = ((int)$fresh['remain_count'] === (int)$fresh['total_count']) && !$records;
+            if ($luckyClawback && $records) {
+                $neverGrabbed = false;
+            }
             $feeRefund = 0.0;
             if ($neverGrabbed) {
                 $feeRefund = round((float)($fresh['platform_fee'] ?? 0), 2);
@@ -1794,12 +1869,15 @@ class RedPacketService
             $ledgerId = 0;
             $totalRefund = $refund;
             if ($refund > 0) {
+                $remarkRefund = $luckyClawback && $clawed > 0.00001
+                    ? '拼手气过期收回已领后退回 ' . $packetNo
+                    : '红包过期退回 ' . $packetNo;
                 $out = $this->wallet->change(
                     $fromUserId,
                     $refund,
                     'red_packet_refund',
-                    '红包过期退回 ' . $packetNo,
-                    ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId]
+                    $remarkRefund,
+                    $bizMeta
                 );
                 $ledgerId = (int)($out['ledger_id'] ?? 0);
             }
@@ -1811,14 +1889,14 @@ class RedPacketService
                     -$feeRefund,
                     'red_packet_fee',
                     '红包未领手续费退回支出 ' . $packetNo,
-                    ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId]
+                    $bizMeta
                 );
                 $feeOut = $this->wallet->change(
                     $fromUserId,
                     $feeRefund,
                     'red_packet_refund',
                     '红包手续费退回 ' . $packetNo,
-                    ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId]
+                    $bizMeta
                 );
                 if ($ledgerId <= 0) {
                     $ledgerId = (int)($feeOut['ledger_id'] ?? 0);
@@ -1832,6 +1910,12 @@ class RedPacketService
                 [sprintf('%.2f', $totalRefund), $now, $packetId]
             );
             if ($refund > 0 || $feeRefund > 0) {
+                $settleRemark = '过期未抢完退回剩余池';
+                if ($neverGrabbed && $feeRefund > 0) {
+                    $settleRemark = '过期无人领取，池+手续费原路退回';
+                } elseif ($luckyClawback && $clawed > 0.00001) {
+                    $settleRemark = '拼手气过期收回已领并退庄家';
+                }
                 Db::exec(
                     'INSERT INTO ' . Db::table('chat_red_packet_settlements')
                     . ' (packet_id,packet_no,settle_type,from_user_id,to_user_id,amount,ledger_id,status,remark,createtime)'
@@ -1845,38 +1929,38 @@ class RedPacketService
                         sprintf('%.2f', $totalRefund),
                         $ledgerId,
                         1,
-                        $neverGrabbed && $feeRefund > 0
-                            ? '过期无人领取，池+手续费原路退回'
-                            : '过期未抢完退回剩余池',
+                        $settleRemark,
                         $now,
                     ]
                 );
             }
-            // 同事务内解冻领取人潜在赔付锁定
-            $freezeRows = Db::fetchAll(
-                'SELECT id, user_id, frozen_amount FROM ' . Db::table('chat_red_packet_records')
-                . ' WHERE packet_id=? AND freeze_status=1 AND frozen_amount>0 FOR UPDATE',
-                [$packetId]
-            );
-            foreach ($freezeRows ?: [] as $fr) {
-                $fAmt = round((float)($fr['frozen_amount'] ?? 0), 2);
-                $fUid = (int)($fr['user_id'] ?? 0);
-                $fRid = (int)($fr['id'] ?? 0);
-                if ($fUid > 0 && $fAmt > 0.00001) {
-                    $this->wallet->unfreeze(
-                        $fUid,
-                        $fAmt,
-                        'red_packet_unfreeze',
-                        '红包过期解冻 ' . $packetNo,
-                        ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId]
-                    );
-                }
-                if ($fRid > 0) {
-                    Db::exec(
-                        'UPDATE ' . Db::table('chat_red_packet_records')
-                        . ' SET freeze_status=2 WHERE id=?',
-                        [$fRid]
-                    );
+            // 非拼手气收回路径：同事务内解冻领取人潜在赔付锁定
+            if (!$luckyClawback || !$records) {
+                $freezeRows = Db::fetchAll(
+                    'SELECT id, user_id, frozen_amount FROM ' . Db::table('chat_red_packet_records')
+                    . ' WHERE packet_id=? AND freeze_status=1 AND frozen_amount>0 FOR UPDATE',
+                    [$packetId]
+                );
+                foreach ($freezeRows ?: [] as $fr) {
+                    $fAmt = round((float)($fr['frozen_amount'] ?? 0), 2);
+                    $fUid = (int)($fr['user_id'] ?? 0);
+                    $fRid = (int)($fr['id'] ?? 0);
+                    if ($fUid > 0 && $fAmt > 0.00001) {
+                        $this->wallet->unfreeze(
+                            $fUid,
+                            $fAmt,
+                            'red_packet_unfreeze',
+                            '红包过期解冻 ' . $packetNo,
+                            $bizMeta
+                        );
+                    }
+                    if ($fRid > 0) {
+                        Db::exec(
+                            'UPDATE ' . Db::table('chat_red_packet_records')
+                            . ' SET freeze_status=2 WHERE id=?',
+                            [$fRid]
+                        );
+                    }
                 }
             }
             Db::commit();

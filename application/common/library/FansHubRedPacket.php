@@ -44,7 +44,7 @@ class FansHubRedPacket
             'user_rp_invite_rebate_rate'        => '0.0050',
             'user_rp_platform_user_id'          => '56960815',
             // 接龙红包（单独配置；最少续发）
-            'relay_expire_seconds'             => '60',
+            'relay_expire_seconds'             => '1800',
             'relay_min_amount'                 => '10.00',
             'relay_min_count'                  => '5',
             'relay_max_count'                  => '10',
@@ -146,7 +146,7 @@ class FansHubRedPacket
             'user_rp_agent_rebate_rate_vip'     => (float)($map['user_rp_agent_rebate_rate_vip'] ?? $map['agent_rebate_rate_vip']),
             'user_rp_invite_rebate_rate'        => (float)($map['user_rp_invite_rebate_rate'] ?? ($map['invite_rebate_rate'] ?? 0.005)),
             'user_rp_platform_user_id'          => (int)($map['user_rp_platform_user_id'] ?? $map['platform_user_id']),
-            'relay_expire_seconds'             => max(1, (int)($map['relay_expire_seconds'] ?? $map['expire_seconds'] ?? 60)),
+            'relay_expire_seconds'             => max(1, (int)($map['relay_expire_seconds'] ?? 1800)),
             'relay_min_amount'                 => (float)($map['relay_min_amount'] ?? $map['min_amount']),
             'relay_min_count'                  => max(1, (int)($map['relay_min_count'] ?? $map['min_count'] ?? 5)),
             'relay_max_count'                  => max(1, (int)($map['relay_max_count'] ?? $map['max_count'] ?? 10)),

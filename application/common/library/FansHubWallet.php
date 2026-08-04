@@ -84,6 +84,7 @@ class FansHubWallet
             'red_packet_compensate_in'     => '红包赔付收入',
             'red_packet_freeze'            => '红包赔付冻结',
             'red_packet_unfreeze'          => '红包赔付解冻',
+            'red_packet_expire_clawback'   => '拼手气过期收回',
         ];
     }
 
