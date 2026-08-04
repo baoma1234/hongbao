@@ -2920,6 +2920,9 @@ body.chat-room-open .bottom-action-bar {
   gap: 8px;
   margin-top: 4px;
 }
+.chat-rp-count-tabs.is-single {
+  justify-content: flex-start;
+}
 .chat-rp-count-btn {
   flex: 1;
   min-height: 40px;
@@ -2934,6 +2937,11 @@ body.chat-room-open .bottom-action-bar {
   line-height: 1.25;
   cursor: pointer;
   white-space: nowrap;
+}
+.chat-rp-count-tabs.is-single .chat-rp-count-btn {
+  flex: 0 0 auto;
+  min-width: 64px;
+  padding: 6px 14px;
 }
 .chat-rp-count-btn.active {
   background: linear-gradient(180deg, #E63022 0%, #C61114 100%);

@@ -156,22 +156,32 @@
     return String(count) + '包/' + formatMineRate(rate) + '倍';
   }
 
-  function ensureRpCountTabs() {
+  function rpLuckyCountLabel(count) {
+    return String(count) + '包';
+  }
+
+  function countBtnLabel(count, rate, withRate) {
+    return withRate ? rpCountTabLabel(count, rate) : rpLuckyCountLabel(count);
+  }
+
+  function ensureRpCountTabs(withRate) {
     var tabs = $('chatRpCountTabs');
     if (!tabs) return;
+    withRate = !!withRate;
     var rates = mineCompensateRates();
     var counts = [5, 7, 9];
     var countInput = $('chatRpCount');
     var cur = countInput ? (parseInt(countInput.value, 10) || 5) : 5;
     if (counts.indexOf(cur) < 0) cur = 5;
-    var needRebuild = !tabs._rpRateBuilt;
+    var modeKey = withRate ? 'mine' : 'lucky';
+    var needRebuild = tabs._rpCountMode !== modeKey;
     if (!needRebuild) {
       var btns = tabs.querySelectorAll('.chat-rp-count-btn');
       if (btns.length !== counts.length) needRebuild = true;
       else {
         for (var i = 0; i < btns.length; i++) {
           var c = parseInt(btns[i].getAttribute('data-count'), 10) || 0;
-          var expect = rpCountTabLabel(c, rates[c]);
+          var expect = countBtnLabel(c, rates[c], withRate);
           if (String(btns[i].textContent || '').trim() !== expect) {
             needRebuild = true;
             break;
@@ -180,10 +190,10 @@
       }
     }
     if (!needRebuild) return;
-    tabs._rpRateBuilt = true;
+    tabs._rpCountMode = modeKey;
     tabs.innerHTML = counts.map(function (c) {
       return '<button type="button" class="chat-rp-count-btn' + (c === cur ? ' active' : '')
-        + '" data-count="' + c + '">' + escapeHtml(rpCountTabLabel(c, rates[c])) + '</button>';
+        + '" data-count="' + c + '">' + escapeHtml(countBtnLabel(c, rates[c], withRate)) + '</button>';
     }).join('');
   }
 
@@ -194,13 +204,14 @@
     var inputWrap = $('chatRpCountInputWrap');
     var countInput = $('chatRpCount');
     var hint = $('chatRpCountHint');
-    // 拼手气 / 埋雷：统一用个数按钮（如 5包/1.5倍）
+    // 拼手气 / 埋雷：个数按钮；拼手气仅「5包」，埋雷带倍数
     var tabMode = isGroup && (type === 2 || type === 3);
     var mineMode = isGroup && type === 3;
     var range = isGroup ? groupRpCountRange() : { min: 1, max: 1, fixed: true };
     if (tabs) {
       tabs.hidden = !tabMode;
       tabs.style.display = tabMode ? '' : 'none';
+      if (!tabMode) tabs.classList.remove('is-single');
       if (tabMode) {
         tabs.setAttribute('aria-label', mineMode ? '扫雷个数' : '红包个数');
       }
@@ -210,7 +221,7 @@
       if (!isGroup) inputWrap.style.display = 'none';
     }
     if (tabMode && countInput) {
-      ensureRpCountTabs();
+      ensureRpCountTabs(mineMode);
       var rates = mineCompensateRates();
       var allowed = [5, 7, 9].filter(function (n) {
         return n >= range.min && n <= range.max;
@@ -245,10 +256,12 @@
             btn.type = 'button';
             btn.className = 'chat-rp-count-btn';
             btn.setAttribute('data-count', String(c));
-            btn.textContent = rpCountTabLabel(c, rates[c] != null ? rates[c] : (c === 5 ? 1.5 : (c === 7 ? 1.8 : 2)));
+            var rateNew = rates[c] != null ? rates[c] : (c === 5 ? 1.5 : (c === 7 ? 1.2 : 1));
+            btn.textContent = countBtnLabel(c, rateNew, mineMode);
             tabs.appendChild(btn);
           }
         });
+        tabs.classList.toggle('is-single', allowed.length === 1);
         tabs.querySelectorAll('.chat-rp-count-btn').forEach(function (b) {
           var c = parseInt(b.getAttribute('data-count'), 10) || 0;
           var ok = allowed.indexOf(c) >= 0;
@@ -256,8 +269,8 @@
           b.style.display = ok ? '' : 'none';
           b.classList.toggle('active', c === cur);
           if (ok) {
-            var rate = rates[c] != null ? rates[c] : (c === 5 ? 1.5 : (c === 7 ? 1.8 : 2));
-            b.textContent = rpCountTabLabel(c, rate);
+            var rate = rates[c] != null ? rates[c] : (c === 5 ? 1.5 : (c === 7 ? 1.2 : 1));
+            b.textContent = countBtnLabel(c, rate, mineMode);
           }
         });
       }
