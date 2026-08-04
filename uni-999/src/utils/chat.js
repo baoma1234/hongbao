@@ -57,7 +57,19 @@ export function previewText(last) {
     const bless = ex.blessing || '恭喜发财'
     return '[红包] ' + bless
   }
-  if (mt === 3 || mt === 4) {
+  if (mt === 4) {
+    return '[图片]'
+  }
+  if (mt === 5) {
+    return '[视频]'
+  }
+  if (mt === 6) {
+    return '[表情]'
+  }
+  if (mt === 7) {
+    return '[文件]'
+  }
+  if (mt === 8) {
     return last.content || '[转账]'
   }
   if (mt === 99 || (last.content && String(last.content).indexOf('[系统]') === 0)) {

@@ -91,7 +91,9 @@ function unreadOf(item) {
 }
 
 function itemPreview(item) {
-  return previewText(item.last_message)
+  const prev = previewText(item.last_message)
+  if (prev && prev !== '暂无消息') return prev
+  return item.is_im_admin ? '点击开始咨询' : '暂无消息'
 }
 
 function itemTime(item) {
@@ -105,6 +107,7 @@ function openChat(item) {
   const id = resolveConvId(item)
   const key = convKey(type, id)
   localUnread.value = Object.assign({}, localUnread.value, { [key]: 0 })
+  item.unread_count = 0
   const q = [
     'type=' + encodeURIComponent(type),
     'id=' + encodeURIComponent(id),
@@ -184,8 +187,8 @@ async function loadList(silent = false) {
     const rows = data.list || data.items || data.conversations || []
     // 置顶优先
     rows.sort((a, b) => {
-      const ap = a.pinned || a.is_default_cs ? 1 : 0
-      const bp = b.pinned || b.is_default_cs ? 1 : 0
+      const ap = a.pinned ? 1 : 0
+      const bp = b.pinned ? 1 : 0
       if (ap !== bp) return bp - ap
       return (b.updatetime | 0) - (a.updatetime | 0)
     })
