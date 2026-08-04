@@ -143,16 +143,40 @@ class RpAutoBotService
         $baseAmount = round((float)($task['total_amount'] ?? 0), 2);
         $group = $this->groups->get($groupId) ?: [];
         $fixedAmount = round((float)($group['rp_fixed_amount'] ?? 0), 2);
-        // 群配置了固定金额则不抖动（接龙 50 等）
-        $amount = ($fixedAmount > 0) ? $fixedAmount : $this->jitterAmount($baseAmount);
+        $minAmount = round((float)($group['rp_min_amount'] ?? 0), 2);
+        // 群配置了固定金额则不抖动（接龙 50 等）；否则抖动但不得低于群最低额
+        if ($fixedAmount > 0) {
+            $amount = $fixedAmount;
+        } else {
+            $amount = $this->jitterAmount($baseAmount);
+            if ($minAmount > 0 && $amount < $minAmount) {
+                $amount = $minAmount;
+            }
+        }
         $count = (int)($task['total_count'] ?? 0);
         if ($amount <= 0 || $count <= 0) {
             throw new \RuntimeException('金额/个数无效');
         }
 
+        // 1普通 2拼手气 3扫雷 5接龙（接龙群常见仅开放 type=5）
         $packetType = (int)($task['packet_type'] ?? 2);
-        if (!in_array($packetType, [1, 2, 3], true)) {
+        if (!in_array($packetType, [1, 2, 3, 5], true)) {
             $packetType = 2;
+        }
+        // 任务类型与群允许玩法不一致时：若群仅开放一种玩法则自动对齐
+        $enabled = array_values(array_filter(array_map(
+            'intval',
+            explode(',', (string)($group['rp_enabled_types'] ?? ''))
+        )));
+        if ($enabled && !in_array($packetType, $enabled, true)) {
+            if (count($enabled) === 1) {
+                $packetType = (int)$enabled[0];
+            } else {
+                throw new \RuntimeException(
+                    '任务玩法 type=' . (int)($task['packet_type'] ?? 0)
+                    . ' 不在本群允许类型 [' . implode(',', $enabled) . '] 内'
+                );
+            }
         }
         // 埋雷：每发随机 0-9，不读后台固定雷号
         $mineDigit = ($packetType === 3) ? random_int(0, 9) : 0;
