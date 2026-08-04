@@ -805,11 +805,21 @@ watch(locale, () => {
   /* 文案随语言刷新，数据保留 */
 })
 
+function onProfileUpdated(p) {
+  if (p && typeof p === 'object') {
+    profile.value = p
+    syncUidFromProfile(p)
+  }
+}
+
 onShow(async () => {
   if (!getToken()) {
     uni.reLaunch({ url: '/pages/login/login' })
     return
   }
+  try {
+    uni.$on && uni.$on('fanshub-profile-updated', onProfileUpdated)
+  } catch (e) {}
   await loadBootstrap()
   imConnect().catch(() => {})
   startPoll()
@@ -818,9 +828,15 @@ onShow(async () => {
 onHide(() => {
   stopPoll()
   stopSecretCountdown()
+  try {
+    uni.$off && uni.$off('fanshub-profile-updated', onProfileUpdated)
+  } catch (e) {}
 })
 onUnmounted(() => {
   stopPoll()
   stopSecretCountdown()
+  try {
+    uni.$off && uni.$off('fanshub-profile-updated', onProfileUpdated)
+  } catch (e) {}
 })
 </script>

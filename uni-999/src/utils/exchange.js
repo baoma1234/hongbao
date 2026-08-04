@@ -20,10 +20,36 @@ export function freeRightsOf(profile) {
   return Math.max(0, rights - locked)
 }
 
+export function rightsLockedOf(profile) {
+  const p = profile || {}
+  return Math.max(0, Number(p.rights_locked) || 0)
+}
+
 export function hongbaoOf(profile) {
   const p = profile || {}
   const n = p.hongbao != null ? p.hongbao : p.balance
   return Math.max(0, Number(n) || 0)
+}
+
+/** 规范化 exchangeswap / profile 返回，并广播给首页等页刷新 */
+export function applySwapProfile(data) {
+  if (!data || typeof data !== 'object') return null
+  let profile = null
+  if (data.profile && typeof data.profile === 'object') {
+    profile = data.profile
+  } else if (data.hongbao != null || data.rights != null || data.account || data.rights_free != null) {
+    profile = data
+  }
+  if (!profile) return null
+  try {
+    uni.setStorageSync('fanshub_profile_snap', JSON.stringify(profile))
+  } catch (e) {}
+  try {
+    if (typeof uni.$emit === 'function') {
+      uni.$emit('fanshub-profile-updated', profile)
+    }
+  } catch (e2) {}
+  return profile
 }
 
 export function pairInfo(cfg, from, to) {

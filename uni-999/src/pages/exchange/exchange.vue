@@ -15,7 +15,7 @@
             <view class="share-swap-avail">{{ availText }}</view>
           </view>
 
-          <view class="share-swap-section-title">{{ t('swap_from_label') || '转出' }}</view>
+          <view class="share-swap-section-title">{{ fromSectionTitle }}</view>
           <view class="share-swap-input-card share-swap-select-card">
             <view class="share-swap-icon-circle">{{ fromIcon }}</view>
             <picker :range="fromLabels" :value="fromIndex" @change="onFromPick">
@@ -31,7 +31,10 @@
               class="share-swap-input"
               type="digit"
               v-model="amount"
+              :disabled="!pair.enabled"
               :placeholder="minHint"
+              @blur="clampAmount"
+              @input="tickTime"
             />
             <button type="button" class="share-swap-btn-all" @click="fillAll">
               {{ t('swap_all_btn') || '全部' }}
@@ -90,10 +93,10 @@
             :disabled="submitting || !pair.enabled"
             @click="onSubmit"
           >
-            {{ submitting ? (t('loading_generic') || '处理中…') : (t('swap_submit') || '确认兑换') }}
+            {{ t('swap_submit') || '确认兑换' }}
           </button>
           <view class="share-swap-closed" v-if="!pair.enabled">
-            {{ t('alert_exchange_pair_invalid') || '当前兑换方向已关闭' }}
+            {{ pairClosedText }}
           </view>
         </view>
       </view>
@@ -109,12 +112,14 @@ import TopBar from '../../components/TopBar.vue'
 import BottomTabBar from '../../components/BottomTabBar.vue'
 import { getToken } from '../../utils/auth.js'
 import {
+  applySwapProfile,
   estimateCredit,
   freeRightsOf,
   hongbaoOf,
   loadExchangeBootstrap,
   pairInfo,
   rateLine,
+  rightsLockedOf,
   submitSwap,
 } from '../../utils/exchange.js'
 import { localeState, t } from '../../utils/i18n.js'
@@ -177,11 +182,28 @@ const toLabels = computed(() => {
 const fromIndex = computed(() => Math.max(0, ASSETS.indexOf(fromAsset.value)))
 const toIndex = computed(() => Math.max(0, toOptions.value.indexOf(toAsset.value)))
 
+const fromSectionTitle = computed(() => {
+  void locale.value
+  return (
+    t('swap_from_with_asset', { asset: fromLabel.value }) ||
+    (t('swap_from_label') || '转出') + fromLabel.value
+  )
+})
+
 const swapTitle = computed(() => {
   void locale.value
   return (
     t('swap_title_pair', { from: fromLabel.value, to: toLabel.value }) ||
     fromLabel.value + '兑换' + toLabel.value
+  )
+})
+
+const pairClosedText = computed(() => {
+  void locale.value
+  return (
+    t('swap_pair_closed', { from: fromLabel.value, to: toLabel.value }) ||
+    t('alert_exchange_pair_invalid') ||
+    fromLabel.value + '兑换' + toLabel.value + '已关闭'
   )
 })
 
@@ -193,6 +215,16 @@ const availText = computed(() => {
   void locale.value
   if (fromAsset.value === 'hongbao') {
     return t('swap_avail_hongbao', { amount: avail.value.toFixed(2) }) || ('可用 ' + avail.value.toFixed(2) + ' 红宝')
+  }
+  const locked = rightsLockedOf(profile.value)
+  if (locked > 0) {
+    return (
+      t('share_swap_rights_locked_hint', {
+        free: Math.floor(avail.value),
+        locked: Math.ceil(locked),
+      }) ||
+      ('可兑 ' + Math.floor(avail.value) + ' 份（锁定 ' + Math.ceil(locked) + ' 份，次日可兑）')
+    )
   }
   return t('swap_avail_rights', { amount: Math.floor(avail.value) }) || ('可用 ' + Math.floor(avail.value) + ' 份')
 })
@@ -257,16 +289,57 @@ function ensureToValid() {
   if (allowed.indexOf(toAsset.value) < 0) toAsset.value = allowed[0]
 }
 
+function parseAmount() {
+  if (fromAsset.value === 'rights') return parseInt(String(amount.value), 10) || 0
+  return parseFloat(String(amount.value)) || 0
+}
+
+function clampAmount() {
+  const p = pair.value
+  const min = Math.max(1, Number(p.min) || 1)
+  const max = Math.max(min, Number(p.max) || 99999)
+  let raw = parseAmount()
+  if (!(raw > 0)) {
+    amount.value = fromAsset.value === 'rights' ? '1' : '1'
+    return
+  }
+  if (raw > max + 1e-8) {
+    amount.value =
+      fromAsset.value === 'rights' ? String(Math.floor(max)) : String(Number(max.toFixed(2)))
+    return
+  }
+  if (fromAsset.value === 'rights') {
+    amount.value = String(Math.floor(raw))
+  } else {
+    amount.value = String(Number(raw.toFixed(2)))
+  }
+}
+
+function insufficientMsg(av) {
+  if (fromAsset.value === 'hongbao') {
+    return (
+      t('alert_exchange_insufficient', { avail: Number(av).toFixed(2) }) ||
+      ('数量不足，当前可用红宝 ' + Number(av).toFixed(2))
+    )
+  }
+  return (
+    t('alert_exchange_insufficient', { avail: Math.floor(av) }) ||
+    ('数量不足，当前可兑股份 ' + Math.floor(av) + ' 份')
+  )
+}
+
 function onFromPick(e) {
   const idx = (e.detail && e.detail.value) | 0
   fromAsset.value = ASSETS[idx] || 'rights'
   ensureToValid()
+  tickTime()
 }
 
 function onToPick(e) {
   const idx = (e.detail && e.detail.value) | 0
   const next = toOptions.value[idx]
   if (next) toAsset.value = next
+  tickTime()
 }
 
 function flip() {
@@ -276,18 +349,23 @@ function flip() {
     (a) => a !== nextFrom && pairInfo(config.value, nextFrom, a).enabled
   )
   if (allowed.indexOf(nextTo) < 0) {
-    uni.showToast({ title: t('alert_exchange_pair_invalid') || '当前方向无法互换', icon: 'none' })
+    uni.showToast({
+      title: t('alert_exchange_pair_invalid') || '当前方向无法互换',
+      icon: 'none',
+    })
     return
   }
   fromAsset.value = nextFrom
   toAsset.value = nextTo
+  tickTime()
 }
 
 function fillAll() {
   const p = pair.value
   const max = Math.min(avail.value, p.max || 99999)
   amount.value =
-    fromAsset.value === 'rights' ? String(Math.max(0, Math.floor(max))) : max.toFixed(2)
+    fromAsset.value === 'rights' ? String(Math.max(0, Math.floor(max))) : Number(Math.max(0, max)).toFixed(2)
+  tickTime()
 }
 
 async function onSubmit() {
@@ -296,39 +374,46 @@ async function onSubmit() {
     uni.showToast({ title: t('alert_exchange_disabled') || '兑换功能已关闭', icon: 'none' })
     return
   }
-  let amt = parseFloat(amount.value) || 0
-  if (fromAsset.value === 'rights') amt = parseInt(amount.value, 10) || 0
+  clampAmount()
+  const amt = parseAmount()
+  const min = Math.max(1, Number(p.min) || 1)
+  const max = Math.max(min, Number(p.max) || 99999)
   if (!(amt > 0)) {
-    uni.showToast({ title: t('alert_exchange_amount_invalid') || '请输入转出数量', icon: 'none' })
+    uni.showToast({
+      title: t('alert_exchange_amount_invalid') || '请输入转出数量',
+      icon: 'none',
+    })
     return
   }
-  if (amt > (p.max || 99999) + 1e-8) {
-    uni.showToast({ title: t('alert_exchange_max', { max: p.max }) || ('单次最高 ' + p.max), icon: 'none' })
+  if (amt > max + 1e-8) {
+    uni.showToast({
+      title: t('alert_exchange_max', { max }) || ('单次最高兑换 ' + max),
+      icon: 'none',
+    })
     return
   }
   if (amt > avail.value + 1e-8) {
-    uni.showToast({
-      title:
-        fromAsset.value === 'hongbao'
-          ? '红宝不足，可用 ' + avail.value.toFixed(2)
-          : '可兑股份不足，可用 ' + Math.floor(avail.value),
-      icon: 'none',
-    })
+    uni.showToast({ title: insufficientMsg(avail.value), icon: 'none' })
     return
   }
   submitting.value = true
   try {
     const data = await submitSwap(fromAsset.value, toAsset.value, amt)
-    if (data && (data.hongbao != null || data.rights != null || data.profile)) {
-      profile.value = data.profile || data
+    const next = applySwapProfile(data)
+    if (next) {
+      profile.value = next
     } else {
       const boot = await loadExchangeBootstrap()
       profile.value = boot.profile
       config.value = boot.config
+      applySwapProfile(boot.profile)
     }
-    uni.showToast({ title: t('alert_exchange_swap_ok') || '兑换成功', icon: 'success' })
+    uni.showToast({ title: t('alert_exchange_swap_ok') || '🎉 兑换成功', icon: 'success' })
   } catch (e) {
-    uni.showToast({ title: (e && e.message) || t('alert_exchange_fail') || '兑换失败', icon: 'none' })
+    uni.showToast({
+      title: (e && e.message) || t('alert_exchange_fail') || '兑换失败',
+      icon: 'none',
+    })
   } finally {
     submitting.value = false
     tickTime()
@@ -341,13 +426,19 @@ async function load() {
     return
   }
   try {
+    uni.setNavigationBarTitle({ title: t('tab_bar_exchange') || '闪兑' })
+  } catch (e) {}
+  try {
     const boot = await loadExchangeBootstrap()
     config.value = boot.config
     profile.value = boot.profile
     ensureToValid()
     tickTime()
   } catch (e) {
-    uni.showToast({ title: (e && e.message) || '加载失败', icon: 'none' })
+    uni.showToast({
+      title: (e && e.message) || t('loading_generic') || '加载失败',
+      icon: 'none',
+    })
   }
 }
 
