@@ -70,6 +70,34 @@
       }
     },
     {
+      "path": "pages/profile/info",
+      "style": {
+        "navigationBarTitleText": "编辑资料",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/profile/password",
+      "style": {
+        "navigationBarTitleText": "修改密码",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/profile/paypassword",
+      "style": {
+        "navigationBarTitleText": "支付密码",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/profile/qr",
+      "style": {
+        "navigationBarTitleText": "我的二维码",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/wallet/wallet",
       "style": {
         "navigationBarTitleText": "钱包"

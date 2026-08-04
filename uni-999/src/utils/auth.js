@@ -91,6 +91,68 @@ export async function fetchProfile() {
   return apiRequest('profile', 'GET')
 }
 
+export async function updateProfile(nickname) {
+  return apiRequest('updateprofile', 'POST', { nickname })
+}
+
+export async function changePassword(body) {
+  return apiRequest('changepassword', 'POST', body || {})
+}
+
+export async function setPayPassword(payPassword, confirmPassword) {
+  return apiRequest('setpaypassword', 'POST', {
+    pay_password: payPassword,
+    confirm_password: confirmPassword,
+  })
+}
+
+export async function changePayPassword(payPassword, confirmPassword, captcha) {
+  return apiRequest('changepaypassword', 'POST', {
+    pay_password: payPassword,
+    confirm_password: confirmPassword,
+    captcha,
+  })
+}
+
+export async function logoutRemote() {
+  try {
+    await apiRequest('logout', 'POST', {})
+  } catch (e) {
+    /* 本地仍清登录态 */
+  }
+}
+
+/** 头像上传：FansHub avatarupload */
+export function uploadAvatar(filePath) {
+  const base = getApiBase() || ''
+  const token = getToken()
+  const locale = getLocale()
+  return new Promise((resolve, reject) => {
+    uni.uploadFile({
+      url: base + '/api/fanshub/avatarupload',
+      filePath,
+      name: 'file',
+      formData: { locale },
+      header: token ? { token, 'X-Fanshub-Locale': locale } : { 'X-Fanshub-Locale': locale },
+      success(res) {
+        try {
+          const body = JSON.parse((res && res.data) || '{}')
+          if ((body && body.code) !== 1) {
+            reject(new Error(body.msg || body.message || '上传失败'))
+            return
+          }
+          resolve(body.data || {})
+        } catch (e) {
+          reject(new Error('上传失败'))
+        }
+      },
+      fail(err) {
+        reject(new Error((err && err.errMsg) || '上传失败'))
+      },
+    })
+  })
+}
+
 export function logoutLocal() {
   setToken('')
 }

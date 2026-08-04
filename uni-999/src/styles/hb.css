@@ -792,3 +792,156 @@ page {
   font-weight: 700;
   font-size: 14px;
 }
+
+/* ---------- 我的 · 二级页（对齐 888 profile-sub） ---------- */
+.profile-sub-page {
+  padding: 0 0 28px;
+  background:
+    radial-gradient(120% 70% at 50% -8%, rgba(255, 236, 210, 0.95) 0%, transparent 55%),
+    linear-gradient(180deg, #fffbf3 0%, #f8efe3 50%, #f3e6d6 100%);
+}
+
+.profile-sub-hd {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 12px 12px 14px;
+  color: #fff;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0) 55%),
+    var(--hb-red-grad);
+  border-bottom: 1px solid rgba(253, 228, 179, 0.55);
+  box-shadow:
+    0 10px 24px rgba(180, 30, 25, 0.26),
+    inset 0 2px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+}
+
+.profile-back-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 36px;
+  height: 36px;
+  margin: 0;
+  padding: 0;
+  border: 1.5px solid rgba(253, 228, 179, 0.45);
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 50%;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 1;
+  transform: translateX(-0.5px);
+}
+
+.profile-sub-title {
+  flex: 1;
+  text-align: center;
+  color: #fff;
+  font-size: 17px;
+  font-weight: 800;
+  text-shadow: 0 1px 3px rgba(80, 10, 8, 0.3);
+}
+
+.profile-sub-spacer {
+  width: 36px;
+  min-width: 36px;
+  flex-shrink: 0;
+}
+
+.profile-sub-body {
+  padding: 16px 12px 0;
+}
+
+.profile-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.profile-avatar-edit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 8px;
+}
+
+.profile-avatar-lg {
+  width: 88px !important;
+  height: 88px !important;
+  font-size: 32px !important;
+}
+
+.profile-avatar-hint {
+  font-size: 12px;
+  color: var(--hb-muted);
+  font-weight: 600;
+}
+
+.profile-pwd-modes {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.profile-mode-btn {
+  flex: 1;
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    var(--hb-border-grad) border-box;
+  color: #9a8574;
+  box-shadow: 0 4px 10px rgba(176, 120, 50, 0.08);
+  border-radius: 12px;
+  padding: 9px 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.profile-mode-btn.active {
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    linear-gradient(to right, #e63022, #c61114) border-box;
+  color: #c61114;
+  box-shadow: 0 4px 12px rgba(198, 17, 20, 0.14);
+}
+
+.profile-sms-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.profile-sms-row .hb-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-sms-row .btn-captcha {
+  flex-shrink: 0;
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    var(--hb-border-grad) border-box;
+  color: #3d2e22;
+  border-radius: 12px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(176, 120, 50, 0.1);
+}
+
+.profile-sms-row .btn-captcha[disabled] {
+  opacity: 0.55;
+}
+
+.profile-sub-page .btn-uid-submit::after,
+.profile-sub-page .profile-mode-btn::after,
+.profile-sub-page .btn-captcha::after {
+  border: none;
+}
