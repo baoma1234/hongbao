@@ -96,22 +96,10 @@ class RedPacketSettlementService
             $compensateAmount = $totalAmount;
             $mineDigit = max(0, min(9, (int)($packet['mine_digit'] ?? 0)));
             if ($packetType === 3 && !$isPrivate) {
-                // 须哈希末位匹配手填雷号后再结算
+                // 领取前已要求 tron 就绪；赔付按金额尾数判定（可已在领取时扣过）
                 if ((int)($packet['tron_status'] ?? 0) !== 2 || trim((string)($packet['tron_block_id'] ?? '')) === '') {
                     Db::rollBack();
-                    error_log('[RP_SETTLE] mine wait hash match packet_id=' . $packetId);
-                    $this->releaseLock($lockKey, $gotLock);
-                    return $result;
-                }
-                $hashDigit = \Im\Support\TronBlockClient::luckyDigitFromBlockId($packet['tron_block_id']);
-                if ($hashDigit !== $mineDigit) {
-                    Db::rollBack();
-                    error_log(sprintf(
-                        '[RP_SETTLE] mine hash mismatch packet_id=%d mine=%d hash_digit=%d',
-                        $packetId,
-                        $mineDigit,
-                        $hashDigit
-                    ));
+                    error_log('[RP_SETTLE] mine wait hash packet_id=' . $packetId);
                     $this->releaseLock($lockKey, $gotLock);
                     return $result;
                 }
@@ -120,7 +108,7 @@ class RedPacketSettlementService
             $now = time();
             $bizMeta = ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId];
 
-            // 埋雷：金额尾数=手填雷号中雷；波场哈希末位须等于手填雷号
+            // 埋雷：金额尾数=手填雷号中雷（领取时已即时扣款的记录 compensate_status=2）
 
             $records = Db::fetchAll(
                 'SELECT * FROM ' . Db::table('chat_red_packet_records') . ' WHERE packet_id=? FOR UPDATE',
@@ -187,14 +175,19 @@ class RedPacketSettlementService
                 foreach ($records as $row) {
                     $cent = (int)($row['amount_cent'] ?? round((float)$row['amount'] * 100));
                     $tail = (int)($row['tail_digit'] ?? ($cent % 10));
-                    if ($tail === $mineDigit) {
-                        Db::exec(
-                            'UPDATE ' . Db::table('chat_red_packet_records')
-                            . ' SET is_mine_hit=1, need_compensate=1, compensate_amount=?, compensate_status=1 WHERE id=?',
-                            [sprintf('%.2f', $compensateAmount), (int)$row['id']]
-                        );
-                        $losers[(int)$row['id']] = 'mine';
+                    if ($tail !== $mineDigit) {
+                        continue;
                     }
+                    // 领取时已即时扣款：仅汇总，不再重复划转
+                    if ((int)($row['compensate_status'] ?? 0) === 2) {
+                        continue;
+                    }
+                    Db::exec(
+                        'UPDATE ' . Db::table('chat_red_packet_records')
+                        . ' SET is_mine_hit=1, need_compensate=1, compensate_amount=?, compensate_status=1 WHERE id=?',
+                        [sprintf('%.2f', $compensateAmount), (int)$row['id']]
+                    );
+                    $losers[(int)$row['id']] = 'mine';
                 }
             }
 
@@ -203,6 +196,7 @@ class RedPacketSettlementService
                 if ((int)($row['freeze_status'] ?? 0) !== 1) {
                     continue;
                 }
+                // 已即时中雷赔付的记录不应再有冻结；兼容旧数据仍解冻
                 $freezeAmt = round((float)($row['frozen_amount'] ?? 0), 2);
                 $freezeUid = (int)($row['user_id'] ?? 0);
                 $freezeRid = (int)($row['id'] ?? 0);
@@ -227,6 +221,19 @@ class RedPacketSettlementService
             // ---------- 2) 赔付：中雷 → 扣赔付金给发包方；拼手气最差 → 仅标记，续发时由最差用户直接发包（流水记在其名下）----------
             $compensateUsers = [];
             $compensateTotal = 0.0;
+            // 埋雷：汇总领取时已扣的中雷金额
+            if (!$isPrivate && $packetType === 3) {
+                foreach ($records as $row) {
+                    if ((int)($row['compensate_status'] ?? 0) === 2 && (
+                        (int)($row['is_mine_hit'] ?? 0) === 1
+                        || (int)($row['tail_digit'] ?? -1) === $mineDigit
+                    )) {
+                        $compensateUsers[] = (int)$row['user_id'];
+                        $paidAmt = round((float)($row['compensate_amount'] ?? $compensateAmount), 2);
+                        $compensateTotal = round($compensateTotal + $paidAmt, 2);
+                    }
+                }
+            }
             foreach ($losers as $recordId => $reason) {
                 $rec = null;
                 foreach ($records as $row) {
@@ -246,6 +253,11 @@ class RedPacketSettlementService
                     $compensateUsers[] = $payerId;
                     $compensateTotal = round($compensateTotal + $compensateAmount, 2);
                     error_log('[RP_SETTLE] relay worst marked (defer pay via next send) packet_id=' . $packetId . ' payer=' . $payerId . ' amount=' . $compensateAmount);
+                    continue;
+                }
+
+                // 埋雷已在领取时扣过则跳过
+                if ($reason === 'mine' && (int)($rec['compensate_status'] ?? 0) === 2) {
                     continue;
                 }
 

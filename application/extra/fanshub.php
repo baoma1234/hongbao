@@ -956,7 +956,7 @@ return array (
     'chat_rp_type_mine' => '埋雷',
     'chat_rp_type_random' => '随机红包',
     'chat_rp_mine_digit' => '埋雷数字（0～9）',
-    'chat_rp_mine_hint' => '手填雷号；开奖后匹配哈希末位相同的波场区块作证明。金额尾数等于雷号即中雷，可多人同时中雷,中雷者系统自动扣除中雷倍数金额赔付发包者',
+    'chat_rp_mine_hint' => '手填雷号；开奖后匹配哈希末位相同的波场区块作证明。金额尾数等于雷号即中雷，可多人同时中雷；中雷者领取瞬间即时扣除倍数金额赔付发包者',
     'chat_rp_grab_need_compensate' => '未达到赔付该包金额无法领取',
     'chat_rp_blessing_label' => '红包封面语',
     'chat_rp_submit' => '塞钱进红包',

@@ -4927,7 +4927,18 @@
       markRpCover(packetId, { grabbed: true, faded: true });
       try { refreshRpOrMessages(packetId, true); } catch (eRender) {}
       if (typeof showFanshubToast === 'function') {
-        showFanshubToast(amt != null ? ('抢到 ￥' + parseFloat(amt).toFixed(2)) : '领取成功', 'success');
+        var hit = !!(packet.data && packet.data.is_mine_hit);
+        var pay = packet.data && packet.data.compensate_amount != null
+          ? parseFloat(packet.data.compensate_amount) : 0;
+        if (hit && pay > 0) {
+          showFanshubToast(
+            (amt != null ? ('抢到 ￥' + parseFloat(amt).toFixed(2) + ' · ') : '')
+              + '中雷赔付 ￥' + pay.toFixed(2),
+            'error'
+          );
+        } else {
+          showFanshubToast(amt != null ? ('抢到 ￥' + parseFloat(amt).toFixed(2)) : '领取成功', 'success');
+        }
       }
       // 详情打开时刷新列表/按钮状态
       if ($('chatRpDetailPane') && $('chatRpDetailPane').classList.contains('open')) {

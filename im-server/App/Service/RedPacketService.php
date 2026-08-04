@@ -1056,14 +1056,13 @@ class RedPacketService
         }
 
         // ---------- 关键节点：验资拦截（必须在 Redis 弹队列之前）----------
-        // 拼手气(2)/接龙(5)：余额须 ≥ 红包总额（覆盖最少赔付/续发扣款）
-        // 扫雷包(3) 按个数倍率赔付（如 5 包 1.5 倍）。
+        // 拼手气(2)/接龙(5)：余额须 ≥ 红包总额（覆盖最少赔付/续发扣款），领取时冻结
+        // 扫雷包(3) 按个数倍率赔付；中雷在领取瞬间即时扣款，不再冻结
         // 扫雷额外：余额必须严格大于最低限制（如 10 元），才可领取。
         // 私聊红包无赔付玩法，跳过验资门槛。
         $needCompensate = 0.0;
         $shouldFreeze = false;
         if ((int)($packet['scope_type'] ?? 0) !== 1 && in_array($packetType, [2, 3, 5], true)) {
-            $shouldFreeze = true;
             $needCompensate = $totalAmount;
             if ($packetType === 3) {
                 $needCompensate = $this->mineCompensateAmount(
@@ -1091,8 +1090,10 @@ class RedPacketService
                         throw new \RuntimeException('balance_below_mine_min');
                     }
                 }
+            } else {
+                // 仅拼手气/接龙：领取时冻结潜在赔付
+                $shouldFreeze = true;
             }
-            // 拼手气：发包人若领到最少可不赔付，但仍要求余额覆盖（其余人必可赔）
             if (!$this->wallet->hasEnoughBalance($userId, $needCompensate)) {
                 error_log(sprintf(
                     '[RP_GRAB][ERROR] balance gate reject user=%d packet_id=%d packet_no=%s need=%.2f type=%d',
@@ -1185,6 +1186,10 @@ class RedPacketService
         $status = $remain <= 0 ? 2 : 1;
         $walletChange = null;
         $frozenAmt = 0.0;
+        $mineHit = false;
+        $minePayAmount = 0.0;
+        $fromUserId = (int)($packet['from_user_id'] ?? 0);
+        $mineDigit = max(0, min(9, (int)($packet['mine_digit'] ?? 0)));
         Db::begin();
         try {
             // 条件更新扣剩余（去掉 SELECT FOR UPDATE，缩短锁等待）
@@ -1216,7 +1221,35 @@ class RedPacketService
                 ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId]
             );
 
-            // 赔付类玩法：领取瞬间锁定潜在赔付额，领完/过期再解冻
+            // 埋雷：尾数=雷号 → 领取瞬间即时赔付（单包独立结算）
+            if (
+                $packetType === 3
+                && (int)($packet['scope_type'] ?? 0) !== 1
+                && $tailDigit === $mineDigit
+                && $needCompensate > 0.00001
+                && $recordId > 0
+            ) {
+                $pay = $this->payMineHitForRecord(
+                    [
+                        'id'           => $packetId,
+                        'packet_no'    => $packetNo,
+                        'from_user_id' => $fromUserId,
+                    ],
+                    [
+                        'id'              => $recordId,
+                        'user_id'         => $userId,
+                        'freeze_status'   => 0,
+                        'frozen_amount'   => 0,
+                        'compensate_status' => 0,
+                    ],
+                    $needCompensate,
+                    ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId]
+                );
+                $mineHit = !empty($pay['paid']) || !empty($pay['already']);
+                $minePayAmount = round((float)($pay['amount'] ?? $needCompensate), 2);
+            }
+
+            // 拼手气/接龙：领取瞬间锁定潜在赔付额，领完/过期再解冻
             $frozenAmt = 0.0;
             if ($shouldFreeze && $needCompensate > 0.00001) {
                 $frozenAmt = round((float)$needCompensate, 2);
@@ -1259,7 +1292,7 @@ class RedPacketService
         $settlePending = false;
         // ---------- 抢完最后一个包：结算/开奖异步，缩短抢包响应 ----------
         if ($remain <= 0) {
-            // 扫雷：先开波场再按哈希末位雷号结算；手气/普通：直接结算
+            // 扫雷：赔付已在领取时完成；此处收尾抽水/返点/状态；手气/接龙：结算赔付
             $this->scheduleSettleAfterFinished($packetId, $packet);
             $settlePending = true;
         }
@@ -1279,6 +1312,10 @@ class RedPacketService
             'balance'             => $view['hongbao'],
             'hongbao_frozen'      => $view['hongbao_frozen'],
             'frozen_amount'       => isset($frozenAmt) ? round((float)$frozenAmt, 2) : 0.0,
+            'tail_digit'          => $tailDigit,
+            'is_mine_hit'         => $mineHit,
+            'mine_digit'          => $packetType === 3 ? $mineDigit : null,
+            'compensate_amount'   => $mineHit ? $minePayAmount : 0.0,
             'settlement'          => $settleInfo,
             'settle_pending'      => $settlePending,
             'next_round_message'  => $nextRoundMessage,
@@ -1289,6 +1326,106 @@ class RedPacketService
                 'to_user_id'   => (int)($packet['to_user_id'] ?? 0),
             ],
         ];
+    }
+
+    /**
+     * 埋雷中雷赔付（幂等：compensate_status=2 跳过）。调用方须在事务内。
+     *
+     * @return array{paid:bool,already:bool,amount:float,ledger_id:int}
+     */
+    protected function payMineHitForRecord(array $packet, array $record, $compensateAmount, array $bizMeta = [])
+    {
+        $recordId = (int)($record['id'] ?? 0);
+        $payerId = (int)($record['user_id'] ?? 0);
+        $fromUserId = (int)($packet['from_user_id'] ?? 0);
+        $packetId = (int)($packet['id'] ?? 0);
+        $packetNo = (string)($packet['packet_no'] ?? '');
+        $amt = round((float)$compensateAmount, 2);
+        if ($recordId <= 0 || $payerId <= 0 || $fromUserId <= 0 || $amt <= 0.00001) {
+            return ['paid' => false, 'already' => false, 'amount' => 0.0, 'ledger_id' => 0];
+        }
+
+        $fresh = Db::fetch(
+            'SELECT id, user_id, compensate_status, freeze_status, frozen_amount, compensate_amount'
+            . ' FROM ' . Db::table('chat_red_packet_records') . ' WHERE id=? LIMIT 1',
+            [$recordId]
+        );
+        if (!$fresh) {
+            return ['paid' => false, 'already' => false, 'amount' => 0.0, 'ledger_id' => 0];
+        }
+        if ((int)($fresh['compensate_status'] ?? 0) === 2) {
+            return [
+                'paid'    => false,
+                'already' => true,
+                'amount'  => round((float)($fresh['compensate_amount'] ?? $amt), 2),
+                'ledger_id' => 0,
+            ];
+        }
+
+        if ((int)($fresh['freeze_status'] ?? 0) === 1) {
+            $freezeAmt = round((float)($fresh['frozen_amount'] ?? 0), 2);
+            if ($freezeAmt > 0.00001) {
+                $this->wallet->unfreeze(
+                    $payerId,
+                    $freezeAmt,
+                    'red_packet_unfreeze',
+                    '中雷赔付前解冻 ' . $packetNo,
+                    $bizMeta
+                );
+            }
+            Db::exec(
+                'UPDATE ' . Db::table('chat_red_packet_records')
+                . ' SET freeze_status=2 WHERE id=?',
+                [$recordId]
+            );
+        }
+
+        $out = $this->wallet->change(
+            $payerId,
+            -$amt,
+            'red_packet_mine_pay',
+            '中雷赔付 ' . $packetNo,
+            $bizMeta
+        );
+        $ledgerOutId = (int)($out['ledger_id'] ?? 0);
+        $this->wallet->change(
+            $fromUserId,
+            $amt,
+            'red_packet_compensate_in',
+            '收到中雷赔付 ' . $packetNo,
+            $bizMeta
+        );
+        Db::exec(
+            'UPDATE ' . Db::table('chat_red_packet_records')
+            . ' SET is_mine_hit=1, need_compensate=1, compensate_amount=?, compensate_status=2, compensate_ledger_id=?'
+            . ' WHERE id=?',
+            [sprintf('%.2f', $amt), $ledgerOutId, $recordId]
+        );
+        Db::exec(
+            'INSERT INTO ' . Db::table('chat_red_packet_settlements')
+            . ' (packet_id,packet_no,settle_type,from_user_id,to_user_id,amount,ledger_id,status,remark,createtime)'
+            . ' VALUES (?,?,?,?,?,?,?,?,?,?)',
+            [
+                $packetId,
+                $packetNo,
+                'compensate',
+                $payerId,
+                $fromUserId,
+                sprintf('%.2f', $amt),
+                $ledgerOutId,
+                1,
+                '中雷赔付 ' . $packetNo,
+                time(),
+            ]
+        );
+        error_log(sprintf(
+            '[RP_MINE] pay ok packet_id=%d record=%d payer=%d amount=%.2f',
+            $packetId,
+            $recordId,
+            $payerId,
+            $amt
+        ));
+        return ['paid' => true, 'already' => false, 'amount' => $amt, 'ledger_id' => $ledgerOutId];
     }
 
     /**
@@ -1855,6 +1992,32 @@ class RedPacketService
                     }
                 }
                 $refund = round($refund + $clawed, 2);
+            }
+
+            // 埋雷超时：先补结未扣的中雷（未中雷已领保留），再退剩余池
+            if ($packetType === 3 && $scopeType !== 1 && $records) {
+                $mineDigit = max(0, min(9, (int)($fresh['mine_digit'] ?? 0)));
+                $minePay = $this->mineCompensateAmount(
+                    round((float)($fresh['total_amount'] ?? 0), 2),
+                    (int)($fresh['total_count'] ?? 0)
+                );
+                foreach ($records as $rec) {
+                    $cent = (int)($rec['amount_cent'] ?? round((float)($rec['amount'] ?? 0) * 100));
+                    $tail = (int)($rec['tail_digit'] ?? ($cent % 10));
+                    if ($tail !== $mineDigit) {
+                        continue;
+                    }
+                    $this->payMineHitForRecord(
+                        [
+                            'id'           => $packetId,
+                            'packet_no'    => $packetNo,
+                            'from_user_id' => $fromUserId,
+                        ],
+                        $rec,
+                        $minePay,
+                        $bizMeta
+                    );
+                }
             }
 
             $neverGrabbed = ((int)$fresh['remain_count'] === (int)$fresh['total_count']) && !$records;
