@@ -93,6 +93,8 @@ const localeRef = ref(DEFAULT_LOCALE)
 const readyRef = ref(false)
 const listeners = new Set()
 const loadPromises = {}
+/** 已成功拉取完整语言包的 locale（BOOT 离线包不算） */
+const fullLoaded = Object.create(null)
 
 function readStoredLocale() {
   try {
@@ -129,11 +131,12 @@ function fillTpl(tpl, vars) {
 
 export function t(key, vars) {
   const loc = getLocale()
-  const chain = [loc, 'en-PH', 'zh-CN']
+  // 缺 key 时优先中文，避免「页面全是英文 / key 名」
+  const chain = loc === 'zh-CN' ? ['zh-CN', 'en-PH'] : [loc, 'zh-CN', 'en-PH']
   let tpl = ''
   for (let i = 0; i < chain.length; i++) {
     const pack = packs[chain[i]]
-    if (pack && pack[key] != null && pack[key] !== '') {
+    if (pack && pack[key] != null && String(pack[key]) !== '') {
       tpl = pack[key]
       break
     }
@@ -175,20 +178,25 @@ function parseLocaleScript(text, locale) {
 
 export function ensureLocaleLoaded(locale) {
   const loc = LOCALE_META[locale] ? locale : DEFAULT_LOCALE
-  if (packs[loc] && Object.keys(packs[loc]).length > 30) {
+  // 不得用 BOOT key 数量判断：BOOT 已 >30，会误跳过完整包加载
+  if (fullLoaded[loc] && packs[loc] && packs[loc].jackpot_label) {
     return Promise.resolve(loc)
   }
   if (loadPromises[loc]) return loadPromises[loc]
 
   loadPromises[loc] = new Promise((resolve) => {
+    const base = assetBase()
     const urls = [
+      base + 'i18n/locales/' + encodeURIComponent(loc) + '.js',
+      '/999/i18n/locales/' + encodeURIComponent(loc) + '.js',
       '/888/i18n/locales/' + encodeURIComponent(loc) + '.js',
       '../888/i18n/locales/' + encodeURIComponent(loc) + '.js',
     ]
     let i = 0
     const tryNext = () => {
       if (i >= urls.length) {
-        if (!packs[loc]) packs[loc] = BOOT_COPY[loc] || BOOT_COPY[DEFAULT_LOCALE] || {}
+        if (!packs[loc]) packs[loc] = Object.assign({}, BOOT_COPY[loc] || BOOT_COPY[DEFAULT_LOCALE] || {})
+        delete loadPromises[loc]
         resolve(loc)
         return
       }
@@ -198,10 +206,13 @@ export function ensureLocaleLoaded(locale) {
         method: 'GET',
         dataType: 'text',
         success(res) {
+          const ok = res && (res.statusCode === 200 || res.statusCode === 0 || res.statusCode == null)
           const body = typeof res.data === 'string' ? res.data : ''
-          const parsed = parseLocaleScript(body, loc)
-          if (parsed && typeof parsed === 'object') {
+          const parsed = ok ? parseLocaleScript(body, loc) : null
+          if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 50) {
             packs[loc] = Object.assign({}, BOOT_COPY[loc] || {}, parsed)
+            fullLoaded[loc] = true
+            delete loadPromises[loc]
             resolve(loc)
             return
           }
@@ -258,11 +269,17 @@ export async function setLocale(locale) {
 export async function initI18n() {
   const loc = readStoredLocale()
   localeRef.value = loc
-  await ensureLocaleLoaded(loc)
+  // 始终拉中文完整包作兜底，再拉当前语言
+  await ensureLocaleLoaded(DEFAULT_LOCALE)
   if (loc !== DEFAULT_LOCALE) {
-    await ensureLocaleLoaded(DEFAULT_LOCALE)
+    await ensureLocaleLoaded(loc)
   }
   readyRef.value = true
+  // #ifdef H5
+  if (typeof document !== 'undefined' && document.documentElement) {
+    document.documentElement.lang = loc
+  }
+  // #endif
   syncTabBarLabels()
   return loc
 }

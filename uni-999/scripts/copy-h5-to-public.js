@@ -1,11 +1,13 @@
 /**
- * Copy uni H5 build → public/999
+ * Copy uni H5 build → public/999，并同步 /888 多语言包到 /999/i18n
  */
 const fs = require('fs')
 const path = require('path')
 
 const src = path.resolve(__dirname, '../dist/build/h5')
 const dest = path.resolve(__dirname, '../../public/999')
+const localeSrc = path.resolve(__dirname, '../../public/888/i18n')
+const localeDest = path.join(dest, 'i18n')
 
 function rmDir(dir) {
   if (!fs.existsSync(dir)) return
@@ -28,4 +30,12 @@ if (!fs.existsSync(src)) {
 }
 rmDir(dest)
 copyDir(src, dest)
+
+if (fs.existsSync(localeSrc)) {
+  copyDir(localeSrc, localeDest)
+  console.log('OK i18n synced to', localeDest)
+} else {
+  console.warn('WARN missing locale source:', localeSrc)
+}
+
 console.log('OK copied to', dest)
