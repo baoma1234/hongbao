@@ -11,27 +11,27 @@
     <view
       v-for="item in list"
       :key="itemKey(item)"
-      class="row"
-      :class="{ pinned: !!item.pinned, cs: !!item.is_im_admin }"
+      class="chat-conv-item"
+      :class="{ 'is-pinned': !!item.pinned, 'is-admin': !!item.is_im_admin }"
       @click="openChat(item)"
       @longpress="onLongPress(item)"
     >
-      <view class="avatar" :class="{ group: (item.conversation_type | 0) === 2, admin: !!item.is_im_admin }">
+      <view class="chat-conv-avatar" :class="{ group: (item.conversation_type | 0) === 2, admin: !!item.is_im_admin }">
         <image v-if="item.avatar" class="av-img" :src="item.avatar" mode="aspectFill" />
         <text v-else>{{ avatarLetter(displayTitle(item)) }}</text>
       </view>
-      <view class="body">
-        <view class="top">
-          <view class="title-wrap">
-            <text v-if="item.pinned" class="pin">📌</text>
-            <text class="title">{{ displayTitle(item) }}</text>
-            <text v-if="item.is_im_admin" class="tag">客服</text>
+      <view class="chat-conv-main">
+        <view class="chat-conv-top">
+          <view class="chat-conv-title-wrap">
+            <text v-if="item.pinned" class="chat-conv-pin">📌</text>
+            <text class="chat-conv-title">{{ displayTitle(item) }}</text>
+            <text v-if="item.is_im_admin" class="chat-conv-tag">客服</text>
           </view>
-          <text class="time">{{ itemTime(item) }}</text>
+          <text class="chat-conv-time">{{ itemTime(item) }}</text>
         </view>
-        <view class="bottom">
-          <text class="preview">{{ itemPreview(item) }}</text>
-          <view v-if="unreadOf(item) > 0" class="badge">
+        <view class="chat-conv-bottom">
+          <text class="chat-conv-preview">{{ itemPreview(item) }}</text>
+          <view v-if="unreadOf(item) > 0" class="chat-badge">
             {{ unreadOf(item) > 99 ? '99+' : unreadOf(item) }}
           </view>
         </view>
@@ -273,15 +273,27 @@ onHide(() => {
   padding: 80rpx 24rpx;
   font-size: 26rpx;
 }
-.row {
+.chat-conv-item {
+  position: relative;
   display: flex;
-  gap: 20rpx;
-  padding: 22rpx 28rpx;
+  align-items: center;
+  gap: 18rpx;
+  padding: 20rpx 24rpx;
   background: #fff;
-  border-bottom: 1px solid rgba(40, 20, 10, 0.05);
+  transition: transform 0.2s ease, background 0.2s ease;
 }
-.row.pinned { background: #fffaf5; }
-.avatar {
+.chat-conv-item::after {
+  content: '';
+  position: absolute;
+  left: 130rpx;
+  right: 16rpx;
+  bottom: 0;
+  border-bottom: 1px solid rgba(40, 20, 10, 0.08);
+}
+.chat-conv-item:last-child::after { border-bottom: none; }
+.chat-conv-item:active { background: #fff7f0; }
+.chat-conv-item.is-pinned { background: rgba(245, 154, 35, 0.08); }
+.chat-conv-avatar {
   width: 88rpx;
   height: 88rpx;
   border-radius: 18rpx;
@@ -295,34 +307,37 @@ onHide(() => {
   flex-shrink: 0;
   overflow: hidden;
 }
-.avatar.group { background: linear-gradient(160deg, #fff8ee, #ffe8cc); color: #b8751a; }
-.avatar.admin { background: linear-gradient(160deg, #e63022, #c61114); color: #fff; }
+.chat-conv-avatar.group { background: linear-gradient(160deg, #fff8ee, #ffe8cc); color: #b8751a; }
+.chat-conv-avatar.admin { background: linear-gradient(160deg, #e63022, #c61114); color: #fff; }
 .av-img { width: 100%; height: 100%; }
-.body { flex: 1; min-width: 0; }
-.top, .bottom {
+.chat-conv-main { flex: 1; min-width: 0; }
+.chat-conv-top, .chat-conv-bottom {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 12rpx;
 }
-.bottom { margin-top: 10rpx; }
-.title-wrap {
+.chat-conv-bottom { margin-top: 10rpx; }
+.chat-conv-title-wrap {
   display: flex;
   align-items: center;
   gap: 8rpx;
   min-width: 0;
   flex: 1;
 }
-.pin { font-size: 22rpx; }
-.title {
+.chat-conv-pin {
+  font-size: 22rpx;
+  opacity: 0.8;
+}
+.chat-conv-title {
   font-size: 30rpx;
-  font-weight: 700;
+  font-weight: 800;
   color: #2a1f18;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.tag {
+.chat-conv-tag {
   flex-shrink: 0;
   font-size: 18rpx;
   padding: 2rpx 10rpx;
@@ -331,8 +346,8 @@ onHide(() => {
   color: #fff;
   font-weight: 700;
 }
-.time { font-size: 22rpx; color: #b8aaa0; flex-shrink: 0; }
-.preview {
+.chat-conv-time { font-size: 22rpx; color: #b8aaa0; flex-shrink: 0; }
+.chat-conv-preview {
   flex: 1;
   min-width: 0;
   font-size: 24rpx;
@@ -341,7 +356,8 @@ onHide(() => {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.badge {
+.chat-conv-item.is-admin .chat-conv-preview { color: #e07a22; }
+.chat-badge {
   flex-shrink: 0;
   min-width: 36rpx;
   height: 36rpx;
