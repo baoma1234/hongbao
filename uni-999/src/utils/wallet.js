@@ -296,9 +296,10 @@ export function fxHintText(ch, amount) {
   const a = Number(amount) || 0
   if (isUsdtRechargeChannel(ch)) {
     if (a > 0) {
+      // 提示用：输入 a U × rate ≈ 入账人民币（提交仍传 a U）
       return rate + ' CNY = 1 USDT，约合 ' + money(a * rate) + '人民币'
     }
-    return rate + ' CNY = 1 USDT（输入 U 数量后自动换算）'
+    return rate + ' CNY = 1 USDT（输入 U 数量后显示约合人民币）'
   }
   const unit = ch.coin_name || ch.currency || '币'
   if (a > 0) {

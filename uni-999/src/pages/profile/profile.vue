@@ -95,6 +95,7 @@
 
     <button class="profile-logout-btn" @click="onLogout">{{ t('profile_logout_btn') || '退出登录' }}</button>
     <view class="profile-foot-note">{{ t('profile_foot_note') || '红宝官方 · 会员中心' }}</view>
+    <BottomTabBar active="profile" />
   </view>
 </template>
 
@@ -102,6 +103,7 @@
 import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
+import BottomTabBar from '../../components/BottomTabBar.vue'
 import { fetchProfile, getToken, logoutLocal } from '../../utils/auth.js'
 import { localeState, t } from '../../utils/i18n.js'
 import { imDisconnect } from '../../utils/im.js'

@@ -205,6 +205,7 @@
         </view>
       </view>
     </view>
+    <BottomTabBar active="home" />
   </view>
 </template>
 
@@ -212,6 +213,7 @@
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { onShow, onHide } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
+import BottomTabBar from '../../components/BottomTabBar.vue'
 import { apiRequest, fetchProfile, getToken } from '../../utils/auth.js'
 import { localeState, t } from '../../utils/i18n.js'
 import { imConnect } from '../../utils/im.js'

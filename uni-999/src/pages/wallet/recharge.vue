@@ -147,11 +147,8 @@ async function onSubmit() {
     uni.showToast({ title: err, icon: 'none' })
     return
   }
-  let submitAmount = Number(amount.value)
-  if (isUsdtRechargeChannel(ch)) {
-    const rate = Number(ch.exchange_rate || 0)
-    submitAmount = Math.round(submitAmount * rate * 100) / 100
-  }
+  // USDT：输入/提交均为 U（如 50）；入账人民币由网关回调按汇率换算（如 50×7=350）
+  const submitAmount = Number(amount.value)
   submitting.value = true
   try {
     const data = await submitRecharge(selectedId.value, submitAmount)

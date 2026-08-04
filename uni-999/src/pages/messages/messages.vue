@@ -279,6 +279,7 @@
         </view>
       </view>
     </view>
+    <BottomTabBar active="messages" />
   </view>
 </template>
 
@@ -286,6 +287,7 @@
 import { computed, ref } from 'vue'
 import { onShow, onHide } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
+import BottomTabBar from '../../components/BottomTabBar.vue'
 import '../../styles/chat.bundle.css'
 import '../../styles/chat-uni-adapter.css'
 import { apiRequest, getToken } from '../../utils/auth.js'
@@ -309,6 +311,7 @@ import {
   onImEvent,
   pinConversation,
 } from '../../utils/im.js'
+import { setChatUnreadTotal } from '../../utils/tab-badge.js'
 
 const list = ref([])
 const loaded = ref(false)
@@ -731,6 +734,11 @@ async function loadList(silent = false) {
       next[key] = Math.max(next[key] | 0, server)
     })
     localUnread.value = next
+    let sum = 0
+    Object.keys(next).forEach((k) => {
+      sum += next[k] | 0
+    })
+    setChatUnreadTotal(sum)
   } catch (e) {
     if (!silent) uni.showToast({ title: e.message || '拉取会话失败', icon: 'none' })
   } finally {

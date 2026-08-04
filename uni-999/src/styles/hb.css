@@ -26,7 +26,7 @@ page {
   min-height: 100vh;
   box-sizing: border-box;
   background: var(--bg-main, #fff);
-  padding: 10px 12px 32px;
+  padding: 10px 12px 88px;
 }
 
 .hb-sub {

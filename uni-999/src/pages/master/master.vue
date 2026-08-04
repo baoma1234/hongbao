@@ -107,6 +107,7 @@
         </view>
       </template>
     </template>
+    <BottomTabBar active="master" />
   </view>
 </template>
 
@@ -114,6 +115,7 @@
 import { computed, ref } from 'vue'
 import { onShow, onHide } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
+import BottomTabBar from '../../components/BottomTabBar.vue'
 import { getToken } from '../../utils/auth.js'
 import { localeState, t } from '../../utils/i18n.js'
 import {

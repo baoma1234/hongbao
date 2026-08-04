@@ -55,6 +55,9 @@ onLaunch(async () => {
 
 onShow(() => {
   initSkin()
+  try {
+    uni.hideTabBar({ animation: false })
+  } catch (e) {}
   if (getToken()) {
     imConnect().catch(() => {})
   } else {

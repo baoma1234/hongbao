@@ -1,81 +1,104 @@
 <template>
-  <view class="hb-page" :key="locale">
+  <view :key="locale">
     <TopBar />
-    <view class="hero">
-      <text class="title">{{ t('page_hero_exchange_title') || 'VIP 闪兑大厅' }}</text>
-      <text class="sub">{{ t('page_hero_exchange_sub') || '股份 ↔ 红宝 · 实时预估到账' }}</text>
-    </view>
-
-    <view class="assets card">
-      <view class="asset">
-        <text class="a-lab">{{ t('asset_hongbao_label') || '红宝' }}</text>
-        <text class="a-val">{{ hongbaoText }}</text>
-      </view>
-      <view class="divider" />
-      <view class="asset">
-        <text class="a-lab">{{ t('asset_shares_label') || '股份' }}</text>
-        <text class="a-val">{{ rightsText }}</text>
-        <text class="a-hint" v-if="lockedText">{{ lockedText }}</text>
-      </view>
-    </view>
-
-    <view class="swap card" v-if="anyEnabled">
-      <view class="swap-head">
-        <text class="swap-title">{{ swapTitle }}</text>
-        <text class="swap-avail">{{ availText }}</text>
+    <view id="tabExchange" class="tab-page active">
+      <view class="page-hero-title">{{ t('page_hero_exchange_title') || '⚡ VIP 闪兑大厅' }}</view>
+      <view class="page-hero-sub">{{ t('page_hero_exchange_sub') || '股份 ↔ 红宝 · 实时预估到账' }}</view>
+      <view class="exchange-closed-banner" v-if="!anyEnabled">
+        {{ t('profile_ex_r2b_closed') || t('alert_exchange_disabled') || '股份兑换红宝已关闭' }}
       </view>
 
-      <text class="sec">{{ t('swap_from_label') || '转出' }}</text>
-      <view class="row-line">
-        <view class="ico">{{ fromIcon }}</view>
-        <picker :range="fromLabels" :value="fromIndex" @change="onFromPick">
-          <view class="picker">{{ fromLabel }} ▾</view>
-        </picker>
-        <input
-          class="amt"
-          type="digit"
-          v-model="amount"
-          :placeholder="minHint"
-        />
-        <button class="all" size="mini" @click="fillAll">{{ t('swap_all_btn') || '全部' }}</button>
-      </view>
-      <text class="hint">{{ minHint }}</text>
+      <view class="share-swap" id="dualExchangeSection" v-if="anyEnabled">
+        <view class="share-swap-panel" id="shareSwapPanel">
+          <view class="share-swap-header">
+            <view class="share-swap-title">{{ swapTitle }}</view>
+            <view class="share-swap-avail">{{ availText }}</view>
+          </view>
 
-      <view class="flip-wrap">
-        <view class="flip" @click="flip">⇅</view>
-      </view>
+          <view class="share-swap-section-title">{{ t('swap_from_label') || '转出' }}</view>
+          <view class="share-swap-input-card share-swap-select-card">
+            <view class="share-swap-icon-circle">{{ fromIcon }}</view>
+            <picker :range="fromLabels" :value="fromIndex" @change="onFromPick">
+              <view class="share-swap-select-face">
+                <text>{{ fromLabel }}</text>
+                <text class="share-swap-chevron">▾</text>
+              </view>
+            </picker>
+          </view>
+          <view class="share-swap-input-card">
+            <view class="share-swap-icon-circle">#</view>
+            <input
+              class="share-swap-input"
+              type="digit"
+              v-model="amount"
+              :placeholder="minHint"
+            />
+            <button type="button" class="share-swap-btn-all" @click="fillAll">
+              {{ t('swap_all_btn') || '全部' }}
+            </button>
+          </view>
+          <view class="share-swap-hint">{{ minHint }}</view>
 
-      <text class="sec">{{ t('swap_to_label') || '兑换目标' }}</text>
-      <view class="row-line">
-        <view class="ico">{{ toIcon }}</view>
-        <picker :range="toLabels" :value="toIndex" @change="onToPick">
-          <view class="picker">{{ toLabel }} ▾</view>
-        </picker>
-      </view>
+          <view class="share-swap-divider">
+            <button type="button" class="share-swap-arrow" @click="flip" :aria-label="t('swap_aria_flip') || '互换方向'">
+              <svg viewBox="0 0 24 24" width="20" height="20">
+                <path
+                  fill="currentColor"
+                  d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"
+                />
+              </svg>
+            </button>
+          </view>
 
-      <view class="summary">
-        <view class="sum-col">
-          <text class="sum-lab">{{ t('swap_rate_label') || '兑换比例' }}</text>
-          <text class="sum-val">{{ rateText }}</text>
-          <text class="sum-time">{{ nowText }}</text>
+          <view class="share-swap-section-title">
+            <svg class="share-swap-icon-prefix" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12zm-8-3c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3z"
+              />
+            </svg>
+            <text>{{ t('swap_to_label') || '兑换目标' }}</text>
+          </view>
+          <view class="share-swap-input-card share-swap-select-card">
+            <view class="share-swap-icon-circle">{{ toIcon }}</view>
+            <picker :range="toLabels" :value="toIndex" @change="onToPick">
+              <view class="share-swap-select-face">
+                <text>{{ toLabel }}</text>
+                <text class="share-swap-chevron">▾</text>
+              </view>
+            </picker>
+          </view>
+
+          <view class="share-swap-summary">
+            <view class="share-swap-summary-left">
+              <view class="share-swap-summary-label">{{ t('swap_rate_label') || '兑换比例' }}</view>
+              <view class="share-swap-summary-value">{{ rateText }}</view>
+              <view class="share-swap-summary-currency">CNY</view>
+              <view class="share-swap-summary-time">{{ nowText }}</view>
+            </view>
+            <view class="share-swap-vdiv" aria-hidden="true" />
+            <view class="share-swap-summary-right">
+              <view class="share-swap-summary-label">{{ t('swap_est_label') || '预计到账' }}</view>
+              <view class="share-swap-amount">{{ estText }}</view>
+              <view class="share-swap-summary-label">{{ toLabel }}</view>
+            </view>
+          </view>
+
+          <button
+            type="button"
+            class="share-swap-submit"
+            :disabled="submitting || !pair.enabled"
+            @click="onSubmit"
+          >
+            {{ submitting ? (t('loading_generic') || '处理中…') : (t('swap_submit') || '确认兑换') }}
+          </button>
+          <view class="share-swap-closed" v-if="!pair.enabled">
+            {{ t('alert_exchange_pair_invalid') || '当前兑换方向已关闭' }}
+          </view>
         </view>
-        <view class="sum-col">
-          <text class="sum-lab">{{ t('swap_est_label') || '预计到账' }}</text>
-          <text class="sum-amt">{{ estText }}</text>
-          <text class="sum-lab">{{ toLabel }}</text>
-        </view>
       </view>
-
-      <button class="submit" :disabled="submitting || !pair.enabled" @click="onSubmit">
-        {{ submitting ? (t('loading_generic') || '处理中…') : (t('swap_submit') || '确认兑换') }}
-      </button>
     </view>
-
-    <view class="card closed" v-else>
-      <text>{{ t('alert_exchange_disabled') || '兑换功能已关闭' }}</text>
-    </view>
-
-    <button class="link-wallet" @click="goWallet">{{ t('profile_menu_ledger') || '资金流水' }} ›</button>
+    <BottomTabBar active="exchange" />
   </view>
 </template>
 
@@ -83,6 +106,7 @@
 import { computed, ref, watch } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
+import BottomTabBar from '../../components/BottomTabBar.vue'
 import { getToken } from '../../utils/auth.js'
 import {
   estimateCredit,
@@ -94,6 +118,8 @@ import {
   submitSwap,
 } from '../../utils/exchange.js'
 import { localeState, t } from '../../utils/i18n.js'
+import '../../styles/share-swap.css'
+import '../../styles/exchange-uni-adapter.css'
 
 const ASSETS = ['rights', 'hongbao']
 const locale = localeState()
@@ -109,21 +135,6 @@ const pair = computed(() => pairInfo(config.value, fromAsset.value, toAsset.valu
 const anyEnabled = computed(() =>
   ASSETS.some((f) => ASSETS.some((to) => f !== to && pairInfo(config.value, f, to).enabled))
 )
-
-const hongbaoText = computed(() => hongbaoOf(profile.value).toFixed(2))
-const rightsText = computed(() => {
-  const n = Number((profile.value && profile.value.rights) || 0)
-  return n.toFixed(2)
-})
-const lockedText = computed(() => {
-  const locked = Number((profile.value && profile.value.rights_locked) || 0)
-  const free = freeRightsOf(profile.value)
-  if (!(locked > 0)) return ''
-  return t('share_swap_rights_locked_hint', {
-    free: Math.floor(free),
-    locked: locked.toFixed(2),
-  }) || ('可兑 ' + Math.floor(free) + ' · 锁定 ' + locked.toFixed(2))
-})
 
 function assetLabel(a) {
   if (a === 'hongbao' || a === 'balance') {
@@ -324,10 +335,6 @@ async function onSubmit() {
   }
 }
 
-function goWallet() {
-  uni.navigateTo({ url: '/pages/wallet/ledger' })
-}
-
 async function load() {
   if (!getToken()) {
     uni.reLaunch({ url: '/pages/login/login' })
@@ -348,76 +355,3 @@ watch([fromAsset, toAsset], () => tickTime())
 
 onShow(load)
 </script>
-
-<style scoped>
-.hero { margin-bottom: 14px; }
-.title { display: block; font-size: 22px; font-weight: 800; color: var(--text-main, #1f1714); }
-.sub { display: block; margin-top: 6px; font-size: 13px; color: var(--text-muted, #8a7a6e); }
-.card {
-  background: var(--bg-card, #fff);
-  border-radius: 16px;
-  padding: 16px;
-  margin-bottom: 12px;
-  box-shadow: 0 4px 14px rgba(40, 20, 10, 0.05);
-}
-.assets { display: flex; align-items: stretch; }
-.asset { flex: 1; text-align: center; }
-.divider { width: 1px; background: rgba(40, 20, 10, 0.08); margin: 0 8px; }
-.a-lab { display: block; font-size: 12px; color: var(--text-muted, #9a8574); font-weight: 700; }
-.a-val { display: block; margin-top: 6px; font-size: 22px; font-weight: 800; color: var(--text-main, #1f1714); }
-.a-hint { display: block; margin-top: 4px; font-size: 11px; color: var(--text-muted, #9a8574); }
-.swap-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 12px; }
-.swap-title { font-size: 17px; font-weight: 800; color: var(--text-main, #1f1714); }
-.swap-avail { font-size: 12px; color: var(--text-muted, #9a8574); }
-.sec { display: block; font-size: 12px; font-weight: 700; color: var(--text-muted, #8a7a6e); margin: 8px 0 8px; }
-.row-line { display: flex; align-items: center; gap: 8px; }
-.ico {
-  width: 36px; height: 36px; border-radius: 50%;
-  background: linear-gradient(145deg, #fff5f3, #ffe3df);
-  color: #c61114; font-weight: 800; font-size: 13px;
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-}
-.picker {
-  min-width: 72px; padding: 10px 8px; font-size: 14px; font-weight: 700;
-  color: var(--text-main, #1f1714); background: #f7f2ec; border-radius: 10px;
-}
-.amt {
-  flex: 1; height: 40px; padding: 0 12px; background: #f7f2ec; border-radius: 10px;
-  font-size: 16px; font-weight: 700; color: var(--text-main, #1f1714);
-}
-.all {
-  margin: 0; background: #fff8f0; color: #c45a1a; border: 1px solid #f0b04a; font-weight: 700;
-}
-.hint { display: block; margin-top: 8px; font-size: 12px; color: var(--text-muted, #9a8574); }
-.flip-wrap { display: flex; justify-content: center; margin: 10px 0; }
-.flip {
-  width: 40px; height: 40px; border-radius: 50%;
-  background: linear-gradient(#fff, #fff) padding-box,
-    linear-gradient(145deg, #ffe9b0, #f0b04a, #e07a22) border-box;
-  border: 1.5px solid transparent;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 18px; font-weight: 800; color: #c45a1a;
-}
-.summary {
-  display: flex; gap: 12px; margin: 16px 0;
-  padding: 14px; border-radius: 12px; background: #faf6f1;
-}
-.sum-col { flex: 1; min-width: 0; }
-.sum-lab { display: block; font-size: 11px; color: var(--text-muted, #9a8574); font-weight: 700; }
-.sum-val, .sum-amt {
-  display: block; margin-top: 6px; font-size: 16px; font-weight: 800; color: var(--text-main, #1f1714);
-  word-break: break-all;
-}
-.sum-amt { color: #c61114; font-size: 22px; }
-.sum-time { display: block; margin-top: 4px; font-size: 10px; color: #b8aaa0; }
-.submit {
-  width: 100%; margin-top: 4px; background: var(--primary, #c61114); color: #fff;
-  font-weight: 800; border-radius: 12px; padding: 12px 0;
-}
-.submit[disabled] { opacity: 0.55; }
-.closed { text-align: center; color: var(--text-muted, #9a8574); }
-.link-wallet {
-  margin-top: 8px; background: transparent; color: var(--text-muted, #8a7a6e);
-  font-size: 13px; font-weight: 700;
-}
-</style>

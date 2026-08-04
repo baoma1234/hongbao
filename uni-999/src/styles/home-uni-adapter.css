@@ -23,9 +23,9 @@
 #tabHome.tab-page {
   display: block;
   width: 100%;
-  min-height: calc(100vh - var(--top-bar-height, 44px) - 50px);
-  min-height: calc(100dvh - var(--top-bar-height, 44px) - 50px);
-  padding: 10px 15px 28px;
+  min-height: calc(100vh - var(--top-bar-height, 44px) - 56px);
+  min-height: calc(100dvh - var(--top-bar-height, 44px) - 56px);
+  padding: 10px 15px 88px;
   overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;

@@ -307,7 +307,7 @@
     return r > 0 ? r : 0;
   }
 
-  /** USDT 充值：界面按 U 输入，提交时按汇率换成红宝/人民币金额 */
+  /** USDT 充值：界面按 U 输入并原样提交；人民币入账看网关回调 */
   function isUsdtRechargeChannel(ch) {
     if (!ch || !(channelExchangeRate(ch) > 0)) return false;
     if (String(ch.handler || '').toLowerCase() === 'bs') return true;
@@ -344,7 +344,7 @@
             rate: String(rate),
             cny: cny.toFixed(2)
           })
-        : wt('wallet_fx_usdt_recharge_idle', '{rate} CNY = 1 USDT（输入 U 数量后自动换算）', {
+        : wt('wallet_fx_usdt_recharge_idle', '{rate} CNY = 1 USDT（输入 U 数量后显示约合人民币）', {
             rate: String(rate)
           });
       return;
@@ -1327,19 +1327,14 @@
       toast(err, 'error');
       return;
     }
-    // USDT 通道：界面填 U，下单金额按汇率换成红宝（人民币）
-    var submitAmount = amount;
-    if (isUsdtRechargeChannel(ch)) {
-      var rate = channelExchangeRate(ch);
-      submitAmount = Math.round(amount * rate * 100) / 100;
-      if (!(submitAmount > 0)) {
-        toast(wt('wallet_need_channel_amount', '请选择通道并填写金额'), 'error');
-        return;
-      }
+    // USDT 通道：界面填 U，提交也是 U（如 50）；入账人民币由网关回调按汇率换算（如 50×7=350）
+    if (!(amount > 0)) {
+      toast(wt('wallet_need_channel_amount', '请选择通道并填写金额'), 'error');
+      return;
     }
     var btn = document.getElementById('profileRechargeSubmit');
     if (btn) btn.disabled = true;
-    api('recharge', { channel_id: cid, amount: submitAmount }).then(function (data) {
+    api('recharge', { channel_id: cid, amount: amount }).then(function (data) {
       var info = (data && data.pay_info) || {};
       toast((info.message) || wt('wallet_recharge_ok', '充值申请已提交'), 'success');
       openPayResult(info);
