@@ -42,6 +42,20 @@
       }
     },
     {
+      "path": "pages/friend/add",
+      "style": {
+        "navigationBarTitleText": "添加好友",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/friend/requests",
+      "style": {
+        "navigationBarTitleText": "好友申请",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/master/master",
       "style": {
         "navigationBarTitleText": "团长",

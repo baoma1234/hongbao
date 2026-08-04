@@ -82,43 +82,101 @@
       </view>
     </view>
 
-    <view v-else-if="homeTab === 'community'" class="panel card-panel">
-      <view class="panel-title">社群推荐</view>
-      <view v-for="g in communityRecs" :key="g.id || g.group_id" class="line">{{ g.name || g.title || ('群 ' + (g.group_id || g.id || '')) }}</view>
-      <view v-if="!communityRecs.length" class="empty-sm">暂无推荐社群</view>
+    <view v-else-if="homeTab === 'community'" class="glass-panel">
+      <view class="cg-seg">
+        <view class="cg-seg-btn" :class="{ active: communitySub === 'official' }" @click="setCommunitySub('official')">官方社群</view>
+        <view class="cg-seg-btn" :class="{ active: communitySub === 'mine' }" @click="setCommunitySub('mine')">我的社群</view>
+        <view class="cg-seg-btn" :class="{ active: communitySub === 'friends' }" @click="setCommunitySub('friends')">好友动态</view>
+      </view>
+
+      <view v-if="communitySub === 'official'" class="cg-body">
+        <view class="group-cards">
+          <view
+            v-for="(g, idx) in communityRecs"
+            :key="g.id || g.group_id"
+            class="group-card"
+            @click="openGroup(g)"
+          >
+            <view v-if="!g.is_member && idx === 0" class="group-tag">新建社群</view>
+            <view class="group-icon">
+              <image v-if="g.avatar" class="group-av" :src="g.avatar" mode="aspectFill" />
+              <text v-else>{{ groupEmoji(g.name) }}</text>
+            </view>
+            <text class="group-title">{{ g.name || ('#' + (g.id || g.group_id)) }}</text>
+            <text class="group-sub">{{ groupMembersText(g) }}</text>
+          </view>
+        </view>
+        <view v-if="!communityRecs.length" class="empty-glass">暂无推荐社群</view>
+      </view>
+
+      <view v-else-if="communitySub === 'mine'" class="cg-body">
+        <view class="my-group create" @click="onCreateGroupHint">
+          <view class="my-av plus">+</view>
+          <view class="my-main">
+            <text class="my-name">+ 创建我的专属保密对战群</text>
+            <text class="my-sub">零门槛当群主，躺赚群内 1% 发包管理费津贴</text>
+          </view>
+        </view>
+        <view v-for="g in myGroups" :key="g.id" class="my-group" @click="openGroup(g)">
+          <view class="my-av">
+            <image v-if="g.avatar" class="group-av" :src="g.avatar" mode="aspectFill" />
+            <text v-else>{{ avatarLetter(g.name || '') }}</text>
+          </view>
+          <text class="my-name">{{ g.name || ('#' + g.id) }}</text>
+          <text class="my-count">{{ (g.display_member_count || g.member_count || 0) }}<text class="my-count-sm">人</text></text>
+        </view>
+        <view v-if="!myGroups.length" class="empty-glass">暂无已加入社群</view>
+      </view>
+
+      <view v-else class="cg-body">
+        <view v-for="f in friends" :key="f.peer_user_id || f.user_id" class="friend-row" @click="openFriendChat(f)">
+          <view class="my-av">
+            <image v-if="f.avatar" class="group-av" :src="f.avatar" mode="aspectFill" />
+            <text v-else>{{ avatarLetter(f.remark || f.peer_nickname || f.nickname || '') }}</text>
+          </view>
+          <view class="friend-main">
+            <text class="my-name">{{ f.remark || f.peer_nickname || f.nickname || ('ID' + (f.peer_user_id || f.user_id)) }}</text>
+            <text class="my-sub">点击进入私聊</text>
+          </view>
+        </view>
+        <view v-if="!friends.length" class="empty-glass">暂无好友，可从「+」添加</view>
+      </view>
     </view>
 
-    <view v-else-if="homeTab === 'notice'" class="panel card-panel">
-      <view class="seg">
-        <view class="seg-btn" :class="{ on: noticeCat==='latest' }" @click="setNoticeCat('latest')">最新发布</view>
-        <view class="seg-btn" :class="{ on: noticeCat==='promote' }" @click="setNoticeCat('promote')">推广赚钱</view>
-        <view class="seg-btn" :class="{ on: noticeCat==='ads' }" @click="setNoticeCat('ads')">广告发布</view>
-        <view class="seg-btn" :class="{ on: noticeCat==='rules' }" @click="setNoticeCat('rules')">游戏规则</view>
+    <view v-else-if="homeTab === 'notice'" class="glass-panel">
+      <view class="cg-seg notice-seg">
+        <view class="cg-seg-btn" :class="{ active: noticeCat==='latest' }" @click="setNoticeCat('latest')">最新发布</view>
+        <view class="cg-seg-btn" :class="{ active: noticeCat==='promote' }" @click="setNoticeCat('promote')">推广赚钱</view>
+        <view class="cg-seg-btn" :class="{ active: noticeCat==='ads' }" @click="setNoticeCat('ads')">广告发布</view>
+        <view class="cg-seg-btn" :class="{ active: noticeCat==='rules' }" @click="setNoticeCat('rules')">游戏规则</view>
       </view>
-      <view v-for="n in notices" :key="n.id || n.createtime" class="line">
-        <text class="line-title">{{ n.title || n.content || '公告' }}</text>
+      <view v-for="n in notices" :key="n.id || n.createtime" class="notice-card" @click="openNotice(n)">
+        <text class="notice-title">{{ n.title || '公告' }}</text>
+        <text class="notice-body">{{ noticeSnippet(n) }}</text>
+        <text class="notice-time">{{ formatNoticeTime(n) }}</text>
       </view>
-      <view v-if="!notices.length" class="empty-sm">暂无公告</view>
+      <view v-if="!notices.length" class="empty-glass">暂无公告</view>
     </view>
 
-    <view v-else class="panel card-panel">
-      <view class="commission-head">
+    <view v-else class="glass-panel commission-panel">
+      <view class="comm-hero">
         <view>
-          <view class="muted">累计佣金</view>
+          <text class="muted">累计佣金</text>
           <view class="amt">¥ {{ money(commission.total_money) }}</view>
         </view>
-        <button size="mini" class="mini" @click="goCommission">提现</button>
+        <button size="mini" class="comm-btn" @click="goCommission">提现</button>
       </view>
       <view class="commission-stats">
-        <view class="stat"><text class="muted">可提现</text><text>¥ {{ money(commission.withdrawable) }}</text></view>
-        <view class="stat"><text class="muted">今日收益</text><text>¥ {{ money(commission.today_money) }}</text></view>
-        <view class="stat"><text class="muted">红包返佣</text><text>¥ {{ money(commission.rebate_money) }}</text></view>
+        <view class="stat glass-stat"><text class="muted">可提现</text><text class="stat-val">¥ {{ money(commission.withdrawable) }}</text></view>
+        <view class="stat glass-stat"><text class="muted">今日收益</text><text class="stat-val">¥ {{ money(commission.today_money) }}</text></view>
+        <view class="stat glass-stat"><text class="muted">红包返佣</text><text class="stat-val">¥ {{ money(commission.rebate_money) }}</text></view>
       </view>
-      <view class="line" v-for="(row, idx) in commission.recent || []" :key="row.id || idx">
-        <text>{{ row.title || row.scene_text || row.type_text || '结算记录' }}</text>
-        <text class="amt-sm">{{ row.amount_text || row.amount || '-' }}</text>
+      <view class="comm-sec-title">最近结算</view>
+      <view class="comm-row" v-for="(row, idx) in commission.recent || []" :key="row.id || idx">
+        <text class="comm-row-title">{{ row.title || row.scene_text || row.type_text || '结算记录' }}</text>
+        <text class="amt-sm">{{ row.amount_text || formatAmt(row.amount) }}</text>
       </view>
-      <view v-if="!(commission.recent && commission.recent.length)" class="empty-sm">登录后查看佣金明细</view>
+      <view v-if="!(commission.recent && commission.recent.length)" class="empty-glass">登录后查看佣金明细</view>
     </view>
   </view>
 </template>
@@ -140,7 +198,9 @@ import {
   getImStatus,
   hideConversation,
   imConnect,
-  imSend,
+  joinGroup,
+  listFriends,
+  listMyGroups,
   listConversations,
   onImEvent,
   pinConversation,
@@ -155,7 +215,10 @@ const homeTab = ref('chat')
 const searchOpen = ref(false)
 const keyword = ref('')
 const plusOpen = ref(false)
+const communitySub = ref('official')
 const communityRecs = ref([])
+const myGroups = ref([])
+const friends = ref([])
 const notices = ref([])
 const noticeCat = ref('latest')
 const commission = ref({})
@@ -207,6 +270,43 @@ function clearSearch() {
 function money(v) {
   const n = Number(v || 0)
   return isFinite(n) ? n.toFixed(2) : '0.00'
+}
+
+function formatAmt(v) {
+  if (v == null || v === '') return '-'
+  const n = Number(v)
+  if (!isFinite(n)) return String(v)
+  return (n >= 0 ? '+' : '') + n.toFixed(2)
+}
+
+function groupEmoji(name) {
+  const n = String(name || '')
+  if (/红包|福利/.test(n)) return '🧧'
+  if (/保密|私密|元宝|金/.test(n)) return '🪙'
+  if (/礼|赠|礼物/.test(n)) return '🎁'
+  if (/开放|红宝/.test(n)) return '👑'
+  return '🧧'
+}
+
+function groupMembersText(g) {
+  const n = (g && (g.member_count || g.display_member_count)) | 0
+  return n > 0 ? n + '人' : ''
+}
+
+function noticeSnippet(n) {
+  const t = String((n && (n.summary || n.content || n.body || '')) || '').replace(/<[^>]+>/g, '')
+  return t.length > 80 ? t.slice(0, 80) + '…' : t
+}
+
+function formatNoticeTime(n) {
+  const ts = (n && (n.createtime || n.updatetime || n.time)) | 0
+  return formatConvTime(ts)
+}
+
+function openNotice(n) {
+  const title = (n && n.title) || '公告'
+  const body = String((n && (n.content || n.body || n.summary)) || '').replace(/<[^>]+>/g, '')
+  uni.showModal({ title, content: body || '暂无详情', showCancel: false })
 }
 
 function itemPreview(item) {
@@ -306,6 +406,11 @@ async function switchHomeTab(tab) {
   }
 }
 
+function setCommunitySub(sub) {
+  communitySub.value = sub
+  if (sub === 'mine' || sub === 'friends') loadCommunityExtra()
+}
+
 function setNoticeCat(cat) {
   noticeCat.value = cat
   loadNotices()
@@ -314,18 +419,96 @@ function setNoticeCat(cat) {
 async function loadCommunity() {
   try {
     const rec = await apiRequest('communityrecommend', 'GET', {})
-    const list = (rec && (rec.list || rec.rows || rec.items)) || rec || []
-    communityRecs.value = Array.isArray(list) ? list : []
+    const rows = (rec && (rec.list || rec.rows || rec.items)) || rec || []
+    communityRecs.value = Array.isArray(rows) ? rows : []
   } catch (e) {
     communityRecs.value = []
   }
+  await loadCommunityExtra()
+  markMineInRecs()
+}
+
+async function loadCommunityExtra() {
+  try {
+    await imConnect()
+    const mine = await listMyGroups()
+    const md = (mine && mine.data) || {}
+    myGroups.value = md.list || md.items || []
+  } catch (e) {
+    myGroups.value = []
+  }
+  try {
+    const fr = await listFriends()
+    const fd = (fr && fr.data) || {}
+    friends.value = fd.list || fd.items || []
+  } catch (e) {
+    friends.value = []
+  }
+  markMineInRecs()
+}
+
+function markMineInRecs() {
+  const mineIds = {}
+  ;(myGroups.value || []).forEach((g) => {
+    mineIds[g.id | 0] = true
+  })
+  communityRecs.value = (communityRecs.value || []).map((g) => {
+    const id = g.id | 0 || g.group_id | 0
+    return Object.assign({}, g, { is_member: !!mineIds[id] || !!g.is_member })
+  })
+}
+
+async function openGroup(g) {
+  const groupId = (g && (g.id || g.group_id)) | 0
+  if (!groupId) return
+  try {
+    if (!g.is_member) {
+      await joinGroup(groupId)
+      uni.showToast({ title: '已加入社群', icon: 'none' })
+      await loadCommunity()
+    }
+    uni.navigateTo({
+      url:
+        '/pages/chat/chat?type=2&id=' +
+        encodeURIComponent(groupId) +
+        '&group=' +
+        encodeURIComponent(groupId) +
+        '&title=' +
+        encodeURIComponent(g.name || ('群' + groupId)),
+    })
+  } catch (e) {
+    uni.showToast({ title: (e && e.message) || '进入社群失败', icon: 'none' })
+  }
+}
+
+function openFriendChat(f) {
+  const peer = (f.peer_user_id || f.user_id) | 0
+  const title = f.remark || f.peer_nickname || f.nickname || ('ID' + peer)
+  const cid = f.conversation_id || ''
+  uni.navigateTo({
+    url:
+      '/pages/chat/chat?type=1&id=' +
+      encodeURIComponent(cid) +
+      '&peer=' +
+      encodeURIComponent(peer) +
+      '&title=' +
+      encodeURIComponent(title) +
+      '&nickname=' +
+      encodeURIComponent(f.peer_nickname || f.nickname || '') +
+      '&remark=' +
+      encodeURIComponent(f.remark || ''),
+  })
+}
+
+function onCreateGroupHint() {
+  uni.showToast({ title: '建群功能即将接入', icon: 'none' })
 }
 
 async function loadNotices() {
   try {
     const data = await apiRequest('notices', 'GET', { page: 1, limit: 30, category: noticeCat.value })
-    const list = (data && (data.list || data.rows || data.items)) || []
-    notices.value = Array.isArray(list) ? list : []
+    const rows = (data && (data.list || data.rows || data.items)) || []
+    notices.value = Array.isArray(rows) ? rows : []
   } catch (e) {
     notices.value = []
   }
@@ -351,17 +534,17 @@ async function onPlusAction(kind) {
     return
   }
   if (kind === 'friend') {
-    try {
-      await imSend('friend.list', {}, true)
-    } catch (e) {}
-    uni.showToast({ title: '添加好友入口即将接入', icon: 'none' })
+    uni.navigateTo({ url: '/pages/friend/add' })
     return
   }
-  uni.showToast({ title: '功能即将接入', icon: 'none' })
+  if (kind === 'request') {
+    uni.navigateTo({ url: '/pages/friend/requests' })
+    return
+  }
 }
 
 function goCommission() {
-  uni.switchTab({ url: '/pages/profile/profile' })
+  uni.navigateTo({ url: '/pages/wallet/withdraw' })
 }
 
 async function loadList(silent = false) {
@@ -547,64 +730,241 @@ onHide(() => {
   padding: 80rpx 24rpx;
   font-size: 26rpx;
 }
-.panel.card-panel {
-  margin: 0 24rpx;
-  background: #fff;
-  border-radius: 16rpx;
-  padding: 20rpx;
+.glass-panel {
+  margin: 0 16rpx 20rpx;
+  padding: 16rpx 14rpx 20rpx;
+  border-radius: 18rpx;
+  background:
+    radial-gradient(120% 80% at 50% -10%, rgba(255, 236, 210, 0.95) 0%, transparent 55%),
+    linear-gradient(180deg, #fbf4ea 0%, #f3e6d6 100%);
+  min-height: 320rpx;
 }
-.panel-title { font-size: 28rpx; font-weight: 800; color: #2a1f18; margin-bottom: 12rpx; }
-.line {
-  padding: 14rpx 4rpx;
-  border-bottom: 1px solid rgba(40, 20, 10, 0.06);
-  font-size: 24rpx;
-  color: #4a3a30;
+.cg-seg {
   display: flex;
-  justify-content: space-between;
-  gap: 12rpx;
+  align-items: stretch;
+  height: 72rpx;
+  padding: 4rpx;
+  box-sizing: border-box;
+  border-radius: 999rpx;
+  border: 1px solid #f3c9a0;
+  background: linear-gradient(180deg, #fffdf9 0%, #fff8ef 100%);
+  margin-bottom: 16rpx;
+  overflow: hidden;
 }
-.line:last-child { border-bottom: none; }
-.line-title { display: block; line-height: 1.45; }
-.empty-sm { color: #9a8574; font-size: 24rpx; text-align: center; padding: 24rpx 0; }
-.seg {
+.cg-seg-btn {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #6b6b6b;
+  border-radius: 999rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4rpx;
+}
+.cg-seg-btn.active {
+  color: #fff;
+  background: linear-gradient(90deg, #ffb347 0%, #ff7a2f 45%, #e83b1a 100%);
+  box-shadow: 0 6rpx 16rpx rgba(232, 59, 26, 0.28);
+}
+.notice-seg .cg-seg-btn { font-size: 20rpx; }
+.cg-body { min-height: 200rpx; }
+.group-cards {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8rpx;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10rpx;
+}
+.group-card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid rgba(240, 176, 74, 0.35);
+  border-radius: 16rpx;
+  padding: 16rpx 8rpx 14rpx;
+  text-align: center;
+  box-shadow: 0 8rpx 18rpx rgba(176, 120, 50, 0.1);
+}
+.group-tag {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  font-size: 16rpx;
+  color: #fff;
+  background: linear-gradient(90deg, #ff7a2f, #e83b1a);
+  border-radius: 16rpx 16rpx 0 0;
+  padding: 2rpx 0;
+}
+.group-icon {
+  width: 64rpx;
+  height: 64rpx;
+  margin: 18rpx auto 10rpx;
+  border-radius: 16rpx;
+  background: linear-gradient(160deg, #fff8ee, #ffe8cc);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 34rpx;
+  overflow: hidden;
+}
+.group-av { width: 100%; height: 100%; }
+.group-title {
+  display: block;
+  font-size: 20rpx;
+  font-weight: 800;
+  color: #3d2e22;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.group-sub {
+  display: block;
+  margin-top: 4rpx;
+  font-size: 18rpx;
+  color: #9a8574;
+}
+.my-group, .friend-row {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(240, 176, 74, 0.28);
+  border-radius: 14rpx;
+  padding: 16rpx;
   margin-bottom: 10rpx;
 }
-.seg-btn {
-  text-align: center;
-  font-size: 22rpx;
-  color: #8a7a6e;
-  padding: 10rpx 0;
-  border-radius: 10rpx;
-  background: #faf6f1;
+.my-group.create { border-style: dashed; }
+.my-av {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 16rpx;
+  background: linear-gradient(160deg, #fff5f3, #ffe3df);
+  color: #c61114;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
 }
-.seg-btn.on { color: #c61114; background: #fff1ef; }
-.commission-head {
+.my-av.plus {
+  background: linear-gradient(160deg, #fff8ee, #ffe8cc);
+  color: #e07a22;
+  font-size: 40rpx;
+}
+.my-main { flex: 1; min-width: 0; }
+.friend-main { flex: 1; min-width: 0; }
+.my-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 26rpx;
+  font-weight: 800;
+  color: #2a1f18;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.my-sub {
+  display: block;
+  margin-top: 4rpx;
+  font-size: 20rpx;
+  color: #9a8574;
+}
+.my-count { font-size: 26rpx; color: #c61114; font-weight: 800; flex-shrink: 0; }
+.my-count-sm { font-size: 18rpx; font-weight: 600; color: #9a8574; margin-left: 2rpx; }
+.notice-card {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(240, 176, 74, 0.28);
+  border-radius: 14rpx;
+  padding: 18rpx;
+  margin-bottom: 12rpx;
+  box-shadow: 0 6rpx 14rpx rgba(176, 120, 50, 0.08);
+}
+.notice-title {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 800;
+  color: #2a1f18;
+}
+.notice-body {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: #6b5a4c;
+  line-height: 1.45;
+}
+.notice-time {
+  display: block;
+  margin-top: 10rpx;
+  font-size: 20rpx;
+  color: #9a8574;
+}
+.commission-panel { padding-top: 20rpx; }
+.comm-hero {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(240, 176, 74, 0.3);
+  border-radius: 16rpx;
+  padding: 20rpx;
   margin-bottom: 12rpx;
 }
+.comm-btn {
+  margin: 0;
+  background: linear-gradient(90deg, #ffb347, #e83b1a);
+  color: #fff;
+  border: none;
+  font-weight: 700;
+}
 .muted { color: #9a8574; font-size: 22rpx; }
-.amt { font-size: 36rpx; color: #c61114; font-weight: 800; margin-top: 4rpx; }
+.amt { font-size: 40rpx; color: #c61114; font-weight: 800; margin-top: 4rpx; }
 .commission-stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8rpx;
-  margin-bottom: 8rpx;
+  margin-bottom: 14rpx;
 }
 .stat {
-  background: #faf6f1;
-  border-radius: 10rpx;
-  padding: 10rpx;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 12rpx;
+  padding: 12rpx;
   display: flex;
   flex-direction: column;
   gap: 6rpx;
   font-size: 22rpx;
+  border: 1px solid rgba(240, 176, 74, 0.22);
 }
-.amt-sm { color: #c61114; font-weight: 700; }
+.stat-val { color: #3d2e22; font-weight: 700; }
+.comm-sec-title {
+  font-size: 24rpx;
+  font-weight: 800;
+  color: #3d2e22;
+  margin: 8rpx 4rpx 10rpx;
+}
+.comm-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12rpx;
+  padding: 14rpx 12rpx;
+  background: rgba(255, 255, 255, 0.55);
+  border-radius: 12rpx;
+  margin-bottom: 8rpx;
+  font-size: 24rpx;
+  color: #4a3a30;
+}
+.comm-row-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.amt-sm { color: #c61114; font-weight: 700; flex-shrink: 0; }
+.empty-glass {
+  text-align: center;
+  color: #9a8574;
+  font-size: 24rpx;
+  padding: 48rpx 12rpx;
+  background: rgba(255, 255, 255, 0.45);
+  border-radius: 14rpx;
+  border: 1px dashed rgba(240, 176, 74, 0.35);
+}
 .chat-conv-item {
   position: relative;
   display: flex;

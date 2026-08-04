@@ -257,6 +257,42 @@ export function setPeerRemark(peerUserId, remark) {
   )
 }
 
+export function friendLookup(payload = {}) {
+  return imSend('friend.lookup', payload || {}, true)
+}
+
+export function friendRequest(payload = {}) {
+  return imSend('friend.request', payload || {}, true)
+}
+
+export function friendRequests() {
+  return imSend('friend.requests', {}, true)
+}
+
+export function friendAccept(requestId) {
+  return imSend('friend.accept', { request_id: requestId | 0 }, true)
+}
+
+export function friendReject(requestId) {
+  return imSend('friend.reject', { request_id: requestId | 0 }, true)
+}
+
+export function friendCancel(requestId) {
+  return imSend('friend.cancel', { request_id: requestId | 0 }, true)
+}
+
+export function listMyGroups() {
+  return imSend('group.list', {}, true)
+}
+
+export function joinGroup(groupId) {
+  return imSend('group.join', { group_id: groupId | 0 }, true)
+}
+
+export function listFriends() {
+  return imSend('friend.list', {}, true)
+}
+
 export function pinConversation(conversationType, conversationId, pinned = true) {
   return imSend(
     pinned ? 'conversation.pin' : 'conversation.unpin',
