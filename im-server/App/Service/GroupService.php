@@ -341,9 +341,9 @@ class GroupService
     }
 
     /**
-     * 群消息/红包推送目标（收敛扇出，禁止「无人在线则推全员≤200」）
-     * 1) 正在看该群且仍在线的用户
-     * 2) 否则：群内当前在线成员
+     * 群消息/红包推送目标：群内当前在线成员（含会话列表未进房的人）。
+     * 禁止「仅推正在看该群的人」——发包人进房后会让其他人收不到实时推送。
+     * 观群集合仅作补漏并入，不单独作为目标。
      * @return int[]
      */
     public function pushTargetUserIds($groupId)
@@ -352,22 +352,22 @@ class GroupService
         if ($groupId <= 0) {
             return [];
         }
+        $out = $this->onlineMemberIds($groupId);
         try {
             $viewers = OfficialStatsService::viewerUserIds($groupId);
             if ($viewers) {
                 $onlineViewers = \Im\Support\ConnMap::filterOnlineUserIds($viewers);
-                // 观群集合可能短暂残留离线 UID；有在线观群则优先
                 if ($onlineViewers) {
+                    $out = array_values(array_unique(array_merge($out, $onlineViewers)));
                     $cap = self::maxPushOnline();
-                    if (count($onlineViewers) > $cap) {
-                        $onlineViewers = array_slice($onlineViewers, 0, $cap);
+                    if (count($out) > $cap) {
+                        $out = array_slice($out, 0, $cap);
                     }
-                    return $onlineViewers;
                 }
             }
         } catch (\Throwable $e) {
         }
-        return $this->onlineMemberIds($groupId);
+        return $out;
     }
 
     /**

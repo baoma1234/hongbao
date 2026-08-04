@@ -179,8 +179,8 @@ class PushBus
                 }
                 $env = $envelope;
                 $env['uids'] = array_values($subset);
-                $json = json_encode($env, JSON_UNESCAPED_UNICODE);
-                if ($json === false) {
+                $json = \Im\Support\Json::encode($env);
+                if ($json === '' || $json === '{"code":0,"message":"encode error"}') {
                     continue;
                 }
                 $key = RedisClient::key('w:' . $wid . ':push');
