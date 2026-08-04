@@ -25,7 +25,10 @@
           <view class="chat-conv-title-wrap">
             <text v-if="item.pinned" class="chat-conv-pin">📌</text>
             <text class="chat-conv-title">{{ displayTitle(item) }}</text>
-            <text v-if="item.is_im_admin" class="chat-conv-tag">客服</text>
+            <view v-if="item.is_im_admin" class="chat-conv-tag">
+              <image class="tag-ico" :src="fxIcon" mode="aspectFit" />
+              <text>客服</text>
+            </view>
           </view>
           <text class="chat-conv-time">{{ itemTime(item) }}</text>
         </view>
@@ -66,6 +69,7 @@ const list = ref([])
 const loaded = ref(false)
 const status = ref('disconnected')
 const localUnread = ref({})
+const fxIcon = '/888/img/chat/fx.png'
 let off = null
 let loading = false
 
@@ -340,11 +344,18 @@ onHide(() => {
 .chat-conv-tag {
   flex-shrink: 0;
   font-size: 18rpx;
-  padding: 2rpx 10rpx;
+  padding: 2rpx 10rpx 2rpx 8rpx;
   border-radius: 999rpx;
   background: #c61114;
   color: #fff;
   font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 4rpx;
+}
+.tag-ico {
+  width: 18rpx;
+  height: 18rpx;
 }
 .chat-conv-time { font-size: 22rpx; color: #b8aaa0; flex-shrink: 0; }
 .chat-conv-preview {

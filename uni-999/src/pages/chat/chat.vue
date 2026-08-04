@@ -1,9 +1,17 @@
 <template>
   <view class="page">
     <view class="nav">
-      <text class="nav-back" @click="goBack">‹</text>
+      <view class="nav-ico-btn nav-back" @click="goBack">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+          <path fill="currentColor" d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6z" />
+        </svg>
+      </view>
       <text class="nav-title">{{ title }}</text>
-      <text class="nav-more" @click="openMore">⋯</text>
+      <view class="nav-ico-btn nav-more" @click="openMore">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+          <path fill="currentColor" d="M7 10a2 2 0 110 4 2 2 0 010-4zm5 0a2 2 0 110 4 2 2 0 010-4zm5 0a2 2 0 110 4 2 2 0 010-4z" />
+        </svg>
+      </view>
     </view>
 
     <scroll-view
@@ -91,12 +99,12 @@
     </view>
 
     <view class="composer">
-      <button class="tool" size="mini" @click="toggleEmoji">Emoji</button>
-      <button class="tool" size="mini" @click="toggleSticker">贴纸</button>
-      <button class="tool" size="mini" @click="pickImage">图片</button>
-      <button class="tool" size="mini" @click="pickVideo">视频</button>
-      <button class="tool" size="mini" @click="pickFile">文件</button>
-      <button class="tool" size="mini" @click="showRp = true; showEmoji = false; showSticker = false">红包</button>
+      <button class="tool icon" size="mini" @click="toggleEmoji"><text>😊</text></button>
+      <button class="tool icon" size="mini" @click="toggleSticker"><text>😀</text></button>
+      <button class="tool icon" size="mini" @click="pickImage"><text>🖼️</text></button>
+      <button class="tool icon" size="mini" @click="pickVideo"><text>🎬</text></button>
+      <button class="tool icon" size="mini" @click="pickFile"><text>📎</text></button>
+      <button class="tool icon" size="mini" @click="showRp = true; showEmoji = false; showSticker = false"><text>🧧</text></button>
       <input
         class="input"
         v-model="text"
@@ -1029,10 +1037,19 @@ onUnload(() => {
   color: #fff;
 }
 .nav-back {
-  font-size: 48rpx;
-  font-weight: 300;
-  line-height: 1;
-  width: 48rpx;
+  width: 52rpx;
+}
+.nav-ico-btn {
+  width: 52rpx;
+  height: 52rpx;
+  border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.95);
+}
+.nav-ico-btn:active {
+  background: rgba(255, 255, 255, 0.16);
 }
 .nav-title {
   flex: 1;
@@ -1043,10 +1060,7 @@ onUnload(() => {
   white-space: nowrap;
 }
 .nav-more {
-  font-size: 40rpx;
-  font-weight: 700;
-  padding: 0 12rpx;
-  line-height: 1;
+  width: 52rpx;
 }
 .msgs { flex: 1; padding: 20rpx 24rpx; box-sizing: border-box; }
 .row { display: flex; margin: 14rpx 0; }
@@ -1218,6 +1232,15 @@ onUnload(() => {
   background: #fff8f0;
   color: #c45a1a;
   border: 1px solid #f0b04a;
+}
+.tool.icon {
+  width: 58rpx;
+  min-width: 58rpx;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30rpx;
 }
 .input {
   flex: 1;
