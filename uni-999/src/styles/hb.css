@@ -6,10 +6,18 @@ page {
   --hb-red-grad: linear-gradient(to right, #e63022, #c61114);
   --hb-red-deep: linear-gradient(135deg, #e63022 0%, #9e1014 55%, #7a0c10 100%);
   --hb-border-grad: linear-gradient(145deg, #ffe9b0 0%, #f0b04a 42%, #e07a22 100%);
-  --hb-ink: #1f1714;
-  --hb-muted: #8a7a6e;
-  --hb-bg: #fff;
-  background: #fff;
+  --hb-ink: var(--text-main, #1f1714);
+  --hb-muted: var(--text-muted, #8a7a6e);
+  --hb-bg: var(--bg-card, #fff);
+  --bg-main: #f4f6f9;
+  --bg-card: #ffffff;
+  --primary: #e53935;
+  --secondary: #ffb300;
+  --accent: #d32f2f;
+  --text-main: #212121;
+  --text-muted: #757575;
+  --danger: #ff3b30;
+  background: var(--bg-main);
   color: var(--hb-ink);
   font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
 }
@@ -17,14 +25,14 @@ page {
 .hb-page {
   min-height: 100vh;
   box-sizing: border-box;
-  background: #fff;
+  background: var(--bg-main, #fff);
   padding: 10px 12px 32px;
 }
 
 .hb-sub {
   min-height: 100vh;
   box-sizing: border-box;
-  background: #f6f1ea;
+  background: var(--bg-main, #f6f1ea);
   padding: 14px 12px 28px;
 }
 

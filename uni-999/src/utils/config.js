@@ -7,6 +7,7 @@ const cfg = {
   IM_WS_URL: '',
   TOKEN_KEY: 'fans_hub_token',
   DEVICE_FP_KEY: 'fans_hub_device_fp',
+  LOCALE_KEY: 'fans_hub_locale',
   LOCALE: 'zh-CN',
 }
 
@@ -34,8 +35,14 @@ export function getDeviceFpKey() {
   return cfg.DEVICE_FP_KEY
 }
 
+/** 与 /888 共用 fans_hub_locale；切语言后 API 带 X-Fanshub-Locale */
 export function getLocale() {
-  return cfg.LOCALE
+  try {
+    const v = uni.getStorageSync(cfg.LOCALE_KEY) || cfg.LOCALE
+    return v || cfg.LOCALE
+  } catch (e) {
+    return cfg.LOCALE
+  }
 }
 
 export default cfg

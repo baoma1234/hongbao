@@ -1,34 +1,54 @@
 <template>
-  <view class="login-page">
-    <view class="brand">红宝</view>
-    <view class="sub">999 · uni-app</view>
+  <view class="login-page" :key="locale">
+    <TopBar />
+    <view class="hero">
+      <image class="logo-lg" :src="logo" mode="aspectFit" />
+      <view class="brand">{{ t('brand_name') }}</view>
+      <view class="sub">999 · uni-app</view>
+    </view>
 
     <view class="card">
-      <view class="label">手机号</view>
-      <input class="input" type="number" maxlength="11" v-model="mobile" placeholder="11位手机号" />
+      <view class="label">{{ t('login_phone_label') }}</view>
+      <input
+        class="input"
+        type="number"
+        maxlength="11"
+        v-model="mobile"
+        :placeholder="t('login_phone_placeholder')"
+      />
 
-      <view class="label">验证码</view>
+      <view class="label">{{ t('login_captcha_label') }}</view>
       <view class="row">
-        <input class="input flex" type="number" maxlength="6" v-model="captcha" placeholder="短信验证码" />
+        <input
+          class="input flex"
+          type="number"
+          maxlength="6"
+          v-model="captcha"
+          :placeholder="t('login_captcha_placeholder')"
+        />
         <button class="sms-btn" :disabled="smsLeft > 0 || sending" @click="onSendSms">
-          {{ smsLeft > 0 ? smsLeft + 's' : '获取验证码' }}
+          {{ smsLeft > 0 ? smsLeft + 's' : t('login_captcha_btn') }}
         </button>
       </view>
 
       <view class="label">邀请码（可选）</view>
       <input class="input" v-model="invite" placeholder="邀请码" />
 
-      <button class="submit" :loading="loading" @click="onLogin">登录 / 注册</button>
+      <button class="submit" :loading="loading" @click="onLogin">{{ t('login_submit_btn') }}</button>
       <view class="hint" v-if="hint">{{ hint }}</view>
     </view>
   </view>
 </template>
 
 <script setup>
-import { ref, onUnmounted } from 'vue'
+import { onUnmounted, ref } from 'vue'
+import TopBar from '../../components/TopBar.vue'
 import { login, sendSms, getToken } from '../../utils/auth.js'
+import { localeState, logoUrl, t } from '../../utils/i18n.js'
 import { imConnect } from '../../utils/im.js'
 
+const locale = localeState()
+const logo = logoUrl()
 const mobile = ref('')
 const captcha = ref('')
 const invite = ref('')
@@ -62,7 +82,7 @@ onUnmounted(() => {
 async function onSendSms() {
   const phone = String(mobile.value || '').trim()
   if (!/^1\d{10}$/.test(phone)) {
-    uni.showToast({ title: '手机号不正确', icon: 'none' })
+    uni.showToast({ title: t('api_mobile_invalid') || '手机号不正确', icon: 'none' })
     return
   }
   sending.value = true
@@ -74,12 +94,12 @@ async function onSendSms() {
       captcha.value = String(data.mock_code)
       hint.value = data.hint || ('测试验证码：' + data.mock_code)
     } else {
-      hint.value = (data && data.hint) || '验证码已发送'
+      hint.value = (data && data.hint) || t('alert_sms_hint_default') || '验证码已发送'
     }
     uni.showToast({ title: '已发送', icon: 'success' })
   } catch (e) {
     if (e.payload && e.payload.retry_after) startCooldown(e.payload.retry_after)
-    uni.showToast({ title: e.message || '发送失败', icon: 'none' })
+    uni.showToast({ title: e.message || t('alert_sms_fail') || '发送失败', icon: 'none' })
   } finally {
     sending.value = false
   }
@@ -89,11 +109,11 @@ async function onLogin() {
   const phone = String(mobile.value || '').trim()
   const code = String(captcha.value || '').trim()
   if (!/^1\d{10}$/.test(phone)) {
-    uni.showToast({ title: '手机号不正确', icon: 'none' })
+    uni.showToast({ title: t('api_mobile_invalid') || '手机号不正确', icon: 'none' })
     return
   }
   if (!code) {
-    uni.showToast({ title: '请输入验证码', icon: 'none' })
+    uni.showToast({ title: t('alert_captcha_required') || '请输入验证码', icon: 'none' })
     return
   }
   loading.value = true
@@ -103,13 +123,12 @@ async function onLogin() {
     try {
       await imConnect()
     } catch (e) {
-      // 登录成功但 WS 失败不阻断进首页
       console.warn('im connect', e)
     }
     uni.reLaunch({ url: '/pages/home/home' })
     return data
   } catch (e) {
-    uni.showToast({ title: e.message || '登录失败', icon: 'none' })
+    uni.showToast({ title: e.message || t('alert_login_fail') || '登录失败', icon: 'none' })
   } finally {
     loading.value = false
   }
@@ -119,31 +138,41 @@ async function onLogin() {
 <style scoped>
 .login-page {
   min-height: 100vh;
-  padding: 80rpx 40rpx 40rpx;
-  background: linear-gradient(180deg, #c61114 0%, #f6f1ea 42%);
+  padding: 0 40rpx 40rpx;
+  background: linear-gradient(180deg, #c61114 0%, var(--bg-main, #f6f1ea) 42%);
   box-sizing: border-box;
+}
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24rpx 0 32rpx;
+}
+.logo-lg {
+  width: 160rpx;
+  height: 160rpx;
+  margin-bottom: 8rpx;
 }
 .brand {
   color: #fff;
-  font-size: 64rpx;
+  font-size: 56rpx;
   font-weight: 800;
   letter-spacing: 4rpx;
 }
 .sub {
   color: rgba(255, 255, 255, 0.85);
   margin-top: 8rpx;
-  margin-bottom: 48rpx;
   font-size: 26rpx;
 }
 .card {
-  background: #fff;
+  background: var(--bg-card, #fff);
   border-radius: 24rpx;
   padding: 36rpx 28rpx;
   box-shadow: 0 12rpx 40rpx rgba(198, 17, 20, 0.12);
 }
 .label {
   font-size: 24rpx;
-  color: #9a8574;
+  color: var(--text-muted, #9a8574);
   margin: 18rpx 0 10rpx;
 }
 .input {
@@ -152,15 +181,14 @@ async function onLogin() {
   background: #f7f2ec;
   border-radius: 14rpx;
   font-size: 30rpx;
+  color: var(--text-main, #1a212d);
 }
 .row {
   display: flex;
   gap: 16rpx;
   align-items: center;
 }
-.flex {
-  flex: 1;
-}
+.flex { flex: 1; }
 .sms-btn {
   flex-shrink: 0;
   margin: 0;
@@ -176,16 +204,16 @@ async function onLogin() {
   margin-top: 40rpx;
   height: 88rpx;
   line-height: 88rpx;
-  background: #c61114;
+  background: var(--primary, #c61114);
   color: #fff;
   border-radius: 16rpx;
-  font-size: 32rpx;
+  font-size: 30rpx;
   font-weight: 700;
 }
 .hint {
   margin-top: 20rpx;
   font-size: 24rpx;
-  color: #9a8574;
+  color: var(--text-muted, #9a8574);
   line-height: 1.5;
   white-space: pre-wrap;
 }

@@ -6,6 +6,7 @@ H5 构建输出：`public/999/`（与现网 `/888` 并行）
 ## 已打通
 
 - 分页骨架：登录 / 大厅 / 闪兑 / 红宝 / 团长 / 我的（与 `/888` Tab 一致）；钱包从「我的」进入
+- 顶部工具栏：Logo + 品牌名、多语言（复用 `/888/i18n` 与 `fans_hub_locale`）、一键换肤（`fans_hub_skin`）
 - 登录：`/api/fanshub/sendsms` + `login`（token 存 `fans_hub_token`）
 - IM：`uni.connectSocket` → `/im-ws`（或绝对 WS），握手带 token，发 `auth`，拉 `conversation.list` / `history` / 发消息
 - 消息列表：未读角标、红包预览、置顶/客服标记、长按置顶/删除会话
@@ -49,6 +50,6 @@ hash 路由下 `try_files` 通常只要能访问到 `index.html` 即可。
 
 ## 下一步
 
+- 大厅 / 闪兑 / 团长业务页迁入
 - 贴纸包 / 红包滑动验证 / 踢人禁言细控
-- 大厅 / 闪兑 / 团长业务页
 - App 打包（`dev:app` / HBuilderX）

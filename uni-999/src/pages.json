@@ -10,19 +10,22 @@
     {
       "path": "pages/home/home",
       "style": {
-        "navigationBarTitleText": "大厅"
+        "navigationBarTitleText": "大厅",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/exchange/exchange",
       "style": {
-        "navigationBarTitleText": "闪兑"
+        "navigationBarTitleText": "闪兑",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/messages/messages",
       "style": {
-        "navigationBarTitleText": "红宝"
+        "navigationBarTitleText": "红宝",
+        "navigationStyle": "custom"
       }
     },
     {
@@ -41,13 +44,15 @@
     {
       "path": "pages/master/master",
       "style": {
-        "navigationBarTitleText": "团长"
+        "navigationBarTitleText": "团长",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/profile/profile",
       "style": {
-        "navigationBarTitleText": "我的"
+        "navigationBarTitleText": "我的",
+        "navigationStyle": "custom"
       }
     },
     {
@@ -86,6 +91,12 @@
     "navigationBarTitleText": "红宝",
     "navigationBarBackgroundColor": "#C61114",
     "backgroundColor": "#ffffff"
+  },
+  "easycom": {
+    "autoscan": true,
+    "custom": {
+      "^TopBar$": "@/components/TopBar.vue"
+    }
   },
   "tabBar": {
     "color": "#9a8b7e",

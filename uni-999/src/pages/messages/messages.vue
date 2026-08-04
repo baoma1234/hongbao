@@ -1,5 +1,6 @@
 <template>
   <view class="page">
+    <TopBar />
     <view class="status" :class="status">
       <text>IM · {{ statusText }}</text>
       <button size="mini" class="mini" @click="reconnect">重连</button>
@@ -42,6 +43,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { onShow, onHide } from '@dcloudio/uni-app'
+import TopBar from '../../components/TopBar.vue'
 import { getToken } from '../../utils/auth.js'
 import {
   avatarLetter,
@@ -245,11 +247,11 @@ onHide(() => {
 <style scoped>
 .page {
   min-height: 100vh;
-  background: #f6f1ea;
-  padding: 16rpx 0 40rpx;
+  background: var(--bg-main, #f6f1ea);
+  padding: 0 0 40rpx;
 }
 .status {
-  margin: 0 24rpx 16rpx;
+  margin: 16rpx 24rpx;
   display: flex;
   justify-content: space-between;
   align-items: center;
