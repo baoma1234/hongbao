@@ -4996,7 +4996,7 @@
         if (hit && pay > 0) {
           showFanshubToast(
             (amt != null ? ('抢到 ￥' + parseFloat(amt).toFixed(2) + ' · ') : '')
-              + '中雷已赔付 ￥' + pay.toFixed(2),
+              + '红宝中雷已赔付 ￥' + pay.toFixed(2),
             'error'
           );
         } else {

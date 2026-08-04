@@ -1079,7 +1079,7 @@ class RedPacketService
         // 私聊红包无赔付玩法，跳过验资门槛。
         $needCompensate = 0.0;
         $shouldFreeze = false;
-        // type2: freeze compensate(=total); type3: no freeze, verify can pay mine; type5: no freeze on grab
+        // type2: freeze compensate(=total); type3: no freeze; type5: freeze only if amount==global min
         if ((int)($packet['scope_type'] ?? 0) !== 1 && $packetType === 2) {
             $needCompensate = $totalAmount;
             $shouldFreeze = true;
@@ -1283,7 +1283,7 @@ class RedPacketService
                 $minePayAmount = round((float)($pay['amount'] ?? $needCompensate), 2);
             }
 
-            // 拼手气：仅冻结够赔付的金额；埋雷/接龙领取时不冻结
+            // 拼手气：仅冻结够赔付额；埋雷不冻；接龙仅领到全局最少时冻续发额
             $frozenAmt = 0.0;
             if ($shouldFreeze && $packetType === 2 && $needCompensate > 0.00001) {
                 $frozenAmt = round((float)$needCompensate, 2);
@@ -1301,7 +1301,42 @@ class RedPacketService
                         [sprintf('%.2f', $frozenAmt), $recordId]
                     );
                 }
+            } elseif (
+                $packetType === 5
+                && (int)($packet['scope_type'] ?? 0) !== 1
+                && $recordId > 0
+            ) {
+                $relayAmt = round((float)($packet['total_amount'] ?? 0), 2);
+                $minCent = $this->packetMinCent($packet);
+                if ($minCent <= 0) {
+                    try {
+                        $metaMin = RedisClient::conn()->hGet($metaKey, 'min_cent');
+                        if ($metaMin !== false && $metaMin !== null && (string)$metaMin !== '') {
+                            $minCent = (int)$metaMin;
+                        }
+                    } catch (\Throwable $eMin) {
+                    }
+                }
+                if ($minCent > 0 && $amountCent === $minCent && $relayAmt > 0.00001) {
+                    if (!$this->wallet->hasEnoughBalance($userId, $relayAmt)) {
+                        throw new \RuntimeException('balance_not_enough_for_compensate:' . sprintf('%.2f', $relayAmt));
+                    }
+                    $frozenAmt = $relayAmt;
+                    $this->wallet->freeze(
+                        $userId,
+                        $frozenAmt,
+                        'red_packet_freeze',
+                        '红宝接龙续发冻结',
+                        ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId]
+                    );
+                    Db::exec(
+                        'UPDATE ' . Db::table('chat_red_packet_records')
+                        . ' SET frozen_amount=?, freeze_status=1, need_compensate=1, compensate_amount=? WHERE id=?',
+                        [sprintf('%.2f', $frozenAmt), sprintf('%.2f', $frozenAmt), $recordId]
+                    );
+                }
             }
+
             Db::commit();
         } catch (\Throwable $e) {
             Db::rollBack();
@@ -1327,8 +1362,15 @@ class RedPacketService
         // ---------- 抢完最后一个包：结算/开奖异步，缩短抢包响应 ----------
         if ($remain <= 0) {
             // 扫雷/拼手气/接龙：领完后异步结算（解冻 + 赔付/抽水/返点）
-            $this->scheduleSettleAfterFinished($packetId, $packet);
-            $settlePending = true;
+            if (in_array($packetType, [1, 4], true)) {
+                try {
+                    $this->markBestLuck($packetId);
+                } catch (\Throwable $eBest) {
+                }
+            } else {
+                $this->scheduleSettleAfterFinished($packetId, $packet);
+                $settlePending = true;
+            }
         }
 
         try {
@@ -2578,6 +2620,50 @@ class RedPacketService
         return $n;
     }
 
+
+    /**
+     * 接龙/拼手气：hash 预拆金额的全局最少（分）。优先 fair_cents，其次 Redis meta。
+     */
+    protected function packetMinCent(array $packet)
+    {
+        $hint = (int)($packet['min_cent'] ?? 0);
+        if ($hint > 0) {
+            return $hint;
+        }
+        $raw = trim((string)($packet['fair_cents'] ?? ''));
+        if ($raw === '') {
+            $packetId = (int)($packet['id'] ?? 0);
+            if ($packetId > 0) {
+                try {
+                    $row = Db::fetch(
+                        'SELECT fair_cents FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1',
+                        [$packetId]
+                    );
+                    $raw = trim((string)($row['fair_cents'] ?? ''));
+                } catch (\Throwable $e) {
+                    $raw = '';
+                }
+            }
+        }
+        if ($raw !== '') {
+            $arr = json_decode($raw, true);
+            if (is_array($arr) && $arr) {
+                return (int)min(array_map('intval', $arr));
+            }
+        }
+        $packetId = (int)($packet['id'] ?? 0);
+        if ($packetId > 0) {
+            try {
+                $m = RedisClient::conn()->hGet(RedisClient::key('rp:' . $packetId . ':meta'), 'min_cent');
+                if ($m !== false && $m !== null && (string)$m !== '') {
+                    return (int)$m;
+                }
+            } catch (\Throwable $e) {
+            }
+        }
+        return 0;
+    }
+
     protected function ensureRedisSeeded(array $packet, $queueKey, $metaKey)
     {
         try {
@@ -2653,6 +2739,9 @@ class RedPacketService
         }
         if ($cents) {
             $r->rPush($queueKey, ...array_map('strval', $cents));
+            if (!isset($meta['min_cent'])) {
+                $meta['min_cent'] = (string)min(array_map('intval', $cents));
+            }
         }
         $r->hMSet($metaKey, array_merge($meta, [
             'expire_at' => (string)$expireAt,
@@ -2683,7 +2772,7 @@ class RedPacketService
         try {
             $meta = RedisClient::conn()->hMGet(
                 RedisClient::key('rp:' . (int)$packetId . ':meta'),
-                ['packet_no', 'scope_type', 'group_id', 'to_user_id', 'from_user_id', 'total_amount', 'total_count', 'packet_type', 'mine_digit', 'expire_at']
+                ['packet_no', 'scope_type', 'group_id', 'to_user_id', 'from_user_id', 'total_amount', 'total_count', 'packet_type', 'mine_digit', 'expire_at', 'min_cent']
             );
             if (!is_array($meta) || trim((string)($meta['packet_no'] ?? '')) === '') {
                 return null;
@@ -2700,6 +2789,8 @@ class RedPacketService
                 'packet_type'  => (int)($meta['packet_type'] ?? 0),
                 'mine_digit'   => (int)($meta['mine_digit'] ?? 0),
                 'expire_at'    => (int)($meta['expire_at'] ?? 0),
+                'expiretime'   => (int)($meta['expire_at'] ?? 0),
+                'min_cent'     => (int)($meta['min_cent'] ?? 0),
             ];
         } catch (\Throwable $e) {
             return null;

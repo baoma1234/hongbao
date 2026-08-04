@@ -196,10 +196,13 @@ class RedPacketSettlementService
                 if ((int)($row['freeze_status'] ?? 0) !== 1) {
                     continue;
                 }
-                // 兼容旧数据：领取时已即时中雷赔付的记录不应再有冻结；新逻辑统一领完/过期再解冻
+                $freezeRid = (int)($row['id'] ?? 0);
+                // 接龙：最差已在领取时冻续发额，结算保留至续发；仅解冻非最差多余冻结
+                if ($packetType === 5 && isset($losers[$freezeRid]) && $losers[$freezeRid] === 'worst') {
+                    continue;
+                }
                 $freezeAmt = round((float)($row['frozen_amount'] ?? 0), 2);
                 $freezeUid = (int)($row['user_id'] ?? 0);
-                $freezeRid = (int)($row['id'] ?? 0);
                 if ($freezeUid > 0 && $freezeAmt > 0.00001) {
                     $this->wallet->unfreeze(
                         $freezeUid,
@@ -252,9 +255,9 @@ class RedPacketSettlementService
                 if ($reason === 'worst' && $packetType === 5) {
                     $compensateUsers[] = $payerId;
                     $compensateTotal = round($compensateTotal + $compensateAmount, 2);
-                    // 已判定最少者：仅冻结其「够续发」金额（上方已统一解冻，此处必定重冻）
+                    // 领取时若已冻续发额则保留；否则补冻
                     $freezeAmt = round((float)$compensateAmount, 2);
-                    if ($payerId > 0 && $freezeAmt > 0.00001) {
+                    if ($payerId > 0 && $freezeAmt > 0.00001 && (int)($rec['freeze_status'] ?? 0) !== 1) {
                         try {
                             $this->wallet->freeze(
                                 $payerId,
@@ -271,6 +274,12 @@ class RedPacketSettlementService
                         } catch (\Throwable $eFz) {
                             error_log('[RP_SETTLE][WARN] relay worst freeze fail packet=' . $packetId . ' ' . $eFz->getMessage());
                         }
+                    } else {
+                        Db::exec(
+                            'UPDATE ' . Db::table('chat_red_packet_records')
+                            . ' SET compensate_amount=? WHERE id=?',
+                            [sprintf('%.2f', $freezeAmt), (int)$recordId]
+                        );
                     }
                     error_log('[RP_SETTLE] relay worst marked+frozen packet_id=' . $packetId . ' payer=' . $payerId . ' amount=' . $compensateAmount);
                     continue;
