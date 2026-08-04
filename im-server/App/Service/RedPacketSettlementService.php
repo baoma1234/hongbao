@@ -252,7 +252,27 @@ class RedPacketSettlementService
                 if ($reason === 'worst' && $packetType === 5) {
                     $compensateUsers[] = $payerId;
                     $compensateTotal = round($compensateTotal + $compensateAmount, 2);
-                    error_log('[RP_SETTLE] relay worst marked (defer pay via next send) packet_id=' . $packetId . ' payer=' . $payerId . ' amount=' . $compensateAmount);
+                    // 已判定最少者：仅冻结其「够续发」金额（上方已统一解冻，此处必定重冻）
+                    $freezeAmt = round((float)$compensateAmount, 2);
+                    if ($payerId > 0 && $freezeAmt > 0.00001) {
+                        try {
+                            $this->wallet->freeze(
+                                $payerId,
+                                $freezeAmt,
+                                'red_packet_freeze',
+                                '红宝接龙续发冻结',
+                                $bizMeta
+                            );
+                            Db::exec(
+                                'UPDATE ' . Db::table('chat_red_packet_records')
+                                . ' SET frozen_amount=?, freeze_status=1, compensate_amount=? WHERE id=?',
+                                [sprintf('%.2f', $freezeAmt), sprintf('%.2f', $freezeAmt), (int)$recordId]
+                            );
+                        } catch (\Throwable $eFz) {
+                            error_log('[RP_SETTLE][WARN] relay worst freeze fail packet=' . $packetId . ' ' . $eFz->getMessage());
+                        }
+                    }
+                    error_log('[RP_SETTLE] relay worst marked+frozen packet_id=' . $packetId . ' payer=' . $payerId . ' amount=' . $compensateAmount);
                     continue;
                 }
 

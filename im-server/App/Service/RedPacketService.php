@@ -1074,43 +1074,53 @@ class RedPacketService
         }
 
         // ---------- 关键节点：验资拦截（必须在 Redis 弹队列之前）----------
-        // 拼手气(2)/扫雷(3)：余额须覆盖潜在赔付，领取时冻结；领完或过期再解冻
-        // 接龙(5)：抢到金额直接进可用余额，不冻结；抢光后由最少者扣整包金额续发
+        // 拼手气(2)：领取冻结够赔付额；扫雷(3)不冻结、中雷即时扣；接龙(5)领取不冻、判定最少后再冻续发额
         // 扫雷额外：余额必须严格大于最低限制（如 10 元），才可领取。
         // 私聊红包无赔付玩法，跳过验资门槛。
         $needCompensate = 0.0;
         $shouldFreeze = false;
-        if ((int)($packet['scope_type'] ?? 0) !== 1 && in_array($packetType, [2, 3], true)) {
+        // type2: freeze compensate(=total); type3: no freeze, verify can pay mine; type5: no freeze on grab
+        if ((int)($packet['scope_type'] ?? 0) !== 1 && $packetType === 2) {
             $needCompensate = $totalAmount;
-            if ($packetType === 3) {
-                $needCompensate = $this->mineCompensateAmount(
-                    $totalAmount,
-                    (int)($packet['total_count'] ?? 0)
-                );
-                $minGate = round((float)($this->cfg['min_amount'] ?? 10), 2);
-                if ((int)($packet['scope_type'] ?? 0) === 2 && (int)($packet['group_id'] ?? 0) > 0) {
-                    $g = $this->groups->get((int)$packet['group_id']);
-                    $gMin = round((float)($g['rp_min_amount'] ?? 0), 2);
-                    if ($gMin > 0) {
-                        $minGate = $gMin;
-                    }
-                }
-                if ($minGate > 0) {
-                    $bal = $this->wallet->getBalance($userId);
-                    if ($bal <= $minGate + 0.00001) {
-                        error_log(sprintf(
-                            '[RP_GRAB][ERROR] mine min gate reject user=%d packet_id=%d bal=%.2f need_gt=%.2f',
-                            $userId,
-                            $packetId,
-                            $bal,
-                            $minGate
-                        ));
-                        throw new \RuntimeException('balance_below_mine_min');
-                    }
-                }
-            }
             $shouldFreeze = true;
             if (!$this->wallet->hasEnoughBalance($userId, $needCompensate)) {
+                error_log(sprintf(
+                    '[RP_GRAB][ERROR] balance gate reject user=%d packet_id=%d packet_no=%s need=%.2f type=%d',
+                    $userId,
+                    $packetId,
+                    $packetNo,
+                    $needCompensate,
+                    $packetType
+                ));
+                throw new \RuntimeException('balance_not_enough_for_compensate:' . sprintf('%.2f', $needCompensate));
+            }
+        } elseif ((int)($packet['scope_type'] ?? 0) !== 1 && $packetType === 3) {
+            $needCompensate = $this->mineCompensateAmount(
+                $totalAmount,
+                (int)($packet['total_count'] ?? 0)
+            );
+            $minGate = round((float)($this->cfg['min_amount'] ?? 10), 2);
+            if ((int)($packet['scope_type'] ?? 0) === 2 && (int)($packet['group_id'] ?? 0) > 0) {
+                $g = $this->groups->get((int)$packet['group_id']);
+                $gMin = round((float)($g['rp_min_amount'] ?? 0), 2);
+                if ($gMin > 0) {
+                    $minGate = $gMin;
+                }
+            }
+            if ($minGate > 0) {
+                $bal = $this->wallet->getBalance($userId);
+                if ($bal <= $minGate + 0.00001) {
+                    error_log(sprintf(
+                        '[RP_GRAB][ERROR] mine min gate reject user=%d packet_id=%d bal=%.2f need_gt=%.2f',
+                        $userId,
+                        $packetId,
+                        $bal,
+                        $minGate
+                    ));
+                    throw new \RuntimeException('balance_below_mine_min');
+                }
+            }
+            if ($needCompensate > 0.00001 && !$this->wallet->hasEnoughBalance($userId, $needCompensate)) {
                 error_log(sprintf(
                     '[RP_GRAB][ERROR] balance gate reject user=%d packet_id=%d packet_no=%s need=%.2f type=%d',
                     $userId,
@@ -1245,7 +1255,7 @@ class RedPacketService
                 ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId]
             );
 
-            // 埋雷中雷：仅标记，赔付在领完/过期结算时扣（领取时先冻结）
+            // 埋雷中雷：第一时间扣赔付（不冻结）
             if (
                 $packetType === 3
                 && (int)($packet['scope_type'] ?? 0) !== 1
@@ -1253,30 +1263,35 @@ class RedPacketService
                 && $needCompensate > 0.00001
                 && $recordId > 0
             ) {
-                $mineHit = true;
-                $minePayAmount = round((float)$needCompensate, 2);
-                Db::exec(
-                    'UPDATE ' . Db::table('chat_red_packet_records')
-                    . ' SET is_mine_hit=1, need_compensate=1, compensate_amount=?, compensate_status=1 WHERE id=?',
-                    [sprintf('%.2f', $minePayAmount), $recordId]
+                $pay = $this->payMineHitForRecord(
+                    [
+                        'id'           => $packetId,
+                        'packet_no'    => $packetNo,
+                        'from_user_id' => $fromUserId,
+                    ],
+                    [
+                        'id'                => $recordId,
+                        'user_id'           => $userId,
+                        'freeze_status'     => 0,
+                        'frozen_amount'     => 0,
+                        'compensate_status' => 0,
+                    ],
+                    $needCompensate,
+                    ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId]
                 );
+                $mineHit = !empty($pay['paid']) || !empty($pay['already']);
+                $minePayAmount = round((float)($pay['amount'] ?? $needCompensate), 2);
             }
 
-            // 拼手气/扫雷：领取瞬间锁定潜在赔付额，领完/过期再解冻（接龙不冻结）
+            // 拼手气：仅冻结够赔付的金额；埋雷/接龙领取时不冻结
             $frozenAmt = 0.0;
-            if ($shouldFreeze && $needCompensate > 0.00001) {
+            if ($shouldFreeze && $packetType === 2 && $needCompensate > 0.00001) {
                 $frozenAmt = round((float)$needCompensate, 2);
-                $freezeRemark = '红包潜在赔付冻结';
-                if ($packetType === 2) {
-                    $freezeRemark = '红宝拼手气冻结';
-                } elseif ($packetType === 3) {
-                    $freezeRemark = '红宝扫雷冻结';
-                }
                 $this->wallet->freeze(
                     $userId,
                     $frozenAmt,
                     'red_packet_freeze',
-                    $freezeRemark,
+                    '红宝拼手气冻结',
                     ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId]
                 );
                 if ($recordId > 0) {
@@ -1725,6 +1740,29 @@ class RedPacketService
                 }
                 if (!$this->groups->isMember($groupId, $senderUid)) {
                     $this->groups->addMembers($groupId, [$senderUid], 1);
+                }
+                // 续发前：解冻最少者已锁定的续发额（只冻够赔付/续发的金额）
+                $worstRec = Db::fetch(
+                    'SELECT id, freeze_status, frozen_amount FROM ' . Db::table('chat_red_packet_records')
+                    . ' WHERE packet_id=? AND is_worst=1 LIMIT 1',
+                    [$packetId]
+                );
+                if ($worstRec && (int)($worstRec['freeze_status'] ?? 0) === 1) {
+                    $uf = round((float)($worstRec['frozen_amount'] ?? 0), 2);
+                    if ($uf > 0.00001) {
+                        $this->wallet->unfreeze(
+                            $senderUid,
+                            $uf,
+                            'red_packet_unfreeze',
+                            '红宝接龙续发解冻',
+                            ['biz_no' => (string)($packet['packet_no'] ?? ''), 'ref_type' => 'red_packet', 'ref_id' => $packetId]
+                        );
+                    }
+                    Db::exec(
+                        'UPDATE ' . Db::table('chat_red_packet_records')
+                        . ' SET freeze_status=2 WHERE id=?',
+                        [(int)$worstRec['id']]
+                    );
                 }
                 $result = $this->send([
                     'from_user_id' => $senderUid,
