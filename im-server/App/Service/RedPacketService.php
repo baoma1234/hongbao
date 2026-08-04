@@ -1738,8 +1738,18 @@ class RedPacketService
             return null;
         }
 
-        // 群内还有待领包则不续发
+        // 群内还有待领包：若存在「比本包更新」的接龙包，说明已开新局，放弃本包续发
         try {
+            $newerOpen = Db::fetch(
+                'SELECT id FROM ' . Db::table('chat_red_packets')
+                . ' WHERE group_id=? AND scope_type=2 AND packet_type=5 AND status=1 AND remain_count>0 AND id>?'
+                . ' ORDER BY id DESC LIMIT 1',
+                [$groupId, $packetId]
+            );
+            if ($newerOpen) {
+                $this->abandonRelayRetry($packetId, 'superseded_by_newer');
+                return null;
+            }
             $open = Db::fetch(
                 'SELECT COUNT(*) AS c FROM ' . Db::table('chat_red_packets')
                 . ' WHERE group_id=? AND scope_type=2 AND status=1 AND remain_count>0',
@@ -1771,6 +1781,16 @@ class RedPacketService
 
         $doSend = function () use ($groupId, $senderUid, $amount, $count, $packet, $packetId) {
             try {
+                $newerOpen = Db::fetch(
+                    'SELECT id FROM ' . Db::table('chat_red_packets')
+                    . ' WHERE group_id=? AND scope_type=2 AND packet_type=5 AND status=1 AND remain_count>0 AND id>?'
+                    . ' ORDER BY id DESC LIMIT 1',
+                    [$groupId, $packetId]
+                );
+                if ($newerOpen) {
+                    $this->abandonRelayRetry($packetId, 'superseded_by_newer');
+                    return null;
+                }
                 $open = Db::fetch(
                     'SELECT COUNT(*) AS c FROM ' . Db::table('chat_red_packets')
                     . ' WHERE group_id=? AND scope_type=2 AND status=1 AND remain_count>0',
@@ -1906,6 +1926,74 @@ class RedPacketService
     }
 
     /**
+     * 放弃接龙续发（被更新包顶替 / 群超时打断）：清 Redis，关掉待续发标记
+     */
+    protected function abandonRelayRetry($packetId, $reason = '')
+    {
+        $packetId = (int)$packetId;
+        if ($packetId <= 0) {
+            return;
+        }
+        try {
+            Db::exec(
+                'UPDATE ' . Db::table('chat_red_packet_records')
+                . ' SET need_compensate=0, compensate_status=2'
+                . ' WHERE packet_id=? AND is_worst=1 AND compensate_status IN (1,3)',
+                [$packetId]
+            );
+        } catch (\Throwable $e) {
+        }
+        $this->clearRelayRetry($packetId);
+        error_log('[RP_RELAY] abandon packet_id=' . $packetId . ' reason=' . $reason);
+    }
+
+    /**
+     * 某群接龙超时：清该群所有待续发，避免旧包在超时后退款后「复活」下一局
+     */
+    protected function clearGroupRelayRetries($groupId)
+    {
+        $groupId = (int)$groupId;
+        if ($groupId <= 0) {
+            return;
+        }
+        $ids = [];
+        try {
+            $ids = RedisClient::conn()->sMembers(RedisClient::key('rp:relay_retry_set')) ?: [];
+        } catch (\Throwable $e) {
+            $ids = [];
+        }
+        foreach ($ids as $rawId) {
+            $pid = (int)$rawId;
+            if ($pid <= 0) {
+                continue;
+            }
+            try {
+                $row = Db::fetch(
+                    'SELECT id, group_id, packet_type FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1',
+                    [$pid]
+                );
+                if ($row && (int)($row['group_id'] ?? 0) === $groupId && (int)($row['packet_type'] ?? 0) === 5) {
+                    $this->abandonRelayRetry($pid, 'group_relay_expire');
+                }
+            } catch (\Throwable $e) {
+            }
+        }
+        try {
+            $rows = Db::fetchAll(
+                'SELECT p.id FROM ' . Db::table('chat_red_packets') . ' p'
+                . ' INNER JOIN ' . Db::table('chat_red_packet_records') . ' r ON r.packet_id=p.id AND r.is_worst=1'
+                . ' WHERE p.group_id=? AND p.packet_type=5 AND p.scope_type=2 AND p.status=5'
+                . ' AND r.compensate_status IN (1,3)',
+                [$groupId]
+            );
+            foreach ($rows ?: [] as $row) {
+                $this->abandonRelayRetry((int)$row['id'], 'group_relay_expire_db');
+            }
+        } catch (\Throwable $e) {
+        }
+    }
+
+    /**
      * 接龙：全局扫描全部群中「已结算、最少者尚未续发」的包并重试。
      * @return int 成功续发数
      */
@@ -1942,12 +2030,14 @@ class RedPacketService
                     $this->clearRelayRetry($packetId);
                     continue;
                 }
+                // 仅 compensate_status=1（待续发）可重试；0/2/3 等均清队列，避免超时后僵尸包复活
                 $worst = Db::fetch(
                     'SELECT id, compensate_status FROM ' . Db::table('chat_red_packet_records')
                     . ' WHERE packet_id=? AND is_worst=1 LIMIT 1',
                     [$packetId]
                 );
-                if (!$worst || (int)($worst['compensate_status'] ?? 0) === 2) {
+                $cs = (int)($worst['compensate_status'] ?? 0);
+                if (!$worst || $cs !== 1) {
                     $this->clearRelayRetry($packetId);
                     continue;
                 }
@@ -2570,10 +2660,17 @@ class RedPacketService
             } catch (\Throwable $eClr) {
             }
         }
-        // 接龙超时：群内公示自动结束（不扣最少者）
+        // 接龙超时：群内公示自动结束（不扣最少者）；并清掉同群待续发，防止旧包复活
         if (!empty($isRelayExpire) && (int)($fresh['scope_type'] ?? 0) === 2) {
+            $gid = (int)($fresh['group_id'] ?? 0);
             try {
-                $gid = (int)($fresh['group_id'] ?? 0);
+                if ($gid > 0) {
+                    $this->clearGroupRelayRetries($gid);
+                }
+            } catch (\Throwable $eClrG) {
+                error_log('[RP_EXPIRE] clear group relay retry fail packet=' . $packetId . ' ' . $eClrG->getMessage());
+            }
+            try {
                 if ($gid > 0) {
                     $tip = '接龙超时自动结束：已领金额保留，未领已退回发包手，本轮不再续发、不扣最少者';
                     $msg = $this->messages->sendGroupSystem($gid, $tip, 0, [
