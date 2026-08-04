@@ -21,26 +21,42 @@
         :class="{ mine: isMine(m), system: isSysRow(m) }"
       >
         <view v-if="isSysRow(m)" class="sys">{{ sysText(m) }}</view>
-        <view
-          v-else-if="isRp(m)"
-          class="rp-card"
-          :class="{ faded: rpFaded(m), grabbed: rpGrabbed(m) }"
-          @click="onRpTap(m)"
-          @longpress="onMsgLongPress(m)"
-        >
-          <view class="rp-ico">红</view>
-          <view class="rp-main">
-            <text class="rp-bless">{{ rpBlessing(m) }}</text>
-            <text class="rp-sub">{{ rpSub(m) }}</text>
+        <view v-else class="msg-wrap">
+          <text v-if="showSender(m)" class="sender">{{ senderName(m) }}</text>
+          <view
+            v-if="isRp(m)"
+            class="rp-card"
+            :class="{ faded: rpFaded(m), grabbed: rpGrabbed(m) }"
+            @click="onRpTap(m)"
+            @longpress="onMsgLongPress(m)"
+          >
+            <view class="rp-ico">红</view>
+            <view class="rp-main">
+              <text class="rp-bless">{{ rpBlessing(m) }}</text>
+              <text class="rp-sub">{{ rpSub(m) }}</text>
+            </view>
           </view>
-        </view>
-        <view v-else-if="isSticker(m)" class="bubble sticker" @longpress="onMsgLongPress(m)">
-          <image class="sticker-img" :src="stickerUrl(m)" mode="widthFix" />
-          <text class="meta-time">{{ msgTime(m) }}</text>
-        </view>
-        <view v-else class="bubble" @longpress="onMsgLongPress(m)">
-          <text class="content">{{ msgText(m) }}</text>
-          <text class="meta-time">{{ msgTime(m) }}</text>
+          <view v-else-if="isSticker(m)" class="bubble sticker" @longpress="onMsgLongPress(m)">
+            <image class="sticker-img" :src="stickerUrl(m)" mode="widthFix" />
+            <text class="meta-time">{{ msgTime(m) }}</text>
+          </view>
+          <view v-else-if="isImage(m)" class="bubble media" @longpress="onMsgLongPress(m)">
+            <image class="media-img" :src="mediaUrl(m)" mode="widthFix" />
+            <text class="meta-time">{{ msgTime(m) }}</text>
+          </view>
+          <view v-else-if="isVideo(m)" class="bubble media" @longpress="onMsgLongPress(m)">
+            <video class="media-video" :src="mediaUrl(m)" controls playsinline />
+            <text class="meta-time">{{ msgTime(m) }}</text>
+          </view>
+          <view v-else-if="isFile(m)" class="bubble media file" @longpress="onMsgLongPress(m)">
+            <text class="file-name">{{ fileName(m) }}</text>
+            <text class="file-ext">{{ fileMeta(m) }}</text>
+            <text class="meta-time">{{ msgTime(m) }}</text>
+          </view>
+          <view v-else class="bubble" @longpress="onMsgLongPress(m)">
+            <text class="content">{{ msgText(m) }}</text>
+            <text class="meta-time">{{ msgTime(m) }}</text>
+          </view>
         </view>
       </view>
     </scroll-view>
@@ -255,6 +271,15 @@ function isMine(m) {
 function isRp(m) {
   return msgType(m) === 2
 }
+function isImage(m) {
+  return msgType(m) === 4
+}
+function isVideo(m) {
+  return msgType(m) === 5
+}
+function isFile(m) {
+  return msgType(m) === 7
+}
 function isSticker(m) {
   const t = msgType(m)
   if (t === 6) return true
@@ -295,6 +320,34 @@ function msgTime(m) {
 }
 function msgText(m) {
   return (m && (m.content || m.text)) || '[消息]'
+}
+function showSender(m) {
+  return (meta.value.type | 0) === 2 && !isMine(m)
+}
+function senderName(m) {
+  return String((m && (m.nickname || m.from_nickname)) || ('ID' + ((m && m.from_user_id) | 0)))
+}
+function mediaUrl(m) {
+  const ex = msgExtra(m)
+  const raw = (ex && (ex.url || ex.fullurl)) || ''
+  return normalizeStickerUrl(raw)
+}
+function fileName(m) {
+  const ex = msgExtra(m)
+  return String((ex && ex.name) || '文件')
+}
+function fileMeta(m) {
+  const ex = msgExtra(m)
+  const ext = String((ex && ex.ext) || '').trim()
+  const size = Number(ex && ex.size)
+  const text = []
+  if (ext) text.push(ext)
+  if (size > 0) {
+    if (size >= 1024 * 1024) text.push((size / (1024 * 1024)).toFixed(1) + 'MB')
+    else if (size >= 1024) text.push(Math.round(size / 1024) + 'KB')
+    else text.push(size + 'B')
+  }
+  return text.join(' · ')
 }
 function normalizeStickerUrl(url) {
   const s = String(url || '').trim()
@@ -810,6 +863,20 @@ onUnload(() => {
 .row { display: flex; margin: 14rpx 0; }
 .row.mine { justify-content: flex-end; }
 .row.system { justify-content: center; }
+.msg-wrap {
+  max-width: 78%;
+}
+.row.mine .msg-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.sender {
+  display: block;
+  font-size: 20rpx;
+  color: #9a8574;
+  margin: 0 8rpx 6rpx;
+}
 .sys {
   max-width: 90%;
   font-size: 22rpx;
@@ -836,6 +903,35 @@ onUnload(() => {
   box-shadow: none;
   padding: 0;
   max-width: 260rpx;
+}
+.bubble.media {
+  background: #fff;
+}
+.media-img {
+  width: 340rpx;
+  max-height: 420rpx;
+  border-radius: 12rpx;
+}
+.media-video {
+  width: 360rpx;
+  height: 220rpx;
+  border-radius: 12rpx;
+  background: #000;
+}
+.bubble.file {
+  min-width: 280rpx;
+}
+.file-name {
+  display: block;
+  font-size: 26rpx;
+  color: #2a1f18;
+  font-weight: 700;
+}
+.file-ext {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 20rpx;
+  color: #8a7a6e;
 }
 .sticker-img {
   width: 220rpx;
