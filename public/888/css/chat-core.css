@@ -1829,7 +1829,7 @@ body.tab-messages .bottom-action-bar {
   margin: -4px -4px 12px;
   border-radius: 12px;
   overflow: hidden;
-  background: #f3f3f3;
+  background: linear-gradient(135deg, #ffe082, #ffb300);
   position: relative;
   touch-action: none;
   user-select: none;
@@ -1837,14 +1837,12 @@ body.tab-messages .bottom-action-bar {
 }
 .chat-group-popup-viewport {
   width: 100%;
-  aspect-ratio: 16 / 9;
   overflow: hidden;
-  background: #eee;
+  background: linear-gradient(135deg, #ffe082, #ffb300);
 }
 .chat-group-popup-track {
   display: flex;
   width: 100%;
-  height: 100%;
   transform: translate3d(0, 0, 0);
   transition: transform .28s ease;
   will-change: transform;
@@ -1855,13 +1853,11 @@ body.tab-messages .bottom-action-bar {
 .chat-group-popup-slide {
   flex: 0 0 100%;
   width: 100%;
-  height: 100%;
   position: relative;
 }
 .chat-group-popup-slide img {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
   display: block;
   pointer-events: auto;
   cursor: zoom-in;

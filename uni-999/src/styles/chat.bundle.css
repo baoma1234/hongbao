@@ -1830,7 +1830,7 @@ body.tab-messages .bottom-action-bar {
   margin: -4px -4px 12px;
   border-radius: 12px;
   overflow: hidden;
-  background: #f3f3f3;
+  background: linear-gradient(135deg, #ffe082, #ffb300);
   position: relative;
   touch-action: none;
   user-select: none;
@@ -1838,14 +1838,12 @@ body.tab-messages .bottom-action-bar {
 }
 .chat-group-popup-viewport {
   width: 100%;
-
   overflow: hidden;
-  background: #eee;
+  background: linear-gradient(135deg, #ffe082, #ffb300);
 }
 .chat-group-popup-track {
   display: flex;
   width: 100%;
-  height: 100%;
   transform: translate3d(0, 0, 0);
   transition: transform .28s ease;
   will-change: transform;
@@ -1856,13 +1854,11 @@ body.tab-messages .bottom-action-bar {
 .chat-group-popup-slide {
   flex: 0 0 100%;
   width: 100%;
-  height: 100%;
   position: relative;
 }
 .chat-group-popup-slide img {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
   display: block;
   pointer-events: auto;
   cursor: zoom-in;
@@ -3118,7 +3114,14 @@ body.chat-room-open .bottom-action-bar {
 }
 .chat-msg-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .chat-msg-avatar.clickable { cursor: pointer; }
-.chat-msg-avatar.locked { pointer-events: none; opacity: 0.85; filter: grayscale(0.3); }
+.chat-msg-avatar.locked {
+  pointer-events: none;
+  opacity: 0.9;
+  filter: none;
+  background: linear-gradient(135deg, #ffe082, #ffb300);
+  color: #8a4b00;
+  box-shadow: 0 4px 12px rgba(255, 179, 0, 0.25);
+}
 .chat-msg-main { flex: 1; min-width: 0; }
 .chat-msg-nick {
   font-size: 11px;
