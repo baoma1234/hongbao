@@ -167,10 +167,13 @@ class Account extends Backend
         unset($params['rights'], $params['balance'], $params['hongbao']);
 
         $meta = [];
-        foreach (['main_uid', 'flow_stage', 'status', 'member_level'] as $field) {
+        foreach (['main_uid', 'flow_stage', 'status', 'member_level', 'turnover'] as $field) {
             if (array_key_exists($field, $params)) {
                 $meta[$field] = $params[$field];
             }
+        }
+        if (array_key_exists('turnover', $meta)) {
+            $meta['turnover'] = max(0, round((float)$meta['turnover'], 2));
         }
         if (FansHubPhase2::enabled()) {
             foreach (['user_mode', 'fission_streak_days', 'fission_last_checkin_date', 'sub_withdrawn_count', 'honor_tier_claimed'] as $field) {

@@ -127,10 +127,23 @@ class WalletService
                 }
             }
         } else {
-            $affected = Db::exec(
-                "UPDATE {$table} SET `{$field}`=`{$field}`-(?), updatetime=? WHERE user_id=? AND status='normal' AND `{$field}`>=?",
-                [$abs, $now, $userId, $abs]
-            );
+            // 发红包/中雷赔付等计入提现所需「累计流水」
+            $countTurnover = in_array((string)$type, [
+                'red_packet_send',
+                'red_packet_mine_pay',
+                'red_packet_worst_pay',
+            ], true);
+            if ($countTurnover) {
+                $affected = Db::exec(
+                    "UPDATE {$table} SET `{$field}`=`{$field}`-(?), turnover=turnover+(?), updatetime=? WHERE user_id=? AND status='normal' AND `{$field}`>=?",
+                    [$abs, $abs, $now, $userId, $abs]
+                );
+            } else {
+                $affected = Db::exec(
+                    "UPDATE {$table} SET `{$field}`=`{$field}`-(?), updatetime=? WHERE user_id=? AND status='normal' AND `{$field}`>=?",
+                    [$abs, $now, $userId, $abs]
+                );
+            }
             if ($affected <= 0) {
                 $row = Db::fetch(
                     "SELECT `{$field}` AS bal, status FROM {$table} WHERE user_id=? LIMIT 1",
