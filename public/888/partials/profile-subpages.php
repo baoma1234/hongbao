@@ -146,6 +146,7 @@
         <div class="profile-sub-body">
             <div class="match-card profile-card">
                 <div class="profile-meta-line"><span data-copy="profile_withdraw_avail_prefix">可提现红宝：</span><strong id="profileWithdrawBalance">￥0.00</strong></div>
+                <div class="profile-meta-line" id="profileFrozenLine" hidden><span data-copy="wallet_frozen_line_prefix">冻结金额：</span><strong id="profileFrozenBalance">￥0.00</strong></div>
                 <div class="profile-meta-line" id="profileTurnoverLine" data-turnover-prefix-key="profile_turnover_prefix">累计流水：￥0.00</div>
                     <div class="profile-field">
                         <label data-copy="profile_withdraw_channel_label">选择提现通道</label>

@@ -1122,6 +1122,13 @@
         var hb = walletState.info.hongbao != null ? walletState.info.hongbao : walletState.info.balance;
         bal.textContent = money(hb);
       }
+      var frozenLine = document.getElementById('profileFrozenLine');
+      var frozenBal = document.getElementById('profileFrozenBalance');
+      if (frozenLine && frozenBal && walletState.info) {
+        var fr = Math.max(0, parseFloat(walletState.info.hongbao_frozen) || 0);
+        frozenBal.textContent = money(fr);
+        frozenLine.hidden = fr <= 0.00001;
+      }
       var line = document.getElementById('profileTurnoverLine');
       if (line && walletState.info) line.textContent = wt('wallet_turnover_line', '累计流水：{amount}', { amount: money(walletState.info.turnover) });
     };

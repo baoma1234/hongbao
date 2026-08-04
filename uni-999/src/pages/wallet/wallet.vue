@@ -2,6 +2,7 @@
   <view class="hb-page">
     <view class="match-card" style="margin-bottom:14px">
       <view class="wallet-bal-line">红宝余额 <strong>{{ balanceText }}</strong></view>
+      <view class="profile-meta-line" v-if="frozenText">冻结金额：{{ frozenText }}</view>
       <view class="profile-meta-line">累计流水：{{ turnoverText }}</view>
       <view class="profile-meta-line" v-if="turnHint">{{ turnHint }}</view>
     </view>
@@ -66,6 +67,11 @@ const balanceText = computed(() => {
   const i = info.value || {}
   const n = i.hongbao != null ? i.hongbao : i.balance
   return n != null ? money(n) : '—'
+})
+const frozenText = computed(() => {
+  const i = info.value || {}
+  const n = Math.max(0, Number(i.hongbao_frozen) || 0)
+  return n > 0.00001 ? money(n) : ''
 })
 const turnoverText = computed(() => money((info.value && info.value.turnover) || 0))
 const turnHint = computed(() => turnoverHint(info.value))

@@ -10,6 +10,7 @@
     pending: {},
     userId: 0,
     money: null,
+    hongbaoFrozen: null,
     connected: false,
     connecting: false,
     list: [],
@@ -945,6 +946,37 @@
     } else {
       el.textContent = chatT('chat_my_id', { id: id });
     }
+    renderFrozenHints();
+  }
+
+  function applyWalletFromPacketData(data) {
+    if (!data) return;
+    if (data.balance != null) {
+      state.money = parseFloat(data.balance);
+    }
+    if (data.hongbao_frozen != null) {
+      state.hongbaoFrozen = parseFloat(data.hongbao_frozen);
+    }
+    updateMoneyLabel();
+    var balEl = $('chatRpBalance');
+    if (balEl && state.money != null && !isNaN(state.money)) {
+      balEl.textContent = moneyText(state.money);
+    }
+  }
+
+  function renderFrozenHints() {
+    var frozen = state.hongbaoFrozen != null && !isNaN(state.hongbaoFrozen) ? Number(state.hongbaoFrozen) : 0;
+    var wrap = $('chatRpFrozenWrap');
+    var el = $('chatRpFrozen');
+    if (wrap && el) {
+      if (frozen > 0.00001) {
+        wrap.hidden = false;
+        el.textContent = moneyText(frozen);
+      } else {
+        wrap.hidden = true;
+        el.textContent = moneyText(0);
+      }
+    }
   }
 
   function syncBalanceFromAccount() {
@@ -955,6 +987,11 @@
         if (!isNaN(n)) {
           state.money = n;
         }
+      }
+      var frEl = document.getElementById('myHongbaoFrozen');
+      if (frEl) {
+        var fn = parseFloat(String(frEl.textContent || '').replace(/,/g, ''));
+        if (!isNaN(fn)) state.hongbaoFrozen = fn;
       }
       updateMoneyLabel();
       var balEl = $('chatRpBalance');
@@ -4643,8 +4680,7 @@
     payload.group_id = state.room.id | 0;
     var gpacket = await send('group.send', payload);
     if (gpacket.data && gpacket.data.balance != null) {
-      state.money = parseFloat(gpacket.data.balance);
-      updateMoneyLabel();
+      applyWalletFromPacketData(gpacket.data);
     }
     return gpacket.data && gpacket.data.message;
   }
@@ -4886,8 +4922,7 @@
       }
       var amt = packet.data && packet.data.amount;
       if (packet.data && packet.data.balance != null) {
-        state.money = parseFloat(packet.data.balance);
-        updateMoneyLabel();
+        applyWalletFromPacketData(packet.data);
       }
       markRpCover(packetId, { grabbed: true, faded: true });
       try { refreshRpOrMessages(packetId, true); } catch (eRender) {}
@@ -5237,7 +5272,6 @@
     if (!el) return;
     var type = getRpPacketType();
     var isGroup = !!(state.room && state.room.type === 2);
-    // 仅群聊 + 拼手气时展示简介（多语言文案，后台 H5 文案可改）
     if (isGroup && type === 2) {
       el.hidden = false;
       el.style.display = '';
@@ -5302,6 +5336,7 @@
     if (balEl && state.money != null && !isNaN(state.money)) {
       balEl.textContent = '￥' + Number(state.money).toFixed(2);
     }
+    renderFrozenHints();
   }
 
   function openRpSendPage() {
@@ -5491,8 +5526,7 @@
     try {
       var packet = await send('redpacket.send', data);
       if (packet.data && packet.data.balance != null) {
-        state.money = parseFloat(packet.data.balance);
-        updateMoneyLabel();
+        applyWalletFromPacketData(packet.data);
       }
       var msg = packet.data && packet.data.message;
       if (msg) {
@@ -5584,8 +5618,7 @@
         remark: remark
       });
       if (packet.data && packet.data.balance != null) {
-        state.money = parseFloat(packet.data.balance);
-        updateMoneyLabel();
+        applyWalletFromPacketData(packet.data);
       }
       var msg = packet.data && packet.data.message;
       if (msg) {
@@ -5654,6 +5687,9 @@
         state.canCreateGroup = !!(packet.data && packet.data.can_create_group);
         var bal = packet.data && packet.data.user && (packet.data.user.balance != null ? packet.data.user.balance : packet.data.user.money);
         state.money = bal != null ? parseFloat(bal) : state.money;
+        if (packet.data && packet.data.user && packet.data.user.hongbao_frozen != null) {
+          state.hongbaoFrozen = parseFloat(packet.data.user.hongbao_frozen);
+        }
         setConnStatus(chatT('chat_conn_ok'), 'ok');
         updateMoneyLabel();
         syncBalanceFromAccount();

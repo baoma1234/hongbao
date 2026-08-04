@@ -2847,6 +2847,14 @@ body.chat-room-open .bottom-action-bar {
   font-weight: 800;
   font-size: 13px;
 }
+.chat-rp-frozen-hint {
+  color: #b45309;
+  font-weight: 650;
+}
+.chat-rp-frozen-hint strong {
+  color: #b45309;
+  font-weight: 800;
+}
 
 /* 表单行：统一高度与字号 */
 .chat-rp-send-pane .chat-rp-field {

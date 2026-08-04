@@ -7,6 +7,7 @@
     pending: {},
     userId: 0,
     money: null,
+    hongbaoFrozen: null,
     connected: false,
     connecting: false,
     list: [],
@@ -942,6 +943,37 @@
     } else {
       el.textContent = chatT('chat_my_id', { id: id });
     }
+    renderFrozenHints();
+  }
+
+  function applyWalletFromPacketData(data) {
+    if (!data) return;
+    if (data.balance != null) {
+      state.money = parseFloat(data.balance);
+    }
+    if (data.hongbao_frozen != null) {
+      state.hongbaoFrozen = parseFloat(data.hongbao_frozen);
+    }
+    updateMoneyLabel();
+    var balEl = $('chatRpBalance');
+    if (balEl && state.money != null && !isNaN(state.money)) {
+      balEl.textContent = moneyText(state.money);
+    }
+  }
+
+  function renderFrozenHints() {
+    var frozen = state.hongbaoFrozen != null && !isNaN(state.hongbaoFrozen) ? Number(state.hongbaoFrozen) : 0;
+    var wrap = $('chatRpFrozenWrap');
+    var el = $('chatRpFrozen');
+    if (wrap && el) {
+      if (frozen > 0.00001) {
+        wrap.hidden = false;
+        el.textContent = moneyText(frozen);
+      } else {
+        wrap.hidden = true;
+        el.textContent = moneyText(0);
+      }
+    }
   }
 
   function syncBalanceFromAccount() {
@@ -952,6 +984,11 @@
         if (!isNaN(n)) {
           state.money = n;
         }
+      }
+      var frEl = document.getElementById('myHongbaoFrozen');
+      if (frEl) {
+        var fn = parseFloat(String(frEl.textContent || '').replace(/,/g, ''));
+        if (!isNaN(fn)) state.hongbaoFrozen = fn;
       }
       updateMoneyLabel();
       var balEl = $('chatRpBalance');

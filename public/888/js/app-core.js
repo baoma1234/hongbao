@@ -1510,6 +1510,7 @@
             const p2 = profile.phase2 || {};
             account.hongbao = parseFloat(profile.hongbao != null ? profile.hongbao : profile.balance) || 0;
             account.balance = account.hongbao; // 兼容：余额=红宝
+            account.hongbao_frozen = parseFloat(profile.hongbao_frozen) || 0;
             account.rights = parseFloat(profile.rights) || 0;
             account.rights_locked = parseFloat(profile.rights_locked) || 0;
             account.rights_free = profile.rights_free != null

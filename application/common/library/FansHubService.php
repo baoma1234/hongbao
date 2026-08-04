@@ -2015,9 +2015,11 @@ class FansHubService
             'rights_locked'=> (float)$lockSnap['locked'],
             'rights_free' => (float)$lockSnap['free'],
             'rights_lock_day' => $lockSnap['lock_day'] !== '' ? $lockSnap['lock_day'] : null,
-            // balance 兼容字段：已并入红宝
+            // balance 兼容字段：已并入红宝（可用，不含冻结）
             'balance'     => (float)($account->hongbao ?? 0),
             'hongbao'     => (float)($account->hongbao ?? 0),
+            'hongbao_frozen' => (float)($account->hongbao_frozen ?? 0),
+            'hongbao_total'  => round((float)($account->hongbao ?? 0) + (float)($account->hongbao_frozen ?? 0), 2),
             'turnover'    => (float)($account->turnover ?? 0),
             'main_uid'              => (string)$account->main_uid,
             'main_uid_pending'      => (string)($account->main_uid_pending ?? ''),

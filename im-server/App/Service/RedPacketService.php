@@ -443,6 +443,7 @@ class RedPacketService
             'message'    => $msg,
             'wallet'     => $field,
             'balance'    => $this->wallet->getBalance($fromUserId),
+            'hongbao_frozen' => $this->wallet->getFrozen($fromUserId),
         ];
     }
 
@@ -1059,7 +1060,10 @@ class RedPacketService
         // 扫雷包(3) 按个数倍率赔付（如 5 包 1.5 倍）。
         // 扫雷额外：余额必须严格大于最低限制（如 10 元），才可领取。
         // 私聊红包无赔付玩法，跳过验资门槛。
+        $needCompensate = 0.0;
+        $shouldFreeze = false;
         if ((int)($packet['scope_type'] ?? 0) !== 1 && in_array($packetType, [2, 3, 5], true)) {
+            $shouldFreeze = true;
             $needCompensate = $totalAmount;
             if ($packetType === 3) {
                 $needCompensate = $this->mineCompensateAmount(
@@ -1151,6 +1155,7 @@ class RedPacketService
                     'status'       => $statusNow,
                     'already'      => true,
                     'balance'      => $this->wallet->getBalance($userId),
+                    'hongbao_frozen' => $this->wallet->getFrozen($userId),
                     'packet'       => [
                         'scope_type'   => (int)($packet['scope_type'] ?? 0),
                         'group_id'     => (int)($packet['group_id'] ?? 0),
@@ -1179,6 +1184,7 @@ class RedPacketService
 
         $status = $remain <= 0 ? 2 : 1;
         $walletChange = null;
+        $frozenAmt = 0.0;
         Db::begin();
         try {
             // 条件更新扣剩余（去掉 SELECT FOR UPDATE，缩短锁等待）
@@ -1200,6 +1206,7 @@ class RedPacketService
                 . ' VALUES (?,?,?,?,?,?,0,0,0,?)',
                 [$packetId, $packetNo, $userId, sprintf('%.2f', $amount), $amountCent, $tailDigit, $now]
             );
+            $recordId = (int)Db::lastId();
 
             $walletChange = $this->wallet->change(
                 $userId,
@@ -1208,6 +1215,26 @@ class RedPacketService
                 '红宝入账 ' . $packetNo,
                 ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId]
             );
+
+            // 赔付类玩法：领取瞬间锁定潜在赔付额，领完/过期再解冻
+            $frozenAmt = 0.0;
+            if ($shouldFreeze && $needCompensate > 0.00001) {
+                $frozenAmt = round((float)$needCompensate, 2);
+                $this->wallet->freeze(
+                    $userId,
+                    $frozenAmt,
+                    'red_packet_freeze',
+                    '红包潜在赔付冻结 ' . $packetNo,
+                    ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId]
+                );
+                if ($recordId > 0) {
+                    Db::exec(
+                        'UPDATE ' . Db::table('chat_red_packet_records')
+                        . ' SET frozen_amount=?, freeze_status=1 WHERE id=?',
+                        [sprintf('%.2f', $frozenAmt), $recordId]
+                    );
+                }
+            }
             Db::commit();
         } catch (\Throwable $e) {
             Db::rollBack();
@@ -1243,12 +1270,15 @@ class RedPacketService
         } catch (\Throwable $e) {
         }
 
+        $view = $this->wallet->getWalletView($userId, true);
         return [
             'packet_id'           => $packetId,
             'amount'              => $amount,
             'remain_count'        => $remain,
             'status'              => $status,
-            'balance'             => round((float)($walletChange['after'] ?? 0), 2),
+            'balance'             => $view['hongbao'],
+            'hongbao_frozen'      => $view['hongbao_frozen'],
+            'frozen_amount'       => isset($frozenAmt) ? round((float)$frozenAmt, 2) : 0.0,
             'settlement'          => $settleInfo,
             'settle_pending'      => $settlePending,
             'next_round_message'  => $nextRoundMessage,
@@ -1822,6 +1852,33 @@ class RedPacketService
                     ]
                 );
             }
+            // 同事务内解冻领取人潜在赔付锁定
+            $freezeRows = Db::fetchAll(
+                'SELECT id, user_id, frozen_amount FROM ' . Db::table('chat_red_packet_records')
+                . ' WHERE packet_id=? AND freeze_status=1 AND frozen_amount>0 FOR UPDATE',
+                [$packetId]
+            );
+            foreach ($freezeRows ?: [] as $fr) {
+                $fAmt = round((float)($fr['frozen_amount'] ?? 0), 2);
+                $fUid = (int)($fr['user_id'] ?? 0);
+                $fRid = (int)($fr['id'] ?? 0);
+                if ($fUid > 0 && $fAmt > 0.00001) {
+                    $this->wallet->unfreeze(
+                        $fUid,
+                        $fAmt,
+                        'red_packet_unfreeze',
+                        '红包过期解冻 ' . $packetNo,
+                        ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId]
+                    );
+                }
+                if ($fRid > 0) {
+                    Db::exec(
+                        'UPDATE ' . Db::table('chat_red_packet_records')
+                        . ' SET freeze_status=2 WHERE id=?',
+                        [$fRid]
+                    );
+                }
+            }
             Db::commit();
         } catch (\Throwable $e) {
             Db::rollBack();
@@ -1836,6 +1893,68 @@ class RedPacketService
             }
         }
         $this->revealFairProof($packetId);
+    }
+
+    /**
+     * 解冻某红包下所有仍冻结的潜在赔付额（结算完成 / 过期退回）
+     */
+    public function releasePacketFreezes($packetId, $packetNo = '')
+    {
+        $packetId = (int)$packetId;
+        if ($packetId <= 0) {
+            return 0;
+        }
+        $packetNo = (string)$packetNo;
+        if ($packetNo === '') {
+            $p = Db::fetch(
+                'SELECT packet_no FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1',
+                [$packetId]
+            );
+            $packetNo = (string)($p['packet_no'] ?? '');
+        }
+        $bizMeta = ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId];
+        $n = 0;
+        Db::begin();
+        try {
+            $rows = Db::fetchAll(
+                'SELECT id, user_id, frozen_amount, freeze_status FROM ' . Db::table('chat_red_packet_records')
+                . ' WHERE packet_id=? AND freeze_status=1 AND frozen_amount>0 FOR UPDATE',
+                [$packetId]
+            );
+            foreach ($rows ?: [] as $row) {
+                $amt = round((float)($row['frozen_amount'] ?? 0), 2);
+                $uid = (int)($row['user_id'] ?? 0);
+                $rid = (int)($row['id'] ?? 0);
+                if ($uid <= 0 || $rid <= 0 || $amt <= 0.00001) {
+                    if ($rid > 0) {
+                        Db::exec(
+                            'UPDATE ' . Db::table('chat_red_packet_records')
+                            . ' SET freeze_status=2, frozen_amount=0 WHERE id=?',
+                            [$rid]
+                        );
+                    }
+                    continue;
+                }
+                $this->wallet->unfreeze(
+                    $uid,
+                    $amt,
+                    'red_packet_unfreeze',
+                    '红包潜在赔付解冻 ' . $packetNo,
+                    $bizMeta
+                );
+                Db::exec(
+                    'UPDATE ' . Db::table('chat_red_packet_records')
+                    . ' SET freeze_status=2 WHERE id=?',
+                    [$rid]
+                );
+                $n++;
+            }
+            Db::commit();
+        } catch (\Throwable $e) {
+            Db::rollBack();
+            throw $e;
+        }
+        return $n;
     }
 
     protected function ensureRedisSeeded(array $packet, $queueKey, $metaKey)

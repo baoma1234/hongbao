@@ -30,11 +30,14 @@ class FansHubWallet
         $turnover = (float)($account->turnover ?? 0);
         // 充值/提现资产：红宝
         $hongbao = (float)($account->hongbao ?? 0);
+        $hongbaoFrozen = (float)($account->hongbao_frozen ?? 0);
         $minTurnover = (float)($cfg['withdraw_turnover_min'] ?? 0);
         $ratio = max(0, (float)($cfg['withdraw_turnover_ratio'] ?? 1));
         return [
             'hongbao'                  => $hongbao,
-            // 兼容旧字段：可提现额 = 红宝
+            'hongbao_frozen'           => $hongbaoFrozen,
+            'hongbao_total'            => round($hongbao + $hongbaoFrozen, 2),
+            // 兼容旧字段：可提现额 = 可用红宝（不含冻结）
             'balance'                  => $hongbao,
             'turnover'                 => $turnover,
             'withdraw_turnover_min'    => $minTurnover,
@@ -79,6 +82,8 @@ class FansHubWallet
             'red_packet_mine_pay'          => '中雷赔付',
             'red_packet_worst_pay'         => '手气最差赔付',
             'red_packet_compensate_in'     => '红包赔付收入',
+            'red_packet_freeze'            => '红包赔付冻结',
+            'red_packet_unfreeze'          => '红包赔付解冻',
         ];
     }
 

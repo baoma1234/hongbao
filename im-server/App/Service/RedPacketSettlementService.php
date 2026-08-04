@@ -198,6 +198,32 @@ class RedPacketSettlementService
                 }
             }
 
+            // ---------- 1.5) 先解冻所有领取人的潜在赔付锁定，再执行实际赔付扣款 ----------
+            foreach ($records as $row) {
+                if ((int)($row['freeze_status'] ?? 0) !== 1) {
+                    continue;
+                }
+                $freezeAmt = round((float)($row['frozen_amount'] ?? 0), 2);
+                $freezeUid = (int)($row['user_id'] ?? 0);
+                $freezeRid = (int)($row['id'] ?? 0);
+                if ($freezeUid > 0 && $freezeAmt > 0.00001) {
+                    $this->wallet->unfreeze(
+                        $freezeUid,
+                        $freezeAmt,
+                        'red_packet_unfreeze',
+                        '红包潜在赔付解冻 ' . $packetNo,
+                        $bizMeta
+                    );
+                }
+                if ($freezeRid > 0) {
+                    Db::exec(
+                        'UPDATE ' . Db::table('chat_red_packet_records')
+                        . ' SET freeze_status=2 WHERE id=?',
+                        [$freezeRid]
+                    );
+                }
+            }
+
             // ---------- 2) 赔付：中雷 → 扣赔付金给发包方；拼手气最差 → 仅标记，续发时由最差用户直接发包（流水记在其名下）----------
             $compensateUsers = [];
             $compensateTotal = 0.0;

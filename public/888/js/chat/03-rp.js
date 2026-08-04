@@ -391,6 +391,7 @@
     if (balEl && state.money != null && !isNaN(state.money)) {
       balEl.textContent = '￥' + Number(state.money).toFixed(2);
     }
+    renderFrozenHints();
   }
 
   function openRpSendPage() {
@@ -580,8 +581,7 @@
     try {
       var packet = await send('redpacket.send', data);
       if (packet.data && packet.data.balance != null) {
-        state.money = parseFloat(packet.data.balance);
-        updateMoneyLabel();
+        applyWalletFromPacketData(packet.data);
       }
       var msg = packet.data && packet.data.message;
       if (msg) {
@@ -673,8 +673,7 @@
         remark: remark
       });
       if (packet.data && packet.data.balance != null) {
-        state.money = parseFloat(packet.data.balance);
-        updateMoneyLabel();
+        applyWalletFromPacketData(packet.data);
       }
       var msg = packet.data && packet.data.message;
       if (msg) {

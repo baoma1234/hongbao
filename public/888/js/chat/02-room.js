@@ -3481,8 +3481,7 @@
     payload.group_id = state.room.id | 0;
     var gpacket = await send('group.send', payload);
     if (gpacket.data && gpacket.data.balance != null) {
-      state.money = parseFloat(gpacket.data.balance);
-      updateMoneyLabel();
+      applyWalletFromPacketData(gpacket.data);
     }
     return gpacket.data && gpacket.data.message;
   }
@@ -3724,8 +3723,7 @@
       }
       var amt = packet.data && packet.data.amount;
       if (packet.data && packet.data.balance != null) {
-        state.money = parseFloat(packet.data.balance);
-        updateMoneyLabel();
+        applyWalletFromPacketData(packet.data);
       }
       markRpCover(packetId, { grabbed: true, faded: true });
       try { refreshRpOrMessages(packetId, true); } catch (eRender) {}

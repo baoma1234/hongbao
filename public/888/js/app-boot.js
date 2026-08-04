@@ -1,6 +1,6 @@
 /* js/app-boot.js — account state, DOM ready, onload, page actions */
 
-        let account = { balance: 0.00, rights: 0, rights_locked: 0, rights_free: 0, hongbao: 0, phone: '', main_uid: '', main_uid_pending: '', main_uid_audit: '', main_uid_reject_reason: '' };
+        let account = { balance: 0.00, rights: 0, rights_locked: 0, rights_free: 0, hongbao: 0, hongbao_frozen: 0, phone: '', main_uid: '', main_uid_pending: '', main_uid_audit: '', main_uid_reject_reason: '' };
 
         function freeRights() {
             if (account.rights_free != null && account.rights_free !== '') {
@@ -906,6 +906,11 @@
             if (rightsEl) rightsEl.innerText = account.rights.toFixed(2);
             const hbHome = document.getElementById('myHongbaoPool');
             if (hbHome) hbHome.innerText = Number(account.hongbao || 0).toFixed(2);
+            const frozenHint = document.getElementById('hongbaoFrozenHint');
+            const frozenEl = document.getElementById('myHongbaoFrozen');
+            const frozenAmt = Math.max(0, Number(account.hongbao_frozen) || 0);
+            if (frozenEl) frozenEl.innerText = frozenAmt.toFixed(2);
+            if (frozenHint) frozenHint.hidden = frozenAmt <= 0.00001;
             // 兼容旧节点
             const balEl = document.getElementById('myUserBalance');
             if (balEl) balEl.innerText = Number(account.hongbao || 0).toFixed(2);

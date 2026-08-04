@@ -22,6 +22,10 @@
                         <strong class="asset-value asset-value-green">
                             <span class="asset-currency" id="balanceCurrencySym">￥</span><span id="myHongbaoPool">0.00</span>
                         </strong>
+                        <div class="asset-frozen-hint" id="hongbaoFrozenHint" hidden>
+                            <span data-copy="asset_hongbao_frozen_label">冻结</span>
+                            <span class="asset-currency">￥</span><span id="myHongbaoFrozen">0.00</span>
+                        </div>
                         <div class="asset-progress-wrap">
                             <div class="asset-progress-bar"><div class="asset-progress-fill" id="balanceProgressFill"></div></div>
                         </div>

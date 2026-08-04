@@ -47,6 +47,9 @@
         state.canCreateGroup = !!(packet.data && packet.data.can_create_group);
         var bal = packet.data && packet.data.user && (packet.data.user.balance != null ? packet.data.user.balance : packet.data.user.money);
         state.money = bal != null ? parseFloat(bal) : state.money;
+        if (packet.data && packet.data.user && packet.data.user.hongbao_frozen != null) {
+          state.hongbaoFrozen = parseFloat(packet.data.user.hongbao_frozen);
+        }
         setConnStatus(chatT('chat_conn_ok'), 'ok');
         updateMoneyLabel();
         syncBalanceFromAccount();

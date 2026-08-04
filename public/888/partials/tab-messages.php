@@ -522,6 +522,10 @@
                         <div class="chat-rp-balance-hint">
                             <span data-copy="chat_rp_balance_hint">可用红宝：</span>
                             <strong id="chatRpBalance">￥0.00</strong>
+                            <span id="chatRpFrozenWrap" class="chat-rp-frozen-hint" hidden>
+                                · <span data-copy="chat_rp_frozen_hint">冻结</span>
+                                <strong id="chatRpFrozen">￥0.00</strong>
+                            </span>
                         </div>
 
                         <div class="chat-rp-form">
