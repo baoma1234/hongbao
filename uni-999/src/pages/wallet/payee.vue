@@ -1,87 +1,136 @@
 <template>
-  <view class="page">
-    <view class="hint">每种钱包类型独立绑定，地址不可重复使用。绑定需支付密码。</view>
-
-    <view class="section">
-      <text class="h">虚拟币钱包</text>
-      <view
-        v-for="wt in walletTypes"
-        :key="wt.type"
-        class="item"
-        :class="{ on: selectedType === wt.type }"
-        @click="selectedType = wt.type"
-      >
-        <view class="row">
-          <text class="name">{{ wt.label }}</text>
-          <text class="st" :class="{ ok: !!binds[wt.type] }">
-            {{ binds[wt.type] ? '已绑定' : '未绑定' }}
-          </text>
-        </view>
-        <text class="addr mono" v-if="binds[wt.type]">{{ binds[wt.type].account_no }}</text>
+  <view class="hb-sub">
+    <view class="match-card">
+      <view class="wallet-payee-tabs">
+        <view
+          class="wallet-payee-tab"
+          :class="{ active: tab === 'bank' }"
+          @click="tab = 'bank'"
+        >银行卡</view>
+        <view
+          class="wallet-payee-tab"
+          :class="{ active: tab === 'wallet' }"
+          @click="tab = 'wallet'"
+        >数字钱包</view>
       </view>
-    </view>
 
-    <view class="section">
-      <text class="h">USDT 多链</text>
-      <view v-for="c in usdtChains" :key="c.wallet_type" class="item">
-        <view class="row">
-          <text class="name">{{ c.label }}</text>
-          <text class="st" :class="{ ok: !!binds[c.wallet_type] }">
-            {{ binds[c.wallet_type] ? '已绑定' : '未绑定' }}
-          </text>
+      <view v-if="tab === 'bank'">
+        <view class="profile-meta-line" v-if="bankBind">
+          已绑定：{{ bankBind.account_name }} · {{ bankBind.account_no }}
         </view>
-        <text class="addr mono" v-if="binds[c.wallet_type]">
-          {{ binds[c.wallet_type].account_no }}
-        </text>
-        <input
-          v-else
-          v-model="usdtInputs[c.wallet_type]"
-          :placeholder="'填写 ' + c.label + ' 地址'"
-        />
-        <button
-          v-if="!binds[c.wallet_type]"
-          class="bind-btn"
-          size="mini"
-          :disabled="submitting"
-          @click="bindUsdt(c)"
-        >
-          绑定 {{ c.label }}
+        <view class="profile-field">
+          <text class="lab">开户名</text>
+          <input class="hb-input" v-model="bankName" placeholder="持卡人姓名" />
+        </view>
+        <view class="profile-field">
+          <text class="lab">银行卡号</text>
+          <input class="hb-input" v-model="bankNo" placeholder="请输入银行卡号" />
+        </view>
+        <view class="profile-field">
+          <text class="lab">开户行</text>
+          <input class="hb-input" v-model="bankBank" placeholder="如：中国工商银行" />
+        </view>
+        <button class="btn-uid-submit" :disabled="submitting" @click="bindBank">
+          {{ submitting ? '提交中…' : '保存银行卡' }}
         </button>
       </view>
+
+      <view v-else>
+        <view class="profile-meta-line">选择钱包类型，展示并管理已绑定地址（与提现钱包一致）</view>
+        <view class="wallet-channel-list is-grid">
+          <view
+            v-for="wt in walletTypes"
+            :key="wt.type"
+            class="wallet-channel-item"
+            :class="{ active: selectedType === wt.type }"
+            @click="selectWallet(wt.type)"
+          >
+            <view class="wallet-channel-icon wallet-channel-icon--placeholder">
+              {{ wt.label.charAt(0) }}
+            </view>
+            <view class="wallet-channel-meta">
+              <text class="wallet-channel-name">{{ wt.label }}</text>
+              <text v-if="binds[wt.type]" class="wallet-channel-bound">已绑定</text>
+            </view>
+          </view>
+          <view
+            class="wallet-channel-item"
+            :class="{ active: selectedType === 'USDT_MULTI' }"
+            @click="selectWallet('USDT_MULTI')"
+          >
+            <image class="wallet-channel-icon" :src="usdtIcon" mode="aspectFill" />
+            <view class="wallet-channel-meta">
+              <text class="wallet-channel-name">USDT钱包</text>
+              <text v-if="usdtAnyBound" class="wallet-channel-bound">已绑定</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="wallet-bind-panel" v-if="selectedType && selectedType !== 'USDT_MULTI'">
+          <view class="profile-meta-line">当前钱包：<strong>{{ selectedLabel }}</strong></view>
+          <view class="profile-meta-line" v-if="binds[selectedType]">
+            钱包地址：<strong>{{ binds[selectedType].account_no }}</strong>
+          </view>
+          <template v-else>
+            <view class="profile-field">
+              <text class="lab">钱包地址</text>
+              <input class="hb-input" v-model="accountNo" placeholder="请输入钱包收款地址" />
+            </view>
+            <view class="profile-field">
+              <text class="lab">备注姓名（可选）</text>
+              <input class="hb-input" v-model="accountName" placeholder="可选" />
+            </view>
+            <button class="btn-uid-submit" :disabled="submitting" @click="onBindSelected">
+              {{ submitting ? '提交中…' : '确认绑定' }}
+            </button>
+          </template>
+        </view>
+
+        <view class="wallet-bind-panel" v-if="selectedType === 'USDT_MULTI'">
+          <view class="profile-meta-line">USDT 分三条填写：TRC20 / ERC20 / TON，可只绑其中一条或几条</view>
+          <view v-for="c in usdtChains" :key="c.wallet_type" class="profile-field">
+            <text class="lab">{{ c.label }} 地址</text>
+            <view class="profile-meta-line" v-if="binds[c.wallet_type]">
+              已绑：{{ binds[c.wallet_type].account_no }}
+            </view>
+            <input
+              v-else
+              class="hb-input"
+              v-model="usdtInputs[c.wallet_type]"
+              :placeholder="'USDT-' + c.label + ' 收款地址'"
+            />
+          </view>
+          <view class="profile-field">
+            <text class="lab">备注姓名（可选）</text>
+            <input class="hb-input" v-model="usdtName" placeholder="可选" />
+          </view>
+          <button class="btn-uid-submit" :disabled="submitting" @click="bindUsdtAll">
+            {{ submitting ? '提交中…' : '确认绑定' }}
+          </button>
+        </view>
+      </view>
     </view>
 
-    <view class="form" v-if="selectedType && !binds[selectedType]">
-      <text class="h">绑定 {{ selectedLabel }}</text>
-      <view class="field">
-        <text class="lab">收款地址</text>
-        <input v-model="accountNo" placeholder="钱包地址" />
-      </view>
-      <view class="field">
-        <text class="lab">备注名（可选）</text>
-        <input v-model="accountName" placeholder="默认：钱包用户" />
-      </view>
-      <button class="submit" :disabled="submitting" @click="onBindSelected">
-        {{ submitting ? '提交中…' : '确认绑定' }}
-      </button>
-    </view>
+    <view class="wallet-ledger-empty" v-if="loading">加载中…</view>
+    <view class="wallet-warn" v-if="error" style="text-align:center">{{ error }}</view>
 
-    <view class="empty" v-if="loading">加载中…</view>
-    <view class="empty err" v-if="error">{{ error }}</view>
-
-    <view class="mask" v-if="pwdVisible" @click="cancelPwd">
-      <view class="pwd-box" @click.stop>
-        <text class="pwd-title">{{ needSetPwd ? '设置支付密码' : '请输入支付密码' }}</text>
-        <input class="pwd-input" password v-model="pwd" placeholder="支付密码" />
-        <input
-          v-if="needSetPwd"
-          class="pwd-input"
-          password
-          v-model="pwd2"
-          placeholder="再次输入"
-        />
-        <view class="pwd-actions">
-          <button size="mini" @click="cancelPwd">取消</button>
-          <button size="mini" type="warn" @click="confirmPwd">确认</button>
+    <view class="wallet-paypwd-modal" v-if="pwdVisible" @click="cancelPwd">
+      <view class="wallet-paypwd-sheet" @click.stop>
+        <view class="wallet-paypwd-title">
+          {{ needSetPwd ? '设置支付密码' : '请输入支付密码' }}
+        </view>
+        <view class="wallet-paypwd-desc" v-if="needSetPwd">首次设置，用于提现与绑定地址</view>
+        <view class="profile-field">
+          <text class="lab">支付密码</text>
+          <input class="hb-input" password v-model="pwd" placeholder="支付密码" />
+        </view>
+        <view class="profile-field" v-if="needSetPwd">
+          <text class="lab">确认支付密码</text>
+          <input class="hb-input" password v-model="pwd2" placeholder="再次输入" />
+        </view>
+        <view class="wallet-paypwd-actions">
+          <button class="wallet-paypwd-cancel" @click="cancelPwd">取消</button>
+          <button class="btn-uid-submit wallet-paypwd-ok" @click="confirmPwd">确认</button>
         </view>
       </view>
     </view>
@@ -110,11 +159,17 @@ const error = ref('')
 const info = ref({})
 const binds = ref({})
 const walletTypes = ref([])
+const tab = ref('wallet')
 const selectedType = ref('')
 const accountNo = ref('')
 const accountName = ref('')
+const bankName = ref('')
+const bankNo = ref('')
+const bankBank = ref('')
 const usdtInputs = reactive({})
+const usdtName = ref('')
 const usdtChains = USDT_CHAINS
+const usdtIcon = '/888/img/pay/usdt.png'
 const submitting = ref(false)
 
 const pwdVisible = ref(false)
@@ -125,10 +180,20 @@ let pwdResolve = null
 let pwdReject = null
 
 const hasPayPassword = computed(() => !!(info.value && info.value.has_pay_password))
+const bankBind = computed(() => (binds.value && binds.value.BANK) || null)
 const selectedLabel = computed(() => {
   const hit = walletTypes.value.find((w) => w.type === selectedType.value)
   return (hit && hit.label) || selectedType.value
 })
+const usdtAnyBound = computed(() =>
+  USDT_CHAINS.some((c) => binds.value && binds.value[c.wallet_type])
+)
+
+function selectWallet(type) {
+  selectedType.value = type
+  accountNo.value = ''
+  accountName.value = ''
+}
 
 function promptPayPassword() {
   needSetPwd.value = !hasPayPassword.value
@@ -140,14 +205,12 @@ function promptPayPassword() {
     pwdReject = reject
   })
 }
-
 function cancelPwd() {
   pwdVisible.value = false
   if (pwdReject) pwdReject(new Error('已取消'))
   pwdResolve = null
   pwdReject = null
 }
-
 async function confirmPwd() {
   const p = String(pwd.value || '').trim()
   if (p.length < 6 || p.length > 32) {
@@ -160,10 +223,7 @@ async function confirmPwd() {
       return
     }
     try {
-      await apiRequest('setpaypassword', 'POST', {
-        pay_password: p,
-        confirm_password: p,
-      })
+      await apiRequest('setpaypassword', 'POST', { pay_password: p, confirm_password: p })
       if (info.value) info.value.has_pay_password = true
     } catch (e) {
       uni.showToast({ title: (e && e.message) || '设置失败', icon: 'none' })
@@ -177,24 +237,30 @@ async function confirmPwd() {
   if (r) r(p)
 }
 
-async function doBind(walletType, account_no, account_name) {
+async function doBind(walletType, account_no, account_name, bank_name, bindMode = 'wallet') {
   const no = String(account_no || '').trim()
   if (!no) {
-    uni.showToast({ title: '请填写地址', icon: 'none' })
-    return
+    uni.showToast({ title: '请填写完整信息', icon: 'none' })
+    return false
   }
+  const payPwd = await promptPayPassword()
+  await bindWallet(
+    walletType,
+    {
+      account_no: no,
+      account_name: String(account_name || '').trim() || '钱包用户',
+      bank_name: bank_name || walletType,
+    },
+    payPwd,
+    bindMode
+  )
+  return true
+}
+
+async function onBindSelected() {
   submitting.value = true
   try {
-    const payPwd = await promptPayPassword()
-    await bindWallet(
-      walletType,
-      {
-        account_no: no,
-        account_name: String(account_name || '').trim() || '钱包用户',
-        bank_name: walletType,
-      },
-      payPwd
-    )
+    await doBind(selectedType.value, accountNo.value, accountName.value, selectedType.value, 'wallet')
     uni.showToast({ title: '绑定成功', icon: 'none' })
     clearWalletCache()
     accountNo.value = ''
@@ -208,12 +274,51 @@ async function doBind(walletType, account_no, account_name) {
   }
 }
 
-function onBindSelected() {
-  return doBind(selectedType.value, accountNo.value, accountName.value)
+async function bindBank() {
+  if (!String(bankName.value || '').trim() || !String(bankNo.value || '').trim()) {
+    uni.showToast({ title: '请填写开户名与银行卡号', icon: 'none' })
+    return
+  }
+  submitting.value = true
+  try {
+    await doBind('BANK', bankNo.value, bankName.value, bankBank.value || '银行卡', 'bank')
+    uni.showToast({ title: '保存成功', icon: 'none' })
+    clearWalletCache()
+    await refresh()
+  } catch (e) {
+    if ((e && e.message) !== '已取消') {
+      uni.showToast({ title: (e && e.message) || '保存失败', icon: 'none' })
+    }
+  } finally {
+    submitting.value = false
+  }
 }
 
-function bindUsdt(c) {
-  return doBind(c.wallet_type, usdtInputs[c.wallet_type], c.label)
+async function bindUsdtAll() {
+  submitting.value = true
+  try {
+    let ok = 0
+    for (const c of USDT_CHAINS) {
+      if (binds.value && binds.value[c.wallet_type]) continue
+      const no = String(usdtInputs[c.wallet_type] || '').trim()
+      if (!no) continue
+      await doBind(c.wallet_type, no, usdtName.value || c.label, 'USDT-' + c.label, 'wallet')
+      ok += 1
+    }
+    if (!ok) {
+      uni.showToast({ title: '请至少填写一条地址', icon: 'none' })
+      return
+    }
+    uni.showToast({ title: '绑定成功', icon: 'none' })
+    clearWalletCache()
+    await refresh()
+  } catch (e) {
+    if ((e && e.message) !== '已取消') {
+      uni.showToast({ title: (e && e.message) || '绑定失败', icon: 'none' })
+    }
+  } finally {
+    submitting.value = false
+  }
 }
 
 function collectWalletTypes(withdrawChannels) {
@@ -222,9 +327,7 @@ function collectWalletTypes(withdrawChannels) {
     if (String(ch.bind_mode || '') !== 'wallet') return
     const t = String(ch.wallet_type || ch.payment_channel || '').trim()
     if (!t || t === 'USDT_MULTI' || t.indexOf('BS_USDT_') === 0) return
-    if (!map[t]) {
-      map[t] = { type: t, label: shortChannelName(ch) || t }
-    }
+    if (!map[t]) map[t] = { type: t, label: shortChannelName(ch) || t }
   })
   return Object.values(map)
 }
@@ -242,8 +345,10 @@ async function refresh() {
     const w = (bundle && bundle.withdraw) || {}
     binds.value = w.binds || {}
     walletTypes.value = collectWalletTypes(w.list || [])
-    if (!selectedType.value && walletTypes.value.length) {
-      selectedType.value = walletTypes.value[0].type
+    if (bankBind.value) {
+      bankName.value = bankBind.value.account_name || bankName.value
+      bankNo.value = bankBind.value.account_no || bankNo.value
+      bankBank.value = bankBind.value.bank_name || bankBank.value
     }
   } catch (e) {
     error.value = (e && e.message) || '加载失败'
@@ -256,139 +361,3 @@ onShow(() => {
   refresh()
 })
 </script>
-
-<style scoped>
-.page {
-  padding: 24rpx 28rpx 80rpx;
-  min-height: 100vh;
-}
-.hint {
-  font-size: 22rpx;
-  color: #9a8574;
-  margin-bottom: 20rpx;
-  line-height: 1.5;
-}
-.section,
-.form {
-  background: #fff;
-  border-radius: 16rpx;
-  padding: 24rpx;
-  margin-bottom: 20rpx;
-}
-.h {
-  display: block;
-  font-size: 28rpx;
-  font-weight: 800;
-  margin-bottom: 16rpx;
-}
-.item {
-  padding: 20rpx 0;
-  border-bottom: 1px solid #f0e8df;
-}
-.item:last-child {
-  border-bottom: none;
-}
-.item.on {
-  background: #fff8f5;
-  margin: 0 -12rpx;
-  padding-left: 12rpx;
-  padding-right: 12rpx;
-  border-radius: 12rpx;
-}
-.row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.name {
-  font-size: 28rpx;
-  font-weight: 700;
-}
-.st {
-  font-size: 22rpx;
-  color: #9a8574;
-}
-.st.ok {
-  color: #1a7f37;
-}
-.addr {
-  display: block;
-  margin-top: 8rpx;
-  font-size: 22rpx;
-  color: #6b5648;
-  word-break: break-all;
-}
-.mono {
-  font-family: ui-monospace, monospace;
-}
-.field {
-  margin-bottom: 16rpx;
-}
-.lab {
-  display: block;
-  font-size: 24rpx;
-  color: #6b5648;
-  margin-bottom: 8rpx;
-}
-input {
-  background: #f6f1ea;
-  border-radius: 10rpx;
-  padding: 16rpx 20rpx;
-  font-size: 26rpx;
-  margin-top: 10rpx;
-}
-.bind-btn {
-  margin-top: 12rpx;
-  background: #fff;
-  color: #c61114;
-  border: 1px solid #c61114;
-}
-.submit {
-  background: #c61114;
-  color: #fff;
-  margin-top: 8rpx;
-}
-.submit[disabled],
-.bind-btn[disabled] {
-  opacity: 0.5;
-}
-.empty {
-  text-align: center;
-  color: #9a8574;
-  padding: 40rpx;
-}
-.empty.err {
-  color: #c61114;
-}
-.mask {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 99;
-}
-.pwd-box {
-  width: 80%;
-  background: #fff;
-  border-radius: 20rpx;
-  padding: 36rpx 28rpx;
-}
-.pwd-title {
-  display: block;
-  font-size: 32rpx;
-  font-weight: 700;
-  text-align: center;
-  margin-bottom: 16rpx;
-}
-.pwd-input {
-  margin-top: 12rpx;
-}
-.pwd-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 16rpx;
-  margin-top: 28rpx;
-}
-</style>

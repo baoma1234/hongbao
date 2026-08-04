@@ -1,56 +1,71 @@
 <template>
-  <view class="page">
-    <view class="section" v-if="groups.length">
-      <scroll-view scroll-x class="tabs">
+  <view class="hb-sub">
+    <view class="match-card">
+      <view
+        v-if="groups.length > 1"
+        class="wallet-partition-tabs"
+        :class="{ 'is-3': groups.length >= 3 }"
+      >
         <view
           v-for="g in groups"
           :key="g.key"
-          class="tab"
-          :class="{ on: activeKey === g.key }"
+          class="wallet-partition-tab"
+          :class="{ active: activeKey === g.key }"
           @click="selectGroup(g.key)"
         >
           {{ g.name }}
         </view>
-      </scroll-view>
+      </view>
 
-      <view class="chans">
+      <view class="wallet-channel-list is-grid" v-if="activeChannels.length">
         <view
           v-for="ch in activeChannels"
           :key="ch.id"
-          class="chan"
-          :class="{ on: selectedId === Number(ch.id) }"
+          class="wallet-channel-item"
+          :class="{ active: selectedId === Number(ch.id) }"
           @click="selectChannel(ch)"
         >
-          <text class="name">{{ shortName(ch) }}</text>
-          <text class="meta">{{ channelMeta(ch) }}</text>
+          <image
+            v-if="iconUrl(ch)"
+            class="wallet-channel-icon"
+            :src="iconUrl(ch)"
+            mode="aspectFill"
+          />
+          <view v-else class="wallet-channel-icon wallet-channel-icon--placeholder">
+            {{ shortName(ch).charAt(0) }}
+          </view>
+          <view class="wallet-channel-meta">
+            <text class="wallet-channel-name">{{ shortName(ch) }}</text>
+          </view>
         </view>
+      </view>
+      <view class="wallet-channel-empty" v-else-if="!loading">暂无可用通道，请联系客服</view>
+
+      <view class="wallet-amount-panel" v-if="selected">
+        <view class="profile-field">
+          <text class="lab">充值金额</text>
+          <view class="wallet-quick-amounts" v-if="quickAmounts.length">
+            <view
+              v-for="q in quickAmounts"
+              :key="q"
+              class="wallet-quick-amt"
+              :class="{ active: String(amount) === String(q) }"
+              @click="amount = String(q)"
+            >
+              {{ q }}
+            </view>
+          </view>
+          <input class="hb-input" type="digit" v-model="amount" :placeholder="amountPh" />
+          <view class="profile-meta-line wallet-fx-hint" v-if="fxText">{{ fxText }}</view>
+        </view>
+        <button class="btn-uid-submit" :disabled="submitting" @click="onSubmit">
+          {{ submitting ? '提交中…' : '确认充值' }}
+        </button>
       </view>
     </view>
 
-    <view class="form" v-if="selected">
-      <view class="field">
-        <text class="lab">充值金额</text>
-        <input type="digit" v-model="amount" :placeholder="amountPh" />
-        <text class="fx" v-if="fxText">{{ fxText }}</text>
-      </view>
-      <view class="quicks" v-if="quickAmounts.length">
-        <view
-          v-for="q in quickAmounts"
-          :key="q"
-          class="q"
-          @click="amount = String(q)"
-        >
-          {{ q }}
-        </view>
-      </view>
-      <button class="submit" :disabled="submitting" @click="onSubmit">
-        {{ submitting ? '提交中…' : '确认充值' }}
-      </button>
-    </view>
-
-    <view class="empty" v-else-if="!loading">请选择充值通道</view>
-    <view class="empty" v-if="loading">加载中…</view>
-    <view class="empty err" v-if="error">{{ error }}</view>
+    <view class="wallet-ledger-empty" v-if="loading">加载中…</view>
+    <view class="wallet-warn" v-if="error" style="text-align:center;margin-top:12px">{{ error }}</view>
   </view>
 </template>
 
@@ -59,6 +74,7 @@ import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getToken } from '../../utils/auth.js'
 import {
+  channelIconUrl,
   clearWalletCache,
   findChannel,
   fxHintText,
@@ -88,7 +104,7 @@ const activeChannels = computed(() => {
 const selected = computed(() => findChannel(channels.value, selectedId.value))
 const amountPh = computed(() => {
   const ch = selected.value
-  if (!ch) return '金额'
+  if (!ch) return '请输入金额'
   const min = Number(ch.min_amount || 0)
   const max = Number(ch.max_amount || 0)
   if (min > 0 && max > 0) return money(min) + ' ~ ' + money(max)
@@ -107,19 +123,14 @@ const quickAmounts = computed(() => {
 function shortName(ch) {
   return shortChannelName(ch)
 }
-function channelMeta(ch) {
-  const min = Number(ch.min_amount || 0)
-  const max = Number(ch.max_amount || 0)
-  if (min > 0 || max > 0) return money(min) + '~' + money(max)
-  return ''
+function iconUrl(ch) {
+  return channelIconUrl(ch)
 }
-
 function selectGroup(key) {
   activeKey.value = key
   selectedId.value = 0
   amount.value = ''
 }
-
 function selectChannel(ch) {
   selectedId.value = Number(ch.id)
   amount.value = ''
@@ -136,10 +147,7 @@ async function onSubmit() {
   try {
     const data = await submitRecharge(selectedId.value, Number(amount.value))
     const info = (data && data.pay_info) || {}
-    uni.showToast({
-      title: info.message || '充值申请已提交',
-      icon: 'none',
-    })
+    uni.showToast({ title: info.message || '充值申请已提交', icon: 'none' })
     openPayResult(info)
     clearWalletCache()
   } catch (e) {
@@ -161,9 +169,7 @@ async function refresh() {
     const r = (bundle && bundle.recharge) || {}
     channels.value = r.list || []
     partitions.value = r.partitions || []
-    if (!activeKey.value && groups.value.length) {
-      activeKey.value = groups.value[0].key
-    }
+    if (!activeKey.value && groups.value.length) activeKey.value = groups.value[0].key
   } catch (e) {
     error.value = (e && e.message) || '加载失败'
   } finally {
@@ -175,115 +181,3 @@ onShow(() => {
   refresh()
 })
 </script>
-
-<style scoped>
-.page {
-  padding: 24rpx 28rpx 80rpx;
-  min-height: 100vh;
-}
-.section {
-  background: #fff;
-  border-radius: 16rpx;
-  padding: 20rpx;
-  margin-bottom: 20rpx;
-}
-.tabs {
-  white-space: nowrap;
-  margin-bottom: 16rpx;
-}
-.tab {
-  display: inline-block;
-  padding: 12rpx 28rpx;
-  margin-right: 12rpx;
-  border-radius: 999rpx;
-  font-size: 24rpx;
-  background: #f6f1ea;
-  color: #6b5648;
-}
-.tab.on {
-  background: #c61114;
-  color: #fff;
-}
-.chans {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12rpx;
-}
-.chan {
-  min-width: 28%;
-  flex: 1 1 28%;
-  padding: 20rpx 16rpx;
-  border-radius: 12rpx;
-  background: #faf7f3;
-  border: 2rpx solid transparent;
-}
-.chan.on {
-  border-color: #c61114;
-  background: #fff5f5;
-}
-.name {
-  display: block;
-  font-size: 26rpx;
-  font-weight: 700;
-}
-.meta {
-  display: block;
-  margin-top: 6rpx;
-  font-size: 20rpx;
-  color: #9a8574;
-}
-.form {
-  background: #fff;
-  border-radius: 16rpx;
-  padding: 24rpx;
-}
-.field {
-  margin-bottom: 20rpx;
-}
-.lab {
-  display: block;
-  font-size: 24rpx;
-  color: #6b5648;
-  margin-bottom: 8rpx;
-}
-input {
-  background: #f6f1ea;
-  border-radius: 10rpx;
-  padding: 16rpx 20rpx;
-  font-size: 28rpx;
-}
-.fx {
-  display: block;
-  margin-top: 8rpx;
-  font-size: 22rpx;
-  color: #9a8574;
-}
-.quicks {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12rpx;
-  margin-bottom: 20rpx;
-}
-.q {
-  padding: 12rpx 24rpx;
-  background: #f6f1ea;
-  border-radius: 10rpx;
-  font-size: 26rpx;
-}
-.submit {
-  background: #c61114;
-  color: #fff;
-}
-.submit[disabled] {
-  opacity: 0.5;
-}
-.empty {
-  text-align: center;
-  color: #9a8574;
-  padding: 40rpx;
-  font-size: 26rpx;
-}
-.empty.err {
-  color: #c61114;
-}
-</style>

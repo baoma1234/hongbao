@@ -2,6 +2,7 @@
 import { onLaunch, onShow } from '@dcloudio/uni-app'
 import { getToken } from './utils/auth.js'
 import { imConnect, imDisconnect } from './utils/im.js'
+import './styles/hb.css'
 
 onLaunch(() => {
   const token = getToken()
@@ -24,6 +25,6 @@ onShow(() => {
 
 <style>
 page {
-  background-color: #f6f1ea;
+  background-color: #ffffff;
 }
 </style>

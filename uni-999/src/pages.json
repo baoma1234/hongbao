@@ -66,10 +66,10 @@
     "navigationBarTextStyle": "white",
     "navigationBarTitleText": "红宝",
     "navigationBarBackgroundColor": "#C61114",
-    "backgroundColor": "#f6f1ea"
+    "backgroundColor": "#ffffff"
   },
   "tabBar": {
-    "color": "#9a8574",
+    "color": "#9a8b7e",
     "selectedColor": "#C61114",
     "backgroundColor": "#ffffff",
     "borderStyle": "black",

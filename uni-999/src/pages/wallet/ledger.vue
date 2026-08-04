@@ -1,24 +1,36 @@
 <template>
-  <view class="page">
-    <view v-if="!list.length && !loading" class="empty">暂无资金流水</view>
-    <view v-for="item in list" :key="rowKey(item)" class="row">
-      <view class="left">
-        <text class="title">{{ item.title || item.type_text || item.biz_type || '变动' }}</text>
-        <text class="time">{{ item.createtime_text || item.created_at || item.createtime || '' }}</text>
-        <text class="remark" v-if="item.remark">{{ item.remark }}</text>
-      </view>
-      <view class="right">
-        <text class="amt" :class="amountCls(item)">{{ amountText(item) }}</text>
-        <text class="after" v-if="afterText(item)">余 {{ afterText(item) }}</text>
+  <view class="hb-sub">
+    <view class="wallet-ledger-list" v-if="list.length">
+      <view v-for="item in list" :key="rowKey(item)" class="wallet-ledger-item">
+        <view class="wallet-ledger-main">
+          <view class="wallet-ledger-title">
+            {{ item.title || item.type_text || item.biz_type || '变动' }}
+          </view>
+          <view class="wallet-ledger-sub" v-if="item.remark">{{ item.remark }}</view>
+          <view class="wallet-ledger-time">
+            {{ item.createtime_text || item.created_at || item.createtime || '' }}
+          </view>
+        </view>
+        <view>
+          <view class="wallet-ledger-amount" :class="amountCls(item)">{{ amountText(item) }}</view>
+          <view class="wallet-ledger-time" v-if="afterText(item)" style="text-align:right">
+            余 {{ afterText(item) }}
+          </view>
+        </view>
       </view>
     </view>
+    <view class="wallet-ledger-empty" v-else-if="!loading">暂无资金流水</view>
+    <view class="wallet-ledger-empty" v-if="loading && !list.length">加载中…</view>
+    <view class="wallet-warn" v-if="error" style="text-align:center">{{ error }}</view>
 
-    <view class="more" v-if="hasMore">
-      <button size="mini" :disabled="loading" @click="loadMore">
-        {{ loading ? '加载中…' : '加载更多' }}
-      </button>
-    </view>
-    <view class="empty" v-if="error">{{ error }}</view>
+    <button
+      v-if="hasMore"
+      class="wallet-ledger-more"
+      :disabled="loading"
+      @click="loadMore"
+    >
+      {{ loading ? '加载中…' : '加载更多' }}
+    </button>
   </view>
 </template>
 
@@ -37,7 +49,6 @@ const error = ref('')
 function rowKey(item) {
   return item.id || item.createtime + '-' + (item.hongbao_change || item.balance_change)
 }
-
 function amountText(item) {
   return ledgerAmountText(item).text
 }
@@ -85,73 +96,3 @@ onShow(() => {
   load(1, false)
 })
 </script>
-
-<style scoped>
-.page {
-  padding: 24rpx 28rpx 80rpx;
-  min-height: 100vh;
-}
-.row {
-  display: flex;
-  justify-content: space-between;
-  gap: 20rpx;
-  background: #fff;
-  border-radius: 16rpx;
-  padding: 24rpx;
-  margin-bottom: 16rpx;
-}
-.left {
-  flex: 1;
-  min-width: 0;
-}
-.title {
-  display: block;
-  font-size: 28rpx;
-  font-weight: 700;
-  color: #2a1f18;
-}
-.time {
-  display: block;
-  margin-top: 6rpx;
-  font-size: 22rpx;
-  color: #9a8574;
-}
-.remark {
-  display: block;
-  margin-top: 6rpx;
-  font-size: 22rpx;
-  color: #6b5648;
-  word-break: break-all;
-}
-.right {
-  text-align: right;
-  flex-shrink: 0;
-}
-.amt {
-  display: block;
-  font-size: 30rpx;
-  font-weight: 800;
-}
-.amt.plus {
-  color: #1a7f37;
-}
-.amt.minus {
-  color: #c61114;
-}
-.after {
-  display: block;
-  margin-top: 6rpx;
-  font-size: 20rpx;
-  color: #9a8574;
-}
-.more {
-  text-align: center;
-  padding: 20rpx;
-}
-.empty {
-  text-align: center;
-  color: #9a8574;
-  padding: 60rpx 20rpx;
-  font-size: 26rpx;
-}
-</style>

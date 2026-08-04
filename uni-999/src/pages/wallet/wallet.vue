@@ -1,33 +1,54 @@
 <template>
-  <view class="page">
-    <view class="hero">
-      <text class="label">红宝余额</text>
-      <text class="bal">{{ balanceText }}</text>
-      <text class="sub">累计流水 {{ turnoverText }}</text>
-      <text class="hint" v-if="turnHint">{{ turnHint }}</text>
+  <view class="hb-page">
+    <view class="match-card" style="margin-bottom:14px">
+      <view class="wallet-bal-line">红宝余额 <strong>{{ balanceText }}</strong></view>
+      <view class="profile-meta-line">累计流水：{{ turnoverText }}</view>
+      <view class="profile-meta-line" v-if="turnHint">{{ turnHint }}</view>
     </view>
 
-    <view class="grid">
-      <view class="cell" @click="go('recharge')">
-        <text class="t">充值</text>
-        <text class="d">选通道入账</text>
+    <view class="profile-quick-sheet">
+      <view class="profile-quick-item" @click="go('recharge')">
+        <view class="profile-quick-ico profile-quick-ico-gold">充</view>
+        <text class="profile-quick-label">充值</text>
       </view>
-      <view class="cell" @click="go('withdraw')">
-        <text class="t">提现</text>
-        <text class="d">通道 / 线上合作</text>
+      <view class="profile-quick-item" @click="go('withdraw')">
+        <view class="profile-quick-ico profile-quick-ico-gold">提</view>
+        <text class="profile-quick-label">提现</text>
       </view>
-      <view class="cell" @click="go('ledger')">
-        <text class="t">流水</text>
-        <text class="d">资金明细</text>
+      <view class="profile-quick-item" @click="go('ledger')">
+        <view class="profile-quick-ico">流</view>
+        <text class="profile-quick-label">流水</text>
       </view>
-      <view class="cell" @click="go('payee')">
-        <text class="t">收款地址</text>
-        <text class="d">绑定钱包</text>
+      <view class="profile-quick-item" @click="go('payee')">
+        <view class="profile-quick-ico">址</view>
+        <text class="profile-quick-label">地址</text>
       </view>
     </view>
 
-    <view class="tip" v-if="loading">加载中…</view>
-    <view class="tip err" v-else-if="error">{{ error }}</view>
+    <view class="profile-section">
+      <view class="profile-section-label">资产服务</view>
+      <view class="profile-menu-sheet">
+        <view class="profile-menu-row" @click="go('payee')">
+          <view class="profile-menu-ico">卡</view>
+          <view class="profile-menu-main">
+            <text><text style="font-weight:750;font-size:15px">钱包地址</text></text>
+            <text><text style="font-size:12px;color:#8a7a6e">绑定银行卡与数字钱包</text></text>
+          </view>
+          <text class="profile-menu-arrow">›</text>
+        </view>
+        <view class="profile-menu-row" @click="go('ledger')">
+          <view class="profile-menu-ico">单</view>
+          <view class="profile-menu-main">
+            <text><text style="font-weight:750;font-size:15px">资金流水</text></text>
+            <text><text style="font-size:12px;color:#8a7a6e">红宝与股份变动明细</text></text>
+          </view>
+          <text class="profile-menu-arrow">›</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="profile-meta-line" v-if="loading" style="text-align:center;padding:20px">加载中…</view>
+    <view class="wallet-warn" v-else-if="error" style="text-align:center">{{ error }}</view>
   </view>
 </template>
 
@@ -49,7 +70,11 @@ const balanceText = computed(() => {
 const turnoverText = computed(() => money((info.value && info.value.turnover) || 0))
 const turnHint = computed(() => turnoverHint(info.value))
 
-async function refresh(force = false) {
+function go(which) {
+  uni.navigateTo({ url: '/pages/wallet/' + which })
+}
+
+onShow(async () => {
   if (!getToken()) {
     uni.reLaunch({ url: '/pages/login/login' })
     return
@@ -57,89 +82,12 @@ async function refresh(force = false) {
   loading.value = true
   error.value = ''
   try {
-    const bundle = await loadWalletBootstrap(force)
+    const bundle = await loadWalletBootstrap(false)
     info.value = (bundle && bundle.info) || {}
   } catch (e) {
     error.value = (e && e.message) || '加载失败'
   } finally {
     loading.value = false
   }
-}
-
-function go(which) {
-  uni.navigateTo({ url: '/pages/wallet/' + which })
-}
-
-onShow(() => {
-  refresh(false)
 })
 </script>
-
-<style scoped>
-.page {
-  padding: 32rpx;
-  min-height: 100vh;
-  background: linear-gradient(180deg, #f8ebe0 0%, #f6f1ea 40%);
-}
-.hero {
-  background: linear-gradient(135deg, #c61114 0%, #9a0e10 100%);
-  border-radius: 28rpx;
-  padding: 40rpx 36rpx;
-  color: #fff;
-  margin-bottom: 28rpx;
-}
-.label {
-  font-size: 24rpx;
-  opacity: 0.85;
-}
-.bal {
-  display: block;
-  font-size: 64rpx;
-  font-weight: 800;
-  letter-spacing: 1rpx;
-  margin: 8rpx 0 12rpx;
-}
-.sub {
-  display: block;
-  font-size: 24rpx;
-  opacity: 0.9;
-}
-.hint {
-  display: block;
-  margin-top: 16rpx;
-  font-size: 22rpx;
-  opacity: 0.75;
-  line-height: 1.4;
-}
-.grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20rpx;
-}
-.cell {
-  background: #fff;
-  border-radius: 20rpx;
-  padding: 32rpx 28rpx;
-}
-.t {
-  display: block;
-  font-size: 32rpx;
-  font-weight: 700;
-  color: #2a1f18;
-}
-.d {
-  display: block;
-  margin-top: 8rpx;
-  font-size: 22rpx;
-  color: #9a8574;
-}
-.tip {
-  margin-top: 28rpx;
-  text-align: center;
-  color: #9a8574;
-  font-size: 24rpx;
-}
-.tip.err {
-  color: #c61114;
-}
-</style>

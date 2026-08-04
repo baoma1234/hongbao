@@ -12,11 +12,50 @@ export function money(n) {
 
 export function shortChannelName(ch) {
   if (!ch) return '通道'
-  return String(ch.name || '')
+  if (
+    String(ch.wallet_type || '') === 'USDT_MULTI' ||
+    (String(ch.handler || '').toLowerCase() === 'bs' &&
+      /usdt/i.test(String(ch.name || '') + String(ch.payment_channel || '')))
+  ) {
+    return 'USDT钱包'
+  }
+  const raw = String(ch.name || '')
     .replace(/\s+/g, '')
     .replace(/(快捷)?(充值|代付|提现|支付)$/g, '')
     .replace(/收银台/g, '')
-    .trim() || ('通道' + (ch.id || ''))
+    .trim()
+  const known = {
+    no: 'NO钱包',
+    '234': '234钱包',
+    '808': '808钱包',
+    '988': '988钱包',
+    nopay: 'NO钱包',
+    k豆: 'K豆钱包',
+    jd: 'JD钱包',
+    c币: 'C币钱包',
+    ok: 'OK钱包',
+    to: 'TO钱包',
+    go: 'GO钱包',
+    万币: '万币钱包',
+  }
+  const key = String(ch.payment_channel || ch.wallet_type || raw || '')
+    .toLowerCase()
+    .replace(/\s+/g, '')
+  if (known[key]) return known[key]
+  if (known[raw]) return known[raw]
+  return raw || '通道' + (ch.id || '')
+}
+
+/** 通道图标：相对路径走 /888 静态资源 */
+export function channelIconUrl(ch) {
+  let icon = String((ch && ch.icon) || '').trim()
+  if (ch && String(ch.handler || '').toLowerCase() === 'bs') {
+    icon = 'img/pay/usdt.png'
+  }
+  if (!icon) return ''
+  if (/^https?:\/\//i.test(icon) || icon.startsWith('data:')) return icon
+  if (icon.startsWith('/')) return icon
+  return '/888/' + icon.replace(/^\.\//, '')
 }
 
 export function isOnlineCoopChannel(ch) {
@@ -89,14 +128,14 @@ export async function submitWithdraw(channelId, amount, accountInfo, payPassword
   })
 }
 
-export async function bindWallet(walletType, accountInfo, payPassword) {
+export async function bindWallet(walletType, accountInfo, payPassword, bindMode = 'wallet') {
   return apiRequest('bindwallet', 'POST', {
     wallet_type: walletType,
     account_info: accountInfo || {},
     account_no: (accountInfo && accountInfo.account_no) || '',
     account_name: (accountInfo && accountInfo.account_name) || '',
     bank_name: (accountInfo && accountInfo.bank_name) || '',
-    bind_mode: 'wallet',
+    bind_mode: bindMode || 'wallet',
     pay_password: payPassword || '',
   })
 }
