@@ -11,7 +11,7 @@
       class="msgs"
       :scroll-into-view="scrollInto"
       scroll-with-animation
-      @click="showEmoji = false"
+      @click="showEmoji = false; showSticker = false"
     >
       <view
         v-for="m in messages"
@@ -34,8 +34,13 @@
             <text class="rp-sub">{{ rpSub(m) }}</text>
           </view>
         </view>
+        <view v-else-if="isSticker(m)" class="bubble sticker" @longpress="onMsgLongPress(m)">
+          <image class="sticker-img" :src="stickerUrl(m)" mode="widthFix" />
+          <text class="meta-time">{{ msgTime(m) }}</text>
+        </view>
         <view v-else class="bubble" @longpress="onMsgLongPress(m)">
-          <text class="content">{{ m.content || m.text || '[消息]' }}</text>
+          <text class="content">{{ msgText(m) }}</text>
+          <text class="meta-time">{{ msgTime(m) }}</text>
         </view>
       </view>
     </scroll-view>
@@ -52,16 +57,33 @@
         </view>
       </scroll-view>
     </view>
+    <view class="emoji-panel" v-if="showSticker">
+      <scroll-view scroll-y class="emoji-scroll">
+        <view class="sticker-grid">
+          <view
+            v-for="(st, idx) in stickerItems"
+            :key="st.code + '-' + idx"
+            class="sticker-item"
+            @click="sendSticker(st)"
+          >
+            <image class="sticker-pick" :src="st.url" mode="aspectFit" />
+            <text class="sticker-code">{{ st.code }}</text>
+          </view>
+        </view>
+        <view v-if="!stickerItems.length" class="empty">暂无表情包</view>
+      </scroll-view>
+    </view>
 
     <view class="composer">
-      <button class="tool" size="mini" @click="toggleEmoji">表情</button>
-      <button class="tool" size="mini" @click="showRp = true; showEmoji = false">红包</button>
+      <button class="tool" size="mini" @click="toggleEmoji">Emoji</button>
+      <button class="tool" size="mini" @click="toggleSticker">贴纸</button>
+      <button class="tool" size="mini" @click="showRp = true; showEmoji = false; showSticker = false">红包</button>
       <input
         class="input"
         v-model="text"
         confirm-type="send"
         @confirm="sendText"
-        @focus="showEmoji = false"
+        @focus="showEmoji = false; showSticker = false"
         placeholder="输入消息"
       />
       <button class="send" size="mini" @click="sendText">发送</button>
@@ -156,7 +178,7 @@
 import { computed, reactive, ref } from 'vue'
 import { onLoad, onUnload } from '@dcloudio/uni-app'
 import GrabSlider from '../../components/GrabSlider.vue'
-import { fetchProfile, getToken } from '../../utils/auth.js'
+import { apiRequest, fetchProfile, getToken } from '../../utils/auth.js'
 import {
   isRecalled,
   isSystemMsg,
@@ -189,6 +211,7 @@ const scrollInto = ref('')
 const meta = ref({ type: 1, peer: 0, group: 0, conversationId: '' })
 const showRp = ref(false)
 const showEmoji = ref(false)
+const showSticker = ref(false)
 const rpSending = ref(false)
 const grabbing = ref(false)
 const detailVisible = ref(false)
@@ -198,6 +221,7 @@ const myGrabAmount = ref('')
 const canGrabDetail = ref(false)
 const grabSliderRef = ref(null)
 const emojis = COMMON_EMOJIS
+const stickerItems = ref([])
 let myId = 0
 let off = null
 let activePacketId = 0
@@ -231,6 +255,12 @@ function isMine(m) {
 function isRp(m) {
   return msgType(m) === 2
 }
+function isSticker(m) {
+  const t = msgType(m)
+  if (t === 6) return true
+  if (t === 1 && /^\[[^\]]+\]$/.test(String(m && m.content ? m.content : ''))) return true
+  return false
+}
 function isSysRow(m) {
   return isRecalled(m) || isSystemMsg(m)
 }
@@ -254,6 +284,31 @@ function rpFaded(m) {
 }
 function rpGrabbed(m) {
   return !!msgExtra(m).cover_grabbed
+}
+function msgTime(m) {
+  const raw = m && (m.createtime || m.create_time || m.timestamp || 0)
+  const ts = Number(raw || 0)
+  if (!ts) return ''
+  const d = new Date(ts < 1e12 ? ts * 1000 : ts)
+  const pad = (n) => (n < 10 ? '0' + n : '' + n)
+  return pad(d.getHours()) + ':' + pad(d.getMinutes())
+}
+function msgText(m) {
+  return (m && (m.content || m.text)) || '[消息]'
+}
+function normalizeStickerUrl(url) {
+  const s = String(url || '').trim()
+  if (!s) return ''
+  if (/^https?:\/\//i.test(s)) return s
+  if (s.startsWith('/')) return s
+  if (s.startsWith('stickers/')) return '/888/' + s
+  return '/888/' + s.replace(/^\/+/, '')
+}
+function stickerUrl(m) {
+  const ex = msgExtra(m)
+  const raw = (ex && (ex.url || ex.fullurl)) || ''
+  if (raw) return normalizeStickerUrl(raw)
+  return '/888/stickers/wechat/face/微笑.png'
 }
 function formatAmt(n) {
   const x = Number(n)
@@ -316,10 +371,96 @@ function onMsgLongPress(m) {
 
 function toggleEmoji() {
   showEmoji.value = !showEmoji.value
+  if (showEmoji.value) {
+    showSticker.value = false
+    showRp.value = false
+  }
 }
 
 function insertEmoji(em) {
   text.value = String(text.value || '') + em
+}
+
+async function toggleSticker() {
+  const next = !showSticker.value
+  showSticker.value = next
+  if (next) {
+    showEmoji.value = false
+    showRp.value = false
+    if (!stickerItems.value.length) await loadStickers()
+  }
+}
+
+async function loadStickers() {
+  try {
+    const data = await apiRequest('stickerlist', 'GET', {})
+    const list = Array.isArray(data && data.list) ? data.list : []
+    if (list.length) {
+      stickerItems.value = list
+        .map((it) => ({
+          code: String(it.name || it.code || '').trim(),
+          pack: String(it.pack || 'custom'),
+          url: normalizeStickerUrl(it.url || it.fullurl || ''),
+        }))
+        .filter((it) => it.code && it.url)
+        .slice(0, 64)
+      if (stickerItems.value.length) return
+    }
+  } catch (e) {}
+  try {
+    const res = await new Promise((resolve, reject) => {
+      uni.request({
+        url: '/888/data/stickers.json',
+        method: 'GET',
+        success: (r) => resolve((r && r.data) || {}),
+        fail: reject,
+      })
+    })
+    const packs = Array.isArray(res && res.packs) ? res.packs : []
+    const out = []
+    packs.forEach((p) => {
+      const pid = String((p && p.id) || 'wechat')
+      const cats = Array.isArray(p && p.categories) ? p.categories : []
+      cats.forEach((c) => {
+        const items = Array.isArray(c && c.items) ? c.items : []
+        items.forEach((it) => {
+          if (out.length >= 64) return
+          const code = String((it && it.code) || '').trim()
+          const url = normalizeStickerUrl((it && it.url) || '')
+          if (code && url) out.push({ code, url, pack: pid })
+        })
+      })
+    })
+    stickerItems.value = out
+  } catch (e2) {
+    stickerItems.value = []
+  }
+}
+
+async function sendSticker(st) {
+  if (!st || !st.url) return
+  const code = String(st.code || '表情')
+  const payload = {
+    msg_type: 6,
+    content: '[' + code + ']',
+    extra: {
+      pack: String(st.pack || 'wechat'),
+      code,
+      url: st.url,
+      fullurl: st.url,
+    },
+  }
+  try {
+    if (meta.value.type == 2) {
+      await imSend('group.send', Object.assign({ group_id: meta.value.group | 0 }, payload), true)
+    } else {
+      await imSend('private.send', Object.assign({ to_user_id: meta.value.peer | 0 }, payload), true)
+    }
+    showSticker.value = false
+    await fetchHistory()
+  } catch (e) {
+    uni.showToast({ title: (e && e.message) || '发送失败', icon: 'none' })
+  }
 }
 
 function goBack() {
@@ -381,12 +522,13 @@ async function sendText() {
   if (!content) return
   try {
     if (meta.value.type == 2) {
-      await imSend('group.send', { group_id: meta.value.group | 0, content }, true)
+      await imSend('group.send', { group_id: meta.value.group | 0, content, msg_type: 1 }, true)
     } else {
-      await imSend('private.send', { to_user_id: meta.value.peer | 0, content }, true)
+      await imSend('private.send', { to_user_id: meta.value.peer | 0, content, msg_type: 1 }, true)
     }
     text.value = ''
     showEmoji.value = false
+    showSticker.value = false
     await fetchHistory()
   } catch (e) {
     uni.showToast({ title: e.message || '发送失败', icon: 'none' })
@@ -689,6 +831,28 @@ onUnload(() => {
   background: #ffe8e6;
   color: #c61114;
 }
+.bubble.sticker {
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  max-width: 260rpx;
+}
+.sticker-img {
+  width: 220rpx;
+  max-height: 220rpx;
+  border-radius: 14rpx;
+  background: #fff;
+}
+.meta-time {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 20rpx;
+  color: #9a8574;
+  text-align: right;
+}
+.row.mine .meta-time {
+  color: #b35a60;
+}
 .rp-card {
   display: flex;
   gap: 16rpx;
@@ -726,6 +890,28 @@ onUnload(() => {
   display: flex;
   flex-wrap: wrap;
   padding: 12rpx 8rpx 24rpx;
+}
+.sticker-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12rpx;
+  padding: 12rpx 12rpx 22rpx;
+}
+.sticker-item {
+  background: #fff;
+  border-radius: 12rpx;
+  padding: 10rpx 8rpx;
+}
+.sticker-pick {
+  width: 100%;
+  height: 100rpx;
+}
+.sticker-code {
+  display: block;
+  margin-top: 4rpx;
+  font-size: 20rpx;
+  color: #8a7a6e;
+  text-align: center;
 }
 .emoji-item {
   width: 12.5%;
