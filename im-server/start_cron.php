@@ -102,6 +102,8 @@ $worker->onWorkerStart = function () use ($cfg, $cronCfg) {
         $settleBusy = true;
         try {
             $redPackets->retryPendingSettlements($settleLimit);
+            $redPackets->retryPendingRelayRounds($settleLimit);
+            $redPackets->collectExpireClawbackDebts($settleLimit);
         } catch (\Throwable $e) {
             error_log('[CRON][RP_SETTLE_RETRY] ' . $e->getMessage());
         } finally {

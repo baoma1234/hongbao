@@ -472,6 +472,7 @@ class RedPacketSettlementService
                 $agentRebate,
                 $agentUserId
             ));
+            $this->releaseLock($lockKey, $gotLock);
             return $result;
         } catch (\Throwable $e) {
             Db::rollBack();

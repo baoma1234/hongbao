@@ -1680,16 +1680,17 @@ class RedPacketService
             }
         }
 
-        $bal = $this->wallet->getBalance($senderUid);
+        $bal = $this->wallet->getBalance($senderUid, true);
         if ($bal + 0.00001 < $amount) {
             error_log(sprintf(
-                '[RP_ROBOT] skip next round: worst balance=%.2f need=%.2f uid=%d group=%d packet_id=%d',
+                '[RP_ROBOT][ALERT] relay pending: worst balance=%.2f need=%.2f uid=%d group=%d packet_id=%d',
                 $bal,
                 $amount,
                 $senderUid,
                 $groupId,
                 $packetId
             ));
+            $this->markRelayRetry($packetId, 'balance_not_enough');
             return null;
         }
 
@@ -1701,6 +1702,8 @@ class RedPacketService
                     [$groupId]
                 );
                 if ((int)($open['c'] ?? 0) > 0) {
+                    error_log('[RP_ROBOT][ALERT] relay defer: open packets remain group=' . $groupId . ' from_packet=' . $packetId);
+                    $this->markRelayRetry($packetId, 'open_packets');
                     return null;
                 }
                 if (!$this->groups->isMember($groupId, $senderUid)) {
@@ -1727,6 +1730,7 @@ class RedPacketService
                     );
                 } catch (\Throwable $eMark) {
                 }
+                $this->clearRelayRetry($packetId);
                 $msg = $result['message'] ?? null;
                 if (is_array($msg)) {
                     try {
@@ -1748,12 +1752,13 @@ class RedPacketService
                 ));
                 return is_array($msg) ? $msg : null;
             } catch (\Throwable $e) {
-                error_log('[RP_ROBOT] next round fail group=' . $groupId . ' err=' . $e->getMessage());
+                error_log('[RP_ROBOT][ALERT] next round fail group=' . $groupId . ' packet=' . $packetId . ' err=' . $e->getMessage());
+                $this->markRelayRetry($packetId, 'send_fail:' . $e->getMessage());
                 return null;
             }
         };
 
-        // 延迟 2～5 秒续发，更像真人节奏
+        // 延迟 2～5 秒续发，更像真人节奏；失败由 cron 重试
         $delay = 2.0 + (mt_rand(0, 3000) / 1000.0);
         try {
             Timer::add($delay, function () use ($doSend) {
@@ -1763,6 +1768,314 @@ class RedPacketService
         } catch (\Throwable $e) {
             return $doSend();
         }
+    }
+
+    /** 接龙续发待重试标记（Redis） */
+    protected function markRelayRetry($packetId, $reason = '')
+    {
+        $packetId = (int)$packetId;
+        if ($packetId <= 0) {
+            return;
+        }
+        try {
+            $key = RedisClient::key('rp:relay_retry:' . $packetId);
+            $r = RedisClient::conn();
+            $r->hMSet($key, [
+                'packet_id' => (string)$packetId,
+                'reason'    => mb_substr((string)$reason, 0, 120),
+                'at'        => (string)time(),
+                'tries'     => (string)((int)$r->hGet($key, 'tries') + 1),
+            ]);
+            $r->expire($key, 86400 * 3);
+            $r->sAdd(RedisClient::key('rp:relay_retry_set'), (string)$packetId);
+        } catch (\Throwable $e) {
+            error_log('[RP_ROBOT] markRelayRetry fail packet=' . $packetId . ' ' . $e->getMessage());
+        }
+    }
+
+    protected function clearRelayRetry($packetId)
+    {
+        $packetId = (int)$packetId;
+        if ($packetId <= 0) {
+            return;
+        }
+        try {
+            $r = RedisClient::conn();
+            $r->del(RedisClient::key('rp:relay_retry:' . $packetId));
+            $r->sRem(RedisClient::key('rp:relay_retry_set'), (string)$packetId);
+        } catch (\Throwable $e) {
+        }
+    }
+
+    /**
+     * 接龙：结算完成但续发未成功（compensate_status=1）→ 重试续发。
+     * @return int 成功续发数
+     */
+    public function retryPendingRelayRounds($limit = 20)
+    {
+        $limit = max(1, min(50, (int)$limit));
+        $done = 0;
+        $ids = [];
+        try {
+            $ids = RedisClient::conn()->sMembers(RedisClient::key('rp:relay_retry_set')) ?: [];
+        } catch (\Throwable $e) {
+            $ids = [];
+        }
+        // 库内兜底：已结算接龙、最差仍待续发
+        $rows = Db::fetchAll(
+            'SELECT p.id FROM ' . Db::table('chat_red_packets') . ' p'
+            . ' INNER JOIN ' . Db::table('chat_red_packet_records') . ' r ON r.packet_id=p.id AND r.is_worst=1'
+            . ' WHERE p.packet_type=5 AND p.scope_type=2 AND p.status=5'
+            . ' AND r.need_compensate=1 AND r.compensate_status=1'
+            . ' ORDER BY p.id ASC LIMIT ' . $limit
+        );
+        foreach ($rows ?: [] as $row) {
+            $ids[] = (string)(int)$row['id'];
+        }
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
+        $ids = array_slice($ids, 0, $limit);
+        foreach ($ids as $packetId) {
+            try {
+                $full = Db::fetch(
+                    'SELECT * FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1',
+                    [$packetId]
+                );
+                if (!$full || (int)$full['packet_type'] !== 5 || (int)$full['status'] !== 5) {
+                    $this->clearRelayRetry($packetId);
+                    continue;
+                }
+                $worst = Db::fetch(
+                    'SELECT id, compensate_status FROM ' . Db::table('chat_red_packet_records')
+                    . ' WHERE packet_id=? AND is_worst=1 LIMIT 1',
+                    [$packetId]
+                );
+                if (!$worst || (int)($worst['compensate_status'] ?? 0) === 2) {
+                    $this->clearRelayRetry($packetId);
+                    continue;
+                }
+                $ret = $this->trySendRobotNextRound($full);
+                if ($ret !== null && empty($ret['scheduled'])) {
+                    // 同步成功或已安排；scheduled 时等 Timer
+                    $check = Db::fetch(
+                        'SELECT compensate_status FROM ' . Db::table('chat_red_packet_records')
+                        . ' WHERE packet_id=? AND is_worst=1 LIMIT 1',
+                        [$packetId]
+                    );
+                    if ($check && (int)($check['compensate_status'] ?? 0) === 2) {
+                        $done++;
+                    }
+                }
+            } catch (\Throwable $e) {
+                error_log('[RP_ROBOT][ALERT] retryPendingRelayRounds packet=' . $packetId . ' ' . $e->getMessage());
+            }
+        }
+        return $done;
+    }
+
+    /**
+     * 拼手气过期：分笔收回已领；余额不足部分记欠款结算单（status=0），避免整单卡死。
+     * @return float 实际收回金额
+     */
+    protected function clawbackGrabPartial($uid, $amount, $packetId, $packetNo, $fromUserId, array $bizMeta, $now)
+    {
+        $uid = (int)$uid;
+        $amount = round((float)$amount, 2);
+        $packetId = (int)$packetId;
+        $fromUserId = (int)$fromUserId;
+        if ($uid <= 0 || $amount <= 0.00001) {
+            return 0.0;
+        }
+        $avail = 0.0;
+        try {
+            $avail = $this->wallet->getBalance($uid, true);
+        } catch (\Throwable $e) {
+            $avail = 0.0;
+        }
+        $take = round(min($amount, max(0.0, $avail)), 2);
+        $debt = round($amount - $take, 2);
+        $ledgerId = 0;
+        if ($take > 0.00001) {
+            try {
+                $outCb = $this->wallet->change(
+                    $uid,
+                    -$take,
+                    'red_packet_expire_clawback',
+                    '拼手气过期收回 ' . $packetNo,
+                    $bizMeta
+                );
+                $ledgerId = (int)($outCb['ledger_id'] ?? 0);
+                Db::exec(
+                    'INSERT INTO ' . Db::table('chat_red_packet_settlements')
+                    . ' (packet_id,packet_no,settle_type,from_user_id,to_user_id,amount,ledger_id,status,remark,createtime)'
+                    . ' VALUES (?,?,?,?,?,?,?,?,?,?)',
+                    [
+                        $packetId,
+                        $packetNo,
+                        'expire_clawback',
+                        $uid,
+                        $fromUserId,
+                        sprintf('%.2f', $take),
+                        $ledgerId,
+                        1,
+                        $debt > 0.00001 ? ('拼手气过期分笔收回 ' . sprintf('%.2f', $take)) : '拼手气过期收回已领',
+                        $now,
+                    ]
+                );
+            } catch (\Throwable $e) {
+                error_log(sprintf(
+                    '[RP_EXPIRE][ALERT] clawback fail uid=%d want=%.2f err=%s — record full debt',
+                    $uid,
+                    $amount,
+                    $e->getMessage()
+                ));
+                $debt = $amount;
+                $take = 0.0;
+            }
+        }
+        if ($debt > 0.00001) {
+            error_log(sprintf(
+                '[RP_EXPIRE][ALERT] clawback debt uid=%d packet=%d taken=%.2f debt=%.2f',
+                $uid,
+                $packetId,
+                $take,
+                $debt
+            ));
+            Db::exec(
+                'INSERT INTO ' . Db::table('chat_red_packet_settlements')
+                . ' (packet_id,packet_no,settle_type,from_user_id,to_user_id,amount,ledger_id,status,remark,createtime)'
+                . ' VALUES (?,?,?,?,?,?,?,?,?,?)',
+                [
+                    $packetId,
+                    $packetNo,
+                    'expire_clawback_debt',
+                    $uid,
+                    $fromUserId,
+                    sprintf('%.2f', $debt),
+                    0,
+                    0,
+                    '拼手气过期欠款待收回',
+                    $now,
+                ]
+            );
+        }
+        return $take;
+    }
+
+    /**
+     * 收回拼手气过期欠款（status=0 的 expire_clawback_debt）。
+     * @return int 成功笔数
+     */
+    public function collectExpireClawbackDebts($limit = 30)
+    {
+        $limit = max(1, min(100, (int)$limit));
+        $rows = Db::fetchAll(
+            'SELECT * FROM ' . Db::table('chat_red_packet_settlements')
+            . " WHERE settle_type='expire_clawback_debt' AND status=0 AND amount>0"
+            . ' ORDER BY id ASC LIMIT ' . $limit
+        );
+        $done = 0;
+        foreach ($rows ?: [] as $row) {
+            $id = (int)$row['id'];
+            $uid = (int)$row['from_user_id'];
+            $toUid = (int)$row['to_user_id'];
+            $need = round((float)$row['amount'], 2);
+            $packetId = (int)$row['packet_id'];
+            $packetNo = (string)$row['packet_no'];
+            if ($id <= 0 || $uid <= 0 || $need <= 0.00001) {
+                continue;
+            }
+            try {
+                Db::begin();
+                $fresh = Db::fetch(
+                    'SELECT * FROM ' . Db::table('chat_red_packet_settlements') . ' WHERE id=? FOR UPDATE',
+                    [$id]
+                );
+                if (!$fresh || (int)$fresh['status'] !== 0) {
+                    Db::rollBack();
+                    continue;
+                }
+                $need = round((float)$fresh['amount'], 2);
+                $avail = $this->wallet->getBalance($uid, true);
+                $take = round(min($need, max(0.0, $avail)), 2);
+                if ($take <= 0.00001) {
+                    Db::rollBack();
+                    continue;
+                }
+                $bizMeta = ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId];
+                $out = $this->wallet->change(
+                    $uid,
+                    -$take,
+                    'red_packet_expire_clawback',
+                    '拼手气欠款收回 ' . $packetNo,
+                    $bizMeta
+                );
+                if ($toUid > 0) {
+                    $this->wallet->change(
+                        $toUid,
+                        $take,
+                        'red_packet_refund',
+                        '拼手气欠款退庄家 ' . $packetNo,
+                        $bizMeta
+                    );
+                }
+                $left = round($need - $take, 2);
+                if ($left <= 0.00001) {
+                    Db::exec(
+                        'UPDATE ' . Db::table('chat_red_packet_settlements')
+                        . ' SET status=1, amount=?, ledger_id=?, remark=? WHERE id=?',
+                        [
+                            sprintf('%.2f', $take),
+                            (int)($out['ledger_id'] ?? 0),
+                            '拼手气欠款已收回',
+                            $id,
+                        ]
+                    );
+                } else {
+                    Db::exec(
+                        'UPDATE ' . Db::table('chat_red_packet_settlements')
+                        . ' SET amount=?, remark=? WHERE id=?',
+                        [
+                            sprintf('%.2f', $left),
+                            '拼手气过期欠款待收回(已收 ' . sprintf('%.2f', $take) . ')',
+                            $id,
+                        ]
+                    );
+                    Db::exec(
+                        'INSERT INTO ' . Db::table('chat_red_packet_settlements')
+                        . ' (packet_id,packet_no,settle_type,from_user_id,to_user_id,amount,ledger_id,status,remark,createtime)'
+                        . ' VALUES (?,?,?,?,?,?,?,?,?,?)',
+                        [
+                            $packetId,
+                            $packetNo,
+                            'expire_clawback',
+                            $uid,
+                            $toUid,
+                            sprintf('%.2f', $take),
+                            (int)($out['ledger_id'] ?? 0),
+                            1,
+                            '拼手气欠款分笔收回',
+                            time(),
+                        ]
+                    );
+                }
+                Db::commit();
+                $done++;
+                error_log(sprintf(
+                    '[RP_EXPIRE] debt collect ok settle_id=%d uid=%d take=%.2f left=%.2f',
+                    $id,
+                    $uid,
+                    $take,
+                    max(0, $left)
+                ));
+            } catch (\Throwable $e) {
+                try {
+                    Db::rollBack();
+                } catch (\Throwable $e2) {
+                }
+                error_log('[RP_EXPIRE][ALERT] debt collect fail id=' . $id . ' ' . $e->getMessage());
+            }
+        }
+        return $done;
     }
 
     /** 手气最差抢包用户（is_worst=1） */
@@ -1948,13 +2261,17 @@ class RedPacketService
                         $freezeAmt = round((float)($rec['frozen_amount'] ?? 0), 2);
                     }
                     if ($uid > 0 && $freezeAmt > 0.00001) {
-                        $this->wallet->unfreeze(
-                            $uid,
-                            $freezeAmt,
-                            'red_packet_unfreeze',
-                            '拼手气过期解冻 ' . $packetNo,
-                            $bizMeta
-                        );
+                        try {
+                            $this->wallet->unfreeze(
+                                $uid,
+                                $freezeAmt,
+                                'red_packet_unfreeze',
+                                '拼手气过期解冻 ' . $packetNo,
+                                $bizMeta
+                            );
+                        } catch (\Throwable $eUf) {
+                            error_log('[RP_EXPIRE][WARN] unfreeze fail uid=' . $uid . ' ' . $eUf->getMessage());
+                        }
                         if ($rid > 0) {
                             Db::exec(
                                 'UPDATE ' . Db::table('chat_red_packet_records')
@@ -1964,31 +2281,16 @@ class RedPacketService
                         }
                     }
                     if ($uid > 0 && $amt > 0.00001) {
-                        $outCb = $this->wallet->change(
+                        $taken = $this->clawbackGrabPartial(
                             $uid,
-                            -$amt,
-                            'red_packet_expire_clawback',
-                            '拼手气过期收回 ' . $packetNo,
-                            $bizMeta
+                            $amt,
+                            $packetId,
+                            $packetNo,
+                            $fromUserId,
+                            $bizMeta,
+                            $now
                         );
-                        $clawed = round($clawed + $amt, 2);
-                        Db::exec(
-                            'INSERT INTO ' . Db::table('chat_red_packet_settlements')
-                            . ' (packet_id,packet_no,settle_type,from_user_id,to_user_id,amount,ledger_id,status,remark,createtime)'
-                            . ' VALUES (?,?,?,?,?,?,?,?,?,?)',
-                            [
-                                $packetId,
-                                $packetNo,
-                                'expire_clawback',
-                                $uid,
-                                $fromUserId,
-                                sprintf('%.2f', $amt),
-                                (int)($outCb['ledger_id'] ?? 0),
-                                1,
-                                '拼手气过期收回已领',
-                                $now,
-                            ]
-                        );
+                        $clawed = round($clawed + $taken, 2);
                     }
                 }
                 $refund = round($refund + $clawed, 2);
