@@ -184,13 +184,7 @@ class RpAutoBotService
 
         if (is_array($msg)) {
             try {
-                $uids = $this->groups->onlineMemberIds($groupId);
-                if (!$uids) {
-                    $all = $this->groups->memberUserIds($groupId);
-                    if (count($all) <= 200) {
-                        $uids = $all;
-                    }
-                }
+                $uids = $this->groups->pushTargetUserIds($groupId);
                 if ($uids) {
                     PushBus::toUsers($uids, 'group.message', ['message' => $msg]);
                 }
@@ -395,7 +389,7 @@ class RpAutoBotService
                     'grab'       => $result,
                     'by_user_id' => $uid,
                 ];
-                $uids = $this->groups->onlineMemberIds((int)($packet['group_id'] ?? $groupId));
+                $uids = $this->groups->pushTargetUserIds((int)($packet['group_id'] ?? $groupId));
                 if ($uids) {
                     PushBus::toUsers($uids, 'redpacket.update', $event);
                 }

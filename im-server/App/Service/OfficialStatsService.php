@@ -111,6 +111,27 @@ class OfficialStatsService
         }
     }
 
+    /**
+     * 当前正在看该群的用户 ID（Redis Set，enter/leave + TTL）
+     * @return int[]
+     */
+    public static function viewerUserIds($groupId)
+    {
+        $groupId = (int)$groupId;
+        if ($groupId <= 0) {
+            return [];
+        }
+        try {
+            $ids = RedisClient::conn()->sMembers(RedisClient::key(self::KEY_VIEW_PREFIX . $groupId));
+            if (!is_array($ids) || !$ids) {
+                return [];
+            }
+            return array_values(array_unique(array_filter(array_map('intval', $ids))));
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
     public static function enterView($groupId, $userId)
     {
         $groupId = (int)$groupId;

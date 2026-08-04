@@ -77,6 +77,17 @@ return array_replace_recursive([
     'http_api' => [
         'count' => (PHP_OS_FAMILY === 'Windows') ? 1 : 4,
     ],
+    // 独立 cron 进程（start_cron.php）；勿再挂到 WS Worker0
+    'cron' => [
+        'name'                => 'FansHubIM-Cron',
+        'tron_poll_interval'  => 1,   // 秒，可调到 3～5 降压
+        'refund_interval'     => 5,
+        'refund_limit'        => 50,
+        'tron_reveal_limit'   => 20,
+        'settle_interval'     => 2,
+        'settle_limit'        => 30,
+        'auto_interval'       => 2,
+    ],
     'db'    => $db,
     'redis' => $redis,
     'auth'  => [

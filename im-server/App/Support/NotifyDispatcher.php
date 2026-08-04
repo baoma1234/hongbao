@@ -37,14 +37,7 @@ class NotifyDispatcher
                 $groups = new GroupService();
             }
             $gid = (int)($message['group_id'] ?? 0);
-            $uids = $groups->onlineMemberIds($gid);
-            // 在线判定为空时：小群仍扇出给全员，由 ConnMap/PushBus 只投递给真实连接（避免自动红包漏推）
-            if (!$uids && $gid > 0) {
-                $all = $groups->memberUserIds($gid);
-                if (count($all) <= 200) {
-                    $uids = $all;
-                }
-            }
+            $uids = $groups->pushTargetUserIds($gid);
         } else {
             $uids = array_filter([
                 (int)($message['from_user_id'] ?? 0),

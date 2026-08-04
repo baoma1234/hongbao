@@ -340,6 +340,36 @@ class GroupService
     }
 
     /**
+     * 群消息/红包推送目标（收敛扇出，禁止「无人在线则推全员≤200」）
+     * 1) 正在看该群且仍在线的用户
+     * 2) 否则：群内当前在线成员
+     * @return int[]
+     */
+    public function pushTargetUserIds($groupId)
+    {
+        $groupId = (int)$groupId;
+        if ($groupId <= 0) {
+            return [];
+        }
+        try {
+            $viewers = OfficialStatsService::viewerUserIds($groupId);
+            if ($viewers) {
+                $onlineViewers = \Im\Support\ConnMap::filterOnlineUserIds($viewers);
+                // 观群集合可能短暂残留离线 UID；有在线观群则优先
+                if ($onlineViewers) {
+                    $cap = self::maxPushOnline();
+                    if (count($onlineViewers) > $cap) {
+                        $onlineViewers = array_slice($onlineViewers, 0, $cap);
+                    }
+                    return $onlineViewers;
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+        return $this->onlineMemberIds($groupId);
+    }
+
+    /**
      * 把仍有 Redis 连接登记的成员并入在线列表（修复 online 集合漏记）
      * @param int[] $members
      * @param int[] $online

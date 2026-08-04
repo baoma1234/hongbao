@@ -1534,13 +1534,7 @@ class RedPacketService
                 $msg = $result['message'] ?? null;
                 if (is_array($msg)) {
                     try {
-                        $uids = $this->groups->onlineMemberIds($groupId);
-                        if (!$uids) {
-                            $all = $this->groups->memberUserIds($groupId);
-                            if (count($all) <= 200) {
-                                $uids = $all;
-                            }
-                        }
+                        $uids = $this->groups->pushTargetUserIds($groupId);
                         if ($uids) {
                             \Im\Support\PushBus::toUsers($uids, 'group.message', ['message' => $msg]);
                         }

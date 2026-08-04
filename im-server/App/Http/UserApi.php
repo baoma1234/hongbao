@@ -172,7 +172,7 @@ class UserApi extends UserReadApi
         if (is_array($packet)) {
             $event = ['packet_id' => $packetId, 'grab' => $result, 'by_user_id' => $uid];
             if ((int)($packet['scope_type'] ?? 0) === 2) {
-                $uids = $this->groups->onlineMemberIds((int)$packet['group_id']);
+                $uids = $this->groups->pushTargetUserIds((int)$packet['group_id']);
                 if ($uids) {
                     PushBus::toUsers($uids, 'redpacket.update', $event);
                 }

@@ -71,6 +71,7 @@ $worker->onWorkerStart = function (Worker $worker) use ($cfg) {
     });
 
     // 仅 worker0 消费后台代聊队列，再经 PushBus 扇出（避免多进程抢消息且漏推）
+    // 重任务（Tron/退款/结算/自动红包）已迁至 start_cron.php，避免拖死本进程事件循环
     if ((int)$worker->id === 0) {
         Timer::add(0.1, function () use ($groups) {
             try {
@@ -101,52 +102,6 @@ $worker->onWorkerStart = function (Worker $worker) use ($cfg) {
                     );
                 }
             } catch (\Throwable $e) {
-            }
-        });
-    }
-
-    // 过期红包退回（5s）+ 抢完未结算兜底（2s）+ 波场最新哈希轮询（仅 worker0）
-    if ((int)$worker->id === 0) {
-        // 全局唯一：每 1 秒拉最新区块哈希写入 Redis（含末位数字索引），业务只读本地
-        try {
-            \Im\Support\TronHashCache::refresh(4);
-        } catch (\Throwable $e) {
-            error_log('[TRON_HASH] boot refresh fail ' . $e->getMessage());
-        }
-        $hashPoll = \Im\Support\TronHashCache::pollIntervalSec();
-        Timer::add((float)$hashPoll, function () {
-            try {
-                \Im\Support\TronHashCache::refresh(4);
-            } catch (\Throwable $e) {
-                error_log('[TRON_HASH] poll fail ' . $e->getMessage());
-            }
-        });
-        Timer::add(5, function () use ($redPackets) {
-            try {
-                $redPackets->refundExpired(50);
-            } catch (\Throwable $e) {
-                error_log('[RP_EXPIRE] timer err ' . $e->getMessage());
-            }
-            try {
-                \Im\Support\TronFair::pollPendingReveals(20);
-            } catch (\Throwable $e) {
-                error_log('[TRON_POLL] timer err ' . $e->getMessage());
-            }
-        });
-        Timer::add(2, function () use ($redPackets) {
-            try {
-                $redPackets->retryPendingSettlements(30);
-            } catch (\Throwable $e) {
-                error_log('[RP_SETTLE_RETRY] timer err ' . $e->getMessage());
-            }
-        });
-        // 红包自动发/抢：迁入 WS，替代 php think redpacket:auto
-        $rpAuto = new \Im\Service\RpAutoBotService($redPackets, $groups);
-        Timer::add(2, function () use ($rpAuto) {
-            try {
-                $rpAuto->tick();
-            } catch (\Throwable $e) {
-                error_log('[RP_AUTO] timer err ' . $e->getMessage());
             }
         });
     }
