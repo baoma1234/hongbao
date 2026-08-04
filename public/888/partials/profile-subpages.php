@@ -216,7 +216,7 @@
                             <label data-copy="profile_withdraw_main_uid_label">主站账号</label>
                             <input type="text" id="profileWithdrawMainUid" data-copy-placeholder="profile_withdraw_main_uid_ph" placeholder="请输入已绑定的主站账号" readonly>
                         </div>
-                        <div class="profile-meta-line" id="profileWithdrawOnlineHint" data-copy="profile_withdraw_online_hint">仅已绑定主站账号的用户可使用线上合作提现，提交后需人工审核出款。</div>
+                        <div class="profile-meta-line" id="profileWithdrawOnlineHint" data-copy="profile_withdraw_online_hint">需绑定主站账号，人工审核出款</div>
                     </div>
                     <div id="profileWithdrawAmountGate" class="wallet-amount-gate" hidden>
                     <div class="profile-field">

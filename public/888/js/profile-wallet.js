@@ -298,6 +298,10 @@
     return !!(ch && (String(ch.withdraw_mode || '') === 'online_coop' || String(ch.partition_code || '') === 'online_coop'));
   }
 
+  function isOnlineCoopPartition(part) {
+    return !!(part && String(part.code || '') === 'online_coop');
+  }
+
   function channelExchangeRate(ch) {
     var r = ch ? Number(ch.exchange_rate) : 0;
     return r > 0 ? r : 0;
@@ -893,13 +897,31 @@
     }
 
     var html = '';
-    if (!chs.length) {
+    var coopCompact = type === 'withdraw' && (
+      isOnlineCoopPartition(activePart)
+      || (chs.length === 1 && isOnlineCoopChannel(chs[0]))
+    );
+    if (coopCompact && chs.length) {
+      // 分区已是「线上合作」，不再渲染大通道卡片，直接进入表单
+      var only = chs[0];
+      walletState.selectedWithdraw = only.id | 0;
+      sel = only.id | 0;
+      box.innerHTML = '';
+      box.hidden = true;
+      box.style.display = 'none';
+    } else if (!chs.length) {
+      box.hidden = false;
+      box.style.display = '';
       html = '<div class="wallet-channel-empty wallet-channel-empty--inline">' + escapeHtml(wt('wallet_partition_empty', '当前分区暂无可用通道')) + '</div>';
+      box.innerHTML = html;
+      bindChannelListClicks(box, type);
     } else {
+      box.hidden = false;
+      box.style.display = '';
       html = renderChannelGroupHtml(chs, type, sel, partKey, useSelect);
+      box.innerHTML = html;
+      bindChannelListClicks(box, type);
     }
-    box.innerHTML = html;
-    bindChannelListClicks(box, type);
     showAmountPanel(type, sel);
   }
   var ledgerState = { page: 1, loading: false, hasMore: false, list: [] };

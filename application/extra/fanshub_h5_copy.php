@@ -559,7 +559,7 @@ return array (
   'profile_withdraw_platform_label' => '合作平台',
   'profile_withdraw_main_uid_label' => '主站账号',
   'profile_withdraw_main_uid_ph' => '已绑定的主站账号',
-  'profile_withdraw_online_hint' => '仅已绑定主站账号的用户可使用线上合作提现，提交后需人工审核出款。',
+  'profile_withdraw_online_hint' => '需绑定主站账号，人工审核出款',
   'profile_withdraw_need_main_uid' => '请先绑定并通过主站账号审核后再使用线上合作提现',
   'profile_menu_pay_password' => '支付密码',
   'profile_menu_pay_password_sub' => '提现与绑定地址校验',
