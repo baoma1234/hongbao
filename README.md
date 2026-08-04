@@ -9,7 +9,9 @@
 | 路径 | 说明 |
 |------|------|
 | `application/` | ThinkPHP 业务与后台 |
-| `public/888/` | H5 入口与静态资源 |
+| `public/888/` | H5 入口与静态资源（现网） |
+| `public/999/` | uni-app H5 构建产物（并行） |
+| `uni-999/` | uni-app 源码（Vue3 + Vite） |
 | `im-server/` | Workerman IM（**必启 3 个进程**） |
 | `scripts/` | 一次性安装/回补脚本 |
 | `tools/build-888-chat.ps1` | 打包 H5 聊天 JS/CSS |
@@ -95,17 +97,32 @@ cd im-server/scripts && ./restart-all.sh   # 或 Windows: .\restart-all.ps1
 
 确保防火墙放行 **7272 / 7273**（或经 Nginx 反代）。
 
-## 二、H5（/888）
+## 二、H5（/888）与 uni-app（/999）
+
+### 现网 H5 `/888`
 
 入口：`public/888/index.php`（`$assetVer` 控制缓存）。
 
 改聊天源码后需打包并升版本：
 
 ```powershell
-# 编辑 public/888/js/chat/*.js 、 css/chat-*.css
 powershell -ExecutionPolicy Bypass -File tools/build-888-chat.ps1
 # 再改 public/888/index.php 里 $assetVer
 ```
+
+### 新端 uni-app `/999`（并行灰度）
+
+源码：`uni-999/` → 构建输出：`public/999/`
+
+```bash
+cd uni-999
+npm install
+npm run dev:h5      # 本地开发（代理 /api、/im-ws）
+npm run build:h5    # 编译并复制到 public/999
+```
+
+浏览器打开：`/999/`  
+已打通：登录（短信）+ IM WebSocket（会话列表 / 聊天骨架）。细节见 `uni-999/README.md`。
 
 ## 三、常用运维脚本（仓库 `scripts/`）
 
