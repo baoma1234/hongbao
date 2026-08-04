@@ -216,3 +216,54 @@ export function imDisconnect() {
 export function listConversations(limit = 50) {
   return imSend('conversation.list', { limit }, true)
 }
+
+export function loadHistory(payload) {
+  return imSend('history', payload || {}, true)
+}
+
+export function markConversationRead(conversationType, conversationId, lastReadMsgId = 0) {
+  return imSend(
+    'conversation.read',
+    {
+      conversation_type: conversationType | 0,
+      conversation_id: String(conversationId || ''),
+      last_read_msg_id: lastReadMsgId | 0,
+    },
+    true
+  ).catch(() => null)
+}
+
+export function sendRedPacket(payload) {
+  return imSend('redpacket.send', payload || {}, true)
+}
+
+export function grabRedPacket(packetId, extra = {}) {
+  return imSend(
+    'redpacket.grab',
+    Object.assign({ packet_id: packetId | 0, device_fp: getDeviceFp() }, extra),
+    true
+  )
+}
+
+export function redPacketDetail(packetId) {
+  return imSend('redpacket.detail', { packet_id: packetId | 0 }, true)
+}
+
+export function setPeerRemark(peerUserId, remark) {
+  return imSend(
+    'friend.set_remark',
+    { peer_user_id: peerUserId | 0, remark: String(remark || '') },
+    true
+  )
+}
+
+export function pinConversation(conversationType, conversationId, pinned = true) {
+  return imSend(
+    pinned ? 'conversation.pin' : 'conversation.unpin',
+    {
+      conversation_type: conversationType | 0,
+      conversation_id: String(conversationId || ''),
+    },
+    true
+  )
+}

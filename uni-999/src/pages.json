@@ -26,6 +26,13 @@
       }
     },
     {
+      "path": "pages/chat/chat",
+      "style": {
+        "navigationBarTitleText": "聊天",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/master/master",
       "style": {
         "navigationBarTitleText": "团长"
@@ -65,12 +72,6 @@
       "path": "pages/wallet/payee",
       "style": {
         "navigationBarTitleText": "收款地址"
-      }
-    },
-    {
-      "path": "pages/chat/chat",
-      "style": {
-        "navigationBarTitleText": "聊天"
       }
     }
   ],
