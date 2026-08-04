@@ -1632,7 +1632,7 @@ class RedPacketService
 
     /**
      * 接龙群包结算后：由「抢最少」的人扣余额发同规格下一包（流水记在其名下）。
-     * 系统监听全部群；机器人仅需在群内，不替代扣款主体。
+     * 不依赖机器人抢包；机器人仅用于绕过「仅机器人可发」群策时的服务端可信标记。
      * 若群内仍有待领取包则跳过，避免叠包。
      *
      * @return array|null 新红包消息（若已发出）
@@ -1641,10 +1641,6 @@ class RedPacketService
     {
         $groupId = (int)($packet['group_id'] ?? 0);
         $packetId = (int)($packet['id'] ?? 0);
-        $robotUid = (int)($this->cfg['group_robot_user_id'] ?? 0);
-        if ($robotUid <= 0) {
-            $robotUid = GroupService::defaultRobotUserId();
-        }
         if ($groupId <= 0) {
             return null;
         }
@@ -1656,10 +1652,10 @@ class RedPacketService
             return null;
         }
 
-        // 扣款+发包主体 = 手气最差；找不到则不续发（避免流水落到机器人/原发包人）
+        // 扣款+发包主体 = 手气最差；找不到则不续发
         $senderUid = $this->findWorstGrabberUserId($packetId);
         if ($senderUid <= 0) {
-            error_log('[RP_ROBOT] skip next round: no worst grabber packet_id=' . $packetId . ' group=' . $groupId);
+            error_log('[RP_RELAY] skip next round: no worst grabber packet_id=' . $packetId . ' group=' . $groupId);
             return null;
         }
 
@@ -1677,7 +1673,7 @@ class RedPacketService
             return null;
         }
 
-        // 群内还有待领包则不续发（由自动任务在空闲时补发）
+        // 群内还有待领包则不续发
         try {
             $open = Db::fetch(
                 'SELECT COUNT(*) AS c FROM ' . Db::table('chat_red_packets')
@@ -1685,23 +1681,16 @@ class RedPacketService
                 [$groupId]
             );
             if ((int)($open['c'] ?? 0) > 0) {
+                $this->markRelayRetry($packetId, 'open_packets');
                 return null;
             }
         } catch (\Throwable $e) {
         }
 
-        // 确保默认机器人在群内（监听/可见）；扣款人本身已抢过包，一般已在群
-        if ($robotUid > 0 && !$this->groups->isMember($groupId, $robotUid)) {
-            try {
-                $this->groups->addMembers($groupId, [$robotUid], 1);
-            } catch (\Throwable $eJoin) {
-            }
-        }
-
         $bal = $this->wallet->getBalance($senderUid, true);
         if ($bal + 0.00001 < $amount) {
             error_log(sprintf(
-                '[RP_ROBOT][ALERT] relay pending: worst balance=%.2f need=%.2f uid=%d group=%d packet_id=%d',
+                '[RP_RELAY][ALERT] pending: worst balance=%.2f need=%.2f uid=%d group=%d packet_id=%d',
                 $bal,
                 $amount,
                 $senderUid,
@@ -1712,6 +1701,9 @@ class RedPacketService
             return null;
         }
 
+        // 先占住「待续发」，避免自动任务在延迟窗口插队发包
+        $this->markRelayRetry($packetId, 'scheduled');
+
         $doSend = function () use ($groupId, $senderUid, $amount, $count, $packet, $packetId) {
             try {
                 $open = Db::fetch(
@@ -1720,7 +1712,7 @@ class RedPacketService
                     [$groupId]
                 );
                 if ((int)($open['c'] ?? 0) > 0) {
-                    error_log('[RP_ROBOT][ALERT] relay defer: open packets remain group=' . $groupId . ' from_packet=' . $packetId);
+                    error_log('[RP_RELAY] defer: open packets remain group=' . $groupId . ' from_packet=' . $packetId);
                     $this->markRelayRetry($packetId, 'open_packets');
                     return null;
                 }
@@ -1734,7 +1726,7 @@ class RedPacketService
                     'packet_type'  => 5,
                     'total_amount' => $amount,
                     'total_count'  => $count,
-                    'blessing'     => (string)($packet['blessing'] ?? '恭喜发财'),
+                    'blessing'     => (string)(($packet['blessing'] ?? '') !== '' ? $packet['blessing'] : '红宝接龙'),
                     'robot_send'   => true,
                     'trusted_robot'=> true,
                     'robot_relay'  => true,
@@ -1757,11 +1749,11 @@ class RedPacketService
                             \Im\Support\PushBus::toUsers($uids, 'group.message', ['message' => $msg]);
                         }
                     } catch (\Throwable $e) {
-                        error_log('[RP_ROBOT] push fail group=' . $groupId . ' ' . $e->getMessage());
+                        error_log('[RP_RELAY] push fail group=' . $groupId . ' ' . $e->getMessage());
                     }
                 }
                 error_log(sprintf(
-                    '[RP_ROBOT] next round sent group=%d amount=%.2f count=%d worst_sender=%d from_packet=%d',
+                    '[RP_RELAY] next round sent group=%d amount=%.2f count=%d worst_sender=%d from_packet=%d',
                     $groupId,
                     $amount,
                     $count,
@@ -1770,7 +1762,7 @@ class RedPacketService
                 ));
                 return is_array($msg) ? $msg : null;
             } catch (\Throwable $e) {
-                error_log('[RP_ROBOT][ALERT] next round fail group=' . $groupId . ' packet=' . $packetId . ' err=' . $e->getMessage());
+                error_log('[RP_RELAY][ALERT] next round fail group=' . $groupId . ' packet=' . $packetId . ' err=' . $e->getMessage());
                 $this->markRelayRetry($packetId, 'send_fail:' . $e->getMessage());
                 return null;
             }
@@ -1782,7 +1774,7 @@ class RedPacketService
             Timer::add($delay, function () use ($doSend) {
                 $doSend();
             }, [], false);
-            return ['scheduled' => true, 'delay' => $delay];
+            return ['scheduled' => true, 'delay' => $delay, 'sender_uid' => $senderUid];
         } catch (\Throwable $e) {
             return $doSend();
         }

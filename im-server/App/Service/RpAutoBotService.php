@@ -14,8 +14,9 @@ use Workerman\Timer;
  * - 发包：群内无待领取包时才发；埋雷雷号每发随机 0-9
  * - 金额：任务基准额 ±5%～10% 抖动
  * - 节奏：20–23 点发包间隔减半；0–7 点翻倍
- * - 续发：仅接龙(type5)抢完后由手气最差用户扣余额发下一包（拼手气改为结算直接赔付）
- * - 抢包：仅后台配置了 auto_grab + grab_user_ids 的任务群才抢；未配置不抢
+ * - 续发：仅接龙(type5)抢完后由「抢最少」用户扣余额发下一包（非机器人代发）
+ * - 抢包：仅后台配置了 auto_grab + grab_user_ids 的任务群才抢；接龙包(type5)永不自动抢
+ * - 自动发包：群内有待领取包、或接龙待续发时不发，避免抢在「最少者续发」前面
  */
 class RpAutoBotService
 {
@@ -133,6 +134,10 @@ class RpAutoBotService
             return ['sent' => false, 'packet_id' => 0];
         }
         if ($this->countOpenPackets($groupId) > 0) {
+            return ['sent' => false, 'packet_id' => 0];
+        }
+        // 接龙：上一包已抢完、正等「最少者」续发时，禁止机器人插队发包
+        if ($this->hasPendingRelay($groupId)) {
             return ['sent' => false, 'packet_id' => 0];
         }
 
@@ -364,8 +369,8 @@ class RpAutoBotService
         if (!$row || (int)($row['status'] ?? 0) !== 1 || (int)($row['remain_count'] ?? 0) <= 0) {
             return null;
         }
-        // 普通/随机红包不参与机器人抢包监听
-        if (!in_array((int)($row['packet_type'] ?? 0), [2, 3, 5], true)) {
+        // 普通/随机/接龙红包不参与机器人抢包监听（接龙靠真人抢，最少者系统续发）
+        if (!in_array((int)($row['packet_type'] ?? 0), [2, 3], true)) {
             return null;
         }
         return $row;
@@ -457,6 +462,32 @@ class RpAutoBotService
         return (int)($row['c'] ?? 0);
     }
 
+    /**
+     * 群内最新一笔已结算接龙包，是否仍在等待「抢最少」用户续发。
+     */
+    protected function hasPendingRelay($groupId)
+    {
+        $groupId = (int)$groupId;
+        if ($groupId <= 0) {
+            return false;
+        }
+        try {
+            $row = Db::fetch(
+                'SELECT r.compensate_status AS cs FROM ' . Db::table('chat_red_packets') . ' p'
+                . ' INNER JOIN ' . Db::table('chat_red_packet_records') . ' r'
+                . ' ON r.packet_id=p.id AND r.is_worst=1'
+                . ' WHERE p.group_id=? AND p.scope_type=2 AND p.packet_type=5 AND p.status=5'
+                . ' ORDER BY p.id DESC LIMIT 1',
+                [$groupId]
+            );
+            if ($row && (int)($row['cs'] ?? 0) === 1) {
+                return true;
+            }
+        } catch (\Throwable $e) {
+        }
+        return false;
+    }
+
     /** @return array[] */
     protected function listOpenPackets($groupId, $limit = 8)
     {
@@ -464,7 +495,7 @@ class RpAutoBotService
         $rows = Db::fetchAll(
             'SELECT id, createtime, remain_count, status, packet_type FROM ' . Db::table('chat_red_packets')
             . ' WHERE group_id=? AND scope_type=2 AND status=1 AND remain_count>0'
-            . ' AND packet_type IN (2,3,5)'
+            . ' AND packet_type IN (2,3)'
             . ' ORDER BY id DESC LIMIT ' . $limit,
             [(int)$groupId]
         );
