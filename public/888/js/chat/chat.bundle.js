@@ -5403,14 +5403,24 @@
     if (!el) return;
     var type = getRpPacketType();
     var isGroup = !!(state.room && state.room.type === 2);
+    function descText(key, fallback) {
+      var t = chatT(key);
+      return (!t || t === key) ? fallback : t;
+    }
     if (isGroup && type === 2) {
       el.hidden = false;
       el.style.display = '';
-      el.textContent = chatT('chat_rp_type_lucky_desc') || '拼手气：发包人可自领；领完后金额最少者赔付该包总额（同额取最晚）；发包人最少不赔。';
+      el.textContent = descText(
+        'chat_rp_type_lucky_desc',
+        '拼手气：发包人可自领；领完后金额最少者赔付该包总额（同额取最晚）；发包人最少不赔。'
+      );
     } else if (isGroup && type === 5) {
       el.hidden = false;
       el.style.display = '';
-      el.textContent = chatT('chat_rp_type_relay_desc') || '接龙：抢到金额直接进可用余额；抢光后最少者扣整包金额自动发下一包；30分钟未抢完则已领保留、未领退回。';
+      el.textContent = descText(
+        'chat_rp_type_relay_desc',
+        '接龙：抢到金额直接进可用余额；抢光后最少者扣整包金额自动发下一包；30分钟未抢完则已领保留、未领退回。'
+      );
     } else {
       el.hidden = true;
       el.style.display = 'none';
