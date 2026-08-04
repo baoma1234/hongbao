@@ -551,6 +551,7 @@
                                 <label data-copy="chat_rp_type_label">类型</label>
                                 <div class="chat-rp-type-tabs" id="chatRpTypeTabs" role="tablist">
                                     <button type="button" class="chat-rp-type-btn active" data-type="2" data-copy="chat_rp_type_lucky">拼手气</button>
+                                    <button type="button" class="chat-rp-type-btn" data-type="5" data-copy="chat_rp_type_relay">接龙</button>
                                     <button type="button" class="chat-rp-type-btn" data-type="3" data-copy="chat_rp_type_mine">埋雷</button>
                                     <button type="button" class="chat-rp-type-btn" data-type="1" data-copy="chat_rp_type_avg">普通红包</button>
                                     <button type="button" class="chat-rp-type-btn" data-type="4" data-copy="chat_rp_type_random">随机红包</button>

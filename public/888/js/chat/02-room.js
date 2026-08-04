@@ -758,6 +758,7 @@
     var sendTime = time || formatTimeSec((msg && msg.createtime) || 0);
     var bottom = '红包福利';
     if (ptype === 3) bottom = pending ? '埋雷 · 匹配中' : '埋雷红包';
+    else if (ptype === 5) bottom = '接龙红包';
     else if (ptype === 2) bottom = '拼手气红包';
     else if (ptype === 4) bottom = '随机红包';
     else if (ptype === 1) bottom = '普通红包';
@@ -1147,20 +1148,25 @@
           + (p.mine_pending ? '（匹配波场哈希末位中）' : '（已匹配波场哈希末位）')
           + '</div>';
       }
-      if ((fairHash || blockNum) && ptype !== 1) {
+      if ((fairHash || blockNum) && (ptype === 2 || ptype === 3 || ptype === 5)) {
         var hashLabel = blockNum ? ('TRON #' + blockNum) : 'TRON';
         var tronTarget = blockNum ? String(blockNum) : String(fairHash || '');
         var tronHref = tronTarget
           ? ('https://tronscan.org/#/block/' + encodeURIComponent(tronTarget))
           : '';
         fairBits = '<div class="chat-rp-fair-hash"><span class="chat-rp-fair-label">' + hashLabel + '</span><code>' + escapeHtml(fairHash || '开奖后公开') + '</code></div>';
-        if (fairHash && tronHref) {
+        var canVerify = !!(data.mine || data.my_record || data.grabbed) && ((p.remain_count | 0) <= 0 || [2, 3, 5].indexOf(p.status | 0) >= 0);
+        if (fairHash && tronHref && canVerify) {
           fairBits += '<a class="chat-rp-tron-btn" href="' + tronHref + '" target="_blank" rel="noopener">前往波场验证</a>';
-        } else if (blockNum && tronHref) {
+        } else if (blockNum && tronHref && canVerify) {
           fairBits += '<a class="chat-rp-tron-btn" href="' + tronHref + '" target="_blank" rel="noopener">查看锁定区块</a>';
         }
-        fairBits += '<button type="button" class="chat-rp-fair-link" data-packet-no="'
-          + escapeHtml(p.packet_no || '') + '">本站验证详情</button>';
+        if (canVerify) {
+          fairBits += '<button type="button" class="chat-rp-fair-link" data-packet-no="'
+            + escapeHtml(p.packet_no || '') + '">本站验证详情</button>';
+        } else {
+          fairBits += '<div class="chat-rp-fair-sub">领取后且红包领完才可查询验证</div>';
+        }
       }
       head.innerHTML = '<div class="chat-rp-detail-bless">' + escapeHtml(bless) + '</div>' +
         '<div class="chat-rp-detail-meta">共 ' + (p.total_count | 0) + ' 个 · ￥' + (parseFloat(p.total_amount || 0).toFixed(2)) + '</div>' +

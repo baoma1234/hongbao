@@ -1920,6 +1920,7 @@
     var sendTime = time || formatTimeSec((msg && msg.createtime) || 0);
     var bottom = '红包福利';
     if (ptype === 3) bottom = pending ? '埋雷 · 匹配中' : '埋雷红包';
+    else if (ptype === 5) bottom = '接龙红包';
     else if (ptype === 2) bottom = '拼手气红包';
     else if (ptype === 4) bottom = '随机红包';
     else if (ptype === 1) bottom = '普通红包';
@@ -2309,20 +2310,25 @@
           + (p.mine_pending ? '（匹配波场哈希末位中）' : '（已匹配波场哈希末位）')
           + '</div>';
       }
-      if ((fairHash || blockNum) && ptype !== 1) {
+      if ((fairHash || blockNum) && (ptype === 2 || ptype === 3 || ptype === 5)) {
         var hashLabel = blockNum ? ('TRON #' + blockNum) : 'TRON';
         var tronTarget = blockNum ? String(blockNum) : String(fairHash || '');
         var tronHref = tronTarget
           ? ('https://tronscan.org/#/block/' + encodeURIComponent(tronTarget))
           : '';
         fairBits = '<div class="chat-rp-fair-hash"><span class="chat-rp-fair-label">' + hashLabel + '</span><code>' + escapeHtml(fairHash || '开奖后公开') + '</code></div>';
-        if (fairHash && tronHref) {
+        var canVerify = !!(data.mine || data.my_record || data.grabbed) && ((p.remain_count | 0) <= 0 || [2, 3, 5].indexOf(p.status | 0) >= 0);
+        if (fairHash && tronHref && canVerify) {
           fairBits += '<a class="chat-rp-tron-btn" href="' + tronHref + '" target="_blank" rel="noopener">前往波场验证</a>';
-        } else if (blockNum && tronHref) {
+        } else if (blockNum && tronHref && canVerify) {
           fairBits += '<a class="chat-rp-tron-btn" href="' + tronHref + '" target="_blank" rel="noopener">查看锁定区块</a>';
         }
-        fairBits += '<button type="button" class="chat-rp-fair-link" data-packet-no="'
-          + escapeHtml(p.packet_no || '') + '">本站验证详情</button>';
+        if (canVerify) {
+          fairBits += '<button type="button" class="chat-rp-fair-link" data-packet-no="'
+            + escapeHtml(p.packet_no || '') + '">本站验证详情</button>';
+        } else {
+          fairBits += '<div class="chat-rp-fair-sub">领取后且红包领完才可查询验证</div>';
+        }
       }
       head.innerHTML = '<div class="chat-rp-detail-bless">' + escapeHtml(bless) + '</div>' +
         '<div class="chat-rp-detail-meta">共 ' + (p.total_count | 0) + ' 个 · ￥' + (parseFloat(p.total_amount || 0).toFixed(2)) + '</div>' +
@@ -5235,7 +5241,11 @@
     if (isGroup && type === 2) {
       el.hidden = false;
       el.style.display = '';
-      el.textContent = chatT('chat_rp_type_lucky_desc') || '拼手气红包：金额随机分配，手气越好领得越多。';
+      el.textContent = chatT('chat_rp_type_lucky_desc') || '拼手气：发包人可自领；领完后金额最少者赔付该包总额（同额取最晚）；发包人最少不赔。';
+    } else if (isGroup && type === 5) {
+      el.hidden = false;
+      el.style.display = '';
+      el.textContent = chatT('chat_rp_type_relay_desc') || '接龙：机器人监控领取最少者，直接扣款发出下一包。';
     } else {
       el.hidden = true;
       el.style.display = 'none';
@@ -5274,7 +5284,7 @@
       var count = countInput ? (parseInt(countInput.value, 10) || 1) : 1;
       var amount = amountInput ? (parseFloat(amountInput.value) || 0) : 0;
       var mineDigit = mineInput ? (parseInt(mineInput.value, 10) || 0) : 0;
-      var typeLabel = type === 1 ? '普通' : (type === 3 ? '埋雷' : (type === 4 ? '随机' : '拼手气'));
+      var typeLabel = type === 1 ? '普通' : (type === 3 ? '埋雷' : (type === 4 ? '随机' : (type === 5 ? '接龙' : '拼手气')));
       var parts = [typeLabel];
       if (type === 3) {
         parts.push('雷' + mineDigit);

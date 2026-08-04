@@ -49,7 +49,8 @@ class RedPacketService
         if ($blessing === '') {
             $blessing = '恭喜发财';
         }
-        if (!in_array($packetType, [1, 2, 3, 4], true)) {
+        // 1普通 2拼手气(可自领+最少赔付) 3埋雷 4随机 5接龙(最少续发)
+        if (!in_array($packetType, [1, 2, 3, 4, 5], true)) {
             throw new \InvalidArgumentException('invalid packet_type');
         }
         if ($packetType === 3) {
@@ -61,6 +62,7 @@ class RedPacketService
         }
 
         $isUserRp = in_array($packetType, [1, 4], true);
+        $isRelay = ($packetType === 5);
         $minCent = (int)($this->cfg['min_amount_cent'] ?? 1);
         $maxCount = (int)($this->cfg['max_count'] ?? 10);
         $expireSec = (int)($this->cfg['expire_seconds'] ?? 60);
@@ -77,6 +79,18 @@ class RedPacketService
             $minePlatformUid = (int)($this->cfg['mine_platform_user_id'] ?? 0);
             if ($minePlatformUid > 0) {
                 $platformUserId = $minePlatformUid;
+            }
+        } elseif ($isRelay) {
+            // 接龙红包：独立全局配置（缺省回退拼手气配置，兼容旧数据）
+            $expireSec = max(1, (int)($this->cfg['relay_expire_seconds'] ?? $expireSec));
+            $maxCount = max(1, (int)($this->cfg['relay_max_count'] ?? $maxCount));
+            $globalMinAmount = round((float)($this->cfg['relay_min_amount'] ?? $globalMinAmount), 2);
+            $feeRate = round((float)($this->cfg['relay_platform_fee_rate'] ?? $feeRate), 4);
+            $agentRate = round((float)($this->cfg['relay_agent_rebate_rate_default'] ?? $agentRate), 4);
+            $inviteRate = round((float)($this->cfg['relay_invite_rebate_rate'] ?? $inviteRate), 4);
+            $relayPlatformUid = (int)($this->cfg['relay_platform_user_id'] ?? 0);
+            if ($relayPlatformUid > 0) {
+                $platformUserId = $relayPlatformUid;
             }
         } elseif ($isUserRp) {
             // 普通用户群红宝：普通/随机单独配置（默认 30 分钟过期）
@@ -146,6 +160,9 @@ class RedPacketService
                 if ($packetType === 3) {
                     $agentRate = round((float)($this->cfg['mine_agent_rebate_rate_vip']
                         ?? $this->cfg['agent_rebate_rate_vip'] ?? 0.01), 4);
+                } elseif ($packetType === 5) {
+                    $agentRate = round((float)($this->cfg['relay_agent_rebate_rate_vip']
+                        ?? $this->cfg['agent_rebate_rate_vip'] ?? 0.01), 4);
                 } elseif ($isUserRp) {
                     $agentRate = round((float)($this->cfg['user_rp_agent_rebate_rate_vip']
                         ?? $this->cfg['agent_rebate_rate_vip'] ?? 0.01), 4);
@@ -195,7 +212,7 @@ class RedPacketService
         $expireAt = $now + max(1, $expireSec);
         $field = $this->wallet->field();
 
-        // 拼手气：Redis 最新哈希立刻拆包
+        // 拼手气/接龙：Redis 最新哈希立刻拆包
         // 扫雷：哈希末位必须等于手填雷号；匹配后才拆包开抢，否则 pending
         $tronBlockNum = 0;
         $tronBlockId = '';
@@ -205,7 +222,7 @@ class RedPacketService
         $fairRevealedAt = 0;
         $cents = [];
         $minePending = false;
-        if ($packetType === 2) {
+        if ($packetType === 2 || $packetType === 5) {
             $latest = TronHashCache::get();
             if (!$latest) {
                 $latest = TronHashCache::refresh(2);
@@ -281,7 +298,7 @@ class RedPacketService
             // 发包人一次扣 total_amount；流水记在 from_user_id（含机器人代扣/接龙代扣）
             $sendRemark = '发红包扣款 ' . $packetNo;
             if (!empty($params['robot_relay'])) {
-                $sendRemark = '拼手气接龙发包扣款 ' . $packetNo;
+                $sendRemark = '接龙续发包扣款 ' . $packetNo;
             } elseif (!empty($params['robot_send'])) {
                 $sendRemark = '代发红包扣款 ' . $packetNo;
             }
@@ -399,7 +416,7 @@ class RedPacketService
             'bg_image'       => $bgImage,
             'blessing'       => $blessing,
             'expiretime'     => $expireAt,
-            'proof_type'     => in_array($packetType, [2, 3], true) ? 'tron' : '',
+            'proof_type'     => in_array($packetType, [2, 3, 5], true) ? 'tron' : '',
         ];
         if ($scopeType === 2) {
             try {
@@ -831,11 +848,16 @@ class RedPacketService
         }
         $isVip = (int)($group['is_vip_group'] ?? 0) === 1;
         $isUserRp = in_array((int)$packetType, [1, 4], true);
+        $isRelay = ((int)$packetType === 5);
         $minCount = (int)($group['rp_min_count'] ?? 0);
         $maxCount = (int)($group['rp_max_count'] ?? 0);
         if ($minCount <= 0) {
             if ($isUserRp) {
                 $minCount = (int)($this->cfg['user_rp_min_count'] ?? 1);
+            } elseif ($isRelay) {
+                $minCount = $isVip
+                    ? (int)($this->cfg['relay_vip_min_count'] ?? $this->cfg['vip_min_count'] ?? 5)
+                    : (int)($this->cfg['relay_min_count'] ?? $this->cfg['min_count'] ?? 5);
             } else {
                 $minCount = $isVip
                     ? (int)($this->cfg['vip_min_count'] ?? 5)
@@ -845,6 +867,10 @@ class RedPacketService
         if ($maxCount <= 0) {
             if ($isUserRp) {
                 $maxCount = (int)($this->cfg['user_rp_max_count'] ?? 100);
+            } elseif ($isRelay) {
+                $maxCount = $isVip
+                    ? (int)($this->cfg['relay_vip_max_count'] ?? $this->cfg['vip_max_count'] ?? 10)
+                    : (int)($this->cfg['relay_max_count'] ?? $this->cfg['max_count'] ?? 10);
             } else {
                 $maxCount = $isVip
                     ? (int)($this->cfg['vip_max_count'] ?? 10)
@@ -880,7 +906,7 @@ class RedPacketService
             }
             throw new \InvalidArgumentException('红包个数须为 ' . $minCount . '～' . $maxCount);
         }
-        $enabled = (string)($group['rp_enabled_types'] ?? '1,2,3,4');
+        $enabled = (string)($group['rp_enabled_types'] ?? '1,2,3,4,5');
         $allowed = array_filter(array_map('intval', explode(',', $enabled)));
         if ($allowed && !in_array((int)$packetType, $allowed, true)) {
             throw new \InvalidArgumentException('packet type not allowed in this group');
@@ -899,7 +925,7 @@ class RedPacketService
         );
         $result = (new RedPacketSettlementService($this->wallet, ['red_packet' => $this->cfg]))
             ->settleAfterFinished($packetId);
-        if (!empty($result['settled']) && $packet && (int)$packet['packet_type'] === 2) {
+        if (!empty($result['settled']) && $packet && in_array((int)$packet['packet_type'], [2, 5], true)) {
             $this->revealFairProof($packetId);
         }
         return $result;
@@ -1029,10 +1055,11 @@ class RedPacketService
         }
 
         // ---------- 关键节点：验资拦截（必须在 Redis 弹队列之前）----------
-        // 手气包(2) 赔付整包总额；扫雷包(3) 按个数倍率赔付（如 5 包 1.5 倍）。
+        // 拼手气(2)/接龙(5)：余额须 ≥ 红包总额（覆盖最少赔付/续发扣款）
+        // 扫雷包(3) 按个数倍率赔付（如 5 包 1.5 倍）。
         // 扫雷额外：余额必须严格大于最低限制（如 10 元），才可领取。
         // 私聊红包无赔付玩法，跳过验资门槛。
-        if ((int)($packet['scope_type'] ?? 0) !== 1 && in_array($packetType, [2, 3], true)) {
+        if ((int)($packet['scope_type'] ?? 0) !== 1 && in_array($packetType, [2, 3, 5], true)) {
             $needCompensate = $totalAmount;
             if ($packetType === 3) {
                 $needCompensate = $this->mineCompensateAmount(
@@ -1061,6 +1088,7 @@ class RedPacketService
                     }
                 }
             }
+            // 拼手气：发包人若领到最少可不赔付，但仍要求余额覆盖（其余人必可赔）
             if (!$this->wallet->hasEnoughBalance($userId, $needCompensate)) {
                 error_log(sprintf(
                     '[RP_GRAB][ERROR] balance gate reject user=%d packet_id=%d packet_no=%s need=%.2f type=%d',
@@ -1321,7 +1349,7 @@ class RedPacketService
             if ($settled) {
                 error_log('[RP_SETTLE] async ok packet_id=' . $packetId);
             }
-            if ($settled && $packetType === 2 && (int)($hint['scope_type'] ?? 0) === 2) {
+            if ($settled && $packetType === 5 && (int)($hint['scope_type'] ?? 0) === 2) {
                 $full = $hint;
                 if (empty($full['blessing']) || empty($full['total_amount']) || empty($full['total_count'])) {
                     $row = Db::fetch('SELECT * FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1', [$packetId]);
@@ -1331,7 +1359,7 @@ class RedPacketService
                 }
                 $this->trySendRobotNextRound($full);
             }
-            if ($packetType === 2) {
+            if ($packetType === 2 || $packetType === 5) {
                 $this->revealFairProof($packetId);
             }
             if ($settled) {
@@ -1418,8 +1446,8 @@ class RedPacketService
     }
 
     /**
-     * 拼手气群包结算后：由「抢最少」的人扣余额发同规格下一包（流水记在其名下）。
-     * 系统监听全部群；机器人 74282747 仅需在群内，不替代扣款主体。
+     * 接龙群包结算后：由「抢最少」的人扣余额发同规格下一包（流水记在其名下）。
+     * 系统监听全部群；机器人仅需在群内，不替代扣款主体。
      * 若群内仍有待领取包则跳过，避免叠包。
      *
      * @return array|null 新红包消息（若已发出）
@@ -1435,7 +1463,8 @@ class RedPacketService
         if ($groupId <= 0) {
             return null;
         }
-        if ((int)($packet['packet_type'] ?? 0) !== 2) {
+        // 仅接龙包(5)续发；拼手气(2)改为结算时直接赔付发包人
+        if ((int)($packet['packet_type'] ?? 0) !== 5) {
             return null;
         }
         if ((int)($packet['scope_type'] ?? 0) !== 2) {
@@ -1514,7 +1543,7 @@ class RedPacketService
                     'from_user_id' => $senderUid,
                     'scope_type'   => 2,
                     'group_id'     => $groupId,
-                    'packet_type'  => 2,
+                    'packet_type'  => 5,
                     'total_amount' => $amount,
                     'total_count'  => $count,
                     'blessing'     => (string)($packet['blessing'] ?? '恭喜发财'),
@@ -1643,7 +1672,7 @@ class RedPacketService
                 if (!empty($info['settled'])) {
                     $done++;
                     error_log('[RP_SETTLE_RETRY] ok packet_id=' . $packetId);
-                    if ($ptype === 2) {
+                    if ($ptype === 5) {
                         $full = Db::fetch(
                             'SELECT * FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1',
                             [$packetId]
@@ -1651,6 +1680,9 @@ class RedPacketService
                         if ($full && (int)($full['scope_type'] ?? 0) === 2) {
                             $this->trySendRobotNextRound($full);
                         }
+                    }
+                    if ($ptype === 2 || $ptype === 5) {
+                        $this->revealFairProof($packetId);
                     }
                     if ($ptype === 3) {
                         $this->notifySettled($packetId, $row, $info);
@@ -1833,7 +1865,7 @@ class RedPacketService
                 $ptype = (int)($packet['packet_type'] ?? 0);
                 if ($ptype === 4) {
                     $cents = $this->splitLucky($remainCent, $remainCount, $minCent);
-                } elseif (in_array($ptype, [2, 3], true)) {
+                } elseif (in_array($ptype, [2, 3, 5], true)) {
                     $cents = $this->splitLucky($remainCent, $remainCount, $minCent);
                 } else {
                     $cents = $this->splitEqual($remainCent, $remainCount, $minCent);
@@ -2185,7 +2217,7 @@ class RedPacketService
         if (!$packet) {
             return null;
         }
-        if (!in_array((int)($packet['packet_type'] ?? 0), [2, 3], true)) {
+        if (!in_array((int)($packet['packet_type'] ?? 0), [2, 3, 5], true)) {
             return null;
         }
         $records = [];

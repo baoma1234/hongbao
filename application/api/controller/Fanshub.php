@@ -17,7 +17,7 @@ use think\Validate;
  */
 class Fanshub extends Api
 {
-    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'rpfair', 'communityrecommend'];
+    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'communityrecommend'];
     protected $noNeedRight = '*';
 
     public function _initialize()
@@ -25,7 +25,7 @@ class Fanshub extends Api
         FansHubSms::boot();
         parent::_initialize();
         $action = strtolower($this->request->action());
-        $exempt = ['config', 'bootstrap', 'comments', 'inviteleaderboard', 'slidercaptcha', 'grabslider', 'jackpot', 'notices', 'rpfair', 'communityrecommend'];
+        $exempt = ['config', 'bootstrap', 'comments', 'inviteleaderboard', 'slidercaptcha', 'grabslider', 'jackpot', 'notices', 'communityrecommend'];
         if (in_array($action, $exempt, true)) {
             return;
         }
@@ -141,6 +141,7 @@ class Fanshub extends Api
     /**
      * 红包公平性验证（波场官方区块哈希）
      * GET /api/fanshub/rpfair?packet_no=RP...
+     * 须已登录，且本人已领取，且红包已领完，才可查询。
      */
     public function rpfair()
     {
@@ -148,10 +149,9 @@ class Fanshub extends Api
         if ($packetNo === '') {
             $this->error('请提供红包单号 packet_no');
         }
-        $cached = \app\common\library\RedPacketTronFair::cacheGet($packetNo);
-        if (is_array($cached) && !empty($cached['revealed']) && !empty($cached['block_id'])
-            && isset($cached['amount_verify']) && isset($cached['computed_cents'])) {
-            $this->success('ok', $cached);
+        $userId = (int)($this->auth->id ?? 0);
+        if ($userId <= 0) {
+            $this->error('请先登录后再查询验证', null, 401);
         }
         $packet = \think\Db::name('chat_red_packets')->where('packet_no', $packetNo)->find();
         if (!$packet && $packetNo !== strtolower($packetNo)) {
@@ -160,14 +160,31 @@ class Fanshub extends Api
         if (!$packet) {
             $this->error('红包不存在');
         }
-        if (!in_array((int)$packet['packet_type'], [2, 3], true)) {
+        if (!in_array((int)$packet['packet_type'], [2, 3, 5], true)) {
             $this->error('该红包玩法不支持公平性验证');
         }
 
-        $tronStatus = (int)($packet['tron_status'] ?? 0);
         $finished = in_array((int)$packet['status'], [2, 3, 5], true) || (int)($packet['remain_count'] ?? 1) <= 0;
+        if (!$finished) {
+            $this->error('红包尚未领完，暂不可查询验证');
+        }
+        $grabbed = \think\Db::name('chat_red_packet_records')
+            ->where('packet_id', (int)$packet['id'])
+            ->where('user_id', $userId)
+            ->value('id');
+        if (!$grabbed) {
+            $this->error('未领取该红包，不可查询验证');
+        }
+
+        $cached = \app\common\library\RedPacketTronFair::cacheGet($packetNo);
+        if (is_array($cached) && !empty($cached['revealed']) && !empty($cached['block_id'])
+            && isset($cached['amount_verify']) && isset($cached['computed_cents'])) {
+            $this->success('ok', $cached);
+        }
+
+        $tronStatus = (int)($packet['tron_status'] ?? 0);
         // 已抢完/过期但未绑定波场哈希：查询时补开奖（避免验证页一直空）
-        if ($finished && $tronStatus !== 2) {
+        if ($tronStatus !== 2) {
             try {
                 $r = \app\common\library\RedPacketTronFair::processReveal((int)$packet['id'], true);
                 if (!empty($r['ok']) && !empty($r['data']) && !empty($r['data']['revealed'])) {
@@ -182,7 +199,7 @@ class Fanshub extends Api
 
         $hasTron = trim((string)($packet['tron_block_id'] ?? '')) !== '' || (int)($packet['tron_block_num'] ?? 0) > 0;
         $legacyHash = trim((string)($packet['fair_hash'] ?? ''));
-        if (!$hasTron && $legacyHash === '' && $tronStatus === 0 && !$finished) {
+        if (!$hasTron && $legacyHash === '' && $tronStatus === 0) {
             $this->error('该红包暂无波场哈希（未开奖）');
         }
         $records = [];

@@ -140,7 +140,7 @@ class FansHubService
             'master_lock_desc', 'phase2_checkin_ledger', 'phase2_honor_capped',
             'phase2_honor_progress', 'phase2_confirm_violent_msg', 'phase2_checkin_violent_btn',
             'phase2_checkin_normal_btn', 'jackpot_partners', 'jackpot_price_line',
-            'marquee_text', 'chat_rp_type_lucky_desc', 'chat_rp_mine_hint',
+            'marquee_text', 'chat_rp_type_lucky_desc', 'chat_rp_type_relay_desc', 'chat_rp_mine_hint',
         ];
     }
 
@@ -787,6 +787,8 @@ class FansHubService
                 'chat_rp_type_label' => '红包类型',
                 'chat_rp_type_lucky' => '拼手气',
                 'chat_rp_type_lucky_desc' => '拼手气类型简介',
+                'chat_rp_type_relay' => '接龙',
+                'chat_rp_type_relay_desc' => '接龙类型简介',
                 'chat_rp_type_avg' => '人均',
                 'chat_rp_type_mine' => '埋雷',
                 'chat_rp_type_random' => '随机红包',

@@ -146,20 +146,43 @@ class RedPacketSettlementService
             /** @var array<int,string> $losers record_id => mine|worst */
             $losers = [];
             // 私聊红包：无最差/中雷赔付、不抽水、不返点
-            if (!$isPrivate && $packetType === 2 && $records) {
+            if (!$isPrivate && ($packetType === 2 || $packetType === 5) && $records) {
                 $worst = $records[0];
                 foreach ($records as $row) {
-                    if ((float)$row['amount'] < (float)$worst['amount']) {
+                    $amt = (float)$row['amount'];
+                    $wAmt = (float)$worst['amount'];
+                    if ($amt < $wAmt - 0.00001) {
                         $worst = $row;
+                        continue;
+                    }
+                    // 金额相同：拼手气取领取时间最晚者赔付；接龙保持先出现的最少者（续发）
+                    if (abs($amt - $wAmt) <= 0.00001 && $packetType === 2) {
+                        $t = (int)($row['createtime'] ?? 0);
+                        $wt = (int)($worst['createtime'] ?? 0);
+                        if ($t > $wt || ($t === $wt && (int)$row['id'] > (int)$worst['id'])) {
+                            $worst = $row;
+                        }
                     }
                 }
                 Db::exec('UPDATE ' . Db::table('chat_red_packet_records') . ' SET is_worst=0 WHERE packet_id=?', [$packetId]);
-                Db::exec(
-                    'UPDATE ' . Db::table('chat_red_packet_records')
-                    . ' SET is_worst=1, need_compensate=1, compensate_amount=?, compensate_status=1 WHERE id=?',
-                    [sprintf('%.2f', $compensateAmount), (int)$worst['id']]
-                );
-                $losers[(int)$worst['id']] = 'worst';
+                // 拼手气：发包人自己领到最少 → 标记最差但不赔付
+                $worstUid = (int)($worst['user_id'] ?? 0);
+                $senderIsWorst = ($packetType === 2 && $worstUid === $fromUserId);
+                if ($senderIsWorst) {
+                    Db::exec(
+                        'UPDATE ' . Db::table('chat_red_packet_records')
+                        . ' SET is_worst=1, need_compensate=0, compensate_amount=0, compensate_status=0 WHERE id=?',
+                        [(int)$worst['id']]
+                    );
+                    error_log('[RP_SETTLE] lucky sender is worst, skip compensate packet_id=' . $packetId . ' uid=' . $worstUid);
+                } else {
+                    Db::exec(
+                        'UPDATE ' . Db::table('chat_red_packet_records')
+                        . ' SET is_worst=1, need_compensate=1, compensate_amount=?, compensate_status=1 WHERE id=?',
+                        [sprintf('%.2f', $compensateAmount), (int)$worst['id']]
+                    );
+                    $losers[(int)$worst['id']] = 'worst';
+                }
             } elseif (!$isPrivate && $packetType === 3) {
                 foreach ($records as $row) {
                     $cent = (int)($row['amount_cent'] ?? round((float)$row['amount'] * 100));
@@ -191,11 +214,12 @@ class RedPacketSettlementService
                 }
                 $payerId = (int)$rec['user_id'];
 
-                // 拼手气最差：结算不划转，避免「赔给发包人再由其续发」导致流水落在发包人/机器人名下
-                if ($reason === 'worst' && $packetType === 2) {
+                // 接龙最差：结算不划转，续发时由最差用户直接发包（流水记在其名下）
+                // 拼手气最差：立刻赔付整包金额给发包人
+                if ($reason === 'worst' && $packetType === 5) {
                     $compensateUsers[] = $payerId;
                     $compensateTotal = round($compensateTotal + $compensateAmount, 2);
-                    error_log('[RP_SETTLE] worst marked (defer pay via next send) packet_id=' . $packetId . ' payer=' . $payerId . ' amount=' . $compensateAmount);
+                    error_log('[RP_SETTLE] relay worst marked (defer pay via next send) packet_id=' . $packetId . ' payer=' . $payerId . ' amount=' . $compensateAmount);
                     continue;
                 }
 
@@ -235,6 +259,9 @@ class RedPacketSettlementService
                 if ($packetType === 3) {
                     $feeRate = round((float)($this->cfg['mine_platform_fee_rate']
                         ?? $this->cfg['platform_fee_rate'] ?? 0.03), 4);
+                } elseif ($packetType === 5) {
+                    $feeRate = round((float)($this->cfg['relay_platform_fee_rate']
+                        ?? $this->cfg['platform_fee_rate'] ?? 0.03), 4);
                 } else {
                     $feeRate = round((float)($this->cfg['platform_fee_rate'] ?? 0.03), 4);
                 }
@@ -247,6 +274,11 @@ class RedPacketSettlementService
                 $minePlatformUid = (int)($this->cfg['mine_platform_user_id'] ?? 0);
                 if ($minePlatformUid > 0) {
                     $platformUserId = $minePlatformUid;
+                }
+            } elseif ($packetType === 5) {
+                $relayPlatformUid = (int)($this->cfg['relay_platform_user_id'] ?? 0);
+                if ($relayPlatformUid > 0) {
+                    $platformUserId = $relayPlatformUid;
                 }
             }
             $prepaidFee = round((float)($packet['platform_fee'] ?? 0), 2);
@@ -426,6 +458,8 @@ class RedPacketSettlementService
         $rate = round((float)($this->cfg['agent_rebate_rate_default'] ?? 0.01), 4);
         if ($packetType === 3) {
             $rate = round((float)($this->cfg['mine_agent_rebate_rate_default'] ?? $rate), 4);
+        } elseif ($packetType === 5) {
+            $rate = round((float)($this->cfg['relay_agent_rebate_rate_default'] ?? $rate), 4);
         }
 
         if ($groupId > 0) {
@@ -441,6 +475,9 @@ class RedPacketSettlementService
                 } elseif ((int)($group['is_vip_group'] ?? 0) === 1) {
                     if ($packetType === 3) {
                         $rate = round((float)($this->cfg['mine_agent_rebate_rate_vip']
+                            ?? $this->cfg['agent_rebate_rate_vip'] ?? 0.01), 4);
+                    } elseif ($packetType === 5) {
+                        $rate = round((float)($this->cfg['relay_agent_rebate_rate_vip']
                             ?? $this->cfg['agent_rebate_rate_vip'] ?? 0.01), 4);
                     } else {
                         $rate = round((float)($this->cfg['agent_rebate_rate_vip'] ?? 0.01), 4);

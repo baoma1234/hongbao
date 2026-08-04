@@ -47,6 +47,16 @@ class Redpacketconfig extends Backend
             $userRpRebate = round((float)($row['user_rp_agent_rebate_rate_default'] ?? $rebate), 4);
             $userRpRebateVip = round((float)($row['user_rp_agent_rebate_rate_vip'] ?? $rebateVip), 4);
             $userRpPlatformUid = (int)($row['user_rp_platform_user_id'] ?? $platformUid);
+            $relayExpire = max(1, (int)($row['relay_expire_seconds'] ?? $expire));
+            $relayMinAmount = round((float)($row['relay_min_amount'] ?? $minAmount), 2);
+            $relayMinCount = max(1, (int)($row['relay_min_count'] ?? $minCount));
+            $relayMaxCount = max($relayMinCount, (int)($row['relay_max_count'] ?? $maxCount));
+            $relayVipMin = max(1, (int)($row['relay_vip_min_count'] ?? $vipMin));
+            $relayVipMax = max($relayVipMin, (int)($row['relay_vip_max_count'] ?? $vipMax));
+            $relayFee = round((float)($row['relay_platform_fee_rate'] ?? $fee), 4);
+            $relayRebate = round((float)($row['relay_agent_rebate_rate_default'] ?? $rebate), 4);
+            $relayRebateVip = round((float)($row['relay_agent_rebate_rate_vip'] ?? $rebateVip), 4);
+            $relayPlatformUid = (int)($row['relay_platform_user_id'] ?? $platformUid);
             if ($minAmount <= 0) {
                 $this->error('最低金额无效');
             }
@@ -65,8 +75,14 @@ class Redpacketconfig extends Backend
             if ($userRpFee < 0 || $userRpFee > 1 || $userRpRebate < 0 || $userRpRebate > 1 || $userRpRebateVip < 0 || $userRpRebateVip > 1) {
                 $this->error('普通用户群红宝比例须在 0～1 之间（如 0.03=3%）');
             }
+            if ($relayFee < 0 || $relayFee > 1 || $relayRebate < 0 || $relayRebate > 1 || $relayRebateVip < 0 || $relayRebateVip > 1) {
+                $this->error('接龙比例须在 0～1 之间（如 0.03=3%）');
+            }
             if ($userRpMinAmount <= 0) {
                 $this->error('普通用户群红宝最低金额无效');
+            }
+            if ($relayMinAmount <= 0) {
+                $this->error('接龙最低金额无效');
             }
             if ($rate5 <= 0 || $rate7 <= 0 || $rate9 <= 0) {
                 $this->error('扫雷赔付倍率须大于 0');
@@ -79,6 +95,9 @@ class Redpacketconfig extends Backend
             }
             if ($userRpPlatformUid <= 0) {
                 $this->error('请填写普通用户群红宝平台收款用户 ID');
+            }
+            if ($relayPlatformUid <= 0) {
+                $this->error('请填写接龙平台收款用户 ID');
             }
             FansHubRedPacket::saveConfig([
                 'min_amount'                      => sprintf('%.2f', $minAmount),
@@ -107,20 +126,30 @@ class Redpacketconfig extends Backend
                 'user_rp_agent_rebate_rate_default' => sprintf('%.4f', $userRpRebate),
                 'user_rp_agent_rebate_rate_vip'     => sprintf('%.4f', $userRpRebateVip),
                 'user_rp_platform_user_id'          => (string)$userRpPlatformUid,
+                'relay_expire_seconds'             => (string)$relayExpire,
+                'relay_min_amount'                 => sprintf('%.2f', $relayMinAmount),
+                'relay_min_count'                  => (string)$relayMinCount,
+                'relay_max_count'                  => (string)$relayMaxCount,
+                'relay_vip_min_count'              => (string)$relayVipMin,
+                'relay_vip_max_count'              => (string)$relayVipMax,
+                'relay_platform_fee_rate'          => sprintf('%.4f', $relayFee),
+                'relay_agent_rebate_rate_default'  => sprintf('%.4f', $relayRebate),
+                'relay_agent_rebate_rate_vip'      => sprintf('%.4f', $relayRebateVip),
+                'relay_platform_user_id'           => (string)$relayPlatformUid,
                 'skin_width'                      => '750',
                 'skin_height'                     => '1000',
             ], [
-                'min_amount'                      => '普通群最低金额',
-                'min_count'                       => '普通群最少个数',
-                'max_count'                       => '普通群最多个数',
-                'vip_min_count'                   => 'VIP群最少个数',
-                'vip_max_count'                   => 'VIP群最多个数',
-                'platform_fee_rate'               => '平台抽水比例',
-                'agent_rebate_rate_default'       => '代理默认返佣',
-                'agent_rebate_rate_vip'           => 'VIP群返佣',
+                'min_amount'                      => '拼手气普通群最低金额',
+                'min_count'                       => '拼手气普通群最少个数',
+                'max_count'                       => '拼手气普通群最多个数',
+                'vip_min_count'                   => '拼手气VIP群最少个数',
+                'vip_max_count'                   => '拼手气VIP群最多个数',
+                'platform_fee_rate'               => '拼手气平台抽水比例',
+                'agent_rebate_rate_default'       => '拼手气代理默认返佣',
+                'agent_rebate_rate_vip'           => '拼手气VIP群返佣',
                 'expire_seconds'                  => '拼手气过期秒数',
                 'mine_expire_seconds'             => '扫雷过期秒数（默认180=3分钟）',
-                'platform_user_id'                => '平台收款用户',
+                'platform_user_id'                => '拼手气平台收款用户',
                 'mine_compensate_rate_5'          => '扫雷5包赔付倍率',
                 'mine_compensate_rate_7'          => '扫雷7包赔付倍率',
                 'mine_compensate_rate_9'          => '扫雷9包赔付倍率',
@@ -136,6 +165,16 @@ class Redpacketconfig extends Backend
                 'user_rp_agent_rebate_rate_default' => '普通用户群红宝代理返佣',
                 'user_rp_agent_rebate_rate_vip'     => '普通用户群红宝代理返佣（VIP）',
                 'user_rp_platform_user_id'          => '普通用户群红宝平台收款用户',
+                'relay_expire_seconds'             => '接龙过期秒数',
+                'relay_min_amount'                 => '接龙最低金额',
+                'relay_min_count'                  => '接龙普通群最少个数',
+                'relay_max_count'                  => '接龙普通群最多个数',
+                'relay_vip_min_count'              => '接龙VIP群最少个数',
+                'relay_vip_max_count'              => '接龙VIP群最多个数',
+                'relay_platform_fee_rate'          => '接龙平台抽水',
+                'relay_agent_rebate_rate_default'  => '接龙代理返佣',
+                'relay_agent_rebate_rate_vip'      => '接龙代理返佣（VIP）',
+                'relay_platform_user_id'           => '接龙平台收款用户',
                 'skin_width'                      => '皮肤宽',
                 'skin_height'                     => '皮肤高',
             ]);

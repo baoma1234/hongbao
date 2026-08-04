@@ -327,11 +327,14 @@
     if (!el) return;
     var type = getRpPacketType();
     var isGroup = !!(state.room && state.room.type === 2);
-    // 仅群聊 + 拼手气时展示简介（多语言文案，后台 H5 文案可改）
     if (isGroup && type === 2) {
       el.hidden = false;
       el.style.display = '';
-      el.textContent = chatT('chat_rp_type_lucky_desc') || '拼手气红包：金额随机分配，手气越好领得越多。';
+      el.textContent = chatT('chat_rp_type_lucky_desc') || '拼手气：发包人可自领；领完后金额最少者赔付该包总额（同额取最晚）；发包人最少不赔。';
+    } else if (isGroup && type === 5) {
+      el.hidden = false;
+      el.style.display = '';
+      el.textContent = chatT('chat_rp_type_relay_desc') || '接龙：机器人监控领取最少者，直接扣款发出下一包。';
     } else {
       el.hidden = true;
       el.style.display = 'none';
@@ -370,7 +373,7 @@
       var count = countInput ? (parseInt(countInput.value, 10) || 1) : 1;
       var amount = amountInput ? (parseFloat(amountInput.value) || 0) : 0;
       var mineDigit = mineInput ? (parseInt(mineInput.value, 10) || 0) : 0;
-      var typeLabel = type === 1 ? '普通' : (type === 3 ? '埋雷' : (type === 4 ? '随机' : '拼手气'));
+      var typeLabel = type === 1 ? '普通' : (type === 3 ? '埋雷' : (type === 4 ? '随机' : (type === 5 ? '接龙' : '拼手气')));
       var parts = [typeLabel];
       if (type === 3) {
         parts.push('雷' + mineDigit);

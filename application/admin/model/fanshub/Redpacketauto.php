@@ -22,6 +22,7 @@ class Redpacketauto extends Model
             '1' => '普通红包',
             '2' => '拼手气',
             '3' => '埋雷',
+            '5' => '接龙红包',
         ];
     }
 }
