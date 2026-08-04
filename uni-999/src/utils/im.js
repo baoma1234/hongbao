@@ -306,6 +306,26 @@ export function setGroupMuteAll(groupId, enabled) {
   )
 }
 
+export function muteGroupMember(groupId, userId, seconds) {
+  return imSend(
+    'group.mute',
+    {
+      group_id: groupId | 0,
+      user_id: userId | 0,
+      seconds: seconds | 0,
+    },
+    true
+  )
+}
+
+export function kickGroupMember(groupId, userId) {
+  return imSend(
+    'group.kick',
+    { group_id: groupId | 0, user_id: userId | 0 },
+    true
+  )
+}
+
 export function updateGroup(groupId, fields = {}) {
   return imSend(
     'group.update',

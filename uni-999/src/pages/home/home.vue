@@ -48,6 +48,18 @@
         </view>
       </view>
 
+      <!-- 邀请排行榜 -->
+      <view class="lb card" v-if="leaderboard.length">
+        <text class="lb-title">{{ t('leaderboard_title') || '邀请排行榜' }}</text>
+        <view v-for="item in leaderboard" :key="item.rank + '-' + item.user_id" class="lb-row">
+          <view class="lb-left">
+            <text class="lb-rank">{{ rankBadge(item.rank) }}</text>
+            <text class="lb-name">{{ item.mobile_mask || (t('leaderboard_user_fallback') || '用户') }}</text>
+          </view>
+          <text class="lb-count">{{ inviteCountText(item.invite_count) }}</text>
+        </view>
+      </view>
+
       <view class="foot">{{ t('footer_line1') || '红宝官方活跃粉丝福利大厅' }}</view>
     </view>
   </view>
@@ -65,6 +77,7 @@ const locale = localeState()
 const profile = ref(null)
 const jackpot = ref(null)
 const config = ref(null)
+const leaderboard = ref([])
 let pollTimer = null
 
 const hongbaoText = computed(() => {
@@ -107,6 +120,18 @@ function goTab(url) {
   uni.switchTab({ url })
 }
 
+function rankBadge(rank) {
+  const r = rank | 0
+  if (r === 1) return '🥇'
+  if (r === 2) return '🥈'
+  if (r === 3) return '🥉'
+  return String(r || '-')
+}
+
+function inviteCountText(count) {
+  return t('leaderboard_invite_template', { count: count | 0 }) || ('邀 ' + (count | 0) + ' 人')
+}
+
 async function loadBootstrap() {
   try {
     const data = await apiRequest('bootstrap', 'GET', { include: 'home' })
@@ -116,6 +141,10 @@ async function loadBootstrap() {
       // market === jackpotPayload
       if (data.market) jackpot.value = data.market
       else if (data.jackpot) jackpot.value = data.jackpot
+      const lb = (data.home && data.home.leaderboard) || data.leaderboard
+      if (Array.isArray(lb) && lb.length) {
+        leaderboard.value = lb.slice(0, 10)
+      }
     }
   } catch (e) {
     // fallback profile only
@@ -130,6 +159,18 @@ async function loadBootstrap() {
   if (!jackpot.value) {
     await pollJackpot()
   }
+  if (!leaderboard.value.length) {
+    await loadLeaderboard()
+  }
+}
+
+async function loadLeaderboard() {
+  try {
+    const rows = await apiRequest('inviteleaderboard', 'GET', { limit: 10 })
+    if (Array.isArray(rows) && rows.length) {
+      leaderboard.value = rows.slice(0, 10)
+    }
+  } catch (e) {}
 }
 
 async function pollJackpot() {
@@ -272,5 +313,45 @@ onUnmounted(() => stopPoll())
   line-height: 1.5;
   text-align: center;
   opacity: 0.9;
+}
+.lb-title {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 800;
+  color: var(--text-main, #1f1714);
+  margin-bottom: 12rpx;
+}
+.lb-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14rpx 0;
+  border-bottom: 1px dashed rgba(40, 20, 10, 0.08);
+}
+.lb-row:last-child {
+  border-bottom: none;
+}
+.lb-left {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  min-width: 0;
+}
+.lb-rank {
+  width: 48rpx;
+  text-align: center;
+  font-weight: 900;
+  color: var(--accent, #c61114);
+  font-size: 26rpx;
+}
+.lb-name {
+  font-size: 26rpx;
+  color: var(--text-main, #2a1f18);
+}
+.lb-count {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: var(--primary, #e07a22);
+  flex-shrink: 0;
 }
 </style>

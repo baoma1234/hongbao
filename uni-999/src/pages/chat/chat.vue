@@ -106,6 +106,8 @@
       </view>
     </view>
 
+    <GrabSlider ref="grabSliderRef" />
+
     <!-- 红包详情 -->
     <view class="mask" v-if="detailVisible" @click="detailVisible = false">
       <view class="sheet detail" @click.stop>
@@ -153,6 +155,7 @@
 <script setup>
 import { computed, reactive, ref } from 'vue'
 import { onLoad, onUnload } from '@dcloudio/uni-app'
+import GrabSlider from '../../components/GrabSlider.vue'
 import { fetchProfile, getToken } from '../../utils/auth.js'
 import {
   isRecalled,
@@ -193,6 +196,7 @@ const detail = ref(null)
 const moreVisible = ref(false)
 const myGrabAmount = ref('')
 const canGrabDetail = ref(false)
+const grabSliderRef = ref(null)
 const emojis = COMMON_EMOJIS
 let myId = 0
 let off = null
@@ -449,14 +453,26 @@ async function onRpTap(m) {
   await openDetail(pid)
 }
 
-async function tryGrab(packetId) {
+async function tryGrab(packetId, sliderPayload = null) {
   grabbing.value = true
   try {
-    const packet = await grabRedPacket(packetId)
+    const packet = await grabRedPacket(packetId, sliderPayload || {})
     const data = (packet && packet.data) || packet || {}
     if (data.code === 'slider_required' || (packet && packet.type === 'redpacket.challenge')) {
-      uni.showToast({ title: data.message || '需要滑动验证，请用 /888 完成', icon: 'none' })
-      return null
+      grabbing.value = false
+      if (!(grabSliderRef.value && typeof grabSliderRef.value.challenge === 'function')) {
+        uni.showToast({ title: data.message || '需要滑动验证', icon: 'none' })
+        return null
+      }
+      try {
+        const payload = await grabSliderRef.value.challenge()
+        return await tryGrab(packetId, payload || {})
+      } catch (ce) {
+        if (!/cancel/i.test((ce && ce.message) || '')) {
+          uni.showToast({ title: (ce && ce.message) || '验证取消', icon: 'none' })
+        }
+        return null
+      }
     }
     if (data.amount != null) {
       myGrabAmount.value = formatAmt(data.amount)
