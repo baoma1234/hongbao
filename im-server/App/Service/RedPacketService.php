@@ -2312,6 +2312,9 @@ class RedPacketService
         }
         $refund = round($refundCent / 100, 2);
         $now = time();
+        $isRelayExpire = false;
+        $fresh = null;
+        $packetNo = (string)($packet['packet_no'] ?? '');
 
         Db::begin();
         try {
@@ -2536,6 +2539,16 @@ class RedPacketService
                     }
                 }
             }
+            // 接龙超时：清除最少者续发标记，禁止事后再扣/续发
+            if (!empty($isRelayExpire)) {
+                Db::exec(
+                    'UPDATE ' . Db::table('chat_red_packet_records')
+                    . ' SET need_compensate=0, compensate_status=0, is_worst=0,'
+                    . ' compensate_amount=0, frozen_amount=0, freeze_status=IF(freeze_status=1,2,freeze_status)'
+                    . ' WHERE packet_id=?',
+                    [$packetId]
+                );
+            }
             Db::commit();
         } catch (\Throwable $e) {
             Db::rollBack();
@@ -2549,10 +2562,33 @@ class RedPacketService
                 error_log('[RP_EXPIRE] redis cleanup fail packet_id=' . $packetId . ' ' . $e->getMessage());
             }
         }
-        if ((int)($packet['packet_type'] ?? 0) === 5) {
+        if ((int)($fresh['packet_type'] ?? $packet['packet_type'] ?? 0) === 5
+            || (int)($packet['packet_type'] ?? 0) === 5) {
             try {
                 $this->clearRelayRetry($packetId);
             } catch (\Throwable $eClr) {
+            }
+        }
+        // 接龙超时：群内公示自动结束（不扣最少者）
+        if (!empty($isRelayExpire) && (int)($fresh['scope_type'] ?? 0) === 2) {
+            try {
+                $gid = (int)($fresh['group_id'] ?? 0);
+                if ($gid > 0) {
+                    $tip = '接龙超时自动结束：已领金额保留，未领已退回发包手，本轮不再续发、不扣最少者';
+                    $msg = $this->messages->sendGroupSystem($gid, $tip, 0, [
+                        'packet_id' => $packetId,
+                        'packet_no' => $packetNo,
+                        'event'     => 'relay_expire',
+                    ]);
+                    if (is_array($msg)) {
+                        $uids = $this->groups->pushTargetUserIds($gid);
+                        if ($uids) {
+                            PushBus::toUsers($uids, 'group.message', ['message' => $msg]);
+                        }
+                    }
+                }
+            } catch (\Throwable $eTip) {
+                error_log('[RP_EXPIRE] relay tip fail packet=' . $packetId . ' ' . $eTip->getMessage());
             }
         }
         $this->revealFairProof($packetId);
