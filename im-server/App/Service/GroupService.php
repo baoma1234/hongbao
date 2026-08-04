@@ -80,7 +80,7 @@ class GroupService
         $now = time();
         $adminIds = array_values(array_unique(array_filter(array_map('intval', $adminIds))));
         $robotUid = self::defaultRobotUserId();
-        // 默认机器人进群（成员），便于监听拼手气续发；不自动抢包
+        // 默认机器人进群（成员）；接龙续发不依赖其抢包，由结算全局监听全部群 type5
         if ($robotUid > 0 && empty($options['skip_default_robot'])) {
             $memberIds = array_merge($memberIds, [$robotUid]);
         }

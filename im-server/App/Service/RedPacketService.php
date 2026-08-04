@@ -1542,6 +1542,12 @@ class RedPacketService
                         $full = $row;
                     }
                 }
+                // 全局：任意群接龙抢完 → 最少者名义续发
+                error_log(sprintf(
+                    '[RP_RELAY] settle trigger next group=%d packet=%d',
+                    (int)($full['group_id'] ?? 0),
+                    $packetId
+                ));
                 $this->trySendRobotNextRound($full);
             }
             if ($packetType === 2 || $packetType === 5) {
@@ -1631,11 +1637,11 @@ class RedPacketService
     }
 
     /**
-     * 接龙群包结算后：由「抢最少」的人扣余额发同规格下一包（流水记在其名下）。
-     * 不依赖机器人抢包；机器人仅用于绕过「仅机器人可发」群策时的服务端可信标记。
-     * 若群内仍有待领取包则跳过，避免叠包。
+     * 接龙续发（全局）：监听全部群、全部 type=5 接龙红包。
+     * 任一包抢完并结算后，由「抢最少」用户扣余额发下一包（流水记在其名下）。
+     * 与「机器人自动抢包」无关；不依赖机器人是否在群内。
      *
-     * @return array|null 新红包消息（若已发出）
+     * @return array|null
      */
     public function trySendRobotNextRound(array $packet)
     {
@@ -1818,7 +1824,7 @@ class RedPacketService
     }
 
     /**
-     * 接龙：结算完成但续发未成功（compensate_status=1）→ 重试续发。
+     * 接龙：全局扫描全部群中「已结算、最少者尚未续发」的包并重试。
      * @return int 成功续发数
      */
     public function retryPendingRelayRounds($limit = 20)
@@ -1831,12 +1837,12 @@ class RedPacketService
         } catch (\Throwable $e) {
             $ids = [];
         }
-        // 库内兜底：已结算接龙、最差仍待续发
+        // 库内兜底：不限群 —— 所有已结算接龙、最差仍待续发
         $rows = Db::fetchAll(
             'SELECT p.id FROM ' . Db::table('chat_red_packets') . ' p'
             . ' INNER JOIN ' . Db::table('chat_red_packet_records') . ' r ON r.packet_id=p.id AND r.is_worst=1'
             . ' WHERE p.packet_type=5 AND p.scope_type=2 AND p.status=5'
-            . ' AND r.need_compensate=1 AND r.compensate_status=1'
+            . ' AND r.compensate_status=1'
             . ' ORDER BY p.id ASC LIMIT ' . $limit
         );
         foreach ($rows ?: [] as $row) {

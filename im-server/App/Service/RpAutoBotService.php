@@ -11,12 +11,11 @@ use Workerman\Timer;
  * 红包自动发/抢（Workerman worker0 内跑，替代 php think redpacket:auto）
  *
  * 规则：
- * - 发包：群内无待领取包时才发；埋雷雷号每发随机 0-9
- * - 金额：任务基准额 ±5%～10% 抖动
+ * - 发包：群内无待领取包、且无接龙待续发时才发
+ * - 埋雷雷号每发随机 0-9；金额可抖动（不低于群最低 / 固定额）
  * - 节奏：20–23 点发包间隔减半；0–7 点翻倍
- * - 续发：仅接龙(type5)抢完后由「抢最少」用户扣余额发下一包（非机器人代发）
- * - 抢包：仅后台配置了 auto_grab + grab_user_ids 的任务群才抢；接龙包(type5)永不自动抢
- * - 自动发包：群内有待领取包、或接龙待续发时不发，避免抢在「最少者续发」前面
+ * - 接龙续发：由结算/cron 全局监听「全部群」的全部 type5，抢完后最少者名义发下一包（见 RedPacketService::trySendRobotNextRound）
+ * - 抢包：仅后台配置了 auto_grab + grab_user_ids 的任务才抢；接龙包(type5)永不自动抢
  */
 class RpAutoBotService
 {
