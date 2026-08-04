@@ -196,7 +196,7 @@ class RedPacketSettlementService
                 if ((int)($row['freeze_status'] ?? 0) !== 1) {
                     continue;
                 }
-                // 已即时中雷赔付的记录不应再有冻结；兼容旧数据仍解冻
+                // 兼容旧数据：领取时已即时中雷赔付的记录不应再有冻结；新逻辑统一领完/过期再解冻
                 $freezeAmt = round((float)($row['frozen_amount'] ?? 0), 2);
                 $freezeUid = (int)($row['user_id'] ?? 0);
                 $freezeRid = (int)($row['id'] ?? 0);
@@ -205,7 +205,7 @@ class RedPacketSettlementService
                         $freezeUid,
                         $freezeAmt,
                         'red_packet_unfreeze',
-                        '红包潜在赔付解冻 ' . $packetNo,
+                        '红包潜在赔付解冻',
                         $bizMeta
                     );
                 }
@@ -262,8 +262,16 @@ class RedPacketSettlementService
                 }
 
                 $payType = $reason === 'mine' ? 'red_packet_mine_pay' : 'red_packet_worst_pay';
-                $remarkPay = ($reason === 'mine' ? '中雷赔付 ' : '手气最差赔付 ') . $packetNo;
-                $remarkIn = ($reason === 'mine' ? '收到中雷赔付 ' : '收到手气最差赔付 ') . $packetNo;
+                if ($reason === 'mine') {
+                    $remarkPay = '红宝扫雷赔付';
+                    $remarkIn = '红宝扫雷赔付入账';
+                } elseif ($packetType === 2) {
+                    $remarkPay = '红宝拼手气赔付';
+                    $remarkIn = '红宝拼手气赔付入账';
+                } else {
+                    $remarkPay = '红宝接龙赔付';
+                    $remarkIn = '红宝接龙赔付入账';
+                }
 
                 $out = $this->wallet->change($payerId, -$compensateAmount, $payType, $remarkPay, $bizMeta);
                 $ledgerOutId = (int)($out['ledger_id'] ?? 0);

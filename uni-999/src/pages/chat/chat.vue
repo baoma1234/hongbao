@@ -273,8 +273,8 @@ let activePacketId = 0
 
 const isPrivate = computed(() => (meta.value.type | 0) === 1)
 const packetTypes = [
-  { v: 2, n: '拼手气' },
-  { v: 3, n: '埋雷' },
+  { v: 2, n: '红宝拼手气' },
+  { v: 3, n: '红宝扫雷' },
   { v: 1, n: '普通' },
 ]
 const rpForm = reactive({
@@ -387,7 +387,10 @@ function sysText(m) {
   return m.content || '[系统消息]'
 }
 function rpBlessing(m) {
-  return msgExtra(m).blessing || '恭喜发财'
+  const ex = msgExtra(m)
+  const fixed = packetTypeLabel(ex.packet_type || 0)
+  if (fixed === '红宝拼手气' || fixed === '红宝扫雷' || fixed === '红宝接龙') return fixed
+  return ex.blessing || '恭喜发财'
 }
 function rpSub(m) {
   const ex = msgExtra(m)

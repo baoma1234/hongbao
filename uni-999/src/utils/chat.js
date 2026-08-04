@@ -25,8 +25,9 @@ export function msgExtra(m) {
 
 export function packetTypeLabel(t) {
   const n = t | 0
-  if (n === 2) return '拼手气'
-  if (n === 3) return '埋雷'
+  if (n === 2) return '红宝拼手气'
+  if (n === 3) return '红宝扫雷'
+  if (n === 5) return '红宝接龙'
   if (n === 4) return '随机'
   return '普通'
 }

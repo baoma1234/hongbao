@@ -53,6 +53,15 @@ class RedPacketService
         if (!in_array($packetType, [1, 2, 3, 4, 5], true)) {
             throw new \InvalidArgumentException('invalid packet_type');
         }
+        // 拼手气 / 扫雷 / 接龙：祝福语固定为玩法标题
+        $fixedBlessing = [
+            2 => '红宝拼手气',
+            3 => '红宝扫雷',
+            5 => '红宝接龙',
+        ];
+        if (isset($fixedBlessing[$packetType])) {
+            $blessing = $fixedBlessing[$packetType];
+        }
         if ($packetType === 3) {
             if ($mineDigit < 0 || $mineDigit > 9) {
                 throw new \InvalidArgumentException('mine_digit must be 0-9');
@@ -296,11 +305,18 @@ class RedPacketService
         Db::begin();
         try {
             // 发包人一次扣 total_amount；流水记在 from_user_id（含机器人代扣/接龙代扣）
-            $sendRemark = '发红包扣款 ' . $packetNo;
-            if (!empty($params['robot_relay'])) {
-                $sendRemark = '接龙续发包扣款 ' . $packetNo;
-            } elseif (!empty($params['robot_send'])) {
-                $sendRemark = '代发红包扣款 ' . $packetNo;
+            $sendRemark = '红宝发包扣款';
+            if ($packetType === 2) {
+                $sendRemark = '红宝拼手气发包扣款';
+            } elseif ($packetType === 3) {
+                $sendRemark = '红宝扫雷发包扣款';
+            } elseif ($packetType === 5) {
+                $sendRemark = '红宝接龙发包扣款';
+            }
+            if (!empty($params['robot_relay']) || ($packetType === 5 && !empty($params['robot_send']))) {
+                $sendRemark = '红宝接龙发包扣款';
+            } elseif (!empty($params['robot_send']) && $packetType !== 5) {
+                $sendRemark = '红宝代发扣款';
             }
             $this->wallet->change(
                 $fromUserId,
@@ -1056,8 +1072,7 @@ class RedPacketService
         }
 
         // ---------- 关键节点：验资拦截（必须在 Redis 弹队列之前）----------
-        // 拼手气(2)/接龙(5)：余额须 ≥ 红包总额（覆盖最少赔付/续发扣款），领取时冻结
-        // 扫雷包(3) 按个数倍率赔付；中雷在领取瞬间即时扣款，不再冻结
+        // 拼手气(2)/接龙(5)/扫雷(3)：余额须覆盖潜在赔付，领取时冻结；领完或过期再解冻
         // 扫雷额外：余额必须严格大于最低限制（如 10 元），才可领取。
         // 私聊红包无赔付玩法，跳过验资门槛。
         $needCompensate = 0.0;
@@ -1090,10 +1105,8 @@ class RedPacketService
                         throw new \RuntimeException('balance_below_mine_min');
                     }
                 }
-            } else {
-                // 仅拼手气/接龙：领取时冻结潜在赔付
-                $shouldFreeze = true;
             }
+            $shouldFreeze = true;
             if (!$this->wallet->hasEnoughBalance($userId, $needCompensate)) {
                 error_log(sprintf(
                     '[RP_GRAB][ERROR] balance gate reject user=%d packet_id=%d packet_no=%s need=%.2f type=%d',
@@ -1213,15 +1226,23 @@ class RedPacketService
             );
             $recordId = (int)Db::lastId();
 
+            $grabRemark = '红包入账';
+            if ($packetType === 2) {
+                $grabRemark = '红包拼手气入账';
+            } elseif ($packetType === 3) {
+                $grabRemark = '红包扫雷入账';
+            } elseif ($packetType === 5) {
+                $grabRemark = '红包接龙入账';
+            }
             $walletChange = $this->wallet->change(
                 $userId,
                 $amount,
                 'red_packet_grab',
-                '红宝入账 ' . $packetNo,
+                $grabRemark,
                 ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId]
             );
 
-            // 埋雷：尾数=雷号 → 领取瞬间即时赔付（单包独立结算）
+            // 埋雷中雷：仅标记，赔付在领完/过期结算时扣（领取时先冻结）
             if (
                 $packetType === 3
                 && (int)($packet['scope_type'] ?? 0) !== 1
@@ -1229,35 +1250,32 @@ class RedPacketService
                 && $needCompensate > 0.00001
                 && $recordId > 0
             ) {
-                $pay = $this->payMineHitForRecord(
-                    [
-                        'id'           => $packetId,
-                        'packet_no'    => $packetNo,
-                        'from_user_id' => $fromUserId,
-                    ],
-                    [
-                        'id'              => $recordId,
-                        'user_id'         => $userId,
-                        'freeze_status'   => 0,
-                        'frozen_amount'   => 0,
-                        'compensate_status' => 0,
-                    ],
-                    $needCompensate,
-                    ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId]
+                $mineHit = true;
+                $minePayAmount = round((float)$needCompensate, 2);
+                Db::exec(
+                    'UPDATE ' . Db::table('chat_red_packet_records')
+                    . ' SET is_mine_hit=1, need_compensate=1, compensate_amount=?, compensate_status=1 WHERE id=?',
+                    [sprintf('%.2f', $minePayAmount), $recordId]
                 );
-                $mineHit = !empty($pay['paid']) || !empty($pay['already']);
-                $minePayAmount = round((float)($pay['amount'] ?? $needCompensate), 2);
             }
 
-            // 拼手气/接龙：领取瞬间锁定潜在赔付额，领完/过期再解冻
+            // 拼手气/接龙/扫雷：领取瞬间锁定潜在赔付额，领完/过期再解冻
             $frozenAmt = 0.0;
             if ($shouldFreeze && $needCompensate > 0.00001) {
                 $frozenAmt = round((float)$needCompensate, 2);
+                $freezeRemark = '红包潜在赔付冻结';
+                if ($packetType === 2) {
+                    $freezeRemark = '红宝拼手气冻结';
+                } elseif ($packetType === 3) {
+                    $freezeRemark = '红宝扫雷冻结';
+                } elseif ($packetType === 5) {
+                    $freezeRemark = '红宝接龙冻结';
+                }
                 $this->wallet->freeze(
                     $userId,
                     $frozenAmt,
                     'red_packet_freeze',
-                    '红包潜在赔付冻结 ' . $packetNo,
+                    $freezeRemark,
                     ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId]
                 );
                 if ($recordId > 0) {
@@ -1292,7 +1310,7 @@ class RedPacketService
         $settlePending = false;
         // ---------- 抢完最后一个包：结算/开奖异步，缩短抢包响应 ----------
         if ($remain <= 0) {
-            // 扫雷：赔付已在领取时完成；此处收尾抽水/返点/状态；手气/接龙：结算赔付
+            // 扫雷/拼手气/接龙：领完后异步结算（解冻 + 赔付/抽水/返点）
             $this->scheduleSettleAfterFinished($packetId, $packet);
             $settlePending = true;
         }
@@ -1369,7 +1387,7 @@ class RedPacketService
                     $payerId,
                     $freezeAmt,
                     'red_packet_unfreeze',
-                    '中雷赔付前解冻 ' . $packetNo,
+                    '红宝扫雷解冻',
                     $bizMeta
                 );
             }
@@ -1384,7 +1402,7 @@ class RedPacketService
             $payerId,
             -$amt,
             'red_packet_mine_pay',
-            '中雷赔付 ' . $packetNo,
+            '红宝扫雷赔付',
             $bizMeta
         );
         $ledgerOutId = (int)($out['ledger_id'] ?? 0);
@@ -1392,7 +1410,7 @@ class RedPacketService
             $fromUserId,
             $amt,
             'red_packet_compensate_in',
-            '收到中雷赔付 ' . $packetNo,
+            '红宝扫雷赔付入账',
             $bizMeta
         );
         Db::exec(
@@ -1414,7 +1432,7 @@ class RedPacketService
                 sprintf('%.2f', $amt),
                 $ledgerOutId,
                 1,
-                '中雷赔付 ' . $packetNo,
+                '红宝扫雷赔付',
                 time(),
             ]
         );
@@ -1900,7 +1918,7 @@ class RedPacketService
                     $uid,
                     -$take,
                     'red_packet_expire_clawback',
-                    '拼手气过期收回 ' . $packetNo,
+                    '未领完此包作废收回金额',
                     $bizMeta
                 );
                 $ledgerId = (int)($outCb['ledger_id'] ?? 0);
@@ -1917,7 +1935,7 @@ class RedPacketService
                         sprintf('%.2f', $take),
                         $ledgerId,
                         1,
-                        $debt > 0.00001 ? ('拼手气过期分笔收回 ' . sprintf('%.2f', $take)) : '拼手气过期收回已领',
+                        $debt > 0.00001 ? ('未领完此包作废收回金额(分笔 ' . sprintf('%.2f', $take) . ')') : '未领完此包作废收回金额',
                         $now,
                     ]
                 );
@@ -1953,7 +1971,7 @@ class RedPacketService
                     sprintf('%.2f', $debt),
                     0,
                     0,
-                    '拼手气过期欠款待收回',
+                    '未领完此包作废收回金额(欠款待收)',
                     $now,
                 ]
             );
@@ -2006,7 +2024,7 @@ class RedPacketService
                     $uid,
                     -$take,
                     'red_packet_expire_clawback',
-                    '拼手气欠款收回 ' . $packetNo,
+                    '未领完此包作废收回金额',
                     $bizMeta
                 );
                 if ($toUid > 0) {
@@ -2014,7 +2032,7 @@ class RedPacketService
                         $toUid,
                         $take,
                         'red_packet_refund',
-                        '拼手气欠款退庄家 ' . $packetNo,
+                        '未领完此包作废收回金额',
                         $bizMeta
                     );
                 }
@@ -2026,7 +2044,7 @@ class RedPacketService
                         [
                             sprintf('%.2f', $take),
                             (int)($out['ledger_id'] ?? 0),
-                            '拼手气欠款已收回',
+                            '未领完此包作废收回金额',
                             $id,
                         ]
                     );
@@ -2036,7 +2054,7 @@ class RedPacketService
                         . ' SET amount=?, remark=? WHERE id=?',
                         [
                             sprintf('%.2f', $left),
-                            '拼手气过期欠款待收回(已收 ' . sprintf('%.2f', $take) . ')',
+                            '未领完此包作废收回金额(已收 ' . sprintf('%.2f', $take) . ')',
                             $id,
                         ]
                     );
@@ -2053,7 +2071,7 @@ class RedPacketService
                             sprintf('%.2f', $take),
                             (int)($out['ledger_id'] ?? 0),
                             1,
-                            '拼手气欠款分笔收回',
+                            '未领完此包作废收回金额',
                             time(),
                         ]
                     );
@@ -2266,7 +2284,7 @@ class RedPacketService
                                 $uid,
                                 $freezeAmt,
                                 'red_packet_unfreeze',
-                                '拼手气过期解冻 ' . $packetNo,
+                                '红宝拼手气解冻',
                                 $bizMeta
                             );
                         } catch (\Throwable $eUf) {
@@ -2335,8 +2353,8 @@ class RedPacketService
             $totalRefund = $refund;
             if ($refund > 0) {
                 $remarkRefund = $luckyClawback && $clawed > 0.00001
-                    ? '拼手气过期收回已领后退回 ' . $packetNo
-                    : '红包过期退回 ' . $packetNo;
+                    ? '未领完此包作废收回金额'
+                    : '红包过期退回';
                 $out = $this->wallet->change(
                     $fromUserId,
                     $refund,
@@ -2379,7 +2397,7 @@ class RedPacketService
                 if ($neverGrabbed && $feeRefund > 0) {
                     $settleRemark = '过期无人领取，池+手续费原路退回';
                 } elseif ($luckyClawback && $clawed > 0.00001) {
-                    $settleRemark = '拼手气过期收回已领并退庄家';
+                    $settleRemark = '未领完此包作废收回金额';
                 }
                 Db::exec(
                     'INSERT INTO ' . Db::table('chat_red_packet_settlements')

@@ -733,10 +733,11 @@
 
   function renderRpCardHtml(extra, msg, time) {
     var pid = (extra && extra.packet_id) || 0;
-    var bless = escapeHtml((extra && extra.blessing) || msg.content || '恭喜发财，大吉大利');
+    var ptype = extra && (extra.packet_type != null) ? (extra.packet_type | 0) : 2;
+    var fixedTitle = ({ 2: '红宝拼手气', 3: '红宝扫雷', 5: '红宝接龙' })[ptype] || '';
+    var bless = escapeHtml(fixedTitle || (extra && extra.blessing) || msg.content || '恭喜发财，大吉大利');
     var amt = extra && (extra.total_amount != null) ? parseFloat(extra.total_amount) : NaN;
     var cnt = extra && (extra.total_count != null) ? (extra.total_count | 0) : 0;
-    var ptype = extra && (extra.packet_type != null) ? (extra.packet_type | 0) : 2;
     var mineRaw = extra && extra.mine_digit;
     var pending = !!(extra && extra.mine_pending);
     var mine = (mineRaw != null && mineRaw !== '') ? (parseInt(mineRaw, 10) || 0) : null;
@@ -757,12 +758,12 @@
     }
     var sendTime = time || formatTimeSec((msg && msg.createtime) || 0);
     var bottom = '红包福利';
-    if (ptype === 3) bottom = pending ? '埋雷 · 匹配中' : '埋雷红包';
-    else if (ptype === 5) bottom = '接龙红包';
-    else if (ptype === 2) bottom = '拼手气红包';
+    if (ptype === 3) bottom = pending ? '红宝扫雷 · 匹配中' : '红宝扫雷';
+    else if (ptype === 5) bottom = '红宝接龙';
+    else if (ptype === 2) bottom = '红宝拼手气';
     else if (ptype === 4) bottom = '随机红包';
     else if (ptype === 1) bottom = '普通红包';
-    if (extra && extra.mode_label) bottom = String(extra.mode_label);
+    if (extra && extra.mode_label && !fixedTitle) bottom = String(extra.mode_label);
     if (grabbed) bottom = '已领取';
     else if (expired) bottom = '已过期';
     bottom = escapeHtml(bottom);
@@ -1139,7 +1140,8 @@
     var list = $('chatRpDetailList');
     var grabBtn = $('chatRpDetailGrabBtn');
     var p = data.packet || {};
-    var bless = p.blessing || '恭喜发财';
+    var ptypeEarly = p.packet_type | 0;
+    var bless = ({ 2: '红宝拼手气', 3: '红宝扫雷', 5: '红宝接龙' })[ptypeEarly] || p.blessing || '恭喜发财';
     var privacyMode = (data.privacy_mode || (data.policy && data.policy.privacy_mode) || '').toString();
     // 隐私隐藏仅看群隐私 / 服务端 rp_detail_locked；不要把「不可点资料」当成隐私脱敏
     var locked = data.rp_detail_locked === true
@@ -3795,7 +3797,7 @@
         if (hit && pay > 0) {
           showFanshubToast(
             (amt != null ? ('抢到 ￥' + parseFloat(amt).toFixed(2) + ' · ') : '')
-              + '中雷赔付 ￥' + pay.toFixed(2),
+              + '中雷 · 待结算赔付 ￥' + pay.toFixed(2),
             'error'
           );
         } else {

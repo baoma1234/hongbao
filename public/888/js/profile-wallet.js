@@ -1082,10 +1082,19 @@
       if (afterHb != null && afterHb !== '' && hb !== 0) {
         subParts.push(wt('wallet_unit_hongbao', '红宝') + ' ' + money(afterHb));
       }
+      var typeStr = String(item.type || '');
+      var titleText = '';
+      if (item.remark && typeStr.indexOf('red_packet_') === 0) {
+        titleText = String(item.remark);
+        // 备注已作标题时，副标题不再重复备注
+        subParts = subParts.filter(function (p) { return p !== item.remark; });
+      } else {
+        titleText = ledgerTypeLabel(item.type) || item.type_label || wt('wallet_ledger_other', '其他');
+      }
       return (
         '<div class="wallet-ledger-item">' +
           '<div class="wallet-ledger-main">' +
-            '<div class="wallet-ledger-title">' + escapeHtml(ledgerTypeLabel(item.type) || item.type_label || wt('wallet_ledger_other', '其他')) + '</div>' +
+            '<div class="wallet-ledger-title">' + escapeHtml(titleText) + '</div>' +
             '<div class="wallet-ledger-sub">' + escapeHtml(subParts.join(' · ') || fmtTime(item.createtime)) + '</div>' +
             '<div class="wallet-ledger-time">' + escapeHtml(fmtTime(item.createtime)) + '</div>' +
           '</div>' +
