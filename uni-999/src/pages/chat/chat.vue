@@ -93,6 +93,8 @@
     <view class="composer">
       <button class="tool" size="mini" @click="toggleEmoji">Emoji</button>
       <button class="tool" size="mini" @click="toggleSticker">贴纸</button>
+      <button class="tool" size="mini" @click="pickImage">图片</button>
+      <button class="tool" size="mini" @click="pickVideo">视频</button>
       <button class="tool" size="mini" @click="showRp = true; showEmoji = false; showSticker = false">红包</button>
       <input
         class="input"
@@ -195,6 +197,7 @@ import { computed, reactive, ref } from 'vue'
 import { onLoad, onUnload } from '@dcloudio/uni-app'
 import GrabSlider from '../../components/GrabSlider.vue'
 import { apiRequest, fetchProfile, getToken } from '../../utils/auth.js'
+import { getApiBase } from '../../utils/config.js'
 import {
   isRecalled,
   isSystemMsg,
@@ -229,6 +232,7 @@ const showRp = ref(false)
 const showEmoji = ref(false)
 const showSticker = ref(false)
 const rpSending = ref(false)
+const mediaSending = ref(false)
 const grabbing = ref(false)
 const detailVisible = ref(false)
 const detail = ref(null)
@@ -513,6 +517,121 @@ async function sendSticker(st) {
     await fetchHistory()
   } catch (e) {
     uni.showToast({ title: (e && e.message) || '发送失败', icon: 'none' })
+  }
+}
+
+async function uploadCommonFile(filePath) {
+  const base = getApiBase() || ''
+  const token = getToken()
+  const up = await new Promise((resolve, reject) => {
+    uni.uploadFile({
+      url: base + '/api/common/upload',
+      filePath,
+      name: 'file',
+      header: token ? { token } : {},
+      success: (res) => {
+        try {
+          const body = JSON.parse((res && res.data) || '{}')
+          if ((body && body.code) !== 1) {
+            reject(new Error(body.msg || body.message || '上传失败'))
+            return
+          }
+          resolve(body.data || {})
+        } catch (e) {
+          reject(new Error('上传失败'))
+        }
+      },
+      fail: (err) => reject(new Error((err && err.errMsg) || '上传失败')),
+    })
+  })
+  return up
+}
+
+async function sendMediaMessage(msgType, extra, label) {
+  if (meta.value.type == 2) {
+    await imSend(
+      'group.send',
+      { group_id: meta.value.group | 0, msg_type: msgType, content: label, extra: extra || {} },
+      true
+    )
+  } else {
+    await imSend(
+      'private.send',
+      { to_user_id: meta.value.peer | 0, msg_type: msgType, content: label, extra: extra || {} },
+      true
+    )
+  }
+}
+
+async function pickImage() {
+  if (mediaSending.value) return
+  try {
+    const chosen = await new Promise((resolve, reject) => {
+      uni.chooseImage({
+        count: 1,
+        sizeType: ['compressed'],
+        sourceType: ['album', 'camera'],
+        success: resolve,
+        fail: reject,
+      })
+    })
+    const filePath = String((chosen && chosen.tempFilePaths && chosen.tempFilePaths[0]) || '')
+    if (!filePath) return
+    mediaSending.value = true
+    uni.showLoading({ title: '上传中…', mask: true })
+    const up = await uploadCommonFile(filePath)
+    const url = normalizeStickerUrl(up.url || up.fullurl || '')
+    if (!url) throw new Error('上传失败')
+    await sendMediaMessage(
+      4,
+      { url, fullurl: up.fullurl || url, name: up.name || '' },
+      '[图片]'
+    )
+    await fetchHistory()
+  } catch (e) {
+    const msg = (e && e.message) || ''
+    if (!/cancel|deny|fail chooseImage/i.test(msg)) {
+      uni.showToast({ title: msg || '发送失败', icon: 'none' })
+    }
+  } finally {
+    uni.hideLoading()
+    mediaSending.value = false
+  }
+}
+
+async function pickVideo() {
+  if (mediaSending.value) return
+  try {
+    const chosen = await new Promise((resolve, reject) => {
+      uni.chooseVideo({
+        sourceType: ['album', 'camera'],
+        maxDuration: 60,
+        compressed: true,
+        success: resolve,
+        fail: reject,
+      })
+    })
+    const filePath = String((chosen && chosen.tempFilePath) || '')
+    if (!filePath) return
+    mediaSending.value = true
+    uni.showLoading({ title: '上传中…', mask: true })
+    const up = await uploadCommonFile(filePath)
+    const url = normalizeStickerUrl(up.url || up.fullurl || '')
+    if (!url) throw new Error('上传失败')
+    await sendMediaMessage(
+      5,
+      { url, fullurl: up.fullurl || url, name: up.name || '' },
+      '[视频]'
+    )
+    await fetchHistory()
+  } catch (e) {
+    const msg = (e && e.message) || ''
+    if (!/cancel|deny|fail chooseVideo/i.test(msg)) {
+      uni.showToast({ title: msg || '发送失败', icon: 'none' })
+    }
+  } finally {
+    uni.hideLoading()
+    mediaSending.value = false
   }
 }
 
