@@ -56,7 +56,10 @@
     if (state.list && state.list.length) return true;
     var j = loadListCache();
     if (!j) return false;
-    state.list = j.list || [];
+    var cachedList = Array.isArray(j.list) ? j.list : [];
+    // 空缓存不当作有效数据，继续走网络拉取，避免「会话列表不展示」
+    if (!cachedList.length) return false;
+    state.list = cachedList;
     var cachedUnread = j.unread || {};
     Object.keys(cachedUnread).forEach(function (k) {
       state.unread[k] = Math.max(state.unread[k] | 0, cachedUnread[k] | 0);
@@ -694,8 +697,8 @@
           '</select>' +
           '<label class="chat-setting-label" style="margin-top:8px;">互动模式</label>' +
           '<select class="chat-setting-input" id="chatGroupChatMode">' +
-            '<option value="chat">聊天模式（自由发言/发红包）</option>' +
-            '<option value="grab">红宝模式（全员禁言，仅管理员发红包）</option>' +
+            '<option value="chat">聊天模式（自由发言/发红宝）</option>' +
+            '<option value="grab">红宝模式（全员禁言，仅管理员发红宝）</option>' +
           '</select>' +
           '<button type="button" class="chat-setting-save-btn" id="chatGroupModeSaveBtn" style="margin-top:8px;">保存群属性</button>' +
         '</div>');
@@ -761,8 +764,8 @@
     if (ptype === 3) bottom = pending ? '红宝扫雷 · 匹配中' : '红宝扫雷';
     else if (ptype === 5) bottom = '红宝接龙';
     else if (ptype === 2) bottom = '红宝拼手气';
-    else if (ptype === 4) bottom = '随机红包';
-    else if (ptype === 1) bottom = '普通红包';
+    else if (ptype === 4) bottom = '随机红宝';
+    else if (ptype === 1) bottom = '普通红宝';
     if (extra && extra.mode_label && !fixedTitle) bottom = String(extra.mode_label);
     if (grabbed) bottom = '已领取';
     else if (expired) bottom = '已过期';
@@ -1743,7 +1746,13 @@
       try {
         var packet = await send('conversation.list', { limit: 50 });
         var prevUnread = state.unread || {};
-        state.list = (packet.data && packet.data.list) || [];
+        var nextList = (packet.data && packet.data.list) || [];
+        // 服务端偶发空列表时保留本地非空缓存，避免整表被清空
+        if (!nextList.length && state.list && state.list.length) {
+          scheduleRenderList();
+          return;
+        }
+        state.list = nextList;
         sortConvListInPlace();
         state.unread = {};
         state.list.forEach(function (item) {
@@ -1762,6 +1771,13 @@
         renderList();
         saveListCache();
         setTimeout(function () { prefetchTopHistories(); }, 200);
+      } catch (eList) {
+        if (!(state.list && state.list.length)) {
+          var boxFail = $('chatConvList');
+          if (boxFail && !boxFail.querySelector('.chat-conv-item')) {
+            boxFail.innerHTML = '<div class="chat-empty">' + escapeHtml(chatT('chat_err_load_fail') || '加载失败') + '</div>';
+          }
+        }
       } finally {
         state._listFetching = null;
       }
@@ -1945,21 +1961,21 @@
           emptyBox.innerHTML = '<div class="chat-empty">' + escapeHtml(friendly) + '</div>';
         }
       }
-      if (errMsg === 'not in group' && state.room && (state.room.type | 0) === 2) {
-        var deadGid = state.room.id;
-        state.list = (state.list || []).filter(function (it) {
-          if ((it.conversation_type | 0) !== 2) return true;
-          var iid = it.group_id || it.conversation_id;
-          return String(iid) !== String(deadGid);
-        });
-        try { clearHistCache(2, deadGid); } catch (eClr) {}
-        scheduleRenderList();
-        scheduleSaveListCache();
+      // 历史加载「不在群」可能是 Redis 成员缓存瞬时不一致，勿从会话列表剔除（避免整表被误删）
+      if (isNotInGroupError(errMsg) && state.room && (state.room.type | 0) === 2) {
+        try { clearHistCache(2, state.room.id); } catch (eClr) {}
         setTimeout(function () {
           try { closeRoom(); } catch (eClose) {}
         }, 600);
       }
     }
+  }
+
+  function isNotInGroupError(msg) {
+    msg = String(msg || '');
+    if (!msg) return false;
+    if (msg === 'not in group' || msg === 'target not in group') return true;
+    return /不在(该)?群/.test(msg);
   }
 
   function pickPopupI18n(base, map) {

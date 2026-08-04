@@ -300,16 +300,22 @@ function friendlyImHttpError($msg)
         return '红宝不足，请先闪兑凑够红宝';
     }
     if ($msg === 'too many packets' || $msg === 'amount too small' || $msg === 'amount too small after fee') {
-        return '红包金额或个数不符合规则';
+        return '红宝金额或个数不符合规则';
     }
     if ($msg === 'packet type not allowed in this group') {
-        return '当前群不允许该红包类型';
+        return '当前群不允许该红宝类型';
     }
     if ($msg === 'robot only: members cannot send red packets') {
-        return '本群仅自动机器人可发红包';
+        return '本群仅自动机器人可发红宝';
     }
     if ($msg === 'grab mode: only admin can send red packets') {
-        return '红宝模式下仅管理员/机器人可发红包';
+        return '红宝模式下仅管理员/机器人可发红宝';
+    }
+    if ($msg === 'relay: only admin can send') {
+        return '接龙红宝仅群主/管理员可发，领取最少后由系统代发下一包';
+    }
+    if ($msg === 'not in group' || $msg === 'target not in group') {
+        return '你不在该群内';
     }
     return $msg;
 }

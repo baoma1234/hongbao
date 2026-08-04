@@ -402,6 +402,9 @@ class MessageRouter
         if ($msg === 'not in group') {
             return '你不在该群内';
         }
+        if ($msg === 'relay: only admin can send') {
+            return '接龙红宝仅群主/管理员可发，领取最少后由系统代发下一包';
+        }
         if ($msg === 'empty members') {
             return '请先选择要添加的成员';
         }

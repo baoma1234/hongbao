@@ -198,6 +198,11 @@ body.tab-messages {
   max-width: none;
   margin: 0;
   padding: 0;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
 }
 
 #tabMessages .chat-conv-list {

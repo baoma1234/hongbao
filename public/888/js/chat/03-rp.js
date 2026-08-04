@@ -421,15 +421,28 @@
     renderFrozenHints();
   }
 
+  function isRelayOnlyGroupPolicy(policy) {
+    policy = policy || groupPolicy();
+    var raw = String(policy.rp_enabled_types || '');
+    var types = raw.split(',').map(function (s) { return parseInt(s, 10) || 0; }).filter(function (n) { return n > 0; });
+    return types.length > 0 && types.every(function (t) { return t === 5; });
+  }
+
   function openRpSendPage() {
     if (!state.room) {
       if (typeof showFanshubToast === 'function') showFanshubToast('请先打开会话', 'info');
       return;
     }
     if (state.room.type === 2 && (groupPolicy().can_send_rp === false || groupPolicy().rp_robot_only === true || (typeof canSendCapability === 'function' && !canSendCapability('rp')))) {
-      var tip = groupPolicy().rp_robot_only
-        ? (chatT('chat_rp_robot_only') || '本群仅自动机器人可发红包')
-        : (chatT('chat_rp_admin_only') || '红宝模式下仅管理员可发红包');
+      var pol = groupPolicy();
+      var tip;
+      if (pol.rp_robot_only) {
+        tip = chatT('chat_rp_robot_only') || '本群仅自动机器人可发红宝';
+      } else if (isRelayOnlyGroupPolicy(pol) || pol.rp_relay_admin_only) {
+        tip = chatT('chat_rp_relay_admin_only') || '接龙红宝仅群主/管理员可发；领取最少后由系统按该用户名义续发';
+      } else {
+        tip = chatT('chat_rp_admin_only') || '红宝模式下仅管理员可发红宝';
+      }
       if (typeof showFanshubToast === 'function') showFanshubToast(tip, 'error');
       return;
     }
@@ -618,7 +631,7 @@
       closeRpSendPage();
       if (typeof showFanshubToast === 'function') showFanshubToast('红包已发送', 'success');
     } catch (e) {
-      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '发红包失败', 'error');
+      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '发红宝失败', 'error');
     } finally {
       if (submitBtn) {
         submitBtn.disabled = false;

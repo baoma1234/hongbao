@@ -543,6 +543,7 @@ class Imgroup extends Backend
             'updatetime' => $now,
         ]);
         $this->refreshMemberCount($groupId);
+        $this->syncImGroupMemberCache($groupId, [], [$userId]);
         $this->insertSystemMessage($groupId, '管理员将 ' . $this->userLabel($userId) . ' 移出了群组');
         FansHubService::clearOfficialCommunityCache();
         $this->success('已移出');
@@ -754,6 +755,7 @@ class Imgroup extends Backend
             $this->error('没有可添加的用户');
         }
         $this->refreshMemberCount($groupId);
+        $this->syncImGroupMemberCache($groupId, $added);
         $names = array_map([$this, 'userLabel'], array_slice($added, 0, 5));
         $text = '管理员邀请 ' . implode('、', $names)
             . (count($added) > 5 ? (' 等' . count($added) . '人') : '')
@@ -907,5 +909,44 @@ class Imgroup extends Backend
             $name = strlen($m) >= 7 ? (substr($m, 0, 3) . '****' . substr($m, -4)) : $m;
         }
         return ($name !== '' ? $name : '用户') . '(ID' . $userId . ')';
+    }
+
+    /**
+     * 后台加人/踢人后同步 IM Redis 成员集，避免前台「你不在该群内」
+     * @param int[] $addUserIds
+     * @param int[] $remUserIds
+     */
+    protected function syncImGroupMemberCache($groupId, array $addUserIds = [], array $remUserIds = [])
+    {
+        $groupId = (int)$groupId;
+        if ($groupId <= 0 || !class_exists('Redis')) {
+            return;
+        }
+        try {
+            $local = [];
+            $path = ROOT_PATH . 'im-server' . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'local.php';
+            if (is_file($path)) {
+                $local = include $path;
+            }
+            $cfg = is_array($local['redis'] ?? null) ? $local['redis'] : [];
+            $redis = new \Redis();
+            $redis->connect((string)($cfg['host'] ?? '127.0.0.1'), (int)($cfg['port'] ?? 6379), 1.5);
+            if (!empty($cfg['password'])) {
+                $redis->auth((string)$cfg['password']);
+            }
+            $redis->select((int)($cfg['db'] ?? 0));
+            $prefix = (string)($cfg['prefix'] ?? 'im:');
+            $setKey = $prefix . 'g:' . $groupId . ':mset';
+            // 删掉整集，下次 isMember/ensureMemberSet 按库重建
+            $redis->del($setKey, $prefix . 'g:' . $groupId . ':members');
+            foreach (array_merge($addUserIds, $remUserIds) as $uid) {
+                $uid = (int)$uid;
+                if ($uid > 0) {
+                    $redis->del($prefix . 'uid:' . $uid . ':my_groups');
+                }
+            }
+        } catch (\Throwable $e) {
+            // ignore：库已写入，前台 isMember 会 DB 回写
+        }
     }
 }

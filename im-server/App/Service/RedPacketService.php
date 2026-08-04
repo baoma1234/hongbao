@@ -157,6 +157,7 @@ class RedPacketService
             $this->groups->assertCanSendGroupRedPacket($groupId, $fromUserId, [
                 'robot_send'    => !empty($params['robot_send']),
                 'trusted_robot' => !empty($params['robot_send']) && !empty($params['trusted_robot']),
+                'packet_type'   => $packetType,
             ]);
             $group = $this->groups->get($groupId);
             if (!$group) {

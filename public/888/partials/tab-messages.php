@@ -508,7 +508,7 @@
             <div class="chat-rp-send-pane" id="chatRpSendPane" aria-hidden="true">
                 <div class="chat-hero-hd">
                     <button type="button" class="chat-hero-back" id="chatRpCancelBtn" data-copy="chat_cancel">取消</button>
-                    <div class="chat-hero-title" data-copy="chat_rp_title">发红包</div>
+                    <div class="chat-hero-title" data-copy="chat_rp_title">发红宝</div>
                     <span class="chat-hero-spacer"></span>
                 </div>
                 <div class="chat-rp-send-main">
@@ -557,8 +557,8 @@
                                     <button type="button" class="chat-rp-type-btn active" data-type="2" data-copy="chat_rp_type_lucky">拼手气</button>
                                     <button type="button" class="chat-rp-type-btn" data-type="5" data-copy="chat_rp_type_relay">接龙</button>
                                     <button type="button" class="chat-rp-type-btn" data-type="3" data-copy="chat_rp_type_mine">埋雷</button>
-                                    <button type="button" class="chat-rp-type-btn" data-type="1" data-copy="chat_rp_type_avg">普通红包</button>
-                                    <button type="button" class="chat-rp-type-btn" data-type="4" data-copy="chat_rp_type_random">随机红包</button>
+                                    <button type="button" class="chat-rp-type-btn" data-type="1" data-copy="chat_rp_type_avg">普通红宝</button>
+                                    <button type="button" class="chat-rp-type-btn" data-type="4" data-copy="chat_rp_type_random">随机红宝</button>
                                 </div>
                                 <div class="chat-rp-field-hint chat-rp-type-desc" id="chatRpTypeDesc" data-copy="chat_rp_type_lucky_desc">拼手气红包：金额随机分配，手气越好领得越多。</div>
                             </div>
@@ -637,7 +637,7 @@
                             </div>
                             <div class="chat-cg-card-body">
                                 <span class="chat-cg-dot"></span>
-                                <span data-copy="chat_run_mode_grab_desc">仅管理员可发红包；发言限制请在群设置「禁止模式」配置</span>
+                                <span data-copy="chat_run_mode_grab_desc">仅管理员可发红宝；发言限制请在群设置「禁止模式」配置</span>
                             </div>
                         </button>
                     </div>

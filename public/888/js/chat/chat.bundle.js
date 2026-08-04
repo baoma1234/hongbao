@@ -100,9 +100,12 @@
       'private red packet: robot grab disabled': 'chat_rp_only_recipient',
       'robot only: members cannot send red packets': 'chat_rp_robot_only',
       'grab mode: only admin can send red packets': 'chat_rp_admin_only',
+      'relay: only admin can send': 'chat_rp_relay_admin_only',
       'packet type not allowed in this group': 'chat_rp_type_not_allowed',
       'not in group': 'chat_err_not_in_group',
       'target not in group': 'chat_err_not_in_group',
+      '你不在该群内': 'chat_err_not_in_group',
+      '你不在该群组中': 'chat_err_not_in_group',
       'private group': 'chat_err_private_group',
       'group unavailable': 'chat_err_group_unavailable',
       'group full': 'chat_err_group_full',
@@ -1255,7 +1258,10 @@
     if (state.list && state.list.length) return true;
     var j = loadListCache();
     if (!j) return false;
-    state.list = j.list || [];
+    var cachedList = Array.isArray(j.list) ? j.list : [];
+    // 空缓存不当作有效数据，继续走网络拉取，避免「会话列表不展示」
+    if (!cachedList.length) return false;
+    state.list = cachedList;
     var cachedUnread = j.unread || {};
     Object.keys(cachedUnread).forEach(function (k) {
       state.unread[k] = Math.max(state.unread[k] | 0, cachedUnread[k] | 0);
@@ -1893,8 +1899,8 @@
           '</select>' +
           '<label class="chat-setting-label" style="margin-top:8px;">互动模式</label>' +
           '<select class="chat-setting-input" id="chatGroupChatMode">' +
-            '<option value="chat">聊天模式（自由发言/发红包）</option>' +
-            '<option value="grab">红宝模式（全员禁言，仅管理员发红包）</option>' +
+            '<option value="chat">聊天模式（自由发言/发红宝）</option>' +
+            '<option value="grab">红宝模式（全员禁言，仅管理员发红宝）</option>' +
           '</select>' +
           '<button type="button" class="chat-setting-save-btn" id="chatGroupModeSaveBtn" style="margin-top:8px;">保存群属性</button>' +
         '</div>');
@@ -1960,8 +1966,8 @@
     if (ptype === 3) bottom = pending ? '红宝扫雷 · 匹配中' : '红宝扫雷';
     else if (ptype === 5) bottom = '红宝接龙';
     else if (ptype === 2) bottom = '红宝拼手气';
-    else if (ptype === 4) bottom = '随机红包';
-    else if (ptype === 1) bottom = '普通红包';
+    else if (ptype === 4) bottom = '随机红宝';
+    else if (ptype === 1) bottom = '普通红宝';
     if (extra && extra.mode_label && !fixedTitle) bottom = String(extra.mode_label);
     if (grabbed) bottom = '已领取';
     else if (expired) bottom = '已过期';
@@ -2942,7 +2948,13 @@
       try {
         var packet = await send('conversation.list', { limit: 50 });
         var prevUnread = state.unread || {};
-        state.list = (packet.data && packet.data.list) || [];
+        var nextList = (packet.data && packet.data.list) || [];
+        // 服务端偶发空列表时保留本地非空缓存，避免整表被清空
+        if (!nextList.length && state.list && state.list.length) {
+          scheduleRenderList();
+          return;
+        }
+        state.list = nextList;
         sortConvListInPlace();
         state.unread = {};
         state.list.forEach(function (item) {
@@ -2961,6 +2973,13 @@
         renderList();
         saveListCache();
         setTimeout(function () { prefetchTopHistories(); }, 200);
+      } catch (eList) {
+        if (!(state.list && state.list.length)) {
+          var boxFail = $('chatConvList');
+          if (boxFail && !boxFail.querySelector('.chat-conv-item')) {
+            boxFail.innerHTML = '<div class="chat-empty">' + escapeHtml(chatT('chat_err_load_fail') || '加载失败') + '</div>';
+          }
+        }
       } finally {
         state._listFetching = null;
       }
@@ -3144,21 +3163,21 @@
           emptyBox.innerHTML = '<div class="chat-empty">' + escapeHtml(friendly) + '</div>';
         }
       }
-      if (errMsg === 'not in group' && state.room && (state.room.type | 0) === 2) {
-        var deadGid = state.room.id;
-        state.list = (state.list || []).filter(function (it) {
-          if ((it.conversation_type | 0) !== 2) return true;
-          var iid = it.group_id || it.conversation_id;
-          return String(iid) !== String(deadGid);
-        });
-        try { clearHistCache(2, deadGid); } catch (eClr) {}
-        scheduleRenderList();
-        scheduleSaveListCache();
+      // 历史加载「不在群」可能是 Redis 成员缓存瞬时不一致，勿从会话列表剔除（避免整表被误删）
+      if (isNotInGroupError(errMsg) && state.room && (state.room.type | 0) === 2) {
+        try { clearHistCache(2, state.room.id); } catch (eClr) {}
         setTimeout(function () {
           try { closeRoom(); } catch (eClose) {}
         }, 600);
       }
     }
+  }
+
+  function isNotInGroupError(msg) {
+    msg = String(msg || '');
+    if (!msg) return false;
+    if (msg === 'not in group' || msg === 'target not in group') return true;
+    return /不在(该)?群/.test(msg);
   }
 
   function pickPopupI18n(base, map) {
@@ -5440,15 +5459,28 @@
     renderFrozenHints();
   }
 
+  function isRelayOnlyGroupPolicy(policy) {
+    policy = policy || groupPolicy();
+    var raw = String(policy.rp_enabled_types || '');
+    var types = raw.split(',').map(function (s) { return parseInt(s, 10) || 0; }).filter(function (n) { return n > 0; });
+    return types.length > 0 && types.every(function (t) { return t === 5; });
+  }
+
   function openRpSendPage() {
     if (!state.room) {
       if (typeof showFanshubToast === 'function') showFanshubToast('请先打开会话', 'info');
       return;
     }
     if (state.room.type === 2 && (groupPolicy().can_send_rp === false || groupPolicy().rp_robot_only === true || (typeof canSendCapability === 'function' && !canSendCapability('rp')))) {
-      var tip = groupPolicy().rp_robot_only
-        ? (chatT('chat_rp_robot_only') || '本群仅自动机器人可发红包')
-        : (chatT('chat_rp_admin_only') || '红宝模式下仅管理员可发红包');
+      var pol = groupPolicy();
+      var tip;
+      if (pol.rp_robot_only) {
+        tip = chatT('chat_rp_robot_only') || '本群仅自动机器人可发红宝';
+      } else if (isRelayOnlyGroupPolicy(pol) || pol.rp_relay_admin_only) {
+        tip = chatT('chat_rp_relay_admin_only') || '接龙红宝仅群主/管理员可发；领取最少后由系统按该用户名义续发';
+      } else {
+        tip = chatT('chat_rp_admin_only') || '红宝模式下仅管理员可发红宝';
+      }
       if (typeof showFanshubToast === 'function') showFanshubToast(tip, 'error');
       return;
     }
@@ -5637,7 +5669,7 @@
       closeRpSendPage();
       if (typeof showFanshubToast === 'function') showFanshubToast('红包已发送', 'success');
     } catch (e) {
-      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '发红包失败', 'error');
+      if (typeof showFanshubToast === 'function') showFanshubToast(e.message || '发红宝失败', 'error');
     } finally {
       if (submitBtn) {
         submitBtn.disabled = false;

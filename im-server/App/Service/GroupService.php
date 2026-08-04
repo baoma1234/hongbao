@@ -234,7 +234,8 @@ class GroupService
         $setKey = RedisClient::key('g:' . $groupId . ':mset');
         try {
             $r = RedisClient::conn();
-            if ($r->exists($setKey)) {
+            // 已有 Set 且非空：只续期。空 Set 可能是脏数据，强制按库重建。
+            if ($r->exists($setKey) && (int)$r->sCard($setKey) > 0) {
                 $r->expire($setKey, self::MEMBER_SET_TTL);
                 return;
             }
@@ -500,18 +501,24 @@ class GroupService
         }
         $this->ensureMemberSet($groupId);
         try {
-            return (bool)RedisClient::conn()->sIsMember(
-                RedisClient::key('g:' . $groupId . ':mset'),
-                (string)$userId
-            );
+            $r = RedisClient::conn();
+            $setKey = RedisClient::key('g:' . $groupId . ':mset');
+            if ($r->exists($setKey) && $r->sIsMember($setKey, (string)$userId)) {
+                return true;
+            }
         } catch (\Throwable $e) {
         }
+        // Redis 未命中时以库为准，并回写 Set，避免后台加人后前台「不在群里」
         $row = Db::fetch(
             'SELECT id FROM ' . Db::table('chat_group_members')
             . ' WHERE group_id=? AND user_id=? AND status=1 LIMIT 1',
             [$groupId, $userId]
         );
-        return (bool)$row;
+        if ($row) {
+            $this->memberSetAdd($groupId, $userId);
+            return true;
+        }
+        return false;
     }
 
     public function myGroups($userId)
@@ -1006,6 +1013,14 @@ class GroupService
         if (!$isAdmin && !empty($forbids['rp'])) {
             $canSendRp = false;
         }
+        // 仅接龙(5)：普通成员不能手动发包（续发由服务端 trusted_robot 代发）
+        $typeIds = array_values(array_filter(array_map('intval', explode(',', $enabledTypes))));
+        $relayAdminOnly = $typeIds && !array_filter($typeIds, function ($t) {
+            return $t !== 5;
+        });
+        if ($relayAdminOnly && $canSendRp && !$isAdmin && !$robotOnly) {
+            $canSendRp = false;
+        }
         return [
             'privacy_mode'       => $isOpen ? 'open' : 'private',
             'chat_mode'          => $isGrab ? 'grab' : 'chat',
@@ -1017,6 +1032,7 @@ class GroupService
             'can_mention'        => $isOpen || $role >= 2,
             'rp_detail_locked'   => !$isOpen,
             'can_send_rp'        => $canSendRp,
+            'rp_relay_admin_only'=> (bool)$relayAdminOnly,
             'can_send_text'      => $isAdmin || empty($forbids['text']),
             'can_send_image'     => $isAdmin || empty($forbids['image']),
             'can_send_emoji'     => $isAdmin || empty($forbids['emoji']),
@@ -1079,6 +1095,11 @@ class GroupService
             return;
         }
         $role = $this->memberRole($groupId, $userId);
+        $packetType = (int)($opts['packet_type'] ?? 0);
+        // 接龙：仅群主/管理员可手动发包；最少者续发走 trusted_robot
+        if ($packetType === 5 && $role < 2) {
+            throw new \RuntimeException('relay: only admin can send');
+        }
         // 管理员不受「禁止发红包」影响
         if ($role < 2) {
             $modes = $this->parseForbidModes($group);
