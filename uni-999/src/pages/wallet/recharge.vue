@@ -43,7 +43,7 @@
 
       <view class="wallet-amount-panel" v-if="selected">
         <view class="profile-field">
-          <text class="lab">充值金额</text>
+          <text class="lab">{{ amountLabel }}</text>
           <view class="wallet-quick-amounts" v-if="quickAmounts.length">
             <view
               v-for="q in quickAmounts"
@@ -79,6 +79,7 @@ import {
   findChannel,
   fxHintText,
   groupByPartitions,
+  isUsdtRechargeChannel,
   loadWalletBootstrap,
   money,
   openPayResult,
@@ -102,6 +103,9 @@ const activeChannels = computed(() => {
   return (g && g.channels) || []
 })
 const selected = computed(() => findChannel(channels.value, selectedId.value))
+const amountLabel = computed(() =>
+  isUsdtRechargeChannel(selected.value) ? '充值红宝金额（U）' : '充值红宝金额（元）'
+)
 const amountPh = computed(() => {
   const ch = selected.value
   if (!ch) return '请输入金额'
@@ -143,9 +147,14 @@ async function onSubmit() {
     uni.showToast({ title: err, icon: 'none' })
     return
   }
+  let submitAmount = Number(amount.value)
+  if (isUsdtRechargeChannel(ch)) {
+    const rate = Number(ch.exchange_rate || 0)
+    submitAmount = Math.round(submitAmount * rate * 100) / 100
+  }
   submitting.value = true
   try {
-    const data = await submitRecharge(selectedId.value, Number(amount.value))
+    const data = await submitRecharge(selectedId.value, submitAmount)
     const info = (data && data.pay_info) || {}
     uni.showToast({ title: info.message || '充值申请已提交', icon: 'none' })
     openPayResult(info)

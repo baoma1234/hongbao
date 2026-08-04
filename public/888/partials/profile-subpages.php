@@ -125,7 +125,7 @@
                 <div id="profileRechargeChannels" class="wallet-channel-list"></div>
                 <div id="profileRechargeForm" class="wallet-amount-panel" hidden>
                     <div class="profile-field">
-                        <label data-copy="profile_recharge_amount_label">充值红宝金额（元）</label>
+                        <label id="profileRechargeAmountLabel" data-copy="profile_recharge_amount_label">充值红宝金额（元）</label>
                         <div id="profileRechargeQuickAmounts" class="wallet-quick-amounts" aria-label="快捷金额"></div>
                         <input type="number" id="profileRechargeAmount" step="0.01" min="1" data-copy-placeholder="profile_amount_ph" placeholder="请输入金额">
                         <div class="profile-meta-line wallet-fx-hint" id="profileRechargeFxHint" hidden></div>

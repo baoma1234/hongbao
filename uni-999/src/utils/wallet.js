@@ -273,11 +273,33 @@ export function groupByPartitions(channels, partitions) {
   return groups.length ? groups : [{ key: 'all', name: '全部', code: '', channels: list }]
 }
 
+export function isUsdtRechargeChannel(ch) {
+  if (!ch) return false
+  const rate = Number(ch.exchange_rate || 0)
+  if (!(rate > 0)) return false
+  if (String(ch.handler || '').toLowerCase() === 'bs') return true
+  const mix =
+    String(ch.name || '') +
+    ' ' +
+    String(ch.payment_channel || '') +
+    ' ' +
+    String(ch.wallet_type || '') +
+    ' ' +
+    String(ch.coin_type || '')
+  return /usdt/i.test(mix)
+}
+
 export function fxHintText(ch, amount) {
   if (!ch) return ''
   const rate = Number(ch.exchange_rate || 0)
   if (!(rate > 0)) return ''
   const a = Number(amount) || 0
+  if (isUsdtRechargeChannel(ch)) {
+    if (a > 0) {
+      return rate + ' CNY = 1 USDT，约合 ' + money(a * rate) + '人民币'
+    }
+    return rate + ' CNY = 1 USDT（输入 U 数量后自动换算）'
+  }
   const unit = ch.coin_name || ch.currency || '币'
   if (a > 0) {
     return '约到账 ' + money(a * rate) + ' ' + unit + '（汇率 ' + rate + '）'
