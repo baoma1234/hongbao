@@ -57,11 +57,7 @@ class FansHubSliderCaptcha
         $width = max(200, (int)($data['w'] ?? FansHubService::config('sms_slider_width', 280)));
 
         if ($maxX >= 40) {
-            // 用拖动行程比例，兼容窄屏；maxX 需与挑战宽度大致吻合，防伪造
-            $expectedMax = max(40, $width - 42);
-            if ($maxX < (int)floor($expectedMax * 0.55) || $maxX > (int)ceil($expectedMax * 1.5)) {
-                return false;
-            }
+            // 以客户端实测行程为准（窄屏 track 常小于配置宽度），只校验比例
             if ($x < (int)floor($maxX * $ratio)) {
                 return false;
             }

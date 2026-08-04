@@ -460,6 +460,7 @@
             }
             return FanshubI18n.toE164((document.getElementById('loginPhone') || {}).value || '');
         }
+        window.getLoginMobileE164 = getLoginMobileE164;
 
         function syncLoginPhoneUi() {
             if (!window.FanshubI18n) return;

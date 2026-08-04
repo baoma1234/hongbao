@@ -533,8 +533,14 @@
                     onSuccess({});
                     return;
                 }
+                const modal = document.getElementById('sliderCaptchaModal');
+                if (!modal) {
+                    showFanshubToast(fc('srv_slider_create_fail') || '滑块验证组件未加载，请刷新页面', 'error');
+                    if (typeof onCancel === 'function') onCancel();
+                    return;
+                }
                 sliderCaptchaState.challenge = data;
-                document.getElementById('sliderCaptchaModal').classList.add('show');
+                modal.classList.add('show');
                 setTimeout(function() { renderSliderChallenge(data); }, 30);
                 bindSliderDrag();
             } catch (e) {
@@ -643,7 +649,12 @@
                 thumb.classList.add('is-ok');
                 thumb.innerText = '✓';
                 track.classList.add('is-ok');
-                setSliderStatus('验证通过，继续抢包…', 'is-ok');
+                setSliderStatus(
+                    sliderCaptchaState.mode === 'grab'
+                        ? (fc('slider_ok_grab') || '验证通过，继续抢包…')
+                        : (fc('slider_ok_sms') || '验证通过，正在发送验证码…'),
+                    'is-ok'
+                );
                 const payload = {
                     slider_token: ch.token,
                     slider_x: Math.round(maxX),
@@ -738,6 +749,7 @@
             }
             await doSendSms(phone, {});
         }
+        window.sendMockCaptcha = sendMockCaptcha;
 
         async function submitLogin() {
             const phone = getLoginMobileE164();

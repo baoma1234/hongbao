@@ -2,7 +2,7 @@
 /**
  * ?? H5 entrance
  */
-$assetVer = '202608041045';
+$assetVer = '202608042333';
 $v = htmlspecialchars($assetVer, ENT_QUOTES, 'UTF-8');
 ?><!DOCTYPE html>
 <html lang="zh-CN">
@@ -17,6 +17,7 @@ $v = htmlspecialchars($assetVer, ENT_QUOTES, 'UTF-8');
 <body>
 <?php include __DIR__ . '/partials/header.php'; ?>
 <?php include __DIR__ . '/partials/login.php'; ?>
+<?php include __DIR__ . '/partials/slider-captcha.php'; ?>
 
     <div class="page-view" id="mainDashboardView" data-shell="pending"></div>
     <div id="appExtrasMount" data-shell="pending"></div>
