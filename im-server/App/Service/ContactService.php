@@ -579,6 +579,17 @@ class ContactService
             $item['online'] = !empty($onlineMap[(int)$item['user_id']]);
         }
         unset($item);
+        $remarks = $this->remarksMap($userId, $ids);
+        foreach ($list as &$item) {
+            $pid = (int)$item['user_id'];
+            $remark = isset($remarks[$pid]) ? (string)$remarks[$pid] : '';
+            $item['remark'] = $remark;
+            $item['peer_nickname'] = (string)$item['nickname'];
+            if ($remark !== '') {
+                $item['nickname'] = $remark; // 好友列表优先显示备注
+            }
+        }
+        unset($item);
         // 默认客服置顶，其余在线优先
         usort($list, function ($a, $b) {
             $ap = !empty($a['is_default_cs']) ? 1 : 0;
@@ -592,6 +603,125 @@ class ContactService
             return !empty($a['online']) ? -1 : 1;
         });
         return $list;
+    }
+
+    /**
+     * 我对若干对方的备注映射 peer_user_id => remark
+     * @param int[] $peerIds
+     * @return array<int,string>
+     */
+    public function remarksMap($userId, array $peerIds)
+    {
+        $userId = (int)$userId;
+        $ids = [];
+        foreach ($peerIds as $pid) {
+            $pid = (int)$pid;
+            if ($pid > 0 && $pid !== $userId) {
+                $ids[$pid] = $pid;
+            }
+        }
+        if ($userId <= 0 || !$ids) {
+            return [];
+        }
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $params = array_merge([$userId], array_values($ids));
+        $rows = Db::fetchAll(
+            'SELECT peer_user_id, remark FROM ' . Db::table('chat_user_remarks')
+            . ' WHERE user_id=? AND peer_user_id IN (' . $placeholders . ')'
+            . " AND remark<>''",
+            $params
+        );
+        $map = [];
+        foreach ($rows as $row) {
+            $pid = (int)$row['peer_user_id'];
+            $r = trim((string)($row['remark'] ?? ''));
+            if ($pid > 0 && $r !== '') {
+                $map[$pid] = $r;
+            }
+        }
+        return $map;
+    }
+
+    public function getRemark($userId, $peerId)
+    {
+        $userId = (int)$userId;
+        $peerId = (int)$peerId;
+        if ($userId <= 0 || $peerId <= 0 || $userId === $peerId) {
+            return '';
+        }
+        $row = Db::fetch(
+            'SELECT remark FROM ' . Db::table('chat_user_remarks')
+            . ' WHERE user_id=? AND peer_user_id=? LIMIT 1',
+            [$userId, $peerId]
+        );
+        return $row ? trim((string)($row['remark'] ?? '')) : '';
+    }
+
+    /**
+     * 设置/清除我对对方的备注（最多 32 字；空串清除）
+     * @return array{peer_user_id:int,remark:string,peer_nickname:string,title:string}
+     */
+    public function setRemark($userId, $peerId, $remark)
+    {
+        $userId = (int)$userId;
+        $peerId = (int)$peerId;
+        $remark = mb_substr(trim((string)$remark), 0, 32);
+        if ($userId <= 0 || $peerId <= 0 || $userId === $peerId) {
+            throw new \InvalidArgumentException('invalid user');
+        }
+        $brief = $this->userBrief($peerId);
+        if (!$brief) {
+            throw new \RuntimeException('user not found');
+        }
+        $now = time();
+        $existing = Db::fetch(
+            'SELECT id FROM ' . Db::table('chat_user_remarks')
+            . ' WHERE user_id=? AND peer_user_id=? LIMIT 1',
+            [$userId, $peerId]
+        );
+        if ($remark === '') {
+            if ($existing) {
+                Db::exec(
+                    'DELETE FROM ' . Db::table('chat_user_remarks') . ' WHERE id=?',
+                    [(int)$existing['id']]
+                );
+            }
+        } elseif ($existing) {
+            Db::exec(
+                'UPDATE ' . Db::table('chat_user_remarks')
+                . ' SET remark=?, updatetime=? WHERE id=?',
+                [$remark, $now, (int)$existing['id']]
+            );
+        } else {
+            Db::exec(
+                'INSERT INTO ' . Db::table('chat_user_remarks')
+                . ' (user_id,peer_user_id,remark,createtime,updatetime) VALUES (?,?,?,?,?)',
+                [$userId, $peerId, $remark, $now, $now]
+            );
+        }
+        $this->bustConvListCache($userId);
+        $nick = (string)($brief['nickname'] ?? ('ID' . $peerId));
+        return [
+            'peer_user_id'   => $peerId,
+            'remark'         => $remark,
+            'peer_nickname'  => $nick,
+            'title'          => $remark !== '' ? $remark : $nick,
+        ];
+    }
+
+    protected function bustConvListCache($userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return;
+        }
+        try {
+            $redis = \Im\Support\RedisClient::conn();
+            foreach ([20, 50, 100] as $lim) {
+                $redis->del(\Im\Support\RedisClient::key('convlist:' . $userId . ':' . $lim));
+            }
+        } catch (\Throwable $e) {
+        }
     }
 
     public function privateConversationId($uidA, $uidB)

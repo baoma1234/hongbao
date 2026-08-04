@@ -4,6 +4,7 @@ namespace Im\Http;
 
 use Im\Service\AdminService;
 use Im\Service\AuthService;
+use Im\Service\ContactService;
 use Im\Service\GroupService;
 use Im\Service\MessageService;
 use Im\Service\RedPacketService;
@@ -25,6 +26,8 @@ class UserReadApi
     protected $groups;
     /** @var RedPacketService */
     protected $redPackets;
+    /** @var ContactService */
+    protected $contacts;
 
     public function __construct(array $cfg)
     {
@@ -33,6 +36,7 @@ class UserReadApi
         $this->messages = new MessageService();
         $this->groups = new GroupService();
         $this->redPackets = new RedPacketService($cfg, $this->messages, $this->groups);
+        $this->contacts = new ContactService();
     }
 
     public function userIdByToken($token)
@@ -68,11 +72,14 @@ class UserReadApi
         }
         $users = $this->auth->usersBriefMap($peerIds);
         $adminMap = AdminService::adminIdMap();
+        $remarks = $this->contacts->remarksMap($userId, $peerIds);
         foreach ($list as &$item) {
             if ((int)$item['conversation_type'] !== 1) {
                 continue;
             }
             $peer = $users[(int)$item['peer_user_id']] ?? null;
+            $peerId = (int)$item['peer_user_id'];
+            $remark = isset($remarks[$peerId]) ? (string)$remarks[$peerId] : '';
             if ($peer) {
                 $item['peer'] = $peer;
                 $nick = trim((string)($peer['nickname'] ?: $peer['username'] ?: ''));
@@ -83,14 +90,25 @@ class UserReadApi
                 if ($nick === '' && !empty($item['title'])) {
                     $nick = (string)$item['title'];
                 }
-                $item['title'] = $nick !== '' ? $nick : ('ID' . (int)$item['peer_user_id']);
+                if ($nick === '') {
+                    $nick = 'ID' . $peerId;
+                }
+                $item['peer_nickname'] = $nick;
+                $item['remark'] = $remark;
+                $item['title'] = $remark !== '' ? $remark : $nick;
                 $item['avatar'] = (string)($peer['avatar'] ?? '');
             } else {
-                $item['title'] = $item['title'] !== '' ? (string)$item['title'] : ('ID' . (int)$item['peer_user_id']);
+                $fallback = $item['title'] !== '' ? (string)$item['title'] : ('ID' . $peerId);
+                $item['peer_nickname'] = $fallback;
+                $item['remark'] = $remark;
+                $item['title'] = $remark !== '' ? $remark : $fallback;
             }
-            $item['is_im_admin'] = isset($adminMap[(int)$item['peer_user_id']]);
-            if ($item['is_im_admin'] && empty($item['title'])) {
-                $item['title'] = '客服';
+            $item['is_im_admin'] = isset($adminMap[$peerId]);
+            if ($item['is_im_admin'] && empty($item['peer_nickname'])) {
+                $item['peer_nickname'] = '客服';
+                if ($remark === '') {
+                    $item['title'] = '客服';
+                }
             }
         }
         unset($item);

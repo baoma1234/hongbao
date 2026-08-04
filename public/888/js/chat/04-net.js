@@ -489,7 +489,9 @@
           type: parseInt(btn.getAttribute('data-type'), 10) || 1,
           id: btn.getAttribute('data-id'),
           peer: parseInt(btn.getAttribute('data-peer'), 10) || 0,
-          title: btn.getAttribute('data-title') || ''
+          title: btn.getAttribute('data-title') || '',
+          peer_nickname: btn.getAttribute('data-nickname') || '',
+          remark: btn.getAttribute('data-remark') || ''
         });
       });
     }

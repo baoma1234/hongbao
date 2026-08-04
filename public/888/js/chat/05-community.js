@@ -242,7 +242,14 @@
         var f = (state.friends || []).find(function (x) { return (x.user_id | 0) === pid; });
         var a = Math.min(state.userId, pid);
         var b = Math.max(state.userId, pid);
-        openRoom({ type: 1, id: a + '_' + b, peer: pid, title: (f && f.nickname) || ('ID ' + pid) });
+        openRoom({
+          type: 1,
+          id: a + '_' + b,
+          peer: pid,
+          title: (f && f.nickname) || ('ID ' + pid),
+          peer_nickname: (f && f.peer_nickname) || '',
+          remark: (f && f.remark) || ''
+        });
       };
     });
   }

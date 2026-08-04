@@ -1016,6 +1016,7 @@
     'friend.accept': '/im/friend/accept',
     'friend.reject': '/im/friend/reject',
     'friend.cancel': '/im/friend/cancel',
+    'friend.set_remark': '/im/friend/set_remark',
     'group.list': '/im/group/list',
     'group.join': '/im/group/join',
     'group.info': '/im/group/info',
@@ -1592,8 +1593,10 @@
     var avatarHtml = avatarImgHtml(item.avatar);
     var adminBadge = item.is_im_admin ? '<span class="chat-admin-tag">客服</span>' : '';
     var pinMark = item.pinned ? '<span class="chat-conv-pin" aria-hidden="true">📌</span>' : '';
+    var nickAttr = escapeHtml(String(item.peer_nickname || ''));
+    var remarkAttr = escapeHtml(String(item.remark || ''));
     var btn =
-      '<button type="button" class="chat-conv-item' + (item.is_im_admin ? ' is-admin' : '') + (item.pinned ? ' is-pinned' : '') + '" data-type="' + type + '" data-id="' + escapeHtml(String(id)) + '" data-peer="' + (item.peer_user_id | 0) + '" data-title="' + title + '" data-pinned="' + (item.pinned ? '1' : '0') + '">' +
+      '<button type="button" class="chat-conv-item' + (item.is_im_admin ? ' is-admin' : '') + (item.pinned ? ' is-pinned' : '') + '" data-type="' + type + '" data-id="' + escapeHtml(String(id)) + '" data-peer="' + (item.peer_user_id | 0) + '" data-title="' + title + '" data-nickname="' + nickAttr + '" data-remark="' + remarkAttr + '" data-pinned="' + (item.pinned ? '1' : '0') + '">' +
         '<div class="chat-avatar' + (type === 2 ? ' group' : '') + (item.is_im_admin ? ' admin' : '') + '">' + avatarHtml + '</div>' +
         '<div class="chat-conv-body">' +
           '<div class="chat-conv-title"><span>' + pinMark + title + adminBadge + '</span><span class="chat-conv-time">' + time + '</span></div>' +
@@ -2944,7 +2947,9 @@
       type: opts.type | 0,
       id: opts.id,
       peer: opts.peer | 0,
-      title: opts.title || ''
+      title: opts.title || '',
+      peer_nickname: opts.peer_nickname || opts.nickname || '',
+      remark: opts.remark || ''
     };
     if (state.room.type === 2) {
       enterGroupViewPresence(state.room.id | 0);
@@ -4224,15 +4229,22 @@
     ensureChatOverlays();
     var peer = state.room.peer | 0;
     var brief = getSenderBrief(peer);
-    var name = state.room.title || brief.nickname || ('ID' + peer);
+    // 三点菜单固定显示昵称（不用备注）
+    var nick = String(state.room.peer_nickname || brief.nickname || '').trim() || ('ID' + peer);
+    var remark = String(state.room.remark || '').trim();
     var nameEl = $('chatProfileName');
     var idEl = $('chatProfileId');
     var avEl = $('chatProfileAvatar');
     var addBtn = $('chatProfileAddFriend');
     var chatBtn = $('chatProfilePrivateChat');
     var copyBtn = $('chatProfileCopyId');
-    if (nameEl) nameEl.textContent = name;
-    if (idEl) idEl.textContent = peer ? ('会员ID ' + peer) : '';
+    var remarkBtn = $('chatProfileSetRemark');
+    if (nameEl) nameEl.textContent = nick;
+    if (idEl) {
+      idEl.textContent = peer
+        ? ('会员ID ' + peer + (remark ? (' · 备注 ' + remark) : ''))
+        : '';
+    }
     if (avEl) {
       avEl.innerHTML = avatarImgHtml(brief.avatar);
     }
@@ -4262,11 +4274,66 @@
     } else if (copyBtn) {
       copyBtn.style.display = '';
     }
+    if (!remarkBtn && $('chatProfileClose')) {
+      remarkBtn = document.createElement('button');
+      remarkBtn.type = 'button';
+      remarkBtn.className = 'chat-action-item';
+      remarkBtn.id = 'chatProfileSetRemark';
+      remarkBtn.textContent = '设置备注';
+      var before = $('chatProfileCopyId') || $('chatProfileClose');
+      before.parentNode.insertBefore(remarkBtn, before);
+      remarkBtn.onclick = function () {
+        promptSetPeerRemark();
+      };
+    } else if (remarkBtn) {
+      remarkBtn.style.display = '';
+      remarkBtn.textContent = remark ? '修改备注' : '设置备注';
+    }
     var pane = $('chatUserProfilePane');
     if (pane) {
       pane.classList.add('open');
       pane.setAttribute('aria-hidden', 'false');
     }
+  }
+
+  function promptSetPeerRemark() {
+    if (!state.room || state.room.type !== 1) return;
+    var peer = state.room.peer | 0;
+    if (!peer) return;
+    var cur = String(state.room.remark || '');
+    var next = window.prompt('设置备注（最多32字，留空清除）', cur);
+    if (next === null) return;
+    next = String(next || '').trim();
+    if (next.length > 32) next = next.slice(0, 32);
+    closeUserProfile();
+    send('friend.set_remark', { peer_user_id: peer, remark: next }).then(function (data) {
+      var remark = String((data && data.remark) || '');
+      var nick = String((data && data.peer_nickname) || state.room.peer_nickname || '').trim();
+      var title = String((data && data.title) || remark || nick || ('ID' + peer));
+      state.room.remark = remark;
+      if (nick) state.room.peer_nickname = nick;
+      state.room.title = title;
+      var titleEl = $('chatRoomTitle');
+      if (titleEl) titleEl.textContent = title;
+      // 同步会话列表项
+      try {
+        (state.list || []).forEach(function (it) {
+          if ((it.conversation_type | 0) !== 1) return;
+          if ((it.peer_user_id | 0) !== peer) return;
+          it.remark = remark;
+          if (nick) it.peer_nickname = nick;
+          it.title = title;
+        });
+        if (typeof renderList === 'function') renderList();
+      } catch (eList) {}
+      if (typeof showFanshubToast === 'function') {
+        showFanshubToast(remark ? '备注已保存' : '备注已清除', 'success');
+      }
+    }).catch(function (e) {
+      if (typeof showFanshubToast === 'function') {
+        showFanshubToast((e && e.message) || '备注失败', 'error');
+      }
+    });
   }
 
   function openRoomMore() {
@@ -6019,7 +6086,9 @@
           type: parseInt(btn.getAttribute('data-type'), 10) || 1,
           id: btn.getAttribute('data-id'),
           peer: parseInt(btn.getAttribute('data-peer'), 10) || 0,
-          title: btn.getAttribute('data-title') || ''
+          title: btn.getAttribute('data-title') || '',
+          peer_nickname: btn.getAttribute('data-nickname') || '',
+          remark: btn.getAttribute('data-remark') || ''
         });
       });
     }
@@ -7148,7 +7217,14 @@
         var f = (state.friends || []).find(function (x) { return (x.user_id | 0) === pid; });
         var a = Math.min(state.userId, pid);
         var b = Math.max(state.userId, pid);
-        openRoom({ type: 1, id: a + '_' + b, peer: pid, title: (f && f.nickname) || ('ID ' + pid) });
+        openRoom({
+          type: 1,
+          id: a + '_' + b,
+          peer: pid,
+          title: (f && f.nickname) || ('ID ' + pid),
+          peer_nickname: (f && f.peer_nickname) || '',
+          remark: (f && f.remark) || ''
+        });
       };
     });
   }

@@ -1013,6 +1013,7 @@
     'friend.accept': '/im/friend/accept',
     'friend.reject': '/im/friend/reject',
     'friend.cancel': '/im/friend/cancel',
+    'friend.set_remark': '/im/friend/set_remark',
     'group.list': '/im/group/list',
     'group.join': '/im/group/join',
     'group.info': '/im/group/info',

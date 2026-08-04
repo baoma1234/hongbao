@@ -262,6 +262,9 @@ class MessageRouter
                         'list' => $this->contacts->listFriends($uid),
                     ], $reqId);
                     break;
+                case 'friend.set_remark':
+                    $this->handleFriendSetRemark($connection, $uid, $payload, $reqId);
+                    break;
                 default:
                     $this->error($connection, 'unknown_type', $reqId);
             }
@@ -1025,6 +1028,18 @@ class MessageRouter
         }
     }
 
+    protected function handleFriendSetRemark(TcpConnection $connection, $uid, array $payload, $reqId)
+    {
+        $peerId = (int)($payload['peer_user_id'] ?? $payload['user_id'] ?? $payload['to_user_id'] ?? 0);
+        $remark = (string)($payload['remark'] ?? '');
+        try {
+            $result = $this->contacts->setRemark($uid, $peerId, $remark);
+            $this->send($connection, 'friend.remark.ok', $result, $reqId);
+        } catch (\Throwable $e) {
+            $this->error($connection, $e->getMessage() ?: '备注失败', $reqId);
+        }
+    }
+
     protected function memberCanCreateGroup($uid)
     {
         if (AdminService::isImAdmin($uid)) {
@@ -1391,9 +1406,12 @@ class MessageRouter
         }
         $users = $this->auth->usersBriefMap($peerIds);
         $adminMap = AdminService::adminIdMap();
+        $remarks = $this->contacts->remarksMap($uid, $peerIds);
         foreach ($list as &$item) {
             if ((int)$item['conversation_type'] === 1) {
                 $peer = $users[(int)$item['peer_user_id']] ?? null;
+                $peerId = (int)$item['peer_user_id'];
+                $remark = isset($remarks[$peerId]) ? (string)$remarks[$peerId] : '';
                 if ($peer) {
                     $item['peer'] = $peer;
                     $nick = trim((string)($peer['nickname'] ?: $peer['username'] ?: ''));
@@ -1404,14 +1422,25 @@ class MessageRouter
                     if ($nick === '' && !empty($item['title'])) {
                         $nick = (string)$item['title'];
                     }
-                    $item['title'] = $nick !== '' ? $nick : ('ID' . (int)$item['peer_user_id']);
+                    if ($nick === '') {
+                        $nick = 'ID' . $peerId;
+                    }
+                    $item['peer_nickname'] = $nick;
+                    $item['remark'] = $remark;
+                    $item['title'] = $remark !== '' ? $remark : $nick;
                     $item['avatar'] = (string)($peer['avatar'] ?? '');
                 } else {
-                    $item['title'] = $item['title'] !== '' ? (string)$item['title'] : ('ID' . (int)$item['peer_user_id']);
+                    $fallback = $item['title'] !== '' ? (string)$item['title'] : ('ID' . $peerId);
+                    $item['peer_nickname'] = $fallback;
+                    $item['remark'] = $remark;
+                    $item['title'] = $remark !== '' ? $remark : $fallback;
                 }
-                $item['is_im_admin'] = isset($adminMap[(int)$item['peer_user_id']]);
-                if ($item['is_im_admin'] && empty($item['title'])) {
-                    $item['title'] = '客服';
+                $item['is_im_admin'] = isset($adminMap[$peerId]);
+                if ($item['is_im_admin'] && empty($item['peer_nickname'])) {
+                    $item['peer_nickname'] = '客服';
+                    if ($remark === '') {
+                        $item['title'] = '客服';
+                    }
                 }
             }
         }

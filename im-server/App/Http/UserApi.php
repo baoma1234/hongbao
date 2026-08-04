@@ -70,6 +70,8 @@ class UserApi extends UserReadApi
             case '/im/friend/reject':
             case '/im/friend/cancel':
                 return ['data' => $this->friendReject($userId, $body), 'ws_type' => 'friend.rejected'];
+            case '/im/friend/set_remark':
+                return ['data' => $this->friendSetRemark($userId, $body)];
 
             case '/im/group/list':
                 return ['data' => ['list' => $this->groups->myGroups($userId)]];
@@ -302,6 +304,13 @@ class UserApi extends UserReadApi
             PushBus::toUsers([$peerId], 'friend.rejected', $result);
         }
         return $result;
+    }
+
+    protected function friendSetRemark($uid, array $body)
+    {
+        $peerId = (int)($body['peer_user_id'] ?? $body['user_id'] ?? $body['to_user_id'] ?? 0);
+        $remark = (string)($body['remark'] ?? '');
+        return $this->contacts->setRemark($uid, $peerId, $remark);
     }
 
     protected function groupJoin($uid, array $body)
