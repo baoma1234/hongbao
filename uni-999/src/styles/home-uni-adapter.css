@@ -1,0 +1,101 @@
+/* uni-999 首页：复用 888 home/tabs-extra/social-modals 时的 token + 外壳适配 */
+
+#tabHome {
+  --bg-main: #f4f6f9;
+  --bg-card: #ffffff;
+  --primary: #00c853;
+  --secondary: #ff9100;
+  --accent: #0071ff;
+  --text-main: #1a212d;
+  --text-muted: #657786;
+  --danger: #ff3b30;
+  --gold-grad: linear-gradient(135deg, #ffe082 0%, #ffb300 100%);
+  --gold-btn: linear-gradient(135deg, #ffd54f 0%, #ff8f00 50%, #ff6f00 100%);
+  --top-bar-height: 44px;
+  color: var(--text-main);
+  background: var(--bg-main);
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  box-sizing: border-box;
+}
+
+#tabHome.tab-page {
+  display: block;
+  width: 100%;
+  min-height: calc(100vh - var(--top-bar-height, 44px) - 50px);
+  min-height: calc(100dvh - var(--top-bar-height, 44px) - 50px);
+  padding: 10px 15px 28px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+#tabHome *,
+#tabHome *::before,
+#tabHome *::after {
+  box-sizing: border-box;
+}
+
+/* uni view/button 复位，贴近 888 原生控件 */
+#tabHome .home-quick-btn,
+#tabHome .cta-open-account,
+#tabHome .btn-uid-submit,
+#tabHome .btn-manual-settle,
+#tabHome .btn-share-action,
+#tabHome .modal-action-btn,
+#tabHome .modal-close-btn {
+  box-sizing: border-box;
+  line-height: normal;
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+  font-family: inherit;
+}
+
+#tabHome .home-quick-btn::after,
+#tabHome .cta-open-account::after,
+#tabHome .btn-uid-submit::after,
+#tabHome .btn-manual-settle::after,
+#tabHome .btn-share-action::after,
+#tabHome .modal-action-btn::after,
+#tabHome .modal-close-btn::after {
+  border: none;
+  display: none;
+}
+
+#tabHome .id-input-box {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* 跑马灯：uni 无 body.tab-home，首页常开动画 */
+#tabHome .marquee-content {
+  animation-play-state: running;
+}
+
+/* 弹层：888 默认 display:none，用 .is-open 打开 */
+#tabHome .modal-mask.is-open,
+.home-modal-root .modal-mask.is-open {
+  display: flex !important;
+}
+
+.home-modal-root {
+  --bg-main: #f4f6f9;
+  --bg-card: #ffffff;
+  --primary: #00c853;
+  --secondary: #ff9100;
+  --accent: #0071ff;
+  --text-main: #1a212d;
+  --text-muted: #657786;
+  --danger: #ff3b30;
+  --gold-btn: linear-gradient(135deg, #ffd54f 0%, #ff8f00 50%, #ff6f00 100%);
+}
+
+.home-modal-root .modal-mask {
+  z-index: 10050;
+}
+
+.text-muted {
+  color: var(--text-muted, #657786);
+}
