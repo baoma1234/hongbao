@@ -1,93 +1,145 @@
-FastAdmin是一款基于ThinkPHP+Bootstrap的极速后台开发框架。
+# 红宝 / FansHub（ThinkPHP FastAdmin + Workerman IM）
 
+本仓库为红宝业务站：后台 FastAdmin、H5 `/888`、IM（WebSocket + HTTP API + Cron）。
 
-## 主要特性
+远端：`https://github.com/baoma1234/hongbao.git`（默认分支 `main`）。
 
-* 基于`Auth`验证的权限管理系统
-    * 支持无限级父子级权限继承，父级的管理员可任意增删改子级管理员及权限设置
-    * 支持单管理员多角色
-    * 支持管理子级数据或个人数据
-* 强大的一键生成功能
-    * 一键生成CRUD,包括控制器、模型、视图、JS、语言包、菜单、回收站等
-    * 一键压缩打包JS和CSS文件，一键CDN静态资源部署
-    * 一键生成控制器菜单和规则
-    * 一键生成API接口文档
-* 完善的前端功能组件开发
-    * 基于`AdminLTE`二次开发
-    * 基于`Bootstrap`开发，自适应手机、平板、PC
-    * 基于`RequireJS`进行JS模块管理，按需加载
-    * 基于`Less`进行样式开发
-* 强大的插件扩展功能，在线安装卸载升级插件
-* 通用的会员模块和API模块
-* 共用同一账号体系的Web端会员中心权限验证和API接口会员权限验证
-* 二级域名部署支持，同时域名支持绑定到应用插件
-* 多语言支持，服务端及客户端支持
-* 支持大文件分片上传、剪切板粘贴上传、拖拽上传，进度条显示，图片上传前压缩
-* 支持表格固定列、固定表头、跨页选择、Excel导出、模板渲染等功能
-* 强大的第三方应用模块支持([CMS](https://www.fastadmin.net/store/cms.html)、[CRM](https://www.fastadmin.net/store/facrm.html)、[企业网站管理系统](https://www.fastadmin.net/store/ldcms.html)、[知识库文档系统](https://www.fastadmin.net/store/knowbase.html)、[在线投票系统](https://www.fastadmin.net/store/vote.html)、[B2C商城](https://www.fastadmin.net/store/shopro.html)、[B2B2C商城](https://www.fastadmin.net/store/wanlshop.html))
-* 整合第三方短信接口(阿里云、腾讯云短信)
-* 无缝整合第三方云存储(七牛云、阿里云OSS、腾讯云存储、又拍云)功能，支持云储存分片上传
-* 第三方富文本编辑器支持(Summernote、百度编辑器)
-* 第三方登录(QQ、微信、微博)整合
-* 第三方支付(微信、支付宝)无缝整合，微信支持PC端扫码支付
-* 丰富的插件应用市场
+## 目录速览
 
-## 安装使用
+| 路径 | 说明 |
+|------|------|
+| `application/` | ThinkPHP 业务与后台 |
+| `public/888/` | H5 入口与静态资源 |
+| `im-server/` | Workerman IM（**必启 3 个进程**） |
+| `scripts/` | 一次性安装/回补脚本 |
+| `tools/build-888-chat.ps1` | 打包 H5 聊天 JS/CSS |
 
-https://doc.fastadmin.net
+## 环境依赖
 
-## 在线演示
+- PHP 7.4+ / 8.1（IM 推荐 8.1），扩展：`pdo`、`redis`、`bcmath`、`mbstring`
+- MySQL、Redis
+- Composer（`im-server/vendor`）
+- 根目录 `.env`（数据库等；勿提交密钥）
 
-https://demo.fastadmin.net
+## 一、IM 运行说明（必读）
 
-用户名：admin
+IM 分 **三个独立进程**，缺一不可：
 
-密　码：123456
+| 进程 | 入口 | 端口 | 职责 |
+|------|------|------|------|
+| WS | `im-server/start.php` | **7272** | 聊天 WebSocket、PushBus |
+| HTTP | `im-server/start_admin.php` | **7273** | 会话/历史 API、后台代聊桥 |
+| Cron | `im-server/start_cron.php` | 无 | Tron 轮询、过期退款、结算重试、自动发/抢红包 |
 
-提　示：演示站数据无法进行修改，请下载源码安装体验全部功能
+> 一期改造后：重任务已从 WS Worker0 迁出。若未启动 `start_cron.php`，退款 / Tron / 自动红包会停，但聊天仍可用。
 
-## 界面截图
-![控制台](https://images.gitee.com/uploads/images/2020/0929/202947_8db2d281_10933.gif "控制台")
+配置：`im-server/config/app.php`，可被 `im-server/config/local.php`、根目录 `.env` 覆盖。详见 [im-server/README.md](im-server/README.md)。
 
-## 问题反馈
+### Windows（本机常用）
 
-在使用中有任何问题，请使用以下联系方式联系我们
+```powershell
+cd im-server\scripts
+.\start-all.ps1          # 启动三个进程
+.\status.ps1             # 查看进程 / 端口 / health
+.\restart-all.ps1        # 先停再启
+.\stop-all.ps1           # 全部停止
+```
 
-问答社区: https://ask.fastadmin.net
+指定 PHP：
 
-Github: https://github.com/fastadminnet/fastadmin
+```powershell
+.\start-all.ps1 -PhpPath "C:\BtSoft\php\81\php.exe"
+```
 
-Gitee: https://gitee.com/fastadminnet/fastadmin
+手动前台启动（调试）：
 
-## 特别鸣谢
+```powershell
+cd im-server
+php start.php start
+php start_admin.php start
+php start_cron.php start
+```
 
-感谢以下的项目,排名不分先后
+### Linux
 
-ThinkPHP：http://www.thinkphp.cn
+```bash
+cd im-server/scripts
+chmod +x *.sh
+./start-all.sh           # 后台 -d
+./status.sh
+./restart-all.sh
+./stop-all.sh
+```
 
-AdminLTE：https://adminlte.io
+或：
 
-Bootstrap：http://getbootstrap.com
+```bash
+cd im-server
+php start.php start -d
+php start_admin.php start -d
+php start_cron.php start -d
+```
 
-jQuery：http://jquery.com
+健康检查：
 
-Bootstrap-table：https://github.com/wenzhixin/bootstrap-table
+```bash
+curl http://127.0.0.1:7273/health
+```
 
-Nice-validator: https://validator.niceue.com
+### 其它服务器同步后
 
-SelectPage: https://github.com/TerryZ/SelectPage
+```bash
+git pull
+cd im-server/scripts && ./restart-all.sh   # 或 Windows: .\restart-all.ps1
+```
 
-Layer: https://layuion.com/layer/
+确保防火墙放行 **7272 / 7273**（或经 Nginx 反代）。
 
-DropzoneJS: https://www.dropzonejs.com
+## 二、H5（/888）
 
+入口：`public/888/index.php`（`$assetVer` 控制缓存）。
 
-## 版权信息
+改聊天源码后需打包并升版本：
 
-FastAdmin遵循Apache2开源协议发布，并提供免费使用。
+```powershell
+# 编辑 public/888/js/chat/*.js 、 css/chat-*.css
+powershell -ExecutionPolicy Bypass -File tools/build-888-chat.ps1
+# 再改 public/888/index.php 里 $assetVer
+```
 
-本项目包含的第三方源码和二进制文件之版权信息另行标注。
+## 三、常用运维脚本（仓库 `scripts/`）
 
-版权所有Copyright © 2017-2024 by FastAdmin (https://www.fastadmin.net)
+| 脚本 | 用途 |
+|------|------|
+| `scripts/backfill_turnover_from_ledger.php` | 按发红包流水回补 `fans_account.turnover` |
+| `scripts/install_withdraw_approve_auth.php` | 提现「审核通过」权限规则 |
+| `scripts/install_online_coop_withdraw.php` | 安装「线上合作」提现分区/通道 |
+| `scripts/update_default_cs_welcome.php` | 刷新默认客服 88888888 问候语 |
 
-All rights reserved。
+示例：
+
+```bash
+php scripts/backfill_turnover_from_ledger.php
+php scripts/install_withdraw_approve_auth.php
+```
+
+## 四、后台与业务要点
+
+- 提现列表：先 **审核通过**，再出现 **打款**；可点 **流水** 看会员资金流水
+- 发红包会计入累计流水（`turnover`）；后台会员编辑可保存累计流水
+- 新用户会话默认只固定客服 **88888888**
+- 群红包推送：优先推「正在看该群」的在线用户，不再「无人在线则推 ≤200 全员」
+
+## 五、Git
+
+```bash
+git pull origin main
+# 有意义改动后：commit + git push -u origin HEAD
+# 勿提交 .env、im-server/config/local.php、密钥、zip
+```
+
+## 六、FastAdmin 基座
+
+后台框架文档：https://doc.fastadmin.net  
+
+本 README 以红宝业务运维为准；IM 细节以 `im-server/README.md` 为准。

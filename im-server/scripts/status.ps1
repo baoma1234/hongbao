@@ -1,0 +1,28 @@
+# FansHub IM — status
+$ErrorActionPreference = "Continue"
+$Root = Split-Path -Parent $PSScriptRoot
+
+Write-Host "=== Processes ==="
+$found = $false
+Get-CimInstance Win32_Process -Filter "Name='php.exe'" -ErrorAction SilentlyContinue | ForEach-Object {
+    $cl = [string]$_.CommandLine
+    if ($cl -match "start\.php|start_admin\.php|start_cron\.php") {
+        $found = $true
+        Write-Host ("{0,6}  {1}" -f $_.ProcessId, $cl)
+    }
+}
+if (-not $found) { Write-Host "(none)" }
+
+Write-Host ""
+Write-Host "=== Listen ports ==="
+$ports = netstat -ano 2>$null | Select-String -Pattern ":727[23]\s+.*LISTENING"
+if ($ports) { $ports | ForEach-Object { $_.Line } } else { Write-Host "(7272/7273 not listening)" }
+
+Write-Host ""
+Write-Host "=== Health (7273) ==="
+try {
+    $r = Invoke-WebRequest -Uri "http://127.0.0.1:7273/health" -UseBasicParsing -TimeoutSec 3
+    Write-Host $r.Content
+} catch {
+    Write-Host "HTTP health failed: $($_.Exception.Message)"
+}

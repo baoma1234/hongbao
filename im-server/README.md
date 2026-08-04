@@ -1,105 +1,194 @@
 # FansHub IM（Workerman）
 
-私聊 / 群聊（纯文本）+ 群发红包 / 抢红包（Redis Lua 防超卖）。
+私聊 / 群聊 + 红包（发/抢/退/结算）+ 自动机器人 + Tron 公平开奖。
+
+## 进程架构（必启 3 个）
+
+| 进程 | 命令 | 端口 | 职责 |
+|------|------|------|------|
+| **WS** | `php start.php start` | **7272** | WebSocket 聊天、PushBus 本地投递 |
+| **HTTP** | `php start_admin.php start` | **7273** | `/im/*` 用户 API、`/agent/*` 代聊、`/health` |
+| **Cron** | `php start_cron.php start` | 无 | Tron 哈希、过期退款、结算重试、RpAutoBot |
+
+Worker0（WS）仅保留后台代聊 `notify_queue` 消费；**重任务已迁至 Cron**，避免拖死聊天事件循环。
+
+```text
+H5 列表/历史 ──HTTP──► :7273
+H5 推送/发消息 ──WS───► :7272
+Cron 定时任务 ─────────► MySQL / Redis / TronGrid（推送走 PushBus 外部队列）
+```
 
 ## 依赖
 
-- PHP >= 7.4，`ext-pdo`、`ext-redis`、`ext-bcmath`
-- MySQL（先执行 `sql/chat_im.sql`）
+- PHP >= 7.4（推荐 8.1），`ext-pdo`、`ext-redis`、`ext-bcmath`
+- MySQL（先执行仓库 `sql/chat_im.sql` 等初始化）
 - Redis
-- Composer 包：`workerman/workerman`
+- Composer：`composer install`（本目录）
 
-## 安装
+## 安装与配置
 
 ```bash
 cd im-server
 composer install
-mysql -u用户 -p 库名 < ../sql/chat_im.sql
 ```
 
-配置默认读取仓库根目录 `.env` 的 `[database]`；可选覆盖：
+默认读仓库根目录 `.env` 的 `[database]` / `[redis]`。可选覆盖：
 
 ```php
-// im-server/config/local.php
+// im-server/config/local.php（勿提交密钥）
 return [
-  // Linux 高配：count 建议 ≈ CPU 核数，常见 8，最高可试 16（先确认 MySQL max_connections / Redis）
   'websocket' => ['listen' => 'websocket://0.0.0.0:7272', 'count' => 8],
+  'http_api'  => ['count' => 4],
+  'cron' => [
+    'tron_poll_interval' => 1,  // 可调 3～5 降压
+    'refund_interval'    => 5,
+    'settle_interval'    => 2,
+    'auto_interval'      => 2,
+  ],
   'admin_bridge' => ['key' => '你的后台密钥'],
   'redis' => ['host' => '127.0.0.1', 'port' => 6379, 'db' => 2, 'prefix' => 'im:'],
 ];
 ```
 
-> 推送已按「用户所在 Worker」定向投递；`count=16` 时不会再把每条消息全量复制到全部进程。
+- Windows：`websocket.count` 强制为 **1**
+- Linux：默认 WS `count=8`，HTTP `count=4`（可按 CPU 调整）
 
-## 启动
+## 一键脚本
 
-用户 H5：**列表/历史优先 HTTP** `:7273/im/*`；**推送/发消息仍走 WS** `:7272`。
+### Windows（PowerShell）
+
+```powershell
+cd im-server\scripts
+.\start-all.ps1
+.\status.ps1
+.\restart-all.ps1
+.\stop-all.ps1
+
+# 指定 PHP
+.\start-all.ps1 -PhpPath "C:\BtSoft\php\81\php.exe"
+```
+
+| 脚本 | 作用 |
+|------|------|
+| `scripts/start-all.ps1` | 启动 WS + HTTP + Cron（已运行则跳过） |
+| `scripts/stop-all.ps1` | 结束相关 php 进程，并清理 7272/7273 占用 |
+| `scripts/restart-all.ps1` | 停 → 启 |
+| `scripts/status.ps1` | 进程、监听端口、`/health` |
+
+### Linux（Bash）
+
+```bash
+cd im-server/scripts
+chmod +x *.sh
+./start-all.sh      # 使用 start -d
+./status.sh
+./restart-all.sh
+./stop-all.sh
+
+# 指定 PHP
+PHP_BIN=/usr/bin/php ./start-all.sh
+```
+
+| 脚本 | 作用 |
+|------|------|
+| `scripts/start-all.sh` | 三个进程 `start -d` |
+| `scripts/stop-all.sh` | `php *.php stop` + pkill 兜底 |
+| `scripts/restart-all.sh` | 重启 |
+| `scripts/status.sh` | 进程 / 端口 / health |
+
+### 手动命令
+
+```bash
+# Linux 守护
+php start.php start -d
+php start_admin.php start -d
+php start_cron.php start -d
+
+php start.php stop
+php start_admin.php stop
+php start_cron.php stop
+
+# Windows 一般用脚本；或前台运行后 Ctrl+C
+php start.php start
+```
+
+健康检查：
+
+```bash
+curl http://127.0.0.1:7273/health
+# {"ok":true}
+```
+
+## 部署检查清单（另一台服务器）
+
+```bash
+git pull
+cd im-server
+composer install   # 若依赖有变
+cd scripts && ./restart-all.sh   # Windows: .\restart-all.ps1
+./status.sh                      # 确认 7272/7273 + Cron 进程存在
+```
+
+- [ ] `start_cron.php` 已启动（否则自动红包/退款/Tron 停）
+- [ ] 防火墙或 Nginx 反代 7272、7273
+- [ ] Redis / MySQL 与 `.env` 一致
+
+## 推送策略（一期）
+
+群消息 / 红包更新使用 `GroupService::pushTargetUserIds`：
+
+1. 优先：正在看该群（`group.view.*`）且仍在线的用户  
+2. 否则：群内当前在线成员  
+3. **已移除**：online 为空时推全员 ≤200 的兜底  
+
+## HTTP 接口摘要
+
+用户（会员 token）：
 
 ```text
-POST /im/conversations  {token, limit?}
-POST /im/history        {token, conversation_type, conversation_id|group_id|to_user_id, ...}
+POST /im/conversations
+POST /im/history
+...（见 UserApi）
 GET  /health
 ```
 
-```bash
-# WebSocket IM（端口 7272）
-php start.php start -d
+后台代聊（`admin_key`）：
 
-# HTTP 只读 API + 后台代聊桥（端口 7273）
-php start_admin.php start -d
+```bash
+curl -X POST http://127.0.0.1:7273/agent/send_private \
+  -H "Content-Type: application/json" \
+  -d '{"admin_key":"...","agent_user_id":1,"to_user_id":2,"content":"你好"}'
 ```
 
-Windows 下 `count=1`，前台运行，`Ctrl+C` 停止。Linux 默认 WS `count=8`、HTTP `http_api.count=4`（可在 `local.php` 改）。
+## 协议（JSON Text，WS）
 
-### 约 5000 同时在线（Linux）
-
-1. `local.php` 设 `'websocket' => ['count' => 4]`（或按 CPU 核数 4～8）
-2. 系统：`ulimit -n 65535`，调高 `somaxconn` / `file-max`
-3. 已内置 **Redis 跨进程推送总线**（`PushBus`）：多 Worker 不会漏消息
-4. 群推只扇出 **当前在线成员**；成员列表 Redis 缓存 60s
-5. 确保 Redis 与 MySQL 可用、与 IM 同机或低延迟旁路
-
-重启 IM：`php start.php restart`（或先 stop 再 start）
-
-## 协议（JSON Text）
-
-客户端 → 服务端：
+客户端 → 服务端（节选）：
 
 | type | data |
 |------|------|
 | `auth` | `{token}` |
 | `private.send` | `{to_user_id, content}` |
 | `group.send` | `{group_id, content}` |
-| `group.create` | `{name, member_ids:[]}` |
-| `group.list` | `{}` |
-| `conversation.list` | `{limit?}` |
-| `history` | `{conversation_type, conversation_id\|to_user_id\|group_id, before_id?, limit?}` |
-| `redpacket.send` | `{scope_type, group_id\|to_user_id, packet_type, total_amount, total_count, blessing}` |
+| `group.view.enter` / `leave` / `ping` | `{group_id}` |
+| `redpacket.send` | `{scope_type, group_id\|to_user_id, packet_type, ...}` |
 | `redpacket.grab` | `{packet_id}` |
-| `redpacket.detail` | `{packet_id}` |
 | `ping` | `{}` |
 
-服务端推送：`private.message` / `group.message` / `redpacket.update` / `error` / `auth.ok` 等。
+服务端推送：`private.message` / `group.message` / `redpacket.update` / `auth.ok` / `error` 等。
 
-## H5 调试页
+## 红包与 Cron
 
-浏览器打开：`/im/`（即 `public/im/index.html`）  
-粘贴 `fans_hub_token` 后连接 `ws://域名:7272`。
+- **发/抢**：WS 或 HTTP；钱包字段默认 `hongbao`（见 `red_packet` 配置）
+- **过期退回 / 结算兜底 / Tron / 自动任务**：仅 **Cron** 进程定时执行
+- 热路径最后一包仍会在当前 Worker 短延迟 settle；Cron 为兜底重试
 
-## 后台代聊 HTTP
+## 排障
 
-```bash
-curl -X POST http://127.0.0.1:7273/agent/send_private \
-  -H "Content-Type: application/json" \
-  -d '{"admin_key":"change-me-im-admin","agent_user_id":1,"to_user_id":2,"content":"你好"}'
-```
+| 现象 | 排查 |
+|------|------|
+| 聊天卡、Tron 抖 | 确认重任务是否误挂回 WS；应只有 Cron 跑 Tron |
+| 不自动发红包 / 不退款 | `status` 看 Cron 是否在跑；看 PHP error_log `[CRON]` |
+| 7272 起不来 | `stop-all` 后重试；查端口占用 |
+| 推送漏 | 客户端是否 `group.view.enter`；Redis `online` / view set |
 
-需先在 `fa_chat_agent_accounts` 登记托管账号。
-
-## 红包（对接 fa_user.money）
-
-1. **发红包**：事务内 `SELECT … FOR UPDATE` 扣减发送方 `fa_user.money`，写 `fa_user_money_log`，落 `fa_chat_red_packets`，再按普通/拼手气**预拆成「分」**写入 Redis List。
-2. **抢红包**：Lua `LPOP` + `SADD` 原子占坑 → MySQL 领取记录 → 增加领取人 `money`。
-3. **过期退回**：定时任务将剩余金额退回发送方 `money`，红包 `status=3`。
-
-配置见 `config/app.php` → `red_packet.wallet_field`（默认 `money`）。
+更完整的业务运维见仓库根目录 [README.md](../README.md)。
