@@ -1074,12 +1074,13 @@ class RedPacketService
         }
 
         // ---------- 关键节点：验资拦截（必须在 Redis 弹队列之前）----------
-        // 拼手气(2)/接龙(5)/扫雷(3)：余额须覆盖潜在赔付，领取时冻结；领完或过期再解冻
+        // 拼手气(2)/扫雷(3)：余额须覆盖潜在赔付，领取时冻结；领完或过期再解冻
+        // 接龙(5)：抢到金额直接进可用余额，不冻结；抢光后由最少者扣整包金额续发
         // 扫雷额外：余额必须严格大于最低限制（如 10 元），才可领取。
         // 私聊红包无赔付玩法，跳过验资门槛。
         $needCompensate = 0.0;
         $shouldFreeze = false;
-        if ((int)($packet['scope_type'] ?? 0) !== 1 && in_array($packetType, [2, 3, 5], true)) {
+        if ((int)($packet['scope_type'] ?? 0) !== 1 && in_array($packetType, [2, 3], true)) {
             $needCompensate = $totalAmount;
             if ($packetType === 3) {
                 $needCompensate = $this->mineCompensateAmount(
@@ -1261,7 +1262,7 @@ class RedPacketService
                 );
             }
 
-            // 拼手气/接龙/扫雷：领取瞬间锁定潜在赔付额，领完/过期再解冻
+            // 拼手气/扫雷：领取瞬间锁定潜在赔付额，领完/过期再解冻（接龙不冻结）
             $frozenAmt = 0.0;
             if ($shouldFreeze && $needCompensate > 0.00001) {
                 $frozenAmt = round((float)$needCompensate, 2);
@@ -1270,8 +1271,6 @@ class RedPacketService
                     $freezeRemark = '红宝拼手气冻结';
                 } elseif ($packetType === 3) {
                     $freezeRemark = '红宝扫雷冻结';
-                } elseif ($packetType === 5) {
-                    $freezeRemark = '红宝接龙冻结';
                 }
                 $this->wallet->freeze(
                     $userId,
@@ -2202,6 +2201,7 @@ class RedPacketService
     /**
      * 单包过期退回（事务）：
      * - 拼手气(2)群包：收回全部已领 + 剩余池一并退庄家（进包本金全退；无人领时另退手续费）
+     * - 接龙(5)：已领保留；仅退剩余未领池给发包手；接龙中断不再续发（默认 30 分钟）
      * - 其它类型：仅退剩余未领；已领保留
      * 成功后再清 Redis
      */
@@ -2260,7 +2260,9 @@ class RedPacketService
             $scopeType = (int)($fresh['scope_type'] ?? 0);
             $bizMeta = ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId];
             // 拼手气群包：超时作废 → 已领全收回 + 进包本金退庄家
+            // 接龙群包：超时结束 → 已领保留，只退剩余未领（禁止 clawback）
             $luckyClawback = ($packetType === 2 && $scopeType !== 1);
+            $isRelayExpire = ($packetType === 5 && $scopeType !== 1);
 
             $records = Db::fetchAll(
                 'SELECT * FROM ' . Db::table('chat_red_packet_records')
@@ -2352,9 +2354,13 @@ class RedPacketService
             $ledgerId = 0;
             $totalRefund = $refund;
             if ($refund > 0) {
-                $remarkRefund = $luckyClawback && $clawed > 0.00001
-                    ? '未领完此包作废收回金额'
-                    : '红包过期退回';
+                if ($luckyClawback && $clawed > 0.00001) {
+                    $remarkRefund = '未领完此包作废收回金额';
+                } elseif (!empty($isRelayExpire)) {
+                    $remarkRefund = '接龙超时退回未领金额';
+                } else {
+                    $remarkRefund = '红包过期退回';
+                }
                 $out = $this->wallet->change(
                     $fromUserId,
                     $refund,
@@ -2398,6 +2404,10 @@ class RedPacketService
                     $settleRemark = '过期无人领取，池+手续费原路退回';
                 } elseif ($luckyClawback && $clawed > 0.00001) {
                     $settleRemark = '未领完此包作废收回金额';
+                } elseif (!empty($isRelayExpire)) {
+                    $settleRemark = $neverGrabbed
+                        ? '接龙超时无人领取，退回发包手'
+                        : '接龙超时结束，已领保留，未领退回发包手';
                 }
                 Db::exec(
                     'INSERT INTO ' . Db::table('chat_red_packet_settlements')
@@ -2433,7 +2443,7 @@ class RedPacketService
                             $fUid,
                             $fAmt,
                             'red_packet_unfreeze',
-                            '红包过期解冻 ' . $packetNo,
+                            !empty($isRelayExpire) ? '接龙超时解冻' : ('红包过期解冻 ' . $packetNo),
                             $bizMeta
                         );
                     }
@@ -2457,6 +2467,12 @@ class RedPacketService
         } catch (\Throwable $e) {
             if ($hasRedisLeft) {
                 error_log('[RP_EXPIRE] redis cleanup fail packet_id=' . $packetId . ' ' . $e->getMessage());
+            }
+        }
+        if ((int)($packet['packet_type'] ?? 0) === 5) {
+            try {
+                $this->clearRelayRetry($packetId);
+            } catch (\Throwable $eClr) {
             }
         }
         $this->revealFairProof($packetId);

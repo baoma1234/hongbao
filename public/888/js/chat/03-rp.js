@@ -361,7 +361,7 @@
     } else if (isGroup && type === 5) {
       el.hidden = false;
       el.style.display = '';
-      el.textContent = chatT('chat_rp_type_relay_desc') || '接龙：领完后由金额最少者扣款发出下一包。';
+      el.textContent = chatT('chat_rp_type_relay_desc') || '接龙：抢到金额直接进可用余额；抢光后最少者扣整包金额自动发下一包；30分钟未抢完则已领保留、未领退回。';
     } else {
       el.hidden = true;
       el.style.display = 'none';
