@@ -5031,46 +5031,87 @@
     var inputWrap = $('chatRpCountInputWrap');
     var countInput = $('chatRpCount');
     var hint = $('chatRpCountHint');
+    // 拼手气 / 埋雷：统一用个数按钮（如 5包/1.5倍）
+    var tabMode = isGroup && (type === 2 || type === 3);
     var mineMode = isGroup && type === 3;
     var range = isGroup ? groupRpCountRange() : { min: 1, max: 1, fixed: true };
     if (tabs) {
-      tabs.hidden = !mineMode;
-      tabs.style.display = mineMode ? '' : 'none';
+      tabs.hidden = !tabMode;
+      tabs.style.display = tabMode ? '' : 'none';
+      if (tabMode) {
+        tabs.setAttribute('aria-label', mineMode ? '扫雷个数' : '红包个数');
+      }
     }
     if (inputWrap) {
-      inputWrap.style.display = mineMode ? 'none' : '';
+      inputWrap.style.display = tabMode ? 'none' : '';
       if (!isGroup) inputWrap.style.display = 'none';
     }
-    if (mineMode && countInput) {
+    if (tabMode && countInput) {
       ensureRpCountTabs();
       var rates = mineCompensateRates();
       var allowed = [5, 7, 9].filter(function (n) {
         return n >= range.min && n <= range.max;
       });
-      if (!allowed.length) allowed = [5, 7, 9];
+      if (!allowed.length) {
+        // 群配置不在 5/7/9 时，仍给出落在范围内的按钮选项
+        allowed = [];
+        for (var n = range.min; n <= range.max; n++) {
+          if (n === 5 || n === 7 || n === 9 || range.fixed || (range.max - range.min <= 4)) {
+            allowed.push(n);
+          }
+        }
+        if (!allowed.length) allowed = [5, 7, 9].filter(function (x) {
+          return x >= range.min && x <= range.max;
+        });
+        if (!allowed.length) allowed = [range.min];
+      }
       var cur = parseInt(countInput.value, 10) || allowed[0];
       if (allowed.indexOf(cur) < 0) cur = allowed[0];
       countInput.value = String(cur);
-      countInput.readOnly = allowed.length === 1;
-      if (allowed.length === 1) countInput.setAttribute('aria-readonly', 'true');
-      else countInput.removeAttribute('aria-readonly');
+      countInput.readOnly = true;
+      countInput.setAttribute('aria-readonly', 'true');
       if (tabs) {
+        // 若 ensureRpCountTabs 只有 5/7/9，而 allowed 有其它数，补按钮
+        var existing = {};
+        tabs.querySelectorAll('.chat-rp-count-btn').forEach(function (b) {
+          existing[parseInt(b.getAttribute('data-count'), 10) || 0] = b;
+        });
+        allowed.forEach(function (c) {
+          if (!existing[c]) {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'chat-rp-count-btn';
+            btn.setAttribute('data-count', String(c));
+            btn.textContent = rpCountTabLabel(c, rates[c] != null ? rates[c] : (c === 5 ? 1.5 : (c === 7 ? 1.8 : 2)));
+            tabs.appendChild(btn);
+          }
+        });
         tabs.querySelectorAll('.chat-rp-count-btn').forEach(function (b) {
           var c = parseInt(b.getAttribute('data-count'), 10) || 0;
           var ok = allowed.indexOf(c) >= 0;
           b.hidden = !ok;
           b.style.display = ok ? '' : 'none';
           b.classList.toggle('active', c === cur);
+          if (ok) {
+            var rate = rates[c] != null ? rates[c] : (c === 5 ? 1.5 : (c === 7 ? 1.8 : 2));
+            b.textContent = rpCountTabLabel(c, rate);
+          }
         });
       }
       if (hint) {
-        if (allowed.length === 1) {
-          hint.textContent = '本群扫雷固定 ' + allowed[0] + ' 个 · 中雷赔付 '
-            + rpCountTabLabel(allowed[0], rates[allowed[0]]);
+        if (mineMode) {
+          if (allowed.length === 1) {
+            hint.textContent = '本群扫雷固定 ' + allowed[0] + ' 个 · 中雷赔付 '
+              + rpCountTabLabel(allowed[0], rates[allowed[0]] != null ? rates[allowed[0]] : 1.5);
+          } else {
+            hint.textContent = '中雷赔付：' + allowed.map(function (n) {
+              return rpCountTabLabel(n, rates[n] != null ? rates[n] : 1.5);
+            }).join(' · ');
+          }
+        } else if (range.fixed) {
+          hint.textContent = '本群拼手气固定 ' + range.min + ' 个';
         } else {
-          hint.textContent = '中雷赔付：' + allowed.map(function (n) {
-            return rpCountTabLabel(n, rates[n]);
-          }).join(' · ');
+          hint.textContent = '本群拼手气可选 ' + allowed.join('/') + ' 个';
         }
       }
     } else if (hint) {

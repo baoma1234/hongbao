@@ -1030,7 +1030,7 @@ class MessageService
             return ((int)$b['updatetime']) <=> ((int)$a['updatetime']);
         });
 
-        // 普通用户：会话列表始终包含全部 IM 管理员（即使尚未聊天）
+        // 普通用户：会话列表仅固定出现默认客服 88888888（其它托管账号不自动出现）
         if (!AdminService::isImAdmin($userId)) {
             $havePeers = [];
             foreach ($items as $idx => $it) {
@@ -1038,35 +1038,37 @@ class MessageService
                     $havePeers[(int)$it['peer_user_id']] = $idx;
                 }
             }
+            $csId = AdminService::defaultCsUserId();
             $adminRows = AdminService::adminRows();
-            foreach ($adminRows as $adminId => $adminMeta) {
-                $adminId = (int)$adminId;
-                if ($adminId === $userId) {
-                    continue;
-                }
-                if (isset($havePeers[$adminId])) {
-                    $idx = $havePeers[$adminId];
+            $csMeta = $adminRows[$csId] ?? ['user_id' => $csId, 'label' => '红宝客服'];
+            if ($csId > 0 && $csId !== $userId) {
+                if (isset($havePeers[$csId])) {
+                    $idx = $havePeers[$csId];
                     $items[$idx]['is_im_admin'] = true;
-                    if ($items[$idx]['title'] === '' && !empty($adminMeta['label'])) {
-                        $items[$idx]['title'] = (string)$adminMeta['label'];
+                    $items[$idx]['is_default_cs'] = true;
+                    $items[$idx]['pinned'] = true;
+                    $items[$idx]['undeletable'] = true;
+                    if ($items[$idx]['title'] === '' && !empty($csMeta['label'])) {
+                        $items[$idx]['title'] = (string)$csMeta['label'];
                     }
-                    continue;
+                } else {
+                    $items[] = [
+                        'conversation_type' => 1,
+                        'conversation_id'   => IdGenerator::privateConversationId($userId, $csId),
+                        'peer_user_id'      => $csId,
+                        'group_id'          => 0,
+                        'title'             => (string)($csMeta['label'] ?? '红宝客服'),
+                        'avatar'            => '',
+                        'last_message'      => null,
+                        'is_im_admin'       => true,
+                        'is_default_cs'     => true,
+                        'pinned'            => true,
+                        'undeletable'       => true,
+                        'updatetime'        => 0,
+                        'unread_count'      => 0,
+                    ];
                 }
-                // 未聊过：固定 updatetime=0，禁止用 time()（否则每次刷新时间都变「刚刚」）
-                $items[] = [
-                    'conversation_type' => 1,
-                    'conversation_id'   => IdGenerator::privateConversationId($userId, $adminId),
-                    'peer_user_id'      => $adminId,
-                    'group_id'          => 0,
-                    'title'             => (string)($adminMeta['label'] ?? ''),
-                    'avatar'            => '',
-                    'last_message'      => null,
-                    'is_im_admin'       => true,
-                    'updatetime'        => 0,
-                    'unread_count'      => 0,
-                ];
             }
-            // 客服仍出现在列表，但按最后消息时间排序（有新消息的群应排最前）
         }
 
         // 用户主动删除的私聊：从列表隐藏（新消息会 restore）

@@ -156,12 +156,8 @@ class FansHubDefaultCs
                 $upd['label'] = $nick;
             }
             $curReply = trim((string)($agent['friend_reply'] ?? ''));
-            $legacy = [
-                '',
-                '您好，我是平台客服，有问题随时私聊我。',
-                '您好，我是官方客服，有问题随时找我。',
-            ];
-            if (in_array($curReply, $legacy, true)) {
+            // 默认客服问候语与配置保持一致（避免旧文案/缓存残留）
+            if ($curReply !== $reply) {
                 $upd['friend_reply'] = mb_substr($reply, 0, 500);
             }
             try {
