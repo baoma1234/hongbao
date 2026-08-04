@@ -24,7 +24,7 @@ if ($exists && $exists->num_rows) {
         exit(1);
     }
     $now = time();
-    $m->query("INSERT INTO fa_auth_rule (type,pid,name,title,icon,condition,remark,ismenu,menutype,extend,py,pinyin,createtime,updatetime,weigh,status)
+    $m->query("INSERT INTO fa_auth_rule (`type`,`pid`,`name`,`title`,`icon`,`condition`,`remark`,`ismenu`,`menutype`,`extend`,`py`,`pinyin`,`createtime`,`updatetime`,`weigh`,`status`)
         VALUES ('file',{$pid},'{$name}','审核通过','fa fa-circle-o','','',0,NULL,'','','',{$now},{$now},0,'normal')");
     $rid = (int)$m->insert_id;
     echo "OK inserted rule id={$rid}\n";
