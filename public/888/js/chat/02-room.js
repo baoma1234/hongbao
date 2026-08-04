@@ -1076,14 +1076,25 @@
       resultEl.innerHTML = '<div class="chat-empty">验证加载中…</div>';
     }
     try {
-      var url = rpFairApiBase() + 'api/fanshub/rpfair?packet_no=' + encodeURIComponent(packetNo);
-      var res = await fetch(url, { credentials: 'same-origin' });
-      var json = await res.json();
-      if (!json || Number(json.code) !== 1) {
-        throw new Error((json && json.msg) ? json.msg : ('HTTP ' + res.status));
+      var d = null;
+      if (typeof global.apiRequest === 'function') {
+        d = await global.apiRequest('rpfair', 'GET', { packet_no: packetNo });
+      } else {
+        var headers = {};
+        try {
+          var tok = localStorage.getItem('fans_hub_token') || '';
+          if (tok) headers.token = tok;
+        } catch (eTok) {}
+        var url = rpFairApiBase() + 'api/fanshub/rpfair?packet_no=' + encodeURIComponent(packetNo);
+        var res = await fetch(url, { credentials: 'same-origin', headers: headers });
+        var json = await res.json();
+        if (!json || Number(json.code) !== 1) {
+          throw new Error((json && json.msg) ? json.msg : ('HTTP ' + res.status));
+        }
+        d = json.data || {};
       }
       if (!state._rpFairOpen) return;
-      var d = json.data || {};
+      d = d || {};
       resultEl.innerHTML = renderRpFairResultHtml(d);
       if (_rpFairRetryTimer) {
         clearTimeout(_rpFairRetryTimer);

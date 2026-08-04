@@ -95,8 +95,17 @@
   }
   var retryTimer = null;
   async function fetchFair(no) {
+    if (typeof window.apiRequest === 'function') {
+      var data = await window.apiRequest('rpfair', 'GET', { packet_no: no });
+      return { code: 1, data: data || {} };
+    }
     var url = apiBase() + 'api/fanshub/rpfair?packet_no=' + encodeURIComponent(no);
-    var res = await fetch(url, { credentials: 'same-origin' });
+    var headers = {};
+    try {
+      var tok = localStorage.getItem('fans_hub_token') || '';
+      if (tok) headers.token = tok;
+    } catch (e0) {}
+    var res = await fetch(url, { credentials: 'same-origin', headers: headers });
     var json = await res.json();
     if (json && Number(json.code) === 1) return json;
     var msg = (json && json.msg) ? json.msg : ('HTTP ' + res.status);
