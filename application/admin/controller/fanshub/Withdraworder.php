@@ -67,6 +67,24 @@ class Withdraworder extends Backend
     }
 
     /**
+     * 审核通过（进入待打款）
+     */
+    public function approve()
+    {
+        $ids = $this->request->post('ids');
+        $id = (int)(is_array($ids) ? ($ids[0] ?? 0) : $ids);
+        if ($id <= 0) {
+            $this->error('参数错误');
+        }
+        try {
+            FansHubWallet::adminApproveWithdraw($id);
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage());
+        }
+        $this->success('已审核通过，可进行打款');
+    }
+
+    /**
      * 确认已打款
      */
     public function markpaid()

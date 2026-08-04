@@ -8,14 +8,21 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                     table: 'fans_ledger',
                 }
             });
+            var forceUid = Fast.api.query('user_id') || '';
             var table = $("#table");
             table.bootstrapTable({
                 url: $.fn.bootstrapTable.defaults.extend.index_url,
                 pk: 'id',
                 sortName: 'id',
+                queryParams: function (params) {
+                    if (forceUid) {
+                        params.user_id = forceUid;
+                    }
+                    return params;
+                },
                 columns: [[
                     {field: 'id', title: 'ID'},
-                    {field: 'user_id', title: '会员ID'},
+                    {field: 'user_id', title: '会员ID', defaultValue: forceUid},
                     {field: 'user.mobile', title: '手机号', operate: 'LIKE'},
                     {field: 'type', title: '类型', searchList: {
                         "register": "注册赠送", "share": "分享奖励", "invite": "邀请奖励",

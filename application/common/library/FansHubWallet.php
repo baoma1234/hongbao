@@ -923,6 +923,36 @@ class FansHubWallet
     }
 
     /**
+     * 后台审核通过提现（待审核 → 待打款）
+     */
+    public static function adminApproveWithdraw($orderId, $remark = '')
+    {
+        $orderId = (int)$orderId;
+        $order = Db::name('fans_withdraw_order')->where('id', $orderId)->find();
+        if (!$order) {
+            throw new \RuntimeException('订单不存在');
+        }
+        if ((string)$order['status'] === 'processing') {
+            return true;
+        }
+        if ((string)$order['status'] !== 'pending') {
+            throw new \RuntimeException('仅待审核订单可审核通过');
+        }
+        $upd = [
+            'status'     => 'processing',
+            'updatetime' => time(),
+        ];
+        if ($remark !== '') {
+            $upd['remark'] = $remark;
+        } else {
+            $cur = trim((string)($order['remark'] ?? ''));
+            $upd['remark'] = ($cur !== '' ? $cur . ' | ' : '') . '审核通过 ' . date('Y-m-d H:i:s');
+        }
+        Db::name('fans_withdraw_order')->where('id', $orderId)->where('status', 'pending')->update($upd);
+        return true;
+    }
+
+    /**
      * 后台确认提现打款完成
      */
     public static function adminMarkWithdrawPaid($orderId, $remark = '')
@@ -935,8 +965,9 @@ class FansHubWallet
         if ($order['status'] === 'paid') {
             return true;
         }
-        if (!in_array($order['status'], ['pending', 'processing'], true)) {
-            throw new \RuntimeException('当前状态不可确认打款');
+        // 须先审核通过（processing）再打款
+        if ((string)$order['status'] !== 'processing') {
+            throw new \RuntimeException('请先审核通过后再打款');
         }
         Db::name('fans_withdraw_order')->where('id', $orderId)->update([
             'status'     => 'paid',

@@ -14,8 +14,8 @@ class Withdraworder extends Model
     public function getStatusList()
     {
         return [
-            'pending'    => '待处理',
-            'processing' => '处理中',
+            'pending'    => '待审核',
+            'processing' => '已通过待打款',
             'paid'       => '已打款',
             'rejected'   => '已拒绝',
             'cancelled'  => '已取消',

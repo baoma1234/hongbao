@@ -27,7 +27,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                     {
                         field: 'status',
                         title: '状态',
-                        searchList: {"pending": "待处理", "processing": "处理中", "paid": "已打款", "rejected": "已拒绝", "cancelled": "已取消"},
+                        searchList: {"pending": "待审核", "processing": "已通过待打款", "paid": "已打款", "rejected": "已拒绝", "cancelled": "已取消"},
                         formatter: Table.api.formatter.status
                     },
                     {field: 'remark', title: '备注', operate: 'LIKE'},
@@ -38,6 +38,32 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                         title: __('Operate'),
                         table: table,
                         events: {
+                            'click .btn-ledger': function (e, value, row) {
+                                e.stopPropagation();
+                                var uid = parseInt(row.user_id, 10) || 0;
+                                if (uid <= 0) {
+                                    Layer.msg('无效会员ID');
+                                    return;
+                                }
+                                Fast.api.open(
+                                    'fanshub/ledger?user_id=' + uid,
+                                    '资金流水 · 会员' + uid,
+                                    {area: ['92%', '90%']}
+                                );
+                            },
+                            'click .btn-approve': function (e, value, row) {
+                                e.stopPropagation();
+                                Layer.confirm('确认审核通过该提现？通过后可打款。', function (index) {
+                                    Backend.api.ajax({
+                                        url: 'fanshub/withdraworder/approve',
+                                        data: {ids: row.id}
+                                    }, function () {
+                                        Layer.close(index);
+                                        table.bootstrapTable('refresh');
+                                        return false;
+                                    });
+                                });
+                            },
                             'click .btn-markpaid': function (e, value, row) {
                                 e.stopPropagation();
                                 Layer.confirm('确认已打款完成？', function (index) {
@@ -78,12 +104,16 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                         },
                         formatter: function (value, row) {
                             var html = [];
-                            if (row.status === 'pending' || row.status === 'processing') {
+                            html.push('<a href="javascript:;" class="btn btn-xs btn-primary btn-ledger" title="查看资金流水"><i class="fa fa-list"></i> 流水</a>');
+                            if (row.status === 'pending') {
+                                html.push('<a href="javascript:;" class="btn btn-xs btn-warning btn-approve" title="审核通过"><i class="fa fa-gavel"></i> 审核通过</a>');
+                                html.push('<a href="javascript:;" class="btn btn-xs btn-danger btn-reject" title="拒绝退回"><i class="fa fa-times"></i> 拒绝</a>');
+                            } else if (row.status === 'processing') {
                                 html.push('<a href="javascript:;" class="btn btn-xs btn-success btn-markpaid" title="确认打款"><i class="fa fa-check"></i> 打款</a>');
                                 html.push('<a href="javascript:;" class="btn btn-xs btn-danger btn-reject" title="拒绝退回"><i class="fa fa-times"></i> 拒绝</a>');
-                            }
-                            if (row.handler === 'bs' && (row.status === 'pending' || row.status === 'processing')) {
-                                html.push('<a href="javascript:;" class="btn btn-xs btn-info btn-bs-query" title="BS查单"><i class="fa fa-search"></i> BS查单</a>');
+                                if (row.handler === 'bs') {
+                                    html.push('<a href="javascript:;" class="btn btn-xs btn-info btn-bs-query" title="BS查单"><i class="fa fa-search"></i> BS查单</a>');
+                                }
                             }
                             return html.join(' ');
                         }

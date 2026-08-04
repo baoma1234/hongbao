@@ -32,9 +32,14 @@ class Ledger extends Backend
                 return $this->selectpage();
             }
             list($where, $sort, $order, $offset, $limit) = $this->buildparams();
-            $list = $this->model
+            $forceUserId = (int)$this->request->param('user_id', 0);
+            $query = $this->model
                 ->with(['user'])
-                ->where($where)
+                ->where($where);
+            if ($forceUserId > 0) {
+                $query->where($this->model->getTable() . '.user_id', $forceUserId);
+            }
+            $list = $query
                 ->order($sort, $order)
                 ->paginate($limit);
             foreach ($list as $row) {
