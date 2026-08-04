@@ -1,0 +1,273 @@
+import { apiRequest, fetchProfile } from './auth.js'
+
+let _boot = null
+let _bootAt = 0
+const BOOT_TTL = 60000
+
+export function money(n) {
+  const x = Number(n)
+  if (!isFinite(x)) return '0.00'
+  return x.toFixed(2)
+}
+
+export function shortChannelName(ch) {
+  if (!ch) return '通道'
+  return String(ch.name || '')
+    .replace(/\s+/g, '')
+    .replace(/(快捷)?(充值|代付|提现|支付)$/g, '')
+    .replace(/收银台/g, '')
+    .trim() || ('通道' + (ch.id || ''))
+}
+
+export function isOnlineCoopChannel(ch) {
+  return !!(
+    ch &&
+    (String(ch.withdraw_mode || '') === 'online_coop' ||
+      String(ch.partition_code || '') === 'online_coop')
+  )
+}
+
+export function validateChannelAmount(ch, amount) {
+  const a = Number(amount)
+  if (!ch) return '请选择通道'
+  if (!isFinite(a) || a <= 0) return '请输入金额'
+  const min = Number(ch.min_amount || 0)
+  const max = Number(ch.max_amount || 0)
+  if (min > 0 && a < min) return '最低 ' + money(min)
+  if (max > 0 && a > max) return '最高 ' + money(max)
+  return ''
+}
+
+export async function loadWalletBootstrap(force = false) {
+  if (!force && _boot && Date.now() - _bootAt < BOOT_TTL) {
+    return _boot
+  }
+  try {
+    const bundle = await apiRequest('walletbootstrap', 'POST', {})
+    _boot = bundle || {}
+    _bootAt = Date.now()
+    return _boot
+  } catch (e) {
+    const [info, recharge, withdraw] = await Promise.all([
+      apiRequest('walletinfo', 'POST', {}).catch(() => ({})),
+      apiRequest('rechargechannels', 'POST', {}).catch(() => ({ list: [], partitions: [] })),
+      apiRequest('withdrawchannels', 'POST', {}).catch(() => ({ list: [], partitions: [], binds: {} })),
+    ])
+    _boot = { info, recharge, withdraw }
+    _bootAt = Date.now()
+    return _boot
+  }
+}
+
+export function clearWalletCache() {
+  _boot = null
+  _bootAt = 0
+}
+
+export function getApprovedMainUid(profile) {
+  const p = profile || {}
+  const uid = String(p.main_uid || '').trim()
+  const audit = String(p.main_uid_audit || '').trim()
+  if (uid && audit === 'approved') return uid
+  return ''
+}
+
+export async function fetchLedger(page = 1, limit = 20) {
+  return apiRequest('walletledger', 'POST', { page, limit })
+}
+
+export async function submitRecharge(channelId, amount) {
+  return apiRequest('recharge', 'POST', { channel_id: channelId, amount })
+}
+
+export async function submitWithdraw(channelId, amount, accountInfo, payPassword) {
+  return apiRequest('withdraw', 'POST', {
+    channel_id: channelId,
+    amount,
+    account_info: accountInfo || {},
+    pay_password: payPassword || '',
+  })
+}
+
+export async function bindWallet(walletType, accountInfo, payPassword) {
+  return apiRequest('bindwallet', 'POST', {
+    wallet_type: walletType,
+    account_info: accountInfo || {},
+    account_no: (accountInfo && accountInfo.account_no) || '',
+    account_name: (accountInfo && accountInfo.account_name) || '',
+    bank_name: (accountInfo && accountInfo.bank_name) || '',
+    bind_mode: 'wallet',
+    pay_password: payPassword || '',
+  })
+}
+
+export async function ensurePayPassword(hasPayPassword) {
+  return new Promise((resolve, reject) => {
+    const needSet = !hasPayPassword
+    uni.showModal({
+      title: needSet ? '设置支付密码' : '支付密码',
+      editable: true,
+      placeholderText: needSet ? '首次设置 6-32 位' : '请输入支付密码',
+      success: async (res) => {
+        if (!res.confirm) {
+          reject(new Error('已取消'))
+          return
+        }
+        const pwd = String(res.content || '').trim()
+        if (pwd.length < 6 || pwd.length > 32) {
+          reject(new Error('支付密码需 6-32 位'))
+          return
+        }
+        try {
+          if (needSet) {
+            await apiRequest('setpaypassword', 'POST', {
+              pay_password: pwd,
+              confirm_password: pwd,
+            })
+          }
+          resolve(pwd)
+        } catch (e) {
+          reject(e)
+        }
+      },
+      fail: () => reject(new Error('无法输入支付密码')),
+    })
+  })
+}
+
+/** H5 打开支付结果（跳转/表单） */
+export function openPayResult(payInfo) {
+  if (!payInfo) return
+  // #ifdef H5
+  if (typeof window !== 'undefined') {
+    if (payInfo.action === 'usdt' && payInfo.booking_address) {
+      const lines = [
+        payInfo.message || '请完成 USDT 转账',
+        '地址：' + payInfo.booking_address,
+        payInfo.pay_coin_amount
+          ? '数量：' + payInfo.pay_coin_amount + ' ' + (payInfo.coin_type || 'USDT')
+          : '',
+      ].filter(Boolean)
+      uni.showModal({ title: '充值信息', content: lines.join('\n'), showCancel: false })
+      return
+    }
+    if (payInfo.action === 'form' && payInfo.url && payInfo.params) {
+      const form = document.createElement('form')
+      form.method = (payInfo.method || 'POST').toUpperCase()
+      form.action = payInfo.url
+      form.target = '_blank'
+      form.style.display = 'none'
+      Object.keys(payInfo.params).forEach((k) => {
+        const inp = document.createElement('input')
+        inp.type = 'hidden'
+        inp.name = k
+        inp.value = payInfo.params[k]
+        form.appendChild(inp)
+      })
+      document.body.appendChild(form)
+      form.submit()
+      setTimeout(() => {
+        try {
+          document.body.removeChild(form)
+        } catch (e) {}
+      }, 800)
+      return
+    }
+    if (payInfo.url) {
+      window.open(payInfo.url, '_blank')
+      return
+    }
+  }
+  // #endif
+  if (payInfo.url) {
+    // #ifndef H5
+    uni.setClipboardData({ data: String(payInfo.url) })
+    uni.showToast({ title: '链接已复制，请在浏览器打开', icon: 'none' })
+    // #endif
+  } else if (payInfo.message) {
+    uni.showModal({ title: '提示', content: String(payInfo.message), showCancel: false })
+  }
+}
+
+export async function loadProfileLite() {
+  try {
+    return await fetchProfile()
+  } catch (e) {
+    return null
+  }
+}
+
+export function findChannel(list, id) {
+  const cid = Number(id) || 0
+  return (list || []).find((c) => Number(c.id) === cid) || null
+}
+
+export function groupByPartitions(channels, partitions) {
+  const list = Array.isArray(channels) ? channels : []
+  const parts = Array.isArray(partitions) ? partitions : []
+  if (!parts.length) {
+    return [{ key: 'all', name: '全部', code: '', channels: list }]
+  }
+  const used = new Set()
+  const groups = parts
+    .map((p) => {
+      const code = String(p.code || '')
+      const chs = list.filter((c) => {
+        const match =
+          String(c.partition_code || '') === code ||
+          (code === 'online_coop' && isOnlineCoopChannel(c))
+        if (match) used.add(Number(c.id))
+        return match
+      })
+      return {
+        key: code || String(p.id || p.name || 'p'),
+        name: p.name || code || '通道',
+        code,
+        channels: chs,
+      }
+    })
+    .filter((g) => g.channels.length > 0)
+  const orphan = list.filter((c) => !used.has(Number(c.id)))
+  if (orphan.length) {
+    groups.push({ key: '_other', name: '其他', code: '', channels: orphan })
+  }
+  return groups.length ? groups : [{ key: 'all', name: '全部', code: '', channels: list }]
+}
+
+export function fxHintText(ch, amount) {
+  if (!ch) return ''
+  const rate = Number(ch.exchange_rate || 0)
+  if (!(rate > 0)) return ''
+  const a = Number(amount) || 0
+  const unit = ch.coin_name || ch.currency || '币'
+  if (a > 0) {
+    return '约到账 ' + money(a * rate) + ' ' + unit + '（汇率 ' + rate + '）'
+  }
+  return '汇率 1 红宝 ≈ ' + rate + ' ' + unit
+}
+
+export function turnoverHint(info) {
+  if (!info) return ''
+  const need = Math.max(Number(info.withdraw_turnover_min) || 0, 0)
+  const ratio = Number(info.withdraw_turnover_ratio)
+  const r = isFinite(ratio) ? ratio : 1
+  let s = '流水需≥' + money(need)
+  if (r > 0) s += '，且不少于提现额×' + r
+  return s
+}
+
+export function ledgerAmountText(item) {
+  let hb = parseFloat(item.hongbao_change) || 0
+  const rights = parseFloat(item.rights_change) || 0
+  const bal = parseFloat(item.balance_change) || 0
+  if (hb === 0 && bal !== 0) hb = bal
+  if (hb !== 0) {
+    const sign = hb > 0 ? '+' : ''
+    return { text: sign + money(hb), cls: hb > 0 ? 'plus' : 'minus' }
+  }
+  if (rights !== 0) {
+    const sign = rights > 0 ? '+' : ''
+    return { text: sign + rights.toFixed(2) + '股', cls: rights > 0 ? 'plus' : 'minus' }
+  }
+  return { text: '0.00', cls: '' }
+}

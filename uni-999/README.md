@@ -8,6 +8,7 @@ H5 构建输出：`public/999/`（与现网 `/888` 并行）
 - 分页骨架：登录 / 大厅 / 消息 / 钱包 / 我的 / 聊天室
 - 登录：`/api/fanshub/sendsms` + `login`（token 存 `fans_hub_token`）
 - IM：`uni.connectSocket` → `/im-ws`（或绝对 WS），握手带 token，发 `auth`，拉 `conversation.list` / `history` / 发消息
+- 钱包：余额与流水门槛、充值 / 提现（分区通道、线上合作、钱包绑定、支付密码）、资金流水分页、收款地址绑定
 
 ## 命令
 
@@ -46,5 +47,4 @@ hash 路由下 `try_files` 通常只要能访问到 `index.html` 即可。
 
 - 消息列表完善未读/红包摘要
 - 红包收发 UI
-- 钱包提现通道
 - App 打包（`dev:app` / HBuilderX）

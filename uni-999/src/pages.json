@@ -26,6 +26,30 @@
       }
     },
     {
+      "path": "pages/wallet/recharge",
+      "style": {
+        "navigationBarTitleText": "充值"
+      }
+    },
+    {
+      "path": "pages/wallet/withdraw",
+      "style": {
+        "navigationBarTitleText": "提现"
+      }
+    },
+    {
+      "path": "pages/wallet/ledger",
+      "style": {
+        "navigationBarTitleText": "资金流水"
+      }
+    },
+    {
+      "path": "pages/wallet/payee",
+      "style": {
+        "navigationBarTitleText": "收款地址"
+      }
+    },
+    {
       "path": "pages/profile/profile",
       "style": {
         "navigationBarTitleText": "我的"
