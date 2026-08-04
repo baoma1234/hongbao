@@ -10,6 +10,7 @@ H5 构建输出：`public/999/`（与现网 `/888` 并行）
 - 聊天刷新：停留在当前对话框（hash 路由 + 房间快照）；返回列表才清除
 - 大厅：奖池大屏 / 资产摘要 / 快捷入口（bootstrap + jackpot 轮询）
 - 闪兑：股份 ↔ 红宝互兑（`exchangeswap`）、可兑份额 / T+1 锁定提示、比例与预计到账
+- 团长：荣誉天梯预览、星火签到、战队催活雷达、推广/催活密令复制（未解锁显示引导卡）
 - 登录：`/api/fanshub/sendsms` + `login`（token 存 `fans_hub_token`）
 - IM：`uni.connectSocket` → `/im-ws`（或绝对 WS），握手带 token，发 `auth`，拉 `conversation.list` / `history` / 发消息
 - 消息列表：未读角标、红包预览、置顶/客服标记、长按置顶/删除会话
@@ -53,6 +54,6 @@ hash 路由下 `try_files` 通常只要能访问到 `index.html` 即可。
 
 ## 下一步
 
-- 团长业务页（签到 / 天梯 / 雷达）
 - 贴纸包 / 红包滑动验证 / 踢人禁言细控
+- 大厅留言 / 排行榜等首页增强
 - App 打包（`dev:app` / HBuilderX）
