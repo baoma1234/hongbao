@@ -1408,6 +1408,9 @@ body.tab-messages .bottom-action-bar {
 }
 .chat-home-tab-create:active { color: var(--color-primary-start); }
 .chat-home-panel { min-height: 0; flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+#tabMessages .chat-home-panel[hidden] {
+  display: none !important;
+}
 #chatHomePanelCommission.chat-home-panel,
 #chatHomePanelNotice.chat-home-panel {
   overflow-x: hidden;

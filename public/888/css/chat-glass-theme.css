@@ -191,8 +191,8 @@ body.tab-messages {
   flex-shrink: 0;
 }
 
-/* ---------- 会话列表：全宽居中白底，不再偏移（仅聊天面板，勿套社群/公告/佣金） ---------- */
-#tabMessages #chatHomePanelChat.chat-home-panel {
+/* ---------- 会话列表：全宽居中白底（仅聊天面板；隐藏时勿强制 flex，否则社群/公告切不走） ---------- */
+#tabMessages #chatHomePanelChat.chat-home-panel:not([hidden]) {
   background: transparent !important;
   width: 100%;
   max-width: none;
@@ -203,6 +203,9 @@ body.tab-messages {
   display: flex !important;
   flex-direction: column !important;
   overflow: hidden !important;
+}
+#tabMessages #chatHomePanelChat.chat-home-panel[hidden] {
+  display: none !important;
 }
 
 #tabMessages .chat-conv-list {

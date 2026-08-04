@@ -7187,39 +7187,7 @@
     }, 2000);
   }
 
-  function setHomeTab(tab) {
-    tab = tab === 'community' ? 'community' : 'chat';
-    state.homeTab = tab;
-    var chatPanel = $('chatHomePanelChat');
-    var communityPanel = $('chatHomePanelCommunity');
-    var tabChat = $('chatHomeTabChat');
-    var tabCommunity = $('chatHomeTabCommunity');
-    if (chatPanel) {
-      chatPanel.style.display = tab === 'chat' ? '' : 'none';
-      if (tab === 'chat') chatPanel.removeAttribute('hidden');
-      else chatPanel.setAttribute('hidden', 'hidden');
-    }
-    if (communityPanel) {
-      communityPanel.style.display = tab === 'community' ? '' : 'none';
-      if (tab === 'community') communityPanel.removeAttribute('hidden');
-      else communityPanel.setAttribute('hidden', 'hidden');
-    }
-    if (tabChat) {
-      tabChat.classList.toggle('active', tab === 'chat');
-      tabChat.setAttribute('aria-selected', tab === 'chat' ? 'true' : 'false');
-    }
-    if (tabCommunity) {
-      tabCommunity.classList.toggle('active', tab === 'community');
-      tabCommunity.setAttribute('aria-selected', tab === 'community' ? 'true' : 'false');
-    }
-    if (tab === 'community') {
-      setCommunitySubTab(state.communitySubTab || 'official');
-      // 官方走 API；我的群组/好友仍走 WS（在 refreshCommunity 后半段）
-      refreshCommunity().catch(function () {});
-    } else {
-      stopOfficialOnlinePoll();
-    }
-  }
+  /* 完整四 Tab（聊天/社群/公告/佣金）由 06-notice.js 的 setHomeTab 负责 */
 
   function setCommunitySubTab(sub) {
     if (sub !== 'mine' && sub !== 'friends') sub = 'official';
