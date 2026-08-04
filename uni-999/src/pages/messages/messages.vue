@@ -72,28 +72,23 @@
                   @click="openChat(item)"
                   @longpress="onLongPress(item)"
                 >
-                  <view class="chat-conv-avatar" :class="{ group: (item.conversation_type | 0) === 2, admin: !!item.is_im_admin }">
+                  <view class="chat-avatar" :class="{ group: (item.conversation_type | 0) === 2, admin: !!item.is_im_admin }">
                     <image v-if="item.avatar" :src="item.avatar" mode="aspectFill" />
                     <text v-else>{{ avatarLetter(displayTitle(item)) }}</text>
                   </view>
-                  <view class="chat-conv-main">
-                    <view class="chat-conv-top">
-                      <view class="chat-conv-title-wrap">
+                  <view class="chat-conv-body">
+                    <view class="chat-conv-title">
+                      <text>
                         <text v-if="item.pinned" class="chat-conv-pin">📌</text>
-                        <text class="chat-conv-title">{{ displayTitle(item) }}</text>
-                        <view v-if="item.is_im_admin" class="chat-conv-tag">
-                          <image class="tag-ico" :src="fxIcon" mode="aspectFit" />
-                          <text>客服</text>
-                        </view>
-                      </view>
+                        {{ displayTitle(item) }}
+                        <text v-if="item.is_im_admin" class="chat-admin-tag">客服</text>
+                      </text>
                       <text class="chat-conv-time">{{ itemTime(item) }}</text>
                     </view>
-                    <view class="chat-conv-bottom">
-                      <text class="chat-conv-preview">{{ itemPreview(item) }}</text>
-                      <view v-if="unreadOf(item) > 0" class="chat-badge">
-                        {{ unreadOf(item) > 99 ? '99+' : unreadOf(item) }}
-                      </view>
-                    </view>
+                    <view class="chat-conv-preview">{{ itemPreview(item) }}</view>
+                  </view>
+                  <view v-if="unreadOf(item) > 0" class="chat-badge">
+                    {{ unreadOf(item) > 99 ? '99+' : unreadOf(item) }}
                   </view>
                 </view>
               </view>
