@@ -5072,10 +5072,11 @@
     if (!raw && state.groupMeta && state.groupMeta.group) {
       raw = String(state.groupMeta.group.rp_enabled_types || '');
     }
-    if (!raw) raw = '1,2,3,4';
+    // 与后端建群默认一致：无配置时不开放拼手气(2)
+    if (!raw) raw = '1,3,4,5';
     var list = raw.split(',').map(function (x) { return parseInt(x, 10); })
-      .filter(function (n) { return n === 1 || n === 2 || n === 3 || n === 4; });
-    return list.length ? list : [2];
+      .filter(function (n) { return n === 1 || n === 2 || n === 3 || n === 4 || n === 5; });
+    return list.length ? list : [1, 3, 4, 5];
   }
 
   function groupRpFixedAmount() {
@@ -5091,7 +5092,20 @@
     return fixed > 0 ? Math.round(fixed * 100) / 100 : 0;
   }
 
-  /** 本群红包个数区间（后台最少/最多；相等=固定） */
+  /** 普通/随机个数：自由填写（1～user_rp_max） */
+  function userRpCountRange() {
+    var max = 500;
+    try {
+      var cfgMax = global.CONFIG && CONFIG.USER_RP_MAX_COUNT;
+      if (cfgMax != null) {
+        var n = parseInt(cfgMax, 10);
+        if (n > 0) max = n;
+      }
+    } catch (e0) {}
+    return { min: 1, max: max, fixed: false };
+  }
+
+  /** 本群红包个数区间（后台最少/最多；相等=固定）——用于拼手气/埋雷/接龙 */
   function groupRpCountRange() {
     var min = 0;
     var max = 0;
@@ -5223,10 +5237,13 @@
     var inputWrap = $('chatRpCountInputWrap');
     var countInput = $('chatRpCount');
     var hint = $('chatRpCountHint');
-    // 拼手气 / 埋雷：个数按钮；拼手气仅「5包」，埋雷带倍数
+    // 拼手气 / 埋雷：个数按钮；普通/随机/接龙：输入框（普通/随机自由个数）
     var tabMode = isGroup && (type === 2 || type === 3);
     var mineMode = isGroup && type === 3;
-    var range = isGroup ? groupRpCountRange() : { min: 1, max: 1, fixed: true };
+    var freeCount = isGroup && (type === 1 || type === 4);
+    var range = !isGroup
+      ? { min: 1, max: 1, fixed: true }
+      : (freeCount ? userRpCountRange() : groupRpCountRange());
     if (tabs) {
       tabs.hidden = !tabMode;
       tabs.style.display = tabMode ? '' : 'none';
@@ -5316,6 +5333,16 @@
           countInput.readOnly = true;
           countInput.value = '1';
         }
+      } else if (freeCount && countInput) {
+        countInput.min = String(range.min);
+        countInput.max = String(range.max);
+        countInput.readOnly = false;
+        countInput.removeAttribute('aria-readonly');
+        var curFree = parseInt(countInput.value, 10) || range.min;
+        if (curFree < range.min) curFree = range.min;
+        if (curFree > range.max) curFree = range.max;
+        countInput.value = String(curFree);
+        hint.textContent = '普通/随机可自由填写个数（' + range.min + '～' + range.max + '）';
       } else {
         if (countInput) {
           countInput.min = String(range.min);
@@ -5353,7 +5380,7 @@
     } else if (isGroup && type === 5) {
       el.hidden = false;
       el.style.display = '';
-      el.textContent = chatT('chat_rp_type_relay_desc') || '接龙：机器人监控领取最少者，直接扣款发出下一包。';
+      el.textContent = chatT('chat_rp_type_relay_desc') || '接龙：领完后由金额最少者扣款发出下一包。';
     } else {
       el.hidden = true;
       el.style.display = 'none';

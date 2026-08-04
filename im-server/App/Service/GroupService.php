@@ -116,12 +116,12 @@ class GroupService
             Db::rollBack();
             throw $e;
         }
-        // 前端建群：四种红包类型默认全部开启
+        // 前端建群默认：普通/埋雷/随机/接龙；拼手气(2)需后台单独开权限
         try {
             Db::exec(
                 'UPDATE ' . Db::table('chat_groups')
                 . ' SET rp_enabled_types=?, updatetime=? WHERE id=?',
-                ['1,2,3,4', time(), $groupId]
+                ['1,3,4,5', time(), $groupId]
             );
         } catch (\Throwable $eTypes) {
         }
@@ -998,7 +998,7 @@ class GroupService
         if ($fixedAmount < 0) {
             $fixedAmount = 0.0;
         }
-        $enabledTypes = (string)($group['rp_enabled_types'] ?? '1,2,3,4');
+        $enabledTypes = (string)($group['rp_enabled_types'] ?? '1,3,4,5');
         $forbids = $this->parseForbidModes($group);
         $isAdmin = $role >= 2;
         // 管理员不受群禁止模式影响；机器人专发仍挡所有人

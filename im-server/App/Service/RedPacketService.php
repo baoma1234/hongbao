@@ -866,32 +866,34 @@ class RedPacketService
         $isVip = (int)($group['is_vip_group'] ?? 0) === 1;
         $isUserRp = in_array((int)$packetType, [1, 4], true);
         $isRelay = ((int)$packetType === 5);
-        $minCount = (int)($group['rp_min_count'] ?? 0);
-        $maxCount = (int)($group['rp_max_count'] ?? 0);
-        if ($minCount <= 0) {
-            if ($isUserRp) {
-                $minCount = (int)($this->cfg['user_rp_min_count'] ?? 1);
-            } elseif ($isRelay) {
-                $minCount = $isVip
-                    ? (int)($this->cfg['relay_vip_min_count'] ?? $this->cfg['vip_min_count'] ?? 5)
-                    : (int)($this->cfg['relay_min_count'] ?? $this->cfg['min_count'] ?? 5);
-            } else {
-                $minCount = $isVip
-                    ? (int)($this->cfg['vip_min_count'] ?? 5)
-                    : (int)($this->cfg['min_count'] ?? 5);
+        // 普通/随机：个数自由填写，不受群「最少/最多个数」玩法限制
+        if ($isUserRp) {
+            $minCount = max(1, (int)($this->cfg['user_rp_min_count'] ?? 1));
+            $maxCount = max($minCount, (int)($this->cfg['user_rp_max_count'] ?? 500));
+        } else {
+            $minCount = (int)($group['rp_min_count'] ?? 0);
+            $maxCount = (int)($group['rp_max_count'] ?? 0);
+            if ($minCount <= 0) {
+                if ($isRelay) {
+                    $minCount = $isVip
+                        ? (int)($this->cfg['relay_vip_min_count'] ?? $this->cfg['vip_min_count'] ?? 5)
+                        : (int)($this->cfg['relay_min_count'] ?? $this->cfg['min_count'] ?? 5);
+                } else {
+                    $minCount = $isVip
+                        ? (int)($this->cfg['vip_min_count'] ?? 5)
+                        : (int)($this->cfg['min_count'] ?? 5);
+                }
             }
-        }
-        if ($maxCount <= 0) {
-            if ($isUserRp) {
-                $maxCount = (int)($this->cfg['user_rp_max_count'] ?? 100);
-            } elseif ($isRelay) {
-                $maxCount = $isVip
-                    ? (int)($this->cfg['relay_vip_max_count'] ?? $this->cfg['vip_max_count'] ?? 10)
-                    : (int)($this->cfg['relay_max_count'] ?? $this->cfg['max_count'] ?? 10);
-            } else {
-                $maxCount = $isVip
-                    ? (int)($this->cfg['vip_max_count'] ?? 10)
-                    : (int)($this->cfg['max_count'] ?? 10);
+            if ($maxCount <= 0) {
+                if ($isRelay) {
+                    $maxCount = $isVip
+                        ? (int)($this->cfg['relay_vip_max_count'] ?? $this->cfg['vip_max_count'] ?? 10)
+                        : (int)($this->cfg['relay_max_count'] ?? $this->cfg['max_count'] ?? 10);
+                } else {
+                    $maxCount = $isVip
+                        ? (int)($this->cfg['vip_max_count'] ?? 10)
+                        : (int)($this->cfg['max_count'] ?? 10);
+                }
             }
         }
         if ($minCount < 1) {
@@ -923,7 +925,7 @@ class RedPacketService
             }
             throw new \InvalidArgumentException('红包个数须为 ' . $minCount . '～' . $maxCount);
         }
-        $enabled = (string)($group['rp_enabled_types'] ?? '1,2,3,4,5');
+        $enabled = (string)($group['rp_enabled_types'] ?? '1,3,4,5');
         $allowed = array_filter(array_map('intval', explode(',', $enabled)));
         if ($allowed && !in_array((int)$packetType, $allowed, true)) {
             throw new \InvalidArgumentException('packet type not allowed in this group');

@@ -168,7 +168,7 @@ class Imgroup extends Backend
                     'max_members'   => 500,
                     'is_recommend'  => ((int)($params['is_recommend'] ?? 0) === 1) ? 1 : 0,
                     'weigh'         => (int)($params['weigh'] ?? 0),
-                    'rp_enabled_types' => '1,2,3,4',
+                    'rp_enabled_types' => '1,3,4,5',
                     'status'        => 1,
                     'createtime'    => $now,
                     'updatetime'    => $now,
@@ -255,7 +255,7 @@ class Imgroup extends Backend
                         $finalStatus = 3;
                     }
                 }
-                $enabledTypes = $params['rp_enabled_types'] ?? '1,2,3,4';
+                $enabledTypes = $params['rp_enabled_types'] ?? '1,3,4,5';
                 if (is_array($enabledTypes)) {
                     $enabledTypes = implode(',', array_map('intval', $enabledTypes));
                 }

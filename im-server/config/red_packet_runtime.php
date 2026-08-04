@@ -22,7 +22,7 @@ return array (
     'user_rp_expire_seconds' => 1800,
     'user_rp_min_amount' => 10.0,
     'user_rp_min_count' => 1,
-    'user_rp_max_count' => 100,
+    'user_rp_max_count' => 500,
     'user_rp_platform_fee_rate' => 0.03,
     'user_rp_agent_rebate_rate_default' => 0.01,
     'user_rp_agent_rebate_rate_vip' => 0.01,

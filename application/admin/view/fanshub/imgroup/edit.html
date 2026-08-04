@@ -171,7 +171,7 @@
             <label class="control-label col-xs-12 col-sm-2">允许类型:</label>
             <div class="col-xs-12 col-sm-8">
                 <?php
-                    $enabled = array_filter(array_map('trim', explode(',', (string)($row['rp_enabled_types'] ?? '1,2,3,4'))));
+                    $enabled = array_filter(array_map('trim', explode(',', (string)($row['rp_enabled_types'] ?? '1,3,4,5'))));
                 ?>
                 <label class="checkbox-inline"><input type="checkbox" name="row[rp_enabled_types][]" value="2" <?php echo in_array('2', $enabled, true) ? 'checked' : ''; ?>> 拼手气</label>
                 <label class="checkbox-inline"><input type="checkbox" name="row[rp_enabled_types][]" value="5" <?php echo in_array('5', $enabled, true) ? 'checked' : ''; ?>> 接龙红包</label>

@@ -273,14 +273,15 @@ let activePacketId = 0
 
 const isPrivate = computed(() => (meta.value.type | 0) === 1)
 const packetTypes = [
-  { v: 2, n: '红宝拼手气' },
+  { v: 5, n: '红宝接龙' },
   { v: 3, n: '红宝扫雷' },
   { v: 1, n: '普通' },
+  { v: 4, n: '随机' },
 ]
 const rpForm = reactive({
-  packet_type: 2,
+  packet_type: 1,
   total_amount: '',
-  total_count: '5',
+  total_count: '1',
   mine_digit: '7',
   blessing: '恭喜发财',
 })

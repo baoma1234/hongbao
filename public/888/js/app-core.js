@@ -18,6 +18,7 @@
             MAIN_STATION_URL: 'https://555.bio',
             IM_WS_URL: '',
             MINE_COMPENSATE_RATES: { 5: 1.5, 7: 1.2, 9: 1.0 },
+            USER_RP_MAX_COUNT: 500,
             SECRET_LOCK_SECONDS: 900,
             JACKPOT_AUTO_GROW: true,
             JACKPOT_SERVER_SYNC: true,
