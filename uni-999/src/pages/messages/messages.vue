@@ -67,43 +67,51 @@
 
             <!-- 聊天 -->
             <view id="chatHomePanelChat" class="chat-home-panel" :class="{ 'is-hidden': homeTab !== 'chat' }">
-              <scroll-view
-                scroll-y
-                class="chat-conv-scroll"
-                :refresher-enabled="true"
-                :refresher-triggered="listRefreshing"
-                @refresherrefresh="onListRefresh"
-              >
-                <view class="chat-conv-list">
-                  <view class="chat-empty" v-if="!displayList.length && loaded">暂无会话（登录后通常会有客服）</view>
-                  <view
-                    v-for="item in displayList"
-                    :key="itemKey(item)"
-                    class="chat-conv-item"
-                    :class="{ 'is-pinned': !!item.pinned, 'is-admin': !!item.is_im_admin }"
-                    @click="openChat(item)"
-                    @longpress="onLongPress(item)"
-                  >
-                    <view class="chat-avatar" :class="{ group: (item.conversation_type | 0) === 2, admin: !!item.is_im_admin }">
-                      <image :src="avatarSrc(item.avatar)" mode="aspectFill" />
-                    </view>
-                    <view class="chat-conv-body">
-                      <view class="chat-conv-title">
-                        <text>
-                          <text v-if="item.pinned" class="chat-conv-pin">📌</text>
-                          {{ displayTitle(item) }}
-                          <text v-if="item.is_im_admin" class="chat-admin-tag">客服</text>
-                        </text>
-                        <text class="chat-conv-time">{{ itemTime(item) }}</text>
-                      </view>
-                      <view class="chat-conv-preview">{{ itemPreview(item) }}</view>
-                    </view>
-                    <view v-if="unreadOf(item) > 0" class="chat-badge">
-                      {{ unreadOf(item) > 99 ? '99+' : unreadOf(item) }}
-                    </view>
+              <view class="chat-conv-ptr-host">
+                <view class="chat-conv-ptr" :class="{ refreshing: listRefreshing, ready: listRefreshing }">
+                  <view class="chat-conv-ptr-inner">
+                    <view class="chat-conv-ptr-spinner" />
+                    <text class="chat-conv-ptr-text">{{ listRefreshing ? '刷新中…' : '下拉刷新' }}</text>
                   </view>
                 </view>
-              </scroll-view>
+                <scroll-view
+                  scroll-y
+                  class="chat-conv-scroll"
+                  :refresher-enabled="true"
+                  :refresher-triggered="listRefreshing"
+                  @refresherrefresh="onListRefresh"
+                >
+                  <view class="chat-conv-list">
+                    <view class="chat-empty" v-if="!displayList.length && loaded">暂无会话（登录后通常会有客服）</view>
+                    <view
+                      v-for="item in displayList"
+                      :key="itemKey(item)"
+                      class="chat-conv-item"
+                      :class="{ 'is-pinned': !!item.pinned, 'is-admin': !!item.is_im_admin }"
+                      @click="openChat(item)"
+                      @longpress="onLongPress(item)"
+                    >
+                      <view class="chat-avatar" :class="{ group: (item.conversation_type | 0) === 2, admin: !!item.is_im_admin }">
+                        <image :src="avatarSrc(item.avatar)" mode="aspectFill" />
+                      </view>
+                      <view class="chat-conv-body">
+                        <view class="chat-conv-title">
+                          <text>
+                            <text v-if="item.pinned" class="chat-conv-pin">📌</text>
+                            {{ displayTitle(item) }}
+                            <text v-if="item.is_im_admin" class="chat-admin-tag">客服</text>
+                          </text>
+                          <text class="chat-conv-time">{{ itemTime(item) }}</text>
+                        </view>
+                        <view class="chat-conv-preview">{{ itemPreview(item) }}</view>
+                      </view>
+                      <view v-if="unreadOf(item) > 0" class="chat-badge">
+                        {{ unreadOf(item) > 99 ? '99+' : unreadOf(item) }}
+                      </view>
+                    </view>
+                  </view>
+                </scroll-view>
+              </view>
             </view>
 
             <!-- 社群 -->
@@ -419,6 +427,7 @@ import TopBar from '../../components/TopBar.vue'
 import BottomTabBar from '../../components/BottomTabBar.vue'
 import '../../styles/chat.bundle.css'
 import '../../styles/chat-uni-adapter.css'
+import '../../styles/chat-888-parity.css'
 import { apiRequest, fetchProfile, getToken } from '../../utils/auth.js'
 import {
   avatarLetter,
@@ -1163,8 +1172,13 @@ onHide(() => {
   font-weight: 700;
   text-decoration: underline;
 }
-.chat-conv-scroll {
+.chat-conv-ptr-host {
   height: calc(100vh - 280px);
   min-height: 320px;
+}
+.chat-conv-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
 }
 </style>

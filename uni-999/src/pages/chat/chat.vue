@@ -108,7 +108,10 @@
           </view>
         </scroll-view>
 
-        <view class="chat-composer-wrap">
+        <view
+          class="chat-composer-wrap"
+          :class="{ 'is-muted': composerLocked, 'is-extras-locked': extrasLocked }"
+        >
           <view class="chat-emoji-panel" :class="{ open: showEmoji || showSticker }">
             <view class="chat-expr-mode-tabs">
               <view class="chat-expr-mode-btn" :class="{ active: showEmoji && !showSticker }" @click="openEmojiOnly">表情</view>
@@ -159,8 +162,8 @@
             </view>
           </view>
 
-          <view class="chat-composer chat-footer" :class="{ 'is-muted': composerLocked }">
-            <view v-if="canCap('emoji')" class="chat-tool-icon" @click="toggleEmoji">
+          <view class="chat-composer chat-footer">
+            <view v-if="canCap('emoji')" id="chatEmojiBtn" class="chat-tool-icon" @click="toggleEmoji">
               <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8">
                 <circle cx="12" cy="12" r="10" />
                 <path d="M8 14s1.5 2 4 2 4-2 4-2" />
@@ -169,6 +172,7 @@
               </svg>
             </view>
             <input
+              id="chatInput"
               class="input-box"
               v-model="text"
               confirm-type="send"
@@ -178,12 +182,23 @@
               @confirm="sendText"
               @focus="onInputFocus"
             />
-            <view v-if="attachAllowed" class="btn-plus" :class="{ active: showAttach }" @click="toggleAttach">
+            <view
+              v-if="attachAllowed"
+              id="chatAttachBtn"
+              class="btn-plus"
+              :class="{ active: showAttach }"
+              @click="toggleAttach"
+            >
               <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
                 <path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
               </svg>
             </view>
-            <view class="chat-send-btn" :class="{ disabled: composerLocked || !canCap('text') }" @click="sendText">发送</view>
+            <view
+              id="chatSendBtn"
+              class="chat-send-btn"
+              :class="{ disabled: composerLocked || !canCap('text') }"
+              @click="sendText"
+            >发送</view>
           </view>
         </view>
       </view>
@@ -229,7 +244,11 @@
 
             <view v-if="!isPrivate" class="chat-rp-field" id="chatRpCountWrap">
               <text class="chat-rp-lab">{{ rpCountLabel }}</text>
-              <view v-if="rpForm.packet_type === 3" class="chat-rp-count-tabs">
+              <view
+                v-if="rpForm.packet_type === 3"
+                class="chat-rp-count-tabs"
+                :class="{ 'is-single': mineCountOptions.length === 1 }"
+              >
                 <view
                   v-for="n in mineCountOptions"
                   :key="'c' + n"
@@ -238,7 +257,11 @@
                   @click="rpForm.total_count = String(n)"
                 >{{ n }}</view>
               </view>
-              <view v-else-if="rpCountOptions.length <= 8" class="chat-rp-count-tabs">
+              <view
+                v-else-if="rpCountOptions.length <= 8"
+                class="chat-rp-count-tabs"
+                :class="{ 'is-single': rpCountOptions.length === 1 }"
+              >
                 <view
                   v-for="n in rpCountOptions"
                   :key="'rc' + n"
@@ -303,49 +326,119 @@
 
     <GrabSlider ref="grabSliderRef" />
 
-    <!-- 红包详情 -->
-    <view class="mask" v-if="detailVisible" @click="detailVisible = false">
-      <view class="sheet detail" @click.stop>
-        <view class="sheet-title">红包详情</view>
-        <view class="detail-head" v-if="detail">
-          <text class="d-bless">{{ (detail.packet && detail.packet.blessing) || '恭喜发财' }}</text>
-          <text class="d-amt" v-if="myGrabAmount">抢到 {{ myGrabAmount }} 红宝</text>
-          <text class="d-meta">
-            {{ packetTypeLabel((detail.packet && detail.packet.packet_type) || 1) }}
-            · {{ (detail.packet && detail.packet.total_amount) || '-' }} 红宝
-            / {{ (detail.packet && detail.packet.total_count) || '-' }} 个
-          </text>
-          <text class="d-mine-sum" v-if="mineSettleTip">{{ mineSettleTip }}</text>
-          <text class="d-fair-tip" v-if="detailFairTip">{{ detailFairTip }}</text>
-          <button v-if="canFairVerify" class="d-fair-btn" @click="openFairVerify">查询验证</button>
+    <!-- 红包详情：对齐 888 #chatRpDetailPane -->
+    <view v-if="detailVisible" id="chatRpDetailPane" class="chat-sub-pane open" aria-hidden="false">
+      <view class="chat-hero-hd">
+        <view class="chat-hero-back" hover-class="chat-hero-back--active" @click="detailVisible = false">
+          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" class="chat-hero-ico">
+            <path fill="currentColor" d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z" />
+          </svg>
         </view>
-        <scroll-view scroll-y class="detail-list">
-          <view v-for="r in detailRecords" :key="r.id || r.user_id" class="d-row">
-            <image class="d-av" :src="avatarSrc(r.avatar)" mode="aspectFill" />
-            <view class="d-main">
-              <text class="d-nick">{{ r.nickname || ('用户' + (r.user_id || '')) }}</text>
-              <text class="d-tags" v-if="recordTags(r)">{{ recordTags(r) }}</text>
-              <text class="d-time" v-if="r.createtime">{{ formatRpTime(r.createtime) }}</text>
+        <view class="chat-hero-title">红包详情</view>
+        <view class="chat-hero-spacer" />
+      </view>
+      <view class="chat-sub-main">
+        <view id="chatRpDetailBody">
+          <view class="chat-rp-detail-head" v-if="detail">
+            <view class="chat-rp-detail-bless">{{ detailBlessTitle }}</view>
+            <view class="chat-rp-detail-meta">
+              共 {{ (detail.packet && detail.packet.total_count) || 0 }} 个 · ￥{{ detailTotalAmt }}
             </view>
-            <text class="d-right">{{ formatAmt(r.amount) }}</text>
+            <view
+              v-if="detail.packet && detail.packet.createtime"
+              class="chat-rp-detail-send-time"
+            >发送时间 {{ formatRpTime(detail.packet.createtime) }}</view>
+            <view v-if="detailMyAmtText" class="chat-rp-detail-myamt">
+              你领取了 <text style="font-size:22px;font-weight:800">￥{{ detailMyAmtText }}</text>
+            </view>
+            <view v-if="detailMineDigitLine" class="chat-rp-detail-meta">
+              埋雷数字：<text style="font-weight:800">{{ detailMineDigit }}</text>{{ detailMineDigitLine }}
+            </view>
+            <template v-if="canFairVerify && (detailFairHash || detailTronBlock)">
+              <view class="chat-rp-fair-hash">
+                <text class="chat-rp-fair-label">{{ detailFairLabel }}</text>
+                <text style="display:block;font-size:10px;line-height:1.45;word-break:break-all;color:#333">
+                  {{ detailFairHash || '开奖后公开' }}
+                </text>
+              </view>
+              <view v-if="detailTronHref" class="chat-rp-tron-btn" @click="openTronVerify">
+                {{ detailTronBlock ? '前往波场验证' : '查看锁定区块' }}
+              </view>
+              <button type="button" class="chat-rp-fair-link" @click="openFairVerify">本站验证详情</button>
+            </template>
+            <view v-else-if="detailFairTip" class="chat-rp-fair-sub">{{ detailFairTip }}</view>
+            <view
+              v-if="mineSettleTip"
+              class="chat-rp-mine-summary"
+              :class="{ 'is-safe': mineSettleSafe }"
+            >{{ mineSettleTip }}</view>
+            <view v-if="detailLocked" class="chat-rp-privacy-tip locked">🔒 隐私群：不可点击查看对方资料</view>
           </view>
-          <view v-if="!detailRecords.length" class="empty">{{ claimsEmptyTip }}</view>
-          <view v-else-if="othersHiddenTip" class="empty">{{ othersHiddenTip }}</view>
-        </scroll-view>
-        <button v-if="canGrabDetail" class="btn-uid-submit" :disabled="grabbing" @click="grabFromDetail">
-          {{ grabbing ? '领取中…' : '开红包' }}
-        </button>
-        <button class="cancel" @click="detailVisible = false">关闭</button>
+          <scroll-view
+            scroll-y
+            class="chat-rp-detail-list"
+            :class="{ 'is-open': !detailLocked, 'is-private': detailLocked }"
+          >
+            <view
+              v-for="r in detailRecords"
+              :key="r.id || r.user_id"
+              class="chat-rp-record-item"
+              :class="{ 'is-locked': recordGray(r) }"
+            >
+              <view
+                class="chat-rp-record-avatar"
+                :class="{ locked: detailLocked, 'is-gray': recordGray(r) }"
+              >
+                <image v-if="!recordGray(r)" :src="avatarSrc(r.avatar)" mode="aspectFill" />
+                <text v-else>{{ (r.nickname || 'U').charAt(0) }}</text>
+              </view>
+              <view class="chat-rp-record-main">
+                <view
+                  class="chat-rp-record-name"
+                  :class="{ locked: detailLocked, 'is-masked': recordGray(r) }"
+                >
+                  <text v-if="recordGray(r)" class="chat-rp-lock">🔒</text>
+                  {{ r.nickname || ('用户' + (r.user_id || '')) }}
+                </view>
+                <view class="chat-rp-record-amt">
+                  ￥{{ formatAmt(r.amount) }}
+                  <text v-if="recordShowBest(r)"> 手气最佳</text>
+                  <text v-if="recordShowWorst(r)"> 手气最差</text>
+                  <text v-if="recordMineHit(r)" class="is-mine-hit"> 中雷</text>
+                  <text v-else-if="recordMineSafe(r)" class="is-mine-safe"> 未中雷</text>
+                  <text v-if="recordTail(r) != null"> · 尾{{ recordTail(r) }}</text>
+                </view>
+                <view v-if="r.createtime" class="chat-rp-record-time">
+                  领取时间 {{ formatRpTime(r.createtime) }}
+                </view>
+              </view>
+            </view>
+            <view v-if="!detailRecords.length" class="chat-empty chat-rp-claims-hidden">{{ claimsEmptyTip }}</view>
+            <view v-else-if="othersHiddenTip" class="chat-empty chat-rp-claims-hidden">{{ othersHiddenTip }}</view>
+          </scroll-view>
+          <button
+            v-if="canGrabDetail"
+            type="button"
+            class="chat-rp-detail-grab-btn"
+            :disabled="grabbing"
+            @click="grabFromDetail"
+          >{{ grabbing ? '领取中…' : '开红包' }}</button>
+        </view>
       </view>
     </view>
 
-    <!-- 私聊更多 -->
-    <view class="mask" v-if="moreVisible" @click="moreVisible = false">
-      <view class="sheet more" @click.stop>
-        <view class="sheet-title">{{ peerNickname || title }}</view>
-        <view class="more-sub">会员ID {{ meta.peer }}{{ remark ? ' · 备注 ' + remark : '' }}</view>
-        <button class="btn-uid-submit" @click="editRemark">{{ remark ? '修改备注' : '设置备注' }}</button>
-        <button class="cancel" @click="moreVisible = false">关闭</button>
+    <!-- 私聊更多：对齐 888 action-sheet -->
+    <view class="chat-action-sheet" :class="{ open: moreVisible }" v-if="moreVisible" aria-hidden="false">
+      <view class="chat-action-sheet-mask" @click="moreVisible = false" />
+      <view class="chat-action-sheet-panel" @click.stop>
+        <view class="chat-action-sheet-title">{{ peerNickname || title }}</view>
+        <view class="chat-setting-hint" style="text-align:center;margin-bottom:8px">
+          会员ID {{ meta.peer }}{{ remark ? ' · 备注 ' + remark : '' }}
+        </view>
+        <button type="button" class="chat-action-item" @click="editRemark">
+          {{ remark ? '修改备注' : '设置备注' }}
+        </button>
+        <button type="button" class="chat-action-item cancel" @click="moreVisible = false">关闭</button>
       </view>
     </view>
   </view>
@@ -359,6 +452,7 @@ import TopBar from '../../components/TopBar.vue'
 import '../../styles/chat.bundle.css'
 import '../../styles/chat-room-uni-adapter.css'
 import '../../styles/chat-rp-send-uni-adapter.css'
+import '../../styles/chat-888-parity.css'
 import { apiRequest, fetchProfile, getToken } from '../../utils/auth.js'
 import { getApiBase } from '../../utils/config.js'
 import { assetBase, applyServerCopy, copyState, localeState, tt } from '../../utils/i18n.js'
@@ -368,7 +462,6 @@ import {
   isSystemMsg,
   msgExtra,
   msgType,
-  packetTypeLabel,
   recallTip,
 } from '../../utils/chat.js'
 import { clearActiveChat, getActiveChat, saveActiveChat } from '../../utils/chat-route.js'
@@ -472,9 +565,33 @@ const composerLocked = computed(() => {
   return !canCap('text')
 })
 
+const extrasLocked = computed(() => {
+  if (isPrivate.value) return false
+  if (groupMeta.value && groupMeta.value.can_speak === false && canCap('text')) return true
+  if (!composerLocked.value) return false
+  return !(canCap('image') || canCap('video') || canCap('emoji') || canCap('file') || canCap('rp'))
+})
+
+function buildForbidSpeakPlaceholder() {
+  const pol = groupPolicy.value || {}
+  const g = (groupMeta.value && groupMeta.value.group) || {}
+  const custom = String(pol.forbid_speak_hint || g.forbid_speak_hint || '').trim()
+  if (custom) return custom
+  const parts = []
+  if (canCap('rp')) parts.push('发/抢红包')
+  if (canCap('image')) parts.push('发图片')
+  if (canCap('video')) parts.push('发视频')
+  if (canCap('emoji')) parts.push('发表情')
+  if (!parts.length) return '本群禁止发言，仅管理员可发言'
+  return '仅可' + parts.join('、') + '操作'
+}
+
 const composerPlaceholder = computed(() => {
-  if (composerLocked.value) return '禁言中，暂不可发言'
-  if (!canCap('text')) return '文字消息已禁止'
+  if (isPrivate.value) return '输入消息…'
+  if (groupMeta.value && groupMeta.value.can_speak === false && canCap('text')) {
+    return '你已被禁言，暂时无法发言'
+  }
+  if (composerLocked.value || !canCap('text')) return buildForbidSpeakPlaceholder()
   return '输入消息…'
 })
 
@@ -627,16 +744,25 @@ function pktFinished(d) {
 const detailRecords = computed(() => {
   const d = detail.value
   if (!d) return []
+  if (d.claims_visible === false) return []
   let rows = d.records || d.list || []
-  if (!pktFinished(d) && d.others_visible !== true) {
+  const othersVisible = d.others_visible != null ? !!d.others_visible : pktFinished(d)
+  if (!othersVisible) {
     rows = rows.filter((r) => (r.user_id | 0) === (myId | 0))
   }
   return rows
 })
 
+const othersVisibleDone = computed(() => {
+  const d = detail.value
+  if (!d) return false
+  if (d.others_visible != null) return !!d.others_visible
+  return pktFinished(d)
+})
+
 const othersHiddenTip = computed(() => {
   const d = detail.value
-  if (!d || pktFinished(d) || d.others_visible === true) return ''
+  if (!d || othersVisibleDone.value) return ''
   if (!(d.mine || detailRecords.value.length)) return ''
   return '红包领完或过期后可查看其他人领取记录'
 })
@@ -668,31 +794,117 @@ const detailFairTip = computed(() => {
   return '红包领完或过期后可查询验证'
 })
 
-const mineSettleTip = computed(() => {
+const mineSettleHitN = computed(() => {
   const d = detail.value
-  if (!d) return ''
+  if (!d) return 0
   const p = d.packet || {}
-  if ((p.packet_type | 0) !== 3 || (p.status | 0) !== 5) return ''
-  const rows = d.records || []
-  const hitN = rows.filter((r) => (r.is_mine_hit | 0) === 1).length
-  return hitN > 0 ? '本局中雷 ' + hitN + ' 人' : '本局无人中雷'
+  if ((p.packet_type | 0) !== 3 || (p.status | 0) !== 5) return -1
+  return (d.records || []).filter((r) => (r.is_mine_hit | 0) === 1).length
 })
 
-function recordTags(r) {
-  if (!r) return ''
+const mineSettleTip = computed(() => {
+  if (mineSettleHitN.value < 0) return ''
+  return mineSettleHitN.value > 0 ? '本局中雷 ' + mineSettleHitN.value + ' 人' : '本局无人中雷'
+})
+
+const mineSettleSafe = computed(() => mineSettleHitN.value === 0)
+
+const detailBlessTitle = computed(() => {
   const d = detail.value
-  const finished = pktFinished(d)
-  const parts = []
-  if (finished) {
-    if (r.is_best) parts.push('手气最佳')
-    if (r.is_worst) parts.push('手气最差')
-  }
   const p = (d && d.packet) || {}
-  if ((p.packet_type | 0) === 3) {
-    const hit = (r.is_mine_hit | 0) === 1
-    if ((p.status | 0) === 5 || hit) parts.push(hit ? '中雷' : '未中雷')
-  }
-  return parts.join(' · ')
+  const map = { 2: '红宝拼手气', 3: '红宝扫雷', 5: '红宝接龙' }
+  return map[p.packet_type | 0] || p.blessing || '恭喜发财'
+})
+
+const detailTotalAmt = computed(() => {
+  const p = (detail.value && detail.value.packet) || {}
+  return (parseFloat(p.total_amount || 0) || 0).toFixed(2)
+})
+
+const detailMyAmtText = computed(() => {
+  const d = detail.value
+  if (!d || !d.mine || d.mine.amount == null) return ''
+  return (parseFloat(d.mine.amount) || 0).toFixed(2)
+})
+
+const detailMineDigit = computed(() => {
+  const p = (detail.value && detail.value.packet) || {}
+  if ((p.packet_type | 0) !== 3) return null
+  return p.mine_digit | 0
+})
+
+const detailMineDigitLine = computed(() => {
+  if (detailMineDigit.value == null) return ''
+  const p = (detail.value && detail.value.packet) || {}
+  return p.mine_pending ? '（匹配波场哈希末位中）' : '（已匹配波场哈希末位）'
+})
+
+const detailLocked = computed(() => {
+  const d = detail.value
+  if (!d) return false
+  let privacyMode = String(d.privacy_mode || (d.policy && d.policy.privacy_mode) || '')
+  const locked =
+    d.rp_detail_locked === true ||
+    privacyMode === 'private' ||
+    (privacyMode !== 'open' && d.member_list_hidden === true)
+  return !!locked
+})
+
+const detailFairHash = computed(() => {
+  const p = (detail.value && detail.value.packet) || {}
+  return String(p.tron_block_id || p.fair_hash || '')
+})
+
+const detailTronBlock = computed(() => {
+  const p = (detail.value && detail.value.packet) || {}
+  return p.tron_block_num || p.targetBlockNum || 0
+})
+
+const detailFairLabel = computed(() => {
+  return detailTronBlock.value ? 'TRON #' + detailTronBlock.value : 'TRON'
+})
+
+const detailTronHref = computed(() => {
+  const target = detailTronBlock.value
+    ? String(detailTronBlock.value)
+    : String(detailFairHash.value || '')
+  if (!target) return ''
+  return 'https://tronscan.org/#/block/' + encodeURIComponent(target)
+})
+
+function recordGray(r) {
+  if (!r) return false
+  if ((r.user_id | 0) === (myId | 0)) return false
+  return !!(r.name_masked || r.avatar_gray)
+}
+
+function recordShowBest(r) {
+  return !!(othersVisibleDone.value && r && r.is_best)
+}
+
+function recordShowWorst(r) {
+  return !!(othersVisibleDone.value && r && r.is_worst)
+}
+
+function recordMineHit(r) {
+  const p = (detail.value && detail.value.packet) || {}
+  if ((p.packet_type | 0) !== 3 || !r) return false
+  const hit = (r.is_mine_hit | 0) === 1
+  return hit && ((p.status | 0) === 5 || hit)
+}
+
+function recordMineSafe(r) {
+  const p = (detail.value && detail.value.packet) || {}
+  if ((p.packet_type | 0) !== 3 || !r) return false
+  if ((r.is_mine_hit | 0) === 1) return false
+  return (p.status | 0) === 5
+}
+
+function recordTail(r) {
+  if (!othersVisibleDone.value || !r || r.tail_digit == null) return null
+  const p = (detail.value && detail.value.packet) || {}
+  if ((p.packet_type | 0) !== 3) return null
+  return r.tail_digit | 0
 }
 
 function formatRpTime(ts) {
@@ -701,6 +913,21 @@ function formatRpTime(ts) {
   const d = new Date(n < 1e12 ? n * 1000 : n)
   const p = (x) => (x < 10 ? '0' + x : '' + x)
   return p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes())
+}
+
+function openTronVerify() {
+  const href = detailTronHref.value
+  if (!href) return
+  // #ifdef H5
+  if (typeof window !== 'undefined') {
+    window.open(href, '_blank')
+    return
+  }
+  // #endif
+  uni.setClipboardData({
+    data: href,
+    success: () => uni.showToast({ title: '波场链接已复制', icon: 'none' }),
+  })
 }
 
 function openFairVerify() {
@@ -1931,134 +2158,13 @@ onUnload(() => {
 </script>
 
 <style scoped>
-/* 房间布局/气泡/输入栏由 chat.bundle + chat-room-uni-adapter 负责；此处仅弹层 */
-.mask {
-  position: fixed;
-  inset: 0;
-  z-index: 20000;
-  background: rgba(20, 12, 8, 0.45);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
+/* 详情/会话样式走 chat.bundle + chat-888-parity；此处仅房间页微补 */
+.chat-rp-detail-myamt text {
+  font-size: 22px;
+  font-weight: 800;
 }
-.sheet {
+.chat-rp-record-avatar image {
   width: 100%;
-  max-width: 720rpx;
-  background: #fffaf5;
-  border-radius: 24rpx 24rpx 0 0;
-  padding: 28rpx 28rpx 40rpx;
-  box-sizing: border-box;
-}
-.sheet.detail { max-height: 80vh; }
-.sheet-title {
-  font-size: 32rpx;
-  font-weight: 800;
-  text-align: center;
-  margin-bottom: 20rpx;
-}
-.field { margin-bottom: 18rpx; }
-.lab {
-  display: block;
-  font-size: 24rpx;
-  color: #8a7a6e;
-  margin-bottom: 8rpx;
-  font-weight: 700;
-}
-.hb-input {
-  width: 100%;
-  box-sizing: border-box;
-  background: #fff;
-  border: 1.5px solid #f0b04a;
-  border-radius: 12rpx;
-  padding: 16rpx 20rpx;
-  font-size: 28rpx;
-}
-.tabs { display: flex; gap: 12rpx; }
-.tab {
-  flex: 1;
-  text-align: center;
-  padding: 14rpx 0;
-  border-radius: 12rpx;
-  background: #fff8f0;
-  border: 1.5px solid #f0b04a;
-  color: #8a4f1f;
-  font-size: 24rpx;
-  font-weight: 700;
-}
-.tab.on {
-  color: #c61114;
-  border-color: #c61114;
-  background: #fff;
-}
-.btn-uid-submit {
-  width: 100%;
-  margin-top: 8rpx;
-  background: linear-gradient(#fff, #fff) padding-box,
-    linear-gradient(145deg, #ffe9b0, #f0b04a, #e07a22) border-box;
-  border: 1.5px solid transparent;
-  color: #3d2e22;
-  font-weight: 800;
-  border-radius: 14rpx;
-  padding: 18rpx;
-}
-.cancel {
-  margin-top: 16rpx;
-  background: #fff;
-  color: #6a5648;
-  border: 1px solid rgba(180, 140, 100, 0.35);
-  border-radius: 12rpx;
-}
-.detail-head { text-align: center; margin-bottom: 16rpx; }
-.d-bless { display: block; font-size: 30rpx; font-weight: 800; }
-.d-amt { display: block; margin-top: 8rpx; color: #c61114; font-size: 36rpx; font-weight: 800; }
-.d-meta { display: block; margin-top: 8rpx; color: #9a8574; font-size: 22rpx; }
-.d-fair-tip { display: block; margin-top: 10rpx; color: #b08a60; font-size: 22rpx; }
-.d-mine-sum { display: block; margin-top: 8rpx; color: #c61114; font-size: 24rpx; font-weight: 700; }
-.d-tags { font-size: 20rpx; color: #c61114; }
-.d-fair-btn {
-  margin-top: 14rpx;
-  background: linear-gradient(135deg, #ffe082, #ffb300);
-  color: #8a4b00;
-  font-weight: 800;
-  font-size: 26rpx;
-  border-radius: 999rpx;
-  padding: 12rpx 28rpx;
-  border: none;
-  line-height: 1.3;
-}
-.detail-list { max-height: 420rpx; margin-bottom: 12rpx; }
-.d-row {
-  display: flex;
-  align-items: center;
-  gap: 16rpx;
-  padding: 16rpx 4rpx;
-  border-bottom: 1px solid rgba(224, 122, 34, 0.12);
-  font-size: 26rpx;
-}
-.d-av {
-  width: 64rpx;
-  height: 64rpx;
-  border-radius: 50%;
-  flex-shrink: 0;
-  background: #f3e6d8;
-}
-.d-av-fb {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #8a4b00;
-  font-weight: 800;
-  background: linear-gradient(135deg, #ffe082, #ffb300);
-}
-.d-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4rpx; }
-.d-nick { font-weight: 700; color: #3d2e22; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.d-time { font-size: 20rpx; color: #9a8574; }
-.d-right { font-weight: 700; color: #c61114; flex-shrink: 0; }
-.empty { text-align: center; color: #9a8574; padding: 24rpx; font-size: 24rpx; }
-.more-sub {
-  text-align: center;
-  color: #8a7a6e;
-  font-size: 24rpx;
-  margin-bottom: 20rpx;
+  height: 100%;
 }
 </style>

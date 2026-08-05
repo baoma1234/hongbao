@@ -483,13 +483,13 @@ export function leaveGroup(groupId) {
   return imSend('group.leave', { group_id: groupId | 0 }, true)
 }
 
-export function setGroupForbid(groupId, modes = {}, hint = '') {
+export function setGroupForbid(groupId, modes = {}, hint) {
   const payload = {
     group_id: groupId | 0,
     forbid_modes: modes || {},
   }
-  if (hint != null && String(hint) !== '') {
-    payload.forbid_speak_hint = String(hint)
+  if (arguments.length >= 3) {
+    payload.forbid_speak_hint = String(hint == null ? '' : hint)
   }
   return imSend('group.set_forbid', payload, true)
 }

@@ -1,5 +1,5 @@
 <template>
-  <view class="page chat-friend-page">
+  <view class="chat-group-settings-page">
     <view class="chat-hero-hd">
       <view class="chat-hero-back" @click="goBack">
         <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
@@ -10,132 +10,199 @@
       <view class="chat-hero-spacer" />
     </view>
 
-    <view class="head card">
-      <view class="av">{{ letter }}</view>
-      <view class="head-main">
-        <text class="name">{{ groupName }}</text>
-        <text class="meta">{{ memberCount }} 人{{ roleText ? ' · ' + roleText : '' }}{{ muteAll ? ' · 全员禁言' : '' }}</text>
-      </view>
-    </view>
-
-    <view class="card" v-if="notice">
-      <text class="lab">群公告</text>
-      <text class="notice">{{ notice }}</text>
-    </view>
-
-    <view class="card" v-if="canEdit">
-      <text class="lab">管理</text>
-      <view class="row-switch" @click="toggleMuteAll">
-        <text>全员禁言</text>
-        <switch :checked="muteAll" color="#c61114" @change="onMuteSwitch" @click.stop />
-      </view>
-      <button class="btn" @click="editName">修改群名</button>
-      <button class="btn" @click="editNotice">修改公告</button>
-      <button class="btn" @click="openAddMembers">添加群成员</button>
-    </view>
-
-    <view class="card" v-if="canEdit">
-      <text class="lab">禁止模式（普通成员）</text>
-      <view v-for="item in forbidItems" :key="item.key" class="row-switch">
-        <text>{{ item.label }}</text>
-        <switch
-          :checked="!!forbidFlags[item.key]"
-          color="#c61114"
-          :data-key="item.key"
-          @change="onForbidSwitchEvent"
-        />
-      </view>
-      <button class="btn" :disabled="forbidSaving" @click="saveForbid">
-        {{ forbidSaving ? '保存中…' : '保存禁止设置' }}
-      </button>
-    </view>
-
-    <view class="card">
-      <view class="lab-row">
-        <text class="lab">群成员</text>
-        <text class="hint" v-if="memberHidden">成员列表已隐藏</text>
-      </view>
-      <view v-if="!memberHidden">
-        <view
-          v-for="m in members"
-          :key="m.user_id"
-          class="member"
-          @longpress="onMemberLongPress(m)"
-          @click="onMemberTap(m)"
-        >
-          <view class="mav">{{ avatarLetter(m.nickname) }}</view>
-          <view class="mmain">
-            <text class="mnick">{{ m.nickname || ('ID' + m.user_id) }}</text>
-            <text class="mrole" v-if="roleLabel(m.role)">{{ roleLabel(m.role) }}</text>
-            <text class="mmute" v-if="m.is_muted">禁言中</text>
-          </view>
-          <text class="m-act" v-if="canManageMember(m) || canSetAdmin(m)">管理</text>
+    <view class="chat-sub-main">
+      <view class="chat-setting-card chat-setting-profile">
+        <view class="chat-setting-avatar-btn">
+          <text class="chat-setting-avatar-fallback">{{ letter }}</text>
         </view>
-        <view v-if="!members.length" class="empty">暂无成员</view>
-        <text class="hint tip" v-if="canEdit && members.length">长按或点「管理」可禁言 / 移出 / 设管理</text>
+        <view class="chat-setting-profile-main">
+          <view class="chat-setting-name">{{ groupName }}</view>
+          <view class="chat-setting-meta">
+            {{ memberCount }} 名成员{{ roleText ? ' · ' + roleText : '' }}{{ muteAll ? ' · 全员禁言' : '' }}
+          </view>
+        </view>
       </view>
-    </view>
 
-    <view class="card danger" v-if="myRole < 3">
-      <button class="btn leave" @click="onLeave">退出群聊</button>
-    </view>
-    <view class="card" v-else>
-      <text class="hint">群主不能直接退群，请先转让群主</text>
-    </view>
+      <view v-if="canEdit" class="chat-setting-edit">
+        <text class="chat-setting-label">群名称</text>
+        <input class="chat-setting-input" v-model="editNameVal" maxlength="64" placeholder="输入群名称" />
+        <text class="chat-setting-label">群公告（聊天页置顶）</text>
+        <textarea
+          class="chat-setting-textarea"
+          v-model="editNoticeVal"
+          maxlength="500"
+          placeholder="输入群公告，成员进入聊天可见"
+        />
+        <button type="button" class="chat-setting-save-btn" @click="saveProfile">保存修改</button>
+      </view>
+      <view v-else-if="notice" class="chat-setting-hint">群公告：{{ notice }}</view>
+      <view v-else class="chat-setting-hint">暂无群公告</view>
 
-    <!-- 成员操作 -->
-    <view class="mask" v-if="memberSheet" @click="closeMemberSheets">
-      <view class="sheet" @click.stop>
-        <view class="sheet-title">{{ memberTargetName }}</view>
-        <button class="sheet-btn" @click="openMuteSheet">禁言</button>
+      <view v-if="canEdit" class="chat-setting-row" @click="openAddMembers">
+        <text>添加群成员</text>
+        <text class="chat-setting-arrow">›</text>
+      </view>
+
+      <view v-if="canEdit" class="chat-setting-row chat-setting-toggle-row" @click="toggleMuteAll">
+        <text>全员禁言</text>
+        <label class="chat-switch" @click.stop>
+          <switch :checked="muteAll" color="#c61114" @change="onMuteSwitch" />
+        </label>
+      </view>
+
+      <view v-if="canEdit" class="chat-setting-block" id="chatForbidModesBlock">
+        <view class="chat-setting-block-title">禁止模式</view>
+        <view class="chat-forbid-modes">
+          <label
+            v-for="item in forbidItems"
+            :key="item.key"
+            class="chat-forbid-item"
+            @click.prevent="toggleForbid(item.key)"
+          >
+            <checkbox :checked="!!forbidFlags[item.key]" :value="item.key" color="#c61114" />
+            <text>{{ item.label }}</text>
+          </label>
+        </view>
+        <text class="chat-setting-label">禁言输入提示</text>
+        <input
+          class="chat-setting-input"
+          v-model="forbidHint"
+          maxlength="120"
+          placeholder="留空则自动生成，如：仅可发/抢红包操作"
+        />
+        <view class="chat-setting-hint">禁止发文字时输入框显示的文案；留空按允许操作自动生成</view>
         <button
-          v-if="canSetAdmin(memberTarget)"
-          class="sheet-btn"
-          @click="toggleAdminFromSheet"
-        >
-          {{ adminActionLabel }}
-        </button>
-        <button class="sheet-btn danger" @click="confirmKick">移出群组</button>
-        <button class="sheet-btn cancel" @click="closeMemberSheets">取消</button>
+          type="button"
+          class="chat-setting-save-btn"
+          :disabled="forbidSaving"
+          style="margin-top:8px"
+          @click="saveForbid"
+        >{{ forbidSaving ? '保存中…' : '保存禁止设置' }}</button>
+        <view class="chat-setting-hint">可多选或全不选，不影响管理员</view>
+      </view>
+
+      <view v-if="!memberHidden" class="chat-setting-block">
+        <view class="chat-setting-block-title">群成员</view>
+        <view class="chat-member-list">
+          <view
+            v-for="m in members"
+            :key="m.user_id"
+            class="chat-member-item"
+            @click="onMemberTap(m)"
+            @longpress="onMemberLongPress(m)"
+          >
+            <view class="chat-member-avatar">
+              <text>{{ avatarLetter(m.nickname) }}</text>
+            </view>
+            <view class="chat-member-main">
+              <view class="chat-member-name">{{ m.nickname || ('ID' + m.user_id) }}</view>
+              <view class="chat-member-sub">ID {{ m.user_id }}</view>
+            </view>
+            <view class="chat-member-tags">
+              <text v-if="(m.role | 0) === 3" class="chat-member-tag owner">群主</text>
+              <text v-else-if="(m.role | 0) === 2" class="chat-member-tag admin">管理员</text>
+              <text v-if="m.is_muted" class="chat-member-tag muted">禁言</text>
+            </view>
+          </view>
+          <view v-if="!members.length" class="chat-empty">暂无成员</view>
+        </view>
+        <view v-if="canEdit && members.length" class="chat-setting-hint">点成员可禁言 / 移出 / 设管理</view>
+      </view>
+      <view v-else class="chat-setting-hint">成员列表已隐藏</view>
+
+      <button
+        v-if="myRole < 3"
+        type="button"
+        class="chat-setting-leave-btn"
+        @click="onLeave"
+      >退出群组</button>
+      <view v-else class="chat-setting-hint">群主不能直接退群，请先转让群主</view>
+    </view>
+
+    <!-- 成员操作：对齐 888 chat-action-sheet -->
+    <view class="chat-action-sheet" :class="{ open: memberSheet }" v-if="memberSheet" aria-hidden="false">
+      <view class="chat-action-sheet-mask" @click="closeMemberSheets" />
+      <view class="chat-action-sheet-panel" @click.stop>
+        <view class="chat-action-sheet-title">{{ memberTargetName }}</view>
+        <button type="button" class="chat-action-item" @click="openMuteSheet">单人禁言</button>
+        <button
+          v-if="canSetAdmin(memberTarget) && !(memberTarget && (memberTarget.role | 0) === 2)"
+          type="button"
+          class="chat-action-item"
+          @click="doSetAdmin(true)"
+        >设为管理员</button>
+        <button
+          v-if="canSetAdmin(memberTarget) && memberTarget && (memberTarget.role | 0) === 2"
+          type="button"
+          class="chat-action-item"
+          @click="doSetAdmin(false)"
+        >取消管理员</button>
+        <button type="button" class="chat-action-item danger" @click="confirmKick">踢出群组</button>
+        <button type="button" class="chat-action-item cancel" @click="closeMemberSheets">取消</button>
       </view>
     </view>
-    <view class="mask" v-if="muteSheet" @click="closeMemberSheets">
-      <view class="sheet" @click.stop>
-        <view class="sheet-title">选择禁言时长</view>
+
+    <view class="chat-action-sheet" :class="{ open: muteSheet }" v-if="muteSheet" aria-hidden="false">
+      <view class="chat-action-sheet-mask" @click="closeMemberSheets" />
+      <view class="chat-action-sheet-panel" @click.stop>
+        <view class="chat-action-sheet-title">选择禁言时长</view>
         <button
           v-for="opt in muteOptions"
           :key="opt.s"
-          class="sheet-btn"
+          type="button"
+          class="chat-action-item"
           @click="doMute(opt.s)"
         >{{ opt.n }}</button>
-        <button class="sheet-btn cancel" @click="closeMemberSheets">关闭</button>
+        <button type="button" class="chat-action-item cancel" @click="closeMemberSheets">关闭</button>
       </view>
     </view>
 
-    <!-- 添加成员 -->
-    <view class="mask" v-if="addSheet" @click="closeAddSheet">
-      <view class="sheet add-sheet" @click.stop>
-        <view class="sheet-title">添加群成员</view>
-        <scroll-view scroll-y class="cand-scroll">
-          <view
+    <!-- 添加成员：对齐 888 invite pane -->
+    <view v-if="addSheet" class="chat-group-invite-overlay" aria-hidden="false">
+      <view class="chat-hero-hd">
+        <view class="chat-hero-back" @click="closeAddSheet">
+          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+            <path fill="currentColor" d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z" />
+          </svg>
+        </view>
+        <view class="chat-hero-title">添加群成员</view>
+        <view class="chat-hero-spacer" />
+      </view>
+      <view class="chat-sub-main">
+        <view class="chat-member-list chat-invite-list">
+          <label
             v-for="u in candidates"
             :key="u.user_id"
-            class="cand-row"
-            @click="toggleCandidate(u)"
+            class="chat-member-item chat-invite-item"
+            @click.prevent="toggleCandidate(u)"
           >
-            <view class="cand-check" :class="{ on: selectedIds[u.user_id] }">
-              {{ selectedIds[u.user_id] ? '✓' : '' }}
+            <checkbox
+              class="chat-invite-check"
+              :checked="!!selectedIds[u.user_id]"
+              :value="String(u.user_id)"
+              color="#c61114"
+            />
+            <view class="chat-member-avatar">
+              <text>{{ avatarLetter(u.nickname) }}</text>
             </view>
-            <view class="mav">{{ avatarLetter(u.nickname) }}</view>
-            <text class="mnick">{{ u.nickname || ('ID' + u.user_id) }}</text>
-          </view>
-          <view v-if="!candidates.length && !candLoading" class="empty">暂无可添加好友</view>
-          <view v-if="candLoading" class="empty">加载中…</view>
-        </scroll-view>
-        <button class="sheet-btn primary" :disabled="addSaving" @click="confirmAddMembers">
-          {{ addSaving ? '添加中…' : ('添加' + (selectedCount ? ' (' + selectedCount + ')' : '')) }}
-        </button>
-        <button class="sheet-btn cancel" @click="closeAddSheet">取消</button>
+            <view class="chat-member-main">
+              <view class="chat-member-name">{{ u.nickname || ('ID' + u.user_id) }}</view>
+              <view class="chat-member-sub">ID {{ u.user_id }}</view>
+            </view>
+          </label>
+          <view v-if="!candidates.length && !candLoading" class="chat-empty">暂无可添加好友</view>
+          <view v-if="candLoading" class="chat-empty">加载中…</view>
+        </view>
+        <view class="chat-invite-ft">
+          <button
+            type="button"
+            class="chat-invite-confirm-btn"
+            :disabled="addSaving || !selectedCount"
+            @click="confirmAddMembers"
+          >
+            {{ addSaving ? '添加中…' : ('确认添加 (' + selectedCount + ' 人)') }}
+          </button>
+        </view>
       </view>
     </view>
   </view>
@@ -162,7 +229,7 @@ import {
 } from '../../utils/im.js'
 import '../../styles/chat.bundle.css'
 import '../../styles/chat-uni-adapter.css'
-import '../../styles/friend-uni-adapter.css'
+import '../../styles/chat-888-parity.css'
 
 function goBack() {
   uni.navigateBack({ fail: () => uni.switchTab({ url: '/pages/messages/messages' }) })
@@ -176,17 +243,19 @@ const muteAll = ref(false)
 const memberCount = ref(0)
 const memberHidden = ref(false)
 const members = ref([])
-const loading = ref(false)
 const memberSheet = ref(false)
 const muteSheet = ref(false)
 const memberTarget = ref(null)
 const forbidFlags = reactive({ text: false, image: false, emoji: false, video: false, rp: false })
+const forbidHint = ref('')
 const forbidSaving = ref(false)
 const addSheet = ref(false)
 const candidates = ref([])
 const candLoading = ref(false)
 const addSaving = ref(false)
 const selectedIds = reactive({})
+const editNameVal = ref('')
+const editNoticeVal = ref('')
 
 const forbidItems = [
   { key: 'text', label: '禁止发言' },
@@ -210,15 +279,10 @@ const canEdit = computed(() => (myRole.value | 0) >= 2)
 const roleText = computed(() => roleLabel(myRole.value))
 const memberTargetName = computed(() => {
   const m = memberTarget.value
-  if (!m) return '成员'
+  if (!m) return '成员操作'
   return m.nickname || ('ID' + m.user_id)
 })
 const selectedCount = computed(() => Object.keys(selectedIds).filter((k) => selectedIds[k]).length)
-const adminActionLabel = computed(() => {
-  const m = memberTarget.value
-  if (m && (m.role | 0) === 2) return '取消管理员'
-  return '设为管理员'
-})
 
 function roleLabel(role) {
   const r = role | 0
@@ -248,35 +312,16 @@ function canSetAdmin(m) {
 function applyForbid(fm) {
   const src = fm || {}
   forbidItems.forEach((it) => {
-    forbidFlags[it.key] = !!(src[it.key])
+    forbidFlags[it.key] = !!src[it.key]
   })
 }
 
-function promptText(title, cur) {
-  return new Promise((resolve) => {
-    // #ifdef H5
-    if (typeof window !== 'undefined' && typeof window.prompt === 'function') {
-      const next = window.prompt(title, cur || '')
-      resolve(next === null ? null : String(next))
-      return
-    }
-    // #endif
-    uni.showModal({
-      title,
-      editable: true,
-      content: cur || '',
-      success: (res) => {
-        if (!res.confirm) resolve(null)
-        else resolve(String(res.content || ''))
-      },
-      fail: () => resolve(null),
-    })
-  })
+function toggleForbid(key) {
+  forbidFlags[key] = !forbidFlags[key]
 }
 
 async function loadInfo() {
   if (!groupId.value) return
-  loading.value = true
   try {
     await imConnect()
     if (!myId.value) {
@@ -294,6 +339,10 @@ async function loadInfo() {
     memberHidden.value = !!data.member_list_hidden
     if (data.my_user_id) myId.value = data.my_user_id | 0
     applyForbid(data.forbid_modes || (data.policy && data.policy.forbid_modes) || {})
+    const pol = data.policy || {}
+    forbidHint.value = String(pol.forbid_speak_hint || group.value.forbid_speak_hint || '').trim()
+    editNameVal.value = group.value.name || ''
+    editNoticeVal.value = group.value.notice || ''
     if (group.value.name) {
       uni.setNavigationBarTitle({ title: group.value.name })
     }
@@ -309,8 +358,6 @@ async function loadInfo() {
     }
   } catch (e) {
     uni.showToast({ title: (e && e.message) || '加载失败', icon: 'none' })
-  } finally {
-    loading.value = false
   }
 }
 
@@ -366,12 +413,6 @@ async function doSetAdmin(isAdmin) {
   }
 }
 
-function toggleAdminFromSheet() {
-  const m = memberTarget.value
-  if (!m) return
-  doSetAdmin((m.role | 0) !== 2)
-}
-
 function confirmKick() {
   const m = memberTarget.value
   if (!m) return
@@ -404,25 +445,11 @@ async function applyMute(enabled) {
 }
 
 function onMuteSwitch(e) {
-  const on = !!(e && e.detail && e.detail.value)
-  applyMute(on)
+  applyMute(!!(e && e.detail && e.detail.value))
 }
 
 function toggleMuteAll() {
   applyMute(!muteAll.value)
-}
-
-function onForbidSwitch(key, e) {
-  forbidFlags[key] = !!(e && e.detail && e.detail.value)
-}
-
-function onForbidSwitchEvent(e) {
-  const key =
-    (e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.key) ||
-    (e && e.target && e.target.dataset && e.target.dataset.key) ||
-    ''
-  if (!key) return
-  onForbidSwitch(key, e)
 }
 
 async function saveForbid() {
@@ -433,7 +460,7 @@ async function saveForbid() {
     forbidItems.forEach((it) => {
       modes[it.key] = forbidFlags[it.key] ? 1 : 0
     })
-    const packet = await setGroupForbid(groupId.value, modes)
+    const packet = await setGroupForbid(groupId.value, modes, forbidHint.value)
     const data = (packet && packet.data) || packet || {}
     applyForbid(data.forbid_modes || modes)
     uni.showToast({ title: '禁止设置已更新', icon: 'success' })
@@ -442,6 +469,24 @@ async function saveForbid() {
     await loadInfo()
   } finally {
     forbidSaving.value = false
+  }
+}
+
+async function saveProfile() {
+  const name = String(editNameVal.value || '').trim().slice(0, 64)
+  if (!name) {
+    uni.showToast({ title: '群名不能为空', icon: 'none' })
+    return
+  }
+  try {
+    await updateGroup(groupId.value, {
+      name,
+      notice: String(editNoticeVal.value || '').trim(),
+    })
+    uni.showToast({ title: '已更新', icon: 'none' })
+    await loadInfo()
+  } catch (e) {
+    uni.showToast({ title: (e && e.message) || '更新失败', icon: 'none' })
   }
 }
 
@@ -500,35 +545,6 @@ async function confirmAddMembers() {
   }
 }
 
-async function editName() {
-  const next = await promptText('修改群名', group.value.name || '')
-  if (next === null) return
-  const name = String(next).trim().slice(0, 64)
-  if (!name) {
-    uni.showToast({ title: '群名不能为空', icon: 'none' })
-    return
-  }
-  try {
-    await updateGroup(groupId.value, { name })
-    uni.showToast({ title: '已更新', icon: 'none' })
-    await loadInfo()
-  } catch (e) {
-    uni.showToast({ title: (e && e.message) || '更新失败', icon: 'none' })
-  }
-}
-
-async function editNotice() {
-  const next = await promptText('修改群公告', group.value.notice || '')
-  if (next === null) return
-  try {
-    await updateGroup(groupId.value, { notice: String(next).trim() })
-    uni.showToast({ title: '已更新', icon: 'none' })
-    await loadInfo()
-  } catch (e) {
-    uni.showToast({ title: (e && e.message) || '更新失败', icon: 'none' })
-  }
-}
-
 function onLeave() {
   uni.showModal({
     title: '退出群聊',
@@ -560,213 +576,3 @@ onShow(() => {
   if (groupId.value) loadInfo()
 })
 </script>
-
-<style scoped>
-.page {
-  min-height: 100vh;
-  background: #f6f1ea;
-  padding: 0 0 40rpx;
-  box-sizing: border-box;
-}
-.page > .card,
-.page > .head {
-  margin-left: 24rpx;
-  margin-right: 24rpx;
-}
-.card {
-  background: #fff;
-  border-radius: 16rpx;
-  padding: 24rpx;
-  margin-bottom: 20rpx;
-  box-shadow: 0 4rpx 12rpx rgba(40, 20, 10, 0.04);
-}
-.head {
-  display: flex;
-  gap: 20rpx;
-  align-items: center;
-}
-.av {
-  width: 96rpx;
-  height: 96rpx;
-  border-radius: 20rpx;
-  background: linear-gradient(160deg, #fff8ee, #ffe8cc);
-  color: #b8751a;
-  font-weight: 800;
-  font-size: 40rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.head-main { flex: 1; min-width: 0; }
-.name {
-  display: block;
-  font-size: 34rpx;
-  font-weight: 800;
-  color: #2a1f18;
-}
-.meta {
-  display: block;
-  margin-top: 8rpx;
-  font-size: 24rpx;
-  color: #9a8574;
-}
-.lab {
-  display: block;
-  font-size: 24rpx;
-  color: #8a7a6e;
-  font-weight: 700;
-  margin-bottom: 12rpx;
-}
-.lab-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12rpx;
-}
-.notice {
-  font-size: 28rpx;
-  color: #2a1f18;
-  line-height: 1.5;
-  white-space: pre-wrap;
-}
-.row-switch {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16rpx 0;
-  border-bottom: 1px solid rgba(180, 140, 100, 0.12);
-  font-size: 28rpx;
-  color: #2a1f18;
-}
-.btn {
-  margin-top: 16rpx;
-  background: #fff8f0;
-  color: #8a4f1f;
-  border: 1.5px solid #f0b04a;
-  border-radius: 12rpx;
-  font-weight: 700;
-  font-size: 28rpx;
-}
-.btn[disabled] { opacity: 0.5; }
-.btn.leave {
-  background: #fff;
-  color: #c61114;
-  border-color: rgba(198, 17, 20, 0.35);
-}
-.member {
-  display: flex;
-  align-items: center;
-  gap: 16rpx;
-  padding: 16rpx 0;
-  border-bottom: 1px solid rgba(180, 140, 100, 0.1);
-}
-.mav {
-  width: 72rpx;
-  height: 72rpx;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #ffe082, #ffb300);
-  color: #8a4b00;
-  font-weight: 800;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.mmain { flex: 1; min-width: 0; }
-.mnick {
-  display: block;
-  font-size: 28rpx;
-  font-weight: 700;
-  color: #2a1f18;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.mrole, .mmute {
-  display: inline-block;
-  margin-right: 8rpx;
-  font-size: 20rpx;
-  color: #c61114;
-}
-.m-act {
-  font-size: 24rpx;
-  color: #b8751a;
-  font-weight: 700;
-}
-.empty {
-  text-align: center;
-  color: #9a8574;
-  padding: 24rpx;
-  font-size: 24rpx;
-}
-.hint {
-  font-size: 22rpx;
-  color: #9a8574;
-}
-.hint.tip { display: block; margin-top: 12rpx; }
-.card.danger { background: transparent; box-shadow: none; }
-.mask {
-  position: fixed;
-  inset: 0;
-  z-index: 20000;
-  background: rgba(20, 12, 8, 0.45);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-}
-.sheet {
-  width: 100%;
-  max-width: 720rpx;
-  background: #fffaf5;
-  border-radius: 24rpx 24rpx 0 0;
-  padding: 28rpx 28rpx 40rpx;
-  box-sizing: border-box;
-}
-.sheet-title {
-  font-size: 32rpx;
-  font-weight: 800;
-  text-align: center;
-  margin-bottom: 20rpx;
-}
-.sheet-btn {
-  width: 100%;
-  margin-top: 12rpx;
-  background: #fff;
-  border: 1px solid rgba(180, 140, 100, 0.25);
-  border-radius: 12rpx;
-  font-weight: 700;
-  color: #3d2e22;
-}
-.sheet-btn.danger { color: #c61114; }
-.sheet-btn.cancel { color: #6a5648; background: #f6f1ea; }
-.sheet-btn.primary {
-  background: linear-gradient(135deg, #ffe082, #ffb300);
-  color: #8a4b00;
-  border: none;
-}
-.add-sheet { max-height: 78vh; }
-.cand-scroll { max-height: 52vh; margin-bottom: 12rpx; }
-.cand-row {
-  display: flex;
-  align-items: center;
-  gap: 16rpx;
-  padding: 14rpx 0;
-  border-bottom: 1px solid rgba(180, 140, 100, 0.1);
-}
-.cand-check {
-  width: 40rpx;
-  height: 40rpx;
-  border-radius: 8rpx;
-  border: 2px solid #f0b04a;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 22rpx;
-  color: #fff;
-  flex-shrink: 0;
-}
-.cand-check.on {
-  background: #c61114;
-  border-color: #c61114;
-}
-</style>
