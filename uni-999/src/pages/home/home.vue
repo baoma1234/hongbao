@@ -2,14 +2,14 @@
   <view :key="locale">
     <TopBar />
     <view id="tabHome" class="tab-page active">
-      <!-- 大奖池 -->
+      <!-- 大奖池（结构/class 对齐 888 tab-home） -->
       <view class="jackpot-container">
-        <view class="jackpot-label">{{ t('jackpot_label') || '📊 红宝 全网生态实时大屏' }}</view>
-        <view class="jackpot-meta">{{ partnersText }}</view>
-        <view class="jackpot-pool-label">{{ t('jackpot_pool_label') || '💰 平台已累计为合伙人创造价值' }}</view>
-        <view class="jackpot-val">￥{{ jackpotText }}</view>
-        <view class="jackpot-price-line">{{ priceText }}</view>
-        <view class="jackpot-hint-line">{{ t('jackpot_hint') || '💡 等额闪兑销毁股份 · 累计价值只涨不跌 · 股价由达标转化人数驱动' }}</view>
+        <text class="jackpot-label">{{ t('jackpot_label') || '📊 红宝 全网生态实时大屏' }}</text>
+        <text class="jackpot-meta">{{ partnersText }}</text>
+        <text class="jackpot-pool-label">{{ t('jackpot_pool_label') || '💰 平台已累计为合伙人创造价值' }}</text>
+        <text class="jackpot-val">{{ jackpotMoneyText }}</text>
+        <text class="jackpot-price-line">{{ priceText }}</text>
+        <text class="jackpot-hint-line">{{ t('jackpot_hint') || '💡 等额闪兑销毁股份 · 累计价值只涨不跌 · 股价由达标转化人数驱动' }}</text>
       </view>
 
       <!-- 资产面板 -->
@@ -286,20 +286,38 @@ const progressPct = computed(() => {
   return Math.min(100, (hongbaoNum.value / th) * 100)
 })
 
-const jackpotText = computed(() => {
+function formatCountNum(num) {
+  return Number(num || 0).toLocaleString('en-US')
+}
+
+/** 对齐 888 formatMoney：￥1,234.56 */
+function formatMoney(amount) {
+  const val = Number(amount)
+  const n = isNaN(val) ? 0 : val
+  return '￥' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+const jackpotMoneyText = computed(() => {
   const j = jackpot.value || {}
-  const n = j.amount != null ? j.amount : j.jackpot
-  return n != null ? Number(n).toFixed(2) : '0.00'
+  const n = j.amount != null ? j.amount : j.cumulative_payout != null ? j.cumulative_payout : j.jackpot
+  return formatMoney(n != null ? n : 0)
 })
 
 const partnersText = computed(() => {
   const j = jackpot.value || config.value || {}
   const count = j.partner_count != null ? j.partner_count : j.partners
   const up = j.partner_today_up != null ? j.partner_today_up : 0
-  if (count == null) return t('jackpot_partners', { partner_count: 8000, partner_today_up: 0 }) || ''
+  const countFmt = formatCountNum(count == null ? 8000 : count)
+  const upFmt = formatCountNum(up)
+  if (count == null) {
+    return (
+      t('jackpot_partners', { partner_count: countFmt, partner_today_up: upFmt }) ||
+      `📈 当前全网股份人数：${countFmt} 人 ( 🚀 今日暴涨 +${upFmt} 人 )`
+    )
+  }
   return (
-    t('jackpot_partners', { partner_count: count, partner_today_up: up }) ||
-    `📈 当前全网股份人数：${count} 人 ( 🚀 今日暴涨 +${up} 人 )`
+    t('jackpot_partners', { partner_count: countFmt, partner_today_up: upFmt }) ||
+    `📈 当前全网股份人数：${countFmt} 人 ( 🚀 今日暴涨 +${upFmt} 人 )`
   )
 })
 
@@ -308,11 +326,13 @@ const priceText = computed(() => {
   const price = j.current_share_price != null ? j.current_share_price : j.share_price
   const pct = j.price_up_pct != null ? j.price_up_pct : 0
   if (price == null) return ''
+  const price2 = Number(price).toFixed(2)
+  const pctNum = Number(pct) || 0
   return (
     t('jackpot_price_line', {
-      current_share_price: Number(price).toFixed(2),
-      price_up_pct: pct,
-    }) || `💎 今日大盘实时持仓行权价：￥${Number(price).toFixed(2)} / 份 ( 🔥 较昨日大盘拉升 +${pct}% )`
+      current_share_price: price2,
+      price_up_pct: pctNum,
+    }) || `💎 今日大盘实时持仓行权价：￥${price2} / 份 ( 🔥 较昨日大盘拉升 +${pctNum}% )`
   )
 })
 
