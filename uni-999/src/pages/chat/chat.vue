@@ -3,14 +3,14 @@
     <TopBar :no-spacer="true" />
     <view class="chat-room-pane open">
       <view class="chat-hero-hd">
-        <view class="chat-hero-back" @click.stop="goBack" @tap.stop="goBack">
+        <view class="chat-hero-back" hover-class="chat-hero-back--active" @click="goBack">
           <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" class="chat-hero-ico">
             <path fill="currentColor" d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z" />
           </svg>
         </view>
         <view class="chat-hero-title chat-room-title">{{ title }}</view>
-        <view class="chat-hero-more" @click="openMore">
-          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+        <view class="chat-hero-more" hover-class="chat-hero-back--active" @click="openMore">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" class="chat-hero-ico">
             <circle cx="6" cy="12" r="1.8" fill="currentColor" />
             <circle cx="12" cy="12" r="1.8" fill="currentColor" />
             <circle cx="18" cy="12" r="1.8" fill="currentColor" />
@@ -184,10 +184,10 @@
       </view>
     </view>
 
-    <!-- 发红宝：完全照搬 888 chatRpSendPane -->
-    <view class="chat-rp-send-pane" :class="{ open: showRp }" :aria-hidden="showRp ? 'false' : 'true'">
+    <!-- 发红宝：关闭时用 v-if 卸掉，避免固定层挡点击 -->
+    <view v-if="showRp" class="chat-rp-send-pane open" aria-hidden="false">
       <view class="chat-hero-hd">
-        <view class="chat-rp-cancel" role="button" @click.stop="closeRpSend" @tap.stop="closeRpSend">{{ rpCancelLabel }}</view>
+        <view class="chat-rp-cancel" hover-class="chat-rp-cancel--active" @click="closeRpSend">{{ rpCancelLabel }}</view>
         <view class="chat-hero-title">{{ rpTitleLabel }}</view>
         <view class="chat-hero-spacer" />
       </view>
@@ -1155,7 +1155,13 @@ function openFileMsg(m) {
 
 function goBack() {
   clearActiveChat()
-  uni.navigateBack({ fail: () => uni.switchTab({ url: '/pages/messages/messages' }) })
+  // 聊天页常被 reLaunch 打开，navigateBack 可能无历史；直接回红宝 Tab 最稳
+  uni.switchTab({
+    url: '/pages/messages/messages',
+    fail() {
+      uni.reLaunch({ url: '/pages/messages/messages' })
+    },
+  })
 }
 
 function openMore() {

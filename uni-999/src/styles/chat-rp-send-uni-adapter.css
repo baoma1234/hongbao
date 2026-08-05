@@ -1,9 +1,10 @@
 /* 999 发红宝页：贴在公共 TopBar 下方（对齐 888 top: var(--top-bar-height)） */
 
-.chat-rp-send-pane {
-  display: none !important;
-  pointer-events: none !important;
-  visibility: hidden !important;
+.chat-rp-send-pane,
+.chat-rp-send-pane.open {
+  display: flex !important;
+  pointer-events: auto !important;
+  visibility: visible !important;
   position: fixed !important;
   left: 0 !important;
   right: 0 !important;
@@ -21,12 +22,6 @@
   overflow: hidden !important;
   transform: none !important;
   box-shadow: none !important;
-}
-
-.chat-rp-send-pane.open {
-  display: flex !important;
-  pointer-events: auto !important;
-  visibility: visible !important;
 }
 
 /* uni-text / 输入框基线偏上：统一用 flex 垂直居中 + 正常行高 */
@@ -64,11 +59,11 @@
   position: relative !important;
   z-index: 21 !important;
   width: auto !important;
-  min-width: 56px !important;
+  min-width: 64px !important;
   max-width: none !important;
-  height: 40px !important;
-  min-height: 40px !important;
-  padding: 0 10px !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  padding: 0 12px !important;
   margin: 0 !important;
   border: none !important;
   border-radius: 0 !important;
@@ -87,6 +82,10 @@
   -webkit-tap-highlight-color: transparent;
   box-sizing: border-box !important;
   flex-shrink: 0 !important;
+}
+
+.chat-rp-send-pane .chat-rp-cancel--active {
+  opacity: 0.75;
 }
 
 .chat-rp-send-pane .chat-hero-title {

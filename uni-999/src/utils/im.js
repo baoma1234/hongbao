@@ -10,10 +10,8 @@ const pending = new Map()
 const listeners = new Set()
 let reconnectTimer = null
 let intentionalClose = false
-/** 进行中的连接 Promise，避免并发 imConnect 反复 close/open */
+/** 进行中的连接（含等 OPEN / 等 auth） */
 let connectingPromise = null
-/** 等待鉴权完成的 Promise */
-let authWaiters = []
 
 function nextReqId() {
   reqSeq += 1
@@ -25,46 +23,6 @@ function emit(type, data) {
     try {
       fn(type, data)
     } catch (e) {}
-  })
-}
-
-function rejectAuthWaiters(err) {
-  const list = authWaiters.slice()
-  authWaiters = []
-  list.forEach((w) => {
-    try {
-      w.reject(err)
-    } catch (e) {}
-  })
-}
-
-function resolveAuthWaiters() {
-  const list = authWaiters.slice()
-  authWaiters = []
-  list.forEach((w) => {
-    try {
-      w.resolve(true)
-    } catch (e) {}
-  })
-}
-
-function waitUntilAuthed(timeoutMs = 10000) {
-  if (authed && socketOpen && socketTask) return Promise.resolve(true)
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      authWaiters = authWaiters.filter((w) => w.resolve !== resolve)
-      reject(new Error('WS 鉴权超时'))
-    }, timeoutMs)
-    authWaiters.push({
-      resolve(v) {
-        clearTimeout(timer)
-        resolve(v)
-      },
-      reject(err) {
-        clearTimeout(timer)
-        reject(err)
-      },
-    })
   })
 }
 
@@ -93,80 +51,57 @@ function connectUrl() {
   return base + (base.indexOf('?') >= 0 ? '&' : '?') + q
 }
 
-function canSendNow() {
-  if (!socketTask || !socketOpen) return false
-  // uni SocketTask 部分端有 readyState：0 CONNECTING 1 OPEN 2 CLOSING 3 CLOSED
-  const rs = socketTask.readyState
-  if (rs == null) return true
-  return rs === 1 || rs === 'OPEN'
+function isSocketSendable() {
+  // 只信我们自己的 open 标记。uni H5 上 readyState 有时不可靠，硬查会误判。
+  return !!(socketTask && socketOpen)
 }
 
-function rawSend(packet) {
+function flushPending(err) {
+  pending.forEach((p) => {
+    clearTimeout(p.timer)
+    p.reject(err instanceof Error ? err : new Error(String(err || 'WS 已关闭')))
+  })
+  pending.clear()
+}
+
+/**
+ * 发送；不依赖 success 回调（部分端不回调 success，只靠服务端 ack / fail）
+ */
+function doSend(packet, waitAck) {
   return new Promise((resolve, reject) => {
-    if (!canSendNow()) {
-      reject(new Error('WS 未就绪'))
+    if (!isSocketSendable()) {
+      reject(new Error('WS 未连接'))
       return
+    }
+    const reqId = packet.req_id
+    if (waitAck) {
+      const timer = setTimeout(() => {
+        pending.delete(reqId)
+        reject(new Error('WS 超时: ' + packet.type))
+      }, 12000)
+      pending.set(reqId, { resolve, reject, timer })
     }
     try {
       socketTask.send({
         data: JSON.stringify(packet),
-        success() {
-          resolve(true)
-        },
         fail(err) {
-          reject(new Error((err && err.errMsg) || '发送失败'))
-        },
-      })
-    } catch (e) {
-      reject(e)
-    }
-  })
-}
-
-/**
- * 确保 socket OPEN；业务包默认还要等 auth.ok
- */
-export async function ensureImReady(needAuth = true) {
-  const token = getToken()
-  if (!token) throw new Error('未登录')
-  await imConnect()
-  if (needAuth && !authed) {
-    await waitUntilAuthed()
-  }
-  if (!canSendNow()) throw new Error('WS 未连接')
-  return true
-}
-
-export function imSend(type, data = {}, waitAck = false) {
-  const needAuth = type !== 'auth'
-  return ensureImReady(needAuth).then(() => {
-    return new Promise((resolve, reject) => {
-      if (!canSendNow()) {
-        reject(new Error('WS 未连接'))
-        return
-      }
-      const reqId = nextReqId()
-      const packet = { type, data: data || {}, req_id: reqId }
-      if (waitAck) {
-        const timer = setTimeout(() => {
-          pending.delete(reqId)
-          reject(new Error('WS 超时: ' + type))
-        }, 12000)
-        pending.set(reqId, { resolve, reject, timer })
-      }
-      rawSend(packet)
-        .then(() => {
-          if (!waitAck) resolve(true)
-        })
-        .catch((err) => {
           if (waitAck && pending.has(reqId)) {
             const p = pending.get(reqId)
             clearTimeout(p.timer)
             pending.delete(reqId)
           }
-          reject(err)
-        })
-    })
+          reject(new Error((err && err.errMsg) || '发送失败'))
+        },
+      })
+      if (!waitAck) resolve(true)
+    } catch (e) {
+      if (waitAck && pending.has(reqId)) {
+        const p = pending.get(reqId)
+        clearTimeout(p.timer)
+        pending.delete(reqId)
+      }
+      reject(e)
+    }
   })
 }
 
@@ -191,7 +126,6 @@ function handlePacket(raw) {
   if (packet.type === 'auth.ok') {
     authed = true
     authMeta = packet.data || {}
-    resolveAuthWaiters()
     emit('auth.ok', authMeta)
     return
   }
@@ -206,12 +140,16 @@ function bindSocketHandlers(task, token) {
   task.onOpen(() => {
     if (socketTask !== task) return
     socketOpen = true
-    // 服务端也可能用 query token 直接鉴权；再发一轮 auth 兼容
-    rawSend({
-      type: 'auth',
-      data: { token, device_fp: getDeviceFp() },
-      req_id: nextReqId(),
-    }).catch(() => {})
+    try {
+      task.send({
+        data: JSON.stringify({
+          type: 'auth',
+          data: { token, device_fp: getDeviceFp() },
+          req_id: nextReqId(),
+        }),
+        fail() {},
+      })
+    } catch (e) {}
   })
   task.onMessage((msg) => {
     if (socketTask !== task) return
@@ -222,7 +160,6 @@ function bindSocketHandlers(task, token) {
     socketOpen = false
     authed = false
     emit('socket.error', err)
-    rejectAuthWaiters(new Error((err && err.errMsg) || 'WS 连接失败'))
     scheduleReconnect()
   })
   task.onClose(() => {
@@ -232,111 +169,106 @@ function bindSocketHandlers(task, token) {
     authMeta = {}
     socketTask = null
     emit('socket.close', {})
-    rejectAuthWaiters(new Error('WS 已关闭'))
     if (!intentionalClose) scheduleReconnect()
+  })
+}
+
+function waitEvent(eventType, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      off()
+      reject(new Error('WS 超时'))
+    }, timeoutMs)
+    const off = onImEvent((type) => {
+      if (type === eventType) {
+        clearTimeout(timer)
+        off()
+        resolve(true)
+      }
+    })
+  })
+}
+
+function waitUntil(predicate, timeoutMs, stepMs = 50) {
+  return new Promise((resolve, reject) => {
+    const start = Date.now()
+    const tick = () => {
+      if (predicate()) {
+        resolve(true)
+        return
+      }
+      if (Date.now() - start >= timeoutMs) {
+        reject(new Error('WS 超时'))
+        return
+      }
+      setTimeout(tick, stepMs)
+    }
+    tick()
   })
 }
 
 export function imConnect() {
   const token = getToken()
-  if (!token) {
-    return Promise.reject(new Error('未登录'))
-  }
+  if (!token) return Promise.reject(new Error('未登录'))
   intentionalClose = false
 
-  // 已在线
   if (socketTask && socketOpen && authed) {
     return Promise.resolve(true)
   }
-  // 已在连 / 已 OPEN 等鉴权：复用同一个 Promise
-  if (connectingPromise) {
-    return connectingPromise
-  }
-  // socket 已 OPEN 但还没 auth.ok：只等鉴权，不要重建连接
-  if (socketTask && socketOpen) {
-    connectingPromise = waitUntilAuthed(8000)
-      .then(() => true)
-      .catch(() => {
-        // 宽松：部分环境 query 鉴权后可能不推 auth.ok
-        if (socketTask && socketOpen) {
-          authed = true
-          resolveAuthWaiters()
-          return true
-        }
-        throw new Error('WS 鉴权超时')
-      })
-      .finally(() => {
-        connectingPromise = null
-      })
-    return connectingPromise
-  }
+  if (connectingPromise) return connectingPromise
 
-  // 真正新建连接（若有旧 task 先丢掉）
-  if (socketTask) {
-    const old = socketTask
-    socketTask = null
-    socketOpen = false
-    authed = false
-    try {
-      old.close({})
-    } catch (e) {}
-  }
-
-  connectingPromise = new Promise((resolve, reject) => {
-    let settled = false
-    const finishOk = () => {
-      if (settled) return
-      settled = true
-      resolve(true)
-    }
-    const finishErr = (err) => {
-      if (settled) return
-      settled = true
-      reject(err instanceof Error ? err : new Error(String(err || 'WS 连接失败')))
-    }
-
-    const off = onImEvent((type) => {
-      if (type === 'auth.ok') {
-        off()
-        finishOk()
-      }
-    })
-
-    try {
-      const url = connectUrl()
+  connectingPromise = (async () => {
+    // 已有连接在握手：等 OPEN，禁止 close 重建
+    if (socketTask && !socketOpen) {
+      await waitUntil(() => socketOpen && socketTask, 10000)
+    } else if (!socketTask) {
       const task = uni.connectSocket({
-        url,
+        url: connectUrl(),
         complete() {},
       })
       socketTask = task
       socketOpen = false
       authed = false
       bindSocketHandlers(task, token)
-    } catch (e) {
-      off()
-      finishErr(e)
-      return
+      await waitUntil(() => socketOpen && socketTask, 10000)
     }
 
-    setTimeout(() => {
-      if (settled) return
-      off()
-      // query 鉴权场景：已 OPEN 则宽松成功
-      if (socketTask && socketOpen) {
-        if (!authed) {
+    if (!authed) {
+      try {
+        await waitEvent('auth.ok', 8000)
+      } catch (e) {
+        // query token 鉴权时可能不推 auth.ok：OPEN 即可宽松放行
+        if (socketOpen && socketTask) {
           authed = true
-          resolveAuthWaiters()
+        } else {
+          throw new Error('WS 鉴权超时')
         }
-        finishOk()
-      } else {
-        finishErr(new Error('WS 鉴权超时'))
       }
-    }, 8000)
-  }).finally(() => {
-    connectingPromise = null
-  })
+    }
+    return true
+  })()
+    .catch((err) => {
+      throw err
+    })
+    .finally(() => {
+      connectingPromise = null
+    })
 
   return connectingPromise
+}
+
+export async function ensureImReady() {
+  if (!getToken()) throw new Error('未登录')
+  await imConnect()
+  if (!isSocketSendable()) throw new Error('WS 未连接')
+  return true
+}
+
+export function imSend(type, data = {}, waitAck = false) {
+  return ensureImReady().then(() => {
+    const packet = { type, data: data || {}, req_id: nextReqId() }
+    return doSend(packet, waitAck)
+  })
 }
 
 function scheduleReconnect() {
@@ -355,12 +287,7 @@ export function imDisconnect() {
     reconnectTimer = null
   }
   connectingPromise = null
-  pending.forEach((p) => {
-    clearTimeout(p.timer)
-    p.reject(new Error('WS 已关闭'))
-  })
-  pending.clear()
-  rejectAuthWaiters(new Error('WS 已关闭'))
+  flushPending(new Error('WS 已关闭'))
   authed = false
   socketOpen = false
   if (socketTask) {

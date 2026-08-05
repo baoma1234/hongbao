@@ -48,8 +48,8 @@
 
 .chat-room-page .chat-hero-back,
 .chat-room-page .chat-hero-more {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border: none;
   background: transparent;
   color: #fff !important;
@@ -59,14 +59,19 @@
   padding: 0;
   flex-shrink: 0;
   position: relative;
-  z-index: 5;
+  z-index: 6;
   pointer-events: auto !important;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
 
+.chat-room-page .chat-hero-back--active {
+  opacity: 0.75;
+}
+
 .chat-room-page .chat-hero-back .chat-hero-ico,
 .chat-room-page .chat-hero-back svg,
+.chat-room-page .chat-hero-more .chat-hero-ico,
 .chat-room-page .chat-hero-more svg {
   pointer-events: none !important;
   display: block;
@@ -85,6 +90,9 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   text-align: center;
+  pointer-events: none !important;
+  position: relative;
+  z-index: 1;
 }
 
 .chat-room-page .chat-room-main {
