@@ -1,5 +1,7 @@
 /** 会话 / 消息展示辅助（对齐 888 preview） */
 
+import { assetBase } from './i18n.js'
+
 export function convKey(type, id) {
   return String(type | 0) + ':' + String(id || '')
 }
@@ -114,4 +116,34 @@ export function resolveConvId(item) {
 export function avatarLetter(title) {
   const s = String(title || '?').trim()
   return s ? s.charAt(0) : '?'
+}
+
+/** 对齐 888 publicUrl：补全 /uploads 绝对地址 */
+export function publicUrl(pathOrUrl) {
+  const raw = String(pathOrUrl || '').trim()
+  if (!raw) return ''
+  if (/^https?:\/\//i.test(raw) || /^data:/i.test(raw)) return raw
+  let url = raw
+  if (url.charAt(0) !== '/') {
+    url = '/' + url.replace(/^\.\//, '')
+  }
+  if (typeof location !== 'undefined' && location.origin) {
+    if (url.indexOf('/uploads/') === 0 || url.charAt(0) === '/') {
+      return location.origin + url
+    }
+  }
+  return url
+}
+
+export function defaultAvatarUrl() {
+  try {
+    return assetBase() + 'static/default-avatar.png'
+  } catch (e) {
+    return '/999/static/default-avatar.png'
+  }
+}
+
+/** 对齐 888 avatarSrc：空头像也回默认图，避免空白块 */
+export function avatarSrc(url) {
+  return publicUrl(url) || defaultAvatarUrl()
 }

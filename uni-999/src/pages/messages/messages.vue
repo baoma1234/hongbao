@@ -78,8 +78,7 @@
                   @longpress="onLongPress(item)"
                 >
                   <view class="chat-avatar" :class="{ group: (item.conversation_type | 0) === 2, admin: !!item.is_im_admin }">
-                    <image v-if="item.avatar" :src="item.avatar" mode="aspectFill" />
-                    <text v-else>{{ avatarLetter(displayTitle(item)) }}</text>
+                    <image :src="avatarSrc(item.avatar)" mode="aspectFill" />
                   </view>
                   <view class="chat-conv-body">
                     <view class="chat-conv-title">
@@ -117,8 +116,7 @@
                   >
                     <view v-if="!g.is_member && (idx === 0 || g.recommend_tag)" class="tag">{{ g.recommend_tag || '新建社群' }}</view>
                     <view class="icon-box">
-                      <image v-if="g.avatar" :src="g.avatar" mode="aspectFill" />
-                      <text v-else>{{ groupEmoji(g.name) }}</text>
+                      <image :src="avatarSrc(g.avatar)" mode="aspectFill" />
                     </view>
                     <view class="title">{{ g.name || ('#' + (g.id || g.group_id)) }}</view>
                     <view class="subtitle">{{ groupMembersText(g) }}</view>
@@ -146,8 +144,7 @@
                     <view v-for="g in myGroups" :key="g.id" class="chat-my-group-item" @click="openGroup(g)">
                       <view class="chat-my-group-main">
                         <view class="chat-my-group-avatar">
-                          <image v-if="g.avatar" :src="g.avatar" mode="aspectFill" />
-                          <text v-else>{{ avatarLetter(g.name || '') }}</text>
+                          <image :src="avatarSrc(g.avatar)" mode="aspectFill" />
                         </view>
                         <text class="chat-my-group-name">{{ g.name || ('#' + g.id) }}</text>
                       </view>
@@ -169,8 +166,7 @@
                       @click="openFriendChat(f)"
                     >
                       <view class="chat-feed-avatar">
-                        <image v-if="f.avatar" :src="f.avatar" mode="aspectFill" />
-                        <text v-else>{{ avatarLetter(friendName(f)) }}</text>
+                        <image :src="avatarSrc(f.avatar)" mode="aspectFill" />
                         <view class="chat-feed-online-dot" :class="{ off: !f.online }" />
                       </view>
                       <view class="chat-feed-body">
@@ -199,8 +195,7 @@
                 <view class="chat-notice-feed">
                   <view v-for="n in notices" :key="n.id || n.createtime" class="chat-notice-card" @click="openNotice(n)">
                     <view class="chat-notice-hd">
-                      <image v-if="n.author_avatar" class="chat-notice-avatar" :src="n.author_avatar" mode="aspectFill" />
-                      <view v-else class="chat-notice-avatar chat-notice-avatar-fallback">📢</view>
+                      <image class="chat-notice-avatar" :src="avatarSrc(n.author_avatar)" mode="aspectFill" />
                       <view class="chat-notice-meta">
                         <view class="chat-notice-name-row">
                           <text class="chat-notice-name">{{ n.author_name || '红宝官方公告' }}</text>
@@ -419,6 +414,7 @@ import '../../styles/chat-uni-adapter.css'
 import { apiRequest, fetchProfile, getToken } from '../../utils/auth.js'
 import {
   avatarLetter,
+  avatarSrc,
   convKey,
   displayTitle,
   formatConvTime,

@@ -1,5 +1,5 @@
 <template>
-  <view class="page">
+  <view class="chat-room-page page">
     <view class="nav">
       <view class="nav-ico-btn nav-back" @click="goBack">
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
@@ -14,60 +14,69 @@
       </view>
     </view>
 
-    <scroll-view
-      scroll-y
-      class="msgs"
-      :scroll-into-view="scrollInto"
-      scroll-with-animation
-      @click="showEmoji = false; showSticker = false"
-    >
-      <view
-        v-for="m in messages"
-        :id="'m' + msgId(m)"
-        :key="msgId(m)"
-        class="row"
-        :class="{ mine: isMine(m), system: isSysRow(m) }"
+    <view class="chat-room-pane">
+      <scroll-view
+        scroll-y
+        class="msgs chat-msg-scroll"
+        :scroll-into-view="scrollInto"
+        scroll-with-animation
+        @click="showEmoji = false; showSticker = false"
       >
-        <view v-if="isSysRow(m)" class="sys">{{ sysText(m) }}</view>
-        <view v-else class="msg-wrap">
-          <text v-if="showSender(m)" class="sender">{{ senderName(m) }}</text>
-          <view
-            v-if="isRp(m)"
-            class="rp-card"
-            :class="{ faded: rpFaded(m), grabbed: rpGrabbed(m) }"
-            @click="onRpTap(m)"
-            @longpress="onMsgLongPress(m)"
-          >
-            <view class="rp-ico">红</view>
-            <view class="rp-main">
-              <text class="rp-bless">{{ rpBlessing(m) }}</text>
-              <text class="rp-sub">{{ rpSub(m) }}</text>
+        <view
+          v-for="m in messages"
+          :id="'m' + msgId(m)"
+          :key="msgId(m)"
+          class="chat-msg-row"
+          :class="{ me: isMine(m), system: isSysRow(m), 'group-msg': showSender(m) }"
+        >
+          <view v-if="isSysRow(m)" class="sys-notice">
+            <view class="notice-inner">{{ sysText(m) }}</view>
+          </view>
+          <template v-else>
+            <view class="chat-msg-avatar locked">
+              <image :src="msgAvatar(m)" mode="aspectFill" />
             </view>
-          </view>
-          <view v-else-if="isSticker(m)" class="bubble sticker" @longpress="onMsgLongPress(m)">
-            <image class="sticker-img" :src="stickerUrl(m)" mode="widthFix" />
-            <text class="meta-time">{{ msgTime(m) }}</text>
-          </view>
-          <view v-else-if="isImage(m)" class="bubble media" @longpress="onMsgLongPress(m)">
-            <image class="media-img" :src="mediaUrl(m)" mode="widthFix" @click.stop="previewImageMsg(m)" />
-            <text class="meta-time">{{ msgTime(m) }}</text>
-          </view>
-          <view v-else-if="isVideo(m)" class="bubble media" @longpress="onMsgLongPress(m)">
-            <video class="media-video" :src="mediaUrl(m)" controls playsinline />
-            <text class="meta-time">{{ msgTime(m) }}</text>
-          </view>
-          <view v-else-if="isFile(m)" class="bubble media file" @longpress="onMsgLongPress(m)" @click="openFileMsg(m)">
-            <text class="file-name">{{ fileName(m) }}</text>
-            <text class="file-ext">{{ fileMeta(m) }}</text>
-            <text class="meta-time">{{ msgTime(m) }}</text>
-          </view>
-          <view v-else class="bubble" @longpress="onMsgLongPress(m)">
-            <text class="content">{{ msgText(m) }}</text>
-            <text class="meta-time">{{ msgTime(m) }}</text>
-          </view>
+            <view class="chat-msg-main">
+              <view v-if="showSender(m)" class="chat-msg-nick locked">{{ senderName(m) }}</view>
+              <view
+                v-if="isRp(m)"
+                class="chat-rp-card"
+                :class="{ faded: rpFaded(m), grabbed: rpGrabbed(m) }"
+                @click="onRpTap(m)"
+                @longpress="onMsgLongPress(m)"
+              >
+                <view class="rp-ico">红</view>
+                <view class="rp-main">
+                  <text class="rp-bless">{{ rpBlessing(m) }}</text>
+                  <text class="rp-sub">{{ rpSub(m) }}</text>
+                </view>
+              </view>
+              <view v-else-if="isSticker(m)" class="chat-bubble sticker" @longpress="onMsgLongPress(m)">
+                <image class="chat-sticker-img" :src="stickerUrl(m)" mode="widthFix" />
+                <text class="meta">{{ msgTime(m) }}</text>
+              </view>
+              <view v-else-if="isImage(m)" class="chat-bubble media" @longpress="onMsgLongPress(m)">
+                <image class="chat-media-img" :src="mediaUrl(m)" mode="widthFix" @click.stop="previewImageMsg(m)" />
+                <text class="meta">{{ msgTime(m) }}</text>
+              </view>
+              <view v-else-if="isVideo(m)" class="chat-bubble media" @longpress="onMsgLongPress(m)">
+                <video class="chat-media-video" :src="mediaUrl(m)" controls playsinline />
+                <text class="meta">{{ msgTime(m) }}</text>
+              </view>
+              <view v-else-if="isFile(m)" class="chat-bubble media file" @longpress="onMsgLongPress(m)" @click="openFileMsg(m)">
+                <text class="file-name">{{ fileName(m) }}</text>
+                <text class="file-ext">{{ fileMeta(m) }}</text>
+                <text class="meta">{{ msgTime(m) }}</text>
+              </view>
+              <view v-else class="chat-bubble text-msg" @longpress="onMsgLongPress(m)">
+                <text class="content">{{ msgText(m) }}</text>
+                <text class="meta">{{ msgTime(m) }}</text>
+              </view>
+            </view>
+          </template>
         </view>
-      </view>
-    </scroll-view>
+      </scroll-view>
+    </view>
 
     <view class="emoji-panel" v-if="showEmoji">
       <scroll-view scroll-y class="emoji-scroll">
@@ -179,12 +188,10 @@
         <scroll-view scroll-y class="detail-list">
           <view v-for="r in detailRecords" :key="r.id || r.user_id" class="d-row">
             <image
-              v-if="r.avatar"
               class="d-av"
-              :src="r.avatar"
+              :src="avatarSrc(r.avatar)"
               mode="aspectFill"
             />
-            <view v-else class="d-av d-av-fb">{{ (r.nickname || '?').charAt(0) }}</view>
             <view class="d-main">
               <text class="d-nick">{{ r.nickname || ('用户' + (r.user_id || '')) }}</text>
               <text class="d-time" v-if="r.createtime">{{ formatRpTime(r.createtime) }}</text>
@@ -221,10 +228,13 @@
 import { computed, reactive, ref } from 'vue'
 import { onLoad, onUnload } from '@dcloudio/uni-app'
 import GrabSlider from '../../components/GrabSlider.vue'
+import '../../styles/chat.bundle.css'
+import '../../styles/chat-room-uni-adapter.css'
 import { apiRequest, fetchProfile, getToken } from '../../utils/auth.js'
 import { getApiBase } from '../../utils/config.js'
 import { assetBase } from '../../utils/i18n.js'
 import {
+  avatarSrc,
   isRecalled,
   isSystemMsg,
   msgExtra,
@@ -254,6 +264,8 @@ const text = ref('')
 const messages = ref([])
 const scrollInto = ref('')
 const meta = ref({ type: 1, peer: 0, group: 0, conversationId: '' })
+const myAvatar = ref('')
+const myUserId = ref(0)
 const showRp = ref(false)
 const showEmoji = ref(false)
 const showSticker = ref(false)
@@ -361,8 +373,17 @@ function msgId(m) {
   return m.msg_id || m.id || m.createtime || Math.random()
 }
 function isMine(m) {
-  return (m.from_user_id | 0) === (myId | 0)
+  const uid = (myUserId.value | 0) || (myId | 0)
+  if (uid && m && (m.from_user_id | 0) === uid) return true
+  return !!(m && m.is_mine)
 }
+
+function msgAvatar(m) {
+  if (isMine(m)) return avatarSrc(myAvatar.value)
+  const fu = (m && m.from_user) || {}
+  return avatarSrc((m && (m.from_avatar || fu.avatar)) || '')
+}
+
 function isRp(m) {
   return msgType(m) === 2
 }
@@ -819,6 +840,8 @@ async function ensureUser() {
   try {
     const p = await fetchProfile()
     myId = (p && (p.user_id || p.id)) | 0
+    myUserId.value = myId
+    myAvatar.value = (p && (p.avatar_url || p.avatar)) || ''
   } catch (e) {}
 }
 
@@ -1114,7 +1137,7 @@ onUnload(() => {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: #f6f1ea;
+  background: #ededed;
 }
 .nav {
   display: flex;
@@ -1150,124 +1173,50 @@ onUnload(() => {
 .nav-more {
   width: 52rpx;
 }
-.msgs { flex: 1; padding: 20rpx 24rpx; box-sizing: border-box; }
-.row { display: flex; margin: 14rpx 0; }
-.row.mine { justify-content: flex-end; }
-.row.system { justify-content: center; }
-.msg-wrap {
-  max-width: 78%;
-}
-.row.mine .msg-wrap {
+/* 消息气泡/头像：chat.bundle + chat-room-uni-adapter */
+.chat-rp-card {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-}
-.sender {
-  display: block;
-  font-size: 20rpx;
-  color: #9a8574;
-  margin: 0 8rpx 6rpx;
-}
-.sys {
-  max-width: 90%;
-  font-size: 22rpx;
-  color: #9a8574;
-  background: rgba(255, 255, 255, 0.65);
-  padding: 8rpx 18rpx;
-  border-radius: 999rpx;
-}
-.bubble {
-  max-width: 75%;
-  padding: 16rpx 20rpx;
-  background: #fff;
-  border-radius: 16rpx;
-  font-size: 28rpx;
-  color: #2a1f18;
-  box-shadow: 0 4rpx 12rpx rgba(40, 20, 10, 0.04);
-}
-.row.mine .bubble {
-  background: #ffe8e6;
-  color: #c61114;
-}
-.bubble.sticker {
-  background: transparent;
-  box-shadow: none;
-  padding: 0;
-  max-width: 260rpx;
-}
-.bubble.media {
-  background: #fff;
-}
-.media-img {
-  width: 340rpx;
-  max-height: 420rpx;
-  border-radius: 12rpx;
-}
-.media-video {
-  width: 360rpx;
-  height: 220rpx;
-  border-radius: 12rpx;
-  background: #000;
-}
-.bubble.file {
-  min-width: 280rpx;
-  border: 1px solid rgba(180, 140, 100, 0.22);
-}
-.file-name {
-  display: block;
-  font-size: 26rpx;
-  color: #2a1f18;
-  font-weight: 700;
-}
-.file-ext {
-  display: block;
-  margin-top: 6rpx;
-  font-size: 20rpx;
-  color: #8a7a6e;
-}
-.sticker-img {
-  width: 220rpx;
-  max-height: 220rpx;
-  border-radius: 14rpx;
-  background: #fff;
-}
-.meta-time {
-  display: block;
-  margin-top: 8rpx;
-  font-size: 20rpx;
-  color: #9a8574;
-  text-align: right;
-}
-.row.mine .meta-time {
-  color: #b35a60;
-}
-.rp-card {
-  display: flex;
-  gap: 16rpx;
-  width: 420rpx;
-  padding: 20rpx;
-  border-radius: 16rpx;
+  gap: 10px;
+  width: 220px;
+  max-width: 70vw;
+  padding: 12px;
+  border-radius: 10px;
   background: linear-gradient(135deg, #e94b3c 0%, #c61114 58%, #a50f12 100%);
   color: #fff;
-  box-shadow: 0 8rpx 18rpx rgba(198, 17, 20, 0.22);
+  box-shadow: 0 6px 14px rgba(198, 17, 20, 0.22);
+  box-sizing: border-box;
 }
-.rp-card.faded, .rp-card.grabbed {
+.chat-rp-card.faded,
+.chat-rp-card.grabbed {
   opacity: 0.72;
   filter: grayscale(0.2);
 }
-.rp-ico {
-  width: 64rpx;
-  height: 64rpx;
-  border-radius: 14rpx;
+.chat-rp-card .rp-ico {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 800;
+  flex-shrink: 0;
 }
-.rp-main { flex: 1; min-width: 0; }
-.rp-bless { display: block; font-size: 28rpx; font-weight: 800; }
-.rp-sub { display: block; margin-top: 6rpx; font-size: 22rpx; opacity: 0.9; }
+.chat-rp-card .rp-main { flex: 1; min-width: 0; }
+.chat-rp-card .rp-bless { display: block; font-size: 15px; font-weight: 800; color: #fff; }
+.chat-rp-card .rp-sub { display: block; margin-top: 4px; font-size: 12px; opacity: 0.9; color: #fff; }
+.file-name {
+  display: block;
+  font-size: 14px;
+  color: #2a1f18;
+  font-weight: 700;
+}
+.file-ext {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #8a7a6e;
+}
 .emoji-panel {
   height: 360rpx;
   background: #fffaf5;

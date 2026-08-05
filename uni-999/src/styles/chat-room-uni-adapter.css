@@ -1,0 +1,121 @@
+/* uni-999 会话页：套用 chat.bundle 房间气泡时的 uni-image / 外壳适配 */
+.chat-room-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  background: #ededed;
+  overflow: hidden;
+}
+
+.chat-room-page .chat-room-pane {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: #ededed;
+}
+
+.chat-room-page .chat-msg-scroll {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  padding: 12px 12px 8px;
+  box-sizing: border-box;
+}
+
+.chat-room-page .chat-msg-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 12px;
+  box-sizing: border-box;
+}
+
+.chat-room-page .chat-msg-row.me {
+  flex-direction: row-reverse;
+  justify-content: flex-start;
+}
+
+.chat-room-page .chat-msg-row.system {
+  justify-content: center;
+}
+
+.chat-room-page .chat-msg-avatar {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 4px !important;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  background: #e8e8e8;
+}
+
+.chat-room-page .chat-msg-avatar uni-image,
+.chat-room-page .chat-msg-avatar image,
+.chat-room-page .chat-msg-avatar .uni-image {
+  width: 100% !important;
+  height: 100% !important;
+  display: block !important;
+}
+
+.chat-room-page .chat-msg-avatar uni-image img,
+.chat-room-page .chat-msg-avatar img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
+}
+
+.chat-room-page .chat-msg-main {
+  max-width: min(70%, 480px);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.chat-room-page .chat-msg-row.me .chat-msg-main {
+  align-items: flex-end;
+}
+
+.chat-room-page .chat-bubble {
+  max-width: 100%;
+}
+
+.chat-room-page .chat-bubble .meta,
+.chat-room-page .chat-bubble .meta text {
+  color: inherit;
+  opacity: 0.65;
+  font-size: 10px;
+}
+
+.chat-room-page .chat-msg-row.me .chat-bubble .meta,
+.chat-room-page .chat-msg-row.me .chat-bubble .meta text {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.chat-room-page .chat-bubble text.content {
+  color: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.chat-room-page .chat-sticker-img,
+.chat-room-page .chat-media-img {
+  display: block;
+  max-width: 180px;
+  border-radius: 8px;
+}
+
+.chat-room-page .chat-media-video {
+  width: 200px;
+  max-width: 70vw;
+  height: 140px;
+  border-radius: 8px;
+  background: #000;
+}
