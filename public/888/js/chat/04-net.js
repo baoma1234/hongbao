@@ -67,6 +67,33 @@
       case 'group.message':
         if (packet.data && packet.data.message) onIncomingMessage(packet.data.message);
         break;
+      case 'redpacket.relay_next':
+        (function () {
+          var d = packet.data || {};
+          var msg = d.message;
+          if (!msg) {
+            if (typeof showFanshubToast === 'function') {
+              showFanshubToast('🧧 接龙下一包已发出', 'info', 2600);
+            }
+            try { playIncomingBeep(); } catch (eBeep) {}
+            return;
+          }
+          var mid = msg.msg_id || '';
+          var idn = msg.id | 0;
+          var already = false;
+          if (state.messages && state.messages.length) {
+            for (var i = 0; i < state.messages.length; i++) {
+              var m = state.messages[i];
+              if ((mid && m.msg_id === mid) || (idn && (m.id | 0) === idn)) {
+                already = true;
+                break;
+              }
+            }
+          }
+          // group.message 已处理则跳过；否则用专用事件补漏
+          if (!already) onIncomingMessage(msg);
+        })();
+        break;
       case 'message.recalled':
         if (packet.data && packet.data.message) applyRecalledMessage(packet.data.message);
         break;

@@ -2931,20 +2931,28 @@
   }
 
   function notifyIncomingMessage(msg) {
-    if (!msg || ((msg.from_user_id | 0) === (state.userId | 0))) return;
+    if (!msg) return;
+    var ex = msg.extra || {};
+    if (typeof ex === 'string') {
+      try { ex = JSON.parse(ex) || {}; } catch (eEx) { ex = {}; }
+    }
+    var relayAuto = !!(ex.relay_auto | 0);
+    var fromSelf = ((msg.from_user_id | 0) === (state.userId | 0));
+    // 普通自发消息不提醒；接龙系统续发（名义为自己）仍要提醒
+    if (fromSelf && !relayAuto) return;
     var type = msg.conversation_type | 0;
     var id = type === 2 ? (msg.group_id || msg.conversation_id) : msg.conversation_id;
     var viewing = !!(state.room && state.room.type === type && String(state.room.id) === String(id));
     playIncomingBeep();
-    // 正在看该会话：气泡已出现，不再弹 toast
-    if (viewing) return;
     var mtype = msg.msg_type | 0;
-    var isRp = mtype === 2;
+    var isRp = mtype === 2 || relayAuto;
     var isTf = mtype === 8;
+    // 正在看该会话：普通聊天不弹 toast；红包/接龙续发仍弹，避免「下一包无感」
+    if (viewing && !isRp) return;
     var prev = '';
     try { prev = previewText(msg) || ''; } catch (e0) { prev = msg.content || ''; }
     var tip = isRp
-      ? ('🧧 ' + (prev || '收到红包'))
+      ? (relayAuto ? ('🧧 接龙下一包 ' + (prev || '红宝接龙')) : ('🧧 ' + (prev || '收到红包')))
       : (isTf ? ('💸 ' + (prev || '收到转账')) : ('💬 ' + (prev || '新消息')));
     // 节流：1.2s 内最多一条 toast，避免刷屏
     var now = Date.now();
@@ -2971,12 +2979,18 @@
     upsertListFromMessage(msg);
     var type = msg.conversation_type | 0;
     var id = type === 2 ? (msg.group_id || msg.conversation_id) : msg.conversation_id;
+    var ex = msg.extra || {};
+    if (typeof ex === 'string') {
+      try { ex = JSON.parse(ex) || {}; } catch (eEx2) { ex = {}; }
+    }
+    var relayAuto = !!(ex.relay_auto | 0);
     var fromOther = (msg.from_user_id | 0) !== (state.userId | 0);
+    var shouldNotify = fromOther || relayAuto;
     if (state.room && state.room.type === type && String(state.room.id) === String(id)) {
       appendMessage(msg);
       markRead(type, id, msg.id);
-      if (fromOther) notifyIncomingMessage(msg);
-    } else if (fromOther) {
+      if (shouldNotify) notifyIncomingMessage(msg);
+    } else if (shouldNotify) {
       bumpUnread(type, id, msg.id);
       notifyIncomingMessage(msg);
       scheduleUnreadSync();
@@ -5902,6 +5916,33 @@
       case 'group.message':
         if (packet.data && packet.data.message) onIncomingMessage(packet.data.message);
         break;
+      case 'redpacket.relay_next':
+        (function () {
+          var d = packet.data || {};
+          var msg = d.message;
+          if (!msg) {
+            if (typeof showFanshubToast === 'function') {
+              showFanshubToast('🧧 接龙下一包已发出', 'info', 2600);
+            }
+            try { playIncomingBeep(); } catch (eBeep) {}
+            return;
+          }
+          var mid = msg.msg_id || '';
+          var idn = msg.id | 0;
+          var already = false;
+          if (state.messages && state.messages.length) {
+            for (var i = 0; i < state.messages.length; i++) {
+              var m = state.messages[i];
+              if ((mid && m.msg_id === mid) || (idn && (m.id | 0) === idn)) {
+                already = true;
+                break;
+              }
+            }
+          }
+          // group.message 已处理则跳过；否则用专用事件补漏
+          if (!already) onIncomingMessage(msg);
+        })();
+        break;
       case 'message.recalled':
         if (packet.data && packet.data.message) applyRecalledMessage(packet.data.message);
         break;
@@ -8247,10 +8288,13 @@
           showFanshubToast(chatT('chat_friend_req_incoming_toast', { name: fu.nickname || ('ID' + ((packet.data && packet.data.from_user_id) || '')) }), 'info');
         }
       }).catch(function () {});
-    } else if (packet.type === 'friend.accepted' || packet.type === 'friend.rejected') {
+    } else if (packet.type === 'friend.accepted' || packet.type === 'friend.rejected' || packet.type === 'friend.cancelled') {
       refreshFriendRequests(true).then(function () {
         if ($('chatFriendReqPane') && $('chatFriendReqPane').classList.contains('open')) {
           renderFriendReqList();
+        }
+        if (packet.type === 'friend.cancelled' && typeof showFanshubToast === 'function') {
+          showFanshubToast(chatT('chat_friend_req_status_cancelled') || '好友申请已取消', 'info');
         }
       }).catch(function () {});
       refreshList().catch(function () {});

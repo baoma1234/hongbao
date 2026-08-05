@@ -1025,9 +1025,14 @@ class MessageRouter
         $result = $this->contacts->rejectRequest($uid, $requestId);
         $this->send($connection, 'friend.rejected', $result, $reqId);
         $peerId = (int)($result['peer_user_id'] ?? 0);
-        // 通知申请人被拒绝（取消不通知对方）
-        if ($peerId > 0 && ($result['status'] ?? '') === 'rejected') {
-            $this->pushToUser($peerId, 'friend.rejected', $result);
+        // 拒绝 → 通知申请人；取消 → 通知被申请人（避免对方打开时才发现「已取消」）
+        if ($peerId > 0) {
+            $st = (string)($result['status'] ?? '');
+            if ($st === 'rejected') {
+                $this->pushToUser($peerId, 'friend.rejected', $result);
+            } elseif ($st === 'cancelled') {
+                $this->pushToUser($peerId, 'friend.cancelled', $result);
+            }
         }
     }
 

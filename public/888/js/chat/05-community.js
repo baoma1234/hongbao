@@ -880,10 +880,13 @@
           showFanshubToast(chatT('chat_friend_req_incoming_toast', { name: fu.nickname || ('ID' + ((packet.data && packet.data.from_user_id) || '')) }), 'info');
         }
       }).catch(function () {});
-    } else if (packet.type === 'friend.accepted' || packet.type === 'friend.rejected') {
+    } else if (packet.type === 'friend.accepted' || packet.type === 'friend.rejected' || packet.type === 'friend.cancelled') {
       refreshFriendRequests(true).then(function () {
         if ($('chatFriendReqPane') && $('chatFriendReqPane').classList.contains('open')) {
           renderFriendReqList();
+        }
+        if (packet.type === 'friend.cancelled' && typeof showFanshubToast === 'function') {
+          showFanshubToast(chatT('chat_friend_req_status_cancelled') || '好友申请已取消', 'info');
         }
       }).catch(function () {});
       refreshList().catch(function () {});

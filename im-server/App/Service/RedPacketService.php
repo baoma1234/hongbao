@@ -436,6 +436,10 @@ class RedPacketService
             'expiretime'     => $expireAt,
             'proof_type'     => in_array($packetType, [2, 3, 5], true) ? 'tron' : '',
         ];
+        // 接龙续发：名义发包人=最少者，前端仍需对「自己」弹出下一包提醒
+        if (!empty($params['robot_relay']) || ($packetType === 5 && !empty($params['robot_send']))) {
+            $extra['relay_auto'] = 1;
+        }
         if ($scopeType === 2) {
             try {
                 $msg = $this->messages->sendGroup($fromUserId, $groupId, '[红包]' . $blessing, 2, $extra);
@@ -1858,11 +1862,24 @@ class RedPacketService
                     try {
                         $uids = $this->groups->pushTargetUserIds($groupId);
                         if ($uids) {
+                            // cron/无 localDeliver 时 toUsers 会走 toUsersExternal；WS 进程则本机+跨进程
                             \Im\Support\PushBus::toUsers($uids, 'group.message', ['message' => $msg]);
+                            // 再发专用事件，避免前端把「自己名义续发」当成自发消息静默
+                            \Im\Support\PushBus::toUsers($uids, 'redpacket.relay_next', [
+                                'message'   => $msg,
+                                'packet_id' => (int)($result['packet_id'] ?? 0),
+                                'group_id'  => $groupId,
+                                'from_user_id' => $senderUid,
+                                'relay_auto' => 1,
+                            ]);
+                        } else {
+                            error_log('[RP_RELAY] push skip: no online targets group=' . $groupId . ' from_packet=' . $packetId);
                         }
                     } catch (\Throwable $e) {
                         error_log('[RP_RELAY] push fail group=' . $groupId . ' ' . $e->getMessage());
                     }
+                } else {
+                    error_log('[RP_RELAY] next round sent but message empty group=' . $groupId . ' from_packet=' . $packetId);
                 }
                 error_log(sprintf(
                     '[RP_RELAY] next round sent group=%d amount=%.2f count=%d worst_sender=%d from_packet=%d',
