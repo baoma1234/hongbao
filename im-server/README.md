@@ -133,13 +133,14 @@ cd scripts && ./restart-all.sh   # Windows: .\restart-all.ps1
 - [ ] 防火墙或 Nginx 反代 7272、7273
 - [ ] Redis / MySQL 与 `.env` 一致
 
-## 推送策略（一期）
+## 推送策略（万人群）
 
-群消息 / 红包更新使用 `GroupService::pushTargetUserIds`：
+群消息 / 红包 / 群事件优先 `PushBus::toGroup($gid, ...)`：
 
-1. 优先：正在看该群（`group.view.*`）且仍在线的用户  
-2. 否则：群内当前在线成员  
-3. **已移除**：online 为空时推全员 ≤200 的兜底  
+1. 跨进程只传 `group_id + payload`（不传万级 uid 列表）
+2. 各 Worker 本机用 `ConnMap::filterLocalGroupMembers`（`SISMEMBER g:{gid}:mset`）投递
+3. 仍覆盖「在线但未进房」的成员（不是只推观群集合）
+4. 旧路径 `pushTargetUserIds` / `max_push_online` 仅用于未读等非频道场景
 
 ## HTTP 接口摘要
 
