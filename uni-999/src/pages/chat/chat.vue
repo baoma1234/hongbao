@@ -141,22 +141,26 @@
           </view>
 
           <view class="chat-attach-panel" :class="{ open: showAttach }">
-            <view class="chat-attach-item" @click="onAttachPick('image')">
+            <view v-if="canCap('image')" class="chat-attach-item" @click="onAttachPick('image')">
               <text class="chat-attach-icon">🖼️</text>
               <text>图片</text>
             </view>
-            <view class="chat-attach-item" @click="onAttachPick('video')">
+            <view v-if="canCap('video')" class="chat-attach-item" @click="onAttachPick('video')">
               <text class="chat-attach-icon">🎬</text>
               <text>视频</text>
             </view>
-            <view class="chat-attach-item" @click="onAttachPick('rp')">
+            <view v-if="canCap('file')" class="chat-attach-item" @click="onAttachPick('file')">
+              <text class="chat-attach-icon">📎</text>
+              <text>文件</text>
+            </view>
+            <view v-if="canCap('rp')" class="chat-attach-item" @click="onAttachPick('rp')">
               <text class="chat-attach-icon">🧧</text>
               <text>红包</text>
             </view>
           </view>
 
-          <view class="chat-composer chat-footer">
-            <view class="chat-tool-icon" @click="toggleEmoji">
+          <view class="chat-composer chat-footer" :class="{ 'is-muted': composerLocked }">
+            <view v-if="canCap('emoji')" class="chat-tool-icon" @click="toggleEmoji">
               <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8">
                 <circle cx="12" cy="12" r="10" />
                 <path d="M8 14s1.5 2 4 2 4-2 4-2" />
@@ -169,16 +173,17 @@
               v-model="text"
               confirm-type="send"
               maxlength="2000"
-              placeholder="输入消息…"
+              :disabled="composerLocked || !canCap('text')"
+              :placeholder="composerPlaceholder"
               @confirm="sendText"
               @focus="onInputFocus"
             />
-            <view class="btn-plus" :class="{ active: showAttach }" @click="toggleAttach">
+            <view v-if="attachAllowed" class="btn-plus" :class="{ active: showAttach }" @click="toggleAttach">
               <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
                 <path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
               </svg>
             </view>
-            <view class="chat-send-btn" @click="sendText">发送</view>
+            <view class="chat-send-btn" :class="{ disabled: composerLocked || !canCap('text') }" @click="sendText">发送</view>
           </view>
         </view>
       </view>
@@ -217,6 +222,7 @@
                   type="digit"
                   v-model="rpForm.total_amount"
                   :placeholder="rpAmountPh"
+                  :disabled="amountReadonly"
                 />
               </view>
             </view>
@@ -227,6 +233,15 @@
                 <view
                   v-for="n in mineCountOptions"
                   :key="'c' + n"
+                  class="chat-rp-count-btn"
+                  :class="{ active: Number(rpForm.total_count) === n }"
+                  @click="rpForm.total_count = String(n)"
+                >{{ n }}</view>
+              </view>
+              <view v-else-if="rpCountOptions.length <= 8" class="chat-rp-count-tabs">
+                <view
+                  v-for="n in rpCountOptions"
+                  :key="'rc' + n"
                   class="chat-rp-count-btn"
                   :class="{ active: Number(rpForm.total_count) === n }"
                   @click="rpForm.total_count = String(n)"
@@ -300,6 +315,7 @@
             · {{ (detail.packet && detail.packet.total_amount) || '-' }} 红宝
             / {{ (detail.packet && detail.packet.total_count) || '-' }} 个
           </text>
+          <text class="d-mine-sum" v-if="mineSettleTip">{{ mineSettleTip }}</text>
           <text class="d-fair-tip" v-if="detailFairTip">{{ detailFairTip }}</text>
           <button v-if="canFairVerify" class="d-fair-btn" @click="openFairVerify">查询验证</button>
         </view>
@@ -308,11 +324,13 @@
             <image class="d-av" :src="avatarSrc(r.avatar)" mode="aspectFill" />
             <view class="d-main">
               <text class="d-nick">{{ r.nickname || ('用户' + (r.user_id || '')) }}</text>
+              <text class="d-tags" v-if="recordTags(r)">{{ recordTags(r) }}</text>
               <text class="d-time" v-if="r.createtime">{{ formatRpTime(r.createtime) }}</text>
             </view>
             <text class="d-right">{{ formatAmt(r.amount) }}</text>
           </view>
           <view v-if="!detailRecords.length" class="empty">{{ claimsEmptyTip }}</view>
+          <view v-else-if="othersHiddenTip" class="empty">{{ othersHiddenTip }}</view>
         </scroll-view>
         <button v-if="canGrabDetail" class="btn-uid-submit" :disabled="grabbing" @click="grabFromDetail">
           {{ grabbing ? '领取中…' : '开红包' }}
@@ -335,7 +353,7 @@
 
 <script setup>
 import { computed, nextTick, reactive, ref } from 'vue'
-import { onLoad, onUnload } from '@dcloudio/uni-app'
+import { onLoad, onShow, onUnload } from '@dcloudio/uni-app'
 import GrabSlider from '../../components/GrabSlider.vue'
 import TopBar from '../../components/TopBar.vue'
 import '../../styles/chat.bundle.css'
@@ -358,6 +376,8 @@ import { COMMON_EMOJIS } from '../../utils/emoji.js'
 import { setInboxMyId, clearInboxUnread } from '../../utils/im-inbox.js'
 import { loadWalletBootstrap, money } from '../../utils/wallet.js'
 import {
+  bindForegroundResume,
+  fetchGroupInfo,
   grabRedPacket,
   imConnect,
   imSend,
@@ -366,6 +386,7 @@ import {
   onImEvent,
   recallMessage,
   redPacketDetail,
+  resumeFromBackground,
   sendRedPacket,
   setPeerRemark,
 } from '../../utils/im.js'
@@ -397,9 +418,11 @@ const canGrabDetail = ref(false)
 const grabSliderRef = ref(null)
 const emojis = COMMON_EMOJIS
 const stickerItems = ref([])
+const groupMeta = ref(null)
 let myId = 0
 let off = null
 let activePacketId = 0
+let roomAlive = false
 
 const isPrivate = computed(() => (meta.value.type | 0) === 1)
 const locale = localeState()
@@ -410,6 +433,54 @@ function rpT(key, fallback) {
   void copyTick.value
   return tt(key, fallback)
 }
+
+const groupPolicy = computed(() => {
+  const m = groupMeta.value || {}
+  return m.policy || {}
+})
+
+const forbidModes = computed(() => {
+  const m = groupMeta.value || {}
+  return m.forbid_modes || (groupPolicy.value && groupPolicy.value.forbid_modes) || {}
+})
+
+function canCap(cap) {
+  if (isPrivate.value) return true
+  const pol = groupPolicy.value || {}
+  const key = 'can_send_' + cap
+  if (pol[key] != null) return !!pol[key]
+  const role = (groupMeta.value && groupMeta.value.my_role) | 0
+  if (role >= 2) {
+    if (cap === 'rp' && (pol.can_send_rp === false || pol.rp_robot_only === true)) return false
+    return true
+  }
+  const fm = forbidModes.value || {}
+  if (fm[cap]) return false
+  if (groupMeta.value && groupMeta.value.can_speak === false) {
+    if (cap === 'text' || cap === 'emoji' || cap === 'image' || cap === 'video' || cap === 'file') return false
+  }
+  if (cap === 'rp') {
+    if (pol.can_send_rp === false || pol.rp_robot_only === true) return false
+  }
+  return true
+}
+
+const composerLocked = computed(() => {
+  if (isPrivate.value) return false
+  if (groupMeta.value && groupMeta.value.can_speak === false) return true
+  if (groupMeta.value && groupMeta.value.mute_all && ((groupMeta.value.my_role | 0) < 2)) return true
+  return !canCap('text')
+})
+
+const composerPlaceholder = computed(() => {
+  if (composerLocked.value) return '禁言中，暂不可发言'
+  if (!canCap('text')) return '文字消息已禁止'
+  return '输入消息…'
+})
+
+const attachAllowed = computed(() => {
+  return canCap('image') || canCap('video') || canCap('file') || canCap('rp')
+})
 
 const rpCancelLabel = computed(() => rpT('chat_cancel', '取消'))
 const rpTitleLabel = computed(() => rpT('chat_rp_title', '发红宝'))
@@ -433,14 +504,78 @@ const rpBlessingDefault = computed(() => rpT('chat_rp_blessing_default', '恭喜
 const rpSubmitLabel = computed(() => rpT('chat_rp_submit', '塞钱进红包'))
 const rpSendingLabel = computed(() => rpT('chat_rp_sending', '发送中…'))
 
-const packetTypes = computed(() => [
-  { v: 2, n: rpT('chat_rp_type_lucky', '拼手气') },
-  { v: 5, n: rpT('chat_rp_type_relay', '接龙') },
-  { v: 3, n: rpT('chat_rp_type_mine', '埋雷') },
-  { v: 1, n: rpT('chat_rp_type_avg', '普通红宝') },
-  { v: 4, n: rpT('chat_rp_type_random', '随机红宝') },
-])
-const mineCountOptions = [5, 7, 9]
+const allPacketTypes = [
+  { v: 2, nKey: 'chat_rp_type_lucky', nFb: '拼手气' },
+  { v: 5, nKey: 'chat_rp_type_relay', nFb: '接龙' },
+  { v: 3, nKey: 'chat_rp_type_mine', nFb: '埋雷' },
+  { v: 1, nKey: 'chat_rp_type_avg', nFb: '普通红宝' },
+  { v: 4, nKey: 'chat_rp_type_random', nFb: '随机红宝' },
+]
+
+function enabledRpTypeIds() {
+  if (isPrivate.value) return [1]
+  const pol = groupPolicy.value || {}
+  let raw = String(pol.rp_enabled_types || '')
+  if (!raw && groupMeta.value && groupMeta.value.group) {
+    raw = String(groupMeta.value.group.rp_enabled_types || '')
+  }
+  if (!raw) raw = '1,3,4,5'
+  const list = raw
+    .split(',')
+    .map((x) => parseInt(x, 10))
+    .filter((n) => n >= 1 && n <= 5)
+  return list.length ? list : [1, 3, 4, 5]
+}
+
+function groupRpFixedAmount() {
+  if (isPrivate.value) return 0
+  const pol = groupPolicy.value || {}
+  let fixed = parseFloat(pol.rp_fixed_amount) || 0
+  if (!(fixed > 0) && groupMeta.value && groupMeta.value.group) {
+    fixed = parseFloat(groupMeta.value.group.rp_fixed_amount) || 0
+  }
+  return fixed > 0 ? Math.round(fixed * 100) / 100 : 0
+}
+
+function groupRpCountRange() {
+  const pol = groupPolicy.value || {}
+  let min = parseInt(pol.rp_min_count, 10) || 0
+  let max = parseInt(pol.rp_max_count, 10) || 0
+  const g = (groupMeta.value && groupMeta.value.group) || {}
+  if (!(min > 0)) min = parseInt(g.rp_min_count, 10) || 0
+  if (!(max > 0)) max = parseInt(g.rp_max_count, 10) || 0
+  if (min <= 0) min = 5
+  if (max <= 0) max = 10
+  if (max < min) max = min
+  return { min, max, fixed: min === max }
+}
+
+const packetTypes = computed(() => {
+  const enabled = enabledRpTypeIds()
+  const role = (groupMeta.value && groupMeta.value.my_role) | 0
+  const relayAdminOnly = !!(groupPolicy.value && groupPolicy.value.rp_relay_admin_only)
+  return allPacketTypes
+    .filter((t) => enabled.indexOf(t.v) >= 0)
+    .filter((t) => !(t.v === 5 && relayAdminOnly && role < 2))
+    .map((t) => ({ v: t.v, n: rpT(t.nKey, t.nFb) }))
+})
+
+const mineCountOptions = computed(() => {
+  const range = groupRpCountRange()
+  const base = [5, 7, 9].filter((n) => n >= range.min && n <= range.max)
+  return base.length ? base : [range.min]
+})
+
+const rpCountOptions = computed(() => {
+  const range = groupRpCountRange()
+  if (range.fixed) return [range.min]
+  const out = []
+  for (let i = range.min; i <= range.max && out.length < 12; i++) out.push(i)
+  return out.length ? out : [range.min]
+})
+
+const amountReadonly = computed(() => groupRpFixedAmount() > 0)
+
 const rpForm = reactive({
   packet_type: 2,
   total_amount: '',
@@ -480,16 +615,36 @@ const rpTypeDesc = computed(() => {
   return ''
 })
 
+function pktFinished(d) {
+  if (!d) return false
+  if (d.finished === true || d.others_visible === true || d.verify_visible === true) return true
+  const p = d.packet || {}
+  const remain = p.remain_count != null ? (p.remain_count | 0) : 1
+  const st = p.status | 0
+  return remain <= 0 || st === 2 || st === 3 || st === 4 || st === 5
+}
+
 const detailRecords = computed(() => {
   const d = detail.value
   if (!d) return []
-  return d.records || d.list || []
+  let rows = d.records || d.list || []
+  if (!pktFinished(d) && d.others_visible !== true) {
+    rows = rows.filter((r) => (r.user_id | 0) === (myId | 0))
+  }
+  return rows
+})
+
+const othersHiddenTip = computed(() => {
+  const d = detail.value
+  if (!d || pktFinished(d) || d.others_visible === true) return ''
+  if (!(d.mine || detailRecords.value.length)) return ''
+  return '红包领完或过期后可查看其他人领取记录'
 })
 
 const claimsEmptyTip = computed(() => {
   const d = detail.value
   if (!d) return '暂无领取记录'
-  if (d.claims_visible === false) return '领取后可查看领取详情'
+  if (d.claims_visible === false) return '领取后可查看自己的领取金额'
   return '暂无领取记录'
 })
 
@@ -497,29 +652,48 @@ const canFairVerify = computed(() => {
   const d = detail.value
   if (!d) return false
   const p = d.packet || {}
-  const ptype = (p.packet_type | 0)
+  const ptype = p.packet_type | 0
   if (ptype !== 2 && ptype !== 3 && ptype !== 5) return false
-  const remain = p.remain_count != null ? (p.remain_count | 0) : 1
-  const st = (p.status | 0)
-  const finished = remain <= 0 || st === 2 || st === 3 || st === 4 || st === 5
-  const grabbed = !!(d.mine || (d.records || []).some((r) => (r.user_id | 0) === myId))
-  return grabbed && finished
+  if (d.verify_visible != null) return !!d.verify_visible
+  return pktFinished(d)
 })
 
 const detailFairTip = computed(() => {
   const d = detail.value
   if (!d) return ''
   const p = d.packet || {}
-  const ptype = (p.packet_type | 0)
+  const ptype = p.packet_type | 0
   if (ptype !== 2 && ptype !== 3 && ptype !== 5) return ''
   if (canFairVerify.value) return ''
-  const grabbed = !!(d.mine || (d.records || []).some((r) => (r.user_id | 0) === myId))
-  const remain = p.remain_count != null ? (p.remain_count | 0) : 1
-  const st = (p.status | 0)
-  const finished = remain <= 0 || st === 2 || st === 3 || st === 4 || st === 5
-  if (grabbed && !finished) return '红包领完后可查询验证'
-  return '领取后且红包领完才可查询验证'
+  return '红包领完或过期后可查询验证'
 })
+
+const mineSettleTip = computed(() => {
+  const d = detail.value
+  if (!d) return ''
+  const p = d.packet || {}
+  if ((p.packet_type | 0) !== 3 || (p.status | 0) !== 5) return ''
+  const rows = d.records || []
+  const hitN = rows.filter((r) => (r.is_mine_hit | 0) === 1).length
+  return hitN > 0 ? '本局中雷 ' + hitN + ' 人' : '本局无人中雷'
+})
+
+function recordTags(r) {
+  if (!r) return ''
+  const d = detail.value
+  const finished = pktFinished(d)
+  const parts = []
+  if (finished) {
+    if (r.is_best) parts.push('手气最佳')
+    if (r.is_worst) parts.push('手气最差')
+  }
+  const p = (d && d.packet) || {}
+  if ((p.packet_type | 0) === 3) {
+    const hit = (r.is_mine_hit | 0) === 1
+    if ((p.status | 0) === 5 || hit) parts.push(hit ? '中雷' : '未中雷')
+  }
+  return parts.join(' · ')
+}
 
 function formatRpTime(ts) {
   const n = Number(ts) || 0
@@ -834,6 +1008,10 @@ function onInputFocus() {
 }
 
 function toggleEmoji() {
+  if (!canCap('emoji') && !canCap('text')) {
+    uni.showToast({ title: '表情已禁止', icon: 'none' })
+    return
+  }
   const next = !(showEmoji.value && !showSticker.value)
   showEmoji.value = next
   showSticker.value = false
@@ -844,12 +1022,20 @@ function toggleEmoji() {
 }
 
 function openEmojiOnly() {
+  if (!canCap('emoji') && !canCap('text')) {
+    uni.showToast({ title: '表情已禁止', icon: 'none' })
+    return
+  }
   showEmoji.value = true
   showSticker.value = false
   showAttach.value = false
 }
 
 function toggleAttach() {
+  if (!attachAllowed.value) {
+    uni.showToast({ title: '附件已禁止', icon: 'none' })
+    return
+  }
   const next = !showAttach.value
   showAttach.value = next
   if (next) {
@@ -860,17 +1046,62 @@ function toggleAttach() {
 
 function onAttachPick(kind) {
   showAttach.value = false
-  if (kind === 'image') pickImage()
-  else if (kind === 'video') pickVideo()
-  else if (kind === 'rp') openRpSend()
+  if (kind === 'image') {
+    if (!canCap('image')) {
+      uni.showToast({ title: '图片消息已禁止', icon: 'none' })
+      return
+    }
+    pickImage()
+  } else if (kind === 'video') {
+    if (!canCap('video')) {
+      uni.showToast({ title: '视频消息已禁止', icon: 'none' })
+      return
+    }
+    pickVideo()
+  } else if (kind === 'file') {
+    if (!canCap('file')) {
+      uni.showToast({ title: '文件消息已禁止', icon: 'none' })
+      return
+    }
+    pickFile()
+  } else if (kind === 'rp') {
+    if (!canCap('rp')) {
+      uni.showToast({ title: '本群禁止发红宝', icon: 'none' })
+      return
+    }
+    openRpSend()
+  }
+}
+
+function applyRpFormDefaults() {
+  if (isPrivate.value) {
+    rpForm.packet_type = 1
+    rpForm.total_count = '1'
+    return
+  }
+  const enabled = enabledRpTypeIds()
+  const types = packetTypes.value
+  if (!types.some((t) => t.v === (rpForm.packet_type | 0))) {
+    rpForm.packet_type = (types[0] && types[0].v) || enabled[0] || 2
+  }
+  const fixed = groupRpFixedAmount()
+  if (fixed > 0) rpForm.total_amount = String(fixed)
+  const range = groupRpCountRange()
+  const cur = parseInt(rpForm.total_count, 10) || 0
+  if (cur < range.min || cur > range.max) {
+    rpForm.total_count = String(range.min)
+  }
+  if ((rpForm.packet_type | 0) === 3) {
+    const opts = mineCountOptions.value
+    if (opts.indexOf(parseInt(rpForm.total_count, 10)) < 0) {
+      rpForm.total_count = String(opts[0] || range.min)
+    }
+  }
 }
 
 function setRpType(v) {
   rpForm.packet_type = v | 0
-  if (rpForm.packet_type === 3) {
-    const cur = Number(rpForm.total_count)
-    if (mineCountOptions.indexOf(cur) < 0) rpForm.total_count = '5'
-  }
+  applyRpFormDefaults()
 }
 
 function closeRpSend() {
@@ -881,12 +1112,12 @@ async function openRpSend() {
   showAttach.value = false
   showEmoji.value = false
   showSticker.value = false
-  if (isPrivate.value) {
-    rpForm.packet_type = 1
-    rpForm.total_count = '1'
-  } else if (!rpForm.packet_type) {
-    rpForm.packet_type = 2
+  if (!canCap('rp')) {
+    uni.showToast({ title: '本群禁止发红宝', icon: 'none' })
+    return
   }
+  if (!isPrivate.value) await loadGroupMeta()
+  applyRpFormDefaults()
   if (!String(rpForm.blessing || '').trim()) rpForm.blessing = rpBlessingDefault.value
   try {
     const cfg = await apiRequest('config', 'GET')
@@ -1303,6 +1534,10 @@ async function fetchHistory() {
 }
 
 async function sendText() {
+  if (composerLocked.value || !canCap('text')) {
+    uni.showToast({ title: composerPlaceholder.value || '暂不可发言', icon: 'none' })
+    return
+  }
   const content = String(text.value || '').trim()
   if (!content) return
   try {
@@ -1327,7 +1562,14 @@ async function sendText() {
 
 async function sendRp() {
   if (rpSending.value) return
-  const amount = Number(rpForm.total_amount)
+  if (!canCap('rp')) {
+    uni.showToast({ title: '本群禁止发红宝', icon: 'none' })
+    return
+  }
+  applyRpFormDefaults()
+  const fixed = groupRpFixedAmount()
+  let amount = Number(rpForm.total_amount)
+  if (fixed > 0) amount = fixed
   if (!(amount > 0)) {
     uni.showToast({ title: '请输入红包金额', icon: 'none' })
     return
@@ -1353,7 +1595,24 @@ async function sendRp() {
     payload.scope_type = 2
     payload.group_id = meta.value.group | 0
     payload.packet_type = rpForm.packet_type | 0 || 2
-    payload.total_count = Math.max(1, parseInt(rpForm.total_count, 10) || 1)
+    const range = groupRpCountRange()
+    let count = Math.max(1, parseInt(rpForm.total_count, 10) || 1)
+    if (count < range.min) count = range.min
+    if (count > range.max) count = range.max
+    payload.total_count = count
+    const enabled = enabledRpTypeIds()
+    if (enabled.indexOf(payload.packet_type) < 0) {
+      uni.showToast({ title: '本群未开放该红宝玩法', icon: 'none' })
+      return
+    }
+    if (payload.packet_type === 5) {
+      const pol = groupPolicy.value || {}
+      const role = (groupMeta.value && groupMeta.value.my_role) | 0
+      if (pol.rp_relay_admin_only && role < 2) {
+        uni.showToast({ title: '接龙红宝仅管理员可发', icon: 'none' })
+        return
+      }
+    }
     if (payload.packet_type === 3) {
       const dig = parseInt(rpForm.mine_digit, 10)
       if (!(dig >= 0 && dig <= 9)) {
@@ -1361,8 +1620,9 @@ async function sendRp() {
         return
       }
       payload.mine_digit = dig
-      if (mineCountOptions.indexOf(payload.total_count) < 0) {
-        uni.showToast({ title: '扫雷红包个数仅可选 5 / 7 / 9', icon: 'none' })
+      const opts = mineCountOptions.value
+      if (opts.indexOf(payload.total_count) < 0) {
+        uni.showToast({ title: '扫雷红包个数不在允许范围', icon: 'none' })
         return
       }
     }
@@ -1375,7 +1635,6 @@ async function sendRp() {
     uni.showToast({ title: '红包已发送', icon: 'success' })
     if (msg) appendLocalMessage(msg)
     await refreshWallet()
-    // 延迟合并历史，补 cover/fair 等字段，不立刻整表覆盖
     setTimeout(() => {
       fetchHistory().catch(() => {})
     }, 600)
@@ -1502,6 +1761,50 @@ async function saveRemark(next) {
   }
 }
 
+function mergeGroupMeta(data) {
+  if (!data || typeof data !== 'object') return
+  const prev = groupMeta.value || {}
+  const next = Object.assign({}, prev, data)
+  if (data.group) next.group = Object.assign({}, prev.group || {}, data.group)
+  if (data.policy) next.policy = Object.assign({}, prev.policy || {}, data.policy)
+  if (data.forbid_modes) next.forbid_modes = data.forbid_modes
+  else if (data.policy && data.policy.forbid_modes) next.forbid_modes = data.policy.forbid_modes
+  if (next.policy && next.policy.forbid_modes) next.forbid_modes = next.policy.forbid_modes
+  if (data.can_speak != null) next.can_speak = !!data.can_speak
+  if (data.mute_all != null) next.mute_all = !!data.mute_all
+  if (data.my_role != null) next.my_role = data.my_role | 0
+  groupMeta.value = next
+}
+
+async function loadGroupMeta() {
+  if (isPrivate.value || !(meta.value.group | 0)) {
+    groupMeta.value = null
+    return
+  }
+  try {
+    const packet = await fetchGroupInfo(meta.value.group | 0)
+    const data = (packet && packet.data) || packet || {}
+    mergeGroupMeta(data)
+    applyRpFormDefaults()
+  } catch (e) {}
+}
+
+async function softRefreshHistory() {
+  if (!roomAlive) return
+  try {
+    await fetchHistory()
+  } catch (e) {}
+}
+
+function leaveRoomToList(tip) {
+  if (tip) uni.showToast({ title: tip, icon: 'none' })
+  roomAlive = false
+  clearActiveChat()
+  setTimeout(() => {
+    uni.switchTab({ url: '/pages/messages/messages' })
+  }, 400)
+}
+
 onLoad(async (query) => {
   if (!getToken()) {
     uni.reLaunch({ url: '/pages/login/login' })
@@ -1550,31 +1853,79 @@ onLoad(async (query) => {
     remark: remark.value,
   })
 
+  roomAlive = true
+  bindForegroundResume()
   await ensureUser()
   off = onImEvent((type, data) => {
-    if (type === 'private.message' || type === 'group.message' || type === 'redpacket.relay_next') {
+    if (type === 'im.resume') {
+      softRefreshHistory()
+      if (!isPrivate.value) loadGroupMeta().catch(() => {})
+      return
+    }
+    if (type === 'private.message' || type === 'group.message') {
       const msg = (data && data.message) || data
       if (msg && sameRoom(msg)) {
         if (appendLocalMessage(msg)) markRead().catch(() => {})
       }
+      return
+    }
+    if (type === 'redpacket.relay_next') {
+      const msg = (data && data.message) || null
+      if (msg && sameRoom(msg)) {
+        if (appendLocalMessage(msg)) markRead().catch(() => {})
+      } else if (!msg) {
+        const gid = (data && data.group_id) | 0
+        if (!isPrivate.value && gid && gid === (meta.value.group | 0)) {
+          uni.showToast({ title: '🧧 接龙下一包已发出', icon: 'none' })
+          softRefreshHistory()
+        } else if (isPrivate.value || !gid) {
+          uni.showToast({ title: '🧧 接龙下一包已发出', icon: 'none' })
+        }
+      }
+      return
     }
     if (type === 'message.recalled') {
       const msg = (data && data.message) || data
       applyRecalled(msg)
+      return
     }
     if (type === 'redpacket.update') {
-      fetchHistory().catch(() => {})
+      softRefreshHistory()
+      return
+    }
+    if (type === 'group.kicked') {
+      const gid = (data && data.group_id) | 0
+      if (!isPrivate.value && gid && gid === (meta.value.group | 0)) {
+        leaveRoomToList('你已被移出群组')
+      }
+      return
+    }
+    if (type === 'group.mute_all_changed' || type === 'group.forbid_changed' || type === 'group.updated') {
+      const gid = (data && (data.group_id || (data.group && data.group.id))) | 0
+      if (!isPrivate.value && gid && gid === (meta.value.group | 0)) {
+        if (type === 'group.forbid_changed' && data) mergeGroupMeta(data)
+        else loadGroupMeta().catch(() => {})
+      }
     }
   })
   try {
     await imConnect()
-    await fetchHistory()
+    await Promise.all([fetchHistory(), loadGroupMeta()])
   } catch (e) {
     uni.showToast({ title: e.message || '连接失败', icon: 'none' })
   }
 })
 
+onShow(() => {
+  if (!getToken() || !roomAlive) return
+  bindForegroundResume()
+  resumeFromBackground('chat-onShow')
+  softRefreshHistory()
+  if (!isPrivate.value) loadGroupMeta().catch(() => {})
+})
+
 onUnload(() => {
+  roomAlive = false
   if (off) off()
 })
 </script>
@@ -1662,6 +2013,8 @@ onUnload(() => {
 .d-amt { display: block; margin-top: 8rpx; color: #c61114; font-size: 36rpx; font-weight: 800; }
 .d-meta { display: block; margin-top: 8rpx; color: #9a8574; font-size: 22rpx; }
 .d-fair-tip { display: block; margin-top: 10rpx; color: #b08a60; font-size: 22rpx; }
+.d-mine-sum { display: block; margin-top: 8rpx; color: #c61114; font-size: 24rpx; font-weight: 700; }
+.d-tags { font-size: 20rpx; color: #c61114; }
 .d-fair-btn {
   margin-top: 14rpx;
   background: linear-gradient(135deg, #ffe082, #ffb300);

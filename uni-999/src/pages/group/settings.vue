@@ -31,6 +31,23 @@
       </view>
       <button class="btn" @click="editName">修改群名</button>
       <button class="btn" @click="editNotice">修改公告</button>
+      <button class="btn" @click="openAddMembers">添加群成员</button>
+    </view>
+
+    <view class="card" v-if="canEdit">
+      <text class="lab">禁止模式（普通成员）</text>
+      <view v-for="item in forbidItems" :key="item.key" class="row-switch">
+        <text>{{ item.label }}</text>
+        <switch
+          :checked="!!forbidFlags[item.key]"
+          color="#c61114"
+          :data-key="item.key"
+          @change="onForbidSwitchEvent"
+        />
+      </view>
+      <button class="btn" :disabled="forbidSaving" @click="saveForbid">
+        {{ forbidSaving ? '保存中…' : '保存禁止设置' }}
+      </button>
     </view>
 
     <view class="card">
@@ -52,10 +69,10 @@
             <text class="mrole" v-if="roleLabel(m.role)">{{ roleLabel(m.role) }}</text>
             <text class="mmute" v-if="m.is_muted">禁言中</text>
           </view>
-          <text class="m-act" v-if="canManageMember(m)">管理</text>
+          <text class="m-act" v-if="canManageMember(m) || canSetAdmin(m)">管理</text>
         </view>
         <view v-if="!members.length" class="empty">暂无成员</view>
-        <text class="hint tip" v-if="canEdit && members.length">长按或点「管理」可禁言 / 移出</text>
+        <text class="hint tip" v-if="canEdit && members.length">长按或点「管理」可禁言 / 移出 / 设管理</text>
       </view>
     </view>
 
@@ -71,6 +88,13 @@
       <view class="sheet" @click.stop>
         <view class="sheet-title">{{ memberTargetName }}</view>
         <button class="sheet-btn" @click="openMuteSheet">禁言</button>
+        <button
+          v-if="canSetAdmin(memberTarget)"
+          class="sheet-btn"
+          @click="toggleAdminFromSheet"
+        >
+          {{ adminActionLabel }}
+        </button>
         <button class="sheet-btn danger" @click="confirmKick">移出群组</button>
         <button class="sheet-btn cancel" @click="closeMemberSheets">取消</button>
       </view>
@@ -87,21 +111,52 @@
         <button class="sheet-btn cancel" @click="closeMemberSheets">关闭</button>
       </view>
     </view>
+
+    <!-- 添加成员 -->
+    <view class="mask" v-if="addSheet" @click="closeAddSheet">
+      <view class="sheet add-sheet" @click.stop>
+        <view class="sheet-title">添加群成员</view>
+        <scroll-view scroll-y class="cand-scroll">
+          <view
+            v-for="u in candidates"
+            :key="u.user_id"
+            class="cand-row"
+            @click="toggleCandidate(u)"
+          >
+            <view class="cand-check" :class="{ on: selectedIds[u.user_id] }">
+              {{ selectedIds[u.user_id] ? '✓' : '' }}
+            </view>
+            <view class="mav">{{ avatarLetter(u.nickname) }}</view>
+            <text class="mnick">{{ u.nickname || ('ID' + u.user_id) }}</text>
+          </view>
+          <view v-if="!candidates.length && !candLoading" class="empty">暂无可添加好友</view>
+          <view v-if="candLoading" class="empty">加载中…</view>
+        </scroll-view>
+        <button class="sheet-btn primary" :disabled="addSaving" @click="confirmAddMembers">
+          {{ addSaving ? '添加中…' : ('添加' + (selectedCount ? ' (' + selectedCount + ')' : '')) }}
+        </button>
+        <button class="sheet-btn cancel" @click="closeAddSheet">取消</button>
+      </view>
+    </view>
   </view>
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { fetchProfile, getToken } from '../../utils/auth.js'
 import { avatarLetter } from '../../utils/chat.js'
 import {
+  addGroupMembers,
   fetchGroupInfo,
   fetchGroupMembers,
+  groupCandidates,
   imConnect,
   kickGroupMember,
   leaveGroup,
   muteGroupMember,
+  setGroupAdmin,
+  setGroupForbid,
   setGroupMuteAll,
   updateGroup,
 } from '../../utils/im.js'
@@ -125,6 +180,21 @@ const loading = ref(false)
 const memberSheet = ref(false)
 const muteSheet = ref(false)
 const memberTarget = ref(null)
+const forbidFlags = reactive({ text: false, image: false, emoji: false, video: false, rp: false })
+const forbidSaving = ref(false)
+const addSheet = ref(false)
+const candidates = ref([])
+const candLoading = ref(false)
+const addSaving = ref(false)
+const selectedIds = reactive({})
+
+const forbidItems = [
+  { key: 'text', label: '禁止发言' },
+  { key: 'image', label: '禁止发图' },
+  { key: 'emoji', label: '禁止发表情' },
+  { key: 'video', label: '禁止发视频' },
+  { key: 'rp', label: '禁止发红包' },
+]
 
 const muteOptions = [
   { s: 600, n: '10 分钟' },
@@ -143,6 +213,12 @@ const memberTargetName = computed(() => {
   if (!m) return '成员'
   return m.nickname || ('ID' + m.user_id)
 })
+const selectedCount = computed(() => Object.keys(selectedIds).filter((k) => selectedIds[k]).length)
+const adminActionLabel = computed(() => {
+  const m = memberTarget.value
+  if (m && (m.role | 0) === 2) return '取消管理员'
+  return '设为管理员'
+})
 
 function roleLabel(role) {
   const r = role | 0
@@ -157,10 +233,23 @@ function canManageMember(m) {
   if (!tid || tid === (myId.value | 0)) return false
   const tr = m.role | 0
   const mr = myRole.value | 0
-  // 群主可管所有非自己；管理员只能管普通成员
   if (mr >= 3) return tr < 3
   if (mr >= 2) return tr < 2
   return false
+}
+
+function canSetAdmin(m) {
+  if (!m || (myRole.value | 0) < 3) return false
+  const tid = m.user_id | 0
+  if (!tid || tid === (myId.value | 0)) return false
+  return (m.role | 0) < 3
+}
+
+function applyForbid(fm) {
+  const src = fm || {}
+  forbidItems.forEach((it) => {
+    forbidFlags[it.key] = !!(src[it.key])
+  })
 }
 
 function promptText(title, cur) {
@@ -204,6 +293,7 @@ async function loadInfo() {
     memberCount.value = data.member_count | 0
     memberHidden.value = !!data.member_list_hidden
     if (data.my_user_id) myId.value = data.my_user_id | 0
+    applyForbid(data.forbid_modes || (data.policy && data.policy.forbid_modes) || {})
     if (group.value.name) {
       uni.setNavigationBarTitle({ title: group.value.name })
     }
@@ -231,7 +321,7 @@ function closeMemberSheets() {
 }
 
 function onMemberTap(m) {
-  if (canManageMember(m)) {
+  if (canManageMember(m) || canSetAdmin(m)) {
     memberTarget.value = m
     memberSheet.value = true
     muteSheet.value = false
@@ -239,7 +329,7 @@ function onMemberTap(m) {
 }
 
 function onMemberLongPress(m) {
-  if (!canManageMember(m)) return
+  if (!canManageMember(m) && !canSetAdmin(m)) return
   memberTarget.value = m
   memberSheet.value = true
   muteSheet.value = false
@@ -261,6 +351,25 @@ async function doMute(seconds) {
   } catch (e) {
     uni.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
   }
+}
+
+async function doSetAdmin(isAdmin) {
+  const m = memberTarget.value
+  if (!m || !canSetAdmin(m)) return
+  try {
+    await setGroupAdmin(groupId.value, m.user_id, !!isAdmin)
+    uni.showToast({ title: isAdmin ? '已设为管理员' : '已取消管理员', icon: 'none' })
+    closeMemberSheets()
+    await loadInfo()
+  } catch (e) {
+    uni.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
+  }
+}
+
+function toggleAdminFromSheet() {
+  const m = memberTarget.value
+  if (!m) return
+  doSetAdmin((m.role | 0) !== 2)
 }
 
 function confirmKick() {
@@ -301,6 +410,94 @@ function onMuteSwitch(e) {
 
 function toggleMuteAll() {
   applyMute(!muteAll.value)
+}
+
+function onForbidSwitch(key, e) {
+  forbidFlags[key] = !!(e && e.detail && e.detail.value)
+}
+
+function onForbidSwitchEvent(e) {
+  const key =
+    (e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.key) ||
+    (e && e.target && e.target.dataset && e.target.dataset.key) ||
+    ''
+  if (!key) return
+  onForbidSwitch(key, e)
+}
+
+async function saveForbid() {
+  if (forbidSaving.value) return
+  forbidSaving.value = true
+  try {
+    const modes = {}
+    forbidItems.forEach((it) => {
+      modes[it.key] = forbidFlags[it.key] ? 1 : 0
+    })
+    const packet = await setGroupForbid(groupId.value, modes)
+    const data = (packet && packet.data) || packet || {}
+    applyForbid(data.forbid_modes || modes)
+    uni.showToast({ title: '禁止设置已更新', icon: 'success' })
+  } catch (e) {
+    uni.showToast({ title: (e && e.message) || '保存失败', icon: 'none' })
+    await loadInfo()
+  } finally {
+    forbidSaving.value = false
+  }
+}
+
+function closeAddSheet() {
+  addSheet.value = false
+  candidates.value = []
+  Object.keys(selectedIds).forEach((k) => {
+    delete selectedIds[k]
+  })
+}
+
+async function openAddMembers() {
+  addSheet.value = true
+  candLoading.value = true
+  Object.keys(selectedIds).forEach((k) => {
+    delete selectedIds[k]
+  })
+  try {
+    const packet = await groupCandidates(groupId.value)
+    const data = (packet && packet.data) || packet || {}
+    candidates.value = data.list || data.candidates || []
+  } catch (e) {
+    uni.showToast({ title: (e && e.message) || '加载好友失败', icon: 'none' })
+    candidates.value = []
+  } finally {
+    candLoading.value = false
+  }
+}
+
+function toggleCandidate(u) {
+  const id = u.user_id | 0
+  if (!id) return
+  if (selectedIds[id]) delete selectedIds[id]
+  else selectedIds[id] = true
+}
+
+async function confirmAddMembers() {
+  const ids = Object.keys(selectedIds)
+    .filter((k) => selectedIds[k])
+    .map((k) => parseInt(k, 10))
+    .filter(Boolean)
+  if (!ids.length) {
+    uni.showToast({ title: '请选择好友', icon: 'none' })
+    return
+  }
+  addSaving.value = true
+  try {
+    await addGroupMembers(groupId.value, ids)
+    uni.showToast({ title: '已添加', icon: 'success' })
+    closeAddSheet()
+    await loadInfo()
+  } catch (e) {
+    uni.showToast({ title: (e && e.message) || '添加失败', icon: 'none' })
+  } finally {
+    addSaving.value = false
+  }
 }
 
 async function editName() {
@@ -437,118 +634,139 @@ onShow(() => {
   justify-content: space-between;
   align-items: center;
   padding: 16rpx 0;
+  border-bottom: 1px solid rgba(180, 140, 100, 0.12);
   font-size: 28rpx;
   color: #2a1f18;
-  border-bottom: 1px solid rgba(224, 122, 34, 0.12);
-  margin-bottom: 12rpx;
 }
 .btn {
-  margin-top: 12rpx;
-  background: linear-gradient(#fff, #fff) padding-box,
-    linear-gradient(145deg, #ffe9b0, #f0b04a, #e07a22) border-box;
-  border: 1.5px solid transparent;
-  color: #3d2e22;
-  font-weight: 700;
+  margin-top: 16rpx;
+  background: #fff8f0;
+  color: #8a4f1f;
+  border: 1.5px solid #f0b04a;
   border-radius: 12rpx;
+  font-weight: 700;
+  font-size: 28rpx;
 }
+.btn[disabled] { opacity: 0.5; }
 .btn.leave {
   background: #fff;
-  border: 1.5px solid #c61114;
   color: #c61114;
+  border-color: rgba(198, 17, 20, 0.35);
 }
 .member {
   display: flex;
-  gap: 16rpx;
   align-items: center;
-  padding: 14rpx 0;
-  border-bottom: 1px solid rgba(40, 20, 10, 0.05);
+  gap: 16rpx;
+  padding: 16rpx 0;
+  border-bottom: 1px solid rgba(180, 140, 100, 0.1);
 }
 .mav {
-  width: 64rpx;
-  height: 64rpx;
-  border-radius: 14rpx;
-  background: #fff5f3;
-  color: #c61114;
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ffe082, #ffb300);
+  color: #8a4b00;
   font-weight: 800;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
-.mmain {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 10rpx;
-  min-width: 0;
-}
+.mmain { flex: 1; min-width: 0; }
 .mnick {
+  display: block;
   font-size: 28rpx;
+  font-weight: 700;
   color: #2a1f18;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .mrole, .mmute {
-  flex-shrink: 0;
+  display: inline-block;
+  margin-right: 8rpx;
   font-size: 20rpx;
-  padding: 2rpx 10rpx;
-  border-radius: 999rpx;
-  font-weight: 700;
-}
-.mrole { background: #c61114; color: #fff; }
-.mmute { background: #eee; color: #8a7a6e; }
-.m-act {
-  flex-shrink: 0;
-  font-size: 22rpx;
   color: #c61114;
-  font-weight: 700;
-  padding: 8rpx 12rpx;
 }
-.empty, .hint {
-  color: #9a8574;
+.m-act {
   font-size: 24rpx;
-  padding: 8rpx 0;
+  color: #b8751a;
+  font-weight: 700;
 }
-.hint.tip { margin-top: 8rpx; }
-.danger { padding-bottom: 8rpx; }
+.empty {
+  text-align: center;
+  color: #9a8574;
+  padding: 24rpx;
+  font-size: 24rpx;
+}
+.hint {
+  font-size: 22rpx;
+  color: #9a8574;
+}
+.hint.tip { display: block; margin-top: 12rpx; }
+.card.danger { background: transparent; box-shadow: none; }
 .mask {
   position: fixed;
   inset: 0;
-  z-index: 100;
-  background: rgba(20, 10, 5, 0.4);
+  z-index: 20000;
+  background: rgba(20, 12, 8, 0.45);
   display: flex;
   align-items: flex-end;
   justify-content: center;
 }
 .sheet {
   width: 100%;
-  background: #fff;
+  max-width: 720rpx;
+  background: #fffaf5;
   border-radius: 24rpx 24rpx 0 0;
-  padding: 28rpx 24rpx 48rpx;
+  padding: 28rpx 28rpx 40rpx;
   box-sizing: border-box;
 }
 .sheet-title {
-  text-align: center;
-  font-size: 30rpx;
+  font-size: 32rpx;
   font-weight: 800;
-  color: #2a1f18;
-  margin-bottom: 16rpx;
+  text-align: center;
+  margin-bottom: 20rpx;
 }
 .sheet-btn {
+  width: 100%;
   margin-top: 12rpx;
   background: #fff;
-  border: 1.5px solid rgba(224, 122, 34, 0.25);
-  color: #3d2e22;
-  font-weight: 700;
+  border: 1px solid rgba(180, 140, 100, 0.25);
   border-radius: 12rpx;
+  font-weight: 700;
+  color: #3d2e22;
 }
-.sheet-btn.danger {
+.sheet-btn.danger { color: #c61114; }
+.sheet-btn.cancel { color: #6a5648; background: #f6f1ea; }
+.sheet-btn.primary {
+  background: linear-gradient(135deg, #ffe082, #ffb300);
+  color: #8a4b00;
+  border: none;
+}
+.add-sheet { max-height: 78vh; }
+.cand-scroll { max-height: 52vh; margin-bottom: 12rpx; }
+.cand-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 14rpx 0;
+  border-bottom: 1px solid rgba(180, 140, 100, 0.1);
+}
+.cand-check {
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 8rpx;
+  border: 2px solid #f0b04a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22rpx;
+  color: #fff;
+  flex-shrink: 0;
+}
+.cand-check.on {
+  background: #c61114;
   border-color: #c61114;
-  color: #c61114;
-}
-.sheet-btn.cancel {
-  border-color: transparent;
-  color: #9a8574;
-  margin-top: 20rpx;
 }
 </style>

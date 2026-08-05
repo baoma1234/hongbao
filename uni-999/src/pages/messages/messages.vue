@@ -67,35 +67,43 @@
 
             <!-- 聊天 -->
             <view id="chatHomePanelChat" class="chat-home-panel" :class="{ 'is-hidden': homeTab !== 'chat' }">
-              <view class="chat-conv-list">
-                <view class="chat-empty" v-if="!displayList.length && loaded">暂无会话（登录后通常会有客服）</view>
-                <view
-                  v-for="item in displayList"
-                  :key="itemKey(item)"
-                  class="chat-conv-item"
-                  :class="{ 'is-pinned': !!item.pinned, 'is-admin': !!item.is_im_admin }"
-                  @click="openChat(item)"
-                  @longpress="onLongPress(item)"
-                >
-                  <view class="chat-avatar" :class="{ group: (item.conversation_type | 0) === 2, admin: !!item.is_im_admin }">
-                    <image :src="avatarSrc(item.avatar)" mode="aspectFill" />
-                  </view>
-                  <view class="chat-conv-body">
-                    <view class="chat-conv-title">
-                      <text>
-                        <text v-if="item.pinned" class="chat-conv-pin">📌</text>
-                        {{ displayTitle(item) }}
-                        <text v-if="item.is_im_admin" class="chat-admin-tag">客服</text>
-                      </text>
-                      <text class="chat-conv-time">{{ itemTime(item) }}</text>
+              <scroll-view
+                scroll-y
+                class="chat-conv-scroll"
+                :refresher-enabled="true"
+                :refresher-triggered="listRefreshing"
+                @refresherrefresh="onListRefresh"
+              >
+                <view class="chat-conv-list">
+                  <view class="chat-empty" v-if="!displayList.length && loaded">暂无会话（登录后通常会有客服）</view>
+                  <view
+                    v-for="item in displayList"
+                    :key="itemKey(item)"
+                    class="chat-conv-item"
+                    :class="{ 'is-pinned': !!item.pinned, 'is-admin': !!item.is_im_admin }"
+                    @click="openChat(item)"
+                    @longpress="onLongPress(item)"
+                  >
+                    <view class="chat-avatar" :class="{ group: (item.conversation_type | 0) === 2, admin: !!item.is_im_admin }">
+                      <image :src="avatarSrc(item.avatar)" mode="aspectFill" />
                     </view>
-                    <view class="chat-conv-preview">{{ itemPreview(item) }}</view>
-                  </view>
-                  <view v-if="unreadOf(item) > 0" class="chat-badge">
-                    {{ unreadOf(item) > 99 ? '99+' : unreadOf(item) }}
+                    <view class="chat-conv-body">
+                      <view class="chat-conv-title">
+                        <text>
+                          <text v-if="item.pinned" class="chat-conv-pin">📌</text>
+                          {{ displayTitle(item) }}
+                          <text v-if="item.is_im_admin" class="chat-admin-tag">客服</text>
+                        </text>
+                        <text class="chat-conv-time">{{ itemTime(item) }}</text>
+                      </view>
+                      <view class="chat-conv-preview">{{ itemPreview(item) }}</view>
+                    </view>
+                    <view v-if="unreadOf(item) > 0" class="chat-badge">
+                      {{ unreadOf(item) > 99 ? '99+' : unreadOf(item) }}
+                    </view>
                   </view>
                 </view>
-              </view>
+              </scroll-view>
             </view>
 
             <!-- 社群 -->
@@ -437,6 +445,8 @@ import {
   markConversationRead,
   onImEvent,
   pinConversation,
+  resumeFromBackground,
+  bindForegroundResume,
 } from '../../utils/im.js'
 import {
   clearInboxUnread,
@@ -478,8 +488,10 @@ const notices = ref([])
 const noticeCat = ref('latest')
 const commission = ref({})
 const friendReqPending = ref(0)
+const listRefreshing = ref(false)
 let off = null
 let loading = false
+let pageAlive = false
 
 const displayList = computed(() => {
   const q = String(keyword.value || '').trim().toLowerCase()
@@ -1040,6 +1052,15 @@ async function loadList(silent = false) {
   }
 }
 
+async function onListRefresh() {
+  listRefreshing.value = true
+  try {
+    await loadList(true)
+  } finally {
+    listRefreshing.value = false
+  }
+}
+
 async function reconnect() {
   try {
     await imConnect()
@@ -1068,10 +1089,17 @@ onShow(() => {
     uni.reLaunch({ url: '/pages/login/login' })
     return
   }
+  pageAlive = true
   applyPageShell(true)
   startImInbox()
+  bindForegroundResume()
+  resumeFromBackground('messages-onShow')
   if (off) off()
   off = onImEvent((type, data) => {
+    if (type === 'im.resume') {
+      if (pageAlive) loadList(true)
+      return
+    }
     if (type === 'auth.ok') {
       refreshAuthFlags()
       refreshStatus()
@@ -1087,7 +1115,7 @@ onShow(() => {
     if (type === 'conversation.updated' || type === 'redpacket.update') {
       loadList(true)
     }
-    if (type === 'group.created') {
+    if (type === 'group.created' || type === 'group.kicked') {
       loadList(true)
       loadMyGroupsSafe()
     }
@@ -1118,6 +1146,7 @@ onShow(() => {
 })
 
 onHide(() => {
+  pageAlive = false
   applyPageShell(false)
   if (off) {
     if (typeof off._inboxCleanup === 'function') off._inboxCleanup()
@@ -1133,5 +1162,9 @@ onHide(() => {
   color: var(--color-primary-start, #e63022);
   font-weight: 700;
   text-decoration: underline;
+}
+.chat-conv-scroll {
+  height: calc(100vh - 280px);
+  min-height: 320px;
 }
 </style>

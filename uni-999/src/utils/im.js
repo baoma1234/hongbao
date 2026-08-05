@@ -482,3 +482,137 @@ export function updateGroup(groupId, fields = {}) {
 export function leaveGroup(groupId) {
   return imSend('group.leave', { group_id: groupId | 0 }, true)
 }
+
+export function setGroupForbid(groupId, modes = {}, hint = '') {
+  const payload = {
+    group_id: groupId | 0,
+    forbid_modes: modes || {},
+  }
+  if (hint != null && String(hint) !== '') {
+    payload.forbid_speak_hint = String(hint)
+  }
+  return imSend('group.set_forbid', payload, true)
+}
+
+export function setGroupAdmin(groupId, userId, isAdmin) {
+  return imSend(
+    'group.set_admin',
+    {
+      group_id: groupId | 0,
+      user_id: userId | 0,
+      is_admin: isAdmin ? 1 : 0,
+    },
+    true
+  )
+}
+
+export function addGroupMembers(groupId, userIds = []) {
+  return imSend(
+    'group.add_members',
+    {
+      group_id: groupId | 0,
+      user_ids: Array.isArray(userIds) ? userIds.map((x) => x | 0).filter(Boolean) : [],
+    },
+    true
+  )
+}
+
+export function groupCandidates(groupId) {
+  return imSend('group.candidates', { group_id: groupId | 0 }, true)
+}
+
+/** 强制重连（僵尸连接 / 回前台） */
+export function imForceReconnect() {
+  if (!getToken()) return Promise.reject(new Error('未登录'))
+  intentionalClose = false
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer)
+    reconnectTimer = null
+  }
+  connectingPromise = null
+  if (socketTask) {
+    const old = socketTask
+    socketTask = null
+    socketOpen = false
+    authed = false
+    try {
+      old.close({})
+    } catch (e) {}
+  }
+  return imConnect()
+}
+
+function sendPingResume(reason) {
+  if (!isSocketSendable()) return false
+  try {
+    socketTask.send({
+      data: JSON.stringify({
+        type: 'ping',
+        data: { resume: 1, reason: String(reason || '') },
+        req_id: nextReqId(),
+      }),
+      fail() {},
+    })
+    return true
+  } catch (e) {
+    return false
+  }
+}
+
+let resumeBound = false
+let lastResumeAt = 0
+
+/**
+ * 手机回前台：探测 WS，必要时强制重连，并广播 im.resume 让页面补历史
+ */
+export function resumeFromBackground(reason) {
+  if (!getToken()) return
+  const now = Date.now()
+  if (lastResumeAt && now - lastResumeAt < 800) return
+  lastResumeAt = now
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer)
+    reconnectTimer = null
+  }
+  const alive = isSocketSendable() && authed
+  if (!alive) {
+    imForceReconnect()
+      .then(() => emit('im.resume', { reason: String(reason || ''), reconnected: true }))
+      .catch(() => emit('im.resume', { reason: String(reason || ''), reconnected: false }))
+    return
+  }
+  if (!sendPingResume(reason)) {
+    imForceReconnect()
+      .then(() => emit('im.resume', { reason: String(reason || ''), reconnected: true }))
+      .catch(() => emit('im.resume', { reason: String(reason || ''), reconnected: false }))
+    return
+  }
+  emit('im.resume', { reason: String(reason || ''), reconnected: false })
+}
+
+export function bindForegroundResume() {
+  if (resumeBound) return
+  resumeBound = true
+  const onShow = (ev) => {
+    try {
+      if (typeof document !== 'undefined' && document.hidden) return
+    } catch (e) {}
+    resumeFromBackground((ev && ev.type) || 'show')
+  }
+  // #ifdef H5
+  try {
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) onShow({ type: 'visibilitychange' })
+      })
+    }
+  } catch (eV) {}
+  try {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('pageshow', (ev) => onShow(ev || { type: 'pageshow' }))
+      window.addEventListener('focus', () => onShow({ type: 'focus' }))
+      window.addEventListener('online', () => resumeFromBackground('online'))
+    }
+  } catch (eW) {}
+  // #endif
+}

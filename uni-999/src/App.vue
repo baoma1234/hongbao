@@ -7,7 +7,7 @@ import {
   getHashRoutePath,
 } from './utils/chat-route.js'
 import { initI18n } from './utils/i18n.js'
-import { imConnect, imDisconnect } from './utils/im.js'
+import { imConnect, imDisconnect, bindForegroundResume } from './utils/im.js'
 import { startImInbox } from './utils/im-inbox.js'
 import { initSkin } from './utils/skin.js'
 import './styles/hb.css'
@@ -26,6 +26,7 @@ onLaunch(async () => {
   if (!token) return
 
   startImInbox()
+  bindForegroundResume()
   imConnect().catch(() => {})
 
   const path = getHashRoutePath()
@@ -62,6 +63,7 @@ onShow(() => {
   } catch (e) {}
   if (getToken()) {
     startImInbox()
+    bindForegroundResume()
     imConnect().catch(() => {})
   } else {
     imDisconnect()
