@@ -3023,10 +3023,10 @@ body.chat-room-open .bottom-action-bar {
   pointer-events: none;
 }
 
-/* 类型：等宽分段，高度固定 */
+/* 类型：按可见按钮自适应列数（4 种时不再挤成 3+1 被裁切） */
 .chat-rp-type-tabs {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(76px, 1fr));
   gap: 8px;
 }
 .chat-rp-send-pane .chat-rp-type-btn,

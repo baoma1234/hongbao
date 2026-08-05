@@ -140,16 +140,15 @@
           });
           renderList();
           if (state.room && state.room.type === 2 && String(state.room.id) === String(ugid)) {
-            state.groupMeta = state.groupMeta || {};
-            var prevNotice = String(((state.groupMeta.group || {}).notice) || '');
-            state.groupMeta.group = ug;
-            if (packet.data.policy) state.groupMeta.policy = packet.data.policy;
+            var prevNotice = String((((state.groupMeta || {}).group || {}).notice) || '');
+            state.groupMeta = mergeGroupMeta(Object.assign({}, packet.data, { group: ug }));
             if (String(ug.notice || '') !== prevNotice) {
               delete state.noticeDismissed[String(ugid)];
             }
             applyGroupRoomHeader(state.groupMeta);
             renderGroupSettings();
             updateComposerPolicy();
+            if (typeof syncRpTypeTabs === 'function') syncRpTypeTabs();
             renderMessages();
           }
         }
@@ -397,29 +396,58 @@
       var list = (packet.data && packet.data.list) || [];
       if (!list.length) return;
       var have = {};
+      var byMsgId = {};
+      var byId = {};
       (state.messages || []).forEach(function (m) {
-        var k = String(m.msg_id || '') + '#' + String(m.id || '');
-        have[k] = true;
-        if (m.msg_id) have['m:' + m.msg_id] = true;
-        if (m.id) have['i:' + m.id] = true;
+        if (!m) return;
+        if (m.msg_id) {
+          have['m:' + m.msg_id] = true;
+          byMsgId[m.msg_id] = m;
+        }
+        if (m.id) {
+          have['i:' + m.id] = true;
+          byId[m.id | 0] = m;
+        }
       });
       var added = 0;
+      var patched = 0;
       list.forEach(function (m) {
         if (!m) return;
-        if ((m.msg_id && have['m:' + m.msg_id]) || (m.id && have['i:' + m.id])) return;
+        var exist = (m.msg_id && byMsgId[m.msg_id]) || (m.id && byId[m.id | 0]) || null;
+        if (exist) {
+          // 历史带 enrich（mine_pending / cover_* / 校正 packet_type），补进内存里的瘦 extra
+          if ((m.msg_type | 0) === 2 && m.extra) {
+            var exNew = m.extra;
+            if (typeof exNew === 'string') {
+              try { exNew = JSON.parse(exNew) || {}; } catch (eP) { exNew = null; }
+            }
+            if (exNew && typeof exNew === 'object') {
+              var exOld = exist.extra;
+              if (typeof exOld === 'string') {
+                try { exOld = JSON.parse(exOld) || {}; } catch (eO) { exOld = {}; }
+              }
+              if (!exOld || typeof exOld !== 'object') exOld = {};
+              exist.extra = Object.assign({}, exOld, exNew);
+              patched += 1;
+            }
+          }
+          return;
+        }
         have['m:' + (m.msg_id || '')] = true;
         have['i:' + (m.id || '')] = true;
         state.messages.push(m);
         added += 1;
         try { cacheSenderFromMsg(m); } catch (e0) {}
       });
-      if (added > 0) {
-        state.messages.sort(function (a, b) {
-          var ai = (a.id | 0) || 0;
-          var bi = (b.id | 0) || 0;
-          if (ai && bi && ai !== bi) return ai - bi;
-          return ((a.createtime | 0) || 0) - ((b.createtime | 0) || 0);
-        });
+      if (added > 0 || patched > 0) {
+        if (added > 0) {
+          state.messages.sort(function (a, b) {
+            var ai = (a.id | 0) || 0;
+            var bi = (b.id | 0) || 0;
+            if (ai && bi && ai !== bi) return ai - bi;
+            return ((a.createtime | 0) || 0) - ((b.createtime | 0) || 0);
+          });
+        }
         try {
           if (typeof renderMessages === 'function') renderMessages(true);
         } catch (e1) {}
@@ -1704,6 +1732,7 @@
 
   // 从验证页 history.back 回来时 onLogin 不会再跑，靠 pageshow 重开详情
   try {
+    bindForegroundResume();
     global.addEventListener('pageshow', function () {
       try {
         var raw = sessionStorage.getItem('fans_hub_rp_fair_return');

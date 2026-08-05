@@ -1370,7 +1370,8 @@
       var list = (packet.data && packet.data.list) || [];
       var meta = null;
       if (type === 2 && packet.data && (packet.data.group || packet.data.policy)) {
-        try { meta = mergeGroupMeta(packet.data); } catch (e0) { meta = null; }
+        // 勿写 state.groupMeta：预拉可能针对其它群，会冲掉当前房的 rp_enabled_types
+        try { meta = buildGroupMeta(packet.data, {}); } catch (e0) { meta = null; }
       }
       saveHistCache(type, id, list, meta);
       return { messages: list, groupMeta: meta, at: Date.now() };
@@ -1769,25 +1770,39 @@
     return !fm[cap];
   }
 
-  function mergeGroupMeta(data) {
+  /** 纯构建群资料（不写 state）；预拉其它会话历史必须用这个，避免污染当前房间 policy/类型 Tab */
+  function buildGroupMeta(data, prev) {
     data = data || {};
-    var prev = state.groupMeta || {};
-    state.groupMeta = {
-      group: data.group || prev.group || null,
+    prev = prev || {};
+    var prevPolicy = prev.policy || {};
+    var nextPolicy = data.policy
+      ? Object.assign({}, prevPolicy, data.policy)
+      : prevPolicy;
+    var prevGroup = prev.group || null;
+    var nextGroup = data.group
+      ? Object.assign({}, prevGroup || {}, data.group)
+      : prevGroup;
+    var meta = {
+      group: nextGroup,
       my_role: (data.my_role != null ? data.my_role : prev.my_role) | 0,
       mute_all: data.mute_all != null ? !!data.mute_all : !!prev.mute_all,
-      forbid_modes: data.forbid_modes || (data.policy && data.policy.forbid_modes) || prev.forbid_modes || {},
+      forbid_modes: data.forbid_modes || (nextPolicy && nextPolicy.forbid_modes) || prev.forbid_modes || {},
       member_count: (data.member_count != null ? data.member_count : prev.member_count) | 0,
       member_list_hidden: data.member_list_hidden != null ? !!data.member_list_hidden : !!prev.member_list_hidden,
-      can_speak: data.can_speak !== false,
-      policy: data.policy || prev.policy || {}
+      can_speak: data.can_speak != null ? !!data.can_speak : (prev.can_speak !== false),
+      policy: nextPolicy
     };
-    if (state.groupMeta.policy && state.groupMeta.policy.member_list_hidden != null) {
-      state.groupMeta.member_list_hidden = !!state.groupMeta.policy.member_list_hidden;
+    if (meta.policy && meta.policy.member_list_hidden != null) {
+      meta.member_list_hidden = !!meta.policy.member_list_hidden;
     }
-    if (state.groupMeta.policy && state.groupMeta.policy.forbid_modes) {
-      state.groupMeta.forbid_modes = state.groupMeta.policy.forbid_modes;
+    if (meta.policy && meta.policy.forbid_modes) {
+      meta.forbid_modes = meta.policy.forbid_modes;
     }
+    return meta;
+  }
+
+  function mergeGroupMeta(data) {
+    state.groupMeta = buildGroupMeta(data, state.groupMeta || {});
     return state.groupMeta;
   }
 
@@ -1949,7 +1964,8 @@
 
   function renderRpCardHtml(extra, msg, time) {
     var pid = (extra && extra.packet_id) || 0;
-    var ptype = extra && (extra.packet_type != null) ? (extra.packet_type | 0) : 2;
+    // 缺 packet_type 时不要默认拼手气(2)：群 19 等未开放该类型，会看起来像「类型错了」
+    var ptype = extra && (extra.packet_type != null) ? (extra.packet_type | 0) : 0;
     var fixedTitle = ({ 2: '红宝拼手气', 3: '红宝扫雷', 5: '红宝接龙' })[ptype] || '';
     var bless = escapeHtml(fixedTitle || (extra && extra.blessing) || msg.content || '恭喜发财，大吉大利');
     var amt = extra && (extra.total_amount != null) ? parseFloat(extra.total_amount) : NaN;
@@ -6021,16 +6037,15 @@
           });
           renderList();
           if (state.room && state.room.type === 2 && String(state.room.id) === String(ugid)) {
-            state.groupMeta = state.groupMeta || {};
-            var prevNotice = String(((state.groupMeta.group || {}).notice) || '');
-            state.groupMeta.group = ug;
-            if (packet.data.policy) state.groupMeta.policy = packet.data.policy;
+            var prevNotice = String((((state.groupMeta || {}).group || {}).notice) || '');
+            state.groupMeta = mergeGroupMeta(Object.assign({}, packet.data, { group: ug }));
             if (String(ug.notice || '') !== prevNotice) {
               delete state.noticeDismissed[String(ugid)];
             }
             applyGroupRoomHeader(state.groupMeta);
             renderGroupSettings();
             updateComposerPolicy();
+            if (typeof syncRpTypeTabs === 'function') syncRpTypeTabs();
             renderMessages();
           }
         }
@@ -6278,29 +6293,58 @@
       var list = (packet.data && packet.data.list) || [];
       if (!list.length) return;
       var have = {};
+      var byMsgId = {};
+      var byId = {};
       (state.messages || []).forEach(function (m) {
-        var k = String(m.msg_id || '') + '#' + String(m.id || '');
-        have[k] = true;
-        if (m.msg_id) have['m:' + m.msg_id] = true;
-        if (m.id) have['i:' + m.id] = true;
+        if (!m) return;
+        if (m.msg_id) {
+          have['m:' + m.msg_id] = true;
+          byMsgId[m.msg_id] = m;
+        }
+        if (m.id) {
+          have['i:' + m.id] = true;
+          byId[m.id | 0] = m;
+        }
       });
       var added = 0;
+      var patched = 0;
       list.forEach(function (m) {
         if (!m) return;
-        if ((m.msg_id && have['m:' + m.msg_id]) || (m.id && have['i:' + m.id])) return;
+        var exist = (m.msg_id && byMsgId[m.msg_id]) || (m.id && byId[m.id | 0]) || null;
+        if (exist) {
+          // 历史带 enrich（mine_pending / cover_* / 校正 packet_type），补进内存里的瘦 extra
+          if ((m.msg_type | 0) === 2 && m.extra) {
+            var exNew = m.extra;
+            if (typeof exNew === 'string') {
+              try { exNew = JSON.parse(exNew) || {}; } catch (eP) { exNew = null; }
+            }
+            if (exNew && typeof exNew === 'object') {
+              var exOld = exist.extra;
+              if (typeof exOld === 'string') {
+                try { exOld = JSON.parse(exOld) || {}; } catch (eO) { exOld = {}; }
+              }
+              if (!exOld || typeof exOld !== 'object') exOld = {};
+              exist.extra = Object.assign({}, exOld, exNew);
+              patched += 1;
+            }
+          }
+          return;
+        }
         have['m:' + (m.msg_id || '')] = true;
         have['i:' + (m.id || '')] = true;
         state.messages.push(m);
         added += 1;
         try { cacheSenderFromMsg(m); } catch (e0) {}
       });
-      if (added > 0) {
-        state.messages.sort(function (a, b) {
-          var ai = (a.id | 0) || 0;
-          var bi = (b.id | 0) || 0;
-          if (ai && bi && ai !== bi) return ai - bi;
-          return ((a.createtime | 0) || 0) - ((b.createtime | 0) || 0);
-        });
+      if (added > 0 || patched > 0) {
+        if (added > 0) {
+          state.messages.sort(function (a, b) {
+            var ai = (a.id | 0) || 0;
+            var bi = (b.id | 0) || 0;
+            if (ai && bi && ai !== bi) return ai - bi;
+            return ((a.createtime | 0) || 0) - ((b.createtime | 0) || 0);
+          });
+        }
         try {
           if (typeof renderMessages === 'function') renderMessages(true);
         } catch (e1) {}
@@ -7585,6 +7629,7 @@
 
   // 从验证页 history.back 回来时 onLogin 不会再跑，靠 pageshow 重开详情
   try {
+    bindForegroundResume();
     global.addEventListener('pageshow', function () {
       try {
         var raw = sessionStorage.getItem('fans_hub_rp_fair_return');

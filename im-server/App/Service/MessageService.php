@@ -1981,6 +1981,28 @@ class MessageService
             if (array_key_exists('mine_digit', $extra) && $extra['mine_digit'] !== null && $extra['mine_digit'] !== '') {
                 $clean['mine_digit'] = max(0, min(9, (int)$extra['mine_digit']));
             }
+            // 实时推送也要带上，勿等 history enrich 才有「匹配中」/接龙续发标记
+            if (array_key_exists('mine_pending', $extra)) {
+                $clean['mine_pending'] = !empty($extra['mine_pending']);
+            }
+            if (!empty($extra['relay_auto'])) {
+                $clean['relay_auto'] = 1;
+            }
+            if (isset($extra['tron_status'])) {
+                $clean['tron_status'] = (int)$extra['tron_status'];
+            }
+            if (!empty($extra['tron_block_num'])) {
+                $clean['tron_block_num'] = (int)$extra['tron_block_num'];
+            }
+            if (!empty($extra['tron_block_id'])) {
+                $clean['tron_block_id'] = mb_substr(trim((string)$extra['tron_block_id']), 0, 128);
+            }
+            if (isset($extra['tron_lucky']) && $extra['tron_lucky'] !== '') {
+                $clean['tron_lucky'] = mb_substr(trim((string)$extra['tron_lucky']), 0, 32);
+            }
+            if (!empty($extra['proof_type'])) {
+                $clean['proof_type'] = mb_substr(trim((string)$extra['proof_type']), 0, 16);
+            }
             if (isset($extra['expiretime'])) {
                 $clean['expiretime'] = max(0, (int)$extra['expiretime']);
             }
