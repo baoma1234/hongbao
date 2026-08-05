@@ -73,14 +73,24 @@ export async function fetchConfig() {
 }
 
 export async function sendSms(mobile, extra = {}) {
-  return apiRequest('sendsms', 'POST', Object.assign({ mobile, country_code: 'CN' }, extra))
+  const body = Object.assign(
+    {
+      mobile,
+      country_code: (extra && extra.country_code) || 'CN',
+    },
+    extra || {}
+  )
+  return apiRequest('sendsms', 'POST', body)
 }
 
-export async function login(mobile, captcha, inviteCode = '') {
+export async function login(mobile, captcha, inviteCode = '', extra = {}) {
+  const invite = String(inviteCode || '').trim()
   const data = await apiRequest('login', 'POST', {
     mobile,
     captcha,
-    code: inviteCode || '',
+    code: invite,
+    invite,
+    country_code: (extra && extra.country_code) || 'CN',
     device_fp: getDeviceFp(),
   })
   if (data && data.token) setToken(data.token)

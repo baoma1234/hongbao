@@ -1,73 +1,179 @@
 <template>
   <view class="login-page" :key="locale">
     <TopBar />
-    <view class="hero">
-      <image class="logo-lg" :src="logo" mode="aspectFit" />
-      <view class="brand">{{ t('brand_name') }}</view>
-      <view class="sub">999 · uni-app</view>
-    </view>
 
-    <view class="card">
-      <view class="label">{{ t('login_phone_label') }}</view>
-      <input
-        class="input"
-        type="number"
-        maxlength="11"
-        v-model="mobile"
-        :placeholder="t('login_phone_placeholder')"
-      />
+    <view class="login-wrapper">
+      <view class="login-brand">
+        <image class="login-logo-img" :src="logo" mode="aspectFit" />
+        <view class="login-logo">{{ t('brand_name') }}</view>
+      </view>
+      <view class="login-subtitle">{{ t('login_subtitle') }}</view>
 
-      <view class="label">{{ t('login_captcha_label') }}</view>
-      <view class="row">
+      <view class="input-group">
+        <view class="input-label">{{ t('login_phone_label') }}</view>
+        <view class="phone-row">
+          <view class="country-select" @click="countryOpen = !countryOpen">
+            <image class="flag" :src="flagUrl(countryMeta.flagIso)" mode="aspectFill" />
+            <text class="dial">+{{ countryMeta.dial }}</text>
+            <text class="caret">▾</text>
+          </view>
+          <input
+            class="login-input phone-input"
+            type="number"
+            :maxlength="countryMeta.maxlen"
+            v-model="mobile"
+            :placeholder="phonePlaceholder"
+            @input="onPhoneInput"
+          />
+        </view>
+        <view v-if="countryOpen" class="country-panel">
+          <view
+            v-for="c in countries"
+            :key="c.code"
+            class="country-item"
+            :class="{ on: c.code === country }"
+            @click="pickCountry(c.code)"
+          >
+            <image class="flag" :src="flagUrl(c.flagIso)" mode="aspectFill" />
+            <text class="cname">{{ t(c.labelKey) || c.code }}</text>
+            <text class="cdial">+{{ c.dial }}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="input-group captcha-group">
+        <view class="input-label">{{ t('login_captcha_label') }}</view>
         <input
-          class="input flex"
+          class="login-input captcha-input"
           type="number"
           maxlength="6"
           v-model="captcha"
           :placeholder="t('login_captcha_placeholder')"
         />
-        <button class="sms-btn" :disabled="smsLeft > 0 || sending" @click="onSendSms">
-          {{ smsLeft > 0 ? smsLeft + 's' : t('login_captcha_btn') }}
+        <button
+          class="captcha-btn"
+          :class="{ disabled: smsLeft > 0 || sending }"
+          :disabled="smsLeft > 0 || sending"
+          @click="onSendSms"
+        >
+          {{ smsBtnText }}
         </button>
       </view>
 
-      <view class="label">邀请码（可选）</view>
-      <input class="input" v-model="invite" placeholder="邀请码" />
-
-      <button class="submit" :loading="loading" @click="onLogin">{{ t('login_submit_btn') }}</button>
-      <view class="hint" v-if="hint">{{ hint }}</view>
+      <button class="btn-login-submit" :loading="loading" @click="onLogin">
+        {{ t('login_submit_btn') }}
+      </button>
     </view>
+
+    <SliderCaptcha ref="sliderRef" @success="onSliderOk" @cancel="onSliderCancel" />
   </view>
 </template>
 
 <script setup>
-import { onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
-import { login, sendSms, getToken } from '../../utils/auth.js'
-import { localeState, logoUrl, t } from '../../utils/i18n.js'
+import SliderCaptcha from '../../components/SliderCaptcha.vue'
+import { fetchConfig, getToken, login, sendSms } from '../../utils/auth.js'
+import {
+  flagUrl,
+  localeState,
+  logoUrl,
+  onLocaleChange,
+  t,
+} from '../../utils/i18n.js'
 import { imConnect } from '../../utils/im.js'
+import {
+  LOGIN_COUNTRIES,
+  getCountryMeta,
+  isValidNational,
+  readStoredCountry,
+  setStoredCountry,
+  toE164,
+} from '../../utils/login-country.js'
+
+const SMS_COOLDOWN_KEY = 'fanshub_sms_cooldown'
 
 const locale = localeState()
 const logo = logoUrl()
+const countries = LOGIN_COUNTRIES
+const country = ref(readStoredCountry())
+const countryOpen = ref(false)
 const mobile = ref('')
 const captcha = ref('')
-const invite = ref('')
+const inviteCode = ref('')
 const loading = ref(false)
 const sending = ref(false)
-const hint = ref('')
 const smsLeft = ref(0)
+const smsSliderEnabled = ref(true)
+const smsInterval = ref(60)
+const sliderRef = ref(null)
 let timer = null
+let offLocale = null
+let pendingSmsPhone = ''
+
+const countryMeta = computed(() => getCountryMeta(country.value))
+const phonePlaceholder = computed(() => {
+  void locale.value
+  return t(countryMeta.value.placeholderKey) || t('login_phone_placeholder')
+})
+const smsBtnText = computed(() => {
+  void locale.value
+  if (smsLeft.value > 0) {
+    return t('login_captcha_resend', { count: smsLeft.value }) || smsLeft.value + 's'
+  }
+  return t('login_captcha_btn')
+})
 
 if (getToken()) {
   uni.reLaunch({ url: '/pages/home/home' })
 }
 
-function startCooldown(sec) {
-  smsLeft.value = Math.max(0, parseInt(sec, 10) || 60)
+onLoad((q) => {
+  const code = (q && (q.code || q.invite)) || ''
+  if (code) inviteCode.value = String(code)
+  // #ifdef H5
+  try {
+    if (typeof location !== 'undefined' && location.search) {
+      const sp = new URLSearchParams(location.search)
+      const fromUrl = sp.get('code') || sp.get('invite') || ''
+      if (fromUrl) inviteCode.value = String(fromUrl)
+    }
+  } catch (e) {}
+  // #endif
+})
+
+function getSmsCooldownRemain(phone) {
+  if (!phone) return 0
+  try {
+    const map = JSON.parse(uni.getStorageSync(SMS_COOLDOWN_KEY) || '{}')
+    const until = map[phone]
+    if (!until) return 0
+    const remain = Math.ceil((until - Date.now()) / 1000)
+    return remain > 0 ? remain : 0
+  } catch (e) {
+    return 0
+  }
+}
+
+function setSmsCooldownUntil(phone, seconds) {
+  if (!phone || seconds <= 0) return
+  try {
+    const map = JSON.parse(uni.getStorageSync(SMS_COOLDOWN_KEY) || '{}')
+    map[phone] = Date.now() + seconds * 1000
+    uni.setStorageSync(SMS_COOLDOWN_KEY, JSON.stringify(map))
+  } catch (e) {}
+}
+
+function startCooldown(phone, sec) {
+  const total = Math.max(1, parseInt(sec, 10) || smsInterval.value || 60)
+  setSmsCooldownUntil(phone, total)
+  smsLeft.value = total
   if (timer) clearInterval(timer)
   timer = setInterval(() => {
-    smsLeft.value -= 1
-    if (smsLeft.value <= 0) {
+    const remain = getSmsCooldownRemain(phone)
+    smsLeft.value = remain
+    if (remain <= 0) {
       clearInterval(timer)
       timer = null
       smsLeft.value = 0
@@ -75,41 +181,112 @@ function startCooldown(sec) {
   }, 1000)
 }
 
-onUnmounted(() => {
-  if (timer) clearInterval(timer)
-})
-
-async function onSendSms() {
-  const phone = String(mobile.value || '').trim()
-  if (!/^1\d{10}$/.test(phone)) {
-    uni.showToast({ title: t('api_mobile_invalid') || '手机号不正确', icon: 'none' })
+function syncCooldownFromStorage() {
+  const phone = toE164(mobile.value, country.value)
+  if (!phone) {
+    smsLeft.value = 0
     return
   }
-  sending.value = true
-  hint.value = ''
-  try {
-    const data = await sendSms(phone)
-    startCooldown((data && data.retry_after) || 60)
-    if (data && data.mock_code) {
-      captcha.value = String(data.mock_code)
-      hint.value = data.hint || ('测试验证码：' + data.mock_code)
-    } else {
-      hint.value = (data && data.hint) || t('alert_sms_hint_default') || '验证码已发送'
-    }
-    uni.showToast({ title: '已发送', icon: 'success' })
-  } catch (e) {
-    if (e.payload && e.payload.retry_after) startCooldown(e.payload.retry_after)
-    uni.showToast({ title: e.message || t('alert_sms_fail') || '发送失败', icon: 'none' })
-  } finally {
-    sending.value = false
+  const remain = getSmsCooldownRemain(phone)
+  if (remain > 0) startCooldown(phone, remain)
+  else smsLeft.value = 0
+}
+
+function onPhoneInput() {
+  syncCooldownFromStorage()
+}
+
+function pickCountry(code) {
+  country.value = setStoredCountry(code)
+  countryOpen.value = false
+  mobile.value = ''
+  syncCooldownFromStorage()
+}
+
+async function loadCfg() {
+  const cfg = await fetchConfig()
+  if (!cfg) return
+  if (cfg.sms_slider_enabled === false) smsSliderEnabled.value = false
+  else smsSliderEnabled.value = true
+  if (cfg.sms_send_interval != null) {
+    const n = parseInt(cfg.sms_send_interval, 10)
+    if (n > 0) smsInterval.value = n
   }
 }
 
+async function doSendSms(phone, sliderPayload) {
+  sending.value = true
+  try {
+    const data = await sendSms(phone, Object.assign({
+      country_code: country.value,
+    }, sliderPayload || {}))
+    const interval = (data && data.retry_after)
+      ? parseInt(data.retry_after, 10)
+      : (smsInterval.value || 60)
+    startCooldown(phone, interval)
+    if (data && data.mock_code) {
+      captcha.value = String(data.mock_code)
+    }
+    const hint = (data && data.hint) ? data.hint : (t('alert_sms_hint_default') || '')
+    uni.showToast({
+      title: (t('alert_sms_sent') || '已发送') + (hint ? '\n' + hint : ''),
+      icon: 'none',
+      duration: 2600,
+    })
+  } catch (e) {
+    if (e.payload && e.payload.retry_after) startCooldown(phone, e.payload.retry_after)
+    uni.showToast({ title: e.message || t('alert_sms_fail') || '发送失败', icon: 'none' })
+  } finally {
+    sending.value = false
+    pendingSmsPhone = ''
+  }
+}
+
+function onSliderOk(payload) {
+  const phone = pendingSmsPhone
+  if (!phone) return
+  doSendSms(phone, payload || {})
+}
+
+function onSliderCancel() {
+  sending.value = false
+  pendingSmsPhone = ''
+}
+
+async function onSendSms() {
+  countryOpen.value = false
+  const phone = toE164(mobile.value, country.value)
+  if (!phone || !isValidNational(mobile.value, country.value)) {
+    uni.showToast({ title: t('alert_phone_invalid') || t('api_mobile_invalid') || '手机号不正确', icon: 'none' })
+    return
+  }
+  const remain = getSmsCooldownRemain(phone)
+  if (remain > 0) {
+    startCooldown(phone, remain)
+    uni.showToast({
+      title: t('api_sms_too_frequent_wait', { seconds: remain }) || ('请稍后再试 ' + remain + 's'),
+      icon: 'none',
+    })
+    return
+  }
+  await loadCfg()
+  if (smsSliderEnabled.value) {
+    pendingSmsPhone = phone
+    sending.value = true
+    if (sliderRef.value && typeof sliderRef.value.open === 'function') {
+      sliderRef.value.open()
+    }
+    return
+  }
+  await doSendSms(phone, {})
+}
+
 async function onLogin() {
-  const phone = String(mobile.value || '').trim()
+  countryOpen.value = false
+  const phone = toE164(mobile.value, country.value)
   const code = String(captcha.value || '').trim()
-  if (!/^1\d{10}$/.test(phone)) {
-    uni.showToast({ title: t('api_mobile_invalid') || '手机号不正确', icon: 'none' })
+  if (!phone || !isValidNational(mobile.value, country.value)) {
+    uni.showToast({ title: t('alert_phone_required') || t('api_mobile_invalid') || '请输入手机号', icon: 'none' })
     return
   }
   if (!code) {
@@ -118,103 +295,224 @@ async function onLogin() {
   }
   loading.value = true
   try {
-    const data = await login(phone, code, invite.value)
-    uni.showToast({ title: '登录成功', icon: 'success' })
+    await loadCfg()
+    const data = await login(phone, code, inviteCode.value, {
+      country_code: country.value,
+    })
+    uni.showToast({
+      title: data && data.is_new
+        ? (t('alert_login_new') || '注册成功')
+        : (t('alert_login_back') || '登录成功'),
+      icon: 'none',
+    })
     try {
       await imConnect()
     } catch (e) {
       console.warn('im connect', e)
     }
     uni.reLaunch({ url: '/pages/home/home' })
-    return data
   } catch (e) {
     uni.showToast({ title: e.message || t('alert_login_fail') || '登录失败', icon: 'none' })
   } finally {
     loading.value = false
   }
 }
+
+onMounted(() => {
+  loadCfg()
+  syncCooldownFromStorage()
+  offLocale = onLocaleChange(() => {
+    // 语言切换后占位/按钮文案随 locale 计算属性刷新
+  })
+})
+
+onUnmounted(() => {
+  if (timer) clearInterval(timer)
+  if (typeof offLocale === 'function') offLocale()
+})
 </script>
 
 <style scoped>
 .login-page {
   min-height: 100vh;
-  padding: 0 40rpx 40rpx;
-  background: linear-gradient(180deg, #c61114 0%, var(--bg-main, #f6f1ea) 42%);
+  background: var(--bg-main, #f5f7fa);
   box-sizing: border-box;
 }
-.hero {
+.login-wrapper {
+  max-width: 400px;
+  width: calc(100% - 32px);
+  margin: 40px auto 0;
+  padding: 30px 20px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 25px rgba(0, 0, 0, 0.06);
+  border: 1px solid #e1e8ed;
+  text-align: center;
+  box-sizing: border-box;
+}
+.login-brand {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 24rpx 0 32rpx;
+  margin-bottom: 6px;
 }
-.logo-lg {
-  width: 160rpx;
-  height: 160rpx;
-  margin-bottom: 8rpx;
+.login-logo-img {
+  width: 112px;
+  height: 112px;
+  margin-bottom: 2px;
 }
-.brand {
-  color: #fff;
-  font-size: 56rpx;
-  font-weight: 800;
-  letter-spacing: 4rpx;
+.login-logo {
+  font-size: 28px;
+  font-weight: 900;
+  color: #e80000;
+  margin-bottom: 6px;
+  letter-spacing: 1px;
+  line-height: 1.2;
 }
-.sub {
-  color: rgba(255, 255, 255, 0.85);
-  margin-top: 8rpx;
-  font-size: 26rpx;
+.login-subtitle {
+  font-size: 13px;
+  color: #657786;
+  margin-bottom: 25px;
+  font-weight: 500;
 }
-.card {
-  background: var(--bg-card, #fff);
-  border-radius: 24rpx;
-  padding: 36rpx 28rpx;
-  box-shadow: 0 12rpx 40rpx rgba(198, 17, 20, 0.12);
+.input-group {
+  position: relative;
+  margin-bottom: 18px;
+  text-align: left;
 }
-.label {
-  font-size: 24rpx;
-  color: var(--text-muted, #9a8574);
-  margin: 18rpx 0 10rpx;
+.input-label {
+  font-size: 12px;
+  font-weight: bold;
+  color: #1a212d;
+  margin-bottom: 6px;
+  display: block;
 }
-.input {
-  height: 84rpx;
-  padding: 0 24rpx;
-  background: #f7f2ec;
-  border-radius: 14rpx;
-  font-size: 30rpx;
-  color: var(--text-main, #1a212d);
+.login-input {
+  width: 100%;
+  height: 44px;
+  padding: 0 14px;
+  border: 1px solid #ccd6dd;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: bold;
+  color: #1a212d;
+  background: #f8f9fa;
+  box-sizing: border-box;
 }
-.row {
+.phone-row {
   display: flex;
-  gap: 16rpx;
+  gap: 8px;
+  align-items: stretch;
+}
+.country-select {
+  flex: 0 0 132px;
+  width: 132px;
+  height: 44px;
+  padding: 0 8px;
+  border: 1px solid #ccd6dd;
+  border-radius: 8px;
+  background: #f8f9fa;
+  display: flex;
   align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
 }
-.flex { flex: 1; }
-.sms-btn {
+.country-select .flag {
+  width: 22px;
+  height: 16px;
+  border-radius: 2px;
   flex-shrink: 0;
+}
+.country-select .dial {
+  flex: 1;
+  font-size: 12px;
+  font-weight: bold;
+  color: #1a212d;
+}
+.country-select .caret {
+  font-size: 10px;
+  color: #657786;
+}
+.phone-input {
+  flex: 1;
+  min-width: 0;
+}
+.country-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  margin-top: 4px;
+  background: #fff;
+  border: 1px solid #e1e8ed;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  z-index: 20;
+  overflow: hidden;
+}
+.country-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #f0f3f6;
+}
+.country-item:last-child {
+  border-bottom: none;
+}
+.country-item.on {
+  background: #f5f9ff;
+}
+.country-item .flag {
+  width: 22px;
+  height: 16px;
+  border-radius: 2px;
+}
+.country-item .cname {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a212d;
+}
+.country-item .cdial {
+  font-size: 12px;
+  color: #657786;
+  font-weight: 600;
+}
+.captcha-group .captcha-input {
+  padding-right: 108px;
+}
+.captcha-btn {
+  position: absolute;
+  right: 8px;
+  bottom: 5px;
   margin: 0;
-  height: 84rpx;
-  line-height: 84rpx;
-  padding: 0 22rpx;
-  font-size: 24rpx;
-  color: #c61114;
-  background: #ffe8e6;
-  border-radius: 14rpx;
-}
-.submit {
-  margin-top: 40rpx;
-  height: 88rpx;
-  line-height: 88rpx;
-  background: var(--primary, #c61114);
+  background: #0071ff;
   color: #fff;
-  border-radius: 16rpx;
-  font-size: 30rpx;
-  font-weight: 700;
+  border: none;
+  padding: 7px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: bold;
+  line-height: 1.2;
+  height: auto;
 }
-.hint {
-  margin-top: 20rpx;
-  font-size: 24rpx;
-  color: var(--text-muted, #9a8574);
-  line-height: 1.5;
-  white-space: pre-wrap;
+.captcha-btn.disabled,
+.captcha-btn[disabled] {
+  background: #ccd6dd;
+  color: #657786;
+}
+.btn-login-submit {
+  width: 100%;
+  margin-top: 10px;
+  background: linear-gradient(135deg, #0071ff 0%, #00c853 100%);
+  color: #fff;
+  border: none;
+  padding: 14px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: bold;
+  box-shadow: 0 4px 12px rgba(0, 113, 255, 0.2);
+  line-height: 1.3;
 }
 </style>
