@@ -458,25 +458,71 @@ page {
   color: #c61114;
 }
 
-.wallet-channel-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  object-fit: cover;
-  flex-shrink: 0;
+/* 压过消息页 chat.bundle 的横向列表/箭头，保证充提/绑定地址瓷砖网格 */
+.profile-sub-page .wallet-channel-list,
+.hb-page .wallet-channel-list {
+  display: block !important;
+  margin: 12px 0;
+}
+
+.profile-sub-page .wallet-channel-list.is-grid,
+.profile-sub-page .wallet-channel-grid,
+.hb-page .wallet-channel-list.is-grid,
+.hb-page .wallet-channel-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.profile-sub-page .wallet-channel-item,
+.hb-page .wallet-channel-item {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 6px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  position: relative !important;
+  padding: 10px 4px 8px !important;
+  padding-right: 4px !important;
+  min-height: 78px !important;
+  text-align: center !important;
+  border-radius: 12px !important;
+}
+
+.profile-sub-page .wallet-channel-item::after,
+.hb-page .wallet-channel-item::after {
+  content: none !important;
+  display: none !important;
+}
+
+.wallet-channel-icon,
+.profile-sub-page img.wallet-channel-icon,
+.profile-sub-page .wallet-channel-icon,
+.hb-page img.wallet-channel-icon,
+.hb-page .wallet-channel-icon {
+  width: 36px !important;
+  height: 36px !important;
+  max-width: 36px !important;
+  max-height: 36px !important;
+  border-radius: 10px !important;
+  object-fit: cover !important;
+  flex-shrink: 0 !important;
   background: #f6f6f6;
-  display: block;
+  display: block !important;
   overflow: hidden;
   box-sizing: border-box;
 }
 
-/* uni-app H5：<image> 默认 320×240，压回 36×36 避免数字钱包格子错位 */
-uni-image.wallet-channel-icon,
-image.wallet-channel-icon,
-.wallet-channel-icon.uni-image,
-.wallet-channel-icon uni-image,
-.wallet-channel-icon image,
-.wallet-channel-icon .uni-image {
+/* uni-app H5：若仍用 <image>，默认 320×240，强制压回 */
+.profile-sub-page uni-image.wallet-channel-icon,
+.hb-page uni-image.wallet-channel-icon,
+.profile-sub-page .wallet-channel-icon.uni-image,
+.hb-page .wallet-channel-icon.uni-image {
   width: 36px !important;
   height: 36px !important;
   max-width: 36px !important;
@@ -487,35 +533,41 @@ image.wallet-channel-icon,
   flex-shrink: 0;
 }
 
-uni-image.wallet-channel-icon > div,
-.wallet-channel-icon.uni-image > div,
-.wallet-channel-icon uni-image > div,
-.wallet-channel-icon .uni-image > div {
-  width: 100% !important;
-  height: 100% !important;
-}
-
-uni-image.wallet-channel-icon img,
-.wallet-channel-icon.uni-image img,
-.wallet-channel-icon uni-image img,
-.wallet-channel-icon img {
+.profile-sub-page uni-image.wallet-channel-icon > div,
+.hb-page uni-image.wallet-channel-icon > div,
+.profile-sub-page uni-image.wallet-channel-icon img,
+.hb-page uni-image.wallet-channel-icon img,
+.profile-sub-page .wallet-channel-icon img,
+.hb-page .wallet-channel-icon img {
   width: 36px !important;
   height: 36px !important;
   max-width: 36px !important;
   max-height: 36px !important;
-  object-fit: cover;
-  display: block;
+  object-fit: cover !important;
+  display: block !important;
   border-radius: 10px;
 }
 
-.wallet-channel-icon--placeholder {
-  display: inline-flex;
+.wallet-channel-icon--placeholder,
+.profile-sub-page .wallet-channel-icon--placeholder,
+.hb-page .wallet-channel-icon--placeholder {
+  display: inline-flex !important;
   align-items: center;
   justify-content: center;
   font-size: 14px;
   font-weight: 800;
   color: #c45a1a;
   background: linear-gradient(145deg, #fff4e0, #ffe0b0);
+}
+
+.profile-sub-page .wallet-channel-meta,
+.hb-page .wallet-channel-meta {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  min-width: 0;
+  width: 100% !important;
+  flex: none !important;
 }
 
 .wallet-channel-meta {

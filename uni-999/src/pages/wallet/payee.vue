@@ -52,15 +52,7 @@
               :class="{ active: selectedType === wt.type }"
               @click="selectWallet(wt.type)"
             >
-              <image
-                v-if="wt.icon"
-                class="wallet-channel-icon"
-                :src="wt.icon"
-                mode="aspectFill"
-              />
-              <view v-else class="wallet-channel-icon wallet-channel-icon--placeholder">
-                {{ (wt.label || '?').charAt(0) }}
-              </view>
+              <WalletChannelIcon :icon="wt.icon" :name="wt.label" />
               <view class="wallet-channel-meta">
                 <text class="wallet-channel-name">{{ wt.label }}</text>
                 <text
@@ -142,6 +134,7 @@
 
 <script setup>
 import TopBar from '../../components/TopBar.vue'
+import WalletChannelIcon from '../../components/WalletChannelIcon.vue'
 import { computed, reactive, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { apiRequest, getToken } from '../../utils/auth.js'

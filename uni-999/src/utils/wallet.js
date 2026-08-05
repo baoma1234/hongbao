@@ -47,20 +47,25 @@ export function shortChannelName(ch) {
   return raw || '通道' + (ch.id || '')
 }
 
-/** 通道图标：USDT 用 999 static；其它相对路径仍兼容同站 /888 */
+/** 通道图标：与 888 同源路径（/assets/img/wallets/*.png）；USDT 用 999 static */
 export function channelIconUrl(ch) {
   let icon = String((ch && ch.icon) || '').trim()
-  if (ch && String(ch.handler || '').toLowerCase() === 'bs') {
-    icon = 'static/pay/usdt.png'
+  const handler = ch ? String(ch.handler || '').toLowerCase() : ''
+  if (handler === 'bs') {
+    return assetBase() + 'static/pay/usdt.png'
   }
   if (!icon) return ''
   if (/^https?:\/\//i.test(icon) || icon.startsWith('data:')) return icon
+  // API 常返回 /img/pay/usdt.png（文件实际在 /888 或 /999 static）
   if (/img\/pay\/usdt\.png$/i.test(icon) || /\/pay\/usdt\.png$/i.test(icon)) {
     return assetBase() + 'static/pay/usdt.png'
   }
   if (icon.startsWith('static/')) return assetBase() + icon.replace(/^\.\//, '')
-  if (icon.startsWith('/999/')) return icon
+  if (icon.startsWith('/999/') || icon.startsWith('/888/') || icon.startsWith('/assets/')) {
+    return icon
+  }
   if (icon.startsWith('/')) return icon
+  if (/^img\//i.test(icon)) return '/888/' + icon.replace(/^\.\//, '')
   return '/888/' + icon.replace(/^\.\//, '')
 }
 

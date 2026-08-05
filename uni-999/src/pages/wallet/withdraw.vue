@@ -40,15 +40,7 @@
           :class="{ active: selectedId === Number(ch.id) }"
           @click="selectChannel(ch)"
         >
-          <image
-            v-if="iconUrl(ch)"
-            class="wallet-channel-icon"
-            :src="iconUrl(ch)"
-            mode="aspectFill"
-          />
-          <view v-else class="wallet-channel-icon wallet-channel-icon--placeholder">
-            {{ shortName(ch).charAt(0) }}
-          </view>
+          <WalletChannelIcon :channel="ch" :name="shortName(ch)" />
           <view class="wallet-channel-meta">
             <text class="wallet-channel-name">{{ shortName(ch) }}</text>
             <text
@@ -166,11 +158,11 @@
 <script setup>
 import { computed, ref } from 'vue'
 import TopBar from '../../components/TopBar.vue'
+import WalletChannelIcon from '../../components/WalletChannelIcon.vue'
 import { onShow } from '@dcloudio/uni-app'
 import { apiRequest, getToken } from '../../utils/auth.js'
 import {
   CHANNEL_GRID_VISIBLE,
-  channelIconUrl,
   clearWalletCache,
   findChannel,
   fxHintText,
@@ -311,9 +303,6 @@ const verifyAddr = computed(() => {
 
 function shortName(ch) {
   return shortChannelName(ch)
-}
-function iconUrl(ch) {
-  return channelIconUrl(ch)
 }
 function isWalletCh(ch) {
   return ch && String(ch.bind_mode || '') === 'wallet' && !isOnlineCoopChannel(ch)
