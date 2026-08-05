@@ -190,6 +190,7 @@ import {
   urgeCopy,
 } from '../../utils/master.js'
 import '../../styles/tabs-extra.css'
+import '../../styles/master-uni-adapter.css'
 
 const locale = localeState()
 const loading = ref(true)
@@ -424,76 +425,5 @@ onHide(() => stopPoll())
 </script>
 
 <style scoped>
-/* uni 外壳：对齐 888 body.tab-master + #tabMaster 氛围，不改 tabs-extra 源样式语义 */
-.tab-master-page {
-  background-color: #9b1010 !important;
-  padding: 0 0 88px !important;
-  position: relative;
-  overflow: hidden;
-  min-height: 100vh;
-}
-#tabMaster {
-  position: relative;
-  margin: 0;
-  padding: 0 0 36px;
-  min-height: calc(100vh - 110px);
-  overflow: hidden;
-}
-.master-lock-title {
-  font-size: 17px;
-  color: #b71c1c;
-  margin-bottom: 8px;
-  font-weight: 900;
-  letter-spacing: 0.5px;
-}
-.master-lock-desc {
-  font-size: 12px;
-  color: #6d3b20;
-  line-height: 1.6;
-  font-weight: 600;
-  margin: 0 0 14px;
-}
-.honor-pct {
-  color: #c62828;
-  font-variant-numeric: tabular-nums;
-}
-.honor-reward-em {
-  font-style: normal;
-  font-size: 9px;
-  font-weight: 700;
-  opacity: 0.88;
-  letter-spacing: 0.4px;
-}
-.honor-reward-strong {
-  font-size: 12px;
-  font-weight: 900;
-  line-height: 1.15;
-}
-.honor-reward-span {
-  font-size: 10px;
-  font-weight: 800;
-  opacity: 0.95;
-}
-.team-radar-main {
-  flex: 1;
-  min-width: 0;
-}
-/* checkbox 在 uni 里略大，压一下 */
-.checkin-violent-row checkbox {
-  transform: scale(0.85);
-}
-.btn-checkin-main.is-disabled {
-  opacity: 0.55;
-  pointer-events: none;
-}
-.master-lock-btn {
-  display: block;
-  text-align: center;
-  box-sizing: border-box;
-}
-.btn-urge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
+/* 仅保留最小壳；视觉细节走 master-uni-adapter.css，避免 scoped 拆坏 888 选择器 */
 </style>
