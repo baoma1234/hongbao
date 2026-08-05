@@ -1648,10 +1648,8 @@ class RedPacketService
         ];
         try {
             if ((int)($hint['scope_type'] ?? 0) === 2 && (int)($hint['group_id'] ?? 0) > 0) {
-                $uids = $this->groups->onlineMemberIds((int)$hint['group_id']);
-                if ($uids) {
-                    PushBus::toUsers($uids, 'redpacket.update', $event);
-                }
+                $gid = (int)$hint['group_id'];
+                PushBus::toGroup($gid, 'redpacket.update', $event);
                 // 埋雷结算后群内公示中雷结果，所有人可见
                 if ((int)($hint['packet_type'] ?? 0) === 3) {
                     $packet = Db::fetch(
@@ -1685,8 +1683,8 @@ class RedPacketService
                         'hit_count'  => count($hitUids),
                         'kind'       => 'mine_settle',
                     ]);
-                    if ($uids && is_array($sys)) {
-                        PushBus::toUsers($uids, 'group.message', ['message' => $sys]);
+                    if (is_array($sys)) {
+                        PushBus::toGroup((int)$hint['group_id'], 'group.message', ['message' => $sys]);
                     }
                 }
             } else {
@@ -1860,21 +1858,15 @@ class RedPacketService
                 $msg = $result['message'] ?? null;
                 if (is_array($msg)) {
                     try {
-                        $uids = $this->groups->pushTargetUserIds($groupId);
-                        if ($uids) {
-                            // cron/无 localDeliver 时 toUsers 会走 toUsersExternal；WS 进程则本机+跨进程
-                            \Im\Support\PushBus::toUsers($uids, 'group.message', ['message' => $msg]);
-                            // 再发专用事件，避免前端把「自己名义续发」当成自发消息静默
-                            \Im\Support\PushBus::toUsers($uids, 'redpacket.relay_next', [
-                                'message'   => $msg,
-                                'packet_id' => (int)($result['packet_id'] ?? 0),
-                                'group_id'  => $groupId,
-                                'from_user_id' => $senderUid,
-                                'relay_auto' => 1,
-                            ]);
-                        } else {
-                            error_log('[RP_RELAY] push skip: no online targets group=' . $groupId . ' from_packet=' . $packetId);
-                        }
+                        // cron/无 localDeliver 时 toGroup 走 toGroupExternal；WS 进程则本机+跨进程
+                        \Im\Support\PushBus::toGroup($groupId, 'group.message', ['message' => $msg]);
+                        \Im\Support\PushBus::toGroup($groupId, 'redpacket.relay_next', [
+                            'message'   => $msg,
+                            'packet_id' => (int)($result['packet_id'] ?? 0),
+                            'group_id'  => $groupId,
+                            'from_user_id' => $senderUid,
+                            'relay_auto' => 1,
+                        ]);
                     } catch (\Throwable $e) {
                         error_log('[RP_RELAY] push fail group=' . $groupId . ' ' . $e->getMessage());
                     }
@@ -2700,10 +2692,7 @@ class RedPacketService
                         'event'     => 'relay_expire',
                     ]);
                     if (is_array($msg)) {
-                        $uids = $this->groups->pushTargetUserIds($gid);
-                        if ($uids) {
-                            PushBus::toUsers($uids, 'group.message', ['message' => $msg]);
-                        }
+                        PushBus::toGroup($gid, 'group.message', ['message' => $msg]);
                     }
                 }
             } catch (\Throwable $eTip) {

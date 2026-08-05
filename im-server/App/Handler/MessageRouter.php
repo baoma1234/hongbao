@@ -1564,10 +1564,10 @@ class MessageRouter
     protected function pushToGroup($groupId, $type, array $data, $exceptConnId = '')
     {
         $groupId = (int)$groupId;
-        $uids = $this->groups->pushTargetUserIds($groupId);
-        if ($uids) {
-            PushBus::toUsers($uids, $type, $data, $exceptConnId);
+        if ($groupId <= 0) {
+            return;
         }
+        PushBus::toGroup($groupId, $type, $data, $exceptConnId);
     }
 
     /**

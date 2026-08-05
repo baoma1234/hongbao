@@ -104,6 +104,54 @@ class ConnMap
         return !empty(self::$uidConns[(int)$userId]);
     }
 
+    /** @return int[] 本进程已认证用户 id */
+    public static function localUserIds()
+    {
+        return array_map('intval', array_keys(self::$uidConns));
+    }
+
+    /**
+     * 本进程在线用户中属于某群的成员（用于群频道本地扇出，避免跨进程传万级 uid）
+     *
+     * @return int[]
+     */
+    public static function filterLocalGroupMembers($groupId)
+    {
+        $groupId = (int)$groupId;
+        $uids = self::localUserIds();
+        if ($groupId <= 0 || !$uids) {
+            return [];
+        }
+        try {
+            $r = RedisClient::conn();
+            $setKey = RedisClient::key('g:' . $groupId . ':mset');
+            if (!(int)$r->exists($setKey) || (int)$r->sCard($setKey) <= 0) {
+                return [];
+            }
+            $out = [];
+            $chunkSize = 200;
+            for ($i = 0; $i < count($uids); $i += $chunkSize) {
+                $chunk = array_slice($uids, $i, $chunkSize);
+                $r->multi(\Redis::PIPELINE);
+                foreach ($chunk as $uid) {
+                    $r->sIsMember($setKey, (string)$uid);
+                }
+                $flags = $r->exec();
+                if (!is_array($flags)) {
+                    continue;
+                }
+                foreach ($chunk as $j => $uid) {
+                    if (!empty($flags[$j])) {
+                        $out[] = (int)$uid;
+                    }
+                }
+            }
+            return $out;
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
     /**
      * 过滤出当前在线用户（跨进程 Redis online 集合；失败时回退本进程）
      * 大批量会员时用 pipeline SISMEMBER，避免每次 SMEMBERS 全站在线集

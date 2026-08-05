@@ -96,6 +96,115 @@ class PushBus
     }
 
     /**
+     * 群频道推送：跨进程只传 group_id + payload，各 Worker 本机按成员集投递。
+     * 万人群避免「先算全量 online uid 再按 worker 拆分」的 Redis/序列化放大。
+     */
+    public static function toGroup($groupId, $type, array $data, $exceptConnId = '')
+    {
+        $groupId = (int)$groupId;
+        if ($groupId <= 0) {
+            return;
+        }
+        try {
+            (new \Im\Service\GroupService())->ensureMemberSet($groupId);
+        } catch (\Throwable $e) {
+        }
+        if (!self::$localDeliver) {
+            self::toGroupExternal($groupId, $type, $data);
+            return;
+        }
+        $envelope = [
+            'v'      => 2,
+            'mode'   => 'group',
+            'gid'    => $groupId,
+            'type'   => (string)$type,
+            'data'   => $data,
+            'except' => (string)$exceptConnId,
+            'from'   => self::$workerId,
+            'ts'     => time(),
+        ];
+        self::publishGroup($envelope);
+    }
+
+    /**
+     * HTTP / cron 等无 WS 本地连接时的群频道推送
+     */
+    public static function toGroupExternal($groupId, $type, array $data)
+    {
+        $groupId = (int)$groupId;
+        if ($groupId <= 0) {
+            return;
+        }
+        try {
+            (new \Im\Service\GroupService())->ensureMemberSet($groupId);
+        } catch (\Throwable $e) {
+        }
+        $envelope = [
+            'v'      => 2,
+            'mode'   => 'group',
+            'gid'    => $groupId,
+            'type'   => (string)$type,
+            'data'   => $data,
+            'except' => '',
+            'from'   => -1,
+            'ts'     => time(),
+        ];
+        $json = \Im\Support\Json::encode($envelope);
+        if ($json === '' || $json === '{"code":0,"message":"encode error"}') {
+            return;
+        }
+        try {
+            $r = RedisClient::conn();
+            $workers = $r->sMembers(RedisClient::key('workers'));
+            if (!is_array($workers) || !$workers) {
+                $workers = ['0'];
+            }
+            foreach ($workers as $wid) {
+                $wid = (string)$wid;
+                if ($wid === '') {
+                    continue;
+                }
+                if (!$r->exists(RedisClient::key('worker:' . $wid . ':alive')) && $wid !== '0') {
+                    continue;
+                }
+                $key = RedisClient::key('w:' . $wid . ':push');
+                $r->lPush($key, $json);
+                $r->lTrim($key, 0, 19999);
+            }
+            try {
+                $r->publish(RedisClient::key('push_wake'), 'group');
+            } catch (\Throwable $ePub) {
+            }
+        } catch (\Throwable $e) {
+        }
+    }
+
+    /**
+     * 群 envelope：本机投递 + 每个存活远程 Worker 各写 1 条（不含 uid 列表）
+     */
+    protected static function publishGroup(array $envelope)
+    {
+        self::deliverLocal($envelope);
+        $json = \Im\Support\Json::encode($envelope);
+        if ($json === '' || $json === '{"code":0,"message":"encode error"}') {
+            return;
+        }
+        try {
+            $r = RedisClient::conn();
+            foreach (self::otherAliveWorkers() as $wid) {
+                $key = RedisClient::key('w:' . $wid . ':push');
+                $r->lPush($key, $json);
+                $r->lTrim($key, 0, 19999);
+            }
+            try {
+                $r->publish(RedisClient::key('push_wake'), (string)self::$workerId);
+            } catch (\Throwable $e) {
+            }
+        } catch (\Throwable $e) {
+        }
+    }
+
+    /**
      * HTTP / 外部进程推送：无本地连接，直接写入各存活 Worker 的 push 队列
      *
      * @param int|int[] $userIds
@@ -315,9 +424,22 @@ class PushBus
 
     public static function deliverLocal(array $envelope)
     {
-        if (self::$localDeliver) {
-            call_user_func(self::$localDeliver, $envelope);
+        if (!self::$localDeliver) {
+            return;
         }
+        // 群频道：在投递前解析本机成员，复用原有按 uid 写连接逻辑
+        $mode = (string)($envelope['mode'] ?? '');
+        $gid = (int)($envelope['gid'] ?? 0);
+        if ($mode === 'group' || ($gid > 0 && empty($envelope['uids']))) {
+            if ($gid <= 0) {
+                return;
+            }
+            $envelope['uids'] = ConnMap::filterLocalGroupMembers($gid);
+            if (!$envelope['uids']) {
+                return;
+            }
+        }
+        call_user_func(self::$localDeliver, $envelope);
     }
 
     /** @return string[] */

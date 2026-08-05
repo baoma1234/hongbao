@@ -341,9 +341,8 @@ class GroupService
     }
 
     /**
-     * 群消息/红包推送目标：群内当前在线成员（含会话列表未进房的人）。
-     * 禁止「仅推正在看该群的人」——发包人进房后会让其他人收不到实时推送。
-     * 观群集合仅作补漏并入，不单独作为目标。
+     * 群消息/红包推送目标（旧路径）：群内当前在线成员。
+     * 实时 WS 推送请优先用 PushBus::toGroup($gid, ...)，避免跨进程传万级 uid。
      * @return int[]
      */
     public function pushTargetUserIds($groupId)

@@ -33,17 +33,16 @@ class NotifyDispatcher
         }
 
         if ((int)($message['conversation_type'] ?? 0) === 2) {
-            if (!$groups) {
-                $groups = new GroupService();
-            }
             $gid = (int)($message['group_id'] ?? 0);
-            $uids = $groups->pushTargetUserIds($gid);
-        } else {
-            $uids = array_filter([
-                (int)($message['from_user_id'] ?? 0),
-                (int)($message['to_user_id'] ?? 0),
-            ]);
+            if ($gid > 0) {
+                PushBus::toGroup($gid, $type, ['message' => $message]);
+            }
+            return;
         }
+        $uids = array_filter([
+            (int)($message['from_user_id'] ?? 0),
+            (int)($message['to_user_id'] ?? 0),
+        ]);
         if ($uids) {
             PushBus::toUsers(array_values($uids), $type, ['message' => $message]);
         }

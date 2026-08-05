@@ -174,9 +174,9 @@ class UserApi extends UserReadApi
         if (is_array($packet)) {
             $event = ['packet_id' => $packetId, 'grab' => $result, 'by_user_id' => $uid];
             if ((int)($packet['scope_type'] ?? 0) === 2) {
-                $uids = $this->groups->pushTargetUserIds((int)$packet['group_id']);
-                if ($uids) {
-                    PushBus::toUsers($uids, 'redpacket.update', $event);
+                $gid = (int)$packet['group_id'];
+                if ($gid > 0) {
+                    PushBus::toGroup($gid, 'redpacket.update', $event);
                 }
             } else {
                 PushBus::toUsers(
@@ -344,10 +344,7 @@ class UserApi extends UserReadApi
         $clearResult = $this->messages->clearGroupConversation($uid, $groupId, $clearedMsgId);
         $this->groups->leave($groupId, $uid);
         NotifyPublisher::publish('group.message', $sys, false, $this->cfg);
-        $uids = $this->groups->onlineMemberIds($groupId);
-        if ($uids) {
-            PushBus::toUsers($uids, 'group.members_changed', ['group_id' => $groupId, 'reason' => 'leave']);
-        }
+        PushBus::toGroup($groupId, 'group.members_changed', ['group_id' => $groupId, 'reason' => 'leave']);
         return [
             'ok'             => true,
             'group_id'       => $groupId,
@@ -376,9 +373,9 @@ class UserApi extends UserReadApi
             'chat_mode'         => (string)($body['chat_mode'] ?? 'chat'),
             'bind_owner_rebate' => !empty($body['bind_owner_rebate']),
         ]);
-        $uids = $this->groups->onlineMemberIds((int)($group['id'] ?? 0));
-        if ($uids) {
-            PushBus::toUsers($uids, 'group.created', ['group' => $group]);
+        $gid = (int)($group['id'] ?? 0);
+        if ($gid > 0) {
+            PushBus::toGroup($gid, 'group.created', ['group' => $group]);
         }
         return ['group' => $group];
     }
@@ -447,9 +444,8 @@ class UserApi extends UserReadApi
             ]);
             NotifyPublisher::publish('group.message', $sys, false, $this->cfg);
         }
-        $uids = $this->groups->onlineMemberIds($groupId);
-        if ($uids && $group) {
-            PushBus::toUsers($uids, 'group.updated', [
+        if ($group) {
+            PushBus::toGroup($groupId, 'group.updated', [
                 'group_id' => $groupId,
                 'group'    => $group,
                 'policy'   => $this->groups->buildPolicy($group, $this->groups->memberRole($groupId, $uid)),
@@ -480,10 +476,7 @@ class UserApi extends UserReadApi
         ]);
         NotifyPublisher::publish('group.message', $sys, false, $this->cfg);
         PushBus::toUsers([$targetId], 'group.kicked', ['group_id' => $groupId]);
-        $uids = $this->groups->onlineMemberIds($groupId);
-        if ($uids) {
-            PushBus::toUsers($uids, 'group.members_changed', ['group_id' => $groupId, 'reason' => 'kick']);
-        }
+        PushBus::toGroup($groupId, 'group.members_changed', ['group_id' => $groupId, 'reason' => 'kick']);
         return ['ok' => true, 'user_id' => $targetId];
     }
 
@@ -493,10 +486,7 @@ class UserApi extends UserReadApi
         $targetId = (int)($body['user_id'] ?? $body['target_user_id'] ?? 0);
         $seconds = (int)($body['seconds'] ?? 0);
         $result = $this->groups->muteMember($groupId, $uid, $targetId, $seconds);
-        $uids = $this->groups->onlineMemberIds($groupId);
-        if ($uids) {
-            PushBus::toUsers($uids, 'group.members_changed', ['group_id' => $groupId, 'reason' => 'mute']);
-        }
+        PushBus::toGroup($groupId, 'group.members_changed', ['group_id' => $groupId, 'reason' => 'mute']);
         return $result + ['user_id' => $targetId];
     }
 
@@ -506,10 +496,7 @@ class UserApi extends UserReadApi
         $targetId = (int)($body['user_id'] ?? $body['target_user_id'] ?? 0);
         $isAdmin = !empty($body['is_admin']);
         $result = $this->groups->setMemberAdmin($groupId, $uid, $targetId, $isAdmin);
-        $uids = $this->groups->onlineMemberIds($groupId);
-        if ($uids) {
-            PushBus::toUsers($uids, 'group.members_changed', ['group_id' => $groupId, 'reason' => 'set_admin']);
-        }
+        PushBus::toGroup($groupId, 'group.members_changed', ['group_id' => $groupId, 'reason' => 'set_admin']);
         return $result + ['user_id' => $targetId];
     }
 
@@ -519,15 +506,12 @@ class UserApi extends UserReadApi
         $enabled = !empty($body['enabled']) || !empty($body['mute_all']);
         $group = $this->groups->setMuteAll($groupId, $uid, $enabled);
         $forbids = $this->groups->parseForbidModes($group ?: []);
-        $uids = $this->groups->onlineMemberIds($groupId);
-        if ($uids) {
-            PushBus::toUsers($uids, 'group.mute_all_changed', [
-                'group_id' => $groupId,
-                'mute_all' => $enabled,
-                'forbid_modes' => $forbids,
-                'group'    => $group,
-            ]);
-        }
+        PushBus::toGroup($groupId, 'group.mute_all_changed', [
+            'group_id' => $groupId,
+            'mute_all' => $enabled,
+            'forbid_modes' => $forbids,
+            'group'    => $group,
+        ]);
         return [
             'group' => $group,
             'mute_all' => $enabled,
@@ -555,15 +539,12 @@ class UserApi extends UserReadApi
         }
         $group = $this->groups->setForbidModes($groupId, $uid, $flags, $opts);
         $forbids = $this->groups->parseForbidModes($group ?: []);
-        $uids = $this->groups->onlineMemberIds($groupId);
-        if ($uids) {
-            PushBus::toUsers($uids, 'group.forbid_changed', [
-                'group_id' => $groupId,
-                'forbid_modes' => $forbids,
-                'mute_all' => $this->groups->isMuteAll($groupId),
-                'group' => $group,
-            ]);
-        }
+        PushBus::toGroup($groupId, 'group.forbid_changed', [
+            'group_id' => $groupId,
+            'forbid_modes' => $forbids,
+            'mute_all' => $this->groups->isMuteAll($groupId),
+            'group' => $group,
+        ]);
         return [
             'group' => $group,
             'forbid_modes' => $forbids,
@@ -577,10 +558,7 @@ class UserApi extends UserReadApi
         $groupId = (int)($body['group_id'] ?? 0);
         $ids = isset($body['member_ids']) && is_array($body['member_ids']) ? $body['member_ids'] : [];
         $result = $this->groups->addMembersByOperator($groupId, $uid, $ids);
-        $uids = $this->groups->onlineMemberIds($groupId);
-        if ($uids) {
-            PushBus::toUsers($uids, 'group.members_changed', ['group_id' => $groupId, 'reason' => 'add']);
-        }
+        PushBus::toGroup($groupId, 'group.members_changed', ['group_id' => $groupId, 'reason' => 'add']);
         return $result;
     }
 }

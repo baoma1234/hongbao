@@ -387,10 +387,7 @@ class TronFair
       ];
       if ((int)($hint['scope_type'] ?? 0) === 2 && (int)($hint['group_id'] ?? 0) > 0) {
         $groupId = (int)$hint['group_id'];
-        $uidList = (new \Im\Service\GroupService())->onlineMemberIds($groupId);
-        if ($uidList) {
-          PushBus::toUsers($uidList, 'redpacket.update', $event);
-        }
+        PushBus::toGroup($groupId, 'redpacket.update', $event);
         $packet = Db::fetch(
           'SELECT mine_digit FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1',
           [$packetId]
@@ -423,8 +420,8 @@ class TronFair
           'hit_count'  => count($hitUids),
           'kind'       => 'mine_settle',
         ]);
-        if ($uidList && is_array($sys)) {
-          PushBus::toUsers($uidList, 'group.message', ['message' => $sys]);
+        if (is_array($sys)) {
+          PushBus::toGroup($groupId, 'group.message', ['message' => $sys]);
         }
       } else {
         $uidList = array_values(array_unique(array_filter([
@@ -470,10 +467,7 @@ class TronFair
     try {
       if ((int)($packet['scope_type'] ?? 0) === 2 && (int)($packet['group_id'] ?? 0) > 0) {
         $groupId = (int)$packet['group_id'];
-        $uids = (new \Im\Service\GroupService())->onlineMemberIds($groupId);
-        if ($uids) {
-          PushBus::toUsers($uids, 'redpacket.update', $event);
-        }
+        PushBus::toGroup($groupId, 'redpacket.update', $event);
         $ptype = (int)($packet['packet_type'] ?? 0);
           $text = '波场哈希拆包：区块 #' . $blockNum
           . ' · 哈希末位 ' . $luckyChar;
@@ -488,8 +482,8 @@ class TronFair
           'mine_digit'     => (int)($packet['mine_digit'] ?? 0),
           'kind'           => 'tron_reveal',
         ]);
-        if ($uids && is_array($sys)) {
-          PushBus::toUsers($uids, 'group.message', ['message' => $sys]);
+        if (is_array($sys)) {
+          PushBus::toGroup($groupId, 'group.message', ['message' => $sys]);
         }
       } else {
         $uids = array_values(array_unique(array_filter([

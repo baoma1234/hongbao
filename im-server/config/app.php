@@ -165,9 +165,10 @@ return array_replace_recursive([
     'admin_bridge' => [
         'key' => '758fa83a00956f0419cd8abae1b0e86acffa7c166acb9784',
     ],
-    // 万人群：成员 Redis Set + 在线交集推送；超限截断避免单条消息打爆
+    // 万人群：成员 Redis Set；实时推送优先 PushBus::toGroup（跨进程只传 gid）
+    // max_push_online 仅约束仍走 onlineMemberIds 的旧路径（未读计数等）
     'group' => [
         'max_members'     => 10000, // 单群人数上限（写入 chat_groups.max_members）
-        'max_push_online' => 2500,  // 单条消息最多推送在线人数
+        'max_push_online' => 5000,  // 旧 uid 列表推送上限；toGroup 不受此截断
     ],
 ], $override);
