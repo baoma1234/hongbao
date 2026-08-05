@@ -9,6 +9,7 @@ use Im\Service\TransferService;
 use Im\Support\GrabGuard;
 use Im\Support\NotifyPublisher;
 use Im\Support\PushBus;
+use Im\Support\RedPacketUpdateBus;
 use Im\Support\RedisClient;
 
 /**
@@ -174,16 +175,14 @@ class UserApi extends UserReadApi
         if (is_array($packet)) {
             $event = ['packet_id' => $packetId, 'grab' => $result, 'by_user_id' => $uid];
             if ((int)($packet['scope_type'] ?? 0) === 2) {
-                $gid = (int)$packet['group_id'];
-                if ($gid > 0) {
-                    PushBus::toGroup($gid, 'redpacket.update', $event);
-                }
+                RedPacketUpdateBus::publish($event, ['group_id' => (int)$packet['group_id']]);
             } else {
-                PushBus::toUsers(
-                    [(int)($packet['from_user_id'] ?? 0), (int)($packet['to_user_id'] ?? 0)],
-                    'redpacket.update',
-                    $event
-                );
+                RedPacketUpdateBus::publish($event, [
+                    'user_ids' => [
+                        (int)($packet['from_user_id'] ?? 0),
+                        (int)($packet['to_user_id'] ?? 0),
+                    ],
+                ]);
             }
         }
         return ['data' => $result, 'ws_type' => 'redpacket.grabbed'];

@@ -4,6 +4,7 @@ namespace Im\Service;
 
 use Im\Support\Db;
 use Im\Support\PushBus;
+use Im\Support\RedPacketUpdateBus;
 use Im\Support\RedisClient;
 use Workerman\Timer;
 
@@ -415,9 +416,7 @@ class RpAutoBotService
                     'by_user_id' => $uid,
                 ];
                 $gid = (int)($packet['group_id'] ?? $groupId);
-                if ($gid > 0) {
-                    PushBus::toGroup($gid, 'redpacket.update', $event);
-                }
+                RedPacketUpdateBus::publish($event, ['group_id' => $gid]);
             } catch (\Throwable $e) {
             }
         }

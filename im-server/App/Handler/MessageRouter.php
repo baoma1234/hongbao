@@ -15,6 +15,7 @@ use Im\Service\TransferService;
 use Im\Support\ConnMap;
 use Im\Support\IdGenerator;
 use Im\Support\PushBus;
+use Im\Support\RedPacketUpdateBus;
 use Im\Support\RedisClient;
 use Im\Support\AdminNotify;
 use Im\Support\NotifyDispatcher;
@@ -1539,15 +1540,19 @@ class MessageRouter
 
         $result = $this->redPackets->grab($packetId, $uid);
         $this->send($connection, 'redpacket.grabbed', $result, $reqId);
-        // 通知会话内成员刷新：使用 grab 返回的最小 packet 信息，避免热路径再查一次详情
+        // 通知会话内成员刷新：抢包风暴走合并推送
         $packet = $result['packet'] ?? null;
         if ($packet) {
             $event = ['packet_id' => $packetId, 'grab' => $result, 'by_user_id' => $uid];
             if ((int)$packet['scope_type'] === 2) {
-                $this->pushToGroup((int)$packet['group_id'], 'redpacket.update', $event);
+                RedPacketUpdateBus::publish($event, ['group_id' => (int)$packet['group_id']]);
             } else {
-                $this->pushToUser((int)$packet['from_user_id'], 'redpacket.update', $event);
-                $this->pushToUser((int)$packet['to_user_id'], 'redpacket.update', $event);
+                RedPacketUpdateBus::publish($event, [
+                    'user_ids' => [
+                        (int)$packet['from_user_id'],
+                        (int)$packet['to_user_id'],
+                    ],
+                ]);
             }
         }
     }

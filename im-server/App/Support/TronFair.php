@@ -387,7 +387,7 @@ class TronFair
       ];
       if ((int)($hint['scope_type'] ?? 0) === 2 && (int)($hint['group_id'] ?? 0) > 0) {
         $groupId = (int)$hint['group_id'];
-        PushBus::toGroup($groupId, 'redpacket.update', $event);
+        RedPacketUpdateBus::publish($event, ['group_id' => $groupId]);
         $packet = Db::fetch(
           'SELECT mine_digit FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1',
           [$packetId]
@@ -429,7 +429,7 @@ class TronFair
           (int)($hint['to_user_id'] ?? 0),
         ])));
         if ($uidList) {
-          PushBus::toUsers($uidList, 'redpacket.update', $event);
+          RedPacketUpdateBus::publish($event, ['user_ids' => $uidList]);
         }
       }
     } catch (\Throwable $e) {
@@ -467,7 +467,7 @@ class TronFair
     try {
       if ((int)($packet['scope_type'] ?? 0) === 2 && (int)($packet['group_id'] ?? 0) > 0) {
         $groupId = (int)$packet['group_id'];
-        PushBus::toGroup($groupId, 'redpacket.update', $event);
+        RedPacketUpdateBus::publish($event, ['group_id' => $groupId]);
         $ptype = (int)($packet['packet_type'] ?? 0);
           $text = '波场哈希拆包：区块 #' . $blockNum
           . ' · 哈希末位 ' . $luckyChar;
@@ -491,7 +491,7 @@ class TronFair
           (int)($packet['to_user_id'] ?? 0),
         ])));
         if ($uids) {
-          PushBus::toUsers($uids, 'redpacket.update', $event);
+          RedPacketUpdateBus::publish($event, ['user_ids' => $uids]);
         }
       }
     } catch (\Throwable $e) {

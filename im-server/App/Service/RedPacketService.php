@@ -9,6 +9,7 @@ use Im\Support\TronHashCache;
 use Im\Support\IdGenerator;
 use Im\Support\RedisClient;
 use Im\Support\PushBus;
+use Im\Support\RedPacketUpdateBus;
 use Workerman\Timer;
 
 class RedPacketService
@@ -1649,7 +1650,7 @@ class RedPacketService
         try {
             if ((int)($hint['scope_type'] ?? 0) === 2 && (int)($hint['group_id'] ?? 0) > 0) {
                 $gid = (int)$hint['group_id'];
-                PushBus::toGroup($gid, 'redpacket.update', $event);
+                RedPacketUpdateBus::publish($event, ['group_id' => $gid]);
                 // 埋雷结算后群内公示中雷结果，所有人可见
                 if ((int)($hint['packet_type'] ?? 0) === 3) {
                     $packet = Db::fetch(
@@ -1693,7 +1694,7 @@ class RedPacketService
                     (int)($hint['to_user_id'] ?? 0),
                 ])));
                 if ($uids) {
-                    PushBus::toUsers($uids, 'redpacket.update', $event);
+                    RedPacketUpdateBus::publish($event, ['user_ids' => $uids]);
                 }
             }
         } catch (\Throwable $e) {

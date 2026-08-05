@@ -208,15 +208,11 @@ $http->onMessage = function (TcpConnection $connection, Request $request) use ($
                 ];
                 if ((int)($packet['scope_type'] ?? 0) === 2) {
                     $gid = (int)$packet['group_id'];
-                    if ($gid > 0) {
-                        \Im\Support\PushBus::toGroup($gid, 'redpacket.update', $event);
-                    }
+                    \Im\Support\RedPacketUpdateBus::publish($event, ['group_id' => $gid]);
                 } else {
-                    \Im\Support\PushBus::toUsers(
-                        [(int)$packet['from_user_id'], (int)$packet['to_user_id']],
-                        'redpacket.update',
-                        $event
-                    );
+                    \Im\Support\RedPacketUpdateBus::publish($event, [
+                        'user_ids' => [(int)$packet['from_user_id'], (int)$packet['to_user_id']],
+                    ]);
                 }
             }
             $connection->send(corsJson(200, $result));

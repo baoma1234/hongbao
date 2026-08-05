@@ -142,6 +142,11 @@ cd scripts && ./restart-all.sh   # Windows: .\restart-all.ps1
 3. 仍覆盖「在线但未进房」的成员（不是只推观群集合）
 4. 旧路径 `pushTargetUserIds` / `max_push_online` 仅用于未读等非频道场景
 
+### 抢包风暴
+
+群内 `redpacket.update` 经 `RedPacketUpdateBus`：**同 packet_id 默认 120ms 合并**为 1 次推送（可配 `redpacket.update_coalesce_ms`）。  
+结算 / 开奖 / 领完 / 过期 **立即推**，并取消待合并项。抢包本人仍即时收到 `redpacket.grabbed` 回包。
+
 ## HTTP 接口摘要
 
 用户（会员 token）：

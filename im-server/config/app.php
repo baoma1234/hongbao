@@ -171,4 +171,8 @@ return array_replace_recursive([
         'max_members'     => 10000, // 单群人数上限（写入 chat_groups.max_members）
         'max_push_online' => 5000,  // 旧 uid 列表推送上限；toGroup 不受此截断
     ],
+    // 抢包风暴：同 packet 的 redpacket.update 合并窗口（毫秒）
+    'redpacket' => [
+        'update_coalesce_ms' => 120,
+    ],
 ], $override);
