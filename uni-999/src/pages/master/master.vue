@@ -1,112 +1,172 @@
 <template>
-  <view class="hb-page" :key="locale">
+  <view class="hb-page tab-master-page" :key="locale">
     <TopBar />
-    <view class="hero">
-      <text class="title">{{ t('page_hero_master_title') || '团长专属二期大厅' }}</text>
-      <text class="sub">{{ t('page_hero_master_sub') || '荣誉天梯 · 星火暴击 · 战队催活' }}</text>
-    </view>
-
-    <view v-if="loading" class="card muted">{{ t('loading_generic') || '加载中…' }}</view>
-
-    <template v-else>
-      <!-- 未解锁 -->
-      <view class="lock card" v-if="p2.enabled && !master">
-        <text class="lock-ico">🔒</text>
-        <text class="lock-t">{{ t('master_lock_title') || '团长通道待解锁' }}</text>
-        <text class="lock-d">{{ t('master_lock_desc') || '完成首笔 VIP 福利核销后开放天梯、签到与雷达。' }}</text>
-        <button class="btn" @click="goHome">{{ t('master_lock_btn') || '前往大厅' }}</button>
+    <view id="tabMaster" class="tab-page active">
+      <view class="master-festive-bg" aria-hidden="true">
+        <view class="master-glow master-glow--a" />
+        <view class="master-glow master-glow--b" />
+        <view class="master-glow master-glow--c" />
+        <view class="master-ornament master-ornament--tl" />
+        <view class="master-ornament master-ornament--tr" />
       </view>
 
-      <view class="card muted" v-if="!p2.enabled">团长二期未开启</view>
-
-      <!-- 天梯 -->
-      <view class="honor card" v-if="p2.enabled" @click="onCopyPromo">
-        <view class="honor-head">
-          <text class="honor-title">{{ t('phase2_honor_title') || '团长天梯权益' }}</text>
-          <text class="honor-tap">点此复制推广密令</text>
-        </view>
-        <view class="prog-meta">
-          <text>{{ subCountText }}</text>
-          <text>{{ Math.round(progressPct) }}%</text>
-        </view>
-        <view class="prog-track">
-          <view class="prog-fill" :style="{ width: progressPct + '%' }" />
-        </view>
-        <view class="tier" v-for="n in tiers" :key="n.id" :class="n.state">
-          <view class="tier-main">
-            <view class="tier-info">
-              <text class="tier-name">{{ n.name }}</text>
-              <text class="tier-req">{{ t('phase2_honor_need_people', { n: n.threshold }) || ('达标需 ' + n.threshold + ' 人') }}</text>
-            </view>
-            <text class="tier-badge">{{ n.badge }}</text>
+      <view class="master-page-inner">
+        <view class="master-hero">
+          <view class="page-hero-title master-hero-title">
+            {{ t('page_hero_master_title') || '团长专属二期大厅' }}
           </view>
-          <view class="tier-rewards">
-            <view class="rw">
-              <text class="rw-lab">{{ t('phase2_honor_col_shares') || '解锁股份' }}</text>
-              <text class="rw-val">{{ n.rightsText }}股</text>
-              <text class="rw-sub">≈ ¥{{ n.rightsVal }}</text>
-            </view>
-            <view class="rw">
-              <text class="rw-lab">{{ t('phase2_honor_col_cash') || '现金奖励' }}</text>
-              <text class="rw-val">{{ n.balance > 0 ? ('¥' + n.balance) : (t('phase2_honor_cash_none') || '暂无现金') }}</text>
-            </view>
+          <view class="master-hero-sub">
+            {{ t('page_hero_master_sub') || '荣誉天梯明牌奖励 · 7天星火暴击 · 战队催活雷达' }}
           </view>
-        </view>
-        <text class="honor-hint">{{ honorHint }}</text>
-      </view>
-
-      <!-- 签到 + 雷达（团长） -->
-      <template v-if="master">
-        <view class="checkin card">
-          <view class="ck-head">
-            <text class="ck-title">7天星火暴击</text>
-            <text class="ck-streak">{{ streakText }}</text>
-          </view>
-          <text class="ck-ledger">{{ ledgerText }}</text>
-          <view class="prog-track thin">
-            <view class="prog-fill fire" :style="{ width: streakPct + '%' }" />
-          </view>
-          <text v-if="frozenText" class="frozen">{{ frozenText }}</text>
-          <view class="violent-row" @click="violent = !violent">
-            <switch :checked="violent" color="#c61114" @change="onViolent" @click.stop />
-            <text class="violent-lab">{{ violentLabel }}</text>
-          </view>
-          <view v-if="pendingBonus > 0" class="pending">
-            {{ checkin.bonus_unlocked
-              ? (t('phase2_checkin_pending_ok', { amount: pendingBonus.toFixed(2) }) || ('对账成功，额外 ¥' + pendingBonus.toFixed(2) + ' 已到账'))
-              : (t('phase2_checkin_pending', { amount: pendingBonus.toFixed(2) }) || ('今日暴力对账箱：¥' + pendingBonus.toFixed(2) + '（等待新客…）')) }}
-          </view>
-          <button class="btn-ck" :class="{ done: checkedToday }" :disabled="busy" @click="onCheckin">
-            {{ checkinBtnText }}
-          </button>
-          <text class="ck-tip">{{ checkinTip }}</text>
         </view>
 
-        <view class="radar card">
-          <text class="radar-title">{{ t('phase2_radar_title') || '战队催活雷达' }}</text>
-          <view v-if="!radar.length" class="empty">{{ t('phase2_radar_empty') || '暂无直属下线' }}</view>
-          <view v-for="row in radar" :key="row.user_id || row.mobile_mask" class="radar-row">
-            <view class="radar-main">
-              <text class="radar-mobile">{{ row.mobile_mask || ('ID' + row.user_id) }}</text>
-              <text class="radar-prog">
-                {{ row.withdrawn
-                  ? (t('phase2_radar_done') || '已达标')
-                  : (t('phase2_radar_progress', { balance: Number(row.balance || row.hongbao || 0).toFixed(2), threshold: row.threshold || 50 }) || (Number(row.balance || 0).toFixed(2) + ' / ' + (row.threshold || 50))) }}
-              </text>
-              <view class="mini-track">
-                <view class="mini-fill" :style="{ width: Math.min(100, Number(row.progress) || 0) + '%' }" />
+        <view v-if="loading" class="team-radar-loading">{{ t('loading_generic') || '加载中…' }}</view>
+
+        <template v-else>
+          <view class="master-lock-card" v-if="p2.enabled && !master">
+            <view class="master-lock-ico">🔒</view>
+            <view class="master-lock-title">{{ t('master_lock_title') || '团长通道待解锁' }}</view>
+            <view class="master-lock-desc">
+              {{ t('master_lock_desc') || '完成首笔 VIP 福利核销后，将开放：荣誉天梯宝箱、7天星火暴击、战队催活雷达。' }}
+            </view>
+            <view class="master-lock-btn" @click="goHome">
+              {{ t('master_lock_btn') || '前往领取页' }}
+            </view>
+          </view>
+
+          <view class="master-lock-card" v-if="!p2.enabled">
+            <view class="master-lock-title">团长二期未开启</view>
+          </view>
+
+          <view id="masterHonorBlock" v-if="p2.enabled">
+            <view class="honor-ladder-card" @click="onCopyPromo">
+              <view class="honor-ladder-ribbon">
+                <text class="honor-ladder-title">{{ t('phase2_honor_title') || '团长天梯权益' }}</text>
+              </view>
+              <view class="honor-progress-wrap">
+                <view class="honor-progress-meta">
+                  <text>{{ subCountText }}</text>
+                  <text class="honor-pct">{{ Math.round(progressPct) }}%</text>
+                </view>
+                <view class="honor-ladder-track">
+                  <view class="honor-ladder-fill" :style="{ width: progressPct + '%' }" />
+                </view>
+              </view>
+              <view class="honor-ladder-nodes">
+                <view
+                  v-for="n in tiers"
+                  :key="n.id"
+                  class="honor-tier"
+                  :class="[
+                    'honor-tier--' + n.icon,
+                    n.state === 'reached' ? 'is-reached' : '',
+                    n.state === 'current' ? 'is-current' : '',
+                    n.state === 'locked' ? 'is-locked' : '',
+                  ]"
+                >
+                  <view class="honor-tier-main">
+                    <image class="honor-tier-ico" :src="honorIcon(n.icon)" mode="aspectFit" />
+                    <view class="honor-tier-info">
+                      <view class="honor-tier-name">{{ n.name }}</view>
+                      <view class="honor-tier-req">
+                        {{ t('phase2_honor_need_people', { n: n.threshold }) || ('达标需 ' + n.threshold + ' 人') }}
+                      </view>
+                    </view>
+                    <view class="honor-tier-badge">{{ n.badge }}</view>
+                  </view>
+                  <view class="honor-tier-rewards">
+                    <view class="honor-reward" :class="{ 'honor-reward--hot': n.cashHot }">
+                      <text class="honor-reward-em">{{ t('phase2_honor_col_shares') || '解锁股份' }}</text>
+                      <text class="honor-reward-strong">{{ n.rightsText }}股</text>
+                      <text class="honor-reward-span">≈ ¥{{ n.rightsVal }}</text>
+                    </view>
+                    <view
+                      class="honor-reward honor-reward--cash"
+                      :class="{ 'is-empty': n.balance <= 0 }"
+                    >
+                      <text class="honor-reward-em">{{ t('phase2_honor_col_cash') || '现金奖励' }}</text>
+                      <text class="honor-reward-strong">
+                        {{ n.balance > 0 ? ('¥' + n.balance) : (t('phase2_honor_cash_none') || '暂无现金') }}
+                      </text>
+                    </view>
+                  </view>
+                </view>
+              </view>
+              <view class="honor-ladder-hint">{{ honorHint }}</view>
+            </view>
+          </view>
+
+          <view id="masterPhase2Block" v-if="master">
+            <view class="checkin-panel checkin-panel--hongbao">
+              <view class="checkin-hongbao-body">
+                <view class="checkin-hongbao-head">
+                  <view class="checkin-hongbao-title">
+                    <view class="checkin-flame" />
+                    <text>7天星火暴击</text>
+                  </view>
+                  <view class="checkin-streak-label">{{ streakText }}</view>
+                </view>
+                <view class="checkin-ledger">{{ ledgerText }}</view>
+                <view class="checkin-streak-frozen" v-if="frozenText">{{ frozenText }}</view>
+                <view class="checkin-streak-bar">
+                  <view class="checkin-streak-fill" :style="{ width: streakPct + '%' }" />
+                </view>
+                <view class="checkin-violent-row" @click="violent = !violent">
+                  <checkbox :checked="violent" color="#2196F3" @click.stop="violent = !violent" />
+                  <text>{{ violentLabel }}</text>
+                </view>
+                <view class="checkin-pending-box" v-if="pendingBonus > 0">
+                  {{ checkin.bonus_unlocked
+                    ? (t('phase2_checkin_pending_ok', { amount: pendingBonus.toFixed(2) }) || ('对账成功，额外 ¥' + pendingBonus.toFixed(2) + ' 已到账'))
+                    : (t('phase2_checkin_pending', { amount: pendingBonus.toFixed(2) }) || ('今日暴力对账箱：¥' + pendingBonus.toFixed(2) + '（等待新客…）')) }}
+                </view>
+                <view
+                  class="btn-checkin-main"
+                  :class="{ 'is-done': checkedToday, 'is-disabled': busy }"
+                  @click="onCheckin"
+                >
+                  <text class="btn-checkin-main-text">{{ checkinBtnText }}</text>
+                </view>
+                <view class="checkin-btn-tip" v-if="checkinTip">{{ checkinTip }}</view>
               </view>
             </view>
-            <button
-              v-if="row.can_urge !== false && !row.withdrawn"
-              class="urge"
-              size="mini"
-              @click="onUrge(row)"
-            >{{ t('phase2_radar_urge') || '催促' }}</button>
+
+            <view class="team-radar-panel">
+              <view class="team-radar-title">{{ t('phase2_radar_title') || '📡 战队催活雷达 · 实时列表' }}</view>
+              <view class="team-radar-viewport">
+                <view v-if="!radar.length" class="team-radar-loading">
+                  {{ t('phase2_radar_empty') || '暂无直属下线' }}
+                </view>
+                <view v-else class="team-radar-track">
+                  <view
+                    v-for="row in radar"
+                    :key="row.user_id || row.mobile_mask"
+                    class="team-radar-row"
+                  >
+                    <view class="team-radar-main">
+                      <view>{{ row.mobile_mask || ('ID' + row.user_id) }}</view>
+                      <view :class="{ 'team-radar-done': row.withdrawn }">
+                        {{ row.withdrawn
+                          ? (t('phase2_radar_done') || '已达标')
+                          : (t('phase2_radar_progress', { balance: Number(row.balance || row.hongbao || 0).toFixed(2), threshold: row.threshold || 50 }) || (Number(row.balance || 0).toFixed(2) + ' / ' + (row.threshold || 50))) }}
+                      </view>
+                    </view>
+                    <view
+                      v-if="row.can_urge !== false && !row.withdrawn"
+                      class="btn-urge"
+                      @click="onUrge(row)"
+                    >{{ t('phase2_radar_urge') || '催促' }}</view>
+                    <text v-else-if="row.withdrawn" class="team-radar-done">
+                      {{ t('phase2_radar_done') || '已达标' }}
+                    </text>
+                  </view>
+                </view>
+              </view>
+            </view>
           </view>
-        </view>
-      </template>
-    </template>
+        </template>
+      </view>
+    </view>
     <BottomTabBar active="master" />
   </view>
 </template>
@@ -117,7 +177,7 @@ import { onShow, onHide } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
 import BottomTabBar from '../../components/BottomTabBar.vue'
 import { getToken } from '../../utils/auth.js'
-import { localeState, t } from '../../utils/i18n.js'
+import { assetBase, localeState, t } from '../../utils/i18n.js'
 import {
   copySharePromo,
   copyText,
@@ -129,6 +189,7 @@ import {
   phase2Of,
   urgeCopy,
 } from '../../utils/master.js'
+import '../../styles/tabs-extra.css'
 
 const locale = localeState()
 const loading = ref(true)
@@ -212,8 +273,8 @@ const checkinTip = computed(() => {
     : t('phase2_checkin_normal_tip') || '今日仅得 1 元 · 放弃 7 天大奖资格'
 })
 
-function onViolent(e) {
-  violent.value = !!(e && e.detail && e.detail.value)
+function honorIcon(ico) {
+  return assetBase() + 'static/honor/' + (ico || 'bronze') + '.svg'
 }
 
 function goHome() {
@@ -231,6 +292,7 @@ async function onCopyPromo() {
 }
 
 async function onCheckin() {
+  if (busy.value) return
   if (checkedToday.value) {
     await onCopyPromo()
     return
@@ -362,99 +424,76 @@ onHide(() => stopPoll())
 </script>
 
 <style scoped>
-.hero { margin-bottom: 14px; }
-.title { display: block; font-size: 22px; font-weight: 800; color: var(--text-main, #1f1714); }
-.sub { display: block; margin-top: 6px; font-size: 13px; color: var(--text-muted, #8a7a6e); }
-.card {
-  background: var(--bg-card, #fff);
-  border-radius: 16px;
-  padding: 16px;
-  margin-bottom: 12px;
-  box-shadow: 0 4px 14px rgba(40, 20, 10, 0.05);
+/* uni 外壳：对齐 888 body.tab-master + #tabMaster 氛围，不改 tabs-extra 源样式语义 */
+.tab-master-page {
+  background-color: #9b1010 !important;
+  padding: 0 0 88px !important;
+  position: relative;
+  overflow: hidden;
+  min-height: 100vh;
 }
-.card.muted { text-align: center; color: var(--text-muted, #9a8574); }
-.lock { text-align: center; padding: 28px 18px; }
-.lock-ico { display: block; font-size: 36px; }
-.lock-t { display: block; margin-top: 10px; font-size: 18px; font-weight: 800; }
-.lock-d { display: block; margin: 10px 0 16px; font-size: 13px; color: var(--text-muted, #8a7a6e); line-height: 1.5; }
-.btn, .btn-ck {
-  background: var(--primary, #c61114);
-  color: #fff;
+#tabMaster {
+  position: relative;
+  margin: 0;
+  padding: 0 0 36px;
+  min-height: calc(100vh - 110px);
+  overflow: hidden;
+}
+.master-lock-title {
+  font-size: 17px;
+  color: #b71c1c;
+  margin-bottom: 8px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+}
+.master-lock-desc {
+  font-size: 12px;
+  color: #6d3b20;
+  line-height: 1.6;
+  font-weight: 600;
+  margin: 0 0 14px;
+}
+.honor-pct {
+  color: #c62828;
+  font-variant-numeric: tabular-nums;
+}
+.honor-reward-em {
+  font-style: normal;
+  font-size: 9px;
+  font-weight: 700;
+  opacity: 0.88;
+  letter-spacing: 0.4px;
+}
+.honor-reward-strong {
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.15;
+}
+.honor-reward-span {
+  font-size: 10px;
   font-weight: 800;
-  border-radius: 12px;
+  opacity: 0.95;
 }
-.honor-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-.honor-title { font-size: 16px; font-weight: 800; color: var(--text-main, #1f1714); }
-.honor-tap { font-size: 11px; color: #c45a1a; font-weight: 700; }
-.prog-meta {
-  display: flex; justify-content: space-between; margin: 12px 0 6px;
-  font-size: 12px; color: var(--text-muted, #8a7a6e); font-weight: 700;
+.team-radar-main {
+  flex: 1;
+  min-width: 0;
 }
-.prog-track {
-  height: 8px; border-radius: 999px; background: #f0e6dc; overflow: hidden; margin-bottom: 14px;
+/* checkbox 在 uni 里略大，压一下 */
+.checkin-violent-row checkbox {
+  transform: scale(0.85);
 }
-.prog-track.thin { height: 6px; margin: 10px 0 12px; }
-.prog-fill {
-  height: 100%; border-radius: 999px;
-  background: linear-gradient(90deg, #f0b04a, #e63022);
+.btn-checkin-main.is-disabled {
+  opacity: 0.55;
+  pointer-events: none;
 }
-.prog-fill.fire { background: linear-gradient(90deg, #ff9100, #e53935); }
-.tier {
-  border: 1px solid rgba(224, 122, 34, 0.18);
-  border-radius: 12px;
-  padding: 12px;
-  margin-bottom: 10px;
-  background: #fffaf5;
+.master-lock-btn {
+  display: block;
+  text-align: center;
+  box-sizing: border-box;
 }
-.tier.reached { border-color: rgba(0, 200, 83, 0.35); background: #f3fff6; }
-.tier.current { border-color: #c61114; box-shadow: 0 0 0 1px rgba(198, 17, 20, 0.12); }
-.tier.locked { opacity: 0.72; }
-.tier-main { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
-.tier-name { display: block; font-size: 15px; font-weight: 800; color: var(--text-main, #1f1714); }
-.tier-req { display: block; margin-top: 4px; font-size: 12px; color: var(--text-muted, #8a7a6e); }
-.tier-badge {
-  flex-shrink: 0; font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 999px;
-  background: #eee; color: #6a5648;
-}
-.tier.reached .tier-badge { background: #c8e6c9; color: #2e7d32; }
-.tier.current .tier-badge { background: #c61114; color: #fff; }
-.tier-rewards { display: flex; gap: 10px; margin-top: 10px; }
-.rw { flex: 1; background: #fff; border-radius: 10px; padding: 8px 10px; }
-.rw-lab { display: block; font-size: 11px; color: var(--text-muted, #9a8574); }
-.rw-val { display: block; margin-top: 4px; font-size: 15px; font-weight: 800; color: #c61114; }
-.rw-sub { display: block; font-size: 11px; color: #9a8574; }
-.honor-hint {
-  display: block; margin-top: 4px; font-size: 12px; color: var(--text-muted, #8a7a6e); line-height: 1.45;
-}
-.ck-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-.ck-title { font-size: 16px; font-weight: 800; color: #c61114; }
-.ck-streak { font-size: 12px; font-weight: 700; color: var(--text-muted, #8a7a6e); }
-.ck-ledger { display: block; margin-top: 10px; font-size: 13px; color: var(--text-main, #1f1714); line-height: 1.5; }
-.frozen {
-  display: block; margin-bottom: 10px; padding: 8px 10px; border-radius: 10px;
-  background: #fff3e0; color: #e65100; font-size: 12px; font-weight: 700;
-}
-.violent-row { display: flex; align-items: center; gap: 10px; margin: 8px 0 12px; }
-.violent-lab { flex: 1; font-size: 13px; font-weight: 700; color: var(--text-main, #1f1714); }
-.pending {
-  margin-bottom: 10px; padding: 10px; border-radius: 10px; background: #fff8e1;
-  font-size: 12px; color: #f57f17; font-weight: 700;
-}
-.btn-ck { width: 100%; padding: 12px 0; }
-.btn-ck.done { background: #5d4037; }
-.ck-tip { display: block; margin-top: 8px; text-align: center; font-size: 12px; color: var(--text-muted, #9a8574); }
-.radar-title { display: block; font-size: 16px; font-weight: 800; margin-bottom: 12px; }
-.empty { text-align: center; color: var(--text-muted, #9a8574); font-size: 13px; padding: 12px 0; }
-.radar-row {
-  display: flex; gap: 10px; align-items: center; padding: 12px 0;
-  border-bottom: 1px solid rgba(40, 20, 10, 0.06);
-}
-.radar-main { flex: 1; min-width: 0; }
-.radar-mobile { display: block; font-size: 14px; font-weight: 800; color: var(--text-main, #1f1714); }
-.radar-prog { display: block; margin-top: 4px; font-size: 12px; color: var(--text-muted, #8a7a6e); }
-.mini-track { margin-top: 6px; height: 4px; border-radius: 999px; background: #f0e6dc; overflow: hidden; }
-.mini-fill { height: 100%; background: linear-gradient(90deg, #f0b04a, #c61114); }
-.urge {
-  margin: 0; background: #fff8f0; color: #c45a1a; border: 1px solid #f0b04a; font-weight: 700;
+.btn-urge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 </style>

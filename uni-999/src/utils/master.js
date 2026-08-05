@@ -51,6 +51,18 @@ export function honorTier(honor, t) {
   const nodes = (honor && honor.nodes) || []
   const nextId = honor && honor.next_tier ? honor.next_tier.id : 0
   const price = Number((honor && honor.share_price) || 5)
+  const iconClass = {
+    1: 'bronze',
+    2: 'silver',
+    3: 'diamond',
+    4: 'crown',
+    5: 'glory',
+    bronze: 'bronze',
+    silver: 'silver',
+    diamond: 'diamond',
+    crown: 'crown',
+    glory: 'glory',
+  }
   return nodes.map((n) => {
     const rightsNum = parseFloat(n.rights) || 0
     const rightsVal =
@@ -70,6 +82,7 @@ export function honorTier(honor, t) {
       badge = t('phase2_honor_badge_next') || '冲刺中'
       state = 'current'
     }
+    const ico = iconClass[n.icon] || iconClass[n.id] || 'bronze'
     return {
       id: n.id,
       name,
@@ -82,6 +95,8 @@ export function honorTier(honor, t) {
       balance: bal,
       badge,
       state,
+      icon: ico,
+      cashHot: bal > 0 && Number(n.id) >= 4,
     }
   })
 }
