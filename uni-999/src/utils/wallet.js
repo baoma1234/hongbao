@@ -1,4 +1,5 @@
 import { apiRequest, fetchProfile } from './auth.js'
+import { assetBase } from './i18n.js'
 
 let _boot = null
 let _bootAt = 0
@@ -46,14 +47,19 @@ export function shortChannelName(ch) {
   return raw || '通道' + (ch.id || '')
 }
 
-/** 通道图标：相对路径走 /888 静态资源 */
+/** 通道图标：USDT 用 999 static；其它相对路径仍兼容同站 /888 */
 export function channelIconUrl(ch) {
   let icon = String((ch && ch.icon) || '').trim()
   if (ch && String(ch.handler || '').toLowerCase() === 'bs') {
-    icon = 'img/pay/usdt.png'
+    icon = 'static/pay/usdt.png'
   }
   if (!icon) return ''
   if (/^https?:\/\//i.test(icon) || icon.startsWith('data:')) return icon
+  if (/img\/pay\/usdt\.png$/i.test(icon) || /\/pay\/usdt\.png$/i.test(icon)) {
+    return assetBase() + 'static/pay/usdt.png'
+  }
+  if (icon.startsWith('static/')) return assetBase() + icon.replace(/^\.\//, '')
+  if (icon.startsWith('/999/')) return icon
   if (icon.startsWith('/')) return icon
   return '/888/' + icon.replace(/^\.\//, '')
 }

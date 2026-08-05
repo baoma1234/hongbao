@@ -223,6 +223,7 @@ import { onLoad, onUnload } from '@dcloudio/uni-app'
 import GrabSlider from '../../components/GrabSlider.vue'
 import { apiRequest, fetchProfile, getToken } from '../../utils/auth.js'
 import { getApiBase } from '../../utils/config.js'
+import { assetBase } from '../../utils/i18n.js'
 import {
   isRecalled,
   isSystemMsg,
@@ -450,15 +451,17 @@ function normalizeStickerUrl(url) {
   const s = String(url || '').trim()
   if (!s) return ''
   if (/^https?:\/\//i.test(s)) return s
+  if (s.startsWith('/999/') || s.startsWith('/888/')) return s
   if (s.startsWith('/')) return s
-  if (s.startsWith('stickers/')) return '/888/' + s
-  return '/888/' + s.replace(/^\/+/, '')
+  if (s.startsWith('static/')) return assetBase() + s
+  if (s.startsWith('stickers/')) return assetBase() + 'static/' + s
+  return assetBase() + 'static/' + s.replace(/^\/+/, '')
 }
 function stickerUrl(m) {
   const ex = msgExtra(m)
   const raw = (ex && (ex.url || ex.fullurl)) || ''
   if (raw) return normalizeStickerUrl(raw)
-  return '/888/stickers/wechat/face/微笑.png'
+  return assetBase() + 'static/stickers/wechat/face/微笑.png'
 }
 function formatAmt(n) {
   const x = Number(n)
@@ -560,7 +563,7 @@ async function loadStickers() {
   try {
     const res = await new Promise((resolve, reject) => {
       uni.request({
-        url: '/888/data/stickers.json',
+        url: assetBase() + 'static/data/stickers.json',
         method: 'GET',
         success: (r) => resolve((r && r.data) || {}),
         fail: reject,

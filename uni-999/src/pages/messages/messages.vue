@@ -317,10 +317,12 @@ const list = ref([])
 const loaded = ref(false)
 const status = ref('disconnected')
 const localUnread = ref({})
-const fxIcon = '/888/img/chat/fx.png'
-const icoScan = '/888/img/chat/plus_scan.png'
-const icoAddFriend = '/888/img/chat/plus_add_friend.png'
-const icoFriendReq = '/888/img/chat/plus_friend_req.png'
+import { assetBase as _assetBase } from '../../utils/i18n.js'
+const _ab = () => _assetBase()
+const fxIcon = _ab() + 'static/chat/fx.png'
+const icoScan = _ab() + 'static/chat/plus_scan.png'
+const icoAddFriend = _ab() + 'static/chat/plus_add_friend.png'
+const icoFriendReq = _ab() + 'static/chat/plus_friend_req.png'
 const homeTab = ref('chat')
 const searchOpen = ref(false)
 const keyword = ref('')

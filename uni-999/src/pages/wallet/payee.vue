@@ -1,5 +1,11 @@
 <template>
-  <view class="hb-sub">
+  <view class="hb-page profile-sub-page">
+    <view class="profile-sub-hd">
+      <text class="profile-back-btn" @click="goBack">‹</text>
+      <text class="profile-sub-title">收款地址</text>
+      <text class="profile-sub-spacer" />
+    </view>
+    <view class="profile-sub-body hb-sub">
     <view class="match-card">
       <view class="wallet-payee-tabs">
         <view
@@ -134,6 +140,7 @@
         </view>
       </view>
     </view>
+    </view>
   </view>
 </template>
 
@@ -141,12 +148,18 @@
 import { computed, reactive, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { apiRequest, getToken } from '../../utils/auth.js'
+import { assetBase } from '../../utils/i18n.js'
 import {
   bindWallet,
   clearWalletCache,
   loadWalletBootstrap,
   shortChannelName,
 } from '../../utils/wallet.js'
+import '../../styles/hb.css'
+
+function goBack() {
+  uni.navigateBack({ fail: () => uni.switchTab({ url: '/pages/profile/profile' }) })
+}
 
 const USDT_CHAINS = [
   { chain: 'TRC20', wallet_type: 'BS_USDT_TRC20', label: 'TRC20' },
@@ -169,7 +182,7 @@ const bankBank = ref('')
 const usdtInputs = reactive({})
 const usdtName = ref('')
 const usdtChains = USDT_CHAINS
-const usdtIcon = '/888/img/pay/usdt.png'
+const usdtIcon = assetBase() + 'static/pay/usdt.png'
 const submitting = ref(false)
 
 const pwdVisible = ref(false)

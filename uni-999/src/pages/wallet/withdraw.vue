@@ -1,5 +1,11 @@
 <template>
-  <view class="hb-sub">
+  <view class="hb-page profile-sub-page">
+    <view class="profile-sub-hd">
+      <text class="profile-back-btn" @click="goBack">‹</text>
+      <text class="profile-sub-title">提现</text>
+      <text class="profile-sub-spacer" />
+    </view>
+    <view class="profile-sub-body hb-sub">
     <view class="match-card">
       <view class="wallet-bal-line">可提现红宝：<strong>￥{{ balanceText }}</strong></view>
       <view class="profile-meta-line" v-if="turnHint">{{ turnHint }}</view>
@@ -138,6 +144,7 @@
         </view>
       </view>
     </view>
+    </view>
   </view>
 </template>
 
@@ -161,6 +168,11 @@ import {
   turnoverHint,
   validateChannelAmount,
 } from '../../utils/wallet.js'
+import '../../styles/hb.css'
+
+function goBack() {
+  uni.navigateBack({ fail: () => uni.switchTab({ url: '/pages/profile/profile' }) })
+}
 
 const loading = ref(false)
 const error = ref('')

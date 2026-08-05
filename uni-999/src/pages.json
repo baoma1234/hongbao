@@ -38,7 +38,8 @@
     {
       "path": "pages/group/settings",
       "style": {
-        "navigationBarTitleText": "群设置"
+        "navigationBarTitleText": "群设置",
+        "navigationStyle": "custom"
       }
     },
     {
@@ -100,31 +101,36 @@
     {
       "path": "pages/wallet/wallet",
       "style": {
-        "navigationBarTitleText": "钱包"
+        "navigationBarTitleText": "钱包",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/wallet/recharge",
       "style": {
-        "navigationBarTitleText": "充值"
+        "navigationBarTitleText": "充值",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/wallet/withdraw",
       "style": {
-        "navigationBarTitleText": "提现"
+        "navigationBarTitleText": "提现",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/wallet/ledger",
       "style": {
-        "navigationBarTitleText": "资金流水"
+        "navigationBarTitleText": "资金流水",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/wallet/payee",
       "style": {
-        "navigationBarTitleText": "收款地址"
+        "navigationBarTitleText": "收款地址",
+        "navigationStyle": "custom"
       }
     }
   ],

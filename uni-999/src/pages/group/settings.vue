@@ -1,5 +1,15 @@
 <template>
-  <view class="page">
+  <view class="page chat-friend-page">
+    <view class="chat-hero-hd">
+      <view class="chat-hero-back" @click="goBack">
+        <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+          <path fill="currentColor" d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z" />
+        </svg>
+      </view>
+      <view class="chat-hero-title">群设置</view>
+      <view class="chat-hero-spacer" />
+    </view>
+
     <view class="head card">
       <view class="av">{{ letter }}</view>
       <view class="head-main">
@@ -53,7 +63,7 @@
       <button class="btn leave" @click="onLeave">退出群聊</button>
     </view>
     <view class="card" v-else>
-      <text class="hint">群主不能直接退群，请先转让群主（请用 /888 完成）</text>
+      <text class="hint">群主不能直接退群，请先转让群主</text>
     </view>
 
     <!-- 成员操作 -->
@@ -95,6 +105,13 @@ import {
   setGroupMuteAll,
   updateGroup,
 } from '../../utils/im.js'
+import '../../styles/chat.bundle.css'
+import '../../styles/chat-uni-adapter.css'
+import '../../styles/friend-uni-adapter.css'
+
+function goBack() {
+  uni.navigateBack({ fail: () => uni.switchTab({ url: '/pages/messages/messages' }) })
+}
 
 const groupId = ref(0)
 const group = ref({})
@@ -351,8 +368,13 @@ onShow(() => {
 .page {
   min-height: 100vh;
   background: #f6f1ea;
-  padding: 24rpx;
+  padding: 0 0 40rpx;
   box-sizing: border-box;
+}
+.page > .card,
+.page > .head {
+  margin-left: 24rpx;
+  margin-right: 24rpx;
 }
 .card {
   background: #fff;

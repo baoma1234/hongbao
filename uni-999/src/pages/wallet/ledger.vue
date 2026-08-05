@@ -1,5 +1,11 @@
 <template>
-  <view class="hb-sub">
+  <view class="hb-page profile-sub-page">
+    <view class="profile-sub-hd">
+      <text class="profile-back-btn" @click="goBack">‹</text>
+      <text class="profile-sub-title">资金流水</text>
+      <text class="profile-sub-spacer" />
+    </view>
+    <view class="profile-sub-body hb-sub">
     <view class="wallet-ledger-filters">
       <view
         class="wallet-ledger-filter"
@@ -56,6 +62,7 @@
     >
       {{ loading ? '加载中…' : '加载更多' }}
     </button>
+    </view>
   </view>
 </template>
 
@@ -64,6 +71,11 @@ import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getToken } from '../../utils/auth.js'
 import { fetchLedger, ledgerAmountText, money } from '../../utils/wallet.js'
+import '../../styles/hb.css'
+
+function goBack() {
+  uni.navigateBack({ fail: () => uni.switchTab({ url: '/pages/profile/profile' }) })
+}
 
 const list = ref([])
 const page = ref(1)

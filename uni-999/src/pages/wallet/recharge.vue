@@ -1,5 +1,11 @@
 <template>
-  <view class="hb-sub">
+  <view class="hb-page profile-sub-page">
+    <view class="profile-sub-hd">
+      <text class="profile-back-btn" @click="goBack">‹</text>
+      <text class="profile-sub-title">充值</text>
+      <text class="profile-sub-spacer" />
+    </view>
+    <view class="profile-sub-body hb-sub">
     <view class="match-card">
       <view
         v-if="groups.length > 1"
@@ -66,6 +72,7 @@
 
     <view class="wallet-ledger-empty" v-if="loading">加载中…</view>
     <view class="wallet-warn" v-if="error" style="text-align:center;margin-top:12px">{{ error }}</view>
+    </view>
   </view>
 </template>
 
@@ -87,6 +94,11 @@ import {
   submitRecharge,
   validateChannelAmount,
 } from '../../utils/wallet.js'
+import '../../styles/hb.css'
+
+function goBack() {
+  uni.navigateBack({ fail: () => uni.switchTab({ url: '/pages/profile/profile' }) })
+}
 
 const loading = ref(false)
 const error = ref('')
