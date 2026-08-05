@@ -385,6 +385,74 @@ export function organizeWalletChannels(list) {
   }
 }
 
+/**
+ * 钱包地址页「数字钱包」类型列表：与 888 collectPayeeWalletTypes 同序。
+ * 优先用充值 partitions 中 code/bind_mode=wallet 的 channels，USDT 多链置前。
+ */
+export function collectPayeeWalletTypes(recharge, withdraw) {
+  let walletChs = []
+  ;((recharge && recharge.partitions) || []).forEach((p) => {
+    if (p && (String(p.code || '') === 'wallet' || String(p.bind_mode || '') === 'wallet')) {
+      walletChs = (p.channels || []).slice()
+    }
+  })
+  if (!walletChs.length) {
+    ;((withdraw && withdraw.partitions) || []).forEach((p) => {
+      if (p && (String(p.code || '') === 'wallet' || String(p.bind_mode || '') === 'wallet')) {
+        walletChs = (p.channels || []).slice()
+      }
+    })
+  }
+  if (!walletChs.length) {
+    const src = [].concat((recharge && recharge.list) || [], (withdraw && withdraw.list) || [])
+    walletChs = src.filter(
+      (ch) =>
+        String(ch.bind_mode || '') === 'wallet' || /钱包|wallet/i.test(String(ch.name || ''))
+    )
+  }
+  const list = walletChs.slice()
+  list.unshift({
+    id: 0,
+    name: 'USDT钱包',
+    handler: 'bs',
+    bind_mode: 'wallet',
+    wallet_type: 'USDT_MULTI',
+    payment_channel: 'USDT',
+    recharge_mode: 'cashier',
+    icon: 'img/pay/usdt.png',
+  })
+  // 与 888 flattenChannelList(list, 'recharge', true) 一致：BS 收银台 featured 置前
+  const featured = []
+  const dropdown = []
+  list.forEach((ch) => {
+    const handler = String((ch && ch.handler) || '').toLowerCase()
+    const mode = String((ch && ch.recharge_mode) || '').toLowerCase()
+    const isFeatured =
+      handler === 'bs' &&
+      mode !== 'api' &&
+      (mode === '' || mode === 'cashier' || /收银台|cashier/i.test(String(ch.name || '')))
+    if (isFeatured) featured.push(ch)
+    else dropdown.push(ch)
+  })
+  const organized = organizeWalletChannels(dropdown)
+  const ordered = featured.concat(organized.pinned, organized.more)
+  const seen = {}
+  const out = []
+  ordered.forEach((ch) => {
+    const wt0 = String(ch.wallet_type || ch.payment_channel || '').trim()
+    if (!wt0 || seen[wt0]) return
+    if (String(ch.handler || '').toLowerCase() === 'bs' && wt0 !== 'USDT_MULTI') return
+    seen[wt0] = true
+    out.push({
+      type: wt0,
+      label: shortChannelName(ch) || wt0,
+      icon: channelIconUrl(ch),
+      multi: wt0 === 'USDT_MULTI',
+    })
+  })
+  return out
+}
+
 export const CHANNEL_GRID_VISIBLE = 8
 
 export function isUsdtRechargeChannel(ch) {

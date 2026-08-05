@@ -46,17 +46,6 @@
           <view class="profile-meta-line">选择钱包类型，展示并管理已绑定地址（与提现钱包一致）</view>
           <view class="wallet-channel-list is-grid">
             <view
-              class="wallet-channel-item"
-              :class="{ active: selectedType === 'USDT_MULTI' }"
-              @click="selectWallet('USDT_MULTI')"
-            >
-              <image class="wallet-channel-icon" :src="usdtIcon" mode="aspectFill" />
-              <view class="wallet-channel-meta">
-                <text class="wallet-channel-name">USDT钱包</text>
-                <text v-if="usdtAnyBound" class="wallet-channel-bound">已绑定</text>
-              </view>
-            </view>
-            <view
               v-for="wt in walletTypes"
               :key="wt.type"
               class="wallet-channel-item"
@@ -70,11 +59,14 @@
                 mode="aspectFill"
               />
               <view v-else class="wallet-channel-icon wallet-channel-icon--placeholder">
-                {{ wt.label.charAt(0) }}
+                {{ (wt.label || '?').charAt(0) }}
               </view>
               <view class="wallet-channel-meta">
                 <text class="wallet-channel-name">{{ wt.label }}</text>
-                <text v-if="binds[wt.type]" class="wallet-channel-bound">已绑定</text>
+                <text
+                  v-if="wt.multi ? usdtAnyBound : binds[wt.type]"
+                  class="wallet-channel-bound"
+                >已绑定</text>
               </view>
             </view>
           </view>
@@ -153,14 +145,11 @@ import TopBar from '../../components/TopBar.vue'
 import { computed, reactive, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { apiRequest, getToken } from '../../utils/auth.js'
-import { assetBase } from '../../utils/i18n.js'
 import {
   bindWallet,
-  channelIconUrl,
   clearWalletCache,
+  collectPayeeWalletTypes,
   loadWalletBootstrap,
-  organizeWalletChannels,
-  shortChannelName,
 } from '../../utils/wallet.js'
 import '../../styles/hb.css'
 
@@ -189,7 +178,6 @@ const bankBank = ref('')
 const usdtInputs = reactive({})
 const usdtName = ref('')
 const usdtChains = USDT_CHAINS
-const usdtIcon = assetBase() + 'static/pay/usdt.png'
 const submitting = ref(false)
 
 const pwdVisible = ref(false)
@@ -357,28 +345,6 @@ async function bindUsdtAll() {
   }
 }
 
-function collectWalletTypes(rechargeChannels, withdrawChannels) {
-  const map = {}
-  const src = [].concat(rechargeChannels || [], withdrawChannels || [])
-  const organized = organizeWalletChannels(
-    src.filter((ch) => String(ch.bind_mode || '') === 'wallet' || /钱包|wallet/i.test(String(ch.name || '')))
-  )
-  const ordered = organized.pinned.concat(organized.more)
-  ;(ordered.length ? ordered : src).forEach((ch) => {
-    if (String(ch.bind_mode || '') !== 'wallet' && !/钱包/i.test(String(ch.name || ''))) return
-    const t = String(ch.wallet_type || ch.payment_channel || '').trim()
-    if (!t || t === 'USDT_MULTI' || t.indexOf('BS_USDT_') === 0) return
-    if (!map[t]) {
-      map[t] = {
-        type: t,
-        label: shortChannelName(ch) || t,
-        icon: channelIconUrl(ch),
-      }
-    }
-  })
-  return Object.values(map)
-}
-
 async function refresh() {
   if (!getToken()) {
     uni.reLaunch({ url: '/pages/login/login' })
@@ -392,7 +358,7 @@ async function refresh() {
     const w = (bundle && bundle.withdraw) || {}
     const r = (bundle && bundle.recharge) || {}
     binds.value = w.binds || {}
-    walletTypes.value = collectWalletTypes(r.list || [], w.list || [])
+    walletTypes.value = collectPayeeWalletTypes(r, w)
     if (bankBind.value) {
       bankName.value = bankBind.value.account_name || bankName.value
       bankNo.value = bankBind.value.account_no || bankNo.value

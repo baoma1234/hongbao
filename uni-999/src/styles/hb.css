@@ -465,6 +465,47 @@ page {
   object-fit: cover;
   flex-shrink: 0;
   background: #f6f6f6;
+  display: block;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* uni-app H5：<image> 默认 320×240，压回 36×36 避免数字钱包格子错位 */
+uni-image.wallet-channel-icon,
+image.wallet-channel-icon,
+.wallet-channel-icon.uni-image,
+.wallet-channel-icon uni-image,
+.wallet-channel-icon image,
+.wallet-channel-icon .uni-image {
+  width: 36px !important;
+  height: 36px !important;
+  max-width: 36px !important;
+  max-height: 36px !important;
+  display: block !important;
+  overflow: hidden;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+uni-image.wallet-channel-icon > div,
+.wallet-channel-icon.uni-image > div,
+.wallet-channel-icon uni-image > div,
+.wallet-channel-icon .uni-image > div {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+uni-image.wallet-channel-icon img,
+.wallet-channel-icon.uni-image img,
+.wallet-channel-icon uni-image img,
+.wallet-channel-icon img {
+  width: 36px !important;
+  height: 36px !important;
+  max-width: 36px !important;
+  max-height: 36px !important;
+  object-fit: cover;
+  display: block;
+  border-radius: 10px;
 }
 
 .wallet-channel-icon--placeholder {
