@@ -44,7 +44,7 @@
       </view>
     </view>
   </view>
-  <view class="top-bar-spacer" />
+  <view v-if="!noSpacer" class="top-bar-spacer" />
 </template>
 
 <script setup>
@@ -64,6 +64,11 @@ import {
   onSkinChange,
   SKIN_OPTIONS,
 } from '../utils/skin.js'
+
+defineProps({
+  /** 红宝等页用 body padding-top 占位，勿再插 spacer 以免双倍空隙 */
+  noSpacer: { type: Boolean, default: false },
+})
 
 const locale = ref(getLocale())
 const skinId = ref(getSkinId())

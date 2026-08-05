@@ -1,6 +1,6 @@
 <template>
   <view>
-    <TopBar />
+    <TopBar :no-spacer="true" />
     <view id="tabMessages" class="tab-page active">
       <view class="chat-shell">
         <view class="chat-list-pane">
@@ -984,7 +984,9 @@ function applyPageShell(on) {
   try {
     if (typeof document !== 'undefined') {
       document.body.classList.toggle('tab-messages', !!on)
-      document.documentElement.style.setProperty('--top-bar-height', '44px')
+      if (on) {
+        document.documentElement.style.setProperty('--top-bar-height', '48px')
+      }
     }
   } catch (e) {}
   // #endif

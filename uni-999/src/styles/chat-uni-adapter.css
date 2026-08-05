@@ -153,13 +153,19 @@
   font-weight: 700;
   padding: 0 14px 8px;
 }
+/* 顶栏四 Tab：对齐 888 glass（红渐变选中） */
 #tabMessages .chat-home-tab {
   color: #9a8574 !important;
   font-weight: 700 !important;
 }
 #tabMessages .chat-home-tab.active {
-  color: #c61114 !important;
-  background: #fff1ef !important;
+  color: #fff !important;
+  background: linear-gradient(to right, #e63022, #c61114) !important;
+  border-radius: 18px !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
+}
+#tabMessages .chat-home-tab.active::after {
+  display: none !important;
 }
 #tabMessages .chat-conv-title,
 #tabMessages .chat-conv-title text {
@@ -174,13 +180,128 @@
 #tabMessages .chat-conv-list {
   background: transparent !important;
 }
+
+/* 社群 / 公告分段：对齐 888 橙红渐变胶囊 */
 #tabMessages .chat-community-seg-btn {
-  color: #8a7a6e !important;
+  color: #6b6b6b !important;
   font-weight: 700 !important;
+  position: relative;
 }
 #tabMessages .chat-community-seg-btn.active {
+  color: #fff !important;
+  background: linear-gradient(90deg, #ffb347 0%, #ff7a2f 45%, #e83b1a 100%) !important;
+  box-shadow:
+    0 3px 10px rgba(232, 59, 26, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+  text-shadow: 0 1px 1px rgba(120, 20, 8, 0.15);
+}
+
+/* 社群卡片 / 列表文字（uni text 继承） */
+#tabMessages .chat-group-card .title,
+#tabMessages .chat-group-card .subtitle,
+#tabMessages .chat-my-group-name,
+#tabMessages .chat-my-group-sub,
+#tabMessages .chat-feed-text,
+#tabMessages .chat-feed-status,
+#tabMessages .chat-my-group-count,
+#tabMessages .chat-empty-glass {
+  color: inherit;
+}
+#tabMessages .chat-group-card .title {
+  color: #3d2e22 !important;
+}
+#tabMessages .chat-group-card .subtitle {
+  color: #9a8574 !important;
+}
+#tabMessages .chat-my-group-name,
+#tabMessages .chat-my-group-name text {
+  color: #3d2e22 !important;
+}
+#tabMessages .chat-my-group-sub,
+#tabMessages .chat-my-group-sub text {
+  color: #9a8574 !important;
+  font-size: 12px;
+  font-weight: 600;
+}
+#tabMessages .chat-my-group-count {
   color: #c61114 !important;
-  background: #fff1ef !important;
+}
+#tabMessages .chat-my-group-count text {
+  font-size: 11px;
+  font-weight: 700;
+  color: #9a8574 !important;
+}
+#tabMessages .chat-feed-text,
+#tabMessages .chat-feed-text text {
+  color: #3d2e22 !important;
+  font-weight: 700;
+}
+#tabMessages .chat-feed-status {
+  color: #9a8574 !important;
+}
+#tabMessages .chat-feed-status.on {
+  color: #2f9e44 !important;
+}
+
+/* 公告卡片文字 */
+#tabMessages .chat-notice-name,
+#tabMessages .chat-notice-name text {
+  color: #1a1a1a !important;
+  font-weight: 700;
+}
+#tabMessages .chat-notice-day,
+#tabMessages .chat-notice-time,
+#tabMessages .chat-notice-day text,
+#tabMessages .chat-notice-time text {
+  color: #9a9a9a !important;
+}
+#tabMessages .chat-notice-tag,
+#tabMessages .chat-notice-tag text {
+  color: #e23b2f !important;
+  font-weight: 700;
+}
+#tabMessages .chat-notice-body {
+  color: #222 !important;
+}
+
+/* 佣金面板：hero 白字 + 入口/列表色 */
+#tabMessages .chat-commission-hero-label,
+#tabMessages .chat-commission-hero-value,
+#tabMessages .chat-commission-stat-label,
+#tabMessages .chat-commission-stat-value,
+#tabMessages .chat-commission-hero-label text,
+#tabMessages .chat-commission-hero-value text,
+#tabMessages .chat-commission-stat-label text,
+#tabMessages .chat-commission-stat-value text {
+  color: #fff !important;
+}
+#tabMessages .chat-commission-withdraw-btn,
+#tabMessages .chat-commission-withdraw-btn text {
+  color: #333 !important;
+  font-weight: 700;
+}
+#tabMessages .chat-commission-nav-label,
+#tabMessages .chat-commission-nav-label text {
+  color: #222 !important;
+  font-weight: 700;
+}
+#tabMessages .chat-commission-recent-hd {
+  color: #222 !important;
+  font-weight: 800;
+}
+#tabMessages .chat-commission-row-title {
+  color: #222 !important;
+  font-weight: 700;
+}
+#tabMessages .chat-commission-row-time {
+  color: #9a9a9a !important;
+}
+#tabMessages .chat-commission-row-amt {
+  color: #e23b2f !important;
+  font-weight: 800;
+}
+#tabMessages .chat-commission-row-amt.is-out {
+  color: #2f9e44 !important;
 }
 
 /* 建群面板：盖住 TopBar / TabBar */
