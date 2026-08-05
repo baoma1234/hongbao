@@ -1,31 +1,99 @@
-/* uni-999 会话页：套用 chat.bundle 房间气泡时的 uni-image / 外壳适配 */
+/* uni-999 会话页：对齐 888 chat-room，同时消掉 bundle 里 fixed/display:none 外壳副作用 */
+
 .chat-room-page {
+  position: relative;
   display: flex;
   flex-direction: column;
+  width: 100%;
   height: 100vh;
   height: 100dvh;
-  background: #ededed;
   overflow: hidden;
+  background: #ededed;
+  box-sizing: border-box;
 }
 
-.chat-room-page .chat-room-pane {
+/* 覆盖 .chat-room-pane { display:none; position:fixed } —— 本页本身就是房间 */
+.chat-room-page .chat-room-pane.open,
+.chat-room-page > .chat-room-pane {
+  display: flex !important;
+  flex-direction: column !important;
+  position: relative !important;
+  left: auto !important;
+  right: auto !important;
+  top: auto !important;
+  bottom: auto !important;
+  width: 100% !important;
+  max-width: none !important;
+  height: 100% !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  z-index: 1 !important;
+  transform: none !important;
+  background: #ededed !important;
+  overflow: hidden !important;
+  box-shadow: none !important;
+}
+
+.chat-room-page .chat-hero-hd {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 10px 12px;
+  padding-top: calc(10px + env(safe-area-inset-top, 0px));
+  background: linear-gradient(to right, #e63022, #c61114) !important;
+  color: #fff !important;
+  box-sizing: border-box;
+}
+
+.chat-room-page .chat-hero-back,
+.chat-room-page .chat-hero-more {
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: transparent;
+  color: #fff !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.chat-room-page .chat-hero-title,
+.chat-room-page .chat-room-title {
   flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
+  min-width: 0;
+  font-size: 17px;
+  font-weight: 800;
+  color: #fff !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.chat-room-page .chat-room-main {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
   background: #ededed;
 }
 
 .chat-room-page .chat-msg-scroll {
-  flex: 1;
-  min-height: 0;
-  height: 100%;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: 0 !important; /* scroll-view 在 flex 里必须给可算高度 */
+  width: 100%;
   padding: 12px 12px 8px;
   box-sizing: border-box;
+  background: #ededed;
 }
 
 .chat-room-page .chat-msg-row {
-  display: flex;
+  display: flex !important;
   align-items: flex-start;
   gap: 8px;
   width: 100%;
@@ -34,12 +102,12 @@
 }
 
 .chat-room-page .chat-msg-row.me {
-  flex-direction: row-reverse;
+  flex-direction: row-reverse !important;
   justify-content: flex-start;
 }
 
 .chat-room-page .chat-msg-row.system {
-  justify-content: center;
+  justify-content: center !important;
 }
 
 .chat-room-page .chat-msg-avatar {
@@ -52,6 +120,8 @@
   align-items: center;
   justify-content: center;
   background: #e8e8e8;
+  padding: 0;
+  border: none;
 }
 
 .chat-room-page .chat-msg-avatar uni-image,
@@ -62,6 +132,7 @@
   display: block !important;
 }
 
+.chat-room-page .chat-msg-avatar uni-image div,
 .chat-room-page .chat-msg-avatar uni-image img,
 .chat-room-page .chat-msg-avatar img {
   width: 100% !important;
@@ -81,15 +152,26 @@
   align-items: flex-end;
 }
 
+.chat-room-page .chat-msg-nick {
+  font-size: 12px;
+  color: #999;
+  margin: 0 0 4px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .chat-room-page .chat-bubble {
   max-width: 100%;
+  position: relative;
 }
 
 .chat-room-page .chat-bubble .meta,
 .chat-room-page .chat-bubble .meta text {
-  color: inherit;
-  opacity: 0.65;
   font-size: 10px;
+  opacity: 0.65;
+  color: inherit;
 }
 
 .chat-room-page .chat-msg-row.me .chat-bubble .meta,
@@ -118,4 +200,268 @@
   height: 140px;
   border-radius: 8px;
   background: #000;
+}
+
+/* 红包卡：确保 uni view 也能吃到 luxury 布局 */
+.chat-room-page .chat-rp-card.bubble-rp {
+  width: 232px !important;
+  max-width: min(232px, 72vw) !important;
+  padding: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  border-radius: 12px !important;
+  background: #fffaf5 !important;
+  box-sizing: border-box;
+}
+
+.chat-room-page .chat-rp-card .rp-top {
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px 11px;
+  min-height: 56px;
+  box-sizing: border-box;
+  background: linear-gradient(160deg, #f24a3d 0%, #d9211a 48%, #a80f12 100%);
+}
+
+.chat-room-page .chat-rp-card .rp-title,
+.chat-room-page .chat-rp-card .rp-title text {
+  color: #fff8e7 !important;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.chat-room-page .chat-rp-card .rp-amt,
+.chat-room-page .chat-rp-card .rp-amt text,
+.chat-room-page .chat-rp-card .rp-yen {
+  color: #ffe9a8 !important;
+  font-weight: 800;
+}
+
+.chat-room-page .chat-rp-card .rp-cnt,
+.chat-room-page .chat-rp-card .rp-cnt text {
+  color: rgba(255, 248, 231, 0.78) !important;
+  font-size: 10.5px;
+}
+
+.chat-room-page .chat-rp-card .rp-bottom {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 12px 8px;
+  background: #fff8f2;
+  box-sizing: border-box;
+}
+
+.chat-room-page .chat-rp-card .rp-bottom-lab,
+.chat-room-page .chat-rp-card .rp-bottom-lab text {
+  color: #c61114 !important;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.chat-room-page .chat-rp-card .rp-time,
+.chat-room-page .chat-rp-card .rp-time text {
+  color: #9a8574 !important;
+  font-size: 10px;
+}
+
+.chat-room-page .chat-rp-card .rp-ribbon {
+  height: 3px;
+  background: linear-gradient(90deg, #c9a24a 0%, #f5e0a8 45%, #e3b268 55%, #c9a24a 100%);
+  flex-shrink: 0;
+}
+
+.chat-room-page .chat-rp-card .rp-env-svg {
+  width: 36px;
+  height: 40px;
+  display: block;
+}
+
+.chat-room-page .chat-rp-card.is-faded {
+  opacity: 0.97;
+  filter: saturate(0.92) brightness(0.98);
+}
+
+/* ---------- 输入区：必须在 flex 底部可见 ---------- */
+.chat-room-page .chat-composer-wrap {
+  flex-shrink: 0 !important;
+  position: relative !important;
+  z-index: 30 !important;
+  background: #f7f7f7;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.chat-room-page .chat-composer.chat-footer {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  box-sizing: border-box;
+  background: rgba(247, 247, 247, 0.96);
+}
+
+.chat-room-page .chat-tool-icon,
+.chat-room-page .btn-plus,
+.chat-room-page #chatSendBtn,
+.chat-room-page .chat-send-btn {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.chat-room-page .chat-tool-icon,
+.chat-room-page .btn-plus {
+  width: 36px;
+  height: 36px;
+  color: #191919;
+}
+
+.chat-room-page .chat-tool-icon svg,
+.chat-room-page .btn-plus svg {
+  width: 24px;
+  height: 24px;
+  display: block;
+}
+
+.chat-room-page .input-box,
+.chat-room-page .chat-composer .input-box {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  height: 36px !important;
+  line-height: 36px;
+  padding: 0 12px !important;
+  border-radius: 6px !important;
+  border: none !important;
+  background: #fff !important;
+  font-size: 16px !important;
+  color: #191919 !important;
+  box-sizing: border-box;
+}
+
+.chat-room-page .chat-send-btn {
+  min-width: 56px;
+  height: 36px;
+  padding: 0 12px !important;
+  border-radius: 6px !important;
+  background: #c61114 !important;
+  color: #fff !important;
+  font-size: 14px !important;
+  font-weight: 700;
+}
+
+.chat-room-page .chat-emoji-panel,
+.chat-room-page .chat-attach-panel {
+  display: none;
+  background: #f7f7f7;
+  border-top: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.chat-room-page .chat-emoji-panel.open,
+.chat-room-page .chat-attach-panel.open {
+  display: block !important;
+}
+
+.chat-room-page .chat-emoji-panel.open {
+  height: 220px;
+}
+
+.chat-room-page .chat-attach-panel.open {
+  padding: 14px 12px 18px;
+}
+
+.chat-room-page .chat-attach-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.chat-room-page .chat-attach-item {
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: #333;
+  font-size: 12px;
+}
+
+.chat-room-page .chat-attach-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.chat-room-page .emoji-scroll {
+  height: 220px;
+}
+
+.chat-room-page .emoji-grid {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 8px 4px 16px;
+}
+
+.chat-room-page .emoji-item {
+  width: 12.5%;
+  text-align: center;
+  font-size: 26px;
+  line-height: 44px;
+}
+
+.chat-room-page .sticker-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  padding: 10px 12px 18px;
+}
+
+.chat-room-page .sticker-item {
+  background: #fff;
+  border-radius: 10px;
+  padding: 8px;
+}
+
+.chat-room-page .sticker-pick {
+  width: 100%;
+  height: 64px;
+}
+
+.chat-room-page .sticker-code {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #8a7a6e;
+  text-align: center;
+}
+
+.chat-room-page .file-name {
+  display: block;
+  font-size: 14px;
+  color: #2a1f18;
+  font-weight: 700;
+}
+
+.chat-room-page .file-ext {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #8a7a6e;
 }

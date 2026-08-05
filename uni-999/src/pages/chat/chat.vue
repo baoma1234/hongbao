@@ -1,128 +1,194 @@
 <template>
-  <view class="chat-room-page page">
-    <view class="nav">
-      <view class="nav-ico-btn nav-back" @click="goBack">
-        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-          <path fill="currentColor" d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6z" />
-        </svg>
+  <view class="chat-room-page">
+    <view class="chat-room-pane open">
+      <view class="chat-hero-hd">
+        <view class="chat-hero-back" @click="goBack">
+          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+            <path fill="currentColor" d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z" />
+          </svg>
+        </view>
+        <view class="chat-hero-title chat-room-title">{{ title }}</view>
+        <view class="chat-hero-more" @click="openMore">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+            <circle cx="6" cy="12" r="1.8" fill="currentColor" />
+            <circle cx="12" cy="12" r="1.8" fill="currentColor" />
+            <circle cx="18" cy="12" r="1.8" fill="currentColor" />
+          </svg>
+        </view>
       </view>
-      <text class="nav-title">{{ title }}</text>
-      <view class="nav-ico-btn nav-more" @click="openMore">
-        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-          <path fill="currentColor" d="M7 10a2 2 0 110 4 2 2 0 010-4zm5 0a2 2 0 110 4 2 2 0 010-4zm5 0a2 2 0 110 4 2 2 0 010-4z" />
-        </svg>
-      </view>
-    </view>
 
-    <view class="chat-room-pane">
-      <scroll-view
-        scroll-y
-        class="msgs chat-msg-scroll"
-        :scroll-into-view="scrollInto"
-        scroll-with-animation
-        @click="showEmoji = false; showSticker = false"
-      >
-        <view
-          v-for="m in messages"
-          :id="'m' + msgId(m)"
-          :key="msgId(m)"
-          class="chat-msg-row"
-          :class="{ me: isMine(m), system: isSysRow(m), 'group-msg': showSender(m) }"
+      <view class="chat-room-main">
+        <scroll-view
+          scroll-y
+          class="chat-msg-scroll"
+          :scroll-into-view="scrollInto"
+          scroll-with-animation
+          @click="closePanels"
         >
-          <view v-if="isSysRow(m)" class="sys-notice">
-            <view class="notice-inner">{{ sysText(m) }}</view>
-          </view>
-          <template v-else>
-            <view class="chat-msg-avatar locked">
-              <image :src="msgAvatar(m)" mode="aspectFill" />
+          <view
+            v-for="m in messages"
+            :id="'m' + msgId(m)"
+            :key="msgId(m)"
+            class="chat-msg-row"
+            :class="{ me: isMine(m), system: isSysRow(m), 'group-msg': showSender(m) }"
+          >
+            <view v-if="isSysRow(m)" class="sys-notice">
+              <view class="notice-inner">{{ sysText(m) }}</view>
             </view>
-            <view class="chat-msg-main">
-              <view v-if="showSender(m)" class="chat-msg-nick locked">{{ senderName(m) }}</view>
-              <view
-                v-if="isRp(m)"
-                class="chat-rp-card"
-                :class="{ faded: rpFaded(m), grabbed: rpGrabbed(m) }"
-                @click="onRpTap(m)"
-                @longpress="onMsgLongPress(m)"
-              >
-                <view class="rp-ico">红</view>
-                <view class="rp-main">
-                  <text class="rp-bless">{{ rpBlessing(m) }}</text>
-                  <text class="rp-sub">{{ rpSub(m) }}</text>
+            <template v-else>
+              <view class="chat-msg-avatar locked">
+                <image :src="msgAvatar(m)" mode="aspectFill" />
+              </view>
+              <view class="chat-msg-main">
+                <view v-if="showSender(m)" class="chat-msg-nick locked">{{ senderName(m) }}</view>
+
+                <!-- 红宝：对齐 888 bubble-rp 结构 -->
+                <view
+                  v-if="isRp(m)"
+                  class="chat-rp-card bubble-rp"
+                  :class="rpCardClass(m)"
+                  @click="onRpTap(m)"
+                  @longpress="onMsgLongPress(m)"
+                >
+                  <view class="rp-top">
+                    <view class="rp-icon-box">
+                      <svg class="rp-env-svg" viewBox="0 0 40 46" aria-hidden="true">
+                        <rect x="4" y="12" width="32" height="30" rx="3.2" fill="#F8E2A8" />
+                        <path d="M4 15.2L20 27.2L36 15.2V13.2c0-1.9-1.4-3.2-3.2-3.2H7.2C5.4 10 4 11.3 4 13.2v2z" fill="#E3B268" />
+                        <path d="M4 15.2L20 27.2L36 15.2" stroke="rgba(138,100,39,.35)" stroke-width="1" fill="none" />
+                        <circle cx="20" cy="25" r="8.2" fill="#C61114" />
+                        <circle cx="20" cy="25" r="8.2" fill="none" stroke="rgba(253,228,179,.85)" stroke-width="1.2" />
+                        <text x="20" y="28.2" text-anchor="middle" font-size="9.5" font-weight="800" fill="#FDE4B3">開</text>
+                      </svg>
+                    </view>
+                    <view class="rp-info">
+                      <view class="rp-title">{{ rpTitle(m) }}</view>
+                      <view class="rp-desc">
+                        <text class="rp-amt"><text class="rp-yen">¥</text>{{ rpAmount(m) }}</text>
+                        <text v-if="rpCount(m)" class="rp-cnt">{{ rpCount(m) }}个</text>
+                      </view>
+                    </view>
+                    <view v-if="rpMineDigit(m) != null" class="rp-mine-badge">
+                      <text class="rp-mine-badge-lab">雷</text>
+                      <text class="rp-mine-badge-num">{{ rpMineDigit(m) }}</text>
+                    </view>
+                  </view>
+                  <view class="rp-ribbon" />
+                  <view class="rp-bottom">
+                    <text class="rp-bottom-lab">{{ rpBottomLab(m) }}</text>
+                    <text class="rp-time">{{ msgTime(m) }}</text>
+                  </view>
+                </view>
+
+                <view v-else-if="isSticker(m)" class="chat-bubble sticker" @longpress="onMsgLongPress(m)">
+                  <image class="chat-sticker-img" :src="stickerUrl(m)" mode="widthFix" />
+                  <text class="meta">{{ msgTime(m) }}</text>
+                </view>
+                <view v-else-if="isImage(m)" class="chat-bubble media" @longpress="onMsgLongPress(m)">
+                  <image class="chat-media-img" :src="mediaUrl(m)" mode="widthFix" @click.stop="previewImageMsg(m)" />
+                  <text class="meta">{{ msgTime(m) }}</text>
+                </view>
+                <view v-else-if="isVideo(m)" class="chat-bubble media" @longpress="onMsgLongPress(m)">
+                  <video class="chat-media-video" :src="mediaUrl(m)" controls playsinline />
+                  <text class="meta">{{ msgTime(m) }}</text>
+                </view>
+                <view v-else-if="isFile(m)" class="chat-bubble media file" @longpress="onMsgLongPress(m)" @click="openFileMsg(m)">
+                  <text class="file-name">{{ fileName(m) }}</text>
+                  <text class="file-ext">{{ fileMeta(m) }}</text>
+                  <text class="meta">{{ msgTime(m) }}</text>
+                </view>
+                <view v-else class="chat-bubble text-msg" @longpress="onMsgLongPress(m)">
+                  <text class="content">{{ msgText(m) }}</text>
+                  <text class="meta">{{ msgTime(m) }}</text>
                 </view>
               </view>
-              <view v-else-if="isSticker(m)" class="chat-bubble sticker" @longpress="onMsgLongPress(m)">
-                <image class="chat-sticker-img" :src="stickerUrl(m)" mode="widthFix" />
-                <text class="meta">{{ msgTime(m) }}</text>
+            </template>
+          </view>
+        </scroll-view>
+
+        <view class="chat-composer-wrap">
+          <view class="chat-emoji-panel" :class="{ open: showEmoji }">
+            <scroll-view scroll-y class="emoji-scroll">
+              <view class="emoji-grid">
+                <text
+                  v-for="(em, idx) in emojis"
+                  :key="'em' + idx"
+                  class="emoji-item"
+                  @click="insertEmoji(em)"
+                >{{ em }}</text>
               </view>
-              <view v-else-if="isImage(m)" class="chat-bubble media" @longpress="onMsgLongPress(m)">
-                <image class="chat-media-img" :src="mediaUrl(m)" mode="widthFix" @click.stop="previewImageMsg(m)" />
-                <text class="meta">{{ msgTime(m) }}</text>
+            </scroll-view>
+          </view>
+
+          <view class="chat-emoji-panel" :class="{ open: showSticker }">
+            <scroll-view scroll-y class="emoji-scroll">
+              <view class="sticker-grid">
+                <view
+                  v-for="(st, idx) in stickerItems"
+                  :key="st.code + '-' + idx"
+                  class="sticker-item"
+                  @click="sendSticker(st)"
+                >
+                  <image class="sticker-pick" :src="st.url" mode="aspectFit" />
+                  <text class="sticker-code">{{ st.code }}</text>
+                </view>
               </view>
-              <view v-else-if="isVideo(m)" class="chat-bubble media" @longpress="onMsgLongPress(m)">
-                <video class="chat-media-video" :src="mediaUrl(m)" controls playsinline />
-                <text class="meta">{{ msgTime(m) }}</text>
+              <view v-if="!stickerItems.length" class="empty" style="padding:16px;text-align:center;color:#999">暂无表情包</view>
+            </scroll-view>
+          </view>
+
+          <view class="chat-attach-panel" :class="{ open: showAttach }">
+            <view class="chat-attach-grid">
+              <view class="chat-attach-item" @click="pickImage">
+                <view class="chat-attach-icon">🖼️</view>
+                <text>图片</text>
               </view>
-              <view v-else-if="isFile(m)" class="chat-bubble media file" @longpress="onMsgLongPress(m)" @click="openFileMsg(m)">
-                <text class="file-name">{{ fileName(m) }}</text>
-                <text class="file-ext">{{ fileMeta(m) }}</text>
-                <text class="meta">{{ msgTime(m) }}</text>
+              <view class="chat-attach-item" @click="pickVideo">
+                <view class="chat-attach-icon">🎬</view>
+                <text>视频</text>
               </view>
-              <view v-else class="chat-bubble text-msg" @longpress="onMsgLongPress(m)">
-                <text class="content">{{ msgText(m) }}</text>
-                <text class="meta">{{ msgTime(m) }}</text>
+              <view class="chat-attach-item" @click="pickFile">
+                <view class="chat-attach-icon">📎</view>
+                <text>文件</text>
+              </view>
+              <view class="chat-attach-item" @click="openRpSheet">
+                <view class="chat-attach-icon">🧧</view>
+                <text>红包</text>
+              </view>
+              <view class="chat-attach-item" @click="openStickerPanel">
+                <view class="chat-attach-icon">😀</view>
+                <text>表情包</text>
               </view>
             </view>
-          </template>
-        </view>
-      </scroll-view>
-    </view>
+          </view>
 
-    <view class="emoji-panel" v-if="showEmoji">
-      <scroll-view scroll-y class="emoji-scroll">
-        <view class="emoji-grid">
-          <text
-            v-for="(em, idx) in emojis"
-            :key="idx"
-            class="emoji-item"
-            @click="insertEmoji(em)"
-          >{{ em }}</text>
-        </view>
-      </scroll-view>
-    </view>
-    <view class="emoji-panel" v-if="showSticker">
-      <scroll-view scroll-y class="emoji-scroll">
-        <view class="sticker-grid">
-          <view
-            v-for="(st, idx) in stickerItems"
-            :key="st.code + '-' + idx"
-            class="sticker-item"
-            @click="sendSticker(st)"
-          >
-            <image class="sticker-pick" :src="st.url" mode="aspectFit" />
-            <text class="sticker-code">{{ st.code }}</text>
+          <view class="chat-composer chat-footer">
+            <view class="chat-tool-icon" @click="toggleEmoji">
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+                <line x1="9" y1="9" x2="9.01" y2="9" />
+                <line x1="15" y1="9" x2="15.01" y2="9" />
+              </svg>
+            </view>
+            <input
+              class="input-box"
+              v-model="text"
+              confirm-type="send"
+              maxlength="2000"
+              placeholder="输入消息…"
+              @confirm="sendText"
+              @focus="onInputFocus"
+            />
+            <view class="btn-plus" @click="toggleAttach">
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                <path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+              </svg>
+            </view>
+            <view class="chat-send-btn" @click="sendText">发送</view>
           </view>
         </view>
-        <view v-if="!stickerItems.length" class="empty">暂无表情包</view>
-      </scroll-view>
-    </view>
-
-    <view class="composer">
-      <button class="tool icon" size="mini" @click="toggleEmoji"><text>😊</text></button>
-      <button class="tool icon" size="mini" @click="toggleSticker"><text>😀</text></button>
-      <button class="tool icon" size="mini" @click="pickImage"><text>🖼️</text></button>
-      <button class="tool icon" size="mini" @click="pickVideo"><text>🎬</text></button>
-      <button class="tool icon" size="mini" @click="pickFile"><text>📎</text></button>
-      <button class="tool icon" size="mini" @click="showRp = true; showEmoji = false; showSticker = false"><text>🧧</text></button>
-      <input
-        class="input"
-        v-model="text"
-        confirm-type="send"
-        @confirm="sendText"
-        @focus="showEmoji = false; showSticker = false"
-        placeholder="输入消息"
-      />
-      <button class="send" size="mini" @click="sendText">发送</button>
+      </view>
     </view>
 
     <!-- 发包 -->
@@ -179,19 +245,11 @@
             / {{ (detail.packet && detail.packet.total_count) || '-' }} 个
           </text>
           <text class="d-fair-tip" v-if="detailFairTip">{{ detailFairTip }}</text>
-          <button
-            v-if="canFairVerify"
-            class="d-fair-btn"
-            @click="openFairVerify"
-          >查询验证</button>
+          <button v-if="canFairVerify" class="d-fair-btn" @click="openFairVerify">查询验证</button>
         </view>
         <scroll-view scroll-y class="detail-list">
           <view v-for="r in detailRecords" :key="r.id || r.user_id" class="d-row">
-            <image
-              class="d-av"
-              :src="avatarSrc(r.avatar)"
-              mode="aspectFill"
-            />
+            <image class="d-av" :src="avatarSrc(r.avatar)" mode="aspectFill" />
             <view class="d-main">
               <text class="d-nick">{{ r.nickname || ('用户' + (r.user_id || '')) }}</text>
               <text class="d-time" v-if="r.createtime">{{ formatRpTime(r.createtime) }}</text>
@@ -200,12 +258,7 @@
           </view>
           <view v-if="!detailRecords.length" class="empty">{{ claimsEmptyTip }}</view>
         </scroll-view>
-        <button
-          v-if="canGrabDetail"
-          class="btn-uid-submit"
-          :disabled="grabbing"
-          @click="grabFromDetail"
-        >
+        <button v-if="canGrabDetail" class="btn-uid-submit" :disabled="grabbing" @click="grabFromDetail">
           {{ grabbing ? '领取中…' : '开红包' }}
         </button>
         <button class="cancel" @click="detailVisible = false">关闭</button>
@@ -269,6 +322,7 @@ const myUserId = ref(0)
 const showRp = ref(false)
 const showEmoji = ref(false)
 const showSticker = ref(false)
+const showAttach = ref(false)
 const rpSending = ref(false)
 const mediaSending = ref(false)
 const grabbing = ref(false)
@@ -409,25 +463,72 @@ function sysText(m) {
   if (isRecalled(m)) return recallTip(m, myId, isPrivate.value)
   return m.content || '[系统消息]'
 }
-function rpBlessing(m) {
+function rpTitle(m) {
   const ex = msgExtra(m)
-  const fixed = packetTypeLabel(ex.packet_type || 0)
-  if (fixed === '红宝拼手气' || fixed === '红宝扫雷' || fixed === '红宝接龙') return fixed
-  return ex.blessing || '恭喜发财'
+  const ptype = ex.packet_type != null ? (ex.packet_type | 0) : 2
+  const fixed = ({ 2: '红宝拼手气', 3: '红宝扫雷', 5: '红宝接龙' })[ptype] || ''
+  return fixed || ex.blessing || (m && m.content) || '恭喜发财，大吉大利'
 }
-function rpSub(m) {
+function rpAmount(m) {
   const ex = msgExtra(m)
-  const label = packetTypeLabel(ex.packet_type || 1)
-  if (ex.cover_grabbed || ex.cover_faded) return label + ' · 已领过'
-  if (ex.cover_expired) return label + ' · 已过期'
-  return label + ' · 点击拆开'
+  const amt = ex.total_amount != null ? parseFloat(ex.total_amount) : NaN
+  if (!isNaN(amt) && amt > 0) return amt.toFixed(2)
+  return '红包'
 }
-function rpFaded(m) {
+function rpCount(m) {
   const ex = msgExtra(m)
-  return !!(ex.cover_faded || ex.cover_expired)
+  const cnt = ex.total_count != null ? (ex.total_count | 0) : 0
+  const amt = ex.total_amount != null ? parseFloat(ex.total_amount) : NaN
+  if (!isNaN(amt) && amt > 0 && cnt > 0) return cnt
+  return 0
+}
+function rpMineDigit(m) {
+  const ex = msgExtra(m)
+  const ptype = ex.packet_type != null ? (ex.packet_type | 0) : 0
+  if (ptype !== 3) return null
+  const raw = ex.mine_digit
+  if (raw == null || raw === '') return null
+  let mine = parseInt(raw, 10)
+  if (!isFinite(mine) || mine < 0 || mine > 9) mine = 0
+  return mine
+}
+function rpExpired(m) {
+  const ex = msgExtra(m)
+  if (ex.cover_expired) return true
+  const exp = ex.expiretime | 0
+  if (exp > 0) return Math.floor(Date.now() / 1000) >= exp
+  return false
 }
 function rpGrabbed(m) {
   return !!msgExtra(m).cover_grabbed
+}
+function rpFaded(m) {
+  const ex = msgExtra(m)
+  return !!(ex.cover_faded || ex.cover_expired || ex.cover_grabbed || rpExpired(m))
+}
+function rpBottomLab(m) {
+  const ex = msgExtra(m)
+  const ptype = ex.packet_type != null ? (ex.packet_type | 0) : 2
+  const pending = !!ex.mine_pending
+  if (rpGrabbed(m)) return '已领取'
+  if (rpExpired(m)) return '已过期'
+  if (ptype === 3) return pending ? '红宝扫雷 · 匹配中' : '红宝扫雷'
+  if (ptype === 5) return '红宝接龙'
+  if (ptype === 2) return '红宝拼手气'
+  if (ptype === 4) return '随机红宝'
+  if (ptype === 1) return '普通红宝'
+  if (ex.mode_label) return String(ex.mode_label)
+  return '红包福利'
+}
+function rpCardClass(m) {
+  const ex = msgExtra(m)
+  const ptype = ex.packet_type != null ? (ex.packet_type | 0) : 2
+  return {
+    'is-mine': ptype === 3,
+    'is-faded': rpFaded(m),
+    'is-grabbed': rpGrabbed(m),
+    'is-expired': rpExpired(m),
+  }
 }
 function msgTime(m) {
   const raw = m && (m.createtime || m.create_time || m.timestamp || 0)
@@ -543,12 +644,49 @@ function onMsgLongPress(m) {
   })
 }
 
+function closePanels() {
+  showEmoji.value = false
+  showSticker.value = false
+  showAttach.value = false
+}
+
+function onInputFocus() {
+  showEmoji.value = false
+  showSticker.value = false
+  showAttach.value = false
+}
+
 function toggleEmoji() {
-  showEmoji.value = !showEmoji.value
-  if (showEmoji.value) {
+  const next = !showEmoji.value
+  showEmoji.value = next
+  if (next) {
     showSticker.value = false
+    showAttach.value = false
     showRp.value = false
   }
+}
+
+function toggleAttach() {
+  const next = !showAttach.value
+  showAttach.value = next
+  if (next) {
+    showEmoji.value = false
+    showSticker.value = false
+  }
+}
+
+function openRpSheet() {
+  showAttach.value = false
+  showEmoji.value = false
+  showSticker.value = false
+  showRp.value = true
+}
+
+async function openStickerPanel() {
+  showAttach.value = false
+  showEmoji.value = false
+  showSticker.value = true
+  if (!stickerItems.value.length) await loadStickers()
 }
 
 function insertEmoji(em) {
@@ -560,6 +698,7 @@ async function toggleSticker() {
   showSticker.value = next
   if (next) {
     showEmoji.value = false
+    showAttach.value = false
     showRp.value = false
     if (!stickerItems.value.length) await loadStickers()
   }
@@ -1133,164 +1272,11 @@ onUnload(() => {
 </script>
 
 <style scoped>
-.page {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  background: #ededed;
-}
-.nav {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-  padding: 18rpx 20rpx;
-  background: linear-gradient(to right, #e63022, #c61114);
-  color: #fff;
-}
-.nav-back {
-  width: 52rpx;
-}
-.nav-ico-btn {
-  width: 52rpx;
-  height: 52rpx;
-  border-radius: 12rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(255, 255, 255, 0.95);
-}
-.nav-ico-btn:active {
-  background: rgba(255, 255, 255, 0.16);
-}
-.nav-title {
-  flex: 1;
-  font-size: 32rpx;
-  font-weight: 800;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.nav-more {
-  width: 52rpx;
-}
-/* 消息气泡/头像：chat.bundle + chat-room-uni-adapter */
-.chat-rp-card {
-  display: flex;
-  gap: 10px;
-  width: 220px;
-  max-width: 70vw;
-  padding: 12px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #e94b3c 0%, #c61114 58%, #a50f12 100%);
-  color: #fff;
-  box-shadow: 0 6px 14px rgba(198, 17, 20, 0.22);
-  box-sizing: border-box;
-}
-.chat-rp-card.faded,
-.chat-rp-card.grabbed {
-  opacity: 0.72;
-  filter: grayscale(0.2);
-}
-.chat-rp-card .rp-ico {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  flex-shrink: 0;
-}
-.chat-rp-card .rp-main { flex: 1; min-width: 0; }
-.chat-rp-card .rp-bless { display: block; font-size: 15px; font-weight: 800; color: #fff; }
-.chat-rp-card .rp-sub { display: block; margin-top: 4px; font-size: 12px; opacity: 0.9; color: #fff; }
-.file-name {
-  display: block;
-  font-size: 14px;
-  color: #2a1f18;
-  font-weight: 700;
-}
-.file-ext {
-  display: block;
-  margin-top: 4px;
-  font-size: 11px;
-  color: #8a7a6e;
-}
-.emoji-panel {
-  height: 360rpx;
-  background: #fffaf5;
-  border-top: 1px solid #eee;
-}
-.emoji-scroll { height: 100%; }
-.emoji-grid {
-  display: flex;
-  flex-wrap: wrap;
-  padding: 12rpx 8rpx 24rpx;
-}
-.sticker-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12rpx;
-  padding: 12rpx 12rpx 22rpx;
-}
-.sticker-item {
-  background: #fff;
-  border-radius: 12rpx;
-  padding: 10rpx 8rpx;
-}
-.sticker-pick {
-  width: 100%;
-  height: 100rpx;
-}
-.sticker-code {
-  display: block;
-  margin-top: 4rpx;
-  font-size: 20rpx;
-  color: #8a7a6e;
-  text-align: center;
-}
-.emoji-item {
-  width: 12.5%;
-  text-align: center;
-  font-size: 40rpx;
-  line-height: 72rpx;
-}
-.composer {
-  display: flex;
-  gap: 12rpx;
-  padding: 16rpx;
-  background: #fff;
-  border-top: 1px solid #eee;
-  align-items: center;
-}
-.tool {
-  margin: 0;
-  background: #fff8f0;
-  color: #c45a1a;
-  border: 1px solid #f0b04a;
-}
-.tool.icon {
-  width: 58rpx;
-  min-width: 58rpx;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 30rpx;
-}
-.input {
-  flex: 1;
-  height: 72rpx;
-  background: #f7f2ec;
-  border-radius: 12rpx;
-  padding: 0 20rpx;
-}
-.send { margin: 0; background: #c61114; color: #fff; }
+/* 房间布局/气泡/输入栏由 chat.bundle + chat-room-uni-adapter 负责；此处仅弹层 */
 .mask {
   position: fixed;
   inset: 0;
-  z-index: 100;
+  z-index: 20000;
   background: rgba(20, 12, 8, 0.45);
   display: flex;
   align-items: flex-end;
