@@ -186,8 +186,8 @@
     <!-- 发红宝：完全照搬 888 chatRpSendPane -->
     <view class="chat-rp-send-pane" :class="{ open: showRp }" :aria-hidden="showRp ? 'false' : 'true'">
       <view class="chat-hero-hd">
-        <view class="chat-hero-back chat-rp-cancel" @click="closeRpSend">取消</view>
-        <view class="chat-hero-title">发红宝</view>
+        <view id="chatRpCancelBtn" class="chat-hero-back chat-rp-cancel" @click="closeRpSend">{{ rpCancelLabel }}</view>
+        <view class="chat-hero-title">{{ rpTitleLabel }}</view>
         <view class="chat-hero-spacer" />
       </view>
       <view class="chat-rp-send-main">
@@ -199,29 +199,29 @@
           </view>
 
           <view class="chat-rp-balance-hint">
-            <text>可用红宝：</text>
+            <text>{{ rpBalanceHintLabel }}</text>
             <text class="chat-rp-bal-strong">￥{{ money(walletBalance) }}</text>
             <text v-if="walletFrozen > 0.00001" class="chat-rp-frozen-hint">
-              · 冻结 <text class="chat-rp-bal-strong">￥{{ money(walletFrozen) }}</text>
+              · {{ rpFrozenHintLabel }} <text class="chat-rp-bal-strong">￥{{ money(walletFrozen) }}</text>
             </text>
           </view>
 
           <view class="chat-rp-form">
             <view class="chat-rp-field chat-rp-field--amount">
-              <text class="chat-rp-lab">金额</text>
+              <text class="chat-rp-lab">{{ rpAmountLabel }}</text>
               <view class="chat-rp-amount-row">
                 <text class="chat-rp-yuan">￥</text>
                 <input
                   class="chat-rp-amount-input"
                   type="digit"
                   v-model="rpForm.total_amount"
-                  placeholder="0.00"
+                  :placeholder="rpAmountPh"
                 />
               </view>
             </view>
 
             <view v-if="!isPrivate" class="chat-rp-field" id="chatRpCountWrap">
-              <text class="chat-rp-lab">个数</text>
+              <text class="chat-rp-lab">{{ rpCountLabel }}</text>
               <view v-if="rpForm.packet_type === 3" class="chat-rp-count-tabs">
                 <view
                   v-for="n in mineCountOptions"
@@ -232,28 +232,28 @@
                 >{{ n }}</view>
               </view>
               <view v-else class="chat-rp-inline-ctrl">
-                <input class="chat-rp-count-input" type="number" v-model="rpForm.total_count" placeholder="5-10" />
+                <input class="chat-rp-count-input" type="digit" v-model="rpForm.total_count" placeholder="5-10" />
                 <text class="chat-rp-unit">个</text>
               </view>
-              <view class="chat-rp-field-hint">按本群配置显示个数</view>
+              <view class="chat-rp-field-hint">{{ rpCountHintLabel }}</view>
             </view>
 
             <view v-if="!isPrivate" class="chat-rp-field chat-rp-field--type">
-              <text class="chat-rp-lab">类型</text>
+              <text class="chat-rp-lab">{{ rpTypeLabel }}</text>
               <view class="chat-rp-type-tabs">
                 <view
-                  v-for="t in packetTypes"
-                  :key="'t' + t.v"
+                  v-for="tItem in packetTypes"
+                  :key="'t' + tItem.v"
                   class="chat-rp-type-btn"
-                  :class="{ active: rpForm.packet_type === t.v }"
-                  @click="setRpType(t.v)"
-                >{{ t.n }}</view>
+                  :class="{ active: rpForm.packet_type === tItem.v }"
+                  @click="setRpType(tItem.v)"
+                >{{ tItem.n }}</view>
               </view>
-              <view class="chat-rp-field-hint chat-rp-type-desc">{{ rpTypeDesc }}</view>
+              <view v-if="rpTypeDesc" class="chat-rp-field-hint chat-rp-type-desc">{{ rpTypeDesc }}</view>
             </view>
 
             <view v-if="!isPrivate && rpForm.packet_type === 3" class="chat-rp-field chat-rp-mine-card">
-              <view class="chat-rp-mine-title">埋雷数字（0～9）</view>
+              <view class="chat-rp-mine-title">{{ rpMineDigitLabel }}</view>
               <view class="chat-rp-mine-digits">
                 <view
                   v-for="d in 10"
@@ -263,18 +263,23 @@
                   @click="rpForm.mine_digit = String(d - 1)"
                 >{{ d - 1 }}</view>
               </view>
-              <view class="chat-rp-field-hint">手填雷号；开奖后匹配哈希末位相同的波场区块作证明。金额尾数等于雷号即中雷，可多人同时中雷。</view>
+              <view class="chat-rp-field-hint">{{ rpMineHintLabel }}</view>
             </view>
 
             <view class="chat-rp-field">
-              <text class="chat-rp-lab">祝福语</text>
-              <input class="chat-rp-bless-input" v-model="rpForm.blessing" maxlength="40" placeholder="恭喜发财，大吉大利" />
+              <text class="chat-rp-lab">{{ rpBlessingLabel }}</text>
+              <input
+                class="chat-rp-bless-input"
+                v-model="rpForm.blessing"
+                maxlength="40"
+                :placeholder="rpBlessingPh"
+              />
             </view>
           </view>
         </scroll-view>
         <view class="chat-rp-send-ft">
           <view class="chat-rp-submit-btn" :class="{ disabled: rpSending }" @click="sendRp">
-            {{ rpSending ? '发送中…' : '塞钱进红包' }}
+            {{ rpSending ? rpSendingLabel : rpSubmitLabel }}
           </view>
         </view>
       </view>
@@ -336,7 +341,7 @@ import '../../styles/chat-room-uni-adapter.css'
 import '../../styles/chat-rp-send-uni-adapter.css'
 import { apiRequest, fetchProfile, getToken } from '../../utils/auth.js'
 import { getApiBase } from '../../utils/config.js'
-import { assetBase } from '../../utils/i18n.js'
+import { assetBase, applyServerCopy, copyState, localeState, tt } from '../../utils/i18n.js'
 import {
   avatarSrc,
   isRecalled,
@@ -394,13 +399,44 @@ let off = null
 let activePacketId = 0
 
 const isPrivate = computed(() => (meta.value.type | 0) === 1)
-const packetTypes = [
-  { v: 2, n: '拼手气' },
-  { v: 5, n: '接龙' },
-  { v: 3, n: '埋雷' },
-  { v: 1, n: '普通红宝' },
-  { v: 4, n: '随机红宝' },
-]
+const locale = localeState()
+const copyTick = copyState()
+
+function rpT(key, fallback) {
+  void locale.value
+  void copyTick.value
+  return tt(key, fallback)
+}
+
+const rpCancelLabel = computed(() => rpT('chat_cancel', '取消'))
+const rpTitleLabel = computed(() => rpT('chat_rp_title', '发红宝'))
+const rpBalanceHintLabel = computed(() => rpT('chat_rp_balance_hint', '可用红宝：'))
+const rpFrozenHintLabel = computed(() => rpT('chat_rp_frozen_hint', '冻结'))
+const rpAmountLabel = computed(() => rpT('chat_rp_amount_label', '金额'))
+const rpAmountPh = computed(() => rpT('chat_rp_amount_ph', '0.00'))
+const rpCountLabel = computed(() => rpT('chat_rp_count_label', '个数'))
+const rpCountHintLabel = computed(() => rpT('chat_rp_count_hint', '按本群配置显示个数'))
+const rpTypeLabel = computed(() => rpT('chat_rp_type_label', '类型'))
+const rpMineDigitLabel = computed(() => rpT('chat_rp_mine_digit', '埋雷数字（0～9）'))
+const rpMineHintLabel = computed(() =>
+  rpT(
+    'chat_rp_mine_hint',
+    '手填雷号；开奖后匹配哈希末位相同的波场区块作证明。金额尾数等于雷号即中雷，可多人同时中雷。'
+  )
+)
+const rpBlessingLabel = computed(() => rpT('chat_rp_blessing_label', '祝福语'))
+const rpBlessingPh = computed(() => rpT('chat_rp_blessing_ph', '恭喜发财，大吉大利'))
+const rpBlessingDefault = computed(() => rpT('chat_rp_blessing_default', '恭喜发财'))
+const rpSubmitLabel = computed(() => rpT('chat_rp_submit', '塞钱进红包'))
+const rpSendingLabel = computed(() => rpT('chat_rp_sending', '发送中…'))
+
+const packetTypes = computed(() => [
+  { v: 2, n: rpT('chat_rp_type_lucky', '拼手气') },
+  { v: 5, n: rpT('chat_rp_type_relay', '接龙') },
+  { v: 3, n: rpT('chat_rp_type_mine', '埋雷') },
+  { v: 1, n: rpT('chat_rp_type_avg', '普通红宝') },
+  { v: 4, n: rpT('chat_rp_type_random', '随机红宝') },
+])
 const mineCountOptions = [5, 7, 9]
 const rpForm = reactive({
   packet_type: 2,
@@ -410,27 +446,35 @@ const rpForm = reactive({
   blessing: '恭喜发财',
 })
 
-const rpPreviewBless = computed(() => String(rpForm.blessing || '').trim() || '恭喜发财')
+const rpPreviewBless = computed(() => String(rpForm.blessing || '').trim() || rpBlessingDefault.value)
 const rpPreviewSub = computed(() => {
-  if (isPrivate.value) return '普通红包'
+  if (isPrivate.value) return rpT('chat_rp_type_avg', '普通红宝')
   const map = {
-    1: '普通红宝',
-    2: '拼手气红包',
-    3: '埋雷红包',
-    4: '随机红宝',
-    5: '接龙红包',
+    1: rpT('chat_rp_type_avg', '普通红宝'),
+    2: rpT('chat_rp_lucky_sub', '拼手气红宝'),
+    3: rpT('chat_rp_type_mine', '埋雷') + '红包',
+    4: rpT('chat_rp_type_random', '随机红宝'),
+    5: rpT('chat_rp_type_relay', '接龙') + '红包',
   }
   return map[rpForm.packet_type | 0] || '红包'
 })
+/** 对齐 888：群聊仅拼手气/接龙展示多语言简介 */
 const rpTypeDesc = computed(() => {
-  const map = {
-    1: '普通红宝：金额均分，人人有份。',
-    2: '拼手气红包：金额随机分配，手气越好领得越多。',
-    3: '埋雷红包：金额尾数等于雷号即中雷，可多人同时中雷。',
-    4: '随机红宝：金额与玩法按随机规则分配。',
-    5: '接龙红包：领取后由系统按规则续发。',
+  if (isPrivate.value) return ''
+  const type = rpForm.packet_type | 0
+  if (type === 2) {
+    return rpT(
+      'chat_rp_type_lucky_desc',
+      '拼手气：发包人可自领；领完后金额最少者赔付该包总额（同额取最晚）；发包人最少不赔。'
+    )
   }
-  return map[rpForm.packet_type | 0] || ''
+  if (type === 5) {
+    return rpT(
+      'chat_rp_type_relay_desc',
+      '接龙：抢到金额直接进可用余额；抢光后最少者扣整包金额自动发下一包；30分钟未抢完则已领保留、未领退回。'
+    )
+  }
+  return ''
 })
 
 const detailRecords = computed(() => {
@@ -790,7 +834,11 @@ async function openRpSend() {
   } else if (!rpForm.packet_type) {
     rpForm.packet_type = 2
   }
-  if (!String(rpForm.blessing || '').trim()) rpForm.blessing = '恭喜发财'
+  if (!String(rpForm.blessing || '').trim()) rpForm.blessing = rpBlessingDefault.value
+  try {
+    const cfg = await apiRequest('config', 'GET')
+    if (cfg && cfg.copy) applyServerCopy(cfg.copy)
+  } catch (e) {}
   await refreshWallet()
   showRp.value = true
 }

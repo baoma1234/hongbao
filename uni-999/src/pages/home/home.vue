@@ -216,7 +216,7 @@ import { onShow, onHide } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
 import BottomTabBar from '../../components/BottomTabBar.vue'
 import { apiRequest, fetchProfile, getToken } from '../../utils/auth.js'
-import { localeState, t } from '../../utils/i18n.js'
+import { localeState, t, applyServerCopy } from '../../utils/i18n.js'
 import { imConnect } from '../../utils/im.js'
 import { copyText } from '../../utils/master.js'
 import '../../styles/home.css'
@@ -498,6 +498,7 @@ function onUidBlur() {
 function applyConfig(cfg) {
   if (!cfg) return
   config.value = Object.assign({}, config.value || {}, cfg)
+  if (cfg.copy) applyServerCopy(cfg.copy)
   if (cfg.main_station_url) mainStationUrl.value = cfg.main_station_url
   if (cfg.app_download_url) appDownloadUrl.value = cfg.app_download_url
   if (cfg.customer_service_url) {

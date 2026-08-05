@@ -125,6 +125,9 @@ const listeners = new Set()
 const loadPromises = {}
 /** 已成功拉取完整语言包的 locale（BOOT 离线包不算） */
 const fullLoaded = Object.create(null)
+/** 服务端 config.copy（含后台多语言覆盖），优先于静态语言包 */
+const serverCopy = Object.create(null)
+const copyTick = ref(0)
 
 function readStoredLocale() {
   try {
@@ -159,20 +162,55 @@ function fillTpl(tpl, vars) {
   )
 }
 
+export function applyServerCopy(copy) {
+  if (!copy || typeof copy !== 'object') return
+  let n = 0
+  Object.keys(copy).forEach((k) => {
+    const v = copy[k]
+    if (v == null || String(v) === '') return
+    serverCopy[k] = String(v)
+    n++
+  })
+  if (n) copyTick.value++
+}
+
+export function clearServerCopy() {
+  Object.keys(serverCopy).forEach((k) => {
+    delete serverCopy[k]
+  })
+  copyTick.value++
+}
+
+/** 供 computed 订阅文案变更（语言包 / 服务端 copy） */
+export function copyState() {
+  return copyTick
+}
+
 export function t(key, vars) {
+  void copyTick.value
   const loc = getLocale()
-  // 缺 key 时优先中文，避免「页面全是英文 / key 名」
-  const chain = loc === 'zh-CN' ? ['zh-CN', 'en-PH'] : [loc, 'zh-CN', 'en-PH']
   let tpl = ''
-  for (let i = 0; i < chain.length; i++) {
-    const pack = packs[chain[i]]
-    if (pack && pack[key] != null && String(pack[key]) !== '') {
-      tpl = pack[key]
-      break
+  if (serverCopy[key] != null && String(serverCopy[key]) !== '') {
+    tpl = serverCopy[key]
+  } else {
+    // 缺 key 时优先中文，避免「页面全是英文 / key 名」
+    const chain = loc === 'zh-CN' ? ['zh-CN', 'en-PH'] : [loc, 'zh-CN', 'en-PH']
+    for (let i = 0; i < chain.length; i++) {
+      const pack = packs[chain[i]]
+      if (pack && pack[key] != null && String(pack[key]) !== '') {
+        tpl = pack[key]
+        break
+      }
     }
   }
   if (!tpl) tpl = key
   return fillTpl(tpl, vars)
+}
+
+/** 取文案；若仍是 key 本身则用 fallback（对齐 888 chatT） */
+export function tt(key, fallback) {
+  const v = t(key)
+  return !v || v === key ? fallback || key : v
 }
 
 function parseLocaleScript(text, locale) {
@@ -276,6 +314,7 @@ export function syncTabBarLabels() {
 export async function setLocale(locale) {
   const loc = LOCALE_META[locale] ? locale : DEFAULT_LOCALE
   await ensureLocaleLoaded(loc)
+  clearServerCopy()
   localeRef.value = loc
   try {
     uni.setStorageSync(LOCALE_STORAGE_KEY, loc)
