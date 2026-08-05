@@ -11,7 +11,6 @@
   --danger: #ff3b30;
   --gold-grad: linear-gradient(135deg, #ffe082 0%, #ffb300 100%);
   --gold-btn: linear-gradient(135deg, #ffd54f 0%, #ff8f00 50%, #ff6f00 100%);
-  --top-bar-height: 44px;
   color: var(--text-main);
   background: var(--bg-main);
   font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;

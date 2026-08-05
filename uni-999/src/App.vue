@@ -77,4 +77,9 @@ page {
   color: var(--text-main, #1a212d);
   --top-bar-height: 48px;
 }
+@media (max-width: 480px) {
+  page {
+    --top-bar-height: 44px;
+  }
+}
 </style>

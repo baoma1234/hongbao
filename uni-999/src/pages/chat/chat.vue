@@ -19,6 +19,29 @@
       </view>
 
       <view class="chat-room-main">
+        <view
+          v-if="noticePinVisible"
+          class="chat-notice-pin"
+          :class="{ 'is-expanded': noticePinExpanded }"
+          @click="toggleNoticePinExpand"
+        >
+          <text class="chat-notice-pin-icon">📢</text>
+          <view class="chat-notice-pin-body">
+            <view class="chat-notice-pin-label">群公告</view>
+            <view v-if="noticePinText" class="chat-notice-pin-text">{{ noticePinText }}</view>
+            <view v-if="noticePinImages.length" class="chat-notice-pin-imgs">
+              <view
+                v-for="(src, idx) in noticePinImages"
+                :key="'np' + idx"
+                class="chat-notice-pin-img"
+                @click.stop="previewNoticeImage(src)"
+              >
+                <image :src="src" mode="aspectFill" />
+              </view>
+            </view>
+          </view>
+          <view class="chat-notice-pin-close" @click.stop="dismissNoticePin">×</view>
+        </view>
         <scroll-view
           scroll-y
           class="chat-msg-scroll"
@@ -512,6 +535,9 @@ const grabSliderRef = ref(null)
 const emojis = COMMON_EMOJIS
 const stickerItems = ref([])
 const groupMeta = ref(null)
+const noticePinClosed = ref(false)
+const noticePinExpanded = ref(false)
+const noticeDismissedText = ref('')
 let myId = 0
 let off = null
 let activePacketId = 0
@@ -525,6 +551,92 @@ function rpT(key, fallback) {
   void locale.value
   void copyTick.value
   return tt(key, fallback)
+}
+
+function resolveGroupNotice(g) {
+  g = g || {}
+  const base = String(g.notice || '').trim()
+  let map = g.notice_i18n
+  if (typeof map === 'string') {
+    try {
+      map = JSON.parse(map)
+    } catch (e) {
+      map = null
+    }
+  }
+  if (!map || typeof map !== 'object') return base
+  const loc = locale.value || 'zh-CN'
+  const local = String(map[loc] || '').trim()
+  return local || base
+}
+
+function resolveNoticeImages(g) {
+  g = g || {}
+  const raw = g.notice_images
+  if (Array.isArray(raw)) {
+    return raw.map((s) => String(s || '').trim()).filter(Boolean)
+  }
+  if (typeof raw === 'string') {
+    const t = raw.trim()
+    if (!t) return []
+    if (t.charAt(0) === '[') {
+      try {
+        const arr = JSON.parse(t)
+        if (Array.isArray(arr)) {
+          return arr.map((s) => String(s || '').trim()).filter(Boolean)
+        }
+      } catch (e2) {}
+    }
+    return t.split(/[\r\n,]+/).map((s) => s.trim()).filter(Boolean)
+  }
+  return []
+}
+
+function publicAssetUrl(src) {
+  const s = String(src || '').trim()
+  if (!s) return ''
+  if (/^https?:\/\//i.test(s) || s.indexOf('//') === 0) return s
+  if (s.charAt(0) === '/') return s
+  const base = getApiBase() || ''
+  return (base.replace(/\/+$/, '') + '/' + s.replace(/^\/+/, ''))
+}
+
+const noticePinText = computed(() => {
+  if (isPrivate.value) return ''
+  const g = (groupMeta.value && groupMeta.value.group) || {}
+  const notice = resolveGroupNotice(g)
+  if (!notice) return ''
+  if (noticeDismissedText.value && noticeDismissedText.value === notice) return ''
+  return notice
+})
+
+const noticePinImages = computed(() => {
+  if (isPrivate.value) return []
+  const g = (groupMeta.value && groupMeta.value.group) || {}
+  return resolveNoticeImages(g).map(publicAssetUrl).filter(Boolean)
+})
+
+const noticePinVisible = computed(() => {
+  if (isPrivate.value || noticePinClosed.value) return false
+  return !!(noticePinText.value || noticePinImages.value.length)
+})
+
+function toggleNoticePinExpand() {
+  noticePinExpanded.value = !noticePinExpanded.value
+}
+
+function dismissNoticePin() {
+  const g = (groupMeta.value && groupMeta.value.group) || {}
+  const notice = resolveGroupNotice(g)
+  if (notice) noticeDismissedText.value = notice
+  noticePinClosed.value = true
+  noticePinExpanded.value = false
+}
+
+function previewNoticeImage(src) {
+  const urls = noticePinImages.value
+  if (!urls.length) return
+  uni.previewImage({ urls, current: src })
 }
 
 const groupPolicy = computed(() => {
@@ -1991,6 +2103,7 @@ async function saveRemark(next) {
 function mergeGroupMeta(data) {
   if (!data || typeof data !== 'object') return
   const prev = groupMeta.value || {}
+  const prevNotice = resolveGroupNotice(prev.group || {})
   const next = Object.assign({}, prev, data)
   if (data.group) next.group = Object.assign({}, prev.group || {}, data.group)
   if (data.policy) next.policy = Object.assign({}, prev.policy || {}, data.policy)
@@ -2001,6 +2114,12 @@ function mergeGroupMeta(data) {
   if (data.mute_all != null) next.mute_all = !!data.mute_all
   if (data.my_role != null) next.my_role = data.my_role | 0
   groupMeta.value = next
+  const nextNotice = resolveGroupNotice(next.group || {})
+  if (nextNotice && nextNotice !== prevNotice) {
+    noticePinClosed.value = false
+    noticeDismissedText.value = ''
+    noticePinExpanded.value = false
+  }
 }
 
 async function loadGroupMeta() {
@@ -2059,6 +2178,10 @@ onLoad(async (query) => {
     group: parseInt(q.group || '0', 10) || 0,
     conversationId: decodeURIComponent(q.id || ''),
   }
+  noticePinClosed.value = false
+  noticePinExpanded.value = false
+  noticeDismissedText.value = ''
+  groupMeta.value = null
   title.value = decodeURIComponent(q.title || '聊天')
   peerNickname.value = decodeURIComponent(q.nickname || '')
   remark.value = decodeURIComponent(q.remark || '')

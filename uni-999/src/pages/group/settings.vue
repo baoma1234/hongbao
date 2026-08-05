@@ -44,6 +44,12 @@
         <text class="chat-setting-arrow">›</text>
       </view>
 
+      <view v-if="!memberHidden" class="chat-setting-row" @click="openMembersPane">
+        <text>查看群成员</text>
+        <text class="chat-setting-arrow">›</text>
+      </view>
+      <view v-else class="chat-setting-hint">成员列表已隐藏</view>
+
       <view v-if="canEdit" class="chat-setting-row chat-setting-toggle-row" @click="toggleMuteAll">
         <text>全员禁言</text>
         <view class="chat-switch" :class="{ 'is-on': muteAll }" @click.stop="toggleMuteAll">
@@ -85,11 +91,100 @@
         <view class="chat-setting-hint">可多选或全不选，不影响管理员</view>
       </view>
 
-      <view v-if="!memberHidden" class="chat-setting-block">
-        <view class="chat-setting-block-title">群成员</view>
+      <button
+        v-if="myRole < 3"
+        type="button"
+        class="chat-setting-leave-btn"
+        @click="onLeave"
+      >退出群组</button>
+      <view v-else class="chat-setting-hint">群主不能直接退群，请先转让群主</view>
+    </view>
+
+    <!-- 成员操作：对齐 888 chat-action-sheet -->
+    <view class="chat-action-sheet" :class="{ open: memberSheet }" v-if="memberSheet" aria-hidden="false">
+      <view class="chat-action-sheet-mask" @click="closeMemberSheets" />
+      <view class="chat-action-sheet-panel" @click.stop>
+        <view class="chat-action-sheet-title">{{ memberTargetName }}</view>
+        <button
+          v-if="canManageMember(memberTarget) && !(memberTarget && memberTarget.is_muted)"
+          type="button"
+          class="chat-action-item"
+          @click="openMuteSheet"
+        >单人禁言</button>
+        <button
+          v-if="canManageMember(memberTarget) && memberTarget && memberTarget.is_muted"
+          type="button"
+          class="chat-action-item"
+          @click="doMute(0)"
+        >取消禁言</button>
+        <button
+          v-if="canSetAdmin(memberTarget) && !(memberTarget && (memberTarget.role | 0) === 2)"
+          type="button"
+          class="chat-action-item"
+          @click="doSetAdmin(true)"
+        >设为管理员</button>
+        <button
+          v-if="canSetAdmin(memberTarget) && memberTarget && (memberTarget.role | 0) === 2"
+          type="button"
+          class="chat-action-item"
+          @click="doSetAdmin(false)"
+        >取消管理员</button>
+        <button
+          v-if="canManageMember(memberTarget)"
+          type="button"
+          class="chat-action-item danger"
+          @click="confirmKick"
+        >踢出群组</button>
+        <button type="button" class="chat-action-item cancel" @click="closeMemberSheets">取消</button>
+      </view>
+    </view>
+
+    <view class="chat-action-sheet" :class="{ open: muteSheet }" v-if="muteSheet" aria-hidden="false">
+      <view class="chat-action-sheet-mask" @click="closeMemberSheets" />
+      <view class="chat-action-sheet-panel" @click.stop>
+        <view class="chat-action-sheet-title">选择禁言时长</view>
+        <button
+          v-for="opt in muteOptions"
+          :key="opt.s"
+          type="button"
+          class="chat-action-item"
+          @click="doMute(opt.s)"
+        >{{ opt.n }}</button>
+        <button type="button" class="chat-action-item cancel" @click="closeMemberSheets">关闭</button>
+      </view>
+    </view>
+
+    <!-- 群成员：对齐 888 #chatGroupMembersPane -->
+    <view v-if="membersPane" class="chat-group-invite-overlay chat-group-members-overlay" aria-hidden="false">
+      <view class="chat-hero-hd">
+        <view class="chat-hero-back" @click="closeMembersPane">
+          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+            <path fill="currentColor" d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z" />
+          </svg>
+        </view>
+        <view class="chat-hero-title">群成员</view>
+        <view class="chat-hero-spacer" />
+      </view>
+      <view class="chat-sub-main">
+        <view class="chat-sub-toolbar">
+          <button
+            v-if="canEdit"
+            type="button"
+            class="chat-add-member-btn"
+            @click="fromMembersToInvite"
+          >添加群成员</button>
+          <input
+            class="chat-search-input"
+            type="text"
+            v-model="memberKeyword"
+            placeholder="搜索成员昵称/ID"
+            confirm-type="search"
+            @confirm="reloadMembers"
+          />
+        </view>
         <view class="chat-member-list">
           <view
-            v-for="m in members"
+            v-for="m in filteredMembers"
             :key="m.user_id"
             class="chat-member-item"
             @click="onMemberTap(m)"
@@ -108,56 +203,10 @@
               <text v-if="m.is_muted" class="chat-member-tag muted">禁言</text>
             </view>
           </view>
-          <view v-if="!members.length" class="chat-empty">暂无成员</view>
+          <view v-if="!filteredMembers.length && !membersLoading" class="chat-empty">暂无成员</view>
+          <view v-if="membersLoading" class="chat-empty">加载中…</view>
         </view>
-        <view v-if="canEdit && members.length" class="chat-setting-hint">点成员可禁言 / 移出 / 设管理</view>
-      </view>
-      <view v-else class="chat-setting-hint">成员列表已隐藏</view>
-
-      <button
-        v-if="myRole < 3"
-        type="button"
-        class="chat-setting-leave-btn"
-        @click="onLeave"
-      >退出群组</button>
-      <view v-else class="chat-setting-hint">群主不能直接退群，请先转让群主</view>
-    </view>
-
-    <!-- 成员操作：对齐 888 chat-action-sheet -->
-    <view class="chat-action-sheet" :class="{ open: memberSheet }" v-if="memberSheet" aria-hidden="false">
-      <view class="chat-action-sheet-mask" @click="closeMemberSheets" />
-      <view class="chat-action-sheet-panel" @click.stop>
-        <view class="chat-action-sheet-title">{{ memberTargetName }}</view>
-        <button type="button" class="chat-action-item" @click="openMuteSheet">单人禁言</button>
-        <button
-          v-if="canSetAdmin(memberTarget) && !(memberTarget && (memberTarget.role | 0) === 2)"
-          type="button"
-          class="chat-action-item"
-          @click="doSetAdmin(true)"
-        >设为管理员</button>
-        <button
-          v-if="canSetAdmin(memberTarget) && memberTarget && (memberTarget.role | 0) === 2"
-          type="button"
-          class="chat-action-item"
-          @click="doSetAdmin(false)"
-        >取消管理员</button>
-        <button type="button" class="chat-action-item danger" @click="confirmKick">踢出群组</button>
-        <button type="button" class="chat-action-item cancel" @click="closeMemberSheets">取消</button>
-      </view>
-    </view>
-
-    <view class="chat-action-sheet" :class="{ open: muteSheet }" v-if="muteSheet" aria-hidden="false">
-      <view class="chat-action-sheet-mask" @click="closeMemberSheets" />
-      <view class="chat-action-sheet-panel" @click.stop>
-        <view class="chat-action-sheet-title">选择禁言时长</view>
-        <button
-          v-for="opt in muteOptions"
-          :key="opt.s"
-          type="button"
-          class="chat-action-item"
-          @click="doMute(opt.s)"
-        >{{ opt.n }}</button>
-        <button type="button" class="chat-action-item cancel" @click="closeMemberSheets">关闭</button>
+        <view v-if="canEdit && filteredMembers.length" class="chat-setting-hint" style="padding:8px 12px">点成员可禁言 / 移出 / 设管理</view>
       </view>
     </view>
 
@@ -255,6 +304,9 @@ const muteAll = ref(false)
 const memberCount = ref(0)
 const memberHidden = ref(false)
 const members = ref([])
+const membersPane = ref(false)
+const membersLoading = ref(false)
+const memberKeyword = ref('')
 const memberSheet = ref(false)
 const muteSheet = ref(false)
 const memberTarget = ref(null)
@@ -296,6 +348,16 @@ const memberTargetName = computed(() => {
   return m.nickname || ('ID' + m.user_id)
 })
 const selectedCount = computed(() => Object.keys(selectedIds).filter((k) => selectedIds[k]).length)
+const filteredMembers = computed(() => {
+  const kw = String(memberKeyword.value || '').trim().toLowerCase()
+  const rows = members.value || []
+  if (!kw) return rows
+  return rows.filter((m) => {
+    const name = String(m.nickname || '').toLowerCase()
+    const id = String(m.user_id || '')
+    return name.indexOf(kw) >= 0 || id.indexOf(kw) >= 0
+  })
+})
 const filteredCandidates = computed(() => {
   const kw = String(inviteKeyword.value || '').trim().toLowerCase()
   const rows = candidates.value || []
@@ -370,19 +432,57 @@ async function loadInfo() {
     if (group.value.name) {
       uni.setNavigationBarTitle({ title: group.value.name })
     }
-    if (!memberHidden.value) {
-      const mp = await fetchGroupMembers(groupId.value)
-      const md = (mp && mp.data) || mp || {}
-      members.value = md.list || []
-      if (md.member_count != null) memberCount.value = md.member_count | 0
-      if (md.my_role != null) myRole.value = md.my_role | 0
-      if (md.mute_all != null) muteAll.value = !!md.mute_all
-    } else {
+    if (memberHidden.value) {
       members.value = []
     }
   } catch (e) {
     uni.showToast({ title: (e && e.message) || '加载失败', icon: 'none' })
   }
+}
+
+async function loadMembersList(keyword) {
+  if (!groupId.value || memberHidden.value) {
+    members.value = []
+    return
+  }
+  membersLoading.value = true
+  try {
+    const mp = await fetchGroupMembers(groupId.value, keyword || '')
+    const md = (mp && mp.data) || mp || {}
+    members.value = md.list || []
+    if (md.member_count != null) memberCount.value = md.member_count | 0
+    if (md.my_role != null) myRole.value = md.my_role | 0
+    if (md.mute_all != null) muteAll.value = !!md.mute_all
+  } catch (e) {
+    uni.showToast({ title: (e && e.message) || '加载成员失败', icon: 'none' })
+    members.value = []
+  } finally {
+    membersLoading.value = false
+  }
+}
+
+function closeMembersPane() {
+  membersPane.value = false
+  memberKeyword.value = ''
+}
+
+async function openMembersPane() {
+  if (memberHidden.value) {
+    uni.showToast({ title: '隐私群已隐藏成员列表', icon: 'none' })
+    return
+  }
+  membersPane.value = true
+  memberKeyword.value = ''
+  await loadMembersList('')
+}
+
+function reloadMembers() {
+  loadMembersList(memberKeyword.value)
+}
+
+function fromMembersToInvite() {
+  closeMembersPane()
+  openAddMembers()
 }
 
 function closeMemberSheets() {
@@ -419,6 +519,7 @@ async function doMute(seconds) {
     uni.showToast({ title: seconds > 0 ? '已禁言' : '已取消禁言', icon: 'none' })
     closeMemberSheets()
     await loadInfo()
+    if (membersPane.value) await loadMembersList(memberKeyword.value)
   } catch (e) {
     uni.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
   }
@@ -432,6 +533,7 @@ async function doSetAdmin(isAdmin) {
     uni.showToast({ title: isAdmin ? '已设为管理员' : '已取消管理员', icon: 'none' })
     closeMemberSheets()
     await loadInfo()
+    if (membersPane.value) await loadMembersList(memberKeyword.value)
   } catch (e) {
     uni.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
   }
@@ -450,6 +552,7 @@ function confirmKick() {
         uni.showToast({ title: '已移出', icon: 'none' })
         closeMemberSheets()
         await loadInfo()
+        if (membersPane.value) await loadMembersList(memberKeyword.value)
       } catch (e) {
         uni.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
       }

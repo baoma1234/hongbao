@@ -184,7 +184,7 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   z-index: 14000;
-  height: 48px;
+  height: var(--top-bar-height, 48px);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -210,7 +210,7 @@ onUnmounted(() => {
     0 2px 0 color-mix(in srgb, var(--primary, #c61114) 35%, transparent);
 }
 .top-bar-spacer {
-  height: 48px;
+  height: var(--top-bar-height, 48px);
   width: 100%;
   flex-shrink: 0;
 }
@@ -311,8 +311,6 @@ onUnmounted(() => {
   color: #e83b1a;
 }
 @media (max-width: 480px) {
-  .floating-top-bar { height: 44px; }
-  .top-bar-spacer { height: 44px; }
   .logo { width: 30px; height: 30px; }
   .brand-text { font-size: 14px; }
   .skin-val { max-width: 56px; }

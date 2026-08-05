@@ -1117,7 +1117,8 @@ function applyPageShell(on) {
     if (typeof document !== 'undefined') {
       document.body.classList.toggle('tab-messages', !!on)
       if (on) {
-        document.documentElement.style.setProperty('--top-bar-height', '48px')
+        const h = window.matchMedia('(max-width: 480px)').matches ? '44px' : '48px'
+        document.documentElement.style.setProperty('--top-bar-height', h)
       }
     }
   } catch (e) {}
