@@ -88,7 +88,7 @@
   function defaultWs() {
     const host = location.hostname || '127.0.0.1';
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return proto + '//' + host + ':7272';
+    return proto + '//' + host + ':17272';
   }
   document.getElementById('wsUrl').value = defaultWs();
   try {

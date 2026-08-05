@@ -34,8 +34,8 @@ Write-Host "PHP: $php"
 Write-Host "DIR: $Root"
 
 $jobs = @(
-    @{ Name = "WS";   File = "start.php";       Port = 7272 },
-    @{ Name = "HTTP"; File = "start_admin.php"; Port = 7273 },
+    @{ Name = "WS";   File = "start.php";       Port = 17272 },
+    @{ Name = "HTTP"; File = "start_admin.php"; Port = 17273 },
     @{ Name = "CRON"; File = "start_cron.php";  Port = 0 }
 )
 

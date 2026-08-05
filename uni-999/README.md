@@ -36,7 +36,7 @@ npm run build:h5        # 输出到 ../public/999
 
 ```nginx
 location /im-ws {
-  proxy_pass http://127.0.0.1:7272;
+  proxy_pass http://127.0.0.1:17272;
   proxy_http_version 1.1;
   proxy_set_header Upgrade $http_upgrade;
   proxy_set_header Connection "Upgrade";

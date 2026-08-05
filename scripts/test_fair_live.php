@@ -20,7 +20,7 @@ function pass($m){ global $ok; $ok++; echo "[PASS] $m\n"; }
 function fail($m){ global $fail; $fail++; echo "[FAIL] $m\n"; }
 
 // health
-$ch = curl_init('http://127.0.0.1:7273/health');
+$ch = curl_init('http://127.0.0.1:17273/health');
 curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 3]);
 $raw = curl_exec($ch); $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
 $j = json_decode((string)$raw, true);
@@ -41,7 +41,7 @@ $payload = [
     'total_count' => 5,
     'blessing' => '公平性冒烟',
 ];
-$ch = curl_init('http://127.0.0.1:7273/agent/send_redpacket');
+$ch = curl_init('http://127.0.0.1:17273/agent/send_redpacket');
 curl_setopt_array($ch, [
     CURLOPT_POST => true,
     CURLOPT_HTTPHEADER => ['Content-Type: application/json'],

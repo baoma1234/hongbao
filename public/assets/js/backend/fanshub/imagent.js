@@ -126,7 +126,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
         } catch (e) {}
         var host = location.hostname || '127.0.0.1';
         var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-        return proto + '//' + host + ':7272';
+        return proto + '//' + host + ':17272';
     }
 
     function scheduleRefresh() {

@@ -3,7 +3,7 @@
  * 简易 HTTP 桥：
  * - 用户 API：会话/历史/红包/好友/群管理（token 鉴权）→ 减轻 WS Worker 压力
  * - 后台代聊：发私聊/群聊/红包（admin_key）
- * 监听: http://0.0.0.0:7273
+ * 监听: http://0.0.0.0:17273
  *
  * POST /im/*              {token, ...}
  * GET  /health
@@ -30,17 +30,21 @@ Db::init($cfg['db']);
 RedisClient::init($cfg['redis']);
 
 $adminKey = $cfg['admin_bridge']['key'] ?? 'change-me-im-admin';
-$httpCount = (int)($cfg['http_api']['count'] ?? ((PHP_OS_FAMILY === 'Windows') ? 1 : 4));
+$httpListen = (string)($cfg['http_api']['listen'] ?? 'http://0.0.0.0:17273');
+$httpCount = (int)($cfg['http_api']['count'] ?? ((PHP_OS_FAMILY === 'Windows') ? 1 : 8));
 
-$http = new Worker('http://0.0.0.0:7273');
+$http = new Worker($httpListen);
 $http->count = max(1, $httpCount);
 $http->name = 'FansHubIM-HttpApi';
+if (!empty($cfg['http_api']['reuse_port']) && PHP_OS_FAMILY !== 'Windows') {
+    $http->reusePort = true;
+}
 
 $http->onMessage = function (TcpConnection $connection, Request $request) use ($cfg, $adminKey) {
     $path = parse_url($request->uri(), PHP_URL_PATH) ?: '/';
     $method = strtoupper($request->method());
 
-    // CORS：H5 与 7273 跨端口
+    // CORS：H5 与 17273 跨端口
     if ($method === 'OPTIONS') {
         $connection->send(corsResponse(204, ''));
         return;

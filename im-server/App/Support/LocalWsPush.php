@@ -13,7 +13,7 @@ class LocalWsPush
             $cfg = require dirname(__DIR__, 2) . '/config/app.php';
         }
         $host = '127.0.0.1';
-        $port = 7272;
+        $port = 17272;
         if (!empty($cfg['websocket']['listen'])) {
             if (preg_match('#:(\d+)$#', (string)$cfg['websocket']['listen'], $m)) {
                 $port = (int)$m[1];

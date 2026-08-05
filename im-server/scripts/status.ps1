@@ -15,13 +15,13 @@ if (-not $found) { Write-Host "(none)" }
 
 Write-Host ""
 Write-Host "=== Listen ports ==="
-$ports = netstat -ano 2>$null | Select-String -Pattern ":727[23]\s+.*LISTENING"
-if ($ports) { $ports | ForEach-Object { $_.Line } } else { Write-Host "(7272/7273 not listening)" }
+$ports = netstat -ano 2>$null | Select-String -Pattern ":1727[23]\s+.*LISTENING"
+if ($ports) { $ports | ForEach-Object { $_.Line } } else { Write-Host "(17272/17273 not listening)" }
 
 Write-Host ""
-Write-Host "=== Health (7273) ==="
+Write-Host "=== Health (17273) ==="
 try {
-    $r = Invoke-WebRequest -Uri "http://127.0.0.1:7273/health" -UseBasicParsing -TimeoutSec 3
+    $r = Invoke-WebRequest -Uri "http://127.0.0.1:17273/health" -UseBasicParsing -TimeoutSec 3
     Write-Host $r.Content
 } catch {
     Write-Host "HTTP health failed: $($_.Exception.Message)"

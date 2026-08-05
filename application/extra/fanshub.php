@@ -59,7 +59,7 @@ return array (
   'im_ws_url' => '',
   'im_admin' => 
   array (
-    'bridge_url' => 'http://127.0.0.1:7273',
+    'bridge_url' => 'http://127.0.0.1:17273',
     'bridge_key' => '758fa83a00956f0419cd8abae1b0e86acffa7c166acb9784',
   ),
   'im_cs_friend_reply' => '您好，欢迎来到红宝！

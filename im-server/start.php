@@ -27,6 +27,9 @@ $wsCfg = $cfg['websocket'];
 $worker = new Worker($wsCfg['listen']);
 $worker->count = max(1, (int)($wsCfg['count'] ?? 1));
 $worker->name = $wsCfg['name'] ?? 'FansHubIM';
+if (!empty($wsCfg['reuse_port']) && PHP_OS_FAMILY !== 'Windows') {
+    $worker->reusePort = true;
+}
 
 $worker->onWorkerStart = function (Worker $worker) use ($cfg) {
     Db::init($cfg['db']);

@@ -29,8 +29,8 @@ IM 分 **三个独立进程**，缺一不可：
 
 | 进程 | 入口 | 端口 | 职责 |
 |------|------|------|------|
-| WS | `im-server/start.php` | **7272** | 聊天 WebSocket、PushBus |
-| HTTP | `im-server/start_admin.php` | **7273** | 会话/历史 API、后台代聊桥 |
+| WS | `im-server/start.php` | **17272** | 聊天 WebSocket、PushBus |
+| HTTP | `im-server/start_admin.php` | **17273** | 会话/历史 API、后台代聊桥 |
 | Cron | `im-server/start_cron.php` | 无 | Tron 轮询、过期退款、结算重试、自动发/抢红包 |
 
 > 一期改造后：重任务已从 WS Worker0 迁出。若未启动 `start_cron.php`，退款 / Tron / 自动红包会停，但聊天仍可用。
@@ -85,7 +85,7 @@ php start_cron.php start -d
 健康检查：
 
 ```bash
-curl http://127.0.0.1:7273/health
+curl http://127.0.0.1:17273/health
 ```
 
 ### 其它服务器同步后
@@ -95,7 +95,7 @@ git pull
 cd im-server/scripts && ./restart-all.sh   # 或 Windows: .\restart-all.ps1
 ```
 
-确保防火墙放行 **7272 / 7273**（或经 Nginx 反代）。
+确保防火墙放行 **17272 / 17273**（或经 Nginx 反代）。
 
 ## 二、H5（/888）与 uni-app（/999）
 

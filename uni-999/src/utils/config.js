@@ -3,7 +3,7 @@
  */
 const cfg = {
   API_BASE: '',
-  // 空则自动：当前站点 /im-ws（需 Nginx 反代到 7272）
+  // 空则自动：当前站点 /im-ws（需 Nginx 反代到 17272）
   IM_WS_URL: '',
   TOKEN_KEY: 'fans_hub_token',
   DEVICE_FP_KEY: 'fans_hub_device_fp',
@@ -24,7 +24,7 @@ export function getImWsBase() {
     return `${proto}//${host}/im-ws`
   }
   // #endif
-  return 'ws://127.0.0.1:7272'
+  return 'ws://127.0.0.1:17272'
 }
 
 export function getTokenKey() {

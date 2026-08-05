@@ -155,7 +155,7 @@
 
   function defaultWsUrl() {
     if (global.CONFIG && CONFIG.IM_WS_URL) return String(CONFIG.IM_WS_URL);
-    // 同源反代 /im-ws（nginx → 7272），避免直连额外端口被墙
+    // 同源反代 /im-ws（nginx → 17272），避免直连额外端口被墙
     var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     var host = location.host || ((location.hostname || '127.0.0.1') + (location.port ? ':' + location.port : ''));
     return proto + '//' + host + '/im-ws';
@@ -1031,7 +1031,7 @@
     try {
       if (global.CONFIG && CONFIG.IM_HTTP_BASE) return String(CONFIG.IM_HTTP_BASE).replace(/\/$/, '');
     } catch (e1) {}
-    // 同源反代 /im-api（nginx → 7273），与页面同端口，避免跨端口/防火墙
+    // 同源反代 /im-api（nginx → 17273），与页面同端口，避免跨端口/防火墙
     var origin = '';
     try { origin = location.origin; } catch (e2) { origin = ''; }
     if (!origin) {

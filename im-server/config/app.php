@@ -62,20 +62,23 @@ if (is_file($rpRuntime)) {
 
 return array_replace_recursive([
     'websocket' => [
-        'listen'   => 'websocket://0.0.0.0:7272',
-        // Windows 只能 1；Linux 建议 ≈ CPU 核数，常见 4～8，高配可到 16（需配合 MySQL/Redis 连接数）
-        // local.php 可覆盖：'websocket' => ['count' => 16]
-        'count'    => (PHP_OS_FAMILY === 'Windows') ? 1 : 8,
-        'name'     => 'FansHubIM',
-        'heartbeat'=> 50,
+        'listen'     => 'websocket://0.0.0.0:17272',
+        // Windows 只能 1；Linux 高配建议 16～28（配合 MySQL/Redis 连接数）
+        // local.php 可覆盖：'websocket' => ['count' => 28]
+        'count'      => (PHP_OS_FAMILY === 'Windows') ? 1 : 16,
+        'name'       => 'FansHubIM',
+        'heartbeat'  => 50,
+        // Linux SO_REUSEPORT，减轻 accept 热点
+        'reuse_port' => (PHP_OS_FAMILY !== 'Windows'),
     ],
     'push' => [
-        'drain_interval' => 0.02, // 消费跨进程队列间隔（秒）
-        'drain_batch'    => 300,  // 16 Worker 时可适当加大
+        'drain_interval' => 0.015, // 消费跨进程队列间隔（秒）
+        'drain_batch'    => 500,   // worker 多时可加大
     ],
-    // 7273 HTTP 只读 API 进程数（列表/历史）；与 WS count 独立
+    // 17273 HTTP API（列表/历史/代聊）；与 WS count 独立
     'http_api' => [
-        'count' => (PHP_OS_FAMILY === 'Windows') ? 1 : 4,
+        'listen' => 'http://0.0.0.0:17273',
+        'count'  => (PHP_OS_FAMILY === 'Windows') ? 1 : 8,
     ],
     // 独立 cron 进程（start_cron.php）；勿再挂到 WS Worker0
     'cron' => [

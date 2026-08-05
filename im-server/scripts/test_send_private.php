@@ -12,7 +12,7 @@ $body = json_encode([
     'msg_type' => 1,
 ], JSON_UNESCAPED_UNICODE);
 
-$ch = curl_init('http://127.0.0.1:7273/agent/send_private');
+$ch = curl_init('http://127.0.0.1:17273/agent/send_private');
 curl_setopt_array($ch, [
     CURLOPT_POST => true,
     CURLOPT_HTTPHEADER => ['Content-Type: application/json'],

@@ -18,7 +18,7 @@ Get-CimInstance Win32_Process -Filter "Name='php.exe'" -ErrorAction SilentlyCont
 }
 
 netstat -ano 2>$null | ForEach-Object {
-    if ($_ -match ':727[23]\s+.*LISTENING\s+(\d+)\s*$') {
+    if ($_ -match ':1727[23]\s+.*LISTENING\s+(\d+)\s*$') {
         $listenPid = [int]$Matches[1]
         if (-not $killed.ContainsKey($listenPid)) {
             try {

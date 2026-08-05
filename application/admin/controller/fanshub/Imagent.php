@@ -643,7 +643,7 @@ class Imagent extends Backend
     {
         $cfg = \think\Config::get('fanshub') ?: [];
         $im = isset($cfg['im_admin']) && is_array($cfg['im_admin']) ? $cfg['im_admin'] : [];
-        $base = rtrim((string)($im['bridge_url'] ?? 'http://127.0.0.1:7273'), '/');
+        $base = rtrim((string)($im['bridge_url'] ?? 'http://127.0.0.1:17273'), '/');
         $key = (string)($im['bridge_key'] ?? 'change-me-im-admin');
         $body['admin_key'] = $key;
         $ch = curl_init($base . $path);
@@ -765,7 +765,7 @@ class Imagent extends Backend
     {
         $cfg = \think\Config::get('fanshub') ?: [];
         $im = isset($cfg['im_admin']) && is_array($cfg['im_admin']) ? $cfg['im_admin'] : [];
-        $base = rtrim((string)($im['bridge_url'] ?? 'http://127.0.0.1:7273'), '/');
+        $base = rtrim((string)($im['bridge_url'] ?? 'http://127.0.0.1:17273'), '/');
         $key = (string)($im['bridge_key'] ?? 'change-me-im-admin');
         $body = json_encode([
             'admin_key'  => $key,

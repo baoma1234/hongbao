@@ -17,7 +17,7 @@ export default defineConfig({
         changeOrigin: true,
       },
       '/im-ws': {
-        target: 'ws://127.0.0.1:7272',
+        target: 'ws://127.0.0.1:17272',
         ws: true,
         changeOrigin: true,
         rewrite: (p) => p.replace(/^\/im-ws/, ''),

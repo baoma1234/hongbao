@@ -6,15 +6,15 @@
 
 | 进程 | 命令 | 端口 | 职责 |
 |------|------|------|------|
-| **WS** | `php start.php start` | **7272** | WebSocket 聊天、PushBus 本地投递 |
-| **HTTP** | `php start_admin.php start` | **7273** | `/im/*` 用户 API、`/agent/*` 代聊、`/health` |
+| **WS** | `php start.php start` | **17272** | WebSocket 聊天、PushBus 本地投递 |
+| **HTTP** | `php start_admin.php start` | **17273** | `/im/*` 用户 API、`/agent/*` 代聊、`/health` |
 | **Cron** | `php start_cron.php start` | 无 | Tron 哈希、过期退款、结算重试、RpAutoBot |
 
 Worker0（WS）仅保留后台代聊 `notify_queue` 消费；**重任务已迁至 Cron**，避免拖死聊天事件循环。
 
 ```text
-H5 列表/历史 ──HTTP──► :7273
-H5 推送/发消息 ──WS───► :7272
+H5 列表/历史 ──HTTP──► :17273
+H5 推送/发消息 ──WS───► :17272
 Cron 定时任务 ─────────► MySQL / Redis / TronGrid（推送走 PushBus 外部队列）
 ```
 
@@ -37,7 +37,7 @@ composer install
 ```php
 // im-server/config/local.php（勿提交密钥）
 return [
-  'websocket' => ['listen' => 'websocket://0.0.0.0:7272', 'count' => 8],
+  'websocket' => ['listen' => 'websocket://0.0.0.0:17272', 'count' => 16],
   'http_api'  => ['count' => 4],
   'cron' => [
     'tron_poll_interval' => 1,  // 可调 3～5 降压
@@ -71,7 +71,7 @@ cd im-server\scripts
 | 脚本 | 作用 |
 |------|------|
 | `scripts/start-all.ps1` | 启动 WS + HTTP + Cron（已运行则跳过） |
-| `scripts/stop-all.ps1` | 结束相关 php 进程，并清理 7272/7273 占用 |
+| `scripts/stop-all.ps1` | 结束相关 php 进程，并清理 17272/17273 占用 |
 | `scripts/restart-all.ps1` | 停 → 启 |
 | `scripts/status.ps1` | 进程、监听端口、`/health` |
 
@@ -115,7 +115,7 @@ php start.php start
 健康检查：
 
 ```bash
-curl http://127.0.0.1:7273/health
+curl http://127.0.0.1:17273/health
 # {"ok":true}
 ```
 
@@ -126,11 +126,11 @@ git pull
 cd im-server
 composer install   # 若依赖有变
 cd scripts && ./restart-all.sh   # Windows: .\restart-all.ps1
-./status.sh                      # 确认 7272/7273 + Cron 进程存在
+./status.sh                      # 确认 17272/17273 + Cron 进程存在
 ```
 
 - [ ] `start_cron.php` 已启动（否则自动红包/退款/Tron 停）
-- [ ] 防火墙或 Nginx 反代 7272、7273
+- [ ] 防火墙或 Nginx 反代 17272、17273
 - [ ] Redis / MySQL 与 `.env` 一致
 
 ## 推送策略（万人群）
@@ -161,7 +161,7 @@ GET  /health
 后台代聊（`admin_key`）：
 
 ```bash
-curl -X POST http://127.0.0.1:7273/agent/send_private \
+curl -X POST http://127.0.0.1:17273/agent/send_private \
   -H "Content-Type: application/json" \
   -d '{"admin_key":"...","agent_user_id":1,"to_user_id":2,"content":"你好"}'
 ```
@@ -194,7 +194,7 @@ curl -X POST http://127.0.0.1:7273/agent/send_private \
 |------|------|
 | 聊天卡、Tron 抖 | 确认重任务是否误挂回 WS；应只有 Cron 跑 Tron |
 | 不自动发红包 / 不退款 | `status` 看 Cron 是否在跑；看 PHP error_log `[CRON]` |
-| 7272 起不来 | `stop-all` 后重试；查端口占用 |
+| 17272 起不来 | `stop-all` 后重试；查端口占用 |
 | 推送漏 | 客户端是否 `group.view.enter`；Redis `online` / view set |
 
 更完整的业务运维见仓库根目录 [README.md](../README.md)。
