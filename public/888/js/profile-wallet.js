@@ -1078,9 +1078,12 @@
     var moreBtn = document.getElementById('profileLedgerMoreBtn');
     if (!box) return;
     if (!ledgerState.list.length) {
-      var emptyTip = (ledgerState.category === 'rebate')
-        ? '暂无红包返佣流水'
-        : wt('wallet_ledger_empty', '暂无资金流水');
+      var emptyTips = {
+        rebate: '暂无红包返佣流水',
+        hongbao_in: '暂无红宝入账流水',
+        refund: '暂无红宝退回流水'
+      };
+      var emptyTip = emptyTips[ledgerState.category] || wt('wallet_ledger_empty', '暂无资金流水');
       box.innerHTML = '<div class="wallet-ledger-empty">' + escapeHtml(emptyTip) + '</div>';
       if (moreBtn) moreBtn.style.display = 'none';
       return;

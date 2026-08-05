@@ -70,8 +70,8 @@ class FansHubWallet
             'withdraw'          => '提现扣款',
             'withdraw_refund'   => '提现退回',
             'red_packet_send'              => '红宝发包扣款',
-            'red_packet_grab'              => '红包入账',
-            'red_packet_refund'            => '红包退回',
+            'red_packet_grab'              => '红宝入账',
+            'red_packet_refund'            => '红宝退回',
             'red_packet_fee'               => '红包手续费',
             'red_packet_fee_in'            => '红包手续费收入',
             'red_packet_rebate'            => '推荐发包返佣',
@@ -89,8 +89,33 @@ class FansHubWallet
     }
 
     /**
+     * 资金流水分类 → type 列表
+     * @return array<string, string[]>
+     */
+    public static function ledgerCategoryTypes()
+    {
+        return [
+            'rebate' => [
+                'red_packet_rebate',
+                'red_packet_agent_rebate_in',
+                'red_packet_invite_rebate_in',
+                'red_packet_dual_rebate_in',
+                'red_packet_agent_rebate',
+            ],
+            // 抢包入账 + 赔付入账
+            'hongbao_in' => [
+                'red_packet_grab',
+                'red_packet_compensate_in',
+            ],
+            'refund' => [
+                'red_packet_refund',
+            ],
+        ];
+    }
+
+    /**
      * 会员资金流水列表
-     * @param array $opts category=rebate 仅红包返佣相关
+     * @param array $opts category=rebate|hongbao_in|refund
      */
     public static function ledgerList($userId, $page = 1, $limit = 20, array $opts = [])
     {
@@ -101,21 +126,18 @@ class FansHubWallet
             return ['list' => [], 'total' => 0, 'page' => $page, 'limit' => $limit, 'has_more' => false];
         }
         $category = trim((string)($opts['category'] ?? ''));
-        $rebateTypes = [
-            'red_packet_rebate',
-            'red_packet_agent_rebate_in',
-            'red_packet_invite_rebate_in',
-            'red_packet_dual_rebate_in',
-            'red_packet_agent_rebate',
-        ];
+        $typeMap = self::ledgerCategoryTypes();
+        $filterTypes = ($category !== '' && $category !== 'all' && !empty($typeMap[$category]))
+            ? $typeMap[$category]
+            : null;
         $query = Db::name('fans_ledger')->where('user_id', $userId);
-        if ($category === 'rebate') {
-            $query->where('type', 'in', $rebateTypes);
+        if ($filterTypes) {
+            $query->where('type', 'in', $filterTypes);
         }
         $total = (int)$query->count();
         $rowsQuery = Db::name('fans_ledger')->where('user_id', $userId);
-        if ($category === 'rebate') {
-            $rowsQuery->where('type', 'in', $rebateTypes);
+        if ($filterTypes) {
+            $rowsQuery->where('type', 'in', $filterTypes);
         }
         $rows = $rowsQuery
             ->order('id', 'desc')
@@ -149,7 +171,7 @@ class FansHubWallet
             'page'     => $page,
             'limit'    => $limit,
             'has_more' => ($page * $limit) < $total,
-            'category' => $category !== '' ? $category : 'all',
+            'category' => ($category !== '' ? $category : 'all'),
         ];
     }
 

@@ -321,6 +321,8 @@
         <div class="profile-sub-body">
             <div class="wallet-ledger-filters" id="profileLedgerFilters" role="tablist">
                 <button type="button" class="wallet-ledger-filter is-on" data-ledger-cat="all">全部</button>
+                <button type="button" class="wallet-ledger-filter" data-ledger-cat="hongbao_in">红宝入账</button>
+                <button type="button" class="wallet-ledger-filter" data-ledger-cat="refund">红宝退回</button>
                 <button type="button" class="wallet-ledger-filter" data-ledger-cat="rebate">红包返佣</button>
             </div>
             <div class="wallet-ledger-list" id="profileLedgerList">

@@ -8,6 +8,16 @@
       >全部</view>
       <view
         class="wallet-ledger-filter"
+        :class="{ 'is-on': category === 'hongbao_in' }"
+        @click="setCategory('hongbao_in')"
+      >红宝入账</view>
+      <view
+        class="wallet-ledger-filter"
+        :class="{ 'is-on': category === 'refund' }"
+        @click="setCategory('refund')"
+      >红宝退回</view>
+      <view
+        class="wallet-ledger-filter"
         :class="{ 'is-on': category === 'rebate' }"
         @click="setCategory('rebate')"
       >红包返佣</view>
@@ -33,7 +43,7 @@
       </view>
     </view>
     <view class="wallet-ledger-empty" v-else-if="!loading">
-      {{ category === 'rebate' ? '暂无红包返佣流水' : '暂无资金流水' }}
+      {{ emptyText }}
     </view>
     <view class="wallet-ledger-empty" v-if="loading && !list.length">加载中…</view>
     <view class="wallet-warn" v-if="error" style="text-align:center">{{ error }}</view>
@@ -50,7 +60,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getToken } from '../../utils/auth.js'
 import { fetchLedger, ledgerAmountText, money } from '../../utils/wallet.js'
@@ -61,6 +71,12 @@ const hasMore = ref(false)
 const loading = ref(false)
 const error = ref('')
 const category = ref('all')
+const emptyText = computed(() => {
+  if (category.value === 'rebate') return '暂无红包返佣流水'
+  if (category.value === 'hongbao_in') return '暂无红宝入账流水'
+  if (category.value === 'refund') return '暂无红宝退回流水'
+  return '暂无资金流水'
+})
 
 function rowKey(item) {
   return item.id || item.createtime + '-' + (item.hongbao_change || item.balance_change)
@@ -123,6 +139,7 @@ onShow(() => {
 <style scoped>
 .wallet-ledger-filters {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 12px;
   padding: 0 2px;

@@ -235,6 +235,7 @@
 
         .wallet-ledger-filters {
             display: flex;
+            flex-wrap: wrap;
             gap: 8px;
             margin: 0 0 10px;
             padding: 0 2px;
