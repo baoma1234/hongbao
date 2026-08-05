@@ -355,6 +355,7 @@ import {
 } from '../../utils/chat.js'
 import { clearActiveChat, getActiveChat, saveActiveChat } from '../../utils/chat-route.js'
 import { COMMON_EMOJIS } from '../../utils/emoji.js'
+import { setInboxMyId, clearInboxUnread } from '../../utils/im-inbox.js'
 import { loadWalletBootstrap, money } from '../../utils/wallet.js'
 import {
   grabRedPacket,
@@ -719,7 +720,11 @@ function formatAmt(n) {
 
 function sameRoom(msg) {
   if (!msg) return false
-  const type = msg.conversation_type | 0
+  let type = msg.conversation_type | 0
+  if (!type) {
+    if ((msg.group_id | 0) > 0) type = 2
+    else type = 1
+  }
   if (type !== (meta.value.type | 0)) return false
   if (type === 2) {
     return (msg.group_id | 0) === (meta.value.group | 0) ||
@@ -728,6 +733,52 @@ function sameRoom(msg) {
   return String(msg.conversation_id || '') === String(meta.value.conversationId) ||
     (msg.from_user_id | 0) === (meta.value.peer | 0) ||
     (msg.to_user_id | 0) === (meta.value.peer | 0)
+}
+
+function privateCid() {
+  if (meta.value.conversationId) return String(meta.value.conversationId)
+  const a = myId | 0
+  const b = meta.value.peer | 0
+  if (a > 0 && b > 0) {
+    return a < b ? a + '_' + b : b + '_' + a
+  }
+  return ''
+}
+
+function roomConversationId() {
+  if (meta.value.type === 2) return String(meta.value.group || meta.value.conversationId || '')
+  return privateCid()
+}
+
+function appendLocalMessage(raw) {
+  if (!raw) return false
+  let msg = raw
+  if (!(msg.conversation_type | 0)) {
+    msg = Object.assign({}, msg, {
+      conversation_type: meta.value.type | 0,
+      group_id: meta.value.type === 2 ? meta.value.group | 0 : msg.group_id | 0,
+      conversation_id: msg.conversation_id || roomConversationId(),
+      to_user_id: msg.to_user_id || (meta.value.type === 1 ? meta.value.peer | 0 : 0),
+    })
+  }
+  if (!sameRoom(msg)) return false
+  const id = String(msgId(msg))
+  if (id && messages.value.some((x) => String(msgId(x)) === id)) return false
+  messages.value = messages.value.concat([msg])
+  if (msg.conversation_id && !meta.value.conversationId) {
+    meta.value = Object.assign({}, meta.value, { conversationId: String(msg.conversation_id) })
+    saveActiveChat({
+      type: meta.value.type,
+      id: meta.value.conversationId,
+      peer: meta.value.peer,
+      group: meta.value.group,
+      title: title.value,
+      nickname: peerNickname.value,
+      remark: remark.value,
+    })
+  }
+  scrollToLatest()
+  return true
 }
 
 function applyRecalled(msg) {
@@ -957,13 +1008,16 @@ async function sendSticker(st) {
     },
   }
   try {
+    let packet
     if (meta.value.type == 2) {
-      await imSend('group.send', Object.assign({ group_id: meta.value.group | 0 }, payload), true)
+      packet = await imSend('group.send', Object.assign({ group_id: meta.value.group | 0 }, payload), true)
     } else {
-      await imSend('private.send', Object.assign({ to_user_id: meta.value.peer | 0 }, payload), true)
+      packet = await imSend('private.send', Object.assign({ to_user_id: meta.value.peer | 0 }, payload), true)
     }
     showSticker.value = false
-    await fetchHistory()
+    const msg = packet && packet.data && packet.data.message
+    if (msg) appendLocalMessage(msg)
+    else await fetchHistory()
   } catch (e) {
     uni.showToast({ title: (e && e.message) || '发送失败', icon: 'none' })
   }
@@ -997,19 +1051,23 @@ async function uploadCommonFile(filePath) {
 }
 
 async function sendMediaMessage(msgType, extra, label) {
+  let packet
   if (meta.value.type == 2) {
-    await imSend(
+    packet = await imSend(
       'group.send',
       { group_id: meta.value.group | 0, msg_type: msgType, content: label, extra: extra || {} },
       true
     )
   } else {
-    await imSend(
+    packet = await imSend(
       'private.send',
       { to_user_id: meta.value.peer | 0, msg_type: msgType, content: label, extra: extra || {} },
       true
     )
   }
+  const msg = packet && packet.data && packet.data.message
+  if (msg) appendLocalMessage(msg)
+  return packet
 }
 
 async function pickImage() {
@@ -1036,7 +1094,6 @@ async function pickImage() {
       { url, fullurl: up.fullurl || url, name: up.name || '' },
       '[图片]'
     )
-    await fetchHistory()
   } catch (e) {
     const msg = (e && e.message) || ''
     if (!/cancel|deny|fail chooseImage/i.test(msg)) {
@@ -1072,7 +1129,6 @@ async function pickVideo() {
       { url, fullurl: up.fullurl || url, name: up.name || '' },
       '[视频]'
     )
-    await fetchHistory()
   } catch (e) {
     const msg = (e && e.message) || ''
     if (!/cancel|deny|fail chooseVideo/i.test(msg)) {
@@ -1117,7 +1173,6 @@ async function pickFile() {
       { url, fullurl: up.fullurl || url, name: rawName, size: Number(item.size || 0), ext },
       '[文件]' + rawName
     )
-    await fetchHistory()
   } catch (e) {
     const msg = (e && e.message) || ''
     if (!/cancel|deny|fail/i.test(msg)) {
@@ -1180,6 +1235,7 @@ async function ensureUser() {
     myId = (p && (p.user_id || p.id)) | 0
     myUserId.value = myId
     myAvatar.value = (p && (p.avatar_url || p.avatar)) || ''
+    setInboxMyId(myId)
   } catch (e) {}
 }
 
@@ -1188,11 +1244,9 @@ async function markRead() {
   if (!list.length) return
   const last = list[list.length - 1]
   const lastId = (last.msg_id || last.id) | 0
-  const cid =
-    meta.value.type === 2
-      ? String(meta.value.group || meta.value.conversationId)
-      : String(meta.value.conversationId)
+  const cid = roomConversationId()
   if (!cid) return
+  clearInboxUnread(meta.value.type, cid)
   await markConversationRead(meta.value.type, cid, lastId)
 }
 
@@ -1204,12 +1258,46 @@ async function fetchHistory() {
   if (meta.value.type == 2) data.group_id = meta.value.group | 0
   else {
     data.to_user_id = meta.value.peer | 0
-    if (meta.value.conversationId) data.conversation_id = meta.value.conversationId
+    const cid = privateCid()
+    if (cid) data.conversation_id = cid
   }
   const packet = await loadHistory(data)
   const body = (packet && packet.data) || {}
   const list = body.list || body.messages || []
-  messages.value = list.slice().reverse()
+  const incoming = list.slice().reverse()
+  // 合并本地已有气泡，避免发红宝/发消息后立刻全量替换把刚插入的冲掉
+  const map = new Map()
+  messages.value.forEach((m) => {
+    map.set(String(msgId(m)), m)
+  })
+  incoming.forEach((m) => {
+    map.set(String(msgId(m)), m)
+  })
+  const merged = Array.from(map.values()).sort((a, b) => {
+    const ai = (a.id | 0) || 0
+    const bi = (b.id | 0) || 0
+    if (ai && bi && ai !== bi) return ai - bi
+    return ((a.createtime | 0) || 0) - ((b.createtime | 0) || 0)
+  })
+  messages.value = merged
+  if (!meta.value.conversationId) {
+    const cid =
+      meta.value.type === 2
+        ? String(meta.value.group || '')
+        : privateCid() || (incoming[0] && incoming[0].conversation_id) || ''
+    if (cid) {
+      meta.value = Object.assign({}, meta.value, { conversationId: String(cid) })
+      saveActiveChat({
+        type: meta.value.type,
+        id: meta.value.conversationId,
+        peer: meta.value.peer,
+        group: meta.value.group,
+        title: title.value,
+        nickname: peerNickname.value,
+        remark: remark.value,
+      })
+    }
+  }
   await markRead()
   scrollToLatest()
 }
@@ -1218,16 +1306,20 @@ async function sendText() {
   const content = String(text.value || '').trim()
   if (!content) return
   try {
+    let packet
     if (meta.value.type == 2) {
-      await imSend('group.send', { group_id: meta.value.group | 0, content, msg_type: 1 }, true)
+      packet = await imSend('group.send', { group_id: meta.value.group | 0, content, msg_type: 1 }, true)
     } else {
-      await imSend('private.send', { to_user_id: meta.value.peer | 0, content, msg_type: 1 }, true)
+      packet = await imSend('private.send', { to_user_id: meta.value.peer | 0, content, msg_type: 1 }, true)
     }
+    const msg = (packet && packet.data && packet.data.message) || null
     text.value = ''
     showEmoji.value = false
     showSticker.value = false
     showAttach.value = false
-    await fetchHistory()
+    if (msg) appendLocalMessage(msg)
+    else await fetchHistory()
+    markRead().catch(() => {})
   } catch (e) {
     uni.showToast({ title: e.message || '发送失败', icon: 'none' })
   }
@@ -1277,11 +1369,17 @@ async function sendRp() {
   }
   rpSending.value = true
   try {
-    await sendRedPacket(payload)
+    const packet = await sendRedPacket(payload)
+    const msg = (packet && packet.data && packet.data.message) || null
     showRp.value = false
     uni.showToast({ title: '红包已发送', icon: 'success' })
+    if (msg) appendLocalMessage(msg)
     await refreshWallet()
-    await fetchHistory()
+    // 延迟合并历史，补 cover/fair 等字段，不立刻整表覆盖
+    setTimeout(() => {
+      fetchHistory().catch(() => {})
+    }, 600)
+    markRead().catch(() => {})
   } catch (e) {
     uni.showToast({ title: (e && e.message) || '发红宝失败', icon: 'none' })
   } finally {
@@ -1454,15 +1552,10 @@ onLoad(async (query) => {
 
   await ensureUser()
   off = onImEvent((type, data) => {
-    if (type === 'private.message' || type === 'group.message') {
+    if (type === 'private.message' || type === 'group.message' || type === 'redpacket.relay_next') {
       const msg = (data && data.message) || data
       if (msg && sameRoom(msg)) {
-        const id = msgId(msg)
-        if (!messages.value.some((x) => String(msgId(x)) === String(id))) {
-          messages.value.push(msg)
-          scrollToLatest()
-          markRead()
-        }
+        if (appendLocalMessage(msg)) markRead().catch(() => {})
       }
     }
     if (type === 'message.recalled') {

@@ -8,6 +8,7 @@ import {
 } from './utils/chat-route.js'
 import { initI18n } from './utils/i18n.js'
 import { imConnect, imDisconnect } from './utils/im.js'
+import { startImInbox } from './utils/im-inbox.js'
 import { initSkin } from './utils/skin.js'
 import './styles/hb.css'
 
@@ -24,6 +25,7 @@ onLaunch(async () => {
   const token = getToken()
   if (!token) return
 
+  startImInbox()
   imConnect().catch(() => {})
 
   const path = getHashRoutePath()
@@ -59,6 +61,7 @@ onShow(() => {
     uni.hideTabBar({ animation: false })
   } catch (e) {}
   if (getToken()) {
+    startImInbox()
     imConnect().catch(() => {})
   } else {
     imDisconnect()

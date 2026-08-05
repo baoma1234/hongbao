@@ -434,9 +434,16 @@ import {
   listFriends,
   listMyGroups,
   listConversations,
+  markConversationRead,
   onImEvent,
   pinConversation,
 } from '../../utils/im.js'
+import {
+  clearInboxUnread,
+  setInboxMyId,
+  startImInbox,
+  syncInboxFromServerList,
+} from '../../utils/im-inbox.js'
 import { setChatUnreadTotal } from '../../utils/tab-badge.js'
 
 const CREATE_GROUP_AVATARS = ['🐵', '🐼', '🦊', '🐯', '🦁', '🐶', '🐱', '🐰', '🐻', '🐨', '🐸', '🐷']
@@ -626,6 +633,10 @@ function openChat(item) {
   const key = convKey(type, id)
   localUnread.value = Object.assign({}, localUnread.value, { [key]: 0 })
   item.unread_count = 0
+  clearInboxUnread(type, id)
+  const last = item.last_message
+  const lastId = last ? (last.msg_id || last.id) | 0 : 0
+  if (id) markConversationRead(type, id, lastId).catch(() => null)
   const q = [
     'type=' + encodeURIComponent(type),
     'id=' + encodeURIComponent(id),
@@ -639,15 +650,57 @@ function openChat(item) {
 }
 
 function bumpUnread(msg) {
+  // 未读由全局 im-inbox 维护；此处仅同步会话列表预览，避免双计
   if (!msg) return
-  const type = msg.conversation_type | 0
+  upsertListFromMessage(msg)
+}
+
+function upsertListFromMessage(msg) {
+  if (!msg) return
+  const type = (msg.conversation_type | 0) || ((msg.group_id | 0) > 0 ? 2 : 1)
   let id = ''
   if (type === 2) id = String(msg.group_id || msg.conversation_id || '')
   else id = String(msg.conversation_id || '')
   if (!id) return
   const key = convKey(type, id)
-  const cur = localUnread.value[key] | 0
-  localUnread.value = Object.assign({}, localUnread.value, { [key]: cur + 1 })
+  const rows = list.value.slice()
+  let found = null
+  for (let i = 0; i < rows.length; i++) {
+    if (itemKey(rows[i]) === key) {
+      found = rows[i]
+      break
+    }
+  }
+  if (!found) {
+    found = {
+      conversation_type: type,
+      conversation_id: id,
+      group_id: type === 2 ? (msg.group_id | 0) : 0,
+      peer_user_id: type === 1 ? ((msg.from_user_id | 0) === (myIdNum() | 0) ? msg.to_user_id : msg.from_user_id) : 0,
+      title: type === 2 ? '群 ' + id : 'ID ' + (msg.from_user_id || ''),
+      last_message: msg,
+      updatetime: msg.createtime | 0,
+      unread_count: localUnread.value[key] | 0,
+      pinned: false,
+    }
+    rows.unshift(found)
+  } else {
+    found.last_message = msg
+    found.updatetime = msg.createtime | 0
+    found.unread_count = localUnread.value[key] | 0
+  }
+  rows.sort((a, b) => {
+    const ap = a.pinned ? 1 : 0
+    const bp = b.pinned ? 1 : 0
+    if (ap !== bp) return bp - ap
+    return (b.updatetime | 0) - (a.updatetime | 0)
+  })
+  list.value = rows
+}
+
+function myIdNum() {
+  const n = parseInt(String(myIdText.value || '').replace(/\D+/g, ''), 10)
+  return n || 0
 }
 
 function onLongPress(item) {
@@ -876,7 +929,10 @@ async function loadMyIdLine() {
   try {
     const p = await fetchProfile()
     const uid = (p && (p.user_id || p.id)) | 0
-    if (uid) myIdText.value = '我的会员ID：' + uid
+    if (uid) {
+      myIdText.value = '我的会员ID：' + uid
+      setInboxMyId(uid)
+    }
   } catch (e) {}
 }
 
@@ -962,6 +1018,7 @@ async function loadList(silent = false) {
       return (b.updatetime | 0) - (a.updatetime | 0)
     })
     list.value = rows
+    syncInboxFromServerList(rows)
     const next = Object.assign({}, localUnread.value)
     rows.forEach((it) => {
       const key = itemKey(it)
@@ -1012,17 +1069,20 @@ onShow(() => {
     return
   }
   applyPageShell(true)
+  startImInbox()
   if (off) off()
   off = onImEvent((type, data) => {
     if (type === 'auth.ok') {
       refreshAuthFlags()
       refreshStatus()
+      const meta = getImAuthMeta() || {}
+      const uid = (meta.user_id || meta.uid) | 0
+      if (uid) setInboxMyId(uid)
     }
     if (type === 'socket.close' || type === 'socket.error') refreshStatus()
-    if (type === 'private.message' || type === 'group.message') {
+    if (type === 'private.message' || type === 'group.message' || type === 'redpacket.relay_next') {
       const msg = (data && data.message) || data
       bumpUnread(msg)
-      loadList(true)
     }
     if (type === 'conversation.updated' || type === 'redpacket.update') {
       loadList(true)
@@ -1031,10 +1091,27 @@ onShow(() => {
       loadList(true)
       loadMyGroupsSafe()
     }
-    if (type === 'friend.request' || type === 'friend.accepted' || type === 'friend.rejected') {
+    if (type === 'friend.request' || type === 'friend.accepted' || type === 'friend.rejected' || type === 'friend.cancelled') {
       loadFriendReqBadge()
     }
   })
+  const onInboxUnread = (map) => {
+    if (!map) return
+    localUnread.value = Object.assign({}, localUnread.value, map)
+  }
+  const onInboxMsg = (msg) => {
+    upsertListFromMessage(msg)
+  }
+  try {
+    uni.$on && uni.$on('fanshub-inbox-unread', onInboxUnread)
+    uni.$on && uni.$on('fanshub-inbox-msg', onInboxMsg)
+  } catch (e) {}
+  off._inboxCleanup = () => {
+    try {
+      uni.$off && uni.$off('fanshub-inbox-unread', onInboxUnread)
+      uni.$off && uni.$off('fanshub-inbox-msg', onInboxMsg)
+    } catch (e2) {}
+  }
   loadMyIdLine()
   loadList().then(() => refreshAuthFlags())
   loadFriendReqBadge()
@@ -1043,9 +1120,11 @@ onShow(() => {
 onHide(() => {
   applyPageShell(false)
   if (off) {
+    if (typeof off._inboxCleanup === 'function') off._inboxCleanup()
     off()
     off = null
   }
+  // 注意：不停止全局 im-inbox，离开消息 Tab 仍收未读
 })
 </script>
 
