@@ -183,7 +183,7 @@ onUnmounted(() => {
   top: 0;
   left: 0;
   right: 0;
-  z-index: 1100;
+  z-index: 14000;
   height: 48px;
   display: flex;
   align-items: center;
@@ -200,7 +200,7 @@ onUnmounted(() => {
 .mask {
   position: fixed;
   inset: 0;
-  z-index: 1090;
+  z-index: 13990;
   background: transparent;
 }
 .floating-top-bar.flash {
@@ -283,7 +283,7 @@ onUnmounted(() => {
 .panel {
   position: absolute;
   top: calc(100% + 4px);
-  z-index: 1200;
+  z-index: 2;
   min-width: 148px;
   max-height: 260px;
   overflow-y: auto;

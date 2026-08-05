@@ -1,5 +1,6 @@
 <template>
   <view class="chat-room-page">
+    <TopBar :no-spacer="true" />
     <view class="chat-room-pane open">
       <view class="chat-hero-hd">
         <view class="chat-hero-back" @click.stop="goBack" @tap.stop="goBack">
@@ -336,6 +337,7 @@
 import { computed, nextTick, reactive, ref } from 'vue'
 import { onLoad, onUnload } from '@dcloudio/uni-app'
 import GrabSlider from '../../components/GrabSlider.vue'
+import TopBar from '../../components/TopBar.vue'
 import '../../styles/chat.bundle.css'
 import '../../styles/chat-room-uni-adapter.css'
 import '../../styles/chat-rp-send-uni-adapter.css'

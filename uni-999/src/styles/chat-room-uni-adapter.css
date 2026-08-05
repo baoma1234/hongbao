@@ -7,6 +7,7 @@
   width: 100%;
   height: 100vh;
   height: 100dvh;
+  padding-top: var(--top-bar-height, 48px);
   overflow: hidden;
   background: #ededed;
   box-sizing: border-box;
@@ -40,7 +41,6 @@
   gap: 8px;
   flex-shrink: 0;
   padding: 10px 12px;
-  padding-top: calc(10px + env(safe-area-inset-top, 0px));
   background: linear-gradient(to right, #e63022, #c61114) !important;
   color: #fff !important;
   box-sizing: border-box;
