@@ -35,7 +35,8 @@
   box-shadow: none !important;
 }
 
-.chat-room-page .chat-hero-hd {
+/* 仅房间顶栏用扁平 padding；子页（红包详情等）保留 888 底部加厚给盖板上叠 */
+.chat-room-page .chat-room-pane > .chat-hero-hd {
   display: flex !important;
   align-items: center;
   gap: 8px;
