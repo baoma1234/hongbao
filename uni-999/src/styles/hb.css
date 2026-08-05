@@ -802,6 +802,10 @@ page {
 /* ---------- 我的 · 二级页（对齐 888 profile-sub） ---------- */
 .profile-sub-page {
   padding: 0 0 28px;
+  padding-top: var(--top-bar-height, 48px);
+  box-sizing: border-box;
+  min-height: 100vh;
+  min-height: 100dvh;
   background:
     radial-gradient(120% 70% at 50% -8%, rgba(255, 236, 210, 0.95) 0%, transparent 55%),
     linear-gradient(180deg, #fffbf3 0%, #f8efe3 50%, #f3e6d6 100%);

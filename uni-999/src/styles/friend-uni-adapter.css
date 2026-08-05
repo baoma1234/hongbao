@@ -3,20 +3,33 @@
 .chat-friend-page {
   min-height: 100vh;
   min-height: 100dvh;
+  padding-top: var(--top-bar-height, 48px);
   background: #f6f1ea;
   box-sizing: border-box;
 }
 
 .chat-friend-page .chat-hero-hd {
   position: sticky;
-  top: 0;
+  top: var(--top-bar-height, 48px);
   z-index: 20;
+  padding: 10px 14px !important;
+  min-height: 48px;
+  background: linear-gradient(to right, #e63022, #c61114) !important;
+  color: #fff !important;
+  box-sizing: border-box;
+}
+
+.chat-friend-page .chat-hero-title {
+  color: #fff !important;
+  font-size: 17px;
+  font-weight: 800;
+  text-align: center;
 }
 
 .chat-friend-page .chat-hero-back,
 .chat-friend-page .chat-hero-spacer {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -26,7 +39,9 @@
 
 .chat-friend-page .chat-sub-main {
   padding: 12px 14px 28px;
+  margin-top: 0;
   box-sizing: border-box;
+  background: #fffdf9;
 }
 
 .chat-friend-page .chat-add-friend-req-link {

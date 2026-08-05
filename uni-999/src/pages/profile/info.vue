@@ -1,5 +1,6 @@
 <template>
   <view class="hb-page profile-sub-page" :key="locale">
+    <TopBar :no-spacer="true" />
     <view class="profile-sub-hd">
       <text class="profile-back-btn" @click="goBack">‹</text>
       <text class="profile-sub-title">{{ t('profile_info_title') || '编辑资料' }}</text>
@@ -31,6 +32,7 @@
 
 <script setup>
 import { computed, ref } from 'vue'
+import TopBar from '../../components/TopBar.vue'
 import { onShow } from '@dcloudio/uni-app'
 import {
   fetchProfile,

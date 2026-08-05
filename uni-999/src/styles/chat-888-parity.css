@@ -15,9 +15,8 @@
 }
 
 /**
- * 红包详情 / 子页：房间 adapter 把 .chat-hero-hd padding 压成 10px，
- * 但 .chat-sub-main 仍用 margin-top:-24px 盖板 → 白底盖住「红包详情」标题。
- * 对齐 888：顶栏留 40px 底边距，盖板只叠住渐变下沿，不盖标题文字。
+ * 红包详情：对齐发红宝 pane（可靠布局），贴在公共 TopBar 下方。
+ * 不用 height:0 / 过度盖板上叠，避免 uni scroll-view 内容被吃掉。
  */
 .chat-room-page #chatRpDetailPane.chat-sub-pane,
 .chat-room-page #chatRpDetailPane.chat-sub-pane.open {
@@ -38,58 +37,65 @@
   overflow: hidden !important;
   box-sizing: border-box !important;
   transform: none !important;
+  pointer-events: auto !important;
+  visibility: visible !important;
 }
 
 .chat-room-page #chatRpDetailPane > .chat-hero-hd {
   display: flex !important;
   align-items: center !important;
-  justify-content: space-between;
-  gap: 10px;
+  justify-content: space-between !important;
+  gap: 8px !important;
   flex-shrink: 0 !important;
   position: relative !important;
-  z-index: 1 !important;
-  /* 与 888 .chat-hero-hd 一致：底部加厚留给盖板上叠 */
-  padding: 12px 14px 40px !important;
-  min-height: 0 !important;
+  z-index: 20 !important;
+  min-height: 48px !important;
+  padding: 10px 14px !important;
+  margin: 0 !important;
   background: linear-gradient(to right, #e63022, #c61114) !important;
   color: #fff !important;
   border: none !important;
-  box-shadow: 0 10px 24px rgba(180, 30, 25, 0.28) !important;
+  box-shadow: none !important;
   box-sizing: border-box !important;
 }
 
 .chat-room-page #chatRpDetailPane > .chat-hero-hd .chat-hero-title {
-  flex: 1;
-  min-width: 0;
+  flex: 1 !important;
+  min-width: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   text-align: center !important;
   color: #fff !important;
-  font-size: 18px !important;
+  font-size: 17px !important;
   font-weight: 800 !important;
+  line-height: 1.25 !important;
 }
 
 .chat-room-page #chatRpDetailPane > .chat-hero-hd .chat-hero-back,
 .chat-room-page #chatRpDetailPane > .chat-hero-hd .chat-hero-spacer {
-  width: 40px;
-  flex-shrink: 0;
+  width: 44px !important;
+  height: 44px !important;
+  flex-shrink: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   color: #fff !important;
 }
 
 .chat-room-page #chatRpDetailPane > .chat-sub-main {
   flex: 1 1 auto !important;
   min-height: 0 !important;
-  margin-top: -24px !important;
+  margin-top: 0 !important;
   position: relative !important;
-  z-index: 2 !important;
+  z-index: 1 !important;
   display: flex !important;
   flex-direction: column !important;
   overflow: hidden !important;
   background: #fffdf9 !important;
-  border-top-left-radius: 18px !important;
-  border-top-right-radius: 18px !important;
-  padding: 14px 12px calc(12px + env(safe-area-inset-bottom, 0px)) !important;
-  box-shadow:
-    0 -2px 0 rgba(255, 255, 255, 0.5),
-    0 8px 24px rgba(180, 40, 30, 0.08) !important;
+  border-radius: 0 !important;
+  padding: 12px 12px calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+  box-shadow: none !important;
   box-sizing: border-box !important;
 }
 
@@ -99,14 +105,28 @@
   flex: 1 1 auto !important;
   min-height: 0 !important;
   overflow: hidden !important;
-  height: 100%;
+}
+
+.chat-room-page #chatRpDetailPane .chat-rp-detail-head {
+  flex-shrink: 0 !important;
 }
 
 .chat-room-page #chatRpDetailPane .chat-rp-detail-list {
   flex: 1 1 auto !important;
-  min-height: 0 !important;
-  height: 0 !important; /* uni scroll-view：用 flex+height:0 约束，避免撑破盖板 */
-  overflow: hidden !important;
+  min-height: 120px !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  background: #fff;
+  border-radius: 12px;
+  margin-top: 8px;
+}
+
+.chat-room-page #chatRpDetailPane .chat-rp-detail-grab-btn {
+  flex-shrink: 0 !important;
+  margin-top: 12px !important;
 }
 
 .chat-room-page #chatRpDetailPane .chat-rp-record-avatar image,
@@ -136,6 +156,12 @@
   width: 100%;
   margin-top: 10px;
   box-sizing: border-box;
+}
+
+/* 群聊更多 / 成员操作：保持 TopBar 可见（低于 14000） */
+.chat-room-page .chat-action-sheet,
+.chat-group-settings-page .chat-action-sheet {
+  z-index: 13000 !important;
 }
 
 /* Conversation list pull-to-refresh (from 888 chat-core) */
@@ -212,19 +238,23 @@
   opacity: 0.45;
 }
 
-/* settings page: 888 cover overlap (hero 底部加厚 + sub-main 上叠) */
+/* settings page：公共 TopBar + 二级红顶 + 内容（对齐 888 在站点顶栏下的结构） */
 .chat-group-settings-page {
   min-height: 100vh;
+  min-height: 100dvh;
   background: #f3f4f6;
   display: flex;
   flex-direction: column;
+  padding-top: var(--top-bar-height, 48px);
+  box-sizing: border-box;
 }
 .chat-group-settings-page > .chat-hero-hd {
   position: sticky;
-  top: 0;
-  z-index: 1;
+  top: var(--top-bar-height, 48px);
+  z-index: 10;
   flex-shrink: 0;
-  padding: 12px 14px 40px !important;
+  padding: 10px 14px !important;
+  min-height: 48px;
   background: linear-gradient(to right, #e63022, #c61114) !important;
   color: #fff !important;
   display: flex;
@@ -236,31 +266,69 @@
   flex: 1;
   text-align: center;
   color: #fff !important;
+  font-size: 17px;
   font-weight: 800;
+}
+.chat-group-settings-page > .chat-hero-hd .chat-hero-back,
+.chat-group-settings-page > .chat-hero-hd .chat-hero-spacer {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #fff;
 }
 .chat-group-settings-page > .chat-sub-main {
   position: relative;
-  z-index: 2;
-  margin-top: -24px;
+  z-index: 1;
+  margin-top: 0;
   flex: 1 1 auto;
-  padding: 14px 12px calc(24px + env(safe-area-inset-bottom, 0px));
+  padding: 12px 12px calc(24px + env(safe-area-inset-bottom, 0px));
   background: #fffdf9;
-  border-top-left-radius: 18px;
-  border-top-right-radius: 18px;
+  border-radius: 0;
   box-sizing: border-box;
-  box-shadow:
-    0 -2px 0 rgba(255, 255, 255, 0.5),
-    0 8px 24px rgba(180, 40, 30, 0.08);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
-/* invite overlay as full pane on settings page */
+/* invite overlay as full pane under TopBar */
 .chat-group-invite-overlay {
   position: fixed;
-  inset: 0;
-  z-index: 9500;
+  top: var(--top-bar-height, 48px);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 13100;
   background: #f3f4f6;
   display: flex;
   flex-direction: column;
+}
+.chat-group-invite-overlay .chat-hero-hd {
+  flex-shrink: 0;
+  padding: 10px 14px !important;
+  min-height: 48px;
+  background: linear-gradient(to right, #e63022, #c61114) !important;
+  color: #fff !important;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-sizing: border-box;
+}
+.chat-group-invite-overlay .chat-hero-title {
+  flex: 1;
+  text-align: center;
+  color: #fff !important;
+  font-weight: 800;
+}
+.chat-group-invite-overlay .chat-hero-back,
+.chat-group-invite-overlay .chat-hero-spacer {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
 }
 .chat-group-invite-overlay .chat-sub-main {
   flex: 1 1 auto;
@@ -269,6 +337,8 @@
   flex-direction: column;
   overflow: hidden;
   padding: 0;
+  margin: 0;
+  background: #fffdf9;
 }
 .chat-group-invite-overlay .chat-invite-list {
   flex: 1 1 auto;

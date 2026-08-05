@@ -1,5 +1,6 @@
 <template>
   <view class="chat-shell chat-friend-page">
+    <TopBar :no-spacer="true" />
     <view class="chat-hero-hd">
       <view class="chat-hero-back" @click="goBack">
         <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
@@ -56,6 +57,7 @@
 <script setup>
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
+import TopBar from '../../components/TopBar.vue'
 import { getToken } from '../../utils/auth.js'
 import { assetBase } from '../../utils/i18n.js'
 import { friendLookup, friendRequest, imConnect } from '../../utils/im.js'

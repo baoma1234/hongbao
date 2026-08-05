@@ -1,5 +1,6 @@
 <template>
   <view class="hb-page profile-sub-page" :key="locale">
+    <TopBar :no-spacer="true" />
     <view class="profile-sub-hd">
       <text class="profile-back-btn" @click="goBack">‹</text>
       <text class="profile-sub-title">{{ t('profile_qr_title') || '我的二维码' }}</text>
@@ -24,6 +25,7 @@
 
 <script setup>
 import { ref } from 'vue'
+import TopBar from '../../components/TopBar.vue'
 import { onShow } from '@dcloudio/uni-app'
 import { fetchProfile, getToken } from '../../utils/auth.js'
 import { assetBase, localeState, t } from '../../utils/i18n.js'

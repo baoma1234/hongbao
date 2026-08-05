@@ -1,5 +1,6 @@
 <template>
   <view class="hb-page profile-sub-page" :key="locale">
+    <TopBar :no-spacer="true" />
     <view class="profile-sub-hd">
       <text class="profile-back-btn" @click="goBack">‹</text>
       <text class="profile-sub-title">{{ t('profile_pay_password_title') || '支付密码' }}</text>
@@ -52,6 +53,7 @@
 </template>
 
 <script setup>
+import TopBar from '../../components/TopBar.vue'
 import { computed, onUnmounted, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import {

@@ -378,6 +378,7 @@
             scroll-y
             class="chat-rp-detail-list"
             :class="{ 'is-open': !detailLocked, 'is-private': detailLocked }"
+            style="flex:1;min-height:200px;height:100%"
           >
             <view
               v-for="r in detailRecords"

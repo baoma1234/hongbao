@@ -1,5 +1,6 @@
 <template>
   <view class="hb-page profile-sub-page">
+    <TopBar :no-spacer="true" />
     <view class="profile-sub-hd">
       <text class="profile-back-btn" @click="goBack">‹</text>
       <text class="profile-sub-title">资金流水</text>
@@ -67,6 +68,7 @@
 </template>
 
 <script setup>
+import TopBar from '../../components/TopBar.vue'
 import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getToken } from '../../utils/auth.js'
