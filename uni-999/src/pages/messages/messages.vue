@@ -66,7 +66,7 @@
             </view>
 
             <!-- 聊天 -->
-            <view class="chat-home-panel" :class="{ 'is-hidden': homeTab !== 'chat' }">
+            <view id="chatHomePanelChat" class="chat-home-panel" :class="{ 'is-hidden': homeTab !== 'chat' }">
               <view class="chat-conv-list">
                 <view class="chat-empty" v-if="!displayList.length && loaded">暂无会话（登录后通常会有客服）</view>
                 <view
@@ -100,7 +100,7 @@
             </view>
 
             <!-- 社群 -->
-            <view class="chat-home-panel chat-community-glass" :class="{ 'is-hidden': homeTab !== 'community' }">
+            <view id="chatHomePanelCommunity" class="chat-home-panel chat-community-glass" :class="{ 'is-hidden': homeTab !== 'community' }">
               <view class="chat-community-seg">
                 <view class="chat-community-seg-btn" :class="{ active: communitySub === 'official' }" @click="setCommunitySub('official')">官方社群</view>
                 <view class="chat-community-seg-btn" :class="{ active: communitySub === 'mine' }" @click="setCommunitySub('mine')">我的群组</view>
@@ -188,7 +188,7 @@
             </view>
 
             <!-- 公告 -->
-            <view class="chat-home-panel chat-notice-feed-panel" :class="{ 'is-hidden': homeTab !== 'notice' }">
+            <view id="chatHomePanelNotice" class="chat-home-panel chat-notice-feed-panel" :class="{ 'is-hidden': homeTab !== 'notice' }">
               <view class="chat-community-seg chat-notice-seg">
                 <view class="chat-community-seg-btn" :class="{ active: noticeCat === 'latest' }" @click="setNoticeCat('latest')">最新发布</view>
                 <view class="chat-community-seg-btn" :class="{ active: noticeCat === 'promote' }" @click="setNoticeCat('promote')">推广赚钱</view>
@@ -218,7 +218,7 @@
             </view>
 
             <!-- 佣金 -->
-            <view class="chat-home-panel chat-commission-panel" :class="{ 'is-hidden': homeTab !== 'commission' }">
+            <view id="chatHomePanelCommission" class="chat-home-panel chat-commission-panel" :class="{ 'is-hidden': homeTab !== 'commission' }">
               <view class="chat-commission-hero-card">
                 <view class="chat-commission-hero-top">
                   <text class="chat-commission-hero-label">累计佣金</text>
@@ -273,12 +273,20 @@
               <view class="chat-commission-recent-card">
                 <view class="chat-commission-recent-hd">最近结算</view>
                 <view class="chat-commission-list">
-                  <view class="chat-commission-row" v-for="(row, idx) in commission.recent || []" :key="row.id || idx">
+                  <view
+                    class="chat-commission-row"
+                    :class="{ 'is-dual-rebate': isDualRebate(row) }"
+                    v-for="(row, idx) in commission.recent || []"
+                    :key="row.id || idx"
+                  >
+                    <view class="chat-commission-row-ico" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                    </view>
                     <view class="chat-commission-row-main">
                       <view class="chat-commission-row-title">{{ row.title || row.scene_text || row.type_text || '结算记录' }}</view>
                       <view class="chat-commission-row-time">{{ formatNoticeTime(row) }}</view>
                     </view>
-                    <view class="chat-commission-row-amt">{{ row.amount_text || formatAmt(row.amount) }}</view>
+                    <view class="chat-commission-row-amt" :class="{ 'is-out': isAmtOut(row) }">{{ row.amount_text || formatAmt(row.amount) }}</view>
                   </view>
                   <view v-if="!(commission.recent && commission.recent.length)" class="chat-empty chat-empty-glass">登录后查看佣金明细</view>
                 </view>
@@ -528,6 +536,16 @@ function formatAmt(v) {
   const n = Number(v)
   if (!isFinite(n)) return String(v)
   return (n >= 0 ? '+' : '') + n.toFixed(2)
+}
+
+function isDualRebate(row) {
+  const r = row || {}
+  return String(r.revenue_type || '') === 'dual' || String(r.type || '') === 'red_packet_dual_rebate_in'
+}
+
+function isAmtOut(row) {
+  const t = String((row && row.amount_text) || formatAmt(row && row.amount) || '')
+  return t.indexOf('-') === 0
 }
 
 function groupEmoji(name) {

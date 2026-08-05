@@ -5808,13 +5808,22 @@ body.tab-messages {
   flex-shrink: 0;
 }
 
-/* ---------- 会话列表：全宽居中白底，不再偏移 ---------- */
-#tabMessages .chat-home-panel {
+/* ---------- 会话列表：全宽居中白底（仅聊天面板；勿波及社群/公告/佣金底色与 padding） ---------- */
+#tabMessages #chatHomePanelChat.chat-home-panel:not(.is-hidden):not([hidden]) {
   background: transparent !important;
   width: 100%;
   max-width: none;
   margin: 0;
   padding: 0;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+#tabMessages #chatHomePanelChat.chat-home-panel.is-hidden,
+#tabMessages #chatHomePanelChat.chat-home-panel[hidden] {
+  display: none !important;
 }
 
 #tabMessages .chat-conv-list {
@@ -5869,6 +5878,13 @@ body.tab-messages {
   text-align: center;
   padding: 28px 16px;
   background: #fff;
+}
+#tabMessages .chat-empty.chat-empty-glass {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.45) 0%, rgba(255, 246, 232, 0.35) 100%) padding-box,
+    linear-gradient(145deg, rgba(255, 233, 176, 0.7), rgba(224, 122, 34, 0.4)) border-box;
+  padding: 18px 10px;
+  color: var(--cg-muted, #9a8574);
 }
 
 /* ---------- 搜索 / Tab：分段控件铺满 ---------- */
