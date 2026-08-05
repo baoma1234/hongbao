@@ -296,9 +296,170 @@
   /** 任意页面保活：已连或连接中则跳过 */
   function ensureConnected() {
     if (!token()) return;
-    if (state.connected || state.connecting) return;
-    if (state.ws && (state.ws.readyState === 0 || state.ws.readyState === 1)) return;
+    if (state.connecting) return;
+    var ws = state.ws;
+    var open = ws && ws.readyState === 1;
+    if (state.connected && open) return;
+    // 僵尸连接（标记已连但 socket 已死）：强制重连
+    if (ws && !open) {
+      connect(true);
+      return;
+    }
+    if (open && !state.connected) {
+      // 已 OPEN 但未 auth.ok：补发 auth
+      try {
+        ws.send(JSON.stringify({
+          type: 'auth',
+          data: { token: token(), device_fp: (localStorage.getItem('fans_hub_device_fp') || '') },
+          req_id: 'auth'
+        }));
+      } catch (e) {
+        connect(true);
+      }
+      return;
+    }
     connect(false);
+  }
+
+  /**
+   * 手机浏览器切后台常冻 JS / 静默掐 WS；回前台立刻探测并补拉漏消息。
+   */
+  function resumeFromBackground(reason) {
+    if (!token()) return;
+    var now = Date.now();
+    if (state._lastResumeAt && (now - state._lastResumeAt) < 800) return;
+    state._lastResumeAt = now;
+    // 取消退避重连，前台优先立刻连
+    if (state.reconnectTimer) {
+      clearTimeout(state.reconnectTimer);
+      state.reconnectTimer = null;
+    }
+    state.reconnectAttempt = 0;
+
+    var ws = state.ws;
+    var open = ws && ws.readyState === 1;
+    if (!open || !state.connected) {
+      try { connect(true); } catch (eConn) {}
+    } else {
+      try {
+        ws.send(JSON.stringify({ type: 'ping', data: { resume: 1, reason: String(reason || '') }, req_id: 'ping_resume' }));
+      } catch (ePing) {
+        try { connect(true); } catch (e2) {}
+      }
+    }
+    scheduleCatchUpAfterResume();
+  }
+
+  function scheduleCatchUpAfterResume() {
+    if (state._catchUpTimer) clearTimeout(state._catchUpTimer);
+    state._catchUpTimer = setTimeout(function () {
+      state._catchUpTimer = null;
+      catchUpAfterResume();
+    }, 450);
+  }
+
+  function catchUpAfterResume() {
+    if (!token()) return;
+    // 等短暂鉴权窗口
+    var tries = 0;
+    (function tick() {
+      tries += 1;
+      if (state.connected && state.ws && state.ws.readyState === 1) {
+        refreshList(true).catch(function () {});
+        softRefreshCurrentRoom().catch(function () {});
+        return;
+      }
+      if (tries < 20) {
+        setTimeout(tick, 250);
+        return;
+      }
+      // 仍未连上：再踢一脚
+      try { connect(true); } catch (e) {}
+    })();
+  }
+
+  /** 回前台：合并当前会话漏掉的消息（不整页闪烁） */
+  function softRefreshCurrentRoom() {
+    if (!state.room || !state.connected) return Promise.resolve();
+    if (typeof send !== 'function') return Promise.resolve();
+    var room = state.room;
+    var histPayload = { conversation_type: room.type, limit: 40 };
+    if (room.type === 1) {
+      histPayload.to_user_id = room.peer;
+      histPayload.conversation_id = String(room.id);
+    } else {
+      histPayload.group_id = room.id | 0;
+    }
+    return send('history', histPayload).then(function (packet) {
+      if (!state.room || state.room.type !== room.type || String(state.room.id) !== String(room.id)) {
+        return;
+      }
+      var list = (packet.data && packet.data.list) || [];
+      if (!list.length) return;
+      var have = {};
+      (state.messages || []).forEach(function (m) {
+        var k = String(m.msg_id || '') + '#' + String(m.id || '');
+        have[k] = true;
+        if (m.msg_id) have['m:' + m.msg_id] = true;
+        if (m.id) have['i:' + m.id] = true;
+      });
+      var added = 0;
+      list.forEach(function (m) {
+        if (!m) return;
+        if ((m.msg_id && have['m:' + m.msg_id]) || (m.id && have['i:' + m.id])) return;
+        have['m:' + (m.msg_id || '')] = true;
+        have['i:' + (m.id || '')] = true;
+        state.messages.push(m);
+        added += 1;
+        try { cacheSenderFromMsg(m); } catch (e0) {}
+      });
+      if (added > 0) {
+        state.messages.sort(function (a, b) {
+          var ai = (a.id | 0) || 0;
+          var bi = (b.id | 0) || 0;
+          if (ai && bi && ai !== bi) return ai - bi;
+          return ((a.createtime | 0) || 0) - ((b.createtime | 0) || 0);
+        });
+        try {
+          if (typeof renderMessages === 'function') renderMessages(true);
+        } catch (e1) {}
+        try {
+          var last = state.messages[state.messages.length - 1];
+          if (last && typeof markRead === 'function') markRead(room.type, room.id, last.id || 0);
+        } catch (e2) {}
+      }
+    });
+  }
+
+  function bindForegroundResume() {
+    if (state._resumeBound) return;
+    state._resumeBound = true;
+    var onShow = function (ev) {
+      try {
+        if (typeof document !== 'undefined' && document.hidden) return;
+      } catch (eH) {}
+      resumeFromBackground((ev && ev.type) || 'show');
+    };
+    try {
+      document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) onShow({ type: 'visibilitychange' });
+      });
+    } catch (eV) {}
+    try {
+      global.addEventListener('pageshow', function (ev) {
+        onShow(ev || { type: 'pageshow' });
+      });
+    } catch (eP) {}
+    try {
+      global.addEventListener('focus', function () {
+        onShow({ type: 'focus' });
+      });
+    } catch (eF) {}
+    try {
+      global.addEventListener('online', function () {
+        resumeFromBackground('online');
+      });
+    } catch (eO) {}
   }
 
   function disconnect() {
@@ -1424,6 +1585,7 @@
 
   function onLogin() {
     // 先连 WS，再绑 UI / 拉余额（任意页都能收推送）
+    bindForegroundResume();
     connect(true);
     bindUi();
     state.stickerLoaded = false;
