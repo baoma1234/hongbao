@@ -3,6 +3,7 @@ import { getImWsBase } from './config.js'
 
 let socketTask = null
 let authed = false
+let authMeta = {}
 let reqSeq = 0
 const pending = new Map()
 const listeners = new Set()
@@ -106,7 +107,8 @@ function handlePacket(raw) {
 
   if (packet.type === 'auth.ok') {
     authed = true
-    emit('auth.ok', packet.data || {})
+    authMeta = packet.data || {}
+    emit('auth.ok', authMeta)
     return
   }
   if (packet.type === 'error') {
@@ -167,6 +169,7 @@ export function imConnect() {
     })
     socketTask.onClose(() => {
       authed = false
+      authMeta = {}
       socketTask = null
       emit('socket.close', {})
       if (!intentionalClose) scheduleReconnect()
@@ -211,6 +214,29 @@ export function imDisconnect() {
     } catch (e) {}
     socketTask = null
   }
+}
+
+export function getImAuthMeta() {
+  return authMeta || {}
+}
+
+export function canCreateGroupFromAuth() {
+  const m = authMeta || {}
+  return !!m.can_create_group
+}
+
+export function createGroup(payload = {}) {
+  return imSend(
+    'group.create',
+    {
+      name: String(payload.name || '').trim(),
+      member_ids: Array.isArray(payload.member_ids) ? payload.member_ids : [],
+      privacy_mode: payload.privacy_mode || 'private',
+      chat_mode: payload.chat_mode || 'chat',
+      bind_owner_rebate: payload.bind_owner_rebate ? 1 : 0,
+    },
+    true
+  )
 }
 
 export function listConversations(limit = 50) {

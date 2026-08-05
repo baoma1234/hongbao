@@ -37,6 +37,10 @@
                     <image class="chat-plus-menu-ico-img" :src="fxIcon" mode="aspectFit" />
                     <text>分享推广</text>
                   </view>
+                  <view v-if="canCreateGroup" class="chat-plus-menu-item" @click="onPlusAction('createGroup')">
+                    <image class="chat-plus-menu-ico-img" :src="icoCreateGroup" mode="aspectFit" />
+                    <text>建群</text>
+                  </view>
                 </view>
               </view>
             </view>
@@ -44,6 +48,7 @@
 
           <view class="chat-list-main">
             <view class="chat-conn" :class="connClass">IM · {{ statusText }} · <text class="chat-reconnect" @click="reconnect">重连</text></view>
+            <view class="chat-my-id" v-if="myIdText">{{ myIdText }}</view>
 
             <view class="chat-home-search-area">
               <view v-if="searchOpen" class="chat-home-search-row">
@@ -125,7 +130,11 @@
               <view v-else-if="communitySub === 'mine'" class="chat-community-pane active">
                 <view class="chat-community-glass-panel chat-community-pane-body">
                   <view class="chat-my-groups-list">
-                    <view class="chat-my-group-item chat-my-group-create" @click="onCreateGroupHint">
+                    <view
+                      v-if="canCreateGroup"
+                      class="chat-my-group-item chat-my-group-create"
+                      @click="openCreateGroupPane({ fromCreateCard: true })"
+                    >
                       <view class="chat-my-group-main">
                         <view class="chat-my-group-avatar chat-my-group-avatar-plus">+</view>
                         <view class="chat-my-group-create-text">
@@ -279,6 +288,115 @@
         </view>
       </view>
     </view>
+
+    <!-- 创建新群聊（对齐 888 chatCreateGroupPane） -->
+    <view
+      class="chat-create-group-pane"
+      :class="{ open: createGroupOpen }"
+      :aria-hidden="createGroupOpen ? 'false' : 'true'"
+    >
+      <view class="chat-cg-header">
+        <view class="chat-cg-back" @click="closeCreateGroupPane">
+          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+            <path fill="currentColor" d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z" />
+          </svg>
+        </view>
+        <view class="chat-cg-title">创建新群聊</view>
+        <view
+          class="chat-cg-next-top"
+          :class="{ 'is-disabled': createGroupSubmitting }"
+          @click="submitCreateGroup"
+        >下一步</view>
+      </view>
+      <view class="chat-cg-main">
+        <view class="chat-cg-input-group">
+          <view class="chat-cg-avatar" @click="cycleCreateGroupAvatar">{{ createGroupAvatar }}</view>
+          <view class="chat-cg-input-box">
+            <input
+              class="chat-cg-name-input"
+              type="text"
+              maxlength="64"
+              v-model="createGroupName"
+              placeholder="请输入群名称"
+              confirm-type="done"
+              @confirm="submitCreateGroup"
+            />
+            <view
+              class="chat-cg-next-inner"
+              :class="{ 'is-disabled': createGroupSubmitting }"
+              @click="submitCreateGroup"
+            >下一步</view>
+          </view>
+        </view>
+
+        <view class="chat-cg-section-title"><text>群类型</text></view>
+        <view class="chat-cg-cards">
+          <view
+            class="chat-cg-card"
+            :class="{ active: createGroupPrivacy === 'open' }"
+            @click="createGroupPrivacy = 'open'"
+          >
+            <view class="chat-cg-card-header">
+              <text class="chat-cg-radio" />
+              <text>开放群</text>
+            </view>
+            <view class="chat-cg-card-body">
+              <text class="chat-cg-dot" />
+              <text>可查看成员资料，支持自由加好友</text>
+            </view>
+          </view>
+          <view
+            class="chat-cg-card"
+            :class="{ active: createGroupPrivacy === 'private' }"
+            @click="createGroupPrivacy = 'private'"
+          >
+            <view class="chat-cg-card-header">
+              <text class="chat-cg-radio" />
+              <text>隐私群</text>
+            </view>
+            <view class="chat-cg-card-body">
+              <text class="chat-cg-dot" />
+              <text>隐藏成员列表，陌生人不可互加</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="chat-cg-section-title"><text>运行模式</text></view>
+        <view class="chat-cg-cards">
+          <view
+            class="chat-cg-card"
+            :class="{ 'active-light': createGroupMode === 'chat' }"
+            @click="createGroupMode = 'chat'"
+          >
+            <view class="chat-cg-card-header">
+              <text class="chat-cg-radio" />
+              <text>聊天模式</text>
+            </view>
+            <view class="chat-cg-card-body">
+              <text class="chat-cg-dot" />
+              <text>自由聊天，可发普通/手气/埋雷红包</text>
+            </view>
+          </view>
+          <view
+            class="chat-cg-card"
+            :class="{ active: createGroupMode === 'grab' }"
+            @click="createGroupMode = 'grab'"
+          >
+            <view class="chat-cg-card-header">
+              <text class="chat-cg-radio" />
+              <text>红包对战模式</text>
+            </view>
+            <view class="chat-cg-card-body">
+              <text class="chat-cg-dot" />
+              <text>仅管理员可发红宝；发言限制请在群设置「禁止模式」配置</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="chat-cg-hint">群主可后续在群设置中修改</view>
+      </view>
+    </view>
+
     <BottomTabBar active="messages" />
   </view>
 </template>
@@ -290,7 +408,7 @@ import TopBar from '../../components/TopBar.vue'
 import BottomTabBar from '../../components/BottomTabBar.vue'
 import '../../styles/chat.bundle.css'
 import '../../styles/chat-uni-adapter.css'
-import { apiRequest, getToken } from '../../utils/auth.js'
+import { apiRequest, fetchProfile, getToken } from '../../utils/auth.js'
 import {
   avatarLetter,
   convKey,
@@ -299,8 +417,12 @@ import {
   previewText,
   resolveConvId,
 } from '../../utils/chat.js'
+import { assetBase } from '../../utils/i18n.js'
 import {
+  canCreateGroupFromAuth,
+  createGroup,
   friendRequests,
+  getImAuthMeta,
   getImStatus,
   hideConversation,
   imConnect,
@@ -313,20 +435,30 @@ import {
 } from '../../utils/im.js'
 import { setChatUnreadTotal } from '../../utils/tab-badge.js'
 
+const CREATE_GROUP_AVATARS = ['🐵', '🐼', '🦊', '🐯', '🦁', '🐶', '🐱', '🐰', '🐻', '🐨', '🐸', '🐷']
+
 const list = ref([])
 const loaded = ref(false)
 const status = ref('disconnected')
 const localUnread = ref({})
-import { assetBase as _assetBase } from '../../utils/i18n.js'
-const _ab = () => _assetBase()
-const fxIcon = _ab() + 'static/chat/fx.png'
-const icoScan = _ab() + 'static/chat/plus_scan.png'
-const icoAddFriend = _ab() + 'static/chat/plus_add_friend.png'
-const icoFriendReq = _ab() + 'static/chat/plus_friend_req.png'
+const fxIcon = assetBase() + 'static/chat/fx.png'
+const icoScan = assetBase() + 'static/chat/plus_scan.png'
+const icoAddFriend = assetBase() + 'static/chat/plus_add_friend.png'
+const icoFriendReq = assetBase() + 'static/chat/plus_friend_req.png'
+const icoCreateGroup = assetBase() + 'static/chat/plus_create_group.png'
 const homeTab = ref('chat')
 const searchOpen = ref(false)
 const keyword = ref('')
 const plusOpen = ref(false)
+const canCreateGroup = ref(false)
+const myIdText = ref('')
+const createGroupOpen = ref(false)
+const createGroupName = ref('')
+const createGroupPrivacy = ref('private')
+const createGroupMode = ref('chat')
+const createGroupAvatar = ref('🐵')
+const createGroupSubmitting = ref(false)
+const createGroupBindRebate = ref(false)
 const communitySub = ref('official')
 const communityRecs = ref([])
 const myGroups = ref([])
@@ -647,8 +779,114 @@ function openFriendChat(f) {
   })
 }
 
-function onCreateGroupHint() {
-  uni.showToast({ title: '建群功能即将接入', icon: 'none' })
+function openCreateGroupPane(opts = {}) {
+  plusOpen.value = false
+  createGroupPrivacy.value = 'private'
+  createGroupMode.value = 'chat'
+  createGroupSubmitting.value = false
+  createGroupBindRebate.value = !!opts.fromCreateCard
+  createGroupName.value = opts.fromCreateCard ? '我的专属保密对战群' : ''
+  if (!createGroupAvatar.value) createGroupAvatar.value = '🐵'
+  createGroupOpen.value = true
+}
+
+function closeCreateGroupPane() {
+  createGroupOpen.value = false
+}
+
+function cycleCreateGroupAvatar() {
+  const cur = createGroupAvatar.value || '🐵'
+  const idx = CREATE_GROUP_AVATARS.indexOf(cur)
+  createGroupAvatar.value = CREATE_GROUP_AVATARS[(idx + 1 + CREATE_GROUP_AVATARS.length) % CREATE_GROUP_AVATARS.length]
+}
+
+async function submitCreateGroup() {
+  if (createGroupSubmitting.value) return
+  const name = String(createGroupName.value || '').trim()
+  if (!name) {
+    uni.showToast({ title: '请输入群名称', icon: 'none' })
+    return
+  }
+  createGroupSubmitting.value = true
+  try {
+    await imConnect()
+    const packet = await createGroup({
+      name,
+      member_ids: [],
+      privacy_mode: createGroupPrivacy.value || 'private',
+      chat_mode: createGroupMode.value || 'chat',
+      bind_owner_rebate: createGroupBindRebate.value ? 1 : 0,
+    })
+    const g = (packet && packet.data && packet.data.group) || (packet && packet.group) || null
+    if (!g || !(g.id | 0)) throw new Error('创建失败')
+    closeCreateGroupPane()
+    await loadList(true)
+    await loadMyGroupsSafe()
+    uni.showToast({ title: '群聊已创建', icon: 'none' })
+    setTimeout(() => {
+      uni.navigateTo({
+        url:
+          '/pages/chat/chat?type=2&id=' +
+          encodeURIComponent(g.id) +
+          '&group=' +
+          encodeURIComponent(g.id) +
+          '&title=' +
+          encodeURIComponent(g.name || name || '群聊'),
+      })
+    }, 200)
+  } catch (e) {
+    uni.showToast({ title: (e && e.message) || '创建失败', icon: 'none' })
+  } finally {
+    createGroupSubmitting.value = false
+  }
+}
+
+async function loadMyGroupsSafe() {
+  try {
+    const packet = await listMyGroups()
+    const data = (packet && packet.data) || {}
+    myGroups.value = data.list || data.groups || []
+  } catch (e) {}
+}
+
+async function refreshAuthFlags() {
+  canCreateGroup.value = canCreateGroupFromAuth()
+  const meta = getImAuthMeta() || {}
+  const uid = meta.user_id || meta.uid || 0
+  if (uid) {
+    myIdText.value = '我的会员ID：' + uid
+  }
+}
+
+async function loadMyIdLine() {
+  try {
+    const p = await fetchProfile()
+    const uid = (p && (p.user_id || p.id)) | 0
+    if (uid) myIdText.value = '我的会员ID：' + uid
+  } catch (e) {}
+}
+
+async function onPlusAction(kind) {
+  plusOpen.value = false
+  if (kind === 'share') {
+    uni.switchTab({ url: '/pages/master/master' })
+    return
+  }
+  if (kind === 'scan') {
+    uni.showToast({ title: '扫一扫即将接入', icon: 'none' })
+    return
+  }
+  if (kind === 'friend') {
+    uni.navigateTo({ url: '/pages/friend/add' })
+    return
+  }
+  if (kind === 'request') {
+    uni.navigateTo({ url: '/pages/friend/requests' })
+    return
+  }
+  if (kind === 'createGroup') {
+    openCreateGroupPane()
+  }
 }
 
 async function loadNotices() {
@@ -678,25 +916,6 @@ async function loadFriendReqBadge() {
     friendReqPending.value = data.pending_count | 0
   } catch (e) {
     friendReqPending.value = 0
-  }
-}
-
-async function onPlusAction(kind) {
-  plusOpen.value = false
-  if (kind === 'share') {
-    uni.switchTab({ url: '/pages/master/master' })
-    return
-  }
-  if (kind === 'scan') {
-    uni.showToast({ title: '扫一扫即将接入', icon: 'none' })
-    return
-  }
-  if (kind === 'friend') {
-    uni.navigateTo({ url: '/pages/friend/add' })
-    return
-  }
-  if (kind === 'request') {
-    uni.navigateTo({ url: '/pages/friend/requests' })
   }
 }
 
@@ -779,7 +998,11 @@ onShow(() => {
   applyPageShell(true)
   if (off) off()
   off = onImEvent((type, data) => {
-    if (type === 'auth.ok' || type === 'socket.close' || type === 'socket.error') refreshStatus()
+    if (type === 'auth.ok') {
+      refreshAuthFlags()
+      refreshStatus()
+    }
+    if (type === 'socket.close' || type === 'socket.error') refreshStatus()
     if (type === 'private.message' || type === 'group.message') {
       const msg = (data && data.message) || data
       bumpUnread(msg)
@@ -788,11 +1011,16 @@ onShow(() => {
     if (type === 'conversation.updated' || type === 'redpacket.update') {
       loadList(true)
     }
+    if (type === 'group.created') {
+      loadList(true)
+      loadMyGroupsSafe()
+    }
     if (type === 'friend.request' || type === 'friend.accepted' || type === 'friend.rejected') {
       loadFriendReqBadge()
     }
   })
-  loadList()
+  loadMyIdLine()
+  loadList().then(() => refreshAuthFlags())
   loadFriendReqBadge()
 })
 
