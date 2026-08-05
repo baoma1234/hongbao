@@ -236,9 +236,15 @@ const streakText = computed(() => {
 })
 const ledgerText = computed(() => {
   void locale.value
-  return t('phase2_checkin_ledger_short', { jackpot: '175', loss: '140' }) ||
+  const raw =
+    t('phase2_checkin_ledger_short', { jackpot: '175', loss: '140' }) ||
     t('phase2_checkin_ledger', { jackpot: '175', loss: '140', streak: streak.value }) ||
-    '满7天5倍核爆总池，保底 ¥175 · 断签降级损失 ¥140'
+    '满7天5倍核爆总池，保底 ¥175 筹码秒提现\n断签降级，直接损失 ¥140'
+  // 文案包带 <br>/<span>，uni text 不能当 HTML 渲染，剥成纯文本
+  return String(raw)
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/?[^>]+>/g, '')
+    .trim()
 })
 const frozenText = computed(() => {
   void locale.value

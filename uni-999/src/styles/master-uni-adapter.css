@@ -186,6 +186,7 @@
 #tabMaster .checkin-ledger text {
   color: #fff !important;
   display: block;
+  white-space: pre-line;
 }
 #tabMaster .checkin-violent-row,
 #tabMaster .checkin-violent-row text {
@@ -247,6 +248,16 @@
 #tabMaster .honor-ladder-card {
   margin-top: 22px !important;
   overflow: visible !important;
+  padding: 0 !important;
+}
+#tabMaster .honor-ladder-card .honor-progress-wrap {
+  margin-top: 18px;
+}
+#tabMaster .honor-ladder-card .honor-ladder-nodes {
+  padding: 0 10px;
+}
+#tabMaster .honor-ladder-card .honor-ladder-hint {
+  margin: 0 10px 12px;
 }
 
 #tabMaster .checkin-violent-row checkbox,
