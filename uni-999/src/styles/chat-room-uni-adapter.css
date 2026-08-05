@@ -58,6 +58,20 @@
   justify-content: center;
   padding: 0;
   flex-shrink: 0;
+  position: relative;
+  z-index: 5;
+  pointer-events: auto !important;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.chat-room-page .chat-hero-back .chat-hero-ico,
+.chat-room-page .chat-hero-back svg,
+.chat-room-page .chat-hero-more svg {
+  pointer-events: none !important;
+  display: block;
+  width: 24px;
+  height: 24px;
 }
 
 .chat-room-page .chat-hero-title,

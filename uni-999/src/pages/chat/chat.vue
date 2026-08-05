@@ -2,8 +2,8 @@
   <view class="chat-room-page">
     <view class="chat-room-pane open">
       <view class="chat-hero-hd">
-        <view class="chat-hero-back" @click="goBack">
-          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+        <view class="chat-hero-back" @click.stop="goBack" @tap.stop="goBack">
+          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" class="chat-hero-ico">
             <path fill="currentColor" d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z" />
           </svg>
         </view>
@@ -186,7 +186,7 @@
     <!-- 发红宝：完全照搬 888 chatRpSendPane -->
     <view class="chat-rp-send-pane" :class="{ open: showRp }" :aria-hidden="showRp ? 'false' : 'true'">
       <view class="chat-hero-hd">
-        <view id="chatRpCancelBtn" class="chat-hero-back chat-rp-cancel" @click="closeRpSend">{{ rpCancelLabel }}</view>
+        <view class="chat-rp-cancel" role="button" @click.stop="closeRpSend" @tap.stop="closeRpSend">{{ rpCancelLabel }}</view>
         <view class="chat-hero-title">{{ rpTitleLabel }}</view>
         <view class="chat-hero-spacer" />
       </view>
