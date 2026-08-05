@@ -2867,26 +2867,66 @@
     }, 8000);
   }
 
-  function playIncomingBeep() {
+  function ensureAudioCtx() {
     try {
       var Ctx = window.AudioContext || window.webkitAudioContext;
-      if (!Ctx) return;
+      if (!Ctx) return null;
       if (!state._audioCtx) state._audioCtx = new Ctx();
-      var ctx = state._audioCtx;
-      if (ctx.state === 'suspended') {
-        ctx.resume().catch(function () {});
+      if (state._audioCtx.state === 'suspended') {
+        state._audioCtx.resume().catch(function () {});
       }
-      var o = ctx.createOscillator();
-      var g = ctx.createGain();
-      o.type = 'sine';
-      o.frequency.value = 920;
-      g.gain.value = 0.05;
-      o.connect(g);
-      g.connect(ctx.destination);
+      return state._audioCtx;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function bindAudioUnlock() {
+    if (state._audioUnlockBound) return;
+    state._audioUnlockBound = true;
+    var unlock = function () {
+      var ctx = ensureAudioCtx();
+      if (!ctx) return;
+      try {
+        var buf = ctx.createBuffer(1, 1, 22050);
+        var src = ctx.createBufferSource();
+        src.buffer = buf;
+        src.connect(ctx.destination);
+        src.start(0);
+      } catch (e0) {}
+      document.removeEventListener('pointerdown', unlock, true);
+      document.removeEventListener('touchstart', unlock, true);
+      document.removeEventListener('keydown', unlock, true);
+    };
+    document.addEventListener('pointerdown', unlock, true);
+    document.addEventListener('touchstart', unlock, true);
+    document.addEventListener('keydown', unlock, true);
+  }
+
+  function playIncomingBeep() {
+    try {
+      bindAudioUnlock();
+      var ctx = ensureAudioCtx();
+      if (!ctx) return;
+      var now = Date.now();
+      if (state._lastBeepAt && (now - state._lastBeepAt) < 450) return;
+      state._lastBeepAt = now;
       var t0 = ctx.currentTime;
-      o.start(t0);
-      g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.22);
-      o.stop(t0 + 0.24);
+      function tone(freq, start, dur, vol) {
+        var o = ctx.createOscillator();
+        var g = ctx.createGain();
+        o.type = 'sine';
+        o.frequency.value = freq;
+        g.gain.value = vol;
+        o.connect(g);
+        g.connect(ctx.destination);
+        o.start(t0 + start);
+        g.gain.exponentialRampToValueAtTime(0.001, t0 + start + dur);
+        o.stop(t0 + start + dur + 0.02);
+      }
+      // 两声短 ding，比单音更容易察觉
+      tone(880, 0, 0.12, 0.14);
+      tone(1175, 0.14, 0.16, 0.12);
     } catch (e) {}
   }
 
@@ -2894,10 +2934,10 @@
     if (!msg || ((msg.from_user_id | 0) === (state.userId | 0))) return;
     var type = msg.conversation_type | 0;
     var id = type === 2 ? (msg.group_id || msg.conversation_id) : msg.conversation_id;
-    // 正在看该会话：气泡已出现，不再弹提示
-    if (state.room && state.room.type === type && String(state.room.id) === String(id)) {
-      return;
-    }
+    var viewing = !!(state.room && state.room.type === type && String(state.room.id) === String(id));
+    playIncomingBeep();
+    // 正在看该会话：气泡已出现，不再弹 toast
+    if (viewing) return;
     var mtype = msg.msg_type | 0;
     var isRp = mtype === 2;
     var isTf = mtype === 8;
@@ -2914,7 +2954,6 @@
         showFanshubToast(tip, 'info', 2600);
       }
     }
-    playIncomingBeep();
     try {
       if (document.hidden || !document.hasFocus()) {
         var oldTitle = document.title || '';
@@ -2932,10 +2971,12 @@
     upsertListFromMessage(msg);
     var type = msg.conversation_type | 0;
     var id = type === 2 ? (msg.group_id || msg.conversation_id) : msg.conversation_id;
+    var fromOther = (msg.from_user_id | 0) !== (state.userId | 0);
     if (state.room && state.room.type === type && String(state.room.id) === String(id)) {
       appendMessage(msg);
       markRead(type, id, msg.id);
-    } else if ((msg.from_user_id | 0) !== state.userId) {
+      if (fromOther) notifyIncomingMessage(msg);
+    } else if (fromOther) {
       bumpUnread(type, id, msg.id);
       notifyIncomingMessage(msg);
       scheduleUnreadSync();
@@ -6085,6 +6126,7 @@
 
   function bindUi() {
     ensureChatOverlays();
+    bindAudioUnlock();
     buildEmojiPanel();
     var search = $('chatConvSearch');
     if (search && !search._bound) {

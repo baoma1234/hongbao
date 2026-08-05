@@ -4097,10 +4097,10 @@ class FansHubService
         $labelMap = [
             'invite'                      => '下级拉新奖励',
             'share'                       => '今日推广收益',
-            'red_packet_rebate'           => '🔗 推荐发包返佣',
-            'red_packet_agent_rebate_in'  => '👥 群聊管理津贴',
-            'red_packet_invite_rebate_in' => '🔗 推荐发包返佣',
-            'red_packet_dual_rebate_in'   => '🔥 群主+推荐双重返佣',
+            'red_packet_rebate'           => '推荐发包返佣',
+            'red_packet_agent_rebate_in'  => '群主返佣',
+            'red_packet_invite_rebate_in' => '推荐发包返佣',
+            'red_packet_dual_rebate_in'   => '群主+推荐双重返佣',
         ];
         $buildList = function (array $types, $limit = 20) use ($userId, $labels, $labelMap) {
             $rows = Ledger::where('user_id', $userId)

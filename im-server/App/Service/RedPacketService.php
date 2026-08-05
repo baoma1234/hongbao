@@ -685,7 +685,7 @@ class RedPacketService
                     $agentUserId,
                     $agentPay,
                     'red_packet_agent_rebate_in',
-                    '群聊管理津贴 ' . $packetNo,
+                    '群主返佣 ' . $packetNo,
                     $bizMeta
                 );
                 $this->insertPacketSettlement(

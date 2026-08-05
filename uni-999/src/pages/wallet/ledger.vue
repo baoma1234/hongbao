@@ -4,9 +4,9 @@
       <view v-for="item in list" :key="rowKey(item)" class="wallet-ledger-item">
         <view class="wallet-ledger-main">
           <view class="wallet-ledger-title">
-            {{ item.title || item.type_text || item.biz_type || '变动' }}
+            {{ item.type_label || item.title || item.type_text || item.type || '变动' }}
           </view>
-          <view class="wallet-ledger-sub" v-if="item.remark">{{ item.remark }}</view>
+          <view class="wallet-ledger-sub" v-if="item.remark && item.remark !== (item.type_label || item.title)">{{ item.remark }}</view>
           <view class="wallet-ledger-time">
             {{ item.createtime_text || item.created_at || item.createtime || '' }}
           </view>

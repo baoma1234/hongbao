@@ -1084,7 +1084,8 @@
       }
       var typeStr = String(item.type || '');
       var titleText = '';
-      if (item.remark && typeStr.indexOf('red_packet_') === 0) {
+      var isRebate = /rebate/i.test(typeStr);
+      if (!isRebate && item.remark && typeStr.indexOf('red_packet_') === 0) {
         titleText = String(item.remark);
         // 备注已作标题时，副标题不再重复备注
         subParts = subParts.filter(function (p) { return p !== item.remark; });

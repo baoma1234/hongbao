@@ -291,6 +291,7 @@
 
   function bindUi() {
     ensureChatOverlays();
+    bindAudioUnlock();
     buildEmojiPanel();
     var search = $('chatConvSearch');
     if (search && !search._bound) {
