@@ -3392,6 +3392,16 @@ button.chat-rp-fair-link {
   color: var(--color-text-hint);
   margin-top: 4px;
 }
+.chat-rp-detail-myamt {
+  margin-top: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-primary-start, #e63022);
+}
+.chat-rp-detail-myamt strong {
+  font-size: 22px;
+  font-weight: 800;
+}
 .chat-rp-record-time {
   font-size: 11px;
   color: var(--color-text-hint);

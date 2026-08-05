@@ -3071,7 +3071,7 @@ class RedPacketService
             $ver = (int)RedisClient::conn()->get(RedisClient::key('rp:detail:ver:' . $packetId));
         } catch (\Throwable $e) {
         }
-        $cacheKey = RedisClient::key('rp:detail:' . $packetId . ':' . $userId . ':' . (int)$viewerRole . ':v' . $ver);
+        $cacheKey = RedisClient::key('rp:detail:' . $packetId . ':' . $userId . ':' . (int)$viewerRole . ':v2:' . $ver);
         try {
             $cached = RedisClient::conn()->get($cacheKey);
             if ($cached !== false && $cached !== null && $cached !== '') {
@@ -3111,14 +3111,20 @@ class RedPacketService
                 break;
             }
         }
-        // 本人已领 / 已领完 / 过期结算：展示领取列表；未领过且进行中不公开，避免偷看金额
+        // 进行中：不公开他人领取与验证；本人已领仅回自己一条；领完/过期后才全量公开
         $remainCount = (int)($packet['remain_count'] ?? 0);
         $status = (int)($packet['status'] ?? 0);
         $finished = ($remainCount <= 0) || in_array($status, [2, 3, 4, 5], true);
-        $claimsVisible = $finished || ($mine !== null);
-        if (!$claimsVisible) {
-            $records = [];
+        $othersVisible = $finished;
+        $verifyVisible = $finished;
+        if (!$finished) {
+            if ($mine !== null) {
+                $records = [$mine];
+            } else {
+                $records = [];
+            }
         }
+        $claimsVisible = $finished || ($mine !== null);
         // 详情页不拉钱包余额（抢包接口会回写）；省一次账户表查询
         $balance = null;
         $policy = null;
@@ -3157,10 +3163,13 @@ class RedPacketService
             ]);
         }
         $result = [
-            'packet'             => $this->sanitizePacketFair($packet),
+            'packet'             => $this->sanitizePacketFair($packet, $finished),
             'records'            => $enriched,
             'mine'               => $mine,
             'claims_visible'     => $claimsVisible,
+            'others_visible'     => $othersVisible,
+            'verify_visible'     => $verifyVisible,
+            'finished'           => $finished,
             'balance'            => $balance,
             'wallet'             => $this->wallet->field(),
             'profile_clickable'  => $profileClickable,
@@ -3204,14 +3213,27 @@ class RedPacketService
             return null;
         }
         $records = [];
-        if ((int)($packet['tron_status'] ?? 0) === 2 || (int)($packet['fair_revealed_at'] ?? 0) > 0) {
+        $remainCount = (int)($packet['remain_count'] ?? 0);
+        $status = (int)($packet['status'] ?? 0);
+        $finished = ($remainCount <= 0) || in_array($status, [2, 3, 4, 5], true);
+        // 公开验证页：仅红包领完/过期后返回领取序列，进行中不暴露他人金额
+        if ($finished && ((int)($packet['tron_status'] ?? 0) === 2 || (int)($packet['fair_revealed_at'] ?? 0) > 0)) {
             $records = Db::fetchAll(
                 'SELECT user_id, amount, amount_cent, tail_digit, is_best, is_worst, is_mine_hit, createtime'
                 . ' FROM ' . Db::table('chat_red_packet_records') . ' WHERE packet_id=? ORDER BY id ASC',
                 [(int)$packet['id']]
             );
         }
-        return TronFair::publicView($packet, $records);
+        $view = TronFair::publicView($packet, $records);
+        if (is_array($view)) {
+            $view['finished'] = $finished;
+            $view['verify_visible'] = $finished;
+            if (!$finished) {
+                unset($view['amount_verify'], $view['fair_cents'], $view['grabs']);
+                $view['verify_hint'] = '红包领完或过期后可查询验证与领取明细';
+            }
+        }
+        return $view;
     }
 
     /**
@@ -3344,13 +3366,19 @@ class RedPacketService
         return $messages;
     }
 
-    protected function sanitizePacketFair(array $packet)
+    protected function sanitizePacketFair(array $packet, $finished = true)
     {
         // 未开出波场哈希前不暴露 block_id；扫雷雷号为发包人手填，始终公示
         $tronDone = (int)($packet['tron_status'] ?? 0) === 2
             && trim((string)($packet['tron_block_id'] ?? '')) !== '';
         if (!$tronDone) {
             unset($packet['tron_block_id'], $packet['tron_lucky'], $packet['fair_seed'], $packet['fair_cents'], $packet['fair_payload']);
+        }
+        // 进行中不返回金额序列，避免通过验证字段偷看未领完的拆包结果
+        if (!$finished) {
+            unset($packet['fair_seed'], $packet['fair_cents'], $packet['fair_payload'], $packet['tron_lucky']);
+            // 区块高度可留作「已锁定」提示；完整 hash 等领完再公开
+            unset($packet['tron_block_id']);
         }
         if ((int)($packet['packet_type'] ?? 0) === 3) {
             $packet['mine_pending'] = !$tronDone;
