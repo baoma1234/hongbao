@@ -69,6 +69,15 @@
   box-sizing: border-box;
 }
 
+/* 锁定态用 view 展示账号：保证文字可见、换行居中同 input */
+#tabHome .id-input-box.is-locked {
+  display: block;
+  line-height: 1.4;
+  min-height: 48px;
+  box-sizing: border-box;
+  word-break: break-all;
+}
+
 /* 跑马灯：uni 无 body.tab-home，首页常开动画 */
 #tabHome .marquee-content {
   animation-play-state: running;

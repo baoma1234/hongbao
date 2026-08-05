@@ -77,8 +77,8 @@
         </view>
       </view>
 
-      <!-- 开户 CTA -->
-      <view class="user-panel" id="newbieOpenPanel">
+      <!-- 开户 CTA：已绑定游戏账号或团长时隐藏（对齐 888 团长隐藏 + 有账号不再引导开户） -->
+      <view class="user-panel" id="newbieOpenPanel" v-if="showNewbieOpenPanel">
         <button type="button" class="cta-open-account" @click="goToMainStation">
           <text class="cta-open-account-label">{{ openAccountLabel }}</text>
           <text class="cta-open-account-badge">{{ openAccountBadge }}</text>
@@ -92,12 +92,13 @@
         <view class="match-card" style="padding: 15px">
           <view class="uid-section visible" id="uidSection">
             <text class="uid-label">{{ t('uid_label') || '🔑 第一步：请输入您在红宝现金站注册成功的账号' }}</text>
+            <!-- 锁定态用 view 展示：uni disabled input 常不刷新/文字透明导致空白 -->
+            <view v-if="uidLocked" class="id-input-box is-locked">{{ displayGameUid }}</view>
             <input
+              v-else
               class="id-input-box"
-              :class="{ 'is-locked': uidLocked }"
               type="text"
               maxlength="32"
-              :disabled="uidDisabled"
               v-model="gameUid"
               :placeholder="t('uid_placeholder') || '例如：555bio（必须使用同手机号注册），否则小妹无法在后台核销上分'"
               @blur="onUidBlur"
@@ -398,9 +399,18 @@ const settleSub = computed(() => {
 })
 
 const uidLocked = computed(() => mainUidAudit.value === 'pending' || mainUidAudit.value === 'approved')
-const uidDisabled = computed(() => mainUidAudit.value === 'approved')
 const uidApproved = computed(() => mainUidAudit.value === 'approved')
 const uidBtnDisabled = computed(() => mainUidAudit.value === 'pending' || mainUidAudit.value === 'approved')
+const displayGameUid = computed(() => {
+  const p = profile.value || {}
+  const fromProfile = String(p.main_uid || p.main_uid_pending || '').trim()
+  return fromProfile || String(gameUid.value || '').trim() || '—'
+})
+const hasGameAccount = computed(() => {
+  const p = profile.value || {}
+  return !!(String(p.main_uid || '').trim() || String(p.main_uid_pending || '').trim())
+})
+const showNewbieOpenPanel = computed(() => !isMasterRank.value && !hasGameAccount.value)
 const uidBtnText = computed(() => {
   if (mainUidAudit.value === 'pending') return t('uid_submit_pending') || '正在审核中'
   return t('uid_submit_btn') || '提交账号审核'
@@ -477,9 +487,20 @@ function applyConfig(cfg) {
 
 function syncUidFromProfile(p) {
   if (!p) return
-  const displayUid = p.main_uid || p.main_uid_pending || ''
-  if (displayUid) gameUid.value = String(displayUid)
+  const displayUid = String(p.main_uid || p.main_uid_pending || '').trim()
+  if (displayUid) gameUid.value = displayUid
 }
+
+watch(
+  () => {
+    const p = profile.value
+    if (!p) return ''
+    return String(p.main_uid || '') + '|' + String(p.main_uid_pending || '') + '|' + String(p.main_uid_audit || '')
+  },
+  () => {
+    syncUidFromProfile(profile.value)
+  }
+)
 
 async function loadBootstrap() {
   try {
@@ -625,7 +646,10 @@ function stopPoll() {
 async function copyShareLink() {
   try {
     const data = await apiRequest('share', 'POST', {})
-    if (data && data.profile) profile.value = data.profile
+    if (data && data.profile) {
+      profile.value = data.profile
+      syncUidFromProfile(data.profile)
+    }
     await copyText((data && data.share_text) || '')
     let toastMsg = (data && data.message) || ''
     if (!toastMsg) {
