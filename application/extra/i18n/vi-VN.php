@@ -331,7 +331,7 @@ return array (
   'chat_view_members' => '查看群成员',
   'chat_mute_all' => '全员禁言',
   'chat_group_members_title' => '群成员',
-  'chat_add_members_btn' => '＋ 添加群成员',
+  'chat_add_members_btn' => '添加群成员',
   'chat_add_members_title' => '添加群成员',
   'chat_confirm_add' => '确认添加 ({count} 人)',
   'chat_member_actions' => '成员操作',

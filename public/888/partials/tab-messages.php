@@ -376,7 +376,7 @@
                         <span class="chat-setting-arrow">›</span>
                     </button>
                     <button type="button" class="chat-setting-row" id="chatSettingsAddMemberBtn" style="display:none">
-                        <span data-copy="chat_add_members_btn">＋ 添加群成员</span>
+                        <span data-copy="chat_add_members_btn">添加群成员</span>
                         <span class="chat-setting-arrow">›</span>
                     </button>
                     <div class="chat-setting-row chat-setting-toggle-row" id="chatMuteAllRow" style="display:none">
@@ -414,7 +414,7 @@
                 </div>
                 <div class="chat-sub-main">
                 <div class="chat-sub-toolbar">
-                        <button type="button" class="chat-add-member-btn" id="chatAddMemberBtn" style="display:none" data-copy="chat_add_members_btn">＋ 添加群成员</button>
+                        <button type="button" class="chat-add-member-btn" id="chatAddMemberBtn" style="display:none" data-copy="chat_add_members_btn">添加群成员</button>
                         <input type="search" class="chat-search-input" id="chatMemberSearch" data-copy-placeholder="chat_member_search_ph" placeholder="搜索成员昵称/ID">
                     </div>
                     <div class="chat-member-list" id="chatMemberList"></div>

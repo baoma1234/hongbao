@@ -806,7 +806,7 @@ return array (
   'chat_forbid_modes_save' => '保存禁止设置',
   'chat_forbid_modes_saved' => '禁止设置已更新',
   'chat_group_members_title' => '群成员',
-  'chat_add_members_btn' => '＋ 添加群成员',
+  'chat_add_members_btn' => '添加群成员',
   'chat_add_members_title' => '添加群成员',
   'chat_confirm_add' => '确认添加 ({count} 人)',
   'chat_member_actions' => '成员操作',
