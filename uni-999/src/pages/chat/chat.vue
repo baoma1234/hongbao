@@ -22,6 +22,7 @@
           scroll-y
           class="chat-msg-scroll"
           :scroll-into-view="scrollInto"
+          :scroll-top="scrollTop"
           scroll-with-animation
           @click="closePanels"
         >
@@ -107,8 +108,12 @@
         </scroll-view>
 
         <view class="chat-composer-wrap">
-          <view class="chat-emoji-panel" :class="{ open: showEmoji }">
-            <scroll-view scroll-y class="emoji-scroll">
+          <view class="chat-emoji-panel" :class="{ open: showEmoji || showSticker }">
+            <view class="chat-expr-mode-tabs">
+              <view class="chat-expr-mode-btn" :class="{ active: showEmoji && !showSticker }" @click="openEmojiOnly">表情</view>
+              <view class="chat-expr-mode-btn" :class="{ active: showSticker }" @click="openStickerPanel">表情包</view>
+            </view>
+            <scroll-view v-if="showEmoji && !showSticker" scroll-y class="emoji-scroll">
               <view class="emoji-grid">
                 <text
                   v-for="(em, idx) in emojis"
@@ -118,10 +123,7 @@
                 >{{ em }}</text>
               </view>
             </scroll-view>
-          </view>
-
-          <view class="chat-emoji-panel" :class="{ open: showSticker }">
-            <scroll-view scroll-y class="emoji-scroll">
+            <scroll-view v-else scroll-y class="emoji-scroll">
               <view class="sticker-grid">
                 <view
                   v-for="(st, idx) in stickerItems"
@@ -138,27 +140,17 @@
           </view>
 
           <view class="chat-attach-panel" :class="{ open: showAttach }">
-            <view class="chat-attach-grid">
-              <view class="chat-attach-item" @click="pickImage">
-                <view class="chat-attach-icon">🖼️</view>
-                <text>图片</text>
-              </view>
-              <view class="chat-attach-item" @click="pickVideo">
-                <view class="chat-attach-icon">🎬</view>
-                <text>视频</text>
-              </view>
-              <view class="chat-attach-item" @click="pickFile">
-                <view class="chat-attach-icon">📎</view>
-                <text>文件</text>
-              </view>
-              <view class="chat-attach-item" @click="openRpSheet">
-                <view class="chat-attach-icon">🧧</view>
-                <text>红包</text>
-              </view>
-              <view class="chat-attach-item" @click="openStickerPanel">
-                <view class="chat-attach-icon">😀</view>
-                <text>表情包</text>
-              </view>
+            <view class="chat-attach-item" @click="onAttachPick('image')">
+              <text class="chat-attach-icon">🖼️</text>
+              <text>图片</text>
+            </view>
+            <view class="chat-attach-item" @click="onAttachPick('video')">
+              <text class="chat-attach-icon">🎬</text>
+              <text>视频</text>
+            </view>
+            <view class="chat-attach-item" @click="onAttachPick('rp')">
+              <text class="chat-attach-icon">🧧</text>
+              <text>红包</text>
             </view>
           </view>
 
@@ -180,7 +172,7 @@
               @confirm="sendText"
               @focus="onInputFocus"
             />
-            <view class="btn-plus" @click="toggleAttach">
+            <view class="btn-plus" :class="{ active: showAttach }" @click="toggleAttach">
               <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
                 <path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
               </svg>
@@ -191,42 +183,100 @@
       </view>
     </view>
 
-    <!-- 发包 -->
-    <view class="mask" v-if="showRp" @click="showRp = false">
-      <view class="sheet" @click.stop>
-        <view class="sheet-title">发红包</view>
-        <view class="field" v-if="!isPrivate">
-          <text class="lab">类型</text>
-          <view class="tabs">
-            <text
-              v-for="t in packetTypes"
-              :key="t.v"
-              class="tab"
-              :class="{ on: rpForm.packet_type === t.v }"
-              @click="rpForm.packet_type = t.v"
-            >{{ t.n }}</text>
+    <!-- 发红宝：完全照搬 888 chatRpSendPane -->
+    <view class="chat-rp-send-pane" :class="{ open: showRp }" :aria-hidden="showRp ? 'false' : 'true'">
+      <view class="chat-hero-hd">
+        <view class="chat-hero-back chat-rp-cancel" @click="closeRpSend">取消</view>
+        <view class="chat-hero-title">发红宝</view>
+        <view class="chat-hero-spacer" />
+      </view>
+      <view class="chat-rp-send-main">
+        <scroll-view scroll-y class="chat-rp-send-body">
+          <view class="chat-rp-preview">
+            <view class="chat-rp-preview-seal">红</view>
+            <view class="chat-rp-preview-bless">{{ rpPreviewBless }}</view>
+            <view class="chat-rp-preview-sub">{{ rpPreviewSub }}</view>
+          </view>
+
+          <view class="chat-rp-balance-hint">
+            <text>可用红宝：</text>
+            <text class="chat-rp-bal-strong">￥{{ money(walletBalance) }}</text>
+            <text v-if="walletFrozen > 0.00001" class="chat-rp-frozen-hint">
+              · 冻结 <text class="chat-rp-bal-strong">￥{{ money(walletFrozen) }}</text>
+            </text>
+          </view>
+
+          <view class="chat-rp-form">
+            <view class="chat-rp-field chat-rp-field--amount">
+              <text class="chat-rp-lab">金额</text>
+              <view class="chat-rp-amount-row">
+                <text class="chat-rp-yuan">￥</text>
+                <input
+                  class="chat-rp-amount-input"
+                  type="digit"
+                  v-model="rpForm.total_amount"
+                  placeholder="0.00"
+                />
+              </view>
+            </view>
+
+            <view v-if="!isPrivate" class="chat-rp-field" id="chatRpCountWrap">
+              <text class="chat-rp-lab">个数</text>
+              <view v-if="rpForm.packet_type === 3" class="chat-rp-count-tabs">
+                <view
+                  v-for="n in mineCountOptions"
+                  :key="'c' + n"
+                  class="chat-rp-count-btn"
+                  :class="{ active: Number(rpForm.total_count) === n }"
+                  @click="rpForm.total_count = String(n)"
+                >{{ n }}</view>
+              </view>
+              <view v-else class="chat-rp-inline-ctrl">
+                <input class="chat-rp-count-input" type="number" v-model="rpForm.total_count" placeholder="5-10" />
+                <text class="chat-rp-unit">个</text>
+              </view>
+              <view class="chat-rp-field-hint">按本群配置显示个数</view>
+            </view>
+
+            <view v-if="!isPrivate" class="chat-rp-field chat-rp-field--type">
+              <text class="chat-rp-lab">类型</text>
+              <view class="chat-rp-type-tabs">
+                <view
+                  v-for="t in packetTypes"
+                  :key="'t' + t.v"
+                  class="chat-rp-type-btn"
+                  :class="{ active: rpForm.packet_type === t.v }"
+                  @click="setRpType(t.v)"
+                >{{ t.n }}</view>
+              </view>
+              <view class="chat-rp-field-hint chat-rp-type-desc">{{ rpTypeDesc }}</view>
+            </view>
+
+            <view v-if="!isPrivate && rpForm.packet_type === 3" class="chat-rp-field chat-rp-mine-card">
+              <view class="chat-rp-mine-title">埋雷数字（0～9）</view>
+              <view class="chat-rp-mine-digits">
+                <view
+                  v-for="d in 10"
+                  :key="'d' + (d - 1)"
+                  class="chat-rp-mine-digit"
+                  :class="{ active: Number(rpForm.mine_digit) === d - 1 }"
+                  @click="rpForm.mine_digit = String(d - 1)"
+                >{{ d - 1 }}</view>
+              </view>
+              <view class="chat-rp-field-hint">手填雷号；开奖后匹配哈希末位相同的波场区块作证明。金额尾数等于雷号即中雷，可多人同时中雷。</view>
+            </view>
+
+            <view class="chat-rp-field">
+              <text class="chat-rp-lab">祝福语</text>
+              <input class="chat-rp-bless-input" v-model="rpForm.blessing" maxlength="40" placeholder="恭喜发财，大吉大利" />
+            </view>
+          </view>
+        </scroll-view>
+        <view class="chat-rp-send-ft">
+          <view class="chat-rp-submit-btn" :class="{ disabled: rpSending }" @click="sendRp">
+            {{ rpSending ? '发送中…' : '塞钱进红包' }}
           </view>
         </view>
-        <view class="field">
-          <text class="lab">金额（红宝）</text>
-          <input class="hb-input" type="digit" v-model="rpForm.total_amount" placeholder="金额" />
-        </view>
-        <view class="field" v-if="!isPrivate">
-          <text class="lab">个数</text>
-          <input class="hb-input" type="number" v-model="rpForm.total_count" placeholder="个数" />
-        </view>
-        <view class="field" v-if="!isPrivate && rpForm.packet_type === 3">
-          <text class="lab">雷号 0-9</text>
-          <input class="hb-input" type="number" v-model="rpForm.mine_digit" placeholder="0-9" />
-        </view>
-        <view class="field">
-          <text class="lab">祝福语</text>
-          <input class="hb-input" v-model="rpForm.blessing" placeholder="恭喜发财" />
-        </view>
-        <button class="btn-uid-submit" :disabled="rpSending" @click="sendRp">
-          {{ rpSending ? '发送中…' : '塞进红包' }}
-        </button>
-        <button class="cancel" @click="showRp = false">取消</button>
       </view>
     </view>
 
@@ -278,7 +328,7 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref } from 'vue'
+import { computed, nextTick, reactive, ref } from 'vue'
 import { onLoad, onUnload } from '@dcloudio/uni-app'
 import GrabSlider from '../../components/GrabSlider.vue'
 import '../../styles/chat.bundle.css'
@@ -297,6 +347,7 @@ import {
 } from '../../utils/chat.js'
 import { clearActiveChat, getActiveChat, saveActiveChat } from '../../utils/chat-route.js'
 import { COMMON_EMOJIS } from '../../utils/emoji.js'
+import { loadWalletBootstrap, money } from '../../utils/wallet.js'
 import {
   grabRedPacket,
   imConnect,
@@ -316,6 +367,7 @@ const remark = ref('')
 const text = ref('')
 const messages = ref([])
 const scrollInto = ref('')
+const scrollTop = ref(0)
 const meta = ref({ type: 1, peer: 0, group: 0, conversationId: '' })
 const myAvatar = ref('')
 const myUserId = ref(0)
@@ -323,6 +375,8 @@ const showRp = ref(false)
 const showEmoji = ref(false)
 const showSticker = ref(false)
 const showAttach = ref(false)
+const walletBalance = ref(0)
+const walletFrozen = ref(0)
 const rpSending = ref(false)
 const mediaSending = ref(false)
 const grabbing = ref(false)
@@ -340,17 +394,42 @@ let activePacketId = 0
 
 const isPrivate = computed(() => (meta.value.type | 0) === 1)
 const packetTypes = [
-  { v: 5, n: '红宝接龙' },
-  { v: 3, n: '红宝扫雷' },
-  { v: 1, n: '普通' },
-  { v: 4, n: '随机' },
+  { v: 2, n: '拼手气' },
+  { v: 5, n: '接龙' },
+  { v: 3, n: '埋雷' },
+  { v: 1, n: '普通红宝' },
+  { v: 4, n: '随机红宝' },
 ]
+const mineCountOptions = [5, 7, 9]
 const rpForm = reactive({
-  packet_type: 1,
+  packet_type: 2,
   total_amount: '',
-  total_count: '1',
-  mine_digit: '7',
+  total_count: '5',
+  mine_digit: '0',
   blessing: '恭喜发财',
+})
+
+const rpPreviewBless = computed(() => String(rpForm.blessing || '').trim() || '恭喜发财')
+const rpPreviewSub = computed(() => {
+  if (isPrivate.value) return '普通红包'
+  const map = {
+    1: '普通红宝',
+    2: '拼手气红包',
+    3: '埋雷红包',
+    4: '随机红宝',
+    5: '接龙红包',
+  }
+  return map[rpForm.packet_type | 0] || '红包'
+})
+const rpTypeDesc = computed(() => {
+  const map = {
+    1: '普通红宝：金额均分，人人有份。',
+    2: '拼手气红包：金额随机分配，手气越好领得越多。',
+    3: '埋雷红包：金额尾数等于雷号即中雷，可多人同时中雷。',
+    4: '随机红宝：金额与玩法按随机规则分配。',
+    5: '接龙红包：领取后由系统按规则续发。',
+  }
+  return map[rpForm.packet_type | 0] || ''
 })
 
 const detailRecords = computed(() => {
@@ -657,13 +736,19 @@ function onInputFocus() {
 }
 
 function toggleEmoji() {
-  const next = !showEmoji.value
+  const next = !(showEmoji.value && !showSticker.value)
   showEmoji.value = next
+  showSticker.value = false
   if (next) {
-    showSticker.value = false
     showAttach.value = false
     showRp.value = false
   }
+}
+
+function openEmojiOnly() {
+  showEmoji.value = true
+  showSticker.value = false
+  showAttach.value = false
 }
 
 function toggleAttach() {
@@ -675,16 +760,47 @@ function toggleAttach() {
   }
 }
 
-function openRpSheet() {
+function onAttachPick(kind) {
+  showAttach.value = false
+  if (kind === 'image') pickImage()
+  else if (kind === 'video') pickVideo()
+  else if (kind === 'rp') openRpSend()
+}
+
+function setRpType(v) {
+  rpForm.packet_type = v | 0
+  if (rpForm.packet_type === 3) {
+    const cur = Number(rpForm.total_count)
+    if (mineCountOptions.indexOf(cur) < 0) rpForm.total_count = '5'
+  }
+}
+
+function closeRpSend() {
+  showRp.value = false
+}
+
+async function openRpSend() {
   showAttach.value = false
   showEmoji.value = false
   showSticker.value = false
+  if (isPrivate.value) {
+    rpForm.packet_type = 1
+    rpForm.total_count = '1'
+  } else if (!rpForm.packet_type) {
+    rpForm.packet_type = 2
+  }
+  if (!String(rpForm.blessing || '').trim()) rpForm.blessing = '恭喜发财'
+  await refreshWallet()
   showRp.value = true
+}
+
+function openRpSheet() {
+  openRpSend()
 }
 
 async function openStickerPanel() {
   showAttach.value = false
-  showEmoji.value = false
+  showEmoji.value = true
   showSticker.value = true
   if (!stickerItems.value.length) await loadStickers()
 }
@@ -694,14 +810,40 @@ function insertEmoji(em) {
 }
 
 async function toggleSticker() {
-  const next = !showSticker.value
-  showSticker.value = next
-  if (next) {
-    showEmoji.value = false
-    showAttach.value = false
-    showRp.value = false
-    if (!stickerItems.value.length) await loadStickers()
+  await openStickerPanel()
+}
+
+async function refreshWallet() {
+  try {
+    const boot = await loadWalletBootstrap(true)
+    const info = (boot && boot.info) || boot || {}
+    walletBalance.value = Number(info.hongbao != null ? info.hongbao : info.balance) || 0
+    walletFrozen.value = Number(info.hongbao_frozen) || 0
+  } catch (e) {
+    try {
+      const p = await fetchProfile()
+      walletBalance.value = Number(p && (p.hongbao != null ? p.hongbao : p.money)) || 0
+      walletFrozen.value = Number(p && p.hongbao_frozen) || 0
+    } catch (e2) {}
   }
+}
+
+function scrollToLatest() {
+  const last = messages.value[messages.value.length - 1]
+  if (!last) return
+  const id = 'm' + msgId(last)
+  scrollInto.value = ''
+  scrollTop.value = scrollTop.value === 999999 ? 999998 : 999999
+  nextTick(() => {
+    scrollInto.value = id
+    setTimeout(() => {
+      scrollInto.value = id
+      scrollTop.value = scrollTop.value === 999999 ? 999998 : 999999
+    }, 60)
+    setTimeout(() => {
+      scrollInto.value = id
+    }, 200)
+  })
 }
 
 async function loadStickers() {
@@ -1000,7 +1142,7 @@ async function markRead() {
 async function fetchHistory() {
   const data = {
     conversation_type: meta.value.type | 0,
-    limit: 40,
+    limit: 50,
   }
   if (meta.value.type == 2) data.group_id = meta.value.group | 0
   else {
@@ -1011,9 +1153,8 @@ async function fetchHistory() {
   const body = (packet && packet.data) || {}
   const list = body.list || body.messages || []
   messages.value = list.slice().reverse()
-  const last = messages.value[messages.value.length - 1]
-  if (last) scrollInto.value = 'm' + msgId(last)
   await markRead()
+  scrollToLatest()
 }
 
 async function sendText() {
@@ -1028,6 +1169,7 @@ async function sendText() {
     text.value = ''
     showEmoji.value = false
     showSticker.value = false
+    showAttach.value = false
     await fetchHistory()
   } catch (e) {
     uni.showToast({ title: e.message || '发送失败', icon: 'none' })
@@ -1035,9 +1177,18 @@ async function sendText() {
 }
 
 async function sendRp() {
+  if (rpSending.value) return
   const amount = Number(rpForm.total_amount)
   if (!(amount > 0)) {
-    uni.showToast({ title: '请输入金额', icon: 'none' })
+    uni.showToast({ title: '请输入红包金额', icon: 'none' })
+    return
+  }
+  if (amount < 10) {
+    uni.showToast({ title: '金额最低 10 元', icon: 'none' })
+    return
+  }
+  if (walletBalance.value > 0 && amount > walletBalance.value + 0.0001) {
+    uni.showToast({ title: '红宝不足', icon: 'none' })
     return
   }
   const payload = {
@@ -1057,12 +1208,12 @@ async function sendRp() {
     if (payload.packet_type === 3) {
       const dig = parseInt(rpForm.mine_digit, 10)
       if (!(dig >= 0 && dig <= 9)) {
-        uni.showToast({ title: '雷号需 0-9', icon: 'none' })
+        uni.showToast({ title: '请选择埋雷数字 0～9', icon: 'none' })
         return
       }
       payload.mine_digit = dig
-      if ([5, 7, 9].indexOf(payload.total_count) < 0) {
-        uni.showToast({ title: '埋雷个数请选 5/7/9', icon: 'none' })
+      if (mineCountOptions.indexOf(payload.total_count) < 0) {
+        uni.showToast({ title: '扫雷红包个数仅可选 5 / 7 / 9', icon: 'none' })
         return
       }
     }
@@ -1071,10 +1222,11 @@ async function sendRp() {
   try {
     await sendRedPacket(payload)
     showRp.value = false
-    uni.showToast({ title: '红包已发出', icon: 'none' })
+    uni.showToast({ title: '红包已发送', icon: 'success' })
+    await refreshWallet()
     await fetchHistory()
   } catch (e) {
-    uni.showToast({ title: (e && e.message) || '发包失败', icon: 'none' })
+    uni.showToast({ title: (e && e.message) || '发红宝失败', icon: 'none' })
   } finally {
     rpSending.value = false
   }
@@ -1225,7 +1377,13 @@ onLoad(async (query) => {
   title.value = decodeURIComponent(q.title || '聊天')
   peerNickname.value = decodeURIComponent(q.nickname || '')
   remark.value = decodeURIComponent(q.remark || '')
-  if (isPrivate.value) rpForm.packet_type = 1
+  if (isPrivate.value) {
+    rpForm.packet_type = 1
+    rpForm.total_count = '1'
+  } else {
+    rpForm.packet_type = 2
+    rpForm.total_count = '5'
+  }
 
   saveActiveChat({
     type: meta.value.type,
@@ -1245,7 +1403,7 @@ onLoad(async (query) => {
         const id = msgId(msg)
         if (!messages.value.some((x) => String(msgId(x)) === String(id))) {
           messages.value.push(msg)
-          scrollInto.value = 'm' + id
+          scrollToLatest()
           markRead()
         }
       }
