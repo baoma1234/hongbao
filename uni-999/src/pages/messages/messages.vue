@@ -199,19 +199,87 @@
               </view>
             </view>
 
-            <!-- 公告 -->
+            <!-- 公告（对齐 888：四分类 + 推广收益表 + 动态卡片） -->
             <view id="chatHomePanelNotice" class="chat-home-panel chat-notice-feed-panel" :class="{ 'is-hidden': homeTab !== 'notice' }">
-              <view class="chat-community-seg chat-notice-seg">
-                <view class="chat-community-seg-btn" :class="{ active: noticeCat === 'latest' }" @click="setNoticeCat('latest')">最新发布</view>
-                <view class="chat-community-seg-btn" :class="{ active: noticeCat === 'promote' }" @click="setNoticeCat('promote')">推广赚钱</view>
-                <view class="chat-community-seg-btn" :class="{ active: noticeCat === 'ads' }" @click="setNoticeCat('ads')">广告发布</view>
-                <view class="chat-community-seg-btn" :class="{ active: noticeCat === 'rules' }" @click="setNoticeCat('rules')">游戏规则</view>
+              <view class="chat-community-seg chat-notice-seg" id="chatNoticeCats" role="tablist">
+                <view
+                  class="chat-community-seg-btn"
+                  :class="{ active: noticeCat === 'latest' }"
+                  @click="setNoticeCat('latest')"
+                >最新发布</view>
+                <view
+                  class="chat-community-seg-btn"
+                  :class="{ active: noticeCat === 'promote' }"
+                  @click="setNoticeCat('promote')"
+                >推广赚钱</view>
+                <view
+                  class="chat-community-seg-btn"
+                  :class="{ active: noticeCat === 'ads' }"
+                  @click="setNoticeCat('ads')"
+                >广告发布</view>
+                <view
+                  class="chat-community-seg-btn"
+                  :class="{ active: noticeCat === 'rules' }"
+                  @click="setNoticeCat('rules')"
+                >游戏规则</view>
               </view>
-              <view class="chat-notice-body-scroll">
-                <view class="chat-notice-feed">
-                  <view v-for="n in notices" :key="n.id || n.createtime" class="chat-notice-card" @click="openNotice(n)">
+              <scroll-view class="chat-notice-body-scroll" scroll-y :show-scrollbar="false">
+                <view
+                  v-if="noticeCat === 'promote'"
+                  class="chat-promote-earn-wrap"
+                  id="chatPromoteEarnWrap"
+                >
+                  <view class="chat-promote-earn-card">
+                    <view class="chat-promote-earn-hd">
+                      <text class="chat-promote-earn-title">推广收益数据表</text>
+                      <text class="chat-promote-earn-live" @click="refreshPromoteEarnMock">实时更新 ›</text>
+                    </view>
+                    <view class="chat-promote-earn-table">
+                      <view class="chat-promote-earn-thead">
+                        <view class="chat-promote-earn-th"><text>用户ID</text></view>
+                        <view class="chat-promote-earn-th is-active"><text>收益类型</text></view>
+                        <view class="chat-promote-earn-th"><text>广细记录</text></view>
+                        <view class="chat-promote-earn-th"><text>到手佣金</text></view>
+                      </view>
+                      <view class="chat-promote-earn-viewport">
+                        <view
+                          class="chat-promote-earn-track"
+                          :style="promoteEarnTrackStyle"
+                        >
+                          <view
+                            v-for="(row, idx) in promoteEarnDisplayRows"
+                            :key="'pe-' + idx"
+                            class="chat-promote-earn-row"
+                          >
+                            <view class="chat-promote-earn-td"><text>{{ row.uidMasked }}</text></view>
+                            <view class="chat-promote-earn-td"><text>{{ row.typeLabel }}</text></view>
+                            <view class="chat-promote-earn-td is-detail"><text>{{ row.detailLabel }}</text></view>
+                            <view class="chat-promote-earn-td is-amt"><text>{{ row.amountText }}</text></view>
+                          </view>
+                        </view>
+                      </view>
+                    </view>
+                  </view>
+                </view>
+
+                <view class="chat-notice-feed" id="chatNoticeFeed">
+                  <view
+                    v-for="n in notices"
+                    :key="n.id || n.publishtime || n.createtime"
+                    class="chat-notice-card"
+                  >
                     <view class="chat-notice-hd">
-                      <image class="chat-notice-avatar" :src="avatarSrc(n.author_avatar)" mode="aspectFill" />
+                      <image
+                        v-if="n.author_avatar"
+                        class="chat-notice-avatar"
+                        :src="avatarSrc(n.author_avatar)"
+                        mode="aspectFill"
+                      />
+                      <view
+                        v-else
+                        class="chat-notice-avatar chat-notice-avatar-fallback"
+                        aria-hidden="true"
+                      >{{ noticeCategoryIcon(n) }}</view>
                       <view class="chat-notice-meta">
                         <view class="chat-notice-name-row">
                           <text class="chat-notice-name">{{ n.author_name || '红宝官方公告' }}</text>
@@ -222,10 +290,45 @@
                       <view class="chat-notice-time">{{ noticeClock(n) }}</view>
                     </view>
                     <view class="chat-notice-body">{{ n.content || n.summary || n.title || '' }}</view>
+                    <view v-if="noticeVideo(n)" class="chat-notice-media">
+                      <video
+                        class="chat-notice-video"
+                        :src="noticeVideo(n)"
+                        controls
+                        object-fit="contain"
+                      />
+                    </view>
+                    <view
+                      v-if="noticeImages(n).length"
+                      class="chat-notice-media"
+                    >
+                      <view class="chat-notice-imgs" :class="'imgs-' + Math.min(9, noticeImages(n).length)">
+                        <image
+                          v-for="(src, ii) in noticeImages(n).slice(0, 9)"
+                          :key="ii"
+                          class="chat-notice-img"
+                          :src="avatarSrc(src)"
+                          mode="aspectFill"
+                          @click="previewNoticeImages(n, ii)"
+                        />
+                      </view>
+                    </view>
+                    <view v-if="noticeActionButtons(n).length" class="chat-notice-actions">
+                      <view
+                        v-for="(btn, bi) in noticeActionButtons(n)"
+                        :key="bi"
+                        class="chat-notice-action-btn"
+                        :class="btn.cls"
+                        @click="handleNoticeAction(btn.action, btn.url, btn.label)"
+                      >{{ btn.label }}</view>
+                    </view>
+                    <view class="chat-notice-ft">
+                      <view class="chat-notice-share-btn" @click="shareNoticeToCommunity(n)">分享到社群</view>
+                    </view>
                   </view>
                   <view v-if="!notices.length" class="chat-empty chat-empty-glass">暂无公告</view>
                 </view>
-              </view>
+              </scroll-view>
             </view>
 
             <!-- 佣金 -->
@@ -434,7 +537,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { onShow, onHide } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
 import BottomTabBar from '../../components/BottomTabBar.vue'
@@ -508,6 +611,9 @@ const myGroups = ref([])
 const friends = ref([])
 const notices = ref([])
 const noticeCat = ref('latest')
+const promoteEarnRows = ref([])
+const promoteEarnOffset = ref(0)
+let promoteEarnTimer = null
 const commission = ref({})
 const friendReqPending = ref(0)
 const listRefreshing = ref(false)
@@ -612,12 +718,23 @@ function friendName(f) {
 }
 
 function noticeCatLabel(n) {
+  const label = String((n && n.category_label) || '').trim()
+  if (label) return label
   const c = String((n && n.category) || noticeCat.value || '')
   if (c === 'promote') return '推广赚钱'
   if (c === 'ads') return '广告发布'
   if (c === 'rules') return '游戏规则'
   if (c === 'latest') return '最新发布'
-  return n.category_label || ''
+  return c
+}
+
+function noticeCategoryIcon(n) {
+  const c = String((n && (n.category || noticeCat.value)) || '')
+  if (c === 'rules' || c.indexOf('规则') >= 0) return '📋'
+  if (c === 'promote' || c.indexOf('推广') >= 0) return '💼'
+  if (c === 'ads' || c.indexOf('广告') >= 0) return '📣'
+  if (c === 'latest' || c.indexOf('最新') >= 0) return '🆕'
+  return '📢'
 }
 
 function noticeTs(n) {
@@ -625,23 +742,25 @@ function noticeTs(n) {
 }
 
 function noticeRelativeDay(n) {
-  const ts = noticeTs(n)
+  let ts = noticeTs(n)
   if (!ts) return ''
-  const d = new Date(ts * (ts > 1e12 ? 1 : 1000))
+  if (ts > 1e12) ts = Math.floor(ts / 1000)
+  const d = new Date(ts * 1000)
   const now = new Date()
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const day = new Date(d.getFullYear(), d.getMonth(), d.getDate())
-  const diff = Math.round((start - day) / 86400000)
+  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  const startThat = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+  const diff = Math.round((startToday - startThat) / 86400000)
   if (diff === 0) return '今天'
   if (diff === 1) return '昨天'
-  if (diff < 7) return diff + '天前'
-  return formatConvTime(ts)
+  if (diff > 1 && diff < 7) return diff + '天前'
+  return (d.getMonth() + 1) + '月' + d.getDate() + '日'
 }
 
 function noticeClock(n) {
-  const ts = noticeTs(n)
+  let ts = noticeTs(n)
   if (!ts) return ''
-  const d = new Date(ts * (ts > 1e12 ? 1 : 1000))
+  if (ts > 1e12) ts = Math.floor(ts / 1000)
+  const d = new Date(ts * 1000)
   const hh = String(d.getHours()).padStart(2, '0')
   const mm = String(d.getMinutes()).padStart(2, '0')
   return hh + ':' + mm
@@ -651,11 +770,212 @@ function formatNoticeTime(n) {
   return formatConvTime(noticeTs(n))
 }
 
-function openNotice(n) {
-  const title = (n && (n.author_name || n.title)) || '公告'
-  const body = String((n && (n.content || n.body || n.summary)) || '').replace(/<[^>]+>/g, '')
-  uni.showModal({ title, content: body || '暂无详情', showCancel: false })
+function noticeVideo(n) {
+  return String((n && n.video) || '').trim()
 }
+
+function noticeImages(n) {
+  const imgs = n && n.images
+  if (!Array.isArray(imgs)) return []
+  return imgs.filter(Boolean)
+}
+
+function noticeActionButtons(n) {
+  if (!n) return []
+  const type = String(n.action_type || '')
+  if (type === 'buttons' && Array.isArray(n.action_buttons) && n.action_buttons.length) {
+    return n.action_buttons.map((btn) => ({
+      label: String((btn && btn.label) || '').trim(),
+      url: String((btn && btn.url) || ''),
+      action: 'link',
+      cls: 'soft',
+    })).filter((b) => b.label)
+  }
+  const label = String(n.action_label || '').trim()
+  if (!label) return []
+  const isShare = type === 'share'
+  return [{
+    label,
+    url: String(n.action_url || ''),
+    action: isShare ? 'share' : 'link',
+    cls: isShare ? 'primary' : 'wide-soft',
+  }]
+}
+
+function previewNoticeImages(n, index) {
+  const urls = noticeImages(n).map((u) => avatarSrc(u)).filter(Boolean)
+  if (!urls.length) return
+  uni.previewImage({ urls, current: urls[index | 0] || urls[0] })
+}
+
+function handleNoticeAction(action, url, label) {
+  action = String(action || '')
+  url = String(url || '').trim()
+  label = String(label || '')
+  if (action === 'share' || /邀请|推广|佣金|收益/.test(label)) {
+    switchHomeTab('commission')
+    return
+  }
+  if (/红包|接力/.test(label)) {
+    switchHomeTab('community')
+    return
+  }
+  if (!url) return
+  if (/^https?:\/\//i.test(url)) {
+    // #ifdef H5
+    if (typeof window !== 'undefined') window.open(url, '_blank')
+    // #endif
+    // #ifndef H5
+    uni.setClipboardData({
+      data: url,
+      success: () => uni.showToast({ title: '链接已复制', icon: 'none' }),
+    })
+    // #endif
+    return
+  }
+  if (url.charAt(0) === '/') {
+    uni.navigateTo({ url }).catch(() => {
+      uni.switchTab({ url }).catch(() => {})
+    })
+  }
+}
+
+async function shareNoticeToCommunity(n) {
+  const cat = noticeCatLabel(n)
+  const text = String((n && n.content) || '').trim()
+  let shareText = (cat ? ('【' + cat + '】') : '') + (text ? text.slice(0, 120) : '红宝官方公告')
+  try {
+    if (getToken()) {
+      const share = await apiRequest('share', 'POST', { copy_only: 1 })
+      if (share && share.share_text) shareText += '\n' + share.share_text
+      else if (share && share.share_link) shareText += '\n' + share.share_link
+    }
+  } catch (e) {}
+  // #ifdef H5
+  try {
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      await navigator.share({ title: '红宝公告', text: shareText })
+      uni.showToast({ title: '已唤起分享', icon: 'none' })
+      return
+    }
+  } catch (e) {}
+  // #endif
+  uni.setClipboardData({
+    data: shareText,
+    success: () => uni.showToast({ title: '已复制，可粘贴到社群', icon: 'none' }),
+    fail: () => uni.showToast({ title: '分享失败', icon: 'none' }),
+  })
+}
+
+function promoteEarnMaskUid(uid) {
+  uid = String(uid == null ? '' : uid).replace(/\D/g, '')
+  if (uid.length <= 4) return '****'
+  if (uid.length <= 6) return uid.slice(0, 1) + '****' + uid.slice(-1)
+  const head = Math.floor((uid.length - 4) / 2)
+  const tail = uid.length - 4 - head
+  return uid.slice(0, head) + '****' + uid.slice(uid.length - tail)
+}
+
+function promoteEarnTypeLabel(key) {
+  return key === 'group' ? '群主红包返佣' : '分享推广'
+}
+
+function promoteEarnDetailLabel(key, n) {
+  if (key === 'promote_earn_detail_group_fee') return '红包抽成返佣'
+  if (key === 'promote_earn_detail_groups_n') return '自建' + n + '群红包返利'
+  if (key === 'promote_earn_detail_multi') return '多群互动返现'
+  if (key === 'promote_earn_detail_exposure') return '推广曝光成交收益'
+  return '分享链接引流' + n + '人'
+}
+
+function buildPromoteEarnMockRows(count) {
+  count = Math.max(12, Math.min(40, count || 24))
+  const shareDetails = [
+    'promote_earn_detail_share_n',
+    'promote_earn_detail_multi',
+    'promote_earn_detail_exposure',
+  ]
+  const rows = []
+  for (let i = 0; i < count; i++) {
+    const r = Math.random()
+    const typeKey = r < 0.55 ? 'share' : 'group'
+    const detailKey = typeKey === 'group'
+      ? 'promote_earn_detail_group_fee'
+      : shareDetails[Math.floor(Math.random() * shareDetails.length)]
+    const n = 3 + Math.floor(Math.random() * 40)
+    const uidNum = 10000000 + Math.floor(Math.random() * 90000000)
+    let amt = 18 + Math.random() * 160 + (i % 7) * 3.17
+    amt = Math.round(amt * 100) / 100
+    rows.push({
+      uidMasked: promoteEarnMaskUid(String(uidNum)),
+      typeLabel: promoteEarnTypeLabel(typeKey),
+      detailLabel: promoteEarnDetailLabel(detailKey, n),
+      amountText: '¥' + amt.toFixed(2),
+    })
+  }
+  return rows
+}
+
+const promoteEarnDisplayRows = computed(() => {
+  const rows = promoteEarnRows.value || []
+  if (!rows.length) return []
+  return rows.concat(rows)
+})
+
+const promoteEarnTrackStyle = computed(() => ({
+  transform: 'translateY(-' + (promoteEarnOffset.value | 0) + 'px)',
+  transition: promoteEarnOffset.value ? 'transform 0.45s ease' : 'none',
+}))
+
+function stopPromoteEarnScroll() {
+  if (promoteEarnTimer) {
+    clearInterval(promoteEarnTimer)
+    promoteEarnTimer = null
+  }
+  promoteEarnOffset.value = 0
+}
+
+function startPromoteEarnScroll() {
+  stopPromoteEarnScroll()
+  if (noticeCat.value !== 'promote') return
+  if (!(promoteEarnRows.value && promoteEarnRows.value.length)) return
+  const rowH = 36
+  promoteEarnTimer = setInterval(() => {
+    const half = (promoteEarnRows.value.length | 0) * rowH
+    if (half < rowH) return
+    promoteEarnOffset.value += rowH
+    if (promoteEarnOffset.value >= half) {
+      setTimeout(() => {
+        promoteEarnOffset.value = 0
+      }, 480)
+    }
+  }, 3000)
+}
+
+function syncPromoteEarnPanel() {
+  if (noticeCat.value === 'promote') {
+    if (!promoteEarnRows.value.length) {
+      promoteEarnRows.value = buildPromoteEarnMockRows(24)
+    }
+    startPromoteEarnScroll()
+  } else {
+    stopPromoteEarnScroll()
+  }
+}
+
+function refreshPromoteEarnMock() {
+  promoteEarnRows.value = buildPromoteEarnMockRows(24)
+  startPromoteEarnScroll()
+  uni.showToast({ title: '已刷新收益数据', icon: 'none' })
+}
+
+watch(noticeCat, () => {
+  syncPromoteEarnPanel()
+})
+
+onUnmounted(() => {
+  stopPromoteEarnScroll()
+})
 
 function itemPreview(item) {
   const prev = previewText(item.last_message)
@@ -800,8 +1120,13 @@ async function switchHomeTab(tab) {
   homeTab.value = tab
   plusOpen.value = false
   if (tab === 'community') await loadCommunity()
-  else if (tab === 'notice') await loadNotices()
-  else if (tab === 'commission') await loadCommission()
+  else if (tab === 'notice') {
+    syncPromoteEarnPanel()
+    await loadNotices()
+  } else {
+    stopPromoteEarnScroll()
+    if (tab === 'commission') await loadCommission()
+  }
 }
 
 function setCommunitySub(sub) {
@@ -810,7 +1135,9 @@ function setCommunitySub(sub) {
 }
 
 function setNoticeCat(cat) {
-  noticeCat.value = cat
+  const allowed = ['latest', 'promote', 'ads', 'rules']
+  noticeCat.value = allowed.indexOf(cat) >= 0 ? cat : 'latest'
+  syncPromoteEarnPanel()
   loadNotices()
 }
 
