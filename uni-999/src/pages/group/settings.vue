@@ -46,9 +46,10 @@
 
       <view v-if="canEdit" class="chat-setting-row chat-setting-toggle-row" @click="toggleMuteAll">
         <text>全员禁言</text>
-        <label class="chat-switch" @click.stop>
-          <switch :checked="muteAll" color="#c61114" @change="onMuteSwitch" />
-        </label>
+        <view class="chat-switch" :class="{ 'is-on': muteAll }" @click.stop="toggleMuteAll">
+          <view class="chat-switch-track" />
+          <view class="chat-switch-knob" />
+        </view>
       </view>
 
       <view v-if="canEdit" class="chat-setting-block" id="chatForbidModesBlock">
@@ -60,7 +61,9 @@
             class="chat-forbid-item"
             @click.prevent="toggleForbid(item.key)"
           >
-            <checkbox :checked="!!forbidFlags[item.key]" :value="item.key" color="#c61114" />
+            <view class="chat-forbid-check" :class="{ on: !!forbidFlags[item.key] }">
+              {{ forbidFlags[item.key] ? '✓' : '' }}
+            </view>
             <text>{{ item.label }}</text>
           </label>
         </view>
@@ -170,19 +173,26 @@
         <view class="chat-hero-spacer" />
       </view>
       <view class="chat-sub-main">
+        <view class="chat-sub-toolbar">
+          <input
+            class="chat-search-input"
+            type="text"
+            v-model="inviteKeyword"
+            placeholder="搜索用户名/手机号/ID"
+            confirm-type="search"
+            @confirm="reloadCandidates"
+          />
+        </view>
         <view class="chat-member-list chat-invite-list">
           <label
-            v-for="u in candidates"
+            v-for="u in filteredCandidates"
             :key="u.user_id"
             class="chat-member-item chat-invite-item"
             @click.prevent="toggleCandidate(u)"
           >
-            <checkbox
-              class="chat-invite-check"
-              :checked="!!selectedIds[u.user_id]"
-              :value="String(u.user_id)"
-              color="#c61114"
-            />
+            <view class="chat-forbid-check chat-invite-box" :class="{ on: !!selectedIds[u.user_id] }">
+              {{ selectedIds[u.user_id] ? '✓' : '' }}
+            </view>
             <view class="chat-member-avatar">
               <text>{{ avatarLetter(u.nickname) }}</text>
             </view>
@@ -191,7 +201,7 @@
               <view class="chat-member-sub">ID {{ u.user_id }}</view>
             </view>
           </label>
-          <view v-if="!candidates.length && !candLoading" class="chat-empty">暂无可添加好友</view>
+          <view v-if="!filteredCandidates.length && !candLoading" class="chat-empty">暂无可添加好友</view>
           <view v-if="candLoading" class="chat-empty">加载中…</view>
         </view>
         <view class="chat-invite-ft">
@@ -253,6 +263,7 @@ const forbidHint = ref('')
 const forbidSaving = ref(false)
 const addSheet = ref(false)
 const candidates = ref([])
+const inviteKeyword = ref('')
 const candLoading = ref(false)
 const addSaving = ref(false)
 const selectedIds = reactive({})
@@ -285,6 +296,17 @@ const memberTargetName = computed(() => {
   return m.nickname || ('ID' + m.user_id)
 })
 const selectedCount = computed(() => Object.keys(selectedIds).filter((k) => selectedIds[k]).length)
+const filteredCandidates = computed(() => {
+  const kw = String(inviteKeyword.value || '').trim().toLowerCase()
+  const rows = candidates.value || []
+  if (!kw) return rows
+  return rows.filter((u) => {
+    const name = String(u.nickname || '').toLowerCase()
+    const mobile = String(u.mobile || u.phone || '').toLowerCase()
+    const id = String(u.user_id || '')
+    return name.indexOf(kw) >= 0 || mobile.indexOf(kw) >= 0 || id.indexOf(kw) >= 0
+  })
+})
 
 function roleLabel(role) {
   const r = role | 0
@@ -446,10 +468,6 @@ async function applyMute(enabled) {
   }
 }
 
-function onMuteSwitch(e) {
-  applyMute(!!(e && e.detail && e.detail.value))
-}
-
 function toggleMuteAll() {
   applyMute(!muteAll.value)
 }
@@ -495,17 +513,18 @@ async function saveProfile() {
 function closeAddSheet() {
   addSheet.value = false
   candidates.value = []
+  inviteKeyword.value = ''
   Object.keys(selectedIds).forEach((k) => {
     delete selectedIds[k]
   })
 }
 
-async function openAddMembers() {
-  addSheet.value = true
+function reloadCandidates() {
+  loadCandidates()
+}
+
+async function loadCandidates() {
   candLoading.value = true
-  Object.keys(selectedIds).forEach((k) => {
-    delete selectedIds[k]
-  })
   try {
     const packet = await groupCandidates(groupId.value)
     const data = (packet && packet.data) || packet || {}
@@ -516,6 +535,15 @@ async function openAddMembers() {
   } finally {
     candLoading.value = false
   }
+}
+
+async function openAddMembers() {
+  addSheet.value = true
+  inviteKeyword.value = ''
+  Object.keys(selectedIds).forEach((k) => {
+    delete selectedIds[k]
+  })
+  await loadCandidates()
 }
 
 function toggleCandidate(u) {

@@ -416,6 +416,19 @@
       </view>
     </view>
 
+    <!-- 会话长按：对齐 888 #chatConvActionSheet -->
+    <view class="chat-action-sheet chat-conv-action-sheet" :class="{ open: !!convSheetItem }" v-if="convSheetItem" aria-hidden="false">
+      <view class="chat-action-sheet-mask" @click="closeConvSheet" />
+      <view class="chat-action-sheet-panel" @click.stop>
+        <view class="chat-action-sheet-title">{{ convSheetTitle }}</view>
+        <button type="button" class="chat-action-item" @click="doConvPin">
+          {{ convSheetPinned ? '取消置顶' : '置顶聊天' }}
+        </button>
+        <button type="button" class="chat-action-item danger" @click="doConvDelete">删除聊天</button>
+        <button type="button" class="chat-action-item cancel" @click="closeConvSheet">取消</button>
+      </view>
+    </view>
+
     <BottomTabBar active="messages" />
   </view>
 </template>
@@ -498,6 +511,7 @@ const noticeCat = ref('latest')
 const commission = ref({})
 const friendReqPending = ref(0)
 const listRefreshing = ref(false)
+const convSheetItem = ref(null)
 let off = null
 let loading = false
 let pageAlive = false
@@ -512,6 +526,13 @@ const displayList = computed(() => {
     return title.indexOf(q) >= 0 || nick.indexOf(q) >= 0 || prev.indexOf(q) >= 0
   })
 })
+
+const convSheetTitle = computed(() => {
+  const item = convSheetItem.value
+  if (!item) return '会话操作'
+  return displayTitle(item) || '会话操作'
+})
+const convSheetPinned = computed(() => !!(convSheetItem.value && convSheetItem.value.pinned))
 
 const statusText = computed(() => {
   if (status.value === 'online') return '已连接'
@@ -725,41 +746,51 @@ function myIdNum() {
 }
 
 function onLongPress(item) {
+  if (!item) return
+  plusOpen.value = false
+  convSheetItem.value = item
+}
+
+function closeConvSheet() {
+  convSheetItem.value = null
+}
+
+async function doConvPin() {
+  const item = convSheetItem.value
+  if (!item) return
   const type = item.conversation_type | 0
   const id = resolveConvId(item)
   const pinned = !!item.pinned
-  const items = [pinned ? '取消置顶' : '置顶会话', '删除会话']
-  uni.showActionSheet({
-    itemList: items,
-    success: async (res) => {
+  try {
+    await pinConversation(type, id, !pinned)
+    closeConvSheet()
+    await loadList(true)
+    uni.showToast({ title: pinned ? '已取消置顶' : '已置顶', icon: 'none' })
+  } catch (e) {
+    uni.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
+  }
+}
+
+function doConvDelete() {
+  const item = convSheetItem.value
+  if (!item) return
+  const type = item.conversation_type | 0
+  const id = resolveConvId(item)
+  uni.showModal({
+    title: '删除会话',
+    content: '从列表移除「' + displayTitle(item) + '」？聊天记录不会清空。',
+    success: async (r) => {
+      if (!r.confirm) return
       try {
-        if (res.tapIndex === 0) {
-          await pinConversation(type, id, !pinned)
-          await loadList(true)
-          uni.showToast({ title: pinned ? '已取消置顶' : '已置顶', icon: 'none' })
-          return
-        }
-        if (res.tapIndex === 1) {
-          uni.showModal({
-            title: '删除会话',
-            content: '从列表移除「' + displayTitle(item) + '」？聊天记录不会清空。',
-            success: async (r) => {
-              if (!r.confirm) return
-              try {
-                const extra = {}
-                if (type === 2) extra.group_id = item.group_id || id
-                else if (item.peer_user_id) extra.to_user_id = item.peer_user_id
-                await hideConversation(type, id, extra)
-                list.value = list.value.filter((x) => itemKey(x) !== itemKey(item))
-                uni.showToast({ title: '已删除', icon: 'none' })
-              } catch (e) {
-                uni.showToast({ title: (e && e.message) || '删除失败', icon: 'none' })
-              }
-            },
-          })
-        }
+        const extra = {}
+        if (type === 2) extra.group_id = item.group_id || id
+        else if (item.peer_user_id) extra.to_user_id = item.peer_user_id
+        await hideConversation(type, id, extra)
+        list.value = list.value.filter((x) => itemKey(x) !== itemKey(item))
+        closeConvSheet()
+        uni.showToast({ title: '已删除', icon: 'none' })
       } catch (e) {
-        uni.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
+        uni.showToast({ title: (e && e.message) || '删除失败', icon: 'none' })
       }
     },
   })

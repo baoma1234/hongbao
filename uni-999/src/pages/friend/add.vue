@@ -20,6 +20,7 @@
           <text class="chat-add-friend-req-link-title">好友申请</text>
           <text class="chat-add-friend-req-link-sub">查看收到与发出的申请</text>
         </view>
+        <text v-if="pendingCount > 0" class="chat-friend-req-badge chat-add-friend-req-badge">{{ pendingCount > 99 ? '99+' : pendingCount }}</text>
         <text class="chat-add-friend-req-link-arrow">›</text>
       </view>
 
@@ -56,11 +57,11 @@
 
 <script setup>
 import { ref } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onShow } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
 import { getToken } from '../../utils/auth.js'
 import { assetBase } from '../../utils/i18n.js'
-import { friendLookup, friendRequest, imConnect } from '../../utils/im.js'
+import { friendLookup, friendRequest, friendRequests, imConnect } from '../../utils/im.js'
 import '../../styles/chat.bundle.css'
 import '../../styles/chat-uni-adapter.css'
 import '../../styles/friend-uni-adapter.css'
@@ -78,6 +79,7 @@ const dial = ref('86')
 const mobile = ref('')
 const memberId = ref('')
 const busy = ref(false)
+const pendingCount = ref(0)
 
 function onDial(e) {
   const i = Number(e.detail.value || 0)
@@ -171,5 +173,17 @@ async function submit() {
 
 onLoad(() => {
   if (!getToken()) uni.reLaunch({ url: '/pages/login/login' })
+})
+
+onShow(async () => {
+  if (!getToken()) return
+  try {
+    await imConnect()
+    const packet = await friendRequests()
+    const data = (packet && packet.data) || packet || {}
+    pendingCount.value = data.pending_count | 0
+  } catch (e) {
+    pendingCount.value = 0
+  }
 })
 </script>

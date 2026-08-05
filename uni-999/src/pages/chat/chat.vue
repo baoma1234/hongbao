@@ -367,18 +367,17 @@
               <button type="button" class="chat-rp-fair-link" @click="openFairVerify">本站验证详情</button>
             </template>
             <view v-else-if="detailFairTip" class="chat-rp-fair-sub">{{ detailFairTip }}</view>
+            <view v-if="detailLocked" class="chat-rp-privacy-tip locked">🔒 隐私群：不可点击查看对方资料</view>
             <view
               v-if="mineSettleTip"
               class="chat-rp-mine-summary"
               :class="{ 'is-safe': mineSettleSafe }"
             >{{ mineSettleTip }}</view>
-            <view v-if="detailLocked" class="chat-rp-privacy-tip locked">🔒 隐私群：不可点击查看对方资料</view>
           </view>
           <scroll-view
             scroll-y
             class="chat-rp-detail-list"
             :class="{ 'is-open': !detailLocked, 'is-private': detailLocked }"
-            style="flex:1;min-height:200px;height:100%"
           >
             <view
               v-for="r in detailRecords"

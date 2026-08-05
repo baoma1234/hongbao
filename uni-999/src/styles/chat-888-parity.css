@@ -158,10 +158,76 @@
   box-sizing: border-box;
 }
 
-/* 群聊更多 / 成员操作：保持 TopBar 可见（低于 14000） */
-.chat-room-page .chat-action-sheet,
-.chat-group-settings-page .chat-action-sheet {
-  z-index: 13000 !important;
+/* uni button 默认边框重置（独立页不在 #tabMessages 下） */
+.chat-group-settings-page button::after,
+.chat-group-invite-overlay button::after,
+.chat-friend-page button::after,
+.chat-room-page .chat-action-sheet button::after,
+.chat-action-sheet button::after {
+  border: none !important;
+  display: none !important;
+}
+.chat-group-settings-page .chat-setting-save-btn,
+.chat-group-settings-page .chat-setting-leave-btn,
+.chat-group-settings-page .chat-action-item,
+.chat-group-invite-overlay .chat-invite-confirm-btn,
+.chat-action-sheet .chat-action-item {
+  line-height: 1.35;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+/* 自定义开关：对齐 888 .chat-switch */
+.chat-group-settings-page .chat-switch {
+  position: relative;
+  display: inline-block;
+  width: 46px;
+  height: 28px;
+  flex-shrink: 0;
+}
+.chat-group-settings-page .chat-switch-track {
+  position: absolute;
+  inset: 0;
+  background: #d8d0c8;
+  border-radius: 999px;
+  transition: background 0.2s ease;
+}
+.chat-group-settings-page .chat-switch.is-on .chat-switch-track {
+  background: #c61114;
+}
+.chat-group-settings-page .chat-switch-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+  transition: transform 0.2s ease;
+}
+.chat-group-settings-page .chat-switch.is-on .chat-switch-knob {
+  transform: translateX(18px);
+}
+
+/* 禁止模式勾选：对齐 888 checkbox 观感 */
+.chat-group-settings-page .chat-forbid-check {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 1.5px solid #f0b04a;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #fff;
+  background: #fff;
+}
+.chat-group-settings-page .chat-forbid-check.on {
+  background: #c61114;
+  border-color: #c61114;
 }
 
 /* Conversation list pull-to-refresh (from 888 chat-core) */
@@ -340,6 +406,25 @@
   margin: 0;
   background: #fffdf9;
 }
+.chat-group-invite-overlay .chat-sub-toolbar {
+  flex-shrink: 0;
+  padding: 10px 12px 6px;
+  background: #fffdf9;
+}
+.chat-group-invite-overlay .chat-search-input {
+  width: 100%;
+  box-sizing: border-box;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid #f0e2d2;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 14px;
+  color: #333;
+}
+.chat-group-invite-overlay .chat-invite-box {
+  margin-right: 2px;
+}
 .chat-group-invite-overlay .chat-invite-list {
   flex: 1 1 auto;
   min-height: 0;
@@ -348,6 +433,14 @@
 }
 .chat-group-invite-overlay .chat-invite-ft {
   flex-shrink: 0;
+}
+
+/* 群聊更多 / 成员操作 / 会话操作：保持 TopBar 可见（低于 14000） */
+.chat-room-page .chat-action-sheet,
+.chat-group-settings-page .chat-action-sheet,
+#tabMessages .chat-action-sheet,
+.chat-action-sheet.chat-conv-action-sheet {
+  z-index: 13000 !important;
 }
 
 /* members block on settings */
