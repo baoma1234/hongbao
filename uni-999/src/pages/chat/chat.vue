@@ -258,7 +258,7 @@
                 <view
                   v-for="d in 10"
                   :key="'d' + (d - 1)"
-                  class="chat-rp-mine-digit"
+                  class="chat-rp-mine-digit-btn"
                   :class="{ active: Number(rpForm.mine_digit) === d - 1 }"
                   @click="rpForm.mine_digit = String(d - 1)"
                 >{{ d - 1 }}</view>
@@ -333,6 +333,7 @@ import { onLoad, onUnload } from '@dcloudio/uni-app'
 import GrabSlider from '../../components/GrabSlider.vue'
 import '../../styles/chat.bundle.css'
 import '../../styles/chat-room-uni-adapter.css'
+import '../../styles/chat-rp-send-uni-adapter.css'
 import { apiRequest, fetchProfile, getToken } from '../../utils/auth.js'
 import { getApiBase } from '../../utils/config.js'
 import { assetBase } from '../../utils/i18n.js'
