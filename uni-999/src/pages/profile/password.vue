@@ -88,6 +88,7 @@ import {
 } from '../../utils/auth.js'
 import { localeState, t } from '../../utils/i18n.js'
 import { imDisconnect } from '../../utils/im.js'
+import '../../styles/hb.css'
 
 const locale = localeState()
 const mode = ref('old')

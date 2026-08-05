@@ -7,29 +7,34 @@
       <text class="profile-sub-spacer" />
     </view>
     <view class="profile-sub-body hb-sub">
-    <view class="match-card">
-      <view class="wallet-bal-line">可提现红宝：<strong>￥{{ balanceText }}</strong></view>
+    <view class="match-card profile-card">
+      <view class="profile-meta-line">可提现红宝：<strong>￥{{ balanceText }}</strong></view>
+      <view class="profile-meta-line" v-if="frozenText">冻结金额：<strong>￥{{ frozenText }}</strong></view>
+      <view class="profile-meta-line" v-if="turnoverText">累计流水：￥{{ turnoverText }}</view>
       <view class="profile-meta-line" v-if="turnHint">{{ turnHint }}</view>
 
-      <view
-        v-if="groups.length > 1"
-        class="wallet-partition-tabs"
-        :class="{ 'is-3': groups.length >= 3 }"
-      >
+      <view class="profile-field">
+        <text class="lab">选择提现通道</text>
         <view
-          v-for="g in groups"
-          :key="g.key"
-          class="wallet-partition-tab"
-          :class="{ active: activeKey === g.key }"
-          @click="selectGroup(g.key)"
+          v-if="groups.length > 1 && !coopCompact"
+          class="wallet-partition-tabs"
+          :class="{ 'is-3': groups.length >= 3 }"
         >
-          {{ g.name }}
+          <view
+            v-for="g in groups"
+            :key="g.key"
+            class="wallet-partition-tab"
+            :class="{ active: activeKey === g.key }"
+            @click="selectGroup(g.key)"
+          >
+            {{ g.name }}
+          </view>
         </view>
       </view>
 
-      <view class="wallet-channel-list is-grid" v-if="activeChannels.length">
+      <view class="wallet-channel-list is-grid" v-if="visibleChannels.length && !coopCompact">
         <view
-          v-for="ch in activeChannels"
+          v-for="ch in visibleChannels"
           :key="ch.id"
           class="wallet-channel-item"
           :class="{ active: selectedId === Number(ch.id) }"
@@ -53,7 +58,16 @@
           </view>
         </view>
       </view>
-      <view class="wallet-channel-empty" v-else-if="!loading">暂无可用通道，请联系客服</view>
+      <view
+        v-if="hiddenMoreCount > 0 && !coopCompact"
+        class="wallet-channel-more-btn"
+        @click="showMore = !showMore"
+      >
+        {{ showMore ? '收起' : ('更多通道 · ' + hiddenMoreCount) }}
+      </view>
+      <view class="wallet-channel-empty" v-else-if="!loading && !visibleChannels.length && !coopCompact">
+        暂无可用通道，请联系客服
+      </view>
 
       <view class="wallet-amount-panel" v-if="selected">
         <view v-if="isCoop" class="wallet-bind-panel">
@@ -80,32 +94,32 @@
           </template>
           <template v-else>
             <view class="profile-meta-line">
-              请先为该钱包绑定收款地址
+              请先为该钱包绑定收款地址，每种钱包类型独立绑定，地址不可重复使用。
               <text class="wallet-go-payee-btn" @click="goPayee">钱包地址</text>
             </view>
           </template>
         </view>
 
-        <view v-else class="wallet-bind-panel">
+        <view v-else class="wallet-conventional-panel">
           <view class="profile-field" v-if="!isUsdt">
-            <text class="lab">收款人</text>
-            <input class="hb-input" v-model="payeeName" placeholder="真实姓名" />
+            <text class="lab">收款人姓名</text>
+            <input class="hb-input" v-model="payeeName" placeholder="真实姓名 / 支付宝实名" />
           </view>
           <view class="profile-field">
-            <text class="lab">{{ isUsdt ? 'USDT 收款地址' : '账号' }}</text>
+            <text class="lab">{{ isUsdt ? 'USDT 收款地址' : '收款账号 / 钱包地址' }}</text>
             <input
               class="hb-input"
               v-model="payeeAccount"
-              :placeholder="isUsdt ? 'USDT 收款地址（TRC20）' : '钱包地址 / 银行卡号'"
+              :placeholder="isUsdt ? 'USDT 收款地址（TRC20）' : '钱包地址 / 银行卡号 / 支付宝账号'"
             />
           </view>
           <view class="profile-field" v-if="!isUsdt">
-            <text class="lab">银行/通道</text>
-            <input class="hb-input" v-model="payeeBank" placeholder="可选" />
+            <text class="lab">银行名称</text>
+            <input class="hb-input" v-model="payeeBank" placeholder="钱包通道可填通道名；支付宝填：支付宝" />
           </view>
         </view>
 
-        <view v-if="canEnterAmount">
+        <view v-if="canEnterAmount" class="wallet-amount-gate">
           <view class="profile-field">
             <text class="lab">提现红宝金额（元）</text>
             <input class="hb-input" type="digit" v-model="amount" :placeholder="amountPh" />
@@ -155,6 +169,7 @@ import TopBar from '../../components/TopBar.vue'
 import { onShow } from '@dcloudio/uni-app'
 import { apiRequest, getToken } from '../../utils/auth.js'
 import {
+  CHANNEL_GRID_VISIBLE,
   channelIconUrl,
   clearWalletCache,
   findChannel,
@@ -165,6 +180,7 @@ import {
   loadProfileLite,
   loadWalletBootstrap,
   money,
+  organizeWalletChannels,
   shortChannelName,
   submitWithdraw,
   turnoverHint,
@@ -191,6 +207,7 @@ const payeeName = ref('')
 const payeeAccount = ref('')
 const payeeBank = ref('')
 const platform = ref('555')
+const showMore = ref(false)
 
 const pwdVisible = ref(false)
 const pwd = ref('')
@@ -203,6 +220,21 @@ const groups = computed(() => groupByPartitions(channels.value, partitions.value
 const activeChannels = computed(() => {
   const g = groups.value.find((x) => x.key === activeKey.value)
   return (g && g.channels) || []
+})
+const organized = computed(() => organizeWalletChannels(activeChannels.value))
+const orderedChannels = computed(() => organized.value.pinned.concat(organized.value.more))
+const visibleChannels = computed(() => {
+  const all = orderedChannels.value
+  if (showMore.value || all.length <= CHANNEL_GRID_VISIBLE) return all
+  return all.slice(0, CHANNEL_GRID_VISIBLE)
+})
+const hiddenMoreCount = computed(() => {
+  const n = orderedChannels.value.length - CHANNEL_GRID_VISIBLE
+  return n > 0 && !showMore.value ? n : 0
+})
+const coopCompact = computed(() => {
+  const list = orderedChannels.value
+  return list.length === 1 && isOnlineCoopChannel(list[0])
 })
 const selected = computed(() => findChannel(channels.value, selectedId.value))
 const isCoop = computed(() => isOnlineCoopChannel(selected.value))
@@ -239,6 +271,16 @@ const balanceText = computed(() => {
   const n = i.hongbao != null ? i.hongbao : i.balance
   return money(n || 0)
 })
+const frozenText = computed(() => {
+  const i = info.value || {}
+  const n = Number(i.hongbao_frozen != null ? i.hongbao_frozen : i.frozen || 0)
+  return n > 0 ? money(n) : ''
+})
+const turnoverText = computed(() => {
+  const i = info.value || {}
+  if (i.turnover == null && i.total_turnover == null) return ''
+  return money(i.turnover != null ? i.turnover : i.total_turnover)
+})
 const turnHint = computed(() => turnoverHint(info.value))
 const amountPh = computed(() => {
   const ch = selected.value
@@ -249,7 +291,7 @@ const amountPh = computed(() => {
   if (min > 0) return '最低 ' + money(min)
   return '请输入金额'
 })
-const fxText = computed(() => fxHintText(selected.value, amount.value))
+const fxText = computed(() => fxHintText(selected.value, amount.value, { forWithdraw: true }))
 const canEnterAmount = computed(() => {
   if (!selected.value) return false
   if (isCoop.value) return !!mainUid.value
@@ -261,6 +303,9 @@ const canSubmit = computed(() => canEnterAmount.value && Number(amount.value) > 
 const hasPayPassword = computed(() => !!(info.value && info.value.has_pay_password))
 const verifyAddr = computed(() => {
   if (isWalletBind.value && bind.value) return bind.value.account_no || ''
+  if (!isCoop.value && !isWalletBind.value) {
+    return String(payeeAccount.value || '').trim()
+  }
   return ''
 })
 
@@ -279,8 +324,8 @@ function bindOf(ch) {
 }
 function selectGroup(key) {
   activeKey.value = key
-  selectedId.value = 0
-  amount.value = ''
+  showMore.value = false
+  autoPick()
 }
 function selectChannel(ch) {
   selectedId.value = Number(ch.id)
@@ -306,11 +351,20 @@ function selectChannel(ch) {
     }
   }
 }
+function autoPick() {
+  const list = orderedChannels.value
+  if (list.length) {
+    selectChannel(list[0])
+  } else {
+    selectedId.value = 0
+  }
+}
 function onPlatformPick(e) {
   const i = Number(e.detail.value) || 0
   platform.value = platforms.value[i] || '555'
 }
 function goPayee() {
+  uni.showToast({ title: '请先绑定钱包地址', icon: 'none' })
   uni.navigateTo({ url: '/pages/wallet/payee' })
 }
 
@@ -470,6 +524,7 @@ async function refresh(force = false) {
     partitions.value = w.partitions || []
     binds.value = w.binds || {}
     if (!activeKey.value && groups.value.length) activeKey.value = groups.value[0].key
+    if (!selectedId.value) autoPick()
   } catch (e) {
     error.value = (e && e.message) || '加载失败'
   } finally {

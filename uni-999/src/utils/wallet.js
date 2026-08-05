@@ -259,13 +259,19 @@ export function groupByPartitions(channels, partitions) {
   const groups = parts
     .map((p) => {
       const code = String(p.code || '')
-      const chs = list.filter((c) => {
-        const match =
-          String(c.partition_code || '') === code ||
-          (code === 'online_coop' && isOnlineCoopChannel(c))
-        if (match) used.add(Number(c.id))
-        return match
-      })
+      // 优先用分区自带 channels（与 888 一致）
+      let chs = Array.isArray(p.channels) && p.channels.length ? p.channels.slice() : null
+      if (!chs) {
+        chs = list.filter((c) => {
+          const match =
+            String(c.partition_code || '') === code ||
+            (code === 'online_coop' && isOnlineCoopChannel(c))
+          if (match) used.add(Number(c.id))
+          return match
+        })
+      } else {
+        chs.forEach((c) => used.add(Number(c.id)))
+      }
       return {
         key: code || String(p.id || p.name || 'p'),
         name: p.name || code || '通道',
@@ -280,6 +286,106 @@ export function groupByPartitions(channels, partitions) {
   }
   return groups.length ? groups : [{ key: 'all', name: '全部', code: '', channels: list }]
 }
+
+/** 与 888 一致的固定快捷金额 */
+export const RECHARGE_QUICK_AMOUNTS = [50, 100, 500, 1000, 5000, 10000, 50000, 100000]
+
+export function formatQuickAmtLabel(n) {
+  const x = Number(n) || 0
+  return String(Math.round(x)).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+}
+
+export function rechargeQuickAmounts(ch) {
+  const raw = ch && (ch.quick_amounts || ch.amounts || ch.fixed_amounts)
+  let list = []
+  if (Array.isArray(raw) && raw.length) {
+    list = raw.map(Number).filter((n) => n > 0).slice(0, 8)
+  }
+  if (!list.length) list = RECHARGE_QUICK_AMOUNTS.slice()
+  return list
+}
+
+export function isQuickAmtDisabled(ch, amt) {
+  const a = Number(amt) || 0
+  if (!ch || !(a > 0)) return false
+  const min = Number(ch.min_amount || 0)
+  const max = Number(ch.max_amount || 0)
+  if (min > 0 && a < min) return true
+  if (max > 0 && a > max) return true
+  return false
+}
+
+const WALLET_PIN_ORDER = ['no', '234', '808', '988', 'k豆', 'jd', 'c币', 'ok', 'to', 'go', '万币']
+const WALLET_PIN_ALIAS = {
+  nopay: 'no',
+  kdou: 'k豆',
+  cbi: 'c币',
+  jdpay: 'jd',
+  okpay: 'ok',
+  topay: 'to',
+  gopay: 'go',
+  wanbi: '万币',
+  '988pay': '988',
+  '808pay': '808',
+  '234pay': '234',
+}
+
+function walletChannelKey(name, paymentChannel) {
+  let code = String(paymentChannel || '').replace(/\s+/g, '')
+  const codeQuick = /_quick$/i.test(code)
+  if (code) {
+    code = code.replace(/_quick$/i, '')
+    let codeKey = code.toLowerCase()
+    if (WALLET_PIN_ALIAS[codeKey]) codeKey = WALLET_PIN_ALIAS[codeKey]
+    if (/^\d+$/.test(codeKey) || WALLET_PIN_ORDER.indexOf(codeKey) >= 0) {
+      return { key: codeKey, quick: codeQuick }
+    }
+    let stripped = codeKey.replace(/pay$/i, '')
+    if (WALLET_PIN_ALIAS[stripped]) stripped = WALLET_PIN_ALIAS[stripped]
+    if (WALLET_PIN_ORDER.indexOf(stripped) >= 0) {
+      return { key: stripped, quick: codeQuick }
+    }
+  }
+  let s = String(name || '').replace(/\s+/g, '')
+  const quick = codeQuick || /快捷|_quick/i.test(s)
+  s = s.replace(/快捷(支付)?/g, '').replace(/钱包/g, '').replace(/支付$/g, '').replace(/pay$/i, '')
+  let key = s.toLowerCase()
+  if (WALLET_PIN_ALIAS[key]) key = WALLET_PIN_ALIAS[key]
+  return { key, quick }
+}
+
+function walletPinIndex(ch) {
+  const info = walletChannelKey(ch && ch.name, ch && ch.payment_channel)
+  if (info.quick) return -1
+  const handler = String((ch && ch.handler) || '').toLowerCase()
+  const mixed =
+    String((ch && ch.name) || '') +
+    ' ' +
+    String((ch && ch.payment_channel) || '') +
+    ' ' +
+    String((ch && ch.wallet_type) || '')
+  if (handler === 'bs' && /usdt/i.test(mixed)) return 0.5
+  return WALLET_PIN_ORDER.indexOf(info.key)
+}
+
+/** 置顶排序：返回 { pinned, more }，与 888 organizeWalletChannels 一致 */
+export function organizeWalletChannels(list) {
+  const pinned = []
+  const more = []
+  ;(list || []).forEach((ch, idx) => {
+    const pin = walletPinIndex(ch)
+    if (pin >= 0) pinned.push({ ch, pin, idx })
+    else more.push({ ch, idx })
+  })
+  pinned.sort((a, b) => (a.pin !== b.pin ? a.pin - b.pin : a.idx - b.idx))
+  more.sort((a, b) => a.idx - b.idx)
+  return {
+    pinned: pinned.map((x) => x.ch),
+    more: more.map((x) => x.ch),
+  }
+}
+
+export const CHANNEL_GRID_VISIBLE = 8
 
 export function isUsdtRechargeChannel(ch) {
   if (!ch) return false
@@ -297,14 +403,26 @@ export function isUsdtRechargeChannel(ch) {
   return /usdt/i.test(mix)
 }
 
-export function fxHintText(ch, amount) {
+/**
+ * @param {object} ch
+ * @param {number|string} amount
+ * @param {{ forWithdraw?: boolean }} [opts]
+ */
+export function fxHintText(ch, amount, opts) {
   if (!ch) return ''
   const rate = Number(ch.exchange_rate || 0)
   if (!(rate > 0)) return ''
   const a = Number(amount) || 0
+  const forWithdraw = !!(opts && opts.forWithdraw)
+  if (forWithdraw || (!isUsdtRechargeChannel(ch) && String(ch.handler || '').toLowerCase() === 'bs')) {
+    // 提现：人民币 ÷ 汇率 ≈ USDT（与 888 一致）
+    if (a > 0) {
+      return '约合 ' + money(a / rate) + ' USDT（汇率 ' + rate + '）'
+    }
+    return rate + ' CNY = 1 USDT'
+  }
   if (isUsdtRechargeChannel(ch)) {
     if (a > 0) {
-      // 提示用：输入 a U × rate ≈ 入账人民币（提交仍传 a U）
       return rate + ' CNY = 1 USDT，约合 ' + money(a * rate) + '人民币'
     }
     return rate + ' CNY = 1 USDT（输入 U 数量后显示约合人民币）'

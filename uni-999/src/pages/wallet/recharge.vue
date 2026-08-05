@@ -7,91 +7,112 @@
       <text class="profile-sub-spacer" />
     </view>
     <view class="profile-sub-body hb-sub">
-    <view class="match-card">
-      <view
-        v-if="groups.length > 1"
-        class="wallet-partition-tabs"
-        :class="{ 'is-3': groups.length >= 3 }"
-      >
-        <view
-          v-for="g in groups"
-          :key="g.key"
-          class="wallet-partition-tab"
-          :class="{ active: activeKey === g.key }"
-          @click="selectGroup(g.key)"
-        >
-          {{ g.name }}
-        </view>
-      </view>
-
-      <view class="wallet-channel-list is-grid" v-if="activeChannels.length">
-        <view
-          v-for="ch in activeChannels"
-          :key="ch.id"
-          class="wallet-channel-item"
-          :class="{ active: selectedId === Number(ch.id) }"
-          @click="selectChannel(ch)"
-        >
-          <image
-            v-if="iconUrl(ch)"
-            class="wallet-channel-icon"
-            :src="iconUrl(ch)"
-            mode="aspectFill"
-          />
-          <view v-else class="wallet-channel-icon wallet-channel-icon--placeholder">
-            {{ shortName(ch).charAt(0) }}
-          </view>
-          <view class="wallet-channel-meta">
-            <text class="wallet-channel-name">{{ shortName(ch) }}</text>
-          </view>
-        </view>
-      </view>
-      <view class="wallet-channel-empty" v-else-if="!loading">暂无可用通道，请联系客服</view>
-
-      <view class="wallet-amount-panel" v-if="selected">
+      <view class="match-card profile-card">
         <view class="profile-field">
-          <text class="lab">{{ amountLabel }}</text>
-          <view class="wallet-quick-amounts" v-if="quickAmounts.length">
+          <text class="lab">选择充值通道</text>
+          <view
+            v-if="groups.length > 1"
+            class="wallet-partition-tabs"
+            :class="{ 'is-3': groups.length >= 3 }"
+          >
             <view
-              v-for="q in quickAmounts"
-              :key="q"
-              class="wallet-quick-amt"
-              :class="{ active: String(amount) === String(q) }"
-              @click="amount = String(q)"
+              v-for="g in groups"
+              :key="g.key"
+              class="wallet-partition-tab"
+              :class="{ active: activeKey === g.key }"
+              @click="selectGroup(g.key)"
             >
-              {{ q }}
+              {{ g.name }}
             </view>
           </view>
-          <input class="hb-input" type="digit" v-model="amount" :placeholder="amountPh" />
-          <view class="profile-meta-line wallet-fx-hint" v-if="fxText">{{ fxText }}</view>
         </view>
-        <button class="btn-uid-submit" :disabled="submitting" @click="onSubmit">
-          {{ submitting ? '提交中…' : '确认充值' }}
-        </button>
-      </view>
-    </view>
 
-    <view class="wallet-ledger-empty" v-if="loading">加载中…</view>
-    <view class="wallet-warn" v-if="error" style="text-align:center;margin-top:12px">{{ error }}</view>
+        <view class="wallet-channel-list is-grid" v-if="visibleChannels.length">
+          <view
+            v-for="ch in visibleChannels"
+            :key="ch.id"
+            class="wallet-channel-item"
+            :class="{ active: selectedId === Number(ch.id) }"
+            @click="selectChannel(ch)"
+          >
+            <image
+              v-if="iconUrl(ch)"
+              class="wallet-channel-icon"
+              :src="iconUrl(ch)"
+              mode="aspectFill"
+            />
+            <view v-else class="wallet-channel-icon wallet-channel-icon--placeholder">
+              {{ shortName(ch).charAt(0) }}
+            </view>
+            <view class="wallet-channel-meta">
+              <text class="wallet-channel-name">{{ shortName(ch) }}</text>
+            </view>
+          </view>
+        </view>
+        <view
+          v-if="hiddenMoreCount > 0"
+          class="wallet-channel-more-btn"
+          :class="{ 'is-open': showMore }"
+          @click="showMore = !showMore"
+        >
+          {{ showMore ? '收起' : ('更多通道 · ' + hiddenMoreCount) }}
+        </view>
+        <view class="wallet-channel-empty" v-else-if="!loading && !visibleChannels.length">
+          暂无可用通道，请联系客服
+        </view>
+
+        <view id="profileRechargeForm" class="wallet-amount-panel" v-if="selected">
+          <view class="profile-field">
+            <text class="lab">{{ amountLabel }}</text>
+            <view class="wallet-quick-amounts" v-if="quickAmounts.length">
+              <view
+                v-for="q in quickAmounts"
+                :key="q"
+                class="wallet-quick-amt"
+                :class="{
+                  active: String(amount) === String(q),
+                  'is-disabled': isQuickDisabled(q),
+                }"
+                @click="pickQuick(q)"
+              >
+                {{ formatQuick(q) }}
+              </view>
+            </view>
+            <input class="hb-input" type="digit" v-model="amount" :placeholder="amountPh" />
+            <view class="profile-meta-line wallet-fx-hint" v-if="fxText">{{ fxText }}</view>
+          </view>
+          <button class="btn-uid-submit" :disabled="submitting" @click="onSubmit">
+            {{ submitting ? '提交中…' : '确认充值' }}
+          </button>
+        </view>
+      </view>
+
+      <view class="wallet-ledger-empty" v-if="loading">加载中…</view>
+      <view class="wallet-warn" v-if="error" style="text-align:center;margin-top:12px">{{ error }}</view>
     </view>
   </view>
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import TopBar from '../../components/TopBar.vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getToken } from '../../utils/auth.js'
 import {
+  CHANNEL_GRID_VISIBLE,
   channelIconUrl,
   clearWalletCache,
   findChannel,
+  formatQuickAmtLabel,
   fxHintText,
   groupByPartitions,
+  isQuickAmtDisabled,
   isUsdtRechargeChannel,
   loadWalletBootstrap,
   money,
   openPayResult,
+  organizeWalletChannels,
+  rechargeQuickAmounts,
   shortChannelName,
   submitRecharge,
   validateChannelAmount,
@@ -110,11 +131,23 @@ const activeKey = ref('')
 const selectedId = ref(0)
 const amount = ref('')
 const submitting = ref(false)
+const showMore = ref(false)
 
 const groups = computed(() => groupByPartitions(channels.value, partitions.value))
 const activeChannels = computed(() => {
   const g = groups.value.find((x) => x.key === activeKey.value)
   return (g && g.channels) || []
+})
+const organized = computed(() => organizeWalletChannels(activeChannels.value))
+const orderedChannels = computed(() => organized.value.pinned.concat(organized.value.more))
+const visibleChannels = computed(() => {
+  const all = orderedChannels.value
+  if (showMore.value || all.length <= CHANNEL_GRID_VISIBLE) return all
+  return all.slice(0, CHANNEL_GRID_VISIBLE)
+})
+const hiddenMoreCount = computed(() => {
+  const n = orderedChannels.value.length - CHANNEL_GRID_VISIBLE
+  return n > 0 && !showMore.value ? n : 0
 })
 const selected = computed(() => findChannel(channels.value, selectedId.value))
 const amountLabel = computed(() =>
@@ -130,13 +163,7 @@ const amountPh = computed(() => {
   return '请输入金额'
 })
 const fxText = computed(() => fxHintText(selected.value, amount.value))
-const quickAmounts = computed(() => {
-  const ch = selected.value
-  if (!ch) return []
-  const raw = ch.quick_amounts || ch.amounts || ch.fixed_amounts || []
-  if (Array.isArray(raw)) return raw.map(Number).filter((n) => n > 0).slice(0, 8)
-  return []
-})
+const quickAmounts = computed(() => rechargeQuickAmounts(selected.value))
 
 function shortName(ch) {
   return shortChannelName(ch)
@@ -144,15 +171,38 @@ function shortName(ch) {
 function iconUrl(ch) {
   return channelIconUrl(ch)
 }
+function formatQuick(q) {
+  return formatQuickAmtLabel(q)
+}
+function isQuickDisabled(q) {
+  return isQuickAmtDisabled(selected.value, q)
+}
+function pickQuick(q) {
+  if (isQuickDisabled(q)) return
+  amount.value = String(q)
+}
 function selectGroup(key) {
   activeKey.value = key
-  selectedId.value = 0
-  amount.value = ''
+  showMore.value = false
+  autoPick()
 }
 function selectChannel(ch) {
   selectedId.value = Number(ch.id)
   amount.value = ''
 }
+function autoPick() {
+  const list = orderedChannels.value
+  if (list.length) {
+    selectedId.value = Number(list[0].id)
+    amount.value = ''
+  } else {
+    selectedId.value = 0
+  }
+}
+
+watch(activeKey, () => {
+  showMore.value = false
+})
 
 async function onSubmit() {
   const ch = selected.value
@@ -161,7 +211,6 @@ async function onSubmit() {
     uni.showToast({ title: err, icon: 'none' })
     return
   }
-  // USDT：输入/提交均为 U（如 50）；入账人民币由网关回调按汇率换算（如 50×7=350）
   const submitAmount = Number(amount.value)
   submitting.value = true
   try {
@@ -190,6 +239,7 @@ async function refresh() {
     channels.value = r.list || []
     partitions.value = r.partitions || []
     if (!activeKey.value && groups.value.length) activeKey.value = groups.value[0].key
+    autoPick()
   } catch (e) {
     error.value = (e && e.message) || '加载失败'
   } finally {
