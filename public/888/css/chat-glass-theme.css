@@ -208,6 +208,25 @@ body.tab-messages {
   display: none !important;
 }
 
+#tabMessages .chat-conv-ptr-host {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  background: #fff !important;
+}
+
+#tabMessages .chat-conv-ptr {
+  background: #fff !important;
+  color: #9a8574 !important;
+}
+
+#tabMessages .chat-conv-ptr.ready,
+#tabMessages .chat-conv-ptr.refreshing {
+  color: #c61114 !important;
+}
+
 #tabMessages .chat-conv-list {
   width: 100% !important;
   max-width: none !important;

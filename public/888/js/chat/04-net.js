@@ -289,6 +289,154 @@
     setConnStatus(chatT('chat_conn_off'), '');
   }
 
+  function ptrCopy(key, fallback) {
+    var t = chatT(key);
+    return (!t || t === key) ? fallback : t;
+  }
+
+  function ensureConvPtrDom() {
+    var list = $('chatConvList');
+    if (!list) return null;
+    var host = $('chatConvPtrHost');
+    if (!host) {
+      host = document.createElement('div');
+      host.className = 'chat-conv-ptr-host';
+      host.id = 'chatConvPtrHost';
+      if (list.parentNode) {
+        list.parentNode.insertBefore(host, list);
+        host.appendChild(list);
+      }
+    }
+    var ptr = $('chatConvPtr');
+    if (!ptr) {
+      ptr = document.createElement('div');
+      ptr.className = 'chat-conv-ptr';
+      ptr.id = 'chatConvPtr';
+      ptr.setAttribute('aria-hidden', 'true');
+      ptr.innerHTML =
+        '<div class="chat-conv-ptr-inner">' +
+          '<span class="chat-conv-ptr-spinner" aria-hidden="true"></span>' +
+          '<span class="chat-conv-ptr-text" id="chatConvPtrText">' + escapeHtml(ptrCopy('chat_ptr_pull', '下拉刷新')) + '</span>' +
+        '</div>';
+      host.insertBefore(ptr, list);
+    }
+    return { host: host, list: list, ptr: ptr, text: $('chatConvPtrText') };
+  }
+
+  function bindConvPullRefresh(list) {
+    if (!list || list._ptrBound) return;
+    list._ptrBound = true;
+    var nodes = ensureConvPtrDom();
+    if (!nodes || !nodes.ptr) return;
+    var ptr = nodes.ptr;
+    var textEl = nodes.text;
+    var THRESHOLD = 62;
+    var MAX = 92;
+    var st = null;
+
+    function setPtr(dist, mode) {
+      dist = Math.max(0, Math.min(MAX, dist | 0));
+      ptr.style.height = dist + 'px';
+      ptr.classList.toggle('ready', mode === 'ready');
+      ptr.classList.toggle('refreshing', mode === 'refreshing');
+      ptr.setAttribute('aria-hidden', dist > 0 || mode === 'refreshing' ? 'false' : 'true');
+      if (textEl) {
+        if (mode === 'refreshing') textEl.textContent = ptrCopy('chat_ptr_refreshing', '刷新中…');
+        else if (mode === 'ready') textEl.textContent = ptrCopy('chat_ptr_release', '松开刷新');
+        else textEl.textContent = ptrCopy('chat_ptr_pull', '下拉刷新');
+      }
+    }
+
+    function resetPtr(animate) {
+      if (animate) ptr.style.transition = 'height .22s ease';
+      else ptr.style.transition = '';
+      setPtr(0, 'pull');
+      ptr.classList.remove('ready', 'refreshing');
+      if (animate) {
+        setTimeout(function () {
+          if (ptr) ptr.style.transition = '';
+        }, 240);
+      }
+    }
+
+    list.addEventListener('touchstart', function (ev) {
+      if (st && st.refreshing) return;
+      if ((list.scrollTop | 0) > 0) {
+        st = null;
+        return;
+      }
+      var t = ev.touches && ev.touches[0];
+      if (!t) return;
+      st = {
+        startY: t.clientY,
+        startX: t.clientX,
+        pulling: false,
+        axis: null,
+        dist: 0,
+        refreshing: false
+      };
+    }, { passive: true });
+
+    list.addEventListener('touchmove', function (ev) {
+      if (!st || st.refreshing) return;
+      if ((list.scrollTop | 0) > 0 && !st.pulling) {
+        st = null;
+        return;
+      }
+      var t = ev.touches && ev.touches[0];
+      if (!t) return;
+      var dy = t.clientY - st.startY;
+      var dx = t.clientX - st.startX;
+      if (!st.axis) {
+        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+        // 横向交给左滑删除
+        if (Math.abs(dx) >= Math.abs(dy)) {
+          st = null;
+          return;
+        }
+        st.axis = 'y';
+      }
+      if (dy <= 0) {
+        if (st.pulling) setPtr(0, 'pull');
+        st.pulling = false;
+        st.dist = 0;
+        return;
+      }
+      var dist = Math.min(MAX, Math.round(dy * 0.42));
+      st.pulling = true;
+      st.dist = dist;
+      setPtr(dist, dist >= THRESHOLD ? 'ready' : 'pull');
+      if (dist > 6) {
+        try { ev.preventDefault(); } catch (ePrev) {}
+      }
+    }, { passive: false });
+
+    function endPtr() {
+      if (!st || st.refreshing) return;
+      var cur = st;
+      st = null;
+      if (!cur.pulling) {
+        resetPtr(true);
+        return;
+      }
+      if (cur.dist >= THRESHOLD) {
+        st = { refreshing: true };
+        setPtr(48, 'refreshing');
+        Promise.resolve(refreshList(true))
+          .catch(function () {})
+          .then(function () {
+            st = null;
+            resetPtr(true);
+          });
+        return;
+      }
+      resetPtr(true);
+    }
+
+    list.addEventListener('touchend', endPtr);
+    list.addEventListener('touchcancel', endPtr);
+  }
+
   function bindUi() {
     ensureChatOverlays();
     bindAudioUnlock();
@@ -448,6 +596,8 @@
 
       list.addEventListener('pointerup', endSwipe);
       list.addEventListener('pointercancel', endSwipe);
+
+      bindConvPullRefresh(list);
 
       list.addEventListener('contextmenu', function (ev) {
         var btn = ev.target.closest('.chat-conv-item');

@@ -419,6 +419,58 @@ body.tab-messages .bottom-action-bar {
 }
 
 /* ---------- Conversation list ---------- */
+.chat-conv-ptr-host {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  background: var(--color-bg-card);
+}
+.chat-conv-ptr {
+  flex: 0 0 auto;
+  height: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: #fff;
+  color: #9a8574;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  will-change: height;
+}
+.chat-conv-ptr-inner {
+  height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 12px;
+  box-sizing: border-box;
+}
+.chat-conv-ptr-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(198, 17, 20, 0.22);
+  border-top-color: #c61114;
+  box-sizing: border-box;
+  opacity: 0;
+  flex-shrink: 0;
+}
+.chat-conv-ptr.ready {
+  color: #c61114;
+}
+.chat-conv-ptr.refreshing .chat-conv-ptr-spinner {
+  opacity: 1;
+  animation: chat-conv-ptr-spin 0.75s linear infinite;
+}
+@keyframes chat-conv-ptr-spin {
+  to { transform: rotate(360deg); }
+}
 .chat-conv-list {
   background: var(--color-bg-card);
   border: none;

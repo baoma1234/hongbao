@@ -411,6 +411,9 @@ return array (
   'home_quick_messages_sub' => '私聊 · 群聊 · 红包',
   'chat_title' => '红宝社区',
   'chat_empty' => '登录后自动连接消息服务',
+  'chat_ptr_pull' => '下拉刷新',
+  'chat_ptr_release' => '松开刷新',
+  'chat_ptr_refreshing' => '刷新中…',
   'chat_empty_no_conv' => '暂无会话
 客服管理员会自动出现在此列表',
   'chat_tab_chat' => '聊天',

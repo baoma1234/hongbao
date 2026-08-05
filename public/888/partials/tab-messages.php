@@ -66,8 +66,16 @@
                         </div>
 
                         <div class="chat-home-panel" id="chatHomePanelChat">
-                            <div class="chat-conv-list" id="chatConvList">
-                                <div class="chat-empty" data-copy="chat_empty">登录后自动连接消息服务</div>
+                            <div class="chat-conv-ptr-host" id="chatConvPtrHost">
+                                <div class="chat-conv-ptr" id="chatConvPtr" aria-hidden="true">
+                                    <div class="chat-conv-ptr-inner">
+                                        <span class="chat-conv-ptr-spinner" aria-hidden="true"></span>
+                                        <span class="chat-conv-ptr-text" id="chatConvPtrText" data-copy="chat_ptr_pull">下拉刷新</span>
+                                    </div>
+                                </div>
+                                <div class="chat-conv-list" id="chatConvList">
+                                    <div class="chat-empty" data-copy="chat_empty">登录后自动连接消息服务</div>
+                                </div>
                             </div>
                         </div>
 
