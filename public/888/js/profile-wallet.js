@@ -957,7 +957,7 @@
     }
     showAmountPanel(type, sel);
   }
-  var ledgerState = { page: 1, loading: false, hasMore: false, list: [] };
+  var ledgerState = { page: 1, loading: false, hasMore: false, list: [], category: 'all' };
 
   function wt(key, fallback, extra) {
     var tpl = fallback || key;
@@ -1035,13 +1035,42 @@
     return '';
   }
 
-  function ledgerTypeLabel(type) {
+  function ledgerTypeLabel(type, item) {
     type = String(type || '');
     if (!type) return wt('wallet_ledger_other', '其他');
+    if (item && item.type_label) return String(item.type_label);
     var key = 'wallet_ledger_type_' + type;
     var translated = wt(key, '');
-    if (translated && translated !== key) return translated;
+    if (translated && translated !== key && translated !== '') return translated;
     return wt('wallet_ledger_other', '其他');
+  }
+
+  function syncLedgerFilterUi() {
+    var box = document.getElementById('profileLedgerFilters');
+    if (!box) return;
+    var cat = ledgerState.category || 'all';
+    Array.prototype.forEach.call(box.querySelectorAll('[data-ledger-cat]'), function (btn) {
+      var on = String(btn.getAttribute('data-ledger-cat') || '') === cat;
+      btn.classList.toggle('is-on', on);
+    });
+  }
+
+  function bindLedgerFilters() {
+    var box = document.getElementById('profileLedgerFilters');
+    if (!box || box._bound) return;
+    box._bound = true;
+    box.addEventListener('click', function (ev) {
+      var btn = ev.target && ev.target.closest ? ev.target.closest('[data-ledger-cat]') : null;
+      if (!btn) return;
+      var cat = String(btn.getAttribute('data-ledger-cat') || 'all');
+      if (cat === (ledgerState.category || 'all')) return;
+      ledgerState.category = cat;
+      syncLedgerFilterUi();
+      ledgerState.list = [];
+      var listBox = document.getElementById('profileLedgerList');
+      if (listBox) listBox.innerHTML = '<div class="wallet-ledger-empty">' + escapeHtml(wt('wallet_loading', '加载中…')) + '</div>';
+      fetchLedger(1, false);
+    });
   }
 
   function renderLedgerList() {
@@ -1049,7 +1078,10 @@
     var moreBtn = document.getElementById('profileLedgerMoreBtn');
     if (!box) return;
     if (!ledgerState.list.length) {
-      box.innerHTML = '<div class="wallet-ledger-empty">' + escapeHtml(wt('wallet_ledger_empty', '暂无资金流水')) + '</div>';
+      var emptyTip = (ledgerState.category === 'rebate')
+        ? '暂无红包返佣流水'
+        : wt('wallet_ledger_empty', '暂无资金流水');
+      box.innerHTML = '<div class="wallet-ledger-empty">' + escapeHtml(emptyTip) + '</div>';
       if (moreBtn) moreBtn.style.display = 'none';
       return;
     }
@@ -1083,14 +1115,11 @@
         subParts.push(wt('wallet_unit_hongbao', '红宝') + ' ' + money(afterHb));
       }
       var typeStr = String(item.type || '');
-      var titleText = '';
-      var isRebate = /rebate/i.test(typeStr);
-      if (!isRebate && item.remark && typeStr.indexOf('red_packet_') === 0) {
-        titleText = String(item.remark);
-        // 备注已作标题时，副标题不再重复备注
+      var titleText = ledgerTypeLabel(item.type, item) || wt('wallet_ledger_other', '其他');
+      // 返佣类：标题用类型名，副标题保留备注（含旧「群聊管理津贴」文案）
+      if (/rebate/i.test(typeStr) && item.remark) {
         subParts = subParts.filter(function (p) { return p !== item.remark; });
-      } else {
-        titleText = ledgerTypeLabel(item.type) || item.type_label || wt('wallet_ledger_other', '其他');
+        subParts.unshift(String(item.remark));
       }
       return (
         '<div class="wallet-ledger-item">' +
@@ -1119,7 +1148,11 @@
     ledgerState.loading = true;
     var moreBtn = document.getElementById('profileLedgerMoreBtn');
     if (moreBtn && page > 1) moreBtn.disabled = true;
-    return api('walletledger', { page: page, limit: 20 }).then(function (data) {
+    var body = { page: page, limit: 20 };
+    if (ledgerState.category && ledgerState.category !== 'all') {
+      body.category = ledgerState.category;
+    }
+    return api('walletledger', body).then(function (data) {
       var list = (data && data.list) || [];
       ledgerState.page = (data && data.page) || page;
       ledgerState.hasMore = !!(data && data.has_more);
@@ -1252,11 +1285,13 @@
     var pane = document.getElementById(id);
     if (!pane) return;
     if (which === 'ledger') {
-      ledgerState = { page: 1, loading: false, hasMore: false, list: [] };
+      ledgerState = { page: 1, loading: false, hasMore: false, list: [], category: 'all' };
       var box = document.getElementById('profileLedgerList');
       if (box) box.innerHTML = '<div class="wallet-ledger-empty">' + escapeHtml(wt('wallet_loading', '加载中…')) + '</div>';
       var moreBtn = document.getElementById('profileLedgerMoreBtn');
       if (moreBtn) moreBtn.style.display = 'none';
+      bindLedgerFilters();
+      syncLedgerFilterUi();
       pane.classList.add('open');
       pane.setAttribute('aria-hidden', 'false');
       if (typeof global.setBottomActionBarVisible === 'function') global.setBottomActionBarVisible(false);

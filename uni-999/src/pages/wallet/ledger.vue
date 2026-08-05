@@ -1,5 +1,18 @@
 <template>
   <view class="hb-sub">
+    <view class="wallet-ledger-filters">
+      <view
+        class="wallet-ledger-filter"
+        :class="{ 'is-on': category === 'all' }"
+        @click="setCategory('all')"
+      >全部</view>
+      <view
+        class="wallet-ledger-filter"
+        :class="{ 'is-on': category === 'rebate' }"
+        @click="setCategory('rebate')"
+      >红包返佣</view>
+    </view>
+
     <view class="wallet-ledger-list" v-if="list.length">
       <view v-for="item in list" :key="rowKey(item)" class="wallet-ledger-item">
         <view class="wallet-ledger-main">
@@ -19,7 +32,9 @@
         </view>
       </view>
     </view>
-    <view class="wallet-ledger-empty" v-else-if="!loading">暂无资金流水</view>
+    <view class="wallet-ledger-empty" v-else-if="!loading">
+      {{ category === 'rebate' ? '暂无红包返佣流水' : '暂无资金流水' }}
+    </view>
     <view class="wallet-ledger-empty" v-if="loading && !list.length">加载中…</view>
     <view class="wallet-warn" v-if="error" style="text-align:center">{{ error }}</view>
 
@@ -45,6 +60,7 @@ const page = ref(1)
 const hasMore = ref(false)
 const loading = ref(false)
 const error = ref('')
+const category = ref('all')
 
 function rowKey(item) {
   return item.id || item.createtime + '-' + (item.hongbao_change || item.balance_change)
@@ -73,7 +89,7 @@ async function load(p, append) {
   loading.value = true
   error.value = ''
   try {
-    const data = await fetchLedger(p, 20)
+    const data = await fetchLedger(p, 20, category.value)
     const rows = (data && data.list) || []
     page.value = (data && data.page) || p
     hasMore.value = !!(data && data.has_more)
@@ -91,8 +107,38 @@ function loadMore() {
   load(page.value + 1, true)
 }
 
+function setCategory(cat) {
+  if (category.value === cat) return
+  category.value = cat
+  list.value = []
+  load(1, false)
+}
+
 onShow(() => {
   list.value = []
   load(1, false)
 })
 </script>
+
+<style scoped>
+.wallet-ledger-filters {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 0 2px;
+}
+.wallet-ledger-filter {
+  border: 1px solid #e1e8ed;
+  background: #f5f6f8;
+  color: #555;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.wallet-ledger-filter.is-on {
+  background: #1a1a1a;
+  border-color: #1a1a1a;
+  color: #fff;
+}
+</style>

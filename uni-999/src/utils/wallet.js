@@ -111,8 +111,10 @@ export function getApprovedMainUid(profile) {
   return ''
 }
 
-export async function fetchLedger(page = 1, limit = 20) {
-  return apiRequest('walletledger', 'POST', { page, limit })
+export async function fetchLedger(page = 1, limit = 20, category = 'all') {
+  const body = { page, limit }
+  if (category && category !== 'all') body.category = category
+  return apiRequest('walletledger', 'POST', body)
 }
 
 export async function submitRecharge(channelId, amount) {

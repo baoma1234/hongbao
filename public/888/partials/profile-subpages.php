@@ -319,6 +319,10 @@
             <span class="profile-sub-spacer"></span>
         </div>
         <div class="profile-sub-body">
+            <div class="wallet-ledger-filters" id="profileLedgerFilters" role="tablist">
+                <button type="button" class="wallet-ledger-filter is-on" data-ledger-cat="all">全部</button>
+                <button type="button" class="wallet-ledger-filter" data-ledger-cat="rebate">红包返佣</button>
+            </div>
             <div class="wallet-ledger-list" id="profileLedgerList">
                 <div class="wallet-ledger-empty" data-copy="profile_ledger_loading">加载中…</div>
             </div>

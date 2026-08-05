@@ -507,11 +507,11 @@
     var rt = String(row.revenue_type || '');
     if (rt === 'dual') return '🔥 群主+推荐双重返佣';
     if (rt === 'invite') return '🔗 推荐发包返佣';
-    if (rt === 'owner') return '👥 群聊管理津贴';
+    if (rt === 'owner') return '群主返佣';
     var t = String(row.type || '');
     if (t === 'red_packet_dual_rebate_in') return '🔥 群主+推荐双重返佣';
     if (t === 'red_packet_invite_rebate_in' || t === 'red_packet_rebate') return '🔗 推荐发包返佣';
-    if (t === 'red_packet_agent_rebate_in') return '👥 群聊管理津贴';
+    if (t === 'red_packet_agent_rebate_in') return '群主返佣';
     return t || '结算';
   }
 

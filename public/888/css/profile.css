@@ -233,6 +233,27 @@
             cursor: pointer;
         }
 
+        .wallet-ledger-filters {
+            display: flex;
+            gap: 8px;
+            margin: 0 0 10px;
+            padding: 0 2px;
+        }
+        .wallet-ledger-filter {
+            border: 1px solid #E1E8ED;
+            background: #f5f6f8;
+            color: #555;
+            border-radius: 999px;
+            padding: 6px 14px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .wallet-ledger-filter.is-on {
+            background: #1a1a1a;
+            border-color: #1a1a1a;
+            color: #fff;
+        }
         .wallet-ledger-list {
             display: flex;
             flex-direction: column;

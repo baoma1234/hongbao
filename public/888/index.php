@@ -2,7 +2,7 @@
 /**
  * ?? H5 entrance
  */
-$assetVer = '202608051150';
+$assetVer = '202608051200';
 $v = htmlspecialchars($assetVer, ENT_QUOTES, 'UTF-8');
 ?><!DOCTYPE html>
 <html lang="zh-CN">

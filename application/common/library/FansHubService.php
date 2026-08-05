@@ -4041,7 +4041,7 @@ class FansHubService
             return '🔗 推荐发包返佣';
         }
         if ($revenueType === 'owner') {
-            return '👥 群聊管理津贴';
+            return '群主返佣';
         }
         return $labelMap[$type] ?? ($labels[$type] ?? $type);
     }

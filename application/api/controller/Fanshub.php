@@ -668,7 +668,10 @@ class Fanshub extends Api
     {
         $page = (int)$this->request->post('page', 1);
         $limit = (int)$this->request->post('limit', 20);
-        $this->success('ok', \app\common\library\FansHubWallet::ledgerList($this->auth->id, $page, $limit));
+        $category = trim((string)$this->request->post('category', ''));
+        $this->success('ok', \app\common\library\FansHubWallet::ledgerList($this->auth->id, $page, $limit, [
+            'category' => $category,
+        ]));
     }
 
     /**

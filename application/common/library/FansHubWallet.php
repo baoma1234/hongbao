@@ -90,8 +90,9 @@ class FansHubWallet
 
     /**
      * 会员资金流水列表
+     * @param array $opts category=rebate 仅红包返佣相关
      */
-    public static function ledgerList($userId, $page = 1, $limit = 20)
+    public static function ledgerList($userId, $page = 1, $limit = 20, array $opts = [])
     {
         $userId = (int)$userId;
         $page = max(1, (int)$page);
@@ -99,10 +100,24 @@ class FansHubWallet
         if ($userId <= 0) {
             return ['list' => [], 'total' => 0, 'page' => $page, 'limit' => $limit, 'has_more' => false];
         }
+        $category = trim((string)($opts['category'] ?? ''));
+        $rebateTypes = [
+            'red_packet_rebate',
+            'red_packet_agent_rebate_in',
+            'red_packet_invite_rebate_in',
+            'red_packet_dual_rebate_in',
+            'red_packet_agent_rebate',
+        ];
         $query = Db::name('fans_ledger')->where('user_id', $userId);
+        if ($category === 'rebate') {
+            $query->where('type', 'in', $rebateTypes);
+        }
         $total = (int)$query->count();
-        $rows = Db::name('fans_ledger')
-            ->where('user_id', $userId)
+        $rowsQuery = Db::name('fans_ledger')->where('user_id', $userId);
+        if ($category === 'rebate') {
+            $rowsQuery->where('type', 'in', $rebateTypes);
+        }
+        $rows = $rowsQuery
             ->order('id', 'desc')
             ->page($page, $limit)
             ->select();
@@ -134,6 +149,7 @@ class FansHubWallet
             'page'     => $page,
             'limit'    => $limit,
             'has_more' => ($page * $limit) < $total,
+            'category' => $category !== '' ? $category : 'all',
         ];
     }
 
