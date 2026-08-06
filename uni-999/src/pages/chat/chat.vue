@@ -565,7 +565,7 @@ import {
 } from '../../utils/chat.js'
 import { clearActiveChat, getActiveChat, saveActiveChat } from '../../utils/chat-route.js'
 import { COMMON_EMOJIS } from '../../utils/emoji.js'
-import { setInboxMyId, clearInboxUnread } from '../../utils/im-inbox.js'
+import { setInboxMyId, noteConversationRead } from '../../utils/im-inbox.js'
 import { loadWalletBootstrap, money } from '../../utils/wallet.js'
 import {
   bindForegroundResume,
@@ -1977,14 +1977,26 @@ async function ensureUser() {
 }
 
 async function markRead() {
-  const list = messages.value
-  if (!list.length) return
-  const last = list[list.length - 1]
-  const lastId = (last.msg_id || last.id) | 0
   const cid = roomConversationId()
   if (!cid) return
-  clearInboxUnread(meta.value.type, cid)
-  await markConversationRead(meta.value.type, cid, lastId)
+  let lastId = 0
+  const list = messages.value || []
+  for (let i = 0; i < list.length; i++) {
+    const m = list[i]
+    const mid = (m && ((m.id | 0) || (m.msg_id | 0))) || 0
+    if (mid > lastId) lastId = mid
+  }
+  // 本地立刻清未读（即使历史还没拉到也要清角标）
+  noteConversationRead(meta.value.type, cid, lastId)
+  if (meta.value.type === 2 && meta.value.group) {
+    noteConversationRead(2, String(meta.value.group), lastId)
+  }
+  if (lastId > 0) {
+    await markConversationRead(meta.value.type, cid, lastId)
+  } else {
+    // 仍上报一次，清 Redis 计数；游标靠后续有 id 再补
+    await markConversationRead(meta.value.type, cid, 0)
+  }
 }
 
 async function fetchHistory() {
@@ -2000,8 +2012,12 @@ async function fetchHistory() {
   }
   const packet = await loadHistory(data)
   const body = (packet && packet.data) || {}
-  const list = body.list || body.messages || []
-  const incoming = list.slice().reverse()
+  // 服务端 history 已按 id ASC（旧→新），勿再 reverse
+  const incoming = Array.isArray(body.list)
+    ? body.list.slice()
+    : Array.isArray(body.messages)
+      ? body.messages.slice()
+      : []
   // 合并本地已有气泡，避免发红宝/发消息后立刻全量替换把刚插入的冲掉
   const map = new Map()
   messages.value.forEach((m) => {
@@ -2021,7 +2037,7 @@ async function fetchHistory() {
     const cid =
       meta.value.type === 2
         ? String(meta.value.group || '')
-        : privateCid() || (incoming[0] && incoming[0].conversation_id) || ''
+        : privateCid() || (incoming[incoming.length - 1] && incoming[incoming.length - 1].conversation_id) || ''
     if (cid) {
       meta.value = Object.assign({}, meta.value, { conversationId: String(cid) })
       saveActiveChat({
@@ -2369,6 +2385,8 @@ onLoad(async (query) => {
     nickname: peerNickname.value,
     remark: remark.value,
   })
+  // 进房立刻清本地未读，避免返回列表时角标还在
+  markRead().catch(() => {})
 
   roomAlive = true
   bindForegroundResume()

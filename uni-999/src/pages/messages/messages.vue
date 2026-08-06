@@ -610,6 +610,8 @@ import {
 } from '../../utils/im.js'
 import {
   clearInboxUnread,
+  isConversationRecentlyRead,
+  noteConversationRead,
   setInboxMyId,
   startImInbox,
   syncInboxFromServerList,
@@ -703,6 +705,8 @@ function itemKey(item) {
 }
 
 function unreadOf(item) {
+  const id = resolveConvId(item)
+  if (isConversationRecentlyRead(item.conversation_type, id)) return 0
   const key = itemKey(item)
   const local = localUnread.value[key] | 0
   const server = item.unread_count | 0
@@ -1093,11 +1097,11 @@ function openChat(item) {
   const type = item.conversation_type | 0
   const id = resolveConvId(item)
   const key = convKey(type, id)
+  const last = item.last_message
+  const lastId = last ? (last.id | 0) || (last.msg_id | 0) : 0
   localUnread.value = Object.assign({}, localUnread.value, { [key]: 0 })
   item.unread_count = 0
-  clearInboxUnread(type, id)
-  const last = item.last_message
-  const lastId = last ? (last.msg_id || last.id) | 0 : 0
+  noteConversationRead(type, id, lastId)
   if (id) markConversationRead(type, id, lastId).catch(() => null)
   const q = [
     'type=' + encodeURIComponent(type),
@@ -1636,6 +1640,12 @@ async function loadList(silent = false) {
     const next = Object.assign({}, localUnread.value)
     rows.forEach((it) => {
       const key = itemKey(it)
+      const id = resolveConvId(it)
+      if (isConversationRecentlyRead(it.conversation_type, id)) {
+        next[key] = 0
+        it.unread_count = 0
+        return
+      }
       const server = it.unread_count | 0
       next[key] = Math.max(next[key] | 0, server)
     })

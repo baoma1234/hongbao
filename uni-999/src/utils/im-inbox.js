@@ -2,6 +2,7 @@
  * 全局 IM 收件箱：不依赖消息 Tab 是否可见。
  * - 未读角标 / 会话未读数
  * - 会话列表预览刷新事件
+ * - 刚已读保护：避免 conversation.list 用服务端旧未读把角标盖回来
  */
 import { convKey, msgExtra } from './chat.js'
 import { getActiveChat } from './chat-route.js'
@@ -13,6 +14,9 @@ let off = null
 let myUserId = 0
 /** @type {Record<string, number>} */
 const unreadMap = Object.create(null)
+/** @type {Record<string, { at: number, lastId: number }>} */
+const recentlyRead = Object.create(null)
+const RECENT_READ_MS = 120000
 
 export function setInboxMyId(uid) {
   myUserId = uid | 0
@@ -23,15 +27,42 @@ export function getInboxUnreadMap() {
 }
 
 export function getInboxUnread(type, id) {
-  return unreadMap[convKey(type, id)] | 0
+  const key = convKey(type, id)
+  if (isRecentlyReadKey(key)) return 0
+  return unreadMap[key] | 0
 }
 
-export function clearInboxUnread(type, id) {
+export function isConversationRecentlyRead(type, id) {
+  return isRecentlyReadKey(convKey(type, id))
+}
+
+function isRecentlyReadKey(key) {
+  const hit = recentlyRead[key]
+  if (!hit) return false
+  if (Date.now() - (hit.at | 0) > RECENT_READ_MS) {
+    delete recentlyRead[key]
+    return false
+  }
+  return true
+}
+
+/**
+ * 本地立刻清未读，并记录“刚已读”，防止列表刷新把角标刷回来。
+ */
+export function noteConversationRead(type, id, lastMsgId = 0) {
   const key = convKey(type, id)
-  if (!(unreadMap[key] | 0)) return
+  if (!key || key.endsWith(':')) return
+  recentlyRead[key] = {
+    at: Date.now(),
+    lastId: Math.max(0, lastMsgId | 0),
+  }
   unreadMap[key] = 0
   recomputeBadge()
   emitUnread()
+}
+
+export function clearInboxUnread(type, id) {
+  noteConversationRead(type, id, 0)
 }
 
 export function syncInboxFromServerList(rows) {
@@ -44,6 +75,13 @@ export function syncInboxFromServerList(rows) {
     if (!id) return
     const key = convKey(type, id)
     const server = it.unread_count | 0
+    if (isRecentlyReadKey(key)) {
+      // 服务端已确认 0 → 去掉保护；否则本地保持已读
+      if (server <= 0) delete recentlyRead[key]
+      unreadMap[key] = 0
+      it.unread_count = 0
+      return
+    }
     unreadMap[key] = Math.max(unreadMap[key] | 0, server)
   })
   recomputeBadge()
@@ -53,6 +91,7 @@ export function syncInboxFromServerList(rows) {
 function recomputeBadge() {
   let sum = 0
   Object.keys(unreadMap).forEach((k) => {
+    if (isRecentlyReadKey(k)) return
     sum += unreadMap[k] | 0
   })
   setChatUnreadTotal(sum)
@@ -118,6 +157,8 @@ function bumpUnread(msg) {
   const id = msgConvId(msg)
   if (!id) return
   const key = convKey(type, id)
+  // 新消息进来：取消“刚已读”保护，正常累加
+  delete recentlyRead[key]
   unreadMap[key] = (unreadMap[key] | 0) + 1
   recomputeBadge()
   emitUnread()
@@ -128,12 +169,11 @@ function handleIncoming(msg) {
   emitIncoming(msg)
   if (shouldBumpUnread(msg)) bumpUnread(msg)
   else if (matchesActiveChat(msg)) {
-    // 正在看该会话：尽量立刻清服务端未读
     const type = msgConvType(msg)
     const id = msgConvId(msg)
-    const lastId = (msg.msg_id || msg.id) | 0
+    const lastId = (msg.id | 0) || (msg.msg_id | 0)
     if (id) {
-      clearInboxUnread(type, id)
+      noteConversationRead(type, id, lastId)
       markConversationRead(type, id, lastId).catch(() => null)
     }
   }
