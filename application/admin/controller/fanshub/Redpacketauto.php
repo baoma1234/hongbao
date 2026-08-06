@@ -104,9 +104,27 @@ class Redpacketauto extends Backend
     {
         $params['name'] = trim((string)($params['name'] ?? ''));
         $params['group_id'] = max(0, (int)($params['group_id'] ?? 0));
-        $params['send_user_id'] = max(0, (int)($params['send_user_id'] ?? 0));
+
+        // 发包 UID：支持多人逗号分隔，随机选一个发
+        $sendRaw = (string)($params['send_user_ids'] ?? '');
+        if ($sendRaw === '' && !empty($params['send_user_id'])) {
+            $sendRaw = (string)$params['send_user_id'];
+        }
+        $sendRaw = str_replace(["\xef\xbc\x8c", '、', '|', "\n", "\r"], ',', $sendRaw);
+        $sendRaw = preg_replace('/[^\d,\s;]/', '', $sendRaw);
+        $sendIds = [];
+        foreach (preg_split('/[\s,;]+/', $sendRaw, -1, PREG_SPLIT_NO_EMPTY) as $p) {
+            $id = (int)$p;
+            if ($id > 0) {
+                $sendIds[$id] = $id;
+            }
+        }
+        $sendIds = array_values($sendIds);
+        $params['send_user_ids'] = implode(',', $sendIds);
+        $params['send_user_id'] = $sendIds ? (int)$sendIds[0] : 0;
+
         $params['packet_type'] = (int)($params['packet_type'] ?? 2);
-        if (!in_array($params['packet_type'], [1, 2, 3], true)) {
+        if (!in_array($params['packet_type'], [1, 2, 3, 5], true)) {
             $params['packet_type'] = 2;
         }
         $params['total_amount'] = round((float)($params['total_amount'] ?? 0), 2);
@@ -114,6 +132,15 @@ class Redpacketauto extends Backend
         $params['blessing'] = trim((string)($params['blessing'] ?? '恭喜发财')) ?: '恭喜发财';
         $params['mine_digit'] = 0; // 埋雷雷号运行时随机，后台不配置
         $params['interval_sec'] = max(5, (int)($params['interval_sec'] ?? 60));
+        $params['burst_count'] = max(1, (int)($params['burst_count'] ?? 1));
+        $params['burst_window_sec'] = max(0, (int)($params['burst_window_sec'] ?? 0));
+        if ($params['burst_window_sec'] > 0 && $params['burst_window_sec'] < 30) {
+            $params['burst_window_sec'] = 30;
+        }
+        if ($params['burst_count'] > 1 && $params['burst_window_sec'] <= 0) {
+            // 突发包数>1 但未填时间窗：默认用 间隔×包数 作窗口
+            $params['burst_window_sec'] = max(60, $params['interval_sec'] * $params['burst_count']);
+        }
         $params['auto_send'] = !empty($params['auto_send']) ? 1 : 0;
         $params['auto_grab'] = !empty($params['auto_grab']) ? 1 : 0;
         $params['grab_user_ids'] = preg_replace(
@@ -141,7 +168,7 @@ class Redpacketauto extends Backend
             $this->error('群不存在: #' . $params['group_id']);
         }
         if ($params['auto_send'] && $params['send_user_id'] <= 0) {
-            $this->error('自动发包需填写发包用户 ID');
+            $this->error('自动发包需填写发包用户 ID（可多个，逗号分隔）');
         }
         if ($params['auto_send'] && $params['total_amount'] <= 0) {
             $this->error('请填写红包金额');

@@ -12,9 +12,10 @@ use Workerman\Timer;
  * 红包自动发/抢（Workerman worker0 内跑，替代 php think redpacket:auto）
  *
  * 规则：
- * - 发包：群内无待领取包、且无接龙待续发时才发
+ * - 发包：群内无待领取包、且无接龙待续发时才发；多 send_user_ids 随机选一个
+ * - 时间窗突发：burst_window_sec>0 时窗内最多 burst_count 包、随机节奏；否则用 interval_sec
  * - 埋雷雷号每发随机 0-9；金额可抖动（不低于群最低 / 固定额）
- * - 节奏：20–23 点发包间隔减半；0–7 点翻倍
+ * - 节奏：20–23 点发包间隔减半；0–7 点翻倍（仅固定间隔模式）
  * - 接龙续发：由结算/cron 全局监听「全部群」的全部 type5，抢完后最少者名义发下一包（见 RedPacketService::trySendRobotNextRound）
  * - 抢包：仅后台配置了 auto_grab + grab_user_ids 的任务才抢
  * - 多 UID：每次随机选一个尚未领过该包的 UID 去抢（含拼手气/埋雷/接龙）
@@ -119,17 +120,34 @@ class RpAutoBotService
     }
 
     /**
-     * 仅当群内没有待领取包时发包（拼手气/埋雷通用）
+     * 仅当群内没有待领取包时发包（拼手气/埋雷/接龙通用）
+     * - 多发包 UID：随机选一个
+     * - 时间窗突发：burst_window_sec>0 时，窗内最多 burst_count 包、随机节奏
      */
     protected function maybeSend(array $task)
     {
         $taskId = (int)$task['id'];
         $groupId = (int)$task['group_id'];
-        $interval = $this->effectiveIntervalSec((int)($task['interval_sec'] ?? 60));
-        $last = (int)($task['last_send_time'] ?? 0);
-        if ($last > 0 && (time() - $last) < $interval) {
-            return ['sent' => false, 'packet_id' => 0];
+        $now = time();
+
+        $burstWindow = (int)($task['burst_window_sec'] ?? 0);
+        $burstCount = max(1, (int)($task['burst_count'] ?? 1));
+        $useBurst = ($burstWindow > 0 && $burstCount > 0);
+
+        if ($useBurst) {
+            $gate = $this->burstGate($task, $now);
+            if (!$gate['ok']) {
+                return ['sent' => false, 'packet_id' => 0];
+            }
+            $task = $gate['task'];
+        } else {
+            $interval = $this->effectiveIntervalSec((int)($task['interval_sec'] ?? 60));
+            $last = (int)($task['last_send_time'] ?? 0);
+            if ($last > 0 && ($now - $last) < $interval) {
+                return ['sent' => false, 'packet_id' => 0];
+            }
         }
+
         $maxDay = (int)($task['max_per_day'] ?? 0);
         if ($maxDay > 0 && (int)($task['today_count'] ?? 0) >= $maxDay) {
             return ['sent' => false, 'packet_id' => 0];
@@ -142,7 +160,7 @@ class RpAutoBotService
             return ['sent' => false, 'packet_id' => 0];
         }
 
-        $sendUid = (int)($task['send_user_id'] ?? 0);
+        $sendUid = $this->pickSendUserId($task);
         if ($sendUid <= 0) {
             throw new \RuntimeException('未配置发包用户ID');
         }
@@ -219,26 +237,118 @@ class RpAutoBotService
             }
         }
 
+        $burstSent = (int)($task['burst_sent'] ?? 0) + 1;
+        $burstNext = 0;
+        if ($useBurst) {
+            $burstNext = $this->planNextBurstAt($task, $now, $burstSent);
+        }
+
         Db::exec(
             'UPDATE ' . Db::table('chat_rp_auto_task')
-            . ' SET last_send_time=?, last_packet_id=?, today_count=today_count+1, last_error=?, updatetime=? WHERE id=?',
-            [time(), $packetId, '', time(), $taskId]
+            . ' SET last_send_time=?, last_packet_id=?, today_count=today_count+1,'
+            . ' burst_window_start=?, burst_sent=?, burst_next_at=?, last_error=?, updatetime=? WHERE id=?',
+            [
+                $now,
+                $packetId,
+                (int)($task['burst_window_start'] ?? ($useBurst ? $now : 0)),
+                $useBurst ? $burstSent : 0,
+                $burstNext,
+                '',
+                $now,
+                $taskId,
+            ]
         );
         $this->bustTaskCache();
 
         error_log(sprintf(
-            '[RP_AUTO] send ok task=%d group=%d type=%d mine=%d amount=%.2f(base=%.2f) interval=%ds packet=%d',
+            '[RP_AUTO] send ok task=%d group=%d type=%d uid=%d mine=%d amount=%.2f(base=%.2f) burst=%d/%d packet=%d',
             $taskId,
             $groupId,
             $packetType,
+            $sendUid,
             $mineDigit,
             $amount,
             $baseAmount,
-            $interval,
+            $useBurst ? $burstSent : 0,
+            $useBurst ? $burstCount : 0,
             $packetId
         ));
 
         return ['sent' => true, 'packet_id' => $packetId];
+    }
+
+    /**
+     * 时间窗突发门控：到期开新窗；窗内达上限则等下一窗；未到计划时刻则跳过。
+     * @return array{ok:bool,task:array}
+     */
+    protected function burstGate(array $task, $now)
+    {
+        $taskId = (int)$task['id'];
+        $window = max(30, (int)($task['burst_window_sec'] ?? 0));
+        $limit = max(1, (int)($task['burst_count'] ?? 1));
+        $start = (int)($task['burst_window_start'] ?? 0);
+        $sent = (int)($task['burst_sent'] ?? 0);
+        $nextAt = (int)($task['burst_next_at'] ?? 0);
+
+        if ($start <= 0 || ($now - $start) >= $window) {
+            $start = $now;
+            $sent = 0;
+            // 第一包：在窗前半段随机一个起点，避免整点齐发
+            $firstDelay = random_int(0, max(1, (int)floor($window / max(2, $limit))));
+            $nextAt = $now + $firstDelay;
+            Db::exec(
+                'UPDATE ' . Db::table('chat_rp_auto_task')
+                . ' SET burst_window_start=?, burst_sent=0, burst_next_at=?, updatetime=? WHERE id=?',
+                [$start, $nextAt, $now, $taskId]
+            );
+            $task['burst_window_start'] = $start;
+            $task['burst_sent'] = 0;
+            $task['burst_next_at'] = $nextAt;
+            $this->bustTaskCache();
+        }
+
+        if ($sent >= $limit) {
+            return ['ok' => false, 'task' => $task];
+        }
+        if ($nextAt > 0 && $now < $nextAt) {
+            return ['ok' => false, 'task' => $task];
+        }
+
+        $task['burst_window_start'] = $start;
+        $task['burst_sent'] = $sent;
+        $task['burst_next_at'] = $nextAt;
+        return ['ok' => true, 'task' => $task];
+    }
+
+    /** 规划窗内下一包时刻（剩余包均匀摊到剩余时间并抖动） */
+    protected function planNextBurstAt(array $task, $now, $burstSent)
+    {
+        $window = max(30, (int)($task['burst_window_sec'] ?? 0));
+        $limit = max(1, (int)($task['burst_count'] ?? 1));
+        $start = (int)($task['burst_window_start'] ?? $now);
+        if ($burstSent >= $limit) {
+            return $start + $window; // 窗结束前不再发
+        }
+        $end = $start + $window;
+        $leftSec = max(1, $end - $now);
+        $remain = max(1, $limit - $burstSent);
+        $slot = max(1, (int)floor($leftSec / $remain));
+        $delay = random_int(max(1, (int)floor($slot * 0.35)), $slot);
+        return $now + $delay;
+    }
+
+    /** 发包 UID 池：send_user_ids 优先，否则 send_user_id；多选随机 */
+    protected function pickSendUserId(array $task)
+    {
+        $uids = $this->parseUserIds((string)($task['send_user_ids'] ?? ''));
+        if (!$uids) {
+            $one = (int)($task['send_user_id'] ?? 0);
+            return $one > 0 ? $one : 0;
+        }
+        if (count($uids) === 1) {
+            return (int)$uids[0];
+        }
+        return (int)$uids[random_int(0, count($uids) - 1)];
     }
 
     /**

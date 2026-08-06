@@ -164,10 +164,43 @@ class FansHubRpAuto
     protected static function maybeSend(array $task, $force = false)
     {
         $id = (int)$task['id'];
-        $interval = self::effectiveIntervalSec(max(5, (int)$task['interval_sec']));
-        $last = (int)$task['last_send_time'];
-        if (!$force && $last > 0 && (time() - $last) < $interval) {
-            return ['sent' => false, 'packet_id' => 0, 'reason' => '未到发包间隔（剩余 ' . ($interval - (time() - $last)) . ' 秒）'];
+        $now = time();
+        $burstWindow = (int)($task['burst_window_sec'] ?? 0);
+        $burstCount = max(1, (int)($task['burst_count'] ?? 1));
+        $useBurst = ($burstWindow > 0 && $burstCount > 0);
+
+        if (!$force) {
+            if ($useBurst) {
+                $start = (int)($task['burst_window_start'] ?? 0);
+                $sent = (int)($task['burst_sent'] ?? 0);
+                $nextAt = (int)($task['burst_next_at'] ?? 0);
+                if ($start <= 0 || ($now - $start) >= $burstWindow) {
+                    $start = $now;
+                    $sent = 0;
+                    $nextAt = $now + mt_rand(0, max(1, (int)floor($burstWindow / max(2, $burstCount))));
+                    Db::name('chat_rp_auto_task')->where('id', $id)->update([
+                        'burst_window_start' => $start,
+                        'burst_sent'         => 0,
+                        'burst_next_at'      => $nextAt,
+                        'updatetime'         => $now,
+                    ]);
+                    $task['burst_window_start'] = $start;
+                    $task['burst_sent'] = 0;
+                    $task['burst_next_at'] = $nextAt;
+                }
+                if ($sent >= $burstCount) {
+                    return ['sent' => false, 'packet_id' => 0, 'reason' => '本时间窗已发满 ' . $burstCount . ' 包'];
+                }
+                if ($nextAt > 0 && $now < $nextAt) {
+                    return ['sent' => false, 'packet_id' => 0, 'reason' => '未到窗内下一次计划发包'];
+                }
+            } else {
+                $interval = self::effectiveIntervalSec(max(5, (int)$task['interval_sec']));
+                $last = (int)$task['last_send_time'];
+                if ($last > 0 && ($now - $last) < $interval) {
+                    return ['sent' => false, 'packet_id' => 0, 'reason' => '未到发包间隔（剩余 ' . ($interval - ($now - $last)) . ' 秒）'];
+                }
+            }
         }
         $maxDay = (int)$task['max_per_day'];
         if ($maxDay > 0 && (int)$task['today_count'] >= $maxDay) {
@@ -185,7 +218,7 @@ class FansHubRpAuto
             return ['sent' => false, 'packet_id' => 0, 'reason' => '群内仍有 ' . $openCnt . ' 个待领取红包'];
         }
 
-        $sendUid = (int)$task['send_user_id'];
+        $sendUid = self::pickSendUserId($task);
         if ($sendUid <= 0) {
             throw new Exception('未配置发包用户ID');
         }
@@ -224,15 +257,48 @@ class FansHubRpAuto
             throw new Exception('发包失败：桥接未返回 packet_id');
         }
 
+        $burstSent = (int)($task['burst_sent'] ?? 0) + 1;
+        $burstNext = 0;
+        $burstStart = (int)($task['burst_window_start'] ?? 0);
+        if ($useBurst) {
+            if ($burstStart <= 0) {
+                $burstStart = $now;
+            }
+            if ($burstSent < $burstCount) {
+                $left = max(1, ($burstStart + $burstWindow) - $now);
+                $remain = max(1, $burstCount - $burstSent);
+                $slot = max(1, (int)floor($left / $remain));
+                $burstNext = $now + mt_rand(max(1, (int)floor($slot * 0.35)), $slot);
+            } else {
+                $burstNext = $burstStart + $burstWindow;
+            }
+        }
+
         Db::name('chat_rp_auto_task')->where('id', $id)->update([
-            'last_send_time' => time(),
-            'last_packet_id' => $packetId,
-            'today_count'    => (int)$task['today_count'] + 1,
-            'last_error'     => '',
-            'updatetime'     => time(),
+            'last_send_time'     => $now,
+            'last_packet_id'     => $packetId,
+            'today_count'        => (int)$task['today_count'] + 1,
+            'burst_window_start' => $useBurst ? $burstStart : 0,
+            'burst_sent'         => $useBurst ? $burstSent : 0,
+            'burst_next_at'      => $burstNext,
+            'last_error'         => '',
+            'updatetime'         => $now,
         ]);
 
         return ['sent' => true, 'packet_id' => $packetId, 'reason' => ''];
+    }
+
+    protected static function pickSendUserId(array $task)
+    {
+        $uids = self::parseUserIds((string)($task['send_user_ids'] ?? ''));
+        if (!$uids) {
+            $one = (int)($task['send_user_id'] ?? 0);
+            return $one > 0 ? $one : 0;
+        }
+        if (count($uids) === 1) {
+            return (int)$uids[0];
+        }
+        return (int)$uids[array_rand($uids)];
     }
 
     protected static function maybeGrab(array $task, $preferPacketId = 0)
