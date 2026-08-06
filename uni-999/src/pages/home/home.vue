@@ -43,10 +43,9 @@
 
         <view class="user-info">
           <view class="user-id">
-            <text>{{ t('user_account_status') || '资产账户状态:' }} </text>
-            <text>{{ mobileMask }}</text>
-            <text> </text>
-            <text>{{ t('user_status_shield') || '密匙防护已开启' }}</text>
+            <text>{{ t('user_account_status') || '资产账户状态:' }}</text>
+            <text class="user-phone">{{ mobileMask }}</text>
+            <text class="user-status-tag" :class="{ 'master-tag': isMasterRank }">{{ t('user_status_shield') || '密匙防护已开启' }}</text>
           </view>
           <view id="userRank" class="status-tag" :class="{ 'master-tag': isMasterRank }">{{ rankText }}</view>
         </view>
@@ -190,9 +189,15 @@
             <text>{{ secretCountdown }}</text>
           </view>
           <view class="cs-step-card">
-            <view><text class="step-num">1</text>{{ t('withdraw_step1_plain') || '点击下方按钮，一键复制密令并跳转红宝专属客服' }}</view>
-            <view><text class="step-num">2</text>{{ t('withdraw_step2_plain') || '将密令发送给在线客服小妹，获取官方红宝聊天App下载指引' }}</view>
-            <view><text class="step-num">3</text>{{ t('withdraw_step3_plain') || '下载并添加官方 App 后，客服将为您完成主站账号充值' }}</view>
+            <view class="cs-step-line">
+              <text class="step-num">1</text>{{ withdrawStepText(1) }}
+            </view>
+            <view class="cs-step-line">
+              <text class="step-num">2</text>{{ withdrawStepText(2) }}
+            </view>
+            <view class="cs-step-line">
+              <text class="step-num">3</text>{{ withdrawStepText(3) }}
+            </view>
           </view>
           <button type="button" class="modal-action-btn primary" @click="jumpToCustomerService">
             {{ t('withdraw_btn_cs') || '💬 一键复制密令 · 匹配专属客服' }}
@@ -456,6 +461,22 @@ const withdrawTitle = computed(() => {
   if (hongbaoNum.value >= withdrawThreshold.value) return t('withdraw_title_vip') || '🔒 官方 VIP 福利派发中心'
   return t('withdraw_title_green') || '🔒 官方 VIP 福利派发中心'
 })
+
+/** 对齐 888 withdraw_step1~3（文案含 HTML），去掉标签后展示 */
+function withdrawStepText(n) {
+  const fallbacks = {
+    1: '点击下方按钮，一键复制密令并跳转红宝专属客服',
+    2: '将密令发送给在线客服小妹，获取官方红宝聊天App下载指引',
+    3: '下载并添加官方 App 后，客服将为您完成主站账号充值（保障资金与账号绝对安全）',
+  }
+  const key = 'withdraw_step' + n
+  let raw = t(key)
+  if (!raw || raw === key) raw = fallbacks[n] || ''
+  return String(raw)
+    .replace(/<[^>]+>/g, '')
+    .replace(/^\s*\d+\s*/, '')
+    .trim()
+}
 
 const marqueeItems = computed(() => {
   const cfg = config.value || {}

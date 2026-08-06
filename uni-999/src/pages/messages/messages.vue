@@ -247,15 +247,17 @@
                 >
                   <view class="chat-promote-earn-card">
                     <view class="chat-promote-earn-hd">
-                      <text class="chat-promote-earn-title">推广收益数据表</text>
-                      <text class="chat-promote-earn-live" @click="refreshPromoteEarnMock">实时更新 ›</text>
+                      <text class="chat-promote-earn-title">{{ t('promote_earn_title') || '推广收益数据表' }}</text>
+                      <text class="chat-promote-earn-live" @click="refreshPromoteEarnMock">{{ t('promote_earn_live') || '实时更新 ›' }}</text>
                     </view>
                     <view class="chat-promote-earn-table">
                       <view class="chat-promote-earn-thead">
-                        <view class="chat-promote-earn-th"><text>用户ID</text></view>
-                        <view class="chat-promote-earn-th is-active"><text>收益类型</text></view>
-                        <view class="chat-promote-earn-th"><text>广细记录</text></view>
-                        <view class="chat-promote-earn-th"><text>到手佣金</text></view>
+                        <view class="chat-promote-earn-th"><text>{{ t('promote_earn_col_uid') || '用户ID' }}</text></view>
+                        <view class="chat-promote-earn-th is-active">
+                          <text class="pe-th-pill">{{ t('promote_earn_col_type') || '收益类型' }}</text>
+                        </view>
+                        <view class="chat-promote-earn-th"><text>{{ t('promote_earn_col_detail') || '广细记录' }}</text></view>
+                        <view class="chat-promote-earn-th"><text>{{ t('promote_earn_col_amount') || '到手佣金' }}</text></view>
                       </view>
                       <view class="chat-promote-earn-viewport">
                         <view
@@ -582,7 +584,7 @@ import {
   previewText,
   resolveConvId,
 } from '../../utils/chat.js'
-import { assetBase } from '../../utils/i18n.js'
+import { assetBase, t } from '../../utils/i18n.js'
 import { openFriendScanSheet } from '../../utils/friend-scan.js'
 import {
   canCreateGroupFromAuth,

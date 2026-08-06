@@ -249,10 +249,12 @@
   animation-play-state: running;
 }
 
-/* 弹层：888 默认 display:none，用 .is-open 打开 */
-#tabHome .modal-mask.is-open,
-.home-modal-root .modal-mask.is-open {
-  display: flex !important;
+/* 弹层挂在 #tabHome 外：必须自带 box-sizing，否则 width:100%+padding 会右侧溢出被盖 */
+.home-modal-root,
+.home-modal-root *,
+.home-modal-root *::before,
+.home-modal-root *::after {
+  box-sizing: border-box;
 }
 
 .home-modal-root {
@@ -267,8 +269,96 @@
   --gold-btn: linear-gradient(135deg, #ffd54f 0%, #ff8f00 50%, #ff6f00 100%);
 }
 
+#tabHome .modal-mask.is-open,
+.home-modal-root .modal-mask.is-open {
+  display: flex !important;
+}
+
 .home-modal-root .modal-mask {
   z-index: 10050;
+  left: 0;
+  right: 0;
+  width: 100%;
+  max-width: 100vw;
+  padding: 16px 14px;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.home-modal-root .modal-box {
+  width: 100%;
+  max-width: min(380px, 100%);
+  margin: 0 auto;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  flex-shrink: 0;
+}
+
+.home-modal-root .cs-step-card {
+  text-align: left;
+}
+.home-modal-root .cs-step-card .cs-step-line,
+.home-modal-root .cs-step-card .cs-step-line text {
+  display: block;
+  font-size: 12px;
+  color: var(--text-main);
+  line-height: 1.6;
+  margin-bottom: 8px;
+}
+.home-modal-root .cs-step-card .cs-step-line:last-child {
+  margin-bottom: 0;
+}
+
+/* user-info 对齐 888：状态绿标 + 右侧等级胶囊 */
+#tabHome .user-info {
+  display: flex !important;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  margin-bottom: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #e1e8ed;
+}
+#tabHome .user-id {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  font-weight: 700;
+  color: var(--text-main);
+  font-size: 12px;
+  line-height: 1.45;
+  gap: 2px 0;
+}
+#tabHome .user-id .user-phone {
+  font-weight: 700;
+  color: var(--text-main);
+  font-size: 12px;
+}
+#tabHome .user-id .user-status-tag {
+  color: #00c853 !important;
+  font-size: 10px !important;
+  background: rgba(0, 200, 83, 0.08);
+  padding: 3px 8px;
+  border-radius: 6px;
+  margin-left: 6px;
+  font-weight: bold;
+  line-height: 1.2;
+}
+#tabHome .user-id .user-status-tag.master-tag {
+  color: #5e35b1 !important;
+  background: rgba(94, 53, 177, 0.1);
+}
+#tabHome .user-info .status-tag {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  max-width: 42%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .text-muted {
