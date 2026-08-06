@@ -450,6 +450,55 @@
   min-height: 0;
   height: 100%;
 }
+.chat-room-page .emoji-tabs-row {
+  white-space: nowrap;
+  width: 100%;
+  margin-bottom: 8px;
+  flex: 0 0 auto;
+}
+.chat-room-page .emoji-tab-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  margin-right: 6px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: #657786;
+  background: #f3f0ea;
+}
+.chat-room-page .emoji-tab-chip.active {
+  color: #fff;
+  background: linear-gradient(90deg, #e63022, #c61114);
+  font-weight: 700;
+}
+.chat-room-page .sticker-upload-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.chat-room-page .sticker-upload-btn {
+  margin: 0;
+  padding: 0 12px;
+  height: 32px;
+  line-height: 32px;
+  border: none;
+  border-radius: 16px;
+  background: #fff3e0;
+  color: #e65100;
+  font-size: 12px;
+  font-weight: 700;
+}
+.chat-room-page .sticker-upload-btn::after {
+  border: none;
+  display: none;
+}
+.chat-room-page .sticker-quota {
+  font-size: 11px;
+  color: #90a4ae;
+}
 
 /* 发红宝样式见 chat-rp-send-uni-adapter.css（勿在此重复弱覆盖） */
 

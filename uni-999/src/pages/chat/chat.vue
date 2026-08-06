@@ -161,9 +161,18 @@
               <view class="chat-expr-mode-btn" :class="{ active: showSticker }" @click="openStickerPanel">表情包</view>
             </view>
             <scroll-view v-if="showEmoji && !showSticker" scroll-y class="emoji-scroll">
+              <scroll-view v-if="emojiGroups.length > 1" scroll-x class="emoji-tabs-row">
+                <view
+                  v-for="(g, gi) in emojiGroups"
+                  :key="g.id"
+                  class="emoji-tab-chip"
+                  :class="{ active: emojiGroupIdx === gi }"
+                  @click="emojiGroupIdx = gi"
+                >{{ g.name }}</view>
+              </scroll-view>
               <view class="emoji-grid">
                 <text
-                  v-for="(em, idx) in emojis"
+                  v-for="(em, idx) in activeEmojis"
                   :key="'em' + idx"
                   class="emoji-item"
                   @click="insertEmoji(em)"
@@ -171,6 +180,12 @@
               </view>
             </scroll-view>
             <scroll-view v-else scroll-y class="emoji-scroll">
+              <view class="sticker-upload-bar">
+                <button type="button" class="sticker-upload-btn" :disabled="stickerUploading" @click="uploadCustomSticker">
+                  {{ stickerUploading ? '上传中…' : '＋ 上传表情' }}
+                </button>
+                <text class="sticker-quota">{{ stickerQuotaText }}</text>
+              </view>
               <view class="sticker-grid">
                 <view
                   v-for="(st, idx) in stickerItems"
@@ -552,7 +567,7 @@ import '../../styles/chat.bundle.css'
 import '../../styles/chat-room-uni-adapter.css'
 import '../../styles/chat-rp-send-uni-adapter.css'
 import '../../styles/chat-888-parity.css'
-import { apiRequest, fetchProfile, getToken } from '../../utils/auth.js'
+import { apiRequest, fetchProfile, getToken, uploadSticker } from '../../utils/auth.js'
 import { getApiBase } from '../../utils/config.js'
 import { assetBase, applyServerCopy, copyState, localeState, tt } from '../../utils/i18n.js'
 import {
@@ -564,7 +579,7 @@ import {
   recallTip,
 } from '../../utils/chat.js'
 import { clearActiveChat, getActiveChat, saveActiveChat } from '../../utils/chat-route.js'
-import { COMMON_EMOJIS } from '../../utils/emoji.js'
+import { COMMON_EMOJIS, loadEmojiTree } from '../../utils/emoji.js'
 import { setInboxMyId, noteConversationRead } from '../../utils/im-inbox.js'
 import { loadWalletBootstrap, money } from '../../utils/wallet.js'
 import {
@@ -612,8 +627,22 @@ const moreVisible = ref(false)
 const myGrabAmount = ref('')
 const canGrabDetail = ref(false)
 const grabSliderRef = ref(null)
-const emojis = COMMON_EMOJIS
+const emojiGroups = ref([{ id: 'common', name: '常用', chars: COMMON_EMOJIS.slice() }])
+const emojiGroupIdx = ref(0)
+const activeEmojis = computed(() => {
+  const g = emojiGroups.value[emojiGroupIdx.value] || emojiGroups.value[0]
+  return (g && g.chars) || COMMON_EMOJIS
+})
 const stickerItems = ref([])
+const stickerQuota = ref({ count: 0, limit: 50, is_admin: false })
+const stickerUploading = ref(false)
+const stickerQuotaText = computed(() => {
+  const q = stickerQuota.value || {}
+  if (q.is_admin) return '管理员不限量'
+  const lim = q.limit | 0
+  if (lim <= 0) return ''
+  return '已上传 ' + (q.count | 0) + ' / ' + lim
+})
 const groupMeta = ref(null)
 const noticePinClosed = ref(false)
 const noticePinExpanded = ref(false)
@@ -1447,6 +1476,17 @@ function onInputFocus() {
   showAttach.value = false
 }
 
+function openEmojiOnly() {
+  if (!canCap('emoji') && !canCap('text')) {
+    uni.showToast({ title: '表情已禁止', icon: 'none' })
+    return
+  }
+  showEmoji.value = true
+  showSticker.value = false
+  showAttach.value = false
+  ensureEmojisLoaded()
+}
+
 function toggleEmoji() {
   if (!canCap('emoji') && !canCap('text')) {
     uni.showToast({ title: '表情已禁止', icon: 'none' })
@@ -1458,17 +1498,18 @@ function toggleEmoji() {
   if (next) {
     showAttach.value = false
     showRp.value = false
+    ensureEmojisLoaded()
   }
 }
 
-function openEmojiOnly() {
-  if (!canCap('emoji') && !canCap('text')) {
-    uni.showToast({ title: '表情已禁止', icon: 'none' })
-    return
-  }
-  showEmoji.value = true
-  showSticker.value = false
-  showAttach.value = false
+async function ensureEmojisLoaded() {
+  try {
+    const data = await loadEmojiTree()
+    if (data && Array.isArray(data.groups) && data.groups.length) {
+      emojiGroups.value = data.groups
+      if (emojiGroupIdx.value >= data.groups.length) emojiGroupIdx.value = 0
+    }
+  } catch (e) {}
 }
 
 function toggleAttach() {
@@ -1686,21 +1727,7 @@ function scrollToLatest() {
 }
 
 async function loadStickers() {
-  try {
-    const data = await apiRequest('stickerlist', 'GET', {})
-    const list = Array.isArray(data && data.list) ? data.list : []
-    if (list.length) {
-      stickerItems.value = list
-        .map((it) => ({
-          code: String(it.name || it.code || '').trim(),
-          pack: String(it.pack || 'custom'),
-          url: normalizeStickerUrl(it.url || it.fullurl || ''),
-        }))
-        .filter((it) => it.code && it.url)
-        .slice(0, 64)
-      if (stickerItems.value.length) return
-    }
-  } catch (e) {}
+  const baseItems = []
   try {
     const res = await new Promise((resolve, reject) => {
       uni.request({
@@ -1711,23 +1738,89 @@ async function loadStickers() {
       })
     })
     const packs = Array.isArray(res && res.packs) ? res.packs : []
-    const out = []
     packs.forEach((p) => {
       const pid = String((p && p.id) || 'wechat')
       const cats = Array.isArray(p && p.categories) ? p.categories : []
       cats.forEach((c) => {
         const items = Array.isArray(c && c.items) ? c.items : []
         items.forEach((it) => {
-          if (out.length >= 64) return
+          if (baseItems.length >= 120) return
           const code = String((it && it.code) || '').trim()
           const url = normalizeStickerUrl((it && it.url) || '')
-          if (code && url) out.push({ code, url, pack: pid })
+          if (code && url) baseItems.push({ code, url, pack: pid })
         })
       })
     })
-    stickerItems.value = out
-  } catch (e2) {
-    stickerItems.value = []
+  } catch (e) {}
+
+  let customItems = []
+  try {
+    const data = await apiRequest('stickerlist', 'GET', {})
+    stickerQuota.value = {
+      count: (data && data.count) | 0,
+      limit: (data && data.limit) | 0,
+      is_admin: !!(data && data.is_admin),
+    }
+    const list = Array.isArray(data && data.items)
+      ? data.items
+      : Array.isArray(data && data.list)
+        ? data.list
+        : []
+    customItems = list
+      .map((it) => ({
+        id: it.id,
+        code: String(it.name || it.code || '').trim(),
+        pack: String(it.pack || 'custom'),
+        url: normalizeStickerUrl(it.url || it.fullurl || ''),
+      }))
+      .filter((it) => it.code && it.url)
+  } catch (e) {}
+
+  // 自定义表情优先展示
+  const seen = {}
+  const merged = []
+  customItems.concat(baseItems).forEach((it) => {
+    const key = it.pack + ':' + it.code + ':' + it.url
+    if (seen[key]) return
+    seen[key] = 1
+    merged.push(it)
+  })
+  stickerItems.value = merged.slice(0, 160)
+}
+
+async function uploadCustomSticker() {
+  if (stickerUploading.value) return
+  const q = stickerQuota.value || {}
+  if (!q.is_admin && (q.limit | 0) > 0 && (q.count | 0) >= (q.limit | 0)) {
+    uni.showToast({ title: '最多上传 ' + q.limit + ' 个自定义表情', icon: 'none' })
+    return
+  }
+  try {
+    const pick = await new Promise((resolve, reject) => {
+      uni.chooseImage({
+        count: 1,
+        sizeType: ['compressed'],
+        sourceType: ['album'],
+        success: resolve,
+        fail: reject,
+      })
+    })
+    const path = pick.tempFilePaths && pick.tempFilePaths[0]
+    if (!path) return
+    stickerUploading.value = true
+    uni.showToast({ title: '上传中…', icon: 'none' })
+    const data = await uploadSticker(path)
+    stickerQuota.value = {
+      count: (data && data.count) | 0,
+      limit: (data && data.limit) | 0,
+      is_admin: !!(data && data.is_admin),
+    }
+    await loadStickers()
+    uni.showToast({ title: '上传成功', icon: 'success' })
+  } catch (e) {
+    uni.showToast({ title: (e && e.message) || '上传失败', icon: 'none' })
+  } finally {
+    stickerUploading.value = false
   }
 }
 

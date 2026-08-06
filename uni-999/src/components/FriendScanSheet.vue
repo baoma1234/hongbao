@@ -9,23 +9,53 @@
       <button type="button" class="fs-sheet-item fs-cancel" @click="close">取消</button>
     </view>
   </view>
+
+  <!-- H5 摄像头扫码层 -->
+  <view v-if="cameraOpen" class="fs-cam" aria-hidden="false">
+    <view class="fs-cam-hd">
+      <text class="fs-cam-back" @click="closeCamera">‹</text>
+      <text class="fs-cam-title">扫一扫</text>
+      <text class="fs-cam-spacer" />
+    </view>
+    <view class="fs-cam-body">
+      <!-- #ifdef H5 -->
+      <view id="fsCamHost" class="fs-cam-video-host" />
+      <!-- #endif -->
+      <view class="fs-cam-frame" />
+      <text class="fs-cam-tip">{{ camTip }}</text>
+      <button type="button" class="fs-cam-album" @click="pickAlbumFromCam">从相册识别</button>
+    </view>
+  </view>
 </template>
 
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue'
+import { nextTick, onMounted, onUnmounted, ref } from 'vue'
 import {
   addFriendByMemberId,
   decodeQrFromAlbum,
   parseFriendPayload,
   registerFriendScanOpener,
 } from '../utils/friend-scan.js'
+import { startLiveQrScan } from '../utils/live-qr-scan.js'
 
 const open = ref(false)
+const cameraOpen = ref(false)
+const camTip = ref('将二维码放入框内即可自动识别')
 let pending = null
+let liveCtl = null
 
 function close() {
   open.value = false
   pending = null
+}
+
+function stopLive() {
+  if (liveCtl && typeof liveCtl.stop === 'function') {
+    try {
+      liveCtl.stop()
+    } catch (e) {}
+  }
+  liveCtl = null
 }
 
 function openSheet(opts) {
@@ -33,9 +63,87 @@ function openSheet(opts) {
   open.value = true
 }
 
+async function handleMemberId(raw) {
+  const opts = pending || {}
+  const id = parseFriendPayload(raw)
+  if (!id) {
+    uni.showToast({ title: '无效的会员二维码', icon: 'none' })
+    return
+  }
+  await addFriendByMemberId(id, opts.selfUserId)
+}
+
+async function openLiveCamera() {
+  // #ifdef H5
+  cameraOpen.value = true
+  camTip.value = '正在打开摄像头…'
+  await nextTick()
+  try {
+    const host = typeof document !== 'undefined' ? document.getElementById('fsCamHost') : null
+    if (!host) throw new Error('扫码组件缺失')
+    host.innerHTML = ''
+    const video = document.createElement('video')
+    video.className = 'fs-cam-video-el'
+    video.setAttribute('playsinline', 'true')
+    video.setAttribute('webkit-playsinline', 'true')
+    video.muted = true
+    video.autoplay = true
+    host.appendChild(video)
+    liveCtl = await startLiveQrScan({
+      video,
+      onCode: async (raw) => {
+        closeCamera()
+        try {
+          await handleMemberId(raw)
+        } catch (e) {
+          uni.showToast({ title: (e && e.message) || '添加失败', icon: 'none' })
+        }
+      },
+    })
+    camTip.value = '将二维码放入框内即可自动识别'
+  } catch (e) {
+    camTip.value = (e && e.message) || '无法打开摄像头'
+    uni.showToast({ title: camTip.value, icon: 'none' })
+  }
+  return
+  // #endif
+  // #ifndef H5
+  try {
+    const r = await new Promise((resolve, reject) => {
+      uni.scanCode({ onlyFromCamera: true, success: resolve, fail: reject })
+    })
+    await handleMemberId(r && r.result)
+  } catch (e) {
+    uni.showToast({ title: (e && e.errMsg) || '扫码取消', icon: 'none' })
+  }
+  // #endif
+}
+
+function closeCamera() {
+  stopLive()
+  // #ifdef H5
+  try {
+    const host = typeof document !== 'undefined' ? document.getElementById('fsCamHost') : null
+    if (host) host.innerHTML = ''
+  } catch (e) {}
+  // #endif
+  cameraOpen.value = false
+  camTip.value = '将二维码放入框内即可自动识别'
+}
+
+async function pickAlbumFromCam() {
+  closeCamera()
+  try {
+    const id = await decodeQrFromAlbum()
+    if (id) await addFriendByMemberId(id, (pending || {}).selfUserId)
+    else uni.showToast({ title: '无效的会员二维码', icon: 'none' })
+  } catch (e) {
+    uni.showToast({ title: (e && e.message) || '识别失败', icon: 'none' })
+  }
+}
+
 async function onPick(idx) {
   const opts = pending || {}
-  const selfUserId = opts.selfUserId
   const onManual =
     opts.onManual ||
     (() => {
@@ -47,21 +155,12 @@ async function onPick(idx) {
     return
   }
   if (idx === 0) {
-    try {
-      const r = await new Promise((resolve, reject) => {
-        uni.scanCode({ onlyFromCamera: true, success: resolve, fail: reject })
-      })
-      const id = parseFriendPayload(r && r.result)
-      if (id) await addFriendByMemberId(id, selfUserId)
-      else uni.showToast({ title: '无效的会员二维码', icon: 'none' })
-    } catch (e) {
-      uni.showToast({ title: (e && e.errMsg) || '扫码取消', icon: 'none' })
-    }
+    await openLiveCamera()
     return
   }
   try {
     const id = await decodeQrFromAlbum()
-    if (id) await addFriendByMemberId(id, selfUserId)
+    if (id) await addFriendByMemberId(id, opts.selfUserId)
     else uni.showToast({ title: '无效的会员二维码', icon: 'none' })
   } catch (e) {
     uni.showToast({ title: (e && e.message) || '识别失败', icon: 'none' })
@@ -69,7 +168,10 @@ async function onPick(idx) {
 }
 
 onMounted(() => registerFriendScanOpener(openSheet))
-onUnmounted(() => registerFriendScanOpener(null))
+onUnmounted(() => {
+  registerFriendScanOpener(null)
+  stopLive()
+})
 </script>
 
 <style scoped>
@@ -87,7 +189,6 @@ onUnmounted(() => registerFriendScanOpener(null))
   position: absolute;
   left: 10px;
   right: 10px;
-  /* 抬高过底部自定义 tabbar，避免取消被盖住 */
   bottom: calc(88px + env(safe-area-inset-bottom, 0px));
   background: #fff;
   border-radius: 16px;
@@ -126,5 +227,110 @@ onUnmounted(() => registerFriendScanOpener(null))
   border-top: none;
   background: #f6f1ea;
   color: #657786;
+}
+
+.fs-cam {
+  position: fixed;
+  inset: 0;
+  z-index: 13000;
+  background: #0b0b0b;
+  display: flex;
+  flex-direction: column;
+}
+.fs-cam-hd {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 10px;
+  color: #fff;
+}
+.fs-cam-back,
+.fs-cam-spacer {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+}
+.fs-cam-title {
+  flex: 1;
+  text-align: center;
+  font-size: 17px;
+  font-weight: 700;
+}
+.fs-cam-body {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.fs-cam-video-host {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  z-index: 1;
+}
+.fs-cam-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #000;
+}
+.fs-cam-frame {
+  position: relative;
+  z-index: 2;
+  width: 220px;
+  height: 220px;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 16px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.35);
+}
+.fs-cam-tip {
+  position: relative;
+  z-index: 2;
+  margin-top: 18px;
+  color: #fff;
+  font-size: 13px;
+  text-align: center;
+  padding: 0 20px;
+}
+.fs-cam-album {
+  position: relative;
+  z-index: 2;
+  margin-top: 18px;
+  min-width: 160px;
+  height: 44px;
+  line-height: 44px;
+  border: none;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #1f1714;
+  font-size: 15px;
+  font-weight: 700;
+}
+.fs-cam-album::after {
+  border: none;
+  display: none;
+}
+</style>
+
+<style>
+/* 注入的原生 video 不受 scoped 影响 */
+.fs-cam-video-el {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #000;
 }
 </style>

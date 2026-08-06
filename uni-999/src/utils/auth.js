@@ -134,12 +134,21 @@ export async function logoutRemote() {
 
 /** 头像上传：FansHub avatarupload */
 export function uploadAvatar(filePath) {
+  return uploadFanshubAction('avatarupload', filePath)
+}
+
+/** 自定义表情包上传：FansHub stickerupload */
+export function uploadSticker(filePath) {
+  return uploadFanshubAction('stickerupload', filePath)
+}
+
+function uploadFanshubAction(action, filePath) {
   const base = getApiBase() || ''
   const token = getToken()
   const locale = getLocale()
   return new Promise((resolve, reject) => {
     uni.uploadFile({
-      url: base + '/api/fanshub/avatarupload',
+      url: base + '/api/fanshub/' + action,
       filePath,
       name: 'file',
       formData: { locale },
