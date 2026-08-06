@@ -255,25 +255,23 @@ class RedPacketSettlementService
                 if ($reason === 'worst' && $packetType === 5) {
                     $compensateUsers[] = $payerId;
                     $compensateTotal = round($compensateTotal + $compensateAmount, 2);
-                    // 领取时若已冻续发额则保留；否则补冻
+                    // 领取时已冻续发额则保留；否则必须补冻成功，禁止吞异常导致续发断链
                     $freezeAmt = round((float)$compensateAmount, 2);
-                    if ($payerId > 0 && $freezeAmt > 0.00001 && (int)($rec['freeze_status'] ?? 0) !== 1) {
-                        try {
-                            $this->wallet->freeze(
-                                $payerId,
-                                $freezeAmt,
-                                'red_packet_freeze',
-                                '红宝接龙续发冻结',
-                                $bizMeta
-                            );
-                            Db::exec(
-                                'UPDATE ' . Db::table('chat_red_packet_records')
-                                . ' SET frozen_amount=?, freeze_status=1, compensate_amount=? WHERE id=?',
-                                [sprintf('%.2f', $freezeAmt), sprintf('%.2f', $freezeAmt), (int)$recordId]
-                            );
-                        } catch (\Throwable $eFz) {
-                            error_log('[RP_SETTLE][WARN] relay worst freeze fail packet=' . $packetId . ' ' . $eFz->getMessage());
-                        }
+                    $alreadyFrozen = (int)($rec['freeze_status'] ?? 0) === 1
+                        && round((float)($rec['frozen_amount'] ?? 0), 2) + 0.00001 >= $freezeAmt;
+                    if ($payerId > 0 && $freezeAmt > 0.00001 && !$alreadyFrozen) {
+                        $this->wallet->freeze(
+                            $payerId,
+                            $freezeAmt,
+                            'red_packet_freeze',
+                            '红宝接龙续发冻结',
+                            $bizMeta
+                        );
+                        Db::exec(
+                            'UPDATE ' . Db::table('chat_red_packet_records')
+                            . ' SET frozen_amount=?, freeze_status=1, compensate_amount=? WHERE id=?',
+                            [sprintf('%.2f', $freezeAmt), sprintf('%.2f', $freezeAmt), (int)$recordId]
+                        );
                     } else {
                         Db::exec(
                             'UPDATE ' . Db::table('chat_red_packet_records')

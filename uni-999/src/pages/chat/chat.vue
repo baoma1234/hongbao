@@ -2463,10 +2463,25 @@ async function onRpTap(m) {
     return
   }
   activePacketId = pid
-  if (!ex.cover_grabbed && !ex.cover_expired && !isMine(m)) {
-    await tryGrab(pid)
-  }
+  // 只打开上方详情页；底部「开红包」才真正领取（对齐 888）
   await openDetail(pid)
+}
+
+function mapGrabError(msg) {
+  const s = String(msg || '')
+  if (/balance_not_enough_for_compensate/i.test(s)) {
+    return '红宝不足，无法覆盖赔付金额，不能领取'
+  }
+  if (/balance_below_mine_min/i.test(s)) {
+    return '红宝须大于本群最低金额限制，才能领取扫雷红包'
+  }
+  if (/insufficient balance/i.test(s)) {
+    return '红宝不足，请先闪兑凑够红宝'
+  }
+  if (/mine_hash_pending/i.test(s)) {
+    return '扫雷哈希确认中，请稍后再领'
+  }
+  return s || '领取失败'
 }
 
 async function tryGrab(packetId, sliderPayload = null) {
@@ -2493,7 +2508,16 @@ async function tryGrab(packetId, sliderPayload = null) {
     if (data.amount != null) {
       myGrabAmount.value = formatAmt(data.amount)
       playOpenRedPacketSound()
-      uni.showToast({ title: '抢到 ' + myGrabAmount.value, icon: 'none' })
+      const hit = !!data.is_mine_hit
+      const pay = Number(data.compensate_amount || 0)
+      if (hit && pay > 0) {
+        uni.showToast({
+          title: '抢到 ' + myGrabAmount.value + ' · 中雷已赔付 ￥' + pay.toFixed(2),
+          icon: 'none',
+        })
+      } else {
+        uni.showToast({ title: '抢到 ' + myGrabAmount.value, icon: 'none' })
+      }
     }
     return data
   } catch (e) {
@@ -2503,7 +2527,7 @@ async function tryGrab(packetId, sliderPayload = null) {
     } else if (/slider/i.test(msg)) {
       uni.showToast({ title: '需要滑动验证', icon: 'none' })
     } else {
-      uni.showToast({ title: msg, icon: 'none' })
+      uni.showToast({ title: mapGrabError(msg), icon: 'none' })
     }
     return null
   } finally {
@@ -2518,8 +2542,17 @@ async function openDetail(packetId) {
     detail.value = data
     const p = data.packet || {}
     const remain = p.remain_count != null ? p.remain_count : p.remain
+    const status = (p.status | 0) || 0
     const grabbed = !!(data.mine || (data.records || []).some((r) => (r.user_id | 0) === myId))
-    canGrabDetail.value = !!(remain > 0 && !grabbed)
+    let canGrab = !!(remain > 0 && !grabbed && (status === 0 || status === 1))
+    // 私聊红包仅对方可领
+    if ((p.scope_type | 0) === 1 && (p.to_user_id | 0) !== (myId | 0)) {
+      canGrab = false
+    }
+    if (p.expiretime && (p.expiretime | 0) > 0 && (p.expiretime | 0) < Math.floor(Date.now() / 1000)) {
+      canGrab = false
+    }
+    canGrabDetail.value = canGrab
     const mine = data.mine || (data.records || []).find((r) => (r.user_id | 0) === myId)
     if (mine && mine.amount != null) myGrabAmount.value = formatAmt(mine.amount)
     detailVisible.value = true

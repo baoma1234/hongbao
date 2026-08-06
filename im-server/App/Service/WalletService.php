@@ -299,16 +299,19 @@ class WalletService
 
     /**
      * 抢包验资：缓存余额明显充足则跳过打库；不足则强制回库再判，避免短缓存误拒
+     * @param bool $fresh true=强制回库（领前关键验资）
      */
-    public function hasEnoughBalance($userId, $need)
+    public function hasEnoughBalance($userId, $need, $fresh = false)
     {
         $need = round((float)$need, 2);
         if ($need <= 0) {
             return true;
         }
-        $cached = $this->cacheGet((int)$userId);
-        if ($cached !== null && $cached + 0.00001 >= $need) {
-            return true;
+        if (!$fresh) {
+            $cached = $this->cacheGet((int)$userId);
+            if ($cached !== null && $cached + 0.00001 >= $need) {
+                return true;
+            }
         }
         $bal = $this->getBalance($userId, true);
         return $bal + 0.00001 >= $need;

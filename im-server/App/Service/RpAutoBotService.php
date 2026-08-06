@@ -412,9 +412,16 @@ class RpAutoBotService
             $delaySec
         ));
 
-        Timer::add($delaySec, function () use ($taskId, $packetId, $uid, $groupId) {
+        Timer::add($delaySec, function () use ($taskId, $packetId, $uid, $groupId, $uids) {
             try {
-                $this->doGrabOnce($taskId, $packetId, $uid, $groupId);
+                $ok = $this->doGrabOnce($taskId, $packetId, $uid, $groupId);
+                // 余额不够被拒：立刻换另一个够赔付的 UID 再试一次
+                if ($ok === false) {
+                    $alt = $this->pickGrabPair([$packetId], $uids);
+                    if ($alt && (int)$alt['user_id'] !== (int)$uid) {
+                        $this->doGrabOnce($taskId, $packetId, (int)$alt['user_id'], $groupId);
+                    }
+                }
             } catch (\Throwable $e) {
                 $this->touchError($taskId, 'grab u' . $uid . ' p' . $packetId . ': ' . $e->getMessage());
             } finally {
@@ -506,7 +513,8 @@ class RpAutoBotService
             return null;
         }
         $row = Db::fetch(
-            'SELECT id, createtime, remain_count, status, packet_type FROM ' . Db::table('chat_red_packets')
+            'SELECT id, createtime, remain_count, status, packet_type, total_amount, total_count, scope_type, group_id'
+            . ' FROM ' . Db::table('chat_red_packets')
             . ' WHERE id=? LIMIT 1',
             [$packetId]
         );
@@ -526,7 +534,7 @@ class RpAutoBotService
         $uid = (int)$uid;
         $groupId = (int)$groupId;
         if ($packetId <= 0 || $uid <= 0) {
-            return;
+            return false;
         }
         $exists = Db::fetch(
             'SELECT id FROM ' . Db::table('chat_red_packet_records')
@@ -534,15 +542,29 @@ class RpAutoBotService
             [$packetId, $uid]
         );
         if ($exists) {
-            return;
+            return false;
         }
         $open = Db::fetch(
-            'SELECT id, remain_count, status, group_id FROM ' . Db::table('chat_red_packets')
+            'SELECT id, remain_count, status, group_id, packet_type, total_amount, total_count, scope_type'
+            . ' FROM ' . Db::table('chat_red_packets')
             . ' WHERE id=? LIMIT 1',
             [$packetId]
         );
         if (!$open || (int)$open['status'] !== 1 || (int)$open['remain_count'] <= 0) {
-            return;
+            return false;
+        }
+        // 领前再验一次：余额不够赔付则不抢（与真人同一闸门）
+        if (!$this->redPackets->canAffordGrabCompensate($uid, $open)) {
+            $need = $this->redPackets->potentialCompensateNeed($open);
+            error_log(sprintf(
+                '[RP_AUTO] grab precheck reject task=%d packet=%d uid=%d need=%.2f',
+                $taskId,
+                $packetId,
+                $uid,
+                $need
+            ));
+            $this->touchError($taskId, 'grab precheck balance uid=' . $uid . ' need=' . sprintf('%.2f', $need));
+            return false;
         }
         $gid = (int)($open['group_id'] ?? $groupId);
         if ($gid > 0) {
@@ -558,8 +580,23 @@ class RpAutoBotService
             $result = $this->redPackets->grab($packetId, $uid);
         } catch (\Throwable $e) {
             $msg = $e->getMessage();
+            // 余额不够赔付：与真人同一套闸门，软跳过换下一个 UID
+            if (stripos($msg, 'balance_not_enough_for_compensate') !== false
+                || stripos($msg, 'balance_below_mine_min') !== false
+                || stripos($msg, 'insufficient balance') !== false
+            ) {
+                error_log(sprintf(
+                    '[RP_AUTO] grab balance reject task=%d packet=%d uid=%d err=%s',
+                    $taskId,
+                    $packetId,
+                    $uid,
+                    $msg
+                ));
+                $this->touchError($taskId, 'grab balance: uid=' . $uid . ' ' . $msg);
+                return false;
+            }
             if ($this->isSoftGrabError($msg)) {
-                return;
+                return false;
             }
             throw $e;
         }
@@ -577,11 +614,19 @@ class RpAutoBotService
             } catch (\Throwable $e) {
             }
         }
-        error_log(sprintf('[RP_AUTO] grab ok task=%d packet=%d uid=%d', $taskId, $packetId, $uid));
+        $frozen = round((float)($result['frozen_amount'] ?? 0), 2);
+        error_log(sprintf(
+            '[RP_AUTO] grab ok task=%d packet=%d uid=%d frozen=%.2f',
+            $taskId,
+            $packetId,
+            $uid,
+            $frozen
+        ));
+        return true;
     }
 
     /**
-     * 每个待领包：从未领过的 grab_user_ids 里随机选 1 个去抢。
+     * 每个待领包：从未领过且红宝够赔付/冻结的 grab_user_ids 里随机选 1 个去抢。
      */
     protected function pickGrabPair(array $packetIds, array $uids)
     {
@@ -592,6 +637,14 @@ class RpAutoBotService
         foreach ($packetIds as $packetId) {
             $packetId = (int)$packetId;
             if ($packetId <= 0) {
+                continue;
+            }
+            $packet = Db::fetch(
+                'SELECT id, packet_type, total_amount, total_count, scope_type, group_id, status, remain_count'
+                . ' FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1',
+                [$packetId]
+            );
+            if (!$packet || (int)($packet['status'] ?? 0) !== 1 || (int)($packet['remain_count'] ?? 0) <= 0) {
                 continue;
             }
             $candidates = [];
@@ -605,6 +658,10 @@ class RpAutoBotService
                     [$packetId, $uid]
                 );
                 if ($exists) {
+                    continue;
+                }
+                // 与真人同一套：余额不够潜在赔付则不选该 UID
+                if (!$this->redPackets->canAffordGrabCompensate($uid, $packet)) {
                     continue;
                 }
                 $candidates[] = $uid;
