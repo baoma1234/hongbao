@@ -16,7 +16,7 @@ let myUserId = 0
 const unreadMap = Object.create(null)
 /** @type {Record<string, { at: number, lastId: number }>} */
 const recentlyRead = Object.create(null)
-const RECENT_READ_MS = 120000
+const RECENT_READ_MS = 600000
 
 export function setInboxMyId(uid) {
   myUserId = uid | 0
@@ -50,13 +50,22 @@ function isRecentlyReadKey(key) {
  * 本地立刻清未读，并记录“刚已读”，防止列表刷新把角标刷回来。
  */
 export function noteConversationRead(type, id, lastMsgId = 0) {
-  const key = convKey(type, id)
-  if (!key || key.endsWith(':')) return
-  recentlyRead[key] = {
-    at: Date.now(),
-    lastId: Math.max(0, lastMsgId | 0),
+  const tid = type | 0
+  const cid = String(id || '').trim()
+  if (!cid) return
+  const keys = [convKey(tid, cid)]
+  // 群：同时清 group_id / conversation_id 两种键，避免列表与聊天页键不一致
+  if (tid === 2) {
+    const n = cid | 0
+    if (n > 0) keys.push(convKey(2, String(n)))
   }
-  unreadMap[key] = 0
+  const lastId = Math.max(0, lastMsgId | 0)
+  const now = Date.now()
+  keys.forEach((key) => {
+    if (!key || key.endsWith(':')) return
+    recentlyRead[key] = { at: now, lastId }
+    unreadMap[key] = 0
+  })
   recomputeBadge()
   emitUnread()
 }

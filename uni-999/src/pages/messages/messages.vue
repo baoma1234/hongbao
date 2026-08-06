@@ -610,6 +610,7 @@ import {
 } from '../../utils/im.js'
 import {
   clearInboxUnread,
+  getInboxUnread,
   isConversationRecentlyRead,
   noteConversationRead,
   setInboxMyId,
@@ -706,11 +707,11 @@ function itemKey(item) {
 
 function unreadOf(item) {
   const id = resolveConvId(item)
+  if (!id) return 0
   if (isConversationRecentlyRead(item.conversation_type, id)) return 0
-  const key = itemKey(item)
-  const local = localUnread.value[key] | 0
-  const server = item.unread_count | 0
-  return Math.max(local, server)
+  const fromInbox = getInboxUnread(item.conversation_type, id)
+  if (fromInbox <= 0) return 0
+  return fromInbox
 }
 
 function toggleSearch() {
@@ -1102,7 +1103,10 @@ function openChat(item) {
   localUnread.value = Object.assign({}, localUnread.value, { [key]: 0 })
   item.unread_count = 0
   noteConversationRead(type, id, lastId)
-  if (id) markConversationRead(type, id, lastId).catch(() => null)
+  if (type === 2 && item.group_id) {
+    noteConversationRead(2, String(item.group_id), lastId)
+  }
+  if (id && lastId > 0) markConversationRead(type, id, lastId).catch(() => null)
   const q = [
     'type=' + encodeURIComponent(type),
     'id=' + encodeURIComponent(id),
@@ -1683,13 +1687,13 @@ async function loadList(silent = false) {
         it.unread_count = 0
         return
       }
-      const server = it.unread_count | 0
-      next[key] = Math.max(next[key] | 0, server)
+      next[key] = getInboxUnread(it.conversation_type, id)
+      it.unread_count = next[key]
     })
     localUnread.value = next
     let sum = 0
-    Object.keys(next).forEach((k) => {
-      sum += next[k] | 0
+    rows.forEach((it) => {
+      sum += unreadOf(it)
     })
     setChatUnreadTotal(sum)
   } catch (e) {

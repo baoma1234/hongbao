@@ -47,7 +47,7 @@
           class="chat-msg-scroll"
           :scroll-into-view="scrollInto"
           :scroll-top="scrollTop"
-          scroll-with-animation
+          :scroll-with-animation="false"
           @click="closePanels"
         >
           <view
@@ -651,6 +651,8 @@ let myId = 0
 let off = null
 let activePacketId = 0
 let roomAlive = false
+let bootDoneAt = 0
+let scrollTimers = []
 
 const isPrivate = computed(() => (meta.value.type | 0) === 1)
 const transferPreviewAmt = computed(() => {
@@ -892,6 +894,17 @@ function groupRpCountRange() {
   return { min, max, fixed: min === max }
 }
 
+/** 普通/随机红宝：个数范围对齐 888 userRpCountRange */
+function userRpCountRange() {
+  return { min: 1, max: 500, fixed: false }
+}
+
+function rpCountRangeForType(packetType) {
+  const t = packetType | 0
+  if (t === 1 || t === 4) return userRpCountRange()
+  return groupRpCountRange()
+}
+
 const packetTypes = computed(() => {
   const enabled = enabledRpTypeIds()
   const role = (groupMeta.value && groupMeta.value.my_role) | 0
@@ -909,10 +922,11 @@ const mineCountOptions = computed(() => {
 })
 
 const rpCountOptions = computed(() => {
-  const range = groupRpCountRange()
+  const range = rpCountRangeForType(rpForm.packet_type | 0)
   if (range.fixed) return [range.min]
   const out = []
-  for (let i = range.min; i <= range.max && out.length < 12; i++) out.push(i)
+  const cap = Math.min(range.max, range.min + 11)
+  for (let i = range.min; i <= cap; i++) out.push(i)
   return out.length ? out : [range.min]
 })
 
@@ -1349,6 +1363,44 @@ function normalizeStickerUrl(url) {
   if (s.startsWith('stickers/')) return assetBase() + 'static/' + s
   return assetBase() + 'static/' + s.replace(/^\/+/, '')
 }
+
+/** 发给 IM 的 sticker url：必须命中服务端 allowlist（/888/stickers|/stickers|/uploads/stickers） */
+function stickerSendUrl(url) {
+  let s = String(url || '').trim()
+  if (!s) return ''
+  if (/^https?:\/\//i.test(s)) {
+    try {
+      // #ifdef H5
+      s = new URL(s, typeof location !== 'undefined' ? location.origin : undefined).pathname || s
+      // #endif
+      // #ifndef H5
+      const m = s.match(/^https?:\/\/[^/]+(\/.*)$/i)
+      if (m) s = m[1]
+      // #endif
+    } catch (e) {}
+  }
+  if (s.indexOf('/999/static/stickers/') === 0) {
+    return '/888/stickers/' + s.slice('/999/static/stickers/'.length)
+  }
+  if (s.indexOf('/888/static/stickers/') === 0) {
+    return '/888/stickers/' + s.slice('/888/static/stickers/'.length)
+  }
+  if (s.indexOf('static/stickers/') === 0) {
+    return '/888/stickers/' + s.slice('static/stickers/'.length)
+  }
+  if (s.indexOf('stickers/') === 0) {
+    return '/888/' + s
+  }
+  if (
+    s.indexOf('/888/stickers/') === 0 ||
+    s.indexOf('/stickers/') === 0 ||
+    s.indexOf('/uploads/stickers/') === 0 ||
+    s.indexOf('/999/static/stickers/') === 0
+  ) {
+    return s
+  }
+  return s
+}
 function stickerUrl(m) {
   const ex = msgExtra(m)
   const raw = (ex && (ex.url || ex.fullurl)) || ''
@@ -1569,7 +1621,7 @@ function applyRpFormDefaults() {
   }
   const fixed = groupRpFixedAmount()
   if (fixed > 0) rpForm.total_amount = String(fixed)
-  const range = groupRpCountRange()
+  const range = rpCountRangeForType(rpForm.packet_type | 0)
   const cur = parseInt(rpForm.total_count, 10) || 0
   if (cur < range.min || cur > range.max) {
     rpForm.total_count = String(range.min)
@@ -1710,19 +1762,46 @@ function scrollToLatest() {
   const id = last ? 'm' + msgId(last) : 'chat-bottom-anchor'
   scrollInto.value = ''
   scrollTop.value = scrollTop.value === 999999 ? 999998 : 999999
+  if (scrollTimers.length) {
+    scrollTimers.forEach((t) => clearTimeout(t))
+    scrollTimers = []
+  }
   const bump = (target) => {
     scrollInto.value = ''
     nextTick(() => {
       scrollInto.value = target
       scrollTop.value = scrollTop.value === 999999 ? 999998 : 999999
+      // #ifdef H5
+      try {
+        if (typeof document !== 'undefined') {
+          const roots = document.querySelectorAll('.chat-room-page .chat-msg-scroll, .chat-msg-scroll')
+          roots.forEach((node) => {
+            const cands = [
+              node,
+              node.querySelector && node.querySelector('.uni-scroll-view'),
+              node.parentElement &&
+                node.parentElement.querySelector &&
+                node.parentElement.querySelector('.uni-scroll-view'),
+            ]
+            cands.forEach((el) => {
+              if (!el) return
+              try {
+                el.scrollTop = el.scrollHeight
+              } catch (e) {}
+            })
+          })
+        }
+      } catch (e) {}
+      // #endif
     })
   }
   nextTick(() => {
     bump(id)
-    setTimeout(() => bump('chat-bottom-anchor'), 80)
-    setTimeout(() => bump(id), 180)
-    setTimeout(() => bump('chat-bottom-anchor'), 360)
-    setTimeout(() => bump(id), 520)
+    ;[60, 160, 320, 500, 800, 1200].forEach((ms, i) => {
+      scrollTimers.push(
+        setTimeout(() => bump(i % 2 === 0 ? 'chat-bottom-anchor' : id), ms)
+      )
+    })
   })
 }
 
@@ -1746,8 +1825,10 @@ async function loadStickers() {
         items.forEach((it) => {
           if (baseItems.length >= 120) return
           const code = String((it && it.code) || '').trim()
-          const url = normalizeStickerUrl((it && it.url) || '')
-          if (code && url) baseItems.push({ code, url, pack: pid })
+          const raw = String((it && it.url) || '').trim()
+          const url = normalizeStickerUrl(raw)
+          const sendUrl = stickerSendUrl(raw || url)
+          if (code && url) baseItems.push({ code, url, sendUrl, pack: pid })
         })
       })
     })
@@ -1767,12 +1848,16 @@ async function loadStickers() {
         ? data.list
         : []
     customItems = list
-      .map((it) => ({
-        id: it.id,
-        code: String(it.name || it.code || '').trim(),
-        pack: String(it.pack || 'custom'),
-        url: normalizeStickerUrl(it.url || it.fullurl || ''),
-      }))
+      .map((it) => {
+        const raw = String(it.url || it.fullurl || '').trim()
+        return {
+          id: it.id,
+          code: String(it.name || it.code || '').trim(),
+          pack: String(it.pack || 'custom'),
+          url: normalizeStickerUrl(raw),
+          sendUrl: stickerSendUrl(raw),
+        }
+      })
       .filter((it) => it.code && it.url)
   } catch (e) {}
 
@@ -1825,16 +1910,22 @@ async function uploadCustomSticker() {
 }
 
 async function sendSticker(st) {
-  if (!st || !st.url) return
+  if (!st || !(st.url || st.sendUrl)) return
   const code = String(st.code || '表情')
+  const displayUrl = normalizeStickerUrl(st.url || st.sendUrl || '')
+  const sendUrl = stickerSendUrl(st.sendUrl || st.url || displayUrl)
+  if (!code || !sendUrl) {
+    uni.showToast({ title: '表情无效', icon: 'none' })
+    return
+  }
   const payload = {
     msg_type: 6,
     content: '[' + code + ']',
     extra: {
       pack: String(st.pack || 'wechat'),
       code,
-      url: st.url,
-      fullurl: st.url,
+      url: sendUrl,
+      fullurl: displayUrl || sendUrl,
     },
   }
   try {
@@ -2039,6 +2130,7 @@ function openFileMsg(m) {
 }
 
 function goBack() {
+  markRead().catch(() => {})
   clearActiveChat()
   // 聊天页常被 reLaunch 打开，navigateBack 可能无历史；直接回红宝 Tab 最稳
   uni.switchTab({
@@ -2084,11 +2176,9 @@ async function markRead() {
   if (meta.value.type === 2 && meta.value.group) {
     noteConversationRead(2, String(meta.value.group), lastId)
   }
+  // 勿用 lastId=0 上报：会在库里插入游标 0，Redis 失效后 SQL 把整段历史算成未读
   if (lastId > 0) {
     await markConversationRead(meta.value.type, cid, lastId)
-  } else {
-    // 仍上报一次，清 Redis 计数；游标靠后续有 id 再补
-    await markConversationRead(meta.value.type, cid, 0)
   }
 }
 
@@ -2210,7 +2300,7 @@ async function sendRp() {
     payload.scope_type = 2
     payload.group_id = meta.value.group | 0
     payload.packet_type = rpForm.packet_type | 0 || 2
-    const range = groupRpCountRange()
+    const range = rpCountRangeForType(payload.packet_type)
     let count = Math.max(1, parseInt(rpForm.total_count, 10) || 1)
     if (count < range.min) count = range.min
     if (count > range.max) count = range.max
@@ -2465,8 +2555,9 @@ onLoad(async (query) => {
     rpForm.packet_type = 1
     rpForm.total_count = '1'
   } else {
-    rpForm.packet_type = 2
-    rpForm.total_count = '5'
+    const enabled = enabledRpTypeIds()
+    rpForm.packet_type = enabled.indexOf(2) >= 0 ? 2 : enabled[0] || 1
+    rpForm.total_count = String(rpCountRangeForType(rpForm.packet_type).min)
   }
 
   saveActiveChat({
@@ -2541,6 +2632,9 @@ onLoad(async (query) => {
     await Promise.all([fetchHistory(), loadGroupMeta()])
   } catch (e) {
     uni.showToast({ title: e.message || '连接失败', icon: 'none' })
+  } finally {
+    bootDoneAt = Date.now()
+    scrollToLatest()
   }
 })
 
@@ -2548,12 +2642,22 @@ onShow(() => {
   if (!getToken() || !roomAlive) return
   bindForegroundResume()
   resumeFromBackground('chat-onShow')
-  softRefreshHistory()
+  // 刚进房时 onShow 会跟 onLoad 抢历史，容易滚不到底；短窗口只补滚
+  if (bootDoneAt && Date.now() - bootDoneAt < 1800) {
+    scrollToLatest()
+  } else {
+    softRefreshHistory()
+  }
   if (!isPrivate.value) loadGroupMeta().catch(() => {})
 })
 
 onUnload(() => {
+  markRead().catch(() => {})
   roomAlive = false
+  if (scrollTimers.length) {
+    scrollTimers.forEach((t) => clearTimeout(t))
+    scrollTimers = []
+  }
   if (off) off()
 })
 </script>

@@ -2111,6 +2111,7 @@ class MessageService
             return false;
         }
         if (strpos($path, '/888/stickers/') !== 0
+            && strpos($path, '/999/static/stickers/') !== 0
             && strpos($path, '/stickers/') !== 0
             && strpos($path, '/uploads/stickers/') !== 0) {
             return false;

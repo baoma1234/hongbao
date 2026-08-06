@@ -1,5 +1,5 @@
 import { getDeviceFp, getToken } from './auth.js'
-import { getImWsBase } from './config.js'
+import { getApiBase, getImWsBase } from './config.js'
 
 let socketTask = null
 let socketOpen = false
@@ -12,6 +12,85 @@ let reconnectTimer = null
 let intentionalClose = false
 /** 进行中的连接（含等 OPEN / 等 auth） */
 let connectingPromise = null
+
+/** 与 888 对齐：这些写读优先走 /im-api，失败再回退 WS */
+const HTTP_ROUTES = {
+  'conversation.list': '/im/conversations',
+  history: '/im/history',
+  'redpacket.send': '/im/redpacket/send',
+  'redpacket.grab': '/im/redpacket/grab',
+  'redpacket.detail': '/im/redpacket/detail',
+  'transfer.send': '/im/transfer/send',
+}
+
+function getImHttpBase() {
+  // #ifdef H5
+  if (typeof location !== 'undefined' && location.origin) {
+    return String(location.origin).replace(/\/$/, '') + '/im-api'
+  }
+  // #endif
+  const api = String(getApiBase() || '').replace(/\/$/, '')
+  if (api) return api + '/im-api'
+  return 'http://127.0.0.1:17273'
+}
+
+function sendViaHttp(type, data) {
+  const path = HTTP_ROUTES[type]
+  if (!path) return Promise.reject(new Error('no http route'))
+  const token = getToken()
+  if (!token) return Promise.reject(new Error('未登录'))
+  const body = Object.assign({ token }, data || {})
+  return new Promise((resolve, reject) => {
+    uni.request({
+      url: getImHttpBase() + path,
+      method: 'POST',
+      data: body,
+      header: {
+        'Content-Type': 'application/json',
+        'X-Fans-Token': token,
+      },
+      timeout: 12000,
+      success(res) {
+        const json = (res && res.data) || null
+        if (!json || typeof json !== 'object') {
+          reject(new Error('HTTP empty'))
+          return
+        }
+        const okStatus = res.statusCode >= 200 && res.statusCode < 300
+        if (!okStatus || json.code === 0) {
+          reject(new Error(json.message || json.msg || 'HTTP ' + res.statusCode))
+          return
+        }
+        const respType = json.ws_type || type
+        let payload
+        if (Object.prototype.hasOwnProperty.call(json, 'data') && json.data != null) {
+          payload = json.data
+        } else {
+          payload = Object.assign({}, json)
+          try {
+            delete payload.code
+            delete payload.ws_type
+            delete payload.message
+          } catch (e) {}
+        }
+        resolve({ type: respType, data: payload, via: 'http' })
+      },
+      fail(err) {
+        reject(new Error((err && err.errMsg) || 'HTTP failed'))
+      },
+    })
+  })
+}
+
+function isHttpNetworkError(err) {
+  const hm = String((err && err.message) || '')
+  if (!hm) return true
+  if (hm === '未连接' || hm === '超时' || hm === 'HTTP empty' || hm === 'HTTP bad json') return true
+  if (hm.indexOf('NetworkError') >= 0 || hm.indexOf('Load failed') >= 0) return true
+  if (hm.indexOf('request:fail') >= 0 || hm.indexOf('Failed to fetch') >= 0) return true
+  if (hm.indexOf('HTTP ') === 0) return true
+  return false
+}
 
 function nextReqId() {
   reqSeq += 1
@@ -265,8 +344,18 @@ export async function ensureImReady() {
 }
 
 export function imSend(type, data = {}, waitAck = false) {
+  const payload = data || {}
+  if (waitAck && HTTP_ROUTES[type]) {
+    return sendViaHttp(type, payload).catch((httpErr) => {
+      if (!isHttpNetworkError(httpErr)) throw httpErr
+      return ensureImReady().then(() => {
+        const packet = { type, data: payload, req_id: nextReqId() }
+        return doSend(packet, true)
+      })
+    })
+  }
   return ensureImReady().then(() => {
-    const packet = { type, data: data || {}, req_id: nextReqId() }
+    const packet = { type, data: payload, req_id: nextReqId() }
     return doSend(packet, waitAck)
   })
 }
