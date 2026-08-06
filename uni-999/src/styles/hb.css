@@ -346,7 +346,8 @@ page {
 }
 
 .profile-field input,
-.hb-input {
+.hb-input,
+uni-input.hb-input {
   width: 100%;
   box-sizing: border-box;
   border: 1.5px solid transparent;
@@ -355,9 +356,31 @@ page {
     linear-gradient(145deg, rgba(255, 233, 176, 0.95) 0%, rgba(240, 176, 74, 0.7) 55%, rgba(224, 122, 34, 0.8) 100%) border-box;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -1px 3px rgba(200, 140, 60, 0.1);
   border-radius: 12px;
-  padding: 10px 12px;
-  font-size: 14px;
+  padding: 12px 14px;
+  min-height: 48px !important;
+  height: 48px !important;
+  font-size: 16px !important;
+  line-height: 1.4;
   color: var(--hb-ink);
+  display: block;
+}
+.profile-sub-page .hb-input .uni-input-wrapper,
+.profile-field .hb-input .uni-input-wrapper {
+  height: 100% !important;
+  min-height: 24px;
+  display: flex !important;
+  align-items: center;
+}
+.profile-sub-page .hb-input .uni-input-input,
+.profile-field .hb-input .uni-input-input {
+  min-height: 24px !important;
+  height: 24px !important;
+  font-size: 16px !important;
+  line-height: 24px !important;
+}
+.profile-sms-row .hb-input {
+  height: 48px !important;
+  min-height: 48px !important;
 }
 
 .btn-uid-submit {

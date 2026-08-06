@@ -148,6 +148,7 @@
               </view>
             </template>
           </view>
+          <view id="chat-bottom-anchor" class="chat-bottom-anchor" />
         </scroll-view>
 
         <view
@@ -1142,7 +1143,14 @@ function openFairVerify() {
 }
 
 function msgId(m) {
-  return m.msg_id || m.id || m.createtime || Math.random()
+  if (!m) return '0'
+  const id = m.msg_id != null && m.msg_id !== '' ? m.msg_id : m.id
+  if (id != null && id !== '') return String(id)
+  const t = (m.createtime | 0) || 0
+  const from = (m.from_user_id | 0) || 0
+  const typ = (m.msg_type | 0) || (m.type | 0) || 0
+  const c = String(m.content || m.text || m.body || '').slice(0, 32)
+  return 'tmp_' + t + '_' + from + '_' + typ + '_' + c.length
 }
 function isMine(m) {
   const uid = (myUserId.value | 0) || (myId | 0)
@@ -1658,19 +1666,22 @@ async function refreshWallet() {
 
 function scrollToLatest() {
   const last = messages.value[messages.value.length - 1]
-  if (!last) return
-  const id = 'm' + msgId(last)
+  const id = last ? 'm' + msgId(last) : 'chat-bottom-anchor'
   scrollInto.value = ''
   scrollTop.value = scrollTop.value === 999999 ? 999998 : 999999
-  nextTick(() => {
-    scrollInto.value = id
-    setTimeout(() => {
-      scrollInto.value = id
+  const bump = (target) => {
+    scrollInto.value = ''
+    nextTick(() => {
+      scrollInto.value = target
       scrollTop.value = scrollTop.value === 999999 ? 999998 : 999999
-    }, 60)
-    setTimeout(() => {
-      scrollInto.value = id
-    }, 200)
+    })
+  }
+  nextTick(() => {
+    bump(id)
+    setTimeout(() => bump('chat-bottom-anchor'), 80)
+    setTimeout(() => bump(id), 180)
+    setTimeout(() => bump('chat-bottom-anchor'), 360)
+    setTimeout(() => bump(id), 520)
   })
 }
 

@@ -54,15 +54,32 @@
   margin-bottom: 12px;
 }
 
-#tabExchange .share-swap-btn-all,
 #tabExchange .share-swap-submit,
-#tabExchange .share-swap-arrow {
-  box-sizing: border-box;
-  line-height: normal;
-  -webkit-appearance: none;
-  appearance: none;
-  font-family: inherit;
-  margin: 0;
+#tabExchange uni-button.share-swap-submit {
+  height: 48px !important;
+  min-height: 48px !important;
+  max-height: 48px !important;
+  line-height: 1 !important;
+  padding: 0 16px !important;
+  margin-top: 16px;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 15px !important;
+  font-weight: 800;
+  text-align: center;
+  vertical-align: middle;
+  box-sizing: border-box !important;
+}
+#tabExchange .share-swap-submit .uni-button-text,
+#tabExchange uni-button.share-swap-submit span {
+  line-height: 1 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  transform: none !important;
 }
 
 #tabExchange .share-swap-btn-all::after,

@@ -197,10 +197,34 @@
   color: rgba(255, 255, 255, 0.9) !important;
   display: block;
 }
+#tabMaster .btn-checkin-main {
+  width: auto !important;
+  max-width: 240px !important;
+  min-width: 0 !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 12px 22px !important;
+  font-size: 14px !important;
+  line-height: 1.35 !important;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+#tabMaster .checkin-violent-row,
+#tabMaster .checkin-block {
+  text-align: center;
+}
 #tabMaster .btn-checkin-main-text {
   color: #fff !important;
   position: relative;
   z-index: 1;
+  font-size: 14px !important;
+  line-height: 1.35;
+  white-space: normal;
+  max-width: 16em;
 }
 #tabMaster .btn-checkin-main.is-disabled {
   opacity: 0.55;

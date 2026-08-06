@@ -69,6 +69,22 @@ async function decodeQrFromPath(filePath) {
   // #endif
 }
 
+export async function decodeQrFromAlbum() {
+  const pick = await new Promise((resolve, reject) => {
+    uni.chooseImage({
+      count: 1,
+      sizeType: ['compressed'],
+      sourceType: ['album'],
+      success: resolve,
+      fail: reject,
+    })
+  })
+  const path = pick.tempFilePaths && pick.tempFilePaths[0]
+  if (!path) throw new Error('未选择图片')
+  const raw = await decodeQrFromPath(path)
+  return parseFriendPayload(raw)
+}
+
 export async function addFriendByMemberId(memberId, selfUserId) {
   const id = String(memberId || '').replace(/\D+/g, '')
   if (!/^\d{8}$/.test(id)) {
@@ -102,17 +118,27 @@ export async function addFriendByMemberId(memberId, selfUserId) {
   return true
 }
 
+let sheetOpener = null
+
+export function registerFriendScanOpener(fn) {
+  sheetOpener = typeof fn === 'function' ? fn : null
+}
+
 /**
  * @param {{ selfUserId?: string|number, onManual?: () => void }} [opts]
  */
 export function openFriendScanSheet(opts) {
+  if (typeof sheetOpener === 'function') {
+    sheetOpener(opts || {})
+    return
+  }
+  // 兜底：无宿主组件时仍可用系统 ActionSheet
   const selfUserId = opts && opts.selfUserId
   const onManual =
     (opts && opts.onManual) ||
     (() => {
       uni.navigateTo({ url: '/pages/friend/add' })
     })
-
   uni.showActionSheet({
     itemList: ['扫一扫', '从相册识别', '手动输入会员ID'],
     success: async (res) => {
@@ -124,11 +150,7 @@ export function openFriendScanSheet(opts) {
       if (idx === 0) {
         try {
           const r = await new Promise((resolve, reject) => {
-            uni.scanCode({
-              onlyFromCamera: true,
-              success: resolve,
-              fail: reject,
-            })
+            uni.scanCode({ onlyFromCamera: true, success: resolve, fail: reject })
           })
           const id = parseFriendPayload(r && r.result)
           if (id) await addFriendByMemberId(id, selfUserId)
@@ -139,19 +161,7 @@ export function openFriendScanSheet(opts) {
         return
       }
       try {
-        const pick = await new Promise((resolve, reject) => {
-          uni.chooseImage({
-            count: 1,
-            sizeType: ['compressed'],
-            sourceType: ['album'],
-            success: resolve,
-            fail: reject,
-          })
-        })
-        const path = pick.tempFilePaths && pick.tempFilePaths[0]
-        if (!path) return
-        const raw = await decodeQrFromPath(path)
-        const id = parseFriendPayload(raw)
+        const id = await decodeQrFromAlbum()
         if (id) await addFriendByMemberId(id, selfUserId)
         else uni.showToast({ title: '无效的会员二维码', icon: 'none' })
       } catch (e) {

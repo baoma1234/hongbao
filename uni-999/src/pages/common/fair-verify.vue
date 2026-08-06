@@ -1,12 +1,12 @@
 <template>
   <view class="fv-page">
     <TopBar :no-spacer="true" />
-    <view class="profile-sub-hd">
+    <view class="fv-hd profile-sub-hd">
       <text class="profile-back-btn" @click="goBack">‹</text>
       <text class="profile-sub-title">波场官方哈希验证</text>
       <text class="profile-sub-spacer" />
     </view>
-    <scroll-view scroll-y class="fv-scroll">
+    <scroll-view scroll-y class="fv-scroll" :style="{ height: scrollH }">
       <view class="fv-wrap">
         <view class="fv-h1">波场官方哈希验证</view>
         <view class="fv-sub">
@@ -125,7 +125,20 @@ const packetId = ref(0)
 const formErr = ref('')
 const result = ref(null)
 const busy = ref(false)
+const scrollH = ref('70vh')
 let retryTimer = null
+
+function measureScroll() {
+  try {
+    const sys = uni.getSystemInfoSync() || {}
+    const wh = Number(sys.windowHeight) || 640
+    const topBar = 48
+    const hd = 56
+    scrollH.value = Math.max(240, wh - topBar - hd) + 'px'
+  } catch (e) {
+    scrollH.value = '70vh'
+  }
+}
 
 const av = computed(() => (result.value && result.value.amount_verify) || {})
 const blockNum = computed(() => {
@@ -194,17 +207,18 @@ async function verify(opts) {
   formErr.value = ''
   const no = String(packetNo.value || '').trim()
   if (!no) {
-    formErr.value = '请输入红包单号'
+    formErr.value = '请填写红包单号'
     return
   }
   if (!getToken()) {
-    formErr.value = '请先登录'
+    formErr.value = '请先登录后再查询验证'
     return
   }
   busy.value = true
   try {
     const data = await apiRequest('rpfair', 'GET', { packet_no: no })
     result.value = data || {}
+    formErr.value = ''
     if (retryTimer) {
       clearTimeout(retryTimer)
       retryTimer = null
@@ -215,14 +229,22 @@ async function verify(opts) {
       }, 3500)
     }
   } catch (e) {
-    formErr.value = (e && e.message) || '网络错误'
+    const msg = (e && e.message) || '网络错误'
+    formErr.value = msg
     result.value = null
+    if (/未领|不可|不存在|不支持|请先登录/.test(msg)) {
+      if (retryTimer) {
+        clearTimeout(retryTimer)
+        retryTimer = null
+      }
+    }
   } finally {
     busy.value = false
   }
 }
 
 onLoad((q) => {
+  measureScroll()
   const no = decodeURIComponent(String((q && (q.packet_no || q.no)) || ''))
   const pid = parseInt(String((q && (q.packet_id || q.pid)) || '0'), 10) || 0
   if (no) packetNo.value = no
@@ -238,18 +260,41 @@ onUnmounted(() => {
 <style scoped>
 .fv-page {
   min-height: 100vh;
+  height: 100vh;
   background: #f5f6f8;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
+  padding-top: var(--top-bar-height, 48px);
+  overflow: hidden;
+}
+.fv-hd {
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 5;
 }
 .fv-scroll {
-  flex: 1;
-  height: 0;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  box-sizing: border-box;
 }
 .fv-wrap {
   max-width: 720px;
   margin: 0 auto;
   padding: 16px 14px 40px;
+  box-sizing: border-box;
+}
+.fv-input {
+  width: 100%;
+  min-height: 44px;
+  height: 44px;
+  line-height: 22px;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 15px;
+  background: #fff;
   box-sizing: border-box;
 }
 .fv-h1 {
@@ -283,15 +328,6 @@ onUnmounted(() => {
 }
 .fv-label.mt {
   margin-top: 10px;
-}
-.fv-input {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 15px;
-  background: #fff;
-  box-sizing: border-box;
 }
 .fv-btn {
   margin-top: 10px;

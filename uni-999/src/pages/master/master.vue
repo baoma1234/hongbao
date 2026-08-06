@@ -266,11 +266,11 @@ const checkinBtnText = computed(() => {
       checkin.value.today_mode === 'violent'
         ? t('phase2_checkin_mode_violent') || '暴力'
         : t('phase2_checkin_mode_normal') || '普通'
-    return t('phase2_checkin_done_btn', { mode }) || ('今日已签到(' + mode + ') · 再复制推广')
+    return t('phase2_checkin_done_btn', { mode }) || ('今日已签到 · ' + mode)
   }
   return violent.value
-    ? t('phase2_checkin_violent_btn_short') || '立即执行【暴力分享签到】'
-    : t('phase2_checkin_normal_btn_short') || '仅执行【普通打卡】'
+    ? t('phase2_checkin_violent_btn_short') || '暴力分享签到'
+    : t('phase2_checkin_normal_btn_short') || '普通打卡'
 })
 const checkinTip = computed(() => {
   void locale.value

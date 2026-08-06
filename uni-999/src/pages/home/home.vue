@@ -241,6 +241,8 @@ const appDownloadUrl = ref('')
 const mainStationUrl = ref('https://555.bio')
 const lotteryRef = ref(null)
 let pollTimer = null
+let pollLocalTimer = null
+let lbTimer = null
 let secretTimer = null
 let secretRequestId = ''
 
@@ -310,14 +312,9 @@ const partnersText = computed(() => {
   const j = jackpot.value || config.value || {}
   const count = j.partner_count != null ? j.partner_count : j.partners
   const up = j.partner_today_up != null ? j.partner_today_up : 0
-  const countFmt = formatCountNum(count == null ? 8000 : count)
+  const n = Number(count)
+  const countFmt = formatCountNum(!isNaN(n) && n > 0 ? n : marketVirtualBase())
   const upFmt = formatCountNum(up)
-  if (count == null) {
-    return (
-      t('jackpot_partners', { partner_count: countFmt, partner_today_up: upFmt }) ||
-      `📈 当前全网股份人数：${countFmt} 人 ( 🚀 今日暴涨 +${upFmt} 人 )`
-    )
-  }
   return (
     t('jackpot_partners', { partner_count: countFmt, partner_today_up: upFmt }) ||
     `📈 当前全网股份人数：${countFmt} 人 ( 🚀 今日暴涨 +${upFmt} 人 )`
@@ -507,6 +504,18 @@ function applyConfig(cfg) {
   if (cfg.customer_service_url) {
     /* reserved for jump */
   }
+  // 用 config 快照补大屏，避免首屏一直 0 / 空白
+  if (
+    cfg.partner_count != null ||
+    cfg.fission_user_count != null ||
+    cfg.cumulative_payout != null ||
+    cfg.share_price != null ||
+    cfg.current_share_price != null
+  ) {
+    applyMarketScreen(cfg)
+  } else if (!jackpot.value || !(jackpot.value.partner_count > 0)) {
+    applyMarketScreen({ partner_count: marketVirtualBase() })
+  }
 }
 
 function syncUidFromProfile(p) {
@@ -535,12 +544,9 @@ async function loadBootstrap() {
         syncUidFromProfile(data.profile)
       }
       if (data.config) applyConfig(data.config)
-      if (data.market) jackpot.value = data.market
-      else if (data.jackpot) jackpot.value = data.jackpot
-      const lb = (data.home && data.home.leaderboard) || data.leaderboard
-      if (Array.isArray(lb) && lb.length) {
-        leaderboard.value = normalizeLeaderboard(lb)
-      }
+      if (data.market) applyMarketScreen(data.market)
+      else if (data.jackpot) applyMarketScreen(data.jackpot)
+      // 排行榜统一走 loadLeaderboard（虚拟榜+真实合并），不直接用 bootstrap 短列表
     }
   } catch (e) {
     /* fallback below */
@@ -560,12 +566,13 @@ async function loadBootstrap() {
     } catch (e3) {}
   }
   if (!jackpot.value) await pollJackpot()
-  if (!leaderboard.value.length) await loadLeaderboard()
+  await loadLeaderboard()
 }
 
 function leaderboardDaySeed() {
   const d = new Date()
-  return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate()
+  // 按分钟换种子，虚拟榜人数/号码会随刷新 visibly 变化
+  return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate() + Math.floor(Date.now() / 60000)
 }
 
 function leaderboardRng(seed) {
@@ -589,6 +596,7 @@ function buildVirtualLeaderboard(limit) {
   ]
   const base = [28, 24, 21, 17, 14, 12, 10, 8, 6, 5]
   const hourBoost = Math.floor((Date.now() % 86400000) / 3600000)
+  const minuteBoost = Math.floor((Date.now() % 3600000) / 60000)
   const rows = []
   for (let i = 0; i < limit; i++) {
     const pool = pools[Math.floor(rnd() * pools.length)]
@@ -596,7 +604,10 @@ function buildVirtualLeaderboard(limit) {
     let tail = ''
     for (let t = 0; t < pool.tailLen; t++) tail += String(Math.floor(rnd() * 10))
     const jitter = Math.floor(rnd() * 3)
-    const count = Math.max(2, (base[i] || Math.max(2, 12 - i)) + Math.floor(hourBoost * 0.12) + jitter)
+    const count = Math.max(
+      2,
+      (base[i] || Math.max(2, 12 - i)) + Math.floor(hourBoost * 0.12) + Math.floor(minuteBoost * 0.08) + jitter
+    )
     rows.push({
       rank: i + 1,
       mobile_mask: pool.dial + ' ' + head + '****' + tail,
@@ -622,7 +633,10 @@ function normalizeLeaderboard(rows) {
 async function loadLeaderboard() {
   let rows = buildVirtualLeaderboard(10)
   try {
-    const real = await apiRequest('inviteleaderboard', 'GET', { limit: 10 })
+    let real = await apiRequest('inviteleaderboard', 'GET', { limit: 10 })
+    if (real && !Array.isArray(real)) {
+      real = real.list || real.rows || real.data || []
+    }
     if (Array.isArray(real) && real.length) {
       const map = {}
       real.forEach((r) => {
@@ -651,19 +665,114 @@ async function loadLeaderboard() {
 async function pollJackpot() {
   try {
     const data = await apiRequest('jackpot', 'GET')
-    if (data) jackpot.value = data
+    if (data) applyMarketScreen(data)
   } catch (e) {}
+}
+
+function marketVirtualBase() {
+  const cfg = config.value || {}
+  const n = parseInt(cfg.market_virtual_base != null ? cfg.market_virtual_base : cfg.partner_count, 10)
+  return !isNaN(n) && n > 0 ? n : 8000
+}
+
+function applyMarketScreen(data) {
+  if (!data || typeof data !== 'object') return
+  const prev = jackpot.value && typeof jackpot.value === 'object' ? jackpot.value : {}
+  const cfg = config.value || {}
+  const serverSync = cfg.jackpot_server_sync !== false
+  const next = Object.assign({}, prev, data)
+
+  const rawAmt = data.cumulative_payout !== undefined ? data.cumulative_payout : data.amount
+  if (rawAmt !== undefined) {
+    const n = parseFloat(rawAmt) || 0
+    const prevAmt = parseFloat(prev.cumulative_payout != null ? prev.cumulative_payout : prev.amount) || 0
+    const amt = serverSync ? n : Math.max(prevAmt, n)
+    next.amount = amt
+    next.cumulative_payout = amt
+  }
+
+  if (data.partner_count !== undefined || data.fission_user_count !== undefined || data.partners !== undefined) {
+    const raw =
+      data.partner_count !== undefined
+        ? data.partner_count
+        : data.fission_user_count !== undefined
+          ? data.fission_user_count
+          : data.partners
+    let n = Math.max(0, parseInt(raw, 10) || 0)
+    if (n <= 0) n = marketVirtualBase()
+    const prevN = Math.max(0, parseInt(prev.partner_count != null ? prev.partner_count : prev.partners, 10) || 0)
+    next.partner_count = serverSync ? n : Math.max(prevN, n)
+  }
+
+  if (data.partner_today_up !== undefined) {
+    next.partner_today_up = Math.max(0, parseInt(data.partner_today_up, 10) || 0)
+  }
+  if (data.share_price !== undefined || data.current_share_price !== undefined) {
+    const p = parseFloat(data.current_share_price != null ? data.current_share_price : data.share_price)
+    if (!isNaN(p) && p > 0) {
+      next.share_price = p
+      next.current_share_price = p
+    }
+  }
+  // 首屏无人数字段时用营销基数，避免一直显示 0
+  if (!(next.partner_count > 0) && !(next.partners > 0)) {
+    next.partner_count = Math.max(prev.partner_count | 0, marketVirtualBase())
+  }
+  jackpot.value = next
+}
+
+function tickMarketLocal() {
+  const cfg = config.value || {}
+  if (cfg.jackpot_server_sync !== false) return
+  const prev = jackpot.value && typeof jackpot.value === 'object' ? { ...jackpot.value } : {}
+  let amt = parseFloat(prev.cumulative_payout != null ? prev.cumulative_payout : prev.amount) || 0
+  const ceiling = parseFloat(cfg.jackpot_ceiling) || 20000
+  if (amt < ceiling) {
+    const minG = parseFloat(cfg.jackpot_grow_min) || 0.02
+    const maxG = parseFloat(cfg.jackpot_grow_max) || 0.08
+    amt = Math.min(ceiling, amt + minG + Math.random() * Math.max(0, maxG - minG))
+    prev.amount = amt
+    prev.cumulative_payout = amt
+  }
+  const hour = new Date().getHours()
+  const isDay = hour >= 8 && hour < 23
+  const add = isDay ? 3 + Math.floor(Math.random() * 10) : Math.floor(Math.random() * 3)
+  const pc = Math.max(0, parseInt(prev.partner_count != null ? prev.partner_count : prev.partners, 10) || 0)
+  prev.partner_count = pc + add
+  jackpot.value = prev
 }
 
 function startPoll() {
   stopPoll()
-  pollTimer = setInterval(pollJackpot, 20000)
+  pollJackpot()
+  loadLeaderboard()
+  pollTimer = setInterval(() => {
+    pollJackpot()
+  }, 20000)
+  // 本地氛围：金额/人数微动（仅非服务端同步时）
+  if (!pollLocalTimer) {
+    pollLocalTimer = setInterval(tickMarketLocal, 60000)
+  }
+  // 排行榜每分钟刷新一次（虚拟榜 minuteBoost + 真实合并）
+  if (!lbTimer) {
+    lbTimer = setInterval(() => {
+      loadLeaderboard()
+    }, 60000)
+  }
 }
 
 function stopPoll() {
   if (pollTimer) {
     clearInterval(pollTimer)
     pollTimer = null
+  }
+  if (pollLocalTimer) {
+    clearInterval(pollLocalTimer)
+    pollLocalTimer = null
+  }
+  if (lbTimer) {
+    clearInterval(lbTimer)
+    lbTimer = null
   }
 }
 

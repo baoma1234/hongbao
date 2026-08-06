@@ -67,15 +67,51 @@
 }
 
 .chat-friend-page .chat-add-friend-country {
-  min-width: 64px;
+  min-width: 72px;
+  min-height: 48px;
   text-align: center;
-  padding: 10px 8px;
+  padding: 12px 8px;
   box-sizing: border-box;
+  font-size: 15px;
+  line-height: 1.4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.chat-friend-page .chat-setting-input {
+.chat-friend-page .chat-setting-input,
+.chat-friend-page .chat-add-friend-mobile,
+.chat-friend-page .chat-add-friend-userid,
+.chat-friend-page uni-input.chat-setting-input,
+.chat-friend-page uni-input.chat-add-friend-mobile,
+.chat-friend-page uni-input.chat-add-friend-userid {
   width: 100%;
+  min-height: 48px !important;
+  height: 48px !important;
   box-sizing: border-box;
+  font-size: 16px !important;
+  line-height: 1.4 !important;
+  padding: 12px 14px !important;
+  display: block !important;
+  background: #fff;
+  border: 1px solid #e8d9c8;
+  border-radius: 10px;
+}
+.chat-friend-page .chat-setting-input .uni-input-wrapper,
+.chat-friend-page .chat-add-friend-mobile .uni-input-wrapper,
+.chat-friend-page .chat-add-friend-userid .uni-input-wrapper {
+  height: 100% !important;
+  min-height: 24px;
+  display: flex !important;
+  align-items: center;
+}
+.chat-friend-page .chat-setting-input .uni-input-input,
+.chat-friend-page .chat-add-friend-mobile .uni-input-input,
+.chat-friend-page .chat-add-friend-userid .uni-input-input {
+  min-height: 24px !important;
+  height: 24px !important;
+  font-size: 16px !important;
+  line-height: 24px !important;
 }
 
 .chat-friend-page .chat-setting-save-btn {

@@ -564,6 +564,7 @@
       </view>
     </view>
 
+    <FriendScanSheet />
     <BottomTabBar active="messages" />
   </view>
 </template>
@@ -573,6 +574,7 @@ import { computed, onUnmounted, ref, watch } from 'vue'
 import { onShow, onHide } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
 import BottomTabBar from '../../components/BottomTabBar.vue'
+import FriendScanSheet from '../../components/FriendScanSheet.vue'
 import '../../styles/chat.bundle.css'
 import '../../styles/chat-uni-adapter.css'
 import '../../styles/chat-888-parity.css'
