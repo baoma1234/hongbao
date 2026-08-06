@@ -11,7 +11,7 @@
       <view class="chat-hero-spacer" />
     </view>
 
-    <view class="chat-sub-main">
+    <scroll-view scroll-y class="chat-sub-main" :show-scrollbar="true">
       <view class="chat-setting-card chat-setting-profile">
         <view
           class="chat-setting-avatar-btn"
@@ -107,7 +107,7 @@
         @click="onLeave"
       >退出群组</button>
       <view v-else class="chat-setting-hint">群主不能直接退群，请先转让群主</view>
-    </view>
+    </scroll-view>
 
     <!-- 成员操作：对齐 888 chat-action-sheet -->
     <view class="chat-action-sheet" :class="{ open: memberSheet }" v-if="memberSheet" aria-hidden="false">

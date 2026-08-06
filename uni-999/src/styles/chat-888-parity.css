@@ -312,32 +312,47 @@
   opacity: 0.45;
 }
 
-/* settings page：公共 TopBar + 二级红顶 + 内容（对齐 888 在站点顶栏下的结构） */
+/* settings page：公共 TopBar + 二级红顶 + 可滚动内容（对齐 888 子页） */
 .chat-group-settings-page {
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
+  overflow: hidden;
   background: #f3f4f6;
   display: flex;
   flex-direction: column;
   padding-top: var(--top-bar-height, 48px);
   box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+}
+.chat-group-settings-page,
+.chat-group-settings-page *,
+.chat-group-settings-page *::before,
+.chat-group-settings-page *::after {
+  box-sizing: border-box;
 }
 .chat-group-settings-page > .chat-hero-hd {
-  position: sticky;
-  top: var(--top-bar-height, 48px);
+  position: relative;
+  top: auto;
   z-index: 10;
   flex-shrink: 0;
+  width: 100%;
+  max-width: 100%;
   padding: 10px 14px !important;
   min-height: 48px;
   background: linear-gradient(to right, #e63022, #c61114) !important;
   color: #fff !important;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
   box-sizing: border-box;
 }
 .chat-group-settings-page > .chat-hero-hd .chat-hero-title {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
   text-align: center;
   color: #fff !important;
   font-size: 17px;
@@ -346,24 +361,67 @@
 .chat-group-settings-page > .chat-hero-hd .chat-hero-back,
 .chat-group-settings-page > .chat-hero-hd .chat-hero-spacer {
   width: 44px;
+  min-width: 44px;
+  max-width: 44px;
   height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   color: #fff;
+  margin: 0;
+  padding: 0;
 }
-.chat-group-settings-page > .chat-sub-main {
+.chat-group-settings-page > .chat-sub-main,
+.chat-group-settings-page scroll-view.chat-sub-main {
   position: relative;
   z-index: 1;
-  margin-top: 0;
-  flex: 1 1 auto;
-  padding: 12px 12px calc(24px + env(safe-area-inset-bottom, 0px));
-  background: #fffdf9;
-  border-radius: 0;
-  box-sizing: border-box;
-  overflow-y: auto;
+  margin-top: 0 !important;
+  border-radius: 0 !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: 0 !important; /* flex 子项可算高度，才能滚动 */
+  width: 100% !important;
+  max-width: 100% !important;
+  padding: 12px 12px calc(24px + env(safe-area-inset-bottom, 0px)) !important;
+  background: #fffdf9 !important;
+  box-sizing: border-box !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
   -webkit-overflow-scrolling: touch;
+  display: block !important; /* 覆盖 bundle 的 flex column，避免内容无法滚 */
+}
+.chat-group-settings-page .chat-setting-card,
+.chat-group-settings-page .chat-setting-edit,
+.chat-group-settings-page .chat-setting-block,
+.chat-group-settings-page .chat-setting-row,
+.chat-group-settings-page .chat-setting-input,
+.chat-group-settings-page .chat-setting-textarea,
+.chat-group-settings-page .chat-setting-save-btn,
+.chat-group-settings-page .chat-setting-leave-btn,
+.chat-group-settings-page .chat-forbid-modes {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.chat-group-settings-page .chat-setting-profile {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+.chat-group-settings-page .chat-setting-profile-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+.chat-group-settings-page .chat-setting-name,
+.chat-group-settings-page .chat-setting-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* invite overlay as full pane under TopBar */
@@ -407,12 +465,17 @@
 .chat-group-invite-overlay .chat-sub-main {
   flex: 1 1 auto;
   min-height: 0;
+  height: 0;
+  width: 100%;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   padding: 0;
-  margin: 0;
+  margin: 0 !important;
+  border-radius: 0 !important;
   background: #fffdf9;
+  box-sizing: border-box;
 }
 .chat-group-invite-overlay .chat-sub-toolbar {
   flex-shrink: 0;
@@ -450,12 +513,18 @@
   font-size: 14px;
   color: #333;
 }
-.chat-group-members-overlay .chat-member-list {
+.chat-group-members-overlay .chat-member-list,
+.chat-group-invite-overlay .chat-member-list {
   flex: 1 1 auto;
   min-height: 0;
+  height: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   background: #fff;
+  box-sizing: border-box;
 }
 .chat-group-invite-overlay .chat-invite-box {
   margin-right: 2px;
