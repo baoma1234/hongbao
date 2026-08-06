@@ -114,8 +114,7 @@
 #tabMessages .chat-avatar,
 #tabMessages .chat-my-group-avatar,
 #tabMessages .chat-feed-avatar,
-#tabMessages .chat-group-card .icon-box,
-#tabMessages .chat-notice-avatar {
+#tabMessages .chat-group-card .icon-box {
   position: relative;
   overflow: hidden;
   flex-shrink: 0;
@@ -137,10 +136,7 @@
 #tabMessages .chat-feed-avatar uni-image,
 #tabMessages .chat-feed-avatar image,
 #tabMessages .chat-group-card .icon-box uni-image,
-#tabMessages .chat-group-card .icon-box image,
-#tabMessages .chat-notice-avatar.uni-image,
-#tabMessages uni-image.chat-notice-avatar,
-#tabMessages image.chat-notice-avatar {
+#tabMessages .chat-group-card .icon-box image {
   width: 100% !important;
   height: 100% !important;
   display: block !important;
@@ -151,8 +147,7 @@
 #tabMessages .chat-avatar uni-image div,
 #tabMessages .chat-my-group-avatar uni-image div,
 #tabMessages .chat-feed-avatar uni-image div,
-#tabMessages .chat-group-card .icon-box uni-image div,
-#tabMessages .chat-notice-avatar div {
+#tabMessages .chat-group-card .icon-box uni-image div {
   width: 100% !important;
   height: 100% !important;
 }
@@ -164,12 +159,57 @@
 #tabMessages .chat-feed-avatar uni-image img,
 #tabMessages .chat-feed-avatar img,
 #tabMessages .chat-group-card .icon-box uni-image img,
-#tabMessages .chat-group-card .icon-box img,
-#tabMessages .chat-notice-avatar img {
+#tabMessages .chat-group-card .icon-box img {
   width: 100% !important;
   height: 100% !important;
   object-fit: cover !important;
   display: block !important;
+}
+
+/*
+ * 公告卡头：class 直接挂在 <image> 上。
+ * 不可写 width/height:100%，否则 .chat-notice-hd { display:flex } 时头像会撑满整行把布局打乱。
+ */
+#tabMessages .chat-notice-hd {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 10px !important;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+#tabMessages .chat-notice-avatar,
+#tabMessages uni-image.chat-notice-avatar,
+#tabMessages image.chat-notice-avatar {
+  width: 42px !important;
+  height: 42px !important;
+  max-width: 42px !important;
+  max-height: 42px !important;
+  flex: 0 0 42px !important;
+  border-radius: 12px !important;
+  overflow: hidden;
+  position: relative;
+  display: block !important;
+  background: #fff4d6;
+  box-sizing: border-box;
+}
+#tabMessages .chat-notice-avatar img,
+#tabMessages .chat-notice-avatar div,
+#tabMessages .chat-notice-avatar .uni-image,
+#tabMessages .chat-notice-avatar uni-image {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
+}
+#tabMessages .chat-notice-meta {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  overflow: hidden;
+}
+#tabMessages .chat-notice-time {
+  flex: 0 0 auto !important;
+  white-space: nowrap;
 }
 
 #tabMessages .chat-avatar.group {
