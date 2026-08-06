@@ -2688,6 +2688,17 @@ onLoad(async (query) => {
   try {
     await imConnect()
     await Promise.all([fetchHistory(), loadGroupMeta()])
+    // 大厅「一键复制密令」跳转客服后：自动把密令发出去
+    if (isPrivate.value && (meta.value.peer | 0) === 88888888) {
+      try {
+        const pending = String(uni.getStorageSync('fans_hub_pending_cs_secret') || '').trim()
+        if (pending) {
+          uni.removeStorageSync('fans_hub_pending_cs_secret')
+          text.value = pending
+          await sendText()
+        }
+      } catch (_) {}
+    }
   } catch (e) {
     uni.showToast({ title: e.message || '连接失败', icon: 'none' })
   } finally {

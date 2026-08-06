@@ -51,6 +51,13 @@ class Common
         if (!Config::get('upload.cdnurl')) {
             Config::set('upload.cdnurl', $url);
         }
+        // 启用阿里云 OSS 时，cdnurl 指向 OSS 公网基址（新上传 dual-write 后 fullurl 走 OSS）
+        try {
+            if (class_exists('\\app\\common\\library\\OssService')) {
+                \app\common\library\OssService::applyUploadCdn();
+            }
+        } catch (\Throwable $e) {
+        }
         if (Config::get('app_debug')) {
             // 如果是调试模式将version置为当前的时间戳可避免缓存
             Config::set('site.version', time());

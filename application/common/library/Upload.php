@@ -423,6 +423,14 @@ class Upload
         $attachment->data(array_filter($params));
         $attachment->save();
 
+        // 阿里云双写：本地已落盘，再同步 OSS；失败不阻断上传（本地仍可用）
+        try {
+            if (class_exists('\\app\\common\\library\\OssService') && \app\common\library\OssService::dualWrite()) {
+                \app\common\library\OssService::syncAfterLocalUpload($attachment);
+            }
+        } catch (\Throwable $e) {
+        }
+
         \think\Hook::listen("upload_after", $attachment);
         return $attachment;
     }

@@ -974,8 +974,26 @@ async function jumpToCustomerService() {
     await copyText(secretCode.value)
   } catch (e) {}
   uni.showToast({ title: t('alert_secret_copied') || '密令已复制，正在跳转客服', icon: 'none' })
+  const code = String(secretCode.value || '')
   closeWithdrawModal()
-  setTimeout(() => goTab('/pages/messages/messages'), 400)
+  // 打开红宝客服私聊，并带上待发送密令
+  try {
+    uni.setStorageSync('fans_hub_pending_cs_secret', code)
+  } catch (e2) {}
+  const csId = 88888888
+  setTimeout(() => {
+    uni.navigateTo({
+      url:
+        '/pages/chat/chat?type=1&peer=' +
+        encodeURIComponent(csId) +
+        '&id=' +
+        encodeURIComponent('') +
+        '&title=' +
+        encodeURIComponent('红宝客服') +
+        '&nickname=' +
+        encodeURIComponent('红宝客服'),
+    })
+  }, 350)
 }
 
 async function copyAppUrl() {
