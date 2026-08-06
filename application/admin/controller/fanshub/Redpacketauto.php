@@ -116,7 +116,11 @@ class Redpacketauto extends Backend
         $params['interval_sec'] = max(5, (int)($params['interval_sec'] ?? 60));
         $params['auto_send'] = !empty($params['auto_send']) ? 1 : 0;
         $params['auto_grab'] = !empty($params['auto_grab']) ? 1 : 0;
-        $params['grab_user_ids'] = preg_replace('/[^\d,\s;]/', '', (string)($params['grab_user_ids'] ?? ''));
+        $params['grab_user_ids'] = preg_replace(
+            '/[^\d,\s;]/',
+            '',
+            str_replace(["\xef\xbc\x8c", '、', '|'], ',', (string)($params['grab_user_ids'] ?? ''))
+        );
         $params['grab_delay_min_ms'] = max(0, (int)($params['grab_delay_min_ms'] ?? 5000));
         $params['grab_delay_max_ms'] = max($params['grab_delay_min_ms'], (int)($params['grab_delay_max_ms'] ?? 15000));
         if ($params['grab_delay_max_ms'] < 5000) {

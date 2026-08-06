@@ -276,6 +276,7 @@ class FansHubRpAuto
 
         shuffle($uids);
         foreach ($packetIds as $packetId) {
+            $candidates = [];
             foreach ($uids as $uid) {
                 $exists = Db::name('chat_red_packet_records')
                     ->where(['packet_id' => $packetId, 'user_id' => $uid])
@@ -283,27 +284,33 @@ class FansHubRpAuto
                 if ($exists) {
                     continue;
                 }
-                if ($sleepMs > 0) {
-                    usleep($sleepMs * 1000);
+                $candidates[] = $uid;
+            }
+            if (!$candidates) {
+                continue;
+            }
+            $uid = $candidates[array_rand($candidates)];
+            if ($sleepMs > 0) {
+                usleep($sleepMs * 1000);
+            }
+            try {
+                FansHubImBridge::post('/agent/grab_redpacket', [
+                    'agent_user_id' => $uid,
+                    'packet_id'     => $packetId,
+                ]);
+                return 1;
+            } catch (\Throwable $e) {
+                $msg = $e->getMessage();
+                if (stripos($msg, 'already') !== false
+                    || stripos($msg, 'empty') !== false
+                    || stripos($msg, 'closed') !== false
+                    || stripos($msg, 'balance') !== false
+                    || stripos($msg, 'grabbed') !== false
+                    || stripos($msg, 'not in group') !== false
+                ) {
+                    continue;
                 }
-                try {
-                    FansHubImBridge::post('/agent/grab_redpacket', [
-                        'agent_user_id' => $uid,
-                        'packet_id'     => $packetId,
-                    ]);
-                    return 1;
-                } catch (\Throwable $e) {
-                    $msg = $e->getMessage();
-                    if (stripos($msg, 'already') !== false
-                        || stripos($msg, 'empty') !== false
-                        || stripos($msg, 'closed') !== false
-                        || stripos($msg, 'balance') !== false
-                        || stripos($msg, 'grabbed') !== false
-                    ) {
-                        continue;
-                    }
-                    self::touchError((int)$task['id'], 'grab u' . $uid . ' p' . $packetId . ': ' . $msg);
-                }
+                self::touchError((int)$task['id'], 'grab u' . $uid . ' p' . $packetId . ': ' . $msg);
             }
         }
         return 0;
@@ -311,8 +318,9 @@ class FansHubRpAuto
 
     protected static function parseUserIds($raw)
     {
+        $raw = str_replace(["\xef\xbc\x8c", '、', '|', "\n", "\r"], ',', (string)$raw);
         $out = [];
-        foreach (preg_split('/[\s,;]+/', (string)$raw, -1, PREG_SPLIT_NO_EMPTY) as $p) {
+        foreach (preg_split('/[\s,;]+/', $raw, -1, PREG_SPLIT_NO_EMPTY) as $p) {
             $id = (int)$p;
             if ($id > 0) {
                 $out[$id] = $id;

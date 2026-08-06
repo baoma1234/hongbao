@@ -81,8 +81,8 @@
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">抢包用户ID:</label>
         <div class="col-xs-12 col-sm-8">
-            <input class="form-control" name="row[grab_user_ids]" type="text" value="{$row.grab_user_ids|htmlentities}" placeholder="多个用逗号分隔">
-            <span class="help-block">机器人须已在群内；手气/埋雷需红宝≥整包金额</span>
+            <input class="form-control" name="row[grab_user_ids]" type="text" value="{$row.grab_user_ids|htmlentities}" placeholder="多个用逗号分隔，如 1001,1002,1003">
+            <span class="help-block">多个 UID 时每次<strong>随机选一个</strong>尚未领过的去抢（拼手气/埋雷/接龙均可）。未在群内会自动拉入；接龙/埋雷需红宝余额够赔付。</span>
         </div>
     </div>
     <div class="form-group">

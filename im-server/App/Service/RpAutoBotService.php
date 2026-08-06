@@ -16,7 +16,8 @@ use Workerman\Timer;
  * - 埋雷雷号每发随机 0-9；金额可抖动（不低于群最低 / 固定额）
  * - 节奏：20–23 点发包间隔减半；0–7 点翻倍
  * - 接龙续发：由结算/cron 全局监听「全部群」的全部 type5，抢完后最少者名义发下一包（见 RedPacketService::trySendRobotNextRound）
- * - 抢包：仅后台配置了 auto_grab + grab_user_ids 的任务才抢；接龙包(type5)永不自动抢
+ * - 抢包：仅后台配置了 auto_grab + grab_user_ids 的任务才抢
+ * - 多 UID：每次随机选一个尚未领过该包的 UID 去抢（含拼手气/埋雷/接龙）
  */
 class RpAutoBotService
 {
@@ -304,6 +305,15 @@ class RpAutoBotService
 
         $this->markGrabBusy($taskId, (int)ceil($delaySec) + 20);
 
+        error_log(sprintf(
+            '[RP_AUTO] grab schedule task=%d packet=%d uid=%d (random of %d) delay=%.1fs',
+            $taskId,
+            $packetId,
+            $uid,
+            count($uids),
+            $delaySec
+        ));
+
         Timer::add($delaySec, function () use ($taskId, $packetId, $uid, $groupId) {
             try {
                 $this->doGrabOnce($taskId, $packetId, $uid, $groupId);
@@ -366,8 +376,8 @@ class RpAutoBotService
         if (!$row || (int)($row['status'] ?? 0) !== 1 || (int)($row['remain_count'] ?? 0) <= 0) {
             return null;
         }
-        // 普通/随机/接龙红包不参与机器人抢包监听（接龙靠真人抢，最少者系统续发）
-        if (!in_array((int)($row['packet_type'] ?? 0), [2, 3], true)) {
+        // 拼手气(2) / 埋雷(3) / 接龙(5) 可自动抢；普通包(1)仍不自动抢
+        if (!in_array((int)($row['packet_type'] ?? 0), [2, 3, 5], true)) {
             return null;
         }
         return $row;
@@ -377,6 +387,7 @@ class RpAutoBotService
     {
         $packetId = (int)$packetId;
         $uid = (int)$uid;
+        $groupId = (int)$groupId;
         if ($packetId <= 0 || $uid <= 0) {
             return;
         }
@@ -389,12 +400,21 @@ class RpAutoBotService
             return;
         }
         $open = Db::fetch(
-            'SELECT id, remain_count, status FROM ' . Db::table('chat_red_packets')
+            'SELECT id, remain_count, status, group_id FROM ' . Db::table('chat_red_packets')
             . ' WHERE id=? LIMIT 1',
             [$packetId]
         );
         if (!$open || (int)$open['status'] !== 1 || (int)$open['remain_count'] <= 0) {
             return;
+        }
+        $gid = (int)($open['group_id'] ?? $groupId);
+        if ($gid > 0) {
+            // 抢包号未入群时自动拉进群，避免 not in group
+            try {
+                $this->ensureSenderInGroup($gid, $uid);
+            } catch (\Throwable $e) {
+                throw new \RuntimeException('grab uid not in group: ' . $e->getMessage());
+            }
         }
 
         try {
@@ -423,16 +443,25 @@ class RpAutoBotService
         error_log(sprintf('[RP_AUTO] grab ok task=%d packet=%d uid=%d', $taskId, $packetId, $uid));
     }
 
+    /**
+     * 每个待领包：从未领过的 grab_user_ids 里随机选 1 个去抢。
+     */
     protected function pickGrabPair(array $packetIds, array $uids)
     {
-        shuffle($uids);
+        $uids = array_values(array_filter(array_map('intval', $uids)));
+        if (!$uids || !$packetIds) {
+            return null;
+        }
         foreach ($packetIds as $packetId) {
             $packetId = (int)$packetId;
             if ($packetId <= 0) {
                 continue;
             }
+            $candidates = [];
             foreach ($uids as $uid) {
-                $uid = (int)$uid;
+                if ($uid <= 0) {
+                    continue;
+                }
                 $exists = Db::fetch(
                     'SELECT id FROM ' . Db::table('chat_red_packet_records')
                     . ' WHERE packet_id=? AND user_id=? LIMIT 1',
@@ -441,8 +470,13 @@ class RpAutoBotService
                 if ($exists) {
                     continue;
                 }
-                return ['packet_id' => $packetId, 'user_id' => $uid];
+                $candidates[] = $uid;
             }
+            if (!$candidates) {
+                continue;
+            }
+            $pick = $candidates[random_int(0, count($candidates) - 1)];
+            return ['packet_id' => $packetId, 'user_id' => $pick];
         }
         return null;
     }
@@ -490,7 +524,7 @@ class RpAutoBotService
         $rows = Db::fetchAll(
             'SELECT id, createtime, remain_count, status, packet_type FROM ' . Db::table('chat_red_packets')
             . ' WHERE group_id=? AND scope_type=2 AND status=1 AND remain_count>0'
-            . ' AND packet_type IN (2,3)'
+            . ' AND packet_type IN (2,3,5)'
             . ' ORDER BY id DESC LIMIT ' . $limit,
             [(int)$groupId]
         );
@@ -603,8 +637,9 @@ class RpAutoBotService
 
     protected function parseUserIds($raw)
     {
+        $raw = str_replace(["\xef\xbc\x8c", '、', '|', "\n", "\r"], ',', (string)$raw); // 中文逗号等
         $out = [];
-        foreach (preg_split('/[\s,;]+/', (string)$raw, -1, PREG_SPLIT_NO_EMPTY) as $p) {
+        foreach (preg_split('/[\s,;]+/', $raw, -1, PREG_SPLIT_NO_EMPTY) as $p) {
             $id = (int)$p;
             if ($id > 0) {
                 $out[$id] = $id;
