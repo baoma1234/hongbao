@@ -28,7 +28,10 @@ return [
     // 连接dsn
     'dsn'             => '',
     // 数据库连接参数
-    'params'          => [],
+    'params'          => [
+        // 断开后自动重连（配合 break_reconnect）
+        \PDO::ATTR_TIMEOUT => 5,
+    ],
     // 数据库编码默认采用 utf8mb4
     'charset'         => Env::get('database.charset', 'utf8mb4'),
     // 数据库表前缀
@@ -53,4 +56,6 @@ return [
     'datetime_format' => false,
     // 是否需要进行SQL性能分析
     'sql_explain'     => false,
+    // MySQL server has gone away 时自动重连（ThinkPHP 5）
+    'break_reconnect' => true,
 ];
