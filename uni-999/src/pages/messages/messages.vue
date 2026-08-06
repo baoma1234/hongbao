@@ -139,22 +139,38 @@
               </view>
 
               <view v-if="communitySub === 'official'" class="chat-community-pane active">
-                <view class="chat-community-hero-cards">
-                  <view
-                    v-for="(g, idx) in communityRecs"
-                    :key="g.id || g.group_id"
-                    class="chat-group-card"
-                    @click="openGroup(g)"
-                  >
-                    <view v-if="!g.is_member && (idx === 0 || g.recommend_tag)" class="tag">{{ g.recommend_tag || '新建社群' }}</view>
-                    <view class="icon-box">
-                      <image :src="avatarSrc(g.avatar)" mode="aspectFill" />
+                <scroll-view scroll-y class="chat-official-scroll">
+                  <view class="chat-official-list">
+                    <view
+                      v-for="(g, idx) in communityRecs"
+                      :key="g.id || g.group_id"
+                      class="chat-official-row"
+                      @click="openGroup(g)"
+                    >
+                      <view class="chat-official-avatar">
+                        <image :src="avatarSrc(g.avatar)" mode="aspectFill" />
+                      </view>
+                      <view class="chat-official-body">
+                        <text class="chat-official-title">{{ g.name || ('#' + (g.id || g.group_id)) }}</text>
+                        <view class="chat-official-sub">
+                          <text class="chat-official-online">{{ groupMembersText(g) }}</text>
+                          <text class="chat-official-tag">{{ officialGroupTag(g, idx) }}</text>
+                        </view>
+                      </view>
+                      <view class="chat-official-join" @click.stop="openGroup(g)">立即进群</view>
                     </view>
-                    <view class="title">{{ g.name || ('#' + (g.id || g.group_id)) }}</view>
-                    <view class="subtitle">{{ groupMembersText(g) }}</view>
+                    <view v-if="!communityRecs.length" class="chat-empty chat-empty-glass">暂无推荐社群</view>
+                    <view v-if="communityRecs.length" class="chat-official-end">————— 已经滑到底部啦 —————</view>
+                    <view class="chat-official-rules" @click="openGameRulesFromCommunity">
+                      <view class="chat-official-rules-ico">📜</view>
+                      <view class="chat-official-rules-text">
+                        <text class="chat-official-rules-title">🧧 红包接龙官方游戏规则</text>
+                        <text class="chat-official-rules-desc">新手通关玩法与佣金保障说明</text>
+                      </view>
+                      <text class="chat-official-rules-link">点开查看规则图 ›</text>
+                    </view>
                   </view>
-                  <view v-if="!communityRecs.length" class="chat-empty chat-empty-glass">暂无推荐社群</view>
-                </view>
+                </scroll-view>
               </view>
 
               <view v-else-if="communitySub === 'mine'" class="chat-community-pane active">
@@ -818,8 +834,21 @@ function groupEmoji(name) {
 }
 
 function groupMembersText(g) {
-  const n = (g && (g.member_count || g.display_member_count)) | 0
-  return n > 0 ? n + '人' : ''
+  const n = (g && (g.online_count || g.member_count || g.display_member_count)) | 0
+  if (n <= 0) return '欢迎加入'
+  return n.toLocaleString('en-US') + '人在线'
+}
+
+const OFFICIAL_TAGS = ['玩法火爆', '官方保障', '极速开奖', '大奖奖池', '官方保障']
+function officialGroupTag(g, idx) {
+  const t = String((g && (g.recommend_tag || g.tag || g.badge)) || '').trim()
+  if (t) return t
+  return OFFICIAL_TAGS[(idx | 0) % OFFICIAL_TAGS.length]
+}
+
+async function openGameRulesFromCommunity() {
+  await switchHomeTab('notice')
+  setNoticeCat('rules')
 }
 
 function friendName(f) {
@@ -1850,5 +1879,140 @@ onHide(() => {
   min-height: 0;
   height: 0;
   width: 100%;
+}
+.chat-official-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+}
+.chat-official-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px 12px 20px;
+  box-sizing: border-box;
+}
+.chat-official-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 12px;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(120, 40, 20, 0.08);
+}
+.chat-official-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #ffe8d6;
+}
+.chat-official-avatar image,
+.chat-official-avatar uni-image {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.chat-official-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.chat-official-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #222;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-official-sub {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chat-official-online {
+  font-size: 12px;
+  color: #999;
+}
+.chat-official-tag {
+  font-size: 11px;
+  color: #c45a12;
+  background: #fff4e8;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-weight: 700;
+}
+.chat-official-join {
+  flex-shrink: 0;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1.5px solid #e63022;
+  color: #e63022;
+  font-size: 13px;
+  font-weight: 800;
+  background: #fff;
+}
+.chat-official-end {
+  text-align: center;
+  color: rgba(255, 230, 210, 0.85);
+  font-size: 12px;
+  padding: 10px 0 4px;
+  letter-spacing: 0.5px;
+}
+.chat-official-rules {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+  padding: 14px 12px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #fff8ee 0%, #fff1df 100%);
+  border: 1px solid rgba(230, 180, 100, 0.35);
+  box-shadow: 0 2px 8px rgba(120, 60, 20, 0.06);
+}
+.chat-official-rules-ico {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px rgba(230, 180, 100, 0.25);
+}
+.chat-official-rules-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.chat-official-rules-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: #e63022;
+  line-height: 1.3;
+}
+.chat-official-rules-desc {
+  font-size: 12px;
+  color: #555;
+  line-height: 1.3;
+}
+.chat-official-rules-link {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: #999;
+  font-weight: 600;
+  white-space: nowrap;
 }
 </style>

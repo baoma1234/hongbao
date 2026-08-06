@@ -443,7 +443,7 @@
     <!-- 红包详情：对齐 888 #chatRpDetailPane -->
     <view v-if="detailVisible" id="chatRpDetailPane" class="chat-sub-pane open" aria-hidden="false">
       <view class="chat-hero-hd">
-        <view class="chat-hero-back" hover-class="chat-hero-back--active" @click="detailVisible = false">
+        <view class="chat-hero-back" hover-class="chat-hero-back--active" @click="closeRpDetail">
           <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" class="chat-hero-ico">
             <path fill="currentColor" d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z" />
           </svg>
@@ -453,6 +453,15 @@
       </view>
       <view class="chat-sub-main">
         <view id="chatRpDetailBody">
+          <view
+            v-if="grabErrorTip"
+            class="chat-rp-grab-error"
+            @click="grabErrorTip = ''"
+          >
+            <text class="chat-rp-grab-error-title">无法领取</text>
+            <text class="chat-rp-grab-error-msg">{{ grabErrorTip }}</text>
+            <text class="chat-rp-grab-error-close">关闭</text>
+          </view>
           <view class="chat-rp-detail-head" v-if="detail">
             <view class="chat-rp-detail-bless">{{ detailBlessTitle }}</view>
             <view class="chat-rp-detail-meta">
@@ -625,6 +634,7 @@ const mediaSending = ref(false)
 const grabbing = ref(false)
 const detailVisible = ref(false)
 const detail = ref(null)
+const grabErrorTip = ref('')
 const moreVisible = ref(false)
 const myGrabAmount = ref('')
 const canGrabDetail = ref(false)
@@ -2492,19 +2502,52 @@ function mapGrabError(msg) {
   return s || '领取失败'
 }
 
+function showNativeGrabTip(tip) {
+  try {
+    if (typeof document === 'undefined') return
+    const id = 'chat-rp-grab-fail-toast'
+    let el = document.getElementById(id)
+    if (!el) {
+      el = document.createElement('div')
+      el.id = id
+      el.setAttribute('role', 'alert')
+      document.body.appendChild(el)
+    }
+    el.textContent = tip
+    el.style.cssText =
+      'position:fixed;left:12px;right:12px;top:18%;z-index:2147483646;padding:14px 16px;' +
+      'border-radius:12px;background:rgba(180,35,24,.96);color:#fff;font-size:15px;font-weight:700;' +
+      'line-height:1.45;box-shadow:0 10px 28px rgba(0,0,0,.28);text-align:center;'
+    clearTimeout(el._hideTimer)
+    el._hideTimer = setTimeout(() => {
+      try {
+        if (el && el.parentNode) el.parentNode.removeChild(el)
+      } catch (e0) {}
+    }, 4500)
+  } catch (e1) {}
+}
+
 function showGrabFailTip(rawMsg) {
   const tip = mapGrabError(rawMsg)
-  // 详情遮罩可能盖住 toast，余额类错误用 modal 更稳
-  if (/红宝不足|赔付|最低金额|无法覆盖/.test(tip)) {
+  grabErrorTip.value = tip
+  // 详情全屏层常盖住 uni toast/modal：多重兜底保证一定看得见
+  showNativeGrabTip(tip)
+  try {
+    if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+      window.alert(tip)
+    }
+  } catch (e0) {}
+  try {
     uni.showModal({
       title: '无法领取',
       content: tip,
       showCancel: false,
       confirmText: '知道了',
     })
-    return
-  }
-  uni.showToast({ title: tip, icon: 'none', duration: 2800 })
+  } catch (e1) {}
+  try {
+    uni.showToast({ title: tip.slice(0, 40), icon: 'none', duration: 3500 })
+  } catch (e2) {}
 }
 
 async function tryGrab(packetId, sliderPayload = null) {
@@ -2515,7 +2558,7 @@ async function tryGrab(packetId, sliderPayload = null) {
     if (data.code === 'slider_required' || (packet && packet.type === 'redpacket.challenge')) {
       grabbing.value = false
       if (!(grabSliderRef.value && typeof grabSliderRef.value.challenge === 'function')) {
-        uni.showToast({ title: data.message || '需要滑动验证', icon: 'none' })
+        showGrabFailTip(data.message || '需要滑动验证')
         return null
       }
       try {
@@ -2523,11 +2566,12 @@ async function tryGrab(packetId, sliderPayload = null) {
         return await tryGrab(packetId, payload || {})
       } catch (ce) {
         if (!/cancel/i.test((ce && ce.message) || '')) {
-          uni.showToast({ title: (ce && ce.message) || '验证取消', icon: 'none' })
+          showGrabFailTip((ce && ce.message) || '验证取消')
         }
         return null
       }
     }
+    grabErrorTip.value = ''
     if (data.amount != null) {
       myGrabAmount.value = formatAmt(data.amount)
       playOpenRedPacketSound()
@@ -2544,15 +2588,12 @@ async function tryGrab(packetId, sliderPayload = null) {
     }
     return data
   } catch (e) {
-    const msg = (e && e.message) || '领取失败'
-    // 已领/抢完：静默刷新详情；余额不足等必须提示
-    if (/balance|红宝不足|赔付|insufficient/i.test(msg)) {
-      showGrabFailTip(msg)
-    } else if (/already|已领|expired|过期|finished|抢完|empty/i.test(msg)) {
-      // open detail refresh only
-    } else if (/slider/i.test(msg)) {
-      uni.showToast({ title: '需要滑动验证', icon: 'none' })
-    } else {
+    const msg = String((e && e.message) || e || '领取失败')
+    // 已领/抢完：静默；余额不足等一律强提示
+    const softDone =
+      /already|已领|expired|过期|finished|抢完|packet empty|packet closed/i.test(msg) &&
+      !/balance|红宝不足|赔付|insufficient|compensate/i.test(msg)
+    if (!softDone) {
       showGrabFailTip(msg)
     }
     return null
@@ -2589,9 +2630,20 @@ async function openDetail(packetId) {
 
 async function grabFromDetail() {
   if (!activePacketId) return
-  await tryGrab(activePacketId)
-  await openDetail(activePacketId)
-  await fetchHistory()
+  const data = await tryGrab(activePacketId)
+  const keptTip = grabErrorTip.value
+  // 失败时保留错误条，仍刷新详情以便更新按钮状态
+  try {
+    await openDetail(activePacketId)
+  } catch (e) {}
+  if (data) {
+    grabErrorTip.value = ''
+    await fetchHistory()
+  } else if (keptTip) {
+    // openDetail 重绘后再次钉住提示，避免被盖住
+    grabErrorTip.value = keptTip
+    showNativeGrabTip(keptTip)
+  }
 }
 
 function editRemark() {
@@ -2843,10 +2895,45 @@ onUnload(() => {
   }
   if (off) off()
 })
+function closeRpDetail() {
+  detailVisible.value = false
+  grabErrorTip.value = ''
+}
 </script>
 
 <style scoped>
 /* 详情/会话样式走 chat.bundle + chat-888-parity；此处仅房间页微补 */
+.chat-rp-grab-error {
+  margin: 10px 12px 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #fff1f0, #ffe7e3);
+  border: 1px solid rgba(230, 48, 34, 0.35);
+  color: #b42318;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  box-shadow: 0 4px 14px rgba(180, 35, 24, 0.12);
+}
+.chat-rp-grab-error-title {
+  font-size: 14px;
+  font-weight: 800;
+}
+.chat-rp-grab-error-msg {
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 600;
+}
+.chat-rp-grab-error-close {
+  align-self: flex-end;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #e63022;
+  font-weight: 700;
+}
 .chat-rp-detail-myamt text {
   font-size: 22px;
   font-weight: 800;
