@@ -298,13 +298,27 @@ class GroupService
         }
         $cap = self::maxPushOnline();
 
-        // 小群优先准：本机连接 + Redis online / uid:conns，避免 SINTER 漏推
+        // 小群优先准：Redis online / uid:conns（cron 无本机 ConnMap，必须走 Redis）
         try {
             $members = $this->memberUserIds($groupId);
             if (count($members) <= 500) {
                 $out = \Im\Support\ConnMap::filterOnlineUserIds($members);
-                // 再并上「有 uid:conns」但未进 online 集合的（TTL/异常场景）
                 $out = $this->mergeMembersWithActiveConns($members, $out);
+                // 再并 Redis online 集合（机器人/cron 发包时 inbox 扇出依赖此路径）
+                try {
+                    $this->ensureMemberSet($groupId);
+                    $ids = RedisClient::conn()->sInter(
+                        RedisClient::key('online'),
+                        RedisClient::key('g:' . $groupId . ':mset')
+                    );
+                    foreach (array_map('intval', $ids ?: []) as $uid) {
+                        if ($uid > 0) {
+                            $out[] = $uid;
+                        }
+                    }
+                    $out = array_values(array_unique(array_filter($out)));
+                } catch (\Throwable $eRedis) {
+                }
                 if (count($out) > $cap) {
                     $out = array_slice($out, 0, $cap);
                 }

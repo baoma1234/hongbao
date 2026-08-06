@@ -664,6 +664,7 @@ const SWIPE_DEL_W = 76
 let off = null
 let loading = false
 let pageAlive = false
+let inboxListBound = false
 
 const displayList = computed(() => {
   const q = String(keyword.value || '').trim().toLowerCase()
@@ -1746,7 +1747,7 @@ onShow(() => {
   startImInbox()
   bindForegroundResume()
   resumeFromBackground('messages-onShow')
-  if (off) off()
+  if (typeof off === 'function') off()
   off = onImEvent((type, data) => {
     if (type === 'im.resume') {
       if (pageAlive) loadList(true)
@@ -1775,22 +1776,20 @@ onShow(() => {
       loadFriendReqBadge()
     }
   })
-  const onInboxUnread = (map) => {
-    if (!map) return
-    localUnread.value = Object.assign({}, localUnread.value, map)
-  }
-  const onInboxMsg = (msg) => {
-    upsertListFromMessage(msg)
-  }
-  try {
-    uni.$on && uni.$on('fanshub-inbox-unread', onInboxUnread)
-    uni.$on && uni.$on('fanshub-inbox-msg', onInboxMsg)
-  } catch (e) {}
-  off._inboxCleanup = () => {
+  // inbox 只绑一次：进聊天页 onHide 后仍更新会话预览
+  if (!inboxListBound) {
+    inboxListBound = true
+    const onInboxUnread = (map) => {
+      if (!map) return
+      localUnread.value = Object.assign({}, localUnread.value, map)
+    }
+    const onInboxMsg = (msg) => {
+      upsertListFromMessage(msg)
+    }
     try {
-      uni.$off && uni.$off('fanshub-inbox-unread', onInboxUnread)
-      uni.$off && uni.$off('fanshub-inbox-msg', onInboxMsg)
-    } catch (e2) {}
+      uni.$on && uni.$on('fanshub-inbox-unread', onInboxUnread)
+      uni.$on && uni.$on('fanshub-inbox-msg', onInboxMsg)
+    } catch (e) {}
   }
   loadMyIdLine()
   loadList().then(() => refreshAuthFlags())
@@ -1801,12 +1800,11 @@ onHide(() => {
   pageAlive = false
   applyPageShell(false)
   stopOfficialCommunityPoll()
-  if (off) {
-    if (typeof off._inboxCleanup === 'function') off._inboxCleanup()
+  if (typeof off === 'function') {
     off()
     off = null
   }
-  // 注意：不停止全局 im-inbox，离开消息 Tab 仍收未读
+  // 保留 inbox 监听与全局 im-inbox
 })
 </script>
 

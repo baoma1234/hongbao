@@ -12,8 +12,9 @@ const cfg = {
   API_BASE: '',
   // 空则自动：当前站点 /im-ws（需 Nginx 反代到 17272）
   IM_WS_URL: '',
-  /** 上传/图片基址；空则回退 API_BASE */
+  /** 上传/图片基址；空则回退 API_BASE；bootstrap.upload_cdn（OSS）优先于远端 imgUri */
   IMG_BASE: '',
+  UPLOAD_CDN: '',
   TOKEN_KEY: 'fans_hub_token',
   DEVICE_FP_KEY: 'fans_hub_device_fp',
   LOCALE_KEY: 'fans_hub_locale',
@@ -36,6 +37,16 @@ function applyFields(apiUri, socketUri, imgUri) {
   if (img) cfg.IMG_BASE = img
   else if (api) cfg.IMG_BASE = api
   return prevWs !== String(cfg.IM_WS_URL || '')
+}
+
+/** 阿里云 OSS / CDN：聊天 /uploads 展示优先 */
+export function setUploadCdn(url) {
+  const u = trimSlash(url)
+  if (u) cfg.UPLOAD_CDN = u
+}
+
+export function getUploadCdn() {
+  return cfg.UPLOAD_CDN || ''
 }
 
 function readCache() {
@@ -129,9 +140,9 @@ export function getApiBase() {
   return cfg.API_BASE || ''
 }
 
-/** 上传 / 图片 CDN 基址（来自 imgUri）；空则同 apiUri */
+/** 上传 / 图片 CDN 基址：OSS upload_cdn > imgUri > apiUri */
 export function getImgBase() {
-  return cfg.IMG_BASE || cfg.API_BASE || ''
+  return cfg.UPLOAD_CDN || cfg.IMG_BASE || cfg.API_BASE || ''
 }
 
 export function getImWsBase() {

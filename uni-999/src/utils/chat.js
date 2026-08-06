@@ -121,11 +121,26 @@ export function avatarLetter(title) {
   return s ? s.charAt(0) : '?'
 }
 
-/** 对齐 888 publicUrl：/uploads 走 api/img 基址（跨域 H5 不能用 location.origin） */
+/** 对齐 888 publicUrl：/uploads 优先走 OSS upload_cdn */
 export function publicUrl(pathOrUrl) {
   const raw = String(pathOrUrl || '').trim()
   if (!raw) return ''
   if (/^https?:\/\//i.test(raw) || /^data:/i.test(raw) || /^blob:/i.test(raw)) {
+    // 已是绝对地址：若误指向 API 站的 /uploads，改写到 OSS
+    try {
+      const u = new URL(raw)
+      if (u.pathname.indexOf('/uploads/') === 0) {
+        const oss = String(getImgBase() || '')
+          .trim()
+          .replace(/\/+$/, '')
+        const api = String(getApiBase() || '')
+          .trim()
+          .replace(/\/+$/, '')
+        if (oss && api && u.origin === new URL(api + '/').origin && oss !== api) {
+          return oss + u.pathname + u.search
+        }
+      }
+    } catch (e) {}
     return raw
   }
   let url = raw

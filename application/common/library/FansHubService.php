@@ -1272,6 +1272,10 @@ class FansHubService
             'exchange_r2b_min'     => self::exchangePairMin('rights', 'hongbao'),
             'exchange_b2r_min'     => self::exchangePairMin('hongbao', 'rights'),
             'hongbao_unit_value'   => self::hongbaoUnitValue(),
+            // 聊天图 /uploads 公网基址（阿里云 OSS）；前端优先用此展示
+            'upload_cdn'          => (class_exists('\\app\\common\\library\\OssService') && \app\common\library\OssService::enabled())
+                ? (string)\app\common\library\OssService::publicBase()
+                : '',
             'exchange_pairs'       => (function () {
                 $pairs = [];
                 $assets = self::exchangeAssets();

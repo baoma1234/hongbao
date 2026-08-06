@@ -1,4 +1,4 @@
-import { getApiBase, getDeviceFpKey, getImgBase, getLocale, getTokenKey } from './config.js'
+import { getApiBase, getDeviceFpKey, getImgBase, getLocale, getTokenKey, setUploadCdn } from './config.js'
 
 export function getToken() {
   return uni.getStorageSync(getTokenKey()) || ''
@@ -55,6 +55,10 @@ export function apiRequest(action, method = 'POST', body = null) {
           reject(err)
           return
         }
+        try {
+          const cfg = payload.data && payload.data.config
+          if (cfg && cfg.upload_cdn) setUploadCdn(cfg.upload_cdn)
+        } catch (e) {}
         resolve(payload.data)
       },
       fail(err) {

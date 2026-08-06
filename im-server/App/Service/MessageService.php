@@ -881,6 +881,62 @@ class MessageService
             }
             unset($groupIdsNeeded);
             // 不再把「无消息的空群」塞进主会话列表（万人群会把列表撑爆）
+            // inbox 分数可能落后于 g:{id}:last（cron 机器人发包时 online 扇出不全）→ 用更新的 last 覆盖预览
+            $inboxGids = [];
+            foreach ($items as $it) {
+                if ((int)($it['conversation_type'] ?? 0) === 2) {
+                    $gid = (int)($it['group_id'] ?? 0);
+                    if ($gid > 0) {
+                        $inboxGids[] = $gid;
+                    }
+                }
+            }
+            if ($inboxGids) {
+                $freshMap = $this->groupLastMap($inboxGids);
+                $upgradeIds = [];
+                foreach ($items as &$itUp) {
+                    if ((int)($itUp['conversation_type'] ?? 0) !== 2) {
+                        continue;
+                    }
+                    $gid = (int)($itUp['group_id'] ?? 0);
+                    $freshId = (int)($freshMap[$gid]['id'] ?? 0);
+                    if ($freshId <= 0) {
+                        continue;
+                    }
+                    $curId = (int)(($itUp['last_message']['id'] ?? 0) ?: ($itUp['_last_msg_id'] ?? 0));
+                    if ($freshId > $curId) {
+                        $itUp['_last_msg_id'] = $freshId;
+                        $upgradeIds[$freshId] = true;
+                    }
+                }
+                unset($itUp);
+                if ($upgradeIds) {
+                    $uids = array_keys($upgradeIds);
+                    $in = implode(',', array_fill(0, count($uids), '?'));
+                    $rows = Db::fetchAll(
+                        "SELECT id,msg_id,conversation_type,conversation_id,group_id,from_user_id,to_user_id,"
+                        . "msg_type,content,extra,status,createtime FROM {$msgTable}"
+                        . " WHERE id IN ({$in}) AND status=1",
+                        $uids
+                    );
+                    $byId = [];
+                    foreach ($rows as $row) {
+                        $byId[(int)$row['id']] = $this->slimLastMessage($this->normalizeMessage($row));
+                    }
+                    foreach ($items as &$itUp2) {
+                        $mid = (int)($itUp2['_last_msg_id'] ?? 0);
+                        if ($mid > 0 && isset($byId[$mid])) {
+                            $itUp2['last_message'] = $byId[$mid];
+                            $itUp2['updatetime'] = (int)$byId[$mid]['createtime'];
+                        }
+                    }
+                    unset($itUp2);
+                    // 回写 inbox 分数，避免下次仍读旧分
+                    $this->seedInboxFromItems($userId, array_filter($items, function ($it) {
+                        return (int)($it['conversation_type'] ?? 0) === 2 && !empty($it['last_message']);
+                    }));
+                }
+            }
             // 离线期间错过 inbox 扇出的活跃群：用 g:{id}:last 补进列表并回填 inbox
             $missGids = [];
             foreach ($groups as $g) {
