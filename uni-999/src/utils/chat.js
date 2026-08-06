@@ -1,5 +1,6 @@
 /** 会话 / 消息展示辅助（对齐 888 preview） */
 
+import { getApiBase, getImgBase } from './config.js'
 import { assetBase } from './i18n.js'
 
 export function convKey(type, id) {
@@ -120,19 +121,27 @@ export function avatarLetter(title) {
   return s ? s.charAt(0) : '?'
 }
 
-/** 对齐 888 publicUrl：补全 /uploads 绝对地址 */
+/** 对齐 888 publicUrl：/uploads 走 api/img 基址（跨域 H5 不能用 location.origin） */
 export function publicUrl(pathOrUrl) {
   const raw = String(pathOrUrl || '').trim()
   if (!raw) return ''
-  if (/^https?:\/\//i.test(raw) || /^data:/i.test(raw)) return raw
+  if (/^https?:\/\//i.test(raw) || /^data:/i.test(raw) || /^blob:/i.test(raw)) {
+    return raw
+  }
   let url = raw
   if (url.charAt(0) !== '/') {
     url = '/' + url.replace(/^\.\//, '')
   }
-  if (typeof location !== 'undefined' && location.origin) {
-    if (url.indexOf('/uploads/') === 0 || url.charAt(0) === '/') {
-      return location.origin + url
-    }
+  const base = String(getImgBase() || getApiBase() || '')
+    .trim()
+    .replace(/\/+$/, '')
+  if (url.indexOf('/uploads/') === 0) {
+    if (base) return base + url
+    if (typeof location !== 'undefined' && location.origin) return location.origin + url
+    return url
+  }
+  if (typeof location !== 'undefined' && location.origin && url.charAt(0) === '/') {
+    return location.origin + url
   }
   return url
 }

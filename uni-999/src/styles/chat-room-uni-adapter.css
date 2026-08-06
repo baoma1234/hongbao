@@ -121,13 +121,20 @@
   flex-shrink: 0;
 }
 
-.chat-room-page .chat-msg-row {
+.chat-room-page .chat-msg-row,
+.chat-room-page .chat-room-pane .chat-msg-row,
+.chat-room-page .chat-msg-scroll .chat-msg-row {
   display: flex !important;
   align-items: flex-start;
   gap: 8px;
   width: 100%;
-  margin-bottom: 16px; /* 对齐 888 气泡间距并略加大，避免两条消息挤在一起 */
+  /* 覆盖 chat.bundle luxury 的 margin-bottom:0，消息之间留空隙 */
+  margin-bottom: 14px !important;
+  padding-bottom: 0;
   box-sizing: border-box;
+}
+.chat-room-page .chat-msg-row:last-child {
+  margin-bottom: 8px !important;
 }
 
 .chat-room-page .chat-msg-row.me {

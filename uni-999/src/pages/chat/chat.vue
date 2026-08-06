@@ -576,6 +576,7 @@ import {
   isSystemMsg,
   msgExtra,
   msgType,
+  publicUrl,
   recallTip,
 } from '../../utils/chat.js'
 import { clearActiveChat, getActiveChat, saveActiveChat } from '../../utils/chat-route.js'
@@ -1349,8 +1350,9 @@ function senderName(m) {
 }
 function mediaUrl(m) {
   const ex = msgExtra(m)
-  const raw = (ex && (ex.url || ex.fullurl)) || ''
-  return normalizeStickerUrl(raw)
+  // 优先 fullurl（绝对地址）；相对 /uploads 用 api/img 基址拼接，勿再裁成同站路径
+  const raw = (ex && (ex.fullurl || ex.url)) || ''
+  return publicUrl(raw)
 }
 function fileName(m) {
   const ex = msgExtra(m)
@@ -2019,7 +2021,8 @@ async function sendSticker(st) {
 }
 
 async function uploadCommonFile(filePath) {
-  const base = getImgBase() || getApiBase() || ''
+  // 上传必须打 API；imgUri 可能是 CDN，没有 /api/common/upload
+  const base = getApiBase() || getImgBase() || ''
   const token = getToken()
   const up = await new Promise((resolve, reject) => {
     uni.uploadFile({
@@ -2043,6 +2046,33 @@ async function uploadCommonFile(filePath) {
     })
   })
   return up
+}
+
+/** 上传结果 → IM 允许的 /uploads 相对路径 + 可展示的绝对 fullurl */
+function mediaPathsFromUpload(up) {
+  let path = String((up && up.url) || '').trim()
+  const fullRaw = String((up && up.fullurl) || '').trim()
+  if ((!path || path.indexOf('/uploads/') !== 0) && fullRaw) {
+    try {
+      const u = new URL(fullRaw, getApiBase() || (typeof location !== 'undefined' ? location.origin : undefined))
+      path = u.pathname || path
+    } catch (e) {
+      if (fullRaw.indexOf('/uploads/') >= 0) {
+        path = fullRaw.slice(fullRaw.indexOf('/uploads/'))
+      }
+    }
+  }
+  if (!path || path.indexOf('/uploads/') !== 0) {
+    throw new Error('上传失败')
+  }
+  const base = String(getImgBase() || getApiBase() || '')
+    .trim()
+    .replace(/\/+$/, '')
+  let full = fullRaw
+  if (!/^https?:\/\//i.test(full)) {
+    full = base ? base + path : path
+  }
+  return { path, full }
 }
 
 async function sendMediaMessage(msgType, extra, label) {
@@ -2082,11 +2112,10 @@ async function pickImage() {
     mediaSending.value = true
     uni.showLoading({ title: '上传中…', mask: true })
     const up = await uploadCommonFile(filePath)
-    const url = normalizeStickerUrl(up.url || up.fullurl || '')
-    if (!url) throw new Error('上传失败')
+    const { path, full } = mediaPathsFromUpload(up)
     await sendMediaMessage(
       4,
-      { url, fullurl: up.fullurl || url, name: up.name || '' },
+      { url: path, fullurl: full, name: up.name || '' },
       '[图片]'
     )
   } catch (e) {
@@ -2117,11 +2146,10 @@ async function pickVideo() {
     mediaSending.value = true
     uni.showLoading({ title: '上传中…', mask: true })
     const up = await uploadCommonFile(filePath)
-    const url = normalizeStickerUrl(up.url || up.fullurl || '')
-    if (!url) throw new Error('上传失败')
+    const { path, full } = mediaPathsFromUpload(up)
     await sendMediaMessage(
       5,
-      { url, fullurl: up.fullurl || url, name: up.name || '' },
+      { url: path, fullurl: full, name: up.name || '' },
       '[视频]'
     )
   } catch (e) {
@@ -2158,14 +2186,13 @@ async function pickFile() {
     mediaSending.value = true
     uni.showLoading({ title: '上传中…', mask: true })
     const up = await uploadCommonFile(filePath)
-    const url = normalizeStickerUrl(up.url || up.fullurl || '')
-    if (!url) throw new Error('上传失败')
+    const { path, full } = mediaPathsFromUpload(up)
     const rawName = String(item.name || up.name || 'file')
     const dot = rawName.lastIndexOf('.')
     const ext = dot >= 0 ? rawName.slice(dot + 1).toLowerCase() : ''
     await sendMediaMessage(
       7,
-      { url, fullurl: up.fullurl || url, name: rawName, size: Number(item.size || 0), ext },
+      { url: path, fullurl: full, name: rawName, size: Number(item.size || 0), ext },
       '[文件]' + rawName
     )
   } catch (e) {

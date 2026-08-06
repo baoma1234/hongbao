@@ -143,7 +143,8 @@ export function uploadSticker(filePath) {
 }
 
 function uploadFanshubAction(action, filePath) {
-  const base = getImgBase() || getApiBase() || ''
+  // 上传必须打 API 站；imgUri 可能是 CDN/OSS，没有 /api
+  const base = getApiBase() || getImgBase() || ''
   const token = getToken()
   const locale = getLocale()
   return new Promise((resolve, reject) => {
@@ -174,7 +175,8 @@ function uploadFanshubAction(action, filePath) {
 
 /** 通用文件上传（聊天图/群头像等）：/api/common/upload */
 export function uploadCommonFile(filePath) {
-  const base = getImgBase() || getApiBase() || ''
+  // 上传必须打 API 站；imgUri 可能是 CDN/OSS，没有 /api
+  const base = getApiBase() || getImgBase() || ''
   const token = getToken()
   return new Promise((resolve, reject) => {
     uni.uploadFile({

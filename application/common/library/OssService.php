@@ -149,7 +149,12 @@ class OssService
             return true;
         }
         try {
-            Log::error('[oss] put fail http=' . $code . ' key=' . $objectKey . ' err=' . $err . ' body=' . substr((string)$resp, 0, 300));
+            $snippet = substr((string)$resp, 0, 500);
+            $hint = '';
+            if (stripos($snippet, 'PutObject') !== false || stripos($snippet, 'AccessDenied') !== false) {
+                $hint = ' (RAM 子账号需 oss:PutObject；当前为 ImplicitDeny/bucket acl)';
+            }
+            Log::error('[oss] put fail http=' . $code . ' key=' . $objectKey . ' err=' . $err . $hint . ' body=' . $snippet);
         } catch (\Throwable $e) {
         }
         return false;
