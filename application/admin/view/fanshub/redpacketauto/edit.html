@@ -35,14 +35,17 @@
         </div>
     </div>
     <div class="form-group">
-        <label class="control-label col-xs-12 col-sm-2">金额/个数:</label>
-        <div class="col-xs-12 col-sm-4">
+        <label class="control-label col-xs-12 col-sm-2">金额范围:</label>
+        <div class="col-xs-12 col-sm-6">
             <div class="input-group">
-                <span class="input-group-addon">金额</span>
-                <input class="form-control" name="row[total_amount]" type="number" step="0.01" min="0.01" value="{$row.total_amount}">
+                <span class="input-group-addon">最小</span>
+                <input class="form-control" name="row[amount_min]" type="number" step="0.01" min="0.01" value="{if condition='$row.amount_min gt 0'}{$row.amount_min}{else /}{$row.total_amount}{/if}">
+                <span class="input-group-addon">最大</span>
+                <input class="form-control" name="row[amount_max]" type="number" step="0.01" min="0.01" value="{if condition='$row.amount_max gt 0'}{$row.amount_max}{else /}{$row.total_amount}{/if}">
                 <span class="input-group-addon">个数</span>
                 <input class="form-control" name="row[total_count]" type="number" min="1" value="{$row.total_count}">
             </div>
+            <span class="help-block">最小=最大 → <strong>固定金额</strong>；最小&lt;最大 → 每次在区间内<strong>随机金额</strong>。若群开启了「固定金额」，仍以群配置为准。</span>
         </div>
     </div>
     <div class="form-group">

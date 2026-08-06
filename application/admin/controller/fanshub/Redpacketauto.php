@@ -127,7 +127,30 @@ class Redpacketauto extends Backend
         if (!in_array($params['packet_type'], [1, 2, 3, 5], true)) {
             $params['packet_type'] = 2;
         }
-        $params['total_amount'] = round((float)($params['total_amount'] ?? 0), 2);
+        // 金额区间：最小=最大 → 固定；否则随机。兼容旧字段 total_amount
+        $amountMin = round((float)($params['amount_min'] ?? 0), 2);
+        $amountMax = round((float)($params['amount_max'] ?? 0), 2);
+        $legacyAmt = round((float)($params['total_amount'] ?? 0), 2);
+        if ($amountMin <= 0 && $legacyAmt > 0) {
+            $amountMin = $legacyAmt;
+        }
+        if ($amountMax <= 0 && $legacyAmt > 0) {
+            $amountMax = $legacyAmt;
+        }
+        if ($amountMin <= 0 && $amountMax > 0) {
+            $amountMin = $amountMax;
+        }
+        if ($amountMax <= 0 && $amountMin > 0) {
+            $amountMax = $amountMin;
+        }
+        if ($amountMax < $amountMin) {
+            $tmp = $amountMin;
+            $amountMin = $amountMax;
+            $amountMax = $tmp;
+        }
+        $params['amount_min'] = sprintf('%.2f', max(0, $amountMin));
+        $params['amount_max'] = sprintf('%.2f', max(0, $amountMax));
+        $params['total_amount'] = $params['amount_min']; // 列表兼容展示下限
         $params['total_count'] = max(1, (int)($params['total_count'] ?? 5));
         $params['blessing'] = trim((string)($params['blessing'] ?? '恭喜发财')) ?: '恭喜发财';
         $params['mine_digit'] = 0; // 埋雷雷号运行时随机，后台不配置
@@ -170,8 +193,8 @@ class Redpacketauto extends Backend
         if ($params['auto_send'] && $params['send_user_id'] <= 0) {
             $this->error('自动发包需填写发包用户 ID（可多个，逗号分隔）');
         }
-        if ($params['auto_send'] && $params['total_amount'] <= 0) {
-            $this->error('请填写红包金额');
+        if ($params['auto_send'] && (float)$params['amount_min'] <= 0) {
+            $this->error('请填写红包金额（最小/最大）');
         }
         if ($params['auto_grab'] && trim($params['grab_user_ids']) === '') {
             $this->error('自动抢包需填写抢包用户 ID（逗号分隔）');

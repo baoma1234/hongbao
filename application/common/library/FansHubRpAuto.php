@@ -222,7 +222,8 @@ class FansHubRpAuto
         if ($sendUid <= 0) {
             throw new Exception('未配置发包用户ID');
         }
-        $amount = self::jitterAmount(round((float)$task['total_amount'], 2));
+        $group = Db::name('chat_groups')->where('id', $groupId)->find() ?: [];
+        $amount = self::resolveSendAmount($task, $group);
         $count = (int)$task['total_count'];
         if ($amount <= 0 || $count <= 0) {
             throw new Exception('金额/个数无效');
@@ -408,23 +409,59 @@ class FansHubRpAuto
         return $base;
     }
 
-    protected static function jitterAmount($baseAmount)
+    /**
+     * 任务金额区间：相等=固定，否则随机；群固定金额优先。
+     */
+    protected static function resolveSendAmount(array $task, array $group)
     {
-        $base = round((float)$baseAmount, 2);
-        if ($base <= 0) {
-            return $base;
+        $groupFixed = round((float)($group['rp_fixed_amount'] ?? 0), 2);
+        if ($groupFixed > 0) {
+            return $groupFixed;
         }
-        $pct = mt_rand(50, 100) / 1000.0;
-        if (mt_rand(0, 1) === 0) {
-            $pct = -$pct;
+
+        $min = round((float)($task['amount_min'] ?? 0), 2);
+        $max = round((float)($task['amount_max'] ?? 0), 2);
+        $legacy = round((float)($task['total_amount'] ?? 0), 2);
+        if ($min <= 0 && $legacy > 0) {
+            $min = $legacy;
         }
-        $amount = round($base * (1 + $pct), 2);
+        if ($max <= 0 && $legacy > 0) {
+            $max = $legacy;
+        }
+        if ($min <= 0 && $max > 0) {
+            $min = $max;
+        }
+        if ($max <= 0 && $min > 0) {
+            $max = $min;
+        }
+        if ($max < $min) {
+            $tmp = $min;
+            $min = $max;
+            $max = $tmp;
+        }
+        if ($min <= 0) {
+            return 0.0;
+        }
+        if (abs($max - $min) < 0.001) {
+            $amount = $min;
+        } else {
+            $minCents = (int)round($min * 100);
+            $maxCents = (int)round($max * 100);
+            if ($maxCents < $minCents) {
+                $maxCents = $minCents;
+            }
+            $amount = round(mt_rand($minCents, $maxCents) / 100, 2);
+        }
+        $gMin = round((float)($group['rp_min_amount'] ?? 0), 2);
+        $gMax = round((float)($group['rp_max_amount'] ?? 0), 2);
+        if ($gMin > 0 && $amount < $gMin) {
+            $amount = $gMin;
+        }
+        if ($gMax > 0 && $amount > $gMax) {
+            $amount = $gMax;
+        }
         if ($amount < 0.01) {
             $amount = 0.01;
-        }
-        $floor = round(max(0.01, $base * 0.5), 2);
-        if ($amount < $floor) {
-            $amount = $floor;
         }
         return $amount;
     }

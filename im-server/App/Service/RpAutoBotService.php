@@ -164,19 +164,8 @@ class RpAutoBotService
         if ($sendUid <= 0) {
             throw new \RuntimeException('未配置发包用户ID');
         }
-        $baseAmount = round((float)($task['total_amount'] ?? 0), 2);
         $group = $this->groups->get($groupId) ?: [];
-        $fixedAmount = round((float)($group['rp_fixed_amount'] ?? 0), 2);
-        $minAmount = round((float)($group['rp_min_amount'] ?? 0), 2);
-        // 群配置了固定金额则不抖动（接龙 50 等）；否则抖动但不得低于群最低额
-        if ($fixedAmount > 0) {
-            $amount = $fixedAmount;
-        } else {
-            $amount = $this->jitterAmount($baseAmount);
-            if ($minAmount > 0 && $amount < $minAmount) {
-                $amount = $minAmount;
-            }
-        }
+        $amount = $this->resolveSendAmount($task, $group);
         $count = (int)($task['total_count'] ?? 0);
         if ($amount <= 0 || $count <= 0) {
             throw new \RuntimeException('金额/个数无效');
@@ -261,14 +250,13 @@ class RpAutoBotService
         $this->bustTaskCache();
 
         error_log(sprintf(
-            '[RP_AUTO] send ok task=%d group=%d type=%d uid=%d mine=%d amount=%.2f(base=%.2f) burst=%d/%d packet=%d',
+            '[RP_AUTO] send ok task=%d group=%d type=%d uid=%d mine=%d amount=%.2f burst=%d/%d packet=%d',
             $taskId,
             $groupId,
             $packetType,
             $sendUid,
             $mineDigit,
             $amount,
-            $baseAmount,
             $useBurst ? $burstSent : 0,
             $useBurst ? $burstCount : 0,
             $packetId
@@ -449,25 +437,63 @@ class RpAutoBotService
         return $base;
     }
 
-    /** 基准金额 ±5%～10% 抖动（保留 2 位，不低于 0.01） */
-    protected function jitterAmount($baseAmount)
+    /**
+     * 任务金额：amount_min/amount_max（相等=固定，否则区间随机）
+     * 群 rp_fixed_amount 优先；再夹到群 rp_min_amount / rp_max_amount。
+     */
+    protected function resolveSendAmount(array $task, array $group)
     {
-        $base = round((float)$baseAmount, 2);
-        if ($base <= 0) {
-            return $base;
+        $groupFixed = round((float)($group['rp_fixed_amount'] ?? 0), 2);
+        if ($groupFixed > 0) {
+            return $groupFixed;
         }
-        $pct = random_int(50, 100) / 1000.0; // 5%～10%
-        if (random_int(0, 1) === 0) {
-            $pct = -$pct;
+
+        $min = round((float)($task['amount_min'] ?? 0), 2);
+        $max = round((float)($task['amount_max'] ?? 0), 2);
+        $legacy = round((float)($task['total_amount'] ?? 0), 2);
+        if ($min <= 0 && $legacy > 0) {
+            $min = $legacy;
         }
-        $amount = round($base * (1 + $pct), 2);
+        if ($max <= 0 && $legacy > 0) {
+            $max = $legacy;
+        }
+        if ($min <= 0 && $max > 0) {
+            $min = $max;
+        }
+        if ($max <= 0 && $min > 0) {
+            $max = $min;
+        }
+        if ($max < $min) {
+            $tmp = $min;
+            $min = $max;
+            $max = $tmp;
+        }
+
+        if ($min <= 0) {
+            return 0.0;
+        }
+
+        if (abs($max - $min) < 0.001) {
+            $amount = $min;
+        } else {
+            $minCents = (int)round($min * 100);
+            $maxCents = (int)round($max * 100);
+            if ($maxCents < $minCents) {
+                $maxCents = $minCents;
+            }
+            $amount = round(random_int($minCents, $maxCents) / 100, 2);
+        }
+
+        $gMin = round((float)($group['rp_min_amount'] ?? 0), 2);
+        $gMax = round((float)($group['rp_max_amount'] ?? 0), 2);
+        if ($gMin > 0 && $amount < $gMin) {
+            $amount = $gMin;
+        }
+        if ($gMax > 0 && $amount > $gMax) {
+            $amount = $gMax;
+        }
         if ($amount < 0.01) {
             $amount = 0.01;
-        }
-        // 抖动后仍不低于基准的一半，避免过小包
-        $floor = round(max(0.01, $base * 0.5), 2);
-        if ($amount < $floor) {
-            $amount = $floor;
         }
         return $amount;
     }
