@@ -19,12 +19,10 @@
           @click="pickGroupAvatar"
         >
           <image
-            v-if="groupAvatar"
             class="chat-setting-avatar-img"
-            :src="groupAvatar"
+            :src="groupAvatar || avatarSrc('')"
             mode="aspectFill"
           />
-          <text v-else class="chat-setting-avatar-fallback">{{ letter }}</text>
           <text v-if="canEdit" class="chat-setting-avatar-edit">{{ avatarBusy ? '上传中' : '更换' }}</text>
         </view>
         <view class="chat-setting-profile-main">
@@ -202,7 +200,7 @@
             @longpress="onMemberLongPress(m)"
           >
             <view class="chat-member-avatar">
-              <text>{{ avatarLetter(m.nickname) }}</text>
+              <image :src="avatarSrc(m.avatar_url || m.avatar || '')" mode="aspectFill" />
             </view>
             <view class="chat-member-main">
               <view class="chat-member-name">{{ m.nickname || ('ID' + m.user_id) }}</view>
@@ -254,7 +252,7 @@
               {{ selectedIds[u.user_id] ? '✓' : '' }}
             </view>
             <view class="chat-member-avatar">
-              <text>{{ avatarLetter(u.nickname) }}</text>
+              <image :src="avatarSrc(u.avatar_url || u.avatar || '')" mode="aspectFill" />
             </view>
             <view class="chat-member-main">
               <view class="chat-member-name">{{ u.nickname || ('ID' + u.user_id) }}</view>
@@ -284,7 +282,7 @@ import { computed, reactive, ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
 import { fetchProfile, getToken, uploadCommonFile } from '../../utils/auth.js'
-import { avatarLetter, avatarSrc } from '../../utils/chat.js'
+import { avatarSrc } from '../../utils/chat.js'
 import {
   addGroupMembers,
   fetchGroupInfo,
@@ -353,10 +351,8 @@ const groupName = computed(() => group.value.name || ('群 ' + groupId.value))
 const notice = computed(() => String(group.value.notice || '').trim())
 const groupAvatar = computed(() => {
   const g = group.value || {}
-  const raw = g.avatar_url || g.avatar || ''
-  return raw ? avatarSrc(raw) : ''
+  return avatarSrc(g.avatar_url || g.avatar || '')
 })
-const letter = computed(() => avatarLetter(groupName.value))
 const canEdit = computed(() => (myRole.value | 0) >= 2)
 const roleText = computed(() => roleLabel(myRole.value))
 const memberTargetName = computed(() => {

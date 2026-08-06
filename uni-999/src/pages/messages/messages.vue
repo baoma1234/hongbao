@@ -286,16 +286,10 @@
                   >
                     <view class="chat-notice-hd">
                       <image
-                        v-if="n.author_avatar"
                         class="chat-notice-avatar"
-                        :src="avatarSrc(n.author_avatar)"
+                        :src="avatarSrc(n.author_avatar || '')"
                         mode="aspectFill"
                       />
-                      <view
-                        v-else
-                        class="chat-notice-avatar chat-notice-avatar-fallback"
-                        aria-hidden="true"
-                      >{{ noticeCategoryIcon(n) }}</view>
                       <view class="chat-notice-meta">
                         <view class="chat-notice-name-row">
                           <text class="chat-notice-name">{{ n.author_name || '红宝官方公告' }}</text>

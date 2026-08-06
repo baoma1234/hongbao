@@ -10,12 +10,10 @@
       <view class="match-card profile-card">
         <view class="profile-avatar-wrap" @click="pickAvatar">
           <image
-            v-if="avatar"
             class="profile-avatar-img profile-avatar-lg"
-            :src="avatar"
+            :src="avatarSrc(avatar)"
             mode="aspectFill"
           />
-          <view v-else class="profile-avatar-fallback profile-avatar-lg">{{ letter }}</view>
           <text class="profile-avatar-hint">{{ t('profile_avatar_hint') || '点击更换头像' }}</text>
         </view>
         <view class="profile-field">
@@ -36,7 +34,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import TopBar from '../../components/TopBar.vue'
 import { onShow } from '@dcloudio/uni-app'
 import {
@@ -46,14 +44,13 @@ import {
   uploadAvatar,
 } from '../../utils/auth.js'
 import { localeState, t } from '../../utils/i18n.js'
+import { avatarSrc } from '../../utils/chat.js'
 import '../../styles/hb.css'
 
 const locale = localeState()
 const nickname = ref('')
 const avatar = ref('')
 const busy = ref(false)
-
-const letter = computed(() => String(nickname.value || '\u6211').charAt(0))
 
 function goBack() {
   uni.navigateBack({ fail: () => uni.switchTab({ url: '/pages/profile/profile' }) })

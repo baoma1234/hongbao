@@ -31,7 +31,7 @@
       <view class="chat-friend-req-list">
         <view v-if="!rows.length && loaded" class="chat-empty chat-empty-sm">暂无申请</view>
         <view v-for="item in rows" :key="item.id" class="chat-friend-req-item">
-          <view class="chat-friend-req-avatar">{{ letter(peerName(item)) }}</view>
+          <image class="chat-friend-req-avatar-img" :src="peerAvatar(item)" mode="aspectFill" />
           <view class="chat-friend-req-body">
             <view class="chat-friend-req-name">{{ peerName(item) }}</view>
             <view class="chat-friend-req-sub">{{ item.message || statusText(item.status) }}</view>
@@ -55,7 +55,7 @@ import { computed, ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
 import { getToken } from '../../utils/auth.js'
-import { avatarLetter } from '../../utils/chat.js'
+import { avatarSrc } from '../../utils/chat.js'
 import {
   friendAccept,
   friendCancel,
@@ -77,13 +77,14 @@ const rows = computed(() => {
   return tab.value === 'outgoing' ? cache.value.outgoing || [] : cache.value.incoming || []
 })
 
-function letter(name) {
-  return avatarLetter(name)
-}
-
 function peerName(item) {
   const peer = item.peer || item.from_user || {}
   return peer.nickname || ('ID' + (item.peer_user_id || item.from_user_id || ''))
+}
+
+function peerAvatar(item) {
+  const peer = item.peer || item.from_user || {}
+  return avatarSrc(peer.avatar_url || peer.avatar || item.avatar || '')
 }
 
 function statusText(st) {

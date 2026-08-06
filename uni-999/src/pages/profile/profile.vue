@@ -6,12 +6,10 @@
       <text class="profile-vip-watermark">{{ t('brand_name') }}</text>
       <view class="profile-vip-identity">
         <image
-          v-if="avatar"
           class="profile-avatar-img"
-          :src="avatar"
+          :src="avatarSrc(avatar)"
           mode="aspectFill"
         />
-        <view v-else class="profile-avatar-fallback">{{ avatarLetter }}</view>
         <view class="profile-vip-text">
           <view class="profile-vip-name-row">
             <text class="profile-summary-name">{{ displayName }}</text>
@@ -151,6 +149,7 @@ import TopBar from '../../components/TopBar.vue'
 import BottomTabBar from '../../components/BottomTabBar.vue'
 import FriendScanSheet from '../../components/FriendScanSheet.vue'
 import { fetchProfile, getToken, logoutLocal, logoutRemote } from '../../utils/auth.js'
+import { avatarSrc } from '../../utils/chat.js'
 import { localeState, t } from '../../utils/i18n.js'
 import { openFriendScanSheet } from '../../utils/friend-scan.js'
 import { imDisconnect } from '../../utils/im.js'
@@ -171,7 +170,6 @@ const avatar = computed(() => {
   const p = profile.value || {}
   return p.avatar_url || p.avatar || ''
 })
-const avatarLetter = computed(() => String(displayName.value || '?').charAt(0))
 
 function maskMobile(m) {
   const s = String(m || '').replace(/\D+/g, '')

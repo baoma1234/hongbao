@@ -132,13 +132,24 @@
   gap: 6px;
 }
 
-.chat-friend-page .chat-friend-req-avatar {
+.chat-friend-page .chat-friend-req-avatar,
+.chat-friend-page .chat-friend-req-avatar-img {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
   font-weight: 800;
   color: #c61114;
   background: linear-gradient(160deg, #fff5f3, #ffe3df);
+}
+.chat-friend-page .chat-friend-req-avatar-img {
+  display: block;
+  object-fit: cover;
+  background: #f0f0f0;
 }
 
 .chat-friend-page .chat-friend-req-btn {

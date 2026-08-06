@@ -137,11 +137,16 @@ export function publicUrl(pathOrUrl) {
   return url
 }
 
+/** 对齐 888：img/default-avatar.png?v=202608051205 */
+export const DEFAULT_AVATAR_VER = '202608051205'
+
 export function defaultAvatarUrl() {
+  const q = '?v=' + DEFAULT_AVATAR_VER
   try {
-    return assetBase() + 'static/default-avatar.png'
+    // 对齐 888 的 img/default-avatar.png?v=…
+    return assetBase() + 'static/img/default-avatar.png' + q
   } catch (e) {
-    return '/999/static/default-avatar.png'
+    return '/999/static/img/default-avatar.png' + q
   }
 }
 
