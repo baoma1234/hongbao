@@ -299,8 +299,8 @@ return [
         'auto_record_log'       => true,
         //插件纯净模式，插件启用后是否删除插件目录的application、public和assets文件夹
         'addon_pure_mode'       => true,
-        //允许跨域的域名,多个以,分隔
-        'cors_request_domain'   => 'localhost,127.0.0.1',
+        //允许跨域的域名,多个以,分隔；* = 反射任意 Origin（999 H5 / App 跨域必需）
+        'cors_request_domain'   => Env::get('app.cors_request_domain', '*'),
         //版本号
         'version'               => '1.6.1.20250430',
         //API接口地址

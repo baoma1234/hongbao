@@ -377,10 +377,14 @@ if (!function_exists('check_cors_request')) {
     {
         if (isset($_SERVER['HTTP_ORIGIN']) && $_SERVER['HTTP_ORIGIN'] && config('fastadmin.cors_request_domain')) {
             $info = parse_url($_SERVER['HTTP_ORIGIN']);
-            $domainArr = explode(',', config('fastadmin.cors_request_domain'));
+            $domainArr = array_filter(array_map('trim', explode(',', (string)config('fastadmin.cors_request_domain'))));
             $domainArr[] = request()->host(true);
-            if (in_array("*", $domainArr) || in_array($_SERVER['HTTP_ORIGIN'], $domainArr) || (isset($info['host']) && in_array($info['host'], $domainArr))) {
-                header("Access-Control-Allow-Origin: " . $_SERVER['HTTP_ORIGIN']);
+            $originHost = isset($info['host']) ? (string)$info['host'] : '';
+            $allowed = in_array('*', $domainArr, true)
+                || in_array($_SERVER['HTTP_ORIGIN'], $domainArr, true)
+                || ($originHost !== '' && in_array($originHost, $domainArr, true));
+            if ($allowed) {
+                header('Access-Control-Allow-Origin: ' . $_SERVER['HTTP_ORIGIN']);
             } else {
                 $response = Response::create('跨域检测无效', 'html', 403);
                 throw new HttpResponseException($response);
@@ -388,14 +392,16 @@ if (!function_exists('check_cors_request')) {
 
             header('Access-Control-Allow-Credentials: true');
             header('Access-Control-Max-Age: 86400');
+            header('Vary: Origin');
 
             if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
-                if (isset($_SERVER['HTTP_ACCESS_CONTROL_REQUEST_METHOD'])) {
-                    header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
-                }
-                if (isset($_SERVER['HTTP_ACCESS_CONTROL_REQUEST_HEADERS'])) {
-                    header("Access-Control-Allow-Headers: {$_SERVER['HTTP_ACCESS_CONTROL_REQUEST_HEADERS']}");
-                }
+                header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+                $reqHeaders = isset($_SERVER['HTTP_ACCESS_CONTROL_REQUEST_HEADERS'])
+                    ? (string)$_SERVER['HTTP_ACCESS_CONTROL_REQUEST_HEADERS']
+                    : '';
+                // 999 / 888 常用头：token、语言、JSON
+                $fallback = 'Content-Type, token, Token, X-Fanshub-Locale, X-Fans-Token, Authorization';
+                header('Access-Control-Allow-Headers: ' . ($reqHeaders !== '' ? $reqHeaders : $fallback));
                 $response = Response::create('', 'html');
                 throw new HttpResponseException($response);
             }
