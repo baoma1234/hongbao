@@ -602,7 +602,7 @@ return array (
   'alert_share_copied' => '【分享文案已复制】\\n\\n{message}',
   'alert_share_daily_limit' => '分享文案已复制，今日分享奖励已达上限',
   'alert_share_cooldown_wait' => '分享文案已复制，请 {minutes} 分钟后再领取分享奖励',
-  'alert_share_reward_ok' => '分享奖励已发放',
+  'alert_share_reward_ok' => '分享成功，已到账 {rights} 股',
   'alert_share_wait_default' => '请稍后再领取分享奖励。',
   'alert_comment_fail' => '发表失败',
   'alert_sms_fail' => '验证码发送失败',

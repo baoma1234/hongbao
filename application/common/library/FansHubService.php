@@ -3797,20 +3797,15 @@ class FansHubService
         }
         if ($lastShare && $cooldown > 0 && (time() - $lastShare->createtime) < $cooldown) {
             $wait = $cooldown - (time() - $lastShare->createtime);
-            $payload['message'] = self::h5CopyText('alert_share_cooldown_wait', [
-                'minutes' => max(1, (int)ceil($wait / 60)),
-            ]);
-            return $payload;
-        }
-
-        // 二期：当天已走签到通道则不再发「分享送股」（文案仍可复制）
-        if (FansHubPhase2::enabled()
-            && class_exists(\app\common\model\fanshub\Checkin::class)
-            && \app\common\model\fanshub\Checkin::where('user_id', $userId)
-                ->where('checkin_date', date('Y-m-d'))
-                ->find()
-        ) {
-            $payload['message'] = self::h5CopyText('phase2_share_checkin_mutex');
+            if ($wait <= 60) {
+                $payload['message'] = self::h5CopyText('alert_share_cooldown_wait_sec', [
+                    'seconds' => max(1, (int)$wait),
+                ]);
+            } else {
+                $payload['message'] = self::h5CopyText('alert_share_cooldown_wait', [
+                    'minutes' => max(1, (int)ceil($wait / 60)),
+                ]);
+            }
             return $payload;
         }
 
@@ -3819,7 +3814,9 @@ class FansHubService
         self::recordTask($userId, 'share', $rights, 0, '', 'share_click');
         $payload['profile'] = self::profilePayload($userId);
         $payload['rewarded'] = true;
-        $payload['message'] = self::h5CopyText('alert_share_reward_ok');
+        $payload['message'] = self::h5CopyText('alert_share_reward_ok', [
+            'rights' => rtrim(rtrim(number_format($rights, 2, '.', ''), '0'), '.') ?: '0',
+        ]);
         return $payload;
     }
 

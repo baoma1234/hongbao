@@ -125,7 +125,7 @@
                 </view>
 
                 <view v-else-if="isSticker(m)" class="chat-bubble sticker" @longpress="onMsgLongPress(m)">
-                  <image class="chat-sticker-img" :src="stickerUrl(m)" mode="widthFix" />
+                  <image class="chat-sticker-img" :src="stickerUrl(m)" mode="aspectFit" />
                   <text class="meta">{{ msgTime(m) }}</text>
                 </view>
                 <view v-else-if="isImage(m)" class="chat-bubble media" @longpress="onMsgLongPress(m)">

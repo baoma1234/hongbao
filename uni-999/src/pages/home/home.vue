@@ -811,13 +811,18 @@ async function copyShareLink() {
     await copyText((data && data.share_text) || '')
     let toastMsg = (data && data.message) || ''
     if (!toastMsg) {
-      toastMsg = data && data.rewarded ? t('alert_share_rewarded') || '分享成功，奖励已到账' : t('alert_share_copied') || '分享文案已复制'
+      toastMsg = data && data.rewarded
+        ? (t('alert_share_reward_ok') || t('alert_share_rewarded') || '分享成功，奖励已到账')
+        : (t('alert_share_copied') || '分享文案已复制')
     }
     toastMsg = String(toastMsg)
       .replace(/【[^】]*】/g, '')
       .replace(/\\n+/g, ' ')
       .trim()
-    uni.showToast({ title: toastMsg || '分享文案已复制', icon: 'none' })
+    uni.showToast({
+      title: toastMsg || '分享文案已复制',
+      icon: data && data.rewarded ? 'success' : 'none',
+    })
   } catch (e) {
     uni.showToast({ title: e.message || t('alert_share_fail') || '分享失败', icon: 'none' })
   }

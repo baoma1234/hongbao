@@ -216,7 +216,16 @@
   word-break: break-word;
 }
 
-.chat-room-page .chat-sticker-img,
+.chat-room-page .chat-sticker-img {
+  display: block;
+  width: 72px !important;
+  height: 72px !important;
+  max-width: 72px !important;
+  max-height: 72px !important;
+  border-radius: 8px;
+  object-fit: contain;
+}
+
 .chat-room-page .chat-media-img {
   display: block;
   max-width: 180px;
@@ -531,20 +540,22 @@
 
 .chat-room-page .sticker-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
   padding: 4px 0 12px;
 }
 
 .chat-room-page .sticker-item {
   background: #fff;
   border-radius: 10px;
-  padding: 8px;
+  padding: 6px;
 }
 
 .chat-room-page .sticker-pick {
-  width: 100%;
-  height: 64px;
+  width: 48px;
+  height: 48px;
+  margin: 0 auto;
+  display: block;
 }
 
 .chat-room-page .sticker-code {

@@ -185,6 +185,131 @@
   margin-right: 0;
 }
 
+/* 群设置页：对齐 888 #tabMessages 玻璃卡片 / 按钮 */
+.chat-group-settings-page {
+  --hg-red-a: #E63022;
+  --hg-red-b: #C61114;
+  --hg-red-grad: linear-gradient(to right, #E63022, #C61114);
+  --hg-border-grad: linear-gradient(145deg, #ffe9b0 0%, #f0b04a 42%, #e07a22 100%);
+  --hg-border-grad-soft: linear-gradient(145deg, rgba(255, 233, 176, 0.95) 0%, rgba(240, 176, 74, 0.75) 50%, rgba(224, 122, 34, 0.85) 100%);
+  --hg-ink: #3d2e22;
+  --hg-muted: #9a8574;
+  --hg-inset: inset 0 2px 0 rgba(255, 255, 255, 0.95), inset 0 -2px 5px rgba(200, 140, 60, 0.12);
+  --hg-inset-sm: inset 0 1px 0 rgba(255, 255, 255, 0.92), inset 0 -1px 3px rgba(200, 140, 60, 0.1);
+  --hg-lift: 0 10px 24px rgba(176, 120, 50, 0.16);
+  --hg-lift-sm: 0 6px 14px rgba(170, 120, 55, 0.12);
+}
+
+.chat-group-settings-page .chat-setting-card,
+.chat-group-settings-page .chat-setting-edit,
+.chat-group-settings-page .chat-setting-block,
+.chat-group-settings-page .chat-action-sheet-panel {
+  border: 1.5px solid transparent !important;
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 246, 232, 0.7) 100%) padding-box,
+    var(--hg-border-grad) border-box !important;
+  box-shadow: var(--hg-lift), var(--hg-inset) !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-radius: 22px !important;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  box-sizing: border-box;
+}
+
+.chat-group-settings-page .chat-setting-row {
+  border: 1.5px solid transparent !important;
+  background:
+    linear-gradient(180deg, #fff 0%, #fffaf4 100%) padding-box,
+    var(--hg-border-grad-soft) border-box !important;
+  box-shadow: var(--hg-lift-sm), var(--hg-inset-sm) !important;
+  border-radius: 16px !important;
+  padding: 14px 16px;
+  margin-bottom: 8px;
+  box-sizing: border-box;
+}
+
+.chat-group-settings-page .chat-setting-input,
+.chat-group-settings-page .chat-setting-textarea {
+  border: 1.5px solid transparent !important;
+  background:
+    linear-gradient(180deg, #fff 0%, #fffaf4 100%) padding-box,
+    var(--hg-border-grad-soft) border-box !important;
+  box-shadow: var(--hg-inset-sm) !important;
+  border-radius: 12px !important;
+}
+
+.chat-group-settings-page .chat-setting-label {
+  color: var(--hg-muted);
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  display: block;
+}
+
+.chat-group-settings-page .chat-setting-save-btn,
+.chat-group-settings-page button.chat-setting-save-btn {
+  width: 100%;
+  min-height: 46px;
+  margin-top: 12px;
+  padding: 12px 16px;
+  border: 1.5px solid transparent !important;
+  border-radius: 14px !important;
+  background:
+    linear-gradient(165deg, rgba(255, 200, 160, 0.95) 0%, #E63022 55%, #C61114 100%) padding-box,
+    var(--hg-border-grad) border-box !important;
+  color: #fff !important;
+  box-shadow:
+    0 8px 18px rgba(198, 17, 20, 0.28),
+    inset 0 2px 0 rgba(255, 255, 255, 0.35) !important;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.chat-group-settings-page .chat-setting-save-btn[disabled],
+.chat-group-settings-page button.chat-setting-save-btn[disabled] {
+  opacity: 0.55;
+  box-shadow: none !important;
+}
+
+.chat-group-settings-page .chat-setting-leave-btn,
+.chat-group-settings-page button.chat-setting-leave-btn {
+  width: 100%;
+  min-height: 46px;
+  margin-top: 20px;
+  margin-bottom: 12px;
+  padding: 14px 16px;
+  border: 1.5px solid transparent !important;
+  border-radius: 14px !important;
+  background:
+    linear-gradient(180deg, #fff5f5 0%, #ffe0dc 100%) padding-box,
+    linear-gradient(145deg, #ffd0c4, #c62828) border-box !important;
+  color: #a12818 !important;
+  font-size: 15px;
+  font-weight: 700;
+  box-shadow: var(--hg-lift-sm), var(--hg-inset-sm) !important;
+}
+
+.chat-group-settings-page .chat-action-item,
+.chat-group-settings-page button.chat-action-item {
+  border: 1.5px solid transparent !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 246, 232, 0.85) 100%) padding-box,
+    var(--hg-border-grad-soft) border-box !important;
+  color: var(--hg-ink) !important;
+  box-shadow: var(--hg-lift-sm), var(--hg-inset-sm) !important;
+  border-radius: 12px !important;
+}
+
+.chat-group-settings-page .chat-action-item.danger,
+.chat-group-settings-page button.chat-action-item.danger {
+  background:
+    linear-gradient(180deg, #fff5f5 0%, #ffe0dc 100%) padding-box,
+    linear-gradient(145deg, #ffd0c4, #c62828) border-box !important;
+  color: #a12818 !important;
+}
+
 /* 自定义开关：对齐 888 .chat-switch */
 .chat-group-settings-page .chat-switch {
   position: relative;
@@ -201,7 +326,7 @@
   transition: background 0.2s ease;
 }
 .chat-group-settings-page .chat-switch.is-on .chat-switch-track {
-  background: #c61114;
+  background: linear-gradient(to right, #E63022, #C61114);
 }
 .chat-group-settings-page .chat-switch-knob {
   position: absolute;
@@ -211,7 +336,7 @@
   height: 22px;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
   transition: transform 0.2s ease;
 }
 .chat-group-settings-page .chat-switch.is-on .chat-switch-knob {
@@ -219,6 +344,19 @@
 }
 
 /* 禁止模式勾选：对齐 888 checkbox 观感 */
+.chat-group-settings-page .chat-forbid-modes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.chat-group-settings-page .chat-forbid-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--hg-ink);
+  padding: 6px 2px;
+}
 .chat-group-settings-page .chat-forbid-check {
   width: 18px;
   height: 18px;
@@ -230,12 +368,13 @@
   align-items: center;
   justify-content: center;
   font-size: 12px;
+  line-height: 1;
   color: #fff;
   background: #fff;
 }
 .chat-group-settings-page .chat-forbid-check.on {
-  background: #c61114;
-  border-color: #c61114;
+  background: linear-gradient(to right, #E63022, #C61114);
+  border-color: #C61114;
 }
 
 /* Conversation list pull-to-refresh (from 888 chat-core) */

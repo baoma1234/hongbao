@@ -1223,18 +1223,18 @@
         async function copyShareLink() {
             try {
                 const data = await apiRequest('share', 'POST', {});
-                if (data.rewarded) {
+                if (data && data.profile) {
                     applyProfile(data.profile);
                 }
                 await copyTextSilent(data.share_text || '');
                 let toastMsg = data.message || '';
                 if (!toastMsg) {
                     toastMsg = data.rewarded
-                        ? fc('alert_share_rewarded')
+                        ? fc('alert_share_reward_ok') || fc('alert_share_rewarded')
                         : fc('alert_share_copied', { message: fc('alert_share_wait_default') });
                 }
                 toastMsg = toastMsg.replace(/【[^】]*】/g, '').replace(/\\n+/g, ' ').trim();
-                showFanshubToast(toastMsg || '分享文案已复制');
+                showFanshubToast(toastMsg || '分享文案已复制', data && data.rewarded ? 'success' : 'info');
             } catch (e) {
                 showFanshubToast(e.message || fc('alert_share_fail'), 'error');
             }

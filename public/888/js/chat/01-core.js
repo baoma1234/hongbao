@@ -401,20 +401,33 @@
     return i18n.zh_CN || i18n.zh || item.name || '';
   }
 
-  /** 过滤旧系统常显示为方块的新 emoji（如 🫡 U+1FAE1） */
-  function emojiCodesTooNew(codes) {
-    var parts = String(codes || '').split(/[^0-9A-Fa-f]+/);
-    var ignore = {
-      FE0E: 1, FE0F: 1, '200D': 1, '20E3': 1,
+  /** 过滤：肤色变体 / ZWJ 组合 / Extended-A 等易乱码或刷屏的条目 */
+  function emojiCodesUnsupported(codes) {
+    var parts = String(codes || '').split(/[^0-9A-Fa-f]+/).filter(Boolean);
+    if (!parts.length) return true;
+    var skin = {
       '1F3FB': 1, '1F3FC': 1, '1F3FD': 1, '1F3FE': 1, '1F3FF': 1
     };
+    var ignore = { FE0E: 1, FE0F: 1, '20E3': 1 };
+    var core = [];
     for (var i = 0; i < parts.length; i++) {
-      var hex = parts[i];
-      if (!hex || ignore[hex.toUpperCase()]) continue;
+      var hex = parts[i].toUpperCase();
+      if (hex === '200D') return true; // ZWJ 组合（家庭/职业等）
+      if (skin[hex]) return true; // 肤色变体
+      if (ignore[hex]) continue;
       var cp = parseInt(hex, 16);
       if (!cp && cp !== 0) continue;
       if (cp >= 0x1FA00 && cp <= 0x1FAFF) return true;
       if (cp === 0x1F90C) return true;
+      core.push(hex);
+    }
+    // 旗帜允许 2 个区域指示符；其余多码点组合丢弃
+    if (core.length > 2) return true;
+    if (core.length === 2) {
+      var a = parseInt(core[0], 16);
+      var b = parseInt(core[1], 16);
+      var isFlag = a >= 0x1F1E6 && a <= 0x1F1FF && b >= 0x1F1E6 && b <= 0x1F1FF;
+      if (!isFlag) return true;
     }
     return false;
   }
@@ -426,6 +439,10 @@
       (list || []).forEach(function (node) {
         if (!node) return;
         if (node.list) {
+          // 跳过「成分 / Component」分组
+          var gid = String(node.id || node.name || '').toLowerCase();
+          var gzh = String((node.name_i18n && (node.name_i18n.zh_CN || node.name_i18n.zh)) || '');
+          if (gid.indexOf('component') >= 0 || gzh.indexOf('成分') >= 0) return;
           var child = walk(node.list);
           if (child.length) {
             var copy = {};
@@ -435,7 +452,7 @@
           }
           return;
         }
-        if (node.char && !emojiCodesTooNew(node.codes)) out.push(node);
+        if (node.char && !emojiCodesUnsupported(node.codes)) out.push(node);
       });
       return out;
     }
@@ -448,7 +465,7 @@
     group.list.forEach(function (sub) {
       if (!sub || !sub.list) return;
       sub.list.forEach(function (item) {
-        if (item && item.char && !emojiCodesTooNew(item.codes)) list.push(item);
+        if (item && item.char && !emojiCodesUnsupported(item.codes)) list.push(item);
       });
     });
     return list;
