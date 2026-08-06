@@ -157,7 +157,9 @@ class FansHubWanhuitongGateway
             $name = $label . ($type === 'withdraw' ? '代付' : '充值');
         }
         $site = rtrim(trim((string)($merchant['site'] ?? '')), '/');
-        $returnUrl = $site !== '' ? ($site . '/888/#profile') : '/888/#profile';
+        $returnUrl = $site !== ''
+            ? ($site . '/999/#/pages/wallet/wallet')
+            : FansHubPayGateway::defaultReturnUrl();
         $ips = trim((string)($merchant['callback_ips'] ?? ''));
         $ipList = $ips !== '' ? preg_split('/[\s,;]+/', $ips, -1, PREG_SPLIT_NO_EMPTY) : $defaults['callback_ips'];
 

@@ -106,7 +106,10 @@ class Common extends Api
                 } catch (UploadException $e) {
                     $this->error($e->getMessage());
                 }
-                $this->success(__('Uploaded successful'), ['url' => $attachment->url, 'fullurl' => \app\common\library\OssService::fullUrl($attachment->url, $attachment->storage)]);
+                $this->success(__('Uploaded successful'), [
+                    'url'     => $attachment->url,
+                    'fullurl' => \app\common\library\OssService::fullUrl($attachment->url, $attachment->storage),
+                ]);
             } elseif ($method == 'clean') {
                 //删除冗余的分片文件
                 try {
@@ -141,7 +144,11 @@ class Common extends Api
                 $this->error($e->getMessage());
             }
 
-            $this->success(__('Uploaded successful'), ['url' => $attachment->url, 'fullurl' => \app\common\library\OssService::fullUrl($attachment->url, $attachment->storage)]);
+            // 上传响应：OSS 启用时 fullurl 走加速域名（Common 开头清空了 upload.cdnurl）
+            $this->success(__('Uploaded successful'), [
+                'url'     => $attachment->url,
+                'fullurl' => \app\common\library\OssService::fullUrl($attachment->url, $attachment->storage),
+            ]);
         }
 
     }

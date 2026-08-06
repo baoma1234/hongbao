@@ -57,9 +57,9 @@ function buildInviteDownloadLink(link, code) {
     origin = ''
   }
   if (c && origin) {
-    return origin + '/888/?code=' + encodeURIComponent(c)
+    return origin + '/999/?code=' + encodeURIComponent(c)
   }
-  return origin ? origin + '/888/' : ''
+  return origin ? origin + '/999/' : ''
 }
 
 function loadQrLib() {

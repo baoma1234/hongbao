@@ -2048,7 +2048,7 @@ async function uploadCommonFile(filePath) {
   return up
 }
 
-/** 上传结果 → IM 允许的 /uploads 相对路径 + 可展示的绝对 fullurl */
+/** 上传结果 → IM 允许的 /uploads 相对路径 + 可展示的绝对 fullurl（优先 OSS） */
 function mediaPathsFromUpload(up) {
   let path = String((up && up.url) || '').trim()
   const fullRaw = String((up && up.fullurl) || '').trim()
@@ -2065,13 +2065,8 @@ function mediaPathsFromUpload(up) {
   if (!path || path.indexOf('/uploads/') !== 0) {
     throw new Error('上传失败')
   }
-  const base = String(getImgBase() || getApiBase() || '')
-    .trim()
-    .replace(/\/+$/, '')
-  let full = fullRaw
-  if (!/^https?:\/\//i.test(full)) {
-    full = base ? base + path : path
-  }
+  // 展示地址一律走 publicUrl（OSS upload_cdn），勿盲信 API 返回的本站 fullurl
+  const full = publicUrl(path) || fullRaw || path
   return { path, full }
 }
 

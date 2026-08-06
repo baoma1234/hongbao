@@ -34,7 +34,14 @@ class FansHubPayGateway
 
     public static function defaultReturnUrl()
     {
-        return rtrim(self::siteOrigin(), '/') . '/888/#profile';
+        $cfg = FansHubService::config();
+        $h5 = trim((string)($cfg['h5_entry_path'] ?? '999'), '/');
+        if ($h5 === '') {
+            $h5 = '999';
+        }
+        // uni-999 钱包页；旧 888 仍可用 #profile
+        $hash = ($h5 === '888') ? '#profile' : '#/pages/wallet/wallet';
+        return rtrim(self::siteOrigin(), '/') . '/' . $h5 . '/' . $hash;
     }
 
     public static function defaultTestSubmitUrl($type)

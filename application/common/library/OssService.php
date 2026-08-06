@@ -209,7 +209,7 @@ class OssService
     }
 
     /**
-     * 附件公网地址：已双写 OSS 则走加速域名，否则回退本站 cdnurl
+     * 附件公网地址：OSS 启用时优先加速域名（不依赖 storage 标记，避免双写未落库仍回本地）
      */
     public static function fullUrl($url, $storage = '')
     {
@@ -218,9 +218,22 @@ class OssService
             return '';
         }
         if (preg_match('#^https?://#i', $url) || stripos($url, 'data:') === 0) {
+            // 已是绝对地址：若误指向本站 /uploads，改写到 OSS
+            if (self::enabled() && preg_match('#/uploads/#i', $url)) {
+                try {
+                    $path = parse_url($url, PHP_URL_PATH);
+                    if (is_string($path) && strpos($path, '/uploads/') === 0) {
+                        $oss = self::publicUrl($path);
+                        if ($oss !== '') {
+                            return $oss;
+                        }
+                    }
+                } catch (\Throwable $e) {
+                }
+            }
             return $url;
         }
-        if (self::enabled() && strpos((string)$storage, 'oss') !== false) {
+        if (self::enabled()) {
             $oss = self::publicUrl($url);
             if ($oss !== '') {
                 return $oss;
