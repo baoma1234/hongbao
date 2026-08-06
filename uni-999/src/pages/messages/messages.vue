@@ -358,25 +358,41 @@
               </view>
 
               <view class="chat-commission-nav-grid">
-                <view class="chat-commission-nav-item" @click="goCommissionNav('promo')">
+                <view
+                  class="chat-commission-nav-item"
+                  :class="{ 'is-active': commissionListMode === 'promo' }"
+                  @click="goCommissionNav('promo')"
+                >
                   <view class="chat-commission-nav-ico">
                     <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11zm-3.5-5.5l-1.4 1.4L11 13.8l-2.1 2.1-1.4-1.4L9.6 12.4 7.5 10.3l1.4-1.4L11 11l2.1-2.1 1.4 1.4-2.1 2.1 2.1 2.1z"/></svg>
                   </view>
                   <text class="chat-commission-nav-label">推广结算 ›</text>
                 </view>
-                <view class="chat-commission-nav-item" @click="goCommissionNav('rebate')">
+                <view
+                  class="chat-commission-nav-item"
+                  :class="{ 'is-active': commissionListMode === 'rebate' }"
+                  @click="goCommissionNav('rebate')"
+                >
                   <view class="chat-commission-nav-ico">
                     <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm1 15H9v-2h6v2zm0-4H9v-2h6v2zm-3-5V3.5L18.5 9H12z"/></svg>
                   </view>
                   <text class="chat-commission-nav-label">红包返佣 ›</text>
                 </view>
-                <view class="chat-commission-nav-item" @click="goCommissionNav('ledger')">
+                <view
+                  class="chat-commission-nav-item"
+                  :class="{ 'is-active': commissionListMode === 'ledger' }"
+                  @click="goCommissionNav('ledger')"
+                >
                   <view class="chat-commission-nav-ico">
                     <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14h-2v-2h2v2zm0-4h-2V7h2v5z"/></svg>
                   </view>
                   <text class="chat-commission-nav-label">收益明细 ›</text>
                 </view>
-                <view class="chat-commission-nav-item" @click="goCommissionNav('withdraw_list')">
+                <view
+                  class="chat-commission-nav-item"
+                  :class="{ 'is-active': commissionListMode === 'withdraw_list' }"
+                  @click="goCommissionNav('withdraw_list')"
+                >
                   <view class="chat-commission-nav-ico">
                     <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5 1.41-1.41L11 13.17V7h2v6.17l2.59-2.58L17 12l-5 5z"/></svg>
                   </view>
@@ -385,24 +401,24 @@
               </view>
 
               <view class="chat-commission-recent-card">
-                <view class="chat-commission-recent-hd">最近结算</view>
+                <view class="chat-commission-recent-hd">{{ commissionListTitle }}</view>
                 <view class="chat-commission-list">
                   <view
                     class="chat-commission-row"
                     :class="{ 'is-dual-rebate': isDualRebate(row) }"
-                    v-for="(row, idx) in commission.recent || []"
+                    v-for="(row, idx) in commissionRows"
                     :key="row.id || idx"
                   >
                     <view class="chat-commission-row-ico" aria-hidden="true">
                       <svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
                     </view>
                     <view class="chat-commission-row-main">
-                      <view class="chat-commission-row-title">{{ row.title || row.scene_text || row.type_text || '结算记录' }}</view>
+                      <view class="chat-commission-row-title">{{ commissionRowTitle(row) }}</view>
                       <view class="chat-commission-row-time">{{ formatNoticeTime(row) }}</view>
                     </view>
-                    <view class="chat-commission-row-amt" :class="{ 'is-out': isAmtOut(row) }">{{ row.amount_text || formatAmt(row.amount) }}</view>
+                    <view class="chat-commission-row-amt" :class="{ 'is-out': isAmtOut(row) }">{{ formatCommissionAmt(row) }}</view>
                   </view>
-                  <view v-if="!(commission.recent && commission.recent.length)" class="chat-empty chat-empty-glass">登录后查看佣金明细</view>
+                  <view v-if="!commissionRows.length" class="chat-empty chat-empty-glass">{{ commissionEmptyText }}</view>
                 </view>
               </view>
             </view>
@@ -616,6 +632,7 @@ const promoteEarnRows = ref([])
 const promoteEarnOffset = ref(0)
 let promoteEarnTimer = null
 const commission = ref({})
+const commissionListMode = ref('recent')
 const friendReqPending = ref(0)
 const listRefreshing = ref(false)
 const convSheetItem = ref(null)
@@ -696,9 +713,67 @@ function isDualRebate(row) {
 }
 
 function isAmtOut(row) {
-  const t = String((row && row.amount_text) || formatAmt(row && row.amount) || '')
+  const t = String(formatCommissionAmt(row) || '')
   return t.indexOf('-') === 0
 }
+
+function commissionRowTitle(row) {
+  row = row || {}
+  if (row.type_label) return String(row.type_label)
+  if (row.title) return String(row.title)
+  if (row.scene_text) return String(row.scene_text)
+  if (row.type_text) return String(row.type_text)
+  const rt = String(row.revenue_type || '')
+  if (rt === 'dual') return '🔥 群主+推荐双重返佣'
+  if (rt === 'invite') return '🔗 推荐发包返佣'
+  if (rt === 'owner') return '群主返佣'
+  const typ = String(row.type || '')
+  if (typ === 'red_packet_dual_rebate_in') return '🔥 群主+推荐双重返佣'
+  if (typ === 'red_packet_invite_rebate_in' || typ === 'red_packet_rebate') return '🔗 推荐发包返佣'
+  if (typ === 'red_packet_agent_rebate_in') return '群主返佣'
+  return typ || '结算记录'
+}
+
+function formatCommissionAmt(row) {
+  row = row || {}
+  if (row.amount_text) return String(row.amount_text)
+  const h = Number(row.hongbao_change || 0)
+  const b = Number(row.balance_change || 0)
+  const r = Number(row.rights_change || 0)
+  const money = h || b || r || Number(row.amount || 0)
+  if (!money) return '¥ 0.00'
+  const abs = Math.abs(money).toFixed(2)
+  return (money > 0 ? '+¥ ' : '-¥ ') + abs
+}
+
+const commissionListTitle = computed(() => {
+  const mode = commissionListMode.value
+  if (mode === 'promo') return '推广结算'
+  if (mode === 'rebate') return '红包返佣'
+  if (mode === 'withdraw_list') return '提现记录'
+  if (mode === 'ledger') return '收益明细'
+  return '最近结算'
+})
+
+const commissionEmptyText = computed(() => {
+  const mode = commissionListMode.value
+  if (mode === 'promo') return '暂无推广结算'
+  if (mode === 'rebate') return '暂无红包返佣'
+  if (mode === 'withdraw_list') return '暂无提现记录'
+  if (mode === 'ledger') return '暂无收益明细'
+  return '登录后查看佣金明细'
+})
+
+const commissionRows = computed(() => {
+  const data = commission.value || {}
+  const mode = commissionListMode.value
+  let list = []
+  if (mode === 'promo') list = data.promo_recent
+  else if (mode === 'rebate') list = data.rebate_recent
+  else if (mode === 'withdraw_list') list = data.withdraw_recent
+  else list = data.recent
+  return Array.isArray(list) ? list : []
+})
 
 function groupEmoji(name) {
   const n = String(name || '')
@@ -1319,7 +1394,7 @@ async function loadMyIdLine() {
 async function onPlusAction(kind) {
   plusOpen.value = false
   if (kind === 'share') {
-    uni.switchTab({ url: '/pages/master/master' })
+    uni.navigateTo({ url: '/pages/messages/share-poster' })
     return
   }
   if (kind === 'scan') {
@@ -1379,11 +1454,10 @@ function goCommission() {
 }
 
 function goCommissionNav(kind) {
-  if (kind === 'withdraw_list' || kind === 'ledger') {
-    uni.navigateTo({ url: '/pages/wallet/ledger' })
-    return
+  // 四宫格留在佣金页切换下方列表（对齐 888）
+  if (kind === 'promo' || kind === 'rebate' || kind === 'withdraw_list' || kind === 'ledger') {
+    commissionListMode.value = kind === 'ledger' ? 'ledger' : kind
   }
-  uni.navigateTo({ url: '/pages/wallet/withdraw' })
 }
 
 async function loadList(silent = false) {

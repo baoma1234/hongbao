@@ -305,6 +305,14 @@ async function onLogin() {
         : (t('alert_login_back') || '登录成功'),
       icon: 'none',
     })
+    if (data && data.is_new) {
+      try {
+        if (typeof sessionStorage !== 'undefined') sessionStorage.setItem('fans_hub_show_lottery', '1')
+      } catch (e0) {}
+      try {
+        uni.setStorageSync('fans_hub_show_lottery', '1')
+      } catch (e1) {}
+    }
     try {
       await imConnect()
     } catch (e) {

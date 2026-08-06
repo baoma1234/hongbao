@@ -69,6 +69,26 @@
 }
 
 /*
+ * 宝箱火花：uni 用 view 代替 i
+ */
+.wl-sparkles .wl-spark {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #fff59d;
+  box-shadow: 0 0 12px #ffeb3b, 0 0 4px #fff;
+  animation: wlSparkle 2.4s ease-in-out infinite;
+  opacity: 0;
+}
+.wl-sparkles .wl-spark:nth-child(1) { top: 12%; left: 18%; animation-delay: 0s; }
+.wl-sparkles .wl-spark:nth-child(2) { top: 20%; right: 14%; animation-delay: 0.4s; }
+.wl-sparkles .wl-spark:nth-child(3) { bottom: 22%; left: 12%; animation-delay: 0.8s; }
+.wl-sparkles .wl-spark:nth-child(4) { bottom: 16%; right: 18%; animation-delay: 1.2s; }
+.wl-sparkles .wl-spark:nth-child(5) { top: 46%; left: 6%; animation-delay: 0.2s; }
+.wl-sparkles .wl-spark:nth-child(6) { top: 50%; right: 6%; animation-delay: 1s; }
+
+/**
  * jackpot 文字：强制对齐 888 home.css
  * （page / #tabHome 全局 color+font 会压过 uni-view 上的 class 色）
  */

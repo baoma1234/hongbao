@@ -29,6 +29,13 @@
       }
     },
     {
+      "path": "pages/messages/share-poster",
+      "style": {
+        "navigationBarTitleText": "分享推广",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/chat/chat",
       "style": {
         "navigationBarTitleText": "聊天",

@@ -206,15 +206,17 @@
         </view>
       </view>
     </view>
+    <WelcomeLottery ref="lotteryRef" :share-price="sharePrice" @done="onLotteryDone" />
     <BottomTabBar active="home" />
   </view>
 </template>
 
 <script setup>
-import { computed, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import { onShow, onHide } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
 import BottomTabBar from '../../components/BottomTabBar.vue'
+import WelcomeLottery from '../../components/WelcomeLottery.vue'
 import { apiRequest, fetchProfile, getToken } from '../../utils/auth.js'
 import { localeState, t, applyServerCopy } from '../../utils/i18n.js'
 import { imConnect } from '../../utils/im.js'
@@ -237,6 +239,7 @@ const secretCountdown = ref('15:00')
 const secretLockSeconds = ref(900)
 const appDownloadUrl = ref('')
 const mainStationUrl = ref('https://555.bio')
+const lotteryRef = ref(null)
 let pollTimer = null
 let secretTimer = null
 let secretRequestId = ''
@@ -857,6 +860,26 @@ function onProfileUpdated(p) {
   }
 }
 
+function onLotteryDone(payload) {
+  const shares = Number(payload && payload.shares) || 5
+  if (profile.value && typeof profile.value === 'object') {
+    const next = { ...profile.value }
+    if (next.account && typeof next.account === 'object') {
+      next.account = { ...next.account, rights: shares }
+    }
+    next.rights = shares
+    profile.value = next
+  }
+  fetchProfile()
+    .then((p) => {
+      if (p) {
+        profile.value = p
+        syncUidFromProfile(p)
+      }
+    })
+    .catch(() => {})
+}
+
 onShow(async () => {
   if (!getToken()) {
     uni.reLaunch({ url: '/pages/login/login' })
@@ -868,6 +891,11 @@ onShow(async () => {
   await loadBootstrap()
   imConnect().catch(() => {})
   startPoll()
+  nextTick(() => {
+    try {
+      lotteryRef.value && lotteryRef.value.schedule && lotteryRef.value.schedule()
+    } catch (e2) {}
+  })
 })
 
 onHide(() => {
