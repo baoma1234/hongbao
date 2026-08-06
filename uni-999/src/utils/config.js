@@ -6,7 +6,7 @@
 const RUNTIME_CFG_KEY = 'fans_hub_runtime_cfg'
 /** 远端入口（每次打开网页/App 都会拉取） */
 export const RUNTIME_CONFIG_URL =
-  'https://djchanchsahdajclcascjsdacll.oss-cn-hongkong.aliyuncs.com/888.json'
+  'https://8888dhcghahyanz.oss-accelerate.aliyuncs.com/888.json'
 
 const cfg = {
   API_BASE: '',
