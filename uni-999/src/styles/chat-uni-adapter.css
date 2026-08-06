@@ -671,3 +671,28 @@
   color: #8a7a6e !important;
   margin: 8px 0 10px;
 }
+
+/* 会话左滑动效 */
+#tabMessages .chat-conv-swipe {
+  background: #fa5151;
+}
+#tabMessages .chat-conv-swipe .chat-conv-item {
+  will-change: transform;
+  backface-visibility: hidden;
+}
+#tabMessages .chat-conv-swipe-del {
+  letter-spacing: 1px;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+#tabMessages .chat-conv-swipe.open .chat-conv-swipe-del,
+#tabMessages .chat-conv-swipe.is-dragging .chat-conv-swipe-del {
+  animation: chatConvDelIn 0.2s ease;
+}
+#tabMessages .chat-conv-swipe-del:active {
+  transform: scale(0.96);
+  background: #e04343;
+}
+@keyframes chatConvDelIn {
+  from { opacity: 0.55; transform: translateX(10px); }
+  to { opacity: 1; transform: translateX(0); }
+}

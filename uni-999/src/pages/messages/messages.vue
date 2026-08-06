@@ -1190,13 +1190,22 @@ function closeAllSwipe(exceptKey) {
 function swipeFrontStyle(item) {
   const key = itemKey(item)
   if (swipeDragKey.value === key) {
-    const x = swipeOffset.value
-    return x ? { transform: 'translateX(' + x + 'px)' } : {}
+    const x = Number(swipeOffset.value) || 0
+    return {
+      transform: 'translateX(' + x + 'px)',
+      transition: 'none',
+    }
   }
   if (swipeOpenKey.value === key) {
-    return { transform: 'translateX(-' + SWIPE_DEL_W + 'px)' }
+    return {
+      transform: 'translateX(-' + SWIPE_DEL_W + 'px)',
+      transition: 'transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1)',
+    }
   }
-  return {}
+  return {
+    transform: 'translateX(0)',
+    transition: 'transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1)',
+  }
 }
 
 function touchPoint(ev) {

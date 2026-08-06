@@ -163,6 +163,35 @@ export function uploadAvatar(filePath) {
   })
 }
 
+/** 通用文件上传（聊天图/群头像等）：/api/common/upload */
+export function uploadCommonFile(filePath) {
+  const base = getApiBase() || ''
+  const token = getToken()
+  return new Promise((resolve, reject) => {
+    uni.uploadFile({
+      url: base + '/api/common/upload',
+      filePath,
+      name: 'file',
+      header: token ? { token } : {},
+      success(res) {
+        try {
+          const body = JSON.parse((res && res.data) || '{}')
+          if ((body && body.code) !== 1) {
+            reject(new Error(body.msg || body.message || '上传失败'))
+            return
+          }
+          resolve(body.data || {})
+        } catch (e) {
+          reject(new Error('上传失败'))
+        }
+      },
+      fail(err) {
+        reject(new Error((err && err.errMsg) || '上传失败'))
+      },
+    })
+  })
+}
+
 export function logoutLocal() {
   setToken('')
 }

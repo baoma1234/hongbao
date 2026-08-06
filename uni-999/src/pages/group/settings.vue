@@ -13,8 +13,19 @@
 
     <view class="chat-sub-main">
       <view class="chat-setting-card chat-setting-profile">
-        <view class="chat-setting-avatar-btn">
-          <text class="chat-setting-avatar-fallback">{{ letter }}</text>
+        <view
+          class="chat-setting-avatar-btn"
+          :class="{ 'can-edit': canEdit }"
+          @click="pickGroupAvatar"
+        >
+          <image
+            v-if="groupAvatar"
+            class="chat-setting-avatar-img"
+            :src="groupAvatar"
+            mode="aspectFill"
+          />
+          <text v-else class="chat-setting-avatar-fallback">{{ letter }}</text>
+          <text v-if="canEdit" class="chat-setting-avatar-edit">{{ avatarBusy ? '上传中' : '更换' }}</text>
         </view>
         <view class="chat-setting-profile-main">
           <view class="chat-setting-name">{{ groupName }}</view>
@@ -272,8 +283,8 @@
 import { computed, reactive, ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
-import { fetchProfile, getToken } from '../../utils/auth.js'
-import { avatarLetter } from '../../utils/chat.js'
+import { fetchProfile, getToken, uploadCommonFile } from '../../utils/auth.js'
+import { avatarLetter, avatarSrc } from '../../utils/chat.js'
 import {
   addGroupMembers,
   fetchGroupInfo,
@@ -321,6 +332,7 @@ const addSaving = ref(false)
 const selectedIds = reactive({})
 const editNameVal = ref('')
 const editNoticeVal = ref('')
+const avatarBusy = ref(false)
 
 const forbidItems = [
   { key: 'text', label: '禁止发言' },
@@ -339,6 +351,11 @@ const muteOptions = [
 
 const groupName = computed(() => group.value.name || ('群 ' + groupId.value))
 const notice = computed(() => String(group.value.notice || '').trim())
+const groupAvatar = computed(() => {
+  const g = group.value || {}
+  const raw = g.avatar_url || g.avatar || ''
+  return raw ? avatarSrc(raw) : ''
+})
 const letter = computed(() => avatarLetter(groupName.value))
 const canEdit = computed(() => (myRole.value | 0) >= 2)
 const roleText = computed(() => roleLabel(myRole.value))
@@ -610,6 +627,46 @@ async function saveProfile() {
     await loadInfo()
   } catch (e) {
     uni.showToast({ title: (e && e.message) || '更新失败', icon: 'none' })
+  }
+}
+
+async function pickGroupAvatar() {
+  if (!canEdit.value || avatarBusy.value) return
+  try {
+    const chosen = await new Promise((resolve, reject) => {
+      uni.chooseImage({
+        count: 1,
+        sizeType: ['compressed'],
+        sourceType: ['album', 'camera'],
+        success: resolve,
+        fail: reject,
+      })
+    })
+    const filePath = String((chosen && chosen.tempFilePaths && chosen.tempFilePaths[0]) || '')
+    if (!filePath) return
+    avatarBusy.value = true
+    uni.showLoading({ title: '上传中…', mask: true })
+    const up = await uploadCommonFile(filePath)
+    const url = String(up.url || up.fullurl || '').trim()
+    if (!url) throw new Error('上传失败')
+    const packet = await updateGroup(groupId.value, { avatar: url })
+    const data = (packet && packet.data) || packet || {}
+    if (data.group) {
+      group.value = data.group
+    } else {
+      group.value = Object.assign({}, group.value, { avatar: url, avatar_url: up.fullurl || url })
+    }
+    uni.showToast({ title: '群头像已更新', icon: 'none' })
+  } catch (e) {
+    const msg = (e && e.message) || ''
+    if (!/cancel|deny|fail chooseImage/i.test(msg)) {
+      uni.showToast({ title: msg || '上传失败', icon: 'none' })
+    }
+  } finally {
+    avatarBusy.value = false
+    try {
+      uni.hideLoading()
+    } catch (e2) {}
   }
 }
 
