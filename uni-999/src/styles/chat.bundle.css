@@ -539,11 +539,12 @@ body.tab-messages .bottom-action-bar {
   margin-left: 6px;
   font-size: 10px;
   font-weight: 800;
-  color: #fff;
+  color: #fff !important;
   background: var(--color-primary-gradient);
   border-radius: var(--radius-pill);
   padding: 2px 7px;
   vertical-align: middle;
+  flex-shrink: 0;
 }
 .chat-conv-item.is-admin .chat-conv-preview { color: var(--color-amount); }
 .chat-conv-body { flex: 1; min-width: 0; }

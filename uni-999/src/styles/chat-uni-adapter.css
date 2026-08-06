@@ -350,6 +350,26 @@ body.tab-messages #tabMessages .chat-list-pane {
   color: #2a1f18 !important;
   font-weight: 800;
 }
+#tabMessages .chat-conv-title-main {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1;
+  gap: 4px;
+}
+#tabMessages .chat-conv-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 客服标签：覆盖上方 title text 的深色，保持白字 */
+#tabMessages .chat-admin-tag,
+#tabMessages .chat-admin-tag text,
+#tabMessages .chat-conv-title .chat-admin-tag,
+#tabMessages .chat-conv-title .chat-admin-tag text,
+#tabMessages .chat-conv-title text.chat-admin-tag {
+  color: #fff !important;
+}
 #tabMessages .chat-conv-preview,
 #tabMessages .chat-conv-time {
   color: #9a8574 !important;

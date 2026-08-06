@@ -2,7 +2,7 @@
  * 全局 IM 收件箱：不依赖消息 Tab 是否可见。
  * - 未读角标 / 会话未读数
  * - 会话列表预览刷新事件
- * - 刚已读保护：避免 conversation.list 用服务端旧未读把角标盖回来
+ * - 刚已读保护 + 持久已读水位：避免 conversation.list / 延迟推送把角标盖回来
  */
 import { convKey, msgExtra } from './chat.js'
 import { getActiveChat } from './chat-route.js'
@@ -10,6 +10,7 @@ import { markConversationRead, onImEvent } from './im.js'
 import { getChatUnreadTotal, setChatUnreadTotal } from './tab-badge.js'
 import { playIncomingMessageSound } from './notify-sound.js'
 
+const READ_KEY = 'fans_hub_999_chat_read'
 let started = false
 let off = null
 let myUserId = 0
@@ -17,7 +18,26 @@ let myUserId = 0
 const unreadMap = Object.create(null)
 /** @type {Record<string, { at: number, lastId: number }>} */
 const recentlyRead = Object.create(null)
+/** @type {Record<string, number>} */
+let readWatermark = loadReadMap()
 const RECENT_READ_MS = 600000
+
+function loadReadMap() {
+  try {
+    const raw = uni.getStorageSync(READ_KEY)
+    if (!raw) return Object.create(null)
+    const map = typeof raw === 'string' ? JSON.parse(raw) : raw
+    return map && typeof map === 'object' ? map : Object.create(null)
+  } catch (e) {
+    return Object.create(null)
+  }
+}
+
+function saveReadMap() {
+  try {
+    uni.setStorageSync(READ_KEY, JSON.stringify(readWatermark || {}))
+  } catch (e) {}
+}
 
 export function setInboxMyId(uid) {
   myUserId = uid | 0
@@ -37,6 +57,11 @@ export function isConversationRecentlyRead(type, id) {
   return isRecentlyReadKey(convKey(type, id))
 }
 
+export function getReadWatermark(type, id) {
+  const key = convKey(type, id)
+  return Math.max(0, readWatermark[key] | 0, (recentlyRead[key] && recentlyRead[key].lastId) | 0)
+}
+
 function isRecentlyReadKey(key) {
   const hit = recentlyRead[key]
   if (!hit) return false
@@ -47,26 +72,35 @@ function isRecentlyReadKey(key) {
   return true
 }
 
-/**
- * 本地立刻清未读，并记录“刚已读”，防止列表刷新把角标刷回来。
- */
-export function noteConversationRead(type, id, lastMsgId = 0) {
+function touchKeys(type, id) {
   const tid = type | 0
   const cid = String(id || '').trim()
-  if (!cid) return
+  if (!cid) return []
   const keys = [convKey(tid, cid)]
   // 群：同时清 group_id / conversation_id 两种键，避免列表与聊天页键不一致
   if (tid === 2) {
     const n = cid | 0
     if (n > 0) keys.push(convKey(2, String(n)))
   }
+  return keys.filter((key) => key && !key.endsWith(':'))
+}
+
+/**
+ * 本地立刻清未读，并记录“刚已读”+ 持久水位，防止列表刷新 / 延迟推送把角标刷回来。
+ */
+export function noteConversationRead(type, id, lastMsgId = 0) {
+  const keys = touchKeys(type, id)
+  if (!keys.length) return
   const lastId = Math.max(0, lastMsgId | 0)
   const now = Date.now()
   keys.forEach((key) => {
-    if (!key || key.endsWith(':')) return
     recentlyRead[key] = { at: now, lastId }
     unreadMap[key] = 0
+    if (lastId > 0) {
+      readWatermark[key] = Math.max(readWatermark[key] | 0, lastId)
+    }
   })
+  if (lastId > 0) saveReadMap()
   recomputeBadge()
   emitUnread()
 }
@@ -85,9 +119,12 @@ export function syncInboxFromServerList(rows) {
     if (!id) return
     const key = convKey(type, id)
     const server = it.unread_count | 0
-    if (isRecentlyReadKey(key)) {
-      // 服务端已确认 0 → 去掉保护；否则本地保持已读
-      if (server <= 0) delete recentlyRead[key]
+    const last = it.last_message
+    const lastId = last ? (last.id | 0) || (last.msg_id | 0) : 0
+    const readAt = getReadWatermark(type, id)
+    // 刚已读，或最后一条已在本端水位之内 → 强制已读（服务端 Redis 偶发滞后）
+    if (isRecentlyReadKey(key) || (lastId > 0 && readAt >= lastId)) {
+      if (server <= 0 && isRecentlyReadKey(key)) delete recentlyRead[key]
       unreadMap[key] = 0
       it.unread_count = 0
       return
@@ -159,6 +196,11 @@ function shouldBumpUnread(msg) {
   const ex = msgExtra(msg)
   if (fromSelf && !(ex.relay_auto | 0)) return false
   if (matchesActiveChat(msg)) return false
+  const type = msgConvType(msg)
+  const id = msgConvId(msg)
+  const msgId = (msg.id | 0) || (msg.msg_id | 0)
+  // 已读水位之内的延迟推送不累加（退出聊天瞬间 activeChat 已清空时尤其常见）
+  if (msgId > 0 && id && msgId <= getReadWatermark(type, id)) return false
   return true
 }
 
@@ -167,7 +209,9 @@ function bumpUnread(msg) {
   const id = msgConvId(msg)
   if (!id) return
   const key = convKey(type, id)
-  // 新消息进来：取消“刚已读”保护，正常累加
+  const msgId = (msg.id | 0) || (msg.msg_id | 0)
+  if (msgId > 0 && msgId <= (readWatermark[key] | 0)) return
+  // 真正的新消息：取消“刚已读”保护，正常累加
   delete recentlyRead[key]
   unreadMap[key] = (unreadMap[key] | 0) + 1
   recomputeBadge()
@@ -200,7 +244,7 @@ function handleIncoming(msg) {
     const lastId = (msg.id | 0) || (msg.msg_id | 0)
     if (id) {
       noteConversationRead(type, id, lastId)
-      markConversationRead(type, id, lastId).catch(() => null)
+      if (lastId > 0) markConversationRead(type, id, lastId).catch(() => null)
     }
   }
 }

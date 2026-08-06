@@ -111,11 +111,11 @@
                         </view>
                         <view class="chat-conv-body">
                           <view class="chat-conv-title">
-                            <text>
+                            <view class="chat-conv-title-main">
                               <text v-if="item.pinned" class="chat-conv-pin">📌</text>
-                              {{ displayTitle(item) }}
+                              <text class="chat-conv-name">{{ displayTitle(item) }}</text>
                               <text v-if="item.is_im_admin" class="chat-admin-tag">客服</text>
-                            </text>
+                            </view>
                             <text class="chat-conv-time">{{ itemTime(item) }}</text>
                           </view>
                           <view class="chat-conv-preview">{{ itemPreview(item) }}</view>
@@ -588,6 +588,7 @@ import {
 } from '../../utils/chat.js'
 import { assetBase, t } from '../../utils/i18n.js'
 import { openFriendScanSheet } from '../../utils/friend-scan.js'
+import { saveActiveChat } from '../../utils/chat-route.js'
 import {
   canCreateGroupFromAuth,
   createGroup,
@@ -609,6 +610,7 @@ import {
 import {
   clearInboxUnread,
   getInboxUnread,
+  getReadWatermark,
   isConversationRecentlyRead,
   noteConversationRead,
   setInboxMyId,
@@ -708,6 +710,9 @@ function unreadOf(item) {
   const id = resolveConvId(item)
   if (!id) return 0
   if (isConversationRecentlyRead(item.conversation_type, id)) return 0
+  const last = item.last_message
+  const lastId = last ? (last.id | 0) || (last.msg_id | 0) : 0
+  if (lastId > 0 && getReadWatermark(item.conversation_type, id) >= lastId) return 0
   const fromInbox = getInboxUnread(item.conversation_type, id)
   if (fromInbox <= 0) return 0
   return fromInbox
@@ -1099,6 +1104,9 @@ function openChat(item) {
   const key = convKey(type, id)
   const last = item.last_message
   const lastId = last ? (last.id | 0) || (last.msg_id | 0) : 0
+  const peer = item.peer_user_id | 0
+  const group = (item.group_id || (type === 2 ? id : 0)) | 0
+  const title = displayTitle(item)
   localUnread.value = Object.assign({}, localUnread.value, { [key]: 0 })
   item.unread_count = 0
   noteConversationRead(type, id, lastId)
@@ -1106,12 +1114,22 @@ function openChat(item) {
     noteConversationRead(2, String(item.group_id), lastId)
   }
   if (id && lastId > 0) markConversationRead(type, id, lastId).catch(() => null)
+  // 进房前先挂上 activeChat，避免 navigate 空隙里延迟推送又把未读加回来
+  saveActiveChat({
+    type,
+    id,
+    peer,
+    group,
+    title,
+    nickname: item.peer_nickname || '',
+    remark: item.remark || '',
+  })
   const q = [
     'type=' + encodeURIComponent(type),
     'id=' + encodeURIComponent(id),
-    'peer=' + encodeURIComponent(item.peer_user_id || 0),
-    'group=' + encodeURIComponent(item.group_id || (type === 2 ? id : 0)),
-    'title=' + encodeURIComponent(displayTitle(item)),
+    'peer=' + encodeURIComponent(peer),
+    'group=' + encodeURIComponent(group),
+    'title=' + encodeURIComponent(title),
     'nickname=' + encodeURIComponent(item.peer_nickname || ''),
     'remark=' + encodeURIComponent(item.remark || ''),
   ].join('&')
@@ -1681,7 +1699,12 @@ async function loadList(silent = false) {
     rows.forEach((it) => {
       const key = itemKey(it)
       const id = resolveConvId(it)
-      if (isConversationRecentlyRead(it.conversation_type, id)) {
+      const last = it.last_message
+      const lastId = last ? (last.id | 0) || (last.msg_id | 0) : 0
+      if (
+        isConversationRecentlyRead(it.conversation_type, id) ||
+        (lastId > 0 && getReadWatermark(it.conversation_type, id) >= lastId)
+      ) {
         next[key] = 0
         it.unread_count = 0
         return

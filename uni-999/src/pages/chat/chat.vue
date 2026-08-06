@@ -2230,8 +2230,11 @@ function openFileMsg(m) {
   })
 }
 
-function goBack() {
-  markRead().catch(() => {})
+async function goBack() {
+  // 先落已读水位，再清 activeChat，避免返回瞬间延迟推送又把未读加回
+  try {
+    await markRead()
+  } catch (e) {}
   clearActiveChat()
   // 聊天页常被 reLaunch 打开，navigateBack 可能无历史；直接回红宝 Tab 最稳
   uni.switchTab({
@@ -2618,10 +2621,14 @@ async function softRefreshHistory() {
 function leaveRoomToList(tip) {
   if (tip) uni.showToast({ title: tip, icon: 'none' })
   roomAlive = false
-  clearActiveChat()
-  setTimeout(() => {
-    uni.switchTab({ url: '/pages/messages/messages' })
-  }, 400)
+  markRead()
+    .catch(() => {})
+    .finally(() => {
+      clearActiveChat()
+      setTimeout(() => {
+        uni.switchTab({ url: '/pages/messages/messages' })
+      }, 400)
+    })
 }
 
 onLoad(async (query) => {
@@ -2770,7 +2777,11 @@ onShow(() => {
 })
 
 onUnload(() => {
-  markRead().catch(() => {})
+  markRead()
+    .catch(() => {})
+    .finally(() => {
+      clearActiveChat()
+    })
   roomAlive = false
   if (scrollTimers.length) {
     scrollTimers.forEach((t) => clearTimeout(t))
