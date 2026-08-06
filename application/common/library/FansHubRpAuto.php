@@ -410,18 +410,18 @@ class FansHubRpAuto
     }
 
     /**
-     * 任务金额区间：相等=固定，否则随机；群固定金额优先。
+     * 任务金额区间：相等=固定，否则随机；只发整数元；群固定金额优先。
      */
     protected static function resolveSendAmount(array $task, array $group)
     {
-        $groupFixed = round((float)($group['rp_fixed_amount'] ?? 0), 2);
+        $groupFixed = (float)($group['rp_fixed_amount'] ?? 0);
         if ($groupFixed > 0) {
-            return $groupFixed;
+            return (float)max(1, (int)round($groupFixed));
         }
 
-        $min = round((float)($task['amount_min'] ?? 0), 2);
-        $max = round((float)($task['amount_max'] ?? 0), 2);
-        $legacy = round((float)($task['total_amount'] ?? 0), 2);
+        $min = (float)($task['amount_min'] ?? 0);
+        $max = (float)($task['amount_max'] ?? 0);
+        $legacy = (float)($task['total_amount'] ?? 0);
         if ($min <= 0 && $legacy > 0) {
             $min = $legacy;
         }
@@ -442,28 +442,29 @@ class FansHubRpAuto
         if ($min <= 0) {
             return 0.0;
         }
-        if (abs($max - $min) < 0.001) {
-            $amount = $min;
+
+        $minInt = max(1, (int)round($min));
+        $maxInt = max($minInt, (int)round($max));
+        if ($minInt === $maxInt) {
+            $amount = (float)$minInt;
         } else {
-            $minCents = (int)round($min * 100);
-            $maxCents = (int)round($max * 100);
-            if ($maxCents < $minCents) {
-                $maxCents = $minCents;
+            $amount = (float)mt_rand($minInt, $maxInt);
+        }
+        $gMin = (float)($group['rp_min_amount'] ?? 0);
+        $gMax = (float)($group['rp_max_amount'] ?? 0);
+        if ($gMin > 0) {
+            $gMinInt = max(1, (int)round($gMin));
+            if ($amount < $gMinInt) {
+                $amount = (float)$gMinInt;
             }
-            $amount = round(mt_rand($minCents, $maxCents) / 100, 2);
         }
-        $gMin = round((float)($group['rp_min_amount'] ?? 0), 2);
-        $gMax = round((float)($group['rp_max_amount'] ?? 0), 2);
-        if ($gMin > 0 && $amount < $gMin) {
-            $amount = $gMin;
+        if ($gMax > 0) {
+            $gMaxInt = max(1, (int)round($gMax));
+            if ($amount > $gMaxInt) {
+                $amount = (float)$gMaxInt;
+            }
         }
-        if ($gMax > 0 && $amount > $gMax) {
-            $amount = $gMax;
-        }
-        if ($amount < 0.01) {
-            $amount = 0.01;
-        }
-        return $amount;
+        return (float)max(1, (int)round($amount));
     }
 
     protected static function ensureAgentAccount($userId)

@@ -127,10 +127,10 @@ class Redpacketauto extends Backend
         if (!in_array($params['packet_type'], [1, 2, 3, 5], true)) {
             $params['packet_type'] = 2;
         }
-        // 金额区间：最小=最大 → 固定；否则随机。兼容旧字段 total_amount
-        $amountMin = round((float)($params['amount_min'] ?? 0), 2);
-        $amountMax = round((float)($params['amount_max'] ?? 0), 2);
-        $legacyAmt = round((float)($params['total_amount'] ?? 0), 2);
+        // 金额区间：只允许整数元；最小=最大 → 固定；否则随机整数
+        $amountMin = (float)($params['amount_min'] ?? 0);
+        $amountMax = (float)($params['amount_max'] ?? 0);
+        $legacyAmt = (float)($params['total_amount'] ?? 0);
         if ($amountMin <= 0 && $legacyAmt > 0) {
             $amountMin = $legacyAmt;
         }
@@ -148,8 +148,10 @@ class Redpacketauto extends Backend
             $amountMin = $amountMax;
             $amountMax = $tmp;
         }
-        $params['amount_min'] = sprintf('%.2f', max(0, $amountMin));
-        $params['amount_max'] = sprintf('%.2f', max(0, $amountMax));
+        $amountMin = max(0, (int)round($amountMin));
+        $amountMax = max($amountMin, (int)round($amountMax));
+        $params['amount_min'] = sprintf('%.2f', $amountMin);
+        $params['amount_max'] = sprintf('%.2f', $amountMax);
         $params['total_amount'] = $params['amount_min']; // 列表兼容展示下限
         $params['total_count'] = max(1, (int)($params['total_count'] ?? 5));
         $params['blessing'] = trim((string)($params['blessing'] ?? '恭喜发财')) ?: '恭喜发财';

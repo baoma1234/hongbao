@@ -439,18 +439,18 @@ class RpAutoBotService
 
     /**
      * 任务金额：amount_min/amount_max（相等=固定，否则区间随机）
-     * 群 rp_fixed_amount 优先；再夹到群 rp_min_amount / rp_max_amount。
+     * 只发整数元；群 rp_fixed_amount 优先；再夹到群 rp_min/max（亦取整）。
      */
     protected function resolveSendAmount(array $task, array $group)
     {
-        $groupFixed = round((float)($group['rp_fixed_amount'] ?? 0), 2);
+        $groupFixed = (float)($group['rp_fixed_amount'] ?? 0);
         if ($groupFixed > 0) {
-            return $groupFixed;
+            return (float)max(1, (int)round($groupFixed));
         }
 
-        $min = round((float)($task['amount_min'] ?? 0), 2);
-        $max = round((float)($task['amount_max'] ?? 0), 2);
-        $legacy = round((float)($task['total_amount'] ?? 0), 2);
+        $min = (float)($task['amount_min'] ?? 0);
+        $max = (float)($task['amount_max'] ?? 0);
+        $legacy = (float)($task['total_amount'] ?? 0);
         if ($min <= 0 && $legacy > 0) {
             $min = $legacy;
         }
@@ -473,29 +473,30 @@ class RpAutoBotService
             return 0.0;
         }
 
-        if (abs($max - $min) < 0.001) {
-            $amount = $min;
+        // 只发整数元
+        $minInt = max(1, (int)round($min));
+        $maxInt = max($minInt, (int)round($max));
+        if ($minInt === $maxInt) {
+            $amount = (float)$minInt;
         } else {
-            $minCents = (int)round($min * 100);
-            $maxCents = (int)round($max * 100);
-            if ($maxCents < $minCents) {
-                $maxCents = $minCents;
-            }
-            $amount = round(random_int($minCents, $maxCents) / 100, 2);
+            $amount = (float)random_int($minInt, $maxInt);
         }
 
-        $gMin = round((float)($group['rp_min_amount'] ?? 0), 2);
-        $gMax = round((float)($group['rp_max_amount'] ?? 0), 2);
-        if ($gMin > 0 && $amount < $gMin) {
-            $amount = $gMin;
+        $gMin = (float)($group['rp_min_amount'] ?? 0);
+        $gMax = (float)($group['rp_max_amount'] ?? 0);
+        if ($gMin > 0) {
+            $gMinInt = max(1, (int)round($gMin));
+            if ($amount < $gMinInt) {
+                $amount = (float)$gMinInt;
+            }
         }
-        if ($gMax > 0 && $amount > $gMax) {
-            $amount = $gMax;
+        if ($gMax > 0) {
+            $gMaxInt = max(1, (int)round($gMax));
+            if ($amount > $gMaxInt) {
+                $amount = (float)$gMaxInt;
+            }
         }
-        if ($amount < 0.01) {
-            $amount = 0.01;
-        }
-        return $amount;
+        return (float)max(1, (int)round($amount));
     }
 
     protected function packetMeta($packetId)
