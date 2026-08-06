@@ -375,6 +375,11 @@ if (!function_exists('check_cors_request')) {
      */
     function check_cors_request()
     {
+        // Nginx 若再 add_header Access-Control-Allow-Origin，会与 PHP 重复导致浏览器报错；
+        // 跨域只应由 PHP 或 Nginx 一侧处理（本项目以 PHP 为准）。
+        if (!empty($GLOBALS['fanshub_cors_done'])) {
+            return;
+        }
         if (isset($_SERVER['HTTP_ORIGIN']) && $_SERVER['HTTP_ORIGIN'] && config('fastadmin.cors_request_domain')) {
             $info = parse_url($_SERVER['HTTP_ORIGIN']);
             $domainArr = array_filter(array_map('trim', explode(',', (string)config('fastadmin.cors_request_domain'))));
@@ -384,24 +389,31 @@ if (!function_exists('check_cors_request')) {
                 || in_array($_SERVER['HTTP_ORIGIN'], $domainArr, true)
                 || ($originHost !== '' && in_array($originHost, $domainArr, true));
             if ($allowed) {
-                header('Access-Control-Allow-Origin: ' . $_SERVER['HTTP_ORIGIN']);
+                // 覆盖同请求内重复 header（无法清除 Nginx 事后追加的 *）
+                @header_remove('Access-Control-Allow-Origin');
+                @header_remove('Access-Control-Allow-Credentials');
+                @header_remove('Access-Control-Allow-Methods');
+                @header_remove('Access-Control-Allow-Headers');
+                @header_remove('Access-Control-Max-Age');
+                header('Access-Control-Allow-Origin: ' . $_SERVER['HTTP_ORIGIN'], true);
             } else {
                 $response = Response::create('跨域检测无效', 'html', 403);
                 throw new HttpResponseException($response);
             }
 
-            header('Access-Control-Allow-Credentials: true');
-            header('Access-Control-Max-Age: 86400');
-            header('Vary: Origin');
+            header('Access-Control-Allow-Credentials: true', true);
+            header('Access-Control-Max-Age: 86400', true);
+            header('Vary: Origin', true);
+            $GLOBALS['fanshub_cors_done'] = true;
 
             if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
-                header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+                header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS', true);
                 $reqHeaders = isset($_SERVER['HTTP_ACCESS_CONTROL_REQUEST_HEADERS'])
                     ? (string)$_SERVER['HTTP_ACCESS_CONTROL_REQUEST_HEADERS']
                     : '';
                 // 999 / 888 常用头：token、语言、JSON
                 $fallback = 'Content-Type, token, Token, X-Fanshub-Locale, X-Fans-Token, Authorization';
-                header('Access-Control-Allow-Headers: ' . ($reqHeaders !== '' ? $reqHeaders : $fallback));
+                header('Access-Control-Allow-Headers: ' . ($reqHeaders !== '' ? $reqHeaders : $fallback), true);
                 $response = Response::create('', 'html');
                 throw new HttpResponseException($response);
             }
