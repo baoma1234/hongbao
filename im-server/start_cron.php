@@ -36,6 +36,10 @@ $worker->onWorkerStart = function () use ($cfg, $cronCfg) {
     Db::init($cfg['db']);
     RedisClient::init($cfg['redis']);
 
+    Timer::add(60, function () {
+        Db::keepalive();
+    });
+
     $messages = new MessageService();
     $groups = new GroupService();
     $redPackets = new RedPacketService($cfg, $messages, $groups);

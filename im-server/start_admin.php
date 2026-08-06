@@ -20,6 +20,7 @@ use Im\Support\RedisClient;
 use Workerman\Connection\TcpConnection;
 use Workerman\Protocols\Http\Request;
 use Workerman\Protocols\Http\Response;
+use Workerman\Timer;
 use Workerman\Worker;
 
 require __DIR__ . '/vendor/autoload.php';
@@ -39,6 +40,15 @@ $http->name = 'FansHubIM-HttpApi';
 if (!empty($cfg['http_api']['reuse_port']) && PHP_OS_FAMILY !== 'Windows') {
     $http->reusePort = true;
 }
+
+$http->onWorkerStart = function () use ($cfg) {
+    // 子进程独立初始化，避免 fork 后共用失效连接；并定时保活
+    Db::init($cfg['db']);
+    RedisClient::init($cfg['redis']);
+    Timer::add(60, function () {
+        Db::keepalive();
+    });
+};
 
 $http->onMessage = function (TcpConnection $connection, Request $request) use ($cfg, $adminKey) {
     $path = parse_url($request->uri(), PHP_URL_PATH) ?: '/';

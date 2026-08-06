@@ -36,6 +36,11 @@ $worker->onWorkerStart = function (Worker $worker) use ($cfg) {
     RedisClient::init($cfg['redis']);
     ConnMap::setWorkerId((int)$worker->id);
 
+    // MySQL 保活：防止重启/空闲后踩死连接
+    Timer::add(60, function () {
+        Db::keepalive();
+    });
+
     $auth = new AuthService($cfg);
     $messages = new MessageService();
     $groups = new GroupService();
