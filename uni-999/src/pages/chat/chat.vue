@@ -963,11 +963,11 @@ const rpPreviewSub = computed(() => {
   const map = {
     1: rpT('chat_rp_type_avg', '普通红宝'),
     2: rpT('chat_rp_lucky_sub', '拼手气红宝'),
-    3: rpT('chat_rp_type_mine', '埋雷') + '红包',
+    3: rpT('chat_rp_type_mine', '埋雷') + '红宝',
     4: rpT('chat_rp_type_random', '随机红宝'),
-    5: rpT('chat_rp_type_relay', '接龙') + '红包',
+    5: rpT('chat_rp_type_relay', '接龙') + '红宝',
   }
-  return map[rpForm.packet_type | 0] || '红包'
+  return map[rpForm.packet_type | 0] || '红宝'
 })
 /** 对齐 888：群聊仅拼手气/接龙展示多语言简介 */
 const rpTypeDesc = computed(() => {

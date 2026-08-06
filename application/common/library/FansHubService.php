@@ -791,7 +791,7 @@ class FansHubService
                 'chat_rp_type_relay_desc' => '接龙：抢到金额直接进可用余额；抢光后最少者扣整包金额自动发下一包；30分钟未抢完则已领保留、未领退回。',
                 'chat_rp_type_avg' => '人均',
                 'chat_rp_type_mine' => '埋雷',
-                'chat_rp_type_random' => '随机红包',
+                'chat_rp_type_random' => '随机红宝',
                 'chat_rp_mine_digit' => '雷号',
                 'chat_rp_mine_hint' => '埋雷说明',
                 'chat_rp_blessing_label' => '封面语',

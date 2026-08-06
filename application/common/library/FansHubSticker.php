@@ -113,7 +113,9 @@ class FansHubSticker
             'id'       => (int)$id,
             'code'     => $name,
             'url'      => $url,
-            'fullurl'  => cdnurl($url, true),
+            'fullurl'  => class_exists('\\app\\common\\library\\OssService')
+                ? \app\common\library\OssService::fullUrl($url, (string)$attachment->storage)
+                : cdnurl($url, true),
             'pack'     => 'custom',
             'is_admin' => $isAdmin,
             'limit'    => $isAdmin ? 0 : self::USER_LIMIT,

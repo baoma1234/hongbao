@@ -67,7 +67,14 @@ class Attachment extends Backend
 
             $cdnurl = preg_replace("/\/(\w+)\.php$/i", '', $this->request->root());
             foreach ($list as $k => &$v) {
-                $v['fullurl'] = ($v['storage'] == 'local' ? $cdnurl : $this->view->config['upload']['cdnurl']) . $v['url'];
+                $storage = (string)($v['storage'] ?? 'local');
+                if (strpos($storage, 'oss') !== false && class_exists('\\app\\common\\library\\OssService')) {
+                    $v['fullurl'] = \app\common\library\OssService::fullUrl($v['url'], $storage);
+                } elseif ($storage === 'local') {
+                    $v['fullurl'] = $cdnurl . $v['url'];
+                } else {
+                    $v['fullurl'] = ($this->view->config['upload']['cdnurl'] ?? $cdnurl) . $v['url'];
+                }
             }
             unset($v);
             $result = array("total" => $list->total(), "rows" => $list->items());

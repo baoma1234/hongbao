@@ -5757,6 +5757,17 @@ body.tab-messages {
     0 -2px 0 rgba(255, 255, 255, 0.5),
     0 8px 24px rgba(180, 40, 30, 0.08) !important;
 }
+/* 发红宝：主体勿上叠顶栏，避免挡住类型按钮 */
+#tabMessages .chat-rp-send-main,
+.chat-rp-send-pane .chat-rp-send-main {
+  margin-top: 0 !important;
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+}
+#tabMessages .chat-rp-send-body,
+.chat-rp-send-pane .chat-rp-send-body {
+  padding-top: 44px !important;
+}
 
 /* ---------- 顶栏：红金渐变 + 加厚玻璃高光 ---------- */
 #tabMessages .chat-list-hero,

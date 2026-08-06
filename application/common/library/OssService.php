@@ -208,6 +208,30 @@ class OssService
         }
     }
 
+    /**
+     * 附件公网地址：已双写 OSS 则走加速域名，否则回退本站 cdnurl
+     */
+    public static function fullUrl($url, $storage = '')
+    {
+        $url = (string)$url;
+        if ($url === '') {
+            return '';
+        }
+        if (preg_match('#^https?://#i', $url) || stripos($url, 'data:') === 0) {
+            return $url;
+        }
+        if (self::enabled() && strpos((string)$storage, 'oss') !== false) {
+            $oss = self::publicUrl($url);
+            if ($oss !== '') {
+                return $oss;
+            }
+        }
+        if (function_exists('cdnurl')) {
+            return cdnurl($url, true);
+        }
+        return $url;
+    }
+
     protected static function rawurlencodePath($path)
     {
         $parts = explode('/', $path);
