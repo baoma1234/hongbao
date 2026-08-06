@@ -1355,18 +1355,26 @@ async function switchHomeTab(tab) {
   homeTab.value = tab
   plusOpen.value = false
   if (tab === 'community') await loadCommunity()
-  else if (tab === 'notice') {
-    syncPromoteEarnPanel()
-    await loadNotices()
-  } else {
-    stopPromoteEarnScroll()
-    if (tab === 'commission') await loadCommission()
+  else {
+    stopOfficialCommunityPoll()
+    if (tab === 'notice') {
+      syncPromoteEarnPanel()
+      await loadNotices()
+    } else {
+      stopPromoteEarnScroll()
+      if (tab === 'commission') await loadCommission()
+    }
   }
 }
 
 function setCommunitySub(sub) {
   communitySub.value = sub
-  if (sub === 'mine' || sub === 'friends') loadCommunityExtra()
+  if (sub === 'mine' || sub === 'friends') {
+    stopOfficialCommunityPoll()
+    loadCommunityExtra()
+  } else {
+    startOfficialCommunityPoll()
+  }
 }
 
 function setNoticeCat(cat) {
@@ -1374,6 +1382,34 @@ function setNoticeCat(cat) {
   noticeCat.value = allowed.indexOf(cat) >= 0 ? cat : 'latest'
   syncPromoteEarnPanel()
   loadNotices()
+}
+
+let officialCommunityPoll = null
+function stopOfficialCommunityPoll() {
+  if (officialCommunityPoll) {
+    clearInterval(officialCommunityPoll)
+    officialCommunityPoll = null
+  }
+}
+function startOfficialCommunityPoll() {
+  stopOfficialCommunityPoll()
+  if (homeTab.value !== 'community' || communitySub.value !== 'official') return
+  officialCommunityPoll = setInterval(() => {
+    if (homeTab.value !== 'community' || communitySub.value !== 'official') {
+      stopOfficialCommunityPoll()
+      return
+    }
+    loadCommunityQuiet()
+  }, 2000)
+}
+async function loadCommunityQuiet() {
+  try {
+    const rec = await apiRequest('communityrecommend', 'GET', {})
+    const rows = (rec && (rec.list || rec.rows || rec.items)) || rec || []
+    if (!Array.isArray(rows)) return
+    communityRecs.value = rows
+    markMineInRecs()
+  } catch (e) {}
 }
 
 async function loadCommunity() {
@@ -1386,6 +1422,7 @@ async function loadCommunity() {
   }
   await loadCommunityExtra()
   markMineInRecs()
+  startOfficialCommunityPoll()
 }
 
 async function loadCommunityExtra() {
@@ -1761,6 +1798,7 @@ onShow(() => {
 onHide(() => {
   pageAlive = false
   applyPageShell(false)
+  stopOfficialCommunityPoll()
   if (off) {
     if (typeof off._inboxCleanup === 'function') off._inboxCleanup()
     off()

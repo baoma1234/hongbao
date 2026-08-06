@@ -64,7 +64,7 @@
           </view>
         </view>
 
-        <view id="newbiePromoBlock">
+        <view id="newbiePromoBlock" v-if="!isMasterRank">
           <view class="share-promo-card" role="button" @click="copyShareLink">
             <view class="share-promo-glow" />
             <view class="share-promo-inner single-line">
@@ -458,6 +458,10 @@ const withdrawTitle = computed(() => {
 })
 
 const marqueeItems = computed(() => {
+  const cfg = config.value || {}
+  if (Array.isArray(cfg.marquee_items) && cfg.marquee_items.length) {
+    return cfg.marquee_items.map((s) => String(s || '').trim()).filter(Boolean)
+  }
   const raw = t('marquee_text') || ''
   const parts = String(raw)
     .split(/[\n|｜]/)

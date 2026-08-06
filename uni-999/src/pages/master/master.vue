@@ -115,17 +115,15 @@
                   <checkbox :checked="violent" color="#2196F3" @click.stop="violent = !violent" />
                   <text>{{ violentLabel }}</text>
                 </view>
-                <view class="checkin-pending-box" v-if="pendingBonus > 0">
-                  {{ checkin.bonus_unlocked
-                    ? (t('phase2_checkin_pending_ok', { amount: pendingBonus.toFixed(2) }) || ('对账成功，额外 ¥' + pendingBonus.toFixed(2) + ' 已到账'))
-                    : (t('phase2_checkin_pending', { amount: pendingBonus.toFixed(2) }) || ('今日暴力对账箱：¥' + pendingBonus.toFixed(2) + '（等待新客…）')) }}
-                </view>
-                <view
-                  class="btn-checkin-main"
-                  :class="{ 'is-done': checkedToday, 'is-disabled': busy }"
-                  @click="onCheckin"
-                >
-                  <text class="btn-checkin-main-text">{{ checkinBtnText }}</text>
+                <view class="checkin-pending-box" v-if="showPendingBox">{{ pendingBoxText }}</view>
+                <view class="checkin-btn-wrap">
+                  <view
+                    class="btn-checkin-main"
+                    :class="{ 'is-done': checkedToday, 'is-disabled': busy }"
+                    @click="onCheckin"
+                  >
+                    <text class="btn-checkin-main-text">{{ checkinBtnText }}</text>
+                  </view>
                 </view>
                 <view class="checkin-btn-tip" v-if="checkinTip">{{ checkinTip }}</view>
               </view>
@@ -176,7 +174,7 @@ import { computed, ref } from 'vue'
 import { onShow, onHide } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
 import BottomTabBar from '../../components/BottomTabBar.vue'
-import { getToken } from '../../utils/auth.js'
+import { getToken, apiRequest } from '../../utils/auth.js'
 import { assetBase, localeState, t } from '../../utils/i18n.js'
 import {
   copySharePromo,
@@ -186,6 +184,7 @@ import {
   isMaster,
   loadMasterProfile,
   loadTeamRadar,
+  mergeTeamRadar,
   phase2Of,
   urgeCopy,
 } from '../../utils/master.js'
@@ -198,7 +197,10 @@ const profile = ref({})
 const radar = ref([])
 const violent = ref(true)
 const busy = ref(false)
+const violentBonus = ref(4)
+const withdrawThreshold = ref(50)
 let pollTimer = null
+let lastEventsSig = ''
 
 const p2 = computed(() => phase2Of(profile.value))
 const master = computed(() => isMaster(p2.value))
@@ -240,7 +242,6 @@ const ledgerText = computed(() => {
     t('phase2_checkin_ledger_short', { jackpot: '175', loss: '140' }) ||
     t('phase2_checkin_ledger', { jackpot: '175', loss: '140', streak: streak.value }) ||
     '满7天5倍核爆总池，保底 ¥175 筹码秒提现\n断签降级，直接损失 ¥140'
-  // 文案包带 <br>/<span>，uni text 不能当 HTML 渲染，剥成纯文本
   return String(raw)
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<\/?[^>]+>/g, '')
@@ -253,11 +254,23 @@ const frozenText = computed(() => {
   if (need > 0) return t('phase2_checkin_frozen', { need }) || ('断签冻结：今日再拉 ' + need + ' 人可复活')
   return t('phase2_checkin_revive_ready') || '今日已拉满 2 人，暴击资格将自动复活'
 })
-const pendingBonus = computed(() => Number(checkin.value.pending_bonus) || 0)
+const bonusAmtText = computed(() => Number(violentBonus.value || 4).toFixed(2))
+const violentMaxText = computed(() => (1 + Number(violentBonus.value || 4)).toFixed(2))
+const showPendingBox = computed(
+  () => !!checkedToday.value && checkin.value.today_mode === 'violent'
+)
+const pendingBoxText = computed(() => {
+  void locale.value
+  const amt = bonusAmtText.value
+  if (checkin.value.bonus_unlocked) {
+    return t('phase2_checkin_pending_ok', { amount: amt }) || ('✓ 对账成功，今日额外￥' + amt + ' 已全额到账！')
+  }
+  return t('phase2_checkin_pending', { amount: amt }) || ('⏳ 今日暴力对账中：￥' + amt + ' 元(等待散户新客注册中…)')
+})
 const checkedToday = computed(() => !!checkin.value.checked_today)
 const violentLabel = computed(() => {
   void locale.value
-  return t('phase2_checkin_toggle', { amount: '5.00' }) || '激活【5倍暴力分享签到】（今日最高 ¥5.00）'
+  return t('phase2_checkin_toggle', { amount: violentMaxText.value }) || ('激活【5倍暴力分享签到】（今日最高 ¥' + violentMaxText.value + '）')
 })
 const checkinBtnText = computed(() => {
   void locale.value
@@ -288,6 +301,10 @@ function goHome() {
   uni.switchTab({ url: '/pages/home/home' })
 }
 
+function goExchange() {
+  uni.switchTab({ url: '/pages/exchange/exchange' })
+}
+
 async function onCopyPromo() {
   try {
     const data = await copySharePromo()
@@ -298,6 +315,84 @@ async function onCopyPromo() {
   }
 }
 
+function stripHtml(s) {
+  return String(s || '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/?[^>]+>/g, '')
+    .trim()
+}
+
+function showPhase2Events(events) {
+  if (!events || !events.length) return
+  const ev = events[0]
+  const rest = events.slice(1)
+  const title = ev.title || (t('phase2_toast_checkin_ok') || '提示')
+  const content = stripHtml(ev.message)
+
+  if (ev.type === 'confirm_normal') {
+    uni.showModal({
+      title: title || (t('phase2_confirm_violent_title') || '确认放弃暴力分享？'),
+      content: content || (t('phase2_confirm_violent_msg') || '普通打卡今日仅得 ¥1，并放弃 7 天暴击资格。'),
+      confirmText: t('phase2_btn_persist_1') || '坚持领1元',
+      cancelText: t('phase2_btn_reselect_violent') || '改选暴力',
+      success: async (res) => {
+        busy.value = true
+        try {
+          if (res.confirm) {
+            const data = await doCheckin(false, true)
+            await afterCheckin(data, true)
+          } else {
+            violent.value = true
+            const data = await doCheckin(true, true)
+            await afterCheckin(data, true)
+          }
+        } catch (e) {
+          uni.showToast({ title: (e && e.message) || '签到失败', icon: 'none' })
+        } finally {
+          busy.value = false
+        }
+      },
+    })
+    return
+  }
+
+  let confirmText = t('phase2_btn_know') || '知道了'
+  let onOk = () => {
+    if (rest.length) setTimeout(() => showPhase2Events(rest), 450)
+  }
+  if (ev.type === 'day7_explosion') {
+    confirmText = t('phase2_btn_day7_cash') || '去闪兑'
+    onOk = () => {
+      goExchange()
+      if (rest.length) setTimeout(() => showPhase2Events(rest), 600)
+    }
+  } else if (ev.type === 'honor_tier') {
+    if (ev.capped) {
+      confirmText = t('phase2_btn_honor_withdraw') || '去领取'
+      onOk = () => {
+        goHome()
+        if (rest.length) setTimeout(() => showPhase2Events(rest), 600)
+      }
+    } else {
+      confirmText = t('phase2_btn_honor_exchange') || '去闪兑'
+      onOk = () => {
+        goExchange()
+        if (rest.length) setTimeout(() => showPhase2Events(rest), 600)
+      }
+    }
+  } else if (ev.type === 'mode_master') {
+    confirmText = t('phase2_btn_enter_master') || '进入团长大厅'
+  }
+
+  uni.showModal({
+    title,
+    content: content || title,
+    showCancel: false,
+    confirmText: String(confirmText).slice(0, 8),
+    success: () => onOk(),
+  })
+}
+
 async function onCheckin() {
   if (busy.value) return
   if (checkedToday.value) {
@@ -306,29 +401,9 @@ async function onCheckin() {
   }
   busy.value = true
   try {
-    let data = await doCheckin(violent.value, false)
+    const data = await doCheckin(violent.value, false)
     if (data && data.need_confirm) {
-      uni.showModal({
-        title: t('phase2_confirm_violent_title') || '确认放弃暴力分享？',
-        content: t('phase2_confirm_violent_msg') || '普通打卡今日仅得 ¥1，并放弃 7 天暴击资格。',
-        confirmText: t('phase2_btn_persist_1') || '坚持领1元',
-        cancelText: t('phase2_btn_reselect_violent') || '改选暴力',
-        success: async (res) => {
-          if (!res.confirm) {
-            violent.value = true
-            return
-          }
-          busy.value = true
-          try {
-            data = await doCheckin(false, true)
-            await afterCheckin(data)
-          } catch (e2) {
-            uni.showToast({ title: (e2 && e2.message) || '签到失败', icon: 'none' })
-          } finally {
-            busy.value = false
-          }
-        },
-      })
+      showPhase2Events(data.events && data.events.length ? data.events : [{ type: 'confirm_normal', title: t('phase2_confirm_violent_title'), message: t('phase2_confirm_violent_msg') }])
       return
     }
     await afterCheckin(data)
@@ -339,24 +414,21 @@ async function onCheckin() {
   }
 }
 
-async function afterCheckin(data) {
+async function afterCheckin(data, fromConfirm) {
   if (data && data.share && data.share.share_text) {
     try {
       await copyText(data.share.share_text)
     } catch (e) {}
   }
   if (data && data.profile) profile.value = data.profile
-  else await refresh()
-  const ev = (data && data.events && data.events[0]) || null
-  if (ev && (ev.title || ev.message)) {
-    uni.showModal({
-      title: ev.title || (t('phase2_toast_checkin_ok') || '签到成功'),
-      content: String(ev.message || '').replace(/<[^>]+>/g, ''),
-      showCancel: false,
-    })
-  } else {
+  else await refresh(true)
+  const events = (data && data.events) || []
+  if (events.length) {
+    showPhase2Events(events)
+  } else if (!fromConfirm) {
     uni.showToast({ title: t('phase2_toast_checkin_ok') || '签到成功 · 密令已复制', icon: 'none' })
   }
+  startPoll()
 }
 
 async function onUrge(row) {
@@ -381,17 +453,43 @@ async function refreshRadar() {
   }
   try {
     const data = await loadTeamRadar()
-    radar.value = (data && data.list) || []
+    radar.value = mergeTeamRadar((data && data.list) || [], withdrawThreshold.value)
   } catch (e) {
-    radar.value = []
+    radar.value = mergeTeamRadar([], withdrawThreshold.value)
   }
 }
 
-async function refresh() {
+async function loadCfg() {
+  try {
+    const cfg = await apiRequest('config', 'GET')
+    if (!cfg) return
+    if (cfg.checkin_violent_bonus != null) {
+      const n = parseFloat(cfg.checkin_violent_bonus)
+      if (!isNaN(n) && n > 0) violentBonus.value = n
+    }
+    if (cfg.withdraw_threshold != null) {
+      const th = parseFloat(cfg.withdraw_threshold)
+      if (!isNaN(th) && th > 0) withdrawThreshold.value = th
+    }
+  } catch (e) {}
+}
+
+async function refresh(skipEvents) {
   loading.value = true
   try {
+    await loadCfg()
     profile.value = await loadMasterProfile()
     await refreshRadar()
+    if (!skipEvents) {
+      const events = (p2.value && p2.value.events) || []
+      if (events.length) {
+        const sig = JSON.stringify(events.map((e) => e.type + ':' + (e.title || '')))
+        if (sig !== lastEventsSig) {
+          lastEventsSig = sig
+          showPhase2Events(events)
+        }
+      }
+    }
   } catch (e) {
     uni.showToast({ title: (e && e.message) || '加载失败', icon: 'none' })
   } finally {
@@ -407,6 +505,8 @@ function startPoll() {
     try {
       const p = await loadMasterProfile()
       profile.value = p
+      const events = (p && p.phase2 && p.phase2.events) || []
+      if (events.length) showPhase2Events(events)
     } catch (e) {}
   }, 20000)
 }
