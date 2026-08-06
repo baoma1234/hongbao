@@ -3584,8 +3584,10 @@ button.chat-rp-fair-link {
   box-sizing: border-box;
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-sm);
-  padding: 10px 12px;
-  font-size: var(--font-size-sm);
+  padding: 14px 16px;
+  min-height: 48px;
+  font-size: 16px;
+  line-height: 1.45;
   color: var(--color-text-main);
   background: #fff;
   margin-bottom: 12px;

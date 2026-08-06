@@ -59,12 +59,13 @@
 .im-toast-stack {
   position: fixed;
   right: 18px;
-  bottom: 18px;
+  top: 64px;
+  bottom: auto;
   z-index: 100000;
   display: flex;
-  flex-direction: column-reverse;
+  flex-direction: column;
   gap: 10px;
-  max-width: 360px;
+  max-width: 380px;
   width: calc(100vw - 36px);
   pointer-events: none;
 }
@@ -73,18 +74,18 @@
   background: #1a212d;
   color: #fff;
   border-radius: 10px;
-  padding: 12px 14px;
-  box-shadow: 0 10px 28px rgba(0,0,0,.28);
+  padding: 14px 16px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.35);
   cursor: pointer;
   animation: imToastIn .22s ease;
-  border-left: 4px solid #2f80ed;
+  border-left: 4px solid #e63022;
 }
 .im-toast:hover { background: #243041; }
-.im-toast-title { font-size: 13px; font-weight: 700; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.im-toast-body { font-size: 12px; color: #c9d3e0; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
-.im-toast-time { margin-top: 4px; font-size: 11px; color: #8a97a8; }
+.im-toast-title { font-size: 14px; font-weight: 800; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.im-toast-body { font-size: 13px; color: #c9d3e0; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
+.im-toast-time { margin-top: 6px; font-size: 11px; color: #8a97a8; }
 @keyframes imToastIn {
-  from { opacity: 0; transform: translateY(12px); }
+  from { opacity: 0; transform: translateY(-10px); }
   to { opacity: 1; transform: translateY(0); }
 }
 </style>

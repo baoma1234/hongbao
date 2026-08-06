@@ -15,6 +15,11 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
     var wsAudioCtx = null;
     var lastConversations = [];
     var refreshTimer = null;
+    var titleFlashTimer = null;
+    var titleBase = '';
+    var audioUnlocked = false;
+    var notifyAudio = null;
+    var toastedKeys = {};
     var EMOJIS = ['😀','😁','😂','🤣','😊','😍','😘','😜','🤔','🙄','😴','😭','😤','😱','👍','👎','👏','🙏','🔥','❤️','💔','🎉','🧧','💰','✅','❌','⭐','🌟','💯','🤝'];
 
     function esc(s) {
@@ -60,8 +65,36 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
         return box;
     }
 
-    function playBeep() {
-        // 某些浏览器需要用户交互才能播放；后台页首次操作后一般可用
+    function unlockAudio() {
+        if (audioUnlocked) return;
+        audioUnlocked = true;
+        try {
+            var AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (AudioContext) {
+                if (!wsAudioCtx) wsAudioCtx = new AudioContext();
+                if (wsAudioCtx.state === 'suspended' && wsAudioCtx.resume) {
+                    wsAudioCtx.resume().catch(function () {});
+                }
+            }
+        } catch (e) {}
+        try {
+            if (!notifyAudio) {
+                // 短促叮声（WAV data URI），不依赖外部 mp3
+                notifyAudio = new Audio(
+                    'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA='
+                );
+            }
+            notifyAudio.volume = 0.01;
+            var p = notifyAudio.play();
+            if (p && p.then) p.then(function () {
+                notifyAudio.pause();
+                notifyAudio.currentTime = 0;
+                notifyAudio.volume = 0.85;
+            }).catch(function () {});
+        } catch (e2) {}
+    }
+
+    function playBeepOnce(freq, startAt, dur, vol) {
         try {
             var AudioContext = window.AudioContext || window.webkitAudioContext;
             if (!AudioContext) return;
@@ -71,18 +104,87 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
             var osc = ctx.createOscillator();
             var gain = ctx.createGain();
             osc.type = 'sine';
-            osc.frequency.value = 880;
-            gain.gain.value = 0.06;
+            osc.frequency.value = freq;
+            var t0 = ctx.currentTime + (startAt || 0);
+            gain.gain.setValueAtTime(0.0001, t0);
+            gain.gain.exponentialRampToValueAtTime(vol || 0.22, t0 + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.0001, t0 + (dur || 0.18));
             osc.connect(gain);
             gain.connect(ctx.destination);
-            osc.start();
-            setTimeout(function () {
-                try { osc.stop(); } catch (e) {}
-            }, 140);
+            osc.start(t0);
+            osc.stop(t0 + (dur || 0.18) + 0.02);
         } catch (e) {}
     }
 
+    function playBeep() {
+        unlockAudio();
+        // 两声提示，比原来的轻 beep 更明显
+        playBeepOnce(880, 0, 0.16, 0.25);
+        playBeepOnce(1175, 0.2, 0.18, 0.22);
+        try {
+            if (notifyAudio) {
+                notifyAudio.currentTime = 0;
+                var p = notifyAudio.play();
+                if (p && p.catch) p.catch(function () {});
+            }
+        } catch (e) {}
+    }
+
+    function flashDocumentTitle(title) {
+        try {
+            if (!titleBase) titleBase = document.title || 'IM代聊';
+            if (titleFlashTimer) clearInterval(titleFlashTimer);
+            var on = false;
+            var tip = '【新消息】' + (title || '');
+            titleFlashTimer = setInterval(function () {
+                on = !on;
+                document.title = on ? tip : titleBase;
+            }, 900);
+            setTimeout(function () {
+                if (titleFlashTimer) clearInterval(titleFlashTimer);
+                titleFlashTimer = null;
+                document.title = titleBase;
+            }, 12000);
+        } catch (e) {}
+    }
+
+    function desktopNotify(it) {
+        try {
+            if (typeof Notification === 'undefined') return;
+            if (Notification.permission === 'default') {
+                Notification.requestPermission().catch(function () {});
+            }
+            if (Notification.permission !== 'granted') return;
+            // 仅页签不可见时弹系统通知，避免打扰正在操作
+            if (!document.hidden) return;
+            var n = new Notification(it.title || 'IM新消息', {
+                body: previewLabel(it),
+                tag: 'imagent-' + String(it.conversation_type) + '-' + String(it.conversation_id),
+                renotify: true
+            });
+            n.onclick = function () {
+                try { window.focus(); } catch (e) {}
+                n.close();
+            };
+            setTimeout(function () { try { n.close(); } catch (e) {} }, 8000);
+        } catch (e) {}
+    }
+
+    function toastDedupeKey(it) {
+        return String(it.conversation_type || '') + ':' + String(it.conversation_id || '') + ':' + String(it.last_id || it.updatetime || '');
+    }
+
     function showImToast(it) {
+        var key = toastDedupeKey(it);
+        if (key && toastedKeys[key]) return;
+        if (key) {
+            toastedKeys[key] = 1;
+            // 防止 map 无限增长
+            var keys = Object.keys(toastedKeys);
+            if (keys.length > 200) {
+                keys.slice(0, keys.length - 120).forEach(function (k) { delete toastedKeys[k]; });
+            }
+        }
         var box = ensureToastStack();
         var el = document.createElement('div');
         el.className = 'im-toast';
@@ -106,11 +208,12 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
             if (el.parentNode) el.parentNode.removeChild(el);
         };
         playBeep();
+        flashDocumentTitle(it.title || '新消息');
+        desktopNotify(it);
         box.appendChild(el);
         setTimeout(function () {
             if (el.parentNode) el.parentNode.removeChild(el);
-        }, 8000);
-        // 最多保留 5 条
+        }, 10000);
         while (box.children.length > 5) {
             box.removeChild(box.firstChild);
         }
@@ -186,6 +289,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
             peer_b: type === 1 ? (parseInt(msg.to_user_id, 10) || 0) : 0,
             last_msg_type: parseInt(msg.msg_type, 10) || 1,
             last_content: String(msg.content || ''),
+            last_id: msgDbId,
             updatetime: parseInt(msg.createtime, 10) || 0
         });
         scheduleRefreshList();
@@ -289,7 +393,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
     }
 
     function detectNewMessages(list) {
-        if (wsConnected) return;
+        // WS 通时以 WS 推送为主；轮询仍作兜底（toastedKeys 去重）
         var maxId = 0;
         var news = [];
         (list || []).forEach(function (it) {
@@ -302,7 +406,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                     && String(current.conversation_id) === String(it.conversation_id)
                     && String(current.conversation_type) === String(it.conversation_type);
                 if (viewing) {
-                    loadHistory();
+                    if (!wsConnected) loadHistory();
                 } else {
                     news.push(it);
                 }
@@ -332,8 +436,21 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
 
     function mediaUrl(extra) {
         if (!extra) return '';
-        var u = extra.fullurl || extra.url || '';
+        var u = String(extra.url || extra.fullurl || '');
+        if (String(extra.url || '').indexOf('/888/stickers/') === 0) {
+            u = String(extra.url);
+        } else if (u.indexOf('/999/static/stickers/') === 0) {
+            u = '/888/stickers/' + u.slice('/999/static/stickers/'.length);
+        }
+        if (!u) u = String(extra.fullurl || extra.url || '');
         if (!u) return '';
+        // 编码中文路径段
+        try {
+            u = u.split('/').map(function (seg, i) {
+                if (i === 0 || seg === '') return seg;
+                try { return encodeURIComponent(decodeURIComponent(seg)); } catch (e) { return encodeURIComponent(seg); }
+            }).join('/');
+        } catch (e2) {}
         if (/^https?:\/\//i.test(u) || u.charAt(0) === '/') return u;
         return '/' + u.replace(/^\.\//, '');
     }
@@ -750,9 +867,16 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
             buildEmojiPanel();
             loadConversations();
             connectWs(false);
+            // 首次点击解锁浏览器音频策略
+            $(document).one('click keydown touchstart', function () {
+                unlockAudio();
+                if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+                    try { Notification.requestPermission(); } catch (e) {}
+                }
+            });
             if (pollTimer) clearInterval(pollTimer);
             pollTimer = setInterval(function () {
-                if (wsConnected) return;
+                // WS 通时也轮询作兜底（toast 有去重）
                 loadConversations({ poll: true });
             }, 4000);
 

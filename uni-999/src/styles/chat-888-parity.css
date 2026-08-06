@@ -237,6 +237,14 @@
     var(--hg-border-grad-soft) border-box !important;
   box-shadow: var(--hg-inset-sm) !important;
   border-radius: 12px !important;
+  min-height: 48px !important;
+  padding: 14px 16px !important;
+  font-size: 16px !important;
+  line-height: 1.45 !important;
+  box-sizing: border-box;
+}
+.chat-group-settings-page .chat-setting-textarea {
+  min-height: 120px !important;
 }
 
 .chat-group-settings-page .chat-setting-label {

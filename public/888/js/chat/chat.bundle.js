@@ -750,7 +750,22 @@
 
   function mediaUrl(extra) {
     if (!extra) return '';
-    return publicUrl(extra.fullurl || extra.url || '');
+    var raw = String(extra.fullurl || extra.url || '');
+    // 贴纸：优先 canonical /888/stickers，避免 fullurl 指向 /999/static 导致空白
+    if (extra.code || extra.pack || (extra.url && String(extra.url).indexOf('stickers/') >= 0)) {
+      var sticker = String(extra.url || extra.fullurl || '');
+      if (sticker.indexOf('/999/static/stickers/') === 0) {
+        sticker = '/888/stickers/' + sticker.slice('/999/static/stickers/'.length);
+      } else if (sticker.indexOf('/888/static/stickers/') === 0) {
+        sticker = '/888/stickers/' + sticker.slice('/888/static/stickers/'.length);
+      }
+      raw = sticker || raw;
+    } else if (extra.url && String(extra.url).indexOf('/888/stickers/') === 0) {
+      raw = extra.url;
+    } else if (String(raw).indexOf('/999/static/stickers/') === 0) {
+      raw = '/888/stickers/' + String(raw).slice('/999/static/stickers/'.length);
+    }
+    return publicUrl(raw);
   }
 
   function assetPath(rel) {

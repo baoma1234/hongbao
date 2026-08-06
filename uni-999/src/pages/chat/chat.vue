@@ -1320,7 +1320,7 @@ function msgTime(m) {
   if (!ts) return ''
   const d = new Date(ts < 1e12 ? ts * 1000 : ts)
   const pad = (n) => (n < 10 ? '0' + n : '' + n)
-  return pad(d.getHours()) + ':' + pad(d.getMinutes())
+  return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds())
 }
 function msgText(m) {
   return (m && (m.content || m.text)) || '[消息]'
@@ -1353,18 +1353,71 @@ function fileMeta(m) {
   }
   return text.join(' · ')
 }
-function normalizeStickerUrl(url) {
-  const s = String(url || '').trim()
-  if (!s) return ''
-  if (/^https?:\/\//i.test(s)) return s
-  if (s.startsWith('/999/') || s.startsWith('/888/')) return s
-  if (s.startsWith('/')) return s
-  if (s.startsWith('static/')) return assetBase() + s
-  if (s.startsWith('stickers/')) return assetBase() + 'static/' + s
-  return assetBase() + 'static/' + s.replace(/^\/+/, '')
+/** 编码路径中文段，避免 sticker 中文文件名发出去后 img 空白 */
+function encodeUriPath(url) {
+  const raw = String(url || '')
+  if (!raw) return ''
+  if (/^https?:\/\//i.test(raw)) {
+    try {
+      const u = new URL(raw)
+      u.pathname = u.pathname.split('/').map((seg, i) => {
+        if (i === 0 || seg === '') return seg
+        try {
+          return encodeURIComponent(decodeURIComponent(seg))
+        } catch (e) {
+          return encodeURIComponent(seg)
+        }
+      }).join('/')
+      return u.toString()
+    } catch (e) {
+      return raw
+    }
+  }
+  return raw.split('/').map((seg, i) => {
+    if (i === 0 || seg === '') return seg
+    try {
+      return encodeURIComponent(decodeURIComponent(seg))
+    } catch (e) {
+      return encodeURIComponent(seg)
+    }
+  }).join('/')
 }
 
-/** 发给 IM 的 sticker url：必须命中服务端 allowlist（/888/stickers|/stickers|/uploads/stickers） */
+/** 展示用：统一到可访问的 /888/stickers 或 /999/static/stickers，并编码 */
+function normalizeStickerUrl(url) {
+  let s = String(url || '').trim()
+  if (!s) return ''
+  if (/^https?:\/\//i.test(s)) {
+    try {
+      // #ifdef H5
+      s = new URL(s, typeof location !== 'undefined' ? location.origin : undefined).pathname || s
+      // #endif
+      // #ifndef H5
+      const m = s.match(/^https?:\/\/[^/]+(\/.*)$/i)
+      if (m) s = m[1]
+      // #endif
+    } catch (e) {}
+  }
+  // 999 发来的 fullurl 可能是 /999/static/stickers；展示优先改成同站 /888/stickers（两边文件都在）
+  if (s.indexOf('/999/static/stickers/') === 0) {
+    s = '/888/stickers/' + s.slice('/999/static/stickers/'.length)
+  } else if (s.indexOf('/888/static/stickers/') === 0) {
+    s = '/888/stickers/' + s.slice('/888/static/stickers/'.length)
+  } else if (s.indexOf('static/stickers/') === 0) {
+    s = '/888/stickers/' + s.slice('static/stickers/'.length)
+  } else if (s.indexOf('stickers/') === 0) {
+    s = '/888/' + s
+  } else if (s.startsWith('/')) {
+    // keep
+  } else if (s.startsWith('static/')) {
+    s = assetBase() + s
+  } else {
+    s = assetBase() + 'static/' + s.replace(/^\/+/, '')
+  }
+  return encodeUriPath(s)
+}
+
+/** 发给 IM 的 sticker url：必须命中服务端 allowlist（未编码的真实路径） */
 function stickerSendUrl(url) {
   let s = String(url || '').trim()
   if (!s) return ''
@@ -1379,6 +1432,9 @@ function stickerSendUrl(url) {
       // #endif
     } catch (e) {}
   }
+  try {
+    s = decodeURIComponent(s)
+  } catch (e) {}
   if (s.indexOf('/999/static/stickers/') === 0) {
     return '/888/stickers/' + s.slice('/999/static/stickers/'.length)
   }
@@ -1403,9 +1459,10 @@ function stickerSendUrl(url) {
 }
 function stickerUrl(m) {
   const ex = msgExtra(m)
+  // 优先 canonical url（/888/stickers），避免 fullurl 指向 /999 导致空白
   const raw = (ex && (ex.url || ex.fullurl)) || ''
   if (raw) return normalizeStickerUrl(raw)
-  return assetBase() + 'static/stickers/wechat/face/微笑.png'
+  return encodeUriPath(assetBase() + 'static/stickers/wechat/face/微笑.png')
 }
 function formatAmt(n) {
   const x = Number(n)
@@ -1912,8 +1969,8 @@ async function uploadCustomSticker() {
 async function sendSticker(st) {
   if (!st || !(st.url || st.sendUrl)) return
   const code = String(st.code || '表情')
-  const displayUrl = normalizeStickerUrl(st.url || st.sendUrl || '')
-  const sendUrl = stickerSendUrl(st.sendUrl || st.url || displayUrl)
+  const sendUrl = stickerSendUrl(st.sendUrl || st.url || '')
+  const displayUrl = normalizeStickerUrl(sendUrl || st.url || '')
   if (!code || !sendUrl) {
     uni.showToast({ title: '表情无效', icon: 'none' })
     return
@@ -1924,6 +1981,7 @@ async function sendSticker(st) {
     extra: {
       pack: String(st.pack || 'wechat'),
       code,
+      // url / fullurl 都走 canonical /888/stickers，避免对端偏好 fullurl 时 404 空白
       url: sendUrl,
       fullurl: displayUrl || sendUrl,
     },
