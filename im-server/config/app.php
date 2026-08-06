@@ -60,25 +60,48 @@ if (is_file($rpRuntime)) {
     }
 }
 
+/**
+ * Linux：按 CPU 核数拉满 Workerman（本机 80 核 → WS≈80、HTTP≈20）
+ * Windows：强制 1（Workerman 多进程不完整）
+ * local.php 可覆盖 count
+ */
+$cpuCores = 1;
+if (PHP_OS_FAMILY !== 'Windows') {
+    $n = 0;
+    if (is_readable('/proc/cpuinfo')) {
+        $n = (int)preg_match_all('/^processor\s*:/m', (string)@file_get_contents('/proc/cpuinfo'));
+    }
+    if ($n < 1) {
+        $n = (int)trim((string)@shell_exec('nproc 2>/dev/null'));
+    }
+    if ($n < 1 && function_exists('swoole_cpu_num')) {
+        $n = (int)@swoole_cpu_num();
+    }
+    $cpuCores = max(1, $n > 0 ? $n : 8);
+}
+$wsCountDefault = (PHP_OS_FAMILY === 'Windows') ? 1 : $cpuCores;
+// HTTP 约占 1/4 核，至少 8、最多 32（避免 MySQL 连接打爆）
+$httpCountDefault = (PHP_OS_FAMILY === 'Windows') ? 1 : max(8, min(32, (int)ceil($cpuCores / 4)));
+
 return array_replace_recursive([
     'websocket' => [
         'listen'     => 'websocket://0.0.0.0:17272',
-        // Windows 只能 1；Linux 高配建议 16～28（配合 MySQL/Redis 连接数）
-        // local.php 可覆盖：'websocket' => ['count' => 28]
-        'count'      => (PHP_OS_FAMILY === 'Windows') ? 1 : 16,
+        // 高配默认 = CPU 核数；可用 local.php: 'websocket' => ['count' => 64]
+        'count'      => $wsCountDefault,
         'name'       => 'FansHubIM',
         'heartbeat'  => 50,
         // Linux SO_REUSEPORT，减轻 accept 热点
         'reuse_port' => (PHP_OS_FAMILY !== 'Windows'),
     ],
     'push' => [
-        'drain_interval' => 0.015, // 消费跨进程队列间隔（秒）
-        'drain_batch'    => 500,   // worker 多时可加大
+        'drain_interval' => 0.01,  // 高并发更勤刷跨进程队列
+        'drain_batch'    => 2000,  // worker 多时加大单次消费
     ],
     // 17273 HTTP API（列表/历史/代聊）；与 WS count 独立
     'http_api' => [
-        'listen' => 'http://0.0.0.0:17273',
-        'count'  => (PHP_OS_FAMILY === 'Windows') ? 1 : 8,
+        'listen'     => 'http://0.0.0.0:17273',
+        'count'      => $httpCountDefault,
+        'reuse_port' => (PHP_OS_FAMILY !== 'Windows'),
     ],
     // 独立 cron 进程（start_cron.php）；勿再挂到 WS Worker0
     'cron' => [

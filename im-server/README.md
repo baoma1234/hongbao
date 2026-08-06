@@ -37,8 +37,8 @@ composer install
 ```php
 // im-server/config/local.php（勿提交密钥）
 return [
-  'websocket' => ['listen' => 'websocket://0.0.0.0:17272', 'count' => 16],
-  'http_api'  => ['count' => 4],
+  'websocket' => ['listen' => 'websocket://0.0.0.0:17272', 'count' => 80],
+  'http_api'  => ['count' => 20],
   'cron' => [
     'tron_poll_interval' => 1,  // 可调 3～5 降压
     'refund_interval'    => 5,
@@ -51,7 +51,9 @@ return [
 ```
 
 - Windows：`websocket.count` 强制为 **1**
-- Linux：默认 WS `count=8`，HTTP `count=4`（可按 CPU 调整）
+- Linux：默认 **自动按 CPU 核数**（`nproc`）拉满 WS；HTTP ≈ 核数/4（8～32）
+- 80 核机约：`WS=80` + `HTTP=20` + `Cron=1`；示例见 `config/local.highperf.example.php`
+- MySQL 建议 `max_connections >= 500`（每个 Worker 约 1 条连接）
 
 ## 一键脚本
 
