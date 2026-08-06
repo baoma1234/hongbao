@@ -86,27 +86,43 @@
                     <view
                       v-for="item in displayList"
                       :key="itemKey(item)"
-                      class="chat-conv-item"
-                      :class="{ 'is-pinned': !!item.pinned, 'is-admin': !!item.is_im_admin }"
-                      @click="openChat(item)"
-                      @longpress="onLongPress(item)"
+                      class="chat-conv-swipe"
+                      :class="{
+                        open: swipeOpenKey === itemKey(item),
+                        'is-dragging': swipeDragKey === itemKey(item),
+                      }"
                     >
-                      <view class="chat-avatar" :class="{ group: (item.conversation_type | 0) === 2, admin: !!item.is_im_admin }">
-                        <image :src="avatarSrc(item.avatar)" mode="aspectFill" />
+                      <view class="chat-conv-swipe-actions">
+                        <button type="button" class="chat-conv-swipe-del" @click.stop="onSwipeDelete(item)">删除</button>
                       </view>
-                      <view class="chat-conv-body">
-                        <view class="chat-conv-title">
-                          <text>
-                            <text v-if="item.pinned" class="chat-conv-pin">📌</text>
-                            {{ displayTitle(item) }}
-                            <text v-if="item.is_im_admin" class="chat-admin-tag">客服</text>
-                          </text>
-                          <text class="chat-conv-time">{{ itemTime(item) }}</text>
+                      <view
+                        class="chat-conv-item"
+                        :class="{ 'is-pinned': !!item.pinned, 'is-admin': !!item.is_im_admin }"
+                        :style="swipeFrontStyle(item)"
+                        @touchstart="onSwipeTouchStart($event, item)"
+                        @touchmove="onSwipeTouchMove($event, item)"
+                        @touchend="onSwipeTouchEnd($event, item)"
+                        @touchcancel="onSwipeTouchEnd($event, item)"
+                        @click="onConvClick(item)"
+                        @longpress="onLongPress(item)"
+                      >
+                        <view class="chat-avatar" :class="{ group: (item.conversation_type | 0) === 2, admin: !!item.is_im_admin }">
+                          <image :src="avatarSrc(item.avatar)" mode="aspectFill" />
                         </view>
-                        <view class="chat-conv-preview">{{ itemPreview(item) }}</view>
-                      </view>
-                      <view v-if="unreadOf(item) > 0" class="chat-badge">
-                        {{ unreadOf(item) > 99 ? '99+' : unreadOf(item) }}
+                        <view class="chat-conv-body">
+                          <view class="chat-conv-title">
+                            <text>
+                              <text v-if="item.pinned" class="chat-conv-pin">📌</text>
+                              {{ displayTitle(item) }}
+                              <text v-if="item.is_im_admin" class="chat-admin-tag">客服</text>
+                            </text>
+                            <text class="chat-conv-time">{{ itemTime(item) }}</text>
+                          </view>
+                          <view class="chat-conv-preview">{{ itemPreview(item) }}</view>
+                        </view>
+                        <view v-if="unreadOf(item) > 0" class="chat-badge">
+                          {{ unreadOf(item) > 99 ? '99+' : unreadOf(item) }}
+                        </view>
                       </view>
                     </view>
                   </view>
@@ -636,6 +652,12 @@ const commissionListMode = ref('recent')
 const friendReqPending = ref(0)
 const listRefreshing = ref(false)
 const convSheetItem = ref(null)
+const swipeOpenKey = ref('')
+const swipeDragKey = ref('')
+const swipeOffset = ref(0)
+let swipeState = null
+let skipNextConvClick = false
+const SWIPE_DEL_W = 76
 let off = null
 let loading = false
 let pageAlive = false
@@ -1143,12 +1165,153 @@ function myIdNum() {
 
 function onLongPress(item) {
   if (!item) return
+  if (swipeState && swipeState.horizontal) return
   plusOpen.value = false
+  closeAllSwipe()
   convSheetItem.value = item
 }
 
 function closeConvSheet() {
   convSheetItem.value = null
+}
+
+function closeAllSwipe(exceptKey) {
+  if (!exceptKey) {
+    swipeOpenKey.value = ''
+    swipeDragKey.value = ''
+    swipeOffset.value = 0
+    return
+  }
+  if (swipeOpenKey.value && swipeOpenKey.value !== exceptKey) {
+    swipeOpenKey.value = ''
+  }
+}
+
+function swipeFrontStyle(item) {
+  const key = itemKey(item)
+  if (swipeDragKey.value === key) {
+    const x = swipeOffset.value
+    return x ? { transform: 'translateX(' + x + 'px)' } : {}
+  }
+  if (swipeOpenKey.value === key) {
+    return { transform: 'translateX(-' + SWIPE_DEL_W + 'px)' }
+  }
+  return {}
+}
+
+function touchPoint(ev) {
+  const t = (ev && ev.touches && ev.touches[0]) || (ev && ev.changedTouches && ev.changedTouches[0])
+  if (!t) return null
+  return { x: t.clientX, y: t.clientY }
+}
+
+function onSwipeTouchStart(ev, item) {
+  const p = touchPoint(ev)
+  if (!p || !item) return
+  const type = item.conversation_type | 0
+  if (type !== 1 && type !== 2) {
+    swipeState = null
+    return
+  }
+  const key = itemKey(item)
+  const baseX = swipeOpenKey.value === key ? -SWIPE_DEL_W : 0
+  swipeState = {
+    key,
+    item,
+    startX: p.x,
+    startY: p.y,
+    baseX,
+    moved: false,
+    horizontal: false,
+  }
+}
+
+function onSwipeTouchMove(ev, item) {
+  if (!swipeState || !item || swipeState.key !== itemKey(item)) return
+  const p = touchPoint(ev)
+  if (!p) return
+  const dx = p.x - swipeState.startX
+  const dy = p.y - swipeState.startY
+  if (!swipeState.horizontal) {
+    if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return
+    if (Math.abs(dx) <= Math.abs(dy)) {
+      swipeState = null
+      return
+    }
+    swipeState.horizontal = true
+    closeAllSwipe(swipeState.key)
+    swipeDragKey.value = swipeState.key
+  }
+  swipeState.moved = true
+  const nx = Math.max(-SWIPE_DEL_W, Math.min(0, swipeState.baseX + dx))
+  swipeOffset.value = nx
+  if (nx <= -SWIPE_DEL_W / 2) swipeOpenKey.value = swipeState.key
+  else if (swipeOpenKey.value === swipeState.key) swipeOpenKey.value = ''
+}
+
+function onSwipeTouchEnd(ev, item) {
+  if (!swipeState || !item || swipeState.key !== itemKey(item)) {
+    swipeState = null
+    return
+  }
+  const st = swipeState
+  swipeState = null
+  if (!st.horizontal) {
+    swipeDragKey.value = ''
+    return
+  }
+  const open = swipeOffset.value <= -SWIPE_DEL_W * 0.4
+  swipeDragKey.value = ''
+  swipeOffset.value = 0
+  swipeOpenKey.value = open ? st.key : ''
+  if (st.moved) skipNextConvClick = true
+}
+
+function onConvClick(item) {
+  if (skipNextConvClick) {
+    skipNextConvClick = false
+    return
+  }
+  const key = itemKey(item)
+  if (swipeOpenKey.value && swipeOpenKey.value !== key) {
+    closeAllSwipe()
+    return
+  }
+  if (swipeOpenKey.value === key) {
+    closeAllSwipe()
+    return
+  }
+  openChat(item)
+}
+
+function confirmDeleteConv(item) {
+  if (!item) return
+  const type = item.conversation_type | 0
+  const id = resolveConvId(item)
+  uni.showModal({
+    title: '删除会话',
+    content: '从列表移除「' + displayTitle(item) + '」？聊天记录不会清空。',
+    success: async (r) => {
+      if (!r.confirm) return
+      try {
+        const extra = {}
+        if (type === 2) extra.group_id = item.group_id || id
+        else if (item.peer_user_id) extra.to_user_id = item.peer_user_id
+        await hideConversation(type, id, extra)
+        list.value = list.value.filter((x) => itemKey(x) !== itemKey(item))
+        closeConvSheet()
+        closeAllSwipe()
+        uni.showToast({ title: '已删除', icon: 'none' })
+      } catch (e) {
+        uni.showToast({ title: (e && e.message) || '删除失败', icon: 'none' })
+      }
+    },
+  })
+}
+
+function onSwipeDelete(item) {
+  closeAllSwipe()
+  confirmDeleteConv(item)
 }
 
 async function doConvPin() {
@@ -1170,26 +1333,7 @@ async function doConvPin() {
 function doConvDelete() {
   const item = convSheetItem.value
   if (!item) return
-  const type = item.conversation_type | 0
-  const id = resolveConvId(item)
-  uni.showModal({
-    title: '删除会话',
-    content: '从列表移除「' + displayTitle(item) + '」？聊天记录不会清空。',
-    success: async (r) => {
-      if (!r.confirm) return
-      try {
-        const extra = {}
-        if (type === 2) extra.group_id = item.group_id || id
-        else if (item.peer_user_id) extra.to_user_id = item.peer_user_id
-        await hideConversation(type, id, extra)
-        list.value = list.value.filter((x) => itemKey(x) !== itemKey(item))
-        closeConvSheet()
-        uni.showToast({ title: '已删除', icon: 'none' })
-      } catch (e) {
-        uni.showToast({ title: (e && e.message) || '删除失败', icon: 'none' })
-      }
-    },
-  })
+  confirmDeleteConv(item)
 }
 
 async function switchHomeTab(tab) {

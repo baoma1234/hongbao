@@ -1,9 +1,9 @@
-<template>
+﻿<template>
   <view class="hb-page profile-sub-page" :key="locale">
     <TopBar :no-spacer="true" />
     <view class="profile-sub-hd">
-      <text class="profile-back-btn" @click="goBack">?</text>
-      <text class="profile-sub-title">{{ t('profile_info_title') || '????' }}</text>
+      <text class="profile-back-btn" @click="goBack">‹</text>
+      <text class="profile-sub-title">{{ t('profile_info_title') || '编辑资料' }}</text>
       <text class="profile-sub-spacer" />
     </view>
     <view class="profile-sub-body">
@@ -16,19 +16,19 @@
             mode="aspectFill"
           />
           <view v-else class="profile-avatar-fallback profile-avatar-lg">{{ letter }}</view>
-          <text class="profile-avatar-hint">{{ t('profile_avatar_hint') || '??????' }}</text>
+          <text class="profile-avatar-hint">{{ t('profile_avatar_hint') || '点击更换头像' }}</text>
         </view>
         <view class="profile-field">
-          <text class="lab">{{ t('profile_nickname_label') || '??' }}</text>
+          <text class="lab">{{ t('profile_nickname_label') || '昵称' }}</text>
           <input
             class="hb-input"
             v-model="nickname"
             maxlength="30"
-            :placeholder="t('profile_nickname_placeholder') || '????????30??'"
+            :placeholder="t('profile_nickname_placeholder') || '请输入昵称，最多30字'"
           />
         </view>
         <button class="btn-uid-submit" :disabled="busy" @click="save">
-          {{ busy ? (t('loading_generic') || '????') : (t('profile_save_btn') || '????') }}
+          {{ busy ? (t('loading_generic') || '保存中…') : (t('profile_save_btn') || '保存') }}
         </button>
       </view>
     </view>
@@ -53,7 +53,7 @@ const nickname = ref('')
 const avatar = ref('')
 const busy = ref(false)
 
-const letter = computed(() => String(nickname.value || '?').charAt(0))
+const letter = computed(() => String(nickname.value || '\u6211').charAt(0))
 
 function goBack() {
   uni.navigateBack({ fail: () => uni.switchTab({ url: '/pages/profile/profile' }) })
@@ -69,7 +69,7 @@ async function load() {
     nickname.value = p.nickname || p.username || ''
     avatar.value = p.avatar_url || p.avatar || ''
   } catch (e) {
-    uni.showToast({ title: (e && e.message) || '????', icon: 'none' })
+    uni.showToast({ title: (e && e.message) || '\u52a0\u8f7d\u5931\u8d25', icon: 'none' })
   }
 }
 
@@ -89,9 +89,9 @@ function pickAvatar() {
         } else if (data && (data.avatar_url || data.url)) {
           avatar.value = data.avatar_url || data.url
         }
-        uni.showToast({ title: t('alert_avatar_ok') || '?????', icon: 'none' })
+        uni.showToast({ title: t('alert_avatar_ok') || '\u5934\u50cf\u5df2\u66f4\u65b0', icon: 'none' })
       } catch (e) {
-        uni.showToast({ title: (e && e.message) || '????', icon: 'none' })
+        uni.showToast({ title: (e && e.message) || '\u4e0a\u4f20\u5931\u8d25', icon: 'none' })
       } finally {
         busy.value = false
       }
@@ -102,7 +102,7 @@ function pickAvatar() {
 async function save() {
   const name = String(nickname.value || '').trim()
   if (!name) {
-    uni.showToast({ title: t('alert_nickname_empty') || '?????', icon: 'none' })
+    uni.showToast({ title: t('alert_nickname_empty') || '\u8bf7\u586b\u5199\u6635\u79f0', icon: 'none' })
     return
   }
   busy.value = true
@@ -112,10 +112,10 @@ async function save() {
       nickname.value = p.nickname || name
       avatar.value = p.avatar_url || p.avatar || avatar.value
     }
-    uni.showToast({ title: t('alert_profile_saved') || '?????', icon: 'none' })
+    uni.showToast({ title: t('alert_profile_saved') || '\u8d44\u6599\u5df2\u4fdd\u5b58', icon: 'none' })
     setTimeout(goBack, 400)
   } catch (e) {
-    uni.showToast({ title: (e && e.message) || '????', icon: 'none' })
+    uni.showToast({ title: (e && e.message) || '\u4fdd\u5b58\u5931\u8d25', icon: 'none' })
   } finally {
     busy.value = false
   }

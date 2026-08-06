@@ -1128,28 +1128,16 @@ function openTronVerify() {
 function openFairVerify() {
   const p = (detail.value && detail.value.packet) || {}
   const no = String(p.packet_no || '').trim()
+  const pid = (p.id | 0) || (p.packet_id | 0) || 0
   if (!no) {
     uni.showToast({ title: '缺少红包单号', icon: 'none' })
     return
   }
-  const path = '/888/fair-verify.html?packet_no=' + encodeURIComponent(no)
-  const base = String(getApiBase() || '').replace(/\/$/, '')
-  const abs = (base || '') + path
-  // #ifdef H5
-  if (typeof window !== 'undefined') {
-    // 优先同站 iframe 页（App 壳 / 内嵌），也兼容新窗口
-    uni.navigateTo({
-      url: '/pages/common/webview?title=' + encodeURIComponent('公平验证') + '&url=' + encodeURIComponent(path),
-      fail: () => {
-        window.open(abs, '_blank')
-      },
-    })
-    return
-  }
-  // #endif
+  let url = '/pages/common/fair-verify?packet_no=' + encodeURIComponent(no)
+  if (pid > 0) url += '&packet_id=' + encodeURIComponent(String(pid))
   uni.navigateTo({
-    url: '/pages/common/webview?title=' + encodeURIComponent('公平验证') + '&url=' + encodeURIComponent(path),
-    fail: () => uni.showToast({ title: '请到网页版查询验证', icon: 'none' }),
+    url,
+    fail: () => uni.showToast({ title: '无法打开验证页', icon: 'none' }),
   })
 }
 

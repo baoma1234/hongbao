@@ -146,6 +146,13 @@
         "navigationBarTitleText": "详情",
         "navigationStyle": "custom"
       }
+    },
+    {
+      "path": "pages/common/fair-verify",
+      "style": {
+        "navigationBarTitleText": "公平验证",
+        "navigationStyle": "custom"
+      }
     }
   ],
   "globalStyle": {
