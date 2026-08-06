@@ -73,6 +73,8 @@ export function previewText(last) {
     return '[文件]'
   }
   if (mt === 8) {
+    const amt = ex.amount != null ? parseFloat(ex.amount) : NaN
+    if (!isNaN(amt) && amt > 0) return '[转账] ￥' + amt.toFixed(2)
     return last.content || '[转账]'
   }
   if (mt === 99 || (last.content && String(last.content).indexOf('[系统]') === 0)) {

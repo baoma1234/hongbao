@@ -132,6 +132,13 @@
         "navigationBarTitleText": "收款地址",
         "navigationStyle": "custom"
       }
+    },
+    {
+      "path": "pages/common/webview",
+      "style": {
+        "navigationBarTitleText": "详情",
+        "navigationStyle": "custom"
+      }
     }
   ],
   "globalStyle": {

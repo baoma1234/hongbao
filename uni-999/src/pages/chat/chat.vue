@@ -105,6 +105,25 @@
                   </view>
                 </view>
 
+                <view
+                  v-else-if="isTransfer(m)"
+                  class="chat-transfer-card"
+                  :class="{ me: isMine(m) }"
+                  @longpress="onMsgLongPress(m)"
+                >
+                  <view class="tf-top">
+                    <view class="tf-icon" aria-hidden="true">💸</view>
+                    <view class="tf-info">
+                      <view class="tf-amt"><text class="tf-yen">¥</text>{{ transferAmount(m) }}</view>
+                      <view class="tf-title">{{ transferTitle(m) }}</view>
+                    </view>
+                  </view>
+                  <view class="tf-bottom">
+                    <text class="tf-lab">转账</text>
+                    <text class="tf-time">{{ msgTime(m) }}</text>
+                  </view>
+                </view>
+
                 <view v-else-if="isSticker(m)" class="chat-bubble sticker" @longpress="onMsgLongPress(m)">
                   <image class="chat-sticker-img" :src="stickerUrl(m)" mode="widthFix" />
                   <text class="meta">{{ msgTime(m) }}</text>
@@ -182,6 +201,10 @@
             <view v-if="canCap('rp')" class="chat-attach-item" @click="onAttachPick('rp')">
               <text class="chat-attach-icon">🧧</text>
               <text>红包</text>
+            </view>
+            <view v-if="isPrivate" class="chat-attach-item" @click="onAttachPick('transfer')">
+              <text class="chat-attach-icon">💸</text>
+              <text>转账</text>
             </view>
           </view>
 
@@ -347,6 +370,58 @@
       </view>
     </view>
 
+    <!-- 私聊转账：对齐 888 #chatTransferSendPane -->
+    <view v-if="showTransfer" class="chat-rp-send-pane chat-transfer-send-pane open" aria-hidden="false">
+      <view class="chat-hero-hd">
+        <view class="chat-rp-cancel" hover-class="chat-rp-cancel--active" @click="closeTransferSend">取消</view>
+        <view class="chat-hero-title">转账</view>
+        <view class="chat-hero-spacer" />
+      </view>
+      <view class="chat-rp-send-main">
+        <scroll-view scroll-y class="chat-rp-send-body">
+          <view class="chat-transfer-preview">
+            <view class="chat-transfer-preview-icon">💸</view>
+            <view class="chat-transfer-preview-lab">转账给对方</view>
+            <view class="chat-transfer-preview-amt">￥{{ transferPreviewAmt }}</view>
+          </view>
+          <view class="chat-rp-balance-hint">
+            <text>可用红宝：</text>
+            <text class="chat-rp-bal-strong">￥{{ money(walletBalance) }}</text>
+          </view>
+          <view class="chat-rp-form">
+            <view class="chat-rp-field chat-rp-field--amount">
+              <text class="chat-rp-lab">金额</text>
+              <view class="chat-rp-amount-row">
+                <text class="chat-rp-yuan">￥</text>
+                <input
+                  class="chat-rp-amount-input"
+                  type="digit"
+                  v-model="transferForm.amount"
+                  placeholder="0.00"
+                />
+              </view>
+            </view>
+            <view class="chat-rp-field">
+              <text class="chat-rp-lab">备注</text>
+              <input
+                class="chat-rp-bless-input"
+                v-model="transferForm.remark"
+                maxlength="40"
+                placeholder="可选填写"
+              />
+            </view>
+          </view>
+        </scroll-view>
+        <view class="chat-rp-send-ft">
+          <view
+            class="chat-rp-submit-btn chat-transfer-submit-btn"
+            :class="{ disabled: transferSending }"
+            @click="submitTransfer"
+          >{{ transferSending ? '转账中…' : '确认转账' }}</view>
+        </view>
+      </view>
+    </view>
+
     <GrabSlider ref="grabSliderRef" />
 
     <!-- 红包详情：对齐 888 #chatRpDetailPane -->
@@ -504,6 +579,7 @@ import {
   redPacketDetail,
   resumeFromBackground,
   sendRedPacket,
+  sendTransfer,
   setPeerRemark,
 } from '../../utils/im.js'
 
@@ -518,12 +594,15 @@ const meta = ref({ type: 1, peer: 0, group: 0, conversationId: '' })
 const myAvatar = ref('')
 const myUserId = ref(0)
 const showRp = ref(false)
+const showTransfer = ref(false)
 const showEmoji = ref(false)
 const showSticker = ref(false)
 const showAttach = ref(false)
 const walletBalance = ref(0)
 const walletFrozen = ref(0)
 const rpSending = ref(false)
+const transferSending = ref(false)
+const transferForm = reactive({ amount: '', remark: '' })
 const mediaSending = ref(false)
 const grabbing = ref(false)
 const detailVisible = ref(false)
@@ -544,6 +623,10 @@ let activePacketId = 0
 let roomAlive = false
 
 const isPrivate = computed(() => (meta.value.type | 0) === 1)
+const transferPreviewAmt = computed(() => {
+  const n = parseFloat(transferForm.amount) || 0
+  return n.toFixed(2)
+})
 const locale = localeState()
 const copyTick = copyState()
 
@@ -1049,16 +1132,23 @@ function openFairVerify() {
     uni.showToast({ title: '缺少红包单号', icon: 'none' })
     return
   }
-  const base = getApiBase() || ''
+  const path = '/888/fair-verify.html?packet_no=' + encodeURIComponent(no)
+  const base = String(getApiBase() || '').replace(/\/$/, '')
+  const abs = (base || '') + path
   // #ifdef H5
   if (typeof window !== 'undefined') {
-    const url = (base.replace(/\/$/, '') || '') + '/888/fair-verify.html?packet_no=' + encodeURIComponent(no)
-    window.open(url, '_blank')
+    // 优先同站 iframe 页（App 壳 / 内嵌），也兼容新窗口
+    uni.navigateTo({
+      url: '/pages/common/webview?title=' + encodeURIComponent('公平验证') + '&url=' + encodeURIComponent(path),
+      fail: () => {
+        window.open(abs, '_blank')
+      },
+    })
     return
   }
   // #endif
   uni.navigateTo({
-    url: '/pages/common/webview?url=' + encodeURIComponent('/888/fair-verify.html?packet_no=' + encodeURIComponent(no)),
+    url: '/pages/common/webview?title=' + encodeURIComponent('公平验证') + '&url=' + encodeURIComponent(path),
     fail: () => uni.showToast({ title: '请到网页版查询验证', icon: 'none' }),
   })
 }
@@ -1080,6 +1170,21 @@ function msgAvatar(m) {
 
 function isRp(m) {
   return msgType(m) === 2
+}
+function isTransfer(m) {
+  return msgType(m) === 8
+}
+function transferAmount(m) {
+  const ex = msgExtra(m)
+  const amt = ex.amount != null ? parseFloat(ex.amount) : NaN
+  if (!isNaN(amt) && amt > 0) return amt.toFixed(2)
+  return '0.00'
+}
+function transferTitle(m) {
+  const ex = msgExtra(m)
+  const remark = String(ex.remark || '').trim()
+  if (remark) return remark
+  return isMine(m) ? '转账给对方' : '收到转账'
 }
 function isImage(m) {
   return msgType(m) === 4
@@ -1409,6 +1514,8 @@ function onAttachPick(kind) {
       return
     }
     openRpSend()
+  } else if (kind === 'transfer') {
+    openTransferSend()
   }
 }
 
@@ -1464,6 +1571,67 @@ async function openRpSend() {
   } catch (e) {}
   await refreshWallet()
   showRp.value = true
+}
+
+function closeTransferSend() {
+  showTransfer.value = false
+  transferSending.value = false
+}
+
+async function openTransferSend() {
+  showAttach.value = false
+  showEmoji.value = false
+  showSticker.value = false
+  if (!isPrivate.value) {
+    uni.showToast({ title: '仅私聊可转账', icon: 'none' })
+    return
+  }
+  transferForm.amount = ''
+  transferForm.remark = ''
+  await refreshWallet()
+  showTransfer.value = true
+}
+
+async function submitTransfer() {
+  if (transferSending.value) return
+  if (!isPrivate.value) {
+    uni.showToast({ title: '仅私聊可转账', icon: 'none' })
+    return
+  }
+  const amount = parseFloat(transferForm.amount) || 0
+  const remark = String(transferForm.remark || '').trim()
+  if (amount < 0.01) {
+    uni.showToast({ title: '请输入转账金额', icon: 'none' })
+    return
+  }
+  if (walletBalance.value > 0 && amount > walletBalance.value + 0.0001) {
+    uni.showToast({ title: '红宝不足', icon: 'none' })
+    return
+  }
+  transferSending.value = true
+  try {
+    const packet = await sendTransfer({
+      to_user_id: meta.value.peer | 0,
+      amount,
+      remark,
+    })
+    const data = (packet && packet.data) || {}
+    if (data.balance != null) {
+      walletBalance.value = Number(data.balance) || 0
+    } else if (data.hongbao != null) {
+      walletBalance.value = Number(data.hongbao) || 0
+    }
+    const msg = data.message
+    if (msg) appendLocalMessage(msg)
+    else await fetchHistory()
+    closeTransferSend()
+    uni.showToast({ title: '转账成功', icon: 'success' })
+    markRead().catch(() => {})
+  } catch (e) {
+    uni.showToast({ title: (e && e.message) || '转账失败', icon: 'none' })
+  } finally {
+    transferSending.value = false
+  }
 }
 
 function openRpSheet() {

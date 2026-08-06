@@ -555,6 +555,7 @@ import {
   resolveConvId,
 } from '../../utils/chat.js'
 import { assetBase } from '../../utils/i18n.js'
+import { openFriendScanSheet } from '../../utils/friend-scan.js'
 import {
   canCreateGroupFromAuth,
   createGroup,
@@ -1322,7 +1323,12 @@ async function onPlusAction(kind) {
     return
   }
   if (kind === 'scan') {
-    uni.showToast({ title: '扫一扫即将接入', icon: 'none' })
+    const meta = getImAuthMeta() || {}
+    const selfId = meta.user_id || meta.uid || ''
+    openFriendScanSheet({
+      selfUserId: selfId,
+      onManual: () => uni.navigateTo({ url: '/pages/friend/add' }),
+    })
     return
   }
   if (kind === 'friend') {

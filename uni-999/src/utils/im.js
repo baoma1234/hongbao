@@ -346,6 +346,11 @@ export function sendRedPacket(payload) {
   return imSend('redpacket.send', payload || {}, true)
 }
 
+/** 私聊转账：仅 to_user_id */
+export function sendTransfer(payload) {
+  return imSend('transfer.send', payload || {}, true)
+}
+
 export function grabRedPacket(packetId, extra = {}) {
   return imSend(
     'redpacket.grab',
