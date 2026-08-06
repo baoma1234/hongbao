@@ -1040,6 +1040,8 @@ class GroupService
             'forbid_speak_hint'  => trim((string)($group['forbid_speak_hint'] ?? '')),
             'rp_robot_only'      => $robotOnly,
             'rp_fixed_amount'    => $fixedAmount,
+            'rp_min_amount'      => round((float)($group['rp_min_amount'] ?? 0), 2),
+            'rp_max_amount'      => round((float)($group['rp_max_amount'] ?? 0), 2),
             'rp_min_count'       => max(0, (int)($group['rp_min_count'] ?? 0)),
             'rp_max_count'       => max(0, (int)($group['rp_max_count'] ?? 0)),
             'rp_enabled_types'   => $enabledTypes,

@@ -282,6 +282,7 @@ class Imgroup extends Backend
                     'weigh'                => (int)($params['weigh'] ?? ($row['weigh'] ?? 0)),
                     'is_vip_group'         => ((int)($params['is_vip_group'] ?? 0) === 1) ? 1 : 0,
                     'rp_min_amount'        => sprintf('%.2f', max(0, (float)($params['rp_min_amount'] ?? 10))),
+                    'rp_max_amount'        => sprintf('%.2f', max(0, (float)($params['rp_max_amount'] ?? 0))),
                     'rp_min_count'         => $rpMinCount,
                     'rp_max_count'         => $rpMaxCount,
                     'rp_enabled_types'     => mb_substr($enabledTypes, 0, 32),

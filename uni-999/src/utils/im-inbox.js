@@ -8,6 +8,7 @@ import { convKey, msgExtra } from './chat.js'
 import { getActiveChat } from './chat-route.js'
 import { markConversationRead, onImEvent } from './im.js'
 import { getChatUnreadTotal, setChatUnreadTotal } from './tab-badge.js'
+import { playIncomingMessageSound } from './notify-sound.js'
 
 let started = false
 let off = null
@@ -176,6 +177,22 @@ function bumpUnread(msg) {
 function handleIncoming(msg) {
   if (!msg) return
   emitIncoming(msg)
+  // 自发普通消息不响；接龙续发 / 他人消息响
+  try {
+    const from = (msg.from_user_id | 0) || 0
+    let ex = msg.extra || {}
+    if (typeof ex === 'string') {
+      try {
+        ex = JSON.parse(ex) || {}
+      } catch (e) {
+        ex = {}
+      }
+    }
+    const relayAuto = !!(ex.relay_auto | 0)
+    if (!(from && myUserId && from === myUserId && !relayAuto)) {
+      playIncomingMessageSound(msg)
+    }
+  } catch (e) {}
   if (shouldBumpUnread(msg)) bumpUnread(msg)
   else if (matchesActiveChat(msg)) {
     const type = msgConvType(msg)

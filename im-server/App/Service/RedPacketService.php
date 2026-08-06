@@ -873,6 +873,10 @@ class RedPacketService
         if ($fixedAmount <= 0 && $totalAmount < $minAmount) {
             throw new \InvalidArgumentException('金额不能低于本群最低 ' . number_format($minAmount, 2, '.', '') . ' 元');
         }
+        $maxAmount = round((float)($group['rp_max_amount'] ?? 0), 2);
+        if ($fixedAmount <= 0 && $maxAmount > 0 && $totalAmount > $maxAmount + 0.001) {
+            throw new \InvalidArgumentException('金额不能超过本群最高 ' . number_format($maxAmount, 2, '.', '') . ' 元');
+        }
         $isVip = (int)($group['is_vip_group'] ?? 0) === 1;
         $isUserRp = in_array((int)$packetType, [1, 4], true);
         $isRelay = ((int)$packetType === 5);

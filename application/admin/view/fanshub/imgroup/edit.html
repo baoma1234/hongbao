@@ -156,6 +156,13 @@
             </div>
         </div>
         <div class="form-group">
+            <label class="control-label col-xs-12 col-sm-2">本群最高金额:</label>
+            <div class="col-xs-12 col-sm-4">
+                <input type="number" step="0.01" min="0" class="form-control" name="row[rp_max_amount]" value="{$row.rp_max_amount|default='0.00'}">
+                <span class="help-block">填 0 不限制；有固定金额时以固定金额为准</span>
+            </div>
+        </div>
+        <div class="form-group">
             <label class="control-label col-xs-12 col-sm-2">本群个数:</label>
             <div class="col-xs-12 col-sm-6">
                 <div class="input-group">

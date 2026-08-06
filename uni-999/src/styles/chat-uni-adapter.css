@@ -3,6 +3,8 @@
   display: flex;
   flex-direction: column;
   width: 100%;
+  height: calc(100vh - var(--top-bar-height, 44px) - 56px);
+  height: calc(100dvh - var(--top-bar-height, 44px) - 56px);
   min-height: calc(100vh - var(--top-bar-height, 44px) - 56px);
   min-height: calc(100dvh - var(--top-bar-height, 44px) - 56px);
   /* 底部留给固定 Tab，勿再额外垫高造成公告下方空洞 */
@@ -49,13 +51,43 @@
   display: none !important;
 }
 
-/* 佣金面板自身滚动（公告内部用 .chat-notice-body-scroll） */
+/* 佣金：外层不滚，内部 scroll-view 滚（对齐公告） */
 #tabMessages #chatHomePanelCommission.chat-home-panel:not(.is-hidden),
 #tabMessages .chat-commission-panel:not(.is-hidden) {
-  overflow-x: hidden !important;
-  overflow-y: auto !important;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+#tabMessages .chat-commission-body-scroll {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: 0 !important;
+  width: 100%;
+}
+
+/* 会话列表：scroll-view 负责滚动，.chat-conv-list 只做内容 */
+#tabMessages .chat-conv-ptr-host {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  position: relative;
+}
+#tabMessages scroll-view.chat-conv-scroll,
+#tabMessages .chat-conv-scroll {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: 0 !important;
+  width: 100%;
+}
+#tabMessages .chat-conv-list {
+  flex: none !important;
+  height: auto !important;
+  min-height: 0 !important;
+  overflow: visible !important;
 }
 
 /* 恢复社群/公告/佣金底色与内边距（勿被透明 chat 面板规则波及） */

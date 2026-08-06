@@ -345,6 +345,7 @@
 
             <!-- 佣金 -->
             <view id="chatHomePanelCommission" class="chat-home-panel chat-commission-panel" :class="{ 'is-hidden': homeTab !== 'commission' }">
+              <scroll-view scroll-y class="chat-commission-body-scroll">
               <view class="chat-commission-hero-card">
                 <view class="chat-commission-hero-top">
                   <text class="chat-commission-hero-label">累计佣金</text>
@@ -433,6 +434,7 @@
                   <view v-if="!commissionRows.length" class="chat-empty chat-empty-glass">{{ commissionEmptyText }}</view>
                 </view>
               </view>
+              </scroll-view>
             </view>
           </view>
         </view>
@@ -1815,12 +1817,17 @@ onHide(() => {
   text-decoration: underline;
 }
 .chat-conv-ptr-host {
-  height: calc(100vh - 280px);
-  min-height: 320px;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
 }
 .chat-conv-scroll {
   flex: 1 1 auto;
   min-height: 0;
-  height: 100%;
+  height: 0;
+  width: 100%;
 }
 </style>

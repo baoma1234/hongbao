@@ -581,6 +581,7 @@ import {
 import { clearActiveChat, getActiveChat, saveActiveChat } from '../../utils/chat-route.js'
 import { COMMON_EMOJIS, loadEmojiTree } from '../../utils/emoji.js'
 import { setInboxMyId, noteConversationRead } from '../../utils/im-inbox.js'
+import { playOpenRedPacketSound } from '../../utils/notify-sound.js'
 import { loadWalletBootstrap, money } from '../../utils/wallet.js'
 import {
   bindForegroundResume,
@@ -879,6 +880,21 @@ function groupRpFixedAmount() {
     fixed = parseFloat(groupMeta.value.group.rp_fixed_amount) || 0
   }
   return fixed > 0 ? Math.round(fixed * 100) / 100 : 0
+}
+
+function groupRpAmountLimits() {
+  if (isPrivate.value) return { min: 10, max: 0 }
+  const pol = groupPolicy.value || {}
+  const g = (groupMeta.value && groupMeta.value.group) || {}
+  let min = parseFloat(pol.rp_min_amount) || 0
+  let max = parseFloat(pol.rp_max_amount) || 0
+  if (!(min > 0)) min = parseFloat(g.rp_min_amount) || 0
+  if (!(max > 0)) max = parseFloat(g.rp_max_amount) || 0
+  if (!(min > 0)) min = 10
+  return {
+    min: Math.round(min * 100) / 100,
+    max: max > 0 ? Math.round(max * 100) / 100 : 0,
+  }
 }
 
 function groupRpCountRange() {
@@ -2337,8 +2353,13 @@ async function sendRp() {
     uni.showToast({ title: '请输入红包金额', icon: 'none' })
     return
   }
-  if (amount < 10) {
-    uni.showToast({ title: '金额最低 10 元', icon: 'none' })
+  const lim = groupRpAmountLimits()
+  if (fixed <= 0 && amount < lim.min) {
+    uni.showToast({ title: '金额最低 ' + lim.min + ' 元', icon: 'none' })
+    return
+  }
+  if (fixed <= 0 && lim.max > 0 && amount > lim.max + 0.0001) {
+    uni.showToast({ title: '金额最高 ' + lim.max + ' 元', icon: 'none' })
     return
   }
   if (walletBalance.value > 0 && amount > walletBalance.value + 0.0001) {
@@ -2446,6 +2467,7 @@ async function tryGrab(packetId, sliderPayload = null) {
     }
     if (data.amount != null) {
       myGrabAmount.value = formatAmt(data.amount)
+      playOpenRedPacketSound()
       uni.showToast({ title: '抢到 ' + myGrabAmount.value, icon: 'none' })
     }
     return data

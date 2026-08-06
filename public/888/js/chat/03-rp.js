@@ -73,6 +73,28 @@
     return fixed > 0 ? Math.round(fixed * 100) / 100 : 0;
   }
 
+  function groupRpAmountLimits() {
+    if (!(state.room && state.room.type === 2)) return { min: 10, max: 0 };
+    var min = 0;
+    var max = 0;
+    try {
+      var policy = typeof groupPolicy === 'function' ? groupPolicy() : {};
+      min = parseFloat(policy && policy.rp_min_amount) || 0;
+      max = parseFloat(policy && policy.rp_max_amount) || 0;
+    } catch (e1) {}
+    if (!(min > 0) && state.groupMeta && state.groupMeta.group) {
+      min = parseFloat(state.groupMeta.group.rp_min_amount) || 0;
+    }
+    if (!(max > 0) && state.groupMeta && state.groupMeta.group) {
+      max = parseFloat(state.groupMeta.group.rp_max_amount) || 0;
+    }
+    if (!(min > 0)) min = 10;
+    return {
+      min: Math.round(min * 100) / 100,
+      max: max > 0 ? Math.round(max * 100) / 100 : 0
+    };
+  }
+
   /** 普通/随机个数：自由填写（1～user_rp_max） */
   function userRpCountRange() {
     var max = 500;
@@ -560,8 +582,15 @@
       if (typeof showFanshubToast === 'function') showFanshubToast('请输入红包金额', 'error');
       return;
     }
-    if (totalAmount < 10) {
-      if (typeof showFanshubToast === 'function') showFanshubToast('金额最低 10 元', 'error');
+    var amtLim = groupRpAmountLimits();
+    var fixedAmt = groupRpFixedAmount();
+    if (fixedAmt > 0) totalAmount = fixedAmt;
+    if (!(fixedAmt > 0) && totalAmount < amtLim.min) {
+      if (typeof showFanshubToast === 'function') showFanshubToast('金额最低 ' + amtLim.min + ' 元', 'error');
+      return;
+    }
+    if (!(fixedAmt > 0) && amtLim.max > 0 && totalAmount > amtLim.max + 0.0001) {
+      if (typeof showFanshubToast === 'function') showFanshubToast('金额最高 ' + amtLim.max + ' 元', 'error');
       return;
     }
     if (totalCount <= 0) {

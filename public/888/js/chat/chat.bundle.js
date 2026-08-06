@@ -2983,13 +2983,13 @@
     document.addEventListener('keydown', unlock, true);
   }
 
-  function playIncomingBeep() {
+  function playIncomingBeep(kind) {
     try {
       bindAudioUnlock();
       var ctx = ensureAudioCtx();
       if (!ctx) return;
       var now = Date.now();
-      if (state._lastBeepAt && (now - state._lastBeepAt) < 450) return;
+      if (state._lastBeepAt && (now - state._lastBeepAt) < 400) return;
       state._lastBeepAt = now;
       var t0 = ctx.currentTime;
       function tone(freq, start, dur, vol) {
@@ -3004,9 +3004,41 @@
         g.gain.exponentialRampToValueAtTime(0.001, t0 + start + dur);
         o.stop(t0 + start + dur + 0.02);
       }
-      // 两声短 ding，比单音更容易察觉
-      tone(880, 0, 0.12, 0.14);
-      tone(1175, 0.14, 0.16, 0.12);
+      if (kind === 'rp') {
+        // 红包消息：更高音程三连
+        tone(988, 0, 0.1, 0.2);
+        tone(1319, 0.12, 0.12, 0.22);
+        tone(1568, 0.26, 0.16, 0.18);
+      } else {
+        // 普通消息：双 ding，音量加大
+        tone(880, 0, 0.13, 0.22);
+        tone(1175, 0.15, 0.17, 0.2);
+      }
+    } catch (e) {}
+  }
+
+  function playOpenRpBeep() {
+    try {
+      bindAudioUnlock();
+      var ctx = ensureAudioCtx();
+      if (!ctx) return;
+      var t0 = ctx.currentTime;
+      function tone(freq, start, dur, vol) {
+        var o = ctx.createOscillator();
+        var g = ctx.createGain();
+        o.type = 'sine';
+        o.frequency.value = freq;
+        g.gain.value = vol;
+        o.connect(g);
+        g.connect(ctx.destination);
+        o.start(t0 + start);
+        g.gain.exponentialRampToValueAtTime(0.001, t0 + start + dur);
+        o.stop(t0 + start + dur + 0.02);
+      }
+      tone(523, 0, 0.08, 0.16);
+      tone(659, 0.09, 0.09, 0.18);
+      tone(784, 0.19, 0.1, 0.2);
+      tone(1047, 0.3, 0.18, 0.22);
     } catch (e) {}
   }
 
@@ -3023,9 +3055,9 @@
     var type = msg.conversation_type | 0;
     var id = type === 2 ? (msg.group_id || msg.conversation_id) : msg.conversation_id;
     var viewing = !!(state.room && state.room.type === type && String(state.room.id) === String(id));
-    playIncomingBeep();
     var mtype = msg.msg_type | 0;
     var isRp = mtype === 2 || relayAuto;
+    playIncomingBeep(isRp ? 'rp' : 'normal');
     var isTf = mtype === 8;
     // 正在看该会话：普通聊天不弹 toast；红包/接龙续发仍弹，避免「下一包无感」
     if (viewing && !isRp) return;
@@ -5154,6 +5186,7 @@
       }
       markRpCover(packetId, { grabbed: true, faded: true });
       try { refreshRpOrMessages(packetId, true); } catch (eRender) {}
+      try { playOpenRpBeep(); } catch (eBeep) {}
       if (typeof showFanshubToast === 'function') {
         var hit = !!(packet.data && packet.data.is_mine_hit);
         var pay = packet.data && packet.data.compensate_amount != null
@@ -5255,6 +5288,28 @@
       fixed = parseFloat(state.groupMeta.group.rp_fixed_amount) || 0;
     }
     return fixed > 0 ? Math.round(fixed * 100) / 100 : 0;
+  }
+
+  function groupRpAmountLimits() {
+    if (!(state.room && state.room.type === 2)) return { min: 10, max: 0 };
+    var min = 0;
+    var max = 0;
+    try {
+      var policy = typeof groupPolicy === 'function' ? groupPolicy() : {};
+      min = parseFloat(policy && policy.rp_min_amount) || 0;
+      max = parseFloat(policy && policy.rp_max_amount) || 0;
+    } catch (e1) {}
+    if (!(min > 0) && state.groupMeta && state.groupMeta.group) {
+      min = parseFloat(state.groupMeta.group.rp_min_amount) || 0;
+    }
+    if (!(max > 0) && state.groupMeta && state.groupMeta.group) {
+      max = parseFloat(state.groupMeta.group.rp_max_amount) || 0;
+    }
+    if (!(min > 0)) min = 10;
+    return {
+      min: Math.round(min * 100) / 100,
+      max: max > 0 ? Math.round(max * 100) / 100 : 0
+    };
   }
 
   /** 普通/随机个数：自由填写（1～user_rp_max） */
@@ -5744,8 +5799,15 @@
       if (typeof showFanshubToast === 'function') showFanshubToast('请输入红包金额', 'error');
       return;
     }
-    if (totalAmount < 10) {
-      if (typeof showFanshubToast === 'function') showFanshubToast('金额最低 10 元', 'error');
+    var amtLim = groupRpAmountLimits();
+    var fixedAmt = groupRpFixedAmount();
+    if (fixedAmt > 0) totalAmount = fixedAmt;
+    if (!(fixedAmt > 0) && totalAmount < amtLim.min) {
+      if (typeof showFanshubToast === 'function') showFanshubToast('金额最低 ' + amtLim.min + ' 元', 'error');
+      return;
+    }
+    if (!(fixedAmt > 0) && amtLim.max > 0 && totalAmount > amtLim.max + 0.0001) {
+      if (typeof showFanshubToast === 'function') showFanshubToast('金额最高 ' + amtLim.max + ' 元', 'error');
       return;
     }
     if (totalCount <= 0) {
