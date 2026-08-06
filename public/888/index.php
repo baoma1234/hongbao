@@ -1,34 +1,11 @@
 <?php
 /**
- * ?? H5 entrance
+ * 旧 H5 入口 /888 → 正式入口 /999（保留 query / hash）
  */
-$assetVer = '202608051205';
-$v = htmlspecialchars($assetVer, ENT_QUOTES, 'UTF-8');
-?><!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>??</title>
-    <link rel="icon" href="img/logo.png?v=<?= $v ?>" type="image/png">
-    <link rel="apple-touch-icon" href="img/logo.png?v=<?= $v ?>">
-    <link rel="stylesheet" href="css/core.css?v=<?= $v ?>">
-</head>
-<body>
-<?php include __DIR__ . '/partials/header.php'; ?>
-<?php include __DIR__ . '/partials/login.php'; ?>
-<?php include __DIR__ . '/partials/slider-captcha.php'; ?>
-
-    <div class="page-view" id="mainDashboardView" data-shell="pending"></div>
-    <div id="appExtrasMount" data-shell="pending"></div>
-
-    <script>window.FANSHUB_ASSETS = { ver: '<?= $v ?>', base: '' };</script>
-    <script src="copy.defaults.js?v=<?= $v ?>"></script>
-    <script src="i18n/version.js?v=<?= $v ?>"></script>
-    <script src="i18n/countries.js?v=<?= $v ?>"></script>
-    <script src="i18n/manager.js?v=<?= $v ?>"></script>
-    <script src="js/loader.js?v=<?= $v ?>"></script>
-    <script src="js/app-core.js?v=<?= $v ?>" defer></script>
-    <script src="js/app-boot.js?v=<?= $v ?>" defer></script>
-</body>
-</html>
+$q = isset($_SERVER['QUERY_STRING']) && $_SERVER['QUERY_STRING'] !== ''
+    ? ('?' . $_SERVER['QUERY_STRING'])
+    : '';
+// hash 只能由前端带；PHP 跳转保留 query
+header('Cache-Control: no-store, no-cache, must-revalidate');
+header('Location: /999/' . $q, true, 302);
+exit;

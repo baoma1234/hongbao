@@ -2,11 +2,17 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="refresh" content="0;url=index.php">
-    <script>location.replace('index.php' + location.search + location.hash);</script>
+    <meta http-equiv="refresh" content="0;url=/999/">
+    <script>
+      (function () {
+        var q = location.search || '';
+        var h = location.hash || '';
+        location.replace('/999/' + q + h);
+      })();
+    </script>
     <title>Redirecting…</title>
 </head>
 <body>
-    <p><a href="index.php">进入福利大厅</a></p>
+    <p><a href="/999/">进入红宝</a></p>
 </body>
 </html>
