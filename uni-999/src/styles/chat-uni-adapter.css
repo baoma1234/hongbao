@@ -310,17 +310,12 @@
   display: none !important;
 }
 #tabMessages .chat-conv-title,
-#tabMessages .chat-conv-title text,
-#tabMessages .chat-conv-title uni-text {
-  color: #ffffff !important;
+#tabMessages .chat-conv-title text {
+  color: #2a1f18 !important;
   font-weight: 800;
 }
 #tabMessages .chat-conv-preview,
-#tabMessages .chat-conv-preview text,
-#tabMessages .chat-conv-preview uni-text,
-#tabMessages .chat-conv-time,
-#tabMessages .chat-conv-time text,
-#tabMessages .chat-conv-time uni-text {
+#tabMessages .chat-conv-time {
   color: #9a8574 !important;
 }
 /* 仅聊天面板外壳透明；会话列表白底由 bundle 负责 */
