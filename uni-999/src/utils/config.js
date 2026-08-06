@@ -1,18 +1,137 @@
 /**
- * 运行时配置（H5 走同源 /api 与 /im-ws；App 可在此改成绝对地址）
+ * 运行时配置
+ * - H5 默认同源 /api、/im-ws
+ * - App / 跨域：每次启动从阿里云 JSON 拉取 apiUri / socketUri / imgUri
  */
+const RUNTIME_CFG_KEY = 'fans_hub_runtime_cfg'
+/** 远端入口（每次打开网页/App 都会拉取） */
+export const RUNTIME_CONFIG_URL =
+  'https://djchanchsahdajclcascjsdacll.oss-cn-hongkong.aliyuncs.com/888.json'
+
 const cfg = {
   API_BASE: '',
   // 空则自动：当前站点 /im-ws（需 Nginx 反代到 17272）
   IM_WS_URL: '',
+  /** 上传/图片基址；空则回退 API_BASE */
+  IMG_BASE: '',
   TOKEN_KEY: 'fans_hub_token',
   DEVICE_FP_KEY: 'fans_hub_device_fp',
   LOCALE_KEY: 'fans_hub_locale',
   LOCALE: 'zh-CN',
+  /** 最近一次远端配置拉取时间 */
+  RUNTIME_FETCHED_AT: 0,
+}
+
+function trimSlash(u) {
+  return String(u == null ? '' : u).trim().replace(/\/+$/, '')
+}
+
+function applyFields(apiUri, socketUri, imgUri) {
+  const api = trimSlash(apiUri)
+  const sock = trimSlash(socketUri)
+  const img = trimSlash(imgUri)
+  const prevWs = String(cfg.IM_WS_URL || '')
+  if (api) cfg.API_BASE = api
+  if (sock) cfg.IM_WS_URL = sock
+  if (img) cfg.IMG_BASE = img
+  else if (api) cfg.IMG_BASE = api
+  return prevWs !== String(cfg.IM_WS_URL || '')
+}
+
+function readCache() {
+  try {
+    const raw = uni.getStorageSync(RUNTIME_CFG_KEY)
+    if (!raw) return null
+    if (typeof raw === 'object') return raw
+    return JSON.parse(String(raw))
+  } catch (e) {
+    return null
+  }
+}
+
+function writeCache(data) {
+  try {
+    uni.setStorageSync(RUNTIME_CFG_KEY, data)
+  } catch (e) {}
+}
+
+/** 启动时先吃本地缓存，保证首屏接口可用 */
+export function hydrateRuntimeConfigFromCache() {
+  const cached = readCache()
+  if (!cached) return false
+  applyFields(cached.apiUri, cached.socketUri, cached.imgUri)
+  return !!(cfg.API_BASE || cfg.IM_WS_URL || cfg.IMG_BASE)
+}
+
+/**
+ * 拉取远端 888.json 并应用。
+ * @returns {Promise<{ ok: boolean, changedWs: boolean, data?: object, error?: string }>}
+ */
+export function fetchRuntimeConfig(force) {
+  const url = RUNTIME_CONFIG_URL + (force === false ? '' : ('?t=' + Date.now()))
+  return new Promise((resolve) => {
+    uni.request({
+      url,
+      method: 'GET',
+      timeout: 8000,
+      success(res) {
+        try {
+          let data = res && res.data
+          if (typeof data === 'string') {
+            try {
+              data = JSON.parse(data)
+            } catch (e) {
+              data = null
+            }
+          }
+          if (!data || typeof data !== 'object') {
+            resolve({ ok: false, changedWs: false, error: 'empty config' })
+            return
+          }
+          const apiUri = data.apiUri || data.api_uri || data.API_BASE || ''
+          const socketUri = data.socketUri || data.socket_uri || data.IM_WS_URL || ''
+          const imgUri = data.imgUri || data.img_uri || data.IMG_BASE || ''
+          const changedWs = applyFields(apiUri, socketUri, imgUri)
+          cfg.RUNTIME_FETCHED_AT = Date.now()
+          writeCache({
+            apiUri: cfg.API_BASE,
+            socketUri: cfg.IM_WS_URL,
+            imgUri: cfg.IMG_BASE,
+            fetchedAt: cfg.RUNTIME_FETCHED_AT,
+          })
+          resolve({ ok: true, changedWs, data: { apiUri: cfg.API_BASE, socketUri: cfg.IM_WS_URL, imgUri: cfg.IMG_BASE } })
+        } catch (e) {
+          resolve({ ok: false, changedWs: false, error: (e && e.message) || 'parse fail' })
+        }
+      },
+      fail(err) {
+        resolve({
+          ok: false,
+          changedWs: false,
+          error: (err && err.errMsg) || 'network fail',
+        })
+      },
+    })
+  })
+}
+
+/**
+ * 打开网页 / App：先缓存，再拉远端。
+ * @returns {Promise<{ ok: boolean, changedWs: boolean }>}
+ */
+export async function bootstrapRuntimeConfig() {
+  hydrateRuntimeConfigFromCache()
+  const r = await fetchRuntimeConfig(true)
+  return { ok: !!r.ok, changedWs: !!r.changedWs }
 }
 
 export function getApiBase() {
   return cfg.API_BASE || ''
+}
+
+/** 上传 / 图片 CDN 基址（来自 imgUri）；空则同 apiUri */
+export function getImgBase() {
+  return cfg.IMG_BASE || cfg.API_BASE || ''
 }
 
 export function getImWsBase() {

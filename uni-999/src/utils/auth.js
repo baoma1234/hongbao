@@ -1,4 +1,4 @@
-import { getApiBase, getDeviceFpKey, getLocale, getTokenKey } from './config.js'
+import { getApiBase, getDeviceFpKey, getImgBase, getLocale, getTokenKey } from './config.js'
 
 export function getToken() {
   return uni.getStorageSync(getTokenKey()) || ''
@@ -143,7 +143,7 @@ export function uploadSticker(filePath) {
 }
 
 function uploadFanshubAction(action, filePath) {
-  const base = getApiBase() || ''
+  const base = getImgBase() || getApiBase() || ''
   const token = getToken()
   const locale = getLocale()
   return new Promise((resolve, reject) => {
@@ -174,7 +174,7 @@ function uploadFanshubAction(action, filePath) {
 
 /** 通用文件上传（聊天图/群头像等）：/api/common/upload */
 export function uploadCommonFile(filePath) {
-  const base = getApiBase() || ''
+  const base = getImgBase() || getApiBase() || ''
   const token = getToken()
   return new Promise((resolve, reject) => {
     uni.uploadFile({

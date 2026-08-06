@@ -6,11 +6,22 @@ import {
   getActiveChat,
   getHashRoutePath,
 } from './utils/chat-route.js'
+import { bootstrapRuntimeConfig } from './utils/config.js'
 import { initI18n } from './utils/i18n.js'
 import { imConnect, imDisconnect, bindForegroundResume } from './utils/im.js'
 import { startImInbox } from './utils/im-inbox.js'
 import { initSkin } from './utils/skin.js'
 import './styles/hb.css'
+
+async function refreshRemoteEndpoints() {
+  try {
+    const r = await bootstrapRuntimeConfig()
+    if (r && r.changedWs && getToken()) {
+      imDisconnect()
+      imConnect().catch(() => {})
+    }
+  } catch (e) {}
+}
 
 /**
  * 已登录时不要盲目 reLaunch 大厅：
@@ -18,6 +29,8 @@ import './styles/hb.css'
  */
 onLaunch(async () => {
   initSkin()
+  // 先拉远端 apiUri / socketUri / imgUri（有缓存则先用缓存）
+  await refreshRemoteEndpoints()
   try {
     await initI18n()
   } catch (e) {}
@@ -61,6 +74,8 @@ onShow(() => {
   try {
     uni.hideTabBar({ animation: false })
   } catch (e) {}
+  // 每次回到前台再拉一次远端配置
+  refreshRemoteEndpoints()
   if (getToken()) {
     startImInbox()
     bindForegroundResume()

@@ -24,13 +24,13 @@ const HTTP_ROUTES = {
 }
 
 function getImHttpBase() {
+  const api = String(getApiBase() || '').replace(/\/$/, '')
+  if (api) return api + '/im-api'
   // #ifdef H5
   if (typeof location !== 'undefined' && location.origin) {
     return String(location.origin).replace(/\/$/, '') + '/im-api'
   }
   // #endif
-  const api = String(getApiBase() || '').replace(/\/$/, '')
-  if (api) return api + '/im-api'
   return 'http://127.0.0.1:17273'
 }
 

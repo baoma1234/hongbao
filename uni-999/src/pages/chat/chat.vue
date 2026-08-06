@@ -568,7 +568,7 @@ import '../../styles/chat-room-uni-adapter.css'
 import '../../styles/chat-rp-send-uni-adapter.css'
 import '../../styles/chat-888-parity.css'
 import { apiRequest, fetchProfile, getToken, uploadSticker } from '../../utils/auth.js'
-import { getApiBase } from '../../utils/config.js'
+import { getApiBase, getImgBase } from '../../utils/config.js'
 import { assetBase, applyServerCopy, copyState, localeState, tt } from '../../utils/i18n.js'
 import {
   avatarSrc,
@@ -2003,7 +2003,7 @@ async function sendSticker(st) {
 }
 
 async function uploadCommonFile(filePath) {
-  const base = getApiBase() || ''
+  const base = getImgBase() || getApiBase() || ''
   const token = getToken()
   const up = await new Promise((resolve, reject) => {
     uni.uploadFile({
