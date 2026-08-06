@@ -292,7 +292,7 @@ export function groupByPartitions(channels, partitions) {
   return groups.length ? groups : [{ key: 'all', name: '全部', code: '', channels: list }]
 }
 
-/** 与 888 一致的固定快捷金额 */
+/** 默认快捷金额；通道可在后台 config.quick_amounts 覆盖 */
 export const RECHARGE_QUICK_AMOUNTS = [50, 100, 500, 1000, 5000, 10000, 50000, 100000]
 
 export function formatQuickAmtLabel(n) {
@@ -304,7 +304,9 @@ export function rechargeQuickAmounts(ch) {
   const raw = ch && (ch.quick_amounts || ch.amounts || ch.fixed_amounts)
   let list = []
   if (Array.isArray(raw) && raw.length) {
-    list = raw.map(Number).filter((n) => n > 0).slice(0, 8)
+    list = raw.map(Number).filter((n) => n > 0).slice(0, 16)
+  } else if (typeof raw === 'string' && raw.trim()) {
+    list = raw.split(/[,，\s]+/).map(Number).filter((n) => n > 0).slice(0, 16)
   }
   if (!list.length) list = RECHARGE_QUICK_AMOUNTS.slice()
   return list

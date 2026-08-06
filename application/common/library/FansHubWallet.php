@@ -296,6 +296,7 @@ class FansHubWallet
                 'exchange_rate'   => $exchangeRate > 0 ? $exchangeRate : 0,
                 'min_amount'      => (float)$row['min_amount'],
                 'max_amount'      => (float)$row['max_amount'],
+                'quick_amounts'   => self::normalizeQuickAmounts($cfg['quick_amounts'] ?? null),
             ];
             $list[] = $ch;
             if ($pid > 0 && isset($partMap[$pid])) {
@@ -845,6 +846,53 @@ class FansHubWallet
     public static function decodeConfigPublic($raw)
     {
         return self::decodeConfig($raw);
+    }
+
+    /**
+     * 通道快捷金额：config.quick_amounts（数组或逗号分隔）；空则前台用默认档位
+     */
+    public static function normalizeQuickAmounts($raw)
+    {
+        if ($raw === null || $raw === '' || $raw === []) {
+            return [];
+        }
+        if (is_string($raw)) {
+            $trim = trim($raw);
+            if ($trim === '') {
+                return [];
+            }
+            if (isset($trim[0]) && $trim[0] === '[') {
+                $decoded = json_decode($trim, true);
+                $raw = is_array($decoded) ? $decoded : preg_split('/[,，\s]+/', $trim, -1, PREG_SPLIT_NO_EMPTY);
+            } else {
+                $raw = preg_split('/[,，\s]+/', $trim, -1, PREG_SPLIT_NO_EMPTY);
+            }
+        }
+        if (!is_array($raw)) {
+            return [];
+        }
+        $out = [];
+        $seen = [];
+        foreach ($raw as $v) {
+            if (!is_numeric($v)) {
+                continue;
+            }
+            $n = (float)$v;
+            if ($n <= 0) {
+                continue;
+            }
+            $n = abs($n - round($n)) < 0.00001 ? (int)round($n) : round($n, 2);
+            $k = (string)$n;
+            if (isset($seen[$k])) {
+                continue;
+            }
+            $seen[$k] = true;
+            $out[] = $n;
+            if (count($out) >= 16) {
+                break;
+            }
+        }
+        return $out;
     }
 
     public static function creditBalancePublic($userId, $amount, $type, $remark, $channel = '')

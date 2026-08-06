@@ -260,13 +260,25 @@
     return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   }
 
+  function resolveRechargeQuickAmounts(ch) {
+    var raw = ch && (ch.quick_amounts || ch.amounts || ch.fixed_amounts);
+    var list = [];
+    if (Array.isArray(raw) && raw.length) {
+      list = raw.map(Number).filter(function (n) { return n > 0; }).slice(0, 16);
+    } else if (typeof raw === 'string' && raw.trim()) {
+      list = raw.split(/[,，\s]+/).map(Number).filter(function (n) { return n > 0; }).slice(0, 16);
+    }
+    return list.length ? list : RECHARGE_QUICK_AMOUNTS.slice();
+  }
+
   function renderRechargeQuickAmounts(ch) {
     var box = document.getElementById('profileRechargeQuickAmounts');
     if (!box) return;
     var min = Number(ch && ch.min_amount) || 0;
     var max = Number(ch && ch.max_amount) || 0;
     var cur = parseFloat((document.getElementById('profileRechargeAmount') || {}).value) || 0;
-    box.innerHTML = RECHARGE_QUICK_AMOUNTS.map(function (a) {
+    var amounts = resolveRechargeQuickAmounts(ch);
+    box.innerHTML = amounts.map(function (a) {
       var disabled = (min > 0 && a < min - 0.00001) || (max > 0 && a > max + 0.00001);
       var active = !disabled && Math.abs(cur - a) < 0.00001 ? ' active' : '';
       return (

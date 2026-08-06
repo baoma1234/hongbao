@@ -5,6 +5,7 @@ namespace app\admin\controller\fanshub;
 use app\common\controller\Backend;
 use app\common\library\FansHubBsGateway;
 use app\common\library\FansHubPayGateway;
+use app\common\library\FansHubWallet;
 use app\common\library\FansHubWanhuitongGateway;
 use think\Db;
 
@@ -207,6 +208,7 @@ class Paychannel extends Backend
             'return_url'              => '',
             'product_name'            => '',
             'handler'                 => '',
+            'quick_amounts'           => '',
         ]);
         $this->assignActiveMerchantSelect('', 0);
         return $this->view->fetch();
@@ -236,6 +238,7 @@ class Paychannel extends Backend
         if ($row['config']) {
             $cfg = json_decode($row['config'], true);
             if (is_array($cfg)) {
+                unset($cfg['quick_amounts']); // 在「快捷金额」字段单独编辑
                 $row['config'] = json_encode($cfg, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
             }
         }
@@ -327,6 +330,8 @@ class Paychannel extends Backend
 
     protected function normalizeParams(array $params, $channelId = 0)
     {
+        $quickAmountsRaw = array_key_exists('quick_amounts', $params) ? $params['quick_amounts'] : null;
+        unset($params['quick_amounts']);
         if (!empty($params['config']) && is_string($params['config'])) {
             $decoded = json_decode($params['config'], true);
             if (json_last_error() === JSON_ERROR_NONE) {
@@ -509,6 +514,25 @@ class Paychannel extends Backend
             unset($params['private_key'], $params['platform_public_key'], $params['withdraw_url'], $params['withdraw_type']);
             $params['config'] = json_encode($cfg, JSON_UNESCAPED_UNICODE);
         }
+        // 快捷金额写入 config.quick_amounts（各通道独立；空则前台用默认档）
+        if ($quickAmountsRaw !== null) {
+            $cfgArr = [];
+            if (!empty($params['config'])) {
+                if (is_string($params['config'])) {
+                    $decoded = json_decode($params['config'], true);
+                    $cfgArr = is_array($decoded) ? $decoded : [];
+                } elseif (is_array($params['config'])) {
+                    $cfgArr = $params['config'];
+                }
+            }
+            $qa = FansHubWallet::normalizeQuickAmounts($quickAmountsRaw);
+            if ($qa) {
+                $cfgArr['quick_amounts'] = $qa;
+            } else {
+                unset($cfgArr['quick_amounts']);
+            }
+            $params['config'] = $cfgArr ? json_encode($cfgArr, JSON_UNESCAPED_UNICODE) : '';
+        }
         return $params;
     }
 
@@ -540,6 +564,8 @@ class Paychannel extends Backend
         $data['callback_currency_code'] = $cfg['callback_currency_code'] ?? 'CNY';
         $data['callback_exchange_rate'] = $cfg['callback_exchange_rate'] ?? '';
         $data['recharge_mode'] = $cfg['recharge_mode'] ?? 'cashier';
+        $qa = FansHubWallet::normalizeQuickAmounts($cfg['quick_amounts'] ?? null);
+        $data['quick_amounts'] = $qa ? implode(',', $qa) : '';
         $data['verify_url'] = '';
         if (($data['handler'] ?? '') === 'wanhuitong' && ($data['type'] ?? '') === 'withdraw') {
             $data['verify_url'] = FansHubWanhuitongGateway::defaultWithdrawVerifyUrl((int)($data['id'] ?? 0));
@@ -562,6 +588,7 @@ class Paychannel extends Backend
             $row->callback_currency_code = $data['callback_currency_code'];
             $row->callback_exchange_rate = $data['callback_exchange_rate'];
             $row->recharge_mode = $data['recharge_mode'];
+            $row->quick_amounts = $data['quick_amounts'];
             return $row;
         }
         return $data;
