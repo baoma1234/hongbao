@@ -289,6 +289,9 @@ function friendlyImHttpError($msg)
     if (preg_match('/[\x{4e00}-\x{9fff}]/u', $msg)) {
         return $msg;
     }
+    if (stripos($msg, 'server has gone away') !== false || strpos($msg, '2006') !== false) {
+        return '数据库连接已断开，请重试一次（若持续出现请重启 IM 进程）';
+    }
     if ($msg === 'mine count must be 5, 7 or 9') {
         return '扫雷红包个数仅可选 5 / 7 / 9';
     }
@@ -307,6 +310,16 @@ function friendlyImHttpError($msg)
     }
     if ($msg === 'insufficient balance') {
         return '红宝不足，请先闪兑凑够红宝';
+    }
+    if ($msg === 'balance_not_enough_for_compensate' || strpos($msg, 'balance_not_enough_for_compensate:') === 0) {
+        $need = trim((string)substr($msg, strlen('balance_not_enough_for_compensate:')));
+        if ($need !== '' && is_numeric($need)) {
+            return '红宝不足，需至少 ￥' . number_format((float)$need, 2, '.', '') . ' 才能领取（用于赔付/续发）';
+        }
+        return '红宝不足，无法覆盖赔付金额，不能领取';
+    }
+    if ($msg === 'balance_below_mine_min') {
+        return '红宝须大于本群最低金额限制，才能领取扫雷红包';
     }
     if ($msg === 'too many packets' || $msg === 'amount too small' || $msg === 'amount too small after fee') {
         return '红宝金额或个数不符合规则';

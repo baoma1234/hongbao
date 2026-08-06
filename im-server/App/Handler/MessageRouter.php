@@ -281,11 +281,14 @@ class MessageRouter
             return '红宝不足，请先闪兑凑够红宝';
         }
         if ($msg === 'balance_not_enough_for_compensate' || strpos($msg, 'balance_not_enough_for_compensate:') === 0) {
-            // 原样返回错误码，由 H5 多语言文案 chat_rp_grab_need_compensate 展示
-            return $msg;
+            $need = trim((string)substr($msg, strlen('balance_not_enough_for_compensate:')));
+            if ($need !== '' && is_numeric($need)) {
+                return '红宝不足，需至少 ￥' . number_format((float)$need, 2, '.', '') . ' 才能领取（用于赔付/续发）';
+            }
+            return '红宝不足，无法覆盖赔付金额，不能领取';
         }
         if ($msg === 'balance_below_mine_min') {
-            return '余额须大于本群最低金额限制，才能领取扫雷红包';
+            return '红宝须大于本群最低金额限制，才能领取扫雷红包';
         }
         if ($msg === 'mine_hash_pending') {
             return 'mine_hash_pending';

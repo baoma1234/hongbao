@@ -5117,6 +5117,12 @@
     }
     function mapGrabError(msg) {
       msg = String(msg || '');
+      var mNeed = msg.match(/balance_not_enough_for_compensate\s*:\s*([0-9.]+)/i);
+      if (mNeed) {
+        var n = parseFloat(mNeed[1]);
+        var amt = isFinite(n) ? n.toFixed(2) : mNeed[1];
+        return '红宝不足，需至少 ￥' + amt + ' 才能领取（用于赔付/续发）';
+      }
       if (msg.indexOf('balance_not_enough_for_compensate') === 0
         || msg.indexOf('余额不足赔付') === 0
         || msg.indexOf('余额不足以') === 0

@@ -57,8 +57,10 @@ function sendViaHttp(type, data) {
           return
         }
         const okStatus = res.statusCode >= 200 && res.statusCode < 300
+        // 业务失败：HTTP 4xx 或 body.code===0（如 balance_not_enough_for_compensate）
         if (!okStatus || json.code === 0) {
-          reject(new Error(json.message || json.msg || 'HTTP ' + res.statusCode))
+          const errMsg = json.message || json.msg || json.error || 'HTTP ' + res.statusCode
+          reject(new Error(String(errMsg)))
           return
         }
         const respType = json.ws_type || type
@@ -76,7 +78,15 @@ function sendViaHttp(type, data) {
         resolve({ type: respType, data: payload, via: 'http' })
       },
       fail(err) {
-        reject(new Error((err && err.errMsg) || 'HTTP failed'))
+        // 部分环境把 HTTP 4xx 丢进 fail；尽量带上业务 message
+        const raw = (err && (err.data || err.response || err)) || {}
+        const body = raw.data || raw
+        const biz =
+          (body && typeof body === 'object' && (body.message || body.msg)) ||
+          (err && err.message) ||
+          (err && err.errMsg) ||
+          'HTTP failed'
+        reject(new Error(String(biz)))
       },
     })
   })

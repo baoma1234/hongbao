@@ -2469,19 +2469,42 @@ async function onRpTap(m) {
 
 function mapGrabError(msg) {
   const s = String(msg || '')
+  const mNeed = s.match(/balance_not_enough_for_compensate\s*:\s*([0-9.]+)/i)
+  if (mNeed) {
+    const n = Number(mNeed[1])
+    const amt = isFinite(n) ? n.toFixed(2) : mNeed[1]
+    return '红宝不足，需至少 ￥' + amt + ' 才能领取（用于赔付/续发）'
+  }
   if (/balance_not_enough_for_compensate/i.test(s)) {
     return '红宝不足，无法覆盖赔付金额，不能领取'
   }
   if (/balance_below_mine_min/i.test(s)) {
     return '红宝须大于本群最低金额限制，才能领取扫雷红包'
   }
-  if (/insufficient balance/i.test(s)) {
-    return '红宝不足，请先闪兑凑够红宝'
+  if (/insufficient balance/i.test(s) || /红宝不足/.test(s)) {
+    return s.indexOf('红宝') >= 0 ? s : '红宝不足，请先闪兑凑够红宝'
   }
   if (/mine_hash_pending/i.test(s)) {
     return '扫雷哈希确认中，请稍后再领'
   }
+  // 服务端已中文化的文案直接展示
+  if (/[\u4e00-\u9fff]/.test(s)) return s
   return s || '领取失败'
+}
+
+function showGrabFailTip(rawMsg) {
+  const tip = mapGrabError(rawMsg)
+  // 详情遮罩可能盖住 toast，余额类错误用 modal 更稳
+  if (/红宝不足|赔付|最低金额|无法覆盖/.test(tip)) {
+    uni.showModal({
+      title: '无法领取',
+      content: tip,
+      showCancel: false,
+      confirmText: '知道了',
+    })
+    return
+  }
+  uni.showToast({ title: tip, icon: 'none', duration: 2800 })
 }
 
 async function tryGrab(packetId, sliderPayload = null) {
@@ -2522,12 +2545,15 @@ async function tryGrab(packetId, sliderPayload = null) {
     return data
   } catch (e) {
     const msg = (e && e.message) || '领取失败'
-    if (/already|已领|expired|过期|finished|抢完/i.test(msg)) {
-      // open detail
+    // 已领/抢完：静默刷新详情；余额不足等必须提示
+    if (/balance|红宝不足|赔付|insufficient/i.test(msg)) {
+      showGrabFailTip(msg)
+    } else if (/already|已领|expired|过期|finished|抢完|empty/i.test(msg)) {
+      // open detail refresh only
     } else if (/slider/i.test(msg)) {
       uni.showToast({ title: '需要滑动验证', icon: 'none' })
     } else {
-      uni.showToast({ title: mapGrabError(msg), icon: 'none' })
+      showGrabFailTip(msg)
     }
     return null
   } finally {
