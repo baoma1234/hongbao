@@ -106,13 +106,15 @@ body.tab-messages .bottom-action-bar {
 
 /* ---------- Shell / home entry ---------- */
 .home-social-section {
-  margin-top: 18px;
+  margin-top: 23px;
   padding-bottom: 12px;
   max-width: 400px;
   margin-left: auto;
   margin-right: auto;
+  text-align: center;
 }
-.home-social-section .page-hero-title { margin-top: 8px; }
+.home-social-section .page-hero-title { margin-top: 8px; text-align: center; }
+.home-social-section .page-hero-sub { text-align: center; }
 
 /* 消息 Tab 外壳 */
 #tabMessages.tab-page.active {

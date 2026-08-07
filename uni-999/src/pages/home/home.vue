@@ -148,7 +148,7 @@
       <view class="home-social-section" id="homeSocialSection">
         <view class="page-hero-title">{{ t('page_hero_social_title') || '💬 互动大厅' }}</view>
         <view class="page-hero-sub">{{ t('page_hero_social_sub') || '看排行 · 刷视频文 · 蹭气氛，专注拉新与晒单' }}</view>
-        <view class="match-card" style="margin-top: 0; padding: 15px; text-align: left">
+        <view class="match-card" style="margin-top: 0; padding: 15px">
           <view style="font-size: 14px; margin-bottom: 10px; color: var(--secondary); font-weight: 700">
             {{ t('leaderboard_title') || '🏆 邀请裂变排行榜 TOP10' }}
           </view>

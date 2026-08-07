@@ -61,7 +61,7 @@
       </view>
 
       <button class="btn-login-submit" :loading="loading" @click="onLogin">
-        {{ t('login_submit_btn') }}
+        {{ loginSubmitText }}
       </button>
     </view>
 
@@ -76,11 +76,14 @@ import TopBar from '../../components/TopBar.vue'
 import SliderCaptcha from '../../components/SliderCaptcha.vue'
 import { fetchConfig, getToken, login, sendSms } from '../../utils/auth.js'
 import {
+  applyServerCopy,
+  copyState,
   flagUrl,
   localeState,
   logoUrl,
   onLocaleChange,
   t,
+  tt,
 } from '../../utils/i18n.js'
 import { imConnect } from '../../utils/im.js'
 import {
@@ -95,6 +98,7 @@ import {
 const SMS_COOLDOWN_KEY = 'fanshub_sms_cooldown'
 
 const locale = localeState()
+const copyTick = copyState()
 const logo = logoUrl()
 const countries = LOGIN_COUNTRIES
 const country = ref(readStoredCountry())
@@ -107,6 +111,7 @@ const sending = ref(false)
 const smsLeft = ref(0)
 const smsSliderEnabled = ref(true)
 const smsInterval = ref(60)
+const registerRights = ref(5)
 const sliderRef = ref(null)
 let timer = null
 let offLocale = null
@@ -123,6 +128,16 @@ const smsBtnText = computed(() => {
     return t('login_captcha_resend', { count: smsLeft.value }) || smsLeft.value + 's'
   }
   return t('login_captcha_btn')
+})
+const loginSubmitText = computed(() => {
+  void locale.value
+  void copyTick.value
+  void registerRights.value
+  return tt(
+    'login_submit_btn',
+    '进入官方福利大厅，白嫖初始{register_rights}股',
+    { register_rights: registerRights.value }
+  )
 })
 
 if (getToken()) {
@@ -206,6 +221,11 @@ function pickCountry(code) {
 async function loadCfg() {
   const cfg = await fetchConfig()
   if (!cfg) return
+  if (cfg.copy) applyServerCopy(cfg.copy)
+  if (cfg.register_rights != null && cfg.register_rights !== '') {
+    const n = parseInt(cfg.register_rights, 10)
+    if (n > 0) registerRights.value = n
+  }
   if (cfg.sms_slider_enabled === false) smsSliderEnabled.value = false
   else smsSliderEnabled.value = true
   if (cfg.sms_send_interval != null) {

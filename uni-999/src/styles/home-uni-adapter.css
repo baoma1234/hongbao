@@ -165,10 +165,13 @@
   color: #ffe082 !important;
   -webkit-text-fill-color: #ffe082;
   margin: 0 !important;
-  line-height: 1.4 !important;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.45 !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: unset !important;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  max-width: 100%;
   animation: jackpotTextPulse 3.2s ease-in-out infinite;
 }
 #tabHome .jackpot-pool-label {
@@ -311,12 +314,13 @@
   margin-bottom: 0;
 }
 
-/* user-info 对齐 888：状态绿标 + 右侧等级胶囊 */
+/* user-info 对齐 888：状态绿标 + 右侧等级胶囊；小屏允许换行完整显示 */
 #tabHome .user-info {
   display: flex !important;
+  flex-wrap: wrap;
   justify-content: space-between;
-  align-items: center;
-  gap: 10px;
+  align-items: flex-start;
+  gap: 8px 10px;
   margin-top: 12px;
   margin-bottom: 12px;
   padding-top: 12px;
@@ -353,12 +357,44 @@
   color: #5e35b1 !important;
   background: rgba(94, 53, 177, 0.1);
 }
-#tabHome .user-info .status-tag {
-  flex: 0 0 auto;
-  white-space: nowrap;
-  max-width: 42%;
-  overflow: hidden;
-  text-overflow: ellipsis;
+#tabHome .user-info .status-tag,
+#tabHome #userRank.status-tag {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: unset !important;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+/* 互动大厅：与上方多 5px，整块居中 */
+#tabHome .home-social-section {
+  margin-top: 23px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-bottom: 12px;
+  max-width: 400px;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+}
+#tabHome .home-social-section .page-hero-title,
+#tabHome .home-social-section .page-hero-sub {
+  text-align: center;
+}
+#tabHome .home-social-section .match-card {
+  text-align: center !important;
+  margin-left: auto;
+  margin-right: auto;
+}
+#tabHome .home-social-section .leaderboard-item {
+  justify-content: center;
+  gap: 12px;
 }
 
 .text-muted {
