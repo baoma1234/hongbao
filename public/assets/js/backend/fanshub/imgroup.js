@@ -21,10 +21,47 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                         {checkbox: true},
                         {field: 'id', title: 'ID', sortable: true},
                         {field: 'weigh', title: '排序', sortable: true, operate: false},
+                        {
+                            field: 'avatar',
+                            title: '头像',
+                            operate: false,
+                            formatter: function (v) {
+                                var url = Fast.api.cdnurl(v || '');
+                                if (!url) {
+                                    return '<span class="text-muted">-</span>';
+                                }
+                                return '<img class="imgroup-avatar-thumb" src="' + url + '" alt="">';
+                            }
+                        },
                         {field: 'name', title: '群名称', operate: 'LIKE'},
                         {field: 'owner_user_id', title: '群主ID'},
                         {field: 'owner_label', title: '群主', operate: false},
-                        {field: 'admin_labels', title: '群管理员', operate: false},
+                        {
+                            field: 'admin_labels',
+                            title: '群管理员',
+                            operate: false,
+                            class: 'imgroup-admin-cell',
+                            formatter: function (v, row) {
+                                var full = String(v || '').trim();
+                                var n = parseInt(row.admin_count, 10);
+                                if (!n) {
+                                    var ids = String(row.admin_user_ids || '').split(',').filter(Boolean);
+                                    n = ids.length;
+                                }
+                                if (!n || !full || full === '-') {
+                                    return '-';
+                                }
+                                var esc = function (s) {
+                                    return $('<div>').text(String(s)).html();
+                                };
+                                if (n <= 2) {
+                                    return '<span class="imgroup-admin-brief" title="' + esc(full) + '">' + esc(full) + '</span>';
+                                }
+                                var parts = full.split('、');
+                                var brief = parts.slice(0, 2).join('、') + ' 等' + n + '人';
+                                return '<span class="imgroup-admin-brief" title="' + esc(full) + '">' + esc(brief) + '</span>';
+                            }
+                        },
                         {field: 'member_count', title: '人数', sortable: true},
                         {
                             field: 'privacy_mode',

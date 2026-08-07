@@ -121,9 +121,11 @@ class Imgroup extends Backend
                     ->where(['group_id' => $row['id'], 'role' => 2, 'status' => 1])
                     ->column('user_id');
                 $row['admin_user_ids'] = implode(',', $admins);
+                $row['admin_count'] = count($admins);
                 $row['admin_labels'] = $admins
                     ? implode('、', array_map([$this, 'userLabel'], $admins))
                     : '-';
+                $row['avatar'] = (string)($row['avatar'] ?? '');
             }
             unset($row);
             return json(['total' => $total, 'rows' => $list]);
@@ -142,6 +144,7 @@ class Imgroup extends Backend
             $notice = trim((string)($params['notice'] ?? ''));
             $noticeI18n = $this->encodeNoticeI18n($params['notice_i18n'] ?? []);
             $noticeImages = $this->encodeNoticeImages($params['notice_images'] ?? '');
+            $avatar = mb_substr(trim((string)($params['avatar'] ?? '')), 0, 255);
             if ($name === '' || $ownerId <= 0) {
                 $this->error('请填写群名称和群主会员ID');
             }
@@ -159,7 +162,7 @@ class Imgroup extends Backend
             try {
                 $groupId = Db::name('chat_groups')->insertGetId([
                     'name'          => mb_substr($name, 0, 64),
-                    'avatar'        => '',
+                    'avatar'        => $avatar,
                     'owner_user_id' => $ownerId,
                     'notice'        => mb_substr($notice, 0, 500),
                     'notice_i18n'   => $noticeI18n,
@@ -219,6 +222,7 @@ class Imgroup extends Backend
             $notice = trim((string)($params['notice'] ?? ''));
             $noticeI18n = $this->encodeNoticeI18n($params['notice_i18n'] ?? []);
             $noticeImages = $this->encodeNoticeImages($params['notice_images'] ?? '');
+            $avatar = mb_substr(trim((string)($params['avatar'] ?? ($row['avatar'] ?? ''))), 0, 255);
             $status = (int)($params['status'] ?? 1);
             if ($name === '' || $ownerId <= 0) {
                 $this->error('请填写群名称和群主会员ID');
@@ -267,6 +271,7 @@ class Imgroup extends Backend
                 $rpMaxCount = max($rpMinCount, (int)($params['rp_max_count'] ?? $row['rp_max_count'] ?? 10));
                 Db::name('chat_groups')->where('id', $row['id'])->update([
                     'name'                 => mb_substr($name, 0, 64),
+                    'avatar'               => $avatar,
                     'owner_user_id'        => $ownerId,
                     'notice'               => mb_substr($notice, 0, 500),
                     'notice_i18n'          => $noticeI18n,
