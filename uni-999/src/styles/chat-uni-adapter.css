@@ -488,6 +488,49 @@ body.tab-messages #tabMessages .chat-list-pane {
   padding: 0 2px 2px !important;
 }
 
+/* 社群：外层不滚，内部 scroll-view 滚（对齐公告/聊天列表） */
+#tabMessages #chatHomePanelCommunity.chat-home-panel:not(.is-hidden),
+#tabMessages .chat-community-glass:not(.is-hidden) {
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+}
+
+#tabMessages .chat-community-pane,
+#tabMessages .chat-community-pane.active {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+#tabMessages .chat-community-glass .chat-community-seg {
+  flex: 0 0 auto !important;
+}
+
+#tabMessages scroll-view.chat-community-body-scroll,
+#tabMessages .chat-community-body-scroll,
+#tabMessages scroll-view.chat-official-scroll,
+#tabMessages .chat-official-scroll {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: 0 !important;
+  width: 100%;
+}
+
+#tabMessages .chat-community-pane-body,
+#tabMessages .chat-my-groups-list,
+#tabMessages .chat-friend-feed-list,
+#tabMessages .chat-official-list {
+  flex: none !important;
+  height: auto !important;
+  min-height: 0 !important;
+  overflow: visible !important;
+}
+
 #tabMessages .chat-notice-body-scroll {
   flex: 1 1 auto !important;
   min-height: 0 !important;

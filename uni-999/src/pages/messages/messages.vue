@@ -139,7 +139,7 @@
               </view>
 
               <view v-if="communitySub === 'official'" class="chat-community-pane active">
-                <scroll-view scroll-y class="chat-official-scroll">
+                <scroll-view scroll-y class="chat-community-body-scroll" :show-scrollbar="false">
                   <view class="chat-official-list">
                     <view
                       v-for="(g, idx) in communityRecs"
@@ -174,60 +174,64 @@
               </view>
 
               <view v-else-if="communitySub === 'mine'" class="chat-community-pane active">
-                <view class="chat-community-glass-panel chat-community-pane-body">
-                  <view class="chat-my-groups-list">
-                    <view
-                      v-if="canCreateGroup"
-                      class="chat-my-group-item chat-my-group-create"
-                      @click="openCreateGroupPane({ fromCreateCard: true })"
-                    >
-                      <view class="chat-my-group-main">
-                        <view class="chat-my-group-avatar chat-my-group-avatar-plus">+</view>
-                        <view class="chat-my-group-create-text">
-                          <text class="chat-my-group-name">+ 创建我的专属保密对战群</text>
-                          <text class="chat-my-group-sub">零门槛当群主，躺赚群内 1% 发包管理费津贴</text>
+                <scroll-view scroll-y class="chat-community-body-scroll" :show-scrollbar="false">
+                  <view class="chat-community-glass-panel chat-community-pane-body">
+                    <view class="chat-my-groups-list">
+                      <view
+                        v-if="canCreateGroup"
+                        class="chat-my-group-item chat-my-group-create"
+                        @click="openCreateGroupPane({ fromCreateCard: true })"
+                      >
+                        <view class="chat-my-group-main">
+                          <view class="chat-my-group-avatar chat-my-group-avatar-plus">+</view>
+                          <view class="chat-my-group-create-text">
+                            <text class="chat-my-group-name">+ 创建我的专属保密对战群</text>
+                            <text class="chat-my-group-sub">零门槛当群主，躺赚群内 1% 发包管理费津贴</text>
+                          </view>
                         </view>
                       </view>
-                    </view>
-                    <view v-for="g in myGroups" :key="g.id" class="chat-my-group-item" @click="openGroup(g)">
-                      <view class="chat-my-group-main">
-                        <view class="chat-my-group-avatar">
-                          <image :src="avatarSrc(g.avatar)" mode="aspectFill" />
+                      <view v-for="g in myGroups" :key="g.id" class="chat-my-group-item" @click="openGroup(g)">
+                        <view class="chat-my-group-main">
+                          <view class="chat-my-group-avatar">
+                            <image :src="avatarSrc(g.avatar)" mode="aspectFill" />
+                          </view>
+                          <text class="chat-my-group-name">{{ g.name || ('#' + g.id) }}</text>
                         </view>
-                        <text class="chat-my-group-name">{{ g.name || ('#' + g.id) }}</text>
+                        <view class="chat-my-group-count">{{ g.display_member_count || g.member_count || 0 }}<text>人</text></view>
                       </view>
-                      <view class="chat-my-group-count">{{ g.display_member_count || g.member_count || 0 }}<text>人</text></view>
+                      <view v-if="!myGroups.length" class="chat-empty chat-empty-glass">暂无已加入社群</view>
                     </view>
-                    <view v-if="!myGroups.length" class="chat-empty chat-empty-glass">暂无已加入社群</view>
                   </view>
-                </view>
+                </scroll-view>
               </view>
 
               <view v-else class="chat-community-pane active">
-                <view class="chat-community-glass-panel chat-community-pane-body">
-                  <view class="chat-friend-feed-list">
-                    <view
-                      v-for="f in friends"
-                      :key="f.peer_user_id || f.user_id"
-                      class="chat-feed-item"
-                      :class="{ 'is-pinned-cs': !!(f.is_default_cs || f.pinned) }"
-                      @click="openFriendChat(f)"
-                    >
-                      <view class="chat-feed-avatar">
-                        <image :src="avatarSrc(f.avatar)" mode="aspectFill" />
-                        <view class="chat-feed-online-dot" :class="{ off: !f.online }" />
-                      </view>
-                      <view class="chat-feed-body">
-                        <view class="chat-feed-text">
-                          <text v-if="f.is_default_cs || f.pinned" class="chat-feed-pin">📌</text>
-                          {{ friendName(f) }}
+                <scroll-view scroll-y class="chat-community-body-scroll" :show-scrollbar="false">
+                  <view class="chat-community-glass-panel chat-community-pane-body">
+                    <view class="chat-friend-feed-list">
+                      <view
+                        v-for="f in friends"
+                        :key="f.peer_user_id || f.user_id"
+                        class="chat-feed-item"
+                        :class="{ 'is-pinned-cs': !!(f.is_default_cs || f.pinned) }"
+                        @click="openFriendChat(f)"
+                      >
+                        <view class="chat-feed-avatar">
+                          <image :src="avatarSrc(f.avatar)" mode="aspectFill" />
+                          <view class="chat-feed-online-dot" :class="{ off: !f.online }" />
                         </view>
-                        <view class="chat-feed-status" :class="{ on: !!f.online }">{{ f.online ? '刚刚在线' : '暂时离开' }}</view>
+                        <view class="chat-feed-body">
+                          <view class="chat-feed-text">
+                            <text v-if="f.is_default_cs || f.pinned" class="chat-feed-pin">📌</text>
+                            {{ friendName(f) }}
+                          </view>
+                          <view class="chat-feed-status" :class="{ on: !!f.online }">{{ f.online ? '刚刚在线' : '暂时离开' }}</view>
+                        </view>
                       </view>
+                      <view v-if="!friends.length" class="chat-empty chat-empty-glass">暂无好友</view>
                     </view>
-                    <view v-if="!friends.length" class="chat-empty chat-empty-glass">暂无好友</view>
                   </view>
-                </view>
+                </scroll-view>
               </view>
             </view>
 
@@ -1932,10 +1936,11 @@ onHide(() => {
   height: 0;
   width: 100%;
 }
+.chat-community-body-scroll,
 .chat-official-scroll {
   flex: 1 1 auto;
   min-height: 0;
-  height: 100%;
+  height: 0;
   width: 100%;
 }
 .chat-official-list {
