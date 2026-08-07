@@ -1958,12 +1958,55 @@ class RedPacketService
 
     /**
      * 放弃接龙续发（被更新包顶替 / 群超时打断）：清 Redis，关掉待续发标记
+     * 必须同步解冻最差者锁定的续发额，否则 hongbao_frozen 会永久卡死
      */
     protected function abandonRelayRetry($packetId, $reason = '')
     {
         $packetId = (int)$packetId;
         if ($packetId <= 0) {
             return;
+        }
+        // 先解冻：superseded / expire 等路径不会再走「续发前解冻」
+        try {
+            $rows = Db::fetchAll(
+                'SELECT r.id, r.user_id, r.frozen_amount, p.packet_no'
+                . ' FROM ' . Db::table('chat_red_packet_records') . ' r'
+                . ' INNER JOIN ' . Db::table('chat_red_packets') . ' p ON p.id=r.packet_id'
+                . ' WHERE r.packet_id=? AND r.freeze_status=1 AND r.frozen_amount>0',
+                [$packetId]
+            );
+            foreach ($rows ?: [] as $row) {
+                $uid = (int)($row['user_id'] ?? 0);
+                $amt = round((float)($row['frozen_amount'] ?? 0), 2);
+                $rid = (int)($row['id'] ?? 0);
+                if ($uid > 0 && $amt > 0.00001) {
+                    try {
+                        $this->wallet->unfreeze(
+                            $uid,
+                            $amt,
+                            'red_packet_unfreeze',
+                            '红宝接龙放弃续发解冻',
+                            [
+                                'biz_no'   => (string)($row['packet_no'] ?? ''),
+                                'ref_type' => 'red_packet',
+                                'ref_id'   => $packetId,
+                            ]
+                        );
+                    } catch (\Throwable $eUf) {
+                        error_log('[RP_RELAY] abandon unfreeze fail packet=' . $packetId
+                            . ' uid=' . $uid . ' ' . $eUf->getMessage());
+                    }
+                }
+                if ($rid > 0) {
+                    Db::exec(
+                        'UPDATE ' . Db::table('chat_red_packet_records')
+                        . ' SET freeze_status=2 WHERE id=? AND freeze_status=1',
+                        [$rid]
+                    );
+                }
+            }
+        } catch (\Throwable $e) {
+            error_log('[RP_RELAY] abandon unfreeze scan fail packet=' . $packetId . ' ' . $e->getMessage());
         }
         try {
             Db::exec(
