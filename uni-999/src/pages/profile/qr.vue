@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="hb-page profile-sub-page" :key="locale">
     <TopBar :no-spacer="true" />
     <view class="profile-sub-hd">
@@ -24,6 +24,7 @@
 </template>
 
 <script setup>
+import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
 import { ref } from 'vue'
 import TopBar from '../../components/TopBar.vue'
 import { onShow } from '@dcloudio/uni-app'
@@ -37,7 +38,7 @@ const qrDataUrl = ref('')
 const size = 220
 
 function goBack() {
-  uni.navigateBack({ fail: () => uni.switchTab({ url: '/pages/profile/profile' }) })
+  safeNavigateBack(HOME_TAB)
 }
 
 function normalizeId(raw) {

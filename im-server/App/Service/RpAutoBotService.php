@@ -346,7 +346,7 @@ class RpAutoBotService
     /**
      * 每任务同时最多 1 次待执行抢包。
      * 间隔以后台 grab_delay_min/max_ms 为准（默认 5～15 秒）：
-     * - 抢成功/失败后写入冷却，到期前不再安排
+     * - 每次安排抢包前先按该间隔 Timer 等待，再执行
      * - 新包额外尊重真人优先窗（8～12 秒）
      */
     protected function maybeScheduleGrab(array $task, $preferPacketId = 0)
@@ -388,47 +388,44 @@ class RpAutoBotService
             return;
         }
 
+        // 抢前等待 = 后台 grab_delay（默认 5～15 秒）；新包再拉长到真人优先窗
         $coolSec = $this->randomGrabDelaySec($task);
         $packetId = (int)$pair['packet_id'];
         $uid = (int)$pair['user_id'];
         $created = (int)($packets[$packetId]['createtime'] ?? 0);
         $age = $created > 0 ? max(0, time() - $created) : 0;
         $humanNeed = random_int(self::HUMAN_FIRST_MIN_SEC, self::HUMAN_FIRST_MAX_SEC);
-        // 冷却已在 next_at 等待过：此处只补齐「新包真人优先」；否则短延迟触发
-        $delaySec = 0.35;
+        $delaySec = $coolSec;
         if ($age < $humanNeed) {
             $delaySec = max($delaySec, (float)($humanNeed - $age));
         }
-        $delaySec = max(0.35, min(90.0, $delaySec));
+        $delaySec = max((float)self::GRAB_DELAY_FLOOR_SEC, min(120.0, $delaySec));
 
         // 原子占坑：避免 Redis 异常或并发 tick 叠多个 Timer → 看起来像 1 秒连抢
         if (!$this->tryMarkGrabBusy($taskId, (int)ceil($delaySec) + 20)) {
             return;
         }
-        // 先占住「下一次」：即使 Timer 异常，也不会立刻再排
-        $this->setGrabNextAt($taskId, $now + $delaySec + $coolSec);
+        // 占住冷却窗：Timer 触发前不会再排下一枪
+        $this->setGrabNextAt($taskId, $now + $delaySec);
 
         error_log(sprintf(
-            '[RP_AUTO] grab schedule task=%d packet=%d uid=%d delay=%.1fs cool=%.1fs (cfg %d-%dms)',
+            '[RP_AUTO] grab schedule task=%d packet=%d uid=%d delay=%.1fs (cfg %d-%dms)',
             $taskId,
             $packetId,
             $uid,
             $delaySec,
-            $coolSec,
             (int)round($this->grabDelayBounds($task)[0]),
             (int)round($this->grabDelayBounds($task)[1])
         ));
 
-        $taskSnapshot = $task;
-        Timer::add($delaySec, function () use ($taskId, $packetId, $uid, $groupId, $taskSnapshot, $coolSec) {
+        Timer::add($delaySec, function () use ($taskId, $packetId, $uid, $groupId) {
             try {
                 $this->doGrabOnce($taskId, $packetId, $uid, $groupId);
-                // 不再立刻换号连抢；下一次由冷却 + tick 再排，保证间隔
             } catch (\Throwable $e) {
                 $this->touchError($taskId, 'grab u' . $uid . ' p' . $packetId . ': ' . $e->getMessage());
             } finally {
-                $cool = $coolSec > 0 ? $coolSec : $this->randomGrabDelaySec($taskSnapshot);
-                $this->setGrabNextAt($taskId, microtime(true) + $cool);
+                // 短缓冲后由下次 schedule 再按后台间隔 delay，避免抢完立刻叠 Timer
+                $this->setGrabNextAt($taskId, microtime(true) + 0.5);
                 $this->clearGrabBusy($taskId);
             }
         }, [], false);

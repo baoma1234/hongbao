@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="hb-page profile-sub-page" :key="locale">
     <TopBar :no-spacer="true" />
     <view class="profile-sub-hd">
@@ -53,6 +53,7 @@
 </template>
 
 <script setup>
+import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
 import TopBar from '../../components/TopBar.vue'
 import { computed, onUnmounted, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
@@ -89,7 +90,7 @@ const btnText = computed(() =>
 )
 
 function goBack() {
-  uni.navigateBack({ fail: () => uni.switchTab({ url: '/pages/profile/profile' }) })
+  safeNavigateBack(HOME_TAB)
 }
 
 function clearSmsTimer() {

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="hb-page profile-sub-page">
     <TopBar :no-spacer="true" />
     <view class="profile-sub-hd">
@@ -86,6 +86,7 @@
 </template>
 
 <script setup>
+import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
 import { computed, ref, watch } from 'vue'
 import TopBar from '../../components/TopBar.vue'
 import WalletChannelIcon from '../../components/WalletChannelIcon.vue'
@@ -112,7 +113,7 @@ import {
 import '../../styles/hb.css'
 
 function goBack() {
-  uni.navigateBack({ fail: () => uni.switchTab({ url: '/pages/profile/profile' }) })
+  safeNavigateBack(HOME_TAB)
 }
 
 const loading = ref(false)

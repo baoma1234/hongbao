@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="fv-page">
     <TopBar :no-spacer="true" />
     <view class="fv-hd profile-sub-hd">
@@ -114,6 +114,7 @@
 </template>
 
 <script setup>
+import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
 import { computed, onUnmounted, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
@@ -184,9 +185,7 @@ function tronStatusLabel(st) {
 }
 
 function goBack() {
-  uni.navigateBack({
-    fail: () => uni.switchTab({ url: '/pages/messages/messages' }),
-  })
+  safeNavigateBack(HOME_TAB)
 }
 
 function openUrl(url) {

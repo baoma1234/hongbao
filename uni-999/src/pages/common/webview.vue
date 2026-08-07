@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="hb-page webview-page">
     <TopBar :no-spacer="true" />
     <view class="profile-sub-hd">
@@ -20,6 +20,7 @@
 </template>
 
 <script setup>
+import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
@@ -30,7 +31,7 @@ const title = ref('详情')
 const iframeSrc = ref('')
 
 function goBack() {
-  uni.navigateBack({ fail: () => uni.switchTab({ url: '/pages/messages/messages' }) })
+  safeNavigateBack(HOME_TAB)
 }
 
 function resolveUrl(raw) {

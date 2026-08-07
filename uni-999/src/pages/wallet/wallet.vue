@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="hb-page profile-sub-page">
     <TopBar :no-spacer="true" />
     <view class="profile-sub-hd">
@@ -86,6 +86,7 @@
 </template>
 
 <script setup>
+import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
 import { computed, ref } from 'vue'
 import TopBar from '../../components/TopBar.vue'
 import { onShow } from '@dcloudio/uni-app'
@@ -111,7 +112,7 @@ const turnoverText = computed(() => money((info.value && info.value.turnover) ||
 const turnHint = computed(() => turnoverHint(info.value))
 
 function goBack() {
-  uni.navigateBack({ fail: () => uni.switchTab({ url: '/pages/profile/profile' }) })
+  safeNavigateBack(HOME_TAB)
 }
 
 function go(which) {

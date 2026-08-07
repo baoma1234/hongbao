@@ -34,6 +34,7 @@
 </template>
 
 <script setup>
+import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
 import { ref } from 'vue'
 import TopBar from '../../components/TopBar.vue'
 import { onShow } from '@dcloudio/uni-app'
@@ -53,7 +54,7 @@ const avatar = ref('')
 const busy = ref(false)
 
 function goBack() {
-  uni.navigateBack({ fail: () => uni.switchTab({ url: '/pages/profile/profile' }) })
+  safeNavigateBack(HOME_TAB)
 }
 
 async function load() {

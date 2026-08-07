@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="chat-group-settings-page">
     <TopBar :no-spacer="true" />
     <view class="chat-hero-hd">
@@ -278,6 +278,7 @@
 </template>
 
 <script setup>
+import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
 import { computed, reactive, ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
@@ -302,7 +303,7 @@ import '../../styles/chat-uni-adapter.css'
 import '../../styles/chat-888-parity.css'
 
 function goBack() {
-  uni.navigateBack({ fail: () => uni.switchTab({ url: '/pages/messages/messages' }) })
+  safeNavigateBack(HOME_TAB)
 }
 
 const groupId = ref(0)

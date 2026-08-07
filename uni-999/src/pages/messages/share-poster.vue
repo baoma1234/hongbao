@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="chat-share-poster-page" :key="locale">
     <view class="chat-hero-hd">
       <view class="chat-hero-back" @click="goBack">‹</view>
@@ -30,6 +30,7 @@
 </template>
 
 <script setup>
+import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
 import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { apiRequest, getToken } from '../../utils/auth.js'
@@ -43,7 +44,7 @@ const qrDataUrl = ref('')
 const loading = ref(false)
 
 function goBack() {
-  uni.navigateBack({ fail: () => uni.switchTab({ url: '/pages/messages/messages' }) })
+  safeNavigateBack(HOME_TAB)
 }
 
 function buildInviteDownloadLink(link, code) {

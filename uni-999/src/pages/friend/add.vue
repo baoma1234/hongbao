@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="chat-shell chat-friend-page">
     <TopBar :no-spacer="true" />
     <view class="chat-hero-hd">
@@ -56,6 +56,7 @@
 </template>
 
 <script setup>
+import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
 import { ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
@@ -87,7 +88,7 @@ function onDial(e) {
 }
 
 function goBack() {
-  uni.navigateBack({ fail: () => uni.switchTab({ url: '/pages/messages/messages' }) })
+  safeNavigateBack(HOME_TAB)
 }
 
 function goRequests() {

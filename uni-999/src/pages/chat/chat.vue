@@ -591,7 +591,12 @@ import {
   publicUrl,
   recallTip,
 } from '../../utils/chat.js'
-import { clearActiveChat, getActiveChat, saveActiveChat } from '../../utils/chat-route.js'
+import {
+  clearActiveChat,
+  getActiveChat,
+  saveActiveChat,
+} from '../../utils/chat-route.js'
+import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
 import { COMMON_EMOJIS, loadEmojiTree } from '../../utils/emoji.js'
 import { setInboxMyId, noteConversationRead } from '../../utils/im-inbox.js'
 import { playOpenRedPacketSound } from '../../utils/notify-sound.js'
@@ -1181,7 +1186,17 @@ function formatRpTime(ts) {
   if (!n) return ''
   const d = new Date(n < 1e12 ? n * 1000 : n)
   const p = (x) => (x < 10 ? '0' + x : '' + x)
-  return p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes())
+  return (
+    p(d.getMonth() + 1) +
+    '-' +
+    p(d.getDate()) +
+    ' ' +
+    p(d.getHours()) +
+    ':' +
+    p(d.getMinutes()) +
+    ':' +
+    p(d.getSeconds())
+  )
 }
 
 function openTronVerify() {
@@ -2244,13 +2259,8 @@ async function goBack() {
     await markRead()
   } catch (e) {}
   clearActiveChat()
-  // 聊天页常被 reLaunch 打开，navigateBack 可能无历史；直接回红宝 Tab 最稳
-  uni.switchTab({
-    url: '/pages/messages/messages',
-    fail() {
-      uni.reLaunch({ url: '/pages/messages/messages' })
-    },
-  })
+  // 有历史则返回上一级；刷新后无栈则回首页
+  safeNavigateBack(HOME_TAB)
 }
 
 function openMore() {

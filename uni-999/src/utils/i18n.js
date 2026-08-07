@@ -79,6 +79,30 @@ const BOOT_COPY = {
     slider_ok_sms: '验证通过，正在发送验证码…',
     profile_logout_btn: '退出登录',
     loading_generic: '加载中...',
+    profile_vip_badge: '官方会员',
+    profile_user_id_label: '会员ID',
+    profile_uid_copy_btn: '复制',
+    profile_mobile_label: '绑定手机',
+    profile_quick_qr: '二维码',
+    profile_quick_scan: '扫一扫',
+    profile_quick_recharge: '充值',
+    profile_quick_withdraw: '提现',
+    profile_section_asset: '资产服务',
+    profile_menu_payee: '钱包地址',
+    profile_menu_payee_sub: '绑定银行卡与数字钱包',
+    profile_menu_ledger: '资金流水',
+    profile_menu_ledger_sub: '红宝与股份变动明细',
+    profile_section_security: '账号与安全',
+    profile_menu_info: '头像与昵称',
+    profile_menu_info_sub: '修改头像、昵称',
+    profile_menu_password: '修改密码',
+    profile_menu_password_sub: '旧密码或短信验证',
+    profile_menu_pay_password: '支付密码',
+    profile_menu_pay_password_sub: '提现与绑定地址校验',
+    profile_foot_note: '红宝官方 · 会员中心',
+    profile_uid_copy_empty: '暂无会员ID',
+    profile_uid_copied: '已复制',
+    profile_logout_confirm: '确定退出当前账号？',
   },
   'en-PH': {
     brand_name: 'Hongbao',
@@ -115,6 +139,30 @@ const BOOT_COPY = {
     login_submit_btn: 'Enter welfare hall',
     profile_logout_btn: 'Log out',
     loading_generic: 'Loading...',
+    profile_vip_badge: 'Official member',
+    profile_user_id_label: 'Member ID',
+    profile_uid_copy_btn: 'Copy',
+    profile_mobile_label: 'Mobile',
+    profile_quick_qr: 'QR code',
+    profile_quick_scan: 'Scan',
+    profile_quick_recharge: 'Top up',
+    profile_quick_withdraw: 'Withdraw',
+    profile_section_asset: 'Assets',
+    profile_menu_payee: 'Wallet address',
+    profile_menu_payee_sub: 'Bank cards & crypto wallets',
+    profile_menu_ledger: 'Ledger',
+    profile_menu_ledger_sub: 'Hongbao & share changes',
+    profile_section_security: 'Account & security',
+    profile_menu_info: 'Avatar & nickname',
+    profile_menu_info_sub: 'Update avatar, nickname',
+    profile_menu_password: 'Change password',
+    profile_menu_password_sub: 'Old password or SMS',
+    profile_menu_pay_password: 'Payment password',
+    profile_menu_pay_password_sub: 'For withdraw & binding',
+    profile_foot_note: 'Hongbao · Member center',
+    profile_uid_copy_empty: 'No member ID',
+    profile_uid_copied: 'Copied',
+    profile_logout_confirm: 'Log out of this account?',
   },
 }
 
@@ -264,6 +312,7 @@ export function ensureLocaleLoaded(locale) {
     const tryNext = () => {
       if (i >= urls.length) {
         if (!packs[loc]) packs[loc] = Object.assign({}, BOOT_COPY[loc] || BOOT_COPY[DEFAULT_LOCALE] || {})
+        copyTick.value++
         delete loadPromises[loc]
         resolve(loc)
         return
@@ -280,6 +329,7 @@ export function ensureLocaleLoaded(locale) {
           if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 50) {
             packs[loc] = Object.assign({}, BOOT_COPY[loc] || {}, parsed)
             fullLoaded[loc] = true
+            copyTick.value++
             delete loadPromises[loc]
             resolve(loc)
             return
@@ -344,6 +394,7 @@ export async function initI18n() {
     await ensureLocaleLoaded(loc)
   }
   readyRef.value = true
+  copyTick.value++
   // #ifdef H5
   if (typeof document !== 'undefined' && document.documentElement) {
     document.documentElement.lang = loc
