@@ -1,5 +1,6 @@
 import { getDeviceFp, getToken, goLoginIfUnauthorized } from './auth.js'
 import { getApiBase, getImWsBase } from './config.js'
+import { calcReconnectDelayMs } from './reconnect-backoff.js'
 
 let socketTask = null
 let socketOpen = false
@@ -417,9 +418,8 @@ function scheduleReconnect() {
   if (intentionalClose || reconnectTimer) return
   if (!getToken()) return
   reconnectAttempt = (reconnectAttempt | 0) + 1
-  const n = Math.min(reconnectAttempt | 0, 6)
-  // 2s → 4s → 8s → 16s → 30s…，避免断线风暴
-  const delay = Math.min(30000, 2000 * Math.pow(2, Math.max(0, n - 1)))
+  // 指数退避 + 抖动，避免断线风暴齐刷
+  const delay = calcReconnectDelayMs(reconnectAttempt)
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null
     imConnect().catch(() => {})
