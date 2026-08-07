@@ -426,9 +426,16 @@ class Upload
         // 阿里云双写：本地已落盘，再同步 OSS；失败不阻断上传（本地仍可用）
         try {
             if (class_exists('\\app\\common\\library\\OssService') && \app\common\library\OssService::dualWrite()) {
-                \app\common\library\OssService::syncAfterLocalUpload($attachment);
+                $synced = \app\common\library\OssService::syncAfterLocalUpload($attachment);
+                if (!$synced) {
+                    \think\Log::error('[oss] dual-write miss url=' . (string)$attachment->url);
+                }
             }
         } catch (\Throwable $e) {
+            try {
+                \think\Log::error('[oss] dual-write exception: ' . $e->getMessage());
+            } catch (\Throwable $e2) {
+            }
         }
 
         \think\Hook::listen("upload_after", $attachment);

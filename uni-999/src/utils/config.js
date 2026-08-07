@@ -34,8 +34,13 @@ function applyFields(apiUri, socketUri, imgUri) {
   const prevWs = String(cfg.IM_WS_URL || '')
   if (api) cfg.API_BASE = api
   if (sock) cfg.IM_WS_URL = sock
-  if (img) cfg.IMG_BASE = img
-  else if (api) cfg.IMG_BASE = api
+  if (img) {
+    cfg.IMG_BASE = img
+    // 远端 imgUri 已是 OSS 时，直接作为 upload_cdn，避免再走本站
+    if (isOssHostUrl(img)) cfg.UPLOAD_CDN = img
+  } else if (api) {
+    cfg.IMG_BASE = api
+  }
   return prevWs !== String(cfg.IM_WS_URL || '')
 }
 

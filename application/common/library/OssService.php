@@ -174,6 +174,10 @@ class OssService
         }
         $local = ROOT_PATH . 'public' . str_replace('/', DS, $url);
         if (!is_file($local)) {
+            try {
+                Log::error('[oss] dual-write local missing path=' . $local);
+            } catch (\Throwable $e) {
+            }
             return false;
         }
         $ok = self::putLocalFile($local, self::objectKeyFromUrl($url));
