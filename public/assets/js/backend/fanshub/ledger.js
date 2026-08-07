@@ -33,6 +33,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                     {field: 'hongbao_change', title: '红宝变动', operate: false},
                     {field: 'rights_after', title: '股份结余'},
                     {field: 'hongbao_after', title: '红宝结余', operate: false},
+                    {field: 'biz_no', title: '红宝号', operate: 'LIKE'},
                     {field: 'remark', title: '备注', operate: 'LIKE'},
                     {field: 'channel', title: '通道', operate: 'LIKE'},
                     {field: 'createtime', title: '时间', operate: 'RANGE', addclass: 'datetimerange', formatter: Table.api.formatter.datetime}

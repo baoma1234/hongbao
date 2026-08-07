@@ -46,6 +46,12 @@ class Ledger extends Backend
                 if ($row->getRelation('user')) {
                     $row->getRelation('user')->visible(['id', 'mobile']);
                 }
+                $row->remark = \app\common\library\FansHubWallet::enrichLedgerRemark(
+                    (string)$row->remark,
+                    (string)($row->biz_no ?? ''),
+                    (string)($row->ref_type ?? ''),
+                    (string)($row->type ?? '')
+                );
             }
             $result = ['total' => $list->total(), 'rows' => $list->items()];
             return json($result);
@@ -63,6 +69,12 @@ class Ledger extends Backend
         $typeList = $this->model->getTypeList();
         $data = [];
         foreach ($rows as $row) {
+            $remark = \app\common\library\FansHubWallet::enrichLedgerRemark(
+                (string)$row->remark,
+                (string)($row->biz_no ?? ''),
+                (string)($row->ref_type ?? ''),
+                (string)($row->type ?? '')
+            );
             $data[] = [
                 $row->id,
                 $row->user_id,
@@ -77,13 +89,14 @@ class Ledger extends Backend
                 (isset($row->hongbao_after) && $row->hongbao_after !== null && $row->hongbao_after !== '')
                     ? $row->hongbao_after
                     : $row->balance_after,
-                $row->remark,
+                (string)($row->biz_no ?? ''),
+                $remark,
                 $row->channel,
                 $row->createtime ? date('Y-m-d H:i:s', $row->createtime) : '',
             ];
         }
         $this->exportXlsx('fanshub_ledger_' . date('Ymd_His'), [
-            'ID', '会员ID', '手机号', '类型', '股份变动', '红宝变动', '股份结余', '红宝结余', '备注', '通道', '时间',
+            'ID', '会员ID', '手机号', '类型', '股份变动', '红宝变动', '股份结余', '红宝结余', '红宝号', '备注', '通道', '时间',
         ], $data);
     }
 }

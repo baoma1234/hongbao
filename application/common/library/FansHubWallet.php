@@ -114,6 +114,40 @@ class FansHubWallet
     }
 
     /**
+     * 流水备注补全红宝号（兼容旧数据：biz_no 已存 packet_no 但 remark 未带）
+     */
+    public static function enrichLedgerRemark($remark, $bizNo = '', $refType = '', $type = '')
+    {
+        $remark = trim((string)$remark);
+        $bizNo = trim((string)$bizNo);
+        $refType = trim((string)$refType);
+        $type = trim((string)$type);
+        $isRp = ($refType === 'red_packet')
+            || ($bizNo !== '' && strpos($type, 'red_packet_') === 0)
+            || ($type !== '' && strpos($type, 'red_packet_') === 0);
+        if ($bizNo === '' || !$isRp) {
+            // 类型是红包相关但无 biz_no 时不硬造
+            if ($bizNo === '') {
+                return $remark;
+            }
+            // channel 也可能是 im_red_packet；有 biz_no 且 type 含 red_packet 才补
+            if (strpos($type, 'red_packet_') !== 0) {
+                return $remark;
+            }
+        }
+        if ($remark !== '' && (
+            strpos($remark, $bizNo) !== false
+            || preg_match('/红宝号\s*[:：]/u', $remark)
+        )) {
+            return $remark;
+        }
+        if ($remark === '') {
+            return '红宝号:' . $bizNo;
+        }
+        return $remark . ' 红宝号:' . $bizNo;
+    }
+
+    /**
      * 会员资金流水列表
      * @param array $opts category=rebate|hongbao_in|refund
      */
@@ -150,6 +184,12 @@ class FansHubWallet
             $bal = round((float)($row['balance_change'] ?? 0), 2);
             $rights = round((float)($row['rights_change'] ?? 0), 2);
             $hongbao = round((float)($row['hongbao_change'] ?? 0), 2);
+            $remark = self::enrichLedgerRemark(
+                (string)($row['remark'] ?? ''),
+                (string)($row['biz_no'] ?? ''),
+                (string)($row['ref_type'] ?? ''),
+                $type
+            );
             $list[] = [
                 'id'              => (int)$row['id'],
                 'type'            => $type,
@@ -160,7 +200,8 @@ class FansHubWallet
                 'balance_after'   => round((float)($row['balance_after'] ?? 0), 2),
                 'rights_after'    => round((float)($row['rights_after'] ?? 0), 2),
                 'hongbao_after'   => round((float)($row['hongbao_after'] ?? 0), 2),
-                'remark'          => (string)($row['remark'] ?? ''),
+                'remark'          => $remark,
+                'biz_no'          => (string)($row['biz_no'] ?? ''),
                 'channel'         => (string)($row['channel'] ?? ''),
                 'createtime'      => (int)($row['createtime'] ?? 0),
             ];

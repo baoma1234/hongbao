@@ -272,6 +272,7 @@ class WalletService
         $refId = (int)($meta['ref_id'] ?? 0);
         $field = $this->cfg['field'];
         $useHongbaoLedger = ($field === 'hongbao');
+        $remark = $this->appendPacketNoToRemark((string)$remark, $meta);
         Db::exec(
             'INSERT INTO ' . Db::table($this->cfg['ledger_table'])
             . ' (user_id,type,rights_change,balance_change,hongbao_change,rights_after,balance_after,hongbao_after,remark,channel,biz_no,ref_type,ref_id,admin_id,createtime)'
@@ -285,7 +286,7 @@ class WalletService
                 sprintf('%.2f', $rightsAfter),
                 $useHongbaoLedger ? '0.00' : sprintf('%.2f', $after),
                 $useHongbaoLedger ? sprintf('%.2f', $after) : '0.00',
-                mb_substr((string)$remark, 0, 255),
+                mb_substr($remark, 0, 255),
                 'im_red_packet',
                 $bizNo,
                 $refType,
@@ -295,6 +296,31 @@ class WalletService
             ]
         );
         return (int)Db::lastId();
+    }
+
+    /**
+     * 红包相关流水备注统一带上红宝号，便于前后台对账检索
+     */
+    protected function appendPacketNoToRemark($remark, array $meta)
+    {
+        $remark = trim((string)$remark);
+        $packetNo = trim((string)($meta['packet_no'] ?? ''));
+        if ($packetNo === '' && (string)($meta['ref_type'] ?? '') === 'red_packet') {
+            $packetNo = trim((string)($meta['biz_no'] ?? ''));
+        }
+        if ($packetNo === '') {
+            return $remark;
+        }
+        if ($remark !== '' && (
+            strpos($remark, $packetNo) !== false
+            || preg_match('/红宝号\s*[:：]/u', $remark)
+        )) {
+            return $remark;
+        }
+        if ($remark === '') {
+            return '红宝号:' . $packetNo;
+        }
+        return $remark . ' 红宝号:' . $packetNo;
     }
 
     /**
