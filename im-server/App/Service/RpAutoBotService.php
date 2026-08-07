@@ -43,6 +43,9 @@ class RpAutoBotService
     /** @var int */
     protected $taskCacheAt = 0;
 
+    /** @var array<string,int> 跳过类日志节流：key → lastTs */
+    protected $skipLogAt = [];
+
     public function __construct(RedPacketService $redPackets, GroupService $groups)
     {
         $this->redPackets = $redPackets;
@@ -72,19 +75,27 @@ class RpAutoBotService
     {
         $this->heartbeat();
         $tasks = $this->loadTasks();
+        // 常规 tick 不刷盘；仅任务数为 0 时提示（每分钟一次）
+        if (!$tasks) {
+            $this->taskLogThrottled(0, 'idle', 'info', 'tick: no enabled tasks', [], 60);
+        }
         foreach ($tasks as $task) {
             $taskId = (int)($task['id'] ?? 0);
             if ($taskId <= 0) {
                 continue;
             }
             if (!$this->tryLock($taskId, 4)) {
+                $this->taskLogThrottled($taskId, 'lock', 'skip', 'lock busy, skip this tick', [], 30);
                 continue;
             }
             try {
                 $this->runOne($task);
             } catch (\Throwable $e) {
                 $this->touchError($taskId, $e->getMessage());
-                error_log('[RP_AUTO] task#' . $taskId . ' ' . $e->getMessage());
+                $this->taskLog($taskId, 'error', 'runOne exception: ' . $e->getMessage(), [
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                ]);
             } finally {
                 $this->unlock($taskId);
             }
@@ -96,6 +107,7 @@ class RpAutoBotService
         $taskId = (int)$task['id'];
         $groupId = (int)$task['group_id'];
         if ($groupId <= 0) {
+            $this->taskLog($taskId, 'skip', 'invalid group_id');
             return;
         }
 
@@ -108,6 +120,7 @@ class RpAutoBotService
             );
             $task['today_count'] = 0;
             $task['today_date'] = $today;
+            $this->taskLog($taskId, 'info', 'reset today_count for ' . $today);
         }
 
         $packetId = 0;
@@ -141,6 +154,12 @@ class RpAutoBotService
         if ($useBurst) {
             $gate = $this->burstGate($task, $now);
             if (!$gate['ok']) {
+                $this->taskLogThrottled($taskId, 'burst', 'skip', 'burst gate closed', [
+                    'burst_sent'    => (int)($gate['task']['burst_sent'] ?? 0),
+                    'burst_count'   => $burstCount,
+                    'burst_next_at' => (int)($gate['task']['burst_next_at'] ?? 0),
+                    'window_sec'    => $burstWindow,
+                ], 30);
                 return ['sent' => false, 'packet_id' => 0];
             }
             $task = $gate['task'];
@@ -148,19 +167,36 @@ class RpAutoBotService
             $interval = $this->effectiveIntervalSec((int)($task['interval_sec'] ?? 60));
             $last = (int)($task['last_send_time'] ?? 0);
             if ($last > 0 && ($now - $last) < $interval) {
+                $this->taskLogThrottled($taskId, 'interval', 'skip', 'interval not reached', [
+                    'last_send' => $last,
+                    'wait_sec'  => $interval - ($now - $last),
+                    'interval'  => $interval,
+                ], 45);
                 return ['sent' => false, 'packet_id' => 0];
             }
         }
 
         $maxDay = (int)($task['max_per_day'] ?? 0);
         if ($maxDay > 0 && (int)($task['today_count'] ?? 0) >= $maxDay) {
+            $this->taskLog($taskId, 'skip', 'max_per_day reached', [
+                'today_count' => (int)$task['today_count'],
+                'max_per_day' => $maxDay,
+            ]);
             return ['sent' => false, 'packet_id' => 0];
         }
-        if ($this->countOpenPackets($groupId) > 0) {
+        $openCnt = $this->countOpenPackets($groupId);
+        if ($openCnt > 0) {
+            $this->taskLogThrottled($taskId, 'open', 'skip', 'group has open packets', [
+                'group_id' => $groupId,
+                'open'     => $openCnt,
+            ], 30);
             return ['sent' => false, 'packet_id' => 0];
         }
         // 接龙：上一包已抢完、正等「最少者」续发时，禁止机器人插队发包
         if ($this->hasPendingRelay($groupId)) {
+            $this->taskLogThrottled($taskId, 'relay', 'skip', 'pending relay next round', [
+                'group_id' => $groupId,
+            ], 30);
             return ['sent' => false, 'packet_id' => 0];
         }
 
@@ -253,18 +289,15 @@ class RpAutoBotService
         );
         $this->bustTaskCache();
 
-        error_log(sprintf(
-            '[RP_AUTO] send ok task=%d group=%d type=%d uid=%d mine=%d amount=%.2f burst=%d/%d packet=%d',
-            $taskId,
-            $groupId,
-            $packetType,
-            $sendUid,
-            $mineDigit,
-            $amount,
-            $useBurst ? $burstSent : 0,
-            $useBurst ? $burstCount : 0,
-            $packetId
-        ));
+        $this->taskLog($taskId, 'ok', 'send ok', [
+            'group_id'    => $groupId,
+            'packet_type' => $packetType,
+            'uid'         => $sendUid,
+            'mine'        => $mineDigit,
+            'amount'      => $amount,
+            'burst'       => $useBurst ? ($burstSent . '/' . $burstCount) : '0',
+            'packet_id'   => $packetId,
+        ]);
 
         return ['sent' => true, 'packet_id' => $packetId];
     }
@@ -355,14 +388,19 @@ class RpAutoBotService
         $groupId = (int)$task['group_id'];
         $uids = $this->parseUserIds((string)($task['grab_user_ids'] ?? ''));
         if (!$uids) {
+            $this->taskLog($taskId, 'skip', 'grab: no grab_user_ids');
             return;
         }
         if ($this->isGrabBusy($taskId)) {
+            $this->taskLogThrottled($taskId, 'grab_busy', 'skip', 'grab: busy', [], 20);
             return;
         }
         $now = microtime(true);
         $nextAt = $this->getGrabNextAt($taskId);
         if ($nextAt > $now + 0.05) {
+            $this->taskLogThrottled($taskId, 'grab_cool', 'skip', 'grab: cooling', [
+                'wait_sec' => round($nextAt - $now, 2),
+            ], 20);
             return;
         }
 
@@ -380,11 +418,18 @@ class RpAutoBotService
             }
         }
         if (!$packets) {
+            $this->taskLogThrottled($taskId, 'grab_nopkt', 'skip', 'grab: no open packets', [
+                'group_id' => $groupId,
+            ], 30);
             return;
         }
 
         $pair = $this->pickGrabPair(array_keys($packets), $uids);
         if (!$pair) {
+            $this->taskLogThrottled($taskId, 'grab_nouid', 'skip', 'grab: no uid left for open packets', [
+                'packets' => array_keys($packets),
+                'uids'    => $uids,
+            ], 30);
             return;
         }
 
@@ -403,26 +448,28 @@ class RpAutoBotService
 
         // 原子占坑：避免 Redis 异常或并发 tick 叠多个 Timer → 看起来像 1 秒连抢
         if (!$this->tryMarkGrabBusy($taskId, (int)ceil($delaySec) + 20)) {
+            $this->taskLog($taskId, 'skip', 'grab: mark busy failed');
             return;
         }
         // 占住冷却窗：Timer 触发前不会再排下一枪
         $this->setGrabNextAt($taskId, $now + $delaySec);
 
-        error_log(sprintf(
-            '[RP_AUTO] grab schedule task=%d packet=%d uid=%d delay=%.1fs (cfg %d-%dms)',
-            $taskId,
-            $packetId,
-            $uid,
-            $delaySec,
-            (int)round($this->grabDelayBounds($task)[0]),
-            (int)round($this->grabDelayBounds($task)[1])
-        ));
+        $this->taskLog($taskId, 'info', 'grab scheduled', [
+            'packet_id' => $packetId,
+            'uid'       => $uid,
+            'delay_sec' => round($delaySec, 1),
+            'cfg_ms'    => $this->grabDelayBounds($task),
+        ]);
 
         Timer::add($delaySec, function () use ($taskId, $packetId, $uid, $groupId) {
             try {
                 $this->doGrabOnce($taskId, $packetId, $uid, $groupId);
             } catch (\Throwable $e) {
                 $this->touchError($taskId, 'grab u' . $uid . ' p' . $packetId . ': ' . $e->getMessage());
+                $this->taskLog($taskId, 'error', 'grab timer: ' . $e->getMessage(), [
+                    'packet_id' => $packetId,
+                    'uid'       => $uid,
+                ]);
             } finally {
                 // 短缓冲后由下次 schedule 再按后台间隔 delay，避免抢完立刻叠 Timer
                 $this->setGrabNextAt($taskId, microtime(true) + 0.5);
@@ -599,6 +646,11 @@ class RpAutoBotService
                 $need
             ));
             $this->touchError($taskId, 'grab precheck balance uid=' . $uid . ' need=' . sprintf('%.2f', $need));
+            $this->taskLog($taskId, 'skip', 'grab precheck balance', [
+                'packet_id' => $packetId,
+                'uid'       => $uid,
+                'need'      => $need,
+            ]);
             return false;
         }
         $gid = (int)($open['group_id'] ?? $groupId);
@@ -628,9 +680,19 @@ class RpAutoBotService
                     $msg
                 ));
                 $this->touchError($taskId, 'grab balance: uid=' . $uid . ' ' . $msg);
+                $this->taskLog($taskId, 'skip', 'grab balance reject', [
+                    'packet_id' => $packetId,
+                    'uid'       => $uid,
+                    'err'       => $msg,
+                ]);
                 return false;
             }
             if ($this->isSoftGrabError($msg)) {
+                $this->taskLog($taskId, 'skip', 'grab soft error', [
+                    'packet_id' => $packetId,
+                    'uid'       => $uid,
+                    'err'       => $msg,
+                ]);
                 return false;
             }
             throw $e;
@@ -650,13 +712,12 @@ class RpAutoBotService
             }
         }
         $frozen = round((float)($result['frozen_amount'] ?? 0), 2);
-        error_log(sprintf(
-            '[RP_AUTO] grab ok task=%d packet=%d uid=%d frozen=%.2f',
-            $taskId,
-            $packetId,
-            $uid,
-            $frozen
-        ));
+        $this->taskLog($taskId, 'ok', 'grab ok', [
+            'packet_id' => $packetId,
+            'uid'       => $uid,
+            'frozen'    => $frozen,
+            'amount'    => $result['amount'] ?? null,
+        ]);
         return true;
     }
 
@@ -934,5 +995,66 @@ class RpAutoBotService
             );
         } catch (\Throwable $e) {
         }
+        $this->taskLog($taskId, 'error', (string)$msg);
+    }
+
+    /**
+     * 每个任务单独写日志：im-server/runtime/log/rp_auto/task_{id}_YYYYMMDD.log
+     * taskId=0 写到 tick_YYYYMMDD.log
+     *
+     * @param int    $taskId
+     * @param string $level  info|ok|skip|error
+     * @param string $msg
+     * @param array  $ctx
+     */
+    protected function taskLog($taskId, $level, $msg, array $ctx = [])
+    {
+        $taskId = (int)$taskId;
+        $level = (string)$level;
+        $msg = (string)$msg;
+        $prefix = $taskId > 0 ? ('[RP_AUTO][t' . $taskId . ']') : '[RP_AUTO][tick]';
+        $lineMsg = $prefix . ' [' . $level . '] ' . $msg;
+        if ($ctx) {
+            $json = json_encode($ctx, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            if ($json !== false) {
+                $lineMsg .= ' ' . $json;
+            }
+        }
+        // ok/error 进 php error_log；常规 skip 只写任务文件，避免刷屏
+        if ($level === 'ok' || $level === 'error' || $level === 'info') {
+            error_log($lineMsg);
+        }
+
+        try {
+            $dir = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR
+                . 'log' . DIRECTORY_SEPARATOR . 'rp_auto';
+            if (!is_dir($dir)) {
+                @mkdir($dir, 0755, true);
+            }
+            $file = $dir . DIRECTORY_SEPARATOR
+                . ($taskId > 0 ? ('task_' . $taskId . '_') : 'tick_')
+                . date('Ymd') . '.log';
+            $line = date('Y-m-d H:i:s') . ' [' . strtoupper($level) . '] ' . $msg;
+            if ($ctx) {
+                $json = json_encode($ctx, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                if ($json !== false) {
+                    $line .= ' ' . $json;
+                }
+            }
+            @file_put_contents($file, $line . "\n", FILE_APPEND | LOCK_EX);
+        } catch (\Throwable $e) {
+        }
+    }
+
+    /** 同类 skip 节流，避免 2s tick 刷盘 */
+    protected function taskLogThrottled($taskId, $reasonKey, $level, $msg, array $ctx = [], $ttlSec = 30)
+    {
+        $key = ((int)$taskId) . ':' . (string)$reasonKey;
+        $now = time();
+        if (isset($this->skipLogAt[$key]) && ($now - $this->skipLogAt[$key]) < max(5, (int)$ttlSec)) {
+            return;
+        }
+        $this->skipLogAt[$key] = $now;
+        $this->taskLog($taskId, $level, $msg, $ctx);
     }
 }

@@ -484,8 +484,7 @@
               :class="{ 'is-safe': mineSettleSafe }"
             >{{ mineSettleTip }}</view>
           </view>
-          <scroll-view
-            scroll-y
+          <view
             class="chat-rp-detail-list"
             :class="{ 'is-open': !detailLocked, 'is-private': detailLocked }"
           >
@@ -525,7 +524,7 @@
             </view>
             <view v-if="!detailRecords.length" class="chat-empty chat-rp-claims-hidden">{{ claimsEmptyTip }}</view>
             <view v-else-if="othersHiddenTip" class="chat-empty chat-rp-claims-hidden">{{ othersHiddenTip }}</view>
-          </scroll-view>
+          </view>
           <!-- 领完/过期后：验证区与隐私提示放在领取列表下方 -->
           <view v-if="detail" class="chat-rp-detail-foot">
             <template v-if="canFairVerify && (detailFairHash || detailTronBlock)">

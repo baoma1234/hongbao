@@ -100,6 +100,121 @@ class Redpacketauto extends Backend
         }
     }
 
+    /**
+     * 一键重启聊天服务（执行 im-server/scripts/restart-all.sh 或 Windows .ps1）
+     */
+    public function restartim()
+    {
+        if (!$this->request->isPost()) {
+            $this->error('请使用 POST 请求');
+        }
+        $scriptDir = ROOT_PATH . 'im-server' . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR;
+        $isWin = stripos(PHP_OS, 'WIN') === 0;
+        if ($isWin) {
+            $script = $scriptDir . 'restart-all.ps1';
+            if (!is_file($script)) {
+                $this->error('找不到脚本: ' . $script);
+            }
+            $cmd = 'powershell -NoProfile -ExecutionPolicy Bypass -File ' . escapeshellarg($script);
+        } else {
+            $script = $scriptDir . 'restart-all.sh';
+            if (!is_file($script)) {
+                $this->error('找不到脚本: ' . $script);
+            }
+            $cmd = 'bash ' . escapeshellarg($script);
+        }
+
+        $logDir = ROOT_PATH . 'runtime' . DIRECTORY_SEPARATOR . 'log';
+        if (!is_dir($logDir)) {
+            @mkdir($logDir, 0755, true);
+        }
+        $logFile = $logDir . DIRECTORY_SEPARATOR . 'im_restart_' . date('Ymd_His') . '.log';
+
+        $desc = [
+            0 => ['pipe', 'r'],
+            1 => ['file', $logFile, 'a'],
+            2 => ['file', $logFile, 'a'],
+        ];
+        $cwd = dirname($scriptDir);
+        $proc = null;
+        $started = false;
+        try {
+            @file_put_contents($logFile, date('Y-m-d H:i:s') . " CMD: {$cmd}\nCWD: {$cwd}\n\n", FILE_APPEND);
+            if (function_exists('proc_open')) {
+                $proc = @proc_open($cmd, $desc, $pipes, $cwd, null, ['bypass_shell' => false]);
+                if (is_resource($proc)) {
+                    $started = true;
+                    // 非阻塞：关掉 stdin，让脚本在后台跑完；前端稍后健康检查
+                    if (isset($pipes[0]) && is_resource($pipes[0])) {
+                        fclose($pipes[0]);
+                    }
+                    // 短暂等待确认进程已启动
+                    usleep(300000);
+                    $status = proc_get_status($proc);
+                    if (!empty($status['running'])) {
+                        // 脱离等待，避免 PHP-FPM 卡死；子进程继续
+                        if (function_exists('proc_close')) {
+                            // Windows 下无法真正 detach；仍关闭句柄
+                        }
+                    }
+                    @proc_close($proc);
+                }
+            }
+            if (!$started && function_exists('popen')) {
+                $ph = @popen($cmd . ' > ' . escapeshellarg($logFile) . ' 2>&1', 'r');
+                if (is_resource($ph)) {
+                    $started = true;
+                    @pclose($ph);
+                }
+            }
+            if (!$started && function_exists('exec')) {
+                $out = [];
+                $code = 1;
+                @exec($cmd . ' 2>&1', $out, $code);
+                @file_put_contents($logFile, implode("\n", $out) . "\nexit={$code}\n", FILE_APPEND);
+                $started = true;
+            }
+        } catch (\Throwable $e) {
+            $this->error('启动重启失败: ' . $e->getMessage());
+        }
+
+        if (!$started) {
+            $this->error('服务器禁用了 proc_open/popen/exec，无法从后台重启。请 SSH 执行: bash im-server/scripts/restart-all.sh');
+        }
+
+        // 健康探测（最多约 8s）
+        $health = ['ok' => false, 'http' => '', 'tries' => 0];
+        $healthUrl = 'http://127.0.0.1:17273/';
+        for ($i = 0; $i < 8; $i++) {
+            $health['tries']++;
+            usleep(1000000);
+            $ctx = stream_context_create(['http' => ['timeout' => 1.5]]);
+            $body = @file_get_contents($healthUrl, false, $ctx);
+            if ($body !== false && $body !== '') {
+                $health['http'] = substr($body, 0, 200);
+                if (stripos($body, 'ok') !== false || stripos($body, '{') !== false) {
+                    $health['ok'] = true;
+                    break;
+                }
+            }
+        }
+        @file_put_contents(
+            $logFile,
+            "\n" . date('Y-m-d H:i:s') . ' health=' . json_encode($health, JSON_UNESCAPED_UNICODE) . "\n",
+            FILE_APPEND
+        );
+
+        $msg = $health['ok']
+            ? '聊天服务已重启，健康检查通过'
+            : '重启命令已执行，健康检查暂未通过（请稍候再试或查看日志）';
+        $this->success($msg, null, [
+            'log'    => str_replace(ROOT_PATH, '', $logFile),
+            'health' => $health,
+            'os'     => PHP_OS,
+            'script' => $isWin ? 'restart-all.ps1' : 'restart-all.sh',
+        ]);
+    }
+
     protected function normalize(array $params)
     {
         $params['name'] = trim((string)($params['name'] ?? ''));

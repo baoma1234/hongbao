@@ -3201,7 +3201,7 @@ body.chat-room-open .bottom-action-bar {
   margin-bottom: 14px;
 }
 
-/* Red packet detail — head 固定，列表独立滚动，领完后仍可看全记录 */
+/* Red packet detail — 整页滚动，领取人全部展开（不再嵌套 scroll-view） */
 #chatRpDetailPane .chat-sub-main {
   display: flex;
   flex-direction: column;
@@ -3213,7 +3213,10 @@ body.chat-room-open .bottom-action-bar {
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 #chatRpDetailPane #chatRpDetailBody[hidden] {
   display: none !important;
@@ -3222,12 +3225,11 @@ body.chat-room-open .bottom-action-bar {
   flex-shrink: 0;
 }
 #chatRpDetailPane .chat-rp-detail-list {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-height: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
+  overflow: visible;
+  height: auto;
+  max-height: none;
 }
 #chatRpDetailPane .chat-rp-detail-grab-btn {
   flex-shrink: 0;
