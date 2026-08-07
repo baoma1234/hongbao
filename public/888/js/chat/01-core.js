@@ -225,10 +225,25 @@
     return m ? m[1] : '/888/';
   }
 
+  function uploadCdnBase() {
+    var c = (global.CONFIG && global.CONFIG.UPLOAD_CDN) || '';
+    return String(c || '').replace(/\/+$/, '');
+  }
+
   function publicUrl(pathOrUrl) {
     if (!pathOrUrl) return '';
     var url = String(pathOrUrl);
-    if (/^https?:\/\//i.test(url)) return encodeUriPath(url);
+    var oss = uploadCdnBase();
+    // 已是绝对地址：本站 /uploads 改写到 OSS
+    if (/^https?:\/\//i.test(url)) {
+      try {
+        var abs = new URL(url, location.href);
+        if (oss && abs.pathname.indexOf('/uploads/') === 0 && abs.origin === location.origin) {
+          return encodeUriPath(oss + abs.pathname + abs.search);
+        }
+      } catch (e) {}
+      return encodeUriPath(url);
+    }
     if (url.charAt(0) !== '/') {
       url = chatBasePath().replace(/\/?$/, '/') + url.replace(/^\.\//, '');
     }
@@ -240,6 +255,7 @@
       return encodeUriPath(url.replace(/^\//, ''));
     }
     if (url.indexOf('/uploads/') === 0) {
+      if (oss) return encodeUriPath(oss + url);
       return encodeUriPath(location.origin + url);
     }
     if (url.charAt(0) === '/') {

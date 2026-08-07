@@ -1,6 +1,6 @@
 <script setup>
 import { onLaunch, onShow } from '@dcloudio/uni-app'
-import { getToken } from './utils/auth.js'
+import { fetchConfig, getToken } from './utils/auth.js'
 import {
   buildChatUrl,
   getActiveChat,
@@ -31,6 +31,10 @@ onLaunch(async () => {
   initSkin()
   // 先拉远端 apiUri / socketUri / imgUri（有缓存则先用缓存）
   await refreshRemoteEndpoints()
+  // 尽早拿到 OSS upload_cdn，避免会话/社群头像先拼成本站 /uploads
+  try {
+    await fetchConfig()
+  } catch (e) {}
   try {
     await initI18n()
   } catch (e) {}

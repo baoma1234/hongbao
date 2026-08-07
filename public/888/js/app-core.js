@@ -17,6 +17,8 @@
             APP_DOWNLOAD_URL: 'https://your-app.com',
             MAIN_STATION_URL: 'https://555.bio',
             IM_WS_URL: '',
+            /** 聊天 /uploads 公网基址（阿里云 OSS），由 applyServerConfig 写入 */
+            UPLOAD_CDN: '',
             MINE_COMPENSATE_RATES: { 5: 1.5, 7: 1.2, 9: 1.0 },
             USER_RP_MAX_COUNT: 500,
             SECRET_LOCK_SECONDS: 900,
@@ -1458,6 +1460,9 @@
             CONFIG.APP_DOWNLOAD_URL = cfg.app_download_url || CONFIG.APP_DOWNLOAD_URL;
             CONFIG.MAIN_STATION_URL = cfg.main_station_url || CONFIG.MAIN_STATION_URL;
             CONFIG.IM_WS_URL = cfg.im_ws_url || CONFIG.IM_WS_URL || '';
+            if (cfg.upload_cdn) {
+                CONFIG.UPLOAD_CDN = String(cfg.upload_cdn).replace(/\/+$/, '');
+            }
             if (cfg.mine_compensate_rates && typeof cfg.mine_compensate_rates === 'object') {
                 CONFIG.MINE_COMPENSATE_RATES = Object.assign(
                     { 5: 1.5, 7: 1.2, 9: 1.0 },

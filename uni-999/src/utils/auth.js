@@ -56,8 +56,13 @@ export function apiRequest(action, method = 'POST', body = null) {
           return
         }
         try {
-          const cfg = payload.data && payload.data.config
-          if (cfg && cfg.upload_cdn) setUploadCdn(cfg.upload_cdn)
+          // config 接口：data.upload_cdn；bootstrap：data.config.upload_cdn
+          const d = payload.data
+          const cdn =
+            (d && d.upload_cdn) ||
+            (d && d.config && d.config.upload_cdn) ||
+            ''
+          if (cdn) setUploadCdn(cdn)
         } catch (e) {}
         resolve(payload.data)
       },
