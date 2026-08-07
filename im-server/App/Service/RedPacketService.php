@@ -607,13 +607,13 @@ class RedPacketService
                 }
             }
             if ($minGate > 0) {
-                $bal = $this->wallet->getBalance($userId, true);
+                $bal = $this->wallet->getBalance($userId, false);
                 if ($bal <= $minGate + 0.00001) {
                     return false;
                 }
             }
         }
-        return $this->wallet->hasEnoughBalance($userId, $need, true);
+        return $this->wallet->hasEnoughBalance($userId, $need, false);
     }
 
     /**

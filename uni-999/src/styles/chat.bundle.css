@@ -448,25 +448,50 @@ body.tab-messages .bottom-action-bar {
   top: 0;
   right: 0;
   bottom: 0;
-  width: 76px;
+  width: 128px;
   display: flex;
   align-items: stretch;
   justify-content: flex-end;
   z-index: 0;
 }
-.chat-conv-swipe-del {
-  width: 76px;
-  border: none;
+.chat-conv-swipe-btn {
+  width: 64px;
   margin: 0;
   padding: 0;
-  background: #fa5151;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
   color: #fff;
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
   cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
-.chat-conv-swipe-del:active { background: #e04343; }
+.chat-conv-swipe-ico {
+  font-size: 15px;
+  line-height: 1;
+  opacity: 0.95;
+}
+.chat-conv-swipe-lab {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  line-height: 1.1;
+}
+.chat-conv-swipe-pin {
+  background: linear-gradient(180deg, #b8b6bc 0%, #9e9ca3 100%);
+}
+.chat-conv-swipe-pin:active {
+  background: #8f8d94;
+}
+.chat-conv-swipe-del {
+  background: linear-gradient(180deg, #ff6b6b 0%, #e5484d 100%);
+}
+.chat-conv-swipe-del:active {
+  background: #d63d42;
+}
 .chat-conv-swipe .chat-conv-item {
   position: relative;
   z-index: 1;
@@ -475,7 +500,7 @@ body.tab-messages .bottom-action-bar {
   will-change: transform;
 }
 .chat-conv-swipe.open .chat-conv-item {
-  transform: translateX(-76px);
+  transform: translateX(-128px);
 }
 .chat-conv-swipe.is-dragging .chat-conv-item {
   transition: none;

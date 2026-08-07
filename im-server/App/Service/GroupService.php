@@ -371,10 +371,8 @@ class GroupService
             $out = array_values(array_unique(array_filter(array_map('intval', $ids ?: []))));
             // 并入本机在线（SINTER 可能漏掉 Redis online 未写入的连接）
             try {
-                foreach ($this->memberUserIds($groupId) as $uid) {
-                    if (\Im\Support\ConnMap::isLocalOnline($uid)) {
-                        $out[] = (int)$uid;
-                    }
+                foreach (\Im\Support\ConnMap::filterLocalGroupMembers($groupId) as $uid) {
+                    $out[] = (int)$uid;
                 }
                 $out = array_values(array_unique(array_filter($out)));
             } catch (\Throwable $eLocal) {

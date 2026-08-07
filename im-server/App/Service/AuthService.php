@@ -113,7 +113,7 @@ class AuthService
                 json_encode(['user_id' => $userId, 'user' => $user], JSON_UNESCAPED_UNICODE)
             );
             RedisClient::conn()->setex(
-                RedisClient::key('ubrief:' . $userId),
+                RedisClient::key('ub:' . $userId),
                 self::BRIEF_CACHE_TTL,
                 json_encode($user, JSON_UNESCAPED_UNICODE)
             );
@@ -138,10 +138,26 @@ class AuthService
             return null;
         }
         try {
-            $raw = RedisClient::conn()->get(RedisClient::key('ubrief:' . $userId));
+            $raw = RedisClient::conn()->get(RedisClient::key('ub:' . $userId));
             if ($raw) {
                 $j = json_decode((string)$raw, true);
                 if (is_array($j) && !empty($j['id'])) {
+                    return $j;
+                }
+            }
+            // 兼容旧 ubrief: 缓存
+            $legacy = RedisClient::conn()->get(RedisClient::key('ubrief:' . $userId));
+            if ($legacy) {
+                $j = json_decode((string)$legacy, true);
+                if (is_array($j) && !empty($j['id'])) {
+                    try {
+                        RedisClient::conn()->setex(
+                            RedisClient::key('ub:' . $userId),
+                            self::BRIEF_CACHE_TTL,
+                            (string)$legacy
+                        );
+                    } catch (\Throwable $eCopy) {
+                    }
                     return $j;
                 }
             }
@@ -163,7 +179,7 @@ class AuthService
             $row['hongbao_frozen'] = round((float)($row['hongbao_frozen'] ?? 0), 2);
             try {
                 RedisClient::conn()->setex(
-                    RedisClient::key('ubrief:' . $userId),
+                    RedisClient::key('ub:' . $userId),
                     self::BRIEF_CACHE_TTL,
                     json_encode($row, JSON_UNESCAPED_UNICODE)
                 );

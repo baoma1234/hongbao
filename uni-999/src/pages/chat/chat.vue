@@ -2745,6 +2745,83 @@ async function softRefreshHistory() {
   } catch (e) {}
 }
 
+/** A1：抢包更新只补封面状态，避免整页拉 history */
+function applyRedPacketUpdateLocal(data) {
+  if (!data || !roomAlive) return false
+  const pid =
+    (data.packet_id | 0) ||
+    ((data.grab && data.grab.packet_id) | 0) ||
+    ((data.packet && data.packet.id) | 0) ||
+    0
+  if (!pid) return false
+
+  const grab = data.grab || {}
+  const packet = grab.packet || data.packet || {}
+  const remain =
+    grab.remain_count != null
+      ? grab.remain_count | 0
+      : packet.remain_count != null
+        ? packet.remain_count | 0
+        : null
+  const status = (grab.status | 0) || (packet.status | 0) || 0
+  const byUid = (data.by_user_id | 0) || (grab.user_id | 0) || 0
+  const finished =
+    !!data.settled ||
+    !!data.tron_revealed ||
+    status === 2 ||
+    status === 3 ||
+    status === 4 ||
+    status === 5 ||
+    (remain !== null && remain <= 0)
+
+  let patched = 0
+  const rows = messages.value
+  for (let i = 0; i < rows.length; i++) {
+    const m = rows[i]
+    const ex = msgExtra(m)
+    const mid = (ex.packet_id | 0) || 0
+    if (mid !== pid) continue
+    const nextEx = Object.assign({}, ex)
+    if (byUid && byUid === (myId | 0)) {
+      nextEx.cover_grabbed = true
+      nextEx.cover_faded = true
+    }
+    if (remain !== null && remain <= 0) {
+      nextEx.cover_faded = true
+    }
+    if (status === 3 || status === 4) {
+      nextEx.cover_expired = true
+      nextEx.cover_faded = true
+    }
+    if (remain !== null) nextEx.remain_count = remain
+    if (status) nextEx.packet_status = status
+    const next = Object.assign({}, m, { extra: nextEx })
+    rows[i] = next
+    patched++
+  }
+  if (patched) {
+    messages.value = rows.slice()
+  }
+
+  // 详情页打开时：结算/领完才重拉详情；普通抢包用本地补 remain
+  if (detailVisible.value && activePacketId === pid) {
+    if (finished) {
+      openDetail(pid).catch(() => {})
+    } else if (detail.value && detail.value.packet) {
+      const d = Object.assign({}, detail.value)
+      d.packet = Object.assign({}, d.packet)
+      if (remain !== null) d.packet.remain_count = remain
+      if (status) d.packet.status = status
+      detail.value = d
+      if (remain !== null) {
+        canGrabDetail.value = !!(remain > 0 && !d.mine && (status === 0 || status === 1))
+      }
+    }
+  }
+
+  return patched > 0 || !finished
+}
+
 function leaveRoomToList(tip) {
   if (tip) uni.showToast({ title: tip, icon: 'none' })
   roomAlive = false
@@ -2850,7 +2927,11 @@ onLoad(async (query) => {
       return
     }
     if (type === 'redpacket.update') {
-      softRefreshHistory()
+      const ok = applyRedPacketUpdateLocal(data)
+      // 结算/开奖等立即事件若本地未命中消息，再兜底拉一次
+      if (!ok && (data.settled || data.tron_revealed)) {
+        softRefreshHistory()
+      }
       return
     }
     if (type === 'group.kicked') {

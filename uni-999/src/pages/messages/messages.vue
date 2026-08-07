@@ -93,7 +93,18 @@
                       }"
                     >
                       <view class="chat-conv-swipe-actions">
-                        <button type="button" class="chat-conv-swipe-del" @click.stop="onSwipeDelete(item)">删除</button>
+                        <view
+                          class="chat-conv-swipe-btn chat-conv-swipe-pin"
+                          @click.stop="onSwipePin(item)"
+                        >
+                          <text class="chat-conv-swipe-lab">{{ item.pinned ? '取消置顶' : '置顶' }}</text>
+                        </view>
+                        <view
+                          class="chat-conv-swipe-btn chat-conv-swipe-del"
+                          @click.stop="onSwipeDelete(item)"
+                        >
+                          <text class="chat-conv-swipe-lab">删除</text>
+                        </view>
                       </view>
                       <view
                         class="chat-conv-item"
@@ -104,7 +115,6 @@
                         @touchend="onSwipeTouchEnd($event, item)"
                         @touchcancel="onSwipeTouchEnd($event, item)"
                         @click="onConvClick(item)"
-                        @longpress="onLongPress(item)"
                       >
                         <view class="chat-avatar" :class="{ group: (item.conversation_type | 0) === 2, admin: !!item.is_im_admin }">
                           <image :src="avatarSrc(item.avatar)" mode="aspectFill" />
@@ -569,19 +579,6 @@
       </view>
     </view>
 
-    <!-- 会话长按：对齐 888 #chatConvActionSheet -->
-    <view class="chat-action-sheet chat-conv-action-sheet" :class="{ open: !!convSheetItem }" v-if="convSheetItem" aria-hidden="false">
-      <view class="chat-action-sheet-mask" @click="closeConvSheet" />
-      <view class="chat-action-sheet-panel" @click.stop>
-        <view class="chat-action-sheet-title">{{ convSheetTitle }}</view>
-        <button type="button" class="chat-action-item" @click="doConvPin">
-          {{ convSheetPinned ? '取消置顶' : '置顶聊天' }}
-        </button>
-        <button type="button" class="chat-action-item danger" @click="doConvDelete">删除聊天</button>
-        <button type="button" class="chat-action-item cancel" @click="closeConvSheet">取消</button>
-      </view>
-    </view>
-
     <FriendScanSheet />
     <BottomTabBar active="messages" />
   </view>
@@ -679,13 +676,13 @@ const commission = ref({})
 const commissionListMode = ref('recent')
 const friendReqPending = ref(0)
 const listRefreshing = ref(false)
-const convSheetItem = ref(null)
 const swipeOpenKey = ref('')
 const swipeDragKey = ref('')
 const swipeOffset = ref(0)
 let swipeState = null
+/** 置顶 + 删除两钮总宽 */
+const SWIPE_ACTIONS_W = 128
 let skipNextConvClick = false
-const SWIPE_DEL_W = 76
 let off = null
 let loading = false
 let pageAlive = false
@@ -701,13 +698,6 @@ const displayList = computed(() => {
     return title.indexOf(q) >= 0 || nick.indexOf(q) >= 0 || prev.indexOf(q) >= 0
   })
 })
-
-const convSheetTitle = computed(() => {
-  const item = convSheetItem.value
-  if (!item) return '会话操作'
-  return displayTitle(item) || '会话操作'
-})
-const convSheetPinned = computed(() => !!(convSheetItem.value && convSheetItem.value.pinned))
 
 const statusText = computed(() => {
   if (status.value === 'online') return '已连接'
@@ -1258,18 +1248,6 @@ function myIdNum() {
   return n || 0
 }
 
-function onLongPress(item) {
-  if (!item) return
-  if (swipeState && swipeState.horizontal) return
-  plusOpen.value = false
-  closeAllSwipe()
-  convSheetItem.value = item
-}
-
-function closeConvSheet() {
-  convSheetItem.value = null
-}
-
 function closeAllSwipe(exceptKey) {
   if (!exceptKey) {
     swipeOpenKey.value = ''
@@ -1293,7 +1271,7 @@ function swipeFrontStyle(item) {
   }
   if (swipeOpenKey.value === key) {
     return {
-      transform: 'translateX(-' + SWIPE_DEL_W + 'px)',
+      transform: 'translateX(-' + SWIPE_ACTIONS_W + 'px)',
       transition: 'transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1)',
     }
   }
@@ -1318,7 +1296,7 @@ function onSwipeTouchStart(ev, item) {
     return
   }
   const key = itemKey(item)
-  const baseX = swipeOpenKey.value === key ? -SWIPE_DEL_W : 0
+  const baseX = swipeOpenKey.value === key ? -SWIPE_ACTIONS_W : 0
   swipeState = {
     key,
     item,
@@ -1347,9 +1325,9 @@ function onSwipeTouchMove(ev, item) {
     swipeDragKey.value = swipeState.key
   }
   swipeState.moved = true
-  const nx = Math.max(-SWIPE_DEL_W, Math.min(0, swipeState.baseX + dx))
+  const nx = Math.max(-SWIPE_ACTIONS_W, Math.min(0, swipeState.baseX + dx))
   swipeOffset.value = nx
-  if (nx <= -SWIPE_DEL_W / 2) swipeOpenKey.value = swipeState.key
+  if (nx <= -SWIPE_ACTIONS_W / 2) swipeOpenKey.value = swipeState.key
   else if (swipeOpenKey.value === swipeState.key) swipeOpenKey.value = ''
 }
 
@@ -1364,7 +1342,7 @@ function onSwipeTouchEnd(ev, item) {
     swipeDragKey.value = ''
     return
   }
-  const open = swipeOffset.value <= -SWIPE_DEL_W * 0.4
+  const open = swipeOffset.value <= -SWIPE_ACTIONS_W * 0.4
   swipeDragKey.value = ''
   swipeOffset.value = 0
   swipeOpenKey.value = open ? st.key : ''
@@ -1403,7 +1381,6 @@ function confirmDeleteConv(item) {
         else if (item.peer_user_id) extra.to_user_id = item.peer_user_id
         await hideConversation(type, id, extra)
         list.value = list.value.filter((x) => itemKey(x) !== itemKey(item))
-        closeConvSheet()
         closeAllSwipe()
         uni.showToast({ title: '已删除', icon: 'none' })
       } catch (e) {
@@ -1418,26 +1395,33 @@ function onSwipeDelete(item) {
   confirmDeleteConv(item)
 }
 
-async function doConvPin() {
-  const item = convSheetItem.value
+async function onSwipePin(item) {
   if (!item) return
   const type = item.conversation_type | 0
   const id = resolveConvId(item)
   const pinned = !!item.pinned
+  closeAllSwipe()
   try {
     await pinConversation(type, id, !pinned)
-    closeConvSheet()
-    await loadList(true)
+    const key = itemKey(item)
+    const rows = list.value.slice()
+    for (let i = 0; i < rows.length; i++) {
+      if (itemKey(rows[i]) === key) {
+        rows[i] = Object.assign({}, rows[i], { pinned: !pinned })
+        break
+      }
+    }
+    rows.sort((a, b) => {
+      const ap = a.pinned ? 1 : 0
+      const bp = b.pinned ? 1 : 0
+      if (ap !== bp) return bp - ap
+      return (b.updatetime | 0) - (a.updatetime | 0)
+    })
+    list.value = rows
     uni.showToast({ title: pinned ? '已取消置顶' : '已置顶', icon: 'none' })
   } catch (e) {
     uni.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
   }
-}
-
-function doConvDelete() {
-  const item = convSheetItem.value
-  if (!item) return
-  confirmDeleteConv(item)
 }
 
 async function switchHomeTab(tab) {
@@ -1872,8 +1856,12 @@ onShow(() => {
       const msg = (data && data.message) || data
       bumpUnread(msg)
     }
-    if (type === 'conversation.updated' || type === 'redpacket.update') {
+    if (type === 'conversation.updated') {
       loadList(true)
+    }
+    if (type === 'redpacket.update') {
+      // A2：抢包风暴不刷整表；预览由 inbox/msg 路径维护
+      return
     }
     if (type === 'group.created' || type === 'group.kicked') {
       loadList(true)

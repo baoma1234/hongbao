@@ -412,17 +412,24 @@ class PushBus
         }
     }
 
-    /** 消费本 Worker 队列 */
+    /** 消费本 Worker 队列（批量 LRANGE+LTRIM，避免串行 RPOP RTT） */
     public static function drainOwnQueue($limit = 80)
     {
         $limit = max(1, (int)$limit);
         try {
             $r = RedisClient::conn();
             $key = RedisClient::key('w:' . self::$workerId . ':push');
-            for ($i = 0; $i < $limit; $i++) {
-                $raw = $r->rPop($key);
+            // 队列用 LPUSH，右侧为旧：取尾部一批
+            $rawList = $r->lRange($key, -$limit, -1);
+            if (!is_array($rawList) || !$rawList) {
+                return;
+            }
+            $n = count($rawList);
+            $r->lTrim($key, 0, -($n + 1));
+            // lRange 顺序为旧→新；投递保持先进先出
+            foreach ($rawList as $raw) {
                 if ($raw === false || $raw === null || $raw === '') {
-                    break;
+                    continue;
                 }
                 $envelope = json_decode($raw, true);
                 if (!is_array($envelope)) {
