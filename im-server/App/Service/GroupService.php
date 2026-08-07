@@ -11,6 +11,8 @@ class GroupService
     const MEMBER_CACHE_TTL = 60;
     /** 成员 Redis Set 缓存 */
     const MEMBER_SET_TTL = 604800; // 7 天
+    /** 群行/成员行短缓存（发言校验热路径；随 infover bump 失效） */
+    const SPEAK_META_TTL = 20;
 
     public static function maxMembers()
     {
@@ -144,7 +146,39 @@ class GroupService
 
     public function get($groupId)
     {
-        return Db::fetch('SELECT * FROM ' . Db::table('chat_groups') . ' WHERE id=? LIMIT 1', [(int)$groupId]);
+        $groupId = (int)$groupId;
+        if ($groupId <= 0) {
+            return null;
+        }
+        $ver = $this->viewerInfoVer($groupId);
+        $cacheKey = RedisClient::key('gmeta:' . $groupId . ':v' . $ver);
+        try {
+            $cached = RedisClient::conn()->get($cacheKey);
+            if ($cached !== false && $cached !== null && $cached !== '') {
+                $decoded = json_decode((string)$cached, true);
+                if (is_array($decoded)) {
+                    return $decoded;
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+        $row = Db::fetch('SELECT * FROM ' . Db::table('chat_groups') . ' WHERE id=? LIMIT 1', [$groupId]);
+        if ($row) {
+            try {
+                RedisClient::conn()->setex($cacheKey, self::SPEAK_META_TTL, json_encode($row, JSON_UNESCAPED_UNICODE));
+            } catch (\Throwable $e) {
+            }
+        }
+        return $row;
+    }
+
+    protected function viewerInfoVer($groupId)
+    {
+        try {
+            return (int)RedisClient::conn()->get(RedisClient::key('g:' . (int)$groupId . ':infover'));
+        } catch (\Throwable $e) {
+            return 0;
+        }
     }
 
     /**
@@ -667,11 +701,36 @@ class GroupService
 
     public function getMember($groupId, $userId)
     {
-        return Db::fetch(
+        $groupId = (int)$groupId;
+        $userId = (int)$userId;
+        if ($groupId <= 0 || $userId <= 0) {
+            return null;
+        }
+        $ver = $this->viewerInfoVer($groupId);
+        $cacheKey = RedisClient::key('gm:' . $groupId . ':' . $userId . ':v' . $ver);
+        try {
+            $cached = RedisClient::conn()->get($cacheKey);
+            if ($cached !== false && $cached !== null && $cached !== '') {
+                $decoded = json_decode((string)$cached, true);
+                // 仅缓存有效成员；未入群不写缓存，避免刚加群仍判 not in group
+                if (is_array($decoded) && !empty($decoded['user_id'])) {
+                    return $decoded;
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+        $row = Db::fetch(
             'SELECT * FROM ' . Db::table('chat_group_members')
             . ' WHERE group_id=? AND user_id=? AND status=1 LIMIT 1',
-            [(int)$groupId, (int)$userId]
+            [$groupId, $userId]
         );
+        if ($row) {
+            try {
+                RedisClient::conn()->setex($cacheKey, self::SPEAK_META_TTL, json_encode($row, JSON_UNESCAPED_UNICODE));
+            } catch (\Throwable $e) {
+            }
+        }
+        return $row;
     }
 
     public function memberRole($groupId, $userId)
@@ -1178,6 +1237,7 @@ class GroupService
         $this->refreshMemberCount($groupId);
         $this->memberSetRem($groupId, $targetId);
         $this->invalidateUserGroupsCache($targetId);
+        $this->bumpViewerInfoCache($groupId);
         return true;
     }
 
@@ -1210,6 +1270,7 @@ class GroupService
         $this->refreshMemberCount($groupId);
         $this->memberSetRem($groupId, $userId);
         $this->invalidateUserGroupsCache($userId);
+        $this->bumpViewerInfoCache($groupId);
         return true;
     }
 
@@ -1397,6 +1458,7 @@ class GroupService
             throw $e;
         }
         $this->invalidateMembersCache($groupId);
+        $this->bumpViewerInfoCache($groupId);
         return $this->get($groupId);
     }
 
@@ -1434,6 +1496,7 @@ class GroupService
             throw $e;
         }
         $this->invalidateMembersCache($groupId);
+        $this->bumpViewerInfoCache($groupId);
         return $this->members($groupId);
     }
 
@@ -1473,6 +1536,7 @@ class GroupService
         }
         if ($toAdd) {
             $this->refreshMemberCount($groupId);
+            $this->bumpViewerInfoCache($groupId);
         }
         return $this->members($groupId);
     }

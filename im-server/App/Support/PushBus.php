@@ -159,6 +159,7 @@ class PushBus
             if (!is_array($workers) || !$workers) {
                 $workers = ['0'];
             }
+            $targets = [];
             foreach ($workers as $wid) {
                 $wid = (string)$wid;
                 if ($wid === '') {
@@ -167,10 +168,9 @@ class PushBus
                 if (!$r->exists(RedisClient::key('worker:' . $wid . ':alive')) && $wid !== '0') {
                     continue;
                 }
-                $key = RedisClient::key('w:' . $wid . ':push');
-                $r->lPush($key, $json);
-                $r->lTrim($key, 0, 19999);
+                $targets[] = $wid;
             }
+            self::pipelinePush($r, $targets, $json);
             try {
                 $r->publish(RedisClient::key('push_wake'), 'group');
             } catch (\Throwable $ePub) {
@@ -191,17 +191,37 @@ class PushBus
         }
         try {
             $r = RedisClient::conn();
-            foreach (self::otherAliveWorkers() as $wid) {
-                $key = RedisClient::key('w:' . $wid . ':push');
-                $r->lPush($key, $json);
-                $r->lTrim($key, 0, 19999);
-            }
+            self::pipelinePush($r, self::otherAliveWorkers(), $json);
             try {
                 $r->publish(RedisClient::key('push_wake'), (string)self::$workerId);
             } catch (\Throwable $e) {
             }
         } catch (\Throwable $e) {
         }
+    }
+
+    /**
+     * 批量 LPUSH+LTRIM，降低万人群高频扇出时的 Redis RTT
+     *
+     * @param \Redis $r
+     * @param string[]|int[] $workerIds
+     */
+    protected static function pipelinePush($r, array $workerIds, $json)
+    {
+        if (!$workerIds) {
+            return;
+        }
+        $r->multi(\Redis::PIPELINE);
+        foreach ($workerIds as $wid) {
+            $wid = (string)$wid;
+            if ($wid === '') {
+                continue;
+            }
+            $key = RedisClient::key('w:' . $wid . ':push');
+            $r->lPush($key, $json);
+            $r->lTrim($key, 0, 19999);
+        }
+        $r->exec();
     }
 
     /**
@@ -243,6 +263,7 @@ class PushBus
             if (!is_array($workers) || !$workers) {
                 $workers = ['0'];
             }
+            $targets = [];
             foreach ($workers as $wid) {
                 $wid = (string)$wid;
                 if ($wid === '') {
@@ -254,10 +275,9 @@ class PushBus
                         continue;
                     }
                 }
-                $key = RedisClient::key('w:' . $wid . ':push');
-                $r->lPush($key, $json);
-                $r->lTrim($key, 0, 19999);
+                $targets[] = $wid;
             }
+            self::pipelinePush($r, $targets, $json);
             try {
                 $r->publish(RedisClient::key('push_wake'), 'external');
             } catch (\Throwable $ePub) {
@@ -282,6 +302,8 @@ class PushBus
         }
         try {
             $r = RedisClient::conn();
+            $r->multi(\Redis::PIPELINE);
+            $queued = 0;
             foreach ($byWorker as $wid => $subset) {
                 if (!$subset) {
                     continue;
@@ -295,6 +317,12 @@ class PushBus
                 $key = RedisClient::key('w:' . $wid . ':push');
                 $r->lPush($key, $json);
                 $r->lTrim($key, 0, 19999);
+                $queued++;
+            }
+            if ($queued > 0) {
+                $r->exec();
+            } else {
+                $r->discard();
             }
             try {
                 $r->publish(RedisClient::key('push_wake'), (string)self::$workerId);

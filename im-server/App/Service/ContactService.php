@@ -4,9 +4,13 @@ namespace Im\Service;
 
 use Im\Support\Db;
 use Im\Support\IdGenerator;
+use Im\Support\RedisClient;
 
 class ContactService
 {
+    /** 好友关系短缓存；ensureRow 建好好友后立即失效 */
+    const FRIEND_CACHE_TTL = 30;
+
     public function isFriend($userId, $peerId)
     {
         $userId = (int)$userId;
@@ -14,12 +18,45 @@ class ContactService
         if ($userId <= 0 || $peerId <= 0 || $userId === $peerId) {
             return false;
         }
+        $cacheKey = RedisClient::key('friend:' . $userId . ':' . $peerId);
+        try {
+            $cached = RedisClient::conn()->get($cacheKey);
+            if ($cached === '1') {
+                return true;
+            }
+            if ($cached === '0') {
+                return false;
+            }
+        } catch (\Throwable $e) {
+        }
         $row = Db::fetch(
             'SELECT id FROM ' . Db::table('chat_contacts')
             . ' WHERE user_id=? AND peer_user_id=? AND status=1 LIMIT 1',
             [$userId, $peerId]
         );
-        return (bool)$row;
+        $ok = (bool)$row;
+        try {
+            RedisClient::conn()->setex($cacheKey, self::FRIEND_CACHE_TTL, $ok ? '1' : '0');
+        } catch (\Throwable $e) {
+        }
+        return $ok;
+    }
+
+    /** 好友关系变更后清双向短缓存 */
+    protected function invalidateFriendCache($userId, $peerId)
+    {
+        $userId = (int)$userId;
+        $peerId = (int)$peerId;
+        if ($userId <= 0 || $peerId <= 0) {
+            return;
+        }
+        try {
+            RedisClient::conn()->del(
+                RedisClient::key('friend:' . $userId . ':' . $peerId),
+                RedisClient::key('friend:' . $peerId . ':' . $userId)
+            );
+        } catch (\Throwable $e) {
+        }
     }
 
     /**
@@ -801,10 +838,12 @@ class ContactService
     protected function ensureRow($userId, $peerId, $now = null)
     {
         $now = $now ?: time();
+        $userId = (int)$userId;
+        $peerId = (int)$peerId;
         $existing = Db::fetch(
             'SELECT id,status FROM ' . Db::table('chat_contacts')
             . ' WHERE user_id=? AND peer_user_id=? LIMIT 1',
-            [(int)$userId, (int)$peerId]
+            [$userId, $peerId]
         );
         if ($existing) {
             if ((int)$existing['status'] !== 1) {
@@ -812,13 +851,15 @@ class ContactService
                     'UPDATE ' . Db::table('chat_contacts') . ' SET status=1 WHERE id=?',
                     [(int)$existing['id']]
                 );
+                $this->invalidateFriendCache($userId, $peerId);
             }
             return;
         }
         Db::exec(
             'INSERT INTO ' . Db::table('chat_contacts')
             . ' (user_id,peer_user_id,status,createtime) VALUES (?,?,1,?)',
-            [(int)$userId, (int)$peerId, $now]
+            [$userId, $peerId, $now]
         );
+        $this->invalidateFriendCache($userId, $peerId);
     }
 }
