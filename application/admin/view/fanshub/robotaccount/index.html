@@ -1,0 +1,12 @@
+<div class="panel panel-default panel-intro">
+    {:build_heading()}
+    <div class="panel-body">
+        <div id="toolbar" class="toolbar">
+            <a href="javascript:;" class="btn btn-primary btn-refresh" title="{:__('Refresh')}"><i class="fa fa-refresh"></i></a>
+            <a href="javascript:;" class="btn btn-warning btn-batch-adjust btn-disabled disabled {:$auth->check('fanshub/robotaccount/batchadjust')?'':'hide'}" title="批量加余额"><i class="fa fa-calculator"></i> 批量加余额</a>
+            <a href="javascript:;" class="btn btn-info btn-copy-ids btn-disabled disabled" title="复制选中ID"><i class="fa fa-copy"></i> 复制ID</a>
+            <a href="javascript:;" class="btn btn-success btn-seed {:$auth->check('fanshub/robotaccount/seed')?'':'hide'}" title="注册一批机器人"><i class="fa fa-plus"></i> 注册一批300个</a>
+        </div>
+        <table id="table" class="table table-striped table-bordered table-hover" width="100%"></table>
+    </div>
+</div>

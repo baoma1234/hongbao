@@ -1430,7 +1430,7 @@ class FansHubService
             'secret_vip'      => $secretVip,
             'login_today'     => $loginToday,
             'new_today'       => $newToday,
-            'balance_sum'     => round((float)Account::sum('hongbao'), 2),
+            'balance_sum'     => round((float)Account::where('is_bot', 0)->sum('hongbao'), 2),
             'rights_sum'      => round((float)Account::sum('rights'), 2),
             'secret_pending'  => Secret::where('status', 'pending')->count(),
             'rates'           => [
@@ -4359,5 +4359,183 @@ class FansHubService
             }
         }
         return $cache[$column];
+    }
+
+    /**
+     * 随机机器人昵称（2~4 字中文风格，不复用手机号）
+     */
+    public static function randomBotNickname()
+    {
+        static $adj = [
+            '快乐', '幸运', '阳光', '神秘', '闪闪', '金色', '赤焰', '清风', '星辰', '云端',
+            '灵动', '欢喜', '锦鲤', '如意', '福气', '天成', '红火', '奔腾', '小幸运', '大吉',
+        ];
+        static $noun = [
+            '小宝', '红宝', '达人', '少年', '星子', '旅人', '骑士', '船长', '渔夫', '猎人',
+            '公子', '小姐', '掌柜', '侠客', '浪客', '飞侠', '喵喵', '旺旺', '豆豆', '果果',
+        ];
+        for ($i = 0; $i < 40; $i++) {
+            $nick = $adj[array_rand($adj)] . $noun[array_rand($noun)];
+            if (mt_rand(0, 1)) {
+                $nick .= (string)mt_rand(10, 99);
+            }
+            if (mb_strlen($nick) > 12) {
+                $nick = mb_substr($nick, 0, 12);
+            }
+            if (!User::getByNickname($nick)) {
+                return $nick;
+            }
+        }
+        return '红宝' . substr((string)time(), -3) . str_pad((string)mt_rand(0, 999), 3, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * 注册单个机器人账户（不计入行情、不建客服会话）
+     *
+     * @param string $mobile
+     * @param float  $hongbao
+     * @param string $nickname 空则随机
+     * @return array{user_id:int,mobile:string,nickname:string,hongbao:float}
+     */
+    public static function createBotUser($mobile, $hongbao = 100000, $nickname = '')
+    {
+        $mobile = preg_replace('/\s+/', '', trim((string)$mobile));
+        if ($mobile === '') {
+            throw new Exception('手机号不能为空');
+        }
+        if (User::getByMobile($mobile) || User::getByUsername($mobile)) {
+            throw new Exception('手机号已存在: ' . $mobile);
+        }
+        $nick = trim((string)$nickname);
+        if ($nick === '') {
+            $nick = self::randomBotNickname();
+        }
+        $hongbao = max(0, round((float)$hongbao, 2));
+
+        $auth = Auth::instance();
+        $ok = $auth->register($mobile, Random::alnum(10), '', $mobile, [
+            'nickname' => $nick,
+        ]);
+        if (!$ok) {
+            $err = trim((string)$auth->getError());
+            throw new Exception($err !== '' ? $err : '机器人注册失败');
+        }
+        $user = User::getByMobile($mobile);
+        if (!$user) {
+            throw new Exception('机器人注册后未找到用户');
+        }
+        $userId = (int)$user->id;
+        if ((string)$user->nickname !== $nick) {
+            $user->nickname = $nick;
+            $user->save();
+        }
+
+        $now = time();
+        $exists = Account::where('user_id', $userId)->find();
+        if ($exists) {
+            $exists->save([
+                'is_bot'     => 1,
+                'rights'     => 0,
+                'balance'    => 0,
+                'hongbao'    => $hongbao,
+                'updatetime' => $now,
+            ]);
+        } else {
+            Account::create([
+                'id'         => $userId,
+                'user_id'    => $userId,
+                'rights'     => 0,
+                'balance'    => 0,
+                'hongbao'    => $hongbao,
+                'flow_stage' => 'stage1',
+                'member_level' => 1,
+                'status'     => 'normal',
+                'is_bot'     => 1,
+                'createtime' => $now,
+                'updatetime' => $now,
+            ]);
+        }
+        if ($hongbao > 0) {
+            Ledger::create([
+                'user_id'        => $userId,
+                'type'           => 'admin_adjust',
+                'rights_change'  => 0,
+                'balance_change' => 0,
+                'hongbao_change' => $hongbao,
+                'rights_after'   => 0,
+                'balance_after'  => 0,
+                'hongbao_after'  => $hongbao,
+                'remark'         => '机器人初始红宝',
+                'admin_id'       => 0,
+                'createtime'     => $now,
+            ]);
+        }
+
+        return [
+            'user_id'  => $userId,
+            'mobile'   => $mobile,
+            'nickname' => $nick,
+            'hongbao'  => $hongbao,
+        ];
+    }
+
+    /**
+     * 批量注册机器人：手机号从 $startMobile 起递增，默认各 10 万红宝
+     *
+     * @return array{created:array,skipped:array,errors:array}
+     */
+    public static function seedBotUsers($count = 300, $startMobile = '10000000001', $hongbao = 100000)
+    {
+        $count = max(1, min(5000, (int)$count));
+        $start = preg_replace('/\D+/', '', (string)$startMobile);
+        if ($start === '') {
+            $start = '10000000001';
+        }
+        $hongbao = max(0, round((float)$hongbao, 2));
+        $created = [];
+        $skipped = [];
+        $errors = [];
+        // 用 BC 风格字符串递增，避免超大数字精度问题
+        $mobile = $start;
+        for ($i = 0; $i < $count; $i++) {
+            if ($i > 0) {
+                $mobile = self::incrementDigitString($mobile);
+            }
+            try {
+                if (User::getByMobile($mobile) || User::getByUsername($mobile)) {
+                    $skipped[] = $mobile;
+                    continue;
+                }
+                $created[] = self::createBotUser($mobile, $hongbao, '');
+            } catch (\Throwable $e) {
+                $errors[] = ['mobile' => $mobile, 'error' => $e->getMessage()];
+            }
+        }
+        return compact('created', 'skipped', 'errors');
+    }
+
+    /** 纯数字字符串 +1 */
+    protected static function incrementDigitString($digits)
+    {
+        $digits = preg_replace('/\D+/', '', (string)$digits);
+        if ($digits === '') {
+            return '1';
+        }
+        $carry = 1;
+        $out = '';
+        for ($i = strlen($digits) - 1; $i >= 0; $i--) {
+            $n = (int)$digits[$i] + $carry;
+            if ($n >= 10) {
+                $out = '0' . $out;
+                $carry = 1;
+            } else {
+                $out = (string)$n . $out;
+                $carry = 0;
+            }
+        }
+        if ($carry) {
+            $out = '1' . $out;
+        }
+        return $out;
     }
 }

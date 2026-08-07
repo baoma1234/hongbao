@@ -60,6 +60,7 @@ class Account extends Backend
             $list = $this->model
                 ->with(['user'])
                 ->where($where)
+                ->where('is_bot', 0)
                 ->order($sort, $order)
                 ->paginate($limit);
             $userIds = [];
@@ -433,7 +434,7 @@ class Account extends Backend
         $this->request->filter(['strip_tags', 'trim']);
         list($where, $sort, $order) = $this->buildparams();
         $rows = $this->exportQueryRows(
-            $this->model->with(['user'])->where($where)->order($sort, $order)
+            $this->model->with(['user'])->where($where)->where('is_bot', 0)->order($sort, $order)
         );
         $stageList = $this->model->getFlowStageList();
         $statusList = $this->model->getStatusList();
