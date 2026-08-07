@@ -12,6 +12,33 @@ let reconnectTimer = null
 let intentionalClose = false
 /** 进行中的连接（含等 OPEN / 等 auth） */
 let connectingPromise = null
+/** 周期 ping，避免服务端 120s 空闲踢线 */
+let pingTimer = null
+const PING_INTERVAL_MS = 30000
+
+function stopPingLoop() {
+  if (pingTimer) {
+    clearInterval(pingTimer)
+    pingTimer = null
+  }
+}
+
+function startPingLoop() {
+  stopPingLoop()
+  pingTimer = setInterval(() => {
+    if (!getToken() || !isSocketSendable() || !authed) return
+    try {
+      socketTask.send({
+        data: JSON.stringify({
+          type: 'ping',
+          data: {},
+          req_id: nextReqId(),
+        }),
+        fail() {},
+      })
+    } catch (e) {}
+  }, PING_INTERVAL_MS)
+}
 
 /** 与 888 对齐：这些写读优先走 /im-api，失败再回退 WS */
 const HTTP_ROUTES = {
@@ -215,7 +242,12 @@ function handlePacket(raw) {
   if (packet.type === 'auth.ok') {
     authed = true
     authMeta = packet.data || {}
+    startPingLoop()
     emit('auth.ok', authMeta)
+    return
+  }
+  if (packet.type === 'pong') {
+    // 心跳应答，不向业务层广播
     return
   }
   if (packet.type === 'error') {
@@ -248,6 +280,7 @@ function bindSocketHandlers(task, token) {
     if (socketTask !== task) return
     socketOpen = false
     authed = false
+    stopPingLoop()
     emit('socket.error', err)
     scheduleReconnect()
   })
@@ -257,6 +290,7 @@ function bindSocketHandlers(task, token) {
     authed = false
     authMeta = {}
     socketTask = null
+    stopPingLoop()
     emit('socket.close', {})
     if (!intentionalClose) scheduleReconnect()
   })
@@ -332,10 +366,13 @@ export function imConnect() {
         // query token 鉴权时可能不推 auth.ok：OPEN 即可宽松放行
         if (socketOpen && socketTask) {
           authed = true
+          startPingLoop()
         } else {
           throw new Error('WS 鉴权超时')
         }
       }
+    } else {
+      startPingLoop()
     }
     return true
   })()
@@ -384,6 +421,7 @@ function scheduleReconnect() {
 
 export function imDisconnect() {
   intentionalClose = true
+  stopPingLoop()
   if (reconnectTimer) {
     clearTimeout(reconnectTimer)
     reconnectTimer = null

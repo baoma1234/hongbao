@@ -1593,6 +1593,12 @@ class MessageRouter
         if (!is_array($uids)) {
             return;
         }
+        // 同包内容对所有连接一致：只编码一次
+        $packet = ['type' => $type, 'data' => $data, 'ts' => time()];
+        $json = \Im\Support\Json::encode($packet);
+        if ($json === '' || $json === false) {
+            return;
+        }
         foreach ($uids as $uid) {
             $uid = (int)$uid;
             if ($uid <= 0) {
@@ -1605,7 +1611,10 @@ class MessageRouter
                 if (!isset($this->worker->connections[$cid])) {
                     continue;
                 }
-                $this->send($this->worker->connections[$cid], $type, $data);
+                try {
+                    $this->worker->connections[$cid]->send($json);
+                } catch (\Throwable $e) {
+                }
             }
         }
     }

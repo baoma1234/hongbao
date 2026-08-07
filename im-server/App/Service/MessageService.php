@@ -141,8 +141,18 @@ class MessageService
             'createtime'        => $now,
         ];
         $this->cacheRecent($payload);
-        $this->touchInbox($payload);
-        $this->bumpUnreadCounters($payload);
+        // 群聊：在线成员只算一次，供 inbox + unread 复用（逻辑不变，少一次 Redis SINTER）
+        $groupOnlineUids = null;
+        if ((int)$payload['conversation_type'] === 2) {
+            try {
+                $gid = (int)($payload['group_id'] ?? $payload['conversation_id']);
+                $groupOnlineUids = (new GroupService())->onlineMemberIds($gid);
+            } catch (\Throwable $e) {
+                $groupOnlineUids = [];
+            }
+        }
+        $this->touchInbox($payload, $groupOnlineUids);
+        $this->bumpUnreadCounters($payload, $groupOnlineUids);
         // 推送/ACK 附带发送者昵称，避免客户端在隐私群无成员列表时显示 ID
         return $this->attachSenderFields($payload);
     }
@@ -220,8 +230,9 @@ class MessageService
     /**
      * Redis 未读计数：收件人 INCR；已读时清零。列表优先读计数，避免 50× COUNT
      * 群聊：只给在线成员 INCR（全员扇出在万人群会打爆 Redis）；离线用户靠游标/SQL 回退
+     * @param int[]|null $groupOnlineUids 预取的群在线成员；null 则内部再查
      */
-    protected function bumpUnreadCounters(array $payload)
+    protected function bumpUnreadCounters(array $payload, $groupOnlineUids = null)
     {
         $type = (int)($payload['conversation_type'] ?? 0);
         $cid = (string)($payload['conversation_id'] ?? '');
@@ -237,7 +248,11 @@ class MessageService
             }
         } else {
             try {
-                $uids = (new GroupService())->onlineMemberIds((int)($payload['group_id'] ?? $cid));
+                if (is_array($groupOnlineUids)) {
+                    $uids = $groupOnlineUids;
+                } else {
+                    $uids = (new GroupService())->onlineMemberIds((int)($payload['group_id'] ?? $cid));
+                }
                 $uids = array_values(array_filter($uids, function ($uid) use ($from) {
                     return (int)$uid !== $from;
                 }));
@@ -377,8 +392,9 @@ class MessageService
      * 维护每人最近会话 ZSET（score=消息 id），列表 O(logN) 取 Top，避免消息表 GROUP BY 越扫越慢
      * 群聊：只更新发送者 + 在线成员 inbox（全员写 inbox 在万人群不可扩展）
      * 另写 g:{gid}:last 供列表侧补活跃群
+     * @param int[]|null $groupOnlineUids 预取的群在线成员；null 则内部再查
      */
-    protected function touchInbox(array $payload)
+    protected function touchInbox(array $payload, $groupOnlineUids = null)
     {
         $type = (int)($payload['conversation_type'] ?? 0);
         $cid = (string)($payload['conversation_id'] ?? '');
@@ -395,7 +411,11 @@ class MessageService
             $uids = $from > 0 ? [$from] : [];
             try {
                 $gid = (int)($payload['group_id'] ?? $cid);
-                $online = (new GroupService())->onlineMemberIds($gid);
+                if (is_array($groupOnlineUids)) {
+                    $online = $groupOnlineUids;
+                } else {
+                    $online = (new GroupService())->onlineMemberIds($gid);
+                }
                 foreach ($online as $uid) {
                     $uids[] = (int)$uid;
                 }
