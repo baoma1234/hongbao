@@ -1,11 +1,11 @@
 <template>
-  <view :key="locale">
+  <view :key="pageKey">
     <TopBar />
     <view id="tabExchange" class="tab-page active">
-      <view class="page-hero-title">{{ t('page_hero_exchange_title') || '⚡ VIP 闪兑大厅' }}</view>
-      <view class="page-hero-sub">{{ t('page_hero_exchange_sub') || '股份 ↔ 红宝 · 实时预估到账' }}</view>
+      <view class="page-hero-title">{{ tt('page_hero_exchange_title', '⚡ VIP 闪兑大厅') }}</view>
+      <view class="page-hero-sub">{{ tt('page_hero_exchange_sub', '股份 ↔ 红宝 · 实时预估到账') }}</view>
       <view class="exchange-closed-banner" v-if="!anyEnabled">
-        {{ t('profile_ex_r2b_closed') || t('alert_exchange_disabled') || '股份兑换红宝已关闭' }}
+        {{ tt('profile_ex_r2b_closed', tt('alert_exchange_disabled', '股份兑换红宝已关闭')) }}
       </view>
 
       <view class="share-swap" id="dualExchangeSection" v-if="anyEnabled">
@@ -37,13 +37,13 @@
               @input="tickTime"
             />
             <button type="button" class="share-swap-btn-all" @click="fillAll">
-              {{ t('swap_all_btn') || '全部' }}
+              {{ tt('swap_all_btn', '全部') }}
             </button>
           </view>
           <view class="share-swap-hint">{{ minHint }}</view>
 
           <view class="share-swap-divider">
-            <button type="button" class="share-swap-arrow" @click="flip" :aria-label="t('swap_aria_flip') || '互换方向'">
+            <button type="button" class="share-swap-arrow" @click="flip" :aria-label="tt('swap_aria_flip', '互换方向')">
               <svg viewBox="0 0 24 24" width="20" height="20">
                 <path
                   fill="currentColor"
@@ -60,7 +60,7 @@
                 d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12zm-8-3c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3z"
               />
             </svg>
-            <text>{{ t('swap_to_label') || '兑换目标' }}</text>
+            <text>{{ tt('swap_to_label', '兑换目标') }}</text>
           </view>
           <view class="share-swap-input-card share-swap-select-card">
             <view class="share-swap-icon-circle">{{ toIcon }}</view>
@@ -74,14 +74,14 @@
 
           <view class="share-swap-summary">
             <view class="share-swap-summary-left">
-              <view class="share-swap-summary-label">{{ t('swap_rate_label') || '兑换比例' }}</view>
+              <view class="share-swap-summary-label">{{ tt('swap_rate_label', '兑换比例') }}</view>
               <view class="share-swap-summary-value">{{ rateText }}</view>
               <view class="share-swap-summary-currency">CNY</view>
               <view class="share-swap-summary-time">{{ nowText }}</view>
             </view>
             <view class="share-swap-vdiv" aria-hidden="true" />
             <view class="share-swap-summary-right">
-              <view class="share-swap-summary-label">{{ t('swap_est_label') || '预计到账' }}</view>
+              <view class="share-swap-summary-label">{{ tt('swap_est_label', '预计到账') }}</view>
               <view class="share-swap-amount">{{ estText }}</view>
               <view class="share-swap-summary-label">{{ toLabel }}</view>
             </view>
@@ -93,7 +93,7 @@
             :disabled="submitting || !pair.enabled"
             @click="onSubmit"
           >
-            {{ t('swap_submit') || '确认兑换' }}
+            {{ tt('swap_submit', '确认兑换') }}
           </button>
           <view class="share-swap-closed" v-if="!pair.enabled">
             {{ pairClosedText }}
@@ -122,12 +122,20 @@ import {
   rightsLockedOf,
   submitSwap,
 } from '../../utils/exchange.js'
-import { localeState, t } from '../../utils/i18n.js'
+import {
+  copyState,
+  ensureLocaleLoaded,
+  getLocale,
+  localeState,
+  tt,
+} from '../../utils/i18n.js'
 import '../../styles/share-swap.css'
 import '../../styles/exchange-uni-adapter.css'
 
 const ASSETS = ['rights', 'hongbao']
 const locale = localeState()
+const copyTick = copyState()
+const pageKey = computed(() => String(locale.value || '') + '-' + String(copyTick.value || 0))
 const config = ref({})
 const profile = ref({})
 const fromAsset = ref('rights')
@@ -141,69 +149,71 @@ const anyEnabled = computed(() =>
   ASSETS.some((f) => ASSETS.some((to) => f !== to && pairInfo(config.value, f, to).enabled))
 )
 
+function touchCopy() {
+  void locale.value
+  void copyTick.value
+}
+
 function assetLabel(a) {
   if (a === 'hongbao' || a === 'balance') {
-    return t('swap_asset_hongbao') || t('asset_hongbao_label') || '红宝'
+    return tt('swap_asset_hongbao', tt('asset_hongbao_label', '红宝'))
   }
-  return t('swap_asset_rights') || t('asset_shares_label') || '股份'
+  return tt('swap_asset_rights', tt('asset_shares_label', '股份'))
 }
 function assetIcon(a) {
-  if (a === 'hongbao' || a === 'balance') return t('swap_unit_hongbao') || '宝'
-  return t('swap_unit_share') || '股'
+  if (a === 'hongbao' || a === 'balance') return tt('swap_unit_hongbao', '宝')
+  return tt('swap_unit_share', '股')
 }
 
 const fromLabel = computed(() => {
-  void locale.value
+  touchCopy()
   return assetLabel(fromAsset.value)
 })
 const toLabel = computed(() => {
-  void locale.value
+  touchCopy()
   return assetLabel(toAsset.value)
 })
 const fromIcon = computed(() => {
-  void locale.value
+  touchCopy()
   return assetIcon(fromAsset.value)
 })
 const toIcon = computed(() => {
-  void locale.value
+  touchCopy()
   return assetIcon(toAsset.value)
 })
 const fromLabels = computed(() => {
-  void locale.value
+  touchCopy()
   return ASSETS.map(assetLabel)
 })
 const toOptions = computed(() =>
   ASSETS.filter((a) => a !== fromAsset.value && pairInfo(config.value, fromAsset.value, a).enabled)
 )
 const toLabels = computed(() => {
-  void locale.value
+  touchCopy()
   return toOptions.value.map(assetLabel)
 })
 const fromIndex = computed(() => Math.max(0, ASSETS.indexOf(fromAsset.value)))
 const toIndex = computed(() => Math.max(0, toOptions.value.indexOf(toAsset.value)))
 
 const fromSectionTitle = computed(() => {
-  void locale.value
-  return (
-    t('swap_from_with_asset', { asset: fromLabel.value }) ||
-    (t('swap_from_label') || '转出') + fromLabel.value
-  )
+  touchCopy()
+  return tt('swap_from_with_asset', '转出{asset}', { asset: fromLabel.value })
 })
 
 const swapTitle = computed(() => {
-  void locale.value
-  return (
-    t('swap_title_pair', { from: fromLabel.value, to: toLabel.value }) ||
-    fromLabel.value + '兑换' + toLabel.value
-  )
+  touchCopy()
+  return tt('swap_title_pair', '{from}兑换{to}', {
+    from: fromLabel.value,
+    to: toLabel.value,
+  })
 })
 
 const pairClosedText = computed(() => {
-  void locale.value
-  return (
-    t('swap_pair_closed', { from: fromLabel.value, to: toLabel.value }) ||
-    t('alert_exchange_pair_invalid') ||
-    fromLabel.value + '兑换' + toLabel.value + '已关闭'
+  touchCopy()
+  return tt(
+    'swap_pair_closed',
+    tt('alert_exchange_pair_invalid', '{from}兑换{to}已关闭'),
+    { from: fromLabel.value, to: toLabel.value }
   )
 })
 
@@ -212,27 +222,28 @@ const avail = computed(() => {
   return freeRightsOf(profile.value)
 })
 const availText = computed(() => {
-  void locale.value
+  touchCopy()
   if (fromAsset.value === 'hongbao') {
-    return t('swap_avail_hongbao', { amount: avail.value.toFixed(2) }) || ('可用 ' + avail.value.toFixed(2) + ' 红宝')
+    return tt('swap_avail_hongbao', '可用 {amount} 红宝', {
+      amount: avail.value.toFixed(2),
+    })
   }
   const locked = rightsLockedOf(profile.value)
   if (locked > 0) {
-    return (
-      t('share_swap_rights_locked_hint', {
-        free: Math.floor(avail.value),
-        locked: Math.ceil(locked),
-      }) ||
-      ('可兑 ' + Math.floor(avail.value) + ' 份（锁定 ' + Math.ceil(locked) + ' 份，次日可兑）')
-    )
+    return tt('share_swap_rights_locked_hint', '可兑 {free} 份（锁定 {locked} 份，次日可兑）', {
+      free: Math.floor(avail.value),
+      locked: Math.ceil(locked),
+    })
   }
-  return t('swap_avail_rights', { amount: Math.floor(avail.value) }) || ('可用 ' + Math.floor(avail.value) + ' 份')
+  return tt('swap_avail_rights', '可用 {amount} 份', {
+    amount: Math.floor(avail.value),
+  })
 })
 
 const minHint = computed(() => {
-  void locale.value
+  touchCopy()
   const p = pair.value
-  return t('profile_ex_max_hint', { max: p.max }) || ('单笔上限 ' + p.max)
+  return tt('profile_ex_max_hint', '单笔上限 {max}', { max: p.max })
 })
 
 const sharePrice = computed(() => {
@@ -241,20 +252,17 @@ const sharePrice = computed(() => {
 })
 
 const rateText = computed(() => {
-  void locale.value
+  touchCopy()
   const r = rateLine(config.value, fromAsset.value, toAsset.value, sharePrice.value)
-  return (
-    t('swap_rate_line', {
-      from: fromLabel.value,
-      to: toLabel.value,
-      rate: r.toFixed(4),
-    }) ||
-    ('1 ' + fromLabel.value + ' = ' + r.toFixed(4) + ' ' + toLabel.value)
-  )
+  return tt('swap_rate_line', '1 {from} = {rate} {to}', {
+    from: fromLabel.value,
+    to: toLabel.value,
+    rate: r.toFixed(4),
+  })
 })
 
 const estText = computed(() => {
-  void locale.value
+  touchCopy()
   const credit = estimateCredit(
     config.value,
     fromAsset.value,
@@ -263,7 +271,7 @@ const estText = computed(() => {
     sharePrice.value
   )
   if (toAsset.value === 'hongbao') return credit.toFixed(2)
-  return t('swap_est_shares', { amount: credit.toFixed(2) }) || credit.toFixed(2) + ' 份'
+  return tt('swap_est_shares', '{amount} 份', { amount: credit.toFixed(2) })
 })
 
 function tickTime() {
@@ -317,15 +325,13 @@ function clampAmount() {
 
 function insufficientMsg(av) {
   if (fromAsset.value === 'hongbao') {
-    return (
-      t('alert_exchange_insufficient', { avail: Number(av).toFixed(2) }) ||
-      ('数量不足，当前可用红宝 ' + Number(av).toFixed(2))
-    )
+    return tt('alert_exchange_insufficient', '数量不足，当前可用红宝 {avail}', {
+      avail: Number(av).toFixed(2),
+    })
   }
-  return (
-    t('alert_exchange_insufficient', { avail: Math.floor(av) }) ||
-    ('数量不足，当前可兑股份 ' + Math.floor(av) + ' 份')
-  )
+  return tt('alert_exchange_insufficient', '数量不足，当前可兑股份 {avail} 份', {
+    avail: Math.floor(av),
+  })
 }
 
 function onFromPick(e) {
@@ -350,7 +356,7 @@ function flip() {
   )
   if (allowed.indexOf(nextTo) < 0) {
     uni.showToast({
-      title: t('alert_exchange_pair_invalid') || '当前方向无法互换',
+      title: tt('alert_exchange_pair_invalid', '当前方向无法互换'),
       icon: 'none',
     })
     return
@@ -371,7 +377,7 @@ function fillAll() {
 async function onSubmit() {
   const p = pair.value
   if (!p.enabled) {
-    uni.showToast({ title: t('alert_exchange_disabled') || '兑换功能已关闭', icon: 'none' })
+    uni.showToast({ title: tt('alert_exchange_disabled', '兑换功能已关闭'), icon: 'none' })
     return
   }
   clampAmount()
@@ -380,14 +386,14 @@ async function onSubmit() {
   const max = Math.max(min, Number(p.max) || 99999)
   if (!(amt > 0)) {
     uni.showToast({
-      title: t('alert_exchange_amount_invalid') || '请输入转出数量',
+      title: tt('alert_exchange_amount_invalid', '请输入转出数量'),
       icon: 'none',
     })
     return
   }
   if (amt > max + 1e-8) {
     uni.showToast({
-      title: t('alert_exchange_max', { max }) || ('单次最高兑换 ' + max),
+      title: tt('alert_exchange_max', '单次最高兑换 {max}', { max }),
       icon: 'none',
     })
     return
@@ -408,10 +414,10 @@ async function onSubmit() {
       config.value = boot.config
       applySwapProfile(boot.profile)
     }
-    uni.showToast({ title: t('alert_exchange_swap_ok') || '🎉 兑换成功', icon: 'success' })
+    uni.showToast({ title: tt('alert_exchange_swap_ok', '🎉 兑换成功'), icon: 'success' })
   } catch (e) {
     uni.showToast({
-      title: (e && e.message) || t('alert_exchange_fail') || '兑换失败',
+      title: (e && e.message) || tt('alert_exchange_fail', '兑换失败'),
       icon: 'none',
     })
   } finally {
@@ -421,12 +427,15 @@ async function onSubmit() {
 }
 
 async function load() {
+  try {
+    await ensureLocaleLoaded(getLocale())
+  } catch (e) {}
   if (!getToken()) {
     uni.reLaunch({ url: '/pages/login/login' })
     return
   }
   try {
-    uni.setNavigationBarTitle({ title: t('tab_bar_exchange') || '闪兑' })
+    uni.setNavigationBarTitle({ title: tt('tab_bar_exchange', '闪兑') })
   } catch (e) {}
   try {
     const boot = await loadExchangeBootstrap()
@@ -436,7 +445,7 @@ async function load() {
     tickTime()
   } catch (e) {
     uni.showToast({
-      title: (e && e.message) || t('loading_generic') || '加载失败',
+      title: (e && e.message) || tt('loading_generic', '加载失败'),
       icon: 'none',
     })
   }

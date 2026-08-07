@@ -16,7 +16,7 @@ export const LOCALE_META = {
   'id-ID': { labelKey: 'lang_id', country: 'ID', flagIso: 'id', fallback: 'Indonesia' },
 }
 
-/** 离线兜底（顶栏 / 登录 / Tab） */
+/** 离线兜底（顶栏 / 登录 / Tab / 闪兑 / 我的） */
 const BOOT_COPY = {
   'zh-CN': {
     brand_name: '红宝',
@@ -40,9 +40,31 @@ const BOOT_COPY = {
     page_hero_exchange_sub: '股份 ↔ 红宝 · 实时预估到账',
     swap_submit: '确认兑换',
     swap_all_btn: '全部',
+    swap_aria_flip: '互换方向',
+    swap_to_label: '兑换目标',
+    swap_rate_label: '兑换比例',
+    swap_est_label: '预计到账',
+    swap_from_label: '转出',
+    swap_from_with_asset: '转出{asset}',
+    swap_title_pair: '{from}兑换{to}',
+    swap_pair_closed: '{from}兑换{to}已关闭',
+    swap_asset_hongbao: '红宝',
+    swap_asset_rights: '股份',
+    swap_unit_hongbao: '宝',
+    swap_unit_share: '股',
+    swap_avail_hongbao: '可用 {amount} 红宝',
+    swap_avail_rights: '可用 {amount} 份',
+    swap_est_shares: '{amount} 份',
+    swap_rate_line: '1 {from} = {rate} {to}',
+    share_swap_rights_locked_hint: '可兑 {free} 份（锁定 {locked} 份，次日可兑）',
+    profile_ex_r2b_closed: '股份兑换红宝已关闭',
+    profile_ex_max_hint: '单笔上限 {max}',
     alert_exchange_swap_ok: '🎉 兑换成功',
     alert_exchange_fail: '兑换失败',
     alert_exchange_disabled: '兑换功能已关闭',
+    alert_exchange_pair_invalid: '当前兑换方向已关闭',
+    asset_hongbao_label: '红宝',
+    asset_shares_label: '股份',
     login_subtitle: '🛡️ 官方福利通道激活：请输您的手机号码',
     login_phone_label: '📱 会员登记：请输入您的手机号码',
     login_phone_placeholder: '请输入11位中国大陆手机号',
@@ -77,8 +99,8 @@ const BOOT_COPY = {
     slider_track_hint: '拖动滑块到右侧 →',
     slider_refresh_btn: '重试',
     slider_ok_sms: '验证通过，正在发送验证码…',
-    profile_logout_btn: '退出登录',
     loading_generic: '加载中...',
+    profile_logout_btn: '退出登录',
     profile_vip_badge: '官方会员',
     profile_user_id_label: '会员ID',
     profile_uid_copy_btn: '复制',
@@ -119,16 +141,38 @@ const BOOT_COPY = {
     lang_id: 'Indonesia',
     tab_bar_home: 'Home',
     tab_bar_exchange: 'Swap',
+    tab_bar_messages: 'Chat',
+    tab_bar_master: 'Leader',
+    tab_bar_profile: 'Me',
     page_hero_exchange_title: '⚡ VIP Flash Exchange',
     page_hero_exchange_sub: 'Shares ↔ Hongbao · Live estimate',
     swap_submit: 'Confirm swap',
     swap_all_btn: 'All',
+    swap_aria_flip: 'Flip direction',
+    swap_to_label: 'Receive',
+    swap_rate_label: 'Rate',
+    swap_est_label: 'Estimated',
+    swap_from_label: 'Send',
+    swap_from_with_asset: 'Send {asset}',
+    swap_title_pair: '{from} → {to}',
+    swap_pair_closed: '{from} → {to} is closed',
+    swap_asset_hongbao: 'Hongbao',
+    swap_asset_rights: 'Shares',
+    swap_unit_hongbao: 'HB',
+    swap_unit_share: 'sh',
+    swap_avail_hongbao: 'Available {amount} Hongbao',
+    swap_avail_rights: 'Available {amount} shares',
+    swap_est_shares: '{amount} shares',
+    swap_rate_line: '1 {from} = {rate} {to}',
+    share_swap_rights_locked_hint: 'Can swap {free} (locked {locked}, free tomorrow)',
+    profile_ex_r2b_closed: 'Share-to-Hongbao swap is closed',
+    profile_ex_max_hint: 'Max per swap {max}',
     alert_exchange_swap_ok: '🎉 Swap successful',
     alert_exchange_fail: 'Swap failed',
     alert_exchange_disabled: 'Exchange is disabled',
-    tab_bar_messages: 'Chat',
-    tab_bar_master: 'Leader',
-    tab_bar_profile: 'Me',
+    alert_exchange_pair_invalid: 'This swap direction is closed',
+    asset_hongbao_label: 'Hongbao',
+    asset_shares_label: 'Shares',
     login_subtitle: 'Activate official welfare channel: enter your mobile number',
     login_phone_label: 'Member registration: mobile number',
     login_phone_placeholder: 'Enter 11-digit China mainland mobile',
@@ -137,8 +181,8 @@ const BOOT_COPY = {
     login_captcha_btn: 'Get code',
     login_captcha_resend: '{count}s',
     login_submit_btn: 'Enter welfare hall',
-    profile_logout_btn: 'Log out',
     loading_generic: 'Loading...',
+    profile_logout_btn: 'Log out',
     profile_vip_badge: 'Official member',
     profile_user_id_label: 'Member ID',
     profile_uid_copy_btn: 'Copy',
@@ -255,10 +299,14 @@ export function t(key, vars) {
   return fillTpl(tpl, vars)
 }
 
-/** 取文案；若仍是 key 本身则用 fallback（对齐 888 chatT） */
-export function tt(key, fallback) {
-  const v = t(key)
-  return !v || v === key ? fallback || key : v
+/** 取文案；若仍是 key 本身则用 fallback（对齐 888 chatT；支持 {var}） */
+export function tt(key, fallback, vars) {
+  const v = t(key, vars)
+  const rawKey = String(key || '')
+  if (!v || v === rawKey || v === fillTpl(rawKey, vars)) {
+    return fillTpl(String(fallback != null && fallback !== '' ? fallback : rawKey), vars)
+  }
+  return v
 }
 
 function parseLocaleScript(text, locale) {
