@@ -38,7 +38,7 @@
           </view>
           <view class="wallet-ledger-sub" v-if="item.remark && item.remark !== (item.type_label || item.title)">{{ item.remark }}</view>
           <view class="wallet-ledger-time">
-            {{ item.createtime_text || item.created_at || item.createtime || '' }}
+            {{ formatLedgerTime(item) }}
           </view>
         </view>
         <view>
@@ -95,6 +95,43 @@ const emptyText = computed(() => {
 function rowKey(item) {
   return item.id || item.createtime + '-' + (item.hongbao_change || item.balance_change)
 }
+
+function formatLedgerTime(item) {
+  const raw = item && (item.createtime != null ? item.createtime : item.created_at)
+  let ts = 0
+  if (typeof raw === 'number') {
+    ts = raw
+  } else if (typeof raw === 'string') {
+    const s = raw.trim()
+    if (/^\d+$/.test(s)) ts = parseInt(s, 10)
+    else {
+      const parsed = Date.parse(s.replace(/-/g, '/'))
+      if (!isNaN(parsed)) ts = Math.floor(parsed / 1000)
+    }
+  }
+  if (ts > 1e12) ts = Math.floor(ts / 1000)
+  if (!ts) {
+    const text = String((item && item.createtime_text) || '').trim()
+    return text
+  }
+  const d = new Date(ts * 1000)
+  if (isNaN(d.getTime())) return ''
+  const p = (n) => (n < 10 ? '0' + n : '' + n)
+  return (
+    d.getFullYear() +
+    '-' +
+    p(d.getMonth() + 1) +
+    '-' +
+    p(d.getDate()) +
+    ' ' +
+    p(d.getHours()) +
+    ':' +
+    p(d.getMinutes()) +
+    ':' +
+    p(d.getSeconds())
+  )
+}
+
 function amountText(item) {
   return ledgerAmountText(item).text
 }
