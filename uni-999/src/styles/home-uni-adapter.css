@@ -314,29 +314,32 @@
   margin-bottom: 0;
 }
 
-/* user-info 对齐 888：状态绿标 + 右侧等级胶囊；小屏允许换行完整显示 */
+/* user-info 对齐 888：状态绿标 + 等级胶囊；整行左右居中 */
 #tabHome .user-info {
   display: flex !important;
   flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: flex-start;
+  justify-content: center;
+  align-items: center;
   gap: 8px 10px;
   margin-top: 12px;
   margin-bottom: 12px;
   padding-top: 12px;
   border-top: 1px dashed #e1e8ed;
+  text-align: center;
 }
 #tabHome .user-id {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   font-weight: 700;
   color: var(--text-main);
   font-size: 12px;
   line-height: 1.45;
   gap: 2px 0;
+  text-align: center;
 }
 #tabHome .user-id .user-phone {
   font-weight: 700;

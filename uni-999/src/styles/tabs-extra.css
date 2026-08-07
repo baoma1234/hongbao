@@ -971,6 +971,8 @@
         .btn-manual-settle { width: 100%; background: linear-gradient(135deg, #5C6BC0 0%, #3949AB 100%); color: #FFF; border: none; padding: 10px 12px; border-radius: 10px; font-size: 13px; font-weight: bold; cursor: pointer; box-shadow: 0 3px 10px rgba(57, 73, 171, 0.3); margin-bottom: 15px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
         .btn-manual-settle .sub-label { font-size: 10px; opacity: 0.85; font-weight: normal; }
         .btn-manual-settle:active { opacity: 0.9; }
-        .home-claim-section { margin: 4px 0 12px; }
+        .home-claim-section { margin: 4px 0 12px; text-align: center; }
+        .home-claim-section .page-hero-title,
+        .home-claim-section .page-hero-sub { text-align: center; }
         .home-claim-section .page-hero-title { margin-top: 4px; }
         .home-claim-section .btn-manual-settle { margin-top: 12px; margin-bottom: 4px; }

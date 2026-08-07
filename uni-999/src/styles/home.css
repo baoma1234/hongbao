@@ -204,6 +204,7 @@
             color: var(--text-main);
             margin: 0 0 12px;
             letter-spacing: 0.2px;
+            text-align: center;
         }
         .page-hero-sub {
             font-size: 12px;
@@ -211,6 +212,7 @@
             margin: -6px 0 14px;
             line-height: 1.45;
             font-weight: 600;
+            text-align: center;
         }
         .welcome-lottery-mask {
             display: none;
@@ -666,9 +668,10 @@
             border-top: 1px dashed #E1E8ED;
             display: flex;
             flex-wrap: wrap;
-            justify-content: space-between;
-            align-items: flex-start;
+            justify-content: center;
+            align-items: center;
             gap: 8px 10px;
+            text-align: center;
         }
         .user-id {
             font-weight: 700;
