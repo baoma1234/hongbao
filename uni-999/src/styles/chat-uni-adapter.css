@@ -547,16 +547,46 @@ body.tab-messages #tabMessages .chat-list-pane {
   overflow: visible !important;
 }
 
+/* 公告：与社群同款 absolute 填满，避免 iOS Safari height:0 空白 */
+#tabMessages #chatHomePanelNotice.chat-notice-feed-panel:not(.is-hidden) {
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  position: relative !important;
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  box-sizing: border-box !important;
+}
+
+#tabMessages .chat-notice-feed-panel .chat-notice-seg {
+  flex: 0 0 auto !important;
+}
+
+#tabMessages .chat-notice-pane {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  height: auto !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+#tabMessages scroll-view.chat-notice-body-scroll,
 #tabMessages .chat-notice-body-scroll {
   flex: 1 1 auto !important;
   min-height: 0 !important;
-  height: 0 !important;
+  height: auto !important;
   width: 100%;
+  position: absolute !important;
+  left: 0 !important;
+  right: 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  box-sizing: border-box !important;
 }
 
 /* 公告列表不要 flex 撑高，否则卡片下方会留白 */
 #tabMessages .chat-notice-feed {
-  flex: 0 0 auto !important;
+  flex: none !important;
   min-height: 0 !important;
   height: auto !important;
   padding-bottom: 4px !important;

@@ -648,15 +648,16 @@ class GroupService
         if (!$group || !in_array((int)$group['status'], [1, 3], true)) {
             throw new \RuntimeException('group unavailable');
         }
+        // 已是成员直接返回（隐私群从「我的群组」重进时也会打到 join）
+        if ($this->isMember($groupId, $userId)) {
+            return $this->get($groupId);
+        }
         $mode = (string)($group['privacy_mode'] ?? '');
         $isOpen = ($mode === 'open') || ($mode === '' && (int)($group['hide_member_list'] ?? 1) === 0);
         $isRecommend = $this->hasRecommendColumn() && (int)($group['is_recommend'] ?? 0) === 1;
         // 开放群 或 官方推荐群 都可从「官方社群」加入
         if (!$isOpen && !$isRecommend) {
             throw new \RuntimeException('private group');
-        }
-        if ($this->isMember($groupId, $userId)) {
-            return $this->get($groupId);
         }
         $max = (int)($group['max_members'] ?? 0);
         if ($max <= 0) {

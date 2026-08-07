@@ -269,6 +269,7 @@
                   @click="setNoticeCat('rules')"
                 >游戏规则</view>
               </view>
+              <view class="chat-notice-pane">
               <scroll-view class="chat-notice-body-scroll" scroll-y :show-scrollbar="false">
                 <view
                   v-if="noticeCat === 'promote'"
@@ -371,6 +372,7 @@
                   <view v-if="!notices.length" class="chat-empty chat-empty-glass">暂无公告</view>
                 </view>
               </scroll-view>
+              </view>
             </view>
 
             <!-- 佣金 -->
@@ -1498,12 +1500,16 @@ async function loadCommunity() {
   startOfficialCommunityPoll()
 }
 
+function normalizeMyGroups(list) {
+  return (list || []).map((g) => Object.assign({}, g, { is_member: true }))
+}
+
 async function loadCommunityExtra() {
   try {
     await imConnect()
     const mine = await listMyGroups()
     const md = (mine && mine.data) || {}
-    myGroups.value = md.list || md.items || []
+    myGroups.value = normalizeMyGroups(md.list || md.items || [])
   } catch (e) {
     myGroups.value = []
   }
@@ -1528,11 +1534,19 @@ function markMineInRecs() {
   })
 }
 
+function isMyGroupMember(groupId) {
+  const gid = groupId | 0
+  if (!gid) return false
+  return (myGroups.value || []).some((x) => ((x.id || x.group_id) | 0) === gid)
+}
+
 async function openGroup(g) {
   const groupId = (g && (g.id || g.group_id)) | 0
   if (!groupId) return
+  // 「我的群组」接口不带 is_member；已入群再调 join 会被隐私群拒绝 → 点不开
+  const alreadyMember = !!(g && g.is_member) || isMyGroupMember(groupId)
   try {
-    if (!g.is_member) {
+    if (!alreadyMember) {
       await joinGroup(groupId)
       uni.showToast({ title: '已加入社群', icon: 'none' })
       await loadCommunity()
@@ -1636,7 +1650,7 @@ async function loadMyGroupsSafe() {
   try {
     const packet = await listMyGroups()
     const data = (packet && packet.data) || {}
-    myGroups.value = data.list || data.groups || []
+    myGroups.value = normalizeMyGroups(data.list || data.groups || [])
   } catch (e) {}
 }
 
