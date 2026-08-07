@@ -91,6 +91,18 @@
           </view>
           <text class="profile-menu-arrow">›</text>
         </view>
+        <view class="profile-menu-row" @click="go('/pages/fission/detail')">
+          <view class="profile-menu-ico">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path fill="currentColor" d="M12 2c3.5 2.8 6 5.4 6 8.5A6 6 0 016 10.5C6 7.4 8.5 4.8 12 2zm0 7a2.5 2.5 0 100 5 2.5 2.5 0 000-5zm-7 9h14v2H5v-2z" />
+            </svg>
+          </view>
+          <view class="profile-menu-main">
+            <text class="profile-menu-title">{{ tt('profile_menu_fission', '裂变红包') }}</text>
+            <text class="profile-menu-sub">{{ tt('profile_menu_fission_sub', '全网裂变 · 邀请瓜分奖金池') }}</text>
+          </view>
+          <text class="profile-menu-arrow">›</text>
+        </view>
       </view>
     </view>
 

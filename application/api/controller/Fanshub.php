@@ -17,7 +17,7 @@ use think\Validate;
  */
 class Fanshub extends Api
 {
-    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'communityrecommend'];
+    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'communityrecommend', 'fissionentry'];
     protected $noNeedRight = '*';
 
     public function _initialize()
@@ -25,7 +25,7 @@ class Fanshub extends Api
         FansHubSms::boot();
         parent::_initialize();
         $action = strtolower($this->request->action());
-        $exempt = ['config', 'bootstrap', 'comments', 'inviteleaderboard', 'slidercaptcha', 'grabslider', 'jackpot', 'notices', 'communityrecommend'];
+        $exempt = ['config', 'bootstrap', 'comments', 'inviteleaderboard', 'slidercaptcha', 'grabslider', 'jackpot', 'notices', 'communityrecommend', 'fissionentry'];
         if (in_array($action, $exempt, true)) {
             return;
         }
@@ -800,6 +800,53 @@ class Fanshub extends Api
                 'profile' => $profile,
                 'has_pay_password' => true,
             ]);
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: FansHubService::h5CopyText('api_operation_fail'));
+        }
+    }
+
+    /**
+     * 裂变红包：入口状态（首页按钮 / 登录弹窗，可匿名）
+     * GET /api/fanshub/fissionentry
+     */
+    public function fissionentry()
+    {
+        $uid = 0;
+        try {
+            if ($this->auth && $this->auth->isLogin()) {
+                $uid = (int)$this->auth->id;
+            }
+        } catch (\Throwable $e) {
+            $uid = 0;
+        }
+        $this->success('ok', \app\common\library\FansHubFission::entryPayload($uid));
+    }
+
+    /**
+     * 裂变红包：活动详情（需登录）
+     * GET/POST /api/fanshub/fissiondetail
+     */
+    public function fissiondetail()
+    {
+        try {
+            $this->success('ok', \app\common\library\FansHubFission::detailPayload((int)$this->auth->id));
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: FansHubService::h5CopyText('api_operation_fail'));
+        }
+    }
+
+    /**
+     * 裂变红包：参与领取资格（需登录）
+     * POST /api/fanshub/fissionjoin
+     */
+    public function fissionjoin()
+    {
+        try {
+            $this->success('ok', \app\common\library\FansHubFission::join((int)$this->auth->id));
         } catch (HttpResponseException $e) {
             throw $e;
         } catch (\Throwable $e) {

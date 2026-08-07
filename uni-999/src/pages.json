@@ -153,6 +153,13 @@
         "navigationBarTitleText": "公平验证",
         "navigationStyle": "custom"
       }
+    },
+    {
+      "path": "pages/fission/detail",
+      "style": {
+        "navigationBarTitleText": "裂变红包",
+        "navigationStyle": "custom"
+      }
     }
   ],
   "globalStyle": {

@@ -43,6 +43,12 @@ class FanshubMaintain extends Command
         } catch (\Throwable $eDrift) {
             $output->writeln('官方群人数日漂移：失败 ' . $eDrift->getMessage());
         }
+        try {
+            $f = \app\common\library\FansHubFission::maintain();
+            $output->writeln('裂变红包：超时作废 ' . (int)$f['expired'] . '，满额开奖 ' . (int)$f['settled']);
+        } catch (\Throwable $eFission) {
+            $output->writeln('裂变红包维护：失败 ' . $eFission->getMessage());
+        }
         return 0;
     }
 }

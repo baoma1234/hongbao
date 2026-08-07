@@ -403,3 +403,64 @@
 .text-muted {
   color: var(--text-muted, #657786);
 }
+
+/* 全网裂变红包首页入口 */
+#tabHome .fission-home-entry {
+  position: relative;
+  margin-top: 12px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: linear-gradient(120deg, #c62828 0%, #e65100 55%, #f9a825 100%);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  padding: 12px 14px;
+  box-shadow: 0 6px 18px rgba(198, 40, 40, 0.28);
+}
+#tabHome .fission-home-entry.is-ended {
+  filter: grayscale(0.85);
+  opacity: 0.72;
+  box-shadow: none;
+}
+#tabHome .fission-home-entry-glow {
+  position: absolute;
+  inset: -40% auto auto -20%;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  pointer-events: none;
+}
+#tabHome .fission-home-entry-inner {
+  flex: 1;
+  position: relative;
+  z-index: 1;
+  text-align: left;
+}
+#tabHome .fission-home-entry-title {
+  display: block;
+  font-size: 15px;
+  font-weight: 800;
+  margin-bottom: 2px;
+}
+#tabHome .fission-home-entry-sub {
+  display: block;
+  font-size: 11px;
+  opacity: 0.92;
+}
+#tabHome .fission-home-entry-arrow {
+  position: relative;
+  z-index: 1;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  background: rgba(0, 0, 0, 0.18);
+  padding: 6px 10px;
+  border-radius: 999px;
+}
+.fission-popup-box .fission-popup-pool {
+  font-size: 28px;
+  font-weight: 800;
+  color: #e65100;
+  margin-top: 4px;
+}

@@ -22,4 +22,5 @@ return [
     'app\command\FanshubUidSugar',
     'app\command\RedpacketTronReveal',
     'app\command\RedpacketAuto',
+    'app\command\FissionMaintain',
 ];

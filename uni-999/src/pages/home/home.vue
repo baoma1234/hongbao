@@ -74,6 +74,21 @@
             </view>
           </view>
         </view>
+
+        <!-- 全网裂变红包入口：无活动隐藏；结束置灰 -->
+        <view
+          v-if="fissionEntryState !== 'hidden'"
+          class="fission-home-entry"
+          :class="{ 'is-ended': fissionEntryState === 'ended' }"
+          @click="goFission"
+        >
+          <view class="fission-home-entry-glow" />
+          <view class="fission-home-entry-inner">
+            <text class="fission-home-entry-title">{{ fissionEntryTitle }}</text>
+            <text class="fission-home-entry-sub">{{ fissionEntrySub }}</text>
+          </view>
+          <text class="fission-home-entry-arrow">{{ fissionEntryState === 'ended' ? '已结束' : '去参与 ›' }}</text>
+        </view>
       </view>
 
       <!-- 开户 CTA：已绑定游戏账号或团长时隐藏（对齐 888 团长隐藏 + 有账号不再引导开户） -->
@@ -210,6 +225,19 @@
           </button>
         </view>
       </view>
+
+      <!-- 裂变红包首日登录弹窗 -->
+      <view class="modal-mask" :class="{ 'is-open': fissionPopupOpen }" @click="dismissFissionPopup">
+        <view class="modal-box fission-popup-box" @click.stop>
+          <view class="modal-title">🧧 全网裂变红包</view>
+          <view class="fission-popup-pool">¥{{ fissionPopupPool }} 奖金池</view>
+          <view style="font-size: 13px; color: var(--text-muted); margin: 8px 0 16px; line-height: 1.5">
+            邀请有效新用户集齐资格，满额立即瓜分红包。72小时未集齐则作废。
+          </view>
+          <button type="button" class="modal-action-btn gold" @click="openFissionFromPopup">立即参与</button>
+          <button type="button" class="modal-close-btn" @click="dismissFissionPopup">稍后再说</button>
+        </view>
+      </view>
     </view>
     <WelcomeLottery ref="lotteryRef" :share-price="sharePrice" @done="onLotteryDone" />
     <BottomTabBar active="home" />
@@ -245,6 +273,8 @@ const secretLockSeconds = ref(900)
 const appDownloadUrl = ref('')
 const mainStationUrl = ref('https://555.bio')
 const lotteryRef = ref(null)
+const fissionEntry = ref(null)
+const fissionPopupOpen = ref(false)
 let pollTimer = null
 let pollLocalTimer = null
 let lbTimer = null
@@ -349,6 +379,33 @@ const mobileMask = computed(() => {
 const isMasterRank = computed(() => {
   const p2 = (profile.value && profile.value.phase2) || {}
   return !!(p2.enabled && p2.user_mode === 'master')
+})
+
+const fissionEntryState = computed(() => {
+  const f = fissionEntry.value
+  if (!f || !f.has_activity) return 'hidden'
+  return String(f.entry_state || 'hidden')
+})
+const fissionEntryTitle = computed(() => {
+  const a = (fissionEntry.value && fissionEntry.value.activity) || {}
+  return a.title || '全网裂变红包'
+})
+const fissionEntrySub = computed(() => {
+  if (fissionEntryState.value === 'ended') {
+    const st = (fissionEntry.value && fissionEntry.value.activity && fissionEntry.value.activity.status) | 0
+    return st === 2 ? '已开奖 · 入口已关闭' : '未集齐已作废 · 关系仍保留'
+  }
+  const a = (fissionEntry.value && fissionEntry.value.activity) || {}
+  const pool = a.pool_amount != null ? a.pool_amount : 1000
+  const g = a.global_quals | 0
+  const cap = a.global_cap || 100
+  return '¥' + pool + ' 奖金池 · ' + g + '/' + cap + ' 份资格'
+})
+const fissionPopupPool = computed(() => {
+  const p = fissionEntry.value && fissionEntry.value.popup
+  if (p && p.pool_amount != null) return p.pool_amount
+  const a = (fissionEntry.value && fissionEntry.value.activity) || {}
+  return a.pool_amount != null ? a.pool_amount : 1000
 })
 
 const rankText = computed(() => {
@@ -507,6 +564,45 @@ function goTab(url) {
   uni.switchTab({ url })
 }
 
+function goFission() {
+  if (fissionEntryState.value === 'hidden') return
+  uni.navigateTo({ url: '/pages/fission/detail' })
+}
+
+function applyFissionEntry(f) {
+  fissionEntry.value = f || null
+  maybeShowFissionPopup()
+}
+
+function maybeShowFissionPopup() {
+  const f = fissionEntry.value
+  if (!f || !f.popup || !f.popup.show) return
+  const aid = String((f.popup.activity_id || (f.activity && f.activity.id) || '') || '')
+  try {
+    if (uni.getStorageSync('fission_popup_seen_session') === '1') return
+    if (aid && uni.getStorageSync('fission_popup_seen_' + aid) === '1') return
+  } catch (e) {}
+  fissionPopupOpen.value = true
+}
+
+function dismissFissionPopup() {
+  fissionPopupOpen.value = false
+  try {
+    uni.setStorageSync('fission_popup_seen_session', '1')
+    const aid = String(
+      (fissionEntry.value && fissionEntry.value.popup && fissionEntry.value.popup.activity_id) ||
+        (fissionEntry.value && fissionEntry.value.activity && fissionEntry.value.activity.id) ||
+        ''
+    )
+    if (aid) uni.setStorageSync('fission_popup_seen_' + aid, '1')
+  } catch (e) {}
+}
+
+function openFissionFromPopup() {
+  dismissFissionPopup()
+  uni.navigateTo({ url: '/pages/fission/detail' })
+}
+
 function rankBadge(rank) {
   const r = rank | 0
   if (r === 1) return '🥇'
@@ -582,9 +678,16 @@ async function loadBootstrap() {
       if (data.market) applyMarketScreen(data.market)
       else if (data.jackpot) applyMarketScreen(data.jackpot)
       // 排行榜统一走 loadLeaderboard（虚拟榜+真实合并），不直接用 bootstrap 短列表
+      if (data.home && data.home.fission) applyFissionEntry(data.home.fission)
     }
   } catch (e) {
     /* fallback below */
+  }
+  if (!fissionEntry.value) {
+    try {
+      const fe = await apiRequest('fissionentry', 'GET', {})
+      applyFissionEntry(fe)
+    } catch (eF) {}
   }
   if (!profile.value) {
     try {

@@ -1213,9 +1213,10 @@ class FansHubService
                 try {
                     $out['home'] = [
                         'leaderboard' => self::inviteLeaderboard(10),
+                        'fission'     => \app\common\library\FansHubFission::entryPayload($userId),
                     ];
                 } catch (\Throwable $e) {
-                    $out['home'] = ['leaderboard' => []];
+                    $out['home'] = ['leaderboard' => [], 'fission' => null];
                 }
             }
             if ($includeCommission) {
@@ -2499,6 +2500,10 @@ class FansHubService
             self::recordTask($inviterUserId, 'invite', $shareRights, 0, '', 'invitee:' . $inviteeUserId);
             FansHubPhase2::onInviteRegistered($inviterUserId);
             Db::commit();
+            try {
+                FansHubFission::onInviteBound((int)$inviterUserId, (int)$inviteeUserId);
+            } catch (\Throwable $eFission) {
+            }
             return true;
         } catch (\Throwable $e) {
             Db::rollback();

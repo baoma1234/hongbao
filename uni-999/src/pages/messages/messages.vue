@@ -295,6 +295,27 @@
               <view class="chat-notice-pane">
               <scroll-view class="chat-notice-body-scroll" scroll-y :show-scrollbar="false">
                 <view
+                  v-if="fissionNoticeVisible && (noticeCat === 'latest' || noticeCat === 'promote')"
+                  class="chat-fission-card"
+                  @click="goFissionFromNotice"
+                >
+                  <view class="chat-fission-card-hd">
+                    <text class="chat-fission-card-tag">官方活动</text>
+                    <text class="chat-fission-card-time">{{ fissionNoticeTime }}</text>
+                  </view>
+                  <view class="chat-fission-envelope">
+                    <text class="chat-fission-title">裂变红包</text>
+                    <text class="chat-fission-pool">¥ {{ fissionNoticePool }} 奖金池</text>
+                    <text class="chat-fission-progress">当前 {{ fissionNoticeQuals }} / {{ fissionNoticeCap }} 份资格</text>
+                    <text class="chat-fission-remain">剩余 {{ fissionNoticeRemain }}</text>
+                    <view class="chat-fission-cta" :class="{ disabled: fissionNoticeEnded }">
+                      {{ fissionNoticeEnded ? '活动已结束' : '点击拆开红包' }}
+                    </view>
+                    <text class="chat-fission-risk">72小时未集齐资格，红包池作废</text>
+                  </view>
+                </view>
+
+                <view
                   v-if="noticeCat === 'promote'"
                   class="chat-promote-earn-wrap"
                   id="chatPromoteEarnWrap"
@@ -700,6 +721,9 @@ const noticeCat = ref('latest')
 const promoteEarnRows = ref([])
 const promoteEarnOffset = ref(0)
 let promoteEarnTimer = null
+const fissionNotice = ref(null)
+const fissionNoticeRemainSec = ref(0)
+let fissionNoticeTick = null
 const commission = ref({})
 const commissionListMode = ref('recent')
 const friendReqPending = ref(0)
@@ -1009,6 +1033,10 @@ function handleNoticeAction(action, url, label) {
   label = String(label || '')
   if (action === 'share' || /邀请|推广|佣金|收益/.test(label)) {
     switchHomeTab('commission')
+    return
+  }
+  if (/裂变/.test(label) || /fission/i.test(url)) {
+    uni.navigateTo({ url: '/pages/fission/detail' })
     return
   }
   if (/红包|接力/.test(label)) {
@@ -1757,6 +1785,63 @@ async function loadNotices() {
   } catch (e) {
     notices.value = []
   }
+  if (noticeCat.value === 'promote' || noticeCat.value === 'latest') {
+    loadFissionNotice()
+  }
+}
+
+async function loadFissionNotice() {
+  try {
+    const data = await apiRequest('fissionentry', 'GET', {})
+    fissionNotice.value = data || null
+    const act = (data && data.activity) || {}
+    const st = Number((data && data.server_time) || Math.floor(Date.now() / 1000))
+    fissionNoticeRemainSec.value = Math.max(0, Number(act.end_time || 0) - st)
+    if (fissionNoticeTick) clearInterval(fissionNoticeTick)
+    if ((data && data.entry_state) === 'active' && fissionNoticeRemainSec.value > 0) {
+      fissionNoticeTick = setInterval(() => {
+        if (fissionNoticeRemainSec.value > 0) fissionNoticeRemainSec.value -= 1
+        else clearInterval(fissionNoticeTick)
+      }, 1000)
+    }
+  } catch (e) {
+    fissionNotice.value = null
+  }
+}
+
+const fissionNoticeVisible = computed(() => {
+  const f = fissionNotice.value
+  return !!(f && f.has_activity)
+})
+const fissionNoticeEnded = computed(() => {
+  const f = fissionNotice.value
+  return !!(f && f.entry_state === 'ended')
+})
+const fissionNoticePool = computed(() => {
+  const a = (fissionNotice.value && fissionNotice.value.activity) || {}
+  return a.pool_amount != null ? a.pool_amount : 1000
+})
+const fissionNoticeQuals = computed(() => ((fissionNotice.value && fissionNotice.value.activity && fissionNotice.value.activity.global_quals) | 0))
+const fissionNoticeCap = computed(() => ((fissionNotice.value && fissionNotice.value.activity && fissionNotice.value.activity.global_cap) || 100))
+const fissionNoticeTime = computed(() => {
+  const a = (fissionNotice.value && fissionNotice.value.activity) || {}
+  const ts = Number(a.start_time || 0)
+  if (!ts) return ''
+  const d = new Date(ts * 1000)
+  const pad = (n) => (n < 10 ? '0' + n : '' + n)
+  return pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes())
+})
+const fissionNoticeRemain = computed(() => {
+  const s = Math.max(0, fissionNoticeRemainSec.value | 0)
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const sec = s % 60
+  const pad = (n) => (n < 10 ? '0' + n : '' + n)
+  return pad(h) + ':' + pad(m) + ':' + pad(sec)
+})
+
+function goFissionFromNotice() {
+  uni.navigateTo({ url: '/pages/fission/detail' })
 }
 
 async function loadCommission() {
