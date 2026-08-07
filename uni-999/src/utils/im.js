@@ -663,6 +663,11 @@ export function leaveGroup(groupId) {
   return imSend('group.leave', { group_id: groupId | 0 }, true)
 }
 
+/** 群主解散（需建群满 60 分钟） */
+export function dissolveGroup(groupId) {
+  return imSend('group.dissolve', { group_id: groupId | 0 }, true)
+}
+
 export function setGroupForbid(groupId, modes = {}, hint) {
   const payload = {
     group_id: groupId | 0,

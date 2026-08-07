@@ -612,12 +612,13 @@
 .chat-group-invite-overlay .chat-sub-main {
   flex: 1 1 auto;
   min-height: 0;
-  height: 0;
+  height: auto !important;
   width: 100%;
   max-width: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative !important;
   padding: 0;
   margin: 0 !important;
   border-radius: 0 !important;
@@ -660,13 +661,27 @@
   font-size: 14px;
   color: #333;
 }
+.chat-group-invite-overlay .chat-member-scroll-host {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  height: auto !important;
+  position: relative !important;
+  overflow: hidden !important;
+  width: 100%;
+}
 .chat-group-members-overlay .chat-member-list,
-.chat-group-invite-overlay .chat-member-list {
-  flex: 1 1 auto;
-  min-height: 0;
-  height: 0;
+.chat-group-invite-overlay .chat-member-list,
+.chat-group-invite-overlay scroll-view.chat-member-list {
+  flex: none !important;
+  min-height: 0 !important;
+  height: auto !important;
   width: 100%;
   max-width: 100%;
+  position: absolute !important;
+  left: 0 !important;
+  right: 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
   overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -677,10 +692,7 @@
   margin-right: 2px;
 }
 .chat-group-invite-overlay .chat-invite-list {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  /* scroll host handles height */
 }
 .chat-group-invite-overlay .chat-invite-ft {
   flex-shrink: 0;
@@ -692,6 +704,16 @@
 #tabMessages .chat-action-sheet,
 .chat-action-sheet.chat-conv-action-sheet {
   z-index: 13000 !important;
+}
+/* 群设置里点成员：操作层必须高于成员列表 overlay(13100) */
+.chat-group-settings-page .chat-action-sheet.chat-member-action-sheet {
+  z-index: 13250 !important;
+}
+.chat-group-settings-page .chat-setting-dissolve-btn {
+  opacity: 1;
+}
+.chat-group-settings-page .chat-setting-dissolve-btn[disabled] {
+  opacity: 0.55;
 }
 
 /* members block on settings */

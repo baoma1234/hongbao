@@ -106,11 +106,135 @@
         class="chat-setting-leave-btn"
         @click="onLeave"
       >退出群组</button>
-      <view v-else class="chat-setting-hint">群主不能直接退群，请先转让群主</view>
+      <button
+        v-if="myRole >= 3"
+        type="button"
+        class="chat-setting-leave-btn chat-setting-dissolve-btn"
+        :disabled="!canDissolve"
+        @click="onDissolve"
+      >{{ dissolveBtnText }}</button>
+      <view v-if="myRole >= 3 && !canDissolve" class="chat-setting-hint">
+        建群满 60 分钟后，群主可解散本群
+      </view>
     </scroll-view>
 
-    <!-- 成员操作：对齐 888 chat-action-sheet -->
-    <view class="chat-action-sheet" :class="{ open: memberSheet }" v-if="memberSheet" aria-hidden="false">
+    <!-- 群成员：对齐 888 #chatGroupMembersPane -->
+    <view v-if="membersPane" class="chat-group-invite-overlay chat-group-members-overlay" aria-hidden="false">
+      <view class="chat-hero-hd">
+        <view class="chat-hero-back" @click="closeMembersPane">
+          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+            <path fill="currentColor" d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z" />
+          </svg>
+        </view>
+        <view class="chat-hero-title">群成员</view>
+        <view class="chat-hero-spacer" />
+      </view>
+      <view class="chat-sub-main">
+        <view class="chat-sub-toolbar">
+          <button
+            v-if="canEdit"
+            type="button"
+            class="chat-add-member-btn"
+            @click="fromMembersToInvite"
+          >添加群成员</button>
+          <input
+            class="chat-search-input"
+            type="text"
+            v-model="memberKeyword"
+            placeholder="搜索成员昵称/ID"
+            confirm-type="search"
+            @confirm="reloadMembers"
+          />
+        </view>
+        <view class="chat-member-scroll-host">
+          <scroll-view class="chat-member-list" scroll-y :show-scrollbar="true">
+            <view
+              v-for="m in filteredMembers"
+              :key="m.user_id"
+              class="chat-member-item"
+              @click.stop="onMemberTap(m)"
+            >
+              <view class="chat-member-avatar">
+                <image :src="avatarSrc(m.avatar_url || m.avatar || '')" mode="aspectFill" />
+              </view>
+              <view class="chat-member-main">
+                <view class="chat-member-name">{{ m.nickname || ('ID' + m.user_id) }}</view>
+                <view class="chat-member-sub">ID {{ m.user_id }}</view>
+              </view>
+              <view class="chat-member-tags">
+                <text v-if="(m.role | 0) === 3" class="chat-member-tag owner">群主</text>
+                <text v-else-if="(m.role | 0) === 2" class="chat-member-tag admin">管理员</text>
+                <text v-if="m.is_muted" class="chat-member-tag muted">禁言</text>
+              </view>
+            </view>
+            <view v-if="!filteredMembers.length && !membersLoading" class="chat-empty">暂无成员</view>
+            <view v-if="membersLoading" class="chat-empty">加载中…</view>
+            <view v-if="canEdit && filteredMembers.length" class="chat-setting-hint" style="padding:8px 12px">点成员可禁言 / 移出 / 设管理</view>
+          </scroll-view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 添加成员：对齐 888 invite pane -->
+    <view v-if="addSheet" class="chat-group-invite-overlay" aria-hidden="false">
+      <view class="chat-hero-hd">
+        <view class="chat-hero-back" @click="closeAddSheet">
+          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+            <path fill="currentColor" d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z" />
+          </svg>
+        </view>
+        <view class="chat-hero-title">添加群成员</view>
+        <view class="chat-hero-spacer" />
+      </view>
+      <view class="chat-sub-main">
+        <view class="chat-sub-toolbar">
+          <input
+            class="chat-search-input"
+            type="text"
+            v-model="inviteKeyword"
+            placeholder="搜索用户名/手机号/ID"
+            confirm-type="search"
+            @confirm="reloadCandidates"
+          />
+        </view>
+        <view class="chat-member-scroll-host">
+          <scroll-view class="chat-member-list chat-invite-list" scroll-y :show-scrollbar="true">
+            <label
+              v-for="u in filteredCandidates"
+              :key="u.user_id"
+              class="chat-member-item chat-invite-item"
+              @click.prevent="toggleCandidate(u)"
+            >
+              <view class="chat-forbid-check chat-invite-box" :class="{ on: !!selectedIds[u.user_id] }">
+                {{ selectedIds[u.user_id] ? '✓' : '' }}
+              </view>
+              <view class="chat-member-avatar">
+                <image :src="avatarSrc(u.avatar_url || u.avatar || '')" mode="aspectFill" />
+              </view>
+              <view class="chat-member-main">
+                <view class="chat-member-name">{{ u.nickname || ('ID' + u.user_id) }}</view>
+                <view class="chat-member-sub">ID {{ u.user_id }}</view>
+              </view>
+            </label>
+            <view v-if="!filteredCandidates.length && !candLoading" class="chat-empty">暂无可添加好友</view>
+            <view v-if="candLoading" class="chat-empty">加载中…</view>
+          </scroll-view>
+        </view>
+        <view class="chat-invite-ft">
+          <button
+            type="button"
+            class="chat-invite-confirm-btn"
+            :disabled="addSaving || !selectedCount"
+            @click="confirmAddMembers"
+          >
+            {{ addSaving ? '添加中…' : ('确认添加 (' + selectedCount + ' 人)') }}
+          </button>
+        </view>
+      </view>
+    </view>
+
+    <!-- 成员操作：必须盖在成员列表 overlay 之上（z-index > 13100） -->
+    <view class="chat-action-sheet chat-member-action-sheet" :class="{ open: memberSheet }" v-if="memberSheet" aria-hidden="false">
       <view class="chat-action-sheet-mask" @click="closeMemberSheets" />
       <view class="chat-action-sheet-panel" @click.stop>
         <view class="chat-action-sheet-title">{{ memberTargetName }}</view>
@@ -148,7 +272,7 @@
       </view>
     </view>
 
-    <view class="chat-action-sheet" :class="{ open: muteSheet }" v-if="muteSheet" aria-hidden="false">
+    <view class="chat-action-sheet chat-member-action-sheet" :class="{ open: muteSheet }" v-if="muteSheet" aria-hidden="false">
       <view class="chat-action-sheet-mask" @click="closeMemberSheets" />
       <view class="chat-action-sheet-panel" @click.stop>
         <view class="chat-action-sheet-title">选择禁言时长</view>
@@ -160,118 +284,6 @@
           @click="doMute(opt.s)"
         >{{ opt.n }}</button>
         <button type="button" class="chat-action-item cancel" @click="closeMemberSheets">关闭</button>
-      </view>
-    </view>
-
-    <!-- 群成员：对齐 888 #chatGroupMembersPane -->
-    <view v-if="membersPane" class="chat-group-invite-overlay chat-group-members-overlay" aria-hidden="false">
-      <view class="chat-hero-hd">
-        <view class="chat-hero-back" @click="closeMembersPane">
-          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
-            <path fill="currentColor" d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z" />
-          </svg>
-        </view>
-        <view class="chat-hero-title">群成员</view>
-        <view class="chat-hero-spacer" />
-      </view>
-      <view class="chat-sub-main">
-        <view class="chat-sub-toolbar">
-          <button
-            v-if="canEdit"
-            type="button"
-            class="chat-add-member-btn"
-            @click="fromMembersToInvite"
-          >添加群成员</button>
-          <input
-            class="chat-search-input"
-            type="text"
-            v-model="memberKeyword"
-            placeholder="搜索成员昵称/ID"
-            confirm-type="search"
-            @confirm="reloadMembers"
-          />
-        </view>
-        <view class="chat-member-list">
-          <view
-            v-for="m in filteredMembers"
-            :key="m.user_id"
-            class="chat-member-item"
-            @click="onMemberTap(m)"
-            @longpress="onMemberLongPress(m)"
-          >
-            <view class="chat-member-avatar">
-              <image :src="avatarSrc(m.avatar_url || m.avatar || '')" mode="aspectFill" />
-            </view>
-            <view class="chat-member-main">
-              <view class="chat-member-name">{{ m.nickname || ('ID' + m.user_id) }}</view>
-              <view class="chat-member-sub">ID {{ m.user_id }}</view>
-            </view>
-            <view class="chat-member-tags">
-              <text v-if="(m.role | 0) === 3" class="chat-member-tag owner">群主</text>
-              <text v-else-if="(m.role | 0) === 2" class="chat-member-tag admin">管理员</text>
-              <text v-if="m.is_muted" class="chat-member-tag muted">禁言</text>
-            </view>
-          </view>
-          <view v-if="!filteredMembers.length && !membersLoading" class="chat-empty">暂无成员</view>
-          <view v-if="membersLoading" class="chat-empty">加载中…</view>
-        </view>
-        <view v-if="canEdit && filteredMembers.length" class="chat-setting-hint" style="padding:8px 12px">点成员可禁言 / 移出 / 设管理</view>
-      </view>
-    </view>
-
-    <!-- 添加成员：对齐 888 invite pane -->
-    <view v-if="addSheet" class="chat-group-invite-overlay" aria-hidden="false">
-      <view class="chat-hero-hd">
-        <view class="chat-hero-back" @click="closeAddSheet">
-          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
-            <path fill="currentColor" d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z" />
-          </svg>
-        </view>
-        <view class="chat-hero-title">添加群成员</view>
-        <view class="chat-hero-spacer" />
-      </view>
-      <view class="chat-sub-main">
-        <view class="chat-sub-toolbar">
-          <input
-            class="chat-search-input"
-            type="text"
-            v-model="inviteKeyword"
-            placeholder="搜索用户名/手机号/ID"
-            confirm-type="search"
-            @confirm="reloadCandidates"
-          />
-        </view>
-        <view class="chat-member-list chat-invite-list">
-          <label
-            v-for="u in filteredCandidates"
-            :key="u.user_id"
-            class="chat-member-item chat-invite-item"
-            @click.prevent="toggleCandidate(u)"
-          >
-            <view class="chat-forbid-check chat-invite-box" :class="{ on: !!selectedIds[u.user_id] }">
-              {{ selectedIds[u.user_id] ? '✓' : '' }}
-            </view>
-            <view class="chat-member-avatar">
-              <image :src="avatarSrc(u.avatar_url || u.avatar || '')" mode="aspectFill" />
-            </view>
-            <view class="chat-member-main">
-              <view class="chat-member-name">{{ u.nickname || ('ID' + u.user_id) }}</view>
-              <view class="chat-member-sub">ID {{ u.user_id }}</view>
-            </view>
-          </label>
-          <view v-if="!filteredCandidates.length && !candLoading" class="chat-empty">暂无可添加好友</view>
-          <view v-if="candLoading" class="chat-empty">加载中…</view>
-        </view>
-        <view class="chat-invite-ft">
-          <button
-            type="button"
-            class="chat-invite-confirm-btn"
-            :disabled="addSaving || !selectedCount"
-            @click="confirmAddMembers"
-          >
-            {{ addSaving ? '添加中…' : ('确认添加 (' + selectedCount + ' 人)') }}
-          </button>
-        </view>
       </view>
     </view>
   </view>
@@ -292,6 +304,7 @@ import {
   imConnect,
   kickGroupMember,
   leaveGroup,
+  dissolveGroup,
   muteGroupMember,
   setGroupAdmin,
   setGroupForbid,
@@ -356,6 +369,20 @@ const groupAvatar = computed(() => {
 })
 const canEdit = computed(() => (myRole.value | 0) >= 2)
 const roleText = computed(() => roleLabel(myRole.value))
+const DISSOLVE_MIN_AGE_SEC = 60 * 60
+const groupAgeSec = computed(() => {
+  const created = (group.value && (group.value.createtime | 0)) || 0
+  if (created <= 0) return 0
+  return Math.max(0, Math.floor(Date.now() / 1000) - created)
+})
+const canDissolve = computed(() => (myRole.value | 0) >= 3 && groupAgeSec.value >= DISSOLVE_MIN_AGE_SEC)
+const dissolveBtnText = computed(() => {
+  if ((myRole.value | 0) < 3) return '解散群组'
+  if (canDissolve.value) return '解散群组'
+  const left = Math.max(0, DISSOLVE_MIN_AGE_SEC - groupAgeSec.value)
+  const m = Math.ceil(left / 60)
+  return '解散群组（还需约 ' + m + ' 分钟）'
+})
 const memberTargetName = computed(() => {
   const m = memberTarget.value
   if (!m) return '成员操作'
@@ -511,13 +538,6 @@ function onMemberTap(m) {
     memberSheet.value = true
     muteSheet.value = false
   }
-}
-
-function onMemberLongPress(m) {
-  if (!canManageMember(m) && !canSetAdmin(m)) return
-  memberTarget.value = m
-  memberSheet.value = true
-  muteSheet.value = false
 }
 
 function openMuteSheet() {
@@ -758,6 +778,34 @@ function onLeave() {
         }, 400)
       } catch (e) {
         uni.showToast({ title: (e && e.message) || '退出失败', icon: 'none' })
+      }
+    },
+  })
+}
+
+function onDissolve() {
+  if ((myRole.value | 0) < 3) {
+    uni.showToast({ title: '仅群主可解散', icon: 'none' })
+    return
+  }
+  if (!canDissolve.value) {
+    uni.showToast({ title: '建群满 60 分钟后才能解散', icon: 'none' })
+    return
+  }
+  uni.showModal({
+    title: '解散群组',
+    content: '确定解散「' + groupName.value + '」？解散后所有成员将退出，且不可恢复。',
+    confirmColor: '#e53935',
+    success: async (res) => {
+      if (!res.confirm) return
+      try {
+        await dissolveGroup(groupId.value)
+        uni.showToast({ title: '群组已解散', icon: 'none' })
+        setTimeout(() => {
+          uni.switchTab({ url: '/pages/messages/messages' })
+        }, 400)
+      } catch (e) {
+        uni.showToast({ title: (e && e.message) || '解散失败', icon: 'none' })
       }
     },
   })

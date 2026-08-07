@@ -8,41 +8,8 @@
     </view>
     <view class="profile-sub-body hb-sub">
       <view class="match-card profile-card">
-        <view class="wallet-payee-tabs">
-          <view
-            class="wallet-payee-tab"
-            :class="{ active: tab === 'bank' }"
-            @click="tab = 'bank'"
-          >银行卡</view>
-          <view
-            class="wallet-payee-tab"
-            :class="{ active: tab === 'wallet' }"
-            @click="tab = 'wallet'"
-          >数字钱包</view>
-        </view>
-
-        <view v-if="tab === 'bank'">
-          <view class="profile-meta-line" v-if="bankBind">
-            已绑定：{{ bankBind.account_name }} · {{ bankBind.account_no }}
-          </view>
-          <view class="profile-field">
-            <text class="lab">开户名</text>
-            <input class="hb-input" v-model="bankName" placeholder="持卡人姓名" />
-          </view>
-          <view class="profile-field">
-            <text class="lab">银行卡号</text>
-            <input class="hb-input" v-model="bankNo" placeholder="请输入银行卡号" />
-          </view>
-          <view class="profile-field">
-            <text class="lab">开户行</text>
-            <input class="hb-input" v-model="bankBank" placeholder="如：中国工商银行" />
-          </view>
-          <button class="btn-uid-submit" :disabled="submitting" @click="bindBank">
-            {{ submitting ? '提交中…' : '保存银行卡' }}
-          </button>
-        </view>
-
-        <view v-else>
+        <!-- 银行卡入口暂时隐藏，仅保留数字钱包绑定 -->
+        <view>
           <view class="profile-meta-line">选择钱包类型，展示并管理已绑定地址（与提现钱包一致）</view>
           <view class="wallet-channel-list is-grid">
             <view
@@ -137,7 +104,7 @@ import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
 import TopBar from '../../components/TopBar.vue'
 import WalletChannelIcon from '../../components/WalletChannelIcon.vue'
 import { computed, reactive, ref } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+import { onLoad, onShow } from '@dcloudio/uni-app'
 import { apiRequest, getToken } from '../../utils/auth.js'
 import {
   bindWallet,
@@ -162,7 +129,7 @@ const error = ref('')
 const info = ref({})
 const binds = ref({})
 const walletTypes = ref([])
-const tab = ref('bank')
+const tab = ref('wallet')
 const selectedType = ref('')
 const accountNo = ref('')
 const accountName = ref('')
@@ -173,6 +140,7 @@ const usdtInputs = reactive({})
 const usdtName = ref('')
 const usdtChains = USDT_CHAINS
 const submitting = ref(false)
+let pendingType = ''
 
 const pwdVisible = ref(false)
 const pwd = ref('')
@@ -353,18 +321,32 @@ async function refresh() {
     const r = (bundle && bundle.recharge) || {}
     binds.value = w.binds || {}
     walletTypes.value = collectPayeeWalletTypes(r, w)
-    if (bankBind.value) {
-      bankName.value = bankBind.value.account_name || bankName.value
-      bankNo.value = bankBind.value.account_no || bankNo.value
-      bankBank.value = bankBind.value.bank_name || bankBank.value
+    tab.value = 'wallet'
+    const prefer = pendingType || selectedType.value
+    if (prefer) {
+      const hit = (walletTypes.value || []).find((w) => w.type === prefer)
+      if (hit) selectWallet(prefer)
+      else if (prefer.indexOf('USDT') >= 0) selectWallet('USDT_MULTI')
+      else if ((walletTypes.value || []).length) selectWallet(walletTypes.value[0].type)
+    } else if ((walletTypes.value || []).length && !selectedType.value) {
+      selectWallet(walletTypes.value[0].type)
+    } else if (selectedType.value) {
+      selectWallet(selectedType.value)
     }
-    if (selectedType.value) selectWallet(selectedType.value)
+    pendingType = ''
   } catch (e) {
     error.value = (e && e.message) || '加载失败'
   } finally {
     loading.value = false
   }
 }
+
+onLoad((query) => {
+  const q = query || {}
+  tab.value = 'wallet'
+  const t = decodeURIComponent(String(q.type || q.wallet_type || ''))
+  if (t) pendingType = t
+})
 
 onShow(() => {
   refresh()

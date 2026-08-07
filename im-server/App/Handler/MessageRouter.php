@@ -165,6 +165,9 @@ class MessageRouter
                 case 'group.leave':
                     $this->handleGroupLeave($connection, $uid, $payload, $reqId);
                     break;
+                case 'group.dissolve':
+                    $this->handleGroupDissolve($connection, $uid, $payload, $reqId);
+                    break;
                 case 'group.mute':
                     $this->handleGroupMute($connection, $uid, $payload, $reqId);
                     break;
@@ -1113,6 +1116,53 @@ class MessageRouter
             $msg = $e->getMessage() ?: 'leave failed';
             if ($msg === 'owner cannot leave') {
                 $msg = '群主不能退出群组，请先转让群主';
+            } elseif ($msg === 'not in group') {
+                $msg = '你不在该群组中';
+            }
+            $this->error($connection, $msg, $reqId);
+        }
+    }
+
+    protected function handleGroupDissolve(TcpConnection $connection, $uid, array $payload, $reqId)
+    {
+        $groupId = (int)($payload['group_id'] ?? 0);
+        $uid = (int)$uid;
+        try {
+            $result = $this->groups->dissolve($groupId, $uid);
+            $memberIds = $result['member_ids'] ?? [];
+            $this->send($connection, 'group.dissolve.ok', [
+                'ok'       => true,
+                'group_id' => $groupId,
+            ], $reqId);
+            // 通知在线成员群已解散
+            foreach ($memberIds as $mid) {
+                $mid = (int)$mid;
+                if ($mid <= 0) {
+                    continue;
+                }
+                try {
+                    $this->pushToUser($mid, 'group.dissolved', [
+                        'group_id' => $groupId,
+                        'by_user_id' => $uid,
+                    ]);
+                } catch (\Throwable $ePush) {
+                }
+            }
+            try {
+                $this->pushToGroup($groupId, 'group.dissolved', [
+                    'group_id' => $groupId,
+                    'by_user_id' => $uid,
+                ]);
+            } catch (\Throwable $eG) {
+            }
+        } catch (\Throwable $e) {
+            $msg = $e->getMessage() ?: 'dissolve failed';
+            if ($msg === 'only owner can dissolve') {
+                $msg = '仅群主可解散群组';
+            } elseif ($msg === 'group too young') {
+                $msg = '建群满 60 分钟后才能解散';
+            } elseif ($msg === 'group unavailable') {
+                $msg = '群组不存在或已解散';
             } elseif ($msg === 'not in group') {
                 $msg = '你不在该群组中';
             }

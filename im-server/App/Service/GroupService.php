@@ -1276,6 +1276,78 @@ class GroupService
         return true;
     }
 
+    /**
+     * 群主解散群（status=2）；建群须满 60 分钟
+     * @return array{group_id:int,member_ids:int[]}
+     */
+    public function dissolve($groupId, $operatorId)
+    {
+        $groupId = (int)$groupId;
+        $operatorId = (int)$operatorId;
+        if ($groupId <= 0 || $operatorId <= 0) {
+            throw new \InvalidArgumentException('invalid group');
+        }
+        $group = $this->get($groupId);
+        if (!$group || (int)$group['status'] === 2) {
+            throw new \RuntimeException('group unavailable');
+        }
+        if (!$this->isMember($groupId, $operatorId)) {
+            throw new \RuntimeException('not in group');
+        }
+        if (!$this->isOwner($groupId, $operatorId)) {
+            throw new \RuntimeException('only owner can dissolve');
+        }
+        $created = (int)($group['createtime'] ?? 0);
+        if ($created > 0 && (time() - $created) < 3600) {
+            throw new \RuntimeException('group too young');
+        }
+        $members = Db::fetchAll(
+            'SELECT user_id FROM ' . Db::table('chat_group_members')
+            . ' WHERE group_id=? AND status=1',
+            [$groupId]
+        ) ?: [];
+        $memberIds = [];
+        foreach ($members as $row) {
+            $memberIds[] = (int)($row['user_id'] ?? 0);
+        }
+        $memberIds = array_values(array_filter(array_unique($memberIds)));
+        $now = time();
+        Db::begin();
+        try {
+            Db::exec(
+                'UPDATE ' . Db::table('chat_groups')
+                . ' SET status=2, updatetime=? WHERE id=? AND status IN (1,3)',
+                [$now, $groupId]
+            );
+            Db::exec(
+                'UPDATE ' . Db::table('chat_group_members')
+                . ' SET status=0, updatetime=? WHERE group_id=? AND status=1',
+                [$now, $groupId]
+            );
+            Db::commit();
+        } catch (\Throwable $e) {
+            try {
+                Db::rollBack();
+            } catch (\Throwable $e2) {
+            }
+            throw $e;
+        }
+        foreach ($memberIds as $uid) {
+            $this->memberSetRem($groupId, $uid);
+            $this->invalidateUserGroupsCache($uid);
+        }
+        $this->bumpViewerInfoCache($groupId);
+        try {
+            RedisClient::conn()->del(RedisClient::key('g:' . $groupId . ':mset'));
+            RedisClient::conn()->del(RedisClient::key('g:' . $groupId . ':members'));
+        } catch (\Throwable $e) {
+        }
+        return [
+            'group_id'    => $groupId,
+            'member_ids'  => $memberIds,
+        ];
+    }
+
     public function muteMember($groupId, $operatorId, $targetId, $seconds)
     {
         $this->assertCanModerate($groupId, $operatorId, $targetId);

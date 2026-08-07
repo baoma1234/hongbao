@@ -75,7 +75,7 @@
           </view>
           <view class="profile-menu-main">
             <text class="profile-menu-title">{{ tt('profile_menu_payee', '钱包地址') }}</text>
-            <text class="profile-menu-sub">{{ tt('profile_menu_payee_sub', '绑定银行卡与数字钱包') }}</text>
+            <text class="profile-menu-sub">{{ tt('profile_menu_payee_sub', '绑定数字钱包地址') }}</text>
           </view>
           <text class="profile-menu-arrow">›</text>
         </view>

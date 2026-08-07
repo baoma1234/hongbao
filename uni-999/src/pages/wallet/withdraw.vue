@@ -82,7 +82,7 @@
           <template v-else>
             <view class="profile-meta-line">
               请先为该钱包绑定收款地址，每种钱包类型独立绑定，地址不可重复使用。
-              <text class="wallet-go-payee-btn" @click="goPayee">钱包地址</text>
+              <text class="wallet-go-payee-btn" @click="goPayee">去绑定</text>
             </view>
           </template>
         </view>
@@ -338,8 +338,10 @@ function autoPick() {
   }
 }
 function goPayee() {
-  uni.showToast({ title: '请先绑定钱包地址', icon: 'none' })
-  uni.navigateTo({ url: '/pages/wallet/payee' })
+  const t = String(walletType.value || '').trim()
+  let url = '/pages/wallet/payee?tab=wallet'
+  if (t) url += '&type=' + encodeURIComponent(t)
+  uni.navigateTo({ url })
 }
 
 function promptPayPassword() {
