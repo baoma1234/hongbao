@@ -242,7 +242,7 @@ class Redpacketauto extends Backend
         if (!in_array($params['packet_type'], [1, 2, 3, 5], true)) {
             $params['packet_type'] = 2;
         }
-        // 金额区间：只允许整数元；最小=最大 → 固定；否则随机整数
+        // 金额区间：必须是 10 的整数倍；最小=最大 → 固定；否则随机（步长 10）
         $amountMin = (float)($params['amount_min'] ?? 0);
         $amountMax = (float)($params['amount_max'] ?? 0);
         $legacyAmt = (float)($params['total_amount'] ?? 0);
@@ -263,12 +263,26 @@ class Redpacketauto extends Backend
             $amountMin = $amountMax;
             $amountMax = $tmp;
         }
-        $amountMin = max(0, (int)round($amountMin));
-        $amountMax = max($amountMin, (int)round($amountMax));
+        $amountMin = (int)round($amountMin);
+        $amountMax = (int)round($amountMax);
+        if ($amountMin > 0 && $amountMin % 10 !== 0) {
+            $this->error('金额最小/最大必须是 10 的整数倍（如 10、20、50）');
+        }
+        if ($amountMax > 0 && $amountMax % 10 !== 0) {
+            $this->error('金额最小/最大必须是 10 的整数倍（如 10、20、50）');
+        }
+        $amountMin = max(0, $amountMin);
+        $amountMax = max($amountMin, $amountMax);
         $params['amount_min'] = sprintf('%.2f', $amountMin);
         $params['amount_max'] = sprintf('%.2f', $amountMax);
         $params['total_amount'] = $params['amount_min']; // 列表兼容展示下限
         $params['total_count'] = max(1, (int)($params['total_count'] ?? 5));
+        if ((int)$params['packet_type'] === 3) {
+            // 埋雷个数运行时随机 5/7/9，后台个数仅作占位展示
+            if (!in_array((int)$params['total_count'], [5, 7, 9], true)) {
+                $params['total_count'] = 5;
+            }
+        }
         $params['blessing'] = trim((string)($params['blessing'] ?? '恭喜发财')) ?: '恭喜发财';
         $params['mine_digit'] = 0; // 埋雷雷号运行时随机，后台不配置
         $params['interval_sec'] = max(5, (int)($params['interval_sec'] ?? 60));

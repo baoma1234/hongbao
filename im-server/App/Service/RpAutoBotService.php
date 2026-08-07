@@ -14,7 +14,7 @@ use Workerman\Timer;
  * 规则：
  * - 发包：群内无待领取包、且无接龙待续发时才发；多 send_user_ids 随机选一个
  * - 时间窗突发：burst_window_sec>0 时窗内最多 burst_count 包、随机节奏；否则用 interval_sec
- * - 埋雷雷号每发随机 0-9；金额可抖动（不低于群最低 / 固定额）
+ * - 埋雷：雷号每发随机 0-9；个数每发随机 5/7/9；金额须为 10 的整数倍
  * - 节奏：20–23 点发包间隔减半；0–7 点翻倍（仅固定间隔模式）
  * - 接龙续发：由结算/cron 全局监听「全部群」的全部 type5，抢完后最少者名义发下一包（见 RedPacketService::trySendRobotNextRound）
  * - 抢包：仅后台配置了 auto_grab + grab_user_ids 的任务才抢
@@ -206,11 +206,6 @@ class RpAutoBotService
         }
         $group = $this->groups->get($groupId) ?: [];
         $amount = $this->resolveSendAmount($task, $group);
-        $count = (int)($task['total_count'] ?? 0);
-        if ($amount <= 0 || $count <= 0) {
-            throw new \RuntimeException('金额/个数无效');
-        }
-
         // 1普通 2拼手气 3扫雷 5接龙（接龙群常见仅开放 type=5）
         $packetType = (int)($task['packet_type'] ?? 2);
         if (!in_array($packetType, [1, 2, 3, 5], true)) {
@@ -230,6 +225,10 @@ class RpAutoBotService
                     . ' 不在本群允许类型 [' . implode(',', $enabled) . '] 内'
                 );
             }
+        }
+        $count = $this->resolveSendCount($task, $group, $packetType);
+        if ($amount <= 0 || $count <= 0) {
+            throw new \RuntimeException('金额/个数无效');
         }
         // 埋雷：每发随机 0-9，不读后台固定雷号
         $mineDigit = ($packetType === 3) ? random_int(0, 9) : 0;
@@ -295,6 +294,7 @@ class RpAutoBotService
             'uid'         => $sendUid,
             'mine'        => $mineDigit,
             'amount'      => $amount,
+            'count'       => $count,
             'burst'       => $useBurst ? ($burstSent . '/' . $burstCount) : '0',
             'packet_id'   => $packetId,
         ]);
@@ -528,13 +528,13 @@ class RpAutoBotService
 
     /**
      * 任务金额：amount_min/amount_max（相等=固定，否则区间随机）
-     * 只发整数元；群 rp_fixed_amount 优先；再夹到群 rp_min/max（亦取整）。
+     * 必须是 10 的整数倍；群 rp_fixed_amount 优先；再夹到群 rp_min/max（亦取整到 10 的倍数）。
      */
     protected function resolveSendAmount(array $task, array $group)
     {
         $groupFixed = (float)($group['rp_fixed_amount'] ?? 0);
         if ($groupFixed > 0) {
-            return (float)max(1, (int)round($groupFixed));
+            return (float)$this->roundToTen((int)round($groupFixed));
         }
 
         $min = (float)($task['amount_min'] ?? 0);
@@ -562,30 +562,70 @@ class RpAutoBotService
             return 0.0;
         }
 
-        // 只发整数元
-        $minInt = max(1, (int)round($min));
-        $maxInt = max($minInt, (int)round($max));
+        $minInt = $this->roundToTen(max(10, (int)round($min)));
+        $maxInt = $this->roundToTen(max($minInt, (int)round($max)));
         if ($minInt === $maxInt) {
-            $amount = (float)$minInt;
+            $amount = $minInt;
         } else {
-            $amount = (float)random_int($minInt, $maxInt);
+            $steps = (int)(($maxInt - $minInt) / 10);
+            $amount = $minInt + random_int(0, max(0, $steps)) * 10;
         }
 
         $gMin = (float)($group['rp_min_amount'] ?? 0);
         $gMax = (float)($group['rp_max_amount'] ?? 0);
         if ($gMin > 0) {
-            $gMinInt = max(1, (int)round($gMin));
+            $gMinInt = $this->roundToTen(max(10, (int)round($gMin)));
             if ($amount < $gMinInt) {
-                $amount = (float)$gMinInt;
+                $amount = $gMinInt;
             }
         }
         if ($gMax > 0) {
-            $gMaxInt = max(1, (int)round($gMax));
+            $gMaxInt = $this->roundToTen(max(10, (int)round($gMax)));
             if ($amount > $gMaxInt) {
-                $amount = (float)$gMaxInt;
+                $amount = $gMaxInt;
             }
         }
-        return (float)max(1, (int)round($amount));
+        return (float)$this->roundToTen(max(10, (int)$amount));
+    }
+
+    /** 向上取整到 ≥10 的 10 的倍数（已是则不变；0~9 → 10） */
+    protected function roundToTen($n)
+    {
+        $n = (int)$n;
+        if ($n <= 0) {
+            return 10;
+        }
+        $r = (int)(ceil($n / 10) * 10);
+        return max(10, $r);
+    }
+
+    /**
+     * 发包个数：埋雷固定从 5/7/9 随机（受群 min/max 裁剪）；其它类型用任务 total_count。
+     */
+    protected function resolveSendCount(array $task, array $group, $packetType)
+    {
+        $packetType = (int)$packetType;
+        if ($packetType === 3) {
+            $gMin = (int)($group['rp_min_count'] ?? 0);
+            $gMax = (int)($group['rp_max_count'] ?? 0);
+            if ($gMin <= 0) {
+                $gMin = 5;
+            }
+            if ($gMax <= 0) {
+                $gMax = 10;
+            }
+            if ($gMax < $gMin) {
+                $gMax = $gMin;
+            }
+            $opts = array_values(array_filter([5, 7, 9], function ($n) use ($gMin, $gMax) {
+                return $n >= $gMin && $n <= $gMax;
+            }));
+            if (!$opts) {
+                $opts = [5, 7, 9];
+            }
+            return (int)$opts[array_rand($opts)];
+        }
+        return max(1, (int)($task['total_count'] ?? 5));
     }
 
     protected function packetMeta($packetId)

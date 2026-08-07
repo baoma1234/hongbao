@@ -1141,14 +1141,14 @@ class RedPacketService
         }
 
         // ---------- 关键节点：验资拦截（必须在 Redis 弹队列之前）----------
-        // 拼手气(2)/接龙(5)：余额须 ≥ 红包总额（覆盖最少赔付 / 续发扣款）
-        // 扫雷(3)：按个数倍率赔付额；额外要求余额严格大于群最低限制
-        // 领取成功后立刻冻结上述潜在赔付额；领完/过期再解冻（中雷则解冻后即时划转）
+        // 拼手气(2)/接龙(5)：余额须 ≥ 红包总额（覆盖最少赔付 / 续发扣款），领取后冻结
+        // 扫雷(3)：按个数倍率验资，但不冻结；中雷后直接赔付
         // 私聊红包无赔付玩法，跳过验资门槛。
         $needCompensate = 0.0;
         $shouldFreeze = false;
         if ((int)($packet['scope_type'] ?? 0) !== 1 && in_array($packetType, [2, 3, 5], true)) {
-            $shouldFreeze = true;
+            // 仅拼手气/接龙冻结；埋雷不冻结
+            $shouldFreeze = in_array($packetType, [2, 5], true);
             $needCompensate = $this->potentialCompensateNeed($packet);
             if (!$this->canAffordGrabCompensate($userId, $packet)) {
                 if ($packetType === 3) {
@@ -1306,15 +1306,13 @@ class RedPacketService
                 ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId]
             );
 
-            // 赔付类玩法：领取瞬间锁定潜在赔付额（拼手气/埋雷/接龙），领完/过期再解冻
+            // 赔付类玩法：拼手气/接龙领取瞬间锁定潜在赔付额；埋雷不冻结
             $frozenAmt = 0.0;
             if ($shouldFreeze && $needCompensate > 0.00001) {
                 $frozenAmt = round((float)$needCompensate, 2);
                 $freezeRemark = '红包潜在赔付冻结';
                 if ($packetType === 2) {
                     $freezeRemark = '红宝拼手气冻结';
-                } elseif ($packetType === 3) {
-                    $freezeRemark = '红宝扫雷冻结';
                 } elseif ($packetType === 5) {
                     $freezeRemark = '红宝接龙续发冻结';
                 }
@@ -1334,7 +1332,7 @@ class RedPacketService
                 }
             }
 
-            // 埋雷中雷：冻结后立刻解冻划转赔付（payMineHitForRecord 内会解冻）
+            // 埋雷中雷：不经冻结，直接赔付（payMineHitForRecord 幂等）
             if (
                 $packetType === 3
                 && (int)($packet['scope_type'] ?? 0) !== 1
@@ -1351,8 +1349,8 @@ class RedPacketService
                     [
                         'id'                => $recordId,
                         'user_id'           => $userId,
-                        'freeze_status'     => $frozenAmt > 0.00001 ? 1 : 0,
-                        'frozen_amount'     => $frozenAmt,
+                        'freeze_status'     => 0,
+                        'frozen_amount'     => 0,
                         'compensate_status' => 0,
                     ],
                     $needCompensate,
