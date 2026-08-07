@@ -25,4 +25,12 @@ class Redpacketauto extends Model
             '5' => '接龙红包',
         ];
     }
+
+    public function getActorModeList()
+    {
+        return [
+            '1' => '模式一：UID池',
+            '2' => '模式二：机器人账户',
+        ];
+    }
 }

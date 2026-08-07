@@ -216,7 +216,7 @@
                 <view class="chat-member-sub">ID {{ u.user_id }}</view>
               </view>
             </label>
-            <view v-if="!filteredCandidates.length && !candLoading" class="chat-empty">暂无可添加好友</view>
+            <view v-if="!filteredCandidates.length && !candLoading" class="chat-empty">暂无可添加好友（仅好友可进群）</view>
             <view v-if="candLoading" class="chat-empty">加载中…</view>
           </scroll-view>
         </view>

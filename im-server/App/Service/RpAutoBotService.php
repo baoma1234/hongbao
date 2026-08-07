@@ -17,7 +17,8 @@ use Workerman\Timer;
  * - 埋雷：雷号每发随机 0-9；个数每发随机 5/7/9；金额须为 10 的整数倍
  * - 节奏：20–23 点发包间隔减半；0–7 点翻倍（仅固定间隔模式）
  * - 接龙续发：由结算/cron 全局监听「全部群」的全部 type5，抢完后最少者名义发下一包（见 RedPacketService::trySendRobotNextRound）
- * - 抢包：仅后台配置了 auto_grab + grab_user_ids 的任务才抢
+ * - 抢包：仅后台配置了 auto_grab 的任务才抢（mode1 需 grab_user_ids；mode2 用机器人账户）
+ * - actor_mode：1=发包/抢包 UID 池；2=从 is_bot=1 机器人账户随机发/抢
  * - 多 UID：每次随机选一个尚未领过该包的 UID 去抢（含拼手气/埋雷/接龙）
  */
 class RpAutoBotService
@@ -362,9 +363,16 @@ class RpAutoBotService
         return $now + $delay;
     }
 
-    /** 发包 UID 池：send_user_ids 优先，否则 send_user_id；多选随机 */
+    /** 发包 UID：mode1=池；mode2=机器人账户随机 */
     protected function pickSendUserId(array $task)
     {
+        if ($this->actorMode($task) === 2) {
+            $bots = $this->listBotUserIds();
+            if (!$bots) {
+                return 0;
+            }
+            return (int)$bots[random_int(0, count($bots) - 1)];
+        }
         $uids = $this->parseUserIds((string)($task['send_user_ids'] ?? ''));
         if (!$uids) {
             $one = (int)($task['send_user_id'] ?? 0);
@@ -386,10 +394,18 @@ class RpAutoBotService
     {
         $taskId = (int)$task['id'];
         $groupId = (int)$task['group_id'];
-        $uids = $this->parseUserIds((string)($task['grab_user_ids'] ?? ''));
-        if (!$uids) {
-            $this->taskLog($taskId, 'skip', 'grab: no grab_user_ids');
-            return;
+        if ($this->actorMode($task) === 2) {
+            $uids = $this->listBotUserIds();
+            if (!$uids) {
+                $this->taskLog($taskId, 'skip', 'grab: no bot accounts');
+                return;
+            }
+        } else {
+            $uids = $this->parseUserIds((string)($task['grab_user_ids'] ?? ''));
+            if (!$uids) {
+                $this->taskLog($taskId, 'skip', 'grab: no grab_user_ids');
+                return;
+            }
         }
         if ($this->isGrabBusy($taskId)) {
             $this->taskLogThrottled($taskId, 'grab_busy', 'skip', 'grab: busy', [], 20);
@@ -1008,6 +1024,62 @@ class RpAutoBotService
             }
         }
         return array_values($out);
+    }
+
+    /** 1=UID池 2=机器人账户随机 */
+    protected function actorMode(array $task)
+    {
+        return ((int)($task['actor_mode'] ?? 1) === 2) ? 2 : 1;
+    }
+
+    /**
+     * 机器人账户 UID 列表（fa_fans_account.is_bot=1），短缓存
+     * @return int[]
+     */
+    protected function listBotUserIds($limit = 300)
+    {
+        static $mem = null;
+        static $memAt = 0.0;
+        $now = microtime(true);
+        if (is_array($mem) && ($now - $memAt) < 8.0) {
+            return $mem;
+        }
+        $limit = max(1, min(500, (int)$limit));
+        try {
+            $key = RedisClient::key('rp_auto:bot_uids');
+            $raw = RedisClient::conn()->get($key);
+            if ($raw !== false && $raw !== null && $raw !== '') {
+                $decoded = json_decode((string)$raw, true);
+                if (is_array($decoded) && $decoded) {
+                    $mem = array_values(array_filter(array_map('intval', $decoded)));
+                    $memAt = $now;
+                    return $mem;
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+        $rows = Db::fetchAll(
+            'SELECT user_id FROM ' . Db::table('fans_account')
+            . " WHERE IFNULL(is_bot,0)=1 AND status='normal' ORDER BY id ASC LIMIT {$limit}"
+        ) ?: [];
+        $out = [];
+        foreach ($rows as $row) {
+            $uid = (int)($row['user_id'] ?? 0);
+            if ($uid > 0) {
+                $out[] = $uid;
+            }
+        }
+        try {
+            RedisClient::conn()->setex(
+                RedisClient::key('rp_auto:bot_uids'),
+                30,
+                json_encode($out, JSON_UNESCAPED_UNICODE)
+            );
+        } catch (\Throwable $e) {
+        }
+        $mem = $out;
+        $memAt = $now;
+        return $out;
     }
 
     protected function isSoftGrabError($msg)

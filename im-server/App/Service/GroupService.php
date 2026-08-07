@@ -571,7 +571,7 @@ class GroupService
 
     public function myGroups($userId)
     {
-        $sql = 'SELECT g.* FROM ' . Db::table('chat_groups') . ' g'
+        $sql = 'SELECT g.*, m.role AS my_role FROM ' . Db::table('chat_groups') . ' g'
             . ' INNER JOIN ' . Db::table('chat_group_members') . ' m ON m.group_id=g.id'
             . ' WHERE m.user_id=? AND m.status=1 AND g.status IN (1,3) ORDER BY g.id DESC';
         return Db::fetchAll($sql, [(int)$userId]);
@@ -1437,26 +1437,37 @@ class GroupService
         $limit = max(1, min(100, (int)$limit));
         $this->ensureMemberSet($groupId);
         $kw = trim((string)$keyword);
+        $operatorId = (int)$operatorId;
+        // 仅好友：chat_contacts.status=1
+        $contactTable = Db::table('chat_contacts');
         $userTable = Db::table('user');
-        $sql = "SELECT id, username, nickname, mobile, avatar, status FROM {$userTable} WHERE status='normal'";
-        $bind = [];
+        $sql = "SELECT u.id, u.username, u.nickname, u.mobile, u.avatar"
+            . " FROM {$contactTable} c"
+            . " INNER JOIN {$userTable} u ON u.id=c.peer_user_id"
+            . " WHERE c.user_id=? AND c.status=1 AND u.status='normal'";
+        $bind = [$operatorId];
         if ($kw !== '') {
             if (ctype_digit($kw)) {
-                $sql .= ' AND (id=? OR mobile LIKE ? OR nickname LIKE ? OR username LIKE ?)';
+                $sql .= ' AND (u.id=? OR u.mobile LIKE ? OR u.nickname LIKE ? OR u.username LIKE ?)';
                 $like = '%' . $kw . '%';
-                $bind = [(int)$kw, $like, $like, $like];
+                $bind[] = (int)$kw;
+                $bind[] = $like;
+                $bind[] = $like;
+                $bind[] = $like;
             } else {
-                $sql .= ' AND (nickname LIKE ? OR username LIKE ? OR mobile LIKE ?)';
+                $sql .= ' AND (u.nickname LIKE ? OR u.username LIKE ? OR u.mobile LIKE ?)';
                 $like = '%' . $kw . '%';
-                $bind = [$like, $like, $like];
+                $bind[] = $like;
+                $bind[] = $like;
+                $bind[] = $like;
             }
         }
-        $sql .= ' ORDER BY id DESC LIMIT ' . ($limit * 3);
+        $sql .= ' ORDER BY c.id DESC LIMIT ' . ($limit * 3);
         $rows = Db::fetchAll($sql, $bind);
         $list = [];
         foreach ($rows as $u) {
             $uid = (int)$u['id'];
-            if ($this->isMember($groupId, $uid)) {
+            if ($uid === $operatorId || $this->isMember($groupId, $uid)) {
                 continue;
             }
             $nick = trim((string)($u['nickname'] ?: $u['username'] ?: ''));
@@ -1483,6 +1494,16 @@ class GroupService
         $ids = array_values(array_unique(array_filter(array_map('intval', $memberIds))));
         if (!$ids) {
             throw new \InvalidArgumentException('empty members');
+        }
+        $contacts = new ContactService();
+        $operatorId = (int)$operatorId;
+        foreach ($ids as $aid) {
+            if ($aid === $operatorId) {
+                continue;
+            }
+            if (!$contacts->isFriend($operatorId, $aid)) {
+                throw new \RuntimeException('只能添加好友进群');
+            }
         }
         $this->addMembers($groupId, $ids, 1);
         return ['added' => $ids, 'members' => $this->listMembersDetailed($groupId, $operatorId)];

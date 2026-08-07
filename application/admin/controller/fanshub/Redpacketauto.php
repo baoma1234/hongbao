@@ -297,6 +297,7 @@ class Redpacketauto extends Backend
         }
         $params['auto_send'] = !empty($params['auto_send']) ? 1 : 0;
         $params['auto_grab'] = !empty($params['auto_grab']) ? 1 : 0;
+        $params['actor_mode'] = ((int)($params['actor_mode'] ?? 1) === 2) ? 2 : 1;
         $params['grab_user_ids'] = preg_replace(
             '/[^\d,\s;]/',
             '',
@@ -320,14 +321,14 @@ class Redpacketauto extends Backend
         if (!$group) {
             $this->error('群不存在: #' . $params['group_id']);
         }
-        if ($params['auto_send'] && $params['send_user_id'] <= 0) {
-            $this->error('自动发包需填写发包用户 ID（可多个，逗号分隔）');
+        if ($params['auto_send'] && $params['actor_mode'] === 1 && $params['send_user_id'] <= 0) {
+            $this->error('模式一自动发包需填写发包用户 ID（可多个，逗号分隔）');
         }
         if ($params['auto_send'] && (float)$params['amount_min'] <= 0) {
             $this->error('请填写红包金额（最小/最大）');
         }
-        if ($params['auto_grab'] && trim($params['grab_user_ids']) === '') {
-            $this->error('自动抢包需填写抢包用户 ID（逗号分隔）');
+        if ($params['auto_grab'] && $params['actor_mode'] === 1 && trim($params['grab_user_ids']) === '') {
+            $this->error('模式一自动抢包需填写抢包用户 ID（逗号分隔）');
         }
         return $params;
     }

@@ -4512,6 +4512,11 @@ button.chat-rp-fair-link {
   overflow: hidden;
 }
 
+.chat-community-seg.is-4 .chat-community-seg-btn {
+  font-size: 12px;
+  padding: 0 2px;
+}
+
 .chat-community-seg-btn {
   flex: 1 1 0;
   min-width: 0;

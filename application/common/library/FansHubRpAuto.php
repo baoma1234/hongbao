@@ -291,6 +291,13 @@ class FansHubRpAuto
 
     protected static function pickSendUserId(array $task)
     {
+        if (self::actorMode($task) === 2) {
+            $bots = self::listBotUserIds();
+            if (!$bots) {
+                return 0;
+            }
+            return (int)$bots[array_rand($bots)];
+        }
         $uids = self::parseUserIds((string)($task['send_user_ids'] ?? ''));
         if (!$uids) {
             $one = (int)($task['send_user_id'] ?? 0);
@@ -304,9 +311,16 @@ class FansHubRpAuto
 
     protected static function maybeGrab(array $task, $preferPacketId = 0)
     {
-        $uids = self::parseUserIds((string)($task['grab_user_ids'] ?? ''));
-        if (!$uids) {
-            return 0;
+        if (self::actorMode($task) === 2) {
+            $uids = self::listBotUserIds();
+            if (!$uids) {
+                return 0;
+            }
+        } else {
+            $uids = self::parseUserIds((string)($task['grab_user_ids'] ?? ''));
+            if (!$uids) {
+                return 0;
+            }
         }
         $groupId = (int)$task['group_id'];
         $packetIds = [];
@@ -398,6 +412,38 @@ class FansHubRpAuto
             }
         }
         return array_values($out);
+    }
+
+    protected static function actorMode(array $task)
+    {
+        return ((int)($task['actor_mode'] ?? 1) === 2) ? 2 : 1;
+    }
+
+    /** @return int[] */
+    protected static function listBotUserIds($limit = 300)
+    {
+        static $cache = null;
+        static $at = 0;
+        if (is_array($cache) && (time() - $at) < 30) {
+            return $cache;
+        }
+        $limit = max(1, min(500, (int)$limit));
+        $rows = Db::name('fans_account')
+            ->where('is_bot', 1)
+            ->where('status', 'normal')
+            ->order('id', 'asc')
+            ->limit($limit)
+            ->column('user_id');
+        $out = [];
+        foreach ($rows ?: [] as $uid) {
+            $uid = (int)$uid;
+            if ($uid > 0) {
+                $out[] = $uid;
+            }
+        }
+        $cache = $out;
+        $at = time();
+        return $out;
     }
 
     protected static function effectiveIntervalSec($baseSec)

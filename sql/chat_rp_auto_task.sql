@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS `fa_chat_rp_auto_task` (
   `burst_next_at` int(10) unsigned NOT NULL DEFAULT '0' COMMENT '窗内下一次计划发包unix',
   `auto_send` tinyint(1) NOT NULL DEFAULT '1',
   `auto_grab` tinyint(1) NOT NULL DEFAULT '1',
+  `actor_mode` tinyint(3) unsigned NOT NULL DEFAULT '1' COMMENT '1=发包/抢包UID池 2=机器人账户随机发抢',
   `grab_user_ids` varchar(512) NOT NULL DEFAULT '' COMMENT '抢包机器人UID,逗号分隔',
   `grab_delay_min_ms` int(10) unsigned NOT NULL DEFAULT '5000' COMMENT '抢包延迟最小ms(建议5000=5秒)',
   `grab_delay_max_ms` int(10) unsigned NOT NULL DEFAULT '15000' COMMENT '抢包延迟最大ms(建议15000=15秒)',

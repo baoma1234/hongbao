@@ -142,9 +142,10 @@
 
             <!-- 社群 -->
             <view id="chatHomePanelCommunity" class="chat-home-panel chat-community-glass" :class="{ 'is-hidden': homeTab !== 'community' }">
-              <view class="chat-community-seg">
+              <view class="chat-community-seg is-4">
                 <view class="chat-community-seg-btn" :class="{ active: communitySub === 'official' }" @click="setCommunitySub('official')">官方社群</view>
                 <view class="chat-community-seg-btn" :class="{ active: communitySub === 'mine' }" @click="setCommunitySub('mine')">我的群组</view>
+                <view class="chat-community-seg-btn" :class="{ active: communitySub === 'created' }" @click="setCommunitySub('created')">我创建的</view>
                 <view class="chat-community-seg-btn" :class="{ active: communitySub === 'friends' }" @click="setCommunitySub('friends')">好友列表</view>
               </view>
 
@@ -210,6 +211,28 @@
                         <view class="chat-my-group-count">{{ g.display_member_count || g.member_count || 0 }}<text>人</text></view>
                       </view>
                       <view v-if="!myGroups.length" class="chat-empty chat-empty-glass">暂无已加入社群</view>
+                    </view>
+                  </view>
+                </scroll-view>
+              </view>
+
+              <view v-else-if="communitySub === 'created'" class="chat-community-pane active">
+                <scroll-view scroll-y class="chat-community-body-scroll" :show-scrollbar="false">
+                  <view class="chat-community-glass-panel chat-community-pane-body">
+                    <view class="chat-my-groups-list">
+                      <view v-for="g in myCreatedGroups" :key="'c-' + g.id" class="chat-my-group-item" @click="openGroup(g)">
+                        <view class="chat-my-group-main">
+                          <view class="chat-my-group-avatar">
+                            <image :src="avatarSrc(g.avatar)" mode="aspectFill" />
+                          </view>
+                          <view class="chat-my-group-create-text">
+                            <text class="chat-my-group-name">{{ g.name || ('#' + g.id) }}</text>
+                            <text class="chat-my-group-sub">{{ (g.my_role | 0) >= 3 ? '群主' : '管理员' }}</text>
+                          </view>
+                        </view>
+                        <view class="chat-my-group-count">{{ g.display_member_count || g.member_count || 0 }}<text>人</text></view>
+                      </view>
+                      <view v-if="!myCreatedGroups.length" class="chat-empty chat-empty-glass">暂无我创建/管理的群</view>
                     </view>
                   </view>
                 </scroll-view>
@@ -668,6 +691,9 @@ const createGroupBindRebate = ref(false)
 const communitySub = ref('official')
 const communityRecs = ref([])
 const myGroups = ref([])
+const myCreatedGroups = computed(() =>
+  (myGroups.value || []).filter((g) => ((g.my_role | 0) || (g.role | 0)) >= 2)
+)
 const friends = ref([])
 const notices = ref([])
 const noticeCat = ref('latest')
@@ -1501,7 +1527,12 @@ async function loadCommunity() {
 }
 
 function normalizeMyGroups(list) {
-  return (list || []).map((g) => Object.assign({}, g, { is_member: true }))
+  return (list || []).map((g) =>
+    Object.assign({}, g, {
+      is_member: true,
+      my_role: (g.my_role | 0) || (g.role | 0) || 0,
+    })
+  )
 }
 
 async function loadCommunityExtra() {
