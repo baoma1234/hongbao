@@ -174,7 +174,7 @@
                     <view class="chat-official-rules" @click="openGameRulesFromCommunity">
                       <view class="chat-official-rules-ico">📜</view>
                       <view class="chat-official-rules-text">
-                        <text class="chat-official-rules-title">🧧 红包接龙官方游戏规则</text>
+                        <text class="chat-official-rules-title">🧧 红宝官方游戏规则</text>
                         <text class="chat-official-rules-desc">新手通关玩法与佣金保障说明</text>
                       </view>
                       <text class="chat-official-rules-link">点开查看规则图 ›</text>

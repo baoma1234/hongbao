@@ -402,14 +402,24 @@ const stepperSteps = computed(() => {
 })
 
 const openAccountParts = computed(() => {
-  const raw = t('open_account_btn') || ''
   const rights = (config.value && config.value.open_account_rights) != null ? config.value.open_account_rights : 2
-  const fallbackBadge = t('open_account_badge_fallback', { open_account_rights: rights }) || `立送 ${rights} 份大盘股。`
+  const vars = { open_account_rights: rights }
+  const raw = t('open_account_btn', vars) || ''
+  const fallbackBadge = t('open_account_badge_fallback', vars) || `立送 ${rights} 份大盘股。`
+  const fillRights = (s) =>
+    String(s || '').replace(/\{open_account_rights\}/g, String(rights))
   const bracket = String(raw).match(/^(.+?)\[(.+?)\]\((.+?)\)\s*$/)
-  if (bracket) return { label: (bracket[1] + '[' + bracket[2] + ']').trim(), badge: bracket[3].trim() }
+  if (bracket) {
+    return {
+      label: fillRights((bracket[1] + '[' + bracket[2] + ']').trim()),
+      badge: fillRights(bracket[3].trim()),
+    }
+  }
   const paren = String(raw).match(/^(.+?)\(([^)]+)\)\s*$/)
-  if (paren) return { label: paren[1].trim(), badge: paren[2].trim() }
-  return { label: raw || fallbackBadge, badge: fallbackBadge }
+  if (paren) {
+    return { label: fillRights(paren[1].trim()), badge: fillRights(paren[2].trim()) }
+  }
+  return { label: fillRights(raw || fallbackBadge), badge: fillRights(fallbackBadge) }
 })
 const openAccountLabel = computed(() => openAccountParts.value.label)
 const openAccountBadge = computed(() => openAccountParts.value.badge)

@@ -3,7 +3,6 @@
     <TopBar />
     <view id="tabExchange" class="tab-page active">
       <view class="page-hero-title">{{ tt('page_hero_exchange_title', '⚡ VIP 闪兑大厅') }}</view>
-      <view class="page-hero-sub">{{ tt('page_hero_exchange_sub', '股份 ↔ 红宝 · 实时预估到账') }}</view>
       <view class="exchange-closed-banner" v-if="!anyEnabled">
         {{ tt('profile_ex_r2b_closed', tt('alert_exchange_disabled', '股份兑换红宝已关闭')) }}
       </view>
