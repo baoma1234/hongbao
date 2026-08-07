@@ -1,8 +1,11 @@
 <template>
   <view class="floating-top-bar" :class="{ flash: skinFlash }">
     <view class="brand" @click="goHome">
-      <image class="logo" :src="logoSrc" mode="aspectFit" />
-      <text class="brand-text">{{ brand }}</text>
+      <image
+        class="brand-img"
+        src="https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/brand/qhb-brand.png"
+        mode="heightFix"
+      />
     </view>
     <view class="actions">
       <view class="lang-wrap" @click.stop="toggleLang">
@@ -53,7 +56,6 @@ import {
   flagUrl,
   getLocale,
   localeOptions,
-  logoUrl,
   onLocaleChange,
   setLocale,
   t,
@@ -79,11 +81,6 @@ let offLocale = null
 let offSkin = null
 let flashTimer = null
 
-const logoSrc = logoUrl()
-const brand = computed(() => {
-  void locale.value
-  return t('brand_name')
-})
 const skinLabel = computed(() => {
   void locale.value
   return t('skin_label')
@@ -217,23 +214,16 @@ onUnmounted(() => {
 .brand {
   display: flex;
   align-items: center;
-  gap: 8px;
   min-width: 0;
+  max-width: 46vw;
 }
-.logo {
-  width: 34px;
-  height: 34px;
+.brand-img {
+  height: 36px;
+  width: auto;
+  max-width: 100%;
   flex-shrink: 0;
-}
-.brand-text {
-  font-size: 16px;
-  font-weight: 900;
-  color: #e80000;
-  letter-spacing: 0.2px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 28vw;
+  border-radius: 6px;
+  display: block;
 }
 .actions {
   display: flex;
@@ -311,8 +301,8 @@ onUnmounted(() => {
   color: #e83b1a;
 }
 @media (max-width: 480px) {
-  .logo { width: 30px; height: 30px; }
-  .brand-text { font-size: 14px; }
+  .brand { max-width: 42vw; }
+  .brand-img { height: 32px; }
   .skin-val { max-width: 56px; }
   .lang-panel { right: 96px; }
 }
