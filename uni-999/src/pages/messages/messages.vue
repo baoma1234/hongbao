@@ -48,7 +48,7 @@
 
           <view class="chat-list-main">
             <view class="chat-conn" :class="connClass">IM · {{ statusText }} · <text class="chat-reconnect" @click="reconnect">重连</text></view>
-            <view class="chat-my-id" v-if="myIdText">{{ myIdText }}</view>
+            <view class="chat-my-id" v-if="myIdText">{{ myIdLine }}</view>
 
             <view class="chat-home-search-area">
               <view v-if="searchOpen" class="chat-home-search-row">
@@ -652,6 +652,8 @@ const keyword = ref('')
 const plusOpen = ref(false)
 const canCreateGroup = ref(false)
 const myIdText = ref('')
+const myHongbao = ref(null)
+const myHongbaoFrozen = ref(null)
 const createGroupOpen = ref(false)
 const createGroupName = ref('')
 const createGroupPrivacy = ref('private')
@@ -707,6 +709,38 @@ const statusText = computed(() => {
   if (status.value === 'connecting') return '连接中…'
   return '未连接'
 })
+
+function formatMoneyYuan(n) {
+  const v = Number(n)
+  if (!isFinite(v)) return '￥0.00'
+  return '￥' + v.toFixed(2)
+}
+
+const myIdLine = computed(() => {
+  const base = String(myIdText.value || '').trim()
+  if (!base) return ''
+  if (myHongbao.value == null || !isFinite(Number(myHongbao.value))) return base
+  const bal = formatMoneyYuan(myHongbao.value)
+  const fr = formatMoneyYuan(myHongbaoFrozen.value != null ? myHongbaoFrozen.value : 0)
+  return base + ' · 红宝 ' + bal + ' · 冻结 ' + fr
+})
+
+let walletPollTimer = null
+let walletPollBusy = false
+function stopWalletPoll() {
+  if (walletPollTimer) {
+    clearInterval(walletPollTimer)
+    walletPollTimer = null
+  }
+}
+function startWalletPoll() {
+  stopWalletPoll()
+  loadMyIdLine()
+  walletPollTimer = setInterval(() => {
+    if (!pageAlive || walletPollBusy) return
+    loadMyIdLine()
+  }, 2000)
+}
 
 const connClass = computed(() => {
   if (status.value === 'online') return 'ok'
@@ -1627,6 +1661,8 @@ async function refreshAuthFlags() {
 }
 
 async function loadMyIdLine() {
+  if (walletPollBusy) return
+  walletPollBusy = true
   try {
     const p = await fetchProfile()
     const uid = (p && (p.user_id || p.id)) | 0
@@ -1634,7 +1670,21 @@ async function loadMyIdLine() {
       myIdText.value = '我的会员ID：' + uid
       setInboxMyId(uid)
     }
-  } catch (e) {}
+    if (p) {
+      const hb = p.hongbao != null ? p.hongbao : p.balance
+      if (hb != null && isFinite(Number(hb))) {
+        myHongbao.value = Number(hb)
+      }
+      if (p.hongbao_frozen != null && isFinite(Number(p.hongbao_frozen))) {
+        myHongbaoFrozen.value = Math.max(0, Number(p.hongbao_frozen))
+      } else if (myHongbaoFrozen.value == null) {
+        myHongbaoFrozen.value = 0
+      }
+    }
+  } catch (e) {
+  } finally {
+    walletPollBusy = false
+  }
 }
 
 async function onPlusAction(kind) {
@@ -1844,6 +1894,7 @@ onShow(() => {
     } catch (e) {}
   }
   loadMyIdLine()
+  startWalletPoll()
   loadList().then(() => refreshAuthFlags())
   loadFriendReqBadge()
 })
@@ -1851,6 +1902,7 @@ onShow(() => {
 onHide(() => {
   pageAlive = false
   applyPageShell(false)
+  stopWalletPoll()
   stopOfficialCommunityPoll()
   if (typeof off === 'function') {
     off()

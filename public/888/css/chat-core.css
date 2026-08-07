@@ -416,6 +416,8 @@ body.tab-messages .bottom-action-bar {
   color: var(--color-text-hint);
   margin: 0 12px 8px;
   flex-shrink: 0;
+  line-height: 1.45;
+  word-break: break-all;
 }
 
 /* ---------- Conversation list ---------- */

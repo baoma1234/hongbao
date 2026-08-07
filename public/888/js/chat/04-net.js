@@ -1541,6 +1541,7 @@
     bindUi();
     syncBalanceFromAccount();
     updateMoneyLabel();
+    startChatWalletPoll();
     // 进消息页立刻出缓存列表，再后台校准
     if (!hydrateListFromCache()) showListSkeleton();
     connect(false);
@@ -1549,6 +1550,49 @@
       refreshList(false).catch(function () {});
     }
     state.loadedOnce = true;
+  }
+
+  var chatWalletPollTimer = null;
+  var chatWalletPollBusy = false;
+  function stopChatWalletPoll() {
+    if (chatWalletPollTimer) {
+      clearInterval(chatWalletPollTimer);
+      chatWalletPollTimer = null;
+    }
+  }
+  function startChatWalletPoll() {
+    stopChatWalletPoll();
+    refreshChatWalletLabel();
+    chatWalletPollTimer = setInterval(function () {
+      refreshChatWalletLabel();
+    }, 2000);
+  }
+  function refreshChatWalletLabel() {
+    if (chatWalletPollBusy) return;
+    chatWalletPollBusy = true;
+    var done = function () { chatWalletPollBusy = false; };
+    try {
+      if (typeof global.apiRequest === 'function') {
+        Promise.resolve(global.apiRequest('profile', 'GET')).then(function (p) {
+          if (p) {
+            if (p.hongbao != null || p.balance != null) {
+              state.money = parseFloat(p.hongbao != null ? p.hongbao : p.balance);
+            }
+            if (p.hongbao_frozen != null) {
+              state.hongbaoFrozen = parseFloat(p.hongbao_frozen);
+            }
+          }
+          updateMoneyLabel();
+        }).catch(function () {
+          try { syncBalanceFromAccount(); } catch (e) {}
+        }).then(done);
+        return;
+      }
+      syncBalanceFromAccount();
+      updateMoneyLabel();
+    } catch (e) {
+    }
+    done();
   }
 
   function onLocaleChange(opts) {
@@ -1713,6 +1757,7 @@
     if (search) search.value = '';
     renderList();
     updateTabBadge();
+    stopChatWalletPoll();
     updateMoneyLabel();
   }
 
@@ -1727,6 +1772,7 @@
     closeRoom: closeRoom,
     openRedPacketDetail: openRedPacketDetail,
     consumeOpenRpDeepLink: consumeOpenRpDeepLink,
+    stopWalletPoll: stopChatWalletPoll,
     addFriendByMemberId: null
   };
 

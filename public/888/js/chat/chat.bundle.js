@@ -972,14 +972,22 @@
     var id = state.userId || '-';
     var hasBal = state.money != null && !isNaN(state.money);
     var amount = hasBal ? moneyText(state.money) : '';
+    var frozen = state.hongbaoFrozen != null && !isNaN(state.hongbaoFrozen) ? Number(state.hongbaoFrozen) : 0;
+    var frozenTxt = moneyText(Math.max(0, frozen));
+    var base = '';
     if (state.isImAdmin && hasBal) {
-      el.textContent = chatT('chat_my_id_admin_balance', { id: id, amount: amount });
+      base = chatT('chat_my_id_admin_balance', { id: id, amount: amount });
     } else if (state.isImAdmin) {
-      el.textContent = chatT('chat_my_id_admin', { id: id });
+      base = chatT('chat_my_id_admin', { id: id });
     } else if (hasBal) {
-      el.textContent = chatT('chat_my_id_with_balance', { id: id, amount: amount });
+      base = chatT('chat_my_id_with_balance', { id: id, amount: amount });
     } else {
-      el.textContent = chatT('chat_my_id', { id: id });
+      base = chatT('chat_my_id', { id: id });
+    }
+    if (hasBal) {
+      el.textContent = base + ' · 冻结 ' + frozenTxt;
+    } else {
+      el.textContent = base;
     }
     renderFrozenHints();
   }
@@ -7554,6 +7562,7 @@
     bindUi();
     syncBalanceFromAccount();
     updateMoneyLabel();
+    startChatWalletPoll();
     // 进消息页立刻出缓存列表，再后台校准
     if (!hydrateListFromCache()) showListSkeleton();
     connect(false);
@@ -7562,6 +7571,49 @@
       refreshList(false).catch(function () {});
     }
     state.loadedOnce = true;
+  }
+
+  var chatWalletPollTimer = null;
+  var chatWalletPollBusy = false;
+  function stopChatWalletPoll() {
+    if (chatWalletPollTimer) {
+      clearInterval(chatWalletPollTimer);
+      chatWalletPollTimer = null;
+    }
+  }
+  function startChatWalletPoll() {
+    stopChatWalletPoll();
+    refreshChatWalletLabel();
+    chatWalletPollTimer = setInterval(function () {
+      refreshChatWalletLabel();
+    }, 2000);
+  }
+  function refreshChatWalletLabel() {
+    if (chatWalletPollBusy) return;
+    chatWalletPollBusy = true;
+    var done = function () { chatWalletPollBusy = false; };
+    try {
+      if (typeof global.apiRequest === 'function') {
+        Promise.resolve(global.apiRequest('profile', 'GET')).then(function (p) {
+          if (p) {
+            if (p.hongbao != null || p.balance != null) {
+              state.money = parseFloat(p.hongbao != null ? p.hongbao : p.balance);
+            }
+            if (p.hongbao_frozen != null) {
+              state.hongbaoFrozen = parseFloat(p.hongbao_frozen);
+            }
+          }
+          updateMoneyLabel();
+        }).catch(function () {
+          try { syncBalanceFromAccount(); } catch (e) {}
+        }).then(done);
+        return;
+      }
+      syncBalanceFromAccount();
+      updateMoneyLabel();
+    } catch (e) {
+    }
+    done();
   }
 
   function onLocaleChange(opts) {
@@ -7726,6 +7778,7 @@
     if (search) search.value = '';
     renderList();
     updateTabBadge();
+    stopChatWalletPoll();
     updateMoneyLabel();
   }
 
@@ -7740,6 +7793,7 @@
     closeRoom: closeRoom,
     openRedPacketDetail: openRedPacketDetail,
     consumeOpenRpDeepLink: consumeOpenRpDeepLink,
+    stopWalletPoll: stopChatWalletPoll,
     addFriendByMemberId: null
   };
 

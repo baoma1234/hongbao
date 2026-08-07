@@ -969,14 +969,22 @@
     var id = state.userId || '-';
     var hasBal = state.money != null && !isNaN(state.money);
     var amount = hasBal ? moneyText(state.money) : '';
+    var frozen = state.hongbaoFrozen != null && !isNaN(state.hongbaoFrozen) ? Number(state.hongbaoFrozen) : 0;
+    var frozenTxt = moneyText(Math.max(0, frozen));
+    var base = '';
     if (state.isImAdmin && hasBal) {
-      el.textContent = chatT('chat_my_id_admin_balance', { id: id, amount: amount });
+      base = chatT('chat_my_id_admin_balance', { id: id, amount: amount });
     } else if (state.isImAdmin) {
-      el.textContent = chatT('chat_my_id_admin', { id: id });
+      base = chatT('chat_my_id_admin', { id: id });
     } else if (hasBal) {
-      el.textContent = chatT('chat_my_id_with_balance', { id: id, amount: amount });
+      base = chatT('chat_my_id_with_balance', { id: id, amount: amount });
     } else {
-      el.textContent = chatT('chat_my_id', { id: id });
+      base = chatT('chat_my_id', { id: id });
+    }
+    if (hasBal) {
+      el.textContent = base + ' · 冻结 ' + frozenTxt;
+    } else {
+      el.textContent = base;
     }
     renderFrozenHints();
   }

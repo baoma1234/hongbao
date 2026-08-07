@@ -834,6 +834,9 @@
             // IM：消息 Tab 立即加载；其它 Tab 已加载则保活 WS，否则空闲预取
             if (localStorage.getItem('fans_hub_token') && tab !== 'messages') {
                 if (window.FansHubChat) {
+                    if (typeof FansHubChat.stopWalletPoll === 'function') {
+                        try { FansHubChat.stopWalletPoll(); } catch (eStop) {}
+                    }
                     if (typeof FansHubChat.ensureConnected === 'function') FansHubChat.ensureConnected();
                     else if (typeof FansHubChat.connect === 'function') FansHubChat.connect(false);
                 } else if (window.FansHubAssets && typeof FansHubAssets.prefetchChat === 'function') {
