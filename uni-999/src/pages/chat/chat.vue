@@ -317,7 +317,7 @@
                   class="chat-rp-count-btn"
                   :class="{ active: Number(rpForm.total_count) === n }"
                   @click="rpForm.total_count = String(n)"
-                >{{ n }}</view>
+                >{{ mineCountBtnLabel(n) }}</view>
               </view>
               <view
                 v-else-if="rpCountOptions.length <= 8"
@@ -336,7 +336,7 @@
                 <input class="chat-rp-count-input" type="digit" v-model="rpForm.total_count" placeholder="5-10" />
                 <text class="chat-rp-unit">个</text>
               </view>
-              <view class="chat-rp-field-hint">{{ rpCountHintLabel }}</view>
+              <view class="chat-rp-field-hint">{{ rpCountFieldHint }}</view>
             </view>
 
             <view v-if="!isPrivate" class="chat-rp-field chat-rp-field--type">
@@ -949,10 +949,37 @@ const packetTypes = computed(() => {
     .map((t) => ({ v: t.v, n: rpT(t.nKey, t.nFb) }))
 })
 
+/** 扫雷赔付倍率：5→1.5 / 7→1.2 / 9→1.0 */
+function mineCompensateRates() {
+  return { 5: 1.5, 7: 1.2, 9: 1.0 }
+}
+
+function formatMineRate(rate) {
+  const n = Number(rate)
+  if (!isFinite(n) || n <= 0) return '1'
+  return String(n).replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1')
+}
+
+function mineCountBtnLabel(count) {
+  const rates = mineCompensateRates()
+  const c = Number(count) || 0
+  const rate = rates[c] != null ? rates[c] : 1
+  return c + '/' + formatMineRate(rate) + '倍'
+}
+
 const mineCountOptions = computed(() => {
   const range = groupRpCountRange()
   const base = [5, 7, 9].filter((n) => n >= range.min && n <= range.max)
   return base.length ? base : [range.min]
+})
+
+const rpCountFieldHint = computed(() => {
+  if ((rpForm.packet_type | 0) === 3) {
+    const opts = mineCountOptions.value
+    if (opts.length) return '扫雷固定 ' + opts.join('/')
+    return '扫雷固定 5/7/9'
+  }
+  return rpCountHintLabel.value
 })
 
 const rpCountOptions = computed(() => {
