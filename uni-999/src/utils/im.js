@@ -1,4 +1,4 @@
-import { getDeviceFp, getToken } from './auth.js'
+import { getDeviceFp, getToken, goLoginIfUnauthorized } from './auth.js'
 import { getApiBase, getImWsBase } from './config.js'
 
 let socketTask = null
@@ -298,7 +298,10 @@ function waitUntil(predicate, timeoutMs, stepMs = 50) {
 
 export function imConnect() {
   const token = getToken()
-  if (!token) return Promise.reject(new Error('未登录'))
+  if (!token) {
+    goLoginIfUnauthorized(401, '未登录')
+    return Promise.reject(new Error('未登录'))
+  }
   intentionalClose = false
 
   if (socketTask && socketOpen && authed) {

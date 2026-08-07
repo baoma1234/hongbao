@@ -579,7 +579,7 @@ import '../../styles/chat.bundle.css'
 import '../../styles/chat-room-uni-adapter.css'
 import '../../styles/chat-rp-send-uni-adapter.css'
 import '../../styles/chat-888-parity.css'
-import { apiRequest, fetchProfile, getToken, uploadSticker } from '../../utils/auth.js'
+import { apiRequest, fetchProfile, getToken, goLoginIfUnauthorized, uploadSticker } from '../../utils/auth.js'
 import { getApiBase, getImgBase, learnUploadCdnFromUrl } from '../../utils/config.js'
 import { assetBase, applyServerCopy, copyState, localeState, tt } from '../../utils/i18n.js'
 import {
@@ -2062,7 +2062,9 @@ async function uploadCommonFile(filePath) {
         try {
           const body = JSON.parse((res && res.data) || '{}')
           if ((body && body.code) !== 1) {
-            reject(new Error(body.msg || body.message || '上传失败'))
+            const msg = body.msg || body.message || '上传失败'
+            goLoginIfUnauthorized(body.code, msg)
+            reject(new Error(msg))
             return
           }
           resolve(body.data || {})

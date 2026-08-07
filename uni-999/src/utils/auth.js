@@ -18,6 +18,47 @@ export function getDeviceFp() {
   return fp
 }
 
+export function logoutLocal() {
+  setToken('')
+}
+
+let loginRedirectAt = 0
+
+/** 未登录 / token 失效：清本地态并跳转登录页 */
+export function goLoginIfUnauthorized(code, msg) {
+  const c = Number(code)
+  const m = String(msg || '')
+  const need =
+    c === 401 ||
+    /请登录/.test(m) ||
+    /未登录/.test(m) ||
+    /Please login/i.test(m) ||
+    /not\s*login/i.test(m)
+  if (!need) return false
+  logoutLocal()
+  const now = Date.now()
+  if (now - loginRedirectAt < 1500) return true
+  loginRedirectAt = now
+  try {
+    const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : []
+    const cur = pages && pages.length ? pages[pages.length - 1] : null
+    const route = String((cur && (cur.route || (cur.$page && cur.$page.fullPath))) || '')
+    if (route.indexOf('pages/login/login') >= 0) return true
+  } catch (e) {}
+  uni.reLaunch({ url: '/pages/login/login' })
+  return true
+}
+
+function rejectApiError(payload, reject) {
+  const msg = (payload && (payload.msg || payload.message)) || '请求失败'
+  const code = payload && payload.code
+  goLoginIfUnauthorized(code, msg)
+  const err = new Error(msg)
+  err.payload = (payload && payload.data) || null
+  err.code = code
+  reject(err)
+}
+
 /**
  * ThinkPHP FansHub API：成功 code===1，返回 data
  */
@@ -49,10 +90,7 @@ export function apiRequest(action, method = 'POST', body = null) {
       success(res) {
         const payload = res.data || {}
         if (payload.code !== 1) {
-          const err = new Error(payload.msg || payload.message || '请求失败')
-          err.payload = payload.data || null
-          err.code = payload.code
-          reject(err)
+          rejectApiError(payload, reject)
           return
         }
         try {
@@ -172,7 +210,9 @@ function uploadFanshubAction(action, filePath) {
         try {
           const body = JSON.parse((res && res.data) || '{}')
           if ((body && body.code) !== 1) {
-            reject(new Error(body.msg || body.message || '上传失败'))
+            const msg = body.msg || body.message || '上传失败'
+            goLoginIfUnauthorized(body.code, msg)
+            reject(new Error(msg))
             return
           }
           resolve(body.data || {})
@@ -205,7 +245,9 @@ export function uploadCommonFile(filePath) {
         try {
           const body = JSON.parse((res && res.data) || '{}')
           if ((body && body.code) !== 1) {
-            reject(new Error(body.msg || body.message || '上传失败'))
+            const msg = body.msg || body.message || '上传失败'
+            goLoginIfUnauthorized(body.code, msg)
+            reject(new Error(msg))
             return
           }
           resolve(body.data || {})
@@ -221,8 +263,4 @@ export function uploadCommonFile(filePath) {
     if (data) learnUploadCdnFromUrl(data.fullurl || '')
     return data
   })
-}
-
-export function logoutLocal() {
-  setToken('')
 }
