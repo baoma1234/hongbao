@@ -25,10 +25,14 @@ class RpAutoBotService
     const HEARTBEAT_KEY = 'rp_auto:ws_active';
     const TASK_LOCK_PREFIX = 'rp_auto:lock:';
     const GRAB_BUSY_PREFIX = 'rp_auto:grab_busy:';
+    /** 下次允许安排抢包的时间戳（微秒浮点存字符串） */
+    const GRAB_NEXT_AT_PREFIX = 'rp_auto:grab_next:';
     const TASK_CACHE_TTL = 8;
     /** 真人优先：新包发出后机器人至少等待秒数 */
     const HUMAN_FIRST_MIN_SEC = 8;
     const HUMAN_FIRST_MAX_SEC = 12;
+    /** 后台未配或配错时的硬底（秒） */
+    const GRAB_DELAY_FLOOR_SEC = 5;
 
     /** @var RedPacketService */
     protected $redPackets;
@@ -341,7 +345,9 @@ class RpAutoBotService
 
     /**
      * 每任务同时最多 1 次待执行抢包。
-     * 新包：先等 8～12 秒给人抢，再叠加任务配置的 5～15 秒随机延迟。
+     * 间隔以后台 grab_delay_min/max_ms 为准（默认 5～15 秒）：
+     * - 抢成功/失败后写入冷却，到期前不再安排
+     * - 新包额外尊重真人优先窗（8～12 秒）
      */
     protected function maybeScheduleGrab(array $task, $preferPacketId = 0)
     {
@@ -352,6 +358,11 @@ class RpAutoBotService
             return;
         }
         if ($this->isGrabBusy($taskId)) {
+            return;
+        }
+        $now = microtime(true);
+        $nextAt = $this->getGrabNextAt($taskId);
+        if ($nextAt > $now + 0.05) {
             return;
         }
 
@@ -377,57 +388,84 @@ class RpAutoBotService
             return;
         }
 
+        $coolSec = $this->randomGrabDelaySec($task);
+        $packetId = (int)$pair['packet_id'];
+        $uid = (int)$pair['user_id'];
+        $created = (int)($packets[$packetId]['createtime'] ?? 0);
+        $age = $created > 0 ? max(0, time() - $created) : 0;
+        $humanNeed = random_int(self::HUMAN_FIRST_MIN_SEC, self::HUMAN_FIRST_MAX_SEC);
+        // 冷却已在 next_at 等待过：此处只补齐「新包真人优先」；否则短延迟触发
+        $delaySec = 0.35;
+        if ($age < $humanNeed) {
+            $delaySec = max($delaySec, (float)($humanNeed - $age));
+        }
+        $delaySec = max(0.35, min(90.0, $delaySec));
+
+        // 原子占坑：避免 Redis 异常或并发 tick 叠多个 Timer → 看起来像 1 秒连抢
+        if (!$this->tryMarkGrabBusy($taskId, (int)ceil($delaySec) + 20)) {
+            return;
+        }
+        // 先占住「下一次」：即使 Timer 异常，也不会立刻再排
+        $this->setGrabNextAt($taskId, $now + $delaySec + $coolSec);
+
+        error_log(sprintf(
+            '[RP_AUTO] grab schedule task=%d packet=%d uid=%d delay=%.1fs cool=%.1fs (cfg %d-%dms)',
+            $taskId,
+            $packetId,
+            $uid,
+            $delaySec,
+            $coolSec,
+            (int)round($this->grabDelayBounds($task)[0]),
+            (int)round($this->grabDelayBounds($task)[1])
+        ));
+
+        $taskSnapshot = $task;
+        Timer::add($delaySec, function () use ($taskId, $packetId, $uid, $groupId, $taskSnapshot, $coolSec) {
+            try {
+                $this->doGrabOnce($taskId, $packetId, $uid, $groupId);
+                // 不再立刻换号连抢；下一次由冷却 + tick 再排，保证间隔
+            } catch (\Throwable $e) {
+                $this->touchError($taskId, 'grab u' . $uid . ' p' . $packetId . ': ' . $e->getMessage());
+            } finally {
+                $cool = $coolSec > 0 ? $coolSec : $this->randomGrabDelaySec($taskSnapshot);
+                $this->setGrabNextAt($taskId, microtime(true) + $cool);
+                $this->clearGrabBusy($taskId);
+            }
+        }, [], false);
+    }
+
+    /**
+     * @return array{0:int,1:int} [minMs, maxMs]
+     */
+    protected function grabDelayBounds(array $task)
+    {
         $minMs = (int)($task['grab_delay_min_ms'] ?? 5000);
         $maxMs = (int)($task['grab_delay_max_ms'] ?? 15000);
-        if ($minMs < 1000) {
-            $minMs = 5000;
+        // 误填成秒（如 5～15）时自动按秒换算
+        if ($maxMs > 0 && $maxMs <= 120 && $minMs <= 120) {
+            $minMs *= 1000;
+            $maxMs *= 1000;
+        }
+        $floorMs = self::GRAB_DELAY_FLOOR_SEC * 1000;
+        if ($minMs < $floorMs) {
+            $minMs = $floorMs;
         }
         if ($maxMs < $minMs) {
             $maxMs = $minMs;
         }
-        if ($maxMs < 5000) {
-            $minMs = 5000;
+        if ($maxMs < $floorMs) {
+            $minMs = $floorMs;
             $maxMs = 15000;
         }
-        $grabDelaySec = ($minMs + ($maxMs > $minMs ? random_int(0, $maxMs - $minMs) : 0)) / 1000.0;
+        $maxMs = min(120000, $maxMs);
+        return [$minMs, $maxMs];
+    }
 
-        $packetId = $pair['packet_id'];
-        $uid = $pair['user_id'];
-        $created = (int)($packets[$packetId]['createtime'] ?? 0);
-        $age = $created > 0 ? max(0, time() - $created) : 0;
-        $humanNeed = random_int(self::HUMAN_FIRST_MIN_SEC, self::HUMAN_FIRST_MAX_SEC);
-        $humanWait = ($age < $humanNeed) ? ($humanNeed - $age) : 0;
-
-        $delaySec = $humanWait + $grabDelaySec;
-        $delaySec = max(1.0, min(90.0, $delaySec));
-
-        $this->markGrabBusy($taskId, (int)ceil($delaySec) + 20);
-
-        error_log(sprintf(
-            '[RP_AUTO] grab schedule task=%d packet=%d uid=%d (random of %d) delay=%.1fs',
-            $taskId,
-            $packetId,
-            $uid,
-            count($uids),
-            $delaySec
-        ));
-
-        Timer::add($delaySec, function () use ($taskId, $packetId, $uid, $groupId, $uids) {
-            try {
-                $ok = $this->doGrabOnce($taskId, $packetId, $uid, $groupId);
-                // 余额不够被拒：立刻换另一个够赔付的 UID 再试一次
-                if ($ok === false) {
-                    $alt = $this->pickGrabPair([$packetId], $uids);
-                    if ($alt && (int)$alt['user_id'] !== (int)$uid) {
-                        $this->doGrabOnce($taskId, $packetId, (int)$alt['user_id'], $groupId);
-                    }
-                }
-            } catch (\Throwable $e) {
-                $this->touchError($taskId, 'grab u' . $uid . ' p' . $packetId . ': ' . $e->getMessage());
-            } finally {
-                $this->clearGrabBusy($taskId);
-            }
-        }, [], false);
+    protected function randomGrabDelaySec(array $task)
+    {
+        list($minMs, $maxMs) = $this->grabDelayBounds($task);
+        $ms = $minMs + ($maxMs > $minMs ? random_int(0, $maxMs - $minMs) : 0);
+        return max((float)self::GRAB_DELAY_FLOOR_SEC, $ms / 1000.0);
     }
 
     /** 20–23 点加密；0–7 点放缓 */
@@ -805,26 +843,58 @@ class RpAutoBotService
             $v = RedisClient::conn()->get(RedisClient::key(self::GRAB_BUSY_PREFIX . (int)$taskId));
             return $v !== false && $v !== null && $v !== '';
         } catch (\Throwable $e) {
+            // 失败时当作忙碌，避免无 Redis 时叠 Timer 连抢
+            return true;
+        }
+    }
+
+    /** @return bool 是否成功占到坑 */
+    protected function tryMarkGrabBusy($taskId, $ttl)
+    {
+        try {
+            $r = RedisClient::conn();
+            $key = RedisClient::key(self::GRAB_BUSY_PREFIX . (int)$taskId);
+            return (bool)$r->set($key, (string)microtime(true), ['nx', 'ex' => max(5, (int)$ttl)]);
+        } catch (\Throwable $e) {
             return false;
         }
     }
 
     protected function markGrabBusy($taskId, $ttl)
     {
-        try {
-            RedisClient::conn()->setex(
-                RedisClient::key(self::GRAB_BUSY_PREFIX . (int)$taskId),
-                max(5, (int)$ttl),
-                (string)time()
-            );
-        } catch (\Throwable $e) {
-        }
+        $this->tryMarkGrabBusy($taskId, $ttl);
     }
 
     protected function clearGrabBusy($taskId)
     {
         try {
             RedisClient::conn()->del(RedisClient::key(self::GRAB_BUSY_PREFIX . (int)$taskId));
+        } catch (\Throwable $e) {
+        }
+    }
+
+    protected function getGrabNextAt($taskId)
+    {
+        try {
+            $v = RedisClient::conn()->get(RedisClient::key(self::GRAB_NEXT_AT_PREFIX . (int)$taskId));
+            if ($v === false || $v === null || $v === '') {
+                return 0.0;
+            }
+            return (float)$v;
+        } catch (\Throwable $e) {
+            return 0.0;
+        }
+    }
+
+    protected function setGrabNextAt($taskId, $ts)
+    {
+        try {
+            $ttl = max(30, (int)ceil(max(0.0, (float)$ts - microtime(true)) + 30));
+            RedisClient::conn()->setex(
+                RedisClient::key(self::GRAB_NEXT_AT_PREFIX . (int)$taskId),
+                $ttl,
+                sprintf('%.3f', (float)$ts)
+            );
         } catch (\Throwable $e) {
         }
     }

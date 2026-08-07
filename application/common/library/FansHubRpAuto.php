@@ -331,15 +331,19 @@ class FansHubRpAuto
             return 0;
         }
 
-        // CLI 兜底：只抢 1 次，延迟 5～15 秒量级（短 sleep，避免卡死进程太久）
-        $minMs = max(1000, (int)$task['grab_delay_min_ms']);
+        // CLI 兜底：按任务配置 sleep（上限 15s），避免无 WS 时变成秒级连抢
+        $minMs = max(5000, (int)$task['grab_delay_min_ms']);
         $maxMs = max($minMs, (int)$task['grab_delay_max_ms']);
+        if ($maxMs <= 120 && $minMs <= 120) {
+            $minMs *= 1000;
+            $maxMs *= 1000;
+        }
         if ($maxMs < 5000) {
             $minMs = 5000;
             $maxMs = 15000;
         }
-        // CLI 最多 sleep 3 秒，真正节奏交给 WS
-        $sleepMs = min(3000, $minMs + ($maxMs > $minMs ? mt_rand(0, $maxMs - $minMs) : 0));
+        $sleepMs = $minMs + ($maxMs > $minMs ? mt_rand(0, $maxMs - $minMs) : 0);
+        $sleepMs = min(15000, max(5000, $sleepMs));
 
         shuffle($uids);
         foreach ($packetIds as $packetId) {
