@@ -171,10 +171,6 @@ class PushBus
                 $targets[] = $wid;
             }
             self::pipelinePush($r, $targets, $json);
-            try {
-                $r->publish(RedisClient::key('push_wake'), 'group');
-            } catch (\Throwable $ePub) {
-            }
         } catch (\Throwable $e) {
         }
     }
@@ -192,10 +188,6 @@ class PushBus
         try {
             $r = RedisClient::conn();
             self::pipelinePush($r, self::otherAliveWorkers(), $json);
-            try {
-                $r->publish(RedisClient::key('push_wake'), (string)self::$workerId);
-            } catch (\Throwable $e) {
-            }
         } catch (\Throwable $e) {
         }
     }
@@ -278,10 +270,6 @@ class PushBus
                 $targets[] = $wid;
             }
             self::pipelinePush($r, $targets, $json);
-            try {
-                $r->publish(RedisClient::key('push_wake'), 'external');
-            } catch (\Throwable $ePub) {
-            }
         } catch (\Throwable $e) {
         }
     }
@@ -323,10 +311,6 @@ class PushBus
                 $r->exec();
             } else {
                 $r->discard();
-            }
-            try {
-                $r->publish(RedisClient::key('push_wake'), (string)self::$workerId);
-            } catch (\Throwable $e) {
             }
         } catch (\Throwable $e) {
         }

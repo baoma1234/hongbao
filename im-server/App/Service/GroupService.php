@@ -4,6 +4,7 @@ namespace Im\Service;
 
 use Im\Support\Db;
 use Im\Support\RedisClient;
+use Im\Support\ConnMap;
 
 class GroupService
 {
@@ -498,6 +499,7 @@ class GroupService
             $r->sAdd($key, (string)$userId);
             $r->expire($key, self::MEMBER_SET_TTL);
             $r->del(RedisClient::key('g:' . $groupId . ':members'));
+            ConnMap::addLocalGroupMember($groupId, $userId);
         } catch (\Throwable $e) {
         }
     }
@@ -517,6 +519,7 @@ class GroupService
                 $r->expire($key, self::MEMBER_SET_TTL);
             }
             $r->del(RedisClient::key('g:' . $groupId . ':members'));
+            ConnMap::remLocalGroupMember($groupId, $userId);
         } catch (\Throwable $e) {
         }
     }

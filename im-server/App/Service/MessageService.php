@@ -695,7 +695,8 @@ class MessageService
             }
         }
 
-        $sql = 'SELECT * FROM ' . Db::table('chat_messages')
+        $sql = 'SELECT id,msg_id,conversation_type,conversation_id,group_id,from_user_id,to_user_id,'
+            . 'msg_type,content,extra,status,createtime FROM ' . Db::table('chat_messages')
             . ' WHERE conversation_type=? AND conversation_id=? AND status IN (1,2)';
         $bind = [$conversationType, $conversationId];
         if ($minId > 0) {

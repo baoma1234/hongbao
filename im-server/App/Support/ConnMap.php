@@ -6,6 +6,7 @@ namespace Im\Support;
  * uid <-> connection_id 映射（进程内）+ Redis 在线集合（跨进程感知）
  *
  * Redis 中 conn 成员格式：{workerId}:{connectionId}，避免多进程 connectionId 冲突。
+ * 另维护本进程 gid→online uids 倒排，供群频道本地扇出，避免每条消息对全量在线做 SISMEMBER。
  */
 class ConnMap
 {
@@ -15,6 +16,10 @@ class ConnMap
     protected static $connUid = [];
     /** @var int */
     protected static $workerId = 0;
+    /** @var array<int,array<int,true>> gid => [uid => true] 本进程在线群成员 */
+    protected static $gidLocalUids = [];
+    /** @var array<int,array<int,true>> uid => [gid => true]；键存在表示该 uid 已建索引 */
+    protected static $uidLocalGids = [];
 
     public static function setWorkerId($workerId)
     {
@@ -41,6 +46,8 @@ class ConnMap
             $r->sAdd(RedisClient::key('online'), (string)$userId);
         } catch (\Throwable $e) {
         }
+        // 鉴权后重建本进程群倒排（auth 低频，可接受一次轻量查库）
+        self::rebuildUserGroupIndex($userId);
     }
 
     public static function unbindConn($connectionId)
@@ -55,6 +62,7 @@ class ConnMap
         $emptyLocal = empty(self::$uidConns[$uid]);
         if ($emptyLocal) {
             unset(self::$uidConns[$uid]);
+            self::clearUserGroupIndex($uid);
         }
         try {
             $r = RedisClient::conn();
@@ -111,45 +119,127 @@ class ConnMap
     }
 
     /**
-     * 本进程在线用户中属于某群的成员（用于群频道本地扇出，避免跨进程传万级 uid）
+     * 本进程在线用户中属于某群的成员（用于群频道本地扇出）
      *
      * @return int[]
      */
     public static function filterLocalGroupMembers($groupId)
     {
         $groupId = (int)$groupId;
-        $uids = self::localUserIds();
-        if ($groupId <= 0 || !$uids) {
+        if ($groupId <= 0) {
             return [];
         }
-        try {
-            $r = RedisClient::conn();
-            $setKey = RedisClient::key('g:' . $groupId . ':mset');
-            if (!(int)$r->exists($setKey) || (int)$r->sCard($setKey) <= 0) {
-                return [];
+
+        $out = [];
+        if (!empty(self::$gidLocalUids[$groupId])) {
+            foreach (self::$gidLocalUids[$groupId] as $uid => $_) {
+                if (!empty(self::$uidConns[$uid])) {
+                    $out[(int)$uid] = (int)$uid;
+                } else {
+                    // 连接已断但倒排残留：顺手清掉
+                    self::remLocalGroupMember($groupId, (int)$uid);
+                }
             }
-            $out = [];
-            $chunkSize = 200;
-            for ($i = 0; $i < count($uids); $i += $chunkSize) {
-                $chunk = array_slice($uids, $i, $chunkSize);
-                $r->multi(\Redis::PIPELINE);
-                foreach ($chunk as $uid) {
-                    $r->sIsMember($setKey, (string)$uid);
-                }
-                $flags = $r->exec();
-                if (!is_array($flags)) {
-                    continue;
-                }
-                foreach ($chunk as $j => $uid) {
-                    if (!empty($flags[$j])) {
-                        $out[] = (int)$uid;
+        }
+
+        // 自愈：本进程有在线用户但尚未建群索引（竞态）→ 按库重建一次
+        $needRebuild = [];
+        foreach (self::$uidConns as $uid => $_) {
+            $uid = (int)$uid;
+            if (!array_key_exists($uid, self::$uidLocalGids)) {
+                $needRebuild[] = $uid;
+            }
+        }
+        if ($needRebuild) {
+            foreach ($needRebuild as $uid) {
+                self::rebuildUserGroupIndex($uid);
+            }
+            if (!empty(self::$gidLocalUids[$groupId])) {
+                foreach (self::$gidLocalUids[$groupId] as $uid => $_) {
+                    if (!empty(self::$uidConns[$uid])) {
+                        $out[(int)$uid] = (int)$uid;
                     }
                 }
             }
-            return $out;
-        } catch (\Throwable $e) {
-            return [];
         }
+
+        return array_values($out);
+    }
+
+    /**
+     * 鉴权后：按库重建该用户本进程群倒排
+     */
+    public static function rebuildUserGroupIndex($userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0 || empty(self::$uidConns[$userId])) {
+            return;
+        }
+        self::clearUserGroupIndex($userId);
+        self::$uidLocalGids[$userId] = [];
+        try {
+            $rows = Db::fetchAll(
+                'SELECT group_id FROM ' . Db::table('chat_group_members')
+                . ' WHERE user_id=? AND status=1',
+                [$userId]
+            );
+            foreach ($rows ?: [] as $row) {
+                $gid = (int)($row['group_id'] ?? 0);
+                if ($gid > 0) {
+                    self::addLocalGroupMember($gid, $userId);
+                }
+            }
+        } catch (\Throwable $e) {
+            // 失败时不占空索引，让 filter 走 SISMEMBER 自愈
+            unset(self::$uidLocalGids[$userId]);
+        }
+    }
+
+    public static function addLocalGroupMember($groupId, $userId)
+    {
+        $groupId = (int)$groupId;
+        $userId = (int)$userId;
+        if ($groupId <= 0 || $userId <= 0 || empty(self::$uidConns[$userId])) {
+            return;
+        }
+        if (!isset(self::$gidLocalUids[$groupId])) {
+            self::$gidLocalUids[$groupId] = [];
+        }
+        self::$gidLocalUids[$groupId][$userId] = true;
+        if (!isset(self::$uidLocalGids[$userId])) {
+            self::$uidLocalGids[$userId] = [];
+        }
+        self::$uidLocalGids[$userId][$groupId] = true;
+    }
+
+    public static function remLocalGroupMember($groupId, $userId)
+    {
+        $groupId = (int)$groupId;
+        $userId = (int)$userId;
+        if ($groupId <= 0 || $userId <= 0) {
+            return;
+        }
+        unset(self::$gidLocalUids[$groupId][$userId]);
+        if (empty(self::$gidLocalUids[$groupId])) {
+            unset(self::$gidLocalUids[$groupId]);
+        }
+        unset(self::$uidLocalGids[$userId][$groupId]);
+    }
+
+    protected static function clearUserGroupIndex($userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return;
+        }
+        $gids = self::$uidLocalGids[$userId] ?? [];
+        foreach ($gids as $gid => $_) {
+            unset(self::$gidLocalUids[$gid][$userId]);
+            if (empty(self::$gidLocalUids[$gid])) {
+                unset(self::$gidLocalUids[$gid]);
+            }
+        }
+        unset(self::$uidLocalGids[$userId]);
     }
 
     /**

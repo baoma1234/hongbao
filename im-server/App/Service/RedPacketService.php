@@ -1013,6 +1013,7 @@ class RedPacketService
         if (!empty($result['settled']) && $packet && in_array((int)$packet['packet_type'], [2, 5], true)) {
             $this->revealFairProof($packetId);
         }
+        $this->bumpDetailCacheVer($packetId);
         return $result;
     }
 
@@ -1401,7 +1402,7 @@ class RedPacketService
         }
 
         try {
-            RedisClient::conn()->incr(RedisClient::key('rp:detail:ver:' . $packetId));
+            $this->bumpDetailCacheVer($packetId);
             RedisClient::conn()->del(RedisClient::key('rp:cover:' . $packetId));
         } catch (\Throwable $e) {
         }
@@ -1654,6 +1655,7 @@ class RedPacketService
     protected function notifySettled($packetId, array $hint, array $settleInfo)
     {
         $packetId = (int)$packetId;
+        $this->bumpDetailCacheVer($packetId);
         $event = [
             'packet_id' => $packetId,
             'settled'   => true,
@@ -2718,6 +2720,7 @@ class RedPacketService
             }
         }
         $this->revealFairProof($packetId);
+        $this->bumpDetailCacheVer($packetId);
     }
 
     /**
@@ -3065,6 +3068,19 @@ class RedPacketService
         }
     }
 
+    /** 红包详情短缓存版本号；抢/过期/结算后递增，避免 15s 窗口读到旧状态 */
+    protected function bumpDetailCacheVer($packetId)
+    {
+        $packetId = (int)$packetId;
+        if ($packetId <= 0) {
+            return;
+        }
+        try {
+            RedisClient::conn()->incr(RedisClient::key('rp:detail:ver:' . $packetId));
+        } catch (\Throwable $e) {
+        }
+    }
+
     public function detail($packetId, $userId = 0, $viewerRole = 0)
     {
         $packetId = (int)$packetId;
@@ -3072,7 +3088,7 @@ class RedPacketService
         if ($userId <= 0) {
             throw new \RuntimeException('forbidden');
         }
-        // 短缓存：同一用户连点/回刷详情时免重复多表查询（抢包后 bump ver 失效）
+        // 短缓存：同一用户连点/回刷详情时免重复多表查询（抢包/过期/结算后 bump ver 失效）
         $ver = 0;
         try {
             $ver = (int)RedisClient::conn()->get(RedisClient::key('rp:detail:ver:' . $packetId));

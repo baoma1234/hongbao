@@ -617,6 +617,7 @@ import {
   getImStatus,
   hideConversation,
   imConnect,
+  imForceReconnect,
   joinGroup,
   listFriends,
   listMyGroups,
@@ -1821,7 +1822,7 @@ async function onListRefresh() {
 
 async function reconnect() {
   try {
-    await imConnect()
+    await imForceReconnect()
     await loadList()
     uni.showToast({ title: '已重连', icon: 'success' })
   } catch (e) {

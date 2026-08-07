@@ -9,6 +9,7 @@ let reqSeq = 0
 const pending = new Map()
 const listeners = new Set()
 let reconnectTimer = null
+let reconnectAttempt = 0
 let intentionalClose = false
 /** 进行中的连接（含等 OPEN / 等 auth） */
 let connectingPromise = null
@@ -242,6 +243,7 @@ function handlePacket(raw) {
   if (packet.type === 'auth.ok') {
     authed = true
     authMeta = packet.data || {}
+    reconnectAttempt = 0
     startPingLoop()
     emit('auth.ok', authMeta)
     return
@@ -366,6 +368,7 @@ export function imConnect() {
         // query token 鉴权时可能不推 auth.ok：OPEN 即可宽松放行
         if (socketOpen && socketTask) {
           authed = true
+          reconnectAttempt = 0
           startPingLoop()
         } else {
           throw new Error('WS 鉴权超时')
@@ -413,10 +416,42 @@ export function imSend(type, data = {}, waitAck = false) {
 function scheduleReconnect() {
   if (intentionalClose || reconnectTimer) return
   if (!getToken()) return
+  reconnectAttempt = (reconnectAttempt | 0) + 1
+  const n = Math.min(reconnectAttempt | 0, 6)
+  // 2s → 4s → 8s → 16s → 30s…，避免断线风暴
+  const delay = Math.min(30000, 2000 * Math.pow(2, Math.max(0, n - 1)))
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null
     imConnect().catch(() => {})
-  }, 2500)
+  }, delay)
+}
+
+/** 手动/僵尸重连：清退避并强制重建 socket */
+export function imForceReconnect() {
+  if (!getToken()) return Promise.reject(new Error('未登录'))
+  intentionalClose = false
+  reconnectAttempt = 0
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer)
+    reconnectTimer = null
+  }
+  connectingPromise = null
+  stopPingLoop()
+  if (socketTask) {
+    const old = socketTask
+    socketTask = null
+    socketOpen = false
+    authed = false
+    try {
+      intentionalClose = true
+      old.close({})
+    } catch (e) {}
+    intentionalClose = false
+  } else {
+    socketOpen = false
+    authed = false
+  }
+  return imConnect()
 }
 
 export function imDisconnect() {
@@ -664,27 +699,6 @@ export function addGroupMembers(groupId, userIds = []) {
 
 export function groupCandidates(groupId) {
   return imSend('group.candidates', { group_id: groupId | 0 }, true)
-}
-
-/** 强制重连（僵尸连接 / 回前台） */
-export function imForceReconnect() {
-  if (!getToken()) return Promise.reject(new Error('未登录'))
-  intentionalClose = false
-  if (reconnectTimer) {
-    clearTimeout(reconnectTimer)
-    reconnectTimer = null
-  }
-  connectingPromise = null
-  if (socketTask) {
-    const old = socketTask
-    socketTask = null
-    socketOpen = false
-    authed = false
-    try {
-      old.close({})
-    } catch (e) {}
-  }
-  return imConnect()
 }
 
 function sendPingResume(reason) {
