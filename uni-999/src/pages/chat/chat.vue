@@ -477,20 +477,7 @@
             <view v-if="detailMineDigitLine" class="chat-rp-detail-meta">
               埋雷数字：<text style="font-weight:800">{{ detailMineDigit }}</text>{{ detailMineDigitLine }}
             </view>
-            <template v-if="canFairVerify && (detailFairHash || detailTronBlock)">
-              <view class="chat-rp-fair-hash">
-                <text class="chat-rp-fair-label">{{ detailFairLabel }}</text>
-                <text style="display:block;font-size:10px;line-height:1.45;word-break:break-all;color:#333">
-                  {{ detailFairHash || '开奖后公开' }}
-                </text>
-              </view>
-              <view v-if="detailTronHref" class="chat-rp-tron-btn" @click="openTronVerify">
-                {{ detailTronBlock ? '前往波场验证' : '查看锁定区块' }}
-              </view>
-              <button type="button" class="chat-rp-fair-link" @click="openFairVerify">本站验证详情</button>
-            </template>
-            <view v-else-if="detailFairTip" class="chat-rp-fair-sub">{{ detailFairTip }}</view>
-            <view v-if="detailLocked" class="chat-rp-privacy-tip locked">🔒 隐私群：不可点击查看对方资料</view>
+            <view v-if="detailFairTip" class="chat-rp-fair-sub">{{ detailFairTip }}</view>
             <view
               v-if="mineSettleTip"
               class="chat-rp-mine-summary"
@@ -539,6 +526,22 @@
             <view v-if="!detailRecords.length" class="chat-empty chat-rp-claims-hidden">{{ claimsEmptyTip }}</view>
             <view v-else-if="othersHiddenTip" class="chat-empty chat-rp-claims-hidden">{{ othersHiddenTip }}</view>
           </scroll-view>
+          <!-- 领完/过期后：验证区与隐私提示放在领取列表下方 -->
+          <view v-if="detail" class="chat-rp-detail-foot">
+            <template v-if="canFairVerify && (detailFairHash || detailTronBlock)">
+              <view class="chat-rp-fair-hash">
+                <text class="chat-rp-fair-label">{{ detailFairLabel }}</text>
+                <text style="display:block;font-size:10px;line-height:1.45;word-break:break-all;color:#333">
+                  {{ detailFairHash || '开奖后公开' }}
+                </text>
+              </view>
+              <view v-if="detailTronHref" class="chat-rp-tron-btn" @click="openTronVerify">
+                {{ detailTronBlock ? '前往波场验证' : '查看锁定区块' }}
+              </view>
+              <button type="button" class="chat-rp-fair-link" @click="openFairVerify">本站验证详情</button>
+            </template>
+            <view v-if="detailLocked" class="chat-rp-privacy-tip locked">🔒 隐私群：不可点击查看对方资料</view>
+          </view>
           <button
             v-if="canGrabDetail"
             type="button"
@@ -2937,6 +2940,12 @@ function closeRpDetail() {
 .chat-rp-detail-myamt text {
   font-size: 22px;
   font-weight: 800;
+}
+.chat-rp-detail-foot {
+  padding: 12px 14px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 .chat-rp-record-avatar image {
   width: 100%;

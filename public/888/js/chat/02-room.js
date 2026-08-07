@@ -665,6 +665,7 @@
             '<div id="chatRpDetailBody">' +
               '<div class="chat-rp-detail-head" id="chatRpDetailHead"></div>' +
               '<div class="chat-rp-detail-list" id="chatRpDetailList"></div>' +
+              '<div class="chat-rp-detail-foot" id="chatRpDetailFoot"></div>' +
               '<button type="button" class="chat-rp-detail-grab-btn" id="chatRpDetailGrabBtn" style="display:none">开红包</button>' +
             '</div>' +
             '<div id="chatRpFairPane" class="chat-rp-fair-pane" hidden>' +
@@ -700,6 +701,18 @@
         }
         var titleEl = rpPane.querySelector('.chat-hero-title');
         if (titleEl && !titleEl.id) titleEl.id = 'chatRpDetailTitle';
+      }
+      // 旧 DOM 补齐详情页底部验证区
+      if ($('chatRpDetailBody') && !$('chatRpDetailFoot')) {
+        var grabEl = $('chatRpDetailGrabBtn');
+        var footEl = document.createElement('div');
+        footEl.className = 'chat-rp-detail-foot';
+        footEl.id = 'chatRpDetailFoot';
+        if (grabEl && grabEl.parentNode) {
+          grabEl.parentNode.insertBefore(footEl, grabEl);
+        } else {
+          $('chatRpDetailBody').appendChild(footEl);
+        }
       }
     }
     if (!$('chatGroupModeBlock') && $('chatGroupEditBlock')) {
@@ -1163,6 +1176,7 @@
     data = data || {};
     var head = $('chatRpDetailHead');
     var list = $('chatRpDetailList');
+    var foot = $('chatRpDetailFoot');
     var grabBtn = $('chatRpDetailGrabBtn');
     var p = data.packet || {};
     var ptypeEarly = p.packet_type | 0;
@@ -1175,45 +1189,44 @@
     if (privacyMode !== 'open' && privacyMode !== 'private') {
       privacyMode = locked ? 'private' : 'open';
     }
-    if (head) {
-      var fairHash = p.tron_block_id || p.fair_hash || '';
-      var fairBits = '';
-      var blockNum = p.tron_block_num || p.targetBlockNum || 0;
-      var ptype = p.packet_type | 0;
-      var mineLine = '';
-      if (ptype === 3) {
-        mineLine = '<div class="chat-rp-detail-meta">埋雷数字：<strong>' + (p.mine_digit | 0) + '</strong>'
-          + (p.mine_pending ? '（匹配波场哈希末位中）' : '（已匹配波场哈希末位）')
-          + '</div>';
-      }
-      var grabbedMe = !!(data.mine || data.my_record || data.grabbed);
-      var pktFinished = data.finished === true
-        || data.verify_visible === true
-        || ((p.remain_count | 0) <= 0)
-        || [2, 3, 4, 5].indexOf(p.status | 0) >= 0;
-      var canVerify = data.verify_visible != null ? !!data.verify_visible : pktFinished;
-      // 验证区：仅红包领完/过期后展示；进行中只给提示
-      if ((ptype === 2 || ptype === 3 || ptype === 5)) {
-        if (canVerify && (fairHash || blockNum)) {
-          var hashLabel = blockNum ? ('TRON #' + blockNum) : 'TRON';
-          var tronTarget = blockNum ? String(blockNum) : String(fairHash || '');
-          var tronHref = tronTarget
-            ? ('https://tronscan.org/#/block/' + encodeURIComponent(tronTarget))
-            : '';
-          fairBits = '<div class="chat-rp-fair-hash"><span class="chat-rp-fair-label">' + hashLabel + '</span><code>' + escapeHtml(fairHash || '开奖后公开') + '</code></div>';
-          if (fairHash && tronHref) {
-            fairBits += '<a class="chat-rp-tron-btn" href="' + tronHref + '" target="_blank" rel="noopener">前往波场验证</a>';
-          } else if (blockNum && tronHref) {
-            fairBits += '<a class="chat-rp-tron-btn" href="' + tronHref + '" target="_blank" rel="noopener">查看锁定区块</a>';
-          }
-          fairBits += '<button type="button" class="chat-rp-fair-link" data-packet-no="'
-            + escapeHtml(p.packet_no || '') + '">本站验证详情</button>';
-        } else if (grabbedMe && !pktFinished) {
-          fairBits = '<div class="chat-rp-fair-sub">红包领完或过期后可查询验证</div>';
-        } else if (!pktFinished) {
-          fairBits = '<div class="chat-rp-fair-sub">红包领完或过期后可查询验证</div>';
+    var fairHash = p.tron_block_id || p.fair_hash || '';
+    var fairBits = '';
+    var fairTipBits = '';
+    var blockNum = p.tron_block_num || p.targetBlockNum || 0;
+    var ptype = p.packet_type | 0;
+    var mineLine = '';
+    if (ptype === 3) {
+      mineLine = '<div class="chat-rp-detail-meta">埋雷数字：<strong>' + (p.mine_digit | 0) + '</strong>'
+        + (p.mine_pending ? '（匹配波场哈希末位中）' : '（已匹配波场哈希末位）')
+        + '</div>';
+    }
+    var grabbedMe = !!(data.mine || data.my_record || data.grabbed);
+    var pktFinished = data.finished === true
+      || data.verify_visible === true
+      || ((p.remain_count | 0) <= 0)
+      || [2, 3, 4, 5].indexOf(p.status | 0) >= 0;
+    var canVerify = data.verify_visible != null ? !!data.verify_visible : pktFinished;
+    // 验证区：领完/过期后放到列表下方；进行中仅头部提示
+    if ((ptype === 2 || ptype === 3 || ptype === 5)) {
+      if (canVerify && (fairHash || blockNum)) {
+        var hashLabel = blockNum ? ('TRON #' + blockNum) : 'TRON';
+        var tronTarget = blockNum ? String(blockNum) : String(fairHash || '');
+        var tronHref = tronTarget
+          ? ('https://tronscan.org/#/block/' + encodeURIComponent(tronTarget))
+          : '';
+        fairBits = '<div class="chat-rp-fair-hash"><span class="chat-rp-fair-label">' + hashLabel + '</span><code>' + escapeHtml(fairHash || '开奖后公开') + '</code></div>';
+        if (fairHash && tronHref) {
+          fairBits += '<a class="chat-rp-tron-btn" href="' + tronHref + '" target="_blank" rel="noopener">前往波场验证</a>';
+        } else if (blockNum && tronHref) {
+          fairBits += '<a class="chat-rp-tron-btn" href="' + tronHref + '" target="_blank" rel="noopener">查看锁定区块</a>';
         }
+        fairBits += '<button type="button" class="chat-rp-fair-link" data-packet-no="'
+          + escapeHtml(p.packet_no || '') + '">本站验证详情</button>';
+      } else if (!pktFinished) {
+        fairTipBits = '<div class="chat-rp-fair-sub">红包领完或过期后可查询验证</div>';
       }
+    }
+    if (head) {
       var myAmtBits = '';
       if (grabbedMe && data.mine && data.mine.amount != null) {
         myAmtBits = '<div class="chat-rp-detail-myamt">你领取了 <strong>￥'
@@ -1226,19 +1239,7 @@
           : '') +
         myAmtBits +
         mineLine +
-        fairBits +
-        (locked
-          ? '<div class="chat-rp-privacy-tip locked">🔒 隐私群：不可点击查看对方资料</div>'
-          : '');
-      // 内嵌验证：点击切换，不跳页
-      var fairBtn = head.querySelector('.chat-rp-fair-link');
-      if (fairBtn && !fairBtn._bound) {
-        fairBtn._bound = true;
-        fairBtn.onclick = function (ev) {
-          ev.preventDefault();
-          showRpFairVerify(fairBtn.getAttribute('data-packet-no') || '');
-        };
-      }
+        fairTipBits;
     }
     if (list) {
       list.classList.toggle('is-private', locked);
@@ -1339,6 +1340,21 @@
           listHtml += '<div class="chat-empty chat-rp-claims-hidden">红包领完或过期后可查看其他人领取记录</div>';
         }
         list.innerHTML = listHtml;
+      }
+    }
+    if (foot) {
+      var footHtml = fairBits;
+      if (locked) {
+        footHtml += '<div class="chat-rp-privacy-tip locked">🔒 隐私群：不可点击查看对方资料</div>';
+      }
+      foot.innerHTML = footHtml;
+      var fairBtn = foot.querySelector('.chat-rp-fair-link');
+      if (fairBtn && !fairBtn._bound) {
+        fairBtn._bound = true;
+        fairBtn.onclick = function (ev) {
+          ev.preventDefault();
+          showRpFairVerify(fairBtn.getAttribute('data-packet-no') || '');
+        };
       }
     }
     if (grabBtn) {
