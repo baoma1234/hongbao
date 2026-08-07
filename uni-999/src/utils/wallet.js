@@ -187,7 +187,7 @@ export async function ensurePayPassword(hasPayPassword) {
   })
 }
 
-/** H5 打开支付结果（跳转/表单） */
+/** H5 打开支付结果（跳转/表单）—— iOS Safari 禁 popup，同页跳转更稳 */
 export function openPayResult(payInfo) {
   if (!payInfo) return
   // #ifdef H5
@@ -203,11 +203,15 @@ export function openPayResult(payInfo) {
       uni.showModal({ title: '充值信息', content: lines.join('\n'), showCancel: false })
       return
     }
+    const isiOS = /iPhone|iPad|iPod/i.test(navigator.userAgent || '')
+      || (navigator.platform === 'MacIntel' && (navigator.maxTouchPoints || 0) > 1)
+
     if (payInfo.action === 'form' && payInfo.url && payInfo.params) {
       const form = document.createElement('form')
       form.method = (payInfo.method || 'POST').toUpperCase()
       form.action = payInfo.url
-      form.target = '_blank'
+      // iOS Safari 拦截 _blank；异步回调后同页提交才能跳转
+      form.target = isiOS ? '_self' : '_blank'
       form.style.display = 'none'
       Object.keys(payInfo.params).forEach((k) => {
         const inp = document.createElement('input')
@@ -218,15 +222,25 @@ export function openPayResult(payInfo) {
       })
       document.body.appendChild(form)
       form.submit()
-      setTimeout(() => {
-        try {
-          document.body.removeChild(form)
-        } catch (e) {}
-      }, 800)
+      if (!isiOS) {
+        setTimeout(() => {
+          try {
+            document.body.removeChild(form)
+          } catch (e) {}
+        }, 800)
+      }
       return
     }
     if (payInfo.url) {
-      window.open(payInfo.url, '_blank')
+      const url = String(payInfo.url)
+      if (isiOS) {
+        window.location.href = url
+        return
+      }
+      const w = window.open(url, '_blank')
+      if (!w || w.closed || typeof w.closed === 'undefined') {
+        window.location.href = url
+      }
       return
     }
   }

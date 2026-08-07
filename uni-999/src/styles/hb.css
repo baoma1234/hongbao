@@ -672,6 +672,25 @@ uni-input.hb-input {
   box-shadow: 0 2px 8px rgba(198, 17, 20, 0.25);
 }
 
+/* 线上合作字段 lab：与 badge 1:1 */
+.wallet-online-coop-panel .lab.wallet-coop-badge,
+.wallet-online-coop-panel .profile-field > .lab {
+  display: inline-flex !important;
+  align-items: center !important;
+  width: auto !important;
+  max-width: max-content;
+  margin: 0 0 10px !important;
+  padding: 3px 10px !important;
+  border-radius: 999px !important;
+  background: linear-gradient(90deg, #c61114, #e85a2a) !important;
+  color: #fff !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.4px !important;
+  box-shadow: 0 2px 8px rgba(198, 17, 20, 0.25) !important;
+  line-height: 1.2 !important;
+}
+
 .wallet-coop-platform {
   margin: 0 0 12px !important;
   padding: 10px 12px;

@@ -55,19 +55,29 @@ body.tab-messages #tabMessages .chat-list-pane {
   display: none !important;
 }
 
-/* 佣金：外层不滚，内部 scroll-view 滚（对齐公告） */
+/* 佣金：外层定位，内部 scroll-view absolute 填满（兼容 iOS Safari） */
 #tabMessages #chatHomePanelCommission.chat-home-panel:not(.is-hidden),
 #tabMessages .chat-commission-panel:not(.is-hidden) {
   overflow: hidden !important;
   display: flex !important;
   flex-direction: column !important;
+  position: relative !important;
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  box-sizing: border-box !important;
 }
 
 #tabMessages .chat-commission-body-scroll {
-  flex: 1 1 auto !important;
+  position: absolute !important;
+  left: 0 !important;
+  right: 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  height: auto !important;
   min-height: 0 !important;
-  height: 0 !important;
-  width: 100%;
+  box-sizing: border-box !important;
+  padding: 10px 12px 24px !important;
 }
 
 /* 会话列表：scroll-view 负责滚动，.chat-conv-list 只做内容 */
@@ -110,7 +120,7 @@ body.tab-messages #tabMessages .chat-list-pane {
 }
 #tabMessages .chat-commission-panel:not(.is-hidden) {
   background: #fff8f3 !important;
-  padding: 10px 12px 24px !important;
+  padding: 0 !important;
 }
 
 /* uni view/button 默认样式复位，贴近 888 原生按钮 */
@@ -499,12 +509,13 @@ body.tab-messages #tabMessages .chat-list-pane {
 
 #tabMessages .chat-community-pane,
 #tabMessages .chat-community-pane.active {
-  flex: 1 1 auto !important;
+  flex: 1 1 0% !important;
   min-height: 0 !important;
-  height: 0 !important;
-  display: flex !important;
-  flex-direction: column !important;
+  /* iOS Safari：height:0 + nested scroll-view 常算不出高度 → 空白 */
+  height: auto !important;
+  display: block !important;
   overflow: hidden !important;
+  position: relative !important;
 }
 
 #tabMessages .chat-community-glass .chat-community-seg {
@@ -517,8 +528,13 @@ body.tab-messages #tabMessages .chat-list-pane {
 #tabMessages .chat-official-scroll {
   flex: 1 1 auto !important;
   min-height: 0 !important;
-  height: 0 !important;
+  height: auto !important;
   width: 100%;
+  position: absolute !important;
+  left: 0 !important;
+  right: 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
 }
 
 #tabMessages .chat-community-pane-body,

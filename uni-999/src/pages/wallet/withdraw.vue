@@ -66,7 +66,7 @@
           <view class="wallet-coop-badge">线上合作</view>
           <view class="profile-meta-line wallet-coop-platform">平台：555.bio</view>
           <view class="profile-field">
-            <text class="lab">BIO 账号</text>
+            <text class="lab wallet-coop-badge">BIO 账号</text>
             <input class="hb-input" :value="mainUid" disabled placeholder="未绑定 / 未通过审核" />
           </view>
           <view class="wallet-warn" v-if="!mainUid">请先绑定并通过主站账号审核</view>
