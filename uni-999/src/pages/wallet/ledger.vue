@@ -27,7 +27,12 @@
         class="wallet-ledger-filter"
         :class="{ 'is-on': category === 'rebate' }"
         @click="setCategory('rebate')"
-      >红包返佣</view>
+      >红宝返佣</view>
+      <view
+        class="wallet-ledger-filter"
+        :class="{ 'is-on': category === 'freeze' }"
+        @click="setCategory('freeze')"
+      >冻结记录</view>
     </view>
 
     <view class="wallet-ledger-list" v-if="list.length">
@@ -87,9 +92,10 @@ const loading = ref(false)
 const error = ref('')
 const category = ref('all')
 const emptyText = computed(() => {
-  if (category.value === 'rebate') return '暂无红包返佣流水'
+  if (category.value === 'rebate') return '暂无红宝返佣流水'
   if (category.value === 'hongbao_in') return '暂无红宝入账流水'
   if (category.value === 'refund') return '暂无红宝退回流水'
+  if (category.value === 'freeze') return '暂无冻结记录'
   return '暂无资金流水'
 })
 

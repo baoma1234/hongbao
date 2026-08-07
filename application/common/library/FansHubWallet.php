@@ -75,15 +75,15 @@ class FansHubWallet
             'red_packet_fee'               => '红包手续费',
             'red_packet_fee_in'            => '红包手续费收入',
             'red_packet_rebate'            => '推荐发包返佣',
-            'red_packet_agent_rebate'      => '红包返佣支出',
+            'red_packet_agent_rebate'      => '红宝返佣支出',
             'red_packet_agent_rebate_in'   => '群主返佣',
             'red_packet_invite_rebate_in'  => '推荐发包返佣',
             'red_packet_dual_rebate_in'    => '群主+推荐双重返佣',
             'red_packet_mine_pay'          => '红宝扫雷赔付',
             'red_packet_worst_pay'         => '红宝拼手气赔付',
             'red_packet_compensate_in'     => '红包赔付入账',
-            'red_packet_freeze'            => '红包冻结',
-            'red_packet_unfreeze'          => '红包解冻',
+            'red_packet_freeze'            => '红宝冻结',
+            'red_packet_unfreeze'          => '红宝解冻',
             'red_packet_expire_clawback'   => '未领完此包作废收回金额',
         ];
     }
@@ -109,6 +109,11 @@ class FansHubWallet
             ],
             'refund' => [
                 'red_packet_refund',
+            ],
+            // 领取赔付类红包：可用→冻结 / 结算解冻
+            'freeze' => [
+                'red_packet_freeze',
+                'red_packet_unfreeze',
             ],
         ];
     }
@@ -149,7 +154,7 @@ class FansHubWallet
 
     /**
      * 会员资金流水列表
-     * @param array $opts category=rebate|hongbao_in|refund
+     * @param array $opts category=rebate|hongbao_in|refund|freeze|all
      */
     public static function ledgerList($userId, $page = 1, $limit = 20, array $opts = [])
     {
@@ -164,19 +169,22 @@ class FansHubWallet
         $filterTypes = ($category !== '' && $category !== 'all' && !empty($typeMap[$category]))
             ? $typeMap[$category]
             : null;
-        $query = Db::name('fans_ledger')->where('user_id', $userId);
-        if ($filterTypes) {
-            $query->where('type', 'in', $filterTypes);
-        }
-        $total = (int)$query->count();
+        // 仅用 limit+1 判断 has_more，避免大表二次 COUNT（前台不依赖精确 total）
         $rowsQuery = Db::name('fans_ledger')->where('user_id', $userId);
         if ($filterTypes) {
             $rowsQuery->where('type', 'in', $filterTypes);
         }
         $rows = $rowsQuery
             ->order('id', 'desc')
-            ->page($page, $limit)
+            ->limit(($page - 1) * $limit, $limit + 1)
             ->select();
+        if (!is_array($rows)) {
+            $rows = $rows ? $rows->toArray() : [];
+        }
+        $hasMore = count($rows) > $limit;
+        if ($hasMore) {
+            $rows = array_slice($rows, 0, $limit);
+        }
         $labels = self::ledgerTypeLabels();
         $list = [];
         foreach ($rows as $row) {
@@ -206,12 +214,14 @@ class FansHubWallet
                 'createtime'      => (int)($row['createtime'] ?? 0),
             ];
         }
+        $n = count($list);
         return [
             'list'     => $list,
-            'total'    => $total,
+            // 兼容旧字段：非精确总数，仅用于展示/翻页估算
+            'total'    => $hasMore ? (($page * $limit) + 1) : ((($page - 1) * $limit) + $n),
             'page'     => $page,
             'limit'    => $limit,
-            'has_more' => ($page * $limit) < $total,
+            'has_more' => $hasMore,
             'category' => ($category !== '' ? $category : 'all'),
         ];
     }

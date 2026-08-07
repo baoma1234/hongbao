@@ -13,6 +13,9 @@ class Ledger extends Model
 
     public function getTypeList()
     {
+        if (class_exists('\\app\\common\\library\\FansHubWallet')) {
+            return \app\common\library\FansHubWallet::ledgerTypeLabels();
+        }
         return [
             'register'      => '注册赠送',
             'share'         => '分享奖励',

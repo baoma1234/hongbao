@@ -384,7 +384,7 @@
                   </view>
                   <view class="chat-commission-stat-divider" />
                   <view class="chat-commission-stat">
-                    <text class="chat-commission-stat-label">红包返佣</text>
+                    <text class="chat-commission-stat-label">红宝返佣</text>
                     <text class="chat-commission-stat-value">¥ {{ money(commission.rebate_money) }}</text>
                   </view>
                 </view>
@@ -409,7 +409,7 @@
                   <view class="chat-commission-nav-ico">
                     <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm1 15H9v-2h6v2zm0-4H9v-2h6v2zm-3-5V3.5L18.5 9H12z"/></svg>
                   </view>
-                  <text class="chat-commission-nav-label">红包返佣 ›</text>
+                  <text class="chat-commission-nav-label">红宝返佣 ›</text>
                 </view>
                 <view
                   class="chat-commission-nav-item"
@@ -836,7 +836,7 @@ function formatCommissionAmt(row) {
 const commissionListTitle = computed(() => {
   const mode = commissionListMode.value
   if (mode === 'promo') return '推广结算'
-  if (mode === 'rebate') return '红包返佣'
+  if (mode === 'rebate') return '红宝返佣'
   if (mode === 'withdraw_list') return '提现记录'
   if (mode === 'ledger') return '收益明细'
   return '最近结算'
@@ -845,7 +845,7 @@ const commissionListTitle = computed(() => {
 const commissionEmptyText = computed(() => {
   const mode = commissionListMode.value
   if (mode === 'promo') return '暂无推广结算'
-  if (mode === 'rebate') return '暂无红包返佣'
+  if (mode === 'rebate') return '暂无红宝返佣'
   if (mode === 'withdraw_list') return '暂无提现记录'
   if (mode === 'ledger') return '暂无收益明细'
   return '登录后查看佣金明细'
@@ -1053,7 +1053,7 @@ function promoteEarnMaskUid(uid) {
 }
 
 function promoteEarnTypeLabel(key) {
-  return key === 'group' ? '群主红包返佣' : '分享推广'
+  return key === 'group' ? '群主红宝返佣' : '分享推广'
 }
 
 function promoteEarnDetailLabel(key, n) {
