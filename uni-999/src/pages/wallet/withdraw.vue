@@ -16,7 +16,7 @@
       <view class="profile-field">
         <text class="lab">选择提现通道</text>
         <view
-          v-if="groups.length > 1 && !coopCompact"
+          v-if="groups.length > 1"
           class="wallet-partition-tabs"
           :class="{ 'is-3': groups.length >= 3 }"
         >
@@ -61,21 +61,16 @@
         暂无可用通道，请联系客服
       </view>
 
-      <view class="wallet-amount-panel" v-if="selected">
-        <view v-if="isCoop" class="wallet-bind-panel">
-          <view class="profile-field" v-if="platforms.length > 1">
-            <text class="lab">合作平台</text>
-            <picker :range="platforms" :value="platformIndex" @change="onPlatformPick">
-              <view class="picker-val">{{ platform }}</view>
-            </picker>
-          </view>
-          <view class="profile-meta-line" v-else>打款平台：{{ platform }}</view>
+      <view class="wallet-amount-panel" :class="{ 'is-coop': isCoop }" v-if="selected">
+        <view v-if="isCoop" class="wallet-bind-panel wallet-online-coop-panel">
+          <view class="wallet-coop-badge">线上合作</view>
+          <view class="profile-meta-line wallet-coop-platform">平台：555.bio</view>
           <view class="profile-field">
-            <text class="lab">主站账号</text>
+            <text class="lab">BIO 账号</text>
             <input class="hb-input" :value="mainUid" disabled placeholder="未绑定 / 未通过审核" />
           </view>
           <view class="wallet-warn" v-if="!mainUid">请先绑定并通过主站账号审核</view>
-          <view class="profile-meta-line" v-else>需绑定主站账号，人工审核出款</view>
+          <view class="profile-meta-line wallet-coop-hint">需绑定BIO账号，人工审核出款</view>
         </view>
 
         <view v-else-if="isWalletBind" class="wallet-bind-panel">
@@ -226,6 +221,8 @@ const hiddenMoreCount = computed(() => {
   return n > 0 && !showMore.value ? n : 0
 })
 const coopCompact = computed(() => {
+  // 线上合作分区：隐藏多余通道卡片，但分区 Tab 始终保留，避免点进去出不来
+  if (String(activeKey.value || '') === 'online_coop') return true
   const list = orderedChannels.value
   return list.length === 1 && isOnlineCoopChannel(list[0])
 })
@@ -250,15 +247,6 @@ const bind = computed(() => {
   return (binds.value && binds.value[walletType.value]) || null
 })
 const mainUid = computed(() => getApprovedMainUid(profile.value))
-const platforms = computed(() => {
-  const ch = selected.value
-  const list = ch && Array.isArray(ch.platforms) && ch.platforms.length ? ch.platforms : ['555']
-  return list.map(String)
-})
-const platformIndex = computed(() => {
-  const i = platforms.value.indexOf(platform.value)
-  return i >= 0 ? i : 0
-})
 const balanceText = computed(() => {
   const i = info.value || {}
   const n = i.hongbao != null ? i.hongbao : i.balance
@@ -348,10 +336,6 @@ function autoPick() {
   } else {
     selectedId.value = 0
   }
-}
-function onPlatformPick(e) {
-  const i = Number(e.detail.value) || 0
-  platform.value = platforms.value[i] || '555'
 }
 function goPayee() {
   uni.showToast({ title: '请先绑定钱包地址', icon: 'none' })

@@ -89,6 +89,13 @@ page {
   background: linear-gradient(145deg, #fff6e8, #f0d4a8);
   object-fit: cover;
 }
+.profile-vip-identity .profile-avatar-img {
+  cursor: pointer;
+}
+.profile-vip-identity .profile-avatar-img:active {
+  transform: scale(0.96);
+  opacity: 0.92;
+}
 
 .profile-avatar-fallback {
   display: flex;
@@ -631,6 +638,69 @@ uni-input.hb-input {
   margin-top: 14px;
   padding-top: 12px;
   border-top: 1px dashed rgba(192, 120, 50, 0.28);
+}
+
+.wallet-amount-panel.is-coop {
+  margin-top: 12px;
+  padding: 0;
+  border-top: none;
+}
+
+.wallet-online-coop-panel {
+  margin: 4px 0 8px;
+  padding: 16px 14px 14px;
+  border-radius: 16px;
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(165deg, #fffdf9 0%, #fff4e6 55%, #ffe8d2 100%) padding-box,
+    linear-gradient(135deg, #e8b45a, #c61114 55%, #f0c878) border-box;
+  box-shadow: 0 8px 22px rgba(168, 72, 20, 0.1);
+  position: relative;
+}
+
+.wallet-coop-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 10px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #c61114, #e85a2a);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  box-shadow: 0 2px 8px rgba(198, 17, 20, 0.25);
+}
+
+.wallet-coop-platform {
+  margin: 0 0 12px !important;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+  color: #6b3a12 !important;
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.2px;
+}
+
+.wallet-online-coop-panel .profile-field {
+  margin-bottom: 8px;
+}
+
+.wallet-online-coop-panel .hb-input {
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+}
+
+.wallet-coop-hint {
+  margin: 8px 0 0 !important;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(198, 17, 20, 0.06);
+  color: #a04818 !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  line-height: 1.45;
 }
 
 .wallet-quick-amounts {

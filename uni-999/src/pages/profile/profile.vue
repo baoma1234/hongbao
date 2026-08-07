@@ -9,6 +9,7 @@
           class="profile-avatar-img"
           :src="avatarSrc(avatar)"
           mode="aspectFill"
+          @click="go('/pages/profile/info')"
         />
         <view class="profile-vip-text">
           <view class="profile-vip-name-row">
