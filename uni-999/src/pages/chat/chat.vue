@@ -580,7 +580,7 @@ import '../../styles/chat-room-uni-adapter.css'
 import '../../styles/chat-rp-send-uni-adapter.css'
 import '../../styles/chat-888-parity.css'
 import { apiRequest, fetchProfile, getToken, uploadSticker } from '../../utils/auth.js'
-import { getApiBase, getImgBase } from '../../utils/config.js'
+import { getApiBase, getImgBase, learnUploadCdnFromUrl } from '../../utils/config.js'
 import { assetBase, applyServerCopy, copyState, localeState, tt } from '../../utils/i18n.js'
 import {
   avatarSrc,
@@ -2080,6 +2080,7 @@ async function uploadCommonFile(filePath) {
 function mediaPathsFromUpload(up) {
   let path = String((up && up.url) || '').trim()
   const fullRaw = String((up && up.fullurl) || '').trim()
+  if (fullRaw) learnUploadCdnFromUrl(fullRaw)
   if ((!path || path.indexOf('/uploads/') !== 0) && fullRaw) {
     try {
       const u = new URL(fullRaw, getApiBase() || (typeof location !== 'undefined' ? location.origin : undefined))
@@ -2093,8 +2094,13 @@ function mediaPathsFromUpload(up) {
   if (!path || path.indexOf('/uploads/') !== 0) {
     throw new Error('上传失败')
   }
-  // 展示地址一律走 publicUrl（OSS upload_cdn），勿盲信 API 返回的本站 fullurl
-  const full = publicUrl(path) || fullRaw || path
+  // 优先接口返回的 OSS fullurl；勿用本站 imgUri 拼出来的地址盖掉阿里云
+  let full = ''
+  if (/aliyuncs\.com|oss-accelerate/i.test(fullRaw)) {
+    full = fullRaw
+  } else {
+    full = publicUrl(path) || fullRaw || path
+  }
   return { path, full }
 }
 

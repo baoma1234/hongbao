@@ -1,4 +1,4 @@
-import { getApiBase, getDeviceFpKey, getImgBase, getLocale, getTokenKey, setUploadCdn } from './config.js'
+import { getApiBase, getDeviceFpKey, getImgBase, getLocale, getTokenKey, learnUploadCdnFromUrl, setUploadCdn } from './config.js'
 
 export function getToken() {
   return uni.getStorageSync(getTokenKey()) || ''
@@ -63,6 +63,11 @@ export function apiRequest(action, method = 'POST', body = null) {
             (d && d.config && d.config.upload_cdn) ||
             ''
           if (cdn) setUploadCdn(cdn)
+          // 任意接口若带回 OSS 绝对地址，顺便记下 CDN
+          if (d && typeof d === 'object') {
+            learnUploadCdnFromUrl(d.fullurl || d.avatar_url || '')
+            if (d.profile) learnUploadCdnFromUrl(d.profile.avatar_url || d.profile.fullurl || '')
+          }
         } catch (e) {}
         resolve(payload.data)
       },
@@ -179,6 +184,9 @@ function uploadFanshubAction(action, filePath) {
         reject(new Error((err && err.errMsg) || '上传失败'))
       },
     })
+  }).then((data) => {
+    if (data) learnUploadCdnFromUrl(data.fullurl || data.avatar_url || '')
+    return data
   })
 }
 
@@ -209,6 +217,9 @@ export function uploadCommonFile(filePath) {
         reject(new Error((err && err.errMsg) || '上传失败'))
       },
     })
+  }).then((data) => {
+    if (data) learnUploadCdnFromUrl(data.fullurl || '')
+    return data
   })
 }
 

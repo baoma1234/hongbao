@@ -49,6 +49,40 @@ export function getUploadCdn() {
   return cfg.UPLOAD_CDN || ''
 }
 
+/** 是否已是阿里云 OSS / 加速域名 */
+export function isOssHostUrl(url) {
+  return /(?:aliyuncs\.com|oss-accelerate)/i.test(String(url || ''))
+}
+
+/**
+ * 从接口返回的 OSS fullurl 学习 upload_cdn（config 未下发时也能改写 /uploads）
+ */
+export function learnUploadCdnFromUrl(url) {
+  const raw = String(url || '').trim()
+  if (!raw || !isOssHostUrl(raw)) return
+  try {
+    const u = new URL(raw, 'https://local.invalid')
+    if (u.protocol === 'http:' || u.protocol === 'https:') {
+      setUploadCdn(u.origin)
+    }
+  } catch (e) {}
+}
+
+/**
+ * /uploads 专用基址：只认 OSS upload_cdn，或已是 OSS 的 imgUri。
+ * 勿回退到 apiUri（888.json 常把 imgUri 配成本站，会导致发图/头像仍走本地）。
+ * 最后回退本项目默认加速域名（与 .env oss.cdn_domain / bucket 一致）。
+ */
+const FALLBACK_UPLOAD_CDN = 'https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com'
+
+export function getUploadsBase() {
+  const oss = trimSlash(cfg.UPLOAD_CDN)
+  if (oss) return oss
+  const img = trimSlash(cfg.IMG_BASE)
+  if (img && isOssHostUrl(img)) return img
+  return FALLBACK_UPLOAD_CDN
+}
+
 function readCache() {
   try {
     const raw = uni.getStorageSync(RUNTIME_CFG_KEY)

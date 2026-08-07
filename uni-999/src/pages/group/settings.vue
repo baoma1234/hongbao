@@ -644,14 +644,26 @@ async function pickGroupAvatar() {
     avatarBusy.value = true
     uni.showLoading({ title: '上传中…', mask: true })
     const up = await uploadCommonFile(filePath)
-    const url = String(up.url || up.fullurl || '').trim()
-    if (!url) throw new Error('上传失败')
-    const packet = await updateGroup(groupId.value, { avatar: url })
+    // 库内存相对 /uploads；展示走 OSS fullurl
+    let path = String(up.url || '').trim()
+    const fullRaw = String(up.fullurl || '').trim()
+    if ((!path || path.indexOf('/uploads/') !== 0) && fullRaw) {
+      try {
+        path = new URL(fullRaw).pathname
+      } catch (e) {
+        if (fullRaw.indexOf('/uploads/') >= 0) path = fullRaw.slice(fullRaw.indexOf('/uploads/'))
+      }
+    }
+    if (!path || path.indexOf('/uploads/') !== 0) throw new Error('上传失败')
+    const packet = await updateGroup(groupId.value, { avatar: path })
     const data = (packet && packet.data) || packet || {}
     if (data.group) {
       group.value = data.group
     } else {
-      group.value = Object.assign({}, group.value, { avatar: url, avatar_url: up.fullurl || url })
+      group.value = Object.assign({}, group.value, {
+        avatar: path,
+        avatar_url: fullRaw || path,
+      })
     }
     uni.showToast({ title: '群头像已更新', icon: 'none' })
   } catch (e) {

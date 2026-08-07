@@ -81,11 +81,14 @@ function pickAvatar() {
       busy.value = true
       try {
         const data = await uploadAvatar(path)
+        if (data && data.fullurl) {
+          avatar.value = data.fullurl
+        }
         if (data && data.profile) {
-          avatar.value = data.profile.avatar_url || data.profile.avatar || avatar.value
+          avatar.value = data.profile.avatar_url || data.fullurl || data.profile.avatar || avatar.value
           nickname.value = data.profile.nickname || nickname.value
         } else if (data && (data.avatar_url || data.url)) {
-          avatar.value = data.avatar_url || data.url
+          avatar.value = data.avatar_url || data.fullurl || data.url
         }
         uni.showToast({ title: t('alert_avatar_ok') || '\u5934\u50cf\u5df2\u66f4\u65b0', icon: 'none' })
       } catch (e) {

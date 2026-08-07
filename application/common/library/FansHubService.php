@@ -2014,7 +2014,11 @@ class FansHubService
             'nickname'    => (string)($user->nickname ?? ''),
             'username'    => (string)($user->username ?? ''),
             'avatar'      => (string)($user->avatar ?? ''),
-            'avatar_url'  => $user->avatar ? cdnurl((string)$user->avatar, true) : '',
+            'avatar_url'  => $user->avatar
+                ? (class_exists('\\app\\common\\library\\OssService')
+                    ? \app\common\library\OssService::fullUrl((string)$user->avatar, '')
+                    : cdnurl((string)$user->avatar, true))
+                : '',
             'rights'      => (float)$account->rights,
             'rights_locked'=> (float)$lockSnap['locked'],
             'rights_free' => (float)$lockSnap['free'],
@@ -2117,7 +2121,9 @@ class FansHubService
         $profile = self::profilePayload($userId);
         return [
             'url'      => $url,
-            'fullurl'  => cdnurl($url, true),
+            'fullurl'  => class_exists('\\app\\common\\library\\OssService')
+                ? \app\common\library\OssService::fullUrl($url, (string)$attachment->storage)
+                : cdnurl($url, true),
             'profile'  => $profile,
         ];
     }
@@ -3949,9 +3955,21 @@ class FansHubService
             }
             $images = array_values(array_filter(array_map(function ($u) {
                 $u = trim((string)$u);
-                return $u !== '' ? cdnurl($u, true) : '';
+                if ($u === '') {
+                    return '';
+                }
+                return class_exists('\\app\\common\\library\\OssService')
+                    ? \app\common\library\OssService::fullUrl($u, '')
+                    : cdnurl($u, true);
             }, $images)));
             $video = trim((string)$row->video);
+            if ($video !== '' && class_exists('\\app\\common\\library\\OssService')) {
+                $video = \app\common\library\OssService::fullUrl($video, '');
+            } elseif ($video !== '') {
+                $video = cdnurl($video, true);
+            } else {
+                $video = '';
+            }
             $buttons = $row->action_buttons;
             if (!is_array($buttons)) {
                 $buttons = [];
@@ -3977,12 +3995,16 @@ class FansHubService
             $list[] = [
                 'id'             => (int)$row->id,
                 'author_name'    => $row->localized('author_name', $locale) ?: '红宝官方公告',
-                'author_avatar'  => $row->author_avatar ? cdnurl((string)$row->author_avatar, true) : '',
+                'author_avatar'  => $row->author_avatar
+                    ? (class_exists('\\app\\common\\library\\OssService')
+                        ? \app\common\library\OssService::fullUrl((string)$row->author_avatar, '')
+                        : cdnurl((string)$row->author_avatar, true))
+                    : '',
                 'category'       => $catCode,
                 'category_label' => \app\common\model\fanshub\Notice::categoryLabel($catCode, $locale),
                 'content'        => $row->localized('content', $locale),
                 'images'         => $images,
-                'video'          => $video !== '' ? cdnurl($video, true) : '',
+                'video'          => $video,
                 'action_type'    => (string)$row->action_type,
                 'action_label'   => $row->localized('action_label', $locale),
                 'action_url'     => (string)$row->action_url,

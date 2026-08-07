@@ -1,6 +1,6 @@
 /** 会话 / 消息展示辅助（对齐 888 preview） */
 
-import { getApiBase, getImgBase } from './config.js'
+import { getApiBase, getImgBase, getUploadsBase, isOssHostUrl, learnUploadCdnFromUrl } from './config.js'
 import { assetBase } from './i18n.js'
 
 export function convKey(type, id) {
@@ -121,23 +121,32 @@ export function avatarLetter(title) {
   return s ? s.charAt(0) : '?'
 }
 
-/** 对齐 888 publicUrl：/uploads 优先走 OSS upload_cdn */
+/** /uploads 与媒体公网地址：优先 OSS，避免 888.json 的本站 imgUri 盖掉阿里云 */
 export function publicUrl(pathOrUrl) {
   const raw = String(pathOrUrl || '').trim()
   if (!raw) return ''
   if (/^https?:\/\//i.test(raw) || /^data:/i.test(raw) || /^blob:/i.test(raw)) {
-    // 已是绝对地址：若误指向 API 站的 /uploads，改写到 OSS
+    if (isOssHostUrl(raw)) {
+      learnUploadCdnFromUrl(raw)
+      return raw
+    }
+    // 已是绝对地址：本站 / API 站的 /uploads 改写到 OSS
     try {
       const u = new URL(raw)
       if (u.pathname.indexOf('/uploads/') === 0) {
-        const oss = String(getImgBase() || '')
-          .trim()
-          .replace(/\/+$/, '')
+        const oss = getUploadsBase()
+        if (oss && !isOssHostUrl(u.origin)) {
+          return oss + u.pathname + u.search
+        }
         const api = String(getApiBase() || '')
           .trim()
           .replace(/\/+$/, '')
-        if (oss && api && u.origin === new URL(api + '/').origin && oss !== api) {
-          return oss + u.pathname + u.search
+        const img = String(getImgBase() || '')
+          .trim()
+          .replace(/\/+$/, '')
+        // 兼容：upload_cdn 已写入 getImgBase 且与 API 不同
+        if (img && api && isOssHostUrl(img) && u.origin === new URL(api + '/').origin) {
+          return img + u.pathname + u.search
         }
       }
     } catch (e) {}
@@ -147,10 +156,12 @@ export function publicUrl(pathOrUrl) {
   if (url.charAt(0) !== '/') {
     url = '/' + url.replace(/^\.\//, '')
   }
-  const base = String(getImgBase() || getApiBase() || '')
-    .trim()
-    .replace(/\/+$/, '')
   if (url.indexOf('/uploads/') === 0) {
+    const oss = getUploadsBase()
+    if (oss) return oss + url
+    const base = String(getImgBase() || getApiBase() || '')
+      .trim()
+      .replace(/\/+$/, '')
     if (base) return base + url
     if (typeof location !== 'undefined' && location.origin) return location.origin + url
     return url
