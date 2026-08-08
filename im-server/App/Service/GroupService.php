@@ -1133,7 +1133,9 @@ class GroupService
             'niuniu_enabled'     => (int)($group['niuniu_enabled'] ?? 0) === 1,
             'niuniu_desc'        => trim((string)($group['niuniu_desc'] ?? '')),
             'niuniu_buying'      => false,
+            'niuniu_looping'     => (int)($group['niuniu_loop'] ?? 0) === 1,
             'can_start_niuniu'   => $isAdmin && (int)($group['niuniu_enabled'] ?? 0) === 1,
+            'can_stop_niuniu'    => $isAdmin && (int)($group['niuniu_enabled'] ?? 0) === 1 && (int)($group['niuniu_loop'] ?? 0) === 1,
         ];
         try {
             $muteRid = \Im\Support\RedisClient::conn()->get(\Im\Support\RedisClient::key('niuniu:mute:' . (int)($group['id'] ?? 0)));

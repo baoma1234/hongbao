@@ -32,6 +32,7 @@ class Niuniuconfig extends Backend
             $drandPeriod = max(1, (int)($row['niuniu_drand_period'] ?? 30));
             $enabled = ((int)($row['niuniu_enabled_global'] ?? 1) === 1) ? '1' : '0';
             $rule = trim((string)($row['niuniu_rule_text'] ?? ''));
+            $loopGap = max(2, (int)($row['niuniu_loop_gap_sec'] ?? 5));
             if ($price <= 0) {
                 $this->error('每份价格无效');
             }
@@ -59,6 +60,7 @@ class Niuniuconfig extends Backend
                 'niuniu_drand_period'     => (string)$drandPeriod,
                 'niuniu_enabled_global'   => $enabled,
                 'niuniu_rule_text'        => $rule,
+                'niuniu_loop_gap_sec'     => (string)$loopGap,
             ], [
                 'niuniu_share_price'      => '每份购入积分',
                 'niuniu_buy_seconds'      => '购入倒计时秒',
@@ -71,6 +73,7 @@ class Niuniuconfig extends Backend
                 'niuniu_drand_period'     => 'drand 周期秒',
                 'niuniu_enabled_global'   => '全局开关',
                 'niuniu_rule_text'        => '默认规则文案',
+                'niuniu_loop_gap_sec'     => '连开局间间隔秒',
             ]);
             $this->success('保存成功（需重启 IM / cron 进程生效）');
         }

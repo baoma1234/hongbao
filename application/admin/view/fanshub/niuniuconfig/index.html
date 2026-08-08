@@ -44,6 +44,13 @@
                         <span class="help-block">购入结束后可领红包查看尾数；到期强制结算</span>
                     </div>
                 </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">连开局间间隔（秒）</label>
+                    <div class="col-xs-12 col-sm-4">
+                        <input type="number" min="2" class="form-control" name="row[niuniu_loop_gap_sec]" value="{$config.niuniu_loop_gap_sec|default='5'|htmlentities}">
+                        <span class="help-block">点开始后持续连开；局结束后间隔再开下一局，直至管理员关闭</span>
+                    </div>
+                </div>
             </fieldset>
             <fieldset>
                 <legend>奖池分配</legend>

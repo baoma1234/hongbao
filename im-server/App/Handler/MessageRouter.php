@@ -245,6 +245,9 @@ class MessageRouter
                 case 'niuniu.start':
                     $this->handleNiuniuStart($connection, $uid, $payload, $reqId);
                     break;
+                case 'niuniu.stop':
+                    $this->handleNiuniuStop($connection, $uid, $payload, $reqId);
+                    break;
                 case 'niuniu.buy':
                     $this->handleNiuniuBuy($connection, $uid, $payload, $reqId);
                     break;
@@ -1570,6 +1573,17 @@ class MessageRouter
         try {
             $result = $this->niuniu->start($uid, (int)($payload['group_id'] ?? 0));
             $this->send($connection, 'niuniu.started', $result, $reqId);
+            PushBus::drainOwnQueue(200);
+        } catch (\Throwable $e) {
+            $this->error($connection, $e->getMessage() ?: 'failed', $reqId);
+        }
+    }
+
+    protected function handleNiuniuStop(TcpConnection $connection, $uid, array $payload, $reqId)
+    {
+        try {
+            $result = $this->niuniu->stopLoop($uid, (int)($payload['group_id'] ?? 0));
+            $this->send($connection, 'niuniu.stopped', $result, $reqId);
             PushBus::drainOwnQueue(200);
         } catch (\Throwable $e) {
             $this->error($connection, $e->getMessage() ?: 'failed', $reqId);

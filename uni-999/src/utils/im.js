@@ -51,6 +51,7 @@ const HTTP_ROUTES = {
   'redpacket.detail': '/im/redpacket/detail',
   'transfer.send': '/im/transfer/send',
   'niuniu.start': '/im/niuniu/start',
+  'niuniu.stop': '/im/niuniu/stop',
   'niuniu.buy': '/im/niuniu/buy',
   'niuniu.claim': '/im/niuniu/claim',
   'niuniu.detail': '/im/niuniu/detail',
@@ -544,6 +545,10 @@ export function redPacketDetail(packetId) {
 
 export function niuniuStart(groupId) {
   return imSend('niuniu.start', { group_id: groupId | 0 }, true)
+}
+
+export function niuniuStop(groupId) {
+  return imSend('niuniu.stop', { group_id: groupId | 0 }, true)
 }
 
 export function niuniuBuy(roundId, count = 1) {

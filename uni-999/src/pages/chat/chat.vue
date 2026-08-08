@@ -238,7 +238,11 @@
             </view>
             <view v-if="canStartNiuniu" class="chat-attach-item" @click="onAttachPick('niuniu')">
               <text class="chat-attach-icon">🐂</text>
-              <text>尾数牛牛</text>
+              <text>{{ niuniuLooping ? '继续连开' : '尾数牛牛' }}</text>
+            </view>
+            <view v-if="canStopNiuniu" class="chat-attach-item" @click="onAttachPick('niuniu_stop')">
+              <text class="chat-attach-icon">⏹</text>
+              <text>关闭牛牛</text>
             </view>
             <view v-if="isPrivate" class="chat-attach-item" @click="onAttachPick('transfer')">
               <text class="chat-attach-icon">💸</text>
@@ -664,6 +668,7 @@ import {
   niuniuClaim,
   niuniuDetail,
   niuniuStart,
+  niuniuStop,
   onImEvent,
   recallMessage,
   redPacketDetail,
@@ -842,6 +847,18 @@ const canStartNiuniu = computed(() => {
   if (isPrivate.value) return false
   const pol = groupPolicy.value || {}
   return !!(pol.can_start_niuniu || (pol.niuniu_enabled && ((groupMeta.value && groupMeta.value.my_role) | 0) >= 2))
+})
+
+const niuniuLooping = computed(() => {
+  const pol = groupPolicy.value || {}
+  return !!(pol.niuniu_looping)
+})
+
+const canStopNiuniu = computed(() => {
+  if (isPrivate.value) return false
+  const pol = groupPolicy.value || {}
+  if (pol.can_stop_niuniu) return true
+  return !!(niuniuLooping.value && ((groupMeta.value && groupMeta.value.my_role) | 0) >= 2)
 })
 
 const forbidModes = computed(() => {
@@ -1847,6 +1864,8 @@ function onAttachPick(kind) {
     openRpSend()
   } else if (kind === 'niuniu') {
     startNiuniuRound()
+  } else if (kind === 'niuniu_stop') {
+    stopNiuniuLoop()
   } else if (kind === 'transfer') {
     openTransferSend()
   }
@@ -2549,9 +2568,9 @@ async function startNiuniuRound() {
     const msg = data.message || null
     if (msg) {
       appendLocalMessage(msg)
-      uni.showToast({ title: '对局已开启', icon: 'success' })
+      uni.showToast({ title: '连开已开启', icon: 'success' })
     } else if (data.round && data.round.id) {
-      uni.showToast({ title: '对局已开启，刷新中…', icon: 'none' })
+      uni.showToast({ title: '连开已开启，刷新中…', icon: 'none' })
     } else {
       uni.showToast({ title: '开局成功但未收到卡片，请下拉刷新', icon: 'none' })
     }
@@ -2559,6 +2578,25 @@ async function startNiuniuRound() {
     if (!isPrivate.value) loadGroupMeta().catch(() => {})
   } catch (e) {
     uni.showToast({ title: (e && e.message) || '开启失败', icon: 'none' })
+  } finally {
+    niuniuBusy.value = false
+  }
+}
+
+async function stopNiuniuLoop() {
+  if (niuniuBusy.value) return
+  if (!canStopNiuniu.value) {
+    uni.showToast({ title: '无权关闭或未在连开', icon: 'none' })
+    return
+  }
+  niuniuBusy.value = true
+  try {
+    await niuniuStop(meta.value.group | 0)
+    uni.showToast({ title: '已关闭连开', icon: 'success' })
+    if (!isPrivate.value) loadGroupMeta().catch(() => {})
+    setTimeout(() => fetchHistory().catch(() => {}), 300)
+  } catch (e) {
+    uni.showToast({ title: (e && e.message) || '关闭失败', icon: 'none' })
   } finally {
     niuniuBusy.value = false
   }

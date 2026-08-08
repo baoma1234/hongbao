@@ -60,6 +60,7 @@ class NiuniuService
             'enabled_global'   => 1,
             'rule_text'        => '',
             'robot_user_id'    => (int)($rp['group_robot_user_id'] ?? 74282747),
+            'loop_gap_sec'     => 5,
         ], $nn);
         // 兼容 runtime 里 niuniu_* 扁平键
         foreach ([
@@ -74,12 +75,49 @@ class NiuniuService
             'niuniu_drand_period' => 'drand_period',
             'niuniu_enabled_global' => 'enabled_global',
             'niuniu_rule_text' => 'rule_text',
+            'niuniu_loop_gap_sec' => 'loop_gap_sec',
         ] as $from => $to) {
             if (isset($rp[$from]) && !isset($nn[$to])) {
                 $merged[$to] = $rp[$from];
             }
         }
         return $merged;
+    }
+
+    public function isLooping($groupId)
+    {
+        $g = $this->groups->get((int)$groupId);
+        return $g && (int)($g['niuniu_loop'] ?? 0) === 1;
+    }
+
+    public function enableLoop($groupId, $starterUserId)
+    {
+        $groupId = (int)$groupId;
+        $starterUserId = (int)$starterUserId;
+        Db::exec(
+            'UPDATE ' . Db::table('chat_groups')
+            . ' SET niuniu_loop=1, niuniu_loop_starter=?, updatetime=? WHERE id=?',
+            [$starterUserId > 0 ? $starterUserId : 0, time(), $groupId]
+        );
+        try {
+            $this->groups->bumpViewerInfoCache($groupId);
+        } catch (\Throwable $e) {
+        }
+    }
+
+    public function disableLoop($groupId)
+    {
+        $groupId = (int)$groupId;
+        Db::exec(
+            'UPDATE ' . Db::table('chat_groups')
+            . ' SET niuniu_loop=0, updatetime=? WHERE id=?',
+            [time(), $groupId]
+        );
+        $this->clearLoopNext($groupId);
+        try {
+            $this->groups->bumpViewerInfoCache($groupId);
+        } catch (\Throwable $e) {
+        }
     }
 
     public function isGroupEnabled($groupId)
@@ -110,19 +148,26 @@ class NiuniuService
         return $row ? (int)$row['id'] : 0;
     }
 
-    public function start($userId, $groupId)
+    /**
+     * 开启对局（默认开启连开：结束后自动开下一局，直至管理员关闭）
+     * @param array $opts trusted_loop=true 时跳过管理员校验（连开自动续局）
+     */
+    public function start($userId, $groupId, array $opts = [])
     {
         $userId = (int)$userId;
         $groupId = (int)$groupId;
+        $trusted = !empty($opts['trusted_loop']);
         if (!$this->isGroupEnabled($groupId)) {
             throw new \RuntimeException('本群未开启尾数牛牛');
         }
-        if (!$this->groups->isMember($groupId, $userId)) {
-            throw new \RuntimeException('not in group');
-        }
-        $role = $this->groups->memberRole($groupId, $userId);
-        if ($role < 2) {
-            throw new \RuntimeException('仅群主/管理员可开启对局');
+        if (!$trusted) {
+            if (!$this->groups->isMember($groupId, $userId)) {
+                throw new \RuntimeException('not in group');
+            }
+            $role = $this->groups->memberRole($groupId, $userId);
+            if ($role < 2) {
+                throw new \RuntimeException('仅群主/管理员可开启对局');
+            }
         }
         $busy = Db::fetch(
             'SELECT id FROM ' . Db::table('chat_niuniu_rounds')
@@ -130,7 +175,12 @@ class NiuniuService
             [$groupId, self::STATUS_BUYING, self::STATUS_CLAIMING]
         );
         if ($busy) {
-            throw new \RuntimeException('本群已有进行中的牛牛对局');
+            if (!$trusted) {
+                // 已在连开中：再点开始只确保 loop 打开
+                $this->enableLoop($groupId, $userId);
+                throw new \RuntimeException('本群已有进行中的牛牛对局（连开已开启）');
+            }
+            return null;
         }
 
         $c = $this->config();
@@ -139,6 +189,17 @@ class NiuniuService
         $price = round((float)$c['share_price'], 2);
         if ($price <= 0) {
             throw new \RuntimeException('份额价格无效');
+        }
+
+        // 人工点开始 → 开启连开；续局沿用原 starter
+        if (!$trusted) {
+            $this->enableLoop($groupId, $userId);
+        } elseif ($userId <= 0) {
+            $g = $this->groups->get($groupId) ?: [];
+            $userId = (int)($g['niuniu_loop_starter'] ?? 0);
+            if ($userId <= 0) {
+                $userId = (int)$c['robot_user_id'];
+            }
         }
 
         $drand = new DrandClient((string)$c['drand_api'], (int)$c['drand_period']);
@@ -172,6 +233,7 @@ class NiuniuService
             throw $e;
         }
 
+        $this->clearLoopNext($groupId);
         $this->setMuteFlag($groupId, $roundId, $buySec + 5);
         $round = $this->getRound($roundId);
         $msg = $this->pushCard($round, 'buying', (int)$c['robot_user_id'] ?: $userId);
@@ -193,10 +255,35 @@ class NiuniuService
         );
         $round['buy_msg_id'] = (int)$msg['id'];
 
+        if (!$trusted) {
+            $this->pushTip($groupId, '尾数牛牛连开已开启，将持续发局直至管理员关闭', $userId);
+        }
+
         return [
             'round'   => $this->publicRound($round),
             'message' => $msg,
+            'looping' => $this->isLooping($groupId),
         ];
+    }
+
+    /** 关闭连开（当前局仍会跑完，不再自动开下一局） */
+    public function stopLoop($userId, $groupId)
+    {
+        $userId = (int)$userId;
+        $groupId = (int)$groupId;
+        if (!$this->groups->isMember($groupId, $userId)) {
+            throw new \RuntimeException('not in group');
+        }
+        $role = $this->groups->memberRole($groupId, $userId);
+        if ($role < 2) {
+            throw new \RuntimeException('仅群主/管理员可关闭');
+        }
+        if (!$this->isLooping($groupId)) {
+            return ['looping' => false, 'message' => '连开未开启'];
+        }
+        $this->disableLoop($groupId);
+        $this->pushTip($groupId, '尾数牛牛连开已关闭，本局结束后不再自动开局', $userId);
+        return ['looping' => false, 'message' => '已关闭连开'];
     }
 
     public function buy($userId, $roundId, $count = 1)
@@ -342,13 +429,14 @@ class NiuniuService
         ];
     }
 
-    /** cron：结束购入 / 强制结算 */
+    /** cron：结束购入 / 强制结算 / 连开续局 */
     public function tick($limit = 20)
     {
         $limit = max(1, (int)$limit);
         $now = time();
         $ended = 0;
         $settled = 0;
+        $restarted = 0;
 
         $buyRows = Db::fetchAll(
             'SELECT id FROM ' . Db::table('chat_niuniu_rounds')
@@ -378,7 +466,59 @@ class NiuniuService
             }
         }
 
-        return ['closed_buy' => $ended, 'settled' => $settled];
+        $restarted = $this->tickLoopRestarts($limit);
+
+        return ['closed_buy' => $ended, 'settled' => $settled, 'restarted' => $restarted];
+    }
+
+    /** 连开：到期自动开下一局 */
+    public function tickLoopRestarts($limit = 20)
+    {
+        $limit = max(1, (int)$limit);
+        $n = 0;
+        try {
+            $rows = Db::fetchAll(
+                'SELECT id, niuniu_loop_starter FROM ' . Db::table('chat_groups')
+                . ' WHERE niuniu_enabled=1 AND niuniu_loop=1 ORDER BY id ASC LIMIT 80'
+            );
+        } catch (\Throwable $e) {
+            return 0;
+        }
+        foreach ($rows ?: [] as $g) {
+            if ($n >= $limit) {
+                break;
+            }
+            $gid = (int)$g['id'];
+            if (!$this->isGroupEnabled($gid)) {
+                continue;
+            }
+            $busy = Db::fetch(
+                'SELECT id FROM ' . Db::table('chat_niuniu_rounds')
+                . ' WHERE group_id=? AND status IN (?,?) LIMIT 1',
+                [$gid, self::STATUS_BUYING, self::STATUS_CLAIMING]
+            );
+            if ($busy) {
+                continue;
+            }
+            $nextAt = $this->getLoopNextAt($gid);
+            if ($nextAt > 0 && $nextAt > time()) {
+                continue;
+            }
+            // 尚无 nextAt：说明刚关局未排程，或旧数据；给个短等待避免狂刷
+            if ($nextAt <= 0) {
+                $this->scheduleLoopNext($gid, 2);
+                continue;
+            }
+            $starter = (int)($g['niuniu_loop_starter'] ?? 0);
+            try {
+                $this->start($starter, $gid, ['trusted_loop' => true]);
+                $n++;
+            } catch (\Throwable $e) {
+                error_log('[NIUNIU][loopRestart] g' . $gid . ' ' . $e->getMessage());
+                $this->scheduleLoopNext($gid, 15);
+            }
+        }
+        return $n;
     }
 
     public function closeBuy($roundId)
@@ -403,6 +543,7 @@ class NiuniuService
             $this->clearMuteFlag($groupId);
             $round = $this->getRound($roundId);
             $this->pushCard($round, 'void', $this->robotOrStarter($round));
+            $this->onRoundFinished($groupId, (int)$round['starter_user_id']);
             return true;
         }
 
@@ -599,6 +740,7 @@ class NiuniuService
                 [(int)$msg['id'], time(), $roundId]
             );
         }
+        $this->onRoundFinished((int)$round['group_id'], (int)$round['starter_user_id']);
         return true;
     }
 
@@ -649,6 +791,7 @@ class NiuniuService
 
         $round = $this->getRound($roundId);
         $this->pushCard($round, 'refund', $this->robotOrStarter($round));
+        $this->onRoundFinished((int)$round['group_id'], (int)$round['starter_user_id']);
         return true;
     }
 
@@ -850,6 +993,80 @@ class NiuniuService
         try {
             RedisClient::conn()->del(RedisClient::key('niuniu:mute:' . (int)$groupId));
         } catch (\Throwable $e) {
+        }
+    }
+
+    /** 本局结束：若连开中则排队下一局 */
+    protected function onRoundFinished($groupId, $starterUserId = 0)
+    {
+        $groupId = (int)$groupId;
+        if ($groupId <= 0 || !$this->isLooping($groupId)) {
+            return;
+        }
+        $c = $this->config();
+        $gap = max(2, (int)$c['loop_gap_sec']);
+        $this->scheduleLoopNext($groupId, $gap);
+        if ($starterUserId > 0) {
+            // 保持 starter
+            Db::exec(
+                'UPDATE ' . Db::table('chat_groups') . ' SET niuniu_loop_starter=? WHERE id=? AND niuniu_loop=1',
+                [(int)$starterUserId, $groupId]
+            );
+        }
+    }
+
+    protected function scheduleLoopNext($groupId, $gapSec)
+    {
+        $groupId = (int)$groupId;
+        $at = time() + max(1, (int)$gapSec);
+        try {
+            RedisClient::conn()->setex(
+                RedisClient::key('niuniu:loop:next:' . $groupId),
+                max(60, (int)$gapSec + 120),
+                (string)$at
+            );
+        } catch (\Throwable $e) {
+        }
+    }
+
+    protected function getLoopNextAt($groupId)
+    {
+        try {
+            $v = RedisClient::conn()->get(RedisClient::key('niuniu:loop:next:' . (int)$groupId));
+            if ($v === false || $v === null || $v === '') {
+                return 0;
+            }
+            return (int)$v;
+        } catch (\Throwable $e) {
+            return 0;
+        }
+    }
+
+    protected function clearLoopNext($groupId)
+    {
+        try {
+            RedisClient::conn()->del(RedisClient::key('niuniu:loop:next:' . (int)$groupId));
+        } catch (\Throwable $e) {
+        }
+    }
+
+    protected function pushTip($groupId, $text, $fromUserId = 0)
+    {
+        $c = $this->config();
+        $from = (int)$fromUserId;
+        if ($from <= 0) {
+            $from = (int)$c['robot_user_id'];
+        }
+        try {
+            $msg = $this->messages->sendGroupSystem((int)$groupId, (string)$text, $from, [
+                'niuniu' => 1,
+                'tip'    => 'loop',
+            ]);
+            if (is_array($msg)) {
+                NotifyPublisher::publish('group.message', $msg, false, $this->cfg);
+            }
+        } catch (\Throwable $e) {
+            error_log('[NIUNIU][pushTip] ' . $e->getMessage());
         }
     }
 

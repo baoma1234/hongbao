@@ -1,0 +1,18 @@
+<div class="panel panel-default panel-intro">
+    {:build_heading()}
+    <div class="panel-heading">
+        <p class="text-muted" style="margin:8px 0 0;">
+            群内管理员点「尾数牛牛」开启连开后，本任务会对进行中对局：随机人数购入、每人随机份数、开奖阶段自动领取并结算。
+            需 IM Cron（<code>start_cron.php</code>）在跑；修改 IM PHP 后请重启聊天服务。
+        </p>
+    </div>
+    <div class="panel-body">
+        <div id="toolbar" class="toolbar">
+            <a href="javascript:;" class="btn btn-primary btn-refresh" title="{:__('Refresh')}"><i class="fa fa-refresh"></i></a>
+            <a href="javascript:;" class="btn btn-success btn-add {:$auth->check('fanshub/niuniuauto/add')?'':'hide'}" title="{:__('Add')}"><i class="fa fa-plus"></i> {:__('Add')}</a>
+            <a href="javascript:;" class="btn btn-success btn-edit btn-disabled disabled {:$auth->check('fanshub/niuniuauto/edit')?'':'hide'}" title="{:__('Edit')}"><i class="fa fa-pencil"></i> {:__('Edit')}</a>
+            <a href="javascript:;" class="btn btn-danger btn-del btn-disabled disabled {:$auth->check('fanshub/niuniuauto/del')?'':'hide'}" title="{:__('Delete')}"><i class="fa fa-trash"></i> {:__('Delete')}</a>
+        </div>
+        <table id="table" class="table table-striped table-bordered table-hover" width="100%"></table>
+    </div>
+</div>

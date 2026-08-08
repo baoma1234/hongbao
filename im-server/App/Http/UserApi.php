@@ -72,6 +72,8 @@ class UserApi extends UserReadApi
 
             case '/im/niuniu/start':
                 return ['data' => $this->niuniu()->start($userId, (int)($body['group_id'] ?? 0)), 'ws_type' => 'niuniu.started'];
+            case '/im/niuniu/stop':
+                return ['data' => $this->niuniu()->stopLoop($userId, (int)($body['group_id'] ?? 0)), 'ws_type' => 'niuniu.stopped'];
             case '/im/niuniu/buy':
                 return ['data' => $this->niuniu()->buy($userId, (int)($body['round_id'] ?? 0), (int)($body['count'] ?? 1)), 'ws_type' => 'niuniu.bought'];
             case '/im/niuniu/claim':

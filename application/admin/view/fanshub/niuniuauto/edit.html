@@ -1,0 +1,113 @@
+<form id="edit-form" class="form-horizontal" role="form" data-toggle="validator" method="POST" action="">
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">任务名:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[name]" type="text" value="{$row.name|htmlentities}">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">群ID:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[group_id]" type="number" data-rule="required" min="1" value="{$row.group_id}">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">发抢模式:</label>
+        <div class="col-xs-12 col-sm-8">
+            <label class="radio-inline"><input type="radio" name="row[actor_mode]" value="1" {if $row.actor_mode==1}checked{/if}> 模式一：UID 池</label>
+            <label class="radio-inline"><input type="radio" name="row[actor_mode]" value="2" {if $row.actor_mode!=1}checked{/if}> 模式二：机器人账户</label>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">购入UID池:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[buy_user_ids]" type="text" value="{$row.buy_user_ids|htmlentities}">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">随机人数:</label>
+        <div class="col-xs-12 col-sm-6">
+            <div class="input-group">
+                <span class="input-group-addon">最少</span>
+                <input class="form-control" name="row[buyer_count_min]" type="number" min="1" value="{$row.buyer_count_min}">
+                <span class="input-group-addon">最多</span>
+                <input class="form-control" name="row[buyer_count_max]" type="number" min="1" value="{$row.buyer_count_max}">
+            </div>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">每人份数:</label>
+        <div class="col-xs-12 col-sm-6">
+            <div class="input-group">
+                <span class="input-group-addon">最少</span>
+                <input class="form-control" name="row[shares_min]" type="number" min="1" value="{$row.shares_min}">
+                <span class="input-group-addon">最多</span>
+                <input class="form-control" name="row[shares_max]" type="number" min="1" value="{$row.shares_max}">
+            </div>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">购入延迟ms:</label>
+        <div class="col-xs-12 col-sm-6">
+            <div class="input-group">
+                <span class="input-group-addon">最小</span>
+                <input class="form-control" name="row[buy_delay_min_ms]" type="number" min="0" value="{$row.buy_delay_min_ms}">
+                <span class="input-group-addon">最大</span>
+                <input class="form-control" name="row[buy_delay_max_ms]" type="number" min="0" value="{$row.buy_delay_max_ms}">
+            </div>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">领取延迟ms:</label>
+        <div class="col-xs-12 col-sm-6">
+            <div class="input-group">
+                <span class="input-group-addon">最小</span>
+                <input class="form-control" name="row[claim_delay_min_ms]" type="number" min="0" value="{$row.claim_delay_min_ms}">
+                <span class="input-group-addon">最大</span>
+                <input class="form-control" name="row[claim_delay_max_ms]" type="number" min="0" value="{$row.claim_delay_max_ms}">
+            </div>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">自动购入:</label>
+        <div class="col-xs-12 col-sm-8">
+            <label class="checkbox-inline"><input type="checkbox" name="row[auto_buy]" value="1" {if $row.auto_buy==1}checked{/if}> 开启</label>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">自动领取:</label>
+        <div class="col-xs-12 col-sm-8">
+            <label class="checkbox-inline"><input type="checkbox" name="row[auto_claim]" value="1" {if $row.auto_claim==1}checked{/if}> 开启</label>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">最近局ID:</label>
+        <div class="col-xs-12 col-sm-8">
+            <p class="form-control-static">{$row.last_round_id|default=0}</p>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">最近错误:</label>
+        <div class="col-xs-12 col-sm-8">
+            <p class="form-control-static">{$row.last_error|htmlentities|default='-'}</p>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">状态:</label>
+        <div class="col-xs-12 col-sm-8">
+            {:build_radios('row[status]', $statusList, $row.status)}
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">备注:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[remark]" type="text" value="{$row.remark|htmlentities}">
+        </div>
+    </div>
+    <div class="form-group layer-footer">
+        <label class="control-label col-xs-12 col-sm-2"></label>
+        <div class="col-xs-12 col-sm-8">
+            <button type="submit" class="btn btn-success btn-embossed">{:__('OK')}</button>
+        </div>
+    </div>
+</form>

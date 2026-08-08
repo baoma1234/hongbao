@@ -15,6 +15,7 @@
 use Im\Service\GroupService;
 use Im\Service\MessageService;
 use Im\Service\NiuniuService;
+use Im\Service\NiuniuAutoBotService;
 use Im\Service\RedPacketService;
 use Im\Service\RpAutoBotService;
 use Im\Support\Db;
@@ -46,12 +47,14 @@ $worker->onWorkerStart = function () use ($cfg, $cronCfg) {
     $redPackets = new RedPacketService($cfg, $messages, $groups);
     $rpAuto = new RpAutoBotService($redPackets, $groups);
     $niuniu = new NiuniuService($cfg, $messages, $groups);
+    $nnAuto = new NiuniuAutoBotService($niuniu, $groups);
 
     $tronBusy = false;
     $refundBusy = false;
     $settleBusy = false;
     $autoBusy = false;
     $niuniuBusy = false;
+    $nnAutoBusy = false;
 
     // 启动先拉一次哈希
     try {
@@ -147,8 +150,22 @@ $worker->onWorkerStart = function () use ($cfg, $cronCfg) {
         }
     });
 
+    Timer::add(2, function () use ($nnAuto, &$nnAutoBusy) {
+        if ($nnAutoBusy) {
+            return;
+        }
+        $nnAutoBusy = true;
+        try {
+            $nnAuto->tick();
+        } catch (\Throwable $e) {
+            error_log('[CRON][NN_AUTO] ' . $e->getMessage());
+        } finally {
+            $nnAutoBusy = false;
+        }
+    });
+
     error_log(sprintf(
-        '[CRON] started tron=%.1fs refund=%ds settle=%ds auto=%ds niuniu=2s',
+        '[CRON] started tron=%.1fs refund=%ds settle=%ds auto=%ds niuniu=2s nn_auto=2s',
         $hashPoll,
         $refundEvery,
         $settleEvery,
