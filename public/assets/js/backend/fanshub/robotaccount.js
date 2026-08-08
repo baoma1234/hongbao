@@ -4,6 +4,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
             Table.api.init({
                 extend: {
                     index_url: 'fanshub/robotaccount/index',
+                    edit_url: 'fanshub/robotaccount/edit',
                     adjust_url: 'fanshub/robotaccount/adjust',
                     batchadjust_url: 'fanshub/robotaccount/batchadjust',
                     seed_url: 'fanshub/robotaccount/seed',
@@ -30,6 +31,13 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                     {
                         field: 'operate', title: '操作', table: table,
                         buttons: [{
+                            name: 'edit',
+                            text: '编辑',
+                            title: '编辑机器人',
+                            classname: 'btn btn-xs btn-success btn-dialog',
+                            icon: 'fa fa-pencil',
+                            url: 'fanshub/robotaccount/edit'
+                        }, {
                             name: 'adjust',
                             text: '调账',
                             title: '机器人调账',
@@ -101,6 +109,9 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
         },
         adjust: function () {
             Form.api.bindevent($("#adjust-form"));
+        },
+        edit: function () {
+            Form.api.bindevent($("form[role=form]"));
         }
     };
     return Controller;

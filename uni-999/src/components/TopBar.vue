@@ -11,8 +11,9 @@
         <text class="caret">▾</text>
       </view>
       <view class="fission-btn" @click.stop="goFission">
+        <view class="fission-btn-glass" aria-hidden="true" />
         <text class="fission-ico">🧧</text>
-        <text class="fission-lab">裂变红包</text>
+        <text class="fission-lab">裂变红宝</text>
       </view>
     </view>
 
@@ -92,7 +93,7 @@ function goFission() {
   closePanels()
   uni.navigateTo({
     url: '/pages/fission/detail',
-    fail: () => uni.showToast({ title: '无法打开裂变红包', icon: 'none' }),
+    fail: () => uni.showToast({ title: '无法打开裂变红宝', icon: 'none' }),
   })
 }
 
@@ -191,34 +192,68 @@ onUnmounted(() => {
   background: color-mix(in srgb, var(--bg-main, #f4f6f9) 6%, var(--bg-card, #fff) 94%);
 }
 .fission-btn {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  min-height: 32px;
-  padding: 5px 12px 5px 9px;
+  min-height: 34px;
+  padding: 6px 14px 6px 10px;
   border-radius: 999px;
-  border: none;
-  background: linear-gradient(135deg, #ff6b3d 0%, #e53935 55%, #c62828 100%);
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    linear-gradient(160deg, rgba(255, 120, 90, 0.55) 0%, rgba(220, 40, 40, 0.35) 42%, rgba(160, 20, 30, 0.45) 100%),
+    linear-gradient(135deg, #ff5a3a 0%, #e12626 52%, #b01018 100%);
   box-shadow:
-    0 4px 12px rgba(198, 40, 40, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+    0 6px 16px rgba(176, 16, 24, 0.42),
+    0 2px 0 rgba(255, 200, 160, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -2px 4px rgba(90, 0, 0, 0.28);
+  transform: translateZ(0);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.fission-btn-glass {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.38) 0%, rgba(255, 255, 255, 0.06) 42%, rgba(255, 255, 255, 0) 70%),
+    radial-gradient(120% 80% at 20% 0%, rgba(255, 255, 255, 0.35), transparent 55%);
+  backdrop-filter: blur(10px) saturate(1.25);
+  -webkit-backdrop-filter: blur(10px) saturate(1.25);
 }
 .fission-btn:active {
-  opacity: 0.92;
-  transform: translateY(1px);
-  box-shadow: 0 2px 8px rgba(198, 40, 40, 0.28);
+  transform: translateY(1px) scale(0.98);
+  box-shadow:
+    0 3px 10px rgba(176, 16, 24, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -1px 3px rgba(90, 0, 0, 0.3);
 }
 .fission-ico {
+  position: relative;
+  z-index: 1;
   font-size: 13px;
   line-height: 1;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.2));
 }
 .fission-lab {
+  position: relative;
+  z-index: 1;
   font-size: 12px;
   font-weight: 900;
   color: #fff;
   white-space: nowrap;
   letter-spacing: 0.4px;
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.12);
+  text-shadow: 0 1px 2px rgba(80, 0, 0, 0.35);
+  transform-origin: center center;
+  animation: fission-lab-breathe 1.8s ease-in-out infinite;
+}
+@keyframes fission-lab-breathe {
+  0%, 100% { transform: scale(1); opacity: 0.92; }
+  50% { transform: scale(1.12); opacity: 1; }
 }
 .flag {
   width: 22px;

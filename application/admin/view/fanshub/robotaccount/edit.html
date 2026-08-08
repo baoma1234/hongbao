@@ -1,0 +1,207 @@
+<form id="edit-form" class="form-horizontal" role="form" data-toggle="validator" method="POST" action="">
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">会员ID:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" type="text" value="{$row.id|htmlentities}" readonly>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">手机号:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" type="text" value="{$userRow.mobile|default=''|htmlentities}" readonly>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">昵称:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input id="c-nickname" class="form-control" name="user[nickname]" type="text" value="{$userRow.nickname|default=''|htmlentities}" data-rule="required;length(1~30)">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">头像:</label>
+        <div class="col-xs-12 col-sm-8">
+            <div class="input-group">
+                <input id="c-avatar" class="form-control" size="50" name="user[avatar]" type="text" value="{$userRow.avatar|default=''|htmlentities}">
+                <div class="input-group-addon no-border no-padding">
+                    <span><button type="button" id="faupload-avatar" class="btn btn-danger faupload" data-input-id="c-avatar" data-mimetype="image/gif,image/jpeg,image/png,image/jpg,image/bmp,image/webp" data-multiple="false" data-preview-id="p-avatar"><i class="fa fa-upload"></i> {:__('Upload')}</button></span>
+                    <span><button type="button" id="fachoose-avatar" class="btn btn-primary fachoose" data-input-id="c-avatar" data-mimetype="image/*" data-multiple="false"><i class="fa fa-list"></i> {:__('Choose')}</button></span>
+                </div>
+            </div>
+            <ul class="row list-inline faupload-preview" id="p-avatar"></ul>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">登录密码:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input id="c-password" class="form-control" name="user[password]" type="password" value="" placeholder="留空则不修改密码" autocomplete="new-password">
+            <span class="help-block">填写后将重置该会员登录密码（6-32位）。</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">支付密码:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input id="c-pay_password" class="form-control" name="row[pay_password]" type="password" value="" placeholder="留空则不修改支付密码" autocomplete="new-password">
+            <label class="checkbox-inline" style="margin-top:8px;">
+                <input type="checkbox" name="row[clear_pay_password]" value="1"> 清除支付密码（勾选后忽略上方输入）
+            </label>
+            <span class="help-block">
+                当前状态：
+                {if condition="!empty($row.pay_password)"}
+                <strong class="text-success">已设置</strong>
+                {else/}
+                <strong class="text-muted">未设置</strong>
+                {/if}
+                ；填写 6-32 位将重置支付密码（提现/绑定地址用）。
+            </span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">股份:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input id="c-rights" class="form-control" name="row[rights]" type="number" step="0.01" value="{$row.rights|htmlentities}">
+            <span class="help-block">修改股份/红宝将自动生成「人工调整」流水，建议使用「调账」按钮进行增减。</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">红宝:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input id="c-hongbao" class="form-control" name="row[hongbao]" type="number" step="0.01" value="{$row.hongbao|default='0'|htmlentities}">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">累计流水:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input id="c-turnover" class="form-control" name="row[turnover]" type="number" step="0.01" value="{$row.turnover|default=0|htmlentities}">
+            <span class="help-block">发红包/中雷赔付会自动累加。提现需：累计流水 ≥ max(全局最低流水, 提现金额×流水倍数)。此处可手工改当前累计值。</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">调账备注:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="adjust_remark" type="text" value="编辑账户调整" placeholder="仅当修改股份或红宝时写入流水备注">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">上线:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input id="c-inviter_ref" class="form-control" name="inviter_ref" type="text"
+                   value="{if $inviter}{$inviter.inviter_user_id|htmlentities}{/if}"
+                   placeholder="填写上线ID或手机号；留空并保存可清除上线">
+            {if $inviter}
+            <span class="help-block">
+                当前上线：ID <strong>{$inviter.inviter_user_id|htmlentities}</strong>
+                {if $inviter.mobile} / 手机 <strong>{$inviter.mobile|htmlentities}</strong>{/if}
+            </span>
+            {else/}
+            <span class="help-block">当前无上线。修改仅调整归属关系，不会补发邀请股份奖励。</span>
+            {/if}
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">主站账号:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input id="c-main_uid" class="form-control" name="row[main_uid]" type="text" value="{$row.main_uid|htmlentities}" placeholder="游戏账号，如 555bio；保存即视为已核销通过">
+            {if $row.main_uid_pending}
+            <span class="help-block">待审账号：<strong>{$row.main_uid_pending|htmlentities}</strong>
+                （{eq name="row.main_uid_audit" value="pending"}待核销{else/}{$row.main_uid_audit|htmlentities}{/eq}）
+                — 请到「游戏账号审核」菜单处理。
+            </span>
+            {/if}
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">会员等级:</label>
+        <div class="col-xs-12 col-sm-8">
+            <select id="c-member_level" class="form-control selectpicker" name="row[member_level]">
+                {foreach name="memberLevelList" item="vo" key="k"}
+                <option value="{$k}" {eq name="row.member_level" value="$k"}selected{/eq}>{$k} - {$vo.name|htmlentities}（邀请奖励 {$vo.invite_reward} 股）</option>
+                {/foreach}
+            </select>
+            <span class="help-block">需在「会员等级配置」中开启会员等级后，邀请奖励才按等级发放。</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">流程阶段:</label>
+        <div class="col-xs-12 col-sm-8">
+            <select id="c-flow_stage" class="form-control selectpicker" name="row[flow_stage]">
+                {foreach name="flowStageList" item="vo" key="k"}
+                <option value="{$k}" {eq name="row.flow_stage" value="$k"}selected{/eq}>{$vo}</option>
+                {/foreach}
+            </select>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">状态:</label>
+        <div class="col-xs-12 col-sm-8">
+            <select id="c-status" class="form-control selectpicker" name="row[status]">
+                {foreach name="statusList" item="vo" key="k"}
+                <option value="{$k}" {eq name="row.status" value="$k"}selected{/eq}>{$vo}</option>
+                {/foreach}
+            </select>
+        </div>
+    </div>
+    {if $phase2Enabled}
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">用户态:</label>
+        <div class="col-xs-12 col-sm-8">
+            <select id="c-user_mode" class="form-control selectpicker" name="row[user_mode]">
+                {foreach name="userModeList" item="vo" key="k"}
+                <option value="{$k}" {eq name="row.user_mode" value="$k"}selected{/eq}>{$vo}</option>
+                {/foreach}
+            </select>
+            <span class="help-block">团长态通常由首次 VIP 密令审核通过后自动解锁，也可人工调整。</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">连续签到天:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[fission_streak_days]" type="number" min="0" max="7" value="{$row.fission_streak_days|default=0|htmlentities}">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">7天暴击资格:</label>
+        <div class="col-xs-12 col-sm-8">
+            <label class="checkbox-inline">
+                <input type="checkbox" name="row[fission_streak_qualified]" value="1" {if !isset($row.fission_streak_qualified) || $row.fission_streak_qualified}checked{/if}> 有资格（未勾选表示连签已冻结）
+            </label>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">最后签到日:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[fission_last_checkin_date]" type="date" value="{$row.fission_last_checkin_date|default=''|htmlentities}">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">下线提现数:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[sub_withdrawn_count]" type="number" min="0" value="{$row.sub_withdrawn_count|default=0|htmlentities}">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">荣誉段位:</label>
+        <div class="col-xs-12 col-sm-8">
+            <select class="form-control selectpicker" name="row[honor_tier_claimed]">
+                {foreach name="honorTierList" item="vo" key="k"}
+                <option value="{$k}" {eq name="row.honor_tier_claimed" value="$k"}selected{/eq}>{$vo}</option>
+                {/foreach}
+            </select>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">新手首提完成:</label>
+        <div class="col-xs-12 col-sm-8">
+            <label class="checkbox-inline">
+                <input type="checkbox" name="row[first_withdraw_done]" value="1" {if !empty($row.first_withdraw_done)}checked{/if}> 已完成
+            </label>
+        </div>
+    </div>
+    {/if}
+    <div class="form-group layer-footer">
+        <label class="control-label col-xs-12 col-sm-2"></label>
+        <div class="col-xs-12 col-sm-8">
+            <button type="submit" class="btn btn-primary btn-embossed disabled">{:__('OK')}</button>
+            <button type="reset" class="btn btn-default btn-embossed">{:__('Reset')}</button>
+        </div>
+    </div>
+</form>

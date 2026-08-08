@@ -226,26 +226,22 @@
         </view>
       </view>
 
-      <!-- 裂变红包首日登录弹窗（对齐设计稿红包卡） -->
+      <!-- 裂变红宝弹窗：海报背景 + 文字信息 -->
       <view class="modal-mask fission-popup-mask" :class="{ 'is-open': fissionPopupOpen }" @click="dismissFissionPopup">
         <view class="fission-popup-wrap" @click.stop>
           <view class="fission-popup-card" @click="openFissionFromPopup">
-            <view class="fission-popup-burst" aria-hidden="true">
-              <text class="fission-coin c1">¥</text>
-              <text class="fission-coin c2">¥</text>
-              <text class="fission-coin c3">¥</text>
-              <text class="fission-coin c4">¥</text>
+            <image class="fission-popup-bg" src="/static/fission/popup-poster.png" mode="aspectFill" />
+            <view class="fission-popup-body">
+              <view class="fission-popup-pool-row">
+                <text class="fission-popup-yen">¥</text>
+                <text class="fission-popup-num">{{ fissionPopupPool }}</text>
+                <text class="fission-popup-unit">奖金池</text>
+              </view>
+              <text class="fission-popup-progress">当前 {{ fissionPopupQuals }} / {{ fissionPopupCap }} 份资格</text>
+              <text class="fission-popup-remain">剩余 {{ fissionPopupRemain }}</text>
+              <text class="fission-popup-cta">点击拆开红包</text>
+              <text class="fission-popup-risk">72小时未集齐资格，红包池作废</text>
             </view>
-            <text class="fission-popup-brand">— 裂变红宝 —</text>
-            <view class="fission-popup-pool-row">
-              <text class="fission-popup-yen">¥</text>
-              <text class="fission-popup-num">{{ fissionPopupPool }}</text>
-              <text class="fission-popup-unit">奖金池</text>
-            </view>
-            <text class="fission-popup-progress">当前 {{ fissionPopupQuals }} / {{ fissionPopupCap }} 份资格</text>
-            <text class="fission-popup-remain">剩余 {{ fissionPopupRemain }}</text>
-            <view class="fission-popup-cta">点击拆开红包</view>
-            <text class="fission-popup-risk">72小时未集齐资格，红包池作废</text>
           </view>
           <view class="fission-popup-close" @click="dismissFissionPopup">×</view>
         </view>
