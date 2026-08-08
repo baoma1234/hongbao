@@ -3498,7 +3498,12 @@ function closeRpDetail() {
 .chat-niuniu-card .nn-cta-btn {
   width: 100%;
   display: block;
-  margin-top: 8px;
+}
+/* 开奖后仅剩一个按钮时，整体下移对齐 */
+.chat-niuniu-card.phase-result .nn-right,
+.chat-niuniu-card.phase-void .nn-right,
+.chat-niuniu-card.phase-refund .nn-right {
+  top: 52%;
 }
 .chat-niuniu-card .nn-time {
   position: absolute;
