@@ -4367,31 +4367,82 @@ class FansHubService
     }
 
     /**
-     * 随机机器人昵称（2~4 字中文风格，不复用手机号）
+     * 随机机器人昵称：纯中文 2～6 字，无数字、不重复
      */
     public static function randomBotNickname()
     {
-        static $adj = [
-            '快乐', '幸运', '阳光', '神秘', '闪闪', '金色', '赤焰', '清风', '星辰', '云端',
-            '灵动', '欢喜', '锦鲤', '如意', '福气', '天成', '红火', '奔腾', '小幸运', '大吉',
+        static $parts = [
+            '清', '安', '乐', '思', '语', '夏', '秋', '晨', '晚', '星', '月', '云', '风', '雨', '雪',
+            '花', '叶', '竹', '松', '梅', '兰', '菊', '桃', '杏', '柳', '溪', '江', '海', '山', '川',
+            '阿', '小', '大', '老', '可', '若', '一', '半', '初', '末', '南', '北', '东', '西', '中',
+            '明', '亮', '辉', '华', '杰', '豪', '博', '文', '武', '轩', '宇', '浩', '然', '逸', '远',
+            '婉', '婷', '静', '柔', '慧', '颖', '欣', '怡', '悦', '琳', '瑶', '琪', '珊', '璇', '依',
+            '子', '兮', '也', '之', '然', '如', '意', '心', '念', '想', '愿', '梦', '行', '止', '归',
+            '宝', '贝', '果', '豆', '米', '茶', '酒', '糖', '盐', '椒', '鱼', '鸟', '猫', '鹿', '鹤',
         ];
-        static $noun = [
-            '小宝', '红宝', '达人', '少年', '星子', '旅人', '骑士', '船长', '渔夫', '猎人',
-            '公子', '小姐', '掌柜', '侠客', '浪客', '飞侠', '喵喵', '旺旺', '豆豆', '果果',
+        static $phrases = [
+            '清风', '明月', '星河', '云端', '锦鲤', '如意', '小满', '安然', '欢喜', '知夏',
+            '南巷', '北辰', '东篱', '西窗', '半夏', '初晴', '晚风', '听雨', '望山', '临江',
+            '青柠', '柠檬', '柚子', '桃夭', '杏雨', '柳烟', '竹影', '松涛', '梅香', '兰息',
+            '小鹿', '白鸽', '玄狐', '金乌', '玉兔', '青鸟', '闲云', '野鹤', '孤舟', '扁舟',
+            '阿木', '阿南', '阿夏', '阿秋', '阿宁', '阿遥', '阿川', '阿舟', '阿琛', '阿衡',
+            '苏苏', '七七', '三三', '九九', '七七子', '小橙子', '小土豆', '小樱桃', '大白兔', '小狐狸',
+            '一念', '二两', '三分', '四时', '五味', '六合', '知否', '未央', '长安', '姑苏',
+            '听潮', '观澜', '拾光', '寄远', '怀橘', '折柳', '采薇', '问道', '寻梅', '煮雪',
+            '暖阳', '微光', '浅夏', '深秋', '长夏', '短歌', '慢行', '速写', '轻语', '静听',
+            '无忧', '有喜', '正好', '刚刚好', '小幸运', '大吉祥', '好时光', '好心情', '好天气', '好日子',
         ];
-        for ($i = 0; $i < 40; $i++) {
-            $nick = $adj[array_rand($adj)] . $noun[array_rand($noun)];
-            if (mt_rand(0, 1)) {
-                $nick .= (string)mt_rand(10, 99);
+        for ($i = 0; $i < 80; $i++) {
+            if (mt_rand(0, 100) < 55) {
+                $nick = $phrases[array_rand($phrases)];
+            } else {
+                $len = mt_rand(2, 6);
+                $nick = '';
+                $nParts = count($parts);
+                for ($j = 0; $j < $len; $j++) {
+                    $nick .= $parts[mt_rand(0, $nParts - 1)];
+                }
             }
-            if (mb_strlen($nick) > 12) {
-                $nick = mb_substr($nick, 0, 12);
+            $nick = preg_replace('/\d+/u', '', (string)$nick);
+            $nick = preg_replace('/\s+/u', '', $nick);
+            $len = mb_strlen($nick, 'UTF-8');
+            if ($len < 2 || $len > 6) {
+                continue;
             }
             if (!User::getByNickname($nick)) {
                 return $nick;
             }
         }
-        return '红宝' . substr((string)time(), -3) . str_pad((string)mt_rand(0, 999), 3, '0', STR_PAD_LEFT);
+        // 兜底：仍保证无数字、长度 2～6
+        for ($k = 0; $k < 30; $k++) {
+            $nick = $phrases[array_rand($phrases)] . $parts[array_rand($parts)];
+            $nick = preg_replace('/\d+/u', '', $nick);
+            if (mb_strlen($nick, 'UTF-8') > 6) {
+                $nick = mb_substr($nick, 0, 6, 'UTF-8');
+            }
+            if (mb_strlen($nick, 'UTF-8') >= 2 && !User::getByNickname($nick)) {
+                return $nick;
+            }
+        }
+        return '清风';
+    }
+
+    /**
+     * 为机器人分配互不相同的头像 URL（dicebear / pravatar）
+     */
+    public static function randomBotAvatar($seed = '')
+    {
+        $seed = preg_replace('/[^a-zA-Z0-9_-]/', '', (string)$seed);
+        if ($seed === '') {
+            $seed = bin2hex(random_bytes(8));
+        }
+        $styles = ['lorelei', 'notionists', 'adventurer', 'avataaars', 'open-peeps', 'personas', 'big-smile', 'fun-emoji'];
+        $style = $styles[crc32($seed) % count($styles)];
+        // 约一半用 dicebear 插画，一半用 pravatar 真人感照片，视觉更分散
+        if ((crc32($seed) & 1) === 0) {
+            return 'https://api.dicebear.com/9.x/' . $style . '/png?seed=' . rawurlencode($seed) . '&size=128';
+        }
+        return 'https://i.pravatar.cc/150?u=' . rawurlencode($seed);
     }
 
     /**
@@ -4400,7 +4451,7 @@ class FansHubService
      * @param string $mobile
      * @param float  $hongbao
      * @param string $nickname 空则随机
-     * @return array{user_id:int,mobile:string,nickname:string,hongbao:float}
+     * @return array{user_id:int,mobile:string,nickname:string,hongbao:float,avatar:string}
      */
     public static function createBotUser($mobile, $hongbao = 100000, $nickname = '')
     {
@@ -4430,8 +4481,17 @@ class FansHubService
             throw new Exception('机器人注册后未找到用户');
         }
         $userId = (int)$user->id;
+        $avatar = self::randomBotAvatar('bot' . $userId . '_' . substr(md5($mobile), 0, 8));
+        $dirty = false;
         if ((string)$user->nickname !== $nick) {
             $user->nickname = $nick;
+            $dirty = true;
+        }
+        if (trim((string)$user->avatar) === '' || (string)$user->avatar !== $avatar) {
+            $user->avatar = $avatar;
+            $dirty = true;
+        }
+        if ($dirty) {
             $user->save();
         }
 
@@ -4481,6 +4541,7 @@ class FansHubService
             'mobile'   => $mobile,
             'nickname' => $nick,
             'hongbao'  => $hongbao,
+            'avatar'   => $avatar,
         ];
     }
 

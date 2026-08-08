@@ -1,6 +1,6 @@
 <template>
   <view>
-    <TopBar :no-spacer="true" />
+    <TopBar :no-spacer="true" :fission-link="true" />
     <view id="tabMessages" class="tab-page active">
       <view class="chat-shell">
         <view class="chat-list-pane">
@@ -297,13 +297,12 @@
                 <view
                   v-if="fissionNoticeVisible && (noticeCat === 'latest' || noticeCat === 'promote')"
                   class="chat-fission-card"
-                  @click="goFissionFromNotice"
                 >
                   <view class="chat-fission-card-hd">
                     <text class="chat-fission-card-tag">官方活动</text>
                     <text class="chat-fission-card-time">{{ fissionNoticeTime }}</text>
                   </view>
-                  <view class="chat-fission-envelope">
+                  <view class="chat-fission-envelope" @click="goFissionFromNotice">
                     <text class="chat-fission-title">裂变红宝</text>
                     <text class="chat-fission-pool">¥ {{ fissionNoticePool }} 奖金池</text>
                     <text class="chat-fission-progress">当前 {{ fissionNoticeQuals }} / {{ fissionNoticeCap }} 份资格</text>
@@ -312,6 +311,9 @@
                       {{ fissionNoticeEnded ? '活动已结束' : '点击拆开红包' }}
                     </view>
                     <text class="chat-fission-risk">72小时未集齐资格，红包池作废</text>
+                  </view>
+                  <view class="chat-fission-card-ft" @click.stop="openFissionShare">
+                    <view class="chat-notice-share-btn">分享</view>
                   </view>
                 </view>
 
@@ -625,6 +627,43 @@
       </view>
     </view>
 
+    <!-- 分享到好友/可发言群 -->
+    <view v-if="shareSheetOpen" class="chat-share-sheet-mask" @click="closeShareSheet">
+      <view class="chat-share-sheet" @click.stop>
+        <view class="chat-share-sheet-hd">
+          <text class="chat-share-sheet-title">分享到</text>
+          <text class="chat-share-sheet-close" @click="closeShareSheet">关闭</text>
+        </view>
+        <view class="chat-share-sheet-preview">{{ sharePreviewText }}</view>
+        <scroll-view scroll-y class="chat-share-sheet-list">
+          <view v-if="shareTargets.length" class="chat-share-sec-lab">好友</view>
+          <view
+            v-for="f in shareFriendTargets"
+            :key="'f-' + shareFriendId(f)"
+            class="chat-share-row"
+            @click="sendShareToFriend(f)"
+          >
+            <image class="chat-share-av" :src="avatarSrc(f.avatar || f.peer_avatar || '')" mode="aspectFill" />
+            <text class="chat-share-name">{{ friendName(f) }}</text>
+            <text class="chat-share-go">发送</text>
+          </view>
+          <view v-if="shareGroupTargets.length" class="chat-share-sec-lab">可发言群聊</view>
+          <view
+            v-for="g in shareGroupTargets"
+            :key="'g-' + ((g.id || g.group_id) | 0)"
+            class="chat-share-row"
+            @click="sendShareToGroup(g)"
+          >
+            <image class="chat-share-av" :src="avatarSrc(g.avatar || '')" mode="aspectFill" />
+            <text class="chat-share-name">{{ g.name || ('群' + (g.id || g.group_id)) }}</text>
+            <text class="chat-share-go">发送</text>
+          </view>
+          <view v-if="!shareTargets.length && !shareLoading" class="chat-empty">暂无可分享的好友或群</view>
+          <view v-if="shareLoading" class="chat-empty">加载中…</view>
+        </scroll-view>
+      </view>
+    </view>
+
     <FriendScanSheet />
     <BottomTabBar active="messages" />
   </view>
@@ -655,12 +694,14 @@ import { saveActiveChat } from '../../utils/chat-route.js'
 import {
   canCreateGroupFromAuth,
   createGroup,
+  fetchGroupInfo,
   friendRequests,
   getImAuthMeta,
   getImStatus,
   hideConversation,
   imConnect,
   imForceReconnect,
+  imSend,
   joinGroup,
   listFriends,
   listMyGroups,
@@ -1074,20 +1115,147 @@ async function shareNoticeToCommunity(n) {
       else if (share && share.share_link) shareText += '\n' + share.share_link
     }
   } catch (e) {}
-  // #ifdef H5
+  openShareSheet(shareText)
+}
+
+const shareSheetOpen = ref(false)
+const shareLoading = ref(false)
+const shareTextPayload = ref('')
+const shareFriendTargets = ref([])
+const shareGroupTargets = ref([])
+const shareBusy = ref(false)
+
+const sharePreviewText = computed(() => {
+  const s = String(shareTextPayload.value || '')
+  return s.length > 80 ? s.slice(0, 80) + '…' : s
+})
+const shareTargets = computed(() => [
+  ...(shareFriendTargets.value || []),
+  ...(shareGroupTargets.value || []),
+])
+
+function shareFriendId(f) {
+  return (f && (f.peer_user_id || f.user_id || f.id)) | 0
+}
+
+function closeShareSheet() {
+  shareSheetOpen.value = false
+}
+
+async function openShareSheet(text) {
+  shareTextPayload.value = String(text || '').trim()
+  if (!shareTextPayload.value) {
+    uni.showToast({ title: '分享内容为空', icon: 'none' })
+    return
+  }
+  shareSheetOpen.value = true
+  shareLoading.value = true
+  shareFriendTargets.value = []
+  shareGroupTargets.value = []
   try {
-    if (typeof navigator !== 'undefined' && navigator.share) {
-      await navigator.share({ title: '红宝公告', text: shareText })
-      uni.showToast({ title: '已唤起分享', icon: 'none' })
-      return
+    await imConnect()
+    if (!friends.value.length || !myGroups.value.length) {
+      await loadCommunityExtra()
+    }
+    shareFriendTargets.value = (friends.value || []).filter((f) => shareFriendId(f) > 0)
+    const groups = myGroups.value || []
+    const speakable = []
+    // 并行探测能否发言（限前 24 个群，避免卡顿）
+    const slice = groups.slice(0, 24)
+    await Promise.all(
+      slice.map(async (g) => {
+        const gid = (g.id || g.group_id) | 0
+        if (!gid) return
+        const role = (g.my_role | 0) || (g.role | 0) || 0
+        if (role >= 2) {
+          speakable.push(g)
+          return
+        }
+        try {
+          const info = await fetchGroupInfo(gid)
+          const data = (info && info.data) || info || {}
+          const pol = data.policy || {}
+          if (data.can_speak === false) return
+          if (pol.can_send_text === false) return
+          speakable.push(g)
+        } catch (e) {
+          // 探测失败时仍展示（发送时再报错）
+          speakable.push(g)
+        }
+      })
+    )
+    shareGroupTargets.value = speakable
+  } catch (e) {
+    uni.showToast({ title: (e && e.message) || '加载失败', icon: 'none' })
+  } finally {
+    shareLoading.value = false
+  }
+}
+
+async function openFissionShare() {
+  const pool = fissionNoticePool.value
+  const quals = fissionNoticeQuals.value
+  const cap = fissionNoticeCap.value
+  let shareText =
+    '【官方活动】裂变红宝进行中！奖金池 ¥' +
+    pool +
+    '，当前 ' +
+    quals +
+    '/' +
+    cap +
+    ' 份资格。快来拆红包～'
+  try {
+    if (getToken()) {
+      const share = await apiRequest('share', 'POST', { copy_only: 1 })
+      if (share && share.share_text) shareText += '\n' + share.share_text
+      else if (share && share.share_link) shareText += '\n' + share.share_link
+      // 附带裂变页路径提示
+      shareText += '\n进入红宝 → 公告 → 官方活动 参与'
     }
   } catch (e) {}
-  // #endif
-  uni.setClipboardData({
-    data: shareText,
-    success: () => uni.showToast({ title: '已复制，可粘贴到社群', icon: 'none' }),
-    fail: () => uni.showToast({ title: '分享失败', icon: 'none' }),
-  })
+  openShareSheet(shareText)
+}
+
+async function sendShareToFriend(f) {
+  if (shareBusy.value) return
+  const peer = shareFriendId(f)
+  if (!peer) return
+  shareBusy.value = true
+  try {
+    await imConnect()
+    await imSend(
+      'private.send',
+      { to_user_id: peer, content: shareTextPayload.value, msg_type: 1 },
+      true
+    )
+    uni.showToast({ title: '已分享给好友', icon: 'success' })
+    closeShareSheet()
+  } catch (e) {
+    uni.showToast({ title: (e && e.message) || '发送失败', icon: 'none' })
+  } finally {
+    shareBusy.value = false
+  }
+}
+
+async function sendShareToGroup(g) {
+  if (shareBusy.value) return
+  const gid = (g && (g.id || g.group_id)) | 0
+  if (!gid) return
+  shareBusy.value = true
+  try {
+    await imConnect()
+    await imSend(
+      'group.send',
+      { group_id: gid, content: shareTextPayload.value, msg_type: 1 },
+      true
+    )
+    uni.showToast({ title: '已分享到群', icon: 'success' })
+    closeShareSheet()
+  } catch (e) {
+    uni.showToast({ title: (e && e.message) || '发送失败（可能禁言）', icon: 'none' })
+  } finally {
+    shareBusy.value = false
+  }
 }
 
 function promoteEarnMaskUid(uid) {

@@ -9,40 +9,15 @@
     <view class="profile-sub-body hb-sub">
     <view class="wallet-ledger-filters">
       <view
+        v-for="tab in filterTabs"
+        :key="tab.key"
         class="wallet-ledger-filter"
-        :class="{ 'is-on': category === 'all' }"
-        @click="setCategory('all')"
-      >全部</view>
-      <view
-        class="wallet-ledger-filter"
-        :class="{ 'is-on': category === 'recharge' }"
-        @click="setCategory('recharge')"
-      >充值</view>
-      <view
-        class="wallet-ledger-filter"
-        :class="{ 'is-on': category === 'withdraw' }"
-        @click="setCategory('withdraw')"
-      >提现</view>
-      <view
-        class="wallet-ledger-filter"
-        :class="{ 'is-on': category === 'hongbao_in' }"
-        @click="setCategory('hongbao_in')"
-      >红宝入账</view>
-      <view
-        class="wallet-ledger-filter"
-        :class="{ 'is-on': category === 'refund' }"
-        @click="setCategory('refund')"
-      >红宝退回</view>
-      <view
-        class="wallet-ledger-filter"
-        :class="{ 'is-on': category === 'rebate' }"
-        @click="setCategory('rebate')"
-      >红宝返佣</view>
-      <view
-        class="wallet-ledger-filter"
-        :class="{ 'is-on': category === 'freeze' }"
-        @click="setCategory('freeze')"
-      >冻结记录</view>
+        :class="['tone-' + tab.tone, { 'is-on': category === tab.key }]"
+        @click="setCategory(tab.key)"
+      >
+        <text class="wallet-ledger-filter-ico">{{ tab.ico }}</text>
+        <text class="wallet-ledger-filter-lab">{{ tab.label }}</text>
+      </view>
     </view>
 
     <view class="wallet-ledger-list" v-if="list.length">
@@ -108,6 +83,15 @@ const hasMore = ref(false)
 const loading = ref(false)
 const error = ref('')
 const category = ref('all')
+const filterTabs = [
+  { key: 'all', label: '全部', ico: '☰', tone: 'all' },
+  { key: 'recharge', label: '充值', ico: '↓', tone: 'in' },
+  { key: 'withdraw', label: '提现', ico: '↑', tone: 'out' },
+  { key: 'hongbao_in', label: '红宝入账', ico: '🧧', tone: 'hb' },
+  { key: 'refund', label: '红宝退回', ico: '↩', tone: 'back' },
+  { key: 'rebate', label: '红宝返佣', ico: '%', tone: 'rebate' },
+  { key: 'freeze', label: '冻结记录', ico: '❄', tone: 'freeze' },
+]
 const emptyText = computed(() => {
   if (category.value === 'rebate') return '暂无红宝返佣流水'
   if (category.value === 'hongbao_in') return '暂无红宝入账流水'
@@ -236,24 +220,76 @@ onShow(() => {
 <style scoped>
 .wallet-ledger-filters {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
-  margin-bottom: 12px;
-  padding: 0 2px;
+  margin: 0 -4px 14px;
+  padding: 4px 4px 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.wallet-ledger-filters::-webkit-scrollbar {
+  display: none;
 }
 .wallet-ledger-filter {
-  border: 1px solid #e1e8ed;
-  background: #f5f6f8;
-  color: #555;
-  border-radius: 999px;
-  padding: 6px 14px;
-  font-size: 13px;
-  font-weight: 600;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid #e8ecf1;
+  background: #fff;
+  color: #5a6573;
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(26, 33, 45, 0.04);
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
-.wallet-ledger-filter.is-on {
-  background: #1a1a1a;
-  border-color: #1a1a1a;
+.wallet-ledger-filter-ico {
+  font-size: 12px;
+  line-height: 1;
+  opacity: 0.9;
+}
+.wallet-ledger-filter-lab {
+  white-space: nowrap;
+}
+.wallet-ledger-filter.tone-in.is-on {
+  background: linear-gradient(135deg, #1b8f4a, #147a3d);
+  border-color: transparent;
   color: #fff;
+  box-shadow: 0 6px 14px rgba(20, 122, 61, 0.28);
+}
+.wallet-ledger-filter.tone-out.is-on {
+  background: linear-gradient(135deg, #e4572e, #c62828);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 6px 14px rgba(198, 40, 40, 0.28);
+}
+.wallet-ledger-filter.tone-hb.is-on,
+.wallet-ledger-filter.tone-rebate.is-on {
+  background: linear-gradient(135deg, #ff7043, #e53935);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 6px 14px rgba(229, 57, 53, 0.26);
+}
+.wallet-ledger-filter.tone-back.is-on {
+  background: linear-gradient(135deg, #5c6bc0, #3949ab);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 6px 14px rgba(57, 73, 171, 0.26);
+}
+.wallet-ledger-filter.tone-freeze.is-on {
+  background: linear-gradient(135deg, #546e7a, #37474f);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 6px 14px rgba(55, 71, 79, 0.26);
+}
+.wallet-ledger-filter.tone-all.is-on {
+  background: linear-gradient(135deg, #2c3340, #1a1f29);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 6px 14px rgba(26, 31, 41, 0.28);
 }
 .wallet-ledger-item.is-rp {
   cursor: pointer;

@@ -1022,3 +1022,104 @@ body.tab-messages #tabMessages .chat-list-pane {
   font-size: 10px;
   opacity: 0.85;
 }
+#tabMessages .chat-fission-card-ft {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 14px 12px;
+}
+#tabMessages .chat-fission-card-ft .chat-notice-share-btn {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 210, 122, 0.45);
+  color: #ffd27a;
+}
+
+/* 分享选人面板 */
+.chat-share-sheet-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 16000;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.chat-share-sheet {
+  width: 100%;
+  max-width: 520px;
+  max-height: 72vh;
+  background: #fff;
+  border-radius: 16px 16px 0 0;
+  padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.chat-share-sheet-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.chat-share-sheet-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #1a212d;
+}
+.chat-share-sheet-close {
+  font-size: 13px;
+  color: #657786;
+  padding: 4px 8px;
+}
+.chat-share-sheet-preview {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #657786;
+  background: #f5f7fa;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.chat-share-sheet-list {
+  flex: 1;
+  max-height: 48vh;
+}
+.chat-share-sec-lab {
+  font-size: 12px;
+  font-weight: 800;
+  color: #8a97a8;
+  margin: 8px 4px 6px;
+}
+.chat-share-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 6px;
+  border-radius: 10px;
+}
+.chat-share-row:active {
+  background: #f7f8fa;
+}
+.chat-share-av {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #eee;
+  flex-shrink: 0;
+}
+.chat-share-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1a212d;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-share-go {
+  font-size: 12px;
+  font-weight: 800;
+  color: #c62828;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #fff0f0;
+}

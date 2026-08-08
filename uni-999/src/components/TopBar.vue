@@ -10,7 +10,10 @@
         <text class="lang-text">{{ localeLabel }}</text>
         <text class="caret">▾</text>
       </view>
-      <view class="skin-wrap" @click.stop="toggleSkin">
+      <view v-if="fissionLink" class="fission-wrap" @click.stop="goFission">
+        <text class="fission-lab">裂变红包</text>
+      </view>
+      <view v-else class="skin-wrap" @click.stop="toggleSkin">
         <text class="skin-lab">{{ skinLabel }}</text>
         <text class="skin-val">{{ skinName }}</text>
         <text class="caret">▾</text>
@@ -32,7 +35,7 @@
       </view>
     </view>
 
-    <view v-if="skinOpen" class="panel skin-panel" @click.stop>
+    <view v-if="!fissionLink && skinOpen" class="panel skin-panel" @click.stop>
       <view
         v-for="opt in skins"
         :key="opt.id"
@@ -65,9 +68,11 @@ import {
   SKIN_OPTIONS,
 } from '../utils/skin.js'
 
-defineProps({
+const props = defineProps({
   /** 红宝等页用 body padding-top 占位，勿再插 spacer 以免双倍空隙 */
   noSpacer: { type: Boolean, default: false },
+  /** 公告等页：右上角换肤改为「裂变红包」入口 */
+  fissionLink: { type: Boolean, default: false },
 })
 
 const locale = ref(getLocale())
@@ -127,8 +132,17 @@ function toggleLang() {
 }
 
 function toggleSkin() {
+  if (props.fissionLink) return
   langOpen.value = false
   skinOpen.value = !skinOpen.value
+}
+
+function goFission() {
+  closePanels()
+  uni.navigateTo({
+    url: '/pages/fission/detail',
+    fail: () => uni.showToast({ title: '无法打开裂变红包', icon: 'none' }),
+  })
 }
 
 async function pickLocale(id) {
@@ -242,7 +256,8 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 .lang-wrap,
-.skin-wrap {
+.skin-wrap,
+.fission-wrap {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -251,6 +266,17 @@ onUnmounted(() => {
   border-radius: 10px;
   border: 1px solid color-mix(in srgb, var(--text-muted, #657786) 26%, transparent);
   background: color-mix(in srgb, var(--bg-main, #f4f6f9) 6%, var(--bg-card, #fff) 94%);
+}
+.fission-wrap {
+  border-color: color-mix(in srgb, #e83b1a 40%, transparent);
+  background: linear-gradient(135deg, #fff5f0, #ffe8e0);
+}
+.fission-lab {
+  font-size: 12px;
+  font-weight: 900;
+  color: #d32f2f;
+  white-space: nowrap;
+  letter-spacing: 0.3px;
 }
 .flag {
   width: 22px;

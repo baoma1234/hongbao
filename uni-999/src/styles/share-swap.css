@@ -1,9 +1,9 @@
 /* css/share-swap.css — 闪兑页下方双向兑换（单面板 + 联动下拉） */
 
 .share-swap {
-    --ss-primary: #52a55e;
-    --ss-grad-start: #dcf2db;
-    --ss-grad-end: #59b165;
+    --ss-primary: #2f8f4a;
+    --ss-grad-start: #3fa85a;
+    --ss-grad-end: #1f7a3d;
     --ss-text-title: #333;
     --ss-text-main: #2c2c2c;
     --ss-text-sub: #7a7a7a;
@@ -13,7 +13,7 @@
     --ss-icon: #f4f5f0;
     --ss-border: #f0f0f0;
     --ss-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
-    --ss-btn-shadow: 0 6px 16px rgba(89, 177, 101, 0.2);
+    --ss-btn-shadow: 0 8px 20px rgba(31, 122, 61, 0.32);
 
     margin: 16px 0 8px;
     padding: 14px 12px 16px;
@@ -266,24 +266,29 @@
 .share-swap-submit {
     margin-top: 16px;
     width: 100%;
-    height: 44px;
-    border-radius: 22px;
+    height: 48px;
+    border-radius: 24px;
     border: none;
-    background: linear-gradient(90deg, var(--ss-grad-start), var(--ss-grad-end));
+    background: linear-gradient(135deg, var(--ss-grad-start) 0%, var(--ss-grad-end) 100%);
     color: #fff;
-    font-size: 15px;
-    font-weight: 600;
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 1px;
     cursor: pointer;
     box-shadow: var(--ss-btn-shadow);
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.12);
 }
 
 .share-swap-submit:active {
-    opacity: 0.85;
+    opacity: 0.92;
+    transform: translateY(1px);
+    box-shadow: 0 4px 12px rgba(31, 122, 61, 0.28);
 }
 
 .share-swap-submit:disabled {
-    opacity: 0.55;
+    opacity: 0.5;
     cursor: not-allowed;
+    filter: grayscale(0.15);
 }
 
 .share-swap-closed {
