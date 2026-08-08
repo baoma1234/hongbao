@@ -515,6 +515,52 @@
 
     <GrabSlider ref="grabSliderRef" />
 
+    <!-- 牛牛开奖明细（表格，本账号置顶） -->
+    <view v-if="showNiuniuDetail" class="chat-sub-pane open" aria-hidden="false">
+      <view class="chat-hero-hd">
+        <view class="chat-hero-back" hover-class="chat-hero-back--active" @click="closeNiuniuDetail">
+          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" class="chat-hero-ico">
+            <path fill="currentColor" d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z" />
+          </svg>
+        </view>
+        <view class="chat-hero-title">开奖明细</view>
+        <view class="chat-hero-spacer" />
+      </view>
+      <view class="chat-sub-main nn-detail-main">
+        <view class="nn-detail-summary" v-if="niuniuDetailRound">
+          <text>奖池 {{ niuniuDetailRound.pool_amount || 0 }}</text>
+          <text>手续费 {{ niuniuDetailRound.fee_amount || 0 }}</text>
+          <text>可发 {{ niuniuDetailRound.distributable || 0 }}</text>
+        </view>
+        <scroll-view scroll-y class="nn-detail-scroll" :show-scrollbar="true">
+          <view class="nn-table">
+            <view class="nn-tr nn-th">
+              <text class="c-no">#</text>
+              <text class="c-name">昵称</text>
+              <text class="c-tail">尾数</text>
+              <text class="c-niu">结果</text>
+              <text class="c-win">奖金</text>
+            </view>
+            <view
+              v-for="row in niuniuDetailRows"
+              :key="row.id || (row.user_id + '-' + row.share_no)"
+              class="nn-tr"
+              :class="{ mine: row.is_mine }"
+            >
+              <text class="c-no">{{ row.share_no || '-' }}</text>
+              <text class="c-name">{{ row.is_mine ? '我' : (row.nickname || ('用户' + row.user_id)) }}</text>
+              <text class="c-tail">{{ row.tail_digits || '--' }}</text>
+              <text class="c-niu">{{ row.niu_label || row.calc || '--' }}</text>
+              <text class="c-win" :class="{ win: Number(row.win_amount) > 0 }">{{ formatNiuniuWin(row.win_amount) }}</text>
+            </view>
+            <view v-if="!niuniuDetailRows.length" class="nn-tr empty">
+              <text>暂无明细</text>
+            </view>
+          </view>
+        </scroll-view>
+      </view>
+    </view>
+
     <!-- 红包详情：对齐 888 #chatRpDetailPane -->
     <view v-if="detailVisible" id="chatRpDetailPane" class="chat-sub-pane open" aria-hidden="false">
       <view class="chat-hero-hd">
@@ -713,6 +759,9 @@ const showNiuniu = ref(false)
 const niuniuBusy = ref(false)
 const niuniuSheet = ref(null)
 const niuniuBuyCount = ref('1')
+const showNiuniuDetail = ref(false)
+const niuniuDetailRound = ref(null)
+const niuniuDetailRows = ref([])
 const showEmoji = ref(false)
 const showSticker = ref(false)
 const showAttach = ref(false)
@@ -2702,17 +2751,38 @@ async function onNiuniuTap(m) {
   try {
     const res = await niuniuDetail(rid)
     const data = (res && res.data) || res || {}
-    const r = data.round || {}
-    const lines = []
-    lines.push('奖池' + (r.pool_amount || 0) + '｜手续费' + (r.fee_amount || 0) + '｜可发' + (r.distributable || 0))
-    const shares = data.shares || []
-    shares.slice(0, 20).forEach((s) => {
-      lines.push((s.nickname || s.user_id) + '｜' + (s.calc || s.niu_label || '') + (s.win_amount > 0 ? '｜+' + s.win_amount : ''))
-    })
-    uni.showModal({ title: '开奖明细', content: lines.join('\n'), showCancel: false })
+    openNiuniuDetail(data)
   } catch (e) {
     uni.showToast({ title: (e && e.message) || '加载失败', icon: 'none' })
   }
+}
+
+function formatNiuniuWin(v) {
+  const n = Number(v)
+  if (isNaN(n) || n <= 0) return '0'
+  return '+' + (Math.round(n * 100) / 100)
+}
+
+function openNiuniuDetail(data) {
+  const uid = (myUserId.value | 0) || (myId | 0)
+  const shares = (data && data.shares) || []
+  const mine = []
+  const others = []
+  shares.forEach((s) => {
+    const row = Object.assign({}, s, { is_mine: (s.user_id | 0) === uid })
+    if (row.is_mine) mine.push(row)
+    else others.push(row)
+  })
+  const byNo = (a, b) => ((a.share_no | 0) - (b.share_no | 0)) || ((a.id | 0) - (b.id | 0))
+  mine.sort(byNo)
+  others.sort(byNo)
+  niuniuDetailRound.value = (data && data.round) || null
+  niuniuDetailRows.value = mine.concat(others)
+  showNiuniuDetail.value = true
+}
+
+function closeNiuniuDetail() {
+  showNiuniuDetail.value = false
 }
 
 async function submitNiuniuBuy() {
@@ -3527,4 +3597,95 @@ function closeRpDetail() {
   line-height: 1.5;
   margin: 10px 0 14px;
 }
+.nn-detail-main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: #f7f8fa;
+}
+.nn-detail-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  padding: 12px 14px;
+  background: #fff;
+  border-bottom: 1px solid #eef0f3;
+  font-size: 12px;
+  font-weight: 700;
+  color: #444;
+}
+.nn-detail-scroll {
+  flex: 1;
+  height: 0;
+  min-height: 320px;
+  padding: 10px 10px 24px;
+  box-sizing: border-box;
+}
+.nn-table {
+  background: #fff;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #e8ebf0;
+}
+.nn-tr {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 6px 8px;
+  border-bottom: 1px solid #f0f2f5;
+  font-size: 12px;
+  color: #333;
+  box-sizing: border-box;
+}
+.nn-tr:last-child { border-bottom: 0; }
+.nn-tr.nn-th {
+  background: #f5f7fa;
+  color: #667085;
+  font-weight: 800;
+  font-size: 11px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.nn-tr.mine {
+  background: #fff7e8;
+}
+.nn-tr.mine .c-name {
+  color: #d48806;
+  font-weight: 800;
+}
+.nn-tr.empty {
+  justify-content: center;
+  color: #999;
+  min-height: 64px;
+}
+.nn-tr .c-no { width: 28px; flex-shrink: 0; text-align: center; color: #888; }
+.nn-tr .c-name {
+  flex: 1.1;
+  min-width: 0;
+  padding: 0 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+}
+.nn-tr .c-tail { width: 44px; flex-shrink: 0; text-align: center; font-variant-numeric: tabular-nums; }
+.nn-tr .c-niu {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #555;
+}
+.nn-tr .c-win {
+  width: 58px;
+  flex-shrink: 0;
+  text-align: right;
+  font-weight: 700;
+  color: #999;
+  font-variant-numeric: tabular-nums;
+}
+.nn-tr .c-win.win { color: #e53935; }
 </style>
