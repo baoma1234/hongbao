@@ -762,6 +762,10 @@ const niuniuBuyCount = ref('1')
 const showNiuniuDetail = ref(false)
 const niuniuDetailRound = ref(null)
 const niuniuDetailRows = ref([])
+/** 驱动牛牛倒计时每秒重绘（模板依赖 Date.now 不会自动刷新） */
+const niuniuNowTick = ref(0)
+let niuniuTickTimer = null
+let niuniuZeroRefreshAt = 0
 const showEmoji = ref(false)
 const showSticker = ref(false)
 const showAttach = ref(false)
@@ -1455,12 +1459,44 @@ function niuniuDrand(m) {
   const r = niuniuRound(m)
   return r.drand_label || ('drand-#' + (r.drand_round || ''))
 }
+function ensureNiuniuTick() {
+  if (niuniuTickTimer) return
+  niuniuNowTick.value = Math.floor(Date.now() / 1000)
+  niuniuTickTimer = setInterval(() => {
+    niuniuNowTick.value = Math.floor(Date.now() / 1000)
+    // 倒计时归零后补拉一轮，尽快切到领取/开奖态
+    const now = niuniuNowTick.value
+    if (now - niuniuZeroRefreshAt < 3) return
+    const list = messages.value || []
+    for (let i = 0; i < list.length; i++) {
+      const m = list[i]
+      if (!isNiuniu(m)) continue
+      const phase = niuniuPhase(m)
+      if (phase !== 'buying' && phase !== 'claim') continue
+      const r = niuniuRound(m)
+      const endAt = phase === 'claim' ? (r.claim_end_at | 0) : (r.buy_end_at | 0)
+      if (endAt > 0 && endAt <= now) {
+        niuniuZeroRefreshAt = now
+        softRefreshHistory()
+        break
+      }
+    }
+  }, 1000)
+}
+function stopNiuniuTick() {
+  if (niuniuTickTimer) {
+    clearInterval(niuniuTickTimer)
+    niuniuTickTimer = null
+  }
+}
 function niuniuRemainText(m) {
+  void niuniuNowTick.value
+  ensureNiuniuTick()
   const r = niuniuRound(m)
-  let sec = (r.remain_buy | 0)
-  if (niuniuPhase(m) === 'claim') sec = (r.remain_claim | 0)
-  const endAt = niuniuPhase(m) === 'claim' ? (r.claim_end_at | 0) : (r.buy_end_at | 0)
-  if (endAt > 0) sec = Math.max(0, endAt - Math.floor(Date.now() / 1000))
+  const phase = niuniuPhase(m)
+  let sec = phase === 'claim' ? (r.remain_claim | 0) : (r.remain_buy | 0)
+  const endAt = phase === 'claim' ? (r.claim_end_at | 0) : (r.buy_end_at | 0)
+  if (endAt > 0) sec = Math.max(0, endAt - (niuniuNowTick.value || Math.floor(Date.now() / 1000)))
   const mm = String(Math.floor(sec / 60)).padStart(2, '0')
   const ss = String(sec % 60).padStart(2, '0')
   return mm + ':' + ss
@@ -3400,6 +3436,7 @@ onShow(() => {
 })
 
 onUnload(() => {
+  stopNiuniuTick()
   markRead()
     .catch(() => {})
     .finally(() => {

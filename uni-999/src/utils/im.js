@@ -1,4 +1,4 @@
-import { getDeviceFp, getToken, goLoginIfUnauthorized } from './auth.js'
+import { getDeviceFp, getToken, goLoginIfUnauthorized, logoutLocal } from './auth.js'
 import { getApiBase, getImWsBase } from './config.js'
 import { calcReconnectDelayMs } from './reconnect-backoff.js'
 
@@ -252,6 +252,26 @@ function handlePacket(raw) {
     reconnectAttempt = 0
     startPingLoop()
     emit('auth.ok', authMeta)
+    return
+  }
+  if (packet.type === 'session.replaced') {
+    // 其它端登录：停掉重连，清 token，回登录页
+    intentionalClose = true
+    stopPingLoop()
+    authed = false
+    authMeta = {}
+    try {
+      if (socketTask) socketTask.close({})
+    } catch (e) {}
+    socketTask = null
+    socketOpen = false
+    logoutLocal()
+    const tip = (packet.data && packet.data.message) || '账号已在其他设备登录'
+    try {
+      uni.showToast({ title: tip, icon: 'none', duration: 2500 })
+    } catch (e2) {}
+    goLoginIfUnauthorized(401, '请登录')
+    emit('session.replaced', packet.data || {})
     return
   }
   if (packet.type === 'pong') {

@@ -4,6 +4,7 @@ namespace app\common\library;
 
 use app\common\model\User;
 use app\common\model\UserRule;
+use app\common\model\fanshub\Account;
 use fast\Random;
 use think\Config;
 use think\Db;
@@ -355,6 +356,27 @@ class Auth
 
                 $this->_user = $user;
 
+                // 非机器人：单点登录，先清掉旧 token，再写入本次 token
+                $isBot = false;
+                $oldEncryptedTokens = [];
+                try {
+                    $acc = Account::where('user_id', (int)$user->id)->find();
+                    $isBot = $acc && (int)$acc->is_bot === 1;
+                } catch (\Throwable $eBot) {
+                    $isBot = false;
+                }
+                if (!$isBot) {
+                    try {
+                        $oldEncryptedTokens = Db::name('user_token')->where('user_id', (int)$user->id)->column('token');
+                        if (!is_array($oldEncryptedTokens)) {
+                            $oldEncryptedTokens = [];
+                        }
+                    } catch (\Throwable $eTok) {
+                        $oldEncryptedTokens = [];
+                    }
+                    Token::clear($user->id);
+                }
+
                 $this->_token = Random::uuid();
                 Token::set($this->_token, $user->id, $this->keeptime);
 
@@ -363,6 +385,12 @@ class Auth
                 //登录成功的事件
                 Hook::listen("user_login_successed", $this->_user);
                 Db::commit();
+                if (!$isBot) {
+                    try {
+                        FansHubService::notifyExclusiveLogin((int)$user->id, $oldEncryptedTokens);
+                    } catch (\Throwable $eKick) {
+                    }
+                }
             } catch (Exception $e) {
                 Db::rollback();
                 $this->setError($e->getMessage());

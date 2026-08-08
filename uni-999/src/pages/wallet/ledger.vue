@@ -31,18 +31,22 @@
         <view class="wallet-ledger-main">
           <view class="wallet-ledger-title">
             {{ item.type_label || item.title || item.type_text || item.type || '变动' }}
-            <text v-if="canOpenRp(item)" class="wallet-ledger-rp-tag">详情 ›</text>
           </view>
           <view class="wallet-ledger-sub" v-if="item.remark && item.remark !== (item.type_label || item.title)">{{ item.remark }}</view>
           <view class="wallet-ledger-time">
             {{ formatLedgerTime(item) }}
           </view>
         </view>
-        <view>
+        <view class="wallet-ledger-side">
           <view class="wallet-ledger-amount" :class="amountCls(item)">{{ amountText(item) }}</view>
           <view class="wallet-ledger-time" v-if="afterText(item)" style="text-align:right">
             余 {{ afterText(item) }}
           </view>
+          <view
+            v-if="canOpenRp(item)"
+            class="wallet-ledger-rp-link"
+            @click.stop="onItemClick(item)"
+          >查看红宝记录</view>
         </view>
       </view>
     </view>
@@ -297,10 +301,20 @@ onShow(() => {
 .wallet-ledger-item.is-rp:active {
   background: #f7f8fa;
 }
-.wallet-ledger-rp-tag {
-  margin-left: 6px;
-  font-size: 12px;
-  font-weight: 600;
+.wallet-ledger-side {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  min-width: 88px;
+}
+.wallet-ledger-rp-link {
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 700;
   color: #c62828;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 </style>

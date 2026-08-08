@@ -1730,9 +1730,17 @@ class MessageRouter
                 if (!isset($this->worker->connections[$cid])) {
                     continue;
                 }
+                $conn = $this->worker->connections[$cid];
                 try {
-                    $this->worker->connections[$cid]->send($json);
+                    $conn->send($json);
                 } catch (\Throwable $e) {
+                }
+                // 单点登录：通知后断开旧连接，避免旧端继续收发
+                if ($type === 'session.replaced') {
+                    try {
+                        $conn->close();
+                    } catch (\Throwable $eClose) {
+                    }
                 }
             }
         }

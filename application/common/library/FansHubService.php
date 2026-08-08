@@ -2467,6 +2467,69 @@ class FansHubService
         ];
     }
 
+    /**
+     * 非机器人单点登录：失效 IM token 缓存，并踢掉其它在线 WS
+     *
+     * @param int   $userId
+     * @param array $oldEncryptedTokens user_token.token（已 HMAC）列表
+     */
+    public static function notifyExclusiveLogin($userId, array $oldEncryptedTokens = [])
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return;
+        }
+        try {
+            $r = FansHubOfficialStats::redisPublic();
+            if (!$r) {
+                return;
+            }
+            $prefix = FansHubOfficialStats::REDIS_PREFIX;
+            foreach ($oldEncryptedTokens as $enc) {
+                $enc = (string)$enc;
+                if ($enc === '') {
+                    continue;
+                }
+                try {
+                    $r->del($prefix . 'tok:' . hash('sha256', $enc));
+                } catch (\Throwable $eDel) {
+                }
+            }
+            $envelope = [
+                'v'      => 1,
+                'type'   => 'session.replaced',
+                'data'   => [
+                    'reason'  => 'login_elsewhere',
+                    'message' => '账号已在其他设备登录',
+                ],
+                'uids'   => [$userId],
+                'except' => '',
+                'from'   => -1,
+                'ts'     => time(),
+            ];
+            $json = json_encode($envelope, JSON_UNESCAPED_UNICODE);
+            if ($json === false || $json === '') {
+                return;
+            }
+            $workers = $r->sMembers($prefix . 'workers');
+            if (!is_array($workers) || !$workers) {
+                $workers = ['0'];
+            }
+            $r->multi(\Redis::PIPELINE);
+            foreach ($workers as $wid) {
+                $wid = (string)$wid;
+                if ($wid === '') {
+                    continue;
+                }
+                $key = $prefix . 'w:' . $wid . ':push';
+                $r->lPush($key, $json);
+                $r->lTrim($key, 0, 19999);
+            }
+            $r->exec();
+        } catch (\Throwable $e) {
+        }
+    }
+
     public static function bindInvite($inviterUserId, $inviteeUserId, $inviteeMobile, $inviteeIp = '')
     {
         if ($inviterUserId <= 0 || $inviterUserId === $inviteeUserId) {
