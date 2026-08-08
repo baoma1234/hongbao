@@ -58,18 +58,7 @@ $st->execute([
 $id = (int)$pdo->lastInsertId();
 echo "OK menu id={$id}\n";
 
-// 默认管理员组赋权（若存在 rules 字段）
-$group = $pre . 'auth_group';
-try {
-    $g = $pdo->query("SELECT id,rules FROM `{$group}` WHERE id=1 LIMIT 1")->fetch(PDO::FETCH_ASSOC);
-    if ($g && isset($g['rules']) && $g['rules'] !== '*') {
-        $rules = array_filter(array_map('intval', explode(',', (string)$g['rules'])));
-        if (!in_array($id, $rules, true)) {
-            $rules[] = $id;
-            $pdo->prepare("UPDATE `{$group}` SET rules=? WHERE id=1")->execute([implode(',', $rules)]);
-            echo "OK granted to group 1\n";
-        }
-    }
-} catch (Throwable $e) {
-    echo "skip group grant: " . $e->getMessage() . "\n";
-}
+// 不再自动改 auth_group.rules：避免把超级管理员从 * / 完整列表收窄成少量 ID。
+// 新菜单对 rules='*' 的组自动可见；其它组请在后台「权限管理」勾选。
+echo "OK menu id={$id} (group rules untouched)\n";
+
