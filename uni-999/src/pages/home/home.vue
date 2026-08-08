@@ -226,19 +226,28 @@
         </view>
       </view>
 
-      <!-- 裂变红包首日登录弹窗（图片海报样式） -->
+      <!-- 裂变红包首日登录弹窗（对齐设计稿红包卡） -->
       <view class="modal-mask fission-popup-mask" :class="{ 'is-open': fissionPopupOpen }" @click="dismissFissionPopup">
-        <view class="fission-popup-poster" @click.stop>
-          <image
-            class="fission-popup-img"
-            :src="fissionPosterSrc"
-            mode="widthFix"
-            @click="openFissionFromPopup"
-          />
-          <view class="fission-popup-actions">
-            <button type="button" class="fission-popup-go" @click="openFissionFromPopup">立即参与</button>
-            <button type="button" class="fission-popup-later" @click="dismissFissionPopup">稍后再说</button>
+        <view class="fission-popup-wrap" @click.stop>
+          <view class="fission-popup-card" @click="openFissionFromPopup">
+            <view class="fission-popup-burst" aria-hidden="true">
+              <text class="fission-coin c1">¥</text>
+              <text class="fission-coin c2">¥</text>
+              <text class="fission-coin c3">¥</text>
+              <text class="fission-coin c4">¥</text>
+            </view>
+            <text class="fission-popup-brand">— 裂变红包 —</text>
+            <view class="fission-popup-pool-row">
+              <text class="fission-popup-yen">¥</text>
+              <text class="fission-popup-num">{{ fissionPopupPool }}</text>
+              <text class="fission-popup-unit">奖金池</text>
+            </view>
+            <text class="fission-popup-progress">当前 {{ fissionPopupQuals }} / {{ fissionPopupCap }} 份资格</text>
+            <text class="fission-popup-remain">剩余 {{ fissionPopupRemain }}</text>
+            <view class="fission-popup-cta">点击拆开红包</view>
+            <text class="fission-popup-risk">72小时未集齐资格，红包池作废</text>
           </view>
+          <view class="fission-popup-close" @click="dismissFissionPopup">×</view>
         </view>
       </view>
     </view>
@@ -257,7 +266,6 @@ import { apiRequest, fetchProfile, getToken } from '../../utils/auth.js'
 import { localeState, t, applyServerCopy } from '../../utils/i18n.js'
 import { imConnect } from '../../utils/im.js'
 import { copyText } from '../../utils/master.js'
-import { assetBase } from '../../utils/i18n.js'
 import '../../styles/home.css'
 import '../../styles/tabs-extra.css'
 import '../../styles/social-modals.css'
@@ -279,6 +287,8 @@ const mainStationUrl = ref('https://555.bio')
 const lotteryRef = ref(null)
 const fissionEntry = ref(null)
 const fissionPopupOpen = ref(false)
+const fissionPopupRemainSec = ref(0)
+let fissionPopupTick = null
 let pollTimer = null
 let pollLocalTimer = null
 let lbTimer = null
@@ -405,7 +415,22 @@ const fissionEntrySub = computed(() => {
   const cap = a.global_cap || 100
   return '¥' + pool + ' 奖金池 · ' + g + '/' + cap + ' 份资格'
 })
-const fissionPosterSrc = computed(() => assetBase() + 'static/fission/popup-poster.png')
+const fissionPopupPool = computed(() => {
+  const a = (fissionEntry.value && fissionEntry.value.activity) || {}
+  const p = fissionEntry.value && fissionEntry.value.popup
+  if (p && p.pool_amount != null) return p.pool_amount
+  return a.pool_amount != null ? a.pool_amount : 1000
+})
+const fissionPopupQuals = computed(() => ((fissionEntry.value && fissionEntry.value.activity && fissionEntry.value.activity.global_quals) | 0))
+const fissionPopupCap = computed(() => ((fissionEntry.value && fissionEntry.value.activity && fissionEntry.value.activity.global_cap) || 100))
+const fissionPopupRemain = computed(() => {
+  const s = Math.max(0, fissionPopupRemainSec.value | 0)
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const sec = s % 60
+  const pad = (n) => (n < 10 ? '0' + n : '' + n)
+  return pad(h) + ':' + pad(m) + ':' + pad(sec)
+})
 
 const rankText = computed(() => {
   const p = profile.value || {}
@@ -570,7 +595,30 @@ function goFission() {
 
 function applyFissionEntry(f) {
   fissionEntry.value = f || null
+  const act = (f && f.activity) || {}
+  const st = Number((f && f.server_time) || Math.floor(Date.now() / 1000))
+  const popupRem = f && f.popup && f.popup.remain_sec
+  fissionPopupRemainSec.value = Math.max(
+    0,
+    popupRem != null ? Number(popupRem) : Number(act.end_time || 0) - st
+  )
+  startFissionPopupTick()
   maybeShowFissionPopup()
+}
+
+function startFissionPopupTick() {
+  if (fissionPopupTick) {
+    clearInterval(fissionPopupTick)
+    fissionPopupTick = null
+  }
+  if (fissionPopupRemainSec.value <= 0) return
+  fissionPopupTick = setInterval(() => {
+    if (fissionPopupRemainSec.value > 0) fissionPopupRemainSec.value -= 1
+    else {
+      clearInterval(fissionPopupTick)
+      fissionPopupTick = null
+    }
+  }, 1000)
 }
 
 function maybeShowFissionPopup() {
@@ -1170,6 +1218,10 @@ onShow(async () => {
 onHide(() => {
   stopPoll()
   stopSecretCountdown()
+  if (fissionPopupTick) {
+    clearInterval(fissionPopupTick)
+    fissionPopupTick = null
+  }
   try {
     uni.$off && uni.$off('fanshub-profile-updated', onProfileUpdated)
   } catch (e) {}
@@ -1177,6 +1229,10 @@ onHide(() => {
 onUnmounted(() => {
   stopPoll()
   stopSecretCountdown()
+  if (fissionPopupTick) {
+    clearInterval(fissionPopupTick)
+    fissionPopupTick = null
+  }
   try {
     uni.$off && uni.$off('fanshub-profile-updated', onProfileUpdated)
   } catch (e) {}
