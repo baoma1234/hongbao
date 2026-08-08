@@ -3485,7 +3485,7 @@ function closeRpDetail() {
 }
 .chat-niuniu-card .nn-countdown-time {
   position: absolute;
-  right: 5%;
+  right: 7%;
   top: 50%;
   transform: translateY(-50%);
   width: 34%;
