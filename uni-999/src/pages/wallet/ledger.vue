@@ -15,6 +15,16 @@
       >全部</view>
       <view
         class="wallet-ledger-filter"
+        :class="{ 'is-on': category === 'recharge' }"
+        @click="setCategory('recharge')"
+      >充值</view>
+      <view
+        class="wallet-ledger-filter"
+        :class="{ 'is-on': category === 'withdraw' }"
+        @click="setCategory('withdraw')"
+      >提现</view>
+      <view
+        class="wallet-ledger-filter"
         :class="{ 'is-on': category === 'hongbao_in' }"
         @click="setCategory('hongbao_in')"
       >红宝入账</view>
@@ -96,6 +106,8 @@ const emptyText = computed(() => {
   if (category.value === 'hongbao_in') return '暂无红宝入账流水'
   if (category.value === 'refund') return '暂无红宝退回流水'
   if (category.value === 'freeze') return '暂无冻结记录'
+  if (category.value === 'recharge') return '暂无充值流水'
+  if (category.value === 'withdraw') return '暂无提现流水'
   return '暂无资金流水'
 })
 

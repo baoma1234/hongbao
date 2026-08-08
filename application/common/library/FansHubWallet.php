@@ -115,6 +115,13 @@ class FansHubWallet
                 'red_packet_freeze',
                 'red_packet_unfreeze',
             ],
+            'recharge' => [
+                'recharge',
+            ],
+            'withdraw' => [
+                'withdraw',
+                'withdraw_refund',
+            ],
         ];
     }
 
@@ -154,7 +161,7 @@ class FansHubWallet
 
     /**
      * 会员资金流水列表
-     * @param array $opts category=rebate|hongbao_in|refund|freeze|all
+     * @param array $opts category=rebate|hongbao_in|refund|freeze|recharge|withdraw|all
      */
     public static function ledgerList($userId, $page = 1, $limit = 20, array $opts = [])
     {
