@@ -195,9 +195,9 @@ onUnmounted(() => {
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  min-height: 34px;
-  padding: 6px 14px 6px 10px;
+  gap: 2px;
+  min-height: 26px;
+  padding: 3px 9px 3px 7px;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.42);
   overflow: hidden;
@@ -206,10 +206,10 @@ onUnmounted(() => {
     linear-gradient(160deg, rgba(255, 120, 90, 0.55) 0%, rgba(220, 40, 40, 0.35) 42%, rgba(160, 20, 30, 0.45) 100%),
     linear-gradient(135deg, #ff5a3a 0%, #e12626 52%, #b01018 100%);
   box-shadow:
-    0 6px 16px rgba(176, 16, 24, 0.42),
-    0 2px 0 rgba(255, 200, 160, 0.35),
+    0 3px 10px rgba(176, 16, 24, 0.38),
+    0 1px 0 rgba(255, 200, 160, 0.32),
     inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    inset 0 -2px 4px rgba(90, 0, 0, 0.28);
+    inset 0 -1px 3px rgba(90, 0, 0, 0.28);
   transform: translateZ(0);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
@@ -235,25 +235,25 @@ onUnmounted(() => {
 .fission-ico {
   position: relative;
   z-index: 1;
-  font-size: 13px;
+  font-size: 11px;
   line-height: 1;
   filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.2));
 }
 .fission-lab {
   position: relative;
   z-index: 1;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 900;
   color: #fff;
   white-space: nowrap;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.2px;
   text-shadow: 0 1px 2px rgba(80, 0, 0, 0.35);
   transform-origin: center center;
   animation: fission-lab-breathe 1.8s ease-in-out infinite;
 }
 @keyframes fission-lab-breathe {
   0%, 100% { transform: scale(1); opacity: 0.92; }
-  50% { transform: scale(1.12); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 1; }
 }
 .flag {
   width: 22px;
@@ -307,7 +307,7 @@ onUnmounted(() => {
 }
 @media (max-width: 480px) {
   .brand { max-width: 42vw; }
-  .fission-lab { font-size: 11px; }
-  .fission-btn { padding: 5px 10px 5px 8px; }
+  .fission-lab { font-size: 9px; }
+  .fission-btn { padding: 2px 8px 2px 6px; min-height: 24px; }
 }
 </style>
