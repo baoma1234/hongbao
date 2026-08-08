@@ -105,7 +105,7 @@
                   </view>
                 </view>
 
-                <!-- 红宝尾数牛牛卡片：bj 背景 + 开奖倒计时/按钮素材 -->
+                <!-- 红宝尾数牛牛卡片：bj 背景 + 中间文案 + 右侧倒计时/按钮 -->
                 <view
                   v-else-if="isNiuniu(m)"
                   class="chat-niuniu-card"
@@ -116,17 +116,22 @@
                   <image class="nn-bg" src="/static/niuniu/bj.jpg" mode="aspectFill" />
                   <view class="nn-layer">
                     <text v-if="(niuniuRound(m).game_mode|0) === 2" class="nn-mode-tag">单结果</text>
-                    <view
-                      v-if="niuniuPhase(m) === 'buying' || niuniuPhase(m) === 'claim'"
-                      class="nn-countdown"
-                    >
-                      <image class="nn-countdown-bg" src="/static/niuniu/countdown.png" mode="scaleToFill" />
-                      <text class="nn-countdown-time">{{ niuniuRemainText(m) }}</text>
+                    <view class="nn-center">
+                      <text class="nn-sub">{{ niuniuSubLine(m) }}</text>
+                      <text class="nn-pool">¥ {{ niuniuPoolText(m) }}</text>
+                      <text class="nn-entry">入场：{{ niuniuSharePrice(m) }}积分/包</text>
+                      <text class="nn-buyers">{{ niuniuBuyersLine(m) }}</text>
                     </view>
-                    <view class="nn-meta">
-                      <text class="nn-meta-line">{{ niuniuMetaLine(m) }}</text>
+                    <view class="nn-right">
+                      <view
+                        v-if="niuniuPhase(m) === 'buying' || niuniuPhase(m) === 'claim'"
+                        class="nn-countdown"
+                      >
+                        <image class="nn-countdown-bg" src="/static/niuniu/countdown.png" mode="scaleToFill" />
+                        <text class="nn-countdown-time">{{ niuniuRemainText(m) }}</text>
+                      </view>
+                      <image class="nn-cta-btn" :src="niuniuBtnSrc(m)" mode="widthFix" />
                     </view>
-                    <image class="nn-cta-btn" :src="niuniuBtnSrc(m)" mode="widthFix" />
                     <text class="nn-time">{{ msgTime(m) }}</text>
                   </view>
                 </view>
@@ -1440,14 +1445,29 @@ function niuniuCta(m) {
   if (phase === 'result' || phase === 'refund') return '查看开奖明细'
   return '查看'
 }
-function niuniuMetaLine(m) {
+function niuniuSubLine(m) {
+  const r = niuniuRound(m)
+  if ((r.game_mode | 0) === 2) return '2分钟买入，单结果对局'
+  return '2分钟买入，尾数牛牛对局'
+}
+function niuniuPoolText(m) {
+  const r = niuniuRound(m)
+  const n = Number(r.pool_amount != null ? r.pool_amount : 0)
+  return (isNaN(n) ? 0 : n).toFixed(2)
+}
+function niuniuSharePrice(m) {
+  const r = niuniuRound(m)
+  const n = Number(r.share_price != null ? r.share_price : 100)
+  return isNaN(n) ? 100 : Math.round(n)
+}
+function niuniuBuyersLine(m) {
   const r = niuniuRound(m)
   const phase = niuniuPhase(m)
-  const modeTip = (r.game_mode | 0) === 2 ? '｜单结果' : ''
+  const shares = (r.share_count | 0)
   if (phase === 'void') return '本局作废（0 份）'
-  if (phase === 'refund') return '流局已退回' + modeTip
-  if (phase === 'result') return '开奖完成｜可发 ' + (r.distributable || 0) + modeTip
-  return (r.share_count || 0) + '份｜奖池 ' + (r.pool_amount || 0) + modeTip
+  if (phase === 'refund') return '流局已退回'
+  if (phase === 'result') return '开奖完成｜可发 ' + (r.distributable || 0)
+  return '当前' + shares + '份已买入'
 }
 function niuniuBtnSrc(m) {
   const phase = niuniuPhase(m)
@@ -3383,7 +3403,7 @@ function closeRpDetail() {
 }
 .chat-niuniu-card {
   position: relative;
-  width: min(86vw, 320px);
+  width: min(88vw, 340px);
   aspect-ratio: 1024 / 575;
   border-radius: 12px;
   overflow: hidden;
@@ -3405,26 +3425,70 @@ function closeRpDetail() {
 }
 .chat-niuniu-card .nn-mode-tag {
   position: absolute;
-  top: 7%;
-  right: 4%;
+  top: 6%;
+  right: 3.5%;
   z-index: 3;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 800;
   color: #fff7d2;
   background: rgba(120, 10, 16, 0.72);
   border: 1px solid rgba(255, 214, 120, 0.65);
   border-radius: 999px;
-  padding: 2px 8px;
-  letter-spacing: 0.5px;
+  padding: 1px 7px;
 }
-/* 距离开奖：约 30% 高、靠右约 30% 区域 */
-.chat-niuniu-card .nn-countdown {
+/* 中间信息区：叠在牛右侧空位 */
+.chat-niuniu-card .nn-center {
   position: absolute;
-  top: 30%;
-  right: 8%;
-  width: 42%;
-  height: 18%;
+  left: 29%;
+  top: 36%;
+  width: 30%;
   z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+}
+.chat-niuniu-card .nn-sub {
+  font-size: 9px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  white-space: nowrap;
+}
+.chat-niuniu-card .nn-pool {
+  margin-top: 1px;
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1.15;
+  color: #ffe082;
+  text-shadow: 0 1px 3px rgba(80, 0, 0, 0.45);
+  white-space: nowrap;
+}
+.chat-niuniu-card .nn-entry,
+.chat-niuniu-card .nn-buyers {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  white-space: nowrap;
+}
+/* 右侧：倒计时 + 操作按钮（缩小比例对齐参考图） */
+.chat-niuniu-card .nn-right {
+  position: absolute;
+  top: 34%;
+  right: 6.5%;
+  width: 31%;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 7%;
+}
+.chat-niuniu-card .nn-countdown {
+  position: relative;
+  width: 92%;
+  margin-left: auto;
+  aspect-ratio: 282 / 73;
 }
 .chat-niuniu-card .nn-countdown-bg {
   position: absolute;
@@ -3435,52 +3499,36 @@ function closeRpDetail() {
 }
 .chat-niuniu-card .nn-countdown-time {
   position: absolute;
-  right: 6%;
+  right: 5%;
   top: 50%;
   transform: translateY(-50%);
-  width: 36%;
+  width: 34%;
   text-align: center;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 900;
   color: #8a2a00;
-  letter-spacing: 0.5px;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
-}
-.chat-niuniu-card .nn-meta {
-  position: absolute;
-  left: 38%;
-  right: 6%;
-  top: 48%;
-  z-index: 2;
-  text-align: center;
-}
-.chat-niuniu-card .nn-meta-line {
-  display: block;
-  font-size: 11px;
-  font-weight: 700;
-  color: #ffe9b0;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  letter-spacing: 0.2px;
 }
 .chat-niuniu-card .nn-cta-btn {
-  position: absolute;
-  left: 38%;
-  right: 8%;
-  top: 58%;
-  width: 54%;
-  z-index: 2;
+  width: 100%;
   display: block;
+  margin-top: 2px;
 }
 .chat-niuniu-card .nn-time {
   position: absolute;
-  right: 8px;
-  bottom: 5px;
+  right: 7px;
+  bottom: 4px;
   z-index: 2;
-  font-size: 10px;
+  font-size: 9px;
   color: rgba(255, 236, 200, 0.85);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+@media (max-width: 380px) {
+  .chat-niuniu-card .nn-pool { font-size: 15px; }
+  .chat-niuniu-card .nn-sub,
+  .chat-niuniu-card .nn-entry,
+  .chat-niuniu-card .nn-buyers { font-size: 9px; }
+  .chat-niuniu-card .nn-countdown-time { font-size: 9px; }
 }
 .nn-sheet-tip {
   font-size: 12px;
