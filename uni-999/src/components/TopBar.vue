@@ -1,5 +1,5 @@
 <template>
-  <view class="floating-top-bar" :class="{ flash: skinFlash }">
+  <view class="floating-top-bar">
     <view class="brand" @click="goHome">
       <image class="logo" :src="logoSrc" mode="aspectFit" />
       <text class="brand-text">{{ brand }}</text>
@@ -10,17 +10,13 @@
         <text class="lang-text">{{ localeLabel }}</text>
         <text class="caret">▾</text>
       </view>
-      <view v-if="fissionLink" class="fission-wrap" @click.stop="goFission">
+      <view class="fission-btn" @click.stop="goFission">
+        <text class="fission-ico">🧧</text>
         <text class="fission-lab">裂变红包</text>
-      </view>
-      <view v-else class="skin-wrap" @click.stop="toggleSkin">
-        <text class="skin-lab">{{ skinLabel }}</text>
-        <text class="skin-val">{{ skinName }}</text>
-        <text class="caret">▾</text>
       </view>
     </view>
 
-    <view v-if="langOpen || skinOpen" class="mask" @click="closePanels" />
+    <view v-if="langOpen" class="mask" @click="closePanels" />
 
     <view v-if="langOpen" class="panel lang-panel" @click.stop>
       <view
@@ -32,18 +28,6 @@
       >
         <image class="flag" :src="flagOf(opt.flagIso)" mode="aspectFill" />
         <text>{{ opt.label }}</text>
-      </view>
-    </view>
-
-    <view v-if="!fissionLink && skinOpen" class="panel skin-panel" @click.stop>
-      <view
-        v-for="opt in skins"
-        :key="opt.id"
-        class="panel-item"
-        :class="{ on: opt.id === skinId }"
-        @click="pickSkin(opt.id)"
-      >
-        <text>{{ skinOptLabel(opt) }}</text>
       </view>
     </view>
   </view>
@@ -61,43 +45,27 @@ import {
   setLocale,
   t,
 } from '../utils/i18n.js'
-import {
-  applySkin,
-  getSkinId,
-  onSkinChange,
-  SKIN_OPTIONS,
-} from '../utils/skin.js'
 
-const props = defineProps({
+defineProps({
   /** 红宝等页用 body padding-top 占位，勿再插 spacer 以免双倍空隙 */
   noSpacer: { type: Boolean, default: false },
-  /** 公告等页：右上角换肤改为「裂变红包」入口 */
-  fissionLink: { type: Boolean, default: false },
+  /** @deprecated 全局已统一为裂变红包入口，保留兼容旧调用 */
+  fissionLink: { type: Boolean, default: true },
 })
 
 const locale = ref(getLocale())
-const skinId = ref(getSkinId())
 const langOpen = ref(false)
-const skinOpen = ref(false)
-const skinFlash = ref(false)
 let offLocale = null
-let offSkin = null
-let flashTimer = null
 
 const logoSrc = logoUrl()
 const brand = computed(() => {
   void locale.value
   return t('brand_name')
 })
-const skinLabel = computed(() => {
-  void locale.value
-  return t('skin_label')
-})
 const locales = computed(() => {
   void locale.value
   return localeOptions()
 })
-const skins = SKIN_OPTIONS
 
 const localeLabel = computed(() => {
   const opt = locales.value.find((x) => x.id === locale.value)
@@ -107,34 +75,17 @@ const flagSrc = computed(() => {
   const opt = locales.value.find((x) => x.id === locale.value)
   return flagOf(opt ? opt.flagIso : 'cn')
 })
-const skinName = computed(() => {
-  void locale.value
-  const opt = skins.find((x) => x.id === skinId.value) || skins[0]
-  return skinOptLabel(opt)
-})
 
 function flagOf(iso) {
   return flagUrl(iso)
 }
 
-function skinOptLabel(opt) {
-  return t(opt.labelKey)
-}
-
 function closePanels() {
   langOpen.value = false
-  skinOpen.value = false
 }
 
 function toggleLang() {
-  skinOpen.value = false
   langOpen.value = !langOpen.value
-}
-
-function toggleSkin() {
-  if (props.fissionLink) return
-  langOpen.value = false
-  skinOpen.value = !skinOpen.value
 }
 
 function goFission() {
@@ -152,12 +103,6 @@ async function pickLocale(id) {
   locale.value = id
 }
 
-function pickSkin(id) {
-  closePanels()
-  applySkin(id, { flash: true })
-  skinId.value = id
-}
-
 function goHome() {
   closePanels()
   uni.switchTab({
@@ -168,26 +113,13 @@ function goHome() {
 
 onMounted(() => {
   locale.value = getLocale()
-  skinId.value = getSkinId()
   offLocale = onLocaleChange((id) => {
     locale.value = id
-  })
-  offSkin = onSkinChange((id, flash) => {
-    skinId.value = id
-    if (flash) {
-      skinFlash.value = true
-      if (flashTimer) clearTimeout(flashTimer)
-      flashTimer = setTimeout(() => {
-        skinFlash.value = false
-      }, 420)
-    }
   })
 })
 
 onUnmounted(() => {
   if (offLocale) offLocale()
-  if (offSkin) offSkin()
-  if (flashTimer) clearTimeout(flashTimer)
 })
 </script>
 
@@ -209,19 +141,12 @@ onUnmounted(() => {
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .mask {
   position: fixed;
   inset: 0;
   z-index: 13990;
   background: transparent;
-}
-.floating-top-bar.flash {
-  border-bottom-color: color-mix(in srgb, var(--primary, #c61114) 50%, transparent);
-  box-shadow:
-    0 4px 20px rgba(0, 0, 0, 0.08),
-    0 2px 0 color-mix(in srgb, var(--primary, #c61114) 35%, transparent);
 }
 .top-bar-spacer {
   height: var(--top-bar-height, 48px);
@@ -255,9 +180,7 @@ onUnmounted(() => {
   gap: 8px;
   flex-shrink: 0;
 }
-.lang-wrap,
-.skin-wrap,
-.fission-wrap {
+.lang-wrap {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -267,16 +190,35 @@ onUnmounted(() => {
   border: 1px solid color-mix(in srgb, var(--text-muted, #657786) 26%, transparent);
   background: color-mix(in srgb, var(--bg-main, #f4f6f9) 6%, var(--bg-card, #fff) 94%);
 }
-.fission-wrap {
-  border-color: color-mix(in srgb, #e83b1a 40%, transparent);
-  background: linear-gradient(135deg, #fff5f0, #ffe8e0);
+.fission-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 5px 12px 5px 9px;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg, #ff6b3d 0%, #e53935 55%, #c62828 100%);
+  box-shadow:
+    0 4px 12px rgba(198, 40, 40, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+.fission-btn:active {
+  opacity: 0.92;
+  transform: translateY(1px);
+  box-shadow: 0 2px 8px rgba(198, 40, 40, 0.28);
+}
+.fission-ico {
+  font-size: 13px;
+  line-height: 1;
 }
 .fission-lab {
   font-size: 12px;
   font-weight: 900;
-  color: #d32f2f;
+  color: #fff;
   white-space: nowrap;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.4px;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.12);
 }
 .flag {
   width: 22px;
@@ -285,20 +227,13 @@ onUnmounted(() => {
   flex-shrink: 0;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
 }
-.lang-text,
-.skin-val {
+.lang-text {
   font-size: 11px;
   font-weight: 800;
   color: var(--text-main, #1a212d);
   max-width: 72px;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.skin-lab {
-  font-size: 10px;
-  font-weight: 900;
-  color: var(--text-muted, #657786);
   white-space: nowrap;
 }
 .caret {
@@ -319,8 +254,7 @@ onUnmounted(() => {
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12);
   padding: 4px;
 }
-.lang-panel { right: 120px; }
-.skin-panel { right: 12px; }
+.lang-panel { right: 12px; }
 .panel-item {
   display: flex;
   align-items: center;
@@ -338,8 +272,7 @@ onUnmounted(() => {
 }
 @media (max-width: 480px) {
   .brand { max-width: 42vw; }
-  .brand-img { height: 32px; }
-  .skin-val { max-width: 56px; }
-  .lang-panel { right: 96px; }
+  .fission-lab { font-size: 11px; }
+  .fission-btn { padding: 5px 10px 5px 8px; }
 }
 </style>

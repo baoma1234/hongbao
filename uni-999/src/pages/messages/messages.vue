@@ -1,6 +1,6 @@
 <template>
   <view>
-    <TopBar :no-spacer="true" :fission-link="true" />
+    <TopBar :no-spacer="true" />
     <view id="tabMessages" class="tab-page active">
       <view class="chat-shell">
         <view class="chat-list-pane">
