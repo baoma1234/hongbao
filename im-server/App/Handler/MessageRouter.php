@@ -11,6 +11,7 @@ use Im\Service\GroupService;
 use Im\Service\MessageService;
 use Im\Service\OfficialStatsService;
 use Im\Service\RedPacketService;
+use Im\Service\NiuniuService;
 use Im\Service\TransferService;
 use Im\Support\ConnMap;
 use Im\Support\IdGenerator;
@@ -35,6 +36,8 @@ class MessageRouter
     protected $groupPopups;
     /** @var RedPacketService */
     protected $redPackets;
+    /** @var NiuniuService */
+    protected $niuniu;
     /** @var TransferService */
     protected $transfers;
     /** @var ContactService */
@@ -52,6 +55,7 @@ class MessageRouter
         $this->groups = $groups;
         $this->groupPopups = new GroupPopupService($groups);
         $this->redPackets = $redPackets;
+        $this->niuniu = new NiuniuService($cfg, $messages, $groups);
         $this->transfers = new TransferService($cfg);
         $this->contacts = new ContactService();
         $this->cfg = $cfg;
@@ -235,6 +239,23 @@ class MessageRouter
                         $detail = $this->redPackets->detail((int)($payload['packet_id'] ?? 0), $uid);
                         $this->send($connection, 'redpacket.detail', $detail ?: new \stdClass(), $reqId);
                     } catch (\RuntimeException $e) {
+                        $this->error($connection, $e->getMessage() ?: 'forbidden', $reqId);
+                    }
+                    break;
+                case 'niuniu.start':
+                    $this->handleNiuniuStart($connection, $uid, $payload, $reqId);
+                    break;
+                case 'niuniu.buy':
+                    $this->handleNiuniuBuy($connection, $uid, $payload, $reqId);
+                    break;
+                case 'niuniu.claim':
+                    $this->handleNiuniuClaim($connection, $uid, $payload, $reqId);
+                    break;
+                case 'niuniu.detail':
+                    try {
+                        $detail = $this->niuniu->detail((int)($payload['round_id'] ?? 0), $uid);
+                        $this->send($connection, 'niuniu.detail', $detail ?: new \stdClass(), $reqId);
+                    } catch (\Throwable $e) {
                         $this->error($connection, $e->getMessage() ?: 'forbidden', $reqId);
                     }
                     break;
@@ -1542,6 +1563,38 @@ class MessageRouter
         $this->pushToUser((int)$msg['to_user_id'], 'private.message', ['message' => $msg]);
         $this->pushToUser($uid, 'private.message', ['message' => $msg], (string)$connection->id);
         PushBus::drainOwnQueue(200);
+    }
+
+    protected function handleNiuniuStart(TcpConnection $connection, $uid, array $payload, $reqId)
+    {
+        try {
+            $result = $this->niuniu->start($uid, (int)($payload['group_id'] ?? 0));
+            $this->send($connection, 'niuniu.started', $result, $reqId);
+            PushBus::drainOwnQueue(200);
+        } catch (\Throwable $e) {
+            $this->error($connection, $e->getMessage() ?: 'failed', $reqId);
+        }
+    }
+
+    protected function handleNiuniuBuy(TcpConnection $connection, $uid, array $payload, $reqId)
+    {
+        try {
+            $result = $this->niuniu->buy($uid, (int)($payload['round_id'] ?? 0), (int)($payload['count'] ?? 1));
+            $this->send($connection, 'niuniu.bought', $result, $reqId);
+            PushBus::drainOwnQueue(200);
+        } catch (\Throwable $e) {
+            $this->error($connection, $e->getMessage() ?: 'failed', $reqId);
+        }
+    }
+
+    protected function handleNiuniuClaim(TcpConnection $connection, $uid, array $payload, $reqId)
+    {
+        try {
+            $result = $this->niuniu->claim($uid, (int)($payload['round_id'] ?? 0));
+            $this->send($connection, 'niuniu.claimed', $result, $reqId);
+        } catch (\Throwable $e) {
+            $this->error($connection, $e->getMessage() ?: 'failed', $reqId);
+        }
     }
 
     protected function handleRedGrab(TcpConnection $connection, $uid, array $payload, $reqId)

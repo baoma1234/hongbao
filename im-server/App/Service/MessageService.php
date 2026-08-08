@@ -62,9 +62,8 @@ class MessageService
         }
         list($content, $msgType, $extra) = $this->prepareOutgoing($content, $msgType, $extra);
         $msgType = (int)$msgType;
-        // msg_type=2 红包：权限已在 RedPacketService::assertCanSendGroupRedPacket 校验；
-        // 禁止发言(text)时仍须能发红包，不可再走 assertCanSpeak→text
-        if ($msgType !== 2) {
+        // msg_type=2 红包 / msg_type=10 尾数牛牛：业务层已鉴权，禁言期间仍须可推送卡片
+        if ($msgType !== 2 && $msgType !== 10) {
             $mode = GroupService::msgTypeToForbidMode($msgType);
             (new GroupService())->assertCanSpeak($groupId, $fromUserId, $mode);
         }

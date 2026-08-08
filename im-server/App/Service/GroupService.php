@@ -899,6 +899,16 @@ class GroupService
         if ($role >= 2) {
             return;
         }
+        // 尾数牛牛购入阶段：全员禁言（管理员除外）
+        try {
+            $r = \Im\Support\RedisClient::conn()->get(\Im\Support\RedisClient::key('niuniu:mute:' . $groupId));
+            if ($r) {
+                throw new \RuntimeException('尾数牛牛购入中，群内禁言');
+            }
+        } catch (\RuntimeException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+        }
         $modes = $this->parseForbidModes($group);
         if (!empty($modes[$mode])) {
             $labels = self::forbidModeLabels();
@@ -1095,7 +1105,7 @@ class GroupService
         if ($relayAdminOnly && $canSendRp && !$isAdmin && !$robotOnly) {
             $canSendRp = false;
         }
-        return [
+        $ret = [
             'privacy_mode'       => $isOpen ? 'open' : 'private',
             'chat_mode'          => $isGrab ? 'grab' : 'chat',
             'privacy_label'      => $isOpen ? '开放群' : '隐私群',
@@ -1120,7 +1130,25 @@ class GroupService
             'rp_min_count'       => max(0, (int)($group['rp_min_count'] ?? 0)),
             'rp_max_count'       => max(0, (int)($group['rp_max_count'] ?? 0)),
             'rp_enabled_types'   => $enabledTypes,
+            'niuniu_enabled'     => (int)($group['niuniu_enabled'] ?? 0) === 1,
+            'niuniu_desc'        => trim((string)($group['niuniu_desc'] ?? '')),
+            'niuniu_buying'      => false,
+            'can_start_niuniu'   => $isAdmin && (int)($group['niuniu_enabled'] ?? 0) === 1,
         ];
+        try {
+            $muteRid = \Im\Support\RedisClient::conn()->get(\Im\Support\RedisClient::key('niuniu:mute:' . (int)($group['id'] ?? 0)));
+            if ($muteRid) {
+                $ret['niuniu_buying'] = true;
+                if (!$isAdmin) {
+                    $ret['can_send_text'] = false;
+                    $ret['can_send_image'] = false;
+                    $ret['can_send_emoji'] = false;
+                    $ret['can_send_video'] = false;
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+        return $ret;
     }
 
     /**

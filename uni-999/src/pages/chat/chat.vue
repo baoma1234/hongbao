@@ -105,6 +105,24 @@
                   </view>
                 </view>
 
+                <!-- 红宝尾数牛牛卡片 -->
+                <view
+                  v-else-if="isNiuniu(m)"
+                  class="chat-niuniu-card"
+                  :class="'phase-' + niuniuPhase(m)"
+                  @click="onNiuniuTap(m)"
+                  @longpress="onMsgLongPress(m)"
+                >
+                  <view class="nn-hd">
+                    <text class="nn-title">🧧 红包尾数牛牛</text>
+                    <text v-if="niuniuPhase(m) === 'buying'" class="nn-timer">倒计时 {{ niuniuRemainText(m) }}</text>
+                  </view>
+                  <text class="nn-line">{{ niuniuSummary(m) }}</text>
+                  <text class="nn-line muted">🔐 {{ niuniuDrand(m) }}</text>
+                  <view class="nn-cta">{{ niuniuCta(m) }}</view>
+                  <text class="nn-time">{{ msgTime(m) }}</text>
+                </view>
+
                 <view
                   v-else-if="isTransfer(m)"
                   class="chat-transfer-card"
@@ -217,6 +235,10 @@
             <view v-if="canCap('rp')" class="chat-attach-item" @click="onAttachPick('rp')">
               <text class="chat-attach-icon">🧧</text>
               <text>红包</text>
+            </view>
+            <view v-if="canStartNiuniu" class="chat-attach-item" @click="onAttachPick('niuniu')">
+              <text class="chat-attach-icon">🐂</text>
+              <text>尾数牛牛</text>
             </view>
             <view v-if="isPrivate" class="chat-attach-item" @click="onAttachPick('transfer')">
               <text class="chat-attach-icon">💸</text>
@@ -438,6 +460,36 @@
       </view>
     </view>
 
+    <!-- 尾数牛牛购入 -->
+    <view v-if="showNiuniu" class="chat-rp-send-pane open" aria-hidden="false">
+      <view class="chat-hero-hd">
+        <view class="chat-rp-cancel" @click="showNiuniu = false">取消</view>
+        <view class="chat-hero-title">尾数牛牛购入</view>
+        <view class="chat-hero-spacer" />
+      </view>
+      <view class="chat-rp-send-main">
+        <view class="chat-rp-send-body" style="padding:16px">
+          <view class="chat-rp-balance-hint">
+            <text>可用红宝：</text>
+            <text class="chat-rp-bal-strong">￥{{ money(walletBalance) }}</text>
+          </view>
+          <view class="nn-sheet-tip">
+            每份 {{ (niuniuSheet && niuniuSheet.round && niuniuSheet.round.share_price) || 100 }} 积分进入奖池；
+            红包仅用于比对尾数，金额不入账。
+          </view>
+          <view class="chat-rp-field">
+            <text class="chat-rp-lab">购入份数</text>
+            <input class="chat-rp-bless-input" type="number" v-model="niuniuBuyCount" />
+          </view>
+        </view>
+        <view class="chat-rp-send-ft">
+          <view class="chat-rp-submit-btn" :class="{ disabled: niuniuBusy }" @click="submitNiuniuBuy">
+            {{ niuniuBusy ? '购入中…' : '确认购入' }}
+          </view>
+        </view>
+      </view>
+    </view>
+
     <GrabSlider ref="grabSliderRef" />
 
     <!-- 红包详情：对齐 888 #chatRpDetailPane -->
@@ -608,6 +660,10 @@ import {
   imSend,
   loadHistory,
   markConversationRead,
+  niuniuBuy,
+  niuniuClaim,
+  niuniuDetail,
+  niuniuStart,
   onImEvent,
   recallMessage,
   redPacketDetail,
@@ -629,6 +685,10 @@ const myAvatar = ref('')
 const myUserId = ref(0)
 const showRp = ref(false)
 const showTransfer = ref(false)
+const showNiuniu = ref(false)
+const niuniuBusy = ref(false)
+const niuniuSheet = ref(null)
+const niuniuBuyCount = ref('1')
 const showEmoji = ref(false)
 const showSticker = ref(false)
 const showAttach = ref(false)
@@ -776,6 +836,12 @@ function previewNoticeImage(src) {
 const groupPolicy = computed(() => {
   const m = groupMeta.value || {}
   return m.policy || {}
+})
+
+const canStartNiuniu = computed(() => {
+  if (isPrivate.value) return false
+  const pol = groupPolicy.value || {}
+  return !!(pol.can_start_niuniu || (pol.niuniu_enabled && ((groupMeta.value && groupMeta.value.my_role) | 0) >= 2))
 })
 
 const forbidModes = computed(() => {
@@ -1281,6 +1347,53 @@ function msgAvatar(m) {
 function isRp(m) {
   return msgType(m) === 2
 }
+function isNiuniu(m) {
+  if (msgType(m) === 10) return true
+  const ex = msgExtra(m)
+  return !!(ex && ex.niuniu)
+}
+function niuniuRound(m) {
+  const ex = msgExtra(m)
+  return (ex && ex.round) || {}
+}
+function niuniuPhase(m) {
+  const ex = msgExtra(m)
+  return String((ex && ex.phase) || niuniuRound(m).card_phase || 'buying')
+}
+function niuniuDrand(m) {
+  const r = niuniuRound(m)
+  return r.drand_label || ('drand-#' + (r.drand_round || ''))
+}
+function niuniuRemainText(m) {
+  const r = niuniuRound(m)
+  let sec = (r.remain_buy | 0)
+  if (niuniuPhase(m) === 'claim') sec = (r.remain_claim | 0)
+  const endAt = niuniuPhase(m) === 'claim' ? (r.claim_end_at | 0) : (r.buy_end_at | 0)
+  if (endAt > 0) sec = Math.max(0, endAt - Math.floor(Date.now() / 1000))
+  const mm = String(Math.floor(sec / 60)).padStart(2, '0')
+  const ss = String(sec % 60).padStart(2, '0')
+  return mm + ':' + ss
+}
+function niuniuSummary(m) {
+  const r = niuniuRound(m)
+  const phase = niuniuPhase(m)
+  if (phase === 'claim') {
+    return '👥总参与 ' + (r.share_count || 0) + ' 份｜💰奖池 ' + (r.pool_amount || 0) + '｜点击领取查看尾数'
+  }
+  if (phase === 'result') {
+    return '🎊开奖完成｜可发放 ' + (r.distributable || 0) + '｜点击查看明细'
+  }
+  if (phase === 'void') return '本局作废（0 份参与）'
+  if (phase === 'refund') return '流局：扣手续费后已退回'
+  return '👥份数 ' + (r.share_count || 0) + '｜💰奖池 ' + (r.pool_amount || 0) + '｜单份 ' + (r.share_price || 100)
+}
+function niuniuCta(m) {
+  const phase = niuniuPhase(m)
+  if (phase === 'buying') return '点击购入参与'
+  if (phase === 'claim') return '👉 点击领取本局红包'
+  if (phase === 'result' || phase === 'refund') return '查看开奖明细'
+  return '查看'
+}
 function isTransfer(m) {
   return msgType(m) === 8
 }
@@ -1732,6 +1845,8 @@ function onAttachPick(kind) {
       return
     }
     openRpSend()
+  } else if (kind === 'niuniu') {
+    startNiuniuRound()
   } else if (kind === 'transfer') {
     openTransferSend()
   }
@@ -2421,6 +2536,96 @@ async function sendText() {
   }
 }
 
+async function startNiuniuRound() {
+  if (niuniuBusy.value) return
+  if (!canStartNiuniu.value) {
+    uni.showToast({ title: '无权开启或未启用尾数牛牛', icon: 'none' })
+    return
+  }
+  niuniuBusy.value = true
+  try {
+    const res = await niuniuStart(meta.value.group | 0)
+    const msg = (res && res.data && res.data.message) || (res && res.message) || null
+    uni.showToast({ title: '对局已开启', icon: 'success' })
+    if (msg) appendLocalMessage(msg)
+    setTimeout(() => fetchHistory().catch(() => {}), 500)
+  } catch (e) {
+    uni.showToast({ title: (e && e.message) || '开启失败', icon: 'none' })
+  } finally {
+    niuniuBusy.value = false
+  }
+}
+
+async function onNiuniuTap(m) {
+  const ex = msgExtra(m)
+  const rid = (ex.round_id || (ex.round && ex.round.id) || 0) | 0
+  if (!rid) {
+    uni.showToast({ title: '对局信息缺失', icon: 'none' })
+    return
+  }
+  const phase = niuniuPhase(m)
+  if (phase === 'buying') {
+    niuniuSheet.value = { round_id: rid, phase, round: ex.round || {} }
+    niuniuBuyCount.value = '1'
+    showNiuniu.value = true
+    return
+  }
+  if (phase === 'claim') {
+    niuniuBusy.value = true
+    try {
+      const res = await niuniuClaim(rid)
+      const data = (res && res.data) || res || {}
+      const shares = data.shares || []
+      let tip = '已领取'
+      if (shares.length) {
+        tip = shares
+          .map((s) => '#' + s.share_no + ' 尾数' + (s.tail_digits || '--') + ' ' + (s.niu_label || ''))
+          .join('；')
+      }
+      uni.showModal({ title: '本局尾数（仅比对，不入账）', content: tip, showCancel: false })
+    } catch (e) {
+      uni.showToast({ title: (e && e.message) || '领取失败', icon: 'none' })
+    } finally {
+      niuniuBusy.value = false
+    }
+    return
+  }
+  try {
+    const res = await niuniuDetail(rid)
+    const data = (res && res.data) || res || {}
+    const r = data.round || {}
+    const lines = []
+    lines.push('奖池' + (r.pool_amount || 0) + '｜手续费' + (r.fee_amount || 0) + '｜可发' + (r.distributable || 0))
+    const shares = data.shares || []
+    shares.slice(0, 20).forEach((s) => {
+      lines.push((s.nickname || s.user_id) + '｜' + (s.calc || s.niu_label || '') + (s.win_amount > 0 ? '｜+' + s.win_amount : ''))
+    })
+    uni.showModal({ title: '开奖明细', content: lines.join('\n'), showCancel: false })
+  } catch (e) {
+    uni.showToast({ title: (e && e.message) || '加载失败', icon: 'none' })
+  }
+}
+
+async function submitNiuniuBuy() {
+  if (niuniuBusy.value) return
+  const sheet = niuniuSheet.value || {}
+  const rid = sheet.round_id | 0
+  const count = Math.max(1, Math.min(100, parseInt(niuniuBuyCount.value, 10) || 1))
+  if (!rid) return
+  niuniuBusy.value = true
+  try {
+    await niuniuBuy(rid, count)
+    showNiuniu.value = false
+    uni.showToast({ title: '已购入 ' + count + ' 份', icon: 'success' })
+    await refreshWallet()
+    setTimeout(() => fetchHistory().catch(() => {}), 400)
+  } catch (e) {
+    uni.showToast({ title: (e && e.message) || '购入失败', icon: 'none' })
+  } finally {
+    niuniuBusy.value = false
+  }
+}
+
 async function sendRp() {
   if (rpSending.value) return
   if (!canCap('rp')) {
@@ -2960,6 +3165,11 @@ onLoad(async (query) => {
       }
       return
     }
+    if (type === 'niuniu.update') {
+      softRefreshHistory()
+      if (!isPrivate.value) loadGroupMeta().catch(() => {})
+      return
+    }
     if (type === 'group.kicked') {
       const gid = (data && data.group_id) | 0
       if (!isPrivate.value && gid && gid === (meta.value.group | 0)) {
@@ -3075,5 +3285,67 @@ function closeRpDetail() {
 .chat-rp-record-avatar image {
   width: 100%;
   height: 100%;
+}
+.chat-niuniu-card {
+  max-width: 280px;
+  background: linear-gradient(160deg, #1d2132 0%, #12141d 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 12px 14px;
+  color: #e8eef8;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+.chat-niuniu-card .nn-hd {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  gap: 8px;
+}
+.chat-niuniu-card .nn-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: #fde9aa;
+}
+.chat-niuniu-card .nn-timer {
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(90deg, #ed3b33, #d1211b);
+  padding: 2px 8px;
+  border-radius: 8px;
+}
+.chat-niuniu-card .nn-line {
+  display: block;
+  font-size: 12px;
+  line-height: 1.55;
+  color: #d7dfeb;
+  margin-bottom: 4px;
+}
+.chat-niuniu-card .nn-line.muted {
+  color: #a4a8bd;
+}
+.chat-niuniu-card .nn-cta {
+  margin-top: 8px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 800;
+  color: #442700;
+  background: linear-gradient(90deg, #fde9aa, #e7ab44);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+.chat-niuniu-card .nn-time {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  color: #7a8499;
+  text-align: right;
+}
+.nn-sheet-tip {
+  font-size: 12px;
+  color: #888;
+  line-height: 1.5;
+  margin: 10px 0 14px;
 }
 </style>

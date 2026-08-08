@@ -1,0 +1,28 @@
+<div class="panel panel-default">
+    <div class="panel-heading">对局 #{$row.id}</div>
+    <div class="panel-body">
+        <p>群ID：{$row.group_id}｜状态：{$row.status}｜份数：{$row.share_count}｜奖池：{$row.pool_amount}</p>
+        <p>手续费：{$row.fee_amount}｜可发放：{$row.distributable}｜校验：drand-#{$row.drand_round}</p>
+        <p>随机源：{$row.drand_url}</p>
+        <table class="table table-bordered table-striped">
+            <thead>
+            <tr>
+                <th>份号</th><th>用户</th><th>尾数</th><th>牛数</th><th>档位</th><th>已领</th><th>奖金</th>
+            </tr>
+            </thead>
+            <tbody>
+            {volist name="shares" id="s"}
+            <tr>
+                <td>{$s.share_no}</td>
+                <td>{$s.user_id}</td>
+                <td>{$s.tail_digits|default='-'}</td>
+                <td>{$s.niu_label|default='-'}</td>
+                <td>{$s.niu_tier}</td>
+                <td>{$s.claimed}</td>
+                <td>{$s.win_amount}</td>
+            </tr>
+            {/volist}
+            </tbody>
+        </table>
+    </div>
+</div>

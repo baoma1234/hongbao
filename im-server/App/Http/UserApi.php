@@ -5,6 +5,7 @@ namespace Im\Http;
 use Im\Service\AdminService;
 use Im\Service\ChatForbidService;
 use Im\Service\ContactService;
+use Im\Service\NiuniuService;
 use Im\Service\TransferService;
 use Im\Support\GrabGuard;
 use Im\Support\NotifyPublisher;
@@ -22,6 +23,8 @@ class UserApi extends UserReadApi
     protected $contacts;
     /** @var TransferService|null */
     protected $transfers;
+    /** @var NiuniuService|null */
+    protected $niuniuSvc;
 
     public function __construct(array $cfg)
     {
@@ -32,6 +35,19 @@ class UserApi extends UserReadApi
         } catch (\Throwable $e) {
             $this->transfers = null;
         }
+        try {
+            $this->niuniuSvc = new NiuniuService($cfg, $this->messages, $this->groups);
+        } catch (\Throwable $e) {
+            $this->niuniuSvc = null;
+        }
+    }
+
+    protected function niuniu()
+    {
+        if (!$this->niuniuSvc) {
+            $this->niuniuSvc = new NiuniuService($this->cfg, $this->messages, $this->groups);
+        }
+        return $this->niuniuSvc;
     }
 
     /**
@@ -53,6 +69,15 @@ class UserApi extends UserReadApi
                 return $this->redpacketGrab($userId, $body, $meta);
             case '/im/redpacket/detail':
                 return ['data' => $this->redPackets->detail((int)($body['packet_id'] ?? 0), $userId) ?: new \stdClass()];
+
+            case '/im/niuniu/start':
+                return ['data' => $this->niuniu()->start($userId, (int)($body['group_id'] ?? 0)), 'ws_type' => 'niuniu.started'];
+            case '/im/niuniu/buy':
+                return ['data' => $this->niuniu()->buy($userId, (int)($body['round_id'] ?? 0), (int)($body['count'] ?? 1)), 'ws_type' => 'niuniu.bought'];
+            case '/im/niuniu/claim':
+                return ['data' => $this->niuniu()->claim($userId, (int)($body['round_id'] ?? 0)), 'ws_type' => 'niuniu.claimed'];
+            case '/im/niuniu/detail':
+                return ['data' => $this->niuniu()->detail((int)($body['round_id'] ?? 0), $userId) ?: new \stdClass()];
 
             case '/im/transfer/send':
                 return ['data' => $this->transferSend($userId, $body), 'ws_type' => 'transfer.sent'];

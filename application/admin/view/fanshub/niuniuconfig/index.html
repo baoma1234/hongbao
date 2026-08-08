@@ -1,0 +1,110 @@
+<div class="panel panel-default panel-intro">
+    {:build_heading()}
+    <div class="panel-body">
+        <form id="edit-form" class="form-horizontal" role="form" data-toggle="validator" method="POST" action="">
+            <fieldset>
+                <legend>红宝尾数牛牛 · 全局开关</legend>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">玩法说明</label>
+                    <div class="col-xs-12 col-sm-8">
+                        <p class="form-control-static" style="padding-top:7px;margin:0;line-height:1.6;">
+                            用户买入积分进入奖池；购入结束后生成虚拟尾数，手动领取才展示。<br>
+                            红包仅用于比对，金额不入账。扣 3% 后：牛牛组瓜分 60%，牛7‑9 瓜分 40%；牛1‑6 无奖金。<br>
+                            群需单独开启「尾数牛牛」后才可开局。
+                        </p>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">全局开关</label>
+                    <div class="col-xs-12 col-sm-8">
+                        <label class="radio-inline"><input type="radio" name="row[niuniu_enabled_global]" value="1" {if $config.niuniu_enabled_global=='1'}checked{/if}> 开启</label>
+                        <label class="radio-inline"><input type="radio" name="row[niuniu_enabled_global]" value="0" {if $config.niuniu_enabled_global!='1'}checked{/if}> 关闭</label>
+                    </div>
+                </div>
+            </fieldset>
+            <fieldset>
+                <legend>购入 / 结算参数</legend>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">每份价格</label>
+                    <div class="col-xs-12 col-sm-4">
+                        <input type="number" step="0.01" min="0.01" class="form-control" name="row[niuniu_share_price]" value="{$config.niuniu_share_price|htmlentities}">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">购入倒计时（秒）</label>
+                    <div class="col-xs-12 col-sm-4">
+                        <input type="number" min="30" class="form-control" name="row[niuniu_buy_seconds]" value="{$config.niuniu_buy_seconds|htmlentities}">
+                        <span class="help-block">默认 120（2 分钟），期间群内禁言</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">领取等待（秒）</label>
+                    <div class="col-xs-12 col-sm-4">
+                        <input type="number" min="15" class="form-control" name="row[niuniu_claim_seconds]" value="{$config.niuniu_claim_seconds|htmlentities}">
+                        <span class="help-block">购入结束后可领红包查看尾数；到期强制结算</span>
+                    </div>
+                </div>
+            </fieldset>
+            <fieldset>
+                <legend>奖池分配</legend>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">平台手续费</label>
+                    <div class="col-xs-12 col-sm-4">
+                        <input type="number" step="0.0001" min="0" max="1" class="form-control" name="row[niuniu_fee_rate]" value="{$config.niuniu_fee_rate|htmlentities}">
+                        <span class="help-block">例：0.03 = 3%</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">牛牛组占比</label>
+                    <div class="col-xs-12 col-sm-4">
+                        <input type="number" step="0.0001" min="0" max="1" class="form-control" name="row[niuniu_pool_rate]" value="{$config.niuniu_pool_rate|htmlentities}">
+                        <span class="help-block">可分配奖金 × 该比例；默认 0.6</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">次级(牛7‑9)占比</label>
+                    <div class="col-xs-12 col-sm-4">
+                        <input type="number" step="0.0001" min="0" max="1" class="form-control" name="row[niuniu_secondary_rate]" value="{$config.niuniu_secondary_rate|htmlentities}">
+                        <span class="help-block">须与牛牛占比之和为 1；默认 0.4</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">手续费收款 UID</label>
+                    <div class="col-xs-12 col-sm-4">
+                        <input type="number" class="form-control" name="row[niuniu_platform_user_id]" value="{$config.niuniu_platform_user_id|htmlentities}">
+                    </div>
+                </div>
+            </fieldset>
+            <fieldset>
+                <legend>第三方随机源（drand）</legend>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">API 根地址</label>
+                    <div class="col-xs-12 col-sm-6">
+                        <input type="text" class="form-control" name="row[niuniu_drand_api]" value="{$config.niuniu_drand_api|htmlentities}">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">出块周期（秒）</label>
+                    <div class="col-xs-12 col-sm-4">
+                        <input type="number" min="1" class="form-control" name="row[niuniu_drand_period]" value="{$config.niuniu_drand_period|htmlentities}">
+                    </div>
+                </div>
+            </fieldset>
+            <fieldset>
+                <legend>默认规则文案（群可覆盖）</legend>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">规则说明</label>
+                    <div class="col-xs-12 col-sm-8">
+                        <textarea class="form-control" name="row[niuniu_rule_text]" rows="8">{$config.niuniu_rule_text|htmlentities}</textarea>
+                    </div>
+                </div>
+            </fieldset>
+            <div class="form-group layer-footer">
+                <label class="control-label col-xs-12 col-sm-2"></label>
+                <div class="col-xs-12 col-sm-8">
+                    <button type="submit" class="btn btn-success btn-embossed">{:__('OK')}</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>

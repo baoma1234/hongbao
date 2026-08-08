@@ -61,6 +61,9 @@ export function previewText(last) {
     const bless = ex.blessing || '恭喜发财'
     return '[红包] ' + bless
   }
+  if (mt === 10 || ex.niuniu) {
+    return '[尾数牛牛] ' + (last.content || '红包尾数牛牛')
+  }
   if (mt === 4) {
     return '[图片]'
   }

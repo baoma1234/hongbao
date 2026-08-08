@@ -387,6 +387,7 @@ class WalletService
                 'red_packet_send',
                 'red_packet_mine_pay',
                 'red_packet_worst_pay',
+                'niuniu_buy',
             ], true);
             if ($countTurnover) {
                 $affected = Db::exec(

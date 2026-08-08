@@ -538,6 +538,22 @@ export function redPacketDetail(packetId) {
   return imSend('redpacket.detail', { packet_id: packetId | 0 }, true)
 }
 
+export function niuniuStart(groupId) {
+  return imSend('niuniu.start', { group_id: groupId | 0 }, true)
+}
+
+export function niuniuBuy(roundId, count = 1) {
+  return imSend('niuniu.buy', { round_id: roundId | 0, count: count | 0 || 1 }, true)
+}
+
+export function niuniuClaim(roundId) {
+  return imSend('niuniu.claim', { round_id: roundId | 0 }, true)
+}
+
+export function niuniuDetail(roundId) {
+  return imSend('niuniu.detail', { round_id: roundId | 0 }, true)
+}
+
 export function setPeerRemark(peerUserId, remark) {
   return imSend(
     'friend.set_remark',
