@@ -139,6 +139,27 @@ class Fanshub extends Api
     }
 
     /**
+     * 红包详情（资金流水跳转）
+     * GET/POST /api/fanshub/rpdetail?packet_id=&packet_no=
+     */
+    public function rpdetail()
+    {
+        try {
+            $packetId = (int)$this->request->param('packet_id', 0);
+            $packetNo = trim((string)$this->request->param('packet_no', ''));
+            $this->success('ok', \app\common\library\FansHubWallet::rpDetailForUser(
+                (int)$this->auth->id,
+                $packetId,
+                $packetNo
+            ));
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: FansHubService::h5CopyText('api_operation_fail'));
+        }
+    }
+
+    /**
      * 红包公平性验证（波场官方区块哈希）
      * GET /api/fanshub/rpfair?packet_no=RP...
      * 须已登录，且本人已领取，且红包已领完，才可查询。

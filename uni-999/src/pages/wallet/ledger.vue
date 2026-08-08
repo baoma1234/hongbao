@@ -46,10 +46,17 @@
     </view>
 
     <view class="wallet-ledger-list" v-if="list.length">
-      <view v-for="item in list" :key="rowKey(item)" class="wallet-ledger-item">
+      <view
+        v-for="item in list"
+        :key="rowKey(item)"
+        class="wallet-ledger-item"
+        :class="{ 'is-rp': canOpenRp(item) }"
+        @click="onItemClick(item)"
+      >
         <view class="wallet-ledger-main">
           <view class="wallet-ledger-title">
             {{ item.type_label || item.title || item.type_text || item.type || '变动' }}
+            <text v-if="canOpenRp(item)" class="wallet-ledger-rp-tag">详情 ›</text>
           </view>
           <view class="wallet-ledger-sub" v-if="item.remark && item.remark !== (item.type_label || item.title)">{{ item.remark }}</view>
           <view class="wallet-ledger-time">
@@ -166,6 +173,26 @@ function afterText(item) {
   return money(afterHb)
 }
 
+function canOpenRp(item) {
+  if (!item) return false
+  if (item.can_open_rp) return true
+  const typ = String(item.type || '')
+  if (typ.indexOf('red_packet_') === 0) {
+    return !!(item.packet_id || item.ref_id || item.packet_no || item.biz_no)
+  }
+  return false
+}
+
+function onItemClick(item) {
+  if (!canOpenRp(item)) return
+  const pid = Number(item.packet_id || item.ref_id || 0) || 0
+  const pno = String(item.packet_no || item.biz_no || '').trim()
+  let url = '/pages/wallet/rp-detail?'
+  if (pid > 0) url += 'packet_id=' + pid
+  if (pno) url += (pid > 0 ? '&' : '') + 'packet_no=' + encodeURIComponent(pno)
+  uni.navigateTo({ url })
+}
+
 async function load(p, append) {
   if (loading.value) return
   if (!getToken()) {
@@ -227,5 +254,17 @@ onShow(() => {
   background: #1a1a1a;
   border-color: #1a1a1a;
   color: #fff;
+}
+.wallet-ledger-item.is-rp {
+  cursor: pointer;
+}
+.wallet-ledger-item.is-rp:active {
+  background: #f7f8fa;
+}
+.wallet-ledger-rp-tag {
+  margin-left: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #c62828;
 }
 </style>

@@ -134,6 +134,13 @@
       }
     },
     {
+      "path": "pages/wallet/rp-detail",
+      "style": {
+        "navigationBarTitleText": "红包详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/wallet/payee",
       "style": {
         "navigationBarTitleText": "收款地址",

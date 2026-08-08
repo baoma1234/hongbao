@@ -194,17 +194,28 @@ class FansHubWallet
         }
         $labels = self::ledgerTypeLabels();
         $list = [];
+        $needResolveNos = [];
         foreach ($rows as $row) {
             $type = (string)($row['type'] ?? '');
             $bal = round((float)($row['balance_change'] ?? 0), 2);
             $rights = round((float)($row['rights_change'] ?? 0), 2);
             $hongbao = round((float)($row['hongbao_change'] ?? 0), 2);
+            $bizNo = trim((string)($row['biz_no'] ?? ''));
+            $refType = trim((string)($row['ref_type'] ?? ''));
+            $refId = (int)($row['ref_id'] ?? 0);
             $remark = self::enrichLedgerRemark(
                 (string)($row['remark'] ?? ''),
-                (string)($row['biz_no'] ?? ''),
-                (string)($row['ref_type'] ?? ''),
+                $bizNo,
+                $refType,
                 $type
             );
+            $isRp = ($refType === 'red_packet') || strpos($type, 'red_packet_') === 0;
+            if ($isRp && $bizNo === '' && preg_match('/红宝号\s*[:：]\s*([A-Za-z0-9_\-]+)/u', $remark, $m)) {
+                $bizNo = trim((string)$m[1]);
+            }
+            if ($isRp && $refId <= 0 && $bizNo !== '') {
+                $needResolveNos[$bizNo] = true;
+            }
             $list[] = [
                 'id'              => (int)$row['id'],
                 'type'            => $type,
@@ -216,10 +227,38 @@ class FansHubWallet
                 'rights_after'    => round((float)($row['rights_after'] ?? 0), 2),
                 'hongbao_after'   => round((float)($row['hongbao_after'] ?? 0), 2),
                 'remark'          => $remark,
-                'biz_no'          => (string)($row['biz_no'] ?? ''),
+                'biz_no'          => $bizNo,
+                'ref_type'        => $refType,
+                'ref_id'          => $refId,
+                'packet_id'       => $isRp ? $refId : 0,
+                'packet_no'       => $isRp ? $bizNo : '',
+                'can_open_rp'     => $isRp && ($refId > 0 || $bizNo !== ''),
                 'channel'         => (string)($row['channel'] ?? ''),
                 'createtime'      => (int)($row['createtime'] ?? 0),
             ];
+        }
+        if ($needResolveNos) {
+            $nos = array_keys($needResolveNos);
+            $map = [];
+            $chunks = array_chunk($nos, 100);
+            foreach ($chunks as $chunk) {
+                $found = Db::name('chat_red_packets')->where('packet_no', 'in', $chunk)->column('id', 'packet_no');
+                if (is_array($found)) {
+                    foreach ($found as $k => $v) {
+                        $map[(string)$k] = (int)$v;
+                    }
+                }
+            }
+            foreach ($list as &$item) {
+                if (!empty($item['can_open_rp']) && (int)$item['packet_id'] <= 0) {
+                    $no = (string)$item['packet_no'];
+                    if ($no !== '' && !empty($map[$no])) {
+                        $item['packet_id'] = (int)$map[$no];
+                        $item['ref_id'] = (int)$map[$no];
+                    }
+                }
+            }
+            unset($item);
         }
         $n = count($list);
         return [
@@ -1188,6 +1227,165 @@ class FansHubWallet
             Db::rollback();
             throw $e;
         }
+    }
+
+    /**
+     * 资金流水点开红包详情（本人有流水/领取记录/收发包权限即可）
+     */
+    public static function rpDetailForUser($userId, $packetId = 0, $packetNo = '')
+    {
+        $userId = (int)$userId;
+        $packetId = (int)$packetId;
+        $packetNo = trim((string)$packetNo);
+        if ($userId <= 0) {
+            throw new \RuntimeException('请先登录');
+        }
+        $packet = null;
+        if ($packetId > 0) {
+            $packet = Db::name('chat_red_packets')->where('id', $packetId)->find();
+        }
+        if (!$packet && $packetNo !== '') {
+            $packet = Db::name('chat_red_packets')->where('packet_no', $packetNo)->find();
+            if (!$packet && $packetNo !== strtolower($packetNo)) {
+                $packet = Db::name('chat_red_packets')->where('packet_no', strtolower($packetNo))->find();
+            }
+        }
+        if (!$packet) {
+            throw new \RuntimeException('红包不存在');
+        }
+        $packetId = (int)$packet['id'];
+        $packetNo = (string)$packet['packet_no'];
+
+        $allowed = false;
+        if ((int)$packet['from_user_id'] === $userId || (int)($packet['to_user_id'] ?? 0) === $userId) {
+            $allowed = true;
+        }
+        if (!$allowed) {
+            $grabbed = Db::name('chat_red_packet_records')
+                ->where('packet_id', $packetId)
+                ->where('user_id', $userId)
+                ->value('id');
+            if ($grabbed) {
+                $allowed = true;
+            }
+        }
+        if (!$allowed) {
+            $q = Db::name('fans_ledger')->where('user_id', $userId);
+            $q->where(function ($sub) use ($packetId, $packetNo) {
+                if ($packetNo !== '') {
+                    $sub->whereOr('biz_no', $packetNo);
+                }
+                if ($packetId > 0) {
+                    $sub->whereOr('ref_id', $packetId);
+                }
+            });
+            if ($q->value('id')) {
+                $allowed = true;
+            }
+        }
+        if (!$allowed && (int)$packet['scope_type'] === 2 && (int)$packet['group_id'] > 0) {
+            $mem = Db::name('chat_group_members')
+                ->where('group_id', (int)$packet['group_id'])
+                ->where('user_id', $userId)
+                ->where('status', 1)
+                ->value('id');
+            if ($mem) {
+                $allowed = true;
+            }
+        }
+        if (!$allowed) {
+            throw new \RuntimeException('无权查看该红包');
+        }
+
+        $records = Db::name('chat_red_packet_records')
+            ->where('packet_id', $packetId)
+            ->order('id', 'asc')
+            ->select();
+        if (!is_array($records)) {
+            $records = $records ? $records->toArray() : [];
+        }
+        $mine = null;
+        $userIds = [];
+        foreach ($records as $r) {
+            $uid = (int)$r['user_id'];
+            $userIds[] = $uid;
+            if ($uid === $userId) {
+                $mine = $r;
+            }
+        }
+        $remainCount = (int)($packet['remain_count'] ?? 0);
+        $status = (int)($packet['status'] ?? 0);
+        $finished = ($remainCount <= 0) || in_array($status, [2, 3, 4, 5], true);
+        if (!$finished) {
+            $records = $mine ? [$mine] : [];
+        }
+        $userIds[] = (int)$packet['from_user_id'];
+        $userIds = array_values(array_unique(array_filter($userIds)));
+        $profiles = [];
+        if ($userIds) {
+            $users = Db::name('user')->where('id', 'in', $userIds)->field('id,nickname,avatar,username')->select();
+            if (!is_array($users)) {
+                $users = $users ? $users->toArray() : [];
+            }
+            foreach ($users as $u) {
+                $profiles[(int)$u['id']] = [
+                    'nickname' => (string)($u['nickname'] ?: ($u['username'] ?: ('用户' . $u['id']))),
+                    'avatar'   => (string)($u['avatar'] ?? ''),
+                ];
+            }
+        }
+        $outRecords = [];
+        foreach ($records as $r) {
+            $uid = (int)$r['user_id'];
+            $p = $profiles[$uid] ?? ['nickname' => '用户' . $uid, 'avatar' => ''];
+            $outRecords[] = [
+                'id'          => (int)$r['id'],
+                'user_id'     => $uid,
+                'amount'      => round((float)$r['amount'], 2),
+                'is_best'     => (int)($r['is_best'] ?? 0),
+                'is_worst'    => (int)($r['is_worst'] ?? 0),
+                'is_mine_hit' => (int)($r['is_mine_hit'] ?? 0),
+                'tail_digit'  => isset($r['tail_digit']) ? (int)$r['tail_digit'] : null,
+                'createtime'  => (int)($r['createtime'] ?? 0),
+                'nickname'    => $p['nickname'],
+                'avatar'      => $p['avatar'],
+            ];
+        }
+        $from = $profiles[(int)$packet['from_user_id']] ?? ['nickname' => '用户' . (int)$packet['from_user_id'], 'avatar' => ''];
+        $typeList = FansHubRedPacket::typeList();
+        $type = (int)$packet['packet_type'];
+        return [
+            'packet' => [
+                'id'             => $packetId,
+                'packet_no'      => $packetNo,
+                'packet_type'    => $type,
+                'type_label'     => $typeList[$type] ?? ('类型' . $type),
+                'scope_type'     => (int)$packet['scope_type'],
+                'group_id'       => (int)($packet['group_id'] ?? 0),
+                'from_user_id'   => (int)$packet['from_user_id'],
+                'from_nickname'  => $from['nickname'],
+                'from_avatar'    => $from['avatar'],
+                'total_amount'   => round((float)$packet['total_amount'], 2),
+                'total_count'    => (int)$packet['total_count'],
+                'remain_amount'  => round((float)($packet['remain_amount'] ?? 0), 2),
+                'remain_count'   => $remainCount,
+                'status'         => $status,
+                'mine_digit'     => isset($packet['mine_digit']) ? (int)$packet['mine_digit'] : null,
+                'createtime'     => (int)($packet['createtime'] ?? 0),
+                'expiretime'     => (int)($packet['expiretime'] ?? 0),
+                'blessing'       => (string)($packet['blessing'] ?? ''),
+            ],
+            'mine'            => $mine ? [
+                'amount'     => round((float)$mine['amount'], 2),
+                'createtime' => (int)($mine['createtime'] ?? 0),
+                'is_best'    => (int)($mine['is_best'] ?? 0),
+                'is_worst'   => (int)($mine['is_worst'] ?? 0),
+                'is_mine_hit'=> (int)($mine['is_mine_hit'] ?? 0),
+            ] : null,
+            'records'         => $outRecords,
+            'finished'        => $finished,
+            'can_fair_verify' => $finished && in_array($type, [2, 3, 5], true) && !empty($mine),
+        ];
     }
 
     protected static function getChannel($id, $type)
