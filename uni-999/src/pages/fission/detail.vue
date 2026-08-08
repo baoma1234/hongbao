@@ -1,5 +1,6 @@
 <template>
   <view class="fx-page">
+    <view class="fx-stars" aria-hidden="true" />
     <view class="fx-hd">
       <text class="fx-back" @click="goBack">‹</text>
       <text class="fx-title">裂变红宝</text>
@@ -13,71 +14,74 @@
         <text class="fx-empty-sub">活动开启后可在此参与</text>
       </view>
       <view v-else class="fx-body">
-        <!-- 主奖金卡 -->
-        <view class="fx-hero">
-          <view v-if="state === 'running' && remainText" class="fx-countdown">{{ remainText }}</view>
-          <view class="fx-pool-row">
-            <text class="fx-yen">¥</text>
-            <text class="fx-pool-num">{{ poolText }}</text>
-            <text class="fx-pool-unit">奖金池</text>
-          </view>
-          <view class="fx-bar-wrap">
-            <view class="fx-bar-fill" :style="{ width: progressPct + '%' }" />
-          </view>
-          <text class="fx-bar-label">当前 {{ globalQuals }} / {{ globalCap }} 份资格</text>
-        </view>
-
-        <!-- 成功 / 失败 -->
-        <view v-if="state === 'success'" class="fx-result ok">
-          <text class="fx-result-title">开奖成功</text>
-          <text class="fx-result-amt">你的中奖金额：¥{{ winText }}</text>
-          <text class="fx-result-sub">上下级关系永久保留</text>
-        </view>
-        <view v-else-if="state === 'expired'" class="fx-result fail">
-          <text class="fx-result-title">活动已结束</text>
-          <text class="fx-result-sub">未集齐 {{ globalCap }} 份资格，红宝池作废不予发放</text>
-          <text class="fx-result-sub">上下级邀请关系永久保留</text>
-        </view>
-
-        <!-- 红包样式双卡 -->
-        <view class="fx-stats">
-          <view class="fx-stat-card">
-            <text class="fx-stat-top">我的资格: {{ myQuals }}/{{ userCap }}</text>
-            <view class="fx-stat-flap" />
-            <text class="fx-stat-bot">{{ myQuals }}/{{ userCap }}</text>
-          </view>
-          <view class="fx-stat-card" @click="shareLink">
-            <text class="fx-stat-top">直属下级: {{ subCount }}人</text>
-            <view class="fx-stat-flap" />
-            <text class="fx-stat-bot">分享</text>
-          </view>
-        </view>
-
-        <!-- 邀请链接 -->
-        <view v-if="state === 'running' || inviteLink" class="fx-invite">
-          <text class="fx-section-title">邀请链接</text>
-          <view class="fx-invite-row">
-            <view class="fx-invite-box">
-              <text class="fx-pin">📍</text>
-              <text class="fx-invite-text">{{ inviteLink || '我的专属邀请链接' }}</text>
+        <!-- 设计稿：一整块深色主卡 -->
+        <view class="fx-panel">
+          <view class="fx-hero">
+            <view v-if="state === 'running' && remainText" class="fx-countdown">{{ remainText }}</view>
+            <view class="fx-pool-row">
+              <text class="fx-yen">¥</text>
+              <text class="fx-pool-num">{{ poolText }}</text>
+              <text class="fx-pool-unit">奖金池</text>
             </view>
-            <button type="button" class="fx-btn-gold" @click="copyLink">复制链接</button>
+            <view class="fx-bar-wrap">
+              <view class="fx-bar-fill" :style="{ width: Math.max(progressPct, 2) + '%' }" />
+            </view>
+            <text class="fx-bar-label">当前 {{ globalQuals }} / {{ globalCap }} 份资格</text>
+          </view>
+
+          <view v-if="state === 'success'" class="fx-result ok">
+            <text class="fx-result-title">开奖成功</text>
+            <text class="fx-result-amt">你的中奖金额：¥{{ winText }}</text>
+            <text class="fx-result-sub">上下级关系永久保留</text>
+          </view>
+          <view v-else-if="state === 'expired'" class="fx-result fail">
+            <text class="fx-result-title">活动已结束</text>
+            <text class="fx-result-sub">未集齐 {{ globalCap }} 份资格，红宝池作废不予发放</text>
+            <text class="fx-result-sub">上下级邀请关系永久保留</text>
+          </view>
+
+          <view class="fx-stats">
+            <view class="fx-stat-card">
+              <view class="fx-stat-lid">
+                <text class="fx-stat-top">我的资格: {{ myQuals }}/{{ userCap }}</text>
+              </view>
+              <view class="fx-stat-body">
+                <text class="fx-stat-bot">{{ myQuals }}/{{ userCap }}</text>
+              </view>
+            </view>
+            <view class="fx-stat-card" @click="shareLink">
+              <view class="fx-stat-lid">
+                <text class="fx-stat-top">直属下级: {{ subCount }}人</text>
+              </view>
+              <view class="fx-stat-body">
+                <text class="fx-stat-bot">分享</text>
+              </view>
+            </view>
+          </view>
+
+          <view v-if="state === 'running' || inviteLink" class="fx-invite">
+            <text class="fx-section-title">邀请链接</text>
+            <view class="fx-invite-row">
+              <view class="fx-invite-box">
+                <view class="fx-pin" />
+                <text class="fx-invite-text">{{ inviteDisplay }}</text>
+              </view>
+              <button type="button" class="fx-btn-gold" @click="copyLink">复制链接</button>
+            </view>
+          </view>
+
+          <view v-if="state === 'running' && !joined" class="fx-join-wrap">
+            <button
+              type="button"
+              class="fx-btn-join"
+              :disabled="!canGain || joining"
+              @click="onJoin"
+            >
+              {{ joining ? '参与中…' : '参与活动领取资格' }}
+            </button>
           </view>
         </view>
 
-        <!-- 未参与时补一次领取 -->
-        <view v-if="state === 'running' && !joined" class="fx-join-wrap">
-          <button
-            type="button"
-            class="fx-btn-join"
-            :disabled="!canGain || joining"
-            @click="onJoin"
-          >
-            {{ joining ? '参与中…' : '参与活动领取资格' }}
-          </button>
-        </view>
-
-        <!-- 活动规则 -->
         <view class="fx-rules">
           <text class="fx-rules-title">活动规则</text>
           <view v-for="(r, i) in displayRules" :key="i" class="fx-rule-line">{{ i + 1 }}. {{ r }}</view>
@@ -122,6 +126,9 @@ const subCount = computed(() => Number(me.value.subordinate_count || 0))
 const joined = computed(() => !!me.value.joined)
 const inviteLink = computed(() => String(me.value.invite_link || ''))
 const winText = computed(() => formatMoney(me.value.win_amount))
+
+/** 设计稿展示文案；有链接时仍优先显示占位短文，点击复制用真实链接 */
+const inviteDisplay = computed(() => '我的专属邀请链接')
 
 const displayRules = computed(() => [
   '参与得1份资格，单人上限' + userCap.value + '份',
@@ -267,23 +274,42 @@ onUnmounted(() => stopTick())
 
 <style scoped>
 .fx-page {
+  position: relative;
   min-height: 100vh;
-  background:
-    radial-gradient(ellipse at 50% -10%, rgba(40, 90, 180, 0.45) 0%, transparent 55%),
-    radial-gradient(ellipse at 80% 20%, rgba(20, 50, 120, 0.35) 0%, transparent 40%),
-    linear-gradient(180deg, #0a1630 0%, #070b14 45%, #05080f 100%);
+  background: #070b14;
   color: #e8eef8;
   box-sizing: border-box;
+  overflow: hidden;
+}
+.fx-stars {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(1.5px 1.5px at 12% 18%, rgba(180, 210, 255, 0.55), transparent),
+    radial-gradient(1.2px 1.2px at 28% 42%, rgba(160, 200, 255, 0.4), transparent),
+    radial-gradient(1.8px 1.8px at 48% 12%, rgba(200, 220, 255, 0.5), transparent),
+    radial-gradient(1px 1px at 66% 30%, rgba(150, 190, 255, 0.45), transparent),
+    radial-gradient(1.4px 1.4px at 82% 16%, rgba(180, 210, 255, 0.4), transparent),
+    radial-gradient(1.2px 1.2px at 90% 48%, rgba(160, 200, 255, 0.35), transparent),
+    radial-gradient(1.6px 1.6px at 18% 68%, rgba(170, 200, 255, 0.35), transparent),
+    radial-gradient(1px 1px at 55% 72%, rgba(190, 215, 255, 0.3), transparent),
+    radial-gradient(1.3px 1.3px at 74% 80%, rgba(160, 195, 255, 0.35), transparent),
+    radial-gradient(ellipse at 50% -8%, rgba(36, 78, 160, 0.38) 0%, transparent 52%);
+}
+.fx-hd,
+.fx-scroll {
+  position: relative;
+  z-index: 1;
 }
 .fx-hd {
   display: flex;
   align-items: center;
   padding-top: calc(env(safe-area-inset-top, 0px) + 10px);
-  padding-bottom: 10px;
+  padding-bottom: 8px;
   padding-left: 8px;
   padding-right: 8px;
-  position: relative;
-  z-index: 5;
 }
 .fx-back {
   width: 44px;
@@ -306,9 +332,6 @@ onUnmounted(() => stopTick())
   width: 44px;
   flex: 0 0 auto;
 }
-.fx-scroll {
-  box-sizing: border-box;
-}
 .fx-loading,
 .fx-empty {
   padding: 80px 24px;
@@ -322,75 +345,86 @@ onUnmounted(() => stopTick())
   margin-bottom: 8px;
 }
 .fx-body {
-  padding: 8px 16px 36px;
+  padding: 6px 14px 36px;
+}
+.fx-panel {
+  background: linear-gradient(180deg, #121a2e 0%, #0c1324 100%);
+  border: 1px solid rgba(120, 150, 200, 0.22);
+  border-radius: 18px;
+  padding: 18px 14px 16px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
 }
 .fx-hero {
   position: relative;
-  background: rgba(12, 18, 36, 0.72);
-  border: 1px solid rgba(255, 196, 67, 0.28);
-  border-radius: 18px;
-  padding: 28px 16px 20px;
+  padding: 10px 4px 6px;
   text-align: center;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
 }
 .fx-countdown {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 0;
+  right: 0;
   background: #e11d2e;
   color: #fff;
   font-size: 12px;
   font-weight: 800;
-  padding: 4px 10px;
+  padding: 5px 10px;
   border-radius: 8px;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.4px;
+  line-height: 1.2;
 }
 .fx-pool-row {
   display: flex;
   align-items: baseline;
   justify-content: center;
-  gap: 4px;
-  margin-bottom: 16px;
-  padding-top: 8px;
+  gap: 2px;
+  margin: 18px 0 18px;
+  padding-top: 4px;
 }
 .fx-yen {
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 800;
-  color: #f5c443;
+  color: #f6c84a;
+  text-shadow: 0 0 18px rgba(246, 200, 74, 0.35);
 }
 .fx-pool-num {
-  font-size: 40px;
+  font-size: 42px;
   font-weight: 900;
-  color: #f5c443;
+  color: #f6c84a;
   line-height: 1;
+  letter-spacing: 0.5px;
+  text-shadow: 0 0 18px rgba(246, 200, 74, 0.35);
 }
 .fx-pool-unit {
   font-size: 18px;
   font-weight: 800;
-  color: #f5c443;
-  margin-left: 2px;
+  color: #f6c84a;
+  margin-left: 4px;
 }
 .fx-bar-wrap {
-  height: 10px;
+  height: 12px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.1);
   overflow: hidden;
-  margin: 0 6px 10px;
+  margin: 0 2px 12px;
 }
 .fx-bar-fill {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #ff7a18, #f5c443);
+  background: linear-gradient(90deg, #ff5a18 0%, #ff9a1a 55%, #f6c84a 100%);
+  box-shadow: 0 0 8px rgba(255, 140, 40, 0.45);
   transition: width 0.35s ease;
+  min-width: 8px;
 }
 .fx-bar-label {
+  display: block;
   font-size: 13px;
-  color: #d7dfeb;
+  color: #e8eef8;
+  font-weight: 500;
 }
 .fx-result {
-  margin-top: 14px;
+  margin-top: 12px;
   border-radius: 12px;
-  padding: 14px;
+  padding: 12px;
   text-align: center;
 }
 .fx-result.ok {
@@ -403,16 +437,16 @@ onUnmounted(() => stopTick())
 }
 .fx-result-title {
   display: block;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 800;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 .fx-result-amt {
   display: block;
-  font-size: 22px;
-  color: #f5c443;
+  font-size: 20px;
+  color: #f6c84a;
   font-weight: 800;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 .fx-result-sub {
   display: block;
@@ -423,40 +457,56 @@ onUnmounted(() => stopTick())
 .fx-stats {
   display: flex;
   gap: 12px;
-  margin-top: 14px;
+  margin-top: 16px;
 }
 .fx-stat-card {
   flex: 1;
   border-radius: 14px;
   overflow: hidden;
-  background: linear-gradient(165deg, #ff6a2a 0%, #e11d2e 55%, #b71c1c 100%);
-  box-shadow: 0 6px 16px rgba(180, 30, 30, 0.35);
-  min-height: 92px;
-  display: flex;
-  flex-direction: column;
+  box-shadow: 0 6px 16px rgba(160, 30, 20, 0.35);
+  min-height: 100px;
+}
+.fx-stat-lid {
+  position: relative;
+  background: linear-gradient(180deg, #ff8a3a 0%, #f04a28 100%);
+  padding: 10px 8px 14px;
+  text-align: center;
+}
+.fx-stat-lid::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 18px;
+  background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.12) 100%);
+  clip-path: polygon(0 0, 50% 100%, 100% 0);
+  opacity: 0.9;
 }
 .fx-stat-top {
   display: block;
-  padding: 10px 10px 8px;
   font-size: 12px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.95);
-  text-align: center;
+  color: #ffe08a;
+  position: relative;
+  z-index: 1;
 }
-.fx-stat-flap {
-  height: 1px;
-  background: rgba(255, 255, 255, 0.28);
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.12);
-}
-.fx-stat-bot {
-  flex: 1;
+.fx-stat-body {
+  background: linear-gradient(180deg, #e62828 0%, #c41818 100%);
+  min-height: 56px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
+  padding: 14px 8px 16px;
+  margin-top: -8px;
+  position: relative;
+  z-index: 0;
+}
+.fx-stat-bot {
+  font-size: 24px;
   font-weight: 800;
   color: #fff;
-  padding: 12px 8px;
+  letter-spacing: 0.5px;
 }
 .fx-invite {
   margin-top: 18px;
@@ -471,43 +521,51 @@ onUnmounted(() => stopTick())
 .fx-invite-row {
   display: flex;
   gap: 8px;
-  align-items: stretch;
+  align-items: center;
 }
 .fx-invite-box {
   flex: 1;
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #0a0f1a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 999px;
-  padding: 0 14px;
+  padding: 0 14px 0 12px;
   min-height: 44px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   overflow: hidden;
 }
 .fx-pin {
   flex: 0 0 auto;
-  font-size: 14px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50% 50% 50% 0;
+  background: #cfd8e6;
+  transform: rotate(-45deg);
+  position: relative;
+  box-shadow: inset -3px -3px 0 0 #0a0f1a;
 }
 .fx-invite-text {
   flex: 1;
-  font-size: 12px;
-  color: #aeb8c8;
+  font-size: 13px;
+  color: #d7dfeb;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 .fx-btn-gold {
-  background: linear-gradient(180deg, #f7d56a, #e0a820);
-  color: #3a2800;
+  background: linear-gradient(180deg, #f8d76e 0%, #e8b428 100%);
+  color: #2a1e00;
   font-weight: 800;
   font-size: 13px;
   border: none;
   border-radius: 999px;
-  padding: 0 16px;
+  padding: 0 14px;
   line-height: 44px;
+  height: 44px;
   white-space: nowrap;
   flex: 0 0 auto;
+  box-shadow: 0 4px 10px rgba(232, 180, 40, 0.25);
 }
 .fx-join-wrap {
   margin-top: 14px;
@@ -524,11 +582,11 @@ onUnmounted(() => stopTick())
 }
 .fx-rules {
   position: relative;
-  margin-top: 22px;
+  margin-top: 18px;
   padding: 22px 14px 14px;
   border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(12, 18, 36, 0.65);
 }
 .fx-rules-title {
   position: absolute;
@@ -539,18 +597,18 @@ onUnmounted(() => stopTick())
   font-size: 14px;
   font-weight: 700;
   color: #fff;
-  background: #0a1630;
+  background: #070b14;
   white-space: nowrap;
 }
 .fx-rule-line {
   display: block;
   font-size: 12px;
-  color: #d0d8e6;
+  color: #c8d2e2;
   line-height: 1.75;
   margin-bottom: 2px;
 }
 .fx-disclaimer {
-  margin-top: 18px;
+  margin-top: 16px;
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -561,7 +619,7 @@ onUnmounted(() => stopTick())
   padding: 0 8px 24px;
 }
 .fx-check {
-  color: #f5c443;
+  color: #f6c84a;
   font-size: 13px;
   line-height: 1.4;
 }
