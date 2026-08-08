@@ -39,9 +39,8 @@ class FansHubFission
         }
 
         $now = time();
-        $start = (int)$act['start_time'];
-        $isFirstDay = $start > 0 && $now >= $start && $now < (strtotime(date('Y-m-d 00:00:00', $start)) + 86400);
-        $popupShow = $entryState === 'active' && $isFirstDay;
+        // 进行中即允许大厅弹窗；是否已看过由前端 localStorage 控制
+        $popupShow = $entryState === 'active';
 
         return [
             'has_activity' => true,

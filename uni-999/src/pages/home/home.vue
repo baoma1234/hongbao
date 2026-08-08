@@ -622,7 +622,7 @@ function maybeShowFissionPopup() {
   if (!f || !f.popup || !f.popup.show) return
   const aid = String((f.popup.activity_id || (f.activity && f.activity.id) || '') || '')
   try {
-    if (uni.getStorageSync('fission_popup_seen_session') === '1') return
+    // 仅按活动去重；关掉后本浏览器该活动不再弹（换活动会再弹）
     if (aid && uni.getStorageSync('fission_popup_seen_' + aid) === '1') return
   } catch (e) {}
   fissionPopupOpen.value = true
@@ -631,7 +631,6 @@ function maybeShowFissionPopup() {
 function dismissFissionPopup() {
   fissionPopupOpen.value = false
   try {
-    uni.setStorageSync('fission_popup_seen_session', '1')
     const aid = String(
       (fissionEntry.value && fissionEntry.value.popup && fissionEntry.value.popup.activity_id) ||
         (fissionEntry.value && fissionEntry.value.activity && fissionEntry.value.activity.id) ||

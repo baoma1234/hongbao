@@ -264,9 +264,6 @@ async function shareLink() {
 onShow(() => {
   measureScroll()
   loadDetail(true)
-  try {
-    uni.setStorageSync('fission_popup_seen_session', '1')
-  } catch (e) {}
 })
 
 onUnmounted(() => stopTick())
