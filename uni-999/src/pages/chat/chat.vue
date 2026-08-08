@@ -105,7 +105,7 @@
                   </view>
                 </view>
 
-                <!-- 红宝尾数牛牛卡片 -->
+                <!-- 红宝尾数牛牛卡片：bj 背景 + 开奖倒计时/按钮素材 -->
                 <view
                   v-else-if="isNiuniu(m)"
                   class="chat-niuniu-card"
@@ -113,14 +113,22 @@
                   @click="onNiuniuTap(m)"
                   @longpress="onMsgLongPress(m)"
                 >
-                  <view class="nn-hd">
-                    <text class="nn-title">🧧 {{ niuniuTitle(m) }}</text>
-                    <text v-if="niuniuPhase(m) === 'buying'" class="nn-timer">倒计时 {{ niuniuRemainText(m) }}</text>
+                  <image class="nn-bg" src="/static/niuniu/bj.jpg" mode="aspectFill" />
+                  <view class="nn-layer">
+                    <text v-if="(niuniuRound(m).game_mode|0) === 2" class="nn-mode-tag">单结果</text>
+                    <view
+                      v-if="niuniuPhase(m) === 'buying' || niuniuPhase(m) === 'claim'"
+                      class="nn-countdown"
+                    >
+                      <image class="nn-countdown-bg" src="/static/niuniu/countdown.png" mode="scaleToFill" />
+                      <text class="nn-countdown-time">{{ niuniuRemainText(m) }}</text>
+                    </view>
+                    <view class="nn-meta">
+                      <text class="nn-meta-line">{{ niuniuMetaLine(m) }}</text>
+                    </view>
+                    <image class="nn-cta-btn" :src="niuniuBtnSrc(m)" mode="widthFix" />
+                    <text class="nn-time">{{ msgTime(m) }}</text>
                   </view>
-                  <text class="nn-line">{{ niuniuSummary(m) }}</text>
-                  <text class="nn-line muted">🔐 {{ niuniuDrand(m) }}</text>
-                  <view class="nn-cta">{{ niuniuCta(m) }}</view>
-                  <text class="nn-time">{{ msgTime(m) }}</text>
                 </view>
 
                 <view
@@ -1431,6 +1439,21 @@ function niuniuCta(m) {
   if (phase === 'claim') return '👉 点击领取本局红包'
   if (phase === 'result' || phase === 'refund') return '查看开奖明细'
   return '查看'
+}
+function niuniuMetaLine(m) {
+  const r = niuniuRound(m)
+  const phase = niuniuPhase(m)
+  const modeTip = (r.game_mode | 0) === 2 ? '｜单结果' : ''
+  if (phase === 'void') return '本局作废（0 份）'
+  if (phase === 'refund') return '流局已退回' + modeTip
+  if (phase === 'result') return '开奖完成｜可发 ' + (r.distributable || 0) + modeTip
+  return (r.share_count || 0) + '份｜奖池 ' + (r.pool_amount || 0) + modeTip
+}
+function niuniuBtnSrc(m) {
+  const phase = niuniuPhase(m)
+  if (phase === 'buying') return '/static/niuniu/btn-buy.png'
+  if (phase === 'claim') return '/static/niuniu/btn-claim.png'
+  return '/static/niuniu/btn-wait.png'
 }
 function isTransfer(m) {
   return msgType(m) === 8
@@ -3359,60 +3382,105 @@ function closeRpDetail() {
   height: 100%;
 }
 .chat-niuniu-card {
-  max-width: 280px;
-  background: linear-gradient(160deg, #1d2132 0%, #12141d 100%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 14px;
-  padding: 12px 14px;
-  color: #e8eef8;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+  position: relative;
+  width: min(86vw, 320px);
+  aspect-ratio: 1024 / 575;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 22px rgba(120, 10, 10, 0.35);
+  background: #8b0d12;
 }
-.chat-niuniu-card .nn-hd {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-  gap: 8px;
-}
-.chat-niuniu-card .nn-title {
-  font-size: 14px;
-  font-weight: 800;
-  color: #fde9aa;
-}
-.chat-niuniu-card .nn-timer {
-  font-size: 12px;
-  font-weight: 700;
-  color: #fff;
-  background: linear-gradient(90deg, #ed3b33, #d1211b);
-  padding: 2px 8px;
-  border-radius: 8px;
-}
-.chat-niuniu-card .nn-line {
+.chat-niuniu-card .nn-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   display: block;
-  font-size: 12px;
-  line-height: 1.55;
-  color: #d7dfeb;
-  margin-bottom: 4px;
+  z-index: 0;
 }
-.chat-niuniu-card .nn-line.muted {
-  color: #a4a8bd;
+.chat-niuniu-card .nn-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
 }
-.chat-niuniu-card .nn-cta {
-  margin-top: 8px;
-  text-align: center;
-  font-size: 13px;
+.chat-niuniu-card .nn-mode-tag {
+  position: absolute;
+  top: 7%;
+  right: 4%;
+  z-index: 3;
+  font-size: 10px;
   font-weight: 800;
-  color: #442700;
-  background: linear-gradient(90deg, #fde9aa, #e7ab44);
-  border-radius: 10px;
-  padding: 8px 10px;
+  color: #fff7d2;
+  background: rgba(120, 10, 16, 0.72);
+  border: 1px solid rgba(255, 214, 120, 0.65);
+  border-radius: 999px;
+  padding: 2px 8px;
+  letter-spacing: 0.5px;
+}
+/* 距离开奖：约 30% 高、靠右约 30% 区域 */
+.chat-niuniu-card .nn-countdown {
+  position: absolute;
+  top: 30%;
+  right: 8%;
+  width: 42%;
+  height: 18%;
+  z-index: 2;
+}
+.chat-niuniu-card .nn-countdown-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.chat-niuniu-card .nn-countdown-time {
+  position: absolute;
+  right: 6%;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36%;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 900;
+  color: #8a2a00;
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+.chat-niuniu-card .nn-meta {
+  position: absolute;
+  left: 38%;
+  right: 6%;
+  top: 48%;
+  z-index: 2;
+  text-align: center;
+}
+.chat-niuniu-card .nn-meta-line {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffe9b0;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chat-niuniu-card .nn-cta-btn {
+  position: absolute;
+  left: 38%;
+  right: 8%;
+  top: 58%;
+  width: 54%;
+  z-index: 2;
+  display: block;
 }
 .chat-niuniu-card .nn-time {
-  display: block;
-  margin-top: 6px;
-  font-size: 11px;
-  color: #7a8499;
-  text-align: right;
+  position: absolute;
+  right: 8px;
+  bottom: 5px;
+  z-index: 2;
+  font-size: 10px;
+  color: rgba(255, 236, 200, 0.85);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
 }
 .nn-sheet-tip {
   font-size: 12px;
