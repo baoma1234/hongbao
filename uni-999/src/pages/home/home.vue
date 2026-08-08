@@ -236,7 +236,7 @@
               <text class="fission-coin c3">¥</text>
               <text class="fission-coin c4">¥</text>
             </view>
-            <text class="fission-popup-brand">— 裂变红包 —</text>
+            <text class="fission-popup-brand">— 裂变红宝 —</text>
             <view class="fission-popup-pool-row">
               <text class="fission-popup-yen">¥</text>
               <text class="fission-popup-num">{{ fissionPopupPool }}</text>
@@ -402,7 +402,7 @@ const fissionEntryState = computed(() => {
 })
 const fissionEntryTitle = computed(() => {
   const a = (fissionEntry.value && fissionEntry.value.activity) || {}
-  return a.title || '全网裂变红包'
+  return a.title || '全网裂变红宝'
 })
 const fissionEntrySub = computed(() => {
   if (fissionEntryState.value === 'ended') {

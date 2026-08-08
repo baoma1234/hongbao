@@ -41,7 +41,7 @@ class Fission extends Backend
         $globalCap = max(1, (int)$this->request->post('global_cap', 100));
         $userCap = max(1, (int)$this->request->post('user_cap', 5));
         $hours = max(1, (int)$this->request->post('duration_hours', 72));
-        $title = trim((string)$this->request->post('title', '全网裂变红包')) ?: '全网裂变红包';
+        $title = trim((string)$this->request->post('title', '全网裂变红宝')) ?: '全网裂变红宝';
         $now = time();
         $id = Db::name('fans_fission_activity')->insertGetId([
             'title'          => $title,

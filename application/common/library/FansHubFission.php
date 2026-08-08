@@ -156,7 +156,7 @@ class FansHubFission
         self::tickExpire();
         $act = self::getRunningActivityRow(true);
         if (!$act) {
-            throw new Exception('当前没有进行中的裂变红包活动');
+            throw new Exception('当前没有进行中的裂变红宝活动');
         }
         $aid = (int)$act['id'];
         $exist = FissionQual::where('activity_id', $aid)

@@ -304,7 +304,7 @@
                     <text class="chat-fission-card-time">{{ fissionNoticeTime }}</text>
                   </view>
                   <view class="chat-fission-envelope">
-                    <text class="chat-fission-title">裂变红包</text>
+                    <text class="chat-fission-title">裂变红宝</text>
                     <text class="chat-fission-pool">¥ {{ fissionNoticePool }} 奖金池</text>
                     <text class="chat-fission-progress">当前 {{ fissionNoticeQuals }} / {{ fissionNoticeCap }} 份资格</text>
                     <text class="chat-fission-remain">剩余 {{ fissionNoticeRemain }}</text>

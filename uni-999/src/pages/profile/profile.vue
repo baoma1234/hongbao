@@ -98,7 +98,7 @@
             </svg>
           </view>
           <view class="profile-menu-main">
-            <text class="profile-menu-title">{{ tt('profile_menu_fission', '裂变红包') }}</text>
+            <text class="profile-menu-title">{{ tt('profile_menu_fission', '裂变红宝') }}</text>
             <text class="profile-menu-sub">{{ tt('profile_menu_fission_sub', '全网裂变 · 邀请瓜分奖金池') }}</text>
           </view>
           <text class="profile-menu-arrow">›</text>

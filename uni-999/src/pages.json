@@ -164,7 +164,7 @@
     {
       "path": "pages/fission/detail",
       "style": {
-        "navigationBarTitleText": "裂变红包",
+        "navigationBarTitleText": "裂变红宝",
         "navigationStyle": "custom"
       }
     }
