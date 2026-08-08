@@ -3498,6 +3498,7 @@ function closeRpDetail() {
 .chat-niuniu-card .nn-cta-btn {
   width: 100%;
   display: block;
+  margin-top: 8px;
 }
 .chat-niuniu-card .nn-time {
   position: absolute;
