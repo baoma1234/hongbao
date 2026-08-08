@@ -3433,7 +3433,7 @@ function closeRpDetail() {
 /* 中间信息区：叠在牛右侧空位 */
 .chat-niuniu-card .nn-center {
   position: absolute;
-  left: 29%;
+  left: 34%;
   top: 40%;
   width: 30%;
   z-index: 2;
@@ -3462,7 +3462,7 @@ function closeRpDetail() {
 .chat-niuniu-card .nn-right {
   position: absolute;
   top: 42%;
-  right: 7.5%;
+  right: 11%;
   width: 24%;
   z-index: 2;
   display: flex;
