@@ -107,7 +107,15 @@ $imId = (int)$pdo->query("SELECT id FROM {$rule} WHERE name='fanshub_im' LIMIT 1
 $parentId = $imId ?: (int)$pdo->query("SELECT id FROM {$rule} WHERE name='fanshub' LIMIT 1")->fetchColumn();
 if ($parentId > 0) {
     $id = ensureMenu($pdo, $insert, $rule, $parentId, 'fanshub/niuniuauto', '尾数牛牛自动任务', 'fa fa-android', 1, 66, $now, '随机人数购入/自动领取');
-    foreach (['index' => '查看', 'add' => '添加', 'edit' => '编辑', 'del' => '删除', 'multi' => '批量'] as $act => $title) {
+    foreach ([
+        'index' => '查看',
+        'add' => '添加',
+        'edit' => '编辑',
+        'del' => '删除',
+        'multi' => '批量',
+        'runonce' => '立即执行',
+        'restartim' => '重启聊天服务',
+    ] as $act => $title) {
         ensureMenu($pdo, $insert, $rule, $id, 'fanshub/niuniuauto/' . $act, $title, 'fa fa-circle-o', 0, 0, $now);
     }
 }

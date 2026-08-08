@@ -58,6 +58,204 @@ class NiuniuAutoBotService
         }
     }
 
+    /**
+     * 后台「立即执行」：同步购入/领取（不走 Timer 延迟）
+     * @return array{buy:int,claim:int,settle:int,skip:int,errors:string[]}
+     */
+    public function forceRun($taskId = 0)
+    {
+        $stat = ['buy' => 0, 'claim' => 0, 'settle' => 0, 'skip' => 0, 'errors' => []];
+        $this->taskCache = null;
+        $this->taskCacheAt = 0;
+        $tasks = $this->loadTasks();
+        if ((int)$taskId > 0) {
+            $one = null;
+            try {
+                $one = Db::fetch(
+                    'SELECT * FROM ' . Db::table('chat_niuniu_auto_task') . ' WHERE id=? LIMIT 1',
+                    [(int)$taskId]
+                );
+            } catch (\Throwable $e) {
+                $one = null;
+            }
+            if (!$one) {
+                $stat['errors'][] = '任务 #' . (int)$taskId . ' 不存在';
+                return $stat;
+            }
+            if ((string)($one['status'] ?? '') !== 'normal') {
+                $stat['errors'][] = '任务 #' . (int)$taskId . ' 未启用';
+                return $stat;
+            }
+            $tasks = [$one];
+        }
+        if (!$tasks) {
+            $stat['errors'][] = '没有启用中的尾数牛牛自动任务';
+            return $stat;
+        }
+        foreach ($tasks as $task) {
+            $tid = (int)($task['id'] ?? 0);
+            try {
+                $one = $this->forceRunOne($task);
+                $stat['buy'] += (int)$one['buy'];
+                $stat['claim'] += (int)$one['claim'];
+                $stat['settle'] += (int)$one['settle'];
+                $stat['skip'] += (int)$one['skip'];
+                if (!empty($one['reason'])) {
+                    $stat['errors'][] = 'task#' . $tid . ': ' . $one['reason'];
+                }
+            } catch (\Throwable $e) {
+                $msg = trim($e->getMessage()) ?: get_class($e);
+                $stat['errors'][] = 'task#' . $tid . ': ' . $msg;
+                $this->touchError($tid, $msg);
+            }
+        }
+        return $stat;
+    }
+
+    protected function forceRunOne(array $task)
+    {
+        $out = ['buy' => 0, 'claim' => 0, 'settle' => 0, 'skip' => 0, 'reason' => ''];
+        $groupId = (int)($task['group_id'] ?? 0);
+        if ($groupId <= 0) {
+            throw new \RuntimeException('未配置群 ID');
+        }
+        if (!$this->niuniu->isGroupEnabled($groupId)) {
+            throw new \RuntimeException('本群未开启尾数牛牛');
+        }
+        $round = Db::fetch(
+            'SELECT * FROM ' . Db::table('chat_niuniu_rounds')
+            . ' WHERE group_id=? AND status IN (?,?) ORDER BY id DESC LIMIT 1',
+            [$groupId, NiuniuService::STATUS_BUYING, NiuniuService::STATUS_CLAIMING]
+        );
+        if (!$round) {
+            $out['skip'] = 1;
+            $out['reason'] = '无进行中对局（请先在群内点开始连开）';
+            return $out;
+        }
+        $status = (int)$round['status'];
+        if ($status === NiuniuService::STATUS_BUYING && (int)($task['auto_buy'] ?? 1) === 1) {
+            $out['buy'] = $this->forceBuysNow($task, $round);
+            if ($out['buy'] <= 0) {
+                $out['skip']++;
+                $out['reason'] = $out['reason'] ?: '本局未购入（可能已购过或余额不足）';
+            }
+        }
+        // 强制再刷一轮状态
+        $round = $this->niuniu->getRound((int)$round['id']) ?: $round;
+        $status = (int)$round['status'];
+        if ($status === NiuniuService::STATUS_CLAIMING && (int)($task['auto_claim'] ?? 1) === 1) {
+            $claimed = $this->forceClaimsNow($task, $round);
+            $out['claim'] = $claimed;
+            $left = Db::fetch(
+                'SELECT COUNT(*) AS c FROM ' . Db::table('chat_niuniu_shares')
+                . ' WHERE round_id=? AND claimed=0',
+                [(int)$round['id']]
+            );
+            if ((int)($left['c'] ?? 0) === 0) {
+                if ($this->niuniu->settle((int)$round['id'])) {
+                    $out['settle'] = 1;
+                }
+            }
+        } elseif ($status === NiuniuService::STATUS_BUYING) {
+            // 仅购入阶段
+        } else {
+            if ($out['buy'] <= 0 && $out['claim'] <= 0) {
+                $out['skip']++;
+                $out['reason'] = $out['reason'] ?: '当前阶段无可执行动作';
+            }
+        }
+        return $out;
+    }
+
+    protected function forceBuysNow(array $task, array $round)
+    {
+        $taskId = (int)$task['id'];
+        $roundId = (int)$round['id'];
+        $groupId = (int)$round['group_id'];
+        $this->clearBuyPlanned($taskId, $roundId);
+
+        $pool = $this->resolveActorUids($task);
+        if (!$pool) {
+            throw new \RuntimeException('无可用购入账号');
+        }
+        $minN = max(1, (int)($task['buyer_count_min'] ?? 3));
+        $maxN = max($minN, (int)($task['buyer_count_max'] ?? 8));
+        $want = min(random_int($minN, $maxN), count($pool));
+        shuffle($pool);
+        $buyers = array_slice($pool, 0, $want);
+        $this->markBuyPlanned($taskId, $roundId, max(120, (int)$round['buy_seconds'] + 60));
+
+        $sharesMin = max(1, (int)($task['shares_min'] ?? 1));
+        $sharesMax = max($sharesMin, (int)($task['shares_max'] ?? 3));
+        $bought = 0;
+        foreach ($buyers as $uid) {
+            $count = random_int($sharesMin, $sharesMax);
+            try {
+                $before = Db::fetch(
+                    'SELECT COUNT(*) AS c FROM ' . Db::table('chat_niuniu_shares')
+                    . ' WHERE round_id=? AND user_id=?',
+                    [$roundId, (int)$uid]
+                );
+                $this->doBuyOnce($taskId, $roundId, $groupId, (int)$uid, $count);
+                $after = Db::fetch(
+                    'SELECT COUNT(*) AS c FROM ' . Db::table('chat_niuniu_shares')
+                    . ' WHERE round_id=? AND user_id=?',
+                    [$roundId, (int)$uid]
+                );
+                if ((int)($after['c'] ?? 0) > (int)($before['c'] ?? 0)) {
+                    $bought++;
+                }
+            } catch (\Throwable $e) {
+                $this->touchError($taskId, 'buy u' . $uid . ': ' . $e->getMessage());
+            }
+        }
+        Db::exec(
+            'UPDATE ' . Db::table('chat_niuniu_auto_task')
+            . ' SET last_round_id=?, updatetime=? WHERE id=?',
+            [$roundId, time(), $taskId]
+        );
+        return $bought;
+    }
+
+    protected function forceClaimsNow(array $task, array $round)
+    {
+        $taskId = (int)$task['id'];
+        $roundId = (int)$round['id'];
+        $this->clearClaimBusy($taskId, $roundId);
+
+        $rows = Db::fetchAll(
+            'SELECT DISTINCT user_id FROM ' . Db::table('chat_niuniu_shares')
+            . ' WHERE round_id=? AND claimed=0',
+            [$roundId]
+        );
+        if (!$rows) {
+            return 0;
+        }
+        $actors = $this->resolveActorUids($task);
+        if (!$actors) {
+            return 0;
+        }
+        $actorMap = [];
+        foreach ($actors as $a) {
+            $actorMap[(int)$a] = true;
+        }
+        $n = 0;
+        foreach ($rows as $r) {
+            $uid = (int)$r['user_id'];
+            if (!isset($actorMap[$uid])) {
+                continue;
+            }
+            try {
+                $this->niuniu->claim($uid, $roundId);
+                $n++;
+            } catch (\Throwable $e) {
+                $this->touchError($taskId, 'claim u' . $uid . ': ' . $e->getMessage());
+            }
+        }
+        $this->markClaimBusy($taskId, $roundId, max(60, (int)$round['claim_seconds'] + 30));
+        return $n;
+    }
+
     protected function runOne(array $task)
     {
         $groupId = (int)($task['group_id'] ?? 0);
@@ -352,6 +550,14 @@ class NiuniuAutoBotService
         }
     }
 
+    protected function clearBuyPlanned($taskId, $roundId)
+    {
+        try {
+            RedisClient::conn()->del(RedisClient::key(self::BUY_PLANNED_PREFIX . $taskId . ':' . $roundId));
+        } catch (\Throwable $e) {
+        }
+    }
+
     protected function isClaimBusy($taskId, $roundId)
     {
         try {
@@ -370,6 +576,14 @@ class NiuniuAutoBotService
                 max(30, (int)$ttl),
                 '1'
             );
+        } catch (\Throwable $e) {
+        }
+    }
+
+    protected function clearClaimBusy($taskId, $roundId)
+    {
+        try {
+            RedisClient::conn()->del(RedisClient::key(self::CLAIM_BUSY_PREFIX . $taskId . ':' . $roundId));
         } catch (\Throwable $e) {
         }
     }

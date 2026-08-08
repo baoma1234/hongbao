@@ -37,6 +37,38 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                 ]]
             });
             Table.api.bindevent(table);
+
+            $(document).on('click', '.btn-runonce', function () {
+                var ids = Table.api.selectedids(table);
+                if (!ids.length) {
+                    Layer.msg('请先勾选任务');
+                    return;
+                }
+                Backend.api.ajax({
+                    url: 'fanshub/niuniuauto/runonce',
+                    data: {ids: ids.join(',')}
+                }, function () {
+                    table.bootstrapTable('refresh');
+                    return true;
+                });
+            });
+
+            $(document).on('click', '.btn-restartim', function () {
+                Layer.confirm('确认重启聊天服务？（会短暂断线约数秒）', function (index) {
+                    Layer.close(index);
+                    var loadIdx = Layer.load(1);
+                    Backend.api.ajax({
+                        url: 'fanshub/niuniuauto/restartim',
+                        data: {}
+                    }, function (data, ret) {
+                        Layer.close(loadIdx);
+                        table.bootstrapTable('refresh');
+                        return true;
+                    }, function () {
+                        Layer.close(loadIdx);
+                    });
+                });
+            });
         },
         add: function () {
             Controller.api.bindevent();
