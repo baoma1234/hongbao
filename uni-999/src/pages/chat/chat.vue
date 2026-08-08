@@ -3463,7 +3463,7 @@ function closeRpDetail() {
   position: absolute;
   top: 42%;
   right: 11%;
-  width: 24%;
+  width: 28%;
   z-index: 2;
   display: flex;
   flex-direction: column;
@@ -3472,7 +3472,7 @@ function closeRpDetail() {
 }
 .chat-niuniu-card .nn-countdown {
   position: relative;
-  width: 90%;
+  width: 100%;
   margin-left: auto;
   aspect-ratio: 282 / 73;
 }
