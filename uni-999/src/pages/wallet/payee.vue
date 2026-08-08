@@ -49,7 +49,7 @@
           </view>
 
           <view class="wallet-bind-panel" v-if="selectedType === 'USDT_MULTI'">
-            <view class="profile-meta-line">USDT 分三条填写：TRC20 / ERC20 / TON，可只绑其中一条或几条</view>
+            <view class="profile-meta-line">USDT 目前仅支持 TRC20 地址绑定</view>
             <view v-for="c in usdtChains" :key="c.wallet_type" class="profile-field">
               <text class="lab">{{ c.label }} 地址</text>
               <view class="profile-meta-line" v-if="binds[c.wallet_type]">
@@ -120,8 +120,9 @@ function goBack() {
 
 const USDT_CHAINS = [
   { chain: 'TRC20', wallet_type: 'BS_USDT_TRC20', label: 'TRC20' },
-  { chain: 'ERC20', wallet_type: 'BS_USDT_ERC20', label: 'ERC20' },
-  { chain: 'TON', wallet_type: 'BS_USDT_TON', label: 'TON' },
+  // ERC20 / TON 暂时隐藏
+  // { chain: 'ERC20', wallet_type: 'BS_USDT_ERC20', label: 'ERC20' },
+  // { chain: 'TON', wallet_type: 'BS_USDT_TON', label: 'TON' },
 ]
 
 const loading = ref(false)

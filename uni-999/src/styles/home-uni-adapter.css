@@ -404,18 +404,22 @@
   color: var(--text-muted, #657786);
 }
 
-/* 全网裂变红包首页入口 */
+/* 全网裂变红包首页入口：与分享条同宽、同列布局对齐 */
 #tabHome .fission-home-entry {
   position: relative;
-  margin-top: 12px;
-  border-radius: 14px;
+  width: 100%;
+  max-width: 300px;
+  margin: 8px auto 0;
+  border-radius: 10px;
   overflow: hidden;
   background: linear-gradient(120deg, #c62828 0%, #e65100 55%, #f9a825 100%);
   color: #fff;
-  display: flex;
-  align-items: center;
-  padding: 12px 14px;
-  box-shadow: 0 6px 18px rgba(198, 40, 40, 0.28);
+  box-shadow: 0 6px 20px rgba(198, 40, 40, 0.32);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+#tabHome .fission-home-entry:active {
+  transform: scale(0.985);
+  box-shadow: 0 3px 12px rgba(198, 40, 40, 0.28);
 }
 #tabHome .fission-home-entry.is-ended {
   filter: grayscale(0.85);
@@ -424,43 +428,101 @@
 }
 #tabHome .fission-home-entry-glow {
   position: absolute;
-  inset: -40% auto auto -20%;
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.18);
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.22) 0%, transparent 42%),
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.06) 0 6px, transparent 6px 12px);
   pointer-events: none;
 }
-#tabHome .fission-home-entry-inner {
-  flex: 1;
+#tabHome .fission-home-entry-inner.single-line {
   position: relative;
   z-index: 1;
-  text-align: left;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px 10px;
+  gap: 6px;
+  text-align: center;
 }
 #tabHome .fission-home-entry-title {
   display: block;
-  font-size: 15px;
+  width: 100%;
+  font-size: 12px;
   font-weight: 800;
-  margin-bottom: 2px;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
 }
 #tabHome .fission-home-entry-sub {
   display: block;
-  font-size: 11px;
-  opacity: 0.92;
+  width: 100%;
+  font-size: 10px;
+  line-height: 1.25;
+  opacity: 0.95;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 #tabHome .fission-home-entry-arrow {
-  position: relative;
-  z-index: 1;
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-  background: rgba(0, 0, 0, 0.18);
-  padding: 6px 10px;
-  border-radius: 999px;
-}
-.fission-popup-box .fission-popup-pool {
-  font-size: 28px;
+  flex: 0 0 auto;
+  align-self: center;
+  margin: 0 auto;
+  font-size: 11px;
   font-weight: 800;
-  color: #e65100;
-  margin-top: 4px;
+  white-space: nowrap;
+  background: rgba(0, 0, 0, 0.2);
+  color: #fff;
+  padding: 6px 16px;
+  border-radius: 999px;
+  line-height: 1.2;
+}
+
+/* 裂变弹窗：图片海报样式 */
+.home-modal-root .fission-popup-mask.is-open {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 18px;
+  box-sizing: border-box;
+}
+.home-modal-root .fission-popup-poster {
+  width: min(86vw, 340px);
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  text-align: center;
+}
+.home-modal-root .fission-popup-img {
+  display: block;
+  width: 100%;
+  border-radius: 16px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+}
+.home-modal-root .fission-popup-actions {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
+}
+.home-modal-root .fission-popup-go {
+  background: linear-gradient(180deg, #ffe08a, #f0b429);
+  color: #3a2800;
+  font-weight: 800;
+  font-size: 15px;
+  border: none;
+  border-radius: 22px;
+  line-height: 44px;
+}
+.home-modal-root .fission-popup-later {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 22px;
+  font-size: 13px;
+  line-height: 40px;
 }

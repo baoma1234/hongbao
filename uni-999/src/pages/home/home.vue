@@ -75,7 +75,7 @@
           </view>
         </view>
 
-        <!-- 全网裂变红包入口：无活动隐藏；结束置灰 -->
+        <!-- 全网裂变红包入口：与分享条同宽同结构对齐；无活动隐藏；结束置灰 -->
         <view
           v-if="fissionEntryState !== 'hidden'"
           class="fission-home-entry"
@@ -83,11 +83,11 @@
           @click="goFission"
         >
           <view class="fission-home-entry-glow" />
-          <view class="fission-home-entry-inner">
+          <view class="fission-home-entry-inner single-line">
             <text class="fission-home-entry-title">{{ fissionEntryTitle }}</text>
             <text class="fission-home-entry-sub">{{ fissionEntrySub }}</text>
+            <text class="fission-home-entry-arrow">{{ fissionEntryState === 'ended' ? '已结束' : '去参与 ›' }}</text>
           </view>
-          <text class="fission-home-entry-arrow">{{ fissionEntryState === 'ended' ? '已结束' : '去参与 ›' }}</text>
         </view>
       </view>
 
@@ -152,15 +152,15 @@
         </button>
       </view>
 
-      <!-- 跑马灯 -->
-      <view class="marquee-box" style="margin-top: 14px">
+      <!-- 跑马灯：暂时隐藏 -->
+      <view v-if="false" class="marquee-box" style="margin-top: 14px">
         <view class="marquee-content">
           <view v-for="(m, i) in marqueeItems" :key="i" class="marquee-item">{{ m }}</view>
         </view>
       </view>
 
-      <!-- 排行榜 + 页脚 -->
-      <view class="home-social-section" id="homeSocialSection">
+      <!-- 排行榜 + 页脚：暂时隐藏 -->
+      <view v-if="false" class="home-social-section" id="homeSocialSection">
         <view class="page-hero-title">{{ t('page_hero_social_title') || '💬 互动大厅' }}</view>
         <view class="page-hero-sub">{{ t('page_hero_social_sub') || '看排行 · 刷视频文 · 蹭气氛，专注拉新与晒单' }}</view>
         <view class="match-card" style="margin-top: 0; padding: 15px">
@@ -226,16 +226,19 @@
         </view>
       </view>
 
-      <!-- 裂变红包首日登录弹窗 -->
-      <view class="modal-mask" :class="{ 'is-open': fissionPopupOpen }" @click="dismissFissionPopup">
-        <view class="modal-box fission-popup-box" @click.stop>
-          <view class="modal-title">🧧 全网裂变红包</view>
-          <view class="fission-popup-pool">¥{{ fissionPopupPool }} 奖金池</view>
-          <view style="font-size: 13px; color: var(--text-muted); margin: 8px 0 16px; line-height: 1.5">
-            邀请有效新用户集齐资格，满额立即瓜分红包。72小时未集齐则作废。
+      <!-- 裂变红包首日登录弹窗（图片海报样式） -->
+      <view class="modal-mask fission-popup-mask" :class="{ 'is-open': fissionPopupOpen }" @click="dismissFissionPopup">
+        <view class="fission-popup-poster" @click.stop>
+          <image
+            class="fission-popup-img"
+            :src="fissionPosterSrc"
+            mode="widthFix"
+            @click="openFissionFromPopup"
+          />
+          <view class="fission-popup-actions">
+            <button type="button" class="fission-popup-go" @click="openFissionFromPopup">立即参与</button>
+            <button type="button" class="fission-popup-later" @click="dismissFissionPopup">稍后再说</button>
           </view>
-          <button type="button" class="modal-action-btn gold" @click="openFissionFromPopup">立即参与</button>
-          <button type="button" class="modal-close-btn" @click="dismissFissionPopup">稍后再说</button>
         </view>
       </view>
     </view>
@@ -254,6 +257,7 @@ import { apiRequest, fetchProfile, getToken } from '../../utils/auth.js'
 import { localeState, t, applyServerCopy } from '../../utils/i18n.js'
 import { imConnect } from '../../utils/im.js'
 import { copyText } from '../../utils/master.js'
+import { assetBase } from '../../utils/i18n.js'
 import '../../styles/home.css'
 import '../../styles/tabs-extra.css'
 import '../../styles/social-modals.css'
@@ -401,12 +405,7 @@ const fissionEntrySub = computed(() => {
   const cap = a.global_cap || 100
   return '¥' + pool + ' 奖金池 · ' + g + '/' + cap + ' 份资格'
 })
-const fissionPopupPool = computed(() => {
-  const p = fissionEntry.value && fissionEntry.value.popup
-  if (p && p.pool_amount != null) return p.pool_amount
-  const a = (fissionEntry.value && fissionEntry.value.activity) || {}
-  return a.pool_amount != null ? a.pool_amount : 1000
-})
+const fissionPosterSrc = computed(() => assetBase() + 'static/fission/popup-poster.png')
 
 const rankText = computed(() => {
   const p = profile.value || {}
