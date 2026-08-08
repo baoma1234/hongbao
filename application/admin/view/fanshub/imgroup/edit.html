@@ -212,8 +212,8 @@
         <div class="form-group">
             <label class="control-label col-xs-12 col-sm-2">尾数牛牛:</label>
             <div class="col-xs-12 col-sm-8">
-                {:build_radios('row[niuniu_enabled]', ['1'=>'开启', '0'=>'关闭'], isset($row['niuniu_enabled']) ? (string)$row['niuniu_enabled'] : '0')}
-                <span class="help-block">开启后群主/管理员可开「红宝尾数牛牛」对局（需全局配置也开启）</span>
+                {:build_radios('row[niuniu_enabled]', ['1'=>'开启', '0'=>'关闭'], isset($row['niuniu_enabled']) ? (string)$row['niuniu_enabled'] : '1')}
+                <span class="help-block">默认开启。群主/管理员可在「+」发起「尾数牛牛」或「尾数牛牛(单结果)」；单结果玩法无论买多少份只算一个尾数（份数仍计权重）。</span>
             </div>
         </div>
         <div class="form-group">

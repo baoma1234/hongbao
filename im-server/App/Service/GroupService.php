@@ -119,14 +119,22 @@ class GroupService
             Db::rollBack();
             throw $e;
         }
-        // 前端建群默认：普通/埋雷/随机/接龙；拼手气(2)需后台单独开权限
+        // 前端建群默认：普通/埋雷/随机/接龙；拼手气(2)需后台单独开权限；尾数牛牛默认开启
         try {
             Db::exec(
                 'UPDATE ' . Db::table('chat_groups')
-                . ' SET rp_enabled_types=?, updatetime=? WHERE id=?',
+                . ' SET rp_enabled_types=?, niuniu_enabled=1, updatetime=? WHERE id=?',
                 ['1,3,4,5', time(), $groupId]
             );
         } catch (\Throwable $eTypes) {
+            try {
+                Db::exec(
+                    'UPDATE ' . Db::table('chat_groups')
+                    . ' SET rp_enabled_types=?, updatetime=? WHERE id=?',
+                    ['1,3,4,5', time(), $groupId]
+                );
+            } catch (\Throwable $e2) {
+            }
         }
         // 建群引导卡：永久绑定群主 1% 发包管理津贴
         if (!empty($options['bind_owner_rebate'])) {
@@ -1134,6 +1142,7 @@ class GroupService
             'niuniu_desc'        => trim((string)($group['niuniu_desc'] ?? '')),
             'niuniu_buying'      => false,
             'niuniu_looping'     => (int)($group['niuniu_loop'] ?? 0) === 1,
+            'niuniu_loop_mode'   => max(1, min(2, (int)($group['niuniu_loop_mode'] ?? 1))),
             'can_start_niuniu'   => $isAdmin && (int)($group['niuniu_enabled'] ?? 0) === 1,
             'can_stop_niuniu'    => $isAdmin && (int)($group['niuniu_enabled'] ?? 0) === 1 && (int)($group['niuniu_loop'] ?? 0) === 1,
         ];

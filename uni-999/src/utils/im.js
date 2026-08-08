@@ -543,8 +543,12 @@ export function redPacketDetail(packetId) {
   return imSend('redpacket.detail', { packet_id: packetId | 0 }, true)
 }
 
-export function niuniuStart(groupId) {
-  return imSend('niuniu.start', { group_id: groupId | 0 }, true)
+export function niuniuStart(groupId, gameMode = 1) {
+  return imSend(
+    'niuniu.start',
+    { group_id: groupId | 0, game_mode: gameMode | 0 || 1 },
+    true
+  )
 }
 
 export function niuniuStop(groupId) {

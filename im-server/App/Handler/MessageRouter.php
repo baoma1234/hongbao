@@ -1571,7 +1571,9 @@ class MessageRouter
     protected function handleNiuniuStart(TcpConnection $connection, $uid, array $payload, $reqId)
     {
         try {
-            $result = $this->niuniu->start($uid, (int)($payload['group_id'] ?? 0));
+            $result = $this->niuniu->start($uid, (int)($payload['group_id'] ?? 0), [
+                'game_mode' => (int)($payload['game_mode'] ?? 1),
+            ]);
             $this->send($connection, 'niuniu.started', $result, $reqId);
             PushBus::drainOwnQueue(200);
         } catch (\Throwable $e) {

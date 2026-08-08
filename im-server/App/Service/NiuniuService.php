@@ -24,6 +24,11 @@ class NiuniuService
     const TIER_SECONDARY = 2;
     const TIER_NIUNIU = 3;
 
+    /** 普通：每份独立尾数 */
+    const MODE_NORMAL = 1;
+    /** 单结果：同一用户无论买几份，只算一个尾数（盖到该用户全部份上） */
+    const MODE_SINGLE = 2;
+
     const MSG_TYPE = 10;
 
     /** @var array */
@@ -90,15 +95,25 @@ class NiuniuService
         return $g && (int)($g['niuniu_loop'] ?? 0) === 1;
     }
 
-    public function enableLoop($groupId, $starterUserId)
+    public function enableLoop($groupId, $starterUserId, $gameMode = self::MODE_NORMAL)
     {
         $groupId = (int)$groupId;
         $starterUserId = (int)$starterUserId;
-        Db::exec(
-            'UPDATE ' . Db::table('chat_groups')
-            . ' SET niuniu_loop=1, niuniu_loop_starter=?, updatetime=? WHERE id=?',
-            [$starterUserId > 0 ? $starterUserId : 0, time(), $groupId]
-        );
+        $gameMode = ((int)$gameMode === self::MODE_SINGLE) ? self::MODE_SINGLE : self::MODE_NORMAL;
+        try {
+            Db::exec(
+                'UPDATE ' . Db::table('chat_groups')
+                . ' SET niuniu_loop=1, niuniu_loop_starter=?, niuniu_loop_mode=?, updatetime=? WHERE id=?',
+                [$starterUserId > 0 ? $starterUserId : 0, $gameMode, time(), $groupId]
+            );
+        } catch (\Throwable $e) {
+            // 兼容尚未跑 patch 的库
+            Db::exec(
+                'UPDATE ' . Db::table('chat_groups')
+                . ' SET niuniu_loop=1, niuniu_loop_starter=?, updatetime=? WHERE id=?',
+                [$starterUserId > 0 ? $starterUserId : 0, time(), $groupId]
+            );
+        }
         try {
             $this->groups->bumpViewerInfoCache($groupId);
         } catch (\Throwable $e) {
@@ -174,10 +189,13 @@ class NiuniuService
             . ' WHERE group_id=? AND status IN (?,?) LIMIT 1',
             [$groupId, self::STATUS_BUYING, self::STATUS_CLAIMING]
         );
+        $gameMode = ((int)($opts['game_mode'] ?? self::MODE_NORMAL) === self::MODE_SINGLE)
+            ? self::MODE_SINGLE
+            : self::MODE_NORMAL;
         if ($busy) {
             if (!$trusted) {
-                // 已在连开中：再点开始只确保 loop 打开
-                $this->enableLoop($groupId, $userId);
+                // 已在连开中：再点开始只确保 loop 打开（沿用当前局玩法）
+                $this->enableLoop($groupId, $userId, $gameMode);
                 throw new \RuntimeException('本群已有进行中的牛牛对局（连开已开启）');
             }
             return null;
@@ -191,14 +209,20 @@ class NiuniuService
             throw new \RuntimeException('份额价格无效');
         }
 
-        // 人工点开始 → 开启连开；续局沿用原 starter
+        // 人工点开始 → 开启连开；续局沿用原 starter / 玩法
         if (!$trusted) {
-            $this->enableLoop($groupId, $userId);
-        } elseif ($userId <= 0) {
+            $this->enableLoop($groupId, $userId, $gameMode);
+        } else {
             $g = $this->groups->get($groupId) ?: [];
-            $userId = (int)($g['niuniu_loop_starter'] ?? 0);
             if ($userId <= 0) {
-                $userId = (int)$c['robot_user_id'];
+                $userId = (int)($g['niuniu_loop_starter'] ?? 0);
+                if ($userId <= 0) {
+                    $userId = (int)$c['robot_user_id'];
+                }
+            }
+            $loopMode = (int)($g['niuniu_loop_mode'] ?? 0);
+            if ($loopMode === self::MODE_SINGLE || $loopMode === self::MODE_NORMAL) {
+                $gameMode = $loopMode;
             }
         }
 
@@ -209,23 +233,44 @@ class NiuniuService
 
         Db::begin();
         try {
-            Db::exec(
-                'INSERT INTO ' . Db::table('chat_niuniu_rounds')
-                . ' (group_id,starter_user_id,status,share_price,buy_seconds,claim_seconds,buy_end_at,'
-                . 'fee_rate,niuniu_rate,secondary_rate,drand_round,drand_url,platform_user_id,createtime,updatetime)'
-                . ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-                [
-                    $groupId, $userId, self::STATUS_BUYING, sprintf('%.2f', $price),
-                    $buySec, $claimSec, $buyEnd,
-                    sprintf('%.4f', (float)$c['fee_rate']),
-                    sprintf('%.4f', (float)$c['niuniu_rate']),
-                    sprintf('%.4f', (float)$c['secondary_rate']),
-                    (int)$lock['round'],
-                    (string)$lock['url'],
-                    (int)$c['platform_user_id'],
-                    $now, $now,
-                ]
-            );
+            try {
+                Db::exec(
+                    'INSERT INTO ' . Db::table('chat_niuniu_rounds')
+                    . ' (group_id,starter_user_id,status,game_mode,share_price,buy_seconds,claim_seconds,buy_end_at,'
+                    . 'fee_rate,niuniu_rate,secondary_rate,drand_round,drand_url,platform_user_id,createtime,updatetime)'
+                    . ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                    [
+                        $groupId, $userId, self::STATUS_BUYING, $gameMode, sprintf('%.2f', $price),
+                        $buySec, $claimSec, $buyEnd,
+                        sprintf('%.4f', (float)$c['fee_rate']),
+                        sprintf('%.4f', (float)$c['niuniu_rate']),
+                        sprintf('%.4f', (float)$c['secondary_rate']),
+                        (int)$lock['round'],
+                        (string)$lock['url'],
+                        (int)$c['platform_user_id'],
+                        $now, $now,
+                    ]
+                );
+            } catch (\Throwable $eIns) {
+                // 未 patch game_mode 列时回退
+                Db::exec(
+                    'INSERT INTO ' . Db::table('chat_niuniu_rounds')
+                    . ' (group_id,starter_user_id,status,share_price,buy_seconds,claim_seconds,buy_end_at,'
+                    . 'fee_rate,niuniu_rate,secondary_rate,drand_round,drand_url,platform_user_id,createtime,updatetime)'
+                    . ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                    [
+                        $groupId, $userId, self::STATUS_BUYING, sprintf('%.2f', $price),
+                        $buySec, $claimSec, $buyEnd,
+                        sprintf('%.4f', (float)$c['fee_rate']),
+                        sprintf('%.4f', (float)$c['niuniu_rate']),
+                        sprintf('%.4f', (float)$c['secondary_rate']),
+                        (int)$lock['round'],
+                        (string)$lock['url'],
+                        (int)$c['platform_user_id'],
+                        $now, $now,
+                    ]
+                );
+            }
             $roundId = (int)Db::lastId();
             Db::commit();
         } catch (\Throwable $e) {
@@ -385,13 +430,27 @@ class NiuniuService
         }
 
         $list = [];
-        foreach ($shares as $s) {
-            $list[] = $this->publicShare($s, true);
+        $mode = $this->normalizeMode($round['game_mode'] ?? self::MODE_NORMAL);
+        if ($mode === self::MODE_SINGLE) {
+            $first = $this->publicShare($shares[0], true);
+            $first['share_count'] = count($shares);
+            $winSum = 0.0;
+            foreach ($shares as $s) {
+                $winSum += (float)$s['win_amount'];
+            }
+            $first['win_amount'] = round($winSum, 4);
+            $list[] = $first;
+            $note = '单结果玩法：你购入 ' . count($shares) . ' 份，只算一个尾数；奖金按份数结算';
+        } else {
+            foreach ($shares as $s) {
+                $list[] = $this->publicShare($s, true);
+            }
+            $note = '红包仅用于比对尾数牛数，红包金额不会入账';
         }
         return [
             'round'  => $this->publicRound($round, $userId),
             'shares' => $list,
-            'note'   => '红包仅用于比对尾数牛数，红包金额不会入账',
+            'note'   => $note,
         ];
     }
 
@@ -510,8 +569,12 @@ class NiuniuService
                 continue;
             }
             $starter = (int)($g['niuniu_loop_starter'] ?? 0);
+            $mode = (int)($g['niuniu_loop_mode'] ?? self::MODE_NORMAL);
             try {
-                $this->start($starter, $gid, ['trusted_loop' => true]);
+                $this->start($starter, $gid, [
+                    'trusted_loop' => true,
+                    'game_mode'    => $mode,
+                ]);
                 $n++;
             } catch (\Throwable $e) {
                 error_log('[NIUNIU][loopRestart] g' . $gid . ' ' . $e->getMessage());
@@ -590,22 +653,55 @@ class NiuniuService
             }
 
             $shares = Db::fetchAll(
-                'SELECT id FROM ' . Db::table('chat_niuniu_shares') . ' WHERE round_id=? ORDER BY id ASC',
+                'SELECT id, user_id FROM ' . Db::table('chat_niuniu_shares') . ' WHERE round_id=? ORDER BY id ASC',
                 [$roundId]
             );
-            foreach ($shares as $s) {
-                $sid = (int)$s['id'];
-                $tail = DrandClient::deriveTail($proof['randomness'], $sid, 'round:' . $roundId);
-                $meta = self::calcNiu($tail);
-                Db::exec(
-                    'UPDATE ' . Db::table('chat_niuniu_shares')
-                    . ' SET tail_digits=?, digit_a=?, digit_b=?, digit_sum=?, niu_point=?, niu_tier=?, niu_label=?, updatetime=?'
-                    . ' WHERE id=?',
-                    [
-                        $meta['tail'], $meta['a'], $meta['b'], $meta['sum'],
-                        $meta['point'], $meta['tier'], $meta['label'], $now, $sid,
-                    ]
-                );
+            $gameMode = (int)($round['game_mode'] ?? self::MODE_NORMAL);
+            if ($gameMode === self::MODE_SINGLE) {
+                // 单结果：按用户归组，用该用户第一份 id 派生唯一尾数，盖到其全部份
+                $byUser = [];
+                foreach ($shares as $s) {
+                    $uid = (int)$s['user_id'];
+                    if (!isset($byUser[$uid])) {
+                        $byUser[$uid] = [];
+                    }
+                    $byUser[$uid][] = (int)$s['id'];
+                }
+                foreach ($byUser as $uid => $ids) {
+                    $seedId = (int)$ids[0];
+                    $tail = DrandClient::deriveTail(
+                        $proof['randomness'],
+                        $seedId,
+                        'round:' . $roundId . ':user:' . $uid
+                    );
+                    $meta = self::calcNiu($tail);
+                    foreach ($ids as $sid) {
+                        Db::exec(
+                            'UPDATE ' . Db::table('chat_niuniu_shares')
+                            . ' SET tail_digits=?, digit_a=?, digit_b=?, digit_sum=?, niu_point=?, niu_tier=?, niu_label=?, updatetime=?'
+                            . ' WHERE id=?',
+                            [
+                                $meta['tail'], $meta['a'], $meta['b'], $meta['sum'],
+                                $meta['point'], $meta['tier'], $meta['label'], $now, $sid,
+                            ]
+                        );
+                    }
+                }
+            } else {
+                foreach ($shares as $s) {
+                    $sid = (int)$s['id'];
+                    $tail = DrandClient::deriveTail($proof['randomness'], $sid, 'round:' . $roundId);
+                    $meta = self::calcNiu($tail);
+                    Db::exec(
+                        'UPDATE ' . Db::table('chat_niuniu_shares')
+                        . ' SET tail_digits=?, digit_a=?, digit_b=?, digit_sum=?, niu_point=?, niu_tier=?, niu_label=?, updatetime=?'
+                        . ' WHERE id=?',
+                        [
+                            $meta['tail'], $meta['a'], $meta['b'], $meta['sum'],
+                            $meta['point'], $meta['tier'], $meta['label'], $now, $sid,
+                        ]
+                    );
+                }
             }
 
             // 平台手续费入账
@@ -868,6 +964,8 @@ class NiuniuService
             'group_id'        => (int)$round['group_id'],
             'status'          => $status,
             'status_label'    => $this->statusLabel($status),
+            'game_mode'       => $this->normalizeMode($round['game_mode'] ?? self::MODE_NORMAL),
+            'game_mode_label' => $this->modeLabel($round['game_mode'] ?? self::MODE_NORMAL),
             'share_price'     => round((float)$round['share_price'], 2),
             'share_count'     => (int)$round['share_count'],
             'pool_amount'     => round((float)$round['pool_amount'], 2),
@@ -952,6 +1050,18 @@ class NiuniuService
             self::STATUS_REFUND   => '流局退回',
         ];
         return $map[(int)$status] ?? '未知';
+    }
+
+    protected function normalizeMode($mode)
+    {
+        return ((int)$mode === self::MODE_SINGLE) ? self::MODE_SINGLE : self::MODE_NORMAL;
+    }
+
+    protected function modeLabel($mode)
+    {
+        return $this->normalizeMode($mode) === self::MODE_SINGLE
+            ? '尾数牛牛(单结果)'
+            : '尾数牛牛';
     }
 
     protected function ruleText($groupId)
@@ -1127,12 +1237,17 @@ class NiuniuService
     protected function cardContent(array $round, $phase)
     {
         $r = $this->publicRound($round);
+        $modeTitle = $r['game_mode_label'] ?: '尾数牛牛';
         $mmss = function ($sec) {
             $sec = max(0, (int)$sec);
             return sprintf('%02d:%02d', intdiv($sec, 60), $sec % 60);
         };
+        $modeHint = ((int)$r['game_mode'] === self::MODE_SINGLE)
+            ? '玩法：单结果｜同一用户无论购几份，只算一个尾数'
+            : '玩法：普通｜每份独立一个尾数';
         if ($phase === 'buying') {
-            return "🧧红包尾数牛牛｜倒计时 {$mmss($r['remain_buy'])}\n"
+            return "🧧{$modeTitle}｜倒计时 {$mmss($r['remain_buy'])}\n"
+                . "{$modeHint}\n"
                 . "👥本局参与份数：{$r['share_count']} ｜单人购买份数无限制\n"
                 . "💰本局总奖池：{$r['pool_amount']}积分\n"
                 . "📌平台抽取" . round($r['fee_rate'] * 100) . "%手续费\n"
@@ -1143,6 +1258,7 @@ class NiuniuService
         }
         if ($phase === 'claim') {
             return "🔔本局购入已结束，请领取红包查看牛数\n"
+                . "{$modeHint}\n"
                 . "🔐本局校验轮次：{$r['drand_label']}\n"
                 . "👥总参与份数：{$r['share_count']}\n"
                 . "💰总奖池：{$r['pool_amount']}积分\n\n"
@@ -1159,7 +1275,7 @@ class NiuniuService
                 . "🔐校验轮次：{$r['drand_label']}";
         }
         // result
-        $lines = "🎊本局开奖完成｜校验轮次：{$r['drand_label']}\n"
+        $lines = "🎊本局开奖完成｜{$modeTitle}｜校验轮次：{$r['drand_label']}\n"
             . "总奖池：{$r['pool_amount']}｜平台手续费：{$r['fee_amount']}｜可发放奖金：{$r['distributable']}积分\n";
         return $lines;
     }
@@ -1170,16 +1286,39 @@ class NiuniuService
             'SELECT * FROM ' . Db::table('chat_niuniu_shares') . ' WHERE round_id=? ORDER BY niu_tier DESC, share_no ASC',
             [(int)$round['id']]
         );
+        $mode = $this->normalizeMode($round['game_mode'] ?? self::MODE_NORMAL);
         $out = ['niuniu' => [], 'secondary' => [], 'low' => []];
+        $seenUser = [];
         foreach ($shares as $s) {
+            $uid = (int)$s['user_id'];
+            // 单结果开奖列表：同用户只展示一行（奖金合并）
+            if ($mode === self::MODE_SINGLE) {
+                if (isset($seenUser[$uid])) {
+                    $bucket = &$out[$seenUser[$uid]];
+                    $last = count($bucket) - 1;
+                    if ($last >= 0) {
+                        $bucket[$last]['win_amount'] = round(
+                            (float)$bucket[$last]['win_amount'] + (float)$s['win_amount'],
+                            4
+                        );
+                        $bucket[$last]['share_count'] = ((int)($bucket[$last]['share_count'] ?? 1)) + 1;
+                    }
+                    unset($bucket);
+                    continue;
+                }
+            }
             $row = $this->publicShare($s, true);
+            $row['share_count'] = 1;
             $tier = (int)$s['niu_tier'];
             if ($tier === self::TIER_NIUNIU) {
                 $out['niuniu'][] = $row;
+                $seenUser[$uid] = 'niuniu';
             } elseif ($tier === self::TIER_SECONDARY) {
                 $out['secondary'][] = $row;
+                $seenUser[$uid] = 'secondary';
             } else {
                 $out['low'][] = $row;
+                $seenUser[$uid] = 'low';
             }
         }
         return $out;

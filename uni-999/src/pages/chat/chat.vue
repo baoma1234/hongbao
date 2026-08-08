@@ -114,7 +114,7 @@
                   @longpress="onMsgLongPress(m)"
                 >
                   <view class="nn-hd">
-                    <text class="nn-title">🧧 红包尾数牛牛</text>
+                    <text class="nn-title">🧧 {{ niuniuTitle(m) }}</text>
                     <text v-if="niuniuPhase(m) === 'buying'" class="nn-timer">倒计时 {{ niuniuRemainText(m) }}</text>
                   </view>
                   <text class="nn-line">{{ niuniuSummary(m) }}</text>
@@ -238,7 +238,11 @@
             </view>
             <view v-if="canStartNiuniu" class="chat-attach-item" @click="onAttachPick('niuniu')">
               <text class="chat-attach-icon">🐂</text>
-              <text>{{ niuniuLooping ? '继续连开' : '尾数牛牛' }}</text>
+              <text>{{ niuniuLooping && niuniuLoopMode === 1 ? '继续连开' : '尾数牛牛' }}</text>
+            </view>
+            <view v-if="canStartNiuniu" class="chat-attach-item" @click="onAttachPick('niuniu_single')">
+              <text class="chat-attach-icon">🎯</text>
+              <text>{{ niuniuLooping && niuniuLoopMode === 2 ? '继续连开' : '牛牛(单结果)' }}</text>
             </view>
             <view v-if="canStopNiuniu" class="chat-attach-item" @click="onAttachPick('niuniu_stop')">
               <text class="chat-attach-icon">⏹</text>
@@ -468,7 +472,7 @@
     <view v-if="showNiuniu" class="chat-rp-send-pane open" aria-hidden="false">
       <view class="chat-hero-hd">
         <view class="chat-rp-cancel" @click="showNiuniu = false">取消</view>
-        <view class="chat-hero-title">尾数牛牛购入</view>
+        <view class="chat-hero-title">{{ (niuniuSheet && niuniuSheet.round && niuniuSheet.round.game_mode === 2) ? '牛牛(单结果)购入' : '尾数牛牛购入' }}</view>
         <view class="chat-hero-spacer" />
       </view>
       <view class="chat-rp-send-main">
@@ -480,6 +484,9 @@
           <view class="nn-sheet-tip">
             每份 {{ (niuniuSheet && niuniuSheet.round && niuniuSheet.round.share_price) || 100 }} 积分进入奖池；
             红包仅用于比对尾数，金额不入账。
+            <text v-if="niuniuSheet && niuniuSheet.round && (niuniuSheet.round.game_mode|0) === 2">
+              本玩法无论买多少份，只按一个尾数结算（份数仍计权重）。
+            </text>
           </view>
           <view class="chat-rp-field">
             <text class="chat-rp-lab">购入份数</text>
@@ -852,6 +859,12 @@ const canStartNiuniu = computed(() => {
 const niuniuLooping = computed(() => {
   const pol = groupPolicy.value || {}
   return !!(pol.niuniu_looping)
+})
+
+const niuniuLoopMode = computed(() => {
+  const pol = groupPolicy.value || {}
+  const m = (pol.niuniu_loop_mode | 0) || 1
+  return m === 2 ? 2 : 1
 })
 
 const canStopNiuniu = computed(() => {
@@ -1391,18 +1404,26 @@ function niuniuRemainText(m) {
   const ss = String(sec % 60).padStart(2, '0')
   return mm + ':' + ss
 }
+function niuniuTitle(m) {
+  const r = niuniuRound(m)
+  if ((r.game_mode | 0) === 2 || r.game_mode_label) {
+    return r.game_mode_label || ((r.game_mode | 0) === 2 ? '尾数牛牛(单结果)' : '红包尾数牛牛')
+  }
+  return '红包尾数牛牛'
+}
 function niuniuSummary(m) {
   const r = niuniuRound(m)
   const phase = niuniuPhase(m)
+  const modeTip = (r.game_mode | 0) === 2 ? '｜单结果' : ''
   if (phase === 'claim') {
-    return '👥总参与 ' + (r.share_count || 0) + ' 份｜💰奖池 ' + (r.pool_amount || 0) + '｜点击领取查看尾数'
+    return '👥总参与 ' + (r.share_count || 0) + ' 份｜💰奖池 ' + (r.pool_amount || 0) + modeTip + '｜点击领取查看尾数'
   }
   if (phase === 'result') {
-    return '🎊开奖完成｜可发放 ' + (r.distributable || 0) + '｜点击查看明细'
+    return '🎊开奖完成｜可发放 ' + (r.distributable || 0) + modeTip + '｜点击查看明细'
   }
   if (phase === 'void') return '本局作废（0 份参与）'
   if (phase === 'refund') return '流局：扣手续费后已退回'
-  return '👥份数 ' + (r.share_count || 0) + '｜💰奖池 ' + (r.pool_amount || 0) + '｜单份 ' + (r.share_price || 100)
+  return '👥 ' + (r.share_count || 0) + ' 份｜💰奖池 ' + (r.pool_amount || 0) + modeTip + '｜点击购入'
 }
 function niuniuCta(m) {
   const phase = niuniuPhase(m)
@@ -1863,7 +1884,9 @@ function onAttachPick(kind) {
     }
     openRpSend()
   } else if (kind === 'niuniu') {
-    startNiuniuRound()
+    startNiuniuRound(1)
+  } else if (kind === 'niuniu_single') {
+    startNiuniuRound(2)
   } else if (kind === 'niuniu_stop') {
     stopNiuniuLoop()
   } else if (kind === 'transfer') {
@@ -2555,22 +2578,24 @@ async function sendText() {
   }
 }
 
-async function startNiuniuRound() {
+async function startNiuniuRound(mode = 1) {
   if (niuniuBusy.value) return
   if (!canStartNiuniu.value) {
     uni.showToast({ title: '无权开启或未启用尾数牛牛', icon: 'none' })
     return
   }
+  const gameMode = (mode | 0) === 2 ? 2 : 1
   niuniuBusy.value = true
   try {
-    const res = await niuniuStart(meta.value.group | 0)
+    const res = await niuniuStart(meta.value.group | 0, gameMode)
     const data = (res && res.data) || res || {}
     const msg = data.message || null
+    const tip = gameMode === 2 ? '单结果连开已开启' : '连开已开启'
     if (msg) {
       appendLocalMessage(msg)
-      uni.showToast({ title: '连开已开启', icon: 'success' })
+      uni.showToast({ title: tip, icon: 'success' })
     } else if (data.round && data.round.id) {
-      uni.showToast({ title: '连开已开启，刷新中…', icon: 'none' })
+      uni.showToast({ title: tip + '，刷新中…', icon: 'none' })
     } else {
       uni.showToast({ title: '开局成功但未收到卡片，请下拉刷新', icon: 'none' })
     }
