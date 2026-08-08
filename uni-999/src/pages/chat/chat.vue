@@ -2575,6 +2575,7 @@ async function onNiuniuTap(m) {
   if (phase === 'buying') {
     niuniuSheet.value = { round_id: rid, phase, round: ex.round || {} }
     niuniuBuyCount.value = '1'
+    await refreshWallet()
     showNiuniu.value = true
     return
   }
