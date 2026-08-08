@@ -2545,10 +2545,18 @@ async function startNiuniuRound() {
   niuniuBusy.value = true
   try {
     const res = await niuniuStart(meta.value.group | 0)
-    const msg = (res && res.data && res.data.message) || (res && res.message) || null
-    uni.showToast({ title: '对局已开启', icon: 'success' })
-    if (msg) appendLocalMessage(msg)
-    setTimeout(() => fetchHistory().catch(() => {}), 500)
+    const data = (res && res.data) || res || {}
+    const msg = data.message || null
+    if (msg) {
+      appendLocalMessage(msg)
+      uni.showToast({ title: '对局已开启', icon: 'success' })
+    } else if (data.round && data.round.id) {
+      uni.showToast({ title: '对局已开启，刷新中…', icon: 'none' })
+    } else {
+      uni.showToast({ title: '开局成功但未收到卡片，请下拉刷新', icon: 'none' })
+    }
+    setTimeout(() => fetchHistory().catch(() => {}), 400)
+    if (!isPrivate.value) loadGroupMeta().catch(() => {})
   } catch (e) {
     uni.showToast({ title: (e && e.message) || '开启失败', icon: 'none' })
   } finally {

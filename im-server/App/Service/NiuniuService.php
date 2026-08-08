@@ -175,13 +175,23 @@ class NiuniuService
         $this->setMuteFlag($groupId, $roundId, $buySec + 5);
         $round = $this->getRound($roundId);
         $msg = $this->pushCard($round, 'buying', (int)$c['robot_user_id'] ?: $userId);
-        if ($msg) {
-            Db::exec(
-                'UPDATE ' . Db::table('chat_niuniu_rounds') . ' SET buy_msg_id=?, updatetime=? WHERE id=?',
-                [(int)$msg['id'], time(), $roundId]
-            );
-            $round['buy_msg_id'] = (int)$msg['id'];
+        if (!$msg && $userId > 0 && (int)$c['robot_user_id'] !== $userId) {
+            $msg = $this->pushCard($round, 'buying', $userId);
         }
+        if (!$msg) {
+            // 开局卡片失败则回滚对局，避免“空开局”
+            Db::exec(
+                'UPDATE ' . Db::table('chat_niuniu_rounds') . ' SET status=?, updatetime=? WHERE id=? AND status=?',
+                [self::STATUS_VOID, time(), $roundId, self::STATUS_BUYING]
+            );
+            $this->clearMuteFlag($groupId);
+            throw new \RuntimeException('开局卡片发送失败，请重试（确认已重启 IM）');
+        }
+        Db::exec(
+            'UPDATE ' . Db::table('chat_niuniu_rounds') . ' SET buy_msg_id=?, updatetime=? WHERE id=?',
+            [(int)$msg['id'], time(), $roundId]
+        );
+        $round['buy_msg_id'] = (int)$msg['id'];
 
         return [
             'round'   => $this->publicRound($round),
@@ -879,7 +889,8 @@ class NiuniuService
             $extra['shares'] = $this->resultShareLines($round);
         }
         try {
-            $msg = $this->messages->sendGroup(
+            // 不走发言校验（购入禁言期间也要能推卡片）
+            $msg = $this->messages->insertGroupMessageUnchecked(
                 (int)$fromUserId,
                 (int)$round['group_id'],
                 $content,

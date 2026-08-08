@@ -363,6 +363,14 @@ class MessageService
                     }
                 }
                 $msg['extra'] = $keep ?: null;
+            } elseif ($msgType === 10) {
+                $keep = [];
+                foreach (['niuniu', 'phase', 'round_id', 'round'] as $k) {
+                    if (array_key_exists($k, $msg['extra'])) {
+                        $keep[$k] = $msg['extra'][$k];
+                    }
+                }
+                $msg['extra'] = $keep ?: null;
             } elseif ($msgType === 7) {
                 $msg['extra'] = ['name' => (string)($msg['extra']['name'] ?? '')];
             } elseif ($msgType === 6) {
@@ -1999,8 +2007,51 @@ class MessageService
     {
         $msgType = (int)$msgType;
         $content = mb_substr(trim((string)$content), 0, 2000);
-        if (!in_array($msgType, [1, 2, 4, 5, 6, 7, 8], true)) {
+        if (!in_array($msgType, [1, 2, 4, 5, 6, 7, 8, 10], true)) {
             $msgType = 1;
+        }
+        if ($msgType === 10) {
+            if (is_string($extra) && $extra !== '') {
+                $decoded = json_decode($extra, true);
+                $extra = is_array($decoded) ? $decoded : [];
+            }
+            if (!is_array($extra)) {
+                $extra = [];
+            }
+            $clean = [
+                'niuniu'   => 1,
+                'phase'    => mb_substr(trim((string)($extra['phase'] ?? 'buying')), 0, 16),
+                'round_id' => (int)($extra['round_id'] ?? 0),
+            ];
+            if (!empty($extra['round']) && is_array($extra['round'])) {
+                // 卡片展示所需精简字段，避免超大 JSON
+                $r = $extra['round'];
+                $keep = [
+                    'id', 'group_id', 'status', 'status_label', 'share_price', 'share_count',
+                    'pool_amount', 'fee_amount', 'distributable', 'fee_rate', 'niuniu_rate',
+                    'secondary_rate', 'buy_end_at', 'claim_end_at', 'remain_buy', 'remain_claim',
+                    'drand_round', 'drand_label', 'drand_url', 'card_phase', 'settle_case',
+                    'niuniu_pool', 'secondary_pool', 'niuniu_per_share', 'secondary_per_share',
+                    'niuniu_share_count', 'secondary_share_count', 'low_share_count', 'desc',
+                ];
+                $round = [];
+                foreach ($keep as $k) {
+                    if (array_key_exists($k, $r)) {
+                        $round[$k] = $r[$k];
+                    }
+                }
+                $clean['round'] = $round;
+            }
+            if (!empty($extra['card_text'])) {
+                $clean['card_text'] = mb_substr(trim((string)$extra['card_text']), 0, 1500);
+            }
+            if (!empty($extra['shares']) && is_array($extra['shares'])) {
+                $clean['shares'] = $extra['shares'];
+            }
+            if ($content === '') {
+                $content = '[尾数牛牛]';
+            }
+            return [$content, 10, $clean];
         }
         if ($msgType === 8) {
             if (is_string($extra) && $extra !== '') {

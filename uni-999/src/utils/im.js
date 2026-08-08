@@ -50,6 +50,10 @@ const HTTP_ROUTES = {
   'redpacket.grab': '/im/redpacket/grab',
   'redpacket.detail': '/im/redpacket/detail',
   'transfer.send': '/im/transfer/send',
+  'niuniu.start': '/im/niuniu/start',
+  'niuniu.buy': '/im/niuniu/buy',
+  'niuniu.claim': '/im/niuniu/claim',
+  'niuniu.detail': '/im/niuniu/detail',
 }
 
 function getImHttpBase() {
