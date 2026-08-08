@@ -1,10 +1,9 @@
 <template>
   <view class="fx-page">
-    <view class="fx-stars" aria-hidden="true" />
-    <view class="fx-hd">
-      <text class="fx-back" @click="goBack">‹</text>
-      <text class="fx-title">裂变红宝</text>
-      <text class="fx-more">···</text>
+    <view class="nav-bar">
+      <text class="nav-icon" @click="goBack">&lt;</text>
+      <text class="nav-title">裂变红宝</text>
+      <text class="nav-icon">···</text>
     </view>
 
     <scroll-view scroll-y class="fx-scroll" :style="{ height: scrollH }">
@@ -14,84 +13,86 @@
         <text class="fx-empty-sub">活动开启后可在此参与</text>
       </view>
       <view v-else class="fx-body">
-        <!-- 1. 奖金池主卡（设计稿独立上卡） -->
-        <view class="fx-hero">
-          <view v-if="state === 'running' && remainText" class="fx-countdown">{{ remainText }}</view>
-          <view class="fx-pool-row">
-            <text class="fx-yen">¥</text>
-            <text class="fx-pool-num">{{ poolText }}</text>
-            <text class="fx-pool-unit">奖金池</text>
-          </view>
-          <view class="fx-bar-wrap">
-            <view class="fx-bar-fill" :style="{ width: Math.max(progressPct, 1.5) + '%' }" />
-          </view>
-          <text class="fx-bar-label">当前 {{ globalQuals }} / {{ globalCap }} 份资格</text>
-        </view>
+        <!-- 核心奖金区（与 2.html .main-card 一致） -->
+        <view class="main-card">
+          <view v-if="state === 'running' && remainText" class="timer-badge">{{ remainText }}</view>
 
-        <view v-if="state === 'success'" class="fx-result ok">
-          <text class="fx-result-title">开奖成功</text>
-          <text class="fx-result-amt">你的中奖金额：¥{{ winText }}</text>
-          <text class="fx-result-sub">上下级关系永久保留</text>
-        </view>
-        <view v-else-if="state === 'expired'" class="fx-result fail">
-          <text class="fx-result-title">活动已结束</text>
-          <text class="fx-result-sub">未集齐 {{ globalCap }} 份资格，红宝池作废不予发放</text>
-          <text class="fx-result-sub">上下级邀请关系永久保留</text>
-        </view>
-
-        <!-- 2. 红包双卡 -->
-        <view class="fx-stats">
-          <view class="fx-stat-card">
-            <text class="fx-stat-top">我的资格: {{ myQuals }}/{{ userCap }}</text>
-            <view class="fx-stat-flap" />
-            <text class="fx-stat-bot">{{ myQuals }}/{{ userCap }}</text>
+          <view class="prize-title-wrapper">
+            <text class="prize-amount"><text class="prize-yen">￥</text>{{ poolText }}</text>
+            <text class="prize-label">奖金池</text>
           </view>
-          <view class="fx-stat-card" @click="shareLink">
-            <text class="fx-stat-top">直属下级: {{ subCount }}人</text>
-            <view class="fx-stat-flap" />
-            <text class="fx-stat-bot">分享</text>
-          </view>
-        </view>
 
-        <!-- 3. 邀请链接 -->
-        <view v-if="state === 'running' || inviteLink" class="fx-invite">
-          <text class="fx-section-title">邀请链接</text>
-          <view class="fx-invite-row">
-            <view class="fx-invite-box">
-              <view class="fx-pin" />
-              <text class="fx-invite-text">我的专属邀请链接</text>
+          <view class="progress-track">
+            <view class="progress-fill" :style="{ width: Math.max(progressPct, 2) + '%' }" />
+          </view>
+          <text class="progress-text">当前 {{ globalQuals }} / {{ globalCap }} 份资格</text>
+
+          <view v-if="state === 'success'" class="fx-result ok">
+            <text class="fx-result-title">开奖成功</text>
+            <text class="fx-result-amt">你的中奖金额：¥{{ winText }}</text>
+            <text class="fx-result-sub">上下级关系永久保留</text>
+          </view>
+          <view v-else-if="state === 'expired'" class="fx-result fail">
+            <text class="fx-result-title">活动已结束</text>
+            <text class="fx-result-sub">未集齐 {{ globalCap }} 份资格，红宝池作废不予发放</text>
+            <text class="fx-result-sub">上下级邀请关系永久保留</text>
+          </view>
+
+          <view class="stats-grid">
+            <view class="stat-box">
+              <view class="stat-dot tl" />
+              <view class="stat-dot tr" />
+              <view class="stat-curve" />
+              <text class="stat-top">我的资格：{{ myQuals }} / {{ userCap }}</text>
+              <text class="stat-bottom">{{ myQuals }}/{{ userCap }}</text>
             </view>
-            <button type="button" class="fx-btn-gold" @click="copyLink">复制链接</button>
+            <view class="stat-box" @click="shareLink">
+              <view class="stat-dot tl" />
+              <view class="stat-dot tr" />
+              <view class="stat-curve" />
+              <text class="stat-top">直属下级：{{ subCount }}人</text>
+              <text class="stat-bottom">分享</text>
+            </view>
+          </view>
+
+          <view v-if="state === 'running' || inviteLink" class="invite-block">
+            <text class="invite-label">邀请链接</text>
+            <view class="invite-wrapper">
+              <text class="invite-icon">📍</text>
+              <text class="invite-text">我的专属邀请链接</text>
+              <button type="button" class="copy-btn" @click="copyLink">复制链接</button>
+            </view>
+          </view>
+
+          <view v-if="state === 'running' && !joined" class="fx-join-wrap">
+            <button
+              type="button"
+              class="fx-btn-join"
+              :disabled="!canGain || joining"
+              @click="onJoin"
+            >
+              {{ joining ? '参与中…' : '参与活动领取资格' }}
+            </button>
           </view>
         </view>
 
-        <view v-if="state === 'running' && !joined" class="fx-join-wrap">
-          <button
-            type="button"
-            class="fx-btn-join"
-            :disabled="!canGain || joining"
-            @click="onJoin"
-          >
-            {{ joining ? '参与中…' : '参与活动领取资格' }}
-          </button>
-        </view>
-
-        <!-- 4. 活动规则：—— 活动规则 —— -->
-        <view class="fx-rules">
-          <view class="fx-rules-hd">
-            <view class="fx-rules-line" />
-            <text class="fx-rules-title">活动规则</text>
-            <view class="fx-rules-line" />
+        <!-- 规则区 -->
+        <view class="rules-card">
+          <view class="rules-title">
+            <view class="rules-line left" />
+            <text class="rules-title-text">活动规则</text>
+            <view class="rules-line right" />
           </view>
-          <view v-for="(r, i) in displayRules" :key="i" class="fx-rule-line">
-            {{ i + 1 }}. {{ r }}
+          <view class="rules-list">
+            <text v-for="(r, i) in displayRules" :key="i" class="rules-item">
+              {{ i + 1 }}. {{ r }}
+            </text>
           </view>
         </view>
 
-        <!-- 5. 底部声明 -->
-        <view class="fx-disclaimer">
-          <text class="fx-check">☑</text>
-          <text class="fx-disclaimer-text">红包不承诺必得，邀请有效新用户才可累计资格</text>
+        <view class="footer-notice">
+          <view class="check-icon">✓</view>
+          <text class="footer-notice-text">红包不承诺必得，邀请有效新用户才可累计资格</text>
         </view>
       </view>
     </scroll-view>
@@ -159,7 +160,7 @@ function measureScroll() {
   try {
     const sys = uni.getSystemInfoSync()
     const status = Number(sys.statusBarHeight || 20)
-    const hd = status + 48
+    const hd = status + 52
     const h = (sys.windowHeight || 667) - hd
     scrollH.value = Math.max(320, h) + 'px'
   } catch (e) {
@@ -272,79 +273,55 @@ onUnmounted(() => stopTick())
 </script>
 
 <style scoped>
+/* 从 Desktop/2.html 1:1 移植 */
 .fx-page {
-  position: relative;
   min-height: 100vh;
-  background: #05070d;
-  color: #e8eef8;
-  box-sizing: border-box;
-  overflow: hidden;
-}
-.fx-stars {
-  pointer-events: none;
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  background:
-    radial-gradient(1.5px 1.5px at 10% 16%, rgba(180, 210, 255, 0.5), transparent),
-    radial-gradient(1.2px 1.2px at 26% 38%, rgba(160, 200, 255, 0.35), transparent),
-    radial-gradient(1.8px 1.8px at 52% 10%, rgba(200, 220, 255, 0.45), transparent),
-    radial-gradient(1px 1px at 70% 28%, rgba(150, 190, 255, 0.4), transparent),
-    radial-gradient(1.4px 1.4px at 88% 14%, rgba(180, 210, 255, 0.38), transparent),
-    radial-gradient(1.2px 1.2px at 92% 52%, rgba(160, 200, 255, 0.3), transparent),
-    radial-gradient(1.6px 1.6px at 16% 72%, rgba(170, 200, 255, 0.3), transparent),
-    radial-gradient(1px 1px at 48% 78%, rgba(190, 215, 255, 0.28), transparent),
-    radial-gradient(ellipse at 50% -12%, rgba(30, 70, 150, 0.32) 0%, transparent 50%);
-}
-.fx-hd,
-.fx-scroll {
-  position: relative;
-  z-index: 1;
-}
-.fx-hd {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-top: calc(env(safe-area-inset-top, 0px) + 12px);
-  padding-bottom: 12px;
-  padding-left: 6px;
-  padding-right: 6px;
-  min-height: 44px;
-}
-.fx-back {
-  width: 44px;
-  height: 44px;
-  line-height: 42px;
-  text-align: center;
-  font-size: 32px;
-  font-weight: 300;
+  background: radial-gradient(circle at 50% 0%, #151d32 0%, #06080e 60%);
   color: #fff;
-  flex: 0 0 auto;
+  box-sizing: border-box;
+  max-width: 414px;
+  margin: 0 auto;
+  padding-bottom: 40px;
+  -webkit-tap-highlight-color: transparent;
 }
-.fx-title {
+
+.nav-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  padding-top: calc(env(safe-area-inset-top, 0px) + 15px);
+  font-size: 17px;
+  font-weight: 600;
+  color: #e2e4ed;
+  letter-spacing: 1px;
+  box-sizing: border-box;
+}
+.nav-icon {
+  font-size: 20px;
+  font-weight: bold;
+  width: 28px;
+  text-align: center;
+  line-height: 1.2;
+  color: #e2e4ed;
+}
+.nav-title {
   flex: 1;
   text-align: center;
   font-size: 17px;
   font-weight: 600;
-  color: #fff;
-  letter-spacing: 0.5px;
-}
-.fx-more {
-  width: 44px;
-  height: 44px;
-  line-height: 36px;
-  text-align: center;
-  font-size: 22px;
-  font-weight: 700;
-  color: #fff;
+  color: #e2e4ed;
   letter-spacing: 1px;
-  flex: 0 0 auto;
+}
+
+.fx-scroll {
+  box-sizing: border-box;
 }
 .fx-loading,
 .fx-empty {
   padding: 80px 24px;
   text-align: center;
-  color: #9ab;
+  color: #a4a8bd;
 }
 .fx-empty-title {
   display: block;
@@ -353,83 +330,123 @@ onUnmounted(() => stopTick())
   margin-bottom: 8px;
 }
 .fx-body {
-  padding: 4px 16px 40px;
+  padding-bottom: 8px;
 }
 
-/* —— 奖金池主卡 —— */
-.fx-hero {
+.main-card {
+  background: linear-gradient(180deg, #1d2132 0%, #12141d 100%);
+  border-radius: 18px;
+  margin: 15px 20px;
+  padding: 30px 20px 25px;
   position: relative;
-  background: linear-gradient(165deg, #151d32 0%, #0d1424 100%);
-  border: 1px solid rgba(140, 170, 220, 0.2);
-  border-radius: 16px;
-  padding: 28px 16px 20px;
-  text-align: center;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  box-sizing: border-box;
 }
-.fx-countdown {
+
+.timer-badge {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  background: #e11d2e;
+  top: 0;
+  right: 0;
+  background: linear-gradient(90deg, #ed3b33, #d1211b);
   color: #fff;
+  padding: 5px 12px;
   font-size: 12px;
-  font-weight: 800;
-  padding: 5px 11px;
-  border-radius: 8px;
-  letter-spacing: 0.4px;
-  line-height: 1.2;
+  font-weight: bold;
+  font-family: 'DIN Alternate', monospace;
+  border-radius: 0 16px 0 16px;
+  box-shadow: -2px 2px 10px rgba(209, 33, 27, 0.4);
+  z-index: 2;
 }
-.fx-pool-row {
+
+.prize-title-wrapper {
   display: flex;
   align-items: baseline;
-  justify-content: center;
-  gap: 2px;
-  margin: 8px 0 18px;
-  padding-top: 6px;
+  margin-bottom: 22px;
+  filter: drop-shadow(0px 4px 6px rgba(242, 154, 32, 0.2));
 }
-.fx-yen {
-  font-size: 26px;
-  font-weight: 800;
-  color: #f6c84a;
-  text-shadow: 0 0 16px rgba(246, 200, 74, 0.3);
-}
-.fx-pool-num {
-  font-size: 42px;
+.prize-amount {
+  background: linear-gradient(
+    120deg,
+    #f29a20 0%,
+    #ffd466 30%,
+    #ffffff 50%,
+    #ffd466 70%,
+    #f29a20 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  font-size: 64px;
   font-weight: 900;
-  color: #f6c84a;
+  font-family: 'DIN Alternate', 'Impact', sans-serif;
+  margin-right: 12px;
   line-height: 1;
-  letter-spacing: 0.5px;
-  text-shadow: 0 0 16px rgba(246, 200, 74, 0.3);
+  letter-spacing: -2px;
+  animation: flowLight 3s linear infinite;
 }
-.fx-pool-unit {
-  font-size: 18px;
-  font-weight: 800;
-  color: #f6c84a;
-  margin-left: 4px;
+.prize-yen {
+  font-size: 32px;
+  font-weight: bold;
+  margin-right: 2px;
+  letter-spacing: 0;
 }
-.fx-bar-wrap {
-  height: 11px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.1);
+.prize-label {
+  background: linear-gradient(120deg, #ffe8ad 0%, #ffffff 50%, #f29a20 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  animation: flowLight 3s linear infinite reverse;
+}
+
+@keyframes flowLight {
+  0% {
+    background-position: 200% center;
+  }
+  100% {
+    background-position: 0% center;
+  }
+}
+
+.progress-track {
+  background: #090a0f;
+  height: 10px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  position: relative;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.04);
   overflow: hidden;
-  margin: 0 4px 12px;
 }
-.fx-bar-fill {
+.progress-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
   height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #ff5a18 0%, #ff9a1a 50%, #f6c84a 100%);
-  box-shadow: 0 0 8px rgba(255, 140, 40, 0.4);
+  background: linear-gradient(90deg, #fcd88e 0%, #ff9c1a 100%);
+  border-radius: 6px;
+  box-shadow: 0 0 15px rgba(255, 156, 26, 0.5);
   transition: width 0.35s ease;
   min-width: 6px;
 }
-.fx-bar-label {
+.progress-text {
   display: block;
   font-size: 13px;
-  color: #e8eef8;
+  color: #a4a8bd;
+  margin-bottom: 25px;
+  font-weight: 500;
 }
 
 .fx-result {
-  margin-top: 12px;
+  margin: -8px 0 18px;
   border-radius: 12px;
   padding: 12px;
   text-align: center;
@@ -447,208 +464,243 @@ onUnmounted(() => stopTick())
   font-size: 15px;
   font-weight: 800;
   margin-bottom: 4px;
+  color: #fff;
 }
 .fx-result-amt {
   display: block;
-  font-size: 20px;
-  color: #f6c84a;
+  font-size: 18px;
+  color: #e7ab44;
   font-weight: 800;
   margin-bottom: 4px;
 }
 .fx-result-sub {
   display: block;
   font-size: 12px;
-  color: #b8c4d6;
+  color: #a4a8bd;
   line-height: 1.5;
 }
 
-/* —— 红包双卡 —— */
-.fx-stats {
+.stats-grid {
   display: flex;
-  gap: 12px;
-  margin-top: 14px;
+  justify-content: space-between;
+  gap: 15px;
+  margin-bottom: 25px;
 }
-.fx-stat-card {
+.stat-box {
   flex: 1;
-  border-radius: 14px;
+  height: 90px;
+  border-radius: 8px;
+  position: relative;
   overflow: hidden;
-  background: linear-gradient(165deg, #ff7a2e 0%, #e82020 48%, #c41010 100%);
-  box-shadow: 0 6px 16px rgba(160, 30, 20, 0.35);
-  min-height: 96px;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   align-items: center;
-  padding: 0;
+  padding: 16px 0 14px;
+  background: linear-gradient(145deg, #ff8441 0%, #f44425 40%, #da2314 100%);
+  box-shadow:
+    0 6px 15px rgba(0, 0, 0, 0.4),
+    inset 0 1.5px 2px rgba(255, 255, 255, 0.6),
+    inset 0 -2px 3px #ffda75;
+  box-sizing: border-box;
 }
-.fx-stat-top {
-  display: block;
-  width: 100%;
-  padding: 11px 8px 8px;
-  font-size: 12px;
-  font-weight: 700;
-  color: #fff;
-  text-align: center;
+.stat-dot {
+  position: absolute;
+  top: 8px;
+  width: 4px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.3);
+  transform: rotate(45deg);
 }
-.fx-stat-flap {
-  width: 100%;
-  height: 14px;
-  margin: 0;
-  background:
-    linear-gradient(135deg, transparent 49.5%, rgba(0, 0, 0, 0.18) 50%),
-    linear-gradient(225deg, transparent 49.5%, rgba(0, 0, 0, 0.18) 50%);
-  background-size: 50% 100%, 50% 100%;
-  background-position: left top, right top;
-  background-repeat: no-repeat;
-  opacity: 0.9;
+.stat-dot.tl {
+  left: 10px;
+}
+.stat-dot.tr {
+  right: 10px;
+}
+.stat-curve {
+  position: absolute;
+  top: -24px;
+  left: -10%;
+  width: 120%;
+  height: 70px;
+  border-radius: 50%;
+  border-bottom: 2.5px solid #ffeca8;
+  filter: drop-shadow(0 3px 3px rgba(180, 0, 0, 0.8));
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    black 0%,
+    black 42%,
+    transparent 42%,
+    transparent 58%,
+    black 58%,
+    black 100%
+  );
+  mask-image: linear-gradient(
+    90deg,
+    black 0%,
+    black 42%,
+    transparent 42%,
+    transparent 58%,
+    black 58%,
+    black 100%
+  );
+  pointer-events: none;
+}
+.stat-top {
+  font-size: 15px;
+  color: #ffffff;
+  font-weight: 800;
+  z-index: 2;
+  text-shadow: 0 1.5px 2px rgba(140, 10, 0, 0.8);
   position: relative;
 }
-.fx-stat-flap::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: 1px;
-  background: rgba(255, 255, 255, 0.28);
-}
-.fx-stat-bot {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  font-size: 24px;
-  font-weight: 800;
-  color: #fff;
-  padding: 10px 8px 14px;
-  letter-spacing: 0.5px;
+.stat-bottom {
+  font-size: 21px;
+  font-weight: 900;
+  color: #ffeba1;
+  z-index: 2;
+  text-shadow: 0 2px 3px rgba(150, 5, 0, 0.9);
+  letter-spacing: 1px;
+  position: relative;
 }
 
-/* —— 邀请链接 —— */
-.fx-invite {
-  margin-top: 18px;
-}
-.fx-section-title {
+.invite-label {
   display: block;
   font-size: 14px;
-  font-weight: 700;
-  color: #fff;
-  margin-bottom: 10px;
+  color: #a4a8bd;
+  margin-bottom: 12px;
 }
-.fx-invite-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-.fx-invite-box {
-  flex: 1;
-  background: rgba(0, 0, 0, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 999px;
-  padding: 0 14px 0 12px;
-  min-height: 44px;
+.invite-wrapper {
   display: flex;
   align-items: center;
-  gap: 8px;
-  overflow: hidden;
+  background: #0a0c12;
+  border-radius: 12px;
+  padding: 8px 8px 8px 16px;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-sizing: border-box;
 }
-.fx-pin {
+.invite-icon {
+  font-size: 16px;
+  margin-right: 10px;
   flex: 0 0 auto;
-  width: 13px;
-  height: 13px;
-  border-radius: 50% 50% 50% 0;
-  background: #cfd8e6;
-  transform: rotate(-45deg);
-  box-shadow: inset -3px -3px 0 0 #0a0f1a;
 }
-.fx-invite-text {
+.invite-text {
   flex: 1;
-  font-size: 13px;
-  color: #d7dfeb;
+  font-size: 14px;
+  color: #ced2e5;
+  font-weight: 500;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.fx-btn-gold {
-  background: linear-gradient(180deg, #f8d76e 0%, #e8b428 100%);
-  color: #2a1e00;
-  font-weight: 800;
-  font-size: 13px;
+.copy-btn {
+  background: linear-gradient(90deg, #fde9aa 0%, #e7ab44 100%);
+  color: #442700;
   border: none;
-  border-radius: 999px;
-  padding: 0 14px;
-  line-height: 44px;
-  height: 44px;
-  white-space: nowrap;
+  border-radius: 8px;
+  padding: 0 18px;
+  height: 40px;
+  line-height: 40px;
+  font-size: 14px;
+  font-weight: 800;
+  box-shadow: 0 4px 15px rgba(231, 171, 68, 0.4);
   flex: 0 0 auto;
-  box-shadow: 0 4px 10px rgba(232, 180, 40, 0.25);
+  margin: 0;
 }
+.copy-btn:active {
+  transform: scale(0.95);
+}
+
 .fx-join-wrap {
-  margin-top: 14px;
+  margin-top: 16px;
 }
 .fx-btn-join {
   width: 100%;
-  background: linear-gradient(180deg, #ffe08a, #f0b429);
-  color: #3a2800;
+  background: linear-gradient(90deg, #fde9aa 0%, #e7ab44 100%);
+  color: #442700;
   font-size: 15px;
   font-weight: 800;
   border: none;
-  border-radius: 24px;
+  border-radius: 12px;
   line-height: 46px;
+  box-shadow: 0 4px 15px rgba(231, 171, 68, 0.35);
 }
 
-/* —— 活动规则 —— */
-.fx-rules {
-  margin-top: 20px;
-  padding: 16px 14px 14px;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(18, 24, 40, 0.72);
+.rules-card {
+  background: linear-gradient(180deg, #1f2233 0%, #12141d 100%);
+  border-radius: 18px;
+  margin: 0 20px;
+  padding: 25px 20px 30px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  box-sizing: border-box;
 }
-.fx-rules-hd {
+.rules-title {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  margin-bottom: 12px;
+  margin-bottom: 22px;
 }
-.fx-rules-line {
-  width: 36px;
+.rules-title-text {
+  color: #e7ab44;
+  font-size: 17px;
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+.rules-line {
+  width: 45px;
   height: 1px;
-  background: linear-gradient(90deg, transparent, #f6c84a, transparent);
-  opacity: 0.85;
-}
-.fx-rules-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: #fff;
-  white-space: nowrap;
-}
-.fx-rule-line {
-  display: block;
-  font-size: 12px;
-  color: #d0d8e6;
-  line-height: 1.8;
-  margin-bottom: 2px;
-}
-
-.fx-disclaimer {
-  margin-top: 18px;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 6px;
-  padding: 0 4px 28px;
-}
-.fx-check {
-  color: #f6c84a;
-  font-size: 13px;
-  line-height: 1.45;
+  opacity: 0.7;
+  margin: 0 15px;
   flex: 0 0 auto;
 }
-.fx-disclaimer-text {
-  font-size: 11px;
-  color: #c4a86a;
-  line-height: 1.5;
+.rules-line.left {
+  background: linear-gradient(90deg, transparent, #e7ab44);
+}
+.rules-line.right {
+  background: linear-gradient(270deg, transparent, #e7ab44);
+}
+.rules-list {
+  display: flex;
+  flex-direction: column;
+}
+.rules-item {
+  color: #a4a8bd;
+  font-size: 14px;
+  line-height: 2.4;
+  font-weight: 500;
+}
+
+.footer-notice {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 35px;
+  padding: 0 20px 20px;
+}
+.check-icon {
+  background: linear-gradient(135deg, #fde9aa, #e7ab44);
+  color: #442700;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 12px;
+  margin-right: 8px;
+  font-weight: 900;
+  flex: 0 0 auto;
+  line-height: 16px;
+  text-align: center;
+}
+.footer-notice-text {
+  color: #c09e5c;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
 }
 </style>
