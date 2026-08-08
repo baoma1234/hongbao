@@ -117,7 +117,6 @@
                   <view class="nn-layer">
                     <text v-if="(niuniuRound(m).game_mode|0) === 2" class="nn-mode-tag">单结果</text>
                     <view class="nn-center">
-                      <text class="nn-sub">{{ niuniuSubLine(m) }}</text>
                       <text class="nn-pool">¥ {{ niuniuPoolText(m) }}</text>
                       <text class="nn-entry">入场：{{ niuniuSharePrice(m) }}积分/包</text>
                       <text class="nn-buyers">{{ niuniuBuyersLine(m) }}</text>
@@ -1444,11 +1443,6 @@ function niuniuCta(m) {
   if (phase === 'claim') return '👉 点击领取本局红包'
   if (phase === 'result' || phase === 'refund') return '查看开奖明细'
   return '查看'
-}
-function niuniuSubLine(m) {
-  const r = niuniuRound(m)
-  if ((r.game_mode | 0) === 2) return '2分钟买入，单结果对局'
-  return '2分钟买入，尾数牛牛对局'
 }
 function niuniuPoolText(m) {
   const r = niuniuRound(m)
@@ -3440,23 +3434,15 @@ function closeRpDetail() {
 .chat-niuniu-card .nn-center {
   position: absolute;
   left: 29%;
-  top: 36%;
+  top: 40%;
   width: 30%;
   z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 1px;
-}
-.chat-niuniu-card .nn-sub {
-  font-size: 9px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.92);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
-  white-space: nowrap;
+  gap: 2px;
 }
 .chat-niuniu-card .nn-pool {
-  margin-top: 1px;
   font-size: 18px;
   font-weight: 900;
   line-height: 1.15;
@@ -3472,21 +3458,21 @@ function closeRpDetail() {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
   white-space: nowrap;
 }
-/* 右侧：倒计时 + 操作按钮（缩小比例对齐参考图） */
+/* 右侧：倒计时 + 操作按钮（再缩小并下移） */
 .chat-niuniu-card .nn-right {
   position: absolute;
-  top: 34%;
-  right: 6.5%;
-  width: 31%;
+  top: 42%;
+  right: 7.5%;
+  width: 24%;
   z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 7%;
+  gap: 6px;
 }
 .chat-niuniu-card .nn-countdown {
   position: relative;
-  width: 92%;
+  width: 90%;
   margin-left: auto;
   aspect-ratio: 282 / 73;
 }
@@ -3504,7 +3490,7 @@ function closeRpDetail() {
   transform: translateY(-50%);
   width: 34%;
   text-align: center;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 900;
   color: #8a2a00;
   letter-spacing: 0.2px;
@@ -3512,7 +3498,6 @@ function closeRpDetail() {
 .chat-niuniu-card .nn-cta-btn {
   width: 100%;
   display: block;
-  margin-top: 2px;
 }
 .chat-niuniu-card .nn-time {
   position: absolute;
