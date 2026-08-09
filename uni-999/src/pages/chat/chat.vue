@@ -528,8 +528,8 @@
       </view>
     </view>
 
-    <!-- 单包开启结果：点一次弹出一次，领完再进明细 -->
-    <view v-if="showNiuniuPackResult" class="nn-pack-result-mask" @click="closeNiuniuPackResult">
+    <!-- 单包开启结果：点一次开一包；还剩包则继续开，开完再进明细 -->
+    <view v-if="showNiuniuPackResult" class="nn-pack-result-mask" @click="dismissNiuniuPackResult">
       <view class="nn-pack-result-card" @click.stop>
         <text class="nn-pack-result-title">本包结果</text>
         <text class="nn-pack-result-line">{{ formatNiuniuResultLine(niuniuPackResult) }}</text>
@@ -537,9 +537,9 @@
           class="nn-pack-result-win"
           :class="{ win: Number(niuniuPackResult && niuniuPackResult.win_amount) > 0 }"
         >{{ formatNiuniuWin(niuniuPackResult && niuniuPackResult.win_amount) }}</text>
-        <text v-if="niuniuPackRemain > 0" class="nn-pack-result-remain">还剩 {{ niuniuPackRemain }} 包</text>
-        <view class="nn-pack-result-btn" @click="closeNiuniuPackResult">
-          {{ niuniuPackRemain > 0 ? '继续开' : '查看明细' }}
+        <text v-if="niuniuPackRemain > 0" class="nn-pack-result-remain">还剩 {{ niuniuPackRemain }} 包，需再开 {{ niuniuPackRemain }} 次</text>
+        <view class="nn-pack-result-btn" :class="{ busy: niuniuBusy }" @click="onNiuniuPackResultContinue">
+          {{ niuniuBusy ? '…' : (niuniuPackRemain > 0 ? '继续开下一包' : '查看明细') }}
         </view>
       </view>
     </view>
@@ -3054,25 +3054,51 @@ function closeNiuniuCover() {
   showNiuniuCover.value = false
   niuniuCoverRoundId.value = 0
 }
+function parseNiuniuClaimRemain(data) {
+  if (!data || typeof data !== 'object') return 0
+  if (data.remain_unclaimed != null) return Math.max(0, data.remain_unclaimed | 0)
+  const r = data.round || {}
+  if (r.my_unclaimed_count != null) return Math.max(0, r.my_unclaimed_count | 0)
+  return 0
+}
+async function claimOneNiuniuPack(rid) {
+  rid = rid | 0
+  if (!rid) return null
+  const res = await niuniuClaim(rid)
+  const data = (res && res.data) || res || {}
+  const remain = parseNiuniuClaimRemain(data)
+  const done = data.done === true || remain <= 0
+  const share = data.share || (data.shares && data.shares[0]) || null
+  // 兼容旧 IM：一次领完全部（返回多份且无 remain）→ 当作已开完
+  if (
+    data.remain_unclaimed == null &&
+    Array.isArray(data.shares) &&
+    data.shares.length > 1
+  ) {
+    markNiuniuShareLocal(rid, data.round || null, true, 0)
+    return { data, share: data.shares[0], remain: 0, done: true }
+  }
+  markNiuniuShareLocal(rid, data.round || null, done, remain)
+  return { data, share, remain, done }
+}
+function showNiuniuPackResultUi(rid, share, remain) {
+  niuniuPackResult.value = share
+  niuniuPackRemain.value = remain | 0
+  niuniuPackRoundId.value = rid | 0
+  showNiuniuPackResult.value = true
+}
 async function confirmNiuniuCoverOpen() {
   if (niuniuBusy.value) return
   const rid = niuniuCoverRoundId.value | 0
   if (!rid) return
   niuniuBusy.value = true
   try {
-    const res = await niuniuClaim(rid)
-    const data = (res && res.data) || res || {}
-    const remain = (data.remain_unclaimed | 0) || 0
-    const done = data.done === true || remain <= 0
-    const share = data.share || (data.shares && data.shares[0]) || null
-    markNiuniuShareLocal(rid, data.round || null, done, remain)
+    const out = await claimOneNiuniuPack(rid)
+    if (!out) return
     showNiuniuCover.value = false
     niuniuCoverRoundId.value = 0
-    niuniuCoverRemain.value = remain
-    niuniuPackResult.value = share
-    niuniuPackRemain.value = remain
-    niuniuPackRoundId.value = rid
-    showNiuniuPackResult.value = true
+    niuniuCoverRemain.value = out.remain | 0
+    showNiuniuPackResultUi(rid, out.share, out.remain)
   } catch (e) {
     const msg = (e && e.message) || '领取失败'
     // 未参与者 / 已领完：直接看明细
@@ -3092,7 +3118,8 @@ async function confirmNiuniuCoverOpen() {
     niuniuBusy.value = false
   }
 }
-async function closeNiuniuPackResult() {
+/** 点遮罩：有剩余则回到封面再开；已开完则进明细 */
+async function dismissNiuniuPackResult() {
   if (niuniuBusy.value) return
   const rid = niuniuPackRoundId.value | 0
   const remain = niuniuPackRemain.value | 0
@@ -3102,6 +3129,40 @@ async function closeNiuniuPackResult() {
     openNiuniuCover(rid, remain)
     return
   }
+  await openNiuniuDetailAfterClaim(rid)
+}
+/** 继续开下一包 / 查看明细 */
+async function onNiuniuPackResultContinue() {
+  if (niuniuBusy.value) return
+  const rid = niuniuPackRoundId.value | 0
+  const remain = niuniuPackRemain.value | 0
+  if (remain > 0 && rid) {
+    niuniuBusy.value = true
+    try {
+      const out = await claimOneNiuniuPack(rid)
+      if (!out) return
+      niuniuCoverRemain.value = out.remain | 0
+      showNiuniuPackResultUi(rid, out.share, out.remain)
+    } catch (e) {
+      const msg = (e && e.message) || '领取失败'
+      if (/已领完/.test(msg)) {
+        showNiuniuPackResult.value = false
+        niuniuPackResult.value = null
+        await openNiuniuDetailAfterClaim(rid)
+      } else {
+        uni.showToast({ title: msg, icon: 'none' })
+      }
+    } finally {
+      niuniuBusy.value = false
+    }
+    return
+  }
+  showNiuniuPackResult.value = false
+  niuniuPackResult.value = null
+  await openNiuniuDetailAfterClaim(rid)
+}
+async function openNiuniuDetailAfterClaim(rid) {
+  rid = rid | 0
   niuniuPackRoundId.value = 0
   if (!rid) return
   niuniuBusy.value = true
@@ -4412,5 +4473,8 @@ function closeRpDetail() {
   color: #fff;
   font-size: 15px;
   font-weight: 800;
+}
+.nn-pack-result-btn.busy {
+  opacity: 0.65;
 }
 </style>
