@@ -660,29 +660,43 @@ body.tab-messages #tabMessages .chat-list-pane {
   display: flex !important;
   flex-direction: column !important;
 }
+#tabMessages .chat-notice-img-wrap {
+  width: 100% !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+#tabMessages .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap {
+  aspect-ratio: 1 !important;
+}
+#tabMessages .chat-notice-imgs.imgs-1 .chat-notice-img-wrap,
+#tabMessages .chat-notice-imgs.imgs-full .chat-notice-img-wrap {
+  aspect-ratio: auto !important;
+  height: auto !important;
+}
 #tabMessages .chat-notice-img,
-#tabMessages .chat-notice-img image,
-#tabMessages .chat-notice-img uni-image {
+#tabMessages .chat-notice-img-wrap uni-image,
+#tabMessages .chat-notice-img-wrap image {
   width: 100% !important;
   display: block !important;
+  max-width: 100% !important;
 }
-/* 默认九宫格仍铺满格子；长图完整高度交给 widthFix */
+/* 九宫格：铺满格子 */
 #tabMessages .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img,
-#tabMessages .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img image,
-#tabMessages .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img uni-image {
+#tabMessages .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap uni-image,
+#tabMessages .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap image,
+#tabMessages .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap img {
   height: 100% !important;
   object-fit: cover !important;
 }
+/* 长图：禁止写死 height，让 widthFix 自己写入高度 */
 #tabMessages .chat-notice-imgs.imgs-1 .chat-notice-img,
-#tabMessages .chat-notice-imgs.imgs-1 .chat-notice-img image,
-#tabMessages .chat-notice-imgs.imgs-1 .chat-notice-img uni-image,
 #tabMessages .chat-notice-imgs.imgs-full .chat-notice-img,
-#tabMessages .chat-notice-imgs.imgs-full .chat-notice-img image,
-#tabMessages .chat-notice-imgs.imgs-full .chat-notice-img uni-image {
-  height: auto !important;
+#tabMessages .chat-notice-imgs.imgs-1 .chat-notice-img-wrap uni-image,
+#tabMessages .chat-notice-imgs.imgs-full .chat-notice-img-wrap uni-image,
+#tabMessages .chat-notice-imgs.imgs-1 .chat-notice-img-wrap image,
+#tabMessages .chat-notice-imgs.imgs-full .chat-notice-img-wrap image {
   max-height: none !important;
-  aspect-ratio: auto !important;
-  object-fit: contain !important;
 }
 
 #tabMessages .chat-promote-earn-wrap {

@@ -5173,32 +5173,6 @@ button.chat-rp-fair-link {
   grid-template-columns: 1fr;
 }
 
-.chat-notice-imgs.imgs-1 .chat-notice-img {
-  max-height: none;
-  width: 100%;
-  height: auto;
-  aspect-ratio: auto;
-  object-fit: contain;
-  border-radius: 14px;
-}
-
-/* 游戏规则等多张长图：纵向完整铺开（宽 750 自适应屏宽） */
-.chat-notice-imgs.imgs-full {
-  display: flex !important;
-  flex-direction: column;
-  grid-template-columns: none !important;
-  gap: 8px;
-}
-.chat-notice-imgs.imgs-full .chat-notice-img {
-  width: 100%;
-  height: auto;
-  max-height: none;
-  aspect-ratio: auto;
-  object-fit: contain;
-  border-radius: 12px;
-  background: transparent;
-}
-
 .chat-notice-imgs.imgs-2,
 .chat-notice-imgs.imgs-4 {
   grid-template-columns: 1fr 1fr;
@@ -5213,13 +5187,45 @@ button.chat-rp-fair-link {
   grid-template-columns: 1fr 1fr 1fr;
 }
 
-.chat-notice-img {
+.chat-notice-img-wrap {
   width: 100%;
-  aspect-ratio: 1;
-  object-fit: cover;
+  min-width: 0;
+  overflow: hidden;
   border-radius: 10px;
   background: #f3eee6;
+}
+
+.chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap {
+  aspect-ratio: 1;
+}
+
+.chat-notice-img {
+  width: 100%;
+  height: 100%;
   display: block;
+  border-radius: 10px;
+  vertical-align: top;
+}
+
+/* 单图 / 游戏规则长图：宽铺满、高度跟图走，完整显示 */
+.chat-notice-imgs.imgs-1 .chat-notice-img-wrap,
+.chat-notice-imgs.imgs-full .chat-notice-img-wrap {
+  aspect-ratio: auto;
+  height: auto;
+  border-radius: 14px;
+  background: #f7f3ea;
+}
+.chat-notice-imgs.imgs-full {
+  display: flex;
+  flex-direction: column;
+  grid-template-columns: none;
+  gap: 8px;
+}
+.chat-notice-imgs.imgs-1 .chat-notice-img,
+.chat-notice-imgs.imgs-full .chat-notice-img {
+  width: 100%;
+  /* 不设 height，交给 mode=widthFix 计算 */
+  border-radius: 14px;
 }
 
 .chat-notice-actions {

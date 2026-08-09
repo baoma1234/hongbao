@@ -398,14 +398,18 @@
                           { 'imgs-full': noticeImagesFull(n) },
                         ]"
                       >
-                        <image
+                        <view
                           v-for="(src, ii) in noticeImages(n).slice(0, 9)"
                           :key="ii"
-                          class="chat-notice-img"
-                          :src="avatarSrc(src)"
-                          :mode="noticeImagesFull(n) ? 'widthFix' : 'aspectFill'"
+                          class="chat-notice-img-wrap"
                           @click="previewNoticeImages(n, ii)"
-                        />
+                        >
+                          <image
+                            class="chat-notice-img"
+                            :src="avatarSrc(src)"
+                            :mode="noticeImagesFull(n) ? 'widthFix' : 'aspectFill'"
+                          />
+                        </view>
                       </view>
                     </view>
                     <view v-if="noticeActionButtons(n).length" class="chat-notice-actions">
