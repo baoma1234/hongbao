@@ -517,14 +517,13 @@
 
     <GrabSlider ref="grabSliderRef" />
 
-    <!-- 牛牛领取：红包封面（正面，无透视）+ 局信息 + 右上关闭 -->
+    <!-- 牛牛领取：立体描边红包框（无背景图/无领取按钮图） -->
     <view v-if="showNiuniuCover" class="nn-cover-mask" @click="closeNiuniuCover">
       <view class="nn-cover-card" @click.stop>
-        <image class="nn-cover-bg" src="/static/niuniu/bj.jpg" mode="aspectFill" />
-        <view class="nn-cover-shade" />
-        <view class="nn-cover-close" @click.stop="closeNiuniuCover">×</view>
-        <text class="nn-cover-badge" v-if="(niuniuCoverGameMode|0) === 2">单结果</text>
-        <view class="nn-cover-body">
+        <view class="nn-cover-frame">
+          <view class="nn-cover-close" @click.stop="closeNiuniuCover">×</view>
+          <text class="nn-cover-badge" v-if="(niuniuCoverGameMode|0) === 2">单结果</text>
+          <text class="nn-cover-title">尾数牛牛红宝</text>
           <view class="nn-cover-center">
             <text class="nn-cover-l1">#{{ niuniuCoverInfo.id || '--' }} 入场:{{ niuniuCoverInfo.price }}</text>
             <text class="nn-cover-l2">包数:{{ niuniuCoverInfo.packs }} 官方手续费:{{ niuniuCoverInfo.feePct }}%</text>
@@ -532,9 +531,8 @@
             <text class="nn-cover-l4">{{ niuniuCoverInfo.pool }}</text>
           </view>
           <text class="nn-cover-sub">{{ niuniuCoverSubText }}</text>
-          <view class="nn-cover-open-wrap" :class="{ busy: niuniuBusy }" @click="confirmNiuniuCoverOpen">
-            <image class="nn-cover-open-img" src="/static/niuniu/claim-open.png" mode="widthFix" />
-            <text v-if="niuniuBusy" class="nn-cover-open-busy">…</text>
+          <view class="nn-cover-open" :class="{ busy: niuniuBusy }" @click="confirmNiuniuCoverOpen">
+            {{ niuniuBusy ? '…' : '開' }}
           </view>
         </view>
       </view>
@@ -4417,7 +4415,7 @@ function closeRpDetail() {
   position: fixed;
   inset: 0;
   z-index: 16000;
-  background: rgba(0, 0, 0, 0.62);
+  background: rgba(0, 0, 0, 0.58);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4425,38 +4423,38 @@ function closeRpDetail() {
   box-sizing: border-box;
 }
 .nn-cover-card {
+  width: min(82vw, 300px);
+  border-radius: 20px;
+  padding: 3px;
+  box-sizing: border-box;
+  background: linear-gradient(145deg, #ffe9a8 0%, #f0c14b 18%, #c62828 52%, #7a0b14 100%);
+  box-shadow:
+    0 14px 32px rgba(0, 0, 0, 0.4),
+    0 1px 0 rgba(255, 255, 255, 0.45) inset,
+    0 -2px 6px rgba(80, 0, 0, 0.35) inset;
+}
+.nn-cover-frame {
   position: relative;
-  width: min(86vw, 320px);
-  aspect-ratio: 3 / 4.35;
-  border-radius: 18px;
-  overflow: hidden;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
-  background: #9b0d18;
-}
-.nn-cover-bg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 0;
-}
-.nn-cover-shade {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  background: linear-gradient(
-    180deg,
-    rgba(120, 0, 12, 0.18) 0%,
-    rgba(80, 0, 10, 0.08) 42%,
-    rgba(40, 0, 6, 0.55) 100%
-  );
-  pointer-events: none;
+  border-radius: 17px;
+  padding: 28px 16px 22px;
+  box-sizing: border-box;
+  min-height: 360px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: linear-gradient(180deg, #e53935 0%, #c62828 48%, #9b1018 100%);
+  border: 2px solid rgba(255, 224, 130, 0.85);
+  box-shadow:
+    0 0 0 2px rgba(139, 20, 30, 0.9),
+    0 0 0 4px rgba(255, 214, 120, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -10px 24px rgba(80, 0, 10, 0.28);
 }
 .nn-cover-close {
   position: absolute;
   top: 10px;
   right: 10px;
-  z-index: 5;
+  z-index: 3;
   width: 30px;
   height: 30px;
   border-radius: 50%;
@@ -4466,40 +4464,41 @@ function closeRpDetail() {
   font-size: 20px;
   line-height: 1;
   color: #fff;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.3);
 }
 .nn-cover-badge {
   position: absolute;
   top: 12px;
   left: 12px;
-  z-index: 5;
+  z-index: 3;
   padding: 3px 8px;
   border-radius: 999px;
   font-size: 11px;
   font-weight: 800;
   color: #7a1f00;
   background: #ffe082;
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.45);
 }
-.nn-cover-body {
-  position: relative;
-  z-index: 2;
-  height: 100%;
-  box-sizing: border-box;
-  padding: 58% 14px 16px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+.nn-cover-title {
+  margin-top: 6px;
+  font-size: 18px;
+  font-weight: 900;
+  color: #fff8e1;
+  letter-spacing: 1px;
+  text-shadow: 0 2px 0 rgba(120, 20, 20, 0.35);
 }
 .nn-cover-center {
   width: 100%;
-  padding: 10px 10px 8px;
+  margin-top: 18px;
+  padding: 12px 10px;
   border-radius: 12px;
   text-align: center;
-  background: rgba(90, 8, 16, 0.72);
-  border: 1px solid rgba(255, 214, 120, 0.55);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  background: rgba(90, 10, 16, 0.35);
+  border: 1px solid rgba(255, 214, 120, 0.45);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 4px 10px rgba(0, 0, 0, 0.18);
 }
 .nn-cover-l1,
 .nn-cover-l2,
@@ -4513,54 +4512,52 @@ function closeRpDetail() {
   color: #fff8e1;
 }
 .nn-cover-l2 {
-  margin-top: 3px;
+  margin-top: 4px;
   font-size: 12px;
   font-weight: 700;
   color: #ffe9b0;
 }
 .nn-cover-l3 {
-  margin-top: 6px;
+  margin-top: 8px;
   font-size: 11px;
   color: rgba(255, 236, 200, 0.88);
 }
 .nn-cover-l4 {
   display: block;
   margin-top: 2px;
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 900;
   color: #ffe082;
   letter-spacing: 0.5px;
 }
 .nn-cover-sub {
-  margin-top: 8px;
-  font-size: 11px;
+  margin-top: 12px;
+  font-size: 12px;
   color: rgba(255, 236, 200, 0.92);
   text-align: center;
-  line-height: 1.35;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  line-height: 1.4;
+  padding: 0 4px;
 }
-.nn-cover-open-wrap {
-  position: relative;
+.nn-cover-open {
   margin-top: auto;
-  width: 86%;
-}
-.nn-cover-open-wrap.busy {
-  opacity: 0.7;
-}
-.nn-cover-open-img {
-  width: 100%;
-  display: block;
-}
-.nn-cover-open-busy {
-  position: absolute;
-  inset: 0;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 28%, #fff3c4, #f0c14b 55%, #c9a227 100%);
+  color: #8a2a00;
+  font-size: 30px;
+  font-weight: 900;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
-  font-size: 22px;
-  font-weight: 900;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  box-shadow:
+    0 8px 18px rgba(0, 0, 0, 0.28),
+    inset 0 2px 0 rgba(255, 255, 255, 0.65),
+    inset 0 -5px 8px rgba(160, 90, 0, 0.22);
+}
+.nn-cover-open.busy {
+  opacity: 0.7;
 }
 .nn-pack-result-mask {
   position: fixed;
