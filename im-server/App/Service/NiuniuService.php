@@ -633,7 +633,8 @@ class NiuniuService
         }
         $userId = (int)$userId;
         $status = (int)$round['status'];
-        // 领取阶段起按 hash/尾数排序（与领取时间序一致）
+        $mode = $this->normalizeMode($round['game_mode'] ?? self::MODE_NORMAL);
+        // 领取阶段起按 hash/尾数排序（与波场复算尾数序列、领取时间序一致）
         $shares = Db::fetchAll(
             'SELECT * FROM ' . Db::table('chat_niuniu_shares')
             . ' WHERE round_id=? ORDER BY'
@@ -643,25 +644,46 @@ class NiuniuService
         );
         $mine = [];
         $all = [];
+        $seenUser = [];
         foreach ($shares as $s) {
-            $isMine = $userId > 0 && (int)$s['user_id'] === $userId;
+            $uid = (int)$s['user_id'];
+            $isMine = $userId > 0 && $uid === $userId;
             $reveal = $isMine && ((int)$s['claimed'] === 1 || $status >= self::STATUS_SETTLED);
             if ($status >= self::STATUS_SETTLED) {
                 $reveal = true;
             } elseif ((int)$s['claimed'] === 1) {
-                // 已领取的公开尾数（明细按 hash 展示）
                 $reveal = true;
+            }
+            // 单结果：每人只保留 hash 序中的第一行（与 nnfair 复算序列一致）
+            if ($mode === self::MODE_SINGLE) {
+                if (isset($seenUser[$uid])) {
+                    $idx = $seenUser[$uid];
+                    $all[$idx]['weight'] = ((int)($all[$idx]['weight'] ?? 1)) + 1;
+                    $all[$idx]['share_count'] = ((int)($all[$idx]['share_count'] ?? 1)) + 1;
+                    $all[$idx]['win_amount'] = round(
+                        (float)($all[$idx]['win_amount'] ?? 0) + (float)$s['win_amount'],
+                        4
+                    );
+                    if ($isMine && isset($mine[$uid])) {
+                        $mine[$uid] = $all[$idx];
+                    }
+                    continue;
+                }
             }
             $row = $this->publicShare($s, $reveal);
             $row['weight'] = 1;
+            $row['share_count'] = 1;
+            if ($mode === self::MODE_SINGLE) {
+                $seenUser[$uid] = count($all);
+            }
             $all[] = $row;
             if ($isMine) {
-                $mine[] = $row;
+                $mine[$uid] = $row;
             }
         }
         return [
             'round'  => $this->publicRound($round, $userId),
-            'mine'   => $mine,
+            'mine'   => array_values($mine),
             'shares' => $status >= self::STATUS_CLAIMING ? $all : [],
             'rule'   => $this->ruleText((int)$round['group_id']),
         ];

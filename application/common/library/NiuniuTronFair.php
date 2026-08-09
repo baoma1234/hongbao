@@ -111,35 +111,38 @@ class NiuniuTronFair
                     $byUser[$uid][] = $s;
                 }
                 foreach ($byUser as $uid => $rows) {
+                    // 与明细一致：单结果每人一行（用最小 id 派生尾数）
+                    usort($rows, function ($a, $b) {
+                        return ((int)$a['id']) - ((int)$b['id']);
+                    });
                     $seedId = (int)$rows[0]['id'];
                     $salt = 'round:' . $roundId . ':user:' . $uid;
                     $tail = self::deriveTail($tronId, $seedId, $salt);
                     $meta = self::calcNiu($tail);
-                    foreach ($rows as $s) {
-                        $storedTail = (string)($s['tail_digits'] ?? '');
-                        $ok = ($storedTail === '' || $storedTail === $meta['tail']);
-                        if ($storedTail !== '') {
-                            $checkCount++;
-                            if ($ok) {
-                                $matchCount++;
-                            } else {
-                                $matchAll = false;
-                            }
+                    $storedTail = (string)($rows[0]['tail_digits'] ?? '');
+                    $ok = ($storedTail === '' || $storedTail === $meta['tail']);
+                    if ($storedTail !== '') {
+                        $checkCount++;
+                        if ($ok) {
+                            $matchCount++;
+                        } else {
+                            $matchAll = false;
                         }
-                        $row = [
-                            'share_id' => (int)$s['id'],
-                            'share_no' => (int)($s['share_no'] ?? 0),
-                            'user_id' => $uid,
-                            'computed_tail' => $meta['tail'],
-                            'computed_niu' => $meta['label'],
-                            'stored_tail' => $storedTail !== '' ? $storedTail : null,
-                            'stored_niu' => (string)($s['niu_label'] ?? ''),
-                            'match' => $ok,
-                        ];
-                        $computed[] = $row;
-                        if ($storedTail !== '') {
-                            $stored[] = $row;
-                        }
+                    }
+                    $row = [
+                        'share_id' => $seedId,
+                        'share_no' => (int)($rows[0]['share_no'] ?? 0),
+                        'user_id' => $uid,
+                        'share_count' => count($rows),
+                        'computed_tail' => $meta['tail'],
+                        'computed_niu' => $meta['label'],
+                        'stored_tail' => $storedTail !== '' ? $storedTail : null,
+                        'stored_niu' => (string)($rows[0]['niu_label'] ?? ''),
+                        'match' => $ok,
+                    ];
+                    $computed[] = $row;
+                    if ($storedTail !== '') {
+                        $stored[] = $row;
                     }
                 }
             } else {
@@ -162,6 +165,7 @@ class NiuniuTronFair
                         'share_id' => $sid,
                         'share_no' => (int)($s['share_no'] ?? 0),
                         'user_id' => (int)$s['user_id'],
+                        'share_count' => 1,
                         'computed_tail' => $meta['tail'],
                         'computed_niu' => $meta['label'],
                         'stored_tail' => $storedTail !== '' ? $storedTail : null,
@@ -174,6 +178,17 @@ class NiuniuTronFair
                     }
                 }
             }
+            // 与领取明细完全一致：按复算尾数升序，同尾再按 share_id
+            $sortTail = function ($a, $b) {
+                $ta = (int)preg_replace('/\D/', '', (string)($a['computed_tail'] ?? '999'));
+                $tb = (int)preg_replace('/\D/', '', (string)($b['computed_tail'] ?? '999'));
+                if ($ta !== $tb) {
+                    return $ta - $tb;
+                }
+                return ((int)($a['share_id'] ?? 0)) - ((int)($b['share_id'] ?? 0));
+            };
+            usort($computed, $sortTail);
+            usort($stored, $sortTail);
         }
 
         if ($status === self::STATUS_CLAIMING) {

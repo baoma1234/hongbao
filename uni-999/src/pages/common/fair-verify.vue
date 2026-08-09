@@ -144,7 +144,7 @@
               <text>已对照份数</text>
               <text>{{ (tv.matched || 0) }}/{{ (tv.checked || 0) }}</text>
             </view>
-            <text class="fv-label mt">复算尾数序列</text>
+            <text class="fv-label mt">复算尾数序列（按尾数升序，与领取明细一致）</text>
             <view class="fv-cents">
               <text
                 v-for="(row, i) in computedTails"
@@ -152,7 +152,8 @@
                 class="fv-cent"
                 :class="{ bad: row.stored_tail && !row.match }"
               >
-                #{{ row.share_no || (i + 1) }} 尾数{{ row.computed_tail }} {{ row.computed_niu }}
+                {{ i + 1 }}. 尾数{{ row.computed_tail }} {{ row.computed_niu }}
+                <text v-if="(row.share_count|0) > 1"> ×{{ row.share_count }}</text>
                 <text v-if="row.stored_tail">（入库{{ row.stored_tail }}）</text>
               </text>
               <text v-if="!computedTails.length" class="fv-sub">—</text>
