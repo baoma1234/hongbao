@@ -517,10 +517,18 @@
 
     <GrabSlider ref="grabSliderRef" />
 
-    <!-- 牛牛领取：弹出红宝封面，开启后再看开奖明细 -->
+    <!-- 牛牛领取：3D 毛玻璃封面 + 局信息 + 右上关闭 -->
     <view v-if="showNiuniuCover" class="nn-cover-mask" @click="closeNiuniuCover">
       <view class="nn-cover-card" @click.stop>
+        <view class="nn-cover-close" @click.stop="closeNiuniuCover">×</view>
+        <text class="nn-cover-badge" v-if="(niuniuCoverGameMode|0) === 2">单结果</text>
         <text class="nn-cover-title">尾数牛牛红宝</text>
+        <view class="nn-cover-center">
+          <text class="nn-cover-l1">#{{ niuniuCoverInfo.id || '--' }} 入场:{{ niuniuCoverInfo.price }}</text>
+          <text class="nn-cover-l2">包数:{{ niuniuCoverInfo.packs }} 官方手续费:{{ niuniuCoverInfo.feePct }}%</text>
+          <text class="nn-cover-l3">奖池(扣除{{ niuniuCoverInfo.feePct }}%后)</text>
+          <text class="nn-cover-l4">{{ niuniuCoverInfo.pool }}</text>
+        </view>
         <text class="nn-cover-sub">{{ niuniuCoverSubText }}</text>
         <view class="nn-cover-open" :class="{ busy: niuniuBusy }" @click="confirmNiuniuCoverOpen">
           {{ niuniuBusy ? '…' : '開' }}
@@ -787,6 +795,7 @@ const showNiuniuCover = ref(false)
 const niuniuCoverRoundId = ref(0)
 const niuniuCoverRemain = ref(0)
 const niuniuCoverGameMode = ref(0)
+const niuniuCoverRound = ref(null)
 const showNiuniuPackResult = ref(false)
 const niuniuPackResult = ref(null)
 const niuniuPackRemain = ref(0)
@@ -798,6 +807,28 @@ const niuniuDetailPoolText = computed(() => {
   if (!r) return '0'
   const n = Number(r.distributable != null ? r.distributable : r.pool_amount)
   return (isNaN(n) ? 0 : n).toFixed(2)
+})
+const niuniuCoverInfo = computed(() => {
+  const r = niuniuCoverRound.value || {}
+  const id = (r.id | 0) || (niuniuCoverRoundId.value | 0) || 0
+  const priceN = Number(r.share_price != null ? r.share_price : 100)
+  const price = isNaN(priceN) ? 100 : Math.round(priceN)
+  const packs = (r.share_count | 0) || 0
+  const rate = Number(r.fee_rate)
+  const feePct = !isNaN(rate) && rate > 0 ? Math.round(rate * 1000) / 10 : 3
+  let poolN = Number(r.distributable)
+  if (isNaN(poolN) || poolN <= 0) {
+    const pool = Number(r.pool_amount != null ? r.pool_amount : 0)
+    const fee = !isNaN(rate) && rate > 0 ? rate : 0.03
+    poolN = isNaN(pool) ? 0 : pool * (1 - fee)
+  }
+  return {
+    id,
+    price,
+    packs,
+    feePct,
+    pool: (isNaN(poolN) ? 0 : poolN).toFixed(2),
+  }
 })
 const niuniuCoverSubText = computed(() => {
   if ((niuniuCoverGameMode.value | 0) === 2) {
@@ -3014,7 +3045,7 @@ async function onNiuniuTap(m) {
       1
     // 单结果：逻辑上只需开一次
     if (mode === 2 && remain > 0) remain = 1
-    openNiuniuCover(rid, remain, mode)
+    openNiuniuCover(rid, remain, mode, r)
     return
   }
   if (phase === 'claim' || phase === 'result') {
@@ -3028,7 +3059,7 @@ async function onNiuniuTap(m) {
       if (needClaim) {
         const remainPacks = mine.filter((s) => !s.claimed).length
         markNiuniuShareLocal(rid, data.round || null, false, remainPacks)
-        openNiuniuCover(rid, mode === 2 ? 1 : remainPacks, mode)
+        openNiuniuCover(rid, mode === 2 ? 1 : remainPacks, mode, data.round || null)
         return
       }
       if (mine.length) {
@@ -3051,11 +3082,31 @@ async function onNiuniuTap(m) {
   }
 }
 
-function openNiuniuCover(rid, remainHint, gameMode) {
+function openNiuniuCover(rid, remainHint, gameMode, roundPatch) {
   niuniuCoverRoundId.value = rid | 0
   const hint = remainHint | 0
   if (hint > 0) niuniuCoverRemain.value = hint
   if (gameMode != null) niuniuCoverGameMode.value = gameMode | 0
+  if (roundPatch && typeof roundPatch === 'object') {
+    niuniuCoverRound.value = Object.assign({}, niuniuCoverRound.value || {}, roundPatch, {
+      id: (roundPatch.id | 0) || (rid | 0),
+    })
+  } else if (!niuniuCoverRound.value || ((niuniuCoverRound.value.id | 0) !== (rid | 0))) {
+    // 从消息列表补一轮快照
+    const rows = messages.value || []
+    let found = null
+    for (let i = 0; i < rows.length; i++) {
+      const m = rows[i]
+      if (!isNiuniu(m)) continue
+      const ex = msgExtra(m)
+      const id = (ex.round_id | 0) || ((ex.round && ex.round.id) | 0) || 0
+      if (id === (rid | 0)) {
+        found = ex.round || null
+        break
+      }
+    }
+    niuniuCoverRound.value = Object.assign({}, found || {}, { id: rid | 0 })
+  }
   showNiuniuCover.value = true
 }
 function closeNiuniuCover() {
@@ -3112,6 +3163,9 @@ async function confirmNiuniuCoverOpen() {
     showNiuniuCover.value = false
     niuniuCoverRoundId.value = 0
     niuniuCoverRemain.value = out.remain | 0
+    if (out.data && out.data.round) {
+      niuniuCoverRound.value = Object.assign({}, niuniuCoverRound.value || {}, out.data.round)
+    }
     showNiuniuPackResultUi(rid, out.share, out.remain)
   } catch (e) {
     const msg = (e && e.message) || '领取失败'
@@ -3140,7 +3194,7 @@ async function dismissNiuniuPackResult() {
   showNiuniuPackResult.value = false
   niuniuPackResult.value = null
   if (remain > 0 && rid) {
-    openNiuniuCover(rid, remain, niuniuCoverGameMode.value)
+    openNiuniuCover(rid, remain, niuniuCoverGameMode.value, niuniuCoverRound.value)
     return
   }
   await openNiuniuDetailAfterClaim(rid)
@@ -4359,52 +4413,178 @@ function closeRpDetail() {
   position: fixed;
   inset: 0;
   z-index: 16000;
-  background: rgba(0, 0, 0, 0.62);
+  background:
+    radial-gradient(120% 80% at 50% 20%, rgba(255, 120, 90, 0.22), transparent 55%),
+    rgba(12, 6, 10, 0.52);
+  backdrop-filter: blur(10px) saturate(1.15);
+  -webkit-backdrop-filter: blur(10px) saturate(1.15);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
   box-sizing: border-box;
+  perspective: 1100px;
 }
 .nn-cover-card {
-  width: min(78vw, 280px);
-  aspect-ratio: 3 / 4.2;
-  border-radius: 16px;
-  background: linear-gradient(165deg, #e53935 0%, #b71c1c 55%, #7f1010 100%);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  position: relative;
+  width: min(82vw, 300px);
+  min-height: 420px;
+  border-radius: 22px;
+  padding: 28px 18px 24px;
+  box-sizing: border-box;
+  color: #fff8e7;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  padding: 28px 18px 22px;
-  box-sizing: border-box;
-  color: #ffe082;
+  transform: perspective(1100px) rotateX(7deg) rotateY(-4deg) translateZ(12px);
+  background:
+    linear-gradient(155deg, rgba(255, 255, 255, 0.38) 0%, rgba(255, 90, 90, 0.22) 38%, rgba(140, 18, 28, 0.42) 100%);
+  backdrop-filter: blur(26px) saturate(1.55);
+  -webkit-backdrop-filter: blur(26px) saturate(1.55);
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  box-shadow:
+    0 28px 56px rgba(0, 0, 0, 0.42),
+    0 2px 0 rgba(255, 255, 255, 0.35) inset,
+    0 -18px 36px rgba(120, 0, 20, 0.22) inset,
+    12px 18px 0 rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+.nn-cover-card::before {
+  content: '';
+  position: absolute;
+  inset: -40% -20% auto;
+  height: 70%;
+  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.55), transparent 62%);
+  pointer-events: none;
+}
+.nn-cover-card::after {
+  content: '';
+  position: absolute;
+  inset: auto 8% -18% 8%;
+  height: 42%;
+  background: radial-gradient(ellipse at center, rgba(255, 200, 120, 0.22), transparent 70%);
+  pointer-events: none;
+}
+.nn-cover-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 3;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.95);
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.22);
+}
+.nn-cover-badge {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 3;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #7a1f00;
+  background: rgba(255, 224, 130, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.45);
 }
 .nn-cover-title {
+  position: relative;
+  z-index: 1;
+  margin-top: 8px;
   font-size: 18px;
   font-weight: 900;
   letter-spacing: 1px;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+.nn-cover-center {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  margin-top: 18px;
+  padding: 14px 12px;
+  border-radius: 14px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.nn-cover-l1,
+.nn-cover-l2,
+.nn-cover-l3 {
+  display: block;
+  line-height: 1.35;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
+}
+.nn-cover-l1 {
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff8e1;
+}
+.nn-cover-l2 {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255, 236, 200, 0.95);
+}
+.nn-cover-l3 {
+  margin-top: 8px;
+  font-size: 11px;
+  color: rgba(255, 236, 200, 0.82);
+}
+.nn-cover-l4 {
+  display: block;
+  margin-top: 2px;
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  color: #ffe082;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
 }
 .nn-cover-sub {
-  margin-top: 10px;
+  position: relative;
+  z-index: 1;
+  margin-top: 12px;
   font-size: 12px;
-  color: rgba(255, 236, 200, 0.88);
+  color: rgba(255, 236, 200, 0.9);
   text-align: center;
   line-height: 1.4;
+  padding: 0 6px;
 }
 .nn-cover-open {
+  position: relative;
+  z-index: 1;
   margin-top: auto;
-  width: 72px;
-  height: 72px;
+  width: 78px;
+  height: 78px;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #ffe082, #f0c14b 55%, #c9a227);
+  background:
+    radial-gradient(circle at 35% 28%, #fff3c4, #f0c14b 52%, #c9a227 100%);
   color: #8a2a00;
-  font-size: 28px;
+  font-size: 30px;
   font-weight: 900;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
+  box-shadow:
+    0 12px 24px rgba(0, 0, 0, 0.32),
+    inset 0 2px 0 rgba(255, 255, 255, 0.65),
+    inset 0 -6px 10px rgba(160, 90, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  transform: translateZ(18px);
 }
 .nn-cover-open.busy {
   opacity: 0.7;
