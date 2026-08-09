@@ -249,17 +249,23 @@ class NiuniuAutoBotService
             $actorMap[(int)$a] = true;
         }
         $n = 0;
+        $queue = [];
         foreach ($rows as $r) {
             $uid = (int)$r['user_id'];
             if (!isset($actorMap[$uid])) {
                 continue;
             }
+            if ($single) {
+                $queue[] = ['share_id' => 0, 'user_id' => $uid];
+            } else {
+                $queue[] = ['share_id' => (int)$r['id'], 'user_id' => $uid];
+            }
+        }
+        $queue = $this->interleaveClaimTargets($queue);
+        foreach ($queue as $t) {
+            $uid = (int)$t['user_id'];
             try {
-                if ($single) {
-                    $this->niuniu->claim($uid, $roundId, 0);
-                } else {
-                    $this->niuniu->claim($uid, $roundId, (int)$r['id']);
-                }
+                $this->niuniu->claim($uid, $roundId, (int)$t['share_id']);
                 $n++;
             } catch (\Throwable $e) {
                 $this->touchError($taskId, 'claim u' . $uid . ': ' . $e->getMessage());
@@ -425,9 +431,11 @@ class NiuniuAutoBotService
             return;
         }
 
+        // 多号多包：按人轮询交错（A1→B1→A2→B2…），避免同一号连领
+        $targets = $this->interleaveClaimTargets($targets);
+
         $delayMin = max(100, (int)($task['claim_delay_min_ms'] ?? 500));
         $delayMax = max($delayMin, (int)($task['claim_delay_max_ms'] ?? 5000));
-        // 普通按包间隔；单结果按人间隔
         $busySec = max(
             60,
             (int)$round['claim_seconds'] + 30,
@@ -460,6 +468,55 @@ class NiuniuAutoBotService
                 }
             }, [], false);
         }
+    }
+
+    /**
+     * 领取队列按用户轮询交错，例如：
+     * 用户A 5包、用户B 5包 → A,B,A,B… 而不是 AAAAA 再 BBBBB
+     *
+     * @param array<int,array{share_id:int,user_id:int}> $targets
+     * @return array<int,array{share_id:int,user_id:int}>
+     */
+    protected function interleaveClaimTargets(array $targets)
+    {
+        if (count($targets) <= 1) {
+            return $targets;
+        }
+        $byUser = [];
+        foreach ($targets as $t) {
+            $uid = (int)$t['user_id'];
+            if (!isset($byUser[$uid])) {
+                $byUser[$uid] = [];
+            }
+            $byUser[$uid][] = $t;
+        }
+        if (count($byUser) <= 1) {
+            return $targets;
+        }
+        $uids = array_keys($byUser);
+        shuffle($uids);
+        $out = [];
+        $guard = 0;
+        while ($byUser && $guard < 10000) {
+            $guard++;
+            $progress = false;
+            foreach ($uids as $uid) {
+                if (empty($byUser[$uid])) {
+                    unset($byUser[$uid]);
+                    continue;
+                }
+                $out[] = array_shift($byUser[$uid]);
+                $progress = true;
+                if (empty($byUser[$uid])) {
+                    unset($byUser[$uid]);
+                }
+            }
+            if (!$progress) {
+                break;
+            }
+            $uids = array_keys($byUser);
+        }
+        return $out ?: $targets;
     }
 
     /** @return int[] */
