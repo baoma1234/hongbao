@@ -517,21 +517,25 @@
 
     <GrabSlider ref="grabSliderRef" />
 
-    <!-- 牛牛领取：3D 毛玻璃封面 + 局信息 + 右上关闭 -->
+    <!-- 牛牛领取：红包封面（正面，无透视）+ 局信息 + 右上关闭 -->
     <view v-if="showNiuniuCover" class="nn-cover-mask" @click="closeNiuniuCover">
       <view class="nn-cover-card" @click.stop>
+        <image class="nn-cover-bg" src="/static/niuniu/bj.jpg" mode="aspectFill" />
+        <view class="nn-cover-shade" />
         <view class="nn-cover-close" @click.stop="closeNiuniuCover">×</view>
         <text class="nn-cover-badge" v-if="(niuniuCoverGameMode|0) === 2">单结果</text>
-        <text class="nn-cover-title">尾数牛牛红宝</text>
-        <view class="nn-cover-center">
-          <text class="nn-cover-l1">#{{ niuniuCoverInfo.id || '--' }} 入场:{{ niuniuCoverInfo.price }}</text>
-          <text class="nn-cover-l2">包数:{{ niuniuCoverInfo.packs }} 官方手续费:{{ niuniuCoverInfo.feePct }}%</text>
-          <text class="nn-cover-l3">奖池(扣除{{ niuniuCoverInfo.feePct }}%后)</text>
-          <text class="nn-cover-l4">{{ niuniuCoverInfo.pool }}</text>
-        </view>
-        <text class="nn-cover-sub">{{ niuniuCoverSubText }}</text>
-        <view class="nn-cover-open" :class="{ busy: niuniuBusy }" @click="confirmNiuniuCoverOpen">
-          {{ niuniuBusy ? '…' : '開' }}
+        <view class="nn-cover-body">
+          <view class="nn-cover-center">
+            <text class="nn-cover-l1">#{{ niuniuCoverInfo.id || '--' }} 入场:{{ niuniuCoverInfo.price }}</text>
+            <text class="nn-cover-l2">包数:{{ niuniuCoverInfo.packs }} 官方手续费:{{ niuniuCoverInfo.feePct }}%</text>
+            <text class="nn-cover-l3">奖池(扣除{{ niuniuCoverInfo.feePct }}%后)</text>
+            <text class="nn-cover-l4">{{ niuniuCoverInfo.pool }}</text>
+          </view>
+          <text class="nn-cover-sub">{{ niuniuCoverSubText }}</text>
+          <view class="nn-cover-open-wrap" :class="{ busy: niuniuBusy }" @click="confirmNiuniuCoverOpen">
+            <image class="nn-cover-open-img" src="/static/niuniu/claim-open.png" mode="widthFix" />
+            <text v-if="niuniuBusy" class="nn-cover-open-busy">…</text>
+          </view>
         </view>
       </view>
     </view>
@@ -4413,121 +4417,95 @@ function closeRpDetail() {
   position: fixed;
   inset: 0;
   z-index: 16000;
-  background:
-    radial-gradient(120% 80% at 50% 20%, rgba(255, 120, 90, 0.22), transparent 55%),
-    rgba(12, 6, 10, 0.52);
-  backdrop-filter: blur(10px) saturate(1.15);
-  -webkit-backdrop-filter: blur(10px) saturate(1.15);
+  background: rgba(0, 0, 0, 0.62);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
   box-sizing: border-box;
-  perspective: 1100px;
 }
 .nn-cover-card {
   position: relative;
-  width: min(82vw, 300px);
-  min-height: 420px;
-  border-radius: 22px;
-  padding: 28px 18px 24px;
-  box-sizing: border-box;
-  color: #fff8e7;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  transform: perspective(1100px) rotateX(7deg) rotateY(-4deg) translateZ(12px);
-  background:
-    linear-gradient(155deg, rgba(255, 255, 255, 0.38) 0%, rgba(255, 90, 90, 0.22) 38%, rgba(140, 18, 28, 0.42) 100%);
-  backdrop-filter: blur(26px) saturate(1.55);
-  -webkit-backdrop-filter: blur(26px) saturate(1.55);
-  border: 1px solid rgba(255, 255, 255, 0.42);
-  box-shadow:
-    0 28px 56px rgba(0, 0, 0, 0.42),
-    0 2px 0 rgba(255, 255, 255, 0.35) inset,
-    0 -18px 36px rgba(120, 0, 20, 0.22) inset,
-    12px 18px 0 rgba(0, 0, 0, 0.08);
+  width: min(86vw, 320px);
+  aspect-ratio: 3 / 4.35;
+  border-radius: 18px;
   overflow: hidden;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+  background: #9b0d18;
 }
-.nn-cover-card::before {
-  content: '';
+.nn-cover-bg {
   position: absolute;
-  inset: -40% -20% auto;
-  height: 70%;
-  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.55), transparent 62%);
-  pointer-events: none;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
 }
-.nn-cover-card::after {
-  content: '';
+.nn-cover-shade {
   position: absolute;
-  inset: auto 8% -18% 8%;
-  height: 42%;
-  background: radial-gradient(ellipse at center, rgba(255, 200, 120, 0.22), transparent 70%);
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(
+    180deg,
+    rgba(120, 0, 12, 0.18) 0%,
+    rgba(80, 0, 10, 0.08) 42%,
+    rgba(40, 0, 6, 0.55) 100%
+  );
   pointer-events: none;
 }
 .nn-cover-close {
   position: absolute;
   top: 10px;
   right: 10px;
-  z-index: 3;
-  width: 32px;
-  height: 32px;
+  z-index: 5;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
+  font-size: 20px;
   line-height: 1;
-  color: rgba(255, 255, 255, 0.95);
-  background: rgba(0, 0, 0, 0.28);
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.22);
+  color: #fff;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.35);
 }
 .nn-cover-badge {
   position: absolute;
-  top: 14px;
-  left: 14px;
-  z-index: 3;
+  top: 12px;
+  left: 12px;
+  z-index: 5;
   padding: 3px 8px;
   border-radius: 999px;
   font-size: 11px;
   font-weight: 800;
   color: #7a1f00;
-  background: rgba(255, 224, 130, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: #ffe082;
+  border: 1px solid rgba(255, 255, 255, 0.5);
 }
-.nn-cover-title {
+.nn-cover-body {
   position: relative;
-  z-index: 1;
-  margin-top: 8px;
-  font-size: 18px;
-  font-weight: 900;
-  letter-spacing: 1px;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  z-index: 2;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 58% 14px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 .nn-cover-center {
-  position: relative;
-  z-index: 1;
   width: 100%;
-  margin-top: 18px;
-  padding: 14px 12px;
-  border-radius: 14px;
+  padding: 10px 10px 8px;
+  border-radius: 12px;
   text-align: center;
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: rgba(90, 8, 16, 0.72);
+  border: 1px solid rgba(255, 214, 120, 0.55);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
 }
 .nn-cover-l1,
 .nn-cover-l2,
 .nn-cover-l3 {
   display: block;
   line-height: 1.35;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
 }
 .nn-cover-l1 {
   font-size: 13px;
@@ -4535,59 +4513,54 @@ function closeRpDetail() {
   color: #fff8e1;
 }
 .nn-cover-l2 {
-  margin-top: 4px;
+  margin-top: 3px;
   font-size: 12px;
   font-weight: 700;
-  color: rgba(255, 236, 200, 0.95);
+  color: #ffe9b0;
 }
 .nn-cover-l3 {
-  margin-top: 8px;
+  margin-top: 6px;
   font-size: 11px;
-  color: rgba(255, 236, 200, 0.82);
+  color: rgba(255, 236, 200, 0.88);
 }
 .nn-cover-l4 {
   display: block;
   margin-top: 2px;
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 900;
-  letter-spacing: 0.5px;
   color: #ffe082;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  letter-spacing: 0.5px;
 }
 .nn-cover-sub {
-  position: relative;
-  z-index: 1;
-  margin-top: 12px;
-  font-size: 12px;
-  color: rgba(255, 236, 200, 0.9);
+  margin-top: 8px;
+  font-size: 11px;
+  color: rgba(255, 236, 200, 0.92);
   text-align: center;
-  line-height: 1.4;
-  padding: 0 6px;
+  line-height: 1.35;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
 }
-.nn-cover-open {
+.nn-cover-open-wrap {
   position: relative;
-  z-index: 1;
   margin-top: auto;
-  width: 78px;
-  height: 78px;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 35% 28%, #fff3c4, #f0c14b 52%, #c9a227 100%);
-  color: #8a2a00;
-  font-size: 30px;
-  font-weight: 900;
+  width: 86%;
+}
+.nn-cover-open-wrap.busy {
+  opacity: 0.7;
+}
+.nn-cover-open-img {
+  width: 100%;
+  display: block;
+}
+.nn-cover-open-busy {
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow:
-    0 12px 24px rgba(0, 0, 0, 0.32),
-    inset 0 2px 0 rgba(255, 255, 255, 0.65),
-    inset 0 -6px 10px rgba(160, 90, 0, 0.25);
-  border: 1px solid rgba(255, 255, 255, 0.45);
-  transform: translateZ(18px);
-}
-.nn-cover-open.busy {
-  opacity: 0.7;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 900;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
 }
 .nn-pack-result-mask {
   position: fixed;
