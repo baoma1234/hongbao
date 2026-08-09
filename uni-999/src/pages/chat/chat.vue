@@ -119,7 +119,7 @@
                     <text v-if="(niuniuRound(m).game_mode|0) === 2" class="nn-mode-tag">单结果</text>
                     <view class="nn-center">
                       <text class="nn-pool">¥ {{ niuniuPoolText(m) }}</text>
-                      <text class="nn-entry">入场：{{ niuniuSharePrice(m) }}积分/包</text>
+                      <text class="nn-entry">入场:{{ niuniuSharePrice(m) }}/包</text>
                       <text class="nn-buyers">{{ niuniuBuyersLine(m) }}</text>
                     </view>
                     <view class="nn-right">
@@ -3655,13 +3655,17 @@ function closeRpDetail() {
   height: 100%;
 }
 .chat-niuniu-card {
+  /* 按气泡列宽适配，避免 88vw 在苹果机型上超出可视区被裁切 */
   position: relative;
-  width: min(88vw, 340px);
+  width: 100%;
+  max-width: 340px;
   aspect-ratio: 1024 / 575;
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 8px 22px rgba(120, 10, 10, 0.35);
   background: #8b0d12;
+  container-type: inline-size;
+  container-name: nn-card;
 }
 .chat-niuniu-card .nn-bg {
   position: absolute;
@@ -3675,13 +3679,18 @@ function closeRpDetail() {
   position: absolute;
   inset: 0;
   z-index: 1;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  /* 小屏整体略收一点内边，减少右侧按钮贴边裁切 */
+  padding: 0;
 }
 .chat-niuniu-card .nn-mode-tag {
   position: absolute;
   top: 6%;
   right: 3.5%;
   z-index: 3;
-  font-size: 9px;
+  font-size: clamp(8px, 2.8cqi, 9px);
   font-weight: 800;
   color: #fff7d2;
   background: rgba(120, 10, 16, 0.72);
@@ -3692,42 +3701,52 @@ function closeRpDetail() {
 /* 中间信息区：叠在牛右侧空位 */
 .chat-niuniu-card .nn-center {
   position: absolute;
-  left: 34%;
-  top: 40%;
-  width: 30%;
+  left: 33%;
+  top: 38%;
+  width: 31%;
+  max-width: 31%;
   z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 2px;
+  gap: clamp(1px, 0.6cqi, 3px);
+  min-width: 0;
+  box-sizing: border-box;
 }
 .chat-niuniu-card .nn-pool {
-  font-size: 18px;
+  font-size: clamp(12px, 5.4cqi, 18px);
   font-weight: 900;
   line-height: 1.15;
   color: #ffe082;
   text-shadow: 0 1px 3px rgba(80, 0, 0, 0.45);
   white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .chat-niuniu-card .nn-entry,
 .chat-niuniu-card .nn-buyers {
-  font-size: 10px;
+  font-size: clamp(8px, 3cqi, 10px);
   font-weight: 600;
   color: rgba(255, 255, 255, 0.95);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
   white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-/* 右侧：倒计时 + 操作按钮（再缩小并下移） */
+/* 右侧：倒计时 + 操作按钮 */
 .chat-niuniu-card .nn-right {
   position: absolute;
-  top: 42%;
-  right: 11%;
-  width: 25%;
+  top: 40%;
+  right: 8%;
+  width: 26%;
   z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 6px;
+  gap: clamp(3px, 1.6cqi, 6px);
+  box-sizing: border-box;
 }
 .chat-niuniu-card .nn-countdown {
   position: relative;
@@ -3747,9 +3766,9 @@ function closeRpDetail() {
   right: 7%;
   top: 50%;
   transform: translateY(-50%);
-  width: 34%;
+  width: 36%;
   text-align: center;
-  font-size: 9px;
+  font-size: clamp(7px, 2.7cqi, 9px);
   font-weight: 900;
   color: #8a2a00;
   letter-spacing: 0.2px;
@@ -3762,23 +3781,48 @@ function closeRpDetail() {
 .chat-niuniu-card.phase-result .nn-right,
 .chat-niuniu-card.phase-void .nn-right,
 .chat-niuniu-card.phase-refund .nn-right {
-  top: 52%;
+  top: 50%;
 }
 .chat-niuniu-card .nn-time {
   position: absolute;
-  right: 7px;
-  bottom: 4px;
+  right: 6px;
+  bottom: 3px;
   z-index: 2;
-  font-size: 9px;
+  font-size: clamp(8px, 2.6cqi, 9px);
   color: rgba(255, 236, 200, 0.85);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
 }
-@media (max-width: 380px) {
+/* 窄气泡（约 iPhone SE / 11 聊天气泡列）再收一点布局 */
+@container nn-card (max-width: 300px) {
+  .nn-center {
+    left: 32%;
+    top: 36%;
+    width: 32%;
+  }
+  .nn-right {
+    right: 6%;
+    width: 28%;
+    top: 38%;
+    gap: 3px;
+  }
+  .phase-result .nn-right,
+  .phase-void .nn-right,
+  .phase-refund .nn-right {
+    top: 48%;
+  }
+}
+/* 无 cqi 时的回退：按视口收字号，避免旧 WebView 撑破 */
+@supports not (width: 1cqi) {
   .chat-niuniu-card .nn-pool { font-size: 15px; }
-  .chat-niuniu-card .nn-sub,
   .chat-niuniu-card .nn-entry,
   .chat-niuniu-card .nn-buyers { font-size: 9px; }
-  .chat-niuniu-card .nn-countdown-time { font-size: 9px; }
+  .chat-niuniu-card .nn-countdown-time { font-size: 8px; }
+  .chat-niuniu-card .nn-right { right: 7%; width: 27%; gap: 4px; }
+}
+@media (max-width: 414px) {
+  .chat-niuniu-card {
+    max-width: 100%;
+  }
 }
 .nn-sheet-tip {
   font-size: 12px;
