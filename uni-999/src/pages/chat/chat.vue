@@ -3964,7 +3964,7 @@ function closeRpDetail() {
 .chat-niuniu-card .nn-center {
   position: absolute;
   left: 30%;
-  top: 34%;
+  top: 42%;
   width: 36%;
   max-width: 36%;
   z-index: 2;
@@ -4078,7 +4078,7 @@ function closeRpDetail() {
 @container nn-card (max-width: 300px) {
   .nn-center {
     left: 29%;
-    top: 32%;
+    top: 40%;
     width: 38%;
   }
   .nn-right {
