@@ -420,6 +420,14 @@ class MessageService
                     }
                 }
                 $msg['extra'] = $keep ?: null;
+            } elseif ($msgType === 11) {
+                $keep = [];
+                foreach (['fission', 'pool', 'quals', 'cap', 'ended', 'activity_id'] as $k) {
+                    if (array_key_exists($k, $msg['extra'])) {
+                        $keep[$k] = $msg['extra'][$k];
+                    }
+                }
+                $msg['extra'] = $keep ?: null;
             } elseif ($msgType === 7) {
                 $msg['extra'] = ['name' => (string)($msg['extra']['name'] ?? '')];
             } elseif ($msgType === 6) {
@@ -2056,8 +2064,29 @@ class MessageService
     {
         $msgType = (int)$msgType;
         $content = mb_substr(trim((string)$content), 0, 2000);
-        if (!in_array($msgType, [1, 2, 4, 5, 6, 7, 8, 10], true)) {
+        if (!in_array($msgType, [1, 2, 4, 5, 6, 7, 8, 10, 11], true)) {
             $msgType = 1;
+        }
+        if ($msgType === 11) {
+            if (is_string($extra) && $extra !== '') {
+                $decoded = json_decode($extra, true);
+                $extra = is_array($decoded) ? $decoded : [];
+            }
+            if (!is_array($extra)) {
+                $extra = [];
+            }
+            $clean = [
+                'fission' => 1,
+                'pool' => round((float)($extra['pool'] ?? 0), 2),
+                'quals' => max(0, (int)($extra['quals'] ?? 0)),
+                'cap' => max(1, (int)($extra['cap'] ?? 100)),
+                'ended' => !empty($extra['ended']) ? 1 : 0,
+                'activity_id' => max(0, (int)($extra['activity_id'] ?? 0)),
+            ];
+            if ($content === '') {
+                $content = '[裂变红宝]';
+            }
+            return [mb_substr($content, 0, 64), 11, $clean];
         }
         if ($msgType === 10) {
             if (is_string($extra) && $extra !== '') {

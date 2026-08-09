@@ -65,7 +65,7 @@
               <view class="chat-msg-avatar locked">
                 <image :src="msgAvatar(m)" mode="aspectFill" />
               </view>
-              <view class="chat-msg-main" :class="{ 'has-niuniu': isNiuniu(m) }">
+              <view class="chat-msg-main" :class="{ 'has-niuniu': isNiuniu(m) || isFissionShare(m) }">
                 <view v-if="showSender(m)" class="chat-msg-nick locked">{{ senderName(m) }}</view>
 
                 <!-- 红宝：对齐 888 bubble-rp 结构 -->
@@ -133,6 +133,27 @@
                       <image class="nn-cta-btn" :src="niuniuBtnSrc(m)" mode="widthFix" />
                     </view>
                     <text class="nn-time">{{ msgTime(m) }}</text>
+                  </view>
+                </view>
+
+                <view
+                  v-else-if="isFissionShare(m)"
+                  class="chat-fission-share-card"
+                  :class="{ me: isMine(m) }"
+                  @longpress="onMsgLongPress(m)"
+                >
+                  <view class="chat-fission-share-hd">
+                    <text class="chat-fission-share-tag">官方活动</text>
+                    <text class="chat-fission-share-time">{{ msgTime(m) }}</text>
+                  </view>
+                  <view class="chat-fission-share-env" @click.stop="openFissionFromMsg(m)">
+                    <text class="chat-fission-share-title">裂变红宝</text>
+                    <text class="chat-fission-share-pool">¥ {{ fissionSharePool(m) }} 奖金池</text>
+                    <text class="chat-fission-share-progress">当前 {{ fissionShareQuals(m) }} / {{ fissionShareCap(m) }} 份资格</text>
+                    <view class="chat-fission-share-cta" :class="{ disabled: fissionShareEnded(m) }">
+                      {{ fissionShareEnded(m) ? '活动已结束' : '点击拆开红包' }}
+                    </view>
+                    <text class="chat-fission-share-risk">72小时未集齐资格，红包池作废</text>
                   </view>
                 </view>
 
@@ -563,34 +584,36 @@
             @click.stop="openNiuniuVerify"
           >波场验证 ›</text>
         </view>
-        <view class="nn-detail-head">
-          <text class="nn-dh-av">头像</text>
-          <text class="nn-dh-name">昵称</text>
-          <text class="nn-dh-amt">金额</text>
-          <text class="nn-dh-res">结果</text>
-          <text class="nn-dh-win">奖金</text>
-        </view>
-        <scroll-view scroll-y class="nn-detail-scroll" :show-scrollbar="true">
-          <view
-            v-for="(row, idx) in niuniuDetailRows"
-            :key="row._key || row.id || idx"
-            class="nn-detail-person"
-            :class="{ mine: row.is_mine }"
-          >
-            <view class="nn-dh-av">
-              <image class="nn-user-av" :src="avatarSrc(row.avatar)" mode="aspectFill" />
-            </view>
-            <text class="nn-dh-name">{{ row.is_mine ? '我' : (row.nickname || ('用户' + row.user_id)) }}</text>
-            <text class="nn-dh-amt">{{ formatNiuniuPacketAmount(row) }}</text>
-            <view class="nn-dh-res-wrap">
-              <text class="nn-dh-res">{{ formatNiuniuDetailResultShort(row) }}</text>
-              <text v-if="row.claimed_at" class="nn-dh-time">{{ formatRpTime(row.claimed_at) }}</text>
-              <text v-else class="nn-dh-time">未领取</text>
-            </view>
-            <text class="nn-dh-win" :class="{ win: Number(row.win_amount) > 0 }">{{ formatNiuniuBonus(row.win_amount) }}</text>
+        <view class="nn-detail-frame">
+          <view class="nn-detail-head">
+            <text class="nn-dh-av">头像</text>
+            <text class="nn-dh-name">昵称</text>
+            <text class="nn-dh-amt">金额</text>
+            <text class="nn-dh-res">结果</text>
+            <text class="nn-dh-win">奖金</text>
           </view>
-          <view v-if="!niuniuDetailRows.length" class="nn-detail-empty">暂无明细</view>
-        </scroll-view>
+          <scroll-view scroll-y class="nn-detail-scroll" :show-scrollbar="true" :enable-flex="true">
+            <view
+              v-for="(row, idx) in niuniuDetailRows"
+              :key="row._key || row.id || idx"
+              class="nn-detail-person"
+              :class="{ mine: row.is_mine }"
+            >
+              <view class="nn-dh-av">
+                <image class="nn-user-av" :src="avatarSrc(row.avatar)" mode="aspectFill" />
+              </view>
+              <text class="nn-dh-name">{{ row.is_mine ? '我' : (row.nickname || ('用户' + row.user_id)) }}</text>
+              <text class="nn-dh-amt">{{ formatNiuniuPacketAmount(row) }}</text>
+              <view class="nn-dh-res-wrap">
+                <text class="nn-dh-res">{{ formatNiuniuDetailResultShort(row) }}</text>
+                <text v-if="row.claimed_at" class="nn-dh-time">{{ formatRpTime(row.claimed_at) }}</text>
+                <text v-else class="nn-dh-time">未领取</text>
+              </view>
+              <text class="nn-dh-win" :class="{ win: Number(row.win_amount) > 0 }">{{ formatNiuniuBonus(row.win_amount) }}</text>
+            </view>
+            <view v-if="!niuniuDetailRows.length" class="nn-detail-empty">暂无明细</view>
+          </scroll-view>
+        </view>
       </view>
     </view>
 
@@ -1528,6 +1551,37 @@ function isNiuniu(m) {
   if (msgType(m) === 10) return true
   const ex = msgExtra(m)
   return !!(ex && ex.niuniu)
+}
+function isFissionShare(m) {
+  if (msgType(m) === 11) return true
+  const ex = msgExtra(m)
+  return !!(ex && (ex.fission || ex.fission_share))
+}
+function fissionShareExtra(m) {
+  return msgExtra(m) || {}
+}
+function fissionSharePool(m) {
+  const p = Number(fissionShareExtra(m).pool)
+  return isNaN(p) ? '0.00' : p.toFixed(2)
+}
+function fissionShareQuals(m) {
+  return (fissionShareExtra(m).quals | 0) || 0
+}
+function fissionShareCap(m) {
+  return (fissionShareExtra(m).cap | 0) || 100
+}
+function fissionShareEnded(m) {
+  return !!(fissionShareExtra(m).ended | 0)
+}
+function openFissionFromMsg(m) {
+  if (fissionShareEnded(m)) {
+    uni.showToast({ title: '活动已结束', icon: 'none' })
+    return
+  }
+  uni.navigateTo({
+    url: '/pages/fission/detail',
+    fail: () => uni.showToast({ title: '无法打开裂变红宝', icon: 'none' }),
+  })
 }
 function niuniuRound(m) {
   const ex = msgExtra(m)
@@ -4348,6 +4402,9 @@ function closeRpDetail() {
   flex-direction: column;
   min-height: 0;
   background: #f7f8fa;
+  overflow-x: hidden;
+  width: 100%;
+  box-sizing: border-box;
 }
 .nn-detail-summary {
   display: flex;
@@ -4361,15 +4418,27 @@ function closeRpDetail() {
   color: #c62828;
   flex-shrink: 0;
 }
+.nn-detail-frame {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 0 10px;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
 .nn-detail-head,
 .nn-detail-person {
   display: grid;
-  grid-template-columns: 40px minmax(52px, 0.9fr) 52px minmax(88px, 1.4fr) 52px;
+  grid-template-columns: 40px minmax(0, 1fr) 52px minmax(0, 1.35fr) 52px;
   align-items: center;
-  gap: 6px;
-  padding: 10px 12px;
+  column-gap: 6px;
+  padding: 10px 6px;
   box-sizing: border-box;
   width: 100%;
+  max-width: 100%;
+  overflow: hidden;
 }
 .nn-detail-head {
   flex-shrink: 0;
@@ -4377,21 +4446,25 @@ function closeRpDetail() {
   font-weight: 800;
   color: #888;
   background: #fff;
+  border-radius: 10px 10px 0 0;
   border-bottom: 1px solid #eef0f3;
+  margin-top: 6px;
 }
 .nn-detail-scroll {
   flex: 1;
   height: 0;
-  min-height: 320px;
+  min-height: 280px;
   width: 100%;
-  padding: 6px 10px 28px;
+  max-width: 100%;
+  overflow-x: hidden;
   box-sizing: border-box;
+  padding-bottom: 24px;
 }
 .nn-detail-person {
   background: #fff;
   border-radius: 10px;
   border: 1px solid #e8ebf0;
-  margin-bottom: 6px;
+  margin-top: 6px;
   font-size: 13px;
   color: #333;
 }
@@ -4413,26 +4486,36 @@ function closeRpDetail() {
   white-space: nowrap;
   font-size: 13px;
   font-weight: 700;
+  min-width: 0;
 }
 .nn-dh-res-wrap {
   min-width: 0;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 2px;
+  overflow: hidden;
 }
 .nn-dh-res {
   font-size: 13px;
   font-weight: 800;
   color: #333;
   line-height: 1.2;
-  word-break: break-all;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .nn-dh-time {
   font-size: 11px;
   color: #999;
   font-weight: 500;
   line-height: 1.2;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .nn-dh-av {
   display: flex;
@@ -4470,6 +4553,76 @@ function closeRpDetail() {
   color: #999;
   padding: 40px 0;
   font-size: 13px;
+}
+.chat-fission-share-card {
+  width: min(78vw, 280px);
+  border-radius: 14px;
+  overflow: hidden;
+  background: linear-gradient(165deg, #0d1b3a 0%, #152a52 100%);
+  box-shadow: 0 6px 18px rgba(10, 20, 40, 0.28);
+}
+.chat-fission-share-hd {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px 0;
+}
+.chat-fission-share-tag {
+  font-size: 11px;
+  color: #ffd27a;
+  font-weight: 700;
+}
+.chat-fission-share-time {
+  font-size: 11px;
+  color: #8a9bb5;
+}
+.chat-fission-share-env {
+  margin: 8px 10px 12px;
+  padding: 16px 12px 12px;
+  border-radius: 12px;
+  text-align: center;
+  background: linear-gradient(165deg, #ff5a2a 0%, #c62828 70%, #8b0000 100%);
+  color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+.chat-fission-share-title {
+  display: block;
+  font-size: 14px;
+  letter-spacing: 3px;
+  margin-bottom: 6px;
+  font-weight: 700;
+}
+.chat-fission-share-pool {
+  display: block;
+  font-size: 24px;
+  font-weight: 800;
+  color: #ffe082;
+  margin-bottom: 4px;
+}
+.chat-fission-share-progress {
+  display: block;
+  font-size: 12px;
+  opacity: 0.95;
+  margin-bottom: 2px;
+}
+.chat-fission-share-cta {
+  margin: 10px auto 6px;
+  max-width: 200px;
+  background: linear-gradient(180deg, #ffe08a, #f0b429);
+  color: #4a3200;
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 38px;
+  border-radius: 20px;
+}
+.chat-fission-share-cta.disabled {
+  filter: grayscale(0.8);
+  opacity: 0.7;
+}
+.chat-fission-share-risk {
+  display: block;
+  font-size: 10px;
+  opacity: 0.85;
 }
 .nn-cover-mask {
   position: fixed;

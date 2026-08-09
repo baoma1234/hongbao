@@ -64,6 +64,9 @@ export function previewText(last) {
   if (mt === 10 || ex.niuniu) {
     return '[尾数牛牛] ' + (last.content || '红包尾数牛牛')
   }
+  if (mt === 11 || ex.fission || ex.fission_share) {
+    return '[裂变红宝] 官方活动'
+  }
   if (mt === 4) {
     return '[图片]'
   }

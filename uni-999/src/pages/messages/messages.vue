@@ -1139,11 +1139,16 @@ async function shareNoticeToCommunity(n) {
 const shareSheetOpen = ref(false)
 const shareLoading = ref(false)
 const shareTextPayload = ref('')
+const shareFissionPayload = ref(null)
 const shareFriendTargets = ref([])
 const shareGroupTargets = ref([])
 const shareBusy = ref(false)
 
 const sharePreviewText = computed(() => {
+  if (shareFissionPayload.value) {
+    const p = shareFissionPayload.value
+    return '裂变红宝卡片 · ¥' + (p.pool || '0') + ' · ' + (p.quals || 0) + '/' + (p.cap || 100)
+  }
   const s = String(shareTextPayload.value || '')
   return s.length > 80 ? s.slice(0, 80) + '…' : s
 })
@@ -1158,14 +1163,10 @@ function shareFriendId(f) {
 
 function closeShareSheet() {
   shareSheetOpen.value = false
+  shareFissionPayload.value = null
 }
 
-async function openShareSheet(text) {
-  shareTextPayload.value = String(text || '').trim()
-  if (!shareTextPayload.value) {
-    uni.showToast({ title: '分享内容为空', icon: 'none' })
-    return
-  }
+async function loadShareTargets() {
   shareSheetOpen.value = true
   shareLoading.value = true
   shareFriendTargets.value = []
@@ -1178,7 +1179,6 @@ async function openShareSheet(text) {
     shareFriendTargets.value = (friends.value || []).filter((f) => shareFriendId(f) > 0)
     const groups = myGroups.value || []
     const speakable = []
-    // 并行探测能否发言（限前 24 个群，避免卡顿）
     const slice = groups.slice(0, 24)
     await Promise.all(
       slice.map(async (g) => {
@@ -1197,7 +1197,6 @@ async function openShareSheet(text) {
           if (pol.can_send_text === false) return
           speakable.push(g)
         } catch (e) {
-          // 探测失败时仍展示（发送时再报错）
           speakable.push(g)
         }
       })
@@ -1210,28 +1209,31 @@ async function openShareSheet(text) {
   }
 }
 
+async function openShareSheet(text) {
+  shareFissionPayload.value = null
+  shareTextPayload.value = String(text || '').trim()
+  if (!shareTextPayload.value) {
+    uni.showToast({ title: '分享内容为空', icon: 'none' })
+    return
+  }
+  await loadShareTargets()
+}
+
 async function openFissionShare() {
   const pool = fissionNoticePool.value
   const quals = fissionNoticeQuals.value
   const cap = fissionNoticeCap.value
-  let shareText =
-    '【官方活动】裂变红宝进行中！奖金池 ¥' +
-    pool +
-    '，当前 ' +
-    quals +
-    '/' +
-    cap +
-    ' 份资格。快来拆红包～'
-  try {
-    if (getToken()) {
-      const share = await apiRequest('share', 'POST', { copy_only: 1 })
-      if (share && share.share_text) shareText += '\n' + share.share_text
-      else if (share && share.share_link) shareText += '\n' + share.share_link
-      // 附带裂变页路径提示
-      shareText += '\n进入红宝 → 公告 → 官方活动 参与'
-    }
-  } catch (e) {}
-  openShareSheet(shareText)
+  const ended = fissionNoticeEnded.value ? 1 : 0
+  const act = (fissionNotice.value && fissionNotice.value.activity) || {}
+  shareTextPayload.value = ''
+  shareFissionPayload.value = {
+    pool: String(pool),
+    quals: quals | 0,
+    cap: cap | 0,
+    ended,
+    activity_id: (act.id | 0) || 0,
+  }
+  await loadShareTargets()
 }
 
 async function sendShareToFriend(f) {
@@ -1241,11 +1243,32 @@ async function sendShareToFriend(f) {
   shareBusy.value = true
   try {
     await imConnect()
-    await imSend(
-      'private.send',
-      { to_user_id: peer, content: shareTextPayload.value, msg_type: 1 },
-      true
-    )
+    if (shareFissionPayload.value) {
+      const p = shareFissionPayload.value
+      await imSend(
+        'private.send',
+        {
+          to_user_id: peer,
+          content: '[裂变红宝]',
+          msg_type: 11,
+          extra: {
+            fission: 1,
+            pool: p.pool,
+            quals: p.quals,
+            cap: p.cap,
+            ended: p.ended,
+            activity_id: p.activity_id,
+          },
+        },
+        true
+      )
+    } else {
+      await imSend(
+        'private.send',
+        { to_user_id: peer, content: shareTextPayload.value, msg_type: 1 },
+        true
+      )
+    }
     uni.showToast({ title: '已分享给好友', icon: 'success' })
     closeShareSheet()
   } catch (e) {
@@ -1262,11 +1285,32 @@ async function sendShareToGroup(g) {
   shareBusy.value = true
   try {
     await imConnect()
-    await imSend(
-      'group.send',
-      { group_id: gid, content: shareTextPayload.value, msg_type: 1 },
-      true
-    )
+    if (shareFissionPayload.value) {
+      const p = shareFissionPayload.value
+      await imSend(
+        'group.send',
+        {
+          group_id: gid,
+          content: '[裂变红宝]',
+          msg_type: 11,
+          extra: {
+            fission: 1,
+            pool: p.pool,
+            quals: p.quals,
+            cap: p.cap,
+            ended: p.ended,
+            activity_id: p.activity_id,
+          },
+        },
+        true
+      )
+    } else {
+      await imSend(
+        'group.send',
+        { group_id: gid, content: shareTextPayload.value, msg_type: 1 },
+        true
+      )
+    }
     uni.showToast({ title: '已分享到群', icon: 'success' })
     closeShareSheet()
   } catch (e) {
