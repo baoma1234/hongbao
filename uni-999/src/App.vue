@@ -61,8 +61,8 @@ onLaunch(async () => {
     return
   }
 
-  // 落在登录页或空 hash：进大厅；若有未清的聊天快照则回对话框
-  if (!path || path.indexOf('pages/login/') === 0) {
+  // 落在登录页 / 隐藏登录页或空 hash：进大厅；若有未清的聊天快照则回对话框
+  if (!path || path.indexOf('pages/login/') === 0 || path.indexOf('gfhwgkdhf11131djfh/') === 0) {
     const room = getActiveChat()
     const chatUrl = room ? buildChatUrl(room) : ''
     if (chatUrl) {

