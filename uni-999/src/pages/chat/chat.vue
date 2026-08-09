@@ -497,7 +497,7 @@
           </view>
           <view class="nn-sheet-tip">
             每份 {{ (niuniuSheet && niuniuSheet.round && niuniuSheet.round.share_price) || 100 }} 积分进入奖池；
-            红包仅用于比对尾数，金额不入账。
+            开出尾数即红包金额入账（如 02=0.02 元），结算后再按牛型分奖金。
             <text v-if="niuniuSheet && niuniuSheet.round && (niuniuSheet.round.game_mode|0) === 2">
               本玩法无论买多少份，只按一个尾数结算（份数仍计权重）。
             </text>
@@ -538,15 +538,13 @@
       </view>
     </view>
 
-    <!-- 单包开启结果：点一次开一包；还剩包则继续开，开完再进明细 -->
+    <!-- 单包开启结果：尾数金额入账（如 02→0.02） -->
     <view v-if="showNiuniuPackResult" class="nn-pack-result-mask" @click="dismissNiuniuPackResult">
       <view class="nn-pack-result-card" @click.stop>
         <text class="nn-pack-result-title">{{ (niuniuPackResult && (niuniuPackResult.share_count|0) > 1) ? '本局结果' : '本包结果' }}</text>
+        <text class="nn-pack-result-amt">{{ formatNiuniuPacketAmount(niuniuPackResult) }}</text>
         <text class="nn-pack-result-line">{{ formatNiuniuPackResultLine(niuniuPackResult) }}</text>
-        <text
-          class="nn-pack-result-win"
-          :class="{ win: Number(niuniuPackResult && niuniuPackResult.win_amount) > 0 }"
-        >{{ formatNiuniuWin(niuniuPackResult && niuniuPackResult.win_amount) }}</text>
+        <text class="nn-pack-result-hint">尾数金额已入账</text>
         <text v-if="niuniuPackRemain > 0" class="nn-pack-result-remain">还剩 {{ niuniuPackRemain }} 包，需再开 {{ niuniuPackRemain }} 次</text>
         <view class="nn-pack-result-btn" :class="{ busy: niuniuBusy }" @click="onNiuniuPackResultContinue">
           {{ niuniuBusy ? '…' : (niuniuPackRemain > 0 ? '继续开下一包' : '查看明细') }}
@@ -554,7 +552,7 @@
       </view>
     </view>
 
-    <!-- 牛牛开奖明细：我优先，其余按领取时间；每人一行 -->
+    <!-- 牛牛领取明细：与 hash/尾数排序一致，仅高亮自己 -->
     <view v-if="showNiuniuDetail" class="chat-sub-pane open" aria-hidden="false">
       <view class="chat-hero-hd">
         <view class="chat-hero-back" hover-class="chat-hero-back--active" @click="closeNiuniuDetail">
@@ -562,7 +560,7 @@
             <path fill="currentColor" d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z" />
           </svg>
         </view>
-        <view class="chat-hero-title">开奖明细</view>
+        <view class="chat-hero-title">领取明细</view>
         <view class="chat-hero-spacer" />
       </view>
       <view class="chat-sub-main nn-detail-main">
@@ -574,6 +572,15 @@
             @click.stop="openNiuniuVerify"
           >波场验证 ›</text>
         </view>
+        <view class="nn-detail-head">
+          <text class="nn-dh-cat">类别</text>
+          <text class="nn-dh-av">头像</text>
+          <text class="nn-dh-name">昵称</text>
+          <text class="nn-dh-amt">金额</text>
+          <text class="nn-dh-res">结果</text>
+          <text class="nn-dh-w">权重</text>
+          <text class="nn-dh-win">奖金</text>
+        </view>
         <scroll-view scroll-y class="nn-detail-scroll" :show-scrollbar="true">
           <view
             v-for="(row, idx) in niuniuDetailRows"
@@ -581,13 +588,15 @@
             class="nn-detail-person"
             :class="{ mine: row.is_mine }"
           >
-            <view class="nn-detail-person-main">
+            <text class="nn-dh-cat">{{ row.category || row.niu_label || '--' }}</text>
+            <view class="nn-dh-av">
               <image class="nn-user-av" :src="avatarSrc(row.avatar)" mode="aspectFill" />
-              <text class="nn-user-name">{{ row.is_mine ? '我' : (row.nickname || ('用户' + row.user_id)) }}</text>
-              <text class="nn-detail-result">{{ formatNiuniuDetailResult(row, idx) }}</text>
-              <text class="nn-user-win" :class="{ win: Number(row.win_amount) > 0 }">{{ formatNiuniuWin(row.win_amount) }}</text>
             </view>
-            <text v-if="row.claimed_at" class="nn-user-time">{{ formatRpTime(row.claimed_at) }}</text>
+            <text class="nn-dh-name">{{ row.is_mine ? '我' : (row.nickname || ('用户' + row.user_id)) }}</text>
+            <text class="nn-dh-amt">{{ formatNiuniuPacketAmount(row) }}</text>
+            <text class="nn-dh-res">{{ formatNiuniuResultLine(row) }}</text>
+            <text class="nn-dh-w">{{ (row.weight | 0) || (row.share_count | 0) || 1 }}</text>
+            <text class="nn-dh-win" :class="{ win: Number(row.win_amount) > 0 }">{{ formatNiuniuBonus(row.win_amount) }}</text>
           </view>
           <view v-if="!niuniuDetailRows.length" class="nn-detail-empty">暂无明细</view>
         </scroll-view>
@@ -3284,25 +3293,39 @@ function formatNiuniuWin(v) {
   if (isNaN(n) || n <= 0) return '0'
   return '+' + (Math.round(n * 100) / 100)
 }
+function formatNiuniuBonus(v) {
+  const n = Number(v)
+  if (isNaN(n) || n <= 0) return '0'
+  return String(Math.round(n * 10000) / 10000)
+}
+function formatNiuniuPacketAmount(row) {
+  if (!row) return '--'
+  if (row.amount != null && row.amount !== '' && !isNaN(Number(row.amount))) {
+    return (Math.round(Number(row.amount) * 100) / 100).toFixed(2)
+  }
+  const tail = row.tail_digits != null && row.tail_digits !== '' ? String(row.tail_digits) : ''
+  if (!tail) return '--'
+  const n = parseInt(String(tail).replace(/\D/g, '').slice(-2) || '0', 10)
+  return (Math.round(n) / 100).toFixed(2)
+}
 function formatNiuniuResultLine(row) {
   if (!row) return '--'
+  if (row.result) return String(row.result)
   const tail = row.tail_digits != null && row.tail_digits !== '' ? String(row.tail_digits) : '--'
-  const niu = row.niu_label || row.calc || '--'
+  const niu = row.niu_label || row.category || row.calc || '--'
   return '尾数' + tail + ' ' + niu
 }
 function formatNiuniuPackResultLine(row) {
   if (!row) return '--'
-  const base = formatNiuniuResultLine(row)
-  const sc = (row.share_count | 0) || 1
-  if (sc > 1) return sc + '份 ' + base
-  return base
+  return formatNiuniuResultLine(row)
 }
-function formatNiuniuDetailResult(row, idx) {
-  if (!row) return '--'
-  const base = formatNiuniuResultLine(row)
-  const sc = (row.share_count | 0) || 1
-  if (sc > 1) return (idx + 1) + ' ' + sc + '份 ' + base
-  return base
+function byNiuniuHashOrder(a, b) {
+  const at = String((a && a.tail_digits) != null ? a.tail_digits : '')
+  const bt = String((b && b.tail_digits) != null ? b.tail_digits : '')
+  const an = at === '' ? 1e9 : (parseInt(at.replace(/\D/g, '').slice(-2) || '0', 10) || 0)
+  const bn = bt === '' ? 1e9 : (parseInt(bt.replace(/\D/g, '').slice(-2) || '0', 10) || 0)
+  if (an !== bn) return an - bn
+  return (((a && a.id) | 0) - ((b && b.id) | 0))
 }
 
 function openNiuniuDetail(data) {
@@ -3315,7 +3338,7 @@ function openNiuniuDetail(data) {
       : (data && data.mine) || []
   shares = shares.filter(Boolean)
 
-  // 单结果：每人合并为一行（N份 + 同一尾数 + 金额合计）
+  // 单结果：每人合并为一行（权重=份数，奖金合计）；保持服务器 hash 序的首次出现顺序
   if (mode === 2) {
     const map = new Map()
     shares.forEach((s) => {
@@ -3323,13 +3346,17 @@ function openNiuniuDetail(data) {
       if (!map.has(id)) {
         map.set(id, Object.assign({}, s, {
           share_count: 1,
+          weight: 1,
           win_amount: Number(s.win_amount) || 0,
           claimed_at: (s.claimed_at | 0) || 0,
+          category: s.category || s.niu_label || '',
+          result: s.result || '',
         }))
         return
       }
       const g = map.get(id)
       g.share_count = ((g.share_count | 0) || 1) + 1
+      g.weight = g.share_count
       g.win_amount = (Number(g.win_amount) || 0) + (Number(s.win_amount) || 0)
       const ca = (s.claimed_at | 0) || 0
       if (ca > 0 && (!(g.claimed_at | 0) || ca < (g.claimed_at | 0))) g.claimed_at = ca
@@ -3338,35 +3365,32 @@ function openNiuniuDetail(data) {
       if (s.tail_digits != null && s.tail_digits !== '') {
         g.tail_digits = s.tail_digits
         g.niu_label = s.niu_label || g.niu_label
+        g.category = s.category || s.niu_label || g.category
+        g.result = s.result || g.result
+        g.amount = s.amount != null ? s.amount : g.amount
       }
     })
     shares = Array.from(map.values()).map((g) =>
-      Object.assign({}, g, { win_amount: Math.round((Number(g.win_amount) || 0) * 10000) / 10000 })
+      Object.assign({}, g, {
+        weight: (g.share_count | 0) || 1,
+        win_amount: Math.round((Number(g.win_amount) || 0) * 10000) / 10000,
+      })
     )
   }
 
-  const byClaim = (a, b) => {
-    const ac = (a.claimed_at | 0) || 0
-    const bc = (b.claimed_at | 0) || 0
-    if (ac > 0 && bc > 0 && ac !== bc) return ac - bc
-    if (ac > 0 !== bc > 0) return ac > 0 ? -1 : 1
-    return ((a.share_no | 0) - (b.share_no | 0)) || ((a.id | 0) - (b.id | 0))
-  }
-  const mine = []
-  const others = []
-  shares.forEach((s) => {
+  // 与 hash 排序完全一致；不把「我」提前，仅打 is_mine 高亮
+  shares = shares.slice().sort(byNiuniuHashOrder)
+  niuniuDetailRound.value = round
+  niuniuDetailRows.value = shares.map((s) => {
     const id = (s.user_id | 0) || 0
-    const row = Object.assign({}, s, {
+    return Object.assign({}, s, {
       is_mine: id > 0 && id === uid,
+      weight: (s.weight | 0) || (s.share_count | 0) || 1,
+      category: s.category || s.niu_label || (s.claimed ? '' : '未领取'),
+      result: s.result || formatNiuniuResultLine(s),
       _key: (s.id || 0) + '-' + id + '-' + ((s.share_no | 0) || 0) + '-' + ((s.share_count | 0) || 1),
     })
-    if (row.is_mine) mine.push(row)
-    else others.push(row)
   })
-  mine.sort(byClaim)
-  others.sort(byClaim)
-  niuniuDetailRound.value = round
-  niuniuDetailRows.value = mine.concat(others)
   showNiuniuDetail.value = true
 }
 
@@ -4331,75 +4355,85 @@ function closeRpDetail() {
   font-weight: 800;
   color: #c62828;
 }
+.nn-detail-head,
+.nn-detail-person {
+  display: grid;
+  grid-template-columns: 52px 36px minmax(48px, 1fr) 48px minmax(72px, 1.4fr) 36px 48px;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 8px;
+  box-sizing: border-box;
+}
+.nn-detail-head {
+  margin: 0 8px;
+  padding-top: 10px;
+  padding-bottom: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #888;
+  border-bottom: 1px solid #eef0f3;
+}
 .nn-detail-scroll {
   flex: 1;
   height: 0;
   min-height: 320px;
-  padding: 10px 10px 24px;
+  padding: 6px 8px 24px;
   box-sizing: border-box;
 }
 .nn-detail-person {
   background: #fff;
-  border-radius: 12px;
+  border-radius: 10px;
   border: 1px solid #e8ebf0;
-  padding: 10px 12px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: #333;
 }
 .nn-detail-person.mine {
-  border-color: #ffe0a3;
-  background: linear-gradient(180deg, #fffaf0, #fff);
+  border-color: #f0c36d;
+  background: linear-gradient(180deg, #fff8e8, #fff);
+  box-shadow: inset 0 0 0 1px rgba(212, 136, 6, 0.12);
 }
-.nn-detail-person-main {
+.nn-dh-cat,
+.nn-dh-amt,
+.nn-dh-w,
+.nn-dh-win {
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nn-dh-name,
+.nn-dh-res {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nn-dh-av {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-width: 0;
+  justify-content: center;
 }
 .nn-user-av {
-  width: 34px;
-  height: 34px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: #eee;
   flex-shrink: 0;
 }
-.nn-user-name {
-  font-size: 14px;
-  font-weight: 800;
-  color: #222;
-  flex-shrink: 0;
-  max-width: 72px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.nn-detail-person.mine .nn-user-name {
+.nn-detail-person.mine .nn-dh-name {
   color: #d48806;
+  font-weight: 800;
 }
-.nn-detail-result {
-  flex: 1;
-  min-width: 0;
-  font-size: 13px;
-  color: #444;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.nn-dh-amt {
+  font-weight: 800;
+  color: #c62828;
 }
-.nn-user-win {
-  flex-shrink: 0;
-  font-size: 13px;
+.nn-dh-win {
   font-weight: 800;
   color: #888;
 }
-.nn-user-win.win {
+.nn-dh-win.win {
   color: #c62828;
-}
-.nn-user-time {
-  display: block;
-  margin-top: 4px;
-  padding-left: 42px;
-  font-size: 11px;
-  color: #999;
-  font-weight: 500;
 }
 .nn-detail-verify {
   color: #1565c0;
@@ -4408,7 +4442,7 @@ function closeRpDetail() {
 .nn-detail-empty {
   text-align: center;
   color: #999;
-  padding: 40px 12px;
+  padding: 40px 0;
   font-size: 13px;
 }
 .nn-cover-mask {
@@ -4583,22 +4617,26 @@ function closeRpDetail() {
   color: #333;
   margin-bottom: 10px;
 }
+.nn-pack-result-amt {
+  display: block;
+  font-size: 36px;
+  font-weight: 900;
+  color: #c62828;
+  line-height: 1.2;
+  margin-bottom: 8px;
+}
 .nn-pack-result-line {
   display: block;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 900;
-  color: #c62828;
-  margin-bottom: 8px;
+  color: #333;
+  margin-bottom: 6px;
 }
-.nn-pack-result-win {
+.nn-pack-result-hint {
   display: block;
-  font-size: 22px;
-  font-weight: 900;
+  font-size: 12px;
   color: #888;
-  margin-bottom: 8px;
-}
-.nn-pack-result-win.win {
-  color: #c62828;
+  margin-bottom: 10px;
 }
 .nn-pack-result-remain {
   display: block;

@@ -233,7 +233,9 @@ class NiuniuAutoBotService
         } else {
             $rows = Db::fetchAll(
                 'SELECT id, user_id FROM ' . Db::table('chat_niuniu_shares')
-                . ' WHERE round_id=? AND claimed=0 ORDER BY id ASC',
+                . ' WHERE round_id=? AND claimed=0 ORDER BY'
+                . ' CASE WHEN tail_digits IS NULL OR tail_digits=\'\' THEN 1 ELSE 0 END ASC,'
+                . NiuniuService::hashOrderSql(),
                 [$roundId]
             );
         }
@@ -248,20 +250,32 @@ class NiuniuAutoBotService
         foreach ($actors as $a) {
             $actorMap[(int)$a] = true;
         }
-        $n = 0;
         $queue = [];
-        foreach ($rows as $r) {
-            $uid = (int)$r['user_id'];
-            if (!isset($actorMap[$uid])) {
-                continue;
-            }
-            if ($single) {
+        if ($single) {
+            // 单结果：按该用户最小尾数排序
+            $rows = Db::fetchAll(
+                'SELECT user_id, MIN(CAST(tail_digits AS UNSIGNED)) AS tmin FROM '
+                . Db::table('chat_niuniu_shares')
+                . ' WHERE round_id=? AND claimed=0 GROUP BY user_id ORDER BY tmin ASC, user_id ASC',
+                [$roundId]
+            );
+            foreach ($rows as $r) {
+                $uid = (int)$r['user_id'];
+                if (!isset($actorMap[$uid])) {
+                    continue;
+                }
                 $queue[] = ['share_id' => 0, 'user_id' => $uid];
-            } else {
+            }
+        } else {
+            foreach ($rows as $r) {
+                $uid = (int)$r['user_id'];
+                if (!isset($actorMap[$uid])) {
+                    continue;
+                }
                 $queue[] = ['share_id' => (int)$r['id'], 'user_id' => $uid];
             }
         }
-        $queue = $this->interleaveClaimTargets($queue);
+        $n = 0;
         foreach ($queue as $t) {
             $uid = (int)$t['user_id'];
             try {
@@ -386,9 +400,12 @@ class NiuniuAutoBotService
         }
 
         $single = ((int)($round['game_mode'] ?? 0) === NiuniuService::MODE_SINGLE);
+        // 严格按 hash/尾数排序领取，时间序与明细一致
         $rows = Db::fetchAll(
-            'SELECT id, user_id FROM ' . Db::table('chat_niuniu_shares')
-            . ' WHERE round_id=? AND claimed=0 ORDER BY id ASC',
+            'SELECT id, user_id, tail_digits FROM ' . Db::table('chat_niuniu_shares')
+            . ' WHERE round_id=? AND claimed=0 ORDER BY'
+            . ' CASE WHEN tail_digits IS NULL OR tail_digits=\'\' THEN 1 ELSE 0 END ASC,'
+            . NiuniuService::hashOrderSql(),
             [$roundId]
         );
         if (!$rows) {
@@ -431,9 +448,7 @@ class NiuniuAutoBotService
             return;
         }
 
-        // 多号多包：按人轮询交错（A1→B1→A2→B2…），避免同一号连领
-        $targets = $this->interleaveClaimTargets($targets);
-
+        // 已按 hash 序取出；不再按人交错，保证领取时间=hash 排序
         $delayMin = max(100, (int)($task['claim_delay_min_ms'] ?? 500));
         $delayMax = max($delayMin, (int)($task['claim_delay_max_ms'] ?? 5000));
         $busySec = max(
@@ -471,52 +486,13 @@ class NiuniuAutoBotService
     }
 
     /**
-     * 领取队列按用户轮询交错，例如：
-     * 用户A 5包、用户B 5包 → A,B,A,B… 而不是 AAAAA 再 BBBBB
-     *
+     * @deprecated 保留兼容；领取已改为严格 hash 序
      * @param array<int,array{share_id:int,user_id:int}> $targets
      * @return array<int,array{share_id:int,user_id:int}>
      */
     protected function interleaveClaimTargets(array $targets)
     {
-        if (count($targets) <= 1) {
-            return $targets;
-        }
-        $byUser = [];
-        foreach ($targets as $t) {
-            $uid = (int)$t['user_id'];
-            if (!isset($byUser[$uid])) {
-                $byUser[$uid] = [];
-            }
-            $byUser[$uid][] = $t;
-        }
-        if (count($byUser) <= 1) {
-            return $targets;
-        }
-        $uids = array_keys($byUser);
-        shuffle($uids);
-        $out = [];
-        $guard = 0;
-        while ($byUser && $guard < 10000) {
-            $guard++;
-            $progress = false;
-            foreach ($uids as $uid) {
-                if (empty($byUser[$uid])) {
-                    unset($byUser[$uid]);
-                    continue;
-                }
-                $out[] = array_shift($byUser[$uid]);
-                $progress = true;
-                if (empty($byUser[$uid])) {
-                    unset($byUser[$uid]);
-                }
-            }
-            if (!$progress) {
-                break;
-            }
-            $uids = array_keys($byUser);
-        }
-        return $out ?: $targets;
+        return $targets;
     }
 
     /** @return int[] */

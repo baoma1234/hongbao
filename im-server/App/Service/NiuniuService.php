@@ -479,7 +479,7 @@ class NiuniuService
         if ($mode === self::MODE_SINGLE) {
             $pending = Db::fetchAll(
                 'SELECT * FROM ' . Db::table('chat_niuniu_shares')
-                . ' WHERE round_id=? AND user_id=? AND claimed=0 ORDER BY share_no ASC, id ASC',
+                . ' WHERE round_id=? AND user_id=? AND claimed=0 ORDER BY' . self::hashOrderSql(),
                 [$roundId, $userId]
             );
             if (!$pending) {
@@ -490,27 +490,43 @@ class NiuniuService
                 . ' SET claimed=1, claimed_at=?, updatetime=? WHERE round_id=? AND user_id=? AND claimed=0',
                 [$now, $now, $roundId, $userId]
             );
+            // 单结果：同一尾数只入账一次红包金额（份数计权重/奖金，不重复发红包）
+            $pktSum = $this->creditPacketOnClaim($pending[0], $roundId);
+            $pktAmt = self::packetAmountFromTail($pending[0]['tail_digits'] ?? '');
+            foreach ($pending as $i => $s) {
+                if ($i === 0) {
+                    continue;
+                }
+                Db::exec(
+                    'UPDATE ' . Db::table('chat_niuniu_shares')
+                    . ' SET amount=?, packet_paid=1, updatetime=? WHERE id=? AND packet_paid=0',
+                    [sprintf('%.2f', $pktAmt), $now, (int)$s['id']]
+                );
+            }
+            $this->syncClaimTimesByHash($roundId);
             $all = Db::fetchAll(
                 'SELECT * FROM ' . Db::table('chat_niuniu_shares')
-                . ' WHERE round_id=? AND user_id=? ORDER BY share_no ASC, id ASC',
+                . ' WHERE round_id=? AND user_id=? ORDER BY' . self::hashOrderSql(),
                 [$roundId, $userId]
             );
             $first = $this->publicShare($all[0], true);
             $first['share_count'] = count($all);
+            $first['weight'] = count($all);
             $winSum = 0.0;
             foreach ($all as $s) {
                 $winSum += (float)$s['win_amount'];
             }
             $first['win_amount'] = round($winSum, 4);
+            $first['amount'] = self::packetAmountFromTail($all[0]['tail_digits'] ?? '');
             $first['claimed'] = true;
-            $first['claimed_at'] = $now;
+            $first['claimed_at'] = (int)($all[0]['claimed_at'] ?? $now);
             return [
                 'round'            => $this->publicRound($round, $userId),
                 'share'            => $first,
                 'shares'           => [$first],
                 'remain_unclaimed' => 0,
                 'done'             => true,
-                'note'             => '单结果玩法：无论购入多少包，只开一次；明细按人合并展示',
+                'note'             => '单结果：开出尾数即红包金额入账；明细按 hash/尾数排序',
             ];
         }
 
@@ -530,7 +546,7 @@ class NiuniuService
         } else {
             $share = Db::fetch(
                 'SELECT * FROM ' . Db::table('chat_niuniu_shares')
-                . ' WHERE round_id=? AND user_id=? AND claimed=0 ORDER BY share_no ASC, id ASC LIMIT 1',
+                . ' WHERE round_id=? AND user_id=? AND claimed=0 ORDER BY' . self::hashOrderSql() . ' LIMIT 1',
                 [$roundId, $userId]
             );
             if (!$share) {
@@ -548,6 +564,12 @@ class NiuniuService
         }
         $share['claimed'] = 1;
         $share['claimed_at'] = $now;
+        $this->creditPacketOnClaim($share, $roundId);
+        $this->syncClaimTimesByHash($roundId);
+        $share = Db::fetch(
+            'SELECT * FROM ' . Db::table('chat_niuniu_shares') . ' WHERE id=? LIMIT 1',
+            [(int)$share['id']]
+        ) ?: $share;
 
         $left = Db::fetch(
             'SELECT COUNT(*) AS c FROM ' . Db::table('chat_niuniu_shares')
@@ -557,6 +579,7 @@ class NiuniuService
         $remain = (int)($left['c'] ?? 0);
         $row = $this->publicShare($share, true);
         $row['share_count'] = 1;
+        $row['weight'] = 1;
 
         return [
             'round'            => $this->publicRound($round, $userId),
@@ -564,7 +587,7 @@ class NiuniuService
             'shares'           => [$row],
             'remain_unclaimed' => $remain,
             'done'             => $remain <= 0,
-            'note'             => '红包仅用于比对尾数牛数，红包金额不会入账',
+            'note'             => '尾数即红包金额（如 02=0.02）已入账；领取时间按 hash 排序',
         ];
     }
 
@@ -575,23 +598,28 @@ class NiuniuService
             return null;
         }
         $userId = (int)$userId;
+        $status = (int)$round['status'];
+        // 领取阶段起按 hash/尾数排序（与领取时间序一致）
         $shares = Db::fetchAll(
             'SELECT * FROM ' . Db::table('chat_niuniu_shares')
             . ' WHERE round_id=? ORDER BY'
-            . ' CASE WHEN claimed_at IS NULL OR claimed_at=0 THEN 1 ELSE 0 END ASC,'
-            . ' claimed_at ASC, share_no ASC',
+            . ' CASE WHEN tail_digits IS NULL OR tail_digits=\'\' THEN 1 ELSE 0 END ASC,'
+            . self::hashOrderSql(),
             [(int)$roundId]
         );
         $mine = [];
         $all = [];
-        $status = (int)$round['status'];
         foreach ($shares as $s) {
             $isMine = $userId > 0 && (int)$s['user_id'] === $userId;
             $reveal = $isMine && ((int)$s['claimed'] === 1 || $status >= self::STATUS_SETTLED);
             if ($status >= self::STATUS_SETTLED) {
                 $reveal = true;
+            } elseif ((int)$s['claimed'] === 1) {
+                // 已领取的公开尾数（明细按 hash 展示）
+                $reveal = true;
             }
             $row = $this->publicShare($s, $reveal);
+            $row['weight'] = 1;
             $all[] = $row;
             if ($isMine) {
                 $mine[] = $row;
@@ -600,7 +628,7 @@ class NiuniuService
         return [
             'round'  => $this->publicRound($round, $userId),
             'mine'   => $mine,
-            'shares' => $status >= self::STATUS_SETTLED ? $all : [],
+            'shares' => $status >= self::STATUS_CLAIMING ? $all : [],
             'rule'   => $this->ruleText((int)$round['group_id']),
         ];
     }
@@ -799,13 +827,16 @@ class NiuniuService
                     );
                     $meta = self::calcNiu($tail);
                     foreach ($ids as $sid) {
+                        $pkt = self::packetAmountFromTail($meta['tail']);
                         Db::exec(
                             'UPDATE ' . Db::table('chat_niuniu_shares')
-                            . ' SET tail_digits=?, digit_a=?, digit_b=?, digit_sum=?, niu_point=?, niu_tier=?, niu_label=?, updatetime=?'
+                            . ' SET tail_digits=?, digit_a=?, digit_b=?, digit_sum=?, niu_point=?, niu_tier=?, niu_label=?,'
+                            . ' amount=?, updatetime=?'
                             . ' WHERE id=?',
                             [
                                 $meta['tail'], $meta['a'], $meta['b'], $meta['sum'],
-                                $meta['point'], $meta['tier'], $meta['label'], $now, $sid,
+                                $meta['point'], $meta['tier'], $meta['label'],
+                                sprintf('%.2f', $pkt), $now, $sid,
                             ]
                         );
                     }
@@ -815,13 +846,16 @@ class NiuniuService
                     $sid = (int)$s['id'];
                     $tail = DrandClient::deriveTail($seed, $sid, 'round:' . $roundId);
                     $meta = self::calcNiu($tail);
+                    $pkt = self::packetAmountFromTail($meta['tail']);
                     Db::exec(
                         'UPDATE ' . Db::table('chat_niuniu_shares')
-                        . ' SET tail_digits=?, digit_a=?, digit_b=?, digit_sum=?, niu_point=?, niu_tier=?, niu_label=?, updatetime=?'
+                        . ' SET tail_digits=?, digit_a=?, digit_b=?, digit_sum=?, niu_point=?, niu_tier=?, niu_label=?,'
+                        . ' amount=?, updatetime=?'
                         . ' WHERE id=?',
                         [
                             $meta['tail'], $meta['a'], $meta['b'], $meta['sum'],
-                            $meta['point'], $meta['tier'], $meta['label'], $now, $sid,
+                            $meta['point'], $meta['tier'], $meta['label'],
+                            sprintf('%.2f', $pkt), $now, $sid,
                         ]
                     );
                 }
@@ -867,9 +901,12 @@ class NiuniuService
         }
 
         $shares = Db::fetchAll(
-            'SELECT * FROM ' . Db::table('chat_niuniu_shares') . ' WHERE round_id=? ORDER BY id ASC',
+            'SELECT * FROM ' . Db::table('chat_niuniu_shares') . ' WHERE round_id=? ORDER BY'
+            . self::hashOrderSql(),
             [$roundId]
         );
+        // 结算前把领取时间对齐到 hash 序
+        $this->syncClaimTimesByHash($roundId);
         $niuniu = [];
         $secondary = [];
         $low = [];
@@ -1068,6 +1105,93 @@ class NiuniuService
         ];
     }
 
+    /** 尾数 02 → 红包金额 0.02 */
+    public static function packetAmountFromTail($tail)
+    {
+        $tail = str_pad(preg_replace('/\D/', '', (string)$tail), 2, '0', STR_PAD_LEFT);
+        $tail = substr($tail, -2);
+        return round(((int)$tail) / 100, 2);
+    }
+
+    /** hash/尾数排序 SQL 片段（金额/尾数升序） */
+    public static function hashOrderSql($alias = '')
+    {
+        $p = $alias !== '' ? (rtrim($alias, '.') . '.') : '';
+        return ' CAST(' . $p . 'tail_digits AS UNSIGNED) ASC, ' . $p . 'id ASC';
+    }
+
+    /**
+     * 已领取记录的 claimed_at 按 hash/尾数排序重排，保证领取时间序=hash序
+     */
+    protected function syncClaimTimesByHash($roundId)
+    {
+        $roundId = (int)$roundId;
+        $round = $this->getRound($roundId);
+        if (!$round) {
+            return;
+        }
+        $base = (int)($round['buy_end_at'] ?? 0);
+        if ($base <= 0) {
+            $base = time() - 30;
+        }
+        $rows = Db::fetchAll(
+            'SELECT id FROM ' . Db::table('chat_niuniu_shares')
+            . ' WHERE round_id=? AND claimed=1 AND tail_digits IS NOT NULL AND tail_digits<>\'\''
+            . ' ORDER BY' . self::hashOrderSql(),
+            [$roundId]
+        );
+        if (!$rows) {
+            return;
+        }
+        $i = 0;
+        foreach ($rows as $r) {
+            $i++;
+            // 按 hash 名次每秒递增，时间序与 hash 序完全一致
+            Db::exec(
+                'UPDATE ' . Db::table('chat_niuniu_shares')
+                . ' SET claimed_at=?, updatetime=? WHERE id=?',
+                [$base + $i, time(), (int)$r['id']]
+            );
+        }
+    }
+
+    /** 领取时：尾数金额入账（02→0.02） */
+    protected function creditPacketOnClaim(array $share, $roundId)
+    {
+        $sid = (int)$share['id'];
+        $uid = (int)$share['user_id'];
+        if ($sid <= 0 || $uid <= 0) {
+            return 0.0;
+        }
+        if ((int)($share['packet_paid'] ?? 0) === 1) {
+            return round((float)($share['amount'] ?? 0), 2);
+        }
+        $amt = self::packetAmountFromTail($share['tail_digits'] ?? '');
+        if ($amt <= 0) {
+            Db::exec(
+                'UPDATE ' . Db::table('chat_niuniu_shares')
+                . ' SET amount=0, packet_paid=1, updatetime=? WHERE id=?',
+                [time(), $sid]
+            );
+            return 0.0;
+        }
+        try {
+            $this->wallet->change($uid, $amt, 'niuniu_packet', '尾数牛牛红包 #' . (int)$roundId, [
+                'biz_no'   => 'niuniu_pkt_' . $sid,
+                'ref_type' => 'niuniu_share',
+                'ref_id'   => $sid,
+            ]);
+        } catch (\Throwable $e) {
+            error_log('[NIUNIU][packet] s' . $sid . ' ' . $e->getMessage());
+        }
+        Db::exec(
+            'UPDATE ' . Db::table('chat_niuniu_shares')
+            . ' SET amount=?, packet_paid=1, updatetime=? WHERE id=?',
+            [sprintf('%.2f', $amt), time(), $sid]
+        );
+        return $amt;
+    }
+
     public function getRound($id)
     {
         return Db::fetch('SELECT * FROM ' . Db::table('chat_niuniu_rounds') . ' WHERE id=? LIMIT 1', [(int)$id]);
@@ -1213,28 +1337,37 @@ class NiuniuService
 
     protected function publicShare(array $s, $reveal)
     {
+        $tailRaw = (string)($s['tail_digits'] ?? '');
+        $pktAmt = self::packetAmountFromTail($tailRaw);
         $row = [
             'id'         => (int)$s['id'],
             'share_no'   => (int)$s['share_no'],
             'user_id'    => (int)$s['user_id'],
-            'amount'     => round((float)$s['amount'], 2),
+            // 未揭示时不暴露尾数金额（金额=尾数/100，会泄露结果）
+            'amount'     => ($reveal && $tailRaw !== '') ? round($pktAmt, 2) : null,
             'claimed'    => (int)$s['claimed'] === 1,
             'claimed_at' => (int)($s['claimed_at'] ?? 0),
-            'win_amount' => round((float)$s['win_amount'], 4),
+            'win_amount' => $reveal ? round((float)$s['win_amount'], 4) : 0.0,
+            'weight'     => 1,
+            'packet_paid'=> (int)($s['packet_paid'] ?? 0) === 1,
         ];
-        if ($reveal && $s['tail_digits'] !== null && $s['tail_digits'] !== '') {
-            $row['tail_digits'] = (string)$s['tail_digits'];
+        if ($reveal && $tailRaw !== '') {
+            $row['tail_digits'] = $tailRaw;
             $row['digit_a'] = (int)$s['digit_a'];
             $row['digit_b'] = (int)$s['digit_b'];
             $row['digit_sum'] = (int)$s['digit_sum'];
             $row['niu_point'] = (int)$s['niu_point'];
             $row['niu_tier'] = (int)$s['niu_tier'];
             $row['niu_label'] = (string)$s['niu_label'];
+            $row['category'] = (string)$s['niu_label'];
+            $row['result'] = '尾数' . $tailRaw . ' ' . $row['niu_label'];
             $row['calc'] = $row['digit_a'] . '+' . $row['digit_b'] . '=' . $row['digit_sum']
                 . ' →【' . $row['niu_label'] . '】';
         } else {
             $row['tail_digits'] = null;
             $row['niu_label'] = $reveal ? '' : '未领取';
+            $row['category'] = $reveal ? '' : '未领取';
+            $row['result'] = $reveal ? '' : '未领取';
         }
         // 昵称 / 头像
         try {
