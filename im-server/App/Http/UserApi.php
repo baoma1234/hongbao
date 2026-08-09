@@ -84,7 +84,14 @@ class UserApi extends UserReadApi
             case '/im/niuniu/buy':
                 return ['data' => $this->niuniu()->buy($userId, (int)($body['round_id'] ?? 0), (int)($body['count'] ?? 1)), 'ws_type' => 'niuniu.bought'];
             case '/im/niuniu/claim':
-                return ['data' => $this->niuniu()->claim($userId, (int)($body['round_id'] ?? 0)), 'ws_type' => 'niuniu.claimed'];
+                return [
+                    'data' => $this->niuniu()->claim(
+                        $userId,
+                        (int)($body['round_id'] ?? 0),
+                        (int)($body['share_id'] ?? 0)
+                    ),
+                    'ws_type' => 'niuniu.claimed',
+                ];
             case '/im/niuniu/detail':
                 return ['data' => $this->niuniu()->detail((int)($body['round_id'] ?? 0), $userId) ?: new \stdClass()];
 

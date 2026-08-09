@@ -119,7 +119,7 @@
                     <text v-if="(niuniuRound(m).game_mode|0) === 2" class="nn-mode-tag">单结果</text>
                     <view class="nn-center">
                       <text class="nn-l1">#{{ niuniuRoundId(m) || '--' }} 入场:{{ niuniuSharePrice(m) }}</text>
-                      <text class="nn-l2">份数:{{ niuniuShareCount(m) }} 官方抽成:{{ niuniuFeePct(m) }}%</text>
+                      <text class="nn-l2">包数:{{ niuniuShareCount(m) }} 官方手续费:{{ niuniuFeePct(m) }}%</text>
                       <text class="nn-l3">奖池(扣除{{ niuniuFeePct(m) }}%后)</text>
                       <text class="nn-l4">{{ niuniuDistributableText(m) }}</text>
                     </view>
@@ -503,7 +503,7 @@
             </text>
           </view>
           <view class="chat-rp-field">
-            <text class="chat-rp-lab">购入份数</text>
+            <text class="chat-rp-lab">购入包数</text>
             <input class="chat-rp-bless-input" type="number" v-model="niuniuBuyCount" />
           </view>
         </view>
@@ -521,14 +521,30 @@
     <view v-if="showNiuniuCover" class="nn-cover-mask" @click="closeNiuniuCover">
       <view class="nn-cover-card" @click.stop>
         <text class="nn-cover-title">尾数牛牛红宝</text>
-        <text class="nn-cover-sub">开启后查看本局尾数与开奖明细</text>
+        <text class="nn-cover-sub">{{ niuniuCoverSubText }}</text>
         <view class="nn-cover-open" :class="{ busy: niuniuBusy }" @click="confirmNiuniuCoverOpen">
           {{ niuniuBusy ? '…' : '開' }}
         </view>
       </view>
     </view>
 
-    <!-- 牛牛开奖明细：按人分组（我 / 他人）+ 头像昵称 -->
+    <!-- 单包开启结果：点一次弹出一次，领完再进明细 -->
+    <view v-if="showNiuniuPackResult" class="nn-pack-result-mask" @click="closeNiuniuPackResult">
+      <view class="nn-pack-result-card" @click.stop>
+        <text class="nn-pack-result-title">本包结果</text>
+        <text class="nn-pack-result-line">{{ formatNiuniuResultLine(niuniuPackResult) }}</text>
+        <text
+          class="nn-pack-result-win"
+          :class="{ win: Number(niuniuPackResult && niuniuPackResult.win_amount) > 0 }"
+        >{{ formatNiuniuWin(niuniuPackResult && niuniuPackResult.win_amount) }}</text>
+        <text v-if="niuniuPackRemain > 0" class="nn-pack-result-remain">还剩 {{ niuniuPackRemain }} 包</text>
+        <view class="nn-pack-result-btn" @click="closeNiuniuPackResult">
+          {{ niuniuPackRemain > 0 ? '继续开' : '查看明细' }}
+        </view>
+      </view>
+    </view>
+
+    <!-- 牛牛开奖明细：我优先，其余按领取时间；每人一行 -->
     <view v-if="showNiuniuDetail" class="chat-sub-pane open" aria-hidden="false">
       <view class="chat-hero-hd">
         <view class="chat-hero-back" hover-class="chat-hero-back--active" @click="closeNiuniuDetail">
@@ -542,37 +558,28 @@
       <view class="chat-sub-main nn-detail-main">
         <view class="nn-detail-summary" v-if="niuniuDetailRound">
           <text>奖池 {{ niuniuDetailPoolText }}</text>
-          <text v-if="niuniuDetailFeeText">{{ niuniuDetailFeeText }}</text>
           <text
             v-if="niuniuVerifyLabel(niuniuDetailRound)"
             class="nn-detail-verify"
             @click.stop="openNiuniuVerify"
-          >校验 {{ niuniuVerifyLabel(niuniuDetailRound) }} ›</text>
+          >波场验证 ›</text>
         </view>
         <scroll-view scroll-y class="nn-detail-scroll" :show-scrollbar="true">
           <view
-            v-for="g in niuniuDetailGroups"
-            :key="g.user_id"
-            class="nn-user-block"
-            :class="{ mine: g.is_mine }"
+            v-for="(row, idx) in niuniuDetailRows"
+            :key="row._key || row.id || idx"
+            class="nn-detail-person"
+            :class="{ mine: row.is_mine }"
           >
-            <view class="nn-user-hd">
-              <image class="nn-user-av" :src="avatarSrc(g.avatar)" mode="aspectFill" />
-              <text class="nn-user-name">{{ g.is_mine ? '我' : (g.nickname || ('用户' + g.user_id)) }}</text>
-            </view>
-            <view
-              v-for="(row, idx) in g.rows"
-              :key="row.id || (g.user_id + '-' + row.share_no)"
-              class="nn-user-row"
-            >
-              <view class="nn-user-line-wrap">
-                <text class="nn-user-line">{{ idx + 1 }}. {{ formatNiuniuResultLine(row) }}</text>
-                <text v-if="row.claimed_at" class="nn-user-time">领取 {{ formatRpTime(row.claimed_at) }}</text>
-              </view>
+            <view class="nn-detail-person-main">
+              <image class="nn-user-av" :src="avatarSrc(row.avatar)" mode="aspectFill" />
+              <text class="nn-user-name">{{ row.is_mine ? '我' : (row.nickname || ('用户' + row.user_id)) }}</text>
+              <text class="nn-detail-result">{{ formatNiuniuDetailResult(row, idx) }}</text>
               <text class="nn-user-win" :class="{ win: Number(row.win_amount) > 0 }">{{ formatNiuniuWin(row.win_amount) }}</text>
             </view>
+            <text v-if="row.claimed_at" class="nn-user-time">{{ formatRpTime(row.claimed_at) }}</text>
           </view>
-          <view v-if="!niuniuDetailGroups.length" class="nn-detail-empty">暂无明细</view>
+          <view v-if="!niuniuDetailRows.length" class="nn-detail-empty">暂无明细</view>
         </scroll-view>
       </view>
     </view>
@@ -778,21 +785,24 @@ const niuniuBuyCount = ref('1')
 const showNiuniuDetail = ref(false)
 const showNiuniuCover = ref(false)
 const niuniuCoverRoundId = ref(0)
+const niuniuCoverRemain = ref(0)
+const showNiuniuPackResult = ref(false)
+const niuniuPackResult = ref(null)
+const niuniuPackRemain = ref(0)
+const niuniuPackRoundId = ref(0)
 const niuniuDetailRound = ref(null)
-const niuniuDetailGroups = ref([])
+const niuniuDetailRows = ref([])
 const niuniuDetailPoolText = computed(() => {
   const r = niuniuDetailRound.value
   if (!r) return '0'
   const n = Number(r.distributable != null ? r.distributable : r.pool_amount)
   return (isNaN(n) ? 0 : n).toFixed(2)
 })
-const niuniuDetailFeeText = computed(() => {
-  const r = niuniuDetailRound.value
-  if (!r) return ''
-  const rate = Number(r.fee_rate)
-  if (isNaN(rate) || rate <= 0) return ''
-  const pct = Math.round(rate * 1000) / 10
-  return '官方手续费' + pct + '%'
+const niuniuCoverSubText = computed(() => {
+  const n = niuniuCoverRemain.value | 0
+  if (n > 1) return '点一次开一包，还剩 ' + n + ' 包'
+  if (n === 1) return '最后一包，开启后查看开奖明细'
+  return '点一次开一包，全部开完后查看明细'
 })
 /** 驱动牛牛倒计时每秒重绘（模板依赖 Date.now 不会自动刷新） */
 const niuniuNowTick = ref(0)
@@ -2991,7 +3001,13 @@ async function onNiuniuTap(m) {
   }
   // 本人已购入且未领：弹红宝封面；开启后再看开奖明细
   if (niuniuNeedsClaim(m)) {
-    openNiuniuCover(rid)
+    const r = niuniuRound(m)
+    const remain =
+      (r.my_unclaimed_count | 0) ||
+      Math.max(0, ((r.my_share_count | 0) || 0) - (r.my_claimed ? (r.my_share_count | 0) : 0)) ||
+      (r.my_share_count | 0) ||
+      1
+    openNiuniuCover(rid, remain)
     return
   }
   if (phase === 'claim' || phase === 'result') {
@@ -3002,12 +3018,13 @@ async function onNiuniuTap(m) {
       const mine = data.mine || []
       const needClaim = mine.length > 0 && mine.some((s) => !s.claimed)
       if (needClaim) {
-        markNiuniuShareLocal(rid, data.round || null, false)
-        openNiuniuCover(rid)
+        const remain = mine.filter((s) => !s.claimed).length
+        markNiuniuShareLocal(rid, data.round || null, false, remain)
+        openNiuniuCover(rid, remain)
         return
       }
       if (mine.length) {
-        markNiuniuShareLocal(rid, data.round || null, true)
+        markNiuniuShareLocal(rid, data.round || null, true, 0)
       }
       openNiuniuDetail(data)
     } catch (e) {
@@ -3026,8 +3043,10 @@ async function onNiuniuTap(m) {
   }
 }
 
-function openNiuniuCover(rid) {
+function openNiuniuCover(rid, remainHint) {
   niuniuCoverRoundId.value = rid | 0
+  const hint = remainHint | 0
+  if (hint > 0) niuniuCoverRemain.value = hint
   showNiuniuCover.value = true
 }
 function closeNiuniuCover() {
@@ -3043,20 +3062,21 @@ async function confirmNiuniuCoverOpen() {
   try {
     const res = await niuniuClaim(rid)
     const data = (res && res.data) || res || {}
-    markNiuniuClaimedLocal(rid, data.round || null)
+    const remain = (data.remain_unclaimed | 0) || 0
+    const done = data.done === true || remain <= 0
+    const share = data.share || (data.shares && data.shares[0]) || null
+    markNiuniuShareLocal(rid, data.round || null, done, remain)
     showNiuniuCover.value = false
     niuniuCoverRoundId.value = 0
-    // 开启后拉全量明细
-    try {
-      const dres = await niuniuDetail(rid)
-      openNiuniuDetail((dres && dres.data) || dres || data || {})
-    } catch (e2) {
-      openNiuniuDetail(data)
-    }
+    niuniuCoverRemain.value = remain
+    niuniuPackResult.value = share
+    niuniuPackRemain.value = remain
+    niuniuPackRoundId.value = rid
+    showNiuniuPackResult.value = true
   } catch (e) {
     const msg = (e && e.message) || '领取失败'
-    // 未参与者：直接看明细
-    if (/未参与|没有购入|未购入/.test(msg)) {
+    // 未参与者 / 已领完：直接看明细
+    if (/未参与|没有购入|未购入|已领完/.test(msg)) {
       showNiuniuCover.value = false
       niuniuCoverRoundId.value = 0
       try {
@@ -3072,10 +3092,32 @@ async function confirmNiuniuCoverOpen() {
     niuniuBusy.value = false
   }
 }
-function markNiuniuClaimedLocal(rid, roundPatch) {
-  markNiuniuShareLocal(rid, roundPatch, true)
+async function closeNiuniuPackResult() {
+  if (niuniuBusy.value) return
+  const rid = niuniuPackRoundId.value | 0
+  const remain = niuniuPackRemain.value | 0
+  showNiuniuPackResult.value = false
+  niuniuPackResult.value = null
+  if (remain > 0 && rid) {
+    openNiuniuCover(rid, remain)
+    return
+  }
+  niuniuPackRoundId.value = 0
+  if (!rid) return
+  niuniuBusy.value = true
+  try {
+    const dres = await niuniuDetail(rid)
+    openNiuniuDetail((dres && dres.data) || dres || {})
+  } catch (e) {
+    uni.showToast({ title: (e && e.message) || '加载明细失败', icon: 'none' })
+  } finally {
+    niuniuBusy.value = false
+  }
 }
-function markNiuniuShareLocal(rid, roundPatch, claimed) {
+function markNiuniuClaimedLocal(rid, roundPatch) {
+  markNiuniuShareLocal(rid, roundPatch, true, 0)
+}
+function markNiuniuShareLocal(rid, roundPatch, claimed, unclaimed) {
   rid = rid | 0
   if (!rid) return
   const rows = messages.value || []
@@ -3086,9 +3128,18 @@ function markNiuniuShareLocal(rid, roundPatch, claimed) {
     const id = (ex.round_id | 0) || ((ex.round && ex.round.id) | 0) || 0
     if (id !== rid) continue
     const prevCount = ((ex.round && ex.round.my_share_count) | 0) || ((roundPatch && roundPatch.my_share_count) | 0) || 0
+    const nextUnclaimed =
+      unclaimed != null
+        ? Math.max(0, unclaimed | 0)
+        : claimed
+          ? 0
+          : ((roundPatch && roundPatch.my_unclaimed_count) | 0) ||
+            ((ex.round && ex.round.my_unclaimed_count) | 0) ||
+            prevCount
     const nextRound = Object.assign({}, ex.round || {}, roundPatch || {}, {
       my_claimed: !!claimed,
       my_share_count: Math.max(1, prevCount || 1),
+      my_unclaimed_count: nextUnclaimed,
     })
     const nextEx = Object.assign({}, ex, { round: nextRound, round_id: rid })
     const next = Object.assign({}, m, { extra: nextEx })
@@ -3108,31 +3159,54 @@ function formatNiuniuResultLine(row) {
   const niu = row.niu_label || row.calc || '--'
   return '尾数' + tail + ' ' + niu
 }
+function formatNiuniuDetailResult(row, idx) {
+  if (!row) return '--'
+  const base = formatNiuniuResultLine(row)
+  const sc = (row.share_count | 0) || 1
+  if (sc > 1) return (idx + 1) + ' ' + sc + '份 ' + base
+  return base
+}
 
 function openNiuniuDetail(data) {
   const uid = (myUserId.value | 0) || (myId | 0)
-  const shares =
+  const round = (data && data.round) || null
+  const mode = (round && (round.game_mode | 0)) || 0
+  let shares =
     data && data.shares && data.shares.length
-      ? data.shares
+      ? data.shares.slice()
       : (data && data.mine) || []
-  const map = new Map()
-  shares.forEach((s) => {
-    const id = (s.user_id | 0) || 0
-    if (!map.has(id)) {
-      map.set(id, {
-        user_id: id,
-        nickname: s.nickname || ('用户' + id),
-        avatar: s.avatar || '',
-        is_mine: id > 0 && id === uid,
-        rows: [],
-        _claimAt: 0,
-      })
-    }
-    const g = map.get(id)
-    g.rows.push(Object.assign({}, s))
-    const ca = (s.claimed_at | 0) || 0
-    if (ca > 0 && (g._claimAt === 0 || ca < g._claimAt)) g._claimAt = ca
-  })
+  shares = shares.filter(Boolean)
+
+  // 单结果：每人合并为一行（N份 + 同一尾数 + 金额合计）
+  if (mode === 2) {
+    const map = new Map()
+    shares.forEach((s) => {
+      const id = (s.user_id | 0) || 0
+      if (!map.has(id)) {
+        map.set(id, Object.assign({}, s, {
+          share_count: 1,
+          win_amount: Number(s.win_amount) || 0,
+          claimed_at: (s.claimed_at | 0) || 0,
+        }))
+        return
+      }
+      const g = map.get(id)
+      g.share_count = ((g.share_count | 0) || 1) + 1
+      g.win_amount = (Number(g.win_amount) || 0) + (Number(s.win_amount) || 0)
+      const ca = (s.claimed_at | 0) || 0
+      if (ca > 0 && (!(g.claimed_at | 0) || ca < (g.claimed_at | 0))) g.claimed_at = ca
+      if (!g.nickname && s.nickname) g.nickname = s.nickname
+      if (!g.avatar && s.avatar) g.avatar = s.avatar
+      if (s.tail_digits != null && s.tail_digits !== '') {
+        g.tail_digits = s.tail_digits
+        g.niu_label = s.niu_label || g.niu_label
+      }
+    })
+    shares = Array.from(map.values()).map((g) =>
+      Object.assign({}, g, { win_amount: Math.round((Number(g.win_amount) || 0) * 10000) / 10000 })
+    )
+  }
+
   const byClaim = (a, b) => {
     const ac = (a.claimed_at | 0) || 0
     const bc = (b.claimed_at | 0) || 0
@@ -3140,20 +3214,21 @@ function openNiuniuDetail(data) {
     if (ac > 0 !== bc > 0) return ac > 0 ? -1 : 1
     return ((a.share_no | 0) - (b.share_no | 0)) || ((a.id | 0) - (b.id | 0))
   }
-  const groups = Array.from(map.values())
-  groups.forEach((g) => g.rows.sort(byClaim))
-  groups.sort((a, b) => {
-    if (a.is_mine !== b.is_mine) return a.is_mine ? -1 : 1
-    const ac = a._claimAt | 0
-    const bc = b._claimAt | 0
-    if (ac > 0 && bc > 0 && ac !== bc) return ac - bc
-    if (ac > 0 !== bc > 0) return ac > 0 ? -1 : 1
-    const an = (a.rows[0] && a.rows[0].share_no) | 0
-    const bn = (b.rows[0] && b.rows[0].share_no) | 0
-    return an - bn
+  const mine = []
+  const others = []
+  shares.forEach((s) => {
+    const id = (s.user_id | 0) || 0
+    const row = Object.assign({}, s, {
+      is_mine: id > 0 && id === uid,
+      _key: (s.id || 0) + '-' + id + '-' + ((s.share_no | 0) || 0) + '-' + ((s.share_count | 0) || 1),
+    })
+    if (row.is_mine) mine.push(row)
+    else others.push(row)
   })
-  niuniuDetailRound.value = (data && data.round) || null
-  niuniuDetailGroups.value = groups
+  mine.sort(byClaim)
+  others.sort(byClaim)
+  niuniuDetailRound.value = round
+  niuniuDetailRows.value = mine.concat(others)
   showNiuniuDetail.value = true
 }
 
@@ -4155,22 +4230,22 @@ function closeRpDetail() {
   padding: 10px 10px 24px;
   box-sizing: border-box;
 }
-.nn-user-block {
+.nn-detail-person {
   background: #fff;
   border-radius: 12px;
   border: 1px solid #e8ebf0;
-  padding: 12px;
-  margin-bottom: 10px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
 }
-.nn-user-block.mine {
+.nn-detail-person.mine {
   border-color: #ffe0a3;
   background: linear-gradient(180deg, #fffaf0, #fff);
 }
-.nn-user-hd {
+.nn-detail-person-main {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
+  min-width: 0;
 }
 .nn-user-av {
   width: 34px;
@@ -4183,34 +4258,37 @@ function closeRpDetail() {
   font-size: 14px;
   font-weight: 800;
   color: #222;
-}
-.nn-user-block.mine .nn-user-name {
-  color: #d48806;
-}
-.nn-user-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 5px 2px 5px 42px;
-  font-size: 13px;
-  color: #444;
-}
-.nn-user-line-wrap {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.nn-user-line {
-  flex: 1;
-  min-width: 0;
+  flex-shrink: 0;
+  max-width: 72px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.nn-detail-person.mine .nn-user-name {
+  color: #d48806;
+}
+.nn-detail-result {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  color: #444;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nn-user-win {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 800;
+  color: #888;
+}
+.nn-user-win.win {
+  color: #c62828;
+}
 .nn-user-time {
+  display: block;
+  margin-top: 4px;
+  padding-left: 42px;
   font-size: 11px;
   color: #999;
   font-weight: 500;
@@ -4218,6 +4296,12 @@ function closeRpDetail() {
 .nn-detail-verify {
   color: #1565c0;
   font-weight: 700;
+}
+.nn-detail-empty {
+  text-align: center;
+  color: #999;
+  padding: 40px 12px;
+  font-size: 13px;
 }
 .nn-cover-mask {
   position: fixed;
@@ -4273,17 +4357,60 @@ function closeRpDetail() {
 .nn-cover-open.busy {
   opacity: 0.7;
 }
-.nn-user-win {
-  flex-shrink: 0;
-  font-weight: 800;
-  color: #999;
-  font-variant-numeric: tabular-nums;
+.nn-pack-result-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 16100;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.nn-user-win.win { color: #e53935; }
-.nn-detail-empty {
+.nn-pack-result-card {
+  width: 280px;
+  padding: 24px 18px 18px;
+  border-radius: 16px;
+  background: #fff;
   text-align: center;
-  color: #999;
-  padding: 40px 12px;
-  font-size: 13px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+}
+.nn-pack-result-title {
+  display: block;
+  font-size: 15px;
+  font-weight: 800;
+  color: #333;
+  margin-bottom: 10px;
+}
+.nn-pack-result-line {
+  display: block;
+  font-size: 20px;
+  font-weight: 900;
+  color: #c62828;
+  margin-bottom: 8px;
+}
+.nn-pack-result-win {
+  display: block;
+  font-size: 22px;
+  font-weight: 900;
+  color: #888;
+  margin-bottom: 8px;
+}
+.nn-pack-result-win.win {
+  color: #c62828;
+}
+.nn-pack-result-remain {
+  display: block;
+  font-size: 12px;
+  color: #888;
+  margin-bottom: 14px;
+}
+.nn-pack-result-btn {
+  height: 40px;
+  line-height: 40px;
+  border-radius: 20px;
+  background: #c62828;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
 }
 </style>

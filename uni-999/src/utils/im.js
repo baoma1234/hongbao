@@ -579,8 +579,12 @@ export function niuniuBuy(roundId, count = 1) {
   return imSend('niuniu.buy', { round_id: roundId | 0, count: count | 0 || 1 }, true)
 }
 
-export function niuniuClaim(roundId) {
-  return imSend('niuniu.claim', { round_id: roundId | 0 }, true)
+export function niuniuClaim(roundId, shareId = 0) {
+  return imSend(
+    'niuniu.claim',
+    { round_id: roundId | 0, share_id: shareId | 0 },
+    true
+  )
 }
 
 export function niuniuDetail(roundId) {

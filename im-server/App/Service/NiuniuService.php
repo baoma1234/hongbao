@@ -442,10 +442,15 @@ class NiuniuService
     /**
      * 手动领取：展示该用户本局全部份的尾数（不入账）
      */
-    public function claim($userId, $roundId)
+    /**
+     * 领取一包（一份）。可传 share_id 指定；否则取该用户下一份未领。
+     * 点一次开一次；全部领完后客户端再拉开奖明细。
+     */
+    public function claim($userId, $roundId, $shareId = 0)
     {
         $userId = (int)$userId;
         $roundId = (int)$roundId;
+        $shareId = (int)$shareId;
         $round = $this->getRound($roundId);
         if (!$round) {
             throw new \RuntimeException('对局不存在');
@@ -457,44 +462,70 @@ class NiuniuService
             throw new \RuntimeException('not in group');
         }
 
-        $now = time();
-        Db::exec(
-            'UPDATE ' . Db::table('chat_niuniu_shares')
-            . ' SET claimed=1, claimed_at=?, updatetime=? WHERE round_id=? AND user_id=? AND claimed=0',
-            [$now, $now, $roundId, $userId]
-        );
-
-        $shares = Db::fetchAll(
-            'SELECT * FROM ' . Db::table('chat_niuniu_shares')
-            . ' WHERE round_id=? AND user_id=? ORDER BY share_no ASC',
+        $joined = Db::fetch(
+            'SELECT COUNT(*) AS c FROM ' . Db::table('chat_niuniu_shares')
+            . ' WHERE round_id=? AND user_id=?',
             [$roundId, $userId]
         );
-        if (!$shares) {
+        if ((int)($joined['c'] ?? 0) <= 0) {
             throw new \RuntimeException('你未参与本局');
         }
 
-        $list = [];
-        $mode = $this->normalizeMode($round['game_mode'] ?? self::MODE_NORMAL);
-        if ($mode === self::MODE_SINGLE) {
-            $first = $this->publicShare($shares[0], true);
-            $first['share_count'] = count($shares);
-            $winSum = 0.0;
-            foreach ($shares as $s) {
-                $winSum += (float)$s['win_amount'];
+        if ($shareId > 0) {
+            $share = Db::fetch(
+                'SELECT * FROM ' . Db::table('chat_niuniu_shares')
+                . ' WHERE id=? AND round_id=? AND user_id=? LIMIT 1',
+                [$shareId, $roundId, $userId]
+            );
+            if (!$share) {
+                throw new \RuntimeException('份额不存在');
             }
-            $first['win_amount'] = round($winSum, 4);
-            $list[] = $first;
-            $note = '单结果玩法：你购入 ' . count($shares) . ' 份，只算一个尾数；奖金按份数结算';
+            if ((int)$share['claimed'] === 1) {
+                throw new \RuntimeException('该包已领取');
+            }
         } else {
-            foreach ($shares as $s) {
-                $list[] = $this->publicShare($s, true);
+            $share = Db::fetch(
+                'SELECT * FROM ' . Db::table('chat_niuniu_shares')
+                . ' WHERE round_id=? AND user_id=? AND claimed=0 ORDER BY share_no ASC, id ASC LIMIT 1',
+                [$roundId, $userId]
+            );
+            if (!$share) {
+                throw new \RuntimeException('你已领完本局红宝');
             }
-            $note = '红包仅用于比对尾数牛数，红包金额不会入账';
         }
+
+        $now = time();
+        $affected = Db::exec(
+            'UPDATE ' . Db::table('chat_niuniu_shares')
+            . ' SET claimed=1, claimed_at=?, updatetime=? WHERE id=? AND claimed=0',
+            [$now, $now, (int)$share['id']]
+        );
+        if ((int)$affected <= 0) {
+            throw new \RuntimeException('该包已领取');
+        }
+        $share['claimed'] = 1;
+        $share['claimed_at'] = $now;
+
+        $left = Db::fetch(
+            'SELECT COUNT(*) AS c FROM ' . Db::table('chat_niuniu_shares')
+            . ' WHERE round_id=? AND user_id=? AND claimed=0',
+            [$roundId, $userId]
+        );
+        $remain = (int)($left['c'] ?? 0);
+        $mode = $this->normalizeMode($round['game_mode'] ?? self::MODE_NORMAL);
+        $row = $this->publicShare($share, true);
+        $row['share_count'] = 1;
+        $note = $mode === self::MODE_SINGLE
+            ? '单结果玩法：每包开启一次；明细按人合并展示'
+            : '红包仅用于比对尾数牛数，红包金额不会入账';
+
         return [
-            'round'  => $this->publicRound($round, $userId),
-            'shares' => $list,
-            'note'   => $note,
+            'round'            => $this->publicRound($round, $userId),
+            'share'            => $row,
+            'shares'           => [$row],
+            'remain_unclaimed' => $remain,
+            'done'             => $remain <= 0,
+            'note'             => $note,
         ];
     }
 
@@ -1018,7 +1049,11 @@ class NiuniuService
                 [(int)$round['id'], (int)$userId]
             );
             $myCount = (int)($row['c'] ?? 0);
-            $myClaimed = $myCount > 0 && (int)($row['claimed_c'] ?? 0) >= $myCount;
+            $myClaimedC = (int)($row['claimed_c'] ?? 0);
+            $myClaimed = $myCount > 0 && $myClaimedC >= $myCount;
+            $myUnclaimed = max(0, $myCount - $myClaimedC);
+        } else {
+            $myUnclaimed = 0;
         }
         $tronNum = (int)($round['tron_block_num'] ?? 0);
         $tronId = strtolower(trim((string)($round['tron_block_id'] ?? '')));
@@ -1056,8 +1091,9 @@ class NiuniuService
             'tron_block_id'   => $tronId,
             'tron_status'     => $tronStatus,
             'tronscan_url'    => $tronscan,
-            'my_share_count'  => $myCount,
-            'my_claimed'      => $myClaimed,
+            'my_share_count'     => $myCount,
+            'my_claimed'         => $myClaimed,
+            'my_unclaimed_count' => (int)$myUnclaimed,
             'settle_case'     => (int)$round['settle_case'],
             'niuniu_pool'     => round((float)$round['niuniu_pool'], 2),
             'secondary_pool'  => round((float)$round['secondary_pool'], 2),
@@ -1547,8 +1583,9 @@ class NiuniuService
             $c = (int)($r['c'] ?? 0);
             $cc = (int)($r['claimed_c'] ?? 0);
             $byRound[$rid] = [
-                'my_share_count' => $c,
-                'my_claimed'     => $c > 0 && $cc >= $c,
+                'my_share_count'     => $c,
+                'my_claimed'         => $c > 0 && $cc >= $c,
+                'my_unclaimed_count' => max(0, $c - $cc),
             ];
         }
         foreach ($indexMap as $i => $rid) {
@@ -1562,9 +1599,14 @@ class NiuniuService
             if (empty($ex['round']) || !is_array($ex['round'])) {
                 $ex['round'] = [];
             }
-            $info = $byRound[$rid] ?? ['my_share_count' => 0, 'my_claimed' => false];
+            $info = $byRound[$rid] ?? [
+                'my_share_count' => 0,
+                'my_claimed' => false,
+                'my_unclaimed_count' => 0,
+            ];
             $ex['round']['my_share_count'] = $info['my_share_count'];
             $ex['round']['my_claimed'] = $info['my_claimed'];
+            $ex['round']['my_unclaimed_count'] = $info['my_unclaimed_count'];
             $ex['round_id'] = $rid;
             $messages[$i]['extra'] = $ex;
         }

@@ -1607,7 +1607,11 @@ class MessageRouter
     protected function handleNiuniuClaim(TcpConnection $connection, $uid, array $payload, $reqId)
     {
         try {
-            $result = $this->niuniu->claim($uid, (int)($payload['round_id'] ?? 0));
+            $result = $this->niuniu->claim(
+                $uid,
+                (int)($payload['round_id'] ?? 0),
+                (int)($payload['share_id'] ?? 0)
+            );
             $this->send($connection, 'niuniu.claimed', $result, $reqId);
         } catch (\Throwable $e) {
             $this->error($connection, $e->getMessage() ?: 'failed', $reqId);

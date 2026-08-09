@@ -224,8 +224,8 @@ class NiuniuAutoBotService
         $this->clearClaimBusy($taskId, $roundId);
 
         $rows = Db::fetchAll(
-            'SELECT DISTINCT user_id FROM ' . Db::table('chat_niuniu_shares')
-            . ' WHERE round_id=? AND claimed=0',
+            'SELECT id, user_id FROM ' . Db::table('chat_niuniu_shares')
+            . ' WHERE round_id=? AND claimed=0 ORDER BY id ASC',
             [$roundId]
         );
         if (!$rows) {
@@ -246,10 +246,10 @@ class NiuniuAutoBotService
                 continue;
             }
             try {
-                $this->niuniu->claim($uid, $roundId);
+                $this->niuniu->claim($uid, $roundId, (int)$r['id']);
                 $n++;
             } catch (\Throwable $e) {
-                $this->touchError($taskId, 'claim u' . $uid . ': ' . $e->getMessage());
+                $this->touchError($taskId, 'claim u' . $uid . ' s' . $r['id'] . ': ' . $e->getMessage());
             }
         }
         $this->markClaimBusy($taskId, $roundId, max(60, (int)$round['claim_seconds'] + 30));
@@ -367,8 +367,8 @@ class NiuniuAutoBotService
         }
 
         $rows = Db::fetchAll(
-            'SELECT DISTINCT user_id FROM ' . Db::table('chat_niuniu_shares')
-            . ' WHERE round_id=? AND claimed=0',
+            'SELECT id, user_id FROM ' . Db::table('chat_niuniu_shares')
+            . ' WHERE round_id=? AND claimed=0 ORDER BY id ASC',
             [$roundId]
         );
         if (!$rows) {
@@ -393,25 +393,33 @@ class NiuniuAutoBotService
         foreach ($rows as $r) {
             $uid = (int)$r['user_id'];
             if (isset($actorMap[$uid])) {
-                $targets[] = $uid;
+                $targets[] = ['share_id' => (int)$r['id'], 'user_id' => $uid];
             }
         }
         if (!$targets) {
             return;
         }
 
-        $this->markClaimBusy($taskId, $roundId, max(60, (int)$round['claim_seconds'] + 30));
         $delayMin = max(100, (int)($task['claim_delay_min_ms'] ?? 500));
         $delayMax = max($delayMin, (int)($task['claim_delay_max_ms'] ?? 5000));
+        // 按包间隔排队；busy TTL 覆盖整段领取时间
+        $busySec = max(
+            60,
+            (int)$round['claim_seconds'] + 30,
+            (int)ceil((count($targets) * $delayMax) / 1000) + 30
+        );
+        $this->markClaimBusy($taskId, $roundId, $busySec);
         $accMs = 0;
-        foreach ($targets as $uid) {
+        foreach ($targets as $t) {
             $accMs += random_int($delayMin, $delayMax);
             $delaySec = max(0.15, $accMs / 1000.0);
-            Timer::add($delaySec, function () use ($taskId, $roundId, $uid) {
+            $uid = (int)$t['user_id'];
+            $sid = (int)$t['share_id'];
+            Timer::add($delaySec, function () use ($taskId, $roundId, $uid, $sid) {
                 try {
-                    $this->niuniu->claim((int)$uid, (int)$roundId);
+                    $this->niuniu->claim($uid, (int)$roundId, $sid);
                 } catch (\Throwable $e) {
-                    $this->touchError($taskId, 'claim u' . $uid . ': ' . $e->getMessage());
+                    $this->touchError($taskId, 'claim u' . $uid . ' s' . $sid . ': ' . $e->getMessage());
                 }
                 // 领完尝试结算
                 try {
