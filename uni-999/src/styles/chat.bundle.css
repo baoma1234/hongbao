@@ -510,14 +510,13 @@ body.tab-messages .bottom-action-bar {
   align-items: center;
   gap: 12px;
   width: 100%;
-  padding: 13px 14px;
+  padding: 10px 20px 10px 10px;
   border: none;
   border-bottom: 1px solid #f0f0f0;
   background: transparent;
   text-align: left;
   cursor: pointer;
   position: relative;
-  padding-right: 28px;
   contain: layout style;
 }
 .chat-conv-item::after {
@@ -4487,8 +4486,8 @@ button.chat-rp-fair-link {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 8px 12px 16px;
+  gap: 8px;
+  padding: 6px 10px 12px;
   background:
     radial-gradient(120% 80% at 50% -10%, rgba(255, 236, 210, 0.95) 0%, transparent 55%),
     linear-gradient(180deg, #fbf4ea 0%, #f3e6d6 100%);
@@ -4502,8 +4501,8 @@ button.chat-rp-fair-link {
   align-items: stretch;
   gap: 0;
   flex-shrink: 0;
-  height: 44px;
-  padding: 3px;
+  height: 38px;
+  padding: 2px;
   box-sizing: border-box;
   border-radius: 999px;
   border: 1px solid #f3c9a0;
@@ -4586,8 +4585,8 @@ button.chat-rp-fair-link {
 .chat-community-hero-cards {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
-  padding: 4px 0 8px;
+  gap: 4px;
+  padding: 2px 0 6px;
 }
 
 .chat-group-card {
@@ -4595,8 +4594,8 @@ button.chat-rp-fair-link {
   min-width: 0;
   max-width: none;
   width: 100%;
-  padding: 8px 4px 7px;
-  border-radius: 14px;
+  padding: 6px 3px 5px;
+  border-radius: 12px;
   border: 1.5px solid transparent;
   background:
     linear-gradient(165deg, rgba(255, 255, 255, 0.88) 0%, rgba(255, 246, 232, 0.58) 48%, rgba(255, 236, 214, 0.72) 100%) padding-box,
@@ -4692,8 +4691,8 @@ button.chat-rp-fair-link {
 .chat-community-glass-panel {
   flex: 1;
   min-height: 0;
-  border-radius: 22px;
-  padding: 14px 12px;
+  border-radius: 18px;
+  padding: 10px 8px;
   border: 1.5px solid transparent;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.82) 0%, rgba(255, 248, 238, 0.66) 100%) padding-box,
@@ -4711,7 +4710,7 @@ button.chat-rp-fair-link {
 .chat-friend-feed-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
 }
 
 /* 我的群组：左人数，右头像+名称 */
@@ -4720,13 +4719,13 @@ button.chat-rp-fair-link {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   border: 1.5px solid transparent;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 246, 232, 0.82) 100%) padding-box,
     var(--cg-border-grad) border-box;
-  border-radius: 18px;
-  padding: 10px 12px;
+  border-radius: 14px;
+  padding: 7px 10px;
   cursor: pointer;
   box-shadow:
     0 8px 16px rgba(170, 120, 60, 0.12),
@@ -4770,15 +4769,15 @@ button.chat-rp-fair-link {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
   flex: 1;
 }
 
 .chat-my-group-avatar {
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
   object-fit: cover;
   flex-shrink: 0;
   background: #fff;
@@ -4799,7 +4798,7 @@ button.chat-rp-fair-link {
 }
 
 .chat-my-group-create {
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 
 .chat-my-group-avatar-plus {
@@ -4869,10 +4868,10 @@ button.chat-rp-fair-link {
 .chat-feed-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
-  padding: 10px 12px;
-  border-radius: 16px;
+  padding: 7px 10px;
+  border-radius: 14px;
   border: 1.5px solid transparent;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(255, 250, 242, 0.78) 100%) padding-box,
@@ -4898,8 +4897,8 @@ button.chat-rp-fair-link {
 }
 
 .chat-feed-avatar {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   overflow: hidden;
   flex-shrink: 0;
@@ -5933,8 +5932,7 @@ body.tab-messages {
   box-shadow: none !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-  padding: 13px 14px !important;
-  padding-right: 28px !important;
+  padding: 10px 20px 10px 10px !important;
   box-sizing: border-box;
 }
 
