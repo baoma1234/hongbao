@@ -65,7 +65,7 @@
               <view class="chat-msg-avatar locked">
                 <image :src="msgAvatar(m)" mode="aspectFill" />
               </view>
-              <view class="chat-msg-main">
+              <view class="chat-msg-main" :class="{ 'has-niuniu': isNiuniu(m) }">
                 <view v-if="showSender(m)" class="chat-msg-nick locked">{{ senderName(m) }}</view>
 
                 <!-- 红宝：对齐 888 bubble-rp 结构 -->
@@ -121,7 +121,7 @@
                       <text class="nn-pool">¥ {{ niuniuPoolText(m) }}</text>
                       <text class="nn-entry">入场:{{ niuniuSharePrice(m) }}/包</text>
                       <text class="nn-buyers">{{ niuniuBuyersStatus(m) }}</text>
-                      <text v-if="niuniuRoundId(m) > 0" class="nn-buyers nn-round-id">#{{ niuniuRoundId(m) }}</text>
+                      <text v-if="niuniuRoundId(m) > 0" class="nn-buyers nn-round-id">{{ niuniuRoundIdLine(m) }}</text>
                     </view>
                     <view class="nn-right">
                       <view
@@ -517,6 +517,17 @@
 
     <GrabSlider ref="grabSliderRef" />
 
+    <!-- 牛牛领取：弹出红宝封面，开启后再看开奖明细 -->
+    <view v-if="showNiuniuCover" class="nn-cover-mask" @click="closeNiuniuCover">
+      <view class="nn-cover-card" @click.stop>
+        <text class="nn-cover-title">尾数牛牛红宝</text>
+        <text class="nn-cover-sub">开启后查看本局尾数与开奖明细</text>
+        <view class="nn-cover-open" :class="{ busy: niuniuBusy }" @click="confirmNiuniuCoverOpen">
+          {{ niuniuBusy ? '…' : '開' }}
+        </view>
+      </view>
+    </view>
+
     <!-- 牛牛开奖明细：按人分组（我 / 他人）+ 头像昵称 -->
     <view v-if="showNiuniuDetail" class="chat-sub-pane open" aria-hidden="false">
       <view class="chat-hero-hd">
@@ -531,6 +542,12 @@
       <view class="chat-sub-main nn-detail-main">
         <view class="nn-detail-summary" v-if="niuniuDetailRound">
           <text>奖池 {{ niuniuDetailPoolText }}</text>
+          <text v-if="niuniuDetailFeeText">{{ niuniuDetailFeeText }}</text>
+          <text
+            v-if="niuniuDetailRound.drand_label || niuniuDetailRound.drand_url"
+            class="nn-detail-verify"
+            @click.stop="openNiuniuVerify"
+          >校验 {{ niuniuDetailRound.drand_label || ('drand-#' + (niuniuDetailRound.drand_round || '')) }} ›</text>
         </view>
         <scroll-view scroll-y class="nn-detail-scroll" :show-scrollbar="true">
           <view
@@ -548,7 +565,10 @@
               :key="row.id || (g.user_id + '-' + row.share_no)"
               class="nn-user-row"
             >
-              <text class="nn-user-line">{{ idx + 1 }}. {{ formatNiuniuResultLine(row) }}</text>
+              <view class="nn-user-line-wrap">
+                <text class="nn-user-line">{{ idx + 1 }}. {{ formatNiuniuResultLine(row) }}</text>
+                <text v-if="row.claimed_at" class="nn-user-time">领取 {{ formatRpTime(row.claimed_at) }}</text>
+              </view>
               <text class="nn-user-win" :class="{ win: Number(row.win_amount) > 0 }">{{ formatNiuniuWin(row.win_amount) }}</text>
             </view>
           </view>
@@ -756,6 +776,8 @@ const niuniuBusy = ref(false)
 const niuniuSheet = ref(null)
 const niuniuBuyCount = ref('1')
 const showNiuniuDetail = ref(false)
+const showNiuniuCover = ref(false)
+const niuniuCoverRoundId = ref(0)
 const niuniuDetailRound = ref(null)
 const niuniuDetailGroups = ref([])
 const niuniuDetailPoolText = computed(() => {
@@ -763,6 +785,14 @@ const niuniuDetailPoolText = computed(() => {
   if (!r) return '0'
   const n = Number(r.distributable != null ? r.distributable : r.pool_amount)
   return (isNaN(n) ? 0 : n).toFixed(2)
+})
+const niuniuDetailFeeText = computed(() => {
+  const r = niuniuDetailRound.value
+  if (!r) return ''
+  const rate = Number(r.fee_rate)
+  if (isNaN(rate) || rate <= 0) return ''
+  const pct = Math.round(rate * 1000) / 10
+  return '官方手续费' + pct + '%'
 })
 /** 驱动牛牛倒计时每秒重绘（模板依赖 Date.now 不会自动刷新） */
 const niuniuNowTick = ref(0)
@@ -1640,7 +1670,23 @@ function niuniuBuyersStatus(m) {
   if (phase === 'result') return '开奖完成｜可发 ' + (r.distributable || 0)
   return '当前' + shares + '份已买入'
 }
+function niuniuRoundIdLine(m) {
+  const rid = niuniuRoundId(m)
+  if (!(rid > 0)) return ''
+  const r = niuniuRound(m)
+  const rate = Number(r.fee_rate)
+  const pct = !isNaN(rate) && rate > 0 ? Math.round(rate * 1000) / 10 : 3
+  return '#' + rid + '|官方手续费' + pct + '%'
+}
+function niuniuNeedsClaim(m) {
+  const phase = niuniuPhase(m)
+  if (phase !== 'claim' && phase !== 'result') return false
+  const r = niuniuRound(m)
+  if ((r.my_share_count | 0) <= 0) return false
+  return !r.my_claimed
+}
 function niuniuBtnSrc(m) {
+  if (niuniuNeedsClaim(m)) return '/static/niuniu/claim-hongbao.png'
   const phase = niuniuPhase(m)
   if (phase === 'buying') return '/static/niuniu/btn-buy.png'
   if (phase === 'claim') return '/static/niuniu/btn-claim.png'
@@ -2940,21 +2986,29 @@ async function onNiuniuTap(m) {
     showNiuniu.value = true
     return
   }
-  if (phase === 'claim') {
+  // 本人已购入且未领：弹红宝封面；开启后再看开奖明细
+  if (niuniuNeedsClaim(m)) {
+    openNiuniuCover(rid)
+    return
+  }
+  if (phase === 'claim' || phase === 'result') {
     niuniuBusy.value = true
     try {
-      const res = await niuniuClaim(rid)
+      const res = await niuniuDetail(rid)
       const data = (res && res.data) || res || {}
-      const shares = data.shares || []
-      let tip = '已领取'
-      if (shares.length) {
-        tip = shares
-          .map((s) => '#' + s.share_no + ' 尾数' + (s.tail_digits || '--') + ' ' + (s.niu_label || ''))
-          .join('；')
+      const mine = data.mine || []
+      const needClaim = mine.length > 0 && mine.some((s) => !s.claimed)
+      if (needClaim) {
+        markNiuniuShareLocal(rid, data.round || null, false)
+        openNiuniuCover(rid)
+        return
       }
-      uni.showModal({ title: '本局尾数（仅比对，不入账）', content: tip, showCancel: false })
+      if (mine.length) {
+        markNiuniuShareLocal(rid, data.round || null, true)
+      }
+      openNiuniuDetail(data)
     } catch (e) {
-      uni.showToast({ title: (e && e.message) || '领取失败', icon: 'none' })
+      uni.showToast({ title: (e && e.message) || '加载失败', icon: 'none' })
     } finally {
       niuniuBusy.value = false
     }
@@ -2967,6 +3021,77 @@ async function onNiuniuTap(m) {
   } catch (e) {
     uni.showToast({ title: (e && e.message) || '加载失败', icon: 'none' })
   }
+}
+
+function openNiuniuCover(rid) {
+  niuniuCoverRoundId.value = rid | 0
+  showNiuniuCover.value = true
+}
+function closeNiuniuCover() {
+  if (niuniuBusy.value) return
+  showNiuniuCover.value = false
+  niuniuCoverRoundId.value = 0
+}
+async function confirmNiuniuCoverOpen() {
+  if (niuniuBusy.value) return
+  const rid = niuniuCoverRoundId.value | 0
+  if (!rid) return
+  niuniuBusy.value = true
+  try {
+    const res = await niuniuClaim(rid)
+    const data = (res && res.data) || res || {}
+    markNiuniuClaimedLocal(rid, data.round || null)
+    showNiuniuCover.value = false
+    niuniuCoverRoundId.value = 0
+    // 开启后拉全量明细
+    try {
+      const dres = await niuniuDetail(rid)
+      openNiuniuDetail((dres && dres.data) || dres || data || {})
+    } catch (e2) {
+      openNiuniuDetail(data)
+    }
+  } catch (e) {
+    const msg = (e && e.message) || '领取失败'
+    // 未参与者：直接看明细
+    if (/未参与|没有购入|未购入/.test(msg)) {
+      showNiuniuCover.value = false
+      niuniuCoverRoundId.value = 0
+      try {
+        const dres = await niuniuDetail(rid)
+        openNiuniuDetail((dres && dres.data) || dres || {})
+      } catch (e2) {
+        uni.showToast({ title: msg, icon: 'none' })
+      }
+    } else {
+      uni.showToast({ title: msg, icon: 'none' })
+    }
+  } finally {
+    niuniuBusy.value = false
+  }
+}
+function markNiuniuClaimedLocal(rid, roundPatch) {
+  markNiuniuShareLocal(rid, roundPatch, true)
+}
+function markNiuniuShareLocal(rid, roundPatch, claimed) {
+  rid = rid | 0
+  if (!rid) return
+  const rows = messages.value || []
+  for (let i = 0; i < rows.length; i++) {
+    const m = rows[i]
+    if (!isNiuniu(m)) continue
+    const ex = msgExtra(m)
+    const id = (ex.round_id | 0) || ((ex.round && ex.round.id) | 0) || 0
+    if (id !== rid) continue
+    const prevCount = ((ex.round && ex.round.my_share_count) | 0) || ((roundPatch && roundPatch.my_share_count) | 0) || 0
+    const nextRound = Object.assign({}, ex.round || {}, roundPatch || {}, {
+      my_claimed: !!claimed,
+      my_share_count: Math.max(1, prevCount || 1),
+    })
+    const nextEx = Object.assign({}, ex, { round: nextRound, round_id: rid })
+    const next = Object.assign({}, m, { extra: nextEx })
+    rows.splice(i, 1, next)
+  }
+  messages.value = rows.slice()
 }
 
 function formatNiuniuWin(v) {
@@ -2983,7 +3108,10 @@ function formatNiuniuResultLine(row) {
 
 function openNiuniuDetail(data) {
   const uid = (myUserId.value | 0) || (myId | 0)
-  const shares = (data && data.shares) || []
+  const shares =
+    data && data.shares && data.shares.length
+      ? data.shares
+      : (data && data.mine) || []
   const map = new Map()
   shares.forEach((s) => {
     const id = (s.user_id | 0) || 0
@@ -2994,15 +3122,29 @@ function openNiuniuDetail(data) {
         avatar: s.avatar || '',
         is_mine: id > 0 && id === uid,
         rows: [],
+        _claimAt: 0,
       })
     }
-    map.get(id).rows.push(Object.assign({}, s))
+    const g = map.get(id)
+    g.rows.push(Object.assign({}, s))
+    const ca = (s.claimed_at | 0) || 0
+    if (ca > 0 && (g._claimAt === 0 || ca < g._claimAt)) g._claimAt = ca
   })
-  const byNo = (a, b) => ((a.share_no | 0) - (b.share_no | 0)) || ((a.id | 0) - (b.id | 0))
+  const byClaim = (a, b) => {
+    const ac = (a.claimed_at | 0) || 0
+    const bc = (b.claimed_at | 0) || 0
+    if (ac > 0 && bc > 0 && ac !== bc) return ac - bc
+    if (ac > 0 !== bc > 0) return ac > 0 ? -1 : 1
+    return ((a.share_no | 0) - (b.share_no | 0)) || ((a.id | 0) - (b.id | 0))
+  }
   const groups = Array.from(map.values())
-  groups.forEach((g) => g.rows.sort(byNo))
+  groups.forEach((g) => g.rows.sort(byClaim))
   groups.sort((a, b) => {
     if (a.is_mine !== b.is_mine) return a.is_mine ? -1 : 1
+    const ac = a._claimAt | 0
+    const bc = b._claimAt | 0
+    if (ac > 0 && bc > 0 && ac !== bc) return ac - bc
+    if (ac > 0 !== bc > 0) return ac > 0 ? -1 : 1
     const an = (a.rows[0] && a.rows[0].share_no) | 0
     const bn = (b.rows[0] && b.rows[0].share_no) | 0
     return an - bn
@@ -3014,6 +3156,40 @@ function openNiuniuDetail(data) {
 
 function closeNiuniuDetail() {
   showNiuniuDetail.value = false
+}
+
+function openNiuniuVerify() {
+  const r = niuniuDetailRound.value || {}
+  const href = String(r.drand_url || '').trim()
+  const label = r.drand_label || ('drand-#' + (r.drand_round || ''))
+  const rand = String(r.drand_randomness || '').trim()
+  const tip =
+    '本局校验轮次：' +
+    label +
+    (rand ? '\nrandomness：' + rand.slice(0, 24) + (rand.length > 24 ? '…' : '') : '') +
+    '\n尾数由 drand randomness + 份号 SHA256 派生（00-99）。'
+  // #ifdef H5
+  if (href && typeof window !== 'undefined') {
+    try {
+      window.open(href, '_blank')
+    } catch (e) {}
+  }
+  // #endif
+  uni.showModal({
+    title: '尾数校验说明',
+    content: tip + (href ? '\n\n已尝试打开官方 drand 页面。' : ''),
+    showCancel: !!href,
+    cancelText: '关闭',
+    confirmText: href ? '复制链接' : '知道了',
+    success: (res) => {
+      if (res.confirm && href) {
+        uni.setClipboardData({
+          data: href,
+          success: () => uni.showToast({ title: '已复制校验链接', icon: 'none' }),
+        })
+      }
+    },
+  })
 }
 
 async function submitNiuniuBuy() {
@@ -3031,7 +3207,14 @@ async function submitNiuniuBuy() {
     if (data.round) {
       applyNiuniuUpdateLocal({
         group_id: meta.value.group | 0,
-        extra: { phase: 'buying', round_id: rid, round: data.round },
+        extra: {
+          phase: 'buying',
+          round_id: rid,
+          round: Object.assign({}, data.round, {
+            my_share_count: Math.max(1, (data.round.my_share_count | 0) || count),
+            my_claimed: false,
+          }),
+        },
       })
     }
     await refreshWallet()
@@ -3729,11 +3912,11 @@ function closeRpDetail() {
   height: 100%;
 }
 .chat-niuniu-card {
-  /* 必须用视口宽度，勿用 100%：父级 chat-msg-main 为 flex 收缩时百分比会塌成 0 */
+  /* 宽度跟气泡列走，避免 100vw 撑出横向滚动 */
   position: relative;
-  width: min(78vw, 340px);
-  max-width: calc(100vw - 96px);
-  min-width: 240px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   aspect-ratio: 1024 / 575;
   border-radius: 12px;
   overflow: hidden;
@@ -3902,8 +4085,8 @@ function closeRpDetail() {
 }
 @media (max-width: 414px) {
   .chat-niuniu-card {
-    width: min(82vw, 320px);
-    min-width: 220px;
+    width: 100%;
+    max-width: 100%;
   }
 }
 .nn-sheet-tip {
@@ -3970,12 +4153,19 @@ function closeRpDetail() {
 }
 .nn-user-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
   padding: 5px 2px 5px 42px;
   font-size: 13px;
   color: #444;
+}
+.nn-user-line-wrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 .nn-user-line {
   flex: 1;
@@ -3983,6 +4173,69 @@ function closeRpDetail() {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.nn-user-time {
+  font-size: 11px;
+  color: #999;
+  font-weight: 500;
+}
+.nn-detail-verify {
+  color: #1565c0;
+  font-weight: 700;
+}
+.nn-cover-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 16000;
+  background: rgba(0, 0, 0, 0.62);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
+}
+.nn-cover-card {
+  width: min(78vw, 280px);
+  aspect-ratio: 3 / 4.2;
+  border-radius: 16px;
+  background: linear-gradient(165deg, #e53935 0%, #b71c1c 55%, #7f1010 100%);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 28px 18px 22px;
+  box-sizing: border-box;
+  color: #ffe082;
+}
+.nn-cover-title {
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+.nn-cover-sub {
+  margin-top: 10px;
+  font-size: 12px;
+  color: rgba(255, 236, 200, 0.88);
+  text-align: center;
+  line-height: 1.4;
+}
+.nn-cover-open {
+  margin-top: auto;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffe082, #f0c14b 55%, #c9a227);
+  color: #8a2a00;
+  font-size: 28px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
+}
+.nn-cover-open.busy {
+  opacity: 0.7;
 }
 .nn-user-win {
   flex-shrink: 0;

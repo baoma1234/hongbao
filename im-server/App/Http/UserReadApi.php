@@ -7,6 +7,7 @@ use Im\Service\AuthService;
 use Im\Service\ContactService;
 use Im\Service\GroupService;
 use Im\Service\MessageService;
+use Im\Service\NiuniuService;
 use Im\Service\RedPacketService;
 use Im\Support\IdGenerator;
 use Im\Support\RedisClient;
@@ -26,6 +27,8 @@ class UserReadApi
     protected $groups;
     /** @var RedPacketService */
     protected $redPackets;
+    /** @var NiuniuService */
+    protected $niuniu;
     /** @var ContactService */
     protected $contacts;
 
@@ -36,6 +39,7 @@ class UserReadApi
         $this->messages = new MessageService();
         $this->groups = new GroupService();
         $this->redPackets = new RedPacketService($cfg, $this->messages, $this->groups);
+        $this->niuniu = new NiuniuService($cfg, $this->messages, $this->groups);
         $this->contacts = new ContactService();
     }
 
@@ -155,6 +159,7 @@ class UserReadApi
             $userId
         );
         $list = $this->redPackets->enrichMessageExtras($list, $userId);
+        $list = $this->niuniu->enrichMessageExtras($list, $userId);
         $list = $this->messages->enrichMessagesWithSenders($list);
         $data = ['list' => $list];
         if ($ctype === 2 && $gid > 0) {

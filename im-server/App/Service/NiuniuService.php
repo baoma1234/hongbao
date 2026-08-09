@@ -462,7 +462,10 @@ class NiuniuService
         }
         $userId = (int)$userId;
         $shares = Db::fetchAll(
-            'SELECT * FROM ' . Db::table('chat_niuniu_shares') . ' WHERE round_id=? ORDER BY share_no ASC',
+            'SELECT * FROM ' . Db::table('chat_niuniu_shares')
+            . ' WHERE round_id=? ORDER BY'
+            . ' CASE WHEN claimed_at IS NULL OR claimed_at=0 THEN 1 ELSE 0 END ASC,'
+            . ' claimed_at ASC, share_no ASC',
             [(int)$roundId]
         );
         $mine = [];
@@ -957,12 +960,15 @@ class NiuniuService
         $remainBuy = max(0, (int)$round['buy_end_at'] - $now);
         $remainClaim = max(0, (int)$round['claim_end_at'] - $now);
         $myCount = 0;
+        $myClaimed = false;
         if ($userId > 0) {
             $row = Db::fetch(
-                'SELECT COUNT(*) AS c FROM ' . Db::table('chat_niuniu_shares') . ' WHERE round_id=? AND user_id=?',
+                'SELECT COUNT(*) AS c, SUM(CASE WHEN claimed=1 THEN 1 ELSE 0 END) AS claimed_c'
+                . ' FROM ' . Db::table('chat_niuniu_shares') . ' WHERE round_id=? AND user_id=?',
                 [(int)$round['id'], (int)$userId]
             );
             $myCount = (int)($row['c'] ?? 0);
+            $myClaimed = $myCount > 0 && (int)($row['claimed_c'] ?? 0) >= $myCount;
         }
         $out = [
             'id'              => (int)$round['id'],
@@ -987,6 +993,7 @@ class NiuniuService
             'drand_label'     => 'drand-#' . (int)$round['drand_round'],
             'drand_url'       => (string)$round['drand_url'],
             'my_share_count'  => $myCount,
+            'my_claimed'      => $myClaimed,
             'settle_case'     => (int)$round['settle_case'],
             'niuniu_pool'     => round((float)$round['niuniu_pool'], 2),
             'secondary_pool'  => round((float)$round['secondary_pool'], 2),
@@ -1001,9 +1008,12 @@ class NiuniuService
                 : ($status === self::STATUS_REFUND ? 'refund' : 'result'))),
             'desc'            => $this->groupDesc((int)$round['group_id']),
         ];
-        // 购入阶段不暴露 randomness / 尾数
+        // 购入阶段不暴露 randomness / 尾数；结算后公开便于校验
         if ($status >= self::STATUS_CLAIMING) {
             $out['has_randomness'] = (string)$round['drand_randomness'] !== '';
+        }
+        if ($status >= self::STATUS_SETTLED) {
+            $out['drand_randomness'] = (string)($round['drand_randomness'] ?? '');
         }
         return $out;
     }
@@ -1016,6 +1026,7 @@ class NiuniuService
             'user_id'    => (int)$s['user_id'],
             'amount'     => round((float)$s['amount'], 2),
             'claimed'    => (int)$s['claimed'] === 1,
+            'claimed_at' => (int)($s['claimed_at'] ?? 0),
             'win_amount' => round((float)$s['win_amount'], 4),
         ];
         if ($reveal && $s['tail_digits'] !== null && $s['tail_digits'] !== '') {
@@ -1357,5 +1368,88 @@ class NiuniuService
             }
         }
         return $out;
+    }
+
+    /**
+     * 历史消息补齐牛牛「我是否购入/已领」字段（广播卡片本身无用户态）
+     */
+    public function enrichMessageExtras(array $messages, $userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0 || !$messages) {
+            return $messages;
+        }
+        $roundIds = [];
+        $indexMap = [];
+        foreach ($messages as $i => $m) {
+            $ex = $m['extra'] ?? null;
+            if (is_string($ex) && $ex !== '') {
+                $ex = json_decode($ex, true);
+            }
+            if (!is_array($ex)) {
+                continue;
+            }
+            $isNn = ((int)($m['msg_type'] ?? 0) === self::MSG_TYPE) || !empty($ex['niuniu']);
+            if (!$isNn) {
+                continue;
+            }
+            $rid = (int)($ex['round_id'] ?? 0);
+            if ($rid <= 0 && !empty($ex['round']['id'])) {
+                $rid = (int)$ex['round']['id'];
+            }
+            if ($rid <= 0) {
+                continue;
+            }
+            $roundIds[$rid] = true;
+            $indexMap[$i] = $rid;
+        }
+        if (!$roundIds) {
+            return $messages;
+        }
+        $ids = array_keys($roundIds);
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $params = array_merge($ids, [$userId]);
+        $rows = [];
+        try {
+            $rows = Db::fetchAll(
+                'SELECT round_id,'
+                . ' COUNT(*) AS c,'
+                . ' SUM(CASE WHEN claimed=1 THEN 1 ELSE 0 END) AS claimed_c'
+                . ' FROM ' . Db::table('chat_niuniu_shares')
+                . ' WHERE round_id IN (' . $placeholders . ') AND user_id=?'
+                . ' GROUP BY round_id',
+                $params
+            );
+        } catch (\Throwable $e) {
+            return $messages;
+        }
+        $byRound = [];
+        foreach ($rows as $r) {
+            $rid = (int)$r['round_id'];
+            $c = (int)($r['c'] ?? 0);
+            $cc = (int)($r['claimed_c'] ?? 0);
+            $byRound[$rid] = [
+                'my_share_count' => $c,
+                'my_claimed'     => $c > 0 && $cc >= $c,
+            ];
+        }
+        foreach ($indexMap as $i => $rid) {
+            $ex = $messages[$i]['extra'] ?? null;
+            if (is_string($ex) && $ex !== '') {
+                $ex = json_decode($ex, true);
+            }
+            if (!is_array($ex)) {
+                $ex = [];
+            }
+            if (empty($ex['round']) || !is_array($ex['round'])) {
+                $ex['round'] = [];
+            }
+            $info = $byRound[$rid] ?? ['my_share_count' => 0, 'my_claimed' => false];
+            $ex['round']['my_share_count'] = $info['my_share_count'];
+            $ex['round']['my_claimed'] = $info['my_claimed'];
+            $ex['round_id'] = $rid;
+            $messages[$i]['extra'] = $ex;
+        }
+        return $messages;
     }
 }

@@ -640,6 +640,7 @@ class MessageRouter
         }
         $list = $this->messages->history($ctype, $cid, (int)($payload['before_id'] ?? 0), (int)($payload['limit'] ?? 30), (int)$uid);
         $list = $this->redPackets->enrichMessageExtras($list, (int)$uid);
+        $list = $this->niuniu->enrichMessageExtras($list, (int)$uid);
         $list = $this->messages->enrichMessagesWithSenders($list);
         $data = ['list' => $list];
         // 群聊首屏附带 group.info，省去客户端二次请求

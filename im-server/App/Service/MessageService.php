@@ -2083,7 +2083,7 @@ class MessageService
                     'drand_round', 'drand_label', 'drand_url', 'card_phase', 'settle_case',
                     'niuniu_pool', 'secondary_pool', 'niuniu_per_share', 'secondary_per_share',
                     'niuniu_share_count', 'secondary_share_count', 'low_share_count', 'desc',
-                    'my_share_count',
+                    'my_share_count', 'my_claimed',
                 ];
                 $round = [];
                 foreach ($keep as $k) {

@@ -33,7 +33,7 @@
   position: fixed !important;
   left: 0 !important;
   right: 0 !important;
-  top: var(--top-bar-height, 48px) !important;
+  top: calc(var(--top-bar-height, 48px) + env(safe-area-inset-top, 0px)) !important;
   bottom: 0 !important;
   width: 100% !important;
   max-width: none !important;
@@ -469,7 +469,7 @@
   background: #f3f4f6;
   display: flex;
   flex-direction: column;
-  padding-top: var(--top-bar-height, 48px);
+  padding-top: calc(var(--top-bar-height, 48px) + env(safe-area-inset-top, 0px));
   box-sizing: border-box;
   width: 100%;
   max-width: 100%;
@@ -574,7 +574,7 @@
 /* invite overlay as full pane under TopBar */
 .chat-group-invite-overlay {
   position: fixed;
-  top: var(--top-bar-height, 48px);
+  top: calc(var(--top-bar-height, 48px) + env(safe-area-inset-top, 0px));
   left: 0;
   right: 0;
   bottom: 0;

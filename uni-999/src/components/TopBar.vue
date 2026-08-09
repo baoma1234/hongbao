@@ -131,11 +131,13 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   z-index: 14000;
-  height: var(--top-bar-height, 48px);
+  height: calc(var(--top-bar-height, 48px) + env(safe-area-inset-top, 0px));
+  padding-top: env(safe-area-inset-top, 0px);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 12px;
+  padding-left: 12px;
+  padding-right: 12px;
   box-sizing: border-box;
   background: color-mix(in srgb, var(--bg-card, #fff) 94%, transparent);
   border-bottom: 1px solid color-mix(in srgb, var(--text-muted, #657786) 18%, transparent);
@@ -150,7 +152,7 @@ onUnmounted(() => {
   background: transparent;
 }
 .top-bar-spacer {
-  height: var(--top-bar-height, 48px);
+  height: calc(var(--top-bar-height, 48px) + env(safe-area-inset-top, 0px));
   width: 100%;
   flex-shrink: 0;
 }
