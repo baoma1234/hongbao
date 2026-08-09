@@ -443,8 +443,9 @@ class NiuniuService
      * 手动领取：展示该用户本局全部份的尾数（不入账）
      */
     /**
-     * 领取一包（一份）。可传 share_id 指定；否则取该用户下一份未领。
-     * 点一次开一次；全部领完后客户端再拉开奖明细。
+     * 领取红宝。
+     * - 普通模式：一次领一包（可传 share_id）；全部领完后客户端再进明细
+     * - 单结果：无论多少包，一次领完该用户全部未领份额
      */
     public function claim($userId, $roundId, $shareId = 0)
     {
@@ -471,6 +472,49 @@ class NiuniuService
             throw new \RuntimeException('你未参与本局');
         }
 
+        $mode = $this->normalizeMode($round['game_mode'] ?? self::MODE_NORMAL);
+        $now = time();
+
+        // 单结果：一次领完该用户全部未领包
+        if ($mode === self::MODE_SINGLE) {
+            $pending = Db::fetchAll(
+                'SELECT * FROM ' . Db::table('chat_niuniu_shares')
+                . ' WHERE round_id=? AND user_id=? AND claimed=0 ORDER BY share_no ASC, id ASC',
+                [$roundId, $userId]
+            );
+            if (!$pending) {
+                throw new \RuntimeException('你已领完本局红宝');
+            }
+            Db::exec(
+                'UPDATE ' . Db::table('chat_niuniu_shares')
+                . ' SET claimed=1, claimed_at=?, updatetime=? WHERE round_id=? AND user_id=? AND claimed=0',
+                [$now, $now, $roundId, $userId]
+            );
+            $all = Db::fetchAll(
+                'SELECT * FROM ' . Db::table('chat_niuniu_shares')
+                . ' WHERE round_id=? AND user_id=? ORDER BY share_no ASC, id ASC',
+                [$roundId, $userId]
+            );
+            $first = $this->publicShare($all[0], true);
+            $first['share_count'] = count($all);
+            $winSum = 0.0;
+            foreach ($all as $s) {
+                $winSum += (float)$s['win_amount'];
+            }
+            $first['win_amount'] = round($winSum, 4);
+            $first['claimed'] = true;
+            $first['claimed_at'] = $now;
+            return [
+                'round'            => $this->publicRound($round, $userId),
+                'share'            => $first,
+                'shares'           => [$first],
+                'remain_unclaimed' => 0,
+                'done'             => true,
+                'note'             => '单结果玩法：无论购入多少包，只开一次；明细按人合并展示',
+            ];
+        }
+
+        // 普通：一次一包
         if ($shareId > 0) {
             $share = Db::fetch(
                 'SELECT * FROM ' . Db::table('chat_niuniu_shares')
@@ -494,7 +538,6 @@ class NiuniuService
             }
         }
 
-        $now = time();
         $affected = Db::exec(
             'UPDATE ' . Db::table('chat_niuniu_shares')
             . ' SET claimed=1, claimed_at=?, updatetime=? WHERE id=? AND claimed=0',
@@ -512,12 +555,8 @@ class NiuniuService
             [$roundId, $userId]
         );
         $remain = (int)($left['c'] ?? 0);
-        $mode = $this->normalizeMode($round['game_mode'] ?? self::MODE_NORMAL);
         $row = $this->publicShare($share, true);
         $row['share_count'] = 1;
-        $note = $mode === self::MODE_SINGLE
-            ? '单结果玩法：每包开启一次；明细按人合并展示'
-            : '红包仅用于比对尾数牛数，红包金额不会入账';
 
         return [
             'round'            => $this->publicRound($round, $userId),
@@ -525,7 +564,7 @@ class NiuniuService
             'shares'           => [$row],
             'remain_unclaimed' => $remain,
             'done'             => $remain <= 0,
-            'note'             => $note,
+            'note'             => '红包仅用于比对尾数牛数，红包金额不会入账',
         ];
     }
 

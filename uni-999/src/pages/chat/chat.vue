@@ -531,8 +531,8 @@
     <!-- 单包开启结果：点一次开一包；还剩包则继续开，开完再进明细 -->
     <view v-if="showNiuniuPackResult" class="nn-pack-result-mask" @click="dismissNiuniuPackResult">
       <view class="nn-pack-result-card" @click.stop>
-        <text class="nn-pack-result-title">本包结果</text>
-        <text class="nn-pack-result-line">{{ formatNiuniuResultLine(niuniuPackResult) }}</text>
+        <text class="nn-pack-result-title">{{ (niuniuPackResult && (niuniuPackResult.share_count|0) > 1) ? '本局结果' : '本包结果' }}</text>
+        <text class="nn-pack-result-line">{{ formatNiuniuPackResultLine(niuniuPackResult) }}</text>
         <text
           class="nn-pack-result-win"
           :class="{ win: Number(niuniuPackResult && niuniuPackResult.win_amount) > 0 }"
@@ -786,6 +786,7 @@ const showNiuniuDetail = ref(false)
 const showNiuniuCover = ref(false)
 const niuniuCoverRoundId = ref(0)
 const niuniuCoverRemain = ref(0)
+const niuniuCoverGameMode = ref(0)
 const showNiuniuPackResult = ref(false)
 const niuniuPackResult = ref(null)
 const niuniuPackRemain = ref(0)
@@ -799,6 +800,9 @@ const niuniuDetailPoolText = computed(() => {
   return (isNaN(n) ? 0 : n).toFixed(2)
 })
 const niuniuCoverSubText = computed(() => {
+  if ((niuniuCoverGameMode.value | 0) === 2) {
+    return '单结果：无论购入多少包，开启一次即可查看结果'
+  }
   const n = niuniuCoverRemain.value | 0
   if (n > 1) return '点一次开一包，还剩 ' + n + ' 包'
   if (n === 1) return '最后一包，开启后查看开奖明细'
@@ -3002,12 +3006,15 @@ async function onNiuniuTap(m) {
   // 本人已购入且未领：弹红宝封面；开启后再看开奖明细
   if (niuniuNeedsClaim(m)) {
     const r = niuniuRound(m)
-    const remain =
+    const mode = (r.game_mode | 0) || 0
+    let remain =
       (r.my_unclaimed_count | 0) ||
       Math.max(0, ((r.my_share_count | 0) || 0) - (r.my_claimed ? (r.my_share_count | 0) : 0)) ||
       (r.my_share_count | 0) ||
       1
-    openNiuniuCover(rid, remain)
+    // 单结果：逻辑上只需开一次
+    if (mode === 2 && remain > 0) remain = 1
+    openNiuniuCover(rid, remain, mode)
     return
   }
   if (phase === 'claim' || phase === 'result') {
@@ -3017,10 +3024,11 @@ async function onNiuniuTap(m) {
       const data = (res && res.data) || res || {}
       const mine = data.mine || []
       const needClaim = mine.length > 0 && mine.some((s) => !s.claimed)
+      const mode = ((data.round && data.round.game_mode) | 0) || 0
       if (needClaim) {
-        const remain = mine.filter((s) => !s.claimed).length
-        markNiuniuShareLocal(rid, data.round || null, false, remain)
-        openNiuniuCover(rid, remain)
+        const remainPacks = mine.filter((s) => !s.claimed).length
+        markNiuniuShareLocal(rid, data.round || null, false, remainPacks)
+        openNiuniuCover(rid, mode === 2 ? 1 : remainPacks, mode)
         return
       }
       if (mine.length) {
@@ -3043,10 +3051,11 @@ async function onNiuniuTap(m) {
   }
 }
 
-function openNiuniuCover(rid, remainHint) {
+function openNiuniuCover(rid, remainHint, gameMode) {
   niuniuCoverRoundId.value = rid | 0
   const hint = remainHint | 0
   if (hint > 0) niuniuCoverRemain.value = hint
+  if (gameMode != null) niuniuCoverGameMode.value = gameMode | 0
   showNiuniuCover.value = true
 }
 function closeNiuniuCover() {
@@ -3056,6 +3065,9 @@ function closeNiuniuCover() {
 }
 function parseNiuniuClaimRemain(data) {
   if (!data || typeof data !== 'object') return 0
+  const mode = ((data.round && data.round.game_mode) | 0) || 0
+  // 单结果服务端一次领完
+  if (mode === 2 || data.done === true) return 0
   if (data.remain_unclaimed != null) return Math.max(0, data.remain_unclaimed | 0)
   const r = data.round || {}
   if (r.my_unclaimed_count != null) return Math.max(0, r.my_unclaimed_count | 0)
@@ -3066,8 +3078,10 @@ async function claimOneNiuniuPack(rid) {
   if (!rid) return null
   const res = await niuniuClaim(rid)
   const data = (res && res.data) || res || {}
+  const mode = ((data.round && data.round.game_mode) | 0) || (niuniuCoverGameMode.value | 0) || 0
+  if (mode) niuniuCoverGameMode.value = mode
   const remain = parseNiuniuClaimRemain(data)
-  const done = data.done === true || remain <= 0
+  const done = data.done === true || remain <= 0 || mode === 2
   const share = data.share || (data.shares && data.shares[0]) || null
   // 兼容旧 IM：一次领完全部（返回多份且无 remain）→ 当作已开完
   if (
@@ -3079,7 +3093,7 @@ async function claimOneNiuniuPack(rid) {
     return { data, share: data.shares[0], remain: 0, done: true }
   }
   markNiuniuShareLocal(rid, data.round || null, done, remain)
-  return { data, share, remain, done }
+  return { data, share, remain: done ? 0 : remain, done }
 }
 function showNiuniuPackResultUi(rid, share, remain) {
   niuniuPackResult.value = share
@@ -3126,7 +3140,7 @@ async function dismissNiuniuPackResult() {
   showNiuniuPackResult.value = false
   niuniuPackResult.value = null
   if (remain > 0 && rid) {
-    openNiuniuCover(rid, remain)
+    openNiuniuCover(rid, remain, niuniuCoverGameMode.value)
     return
   }
   await openNiuniuDetailAfterClaim(rid)
@@ -3219,6 +3233,13 @@ function formatNiuniuResultLine(row) {
   const tail = row.tail_digits != null && row.tail_digits !== '' ? String(row.tail_digits) : '--'
   const niu = row.niu_label || row.calc || '--'
   return '尾数' + tail + ' ' + niu
+}
+function formatNiuniuPackResultLine(row) {
+  if (!row) return '--'
+  const base = formatNiuniuResultLine(row)
+  const sc = (row.share_count | 0) || 1
+  if (sc > 1) return sc + '份 ' + base
+  return base
 }
 function formatNiuniuDetailResult(row, idx) {
   if (!row) return '--'

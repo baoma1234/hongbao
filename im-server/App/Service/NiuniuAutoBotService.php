@@ -222,12 +222,21 @@ class NiuniuAutoBotService
         $taskId = (int)$task['id'];
         $roundId = (int)$round['id'];
         $this->clearClaimBusy($taskId, $roundId);
+        $single = ((int)($round['game_mode'] ?? 0) === NiuniuService::MODE_SINGLE);
 
-        $rows = Db::fetchAll(
-            'SELECT id, user_id FROM ' . Db::table('chat_niuniu_shares')
-            . ' WHERE round_id=? AND claimed=0 ORDER BY id ASC',
-            [$roundId]
-        );
+        if ($single) {
+            $rows = Db::fetchAll(
+                'SELECT DISTINCT user_id FROM ' . Db::table('chat_niuniu_shares')
+                . ' WHERE round_id=? AND claimed=0',
+                [$roundId]
+            );
+        } else {
+            $rows = Db::fetchAll(
+                'SELECT id, user_id FROM ' . Db::table('chat_niuniu_shares')
+                . ' WHERE round_id=? AND claimed=0 ORDER BY id ASC',
+                [$roundId]
+            );
+        }
         if (!$rows) {
             return 0;
         }
@@ -246,10 +255,14 @@ class NiuniuAutoBotService
                 continue;
             }
             try {
-                $this->niuniu->claim($uid, $roundId, (int)$r['id']);
+                if ($single) {
+                    $this->niuniu->claim($uid, $roundId, 0);
+                } else {
+                    $this->niuniu->claim($uid, $roundId, (int)$r['id']);
+                }
                 $n++;
             } catch (\Throwable $e) {
-                $this->touchError($taskId, 'claim u' . $uid . ' s' . $r['id'] . ': ' . $e->getMessage());
+                $this->touchError($taskId, 'claim u' . $uid . ': ' . $e->getMessage());
             }
         }
         $this->markClaimBusy($taskId, $roundId, max(60, (int)$round['claim_seconds'] + 30));
@@ -366,6 +379,7 @@ class NiuniuAutoBotService
             return;
         }
 
+        $single = ((int)($round['game_mode'] ?? 0) === NiuniuService::MODE_SINGLE);
         $rows = Db::fetchAll(
             'SELECT id, user_id FROM ' . Db::table('chat_niuniu_shares')
             . ' WHERE round_id=? AND claimed=0 ORDER BY id ASC',
@@ -390,9 +404,20 @@ class NiuniuAutoBotService
         }
 
         $targets = [];
+        $seenUser = [];
         foreach ($rows as $r) {
             $uid = (int)$r['user_id'];
-            if (isset($actorMap[$uid])) {
+            if (!isset($actorMap[$uid])) {
+                continue;
+            }
+            // 单结果：每人只排一次领取（一次领完全部包）
+            if ($single) {
+                if (isset($seenUser[$uid])) {
+                    continue;
+                }
+                $seenUser[$uid] = true;
+                $targets[] = ['share_id' => 0, 'user_id' => $uid];
+            } else {
                 $targets[] = ['share_id' => (int)$r['id'], 'user_id' => $uid];
             }
         }
@@ -402,7 +427,7 @@ class NiuniuAutoBotService
 
         $delayMin = max(100, (int)($task['claim_delay_min_ms'] ?? 500));
         $delayMax = max($delayMin, (int)($task['claim_delay_max_ms'] ?? 5000));
-        // 按包间隔排队；busy TTL 覆盖整段领取时间
+        // 普通按包间隔；单结果按人间隔
         $busySec = max(
             60,
             (int)$round['claim_seconds'] + 30,
