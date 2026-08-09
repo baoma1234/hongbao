@@ -563,36 +563,33 @@
             @click.stop="openNiuniuVerify"
           >波场验证 ›</text>
         </view>
-        <text class="nn-detail-swipe-hint">左右滑动可看全列</text>
-        <scroll-view scroll-x scroll-y class="nn-detail-x" :show-scrollbar="true" enable-flex>
-          <view class="nn-detail-table">
-            <view class="nn-detail-head">
-              <text class="nn-dh-cat">类别</text>
-              <text class="nn-dh-av">头像</text>
-              <text class="nn-dh-name">昵称</text>
-              <text class="nn-dh-amt">金额</text>
-              <text class="nn-dh-res">结果</text>
-              <text class="nn-dh-w">权重</text>
-              <text class="nn-dh-win">奖金</text>
+        <view class="nn-detail-head">
+          <text class="nn-dh-av">头像</text>
+          <text class="nn-dh-name">昵称</text>
+          <text class="nn-dh-amt">金额</text>
+          <text class="nn-dh-res">结果</text>
+          <text class="nn-dh-win">奖金</text>
+        </view>
+        <scroll-view scroll-y class="nn-detail-scroll" :show-scrollbar="true">
+          <view
+            v-for="(row, idx) in niuniuDetailRows"
+            :key="row._key || row.id || idx"
+            class="nn-detail-person"
+            :class="{ mine: row.is_mine }"
+          >
+            <view class="nn-dh-av">
+              <image class="nn-user-av" :src="avatarSrc(row.avatar)" mode="aspectFill" />
             </view>
-            <view
-              v-for="(row, idx) in niuniuDetailRows"
-              :key="row._key || row.id || idx"
-              class="nn-detail-person"
-              :class="{ mine: row.is_mine }"
-            >
-              <text class="nn-dh-cat">{{ row.category || row.niu_label || '--' }}</text>
-              <view class="nn-dh-av">
-                <image class="nn-user-av" :src="avatarSrc(row.avatar)" mode="aspectFill" />
-              </view>
-              <text class="nn-dh-name">{{ row.is_mine ? '我' : (row.nickname || ('用户' + row.user_id)) }}</text>
-              <text class="nn-dh-amt">{{ formatNiuniuPacketAmount(row) }}</text>
-              <text class="nn-dh-res">{{ formatNiuniuResultLine(row) }}</text>
-              <text class="nn-dh-w">{{ (row.weight | 0) || (row.share_count | 0) || 1 }}</text>
-              <text class="nn-dh-win" :class="{ win: Number(row.win_amount) > 0 }">{{ formatNiuniuBonus(row.win_amount) }}</text>
+            <text class="nn-dh-name">{{ row.is_mine ? '我' : (row.nickname || ('用户' + row.user_id)) }}</text>
+            <text class="nn-dh-amt">{{ formatNiuniuPacketAmount(row) }}</text>
+            <view class="nn-dh-res-wrap">
+              <text class="nn-dh-res">{{ formatNiuniuDetailResultShort(row) }}</text>
+              <text v-if="row.claimed_at" class="nn-dh-time">{{ formatRpTime(row.claimed_at) }}</text>
+              <text v-else class="nn-dh-time">未领取</text>
             </view>
-            <view v-if="!niuniuDetailRows.length" class="nn-detail-empty">暂无明细</view>
+            <text class="nn-dh-win" :class="{ win: Number(row.win_amount) > 0 }">{{ formatNiuniuBonus(row.win_amount) }}</text>
           </view>
+          <view v-if="!niuniuDetailRows.length" class="nn-detail-empty">暂无明细</view>
         </scroll-view>
       </view>
     </view>
@@ -3312,6 +3309,17 @@ function formatNiuniuResultLine(row) {
   const niu = row.niu_label || row.category || row.calc || '--'
   return '尾数' + tail + ' ' + niu
 }
+/** 明细短结果：42 牛2 / 未领取，避免挤出屏幕 */
+function formatNiuniuDetailResultShort(row) {
+  if (!row) return '--'
+  const tail = row.tail_digits != null && row.tail_digits !== '' ? String(row.tail_digits) : ''
+  const niu = row.niu_label || row.category || ''
+  if (tail) return tail + (niu ? ' ' + niu : '')
+  if (row.result && String(row.result) !== '未领取') {
+    return String(row.result).replace(/^尾数/, '')
+  }
+  return row.claimed ? '--' : '未领取'
+}
 function formatNiuniuPackResultLine(row) {
   if (!row) return '--'
   return formatNiuniuResultLine(row)
@@ -4353,52 +4361,37 @@ function closeRpDetail() {
   color: #c62828;
   flex-shrink: 0;
 }
-.nn-detail-swipe-hint {
-  display: block;
-  padding: 6px 14px 0;
-  font-size: 11px;
-  color: #99a;
-  flex-shrink: 0;
+.nn-detail-head,
+.nn-detail-person {
+  display: grid;
+  grid-template-columns: 40px minmax(52px, 0.9fr) 52px minmax(88px, 1.4fr) 52px;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  width: 100%;
 }
-.nn-detail-x {
+.nn-detail-head {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 800;
+  color: #888;
+  background: #fff;
+  border-bottom: 1px solid #eef0f3;
+}
+.nn-detail-scroll {
   flex: 1;
   height: 0;
   min-height: 320px;
   width: 100%;
-  box-sizing: border-box;
-}
-.nn-detail-table {
-  display: block;
-  min-width: 620px;
-  width: max(100%, 620px);
   padding: 6px 10px 28px;
   box-sizing: border-box;
-}
-.nn-detail-head,
-.nn-detail-person {
-  display: grid;
-  grid-template-columns: 56px 40px 72px 56px 140px 44px 56px;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 8px;
-  box-sizing: border-box;
-}
-.nn-detail-head {
-  font-size: 12px;
-  font-weight: 800;
-  color: #888;
-  border-bottom: 1px solid #eef0f3;
-  background: #fff;
-  border-radius: 10px 10px 0 0;
-  position: sticky;
-  top: 0;
-  z-index: 1;
 }
 .nn-detail-person {
   background: #fff;
   border-radius: 10px;
   border: 1px solid #e8ebf0;
-  margin-top: 6px;
+  margin-bottom: 6px;
   font-size: 13px;
   color: #333;
 }
@@ -4407,20 +4400,39 @@ function closeRpDetail() {
   background: linear-gradient(180deg, #fff8e8, #fff);
   box-shadow: inset 0 0 0 1px rgba(212, 136, 6, 0.12);
 }
-.nn-dh-cat,
 .nn-dh-amt,
-.nn-dh-w,
 .nn-dh-win {
   text-align: center;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.nn-dh-name,
-.nn-dh-res {
+.nn-dh-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 13px;
+  font-weight: 700;
+}
+.nn-dh-res-wrap {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+.nn-dh-res {
+  font-size: 13px;
+  font-weight: 800;
+  color: #333;
+  line-height: 1.2;
+  word-break: break-all;
+}
+.nn-dh-time {
+  font-size: 11px;
+  color: #999;
+  font-weight: 500;
+  line-height: 1.2;
 }
 .nn-dh-av {
   display: flex;
