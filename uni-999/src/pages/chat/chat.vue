@@ -120,7 +120,8 @@
                     <view class="nn-center">
                       <text class="nn-pool">¥ {{ niuniuPoolText(m) }}</text>
                       <text class="nn-entry">入场:{{ niuniuSharePrice(m) }}/包</text>
-                      <text class="nn-buyers">{{ niuniuBuyersLine(m) }}</text>
+                      <text class="nn-buyers">{{ niuniuBuyersStatus(m) }}</text>
+                      <text v-if="niuniuRoundId(m) > 0" class="nn-buyers nn-round-id">#{{ niuniuRoundId(m) }}</text>
                     </view>
                     <view class="nn-right">
                       <view
@@ -1630,16 +1631,14 @@ function niuniuRoundId(m) {
   const ex = msgExtra(m)
   return (r.id | 0) || (ex.round_id | 0) || 0
 }
-function niuniuBuyersLine(m) {
+function niuniuBuyersStatus(m) {
   const r = niuniuRound(m)
   const phase = niuniuPhase(m)
   const shares = (r.share_count | 0)
-  const rid = niuniuRoundId(m)
-  const idTag = rid > 0 ? ('#' + rid + ' ') : ''
-  if (phase === 'void') return idTag + '本局作废（0 份）'
-  if (phase === 'refund') return idTag + '流局已退回'
-  if (phase === 'result') return idTag + '开奖完成｜可发 ' + (r.distributable || 0)
-  return idTag + '当前' + shares + '份已买入'
+  if (phase === 'void') return '本局作废（0 份）'
+  if (phase === 'refund') return '流局已退回'
+  if (phase === 'result') return '开奖完成｜可发 ' + (r.distributable || 0)
+  return '当前' + shares + '份已买入'
 }
 function niuniuBtnSrc(m) {
   const phase = niuniuPhase(m)
@@ -3811,6 +3810,11 @@ function closeRpDetail() {
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.2;
+}
+.chat-niuniu-card .nn-round-id {
+  opacity: 0.92;
+  font-weight: 700;
 }
 /* 右侧：倒计时 + 操作按钮 */
 .chat-niuniu-card .nn-right {
