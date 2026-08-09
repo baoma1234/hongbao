@@ -3820,7 +3820,7 @@ function closeRpDetail() {
 .chat-niuniu-card .nn-right {
   position: absolute;
   top: 42%;
-  right: 9%;
+  right: 10%;
   width: 21%;
   z-index: 2;
   display: flex;
@@ -3881,7 +3881,7 @@ function closeRpDetail() {
     width: 32%;
   }
   .nn-right {
-    right: 7%;
+    right: 10%;
     width: 22%;
     top: 40%;
     gap: 2px;
@@ -3898,7 +3898,7 @@ function closeRpDetail() {
   .chat-niuniu-card .nn-entry,
   .chat-niuniu-card .nn-buyers { font-size: 9px; }
   .chat-niuniu-card .nn-countdown-time { font-size: 8px; }
-  .chat-niuniu-card .nn-right { right: 8%; width: 22%; gap: 3px; }
+  .chat-niuniu-card .nn-right { right: 10%; width: 22%; gap: 3px; }
 }
 @media (max-width: 414px) {
   .chat-niuniu-card {
