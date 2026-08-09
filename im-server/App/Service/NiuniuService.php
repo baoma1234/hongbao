@@ -724,9 +724,12 @@ class NiuniuService
         $round = $this->getRound($roundId);
         $msg = $this->pushCard($round, 'claim', $this->robotOrStarter($round));
         if ($msg) {
+            // 与 buy_msg_id 同一条卡片，便于追踪
+            $mid = (int)$msg['id'];
             Db::exec(
-                'UPDATE ' . Db::table('chat_niuniu_rounds') . ' SET claim_msg_id=?, updatetime=? WHERE id=?',
-                [(int)$msg['id'], time(), $roundId]
+                'UPDATE ' . Db::table('chat_niuniu_rounds')
+                . ' SET claim_msg_id=?, buy_msg_id=IF(buy_msg_id>0,buy_msg_id,?), updatetime=? WHERE id=?',
+                [$mid, $mid, time(), $roundId]
             );
         }
         return true;
@@ -831,9 +834,11 @@ class NiuniuService
         $round = $this->getRound($roundId);
         $msg = $this->pushCard($round, 'result', $this->robotOrStarter($round));
         if ($msg) {
+            $mid = (int)$msg['id'];
             Db::exec(
-                'UPDATE ' . Db::table('chat_niuniu_rounds') . ' SET result_msg_id=?, updatetime=? WHERE id=?',
-                [(int)$msg['id'], time(), $roundId]
+                'UPDATE ' . Db::table('chat_niuniu_rounds')
+                . ' SET result_msg_id=?, buy_msg_id=IF(buy_msg_id>0,buy_msg_id,?), updatetime=? WHERE id=?',
+                [$mid, $mid, time(), $roundId]
             );
         }
         $this->onRoundFinished((int)$round['group_id'], (int)$round['starter_user_id']);
@@ -1027,15 +1032,20 @@ class NiuniuService
             $row['tail_digits'] = null;
             $row['niu_label'] = $reveal ? '' : '未领取';
         }
-        // 昵称
+        // 昵称 / 头像
         try {
             $u = Db::fetch(
-                'SELECT nickname FROM ' . Db::table('user') . ' WHERE id=? LIMIT 1',
+                'SELECT nickname, avatar FROM ' . Db::table('user') . ' WHERE id=? LIMIT 1',
                 [(int)$s['user_id']]
             );
-            $row['nickname'] = $u ? (string)$u['nickname'] : ('用户' . $s['user_id']);
+            $row['nickname'] = $u ? (string)($u['nickname'] ?: '') : '';
+            if ($row['nickname'] === '') {
+                $row['nickname'] = '用户' . $s['user_id'];
+            }
+            $row['avatar'] = $u ? (string)($u['avatar'] ?? '') : '';
         } catch (\Throwable $e) {
             $row['nickname'] = '用户' . $s['user_id'];
+            $row['avatar'] = '';
         }
         return $row;
     }
@@ -1182,21 +1192,22 @@ class NiuniuService
 
     protected function refreshBuyingCard(array $round)
     {
-        // 再推一条轻量系统更新，或重发购入卡摘要；这里推送 update 事件
-        $payload = [
-            'niuniu'  => 1,
-            'phase'   => 'buying',
-            'round'   => $this->publicRound($round),
-            'round_id'=> (int)$round['id'],
-        ];
-        try {
-            NotifyPublisher::publish('niuniu.update', [
-                'conversation_type' => 2,
-                'group_id'          => (int)$round['group_id'],
-                'extra'             => $payload,
-            ], false, $this->cfg);
-        } catch (\Throwable $e) {
+        // 购入份数变化：就地改同一张卡片 + 推送 update（不再发新消息）
+        $this->pushCard($round, 'buying', $this->robotOrStarter($round));
+    }
+
+    /** 本局唯一卡片消息 id（优先 buy_msg_id） */
+    protected function cardMessageId(array $round)
+    {
+        $id = (int)($round['buy_msg_id'] ?? 0);
+        if ($id > 0) {
+            return $id;
         }
+        $id = (int)($round['claim_msg_id'] ?? 0);
+        if ($id > 0) {
+            return $id;
+        }
+        return (int)($round['result_msg_id'] ?? 0);
     }
 
     /**
@@ -1215,8 +1226,24 @@ class NiuniuService
         if ($phase === 'result' || $phase === 'refund') {
             $extra['shares'] = $this->resultShareLines($round);
         }
+        $cardMsgId = $this->cardMessageId($round);
         try {
-            // 不走发言校验（购入禁言期间也要能推卡片）
+            // 已有开局卡片：整局生命周期只改这一条，不再插新消息
+            if ($cardMsgId > 0) {
+                $msg = $this->messages->updateMessageContentExtra($cardMsgId, $content, $extra);
+                if (is_array($msg)) {
+                    NotifyPublisher::publish('niuniu.update', [
+                        'conversation_type' => 2,
+                        'group_id'          => (int)$round['group_id'],
+                        'message_id'        => $cardMsgId,
+                        'content'           => $content,
+                        'extra'             => $extra,
+                        'message'           => $msg,
+                    ], false, $this->cfg);
+                }
+                return $msg;
+            }
+            // 首张购入卡
             $msg = $this->messages->insertGroupMessageUnchecked(
                 (int)$fromUserId,
                 (int)$round['group_id'],

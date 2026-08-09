@@ -31,6 +31,55 @@ class MessageService
     }
 
     /**
+     * 就地更新消息正文/扩展（牛牛单卡推进阶段用，不新增消息、不加未读）
+     *
+     * @param int        $messageId
+     * @param string     $content
+     * @param array|null $extra
+     * @return array|null
+     */
+    public function updateMessageContentExtra($messageId, $content, $extra = null)
+    {
+        $messageId = (int)$messageId;
+        if ($messageId <= 0) {
+            return null;
+        }
+        $row = Db::fetch('SELECT * FROM ' . Db::table('chat_messages') . ' WHERE id=? LIMIT 1', [$messageId]);
+        if (!$row) {
+            return null;
+        }
+        $extraJson = null;
+        if ($extra !== null) {
+            $extraJson = is_string($extra) ? $extra : json_encode($extra, JSON_UNESCAPED_UNICODE);
+        }
+        Db::exec(
+            'UPDATE ' . Db::table('chat_messages') . ' SET content=?, extra=? WHERE id=?',
+            [(string)$content, $extraJson, $messageId]
+        );
+        $row['content'] = (string)$content;
+        $row['extra'] = $extra;
+        $payload = $this->normalizeMessage($row);
+        // 刷新 recent 缓存中同 id 条目，避免历史读到旧卡片
+        try {
+            $key = RedisClient::key('conv:' . $payload['conversation_type'] . ':' . $payload['conversation_id'] . ':recent');
+            $r = RedisClient::conn();
+            $list = $r->lRange($key, 0, 99);
+            if (is_array($list) && $list) {
+                foreach ($list as $i => $raw) {
+                    $j = json_decode((string)$raw, true);
+                    if (!is_array($j) || (int)($j['id'] ?? 0) !== $messageId) {
+                        continue;
+                    }
+                    $r->lSet($key, $i, json_encode($payload, JSON_UNESCAPED_UNICODE));
+                    break;
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+        return $payload;
+    }
+
+    /**
      * 插入群消息且不校验发言权限（红包扣款已成功后的兜底落库）
      */
     public function insertGroupMessageUnchecked($fromUserId, $groupId, $content, $msgType = 1, $extra = null)
