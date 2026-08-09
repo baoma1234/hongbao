@@ -2081,6 +2081,7 @@ class MessageService
                     'pool_amount', 'fee_amount', 'distributable', 'fee_rate', 'niuniu_rate',
                     'secondary_rate', 'buy_end_at', 'claim_end_at', 'remain_buy', 'remain_claim',
                     'drand_round', 'drand_label', 'drand_url', 'card_phase', 'settle_case',
+                    'proof_type', 'tron_block_num', 'tron_block_id', 'tron_status', 'tronscan_url', 'fair_hash',
                     'niuniu_pool', 'secondary_pool', 'niuniu_per_share', 'secondary_per_share',
                     'niuniu_share_count', 'secondary_share_count', 'low_share_count', 'desc',
                     'my_share_count', 'my_claimed',

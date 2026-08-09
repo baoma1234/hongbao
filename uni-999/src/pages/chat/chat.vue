@@ -544,10 +544,10 @@
           <text>奖池 {{ niuniuDetailPoolText }}</text>
           <text v-if="niuniuDetailFeeText">{{ niuniuDetailFeeText }}</text>
           <text
-            v-if="niuniuDetailRound.drand_label || niuniuDetailRound.drand_url"
+            v-if="niuniuVerifyLabel(niuniuDetailRound)"
             class="nn-detail-verify"
             @click.stop="openNiuniuVerify"
-          >校验 {{ niuniuDetailRound.drand_label || ('drand-#' + (niuniuDetailRound.drand_round || '')) }} ›</text>
+          >校验 {{ niuniuVerifyLabel(niuniuDetailRound) }} ›</text>
         </view>
         <scroll-view scroll-y class="nn-detail-scroll" :show-scrollbar="true">
           <view
@@ -3161,16 +3161,33 @@ function closeNiuniuDetail() {
   showNiuniuDetail.value = false
 }
 
+function niuniuVerifyLabel(r) {
+  if (!r) return ''
+  if (r.proof_type === 'tron' || (r.tron_block_num | 0) > 0 || r.tron_block_id) {
+    const n = (r.tron_block_num | 0) || (r.drand_round | 0)
+    return n > 0 ? ('tron-#' + n) : 'tron'
+  }
+  return r.drand_label || (r.drand_round ? ('drand-#' + r.drand_round) : '')
+}
 function openNiuniuVerify() {
   const r = niuniuDetailRound.value || {}
-  const href = String(r.drand_url || '').trim()
-  const label = r.drand_label || ('drand-#' + (r.drand_round || ''))
-  const rand = String(r.drand_randomness || '').trim()
-  const tip =
-    '本局校验轮次：' +
-    label +
-    (rand ? '\nrandomness：' + rand.slice(0, 24) + (rand.length > 24 ? '…' : '') : '') +
-    '\n尾数由 drand randomness + 份号 SHA256 派生（00-99）。'
+  const isTron = r.proof_type === 'tron' || (r.tron_block_num | 0) > 0 || !!r.tron_block_id
+  const href = String(r.tronscan_url || r.drand_url || '').trim()
+  const label = niuniuVerifyLabel(r)
+  const hash = String(r.fair_hash || r.tron_block_id || r.drand_randomness || '').trim()
+  const tip = isTron
+    ? (
+        '本局锁定波场区块：' +
+        label +
+        (hash ? '\nBlock Hash：' + hash.slice(0, 28) + (hash.length > 28 ? '…' : '') : '') +
+        '\n尾数由 Block Hash + 份号 SHA256 派生（00-99），与普通红宝同一套波场校验。'
+      )
+    : (
+        '本局校验轮次：' +
+        label +
+        (hash ? '\nrandomness：' + hash.slice(0, 24) + (hash.length > 24 ? '…' : '') : '') +
+        '\n尾数由 drand randomness + 份号 SHA256 派生（00-99）。'
+      )
   // #ifdef H5
   if (href && typeof window !== 'undefined') {
     try {
@@ -3179,8 +3196,8 @@ function openNiuniuVerify() {
   }
   // #endif
   uni.showModal({
-    title: '尾数校验说明',
-    content: tip + (href ? '\n\n已尝试打开官方 drand 页面。' : ''),
+    title: isTron ? '波场尾数校验' : '尾数校验说明',
+    content: tip + (href ? '\n\n已尝试打开' + (isTron ? ' TronScan' : ' 官方 drand') + ' 页面。' : ''),
     showCancel: !!href,
     cancelText: '关闭',
     confirmText: href ? '复制链接' : '知道了',

@@ -6,11 +6,15 @@ use Im\Support\Db;
 use Im\Support\DrandClient;
 use Im\Support\NotifyPublisher;
 use Im\Support\RedisClient;
+use Im\Support\TronBlockClient;
+use Im\Support\TronFair;
+use Im\Support\TronHashCache;
 
 /**
  * 红宝尾数牛牛
  * - 购入积分进奖池；虚拟红包仅展示尾数，不入账
- * - 购入结束后生成尾数；手动领取才展示；到期强制结算
+ * - 购入结束用波场 Block Hash 派生尾数（兼容旧局 drand）
+ * - 手动领取才展示；到期强制结算
  */
 class NiuniuService
 {
@@ -226,8 +230,23 @@ class NiuniuService
             }
         }
 
-        $drand = new DrandClient((string)$c['drand_api'], (int)$c['drand_period']);
-        $lock = $drand->lockFutureRound($buySec);
+        $tronTarget = 0;
+        $tronStatus = TronFair::STATUS_PENDING;
+        try {
+            $nowNum = (int)TronBlockClient::getNowBlockNum(3);
+            // 波场约 3s/块：购入期内锁定未来块，购入结束时再取该块哈希
+            $blocksAhead = max(TronFair::commitOffset(), (int)ceil($buySec / 3) + 2);
+            if ($nowNum > 0) {
+                $tronTarget = $nowNum + $blocksAhead;
+            }
+        } catch (\Throwable $e) {
+            error_log('[NIUNIU][start] tron commit fail: ' . $e->getMessage());
+        }
+        // 兼容旧字段：drand_* 在波场模式下仅作占位/展示回退
+        $drandRound = $tronTarget;
+        $drandUrl = $tronTarget > 0
+            ? ('https://tronscan.org/#/block/' . $tronTarget)
+            : '';
         $now = time();
         $buyEnd = $now + $buySec;
 
@@ -237,39 +256,64 @@ class NiuniuService
                 Db::exec(
                     'INSERT INTO ' . Db::table('chat_niuniu_rounds')
                     . ' (group_id,starter_user_id,status,game_mode,share_price,buy_seconds,claim_seconds,buy_end_at,'
-                    . 'fee_rate,niuniu_rate,secondary_rate,drand_round,drand_url,platform_user_id,createtime,updatetime)'
-                    . ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                    . 'fee_rate,niuniu_rate,secondary_rate,drand_round,drand_url,'
+                    . 'tron_block_num,tron_block_id,tron_status,'
+                    . 'platform_user_id,createtime,updatetime)'
+                    . ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
                     [
                         $groupId, $userId, self::STATUS_BUYING, $gameMode, sprintf('%.2f', $price),
                         $buySec, $claimSec, $buyEnd,
                         sprintf('%.4f', (float)$c['fee_rate']),
                         sprintf('%.4f', (float)$c['niuniu_rate']),
                         sprintf('%.4f', (float)$c['secondary_rate']),
-                        (int)$lock['round'],
-                        (string)$lock['url'],
+                        $drandRound,
+                        $drandUrl,
+                        $tronTarget,
+                        '',
+                        $tronStatus,
                         (int)$c['platform_user_id'],
                         $now, $now,
                     ]
                 );
             } catch (\Throwable $eIns) {
-                // 未 patch game_mode 列时回退
-                Db::exec(
-                    'INSERT INTO ' . Db::table('chat_niuniu_rounds')
-                    . ' (group_id,starter_user_id,status,share_price,buy_seconds,claim_seconds,buy_end_at,'
-                    . 'fee_rate,niuniu_rate,secondary_rate,drand_round,drand_url,platform_user_id,createtime,updatetime)'
-                    . ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-                    [
-                        $groupId, $userId, self::STATUS_BUYING, sprintf('%.2f', $price),
-                        $buySec, $claimSec, $buyEnd,
-                        sprintf('%.4f', (float)$c['fee_rate']),
-                        sprintf('%.4f', (float)$c['niuniu_rate']),
-                        sprintf('%.4f', (float)$c['secondary_rate']),
-                        (int)$lock['round'],
-                        (string)$lock['url'],
-                        (int)$c['platform_user_id'],
-                        $now, $now,
-                    ]
-                );
+                // 未 patch tron / game_mode 列时回退
+                try {
+                    Db::exec(
+                        'INSERT INTO ' . Db::table('chat_niuniu_rounds')
+                        . ' (group_id,starter_user_id,status,game_mode,share_price,buy_seconds,claim_seconds,buy_end_at,'
+                        . 'fee_rate,niuniu_rate,secondary_rate,drand_round,drand_url,platform_user_id,createtime,updatetime)'
+                        . ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                        [
+                            $groupId, $userId, self::STATUS_BUYING, $gameMode, sprintf('%.2f', $price),
+                            $buySec, $claimSec, $buyEnd,
+                            sprintf('%.4f', (float)$c['fee_rate']),
+                            sprintf('%.4f', (float)$c['niuniu_rate']),
+                            sprintf('%.4f', (float)$c['secondary_rate']),
+                            $drandRound,
+                            $drandUrl,
+                            (int)$c['platform_user_id'],
+                            $now, $now,
+                        ]
+                    );
+                } catch (\Throwable $eIns2) {
+                    Db::exec(
+                        'INSERT INTO ' . Db::table('chat_niuniu_rounds')
+                        . ' (group_id,starter_user_id,status,share_price,buy_seconds,claim_seconds,buy_end_at,'
+                        . 'fee_rate,niuniu_rate,secondary_rate,drand_round,drand_url,platform_user_id,createtime,updatetime)'
+                        . ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                        [
+                            $groupId, $userId, self::STATUS_BUYING, sprintf('%.2f', $price),
+                            $buySec, $claimSec, $buyEnd,
+                            sprintf('%.4f', (float)$c['fee_rate']),
+                            sprintf('%.4f', (float)$c['niuniu_rate']),
+                            sprintf('%.4f', (float)$c['secondary_rate']),
+                            $drandRound,
+                            $drandUrl,
+                            (int)$c['platform_user_id'],
+                            $now, $now,
+                        ]
+                    );
+                }
             }
             $roundId = (int)Db::lastId();
             Db::commit();
@@ -614,21 +658,10 @@ class NiuniuService
         }
 
         $c = $this->config();
-        $drand = new DrandClient((string)$c['drand_api'], (int)$c['drand_period']);
-        $target = (int)$round['drand_round'];
-        try {
-            $proof = $drand->fetchWhenReady($target, max(30, (int)$c['drand_period'] * 4));
-        } catch (\Throwable $e) {
-            // 兜底：用 latest，并记录真实轮次
-            $latest = $drand->latest();
-            $proof = [
-                'round'      => (int)($latest['round'] ?? $target),
-                'randomness' => strtolower(trim((string)($latest['randomness'] ?? ''))),
-                'url'        => (string)$c['drand_api'] . '/public/' . (int)($latest['round'] ?? $target),
-            ];
-            if ($proof['randomness'] === '') {
-                throw new \RuntimeException('随机源不可用: ' . $e->getMessage());
-            }
+        $proof = $this->resolveTronProof($round);
+        $seed = strtolower(trim((string)($proof['randomness'] ?? '')));
+        if ($seed === '') {
+            throw new \RuntimeException('波场哈希不可用，请稍后重试');
         }
 
         $pool = round((float)$round['pool_amount'], 2);
@@ -642,14 +675,31 @@ class NiuniuService
         try {
             $ok = Db::exec(
                 'UPDATE ' . Db::table('chat_niuniu_rounds')
-                . ' SET status=?, claim_end_at=?, fee_amount=?, distributable=?, drand_round=?, drand_randomness=?, drand_url=?, updatetime=?'
+                . ' SET status=?, claim_end_at=?, fee_amount=?, distributable=?,'
+                . ' drand_round=?, drand_randomness=?, drand_url=?,'
+                . ' tron_block_num=?, tron_block_id=?, tron_status=?, updatetime=?'
                 . ' WHERE id=? AND status=?',
                 [
                     self::STATUS_CLAIMING, $claimEnd, sprintf('%.2f', $fee), sprintf('%.2f', $dist),
-                    (int)$proof['round'], (string)$proof['randomness'], (string)$proof['url'],
+                    (int)$proof['block_num'], $seed, (string)$proof['url'],
+                    (int)$proof['block_num'], $seed, TronFair::STATUS_DONE,
                     $now, $roundId, self::STATUS_BUYING,
                 ]
             );
+            if ($ok <= 0) {
+                // 无 tron 列时回退只写 drand_*（种子仍为波场 hash）
+                $ok = Db::exec(
+                    'UPDATE ' . Db::table('chat_niuniu_rounds')
+                    . ' SET status=?, claim_end_at=?, fee_amount=?, distributable=?,'
+                    . ' drand_round=?, drand_randomness=?, drand_url=?, updatetime=?'
+                    . ' WHERE id=? AND status=?',
+                    [
+                        self::STATUS_CLAIMING, $claimEnd, sprintf('%.2f', $fee), sprintf('%.2f', $dist),
+                        (int)$proof['block_num'], $seed, (string)$proof['url'],
+                        $now, $roundId, self::STATUS_BUYING,
+                    ]
+                );
+            }
             if ($ok <= 0) {
                 Db::rollBack();
                 return false;
@@ -673,7 +723,7 @@ class NiuniuService
                 foreach ($byUser as $uid => $ids) {
                     $seedId = (int)$ids[0];
                     $tail = DrandClient::deriveTail(
-                        $proof['randomness'],
+                        $seed,
                         $seedId,
                         'round:' . $roundId . ':user:' . $uid
                     );
@@ -693,7 +743,7 @@ class NiuniuService
             } else {
                 foreach ($shares as $s) {
                     $sid = (int)$s['id'];
-                    $tail = DrandClient::deriveTail($proof['randomness'], $sid, 'round:' . $roundId);
+                    $tail = DrandClient::deriveTail($seed, $sid, 'round:' . $roundId);
                     $meta = self::calcNiu($tail);
                     Db::exec(
                         'UPDATE ' . Db::table('chat_niuniu_shares')
@@ -970,6 +1020,13 @@ class NiuniuService
             $myCount = (int)($row['c'] ?? 0);
             $myClaimed = $myCount > 0 && (int)($row['claimed_c'] ?? 0) >= $myCount;
         }
+        $tronNum = (int)($round['tron_block_num'] ?? 0);
+        $tronId = strtolower(trim((string)($round['tron_block_id'] ?? '')));
+        $tronStatus = (int)($round['tron_status'] ?? 0);
+        $isTron = $tronNum > 0 || $tronId !== '';
+        $tronscan = $tronNum > 0
+            ? ('https://tronscan.org/#/block/' . $tronNum)
+            : ($tronId !== '' ? ('https://tronscan.org/#/block/' . $tronId) : '');
         $out = [
             'id'              => (int)$round['id'],
             'group_id'        => (int)$round['group_id'],
@@ -989,9 +1046,16 @@ class NiuniuService
             'claim_end_at'    => (int)$round['claim_end_at'],
             'remain_buy'      => $remainBuy,
             'remain_claim'    => $remainClaim,
+            'proof_type'      => $isTron ? 'tron' : 'drand',
             'drand_round'     => (int)$round['drand_round'],
-            'drand_label'     => 'drand-#' . (int)$round['drand_round'],
-            'drand_url'       => (string)$round['drand_url'],
+            'drand_label'     => $isTron
+                ? ('tron-#' . ($tronNum ?: (int)$round['drand_round']))
+                : ('drand-#' . (int)$round['drand_round']),
+            'drand_url'       => $tronscan !== '' ? $tronscan : (string)$round['drand_url'],
+            'tron_block_num'  => $tronNum,
+            'tron_block_id'   => $tronId,
+            'tron_status'     => $tronStatus,
+            'tronscan_url'    => $tronscan,
             'my_share_count'  => $myCount,
             'my_claimed'      => $myClaimed,
             'settle_case'     => (int)$round['settle_case'],
@@ -1008,14 +1072,68 @@ class NiuniuService
                 : ($status === self::STATUS_REFUND ? 'refund' : 'result'))),
             'desc'            => $this->groupDesc((int)$round['group_id']),
         ];
-        // 购入阶段不暴露 randomness / 尾数；结算后公开便于校验
+        // 购入阶段不暴露 randomness / 尾数；领取/结算后公开便于校验
         if ($status >= self::STATUS_CLAIMING) {
-            $out['has_randomness'] = (string)$round['drand_randomness'] !== '';
-        }
-        if ($status >= self::STATUS_SETTLED) {
-            $out['drand_randomness'] = (string)($round['drand_randomness'] ?? '');
+            $seed = $tronId !== '' ? $tronId : (string)($round['drand_randomness'] ?? '');
+            $out['has_randomness'] = $seed !== '';
+            $out['drand_randomness'] = $seed;
+            $out['fair_hash'] = $seed;
         }
         return $out;
+    }
+
+    /**
+     * 购入结束：取开局锁定的波场块哈希；未产出则用最新块兜底
+     * @return array{block_num:int,randomness:string,url:string}
+     */
+    protected function resolveTronProof(array $round)
+    {
+        $target = (int)($round['tron_block_num'] ?? 0);
+        if ($target <= 0) {
+            $target = (int)($round['drand_round'] ?? 0);
+        }
+        $block = null;
+        $lastErr = '';
+        if ($target > 0) {
+            try {
+                $block = TronBlockClient::getBlockByNum($target, 6);
+            } catch (\Throwable $e) {
+                $lastErr = $e->getMessage();
+            }
+        }
+        if (!$block || empty($block['block_id'])) {
+            try {
+                $latest = TronHashCache::get();
+                if (!$latest) {
+                    $latest = TronHashCache::refresh(3);
+                }
+                if ($latest && !empty($latest['block_id'])) {
+                    // 目标块已过：尽量取精确高度；否则用最新
+                    if ($target > 0 && (int)$latest['block_num'] >= $target) {
+                        try {
+                            $block = TronBlockClient::getBlockByNum($target, 6);
+                        } catch (\Throwable $e2) {
+                            $block = $latest;
+                            $lastErr = $e2->getMessage();
+                        }
+                    } else {
+                        $block = $latest;
+                    }
+                }
+            } catch (\Throwable $e) {
+                $lastErr = $e->getMessage();
+            }
+        }
+        $num = (int)($block['block_num'] ?? 0);
+        $id = strtolower(trim((string)($block['block_id'] ?? '')));
+        if ($id === '') {
+            throw new \RuntimeException('tron block hash unavailable' . ($lastErr !== '' ? (': ' . $lastErr) : ''));
+        }
+        return [
+            'block_num'  => $num > 0 ? $num : $target,
+            'randomness' => $id,
+            'url'        => 'https://tronscan.org/#/block/' . ($num > 0 ? $num : $id),
+        ];
     }
 
     protected function publicShare(array $s, $reveal)
@@ -1297,7 +1415,7 @@ class NiuniuService
                 . "👥本局参与份数：{$r['share_count']} ｜单人购买份数无限制\n"
                 . "💰本局总奖池：{$r['pool_amount']}积分\n"
                 . "📌平台抽取" . round($r['fee_rate'] * 100) . "%手续费\n"
-                . "🔐本局校验轮次：{$r['drand_label']}\n\n"
+                . "🔐本局波场区块：{$r['drand_label']}\n\n"
                 . "💡规则：红包需购入结束后手动点击领取查看尾数；买入积分进入奖池。"
                 . "牛牛瓜分可分配池" . round($r['niuniu_rate'] * 100) . "%，牛7‑9瓜分" . round($r['secondary_rate'] * 100) . "%\n"
                 . "⏰购入结束后可领取红包比对牛数";
@@ -1305,7 +1423,7 @@ class NiuniuService
         if ($phase === 'claim') {
             return "🔔本局购入已结束，请领取红包查看牛数\n"
                 . "{$modeHint}\n"
-                . "🔐本局校验轮次：{$r['drand_label']}\n"
+                . "🔐本局波场区块：{$r['drand_label']}\n"
                 . "👥总参与份数：{$r['share_count']}\n"
                 . "💰总奖池：{$r['pool_amount']}积分\n\n"
                 . "👉点击领取本局红包（手动点开才展示你的尾数牛数）\n"
@@ -1313,15 +1431,15 @@ class NiuniuService
                 . "📌红包仅用于比对，红包本身不进行资金发放";
         }
         if ($phase === 'void') {
-            return "⚠️本局作废｜参与份数=0，未扣手续费\n🔐校验轮次：{$r['drand_label']}";
+            return "⚠️本局作废｜参与份数=0，未扣手续费\n🔐波场区块：{$r['drand_label']}";
         }
         if ($phase === 'refund') {
             return "🌀本局流局｜全部为牛1‑6\n"
                 . "总奖池：{$r['pool_amount']}｜平台手续费：{$r['fee_amount']}｜已按可发放奖金原路退回\n"
-                . "🔐校验轮次：{$r['drand_label']}";
+                . "🔐波场区块：{$r['drand_label']}";
         }
         // result
-        $lines = "🎊本局开奖完成｜{$modeTitle}｜校验轮次：{$r['drand_label']}\n"
+        $lines = "🎊本局开奖完成｜{$modeTitle}｜波场区块：{$r['drand_label']}\n"
             . "总奖池：{$r['pool_amount']}｜平台手续费：{$r['fee_amount']}｜可发放奖金：{$r['distributable']}积分\n";
         return $lines;
     }
