@@ -656,12 +656,33 @@ body.tab-messages #tabMessages .chat-list-pane {
   display: grid !important;
   gap: 6px;
 }
+#tabMessages .chat-notice-imgs.imgs-full {
+  display: flex !important;
+  flex-direction: column !important;
+}
 #tabMessages .chat-notice-img,
 #tabMessages .chat-notice-img image,
 #tabMessages .chat-notice-img uni-image {
   width: 100% !important;
-  height: 100% !important;
   display: block !important;
+}
+/* 默认九宫格仍铺满格子；长图完整高度交给 widthFix */
+#tabMessages .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img,
+#tabMessages .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img image,
+#tabMessages .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img uni-image {
+  height: 100% !important;
+  object-fit: cover !important;
+}
+#tabMessages .chat-notice-imgs.imgs-1 .chat-notice-img,
+#tabMessages .chat-notice-imgs.imgs-1 .chat-notice-img image,
+#tabMessages .chat-notice-imgs.imgs-1 .chat-notice-img uni-image,
+#tabMessages .chat-notice-imgs.imgs-full .chat-notice-img,
+#tabMessages .chat-notice-imgs.imgs-full .chat-notice-img image,
+#tabMessages .chat-notice-imgs.imgs-full .chat-notice-img uni-image {
+  height: auto !important;
+  max-height: none !important;
+  aspect-ratio: auto !important;
+  object-fit: contain !important;
 }
 
 #tabMessages .chat-promote-earn-wrap {

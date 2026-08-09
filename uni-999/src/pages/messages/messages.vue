@@ -391,13 +391,19 @@
                       v-if="noticeImages(n).length"
                       class="chat-notice-media"
                     >
-                      <view class="chat-notice-imgs" :class="'imgs-' + Math.min(9, noticeImages(n).length)">
+                      <view
+                        class="chat-notice-imgs"
+                        :class="[
+                          'imgs-' + Math.min(9, noticeImages(n).length),
+                          { 'imgs-full': noticeImagesFull(n) },
+                        ]"
+                      >
                         <image
                           v-for="(src, ii) in noticeImages(n).slice(0, 9)"
                           :key="ii"
                           class="chat-notice-img"
                           :src="avatarSrc(src)"
-                          mode="aspectFill"
+                          :mode="noticeImagesFull(n) ? 'widthFix' : 'aspectFill'"
                           @click="previewNoticeImages(n, ii)"
                         />
                       </view>
@@ -1038,6 +1044,14 @@ function noticeImages(n) {
   const imgs = n && n.images
   if (!Array.isArray(imgs)) return []
   return imgs.filter(Boolean)
+}
+
+/** 游戏规则等长图（750 宽）：按宽度铺满、高度完整展示，不裁切 */
+function noticeImagesFull(n) {
+  const c = String((n && n.category) || noticeCat.value || '')
+  if (c === 'rules' || c.indexOf('规则') >= 0) return true
+  // 单张长图公告也完整展示
+  return noticeImages(n).length === 1
 }
 
 function noticeActionButtons(n) {

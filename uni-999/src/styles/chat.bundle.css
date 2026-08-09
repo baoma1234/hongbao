@@ -5174,10 +5174,29 @@ button.chat-rp-fair-link {
 }
 
 .chat-notice-imgs.imgs-1 .chat-notice-img {
-  max-height: 280px;
+  max-height: none;
   width: 100%;
-  object-fit: cover;
+  height: auto;
+  aspect-ratio: auto;
+  object-fit: contain;
   border-radius: 14px;
+}
+
+/* 游戏规则等多张长图：纵向完整铺开（宽 750 自适应屏宽） */
+.chat-notice-imgs.imgs-full {
+  display: flex !important;
+  flex-direction: column;
+  grid-template-columns: none !important;
+  gap: 8px;
+}
+.chat-notice-imgs.imgs-full .chat-notice-img {
+  width: 100%;
+  height: auto;
+  max-height: none;
+  aspect-ratio: auto;
+  object-fit: contain;
+  border-radius: 12px;
+  background: transparent;
 }
 
 .chat-notice-imgs.imgs-2,
