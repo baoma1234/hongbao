@@ -118,10 +118,10 @@
                   <view class="nn-layer">
                     <text v-if="(niuniuRound(m).game_mode|0) === 2" class="nn-mode-tag">单结果</text>
                     <view class="nn-center">
-                      <text class="nn-pool">¥ {{ niuniuPoolText(m) }}</text>
-                      <text class="nn-entry">入场:{{ niuniuSharePrice(m) }}/包</text>
-                      <text class="nn-buyers">{{ niuniuBuyersStatus(m) }}</text>
-                      <text v-if="niuniuRoundId(m) > 0" class="nn-buyers nn-round-id">{{ niuniuRoundIdLine(m) }}</text>
+                      <text class="nn-l1">#{{ niuniuRoundId(m) || '--' }} 入场:{{ niuniuSharePrice(m) }}</text>
+                      <text class="nn-l2">份数:{{ niuniuShareCount(m) }} 官方抽成:{{ niuniuFeePct(m) }}%</text>
+                      <text class="nn-l3">奖池(扣除{{ niuniuFeePct(m) }}%后)</text>
+                      <text class="nn-l4">{{ niuniuDistributableText(m) }}</text>
                     </view>
                     <view class="nn-right">
                       <view
@@ -1651,6 +1651,26 @@ function niuniuPoolText(m) {
   const n = Number(r.pool_amount != null ? r.pool_amount : 0)
   return (isNaN(n) ? 0 : n).toFixed(2)
 }
+function niuniuFeePct(m) {
+  const r = niuniuRound(m)
+  const rate = Number(r.fee_rate)
+  if (!isNaN(rate) && rate > 0) return Math.round(rate * 1000) / 10
+  return 3
+}
+function niuniuShareCount(m) {
+  return (niuniuRound(m).share_count | 0) || 0
+}
+function niuniuDistributableText(m) {
+  const r = niuniuRound(m)
+  let n = Number(r.distributable)
+  if (isNaN(n) || n <= 0) {
+    const pool = Number(r.pool_amount != null ? r.pool_amount : 0)
+    const rate = Number(r.fee_rate)
+    const fee = !isNaN(rate) && rate > 0 ? rate : 0.03
+    n = isNaN(pool) ? 0 : pool * (1 - fee)
+  }
+  return (isNaN(n) ? 0 : n).toFixed(2)
+}
 function niuniuSharePrice(m) {
   const r = niuniuRound(m)
   const n = Number(r.share_price != null ? r.share_price : 100)
@@ -1660,23 +1680,6 @@ function niuniuRoundId(m) {
   const r = niuniuRound(m)
   const ex = msgExtra(m)
   return (r.id | 0) || (ex.round_id | 0) || 0
-}
-function niuniuBuyersStatus(m) {
-  const r = niuniuRound(m)
-  const phase = niuniuPhase(m)
-  const shares = (r.share_count | 0)
-  if (phase === 'void') return '本局作废（0 份）'
-  if (phase === 'refund') return '流局已退回'
-  if (phase === 'result') return '开奖完成｜可发 ' + (r.distributable || 0)
-  return '当前' + shares + '份已买入'
-}
-function niuniuRoundIdLine(m) {
-  const rid = niuniuRoundId(m)
-  if (!(rid > 0)) return ''
-  const r = niuniuRound(m)
-  const rate = Number(r.fee_rate)
-  const pct = !isNaN(rate) && rate > 0 ? Math.round(rate * 1000) / 10 : 3
-  return '#' + rid + '|官方手续费' + pct + '%'
 }
 function niuniuNeedsClaim(m) {
   const phase = niuniuPhase(m)
@@ -3960,44 +3963,59 @@ function closeRpDetail() {
 /* 中间信息区：叠在牛右侧空位 */
 .chat-niuniu-card .nn-center {
   position: absolute;
-  left: 33%;
-  top: 38%;
-  width: 31%;
-  max-width: 31%;
+  left: 30%;
+  top: 34%;
+  width: 36%;
+  max-width: 36%;
   z-index: 2;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: clamp(1px, 0.6cqi, 3px);
+  align-items: center;
+  justify-content: center;
+  gap: clamp(1px, 0.7cqi, 3px);
   min-width: 0;
   box-sizing: border-box;
+  text-align: center;
 }
-.chat-niuniu-card .nn-pool {
-  font-size: clamp(12px, 5.4cqi, 18px);
-  font-weight: 900;
-  line-height: 1.15;
-  color: #ffe082;
-  text-shadow: 0 1px 3px rgba(80, 0, 0, 0.45);
-  white-space: nowrap;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.chat-niuniu-card .nn-entry,
-.chat-niuniu-card .nn-buyers {
-  font-size: clamp(8px, 3cqi, 10px);
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.95);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+.chat-niuniu-card .nn-l1,
+.chat-niuniu-card .nn-l2,
+.chat-niuniu-card .nn-l3 {
+  width: 100%;
+  text-align: center;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.96);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
   white-space: nowrap;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.2;
 }
-.chat-niuniu-card .nn-round-id {
-  opacity: 0.92;
-  font-weight: 700;
+.chat-niuniu-card .nn-l1 {
+  font-size: clamp(8px, 3.1cqi, 11px);
+}
+.chat-niuniu-card .nn-l2 {
+  font-size: clamp(8px, 2.9cqi, 10px);
+  opacity: 0.95;
+}
+.chat-niuniu-card .nn-l3 {
+  font-size: clamp(7px, 2.7cqi, 9px);
+  opacity: 0.9;
+  font-weight: 600;
+}
+.chat-niuniu-card .nn-l4 {
+  width: 100%;
+  text-align: center;
+  font-size: clamp(15px, 6.2cqi, 22px);
+  font-weight: 900;
+  line-height: 1.1;
+  color: #ffe082;
+  text-shadow: 0 1px 3px rgba(80, 0, 0, 0.5);
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.2px;
 }
 /* 右侧：倒计时 + 操作按钮 */
 .chat-niuniu-card .nn-right {
@@ -4059,9 +4077,9 @@ function closeRpDetail() {
 /* 窄气泡（约 iPhone SE / 11 聊天气泡列）再收一点布局 */
 @container nn-card (max-width: 300px) {
   .nn-center {
-    left: 32%;
-    top: 36%;
-    width: 32%;
+    left: 29%;
+    top: 32%;
+    width: 38%;
   }
   .nn-right {
     right: 10%;
@@ -4077,9 +4095,10 @@ function closeRpDetail() {
 }
 /* 无 cqi 时的回退：按视口收字号，避免旧 WebView 撑破 */
 @supports not (width: 1cqi) {
-  .chat-niuniu-card .nn-pool { font-size: 15px; }
-  .chat-niuniu-card .nn-entry,
-  .chat-niuniu-card .nn-buyers { font-size: 9px; }
+  .chat-niuniu-card .nn-l1 { font-size: 10px; }
+  .chat-niuniu-card .nn-l2,
+  .chat-niuniu-card .nn-l3 { font-size: 9px; }
+  .chat-niuniu-card .nn-l4 { font-size: 17px; }
   .chat-niuniu-card .nn-countdown-time { font-size: 8px; }
   .chat-niuniu-card .nn-right { right: 10%; width: 22%; gap: 3px; }
 }
