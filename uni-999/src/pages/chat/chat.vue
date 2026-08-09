@@ -3307,44 +3307,14 @@ function niuniuVerifyLabel(r) {
 }
 function openNiuniuVerify() {
   const r = niuniuDetailRound.value || {}
-  const isTron = r.proof_type === 'tron' || (r.tron_block_num | 0) > 0 || !!r.tron_block_id
-  const href = String(r.tronscan_url || r.drand_url || '').trim()
-  const label = niuniuVerifyLabel(r)
-  const hash = String(r.fair_hash || r.tron_block_id || r.drand_randomness || '').trim()
-  const tip = isTron
-    ? (
-        '本局锁定波场区块：' +
-        label +
-        (hash ? '\nBlock Hash：' + hash.slice(0, 28) + (hash.length > 28 ? '…' : '') : '') +
-        '\n尾数由 Block Hash + 份号 SHA256 派生（00-99），与普通红宝同一套波场校验。'
-      )
-    : (
-        '本局校验轮次：' +
-        label +
-        (hash ? '\nrandomness：' + hash.slice(0, 24) + (hash.length > 24 ? '…' : '') : '') +
-        '\n尾数由 drand randomness + 份号 SHA256 派生（00-99）。'
-      )
-  // #ifdef H5
-  if (href && typeof window !== 'undefined') {
-    try {
-      window.open(href, '_blank')
-    } catch (e) {}
+  const rid = (r.id | 0) || 0
+  if (!rid) {
+    uni.showToast({ title: '缺少局号', icon: 'none' })
+    return
   }
-  // #endif
-  uni.showModal({
-    title: isTron ? '波场尾数校验' : '尾数校验说明',
-    content: tip + (href ? '\n\n已尝试打开' + (isTron ? ' TronScan' : ' 官方 drand') + ' 页面。' : ''),
-    showCancel: !!href,
-    cancelText: '关闭',
-    confirmText: href ? '复制链接' : '知道了',
-    success: (res) => {
-      if (res.confirm && href) {
-        uni.setClipboardData({
-          data: href,
-          success: () => uni.showToast({ title: '已复制校验链接', icon: 'none' }),
-        })
-      }
-    },
+  uni.navigateTo({
+    url: '/pages/common/fair-verify?kind=niuniu&round_id=' + encodeURIComponent(String(rid)),
+    fail: () => uni.showToast({ title: '无法打开验证页', icon: 'none' }),
   })
 }
 

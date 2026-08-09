@@ -239,6 +239,50 @@ class Fanshub extends Api
     }
 
     /**
+     * GET /api/fanshub/nnfair?round_id=123
+     * 尾数牛牛波场验证（须登录）
+     */
+    public function nnfair()
+    {
+        $roundId = (int)$this->request->param('round_id', 0);
+        if ($roundId <= 0) {
+            $no = trim((string)$this->request->param('packet_no', ''));
+            if (preg_match('/^(?:nn|niuniu)[#\-:_]?(\d+)$/i', $no, $m)) {
+                $roundId = (int)$m[1];
+            } elseif (ctype_digit($no)) {
+                $roundId = (int)$no;
+            }
+        }
+        if ($roundId <= 0) {
+            $this->error('请提供牛牛局号 round_id');
+        }
+        $userId = (int)($this->auth->id ?? 0);
+        if ($userId <= 0) {
+            $this->error('请先登录后再查询验证', null, 401);
+        }
+
+        $round = \think\Db::name('chat_niuniu_rounds')->where('id', $roundId)->find();
+        if (!$round) {
+            $this->error('对局不存在');
+        }
+
+        $status = (int)($round['status'] ?? 0);
+        if ($status < \app\common\library\NiuniuTronFair::STATUS_CLAIMING) {
+            $this->error('购入尚未结束，暂无波场开奖哈希');
+        }
+
+        $shares = \think\Db::name('chat_niuniu_shares')
+            ->where('round_id', $roundId)
+            ->order('id', 'asc')
+            ->select();
+        if (is_object($shares) && method_exists($shares, 'toArray')) {
+            $shares = $shares->toArray();
+        }
+        $view = \app\common\library\NiuniuTronFair::publicView($round, $shares ?: []);
+        $this->success('ok', $view);
+    }
+
+    /**
      * 邀请排行榜
      */
     public function inviteleaderboard()
