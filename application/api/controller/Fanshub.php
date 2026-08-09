@@ -271,6 +271,17 @@ class Fanshub extends Api
             $this->error('购入尚未结束，暂无波场开奖哈希');
         }
 
+        // 群成员校验，避免任意登录用户扫局号验算
+        $groupId = (int)($round['group_id'] ?? 0);
+        if ($groupId > 0) {
+            $mem = \think\Db::name('chat_group_members')
+                ->where(['group_id' => $groupId, 'user_id' => $userId, 'status' => 1])
+                ->find();
+            if (!$mem) {
+                $this->error('你不在该群，无法查看验证信息');
+            }
+        }
+
         $shares = \think\Db::name('chat_niuniu_shares')
             ->where('round_id', $roundId)
             ->order('id', 'asc')

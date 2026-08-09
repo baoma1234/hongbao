@@ -60,7 +60,7 @@ class NiuniuTronFair
 
     public static function modeLabel($mode)
     {
-        return ((int)$mode === self::MODE_SINGLE) ? '尾数牛牛·单结果' : '尾数牛牛';
+        return ((int)$mode === self::MODE_SINGLE) ? '尾数牛牛' : '尾数牛牛(多包)';
     }
 
     /**
@@ -87,10 +87,12 @@ class NiuniuTronFair
         if ($tronStatus <= 0 && $tronId !== '') {
             $tronStatus = 2;
         }
-        $revealed = $status >= self::STATUS_CLAIMING && $tronId !== '';
+        // 仅结算后开放完整复算；领取中不返回 computed_tails / block hash
+        $fullReveal = ($status >= self::STATUS_SETTLED || $status === self::STATUS_REFUND) && $tronId !== '';
+        $revealed = $fullReveal;
         $tronscan = $tronNum > 0
             ? ('https://tronscan.org/#/block/' . $tronNum)
-            : ($tronId !== '' ? ('https://tronscan.org/#/block/' . $tronId) : '');
+            : ($fullReveal && $tronId !== '' ? ('https://tronscan.org/#/block/' . $tronId) : '');
 
         $computed = [];
         $stored = [];
@@ -174,9 +176,13 @@ class NiuniuTronFair
             }
         }
 
-        $hint = $revealed
-            ? '尾数由 Block Hash + 份号 SHA256 派生（00-99），可与下方复算结果对照。'
-            : '购入结束后绑定波场区块哈希，再派生每包尾数；页面将自动重试。';
+        if ($status === self::STATUS_CLAIMING) {
+            $hint = '领取阶段仅展示已领结果；结算完成后开放 Block Hash 与全部尾数复算。';
+        } elseif ($revealed) {
+            $hint = '尾数由 Block Hash + 份号 SHA256 派生（00-99），可与下方复算结果对照。';
+        } else {
+            $hint = '购入结束后绑定波场区块哈希，再派生每包尾数；页面将自动重试。';
+        }
 
         return [
             'kind' => 'niuniu',
@@ -191,12 +197,12 @@ class NiuniuTronFair
             'share_count' => (int)($round['share_count'] ?? 0),
             'share_price' => round((float)($round['share_price'] ?? 0), 2),
             'proof_type' => ($tronNum > 0 || $tronId !== '') ? 'tron' : 'drand',
-            'tron_block_num' => $tronNum,
-            'targetBlockNum' => $tronNum,
-            'tron_block_id' => $tronId,
-            'block_id' => $tronId,
-            'fair_hash' => $tronId,
-            'tronscan_url' => $tronscan,
+            'tron_block_num' => $fullReveal ? $tronNum : (($status >= self::STATUS_CLAIMING) ? $tronNum : 0),
+            'targetBlockNum' => $fullReveal ? $tronNum : (($status >= self::STATUS_CLAIMING) ? $tronNum : 0),
+            'tron_block_id' => $fullReveal ? $tronId : '',
+            'block_id' => $fullReveal ? $tronId : '',
+            'fair_hash' => $fullReveal ? $tronId : '',
+            'tronscan_url' => $fullReveal ? $tronscan : '',
             'revealed' => $revealed,
             'verify_hint' => $hint,
             'tail_verify' => [
