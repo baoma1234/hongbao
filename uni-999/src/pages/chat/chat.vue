@@ -48,6 +48,7 @@
           :scroll-into-view="scrollInto"
           :scroll-top="scrollTop"
           :scroll-with-animation="false"
+          @scroll="onChatScroll"
           @click="closePanels"
         >
           <view
@@ -809,6 +810,9 @@ let activePacketId = 0
 let roomAlive = false
 let bootDoneAt = 0
 let scrollTimers = []
+/** 是否贴底：用户上翻看历史时为 false，避免软刷新/牛牛更新把列表拽回底部 */
+let stickToBottom = true
+let chatScrollViewport = 0
 
 const isPrivate = computed(() => (meta.value.type | 0) === 1)
 const transferPreviewAmt = computed(() => {
@@ -1874,7 +1878,8 @@ function appendLocalMessage(raw) {
       remark: remark.value,
     })
   }
-  scrollToLatest()
+  // 自己发的消息强制贴底；他人消息仅在已贴底时跟随
+  scrollToLatest(isMine(msg))
   return true
 }
 
@@ -2120,7 +2125,7 @@ async function submitTransfer() {
     }
     const msg = data.message
     if (msg) appendLocalMessage(msg)
-    else await fetchHistory()
+    else await fetchHistory({ forceScroll: true })
     closeTransferSend()
     uni.showToast({ title: '转账成功', icon: 'success' })
     markRead().catch(() => {})
@@ -2165,18 +2170,64 @@ async function refreshWallet() {
   }
 }
 
-function scrollToLatest() {
-  const last = messages.value[messages.value.length - 1]
-  const id = last ? 'm' + msgId(last) : 'chat-bottom-anchor'
-  scrollInto.value = ''
-  scrollTop.value = scrollTop.value === 999999 ? 999998 : 999999
+function cancelScrollToLatest() {
   if (scrollTimers.length) {
     scrollTimers.forEach((t) => clearTimeout(t))
     scrollTimers = []
   }
+}
+
+function resolveChatScrollViewport() {
+  // #ifdef H5
+  try {
+    if (typeof document !== 'undefined') {
+      const roots = document.querySelectorAll('.chat-room-page .chat-msg-scroll, .chat-msg-scroll')
+      for (let i = 0; i < roots.length; i++) {
+        const node = roots[i]
+        const el =
+          (node.querySelector && node.querySelector('.uni-scroll-view')) ||
+          node
+        const h = (el && el.clientHeight) || 0
+        if (h > 0) {
+          chatScrollViewport = h
+          return h
+        }
+      }
+    }
+  } catch (e) {}
+  // #endif
+  return chatScrollViewport || 480
+}
+
+function onChatScroll(e) {
+  const d = (e && e.detail) || {}
+  const top = Number(d.scrollTop)
+  const sh = Number(d.scrollHeight)
+  if (!isFinite(top) || !isFinite(sh) || sh <= 0) return
+  const vh = resolveChatScrollViewport()
+  const dist = sh - top - vh
+  const near = dist < 140
+  if (stickToBottom && !near) {
+    cancelScrollToLatest()
+    // 清掉 into-view，避免消息列表重绘时再次把视口钉回底部
+    scrollInto.value = ''
+  }
+  stickToBottom = near
+}
+
+function scrollToLatest(force) {
+  if (!force && !stickToBottom) return
+  if (force) stickToBottom = true
+  const last = messages.value[messages.value.length - 1]
+  const id = last ? 'm' + msgId(last) : 'chat-bottom-anchor'
+  scrollInto.value = ''
+  scrollTop.value = scrollTop.value === 999999 ? 999998 : 999999
+  cancelScrollToLatest()
   const bump = (target) => {
+    if (!force && !stickToBottom) return
     scrollInto.value = ''
     nextTick(() => {
+      if (!force && !stickToBottom) return
       scrollInto.value = target
       scrollTop.value = scrollTop.value === 999999 ? 999998 : 999999
       // #ifdef H5
@@ -2347,7 +2398,7 @@ async function sendSticker(st) {
     showSticker.value = false
     const msg = packet && packet.data && packet.data.message
     if (msg) appendLocalMessage(msg)
-    else await fetchHistory()
+    else await fetchHistory({ forceScroll: true })
   } catch (e) {
     uni.showToast({ title: (e && e.message) || '发送失败', icon: 'none' })
   }
@@ -2617,7 +2668,8 @@ async function markRead() {
   }
 }
 
-async function fetchHistory() {
+async function fetchHistory(opts) {
+  const forceScroll = !!(opts && opts.forceScroll)
   const data = {
     conversation_type: meta.value.type | 0,
     limit: 50,
@@ -2670,7 +2722,8 @@ async function fetchHistory() {
     }
   }
   await markRead()
-  scrollToLatest()
+  // 上翻看历史时不强制回底；进房 / 自己操作可 forceScroll
+  if (forceScroll || stickToBottom) scrollToLatest(forceScroll)
 }
 
 async function sendText() {
@@ -2693,7 +2746,7 @@ async function sendText() {
     showSticker.value = false
     showAttach.value = false
     if (msg) appendLocalMessage(msg)
-    else await fetchHistory()
+    else await fetchHistory({ forceScroll: true })
     markRead().catch(() => {})
   } catch (e) {
     uni.showToast({ title: e.message || '发送失败', icon: 'none' })
@@ -2721,7 +2774,7 @@ async function startNiuniuRound(mode = 1) {
     } else {
       uni.showToast({ title: '开局成功但未收到卡片，请下拉刷新', icon: 'none' })
     }
-    setTimeout(() => fetchHistory().catch(() => {}), 400)
+    setTimeout(() => fetchHistory({ forceScroll: true }).catch(() => {}), 400)
     if (!isPrivate.value) loadGroupMeta().catch(() => {})
   } catch (e) {
     uni.showToast({ title: (e && e.message) || '开启失败', icon: 'none' })
@@ -2741,7 +2794,7 @@ async function stopNiuniuLoop() {
     await niuniuStop(meta.value.group | 0)
     uni.showToast({ title: '已关闭连开', icon: 'success' })
     if (!isPrivate.value) loadGroupMeta().catch(() => {})
-    setTimeout(() => fetchHistory().catch(() => {}), 300)
+    setTimeout(() => fetchHistory({ forceScroll: true }).catch(() => {}), 300)
   } catch (e) {
     uni.showToast({ title: (e && e.message) || '关闭失败', icon: 'none' })
   } finally {
@@ -2833,7 +2886,7 @@ async function submitNiuniuBuy() {
     showNiuniu.value = false
     uni.showToast({ title: '已购入 ' + count + ' 份', icon: 'success' })
     await refreshWallet()
-    setTimeout(() => fetchHistory().catch(() => {}), 400)
+    setTimeout(() => fetchHistory({ forceScroll: true }).catch(() => {}), 400)
   } catch (e) {
     uni.showToast({ title: (e && e.message) || '购入失败', icon: 'none' })
   } finally {
@@ -2922,7 +2975,7 @@ async function sendRp() {
     if (msg) appendLocalMessage(msg)
     await refreshWallet()
     setTimeout(() => {
-      fetchHistory().catch(() => {})
+      fetchHistory({ forceScroll: true }).catch(() => {})
     }, 600)
     markRead().catch(() => {})
   } catch (e) {
@@ -3105,7 +3158,7 @@ async function grabFromDetail() {
   } catch (e) {}
   if (data) {
     grabErrorTip.value = ''
-    await fetchHistory()
+    await fetchHistory({ forceScroll: true })
   } else if (keptTip) {
     // openDetail 重绘后再次钉住提示，避免被盖住
     grabErrorTip.value = keptTip
@@ -3402,7 +3455,8 @@ onLoad(async (query) => {
   })
   try {
     await imConnect()
-    await Promise.all([fetchHistory(), loadGroupMeta()])
+    stickToBottom = true
+    await Promise.all([fetchHistory({ forceScroll: true }), loadGroupMeta()])
     // 大厅「一键复制密令」跳转客服后：自动把密令发出去
     if (isPrivate.value && (meta.value.peer | 0) === 88888888) {
       try {
@@ -3418,7 +3472,7 @@ onLoad(async (query) => {
     uni.showToast({ title: e.message || '连接失败', icon: 'none' })
   } finally {
     bootDoneAt = Date.now()
-    scrollToLatest()
+    scrollToLatest(true)
   }
 })
 
@@ -3426,9 +3480,9 @@ onShow(() => {
   if (!getToken() || !roomAlive) return
   bindForegroundResume()
   resumeFromBackground('chat-onShow')
-  // 刚进房时 onShow 会跟 onLoad 抢历史，容易滚不到底；短窗口只补滚
+  // 刚进房时 onShow 会跟 onLoad 抢历史，容易滚不到底；短窗口只补滚（用户已上翻则不抢）
   if (bootDoneAt && Date.now() - bootDoneAt < 1800) {
-    scrollToLatest()
+    if (stickToBottom) scrollToLatest(true)
   } else {
     softRefreshHistory()
   }
@@ -3443,10 +3497,8 @@ onUnload(() => {
       clearActiveChat()
     })
   roomAlive = false
-  if (scrollTimers.length) {
-    scrollTimers.forEach((t) => clearTimeout(t))
-    scrollTimers = []
-  }
+  stickToBottom = true
+  cancelScrollToLatest()
   if (off) off()
 })
 function closeRpDetail() {
