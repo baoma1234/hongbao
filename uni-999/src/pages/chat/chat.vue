@@ -124,7 +124,7 @@
                     </view>
                     <view class="nn-right">
                       <view
-                        v-if="niuniuPhase(m) === 'buying' || niuniuPhase(m) === 'claim'"
+                        v-if="niuniuShowCountdown(m)"
                         class="nn-countdown"
                       >
                         <image class="nn-countdown-bg" src="/static/niuniu/countdown.png" mode="scaleToFill" />
@@ -1455,13 +1455,53 @@ function niuniuRound(m) {
   const ex = msgExtra(m)
   return (ex && ex.round) || {}
 }
-function niuniuPhase(m) {
+function niuniuRawPhase(m) {
   const ex = msgExtra(m)
   return String((ex && ex.phase) || niuniuRound(m).card_phase || 'buying')
+}
+/** 结合截止时间推算展示阶段，避免服务端卡片滞后时倒计时挂着不切 */
+function niuniuPhase(m) {
+  void niuniuNowTick.value
+  const raw = niuniuRawPhase(m)
+  if (raw === 'result' || raw === 'void' || raw === 'refund') return raw
+  const r = niuniuRound(m)
+  const now = niuniuNowTick.value || Math.floor(Date.now() / 1000)
+  const buyEnd = r.buy_end_at | 0
+  const claimEnd = r.claim_end_at | 0
+  if (raw === 'buying') {
+    if (buyEnd > 0 && buyEnd <= now) {
+      if (claimEnd > now) return 'claim'
+      if (claimEnd > 0 && claimEnd <= now) return 'result'
+      // 购入已截止、领取阶段尚未落库：先隐藏倒计时，按钮走开奖明细图
+      return 'result'
+    }
+    return 'buying'
+  }
+  if (raw === 'claim') {
+    if (claimEnd > 0 && claimEnd <= now) return 'result'
+    return 'claim'
+  }
+  return raw
 }
 function niuniuDrand(m) {
   const r = niuniuRound(m)
   return r.drand_label || ('drand-#' + (r.drand_round || ''))
+}
+function niuniuRemainSec(m) {
+  void niuniuNowTick.value
+  const phase = niuniuPhase(m)
+  if (phase !== 'buying' && phase !== 'claim') return 0
+  const r = niuniuRound(m)
+  const endAt = phase === 'claim' ? (r.claim_end_at | 0) : (r.buy_end_at | 0)
+  if (endAt > 0) {
+    return Math.max(0, endAt - (niuniuNowTick.value || Math.floor(Date.now() / 1000)))
+  }
+  const fallback = phase === 'claim' ? (r.remain_claim | 0) : (r.remain_buy | 0)
+  return Math.max(0, fallback)
+}
+function niuniuShowCountdown(m) {
+  const phase = niuniuPhase(m)
+  return (phase === 'buying' || phase === 'claim') && niuniuRemainSec(m) > 0
 }
 function ensureNiuniuTick() {
   if (niuniuTickTimer) return
@@ -1470,15 +1510,15 @@ function ensureNiuniuTick() {
     niuniuNowTick.value = Math.floor(Date.now() / 1000)
     // 倒计时归零后补拉一轮，尽快切到领取/开奖态
     const now = niuniuNowTick.value
-    if (now - niuniuZeroRefreshAt < 3) return
+    if (now - niuniuZeroRefreshAt < 2) return
     const list = messages.value || []
     for (let i = 0; i < list.length; i++) {
       const m = list[i]
       if (!isNiuniu(m)) continue
-      const phase = niuniuPhase(m)
-      if (phase !== 'buying' && phase !== 'claim') continue
+      const raw = niuniuRawPhase(m)
+      if (raw !== 'buying' && raw !== 'claim') continue
       const r = niuniuRound(m)
-      const endAt = phase === 'claim' ? (r.claim_end_at | 0) : (r.buy_end_at | 0)
+      const endAt = raw === 'claim' ? (r.claim_end_at | 0) : (r.buy_end_at | 0)
       if (endAt > 0 && endAt <= now) {
         niuniuZeroRefreshAt = now
         softRefreshHistory()
@@ -1494,16 +1534,48 @@ function stopNiuniuTick() {
   }
 }
 function niuniuRemainText(m) {
-  void niuniuNowTick.value
   ensureNiuniuTick()
-  const r = niuniuRound(m)
-  const phase = niuniuPhase(m)
-  let sec = phase === 'claim' ? (r.remain_claim | 0) : (r.remain_buy | 0)
-  const endAt = phase === 'claim' ? (r.claim_end_at | 0) : (r.buy_end_at | 0)
-  if (endAt > 0) sec = Math.max(0, endAt - (niuniuNowTick.value || Math.floor(Date.now() / 1000)))
+  const sec = niuniuRemainSec(m)
   const mm = String(Math.floor(sec / 60)).padStart(2, '0')
   const ss = String(sec % 60).padStart(2, '0')
   return mm + ':' + ss
+}
+/** 用 niuniu.update / 购入回包就地刷新卡片，不必整页拉 history */
+function applyNiuniuUpdateLocal(payload) {
+  if (!payload || !roomAlive) return false
+  const gid = (payload.group_id | 0) || (meta.value.group | 0)
+  if (!isPrivate.value && gid && gid !== (meta.value.group | 0)) return false
+  const extra = payload.extra && typeof payload.extra === 'object' ? payload.extra : payload
+  const round = (extra && extra.round) || payload.round || null
+  const roundId =
+    ((extra && extra.round_id) | 0) ||
+    ((round && round.id) | 0) ||
+    ((payload.round_id) | 0) ||
+    0
+  if (!roundId || !round) return false
+  const phase = String((extra && extra.phase) || round.card_phase || '')
+  let patched = 0
+  const rows = messages.value
+  for (let i = 0; i < rows.length; i++) {
+    const m = rows[i]
+    if (!isNiuniu(m)) continue
+    const ex = msgExtra(m)
+    const rid = (ex.round_id | 0) || ((ex.round && ex.round.id) | 0) || 0
+    if (rid !== roundId) continue
+    const nextEx = Object.assign({}, ex, {
+      niuniu: 1,
+      round_id: roundId,
+      phase: phase || ex.phase,
+      round: Object.assign({}, ex.round || {}, round),
+    })
+    rows[i] = Object.assign({}, m, { extra: nextEx })
+    patched++
+  }
+  if (patched) {
+    messages.value = rows.slice()
+    ensureNiuniuTick()
+  }
+  return patched > 0
 }
 function niuniuTitle(m) {
   const r = niuniuRound(m)
@@ -1556,7 +1628,7 @@ function niuniuBtnSrc(m) {
   const phase = niuniuPhase(m)
   if (phase === 'buying') return '/static/niuniu/btn-buy.png'
   if (phase === 'claim') return '/static/niuniu/btn-claim.png'
-  return '/static/niuniu/btn-wait.png'
+  return '/static/niuniu/开奖明细.png'
 }
 function isTransfer(m) {
   return msgType(m) === 8
@@ -2722,6 +2794,7 @@ async function fetchHistory(opts) {
     }
   }
   await markRead()
+  if ((messages.value || []).some((m) => isNiuniu(m))) ensureNiuniuTick()
   // 上翻看历史时不强制回底；进房 / 自己操作可 forceScroll
   if (forceScroll || stickToBottom) scrollToLatest(forceScroll)
 }
@@ -2810,6 +2883,17 @@ async function onNiuniuTap(m) {
     return
   }
   const phase = niuniuPhase(m)
+  const raw = niuniuRawPhase(m)
+  // 本地判定购入已截止但服务端卡片未切阶段：先刷一轮，避免误开购入窗
+  if (raw === 'buying' && phase !== 'buying' && phase !== 'claim') {
+    softRefreshHistory()
+    uni.showToast({ title: '正在切换阶段…', icon: 'none' })
+    try {
+      const res = await niuniuDetail(rid)
+      openNiuniuDetail((res && res.data) || res || {})
+    } catch (e) {}
+    return
+  }
   if (phase === 'buying') {
     niuniuSheet.value = { round_id: rid, phase, round: ex.round || {} }
     niuniuBuyCount.value = '1'
@@ -2882,11 +2966,19 @@ async function submitNiuniuBuy() {
   if (!rid) return
   niuniuBusy.value = true
   try {
-    await niuniuBuy(rid, count)
+    const res = await niuniuBuy(rid, count)
+    const data = (res && res.data) || res || {}
     showNiuniu.value = false
     uni.showToast({ title: '已购入 ' + count + ' 份', icon: 'success' })
+    if (data.round) {
+      applyNiuniuUpdateLocal({
+        group_id: meta.value.group | 0,
+        extra: { phase: 'buying', round_id: rid, round: data.round },
+      })
+    }
     await refreshWallet()
-    setTimeout(() => fetchHistory({ forceScroll: true }).catch(() => {}), 400)
+    // 兜底再拉一次，避免漏掉他端并发买入
+    setTimeout(() => softRefreshHistory(), 500)
   } catch (e) {
     uni.showToast({ title: (e && e.message) || '购入失败', icon: 'none' })
   } finally {
@@ -3401,6 +3493,12 @@ onLoad(async (query) => {
     if (type === 'private.message' || type === 'group.message') {
       const msg = (data && data.message) || data
       if (msg && sameRoom(msg)) {
+        if (isNiuniu(msg)) {
+          applyNiuniuUpdateLocal({
+            group_id: (msg.group_id | 0) || (meta.value.group | 0),
+            extra: msgExtra(msg),
+          })
+        }
         if (appendLocalMessage(msg)) markRead().catch(() => {})
       }
       return
@@ -3434,7 +3532,9 @@ onLoad(async (query) => {
       return
     }
     if (type === 'niuniu.update') {
-      softRefreshHistory()
+      const payload = (data && data.message) || data || {}
+      const ok = applyNiuniuUpdateLocal(payload)
+      if (!ok) softRefreshHistory()
       if (!isPrivate.value) loadGroupMeta().catch(() => {})
       return
     }
@@ -3622,7 +3722,7 @@ function closeRpDetail() {
   position: absolute;
   top: 42%;
   right: 11%;
-  width: 28%;
+  width: 25%;
   z-index: 2;
   display: flex;
   flex-direction: column;
