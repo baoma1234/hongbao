@@ -1407,8 +1407,8 @@ class NiuniuService
     protected function modeLabel($mode)
     {
         return $this->normalizeMode($mode) === self::MODE_SINGLE
-            ? '尾数牛牛(单结果)'
-            : '尾数牛牛';
+            ? '尾数牛牛'
+            : '尾数牛牛(多包)';
     }
 
     protected function ruleText($groupId)
@@ -1615,8 +1615,8 @@ class NiuniuService
             return sprintf('%02d:%02d', intdiv($sec, 60), $sec % 60);
         };
         $modeHint = ((int)$r['game_mode'] === self::MODE_SINGLE)
-            ? '玩法：单结果｜同一用户无论购几份，只算一个尾数'
-            : '玩法：普通｜每份独立一个尾数';
+            ? '玩法：同一用户无论购几份，只算一个尾数（份数计权重）'
+            : '玩法：每份独立一个尾数';
         if ($phase === 'buying') {
             return "🧧{$modeTitle}｜倒计时 {$mmss($r['remain_buy'])}\n"
                 . "{$modeHint}\n"

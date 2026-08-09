@@ -116,7 +116,6 @@
                 >
                   <image class="nn-bg" src="/static/niuniu/bj.jpg" mode="aspectFill" />
                   <view class="nn-layer">
-                    <text v-if="(niuniuRound(m).game_mode|0) === 2" class="nn-mode-tag">单结果</text>
                     <view class="nn-center">
                       <text class="nn-l1">#{{ niuniuRoundId(m) || '--' }} 入场:{{ niuniuSharePrice(m) }}</text>
                       <text class="nn-l2">包数:{{ niuniuShareCount(m) }} 官方手续费:{{ niuniuFeePct(m) }}%</text>
@@ -250,13 +249,10 @@
               <text class="chat-attach-icon">🧧</text>
               <text>红包</text>
             </view>
-            <view v-if="canStartNiuniu" class="chat-attach-item" @click="onAttachPick('niuniu')">
-              <text class="chat-attach-icon">🐂</text>
-              <text>{{ niuniuLooping && niuniuLoopMode === 1 ? '继续连开' : '尾数牛牛' }}</text>
-            </view>
+            <!-- 普通多包模式前台暂隐；入口统一为原「单结果」，展示名「尾数牛牛」 -->
             <view v-if="canStartNiuniu" class="chat-attach-item" @click="onAttachPick('niuniu_single')">
-              <text class="chat-attach-icon">🎯</text>
-              <text>{{ niuniuLooping && niuniuLoopMode === 2 ? '继续连开' : '牛牛(单结果)' }}</text>
+              <text class="chat-attach-icon">🐂</text>
+              <text>{{ niuniuLooping && niuniuLoopMode === 2 ? '继续连开' : '尾数牛牛' }}</text>
             </view>
             <view v-if="canStopNiuniu" class="chat-attach-item" @click="onAttachPick('niuniu_stop')">
               <text class="chat-attach-icon">⏹</text>
@@ -486,7 +482,7 @@
     <view v-if="showNiuniu" class="chat-rp-send-pane open" aria-hidden="false">
       <view class="chat-hero-hd">
         <view class="chat-rp-cancel" @click="showNiuniu = false">取消</view>
-        <view class="chat-hero-title">{{ (niuniuSheet && niuniuSheet.round && niuniuSheet.round.game_mode === 2) ? '牛牛(单结果)购入' : '尾数牛牛购入' }}</view>
+        <view class="chat-hero-title">尾数牛牛购入</view>
         <view class="chat-hero-spacer" />
       </view>
       <view class="chat-rp-send-main">
@@ -496,11 +492,7 @@
             <text class="chat-rp-bal-strong">￥{{ money(walletBalance) }}</text>
           </view>
           <view class="nn-sheet-tip">
-            每份 {{ (niuniuSheet && niuniuSheet.round && niuniuSheet.round.share_price) || 100 }} 积分进入奖池；
-            开出尾数即红包金额入账（如 02=0.02 元），结算后再按牛型分奖金。
-            <text v-if="niuniuSheet && niuniuSheet.round && (niuniuSheet.round.game_mode|0) === 2">
-              本玩法无论买多少份，只按一个尾数结算（份数仍计权重）。
-            </text>
+            每份 {{ (niuniuSheet && niuniuSheet.round && niuniuSheet.round.share_price) || 100 }} 进入奖池；开出尾数即红包金额入账（如 42=0.42 元），结算后再按牛型分奖金。
           </view>
           <view class="chat-rp-field">
             <text class="chat-rp-lab">购入包数</text>
@@ -522,7 +514,6 @@
       <view class="nn-cover-card" @click.stop>
         <view class="nn-cover-frame">
           <view class="nn-cover-close" @click.stop="closeNiuniuCover">×</view>
-          <text class="nn-cover-badge" v-if="(niuniuCoverGameMode|0) === 2">单结果</text>
           <text class="nn-cover-title">尾数牛牛红宝</text>
           <view class="nn-cover-center">
             <text class="nn-cover-l1">#{{ niuniuCoverInfo.id || '--' }} 入场:{{ niuniuCoverInfo.price }}</text>
@@ -572,33 +563,36 @@
             @click.stop="openNiuniuVerify"
           >波场验证 ›</text>
         </view>
-        <view class="nn-detail-head">
-          <text class="nn-dh-cat">类别</text>
-          <text class="nn-dh-av">头像</text>
-          <text class="nn-dh-name">昵称</text>
-          <text class="nn-dh-amt">金额</text>
-          <text class="nn-dh-res">结果</text>
-          <text class="nn-dh-w">权重</text>
-          <text class="nn-dh-win">奖金</text>
-        </view>
-        <scroll-view scroll-y class="nn-detail-scroll" :show-scrollbar="true">
-          <view
-            v-for="(row, idx) in niuniuDetailRows"
-            :key="row._key || row.id || idx"
-            class="nn-detail-person"
-            :class="{ mine: row.is_mine }"
-          >
-            <text class="nn-dh-cat">{{ row.category || row.niu_label || '--' }}</text>
-            <view class="nn-dh-av">
-              <image class="nn-user-av" :src="avatarSrc(row.avatar)" mode="aspectFill" />
+        <text class="nn-detail-swipe-hint">左右滑动可看全列</text>
+        <scroll-view scroll-x scroll-y class="nn-detail-x" :show-scrollbar="true" enable-flex>
+          <view class="nn-detail-table">
+            <view class="nn-detail-head">
+              <text class="nn-dh-cat">类别</text>
+              <text class="nn-dh-av">头像</text>
+              <text class="nn-dh-name">昵称</text>
+              <text class="nn-dh-amt">金额</text>
+              <text class="nn-dh-res">结果</text>
+              <text class="nn-dh-w">权重</text>
+              <text class="nn-dh-win">奖金</text>
             </view>
-            <text class="nn-dh-name">{{ row.is_mine ? '我' : (row.nickname || ('用户' + row.user_id)) }}</text>
-            <text class="nn-dh-amt">{{ formatNiuniuPacketAmount(row) }}</text>
-            <text class="nn-dh-res">{{ formatNiuniuResultLine(row) }}</text>
-            <text class="nn-dh-w">{{ (row.weight | 0) || (row.share_count | 0) || 1 }}</text>
-            <text class="nn-dh-win" :class="{ win: Number(row.win_amount) > 0 }">{{ formatNiuniuBonus(row.win_amount) }}</text>
+            <view
+              v-for="(row, idx) in niuniuDetailRows"
+              :key="row._key || row.id || idx"
+              class="nn-detail-person"
+              :class="{ mine: row.is_mine }"
+            >
+              <text class="nn-dh-cat">{{ row.category || row.niu_label || '--' }}</text>
+              <view class="nn-dh-av">
+                <image class="nn-user-av" :src="avatarSrc(row.avatar)" mode="aspectFill" />
+              </view>
+              <text class="nn-dh-name">{{ row.is_mine ? '我' : (row.nickname || ('用户' + row.user_id)) }}</text>
+              <text class="nn-dh-amt">{{ formatNiuniuPacketAmount(row) }}</text>
+              <text class="nn-dh-res">{{ formatNiuniuResultLine(row) }}</text>
+              <text class="nn-dh-w">{{ (row.weight | 0) || (row.share_count | 0) || 1 }}</text>
+              <text class="nn-dh-win" :class="{ win: Number(row.win_amount) > 0 }">{{ formatNiuniuBonus(row.win_amount) }}</text>
+            </view>
+            <view v-if="!niuniuDetailRows.length" class="nn-detail-empty">暂无明细</view>
           </view>
-          <view v-if="!niuniuDetailRows.length" class="nn-detail-empty">暂无明细</view>
         </scroll-view>
       </view>
     </view>
@@ -843,7 +837,7 @@ const niuniuCoverInfo = computed(() => {
 })
 const niuniuCoverSubText = computed(() => {
   if ((niuniuCoverGameMode.value | 0) === 2) {
-    return '单结果：无论购入多少包，开启一次即可查看结果'
+    return '无论购入多少包，开启一次即可查看结果'
   }
   const n = niuniuCoverRemain.value | 0
   if (n > 1) return '点一次开一包，还剩 ' + n + ' 包'
@@ -1676,15 +1670,18 @@ function applyNiuniuUpdateLocal(payload) {
 }
 function niuniuTitle(m) {
   const r = niuniuRound(m)
-  if ((r.game_mode | 0) === 2 || r.game_mode_label) {
-    return r.game_mode_label || ((r.game_mode | 0) === 2 ? '尾数牛牛(单结果)' : '红包尾数牛牛')
+  if ((r.game_mode | 0) === 2) return '尾数牛牛'
+  if (r.game_mode_label) {
+    const lab = String(r.game_mode_label)
+    if (lab.indexOf('单结果') >= 0) return '尾数牛牛'
+    return lab
   }
-  return '红包尾数牛牛'
+  return '尾数牛牛'
 }
 function niuniuSummary(m) {
   const r = niuniuRound(m)
   const phase = niuniuPhase(m)
-  const modeTip = (r.game_mode | 0) === 2 ? '｜单结果' : ''
+  const modeTip = ''
   if (phase === 'claim') {
     return '👥总参与 ' + (r.share_count || 0) + ' 份｜💰奖池 ' + (r.pool_amount || 0) + modeTip + '｜点击领取查看尾数'
   }
@@ -2982,7 +2979,7 @@ async function startNiuniuRound(mode = 1) {
     const res = await niuniuStart(meta.value.group | 0, gameMode)
     const data = (res && res.data) || res || {}
     const msg = data.message || null
-    const tip = gameMode === 2 ? '单结果连开已开启' : '连开已开启'
+    const tip = '尾数牛牛连开已开启'
     if (msg) {
       appendLocalMessage(msg)
       uni.showToast({ title: tip, icon: 'success' })
@@ -4354,38 +4351,55 @@ function closeRpDetail() {
   font-size: 13px;
   font-weight: 800;
   color: #c62828;
+  flex-shrink: 0;
+}
+.nn-detail-swipe-hint {
+  display: block;
+  padding: 6px 14px 0;
+  font-size: 11px;
+  color: #99a;
+  flex-shrink: 0;
+}
+.nn-detail-x {
+  flex: 1;
+  height: 0;
+  min-height: 320px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.nn-detail-table {
+  display: block;
+  min-width: 620px;
+  width: max(100%, 620px);
+  padding: 6px 10px 28px;
+  box-sizing: border-box;
 }
 .nn-detail-head,
 .nn-detail-person {
   display: grid;
-  grid-template-columns: 52px 36px minmax(48px, 1fr) 48px minmax(72px, 1.4fr) 36px 48px;
+  grid-template-columns: 56px 40px 72px 56px 140px 44px 56px;
   align-items: center;
-  gap: 4px;
-  padding: 8px 8px;
+  gap: 6px;
+  padding: 10px 8px;
   box-sizing: border-box;
 }
 .nn-detail-head {
-  margin: 0 8px;
-  padding-top: 10px;
-  padding-bottom: 6px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
   color: #888;
   border-bottom: 1px solid #eef0f3;
-}
-.nn-detail-scroll {
-  flex: 1;
-  height: 0;
-  min-height: 320px;
-  padding: 6px 8px 24px;
-  box-sizing: border-box;
+  background: #fff;
+  border-radius: 10px 10px 0 0;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 .nn-detail-person {
   background: #fff;
   border-radius: 10px;
   border: 1px solid #e8ebf0;
-  margin-bottom: 6px;
-  font-size: 12px;
+  margin-top: 6px;
+  font-size: 13px;
   color: #333;
 }
 .nn-detail-person.mine {
@@ -4414,8 +4428,8 @@ function closeRpDetail() {
   justify-content: center;
 }
 .nn-user-av {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   background: #eee;
   flex-shrink: 0;
