@@ -1,14 +1,21 @@
 <?php
 /**
- * 刷新已有机器人：去数字昵称（2～6 字）+ 互不相同头像
+ * 用 scripts/data/bot_names.txt 随机重分配机器人昵称（不重复）
+ * 并下载真人照片头像到 /uploads/bot_avatars/
+ *
  * php scripts/fix_bot_profiles.php
  * php scripts/fix_bot_profiles.php --limit=500
+ * php scripts/fix_bot_profiles.php --names="C:/path/名字.txt"
  */
 $root = dirname(__DIR__);
 $limit = 5000;
+$namesPath = $root . '/scripts/data/bot_names.txt';
 foreach ($argv ?? [] as $arg) {
     if (preg_match('/^--limit=(\d+)$/', $arg, $m)) {
         $limit = max(1, (int)$m[1]);
+    }
+    if (preg_match('/^--names=(.+)$/', $arg, $m)) {
+        $namesPath = trim($m[1], "\"'");
     }
 }
 
@@ -30,73 +37,89 @@ $pdo = new PDO(
     [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
 );
 
-$parts = [
-    '清','安','乐','思','语','夏','秋','晨','晚','星','月','云','风','雨','雪',
-    '花','叶','竹','松','梅','兰','菊','桃','杏','柳','溪','江','海','山','川',
-    '阿','小','大','老','可','若','一','半','初','末','南','北','东','西','中',
-    '明','亮','辉','华','杰','豪','博','文','武','轩','宇','浩','然','逸','远',
-    '婉','婷','静','柔','慧','颖','欣','怡','悦','琳','瑶','琪','珊','璇','依',
-    '子','兮','也','之','然','如','意','心','念','想','愿','梦','行','止','归',
-    '宝','贝','果','豆','米','茶','酒','糖','盐','椒','鱼','鸟','猫','鹿','鹤',
-];
-$phrases = [
-    '清风','明月','星河','云端','锦鲤','如意','小满','安然','欢喜','知夏',
-    '南巷','北辰','东篱','西窗','半夏','初晴','晚风','听雨','望山','临江',
-    '青柠','柠檬','柚子','桃夭','杏雨','柳烟','竹影','松涛','梅香','兰息',
-    '小鹿','白鸽','玄狐','金乌','玉兔','青鸟','闲云','野鹤','孤舟','扁舟',
-    '阿木','阿南','阿夏','阿秋','阿宁','阿遥','阿川','阿舟','阿琛','阿衡',
-    '苏苏','七七','三三','九九','七七子','小橙子','小土豆','小樱桃','大白兔','小狐狸',
-    '一念','二两','三分','四时','五味','六合','知否','未央','长安','姑苏',
-    '听潮','观澜','拾光','寄远','怀橘','折柳','采薇','问道','寻梅','煮雪',
-    '暖阳','微光','浅夏','深秋','长夏','短歌','慢行','速写','轻语','静听',
-    '无忧','有喜','正好','刚刚好','小幸运','大吉祥','好时光','好心情','好天气','好日子',
-];
-
-function makeNick(PDO $pdo, $userT, $uid, array $parts, array $phrases, array &$used)
+function loadBotNames($path)
 {
-    $chk = $pdo->prepare("SELECT id FROM `{$userT}` WHERE nickname=? AND id<>? LIMIT 1");
+    if (!is_file($path)) {
+        throw new RuntimeException('names file not found: ' . $path);
+    }
+    $raw = file($path, FILE_IGNORE_NEW_LINES);
+    $out = [];
+    $seen = [];
+    foreach ($raw ?: [] as $line) {
+        $n = preg_replace('/\s+/u', '', trim((string)$line));
+        $n = preg_replace('/\d+/u', '', $n);
+        if ($n === '') {
+            continue;
+        }
+        $len = mb_strlen($n, 'UTF-8');
+        if ($len < 2 || $len > 8) {
+            continue;
+        }
+        if (isset($seen[$n])) {
+            continue;
+        }
+        $seen[$n] = true;
+        $out[] = $n;
+    }
+    return $out;
+}
+
+/** 真人照片源池（稳定 CDN），打乱后一对一分配 */
+function buildAvatarPool($need)
+{
+    $urls = [];
     for ($i = 0; $i < 100; $i++) {
-        if (mt_rand(0, 100) < 55) {
-            $nick = $phrases[array_rand($phrases)];
-        } else {
-            $len = mt_rand(2, 6);
-            $nick = '';
-            $n = count($parts);
-            for ($j = 0; $j < $len; $j++) {
-                $nick .= $parts[mt_rand(0, $n - 1)];
-            }
-        }
-        $nick = preg_replace('/\d+/u', '', (string)$nick);
-        $nick = preg_replace('/\s+/u', '', $nick);
-        $len = mb_strlen($nick, 'UTF-8');
-        if ($len < 2 || $len > 6) {
-            continue;
-        }
-        if (isset($used[$nick])) {
-            continue;
-        }
-        $chk->execute([$nick, $uid]);
-        if ($chk->fetchColumn()) {
-            continue;
-        }
-        $used[$nick] = true;
-        return $nick;
+        $urls[] = 'https://randomuser.me/api/portraits/men/' . $i . '.jpg';
+        $urls[] = 'https://randomuser.me/api/portraits/women/' . $i . '.jpg';
     }
-    $fallback = '清风' . $parts[array_rand($parts)];
-    $fallback = mb_substr(preg_replace('/\d+/u', '', $fallback), 0, 6, 'UTF-8');
-    $used[$fallback] = true;
-    return $fallback;
+    for ($i = 0; $i < 75; $i++) {
+        $urls[] = 'https://xsgames.co/randomusers/assets/avatars/male/' . $i . '.jpg';
+        $urls[] = 'https://xsgames.co/randomusers/assets/avatars/female/' . $i . '.jpg';
+    }
+    for ($i = 1; $i <= 70; $i++) {
+        $urls[] = 'https://i.pravatar.cc/300?img=' . $i;
+    }
+    $urls = array_values(array_unique($urls));
+    shuffle($urls);
+    // 不够则用 pravatar 唯一 seed 补齐
+    $i = 0;
+    while (count($urls) < $need) {
+        $urls[] = 'https://i.pravatar.cc/300?u=hb_bot_' . $i . '_' . bin2hex(random_bytes(3));
+        $i++;
+    }
+    return $urls;
 }
 
-function botAvatar($seed)
+function downloadAvatar($url, $destPath)
 {
-    $styles = ['lorelei', 'notionists', 'adventurer', 'avataaars', 'open-peeps', 'personas', 'big-smile', 'fun-emoji'];
-    $style = $styles[crc32($seed) % count($styles)];
-    if ((crc32($seed) & 1) === 0) {
-        return 'https://api.dicebear.com/9.x/' . $style . '/png?seed=' . rawurlencode($seed) . '&size=128';
+    $ctx = stream_context_create([
+        'http' => [
+            'timeout' => 20,
+            'follow_location' => 1,
+            'header' => "User-Agent: Mozilla/5.0\r\nAccept: image/*\r\n",
+        ],
+        'ssl' => [
+            'verify_peer' => false,
+            'verify_peer_name' => false,
+        ],
+    ]);
+    $bin = @file_get_contents($url, false, $ctx);
+    if ($bin === false || strlen($bin) < 800) {
+        return false;
     }
-    return 'https://i.pravatar.cc/150?u=' . rawurlencode($seed);
+    // 粗检：避免下到 HTML
+    $head = substr($bin, 0, 32);
+    if (stripos($head, '<!DOCTYPE') !== false || stripos($head, '<html') !== false) {
+        return false;
+    }
+    return file_put_contents($destPath, $bin) !== false;
 }
+
+$names = loadBotNames($namesPath);
+if (!$names) {
+    throw new RuntimeException('empty names list');
+}
+echo "names_loaded=" . count($names) . " from {$namesPath}\n";
 
 $rows = $pdo->query(
     "SELECT u.id, u.nickname, u.avatar, u.mobile
@@ -106,48 +129,86 @@ $rows = $pdo->query(
      ORDER BY u.id ASC
      LIMIT " . (int)$limit
 )->fetchAll();
+$botCount = count($rows);
+echo "bots={$botCount}\n";
+if ($botCount <= 0) {
+    echo "done updated=0\n";
+    exit(0);
+}
+if (count($names) < $botCount) {
+    throw new RuntimeException("not enough unique names: need {$botCount}, have " . count($names));
+}
 
-$used = [];
-foreach ($rows as $r) {
-    $n = preg_replace('/\d+/u', '', (string)$r['nickname']);
-    if ($n !== '' && !isset($used[$n]) && mb_strlen($n, 'UTF-8') >= 2 && mb_strlen($n, 'UTF-8') <= 6) {
-        // 先占住仍合格的旧昵称，减少无谓改名
-        $used[$n] = true;
-    }
+// 全员重新随机抽名（不重复）
+shuffle($names);
+$assignNames = array_slice($names, 0, $botCount);
+
+// 真实头像池
+$avatarPool = buildAvatarPool($botCount);
+$avatarDir = $root . '/public/uploads/bot_avatars';
+if (!is_dir($avatarDir)) {
+    mkdir($avatarDir, 0755, true);
 }
 
 $upd = $pdo->prepare("UPDATE `{$userT}` SET nickname=?, avatar=?, updatetime=? WHERE id=?");
+$chkNick = $pdo->prepare("SELECT id FROM `{$userT}` WHERE nickname=? AND id<>? LIMIT 1");
 $now = time();
 $nOk = 0;
-foreach ($rows as $r) {
+$nFailAvatar = 0;
+
+for ($i = 0; $i < $botCount; $i++) {
+    $r = $rows[$i];
     $uid = (int)$r['id'];
     $oldNick = (string)$r['nickname'];
-    $clean = preg_replace('/\d+/u', '', $oldNick);
-    $clean = preg_replace('/\s+/u', '', $clean);
-    $len = mb_strlen($clean, 'UTF-8');
-    $needNick = ($clean !== $oldNick) || $len < 2 || $len > 6 || (isset($used[$clean]) && $clean !== $oldNick);
-    // 重复昵称也要换
-    $dup = false;
-    if (!$needNick) {
-        $st = $pdo->prepare("SELECT id FROM `{$userT}` WHERE nickname=? AND id<>? LIMIT 1");
-        $st->execute([$oldNick, $uid]);
-        $dup = (bool)$st->fetchColumn();
-    }
-    if ($needNick || $dup || preg_match('/\d/', $oldNick)) {
-        // 释放旧名占用后重新分配
-        if (isset($used[$clean]) && $clean === $oldNick) {
-            unset($used[$clean]);
+    $nick = $assignNames[$i];
+
+    // 若与真人撞名，往后换一个未用名
+    $chkNick->execute([$nick, $uid]);
+    if ($chkNick->fetchColumn()) {
+        $swapped = false;
+        for ($j = $botCount; $j < count($names); $j++) {
+            $alt = $names[$j];
+            $chkNick->execute([$alt, $uid]);
+            if (!$chkNick->fetchColumn()) {
+                $nick = $alt;
+                $swapped = true;
+                break;
+            }
         }
-        $nick = makeNick($pdo, $userT, $uid, $parts, $phrases, $used);
-    } else {
-        $nick = $oldNick;
-        $used[$nick] = true;
+        if (!$swapped) {
+            $nick = $nick . '子';
+            if (mb_strlen($nick, 'UTF-8') > 8) {
+                $nick = mb_substr($nick, 0, 8, 'UTF-8');
+            }
+        }
     }
-    $avatar = botAvatar('bot' . $uid . '_' . substr(md5((string)$r['mobile'] . $uid), 0, 10));
+
+    $remote = $avatarPool[$i];
+    $file = $avatarDir . '/b' . $uid . '.jpg';
+    $okDl = downloadAvatar($remote, $file);
+    if (!$okDl) {
+        // 失败则换池内下一个源再试
+        for ($t = 1; $t <= 5; $t++) {
+            $altUrl = $avatarPool[($i + $t * 17) % count($avatarPool)];
+            if (downloadAvatar($altUrl, $file)) {
+                $okDl = true;
+                break;
+            }
+        }
+    }
+    if ($okDl) {
+        $avatar = '/uploads/bot_avatars/b' . $uid . '.jpg?v=' . $now;
+    } else {
+        $nFailAvatar++;
+        // 兜底仍用真人 CDN，避免 dicebear 卡通脸
+        $avatar = $remote;
+    }
+
     $upd->execute([$nick, $avatar, $now, $uid]);
     $nOk++;
-    if ($nOk <= 8 || $nOk % 50 === 0) {
-        echo "OK #{$nOk} id={$uid} {$oldNick} => {$nick}\n";
+    if ($nOk <= 12 || $nOk % 50 === 0) {
+        echo "OK #{$nOk} id={$uid} {$oldNick} => {$nick} avatar=" . ($okDl ? 'local' : 'cdn') . "\n";
     }
 }
-echo "done updated={$nOk}\n";
+
+echo "done updated={$nOk} avatar_fail={$nFailAvatar}\n";

@@ -132,12 +132,12 @@ function uniqueNick(PDO $pdo, $userT, array $parts, array $phrases)
 
 function botAvatar($seed)
 {
-    $styles = ['lorelei', 'notionists', 'adventurer', 'avataaars', 'open-peeps', 'personas', 'big-smile', 'fun-emoji'];
-    $style = $styles[crc32($seed) % count($styles)];
-    if ((crc32($seed) & 1) === 0) {
-        return 'https://api.dicebear.com/9.x/' . $style . '/png?seed=' . rawurlencode($seed) . '&size=128';
+    // 真人照片池，避免 dicebear 卡通脸
+    $n = abs(crc32($seed));
+    if (($n % 2) === 0) {
+        return 'https://randomuser.me/api/portraits/' . (($n % 4 < 2) ? 'men' : 'women') . '/' . ($n % 100) . '.jpg';
     }
-    return 'https://i.pravatar.cc/150?u=' . rawurlencode($seed);
+    return 'https://i.pravatar.cc/300?u=' . rawurlencode($seed);
 }
 
 function randSalt($len = 6)
