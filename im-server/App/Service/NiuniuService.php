@@ -1240,10 +1240,12 @@ class NiuniuService
                         'extra'             => $extra,
                         'message'           => $msg,
                     ], false, $this->cfg);
+                    return $msg;
                 }
-                return $msg;
+                // 旧消息丢失时回退为新建一张卡
+                error_log('[NIUNIU][pushCard] update miss id=' . $cardMsgId . ', fallback insert');
             }
-            // 首张购入卡
+            // 首张购入卡（或更新失败兜底）
             $msg = $this->messages->insertGroupMessageUnchecked(
                 (int)$fromUserId,
                 (int)$round['group_id'],
@@ -1252,6 +1254,12 @@ class NiuniuService
                 $extra
             );
             if (is_array($msg)) {
+                $mid = (int)$msg['id'];
+                Db::exec(
+                    'UPDATE ' . Db::table('chat_niuniu_rounds')
+                    . ' SET buy_msg_id=?, updatetime=? WHERE id=?',
+                    [$mid, time(), (int)$round['id']]
+                );
                 NotifyPublisher::publish('group.message', $msg, false, $this->cfg);
             }
             return $msg;

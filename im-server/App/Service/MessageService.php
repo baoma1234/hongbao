@@ -2076,12 +2076,14 @@ class MessageService
                 // 卡片展示所需精简字段，避免超大 JSON
                 $r = $extra['round'];
                 $keep = [
-                    'id', 'group_id', 'status', 'status_label', 'share_price', 'share_count',
+                    'id', 'group_id', 'status', 'status_label', 'game_mode', 'game_mode_label',
+                    'share_price', 'share_count',
                     'pool_amount', 'fee_amount', 'distributable', 'fee_rate', 'niuniu_rate',
                     'secondary_rate', 'buy_end_at', 'claim_end_at', 'remain_buy', 'remain_claim',
                     'drand_round', 'drand_label', 'drand_url', 'card_phase', 'settle_case',
                     'niuniu_pool', 'secondary_pool', 'niuniu_per_share', 'secondary_per_share',
                     'niuniu_share_count', 'secondary_share_count', 'low_share_count', 'desc',
+                    'my_share_count',
                 ];
                 $round = [];
                 foreach ($keep as $k) {

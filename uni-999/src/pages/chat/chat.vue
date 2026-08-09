@@ -1645,7 +1645,8 @@ function niuniuBtnSrc(m) {
   const phase = niuniuPhase(m)
   if (phase === 'buying') return '/static/niuniu/btn-buy.png'
   if (phase === 'claim') return '/static/niuniu/btn-claim.png'
-  return '/static/niuniu/开奖明细.png'
+  // 开奖明细按钮（ASCII 文件名，兼容部分 WebView 中文路径）
+  return '/static/niuniu/btn-detail.png'
 }
 function isTransfer(m) {
   return msgType(m) === 8
@@ -3729,10 +3730,11 @@ function closeRpDetail() {
   height: 100%;
 }
 .chat-niuniu-card {
-  /* 按气泡列宽适配，避免 88vw 在苹果机型上超出可视区被裁切 */
+  /* 必须用视口宽度，勿用 100%：父级 chat-msg-main 为 flex 收缩时百分比会塌成 0 */
   position: relative;
-  width: 100%;
-  max-width: 340px;
+  width: min(78vw, 340px);
+  max-width: calc(100vw - 96px);
+  min-width: 240px;
   aspect-ratio: 1024 / 575;
   border-radius: 12px;
   overflow: hidden;
@@ -3740,6 +3742,7 @@ function closeRpDetail() {
   background: #8b0d12;
   container-type: inline-size;
   container-name: nn-card;
+  flex-shrink: 0;
 }
 .chat-niuniu-card .nn-bg {
   position: absolute;
@@ -3895,7 +3898,8 @@ function closeRpDetail() {
 }
 @media (max-width: 414px) {
   .chat-niuniu-card {
-    max-width: 100%;
+    width: min(82vw, 320px);
+    min-width: 220px;
   }
 }
 .nn-sheet-tip {
