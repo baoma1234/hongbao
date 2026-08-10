@@ -1,6 +1,7 @@
 /**
- * App WebView 里 env(safe-area-inset-*) 常为 0，自定义顶栏会顶到信号栏。
- * 用 uni.getSystemInfoSync 写入 CSS 变量，样式用 var(--safe-area-inset-top, env(...))。
+ * App 自定义顶栏避让状态栏。
+ * 若 WebView 已整体下移（windowTop>0），只补差值，避免「空一大截」；
+ * 若全屏沉浸（windowTop=0），垫 statusBarHeight，贴齐信号栏下方。
  */
 function num(v, fallback = 0) {
   const n = Number(v)
@@ -15,16 +16,30 @@ export function getSafeAreaInsets() {
   try {
     const sys = uni.getSystemInfoSync() || {}
     const inset = sys.safeAreaInsets || {}
-    top = num(inset.top)
+    let status = num(sys.statusBarHeight)
+    const windowTop = num(sys.windowTop)
+
+    // #ifdef APP-PLUS
+    try {
+      if (typeof plus !== 'undefined' && plus.navigator && plus.navigator.getStatusbarHeight) {
+        const ph = num(plus.navigator.getStatusbarHeight())
+        if (ph > 0) status = ph
+      }
+    } catch (e) {}
+    // 已避让的部分不再重复垫；结果紧贴信号栏底边
+    top = Math.max(0, status - windowTop)
+    if (top < 1 && status < 1) top = 24
+    // #endif
+
+    // #ifndef APP-PLUS
+    const envTop = num(inset.top)
+    if (envTop > 0) top = envTop
+    else top = Math.max(0, status - windowTop)
+    // #endif
+
     bottom = num(inset.bottom)
     left = num(inset.left)
     right = num(inset.right)
-    const status = num(sys.statusBarHeight)
-    if (top < 1 && status > 0) top = status
-    // #ifdef APP-PLUS
-    // 自定义 navigationStyle 时内容区延伸到状态栏下，至少按状态栏高度垫开
-    if (top < 1) top = status > 0 ? status : 24
-    // #endif
   } catch (e) {
     // #ifdef APP-PLUS
     top = 24
@@ -33,16 +48,26 @@ export function getSafeAreaInsets() {
   return { top, bottom, left, right }
 }
 
-/** 写入 :root / page，供全局 CSS 使用 */
+function setVarsOn(el, top, bottom, left, right) {
+  if (!el || !el.style || !el.style.setProperty) return
+  el.style.setProperty('--safe-area-inset-top', top + 'px')
+  el.style.setProperty('--safe-area-inset-bottom', bottom + 'px')
+  el.style.setProperty('--safe-area-inset-left', left + 'px')
+  el.style.setProperty('--safe-area-inset-right', right + 'px')
+}
+
 export function applySafeAreaCssVars() {
   const { top, bottom, left, right } = getSafeAreaInsets()
   try {
-    if (typeof document !== 'undefined' && document.documentElement) {
-      const root = document.documentElement
-      root.style.setProperty('--safe-area-inset-top', top + 'px')
-      root.style.setProperty('--safe-area-inset-bottom', bottom + 'px')
-      root.style.setProperty('--safe-area-inset-left', left + 'px')
-      root.style.setProperty('--safe-area-inset-right', right + 'px')
+    if (typeof document !== 'undefined') {
+      setVarsOn(document.documentElement, top, bottom, left, right)
+      setVarsOn(document.body, top, bottom, left, right)
+      const nodes = document.querySelectorAll(
+        'uni-page-body, uni-page, .uni-page-body, page'
+      )
+      for (let i = 0; i < nodes.length; i++) {
+        setVarsOn(nodes[i], top, bottom, left, right)
+      }
     }
   } catch (e) {}
   return { top, bottom, left, right }

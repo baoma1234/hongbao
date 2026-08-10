@@ -99,8 +99,6 @@ page {
   background-color: var(--bg-main, #f4f6f9);
   color: var(--text-main, #1a212d);
   --top-bar-height: 48px;
-  --safe-area-inset-top: 0px;
-  --safe-area-inset-bottom: 0px;
 }
 @media (max-width: 480px) {
   page {

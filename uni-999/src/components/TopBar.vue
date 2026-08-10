@@ -1,5 +1,5 @@
 <template>
-  <view class="floating-top-bar">
+  <view class="floating-top-bar" :style="barStyle">
     <view class="brand" @click="goHome">
       <image class="logo" :src="logoSrc" mode="aspectFit" />
       <text class="brand-text">{{ brand }}</text>
@@ -32,7 +32,7 @@
       </view>
     </view>
   </view>
-  <view v-if="!noSpacer" class="top-bar-spacer" />
+  <view v-if="!noSpacer" class="top-bar-spacer" :style="spacerStyle" />
 </template>
 
 <script setup>
@@ -46,7 +46,7 @@ import {
   setLocale,
   t,
 } from '../utils/i18n.js'
-import { applySafeAreaCssVars } from '../utils/safe-area.js'
+import { applySafeAreaCssVars, getSafeAreaInsets } from '../utils/safe-area.js'
 
 defineProps({
   /** 红宝等页用 body padding-top 占位，勿再插 spacer 以免双倍空隙 */
@@ -57,6 +57,8 @@ defineProps({
 
 const locale = ref(getLocale())
 const langOpen = ref(false)
+/** 状态栏垫高（px），内联保证不被 page CSS 变量盖掉 */
+const padTop = ref(getSafeAreaInsets().top)
 let offLocale = null
 
 const logoSrc = logoUrl()
@@ -76,6 +78,20 @@ const localeLabel = computed(() => {
 const flagSrc = computed(() => {
   const opt = locales.value.find((x) => x.id === locale.value)
   return flagOf(opt ? opt.flagIso : 'cn')
+})
+
+const barStyle = computed(() => {
+  const p = Math.max(0, Number(padTop.value) || 0)
+  return {
+    paddingTop: p + 'px',
+    height: `calc(var(--top-bar-height, 48px) + ${p}px)`,
+  }
+})
+const spacerStyle = computed(() => {
+  const p = Math.max(0, Number(padTop.value) || 0)
+  return {
+    height: `calc(var(--top-bar-height, 48px) + ${p}px)`,
+  }
 })
 
 function flagOf(iso) {
@@ -113,8 +129,13 @@ function goHome() {
   })
 }
 
+function refreshPad() {
+  const r = applySafeAreaCssVars()
+  padTop.value = r.top
+}
+
 onMounted(() => {
-  applySafeAreaCssVars()
+  refreshPad()
   locale.value = getLocale()
   offLocale = onLocaleChange((id) => {
     locale.value = id
@@ -133,10 +154,7 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   z-index: 14000;
-  height: calc(
-    var(--top-bar-height, 48px) + var(--safe-area-inset-top, env(safe-area-inset-top, 0px))
-  );
-  padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  /* height / padding-top 由 :style 按状态栏动态写入，贴齐信号栏下方 */
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -156,9 +174,6 @@ onUnmounted(() => {
   background: transparent;
 }
 .top-bar-spacer {
-  height: calc(
-    var(--top-bar-height, 48px) + var(--safe-area-inset-top, env(safe-area-inset-top, 0px))
-  );
   width: 100%;
   flex-shrink: 0;
 }
