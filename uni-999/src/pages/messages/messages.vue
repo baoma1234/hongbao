@@ -1,7 +1,11 @@
 <template>
-  <view>
+  <view class="messages-page">
     <TopBar :no-spacer="true" />
-    <view id="tabMessages" class="tab-page active">
+    <view
+      id="tabMessages"
+      class="tab-page active msg-tab-root"
+      :style="tabRootStyle"
+    >
       <view class="chat-shell">
         <view class="chat-list-pane">
           <view class="chat-hero-hd chat-list-hero">
@@ -66,8 +70,13 @@
             </view>
 
             <!-- 聊天 -->
-            <view id="chatHomePanelChat" class="chat-home-panel" :class="{ 'is-hidden': homeTab !== 'chat' }">
-              <view class="chat-conv-ptr-host">
+            <view
+              id="chatHomePanelChat"
+              class="chat-home-panel"
+              :class="{ 'is-hidden': homeTab !== 'chat' }"
+              :style="homeTab === 'chat' ? panelHostStyle : null"
+            >
+              <view class="chat-conv-ptr-host" :style="panelHostStyle">
                 <view class="chat-conv-ptr" :class="{ refreshing: listRefreshing, ready: listRefreshing }">
                   <view class="chat-conv-ptr-inner">
                     <view class="chat-conv-ptr-spinner" />
@@ -77,6 +86,7 @@
                 <scroll-view
                   scroll-y
                   class="chat-conv-scroll"
+                  :style="panelScrollStyle"
                   :refresher-enabled="true"
                   :refresher-triggered="listRefreshing"
                   @refresherrefresh="onListRefresh"
@@ -141,7 +151,12 @@
             </view>
 
             <!-- 社群 -->
-            <view id="chatHomePanelCommunity" class="chat-home-panel chat-community-glass" :class="{ 'is-hidden': homeTab !== 'community' }">
+            <view
+              id="chatHomePanelCommunity"
+              class="chat-home-panel chat-community-glass"
+              :class="{ 'is-hidden': homeTab !== 'community' }"
+              :style="homeTab === 'community' ? panelHostStyle : null"
+            >
               <view class="chat-community-seg is-4">
                 <view class="chat-community-seg-btn" :class="{ active: communitySub === 'official' }" @click="setCommunitySub('official')">官方社群</view>
                 <view class="chat-community-seg-btn" :class="{ active: communitySub === 'mine' }" @click="setCommunitySub('mine')">我的群组</view>
@@ -689,6 +704,7 @@ import '../../styles/chat.bundle.css'
 import '../../styles/chat-uni-adapter.css'
 import '../../styles/chat-888-parity.css'
 import { apiRequest, fetchProfile, getToken } from '../../utils/auth.js'
+import { applySafeAreaCssVars, getSafeAreaInsets } from '../../utils/safe-area.js'
 import {
   avatarLetter,
   avatarSrc,
@@ -746,6 +762,49 @@ const icoAddFriend = assetBase() + 'static/chat/plus_add_friend.png'
 const icoFriendReq = assetBase() + 'static/chat/plus_friend_req.png'
 const icoCreateGroup = assetBase() + 'static/chat/plus_create_group.png'
 const homeTab = ref('chat')
+/** App WebView 常算不出 flex 高度：用 JS 量出面板/scroll 像素高 */
+const panelScrollPx = ref(420)
+const tabRootPx = ref(0)
+
+const tabRootStyle = computed(() => {
+  const h = Number(tabRootPx.value) || 0
+  if (h < 200) return {}
+  return { height: h + 'px', minHeight: h + 'px' }
+})
+const panelHostStyle = computed(() => {
+  const h = Number(panelScrollPx.value) || 420
+  return { height: h + 'px', minHeight: h + 'px', flex: 'none', overflow: 'hidden' }
+})
+const panelScrollStyle = computed(() => {
+  let h = Number(panelScrollPx.value) || 420
+  // 社群/公告顶部有分段 Tab，scroll 区再扣一截
+  if (homeTab.value === 'community' || homeTab.value === 'notice') {
+    h = Math.max(180, h - 52)
+  }
+  return { height: h + 'px', minHeight: h + 'px' }
+})
+
+function measureMessagesLayout() {
+  try {
+    applySafeAreaCssVars()
+    const sys = uni.getSystemInfoSync() || {}
+    const winH = Number(sys.windowHeight || sys.screenHeight || 667)
+    const inset = getSafeAreaInsets()
+    const status = Number(inset.top || sys.statusBarHeight || 0)
+    const topBar = 48
+    const tabBar = 56 + Number(inset.bottom || 0)
+    // 顶栏(含状态栏) + 底栏
+    const shell = Math.max(280, winH - status - topBar - tabBar)
+    tabRootPx.value = shell
+    // 再扣：红宝社区标题区 + 连接行 + 四个子 Tab 行（约 150）
+    const chrome = 150
+    panelScrollPx.value = Math.max(220, shell - chrome)
+  } catch (e) {
+    tabRootPx.value = 0
+    panelScrollPx.value = 420
+  }
+}
+
 const searchOpen = ref(false)
 const keyword = ref('')
 const plusOpen = ref(false)
@@ -2202,6 +2261,7 @@ onShow(() => {
     return
   }
   pageAlive = true
+  measureMessagesLayout()
   applyPageShell(true)
   startImInbox()
   bindForegroundResume()
@@ -2280,25 +2340,31 @@ onHide(() => {
   text-decoration: underline;
 }
 .chat-conv-ptr-host {
-  flex: 1 1 auto;
-  min-height: 0;
+  flex: 1 1 0%;
+  min-height: 120px;
+  height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   position: relative;
 }
 .chat-conv-scroll {
+  /* App：勿用 height:0；高度由内联 panelScrollStyle / 外层 flex 给出 */
   flex: 1 1 auto;
-  min-height: 0;
-  height: 0;
+  min-height: 120px;
   width: 100%;
+  height: 100%;
+  box-sizing: border-box;
 }
 .chat-community-body-scroll,
-.chat-official-scroll {
+.chat-official-scroll,
+.chat-commission-body-scroll,
+.chat-notice-scroll {
   flex: 1 1 auto;
-  min-height: 0;
-  height: 0;
+  min-height: 120px;
   width: 100%;
+  height: 100%;
+  box-sizing: border-box;
 }
 .chat-official-list {
   display: flex;

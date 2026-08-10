@@ -1,4 +1,6 @@
-/* uni-999 消息页适配：复用 888 chat.bundle.css 时补齐外壳高度 */
+/* uni-999 消息页适配：复用 888 chat.bundle.css 时补齐外壳高度
+ * 同时用 .msg-tab-root：App 上部分机型 #id 选择器不稳定 */
+.msg-tab-root.tab-page,
 #tabMessages.tab-page {
   display: flex;
   flex-direction: column;
@@ -9,23 +11,14 @@
     100vh - var(--top-bar-height, 44px) - var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) -
       var(--tab-bar-space)
   );
-  height: calc(
-    100dvh - var(--top-bar-height, 44px) - var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) -
-      var(--tab-bar-space)
-  );
-  min-height: calc(
-    100vh - var(--top-bar-height, 44px) - var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) -
-      var(--tab-bar-space)
-  );
-  min-height: calc(
-    100dvh - var(--top-bar-height, 44px) - var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) -
-      var(--tab-bar-space)
-  );
+  min-height: 320px;
   padding-bottom: 0;
   background: var(--color-bg-page, #f5f5f5);
   overflow: hidden;
+  box-sizing: border-box;
 }
 
+.msg-tab-root .chat-shell,
 #tabMessages .chat-shell {
   flex: 1;
   min-height: 0;
@@ -34,6 +27,7 @@
   width: 100%;
 }
 
+.msg-tab-root .chat-list-pane,
 #tabMessages .chat-list-pane,
 body.tab-messages #tabMessages .chat-list-pane {
   flex: 1;
@@ -44,6 +38,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   padding-bottom: 0 !important;
 }
 
+.msg-tab-root .chat-list-main,
 #tabMessages .chat-list-main {
   flex: 1;
   min-height: 0;
@@ -55,6 +50,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   margin-bottom: 0 !important;
 }
 
+.msg-tab-root .chat-home-panel,
 #tabMessages .chat-home-panel {
   flex: 1;
   min-height: 0;
@@ -63,6 +59,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   flex-direction: column;
 }
 
+.msg-tab-root .chat-home-panel.is-hidden,
 #tabMessages .chat-home-panel.is-hidden {
   display: none !important;
 }
@@ -79,41 +76,45 @@ body.tab-messages #tabMessages .chat-list-pane {
   box-sizing: border-box !important;
 }
 
-#tabMessages .chat-commission-body-scroll {
-  position: absolute !important;
-  left: 0 !important;
-  right: 0 !important;
-  top: 0 !important;
-  bottom: 0 !important;
+#tabMessages .chat-commission-body-scroll,
+.msg-tab-root .chat-commission-body-scroll {
+  position: relative !important;
+  left: auto !important;
+  right: auto !important;
+  top: auto !important;
+  bottom: auto !important;
   width: 100% !important;
-  height: auto !important;
-  min-height: 0 !important;
+  min-height: 120px !important;
+  height: 100% !important;
   box-sizing: border-box !important;
   padding: 10px 12px 24px !important;
 }
 
-/* 会话列表：scroll-view 负责滚动，.chat-conv-list 只做内容 */
+/* 会话列表：scroll-view 负责滚动（App 标签是 uni-scroll-view，勿写 scroll-view.xxx） */
+.msg-tab-root .chat-conv-ptr-host,
 #tabMessages .chat-conv-ptr-host {
   flex: 1 1 0% !important;
-  min-height: 0 !important;
+  min-height: 120px !important;
   height: auto !important;
   display: flex !important;
   flex-direction: column !important;
   overflow: hidden !important;
   position: relative !important;
 }
-#tabMessages scroll-view.chat-conv-scroll,
+.msg-tab-root .chat-conv-scroll,
 #tabMessages .chat-conv-scroll {
-  position: absolute !important;
-  left: 0 !important;
-  right: 0 !important;
-  top: 0 !important;
-  bottom: 0 !important;
+  position: relative !important;
+  left: auto !important;
+  right: auto !important;
+  top: auto !important;
+  bottom: auto !important;
+  flex: 1 1 auto !important;
   width: 100% !important;
-  height: auto !important;
-  min-height: 0 !important;
+  min-height: 120px !important;
+  height: 100% !important;
   box-sizing: border-box !important;
 }
+.msg-tab-root .chat-conv-list,
 #tabMessages .chat-conv-list {
   flex: none !important;
   height: auto !important;
@@ -581,19 +582,20 @@ body.tab-messages #tabMessages .chat-list-pane {
   flex: 0 0 auto !important;
 }
 
-#tabMessages scroll-view.chat-community-body-scroll,
+.msg-tab-root .chat-community-body-scroll,
+.msg-tab-root .chat-official-scroll,
 #tabMessages .chat-community-body-scroll,
-#tabMessages scroll-view.chat-official-scroll,
 #tabMessages .chat-official-scroll {
   flex: 1 1 auto !important;
-  min-height: 0 !important;
-  height: auto !important;
-  width: 100%;
-  position: absolute !important;
-  left: 0 !important;
-  right: 0 !important;
-  top: 0 !important;
-  bottom: 0 !important;
+  min-height: 120px !important;
+  height: 100% !important;
+  width: 100% !important;
+  position: relative !important;
+  left: auto !important;
+  right: auto !important;
+  top: auto !important;
+  bottom: auto !important;
+  box-sizing: border-box !important;
 }
 
 #tabMessages .chat-community-pane-body,
@@ -629,17 +631,17 @@ body.tab-messages #tabMessages .chat-list-pane {
   overflow: hidden !important;
 }
 
-#tabMessages scroll-view.chat-notice-body-scroll,
+.msg-tab-root .chat-notice-body-scroll,
 #tabMessages .chat-notice-body-scroll {
   flex: 1 1 auto !important;
-  min-height: 0 !important;
-  height: auto !important;
-  width: 100%;
-  position: absolute !important;
-  left: 0 !important;
-  right: 0 !important;
-  top: 0 !important;
-  bottom: 0 !important;
+  min-height: 120px !important;
+  height: 100% !important;
+  width: 100% !important;
+  position: relative !important;
+  left: auto !important;
+  right: auto !important;
+  top: auto !important;
+  bottom: auto !important;
   box-sizing: border-box !important;
 }
 
