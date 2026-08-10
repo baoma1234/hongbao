@@ -3363,6 +3363,8 @@ function formatNiuniuBonus(v) {
 }
 function formatNiuniuPacketAmount(row) {
   if (!row) return '--'
+  // 未领取不出金额/结果
+  if (!row.claimed) return '--'
   if (row.amount != null && row.amount !== '' && !isNaN(Number(row.amount))) {
     return (Math.round(Number(row.amount) * 100) / 100).toFixed(2)
   }
@@ -3373,6 +3375,7 @@ function formatNiuniuPacketAmount(row) {
 }
 function formatNiuniuResultLine(row) {
   if (!row) return '--'
+  if (!row.claimed) return '未领取'
   if (row.result) return String(row.result)
   const tail = row.tail_digits != null && row.tail_digits !== '' ? String(row.tail_digits) : '--'
   const niu = row.niu_label || row.category || row.calc || '--'
@@ -3381,13 +3384,14 @@ function formatNiuniuResultLine(row) {
 /** 明细短结果：42 牛2 / 未领取，避免挤出屏幕 */
 function formatNiuniuDetailResultShort(row) {
   if (!row) return '--'
+  if (!row.claimed) return '未领取'
   const tail = row.tail_digits != null && row.tail_digits !== '' ? String(row.tail_digits) : ''
   const niu = row.niu_label || row.category || ''
   if (tail) return tail + (niu ? ' ' + niu : '')
   if (row.result && String(row.result) !== '未领取') {
     return String(row.result).replace(/^尾数/, '')
   }
-  return row.claimed ? '--' : '未领取'
+  return '--'
 }
 function formatNiuniuPackResultLine(row) {
   if (!row) return '--'
