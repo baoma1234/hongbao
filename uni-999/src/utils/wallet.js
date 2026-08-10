@@ -1,5 +1,10 @@
 import { apiRequest, fetchProfile } from './auth.js'
-import { ensureAbsoluteHttpUrl, FALLBACK_RUNTIME, getApiBase } from './config.js'
+import {
+  ensureAbsoluteHttpUrl,
+  FALLBACK_RUNTIME,
+  getApiBase,
+  packagedStaticUrl,
+} from './config.js'
 import { assetBase } from './i18n.js'
 
 let _boot = null
@@ -11,7 +16,25 @@ function publicAbs(path) {
   if (!p) return ''
   if (/^https?:\/\//i.test(p) || p.startsWith('data:')) return p
   const base = getApiBase() || FALLBACK_RUNTIME.apiUri
-  return ensureAbsoluteHttpUrl(p, base) || p
+  const abs = ensureAbsoluteHttpUrl(p, base)
+  if (abs) return abs
+  return ensureAbsoluteHttpUrl(p, FALLBACK_RUNTIME.apiUri) || p
+}
+
+/** App 打包进 APK 的钱包图标；H5 仍可走同路径 static */
+function walletPackagedIcon(fileName) {
+  const name = String(fileName || '')
+    .replace(/^.*[\\/]/, '')
+    .split('?')[0]
+    .trim()
+  if (!name) return ''
+  return packagedStaticUrl('wallets/' + name) || ''
+}
+
+function walletFileFromIcon(icon) {
+  const s = String(icon || '').trim()
+  const m = s.match(/wallets\/([^/?#]+\.(?:png|jpe?g|webp|gif|svg))$/i)
+  return m && m[1] ? m[1] : ''
 }
 
 export function money(n) {
@@ -56,27 +79,46 @@ export function shortChannelName(ch) {
   return raw || '通道' + (ch.id || '')
 }
 
-/** 通道图标：与 888 同源路径（/assets/img/wallets/*.png）；USDT 用 999 static */
+/** 通道图标：App 优先 APK 内 /static/wallets；USDT 用 /static/pay/usdt.png */
 export function channelIconUrl(ch) {
   let icon = String((ch && ch.icon) || '').trim()
   const handler = ch ? String(ch.handler || '').toLowerCase() : ''
+  const usdtLocal = packagedStaticUrl('pay/usdt.png')
   if (handler === 'bs') {
-    return assetBase() + 'static/pay/usdt.png'
+    return usdtLocal || publicAbs(assetBase() + 'static/pay/usdt.png')
   }
-  if (!icon) return ''
-  if (/^https?:\/\//i.test(icon) || icon.startsWith('data:')) return icon
-  // API 常返回 /img/pay/usdt.png（文件实际在 /888 或 /999 static）
   if (/img\/pay\/usdt\.png$/i.test(icon) || /\/pay\/usdt\.png$/i.test(icon)) {
-    return assetBase() + 'static/pay/usdt.png'
+    return usdtLocal || publicAbs(assetBase() + 'static/pay/usdt.png')
   }
-  if (icon.startsWith('static/')) return assetBase() + icon.replace(/^\.\//, '')
+  // 优先本地打包图（App 不依赖远程 /assets）
+  const walletFile = walletFileFromIcon(icon)
+  if (walletFile) {
+    const local = walletPackagedIcon(walletFile)
+    if (local) return local
+  }
+  if (!icon) {
+    return walletPackagedIcon('default-wallet.png') || publicAbs('/assets/img/wallets/default-wallet.png')
+  }
+  if (/^https?:\/\//i.test(icon) || icon.startsWith('data:')) {
+    // 绝对 URL 若指向本站 wallets，App 仍优先本地
+    const fromAbs = walletFileFromIcon(icon)
+    if (fromAbs) {
+      const local = walletPackagedIcon(fromAbs)
+      if (local) return local
+    }
+    return icon
+  }
+  if (icon.startsWith('static/')) {
+    return packagedStaticUrl(icon) || publicAbs(assetBase() + icon.replace(/^\.\//, ''))
+  }
   if (icon.startsWith('/999/')) {
-    return publicAbs(icon) || assetBase() + icon.replace(/^\/999\//, '')
+    const rel = icon.replace(/^\/999\//, '')
+    if (rel.indexOf('static/') === 0) return packagedStaticUrl(rel) || publicAbs(icon)
+    return publicAbs(icon) || assetBase() + rel
   }
-  if (icon.startsWith('/888/') || icon.startsWith('/assets/')) {
+  if (icon.startsWith('/888/') || icon.startsWith('/assets/') || icon.startsWith('/')) {
     return publicAbs(icon)
   }
-  if (icon.startsWith('/')) return publicAbs(icon)
   if (/^img\//i.test(icon)) return publicAbs('/888/' + icon.replace(/^\.\//, ''))
   return publicAbs('/888/' + icon.replace(/^\.\//, ''))
 }

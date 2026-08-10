@@ -3,18 +3,15 @@
 .chat-friend-page {
   min-height: 100vh;
   min-height: 100dvh;
-  padding-top: calc(
-    var(--top-bar-height, 48px) + var(--safe-area-inset-top, env(safe-area-inset-top, 0px))
-  );
+  /* TopBar spacer 已占位 */
+  padding-top: 0;
   background: #f6f1ea;
   box-sizing: border-box;
 }
 
 .chat-friend-page .chat-hero-hd {
   position: sticky;
-  top: calc(
-    var(--top-bar-height, 48px) + var(--safe-area-inset-top, env(safe-area-inset-top, 0px))
-  );
+  top: 0;
   z-index: 20;
   padding: 10px 14px !important;
   min-height: 48px;

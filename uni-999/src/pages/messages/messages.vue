@@ -1,6 +1,7 @@
 <template>
   <view class="messages-page">
-    <TopBar :no-spacer="true" />
+    <!-- 必须有 TopBar spacer：否则顶栏盖住「红宝社区」，高度又扣了顶栏 → 底栏上方灰空白 -->
+    <TopBar />
     <view
       id="tabMessages"
       class="tab-page active msg-tab-root"
@@ -12,16 +13,11 @@
             <view class="chat-hero-title">红宝社区</view>
             <view class="chat-list-actions">
               <view class="chat-hero-icon-btn" @click="toggleSearch">
-                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-                  <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2" />
-                  <path d="M20 20l-3.5-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                </svg>
+                <text class="chat-hero-glyph">⌕</text>
               </view>
               <view class="chat-plus-menu-wrap">
                 <view class="chat-hero-icon-btn" @click="plusOpen = !plusOpen">
-                  <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-                    <path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
-                  </svg>
+                  <text class="chat-hero-glyph">＋</text>
                 </view>
                 <view v-if="plusOpen" class="chat-plus-menu">
                   <view class="chat-plus-menu-item" @click="onPlusAction('scan')">
@@ -796,10 +792,10 @@ function measureMessagesLayout() {
     const sys = uni.getSystemInfoSync() || {}
     const winH = Number(sys.windowHeight || sys.screenHeight || 667)
     const inset = getSafeAreaInsets()
-    const status = Number(inset.top || sys.statusBarHeight || 0)
+    const status = Number(inset.top || 0)
     const topBar = 48
     const tabBar = 56 + Number(inset.bottom || 0)
-    // 顶栏(含状态栏) + 底栏
+    // TopBar 已有 spacer（status+48），#tabMessages 只占 spacer 下方到 Tab 上方
     const shell = Math.max(280, winH - status - topBar - tabBar)
     tabRootPx.value = shell
     // 再扣：红宝社区标题区 + 连接行 + 四个子 Tab 行（约 150）

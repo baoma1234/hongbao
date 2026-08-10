@@ -4,9 +4,10 @@
     class="wallet-channel-icon"
     :src="src"
     mode="aspectFit"
+    :style="imgStyle"
     @error="onError"
   />
-  <view v-else class="wallet-channel-icon wallet-channel-icon--placeholder">
+  <view v-else class="wallet-channel-icon wallet-channel-icon--placeholder" :style="imgStyle">
     {{ letter }}
   </view>
 </template>
@@ -23,12 +24,20 @@ const props = defineProps({
 
 const failed = ref(false)
 
+const imgStyle = {
+  width: '36px',
+  height: '36px',
+  display: 'block',
+  flexShrink: '0',
+}
+
 const src = computed(() => {
   if (props.icon) {
     const raw = String(props.icon).trim()
     if (!raw) return ''
-    // 已是绝对地址则直接用；相对路径走通道解析逻辑
-    if (/^https?:\/\//i.test(raw) || raw.startsWith('data:')) return raw
+    if (/^https?:\/\//i.test(raw) || raw.startsWith('data:')) {
+      return channelIconUrl({ icon: raw, name: props.name }) || raw
+    }
     return channelIconUrl({ icon: raw, name: props.name })
   }
   return channelIconUrl(props.channel)

@@ -1,6 +1,6 @@
 <template>
   <view class="chat-room-page">
-    <TopBar :no-spacer="true" />
+    <TopBar />
     <view class="chat-room-pane open">
       <view class="chat-hero-hd">
         <view class="chat-hero-back" hover-class="chat-hero-back--active" @click="goBack">

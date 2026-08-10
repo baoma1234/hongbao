@@ -1,6 +1,6 @@
 ﻿<template>
   <view class="chat-group-settings-page">
-    <TopBar :no-spacer="true" />
+    <TopBar />
     <view class="chat-hero-hd">
       <view class="chat-hero-back" @click="goBack">
           <text class="chat-hero-back-char">‹</text>

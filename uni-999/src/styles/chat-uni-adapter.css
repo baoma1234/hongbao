@@ -1,14 +1,24 @@
 /* uni-999 消息页适配：复用 888 chat.bundle.css 时补齐外壳高度
  * 同时用 .msg-tab-root：App 上部分机型 #id 选择器不稳定 */
+.messages-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  box-sizing: border-box;
+  background: #f3f4f6;
+}
+
 .msg-tab-root.tab-page,
 #tabMessages.tab-page {
   display: flex;
   flex-direction: column;
   width: 100%;
-  /* 高度已扣掉底栏；勿再加 padding-bottom，否则 chat-list-pane 与 Tab 之间会空一截 */
+  /* 高度由 JS（扣 TopBar spacer + 底栏）写入；CSS 仅作兜底 */
   --tab-bar-space: calc(56px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
   height: calc(
-    100vh - var(--top-bar-height, 44px) - var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) -
+    100vh - var(--top-bar-height, 48px) - var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) -
       var(--tab-bar-space)
   );
   min-height: 320px;
@@ -16,6 +26,7 @@
   background: var(--color-bg-page, #f5f5f5);
   overflow: hidden;
   box-sizing: border-box;
+  flex: 1 1 auto;
 }
 
 .msg-tab-root .chat-shell,

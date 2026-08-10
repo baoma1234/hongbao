@@ -8,7 +8,8 @@
   max-width: 100%;
   height: 100vh;
   height: 100dvh;
-  padding-top: calc(var(--top-bar-height, 48px) + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
+  /* TopBar spacer 已占位；勿再用 CSS var（App 常为 0）重复垫高或垫不足 */
+  padding-top: 0;
   overflow: hidden;
   overflow-x: hidden;
   background: #ededed;
@@ -27,7 +28,7 @@
   bottom: auto !important;
   width: 100% !important;
   max-width: none !important;
-  height: 100% !important;
+  height: auto !important;
   flex: 1 1 auto !important;
   min-height: 0 !important;
   z-index: 1 !important;

@@ -469,7 +469,8 @@
   background: #f3f4f6;
   display: flex;
   flex-direction: column;
-  padding-top: calc(var(--top-bar-height, 48px) + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
+  /* TopBar spacer 已占位 */
+  padding-top: 0;
   box-sizing: border-box;
   width: 100%;
   max-width: 100%;

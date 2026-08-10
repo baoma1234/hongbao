@@ -49,7 +49,7 @@ import {
 import { applySafeAreaCssVars, getSafeAreaInsets } from '../utils/safe-area.js'
 
 defineProps({
-  /** 红宝等页用 body padding-top 占位，勿再插 spacer 以免双倍空隙 */
+  /** 为 true 时不插 spacer（页面自己用 padding 避让）；红宝会话页请用默认 spacer */
   noSpacer: { type: Boolean, default: false },
   /** @deprecated 全局已统一为裂变红包入口，保留兼容旧调用 */
   fissionLink: { type: Boolean, default: true },
