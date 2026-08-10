@@ -11,6 +11,7 @@ import { initI18n } from './utils/i18n.js'
 import { imConnect, imDisconnect, bindForegroundResume } from './utils/im.js'
 import { startImInbox } from './utils/im-inbox.js'
 import { applySafeAreaCssVars } from './utils/safe-area.js'
+import { applyAppStatusBar } from './utils/status-bar.js'
 import { initSkin } from './utils/skin.js'
 import './styles/hb.css'
 import './styles/app-back-fix.css'
@@ -31,6 +32,8 @@ async function refreshRemoteEndpoints() {
  */
 onLaunch(async () => {
   initSkin()
+  // 浅色顶栏 + 深色状态栏图标，避免时间/信号“消失”
+  applyAppStatusBar()
   // App 自定义顶栏：用 statusBarHeight 垫开信号栏（env(safe-area) 在安卓常为 0）
   applySafeAreaCssVars()
   // 先拉远端 apiUri / socketUri / imgUri（有缓存则先用缓存）
@@ -80,6 +83,7 @@ onLaunch(async () => {
 
 onShow(() => {
   initSkin()
+  applyAppStatusBar()
   applySafeAreaCssVars()
   try {
     uni.hideTabBar({ animation: false })

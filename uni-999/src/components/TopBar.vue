@@ -161,10 +161,10 @@ onUnmounted(() => {
   padding-left: 12px;
   padding-right: 12px;
   box-sizing: border-box;
-  background: color-mix(in srgb, var(--bg-card, #fff) 94%, transparent);
+  background: #ffffff;
   border-bottom: 1px solid color-mix(in srgb, var(--text-muted, #657786) 18%, transparent);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
 }
 .mask {

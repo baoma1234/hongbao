@@ -177,10 +177,15 @@
     }
   ],
   "globalStyle": {
-    "navigationBarTextStyle": "white",
+    "navigationBarTextStyle": "black",
     "navigationBarTitleText": "红宝",
-    "navigationBarBackgroundColor": "#C61114",
-    "backgroundColor": "#ffffff"
+    "navigationBarBackgroundColor": "#ffffff",
+    "backgroundColor": "#ffffff",
+    "app-plus": {
+      "bounce": "none",
+      "titleNView": false,
+      "softinputMode": "adjustResize"
+    }
   },
   "easycom": {
     "autoscan": true,
