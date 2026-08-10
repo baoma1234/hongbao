@@ -1,6 +1,6 @@
 <div class="panel panel-default panel-intro">
     <div class="panel-heading">
-        <div class="panel-lead"><em>红宝统计</em> 真人/机器人交叉流水 · 发包 · 充值加款</div>
+        <div class="panel-lead"><em>红宝统计</em> 真人/机器人交叉流水 · 发包 · 充值加款 · 尾数牛牛</div>
     </div>
     <div class="panel-body">
         <form class="form-inline" method="get" style="margin-bottom:15px;">
@@ -208,5 +208,263 @@
                 机器人判定 = <code>fa_fans_account.is_bot=1</code>。
             </div>
         </div>
+
+        {if condition="!empty($stats.niuniu.available)"}
+        <div class="box box-danger">
+            <div class="box-header with-border">
+                <h3 class="box-title">尾数牛牛玩法</h3>
+                <span class="text-muted" style="margin-left:8px;font-size:12px;">按对局 createtime 筛选 · {$stats.logic.niuniu|default=''}</span>
+            </div>
+            <div class="box-body">
+                <div class="row" style="margin-bottom:12px;">
+                    <div class="col-sm-3 col-xs-6">
+                        <div class="info-box bg-red">
+                            <span class="info-box-icon"><i class="fa fa-bullseye"></i></span>
+                            <div class="info-box-content">
+                                <span class="info-box-text">对局总数</span>
+                                <span class="info-box-number">{$stats.niuniu.summary.rounds|default=0}</span>
+                                <span class="progress-description">
+                                    已开奖 {$stats.niuniu.summary.settled|default=0} /
+                                    流局 {$stats.niuniu.summary.refund|default=0} /
+                                    作废 {$stats.niuniu.summary.void|default=0}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-3 col-xs-6">
+                        <div class="info-box bg-maroon">
+                            <span class="info-box-icon"><i class="fa fa-database"></i></span>
+                            <div class="info-box-content">
+                                <span class="info-box-text">购入奖池合计</span>
+                                <span class="info-box-number">￥{$stats.niuniu.summary.pool_amount|default='0.00'}</span>
+                                <span class="progress-description">份数 {$stats.niuniu.summary.share_count|default=0}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-3 col-xs-6">
+                        <div class="info-box bg-navy">
+                            <span class="info-box-icon"><i class="fa fa-percent"></i></span>
+                            <div class="info-box-content">
+                                <span class="info-box-text">平台手续费</span>
+                                <span class="info-box-number">￥{$stats.niuniu.summary.fee_amount|default='0.00'}</span>
+                                <span class="progress-description">可分配 ￥{$stats.niuniu.summary.distributable|default='0.00'}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-3 col-xs-6">
+                        <div class="info-box bg-olive">
+                            <span class="info-box-icon"><i class="fa fa-trophy"></i></span>
+                            <div class="info-box-content">
+                                <span class="info-box-text">奖金派发合计</span>
+                                <span class="info-box-number">￥{$stats.niuniu.summary.win_amount|default='0.00'}</span>
+                                <span class="progress-description">
+                                    真人购入 ￥{$stats.niuniu.buy.human.amount|default='0.00'} /
+                                    机器人 ￥{$stats.niuniu.buy.bot.amount|default='0.00'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <h4 style="margin-top:0;">按对局状态</h4>
+                        <div style="overflow-x:auto;">
+                            <table class="table table-bordered table-striped" style="margin:0;">
+                                <thead>
+                                <tr>
+                                    <th>状态</th>
+                                    <th>局数</th>
+                                    <th>奖池</th>
+                                    <th>手续费</th>
+                                    <th>份数</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                {volist name="stats.niuniu.by_status" id="row"}
+                                <tr>
+                                    <td>{$row.label}</td>
+                                    <td>{$row.count}</td>
+                                    <td>￥{$row.pool}</td>
+                                    <td>￥{$row.fee}</td>
+                                    <td>{$row.shares}</td>
+                                </tr>
+                                {/volist}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h4 style="margin-top:0;">按玩法</h4>
+                        <div style="overflow-x:auto;">
+                            <table class="table table-bordered table-striped" style="margin:0;">
+                                <thead>
+                                <tr>
+                                    <th>玩法</th>
+                                    <th>局数</th>
+                                    <th>奖池</th>
+                                    <th>手续费</th>
+                                    <th>份数</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                {volist name="stats.niuniu.by_mode" id="row"}
+                                <tr>
+                                    <td>{$row.label}</td>
+                                    <td>{$row.count}</td>
+                                    <td>￥{$row.pool}</td>
+                                    <td>￥{$row.fee}</td>
+                                    <td>{$row.shares}</td>
+                                </tr>
+                                {/volist}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row" style="margin-top:16px;">
+                    <div class="col-md-6">
+                        <h4 style="margin-top:0;">购入 · 真人 / 机器人</h4>
+                        <table class="table table-bordered table-striped" style="margin:0;">
+                            <thead>
+                            <tr>
+                                <th>分类</th>
+                                <th>份数</th>
+                                <th>人数</th>
+                                <th>购入金额</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr>
+                                <td>真人</td>
+                                <td>{$stats.niuniu.buy.human.count}</td>
+                                <td>{$stats.niuniu.buy.human.users}</td>
+                                <td>￥{$stats.niuniu.buy.human.amount}</td>
+                            </tr>
+                            <tr>
+                                <td>机器人</td>
+                                <td>{$stats.niuniu.buy.bot.count}</td>
+                                <td>{$stats.niuniu.buy.bot.users}</td>
+                                <td>￥{$stats.niuniu.buy.bot.amount}</td>
+                            </tr>
+                            <tr style="font-weight:700;background:#f9f9f9;">
+                                <td>合计</td>
+                                <td>{$stats.niuniu.buy.all.count}</td>
+                                <td>{$stats.niuniu.buy.all.users}</td>
+                                <td>￥{$stats.niuniu.buy.all.amount}</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h4 style="margin-top:0;">奖金派发 · 真人 / 机器人</h4>
+                        <table class="table table-bordered table-striped" style="margin:0;">
+                            <thead>
+                            <tr>
+                                <th>分类</th>
+                                <th>中奖份数</th>
+                                <th>奖金金额</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr>
+                                <td>真人</td>
+                                <td>{$stats.niuniu.win.human.count}</td>
+                                <td>￥{$stats.niuniu.win.human.amount}</td>
+                            </tr>
+                            <tr>
+                                <td>机器人</td>
+                                <td>{$stats.niuniu.win.bot.count}</td>
+                                <td>￥{$stats.niuniu.win.bot.amount}</td>
+                            </tr>
+                            <tr style="font-weight:700;background:#f9f9f9;">
+                                <td>合计</td>
+                                <td>{$stats.niuniu.win.all.count}</td>
+                                <td>￥{$stats.niuniu.win.all.amount}</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {if condition="!empty($stats.niuniu.ledger)"}
+                <h4 style="margin-top:16px;">账本流水类型（niuniu_*）</h4>
+                <table class="table table-bordered table-striped" style="margin:0; max-width:720px;">
+                    <thead>
+                    <tr>
+                        <th>类型</th>
+                        <th>说明</th>
+                        <th>笔数</th>
+                        <th>红宝变动合计</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {volist name="stats.niuniu.ledger" id="row"}
+                    <tr>
+                        <td><code>{$row.type}</code></td>
+                        <td>{$row.label}</td>
+                        <td>{$row.count}</td>
+                        <td>￥{$row.amount}</td>
+                    </tr>
+                    {/volist}
+                    </tbody>
+                </table>
+                {/if}
+
+                <h4 style="margin-top:16px;">每日牛牛</h4>
+                <div style="overflow-x:auto;">
+                    <table class="table table-bordered table-striped" style="margin:0; min-width:960px;">
+                        <thead>
+                        <tr>
+                            <th>日期</th>
+                            <th>开局</th>
+                            <th>已开奖</th>
+                            <th>奖池</th>
+                            <th>手续费</th>
+                            <th>真人购入</th>
+                            <th>机器人购入</th>
+                            <th>真人奖金</th>
+                            <th>机器人奖金</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {volist name="stats.niuniu.daily.rows" id="row"}
+                        <tr>
+                            <td>{$row.day}</td>
+                            <td>{$row.rounds}</td>
+                            <td>{$row.settled}</td>
+                            <td>￥{$row.pool}</td>
+                            <td>￥{$row.fee}</td>
+                            <td>￥{$row.human_buy}</td>
+                            <td>￥{$row.bot_buy}</td>
+                            <td>￥{$row.human_win}</td>
+                            <td>￥{$row.bot_win}</td>
+                        </tr>
+                        {/volist}
+                        <tr style="font-weight:700;background:#f9f9f9;">
+                            <td>区间合计</td>
+                            <td>{$stats.niuniu.daily.sum.rounds}</td>
+                            <td>{$stats.niuniu.daily.sum.settled}</td>
+                            <td>￥{$stats.niuniu.daily.sum.pool}</td>
+                            <td>￥{$stats.niuniu.daily.sum.fee}</td>
+                            <td>￥{$stats.niuniu.daily.sum.human_buy}</td>
+                            <td>￥{$stats.niuniu.daily.sum.bot_buy}</td>
+                            <td>￥{$stats.niuniu.daily.sum.human_win}</td>
+                            <td>￥{$stats.niuniu.daily.sum.bot_win}</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="box-footer text-muted" style="font-size:12px;">
+                数据表 <code>fa_chat_niuniu_rounds</code> / <code>fa_chat_niuniu_shares</code>；
+                玩法 1=多包每份一尾数，2=单结果每用户一尾数；
+                账本类型含 <code>niuniu_buy / niuniu_win / niuniu_fee_in / niuniu_refund / niuniu_packet</code>。
+            </div>
+        </div>
+        {else /}
+        <div class="alert alert-warning">尾数牛牛数据表尚未创建，无法展示牛牛玩法统计。</div>
+        {/if}
     </div>
 </div>
