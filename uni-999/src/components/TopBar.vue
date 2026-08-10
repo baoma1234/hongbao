@@ -207,10 +207,10 @@ onUnmounted(() => {
 .lang-wrap {
   display: flex;
   align-items: center;
-  gap: 4px;
-  min-height: 32px;
-  padding: 4px 8px;
-  border-radius: 10px;
+  gap: 3px;
+  min-height: 26px;
+  padding: 2px 6px;
+  border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--text-muted, #657786) 26%, transparent);
   background: color-mix(in srgb, var(--bg-main, #f4f6f9) 6%, var(--bg-card, #fff) 94%);
 }
@@ -279,25 +279,25 @@ onUnmounted(() => {
   50% { transform: scale(1.1); opacity: 1; }
 }
 .flag {
-  width: 22px;
-  height: 15px;
+  width: 18px;
+  height: 12px;
   border-radius: 2px;
   flex-shrink: 0;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
 }
 .lang-text {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
   color: var(--text-main, #1a212d);
-  max-width: 72px;
+  max-width: 56px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .caret {
-  font-size: 10px;
+  font-size: 9px;
   color: var(--text-muted, #657786);
-  margin-left: 2px;
+  margin-left: 1px;
 }
 .panel {
   position: absolute;

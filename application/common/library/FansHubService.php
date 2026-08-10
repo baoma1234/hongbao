@@ -508,6 +508,8 @@ class FansHubService
                 'home_quick_social_sub'     => '首页快链-互动副文(弃用)',
                 'home_quick_messages'       => '首页快链-消息中心',
                 'home_quick_messages_sub'   => '首页快链-消息副文',
+                'home_quick_fission'        => '首页快链-裂变',
+                'home_quick_fission_sub'    => '首页快链-裂变副文',
                 'home_quick_profile'        => '首页快链-我的',
                 'home_quick_profile_sub'    => '首页快链-我的副文',
                 'bottom_bar_share'          => '旧底栏-分享',

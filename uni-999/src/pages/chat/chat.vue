@@ -763,6 +763,7 @@ import {
   saveActiveChat,
 } from '../../utils/chat-route.js'
 import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
+import { applySafeAreaCssVars } from '../../utils/safe-area.js'
 import { COMMON_EMOJIS, loadEmojiTree } from '../../utils/emoji.js'
 import { setInboxMyId, noteConversationRead } from '../../utils/im-inbox.js'
 import { playOpenRedPacketSound } from '../../utils/notify-sound.js'
@@ -3979,6 +3980,7 @@ function leaveRoomToList(tip) {
 }
 
 onLoad(async (query) => {
+  applySafeAreaCssVars()
   if (!getToken()) {
     uni.reLaunch({ url: '/pages/login/login' })
     return
@@ -4145,6 +4147,7 @@ onLoad(async (query) => {
 })
 
 onShow(() => {
+  applySafeAreaCssVars()
   if (!getToken() || !roomAlive) return
   bindForegroundResume()
   resumeFromBackground('chat-onShow')

@@ -27,13 +27,18 @@
  * 不用 height:0 / 过度盖板上叠，避免 uni scroll-view 内容被吃掉。
  */
 .chat-room-page #chatRpDetailPane.chat-sub-pane,
-.chat-room-page #chatRpDetailPane.chat-sub-pane.open {
+.chat-room-page #chatRpDetailPane.chat-sub-pane.open,
+.chat-room-page > .chat-sub-pane.open {
   display: flex !important;
   flex-direction: column !important;
   position: fixed !important;
   left: 0 !important;
   right: 0 !important;
-  top: calc(var(--top-bar-height, 48px) + var(--safe-area-inset-top, env(safe-area-inset-top, 0px))) !important;
+  /* App：优先 --chat-overlay-top（JS 写入真实状态栏高度）；H5 回退原 calc，避免网页多垫 */
+  top: var(
+    --chat-overlay-top,
+    calc(var(--top-bar-height, 48px) + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))
+  ) !important;
   bottom: 0 !important;
   width: 100% !important;
   max-width: none !important;

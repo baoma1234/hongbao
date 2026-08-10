@@ -85,6 +85,8 @@ return array (
   'home_quick_social_sub' => 'Leaderboard',
   'home_quick_messages' => 'Community',
   'home_quick_messages_sub' => 'DM · Group · Red packets',
+  'home_quick_fission' => '🧧 Fission',
+  'home_quick_fission_sub' => 'Invite & share the pool',
   'home_quick_profile' => '👤 Profile',
   'home_quick_profile_sub' => 'Info · Password · Logout',
   'bottom_bar_share' => 'Share',

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 /**
  * FansHub H5 copy — id-ID
@@ -85,6 +85,8 @@ return array (
   'home_quick_social_sub' => 'Leaderboard',
   'home_quick_messages' => 'Hongbao Community',
   'home_quick_messages_sub' => 'Chat · Groups · Packets',
+  'home_quick_fission' => '🧧 Fission',
+  'home_quick_fission_sub' => 'Invite & share the pool',
   'home_quick_profile' => '👤 Profile',
   'home_quick_profile_sub' => 'Info · password · logout',
   'bottom_bar_share' => 'Share',

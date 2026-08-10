@@ -135,20 +135,20 @@
       <!-- 快捷入口 -->
       <view class="home-quick-grid">
         <button type="button" class="home-quick-btn hq-exchange" @click="goTab('/pages/exchange/exchange')">
-          <text>{{ t('home_quick_exchange') || '⚡ 去闪兑' }}</text>
-          <text>{{ t('home_quick_exchange_sub') || '股份秒变红宝' }}</text>
+          <text>{{ tt('home_quick_exchange', '⚡ 去闪兑') }}</text>
+          <text>{{ tt('home_quick_exchange_sub', '股份秒变红宝') }}</text>
         </button>
         <button type="button" class="home-quick-btn hq-master" @click="goTab('/pages/fission/detail')">
-          <text>{{ t('home_quick_fission') || '🧧 裂变红宝' }}</text>
-          <text>{{ t('home_quick_fission_sub') || '邀请瓜分奖金池' }}</text>
+          <text>{{ tt('home_quick_fission', '🧧 裂变红宝') }}</text>
+          <text>{{ tt('home_quick_fission_sub', '邀请瓜分奖金池') }}</text>
         </button>
         <button type="button" class="home-quick-btn hq-messages" @click="goTab('/pages/messages/messages')">
-          <text>{{ t('home_quick_messages') || '红宝社区' }}</text>
-          <text>{{ t('home_quick_messages_sub') || '私聊 · 群聊 · 红包' }}</text>
+          <text>{{ tt('home_quick_messages', '红宝社区') }}</text>
+          <text>{{ tt('home_quick_messages_sub', '私聊 · 群聊 · 红包') }}</text>
         </button>
         <button type="button" class="home-quick-btn hq-profile" @click="goTab('/pages/profile/profile')">
-          <text>{{ t('home_quick_profile') || '👤 个人中心' }}</text>
-          <text>{{ t('home_quick_profile_sub') || '资料 · 密码 · 退出' }}</text>
+          <text>{{ tt('home_quick_profile', '👤 个人中心') }}</text>
+          <text>{{ tt('home_quick_profile_sub', '资料 · 密码 · 退出') }}</text>
         </button>
       </view>
 
@@ -259,7 +259,7 @@ import TopBar from '../../components/TopBar.vue'
 import BottomTabBar from '../../components/BottomTabBar.vue'
 import WelcomeLottery from '../../components/WelcomeLottery.vue'
 import { apiRequest, fetchProfile, getToken } from '../../utils/auth.js'
-import { localeState, t, applyServerCopy } from '../../utils/i18n.js'
+import { localeState, t, tt, applyServerCopy } from '../../utils/i18n.js'
 import { imConnect } from '../../utils/im.js'
 import { copyText } from '../../utils/master.js'
 import '../../styles/home.css'

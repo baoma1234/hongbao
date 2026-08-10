@@ -54,6 +54,10 @@ function setVarsOn(el, top, bottom, left, right) {
   el.style.setProperty('--safe-area-inset-bottom', bottom + 'px')
   el.style.setProperty('--safe-area-inset-left', left + 'px')
   el.style.setProperty('--safe-area-inset-right', right + 'px')
+  // 与 TopBar 同高：App 上 CSS env(safe-area) 常为 0，固定浮层用此变量避让
+  const overlayTop = 48 + Math.max(0, Number(top) || 0)
+  el.style.setProperty('--chat-overlay-top', overlayTop + 'px')
+  el.style.setProperty('--top-bar-offset', overlayTop + 'px')
 }
 
 export function applySafeAreaCssVars() {
@@ -70,5 +74,5 @@ export function applySafeAreaCssVars() {
       }
     }
   } catch (e) {}
-  return { top, bottom, left, right }
+  return { top, bottom, left, right, overlayTop: 48 + Math.max(0, Number(top) || 0) }
 }

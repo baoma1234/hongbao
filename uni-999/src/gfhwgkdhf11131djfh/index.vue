@@ -281,21 +281,21 @@ onUnmounted(() => {
   align-items: stretch;
 }
 .country-select {
-  flex: 0 0 132px;
-  width: 132px;
+  flex: 0 0 96px;
+  width: 96px;
   height: 44px;
-  padding: 0 8px;
+  padding: 0 6px;
   border: 1px solid #ccd6dd;
   border-radius: 8px;
   background: #f8f9fa;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   box-sizing: border-box;
 }
 .country-select .flag {
-  width: 22px;
-  height: 16px;
+  width: 20px;
+  height: 14px;
   border-radius: 2px;
   flex-shrink: 0;
 }
@@ -304,14 +304,19 @@ onUnmounted(() => {
   font-size: 12px;
   font-weight: bold;
   color: #1a212d;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .country-select .caret {
   font-size: 10px;
   color: #657786;
 }
 .phone-input {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
+  width: auto;
 }
 .country-panel {
   position: absolute;
