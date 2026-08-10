@@ -216,8 +216,8 @@
       {
         "pagePath": "pages/fission/detail",
         "text": "裂变",
-        "iconPath": "static/tab/hongbao.png",
-        "selectedIconPath": "static/tab/hongbao.png"
+        "iconPath": "static/tab/fission.png",
+        "selectedIconPath": "static/tab/fission.png"
       },
       {
         "pagePath": "pages/profile/profile",

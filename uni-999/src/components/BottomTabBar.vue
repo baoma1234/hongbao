@@ -78,7 +78,7 @@ const tabs = computed(() => {
       tab: 'fission',
       path: '/pages/fission/detail',
       label: t('tab_bar_fission') || '裂变',
-      icon: base + 'static/tab/hongbao.png',
+      icon: base + 'static/tab/fission.png',
     },
     {
       tab: 'profile',
