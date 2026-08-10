@@ -287,7 +287,7 @@ onUnmounted(() => stopTick())
   justify-content: space-between;
   align-items: center;
   padding: 15px 20px;
-  padding-top: calc(env(safe-area-inset-top, 0px) + 15px);
+  padding-top: calc(var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) + 15px);
   font-size: 17px;
   font-weight: 600;
   color: #e2e4ed;

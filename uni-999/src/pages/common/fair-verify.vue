@@ -353,7 +353,9 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  padding-top: var(--top-bar-height, 48px);
+  padding-top: calc(
+    var(--top-bar-height, 48px) + var(--safe-area-inset-top, env(safe-area-inset-top, 0px))
+  );
   overflow: hidden;
 }
 .fv-hd {

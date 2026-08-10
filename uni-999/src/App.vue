@@ -10,6 +10,7 @@ import { bootstrapRuntimeConfig } from './utils/config.js'
 import { initI18n } from './utils/i18n.js'
 import { imConnect, imDisconnect, bindForegroundResume } from './utils/im.js'
 import { startImInbox } from './utils/im-inbox.js'
+import { applySafeAreaCssVars } from './utils/safe-area.js'
 import { initSkin } from './utils/skin.js'
 import './styles/hb.css'
 
@@ -29,6 +30,8 @@ async function refreshRemoteEndpoints() {
  */
 onLaunch(async () => {
   initSkin()
+  // App 自定义顶栏：用 statusBarHeight 垫开信号栏（env(safe-area) 在安卓常为 0）
+  applySafeAreaCssVars()
   // 先拉远端 apiUri / socketUri / imgUri（有缓存则先用缓存）
   await refreshRemoteEndpoints()
   // 尽早拿到 OSS upload_cdn，避免会话/社群头像先拼成本站 /uploads
@@ -75,6 +78,7 @@ onLaunch(async () => {
 
 onShow(() => {
   initSkin()
+  applySafeAreaCssVars()
   try {
     uni.hideTabBar({ animation: false })
   } catch (e) {}
@@ -95,6 +99,8 @@ page {
   background-color: var(--bg-main, #f4f6f9);
   color: var(--text-main, #1a212d);
   --top-bar-height: 48px;
+  --safe-area-inset-top: 0px;
+  --safe-area-inset-bottom: 0px;
 }
 @media (max-width: 480px) {
   page {

@@ -4,7 +4,7 @@
   flex-direction: column;
   width: 100%;
   /* 高度已扣掉底栏；勿再加 padding-bottom，否则 chat-list-pane 与 Tab 之间会空一截 */
-  --tab-bar-space: calc(56px + env(safe-area-inset-bottom, 0px));
+  --tab-bar-space: calc(56px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
   height: calc(100vh - var(--top-bar-height, 44px) - var(--tab-bar-space));
   height: calc(100dvh - var(--top-bar-height, 44px) - var(--tab-bar-space));
   min-height: calc(100vh - var(--top-bar-height, 44px) - var(--tab-bar-space));
@@ -812,7 +812,9 @@ body.tab-messages #tabMessages .chat-list-pane {
   position: fixed !important;
   left: 0;
   right: 0;
-  top: var(--top-bar-height, 48px) !important;
+  top: calc(
+    var(--top-bar-height, 48px) + var(--safe-area-inset-top, env(safe-area-inset-top, 0px))
+  ) !important;
   bottom: 0;
   z-index: 12000 !important;
   display: none;
@@ -1126,7 +1128,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   max-height: 72vh;
   background: #fff;
   border-radius: 16px 16px 0 0;
-  padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
+  padding: 14px 14px calc(14px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
   box-sizing: border-box;
   display: flex;
   flex-direction: column;

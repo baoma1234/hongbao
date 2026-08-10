@@ -54,7 +54,7 @@
   --chat-page: var(--color-bg-page);
   --chat-card: var(--color-bg-card);
   --chat-max: 100%;
-  --chat-bottom-gap: calc(58px + env(safe-area-inset-bottom, 0px));
+  --chat-bottom-gap: calc(58px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
 }
 
 /* ---------- 消息 Tab：全宽沉浸（body 左右 padding=0） ---------- */
@@ -62,14 +62,18 @@ body.tab-messages {
   padding-left: 0 !important;
   padding-right: 0 !important;
   padding-bottom: 0 !important;
-  padding-top: var(--top-bar-height, 44px) !important;
+  padding-top: calc(
+    var(--top-bar-height, 44px) + var(--safe-area-inset-top, env(safe-area-inset-top, 0px))
+  ) !important;
   overflow: hidden;
   height: 100%;
   height: 100dvh;
   background: var(--color-bg-page);
 }
 body.tab-messages #mainDashboardView {
-  height: calc(100dvh - var(--top-bar-height, 44px));
+  height: calc(
+    100dvh - var(--top-bar-height, 44px) - var(--safe-area-inset-top, env(safe-area-inset-top, 0px))
+  );
   padding-bottom: 0 !important;
   overflow: hidden;
 }
@@ -882,7 +886,7 @@ body.tab-messages .bottom-action-bar {
   flex-shrink: 0;
   background: var(--color-bg-card-warm);
   border-top: 1px solid var(--color-border-warm);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
 }
@@ -2645,7 +2649,7 @@ body.chat-room-open .bottom-action-bar {
   background: rgba(248, 249, 250, 0.75);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+  padding: 12px 14px calc(12px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
   border-top: 1px solid rgba(255, 255, 255, 0.6);
   display: flex;
   align-items: center;
@@ -3093,7 +3097,7 @@ body.chat-room-open .bottom-action-bar {
 }
 
 .chat-rp-send-ft {
-  padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+  padding: 10px 14px calc(10px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
   background: #fffdf9;
   border-top: 1px solid rgba(224, 122, 34, 0.12);
   width: 100%;
@@ -3205,7 +3209,7 @@ body.chat-room-open .bottom-action-bar {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(12px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
 }
 #chatRpDetailPane #chatRpDetailBody {
   display: flex;
@@ -3924,7 +3928,7 @@ button.chat-rp-fair-link {
   flex-shrink: 0;
 }
 .chat-invite-ft {
-  padding: 12px 0 calc(12px + env(safe-area-inset-bottom, 0px));
+  padding: 12px 0 calc(12px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
 }
 
 /* 添加群成员：列表独立滚动，底部确认条固定 */
@@ -3988,7 +3992,7 @@ button.chat-rp-fair-link {
   width: auto;
   max-width: none;
   transform: none;
-  bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(10px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
   background: var(--color-bg-card);
   border-radius: 16px;
   overflow: hidden;

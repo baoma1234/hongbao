@@ -189,7 +189,7 @@ onUnmounted(() => {
   position: absolute;
   left: 10px;
   right: 10px;
-  bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(88px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
   background: #fff;
   border-radius: 16px;
   overflow: hidden;
@@ -241,7 +241,7 @@ onUnmounted(() => {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 10px;
+  padding: calc(10px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px))) 12px 10px;
   color: #fff;
 }
 .fs-cam-back,

@@ -6,7 +6,7 @@
   right: 0;
   bottom: 0;
   z-index: 9000;
-  padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px));
+  padding: 6px 6px calc(6px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
   background: rgba(255, 255, 255, 0.97);
   border-top: 1px solid #e1e8ed;
   box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.06);

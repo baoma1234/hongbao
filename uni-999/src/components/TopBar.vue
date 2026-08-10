@@ -46,6 +46,7 @@ import {
   setLocale,
   t,
 } from '../utils/i18n.js'
+import { applySafeAreaCssVars } from '../utils/safe-area.js'
 
 defineProps({
   /** 红宝等页用 body padding-top 占位，勿再插 spacer 以免双倍空隙 */
@@ -113,6 +114,7 @@ function goHome() {
 }
 
 onMounted(() => {
+  applySafeAreaCssVars()
   locale.value = getLocale()
   offLocale = onLocaleChange((id) => {
     locale.value = id
@@ -131,8 +133,10 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   z-index: 14000;
-  height: calc(var(--top-bar-height, 48px) + env(safe-area-inset-top, 0px));
-  padding-top: env(safe-area-inset-top, 0px);
+  height: calc(
+    var(--top-bar-height, 48px) + var(--safe-area-inset-top, env(safe-area-inset-top, 0px))
+  );
+  padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -152,7 +156,9 @@ onUnmounted(() => {
   background: transparent;
 }
 .top-bar-spacer {
-  height: calc(var(--top-bar-height, 48px) + env(safe-area-inset-top, 0px));
+  height: calc(
+    var(--top-bar-height, 48px) + var(--safe-area-inset-top, env(safe-area-inset-top, 0px))
+  );
   width: 100%;
   flex-shrink: 0;
 }
