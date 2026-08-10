@@ -648,22 +648,20 @@ class NiuniuService
         foreach ($shares as $s) {
             $uid = (int)$s['user_id'];
             $isMine = $userId > 0 && $uid === $userId;
-            $reveal = $isMine && ((int)$s['claimed'] === 1 || $status >= self::STATUS_SETTLED);
-            if ($status >= self::STATUS_SETTLED) {
-                $reveal = true;
-            } elseif ((int)$s['claimed'] === 1) {
-                $reveal = true;
-            }
+            // 仅已领取才出结果（含结算后）；未领显示「未领取」
+            $reveal = ((int)$s['claimed'] === 1);
             // 单结果：每人只保留 hash 序中的第一行（与 nnfair 复算序列一致）
             if ($mode === self::MODE_SINGLE) {
                 if (isset($seenUser[$uid])) {
                     $idx = $seenUser[$uid];
                     $all[$idx]['weight'] = ((int)($all[$idx]['weight'] ?? 1)) + 1;
                     $all[$idx]['share_count'] = ((int)($all[$idx]['share_count'] ?? 1)) + 1;
-                    $all[$idx]['win_amount'] = round(
-                        (float)($all[$idx]['win_amount'] ?? 0) + (float)$s['win_amount'],
-                        4
-                    );
+                    if ($reveal) {
+                        $all[$idx]['win_amount'] = round(
+                            (float)($all[$idx]['win_amount'] ?? 0) + (float)$s['win_amount'],
+                            4
+                        );
+                    }
                     if ($isMine && isset($mine[$uid])) {
                         $mine[$uid] = $all[$idx];
                     }
@@ -956,6 +954,9 @@ class NiuniuService
             return false;
         }
 
+        // 领取期结束：未领的统一自动领取（真人/机器人），再结算开奖
+        $this->autoClaimAllUnclaimed($roundId);
+
         $shares = Db::fetchAll(
             'SELECT * FROM ' . Db::table('chat_niuniu_shares') . ' WHERE round_id=? ORDER BY'
             . self::hashOrderSql(),
@@ -1167,6 +1168,102 @@ class NiuniuService
         $tail = str_pad(preg_replace('/\D/', '', (string)$tail), 2, '0', STR_PAD_LEFT);
         $tail = substr($tail, -2);
         return round(((int)$tail) / 100, 2);
+    }
+
+    /**
+     * 领取期结束时：未领取份额统一自动领取（含机器人），并入账尾数红包金额
+     * @return int 新领取份数
+     */
+    public function autoClaimAllUnclaimed($roundId)
+    {
+        $roundId = (int)$roundId;
+        $round = $this->getRound($roundId);
+        if (!$round) {
+            return 0;
+        }
+        $status = (int)$round['status'];
+        // 领取中：结算前统一补领；已开奖仅用于补漏
+        if ($status !== self::STATUS_CLAIMING && $status !== self::STATUS_SETTLED) {
+            return 0;
+        }
+        $mode = $this->normalizeMode($round['game_mode'] ?? self::MODE_NORMAL);
+        $now = time();
+        $n = 0;
+
+        if ($mode === self::MODE_SINGLE) {
+            $users = Db::fetchAll(
+                'SELECT user_id, MIN(id) AS mid FROM ' . Db::table('chat_niuniu_shares')
+                . ' WHERE round_id=? AND claimed=0 GROUP BY user_id ORDER BY mid ASC',
+                [$roundId]
+            );
+            foreach ($users as $u) {
+                $uid = (int)$u['user_id'];
+                if ($uid <= 0) {
+                    continue;
+                }
+                $pending = Db::fetchAll(
+                    'SELECT * FROM ' . Db::table('chat_niuniu_shares')
+                    . ' WHERE round_id=? AND user_id=? AND claimed=0 ORDER BY' . self::hashOrderSql(),
+                    [$roundId, $uid]
+                );
+                if (!$pending) {
+                    continue;
+                }
+                $affected = Db::exec(
+                    'UPDATE ' . Db::table('chat_niuniu_shares')
+                    . ' SET claimed=1, claimed_at=?, updatetime=? WHERE round_id=? AND user_id=? AND claimed=0',
+                    [$now, $now, $roundId, $uid]
+                );
+                if ((int)$affected <= 0) {
+                    continue;
+                }
+                $n += (int)$affected;
+                try {
+                    $this->creditPacketOnClaim($pending[0], $roundId);
+                    $pktAmt = self::packetAmountFromTail($pending[0]['tail_digits'] ?? '');
+                    foreach ($pending as $i => $s) {
+                        if ($i === 0) {
+                            continue;
+                        }
+                        Db::exec(
+                            'UPDATE ' . Db::table('chat_niuniu_shares')
+                            . ' SET amount=?, packet_paid=1, updatetime=? WHERE id=? AND IFNULL(packet_paid,0)=0',
+                            [sprintf('%.2f', $pktAmt), $now, (int)$s['id']]
+                        );
+                    }
+                } catch (\Throwable $e) {
+                    error_log('[NIUNIU][autoClaim][single] u' . $uid . ' ' . $e->getMessage());
+                }
+            }
+        } else {
+            $rows = Db::fetchAll(
+                'SELECT * FROM ' . Db::table('chat_niuniu_shares')
+                . ' WHERE round_id=? AND claimed=0 ORDER BY' . self::hashOrderSql(),
+                [$roundId]
+            );
+            foreach ($rows as $s) {
+                $sid = (int)$s['id'];
+                $affected = Db::exec(
+                    'UPDATE ' . Db::table('chat_niuniu_shares')
+                    . ' SET claimed=1, claimed_at=?, updatetime=? WHERE id=? AND claimed=0',
+                    [$now, $now, $sid]
+                );
+                if ((int)$affected <= 0) {
+                    continue;
+                }
+                $n++;
+                try {
+                    $this->creditPacketOnClaim($s, $roundId);
+                } catch (\Throwable $e) {
+                    error_log('[NIUNIU][autoClaim] s' . $sid . ' ' . $e->getMessage());
+                }
+            }
+        }
+
+        if ($n > 0) {
+            $this->syncClaimTimesByHash($roundId);
+        }
+        return $n;
     }
 
     /** hash/尾数排序 SQL 片段（金额/尾数升序） */
@@ -1715,9 +1812,9 @@ class NiuniuService
                 . "🔐本局波场区块：{$r['drand_label']}\n"
                 . "👥总参与份数：{$r['share_count']}\n"
                 . "💰总奖池：{$r['pool_amount']}积分\n\n"
-                . "👉点击领取本局红包（手动点开才展示你的尾数牛数）\n"
-                . "⚠️即使未领取红包，到期依旧自动结算奖金\n"
-                . "📌红包仅用于比对，红包本身不进行资金发放";
+                . "👉点击领取本局红包（领取后才展示尾数牛数）\n"
+                . "⚠️领取倒计时结束：未领取的（含机器人）将统一自动领取并结算\n"
+                . "📌红包金额=尾数（如 02=0.02），领取时入账";
         }
         if ($phase === 'void') {
             return "⚠️本局作废｜参与份数=0，未扣手续费\n🔐波场区块：{$r['drand_label']}";
@@ -1760,7 +1857,7 @@ class NiuniuService
                     continue;
                 }
             }
-            $row = $this->publicShare($s, true);
+            $row = $this->publicShare($s, (int)$s['claimed'] === 1);
             $row['share_count'] = 1;
             $tier = (int)$s['niu_tier'];
             if ($tier === self::TIER_NIUNIU) {
