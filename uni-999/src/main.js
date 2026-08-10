@@ -1,3 +1,4 @@
+import './utils/url-polyfill.js'
 import {
 	createSSRApp
 } from "vue";

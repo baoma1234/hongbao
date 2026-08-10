@@ -78,8 +78,12 @@ export function apiRequest(action, method = 'POST', body = null) {
 
   let data = null
   if (httpMethod === 'GET') {
-    const qs = new URLSearchParams(Object.assign({}, body || {}, { locale })).toString()
-    url += (url.indexOf('?') >= 0 ? '&' : '?') + qs
+    const qsObj = Object.assign({}, body || {}, { locale })
+    const qs = Object.keys(qsObj)
+      .filter((k) => qsObj[k] != null && qsObj[k] !== '')
+      .map((k) => encodeURIComponent(k) + '=' + encodeURIComponent(String(qsObj[k])))
+      .join('&')
+    if (qs) url += (url.indexOf('?') >= 0 ? '&' : '?') + qs
   } else {
     data = Object.assign({}, body || {}, { locale })
   }
