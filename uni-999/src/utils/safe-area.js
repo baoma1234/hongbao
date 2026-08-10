@@ -48,31 +48,48 @@ export function getSafeAreaInsets() {
   return { top, bottom, left, right }
 }
 
-function setVarsOn(el, top, bottom, left, right) {
+/** 与 TopBar / App.vue 一致：窄屏 44，否则 48 */
+export function getTopBarContentHeight() {
+  let bar = 48
+  try {
+    const sys = uni.getSystemInfoSync() || {}
+    const w = Number(sys.windowWidth) || 0
+    if (w > 0 && w <= 480) bar = 44
+  } catch (e) {}
+  return bar
+}
+
+/** 固定浮层应贴在 TopBar 底边：内容栏高 + 状态栏垫高 */
+export function measureChatOverlayTop() {
+  const { top } = getSafeAreaInsets()
+  return getTopBarContentHeight() + Math.max(0, Number(top) || 0)
+}
+
+function setVarsOn(el, top, bottom, left, right, overlayTop) {
   if (!el || !el.style || !el.style.setProperty) return
   el.style.setProperty('--safe-area-inset-top', top + 'px')
   el.style.setProperty('--safe-area-inset-bottom', bottom + 'px')
   el.style.setProperty('--safe-area-inset-left', left + 'px')
   el.style.setProperty('--safe-area-inset-right', right + 'px')
   // 与 TopBar 同高：App 上 CSS env(safe-area) 常为 0，固定浮层用此变量避让
-  const overlayTop = 48 + Math.max(0, Number(top) || 0)
   el.style.setProperty('--chat-overlay-top', overlayTop + 'px')
   el.style.setProperty('--top-bar-offset', overlayTop + 'px')
 }
 
 export function applySafeAreaCssVars() {
   const { top, bottom, left, right } = getSafeAreaInsets()
+  const overlayTop = measureChatOverlayTop()
   try {
     if (typeof document !== 'undefined') {
-      setVarsOn(document.documentElement, top, bottom, left, right)
-      setVarsOn(document.body, top, bottom, left, right)
+      setVarsOn(document.documentElement, top, bottom, left, right, overlayTop)
+      setVarsOn(document.body, top, bottom, left, right, overlayTop)
       const nodes = document.querySelectorAll(
-        'uni-page-body, uni-page, .uni-page-body, page'
+        'uni-page-body, uni-page, .uni-page-body, page, .chat-room-page'
       )
       for (let i = 0; i < nodes.length; i++) {
-        setVarsOn(nodes[i], top, bottom, left, right)
+        setVarsOn(nodes[i], top, bottom, left, right, overlayTop)
       }
     }
   } catch (e) {}
-  return { top, bottom, left, right, overlayTop: 48 + Math.max(0, Number(top) || 0) }
+  return { top, bottom, left, right, overlayTop }
 }

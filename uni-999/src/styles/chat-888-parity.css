@@ -25,10 +25,12 @@
 /**
  * 红包详情：对齐发红宝 pane（可靠布局），贴在公共 TopBar 下方。
  * 不用 height:0 / 过度盖板上叠，避免 uni scroll-view 内容被吃掉。
+ * 选择器用后代选择器（不用 >）：App 端 uni-view 包裹时仍能命中。
  */
 .chat-room-page #chatRpDetailPane.chat-sub-pane,
 .chat-room-page #chatRpDetailPane.chat-sub-pane.open,
-.chat-room-page > .chat-sub-pane.open {
+.chat-room-page > .chat-sub-pane.open,
+.chat-room-page .chat-detail-overlay.chat-sub-pane.open {
   display: flex !important;
   flex-direction: column !important;
   position: fixed !important;
@@ -54,7 +56,8 @@
   visibility: visible !important;
 }
 
-.chat-room-page #chatRpDetailPane > .chat-hero-hd {
+.chat-room-page #chatRpDetailPane .chat-hero-hd,
+.chat-room-page .chat-detail-overlay > .chat-hero-hd {
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
@@ -72,7 +75,8 @@
   box-sizing: border-box !important;
 }
 
-.chat-room-page #chatRpDetailPane > .chat-hero-hd .chat-hero-title {
+.chat-room-page #chatRpDetailPane .chat-hero-hd .chat-hero-title,
+.chat-room-page .chat-detail-overlay > .chat-hero-hd .chat-hero-title {
   flex: 1 !important;
   min-width: 0 !important;
   display: flex !important;
@@ -85,8 +89,10 @@
   line-height: 1.25 !important;
 }
 
-.chat-room-page #chatRpDetailPane > .chat-hero-hd .chat-hero-back,
-.chat-room-page #chatRpDetailPane > .chat-hero-hd .chat-hero-spacer {
+.chat-room-page #chatRpDetailPane .chat-hero-hd .chat-hero-back,
+.chat-room-page #chatRpDetailPane .chat-hero-hd .chat-hero-spacer,
+.chat-room-page .chat-detail-overlay > .chat-hero-hd .chat-hero-back,
+.chat-room-page .chat-detail-overlay > .chat-hero-hd .chat-hero-spacer {
   width: 44px !important;
   height: 44px !important;
   flex-shrink: 0 !important;
@@ -96,7 +102,7 @@
   color: #fff !important;
 }
 
-.chat-room-page #chatRpDetailPane > .chat-sub-main {
+.chat-room-page #chatRpDetailPane .chat-sub-main {
   flex: 1 1 auto !important;
   min-height: 0 !important;
   margin-top: 0 !important;

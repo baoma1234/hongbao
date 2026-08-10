@@ -1,5 +1,5 @@
 <template>
-  <view class="chat-room-page">
+  <view class="chat-room-page" :style="roomSafeStyle">
     <TopBar />
     <view class="chat-room-pane open">
       <view class="chat-hero-hd">
@@ -559,7 +559,12 @@
     </view>
 
     <!-- 牛牛领取明细：与 hash/尾数排序一致，仅高亮自己 -->
-    <view v-if="showNiuniuDetail" class="chat-sub-pane open" aria-hidden="false">
+    <view
+      v-if="showNiuniuDetail"
+      class="chat-sub-pane open chat-detail-overlay"
+      aria-hidden="false"
+      :style="appSubPaneStyle"
+    >
       <view class="chat-hero-hd">
         <view class="chat-hero-back" hover-class="chat-hero-back--active" @click="closeNiuniuDetail">
           <text class="chat-hero-back-char">‹</text>
@@ -610,7 +615,13 @@
     </view>
 
     <!-- 红包详情：对齐 888 #chatRpDetailPane -->
-    <view v-if="detailVisible" id="chatRpDetailPane" class="chat-sub-pane open" aria-hidden="false">
+    <view
+      v-if="detailVisible"
+      id="chatRpDetailPane"
+      class="chat-sub-pane open chat-detail-overlay"
+      aria-hidden="false"
+      :style="appSubPaneStyle"
+    >
       <view class="chat-hero-hd">
         <view class="chat-hero-back" hover-class="chat-hero-back--active" @click="closeRpDetail">
           <text class="chat-hero-back-char">‹</text>
@@ -763,7 +774,11 @@ import {
   saveActiveChat,
 } from '../../utils/chat-route.js'
 import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
-import { applySafeAreaCssVars } from '../../utils/safe-area.js'
+import {
+  applySafeAreaCssVars,
+  getSafeAreaInsets,
+  measureChatOverlayTop,
+} from '../../utils/safe-area.js'
 import { COMMON_EMOJIS, loadEmojiTree } from '../../utils/emoji.js'
 import { setInboxMyId, noteConversationRead } from '../../utils/im-inbox.js'
 import { playOpenRedPacketSound } from '../../utils/notify-sound.js'
@@ -819,6 +834,22 @@ const niuniuPackRemain = ref(0)
 const niuniuPackRoundId = ref(0)
 const niuniuDetailRound = ref(null)
 const niuniuDetailRows = ref([])
+/** 房间页 CSS 变量：保证 App 浮层能继承到真实顶栏高度 */
+const roomSafeStyle = ref({})
+/** App 详情浮层内联 top（H5 为空，走 CSS，避免网页多垫） */
+const appSubPaneStyle = ref({})
+function refreshChatSafeLayout() {
+  const r = applySafeAreaCssVars()
+  const overlayTop = (r && r.overlayTop) || measureChatOverlayTop()
+  const insetTop = (r && r.top != null ? r.top : getSafeAreaInsets().top) || 0
+  roomSafeStyle.value = {
+    '--chat-overlay-top': overlayTop + 'px',
+    '--safe-area-inset-top': insetTop + 'px',
+  }
+  // #ifdef APP-PLUS
+  appSubPaneStyle.value = { top: overlayTop + 'px' }
+  // #endif
+}
 const niuniuDetailPoolText = computed(() => {
   const r = niuniuDetailRound.value
   if (!r) return '0'
@@ -3416,6 +3447,7 @@ function byNiuniuHashOrder(a, b) {
 }
 
 function openNiuniuDetail(data) {
+  refreshChatSafeLayout()
   const uid = (myUserId.value | 0) || (myId | 0)
   const round = (data && data.round) || null
   const mode = (round && (round.game_mode | 0)) || 0
@@ -3791,6 +3823,7 @@ async function openDetail(packetId) {
     canGrabDetail.value = canGrab
     const mine = data.mine || (data.records || []).find((r) => (r.user_id | 0) === myId)
     if (mine && mine.amount != null) myGrabAmount.value = formatAmt(mine.amount)
+    refreshChatSafeLayout()
     detailVisible.value = true
   } catch (e) {
     uni.showToast({ title: (e && e.message) || '详情失败', icon: 'none' })
@@ -3984,7 +4017,7 @@ function leaveRoomToList(tip) {
 }
 
 onLoad(async (query) => {
-  applySafeAreaCssVars()
+  refreshChatSafeLayout()
   if (!getToken()) {
     uni.reLaunch({ url: '/pages/login/login' })
     return
@@ -4151,7 +4184,7 @@ onLoad(async (query) => {
 })
 
 onShow(() => {
-  applySafeAreaCssVars()
+  refreshChatSafeLayout()
   if (!getToken() || !roomAlive) return
   bindForegroundResume()
   resumeFromBackground('chat-onShow')
@@ -4181,6 +4214,19 @@ function closeRpDetail() {
   grabErrorTip.value = ''
 }
 </script>
+
+<style>
+/* App 专用：详情主体取消 -24px 盖板上叠，避免顶到标题字；H5 不编译此段 */
+/* #ifdef APP-PLUS */
+.chat-room-page .chat-detail-overlay .chat-sub-main,
+.chat-room-page #chatRpDetailPane .chat-sub-main,
+.chat-room-page .chat-sub-pane.open .nn-detail-main {
+  margin-top: 0 !important;
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+}
+/* #endif */
+</style>
 
 <style scoped>
 /* 详情/会话样式走 chat.bundle + chat-888-parity；此处仅房间页微补 */
