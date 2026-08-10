@@ -198,7 +198,8 @@ page {
   background: linear-gradient(160deg, #fff5f3 0%, #ffe3df 100%);
 }
 
-.profile-quick-ico svg {
+.profile-quick-ico svg,
+.profile-quick-ico .app-glyph {
   display: block;
   flex-shrink: 0;
 }
@@ -262,7 +263,8 @@ page {
   background: linear-gradient(160deg, #fff5f3, #ffe3df);
 }
 
-.profile-menu-ico svg {
+.profile-menu-ico svg,
+.profile-menu-ico .app-glyph {
   display: block;
   flex-shrink: 0;
 }

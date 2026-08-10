@@ -108,9 +108,9 @@ function toggleLang() {
 
 function goFission() {
   closePanels()
-  uni.navigateTo({
+  uni.switchTab({
     url: '/pages/fission/detail',
-    fail: () => uni.showToast({ title: '无法打开裂变红宝', icon: 'none' }),
+    fail: () => uni.navigateTo({ url: '/pages/fission/detail' }),
   })
 }
 

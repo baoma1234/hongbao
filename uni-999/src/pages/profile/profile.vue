@@ -32,33 +32,25 @@
     <view class="profile-quick-sheet">
       <view class="profile-quick-item" @click="go('/pages/profile/qr')">
         <view class="profile-quick-ico">
-          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-            <path fill="currentColor" d="M3 3h8v8H3V3zm2 2v4h4V5H5zm8-2h8v8h-8V3zm2 2v4h4V5h-4zM3 13h8v8H3v-8zm2 2v4h4v-4H5zm13-2h-3v2h2v2h-2v2h3v-2h2v-4h-2v-2zm-3 6h2v2h-2v-2z" />
-          </svg>
+          <AppGlyph name="qr" />
         </view>
         <text class="profile-quick-label">{{ tt('profile_quick_qr', '二维码') }}</text>
       </view>
       <view class="profile-quick-item" @click="onScan">
         <view class="profile-quick-ico">
-          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-            <path fill="currentColor" d="M4 4h4v2H6v2H4V4zm12 0h4v4h-2V6h-2V4zM4 16h2v2h2v2H4v-4zm14 2h-2v2h4v-4h-2v2zM8 8h8v8H8V8zm2 2v4h4v-4h-4z" />
-          </svg>
+          <AppGlyph name="scan" />
         </view>
         <text class="profile-quick-label">{{ tt('profile_quick_scan', '扫一扫') }}</text>
       </view>
       <view class="profile-quick-item" @click="go('/pages/wallet/recharge')">
         <view class="profile-quick-ico profile-quick-ico-gold">
-          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-            <path fill="currentColor" d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 5v4h3l-4 6v-4H9l4-6z" />
-          </svg>
+          <AppGlyph name="recharge" />
         </view>
         <text class="profile-quick-label">{{ tt('profile_quick_recharge', '充值') }}</text>
       </view>
       <view class="profile-quick-item" @click="go('/pages/wallet/withdraw')">
         <view class="profile-quick-ico profile-quick-ico-gold">
-          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-            <path fill="currentColor" d="M5 4h14a1 1 0 011 1v3H4V5a1 1 0 011-1zm-1 6h16v9a1 1 0 01-1 1H5a1 1 0 01-1-1v-9zm4 3v2h8v-2H8z" />
-          </svg>
+          <AppGlyph name="withdraw" />
         </view>
         <text class="profile-quick-label">{{ tt('profile_quick_withdraw', '提现') }}</text>
       </view>
@@ -69,9 +61,7 @@
       <view class="profile-menu-sheet">
         <view class="profile-menu-row" @click="go('/pages/wallet/payee')">
           <view class="profile-menu-ico">
-            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-              <path fill="currentColor" d="M3 6h18v3H3V6zm0 5h18v7a2 2 0 01-2 2H5a2 2 0 01-2-2v-7zm3 2v2h4v-2H6z" />
-            </svg>
+            <AppGlyph name="payee" size="sm" />
           </view>
           <view class="profile-menu-main">
             <text class="profile-menu-title">{{ tt('profile_menu_payee', '钱包地址') }}</text>
@@ -81,25 +71,11 @@
         </view>
         <view class="profile-menu-row" @click="go('/pages/wallet/ledger')">
           <view class="profile-menu-ico">
-            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-              <path fill="currentColor" d="M7 3h10a2 2 0 012 2v14a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2zm1 4v2h8V7H8zm0 4v2h8v-2H8zm0 4v2h5v-2H8z" />
-            </svg>
+            <AppGlyph name="ledger" size="sm" />
           </view>
           <view class="profile-menu-main">
             <text class="profile-menu-title">{{ tt('profile_menu_ledger', '资金流水') }}</text>
             <text class="profile-menu-sub">{{ tt('profile_menu_ledger_sub', '红宝与股份变动明细') }}</text>
-          </view>
-          <text class="profile-menu-arrow">›</text>
-        </view>
-        <view class="profile-menu-row" @click="go('/pages/fission/detail')">
-          <view class="profile-menu-ico">
-            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-              <path fill="currentColor" d="M12 2c3.5 2.8 6 5.4 6 8.5A6 6 0 016 10.5C6 7.4 8.5 4.8 12 2zm0 7a2.5 2.5 0 100 5 2.5 2.5 0 000-5zm-7 9h14v2H5v-2z" />
-            </svg>
-          </view>
-          <view class="profile-menu-main">
-            <text class="profile-menu-title">{{ tt('profile_menu_fission', '裂变红宝') }}</text>
-            <text class="profile-menu-sub">{{ tt('profile_menu_fission_sub', '全网裂变 · 邀请瓜分奖金池') }}</text>
           </view>
           <text class="profile-menu-arrow">›</text>
         </view>
@@ -111,9 +87,7 @@
       <view class="profile-menu-sheet">
         <view class="profile-menu-row" @click="go('/pages/profile/info')">
           <view class="profile-menu-ico">
-            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-              <path fill="currentColor" d="M12 12a4.5 4.5 0 100-9 4.5 4.5 0 000 9zm0 2c-4.4 0-8 2.2-8 5v1h16v-1c0-2.8-3.6-5-8-5z" />
-            </svg>
+            <AppGlyph name="info" size="sm" />
           </view>
           <view class="profile-menu-main">
             <text class="profile-menu-title">{{ tt('profile_menu_info', '头像与昵称') }}</text>
@@ -123,9 +97,7 @@
         </view>
         <view class="profile-menu-row" @click="go('/pages/profile/password')">
           <view class="profile-menu-ico">
-            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-              <path fill="currentColor" d="M12 2a5 5 0 015 5v2h1a2 2 0 012 2v9a2 2 0 01-2 2H6a2 2 0 01-2-2v-9a2 2 0 012-2h1V7a5 5 0 015-5zm0 2a3 3 0 00-3 3v2h6V7a3 3 0 00-3-3zm0 9a1.75 1.75 0 100 3.5A1.75 1.75 0 0012 13z" />
-            </svg>
+            <AppGlyph name="password" size="sm" />
           </view>
           <view class="profile-menu-main">
             <text class="profile-menu-title">{{ tt('profile_menu_password', '修改密码') }}</text>
@@ -135,9 +107,7 @@
         </view>
         <view class="profile-menu-row" @click="go('/pages/profile/paypassword')">
           <view class="profile-menu-ico">
-            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-              <path fill="currentColor" d="M12 1a5 5 0 015 5v2h1.5A1.5 1.5 0 0120 9.5v11A1.5 1.5 0 0118.5 22h-13A1.5 1.5 0 014 20.5v-11A1.5 1.5 0 015.5 8H7V6a5 5 0 015-5zm0 2a3 3 0 00-3 3v2h6V6a3 3 0 00-3-3zm0 9.25a1.75 1.75 0 100 3.5 1.75 1.75 0 000-3.5z" />
-            </svg>
+            <AppGlyph name="paypassword" size="sm" />
           </view>
           <view class="profile-menu-main">
             <text class="profile-menu-title">{{ tt('profile_menu_pay_password', '支付密码') }}</text>
@@ -161,6 +131,7 @@ import { onShow } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
 import BottomTabBar from '../../components/BottomTabBar.vue'
 import FriendScanSheet from '../../components/FriendScanSheet.vue'
+import AppGlyph from '../../components/AppGlyph.vue'
 import { fetchProfile, getToken, logoutLocal, logoutRemote } from '../../utils/auth.js'
 import { avatarSrc } from '../../utils/chat.js'
 import { copyState, ensureLocaleLoaded, getLocale, localeState, t, tt } from '../../utils/i18n.js'

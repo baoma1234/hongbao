@@ -214,10 +214,10 @@
         "selectedIconPath": "static/tab/hongbao.png"
       },
       {
-        "pagePath": "pages/master/master",
-        "text": "团长",
-        "iconPath": "static/tab/master.png",
-        "selectedIconPath": "static/tab/master.png"
+        "pagePath": "pages/fission/detail",
+        "text": "裂变",
+        "iconPath": "static/tab/hongbao.png",
+        "selectedIconPath": "static/tab/hongbao.png"
       },
       {
         "pagePath": "pages/profile/profile",

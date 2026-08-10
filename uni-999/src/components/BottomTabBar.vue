@@ -6,7 +6,7 @@
       class="tab-btn"
       :class="{
         active: selected === item.tab,
-        'tab-master': item.tab === 'master',
+        'tab-master': item.tab === 'fission',
         'has-chat-unread': item.tab === 'messages' && unread > 0,
       }"
       :data-tab="item.tab"
@@ -45,7 +45,8 @@ const selected = computed(() => {
     const route = (cur && (cur.route || '')) || ''
     if (route.indexOf('pages/exchange/') >= 0) return 'exchange'
     if (route.indexOf('pages/messages/') >= 0) return 'messages'
-    if (route.indexOf('pages/master/') >= 0) return 'master'
+    if (route.indexOf('pages/fission/') >= 0) return 'fission'
+    if (route.indexOf('pages/master/') >= 0) return 'fission'
     if (route.indexOf('pages/profile/') >= 0) return 'profile'
   } catch (e) {}
   return 'home'
@@ -74,10 +75,10 @@ const tabs = computed(() => {
       icon: base + 'static/logo.png',
     },
     {
-      tab: 'master',
-      path: '/pages/master/master',
-      label: t('tab_bar_master') || '团长',
-      icon: base + 'static/tab/master.png',
+      tab: 'fission',
+      path: '/pages/fission/detail',
+      label: t('tab_bar_fission') || '裂变',
+      icon: base + 'static/tab/hongbao.png',
     },
     {
       tab: 'profile',

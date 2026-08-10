@@ -109,9 +109,9 @@
 }
 
 .chat-room-page .chat-msg-scroll {
-  flex: 1 1 auto !important;
+  flex: 1 1 0% !important;
   min-height: 0 !important;
-  height: 0 !important; /* scroll-view 在 flex 里必须给可算高度 */
+  height: auto !important;
   width: 100%;
   max-width: 100%;
   padding: 12px 12px 16px;

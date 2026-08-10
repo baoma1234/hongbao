@@ -132,9 +132,9 @@
 
 .chat-rp-send-pane .chat-rp-send-body,
 .chat-rp-send-pane scroll-view.chat-rp-send-body {
-  flex: 1 1 auto !important;
+  flex: 1 1 0% !important;
   min-height: 0 !important;
-  height: 0 !important;
+  height: auto !important;
   width: 100% !important;
   /* 整体下移约 44px，类型「普通红宝 / 随机红宝」不被顶栏挡住 */
   padding: 44px 14px 18px !important;

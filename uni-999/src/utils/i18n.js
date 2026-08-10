@@ -35,7 +35,8 @@ const BOOT_COPY = {
     tab_bar_home: '大厅',
     tab_bar_exchange: '闪兑',
     tab_bar_messages: '红宝',
-    tab_bar_master: '团长',
+    tab_bar_master: '裂变',
+    tab_bar_fission: '裂变',
     tab_bar_profile: '我的',
     page_hero_exchange_title: '⚡ VIP 闪兑大厅',
     page_hero_exchange_sub: '股份 ↔ 红宝 · 实时预估到账',
@@ -143,7 +144,8 @@ const BOOT_COPY = {
     tab_bar_home: 'Home',
     tab_bar_exchange: 'Swap',
     tab_bar_messages: 'Chat',
-    tab_bar_master: 'Leader',
+    tab_bar_master: 'Fission',
+    tab_bar_fission: 'Fission',
     tab_bar_profile: 'Me',
     page_hero_exchange_title: '⚡ VIP Flash Exchange',
     page_hero_exchange_sub: 'Shares ↔ Hongbao · Live estimate',
@@ -401,7 +403,7 @@ export function syncTabBarLabels() {
     { index: 0, text: t('tab_bar_home') },
     { index: 1, text: t('tab_bar_exchange') },
     { index: 2, text: t('tab_bar_messages') },
-    { index: 3, text: t('tab_bar_master') },
+    { index: 3, text: t('tab_bar_fission') || t('tab_bar_master') },
     { index: 4, text: t('tab_bar_profile') },
   ]
   items.forEach((it) => {

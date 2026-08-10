@@ -527,7 +527,7 @@
   border-radius: 0 !important;
   flex: 1 1 auto !important;
   min-height: 0 !important;
-  height: 0 !important; /* flex 子项可算高度，才能滚动 */
+  height: auto !important; /* App WebView：height:0 常算不出高度 → 空白 */
   width: 100% !important;
   max-width: 100% !important;
   padding: 12px 12px calc(24px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))) !important;

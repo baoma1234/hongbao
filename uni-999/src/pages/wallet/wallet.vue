@@ -17,33 +17,25 @@
       <view class="profile-quick-sheet">
         <view class="profile-quick-item" @click="go('recharge')">
           <view class="profile-quick-ico profile-quick-ico-gold">
-            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-              <path fill="currentColor" d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 5v4h3l-4 6v-4H9l4-6z" />
-            </svg>
+            <AppGlyph name="recharge" />
           </view>
           <text class="profile-quick-label">充值</text>
         </view>
         <view class="profile-quick-item" @click="go('withdraw')">
           <view class="profile-quick-ico profile-quick-ico-gold">
-            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-              <path fill="currentColor" d="M5 4h14a1 1 0 011 1v3H4V5a1 1 0 011-1zm-1 6h16v9a1 1 0 01-1 1H5a1 1 0 01-1-1v-9zm4 3v2h8v-2H8z" />
-            </svg>
+            <AppGlyph name="withdraw" />
           </view>
           <text class="profile-quick-label">提现</text>
         </view>
         <view class="profile-quick-item" @click="go('ledger')">
           <view class="profile-quick-ico">
-            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-              <path fill="currentColor" d="M7 3h10a2 2 0 012 2v14a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2zm1 4v2h8V7H8zm0 4v2h8v-2H8zm0 4v2h5v-2H8z" />
-            </svg>
+            <AppGlyph name="ledger" />
           </view>
           <text class="profile-quick-label">流水</text>
         </view>
         <view class="profile-quick-item" @click="go('payee')">
           <view class="profile-quick-ico">
-            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-              <path fill="currentColor" d="M3 6h18v3H3V6zm0 5h18v7a2 2 0 01-2 2H5a2 2 0 01-2-2v-7zm3 2v2h4v-2H6z" />
-            </svg>
+            <AppGlyph name="payee" />
           </view>
           <text class="profile-quick-label">地址</text>
         </view>
@@ -54,9 +46,7 @@
         <view class="profile-menu-sheet">
           <view class="profile-menu-row" @click="go('payee')">
             <view class="profile-menu-ico">
-              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-                <path fill="currentColor" d="M3 6h18v3H3V6zm0 5h18v7a2 2 0 01-2 2H5a2 2 0 01-2-2v-7zm3 2v2h4v-2H6z" />
-              </svg>
+              <AppGlyph name="payee" size="sm" />
             </view>
             <view class="profile-menu-main">
               <text class="profile-menu-title">钱包地址</text>
@@ -66,9 +56,7 @@
           </view>
           <view class="profile-menu-row" @click="go('ledger')">
             <view class="profile-menu-ico">
-              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-                <path fill="currentColor" d="M7 3h10a2 2 0 012 2v14a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2zm1 4v2h8V7H8zm0 4v2h8v-2H8zm0 4v2h5v-2H8z" />
-              </svg>
+              <AppGlyph name="ledger" size="sm" />
             </view>
             <view class="profile-menu-main">
               <text class="profile-menu-title">资金流水</text>
@@ -89,6 +77,7 @@
 import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
 import { computed, ref } from 'vue'
 import TopBar from '../../components/TopBar.vue'
+import AppGlyph from '../../components/AppGlyph.vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getToken } from '../../utils/auth.js'
 import { loadWalletBootstrap, money, turnoverHint } from '../../utils/wallet.js'

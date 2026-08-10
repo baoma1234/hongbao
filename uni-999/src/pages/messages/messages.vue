@@ -1095,7 +1095,7 @@ function handleNoticeAction(action, url, label) {
     return
   }
   if (/裂变/.test(label) || /fission/i.test(url)) {
-    uni.navigateTo({ url: '/pages/fission/detail' })
+    uni.switchTab({ url: '/pages/fission/detail' })
     return
   }
   if (/红包|接力/.test(label)) {
@@ -2071,7 +2071,7 @@ const fissionNoticeRemain = computed(() => {
 })
 
 function goFissionFromNotice() {
-  uni.navigateTo({ url: '/pages/fission/detail' })
+  uni.switchTab({ url: '/pages/fission/detail' })
 }
 
 async function loadCommission() {
@@ -2175,17 +2175,25 @@ async function reconnect() {
 }
 
 function applyPageShell(on) {
-  // #ifdef H5
   try {
+    const h =
+      typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 480px)').matches
+        ? '44px'
+        : '48px'
+    // #ifdef H5
     if (typeof document !== 'undefined') {
       document.body.classList.toggle('tab-messages', !!on)
-      if (on) {
-        const h = window.matchMedia('(max-width: 480px)').matches ? '44px' : '48px'
-        document.documentElement.style.setProperty('--top-bar-height', h)
-      }
+      if (on) document.documentElement.style.setProperty('--top-bar-height', h)
     }
+    // #endif
+    // App：同样写入 CSS 变量（无 document.body 类，适配器已用 #tabMessages）
+    // #ifdef APP-PLUS
+    if (typeof document !== 'undefined' && document.documentElement && on) {
+      document.documentElement.style.setProperty('--top-bar-height', h)
+      if (document.body) document.body.classList.add('tab-messages')
+    }
+    // #endif
   } catch (e) {}
-  // #endif
 }
 
 onShow(() => {

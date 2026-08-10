@@ -1,10 +1,9 @@
 <template>
-  <img
+  <image
     v-if="src && !failed"
     class="wallet-channel-icon"
     :src="src"
-    alt=""
-    loading="lazy"
+    mode="aspectFit"
     @error="onError"
   />
   <view v-else class="wallet-channel-icon wallet-channel-icon--placeholder">
@@ -25,7 +24,13 @@ const props = defineProps({
 const failed = ref(false)
 
 const src = computed(() => {
-  if (props.icon) return String(props.icon).trim()
+  if (props.icon) {
+    const raw = String(props.icon).trim()
+    if (!raw) return ''
+    // 已是绝对地址则直接用；相对路径走通道解析逻辑
+    if (/^https?:\/\//i.test(raw) || raw.startsWith('data:')) return raw
+    return channelIconUrl({ icon: raw, name: props.name })
+  }
   return channelIconUrl(props.channel)
 })
 

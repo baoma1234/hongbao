@@ -1,9 +1,18 @@
 import { apiRequest, fetchProfile } from './auth.js'
+import { ensureAbsoluteHttpUrl, FALLBACK_RUNTIME, getApiBase } from './config.js'
 import { assetBase } from './i18n.js'
 
 let _boot = null
 let _bootAt = 0
 const BOOT_TTL = 60000
+
+function publicAbs(path) {
+  const p = String(path || '').trim()
+  if (!p) return ''
+  if (/^https?:\/\//i.test(p) || p.startsWith('data:')) return p
+  const base = getApiBase() || FALLBACK_RUNTIME.apiUri
+  return ensureAbsoluteHttpUrl(p, base) || p
+}
 
 export function money(n) {
   const x = Number(n)
@@ -61,12 +70,15 @@ export function channelIconUrl(ch) {
     return assetBase() + 'static/pay/usdt.png'
   }
   if (icon.startsWith('static/')) return assetBase() + icon.replace(/^\.\//, '')
-  if (icon.startsWith('/999/') || icon.startsWith('/888/') || icon.startsWith('/assets/')) {
-    return icon
+  if (icon.startsWith('/999/')) {
+    return publicAbs(icon) || assetBase() + icon.replace(/^\/999\//, '')
   }
-  if (icon.startsWith('/')) return icon
-  if (/^img\//i.test(icon)) return '/888/' + icon.replace(/^\.\//, '')
-  return '/888/' + icon.replace(/^\.\//, '')
+  if (icon.startsWith('/888/') || icon.startsWith('/assets/')) {
+    return publicAbs(icon)
+  }
+  if (icon.startsWith('/')) return publicAbs(icon)
+  if (/^img\//i.test(icon)) return publicAbs('/888/' + icon.replace(/^\.\//, ''))
+  return publicAbs('/888/' + icon.replace(/^\.\//, ''))
 }
 
 export function isOnlineCoopChannel(ch) {

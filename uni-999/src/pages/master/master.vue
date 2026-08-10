@@ -165,7 +165,7 @@
         </template>
       </view>
     </view>
-    <BottomTabBar active="master" />
+    <BottomTabBar active="fission" />
   </view>
 </template>
 

@@ -138,9 +138,9 @@
           <text>{{ t('home_quick_exchange') || '⚡ 去闪兑' }}</text>
           <text>{{ t('home_quick_exchange_sub') || '股份秒变红宝' }}</text>
         </button>
-        <button type="button" class="home-quick-btn hq-master" @click="goTab('/pages/master/master')">
-          <text>{{ t('home_quick_master') || '👑 团长大厅' }}</text>
-          <text>{{ t('home_quick_master_sub') || '天梯 + 7天星火暴击' }}</text>
+        <button type="button" class="home-quick-btn hq-master" @click="goTab('/pages/fission/detail')">
+          <text>{{ t('home_quick_fission') || '🧧 裂变红宝' }}</text>
+          <text>{{ t('home_quick_fission_sub') || '邀请瓜分奖金池' }}</text>
         </button>
         <button type="button" class="home-quick-btn hq-messages" @click="goTab('/pages/messages/messages')">
           <text>{{ t('home_quick_messages') || '红宝社区' }}</text>
@@ -586,7 +586,7 @@ function goTab(url) {
 
 function goFission() {
   if (fissionEntryState.value === 'hidden') return
-  uni.navigateTo({ url: '/pages/fission/detail' })
+  uni.switchTab({ url: '/pages/fission/detail' })
 }
 
 function applyFissionEntry(f) {
@@ -642,7 +642,7 @@ function dismissFissionPopup() {
 
 function openFissionFromPopup() {
   dismissFissionPopup()
-  uni.navigateTo({ url: '/pages/fission/detail' })
+  uni.switchTab({ url: '/pages/fission/detail' })
 }
 
 function rankBadge(rank) {

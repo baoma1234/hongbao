@@ -1,9 +1,9 @@
 <template>
   <view class="fx-page">
     <view class="nav-bar">
-      <text class="nav-icon" @click="goBack">&lt;</text>
+      <text class="nav-icon nav-icon-spacer" />
       <text class="nav-title">裂变红宝</text>
-      <text class="nav-icon">···</text>
+      <text class="nav-icon nav-icon-spacer" />
     </view>
 
     <scroll-view scroll-y class="fx-scroll" :style="{ height: scrollH }">
@@ -96,15 +96,17 @@
         </view>
       </view>
     </scroll-view>
+    <BottomTabBar active="fission" />
   </view>
 </template>
 
 <script setup>
 import { computed, ref, onUnmounted } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
+import BottomTabBar from '../../components/BottomTabBar.vue'
 import { apiRequest, getToken } from '../../utils/auth.js'
+import { applySafeAreaCssVars } from '../../utils/safe-area.js'
 import { copyText } from '../../utils/master.js'
-import { safeNavigateBack } from '../../utils/nav.js'
 
 const loading = ref(true)
 const joining = ref(false)
@@ -152,19 +154,17 @@ function formatMoney(v) {
   return n.toFixed(2).replace(/\.00$/, '')
 }
 
-function goBack() {
-  safeNavigateBack('/pages/profile/profile')
-}
-
 function measureScroll() {
   try {
+    applySafeAreaCssVars()
     const sys = uni.getSystemInfoSync()
     const status = Number(sys.statusBarHeight || 20)
     const hd = status + 52
-    const h = (sys.windowHeight || 667) - hd
-    scrollH.value = Math.max(320, h) + 'px'
+    const tab = 56 + Number((sys.safeAreaInsets && sys.safeAreaInsets.bottom) || 0)
+    const h = (sys.windowHeight || 667) - hd - tab
+    scrollH.value = Math.max(280, h) + 'px'
   } catch (e) {
-    scrollH.value = '100vh'
+    scrollH.value = '70vh'
   }
 }
 
@@ -278,7 +278,7 @@ onUnmounted(() => stopTick())
   box-sizing: border-box;
   max-width: 414px;
   margin: 0 auto;
-  padding-bottom: 40px;
+  padding-bottom: calc(70px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -301,6 +301,9 @@ onUnmounted(() => stopTick())
   text-align: center;
   line-height: 1.2;
   color: #e2e4ed;
+}
+.nav-icon-spacer {
+  visibility: hidden;
 }
 .nav-title {
   flex: 1;
