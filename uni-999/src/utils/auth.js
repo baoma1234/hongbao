@@ -1,4 +1,4 @@
-import { getApiBase, getDeviceFpKey, getImgBase, getLocale, getTokenKey, learnUploadCdnFromUrl, setUploadCdn } from './config.js'
+import { ensureAbsoluteHttpUrl, getApiBase, getDeviceFpKey, getImgBase, getLocale, getTokenKey, learnUploadCdnFromUrl, setUploadCdn } from './config.js'
 
 export function getToken() {
   return uni.getStorageSync(getTokenKey()) || ''
@@ -66,7 +66,10 @@ export function apiRequest(action, method = 'POST', body = null) {
   const httpMethod = String(method || 'POST').toUpperCase()
   const token = getToken()
   const locale = getLocale()
-  let url = getApiBase() + '/api/fanshub/' + action
+  let url = ensureAbsoluteHttpUrl('/api/fanshub/' + action, getApiBase())
+  if (!url) {
+    return Promise.reject(new Error('接口地址未就绪，请检查网络后重试'))
+  }
   const headers = {
     'Content-Type': 'application/json',
     'X-Fanshub-Locale': locale,
@@ -196,12 +199,15 @@ export function uploadSticker(filePath) {
 
 function uploadFanshubAction(action, filePath) {
   // 上传必须打 API 站；imgUri 可能是 CDN/OSS，没有 /api
-  const base = getApiBase() || getImgBase() || ''
+  const url = ensureAbsoluteHttpUrl('/api/fanshub/' + action, getApiBase())
+  if (!url) {
+    return Promise.reject(new Error('接口地址未就绪，请检查网络后重试'))
+  }
   const token = getToken()
   const locale = getLocale()
   return new Promise((resolve, reject) => {
     uni.uploadFile({
-      url: base + '/api/fanshub/' + action,
+      url,
       filePath,
       name: 'file',
       formData: { locale },
@@ -233,11 +239,14 @@ function uploadFanshubAction(action, filePath) {
 /** 通用文件上传（聊天图/群头像等）：/api/common/upload */
 export function uploadCommonFile(filePath) {
   // 上传必须打 API 站；imgUri 可能是 CDN/OSS，没有 /api
-  const base = getApiBase() || getImgBase() || ''
+  const url = ensureAbsoluteHttpUrl('/api/common/upload', getApiBase())
+  if (!url) {
+    return Promise.reject(new Error('接口地址未就绪，请检查网络后重试'))
+  }
   const token = getToken()
   return new Promise((resolve, reject) => {
     uni.uploadFile({
-      url: base + '/api/common/upload',
+      url,
       filePath,
       name: 'file',
       header: token ? { token } : {},

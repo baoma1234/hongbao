@@ -756,7 +756,7 @@ import '../../styles/chat-room-uni-adapter.css'
 import '../../styles/chat-rp-send-uni-adapter.css'
 import '../../styles/chat-888-parity.css'
 import { apiRequest, fetchProfile, getToken, goLoginIfUnauthorized, uploadSticker } from '../../utils/auth.js'
-import { getApiBase, getImgBase, learnUploadCdnFromUrl } from '../../utils/config.js'
+import { getApiBase, getImgBase, learnUploadCdnFromUrl, ensureAbsoluteHttpUrl } from '../../utils/config.js'
 import { assetBase, applyServerCopy, copyState, localeState, tt } from '../../utils/i18n.js'
 import {
   avatarSrc,
@@ -2525,9 +2525,11 @@ function scrollToLatest(force) {
 async function loadStickers() {
   const baseItems = []
   try {
+    const stickerUrl = ensureAbsoluteHttpUrl(assetBase() + 'static/data/stickers.json')
+    if (!stickerUrl) throw new Error('sticker url not ready')
     const res = await new Promise((resolve, reject) => {
       uni.request({
-        url: assetBase() + 'static/data/stickers.json',
+        url: stickerUrl,
         method: 'GET',
         success: (r) => resolve((r && r.data) || {}),
         fail: reject,
@@ -2664,11 +2666,12 @@ async function sendSticker(st) {
 
 async function uploadCommonFile(filePath) {
   // 上传必须打 API；imgUri 可能是 CDN，没有 /api/common/upload
-  const base = getApiBase() || getImgBase() || ''
+  const url = ensureAbsoluteHttpUrl('/api/common/upload', getApiBase())
+  if (!url) throw new Error('接口地址未就绪，请检查网络后重试')
   const token = getToken()
   const up = await new Promise((resolve, reject) => {
     uni.uploadFile({
-      url: base + '/api/common/upload',
+      url,
       filePath,
       name: 'file',
       header: token ? { token } : {},

@@ -1,5 +1,5 @@
 import { getDeviceFp, getToken, goLoginIfUnauthorized, logoutLocal } from './auth.js'
-import { getApiBase, getImWsBase } from './config.js'
+import { getApiBase, getImWsBase, ensureAbsoluteHttpUrl, FALLBACK_RUNTIME } from './config.js'
 import { calcReconnectDelayMs } from './reconnect-backoff.js'
 
 let socketTask = null
@@ -58,14 +58,14 @@ const HTTP_ROUTES = {
 }
 
 function getImHttpBase() {
-  const api = String(getApiBase() || '').replace(/\/$/, '')
+  const api = String(getApiBase() || FALLBACK_RUNTIME.apiUri || '').replace(/\/$/, '')
   if (api) return api + '/im-api'
   // #ifdef H5
-  if (typeof location !== 'undefined' && location.origin) {
+  if (typeof location !== 'undefined' && location.origin && /^https?:/i.test(location.origin)) {
     return String(location.origin).replace(/\/$/, '') + '/im-api'
   }
   // #endif
-  return 'http://127.0.0.1:17273'
+  return ensureAbsoluteHttpUrl('/im-api', FALLBACK_RUNTIME.apiUri) || (FALLBACK_RUNTIME.apiUri + '/im-api')
 }
 
 function sendViaHttp(type, data) {

@@ -1,12 +1,20 @@
 /**
  * 运行时配置
  * - H5 默认同源 /api、/im-ws
- * - App / 跨域：每次启动从阿里云 JSON 拉取 apiUri / socketUri / imgUri
+ * - App / 跨域：启动拉取阿里云 888.json（apiUri / socketUri / imgUri）
+ * - App 禁止相对路径 uni.request（会变成 file:// 报 expected url scheme http or https）
  */
 const RUNTIME_CFG_KEY = 'fans_hub_runtime_cfg'
 /** 远端入口（每次打开网页/App 都会拉取） */
 export const RUNTIME_CONFIG_URL =
   'https://8888dhcghahyanz.oss-accelerate.aliyuncs.com/888.json'
+
+/** OSS 拉不到时的兜底（与线上 888.json 保持一致） */
+export const FALLBACK_RUNTIME = {
+  apiUri: 'https://hbsq.bio',
+  socketUri: 'wss://hbsq.bio/im-ws',
+  imgUri: 'https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com',
+}
 
 const cfg = {
   API_BASE: '',
@@ -27,6 +35,28 @@ function trimSlash(u) {
   return String(u == null ? '' : u).trim().replace(/\/+$/, '')
 }
 
+export function isAbsoluteHttpUrl(u) {
+  return /^https?:\/\//i.test(String(u || '').trim())
+}
+
+export function isAbsoluteWsUrl(u) {
+  return /^wss?:\/\//i.test(String(u || '').trim())
+}
+
+/**
+ * 把相对路径补成 http(s) 绝对地址；App 下 uni.request 不能走 file://
+ */
+export function ensureAbsoluteHttpUrl(url, base) {
+  const u = String(url || '').trim()
+  if (!u) return ''
+  if (isAbsoluteHttpUrl(u) || isAbsoluteWsUrl(u)) return u
+  if (/^file:/i.test(u)) return ''
+  const b = trimSlash(base || cfg.API_BASE || FALLBACK_RUNTIME.apiUri)
+  if (!b || !isAbsoluteHttpUrl(b)) return ''
+  if (u.startsWith('/')) return b + u
+  return b + '/' + u.replace(/^\/+/, '')
+}
+
 function applyFields(apiUri, socketUri, imgUri) {
   const api = trimSlash(apiUri)
   const sock = trimSlash(socketUri)
@@ -42,6 +72,15 @@ function applyFields(apiUri, socketUri, imgUri) {
     cfg.IMG_BASE = api
   }
   return prevWs !== String(cfg.IM_WS_URL || '')
+}
+
+function applyFallbackRuntime() {
+  if (cfg.API_BASE && cfg.IM_WS_URL) return false
+  return applyFields(
+    cfg.API_BASE || FALLBACK_RUNTIME.apiUri,
+    cfg.IM_WS_URL || FALLBACK_RUNTIME.socketUri,
+    cfg.IMG_BASE || FALLBACK_RUNTIME.imgUri
+  )
 }
 
 /** 阿里云 OSS / CDN：聊天 /uploads 展示优先 */
@@ -166,13 +205,20 @@ export function fetchRuntimeConfig(force) {
 }
 
 /**
- * 打开网页 / App：先缓存，再拉远端。
+ * 打开网页 / App：先缓存，再拉远端；App 拉失败则用内置兜底域名。
  * @returns {Promise<{ ok: boolean, changedWs: boolean }>}
  */
 export async function bootstrapRuntimeConfig() {
   hydrateRuntimeConfigFromCache()
+  // #ifdef APP-PLUS
+  // App 首屏绝不能空着 apiUri，否则 /api/... 会变成 file://
+  applyFallbackRuntime()
+  // #endif
   const r = await fetchRuntimeConfig(true)
-  return { ok: !!r.ok, changedWs: !!r.changedWs }
+  if (!r.ok) {
+    applyFallbackRuntime()
+  }
+  return { ok: !!cfg.API_BASE, changedWs: !!r.changedWs }
 }
 
 export function getApiBase() {
@@ -193,7 +239,29 @@ export function getImWsBase() {
     return `${proto}//${host}/im-ws`
   }
   // #endif
-  return 'ws://127.0.0.1:17272'
+  return FALLBACK_RUNTIME.socketUri
+}
+
+/**
+ * H5/App 静态资源前缀。
+ * App 必须返回 https 绝对前缀，禁止 '/'（uni.request 会变成 file://）。
+ */
+export function getStaticBase() {
+  // #ifdef H5
+  try {
+    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.BASE_URL) {
+      return String(import.meta.env.BASE_URL).replace(/\/?$/, '/')
+    }
+  } catch (e) {}
+  if (typeof location !== 'undefined' && /\/999\b/.test(location.pathname || '')) {
+    return '/999/'
+  }
+  // #endif
+  // #ifdef APP-PLUS
+  const api = trimSlash(cfg.API_BASE || FALLBACK_RUNTIME.apiUri)
+  return api + '/999/'
+  // #endif
+  return '/'
 }
 
 export function getTokenKey() {

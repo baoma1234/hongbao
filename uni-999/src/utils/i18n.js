@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { ensureAbsoluteHttpUrl, getStaticBase } from './config.js'
 
 /** 与 /888 共用 */
 export const LOCALE_STORAGE_KEY = 'fans_hub_locale'
@@ -352,10 +353,11 @@ export function ensureLocaleLoaded(locale) {
     const base = assetBase()
     const urls = [
       base + 'i18n/locales/' + encodeURIComponent(loc) + '.js',
+      // #ifdef H5
       '/999/i18n/locales/' + encodeURIComponent(loc) + '.js',
       '/888/i18n/locales/' + encodeURIComponent(loc) + '.js',
-      '../888/i18n/locales/' + encodeURIComponent(loc) + '.js',
-    ]
+      // #endif
+    ].map((u) => ensureAbsoluteHttpUrl(u, base)).filter(Boolean)
     let i = 0
     const tryNext = () => {
       if (i >= urls.length) {
@@ -453,17 +455,7 @@ export async function initI18n() {
 }
 
 export function assetBase() {
-  // #ifdef H5
-  try {
-    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.BASE_URL) {
-      return String(import.meta.env.BASE_URL).replace(/\/?$/, '/')
-    }
-  } catch (e) {}
-  if (typeof location !== 'undefined' && /\/999\b/.test(location.pathname || '')) {
-    return '/999/'
-  }
-  // #endif
-  return '/'
+  return getStaticBase()
 }
 
 export function flagUrl(iso) {
