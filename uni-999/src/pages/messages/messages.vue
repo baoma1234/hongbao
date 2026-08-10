@@ -127,7 +127,7 @@
                         @click="onConvClick(item)"
                       >
                         <view class="chat-avatar" :class="{ group: (item.conversation_type | 0) === 2, admin: !!item.is_im_admin }">
-                          <image :src="avatarSrc(item.avatar)" mode="aspectFill" />
+                          <image :src="avatarSrc(item.avatar_url || item.avatar)" mode="aspectFill" />
                         </view>
                         <view class="chat-conv-body">
                           <view class="chat-conv-title">
@@ -165,7 +165,7 @@
               </view>
 
               <view v-if="communitySub === 'official'" class="chat-community-pane active">
-                <scroll-view scroll-y class="chat-community-body-scroll" :show-scrollbar="false">
+                <scroll-view scroll-y class="chat-community-body-scroll" :style="panelScrollStyle" :show-scrollbar="false">
                   <view class="chat-official-list">
                     <view
                       v-for="(g, idx) in communityRecs"
@@ -174,7 +174,7 @@
                       @click="openGroup(g)"
                     >
                       <view class="chat-official-avatar">
-                        <image :src="avatarSrc(g.avatar)" mode="aspectFill" />
+                        <image :src="avatarSrc(g.avatar_url || g.avatar)" mode="aspectFill" />
                       </view>
                       <view class="chat-official-body">
                         <text class="chat-official-title">{{ g.name || ('#' + (g.id || g.group_id)) }}</text>
@@ -200,7 +200,7 @@
               </view>
 
               <view v-else-if="communitySub === 'mine'" class="chat-community-pane active">
-                <scroll-view scroll-y class="chat-community-body-scroll" :show-scrollbar="false">
+                <scroll-view scroll-y class="chat-community-body-scroll" :style="panelScrollStyle" :show-scrollbar="false">
                   <view class="chat-community-glass-panel chat-community-pane-body">
                     <view class="chat-my-groups-list">
                       <view
@@ -219,7 +219,7 @@
                       <view v-for="g in myGroups" :key="g.id" class="chat-my-group-item" @click="openGroup(g)">
                         <view class="chat-my-group-main">
                           <view class="chat-my-group-avatar">
-                            <image :src="avatarSrc(g.avatar)" mode="aspectFill" />
+                            <image :src="avatarSrc(g.avatar_url || g.avatar)" mode="aspectFill" />
                           </view>
                           <text class="chat-my-group-name">{{ g.name || ('#' + g.id) }}</text>
                         </view>
@@ -232,13 +232,13 @@
               </view>
 
               <view v-else-if="communitySub === 'created'" class="chat-community-pane active">
-                <scroll-view scroll-y class="chat-community-body-scroll" :show-scrollbar="false">
+                <scroll-view scroll-y class="chat-community-body-scroll" :style="panelScrollStyle" :show-scrollbar="false">
                   <view class="chat-community-glass-panel chat-community-pane-body">
                     <view class="chat-my-groups-list">
                       <view v-for="g in myCreatedGroups" :key="'c-' + g.id" class="chat-my-group-item" @click="openGroup(g)">
                         <view class="chat-my-group-main">
                           <view class="chat-my-group-avatar">
-                            <image :src="avatarSrc(g.avatar)" mode="aspectFill" />
+                            <image :src="avatarSrc(g.avatar_url || g.avatar)" mode="aspectFill" />
                           </view>
                           <view class="chat-my-group-create-text">
                             <text class="chat-my-group-name">{{ g.name || ('#' + g.id) }}</text>
@@ -254,7 +254,7 @@
               </view>
 
               <view v-else class="chat-community-pane active">
-                <scroll-view scroll-y class="chat-community-body-scroll" :show-scrollbar="false">
+                <scroll-view scroll-y class="chat-community-body-scroll" :style="panelScrollStyle" :show-scrollbar="false">
                   <view class="chat-community-glass-panel chat-community-pane-body">
                     <view class="chat-friend-feed-list">
                       <view
@@ -265,7 +265,7 @@
                         @click="openFriendChat(f)"
                       >
                         <view class="chat-feed-avatar">
-                          <image :src="avatarSrc(f.avatar)" mode="aspectFill" />
+                          <image :src="avatarSrc(f.avatar_url || f.avatar)" mode="aspectFill" />
                           <view class="chat-feed-online-dot" :class="{ off: !f.online }" />
                         </view>
                         <view class="chat-feed-body">
@@ -284,7 +284,12 @@
             </view>
 
             <!-- 公告（对齐 888：四分类 + 推广收益表 + 动态卡片） -->
-            <view id="chatHomePanelNotice" class="chat-home-panel chat-notice-feed-panel" :class="{ 'is-hidden': homeTab !== 'notice' }">
+            <view
+              id="chatHomePanelNotice"
+              class="chat-home-panel chat-notice-feed-panel"
+              :class="{ 'is-hidden': homeTab !== 'notice' }"
+              :style="homeTab === 'notice' ? panelHostStyle : null"
+            >
               <view class="chat-community-seg chat-notice-seg" id="chatNoticeCats" role="tablist">
                 <view
                   class="chat-community-seg-btn"
@@ -307,8 +312,8 @@
                   @click="setNoticeCat('rules')"
                 >游戏规则</view>
               </view>
-              <view class="chat-notice-pane">
-              <scroll-view class="chat-notice-body-scroll" scroll-y :show-scrollbar="false">
+              <view class="chat-notice-pane" :style="homeTab === 'notice' ? panelScrollStyle : null">
+              <scroll-view class="chat-notice-body-scroll" scroll-y :style="panelScrollStyle" :show-scrollbar="false">
                 <view
                   v-if="fissionNoticeVisible && (noticeCat === 'latest' || noticeCat === 'promote')"
                   class="chat-fission-card"
@@ -448,7 +453,7 @@
 
             <!-- 佣金 -->
             <view id="chatHomePanelCommission" class="chat-home-panel chat-commission-panel" :class="{ 'is-hidden': homeTab !== 'commission' }">
-              <scroll-view scroll-y class="chat-commission-body-scroll">
+              <scroll-view scroll-y class="chat-commission-body-scroll" :style="panelScrollStyle">
               <view class="chat-commission-hero-card">
                 <view class="chat-commission-hero-top">
                   <text class="chat-commission-hero-label">累计佣金</text>
@@ -679,7 +684,7 @@
             class="chat-share-row"
             @click="sendShareToGroup(g)"
           >
-            <image class="chat-share-av" :src="avatarSrc(g.avatar || '')" mode="aspectFill" />
+            <image class="chat-share-av" :src="avatarSrc(g.avatar_url || g.avatar || '')" mode="aspectFill" />
             <text class="chat-share-name">{{ g.name || ('群' + (g.id || g.group_id)) }}</text>
             <text class="chat-share-go">发送</text>
           </view>
@@ -715,6 +720,7 @@ import {
   resolveConvId,
 } from '../../utils/chat.js'
 import { assetBase, t } from '../../utils/i18n.js'
+import { packagedStaticUrl } from '../../utils/config.js'
 import { openFriendScanSheet } from '../../utils/friend-scan.js'
 import { saveActiveChat } from '../../utils/chat-route.js'
 import {
@@ -756,11 +762,11 @@ const list = ref([])
 const loaded = ref(false)
 const status = ref('disconnected')
 const localUnread = ref({})
-const fxIcon = assetBase() + 'static/chat/fx.png'
-const icoScan = assetBase() + 'static/chat/plus_scan.png'
-const icoAddFriend = assetBase() + 'static/chat/plus_add_friend.png'
-const icoFriendReq = assetBase() + 'static/chat/plus_friend_req.png'
-const icoCreateGroup = assetBase() + 'static/chat/plus_create_group.png'
+const fxIcon = packagedStaticUrl('chat/fx.png')
+const icoScan = packagedStaticUrl('chat/plus_scan.png')
+const icoAddFriend = packagedStaticUrl('chat/plus_add_friend.png')
+const icoFriendReq = packagedStaticUrl('chat/plus_friend_req.png')
+const icoCreateGroup = packagedStaticUrl('chat/plus_create_group.png')
 const homeTab = ref('chat')
 /** App WebView 常算不出 flex 高度：用 JS 量出面板/scroll 像素高 */
 const panelScrollPx = ref(420)

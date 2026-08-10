@@ -1,7 +1,15 @@
 /** 会话 / 消息展示辅助（对齐 888 preview） */
 
-import { getApiBase, getImgBase, getUploadsBase, isOssHostUrl, learnUploadCdnFromUrl } from './config.js'
-import { assetBase } from './i18n.js'
+import {
+  ensureAbsoluteHttpUrl,
+  FALLBACK_RUNTIME,
+  getApiBase,
+  getImgBase,
+  getUploadsBase,
+  isOssHostUrl,
+  learnUploadCdnFromUrl,
+  packagedStaticUrl,
+} from './config.js'
 
 export function convKey(type, id) {
   return String(type | 0) + ':' + String(id || '')
@@ -172,8 +180,11 @@ export function publicUrl(pathOrUrl) {
     if (typeof location !== 'undefined' && location.origin) return location.origin + url
     return url
   }
-  if (typeof location !== 'undefined' && location.origin && url.charAt(0) === '/') {
-    return location.origin + url
+  // App 无 location.origin；相对路径必须补成 https，否则 <image> 空白
+  if (url.charAt(0) === '/') {
+    const abs = ensureAbsoluteHttpUrl(url, getApiBase() || FALLBACK_RUNTIME.apiUri)
+    if (abs) return abs
+    if (typeof location !== 'undefined' && location.origin) return location.origin + url
   }
   return url
 }
@@ -183,15 +194,21 @@ export const DEFAULT_AVATAR_VER = '202608051205'
 
 export function defaultAvatarUrl() {
   const q = '?v=' + DEFAULT_AVATAR_VER
-  try {
-    // 对齐 888 的 img/default-avatar.png?v=…
-    return assetBase() + 'static/img/default-avatar.png' + q
-  } catch (e) {
-    return '/999/static/img/default-avatar.png' + q
-  }
+  return packagedStaticUrl('img/default-avatar.png') + q
 }
 
 /** 对齐 888 avatarSrc：空头像也回默认图，避免空白块 */
 export function avatarSrc(url) {
-  return publicUrl(url) || defaultAvatarUrl()
+  const raw = String(url == null ? '' : url).trim()
+  if (!raw) return defaultAvatarUrl()
+  // 建群选的 emoji 等：不是路径，勿拼成 /🐵
+  if (
+    raw.indexOf('/') < 0 &&
+    !/^https?:\/\//i.test(raw) &&
+    !/\.(png|jpe?g|gif|webp|svg)(\?|$)/i.test(raw)
+  ) {
+    return defaultAvatarUrl()
+  }
+  // 兼容 avatar_url / 相对 uploads
+  return publicUrl(raw) || defaultAvatarUrl()
 }

@@ -3,10 +3,8 @@
     <TopBar :no-spacer="true" />
     <view class="chat-hero-hd">
       <view class="chat-hero-back" @click="goBack">
-        <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
-          <path fill="currentColor" d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z" />
-        </svg>
-      </view>
+          <text class="chat-hero-back-char">‹</text>
+        </view>
       <view class="chat-hero-title">添加好友</view>
       <view class="chat-hero-spacer" />
     </view>
@@ -61,13 +59,13 @@ import { ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
 import { getToken } from '../../utils/auth.js'
-import { assetBase } from '../../utils/i18n.js'
+import { packagedStaticUrl } from '../../utils/config.js'
 import { friendLookup, friendRequest, friendRequests, imConnect } from '../../utils/im.js'
 import '../../styles/chat.bundle.css'
 import '../../styles/chat-uni-adapter.css'
 import '../../styles/friend-uni-adapter.css'
 
-const icoFriendReq = assetBase() + 'static/chat/plus_friend_req.png'
+const icoFriendReq = packagedStaticUrl('chat/plus_friend_req.png')
 const dials = [
   { label: '+86 中国', v: '86' },
   { label: '+855 柬埔寨', v: '855' },

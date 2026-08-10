@@ -25,7 +25,8 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { assetBase, localeState, t } from '../utils/i18n.js'
+import { localeState, t } from '../utils/i18n.js'
+import { packagedStaticUrl } from '../utils/config.js'
 import { getChatUnreadTotal } from '../utils/tab-badge.js'
 import '../styles/tabbar-888.css'
 
@@ -54,37 +55,36 @@ const selected = computed(() => {
 
 const tabs = computed(() => {
   void locale.value
-  const base = assetBase()
   return [
     {
       tab: 'home',
       path: '/pages/home/home',
       label: t('tab_bar_home') || '大厅',
-      icon: base + 'static/tab/home.png',
+      icon: packagedStaticUrl('tab/home.png'),
     },
     {
       tab: 'exchange',
       path: '/pages/exchange/exchange',
       label: t('tab_bar_exchange') || '闪兑',
-      icon: base + 'static/tab/exchange.png',
+      icon: packagedStaticUrl('tab/exchange.png'),
     },
     {
       tab: 'messages',
       path: '/pages/messages/messages',
       label: t('tab_bar_messages') || '红宝',
-      icon: base + 'static/logo.png',
+      icon: packagedStaticUrl('logo.png'),
     },
     {
       tab: 'fission',
       path: '/pages/fission/detail',
       label: t('tab_bar_fission') || '裂变',
-      icon: base + 'static/tab/fission.png',
+      icon: packagedStaticUrl('tab/fission.png'),
     },
     {
       tab: 'profile',
       path: '/pages/profile/profile',
       label: t('tab_bar_profile') || '我的',
-      icon: base + 'static/tab/profile.png',
+      icon: packagedStaticUrl('tab/profile.png'),
     },
   ]
 })

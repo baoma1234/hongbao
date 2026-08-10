@@ -264,6 +264,20 @@ export function getStaticBase() {
   return '/'
 }
 
+/**
+ * App 打包进 APK 的 UI 图：必须用 /static/...（本地），勿拼远程 /999/（服务器没同步就空白）。
+ * H5 仍走 getStaticBase()。
+ * @param {string} rel 如 'tab/fission.png' 或 'static/tab/fission.png'
+ */
+export function packagedStaticUrl(rel) {
+  let p = String(rel || '').trim().replace(/^\/+/, '')
+  if (p.indexOf('static/') === 0) p = p.slice('static/'.length)
+  // #ifdef APP-PLUS
+  return '/static/' + p
+  // #endif
+  return getStaticBase() + 'static/' + p
+}
+
 export function getTokenKey() {
   return cfg.TOKEN_KEY
 }

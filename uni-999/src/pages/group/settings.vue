@@ -3,10 +3,8 @@
     <TopBar :no-spacer="true" />
     <view class="chat-hero-hd">
       <view class="chat-hero-back" @click="goBack">
-        <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
-          <path fill="currentColor" d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z" />
-        </svg>
-      </view>
+          <text class="chat-hero-back-char">‹</text>
+        </view>
       <view class="chat-hero-title">群设置</view>
       <view class="chat-hero-spacer" />
     </view>
@@ -122,9 +120,7 @@
     <view v-if="membersPane" class="chat-group-invite-overlay chat-group-members-overlay" aria-hidden="false">
       <view class="chat-hero-hd">
         <view class="chat-hero-back" @click="closeMembersPane">
-          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
-            <path fill="currentColor" d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z" />
-          </svg>
+          <text class="chat-hero-back-char">‹</text>
         </view>
         <view class="chat-hero-title">群成员</view>
         <view class="chat-hero-spacer" />
@@ -179,9 +175,7 @@
     <view v-if="addSheet" class="chat-group-invite-overlay" aria-hidden="false">
       <view class="chat-hero-hd">
         <view class="chat-hero-back" @click="closeAddSheet">
-          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
-            <path fill="currentColor" d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z" />
-          </svg>
+          <text class="chat-hero-back-char">‹</text>
         </view>
         <view class="chat-hero-title">添加群成员</view>
         <view class="chat-hero-spacer" />

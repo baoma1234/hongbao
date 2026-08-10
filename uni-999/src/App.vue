@@ -13,6 +13,7 @@ import { startImInbox } from './utils/im-inbox.js'
 import { applySafeAreaCssVars } from './utils/safe-area.js'
 import { initSkin } from './utils/skin.js'
 import './styles/hb.css'
+import './styles/app-back-fix.css'
 
 async function refreshRemoteEndpoints() {
   try {

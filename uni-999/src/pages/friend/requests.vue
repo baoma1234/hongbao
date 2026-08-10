@@ -3,10 +3,8 @@
     <TopBar :no-spacer="true" />
     <view class="chat-hero-hd">
       <view class="chat-hero-back" @click="goBack">
-        <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
-          <path fill="currentColor" d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z" />
-        </svg>
-      </view>
+          <text class="chat-hero-back-char">‹</text>
+        </view>
       <view class="chat-hero-title">好友申请</view>
       <view class="chat-hero-spacer" />
     </view>

@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { ensureAbsoluteHttpUrl, getStaticBase } from './config.js'
+import { ensureAbsoluteHttpUrl, getStaticBase, packagedStaticUrl } from './config.js'
 
 /** 与 /888 共用 */
 export const LOCALE_STORAGE_KEY = 'fans_hub_locale'
@@ -462,11 +462,11 @@ export function assetBase() {
 
 export function flagUrl(iso) {
   const id = String(iso || 'cn').toLowerCase()
-  return assetBase() + 'static/flags/' + id + '.svg'
+  return packagedStaticUrl('flags/' + id + '.svg')
 }
 
 export function logoUrl() {
-  return assetBase() + 'static/logo.png'
+  return packagedStaticUrl('logo.png')
 }
 
 export function localeOptions() {

@@ -1,0 +1,36 @@
+/* App：原生 svg 不渲染 + bundle 把 .chat-hero-back 设成 font-size:0 → 返回键消失 */
+.chat-hero-back,
+.chat-hero-more,
+.chat-room-page .chat-hero-back,
+.chat-room-page .chat-hero-more,
+.chat-group-settings-page .chat-hero-back,
+.chat-friend-page .chat-hero-back,
+#tabMessages .chat-hero-back,
+.chat-sub-pane .chat-hero-back,
+.chat-room-pane .chat-hero-back {
+  font-size: 22px !important;
+  line-height: 1 !important;
+  color: #fff !important;
+  z-index: 6;
+}
+
+.chat-hero-back-char {
+  display: inline-block !important;
+  font-size: 26px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  color: #fff !important;
+  transform: translateY(-1px);
+}
+
+.profile-sub-hd {
+  position: relative;
+  z-index: 2;
+}
+
+.profile-back-btn {
+  position: relative;
+  z-index: 3;
+  font-size: 26px !important;
+  color: #fff !important;
+}

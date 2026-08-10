@@ -5,8 +5,9 @@
       <view class="profile-vip-hero-shine" />
       <text class="profile-vip-watermark">{{ t('brand_name') }}</text>
       <view class="profile-vip-identity">
-        <image
+          <image
           class="profile-avatar-img"
+          :key="'av-' + avatarSrc(avatar)"
           :src="avatarSrc(avatar)"
           mode="aspectFill"
           @click="go('/pages/profile/info')"

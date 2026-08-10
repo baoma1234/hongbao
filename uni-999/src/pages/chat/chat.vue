@@ -4,17 +4,11 @@
     <view class="chat-room-pane open">
       <view class="chat-hero-hd">
         <view class="chat-hero-back" hover-class="chat-hero-back--active" @click="goBack">
-          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" class="chat-hero-ico">
-            <path fill="currentColor" d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z" />
-          </svg>
+          <text class="chat-hero-back-char">‹</text>
         </view>
         <view class="chat-hero-title chat-room-title">{{ title }}</view>
         <view class="chat-hero-more" hover-class="chat-hero-back--active" @click="openMore">
-          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" class="chat-hero-ico">
-            <circle cx="6" cy="12" r="1.8" fill="currentColor" />
-            <circle cx="12" cy="12" r="1.8" fill="currentColor" />
-            <circle cx="18" cy="12" r="1.8" fill="currentColor" />
-          </svg>
+          <text class="chat-hero-back-char">···</text>
         </view>
       </view>
 
@@ -568,9 +562,7 @@
     <view v-if="showNiuniuDetail" class="chat-sub-pane open" aria-hidden="false">
       <view class="chat-hero-hd">
         <view class="chat-hero-back" hover-class="chat-hero-back--active" @click="closeNiuniuDetail">
-          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" class="chat-hero-ico">
-            <path fill="currentColor" d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z" />
-          </svg>
+          <text class="chat-hero-back-char">‹</text>
         </view>
         <view class="chat-hero-title">领取明细</view>
         <view class="chat-hero-spacer" />
@@ -621,9 +613,7 @@
     <view v-if="detailVisible" id="chatRpDetailPane" class="chat-sub-pane open" aria-hidden="false">
       <view class="chat-hero-hd">
         <view class="chat-hero-back" hover-class="chat-hero-back--active" @click="closeRpDetail">
-          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" class="chat-hero-ico">
-            <path fill="currentColor" d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z" />
-          </svg>
+          <text class="chat-hero-back-char">‹</text>
         </view>
         <view class="chat-hero-title">红包详情</view>
         <view class="chat-hero-spacer" />
@@ -2020,7 +2010,12 @@ function normalizeStickerUrl(url) {
   } else {
     s = assetBase() + 'static/' + s.replace(/^\/+/, '')
   }
-  return encodeUriPath(remapStickerAsciiPath(s))
+  s = encodeUriPath(remapStickerAsciiPath(s))
+  // App 必须 https 绝对地址，相对 /888/stickers 会空白
+  if (s && s.charAt(0) === '/') {
+    s = ensureAbsoluteHttpUrl(s, getApiBase()) || s
+  }
+  return s
 }
 
 /** 发给 IM 的 sticker url：必须命中服务端 allowlist（未编码的真实路径） */
