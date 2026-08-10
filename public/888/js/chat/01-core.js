@@ -220,6 +220,46 @@
     }).join('/');
   }
 
+  /** 历史中文贴纸文件名 → 拼音 ASCII（与 data/sticker-ascii-alias.json 同步） */
+  var STICKER_ASCII_ALIAS = null;
+  function loadStickerAsciiAlias(cb) {
+    if (STICKER_ASCII_ALIAS) {
+      if (typeof cb === 'function') cb(STICKER_ASCII_ALIAS);
+      return;
+    }
+    try {
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', 'data/sticker-ascii-alias.json', true);
+      xhr.onload = function () {
+        try {
+          STICKER_ASCII_ALIAS = JSON.parse(xhr.responseText || '{}') || {};
+        } catch (e) {
+          STICKER_ASCII_ALIAS = {};
+        }
+        if (typeof cb === 'function') cb(STICKER_ASCII_ALIAS);
+      };
+      xhr.onerror = function () {
+        STICKER_ASCII_ALIAS = {};
+        if (typeof cb === 'function') cb(STICKER_ASCII_ALIAS);
+      };
+      xhr.send();
+    } catch (e) {
+      STICKER_ASCII_ALIAS = {};
+      if (typeof cb === 'function') cb(STICKER_ASCII_ALIAS);
+    }
+  }
+  loadStickerAsciiAlias();
+
+  function remapStickerAsciiPath(url) {
+    var s = String(url || '');
+    if (!s || !STICKER_ASCII_ALIAS) return s;
+    return s.replace(/([^/]+\.(?:png|jpg|jpeg|gif|webp))(?=$|[?#])/gi, function (file) {
+      var key = file;
+      try { key = decodeURIComponent(file); } catch (e) {}
+      return STICKER_ASCII_ALIAS[key] || STICKER_ASCII_ALIAS[file] || file;
+    });
+  }
+
   function chatBasePath() {
     var m = location.pathname.match(/^(.*\/888\/)/);
     return m ? m[1] : '/888/';
@@ -232,7 +272,7 @@
 
   function publicUrl(pathOrUrl) {
     if (!pathOrUrl) return '';
-    var url = String(pathOrUrl);
+    var url = remapStickerAsciiPath(String(pathOrUrl));
     var oss = uploadCdnBase();
     // 已是绝对地址：本站 /uploads 改写到 OSS
     if (/^https?:\/\//i.test(url)) {
@@ -242,7 +282,7 @@
           return encodeUriPath(oss + abs.pathname + abs.search);
         }
       } catch (e) {}
-      return encodeUriPath(url);
+      return encodeUriPath(remapStickerAsciiPath(url));
     }
     if (url.charAt(0) !== '/') {
       url = chatBasePath().replace(/\/?$/, '/') + url.replace(/^\.\//, '');

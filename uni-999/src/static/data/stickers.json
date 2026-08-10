@@ -1,477 +1,477 @@
 {
-  "version": 1,
-  "packs": [
-    {
-      "id": "wechat",
-      "name": "经典表情",
-      "categories": [
+    "version": 1,
+    "packs": [
         {
-          "id": "face",
-          "name": "笑脸",
-          "items": [
-            {
-              "code": "666",
-              "url": "stickers/wechat/face/666.png"
-            },
-            {
-              "code": "微笑",
-              "url": "stickers/wechat/face/微笑.png"
-            },
-            {
-              "code": "撇嘴",
-              "url": "stickers/wechat/face/撇嘴.png"
-            },
-            {
-              "code": "色",
-              "url": "stickers/wechat/face/色.png"
-            },
-            {
-              "code": "发呆",
-              "url": "stickers/wechat/face/发呆.png"
-            },
-            {
-              "code": "得意",
-              "url": "stickers/wechat/face/得意.png"
-            },
-            {
-              "code": "流泪",
-              "url": "stickers/wechat/face/流泪.png"
-            },
-            {
-              "code": "害羞",
-              "url": "stickers/wechat/face/害羞.png"
-            },
-            {
-              "code": "闭嘴",
-              "url": "stickers/wechat/face/闭嘴.png"
-            },
-            {
-              "code": "睡",
-              "url": "stickers/wechat/face/睡.png"
-            },
-            {
-              "code": "大哭",
-              "url": "stickers/wechat/face/大哭.png"
-            },
-            {
-              "code": "尴尬",
-              "url": "stickers/wechat/face/尴尬.png"
-            },
-            {
-              "code": "发怒",
-              "url": "stickers/wechat/face/发怒.png"
-            },
-            {
-              "code": "调皮",
-              "url": "stickers/wechat/face/调皮.png"
-            },
-            {
-              "code": "呲牙",
-              "url": "stickers/wechat/face/呲牙.png"
-            },
-            {
-              "code": "惊讶",
-              "url": "stickers/wechat/face/惊讶.png"
-            },
-            {
-              "code": "难过",
-              "url": "stickers/wechat/face/难过.png"
-            },
-            {
-              "code": "囧",
-              "url": "stickers/wechat/face/囧.png"
-            },
-            {
-              "code": "抓狂",
-              "url": "stickers/wechat/face/抓狂.png"
-            },
-            {
-              "code": "吐",
-              "url": "stickers/wechat/face/吐.png"
-            },
-            {
-              "code": "偷笑",
-              "url": "stickers/wechat/face/偷笑.png"
-            },
-            {
-              "code": "愉快",
-              "url": "stickers/wechat/face/愉快.png"
-            },
-            {
-              "code": "白眼",
-              "url": "stickers/wechat/face/白眼.png"
-            },
-            {
-              "code": "傲慢",
-              "url": "stickers/wechat/face/傲慢.png"
-            },
-            {
-              "code": "困",
-              "url": "stickers/wechat/face/困.png"
-            },
-            {
-              "code": "惊恐",
-              "url": "stickers/wechat/face/惊恐.png"
-            },
-            {
-              "code": "憨笑",
-              "url": "stickers/wechat/face/憨笑.png"
-            },
-            {
-              "code": "悠闲",
-              "url": "stickers/wechat/face/悠闲.png"
-            },
-            {
-              "code": "咒骂",
-              "url": "stickers/wechat/face/咒骂.png"
-            },
-            {
-              "code": "疑问",
-              "url": "stickers/wechat/face/疑问.png"
-            },
-            {
-              "code": "嘘",
-              "url": "stickers/wechat/face/嘘.png"
-            },
-            {
-              "code": "晕",
-              "url": "stickers/wechat/face/晕.png"
-            },
-            {
-              "code": "衰",
-              "url": "stickers/wechat/face/衰.png"
-            },
-            {
-              "code": "骷髅",
-              "url": "stickers/wechat/face/骷髅.png"
-            },
-            {
-              "code": "敲打",
-              "url": "stickers/wechat/face/敲打.png"
-            },
-            {
-              "code": "再见",
-              "url": "stickers/wechat/face/再见.png"
-            },
-            {
-              "code": "擦汗",
-              "url": "stickers/wechat/face/擦汗.png"
-            },
-            {
-              "code": "抠鼻",
-              "url": "stickers/wechat/face/抠鼻.png"
-            },
-            {
-              "code": "鼓掌",
-              "url": "stickers/wechat/face/鼓掌.png"
-            },
-            {
-              "code": "坏笑",
-              "url": "stickers/wechat/face/坏笑.png"
-            },
-            {
-              "code": "右哼哼",
-              "url": "stickers/wechat/face/右哼哼.png"
-            },
-            {
-              "code": "鄙视",
-              "url": "stickers/wechat/face/鄙视.png"
-            },
-            {
-              "code": "委屈",
-              "url": "stickers/wechat/face/委屈.png"
-            },
-            {
-              "code": "快哭了",
-              "url": "stickers/wechat/face/快哭了.png"
-            },
-            {
-              "code": "阴险",
-              "url": "stickers/wechat/face/阴险.png"
-            },
-            {
-              "code": "亲亲",
-              "url": "stickers/wechat/face/亲亲.png"
-            },
-            {
-              "code": "可怜",
-              "url": "stickers/wechat/face/可怜.png"
-            },
-            {
-              "code": "笑脸",
-              "url": "stickers/wechat/face/笑脸.png"
-            },
-            {
-              "code": "生病",
-              "url": "stickers/wechat/face/生病.png"
-            },
-            {
-              "code": "脸红",
-              "url": "stickers/wechat/face/脸红.png"
-            },
-            {
-              "code": "破涕为笑",
-              "url": "stickers/wechat/face/破涕为笑.png"
-            },
-            {
-              "code": "恐惧",
-              "url": "stickers/wechat/face/恐惧.png"
-            },
-            {
-              "code": "失望",
-              "url": "stickers/wechat/face/失望.png"
-            },
-            {
-              "code": "无语",
-              "url": "stickers/wechat/face/无语.png"
-            },
-            {
-              "code": "嘿哈",
-              "url": "stickers/wechat/face/嘿哈.png"
-            },
-            {
-              "code": "捂脸",
-              "url": "stickers/wechat/face/捂脸.png"
-            },
-            {
-              "code": "机智",
-              "url": "stickers/wechat/face/机智.png"
-            },
-            {
-              "code": "皱眉",
-              "url": "stickers/wechat/face/皱眉.png"
-            },
-            {
-              "code": "耶",
-              "url": "stickers/wechat/face/耶.png"
-            },
-            {
-              "code": "吃瓜",
-              "url": "stickers/wechat/face/吃瓜.png"
-            },
-            {
-              "code": "加油",
-              "url": "stickers/wechat/face/加油.png"
-            },
-            {
-              "code": "汗",
-              "url": "stickers/wechat/face/汗.png"
-            },
-            {
-              "code": "天啊",
-              "url": "stickers/wechat/face/天啊.png"
-            },
-            {
-              "code": "Emm",
-              "url": "stickers/wechat/face/Emm.png"
-            },
-            {
-              "code": "社会社会",
-              "url": "stickers/wechat/face/社会社会.png"
-            },
-            {
-              "code": "旺柴",
-              "url": "stickers/wechat/face/旺柴.png"
-            },
-            {
-              "code": "好的",
-              "url": "stickers/wechat/face/好的.png"
-            },
-            {
-              "code": "打脸",
-              "url": "stickers/wechat/face/打脸.png"
-            },
-            {
-              "code": "哇",
-              "url": "stickers/wechat/face/哇.png"
-            },
-            {
-              "code": "翻白眼",
-              "url": "stickers/wechat/face/翻白眼.png"
-            },
-            {
-              "code": "让我看看",
-              "url": "stickers/wechat/face/让我看看.png"
-            },
-            {
-              "code": "叹气",
-              "url": "stickers/wechat/face/叹气.png"
-            },
-            {
-              "code": "苦涩",
-              "url": "stickers/wechat/face/苦涩.png"
-            },
-            {
-              "code": "裂开",
-              "url": "stickers/wechat/face/裂开.png"
-            },
-            {
-              "code": "奸笑",
-              "url": "stickers/wechat/face/奸笑.png"
-            }
-          ]
-        },
-        {
-          "id": "gesture",
-          "name": "手势",
-          "items": [
-            {
-              "code": "握手",
-              "url": "stickers/wechat/gesture/握手.png"
-            },
-            {
-              "code": "胜利",
-              "url": "stickers/wechat/gesture/胜利.png"
-            },
-            {
-              "code": "抱拳",
-              "url": "stickers/wechat/gesture/抱拳.png"
-            },
-            {
-              "code": "勾引",
-              "url": "stickers/wechat/gesture/勾引.png"
-            },
-            {
-              "code": "拳头",
-              "url": "stickers/wechat/gesture/拳头.png"
-            },
-            {
-              "code": "OK",
-              "url": "stickers/wechat/gesture/OK.png"
-            },
-            {
-              "code": "合十",
-              "url": "stickers/wechat/gesture/合十.png"
-            },
-            {
-              "code": "强",
-              "url": "stickers/wechat/gesture/强.png"
-            },
-            {
-              "code": "拥抱",
-              "url": "stickers/wechat/gesture/拥抱.png"
-            },
-            {
-              "code": "弱",
-              "url": "stickers/wechat/gesture/弱.png"
-            }
-          ]
-        },
-        {
-          "id": "animal",
-          "name": "动物",
-          "items": [
-            {
-              "code": "猪头",
-              "url": "stickers/wechat/animal/猪头.png"
-            },
-            {
-              "code": "跳跳",
-              "url": "stickers/wechat/animal/跳跳.png"
-            },
-            {
-              "code": "发抖",
-              "url": "stickers/wechat/animal/发抖.png"
-            },
-            {
-              "code": "转圈",
-              "url": "stickers/wechat/animal/转圈.png"
-            }
-          ]
-        },
-        {
-          "id": "blessing",
-          "name": "祝福",
-          "items": [
-            {
-              "code": "庆祝",
-              "url": "stickers/wechat/blessing/庆祝.png"
-            },
-            {
-              "code": "礼物",
-              "url": "stickers/wechat/blessing/礼物.png"
-            },
-            {
-              "code": "红包",
-              "url": "stickers/wechat/blessing/红包.png"
-            },
-            {
-              "code": "發",
-              "url": "stickers/wechat/blessing/發.png"
-            },
-            {
-              "code": "福",
-              "url": "stickers/wechat/blessing/福.png"
-            },
-            {
-              "code": "烟花",
-              "url": "stickers/wechat/blessing/烟花.png"
-            },
-            {
-              "code": "爆竹",
-              "url": "stickers/wechat/blessing/爆竹.png"
-            }
-          ]
-        },
-        {
-          "id": "other",
-          "name": "其他",
-          "items": [
-            {
-              "code": "嘴唇",
-              "url": "stickers/wechat/other/嘴唇.png"
-            },
-            {
-              "code": "爱心",
-              "url": "stickers/wechat/other/爱心.png"
-            },
-            {
-              "code": "心碎",
-              "url": "stickers/wechat/other/心碎.png"
-            },
-            {
-              "code": "啤酒",
-              "url": "stickers/wechat/other/啤酒.png"
-            },
-            {
-              "code": "咖啡",
-              "url": "stickers/wechat/other/咖啡.png"
-            },
-            {
-              "code": "蛋糕",
-              "url": "stickers/wechat/other/蛋糕.png"
-            },
-            {
-              "code": "凋谢",
-              "url": "stickers/wechat/other/凋谢.png"
-            },
-            {
-              "code": "菜刀",
-              "url": "stickers/wechat/other/菜刀.png"
-            },
-            {
-              "code": "炸弹",
-              "url": "stickers/wechat/other/炸弹.png"
-            },
-            {
-              "code": "便便",
-              "url": "stickers/wechat/other/便便.png"
-            },
-            {
-              "code": "太阳",
-              "url": "stickers/wechat/other/太阳.png"
-            },
-            {
-              "code": "月亮",
-              "url": "stickers/wechat/other/月亮.png"
-            },
-            {
-              "code": "玫瑰",
-              "url": "stickers/wechat/other/玫瑰.png"
-            }
-          ]
+            "id": "wechat",
+            "name": "经典表情",
+            "categories": [
+                {
+                    "id": "face",
+                    "name": "笑脸",
+                    "items": [
+                        {
+                            "code": "666",
+                            "url": "stickers/wechat/face/666.png"
+                        },
+                        {
+                            "code": "微笑",
+                            "url": "stickers/wechat/face/weixiao.png"
+                        },
+                        {
+                            "code": "撇嘴",
+                            "url": "stickers/wechat/face/piezui.png"
+                        },
+                        {
+                            "code": "色",
+                            "url": "stickers/wechat/face/se.png"
+                        },
+                        {
+                            "code": "发呆",
+                            "url": "stickers/wechat/face/fadai.png"
+                        },
+                        {
+                            "code": "得意",
+                            "url": "stickers/wechat/face/deyi.png"
+                        },
+                        {
+                            "code": "流泪",
+                            "url": "stickers/wechat/face/liulei.png"
+                        },
+                        {
+                            "code": "害羞",
+                            "url": "stickers/wechat/face/haixiu.png"
+                        },
+                        {
+                            "code": "闭嘴",
+                            "url": "stickers/wechat/face/bizui.png"
+                        },
+                        {
+                            "code": "睡",
+                            "url": "stickers/wechat/face/shui.png"
+                        },
+                        {
+                            "code": "大哭",
+                            "url": "stickers/wechat/face/daku.png"
+                        },
+                        {
+                            "code": "尴尬",
+                            "url": "stickers/wechat/face/ganga.png"
+                        },
+                        {
+                            "code": "发怒",
+                            "url": "stickers/wechat/face/fanu.png"
+                        },
+                        {
+                            "code": "调皮",
+                            "url": "stickers/wechat/face/tiaopi.png"
+                        },
+                        {
+                            "code": "呲牙",
+                            "url": "stickers/wechat/face/ciya.png"
+                        },
+                        {
+                            "code": "惊讶",
+                            "url": "stickers/wechat/face/jingya.png"
+                        },
+                        {
+                            "code": "难过",
+                            "url": "stickers/wechat/face/nanguo.png"
+                        },
+                        {
+                            "code": "囧",
+                            "url": "stickers/wechat/face/jiong.png"
+                        },
+                        {
+                            "code": "抓狂",
+                            "url": "stickers/wechat/face/zhuakuang.png"
+                        },
+                        {
+                            "code": "吐",
+                            "url": "stickers/wechat/face/tu.png"
+                        },
+                        {
+                            "code": "偷笑",
+                            "url": "stickers/wechat/face/touxiao.png"
+                        },
+                        {
+                            "code": "愉快",
+                            "url": "stickers/wechat/face/yukuai.png"
+                        },
+                        {
+                            "code": "白眼",
+                            "url": "stickers/wechat/face/baiyan.png"
+                        },
+                        {
+                            "code": "傲慢",
+                            "url": "stickers/wechat/face/aoman.png"
+                        },
+                        {
+                            "code": "困",
+                            "url": "stickers/wechat/face/kun.png"
+                        },
+                        {
+                            "code": "惊恐",
+                            "url": "stickers/wechat/face/jingkong.png"
+                        },
+                        {
+                            "code": "憨笑",
+                            "url": "stickers/wechat/face/hanxiao.png"
+                        },
+                        {
+                            "code": "悠闲",
+                            "url": "stickers/wechat/face/youxian.png"
+                        },
+                        {
+                            "code": "咒骂",
+                            "url": "stickers/wechat/face/zhouma.png"
+                        },
+                        {
+                            "code": "疑问",
+                            "url": "stickers/wechat/face/yiwen.png"
+                        },
+                        {
+                            "code": "嘘",
+                            "url": "stickers/wechat/face/xu.png"
+                        },
+                        {
+                            "code": "晕",
+                            "url": "stickers/wechat/face/yun.png"
+                        },
+                        {
+                            "code": "衰",
+                            "url": "stickers/wechat/face/shuai.png"
+                        },
+                        {
+                            "code": "骷髅",
+                            "url": "stickers/wechat/face/kulou.png"
+                        },
+                        {
+                            "code": "敲打",
+                            "url": "stickers/wechat/face/qiaoda.png"
+                        },
+                        {
+                            "code": "再见",
+                            "url": "stickers/wechat/face/zaijian.png"
+                        },
+                        {
+                            "code": "擦汗",
+                            "url": "stickers/wechat/face/cahan.png"
+                        },
+                        {
+                            "code": "抠鼻",
+                            "url": "stickers/wechat/face/koubi.png"
+                        },
+                        {
+                            "code": "鼓掌",
+                            "url": "stickers/wechat/face/guzhang.png"
+                        },
+                        {
+                            "code": "坏笑",
+                            "url": "stickers/wechat/face/huaixiao.png"
+                        },
+                        {
+                            "code": "右哼哼",
+                            "url": "stickers/wechat/face/youhengheng.png"
+                        },
+                        {
+                            "code": "鄙视",
+                            "url": "stickers/wechat/face/bishi.png"
+                        },
+                        {
+                            "code": "委屈",
+                            "url": "stickers/wechat/face/weiqu.png"
+                        },
+                        {
+                            "code": "快哭了",
+                            "url": "stickers/wechat/face/kuaikule.png"
+                        },
+                        {
+                            "code": "阴险",
+                            "url": "stickers/wechat/face/yinxian.png"
+                        },
+                        {
+                            "code": "亲亲",
+                            "url": "stickers/wechat/face/qinqin.png"
+                        },
+                        {
+                            "code": "可怜",
+                            "url": "stickers/wechat/face/kelian.png"
+                        },
+                        {
+                            "code": "笑脸",
+                            "url": "stickers/wechat/face/xiaolian.png"
+                        },
+                        {
+                            "code": "生病",
+                            "url": "stickers/wechat/face/shengbing.png"
+                        },
+                        {
+                            "code": "脸红",
+                            "url": "stickers/wechat/face/lianhong.png"
+                        },
+                        {
+                            "code": "破涕为笑",
+                            "url": "stickers/wechat/face/potiweixiao.png"
+                        },
+                        {
+                            "code": "恐惧",
+                            "url": "stickers/wechat/face/kongju.png"
+                        },
+                        {
+                            "code": "失望",
+                            "url": "stickers/wechat/face/shiwang.png"
+                        },
+                        {
+                            "code": "无语",
+                            "url": "stickers/wechat/face/wuyu.png"
+                        },
+                        {
+                            "code": "嘿哈",
+                            "url": "stickers/wechat/face/heiha.png"
+                        },
+                        {
+                            "code": "捂脸",
+                            "url": "stickers/wechat/face/wulian.png"
+                        },
+                        {
+                            "code": "机智",
+                            "url": "stickers/wechat/face/jizhi.png"
+                        },
+                        {
+                            "code": "皱眉",
+                            "url": "stickers/wechat/face/zhoumei.png"
+                        },
+                        {
+                            "code": "耶",
+                            "url": "stickers/wechat/face/ye.png"
+                        },
+                        {
+                            "code": "吃瓜",
+                            "url": "stickers/wechat/face/chigua.png"
+                        },
+                        {
+                            "code": "加油",
+                            "url": "stickers/wechat/face/jiayou.png"
+                        },
+                        {
+                            "code": "汗",
+                            "url": "stickers/wechat/face/han.png"
+                        },
+                        {
+                            "code": "天啊",
+                            "url": "stickers/wechat/face/tiana.png"
+                        },
+                        {
+                            "code": "Emm",
+                            "url": "stickers/wechat/face/Emm.png"
+                        },
+                        {
+                            "code": "社会社会",
+                            "url": "stickers/wechat/face/shehuishenhui.png"
+                        },
+                        {
+                            "code": "旺柴",
+                            "url": "stickers/wechat/face/wangchai.png"
+                        },
+                        {
+                            "code": "好的",
+                            "url": "stickers/wechat/face/haode.png"
+                        },
+                        {
+                            "code": "打脸",
+                            "url": "stickers/wechat/face/dalian.png"
+                        },
+                        {
+                            "code": "哇",
+                            "url": "stickers/wechat/face/wa.png"
+                        },
+                        {
+                            "code": "翻白眼",
+                            "url": "stickers/wechat/face/fanbaiyan.png"
+                        },
+                        {
+                            "code": "让我看看",
+                            "url": "stickers/wechat/face/rangwokanikan.png"
+                        },
+                        {
+                            "code": "叹气",
+                            "url": "stickers/wechat/face/tanqi.png"
+                        },
+                        {
+                            "code": "苦涩",
+                            "url": "stickers/wechat/face/kuse.png"
+                        },
+                        {
+                            "code": "裂开",
+                            "url": "stickers/wechat/face/liekai.png"
+                        },
+                        {
+                            "code": "奸笑",
+                            "url": "stickers/wechat/face/jianxiao.png"
+                        }
+                    ]
+                },
+                {
+                    "id": "gesture",
+                    "name": "手势",
+                    "items": [
+                        {
+                            "code": "握手",
+                            "url": "stickers/wechat/gesture/woshou.png"
+                        },
+                        {
+                            "code": "胜利",
+                            "url": "stickers/wechat/gesture/shengli.png"
+                        },
+                        {
+                            "code": "抱拳",
+                            "url": "stickers/wechat/gesture/baoquan.png"
+                        },
+                        {
+                            "code": "勾引",
+                            "url": "stickers/wechat/gesture/gouyin.png"
+                        },
+                        {
+                            "code": "拳头",
+                            "url": "stickers/wechat/gesture/quantou.png"
+                        },
+                        {
+                            "code": "OK",
+                            "url": "stickers/wechat/gesture/OK.png"
+                        },
+                        {
+                            "code": "合十",
+                            "url": "stickers/wechat/gesture/heshi.png"
+                        },
+                        {
+                            "code": "强",
+                            "url": "stickers/wechat/gesture/qiang.png"
+                        },
+                        {
+                            "code": "拥抱",
+                            "url": "stickers/wechat/gesture/yongbao.png"
+                        },
+                        {
+                            "code": "弱",
+                            "url": "stickers/wechat/gesture/ruo.png"
+                        }
+                    ]
+                },
+                {
+                    "id": "animal",
+                    "name": "动物",
+                    "items": [
+                        {
+                            "code": "猪头",
+                            "url": "stickers/wechat/animal/zhutou.png"
+                        },
+                        {
+                            "code": "跳跳",
+                            "url": "stickers/wechat/animal/tiaotiao.png"
+                        },
+                        {
+                            "code": "发抖",
+                            "url": "stickers/wechat/animal/fadou.png"
+                        },
+                        {
+                            "code": "转圈",
+                            "url": "stickers/wechat/animal/zhuanquan.png"
+                        }
+                    ]
+                },
+                {
+                    "id": "blessing",
+                    "name": "祝福",
+                    "items": [
+                        {
+                            "code": "庆祝",
+                            "url": "stickers/wechat/blessing/qingzhu.png"
+                        },
+                        {
+                            "code": "礼物",
+                            "url": "stickers/wechat/blessing/liwu.png"
+                        },
+                        {
+                            "code": "红包",
+                            "url": "stickers/wechat/blessing/hongbao.png"
+                        },
+                        {
+                            "code": "發",
+                            "url": "stickers/wechat/blessing/fa.png"
+                        },
+                        {
+                            "code": "福",
+                            "url": "stickers/wechat/blessing/fu.png"
+                        },
+                        {
+                            "code": "烟花",
+                            "url": "stickers/wechat/blessing/yanhua.png"
+                        },
+                        {
+                            "code": "爆竹",
+                            "url": "stickers/wechat/blessing/baozhu.png"
+                        }
+                    ]
+                },
+                {
+                    "id": "other",
+                    "name": "其他",
+                    "items": [
+                        {
+                            "code": "嘴唇",
+                            "url": "stickers/wechat/other/zuichun.png"
+                        },
+                        {
+                            "code": "爱心",
+                            "url": "stickers/wechat/other/aixin.png"
+                        },
+                        {
+                            "code": "心碎",
+                            "url": "stickers/wechat/other/xinsui.png"
+                        },
+                        {
+                            "code": "啤酒",
+                            "url": "stickers/wechat/other/pijiu.png"
+                        },
+                        {
+                            "code": "咖啡",
+                            "url": "stickers/wechat/other/kafei.png"
+                        },
+                        {
+                            "code": "蛋糕",
+                            "url": "stickers/wechat/other/dangao.png"
+                        },
+                        {
+                            "code": "凋谢",
+                            "url": "stickers/wechat/other/diaoxie.png"
+                        },
+                        {
+                            "code": "菜刀",
+                            "url": "stickers/wechat/other/caidao.png"
+                        },
+                        {
+                            "code": "炸弹",
+                            "url": "stickers/wechat/other/zhadan.png"
+                        },
+                        {
+                            "code": "便便",
+                            "url": "stickers/wechat/other/bianbian.png"
+                        },
+                        {
+                            "code": "太阳",
+                            "url": "stickers/wechat/other/taiyang.png"
+                        },
+                        {
+                            "code": "月亮",
+                            "url": "stickers/wechat/other/yueliang.png"
+                        },
+                        {
+                            "code": "玫瑰",
+                            "url": "stickers/wechat/other/meigui.png"
+                        }
+                    ]
+                }
+            ]
         }
-      ]
-    }
-  ]
+    ]
 }

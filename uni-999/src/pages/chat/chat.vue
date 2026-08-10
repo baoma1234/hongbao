@@ -777,6 +777,7 @@ import { COMMON_EMOJIS, loadEmojiTree } from '../../utils/emoji.js'
 import { setInboxMyId, noteConversationRead } from '../../utils/im-inbox.js'
 import { playOpenRedPacketSound } from '../../utils/notify-sound.js'
 import { loadWalletBootstrap, money } from '../../utils/wallet.js'
+import stickerAsciiAlias from '../../static/data/sticker-ascii-alias.json'
 import {
   bindForegroundResume,
   fetchGroupInfo,
@@ -1974,9 +1975,23 @@ function encodeUriPath(url) {
   }).join('/')
 }
 
+/** 历史消息里的中文贴纸文件名 → 拼音 ASCII，避免打包禁中文后旧消息空白 */
+function remapStickerAsciiPath(url) {
+  let s = String(url || '')
+  if (!s || !stickerAsciiAlias) return s
+  return s.replace(/([^/]+\.(?:png|jpg|jpeg|gif|webp))(?=$|[?#])/gi, (file) => {
+    let key = file
+    try {
+      key = decodeURIComponent(file)
+    } catch (e) {}
+    const hit = stickerAsciiAlias[key] || stickerAsciiAlias[file]
+    return hit || file
+  })
+}
+
 /** 展示用：统一到可访问的 /888/stickers 或 /999/static/stickers，并编码 */
 function normalizeStickerUrl(url) {
-  let s = String(url || '').trim()
+  let s = remapStickerAsciiPath(String(url || '').trim())
   if (!s) return ''
   if (/^https?:\/\//i.test(s)) {
     try {
@@ -2005,12 +2020,12 @@ function normalizeStickerUrl(url) {
   } else {
     s = assetBase() + 'static/' + s.replace(/^\/+/, '')
   }
-  return encodeUriPath(s)
+  return encodeUriPath(remapStickerAsciiPath(s))
 }
 
 /** 发给 IM 的 sticker url：必须命中服务端 allowlist（未编码的真实路径） */
 function stickerSendUrl(url) {
-  let s = String(url || '').trim()
+  let s = remapStickerAsciiPath(String(url || '').trim())
   if (!s) return ''
   if (/^https?:\/\//i.test(s)) {
     try {
@@ -2026,6 +2041,7 @@ function stickerSendUrl(url) {
   try {
     s = decodeURIComponent(s)
   } catch (e) {}
+  s = remapStickerAsciiPath(s)
   if (s.indexOf('/999/static/stickers/') === 0) {
     return '/888/stickers/' + s.slice('/999/static/stickers/'.length)
   }
@@ -2053,7 +2069,7 @@ function stickerUrl(m) {
   // 优先 canonical url（/888/stickers），避免 fullurl 指向 /999 导致空白
   const raw = (ex && (ex.url || ex.fullurl)) || ''
   if (raw) return normalizeStickerUrl(raw)
-  return encodeUriPath(assetBase() + 'static/stickers/wechat/face/微笑.png')
+  return encodeUriPath(assetBase() + 'static/stickers/wechat/face/weixiao.png')
 }
 function formatAmt(n) {
   const x = Number(n)
