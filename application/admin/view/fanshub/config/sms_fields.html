@@ -5,7 +5,7 @@
                 </div>
             </div>
             <div class="form-group">
-                <label class="control-label col-xs-12 col-sm-2">测试验证�?</label>
+                <label class="control-label col-xs-12 col-sm-2">测试验证码:</label>
                 <div class="col-xs-12 col-sm-8">
                     <input class="form-control" name="sms_mock_code" type="text" value="{$config.sms_mock_code|default='123456'}">
                 </div>
@@ -13,7 +13,7 @@
             <div class="form-group">
                 <label class="control-label col-xs-12 col-sm-2">短信滑块验证:</label>
                 <div class="col-xs-12 col-sm-8">
-                    <label><input type="checkbox" name="sms_slider_enabled" value="1" {if condition="!isset($config.sms_slider_enabled) || $config.sms_slider_enabled"}checked{/if}> 开启（获取验证码前需完成滑块�?/label>
+                    <label><input type="checkbox" name="sms_slider_enabled" value="1" {if condition="!isset($config.sms_slider_enabled) || $config.sms_slider_enabled"}checked{/if}> 开启（获取验证码前需完成滑块）</label>
                 </div>
             </div>
             <div class="form-group">
@@ -23,17 +23,17 @@
                         <div class="col-xs-4"><input class="form-control" name="sms_slider_pass_ratio" type="number" step="0.01" value="{$config.sms_slider_pass_ratio|default='0.85'}" placeholder="通过比例0.85"></div>
                         <div class="col-xs-4"><input class="form-control" name="sms_slider_min_duration_ms" type="number" value="{$config.sms_slider_min_duration_ms|default='300'}" placeholder="最短拖动ms"></div>
                     </div>
-                    <span class="help-block">拖到轨道右侧�?85% 即通过；最短拖动耗时用于防机器瞬间提交�?/span>
+                    <span class="help-block">拖到轨道右侧约 85% 即通过；最短拖动耗时用于防机器瞬间提交。</span>
                 </div>
             </div>
             <div class="form-group">
-                <label class="control-label col-xs-12 col-sm-2">短信发送间�?�?:</label>
+                <label class="control-label col-xs-12 col-sm-2">短信发送间隔(秒):</label>
                 <div class="col-xs-12 col-sm-8">
                     <input class="form-control" name="sms_send_interval" type="number" value="{$config.sms_send_interval|default='60'}" placeholder="同一手机号最短间隔，默认60">
                 </div>
             </div>
             <div class="form-group">
-                <label class="control-label col-xs-12 col-sm-2">单IP每小时上�?</label>
+                <label class="control-label col-xs-12 col-sm-2">单IP每小时上限:</label>
                 <div class="col-xs-12 col-sm-8">
                     <input class="form-control" name="sms_ip_hourly_max" type="number" value="{$config.sms_ip_hourly_max|default='10'}" placeholder="0=不限">
                 </div>
@@ -41,20 +41,20 @@
             <div class="form-group">
                 <label class="control-label col-xs-12 col-sm-2"></label>
                 <div class="col-xs-12 col-sm-8">
-                    <h4 style="margin:10px 0 0;border-bottom:1px solid #eee;padding-bottom:8px;">大狗短信（中�?+86 用户�?/h4>
-                    <p class="text-muted" style="font-size:12px;margin-top:6px;">对接大狗短信 V1.0.5。仅 <strong>+86 中国大陆</strong> 手机号走此通道；菲律宾/东南亚等走下�?Universe Action 国际短信�?/p>
+                    <h4 style="margin:10px 0 0;border-bottom:1px solid #eee;padding-bottom:8px;">大狗短信（中国 +86 用户）</h4>
+                    <p class="text-muted" style="font-size:12px;margin-top:6px;">对接大狗短信 V1.0.5。仅 <strong>+86 中国大陆</strong> 手机号走此通道；菲律宾/东南亚等走下方 Universe Action 国际短信。</p>
                 </div>
             </div>
             <div class="form-group">
-                <label class="control-label col-xs-12 col-sm-2">开启大狗短�?</label>
+                <label class="control-label col-xs-12 col-sm-2">开启大狗短信:</label>
                 <div class="col-xs-12 col-sm-8">
-                    <label><input type="checkbox" name="sms_dagou_enabled" value="1" {if condition="!empty($config.sms_dagou_enabled)"}checked{/if}> 开启（关闭测试短信后对中国用户生效�?/label>
+                    <label><input type="checkbox" name="sms_dagou_enabled" value="1" {if condition="!empty($config.sms_dagou_enabled)"}checked{/if}> 开启（关闭测试短信后对中国用户生效）</label>
                 </div>
             </div>
             <div class="form-group">
                 <label class="control-label col-xs-12 col-sm-2">网关地址:</label>
                 <div class="col-xs-12 col-sm-8">
-                    <input class="form-control" name="sms_dagou_gateway" type="text" value="{$config.sms_dagou_gateway|default=''|htmlentities}" placeholder="http://网关域名（不�?/api/sms�?>
+                    <input class="form-control" name="sms_dagou_gateway" type="text" value="{$config.sms_dagou_gateway|default=''|htmlentities}" placeholder="http://网关域名（不含/api/sms）">
                 </div>
             </div>
             <div class="form-group">
@@ -70,7 +70,7 @@
                 </div>
             </div>
             <div class="form-group">
-                <label class="control-label col-xs-12 col-sm-2">超时(�?:</label>
+                <label class="control-label col-xs-12 col-sm-2">超时(秒):</label>
                 <div class="col-xs-12 col-sm-8">
                     <input class="form-control" name="sms_dagou_timeout" type="number" value="{$config.sms_dagou_timeout|default='10'}">
                 </div>
@@ -83,18 +83,18 @@
                         <div class="col-xs-4"><button type="button" class="btn btn-info btn-block" id="btn-test-dagou-sms"><i class="fa fa-paper-plane"></i> 发送测试码</button></div>
                         <div class="col-xs-4"><button type="button" class="btn btn-default btn-block" id="btn-dagou-balance"><i class="fa fa-money"></i> 查询余额</button></div>
                     </div>
-                    <span class="help-block" id="dagou-balance-hint">签名规则：参�?ASCII 排序拼接后加 <code>&amp;key=密钥</code>，MD5 大写。可先填参数点测试，无需先保存�?/span>
+                    <span class="help-block" id="dagou-balance-hint">签名规则：参数 ASCII 排序拼接后加 <code>&amp;key=密钥</code>，MD5 大写。可先填参数点测试，无需先保存。</span>
                 </div>
             </div>
             <div class="form-group">
                 <label class="control-label col-xs-12 col-sm-2"></label>
                 <div class="col-xs-12 col-sm-8">
-                    <h4 style="margin:10px 0 0;border-bottom:1px solid #eee;padding-bottom:8px;">Universe Action 国际短信（非中国用户�?/h4>
-                    <p class="text-muted" style="font-size:12px;margin-top:6px;">对接 <a href="https://apidoc.universeaction.com/web/#/20/335" target="_blank" rel="noopener">UNAL/AboSEND 国际短信 API</a>。菲律宾、印尼、越南、马来西亚、柬埔寨�?+86 以外号码走此通道。凭据从企业后台 HTTP 对接获取�?code>orgCode</code>�?code>MD5Key</code>、网关域名�?/p>
+                    <h4 style="margin:10px 0 0;border-bottom:1px solid #eee;padding-bottom:8px;">Universe Action 国际短信（非中国用户）</h4>
+                    <p class="text-muted" style="font-size:12px;margin-top:6px;">对接 <a href="https://apidoc.universeaction.com/web/#/20/335" target="_blank" rel="noopener">UNAL/AboSEND 国际短信 API</a>。菲律宾、印尼、越南、马来西亚、柬埔寨等 +86 以外号码走此通道。凭据从企业后台 HTTP 对接获取 <code>orgCode</code>、<code>MD5Key</code>、网关域名。</p>
                 </div>
             </div>
             <div class="form-group">
-                <label class="control-label col-xs-12 col-sm-2">开启国际短�?</label>
+                <label class="control-label col-xs-12 col-sm-2">开启国际短信:</label>
                 <div class="col-xs-12 col-sm-8">
                     <label><input type="checkbox" name="sms_una_enabled" value="1" {if condition="!empty($config.sms_una_enabled)"}checked{/if}> 开启（关闭测试短信后对非中国用户生效）</label>
                 </div>
@@ -102,7 +102,7 @@
             <div class="form-group">
                 <label class="control-label col-xs-12 col-sm-2">API 网关:</label>
                 <div class="col-xs-12 col-sm-8">
-                    <input class="form-control" name="sms_una_gateway" type="text" value="{$config.sms_una_gateway|default=''|htmlentities}" placeholder="https://域名:端口（不�?/v2/api/sendSMS�?>
+                    <input class="form-control" name="sms_una_gateway" type="text" value="{$config.sms_una_gateway|default=''|htmlentities}" placeholder="https://域名:端口（不含/v2/api/sendSMS）">
                 </div>
             </div>
             <div class="form-group">
@@ -121,29 +121,29 @@
                 <label class="control-label col-xs-12 col-sm-2">短信内容模板:</label>
                 <div class="col-xs-12 col-sm-8">
                     <input class="form-control" name="sms_una_content_template" type="text" value="{$config.sms_una_content_template|htmlentities}" placeholder="Your verification code is &#123;code&#125;">
-                    <span class="help-block">占位�?<code>&#123;code&#125;</code> 为验证码。国际短信建议英文模板�?/span>
+                    <span class="help-block">占位符 <code>&#123;code&#125;</code> 为验证码。国际短信建议英文模板。</span>
                 </div>
             </div>
             <div class="form-group">
-                <label class="control-label col-xs-12 col-sm-2">Sender ID (可�?:</label>
+                <label class="control-label col-xs-12 col-sm-2">Sender ID (可选):</label>
                 <div class="col-xs-12 col-sm-8">
                     <input class="form-control" name="sms_una_oa_number" type="text" value="{$config.sms_una_oa_number|default=''|htmlentities}" placeholder="oaNumber，部分国家需报备">
                 </div>
             </div>
             <div class="form-group">
-                <label class="control-label col-xs-12 col-sm-2">回调地址 (可�?:</label>
+                <label class="control-label col-xs-12 col-sm-2">回调地址 (可选):</label>
                 <div class="col-xs-12 col-sm-8">
-                    <input class="form-control" name="sms_una_notify_url" type="text" value="{$config.sms_una_notify_url|default=''|htmlentities}" placeholder="notifyUrl，接收状态回�?>
+                    <input class="form-control" name="sms_una_notify_url" type="text" value="{$config.sms_una_notify_url|default=''|htmlentities}" placeholder="notifyUrl，接收状态回执">
                 </div>
             </div>
             <div class="form-group">
                 <label class="control-label col-xs-12 col-sm-2">使用 V2 接口:</label>
                 <div class="col-xs-12 col-sm-8">
-                    <label><input type="checkbox" name="sms_una_use_v2" value="1" {if condition="!isset($config.sms_una_use_v2) || !empty($config.sms_una_use_v2)"}checked{/if}> 推荐开启（POST JSON /v2/api/sendSMS�?/label>
+                    <label><input type="checkbox" name="sms_una_use_v2" value="1" {if condition="!isset($config.sms_una_use_v2) || !empty($config.sms_una_use_v2)"}checked{/if}> 推荐开启（POST JSON /v2/api/sendSMS）</label>
                 </div>
             </div>
             <div class="form-group">
-                <label class="control-label col-xs-12 col-sm-2">超时(�?:</label>
+                <label class="control-label col-xs-12 col-sm-2">超时(秒):</label>
                 <div class="col-xs-12 col-sm-8">
                     <input class="form-control" name="sms_una_timeout" type="number" value="{$config.sms_una_timeout|default='10'}">
                 </div>
@@ -152,24 +152,24 @@
                 <label class="control-label col-xs-12 col-sm-2">测试 / 余额:</label>
                 <div class="col-xs-12 col-sm-8">
                     <div class="row">
-                        <div class="col-xs-4"><input class="form-control" id="test-una-mobile" type="text" placeholder="E.164 �?+639123456789"></div>
+                        <div class="col-xs-4"><input class="form-control" id="test-una-mobile" type="text" placeholder="E.164 如 +639123456789"></div>
                         <div class="col-xs-4"><button type="button" class="btn btn-info btn-block" id="btn-test-una-sms"><i class="fa fa-paper-plane"></i> 发送测试码</button></div>
                         <div class="col-xs-4"><button type="button" class="btn btn-default btn-block" id="btn-una-balance"><i class="fa fa-money"></i> 查询余额</button></div>
                     </div>
-                    <span class="help-block" id="una-balance-hint">发送签名：MD5(orgCode+content+rand+md5Key) 大写；余额签名：MD5(orgCode+rand+md5Key) 大写。可先填参数点测试，无需先保存�?/span>
+                    <span class="help-block" id="una-balance-hint">发送签名：MD5(orgCode+content+rand+md5Key) 大写；余额签名：MD5(orgCode+rand+md5Key) 大写。可先填参数点测试，无需先保存。</span>
                 </div>
             </div>
             <div class="form-group">
                 <label class="control-label col-xs-12 col-sm-2"></label>
                 <div class="col-xs-12 col-sm-8">
                     <h5 style="margin:16px 0 0;color:#999;border-top:1px dashed #eee;padding-top:12px;">高级：通用 HTTP 网关（备用）</h5>
-                    <p class="text-muted" style="font-size:12px;margin-top:6px;">仅当未启�?Universe Action 时作为备用通道�?/p>
+                    <p class="text-muted" style="font-size:12px;margin-top:6px;">仅当未启用 Universe Action 时作为备用通道。</p>
                 </div>
             </div>
             <div class="form-group">
-                <label class="control-label col-xs-12 col-sm-2">开�?HTTP 网关:</label>
+                <label class="control-label col-xs-12 col-sm-2">开启 HTTP 网关:</label>
                 <div class="col-xs-12 col-sm-8">
-                    <label><input type="checkbox" name="sms_http_enabled" value="1" {if condition="!empty($config.sms_http_enabled)"}checked{/if}> 开启（备用�?/label>
+                    <label><input type="checkbox" name="sms_http_enabled" value="1" {if condition="!empty($config.sms_http_enabled)"}checked{/if}> 开启（备用）</label>
                 </div>
             </div>
             <div class="form-group">
@@ -190,17 +190,17 @@
             <div class="form-group">
                 <label class="control-label col-xs-12 col-sm-2">API 密钥:</label>
                 <div class="col-xs-12 col-sm-8">
-                    <input class="form-control" name="sms_http_api_key" type="text" value="{$config.sms_http_api_key|default=''|htmlentities}" placeholder="可�?>
+                    <input class="form-control" name="sms_http_api_key" type="text" value="{$config.sms_http_api_key|default=''|htmlentities}" placeholder="可选">
                 </div>
             </div>
             <div class="form-group">
-                <label class="control-label col-xs-12 col-sm-2">超时(�?:</label>
+                <label class="control-label col-xs-12 col-sm-2">超时(秒):</label>
                 <div class="col-xs-12 col-sm-8">
                     <input class="form-control" name="sms_http_timeout" type="number" value="{$config.sms_http_timeout|default='10'}">
                 </div>
             </div>
             <div class="form-group">
-                <label class="control-label col-xs-12 col-sm-2">请求体模�?</label>
+                <label class="control-label col-xs-12 col-sm-2">请求体模板:</label>
                 <div class="col-xs-12 col-sm-8">
                     <textarea class="form-control" name="sms_http_template" rows="3" placeholder='{"mobile":"&#123;mobile&#125;","code":"&#123;code&#125;","country":"&#123;country&#125;"}'>{$config.sms_http_template|htmlentities}</textarea>
                 </div>
