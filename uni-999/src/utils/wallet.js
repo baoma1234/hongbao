@@ -199,70 +199,196 @@ export async function ensurePayPassword(hasPayPassword) {
   })
 }
 
-/** H5 打开支付结果（跳转/表单）—— iOS Safari 禁 popup，同页跳转更稳 */
-export function openPayResult(payInfo) {
-  if (!payInfo) return
-  // #ifdef H5
-  if (typeof window !== 'undefined') {
-    if (payInfo.action === 'usdt' && payInfo.booking_address) {
-      const lines = [
-        payInfo.message || '请完成 USDT 转账',
-        '地址：' + payInfo.booking_address,
-        payInfo.pay_coin_amount
-          ? '数量：' + payInfo.pay_coin_amount + ' ' + (payInfo.coin_type || 'USDT')
-          : '',
-      ].filter(Boolean)
-      uni.showModal({ title: '充值信息', content: lines.join('\n'), showCancel: false })
-      return
-    }
-    const isiOS = /iPhone|iPad|iPod/i.test(navigator.userAgent || '')
-      || (navigator.platform === 'MacIntel' && (navigator.maxTouchPoints || 0) > 1)
+function escapeHtmlAttr(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
 
-    if (payInfo.action === 'form' && payInfo.url && payInfo.params) {
-      const form = document.createElement('form')
-      form.method = (payInfo.method || 'POST').toUpperCase()
-      form.action = payInfo.url
-      // iOS Safari 拦截 _blank；异步回调后同页提交才能跳转
-      form.target = isiOS ? '_self' : '_blank'
-      form.style.display = 'none'
-      Object.keys(payInfo.params).forEach((k) => {
-        const inp = document.createElement('input')
-        inp.type = 'hidden'
-        inp.name = k
-        inp.value = payInfo.params[k]
-        form.appendChild(inp)
+function isIosLikeUa() {
+  try {
+    if (typeof navigator === 'undefined') return false
+    const ua = navigator.userAgent || ''
+    if (/iPhone|iPad|iPod/i.test(ua)) return true
+    return navigator.platform === 'MacIntel' && (navigator.maxTouchPoints || 0) > 1
+  } catch (e) {
+    return false
+  }
+}
+
+/** App / H5 打开外部 http(s)：App 用系统浏览器；H5 iOS Safari 同页跳，桌面优先新窗口 */
+export function openExternalHttpUrl(url) {
+  const u = String(url || '').trim()
+  if (!u || !/^https?:\/\//i.test(u)) return false
+  // #ifdef APP-PLUS
+  try {
+    // eslint-disable-next-line no-undef
+    plus.runtime.openURL(u)
+    return true
+  } catch (e) {
+    try {
+      uni.navigateTo({
+        url:
+          '/pages/common/webview?url=' +
+          encodeURIComponent(u) +
+          '&title=' +
+          encodeURIComponent('支付'),
       })
-      document.body.appendChild(form)
-      form.submit()
-      if (!isiOS) {
-        setTimeout(() => {
-          try {
-            document.body.removeChild(form)
-          } catch (e) {}
-        }, 800)
-      }
-      return
-    }
-    if (payInfo.url) {
-      const url = String(payInfo.url)
-      if (isiOS) {
-        window.location.href = url
-        return
-      }
-      const w = window.open(url, '_blank')
-      if (!w || w.closed || typeof w.closed === 'undefined') {
-        window.location.href = url
-      }
-      return
+      return true
+    } catch (e2) {
+      uni.setClipboardData({ data: u })
+      uni.showToast({ title: '链接已复制，请在浏览器打开', icon: 'none' })
+      return false
     }
   }
   // #endif
-  if (payInfo.url) {
-    // #ifndef H5
-    uni.setClipboardData({ data: String(payInfo.url) })
-    uni.showToast({ title: '链接已复制，请在浏览器打开', icon: 'none' })
+  // #ifdef H5
+  try {
+    if (typeof window === 'undefined') return false
+    if (isIosLikeUa()) {
+      window.location.href = u
+      return true
+    }
+    const w = window.open(u, '_blank')
+    if (!w || w.closed || typeof w.closed === 'undefined') {
+      window.location.href = u
+    }
+    return true
+  } catch (e) {
+    try {
+      window.location.href = u
+      return true
+    } catch (e2) {
+      return false
+    }
+  }
+  // #endif
+  return false
+}
+
+function openPayFormH5(payInfo) {
+  if (typeof document === 'undefined' || typeof window === 'undefined') return false
+  const isiOS = isIosLikeUa()
+  const form = document.createElement('form')
+  form.method = (payInfo.method || 'POST').toUpperCase()
+  form.action = payInfo.url
+  // iOS Safari 拦截异步 popup；同页提交才能跳转
+  form.target = isiOS ? '_self' : '_blank'
+  form.style.display = 'none'
+  Object.keys(payInfo.params || {}).forEach((k) => {
+    const inp = document.createElement('input')
+    inp.type = 'hidden'
+    inp.name = k
+    inp.value = payInfo.params[k]
+    form.appendChild(inp)
+  })
+  document.body.appendChild(form)
+  form.submit()
+  if (!isiOS) {
+    setTimeout(() => {
+      try {
+        document.body.removeChild(form)
+      } catch (e) {}
+    }, 800)
+  }
+  return true
+}
+
+function openPayFormApp(payInfo) {
+  const method = String(payInfo.method || 'POST').toUpperCase()
+  const action = String(payInfo.url || '').trim()
+  const params = payInfo.params || {}
+  if (!action) return false
+  if (method === 'GET') {
+    const q = Object.keys(params)
+      .map((k) => encodeURIComponent(k) + '=' + encodeURIComponent(params[k]))
+      .join('&')
+    const full = action + (action.indexOf('?') >= 0 ? '&' : '?') + q
+    return openExternalHttpUrl(full)
+  }
+  // POST：系统浏览器无法带表单，用 App WebView 自动提交（iOS 用 WKWebview）
+  try {
+    // eslint-disable-next-line no-undef
+    if (typeof plus === 'undefined' || !plus.webview) throw new Error('no plus')
+    const inputs = Object.keys(params)
+      .map(
+        (k) =>
+          '<input type="hidden" name="' +
+          escapeHtmlAttr(k) +
+          '" value="' +
+          escapeHtmlAttr(params[k]) +
+          '" />'
+      )
+      .join('')
+    const html =
+      '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+      '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+      '</head><body>' +
+      '<form id="payForm" method="' +
+      escapeHtmlAttr(method) +
+      '" action="' +
+      escapeHtmlAttr(action) +
+      '">' +
+      inputs +
+      '</form>' +
+      '<script>document.getElementById("payForm").submit();</' +
+      'script></body></html>'
+    let w = plus.webview.getWebviewById('fanshub-pay-form')
+    if (w) {
+      try {
+        w.close()
+      } catch (e) {}
+    }
+    w = plus.webview.create('', 'fanshub-pay-form', {
+      titleNView: {
+        autoBackButton: true,
+        titleText: '支付',
+        backgroundColor: '#C61114',
+        titleColor: '#ffffff',
+      },
+      kernel: 'WKWebview',
+    })
+    w.loadData(html, 'text/html', 'utf-8', action)
+    w.show('slide-in-right', 220)
+    return true
+  } catch (e) {
+    return openExternalHttpUrl(action)
+  }
+}
+
+/** 打开支付结果（跳转/表单）—— App + H5(iOS Safari) 都能跳 */
+export function openPayResult(payInfo) {
+  if (!payInfo) return
+
+  if (payInfo.action === 'usdt' && payInfo.booking_address) {
+    const lines = [
+      payInfo.message || '请完成 USDT 转账',
+      '地址：' + payInfo.booking_address,
+      payInfo.pay_coin_amount
+        ? '数量：' + payInfo.pay_coin_amount + ' ' + (payInfo.coin_type || 'USDT')
+        : '',
+    ].filter(Boolean)
+    uni.showModal({ title: '充值信息', content: lines.join('\n'), showCancel: false })
+    return
+  }
+
+  if (payInfo.action === 'form' && payInfo.url && payInfo.params) {
+    // #ifdef H5
+    if (openPayFormH5(payInfo)) return
     // #endif
-  } else if (payInfo.message) {
+    // #ifdef APP-PLUS
+    if (openPayFormApp(payInfo)) return
+    // #endif
+  }
+
+  if (payInfo.url) {
+    if (openExternalHttpUrl(String(payInfo.url))) return
+  }
+
+  if (payInfo.message) {
     uni.showModal({ title: '提示', content: String(payInfo.message), showCancel: false })
   }
 }

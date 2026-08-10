@@ -1,12 +1,8 @@
 <template>
   <view class="fx-page">
-    <view class="nav-bar">
-      <text class="nav-icon nav-icon-spacer" />
-      <text class="nav-title">裂变红宝</text>
-      <text class="nav-icon nav-icon-spacer" />
-    </view>
-
+    <TopBar />
     <scroll-view scroll-y class="fx-scroll" :style="{ height: scrollH }">
+      <view class="fx-page-title">裂变红宝</view>
       <view v-if="loading" class="fx-loading">加载中…</view>
       <view v-else-if="!hasActivity" class="fx-empty">
         <text class="fx-empty-title">暂无裂变红宝活动</text>
@@ -103,9 +99,10 @@
 <script setup>
 import { computed, ref, onUnmounted } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
+import TopBar from '../../components/TopBar.vue'
 import BottomTabBar from '../../components/BottomTabBar.vue'
 import { apiRequest, getToken } from '../../utils/auth.js'
-import { applySafeAreaCssVars } from '../../utils/safe-area.js'
+import { applySafeAreaCssVars, getSafeAreaInsets } from '../../utils/safe-area.js'
 import { copyText } from '../../utils/master.js'
 
 const loading = ref(true)
@@ -158,10 +155,11 @@ function measureScroll() {
   try {
     applySafeAreaCssVars()
     const sys = uni.getSystemInfoSync()
-    const status = Number(sys.statusBarHeight || 20)
-    const hd = status + 52
-    const tab = 56 + Number((sys.safeAreaInsets && sys.safeAreaInsets.bottom) || 0)
-    const h = (sys.windowHeight || 667) - hd - tab
+    const inset = getSafeAreaInsets()
+    const status = Number(inset.top || sys.statusBarHeight || 20)
+    const topBar = 48
+    const tab = 56 + Number(inset.bottom || 0)
+    const h = (sys.windowHeight || 667) - status - topBar - tab
     scrollH.value = Math.max(280, h) + 'px'
   } catch (e) {
     scrollH.value = '70vh'
@@ -282,36 +280,13 @@ onUnmounted(() => stopTick())
   -webkit-tap-highlight-color: transparent;
 }
 
-.nav-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 15px 20px;
-  padding-top: calc(var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) + 15px);
-  font-size: 17px;
-  font-weight: 600;
-  color: #e2e4ed;
-  letter-spacing: 1px;
-  box-sizing: border-box;
-}
-.nav-icon {
-  font-size: 20px;
-  font-weight: bold;
-  width: 28px;
+.fx-page-title {
   text-align: center;
-  line-height: 1.2;
-  color: #e2e4ed;
-}
-.nav-icon-spacer {
-  visibility: hidden;
-}
-.nav-title {
-  flex: 1;
-  text-align: center;
-  font-size: 17px;
-  font-weight: 600;
-  color: #e2e4ed;
+  font-size: 16px;
+  font-weight: 800;
   letter-spacing: 1px;
+  color: #e2e4ed;
+  padding: 8px 12px 4px;
 }
 
 .fx-scroll {
