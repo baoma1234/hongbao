@@ -10,6 +10,11 @@
   background: #f3f4f6;
 }
 
+/* H5：TopBar 已有 spacer，勿再给 body 垫顶栏高度（否则网页顶上大块灰空白） */
+body.tab-messages {
+  padding-top: 0 !important;
+}
+
 .msg-tab-root.tab-page,
 #tabMessages.tab-page {
   display: flex;
