@@ -1,6 +1,6 @@
 ﻿<template>
   <view class="fv-page">
-    <TopBar :no-spacer="true" />
+    <TopBar />
     <view class="fv-hd profile-sub-hd">
       <text class="profile-back-btn" @click="goBack">‹</text>
       <text class="profile-sub-title">波场官方哈希验证</text>

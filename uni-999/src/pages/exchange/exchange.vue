@@ -43,22 +43,12 @@
 
           <view class="share-swap-divider">
             <button type="button" class="share-swap-arrow" @click="flip" :aria-label="tt('swap_aria_flip', '互换方向')">
-              <svg viewBox="0 0 24 24" width="20" height="20">
-                <path
-                  fill="currentColor"
-                  d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"
-                />
-              </svg>
+              <text class="share-swap-arrow-char">↕</text>
             </button>
           </view>
 
           <view class="share-swap-section-title">
-            <svg class="share-swap-icon-prefix" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-              <path
-                fill="currentColor"
-                d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12zm-8-3c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3z"
-              />
-            </svg>
+            <text class="share-swap-icon-prefix-char">◎</text>
             <text>{{ tt('swap_to_label', '兑换目标') }}</text>
           </view>
           <view class="share-swap-input-card share-swap-select-card">

@@ -352,6 +352,17 @@ body.tab-messages #tabMessages .chat-list-pane {
   overflow: hidden;
 }
 
+#tabMessages .chat-commission-nav-glyph,
+.chat-commission-nav-glyph {
+  display: block !important;
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  color: #ff6a2a !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
 #tabMessages .chat-home-search-input {
   width: 100%;
   height: 100%;

@@ -1,6 +1,6 @@
-<template>
+﻿<template>
   <view class="hb-page profile-sub-page">
-    <TopBar :no-spacer="true" />
+    <TopBar />
     <view class="profile-sub-hd">
       <text class="profile-back-btn" @click="goBack">‹</text>
       <text class="profile-sub-title">红包详情</text>

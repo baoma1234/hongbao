@@ -481,7 +481,7 @@
                   @click="goCommissionNav('promo')"
                 >
                   <view class="chat-commission-nav-ico">
-                    <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11zm-3.5-5.5l-1.4 1.4L11 13.8l-2.1 2.1-1.4-1.4L9.6 12.4 7.5 10.3l1.4-1.4L11 11l2.1-2.1 1.4 1.4-2.1 2.1 2.1 2.1z"/></svg>
+                    <text class="chat-commission-nav-glyph">☰</text>
                   </view>
                   <text class="chat-commission-nav-label">推广结算 ›</text>
                 </view>
@@ -491,7 +491,7 @@
                   @click="goCommissionNav('rebate')"
                 >
                   <view class="chat-commission-nav-ico">
-                    <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm1 15H9v-2h6v2zm0-4H9v-2h6v2zm-3-5V3.5L18.5 9H12z"/></svg>
+                    <text class="chat-commission-nav-glyph">🧧</text>
                   </view>
                   <text class="chat-commission-nav-label">红宝返佣 ›</text>
                 </view>
@@ -501,7 +501,7 @@
                   @click="goCommissionNav('ledger')"
                 >
                   <view class="chat-commission-nav-ico">
-                    <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14h-2v-2h2v2zm0-4h-2V7h2v5z"/></svg>
+                    <text class="chat-commission-nav-glyph">◎</text>
                   </view>
                   <text class="chat-commission-nav-label">收益明细 ›</text>
                 </view>
@@ -511,7 +511,7 @@
                   @click="goCommissionNav('withdraw_list')"
                 >
                   <view class="chat-commission-nav-ico">
-                    <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5 1.41-1.41L11 13.17V7h2v6.17l2.59-2.58L17 12l-5 5z"/></svg>
+                    <text class="chat-commission-nav-glyph">⬇</text>
                   </view>
                   <text class="chat-commission-nav-label">提现记录 ›</text>
                 </view>
@@ -527,7 +527,7 @@
                     :key="row.id || idx"
                   >
                     <view class="chat-commission-row-ico" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                      <text class="chat-commission-nav-glyph">✓</text>
                     </view>
                     <view class="chat-commission-row-main">
                       <view class="chat-commission-row-title">{{ commissionRowTitle(row) }}</view>
@@ -553,9 +553,7 @@
     >
       <view class="chat-cg-header">
         <view class="chat-cg-back" @click="closeCreateGroupPane">
-          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
-            <path fill="currentColor" d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z" />
-          </svg>
+          <text class="chat-hero-back-char">‹</text>
         </view>
         <view class="chat-cg-title">创建新群聊</view>
         <view

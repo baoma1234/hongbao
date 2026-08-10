@@ -196,6 +196,23 @@
     fill: var(--ss-primary);
 }
 
+.share-swap-arrow-char {
+    display: block;
+    font-size: 16px;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--ss-primary, #52a55e);
+}
+
+.share-swap-icon-prefix-char {
+    display: inline-block;
+    margin-right: 4px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ss-primary, #52a55e);
+    vertical-align: middle;
+}
+
 .share-swap-summary {
     background: var(--ss-card);
     border-radius: 16px;

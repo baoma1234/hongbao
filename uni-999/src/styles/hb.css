@@ -1056,9 +1056,8 @@ uni-input.hb-input {
 /* ---------- 我的 · 二级页（对齐 888 profile-sub） ---------- */
 .profile-sub-page {
   padding: 0 0 28px;
-  padding-top: calc(
-    var(--top-bar-height, 48px) + var(--safe-area-inset-top, env(safe-area-inset-top, 0px))
-  );
+  /* TopBar spacer 已占位；勿再用 CSS var（App 常偏小）导致顶栏挡住 profile-sub-hd */
+  padding-top: 0;
   box-sizing: border-box;
   min-height: 100vh;
   min-height: 100dvh;
