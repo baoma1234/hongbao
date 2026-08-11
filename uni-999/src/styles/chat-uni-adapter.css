@@ -605,6 +605,21 @@ body.tab-messages #tabMessages .chat-list-pane {
   position: relative !important;
 }
 
+#tabMessages .chat-community-pane.chat-community-pane--official,
+#tabMessages .chat-community-pane.active.chat-community-pane--official {
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+#tabMessages .chat-community-pane--official .chat-official-rules {
+  flex: 0 0 auto !important;
+  position: relative !important;
+  z-index: 8 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
 #tabMessages .chat-community-glass .chat-community-seg {
   flex: 0 0 auto !important;
 }

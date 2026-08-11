@@ -160,8 +160,13 @@
                 <view class="chat-community-seg-btn" :class="{ active: communitySub === 'friends' }" @click="setCommunitySub('friends')">好友列表</view>
               </view>
 
-              <view v-if="communitySub === 'official'" class="chat-community-pane active">
-                <scroll-view scroll-y class="chat-community-body-scroll" :style="panelScrollStyle" :show-scrollbar="false">
+              <view v-if="communitySub === 'official'" class="chat-community-pane active chat-community-pane--official">
+                <scroll-view
+                  scroll-y
+                  class="chat-community-body-scroll"
+                  :style="officialScrollStyle"
+                  :show-scrollbar="false"
+                >
                   <view class="chat-official-list">
                     <view
                       v-for="(g, idx) in communityRecs"
@@ -183,16 +188,17 @@
                     </view>
                     <view v-if="!communityRecs.length" class="chat-empty chat-empty-glass">暂无推荐社群</view>
                     <view v-if="communityRecs.length" class="chat-official-end">————— 已经滑到底部啦 —————</view>
-                    <view class="chat-official-rules" @click="openGameRulesFromCommunity">
-                      <view class="chat-official-rules-ico">📜</view>
-                      <view class="chat-official-rules-text">
-                        <text class="chat-official-rules-title">🧧 红宝官方游戏规则</text>
-                        <text class="chat-official-rules-desc">新手通关玩法与佣金保障说明</text>
-                      </view>
-                      <text class="chat-official-rules-link">点开查看规则图 ›</text>
-                    </view>
                   </view>
                 </scroll-view>
+                <!-- 钉在官方社群面板底：勿放进 scroll，避免被底栏/列表裁切盖住 -->
+                <view class="chat-official-rules" @click="openGameRulesFromCommunity">
+                  <view class="chat-official-rules-ico">📜</view>
+                  <view class="chat-official-rules-text">
+                    <text class="chat-official-rules-title">🧧 红宝官方游戏规则</text>
+                    <text class="chat-official-rules-desc">新手通关玩法与佣金保障说明</text>
+                  </view>
+                  <text class="chat-official-rules-link">点开查看规则图 ›</text>
+                </view>
               </view>
 
               <view v-else-if="communitySub === 'mine'" class="chat-community-pane active">
@@ -781,6 +787,12 @@ const panelScrollStyle = computed(() => {
   if (homeTab.value === 'community' || homeTab.value === 'notice') {
     h = Math.max(180, h - 52)
   }
+  return { height: h + 'px', minHeight: h + 'px' }
+})
+/** 官方社群：再扣底部规则卡片高度，避免规则被底栏盖住 */
+const officialScrollStyle = computed(() => {
+  let h = Number(panelScrollPx.value) || 420
+  h = Math.max(140, h - 52 - 78)
   return { height: h + 'px', minHeight: h + 'px' }
 })
 
@@ -2444,19 +2456,34 @@ onHide(() => {
   text-align: center;
   color: rgba(255, 230, 210, 0.85);
   font-size: 12px;
-  padding: 10px 0 4px;
+  padding: 10px 0 8px;
   letter-spacing: 0.5px;
+}
+.chat-community-pane--official {
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+.chat-community-pane--official .chat-community-body-scroll {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
 }
 .chat-official-rules {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 4px;
-  padding: 14px 12px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 6;
+  margin: 6px 10px 8px;
+  padding: 12px 12px;
   border-radius: 14px;
   background: linear-gradient(180deg, #fff8ee 0%, #fff1df 100%);
-  border: 1px solid rgba(230, 180, 100, 0.35);
-  box-shadow: 0 2px 8px rgba(120, 60, 20, 0.06);
+  border: 1px solid rgba(230, 180, 100, 0.45);
+  box-shadow: 0 2px 10px rgba(120, 60, 20, 0.1);
+  box-sizing: border-box;
 }
 .chat-official-rules-ico {
   width: 42px;
