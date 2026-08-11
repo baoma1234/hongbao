@@ -148,6 +148,13 @@
       }
     },
     {
+      "path": "pages/wallet/nn-detail",
+      "style": {
+        "navigationBarTitleText": "牛牛明细",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/wallet/payee",
       "style": {
         "navigationBarTitleText": "收款地址",

@@ -1096,9 +1096,13 @@
     if (!box) return;
     if (!ledgerState.list.length) {
       var emptyTips = {
-        rebate: '暂无红包返佣流水',
+        rebate: '暂无红宝返佣流水',
         hongbao_in: '暂无红宝入账流水',
-        refund: '暂无红宝退回流水'
+        hongbao_niuniu: '暂无红宝牛牛流水',
+        refund: '暂无红宝退回流水',
+        freeze: '暂无冻结记录',
+        recharge: '暂无充值流水',
+        withdraw: '暂无提现流水'
       };
       var emptyTip = emptyTips[ledgerState.category] || wt('wallet_ledger_empty', '暂无资金流水');
       box.innerHTML = '<div class="wallet-ledger-empty">' + escapeHtml(emptyTip) + '</div>';

@@ -25,7 +25,7 @@
         v-for="item in list"
         :key="rowKey(item)"
         class="wallet-ledger-item"
-        :class="{ 'is-rp': canOpenRp(item) }"
+        :class="{ 'is-rp': canOpenRp(item) || canOpenNn(item) }"
         @click="onItemClick(item)"
       >
         <view class="wallet-ledger-main">
@@ -45,8 +45,13 @@
           <view
             v-if="canOpenRp(item)"
             class="wallet-ledger-rp-link"
-            @click.stop="onItemClick(item)"
+            @click.stop="openRp(item)"
           >查看红宝记录</view>
+          <view
+            v-else-if="canOpenNn(item)"
+            class="wallet-ledger-rp-link"
+            @click.stop="openNn(item)"
+          >查看牛牛明细</view>
         </view>
       </view>
     </view>
@@ -105,6 +110,7 @@ const filterTabs = [
   { key: 'recharge', label: '充值', ico: '↓', tone: 'in' },
   { key: 'withdraw', label: '提现', ico: '↑', tone: 'out' },
   { key: 'hongbao_in', label: '红宝入账', ico: '🧧', tone: 'hb' },
+  { key: 'hongbao_niuniu', label: '红宝牛牛', ico: '🐂', tone: 'nn' },
   { key: 'refund', label: '红宝退回', ico: '↩', tone: 'back' },
   { key: 'rebate', label: '红宝返佣', ico: '%', tone: 'rebate' },
   { key: 'freeze', label: '冻结记录', ico: '❄', tone: 'freeze' },
@@ -112,6 +118,7 @@ const filterTabs = [
 const emptyText = computed(() => {
   if (category.value === 'rebate') return '暂无红宝返佣流水'
   if (category.value === 'hongbao_in') return '暂无红宝入账流水'
+  if (category.value === 'hongbao_niuniu') return '暂无红宝牛牛流水'
   if (category.value === 'refund') return '暂无红宝退回流水'
   if (category.value === 'freeze') return '暂无冻结记录'
   if (category.value === 'recharge') return '暂无充值流水'
@@ -184,14 +191,39 @@ function canOpenRp(item) {
   return false
 }
 
-function onItemClick(item) {
-  if (!canOpenRp(item)) return
+function canOpenNn(item) {
+  if (!item) return false
+  if (item.can_open_niuniu && Number(item.round_id) > 0) return true
+  const typ = String(item.type || '')
+  if (typ.indexOf('niuniu_') === 0) {
+    return Number(item.round_id || 0) > 0
+  }
+  return false
+}
+
+function openRp(item) {
   const pid = Number(item.packet_id || item.ref_id || 0) || 0
   const pno = String(item.packet_no || item.biz_no || '').trim()
   let url = '/pages/wallet/rp-detail?'
   if (pid > 0) url += 'packet_id=' + pid
   if (pno) url += (pid > 0 ? '&' : '') + 'packet_no=' + encodeURIComponent(pno)
   uni.navigateTo({ url })
+}
+
+function openNn(item) {
+  const rid = Number(item.round_id || 0) || 0
+  if (rid <= 0) return
+  uni.navigateTo({ url: '/pages/wallet/nn-detail?round_id=' + rid })
+}
+
+function onItemClick(item) {
+  if (canOpenRp(item)) {
+    openRp(item)
+    return
+  }
+  if (canOpenNn(item)) {
+    openNn(item)
+  }
 }
 
 async function load(p, append) {
@@ -236,32 +268,31 @@ onShow(() => {
 
 <style scoped>
 .wallet-ledger-filters {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 8px;
-  margin: 0 -4px 14px;
-  padding: 4px 4px 8px;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-}
-.wallet-ledger-filters::-webkit-scrollbar {
-  display: none;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0 0 14px;
+  padding: 0;
+  overflow: visible;
+  -webkit-overflow-scrolling: auto;
 }
 .wallet-ledger-filter {
-  flex: 0 0 auto;
-  display: inline-flex;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 5px;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
   border: 1px solid #e8ecf1;
   background: #fff;
   color: #5a6573;
-  border-radius: 12px;
-  padding: 8px 12px;
-  font-size: 12px;
+  border-radius: 10px;
+  padding: 8px 2px;
+  font-size: 11px;
   font-weight: 700;
   box-shadow: 0 2px 8px rgba(26, 33, 45, 0.04);
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .wallet-ledger-filter-ico {
   font-size: 12px;
@@ -270,6 +301,11 @@ onShow(() => {
 }
 .wallet-ledger-filter-lab {
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  font-size: 11px;
+  line-height: 1.2;
 }
 .wallet-ledger-filter.tone-in.is-on {
   background: linear-gradient(135deg, #1b8f4a, #147a3d);
@@ -284,7 +320,8 @@ onShow(() => {
   box-shadow: 0 6px 14px rgba(198, 40, 40, 0.28);
 }
 .wallet-ledger-filter.tone-hb.is-on,
-.wallet-ledger-filter.tone-rebate.is-on {
+.wallet-ledger-filter.tone-rebate.is-on,
+.wallet-ledger-filter.tone-nn.is-on {
   background: linear-gradient(135deg, #ff7043, #e53935);
   border-color: transparent;
   color: #fff;

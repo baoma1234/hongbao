@@ -402,12 +402,23 @@ function openPayFormApp(payInfo) {
 }
 
 /** 打开支付结果（跳转/表单）—— App + H5(iOS Safari) 都能跳 */
+export function sanitizePayMessage(msg, fallback) {
+  const raw = String(msg == null ? '' : msg).trim()
+  const fb = fallback || '提交成功'
+  if (!raw) return fb
+  const low = raw.toLowerCase()
+  if (low === 'success' || low === 'ok' || low === 'true' || low === '1') {
+    return fb
+  }
+  return raw
+}
+
 export function openPayResult(payInfo) {
   if (!payInfo) return
 
   if (payInfo.action === 'usdt' && payInfo.booking_address) {
     const lines = [
-      payInfo.message || '请完成 USDT 转账',
+      sanitizePayMessage(payInfo.message, '请完成 USDT 转账'),
       '地址：' + payInfo.booking_address,
       payInfo.pay_coin_amount
         ? '数量：' + payInfo.pay_coin_amount + ' ' + (payInfo.coin_type || 'USDT')
@@ -431,7 +442,11 @@ export function openPayResult(payInfo) {
   }
 
   if (payInfo.message) {
-    uni.showModal({ title: '提示', content: String(payInfo.message), showCancel: false })
+    uni.showModal({
+      title: '提示',
+      content: sanitizePayMessage(payInfo.message, '提交成功'),
+      showCancel: false,
+    })
   }
 }
 

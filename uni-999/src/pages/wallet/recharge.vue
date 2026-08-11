@@ -106,6 +106,7 @@ import {
   openPayResult,
   organizeWalletChannels,
   rechargeQuickAmounts,
+  sanitizePayMessage,
   shortChannelName,
   submitRecharge,
   validateChannelAmount,
@@ -206,7 +207,7 @@ async function onSubmit() {
   try {
     const data = await submitRecharge(selectedId.value, submitAmount)
     const info = (data && data.pay_info) || {}
-    uni.showToast({ title: info.message || '充值申请已提交', icon: 'none' })
+    uni.showToast({ title: sanitizePayMessage(info.message, '提交成功'), icon: 'none' })
     openPayResult(info)
     clearWalletCache()
   } catch (e) {

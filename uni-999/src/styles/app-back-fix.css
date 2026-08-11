@@ -52,3 +52,22 @@
   font-size: 26px !important;
   color: #fff !important;
 }
+
+/* 聊天输入栏：App 不渲染 SVG，用文字 glyph */
+#chatEmojiBtn .chat-tool-glyph,
+#chatAttachBtn .chat-tool-glyph,
+.chat-tool-icon .chat-tool-glyph,
+.btn-plus .chat-tool-glyph {
+  display: block !important;
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  color: inherit !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+#chatAttachBtn .chat-tool-glyph--plus,
+.btn-plus .chat-tool-glyph--plus {
+  font-size: 26px !important;
+  transform: translateY(-1px);
+}

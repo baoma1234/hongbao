@@ -275,20 +275,6 @@
                 </scroll-view>
               </view>
             </view>
-            <!-- 钉在社群面板外、底栏上方：避免被面板 overflow:hidden 裁切 -->
-            <view
-              v-if="homeTab === 'community' && communitySub === 'official'"
-              class="chat-official-rules chat-official-rules--dock"
-              @click="openGameRulesFromCommunity"
-            >
-              <view class="chat-official-rules-ico">📜</view>
-              <view class="chat-official-rules-text">
-                <text class="chat-official-rules-title">🧧 红宝官方游戏规则</text>
-                <text class="chat-official-rules-desc">新手通关玩法与佣金保障说明</text>
-              </view>
-              <text class="chat-official-rules-link">点开查看规则图 ›</text>
-            </view>
-
             <!-- 公告（对齐 888：四分类 + 推广收益表 + 动态卡片） -->
             <view
               id="chatHomePanelNotice"
@@ -704,6 +690,19 @@
     </view>
 
     <FriendScanSheet />
+    <!-- 官方规则：fixed 钉在底栏上方，避免被 TabBar(z=9000) / overflow 裁切 -->
+    <view
+      v-if="homeTab === 'community' && communitySub === 'official'"
+      class="chat-official-rules chat-official-rules--dock"
+      @click="openGameRulesFromCommunity"
+    >
+      <view class="chat-official-rules-ico">📜</view>
+      <view class="chat-official-rules-text">
+        <text class="chat-official-rules-title">🧧 红宝官方游戏规则</text>
+        <text class="chat-official-rules-desc">新手通关玩法与佣金保障说明</text>
+      </view>
+      <text class="chat-official-rules-link">点开查看规则图 ›</text>
+    </view>
     <BottomTabBar active="messages" />
   </view>
 </template>
@@ -2520,9 +2519,19 @@ onHide(() => {
   box-sizing: border-box;
 }
 .chat-official-rules--dock {
-  /* 面板外钉住：不被 overflow:hidden 裁切，且压在底栏之上 */
+  /* fixed 压在底栏之上（BottomTabBar z-index:9000） */
+  position: fixed !important;
+  left: 0;
+  right: 0;
+  bottom: calc(56px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  z-index: 9100 !important;
   margin: 0 10px 8px;
   flex: none;
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
+  width: calc(100% - 20px);
+  box-sizing: border-box;
 }
 .chat-official-rules-ico {
   width: 42px;

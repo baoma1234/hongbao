@@ -294,6 +294,105 @@ class Fanshub extends Api
     }
 
     /**
+     * GET /api/fanshub/nndetail?round_id=
+     * 尾数牛牛明细（流水页「查看牛牛明细」）
+     */
+    public function nndetail()
+    {
+        $roundId = (int)$this->request->param('round_id', 0);
+        if ($roundId <= 0) {
+            $this->error('请提供牛牛局号');
+        }
+        $userId = (int)($this->auth->id ?? 0);
+        if ($userId <= 0) {
+            $this->error('请先登录', null, 401);
+        }
+        $round = \think\Db::name('chat_niuniu_rounds')->where('id', $roundId)->find();
+        if (!$round) {
+            $this->error('对局不存在');
+        }
+        $groupId = (int)($round['group_id'] ?? 0);
+        if ($groupId > 0) {
+            $mem = \think\Db::name('chat_group_members')
+                ->where(['group_id' => $groupId, 'user_id' => $userId, 'status' => 1])
+                ->find();
+            // 非群成员仍可看自己参与过的局（流水入口）
+            if (!$mem) {
+                $myShare = \think\Db::name('chat_niuniu_shares')
+                    ->where(['round_id' => $roundId, 'user_id' => $userId])
+                    ->find();
+                if (!$myShare) {
+                    $this->error('无权查看该对局');
+                }
+            }
+        }
+        $shares = \think\Db::name('chat_niuniu_shares')
+            ->where('round_id', $roundId)
+            ->order('claimed_at asc, claim_seq asc, id asc')
+            ->select();
+        if (is_object($shares) && method_exists($shares, 'toArray')) {
+            $shares = $shares->toArray();
+        }
+        $shares = is_array($shares) ? $shares : [];
+        $uids = [];
+        foreach ($shares as $s) {
+            $uid = (int)($s['user_id'] ?? 0);
+            if ($uid > 0) {
+                $uids[$uid] = true;
+            }
+        }
+        $users = [];
+        if ($uids) {
+            $rows = \think\Db::name('user')
+                ->where('id', 'in', array_keys($uids))
+                ->field('id,nickname,avatar')
+                ->select();
+            if (is_object($rows) && method_exists($rows, 'toArray')) {
+                $rows = $rows->toArray();
+            }
+            foreach (($rows ?: []) as $u) {
+                $users[(int)$u['id']] = $u;
+            }
+        }
+        $list = [];
+        foreach ($shares as $s) {
+            $uid = (int)($s['user_id'] ?? 0);
+            $u = $users[$uid] ?? [];
+            $claimed = (int)($s['claimed'] ?? 0) === 1;
+            $list[] = [
+                'id'          => (int)($s['id'] ?? 0),
+                'user_id'     => $uid,
+                'nickname'    => (string)($u['nickname'] ?? ('用户' . $uid)),
+                'avatar'      => (string)($u['avatar'] ?? ''),
+                'claimed'     => $claimed,
+                'claim_seq'   => (int)($s['claim_seq'] ?? 0),
+                'claimed_at'  => (int)($s['claimed_at'] ?? 0),
+                'tail_digits' => $claimed ? (string)($s['tail_digits'] ?? '') : '',
+                'niu_type'    => $claimed ? (string)($s['niu_type'] ?? '') : '',
+                'amount'      => round((float)($s['amount'] ?? 0), 2),
+                'win_amount'  => round((float)($s['win_amount'] ?? 0), 4),
+                'is_mine'     => $uid === $userId,
+            ];
+        }
+        $status = (int)($round['status'] ?? 0);
+        $statusMap = [1 => '购入中', 2 => '领取中', 3 => '已结算', 4 => '作废', 5 => '流局'];
+        $this->success('ok', [
+            'round' => [
+                'id'            => $roundId,
+                'group_id'      => $groupId,
+                'status'        => $status,
+                'status_label'  => $statusMap[$status] ?? (string)$status,
+                'share_count'   => (int)($round['share_count'] ?? 0),
+                'pool_amount'   => round((float)($round['pool_amount'] ?? 0), 2),
+                'share_price'   => round((float)($round['share_price'] ?? 0), 2),
+                'game_mode'     => (int)($round['game_mode'] ?? 1),
+                'createtime'    => (int)($round['createtime'] ?? 0),
+            ],
+            'shares' => $list,
+        ]);
+    }
+
+    /**
      * 邀请排行榜
      */
     public function inviteleaderboard()

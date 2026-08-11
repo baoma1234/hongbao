@@ -403,6 +403,27 @@
   color: #fff !important;
 }
 
+.chat-room-page .chat-tool-icon .chat-tool-glyph,
+.chat-room-page #chatEmojiBtn .chat-tool-glyph {
+  display: block !important;
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  color: #333 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+.chat-room-page .btn-plus .chat-tool-glyph,
+.chat-room-page #chatAttachBtn .chat-tool-glyph {
+  display: block !important;
+  font-size: 26px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  color: #fff !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
 .chat-room-page .chat-send-btn {
   min-width: auto !important;
   height: auto !important;

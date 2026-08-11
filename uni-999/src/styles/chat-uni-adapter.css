@@ -630,18 +630,28 @@ body.tab-messages #tabMessages .chat-list-pane {
   flex-direction: column !important;
 }
 
-/* 规则卡片钉在社群面板外（.chat-official-rules--dock），保证不被面板 overflow 裁切 */
+/* 规则卡片：fixed 钉在底栏上方（z > TabBar 9000） */
 #tabMessages .chat-official-rules,
 #tabMessages .chat-official-rules--dock,
 .msg-tab-root .chat-official-rules,
-.msg-tab-root .chat-official-rules--dock {
+.msg-tab-root .chat-official-rules--dock,
+.messages-page .chat-official-rules--dock {
   flex: 0 0 auto !important;
-  position: relative !important;
-  z-index: 20 !important;
   visibility: visible !important;
   opacity: 1 !important;
   pointer-events: auto !important;
   display: flex !important;
+}
+.messages-page .chat-official-rules--dock {
+  position: fixed !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: calc(56px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))) !important;
+  z-index: 9100 !important;
+  margin: 0 auto 8px !important;
+  width: calc(100% - 20px) !important;
+  max-width: 720px !important;
+  box-sizing: border-box !important;
 }
 
 #tabMessages .chat-community-glass .chat-community-seg {

@@ -281,12 +281,7 @@
 
           <view class="chat-composer chat-footer">
             <view v-if="canCap('emoji')" id="chatEmojiBtn" class="chat-tool-icon" @click="toggleEmoji">
-              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M8 14s1.5 2 4 2 4-2 4-2" />
-                <line x1="9" y1="9" x2="9.01" y2="9" />
-                <line x1="15" y1="9" x2="15.01" y2="9" />
-              </svg>
+              <text class="chat-tool-glyph" aria-hidden="true">☺</text>
             </view>
             <input
               id="chatInput"
@@ -306,9 +301,7 @@
               :class="{ active: showAttach }"
               @click="toggleAttach"
             >
-              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-                <path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
-              </svg>
+              <text class="chat-tool-glyph chat-tool-glyph--plus" aria-hidden="true">＋</text>
             </view>
             <view
               id="chatSendBtn"

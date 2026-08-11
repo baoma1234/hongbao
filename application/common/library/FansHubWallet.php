@@ -107,12 +107,17 @@ class FansHubWallet
                 'red_packet_dual_rebate_in',
                 'red_packet_agent_rebate',
             ],
-            // 抢包入账 + 赔付入账
+            // 抢包入账 + 赔付入账（不含牛牛）
             'hongbao_in' => [
                 'red_packet_grab',
                 'red_packet_compensate_in',
+            ],
+            // 尾数牛牛相关入账/变动
+            'hongbao_niuniu' => [
+                'niuniu_buy',
                 'niuniu_packet',
                 'niuniu_win',
+                'niuniu_fee_in',
                 'niuniu_refund',
             ],
             'refund' => [
@@ -203,6 +208,7 @@ class FansHubWallet
         $labels = self::ledgerTypeLabels();
         $list = [];
         $needResolveNos = [];
+        $needResolveNnShares = [];
         foreach ($rows as $row) {
             $type = (string)($row['type'] ?? '');
             $bal = round((float)($row['balance_change'] ?? 0), 2);
@@ -224,6 +230,18 @@ class FansHubWallet
             if ($isRp && $refId <= 0 && $bizNo !== '') {
                 $needResolveNos[$bizNo] = true;
             }
+            $isNn = strpos($type, 'niuniu_') === 0;
+            $roundId = 0;
+            if ($isNn) {
+                if ($refType === 'niuniu_round' && $refId > 0) {
+                    $roundId = $refId;
+                } elseif (preg_match('/#\s*(\d+)/', $remark, $mNn)) {
+                    $roundId = (int)$mNn[1];
+                } elseif ($refType === 'niuniu_share' && $refId > 0) {
+                    // 延迟批量解析 share → round
+                    $needResolveNnShares[$refId] = true;
+                }
+            }
             $list[] = [
                 'id'              => (int)$row['id'],
                 'type'            => $type,
@@ -241,6 +259,8 @@ class FansHubWallet
                 'packet_id'       => $isRp ? $refId : 0,
                 'packet_no'       => $isRp ? $bizNo : '',
                 'can_open_rp'     => $isRp && ($refId > 0 || $bizNo !== ''),
+                'round_id'        => $roundId,
+                'can_open_niuniu'  => $isNn && $roundId > 0,
                 'channel'         => (string)($row['channel'] ?? ''),
                 'createtime'      => (int)($row['createtime'] ?? 0),
             ];
@@ -264,6 +284,34 @@ class FansHubWallet
                         $item['packet_id'] = (int)$map[$no];
                         $item['ref_id'] = (int)$map[$no];
                     }
+                }
+            }
+            unset($item);
+        }
+        if ($needResolveNnShares) {
+            $sids = array_keys($needResolveNnShares);
+            $shareMap = [];
+            $chunks = array_chunk($sids, 100);
+            foreach ($chunks as $chunk) {
+                $found = Db::name('chat_niuniu_shares')->where('id', 'in', $chunk)->column('round_id', 'id');
+                if (is_array($found)) {
+                    foreach ($found as $k => $v) {
+                        $shareMap[(int)$k] = (int)$v;
+                    }
+                }
+            }
+            foreach ($list as &$item) {
+                if (!empty($item['can_open_niuniu']) && (int)($item['round_id'] ?? 0) > 0) {
+                    continue;
+                }
+                $typ = (string)($item['type'] ?? '');
+                if (strpos($typ, 'niuniu_') !== 0) {
+                    continue;
+                }
+                $sid = (int)($item['ref_id'] ?? 0);
+                if ($sid > 0 && !empty($shareMap[$sid])) {
+                    $item['round_id'] = (int)$shareMap[$sid];
+                    $item['can_open_niuniu'] = true;
                 }
             }
             unset($item);
@@ -643,6 +691,10 @@ class FansHubWallet
             throw $e;
         }
 
+        if (is_array($payInfo) && array_key_exists('message', $payInfo)) {
+            $payInfo['message'] = self::normalizePayUserMessage($payInfo['message'], '提交成功');
+        }
+
         return [
             'order_no' => $orderNo,
             'amount'   => $amount,
@@ -839,6 +891,20 @@ class FansHubWallet
         ], $extra);
     }
 
+    protected static function normalizePayUserMessage($message, $fallback = '提交成功')
+    {
+        $raw = trim((string)$message);
+        $fb = trim((string)$fallback) !== '' ? trim((string)$fallback) : '提交成功';
+        if ($raw === '') {
+            return $fb;
+        }
+        $low = strtolower($raw);
+        if (in_array($low, ['success', 'ok', 'true', '1'], true)) {
+            return $fb;
+        }
+        return $raw;
+    }
+
     protected static function dispatchRecharge($handler, array $channel, $userId, $amount, $orderNo)
     {
         $cfg = self::decodeConfig($channel['config'] ?? '');
@@ -851,7 +917,7 @@ class FansHubWallet
                 return [
                     'action'   => 'url',
                     'url'      => self::fillUrl($url, $userId, $amount, $orderNo),
-                    'message'  => (string)($cfg['message'] ?? '请在新页面完成支付'),
+                    'message'  => self::normalizePayUserMessage($cfg['message'] ?? '', '请在新页面完成支付'),
                 ];
             case 'cs':
                 $url = trim((string)($cfg['url'] ?? FansHubService::config('customer_service_url') ?? ''));

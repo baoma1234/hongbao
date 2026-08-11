@@ -169,6 +169,7 @@ import {
   loadWalletBootstrap,
   money,
   organizeWalletChannels,
+  sanitizePayMessage,
   shortChannelName,
   submitWithdraw,
   turnoverHint,
@@ -471,7 +472,7 @@ async function onSubmit() {
       buildAccountInfo(),
       payPwd
     )
-    uni.showToast({ title: (data && data.message) || '提现申请已提交', icon: 'none' })
+    uni.showToast({ title: sanitizePayMessage(data && data.message, '提交成功'), icon: 'none' })
     clearWalletCache()
     amount.value = ''
     await refresh(true)
