@@ -127,7 +127,7 @@
 
           <!-- 牛牛：尾数验证 -->
           <view v-if="isNiuniu && result.revealed" class="fv-card">
-            <view class="fv-sub tight"><text class="strong">尾数验证</text>（Block Hash + 份号链下复算）</view>
+            <view class="fv-sub tight"><text class="strong">尾数验证</text>（Block Hash + 领取序号链下复算）</view>
             <view class="fv-row">
               <text>总体结果</text>
               <text
@@ -185,7 +185,7 @@ let retryTimer = null
 const isNiuniu = computed(() => kind.value === 'niuniu' || (result.value && result.value.kind === 'niuniu'))
 const pageSub = computed(() =>
   isNiuniu.value
-    ? '尾数牛牛由「波场 Block Hash + 份号」派生 00-99 尾数。先在本站查询复算，再跳转 TronScan / OKLink 核验区块。'
+    ? '尾数牛牛由「波场 Block Hash + 领取序号」派生 00-99 尾数（领取后才赋值）。先在本站查询复算，再跳转 TronScan / OKLink 核验区块。'
     : '拼手气金额由「波场 Block Hash + 单号」链下拆分。扫雷另要求：哈希末位必须等于手填雷号后才拆包开抢；中雷看金额尾数。可在 TronScan / OKLink 核验。'
 )
 
@@ -353,9 +353,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  padding-top: calc(
-    var(--top-bar-height, 48px) + var(--safe-area-inset-top, env(safe-area-inset-top, 0px))
-  );
+  padding-top: 0;
   overflow: hidden;
 }
 .fv-hd {

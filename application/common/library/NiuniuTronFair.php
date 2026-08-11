@@ -111,15 +111,30 @@ class NiuniuTronFair
                     $byUser[$uid][] = $s;
                 }
                 foreach ($byUser as $uid => $rows) {
-                    // 与明细一致：单结果每人一行（用最小 id 派生尾数）
+                    // 按真实领取序号；未领不参与复算展示
                     usort($rows, function ($a, $b) {
+                        $ca = (int)($a['claimed'] ?? 0);
+                        $cb = (int)($b['claimed'] ?? 0);
+                        if ($ca !== $cb) {
+                            return $cb - $ca;
+                        }
+                        $sa = (int)($a['claim_seq'] ?? 0);
+                        $sb = (int)($b['claim_seq'] ?? 0);
+                        if ($sa !== $sb) {
+                            return $sa - $sb;
+                        }
                         return ((int)$a['id']) - ((int)$b['id']);
                     });
-                    $seedId = (int)$rows[0]['id'];
-                    $salt = 'round:' . $roundId . ':user:' . $uid;
+                    $head = $rows[0];
+                    $claimed = (int)($head['claimed'] ?? 0) === 1;
+                    $seq = (int)($head['claim_seq'] ?? 0);
+                    $seedId = $seq > 0 ? $seq : (int)$head['id'];
+                    $salt = $seq > 0
+                        ? ('round:' . $roundId . ':claim')
+                        : ('round:' . $roundId . ':user:' . $uid);
                     $tail = self::deriveTail($tronId, $seedId, $salt);
                     $meta = self::calcNiu($tail);
-                    $storedTail = (string)($rows[0]['tail_digits'] ?? '');
+                    $storedTail = (string)($head['tail_digits'] ?? '');
                     $ok = ($storedTail === '' || $storedTail === $meta['tail']);
                     if ($storedTail !== '') {
                         $checkCount++;
@@ -130,15 +145,18 @@ class NiuniuTronFair
                         }
                     }
                     $row = [
-                        'share_id' => $seedId,
-                        'share_no' => (int)($rows[0]['share_no'] ?? 0),
+                        'share_id' => (int)$head['id'],
+                        'claim_seq' => $seq,
+                        'share_no' => (int)($head['share_no'] ?? 0),
                         'user_id' => $uid,
                         'share_count' => count($rows),
-                        'computed_tail' => $meta['tail'],
-                        'computed_niu' => $meta['label'],
+                        'claimed' => $claimed,
+                        'claimed_at' => (int)($head['claimed_at'] ?? 0),
+                        'computed_tail' => $claimed ? $meta['tail'] : null,
+                        'computed_niu' => $claimed ? $meta['label'] : '未领取',
                         'stored_tail' => $storedTail !== '' ? $storedTail : null,
-                        'stored_niu' => (string)($rows[0]['niu_label'] ?? ''),
-                        'match' => $ok,
+                        'stored_niu' => (string)($head['niu_label'] ?? ''),
+                        'match' => $claimed ? $ok : null,
                     ];
                     $computed[] = $row;
                     if ($storedTail !== '') {
@@ -148,8 +166,11 @@ class NiuniuTronFair
             } else {
                 foreach ($shares as $s) {
                     $sid = (int)$s['id'];
-                    $salt = 'round:' . $roundId;
-                    $tail = self::deriveTail($tronId, $sid, $salt);
+                    $claimed = (int)($s['claimed'] ?? 0) === 1;
+                    $seq = (int)($s['claim_seq'] ?? 0);
+                    $seedId = $seq > 0 ? $seq : $sid;
+                    $salt = $seq > 0 ? ('round:' . $roundId . ':claim') : ('round:' . $roundId);
+                    $tail = self::deriveTail($tronId, $seedId, $salt);
                     $meta = self::calcNiu($tail);
                     $storedTail = (string)($s['tail_digits'] ?? '');
                     $ok = ($storedTail === '' || $storedTail === $meta['tail']);
@@ -163,14 +184,17 @@ class NiuniuTronFair
                     }
                     $row = [
                         'share_id' => $sid,
+                        'claim_seq' => $seq,
                         'share_no' => (int)($s['share_no'] ?? 0),
                         'user_id' => (int)$s['user_id'],
                         'share_count' => 1,
-                        'computed_tail' => $meta['tail'],
-                        'computed_niu' => $meta['label'],
+                        'claimed' => $claimed,
+                        'claimed_at' => (int)($s['claimed_at'] ?? 0),
+                        'computed_tail' => $claimed ? $meta['tail'] : null,
+                        'computed_niu' => $claimed ? $meta['label'] : '未领取',
                         'stored_tail' => $storedTail !== '' ? $storedTail : null,
                         'stored_niu' => (string)($s['niu_label'] ?? ''),
-                        'match' => $ok,
+                        'match' => $claimed ? $ok : null,
                     ];
                     $computed[] = $row;
                     if ($storedTail !== '') {
@@ -178,25 +202,35 @@ class NiuniuTronFair
                     }
                 }
             }
-            // 与领取明细完全一致：按复算尾数升序，同尾再按 share_id
-            $sortTail = function ($a, $b) {
-                $ta = (int)preg_replace('/\D/', '', (string)($a['computed_tail'] ?? '999'));
-                $tb = (int)preg_replace('/\D/', '', (string)($b['computed_tail'] ?? '999'));
+            // 与领取明细一致：按真实领取时间 / 领取序号
+            $sortClaim = function ($a, $b) {
+                $ca = !empty($a['claimed']) ? 0 : 1;
+                $cb = !empty($b['claimed']) ? 0 : 1;
+                if ($ca !== $cb) {
+                    return $ca - $cb;
+                }
+                $ta = (int)($a['claimed_at'] ?? 0);
+                $tb = (int)($b['claimed_at'] ?? 0);
                 if ($ta !== $tb) {
                     return $ta - $tb;
                 }
+                $sa = (int)($a['claim_seq'] ?? 0);
+                $sb = (int)($b['claim_seq'] ?? 0);
+                if ($sa !== $sb) {
+                    return $sa - $sb;
+                }
                 return ((int)($a['share_id'] ?? 0)) - ((int)($b['share_id'] ?? 0));
             };
-            usort($computed, $sortTail);
-            usort($stored, $sortTail);
+            usort($computed, $sortClaim);
+            usort($stored, $sortClaim);
         }
 
         if ($status === self::STATUS_CLAIMING) {
-            $hint = '领取阶段仅展示已领结果；结算完成后开放 Block Hash 与全部尾数复算。';
+            $hint = '领取后才按领取顺序从 Block Hash 派生尾数；未领取不出结果。结算后开放全部复算。';
         } elseif ($revealed) {
-            $hint = '尾数由 Block Hash + 份号 SHA256 派生（00-99），可与下方复算结果对照。';
+            $hint = '尾数由 Block Hash + 领取序号 SHA256 派生（00-99），可与下方复算结果对照。';
         } else {
-            $hint = '购入结束后绑定波场区块哈希，再派生每包尾数；页面将自动重试。';
+            $hint = '购入结束后绑定波场区块哈希；领取时才按领取顺序派生尾数；页面将自动重试。';
         }
 
         return [

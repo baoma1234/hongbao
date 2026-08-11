@@ -3428,22 +3428,18 @@ function formatNiuniuPackResultLine(row) {
   if (!row) return '--'
   return formatNiuniuResultLine(row)
 }
-function byNiuniuHashOrder(a, b) {
-  // 与服务端 CAST(tail_digits AS UNSIGNED) ASC, id ASC 完全一致
-  const norm = (row) => {
-    const raw = row && row.tail_digits != null && row.tail_digits !== ''
-      ? String(row.tail_digits)
-      : ''
-    if (!raw) return { t: 1e9, id: (row && row.id) | 0 }
-    const digits = String(raw).replace(/\D/g, '')
-    const two = digits.length <= 2 ? digits : digits.slice(-2)
-    const t = parseInt(two === '' ? '0' : two, 10)
-    return { t: isNaN(t) ? 1e9 : t, id: (row && row.id) | 0 }
-  }
-  const A = norm(a)
-  const B = norm(b)
-  if (A.t !== B.t) return A.t - B.t
-  return A.id - B.id
+function byNiuniuClaimTime(a, b) {
+  // 真实领取时间升序；未领排后；同秒按 claim_seq / id
+  const ca = a && a.claimed ? 0 : 1
+  const cb = b && b.claimed ? 0 : 1
+  if (ca !== cb) return ca - cb
+  const ta = (a && a.claimed_at) | 0
+  const tb = (b && b.claimed_at) | 0
+  if (ta !== tb) return ta - tb
+  const sa = (a && a.claim_seq) | 0
+  const sb = (b && b.claim_seq) | 0
+  if (sa !== sb) return sa - sb
+  return ((a && a.id) | 0) - ((b && b.id) | 0)
 }
 
 function openNiuniuDetail(data) {
@@ -3457,7 +3453,7 @@ function openNiuniuDetail(data) {
       : (data && data.mine) || []
   shares = shares.filter(Boolean)
 
-  // 单结果：服务端已按 hash 序合并每人一行；若旧数据未合并再兜底合并
+  // 单结果：服务端已按领取时间合并每人一行；若旧数据未合并再兜底合并
   if (mode === 2) {
     const map = new Map()
     shares.forEach((s) => {
@@ -3468,6 +3464,7 @@ function openNiuniuDetail(data) {
           weight: (s.weight | 0) || (s.share_count | 0) || 1,
           win_amount: Number(s.win_amount) || 0,
           claimed_at: (s.claimed_at | 0) || 0,
+          claim_seq: (s.claim_seq | 0) || 0,
           category: s.category || s.niu_label || '',
           result: s.result || '',
         }))
@@ -3479,16 +3476,29 @@ function openNiuniuDetail(data) {
       g.win_amount = (Number(g.win_amount) || 0) + (Number(s.win_amount) || 0)
       const ca = (s.claimed_at | 0) || 0
       if (ca > 0 && (!(g.claimed_at | 0) || ca < (g.claimed_at | 0))) g.claimed_at = ca
+      const cs = (s.claim_seq | 0) || 0
+      if (cs > 0 && (!(g.claim_seq | 0) || cs < (g.claim_seq | 0))) {
+        g.claim_seq = cs
+        if (s.claimed && s.tail_digits) {
+          g.tail_digits = s.tail_digits
+          g.niu_label = s.niu_label || g.niu_label
+          g.category = s.category || s.niu_label || g.category
+          g.result = s.result || g.result
+          g.amount = s.amount != null ? s.amount : g.amount
+          g.id = (s.id | 0) || g.id
+          g.claimed = true
+        }
+      }
       if (!g.nickname && s.nickname) g.nickname = s.nickname
       if (!g.avatar && s.avatar) g.avatar = s.avatar
-      // 保留 hash 序更靠前的那条尾数（先写入的）
-      if ((!g.tail_digits || g.tail_digits === '') && s.tail_digits != null && s.tail_digits !== '') {
+      if (s.claimed && (!g.tail_digits || g.tail_digits === '') && s.tail_digits != null && s.tail_digits !== '') {
         g.tail_digits = s.tail_digits
         g.niu_label = s.niu_label || g.niu_label
         g.category = s.category || s.niu_label || g.category
         g.result = s.result || g.result
         g.amount = s.amount != null ? s.amount : g.amount
         g.id = (s.id | 0) || g.id
+        g.claimed = true
       }
     })
     shares = Array.from(map.values()).map((g) =>
@@ -3499,8 +3509,8 @@ function openNiuniuDetail(data) {
     )
   }
 
-  // 强制与 hash 复算尾数序列同序（尾数升序，同尾比 id）
-  shares = shares.slice().sort(byNiuniuHashOrder)
+  // 强制按真实领取时间排序（未领排后）
+  shares = shares.slice().sort(byNiuniuClaimTime)
   niuniuDetailRound.value = round
   niuniuDetailRows.value = shares.map((s) => {
     const id = (s.user_id | 0) || 0
