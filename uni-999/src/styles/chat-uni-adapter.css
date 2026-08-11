@@ -80,9 +80,11 @@ body.tab-messages #tabMessages .chat-list-pane {
   display: none !important;
 }
 
-/* 佣金：外层定位，内部 scroll-view absolute 填满（兼容 iOS Safari） */
+/* 佣金：外层定高裁切，内部 scroll-view 用 JS 像素高滚动（勿 height:100%!important，Safari 会盖掉内联高） */
 #tabMessages #chatHomePanelCommission.chat-home-panel:not(.is-hidden),
-#tabMessages .chat-commission-panel:not(.is-hidden) {
+#tabMessages .chat-commission-panel:not(.is-hidden),
+.msg-tab-root #chatHomePanelCommission.chat-home-panel:not(.is-hidden),
+.msg-tab-root .chat-commission-panel:not(.is-hidden) {
   overflow: hidden !important;
   display: flex !important;
   flex-direction: column !important;
@@ -100,10 +102,12 @@ body.tab-messages #tabMessages .chat-list-pane {
   top: auto !important;
   bottom: auto !important;
   width: 100% !important;
+  flex: none !important;
   min-height: 120px !important;
-  height: 100% !important;
+  /* height / minHeight 由 messages.vue panelScrollStyle 内联像素写入 */
   box-sizing: border-box !important;
   padding: 10px 12px 24px !important;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* 会话列表：scroll-view 负责滚动（App 标签是 uni-scroll-view，勿写 scroll-view.xxx） */
@@ -111,11 +115,11 @@ body.tab-messages #tabMessages .chat-list-pane {
 #tabMessages .chat-conv-ptr-host {
   flex: 1 1 0% !important;
   min-height: 120px !important;
-  height: auto !important;
   display: flex !important;
   flex-direction: column !important;
   overflow: hidden !important;
   position: relative !important;
+  box-sizing: border-box !important;
 }
 .msg-tab-root .chat-conv-scroll,
 #tabMessages .chat-conv-scroll {
@@ -124,12 +128,27 @@ body.tab-messages #tabMessages .chat-list-pane {
   right: auto !important;
   top: auto !important;
   bottom: auto !important;
-  flex: 1 1 auto !important;
+  flex: none !important;
   width: 100% !important;
   min-height: 120px !important;
-  height: 100% !important;
   box-sizing: border-box !important;
+  -webkit-overflow-scrolling: touch;
 }
+/* H5 Safari：内层滚动容器也开 touch momentum（外层已由 JS 定死像素高） */
+#tabMessages .chat-conv-scroll .uni-scroll-view,
+#tabMessages .chat-community-body-scroll .uni-scroll-view,
+#tabMessages .chat-official-scroll .uni-scroll-view,
+#tabMessages .chat-notice-body-scroll .uni-scroll-view,
+#tabMessages .chat-commission-body-scroll .uni-scroll-view,
+.msg-tab-root .chat-conv-scroll .uni-scroll-view,
+.msg-tab-root .chat-community-body-scroll .uni-scroll-view,
+.msg-tab-root .chat-official-scroll .uni-scroll-view,
+.msg-tab-root .chat-notice-body-scroll .uni-scroll-view,
+.msg-tab-root .chat-commission-body-scroll .uni-scroll-view {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
 .msg-tab-root .chat-conv-list,
 #tabMessages .chat-conv-list {
   flex: none !important;
@@ -628,9 +647,8 @@ body.tab-messages #tabMessages .chat-list-pane {
 .msg-tab-root .chat-official-scroll,
 #tabMessages .chat-community-body-scroll,
 #tabMessages .chat-official-scroll {
-  flex: 1 1 auto !important;
+  flex: none !important;
   min-height: 120px !important;
-  height: 100% !important;
   width: 100% !important;
   position: relative !important;
   left: auto !important;
@@ -638,6 +656,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   top: auto !important;
   bottom: auto !important;
   box-sizing: border-box !important;
+  -webkit-overflow-scrolling: touch;
 }
 
 #tabMessages .chat-community-pane-body,
@@ -675,9 +694,8 @@ body.tab-messages #tabMessages .chat-list-pane {
 
 .msg-tab-root .chat-notice-body-scroll,
 #tabMessages .chat-notice-body-scroll {
-  flex: 1 1 auto !important;
+  flex: none !important;
   min-height: 120px !important;
-  height: 100% !important;
   width: 100% !important;
   position: relative !important;
   left: auto !important;
@@ -685,6 +703,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   top: auto !important;
   bottom: auto !important;
   box-sizing: border-box !important;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* 公告列表不要 flex 撑高，否则卡片下方会留白 */

@@ -454,7 +454,12 @@
             </view>
 
             <!-- 佣金 -->
-            <view id="chatHomePanelCommission" class="chat-home-panel chat-commission-panel" :class="{ 'is-hidden': homeTab !== 'commission' }">
+            <view
+              id="chatHomePanelCommission"
+              class="chat-home-panel chat-commission-panel"
+              :class="{ 'is-hidden': homeTab !== 'commission' }"
+              :style="homeTab === 'commission' ? panelHostStyle : null"
+            >
               <scroll-view scroll-y class="chat-commission-body-scroll" :style="panelScrollStyle">
               <view class="chat-commission-hero-card">
                 <view class="chat-commission-hero-top">
@@ -779,7 +784,7 @@ const tabRootStyle = computed(() => {
 })
 const panelHostStyle = computed(() => {
   const h = Number(panelScrollPx.value) || 420
-  return { height: h + 'px', minHeight: h + 'px', flex: 'none', overflow: 'hidden' }
+  return { height: h + 'px', minHeight: h + 'px', maxHeight: h + 'px', flex: 'none', overflow: 'hidden' }
 })
 const panelScrollStyle = computed(() => {
   let h = Number(panelScrollPx.value) || 420
@@ -787,20 +792,29 @@ const panelScrollStyle = computed(() => {
   if (homeTab.value === 'community' || homeTab.value === 'notice') {
     h = Math.max(180, h - 52)
   }
-  return { height: h + 'px', minHeight: h + 'px' }
+  // 显式像素高：Safari 上 height:100% 常算不出，必须靠内联；勿被 CSS !important 盖掉
+  return { height: h + 'px', minHeight: h + 'px', maxHeight: h + 'px', flex: 'none' }
 })
 /** 官方社群：再扣底部规则卡片高度，避免规则被底栏盖住 */
 const officialScrollStyle = computed(() => {
   let h = Number(panelScrollPx.value) || 420
   h = Math.max(140, h - 52 - 78)
-  return { height: h + 'px', minHeight: h + 'px' }
+  return { height: h + 'px', minHeight: h + 'px', maxHeight: h + 'px', flex: 'none' }
 })
 
 function measureMessagesLayout() {
   try {
     applySafeAreaCssVars()
     const sys = uni.getSystemInfoSync() || {}
-    const winH = Number(sys.windowHeight || sys.screenHeight || 667)
+    let winH = Number(sys.windowHeight || sys.screenHeight || 667)
+    // #ifdef H5
+    try {
+      if (typeof window !== 'undefined') {
+        const vh = window.innerHeight || (document.documentElement && document.documentElement.clientHeight) || 0
+        if (vh > 200) winH = vh
+      }
+    } catch (e0) {}
+    // #endif
     const inset = getSafeAreaInsets()
     const status = Number(inset.top || 0)
     const topBar = 48
@@ -2274,6 +2288,10 @@ onShow(() => {
   }
   pageAlive = true
   measureMessagesLayout()
+  // Safari / 旋转后 windowHeight 偶发滞后，下一帧再量一次
+  setTimeout(() => {
+    if (pageAlive) measureMessagesLayout()
+  }, 50)
   applyPageShell(true)
   startImInbox()
   bindForegroundResume()
@@ -2354,28 +2372,26 @@ onHide(() => {
 .chat-conv-ptr-host {
   flex: 1 1 0%;
   min-height: 120px;
-  height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   position: relative;
 }
 .chat-conv-scroll {
-  /* App：勿用 height:0；高度由内联 panelScrollStyle / 外层 flex 给出 */
-  flex: 1 1 auto;
+  /* 高度由内联 panelScrollStyle 像素给出（Safari 勿依赖 height:100%） */
+  flex: none;
   min-height: 120px;
   width: 100%;
-  height: 100%;
   box-sizing: border-box;
 }
 .chat-community-body-scroll,
 .chat-official-scroll,
 .chat-commission-body-scroll,
-.chat-notice-scroll {
-  flex: 1 1 auto;
+.chat-notice-scroll,
+.chat-notice-body-scroll {
+  flex: none;
   min-height: 120px;
   width: 100%;
-  height: 100%;
   box-sizing: border-box;
 }
 .chat-official-list {
