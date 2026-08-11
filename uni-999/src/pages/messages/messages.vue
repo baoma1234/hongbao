@@ -219,6 +219,7 @@
                         <view class="chat-my-group-count">{{ g.display_member_count || g.member_count || 0 }}<text>人</text></view>
                       </view>
                       <view v-if="!myGroups.length" class="chat-empty chat-empty-glass">暂无已加入社群</view>
+                      <view class="chat-list-scroll-pad" />
                     </view>
                   </view>
                 </scroll-view>

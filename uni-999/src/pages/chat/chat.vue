@@ -201,9 +201,10 @@
           v-if="showJumpLatest"
           class="chat-jump-latest"
           hover-class="chat-jump-latest--active"
+          :style="jumpLatestStyle"
           @click.stop="jumpToLatest"
         >
-          <text class="chat-jump-latest-ico">↓</text>
+          <text class="chat-jump-latest-ico chat-tool-glyph">↓</text>
         </view>
 
         <view
@@ -840,16 +841,26 @@ const niuniuDetailRows = ref([])
 const roomSafeStyle = ref({})
 /** App 详情浮层内联 top（H5 为空，走 CSS，避免网页多垫） */
 const appSubPaneStyle = ref({})
+/** App 回到底部按钮用像素 bottom（env(safe-area) 在 APK 常为 0） */
+const jumpLatestStyle = ref({})
 function refreshChatSafeLayout() {
   const r = applySafeAreaCssVars()
   const overlayTop = (r && r.overlayTop) || measureChatOverlayTop()
   const insetTop = (r && r.top != null ? r.top : getSafeAreaInsets().top) || 0
+  const insetBottom = (r && r.bottom != null ? r.bottom : getSafeAreaInsets().bottom) || 0
   roomSafeStyle.value = {
     '--chat-overlay-top': overlayTop + 'px',
     '--safe-area-inset-top': insetTop + 'px',
+    '--safe-area-inset-bottom': insetBottom + 'px',
   }
   // #ifdef APP-PLUS
   appSubPaneStyle.value = { top: overlayTop + 'px' }
+  jumpLatestStyle.value = {
+    bottom: 78 + insetBottom + 'px',
+  }
+  // #endif
+  // #ifndef APP-PLUS
+  jumpLatestStyle.value = {}
   // #endif
 }
 const niuniuDetailPoolText = computed(() => {
