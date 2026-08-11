@@ -258,7 +258,7 @@ class WalletService
             [$abs, $abs, $now, $userId, $abs]
         );
         if ($affected <= 0) {
-            // 兼容：冻结字段不足时按实际冻结额解冻，避免卡死
+            // 冻结不足：空冻结视为幂等跳过；有余额但不够则抛错，禁止清空全部冻结误伤其它包
             $row0 = Db::fetch(
                 "SELECT hongbao_frozen FROM {$table} WHERE user_id=? LIMIT 1",
                 [$userId]
@@ -272,12 +272,18 @@ class WalletService
                     'frozen_before' => 0.0, 'frozen_after' => 0.0, 'ledger_id' => 0,
                 ];
             }
+            // 仅允许分位误差级差额（0.01）按实际冻结解冻；更大差额拒绝，避免误释其它包
+            if ($have + 0.011 < $amount) {
+                error_log('[WALLET][ERROR] unfreeze short user=' . $userId
+                    . ' want=' . $amount . ' have=' . $have);
+                throw new \RuntimeException('unfreeze insufficient frozen');
+            }
             $amount = $have;
             $abs = sprintf('%.2f', $amount);
             $affected = Db::exec(
-                "UPDATE {$table} SET `{$field}`=`{$field}`+(?), hongbao_frozen=0, updatetime=?"
-                . " WHERE user_id=? AND status='normal'",
-                [$abs, $now, $userId]
+                "UPDATE {$table} SET `{$field}`=`{$field}`+(?), hongbao_frozen=GREATEST(0, hongbao_frozen-(?)), updatetime=?"
+                . " WHERE user_id=? AND status='normal' AND hongbao_frozen>=?",
+                [$abs, $abs, $now, $userId, $abs]
             );
             if ($affected <= 0) {
                 throw new \RuntimeException('unfreeze failed');

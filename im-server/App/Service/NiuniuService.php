@@ -487,8 +487,8 @@ class NiuniuService
         if (!$round) {
             throw new \RuntimeException('对局不存在');
         }
-        if ((int)$round['status'] < self::STATUS_CLAIMING) {
-            throw new \RuntimeException('购入尚未结束，暂不可领取');
+        if ((int)$round['status'] !== self::STATUS_CLAIMING) {
+            throw new \RuntimeException('当前不在领取阶段');
         }
         if (!$this->groups->isMember((int)$round['group_id'], $userId)) {
             throw new \RuntimeException('not in group');
@@ -644,6 +644,32 @@ class NiuniuService
                 if ((int)$affected <= 0) {
                     throw new \RuntimeException('该包已领取');
                 }
+                // 入账与 claimed 同事务：失败整单回滚，避免「已领却未到账」无法重试
+                $firstRow = null;
+                foreach ($rows as $r) {
+                    if ((int)$r['id'] === (int)$shareIds[0]) {
+                        $firstRow = $r;
+                        break;
+                    }
+                }
+                if (!$firstRow) {
+                    $firstRow = $rows[0];
+                }
+                $firstRow['tail_digits'] = $legacyTail;
+                $this->creditPacketOnClaim($firstRow, $roundId);
+                if ($singleModePacketOnce && count($shareIds) > 1) {
+                    $pktAmt = self::packetAmountFromTail($legacyTail);
+                    foreach ($shareIds as $i => $sid) {
+                        if ($i === 0) {
+                            continue;
+                        }
+                        Db::exec(
+                            'UPDATE ' . Db::table('chat_niuniu_shares')
+                            . ' SET amount=?, packet_paid=1, updatetime=? WHERE id=? AND IFNULL(packet_paid,0)=0',
+                            [sprintf('%.2f', $pktAmt), $now, $sid]
+                        );
+                    }
+                }
                 Db::commit();
             } else {
                 if ($seed === '') {
@@ -676,6 +702,26 @@ class NiuniuService
                 if ($affected <= 0) {
                     throw new \RuntimeException('该包已领取');
                 }
+                $firstRow = [
+                    'id' => $shareIds[0],
+                    'user_id' => $userId,
+                    'tail_digits' => $meta['tail'],
+                    'amount' => $pkt,
+                    'packet_paid' => 0,
+                ];
+                $this->creditPacketOnClaim($firstRow, $roundId);
+                if ($singleModePacketOnce && count($shareIds) > 1) {
+                    foreach ($shareIds as $i => $sid) {
+                        if ($i === 0) {
+                            continue;
+                        }
+                        Db::exec(
+                            'UPDATE ' . Db::table('chat_niuniu_shares')
+                            . ' SET amount=?, packet_paid=1, updatetime=? WHERE id=? AND IFNULL(packet_paid,0)=0',
+                            [sprintf('%.2f', $pkt), $now, $sid]
+                        );
+                    }
+                }
                 Db::commit();
             }
         } catch (\Throwable $e) {
@@ -689,22 +735,6 @@ class NiuniuService
         );
         if (!$first) {
             throw new \RuntimeException('份额不存在');
-        }
-
-        // 入账在事务外：wallet 自带账本；单结果只入账一次
-        $this->creditPacketOnClaim($first, $roundId);
-        if ($singleModePacketOnce && count($shareIds) > 1) {
-            $pktAmt = self::packetAmountFromTail($first['tail_digits'] ?? '');
-            foreach ($shareIds as $i => $sid) {
-                if ($i === 0) {
-                    continue;
-                }
-                Db::exec(
-                    'UPDATE ' . Db::table('chat_niuniu_shares')
-                    . ' SET amount=?, packet_paid=1, updatetime=? WHERE id=? AND IFNULL(packet_paid,0)=0',
-                    [sprintf('%.2f', $pktAmt), $now, $sid]
-                );
-            }
         }
 
         return $first;
@@ -905,9 +935,22 @@ class NiuniuService
         }
 
         $c = $this->config();
-        $proof = $this->resolveTronProof($round);
+        try {
+            $proof = $this->resolveTronProof($round);
+        } catch (\Throwable $eProof) {
+            $proof = ['block_num' => 0, 'randomness' => '', 'url' => ''];
+            error_log('[NIUNIU] closeBuy tron fail round=' . $roundId . ' ' . $eProof->getMessage());
+        }
         $seed = strtolower(trim((string)($proof['randomness'] ?? '')));
         if ($seed === '') {
+            // 购入结束已久仍无目标块哈希：全额退款关局，避免永久卡 BUYING
+            $buyEnd = (int)($round['buy_end_at'] ?? 0);
+            $grace = 600; // 10 分钟
+            if ($buyEnd > 0 && ($now - $buyEnd) >= $grace) {
+                error_log('[NIUNIU][ALERT] force refund stuck BUYING round=' . $roundId
+                    . ' overdue=' . ($now - $buyEnd) . 's');
+                return $this->forceRefundBuyingRound($round, $now);
+            }
             throw new \RuntimeException('波场哈希不可用，请稍后重试');
         }
 
@@ -995,6 +1038,18 @@ class NiuniuService
 
         // 领取期结束：未领的统一自动领取（真人/机器人），再结算开奖
         $this->autoClaimAllUnclaimed($roundId);
+
+        // 仍有未领/无尾数份额：禁止分池（否则会被当成低流，奖池错分）
+        $pending = Db::fetch(
+            'SELECT COUNT(*) AS c FROM ' . Db::table('chat_niuniu_shares')
+            . ' WHERE round_id=? AND (claimed=0 OR IFNULL(tail_digits,\'\')=\'\')',
+            [$roundId]
+        );
+        if ((int)($pending['c'] ?? 0) > 0) {
+            error_log('[NIUNIU][SETTLE] defer round=' . $roundId
+                . ' unclaimed_or_no_tail=' . (int)$pending['c']);
+            return false;
+        }
 
         $shares = Db::fetchAll(
             'SELECT * FROM ' . Db::table('chat_niuniu_shares') . ' WHERE round_id=? ORDER BY'
@@ -1418,7 +1473,7 @@ class NiuniuService
     }
 
     /**
-     * 购入结束：取开局锁定的波场块哈希；未产出则用最新块兜底
+     * 购入结束：取开局锁定的波场目标块哈希（禁止用「最新块」顶替，否则破坏 commit-reveal）
      * @return array{block_num:int,randomness:string,url:string}
      */
     protected function resolveTronProof(array $round)
@@ -1436,39 +1491,73 @@ class NiuniuService
                 $lastErr = $e->getMessage();
             }
         }
-        if (!$block || empty($block['block_id'])) {
-            try {
-                $latest = TronHashCache::get();
-                if (!$latest) {
-                    $latest = TronHashCache::refresh(3);
-                }
-                if ($latest && !empty($latest['block_id'])) {
-                    // 目标块已过：尽量取精确高度；否则用最新
-                    if ($target > 0 && (int)$latest['block_num'] >= $target) {
-                        try {
-                            $block = TronBlockClient::getBlockByNum($target, 6);
-                        } catch (\Throwable $e2) {
-                            $block = $latest;
-                            $lastErr = $e2->getMessage();
-                        }
-                    } else {
-                        $block = $latest;
-                    }
-                }
-            } catch (\Throwable $e) {
-                $lastErr = $e->getMessage();
-            }
-        }
         $num = (int)($block['block_num'] ?? 0);
         $id = strtolower(trim((string)($block['block_id'] ?? '')));
         if ($id === '') {
-            throw new \RuntimeException('tron block hash unavailable' . ($lastErr !== '' ? (': ' . $lastErr) : ''));
+            throw new \RuntimeException('tron target block hash unavailable'
+                . ($target > 0 ? (' num=' . $target) : '')
+                . ($lastErr !== '' ? (': ' . $lastErr) : ''));
         }
         return [
             'block_num'  => $num > 0 ? $num : $target,
             'randomness' => $id,
             'url'        => 'https://tronscan.org/#/block/' . ($num > 0 ? $num : $id),
         ];
+    }
+
+    /**
+     * 购入阶段卡死（波场哈希长期不可用）：不抽手续费，按购入额全额退回。
+     */
+    protected function forceRefundBuyingRound(array $round, $now)
+    {
+        $roundId = (int)$round['id'];
+        $now = (int)$now;
+        $shares = Db::fetchAll(
+            'SELECT * FROM ' . Db::table('chat_niuniu_shares') . ' WHERE round_id=? ORDER BY id ASC',
+            [$roundId]
+        ) ?: [];
+        Db::begin();
+        try {
+            $ok = Db::exec(
+                'UPDATE ' . Db::table('chat_niuniu_rounds')
+                . ' SET status=?, settle_at=?, settle_case=4, fee_amount=0,'
+                . ' distributable=pool_amount, claim_end_at=?, updatetime=?'
+                . ' WHERE id=? AND status=?',
+                [self::STATUS_REFUND, $now, $now, $now, $roundId, self::STATUS_BUYING]
+            );
+            if ($ok <= 0) {
+                Db::rollBack();
+                return false;
+            }
+            foreach ($shares as $s) {
+                $uid = (int)($s['user_id'] ?? 0);
+                $sid = (int)($s['id'] ?? 0);
+                $amt = round((float)($s['amount'] ?? 0), 2);
+                if ($uid > 0 && $sid > 0 && $amt > 0.00001) {
+                    $this->wallet->change($uid, $amt, 'niuniu_refund', '尾数牛牛关购失败全额退回 #' . $roundId, [
+                        'biz_no'   => 'niuniu_refund_buy_' . $sid,
+                        'ref_type' => 'niuniu_share',
+                        'ref_id'   => $sid,
+                    ]);
+                }
+                if ($sid > 0) {
+                    Db::exec(
+                        'UPDATE ' . Db::table('chat_niuniu_shares')
+                        . ' SET win_amount=?, paid=1, updatetime=? WHERE id=?',
+                        [sprintf('%.2f', $amt), $now, $sid]
+                    );
+                }
+            }
+            Db::commit();
+        } catch (\Throwable $e) {
+            Db::rollBack();
+            throw $e;
+        }
+        $this->clearMuteFlag((int)$round['group_id']);
+        $fresh = $this->getRound($roundId);
+        $this->pushCard($fresh ?: $round, 'refund', $this->robotOrStarter($round));
+        $this->onRoundFinished((int)$round['group_id'], (int)$round['starter_user_id']);
+        return true;
     }
 
     protected function publicShare(array $s, $reveal)

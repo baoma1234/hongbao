@@ -1444,11 +1444,20 @@ class RedPacketService
         $settlePending = false;
         // ---------- 抢完最后一个包：结算/开奖异步，缩短抢包响应 ----------
         if ($remain <= 0) {
-            // 扫雷/拼手气/接龙：领完后异步结算（解冻 + 赔付/抽水/返点）
+            // 普通/专属：无赔付结算，直接标最佳并落 status=5，避免永久占 status=2 堵 cron
             if (in_array($packetType, [1, 4], true)) {
                 try {
                     $this->markBestLuck($packetId);
                 } catch (\Throwable $eBest) {
+                }
+                try {
+                    Db::exec(
+                        'UPDATE ' . Db::table('chat_red_packets')
+                        . ' SET status=5, settled_time=IF(settled_time=0,?,settled_time), updatetime=?'
+                        . ' WHERE id=? AND status=2 AND remain_count<=0',
+                        [$now, $now, $packetId]
+                    );
+                } catch (\Throwable $eSt) {
                 }
             } else {
                 $this->scheduleSettleAfterFinished($packetId, $packet);
@@ -2628,9 +2637,20 @@ class RedPacketService
         $limit = max(1, min(100, (int)$limit));
         $rows = Db::fetchAll(
             'SELECT id, packet_type, tron_status FROM ' . Db::table('chat_red_packets')
-            . ' WHERE status=2 AND remain_count<=0'
+            . ' WHERE status=2 AND remain_count<=0 AND packet_type IN (2,3,5)'
             . ' ORDER BY id ASC LIMIT ' . $limit
         );
+        // 历史普通包可能停在 status=2：顺手抬升，避免污染其它扫描
+        try {
+            Db::exec(
+                'UPDATE ' . Db::table('chat_red_packets')
+                . ' SET status=5, settled_time=IF(settled_time=0,?,settled_time), updatetime=?'
+                . ' WHERE status=2 AND remain_count<=0 AND packet_type IN (1,4)'
+                . ' LIMIT 200',
+                [time(), time()]
+            );
+        } catch (\Throwable $eLift) {
+        }
         $done = 0;
         $settler = new RedPacketSettlementService($this->wallet, ['red_packet' => $this->cfg]);
         foreach ($rows as $row) {
@@ -2656,9 +2676,6 @@ class RedPacketService
                     if ($ptype === 3) {
                         $this->notifySettled($packetId, $row, $info);
                     }
-                }
-                if ($ptype === 1) {
-                    $this->markBestLuck($packetId);
                 }
                 if ($ptype === 2 && (int)($row['tron_status'] ?? 0) !== 2) {
                     $this->revealFairProof($packetId);
@@ -2792,6 +2809,7 @@ class RedPacketService
             }
 
             // 埋雷超时：先补结未扣的中雷（未中雷已领保留），再退剩余池
+            // 余额不足记欠款，禁止抛错阻断整包退款（否则 status 卡 1、池资金黑洞）
             if ($packetType === 3 && $scopeType !== 1 && $records) {
                 $mineDigit = max(0, min(9, (int)($fresh['mine_digit'] ?? 0)));
                 $minePay = $this->mineCompensateAmount(
@@ -2804,16 +2822,57 @@ class RedPacketService
                     if ($tail !== $mineDigit) {
                         continue;
                     }
-                    $this->payMineHitForRecord(
-                        [
-                            'id'           => $packetId,
-                            'packet_no'    => $packetNo,
-                            'from_user_id' => $fromUserId,
-                        ],
-                        $rec,
-                        $minePay,
-                        $bizMeta
-                    );
+                    if ((int)($rec['compensate_status'] ?? 0) === 2) {
+                        continue;
+                    }
+                    try {
+                        $this->payMineHitForRecord(
+                            [
+                                'id'           => $packetId,
+                                'packet_no'    => $packetNo,
+                                'from_user_id' => $fromUserId,
+                            ],
+                            $rec,
+                            $minePay,
+                            $bizMeta
+                        );
+                    } catch (\Throwable $eMine) {
+                        $payerId = (int)($rec['user_id'] ?? 0);
+                        error_log(sprintf(
+                            '[RP_EXPIRE][ALERT] mine pay defer debt uid=%d packet=%d amt=%.2f err=%s',
+                            $payerId,
+                            $packetId,
+                            $minePay,
+                            $eMine->getMessage()
+                        ));
+                        try {
+                            Db::exec(
+                                'UPDATE ' . Db::table('chat_red_packet_records')
+                                . ' SET is_mine_hit=1, need_compensate=1, compensate_amount=?, compensate_status=1'
+                                . ' WHERE id=? AND compensate_status<>2',
+                                [sprintf('%.2f', $minePay), (int)$rec['id']]
+                            );
+                            Db::exec(
+                                'INSERT INTO ' . Db::table('chat_red_packet_settlements')
+                                . ' (packet_id,packet_no,settle_type,from_user_id,to_user_id,amount,ledger_id,status,remark,createtime)'
+                                . ' VALUES (?,?,?,?,?,?,?,?,?,?)',
+                                [
+                                    $packetId,
+                                    $packetNo,
+                                    'expire_mine_debt',
+                                    $payerId,
+                                    $fromUserId,
+                                    sprintf('%.2f', $minePay),
+                                    0,
+                                    0,
+                                    '扫雷过期中雷欠款待收',
+                                    $now,
+                                ]
+                            );
+                        } catch (\Throwable $eDebt) {
+                            error_log('[RP_EXPIRE] mine debt insert fail ' . $eDebt->getMessage());
+                        }
+                    }
                 }
             }
 
@@ -3122,9 +3181,16 @@ class RedPacketService
                     return;
                 }
                 $ptype = (int)($packet['packet_type'] ?? 0);
-                if ($ptype === 4) {
-                    $cents = $this->splitLucky($remainCent, $remainCount, $minCent);
-                } elseif (in_array($ptype, [2, 3, 5], true)) {
+                $cents = null;
+                if (in_array($ptype, [2, 3, 5], true)) {
+                    // 公平包：按 fair_cents 减去已领，禁止本地随机补种破坏可验证性
+                    $cents = $this->remainingFairCents($packet, $remainCount, $remainCent);
+                    if ($cents === null) {
+                        error_log('[RP_RESEED][ALERT] fair_cents unavailable packet_id=' . $packetId
+                            . ' type=' . $ptype . ' remain=' . $remainCount);
+                        return;
+                    }
+                } elseif ($ptype === 4) {
                     $cents = $this->splitLucky($remainCent, $remainCount, $minCent);
                 } else {
                     $cents = $this->splitEqual($remainCent, $remainCount, $minCent);
@@ -3152,6 +3218,73 @@ class RedPacketService
             }
         } catch (\Throwable $e) {
         }
+    }
+
+    /**
+     * 从 fair_cents 扣除已领 amount_cent，得到剩余队列（保序多重集差）。
+     * @return int[]|null
+     */
+    protected function remainingFairCents(array $packet, $remainCount, $remainCent)
+    {
+        $remainCount = (int)$remainCount;
+        $remainCent = (int)$remainCent;
+        if ($remainCount <= 0 || $remainCent <= 0) {
+            return null;
+        }
+        $raw = trim((string)($packet['fair_cents'] ?? ''));
+        if ($raw === '') {
+            $packetId = (int)($packet['id'] ?? 0);
+            if ($packetId > 0) {
+                try {
+                    $row = Db::fetch(
+                        'SELECT fair_cents FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1',
+                        [$packetId]
+                    );
+                    $raw = trim((string)($row['fair_cents'] ?? ''));
+                } catch (\Throwable $e) {
+                    $raw = '';
+                }
+            }
+        }
+        if ($raw === '') {
+            return null;
+        }
+        $all = json_decode($raw, true);
+        if (!is_array($all) || !$all) {
+            return null;
+        }
+        $pool = array_map('intval', $all);
+        $packetId = (int)($packet['id'] ?? 0);
+        $taken = [];
+        if ($packetId > 0) {
+            try {
+                $rows = Db::fetchAll(
+                    'SELECT amount_cent FROM ' . Db::table('chat_red_packet_records')
+                    . ' WHERE packet_id=? ORDER BY id ASC',
+                    [$packetId]
+                );
+                foreach ($rows ?: [] as $r) {
+                    $taken[] = (int)($r['amount_cent'] ?? 0);
+                }
+            } catch (\Throwable $e) {
+                return null;
+            }
+        }
+        foreach ($taken as $cent) {
+            $idx = array_search($cent, $pool, true);
+            if ($idx === false) {
+                return null;
+            }
+            unset($pool[$idx]);
+            $pool = array_values($pool);
+        }
+        if (count($pool) !== $remainCount) {
+            return null;
+        }
+        if ((int)array_sum($pool) !== $remainCent) {
+            return null;
+        }
+        return $pool;
     }
 
     /**
