@@ -42,7 +42,7 @@ body.tab-messages-ios-safari #tabMessages .chat-conv-scroll .uni-scroll-view {
   flex-direction: column;
   width: 100%;
   /* 高度由 JS（扣 TopBar spacer + 底栏）写入；CSS 仅作兜底 */
-  --tab-bar-space: calc(56px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  --tab-bar-space: calc(72px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
   height: calc(
     100vh - var(--top-bar-height, 48px) - var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) -
       var(--tab-bar-space)
@@ -667,7 +667,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   position: fixed !important;
   left: 0 !important;
   right: 0 !important;
-  bottom: calc(56px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))) !important;
+  bottom: calc(72px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))) !important;
   z-index: 9100 !important;
   margin: 0 auto 8px !important;
   width: calc(100% - 20px) !important;

@@ -910,12 +910,13 @@ function measureMessagesLayout() {
     const inset = getSafeAreaInsets()
     const status = Number(inset.top || 0)
     const topBar = 48
-    const tabBar = 56 + Number(inset.bottom || 0)
+    // 与 BottomTabBar 实际高度对齐：padding 6+6 + 按钮(8+30+3+字≈12+6) ≈ 71，取 72
+    const tabBar = 72 + Number(inset.bottom || 0)
     // TopBar 已有 spacer（status+48），#tabMessages 只占 spacer 下方到 Tab 上方
     const shell = Math.max(280, winH - status - topBar - tabBar)
     tabRootPx.value = shell
-    // 再扣：红宝社区标题区 + 连接行 + 四个子 Tab 行（约 150）
-    const chrome = 150
+    // 再扣：红宝社区标题 + 连接行 + 会员ID行 + 四个子 Tab（约 168）
+    const chrome = 168
     let next = Math.max(220, shell - chrome)
     // iOS Safari：忽略地址栏导致的小幅高度回缩，防止内联 height 变化重置滚动
     if (isIosSafariH5() && panelScrollPx.value > 0) {
@@ -2517,10 +2518,11 @@ onHide(() => {
   flex-shrink: 0;
   pointer-events: none;
 }
-/* 会话列表：末项后再留 20px，避免底栏盖住最后一条 */
+/* 会话列表：末项渲染完后再留 20px 空白 */
 .chat-conv-list-pad {
   height: 20px;
   min-height: 20px;
+  flex-shrink: 0;
 }
 .chat-official-list {
   display: flex;
@@ -2636,7 +2638,7 @@ onHide(() => {
   position: fixed !important;
   left: 0;
   right: 0;
-  bottom: calc(56px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  bottom: calc(72px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
   z-index: 9100 !important;
   margin: 0 10px 8px;
   flex: none;
