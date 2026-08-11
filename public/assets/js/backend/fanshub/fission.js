@@ -10,7 +10,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
     function render(rows) {
         var html = '';
         if (!rows || !rows.length) {
-            html = '<tr><td colspan="7">暂无活动</td></tr>';
+            html = '<tr><td colspan="8">暂无活动</td></tr>';
         } else {
             $.each(rows, function (_, r) {
                 html += '<tr>'
@@ -21,6 +21,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                     + '<td>' + r.user_cap + '</td>'
                     + '<td>' + (statusMap[r.status] || r.status) + '</td>'
                     + '<td>' + fmt(r.start_time) + ' ~ ' + fmt(r.end_time) + '</td>'
+                    + '<td><a href="javascript:;" class="btn btn-xs btn-primary btn-edit" data-id="' + r.id + '">编辑</a></td>'
                     + '</tr>';
             });
         }
@@ -36,7 +37,15 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                 render((res && res.rows) ? res.rows : []);
             },
             error: function () {
-                $('#fission-rows').html('<tr><td colspan="7">加载失败，请刷新重试</td></tr>');
+                $('#fission-rows').html('<tr><td colspan="8">加载失败，请刷新重试</td></tr>');
+            }
+        });
+    }
+
+    function openEdit(id) {
+        Fast.api.open('fanshub/fission/edit/ids/' + id, '编辑裂变活动 #' + id, {
+            callback: function () {
+                load();
             }
         });
     }
@@ -61,10 +70,19 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                     return false;
                 });
             });
+            $(document).on('click', '#fission-rows .btn-edit', function () {
+                openEdit($(this).data('id'));
+            });
             load();
         },
         start: function () {
             Form.api.bindevent($('#start-form'), function () {
+                Fast.api.close();
+                return false;
+            });
+        },
+        edit: function () {
+            Form.api.bindevent($('#edit-form'), function () {
                 Fast.api.close();
                 return false;
             });
