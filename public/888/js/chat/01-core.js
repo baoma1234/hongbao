@@ -306,7 +306,7 @@
 
   /** 无头像时的默认吉祥物 */
   function defaultAvatarUrl() {
-    var ver = (global.FANSHUB_ASSETS && global.FANSHUB_ASSETS.ver) || '';
+    var ver = (global.FANSHUB_ASSETS && global.FANSHUB_ASSETS.ver) || '202608112037';
     return 'img/default-avatar.png' + (ver ? ('?v=' + encodeURIComponent(ver)) : '');
   }
 

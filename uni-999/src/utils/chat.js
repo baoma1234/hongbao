@@ -189,8 +189,8 @@ export function publicUrl(pathOrUrl) {
   return url
 }
 
-/** 对齐 888：img/default-avatar.png?v=202608051205 */
-export const DEFAULT_AVATAR_VER = '202608051205'
+/** 对齐 888：img/default-avatar.png?v=202608112037 */
+export const DEFAULT_AVATAR_VER = '202608112037'
 
 export function defaultAvatarUrl() {
   const q = '?v=' + DEFAULT_AVATAR_VER
