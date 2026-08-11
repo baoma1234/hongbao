@@ -241,6 +241,7 @@
                         <view class="chat-my-group-count">{{ g.display_member_count || g.member_count || 0 }}<text>人</text></view>
                       </view>
                       <view v-if="!myCreatedGroups.length" class="chat-empty chat-empty-glass">暂无我创建/管理的群</view>
+                      <view class="chat-list-scroll-pad" />
                     </view>
                   </view>
                 </scroll-view>
@@ -270,6 +271,7 @@
                         </view>
                       </view>
                       <view v-if="!friends.length" class="chat-empty chat-empty-glass">暂无好友</view>
+                      <view class="chat-list-scroll-pad" />
                     </view>
                   </view>
                 </scroll-view>
@@ -438,6 +440,7 @@
                     </view>
                   </view>
                   <view v-if="!notices.length" class="chat-empty chat-empty-glass">暂无公告</view>
+                  <view class="chat-list-scroll-pad" />
                 </view>
               </scroll-view>
               </view>
@@ -2408,6 +2411,14 @@ onHide(() => {
   min-height: 120px;
   width: 100%;
   box-sizing: border-box;
+}
+/* 列表末项后留白，确保最后一条可滚出底栏遮挡（H5/Safari/APK） */
+.chat-list-scroll-pad {
+  width: 100%;
+  height: 30px;
+  min-height: 30px;
+  flex-shrink: 0;
+  pointer-events: none;
 }
 .chat-official-list {
   display: flex;

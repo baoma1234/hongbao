@@ -107,6 +107,35 @@
   flex-direction: column !important;
   overflow: hidden !important;
   background: #ededed;
+  position: relative;
+}
+
+.chat-room-page .chat-jump-latest {
+  position: absolute;
+  right: 14px;
+  bottom: calc(78px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  z-index: 45;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 14px rgba(26, 33, 45, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+.chat-room-page .chat-jump-latest-ico {
+  font-size: 20px;
+  line-height: 1;
+  font-weight: 800;
+  color: #c62828;
+}
+.chat-room-page .chat-jump-latest--active {
+  opacity: 0.82;
+  transform: scale(0.96);
 }
 
 .chat-room-page .chat-msg-scroll {

@@ -721,12 +721,14 @@ body.tab-messages #tabMessages .chat-list-pane {
   -webkit-overflow-scrolling: touch;
 }
 
-/* 公告列表不要 flex 撑高，否则卡片下方会留白 */
-#tabMessages .chat-notice-feed {
+/* 公告列表不要 flex 撑高；末项后留 30px 可滚空白 */
+#tabMessages .chat-notice-feed,
+.msg-tab-root .chat-notice-feed {
   flex: none !important;
   min-height: 0 !important;
   height: auto !important;
-  padding-bottom: 4px !important;
+  padding-bottom: 30px !important;
+  box-sizing: border-box !important;
 }
 
 #tabMessages .chat-notice-avatar-fallback {

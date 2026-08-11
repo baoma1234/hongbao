@@ -68,12 +68,85 @@ const detail = ref(null)
 const queryRoundId = ref(0)
 
 const round = computed(() => (detail.value && detail.value.round) || {})
-const shares = computed(() => (detail.value && detail.value.shares) || [])
 const poolText = computed(() => {
   const n = Number(round.value.pool_amount)
   if (isNaN(n) || n <= 0) return '0'
   return String(Math.round(n * 100) / 100)
 })
+
+/** 与聊天领取明细一致：同一用户只展示一行（多份合并奖金） */
+function mergeSharesByUser(list) {
+  const rows = Array.isArray(list) ? list.filter(Boolean) : []
+  const map = new Map()
+  rows.forEach((s) => {
+    const id = (Number(s.user_id) || 0) | 0
+    const key = id > 0 ? 'u' + id : 'r' + (Number(s.id) || map.size)
+    if (!map.has(key)) {
+      map.set(
+        key,
+        Object.assign({}, s, {
+          share_count: (Number(s.share_count) || 0) | 0 || 1,
+          win_amount: Number(s.win_amount) || 0,
+          claimed_at: (Number(s.claimed_at) || 0) | 0,
+          claim_seq: (Number(s.claim_seq) || 0) | 0,
+          niu_label: s.niu_label || s.niu_type || '',
+          niu_type: s.niu_type || s.niu_label || '',
+        })
+      )
+      return
+    }
+    const g = map.get(key)
+    g.share_count = ((Number(g.share_count) || 0) | 0 || 1) + 1
+    g.win_amount = (Number(g.win_amount) || 0) + (Number(s.win_amount) || 0)
+    const ca = (Number(s.claimed_at) || 0) | 0
+    if (ca > 0 && (!(Number(g.claimed_at) || 0) || ca < (Number(g.claimed_at) || 0))) {
+      g.claimed_at = ca
+    }
+    const cs = (Number(s.claim_seq) || 0) | 0
+    if (cs > 0 && (!(Number(g.claim_seq) || 0) || cs < (Number(g.claim_seq) || 0))) {
+      g.claim_seq = cs
+      if (s.claimed && s.tail_digits) {
+        g.tail_digits = s.tail_digits
+        g.niu_label = s.niu_label || s.niu_type || g.niu_label
+        g.niu_type = s.niu_type || s.niu_label || g.niu_type
+        g.amount = s.amount != null ? s.amount : g.amount
+        g.id = (Number(s.id) || 0) || g.id
+        g.claimed = true
+      }
+    }
+    if (!g.nickname && s.nickname) g.nickname = s.nickname
+    if (!g.avatar && s.avatar) g.avatar = s.avatar
+    if (s.claimed && (!g.tail_digits || g.tail_digits === '') && s.tail_digits != null && s.tail_digits !== '') {
+      g.tail_digits = s.tail_digits
+      g.niu_label = s.niu_label || s.niu_type || g.niu_label
+      g.niu_type = s.niu_type || s.niu_label || g.niu_type
+      g.amount = s.amount != null ? s.amount : g.amount
+      g.id = (Number(s.id) || 0) || g.id
+      g.claimed = true
+    }
+    if (s.is_mine) g.is_mine = true
+  })
+  return Array.from(map.values())
+    .map((g) =>
+      Object.assign({}, g, {
+        win_amount: Math.round((Number(g.win_amount) || 0) * 10000) / 10000,
+      })
+    )
+    .sort((a, b) => {
+      const ca = a && a.claimed ? 0 : 1
+      const cb = b && b.claimed ? 0 : 1
+      if (ca !== cb) return ca - cb
+      const ta = (Number(a && a.claimed_at) || 0) | 0
+      const tb = (Number(b && b.claimed_at) || 0) | 0
+      if (ta !== tb) return ta - tb
+      const sa = (Number(a && a.claim_seq) || 0) | 0
+      const sb = (Number(b && b.claim_seq) || 0) | 0
+      if (sa !== sb) return sa - sb
+      return ((Number(a && a.id) || 0) | 0) - ((Number(b && b.id) || 0) | 0)
+    })
+}
+
+const shares = computed(() => mergeSharesByUser((detail.value && detail.value.shares) || []))
 
 function formatTime(ts) {
   const t = Number(ts) || 0

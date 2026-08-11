@@ -198,6 +198,15 @@
         </scroll-view>
 
         <view
+          v-if="showJumpLatest"
+          class="chat-jump-latest"
+          hover-class="chat-jump-latest--active"
+          @click.stop="jumpToLatest"
+        >
+          <text class="chat-jump-latest-ico">↓</text>
+        </view>
+
+        <view
           class="chat-composer-wrap"
           :class="{ 'is-muted': composerLocked, 'is-extras-locked': extrasLocked }"
         >
@@ -929,6 +938,7 @@ let bootDoneAt = 0
 let scrollTimers = []
 /** 是否贴底：用户上翻看历史时为 false，避免软刷新/牛牛更新把列表拽回底部 */
 let stickToBottom = true
+const showJumpLatest = ref(false)
 let chatScrollViewport = 0
 
 const isPrivate = computed(() => (meta.value.type | 0) === 1)
@@ -2491,11 +2501,20 @@ function onChatScroll(e) {
     scrollInto.value = ''
   }
   stickToBottom = near
+  showJumpLatest.value = !near
+}
+
+function jumpToLatest() {
+  showJumpLatest.value = false
+  scrollToLatest(true)
 }
 
 function scrollToLatest(force) {
   if (!force && !stickToBottom) return
-  if (force) stickToBottom = true
+  if (force) {
+    stickToBottom = true
+    showJumpLatest.value = false
+  }
   const last = messages.value[messages.value.length - 1]
   const id = last ? 'm' + msgId(last) : 'chat-bottom-anchor'
   scrollInto.value = ''
@@ -3439,15 +3458,14 @@ function openNiuniuDetail(data) {
   refreshChatSafeLayout()
   const uid = (myUserId.value | 0) || (myId | 0)
   const round = (data && data.round) || null
-  const mode = (round && (round.game_mode | 0)) || 0
   let shares =
     data && data.shares && data.shares.length
       ? data.shares.slice()
       : (data && data.mine) || []
   shares = shares.filter(Boolean)
 
-  // 单结果：服务端已按领取时间合并每人一行；若旧数据未合并再兜底合并
-  if (mode === 2) {
+  // 同一用户只展示一行（多份合并奖金）；与资金流水牛牛明细一致
+  {
     const map = new Map()
     shares.forEach((s) => {
       const id = (s.user_id | 0) || 0
@@ -3458,7 +3476,8 @@ function openNiuniuDetail(data) {
           win_amount: Number(s.win_amount) || 0,
           claimed_at: (s.claimed_at | 0) || 0,
           claim_seq: (s.claim_seq | 0) || 0,
-          category: s.category || s.niu_label || '',
+          category: s.category || s.niu_label || s.niu_type || '',
+          niu_label: s.niu_label || s.niu_type || '',
           result: s.result || '',
         }))
         return
@@ -3474,8 +3493,8 @@ function openNiuniuDetail(data) {
         g.claim_seq = cs
         if (s.claimed && s.tail_digits) {
           g.tail_digits = s.tail_digits
-          g.niu_label = s.niu_label || g.niu_label
-          g.category = s.category || s.niu_label || g.category
+          g.niu_label = s.niu_label || s.niu_type || g.niu_label
+          g.category = s.category || s.niu_label || s.niu_type || g.category
           g.result = s.result || g.result
           g.amount = s.amount != null ? s.amount : g.amount
           g.id = (s.id | 0) || g.id
@@ -3486,8 +3505,8 @@ function openNiuniuDetail(data) {
       if (!g.avatar && s.avatar) g.avatar = s.avatar
       if (s.claimed && (!g.tail_digits || g.tail_digits === '') && s.tail_digits != null && s.tail_digits !== '') {
         g.tail_digits = s.tail_digits
-        g.niu_label = s.niu_label || g.niu_label
-        g.category = s.category || s.niu_label || g.category
+        g.niu_label = s.niu_label || s.niu_type || g.niu_label
+        g.category = s.category || s.niu_label || s.niu_type || g.category
         g.result = s.result || g.result
         g.amount = s.amount != null ? s.amount : g.amount
         g.id = (s.id | 0) || g.id
@@ -4166,6 +4185,7 @@ onLoad(async (query) => {
   try {
     await imConnect()
     stickToBottom = true
+    showJumpLatest.value = false
     await Promise.all([fetchHistory({ forceScroll: true }), loadGroupMeta()])
     // 大厅「一键复制密令」跳转客服后：自动把密令发出去
     if (isPrivate.value && (meta.value.peer | 0) === 88888888) {
@@ -4209,6 +4229,7 @@ onUnload(() => {
     })
   roomAlive = false
   stickToBottom = true
+  showJumpLatest.value = false
   cancelScrollToLatest()
   if (off) off()
 })
