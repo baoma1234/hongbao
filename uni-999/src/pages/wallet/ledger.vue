@@ -30,9 +30,9 @@
       >
         <view class="wallet-ledger-main">
           <view class="wallet-ledger-title">
-            {{ item.type_label || item.title || item.type_text || item.type || '变动' }}
+            {{ typeTitle(item) }}
           </view>
-          <view class="wallet-ledger-sub" v-if="item.remark && item.remark !== (item.type_label || item.title)">{{ item.remark }}</view>
+          <view class="wallet-ledger-sub" v-if="item.remark && item.remark !== typeTitle(item)">{{ item.remark }}</view>
           <view class="wallet-ledger-time">
             {{ formatLedgerTime(item) }}
           </view>
@@ -75,10 +75,23 @@ import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getToken } from '../../utils/auth.js'
 import { fetchLedger, ledgerAmountText, money } from '../../utils/wallet.js'
+import { tt } from '../../utils/i18n.js'
 import '../../styles/hb.css'
 
 function goBack() {
   safeNavigateBack(HOME_TAB)
+}
+
+function typeTitle(item) {
+  const type = String((item && item.type) || '')
+  if (type) {
+    const key = 'wallet_ledger_type_' + type
+    const translated = tt(key, '')
+    if (translated && translated !== key) return translated
+  }
+  const lab = String((item && (item.type_label || item.title || item.type_text)) || '')
+  if (lab && lab !== type) return lab
+  return type || '变动'
 }
 
 const list = ref([])

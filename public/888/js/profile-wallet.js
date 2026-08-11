@@ -1051,10 +1051,14 @@
   function ledgerTypeLabel(type, item) {
     type = String(type || '');
     if (!type) return wt('wallet_ledger_other', '其他');
-    if (item && item.type_label) return String(item.type_label);
     var key = 'wallet_ledger_type_' + type;
     var translated = wt(key, '');
     if (translated && translated !== key && translated !== '') return translated;
+    if (item && item.type_label) {
+      var lab = String(item.type_label);
+      // 接口若仍回传英文 type 码，不要当展示文案
+      if (lab && lab !== type) return lab;
+    }
     return wt('wallet_ledger_other', '其他');
   }
 

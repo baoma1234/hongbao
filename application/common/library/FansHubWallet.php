@@ -85,6 +85,11 @@ class FansHubWallet
             'red_packet_freeze'            => '红宝冻结',
             'red_packet_unfreeze'          => '红宝解冻',
             'red_packet_expire_clawback'   => '未领完此包作废收回金额',
+            'niuniu_buy'                   => '牛牛购入',
+            'niuniu_packet'                => '牛牛红包',
+            'niuniu_win'                   => '牛牛奖金',
+            'niuniu_fee_in'                => '牛牛手续费',
+            'niuniu_refund'                => '牛牛流局退回',
         ];
     }
 
@@ -106,6 +111,9 @@ class FansHubWallet
             'hongbao_in' => [
                 'red_packet_grab',
                 'red_packet_compensate_in',
+                'niuniu_packet',
+                'niuniu_win',
+                'niuniu_refund',
             ],
             'refund' => [
                 'red_packet_refund',

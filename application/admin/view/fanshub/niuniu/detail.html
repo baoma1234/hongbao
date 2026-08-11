@@ -1,28 +1,77 @@
-<div class="panel panel-default">
-    <div class="panel-heading">对局 #{$row.id}</div>
+<div class="panel panel-default panel-intro">
+    <div class="panel-heading">
+        <em>尾数牛牛对局 #{$row.id}</em>
+        <div class="panel-lead">{$row.status_label}｜{$row.game_mode_label}｜已领 {$claimed_count}/{$share_total}</div>
+    </div>
     <div class="panel-body">
-        <p>群ID：{$row.group_id}｜状态：{$row.status}｜份数：{$row.share_count}｜奖池：{$row.pool_amount}</p>
-        <p>手续费：{$row.fee_amount}｜可发放：{$row.distributable}｜校验：drand-#{$row.drand_round}</p>
-        <p>随机源：{$row.drand_url}</p>
-        <table class="table table-bordered table-striped">
-            <thead>
+        <table class="table table-bordered">
             <tr>
-                <th>份号</th><th>用户</th><th>尾数</th><th>牛数</th><th>档位</th><th>已领</th><th>奖金</th>
+                <th width="120">群ID</th><td>{$row.group_id}</td>
+                <th width="120">状态</th><td>{$row.status_label}</td>
             </tr>
-            </thead>
-            <tbody>
-            {volist name="shares" id="s"}
             <tr>
-                <td>{$s.share_no}</td>
-                <td>{$s.user_id}</td>
-                <td>{$s.tail_digits|default='-'}</td>
-                <td>{$s.niu_label|default='-'}</td>
-                <td>{$s.niu_tier}</td>
-                <td>{$s.claimed}</td>
-                <td>{$s.win_amount}</td>
+                <th>玩法</th><td>{$row.game_mode_label}</td>
+                <th>份数 / 单价</th><td>{$row.share_count} × {$row.share_price}</td>
             </tr>
-            {/volist}
-            </tbody>
+            <tr>
+                <th>奖池</th><td>{$row.pool_amount}</td>
+                <th>手续费 / 可发放</th><td>{$row.fee_amount} / {$row.distributable}</td>
+            </tr>
+            <tr>
+                <th>波场区块</th><td>{$row.tron_block|default='-'}</td>
+                <th>购入结束 / 领取结束</th>
+                <td>
+                    {if condition="$row.buy_end_at"}{:date('Y-m-d H:i:s', $row.buy_end_at)}{else/}-{/if}
+                    ／
+                    {if condition="$row.claim_end_at"}{:date('Y-m-d H:i:s', $row.claim_end_at)}{else/}-{/if}
+                </td>
+            </tr>
+            <tr>
+                <th>Block Hash</th>
+                <td colspan="3" style="word-break:break-all;font-family:monospace;font-size:12px;">{$row.tron_hash|default='-'}</td>
+            </tr>
         </table>
+
+        <h4 style="margin:16px 0 8px;">领取结果（按真实领取时间）</h4>
+        <p class="text-muted" style="margin-bottom:8px;">未领取不出尾数/牛数；领取后按领取序号从 hash 派生。</p>
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped table-hover">
+                <thead>
+                <tr>
+                    <th>领取序</th>
+                    <th>份号</th>
+                    <th>用户</th>
+                    <th>领取状态</th>
+                    <th>领取时间</th>
+                    <th>尾数</th>
+                    <th>结果</th>
+                    <th>档位</th>
+                    <th>红包额</th>
+                    <th>奖金</th>
+                    <th>红包入账</th>
+                </tr>
+                </thead>
+                <tbody>
+                {volist name="shares" id="s"}
+                <tr class="{if condition='$s.claimed'}success{else/}active{/if}">
+                    <td>{if condition="$s.claim_seq"}{$s.claim_seq}{else/}-{/if}</td>
+                    <td>{$s.share_no}</td>
+                    <td>{$s.nickname}<br><span class="text-muted">#{$s.user_id}</span></td>
+                    <td>{$s.claimed_label}</td>
+                    <td>{$s.claimed_at_text}</td>
+                    <td><strong>{$s.tail_digits}</strong></td>
+                    <td>{$s.niu_label}</td>
+                    <td>{$s.tier_label}</td>
+                    <td>{$s.amount}</td>
+                    <td>{$s.win_amount}</td>
+                    <td>{$s.packet_paid}</td>
+                </tr>
+                {/volist}
+                {empty name="shares"}
+                <tr><td colspan="11" class="text-center text-muted">暂无份额</td></tr>
+                {/empty}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
