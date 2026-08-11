@@ -1,7 +1,7 @@
 <div class="panel panel-default panel-intro">
     {:build_heading()}
     <div class="panel-body">
-        <form id="start-form" class="form-horizontal" role="form" method="POST">
+        <form id="start-form" class="form-horizontal" role="form" data-toggle="validator" method="POST" action="">
             {:token()}
             <div class="form-group">
                 <label class="control-label col-xs-12 col-sm-2">标题</label>
@@ -33,25 +33,12 @@
                     <input type="number" class="form-control" name="duration_hours" value="72">
                 </div>
             </div>
-            <div class="form-group">
-                <div class="col-xs-12 col-sm-8 col-sm-offset-2">
-                    <button type="submit" class="btn btn-success">开启</button>
+            <div class="form-group layer-footer">
+                <label class="control-label col-xs-12 col-sm-2"></label>
+                <div class="col-xs-12 col-sm-8">
+                    <button type="submit" class="btn btn-success btn-embossed">开启</button>
                 </div>
             </div>
         </form>
     </div>
 </div>
-<script>
-require(['jquery', 'backend'], function ($, Backend) {
-    $('#start-form').on('submit', function (e) {
-        e.preventDefault();
-        Fast.api.ajax({
-            url: Fast.api.fixurl('fanshub/fission/start'),
-            data: $(this).serialize()
-        }, function () {
-            Fast.api.close();
-            return false;
-        });
-    });
-});
-</script>

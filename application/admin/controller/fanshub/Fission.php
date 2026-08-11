@@ -18,10 +18,16 @@ class Fission extends Backend
 
     public function index()
     {
+        $list = Db::name('fans_fission_activity')->order('id', 'desc')->limit(50)->select();
+        if ($list instanceof \think\Collection || $list instanceof \think\model\Collection) {
+            $list = $list->toArray();
+        } elseif (!is_array($list)) {
+            $list = [];
+        }
         if ($this->request->isAjax() || $this->request->get('ajax')) {
-            $list = Db::name('fans_fission_activity')->order('id', 'desc')->limit(50)->select();
             return json(['total' => count($list), 'rows' => $list]);
         }
+        $this->view->assign('rows', $list);
         return $this->view->fetch();
     }
 
