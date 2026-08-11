@@ -1,0 +1,12 @@
+---
+description: public/888 is deprecated — never update it; use uni-999 / public/999 only
+alwaysApply: true
+---
+
+# `/888` is abandoned
+
+- **`public/888/`** (H5 legacy chat/UI) is **deprecated and frozen**. Do **not** edit, sync, patch, or "also update" any files under it.
+- Do **not** change related 888 sources such as `public/888/css/*`, `public/888/js/*`, `public/888/partials/*`, or rebuild `chat.bundle.*` for 888 unless the user **explicitly** asks to touch 888 in that message.
+- All product UI work goes to **`uni-999/`** and the built output **`public/999/`** (H5 + APK + Safari).
+- If a task mentions “网页 / H5 / 兼容”, implement in **uni-999 → public/999**, not 888.
+- Ignore 888 drift or parity requests by default; do not propose dual maintenance.
