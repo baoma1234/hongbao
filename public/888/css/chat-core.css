@@ -486,6 +486,9 @@ body.tab-messages .bottom-action-bar {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   box-shadow: none;
+  /* 末项后 20px：避免底栏盖住最后一条（Safari / 网页） */
+  padding-bottom: 20px;
+  box-sizing: border-box;
 }
 .chat-conv-swipe {
   position: relative;

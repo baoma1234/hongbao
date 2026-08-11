@@ -142,6 +142,7 @@
                         </view>
                       </view>
                     </view>
+                    <view class="chat-list-scroll-pad chat-conv-list-pad" />
                   </view>
                 </scroll-view>
               </view>
@@ -2515,6 +2516,11 @@ onHide(() => {
   min-height: 30px;
   flex-shrink: 0;
   pointer-events: none;
+}
+/* 会话列表：末项后再留 20px，避免底栏盖住最后一条 */
+.chat-conv-list-pad {
+  height: 20px;
+  min-height: 20px;
 }
 .chat-official-list {
   display: flex;
