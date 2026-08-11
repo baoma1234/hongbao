@@ -301,22 +301,52 @@ class RedPacketSettlementService
                     $remarkIn = '红宝接龙赔付入账';
                 }
 
-                $out = $this->wallet->change($payerId, -$compensateAmount, $payType, $remarkPay, $bizMeta);
-                $ledgerOutId = (int)($out['ledger_id'] ?? 0);
-                $this->wallet->change($fromUserId, $compensateAmount, 'red_packet_compensate_in', $remarkIn, $bizMeta);
+                try {
+                    $out = $this->wallet->change($payerId, -$compensateAmount, $payType, $remarkPay, $bizMeta);
+                    $ledgerOutId = (int)($out['ledger_id'] ?? 0);
+                    $this->wallet->change($fromUserId, $compensateAmount, 'red_packet_compensate_in', $remarkIn, $bizMeta);
 
-                Db::exec(
-                    'UPDATE ' . Db::table('chat_red_packet_records')
-                    . ' SET compensate_status=2, compensate_ledger_id=? WHERE id=?',
-                    [$ledgerOutId, $recordId]
-                );
-                $this->insertSettlement(
-                    $packetId, $packetNo, 'compensate', $payerId, $fromUserId,
-                    $compensateAmount, $ledgerOutId, 1, $remarkPay
-                );
-                $compensateUsers[] = $payerId;
-                $compensateTotal = round($compensateTotal + $compensateAmount, 2);
-                error_log('[RP_SETTLE] compensate ok packet_id=' . $packetId . ' payer=' . $payerId . ' amount=' . $compensateAmount . ' reason=' . $reason);
+                    Db::exec(
+                        'UPDATE ' . Db::table('chat_red_packet_records')
+                        . ' SET compensate_status=2, compensate_ledger_id=? WHERE id=?',
+                        [$ledgerOutId, $recordId]
+                    );
+                    $this->insertSettlement(
+                        $packetId, $packetNo, 'compensate', $payerId, $fromUserId,
+                        $compensateAmount, $ledgerOutId, 1, $remarkPay
+                    );
+                    $compensateUsers[] = $payerId;
+                    $compensateTotal = round($compensateTotal + $compensateAmount, 2);
+                    error_log('[RP_SETTLE] compensate ok packet_id=' . $packetId . ' payer=' . $payerId . ' amount=' . $compensateAmount . ' reason=' . $reason);
+                } catch (\Throwable $ePay) {
+                    // 余额不足等：记欠款，禁止整单回滚导致全员冻结回滚卡住
+                    error_log(sprintf(
+                        '[RP_SETTLE][ALERT] compensate debt packet=%d payer=%d amt=%.2f reason=%s err=%s',
+                        $packetId,
+                        $payerId,
+                        $compensateAmount,
+                        $reason,
+                        $ePay->getMessage()
+                    ));
+                    Db::exec(
+                        'UPDATE ' . Db::table('chat_red_packet_records')
+                        . ' SET need_compensate=1, compensate_amount=?, compensate_status=1 WHERE id=? AND compensate_status<>2',
+                        [sprintf('%.2f', $compensateAmount), $recordId]
+                    );
+                    $this->insertSettlement(
+                        $packetId,
+                        $packetNo,
+                        'settle_compensate_debt',
+                        $payerId,
+                        $fromUserId,
+                        $compensateAmount,
+                        0,
+                        0,
+                        $remarkPay . '(欠款待收)'
+                    );
+                    $compensateUsers[] = $payerId;
+                    $compensateTotal = round($compensateTotal + $compensateAmount, 2);
+                }
             }
 
             // ---------- 3) 平台抽水：发时已扣则不再扣发包人；仍补结算流水 ----------

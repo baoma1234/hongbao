@@ -1036,6 +1036,35 @@ class NiuniuService
             return false;
         }
 
+        $lockKey = RedisClient::key('nn:' . $roundId . ':settle_lock');
+        $gotLock = false;
+        try {
+            $r = RedisClient::conn();
+            if (!$r->setnx($lockKey, (string)time())) {
+                return false;
+            }
+            $r->expire($lockKey, 90);
+            $gotLock = true;
+        } catch (\Throwable $e) {
+            // Redis 失败时仍靠 status CAS
+        }
+
+        try {
+            return $this->settleLocked($roundId, $round);
+        } finally {
+            if ($gotLock) {
+                try {
+                    RedisClient::conn()->del($lockKey);
+                } catch (\Throwable $e) {
+                }
+            }
+        }
+    }
+
+    /** @param array $round */
+    protected function settleLocked($roundId, array $round)
+    {
+        $roundId = (int)$roundId;
         // 领取期结束：未领的统一自动领取（真人/机器人），再结算开奖
         $this->autoClaimAllUnclaimed($roundId);
 
@@ -1130,7 +1159,7 @@ class NiuniuService
             foreach ($low as $s) {
                 Db::exec(
                     'UPDATE ' . Db::table('chat_niuniu_shares')
-                    . ' SET win_amount=0, paid=1, updatetime=? WHERE id=?',
+                    . ' SET win_amount=0, paid=1, updatetime=? WHERE id=? AND IFNULL(paid,0)=0',
                     [$now, (int)$s['id']]
                 );
             }
@@ -1180,18 +1209,21 @@ class NiuniuService
             foreach ($shares as $s) {
                 $uid = (int)$s['user_id'];
                 $sid = (int)$s['id'];
-                if ($per > 0) {
+                $claimed = Db::exec(
+                    'UPDATE ' . Db::table('chat_niuniu_shares')
+                    . ' SET win_amount=?, paid=1, updatetime=? WHERE id=? AND IFNULL(paid,0)=0',
+                    [sprintf('%.4f', $per), $now, $sid]
+                );
+                if ((int)$claimed <= 0) {
+                    continue;
+                }
+                if ($per > 0 && $uid > 0) {
                     $this->wallet->change($uid, $per, 'niuniu_refund', '尾数牛牛流局退回 #' . $roundId, [
                         'biz_no'   => 'niuniu_refund_' . $sid,
                         'ref_type' => 'niuniu_share',
                         'ref_id'   => $sid,
                     ]);
                 }
-                Db::exec(
-                    'UPDATE ' . Db::table('chat_niuniu_shares')
-                    . ' SET win_amount=?, paid=1, updatetime=? WHERE id=?',
-                    [sprintf('%.4f', $per), $now, $sid]
-                );
             }
             Db::commit();
         } catch (\Throwable $e) {
@@ -1210,15 +1242,18 @@ class NiuniuService
         $amount = round((float)$amount, 4);
         $sid = (int)$share['id'];
         $uid = (int)$share['user_id'];
-        Db::exec(
+        $claimed = Db::exec(
             'UPDATE ' . Db::table('chat_niuniu_shares')
-            . ' SET win_amount=?, paid=1, updatetime=? WHERE id=?',
+            . ' SET win_amount=?, paid=1, updatetime=? WHERE id=? AND IFNULL(paid,0)=0',
             [sprintf('%.4f', $amount), $now, $sid]
         );
+        if ((int)$claimed <= 0) {
+            return;
+        }
         if ($amount > 0) {
             // 入账按分取两位
             $credit = round($amount, 2);
-            if ($credit > 0) {
+            if ($credit > 0 && $uid > 0) {
                 $this->wallet->change($uid, $credit, 'niuniu_win', '尾数牛牛奖金 #' . $roundId, [
                     'biz_no'   => 'niuniu_win_' . $sid,
                     'ref_type' => 'niuniu_share',

@@ -2460,7 +2460,7 @@ class RedPacketService
     }
 
     /**
-     * 收回拼手气过期欠款（status=0 的 expire_clawback_debt）。
+     * 收回红包欠款：过期 clawback / 扫雷过期中雷 / 结算赔付失败。
      * @return int 成功笔数
      */
     public function collectExpireClawbackDebts($limit = 30)
@@ -2468,7 +2468,8 @@ class RedPacketService
         $limit = max(1, min(100, (int)$limit));
         $rows = Db::fetchAll(
             'SELECT * FROM ' . Db::table('chat_red_packet_settlements')
-            . " WHERE settle_type='expire_clawback_debt' AND status=0 AND amount>0"
+            . " WHERE settle_type IN ('expire_clawback_debt','expire_mine_debt','settle_compensate_debt')"
+            . ' AND status=0 AND amount>0'
             . ' ORDER BY id ASC LIMIT ' . $limit
         );
         $done = 0;
@@ -2479,8 +2480,19 @@ class RedPacketService
             $need = round((float)$row['amount'], 2);
             $packetId = (int)$row['packet_id'];
             $packetNo = (string)$row['packet_no'];
+            $stype = (string)($row['settle_type'] ?? '');
             if ($id <= 0 || $uid <= 0 || $need <= 0.00001) {
                 continue;
+            }
+            $isCompensate = ($stype === 'expire_mine_debt' || $stype === 'settle_compensate_debt');
+            $debitType = $isCompensate ? 'red_packet_mine_pay' : 'red_packet_expire_clawback';
+            $creditType = $isCompensate ? 'red_packet_compensate_in' : 'red_packet_refund';
+            $debitRemark = $isCompensate ? '红宝赔付欠款收回' : '未领完此包作废收回金额';
+            $creditRemark = $isCompensate ? '红宝赔付欠款入账' : '未领完此包作废收回金额';
+            if ($stype === 'settle_compensate_debt') {
+                $debitType = 'red_packet_worst_pay';
+                $debitRemark = '红宝结算赔付欠款收回';
+                $creditRemark = '红宝结算赔付欠款入账';
             }
             try {
                 Db::begin();
@@ -2503,16 +2515,16 @@ class RedPacketService
                 $out = $this->wallet->change(
                     $uid,
                     -$take,
-                    'red_packet_expire_clawback',
-                    '未领完此包作废收回金额',
+                    $debitType,
+                    $debitRemark,
                     $bizMeta
                 );
                 if ($toUid > 0) {
                     $this->wallet->change(
                         $toUid,
                         $take,
-                        'red_packet_refund',
-                        '未领完此包作废收回金额',
+                        $creditType,
+                        $creditRemark,
                         $bizMeta
                     );
                 }
@@ -2524,17 +2536,30 @@ class RedPacketService
                         [
                             sprintf('%.2f', $take),
                             (int)($out['ledger_id'] ?? 0),
-                            '未领完此包作废收回金额',
+                            $debitRemark,
                             $id,
                         ]
                     );
+                    if ($isCompensate) {
+                        // 对应领取记录标已付
+                        try {
+                            Db::exec(
+                                'UPDATE ' . Db::table('chat_red_packet_records')
+                                . ' SET compensate_status=2, compensate_ledger_id=?'
+                                . ' WHERE packet_id=? AND user_id=? AND compensate_status=1'
+                                . ' LIMIT 1',
+                                [(int)($out['ledger_id'] ?? 0), $packetId, $uid]
+                            );
+                        } catch (\Throwable $eRec) {
+                        }
+                    }
                 } else {
                     Db::exec(
                         'UPDATE ' . Db::table('chat_red_packet_settlements')
                         . ' SET amount=?, remark=? WHERE id=?',
                         [
                             sprintf('%.2f', $left),
-                            '未领完此包作废收回金额(已收 ' . sprintf('%.2f', $take) . ')',
+                            $debitRemark . '(已收 ' . sprintf('%.2f', $take) . ')',
                             $id,
                         ]
                     );
@@ -2545,13 +2570,13 @@ class RedPacketService
                         [
                             $packetId,
                             $packetNo,
-                            'expire_clawback',
+                            $isCompensate ? 'compensate' : 'expire_clawback',
                             $uid,
                             $toUid,
                             sprintf('%.2f', $take),
                             (int)($out['ledger_id'] ?? 0),
                             1,
-                            '未领完此包作废收回金额',
+                            $debitRemark,
                             time(),
                         ]
                     );
@@ -2559,8 +2584,9 @@ class RedPacketService
                 Db::commit();
                 $done++;
                 error_log(sprintf(
-                    '[RP_EXPIRE] debt collect ok settle_id=%d uid=%d take=%.2f left=%.2f',
+                    '[RP_DEBT] collect ok settle_id=%d type=%s uid=%d take=%.2f left=%.2f',
                     $id,
+                    $stype,
                     $uid,
                     $take,
                     max(0, $left)
@@ -2570,7 +2596,7 @@ class RedPacketService
                     Db::rollBack();
                 } catch (\Throwable $e2) {
                 }
-                error_log('[RP_EXPIRE][ALERT] debt collect fail id=' . $id . ' ' . $e->getMessage());
+                error_log('[RP_DEBT][ALERT] collect fail id=' . $id . ' ' . $e->getMessage());
             }
         }
         return $done;
