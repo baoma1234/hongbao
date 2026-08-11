@@ -542,6 +542,7 @@
                     <view class="chat-commission-row-amt" :class="{ 'is-out': isAmtOut(row) }">{{ formatCommissionAmt(row) }}</view>
                   </view>
                   <view v-if="!commissionRows.length" class="chat-empty chat-empty-glass">{{ commissionEmptyText }}</view>
+                  <view class="chat-list-scroll-pad" />
                 </view>
               </view>
               </scroll-view>

@@ -421,6 +421,9 @@
 .chat-commission-list {
   display: flex;
   flex-direction: column;
+  /* 末项后可滚 30px：APK / Safari / 网页 */
+  padding-bottom: 30px;
+  box-sizing: border-box;
 }
 
 .chat-commission-row {
