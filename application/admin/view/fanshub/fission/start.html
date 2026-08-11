@@ -42,11 +42,16 @@
     </div>
 </div>
 <script>
-$('#start-form').on('submit', function (e) {
-    e.preventDefault();
-    Fast.api.ajax({url: 'fission/start', data: $(this).serialize()}, function () {
-        Fast.api.close();
-        return false;
+require(['jquery', 'backend'], function ($, Backend) {
+    $('#start-form').on('submit', function (e) {
+        e.preventDefault();
+        Fast.api.ajax({
+            url: Fast.api.fixurl('fanshub/fission/start'),
+            data: $(this).serialize()
+        }, function () {
+            Fast.api.close();
+            return false;
+        });
     });
 });
 </script>

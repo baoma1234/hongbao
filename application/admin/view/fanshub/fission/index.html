@@ -27,44 +27,67 @@
     </div>
 </div>
 <script>
-(function () {
+require(['jquery', 'backend'], function ($, Backend) {
     var statusMap = {0: '草稿', 1: '进行中', 2: '开奖成功', 3: '超时作废'};
+    var indexUrl = Fast.api.fixurl('fanshub/fission/index');
+    var startUrl = Fast.api.fixurl('fanshub/fission/start');
+    var maintainUrl = Fast.api.fixurl('fanshub/fission/maintain');
+
     function fmt(ts) {
         if (!ts) return '-';
         var d = new Date(ts * 1000);
         return d.toLocaleString();
     }
+
+    function render(rows) {
+        var html = '';
+        if (!rows || !rows.length) {
+            html = '<tr><td colspan="7">暂无活动</td></tr>';
+        } else {
+            rows.forEach(function (r) {
+                html += '<tr>'
+                    + '<td>' + r.id + '</td>'
+                    + '<td>' + (r.title || '') + '</td>'
+                    + '<td>¥' + r.pool_amount + '</td>'
+                    + '<td>' + r.global_quals + ' / ' + r.global_cap + '</td>'
+                    + '<td>' + r.user_cap + '</td>'
+                    + '<td>' + (statusMap[r.status] || r.status) + '</td>'
+                    + '<td>' + fmt(r.start_time) + ' ~ ' + fmt(r.end_time) + '</td>'
+                    + '</tr>';
+            });
+        }
+        $('#fission-rows').html(html);
+    }
+
     function load() {
-        $.getJSON('fission/index', function (res) {
-            var rows = (res && res.rows) ? res.rows : [];
-            var html = '';
-            if (!rows.length) {
-                html = '<tr><td colspan="7">暂无活动</td></tr>';
-            } else {
-                rows.forEach(function (r) {
-                    html += '<tr>'
-                        + '<td>' + r.id + '</td>'
-                        + '<td>' + (r.title || '') + '</td>'
-                        + '<td>¥' + r.pool_amount + '</td>'
-                        + '<td>' + r.global_quals + ' / ' + r.global_cap + '</td>'
-                        + '<td>' + r.user_cap + '</td>'
-                        + '<td>' + (statusMap[r.status] || r.status) + '</td>'
-                        + '<td>' + fmt(r.start_time) + ' ~ ' + fmt(r.end_time) + '</td>'
-                        + '</tr>';
-                });
+        $.ajax({
+            url: indexUrl,
+            dataType: 'json',
+            data: {ajax: 1},
+            success: function (res) {
+                render((res && res.rows) ? res.rows : []);
+            },
+            error: function () {
+                $('#fission-rows').html('<tr><td colspan="7">加载失败，请刷新重试</td></tr>');
             }
-            $('#fission-rows').html(html);
         });
     }
+
     $('.btn-start').on('click', function () {
         Layer.confirm('按默认配置开启新一轮？（1000元 / 100份 / 72h / 单人5）', function (idx) {
             Layer.close(idx);
-            Fast.api.ajax({url: 'fission/start', data: {}}, function () { load(); return false; });
+            Fast.api.ajax({url: startUrl, data: {}}, function () {
+                load();
+                return false;
+            });
         });
     });
     $('.btn-maintain').on('click', function () {
-        Fast.api.ajax({url: 'fission/maintain'}, function () { load(); return false; });
+        Fast.api.ajax({url: maintainUrl}, function () {
+            load();
+            return false;
+        });
     });
     load();
-})();
+});
 </script>
