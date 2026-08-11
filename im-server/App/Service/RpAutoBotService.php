@@ -185,9 +185,9 @@ class RpAutoBotService
             ]);
             return ['sent' => false, 'packet_id' => 0];
         }
-        $openCnt = $this->countOpenPackets($groupId);
+        $openCnt = $this->countBusyPackets($groupId);
         if ($openCnt > 0) {
-            $this->taskLogThrottled($taskId, 'open', 'skip', 'group has open packets', [
+            $this->taskLogThrottled($taskId, 'open', 'skip', 'group has open/settling packets', [
                 'group_id' => $groupId,
                 'open'     => $openCnt,
             ], 30);
@@ -779,6 +779,7 @@ class RpAutoBotService
 
     /**
      * 每个待领包：从未领过且红宝够赔付/冻结的 grab_user_ids 里随机选 1 个去抢。
+     * 批量查已领 UID + 批量验资，减少 N+1。
      */
     protected function pickGrabPair(array $packetIds, array $uids)
     {
@@ -799,25 +800,29 @@ class RpAutoBotService
             if (!$packet || (int)($packet['status'] ?? 0) !== 1 || (int)($packet['remain_count'] ?? 0) <= 0) {
                 continue;
             }
-            $candidates = [];
-            foreach ($uids as $uid) {
-                if ($uid <= 0) {
-                    continue;
-                }
-                $exists = Db::fetch(
-                    'SELECT id FROM ' . Db::table('chat_red_packet_records')
-                    . ' WHERE packet_id=? AND user_id=? LIMIT 1',
-                    [$packetId, $uid]
+            $grabbed = [];
+            try {
+                $rows = Db::fetchAll(
+                    'SELECT user_id FROM ' . Db::table('chat_red_packet_records')
+                    . ' WHERE packet_id=? AND user_id IN (' . implode(',', $uids) . ')',
+                    [$packetId]
                 );
-                if ($exists) {
-                    continue;
+                foreach ($rows ?: [] as $r) {
+                    $grabbed[(int)$r['user_id']] = 1;
                 }
-                // 与真人同一套：余额不够潜在赔付则不选该 UID
-                if (!$this->redPackets->canAffordGrabCompensate($uid, $packet)) {
-                    continue;
-                }
-                $candidates[] = $uid;
+            } catch (\Throwable $e) {
+                $grabbed = [];
             }
+            $pool = [];
+            foreach ($uids as $uid) {
+                if ($uid > 0 && empty($grabbed[$uid])) {
+                    $pool[] = $uid;
+                }
+            }
+            if (!$pool) {
+                continue;
+            }
+            $candidates = $this->redPackets->filterUidsCanAffordGrab($pool, $packet);
             if (!$candidates) {
                 continue;
             }
@@ -827,6 +832,7 @@ class RpAutoBotService
         return null;
     }
 
+    /** 群内待领包数量（仅 status=1） */
     protected function countOpenPackets($groupId)
     {
         $row = Db::fetch(
@@ -838,9 +844,24 @@ class RpAutoBotService
     }
 
     /**
+     * 群内「进行中」红包：待领(status=1) 或 待结算(status=2)。
+     * 拼手气/埋雷/接龙抢完瞬间 status=2 时禁止自动任务再发，避免插队叠包。
+     */
+    protected function countBusyPackets($groupId)
+    {
+        $row = Db::fetch(
+            'SELECT COUNT(*) AS c FROM ' . Db::table('chat_red_packets')
+            . ' WHERE group_id=? AND scope_type=2 AND packet_type IN (2,3,5)'
+            . ' AND (status=2 OR (status=1 AND remain_count>0))',
+            [(int)$groupId]
+        );
+        return (int)($row['c'] ?? 0);
+    }
+
+    /**
      * 群内接龙是否仍占用「续发权」（禁止自动任务插队发包）。
-     * - status=2：已抢完待结算（最差尚未标出，旧逻辑漏判导致机器人抢先发下一包）
-     * - status=5 + 最差 compensate_status=1：已结算、等最少者续发
+     * - status=2：已抢完待结算
+     * - status=5 + 最差 compensate_status IN (1,3)：待续发 / 续发进行中
      */
     protected function hasPendingRelay($groupId)
     {
@@ -849,21 +870,15 @@ class RpAutoBotService
             return false;
         }
         try {
-            $settling = Db::fetch(
-                'SELECT id FROM ' . Db::table('chat_red_packets')
-                . ' WHERE group_id=? AND scope_type=2 AND packet_type=5 AND status=2'
-                . ' LIMIT 1',
-                [$groupId]
-            );
-            if ($settling) {
-                return true;
-            }
             $row = Db::fetch(
-                'SELECT r.id FROM ' . Db::table('chat_red_packets') . ' p'
-                . ' INNER JOIN ' . Db::table('chat_red_packet_records') . ' r'
+                'SELECT p.id FROM ' . Db::table('chat_red_packets') . ' p'
+                . ' LEFT JOIN ' . Db::table('chat_red_packet_records') . ' r'
                 . ' ON r.packet_id=p.id AND r.is_worst=1'
-                . ' WHERE p.group_id=? AND p.scope_type=2 AND p.packet_type=5 AND p.status=5'
-                . ' AND r.compensate_status=1'
+                . ' WHERE p.group_id=? AND p.scope_type=2 AND p.packet_type=5'
+                . ' AND ('
+                . '   p.status=2'
+                . '   OR (p.status=5 AND r.compensate_status IN (1,3))'
+                . ' )'
                 . ' ORDER BY p.id DESC LIMIT 1',
                 [$groupId]
             );

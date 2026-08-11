@@ -77,6 +77,7 @@ class RedPacketSettlementService
             if (in_array((int)$packet['status'], [3, 4, 5], true)) {
                 Db::rollBack();
                 error_log('[RP_SETTLE] already closed packet_id=' . $packetId . ' status=' . $packet['status']);
+                $this->releaseLock($lockKey, $gotLock);
                 return $result;
             }
             if ((int)$packet['remain_count'] > 0) {

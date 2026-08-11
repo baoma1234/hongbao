@@ -48,6 +48,57 @@ class WalletService
         return $this->cfg['field'];
     }
 
+    public function accountTable()
+    {
+        return (string)$this->cfg['account_table'];
+    }
+
+    /** 批量读可用余额（一次 IN 查询） */
+    public function getBalances(array $userIds, $fresh = false)
+    {
+        $userIds = array_values(array_unique(array_filter(array_map('intval', $userIds))));
+        $out = [];
+        if (!$userIds) {
+            return $out;
+        }
+        $miss = [];
+        if (!$fresh) {
+            foreach ($userIds as $uid) {
+                $cached = $this->cacheGet($uid);
+                if ($cached !== null) {
+                    $out[$uid] = $cached;
+                } else {
+                    $miss[] = $uid;
+                }
+            }
+        } else {
+            $miss = $userIds;
+        }
+        if ($miss) {
+            $field = $this->cfg['field'];
+            $in = implode(',', $miss);
+            $rows = Db::fetchAll(
+                "SELECT user_id, `{$field}` AS bal FROM " . Db::table($this->cfg['account_table'])
+                . " WHERE user_id IN ({$in})"
+            );
+            foreach ($rows ?: [] as $row) {
+                $uid = (int)($row['user_id'] ?? 0);
+                $bal = round((float)($row['bal'] ?? 0), 2);
+                if ($uid <= 0) {
+                    continue;
+                }
+                $out[$uid] = $bal;
+                $this->cachePut($uid, $bal);
+            }
+            foreach ($miss as $uid) {
+                if (!array_key_exists($uid, $out)) {
+                    $out[$uid] = 0.0;
+                }
+            }
+        }
+        return $out;
+    }
+
     /**
      * 可用红宝（不含冻结）。@param bool $fresh true=强制回库（验资不足时防误拒）
      */

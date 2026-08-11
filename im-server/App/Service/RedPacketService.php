@@ -617,6 +617,51 @@ class RedPacketService
     }
 
     /**
+     * 批量领前验资（自动抢包预筛加速：一次查余额，避免 N 次往返）
+     * @param int[] $userIds
+     * @return int[] 够赔付的 UID
+     */
+    public function filterUidsCanAffordGrab(array $userIds, array $packet)
+    {
+        $userIds = array_values(array_unique(array_filter(array_map('intval', $userIds))));
+        if (!$userIds) {
+            return [];
+        }
+        $need = $this->potentialCompensateNeed($packet);
+        if ($need <= 0.00001) {
+            return $userIds;
+        }
+        $packetType = (int)($packet['packet_type'] ?? 0);
+        $minGate = 0.0;
+        if ($packetType === 3) {
+            $minGate = round((float)($this->cfg['min_amount'] ?? 10), 2);
+            if ((int)($packet['scope_type'] ?? 0) === 2 && (int)($packet['group_id'] ?? 0) > 0) {
+                try {
+                    $g = $this->groups->get((int)$packet['group_id']);
+                    $gMin = round((float)($g['rp_min_amount'] ?? 0), 2);
+                    if ($gMin > 0) {
+                        $minGate = $gMin;
+                    }
+                } catch (\Throwable $e) {
+                }
+            }
+        }
+        $balances = $this->wallet->getBalances($userIds, false);
+        $ok = [];
+        foreach ($userIds as $uid) {
+            $bal = round((float)($balances[$uid] ?? 0), 2);
+            if ($packetType === 3 && $minGate > 0 && $bal <= $minGate + 0.00001) {
+                continue;
+            }
+            if ($bal + 0.00001 < $need) {
+                continue;
+            }
+            $ok[] = $uid;
+        }
+        return $ok;
+    }
+
+    /**
      * 扫雷中雷赔付倍率：5→1.5 / 7→1.2 / 9→1.0（后台可配）
      */
     public function mineCompensateMultiplier($totalCount)
@@ -1068,6 +1113,18 @@ class RedPacketService
         } catch (\Throwable $e) {
             Db::rollBack();
             throw $e;
+        }
+        // 关闭后必须释放领取人潜在赔付冻结，否则 hongbao_frozen 永久卡死（拼手气/接龙）
+        try {
+            $this->releasePacketFreezes($packetId, (string)($packet['packet_no'] ?? ''));
+        } catch (\Throwable $eRel) {
+            error_log('[RP_ADMIN] release freezes fail packet=' . $packetId . ' ' . $eRel->getMessage());
+        }
+        if ((int)($packet['packet_type'] ?? 0) === 5) {
+            try {
+                $this->abandonRelayRetry($packetId, 'admin_close');
+            } catch (\Throwable $eAb) {
+            }
         }
         try {
             $r = RedisClient::conn();
@@ -1815,10 +1872,41 @@ class RedPacketService
             return null;
         }
 
+        // 原子认领：1→3 进行中，防止结算 Timer 与 cron 双发下一包
+        $claimed = 0;
+        try {
+            $claimed = (int)Db::exec(
+                'UPDATE ' . Db::table('chat_red_packet_records')
+                . ' SET compensate_status=3'
+                . ' WHERE packet_id=? AND is_worst=1 AND compensate_status=1',
+                [$packetId]
+            );
+        } catch (\Throwable $eClaim) {
+            $claimed = 0;
+        }
+        if ($claimed <= 0) {
+            // 已在发 / 已完成 / 无最差行
+            return null;
+        }
+        try {
+            $rLock = RedisClient::conn();
+            $nxKey = RedisClient::key('rp:relay_send:' . $packetId);
+            if (!$rLock->setnx($nxKey, (string)time())) {
+                // 另一进程已占用：交还认领
+                $this->releaseRelayClaim($packetId);
+                return null;
+            }
+            $rLock->expire($nxKey, 90);
+        } catch (\Throwable $eNx) {
+            // Redis 失败时仍依赖 compensate_status=3
+        }
+
         // 先占住「待续发」，避免自动任务在延迟窗口插队发包
         $this->markRelayRetry($packetId, 'scheduled');
 
         $doSend = function () use ($groupId, $senderUid, $amount, $count, $packet, $packetId) {
+            $unfrozeAmt = 0.0;
+            $worstRecId = 0;
             try {
                 $newerOpen = Db::fetch(
                     'SELECT id FROM ' . Db::table('chat_red_packets')
@@ -1837,6 +1925,7 @@ class RedPacketService
                 );
                 if ((int)($open['c'] ?? 0) > 0) {
                     error_log('[RP_RELAY] defer: open packets remain group=' . $groupId . ' from_packet=' . $packetId);
+                    $this->releaseRelayClaim($packetId);
                     $this->markRelayRetry($packetId, 'open_packets');
                     return null;
                 }
@@ -1849,6 +1938,7 @@ class RedPacketService
                     . ' WHERE packet_id=? AND is_worst=1 LIMIT 1',
                     [$packetId]
                 );
+                $worstRecId = (int)($worstRec['id'] ?? 0);
                 if ($worstRec && (int)($worstRec['freeze_status'] ?? 0) === 1) {
                     $uf = round((float)($worstRec['frozen_amount'] ?? 0), 2);
                     if ($uf > 0.00001) {
@@ -1859,12 +1949,15 @@ class RedPacketService
                             '红宝接龙续发解冻',
                             ['biz_no' => (string)($packet['packet_no'] ?? ''), 'ref_type' => 'red_packet', 'ref_id' => $packetId]
                         );
+                        $unfrozeAmt = $uf;
                     }
-                    Db::exec(
-                        'UPDATE ' . Db::table('chat_red_packet_records')
-                        . ' SET freeze_status=2 WHERE id=?',
-                        [(int)$worstRec['id']]
-                    );
+                    if ($worstRecId > 0) {
+                        Db::exec(
+                            'UPDATE ' . Db::table('chat_red_packet_records')
+                            . ' SET freeze_status=2 WHERE id=?',
+                            [$worstRecId]
+                        );
+                    }
                 }
                 // 解冻后再验一次可用额（延迟窗口内可能被花掉）
                 $balNow = $this->wallet->getBalance($senderUid, true);
@@ -1876,6 +1969,8 @@ class RedPacketService
                         $senderUid,
                         $packetId
                     ));
+                    $this->reclaimRelayFreeze($senderUid, $unfrozeAmt, $worstRecId, $packet, $packetId);
+                    $this->releaseRelayClaim($packetId);
                     $this->markRelayRetry($packetId, 'balance_not_enough_after_unfreeze');
                     return null;
                 }
@@ -1895,12 +1990,17 @@ class RedPacketService
                 try {
                     Db::exec(
                         'UPDATE ' . Db::table('chat_red_packet_records')
-                        . ' SET compensate_status=2 WHERE packet_id=? AND is_worst=1 AND compensate_status=1',
+                        . ' SET compensate_status=2'
+                        . ' WHERE packet_id=? AND is_worst=1 AND compensate_status IN (1,3)',
                         [$packetId]
                     );
                 } catch (\Throwable $eMark) {
                 }
                 $this->clearRelayRetry($packetId);
+                try {
+                    RedisClient::conn()->del(RedisClient::key('rp:relay_send:' . $packetId));
+                } catch (\Throwable $eDel) {
+                }
                 $msg = $result['message'] ?? null;
                 if (is_array($msg)) {
                     try {
@@ -1930,13 +2030,18 @@ class RedPacketService
                 return is_array($msg) ? $msg : null;
             } catch (\Throwable $e) {
                 error_log('[RP_RELAY][ALERT] next round fail group=' . $groupId . ' packet=' . $packetId . ' err=' . $e->getMessage());
+                try {
+                    $this->reclaimRelayFreeze($senderUid, $unfrozeAmt, $worstRecId, $packet, $packetId);
+                } catch (\Throwable $eRf) {
+                }
+                $this->releaseRelayClaim($packetId);
                 $this->markRelayRetry($packetId, 'send_fail:' . $e->getMessage());
                 return null;
             }
         };
 
-        // 延迟 2～5 秒续发，更像真人节奏；失败由 cron 重试
-        $delay = 2.0 + (mt_rand(0, 3000) / 1000.0);
+        // 延迟 1～2.5 秒续发（提速）；失败由 cron 重试；认领防双发
+        $delay = 1.0 + (mt_rand(0, 1500) / 1000.0);
         try {
             Timer::add($delay, function () use ($doSend) {
                 $doSend();
@@ -1944,6 +2049,63 @@ class RedPacketService
             return ['scheduled' => true, 'delay' => $delay, 'sender_uid' => $senderUid];
         } catch (\Throwable $e) {
             return $doSend();
+        }
+    }
+
+    /** 交还接龙续发认领（3→1），并清 NX 锁，允许 cron 重试 */
+    protected function releaseRelayClaim($packetId)
+    {
+        $packetId = (int)$packetId;
+        if ($packetId <= 0) {
+            return;
+        }
+        try {
+            Db::exec(
+                'UPDATE ' . Db::table('chat_red_packet_records')
+                . ' SET compensate_status=1'
+                . ' WHERE packet_id=? AND is_worst=1 AND compensate_status=3',
+                [$packetId]
+            );
+        } catch (\Throwable $e) {
+        }
+        try {
+            RedisClient::conn()->del(RedisClient::key('rp:relay_send:' . $packetId));
+        } catch (\Throwable $e) {
+        }
+    }
+
+    /** 续发失败：把刚解冻的续发额重新冻回，避免保证金被花掉后断链 */
+    protected function reclaimRelayFreeze($userId, $amount, $recordId, array $packet, $packetId)
+    {
+        $userId = (int)$userId;
+        $amount = round((float)$amount, 2);
+        $recordId = (int)$recordId;
+        $packetId = (int)$packetId;
+        if ($userId <= 0 || $amount <= 0.00001) {
+            return;
+        }
+        try {
+            $this->wallet->freeze(
+                $userId,
+                $amount,
+                'red_packet_freeze',
+                '红宝接龙续发失败重冻',
+                [
+                    'biz_no'   => (string)($packet['packet_no'] ?? ''),
+                    'ref_type' => 'red_packet',
+                    'ref_id'   => $packetId,
+                ]
+            );
+            if ($recordId > 0) {
+                Db::exec(
+                    'UPDATE ' . Db::table('chat_red_packet_records')
+                    . ' SET freeze_status=1, frozen_amount=? WHERE id=?',
+                    [sprintf('%.2f', $amount), $recordId]
+                );
+            }
+        } catch (\Throwable $e) {
+            error_log('[RP_RELAY] reclaim freeze fail packet=' . $packetId
+                . ' uid=' . $userId . ' ' . $e->getMessage());
         }
     }
 
@@ -2007,6 +2169,7 @@ class RedPacketService
                 $uid = (int)($row['user_id'] ?? 0);
                 $amt = round((float)($row['frozen_amount'] ?? 0), 2);
                 $rid = (int)($row['id'] ?? 0);
+                $unfrozeOk = false;
                 if ($uid > 0 && $amt > 0.00001) {
                     try {
                         $this->wallet->unfreeze(
@@ -2020,12 +2183,16 @@ class RedPacketService
                                 'ref_id'   => $packetId,
                             ]
                         );
+                        $unfrozeOk = true;
                     } catch (\Throwable $eUf) {
                         error_log('[RP_RELAY] abandon unfreeze fail packet=' . $packetId
                             . ' uid=' . $uid . ' ' . $eUf->getMessage());
                     }
+                } else {
+                    $unfrozeOk = true; // 无冻结额可清标记
                 }
-                if ($rid > 0) {
+                // 解冻成功才标 freeze_status=2，失败保留以便重试/修复脚本扫到
+                if ($unfrozeOk && $rid > 0) {
                     Db::exec(
                         'UPDATE ' . Db::table('chat_red_packet_records')
                         . ' SET freeze_status=2 WHERE id=? AND freeze_status=1',
@@ -2036,16 +2203,37 @@ class RedPacketService
         } catch (\Throwable $e) {
             error_log('[RP_RELAY] abandon unfreeze scan fail packet=' . $packetId . ' ' . $e->getMessage());
         }
+        // 仍有未解冻记录则不标「续发完成」，避免 hongbao_frozen 与记录脱节
+        $stillFrozen = 0;
         try {
-            Db::exec(
-                'UPDATE ' . Db::table('chat_red_packet_records')
-                . ' SET need_compensate=0, compensate_status=2'
-                . ' WHERE packet_id=? AND is_worst=1 AND compensate_status IN (1,3)',
+            $sf = Db::fetch(
+                'SELECT COUNT(*) AS c FROM ' . Db::table('chat_red_packet_records')
+                . ' WHERE packet_id=? AND freeze_status=1 AND frozen_amount>0',
                 [$packetId]
             );
+            $stillFrozen = (int)($sf['c'] ?? 0);
         } catch (\Throwable $e) {
         }
-        $this->clearRelayRetry($packetId);
+        if ($stillFrozen <= 0) {
+            try {
+                Db::exec(
+                    'UPDATE ' . Db::table('chat_red_packet_records')
+                    . ' SET need_compensate=0, compensate_status=2'
+                    . ' WHERE packet_id=? AND is_worst=1 AND compensate_status IN (1,3)',
+                    [$packetId]
+                );
+            } catch (\Throwable $e) {
+            }
+            $this->clearRelayRetry($packetId);
+            try {
+                RedisClient::conn()->del(RedisClient::key('rp:relay_send:' . $packetId));
+            } catch (\Throwable $e) {
+            }
+        } else {
+            error_log('[RP_RELAY] abandon keep pending freezes packet_id=' . $packetId
+                . ' left=' . $stillFrozen . ' reason=' . $reason);
+            $this->markRelayRetry($packetId, 'abandon_unfreeze_fail');
+        }
         error_log('[RP_RELAY] abandon packet_id=' . $packetId . ' reason=' . $reason);
     }
 
@@ -2109,13 +2297,13 @@ class RedPacketService
         } catch (\Throwable $e) {
             $ids = [];
         }
-        // 库内兜底：不限群 —— 所有已结算接龙、最差仍待续发
+        // 库内兜底：待续发(1) + 卡死的进行中(3，NX/进程挂了)
         $rows = Db::fetchAll(
-            'SELECT p.id FROM ' . Db::table('chat_red_packets') . ' p'
+            'SELECT p.id, r.compensate_status AS cs FROM ' . Db::table('chat_red_packets') . ' p'
             . ' INNER JOIN ' . Db::table('chat_red_packet_records') . ' r ON r.packet_id=p.id AND r.is_worst=1'
             . ' WHERE p.packet_type=5 AND p.scope_type=2 AND p.status=5'
-            . ' AND r.compensate_status=1'
-            . ' ORDER BY p.id ASC LIMIT ' . $limit
+            . ' AND r.compensate_status IN (1,3)'
+            . ' ORDER BY p.id ASC LIMIT ' . ($limit * 2)
         );
         foreach ($rows ?: [] as $row) {
             $ids[] = (string)(int)$row['id'];
@@ -2132,16 +2320,27 @@ class RedPacketService
                     $this->clearRelayRetry($packetId);
                     continue;
                 }
-                // 仅 compensate_status=1（待续发）可重试；0/2/3 等均清队列，避免超时后僵尸包复活
                 $worst = Db::fetch(
                     'SELECT id, compensate_status FROM ' . Db::table('chat_red_packet_records')
                     . ' WHERE packet_id=? AND is_worst=1 LIMIT 1',
                     [$packetId]
                 );
                 $cs = (int)($worst['compensate_status'] ?? 0);
-                if (!$worst || $cs !== 1) {
+                if (!$worst || !in_array($cs, [1, 3], true)) {
                     $this->clearRelayRetry($packetId);
                     continue;
+                }
+                // 进行中(3)：NX 锁仍在则跳过；锁过期则交还认领再发
+                if ($cs === 3) {
+                    $nxAlive = false;
+                    try {
+                        $nxAlive = (bool)RedisClient::conn()->exists(RedisClient::key('rp:relay_send:' . $packetId));
+                    } catch (\Throwable $eNx) {
+                    }
+                    if ($nxAlive) {
+                        continue;
+                    }
+                    $this->releaseRelayClaim($packetId);
                 }
                 $ret = $this->trySendRobotNextRound($full);
                 if ($ret !== null && empty($ret['scheduled'])) {
