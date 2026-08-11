@@ -1066,10 +1066,26 @@
     var box = document.getElementById('profileLedgerFilters');
     if (!box) return;
     var cat = ledgerState.category || 'all';
+    var moreCats = { hongbao_in: 1, hongbao_niuniu: 1, refund: 1, rebate: 1 };
+    var moreRow = document.getElementById('profileLedgerFiltersMore');
+    var moreBtn = document.getElementById('profileLedgerMoreToggle');
+    if (moreCats[cat] && moreRow) {
+      moreRow.hidden = false;
+      if (moreBtn) {
+        moreBtn.setAttribute('aria-expanded', 'true');
+        moreBtn.textContent = '收起';
+        moreBtn.classList.add('is-on');
+      }
+    }
     Array.prototype.forEach.call(box.querySelectorAll('[data-ledger-cat]'), function (btn) {
       var on = String(btn.getAttribute('data-ledger-cat') || '') === cat;
       btn.classList.toggle('is-on', on);
     });
+    if (moreBtn && !moreCats[cat] && moreRow && moreRow.hidden) {
+      moreBtn.classList.remove('is-on');
+    } else if (moreBtn && moreRow && !moreRow.hidden) {
+      moreBtn.classList.add('is-on');
+    }
   }
 
   function bindLedgerFilters() {
@@ -1077,6 +1093,17 @@
     if (!box || box._bound) return;
     box._bound = true;
     box.addEventListener('click', function (ev) {
+      var moreBtn = ev.target && ev.target.closest ? ev.target.closest('#profileLedgerMoreToggle') : null;
+      if (moreBtn) {
+        var moreRow = document.getElementById('profileLedgerFiltersMore');
+        if (!moreRow) return;
+        var open = !!moreRow.hidden;
+        moreRow.hidden = !open;
+        moreBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        moreBtn.textContent = open ? '收起' : '更多';
+        moreBtn.classList.toggle('is-on', open);
+        return;
+      }
       var btn = ev.target && ev.target.closest ? ev.target.closest('[data-ledger-cat]') : null;
       if (!btn) return;
       var cat = String(btn.getAttribute('data-ledger-cat') || 'all');

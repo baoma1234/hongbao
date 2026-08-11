@@ -3,43 +3,48 @@
     <TopBar />
     <view class="profile-sub-hd">
       <text class="profile-back-btn" @click="goBack">‹</text>
-      <text class="profile-sub-title">牛牛明细</text>
+      <text class="profile-sub-title">领取明细</text>
       <text class="profile-sub-spacer" />
     </view>
-    <view class="profile-sub-body hb-sub">
-      <view v-if="loading" class="wallet-ledger-empty">加载中…</view>
+    <view class="profile-sub-body hb-sub nn-detail-main">
+      <view v-if="loading" class="nn-detail-empty">加载中…</view>
       <view v-else-if="error" class="wallet-warn" style="text-align:center">{{ error }}</view>
-      <view v-else-if="detail" class="rp-detail">
-        <view class="rp-detail-head">
-          <text class="rp-detail-bless">尾数牛牛 #{{ round.id }}</text>
-          <text class="rp-detail-meta">
-            {{ round.status_label || '' }} · {{ round.share_count || 0 }} 份 · 奖池 ￥{{ money(round.pool_amount) }}
-          </text>
-          <text v-if="createTime" class="rp-detail-time">开局 {{ createTime }}</text>
+      <template v-else-if="detail">
+        <view class="nn-detail-summary">
+          <text>奖池 {{ poolText }}</text>
+          <text class="nn-detail-verify" @click="openFair">本站验证 ›</text>
         </view>
-
-        <view class="rp-detail-list">
-          <view v-for="r in shares" :key="r.id || r.user_id" class="rp-detail-item">
-            <image class="rp-detail-avatar" :src="avatarSrc(r.avatar)" mode="aspectFill" />
-            <view class="rp-detail-main">
-              <text class="rp-detail-name">
-                {{ r.nickname || ('用户' + r.user_id) }}
-                <text v-if="r.is_mine"> · 我</text>
-              </text>
-              <text class="rp-detail-amt">
-                <text v-if="r.claimed">尾数 {{ r.tail_digits || '--' }} · {{ r.niu_type || '-' }}</text>
-                <text v-else>未领取</text>
-                <text v-if="Number(r.win_amount) > 0"> · 奖金 ￥{{ money(r.win_amount) }}</text>
-                <text v-else-if="Number(r.amount) > 0"> · 红包 ￥{{ money(r.amount) }}</text>
-              </text>
-              <text v-if="r.claimed_at" class="rp-detail-time">领取 {{ formatTime(r.claimed_at) }}</text>
-            </view>
+        <view class="nn-detail-frame">
+          <view class="nn-detail-head">
+            <text class="nn-dh-av">头像</text>
+            <text class="nn-dh-name">昵称</text>
+            <text class="nn-dh-amt">金额</text>
+            <text class="nn-dh-res">结果</text>
+            <text class="nn-dh-win">奖金</text>
           </view>
-          <view v-if="!shares.length" class="wallet-ledger-empty">暂无明细</view>
+          <view class="nn-detail-scroll">
+            <view
+              v-for="(row, idx) in shares"
+              :key="row.id || row.user_id || idx"
+              class="nn-detail-person"
+              :class="{ mine: row.is_mine }"
+            >
+              <view class="nn-dh-av">
+                <image class="nn-user-av" :src="avatarSrc(row.avatar)" mode="aspectFill" />
+              </view>
+              <text class="nn-dh-name">{{ row.is_mine ? '我' : (row.nickname || ('用户' + row.user_id)) }}</text>
+              <text class="nn-dh-amt">{{ formatPacketAmount(row) }}</text>
+              <view class="nn-dh-res-wrap">
+                <text class="nn-dh-res">{{ formatResultShort(row) }}</text>
+                <text v-if="row.claimed_at" class="nn-dh-time">{{ formatTime(row.claimed_at) }}</text>
+                <text v-else class="nn-dh-time">未领取</text>
+              </view>
+              <text class="nn-dh-win" :class="{ win: Number(row.win_amount) > 0 }">{{ formatBonus(row.win_amount) }}</text>
+            </view>
+            <view v-if="!shares.length" class="nn-detail-empty">暂无明细</view>
+          </view>
         </view>
-
-        <button type="button" class="btn-uid-submit" style="margin-top:16px" @click="openFair">本站验证详情</button>
-      </view>
+      </template>
     </view>
   </view>
 </template>
@@ -51,7 +56,6 @@ import TopBar from '../../components/TopBar.vue'
 import { safeNavigateBack } from '../../utils/nav.js'
 import { apiRequest, getToken } from '../../utils/auth.js'
 import { avatarSrc } from '../../utils/chat.js'
-import { money } from '../../utils/wallet.js'
 import '../../styles/hb.css'
 
 function goBack() {
@@ -65,7 +69,11 @@ const queryRoundId = ref(0)
 
 const round = computed(() => (detail.value && detail.value.round) || {})
 const shares = computed(() => (detail.value && detail.value.shares) || [])
-const createTime = computed(() => formatTime(round.value.createtime))
+const poolText = computed(() => {
+  const n = Number(round.value.pool_amount)
+  if (isNaN(n) || n <= 0) return '0'
+  return String(Math.round(n * 100) / 100)
+})
 
 function formatTime(ts) {
   const t = Number(ts) || 0
@@ -73,17 +81,37 @@ function formatTime(ts) {
   const d = new Date(t < 1e12 ? t * 1000 : t)
   if (isNaN(d.getTime())) return ''
   const p = (n) => (n < 10 ? '0' + n : '' + n)
-  return (
-    d.getFullYear() +
-    '-' +
-    p(d.getMonth() + 1) +
-    '-' +
-    p(d.getDate()) +
-    ' ' +
-    p(d.getHours()) +
-    ':' +
-    p(d.getMinutes())
-  )
+  return p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds())
+}
+
+function formatBonus(v) {
+  const n = Number(v)
+  if (isNaN(n) || n <= 0) return '0'
+  return String(Math.round(n * 10000) / 10000)
+}
+
+function formatPacketAmount(row) {
+  if (!row) return '--'
+  if (!row.claimed) return '--'
+  if (row.amount != null && row.amount !== '' && !isNaN(Number(row.amount))) {
+    return (Math.round(Number(row.amount) * 100) / 100).toFixed(2)
+  }
+  const tail = row.tail_digits != null && row.tail_digits !== '' ? String(row.tail_digits) : ''
+  if (!tail) return '--'
+  const n = parseInt(String(tail).replace(/\D/g, '').slice(-2) || '0', 10)
+  return (Math.round(n) / 100).toFixed(2)
+}
+
+function formatResultShort(row) {
+  if (!row) return '--'
+  if (!row.claimed) return '未领取'
+  const tail = row.tail_digits != null && row.tail_digits !== '' ? String(row.tail_digits) : ''
+  const niu = row.niu_label || row.niu_type || row.category || ''
+  if (tail) return tail + (niu ? ' ' + niu : '')
+  if (row.result && String(row.result) !== '未领取') {
+    return String(row.result).replace(/^尾数/, '')
+  }
+  return '--'
 }
 
 function openFair() {
@@ -125,57 +153,165 @@ onLoad((q) => {
 </script>
 
 <style scoped>
-.rp-detail-head {
-  background: #fff;
-  border-radius: 14px;
-  padding: 16px;
-  margin-bottom: 12px;
+.nn-detail-main {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  min-height: 0;
+  background: #f7f8fa;
+  overflow-x: hidden;
+  width: 100%;
+  box-sizing: border-box;
+  padding-bottom: 0;
 }
-.rp-detail-bless {
-  font-size: 18px;
-  font-weight: 800;
-  color: #222;
-}
-.rp-detail-meta,
-.rp-detail-time {
-  font-size: 12px;
-  color: #888;
-}
-.rp-detail-list {
+.nn-detail-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 14px;
+  padding: 12px 14px;
   background: #fff;
-  border-radius: 14px;
+  border-bottom: 1px solid #eef0f3;
+  border-radius: 12px 12px 0 0;
+  font-size: 13px;
+  font-weight: 800;
+  color: #c62828;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+.nn-detail-verify {
+  color: #1565c0;
+  font-weight: 700;
+}
+.nn-detail-frame {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 0 10px 16px;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+.nn-detail-head,
+.nn-detail-person {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 52px minmax(0, 1.35fr) 52px;
+  align-items: center;
+  column-gap: 6px;
+  padding: 10px 6px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
   overflow: hidden;
 }
-.rp-detail-item {
-  display: flex;
-  gap: 10px;
-  padding: 12px 14px;
-  border-bottom: 1px solid #f0f0f0;
-}
-.rp-detail-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
+.nn-detail-head {
   flex-shrink: 0;
-  background: #f5f5f5;
+  font-size: 12px;
+  font-weight: 800;
+  color: #888;
+  background: #fff;
+  border-radius: 10px 10px 0 0;
+  border-bottom: 1px solid #eef0f3;
+  margin-top: 6px;
 }
-.rp-detail-main {
+.nn-detail-scroll {
   flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+}
+.nn-detail-person {
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #e8ebf0;
+  margin-top: 6px;
+  font-size: 13px;
+  color: #333;
+}
+.nn-detail-person.mine {
+  border-color: #f0c36d;
+  background: linear-gradient(180deg, #fff8e8, #fff);
+  box-shadow: inset 0 0 0 1px rgba(212, 136, 6, 0.12);
+}
+.nn-dh-amt,
+.nn-dh-win {
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nn-dh-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 700;
   min-width: 0;
+}
+.nn-dh-res-wrap {
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  align-items: flex-start;
+  gap: 2px;
+  overflow: hidden;
 }
-.rp-detail-name {
-  font-size: 14px;
-  font-weight: 700;
-  color: #222;
+.nn-dh-res {
+  font-size: 13px;
+  font-weight: 800;
+  color: #333;
+  line-height: 1.2;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.rp-detail-amt {
-  font-size: 12px;
-  color: #555;
+.nn-dh-time {
+  font-size: 11px;
+  color: #999;
+  font-weight: 500;
+  line-height: 1.2;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nn-dh-av {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.nn-user-av {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #eee;
+  flex-shrink: 0;
+}
+.nn-detail-person.mine .nn-dh-name {
+  color: #d48806;
+  font-weight: 800;
+}
+.nn-dh-amt {
+  font-weight: 800;
+  color: #c62828;
+}
+.nn-dh-win {
+  font-weight: 800;
+  color: #888;
+}
+.nn-dh-win.win {
+  color: #c62828;
+}
+.nn-detail-empty {
+  text-align: center;
+  color: #999;
+  padding: 40px 0;
+  font-size: 13px;
 }
 </style>

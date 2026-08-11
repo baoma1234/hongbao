@@ -8,15 +8,37 @@
     </view>
     <view class="profile-sub-body hb-sub">
     <view class="wallet-ledger-filters">
-      <view
-        v-for="tab in filterTabs"
-        :key="tab.key"
-        class="wallet-ledger-filter"
-        :class="['tone-' + tab.tone, { 'is-on': category === tab.key }]"
-        @click="setCategory(tab.key)"
-      >
-        <text class="wallet-ledger-filter-ico">{{ tab.ico }}</text>
-        <text class="wallet-ledger-filter-lab">{{ tab.label }}</text>
+      <view class="wallet-ledger-filters-row">
+        <view
+          v-for="tab in primaryTabs"
+          :key="tab.key"
+          class="wallet-ledger-filter"
+          :class="['tone-' + tab.tone, { 'is-on': category === tab.key }]"
+          @click="setCategory(tab.key)"
+        >
+          <text class="wallet-ledger-filter-ico">{{ tab.ico }}</text>
+          <text class="wallet-ledger-filter-lab">{{ tab.label }}</text>
+        </view>
+        <view
+          class="wallet-ledger-filter tone-more"
+          :class="{ 'is-on': filtersExpanded || moreCatOn }"
+          @click="toggleFiltersMore"
+        >
+          <text class="wallet-ledger-filter-ico">{{ filtersExpanded ? '▴' : '▾' }}</text>
+          <text class="wallet-ledger-filter-lab">{{ filtersExpanded ? '收起' : '更多' }}</text>
+        </view>
+      </view>
+      <view v-if="filtersExpanded" class="wallet-ledger-filters-row wallet-ledger-filters-more">
+        <view
+          v-for="tab in moreTabs"
+          :key="tab.key"
+          class="wallet-ledger-filter"
+          :class="['tone-' + tab.tone, { 'is-on': category === tab.key }]"
+          @click="setCategory(tab.key)"
+        >
+          <text class="wallet-ledger-filter-ico">{{ tab.ico }}</text>
+          <text class="wallet-ledger-filter-lab">{{ tab.label }}</text>
+        </view>
       </view>
     </view>
 
@@ -105,16 +127,24 @@ const hasMore = ref(false)
 const loading = ref(false)
 const error = ref('')
 const category = ref('all')
-const filterTabs = [
+const filtersExpanded = ref(false)
+const primaryTabs = [
   { key: 'all', label: '全部', ico: '☰', tone: 'all' },
   { key: 'recharge', label: '充值', ico: '↓', tone: 'in' },
   { key: 'withdraw', label: '提现', ico: '↑', tone: 'out' },
+]
+const moreTabs = [
   { key: 'hongbao_in', label: '红宝入账', ico: '🧧', tone: 'hb' },
   { key: 'hongbao_niuniu', label: '红宝牛牛', ico: '🐂', tone: 'nn' },
   { key: 'refund', label: '红宝退回', ico: '↩', tone: 'back' },
   { key: 'rebate', label: '红宝返佣', ico: '%', tone: 'rebate' },
-  { key: 'freeze', label: '冻结记录', ico: '❄', tone: 'freeze' },
 ]
+const moreCatKeys = moreTabs.map((t) => t.key)
+const moreCatOn = computed(() => moreCatKeys.indexOf(category.value) >= 0)
+
+function toggleFiltersMore() {
+  filtersExpanded.value = !filtersExpanded.value
+}
 const emptyText = computed(() => {
   if (category.value === 'rebate') return '暂无红宝返佣流水'
   if (category.value === 'hongbao_in') return '暂无红宝入账流水'
@@ -254,6 +284,7 @@ function loadMore() {
 }
 
 function setCategory(cat) {
+  if (moreCatKeys.indexOf(cat) >= 0) filtersExpanded.value = true
   if (category.value === cat) return
   category.value = cat
   list.value = []
@@ -261,6 +292,7 @@ function setCategory(cat) {
 }
 
 onShow(() => {
+  if (moreCatOn.value) filtersExpanded.value = true
   list.value = []
   load(1, false)
 })
@@ -268,13 +300,19 @@ onShow(() => {
 
 <style scoped>
 .wallet-ledger-filters {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 6px;
   margin: 0 0 14px;
   padding: 0;
   overflow: visible;
-  -webkit-overflow-scrolling: auto;
+}
+.wallet-ledger-filters-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  width: 100%;
+  box-sizing: border-box;
 }
 .wallet-ledger-filter {
   display: flex;
@@ -344,6 +382,12 @@ onShow(() => {
   border-color: transparent;
   color: #fff;
   box-shadow: 0 6px 14px rgba(26, 31, 41, 0.28);
+}
+.wallet-ledger-filter.tone-more.is-on {
+  background: linear-gradient(135deg, #607d8b, #455a64);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 6px 14px rgba(69, 90, 100, 0.26);
 }
 .wallet-ledger-item.is-rp {
   cursor: pointer;

@@ -234,12 +234,22 @@
         }
 
         .wallet-ledger-filters {
-            display: grid;
-            grid-template-columns: repeat(5, minmax(0, 1fr));
+            display: flex;
+            flex-direction: column;
             gap: 6px;
             margin: 0 0 10px;
             padding: 0 2px;
             overflow: visible;
+        }
+        .wallet-ledger-filters-row {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 6px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .wallet-ledger-filters-more[hidden] {
+            display: none !important;
         }
         .wallet-ledger-filter {
             border: 1px solid #E1E8ED;
@@ -257,10 +267,17 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            -webkit-appearance: none;
+            appearance: none;
         }
         .wallet-ledger-filter.is-on {
             background: #1a1a1a;
             border-color: #1a1a1a;
+            color: #fff;
+        }
+        .wallet-ledger-filter-more.is-on {
+            background: #455a64;
+            border-color: #455a64;
             color: #fff;
         }
         .wallet-ledger-list {
