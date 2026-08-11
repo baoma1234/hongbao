@@ -630,13 +630,18 @@ body.tab-messages #tabMessages .chat-list-pane {
   flex-direction: column !important;
 }
 
-#tabMessages .chat-community-pane--official .chat-official-rules {
+/* 规则卡片钉在社群面板外（.chat-official-rules--dock），保证不被面板 overflow 裁切 */
+#tabMessages .chat-official-rules,
+#tabMessages .chat-official-rules--dock,
+.msg-tab-root .chat-official-rules,
+.msg-tab-root .chat-official-rules--dock {
   flex: 0 0 auto !important;
   position: relative !important;
-  z-index: 8 !important;
+  z-index: 20 !important;
   visibility: visible !important;
   opacity: 1 !important;
   pointer-events: auto !important;
+  display: flex !important;
 }
 
 #tabMessages .chat-community-glass .chat-community-seg {

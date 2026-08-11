@@ -151,7 +151,7 @@
               id="chatHomePanelCommunity"
               class="chat-home-panel chat-community-glass"
               :class="{ 'is-hidden': homeTab !== 'community' }"
-              :style="homeTab === 'community' ? panelHostStyle : null"
+              :style="homeTab === 'community' ? communityHostStyle : null"
             >
               <view class="chat-community-seg is-4">
                 <view class="chat-community-seg-btn" :class="{ active: communitySub === 'official' }" @click="setCommunitySub('official')">官方社群</view>
@@ -190,15 +190,6 @@
                     <view v-if="communityRecs.length" class="chat-official-end">————— 已经滑到底部啦 —————</view>
                   </view>
                 </scroll-view>
-                <!-- 钉在官方社群面板底：勿放进 scroll，避免被底栏/列表裁切盖住 -->
-                <view class="chat-official-rules" @click="openGameRulesFromCommunity">
-                  <view class="chat-official-rules-ico">📜</view>
-                  <view class="chat-official-rules-text">
-                    <text class="chat-official-rules-title">🧧 红宝官方游戏规则</text>
-                    <text class="chat-official-rules-desc">新手通关玩法与佣金保障说明</text>
-                  </view>
-                  <text class="chat-official-rules-link">点开查看规则图 ›</text>
-                </view>
               </view>
 
               <view v-else-if="communitySub === 'mine'" class="chat-community-pane active">
@@ -283,6 +274,19 @@
                   </view>
                 </scroll-view>
               </view>
+            </view>
+            <!-- 钉在社群面板外、底栏上方：避免被面板 overflow:hidden 裁切 -->
+            <view
+              v-if="homeTab === 'community' && communitySub === 'official'"
+              class="chat-official-rules chat-official-rules--dock"
+              @click="openGameRulesFromCommunity"
+            >
+              <view class="chat-official-rules-ico">📜</view>
+              <view class="chat-official-rules-text">
+                <text class="chat-official-rules-title">🧧 红宝官方游戏规则</text>
+                <text class="chat-official-rules-desc">新手通关玩法与佣金保障说明</text>
+              </view>
+              <text class="chat-official-rules-link">点开查看规则图 ›</text>
             </view>
 
             <!-- 公告（对齐 888：四分类 + 推广收益表 + 动态卡片） -->
@@ -786,19 +790,31 @@ const panelHostStyle = computed(() => {
   const h = Number(panelScrollPx.value) || 420
   return { height: h + 'px', minHeight: h + 'px', maxHeight: h + 'px', flex: 'none', overflow: 'hidden' }
 })
+/** 官方规则卡片钉在面板外时，社群宿主需预留高度，避免和规则叠在一起 */
+const OFFICIAL_RULES_DOCK_PX = 96
+const communityHostStyle = computed(() => {
+  let h = Number(panelScrollPx.value) || 420
+  if (communitySub.value === 'official') {
+    h = Math.max(200, h - OFFICIAL_RULES_DOCK_PX)
+  }
+  return { height: h + 'px', minHeight: h + 'px', maxHeight: h + 'px', flex: 'none', overflow: 'hidden' }
+})
 const panelScrollStyle = computed(() => {
   let h = Number(panelScrollPx.value) || 420
   // 社群/公告顶部有分段 Tab，scroll 区再扣一截
   if (homeTab.value === 'community' || homeTab.value === 'notice') {
     h = Math.max(180, h - 52)
   }
+  if (homeTab.value === 'community' && communitySub.value === 'official') {
+    h = Math.max(140, h - OFFICIAL_RULES_DOCK_PX)
+  }
   // 显式像素高：Safari 上 height:100% 常算不出，必须靠内联；勿被 CSS !important 盖掉
   return { height: h + 'px', minHeight: h + 'px', maxHeight: h + 'px', flex: 'none' }
 })
-/** 官方社群：再扣底部规则卡片高度，避免规则被底栏盖住 */
+/** 官方社群列表：宿主已扣规则高度，这里再扣分段 Tab */
 const officialScrollStyle = computed(() => {
   let h = Number(panelScrollPx.value) || 420
-  h = Math.max(140, h - 52 - 78)
+  h = Math.max(140, h - 52 - OFFICIAL_RULES_DOCK_PX)
   return { height: h + 'px', minHeight: h + 'px', maxHeight: h + 'px', flex: 'none' }
 })
 
@@ -2478,28 +2494,35 @@ onHide(() => {
 .chat-community-pane--official {
   display: flex !important;
   flex-direction: column !important;
+  flex: 1 1 auto !important;
   min-height: 0 !important;
   overflow: hidden !important;
   box-sizing: border-box !important;
 }
 .chat-community-pane--official .chat-community-body-scroll {
-  flex: 1 1 auto !important;
+  flex: none !important;
   min-height: 0 !important;
 }
-.chat-official-rules {
+.chat-official-rules,
+.chat-official-rules--dock {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-shrink: 0;
   position: relative;
-  z-index: 6;
-  margin: 6px 10px 8px;
+  z-index: 20;
+  margin: 4px 10px 6px;
   padding: 12px 12px;
   border-radius: 14px;
   background: linear-gradient(180deg, #fff8ee 0%, #fff1df 100%);
   border: 1px solid rgba(230, 180, 100, 0.45);
   box-shadow: 0 2px 10px rgba(120, 60, 20, 0.1);
   box-sizing: border-box;
+}
+.chat-official-rules--dock {
+  /* 面板外钉住：不被 overflow:hidden 裁切，且压在底栏之上 */
+  margin: 0 10px 8px;
+  flex: none;
 }
 .chat-official-rules-ico {
   width: 42px;
