@@ -193,19 +193,38 @@ onUnmounted(() => stopTick())
 </script>
 
 <style scoped>
+/*
+ * 红宝尾数牛牛气泡：叠在 bj.jpg 牛图空位上。
+ * 宽度跟 .has-niuniu 列走；H5 / Safari / APK / IPA 共用。
+ * 抽成子组件后样式必须写在本文件（父页 scoped 打不进子树）。
+ */
 .chat-niuniu-card {
   position: relative;
-  width: min(calc(100vw - 84px), 340px);
+  width: 100%;
   max-width: 100%;
-  border-radius: 10px;
+  min-width: 0;
+  /* 1024×575 底图比例；无 aspect-ratio 时用 min-height 兜底 */
+  aspect-ratio: 1024 / 575;
+  min-height: 140px;
+  border-radius: 12px;
   overflow: hidden;
-  background: #1a0a08;
+  box-shadow: 0 8px 22px rgba(120, 10, 10, 0.35);
+  background: #8b0d12;
+  container-type: inline-size;
+  container-name: nn-card;
+  flex-shrink: 0;
+  box-sizing: border-box;
 }
 .chat-niuniu-card .nn-bg {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
   width: 100%;
+  height: 100%;
   display: block;
-  height: 118px;
-  object-fit: cover;
+  z-index: 0;
 }
 .chat-niuniu-card .nn-layer {
   position: absolute;
@@ -213,97 +232,186 @@ onUnmounted(() => stopTick())
   right: 0;
   top: 0;
   bottom: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
   pointer-events: none;
 }
+/* 中间信息区：叠在牛右侧空位 */
 .chat-niuniu-card .nn-center {
   position: absolute;
-  left: 8%;
-  right: 34%;
-  top: 50%;
-  transform: translateY(-52%);
+  left: 30%;
+  top: 42%;
+  width: 36%;
+  max-width: 36%;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  box-sizing: border-box;
+  text-align: center;
   color: #fff8e7;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
 }
 .chat-niuniu-card .nn-l1,
 .chat-niuniu-card .nn-l2,
 .chat-niuniu-card .nn-l3 {
+  width: 100%;
   display: block;
+  text-align: center;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.96);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
   white-space: nowrap;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: 1.25;
+  line-height: 1.2;
 }
 .chat-niuniu-card .nn-l1 {
   font-size: 11px;
-  font-weight: 700;
 }
 .chat-niuniu-card .nn-l2 {
   font-size: 10px;
   opacity: 0.95;
 }
 .chat-niuniu-card .nn-l3 {
-  font-size: 10px;
-  margin-top: 2px;
+  font-size: 9px;
   opacity: 0.9;
+  font-weight: 600;
 }
 .chat-niuniu-card .nn-l4 {
+  width: 100%;
   display: block;
-  margin-top: 2px;
+  text-align: center;
   font-size: 20px;
-  font-weight: 800;
+  font-weight: 900;
+  line-height: 1.1;
   color: #ffe082;
-  letter-spacing: 0.5px;
+  text-shadow: 0 1px 3px rgba(80, 0, 0, 0.5);
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.2px;
 }
+/* 支持 cqi 时按气泡宽度缩放字号（Safari / 新 WebView） */
+@supports (width: 1cqi) {
+  .chat-niuniu-card .nn-center {
+    gap: clamp(1px, 0.7cqi, 3px);
+  }
+  .chat-niuniu-card .nn-l1 {
+    font-size: clamp(8px, 3.1cqi, 11px);
+  }
+  .chat-niuniu-card .nn-l2 {
+    font-size: clamp(8px, 2.9cqi, 10px);
+  }
+  .chat-niuniu-card .nn-l3 {
+    font-size: clamp(7px, 2.7cqi, 9px);
+  }
+  .chat-niuniu-card .nn-l4 {
+    font-size: clamp(15px, 6.2cqi, 22px);
+  }
+  .chat-niuniu-card .nn-right {
+    gap: clamp(2px, 1.2cqi, 5px);
+  }
+  .chat-niuniu-card .nn-countdown-time {
+    font-size: clamp(7px, 2.7cqi, 9px);
+  }
+  .chat-niuniu-card .nn-time {
+    font-size: clamp(8px, 2.6cqi, 9px);
+  }
+}
+/* 右侧：倒计时 + 操作按钮 */
 .chat-niuniu-card .nn-right {
   position: absolute;
-  right: 8%;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 24%;
+  top: 42%;
+  right: 10%;
+  width: 21%;
+  z-index: 2;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 4px;
+  align-items: stretch;
+  gap: 3px;
+  box-sizing: border-box;
   pointer-events: none;
 }
 .chat-niuniu-card .nn-countdown {
   position: relative;
   width: 100%;
-  aspect-ratio: 1.35;
+  margin-left: auto;
+  aspect-ratio: 282 / 73;
+  min-height: 18px;
 }
 .chat-niuniu-card .nn-countdown-bg {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
   width: 100%;
   height: 100%;
   display: block;
 }
 .chat-niuniu-card .nn-countdown-time {
   position: absolute;
-  left: 0;
-  right: 0;
-  top: 52%;
+  right: 7%;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36%;
   text-align: center;
-  font-size: 9px;
-  font-weight: 800;
-  color: #fff8e1;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+  font-size: 8px;
+  font-weight: 900;
+  color: #8a2a00;
+  letter-spacing: 0.2px;
 }
 .chat-niuniu-card .nn-cta-btn {
   width: 100%;
   display: block;
 }
+/* 开奖后仅剩一个按钮时，整体下移对齐 */
 .chat-niuniu-card.phase-result .nn-right,
 .chat-niuniu-card.phase-void .nn-right,
 .chat-niuniu-card.phase-refund .nn-right {
-  top: 58%;
+  top: 50%;
 }
 .chat-niuniu-card .nn-time {
   position: absolute;
-  right: 8px;
-  bottom: 4px;
-  font-size: 10px;
-  color: rgba(255, 248, 231, 0.75);
+  right: 6px;
+  bottom: 3px;
+  z-index: 2;
+  font-size: 9px;
+  color: rgba(255, 236, 200, 0.85);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
 }
+/* 窄气泡（约 iPhone SE / 小屏气泡列） */
+@container nn-card (max-width: 300px) {
+  .nn-center {
+    left: 29%;
+    top: 40%;
+    width: 38%;
+  }
+  .nn-right {
+    right: 10%;
+    width: 22%;
+    top: 40%;
+    gap: 2px;
+  }
+  .phase-result .nn-right,
+  .phase-void .nn-right,
+  .phase-refund .nn-right {
+    top: 48%;
+  }
+}
+/* 无 container / 窄视口回退（旧 App WebView） */
 @media (max-width: 360px) {
+  .chat-niuniu-card .nn-center {
+    left: 28%;
+    width: 38%;
+  }
   .chat-niuniu-card .nn-l1 {
     font-size: 10px;
   }
@@ -320,7 +428,7 @@ onUnmounted(() => stopTick())
   .chat-niuniu-card .nn-right {
     right: 10%;
     width: 22%;
-    gap: 3px;
+    gap: 2px;
   }
 }
 </style>
