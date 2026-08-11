@@ -36,7 +36,6 @@ const props = defineProps({
 
 const locale = localeState()
 const unread = ref(0)
-let timer = null
 
 const selected = computed(() => {
   if (props.active) return props.active
@@ -89,8 +88,16 @@ const tabs = computed(() => {
   ]
 })
 
-function refreshUnread() {
+function refreshUnread(n) {
+  if (typeof n === 'number' && isFinite(n)) {
+    unread.value = Math.max(0, n | 0)
+    return
+  }
   unread.value = getChatUnreadTotal()
+}
+
+function onTabUnread(n) {
+  refreshUnread(n)
 }
 
 function switchTo(item) {
@@ -101,13 +108,20 @@ function switchTo(item) {
 
 onMounted(() => {
   refreshUnread()
-  timer = setInterval(refreshUnread, 2000)
+  // 事件驱动角标（im-inbox / setChatUnreadTotal 会 emit），三端共用，避免每 Tab 叠 2s 轮询
+  try {
+    uni.$on && uni.$on('fanshub-tab-unread', onTabUnread)
+    uni.$on && uni.$on('fanshub-inbox-unread', refreshUnread)
+  } catch (e) {}
   try {
     uni.hideTabBar({ animation: false })
   } catch (e) {}
 })
 
 onUnmounted(() => {
-  if (timer) clearInterval(timer)
+  try {
+    uni.$off && uni.$off('fanshub-tab-unread', onTabUnread)
+    uni.$off && uni.$off('fanshub-inbox-unread', refreshUnread)
+  } catch (e) {}
 })
 </script>

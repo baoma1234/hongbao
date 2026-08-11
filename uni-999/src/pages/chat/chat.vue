@@ -100,35 +100,15 @@
                   </view>
                 </view>
 
-                <!-- 红宝尾数牛牛卡片：bj 背景 + 中间文案 + 右侧倒计时/按钮 -->
-                <view
+                <!-- 红宝尾数牛牛：倒计时在子组件内 tick，避免整表每秒 invalidate -->
+                <ChatNiuniuCard
                   v-else-if="isNiuniu(m)"
-                  class="chat-niuniu-card"
-                  :class="'phase-' + niuniuPhase(m)"
-                  @click="onNiuniuTap(m)"
+                  :message="m"
+                  :time-text="msgTime(m)"
+                  @tap="onNiuniuTap(m)"
                   @longpress="onMsgLongPress(m)"
-                >
-                  <image class="nn-bg" src="/static/niuniu/bj.jpg" mode="aspectFill" />
-                  <view class="nn-layer">
-                    <view class="nn-center">
-                      <text class="nn-l1">#{{ niuniuRoundId(m) || '--' }} 入场:{{ niuniuSharePrice(m) }}</text>
-                      <text class="nn-l2">包数:{{ niuniuShareCount(m) }} 官方手续费:{{ niuniuFeePct(m) }}%</text>
-                      <text class="nn-l3">奖池(扣除{{ niuniuFeePct(m) }}%后)</text>
-                      <text class="nn-l4">{{ niuniuDistributableText(m) }}</text>
-                    </view>
-                    <view class="nn-right">
-                      <view
-                        v-if="niuniuShowCountdown(m)"
-                        class="nn-countdown"
-                      >
-                        <image class="nn-countdown-bg" src="/static/niuniu/countdown.png" mode="scaleToFill" />
-                        <text class="nn-countdown-time">{{ niuniuRemainText(m) }}</text>
-                      </view>
-                      <image class="nn-cta-btn" :src="niuniuBtnSrc(m)" mode="widthFix" />
-                    </view>
-                    <text class="nn-time">{{ msgTime(m) }}</text>
-                  </view>
-                </view>
+                  @expired="onNiuniuCardExpired"
+                />
 
                 <view
                   v-else-if="isFissionShare(m)"
@@ -755,6 +735,7 @@ import { computed, nextTick, reactive, ref } from 'vue'
 import { onLoad, onShow, onUnload } from '@dcloudio/uni-app'
 import GrabSlider from '../../components/GrabSlider.vue'
 import TopBar from '../../components/TopBar.vue'
+import ChatNiuniuCard from '../../components/ChatNiuniuCard.vue'
 import '../../styles/chat.bundle.css'
 import '../../styles/chat-room-uni-adapter.css'
 import '../../styles/chat-rp-send-uni-adapter.css'
@@ -900,9 +881,7 @@ const niuniuCoverSubText = computed(() => {
   if (n === 1) return '最后一包，开启后查看开奖明细'
   return '点一次开一包，全部开完后查看明细'
 })
-/** 驱动牛牛倒计时每秒重绘（模板依赖 Date.now 不会自动刷新） */
-const niuniuNowTick = ref(0)
-let niuniuTickTimer = null
+/** 牛牛倒计时归零补拉防抖（实际 tick 在 ChatNiuniuCard） */
 let niuniuZeroRefreshAt = 0
 const showEmoji = ref(false)
 const showSticker = ref(false)
@@ -1628,20 +1607,18 @@ function niuniuRawPhase(m) {
   const ex = msgExtra(m)
   return String((ex && ex.phase) || niuniuRound(m).card_phase || 'buying')
 }
-/** 结合截止时间推算展示阶段，避免服务端卡片滞后时倒计时挂着不切 */
+/** 结合截止时间推算展示阶段（按需用 Date.now，不再依赖全局 1s tick） */
 function niuniuPhase(m) {
-  void niuniuNowTick.value
   const raw = niuniuRawPhase(m)
   if (raw === 'result' || raw === 'void' || raw === 'refund') return raw
   const r = niuniuRound(m)
-  const now = niuniuNowTick.value || Math.floor(Date.now() / 1000)
+  const now = Math.floor(Date.now() / 1000)
   const buyEnd = r.buy_end_at | 0
   const claimEnd = r.claim_end_at | 0
   if (raw === 'buying') {
     if (buyEnd > 0 && buyEnd <= now) {
       if (claimEnd > now) return 'claim'
       if (claimEnd > 0 && claimEnd <= now) return 'result'
-      // 购入已截止、领取阶段尚未落库：先隐藏倒计时，按钮走开奖明细图
       return 'result'
     }
     return 'buying'
@@ -1657,14 +1634,12 @@ function niuniuDrand(m) {
   return r.drand_label || ('drand-#' + (r.drand_round || ''))
 }
 function niuniuRemainSec(m) {
-  void niuniuNowTick.value
   const phase = niuniuPhase(m)
   if (phase !== 'buying' && phase !== 'claim') return 0
   const r = niuniuRound(m)
   const endAt = phase === 'claim' ? (r.claim_end_at | 0) : (r.buy_end_at | 0)
-  if (endAt > 0) {
-    return Math.max(0, endAt - (niuniuNowTick.value || Math.floor(Date.now() / 1000)))
-  }
+  const now = Math.floor(Date.now() / 1000)
+  if (endAt > 0) return Math.max(0, endAt - now)
   const fallback = phase === 'claim' ? (r.remain_claim | 0) : (r.remain_buy | 0)
   return Math.max(0, fallback)
 }
@@ -1672,38 +1647,17 @@ function niuniuShowCountdown(m) {
   const phase = niuniuPhase(m)
   return (phase === 'buying' || phase === 'claim') && niuniuRemainSec(m) > 0
 }
-function ensureNiuniuTick() {
-  if (niuniuTickTimer) return
-  niuniuNowTick.value = Math.floor(Date.now() / 1000)
-  niuniuTickTimer = setInterval(() => {
-    niuniuNowTick.value = Math.floor(Date.now() / 1000)
-    // 倒计时归零后补拉一轮，尽快切到领取/开奖态
-    const now = niuniuNowTick.value
-    if (now - niuniuZeroRefreshAt < 2) return
-    const list = messages.value || []
-    for (let i = 0; i < list.length; i++) {
-      const m = list[i]
-      if (!isNiuniu(m)) continue
-      const raw = niuniuRawPhase(m)
-      if (raw !== 'buying' && raw !== 'claim') continue
-      const r = niuniuRound(m)
-      const endAt = raw === 'claim' ? (r.claim_end_at | 0) : (r.buy_end_at | 0)
-      if (endAt > 0 && endAt <= now) {
-        niuniuZeroRefreshAt = now
-        softRefreshHistory()
-        break
-      }
-    }
-  }, 1000)
+/** 倒计时归零：子组件上报后补拉（防抖，不每秒扫全表） */
+function onNiuniuCardExpired() {
+  const now = Math.floor(Date.now() / 1000)
+  if (now - niuniuZeroRefreshAt < 2) return
+  niuniuZeroRefreshAt = now
+  softRefreshHistory()
 }
 function stopNiuniuTick() {
-  if (niuniuTickTimer) {
-    clearInterval(niuniuTickTimer)
-    niuniuTickTimer = null
-  }
+  // 兼容旧调用点；全局 tick 已移除，倒计时在 ChatNiuniuCard 内
 }
 function niuniuRemainText(m) {
-  ensureNiuniuTick()
   const sec = niuniuRemainSec(m)
   const mm = String(Math.floor(sec / 60)).padStart(2, '0')
   const ss = String(sec % 60).padStart(2, '0')
@@ -1751,8 +1705,7 @@ function applyNiuniuUpdateLocal(payload) {
     patched++
   }
   if (patched) {
-    messages.value = rows.slice()
-    ensureNiuniuTick()
+    // 就地替换命中行，避免整表 slice 全量 invalidate
   }
   return patched > 0
 }
@@ -2529,16 +2482,19 @@ function scrollToLatest(force) {
   const last = messages.value[messages.value.length - 1]
   const id = last ? 'm' + msgId(last) : 'chat-bottom-anchor'
   scrollInto.value = ''
-  scrollTop.value = scrollTop.value === 999999 ? 999998 : 999999
   cancelScrollToLatest()
   const bump = (target) => {
     if (!force && !stickToBottom) return
     scrollInto.value = ''
     nextTick(() => {
       if (!force && !stickToBottom) return
+      // App / H5 / Safari：into-view 与 scroll-top 只取其一，避免双通道连撞
+      // #ifdef APP-PLUS
+      scrollInto.value = target
+      // #endif
+      // #ifndef APP-PLUS
       scrollInto.value = target
       scrollTop.value = scrollTop.value === 999999 ? 999998 : 999999
-      // #ifdef H5
       try {
         if (typeof document !== 'undefined') {
           const roots = document.querySelectorAll('.chat-room-page .chat-msg-scroll, .chat-msg-scroll')
@@ -2564,11 +2520,9 @@ function scrollToLatest(force) {
   }
   nextTick(() => {
     bump(id)
-    ;[60, 160, 320, 500, 800, 1200].forEach((ms, i) => {
-      scrollTimers.push(
-        setTimeout(() => bump(i % 2 === 0 ? 'chat-bottom-anchor' : id), ms)
-      )
-    })
+    // 合并为 1～2 次：首帧 + 图片/牛牛撑高后再补一次（三端共用，避免旧 6 连撞）
+    scrollTimers.push(setTimeout(() => bump('chat-bottom-anchor'), 80))
+    scrollTimers.push(setTimeout(() => bump(id), 220))
   })
 }
 
@@ -3055,7 +3009,6 @@ async function fetchHistory(opts) {
     }
   }
   await markRead()
-  if ((messages.value || []).some((m) => isNiuniu(m))) ensureNiuniuTick()
   // 上翻看历史时不强制回底；进房 / 自己操作可 forceScroll
   if (forceScroll || stickToBottom) scrollToLatest(forceScroll)
 }

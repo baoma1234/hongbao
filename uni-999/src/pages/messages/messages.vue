@@ -1018,7 +1018,7 @@ function startWalletPoll() {
   walletPollTimer = setInterval(() => {
     if (!pageAlive || walletPollBusy) return
     loadMyIdLine()
-  }, 2000)
+  }, 20000)
 }
 
 const connClass = computed(() => {
@@ -1662,9 +1662,8 @@ function openChat(item) {
 }
 
 function bumpUnread(msg) {
-  // 未读由全局 im-inbox 维护；此处仅同步会话列表预览，避免双计
-  if (!msg) return
-  upsertListFromMessage(msg)
+  // 未读与列表预览统一走 inbox → fanshub-inbox-msg，避免 WS 路径再 upsert 一次
+  void msg
 }
 
 function upsertListFromMessage(msg) {
@@ -1675,15 +1674,16 @@ function upsertListFromMessage(msg) {
   else id = String(msg.conversation_id || '')
   if (!id) return
   const key = convKey(type, id)
-  const rows = list.value.slice()
-  let found = null
+  const rows = list.value
+  let foundIdx = -1
   for (let i = 0; i < rows.length; i++) {
     if (itemKey(rows[i]) === key) {
-      found = rows[i]
+      foundIdx = i
       break
     }
   }
-  if (!found) {
+  let found = null
+  if (foundIdx < 0) {
     found = {
       conversation_type: type,
       conversation_id: id,
@@ -1695,19 +1695,23 @@ function upsertListFromMessage(msg) {
       unread_count: localUnread.value[key] | 0,
       pinned: false,
     }
+  } else {
+    found = Object.assign({}, rows[foundIdx], {
+      last_message: msg,
+      updatetime: msg.createtime | 0,
+      unread_count: localUnread.value[key] | 0,
+    })
+    rows.splice(foundIdx, 1)
+  }
+  // 免全表 sort：置顶区后插入，非置顶插到首个非置顶位置
+  if (found.pinned) {
     rows.unshift(found)
   } else {
-    found.last_message = msg
-    found.updatetime = msg.createtime | 0
-    found.unread_count = localUnread.value[key] | 0
+    let insertAt = 0
+    while (insertAt < rows.length && rows[insertAt] && rows[insertAt].pinned) insertAt++
+    rows.splice(insertAt, 0, found)
   }
-  rows.sort((a, b) => {
-    const ap = a.pinned ? 1 : 0
-    const bp = b.pinned ? 1 : 0
-    if (ap !== bp) return bp - ap
-    return (b.updatetime | 0) - (a.updatetime | 0)
-  })
-  list.value = rows
+  list.value = rows.slice()
   restoreConvScrollSoon()
 }
 
@@ -1941,7 +1945,7 @@ function startOfficialCommunityPoll() {
       return
     }
     loadCommunityQuiet()
-  }, 2000)
+  }, 20000)
 }
 async function loadCommunityQuiet() {
   try {
@@ -2420,8 +2424,8 @@ onShow(() => {
     }
     if (type === 'socket.close' || type === 'socket.error') refreshStatus()
     if (type === 'private.message' || type === 'group.message' || type === 'redpacket.relay_next') {
-      const msg = (data && data.message) || data
-      bumpUnread(msg)
+      // 列表预览 / 未读只走 inbox（fanshub-inbox-msg），避免双重 upsert
+      return
     }
     if (type === 'conversation.updated') {
       loadList(true)
