@@ -15,6 +15,27 @@ body.tab-messages {
   padding-top: 0 !important;
 }
 
+/* 仅 iOS Safari H5：锁住整页滚动，避免会话列表下滑时整页橡皮筋回弹把列表拽回顶部 */
+html.tab-messages-ios-safari,
+body.tab-messages-ios-safari {
+  overflow: hidden !important;
+  height: 100% !important;
+  overscroll-behavior-y: none !important;
+  -webkit-overflow-scrolling: auto;
+}
+body.tab-messages-ios-safari {
+  position: relative !important;
+  width: 100% !important;
+  touch-action: manipulation;
+}
+html.tab-messages-ios-safari .msg-tab-root .chat-conv-scroll .uni-scroll-view,
+html.tab-messages-ios-safari #tabMessages .chat-conv-scroll .uni-scroll-view,
+body.tab-messages-ios-safari .msg-tab-root .chat-conv-scroll .uni-scroll-view,
+body.tab-messages-ios-safari #tabMessages .chat-conv-scroll .uni-scroll-view {
+  overscroll-behavior-y: contain !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
 .msg-tab-root.tab-page,
 #tabMessages.tab-page {
   display: flex;

@@ -83,9 +83,10 @@
                   scroll-y
                   class="chat-conv-scroll"
                   :style="panelScrollStyle"
-                  :refresher-enabled="true"
+                  :refresher-enabled="convRefresherEnabled"
                   :refresher-triggered="listRefreshing"
                   @refresherrefresh="onListRefresh"
+                  @scroll="onConvScroll"
                 >
                   <view class="chat-conv-list">
                     <view class="chat-empty" v-if="!displayList.length && loaded">暂无会话（登录后通常会有客服）</view>
@@ -712,7 +713,7 @@
 </template>
 
 <script setup>
-import { computed, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import { onShow, onHide } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
 import BottomTabBar from '../../components/BottomTabBar.vue'
@@ -784,6 +785,73 @@ const homeTab = ref('chat')
 const panelScrollPx = ref(420)
 const tabRootPx = ref(0)
 
+/**
+ * 仅 iPhone/iPad 的 H5 Safari（不含 APP-PLUS / 桌面网页）：
+ * uni refresher + 页面滚动争抢时，会话列表下滑会被拽回顶部。
+ */
+function isIosSafariH5() {
+  // #ifdef H5
+  try {
+    if (typeof navigator === 'undefined') return false
+    const ua = String(navigator.userAgent || '')
+    const iOS = /iPhone|iPad|iPod/i.test(ua)
+    if (!iOS) return false
+    // 排除 iOS 上的 Chrome/Firefox/Edge 外壳也可一并修，但 WebKit 同源；这里覆盖所有 iOS H5
+    return true
+  } catch (e) {
+    return false
+  }
+  // #endif
+  // #ifndef H5
+  return false
+  // #endif
+}
+
+/** APK / 桌面网页保留下拉刷新；iOS Safari H5 关掉，避免滚到下方又弹回顶部 */
+const convRefresherEnabled = computed(() => !isIosSafariH5())
+
+/** 会话列表当前 scrollTop（用于列表静默刷新后还原，避免 Safari 跳顶） */
+let convScrollTop = 0
+let convScrollRestoreTimer = null
+
+function onConvScroll(e) {
+  const d = (e && e.detail) || {}
+  const top = Number(d.scrollTop)
+  if (isFinite(top) && top >= 0) convScrollTop = top
+}
+
+function restoreConvScrollSoon() {
+  if (!isIosSafariH5()) return
+  if (convScrollTop <= 0) return
+  const top = convScrollTop
+  const apply = () => {
+    try {
+      if (typeof document === 'undefined') return
+      const roots = document.querySelectorAll(
+        '.msg-tab-root .chat-conv-scroll, #tabMessages .chat-conv-scroll, .chat-conv-scroll'
+      )
+      roots.forEach((node) => {
+        const cands = [
+          node,
+          node.querySelector && node.querySelector('.uni-scroll-view'),
+        ]
+        cands.forEach((el) => {
+          if (!el) return
+          try {
+            if (typeof el.scrollTop === 'number') el.scrollTop = top
+          } catch (e0) {}
+        })
+      })
+    } catch (e1) {}
+  }
+  nextTick(() => {
+    apply()
+    if (convScrollRestoreTimer) clearTimeout(convScrollRestoreTimer)
+    convScrollRestoreTimer = setTimeout(apply, 40)
+    setTimeout(apply, 120)
+  })
+}
+
 const tabRootStyle = computed(() => {
   const h = Number(tabRootPx.value) || 0
   if (h < 200) return {}
@@ -829,8 +897,11 @@ function measureMessagesLayout() {
     // #ifdef H5
     try {
       if (typeof window !== 'undefined') {
-        const vh = window.innerHeight || (document.documentElement && document.documentElement.clientHeight) || 0
-        if (vh > 200) winH = vh
+        // Safari 地址栏显隐会改 innerHeight；用较大值稳住像素高，避免 scroll-view 被重设高度后跳顶
+        const vh = window.innerHeight || 0
+        const docH = (document.documentElement && document.documentElement.clientHeight) || 0
+        const stable = Math.max(vh, docH, Number(sys.windowHeight) || 0)
+        if (stable > 200) winH = stable
       }
     } catch (e0) {}
     // #endif
@@ -843,7 +914,13 @@ function measureMessagesLayout() {
     tabRootPx.value = shell
     // 再扣：红宝社区标题区 + 连接行 + 四个子 Tab 行（约 150）
     const chrome = 150
-    panelScrollPx.value = Math.max(220, shell - chrome)
+    let next = Math.max(220, shell - chrome)
+    // iOS Safari：忽略地址栏导致的小幅高度回缩，防止内联 height 变化重置滚动
+    if (isIosSafariH5() && panelScrollPx.value > 0) {
+      const shrink = panelScrollPx.value - next
+      if (shrink > 0 && shrink < 120) next = panelScrollPx.value
+    }
+    panelScrollPx.value = next
   } catch (e) {
     tabRootPx.value = 0
     panelScrollPx.value = 420
@@ -1631,6 +1708,7 @@ function upsertListFromMessage(msg) {
     return (b.updatetime | 0) - (a.updatetime | 0)
   })
   list.value = rows
+  restoreConvScrollSoon()
 }
 
 function myIdNum() {
@@ -2250,6 +2328,7 @@ async function loadList(silent = false) {
       sum += unreadOf(it)
     })
     setChatUnreadTotal(sum)
+    restoreConvScrollSoon()
   } catch (e) {
     if (!silent) uni.showToast({ title: e.message || '拉取会话失败', icon: 'none' })
   } finally {
@@ -2287,7 +2366,18 @@ function applyPageShell(on) {
     // #ifdef H5
     if (typeof document !== 'undefined') {
       document.body.classList.toggle('tab-messages', !!on)
+      document.documentElement.classList.toggle('tab-messages-ios-safari', !!(on && isIosSafariH5()))
+      document.body.classList.toggle('tab-messages-ios-safari', !!(on && isIosSafariH5()))
       if (on) document.documentElement.style.setProperty('--top-bar-height', h)
+      if (!on) {
+        document.documentElement.style.removeProperty('overflow')
+        document.documentElement.style.removeProperty('overscroll-behavior-y')
+        document.body.style.removeProperty('overscroll-behavior-y')
+      } else if (isIosSafariH5()) {
+        document.documentElement.style.overflow = 'hidden'
+        document.documentElement.style.overscrollBehaviorY = 'none'
+        document.body.style.overscrollBehaviorY = 'none'
+      }
     }
     // #endif
     // App：同样写入 CSS 变量（无 document.body 类，适配器已用 #tabMessages）
