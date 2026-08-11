@@ -1,0 +1,48 @@
+---
+description: 改前端必须同时兼容 IPA、APK、网页 H5、Safari
+globs: uni-999/**/*,public/999/**/*
+alwaysApply: true
+---
+
+# 前端四端兼容（必守）
+
+改 `uni-999` / `public/999`（含布局、样式、交互、安全区）时，**必须同时兼容**：
+
+1. **网页 H5**（Chrome / 普通浏览器 `/999`）
+2. **Safari**（iOS 浏览器：地址栏显隐、`100vh`、滚动回弹、安全区）
+3. **安卓 APK**
+4. **iOS IPA**
+
+禁止只修一端（例如只垫 H5、或只加 `APP-PLUS`）把其它端弄坏。不做「仅网页可用」的前端改动。
+
+## 发布
+
+- 改源码后：`cd uni-999 && npm run build:h5` → 输出 `public/999`
+- 布局/样式/逻辑改动：提醒用户 **重新打 APK/IPA**；仅 `git pull` 只更新网页
+- 有 H5 构建时：源码 + `public/999` 一并提交
+
+## 布局 / 安全区
+
+- App 上 `env(safe-area-inset-*)` 常为 **0**；用 `uni-999/src/utils/safe-area.js`（`statusBarHeight` / `measureChatOverlayTop` / `getSafeAreaInsets`）
+- TopBar、固定浮层顶距必须与 TopBar 底边对齐
+- **禁止**用会伤 H5/Safari 的全局垫高去修 App；优先：
+  - `/* #ifdef APP-PLUS */` 专用样式 / 内联 `top`
+  - 或 JS 写入 `--chat-overlay-top`，H5/Safari 仍走 CSS `calc` 回退
+- Safari：注意 `innerHeight` 抖动、列表 `scroll-view` 高度用像素内联、勿依赖不稳定的 `100vh`
+
+## 平台差异自检
+
+| 点 | H5 / Safari | APK / IPA |
+|----|-------------|-----------|
+| 顶栏避让 | spacer + CSS var / env | JS statusBar + 必要时内联 top |
+| 底栏 / 列表末项 | 扣真实底栏高 + safe-area + 末项留白 | 同左；App inset 走 JS |
+| 选择器 | `>` 通常够用 | 优先后代选择器（`uni-view` 包裹） |
+| 返回键 / SVG | 浏览器正常 | 用文字 glyph（见 `app-back-fix.css`） |
+
+## 改完自问
+
+1. 网页 `/999`：顶栏、详情、列表是否正常（无多余空白、无被挡）？
+2. Safari：滚动、高度、底部 Home 条是否正常？
+3. 安卓 APK：沉浸式状态栏下是否仍被挡？
+4. iOS IPA：刘海 / 底部安全区是否仍正确？
+5. 若用了 `#ifdef APP-PLUS` / `#ifdef H5`，另一端构建是否被正确保留或剔除？
