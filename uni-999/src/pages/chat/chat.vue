@@ -46,7 +46,14 @@
           @click="closePanels"
         >
           <view
-            v-for="m in messages"
+            v-if="hasOlderMessages"
+            class="chat-load-older"
+            @click.stop="revealOlderMessages"
+          >
+            <text class="chat-load-older-txt">查看更早消息</text>
+          </view>
+          <view
+            v-for="m in visibleMessages"
             :id="'m' + msgId(m)"
             :key="msgId(m)"
             class="chat-msg-row"
@@ -57,12 +64,12 @@
             </view>
             <template v-else>
               <view class="chat-msg-avatar locked">
-                <image :src="msgAvatar(m)" mode="aspectFill" />
+                <image :src="msgAvatar(m)" mode="aspectFill" lazy-load />
               </view>
               <view class="chat-msg-main" :class="{ 'has-niuniu': isNiuniu(m) || isFissionShare(m) }">
                 <view v-if="showSender(m)" class="chat-msg-nick locked">{{ senderName(m) }}</view>
 
-                <!-- 红宝：对齐 888 bubble-rp 结构 -->
+                <!-- 红宝：对齐 888 bubble-rp；信封用 CSS 代替内联 SVG，减轻列表主线程 -->
                 <view
                   v-if="isRp(m)"
                   class="chat-rp-card bubble-rp"
@@ -71,15 +78,8 @@
                   @longpress="onMsgLongPress(m)"
                 >
                   <view class="rp-top">
-                    <view class="rp-icon-box">
-                      <svg class="rp-env-svg" viewBox="0 0 40 46" aria-hidden="true">
-                        <rect x="4" y="12" width="32" height="30" rx="3.2" fill="#F8E2A8" />
-                        <path d="M4 15.2L20 27.2L36 15.2V13.2c0-1.9-1.4-3.2-3.2-3.2H7.2C5.4 10 4 11.3 4 13.2v2z" fill="#E3B268" />
-                        <path d="M4 15.2L20 27.2L36 15.2" stroke="rgba(138,100,39,.35)" stroke-width="1" fill="none" />
-                        <circle cx="20" cy="25" r="8.2" fill="#C61114" />
-                        <circle cx="20" cy="25" r="8.2" fill="none" stroke="rgba(253,228,179,.85)" stroke-width="1.2" />
-                        <text x="20" y="28.2" text-anchor="middle" font-size="9.5" font-weight="800" fill="#FDE4B3">開</text>
-                      </svg>
+                    <view class="rp-icon-box rp-icon-css" aria-hidden="true">
+                      <text class="rp-icon-kai">開</text>
                     </view>
                     <view class="rp-info">
                       <view class="rp-title">{{ rpTitle(m) }}</view>
@@ -151,7 +151,7 @@
                 </view>
 
                 <view v-else-if="isSticker(m)" class="chat-bubble sticker" @longpress="onMsgLongPress(m)">
-                  <image class="chat-sticker-img" :src="stickerUrl(m)" mode="aspectFit" />
+                  <image class="chat-sticker-img" :src="stickerUrl(m)" mode="aspectFit" lazy-load />
                   <text class="meta">{{ msgTime(m) }}</text>
                 </view>
                 <view v-else-if="isImage(m)" class="chat-bubble media" @longpress="onMsgLongPress(m)">
@@ -749,6 +749,7 @@ import {
   isSystemMsg,
   msgExtra,
   msgType,
+  normalizeMessage,
   publicUrl,
   recallTip,
 } from '../../utils/chat.js'
@@ -795,6 +796,22 @@ const peerNickname = ref('')
 const remark = ref('')
 const text = ref('')
 const messages = ref([])
+/** 渲染窗口：默认只画最近 N 条，点「查看更早」再扩（避免 scrolltoupper 在 Safari 跳位） */
+const MSG_RENDER_CAP = 40
+const msgRevealCount = ref(MSG_RENDER_CAP)
+const visibleMessages = computed(() => {
+  const all = messages.value || []
+  const n = Math.max(MSG_RENDER_CAP, msgRevealCount.value | 0)
+  if (all.length <= n) return all
+  return all.slice(all.length - n)
+})
+const hasOlderMessages = computed(() => {
+  const all = messages.value || []
+  return all.length > Math.max(MSG_RENDER_CAP, msgRevealCount.value | 0)
+})
+function revealOlderMessages() {
+  msgRevealCount.value = (msgRevealCount.value | 0) + 30
+}
 const scrollInto = ref('')
 const scrollTop = ref(0)
 const meta = ref({ type: 1, peer: 0, group: 0, conversationId: '' })
@@ -2105,7 +2122,7 @@ function roomConversationId() {
 
 function appendLocalMessage(raw) {
   if (!raw) return false
-  let msg = raw
+  let msg = normalizeMessage(Object.assign({}, raw))
   if (!(msg.conversation_type | 0)) {
     msg = Object.assign({}, msg, {
       conversation_type: meta.value.type | 0,
@@ -2959,7 +2976,7 @@ async function fetchHistory(opts) {
     map.set(String(msgId(m)), m)
   })
   incoming.forEach((m) => {
-    map.set(String(msgId(m)), m)
+    map.set(String(msgId(m)), normalizeMessage(m))
   })
   const merged = Array.from(map.values()).sort((a, b) => {
     const ai = (a.id | 0) || 0
@@ -2990,6 +3007,12 @@ async function fetchHistory(opts) {
     }
   })
   messages.value = deduped
+  // 进房/强制贴底：回到末尾窗口；用户已展开更早则保留更大窗口
+  if (forceScroll || stickToBottom) {
+    msgRevealCount.value = MSG_RENDER_CAP
+  } else if ((msgRevealCount.value | 0) < MSG_RENDER_CAP) {
+    msgRevealCount.value = MSG_RENDER_CAP
+  }
   if (!meta.value.conversationId) {
     const cid =
       meta.value.type === 2
@@ -3905,11 +3928,22 @@ async function loadGroupMeta() {
   } catch (e) {}
 }
 
+let softRefreshTimer = null
+let softRefreshInflight = null
 async function softRefreshHistory() {
   if (!roomAlive) return
-  try {
-    await fetchHistory()
-  } catch (e) {}
+  // 单飞 + 短防抖：resume/倒计时归零/失败回退连打时只拉一次，三端行为一致
+  if (softRefreshTimer) clearTimeout(softRefreshTimer)
+  softRefreshTimer = setTimeout(() => {
+    softRefreshTimer = null
+    if (!roomAlive) return
+    if (softRefreshInflight) return
+    softRefreshInflight = fetchHistory()
+      .catch(() => {})
+      .finally(() => {
+        softRefreshInflight = null
+      })
+  }, 400)
 }
 
 /** A1：抢包更新只补封面状态，避免整页拉 history */
@@ -3967,7 +4001,7 @@ function applyRedPacketUpdateLocal(data) {
     patched++
   }
   if (patched) {
-    messages.value = rows.slice()
+    // 就地替换命中行，避免整表 slice
   }
 
   // 详情页打开时：结算/领完才重拉详情；普通抢包用本地补 remain

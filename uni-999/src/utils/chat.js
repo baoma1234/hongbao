@@ -22,16 +22,28 @@ export function msgType(m) {
 
 export function msgExtra(m) {
   if (!m) return {}
-  const e = m.extra
-  if (!e) return {}
+  let e = m.extra
+  if (e == null || e === '') return {}
   if (typeof e === 'string') {
     try {
-      return JSON.parse(e) || {}
+      e = JSON.parse(e) || {}
     } catch (err) {
-      return {}
+      e = {}
     }
+    // 入表后写回对象，后续热路径不再反复 JSON.parse（可安全用于普通消息对象）
+    try {
+      m.extra = e
+    } catch (err2) {}
+    return e
   }
   return e
+}
+
+/** 规范化消息 extra（history / 本地插入时调用） */
+export function normalizeMessage(m) {
+  if (!m || typeof m !== 'object') return m
+  msgExtra(m)
+  return m
 }
 
 export function packetTypeLabel(t) {
@@ -197,18 +209,30 @@ export function defaultAvatarUrl() {
   return packagedStaticUrl('img/default-avatar.png') + q
 }
 
-/** 对齐 888 avatarSrc：空头像也回默认图，避免空白块 */
+/** 对齐 888 avatarSrc：空头像也回默认图，避免空白块；短 LRU 缓存减轻列表重复拼 URL */
+const avatarSrcCache = new Map()
+const AVATAR_SRC_CACHE_MAX = 240
+
 export function avatarSrc(url) {
   const raw = String(url == null ? '' : url).trim()
-  if (!raw) return defaultAvatarUrl()
-  // 建群选的 emoji 等：不是路径，勿拼成 /🐵
-  if (
-    raw.indexOf('/') < 0 &&
-    !/^https?:\/\//i.test(raw) &&
-    !/\.(png|jpe?g|gif|webp|svg)(\?|$)/i.test(raw)
-  ) {
-    return defaultAvatarUrl()
+  const key = raw || '__default__'
+  const hit = avatarSrcCache.get(key)
+  if (hit) return hit
+  let out = defaultAvatarUrl()
+  if (raw) {
+    if (
+      raw.indexOf('/') < 0 &&
+      !/^https?:\/\//i.test(raw) &&
+      !/\.(png|jpe?g|gif|webp|svg)(\?|$)/i.test(raw)
+    ) {
+      out = defaultAvatarUrl()
+    } else {
+      out = publicUrl(raw) || defaultAvatarUrl()
+    }
   }
-  // 兼容 avatar_url / 相对 uploads
-  return publicUrl(raw) || defaultAvatarUrl()
+  if (avatarSrcCache.size >= AVATAR_SRC_CACHE_MAX) {
+    avatarSrcCache.clear()
+  }
+  avatarSrcCache.set(key, out)
+  return out
 }

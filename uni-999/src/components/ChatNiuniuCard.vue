@@ -5,7 +5,7 @@
     @click="$emit('tap')"
     @longpress="$emit('longpress')"
   >
-    <image class="nn-bg" src="/static/niuniu/bj.jpg" mode="aspectFill" />
+    <image class="nn-bg" src="/static/niuniu/bj.jpg" mode="aspectFill" lazy-load />
     <view class="nn-layer">
       <view class="nn-center">
         <text class="nn-l1">#{{ roundId || '--' }} 入场:{{ sharePrice }}</text>

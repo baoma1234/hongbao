@@ -380,6 +380,49 @@
   height: 40px;
   display: block;
 }
+/* 红包信封：CSS 代替内联 SVG（APK WebView 更轻） */
+.chat-room-page .chat-rp-card .rp-icon-css {
+  width: 36px !important;
+  height: 40px !important;
+  min-width: 36px;
+  border-radius: 4px;
+  background:
+    linear-gradient(180deg, #e3b268 0 28%, transparent 28%),
+    linear-gradient(180deg, transparent 0 28%, #f8e2a8 28%);
+  border: 1px solid rgba(138, 100, 39, 0.35);
+  box-sizing: border-box;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+.chat-room-page .chat-rp-card .rp-icon-kai {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #c61114;
+  color: #fde4b3 !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  line-height: 18px !important;
+  text-align: center;
+  display: block !important;
+}
+.chat-room-page .chat-load-older {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 12px 6px;
+}
+.chat-room-page .chat-load-older-txt {
+  font-size: 12px;
+  color: #888;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.72);
+}
 
 .chat-room-page .chat-rp-card.is-faded {
   opacity: 0.97;

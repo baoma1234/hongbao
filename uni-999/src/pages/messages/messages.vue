@@ -124,7 +124,7 @@
                         @click="onConvClick(item)"
                       >
                         <view class="chat-avatar" :class="{ group: (item.conversation_type | 0) === 2, admin: !!item.is_im_admin }">
-                          <image :src="avatarSrc(item.avatar_url || item.avatar)" mode="aspectFill" />
+                          <image :src="avatarSrc(item.avatar_url || item.avatar)" mode="aspectFill" lazy-load />
                         </view>
                         <view class="chat-conv-body">
                           <view class="chat-conv-title">
@@ -176,7 +176,7 @@
                       @click="openGroup(g)"
                     >
                       <view class="chat-official-avatar">
-                        <image :src="avatarSrc(g.avatar_url || g.avatar)" mode="aspectFill" />
+                        <image :src="avatarSrc(g.avatar_url || g.avatar)" mode="aspectFill" lazy-load />
                       </view>
                       <view class="chat-official-body">
                         <text class="chat-official-title">{{ g.name || ('#' + (g.id || g.group_id)) }}</text>
@@ -213,7 +213,7 @@
                       <view v-for="g in myGroups" :key="g.id" class="chat-my-group-item" @click="openGroup(g)">
                         <view class="chat-my-group-main">
                           <view class="chat-my-group-avatar">
-                            <image :src="avatarSrc(g.avatar_url || g.avatar)" mode="aspectFill" />
+                            <image :src="avatarSrc(g.avatar_url || g.avatar)" mode="aspectFill" lazy-load />
                           </view>
                           <text class="chat-my-group-name">{{ g.name || ('#' + g.id) }}</text>
                         </view>
@@ -233,7 +233,7 @@
                       <view v-for="g in myCreatedGroups" :key="'c-' + g.id" class="chat-my-group-item" @click="openGroup(g)">
                         <view class="chat-my-group-main">
                           <view class="chat-my-group-avatar">
-                            <image :src="avatarSrc(g.avatar_url || g.avatar)" mode="aspectFill" />
+                            <image :src="avatarSrc(g.avatar_url || g.avatar)" mode="aspectFill" lazy-load />
                           </view>
                           <view class="chat-my-group-create-text">
                             <text class="chat-my-group-name">{{ g.name || ('#' + g.id) }}</text>
@@ -261,7 +261,7 @@
                         @click="openFriendChat(f)"
                       >
                         <view class="chat-feed-avatar">
-                          <image :src="avatarSrc(f.avatar_url || f.avatar)" mode="aspectFill" />
+                          <image :src="avatarSrc(f.avatar_url || f.avatar)" mode="aspectFill" lazy-load />
                           <view class="chat-feed-online-dot" :class="{ off: !f.online }" />
                         </view>
                         <view class="chat-feed-body">
