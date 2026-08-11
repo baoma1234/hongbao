@@ -1786,11 +1786,26 @@ class RedPacketService
         } catch (\Throwable $e) {
         }
 
+        // 验资：可用余额 + 本包最差者已冻续发额（解冻在 doSend 内、send 之前）
+        // 旧逻辑只看可用额，会把「冻着的续发金」判成余额不足而永久卡住
         $bal = $this->wallet->getBalance($senderUid, true);
-        if ($bal + 0.00001 < $amount) {
+        $frozenCredit = 0.0;
+        try {
+            $worstFreeze = Db::fetch(
+                'SELECT freeze_status, frozen_amount FROM ' . Db::table('chat_red_packet_records')
+                . ' WHERE packet_id=? AND is_worst=1 LIMIT 1',
+                [$packetId]
+            );
+            if ($worstFreeze && (int)($worstFreeze['freeze_status'] ?? 0) === 1) {
+                $frozenCredit = round((float)($worstFreeze['frozen_amount'] ?? 0), 2);
+            }
+        } catch (\Throwable $eFz) {
+        }
+        if ($bal + $frozenCredit + 0.00001 < $amount) {
             error_log(sprintf(
-                '[RP_RELAY][ALERT] pending: worst balance=%.2f need=%.2f uid=%d group=%d packet_id=%d',
+                '[RP_RELAY][ALERT] pending: worst balance=%.2f frozen=%.2f need=%.2f uid=%d group=%d packet_id=%d',
                 $bal,
+                $frozenCredit,
                 $amount,
                 $senderUid,
                 $groupId,
@@ -1850,6 +1865,19 @@ class RedPacketService
                         . ' SET freeze_status=2 WHERE id=?',
                         [(int)$worstRec['id']]
                     );
+                }
+                // 解冻后再验一次可用额（延迟窗口内可能被花掉）
+                $balNow = $this->wallet->getBalance($senderUid, true);
+                if ($balNow + 0.00001 < $amount) {
+                    error_log(sprintf(
+                        '[RP_RELAY][ALERT] after-unfreeze balance=%.2f need=%.2f uid=%d packet_id=%d',
+                        $balNow,
+                        $amount,
+                        $senderUid,
+                        $packetId
+                    ));
+                    $this->markRelayRetry($packetId, 'balance_not_enough_after_unfreeze');
+                    return null;
                 }
                 $result = $this->send([
                     'from_user_id' => $senderUid,

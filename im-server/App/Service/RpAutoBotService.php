@@ -838,7 +838,9 @@ class RpAutoBotService
     }
 
     /**
-     * 群内最新一笔已结算接龙包，是否仍在等待「抢最少」用户续发。
+     * 群内接龙是否仍占用「续发权」（禁止自动任务插队发包）。
+     * - status=2：已抢完待结算（最差尚未标出，旧逻辑漏判导致机器人抢先发下一包）
+     * - status=5 + 最差 compensate_status=1：已结算、等最少者续发
      */
     protected function hasPendingRelay($groupId)
     {
@@ -847,15 +849,25 @@ class RpAutoBotService
             return false;
         }
         try {
+            $settling = Db::fetch(
+                'SELECT id FROM ' . Db::table('chat_red_packets')
+                . ' WHERE group_id=? AND scope_type=2 AND packet_type=5 AND status=2'
+                . ' LIMIT 1',
+                [$groupId]
+            );
+            if ($settling) {
+                return true;
+            }
             $row = Db::fetch(
-                'SELECT r.compensate_status AS cs FROM ' . Db::table('chat_red_packets') . ' p'
+                'SELECT r.id FROM ' . Db::table('chat_red_packets') . ' p'
                 . ' INNER JOIN ' . Db::table('chat_red_packet_records') . ' r'
                 . ' ON r.packet_id=p.id AND r.is_worst=1'
                 . ' WHERE p.group_id=? AND p.scope_type=2 AND p.packet_type=5 AND p.status=5'
+                . ' AND r.compensate_status=1'
                 . ' ORDER BY p.id DESC LIMIT 1',
                 [$groupId]
             );
-            if ($row && (int)($row['cs'] ?? 0) === 1) {
+            if ($row) {
                 return true;
             }
         } catch (\Throwable $e) {
