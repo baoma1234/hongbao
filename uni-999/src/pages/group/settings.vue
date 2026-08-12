@@ -156,7 +156,11 @@
               @click.stop="onMemberTap(m)"
             >
               <view class="chat-member-avatar">
-                <image :src="avatarSrc(m.avatar_url || m.avatar || '')" mode="aspectFill" />
+                <image
+                  class="chat-member-avatar-img"
+                  :src="avatarSrc(m.avatar_url || m.avatar || '')"
+                  mode="aspectFill"
+                />
               </view>
               <view class="chat-member-main">
                 <view class="chat-member-name">{{ m.nickname || ('ID' + m.user_id) }}</view>
@@ -208,7 +212,11 @@
                 {{ selectedIds[u.user_id] ? '✓' : '' }}
               </view>
               <view class="chat-member-avatar">
-                <image :src="avatarSrc(u.avatar_url || u.avatar || '')" mode="aspectFill" />
+                <image
+                  class="chat-member-avatar-img"
+                  :src="avatarSrc(u.avatar_url || u.avatar || '')"
+                  mode="aspectFill"
+                />
               </view>
               <view class="chat-member-main">
                 <view class="chat-member-name">{{ u.nickname || ('ID' + u.user_id) }}</view>

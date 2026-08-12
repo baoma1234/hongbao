@@ -600,17 +600,60 @@
   flex-direction: column;
 }
 
-/* 成员/邀请列表头像：App 为 uni-image，不能只写 img */
+/* 成员/邀请列表头像：uni-image 默认 320×240，须容器+组件+内层 div/img 全铺满 */
+.chat-group-invite-overlay .chat-member-avatar,
+.chat-group-members-overlay .chat-member-avatar {
+  width: 42px !important;
+  height: 42px !important;
+  min-width: 42px !important;
+  min-height: 42px !important;
+  max-width: 42px !important;
+  max-height: 42px !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  position: relative !important;
+  flex-shrink: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  background: linear-gradient(135deg, #ff8a65, #e53935) !important;
+}
 .chat-group-invite-overlay .chat-member-avatar image,
 .chat-group-invite-overlay .chat-member-avatar uni-image,
-.chat-group-invite-overlay .chat-member-avatar img,
+.chat-group-invite-overlay .chat-member-avatar .uni-image,
+.chat-group-invite-overlay .chat-member-avatar .chat-member-avatar-img,
 .chat-group-members-overlay .chat-member-avatar image,
 .chat-group-members-overlay .chat-member-avatar uni-image,
+.chat-group-members-overlay .chat-member-avatar .uni-image,
+.chat-group-members-overlay .chat-member-avatar .chat-member-avatar-img {
+  width: 42px !important;
+  height: 42px !important;
+  max-width: 42px !important;
+  max-height: 42px !important;
+  display: block !important;
+  flex-shrink: 0 !important;
+}
+.chat-group-invite-overlay .chat-member-avatar uni-image > div,
+.chat-group-invite-overlay .chat-member-avatar image > div,
+.chat-group-invite-overlay .chat-member-avatar .uni-image > div,
+.chat-group-members-overlay .chat-member-avatar uni-image > div,
+.chat-group-members-overlay .chat-member-avatar image > div,
+.chat-group-members-overlay .chat-member-avatar .uni-image > div {
+  width: 100% !important;
+  height: 100% !important;
+  overflow: hidden !important;
+}
+.chat-group-invite-overlay .chat-member-avatar uni-image img,
+.chat-group-invite-overlay .chat-member-avatar image img,
+.chat-group-invite-overlay .chat-member-avatar img,
+.chat-group-members-overlay .chat-member-avatar uni-image img,
+.chat-group-members-overlay .chat-member-avatar image img,
 .chat-group-members-overlay .chat-member-avatar img {
   width: 100% !important;
   height: 100% !important;
-  display: block !important;
   object-fit: cover !important;
+  display: block !important;
 }
 .chat-group-invite-overlay .chat-hero-hd {
   flex-shrink: 0;
