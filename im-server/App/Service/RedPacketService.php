@@ -1044,6 +1044,41 @@ class RedPacketService
     }
 
     /**
+     * 接龙续发个数：钳到本群 rp_min/max（与金额固定同理）。
+     * 曾出现插队发 7 个后整条接龙一直复制 7；此处强制回到群规则。
+     */
+    protected function clampRelayCount($count, array $group)
+    {
+        $count = max(1, (int)$count);
+        $minCount = (int)($group['rp_min_count'] ?? 0);
+        $maxCount = (int)($group['rp_max_count'] ?? 0);
+        $isVip = (int)($group['is_vip_group'] ?? 0) === 1;
+        if ($minCount <= 0) {
+            $minCount = $isVip
+                ? (int)($this->cfg['relay_vip_min_count'] ?? $this->cfg['vip_min_count'] ?? 5)
+                : (int)($this->cfg['relay_min_count'] ?? $this->cfg['min_count'] ?? 5);
+        }
+        if ($maxCount <= 0) {
+            $maxCount = $isVip
+                ? (int)($this->cfg['relay_vip_max_count'] ?? $this->cfg['vip_max_count'] ?? 10)
+                : (int)($this->cfg['relay_max_count'] ?? $this->cfg['max_count'] ?? 10);
+        }
+        if ($minCount < 1) {
+            $minCount = 1;
+        }
+        if ($maxCount < $minCount) {
+            $maxCount = $minCount;
+        }
+        if ($count < $minCount) {
+            return $minCount;
+        }
+        if ($count > $maxCount) {
+            return $maxCount;
+        }
+        return $count;
+    }
+
+    /**
      * 管理端：强制对指定包结算
      */
     public function adminSettle($packetId)
@@ -1822,6 +1857,8 @@ class RedPacketService
             if ($fixed > 0) {
                 $amount = $fixed;
             }
+            // 个数跟金额一样：受本群 min/max 约束，避免历史「插队 7 个包」把整条接龙永久带偏
+            $count = $this->clampRelayCount($count, is_array($g) ? $g : []);
         } catch (\Throwable $eFix) {
         }
         if ($amount <= 0 || $count <= 0) {
