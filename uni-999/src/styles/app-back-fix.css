@@ -47,9 +47,17 @@
 }
 
 /*
- * App：TopBar spacer 偶发短一截 — fixed top 已用 --chat-overlay-top，不再额外 padding-top 压字
+ * App：内联 top 由 useProfileSubHdStyle 写入；此处补红条内边距与 body 占位高度
  */
 /* #ifdef APP-PLUS */
+.profile-sub-page {
+  --profile-sub-hd-h: 66px;
+}
+.profile-sub-page > .profile-sub-hd {
+  padding-top: 14px !important;
+  padding-bottom: 14px !important;
+  min-height: var(--profile-sub-hd-h) !important;
+}
 .chat-group-settings-page > .chat-hero-hd {
   padding-top: 14px !important;
 }

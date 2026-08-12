@@ -1,7 +1,7 @@
 ﻿<template>
-  <view class="hb-page profile-sub-page">
+  <view class="hb-page profile-sub-page" :style="profileSubPageStyle">
     <TopBar />
-    <view class="profile-sub-hd">
+    <view class="profile-sub-hd" :style="profileSubHdStyle">
       <text class="profile-back-btn" @click="goBack">‹</text>
       <text class="profile-sub-title">提现</text>
       <text class="profile-sub-spacer" />
@@ -152,12 +152,13 @@
 
 <script setup>
 import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import TopBar from '../../components/TopBar.vue'
 import WalletChannelIcon from '../../components/WalletChannelIcon.vue'
 import { onShow } from '@dcloudio/uni-app'
 import { apiRequest, getToken } from '../../utils/auth.js'
 import { applySafeAreaCssVars } from '../../utils/safe-area.js'
+import { useProfileSubHdStyle } from '../../utils/profile-sub-layout.js'
 import {
   CHANNEL_GRID_VISIBLE,
   clearWalletCache,
@@ -181,6 +182,8 @@ import '../../styles/hb.css'
 function goBack() {
   safeNavigateBack(HOME_TAB)
 }
+
+const { profileSubHdStyle, profileSubPageStyle, refreshProfileSubLayout } = useProfileSubHdStyle()
 
 const loading = ref(false)
 const error = ref('')
@@ -510,7 +513,12 @@ async function refresh(force = false) {
   }
 }
 
+onMounted(() => {
+  refreshProfileSubLayout()
+})
+
 onShow(() => {
+  refreshProfileSubLayout()
   applySafeAreaCssVars()
   refresh(true)
 })
