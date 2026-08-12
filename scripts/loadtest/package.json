@@ -1,0 +1,13 @@
+{
+  "name": "fanshub-loadtest",
+  "private": true,
+  "type": "module",
+  "description": "Optional Node WS load test when k6 is unavailable",
+  "scripts": {
+    "ws": "node node/ws-online.mjs",
+    "ws:smoke": "node node/ws-online.mjs --vus=50 --duration=120"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
