@@ -17,6 +17,20 @@ class FansHubDagouSms
             && trim((string)FansHubService::config('sms_dagou_apikey', '')) !== '';
     }
 
+    /**
+     * 网关根地址（允许误填 .../api/sms，自动剥掉）
+     */
+    public static function gatewayBase()
+    {
+        $gateway = rtrim(trim((string)FansHubService::config('sms_dagou_gateway')), '/');
+        if ($gateway === '') {
+            return '';
+        }
+        $gateway = preg_replace('#/api/sms$#i', '', $gateway);
+        $gateway = preg_replace('#/api/get_balance$#i', '', $gateway);
+        return rtrim((string)$gateway, '/');
+    }
+
     public static function makeSign(array $data, $apikey)
     {
         ksort($data);
@@ -44,12 +58,12 @@ class FansHubDagouSms
         if (!self::enabled()) {
             return false;
         }
-        $gateway = rtrim(trim((string)FansHubService::config('sms_dagou_gateway')), '/');
+        $gateway = self::gatewayBase();
         $uname = trim((string)FansHubService::config('sms_dagou_uname'));
         $apikey = trim((string)FansHubService::config('sms_dagou_apikey'));
         $national = preg_replace('/\D+/', '', (string)$national);
         $code = (string)$code;
-        if ($national === '' || $code === '') {
+        if ($gateway === '' || $national === '' || $code === '') {
             return false;
         }
 
@@ -82,10 +96,22 @@ class FansHubDagouSms
         curl_close($ch);
 
         if ($response === false || $curlError !== '' || $httpCode < 200 || $httpCode >= 300) {
+            \think\Log::write(sprintf(
+                '[dagou-sms] send fail http=%s curl=%s body=%s url=%s',
+                $httpCode,
+                $curlError,
+                mb_substr((string)$response, 0, 500),
+                $url
+            ), 'error');
             return false;
         }
         $json = json_decode((string)$response, true);
         if (!is_array($json) || (int)($json['status'] ?? 0) !== 1) {
+            \think\Log::write(sprintf(
+                '[dagou-sms] send reject body=%s url=%s',
+                mb_substr((string)$response, 0, 500),
+                $url
+            ), 'error');
             return false;
         }
 
@@ -108,7 +134,7 @@ class FansHubDagouSms
         if (!self::enabled()) {
             throw new \Exception('大狗短信未配置完整');
         }
-        $gateway = rtrim(trim((string)FansHubService::config('sms_dagou_gateway')), '/');
+        $gateway = self::gatewayBase();
         $uname = trim((string)FansHubService::config('sms_dagou_uname'));
         $apikey = trim((string)FansHubService::config('sms_dagou_apikey'));
         $params = [
@@ -137,11 +163,19 @@ class FansHubDagouSms
         $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
 
+        \think\Log::write(sprintf(
+            '[dagou-sms] balance http=%s curl=%s body=%s url=%s',
+            $httpCode,
+            $curlError,
+            mb_substr((string)$response, 0, 500),
+            $url
+        ), 'info');
+
         if ($response === false || $curlError !== '') {
             throw new \Exception('余额查询失败：' . $curlError);
         }
         if ($httpCode < 200 || $httpCode >= 300) {
-            throw new \Exception('余额查询 HTTP ' . $httpCode);
+            throw new \Exception('余额查询 HTTP ' . $httpCode . '，请检查网关根地址（不要带 /api/sms）');
         }
         $json = json_decode((string)$response, true);
         if (!is_array($json) || (int)($json['status'] ?? 0) !== 1) {

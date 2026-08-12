@@ -114,7 +114,7 @@ class Sms extends Backend
         ThinkConfig::set('fanshub', $cfg);
         try {
             $data = FansHubDagouSms::getBalance();
-            $this->success('查询成功', $data);
+            $this->result($data, 1, '查询成功');
         } catch (\Throwable $e) {
             $this->error($e->getMessage());
         } finally {
@@ -183,7 +183,7 @@ class Sms extends Backend
         ThinkConfig::set('fanshub', $cfg);
         try {
             $data = FansHubUnaSms::getBalance();
-            $this->success('查询成功', $data);
+            $this->result($data, 1, '查询成功');
         } catch (\Throwable $e) {
             $this->error($e->getMessage());
         } finally {
