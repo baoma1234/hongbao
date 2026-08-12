@@ -90,6 +90,8 @@ return array_replace_recursive([
         'count'      => $wsCountDefault,
         'name'       => 'FansHubIM',
         'heartbeat'  => 50,
+        // 空闲无任何帧（含 ping）则踢线；须 > 客户端 PING_INTERVAL(30s)
+        'idle_kick'  => 120,
         // Linux SO_REUSEPORT，减轻 accept 热点
         'reuse_port' => (PHP_OS_FAMILY !== 'Windows'),
     ],

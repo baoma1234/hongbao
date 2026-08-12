@@ -115,22 +115,30 @@ $worker->onWorkerStart = function (Worker $worker) use ($cfg) {
     }
 
     $heartbeat = (int)($cfg['websocket']['heartbeat'] ?? 50);
+    $idleKick = (int)($cfg['websocket']['idle_kick'] ?? 120);
+    if ($idleKick < 60) {
+        $idleKick = 60;
+    }
     if ($heartbeat > 0) {
-        Timer::add($heartbeat, function () use ($worker) {
+        Timer::add($heartbeat, function () use ($worker, $idleKick) {
             $now = time();
+            $touchUids = [];
             foreach ($worker->connections as $connection) {
                 if (empty($connection->lastMessageTime)) {
                     $connection->lastMessageTime = $now;
                     continue;
                 }
-                if ($now - $connection->lastMessageTime > 120) {
+                if ($now - $connection->lastMessageTime > $idleKick) {
                     $connection->close();
                     continue;
                 }
                 $uid = ConnMap::userIdOf((string)$connection->id);
                 if ($uid > 0) {
-                    ConnMap::touchUser($uid);
+                    $touchUids[$uid] = $uid;
                 }
+            }
+            if ($touchUids) {
+                ConnMap::touchUsers(array_values($touchUids));
             }
         });
     }

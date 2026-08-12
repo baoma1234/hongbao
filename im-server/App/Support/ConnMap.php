@@ -82,15 +82,36 @@ class ConnMap
     /** 刷新在线 TTL（心跳时可调用） */
     public static function touchUser($userId)
     {
-        $userId = (int)$userId;
-        if ($userId <= 0 || empty(self::$uidConns[$userId])) {
+        self::touchUsers([(int)$userId]);
+    }
+
+    /**
+     * 批量刷新在线 TTL（心跳一轮一次 pipeline，避免万人×EXPIRE 打爆 Redis）
+     *
+     * @param int[] $userIds
+     */
+    public static function touchUsers(array $userIds)
+    {
+        $ids = [];
+        foreach ($userIds as $userId) {
+            $userId = (int)$userId;
+            if ($userId > 0 && !empty(self::$uidConns[$userId])) {
+                $ids[$userId] = $userId;
+            }
+        }
+        if (!$ids) {
             return;
         }
         try {
             $r = RedisClient::conn();
-            $connKey = RedisClient::key('uid:' . $userId . ':conns');
-            $r->expire($connKey, 180);
-            $r->sAdd(RedisClient::key('online'), (string)$userId);
+            $onlineKey = RedisClient::key('online');
+            $r->multi(\Redis::PIPELINE);
+            foreach ($ids as $userId) {
+                $connKey = RedisClient::key('uid:' . $userId . ':conns');
+                $r->expire($connKey, 180);
+                $r->sAdd($onlineKey, (string)$userId);
+            }
+            $r->exec();
         } catch (\Throwable $e) {
         }
     }
@@ -202,6 +223,7 @@ class ConnMap
         if ($groupId <= 0 || $userId <= 0 || empty(self::$uidConns[$userId])) {
             return;
         }
+        $wasEmpty = empty(self::$gidLocalUids[$groupId]);
         if (!isset(self::$gidLocalUids[$groupId])) {
             self::$gidLocalUids[$groupId] = [];
         }
@@ -210,6 +232,10 @@ class ConnMap
             self::$uidLocalGids[$userId] = [];
         }
         self::$uidLocalGids[$userId][$groupId] = true;
+        // 本 Worker 首次持有该群在线成员时登记，供 PushBus 只扇出到有成员的 Worker
+        if ($wasEmpty) {
+            self::registerGroupWorker($groupId);
+        }
     }
 
     public static function remLocalGroupMember($groupId, $userId)
@@ -222,6 +248,7 @@ class ConnMap
         unset(self::$gidLocalUids[$groupId][$userId]);
         if (empty(self::$gidLocalUids[$groupId])) {
             unset(self::$gidLocalUids[$groupId]);
+            self::unregisterGroupWorker($groupId);
         }
         unset(self::$uidLocalGids[$userId][$groupId]);
     }
@@ -237,9 +264,39 @@ class ConnMap
             unset(self::$gidLocalUids[$gid][$userId]);
             if (empty(self::$gidLocalUids[$gid])) {
                 unset(self::$gidLocalUids[$gid]);
+                self::unregisterGroupWorker((int)$gid);
             }
         }
         unset(self::$uidLocalGids[$userId]);
+    }
+
+    protected static function registerGroupWorker($groupId)
+    {
+        $groupId = (int)$groupId;
+        if ($groupId <= 0) {
+            return;
+        }
+        try {
+            $r = RedisClient::conn();
+            $key = RedisClient::key('g:' . $groupId . ':workers');
+            $r->sAdd($key, (string)self::$workerId);
+            $r->expire($key, 600);
+        } catch (\Throwable $e) {
+        }
+    }
+
+    protected static function unregisterGroupWorker($groupId)
+    {
+        $groupId = (int)$groupId;
+        if ($groupId <= 0) {
+            return;
+        }
+        try {
+            $r = RedisClient::conn();
+            $key = RedisClient::key('g:' . $groupId . ':workers');
+            $r->sRem($key, (string)self::$workerId);
+        } catch (\Throwable $e) {
+        }
     }
 
     /**

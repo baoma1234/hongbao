@@ -24,6 +24,7 @@ class PushBus
         self::$worker = $worker;
         self::$workerId = (int)$worker->id;
         self::$localDeliver = $localDeliver;
+        ConnMap::setWorkerId(self::$workerId);
         self::register();
         self::drainOwnQueue(200);
     }
@@ -176,7 +177,8 @@ class PushBus
     }
 
     /**
-     * 群 envelope：本机投递 + 每个存活远程 Worker 各写 1 条（不含 uid 列表）
+     * 群 envelope：本机投递 + 只写到「持有该群在线成员」的远程 Worker
+     * （无登记时回退全体存活 Worker，兼容旧进程）
      */
     protected static function publishGroup(array $envelope)
     {
@@ -187,7 +189,13 @@ class PushBus
         }
         try {
             $r = RedisClient::conn();
-            self::pipelinePush($r, self::otherAliveWorkers(), $json);
+            $gid = (int)($envelope['gid'] ?? 0);
+            $targets = $gid > 0 ? self::otherGroupWorkers($gid) : self::otherAliveWorkers();
+            if (!$targets) {
+                // 倒排未暖好时保底广播，避免漏推
+                $targets = self::otherAliveWorkers();
+            }
+            self::pipelinePush($r, $targets, $json);
         } catch (\Throwable $e) {
         }
     }
@@ -475,25 +483,81 @@ class PushBus
         return $out;
     }
 
+    /**
+     * 仅返回「本群有本地在线成员」的其它 Worker（Redis g:{gid}:workers）
+     *
+     * @return string[]
+     */
+    protected static function otherGroupWorkers($groupId)
+    {
+        $groupId = (int)$groupId;
+        if ($groupId <= 0) {
+            return [];
+        }
+        try {
+            $r = RedisClient::conn();
+            $members = $r->sMembers(RedisClient::key('g:' . $groupId . ':workers'));
+            if (!is_array($members) || !$members) {
+                return [];
+            }
+            $alive = array_fill_keys(self::aliveWorkers(), true);
+            $me = (string)self::$workerId;
+            $out = [];
+            foreach ($members as $wid) {
+                $wid = (string)$wid;
+                if ($wid === '' || $wid === $me) {
+                    continue;
+                }
+                if (isset($alive[$wid])) {
+                    $out[] = $wid;
+                }
+            }
+            return $out;
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    /** @var array{ts:int,list:string[]}|null */
+    protected static $aliveWorkersCache = null;
+
     /** @return string[] */
     protected static function aliveWorkers()
     {
+        $now = time();
+        if (self::$aliveWorkersCache && ($now - (int)self::$aliveWorkersCache['ts']) < 2) {
+            return self::$aliveWorkersCache['list'];
+        }
         try {
             $r = RedisClient::conn();
             $members = $r->sMembers(RedisClient::key('workers'));
             if (!is_array($members) || !$members) {
-                return [(string)self::$workerId];
+                $list = [(string)self::$workerId];
+                self::$aliveWorkersCache = ['ts' => $now, 'list' => $list];
+                return $list;
             }
             $alive = [];
+            // pipeline EXISTS，避免 80 worker 时串行 RTT
+            $r->multi(\Redis::PIPELINE);
+            foreach ($members as $wid) {
+                $r->exists(RedisClient::key('worker:' . (string)$wid . ':alive'));
+            }
+            $flags = $r->exec();
+            $i = 0;
             foreach ($members as $wid) {
                 $wid = (string)$wid;
-                if ($r->exists(RedisClient::key('worker:' . $wid . ':alive'))) {
+                if (!empty($flags[$i])) {
                     $alive[] = $wid;
                 }
+                $i++;
             }
-            return $alive ?: [(string)self::$workerId];
+            $list = $alive ?: [(string)self::$workerId];
+            self::$aliveWorkersCache = ['ts' => $now, 'list' => $list];
+            return $list;
         } catch (\Throwable $e) {
-            return [(string)self::$workerId];
+            $list = [(string)self::$workerId];
+            self::$aliveWorkersCache = ['ts' => $now, 'list' => $list];
+            return $list;
         }
     }
 
