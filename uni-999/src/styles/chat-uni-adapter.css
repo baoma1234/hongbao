@@ -256,9 +256,10 @@ body.tab-messages #tabMessages .chat-list-pane {
 }
 #tabMessages .chat-my-group-item,
 #tabMessages .chat-feed-item {
-  padding: 7px 10px !important;
-  gap: 8px !important;
+  padding: 8px 10px !important;
+  gap: 10px !important;
   border-radius: 14px !important;
+  align-items: center !important;
 }
 #tabMessages .chat-my-group-main {
   gap: 8px !important;
@@ -266,10 +267,33 @@ body.tab-messages #tabMessages .chat-list-pane {
 #tabMessages .chat-my-group-create {
   margin-bottom: 6px !important;
 }
-#tabMessages .chat-my-group-avatar,
-#tabMessages .chat-feed-avatar {
+#tabMessages .chat-my-group-avatar {
   width: 36px !important;
   height: 36px !important;
+}
+
+/* 好友列表头像：与会话列表 .chat-avatar 同尺寸（勿再压成 36 圆） */
+#tabMessages .chat-friend-feed-list .chat-avatar {
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 14px !important;
+}
+#tabMessages .chat-friend-feed-list .chat-feed-online-dot {
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 10px !important;
+  height: 10px !important;
+  z-index: 2;
+}
+
+/* 官方社群头像：与会话群头像一致 */
+#tabMessages .chat-official-list .chat-avatar,
+#tabMessages .chat-official-list .chat-avatar.group {
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 14px !important;
+  overflow: hidden !important;
+  flex-shrink: 0 !important;
 }
 
 /* uni-image 在 H5 默认 320x240，必须在头像容器内强制铺满 */

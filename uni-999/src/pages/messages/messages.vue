@@ -176,7 +176,7 @@
                       class="chat-official-row"
                       @click="openGroup(g)"
                     >
-                      <view class="chat-official-avatar">
+                      <view class="chat-avatar group">
                         <image :src="avatarSrc(g.avatar_url || g.avatar)" mode="aspectFill" lazy-load />
                       </view>
                       <view class="chat-official-body">
@@ -261,7 +261,7 @@
                         :class="{ 'is-pinned-cs': !!(f.is_default_cs || f.pinned) }"
                         @click="openFriendChat(f)"
                       >
-                        <view class="chat-feed-avatar">
+                        <view class="chat-avatar">
                           <image :src="avatarSrc(f.avatar_url || f.avatar)" mode="aspectFill" lazy-load />
                           <view class="chat-feed-online-dot" :class="{ off: !f.online }" />
                         </view>
@@ -2542,20 +2542,7 @@ onHide(() => {
   background: #fff;
   box-shadow: 0 2px 8px rgba(120, 40, 20, 0.08);
 }
-.chat-official-avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  overflow: hidden;
-  flex-shrink: 0;
-  background: #ffe8d6;
-}
-.chat-official-avatar image,
-.chat-official-avatar uni-image {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
+/* 官方社群头像：复用会话列表 .chat-avatar.group（见 chat-uni-adapter） */
 .chat-official-body {
   flex: 1 1 auto;
   min-width: 0;
