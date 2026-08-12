@@ -193,10 +193,15 @@
                 </scroll-view>
               </view>
 
-              <view v-else-if="communitySub === 'mine'" class="chat-community-pane active">
-                <scroll-view scroll-y class="chat-community-body-scroll" :style="panelScrollStyle" :show-scrollbar="false">
-                  <view class="chat-community-glass-panel chat-community-pane-body">
-                    <view class="chat-my-groups-list">
+              <view v-else-if="communitySub === 'mine'" class="chat-community-pane active chat-community-pane--feed">
+                <scroll-view
+                  scroll-y
+                  class="chat-community-body-scroll"
+                  :style="panelScrollStyle"
+                  :show-scrollbar="false"
+                  :enable-flex="true"
+                >
+                  <view class="chat-my-groups-list">
                       <view
                         v-if="canCreateGroup"
                         class="chat-my-group-item chat-my-group-create"
@@ -221,15 +226,19 @@
                       </view>
                       <view v-if="!myGroups.length" class="chat-empty chat-empty-glass">暂无已加入社群</view>
                       <view class="chat-list-scroll-pad" />
-                    </view>
                   </view>
                 </scroll-view>
               </view>
 
-              <view v-else-if="communitySub === 'created'" class="chat-community-pane active">
-                <scroll-view scroll-y class="chat-community-body-scroll" :style="panelScrollStyle" :show-scrollbar="false">
-                  <view class="chat-community-glass-panel chat-community-pane-body">
-                    <view class="chat-my-groups-list">
+              <view v-else-if="communitySub === 'created'" class="chat-community-pane active chat-community-pane--feed">
+                <scroll-view
+                  scroll-y
+                  class="chat-community-body-scroll"
+                  :style="panelScrollStyle"
+                  :show-scrollbar="false"
+                  :enable-flex="true"
+                >
+                  <view class="chat-my-groups-list">
                       <view v-for="g in myCreatedGroups" :key="'c-' + g.id" class="chat-my-group-item" @click="openGroup(g)">
                         <view class="chat-my-group-main">
                           <view class="chat-my-group-avatar">
@@ -244,15 +253,19 @@
                       </view>
                       <view v-if="!myCreatedGroups.length" class="chat-empty chat-empty-glass">暂无我创建/管理的群</view>
                       <view class="chat-list-scroll-pad" />
-                    </view>
                   </view>
                 </scroll-view>
               </view>
 
-              <view v-else class="chat-community-pane active">
-                <scroll-view scroll-y class="chat-community-body-scroll" :style="panelScrollStyle" :show-scrollbar="false">
-                  <view class="chat-community-glass-panel chat-community-pane-body">
-                    <view class="chat-friend-feed-list">
+              <view v-else class="chat-community-pane active chat-community-pane--feed">
+                <scroll-view
+                  scroll-y
+                  class="chat-community-body-scroll"
+                  :style="panelScrollStyle"
+                  :show-scrollbar="false"
+                  :enable-flex="true"
+                >
+                  <view class="chat-friend-feed-list">
                       <view
                         v-for="f in friends"
                         :key="f.peer_user_id || f.user_id"
@@ -274,7 +287,6 @@
                       </view>
                       <view v-if="!friends.length" class="chat-empty chat-empty-glass">暂无好友</view>
                       <view class="chat-list-scroll-pad" />
-                    </view>
                   </view>
                 </scroll-view>
               </view>
@@ -2618,9 +2630,24 @@ onHide(() => {
   overflow: hidden !important;
   box-sizing: border-box !important;
 }
-.chat-community-pane--official .chat-community-body-scroll {
+.chat-community-pane--feed {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+.chat-community-pane--official .chat-community-body-scroll,
+.chat-community-pane--feed .chat-community-body-scroll {
   flex: none !important;
   min-height: 0 !important;
+}
+/* 好友列表末项后 20px（与会话列表一致，App 勿依赖空 view） */
+.chat-friend-feed-list,
+.chat-my-groups-list {
+  padding-bottom: 20px !important;
+  box-sizing: border-box;
 }
 .chat-official-rules,
 .chat-official-rules--dock {

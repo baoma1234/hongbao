@@ -4707,7 +4707,8 @@ button.chat-rp-fair-link {
     inset 0 -2px 6px rgba(210, 175, 130, 0.14);
   backdrop-filter: blur(20px) saturate(1.22);
   -webkit-backdrop-filter: blur(20px) saturate(1.22);
-  overflow: auto;
+  /* 嵌套在 scroll-view 内时勿自滚，否则 App/H5 只露出约 4 行 */
+  overflow: visible;
 }
 
 .chat-my-groups-list,
@@ -4715,7 +4716,7 @@ button.chat-rp-fair-link {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding-bottom: 30px;
+  padding-bottom: 20px;
   box-sizing: border-box;
 }
 

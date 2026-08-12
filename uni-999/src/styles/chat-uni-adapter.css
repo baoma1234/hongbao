@@ -664,15 +664,18 @@ body.tab-messages #tabMessages .chat-list-pane {
 #tabMessages .chat-community-pane.active {
   flex: 1 1 0% !important;
   min-height: 0 !important;
-  /* iOS Safari：height:0 + nested scroll-view 常算不出高度 → 空白 */
-  height: auto !important;
-  display: block !important;
+  /* 与官方社群一致：flex 列布局，交给内部 scroll-view 滚，勿 height:auto + 嵌套 overflow 裁切 */
+  height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
   overflow: hidden !important;
   position: relative !important;
 }
 
 #tabMessages .chat-community-pane.chat-community-pane--official,
-#tabMessages .chat-community-pane.active.chat-community-pane--official {
+#tabMessages .chat-community-pane.active.chat-community-pane--official,
+#tabMessages .chat-community-pane.chat-community-pane--feed,
+#tabMessages .chat-community-pane.active.chat-community-pane--feed {
   display: flex !important;
   flex-direction: column !important;
 }
@@ -719,6 +722,20 @@ body.tab-messages #tabMessages .chat-list-pane {
   bottom: auto !important;
   box-sizing: border-box !important;
   -webkit-overflow-scrolling: touch;
+  overflow: hidden !important;
+}
+/* 内层必须吃满像素高，否则 App/Safari 只露出可视约 4 行且无法滚动 */
+#tabMessages .chat-community-body-scroll .uni-scroll-view,
+#tabMessages .chat-official-scroll .uni-scroll-view,
+.msg-tab-root .chat-community-body-scroll .uni-scroll-view,
+.msg-tab-root .chat-official-scroll .uni-scroll-view {
+  height: 100% !important;
+  max-height: 100% !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+#tabMessages .chat-community-body-scroll .uni-scroll-view-content,
+#tabMessages .chat-official-scroll .uni-scroll-view-content {
+  height: auto !important;
 }
 
 #tabMessages .chat-community-pane-body,
@@ -730,16 +747,19 @@ body.tab-messages #tabMessages .chat-list-pane {
   min-height: 0 !important;
   overflow: visible !important;
 }
-/* 好友列表在外层 scroll-view 内滚动，禁止玻璃面板二次裁切导致只显示约 4 条 */
+/* 好友/我的群：末项后再留 20px（padding，App 上空 view 易塌） */
+#tabMessages .chat-friend-feed-list,
+#tabMessages .chat-my-groups-list {
+  padding-bottom: 20px !important;
+  box-sizing: border-box !important;
+}
+/* 旧玻璃面板若仍出现：禁止二次滚动裁切 */
 #tabMessages .chat-community-glass-panel {
   overflow: visible !important;
   height: auto !important;
   min-height: 0 !important;
   flex: none !important;
-}
-#tabMessages .chat-friend-feed-list {
-  padding-bottom: 20px !important;
-  box-sizing: border-box !important;
+  max-height: none !important;
 }
 
 /* 公告：与社群同款 absolute 填满，避免 iOS Safari height:0 空白 */
