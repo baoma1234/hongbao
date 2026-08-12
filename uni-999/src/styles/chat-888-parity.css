@@ -9,6 +9,20 @@
 }
 .chat-room-page .chat-notice-pin {
   flex-shrink: 0;
+  align-items: center;
+}
+.chat-room-page .chat-notice-pin.is-expanded {
+  align-items: flex-start;
+}
+.chat-room-page .chat-notice-pin-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chat-room-page .chat-notice-pin.is-expanded .chat-notice-pin-text {
+  white-space: pre-wrap;
+  overflow: visible;
+  text-overflow: clip;
 }
 .chat-rp-detail-myamt {
   margin-top: 10px;

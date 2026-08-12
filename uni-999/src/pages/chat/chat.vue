@@ -21,9 +21,9 @@
         >
           <text class="chat-notice-pin-icon">📢</text>
           <view class="chat-notice-pin-body">
-            <view class="chat-notice-pin-label">群公告</view>
-            <view v-if="noticePinText" class="chat-notice-pin-text">{{ noticePinText }}</view>
-            <view v-if="noticePinImages.length" class="chat-notice-pin-imgs">
+            <text v-if="noticePinText" class="chat-notice-pin-text">群公告: {{ noticePinText }}</text>
+            <text v-else class="chat-notice-pin-text">群公告</text>
+            <view v-if="noticePinExpanded && noticePinImages.length" class="chat-notice-pin-imgs">
               <view
                 v-for="(src, idx) in noticePinImages"
                 :key="'np' + idx"

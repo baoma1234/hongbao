@@ -727,15 +727,16 @@ body.tab-messages .bottom-action-bar {
   background: #f3f4f6;
 }
 
-/* Notice pin */
+/* Notice pin：进群默认一行，点击展开全文 */
 .chat-notice-pin {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  padding: 10px 14px;
+  padding: 8px 14px;
   background: #fff8e8;
   border-bottom: 1px solid var(--color-border-warm);
   flex-shrink: 0;
+  cursor: pointer;
 }
 .chat-notice-pin-icon { flex-shrink: 0; font-size: 14px; line-height: 1.4; margin-top: 1px; }
 .chat-notice-pin-body { flex: 1; min-width: 0; }
@@ -745,19 +746,26 @@ body.tab-messages .bottom-action-bar {
   color: #c87800;
   margin-bottom: 2px;
 }
+.chat-notice-pin-prefix {
+  font-weight: 800;
+  color: #c87800;
+}
 .chat-notice-pin-text {
   font-size: 13px;
   line-height: 1.4;
   color: var(--color-text-main);
-  white-space: pre-wrap;
-  word-break: break-word;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
+  /* 默认一行省略：群公告: 【……】..... */
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: normal;
+  display: block;
 }
 .chat-notice-pin.is-expanded .chat-notice-pin-text {
-  -webkit-line-clamp: unset;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow: visible;
+  text-overflow: clip;
   display: block;
 }
 .chat-notice-pin-imgs {
