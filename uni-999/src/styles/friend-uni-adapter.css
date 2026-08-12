@@ -68,16 +68,84 @@
 }
 
 .chat-friend-page .chat-add-friend-country {
-  min-width: 72px;
+  min-width: 92px;
   min-height: 48px;
+  height: 48px;
   text-align: center;
-  padding: 12px 8px;
+  padding: 0 8px;
   box-sizing: border-box;
   font-size: 15px;
-  line-height: 1.4;
+  line-height: 1.2;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 4px;
+  border: 1px solid #e8d9c8;
+  border-radius: 10px;
+  background: #fff;
+  flex-shrink: 0;
+}
+.chat-friend-page .chat-add-friend-country .flag {
+  width: 22px;
+  height: 16px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.chat-friend-page .chat-add-friend-country .dial {
+  font-size: 14px;
+  font-weight: 700;
+  color: #3d2e22;
+}
+.chat-friend-page .chat-add-friend-country .caret {
+  font-size: 10px;
+  color: #9a8574;
+  margin-left: 2px;
+}
+.chat-friend-page .chat-add-friend-phone-row {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+.chat-friend-page .chat-add-friend-country-panel {
+  position: relative;
+  z-index: 20;
+  margin: 8px 0 4px;
+  border: 1px solid #e8d9c8;
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+  box-shadow: 0 8px 20px rgba(120, 60, 20, 0.12);
+}
+.chat-friend-page .chat-add-friend-country-panel .country-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #f3ebe2;
+}
+.chat-friend-page .chat-add-friend-country-panel .country-item:last-child {
+  border-bottom: none;
+}
+.chat-friend-page .chat-add-friend-country-panel .country-item.on {
+  background: #fff8f0;
+}
+.chat-friend-page .chat-add-friend-country-panel .flag {
+  width: 22px;
+  height: 16px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.chat-friend-page .chat-add-friend-country-panel .cname {
+  flex: 1;
+  font-size: 14px;
+  color: #3d2e22;
+  font-weight: 600;
+}
+.chat-friend-page .chat-add-friend-country-panel .cdial {
+  font-size: 13px;
+  color: #9a8574;
+  font-weight: 700;
 }
 
 .chat-friend-page .chat-setting-input,

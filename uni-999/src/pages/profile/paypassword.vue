@@ -1,5 +1,5 @@
 ﻿<template>
-  <ProfileSubPage :page-key="locale" :title="t('profile_pay_password_title') || '支付密码'">
+  <ProfileSubPage :page-key="locale" :title="t('profile_pay_password_title') || '修改支付密码'">
       <view class="match-card profile-card">
         <text class="profile-hint">{{ hintText }}</text>
 
@@ -41,16 +41,19 @@
         </view>
         <button class="btn-uid-submit" :disabled="busy" @click="submit">{{ btnText }}</button>
       </view>
+      <SliderCaptcha ref="sliderRef" @success="onSliderOk" @cancel="onSliderCancel" />
   </ProfileSubPage>
 </template>
 
 <script setup>
 import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
 import ProfileSubPage from '../../components/ProfileSubPage.vue'
+import SliderCaptcha from '../../components/SliderCaptcha.vue'
 import { computed, onUnmounted, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import {
   changePayPassword,
+  fetchConfig,
   fetchProfile,
   getToken,
   sendSms,
@@ -68,7 +71,10 @@ const captcha = ref('')
 const busy = ref(false)
 const smsBusy = ref(false)
 const smsLeft = ref(0)
+const smsSliderEnabled = ref(true)
+const sliderRef = ref(null)
 let smsTimer = null
+let pendingSmsPhone = ''
 
 const hintText = computed(() =>
   hasPayPassword.value
@@ -101,23 +107,57 @@ function startCooldown(sec) {
   }, 1000)
 }
 
-async function sendSmsCode() {
-  if (!mobile.value) {
-    uni.showToast({ title: t('alert_phone_invalid') || '手机号无效', icon: 'none' })
-    return
-  }
+async function doSendSms(phone, sliderPayload) {
   smsBusy.value = true
   try {
-    const data = await sendSms(mobile.value, {})
+    const data = await sendSms(phone, Object.assign({}, sliderPayload || {}))
     const interval = (data && data.retry_after) ? parseInt(data.retry_after, 10) : 60
     startCooldown(interval)
+    if (data && data.mock_code) captcha.value = String(data.mock_code)
     uni.showToast({ title: t('alert_sms_sent') || '验证码已发送', icon: 'none' })
   } catch (e) {
     if (e && e.payload && e.payload.retry_after) startCooldown(e.payload.retry_after)
     uni.showToast({ title: (e && e.message) || (t('alert_sms_fail') || '发送失败'), icon: 'none' })
   } finally {
     smsBusy.value = false
+    pendingSmsPhone = ''
   }
+}
+
+function onSliderOk(payload) {
+  const phone = pendingSmsPhone
+  if (!phone) return
+  doSendSms(phone, payload || {})
+}
+
+function onSliderCancel() {
+  smsBusy.value = false
+  pendingSmsPhone = ''
+}
+
+async function sendSmsCode() {
+  if (!mobile.value) {
+    uni.showToast({ title: t('alert_phone_invalid') || '手机号无效', icon: 'none' })
+    return
+  }
+  if (smsLeft.value > 0 || smsBusy.value) return
+  try {
+    const cfg = await fetchConfig()
+    if (cfg && cfg.sms_slider_enabled === false) smsSliderEnabled.value = false
+    else smsSliderEnabled.value = true
+  } catch (e) {}
+  if (smsSliderEnabled.value) {
+    pendingSmsPhone = mobile.value
+    smsBusy.value = true
+    if (sliderRef.value && typeof sliderRef.value.open === 'function') {
+      sliderRef.value.open()
+    } else {
+      smsBusy.value = false
+      uni.showToast({ title: t('srv_slider_create_fail') || '滑块验证失败，请重试', icon: 'none' })
+    }
+    return
+  }
+  await doSendSms(mobile.value, {})
 }
 
 async function submit() {

@@ -1218,6 +1218,10 @@ uni-input.hb-input {
 
 .profile-sms-row .btn-captcha {
   flex-shrink: 0;
+  align-self: stretch;
+  min-height: 48px;
+  height: 48px;
+  margin: 0;
   border: 1.5px solid transparent;
   background:
     linear-gradient(#fff, #fff) padding-box,
@@ -1227,8 +1231,19 @@ uni-input.hb-input {
   padding: 0 12px;
   font-size: 12px;
   font-weight: 700;
+  line-height: 1.2;
   white-space: nowrap;
   box-shadow: 0 4px 12px rgba(176, 120, 50, 0.1);
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+.profile-sms-row .btn-captcha,
+.profile-sub-page .profile-sms-row uni-button.btn-captcha {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
 }
 
 .profile-sms-row .btn-captcha[disabled] {

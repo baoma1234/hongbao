@@ -25,15 +25,32 @@
       <view class="chat-add-friend-card">
         <text class="chat-setting-label">对方手机号</text>
         <view class="chat-add-friend-phone-row">
-          <picker :range="dials" range-key="label" @change="onDial">
-            <view class="chat-add-friend-country">+{{ dial }}</view>
-          </picker>
+          <view class="chat-add-friend-country country-select" @click="countryOpen = !countryOpen">
+            <image class="flag" :src="flagUrl(countryMeta.flagIso)" mode="aspectFill" />
+            <text class="dial">+{{ countryMeta.dial }}</text>
+            <text class="caret">▾</text>
+          </view>
           <input
             class="chat-setting-input chat-add-friend-mobile"
             type="number"
+            :maxlength="countryMeta.maxlen"
             v-model="mobile"
-            placeholder="请输入手机号"
+            :placeholder="phonePlaceholder"
+            @focus="countryOpen = false"
           />
+        </view>
+        <view v-if="countryOpen" class="country-panel chat-add-friend-country-panel">
+          <view
+            v-for="c in countries"
+            :key="c.code"
+            class="country-item"
+            :class="{ on: c.code === country }"
+            @click="pickCountry(c.code)"
+          >
+            <image class="flag" :src="flagUrl(c.flagIso)" mode="aspectFill" />
+            <text class="cname">{{ t(c.labelKey) || c.code }}</text>
+            <text class="cdial">+{{ c.dial }}</text>
+          </view>
         </view>
         <view class="chat-add-friend-or">或</view>
         <text class="chat-setting-label">对方会员ID</text>
@@ -55,34 +72,41 @@
 
 <script setup>
 import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
 import { getToken } from '../../utils/auth.js'
 import { packagedStaticUrl } from '../../utils/config.js'
+import { flagUrl, t } from '../../utils/i18n.js'
+import {
+  LOGIN_COUNTRIES,
+  getCountryMeta,
+  isValidNational,
+  readStoredCountry,
+  setStoredCountry,
+  stripNational,
+} from '../../utils/login-country.js'
 import { friendLookup, friendRequest, friendRequests, imConnect } from '../../utils/im.js'
 import '../../styles/chat.bundle.css'
 import '../../styles/chat-uni-adapter.css'
 import '../../styles/friend-uni-adapter.css'
 
 const icoFriendReq = packagedStaticUrl('chat/plus_friend_req.png')
-const dials = [
-  { label: '+86 中国', v: '86' },
-  { label: '+855 柬埔寨', v: '855' },
-  { label: '+84 越南', v: '84' },
-  { label: '+63 菲律宾', v: '63' },
-  { label: '+62 印尼', v: '62' },
-  { label: '+60 马来', v: '60' },
-]
-const dial = ref('86')
+const countries = LOGIN_COUNTRIES
+const country = ref(readStoredCountry())
+const countryOpen = ref(false)
 const mobile = ref('')
 const memberId = ref('')
 const busy = ref(false)
 const pendingCount = ref(0)
 
-function onDial(e) {
-  const i = Number(e.detail.value || 0)
-  dial.value = dials[i] ? dials[i].v : '86'
+const countryMeta = computed(() => getCountryMeta(country.value))
+const phonePlaceholder = computed(() => t(countryMeta.value.placeholderKey) || '请输入手机号')
+
+function pickCountry(code) {
+  country.value = setStoredCountry(code)
+  countryOpen.value = false
+  mobile.value = ''
 }
 
 function goBack() {
@@ -94,27 +118,22 @@ function goRequests() {
 }
 
 function parseQuery() {
-  let m = String(mobile.value || '').replace(/\D+/g, '')
-  const dList = ['855', '86', '84', '63', '62', '60']
-  let d = String(dial.value || '').replace(/\D+/g, '')
-  if (m.length >= 10) {
-    for (let i = 0; i < dList.length; i++) {
-      const x = dList[i]
-      if (m.indexOf(x) === 0 && m.length > x.length + 5) {
-        d = x
-        m = m.slice(x.length)
-        break
-      }
-    }
-  }
   const id = String(memberId.value || '').replace(/\D+/g, '')
   if (id.length === 8) return { mode: 'id', user_id: Number(id) }
-  if (m.length >= 6) return { mode: 'mobile', mobile: m, country_dial: d || '86' }
+  const national = stripNational(mobile.value, country.value)
+  const dial = String(getCountryMeta(country.value).dial || '86')
+  if (national && isValidNational(national, country.value)) {
+    return { mode: 'mobile', mobile: national, country_dial: dial }
+  }
+  if (national && national.length >= 6) {
+    return { mode: 'mobile', mobile: national, country_dial: dial }
+  }
   if (id) return { error: '会员ID须为8位数字' }
   return { error: '请填写手机号或8位会员ID' }
 }
 
 async function submit() {
+  countryOpen.value = false
   const q = parseQuery()
   if (q.error) {
     uni.showToast({ title: q.error, icon: 'none' })

@@ -555,8 +555,9 @@
     <!-- 创建新群聊（对齐 888 chatCreateGroupPane） -->
     <view
       class="chat-create-group-pane"
-      :class="{ open: createGroupOpen }"
+      :class="{ open: createGroupOpen, 'cg-app-fix': createGroupAppFix }"
       :aria-hidden="createGroupOpen ? 'false' : 'true'"
+      :style="createGroupPaneStyle"
     >
       <view class="chat-cg-header">
         <view class="chat-cg-back" @click="closeCreateGroupPane">
@@ -654,7 +655,6 @@
           </view>
         </view>
 
-        <view class="chat-cg-hint">群主可后续在群设置中修改</view>
       </view>
     </view>
 
@@ -723,7 +723,7 @@ import '../../styles/chat.bundle.css'
 import '../../styles/chat-uni-adapter.css'
 import '../../styles/chat-888-parity.css'
 import { apiRequest, fetchProfile, getToken } from '../../utils/auth.js'
-import { applySafeAreaCssVars, getSafeAreaInsets } from '../../utils/safe-area.js'
+import { applySafeAreaCssVars, getSafeAreaInsets, measureChatOverlayTop } from '../../utils/safe-area.js'
 import {
   avatarLetter,
   avatarSrc,
@@ -943,6 +943,19 @@ const createGroupMode = ref('chat')
 const createGroupAvatar = ref('🐵')
 const createGroupSubmitting = ref(false)
 const createGroupBindRebate = ref(false)
+// #ifdef APP-PLUS
+const createGroupAppFix = true
+// #endif
+// #ifndef APP-PLUS
+const createGroupAppFix = false
+// #endif
+/** App 建群面板顶距用 JS 测量，避免 env(safe-area) 为 0 时被顶栏盖住；H5/Safari 仍走 CSS */
+const createGroupPaneStyle = computed(() => {
+  if (!createGroupOpen.value || !createGroupAppFix) return null
+  applySafeAreaCssVars()
+  const top = measureChatOverlayTop()
+  return { '--cg-app-top': Math.max(44, top) + 'px' }
+})
 const communitySub = ref('official')
 const communityRecs = ref([])
 const myGroups = ref([])
@@ -2514,13 +2527,18 @@ onHide(() => {
 /* 列表末项后留白，确保最后一条可滚出底栏遮挡（H5/Safari/APK） */
 .chat-list-scroll-pad {
   width: 100%;
-  height: 30px;
-  min-height: 30px;
+  height: 20px;
+  min-height: 20px;
   flex-shrink: 0;
   pointer-events: none;
 }
 /* 会话列表：最后一条渲染完后再留 20px（用 padding，App 上空占位 view 易塌成 0） */
 .chat-conv-list {
+  padding-bottom: 20px !important;
+  box-sizing: border-box;
+}
+/* 社群好友列表：同会话列表，完整可滚 + 末项后再留 20px */
+.chat-friend-feed-list {
   padding-bottom: 20px !important;
   box-sizing: border-box;
 }
@@ -2672,4 +2690,18 @@ onHide(() => {
   font-weight: 600;
   white-space: nowrap;
 }
+/* App only：建群红头勿负 margin 上叠裁切正文；顶距用 --cg-app-top 压过 bundle !important */
+/* #ifdef APP-PLUS */
+.chat-create-group-pane.cg-app-fix {
+  top: var(--cg-app-top, 88px) !important;
+}
+.chat-create-group-pane.cg-app-fix .chat-cg-header {
+  padding-top: 14px !important;
+  padding-bottom: 18px !important;
+}
+.chat-create-group-pane.cg-app-fix .chat-cg-main {
+  margin-top: 0 !important;
+  padding-top: 18px !important;
+}
+/* #endif */
 </style>

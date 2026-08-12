@@ -94,14 +94,14 @@
     {
       "path": "pages/profile/password",
       "style": {
-        "navigationBarTitleText": "修改密码",
+        "navigationBarTitleText": "登录密码",
         "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/profile/paypassword",
       "style": {
-        "navigationBarTitleText": "支付密码",
+        "navigationBarTitleText": "修改支付密码",
         "navigationStyle": "custom"
       }
     },

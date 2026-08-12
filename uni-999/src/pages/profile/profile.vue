@@ -96,23 +96,23 @@
           </view>
           <text class="profile-menu-arrow">›</text>
         </view>
-        <view class="profile-menu-row" @click="go('/pages/profile/password')">
-          <view class="profile-menu-ico">
-            <AppGlyph name="password" size="sm" />
-          </view>
-          <view class="profile-menu-main">
-            <text class="profile-menu-title">{{ tt('profile_menu_password', '修改密码') }}</text>
-            <text class="profile-menu-sub">{{ tt('profile_menu_password_sub', '旧密码或短信验证') }}</text>
-          </view>
-          <text class="profile-menu-arrow">›</text>
-        </view>
         <view class="profile-menu-row" @click="go('/pages/profile/paypassword')">
           <view class="profile-menu-ico">
             <AppGlyph name="paypassword" size="sm" />
           </view>
           <view class="profile-menu-main">
-            <text class="profile-menu-title">{{ tt('profile_menu_pay_password', '支付密码') }}</text>
+            <text class="profile-menu-title">{{ tt('profile_menu_pay_password', '修改支付密码') }}</text>
             <text class="profile-menu-sub">{{ tt('profile_menu_pay_password_sub', '提现与绑定地址校验') }}</text>
+          </view>
+          <text class="profile-menu-arrow">›</text>
+        </view>
+        <view class="profile-menu-row" @click="go('/pages/profile/password')">
+          <view class="profile-menu-ico">
+            <AppGlyph name="password" size="sm" />
+          </view>
+          <view class="profile-menu-main">
+            <text class="profile-menu-title">{{ tt('profile_menu_password', '登录密码') }}</text>
+            <text class="profile-menu-sub">{{ tt('profile_menu_password_sub', '旧密码或短信验证') }}</text>
           </view>
           <text class="profile-menu-arrow">›</text>
         </view>
