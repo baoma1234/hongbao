@@ -6,9 +6,29 @@ use app\common\model\Sms as SmsModel;
 
 /**
  * 大狗短信 V1.0.5 商户对接（中国区）
+ *
+ * 文档要点：
+ * - POST application/x-www-form-urlencoded
+ * - 发送 /api/sms：code,to,uname[,area_code],sign
+ * - 余额 /api/get_balance：uname,timestamp,sign
+ * - 签名：非空非 sign 字段 ASCII 排序后 key=value&...&key=Api密钥，MD5 大写
+ * - 商户需配置 IP 白名单，未加白常见返回：访问受限,请联系客服
  */
 class FansHubDagouSms
 {
+    /** @var string 最近一次失败原因（供后台测试展示） */
+    protected static $lastError = '';
+
+    public static function getLastError()
+    {
+        return self::$lastError;
+    }
+
+    protected static function setError($msg)
+    {
+        self::$lastError = trim((string)$msg);
+    }
+
     public static function enabled()
     {
         return !empty(FansHubService::config('sms_dagou_enabled'))
@@ -47,6 +67,58 @@ class FansHubDagouSms
     }
 
     /**
+     * 写大狗专用日志：runtime/log/dagou_sms_YYYYMMDD.log + ThinkPHP Log
+     */
+    public static function writeDiag($level, $message, array $ctx = [])
+    {
+        $line = '[' . date('Y-m-d H:i:s') . '] [' . strtoupper((string)$level) . '] ' . $message;
+        if ($ctx) {
+            $safe = $ctx;
+            if (isset($safe['apikey'])) {
+                $safe['apikey'] = '***';
+            }
+            if (isset($safe['sign_raw']) && is_string($safe['sign_raw'])) {
+                $safe['sign_raw'] = preg_replace('/key=.+$/', 'key=***', $safe['sign_raw']);
+            }
+            $line .= ' ' . json_encode($safe, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
+        $line .= "\n";
+        $runtime = defined('RUNTIME_PATH') ? RUNTIME_PATH : (dirname(dirname(dirname(__DIR__))) . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR);
+        $dir = rtrim($runtime, '\\/') . DIRECTORY_SEPARATOR . 'log' . DIRECTORY_SEPARATOR;
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0755, true);
+        }
+        @file_put_contents($dir . 'dagou_sms_' . date('Ymd') . '.log', $line, FILE_APPEND | LOCK_EX);
+        try {
+            \think\Log::write('[dagou-sms] ' . $message . ($ctx ? ' ' . json_encode($ctx, JSON_UNESCAPED_UNICODE) : ''), $level === 'error' ? 'error' : 'info');
+        } catch (\Throwable $e) {
+        }
+    }
+
+    protected static function signRaw(array $data, $apikey)
+    {
+        ksort($data);
+        $signStr = '';
+        foreach ($data as $k => $val) {
+            if ($k === 'sign' || $k === 'sign_type' || $val === null || $val === '') {
+                continue;
+            }
+            $signStr .= $k . '=' . $val . '&';
+        }
+        return substr($signStr, 0, -1) . '&key=' . $apikey;
+    }
+
+    protected static function outboundIpHint()
+    {
+        // 仅作日志参考，不保证与出网 IP 完全一致
+        try {
+            return (string)request()->server('SERVER_ADDR', '');
+        } catch (\Throwable $e) {
+            return '';
+        }
+    }
+
+    /**
      * 发送验证码（中国区）
      *
      * @param string $storeMobile E.164 或规范手机号（入库）
@@ -55,7 +127,14 @@ class FansHubDagouSms
      */
     public static function send($storeMobile, $national, $code)
     {
+        self::setError('');
         if (!self::enabled()) {
+            self::setError('大狗短信未启用或配置不完整');
+            self::writeDiag('error', 'send skipped: not enabled', [
+                'enabled_flag' => !empty(FansHubService::config('sms_dagou_enabled')),
+                'gateway'      => (string)FansHubService::config('sms_dagou_gateway', ''),
+                'uname'        => (string)FansHubService::config('sms_dagou_uname', ''),
+            ]);
             return false;
         }
         $gateway = self::gatewayBase();
@@ -64,15 +143,19 @@ class FansHubDagouSms
         $national = preg_replace('/\D+/', '', (string)$national);
         $code = (string)$code;
         if ($gateway === '' || $national === '' || $code === '') {
+            self::setError('网关/手机号/验证码为空');
+            self::writeDiag('error', 'send skipped: empty params', compact('gateway', 'national') + ['code_len' => strlen($code)]);
             return false;
         }
 
+        // 文档：area_code 为空则不要传；传了必须参与签名。中国固定传 86。
         $params = [
             'code'      => $code,
             'to'        => $national,
             'uname'     => $uname,
             'area_code' => '86',
         ];
+        $signRaw = self::signRaw($params, $apikey);
         $params['sign'] = self::makeSign($params, $apikey);
 
         $url = $gateway . '/api/sms';
@@ -95,23 +178,32 @@ class FansHubDagouSms
         $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
 
+        $ctx = [
+            'url'         => $url,
+            'http'        => $httpCode,
+            'curl'        => $curlError,
+            'to'          => $national,
+            'uname'       => $uname,
+            'server_addr' => self::outboundIpHint(),
+            'sign_raw'    => $signRaw,
+            'body'        => mb_substr((string)$response, 0, 800),
+        ];
+
         if ($response === false || $curlError !== '' || $httpCode < 200 || $httpCode >= 300) {
-            \think\Log::write(sprintf(
-                '[dagou-sms] send fail http=%s curl=%s body=%s url=%s',
-                $httpCode,
-                $curlError,
-                mb_substr((string)$response, 0, 500),
-                $url
-            ), 'error');
+            $msg = $curlError !== '' ? ('网络错误: ' . $curlError) : ('HTTP ' . $httpCode);
+            self::setError($msg);
+            self::writeDiag('error', 'send transport fail', $ctx);
             return false;
         }
         $json = json_decode((string)$response, true);
         if (!is_array($json) || (int)($json['status'] ?? 0) !== 1) {
-            \think\Log::write(sprintf(
-                '[dagou-sms] send reject body=%s url=%s',
-                mb_substr((string)$response, 0, 500),
-                $url
-            ), 'error');
+            $apiMsg = is_array($json) ? (string)($json['msg'] ?? '接口返回失败') : '非JSON响应';
+            // 文档：需添加 IP 白名单；实测常见 msg=访问受限,请联系客服
+            if (strpos($apiMsg, '访问受限') !== false || strpos($apiMsg, '白名单') !== false) {
+                $apiMsg .= '（多为出口 IP 未加入大狗白名单，请把服务器公网 IP 发给商务加白）';
+            }
+            self::setError($apiMsg);
+            self::writeDiag('error', 'send api reject', $ctx + ['api_msg' => $apiMsg]);
             return false;
         }
 
@@ -126,11 +218,17 @@ class FansHubDagouSms
             'ip'         => request()->ip(),
             'createtime' => time(),
         ]);
+        self::writeDiag('info', 'send ok', [
+            'to'      => $national,
+            'send_id' => (string)($json['send_id'] ?? ''),
+            'url'     => $url,
+        ]);
         return true;
     }
 
     public static function getBalance()
     {
+        self::setError('');
         if (!self::enabled()) {
             throw new \Exception('大狗短信未配置完整');
         }
@@ -141,6 +239,7 @@ class FansHubDagouSms
             'uname'     => $uname,
             'timestamp' => (string)time(),
         ];
+        $signRaw = self::signRaw($params, $apikey);
         $params['sign'] = self::makeSign($params, $apikey);
 
         $url = $gateway . '/api/get_balance';
@@ -163,13 +262,16 @@ class FansHubDagouSms
         $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
 
-        \think\Log::write(sprintf(
-            '[dagou-sms] balance http=%s curl=%s body=%s url=%s',
-            $httpCode,
-            $curlError,
-            mb_substr((string)$response, 0, 500),
-            $url
-        ), 'info');
+        $ctx = [
+            'url'         => $url,
+            'http'        => $httpCode,
+            'curl'        => $curlError,
+            'uname'       => $uname,
+            'server_addr' => self::outboundIpHint(),
+            'sign_raw'    => $signRaw,
+            'body'        => mb_substr((string)$response, 0, 800),
+        ];
+        self::writeDiag('info', 'balance response', $ctx);
 
         if ($response === false || $curlError !== '') {
             throw new \Exception('余额查询失败：' . $curlError);
@@ -180,6 +282,10 @@ class FansHubDagouSms
         $json = json_decode((string)$response, true);
         if (!is_array($json) || (int)($json['status'] ?? 0) !== 1) {
             $msg = isset($json['msg']) ? (string)$json['msg'] : '接口返回失败';
+            if (strpos($msg, '访问受限') !== false || strpos($msg, '白名单') !== false) {
+                $msg .= '（出口 IP 未加白，请联系大狗商务把服务器公网 IP 加入白名单）';
+            }
+            self::setError($msg);
             throw new \Exception($msg);
         }
         return $json['data'] ?? [];

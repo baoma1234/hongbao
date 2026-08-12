@@ -646,7 +646,7 @@ return array (
   'api_sms_too_frequent' => '发送频繁，请稍后再试',
   'api_sms_too_frequent_wait' => '请 {seconds} 秒后再获取验证码',
   'api_sms_sent_ok' => '验证码已发送',
-  'api_sms_send_fail' => '发送失败，请检查短信配置',
+  'api_sms_send_fail' => '发送失败',
   'api_params_incomplete' => '参数不完整',
   'api_operation_fail' => '操作失败',
   'api_sign_fail' => '签名校验失败',

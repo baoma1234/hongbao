@@ -108,8 +108,14 @@ class FansHubSms
             $ok = FansHubDagouSms::send($mobileE164, $national, $code);
             if ($ok) {
                 self::writeLog($mobileE164, $code, 'fanshub_login', 'dagou');
+            } else {
+                \think\Log::write('[fanshub-sms] dagou fail mobile=' . $mobileE164 . ' err=' . FansHubDagouSms::getLastError(), 'error');
             }
             return $ok;
+        }
+
+        if ($country === 'CN' && !FansHubDagouSms::enabled()) {
+            \think\Log::write('[fanshub-sms] CN mobile but dagou disabled, fallback channels', 'warning');
         }
 
         if ($country !== 'CN' && FansHubUnaSms::enabled()) {
@@ -131,6 +137,8 @@ class FansHubSms
         $ok = Sms::send($gatewayMobile, $code, 'fanshub_login');
         if ($ok) {
             self::writeLog($mobileE164 !== '' ? $mobileE164 : $gatewayMobile, $code, 'fanshub_login', 'default');
+        } else {
+            \think\Log::write('[fanshub-sms] all channels failed mobile=' . $mobileE164 . ' country=' . $country, 'error');
         }
         return $ok;
     }

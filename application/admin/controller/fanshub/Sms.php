@@ -85,7 +85,8 @@ class Sms extends Backend
             $code = (string)mt_rand(100000, 999999);
             $ok = FansHubDagouSms::send('+86' . $mobile, $mobile, $code);
             if (!$ok) {
-                $this->error('发送失败，请检查网关地址、商户ID、密钥及IP白名单');
+                $err = FansHubDagouSms::getLastError();
+                $this->error($err !== '' ? ('发送失败：' . $err) : '发送失败');
             }
             $this->success('测试短信已提交，验证码：' . $code . '（请查收手机）');
         } catch (\Throwable $e) {
@@ -116,7 +117,12 @@ class Sms extends Backend
             $data = FansHubDagouSms::getBalance();
             $this->result($data, 1, '查询成功');
         } catch (\Throwable $e) {
-            $this->error($e->getMessage());
+            $detail = $e->getMessage();
+            $last = FansHubDagouSms::getLastError();
+            if ($last !== '' && strpos($detail, $last) === false) {
+                $detail .= ' | ' . $last;
+            }
+            $this->error($detail);
         } finally {
             ThinkConfig::set('fanshub', $backup);
         }

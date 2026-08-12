@@ -59,7 +59,7 @@ class Sms extends Api
         if ($ret) {
             $this->success(__('发送成功'));
         } else {
-            $this->error(__('发送失败，请检查短信配置是否正确'));
+            $this->error(__('发送失败'));
         }
     }
 

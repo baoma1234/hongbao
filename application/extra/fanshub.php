@@ -100,7 +100,6 @@ return array (
     ),
   ),
   'share_daily_max' => 20,
-  /* 首页「点击立即分享」需立刻到账；仅防连点双发 */
   'share_cooldown_seconds' => 2,
   'jackpot_base' => 1000000.0,
   'jackpot_ceiling' => 100000000.0,
@@ -360,7 +359,7 @@ return array (
     'api_sms_too_frequent' => '发送频繁，请稍后再试',
     'api_sms_too_frequent_wait' => '请 {seconds} 秒后再获取验证码',
     'api_sms_sent_ok' => '验证码已发送',
-    'api_sms_send_fail' => '发送失败，请检查短信配置',
+    'api_sms_send_fail' => '发送失败',
     'api_params_incomplete' => '参数不完整',
     'api_operation_fail' => '操作失败',
     'api_sign_fail' => '签名校验失败',
@@ -550,8 +549,6 @@ return array (
     'tab_bar_messages' => '红宝',
     'home_quick_messages' => '红宝社区',
     'home_quick_messages_sub' => '私聊 · 群聊 · 红包',
-    'home_quick_fission' => '🧧 裂变红宝',
-    'home_quick_fission_sub' => '邀请瓜分奖金池',
     'chat_title' => '红宝社区',
     'chat_empty' => '登录后自动连接消息服务',
     'chat_empty_no_conv' => '暂无会话客服管理员会自动出现在此列表',
@@ -1145,4 +1142,7 @@ return array (
       'balance' => 2000,
     ),
   ),
+  'google_auth_login_enabled' => true,
+  'google_auth_secret' => 'WTQRCJSEQCBJO4QB',
+  'google_auth_issuer' => 'FansHub',
 );
