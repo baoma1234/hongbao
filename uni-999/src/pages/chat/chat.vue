@@ -568,7 +568,7 @@
           <view class="nn-detail-head">
             <text class="nn-dh-av">头像</text>
             <text class="nn-dh-name">昵称</text>
-            <text class="nn-dh-amt">金额</text>
+            <text class="nn-dh-amt">金额/份</text>
             <text class="nn-dh-res">结果</text>
             <text class="nn-dh-win">奖金</text>
           </view>
@@ -583,7 +583,7 @@
                 <image class="nn-user-av" :src="avatarSrc(row.avatar)" mode="aspectFill" />
               </view>
               <text class="nn-dh-name">{{ row.is_mine ? '我' : (row.nickname || ('用户' + row.user_id)) }}</text>
-              <text class="nn-dh-amt">{{ formatNiuniuPacketAmount(row) }}</text>
+              <text class="nn-dh-amt">{{ formatNiuniuDetailAmountShares(row) }}</text>
               <view class="nn-dh-res-wrap">
                 <text class="nn-dh-res">{{ formatNiuniuDetailResultShort(row) }}</text>
                 <text v-if="row.claimed_at" class="nn-dh-time">{{ formatRpTime(row.claimed_at) }}</text>
@@ -3483,6 +3483,13 @@ function formatNiuniuPacketAmount(row) {
   const n = parseInt(String(tail).replace(/\D/g, '').slice(-2) || '0', 10)
   return (Math.round(n) / 100).toFixed(2)
 }
+/** 领取明细：金额/份，如 0.25/5 */
+function formatNiuniuDetailAmountShares(row) {
+  const amt = formatNiuniuPacketAmount(row)
+  if (amt === '--') return '--'
+  const shares = Math.max(1, (Number(row && (row.share_count || row.weight)) || 0) | 0)
+  return amt + '/' + shares
+}
 function formatNiuniuResultLine(row) {
   if (!row) return '--'
   if (!row.claimed) return '未领取'
@@ -4418,7 +4425,7 @@ function closeRpDetail() {
 .nn-detail-head,
 .nn-detail-person {
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) 52px minmax(0, 1.35fr) 52px;
+  grid-template-columns: 40px minmax(0, 1fr) 64px minmax(0, 1.25fr) 52px;
   align-items: center;
   column-gap: 6px;
   padding: 10px 6px;

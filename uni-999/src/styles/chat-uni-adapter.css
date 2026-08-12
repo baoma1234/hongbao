@@ -492,7 +492,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   color: #8a7a6e !important;
   font-size: 12px !important;
   font-weight: 700;
-  padding: 0 14px 8px;
+  padding: 0 !important;
 }
 /* 顶栏四 Tab：对齐 888 glass（红渐变选中） */
 #tabMessages .chat-home-tab {
