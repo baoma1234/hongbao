@@ -21,8 +21,7 @@
         >
           <text class="chat-notice-pin-icon">📢</text>
           <view class="chat-notice-pin-body">
-            <text v-if="noticePinText" class="chat-notice-pin-text">群公告: {{ noticePinText }}</text>
-            <text v-else class="chat-notice-pin-text">群公告</text>
+            <view class="chat-notice-pin-text">{{ noticePinDisplay }}</view>
             <view v-if="noticePinExpanded && noticePinImages.length" class="chat-notice-pin-imgs">
               <view
                 v-for="(src, idx) in noticePinImages"
@@ -1096,6 +1095,17 @@ const noticePinText = computed(() => {
   if (!notice) return ''
   if (noticeDismissedText.value && noticeDismissedText.value === notice) return ''
   return notice
+})
+
+/** 折叠只展示一行预览（去换行+截断），展开才出全文；勿依赖 CSS 对 uni-text 省略 */
+const noticePinDisplay = computed(() => {
+  const raw = String(noticePinText.value || '').trim()
+  if (!raw) return '群公告'
+  if (noticePinExpanded.value) return '群公告: ' + raw
+  const one = raw.replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim()
+  const max = 22
+  const preview = one.length > max ? one.slice(0, max) + '.....' : one
+  return '群公告: ' + preview
 })
 
 const noticePinImages = computed(() => {

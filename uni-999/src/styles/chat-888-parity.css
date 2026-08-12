@@ -10,19 +10,31 @@
 .chat-room-page .chat-notice-pin {
   flex-shrink: 0;
   align-items: center;
+  max-height: 40px;
+  overflow: hidden;
 }
 .chat-room-page .chat-notice-pin.is-expanded {
   align-items: flex-start;
-}
-.chat-room-page .chat-notice-pin-text {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.chat-room-page .chat-notice-pin.is-expanded .chat-notice-pin-text {
-  white-space: pre-wrap;
+  max-height: none;
   overflow: visible;
-  text-overflow: clip;
+}
+.chat-room-page .chat-notice-pin-text,
+.chat-room-page .chat-notice-pin .chat-notice-pin-text,
+.chat-room-page .chat-notice-pin uni-view.chat-notice-pin-text {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  height: 24px !important;
+  line-height: 24px !important;
+  max-width: 100% !important;
+}
+.chat-room-page .chat-notice-pin.is-expanded .chat-notice-pin-text,
+.chat-room-page .chat-notice-pin.is-expanded uni-view.chat-notice-pin-text {
+  white-space: pre-wrap !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  height: auto !important;
+  line-height: 1.45 !important;
 }
 .chat-rp-detail-myamt {
   margin-top: 10px;

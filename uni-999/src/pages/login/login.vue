@@ -7,7 +7,10 @@
         <image class="login-logo-img" :src="logo" mode="aspectFit" />
         <view class="login-logo">{{ t('brand_name') }}</view>
       </view>
-      <view class="login-subtitle">{{ t('login_subtitle') }}</view>
+      <view class="login-subtitle">
+        <text class="login-subtitle-line">{{ t('login_subtitle_line1') || '红宝多样玩法 · 欢乐一站畅玩' }}</text>
+        <text class="login-subtitle-line">{{ t('login_subtitle_line2') || '🔥火热开启领取888,888元' }}</text>
+      </view>
 
       <view class="input-group">
         <view class="input-label">{{ t('login_phone_label') }}</view>
@@ -402,6 +405,16 @@ onUnmounted(() => {
   color: #657786;
   margin-bottom: 25px;
   font-weight: 500;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  line-height: 1.35;
+}
+.login-subtitle-line {
+  display: block;
+  width: 100%;
+  text-align: center;
 }
 .input-group {
   position: relative;

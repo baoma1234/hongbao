@@ -727,19 +727,28 @@ body.tab-messages .bottom-action-bar {
   background: #f3f4f6;
 }
 
-/* Notice pin：进群默认一行，点击展开全文 */
+/* Notice pin：进群默认一行，点击展开全文（文案由 JS 截断，CSS 再兜底） */
 .chat-notice-pin {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
   padding: 8px 14px;
   background: #fff8e8;
   border-bottom: 1px solid var(--color-border-warm);
   flex-shrink: 0;
   cursor: pointer;
+  max-height: 40px;
+  overflow: hidden;
+  box-sizing: border-box;
 }
-.chat-notice-pin-icon { flex-shrink: 0; font-size: 14px; line-height: 1.4; margin-top: 1px; }
-.chat-notice-pin-body { flex: 1; min-width: 0; }
+.chat-notice-pin.is-expanded {
+  align-items: flex-start;
+  max-height: none;
+  overflow: visible;
+}
+.chat-notice-pin-icon { flex-shrink: 0; font-size: 14px; line-height: 1.4; }
+.chat-notice-pin-body { flex: 1; min-width: 0; overflow: hidden; }
+.chat-notice-pin.is-expanded .chat-notice-pin-body { overflow: visible; }
 .chat-notice-pin-label {
   font-size: 11px;
   font-weight: 800;
@@ -752,21 +761,24 @@ body.tab-messages .bottom-action-bar {
 }
 .chat-notice-pin-text {
   font-size: 13px;
-  line-height: 1.4;
+  line-height: 24px;
+  height: 24px;
   color: var(--color-text-main);
-  /* 默认一行省略：群公告: 【……】..... */
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  word-break: normal;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  word-break: keep-all;
   display: block;
+  width: 100%;
+  max-width: 100%;
 }
 .chat-notice-pin.is-expanded .chat-notice-pin-text {
-  white-space: pre-wrap;
+  height: auto;
+  line-height: 1.45;
+  white-space: pre-wrap !important;
   word-break: break-word;
-  overflow: visible;
-  text-overflow: clip;
-  display: block;
+  overflow: visible !important;
+  text-overflow: clip !important;
 }
 .chat-notice-pin-imgs {
   display: flex;
