@@ -1150,11 +1150,13 @@ class NiuniuService
                 return false;
             }
 
+            // 同一用户多份奖金合并为一条资金记录（如买 1+2 份 → 开奖只记一次）
+            $winBucket = [];
             foreach ($niuniu as $s) {
-                $this->payWin($s, $nnPer, $roundId, $now);
+                $this->payWin($s, $nnPer, $roundId, $now, $winBucket);
             }
             foreach ($secondary as $s) {
-                $this->payWin($s, $secPer, $roundId, $now);
+                $this->payWin($s, $secPer, $roundId, $now, $winBucket);
             }
             foreach ($low as $s) {
                 Db::exec(
@@ -1163,6 +1165,7 @@ class NiuniuService
                     [$now, (int)$s['id']]
                 );
             }
+            $this->flushWinBucket($winBucket, $roundId);
             Db::commit();
         } catch (\Throwable $e) {
             Db::rollBack();
@@ -1206,6 +1209,7 @@ class NiuniuService
                 Db::rollBack();
                 return false;
             }
+            $refundBucket = [];
             foreach ($shares as $s) {
                 $uid = (int)$s['user_id'];
                 $sid = (int)$s['id'];
@@ -1218,12 +1222,25 @@ class NiuniuService
                     continue;
                 }
                 if ($per > 0 && $uid > 0) {
-                    $this->wallet->change($uid, $per, 'niuniu_refund', '尾数牛牛流局退回 #' . $roundId, [
-                        'biz_no'   => 'niuniu_refund_' . $sid,
-                        'ref_type' => 'niuniu_share',
-                        'ref_id'   => $sid,
-                    ]);
+                    if (!isset($refundBucket[$uid])) {
+                        $refundBucket[$uid] = ['credit' => 0.0, 'count' => 0];
+                    }
+                    $refundBucket[$uid]['credit'] += round($per, 2);
+                    $refundBucket[$uid]['count']++;
                 }
+            }
+            foreach ($refundBucket as $uid => $b) {
+                $credit = round((float)$b['credit'], 2);
+                $n = (int)$b['count'];
+                if ($credit <= 0 || $uid <= 0) {
+                    continue;
+                }
+                $remark = '尾数牛牛流局退回 #' . $roundId . ($n > 1 ? ('×' . $n) : '');
+                $this->wallet->change((int)$uid, $credit, 'niuniu_refund', $remark, [
+                    'biz_no'   => 'niuniu_refund_r' . $roundId . '_u' . (int)$uid,
+                    'ref_type' => 'niuniu_round',
+                    'ref_id'   => $roundId,
+                ]);
             }
             Db::commit();
         } catch (\Throwable $e) {
@@ -1237,7 +1254,11 @@ class NiuniuService
         return true;
     }
 
-    protected function payWin(array $share, $amount, $roundId, $now)
+    /**
+     * 标记份额奖金；若传入 $bucket 则先按用户汇总，再由 flushWinBucket 一次入账。
+     * @param array|null $bucket uid => ['credit'=>float,'count'=>int]
+     */
+    protected function payWin(array $share, $amount, $roundId, $now, &$bucket = null)
     {
         $amount = round((float)$amount, 4);
         $sid = (int)$share['id'];
@@ -1250,16 +1271,46 @@ class NiuniuService
         if ((int)$claimed <= 0) {
             return;
         }
-        if ($amount > 0) {
-            // 入账按分取两位
-            $credit = round($amount, 2);
-            if ($credit > 0 && $uid > 0) {
-                $this->wallet->change($uid, $credit, 'niuniu_win', '尾数牛牛奖金 #' . $roundId, [
-                    'biz_no'   => 'niuniu_win_' . $sid,
-                    'ref_type' => 'niuniu_share',
-                    'ref_id'   => $sid,
-                ]);
+        if ($amount <= 0 || $uid <= 0) {
+            return;
+        }
+        // 入账按分取两位；多份时与原先「每份各记一笔再相加」总额一致
+        $credit = round($amount, 2);
+        if ($credit <= 0) {
+            return;
+        }
+        if (is_array($bucket)) {
+            if (!isset($bucket[$uid])) {
+                $bucket[$uid] = ['credit' => 0.0, 'count' => 0];
             }
+            $bucket[$uid]['credit'] += $credit;
+            $bucket[$uid]['count']++;
+            return;
+        }
+        $this->wallet->change($uid, $credit, 'niuniu_win', '尾数牛牛奖金 #' . $roundId, [
+            'biz_no'   => 'niuniu_win_' . $sid,
+            'ref_type' => 'niuniu_share',
+            'ref_id'   => $sid,
+        ]);
+    }
+
+    /** 将 payWin 汇总的奖金按用户写一条资金记录 */
+    protected function flushWinBucket(array $bucket, $roundId)
+    {
+        $roundId = (int)$roundId;
+        foreach ($bucket as $uid => $b) {
+            $uid = (int)$uid;
+            $credit = round((float)($b['credit'] ?? 0), 2);
+            $n = (int)($b['count'] ?? 0);
+            if ($uid <= 0 || $credit <= 0) {
+                continue;
+            }
+            $remark = '尾数牛牛奖金 #' . $roundId . ($n > 1 ? ('×' . $n) : '');
+            $this->wallet->change($uid, $credit, 'niuniu_win', $remark, [
+                'biz_no'   => 'niuniu_win_r' . $roundId . '_u' . $uid,
+                'ref_type' => 'niuniu_round',
+                'ref_id'   => $roundId,
+            ]);
         }
     }
 
