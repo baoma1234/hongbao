@@ -1,12 +1,5 @@
 ﻿<template>
-  <view class="hb-page profile-sub-page">
-    <TopBar />
-    <view class="profile-sub-hd">
-      <text class="profile-back-btn" @click="goBack">‹</text>
-      <text class="profile-sub-title">资金流水</text>
-      <text class="profile-sub-spacer" />
-    </view>
-    <view class="profile-sub-body hb-sub">
+  <ProfileSubPage title="资金流水" body-class="hb-sub">
     <view class="wallet-ledger-filters">
       <view class="wallet-ledger-filters-row">
         <view
@@ -91,13 +84,11 @@
     >
       {{ loading ? '加载中…' : '加载更多' }}
     </button>
-    </view>
-  </view>
+  </ProfileSubPage>
 </template>
 
 <script setup>
-import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
-import TopBar from '../../components/TopBar.vue'
+import ProfileSubPage from '../../components/ProfileSubPage.vue'
 import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getToken } from '../../utils/auth.js'

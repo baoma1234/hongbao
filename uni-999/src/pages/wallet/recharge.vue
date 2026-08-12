@@ -1,12 +1,5 @@
 ﻿<template>
-  <view class="hb-page profile-sub-page" :style="profileSubPageStyle">
-    <TopBar />
-    <view class="profile-sub-hd" :style="profileSubHdStyle">
-      <text class="profile-back-btn" @click="goBack">‹</text>
-      <text class="profile-sub-title">充值</text>
-      <text class="profile-sub-spacer" />
-    </view>
-    <view class="profile-sub-body hb-sub">
+  <ProfileSubPage title="充值" body-class="hb-sub">
       <view class="match-card profile-card">
         <view class="profile-field">
           <text class="lab">选择充值通道</text>
@@ -81,18 +74,15 @@
 
       <view class="wallet-ledger-empty" v-if="loading">加载中…</view>
       <view class="wallet-warn" v-if="error" style="text-align:center;margin-top:12px">{{ error }}</view>
-    </view>
-  </view>
+  </ProfileSubPage>
 </template>
 
 <script setup>
 import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
-import { computed, ref, watch, onMounted } from 'vue'
-import TopBar from '../../components/TopBar.vue'
+import { computed, ref, watch } from 'vue'
+import ProfileSubPage from '../../components/ProfileSubPage.vue'
 import WalletChannelIcon from '../../components/WalletChannelIcon.vue'
 import { onShow } from '@dcloudio/uni-app'
-import { applySafeAreaCssVars } from '../../utils/safe-area.js'
-import { useProfileSubHdStyle } from '../../utils/profile-sub-layout.js'
 import { getToken } from '../../utils/auth.js'
 import {
   CHANNEL_GRID_VISIBLE,
@@ -118,8 +108,6 @@ import '../../styles/hb.css'
 function goBack() {
   safeNavigateBack(HOME_TAB)
 }
-
-const { profileSubHdStyle, profileSubPageStyle, refreshProfileSubLayout } = useProfileSubHdStyle()
 
 const loading = ref(false)
 const error = ref('')
@@ -242,13 +230,7 @@ async function refresh() {
   }
 }
 
-onMounted(() => {
-  refreshProfileSubLayout()
-})
-
 onShow(() => {
-  refreshProfileSubLayout()
-  applySafeAreaCssVars()
   refresh()
 })
 </script>

@@ -1,7 +1,7 @@
 ﻿<template>
-  <view class="hb-page webview-page">
+  <view class="hb-page webview-page" :style="profileSubPageStyle">
     <TopBar />
-    <view class="profile-sub-hd">
+    <view class="profile-sub-hd" :style="profileSubHdStyle">
       <text class="profile-back-btn" @click="goBack">‹</text>
       <text class="profile-sub-title">{{ title }}</text>
       <text class="profile-sub-spacer" />
@@ -21,14 +21,16 @@
 
 <script setup>
 import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
-import { ref } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { ref, onMounted } from 'vue'
+import { onLoad, onShow } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
 import { getApiBase } from '../../utils/config.js'
+import { useProfileSubHdStyle } from '../../utils/profile-sub-layout.js'
 import '../../styles/hb.css'
 
 const title = ref('详情')
 const iframeSrc = ref('')
+const { profileSubHdStyle, profileSubPageStyle, refreshProfileSubLayout } = useProfileSubHdStyle()
 
 function goBack() {
   safeNavigateBack(HOME_TAB)
@@ -48,6 +50,14 @@ onLoad((q) => {
   const t = decodeURIComponent(String((q && q.title) || ''))
   if (t) title.value = t
   iframeSrc.value = resolveUrl(raw)
+})
+
+onMounted(() => {
+  refreshProfileSubLayout()
+})
+
+onShow(() => {
+  refreshProfileSubLayout()
 })
 </script>
 

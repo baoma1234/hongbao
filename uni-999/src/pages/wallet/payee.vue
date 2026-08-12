@@ -1,12 +1,5 @@
 ﻿<template>
-  <view class="hb-page profile-sub-page">
-    <TopBar />
-    <view class="profile-sub-hd">
-      <text class="profile-back-btn" @click="goBack">‹</text>
-      <text class="profile-sub-title">钱包地址</text>
-      <text class="profile-sub-spacer" />
-    </view>
-    <view class="profile-sub-body hb-sub">
+  <ProfileSubPage title="钱包地址" body-class="hb-sub">
       <view class="match-card profile-card">
         <!-- 银行卡入口暂时隐藏，仅保留数字钱包绑定 -->
         <view>
@@ -95,13 +88,11 @@
           </view>
         </view>
       </view>
-    </view>
-  </view>
+  </ProfileSubPage>
 </template>
 
 <script setup>
-import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
-import TopBar from '../../components/TopBar.vue'
+import ProfileSubPage from '../../components/ProfileSubPage.vue'
 import WalletChannelIcon from '../../components/WalletChannelIcon.vue'
 import { computed, reactive, ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'

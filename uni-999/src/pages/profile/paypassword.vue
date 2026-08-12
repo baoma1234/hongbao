@@ -1,12 +1,5 @@
 ﻿<template>
-  <view class="hb-page profile-sub-page" :key="locale">
-    <TopBar />
-    <view class="profile-sub-hd">
-      <text class="profile-back-btn" @click="goBack">‹</text>
-      <text class="profile-sub-title">{{ t('profile_pay_password_title') || '支付密码' }}</text>
-      <text class="profile-sub-spacer" />
-    </view>
-    <view class="profile-sub-body">
+  <ProfileSubPage :page-key="locale" :title="t('profile_pay_password_title') || '支付密码'">
       <view class="match-card profile-card">
         <text class="profile-hint">{{ hintText }}</text>
 
@@ -48,13 +41,12 @@
         </view>
         <button class="btn-uid-submit" :disabled="busy" @click="submit">{{ btnText }}</button>
       </view>
-    </view>
-  </view>
+  </ProfileSubPage>
 </template>
 
 <script setup>
 import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
-import TopBar from '../../components/TopBar.vue'
+import ProfileSubPage from '../../components/ProfileSubPage.vue'
 import { computed, onUnmounted, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import {

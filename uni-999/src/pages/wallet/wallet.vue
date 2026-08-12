@@ -1,12 +1,5 @@
 ﻿<template>
-  <view class="hb-page profile-sub-page">
-    <TopBar />
-    <view class="profile-sub-hd">
-      <text class="profile-back-btn" @click="goBack">‹</text>
-      <text class="profile-sub-title">钱包</text>
-      <text class="profile-sub-spacer" />
-    </view>
-    <view class="profile-sub-body">
+  <ProfileSubPage title="钱包">
       <view class="match-card" style="margin-bottom:14px">
         <view class="wallet-bal-line">红宝余额 <strong>{{ balanceText }}</strong></view>
         <view class="profile-meta-line" v-if="frozenText">冻结金额：{{ frozenText }}</view>
@@ -69,14 +62,12 @@
 
       <view class="profile-meta-line" v-if="loading" style="text-align:center;padding:20px">加载中…</view>
       <view class="wallet-warn" v-else-if="error" style="text-align:center">{{ error }}</view>
-    </view>
-  </view>
+  </ProfileSubPage>
 </template>
 
 <script setup>
-import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
 import { computed, ref } from 'vue'
-import TopBar from '../../components/TopBar.vue'
+import ProfileSubPage from '../../components/ProfileSubPage.vue'
 import AppGlyph from '../../components/AppGlyph.vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getToken } from '../../utils/auth.js'
@@ -99,10 +90,6 @@ const frozenText = computed(() => {
 })
 const turnoverText = computed(() => money((info.value && info.value.turnover) || 0))
 const turnHint = computed(() => turnoverHint(info.value))
-
-function goBack() {
-  safeNavigateBack(HOME_TAB)
-}
 
 function go(which) {
   uni.navigateTo({ url: '/pages/wallet/' + which })

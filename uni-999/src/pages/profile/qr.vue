@@ -1,12 +1,5 @@
 ﻿<template>
-  <view class="hb-page profile-sub-page" :key="locale">
-    <TopBar />
-    <view class="profile-sub-hd">
-      <text class="profile-back-btn" @click="goBack">‹</text>
-      <text class="profile-sub-title">{{ tt('profile_qr_title', '我的二维码') }}</text>
-      <text class="profile-sub-spacer" />
-    </view>
-    <view class="profile-sub-body">
+  <ProfileSubPage :page-key="locale" :title="tt('profile_qr_title', '我的二维码')">
       <view class="match-card profile-card profile-qr-card">
         <view class="profile-qr-box">
           <image v-if="qrDataUrl" class="profile-qr-img" :src="qrDataUrl" mode="aspectFit" />
@@ -19,14 +12,13 @@
         <text class="profile-qr-tip">{{ tip }}</text>
         <button class="btn-uid-submit" @click="copyId">{{ tt('profile_qr_copy_btn', '复制会员ID') }}</button>
       </view>
-    </view>
-  </view>
+  </ProfileSubPage>
 </template>
 
 <script setup>
 import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
 import { ref } from 'vue'
-import TopBar from '../../components/TopBar.vue'
+import ProfileSubPage from '../../components/ProfileSubPage.vue'
 import { onShow } from '@dcloudio/uni-app'
 import { fetchProfile, getToken } from '../../utils/auth.js'
 import { assetBase, localeState, tt } from '../../utils/i18n.js'

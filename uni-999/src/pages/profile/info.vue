@@ -1,12 +1,5 @@
 ﻿<template>
-  <view class="hb-page profile-sub-page" :key="locale">
-    <TopBar />
-    <view class="profile-sub-hd">
-      <text class="profile-back-btn" @click="goBack">‹</text>
-      <text class="profile-sub-title">{{ t('profile_info_title') || '编辑资料' }}</text>
-      <text class="profile-sub-spacer" />
-    </view>
-    <view class="profile-sub-body">
+  <ProfileSubPage :page-key="locale" :title="t('profile_info_title') || '编辑资料'">
       <view class="match-card profile-card">
         <view class="profile-avatar-wrap" @click="pickAvatar">
           <image
@@ -29,14 +22,13 @@
           {{ busy ? (t('loading_generic') || '保存中…') : (t('profile_save_btn') || '保存') }}
         </button>
       </view>
-    </view>
-  </view>
+  </ProfileSubPage>
 </template>
 
 <script setup>
 import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
 import { ref } from 'vue'
-import TopBar from '../../components/TopBar.vue'
+import ProfileSubPage from '../../components/ProfileSubPage.vue'
 import { onShow } from '@dcloudio/uni-app'
 import {
   fetchProfile,

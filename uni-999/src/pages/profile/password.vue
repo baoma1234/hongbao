@@ -1,12 +1,5 @@
 ﻿<template>
-  <view class="hb-page profile-sub-page" :key="locale">
-    <TopBar />
-    <view class="profile-sub-hd">
-      <text class="profile-back-btn" @click="goBack">‹</text>
-      <text class="profile-sub-title">{{ t('profile_password_page_title') || '修改密码' }}</text>
-      <text class="profile-sub-spacer" />
-    </view>
-    <view class="profile-sub-body">
+  <ProfileSubPage :page-key="locale" :title="t('profile_password_page_title') || '修改密码'">
       <view class="match-card profile-card">
         <view class="profile-pwd-modes">
           <button
@@ -70,13 +63,12 @@
           {{ t('profile_password_btn') || '确认修改密码' }}
         </button>
       </view>
-    </view>
-  </view>
+  </ProfileSubPage>
 </template>
 
 <script setup>
 import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
-import TopBar from '../../components/TopBar.vue'
+import ProfileSubPage from '../../components/ProfileSubPage.vue'
 import { onUnmounted, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import {

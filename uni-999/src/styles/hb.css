@@ -1069,6 +1069,7 @@ uni-input.hb-input {
 
 /* fixed 比 sticky 稳：H5/Safari/App 滚动时红条贴在 TopBar 下沿，不会上顶压字 */
 .profile-sub-page > .profile-sub-hd,
+.webview-page > .profile-sub-hd,
 .fv-page > .profile-sub-hd,
 .fv-page > .fv-hd.profile-sub-hd {
   position: fixed;
@@ -1097,7 +1098,8 @@ uni-input.hb-input {
     inset 0 -1px 0 rgba(0, 0, 0, 0.1);
 }
 
-.profile-sub-page > .profile-sub-body {
+.profile-sub-page > .profile-sub-body,
+.webview-page > .profile-sub-body {
   padding-top: calc(var(--profile-sub-hd-h) + 16px);
 }
 

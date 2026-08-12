@@ -1,12 +1,5 @@
 ﻿<template>
-  <view class="hb-page profile-sub-page" :style="profileSubPageStyle">
-    <TopBar />
-    <view class="profile-sub-hd" :style="profileSubHdStyle">
-      <text class="profile-back-btn" @click="goBack">‹</text>
-      <text class="profile-sub-title">提现</text>
-      <text class="profile-sub-spacer" />
-    </view>
-    <view class="profile-sub-body hb-sub">
+  <ProfileSubPage title="提现" body-class="hb-sub">
     <view class="match-card profile-card">
       <view class="profile-meta-line">可提现红宝：<strong>￥{{ balanceText }}</strong></view>
       <view class="profile-meta-line" v-if="frozenText">冻结金额：<strong>￥{{ frozenText }}</strong></view>
@@ -146,19 +139,16 @@
         </view>
       </view>
     </view>
-    </view>
-  </view>
+  </ProfileSubPage>
 </template>
 
 <script setup>
 import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
-import { computed, ref, onMounted } from 'vue'
-import TopBar from '../../components/TopBar.vue'
+import { computed, ref } from 'vue'
+import ProfileSubPage from '../../components/ProfileSubPage.vue'
 import WalletChannelIcon from '../../components/WalletChannelIcon.vue'
 import { onShow } from '@dcloudio/uni-app'
 import { apiRequest, getToken } from '../../utils/auth.js'
-import { applySafeAreaCssVars } from '../../utils/safe-area.js'
-import { useProfileSubHdStyle } from '../../utils/profile-sub-layout.js'
 import {
   CHANNEL_GRID_VISIBLE,
   clearWalletCache,
@@ -182,8 +172,6 @@ import '../../styles/hb.css'
 function goBack() {
   safeNavigateBack(HOME_TAB)
 }
-
-const { profileSubHdStyle, profileSubPageStyle, refreshProfileSubLayout } = useProfileSubHdStyle()
 
 const loading = ref(false)
 const error = ref('')
@@ -513,13 +501,7 @@ async function refresh(force = false) {
   }
 }
 
-onMounted(() => {
-  refreshProfileSubLayout()
-})
-
 onShow(() => {
-  refreshProfileSubLayout()
-  applySafeAreaCssVars()
   refresh(true)
 })
 </script>

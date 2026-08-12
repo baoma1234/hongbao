@@ -1,7 +1,7 @@
 ﻿<template>
-  <view class="fv-page">
+  <view class="fv-page" :style="profileSubPageStyle">
     <TopBar />
-    <view class="fv-hd profile-sub-hd">
+    <view class="fv-hd profile-sub-hd" :style="profileSubHdStyle">
       <text class="profile-back-btn" @click="goBack">‹</text>
       <text class="profile-sub-title">波场官方哈希验证</text>
       <text class="profile-sub-spacer" />
@@ -167,11 +167,11 @@
 
 <script setup>
 import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
-import { computed, onUnmounted, ref } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { onLoad, onShow } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
 import { apiRequest, getToken } from '../../utils/auth.js'
-import { applySafeAreaCssVars } from '../../utils/safe-area.js'
+import { useProfileSubHdStyle } from '../../utils/profile-sub-layout.js'
 import '../../styles/hb.css'
 
 const kind = ref('rp') // rp | niuniu
@@ -182,6 +182,7 @@ const result = ref(null)
 const busy = ref(false)
 const scrollH = ref('70vh')
 let retryTimer = null
+const { profileSubHdStyle, profileSubPageStyle, refreshProfileSubLayout } = useProfileSubHdStyle()
 
 const isNiuniu = computed(() => kind.value === 'niuniu' || (result.value && result.value.kind === 'niuniu'))
 const pageSub = computed(() =>
@@ -324,7 +325,7 @@ async function verify(opts) {
 }
 
 onLoad((q) => {
-  applySafeAreaCssVars()
+  refreshProfileSubLayout()
   measureScroll()
   const k = String((q && (q.kind || q.type)) || '').toLowerCase()
   if (k === 'niuniu' || k === 'nn' || k === 'niu') kind.value = 'niuniu'
@@ -340,6 +341,15 @@ onLoad((q) => {
   }
   if (pid > 0) packetId.value = pid
   if (queryNo.value) verify().catch(() => {})
+})
+
+onMounted(() => {
+  refreshProfileSubLayout()
+  measureScroll()
+})
+
+onShow(() => {
+  refreshProfileSubLayout()
 })
 
 onUnmounted(() => {

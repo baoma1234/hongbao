@@ -1,12 +1,5 @@
 ﻿<template>
-  <view class="hb-page profile-sub-page">
-    <TopBar />
-    <view class="profile-sub-hd">
-      <text class="profile-back-btn" @click="goBack">‹</text>
-      <text class="profile-sub-title">红包详情</text>
-      <text class="profile-sub-spacer" />
-    </view>
-    <view class="profile-sub-body hb-sub">
+  <ProfileSubPage title="红包详情" body-class="hb-sub" back-fallback="/pages/wallet/ledger">
       <view v-if="loading" class="wallet-ledger-empty">加载中…</view>
       <view v-else-if="error" class="wallet-warn" style="text-align:center">{{ error }}</view>
       <view v-else-if="detail" class="rp-detail">
@@ -49,22 +42,16 @@
           @click="openFair"
         >本站验证详情</button>
       </view>
-    </view>
-  </view>
+  </ProfileSubPage>
 </template>
 
 <script setup>
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import TopBar from '../../components/TopBar.vue'
-import { safeNavigateBack } from '../../utils/nav.js'
+import ProfileSubPage from '../../components/ProfileSubPage.vue'
 import { apiRequest, getToken } from '../../utils/auth.js'
 import { avatarSrc } from '../../utils/chat.js'
 import '../../styles/hb.css'
-
-function goBack() {
-  safeNavigateBack('/pages/wallet/ledger')
-}
 
 const loading = ref(true)
 const error = ref('')
