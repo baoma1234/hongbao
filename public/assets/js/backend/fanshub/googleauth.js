@@ -22,22 +22,27 @@ define(['jquery', 'bootstrap', 'backend', 'form'], function ($, undefined, Backe
 
             $(document).on('click', '#btn-generate', function () {
                 Fast.api.ajax({
-                    url: Fast.api.fixurl('fanshub.googleauth/generate'),
+                    url: 'fanshub/googleauth/generate',
                     type: 'POST',
-                    data: {issuer: $('#c-issuer').val()}
+                    data: {
+                        issuer: $('#c-issuer').val(),
+                        __token__: $('input[name="__token__"]').val() || ''
+                    }
                 }, function (data) {
                     applyPreview(data);
+                    Toastr.success('密钥已生成并保存，请扫码绑定');
                     return false;
                 });
             });
 
             $(document).on('click', '#btn-preview', function () {
                 Fast.api.ajax({
-                    url: Fast.api.fixurl('fanshub.googleauth/preview'),
-                    type: 'GET',
+                    url: 'fanshub/googleauth/preview',
+                    type: 'POST',
                     data: {
                         secret: $('#c-secret').val(),
-                        issuer: $('#c-issuer').val()
+                        issuer: $('#c-issuer').val(),
+                        __token__: $('input[name="__token__"]').val() || ''
                     }
                 }, function (data) {
                     applyPreview(data);

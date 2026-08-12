@@ -84,31 +84,51 @@ class Googleauth extends Backend
         if (!$this->request->isPost()) {
             $this->error('非法请求');
         }
-        $secret = FansHubGoogleAuth::createSecret(16);
-        $issuer = trim((string)$this->request->post('issuer', 'FansHub')) ?: 'FansHub';
-        $this->success('已生成', null, [
-            'secret'       => $secret,
-            'current_code' => FansHubGoogleAuth::getCode($secret),
-            'qr_url'       => FansHubGoogleAuth::qrUrl('login', $secret, $issuer),
-        ]);
+        try {
+            $secret = FansHubGoogleAuth::createSecret(16);
+            $issuer = trim((string)$this->request->post('issuer', 'FansHub')) ?: 'FansHub';
+            $payload = [
+                'secret'       => $secret,
+                'current_code' => FansHubGoogleAuth::getCode($secret),
+                'qr_url'       => FansHubGoogleAuth::qrUrl('login', $secret, $issuer),
+            ];
+            // 点生成即写入配置并开启（避免前端只预览未保存）
+            $data = ThinkConfig::get('fanshub') ?: [];
+            if (!is_array($data)) {
+                $data = [];
+            }
+            $data['google_auth_login_enabled'] = true;
+            $data['google_auth_secret'] = $secret;
+            $data['google_auth_issuer'] = mb_substr($issuer, 0, 64);
+            if (!FansHubService::saveFanshubConfig($data)) {
+                $this->error('密钥已生成但写入配置失败，请检查文件权限');
+            }
+            $this->result($payload, 1, '已生成并保存');
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage());
+        }
     }
 
     public function preview()
     {
-        $secret = FansHubGoogleAuth::normalizeSecret($this->request->get('secret', ''));
-        if ($secret === '') {
-            $cfg = ThinkConfig::get('fanshub') ?: [];
-            $secret = FansHubGoogleAuth::normalizeSecret($cfg['google_auth_secret'] ?? '');
+        try {
+            $secret = FansHubGoogleAuth::normalizeSecret($this->request->param('secret', ''));
+            if ($secret === '') {
+                $cfg = ThinkConfig::get('fanshub') ?: [];
+                $secret = FansHubGoogleAuth::normalizeSecret($cfg['google_auth_secret'] ?? '');
+            }
+            if ($secret === '') {
+                $this->error('密钥为空');
+            }
+            $issuer = trim((string)$this->request->param('issuer', '')) ?: 'FansHub';
+            $this->result([
+                'secret'       => $secret,
+                'current_code' => FansHubGoogleAuth::getCode($secret),
+                'qr_url'       => FansHubGoogleAuth::qrUrl('login', $secret, $issuer),
+                'remain'       => 30 - (time() % 30),
+            ], 1, 'ok');
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage());
         }
-        if ($secret === '') {
-            $this->error('密钥为空');
-        }
-        $issuer = trim((string)$this->request->get('issuer', '')) ?: 'FansHub';
-        $this->success('ok', null, [
-            'secret'       => $secret,
-            'current_code' => FansHubGoogleAuth::getCode($secret),
-            'qr_url'       => FansHubGoogleAuth::qrUrl('login', $secret, $issuer),
-            'remain'       => 30 - (time() % 30),
-        ]);
     }
 }
