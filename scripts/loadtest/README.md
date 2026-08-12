@@ -25,6 +25,18 @@ php scripts/loadtest/export_tokens.php --reuse-bots --count=5000
 
 输出：`scripts/loadtest/tokens.json`（已 gitignore，勿提交）。
 
+测完清理机器人：
+
+```bash
+# 先预览（默认不删）
+php scripts/purge_bot_users.php --mobile-prefix=10000000001
+
+# 确认删除 seed 手机号段机器人（10000000001 起）
+php scripts/purge_bot_users.php --mobile-prefix=10000000001 --confirm
+```
+
+⚠️ `--all-bots --confirm` 会删**所有** `is_bot=1` 账号（含运营发包机器人），一般不要用。
+
 ## 2. WS 协议（与 App/H5 一致）
 
 连接：
