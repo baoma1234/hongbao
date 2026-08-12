@@ -707,7 +707,7 @@ class FansHubService
                 'promote_earn_col_detail' => '列-广细记录',
                 'promote_earn_col_amount' => '列-到手佣金',
                 'promote_earn_type_share' => '类型-分享推广',
-                'promote_earn_type_group' => '类型-群主红包返佣',
+                'promote_earn_type_group' => '类型-红包返佣',
                 'promote_earn_detail_share_n' => '明细-分享引流（{n}）',
                 'promote_earn_detail_groups_n' => '明细-自建群返利（{n}）',
                 'promote_earn_detail_group_fee' => '明细-红包抽成返佣',

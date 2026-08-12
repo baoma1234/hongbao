@@ -1066,7 +1066,7 @@ return array (
     'promote_earn_col_detail' => '广细记录',
     'promote_earn_col_amount' => '到手佣金',
     'promote_earn_type_share' => '分享推广',
-    'promote_earn_type_group' => '发宝返佣',
+    'promote_earn_type_group' => '红包返佣',
     'promote_earn_detail_share_n' => '分享链接引流{n}人',
     'promote_earn_detail_groups_n' => '自建{n}群红包返利',
     'promote_earn_detail_group_fee' => '红包抽成返佣',

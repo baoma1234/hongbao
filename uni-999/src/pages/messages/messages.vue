@@ -1514,7 +1514,9 @@ function promoteEarnMaskUid(uid) {
 }
 
 function promoteEarnTypeLabel(key) {
-  return key === 'group' ? '发宝返佣' : '分享推广'
+  return key === 'group'
+    ? tt('promote_earn_type_group', '红包返佣')
+    : tt('promote_earn_type_share', '分享推广')
 }
 
 function promoteEarnDetailLabel(key, n) {

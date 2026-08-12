@@ -1061,19 +1061,27 @@ uni-input.hb-input {
   box-sizing: border-box;
   min-height: 100vh;
   min-height: 100dvh;
+  --profile-sub-hd-h: 62px;
   background:
     radial-gradient(120% 70% at 50% -8%, rgba(255, 236, 210, 0.95) 0%, transparent 55%),
     linear-gradient(180deg, #fffbf3 0%, #f8efe3 50%, #f3e6d6 100%);
 }
 
-.profile-sub-hd {
-  /* 贴 TopBar 底边，页面滚动时红条标题不跟着滑走 */
-  position: sticky;
+/* fixed 比 sticky 稳：H5/Safari/App 滚动时红条贴在 TopBar 下沿，不会上顶压字 */
+.profile-sub-page > .profile-sub-hd,
+.fv-page > .profile-sub-hd,
+.fv-page > .fv-hd.profile-sub-hd {
+  position: fixed;
+  left: 0;
+  right: 0;
+  width: 100%;
   top: var(
     --chat-overlay-top,
     calc(var(--top-bar-height, 48px) + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))
   );
-  z-index: 20;
+  z-index: 1200;
+  min-height: var(--profile-sub-hd-h);
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   gap: 0;
@@ -1087,6 +1095,10 @@ uni-input.hb-input {
     0 10px 24px rgba(180, 30, 25, 0.26),
     inset 0 2px 0 rgba(255, 255, 255, 0.28),
     inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+}
+
+.profile-sub-page > .profile-sub-body {
+  padding-top: calc(var(--profile-sub-hd-h) + 16px);
 }
 
 .profile-back-btn {
