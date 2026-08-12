@@ -87,7 +87,7 @@ async function renderQr() {
     qrDataUrl.value = ''
     return
   }
-  tip.value = t('profile_qr_tip') || '好友扫一扫即可添加你'
+  tip.value = tt('profile_qr_tip', '好友扫一扫即可添加你')
   try {
     // #ifdef H5
     const QRCode = await loadQrLib()
@@ -115,12 +115,12 @@ async function renderQr() {
 function copyId() {
   const text = String(memberId.value || '').trim()
   if (!text) {
-    uni.showToast({ title: t('profile_uid_copy_empty') || '暂无会员ID', icon: 'none' })
+    uni.showToast({ title: tt('profile_uid_copy_empty', '暂无会员ID'), icon: 'none' })
     return
   }
   uni.setClipboardData({
     data: text,
-    success: () => uni.showToast({ title: t('profile_uid_copied') || '已复制', icon: 'none' }),
+    success: () => uni.showToast({ title: tt('profile_uid_copied', '已复制'), icon: 'none' }),
   })
 }
 
