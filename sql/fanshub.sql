@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS `fa_fans_account` (
   `honor_tier_claimed` tinyint(3) unsigned NOT NULL DEFAULT '0' COMMENT '已领荣誉段位',
   `first_withdraw_done` tinyint(1) unsigned NOT NULL DEFAULT '0' COMMENT '已完成新手提现',
   `status` enum('normal','frozen') NOT NULL DEFAULT 'normal' COMMENT '状态',
+  `google_secret` varchar(64) NOT NULL DEFAULT '' COMMENT '谷歌验证器密钥(Base32)',
   `chat_forbid` varchar(255) NOT NULL DEFAULT '' COMMENT '聊天禁言JSON',
   `createtime` int(10) unsigned DEFAULT NULL,
   `updatetime` int(10) unsigned DEFAULT NULL,

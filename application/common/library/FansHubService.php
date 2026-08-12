@@ -2377,6 +2377,51 @@ class FansHubService
         if ($alt !== $mobile && Sms::check($alt, $captcha, $event)) {
             return true;
         }
+        // 谷歌验证器动态码可作为验证码（仅已注册用户；不改前端）
+        if (self::verifyGoogleAuthLogin($mobile, $captcha)) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * 登录/改密等场景：用谷歌验证器 6 位码代替短信验证码。
+     * 仅已存在用户；优先账户 google_secret，否则全局 google_auth_secret。
+     */
+    public static function verifyGoogleAuthLogin($mobile, $code)
+    {
+        if (!self::config('google_auth_login_enabled')) {
+            return false;
+        }
+        $code = preg_replace('/\s+/', '', (string)$code);
+        if (!preg_match('/^\d{6}$/', $code)) {
+            return false;
+        }
+        $user = self::findUserByMobile(FansHubMobile::canonical(trim((string)$mobile)));
+        if (!$user && trim((string)$mobile) !== '') {
+            $user = self::findUserByMobile(trim((string)$mobile));
+        }
+        if (!$user) {
+            return false;
+        }
+        $userSecret = '';
+        try {
+            $uid = (int)$user->id;
+            $acc = Db::name('fans_account')->where('user_id', $uid)->field('google_secret')->find();
+            if (!$acc) {
+                $acc = Db::name('fans_account')->where('id', $uid)->field('google_secret')->find();
+            }
+            $userSecret = FansHubGoogleAuth::normalizeSecret($acc['google_secret'] ?? '');
+        } catch (\Throwable $e) {
+            $userSecret = '';
+        }
+        if ($userSecret !== '' && FansHubGoogleAuth::verify($userSecret, $code, 1)) {
+            return true;
+        }
+        $global = FansHubGoogleAuth::normalizeSecret(self::config('google_auth_secret', ''));
+        if ($global !== '' && FansHubGoogleAuth::verify($global, $code, 1)) {
+            return true;
+        }
         return false;
     }
 

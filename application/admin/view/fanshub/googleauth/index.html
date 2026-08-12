@@ -1,0 +1,153 @@
+<div class="panel panel-default panel-intro">
+    <div class="panel-heading">
+        <div class="panel-lead"><em>谷歌验证器</em>
+            <span class="text-muted" style="font-size:12px;margin-left:8px;">登录页验证码框可填 6 位动态码（不改前端）</span>
+        </div>
+        <div class="panel-actions">
+            <a href="{:url('fanshub.config/security')}" class="btn btn-xs btn-default addtabsit"><i class="fa fa-shield"></i> 安全校验</a>
+            <a href="{:url('fanshub.sms/index')}" class="btn btn-xs btn-default addtabsit"><i class="fa fa-envelope"></i> 短信配置</a>
+        </div>
+    </div>
+    <div class="panel-body">
+        {if condition="!empty($columnMissing)"}
+        <div class="alert alert-warning">
+            账户表尚未增加 <code>google_secret</code> 字段，请先执行：
+            <code>php scripts/patch_google_auth_login.php</code>
+            <div class="text-muted" style="margin-top:6px;">{$columnError|default=''|htmlentities}</div>
+        </div>
+        {/if}
+
+        <div class="alert alert-info">
+            <p style="margin:0 0 6px;">规则：开启后，已注册用户在登录验证码处可输入<strong>谷歌验证器动态码</strong>代替短信验证码。</p>
+            <ul style="margin-bottom:0;padding-left:18px;">
+                <li>优先校验该用户账户上的密钥；未绑定则校验下方「全局密钥」。</li>
+                <li>未注册手机号不能仅靠谷歌码注册（防刷）。</li>
+                <li>单用户密钥可在「用户账户 → 编辑」中查看/修改。</li>
+            </ul>
+        </div>
+
+        <form id="ga-form" class="form-horizontal" role="form" method="POST" action="{:url('fanshub.googleauth/save')}">
+            <div class="form-group">
+                <label class="control-label col-xs-12 col-sm-2">启用登录替代:</label>
+                <div class="col-xs-12 col-sm-8">
+                    <label class="checkbox-inline">
+                        <input type="checkbox" name="google_auth_login_enabled" value="1" {if $enabled}checked{/if}> 允许用谷歌动态码通过登录验证码校验
+                    </label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="control-label col-xs-12 col-sm-2">显示名称(issuer):</label>
+                <div class="col-xs-12 col-sm-8">
+                    <input class="form-control" id="c-issuer" name="google_auth_issuer" type="text" value="{$issuer|htmlentities}" placeholder="FansHub">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="control-label col-xs-12 col-sm-2">全局密钥:</label>
+                <div class="col-xs-12 col-sm-8">
+                    <div class="input-group">
+                        <input class="form-control" id="c-secret" name="google_auth_secret" type="text" value="{$secret|htmlentities}" placeholder="Base32，如 JBSWY3DPEHPK3PXP" autocomplete="off">
+                        <span class="input-group-btn">
+                            <button type="button" class="btn btn-default" id="btn-generate"><i class="fa fa-refresh"></i> 生成</button>
+                            <button type="button" class="btn btn-info" id="btn-preview"><i class="fa fa-eye"></i> 刷新动态码</button>
+                        </span>
+                    </div>
+                    <span class="help-block">所有未单独绑定密钥的已注册用户，可用此密钥对应的 6 位码登录。留空则仅用户级密钥生效。</span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="control-label col-xs-12 col-sm-2">当前动态码:</label>
+                <div class="col-xs-12 col-sm-8">
+                    <p class="form-control-static">
+                        <strong id="ga-code" style="font-size:22px;letter-spacing:4px;">{$currentCode|default='----'|htmlentities}</strong>
+                        <span class="text-muted" id="ga-remain" style="margin-left:10px;"></span>
+                    </p>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="control-label col-xs-12 col-sm-2">扫码绑定:</label>
+                <div class="col-xs-12 col-sm-8">
+                    <img id="ga-qr" src="{$qrUrl|default=''|htmlentities}" alt="QR" style="width:180px;height:180px;background:#f5f5f5;{if condition='$qrUrl eq \'\' '}display:none;{/if}">
+                    <p class="help-block" id="ga-qr-tip" {if $qrUrl}style="display:none"{/if}>请先填写或生成密钥并保存。</p>
+                </div>
+            </div>
+            <div class="form-group layer-footer">
+                <label class="control-label col-xs-12 col-sm-2"></label>
+                <div class="col-xs-12 col-sm-8">
+                    <button type="submit" class="btn btn-primary btn-embossed">保存</button>
+                </div>
+            </div>
+        </form>
+
+        <h4 style="margin-top:24px;">已绑定用户密钥（最多 200）</h4>
+        <table class="table table-striped table-bordered table-hover">
+            <thead>
+            <tr>
+                <th>会员ID</th>
+                <th>手机号</th>
+                <th>昵称</th>
+                <th>密钥(脱敏)</th>
+                <th>当前码</th>
+            </tr>
+            </thead>
+            <tbody>
+            {volist name="boundUsers" id="u"}
+            <tr>
+                <td>{$u.user_id}</td>
+                <td>{$u.mobile|htmlentities}</td>
+                <td>{$u.nickname|htmlentities}</td>
+                <td><code>{$u.masked|htmlentities}</code></td>
+                <td><strong>{$u.code|htmlentities}</strong></td>
+            </tr>
+            {/volist}
+            {empty name="boundUsers"}
+            <tr><td colspan="5" class="text-center text-muted">暂无用户单独绑定</td></tr>
+            {/empty}
+            </tbody>
+        </table>
+    </div>
+</div>
+<script>
+require(['jquery'], function ($) {
+    function applyPreview(data) {
+        if (!data) return;
+        $('#ga-code').text(data.current_code || '----');
+        if (typeof data.remain !== 'undefined') {
+            $('#ga-remain').text('剩余 ' + data.remain + 's');
+        }
+        if (data.qr_url) {
+            $('#ga-qr').attr('src', data.qr_url).show();
+            $('#ga-qr-tip').hide();
+        }
+        if (data.secret) {
+            $('#c-secret').val(data.secret);
+        }
+    }
+    $('#btn-generate').on('click', function () {
+        Fast.api.ajax({
+            url: '{:url("fanshub.googleauth/generate")}',
+            data: {issuer: $('#c-issuer').val()}
+        }, function (data) {
+            applyPreview(data);
+            return false;
+        });
+    });
+    $('#btn-preview').on('click', function () {
+        Fast.api.ajax({
+            url: '{:url("fanshub.googleauth/preview")}',
+            data: {secret: $('#c-secret').val(), issuer: $('#c-issuer').val()}
+        }, function (data) {
+            applyPreview(data);
+            return false;
+        });
+    });
+    if ($('#c-secret').val()) {
+        setInterval(function () {
+            var rem = 30 - (Math.floor(Date.now() / 1000) % 30);
+            $('#ga-remain').text('剩余 ' + rem + 's');
+            if (rem === 30) {
+                $('#btn-preview').trigger('click');
+            }
+        }, 1000);
+    }
+});
+</script>

@@ -95,6 +95,10 @@ function installMenus(PDO $pdo, string $prefix): void
         'type' => 'file', 'pid' => $rootId, 'name' => 'fanshub.sms', 'title' => '短信配置',
         'icon' => 'fa fa-envelope', 'ismenu' => 1, 'menutype' => 'addtabs', 'weigh' => 6,
     ]);
+    $insert([
+        'type' => 'file', 'pid' => $rootId, 'name' => 'fanshub/googleauth', 'title' => '谷歌验证器',
+        'icon' => 'fa fa-mobile', 'remark' => '登录验证码可用谷歌动态码', 'ismenu' => 1, 'menutype' => 'addtabs', 'weigh' => 5,
+    ]);
     $memberlevelId = $insert([
         'type' => 'file', 'pid' => $rootId, 'name' => 'fanshub.memberlevel', 'title' => '会员等级配置',
         'icon' => 'fa fa-star', 'ismenu' => 1, 'menutype' => 'addtabs', 'weigh' => 6,

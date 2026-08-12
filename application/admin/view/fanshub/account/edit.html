@@ -56,6 +56,16 @@
         </div>
     </div>
     <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">谷歌验证器密钥:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input id="c-google_secret" class="form-control" name="row[google_secret]" type="text" value="{$row.google_secret|default=''|htmlentities}" placeholder="Base32 密钥，留空不改请勾选清除" autocomplete="off">
+            <label class="checkbox-inline" style="margin-top:8px;">
+                <input type="checkbox" name="row[clear_google_secret]" value="1"> 清除该用户谷歌密钥
+            </label>
+            <span class="help-block">绑定后，开启「谷歌验证器登录」时，该用户可用动态码代替短信验证码登录。全局密钥见「谷歌验证器」菜单。</span>
+        </div>
+    </div>
+    <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">股份:</label>
         <div class="col-xs-12 col-sm-8">
             <input id="c-rights" class="form-control" name="row[rights]" type="number" step="0.01" value="{$row.rights|htmlentities}">

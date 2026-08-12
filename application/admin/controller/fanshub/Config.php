@@ -58,6 +58,7 @@ class Config extends Backend
             'main_uid_verify_enabled', 'main_uid_verify_local', 'main_uid_verify_url', 'main_uid_verify_method',
             'main_uid_verify_api_key', 'main_uid_verify_timeout', 'main_uid_verify_success_codes',
             'main_uid_verify_match_phone', 'main_uid_min_length', 'main_uid_max_length', 'main_uid_pattern',
+            'google_auth_login_enabled', 'google_auth_secret', 'google_auth_issuer',
         ],
     ];
 
@@ -67,7 +68,7 @@ class Config extends Backend
         'invite' => ['title' => '邀请分享', 'desc' => '邀请域名、分享文案与防刷'],
         'copy' => ['title' => 'H5文案', 'desc' => '大厅界面中文默认文案'],
         'market' => ['title' => '大盘控盘', 'desc' => '虚拟人数、股价与创造价值'],
-        'security' => ['title' => '安全校验', 'desc' => '签名、设备指纹与主站 UID'],
+        'security' => ['title' => '安全校验', 'desc' => '签名、设备指纹、主站 UID 与谷歌验证器'],
     ];
 
     public function index()
@@ -256,6 +257,7 @@ class Config extends Backend
             'comment_auto_approve', 'invite_ip_limit_enabled', 'jackpot_auto_grow', 'jackpot_server_sync',
             'locale_auto_detect', 'api_sign_enabled', 'device_fp_limit_enabled',
             'main_uid_verify_enabled', 'main_uid_verify_local', 'main_uid_verify_match_phone',
+            'google_auth_login_enabled',
             'exchange_rights_to_balance_enabled', 'exchange_balance_to_rights_enabled',
             'exchange_rb_enabled', 'exchange_br_enabled', 'exchange_rh_enabled',
             'exchange_hr_enabled', 'exchange_bh_enabled', 'exchange_hb_enabled',

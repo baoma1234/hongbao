@@ -41,6 +41,13 @@
             </td></tr>
             <tr><th>流程阶段</th><td>{$detail.account.flow_stage}</td></tr>
             <tr><th>账户状态</th><td>{$detail.account.status}</td></tr>
+            <tr><th>谷歌验证器</th><td>
+                {if condition="!empty($row.google_secret)"}
+                <code>{$row.google_secret|htmlentities}</code>
+                {else/}
+                <span class="text-muted">未绑定（可走全局密钥）</span>
+                {/if}
+            </td></tr>
         </table>
 
         {if !empty($detail.phase2)}

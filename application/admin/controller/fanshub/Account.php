@@ -155,8 +155,9 @@ class Account extends Backend
 
         // 支付密码：清除 / 重置
         $clearPayPwd = !empty($params['clear_pay_password']);
+        $clearGoogleSecret = !empty($params['clear_google_secret']);
         $newPayPwd = isset($params['pay_password']) ? trim((string)$params['pay_password']) : '';
-        unset($params['clear_pay_password'], $params['pay_password']);
+        unset($params['clear_pay_password'], $params['pay_password'], $params['clear_google_secret']);
         $payPwdMeta = [];
         if ($clearPayPwd) {
             $payPwdMeta['pay_password'] = '';
@@ -184,6 +185,15 @@ class Account extends Backend
             if (array_key_exists($field, $params)) {
                 $meta[$field] = $params[$field];
             }
+        }
+        if ($clearGoogleSecret) {
+            $meta['google_secret'] = '';
+        } elseif (array_key_exists('google_secret', $params)) {
+            $gaSecret = \app\common\library\FansHubGoogleAuth::normalizeSecret($params['google_secret']);
+            if (trim((string)$params['google_secret']) !== '' && $gaSecret === '') {
+                $this->error('谷歌验证器密钥格式无效（需 Base32）');
+            }
+            $meta['google_secret'] = $gaSecret;
         }
         if (array_key_exists('turnover', $meta)) {
             $meta['turnover'] = max(0, round((float)$meta['turnover'], 2));
