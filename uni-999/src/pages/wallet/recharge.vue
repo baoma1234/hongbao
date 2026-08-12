@@ -91,6 +91,7 @@ import { computed, ref, watch } from 'vue'
 import TopBar from '../../components/TopBar.vue'
 import WalletChannelIcon from '../../components/WalletChannelIcon.vue'
 import { onShow } from '@dcloudio/uni-app'
+import { applySafeAreaCssVars } from '../../utils/safe-area.js'
 import { getToken } from '../../utils/auth.js'
 import {
   CHANNEL_GRID_VISIBLE,
@@ -239,6 +240,7 @@ async function refresh() {
 }
 
 onShow(() => {
+  applySafeAreaCssVars()
   refresh()
 })
 </script>

@@ -117,7 +117,12 @@
     </scroll-view>
 
     <!-- 群成员：对齐 888 #chatGroupMembersPane -->
-    <view v-if="membersPane" class="chat-group-invite-overlay chat-group-members-overlay" aria-hidden="false">
+    <view
+      v-if="membersPane"
+      class="chat-group-invite-overlay chat-group-members-overlay"
+      :style="appOverlayStyle"
+      aria-hidden="false"
+    >
       <view class="chat-hero-hd">
         <view class="chat-hero-back" @click="closeMembersPane">
           <text class="chat-hero-back-char">‹</text>
@@ -172,7 +177,7 @@
     </view>
 
     <!-- 添加成员：对齐 888 invite pane -->
-    <view v-if="addSheet" class="chat-group-invite-overlay" aria-hidden="false">
+    <view v-if="addSheet" class="chat-group-invite-overlay" :style="appOverlayStyle" aria-hidden="false">
       <view class="chat-hero-hd">
         <view class="chat-hero-back" @click="closeAddSheet">
           <text class="chat-hero-back-char">‹</text>
@@ -290,6 +295,7 @@ import { onLoad, onShow } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
 import { fetchProfile, getToken, uploadCommonFile } from '../../utils/auth.js'
 import { avatarSrc } from '../../utils/chat.js'
+import { applySafeAreaCssVars, measureChatOverlayTop } from '../../utils/safe-area.js'
 import {
   addGroupMembers,
   fetchGroupInfo,
@@ -311,6 +317,19 @@ import '../../styles/chat-888-parity.css'
 
 function goBack() {
   safeNavigateBack(HOME_TAB)
+}
+
+/** App 浮层 top 内联；H5 为空走 CSS，避免网页多垫 */
+const appOverlayStyle = ref({})
+function refreshOverlayTop() {
+  const r = applySafeAreaCssVars()
+  const top = (r && r.overlayTop) || measureChatOverlayTop()
+  // #ifdef APP-PLUS
+  appOverlayStyle.value = { top: top + 'px' }
+  // #endif
+  // #ifndef APP-PLUS
+  appOverlayStyle.value = {}
+  // #endif
 }
 
 const groupId = ref(0)
@@ -814,6 +833,7 @@ onLoad((query) => {
 })
 
 onShow(() => {
+  refreshOverlayTop()
   if (groupId.value) loadInfo()
 })
 </script>

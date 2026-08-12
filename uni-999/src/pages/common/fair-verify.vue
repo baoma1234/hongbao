@@ -171,6 +171,7 @@ import { computed, onUnmounted, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
 import { apiRequest, getToken } from '../../utils/auth.js'
+import { applySafeAreaCssVars } from '../../utils/safe-area.js'
 import '../../styles/hb.css'
 
 const kind = ref('rp') // rp | niuniu
@@ -323,6 +324,7 @@ async function verify(opts) {
 }
 
 onLoad((q) => {
+  applySafeAreaCssVars()
   measureScroll()
   const k = String((q && (q.kind || q.type)) || '').toLowerCase()
   if (k === 'niuniu' || k === 'nn' || k === 'niu') kind.value = 'niuniu'

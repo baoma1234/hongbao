@@ -3,7 +3,7 @@
     <TopBar />
     <view class="profile-sub-hd">
       <text class="profile-back-btn" @click="goBack">‹</text>
-      <text class="profile-sub-title">{{ t('profile_qr_title') || '我的二维码' }}</text>
+      <text class="profile-sub-title">{{ tt('profile_qr_title', '我的二维码') }}</text>
       <text class="profile-sub-spacer" />
     </view>
     <view class="profile-sub-body">
@@ -13,11 +13,11 @@
           <view v-else class="profile-qr-placeholder">{{ tip || '…' }}</view>
         </view>
         <view class="profile-qr-uid-line">
-          <text>{{ t('profile_qr_uid_prefix') || '会员ID：' }}</text>
+          <text>{{ tt('profile_qr_uid_prefix', '会员ID：') }}</text>
           <text class="strong">{{ memberId || '-' }}</text>
         </view>
         <text class="profile-qr-tip">{{ tip }}</text>
-        <button class="btn-uid-submit" @click="copyId">{{ t('profile_qr_copy_btn') || '复制会员ID' }}</button>
+        <button class="btn-uid-submit" @click="copyId">{{ tt('profile_qr_copy_btn', '复制会员ID') }}</button>
       </view>
     </view>
   </view>
@@ -29,7 +29,7 @@ import { ref } from 'vue'
 import TopBar from '../../components/TopBar.vue'
 import { onShow } from '@dcloudio/uni-app'
 import { fetchProfile, getToken } from '../../utils/auth.js'
-import { assetBase, localeState, t } from '../../utils/i18n.js'
+import { assetBase, localeState, tt } from '../../utils/i18n.js'
 
 const locale = localeState()
 const memberId = ref('')

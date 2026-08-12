@@ -46,7 +46,11 @@ import {
   setLocale,
   t,
 } from '../utils/i18n.js'
-import { applySafeAreaCssVars, getSafeAreaInsets } from '../utils/safe-area.js'
+import {
+  applySafeAreaCssVars,
+  getSafeAreaInsets,
+  getTopBarContentHeight,
+} from '../utils/safe-area.js'
 
 defineProps({
   /** 为 true 时不插 spacer（页面自己用 padding 避让）；红宝会话页请用默认 spacer */
@@ -82,15 +86,18 @@ const flagSrc = computed(() => {
 
 const barStyle = computed(() => {
   const p = Math.max(0, Number(padTop.value) || 0)
+  // 用像素高对齐 TopBar 与 spacer，避免 App 上 CSS var(44/48) 与实测状态栏不一致把子页标题顶进顶栏
+  const h = getTopBarContentHeight()
   return {
     paddingTop: p + 'px',
-    height: `calc(var(--top-bar-height, 48px) + ${p}px)`,
+    height: h + p + 'px',
   }
 })
 const spacerStyle = computed(() => {
   const p = Math.max(0, Number(padTop.value) || 0)
+  const h = getTopBarContentHeight()
   return {
-    height: `calc(var(--top-bar-height, 48px) + ${p}px)`,
+    height: h + p + 'px',
   }
 })
 

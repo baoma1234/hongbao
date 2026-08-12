@@ -50,7 +50,7 @@
             class="chat-load-older"
             @click.stop="revealOlderMessages"
           >
-            <text class="chat-load-older-txt">查看更早消息</text>
+            <text class="chat-load-older-txt">{{ historyLoadingOlder ? '加载中…' : '查看更早消息' }}</text>
           </view>
           <view
             v-for="m in visibleMessages"
@@ -796,9 +796,11 @@ const peerNickname = ref('')
 const remark = ref('')
 const text = ref('')
 const messages = ref([])
-/** 渲染窗口：默认只画最近 N 条，点「查看更早」再扩（避免 scrolltoupper 在 Safari 跳位） */
+/** 渲染窗口：默认只画最近 N 条，点「查看更早」再扩；本地不够时继续向服务端拉 before_id */
 const MSG_RENDER_CAP = 40
 const msgRevealCount = ref(MSG_RENDER_CAP)
+const historyExhausted = ref(false)
+const historyLoadingOlder = ref(false)
 const visibleMessages = computed(() => {
   const all = messages.value || []
   const n = Math.max(MSG_RENDER_CAP, msgRevealCount.value | 0)
@@ -807,10 +809,71 @@ const visibleMessages = computed(() => {
 })
 const hasOlderMessages = computed(() => {
   const all = messages.value || []
-  return all.length > Math.max(MSG_RENDER_CAP, msgRevealCount.value | 0)
+  const n = Math.max(MSG_RENDER_CAP, msgRevealCount.value | 0)
+  if (all.length > n) return true
+  // 本地已全部展开时，只要服务端还可能有更早消息就继续显示按钮
+  return !historyExhausted.value
 })
-function revealOlderMessages() {
-  msgRevealCount.value = (msgRevealCount.value | 0) + 30
+async function revealOlderMessages() {
+  if (historyLoadingOlder.value) return
+  const all = messages.value || []
+  const n = Math.max(MSG_RENDER_CAP, msgRevealCount.value | 0)
+  if (all.length > n) {
+    msgRevealCount.value = n + 30
+    return
+  }
+  if (historyExhausted.value) return
+  const oldest = all[0]
+  const beforeId = oldest ? ((oldest.id | 0) || 0) : 0
+  if (beforeId <= 0) {
+    historyExhausted.value = true
+    return
+  }
+  historyLoadingOlder.value = true
+  try {
+    const data = {
+      conversation_type: meta.value.type | 0,
+      limit: 40,
+      before_id: beforeId,
+    }
+    if (meta.value.type == 2) data.group_id = meta.value.group | 0
+    else {
+      data.to_user_id = meta.value.peer | 0
+      const cid = privateCid()
+      if (cid) data.conversation_id = cid
+    }
+    const packet = await loadHistory(data)
+    const body = (packet && packet.data) || {}
+    const incoming = Array.isArray(body.list)
+      ? body.list.slice()
+      : Array.isArray(body.messages)
+        ? body.messages.slice()
+        : []
+    if (!incoming.length) {
+      historyExhausted.value = true
+      return
+    }
+    const map = new Map()
+    incoming.forEach((m) => {
+      map.set(String(msgId(m)), normalizeMessage(m))
+    })
+    ;(messages.value || []).forEach((m) => {
+      map.set(String(msgId(m)), m)
+    })
+    const merged = Array.from(map.values()).sort((a, b) => {
+      const ai = (a.id | 0) || 0
+      const bi = (b.id | 0) || 0
+      if (ai && bi && ai !== bi) return ai - bi
+      return ((a.createtime | 0) || 0) - ((b.createtime | 0) || 0)
+    })
+    messages.value = merged
+    msgRevealCount.value = (msgRevealCount.value | 0) + Math.max(30, incoming.length)
+    if (incoming.length < 40) historyExhausted.value = true
+  } catch (e) {
+    uni.showToast({ title: (e && e.message) || '加载失败', icon: 'none' })
+  } finally {
+    historyLoadingOlder.value = false
+  }
 }
 const scrollInto = ref('')
 const scrollTop = ref(0)
@@ -3010,8 +3073,13 @@ async function fetchHistory(opts) {
   // 进房/强制贴底：回到末尾窗口；用户已展开更早则保留更大窗口
   if (forceScroll || stickToBottom) {
     msgRevealCount.value = MSG_RENDER_CAP
+    historyExhausted.value = false
   } else if ((msgRevealCount.value | 0) < MSG_RENDER_CAP) {
     msgRevealCount.value = MSG_RENDER_CAP
+  }
+  // 首屏条数不足 limit 时，基本没有更早消息
+  if (forceScroll && incoming.length < 50) {
+    historyExhausted.value = true
   }
   if (!meta.value.conversationId) {
     const cid =
