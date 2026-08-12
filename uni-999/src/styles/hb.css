@@ -1067,11 +1067,13 @@ uni-input.hb-input {
 }
 
 .profile-sub-hd {
-  position: relative;
-  z-index: 5;
-}
-
-.profile-sub-hd {
+  /* 贴 TopBar 底边，页面滚动时红条标题不跟着滑走 */
+  position: sticky;
+  top: var(
+    --chat-overlay-top,
+    calc(var(--top-bar-height, 48px) + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))
+  );
+  z-index: 20;
   display: flex;
   align-items: center;
   gap: 0;

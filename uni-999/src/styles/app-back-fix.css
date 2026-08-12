@@ -42,8 +42,9 @@
 }
 
 .profile-sub-hd {
-  position: relative;
-  z-index: 2;
+  /* 勿改回 relative，否则覆盖 hb.css 的 sticky 吸顶 */
+  position: sticky;
+  z-index: 20;
 }
 
 /*
