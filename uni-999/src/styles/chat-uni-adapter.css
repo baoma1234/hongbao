@@ -176,6 +176,8 @@ body.tab-messages #tabMessages .chat-list-pane {
   height: auto !important;
   min-height: 0 !important;
   overflow: visible !important;
+  padding-bottom: 20px !important;
+  box-sizing: border-box !important;
 }
 
 /* 恢复社群/公告/佣金底色与内边距（勿被透明 chat 面板规则波及） */
