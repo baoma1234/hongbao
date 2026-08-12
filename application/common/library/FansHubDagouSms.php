@@ -119,6 +119,34 @@ class FansHubDagouSms
     }
 
     /**
+     * 解析大狗响应：对方有时返回双重 JSON 字符串（外层带引号）
+     */
+    protected static function decodeResponse($response)
+    {
+        $raw = (string)$response;
+        if ($raw === '') {
+            return null;
+        }
+        // 去 BOM / 空白
+        $raw = preg_replace('/^\xEF\xBB\xBF/', '', $raw);
+        $raw = trim($raw);
+        $json = json_decode($raw, true);
+        // 双重编码："{\"status\":1,...}"
+        if (is_string($json)) {
+            $json = json_decode(trim($json), true);
+        }
+        // 偶发外层再包一层引号
+        if (!is_array($json) && strlen($raw) >= 2 && $raw[0] === '"' && substr($raw, -1) === '"') {
+            $inner = stripcslashes(substr($raw, 1, -1));
+            $json = json_decode($inner, true);
+            if (is_string($json)) {
+                $json = json_decode(trim($json), true);
+            }
+        }
+        return is_array($json) ? $json : null;
+    }
+
+    /**
      * 发送验证码（中国区）
      *
      * @param string $storeMobile E.164 或规范手机号（入库）
@@ -195,7 +223,7 @@ class FansHubDagouSms
             self::writeDiag('error', 'send transport fail', $ctx);
             return false;
         }
-        $json = json_decode((string)$response, true);
+        $json = self::decodeResponse($response);
         if (!is_array($json) || (int)($json['status'] ?? 0) !== 1) {
             $apiMsg = is_array($json) ? (string)($json['msg'] ?? '接口返回失败') : '非JSON响应';
             // 文档：需添加 IP 白名单；实测常见 msg=访问受限,请联系客服
@@ -279,9 +307,9 @@ class FansHubDagouSms
         if ($httpCode < 200 || $httpCode >= 300) {
             throw new \Exception('余额查询 HTTP ' . $httpCode . '，请检查网关根地址（不要带 /api/sms）');
         }
-        $json = json_decode((string)$response, true);
+        $json = self::decodeResponse($response);
         if (!is_array($json) || (int)($json['status'] ?? 0) !== 1) {
-            $msg = isset($json['msg']) ? (string)$json['msg'] : '接口返回失败';
+            $msg = is_array($json) ? (string)($json['msg'] ?? '接口返回失败') : '非JSON响应';
             if (strpos($msg, '访问受限') !== false || strpos($msg, '白名单') !== false) {
                 $msg .= '（出口 IP 未加白，请联系大狗商务把服务器公网 IP 加入白名单）';
             }
