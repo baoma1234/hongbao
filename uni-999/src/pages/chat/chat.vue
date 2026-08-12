@@ -796,9 +796,11 @@ const peerNickname = ref('')
 const remark = ref('')
 const text = ref('')
 const messages = ref([])
-/** 渲染窗口：默认只画最近 N 条，点「查看更早」再扩；本地不够时继续向服务端拉 before_id */
+/** 渲染窗口：默认只画最近 N 条；点「查看更早」先扩本地，并继续 before_id 拉库 */
 const MSG_RENDER_CAP = 40
+const MSG_OLDER_PAGE = 40
 const msgRevealCount = ref(MSG_RENDER_CAP)
+/** 仅在「带 before_id 的请求」确认没有更多时才为 true；首屏绝不能据此关掉按钮 */
 const historyExhausted = ref(false)
 const historyLoadingOlder = ref(false)
 const visibleMessages = computed(() => {
@@ -808,35 +810,41 @@ const visibleMessages = computed(() => {
   return all.slice(all.length - n)
 })
 const hasOlderMessages = computed(() => {
+  if (historyLoadingOlder.value) return true
   const all = messages.value || []
   const n = Math.max(MSG_RENDER_CAP, msgRevealCount.value | 0)
   if (all.length > n) return true
-  // 本地已全部展开时，只要服务端还可能有更早消息就继续显示按钮
   return !historyExhausted.value
 })
 async function revealOlderMessages() {
   if (historyLoadingOlder.value) return
   const all = messages.value || []
   const n = Math.max(MSG_RENDER_CAP, msgRevealCount.value | 0)
+  // 本地还有未展示：先扩窗口（立刻看到更多）
   if (all.length > n) {
-    msgRevealCount.value = n + 30
-    return
+    msgRevealCount.value = n + MSG_OLDER_PAGE
   }
+  // 本地已全部展示：只要服务端未确认耗尽，就必须继续拉更早
   if (historyExhausted.value) return
-  const oldest = all[0]
+
+  const oldest = (messages.value || [])[0]
   const beforeId = oldest ? ((oldest.id | 0) || 0) : 0
   if (beforeId <= 0) {
-    historyExhausted.value = true
+    // 没有可分页 id：若本地也已展完，才关掉按钮
+    if ((messages.value || []).length <= Math.max(MSG_RENDER_CAP, msgRevealCount.value | 0)) {
+      historyExhausted.value = true
+    }
     return
   }
+
   historyLoadingOlder.value = true
   try {
     const data = {
       conversation_type: meta.value.type | 0,
-      limit: 40,
+      limit: MSG_OLDER_PAGE,
       before_id: beforeId,
     }
-    if (meta.value.type == 2) data.group_id = meta.value.group | 0
+    if ((meta.value.type | 0) === 2) data.group_id = meta.value.group | 0
     else {
       data.to_user_id = meta.value.peer | 0
       const cid = privateCid()
@@ -866,9 +874,17 @@ async function revealOlderMessages() {
       if (ai && bi && ai !== bi) return ai - bi
       return ((a.createtime | 0) || 0) - ((b.createtime | 0) || 0)
     })
+    const prevLen = (messages.value || []).length
     messages.value = merged
-    msgRevealCount.value = (msgRevealCount.value | 0) + Math.max(30, incoming.length)
-    if (incoming.length < 40) historyExhausted.value = true
+    const added = Math.max(0, merged.length - prevLen)
+    // 扩到能盖住新拉到的更早消息
+    msgRevealCount.value = Math.max(
+      MSG_RENDER_CAP,
+      (msgRevealCount.value | 0) + Math.max(MSG_OLDER_PAGE, added)
+    )
+    if (incoming.length < MSG_OLDER_PAGE) {
+      historyExhausted.value = true
+    }
   } catch (e) {
     uni.showToast({ title: (e && e.message) || '加载失败', icon: 'none' })
   } finally {
@@ -3070,16 +3086,12 @@ async function fetchHistory(opts) {
     }
   })
   messages.value = deduped
-  // 进房/强制贴底：回到末尾窗口；用户已展开更早则保留更大窗口
+  // 进房/强制贴底：回到末尾窗口；不要用「首屏条数 < limit」误判没有更早消息（Redis recent 常不足一页）
   if (forceScroll || stickToBottom) {
     msgRevealCount.value = MSG_RENDER_CAP
     historyExhausted.value = false
   } else if ((msgRevealCount.value | 0) < MSG_RENDER_CAP) {
     msgRevealCount.value = MSG_RENDER_CAP
-  }
-  // 首屏条数不足 limit 时，基本没有更早消息
-  if (forceScroll && incoming.length < 50) {
-    historyExhausted.value = true
   }
   if (!meta.value.conversationId) {
     const cid =
