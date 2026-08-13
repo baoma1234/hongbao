@@ -172,7 +172,7 @@ class FansHubFission
     }
 
     /**
-     * 进入活动页领取参与资格（每人每活动最多 1 次 join）
+     * 进入活动页：裂变资格仅通过「活动开始后邀请新人注册」获得，参与按钮不再发资格
      */
     public static function join($userId)
     {
@@ -181,25 +181,13 @@ class FansHubFission
             throw new Exception('请先登录');
         }
         self::tickExpire();
-        $act = self::getRunningActivityRow(true);
-        if (!$act) {
-            throw new Exception('当前没有进行中的裂变红宝活动');
-        }
-        $aid = (int)$act['id'];
-        $exist = FissionQual::where('activity_id', $aid)
-            ->where('user_id', $userId)
-            ->where('source', FissionQual::SOURCE_JOIN)
-            ->find();
-        if ($exist) {
-            return self::detailPayload($userId);
-        }
-        self::grantQualLocked($aid, $userId, FissionQual::SOURCE_JOIN, 0, true);
+        // 兼容旧前端：不再发放 join 资格
         return self::detailPayload($userId);
     }
 
     /**
-     * 邀请绑定成功后发放双方资格（有效新用户才走到这里）
-     * 仅活动开始时间之后的邀请计入（绑定时刻 = 邀请时刻）
+     * 邀请绑定成功后：仅邀请人 +1 资格（被邀请人不得）
+     * 仅活动开始时间之后的新注册邀请计入
      */
     public static function onInviteBound($inviterUserId, $inviteeUserId)
     {
@@ -216,14 +204,23 @@ class FansHubFission
             }
             $now = time();
             $startTs = (int)$act['start_time'];
-            // 活动尚未开始，或邀请发生在开始时间之前：不发资格
+            // 活动尚未开始：不发资格
             if ($startTs > 0 && $now < $startTs) {
                 return;
             }
+            // 被邀请人须在活动开始后注册（防止老用户补绑误发）
+            if ($startTs > 0) {
+                $invitee = User::get($inviteeUserId);
+                $regTs = 0;
+                if ($invitee) {
+                    $regTs = (int)($invitee->jointime ?: $invitee->createtime ?: 0);
+                }
+                if ($regTs > 0 && $regTs < $startTs) {
+                    return;
+                }
+            }
             $aid = (int)$act['id'];
-            // 被邀请人：+1（计入全局）
-            self::grantQualLocked($aid, $inviteeUserId, FissionQual::SOURCE_INVITEE, $inviterUserId, true);
-            // 邀请人：未达个人上限才 +1；未加个人资格时不虚增全局
+            // 仅邀请人：每成功邀请 1 位活动开始后注册的新人 → +1 份资格
             self::grantQualLocked($aid, $inviterUserId, FissionQual::SOURCE_INVITE_REWARD, $inviteeUserId, true);
         } catch (\Throwable $e) {
             // 不影响注册主流程
@@ -599,9 +596,9 @@ class FansHubFission
     protected static function defaultRules()
     {
         return [
-            '参与活动获得1次领取资格，单人最多累计5份资格',
-            '仅活动开始后邀请的有效新用户计入资格；邀请人未达上限则+1，被邀请人得1份',
-            '每成功邀请一位新用户，增加全局资格份数，推动开奖',
+            '仅邀请人可获得资格：活动开始后，每成功邀请 1 位新用户注册得 1 份',
+            '被邀请人不会因被邀请获得裂变资格',
+            '活动开始前的老下级不计入本次活动资格',
             '集满资格立即开奖；开奖后点「我的资格」逐份拆红包领取',
             '超时未集齐红包不发放，邀请下级关系永久保留',
         ];

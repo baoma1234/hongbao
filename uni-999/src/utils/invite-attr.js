@@ -139,7 +139,7 @@ export function buildAppInviteScheme(code, extra = {}) {
 }
 
 /**
- * 从路由 query / H5 location 捕获邀请码并落盘
+ * 从路由 query / H5 location 捕获邀请码并落盘，并上报服务端延迟归因
  * @returns {string}
  */
 export function captureInviteFromQuery(query) {
@@ -165,8 +165,29 @@ export function captureInviteFromQuery(query) {
     }
   } catch (e2) {}
   // #endif
-  if (code) saveInviteCode(code)
+  if (code) {
+    saveInviteCode(code)
+    reportInviteClick(code)
+  }
   return code
+}
+
+/** 上报邀请点击：下载 App 后同 IP 注册可自动归属 */
+export function reportInviteClick(code) {
+  const c = normalizeInviteCode(code)
+  if (!c) return
+  try {
+    // 动态导入避免循环依赖
+    import('./auth.js')
+      .then(({ apiRequest, getDeviceFp }) => {
+        apiRequest('inviteclick', 'POST', {
+          code: c,
+          invite: c,
+          device_fp: getDeviceFp(),
+        }).catch(() => {})
+      })
+      .catch(() => {})
+  } catch (e) {}
 }
 
 /**
@@ -198,7 +219,10 @@ export function captureInviteFromAppArgs(launchOptions) {
     }
   } catch (e2) {}
   // #endif
-  if (code) saveInviteCode(code)
+  if (code) {
+    saveInviteCode(code)
+    reportInviteClick(code)
+  }
   return code
 }
 

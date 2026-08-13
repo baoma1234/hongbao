@@ -65,15 +65,8 @@
             </view>
           </view>
 
-          <view v-if="state === 'running' && !joined" class="fx-join-wrap">
-            <button
-              type="button"
-              class="fx-btn-join"
-              :disabled="!canGain || joining"
-              @click="onJoin"
-            >
-              {{ joining ? '参与中…' : '参与活动领取资格' }}
-            </button>
+          <view v-if="state === 'running'" class="fx-join-wrap">
+            <text class="fx-join-tip">邀请活动开始后的新用户注册，即可获得资格</text>
           </view>
         </view>
 
@@ -145,7 +138,6 @@ import { applySafeAreaCssVars, getSafeAreaInsets } from '../../utils/safe-area.j
 import { copyText } from '../../utils/master.js'
 
 const loading = ref(true)
-const joining = ref(false)
 const detail = ref(null)
 const scrollH = ref('100vh')
 const remainSec = ref(0)
@@ -166,11 +158,9 @@ const poolText = computed(() => formatMoney(act.value.pool_amount))
 const globalQuals = computed(() => Number(act.value.global_quals || 0))
 const globalCap = computed(() => Number(act.value.global_cap || 100))
 const progressPct = computed(() => Math.min(100, Number(act.value.progress_pct || 0)))
-const canGain = computed(() => !!act.value.can_gain)
 const myQuals = computed(() => Number(me.value.qual_count || 0))
 const userCap = computed(() => Number(me.value.user_cap || 5))
 const subCount = computed(() => Number(me.value.subordinate_count || 0))
-const joined = computed(() => !!me.value.joined)
 const inviteLink = computed(() => String(me.value.invite_link || ''))
 const winText = computed(() => formatMoney(me.value.win_amount))
 const unclaimedCount = computed(() => Number(me.value.unclaimed_count || 0))
@@ -184,11 +174,11 @@ const claimMaskStyle = computed(() => ({
 const claimPanelStyle = computed(() => ({}))
 
 const displayRules = computed(() => [
-  '参与得1份资格，单人上限' + userCap.value + '份',
-  '仅活动开始后邀请的新人计入资格，双方各得1份',
+  '仅邀请人可得资格：活动开始后每邀 1 位新人注册 +1 份（上限' + userCap.value + '）',
+  '被邀请人不会获得裂变资格',
+  '活动开始前的老下级不计入',
   '集齐' + globalCap.value + '份资格立即开奖',
   '开奖后点「我的资格」逐份拆红包领取',
-  '超时未集齐，红包池作废不予发放',
 ])
 
 const remainText = computed(() => {
@@ -262,13 +252,13 @@ async function doClaim() {
     if (data && data.detail) {
       detail.value = data.detail
     } else {
-      await loadDetail(false)
+      await loadDetail()
     }
   } catch (e) {
     uni.showToast({ title: (e && e.message) || '领取失败', icon: 'none' })
     if (String((e && e.message) || '').indexOf('没有可领取') >= 0) {
       claimOpen.value = false
-      await loadDetail(false)
+      await loadDetail()
     }
   } finally {
     claiming.value = false
@@ -291,7 +281,7 @@ function startTick() {
   }, 1000)
 }
 
-async function loadDetail(autoJoin) {
+async function loadDetail() {
   if (!getToken()) {
     uni.reLaunch({ url: '/pages/login/login' })
     return
@@ -302,36 +292,10 @@ async function loadDetail(autoJoin) {
     detail.value = data || null
     remainSec.value = Number((data && data.activity && data.activity.remain_sec) || 0)
     startTick()
-    if (
-      autoJoin &&
-      data &&
-      data.state === 'running' &&
-      data.me &&
-      !data.me.joined &&
-      data.activity &&
-      data.activity.can_gain
-    ) {
-      await onJoin(true)
-    }
   } catch (e) {
     uni.showToast({ title: (e && e.message) || '加载失败', icon: 'none' })
   } finally {
     loading.value = false
-  }
-}
-
-async function onJoin(silent) {
-  if (joining.value || joined.value || !canGain.value) return
-  joining.value = true
-  try {
-    const data = await apiRequest('fissionjoin', 'POST', {})
-    detail.value = data || detail.value
-    remainSec.value = Number((data && data.activity && data.activity.remain_sec) || remainSec.value)
-    if (!silent) uni.showToast({ title: '已获得1份资格', icon: 'none' })
-  } catch (e) {
-    if (!silent) uni.showToast({ title: (e && e.message) || '参与失败', icon: 'none' })
-  } finally {
-    joining.value = false
   }
 }
 
@@ -381,7 +345,7 @@ async function shareLink() {
 
 onShow(() => {
   measureScroll()
-  loadDetail(true)
+  loadDetail()
 })
 
 onUnmounted(() => stopTick())
@@ -714,6 +678,14 @@ onUnmounted(() => stopTick())
 
 .fx-join-wrap {
   margin-top: 16px;
+  text-align: center;
+}
+.fx-join-tip {
+  display: block;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(253, 233, 170, 0.85);
+  padding: 0 8px;
 }
 .fx-btn-join {
   width: 100%;
