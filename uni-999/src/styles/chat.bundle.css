@@ -5968,12 +5968,11 @@ body.tab-messages {
   border-radius: 0 !important;
   box-shadow: none !important;
   border: none !important;
-  flex: 1 1 auto !important;
+  /* 滚动交给外层 .chat-conv-scroll / uni-scroll-view，勿自滚裁切末项 */
+  flex: none !important;
+  height: auto !important;
   min-height: 0 !important;
-  overflow-x: hidden !important;
-  overflow-y: auto !important;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
+  overflow: visible !important;
 }
 
 #tabMessages .chat-conv-swipe {

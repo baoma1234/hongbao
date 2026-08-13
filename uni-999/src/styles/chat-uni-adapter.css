@@ -166,8 +166,27 @@ body.tab-messages #tabMessages .chat-list-pane {
 .msg-tab-root .chat-official-scroll .uni-scroll-view,
 .msg-tab-root .chat-notice-body-scroll .uni-scroll-view,
 .msg-tab-root .chat-commission-body-scroll .uni-scroll-view {
+  height: 100% !important;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+  box-sizing: border-box !important;
+}
+/* 会话列表内容区：末项后再撑 20px（App 上 list padding 常无效） */
+#tabMessages .chat-conv-scroll .uni-scroll-view-content,
+.msg-tab-root .chat-conv-scroll .uni-scroll-view-content {
+  padding-bottom: 20px !important;
+  box-sizing: border-box !important;
+}
+#tabMessages .chat-list-scroll-pad,
+.msg-tab-root .chat-list-scroll-pad {
+  display: block !important;
+  width: 100% !important;
+  height: 20px !important;
+  min-height: 20px !important;
+  max-height: 20px !important;
+  flex-shrink: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
 }
 
 .msg-tab-root .chat-conv-list,
@@ -176,6 +195,8 @@ body.tab-messages #tabMessages .chat-list-pane {
   height: auto !important;
   min-height: 0 !important;
   overflow: visible !important;
+  overflow-x: visible !important;
+  overflow-y: visible !important;
   padding-bottom: 20px !important;
   box-sizing: border-box !important;
 }

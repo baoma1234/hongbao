@@ -89,6 +89,8 @@
                   scroll-y
                   class="chat-conv-scroll"
                   :style="panelScrollStyle"
+                  :show-scrollbar="false"
+                  :enable-flex="true"
                   :refresher-enabled="convRefresherEnabled"
                   :refresher-triggered="listRefreshing"
                   @refresherrefresh="onListRefresh"
@@ -147,6 +149,10 @@
                           {{ unreadOf(item) > 99 ? '99+' : unreadOf(item) }}
                         </view>
                       </view>
+                    </view>
+                    <!-- 末项后再留 20px：App 上 padding 常不撑开 scroll 内容，需实体占位 -->
+                    <view class="chat-list-scroll-pad" aria-hidden="true">
+                      <text class="chat-list-scroll-pad-mark"> </text>
                     </view>
                   </view>
                 </scroll-view>
@@ -2542,18 +2548,33 @@ onHide(() => {
   width: 100%;
   box-sizing: border-box;
 }
-/* 列表末项后留白，确保最后一条可滚出底栏遮挡（H5/Safari/APK） */
+/* 列表末项后留白，确保最后一条可滚出底栏遮挡（H5/Safari/APK/IPA） */
 .chat-list-scroll-pad {
+  display: block;
   width: 100%;
   height: 20px;
   min-height: 20px;
+  max-height: 20px;
   flex-shrink: 0;
+  overflow: hidden;
   pointer-events: none;
+  box-sizing: border-box;
 }
-/* 会话列表：最后一条渲染完后再留 20px（用 padding，App 上空占位 view 易塌成 0） */
+.chat-list-scroll-pad-mark {
+  display: block;
+  height: 20px;
+  line-height: 20px;
+  font-size: 20px;
+  opacity: 0;
+}
+/* 会话列表：最后一条渲染完后再留 20px（padding + 实体 pad，双保险） */
 .chat-conv-list {
   padding-bottom: 20px !important;
   box-sizing: border-box;
+  overflow: visible !important;
+  height: auto !important;
+  min-height: 0 !important;
+  flex: none !important;
 }
 /* 社群好友列表：同会话列表，完整可滚 + 末项后再留 20px */
 .chat-friend-feed-list {
