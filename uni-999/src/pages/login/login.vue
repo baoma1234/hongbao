@@ -73,6 +73,16 @@
           placeholder="有邀请码自动带入，也可手填"
         />
         <view v-if="inviteCode" class="login-invite-hint">将归属邀请人 {{ inviteCode }}</view>
+        <!-- #ifdef H5 -->
+        <button
+          v-if="inviteCode"
+          type="button"
+          class="login-open-app-btn"
+          @click="onOpenAppInvite"
+        >
+          已安装 App？一键打开并带上邀请
+        </button>
+        <!-- #endif -->
       </view>
 
       <button class="btn-login-submit" :loading="loading" @click="onLogin">
@@ -107,6 +117,7 @@ import {
   normalizeInviteCode,
   resolveInviteCodeForLogin,
   saveInviteCode,
+  tryOpenAppWithInvite,
 } from '../../utils/invite-attr.js'
 import {
   applyServerCopy,
@@ -200,6 +211,21 @@ onShow(async () => {
   const code = await resolveInviteCodeForLogin({})
   if (code) inviteCode.value = code
 })
+
+async function onOpenAppInvite() {
+  const code = normalizeInviteCode(inviteCode.value)
+  if (!code) {
+    uni.showToast({ title: '暂无邀请码', icon: 'none' })
+    return
+  }
+  let downloadUrl = ''
+  try {
+    const cfg = await fetchConfig()
+    downloadUrl = String((cfg && cfg.app_download_url) || '')
+  } catch (e) {}
+  uni.showToast({ title: '正在打开 App…', icon: 'none' })
+  await tryOpenAppWithInvite(code, { downloadUrl, waitMs: 1800 })
+}
 
 function getSmsCooldownRemain(phone) {
   if (!phone) return 0
@@ -689,5 +715,17 @@ onUnmounted(() => {
   font-size: 12px;
   color: #c62828;
   line-height: 1.4;
+}
+.login-open-app-btn {
+  margin-top: 10px;
+  width: 100%;
+  height: 40px;
+  line-height: 40px;
+  border-radius: 8px;
+  border: 1px solid rgba(198, 17, 20, 0.35);
+  background: #fff5f5;
+  color: #c61114;
+  font-size: 13px;
+  font-weight: 700;
 }
 </style>
