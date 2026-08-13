@@ -1,0 +1,27 @@
+# FansHub IM WebSocket (start.php)
+# 安装：
+#   cp deploy/systemd/fanshub-im-ws.service /etc/systemd/system/
+#   systemctl daemon-reload && systemctl enable --now fanshub-im-ws
+#
+# 按实际改 User / WorkingDirectory / PHP 路径
+
+[Unit]
+Description=FansHub IM WebSocket
+After=network.target mysql.service redis.service
+Wants=mysql.service redis.service
+
+[Service]
+Type=simple
+User=www
+Group=www
+WorkingDirectory=/www/wwwroot/hbsq.bio/im-server
+ExecStart=/usr/bin/php start.php start
+ExecStop=/usr/bin/php start.php stop
+Restart=always
+RestartSec=3
+LimitNOFILE=200000
+LimitNPROC=65535
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target

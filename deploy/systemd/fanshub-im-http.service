@@ -1,0 +1,22 @@
+# FansHub IM HTTP API (start_admin.php) :17273
+
+[Unit]
+Description=FansHub IM HTTP API
+After=network.target mysql.service redis.service fanshub-im-ws.service
+Wants=mysql.service redis.service
+
+[Service]
+Type=simple
+User=www
+Group=www
+WorkingDirectory=/www/wwwroot/hbsq.bio/im-server
+ExecStart=/usr/bin/php start_admin.php start
+ExecStop=/usr/bin/php start_admin.php stop
+Restart=always
+RestartSec=3
+LimitNOFILE=200000
+LimitNPROC=65535
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target

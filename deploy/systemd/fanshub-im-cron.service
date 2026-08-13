@@ -1,0 +1,22 @@
+# FansHub IM Cron (start_cron.php) — 结算/退款/Tron/机器人
+
+[Unit]
+Description=FansHub IM Cron
+After=network.target mysql.service redis.service fanshub-im-ws.service
+Wants=mysql.service redis.service
+
+[Service]
+Type=simple
+User=www
+Group=www
+WorkingDirectory=/www/wwwroot/hbsq.bio/im-server
+ExecStart=/usr/bin/php start_cron.php start
+ExecStop=/usr/bin/php start_cron.php stop
+Restart=always
+RestartSec=3
+LimitNOFILE=65535
+LimitNPROC=65535
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target
