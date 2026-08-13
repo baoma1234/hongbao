@@ -12,6 +12,7 @@
         :hover-stay-time="80"
         @click.stop="toggleLang"
       >
+        <view class="lang-btn-glass" aria-hidden="true" />
         <image class="flag" :src="flagSrc" mode="aspectFill" />
         <text class="lang-text">{{ localeLabel }}</text>
         <text class="caret">▾</text>
@@ -258,15 +259,34 @@ onUnmounted(() => {
   min-height: 32px;
   padding: 3px 9px 3px 7px;
   border-radius: 999px;
-  border: 1px solid rgba(101, 119, 134, 0.26);
-  background: #fafbfc;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    linear-gradient(160deg, rgba(255, 120, 90, 0.55) 0%, rgba(220, 40, 40, 0.35) 42%, rgba(160, 20, 30, 0.45) 100%),
+    linear-gradient(135deg, #ff5a3a 0%, #e12626 52%, #b01018 100%);
+  box-shadow:
+    0 3px 10px rgba(176, 16, 24, 0.38),
+    0 1px 0 rgba(255, 200, 160, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -1px 3px rgba(90, 0, 0, 0.28);
+  transform: translateZ(0);
   cursor: pointer;
   pointer-events: auto;
   -webkit-tap-highlight-color: rgba(232, 59, 26, 0.12);
 }
 .lang-wrap-hover {
-  background: #fff4ec;
-  border-color: rgba(232, 59, 26, 0.35);
+  opacity: 0.92;
+}
+.lang-btn-glass {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.38) 0%, rgba(255, 255, 255, 0.06) 42%, rgba(255, 255, 255, 0) 70%),
+    radial-gradient(120% 80% at 20% 0%, rgba(255, 255, 255, 0.35), transparent 55%);
 }
 .fission-btn {
   position: relative;
@@ -331,11 +351,15 @@ onUnmounted(() => {
   50% { transform: scale(1.1); opacity: 1; }
 }
 .flag {
+  position: relative;
+  z-index: 1;
   width: 16px;
   height: 11px;
   border-radius: 2px;
   flex-shrink: 0;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.55),
+    0 1px 2px rgba(0, 0, 0, 0.25);
   pointer-events: none;
 }
 .lang-text,
@@ -344,18 +368,25 @@ onUnmounted(() => {
   pointer-events: none;
 }
 .lang-text {
+  position: relative;
+  z-index: 1;
   font-size: 10px;
-  font-weight: 800;
-  color: var(--text-main, #1a212d);
+  font-weight: 900;
+  color: #fff;
   max-width: 56px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  letter-spacing: 0.2px;
+  text-shadow: 0 1px 2px rgba(80, 0, 0, 0.35);
 }
 .caret {
+  position: relative;
+  z-index: 1;
   font-size: 9px;
-  color: var(--text-muted, #657786);
+  color: rgba(255, 255, 255, 0.92);
   margin-left: 1px;
+  text-shadow: 0 1px 2px rgba(80, 0, 0, 0.35);
 }
 .lang-mask {
   position: fixed;
