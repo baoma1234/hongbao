@@ -970,4 +970,5 @@ Retail DeskHarvester exercised 15 shares on Channel 1 and got ₱75.00 credited 
   'alert_confirm' => 'Confirm',
   'alert_load_fail' => 'Load failed',
   'alert_operation_fail' => 'Operation failed',
+  'login_cs_label' => 'Support',
 );

@@ -973,4 +973,5 @@ return array (
   'alert_confirm' => '确认',
   'alert_load_fail' => '加载失败',
   'alert_operation_fail' => '操作失败',
+  'login_cs_label' => '客服',
 );

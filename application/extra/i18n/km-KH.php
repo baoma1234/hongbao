@@ -970,4 +970,5 @@ User 555_vip99 ទើបទទួល ៛៥០ តាមបើករហ័ស + 
   'alert_confirm' => 'បញ្ជាក់',
   'alert_load_fail' => 'ផ្ទុកបរាជ័យ',
   'alert_operation_fail' => 'ប្រតិបត្តិការបរាជ័យ',
+  'login_cs_label' => 'ជំនួយ',
 );

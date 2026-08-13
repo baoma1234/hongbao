@@ -970,4 +970,5 @@ Ritel DeskHarvester eksekusi 15 saham saluran 1 dan dikredit Rp75.00 via chat am
   'alert_confirm' => 'Konfirmasi',
   'alert_load_fail' => 'Gagal memuat',
   'alert_operation_fail' => 'Operasi gagal',
+  'login_cs_label' => 'Bantuan',
 );

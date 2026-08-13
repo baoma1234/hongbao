@@ -25,6 +25,7 @@ class Config extends Backend
             'register_rights', 'share_rights', 'open_account_rights',
             'secret_lock_seconds',
             'customer_service_url', 'app_download_url', 'main_station_url',
+            'login_cs_enabled', 'login_cs_url', 'login_cs_icon',
             'h5_entry_path', 'default_locale', 'locale_auto_detect',
         ],
         'exchange' => [
@@ -258,6 +259,7 @@ class Config extends Backend
             'locale_auto_detect', 'api_sign_enabled', 'device_fp_limit_enabled',
             'main_uid_verify_enabled', 'main_uid_verify_local', 'main_uid_verify_match_phone',
             'google_auth_login_enabled',
+            'login_cs_enabled',
             'exchange_rights_to_balance_enabled', 'exchange_balance_to_rights_enabled',
             'exchange_rb_enabled', 'exchange_br_enabled', 'exchange_rh_enabled',
             'exchange_hr_enabled', 'exchange_bh_enabled', 'exchange_hb_enabled',

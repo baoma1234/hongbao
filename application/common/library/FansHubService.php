@@ -1314,6 +1314,27 @@ class FansHubService
             })(),
             'secret_lock_seconds'  => (int)($cfg['secret_lock_seconds'] ?? 900),
             'customer_service_url' => self::utf8Safe($cfg['customer_service_url'] ?? ''),
+            'login_cs_enabled'     => !isset($cfg['login_cs_enabled']) || !empty($cfg['login_cs_enabled']),
+            'login_cs_url'         => self::utf8Safe((function () use ($cfg) {
+                $u = trim((string)($cfg['login_cs_url'] ?? ''));
+                if ($u === '') {
+                    $u = trim((string)($cfg['customer_service_url'] ?? ''));
+                }
+                return $u;
+            })()),
+            'login_cs_icon'        => (function () use ($cfg) {
+                $raw = trim((string)($cfg['login_cs_icon'] ?? ''));
+                if ($raw === '') {
+                    $raw = 'https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/brand/login-cs-float.png';
+                }
+                if (class_exists('\\app\\common\\library\\OssService')) {
+                    $full = \app\common\library\OssService::fullUrl($raw, '');
+                    if ($full !== '') {
+                        return self::utf8Safe($full);
+                    }
+                }
+                return self::utf8Safe($raw);
+            })(),
             'app_download_url'     => self::utf8Safe($cfg['app_download_url'] ?? ''),
             'main_station_url'     => self::utf8Safe($cfg['main_station_url'] ?? ''),
             'im_ws_url'            => self::utf8Safe($cfg['im_ws_url'] ?? ''),

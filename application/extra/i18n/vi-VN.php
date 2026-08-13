@@ -970,4 +970,5 @@ Bán lẻ DeskHarvester thực thi 15 cổ kênh 1 và được cộng ₫75.00 
   'alert_confirm' => 'Xác nhận',
   'alert_load_fail' => 'Tải thất bại',
   'alert_operation_fail' => 'Thao tác thất bại',
+  'login_cs_label' => 'Hỗ trợ',
 );

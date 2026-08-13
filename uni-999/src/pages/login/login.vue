@@ -69,6 +69,17 @@
     </view>
 
     <SliderCaptcha ref="sliderRef" @success="onSliderOk" @cancel="onSliderCancel" />
+
+    <view
+      v-if="csVisible"
+      class="login-cs-float"
+      role="button"
+      hover-class="login-cs-float--active"
+      @click="openLoginCs"
+    >
+      <image class="login-cs-img" :src="csIcon" mode="aspectFit" />
+      <text class="login-cs-label">{{ csLabel }}</text>
+    </view>
   </view>
 </template>
 
@@ -89,6 +100,8 @@ import {
   tt,
 } from '../../utils/i18n.js'
 import { imConnect } from '../../utils/im.js'
+import { packagedStaticUrl } from '../../utils/config.js'
+import { openExternalHttpUrl } from '../../utils/wallet.js'
 import {
   LOGIN_COUNTRIES,
   getCountryMeta,
@@ -100,6 +113,8 @@ import {
 } from '../../utils/login-country.js'
 
 const SMS_COOLDOWN_KEY = 'fanshub_sms_cooldown'
+const DEFAULT_CS_ICON =
+  'https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/brand/login-cs-float.png'
 
 const locale = localeState()
 const copyTick = copyState()
@@ -117,11 +132,26 @@ const smsSliderEnabled = ref(true)
 const smsInterval = ref(60)
 const registerRights = ref(5)
 const sliderRef = ref(null)
+const csEnabled = ref(true)
+const csUrl = ref('')
+const csIconRemote = ref('')
 let timer = null
 let offLocale = null
 let pendingSmsPhone = ''
 
 const countryMeta = computed(() => getCountryMeta(country.value))
+const csLabel = computed(() => {
+  void locale.value
+  void copyTick.value
+  return tt('login_cs_label', '客服')
+})
+const csIcon = computed(() => {
+  const remote = String(csIconRemote.value || '').trim()
+  if (remote) return remote
+  const local = packagedStaticUrl('/static/img/login-cs-float.png')
+  return local || DEFAULT_CS_ICON
+})
+const csVisible = computed(() => !!csEnabled.value)
 const phonePlaceholder = computed(() => {
   void locale.value
   return t(countryMeta.value.placeholderKey) || t('login_phone_placeholder')
@@ -235,6 +265,23 @@ async function loadCfg() {
   if (cfg.sms_send_interval != null) {
     const n = parseInt(cfg.sms_send_interval, 10)
     if (n > 0) smsInterval.value = n
+  }
+  if (cfg.login_cs_enabled === false) csEnabled.value = false
+  else csEnabled.value = true
+  const url = String(cfg.login_cs_url || cfg.customer_service_url || '').trim()
+  csUrl.value = url
+  const icon = String(cfg.login_cs_icon || '').trim()
+  if (icon) csIconRemote.value = icon
+}
+
+function openLoginCs() {
+  const url = String(csUrl.value || '').trim()
+  if (!url || !/^https?:\/\//i.test(url)) {
+    uni.showToast({ title: tt('alert_cs_not_configured', '客服链接未配置，请联系管理员在后台设置。'), icon: 'none' })
+    return
+  }
+  if (!openExternalHttpUrl(url)) {
+    uni.showToast({ title: tt('alert_cs_not_configured', '客服链接未配置，请联系管理员在后台设置。'), icon: 'none' })
   }
 }
 
@@ -377,9 +424,53 @@ onUnmounted(() => {
 <style scoped>
 .login-page {
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--bg-main, #f5f7fa);
   box-sizing: border-box;
+  position: relative;
 }
+.login-cs-float {
+  position: fixed;
+  right: max(8px, env(safe-area-inset-right, 0px));
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border: none;
+  /* 避免挡住顶栏语言切换：竖直居中即可 */
+}
+.login-cs-float--active {
+  opacity: 0.88;
+}
+.login-cs-img {
+  width: 64px;
+  height: 64px;
+  display: block;
+}
+.login-cs-label {
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #e80000;
+  line-height: 1.2;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+/* #ifdef APP-PLUS */
+.login-cs-float {
+  right: 10px;
+}
+.login-cs-img {
+  width: 68px;
+  height: 68px;
+}
+/* #endif */
 .login-wrapper {
   max-width: 400px;
   width: calc(100% - 32px);

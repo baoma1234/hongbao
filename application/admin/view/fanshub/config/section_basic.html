@@ -6,7 +6,24 @@
 <div class="form-group"><label class="control-label col-xs-12 col-sm-2">分享送权益:</label><div class="col-xs-12 col-sm-8"><input class="form-control" name="share_rights" type="number" value="{$config.share_rights|default='1'}"></div></div>
 <div class="form-group"><label class="control-label col-xs-12 col-sm-2">开户送权益:</label><div class="col-xs-12 col-sm-8"><input class="form-control" name="open_account_rights" type="number" value="{$config.open_account_rights|default='2'}"></div></div>
 <div class="form-group"><label class="control-label col-xs-12 col-sm-2">密令锁定时长(秒):</label><div class="col-xs-12 col-sm-8"><input class="form-control" name="secret_lock_seconds" type="number" value="{$config.secret_lock_seconds|default='900'}"></div></div>
-<div class="form-group"><label class="control-label col-xs-12 col-sm-2">客服链接:</label><div class="col-xs-12 col-sm-8"><input class="form-control" name="customer_service_url" type="text" value="{$config.customer_service_url|default=''|htmlentities}"></div></div>
+<div class="form-group"><label class="control-label col-xs-12 col-sm-2">客服链接:</label><div class="col-xs-12 col-sm-8"><input class="form-control" name="customer_service_url" type="text" value="{$config.customer_service_url|default=''|htmlentities}"><span class="help-block">通用客服外链；登录页悬浮按钮未单独填写时也会用此链接</span></div></div>
+<div class="form-group">
+    <label class="control-label col-xs-12 col-sm-2">登录页客服悬浮:</label>
+    <div class="col-xs-12 col-sm-8">
+        <label class="checkbox-inline" style="padding-left:0;margin-right:16px;">
+            <input type="checkbox" name="login_cs_enabled" value="1" {if condition="!isset($config.login_cs_enabled) || $config.login_cs_enabled"}checked{/if}> 显示悬浮按钮
+        </label>
+        <input class="form-control" name="login_cs_url" type="text" value="{$config.login_cs_url|default=''|htmlentities}" placeholder="跳转链接（留空则用上方「客服链接」）" style="margin-top:8px;">
+        <div class="input-group" style="margin-top:8px;">
+            <input id="c-login_cs_icon" class="form-control" name="login_cs_icon" type="text" value="{$config.login_cs_icon|default='https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/brand/login-cs-float.png'|htmlentities}" placeholder="图标 URL 或 /uploads/...">
+            <div class="input-group-addon no-border no-padding">
+                <span><button type="button" id="faupload-login_cs_icon" class="btn btn-danger faupload" data-input-id="c-login_cs_icon" data-mimetype="image/gif,image/jpeg,image/png,image/jpg,image/bmp,image/webp" data-multiple="false" data-preview-id="p-login_cs_icon"><i class="fa fa-upload"></i> 上传</button></span>
+            </div>
+        </div>
+        <ul class="row list-inline faupload-preview" id="p-login_cs_icon" style="margin-top:8px;"></ul>
+        <span class="help-block">建议透明底 PNG；前端显示「图标 + 底部客服文案（多语言）」</span>
+    </div>
+</div>
 <div class="form-group"><label class="control-label col-xs-12 col-sm-2">App下载链接:</label><div class="col-xs-12 col-sm-8"><input class="form-control" name="app_download_url" type="text" value="{$config.app_download_url|default=''|htmlentities}"></div></div>
 <div class="form-group"><label class="control-label col-xs-12 col-sm-2">主站链接:</label><div class="col-xs-12 col-sm-8"><input class="form-control" name="main_station_url" type="text" value="{$config.main_station_url|default=''|htmlentities}"></div></div>
 <div class="form-group"><label class="control-label col-xs-12 col-sm-2">H5 入口路径:</label><div class="col-xs-12 col-sm-8"><input class="form-control" name="h5_entry_path" type="text" value="{$config.h5_entry_path|default='999'|htmlentities}"><span class="help-block">站点根路径跳转与邀请链接用，正式入口填 <code>999</code>（旧版 <code>888</code> 仍可访问）</span></div></div>
