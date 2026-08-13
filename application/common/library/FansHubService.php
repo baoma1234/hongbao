@@ -1325,7 +1325,7 @@ class FansHubService
             'login_cs_icon'        => (function () use ($cfg) {
                 $raw = trim((string)($cfg['login_cs_icon'] ?? ''));
                 if ($raw === '') {
-                    $raw = 'https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/brand/login-cs-float.png';
+                    $raw = 'https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/brand/login-cs-float-v2.png';
                 }
                 if (class_exists('\\app\\common\\library\\OssService')) {
                     $full = \app\common\library\OssService::fullUrl($raw, '');

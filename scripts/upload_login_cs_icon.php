@@ -4,7 +4,10 @@
  * php scripts/upload_login_cs_icon.php
  */
 $root = dirname(__DIR__);
-$local = $root . '/public/uploads/brand/login-cs-float.png';
+$local = $root . '/public/uploads/brand/login-cs-float-v2.png';
+if (!is_file($local)) {
+    $local = $root . '/public/uploads/brand/login-cs-float.png';
+}
 if (!is_file($local)) {
     fwrite(STDERR, "missing $local\n");
     exit(1);
@@ -48,7 +51,7 @@ if (is_file($envFile)) {
     }
 }
 
-$objectKey = 'uploads/brand/login-cs-float.png';
+$objectKey = 'uploads/brand/' . basename($local);
 $body = file_get_contents($local);
 $contentType = 'image/png';
 $date = gmdate('D, d M Y H:i:s \G\M\T');

@@ -114,7 +114,7 @@ import {
 
 const SMS_COOLDOWN_KEY = 'fanshub_sms_cooldown'
 const DEFAULT_CS_ICON =
-  'https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/brand/login-cs-float.png'
+  'https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/brand/login-cs-float-v2.png'
 
 const locale = localeState()
 const copyTick = copyState()
@@ -432,31 +432,30 @@ onUnmounted(() => {
 .login-cs-float {
   position: fixed;
   right: max(8px, env(safe-area-inset-right, 0px));
-  top: 50%;
-  transform: translateY(-50%);
+  top: 25%;
   z-index: 120;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 72px;
+  width: 52px;
   padding: 0;
   margin: 0;
   background: transparent;
   border: none;
-  /* 避免挡住顶栏语言切换：竖直居中即可 */
 }
 .login-cs-float--active {
   opacity: 0.88;
 }
 .login-cs-img {
-  width: 64px;
-  height: 64px;
+  width: 46px;
+  height: 46px;
   display: block;
+  background: transparent;
 }
 .login-cs-label {
   margin-top: 2px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
   color: #e80000;
   line-height: 1.2;
@@ -465,10 +464,11 @@ onUnmounted(() => {
 /* #ifdef APP-PLUS */
 .login-cs-float {
   right: 10px;
+  top: 25%;
 }
 .login-cs-img {
-  width: 68px;
-  height: 68px;
+  width: 48px;
+  height: 48px;
 }
 /* #endif */
 .login-wrapper {
