@@ -5,40 +5,46 @@
       <text class="brand-text">{{ brand }}</text>
     </view>
     <view class="actions">
-      <view class="lang-wrap" @click.stop="toggleLang" @tap.stop="toggleLang">
+      <!-- 只用 @click：uni-app 会映射为 tap；再绑 @tap 会双触发导致开关立刻关闭 -->
+      <view
+        class="lang-wrap"
+        hover-class="lang-wrap-hover"
+        :hover-stay-time="80"
+        @click.stop="toggleLang"
+      >
         <image class="flag" :src="flagSrc" mode="aspectFill" />
         <text class="lang-text">{{ localeLabel }}</text>
         <text class="caret">▾</text>
       </view>
-      <view class="fission-btn" @click.stop="goFission" @tap.stop="goFission">
+      <view class="fission-btn" hover-class="fission-btn-hover" @click.stop="goFission">
         <view class="fission-btn-glass" aria-hidden="true" />
         <text class="fission-ico">🧧</text>
         <text class="fission-lab">裂变红宝</text>
       </view>
     </view>
+  </view>
 
+  <!-- 面板/遮罩提到顶栏外，避免被顶栏 stacking / overflow 裁切或盖住 -->
+  <view
+    v-if="langOpen"
+    class="lang-mask"
+    @click="closePanels"
+    @touchmove.stop.prevent="noop"
+  />
+  <view v-if="langOpen" class="lang-panel" :style="langPanelStyle" @click.stop>
     <view
-      v-if="langOpen"
-      class="mask"
-      @click="closePanels"
-      @tap="closePanels"
-      @touchmove.stop.prevent="noop"
-    />
-
-    <view v-if="langOpen" class="panel lang-panel" :style="langPanelStyle" @click.stop @tap.stop>
-      <view
-        v-for="opt in locales"
-        :key="opt.id"
-        class="panel-item"
-        :class="{ on: opt.id === locale }"
-        @click.stop="pickLocale(opt.id)"
-        @tap.stop="pickLocale(opt.id)"
-      >
-        <image class="flag" :src="flagOf(opt.flagIso)" mode="aspectFill" />
-        <text>{{ opt.label }}</text>
-      </view>
+      v-for="opt in locales"
+      :key="opt.id"
+      class="panel-item"
+      :class="{ on: opt.id === locale }"
+      hover-class="panel-item-hover"
+      @click.stop="pickLocale(opt.id)"
+    >
+      <image class="flag" :src="flagOf(opt.flagIso)" mode="aspectFill" />
+      <text class="panel-lab">{{ opt.label }}</text>
     </view>
   </view>
+
   <view v-if="!noSpacer" class="top-bar-spacer" :style="spacerStyle" />
 </template>
 
@@ -71,6 +77,7 @@ const langOpen = ref(false)
 /** 状态栏垫高（px），内联保证不被 page CSS 变量盖掉 */
 const padTop = ref(getSafeAreaInsets().top)
 let offLocale = null
+let lastToggleAt = 0
 let pickingLang = false
 
 const logoSrc = logoUrl()
@@ -94,7 +101,6 @@ const flagSrc = computed(() => {
 
 const barStyle = computed(() => {
   const p = Math.max(0, Number(padTop.value) || 0)
-  // 用像素高对齐 TopBar 与 spacer，避免 App 上 CSS var(44/48) 与实测状态栏不一致把子页标题顶进顶栏
   const h = getTopBarContentHeight()
   return {
     paddingTop: p + 'px',
@@ -108,7 +114,6 @@ const spacerStyle = computed(() => {
     height: h + p + 'px',
   }
 })
-/** 语言面板用 fixed，避免被顶栏 overflow / 遮罩 z-index 盖住（App WebView 常见） */
 const langPanelStyle = computed(() => {
   const p = Math.max(0, Number(padTop.value) || 0)
   const h = getTopBarContentHeight()
@@ -129,6 +134,10 @@ function closePanels() {
 }
 
 function toggleLang() {
+  const now = Date.now()
+  // 防双击/双事件：300ms 内只响应一次
+  if (now - lastToggleAt < 300) return
+  lastToggleAt = now
   langOpen.value = !langOpen.value
 }
 
@@ -150,7 +159,7 @@ async function pickLocale(id) {
   } finally {
     setTimeout(() => {
       pickingLang = false
-    }, 80)
+    }, 120)
   }
 }
 
@@ -186,8 +195,7 @@ onUnmounted(() => {
   top: 0;
   left: 0;
   right: 0;
-  z-index: 14000;
-  /* height / padding-top 由 :style 按状态栏动态写入，贴齐信号栏下方 */
+  z-index: 20000;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -196,16 +204,9 @@ onUnmounted(() => {
   box-sizing: border-box;
   background: #ffffff;
   border-bottom: 1px solid rgba(101, 119, 134, 0.18);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
   overflow: visible;
-}
-.mask {
-  position: fixed;
-  inset: 0;
-  z-index: 15000;
-  background: transparent;
+  pointer-events: auto;
 }
 .top-bar-spacer {
   width: 100%;
@@ -216,11 +217,13 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   min-width: 0;
+  pointer-events: auto;
 }
 .logo {
   width: 34px;
   height: 34px;
   flex-shrink: 0;
+  pointer-events: none;
 }
 .brand-text {
   font-size: 16px;
@@ -231,6 +234,7 @@ onUnmounted(() => {
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 28vw;
+  pointer-events: none;
 }
 .actions {
   display: flex;
@@ -238,24 +242,34 @@ onUnmounted(() => {
   gap: 8px;
   flex-shrink: 0;
   position: relative;
-  z-index: 15020;
+  z-index: 2;
+  pointer-events: auto;
 }
 .lang-wrap {
+  position: relative;
+  z-index: 3;
   display: flex;
   align-items: center;
   gap: 3px;
-  min-height: 26px;
-  padding: 2px 6px;
+  min-height: 32px;
+  padding: 4px 8px;
   border-radius: 8px;
   border: 1px solid rgba(101, 119, 134, 0.26);
   background: #fafbfc;
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: rgba(232, 59, 26, 0.12);
+}
+.lang-wrap-hover {
+  background: #fff4ec;
+  border-color: rgba(232, 59, 26, 0.35);
 }
 .fission-btn {
   position: relative;
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  min-height: 26px;
+  min-height: 32px;
   padding: 3px 9px 3px 7px;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.42);
@@ -270,7 +284,11 @@ onUnmounted(() => {
     inset 0 1px 0 rgba(255, 255, 255, 0.55),
     inset 0 -1px 3px rgba(90, 0, 0, 0.28);
   transform: translateZ(0);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.fission-btn-hover {
+  opacity: 0.92;
 }
 .fission-btn-glass {
   position: absolute;
@@ -281,26 +299,19 @@ onUnmounted(() => {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.38) 0%, rgba(255, 255, 255, 0.06) 42%, rgba(255, 255, 255, 0) 70%),
     radial-gradient(120% 80% at 20% 0%, rgba(255, 255, 255, 0.35), transparent 55%);
-  backdrop-filter: blur(10px) saturate(1.25);
-  -webkit-backdrop-filter: blur(10px) saturate(1.25);
 }
-.fission-btn:active {
-  transform: translateY(1px) scale(0.98);
-  box-shadow:
-    0 3px 10px rgba(176, 16, 24, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    inset 0 -1px 3px rgba(90, 0, 0, 0.3);
-}
-.fission-ico {
+.fission-ico,
+.fission-lab {
   position: relative;
   z-index: 1;
+  pointer-events: none;
+}
+.fission-ico {
   font-size: 11px;
   line-height: 1;
   filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.2));
 }
 .fission-lab {
-  position: relative;
-  z-index: 1;
   font-size: 10px;
   font-weight: 900;
   color: #fff;
@@ -320,6 +331,12 @@ onUnmounted(() => {
   border-radius: 2px;
   flex-shrink: 0;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+  pointer-events: none;
+}
+.lang-text,
+.caret,
+.panel-lab {
+  pointer-events: none;
 }
 .lang-text {
   font-size: 10px;
@@ -335,11 +352,17 @@ onUnmounted(() => {
   color: var(--text-muted, #657786);
   margin-left: 1px;
 }
-.panel {
+.lang-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 20010;
+  background: transparent;
+}
+.lang-panel {
   position: fixed;
   right: 12px;
-  z-index: 15010;
-  min-width: 148px;
+  z-index: 20020;
+  min-width: 160px;
   max-height: 60vh;
   overflow-y: auto;
   background: #fff;
@@ -348,26 +371,27 @@ onUnmounted(() => {
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12);
   padding: 4px;
   -webkit-overflow-scrolling: touch;
+  pointer-events: auto;
 }
-.lang-panel { right: 12px; }
 .panel-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px;
+  padding: 12px 12px;
   border-radius: 8px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--text-main, #1a212d);
+  cursor: pointer;
 }
 .panel-item.on,
-.panel-item:active {
+.panel-item-hover {
   background: #fff4ec;
   color: #e83b1a;
 }
 @media (max-width: 480px) {
   .brand { max-width: 42vw; }
   .fission-lab { font-size: 9px; }
-  .fission-btn { padding: 2px 8px 2px 6px; min-height: 24px; }
+  .fission-btn { padding: 2px 8px 2px 6px; min-height: 28px; }
 }
 </style>
