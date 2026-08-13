@@ -14,4 +14,14 @@ When finishing a batch of meaningful code changes in this project:
 5. Do **not** force-push to `main`.
 6. After push, briefly tell the user the commit is on GitHub so the other server can `git pull`.
 
+## SMS production flags（推送前必核）
+
+`application/extra/fanshub.php` 推送到 GitHub / 生产时固定为：
+
+- `sms_mock_enabled` => **false**（测试短信模式关闭）
+- `sms_dagou_enabled` => **true**（大狗短信开启）
+- `sms_una_enabled` => **true**（国际短信开启）
+
+若本次改动或 diff 把上述三项改成了错误值，推送前改回再提交。本地临时开测试短信不要推上 `main`。
+
 Skip empty commits when there are no changes.

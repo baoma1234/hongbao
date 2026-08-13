@@ -1,0 +1,18 @@
+---
+description: Production SMS flags — mock off, Dagou + international on
+alwaysApply: true
+---
+
+# 短信配置（生产默认）
+
+推送 / 提交 `application/extra/fanshub.php` 或改短信相关配置时，生产态固定：
+
+| 项 | 键 | 值 |
+|----|----|----|
+| 测试短信模式 | `sms_mock_enabled` | `false`（关闭） |
+| 大狗短信（中国） | `sms_dagou_enabled` | `true`（开启） |
+| Universe Action 国际短信 | `sms_una_enabled` | `true`（开启） |
+
+- 不要把 `sms_mock_enabled => true` 推到 `main`。
+- 大狗 / 国际网关账号字段可保留；开关必须为开启。
+- 本地调试若临时开 mock，提交前务必改回关闭。
