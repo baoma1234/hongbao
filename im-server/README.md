@@ -133,6 +133,7 @@ php ../scripts/reconcile_hongbao_ledger.php
 | `scripts/reconcile_hongbao_ledger.php` | 余额↔最新流水 / 冻结对账 |
 | `scripts/ops_daily_check.(ps1\|sh)` | 健康 + 对账一键日检 |
 | Redis `im:settle_queue` + `fa_chat_settle_dlq` | 结算持久队列与失败 DLQ（与 Timer/扫库并存） |
+| `scripts/archive_fans_ledger.php` | 流水冷归档 → `fa_fans_ledger_archive`（保留每用户最新一条） |
 
 ## 部署检查清单（另一台服务器）
 
