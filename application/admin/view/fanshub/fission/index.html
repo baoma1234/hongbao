@@ -1,8 +1,8 @@
 <div class="panel panel-default panel-intro">
     {:build_heading()}
     <div class="panel-body">
-        <div class="alert alert-info">
-            裂变红包 V1：奖金池 / 全局资格 / 72 小时 / 单人上限。满额自动开奖；超时由 <code>php think fission:maintain</code> 作废。
+            <div class="alert alert-info">
+            裂变红包：奖金池 / 全局资格 / 时长 / 单人上限。满额自动开奖；也可「一键开奖」拉满进度并派奖；超时由 <code>php think fission:maintain</code> 作废。
         </div>
         <p>
             <a href="javascript:;" class="btn btn-success btn-start">开启新一轮</a>
@@ -48,6 +48,9 @@
                 </td>
                 <td>
                     <a href="javascript:;" class="btn btn-xs btn-primary btn-edit" data-id="{$r.id}">编辑</a>
+                    {eq name="r.status" value="1"}
+                    <a href="javascript:;" class="btn btn-xs btn-danger btn-force-settle" data-id="{$r.id}">一键开奖</a>
+                    {/eq}
                 </td>
             </tr>
             {/foreach}

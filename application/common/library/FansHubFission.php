@@ -232,8 +232,9 @@ class FansHubFission
 
     /**
      * 满额开奖：随机瓜分奖金池到每一份资格
+     * @param bool $force 为 true 时先将进度拉满再派奖（后台一键开奖）
      */
-    public static function settleSuccess($activityId)
+    public static function settleSuccess($activityId, $force = false)
     {
         $activityId = (int)$activityId;
         if ($activityId <= 0) {
@@ -249,8 +250,18 @@ class FansHubFission
             $cap = (int)$act['global_cap'];
             $global = (int)$act['global_quals'];
             if ($global < $cap) {
-                Db::commit();
-                return false;
+                if (!$force) {
+                    Db::commit();
+                    return false;
+                }
+                // 一键开奖：进度直接拉满
+                $nowFill = time();
+                Db::name('fans_fission_activity')->where('id', $activityId)->update([
+                    'global_quals' => $cap,
+                    'updatetime'   => $nowFill,
+                ]);
+                $global = $cap;
+                $act['global_quals'] = $cap;
             }
             $quals = Db::name('fans_fission_qual')
                 ->where('activity_id', $activityId)
@@ -266,6 +277,7 @@ class FansHubFission
                     'status'       => FissionActivity::STATUS_SUCCESS,
                     'settled_time' => time(),
                     'updatetime'   => time(),
+                    'global_quals' => $cap,
                 ]);
                 Db::commit();
                 return true;
@@ -292,7 +304,7 @@ class FansHubFission
                 'status'       => FissionActivity::STATUS_SUCCESS,
                 'settled_time' => $now,
                 'updatetime'   => $now,
-                'global_quals' => $n,
+                'global_quals' => max($n, $cap),
             ]);
             Db::commit();
             foreach ($payouts as $p) {

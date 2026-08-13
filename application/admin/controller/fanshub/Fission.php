@@ -73,7 +73,7 @@ class Fission extends Backend
     }
 
     /**
-     * 编辑活动：奖金池 / 进度 / 单人上限 / 状态
+     * 编辑活动：奖金池 / 进度 / 单人上限 / 状态 / 起止时间
      */
     public function edit($ids = null)
     {
@@ -112,14 +112,24 @@ class Fission extends Backend
                     $this->error('已有进行中的活动 #' . $other['id'] . '，请先改其状态');
                 }
             }
+            $startTime = $this->parseAdminTime($params['start_time'] ?? null, (int)($row['start_time'] ?? 0));
+            $endTime = $this->parseAdminTime($params['end_time'] ?? null, (int)($row['end_time'] ?? 0));
+            if ($startTime > 0 && $endTime > 0 && $endTime <= $startTime) {
+                $this->error('结束时间必须晚于开始时间');
+            }
             $data = [
                 'pool_amount'  => round($pool, 2),
                 'global_quals' => $globalQuals,
                 'global_cap'   => $globalCap,
                 'user_cap'     => $userCap,
                 'status'       => $status,
+                'start_time'   => $startTime,
+                'end_time'     => $endTime,
                 'updatetime'   => time(),
             ];
+            if ($startTime > 0 && $endTime > $startTime) {
+                $data['duration_hours'] = max(1, (int)ceil(($endTime - $startTime) / 3600));
+            }
             if (array_key_exists('title', $params)) {
                 $title = trim((string)$params['title']);
                 if ($title !== '') {
@@ -130,6 +140,8 @@ class Fission extends Backend
             $this->success('已保存');
         }
         $this->view->assign('row', $row);
+        $this->view->assign('start_time_text', !empty($row['start_time']) ? date('Y-m-d H:i:s', (int)$row['start_time']) : '');
+        $this->view->assign('end_time_text', !empty($row['end_time']) ? date('Y-m-d H:i:s', (int)$row['end_time']) : '');
         $this->view->assign('statusList', [
             FissionActivity::STATUS_DRAFT   => '草稿',
             FissionActivity::STATUS_RUNNING => '进行中',
@@ -137,5 +149,49 @@ class Fission extends Backend
             FissionActivity::STATUS_EXPIRED => '超时作废',
         ]);
         return $this->view->fetch();
+    }
+
+    /**
+     * 一键结算开奖：进度拉满 → 按已有资格派奖
+     */
+    public function forcesettle($ids = null)
+    {
+        if (!$this->request->isPost()) {
+            $this->error(__('Invalid parameters'));
+        }
+        $id = (int)($ids ?: $this->request->param('ids') ?: $this->request->post('ids'));
+        if ($id <= 0) {
+            $this->error('活动 ID 无效');
+        }
+        $row = Db::name('fans_fission_activity')->where('id', $id)->find();
+        if (!$row) {
+            $this->error('活动不存在');
+        }
+        if ((int)$row['status'] !== FissionActivity::STATUS_RUNNING) {
+            $this->error('仅进行中的活动可一键开奖');
+        }
+        $ok = FansHubFission::settleSuccess($id, true);
+        if (!$ok) {
+            $this->error('开奖失败，请刷新后重试');
+        }
+        $qualCount = (int)Db::name('fans_fission_qual')->where('activity_id', $id)->count();
+        $this->success('已拉满进度并完成派奖（资格份数 ' . $qualCount . '）');
+    }
+
+    /**
+     * @param mixed $raw
+     * @param int   $fallback
+     */
+    protected function parseAdminTime($raw, $fallback = 0)
+    {
+        if ($raw === null || $raw === '') {
+            return (int)$fallback;
+        }
+        if (is_numeric($raw)) {
+            $n = (int)$raw;
+            return $n > 0 ? $n : (int)$fallback;
+        }
+        $ts = strtotime(trim((string)$raw));
+        return $ts !== false ? (int)$ts : (int)$fallback;
     }
 }

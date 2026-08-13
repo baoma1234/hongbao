@@ -33,6 +33,19 @@
         </div>
     </div>
     <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-3">开始时间</label>
+        <div class="col-xs-12 col-sm-8">
+            <input type="text" class="form-control datetimepicker" data-date-format="YYYY-MM-DD HH:mm:ss" name="row[start_time]" value="{$start_time_text}" placeholder="YYYY-MM-DD HH:mm:ss" data-rule="required">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-3">结束时间</label>
+        <div class="col-xs-12 col-sm-8">
+            <input type="text" class="form-control datetimepicker" data-date-format="YYYY-MM-DD HH:mm:ss" name="row[end_time]" value="{$end_time_text}" placeholder="YYYY-MM-DD HH:mm:ss" data-rule="required">
+            <span class="help-block">保存时会按起止时间重算 duration_hours；超时作废以结束时间为准。</span>
+        </div>
+    </div>
+    <div class="form-group">
         <label class="control-label col-xs-12 col-sm-3">状态</label>
         <div class="col-xs-12 col-sm-8">
             <select class="form-control" name="row[status]" data-rule="required">
@@ -40,7 +53,7 @@
                 <option value="{$val}" {eq name="row.status" value="$val"}selected{/eq}>{$label}</option>
                 {/foreach}
             </select>
-            <span class="help-block">改为「进行中」时，不能与其它进行中活动并存；改状态不会自动发奖/结算。</span>
+            <span class="help-block">改为「进行中」时，不能与其它进行中活动并存；改状态不会自动发奖/结算。派奖请用列表「一键开奖」。</span>
         </div>
     </div>
     <div class="form-group layer-footer">

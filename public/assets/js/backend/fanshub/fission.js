@@ -13,6 +13,10 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
             html = '<tr><td colspan="8">暂无活动</td></tr>';
         } else {
             $.each(rows, function (_, r) {
+                var ops = '<a href="javascript:;" class="btn btn-xs btn-primary btn-edit" data-id="' + r.id + '">编辑</a>';
+                if (parseInt(r.status, 10) === 1) {
+                    ops += ' <a href="javascript:;" class="btn btn-xs btn-danger btn-force-settle" data-id="' + r.id + '">一键开奖</a>';
+                }
                 html += '<tr>'
                     + '<td>' + r.id + '</td>'
                     + '<td>' + (r.title || '') + '</td>'
@@ -21,7 +25,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                     + '<td>' + r.user_cap + '</td>'
                     + '<td>' + (statusMap[r.status] || r.status) + '</td>'
                     + '<td>' + fmt(r.start_time) + ' ~ ' + fmt(r.end_time) + '</td>'
-                    + '<td><a href="javascript:;" class="btn btn-xs btn-primary btn-edit" data-id="' + r.id + '">编辑</a></td>'
+                    + '<td>' + ops + '</td>'
                     + '</tr>';
             });
         }
@@ -50,6 +54,23 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
         });
     }
 
+    function forceSettle(id) {
+        Layer.confirm(
+            '确认一键开奖？将把进度拉满到上限，并按已有资格立即派奖。此操作不可撤销。',
+            {icon: 3, title: '一键开奖 #' + id},
+            function (idx) {
+                Layer.close(idx);
+                Fast.api.ajax({
+                    url: 'fanshub/fission/forcesettle',
+                    data: {ids: id}
+                }, function () {
+                    load();
+                    return false;
+                });
+            }
+        );
+    }
+
     var Controller = {
         index: function () {
             $('.btn-start').on('click', function () {
@@ -72,6 +93,9 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
             });
             $(document).on('click', '#fission-rows .btn-edit', function () {
                 openEdit($(this).data('id'));
+            });
+            $(document).on('click', '#fission-rows .btn-force-settle', function () {
+                forceSettle($(this).data('id'));
             });
             load();
         },
