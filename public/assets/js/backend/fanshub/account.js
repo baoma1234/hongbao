@@ -10,11 +10,16 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                 extend: {
                     index_url: 'fanshub/account/index',
                     edit_url: 'fanshub/account/edit',
+                    del_url: 'fanshub/account/del',
                     export_url: 'fanshub/account/export',
                     table: 'fans_account',
                 }
             });
             var table = $("#table");
+            var hardDelConfirmOne = '确认真删除该用户？\n将永久删除登录账号、资产、邀请关系、聊天等相关数据，且不可恢复！';
+            var hardDelConfirmBatch = function (n) {
+                return '确认真删除选中的 ' + n + ' 个用户？\n将永久删除登录账号、资产、邀请关系、聊天等相关数据，且不可恢复！';
+            };
             table.bootstrapTable({
                 url: $.fn.bootstrapTable.defaults.extend.index_url,
                 pk: 'id',
@@ -74,6 +79,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                     {field: 'updatetime', title: '更新时间', operate: 'RANGE', addclass: 'datetimerange', sortable: true, formatter: Table.api.formatter.datetime},
                     {
                         field: 'operate', title: '操作', table: table,
+                        events: Table.api.events.operate,
                         buttons: [{
                             name: 'detail',
                             text: '详情',
@@ -112,13 +118,44 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                             success: function () {
                                 table.bootstrapTable('refresh');
                             }
+                        }, {
+                            name: 'harddel',
+                            text: '删除',
+                            title: '真删除用户',
+                            classname: 'btn btn-xs btn-danger btn-ajax',
+                            icon: 'fa fa-trash',
+                            url: 'fanshub/account/del',
+                            confirm: hardDelConfirmOne,
+                            visible: function () {
+                                return !!Config.canHardDelete;
+                            },
+                            success: function () {
+                                table.bootstrapTable('refresh');
+                            }
                         }],
-                        events: Table.api.events.operate,
                         formatter: Table.api.formatter.operate
                     }
                 ]]
             });
             Table.api.bindevent(table);
+            // 覆盖工具栏批量删除确认：强调真删除不可恢复
+            var toolbar = $('#toolbar');
+            toolbar.off('click', '.btn-del').on('click', '.btn-del', function () {
+                var that = this;
+                var ids = Table.api.selectedids(table);
+                if (!ids.length) {
+                    return false;
+                }
+                Layer.confirm(
+                    hardDelConfirmBatch(ids.length),
+                    {icon: 3, title: '真删除确认', offset: 0, shadeClose: true, btn: ['确认删除', '取消']},
+                    function (index) {
+                        Table.api.multi('del', ids, table, that);
+                        Layer.close(index);
+                    }
+                );
+                return false;
+            });
             FanshubCommon.bindExport(table, $.fn.bootstrapTable.defaults.extend.export_url);
         },
         edit: function () {

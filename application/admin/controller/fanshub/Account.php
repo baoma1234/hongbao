@@ -42,6 +42,7 @@ class Account extends Backend
             }
         }
         $this->view->assign('honorTierList', $honorTierList);
+        $this->assignconfig('canHardDelete', $this->auth->check('fanshub/account/del'));
     }
 
     public function index()
@@ -103,6 +104,53 @@ class Account extends Backend
         $this->view->assign('row', $row);
         $this->view->assign('detail', $detail);
         return $this->view->fetch();
+    }
+
+    /**
+     * 真删除用户账户（支持批量）：删除 fa_user + fa_fans_account 及关联数据，不可恢复
+     */
+    public function del($ids = null)
+    {
+        if (!$this->request->isPost()) {
+            $this->error(__('Invalid parameters'));
+        }
+        $ids = $ids ?: $this->request->post('ids');
+        if (empty($ids)) {
+            $this->error(__('Parameter %s can not be empty', 'ids'));
+        }
+        $idList = is_array($ids) ? $ids : explode(',', (string)$ids);
+        $idList = array_values(array_unique(array_filter(array_map('intval', $idList))));
+        if (!$idList) {
+            $this->error(__('Parameter %s can not be empty', 'ids'));
+        }
+
+        // 列表主键为 fans_account.id；仅删非机器人账户
+        $rows = $this->model
+            ->where('id', 'in', $idList)
+            ->where('is_bot', 0)
+            ->field('id,user_id')
+            ->select();
+        if (!$rows || count($rows) === 0) {
+            $this->error(__('No Results were found'));
+        }
+        $userIds = [];
+        foreach ($rows as $row) {
+            $uid = (int)$row['user_id'];
+            if ($uid > 0) {
+                $userIds[] = $uid;
+            }
+        }
+        $userIds = array_values(array_unique($userIds));
+        if (!$userIds) {
+            $this->error('未找到对应用户');
+        }
+
+        try {
+            $result = FansHubService::hardDeleteUsers($userIds);
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage());
+        }
+        $this->success('已真删除 ' . (int)($result['deleted'] ?? count($userIds)) . ' 个用户', null, $result);
     }
 
     public function edit($ids = null)

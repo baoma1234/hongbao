@@ -4765,4 +4765,127 @@ class FansHubService
         }
         return $out;
     }
+
+    /**
+     * 真删除用户：登录账号 + 福利账户 + 关联业务数据（不可恢复）
+     *
+     * @param int[] $userIds
+     * @return array{deleted:int,user_ids:int[]}
+     */
+    public static function hardDeleteUsers(array $userIds)
+    {
+        $userIds = array_values(array_unique(array_filter(array_map('intval', $userIds), static function ($id) {
+            return $id > 0;
+        })));
+        if (!$userIds) {
+            throw new \Exception('未选择用户');
+        }
+        if (count($userIds) > 200) {
+            throw new \Exception('一次最多删除 200 个用户');
+        }
+
+        $prefix = (string)config('database.prefix');
+        $existsCache = [];
+        $tableExists = static function ($name) use ($prefix, &$existsCache) {
+            $full = $prefix . $name;
+            if (array_key_exists($full, $existsCache)) {
+                return $existsCache[$full];
+            }
+            try {
+                $safe = preg_replace('/[^a-zA-Z0-9_]/', '', $full);
+                $row = Db::query("SHOW TABLES LIKE '{$safe}'");
+                $existsCache[$full] = !empty($row);
+            } catch (\Throwable $e) {
+                $existsCache[$full] = false;
+            }
+            return $existsCache[$full];
+        };
+        $deleteIn = static function ($table, $column, array $ids) use ($tableExists) {
+            if (!$ids || !$tableExists($table)) {
+                return 0;
+            }
+            return (int)Db::name($table)->where($column, 'in', $ids)->delete();
+        };
+
+        Db::startTrans();
+        try {
+            // 单列 user_id
+            $single = [
+                ['fans_ledger', 'user_id'],
+                ['fans_wallet_bind', 'user_id'],
+                ['fans_recharge_order', 'user_id'],
+                ['fans_withdraw_order', 'user_id'],
+                ['fans_login_log', 'user_id'],
+                ['fans_checkin', 'user_id'],
+                ['fans_comment', 'user_id'],
+                ['fans_secret', 'user_id'],
+                ['fans_task', 'user_id'],
+                ['fans_fission_qual', 'user_id'],
+                ['fans_idempotent', 'user_id'],
+                ['chat_red_packet_records', 'user_id'],
+                ['chat_group_members', 'user_id'],
+                ['chat_conversation_read', 'user_id'],
+                ['chat_user_stickers', 'user_id'],
+                ['chat_group_msg_cleared', 'user_id'],
+                ['chat_conversation_deleted', 'user_id'],
+                ['chat_agent_accounts', 'user_id'],
+                ['chat_niuniu_shares', 'user_id'],
+                ['chat_group_popup_logs', 'user_id'],
+                ['user_token', 'user_id'],
+                ['user_money_log', 'user_id'],
+                ['user_score_log', 'user_id'],
+            ];
+            foreach ($single as $item) {
+                $deleteIn($item[0], $item[1], $userIds);
+            }
+
+            // 双端用户列
+            $dual = [
+                ['fans_invite', ['inviter_user_id', 'invitee_user_id']],
+                ['chat_friend_requests', ['from_user_id', 'to_user_id']],
+                ['chat_contacts', ['user_id', 'peer_user_id']],
+                ['chat_user_remarks', ['user_id', 'peer_user_id']],
+                ['chat_messages', ['from_user_id', 'to_user_id']],
+                ['chat_red_packets', ['from_user_id', 'to_user_id']],
+            ];
+            foreach ($dual as $item) {
+                $table = $item[0];
+                if (!$tableExists($table)) {
+                    continue;
+                }
+                foreach ($item[1] as $col) {
+                    Db::name($table)->where($col, 'in', $userIds)->delete();
+                }
+            }
+
+            // 红包/牛牛自动任务：发送人或参与人含该用户则清理
+            if ($tableExists('chat_rp_auto_task')) {
+                Db::name('chat_rp_auto_task')->where('send_user_id', 'in', $userIds)->delete();
+            }
+
+            $nAcc = $deleteIn('fans_account', 'user_id', $userIds);
+            $nUser = 0;
+            if ($tableExists('user')) {
+                $nUser = (int)Db::name('user')->where('id', 'in', $userIds)->delete();
+            }
+
+            foreach ($userIds as $uid) {
+                try {
+                    \app\common\library\Token::clear($uid);
+                } catch (\Throwable $e) {
+                }
+            }
+
+            Db::commit();
+            return [
+                'deleted'  => max($nAcc, $nUser, count($userIds)),
+                'user_ids' => $userIds,
+                'accounts' => $nAcc,
+                'users'    => $nUser,
+            ];
+        } catch (\Throwable $e) {
+            Db::rollback();
+            throw $e;
+        }
+    }
 }
