@@ -205,7 +205,13 @@
                 </scroll-view>
               </view>
 
-              <view v-else-if="communitySub === 'mine'" class="chat-community-pane active chat-community-pane--feed">
+              <!-- 我的/创建/好友：首次访问后常驻，v-show 切换，避免 App 反复销毁 scroll-view -->
+              <view
+                v-if="communityPaneVisited.mine"
+                v-show="communitySub === 'mine'"
+                class="chat-community-pane chat-community-pane--feed"
+                :class="{ active: communitySub === 'mine' }"
+              >
                 <scroll-view
                   scroll-y
                   class="chat-community-body-scroll"
@@ -236,13 +242,19 @@
                         </view>
                         <view class="chat-my-group-count">{{ g.display_member_count || g.member_count || 0 }}<text>人</text></view>
                       </view>
-                      <view v-if="!myGroups.length" class="chat-empty chat-empty-glass">暂无已加入社群</view>
+                      <view v-if="!myGroups.length && communityExtraLoading" class="chat-empty chat-empty-glass">加载中…</view>
+                      <view v-else-if="!myGroups.length" class="chat-empty chat-empty-glass">暂无已加入社群</view>
                       <view class="chat-list-scroll-pad" />
                   </view>
                 </scroll-view>
               </view>
 
-              <view v-else-if="communitySub === 'created'" class="chat-community-pane active chat-community-pane--feed">
+              <view
+                v-if="communityPaneVisited.created"
+                v-show="communitySub === 'created'"
+                class="chat-community-pane chat-community-pane--feed"
+                :class="{ active: communitySub === 'created' }"
+              >
                 <scroll-view
                   scroll-y
                   class="chat-community-body-scroll"
@@ -263,13 +275,19 @@
                         </view>
                         <view class="chat-my-group-count">{{ g.display_member_count || g.member_count || 0 }}<text>人</text></view>
                       </view>
-                      <view v-if="!myCreatedGroups.length" class="chat-empty chat-empty-glass">暂无我创建/管理的群</view>
+                      <view v-if="!myCreatedGroups.length && communityExtraLoading" class="chat-empty chat-empty-glass">加载中…</view>
+                      <view v-else-if="!myCreatedGroups.length" class="chat-empty chat-empty-glass">暂无我创建/管理的群</view>
                       <view class="chat-list-scroll-pad" />
                   </view>
                 </scroll-view>
               </view>
 
-              <view v-else class="chat-community-pane active chat-community-pane--feed">
+              <view
+                v-if="communityPaneVisited.friends"
+                v-show="communitySub === 'friends'"
+                class="chat-community-pane chat-community-pane--feed"
+                :class="{ active: communitySub === 'friends' }"
+              >
                 <scroll-view
                   scroll-y
                   class="chat-community-body-scroll"
@@ -297,7 +315,8 @@
                           <view class="chat-feed-status" :class="{ on: !!f.online }">{{ f.online ? '刚刚在线' : '暂时离开' }}</view>
                         </view>
                       </view>
-                      <view v-if="!friends.length" class="chat-empty chat-empty-glass">暂无好友</view>
+                      <view v-if="!friends.length && communityExtraLoading" class="chat-empty chat-empty-glass">加载中…</view>
+                      <view v-else-if="!friends.length" class="chat-empty chat-empty-glass">暂无好友</view>
                       <view class="chat-list-scroll-pad" />
                   </view>
                 </scroll-view>
@@ -738,7 +757,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onUnmounted, reactive, ref, watch } from 'vue'
 import { onShow, onHide } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
 import BottomTabBar from '../../components/BottomTabBar.vue'
@@ -981,12 +1000,19 @@ const createGroupPaneStyle = computed(() => {
   return { '--cg-app-top': Math.max(44, top) + 'px' }
 })
 const communitySub = ref('official')
+const communityPaneVisited = reactive({ mine: false, created: false, friends: false })
 const communityRecs = ref([])
 const myGroups = ref([])
 const myCreatedGroups = computed(() =>
   (myGroups.value || []).filter((g) => ((g.my_role | 0) || (g.role | 0)) >= 2)
 )
 const friends = ref([])
+const communityExtraLoading = ref(false)
+/** 社群群/好友列表缓存：避免每次点 Tab 都卡在 WS */
+const COMMUNITY_EXTRA_TTL_MS = 60000
+let communityExtraAt = 0
+let communityExtraOk = false
+let communityExtraInflight = null
 const notices = ref([])
 const noticeCat = ref('latest')
 const promoteEarnRows = ref([])
@@ -1955,9 +1981,11 @@ async function switchHomeTab(tab) {
 
 function setCommunitySub(sub) {
   communitySub.value = sub
-  if (sub === 'mine' || sub === 'friends') {
+  if (sub === 'mine' || sub === 'created' || sub === 'friends') {
+    communityPaneVisited[sub] = true
     stopOfficialCommunityPoll()
-    loadCommunityExtra()
+    // 有缓存则立刻展示；后台按 TTL 静默刷新
+    void loadCommunityExtra({ force: false })
   } else {
     startOfficialCommunityPoll()
   }
@@ -2006,7 +2034,8 @@ async function loadCommunity() {
   } catch (e) {
     communityRecs.value = []
   }
-  await loadCommunityExtra()
+  // 进入社群即预拉群/好友（并行+TTL），切换子 Tab 可秒开
+  await loadCommunityExtra({ force: false })
   markMineInRecs()
   startOfficialCommunityPoll()
 }
@@ -2020,23 +2049,46 @@ function normalizeMyGroups(list) {
   )
 }
 
-async function loadCommunityExtra() {
-  try {
-    await imConnect()
-    const mine = await listMyGroups()
-    const md = (mine && mine.data) || {}
-    myGroups.value = normalizeMyGroups(md.list || md.items || [])
-  } catch (e) {
-    myGroups.value = []
+async function loadCommunityExtra(opts) {
+  const force = !!(opts && opts.force)
+  const now = Date.now()
+  if (!force && communityExtraOk && communityExtraAt > 0 && now - communityExtraAt < COMMUNITY_EXTRA_TTL_MS) {
+    return
   }
-  try {
-    const fr = await listFriends()
-    const fd = (fr && fr.data) || {}
-    friends.value = fd.list || fd.items || []
-  } catch (e) {
-    friends.value = []
-  }
-  markMineInRecs()
+  if (communityExtraInflight) return communityExtraInflight
+
+  const showLoading = !communityExtraOk || !(myGroups.value || []).length
+  if (showLoading) communityExtraLoading.value = true
+
+  communityExtraInflight = (async () => {
+    try {
+      await imConnect()
+      const [mineRes, frRes] = await Promise.all([
+        listMyGroups().then((r) => ({ ok: true, r })).catch(() => ({ ok: false, r: null })),
+        listFriends().then((r) => ({ ok: true, r })).catch(() => ({ ok: false, r: null })),
+      ])
+      if (mineRes.ok) {
+        const md = (mineRes.r && mineRes.r.data) || {}
+        myGroups.value = normalizeMyGroups(md.list || md.items || [])
+      }
+      // 失败时保留旧缓存，勿清空导致「空白再等几秒」
+      if (frRes.ok) {
+        const fd = (frRes.r && frRes.r.data) || {}
+        friends.value = fd.list || fd.items || []
+      }
+      if (mineRes.ok || frRes.ok) {
+        communityExtraAt = Date.now()
+        communityExtraOk = true
+      }
+      if (homeTab.value === 'community' && communitySub.value === 'official') {
+        markMineInRecs()
+      }
+    } finally {
+      communityExtraLoading.value = false
+      communityExtraInflight = null
+    }
+  })()
+  return communityExtraInflight
 }
 
 function markMineInRecs() {
@@ -2065,6 +2117,9 @@ async function openGroup(g) {
     if (!alreadyMember) {
       await joinGroup(groupId)
       uni.showToast({ title: '已加入社群', icon: 'none' })
+      communityExtraOk = false
+      communityExtraAt = 0
+      await loadCommunityExtra({ force: true })
       await loadCommunity()
     }
     uni.navigateTo({
@@ -2167,6 +2222,8 @@ async function loadMyGroupsSafe() {
     const packet = await listMyGroups()
     const data = (packet && packet.data) || {}
     myGroups.value = normalizeMyGroups(data.list || data.groups || [])
+    communityExtraAt = Date.now()
+    communityExtraOk = true
   } catch (e) {}
 }
 

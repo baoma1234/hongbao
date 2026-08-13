@@ -4756,19 +4756,14 @@ button.chat-rp-fair-link {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  border: 1.5px solid transparent;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 246, 232, 0.82) 100%) padding-box,
-    var(--cg-border-grad) border-box;
+  border: 1px solid rgba(230, 190, 130, 0.45);
+  background: #fffdf8;
   border-radius: 14px;
   padding: 7px 10px;
   cursor: pointer;
-  box-shadow:
-    0 8px 16px rgba(170, 120, 60, 0.12),
-    inset 0 2px 0 rgba(255, 255, 255, 0.95),
-    inset 0 -2px 4px rgba(200, 150, 90, 0.14);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 2px 8px rgba(160, 120, 70, 0.08);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   transition: transform 0.12s ease;
   text-align: left;
   -webkit-appearance: none;
@@ -4778,7 +4773,6 @@ button.chat-rp-fair-link {
 
 .chat-my-group-item:active {
   transform: translateY(1px);
-  filter: brightness(0.98);
 }
 
 .chat-my-group-count {
@@ -4908,16 +4902,11 @@ button.chat-rp-fair-link {
   width: 100%;
   padding: 7px 10px;
   border-radius: 14px;
-  border: 1.5px solid transparent;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(255, 250, 242, 0.78) 100%) padding-box,
-    var(--cg-border-grad) border-box;
-  box-shadow:
-    0 8px 16px rgba(160, 120, 70, 0.12),
-    inset 0 2px 0 rgba(255, 255, 255, 0.95),
-    inset 0 -1px 3px rgba(200, 150, 90, 0.1);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(230, 190, 130, 0.45);
+  background: #fffdf8;
+  box-shadow: 0 2px 8px rgba(160, 120, 70, 0.08);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   cursor: pointer;
   text-align: left;
   transition: transform 0.12s ease;
