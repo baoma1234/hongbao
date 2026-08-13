@@ -6,6 +6,7 @@
  * 1) fans_account.hongbao ≈ 最新流水 hongbao_after（容差默认 0.01）
  * 2) fans_account.hongbao_frozen ≈ SUM(records.frozen_amount WHERE freeze_status=1)
  * 3) 不允许负余额 / 负冻结
+ * 注意：对账只看热表最新一条；archive_fans_ledger 会永久保留每用户最新流水在热表
  *
  * Usage:
  *   php scripts/reconcile_hongbao_ledger.php
