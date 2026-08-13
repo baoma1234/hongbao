@@ -19,6 +19,8 @@ class Adminlog extends Backend
      */
     protected $model = null;
     protected $childrenAdminIds = [];
+    /** 列表单页上限，避免大表 OOM */
+    protected $paginateMaxLimit = 200;
 
     public function _initialize()
     {
@@ -36,6 +38,7 @@ class Adminlog extends Backend
         $this->request->filter(['strip_tags', 'trim']);
         if ($this->request->isAjax()) {
             list($where, $sort, $order, $offset, $limit) = $this->buildparams();
+            $limit = max(1, min(200, (int)$limit));
             $isSuperAdmin = $this->auth->isSuperAdmin();
             $childrenAdminIds = $this->childrenAdminIds;
             $list = $this->model

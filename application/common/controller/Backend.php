@@ -271,6 +271,11 @@ class Backend extends Controller
         $offset = max(0, $this->request->get("offset/d", 0));
         $limit = max(0, $this->request->get("limit/d", 0));
         $limit = $limit ?: 999999;
+        // 防止导出/缺省超大 limit 把整表拉进内存（管理员日志等大表 OOM）
+        $maxLimit = (int)($this->paginateMaxLimit ?? 1000);
+        if ($maxLimit > 0 && $limit > $maxLimit) {
+            $limit = $maxLimit;
+        }
         //新增自动计算页码
         $page = $limit ? intval($offset / $limit) + 1 : 1;
         if ($this->request->has("page")) {

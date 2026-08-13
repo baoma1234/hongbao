@@ -17,6 +17,8 @@ class Profile extends Backend
 {
 
     protected $searchFields = 'id,title';
+    /** 个人日志列表上限 */
+    protected $paginateMaxLimit = 200;
 
     /**
      * 查看
@@ -28,10 +30,12 @@ class Profile extends Backend
         if ($this->request->isAjax()) {
             $this->model = model('AdminLog');
             list($where, $sort, $order, $offset, $limit) = $this->buildparams();
+            $limit = max(1, min(200, (int)$limit));
 
             $list = $this->model
                 ->where($where)
                 ->where('admin_id', $this->auth->id)
+                ->field('content,useragent', true)
                 ->order($sort, $order)
                 ->paginate($limit);
 

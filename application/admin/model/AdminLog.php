@@ -77,9 +77,14 @@ class AdminLog extends Model
             }
             $title = implode(' / ', $title);
         }
+        $contentStore = !is_scalar($content) ? json_encode($content, JSON_UNESCAPED_UNICODE) : (string)$content;
+        // 防止超大 POST 撑爆 admin_log / 列表内存
+        if (strlen($contentStore) > 65000) {
+            $contentStore = substr($contentStore, 0, 65000) . '...[truncated]';
+        }
         self::create([
             'title'     => $title,
-            'content'   => !is_scalar($content) ? json_encode($content, JSON_UNESCAPED_UNICODE) : $content,
+            'content'   => $contentStore,
             'url'       => substr(xss_clean(strip_tags(request()->url())), 0, 1500),
             'admin_id'  => $admin_id,
             'username'  => $username,
