@@ -115,10 +115,7 @@ class FansHubService
         }
         $fileMap = self::i18nFileMap();
         $path = APP_PATH . 'extra' . DS . 'i18n' . DS . ($fileMap[$locale] ?? '');
-        $data = (is_file($path)) ? include $path : [];
-        if (!is_array($data)) {
-            $data = [];
-        }
+        $data = self::includePhpArray($path);
         $merged = array_merge($zh, $data);
         foreach ($merged as $key => $value) {
             if (!array_key_exists($key, $zh)) {
@@ -260,6 +257,21 @@ class FansHubService
         ];
     }
 
+    /**
+     * Include a PHP file that returns an array, swallowing accidental BOM/output
+     * so API JSON responses are not corrupted.
+     */
+    public static function includePhpArray($path)
+    {
+        if (!is_file($path)) {
+            return [];
+        }
+        ob_start();
+        $data = include $path;
+        ob_end_clean();
+        return is_array($data) ? $data : [];
+    }
+
     public static function h5CopyKeyLabels()
     {
         $labels = [];
@@ -276,9 +288,7 @@ class FansHubService
         $locales = ['zh-CN' => self::getH5Copy()];
         $dir = APP_PATH . 'extra' . DS . 'i18n' . DS;
         foreach (self::i18nFileMap() as $code => $file) {
-            $path = $dir . $file;
-            $data = is_file($path) ? include $path : [];
-            $locales[$code] = is_array($data) ? $data : [];
+            $locales[$code] = self::includePhpArray($dir . $file);
         }
         return $locales;
     }
@@ -369,11 +379,8 @@ class FansHubService
         $locales = ['zh-CN' => $zh];
         foreach (self::i18nFileMap() as $code => $file) {
             $path = APP_PATH . 'extra' . DS . 'i18n' . DS . $file;
-            if (!is_file($path)) {
-                continue;
-            }
-            $data = include $path;
-            if (!is_array($data)) {
+            $data = self::includePhpArray($path);
+            if (!$data) {
                 continue;
             }
             $locales[$code] = array_merge($zh, $data);

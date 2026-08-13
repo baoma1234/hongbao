@@ -59,6 +59,36 @@ function rejectApiError(payload, reject) {
   reject(err)
 }
 
+/** 解析接口体：去 BOM / 字符串 JSON / 已解析对象 */
+function parseApiPayload(raw) {
+  if (raw == null) return null
+  if (typeof raw === 'object') {
+    if (Array.isArray(raw)) return null
+    return raw
+  }
+  let text = ''
+  if (typeof raw === 'string') {
+    text = raw
+  } else if (typeof ArrayBuffer !== 'undefined' && raw instanceof ArrayBuffer) {
+    try {
+      text = typeof TextDecoder !== 'undefined' ? new TextDecoder('utf-8').decode(raw) : ''
+    } catch (e) {
+      return null
+    }
+  } else {
+    return null
+  }
+  text = String(text).replace(/^\uFEFF/, '').trim()
+  if (!text) return null
+  try {
+    const parsed = JSON.parse(text)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null
+    return parsed
+  } catch (e) {
+    return null
+  }
+}
+
 /**
  * ThinkPHP FansHub API：成功 code===1，返回 data
  */
@@ -95,19 +125,12 @@ export function apiRequest(action, method = 'POST', body = null) {
       header: headers,
       data: data || undefined,
       success(res) {
-        let payload = res && res.data
-        if (typeof payload === 'string') {
-          try {
-            payload = JSON.parse(payload)
-          } catch (e) {
-            payload = null
-          }
-        }
-        if (!payload || typeof payload !== 'object') {
+        const payload = parseApiPayload(res && res.data)
+        if (!payload) {
           reject(new Error('接口响应异常，请稍后重试'))
           return
         }
-        if (payload.code !== 1) {
+        if (Number(payload.code) !== 1) {
           rejectApiError(payload, reject)
           return
         }
@@ -228,18 +251,14 @@ function uploadFanshubAction(action, filePath) {
       formData: { locale },
       header: token ? { token, 'X-Fanshub-Locale': locale } : { 'X-Fanshub-Locale': locale },
       success(res) {
-        try {
-          const body = JSON.parse((res && res.data) || '{}')
-          if ((body && body.code) !== 1) {
-            const msg = body.msg || body.message || '上传失败'
-            goLoginIfUnauthorized(body.code, msg)
-            reject(new Error(msg))
-            return
-          }
-          resolve(body.data || {})
-        } catch (e) {
-          reject(new Error('上传失败'))
+        const body = parseApiPayload(res && res.data)
+        if (!body || Number(body.code) !== 1) {
+          const msg = (body && (body.msg || body.message)) || '上传失败'
+          if (body) goLoginIfUnauthorized(body.code, msg)
+          reject(new Error(msg))
+          return
         }
+        resolve(body.data || {})
       },
       fail(err) {
         reject(new Error((err && err.errMsg) || '上传失败'))
@@ -266,18 +285,14 @@ export function uploadCommonFile(filePath) {
       name: 'file',
       header: token ? { token } : {},
       success(res) {
-        try {
-          const body = JSON.parse((res && res.data) || '{}')
-          if ((body && body.code) !== 1) {
-            const msg = body.msg || body.message || '上传失败'
-            goLoginIfUnauthorized(body.code, msg)
-            reject(new Error(msg))
-            return
-          }
-          resolve(body.data || {})
-        } catch (e) {
-          reject(new Error('上传失败'))
+        const body = parseApiPayload(res && res.data)
+        if (!body || Number(body.code) !== 1) {
+          const msg = (body && (body.msg || body.message)) || '上传失败'
+          if (body) goLoginIfUnauthorized(body.code, msg)
+          reject(new Error(msg))
+          return
         }
+        resolve(body.data || {})
       },
       fail(err) {
         reject(new Error((err && err.errMsg) || '上传失败'))
