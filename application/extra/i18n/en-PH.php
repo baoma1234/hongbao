@@ -723,6 +723,7 @@ Retail DeskHarvester exercised 15 shares on Channel 1 and got ₱75.00 credited 
   'wallet_ledger_type_niuniu_win' => 'Niuniu win',
   'wallet_ledger_type_niuniu_fee_in' => 'Niuniu fee',
   'wallet_ledger_type_niuniu_refund' => 'Niuniu void refund',
+  'wallet_ledger_type_fission_reward' => 'Fission Hongbao',
   'wallet_load_fail' => 'Load failed',
   'wallet_channel_empty' => 'No channels — contact support',
   'wallet_channel_fallback' => 'Channel {id}',

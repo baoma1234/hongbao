@@ -1030,6 +1030,22 @@ class Fanshub extends Api
     }
 
     /**
+     * 裂变红包：开奖后逐份拆红包领取（需登录）
+     * POST /api/fanshub/fissionclaim  body: qual_id? 
+     */
+    public function fissionclaim()
+    {
+        try {
+            $qualId = (int)$this->request->post('qual_id', 0);
+            $this->success('ok', \app\common\library\FansHubFission::claim((int)$this->auth->id, $qualId));
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: FansHubService::h5CopyText('api_operation_fail'));
+        }
+    }
+
+    /**
      * 规范化手机号（支持 E.164 或 国家码+本国号码）
      */
     protected function normalizeMobileInput()

@@ -26,7 +26,8 @@
           <view v-if="state === 'success'" class="fx-result ok">
             <text class="fx-result-title">开奖成功</text>
             <text class="fx-result-amt">你的中奖金额：¥{{ winText }}</text>
-            <text class="fx-result-sub">上下级关系永久保留</text>
+            <text v-if="unclaimedCount > 0" class="fx-result-sub tip">还有 {{ unclaimedCount }} 份待拆，点「我的资格」领取</text>
+            <text v-else class="fx-result-sub">上下级关系永久保留</text>
           </view>
           <view v-else-if="state === 'expired'" class="fx-result fail">
             <text class="fx-result-title">活动已结束</text>
@@ -35,12 +36,16 @@
           </view>
 
           <view class="stats-grid">
-            <view class="stat-box">
+            <view
+              class="stat-box"
+              :class="{ claimable: canClaim }"
+              @click="onQualClick"
+            >
               <view class="stat-dot tl" />
               <view class="stat-dot tr" />
               <view class="stat-curve" />
               <text class="stat-top">我的资格：{{ myQuals }} / {{ userCap }}</text>
-              <text class="stat-bottom">{{ myQuals }}/{{ userCap }}</text>
+              <text class="stat-bottom">{{ canClaim ? '点击领奖' : (myQuals + '/' + userCap) }}</text>
             </view>
             <view class="stat-box" @click="shareLink">
               <view class="stat-dot tl" />
@@ -93,6 +98,40 @@
       </view>
     </scroll-view>
     <BottomTabBar active="fission" />
+
+    <!-- 开奖后逐份拆红包：H5 / Safari / APK / IPA -->
+    <view
+      v-if="claimOpen"
+      class="fx-claim-mask"
+      :style="claimMaskStyle"
+      @touchmove.stop.prevent
+      @click="closeClaim"
+    >
+      <view class="fx-claim-panel" :style="claimPanelStyle" @click.stop>
+        <view v-if="!claimOpened" class="fx-claim-closed" @click="doClaim">
+          <image class="fx-claim-img" src="/static/niuniu/claim-hongbao.png" mode="widthFix" />
+          <text class="fx-claim-cta">点击拆开红包</text>
+          <text class="fx-claim-remain">还剩 {{ claimRemainHint }} 份可领</text>
+        </view>
+        <view v-else class="fx-claim-opened">
+          <image class="fx-claim-img open" src="/static/niuniu/claim-open.png" mode="widthFix" />
+          <text class="fx-claim-got">恭喜获得</text>
+          <text class="fx-claim-amt">¥{{ claimAmtText }}</text>
+          <text class="fx-claim-sub">已入账红宝</text>
+          <button
+            v-if="unclaimedCount > 0"
+            type="button"
+            class="fx-claim-btn"
+            :disabled="claiming"
+            @click="prepareNextClaim"
+          >
+            继续拆下一份（剩 {{ unclaimedCount }}）
+          </button>
+          <button v-else type="button" class="fx-claim-btn ghost" @click="closeClaim">完成</button>
+        </view>
+        <view class="fx-claim-x" @click="closeClaim">×</view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -110,6 +149,12 @@ const joining = ref(false)
 const detail = ref(null)
 const scrollH = ref('100vh')
 const remainSec = ref(0)
+const claimOpen = ref(false)
+const claimOpened = ref(false)
+const claiming = ref(false)
+const claimAmt = ref(0)
+const claimSafeTop = ref(0)
+const claimSafeBottom = ref(0)
 let tickTimer = null
 
 const hasActivity = computed(() => !!(detail.value && detail.value.has_activity))
@@ -128,12 +173,22 @@ const subCount = computed(() => Number(me.value.subordinate_count || 0))
 const joined = computed(() => !!me.value.joined)
 const inviteLink = computed(() => String(me.value.invite_link || ''))
 const winText = computed(() => formatMoney(me.value.win_amount))
+const unclaimedCount = computed(() => Number(me.value.unclaimed_count || 0))
+const canClaim = computed(() => !!me.value.can_claim || (state.value === 'success' && unclaimedCount.value > 0))
+const claimAmtText = computed(() => formatMoney(claimAmt.value))
+const claimRemainHint = computed(() => Math.max(1, unclaimedCount.value || 1))
+const claimMaskStyle = computed(() => ({
+  paddingTop: claimSafeTop.value + 'px',
+  paddingBottom: claimSafeBottom.value + 'px',
+}))
+const claimPanelStyle = computed(() => ({}))
 
 const displayRules = computed(() => [
   '参与得1份资格，单人上限' + userCap.value + '份',
-  '邀请有效新人，双方各得1份资格',
+  '仅活动开始后邀请的新人计入资格，双方各得1份',
   '集齐' + globalCap.value + '份资格立即开奖',
-  '72小时未集齐，红包池作废不予发放',
+  '开奖后点「我的资格」逐份拆红包领取',
+  '超时未集齐，红包池作废不予发放',
 ])
 
 const remainText = computed(() => {
@@ -161,8 +216,62 @@ function measureScroll() {
     const tab = 56 + Number(inset.bottom || 0)
     const h = (sys.windowHeight || 667) - status - topBar - tab
     scrollH.value = Math.max(280, h) + 'px'
+    claimSafeTop.value = Math.max(0, Number(inset.top || sys.statusBarHeight || 0))
+    claimSafeBottom.value = Math.max(0, Number(inset.bottom || 0))
   } catch (e) {
     scrollH.value = '70vh'
+  }
+}
+
+function onQualClick() {
+  if (!canClaim.value) {
+    if (state.value === 'success' && myQuals.value > 0 && unclaimedCount.value <= 0) {
+      uni.showToast({ title: '奖已领完', icon: 'none' })
+    }
+    return
+  }
+  openClaim()
+}
+
+function openClaim() {
+  measureScroll()
+  claimOpened.value = false
+  claimAmt.value = 0
+  claimOpen.value = true
+}
+
+function closeClaim() {
+  if (claiming.value) return
+  claimOpen.value = false
+  claimOpened.value = false
+}
+
+function prepareNextClaim() {
+  if (claiming.value) return
+  claimOpened.value = false
+  claimAmt.value = 0
+}
+
+async function doClaim() {
+  if (claiming.value || claimOpened.value) return
+  claiming.value = true
+  try {
+    const data = await apiRequest('fissionclaim', 'POST', {})
+    claimAmt.value = Number((data && data.amount) || 0)
+    claimOpened.value = true
+    if (data && data.detail) {
+      detail.value = data.detail
+    } else {
+      await loadDetail(false)
+    }
+  } catch (e) {
+    uni.showToast({ title: (e && e.message) || '领取失败', icon: 'none' })
+    if (String((e && e.message) || '').indexOf('没有可领取') >= 0) {
+      claimOpen.value = false
+      await loadDetail(false)
+    }
+  } finally {
+    claiming.value = false
   }
 }
 
@@ -454,6 +563,10 @@ onUnmounted(() => stopTick())
   color: #a4a8bd;
   line-height: 1.5;
 }
+.fx-result-sub.tip {
+  color: #ffd27a;
+  font-weight: 700;
+}
 
 .stats-grid {
   display: flex;
@@ -677,5 +790,119 @@ onUnmounted(() => stopTick())
   font-size: 13px;
   font-weight: 500;
   line-height: 1.4;
+}
+
+.stat-box.claimable {
+  box-shadow: 0 0 0 2px rgba(255, 220, 120, 0.55), 0 8px 18px rgba(180, 20, 0, 0.35);
+  animation: fx-pulse 1.6s ease-in-out infinite;
+}
+@keyframes fx-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+}
+
+.fx-claim-mask {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 1200;
+  background: rgba(0, 0, 0, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  /* #ifdef H5 */
+  overscroll-behavior: none;
+  /* #endif */
+}
+.fx-claim-panel {
+  position: relative;
+  width: min(86vw, 340px);
+  max-width: 340px;
+  padding: 18px 16px 22px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #2a120f 0%, #140a09 100%);
+  border: 1px solid rgba(255, 210, 120, 0.28);
+  box-sizing: border-box;
+  text-align: center;
+}
+.fx-claim-img {
+  width: 68%;
+  max-width: 220px;
+  margin: 8px auto 12px;
+  display: block;
+}
+.fx-claim-img.open {
+  width: 72%;
+}
+.fx-claim-cta {
+  display: block;
+  color: #ffe6a8;
+  font-size: 17px;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+.fx-claim-remain {
+  display: block;
+  color: #c9b08a;
+  font-size: 13px;
+}
+.fx-claim-got {
+  display: block;
+  color: #ffdca0;
+  font-size: 14px;
+  margin-top: 4px;
+}
+.fx-claim-amt {
+  display: block;
+  color: #fff1c2;
+  font-size: 34px;
+  font-weight: 900;
+  margin: 6px 0;
+  letter-spacing: 1px;
+}
+.fx-claim-sub {
+  display: block;
+  color: #b9a07a;
+  font-size: 12px;
+  margin-bottom: 14px;
+}
+.fx-claim-btn {
+  width: 100%;
+  height: 44px;
+  line-height: 44px;
+  border: none;
+  border-radius: 22px;
+  background: linear-gradient(135deg, #fde9aa, #e7ab44);
+  color: #4a2200;
+  font-size: 15px;
+  font-weight: 800;
+  margin-top: 4px;
+}
+.fx-claim-btn.ghost {
+  background: transparent;
+  color: #ffdca0;
+  border: 1px solid rgba(255, 220, 160, 0.45);
+}
+.fx-claim-btn[disabled] {
+  opacity: 0.6;
+}
+.fx-claim-x {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  line-height: 32px;
+  text-align: center;
+  color: #d7c4a0;
+  font-size: 24px;
 }
 </style>

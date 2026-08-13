@@ -723,6 +723,7 @@ User 555_vip99 ទើបទទួល ៛៥០ តាមបើករហ័ស + 
   'wallet_ledger_type_niuniu_win' => 'ឈ្នះ Niuniu',
   'wallet_ledger_type_niuniu_fee_in' => 'ថ្លៃ Niuniu',
   'wallet_ledger_type_niuniu_refund' => 'សង Niuniu ចាត់ទុកជាមោឃៈ',
+  'wallet_ledger_type_fission_reward' => 'ហុងប៉ៅបំបែក',
   'wallet_load_fail' => 'ផ្ទុកបរាជ័យ',
   'wallet_channel_empty' => 'គ្មានឆានែល — ទាក់ទង CS',
   'wallet_channel_fallback' => 'ឆានែល {id}',

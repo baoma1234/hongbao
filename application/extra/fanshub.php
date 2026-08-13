@@ -858,6 +858,7 @@ return array (
     'wallet_ledger_type_niuniu_win' => '牛牛奖金',
     'wallet_ledger_type_niuniu_fee_in' => '牛牛手续费',
     'wallet_ledger_type_niuniu_refund' => '牛牛流局退回',
+    'wallet_ledger_type_fission_reward' => '裂变红包',
     'wallet_ledger_type_red_packet_freeze' => '红宝冻结',
     'wallet_ledger_type_red_packet_unfreeze' => '红宝解冻',
     'wallet_ledger_cat_freeze' => '冻结记录',

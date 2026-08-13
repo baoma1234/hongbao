@@ -89,22 +89,46 @@ class FansHubFission
 
         $myQuals = 0;
         $myWin = 0.0;
+        $unclaimed = 0;
+        $claimed = 0;
         $joined = false;
+        $qualItems = [];
         if ($userId > 0) {
-            $rows = FissionQual::where('activity_id', (int)$act['id'])->where('user_id', $userId)->select();
+            $rows = FissionQual::where('activity_id', (int)$act['id'])->where('user_id', $userId)->order('id', 'asc')->select();
             foreach ($rows as $r) {
                 $myQuals++;
+                $win = null;
                 if ($r->win_amount !== null && $r->win_amount !== '') {
-                    $myWin = round($myWin + (float)$r->win_amount, 2);
+                    $win = round((float)$r->win_amount, 2);
+                    $myWin = round($myWin + $win, 2);
+                }
+                $isClaimed = (int)($r->claimed ?? 0) === 1;
+                if ($win !== null && $win > 0) {
+                    if ($isClaimed) {
+                        $claimed++;
+                    } else {
+                        $unclaimed++;
+                    }
                 }
                 if ((string)$r->source === FissionQual::SOURCE_JOIN) {
                     $joined = true;
                 }
+                $qualItems[] = [
+                    'id'         => (int)$r->id,
+                    'source'     => (string)$r->source,
+                    'win_amount' => $win,
+                    'claimed'    => $isClaimed ? 1 : 0,
+                    'claimed_at' => (int)($r->claimed_at ?? 0),
+                ];
             }
         }
-        $subCount = $userId > 0
-            ? (int)Invite::where('inviter_user_id', $userId)->count()
-            : 0;
+        // 直属下级：仅统计活动开始后绑定的邀请（与资格发放窗口一致）
+        $startTs = max(0, (int)$act['start_time']);
+        $subQ = Invite::where('inviter_user_id', $userId);
+        if ($userId > 0 && $startTs > 0) {
+            $subQ->where('createtime', '>=', $startTs);
+        }
+        $subCount = $userId > 0 ? (int)$subQ->count() : 0;
 
         $inviteLink = '';
         $inviteCode = '';
@@ -130,13 +154,17 @@ class FansHubFission
                 'can_gain'     => $state === 'running' && $global < $cap,
             ]),
             'me' => [
-                'joined'           => $joined,
-                'qual_count'       => $myQuals,
-                'user_cap'         => (int)$act['user_cap'],
-                'subordinate_count'=> $subCount,
-                'win_amount'       => $myWin,
-                'invite_link'      => $inviteLink,
-                'invite_code'      => $inviteCode,
+                'joined'            => $joined,
+                'qual_count'        => $myQuals,
+                'user_cap'          => (int)$act['user_cap'],
+                'subordinate_count' => $subCount,
+                'win_amount'        => $myWin,
+                'unclaimed_count'   => $unclaimed,
+                'claimed_count'     => $claimed,
+                'can_claim'         => $state === 'success' && $unclaimed > 0,
+                'quals'             => $qualItems,
+                'invite_link'       => $inviteLink,
+                'invite_code'       => $inviteCode,
             ],
             'rules' => self::defaultRules(),
             'server_time' => $now,
@@ -171,6 +199,7 @@ class FansHubFission
 
     /**
      * 邀请绑定成功后发放双方资格（有效新用户才走到这里）
+     * 仅活动开始时间之后的邀请计入（绑定时刻 = 邀请时刻）
      */
     public static function onInviteBound($inviterUserId, $inviteeUserId)
     {
@@ -183,6 +212,12 @@ class FansHubFission
             self::tickExpire();
             $act = self::getRunningActivityRow(false);
             if (!$act) {
+                return;
+            }
+            $now = time();
+            $startTs = (int)$act['start_time'];
+            // 活动尚未开始，或邀请发生在开始时间之前：不发资格
+            if ($startTs > 0 && $now < $startTs) {
                 return;
             }
             $aid = (int)$act['id'];
@@ -291,6 +326,8 @@ class FansHubFission
                 $amt = round($cents / 100, 2);
                 Db::name('fans_fission_qual')->where('id', (int)$q['id'])->update([
                     'win_amount' => $amt,
+                    'claimed'    => 0,
+                    'claimed_at' => 0,
                 ]);
                 if ($amt > 0) {
                     $payouts[] = [
@@ -307,19 +344,6 @@ class FansHubFission
                 'global_quals' => max($n, $cap),
             ]);
             Db::commit();
-            foreach ($payouts as $p) {
-                try {
-                    FansHubWallet::creditBalancePublic(
-                        $p['user_id'],
-                        $p['amount'],
-                        'fission_reward',
-                        '裂变红包开奖 #' . $activityId . ' 资格' . $p['qual_id'],
-                        'fission'
-                    );
-                } catch (\Throwable $ePay) {
-                    // 单笔失败不影响其它；可人工补发
-                }
-            }
             return true;
         } catch (\Throwable $e) {
             Db::rollback();
@@ -347,6 +371,10 @@ class FansHubFission
                 return false;
             }
             $now = time();
+            if ((int)$act['start_time'] > 0 && (int)$act['start_time'] > $now) {
+                Db::commit();
+                return false;
+            }
             if ((int)$act['end_time'] > 0 && (int)$act['end_time'] <= $now) {
                 Db::name('fans_fission_activity')->where('id', $activityId)->update([
                     'status'       => FissionActivity::STATUS_EXPIRED,
@@ -405,6 +433,8 @@ class FansHubFission
                 'source'      => $source,
                 'ref_user_id' => $refUserId,
                 'win_amount'  => null,
+                'claimed'     => 0,
+                'claimed_at'  => 0,
                 'createtime'  => $now,
             ]);
             $newGlobal = $global + 1;
@@ -427,8 +457,10 @@ class FansHubFission
     protected static function getRunningActivityRow($forJoin = false)
     {
         self::tickExpire();
+        $now = time();
         $row = Db::name('fans_fission_activity')
             ->where('status', FissionActivity::STATUS_RUNNING)
+            ->where('start_time', '<=', $now)
             ->order('id', 'desc')
             ->find();
         return $row ?: null;
@@ -464,13 +496,113 @@ class FansHubFission
         ];
     }
 
+    /**
+     * 开奖后领取一份资格红包（入账红宝）
+     *
+     * @param int $userId
+     * @param int $qualId 0=自动取下一份未领
+     * @return array
+     */
+    public static function claim($userId, $qualId = 0)
+    {
+        $userId = (int)$userId;
+        $qualId = (int)$qualId;
+        if ($userId <= 0) {
+            throw new Exception('请先登录');
+        }
+        self::tickExpire();
+        $act = self::latestVisibleActivity();
+        if (!$act || (int)$act['status'] !== FissionActivity::STATUS_SUCCESS) {
+            throw new Exception('活动尚未开奖或不可领取');
+        }
+        $aid = (int)$act['id'];
+
+        $q = null;
+        $amt = 0.0;
+        Db::startTrans();
+        try {
+            if ($qualId > 0) {
+                $q = Db::name('fans_fission_qual')
+                    ->where('id', $qualId)
+                    ->where('activity_id', $aid)
+                    ->where('user_id', $userId)
+                    ->lock(true)
+                    ->find();
+            } else {
+                $q = Db::name('fans_fission_qual')
+                    ->where('activity_id', $aid)
+                    ->where('user_id', $userId)
+                    ->where('claimed', 0)
+                    ->where('win_amount', '>', 0)
+                    ->order('id', 'asc')
+                    ->lock(true)
+                    ->find();
+            }
+            if (!$q) {
+                throw new Exception('没有可领取的红包');
+            }
+            if ((int)($q['claimed'] ?? 0) === 1) {
+                throw new Exception('该份资格已领取');
+            }
+            $amt = round((float)($q['win_amount'] ?? 0), 2);
+            if ($amt <= 0) {
+                throw new Exception('该份资格暂无奖金');
+            }
+            $now = time();
+            $upd = Db::name('fans_fission_qual')
+                ->where('id', (int)$q['id'])
+                ->where('claimed', 0)
+                ->update([
+                    'claimed'    => 1,
+                    'claimed_at' => $now,
+                ]);
+            if ($upd <= 0) {
+                throw new Exception('领取失败，请重试');
+            }
+            Db::commit();
+        } catch (\Throwable $e) {
+            Db::rollback();
+            if ($e instanceof Exception) {
+                throw $e;
+            }
+            throw new Exception('领取失败');
+        }
+
+        try {
+            FansHubWallet::creditBalancePublic(
+                $userId,
+                $amt,
+                'fission_reward',
+                '裂变红包开奖 #' . $aid . ' 资格' . (int)$q['id'],
+                'fission'
+            );
+        } catch (\Throwable $ePay) {
+            try {
+                Db::name('fans_fission_qual')->where('id', (int)$q['id'])->update([
+                    'claimed'    => 0,
+                    'claimed_at' => 0,
+                ]);
+            } catch (\Throwable $e2) {
+            }
+            throw new Exception('入账失败，请稍后重试');
+        }
+
+        $detail = self::detailPayload($userId);
+        return [
+            'qual_id'          => (int)$q['id'],
+            'amount'           => $amt,
+            'remain_unclaimed' => (int)($detail['me']['unclaimed_count'] ?? 0),
+            'detail'           => $detail,
+        ];
+    }
+
     protected static function defaultRules()
     {
         return [
             '参与活动获得1次领取资格，单人最多累计5份资格',
-            '邀请有效新用户，邀请人未达上限则+1资格；被邀请人得1份资格并绑定直属下级',
+            '仅活动开始后邀请的有效新用户计入资格；邀请人未达上限则+1，被邀请人得1份',
             '每成功邀请一位新用户，增加全局资格份数，推动开奖',
-            '集满100份资格立即开奖，100份资格随机瓜分1000元红包',
+            '集满资格立即开奖；开奖后点「我的资格」逐份拆红包领取',
             '超时未集齐红包不发放，邀请下级关系永久保留',
         ];
     }

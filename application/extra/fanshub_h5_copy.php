@@ -726,6 +726,7 @@ return array (
   'wallet_ledger_type_niuniu_win' => '牛牛奖金',
   'wallet_ledger_type_niuniu_fee_in' => '牛牛手续费',
   'wallet_ledger_type_niuniu_refund' => '牛牛流局退回',
+  'wallet_ledger_type_fission_reward' => '裂变红包',
   'wallet_load_fail' => '加载失败',
   'wallet_channel_empty' => '暂无可用通道，请联系客服',
   'wallet_channel_fallback' => '通道{id}',

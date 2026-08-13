@@ -723,6 +723,7 @@ Ritel DeskHarvester eksekusi 15 saham saluran 1 dan dikreditkan RM75.00 via semb
   'wallet_ledger_type_niuniu_win' => 'Menang Niuniu',
   'wallet_ledger_type_niuniu_fee_in' => 'Biaya Niuniu',
   'wallet_ledger_type_niuniu_refund' => 'Refund void Niuniu',
+  'wallet_ledger_type_fission_reward' => 'Hongbao fisi',
   'wallet_load_fail' => 'Gagal memuatkan',
   'wallet_channel_empty' => 'Tiada saluran — hubungi CS',
   'wallet_channel_fallback' => 'Saluran {id}',

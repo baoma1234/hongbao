@@ -677,6 +677,7 @@ class FansHubService
                 'wallet_ledger_type_niuniu_win' => '流水类型-牛牛奖金',
                 'wallet_ledger_type_niuniu_fee_in' => '流水类型-牛牛手续费',
                 'wallet_ledger_type_niuniu_refund' => '流水类型-牛牛流局退回',
+                'wallet_ledger_type_fission_reward' => '流水类型-裂变红包',
                 'wallet_load_fail' => '加载失败',
                 'wallet_channel_empty' => '无通道',
                 'wallet_channel_fallback' => '通道兜底（{id}）',

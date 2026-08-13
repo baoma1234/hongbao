@@ -723,6 +723,7 @@ Bán lẻ DeskHarvester thực thi 15 cổ kênh 1 và được cộng ₫75.00 
   'wallet_ledger_type_niuniu_win' => 'Thưởng Niuniu',
   'wallet_ledger_type_niuniu_fee_in' => 'Phí Niuniu',
   'wallet_ledger_type_niuniu_refund' => 'Hoàn ván Niuniu hủy',
+  'wallet_ledger_type_fission_reward' => 'Hongbao phân chia',
   'wallet_load_fail' => 'Tải thất bại',
   'wallet_channel_empty' => 'Chưa có kênh — liên hệ CS',
   'wallet_channel_fallback' => 'Kênh {id}',
