@@ -2021,12 +2021,14 @@ class FansHubService
             'mobile_mask' => self::maskMobile($mobile),
             'nickname'    => (string)($user->nickname ?? ''),
             'username'    => (string)($user->username ?? ''),
-            'avatar'      => (string)($user->avatar ?? ''),
-            'avatar_url'  => $user->avatar
+            'avatar'      => (string)($user->avatar ?? '') !== ''
+                ? (string)$user->avatar
+                : 'https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/brand/default-avatar.png',
+            'avatar_url'  => (trim((string)($user->avatar ?? '')) !== '')
                 ? (class_exists('\\app\\common\\library\\OssService')
                     ? \app\common\library\OssService::fullUrl((string)$user->avatar, '')
                     : cdnurl((string)$user->avatar, true))
-                : '',
+                : 'https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/brand/default-avatar.png',
             'rights'      => (float)$account->rights,
             'rights_locked'=> (float)$lockSnap['locked'],
             'rights_free' => (float)$lockSnap['free'],
@@ -2478,6 +2480,15 @@ class FansHubService
             self::assertDeviceAllowed($deviceFingerprint, 0);
             $ret = $auth->register($mobile, Random::alnum(), '', $mobile, []);
             $user = self::findUserByMobile($mobile);
+            // 新注册无头像时写入全局默认头像（OSS）
+            if ($user && trim((string)($user->avatar ?? '')) === '') {
+                $defaultAvatar = 'https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/brand/default-avatar.png';
+                try {
+                    $user->avatar = $defaultAvatar;
+                    $user->save();
+                } catch (\Throwable $eAv) {
+                }
+            }
         }
         if (!$ret || !$user) {
             $err = trim((string)$auth->getError());

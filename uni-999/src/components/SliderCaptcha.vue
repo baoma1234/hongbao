@@ -1,6 +1,6 @@
 <template>
-  <view v-if="visible" class="slider-modal" @click="onMask">
-    <view class="slider-box" @click.stop>
+  <view v-if="visible" class="slider-modal" @click="onMask" @touchmove.stop.prevent>
+    <view class="slider-box" @click.stop @touchmove.stop>
       <view class="slider-box-hd">
         <text class="slider-box-title">{{ t('slider_modal_title') || '安全验证' }}</text>
         <text class="slider-box-refresh" @click="onRefresh">{{ t('slider_refresh_btn') || '重试' }}</text>
@@ -10,6 +10,11 @@
         class="slider-track"
         :class="{ 'is-ok': ok, 'is-fail': fail }"
         id="u999SliderTrack"
+        @touchstart="onDown"
+        @touchmove.stop.prevent="onMove"
+        @touchend="onUp"
+        @touchcancel="onUp"
+        @mousedown.prevent="onMouseDown"
       >
         <view class="slider-track-fill" :style="{ width: fillW + 'px' }" />
         <view class="slider-track-hint" :style="{ opacity: dragX > 8 ? 0 : 1 }">
@@ -19,10 +24,6 @@
           class="slider-thumb"
           :class="{ 'is-dragging': dragging, 'is-ok': ok, 'is-anim': anim }"
           :style="{ transform: 'translate3d(' + dragX + 'px,0,0)' }"
-          @touchstart.prevent="onDown"
-          @touchmove.prevent="onMove"
-          @touchend.prevent="onUp"
-          @mousedown.prevent="onMouseDown"
         >{{ ok ? '✓' : '›' }}</view>
       </view>
       <view class="slider-status" :class="{ 'is-ok': ok, 'is-fail': fail }">{{ status }}</view>
@@ -31,7 +32,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
+import { computed, getCurrentInstance, nextTick, onUnmounted, ref, watch } from 'vue'
 import { apiRequest } from '../utils/auth.js'
 import { t } from '../utils/i18n.js'
 
@@ -39,6 +40,7 @@ const props = defineProps({
   show: { type: Boolean, default: false },
 })
 const emit = defineEmits(['success', 'cancel', 'update:show'])
+const inst = getCurrentInstance()
 
 const visible = ref(false)
 const challenge = ref(null)
@@ -60,7 +62,7 @@ const hintText = computed(() => {
   return t('slider_modal_hint') || '请按住滑块，拖动到最右侧'
 })
 
-const PASS_RATIO = 0.82
+const PASS_RATIO = 0.78
 
 function close(fromSuccess) {
   visible.value = false
@@ -85,16 +87,29 @@ function reset(animate) {
 }
 
 function measureMax() {
-  // uni-app：用固定估算，与 888 320 宽弹窗接近
-  maxX.value = 240
+  maxX.value = 220
+  try {
+    const q = uni.createSelectorQuery()
+    if (inst && inst.proxy) q.in(inst.proxy)
+    q.select('.slider-track').boundingClientRect()
+    q.select('.slider-thumb').boundingClientRect()
+    q.exec((res) => {
+      const track = res && res[0]
+      const thumb = res && res[1]
+      if (track && track.width) {
+        const tw = Number(thumb && thumb.width) || 40
+        maxX.value = Math.max(80, Math.floor(track.width - tw - 4))
+      }
+    })
+  } catch (e) {}
   // #ifdef H5
   try {
     const el = typeof document !== 'undefined' ? document.querySelector('.slider-track') : null
     const thumb = typeof document !== 'undefined' ? document.querySelector('.slider-thumb') : null
     if (el && thumb) {
-      maxX.value = Math.max(0, el.clientWidth - thumb.offsetWidth - 4)
+      maxX.value = Math.max(80, el.clientWidth - thumb.offsetWidth - 4)
     }
-  } catch (e) {}
+  } catch (e2) {}
   // #endif
 }
 
@@ -112,6 +127,7 @@ async function loadChallenge() {
     emit('update:show', true)
     await nextTick()
     measureMax()
+    setTimeout(measureMax, 80)
   } catch (e) {
     uni.showToast({ title: (e && e.message) || t('srv_slider_create_fail') || '滑块验证失败', icon: 'none' })
     emit('cancel')
@@ -165,7 +181,7 @@ function failBack() {
 }
 
 function succeed() {
-  const mx = maxX.value
+  const mx = Math.max(1, maxX.value | 0)
   const ch = challenge.value
   if (!ch || !ch.token) {
     failBack()
@@ -220,11 +236,7 @@ watch(
   }
 )
 
-onUnmounted(() => {
-  // #ifdef H5
-  // no-op
-  // #endif
-})
+onUnmounted(() => {})
 
 defineExpose({ open: loadChallenge, close: () => close(false) })
 </script>
@@ -232,9 +244,12 @@ defineExpose({ open: loadChallenge, close: () => close(false) })
 <style scoped>
 .slider-modal {
   position: fixed;
-  inset: 0;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
   background: rgba(0, 0, 0, 0.55);
-  z-index: 9999;
+  z-index: 100000;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -318,6 +333,7 @@ defineExpose({ open: loadChallenge, close: () => close(false) })
   box-shadow: 0 2px 10px rgba(0, 113, 255, 0.35);
   font-size: 20px;
   font-weight: 700;
+  pointer-events: none;
 }
 .slider-thumb.is-ok {
   background: linear-gradient(135deg, #00c853 0%, #00a844 100%);

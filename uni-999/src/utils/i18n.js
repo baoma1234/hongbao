@@ -134,6 +134,17 @@ const BOOT_COPY = {
     profile_password_page_title: '登录密码',
     profile_password_btn: '确认修改登录密码',
     profile_pay_password_title: '修改支付密码',
+    profile_pay_password_change_hint: '修改支付密码需短信验证码',
+    profile_pay_password_set_hint: '首次可直接设置支付密码；用于提现与绑定地址',
+    profile_pay_password_change_btn: '确认修改支付密码',
+    profile_pay_password_set_btn: '设置支付密码',
+    profile_sms_code_label: '短信验证码',
+    profile_sms_code_ph: '请输入验证码',
+    profile_sms_send_btn: '获取验证码',
+    profile_pay_password_label: '支付密码',
+    profile_pay_password_ph: '6-32位支付密码',
+    profile_pay_password_confirm_label: '确认支付密码',
+    profile_pay_password_confirm_ph: '再次输入支付密码',
     profile_foot_note: '红宝官方 · 会员中心',
     profile_uid_copy_empty: '暂无会员ID',
     profile_uid_copied: '已复制',
@@ -236,6 +247,17 @@ const BOOT_COPY = {
     profile_password_page_title: 'Login password',
     profile_password_btn: 'Update login password',
     profile_pay_password_title: 'Change payment password',
+    profile_pay_password_change_hint: 'SMS code required to change payment password',
+    profile_pay_password_set_hint: 'Set payment password for withdraw and wallet binding',
+    profile_pay_password_change_btn: 'Update payment password',
+    profile_pay_password_set_btn: 'Set payment password',
+    profile_sms_code_label: 'SMS code',
+    profile_sms_code_ph: 'Enter code',
+    profile_sms_send_btn: 'Get code',
+    profile_pay_password_label: 'Payment password',
+    profile_pay_password_ph: '6-32 characters',
+    profile_pay_password_confirm_label: 'Confirm password',
+    profile_pay_password_confirm_ph: 'Enter again',
     profile_foot_note: 'Hongbao · Member center',
     profile_uid_copy_empty: 'No member ID',
     profile_uid_copied: 'Copied',
@@ -301,7 +323,11 @@ export function applyServerCopy(copy) {
   Object.keys(copy).forEach((k) => {
     const v = copy[k]
     if (v == null || String(v) === '') return
-    serverCopy[k] = String(v)
+    const s = String(v)
+    // 服务端文案若已乱码，勿覆盖本地 BOOT（常见：UTF-8 被当 Latin-1）
+    if (/\uFFFD/.test(s)) return
+    if (/[\u00C0-\u00FF]{4,}/.test(s) && !/[\u4e00-\u9fff]/.test(s)) return
+    serverCopy[k] = s
     n++
   })
   if (n) copyTick.value++

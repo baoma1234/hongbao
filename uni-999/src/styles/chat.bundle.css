@@ -256,6 +256,15 @@ body.tab-messages .bottom-action-bar {
 .chat-plus-menu-wrap {
   position: relative;
 }
+.chat-plus-menu-mask {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 45;
+  background: transparent;
+}
 .chat-plus-menu {
   position: absolute;
   top: calc(100% + 8px);

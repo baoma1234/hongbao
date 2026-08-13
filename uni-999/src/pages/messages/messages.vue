@@ -16,10 +16,16 @@
                 <text class="chat-hero-glyph">⌕</text>
               </view>
               <view class="chat-plus-menu-wrap">
-                <view class="chat-hero-icon-btn" @click="plusOpen = !plusOpen">
+                <view class="chat-hero-icon-btn" @click.stop="plusOpen = !plusOpen">
                   <text class="chat-hero-glyph">＋</text>
                 </view>
-                <view v-if="plusOpen" class="chat-plus-menu">
+                <!-- 全屏遮罩：点菜单外任意处收起（含列表/顶栏空白） -->
+                <view
+                  v-if="plusOpen"
+                  class="chat-plus-menu-mask"
+                  @click="plusOpen = false"
+                />
+                <view v-if="plusOpen" class="chat-plus-menu" @click.stop>
                   <view class="chat-plus-menu-item" @click="onPlusAction('scan')">
                     <image class="chat-plus-menu-ico-img" :src="icoScan" mode="aspectFit" />
                     <text>扫一扫</text>

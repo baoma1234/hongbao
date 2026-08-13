@@ -1,0 +1,1 @@
+import{r as e,a8 as o,al as r}from"./index-NToo8OfR.js";function a(){const a=e({}),t=e({});return{profileSubHdStyle:a,profileSubPageStyle:t,refreshProfileSubLayout:function(){const e=o();e&&e.overlayTop||r(),a.value={},t.value={}}}}export{a as u};

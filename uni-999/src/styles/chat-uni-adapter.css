@@ -471,7 +471,10 @@ body.tab-messages #tabMessages .chat-list-pane {
   box-shadow: 0 10px 24px rgba(176, 120, 50, 0.18) !important;
   border-radius: 14px !important;
   overflow: hidden;
-  z-index: 40;
+  z-index: 50;
+}
+#tabMessages .chat-plus-menu-mask {
+  z-index: 45;
 }
 #tabMessages .chat-plus-menu-item {
   color: #3d2e22 !important;

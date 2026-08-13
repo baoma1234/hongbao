@@ -201,12 +201,13 @@ export function publicUrl(pathOrUrl) {
   return url
 }
 
-/** 对齐 888：img/default-avatar.png?v=202608112037 */
-export const DEFAULT_AVATAR_VER = '202608112037'
+/** 默认头像（OSS）；空头像 / 无效头像统一回退 */
+export const DEFAULT_AVATAR_OSS =
+  'https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/brand/default-avatar.png'
+export const DEFAULT_AVATAR_VER = '202608131330'
 
 export function defaultAvatarUrl() {
-  const q = '?v=' + DEFAULT_AVATAR_VER
-  return packagedStaticUrl('img/default-avatar.png') + q
+  return DEFAULT_AVATAR_OSS + '?v=' + DEFAULT_AVATAR_VER
 }
 
 /** 对齐 888 avatarSrc：空头像也回默认图，避免空白块；短 LRU 缓存减轻列表重复拼 URL */
