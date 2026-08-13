@@ -259,23 +259,35 @@ onUnmounted(() => {
   min-height: 32px;
   padding: 3px 9px 3px 7px;
   border-radius: 999px;
-  border: 1px solid rgba(232, 59, 26, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.72);
   overflow: hidden;
   isolation: isolate;
-  background: #fff4ec;
-  box-shadow: none;
+  /* 以 #fff4ec 为基调的暖杏渐变 */
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 244, 236, 0.25) 45%, rgba(255, 214, 190, 0.4) 100%),
+    linear-gradient(135deg, #fffaf6 0%, #fff4ec 42%, #ffdcc8 100%);
+  box-shadow:
+    0 2px 8px rgba(232, 100, 60, 0.18),
+    0 1px 0 rgba(255, 255, 255, 0.8),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -1px 3px rgba(232, 120, 80, 0.12);
   transform: translateZ(0);
   cursor: pointer;
   pointer-events: auto;
   -webkit-tap-highlight-color: rgba(232, 59, 26, 0.12);
 }
 .lang-wrap-hover {
-  background: #ffe8d9;
-  border-color: rgba(232, 59, 26, 0.42);
-  opacity: 1;
+  opacity: 0.92;
 }
 .lang-btn-glass {
-  display: none;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.12) 42%, rgba(255, 255, 255, 0) 70%),
+    radial-gradient(120% 80% at 18% 0%, rgba(255, 255, 255, 0.55), transparent 55%);
 }
 .fission-btn {
   position: relative;
