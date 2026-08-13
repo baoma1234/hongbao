@@ -729,7 +729,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   right: 0 !important;
   bottom: calc(72px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))) !important;
   z-index: 9100 !important;
-  margin: 0 auto 8px !important;
+  margin: 0 auto 0px !important;
   width: calc(100% - 20px) !important;
   max-width: 720px !important;
   box-sizing: border-box !important;

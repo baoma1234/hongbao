@@ -2756,7 +2756,7 @@ onHide(() => {
   right: 0;
   bottom: calc(72px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
   z-index: 9100 !important;
-  margin: 0 10px 8px;
+  margin: 0 10px 0;
   flex: none;
   max-width: 720px;
   margin-left: auto;
