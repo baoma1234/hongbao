@@ -5354,9 +5354,15 @@ button.chat-rp-fair-link {
   font-size: 11px;
   font-weight: 700;
   border-radius: 999px;
-  padding: 3px 12px;
+  padding: 0 12px;
   min-height: 24px;
-  line-height: 1.2;
+  height: 24px;
+  line-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  box-sizing: border-box;
 }
 
 .chat-commission-hero-value {

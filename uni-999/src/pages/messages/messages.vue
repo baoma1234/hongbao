@@ -502,7 +502,7 @@
               <view class="chat-commission-hero-card">
                 <view class="chat-commission-hero-top">
                   <text class="chat-commission-hero-label">累计佣金</text>
-                  <view class="chat-commission-withdraw-btn" @click="goCommission">提现</view>
+                  <view class="chat-commission-withdraw-btn" @click="goCommission"><text>提现</text></view>
                 </view>
                 <view class="chat-commission-hero-value">¥ {{ money(commission.total_money) }}</view>
                 <view class="chat-commission-hero-stats">
