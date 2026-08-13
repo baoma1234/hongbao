@@ -1,5 +1,5 @@
 <template>
-  <view class="bottom-action-bar show" :key="locale">
+  <view class="bottom-action-bar show">
     <view
       v-for="item in tabs"
       :key="item.tab"

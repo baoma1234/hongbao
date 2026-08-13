@@ -412,6 +412,17 @@ function parseLocaleScript(text, locale) {
   }
 }
 
+function resolveLocaleUrl(u, base) {
+  const raw = String(u || '').trim()
+  if (!raw) return ''
+  if (/^https?:\/\//i.test(raw)) return raw
+  // H5：站点相对路径可直接 uni.request，勿被 ensureAbsoluteHttpUrl 因 base 非绝对而清空
+  // #ifdef H5
+  if (raw.charAt(0) === '/') return raw
+  // #endif
+  return ensureAbsoluteHttpUrl(raw, base)
+}
+
 export function ensureLocaleLoaded(locale) {
   const loc = LOCALE_META[locale] ? locale : DEFAULT_LOCALE
   // 不得用 BOOT key 数量判断：BOOT 已 >30，会误跳过完整包加载
@@ -428,17 +439,35 @@ export function ensureLocaleLoaded(locale) {
       '/999/i18n/locales/' + encodeURIComponent(loc) + '.js',
       '/888/i18n/locales/' + encodeURIComponent(loc) + '.js',
       // #endif
-    ].map((u) => ensureAbsoluteHttpUrl(u, base)).filter(Boolean)
+      // #ifdef APP-PLUS
+      // App 包内静态资源（build 时同步到 static/i18n）
+      '/static/i18n/locales/' + encodeURIComponent(loc) + '.js',
+      // #endif
+    ]
+      .map((u) => resolveLocaleUrl(u, base))
+      .filter(Boolean)
+    // 去重
+    const seen = Object.create(null)
+    const list = []
+    urls.forEach((u) => {
+      if (!seen[u]) {
+        seen[u] = 1
+        list.push(u)
+      }
+    })
     let i = 0
+    const finish = () => {
+      if (!packs[loc]) packs[loc] = Object.assign({}, BOOT_COPY[loc] || BOOT_COPY[DEFAULT_LOCALE] || {})
+      copyTick.value++
+      delete loadPromises[loc]
+      resolve(loc)
+    }
     const tryNext = () => {
-      if (i >= urls.length) {
-        if (!packs[loc]) packs[loc] = Object.assign({}, BOOT_COPY[loc] || BOOT_COPY[DEFAULT_LOCALE] || {})
-        copyTick.value++
-        delete loadPromises[loc]
-        resolve(loc)
+      if (i >= list.length) {
+        finish()
         return
       }
-      const url = urls[i++]
+      const url = list[i++]
       uni.request({
         url,
         method: 'GET',
@@ -489,8 +518,16 @@ export async function setLocale(locale) {
   localeRef.value = loc
   try {
     uni.setStorageSync(LOCALE_STORAGE_KEY, loc)
+    // 仅在从未选过国家时，用语言默认国家；勿在每次切语言时覆盖用户已选区号
     const meta = LOCALE_META[loc]
-    if (meta && meta.country) uni.setStorageSync(COUNTRY_STORAGE_KEY, meta.country)
+    let hasCountry = false
+    try {
+      const cur = uni.getStorageSync(COUNTRY_STORAGE_KEY)
+      hasCountry = !!(cur && String(cur).trim())
+    } catch (e0) {}
+    if (!hasCountry && meta && meta.country) {
+      uni.setStorageSync(COUNTRY_STORAGE_KEY, meta.country)
+    }
   } catch (e) {}
   // #ifdef H5
   if (typeof document !== 'undefined' && document.documentElement) {
@@ -498,6 +535,12 @@ export async function setLocale(locale) {
   }
   // #endif
   syncTabBarLabels()
+  // 静默刷新服务端文案（失败不弹 toast，避免切语言被当成「请求失败」）
+  try {
+    const { fetchConfig } = await import('./auth.js')
+    const cfg = await fetchConfig()
+    if (cfg && cfg.copy) applyServerCopy(cfg.copy)
+  } catch (e) {}
   listeners.forEach((fn) => {
     try {
       fn(loc)

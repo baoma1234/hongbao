@@ -1,5 +1,5 @@
 <template>
-  <view :key="locale">
+  <view>
     <TopBar />
     <view id="tabHome" class="tab-page active">
       <!-- 大奖池（结构/class 对齐 888 tab-home） -->

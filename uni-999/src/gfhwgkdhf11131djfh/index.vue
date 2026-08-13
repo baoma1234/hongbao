@@ -1,5 +1,5 @@
 <template>
-  <view class="login-page" :key="locale">
+  <view class="login-page">
     <TopBar />
 
     <view class="login-wrapper">

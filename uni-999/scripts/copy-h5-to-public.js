@@ -63,6 +63,10 @@ copyDir(src, dest)
 if (fs.existsSync(localeSrc)) {
   copyDir(localeSrc, localeDest)
   console.log('OK i18n synced to', localeDest)
+  // App 包内可读 /static/i18n/locales/*.js（切语言不依赖远端）
+  const appStaticI18n = path.resolve(__dirname, '../src/static/i18n')
+  copyDir(localeSrc, appStaticI18n)
+  console.log('OK i18n synced to', appStaticI18n)
 } else {
   console.warn('WARN missing locale source:', localeSrc)
 }

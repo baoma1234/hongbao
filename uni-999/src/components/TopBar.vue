@@ -156,6 +156,9 @@ async function pickLocale(id) {
     if (id === locale.value) return
     await setLocale(id)
     locale.value = id
+  } catch (e) {
+    // 切语言失败不弹「请求失败」，保留当前语言
+    console.warn('setLocale', e)
   } finally {
     setTimeout(() => {
       pickingLang = false

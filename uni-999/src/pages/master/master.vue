@@ -1,5 +1,5 @@
 <template>
-  <view class="hb-page tab-master-page" :key="locale">
+  <view class="hb-page tab-master-page">
     <TopBar />
     <view id="tabMaster" class="tab-page active">
       <view class="master-festive-bg" aria-hidden="true">

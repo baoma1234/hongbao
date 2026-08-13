@@ -1,5 +1,5 @@
 ﻿<template>
-  <view class="chat-share-poster-page" :key="locale">
+  <view class="chat-share-poster-page">
     <view class="chat-hero-hd">
       <view class="chat-hero-back" @click="goBack">‹</view>
       <view class="chat-hero-title">分享推广赚佣金</view>

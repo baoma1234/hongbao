@@ -95,7 +95,18 @@ export function apiRequest(action, method = 'POST', body = null) {
       header: headers,
       data: data || undefined,
       success(res) {
-        const payload = res.data || {}
+        let payload = res && res.data
+        if (typeof payload === 'string') {
+          try {
+            payload = JSON.parse(payload)
+          } catch (e) {
+            payload = null
+          }
+        }
+        if (!payload || typeof payload !== 'object') {
+          reject(new Error('接口响应异常，请稍后重试'))
+          return
+        }
         if (payload.code !== 1) {
           rejectApiError(payload, reject)
           return
