@@ -1109,8 +1109,57 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
             Form.api.bindevent($('#send-form'));
         },
         messages: function () {
-            Controller.index();
-            $('#btnViewAll').click();
+            Table.api.init({
+                extend: {
+                    index_url: 'fanshub/imagent/messages',
+                    edit_url: 'fanshub/imagent/edit',
+                    del_url: 'fanshub/imagent/del',
+                    table: 'chat_messages'
+                }
+            });
+            var table = $('#table');
+            table.bootstrapTable({
+                url: $.fn.bootstrapTable.defaults.extend.index_url,
+                pk: 'id',
+                sortName: 'id',
+                sortOrder: 'desc',
+                columns: [[
+                    {checkbox: true},
+                    {field: 'id', title: 'ID', sortable: true},
+                    {field: 'conversation_type', title: '类型', searchList: {1: '私聊', 2: '群聊'}, formatter: Table.api.formatter.normal},
+                    {field: 'conversation_id', title: '会话键', operate: 'LIKE'},
+                    {field: 'from_label', title: '发送方', operate: false},
+                    {field: 'from_user_id', title: '发送ID', sortable: true},
+                    {field: 'to_label', title: '接收方', operate: false},
+                    {field: 'to_user_id', title: '接收ID', sortable: true},
+                    {field: 'content', title: '内容', operate: 'LIKE', class: 'im-content-cell'},
+                    {field: 'msg_type', title: '消息类型', searchList: {1: '文本', 2: '红包', 3: '系统', 4: '图片', 5: '视频', 6: '表情包', 7: '文件'}},
+                    {field: 'status', title: '状态', searchList: {1: '正常', 2: '撤回', 3: '删除'}, formatter: Table.api.formatter.status},
+                    {field: 'createtime', title: '时间', operate: 'RANGE', addclass: 'datetimerange', formatter: Table.api.formatter.datetime, sortable: true},
+                    {
+                        field: 'operate', title: '操作', table: table,
+                        events: Table.api.events.operate,
+                        formatter: Table.api.formatter.operate
+                    }
+                ]]
+            });
+            Table.api.bindevent(table);
+
+            $(document).on('click', '.btn-restore', function () {
+                var ids = Table.api.selectedids(table);
+                if (!ids.length) {
+                    Layer.msg('请选择记录');
+                    return false;
+                }
+                Backend.api.ajax({
+                    url: 'fanshub/imagent/restore',
+                    data: { ids: ids.join(',') }
+                }, function () {
+                    table.bootstrapTable('refresh');
+                    return false;
+                });
+                return false;
+            });
         }
     };
     return Controller;

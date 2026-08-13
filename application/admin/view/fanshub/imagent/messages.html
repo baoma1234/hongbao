@@ -1,0 +1,23 @@
+<div class="panel panel-default panel-intro">
+    {:build_heading()}
+    <div class="panel-body">
+        <div id="toolbar" class="toolbar">
+            <a href="javascript:;" class="btn btn-primary btn-refresh" title="{:__('Refresh')}"><i class="fa fa-refresh"></i> 刷新</a>
+            <a href="javascript:;" class="btn btn-danger btn-del btn-disabled disabled {:$auth->check('fanshub/imagent/del')?'':'hide'}" title="删除"><i class="fa fa-trash"></i> 删除</a>
+            <a href="javascript:;" class="btn btn-warning btn-restore btn-disabled disabled {:$auth->check('fanshub/imagent/restore')?'':'hide'}" title="恢复"><i class="fa fa-undo"></i> 恢复</a>
+            <a href="fanshub/imagent" class="btn btn-default addtabsit" title="IM代聊"><i class="fa fa-comments"></i> 打开聊天台</a>
+        </div>
+        <table id="table" class="table table-striped table-bordered table-hover"
+               data-operate-edit="{:$auth->check('fanshub/imagent/edit')}"
+               data-operate-del="{:$auth->check('fanshub/imagent/del')}"
+               width="100%"></table>
+    </div>
+</div>
+<style>
+#table td.im-content-cell {
+    max-width: 320px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+</style>

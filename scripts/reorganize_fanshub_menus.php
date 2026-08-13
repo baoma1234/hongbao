@@ -134,6 +134,13 @@ foreach ($memberMenus as $name => $meta) {
 // 即时通讯
 moveMenu($pdo, $rule, 'fanshub/imagent', $imId, 90, $now, 'IM代聊');
 moveMenu($pdo, $rule, 'fanshub/imgroup', $imId, 80, $now, 'IM群组');
+// 查看聊天记录：可见菜单挂在「即时通讯」下
+ensurePerm($pdo, $rule, $imId, 'fanshub/imagent/messages', '查看聊天记录', $now);
+$msgMenuId = (int)$pdo->query("SELECT id FROM `{$rule}` WHERE name='fanshub/imagent/messages' LIMIT 1")->fetchColumn();
+if ($msgMenuId > 0) {
+    $pdo->prepare("UPDATE `{$rule}` SET pid=?, title='查看聊天记录', icon='fa fa-history', ismenu=1, weigh=85, status='normal', updatetime=? WHERE id=?")
+        ->execute([$imId, $now, $msgMenuId]);
+}
 
 // 发红包权限挂到 imagent 下
 $imagentId = (int)$pdo->query("SELECT id FROM `{$rule}` WHERE name='fanshub/imagent' LIMIT 1")->fetchColumn();
