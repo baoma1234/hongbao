@@ -63,6 +63,18 @@
         </button>
       </view>
 
+      <view class="input-group">
+        <view class="input-label">邀请码（选填）</view>
+        <input
+          class="login-input"
+          type="number"
+          maxlength="12"
+          v-model="inviteCode"
+          placeholder="有邀请码自动带入，也可手填"
+        />
+        <view v-if="inviteCode" class="login-invite-hint">将归属邀请人 {{ inviteCode }}</view>
+      </view>
+
       <button class="btn-login-submit" :loading="loading" @click="onLogin">
         {{ loginSubmitText }}
       </button>
@@ -86,10 +98,16 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onShow } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
 import SliderCaptcha from '../../components/SliderCaptcha.vue'
 import { fetchConfig, getToken, login, sendSms } from '../../utils/auth.js'
+import {
+  clearInviteCode,
+  normalizeInviteCode,
+  resolveInviteCodeForLogin,
+  saveInviteCode,
+} from '../../utils/invite-attr.js'
 import {
   applyServerCopy,
   copyState,
@@ -172,18 +190,15 @@ if (getToken()) {
   uni.reLaunch({ url: '/pages/home/home' })
 }
 
-onLoad((q) => {
-  const code = (q && (q.code || q.invite)) || ''
-  if (code) inviteCode.value = String(code)
-  // #ifdef H5
-  try {
-    if (typeof location !== 'undefined' && location.search) {
-      const sp = new URLSearchParams(location.search)
-      const fromUrl = sp.get('code') || sp.get('invite') || ''
-      if (fromUrl) inviteCode.value = String(fromUrl)
-    }
-  } catch (e) {}
-  // #endif
+onLoad(async (q) => {
+  const code = await resolveInviteCodeForLogin(q || {})
+  if (code) inviteCode.value = code
+})
+
+onShow(async () => {
+  if (inviteCode.value) return
+  const code = await resolveInviteCodeForLogin({})
+  if (code) inviteCode.value = code
 })
 
 function getSmsCooldownRemain(phone) {
@@ -371,9 +386,17 @@ async function onLogin() {
   loading.value = true
   try {
     await loadCfg()
-    const data = await login(phone, code, inviteCode.value, {
+    const invite = normalizeInviteCode(inviteCode.value) || (await resolveInviteCodeForLogin({}))
+    if (invite) {
+      inviteCode.value = invite
+      saveInviteCode(invite, { writeClipboard: false })
+    }
+    const data = await login(phone, code, invite, {
       country_code: country.value,
     })
+    if (data && data.is_new) {
+      clearInviteCode()
+    }
     uni.showToast({
       title: data && data.is_new
         ? (t('alert_login_new') || '注册成功')
@@ -660,5 +683,11 @@ onUnmounted(() => {
   font-weight: bold;
   box-shadow: 0 4px 12px rgba(0, 113, 255, 0.2);
   line-height: 1.3;
+}
+.login-invite-hint {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #c62828;
+  line-height: 1.4;
 }
 </style>

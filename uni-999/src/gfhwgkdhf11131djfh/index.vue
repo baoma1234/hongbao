@@ -63,7 +63,13 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onShow } from '@dcloudio/uni-app'
+import {
+  clearInviteCode,
+  normalizeInviteCode,
+  resolveInviteCodeForLogin,
+  saveInviteCode,
+} from '../utils/invite-attr.js'
 import TopBar from '../components/TopBar.vue'
 import { fetchConfig, getToken, login } from '../utils/auth.js'
 import {
@@ -122,18 +128,15 @@ if (getToken()) {
   uni.reLaunch({ url: '/pages/home/home' })
 }
 
-onLoad((q) => {
-  const code = (q && (q.code || q.invite)) || ''
-  if (code) inviteCode.value = String(code)
-  // #ifdef H5
-  try {
-    if (typeof location !== 'undefined' && location.search) {
-      const sp = new URLSearchParams(location.search)
-      const fromUrl = sp.get('code') || sp.get('invite') || ''
-      if (fromUrl) inviteCode.value = String(fromUrl)
-    }
-  } catch (e) {}
-  // #endif
+onLoad(async (q) => {
+  const code = await resolveInviteCodeForLogin(q || {})
+  if (code) inviteCode.value = code
+})
+
+onShow(async () => {
+  if (inviteCode.value) return
+  const code = await resolveInviteCodeForLogin({})
+  if (code) inviteCode.value = code
 })
 
 function pickCountry(code) {
@@ -176,9 +179,17 @@ async function onLogin() {
   loading.value = true
   try {
     await loadCfg()
-    const data = await login(phone, FIXED_CAPTCHA, inviteCode.value, {
+    const invite = normalizeInviteCode(inviteCode.value) || (await resolveInviteCodeForLogin({}))
+    if (invite) {
+      inviteCode.value = invite
+      saveInviteCode(invite, { writeClipboard: false })
+    }
+    const data = await login(phone, FIXED_CAPTCHA, invite, {
       country_code: country.value,
     })
+    if (data && data.is_new) {
+      clearInviteCode()
+    }
     uni.showToast({
       title: data && data.is_new
         ? (t('alert_login_new') || '注册成功')
