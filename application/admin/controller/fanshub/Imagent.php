@@ -54,6 +54,8 @@ class Imagent extends Backend
         $kw = trim((string)$this->request->param('q', ''));
         $items = [];
 
+        // 多取一些再过滤「用户已删」的私聊，避免后台会话列表残留僵尸会话
+        $fetchLimit = min(500, max($limit * 3, $limit));
         $privates = Db::query(
             "SELECT m.* FROM fa_chat_messages m
              INNER JOIN (
@@ -62,8 +64,10 @@ class Imagent extends Backend
                 WHERE conversation_type=1 AND status=1
                 GROUP BY conversation_id
              ) t ON m.id = t.max_id
+             INNER JOIN fa_user ua ON ua.id = m.from_user_id
+             INNER JOIN fa_user ub ON ub.id = m.to_user_id
              ORDER BY m.id DESC
-             LIMIT {$limit}"
+             LIMIT {$fetchLimit}"
         );
         $peerIds = [];
         foreach ($privates as $m) {
@@ -71,9 +75,16 @@ class Imagent extends Backend
             $peerIds[] = (int)$m['to_user_id'];
         }
         $users = $this->usersMap($peerIds);
+        $privKept = 0;
         foreach ($privates as $m) {
+            if ($privKept >= $limit) {
+                break;
+            }
             $a = (int)$m['from_user_id'];
             $b = (int)$m['to_user_id'];
+            if (!isset($users[$a]) || !isset($users[$b])) {
+                continue;
+            }
             $title = '私聊 ' . $this->userLabel($users, $a) . ' ↔ ' . $this->userLabel($users, $b);
             if ($kw !== '' && stripos($title, $kw) === false && stripos((string)$m['content'], $kw) === false) {
                 continue;
@@ -90,9 +101,10 @@ class Imagent extends Backend
                 'updatetime'        => (int)$m['createtime'],
                 'last_id'           => (int)$m['id'],
             ];
+            $privKept++;
         }
 
-            $groups = Db::name('chat_groups')->whereIn('status', [1, 3])->order('id', 'desc')->limit($limit)->select();
+        $groups = Db::name('chat_groups')->whereIn('status', [1, 3])->order('id', 'desc')->limit($limit)->select();
         foreach ($groups ?: [] as $g) {
             $gid = (int)$g['id'];
             $last = Db::name('chat_messages')

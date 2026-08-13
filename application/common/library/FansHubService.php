@@ -4905,6 +4905,7 @@ class FansHubService
             }
 
             Db::commit();
+            self::purgeImRedisForDeletedUsers($userIds);
             return [
                 'deleted'  => max($nAcc, $nUser, count($userIds)),
                 'user_ids' => $userIds,
@@ -4914,6 +4915,55 @@ class FansHubService
         } catch (\Throwable $e) {
             Db::rollback();
             throw $e;
+        }
+    }
+
+    /**
+     * 真删除后清 IM Redis：本人 inbox/pins/未读/会话缓存；对方侧残留靠列表过滤 + cleanup 脚本
+     *
+     * @param int[] $userIds
+     */
+    protected static function purgeImRedisForDeletedUsers(array $userIds)
+    {
+        try {
+            $r = FansHubOfficialStats::redisPublic();
+            if (!$r) {
+                return;
+            }
+            $prefix = FansHubOfficialStats::REDIS_PREFIX;
+            foreach ($userIds as $uid) {
+                $uid = (int)$uid;
+                if ($uid <= 0) {
+                    continue;
+                }
+                try {
+                    $r->del(
+                        $prefix . 'inbox:' . $uid,
+                        $prefix . 'pins:' . $uid,
+                        $prefix . 'hidden:' . $uid,
+                        $prefix . 'ub:' . $uid,
+                        $prefix . 'convlist:' . $uid,
+                        $prefix . 'convlist:' . $uid . ':50',
+                        $prefix . 'convlist:' . $uid . ':100'
+                    );
+                } catch (\Throwable $eDel) {
+                }
+                try {
+                    $cursor = null;
+                    $pattern = $prefix . 'unread:' . $uid . ':*';
+                    do {
+                        $keys = $r->scan($cursor, $pattern, 200);
+                        if ($keys === false) {
+                            break;
+                        }
+                        if (is_array($keys) && $keys) {
+                            $r->del(...$keys);
+                        }
+                    } while ($cursor > 0);
+                } catch (\Throwable $eScan) {
+                }
+            }
+        } catch (\Throwable $e) {
         }
     }
 }

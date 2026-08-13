@@ -1214,6 +1214,8 @@ class MessageService
 
         // 用户主动删除的私聊：从列表隐藏（新消息会 restore）
         $this->filterHiddenPrivateConversations($userId, $items);
+        // 对方账号已真删除：从列表剔除并清 inbox 残留
+        $this->filterDeletedPeerConversations($userId, $items);
         // 用户删除的群聊：水位软删，列表仅保留 cleared_msg_id 之后的新消息
         $this->filterClearedGroupConversations($userId, $items);
 
@@ -1744,6 +1746,80 @@ class MessageService
             $cid = (string)($it['conversation_id'] ?? '');
             return $cid === '' || !isset($hidden[$cid]);
         }));
+    }
+
+    /**
+     * 私聊对方已不在 fa_user：剔除列表并清 Redis inbox/pins/unread（真删除用户后的残留）
+     */
+    protected function filterDeletedPeerConversations($userId, array &$items)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0 || !$items) {
+            return;
+        }
+        $peerIds = [];
+        foreach ($items as $it) {
+            if ((int)($it['conversation_type'] ?? 0) !== 1) {
+                continue;
+            }
+            $pid = (int)($it['peer_user_id'] ?? 0);
+            if ($pid > 0 && !AdminService::isDefaultCs($pid)) {
+                $peerIds[$pid] = true;
+            }
+        }
+        if (!$peerIds) {
+            return;
+        }
+        $alive = [];
+        try {
+            $ids = array_keys($peerIds);
+            $in = implode(',', array_map('intval', $ids));
+            $rows = Db::fetchAll('SELECT id FROM ' . Db::table('user') . " WHERE id IN ({$in})");
+            foreach ($rows as $row) {
+                $alive[(int)$row['id']] = true;
+            }
+        } catch (\Throwable $e) {
+            return;
+        }
+        $dropMembers = [];
+        $kept = [];
+        foreach ($items as $it) {
+            if ((int)($it['conversation_type'] ?? 0) !== 1) {
+                $kept[] = $it;
+                continue;
+            }
+            $pid = (int)($it['peer_user_id'] ?? 0);
+            if ($pid <= 0 || AdminService::isDefaultCs($pid) || isset($alive[$pid])) {
+                $kept[] = $it;
+                continue;
+            }
+            $cid = (string)($it['conversation_id'] ?? '');
+            if ($cid === '' && $pid > 0) {
+                $cid = IdGenerator::privateConversationId($userId, $pid);
+            }
+            if ($cid !== '') {
+                $dropMembers[] = '1:' . $cid;
+            }
+        }
+        $items = $kept;
+        if (!$dropMembers) {
+            return;
+        }
+        try {
+            $r = RedisClient::conn();
+            $ikey = RedisClient::key('inbox:' . $userId);
+            $pkey = RedisClient::key('pins:' . $userId);
+            foreach (array_unique($dropMembers) as $member) {
+                $r->zRem($ikey, $member);
+                $r->zRem($pkey, $member);
+                $parts = explode(':', $member, 2);
+                if (count($parts) === 2) {
+                    $r->del(RedisClient::key('unread:' . $userId . ':' . $parts[0] . ':' . $parts[1]));
+                }
+            }
+            $this->invalidateConvListCache($userId);
+        } catch (\Throwable $e) {
+        }
     }
 
     protected function restoreHiddenPrivateConversation($userId, $conversationId)
