@@ -10,6 +10,7 @@ use Im\Support\IdGenerator;
 use Im\Support\RedisClient;
 use Im\Support\PushBus;
 use Im\Support\RedPacketUpdateBus;
+use Im\Support\SettleQueue;
 use Workerman\Timer;
 
 class RedPacketService
@@ -1659,6 +1660,8 @@ class RedPacketService
             'blessing'     => (string)($packetHint['blessing'] ?? ''),
             'id'           => $packetId,
         ];
+        // 持久队列：进程崩溃时 cron 仍可消费；与 Timer 并存，结算幂等
+        SettleQueue::enqueue($packetId, 'finish');
         try {
             Timer::add(0.05, function () use ($packetId, $hint) {
                 $this->runSettleAfterFinished($packetId, $hint);
@@ -1666,7 +1669,7 @@ class RedPacketService
             return true;
         } catch (\Throwable $e) {
             error_log('[RP_SETTLE] Timer::add fail packet=' . $packetId . ' ' . $e->getMessage());
-            // Timer 不可用时同步兜底，避免只靠 5s 轮询
+            // Timer 不可用时同步兜底，避免只靠扫库/队列
             $this->runSettleAfterFinished($packetId, $hint);
             return true;
         }
@@ -1704,6 +1707,7 @@ class RedPacketService
                     ]))->settleAfterFinished($packetId);
                     if (!empty($settleInfo['settled'])) {
                         error_log('[RP_SETTLE] async mine ok packet_id=' . $packetId);
+                        SettleQueue::clearAttempts($packetId);
                         $this->notifySettled($packetId, array_merge($hint, $row), $settleInfo);
                     }
                 } else {
@@ -1718,6 +1722,7 @@ class RedPacketService
             $settled = !empty($settleInfo['settled']);
             if ($settled) {
                 error_log('[RP_SETTLE] async ok packet_id=' . $packetId);
+                SettleQueue::clearAttempts($packetId);
             }
             if ($settled && $packetType === 5 && (int)($hint['scope_type'] ?? 0) === 2) {
                 $full = $hint;
@@ -1743,6 +1748,7 @@ class RedPacketService
             }
         } catch (\Throwable $e) {
             error_log('[RP_SETTLE][ERROR] async fail packet_id=' . $packetId . ' err=' . $e->getMessage());
+            SettleQueue::recordFailure($packetId, $e->getMessage());
         } finally {
             try {
                 RedisClient::conn()->del(RedisClient::key('rp:' . $packetId . ':settle_sched'));
@@ -2692,6 +2698,50 @@ class RedPacketService
     }
 
     /**
+     * 消费 Redis 持久结算队列（cron / 兜底）
+     * @return int 成功结算数
+     */
+    public function drainSettleQueue($limit = 30)
+    {
+        $ids = SettleQueue::pop($limit);
+        if (!$ids) {
+            return 0;
+        }
+        $done = 0;
+        foreach ($ids as $packetId) {
+            $packetId = (int)$packetId;
+            try {
+                $row = Db::fetch(
+                    'SELECT id, packet_type, scope_type, group_id, from_user_id, to_user_id,'
+                    . ' total_amount, total_count, blessing, status, remain_count'
+                    . ' FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1',
+                    [$packetId]
+                );
+                if (!$row) {
+                    SettleQueue::clearAttempts($packetId);
+                    continue;
+                }
+                if (in_array((int)$row['status'], [3, 4, 5], true)) {
+                    SettleQueue::clearAttempts($packetId);
+                    continue;
+                }
+                $this->runSettleAfterFinished($packetId, $row);
+                $fresh = Db::fetch(
+                    'SELECT status FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1',
+                    [$packetId]
+                );
+                if ($fresh && in_array((int)$fresh['status'], [3, 4, 5], true)) {
+                    $done++;
+                }
+            } catch (\Throwable $e) {
+                error_log('[SETTLE_Q] drain fail packet=' . $packetId . ' ' . $e->getMessage());
+                SettleQueue::recordFailure($packetId, $e->getMessage());
+            }
+        }
+        return $done;
+    }
+
+    /**
      * 抢完但结算失败（status=2）的补偿重试：中雷/手续费/返点。
      * @return int 成功结算数
      */
@@ -2723,6 +2773,7 @@ class RedPacketService
                 $info = $settler->settleAfterFinished($packetId);
                 if (!empty($info['settled'])) {
                     $done++;
+                    SettleQueue::clearAttempts($packetId);
                     error_log('[RP_SETTLE_RETRY] ok packet_id=' . $packetId);
                     if ($ptype === 5) {
                         $full = Db::fetch(
@@ -2745,6 +2796,7 @@ class RedPacketService
                 }
             } catch (\Throwable $e) {
                 error_log('[RP_SETTLE_RETRY][ERROR] packet_id=' . $packetId . ' ' . $e->getMessage());
+                SettleQueue::recordFailure($packetId, $e->getMessage());
             }
         }
         return $done;

@@ -185,6 +185,37 @@ class HealthProbe
             }
         }
 
+        // ---- Settle queue + DLQ ----
+        if ($redisOk) {
+            $sq = SettleQueue::depth();
+            $metrics['settle_queue'] = $sq;
+            $checks['settle_queue'] = [
+                'ok'    => $sq >= 0 && $sq < 2000,
+                'len'   => $sq,
+                'error' => ($sq >= 2000) ? 'settle queue backlog' : (($sq < 0) ? 'settle queue read fail' : ''),
+            ];
+            if ($sq >= 2000 || $sq < 0) {
+                $ok = false;
+            }
+        }
+        if ($dbOk) {
+            try {
+                SettleQueue::ensureTable();
+                $dlq = SettleQueue::openDlqCount();
+                $metrics['settle_dlq_open'] = $dlq;
+                $checks['settle_dlq'] = [
+                    'ok'    => $dlq >= 0 && $dlq < 50,
+                    'count' => $dlq,
+                    'error' => ($dlq >= 50) ? 'too many settle DLQ rows' : (($dlq < 0) ? 'dlq read fail' : ''),
+                ];
+                if ($dlq >= 50 || $dlq < 0) {
+                    $ok = false;
+                }
+            } catch (\Throwable $e) {
+                $checks['settle_dlq'] = ['ok' => false, 'error' => $e->getMessage()];
+            }
+        }
+
         if ($redisOk) {
             try {
                 $r = RedisClient::conn();

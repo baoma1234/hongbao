@@ -21,6 +21,7 @@ use Im\Service\RpAutoBotService;
 use Im\Support\Db;
 use Im\Support\HealthProbe;
 use Im\Support\RedisClient;
+use Im\Support\SettleQueue;
 use Im\Support\TronFair;
 use Im\Support\TronHashCache;
 use Workerman\Timer;
@@ -48,6 +49,8 @@ $worker->onWorkerStart = function () use ($cfg, $cronCfg) {
     Timer::add(10, function () {
         HealthProbe::touchCronAlive();
     });
+    // DLQ 表懒创建一次即可
+    SettleQueue::ensureTable();
 
     $messages = new MessageService();
     $groups = new GroupService();
@@ -118,6 +121,8 @@ $worker->onWorkerStart = function () use ($cfg, $cronCfg) {
         }
         $settleBusy = true;
         try {
+            // 先消费持久结算队列，再扫 status=2 兜底
+            $redPackets->drainSettleQueue($settleLimit);
             $redPackets->retryPendingSettlements($settleLimit);
             $redPackets->retryPendingRelayRounds($settleLimit);
             $redPackets->collectExpireClawbackDebts($settleLimit);
