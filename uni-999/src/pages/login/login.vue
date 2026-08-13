@@ -80,7 +80,6 @@
       <view class="login-cs-img-wrap" :style="{ backgroundImage: 'url(' + csIcon + ')' }">
         <image class="login-cs-img" :src="csIcon" mode="aspectFit" />
       </view>
-      <text class="login-cs-label">{{ csLabel }}</text>
     </view>
   </view>
 </template>
@@ -141,11 +140,6 @@ let offLocale = null
 let pendingSmsPhone = ''
 
 const countryMeta = computed(() => getCountryMeta(country.value))
-const csLabel = computed(() => {
-  void locale.value
-  void copyTick.value
-  return tt('login_cs_label', '客服')
-})
 const csIcon = computed(() => {
   const remote = String(csIconRemote.value || '').trim()
   if (remote) return remote
@@ -438,7 +432,7 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 52px;
+  width: 80px;
   padding: 0;
   margin: 0;
   background: transparent;
@@ -448,26 +442,18 @@ onUnmounted(() => {
   opacity: 0.88;
 }
 .login-cs-img-wrap {
-  width: 46px;
-  height: 46px;
+  width: 80px;
+  height: 80px;
   background-color: transparent;
   background-repeat: no-repeat;
   background-position: center;
   background-size: contain;
 }
 .login-cs-img {
-  width: 46px;
-  height: 46px;
+  width: 80px;
+  height: 80px;
   display: block;
   background-color: transparent;
-}
-.login-cs-label {
-  margin-top: 2px;
-  font-size: 11px;
-  font-weight: 800;
-  color: #e80000;
-  line-height: 1.2;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.85);
 }
 /* #ifdef APP-PLUS */
 .login-cs-float {
@@ -475,12 +461,12 @@ onUnmounted(() => {
   top: 25%;
 }
 .login-cs-img {
-  width: 48px;
-  height: 48px;
+  width: 80px;
+  height: 80px;
 }
 .login-cs-img-wrap {
-  width: 48px;
-  height: 48px;
+  width: 80px;
+  height: 80px;
 }
 /* #endif */
 .login-wrapper {
