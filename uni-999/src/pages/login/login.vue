@@ -77,7 +77,9 @@
       hover-class="login-cs-float--active"
       @click="openLoginCs"
     >
-      <image class="login-cs-img" :src="csIcon" mode="aspectFit" />
+      <view class="login-cs-img-wrap" :style="{ backgroundImage: 'url(' + csIcon + ')' }">
+        <image class="login-cs-img" :src="csIcon" mode="aspectFit" />
+      </view>
       <text class="login-cs-label">{{ csLabel }}</text>
     </view>
   </view>
@@ -100,7 +102,6 @@ import {
   tt,
 } from '../../utils/i18n.js'
 import { imConnect } from '../../utils/im.js'
-import { packagedStaticUrl } from '../../utils/config.js'
 import { openExternalHttpUrl } from '../../utils/wallet.js'
 import {
   LOGIN_COUNTRIES,
@@ -114,7 +115,7 @@ import {
 
 const SMS_COOLDOWN_KEY = 'fanshub_sms_cooldown'
 const DEFAULT_CS_ICON =
-  'https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/brand/login-cs-float-v2.png'
+  'https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/20260813/afe179a5f27ce0b94bf8a0f65af3d291.png'
 
 const locale = localeState()
 const copyTick = copyState()
@@ -148,8 +149,7 @@ const csLabel = computed(() => {
 const csIcon = computed(() => {
   const remote = String(csIconRemote.value || '').trim()
   if (remote) return remote
-  const local = packagedStaticUrl('/static/img/login-cs-float.png')
-  return local || DEFAULT_CS_ICON
+  return DEFAULT_CS_ICON
 })
 const csVisible = computed(() => !!csEnabled.value)
 const phonePlaceholder = computed(() => {
@@ -447,11 +447,19 @@ onUnmounted(() => {
 .login-cs-float--active {
   opacity: 0.88;
 }
+.login-cs-img-wrap {
+  width: 46px;
+  height: 46px;
+  background-color: transparent;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
 .login-cs-img {
   width: 46px;
   height: 46px;
   display: block;
-  background: transparent;
+  background-color: transparent;
 }
 .login-cs-label {
   margin-top: 2px;
@@ -467,6 +475,10 @@ onUnmounted(() => {
   top: 25%;
 }
 .login-cs-img {
+  width: 48px;
+  height: 48px;
+}
+.login-cs-img-wrap {
   width: 48px;
   height: 48px;
 }

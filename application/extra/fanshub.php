@@ -56,7 +56,7 @@ return array (
   'customer_service_url' => 'https://vm.daneviolda.com/1dcc69nnb5rqp1a6qz7yg7viwa',
   'login_cs_enabled' => true,
   'login_cs_url' => '',
-  'login_cs_icon' => 'https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/brand/login-cs-float-v2.png',
+  'login_cs_icon' => 'https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/20260813/afe179a5f27ce0b94bf8a0f65af3d291.png',
   'app_download_url' => 'https://your-app.com',
   'main_station_url' => 'https://555.bio',
   'im_ws_url' => '',
