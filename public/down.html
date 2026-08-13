@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#07090f" />
+  <meta name="description" content="红宝官方 — 股份增值 · 闪兑变现 · 裂变红包 · 社区玩法一站畅玩" />
+  <title>红宝 — 股份增值 · 官方福利大厅</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=Orbitron:wght@600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg0: #05070c;
+      --bg1: #0b101c;
+      --line: rgba(255, 214, 120, 0.14);
+      --red: #e63946;
+      --red-hot: #ff2d3a;
+      --gold: #ffd56a;
+      --gold-2: #f0a830;
+      --text: #f4f1ea;
+      --muted: rgba(244, 241, 234, 0.62);
+      --glow: 0 0 40px rgba(230, 57, 70, 0.35);
+      --safe-b: env(safe-area-inset-bottom, 0px);
+      --safe-r: env(safe-area-inset-right, 0px);
+      --safe-t: env(safe-area-inset-top, 0px);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      min-height: 100vh;
+      min-height: 100dvh;
+      color: var(--text);
+      background: var(--bg0);
+      font-family: "Noto Sans SC", "PingFang SC", sans-serif;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: inherit; text-decoration: none; }
+    img { display: block; max-width: 100%; }
+
+    .fx-grid {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background:
+        radial-gradient(900px 480px at 80% -10%, rgba(230, 57, 70, 0.28), transparent 55%),
+        radial-gradient(700px 420px at 10% 30%, rgba(240, 168, 48, 0.12), transparent 50%),
+        radial-gradient(600px 500px at 50% 110%, rgba(230, 57, 70, 0.16), transparent 55%),
+        linear-gradient(180deg, #070a12 0%, #05070c 55%, #090d18 100%);
+    }
+    .fx-grid::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      opacity: 0.22;
+      background-image:
+        linear-gradient(var(--line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--line) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: radial-gradient(ellipse at center, #000 25%, transparent 75%);
+      animation: gridDrift 28s linear infinite;
+    }
+    .fx-scan {
+      position: fixed;
+      left: 0; right: 0;
+      height: 120px;
+      top: -120px;
+      z-index: 1;
+      pointer-events: none;
+      background: linear-gradient(180deg, transparent, rgba(255, 213, 106, 0.06), transparent);
+      animation: scan 7.5s ease-in-out infinite;
+    }
+    @keyframes gridDrift {
+      from { transform: translateY(0); }
+      to { transform: translateY(48px); }
+    }
+    @keyframes scan {
+      0% { top: -10%; opacity: 0; }
+      15% { opacity: 1; }
+      85% { opacity: 1; }
+      100% { top: 110%; opacity: 0; }
+    }
+    @keyframes floatY {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+    @keyframes pulseGlow {
+      0%, 100% { filter: drop-shadow(0 0 18px rgba(230, 57, 70, 0.35)); }
+      50% { filter: drop-shadow(0 0 28px rgba(255, 213, 106, 0.45)); }
+    }
+
+    .shell {
+      position: relative;
+      z-index: 2;
+      width: min(100%, 520px);
+      margin: 0 auto;
+      padding: calc(18px + var(--safe-t)) 20px calc(28px + var(--safe-b));
+    }
+
+    /* —— Hero: one composition —— */
+    .hero {
+      min-height: calc(100vh - 40px);
+      min-height: calc(100dvh - 40px);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 18px;
+      padding-top: 8px;
+    }
+    .brand-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .brand-mark {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      object-fit: cover;
+      box-shadow: var(--glow);
+    }
+    .brand-name {
+      font-family: Orbitron, "Noto Sans SC", sans-serif;
+      font-weight: 700;
+      font-size: 22px;
+      letter-spacing: 0.08em;
+      background: linear-gradient(90deg, #fff 0%, var(--gold) 55%, var(--red-hot) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .brand-chip {
+      margin-left: auto;
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--gold);
+      border: 1px solid rgba(255, 213, 106, 0.35);
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(255, 213, 106, 0.06);
+    }
+
+    .hero-visual {
+      position: relative;
+      margin: 6px -8px 0;
+      isolation: isolate;
+    }
+    .hero-visual::before {
+      content: "";
+      position: absolute;
+      inset: 12% 8% 8%;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(230, 57, 70, 0.45), transparent 68%);
+      filter: blur(18px);
+      z-index: -1;
+      animation: pulseGlow 4.5s ease-in-out infinite;
+    }
+    .hero-visual img {
+      width: 100%;
+      height: auto;
+      margin: 0 auto;
+      animation: floatY 5.5s ease-in-out infinite;
+      filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.55));
+    }
+
+    .hero h1 {
+      font-size: clamp(28px, 7.2vw, 36px);
+      font-weight: 900;
+      line-height: 1.2;
+      letter-spacing: 0.02em;
+    }
+    .hero h1 span {
+      display: inline-block;
+      background: linear-gradient(105deg, var(--gold) 0%, #fff 40%, var(--red-hot) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .hero-lead {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.65;
+      max-width: 34em;
+    }
+
+    .cta-row {
+      display: grid;
+      grid-template-columns: 1.15fr 1fr;
+      gap: 10px;
+      margin-top: 6px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 48px;
+      padding: 0 16px;
+      border-radius: 14px;
+      font-weight: 800;
+      font-size: 15px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn:active { transform: translateY(1px) scale(0.99); }
+    .btn-primary {
+      color: #1a0a0c;
+      background: linear-gradient(135deg, #ffe082 0%, var(--gold-2) 45%, #ff6b4a 100%);
+      box-shadow: 0 10px 28px rgba(240, 168, 48, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    }
+    .btn-ghost {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.04);
+      border-color: rgba(255, 213, 106, 0.28);
+      backdrop-filter: blur(8px);
+    }
+    .btn-ghost:hover { background: rgba(255, 255, 255, 0.08); }
+
+    /* —— Sections —— */
+    .panel {
+      margin-top: 36px;
+      padding-top: 28px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .panel-kicker {
+      font-family: Orbitron, sans-serif;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      color: var(--gold);
+      margin-bottom: 8px;
+    }
+    .panel h2 {
+      font-size: 22px;
+      font-weight: 900;
+      margin-bottom: 8px;
+    }
+    .panel p {
+      color: var(--muted);
+      font-size: 13.5px;
+      line-height: 1.7;
+    }
+
+    .rail {
+      margin-top: 18px;
+      display: grid;
+      gap: 12px;
+    }
+    .rail-item {
+      position: relative;
+      padding: 16px 16px 16px 18px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(230, 57, 70, 0.06));
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      overflow: hidden;
+    }
+    .rail-item::before {
+      content: "";
+      position: absolute;
+      left: 0; top: 12px; bottom: 12px;
+      width: 3px;
+      border-radius: 3px;
+      background: linear-gradient(180deg, var(--gold), var(--red));
+    }
+    .rail-item strong {
+      display: block;
+      font-size: 15px;
+      margin-bottom: 4px;
+    }
+    .rail-item span {
+      color: var(--muted);
+      font-size: 12.5px;
+      line-height: 1.55;
+    }
+
+    .foot {
+      margin-top: 40px;
+      text-align: center;
+      color: rgba(244, 241, 234, 0.38);
+      font-size: 11px;
+      line-height: 1.6;
+    }
+
+    /* Floating CS */
+    .cs-float {
+      position: fixed;
+      right: max(10px, var(--safe-r));
+      top: 25%;
+      z-index: 50;
+      width: 58px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      background: transparent;
+      border: 0;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      animation: floatY 4.8s ease-in-out infinite;
+    }
+    .cs-float-img {
+      width: 52px;
+      height: 52px;
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: contain;
+      background-color: transparent;
+    }
+    .cs-float-img img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .cs-float-label {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--red-hot);
+      text-shadow: 0 1px 0 rgba(0, 0, 0, 0.55);
+    }
+
+    @media (min-width: 720px) {
+      .shell { width: 560px; padding-top: 40px; }
+      .cta-row { max-width: 420px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="fx-grid" aria-hidden="true"></div>
+  <div class="fx-scan" aria-hidden="true"></div>
+
+  <main class="shell">
+    <section class="hero" aria-label="红宝官方落地">
+      <div class="brand-row">
+        <img class="brand-mark" src="/999/static/logo.png" alt="红宝" width="36" height="36" />
+        <div class="brand-name">HONGBAO</div>
+        <div class="brand-chip">OFFICIAL</div>
+      </div>
+
+      <div class="hero-visual">
+        <img
+          src="https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/20260813/afe179a5f27ce0b94bf8a0f65af3d291.png"
+          alt="红宝吉祥物"
+          width="640"
+          height="640"
+        />
+      </div>
+
+      <h1>持有<span>股份</span>，闪兑成<span>红宝</span></h1>
+      <p class="hero-lead">
+        官方活跃粉丝福利大厅：注册即送股份，邀请裂变增值，一键闪兑变现，社区红包与VIP特批领取同场开启。
+      </p>
+
+      <div class="cta-row">
+        <a class="btn btn-primary" id="btnDownload" href="#" rel="noopener">下载 App</a>
+        <a class="btn btn-ghost" id="btnWeb" href="/999/">进入网页版</a>
+      </div>
+    </section>
+
+    <section class="panel" aria-label="红宝核心玩法">
+      <div class="panel-kicker">PROTOCOL</div>
+      <h2>独特股份 · 越玩越增值</h2>
+      <p>红宝以「股份」作为核心权益资产：活跃、邀请、裂变共同驱动价值；闪兑通道把股份即时换成红宝余额，再走官方 VIP 领取链路。</p>
+      <div class="rail">
+        <div class="rail-item">
+          <strong>入厅即送股份</strong>
+          <span>短信登录进入官方福利大厅，白嫖初始股份，立刻参与大盘增值叙事。</span>
+        </div>
+        <div class="rail-item">
+          <strong>邀请裂变 · 多邀多得</strong>
+          <span>每成功邀请好友开户/占位，额外叠加股份；裂变红包奖金池可瓜分。</span>
+        </div>
+        <div class="rail-item">
+          <strong>VIP 闪兑通道</strong>
+          <span>股份 ⇄ 红宝实时预估到账，等额闪兑销毁股份，累计价值只涨不跌的体验设计。</span>
+        </div>
+        <div class="rail-item">
+          <strong>社区红包 + 专属客服</strong>
+          <span>私聊 / 群聊红包玩法齐全；达标后生成密令，一键对接专属客服完成领取。</span>
+        </div>
+      </div>
+    </section>
+
+    <footer class="foot">
+      © 红宝 Open-Marketing Platform<br />
+      本站为官方活跃粉丝福利互动大厅 · 最终解释权归红宝官方所有
+    </footer>
+  </main>
+
+  <button type="button" class="cs-float" id="btnCs" aria-label="联系客服">
+    <span
+      class="cs-float-img"
+      style="background-image:url('https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/20260813/afe179a5f27ce0b94bf8a0f65af3d291.png')"
+    >
+      <img
+        src="https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/20260813/afe179a5f27ce0b94bf8a0f65af3d291.png"
+        alt=""
+      />
+    </span>
+    <span class="cs-float-label">客服</span>
+  </button>
+
+  <script>
+    (function () {
+      var CS_ICON =
+        'https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/20260813/afe179a5f27ce0b94bf8a0f65af3d291.png';
+      var downloadUrl = '';
+      var csUrl = '';
+      var webPath = '/999/';
+
+      function openUrl(url) {
+        if (!url) return false;
+        try {
+          var a = document.createElement('a');
+          a.href = url;
+          a.target = '_blank';
+          a.rel = 'noopener';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          return true;
+        } catch (e) {
+          location.href = url;
+          return true;
+        }
+      }
+
+      document.getElementById('btnDownload').addEventListener('click', function (e) {
+        e.preventDefault();
+        if (downloadUrl) openUrl(downloadUrl);
+        else alert('下载链接暂未配置，请稍后重试或进入网页版。');
+      });
+
+      document.getElementById('btnWeb').addEventListener('click', function (e) {
+        e.preventDefault();
+        location.href = webPath;
+      });
+
+      document.getElementById('btnCs').addEventListener('click', function () {
+        if (csUrl) openUrl(csUrl);
+        else alert('客服链接未配置，请联系管理员。');
+      });
+
+      // 读取后台配置：下载链接 / 客服 / H5 入口
+      fetch('/api/fanshub/config', { credentials: 'omit' })
+        .then(function (r) { return r.json(); })
+        .then(function (payload) {
+          var d = (payload && payload.data) || payload || {};
+          if (d.app_download_url) downloadUrl = String(d.app_download_url).trim();
+          csUrl = String(d.login_cs_url || d.customer_service_url || '').trim();
+          if (d.login_cs_icon) {
+            var icon = String(d.login_cs_icon).trim() || CS_ICON;
+            var img = document.querySelector('.cs-float-img img');
+            var wrap = document.querySelector('.cs-float-img');
+            if (img) img.src = icon;
+            if (wrap) wrap.style.backgroundImage = "url('" + icon + "')";
+          }
+          if (d.h5_entry_path) {
+            var p = String(d.h5_entry_path).replace(/^\/+|\/+$/g, '') || '999';
+            webPath = '/' + p + '/';
+            document.getElementById('btnWeb').setAttribute('href', webPath);
+          }
+          if (downloadUrl) {
+            document.getElementById('btnDownload').setAttribute('href', downloadUrl);
+          }
+        })
+        .catch(function () {});
+    })();
+  </script>
+</body>
+</html>
