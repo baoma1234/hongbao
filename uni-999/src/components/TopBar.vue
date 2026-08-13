@@ -251,12 +251,13 @@ onUnmounted(() => {
 .lang-wrap {
   position: relative;
   z-index: 3;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 2px;
+  box-sizing: border-box;
   min-height: 32px;
-  padding: 4px 8px;
-  border-radius: 8px;
+  padding: 3px 9px 3px 7px;
+  border-radius: 999px;
   border: 1px solid rgba(101, 119, 134, 0.26);
   background: #fafbfc;
   cursor: pointer;
@@ -272,6 +273,7 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 2px;
+  box-sizing: border-box;
   min-height: 32px;
   padding: 3px 9px 3px 7px;
   border-radius: 999px;
@@ -329,8 +331,8 @@ onUnmounted(() => {
   50% { transform: scale(1.1); opacity: 1; }
 }
 .flag {
-  width: 18px;
-  height: 12px;
+  width: 16px;
+  height: 11px;
   border-radius: 2px;
   flex-shrink: 0;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
@@ -395,6 +397,7 @@ onUnmounted(() => {
 @media (max-width: 480px) {
   .brand { max-width: 42vw; }
   .fission-lab { font-size: 9px; }
+  .lang-wrap,
   .fission-btn { padding: 2px 8px 2px 6px; min-height: 28px; }
 }
 </style>
