@@ -7,6 +7,7 @@
  *
  * POST /im/*              {token, ...}
  * GET  /health
+ * GET|POST /health/deep   admin_key（DB/Redis/Worker/Cron/积压）
  * POST /agent/*           admin_key
  */
 
@@ -15,6 +16,7 @@ use Im\Service\GroupService;
 use Im\Service\MessageService;
 use Im\Service\RedPacketService;
 use Im\Support\Db;
+use Im\Support\HealthProbe;
 use Im\Support\NotifyPublisher;
 use Im\Support\RedisClient;
 use Workerman\Connection\TcpConnection;
@@ -62,6 +64,28 @@ $http->onMessage = function (TcpConnection $connection, Request $request) use ($
 
     if ($path === '/health') {
         $connection->send(corsJson(200, ['ok' => true]));
+        return;
+    }
+
+    if ($path === '/health/deep') {
+        $body0 = json_decode($request->rawBody(), true);
+        if (!is_array($body0)) {
+            $body0 = $request->post();
+        }
+        if (!is_array($body0)) {
+            $body0 = [];
+        }
+        $key = (string)($body0['admin_key'] ?? $request->get('admin_key') ?? $request->header('x-im-admin-key') ?? '');
+        if ($key === '' || !hash_equals((string)$adminKey, $key)) {
+            $connection->send(corsJson(403, ['ok' => false, 'error' => 'forbidden']));
+            return;
+        }
+        try {
+            $report = HealthProbe::run($cfg);
+            $connection->send(corsJson($report['ok'] ? 200 : 503, $report));
+        } catch (\Throwable $e) {
+            $connection->send(corsJson(500, ['ok' => false, 'error' => $e->getMessage()]));
+        }
         return;
     }
 

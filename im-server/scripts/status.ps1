@@ -26,3 +26,12 @@ try {
 } catch {
     Write-Host "HTTP health failed: $($_.Exception.Message)"
 }
+
+Write-Host ""
+Write-Host "=== Deep probe (CLI) ==="
+$probe = Join-Path (Split-Path -Parent $Root) "scripts\im_health_probe.php"
+if (Test-Path $probe) {
+    & php $probe
+} else {
+    Write-Host "(scripts/im_health_probe.php missing)"
+}

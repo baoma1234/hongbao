@@ -14,3 +14,12 @@ echo ""
 echo "=== Health (17273) ==="
 curl -sS --max-time 3 http://127.0.0.1:17273/health || echo "HTTP health failed"
 echo
+
+echo ""
+echo "=== Deep probe (CLI) ==="
+PROBE="$(cd "$ROOT/.." && pwd)/scripts/im_health_probe.php"
+if [[ -f "$PROBE" ]]; then
+  php "$PROBE" || true
+else
+  echo "(scripts/im_health_probe.php missing)"
+fi

@@ -119,7 +119,18 @@ php start.php start
 ```bash
 curl http://127.0.0.1:17273/health
 # {"ok":true}
+
+# 深度探针（需 admin_key；或用 CLI）
+php ../scripts/im_health_probe.php
+php ../scripts/reconcile_hongbao_ledger.php
 ```
+
+| 探针 | 作用 |
+|------|------|
+| `GET /health` | 存活（负载均衡用） |
+| `GET/POST /health/deep` | DB/Redis/Worker/Cron/积压（需 `admin_key`） |
+| `scripts/im_health_probe.php` | 同上，CLI，exit≠0 即异常 |
+| `scripts/reconcile_hongbao_ledger.php` | 余额↔最新流水 / 冻结对账 |
 
 ## 部署检查清单（另一台服务器）
 

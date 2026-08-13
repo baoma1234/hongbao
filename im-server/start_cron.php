@@ -19,6 +19,7 @@ use Im\Service\NiuniuAutoBotService;
 use Im\Service\RedPacketService;
 use Im\Service\RpAutoBotService;
 use Im\Support\Db;
+use Im\Support\HealthProbe;
 use Im\Support\RedisClient;
 use Im\Support\TronFair;
 use Im\Support\TronHashCache;
@@ -40,6 +41,12 @@ $worker->onWorkerStart = function () use ($cfg, $cronCfg) {
 
     Timer::add(60, function () {
         Db::keepalive();
+    });
+
+    // 健康探针：/health/deep 与 scripts/im_health_probe.php 依赖此心跳
+    HealthProbe::touchCronAlive();
+    Timer::add(10, function () {
+        HealthProbe::touchCronAlive();
     });
 
     $messages = new MessageService();
