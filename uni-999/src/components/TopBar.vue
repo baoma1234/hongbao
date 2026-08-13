@@ -5,27 +5,34 @@
       <text class="brand-text">{{ brand }}</text>
     </view>
     <view class="actions">
-      <view class="lang-wrap" @click.stop="toggleLang">
+      <view class="lang-wrap" @click.stop="toggleLang" @tap.stop="toggleLang">
         <image class="flag" :src="flagSrc" mode="aspectFill" />
         <text class="lang-text">{{ localeLabel }}</text>
         <text class="caret">▾</text>
       </view>
-      <view class="fission-btn" @click.stop="goFission">
+      <view class="fission-btn" @click.stop="goFission" @tap.stop="goFission">
         <view class="fission-btn-glass" aria-hidden="true" />
         <text class="fission-ico">🧧</text>
         <text class="fission-lab">裂变红宝</text>
       </view>
     </view>
 
-    <view v-if="langOpen" class="mask" @click="closePanels" />
+    <view
+      v-if="langOpen"
+      class="mask"
+      @click="closePanels"
+      @tap="closePanels"
+      @touchmove.stop.prevent="noop"
+    />
 
-    <view v-if="langOpen" class="panel lang-panel" @click.stop>
+    <view v-if="langOpen" class="panel lang-panel" :style="langPanelStyle" @click.stop @tap.stop>
       <view
         v-for="opt in locales"
         :key="opt.id"
         class="panel-item"
         :class="{ on: opt.id === locale }"
-        @click="pickLocale(opt.id)"
+        @click.stop="pickLocale(opt.id)"
+        @tap.stop="pickLocale(opt.id)"
       >
         <image class="flag" :src="flagOf(opt.flagIso)" mode="aspectFill" />
         <text>{{ opt.label }}</text>
@@ -64,6 +71,7 @@ const langOpen = ref(false)
 /** 状态栏垫高（px），内联保证不被 page CSS 变量盖掉 */
 const padTop = ref(getSafeAreaInsets().top)
 let offLocale = null
+let pickingLang = false
 
 const logoSrc = logoUrl()
 const brand = computed(() => {
@@ -100,12 +108,23 @@ const spacerStyle = computed(() => {
     height: h + p + 'px',
   }
 })
+/** 语言面板用 fixed，避免被顶栏 overflow / 遮罩 z-index 盖住（App WebView 常见） */
+const langPanelStyle = computed(() => {
+  const p = Math.max(0, Number(padTop.value) || 0)
+  const h = getTopBarContentHeight()
+  return {
+    top: p + h + 4 + 'px',
+  }
+})
 
 function flagOf(iso) {
   return flagUrl(iso)
 }
 
+function noop() {}
+
 function closePanels() {
+  if (pickingLang) return
   langOpen.value = false
 }
 
@@ -122,10 +141,17 @@ function goFission() {
 }
 
 async function pickLocale(id) {
-  closePanels()
-  if (id === locale.value) return
-  await setLocale(id)
-  locale.value = id
+  pickingLang = true
+  langOpen.value = false
+  try {
+    if (id === locale.value) return
+    await setLocale(id)
+    locale.value = id
+  } finally {
+    setTimeout(() => {
+      pickingLang = false
+    }, 80)
+  }
 }
 
 function goHome() {
@@ -169,15 +195,16 @@ onUnmounted(() => {
   padding-right: 12px;
   box-sizing: border-box;
   background: #ffffff;
-  border-bottom: 1px solid color-mix(in srgb, var(--text-muted, #657786) 18%, transparent);
+  border-bottom: 1px solid rgba(101, 119, 134, 0.18);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  overflow: visible;
 }
 .mask {
   position: fixed;
   inset: 0;
-  z-index: 13990;
+  z-index: 15000;
   background: transparent;
 }
 .top-bar-spacer {
@@ -210,6 +237,8 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+  position: relative;
+  z-index: 15020;
 }
 .lang-wrap {
   display: flex;
@@ -218,8 +247,8 @@ onUnmounted(() => {
   min-height: 26px;
   padding: 2px 6px;
   border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--text-muted, #657786) 26%, transparent);
-  background: color-mix(in srgb, var(--bg-main, #f4f6f9) 6%, var(--bg-card, #fff) 94%);
+  border: 1px solid rgba(101, 119, 134, 0.26);
+  background: #fafbfc;
 }
 .fission-btn {
   position: relative;
@@ -307,17 +336,18 @@ onUnmounted(() => {
   margin-left: 1px;
 }
 .panel {
-  position: absolute;
-  top: calc(100% + 4px);
-  z-index: 2;
+  position: fixed;
+  right: 12px;
+  z-index: 15010;
   min-width: 148px;
-  max-height: 260px;
+  max-height: 60vh;
   overflow-y: auto;
   background: #fff;
   border: 1px solid #e1e8ed;
   border-radius: 10px;
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12);
   padding: 4px;
+  -webkit-overflow-scrolling: touch;
 }
 .lang-panel { right: 12px; }
 .panel-item {

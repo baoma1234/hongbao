@@ -81,6 +81,7 @@ import {
   LOGIN_COUNTRIES,
   getCountryMeta,
   isValidNational,
+  phoneInvalidKey,
   readStoredCountry,
   setStoredCountry,
   toE164,
@@ -161,8 +162,15 @@ async function loadCfg() {
 async function onLogin() {
   countryOpen.value = false
   const phone = toE164(mobile.value, country.value)
+  if (!String(mobile.value || '').trim()) {
+    uni.showToast({ title: t('alert_phone_required') || '请输入手机号', icon: 'none' })
+    return
+  }
   if (!phone || !isValidNational(mobile.value, country.value)) {
-    uni.showToast({ title: t('alert_phone_required') || t('api_mobile_invalid') || '请输入手机号', icon: 'none' })
+    uni.showToast({
+      title: t(phoneInvalidKey(country.value)) || t('alert_phone_invalid') || '手机号不正确',
+      icon: 'none',
+    })
     return
   }
   loading.value = true

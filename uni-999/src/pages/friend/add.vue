@@ -82,6 +82,7 @@ import {
   LOGIN_COUNTRIES,
   getCountryMeta,
   isValidNational,
+  phoneInvalidKey,
   readStoredCountry,
   setStoredCountry,
   stripNational,
@@ -129,6 +130,9 @@ function parseQuery() {
     return { mode: 'mobile', mobile: national, country_dial: dial }
   }
   if (id) return { error: '会员ID须为8位数字' }
+  if (String(mobile.value || '').trim()) {
+    return { error: t(phoneInvalidKey(country.value)) || '手机号格式不正确' }
+  }
   return { error: '请填写手机号或8位会员ID' }
 }
 

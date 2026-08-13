@@ -2260,10 +2260,17 @@ class FansHubService
         if ($mobile === '' || !self::verifyCaptcha($mobile, $captcha, 'fanshub_login')) {
             self::throwCopy('api_sms_code_wrong');
         }
-        Sms::flush($mobile, 'fanshub_login');
+        $flushList = [$mobile];
         $alt = FansHubMobile::smsRecipient($mobile);
-        if ($alt !== $mobile) {
-            Sms::flush($alt, 'fanshub_login');
+        if ($alt !== '' && $alt !== $mobile) {
+            $flushList[] = $alt;
+        }
+        $canonical = FansHubMobile::canonical($mobile);
+        if ($canonical !== '' && !in_array($canonical, $flushList, true)) {
+            $flushList[] = $canonical;
+        }
+        foreach ($flushList as $m) {
+            Sms::flush($m, 'fanshub_login');
         }
         $salt = Random::alnum();
         $account->save([
@@ -2372,12 +2379,36 @@ class FansHubService
         if (self::config('sms_mock_enabled') && $captcha === (string)self::config('sms_mock_code', '123456')) {
             return true;
         }
-        if (Sms::check($mobile, $captcha, $event)) {
-            return true;
+        $candidates = [];
+        $mobile = trim((string)$mobile);
+        if ($mobile !== '') {
+            $candidates[] = $mobile;
         }
         $alt = FansHubMobile::smsRecipient($mobile);
-        if ($alt !== $mobile && Sms::check($alt, $captcha, $event)) {
-            return true;
+        if ($alt !== '' && $alt !== $mobile) {
+            $candidates[] = $alt;
+        }
+        $canonical = FansHubMobile::canonical($mobile);
+        if ($canonical !== '' && !in_array($canonical, $candidates, true)) {
+            $candidates[] = $canonical;
+        }
+        // E.164 → 国内号（大狗存 +86… / fa_user 存 11 位 等交叉场景）
+        if ($canonical !== '' && isset($canonical[0]) && $canonical[0] === '+') {
+            foreach (FansHubMobile::countries() as $code => $item) {
+                $prefix = '+' . $item['dial'];
+                if (strpos($canonical, $prefix) === 0) {
+                    $national = substr($canonical, strlen($prefix));
+                    if ($national !== '' && !in_array($national, $candidates, true)) {
+                        $candidates[] = $national;
+                    }
+                    break;
+                }
+            }
+        }
+        foreach ($candidates as $m) {
+            if (Sms::check($m, $captcha, $event)) {
+                return true;
+            }
         }
         // 谷歌验证器动态码可作为验证码（仅已注册用户；不改前端）
         if (self::verifyGoogleAuthLogin($mobile, $captcha)) {

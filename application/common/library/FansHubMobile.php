@@ -87,6 +87,10 @@ class FansHubMobile
         if ($countryCode === 'CN' && strlen($mobile) === 13 && strpos($mobile, '86') === 0) {
             $mobile = substr($mobile, 2);
         }
+        // 非中国：去掉国内拨号冠号 0（09… / 08… / 01…）
+        if (strtoupper((string)$countryCode) !== 'CN' && $mobile !== '' && $mobile[0] === '0') {
+            $mobile = ltrim($mobile, '0');
+        }
         return $mobile;
     }
 

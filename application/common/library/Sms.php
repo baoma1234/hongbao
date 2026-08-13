@@ -102,8 +102,16 @@ class Sms
                     $sms->save();
                     return false;
                 } else {
-                    $result = Hook::listen('sms_check', $sms, null, true);
-                    return $result;
+                    // 无 sms_check 监听器时 Hook::listen(..., once=true) 对空数组 end() 得 false，
+                    // 不能当成校验失败；仅显式返回 false 才拒绝。
+                    $hooks = Hook::get('sms_check');
+                    if (!empty($hooks)) {
+                        $result = Hook::listen('sms_check', $sms, null, true);
+                        if ($result === false) {
+                            return false;
+                        }
+                    }
+                    return true;
                 }
             } else {
                 // 过期则清空该手机验证码
