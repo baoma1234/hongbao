@@ -17,7 +17,7 @@ use think\Validate;
  */
 class Fanshub extends Api
 {
-    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'inviteclick'];
+    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'communityrecommend', 'fissionentry'];
     protected $noNeedRight = '*';
 
     public function _initialize()
@@ -25,7 +25,7 @@ class Fanshub extends Api
         FansHubSms::boot();
         parent::_initialize();
         $action = strtolower($this->request->action());
-        $exempt = ['config', 'bootstrap', 'comments', 'inviteleaderboard', 'slidercaptcha', 'grabslider', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'inviteclick'];
+        $exempt = ['config', 'bootstrap', 'comments', 'inviteleaderboard', 'slidercaptcha', 'grabslider', 'jackpot', 'notices', 'communityrecommend', 'fissionentry'];
         if (in_array($action, $exempt, true)) {
             return;
         }
@@ -497,17 +497,6 @@ class Fanshub extends Api
             $inviteCode = trim((string)$this->request->post('invite', $this->request->get('invite', '')));
         }
         $deviceFp = $this->request->post('device_fp', '');
-        // 未带邀请码：尝试延迟归因（网页点邀请后下载 App 注册）
-        if ($inviteCode === '') {
-            try {
-                $inviteCode = \app\common\library\FansHubInvitePending::consumeForRegister(
-                    (string)$deviceFp,
-                    (string)$this->request->ip()
-                );
-            } catch (\Throwable $ePend) {
-                $inviteCode = '';
-            }
-        }
         if ($mobile === '' || !$captcha) {
             $this->error(FansHubService::h5CopyText('api_params_incomplete'));
         }
@@ -1049,32 +1038,6 @@ class Fanshub extends Api
         try {
             $qualId = (int)$this->request->post('qual_id', 0);
             $this->success('ok', \app\common\library\FansHubFission::claim((int)$this->auth->id, $qualId));
-        } catch (HttpResponseException $e) {
-            throw $e;
-        } catch (\Throwable $e) {
-            $this->error($e->getMessage() ?: FansHubService::h5CopyText('api_operation_fail'));
-        }
-    }
-
-    /**
-     * 邀请页点击归因（可匿名）：供「未装 App → 下载 → 注册」延迟归属
-     * POST /api/fanshub/inviteclick  body: code, device_fp?
-     */
-    public function inviteclick()
-    {
-        try {
-            $code = trim((string)$this->request->post('code', $this->request->get('code', '')));
-            if ($code === '') {
-                $code = trim((string)$this->request->post('invite', ''));
-            }
-            $fp = trim((string)$this->request->post('device_fp', ''));
-            $ok = \app\common\library\FansHubInvitePending::trackClick(
-                $code,
-                $fp,
-                (string)$this->request->ip(),
-                (string)$this->request->server('HTTP_USER_AGENT', '')
-            );
-            $this->success('ok', ['tracked' => $ok ? 1 : 0]);
         } catch (HttpResponseException $e) {
             throw $e;
         } catch (\Throwable $e) {
