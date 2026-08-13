@@ -78,6 +78,12 @@ class Backend extends Controller
     protected $dataLimitFieldAutoFill = true;
 
     /**
+     * 列表分页单页最大条数（0=不限制）；防 limit=999999 撑爆内存
+     * @var int
+     */
+    protected $paginateMaxLimit = 1000;
+
+    /**
      * 是否开启Validate验证
      */
     protected $modelValidate = false;
