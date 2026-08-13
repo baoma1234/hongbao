@@ -86,7 +86,11 @@
           <view class="fission-home-entry-inner single-line">
             <text class="fission-home-entry-title">{{ fissionEntryTitle }}</text>
             <text class="fission-home-entry-sub">{{ fissionEntrySub }}</text>
-            <text class="fission-home-entry-arrow">{{ fissionEntryState === 'ended' ? '已结束' : '去参与 ›' }}</text>
+            <text class="fission-home-entry-arrow">{{
+              fissionEntryState === 'ended'
+                ? tt('fission_home_entry_ended', '已结束')
+                : tt('fission_home_entry_go', '去参与 ›')
+            }}</text>
           </view>
         </view>
       </view>
@@ -398,18 +402,24 @@ const fissionEntryState = computed(() => {
 })
 const fissionEntryTitle = computed(() => {
   const a = (fissionEntry.value && fissionEntry.value.activity) || {}
-  return a.title || '全网裂变红宝'
+  return a.title || tt('fission_home_entry_title', '全网裂变红宝')
 })
 const fissionEntrySub = computed(() => {
   if (fissionEntryState.value === 'ended') {
     const st = (fissionEntry.value && fissionEntry.value.activity && fissionEntry.value.activity.status) | 0
-    return st === 2 ? '已开奖 · 入口已关闭' : '未集齐已作废 · 关系仍保留'
+    return st === 2
+      ? tt('fission_home_entry_sub_ended_drawn', '已开奖 · 入口已关闭')
+      : tt('fission_home_entry_sub_ended_void', '未集齐已作废 · 关系仍保留')
   }
   const a = (fissionEntry.value && fissionEntry.value.activity) || {}
   const pool = a.pool_amount != null ? a.pool_amount : 1000
   const g = a.global_quals | 0
   const cap = a.global_cap || 100
-  return '¥' + pool + ' 奖金池 · ' + g + '/' + cap + ' 份资格'
+  return tt('fission_home_entry_sub_active', '¥{pool} 奖金池 · {quals}/{cap} 份资格', {
+    pool,
+    quals: g,
+    cap,
+  })
 })
 const fissionPopupPool = computed(() => {
   const a = (fissionEntry.value && fissionEntry.value.activity) || {}

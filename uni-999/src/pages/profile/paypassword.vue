@@ -86,7 +86,7 @@ function looksBrokenCopy(s) {
   if (v.indexOf('\uFFFD') >= 0) return true
   if (/[\u00C0-\u00FF]{3,}/.test(v) && !/[\u4e00-\u9fff]/.test(v)) return true
   // 典型 UTF-8→Latin1 乱码片段（含 ä/å/æ 等且几乎无正常中文词）
-  if (/[ÃÂäåæçèé]/.test(v) && !/支付|密码|验证|短信|修改|设置/.test(v)) return true
+  if (/[ÃÂäåæçèé]/.test(v) && !/支付|密码|验证|短信|修改|设置|password|SMS|mật|kata|លេខ|sandi/i.test(v)) return true
   return false
 }
 
@@ -96,25 +96,16 @@ function safeCopy(key, fallback) {
 }
 
 const hintText = computed(() => {
-  // 中文环境直接用固定文案，避免服务端/缓存乱码覆盖
-  const loc = String(locale.value || '')
-  const isZh = !loc || loc === 'zh-CN' || loc.indexOf('zh') === 0
   if (hasPayPassword.value) {
-    if (isZh) return '修改支付密码需短信验证码'
-    return safeCopy('profile_pay_password_change_hint', 'SMS code required to change payment password')
+    return safeCopy('profile_pay_password_change_hint', '修改支付密码需短信验证码')
   }
-  if (isZh) return '首次可直接设置支付密码；用于提现与绑定地址'
-  return safeCopy('profile_pay_password_set_hint', 'Set payment password for withdraw and wallet binding')
+  return safeCopy('profile_pay_password_set_hint', '首次可直接设置支付密码；用于提现与绑定地址')
 })
 const btnText = computed(() => {
-  const loc = String(locale.value || '')
-  const isZh = !loc || loc === 'zh-CN' || loc.indexOf('zh') === 0
   if (hasPayPassword.value) {
-    if (isZh) return '确认修改支付密码'
-    return safeCopy('profile_pay_password_change_btn', 'Update payment password')
+    return safeCopy('profile_pay_password_change_btn', '确认修改支付密码')
   }
-  if (isZh) return '设置支付密码'
-  return safeCopy('profile_pay_password_set_btn', 'Set payment password')
+  return safeCopy('profile_pay_password_set_btn', '设置支付密码')
 })
 
 function clearSmsTimer() {
@@ -184,7 +175,7 @@ async function sendSmsCode() {
     } else {
       smsBusy.value = false
       pendingSmsPhone = ''
-      uni.showToast({ title: '滑块验证失败，请重试', icon: 'none' })
+      uni.showToast({ title: safeCopy('alert_slider_fail', '滑块验证失败，请重试'), icon: 'none' })
     }
     return
   }
@@ -210,7 +201,7 @@ async function submit() {
       data = await setPayPassword(pwd, conf)
     } else {
       if (!String(captcha.value || '').trim()) {
-        uni.showToast({ title: '请填写短信验证码', icon: 'none' })
+        uni.showToast({ title: safeCopy('profile_pay_password_sms_required', '请填写短信验证码'), icon: 'none' })
         busy.value = false
         return
       }
@@ -225,11 +216,13 @@ async function submit() {
     confirmPassword.value = ''
     captcha.value = ''
     uni.showToast({
-      title: wasSet ? '支付密码已更新' : '支付密码已设置',
+      title: wasSet
+        ? safeCopy('profile_pay_password_updated', '支付密码已更新')
+        : safeCopy('profile_pay_password_set_ok', '支付密码已设置'),
       icon: 'none',
     })
   } catch (e) {
-    uni.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
+    uni.showToast({ title: (e && e.message) || safeCopy('alert_operation_fail', '操作失败'), icon: 'none' })
   } finally {
     busy.value = false
   }

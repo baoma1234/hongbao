@@ -322,8 +322,21 @@ function fillTpl(tpl, vars) {
   )
 }
 
+function looksMostlyChinese(s) {
+  const t = String(s || '')
+  if (!t) return false
+  const han = (t.match(/[\u4e00-\u9fff]/g) || []).length
+  if (han < 2) return false
+  // 去掉 emoji/数字/空白后再比：中文占多数则视为未翻译中文
+  const letters = (t.match(/[A-Za-z\u00C0-\u024F\u0400-\u04FF\u0E00-\u0E7F\u1780-\u17FF\u0100-\u017F\u1EA0-\u1EF9]/g) || []).length
+  return han >= letters
+}
+
 export function applyServerCopy(copy) {
   if (!copy || typeof copy !== 'object') return
+  const loc = getLocale()
+  const isZh = !loc || loc === 'zh-CN' || String(loc).indexOf('zh') === 0
+  const zhPack = packs['zh-CN'] || BOOT_COPY['zh-CN'] || {}
   let n = 0
   Object.keys(copy).forEach((k) => {
     const v = copy[k]
@@ -332,6 +345,18 @@ export function applyServerCopy(copy) {
     // 服务端文案若已乱码，勿覆盖本地 BOOT（常见：UTF-8 被当 Latin-1）
     if (/\uFFFD/.test(s)) return
     if (/[\u00C0-\u00FF]{4,}/.test(s) && !/[\u4e00-\u9fff]/.test(s)) return
+    if (!isZh) {
+      const zhVal = zhPack[k]
+      // 与中文默认完全相同 → 视为未翻译，保留本地语言包 / BOOT
+      if (zhVal != null && s === String(zhVal)) return
+      const local =
+        (packs[loc] && packs[loc][k]) ||
+        (BOOT_COPY[loc] && BOOT_COPY[loc][k]) ||
+        (BOOT_COPY['en-PH'] && BOOT_COPY['en-PH'][k]) ||
+        ''
+      // 服务端仍是中文，本地已有非中文译文 → 不覆盖
+      if (local && looksMostlyChinese(s) && !looksMostlyChinese(String(local))) return
+    }
     serverCopy[k] = s
     n++
   })
@@ -357,8 +382,8 @@ export function t(key, vars) {
   if (serverCopy[key] != null && String(serverCopy[key]) !== '') {
     tpl = serverCopy[key]
   } else {
-    // 缺 key 时优先中文，避免「页面全是英文 / key 名」
-    const chain = loc === 'zh-CN' ? ['zh-CN', 'en-PH'] : [loc, 'zh-CN', 'en-PH']
+    // 缺 key 时：非中文优先英文，避免整页回退成中文
+    const chain = loc === 'zh-CN' ? ['zh-CN', 'en-PH'] : [loc, 'en-PH', 'zh-CN']
     for (let i = 0; i < chain.length; i++) {
       const pack = packs[chain[i]]
       if (pack && pack[key] != null && String(pack[key]) !== '') {
