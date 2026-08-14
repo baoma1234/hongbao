@@ -386,12 +386,11 @@ class FansHubFission
 
         if ($status === FissionActivity::STATUS_RUNNING) {
             for ($i = 0; $i < $count; $i++) {
-                $ref = (int)(microtime(true) * 1000000) + $i;
                 $ok = self::grantQualLocked(
                     $activityId,
                     $userId,
                     FissionQual::SOURCE_ADMIN,
-                    $ref,
+                    0,
                     false
                 );
                 if (!$ok) {
@@ -410,7 +409,7 @@ class FansHubFission
                     'activity_id' => $activityId,
                     'user_id'     => $userId,
                     'source'      => FissionQual::SOURCE_ADMIN,
-                    'ref_user_id' => (int)(microtime(true) * 1000000) + $i,
+                    'ref_user_id' => 0,
                     'win_amount'  => $amt,
                     'claimed'     => 0,
                     'claimed_at'  => 0,
