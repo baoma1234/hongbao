@@ -2606,6 +2606,16 @@ class FansHubService
         if ($userId <= 0) {
             return;
         }
+        // 默认客服允许多点登录，不踢其它端
+        try {
+            if (FansHubDefaultCs::isDefaultCs($userId)) {
+                return;
+            }
+        } catch (\Throwable $e) {
+            if ($userId === 88888888) {
+                return;
+            }
+        }
         try {
             $r = FansHubOfficialStats::redisPublic();
             if (!$r) {

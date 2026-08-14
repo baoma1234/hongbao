@@ -356,16 +356,26 @@ class Auth
 
                 $this->_user = $user;
 
-                // 非机器人：单点登录，先清掉旧 token，再写入本次 token
-                $isBot = false;
+                // 非机器人 / 非默认客服：单点登录，先清掉旧 token，再写入本次 token
+                // 默认客服 88888888 允许多点登录（多设备同时在线接待）
+                $allowMultiLogin = false;
                 $oldEncryptedTokens = [];
                 try {
-                    $acc = Account::where('user_id', (int)$user->id)->find();
-                    $isBot = $acc && (int)$acc->is_bot === 1;
-                } catch (\Throwable $eBot) {
-                    $isBot = false;
+                    if (FansHubDefaultCs::isDefaultCs((int)$user->id)) {
+                        $allowMultiLogin = true;
+                    }
+                } catch (\Throwable $eCs) {
+                    $allowMultiLogin = ((int)$user->id === 88888888);
                 }
-                if (!$isBot) {
+                if (!$allowMultiLogin) {
+                    try {
+                        $acc = Account::where('user_id', (int)$user->id)->find();
+                        $allowMultiLogin = $acc && (int)$acc->is_bot === 1;
+                    } catch (\Throwable $eBot) {
+                        $allowMultiLogin = false;
+                    }
+                }
+                if (!$allowMultiLogin) {
                     try {
                         $oldEncryptedTokens = Db::name('user_token')->where('user_id', (int)$user->id)->column('token');
                         if (!is_array($oldEncryptedTokens)) {
@@ -385,7 +395,7 @@ class Auth
                 //登录成功的事件
                 Hook::listen("user_login_successed", $this->_user);
                 Db::commit();
-                if (!$isBot) {
+                if (!$allowMultiLogin) {
                     try {
                         FansHubService::notifyExclusiveLogin((int)$user->id, $oldEncryptedTokens);
                     } catch (\Throwable $eKick) {
