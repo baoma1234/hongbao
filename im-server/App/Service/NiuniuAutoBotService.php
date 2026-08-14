@@ -2,6 +2,8 @@
 
 namespace Im\Service;
 
+use Im\Support\CatchLog;
+
 use Im\Support\Db;
 use Im\Support\RedisClient;
 use Workerman\Timer;
@@ -413,7 +415,8 @@ class NiuniuAutoBotService
             try {
                 $this->niuniu->settle($roundId);
             } catch (\Throwable $e) {
-            }
+            CatchLog::quiet($e, 'Service.NiuniuAutoBotService');
+        }
             return;
         }
 
@@ -480,7 +483,8 @@ class NiuniuAutoBotService
                         $this->niuniu->settle((int)$roundId);
                     }
                 } catch (\Throwable $e) {
-                }
+            CatchLog::quiet($e, 'Service.NiuniuAutoBotService');
+        }
             }, [], false);
         }
     }
@@ -591,6 +595,7 @@ class NiuniuAutoBotService
         try {
             RedisClient::conn()->del(RedisClient::key(self::TASK_LOCK_PREFIX . (int)$taskId));
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.NiuniuAutoBotService');
         }
     }
 
@@ -613,6 +618,7 @@ class NiuniuAutoBotService
                 '1'
             );
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.NiuniuAutoBotService');
         }
     }
 
@@ -621,6 +627,7 @@ class NiuniuAutoBotService
         try {
             RedisClient::conn()->del(RedisClient::key(self::BUY_PLANNED_PREFIX . $taskId . ':' . $roundId));
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.NiuniuAutoBotService');
         }
     }
 
@@ -643,6 +650,7 @@ class NiuniuAutoBotService
                 '1'
             );
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.NiuniuAutoBotService');
         }
     }
 
@@ -651,6 +659,7 @@ class NiuniuAutoBotService
         try {
             RedisClient::conn()->del(RedisClient::key(self::CLAIM_BUSY_PREFIX . $taskId . ':' . $roundId));
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.NiuniuAutoBotService');
         }
     }
 
@@ -664,6 +673,7 @@ class NiuniuAutoBotService
                 [$msg, time(), (int)$taskId]
             );
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.NiuniuAutoBotService');
         }
     }
 }

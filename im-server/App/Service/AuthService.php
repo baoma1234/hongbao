@@ -2,6 +2,8 @@
 
 namespace Im\Service;
 
+use Im\Support\CatchLog;
+
 use Im\Support\Db;
 use Im\Support\RedisClient;
 
@@ -118,6 +120,7 @@ class AuthService
                 json_encode($user, JSON_UNESCAPED_UNICODE)
             );
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.AuthService');
         }
 
         return ['user_id' => $userId, 'user' => $user];
@@ -157,11 +160,13 @@ class AuthService
                             (string)$legacy
                         );
                     } catch (\Throwable $eCopy) {
-                    }
+            CatchLog::quiet($eCopy, 'Service.AuthService');
+        }
                     return $j;
                 }
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.AuthService');
         }
 
         $userTable = Db::table($this->cfg['user_table'] ?? 'user');
@@ -184,7 +189,8 @@ class AuthService
                     json_encode($row, JSON_UNESCAPED_UNICODE)
                 );
             } catch (\Throwable $e) {
-            }
+            CatchLog::quiet($e, 'Service.AuthService');
+        }
         }
         return $row;
     }

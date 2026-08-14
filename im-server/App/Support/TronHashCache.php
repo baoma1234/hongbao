@@ -26,7 +26,8 @@ class TronHashCache
         $n = (float)$app['tron']['hash_poll_interval'];
       }
     } catch (\Throwable $e) {
-    }
+            CatchLog::quiet($e, 'Support.TronHashCache');
+        }
     return max(1.0, min(30.0, $n));
   }
 
@@ -40,7 +41,8 @@ class TronHashCache
         $n = (int)$app['tron']['hash_recent_limit'];
       }
     } catch (\Throwable $e) {
-    }
+            CatchLog::quiet($e, 'Support.TronHashCache');
+        }
     return max(10, min(120, $n));
   }
 
@@ -90,7 +92,8 @@ class TronHashCache
           'confirmed' => true,
         ]);
       } catch (\Throwable $e) {
-      }
+            CatchLog::quiet($e, 'Support.TronHashCache');
+        }
 
       if ($changed) {
         try {
@@ -180,7 +183,8 @@ class TronHashCache
         }
       }
     } catch (\Throwable $e) {
-    }
+            CatchLog::quiet($e, 'Support.TronHashCache');
+        }
     return null;
   }
 

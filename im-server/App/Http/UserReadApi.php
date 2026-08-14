@@ -2,6 +2,8 @@
 
 namespace Im\Http;
 
+use Im\Support\CatchLog;
+
 use Im\Service\AdminService;
 use Im\Service\AuthService;
 use Im\Service\ContactService;
@@ -65,6 +67,7 @@ class UserReadApi
                 }
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Http.UserReadApi');
         }
 
         $list = $this->messages->listConversations($userId, $limit);
@@ -120,6 +123,7 @@ class UserReadApi
         try {
             RedisClient::conn()->setex($cacheKey, 20, \Im\Support\Json::encode($list));
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Http.UserReadApi');
         }
         return ['list' => $list];
     }

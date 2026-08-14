@@ -2,6 +2,8 @@
 
 namespace Im\Http;
 
+use Im\Support\CatchLog;
+
 use Im\Service\AdminService;
 use Im\Service\ChatForbidService;
 use Im\Service\ContactService;
@@ -188,6 +190,7 @@ class UserApi extends UserReadApi
                 $groupId = (int)($m['group_id'] ?? 0);
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Http.UserApi');
         }
         $slider = [
             'slider_token'    => (string)($body['slider_token'] ?? ''),

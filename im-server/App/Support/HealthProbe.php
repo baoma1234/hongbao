@@ -251,6 +251,7 @@ class HealthProbe
                 (string)time()
             );
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Support.HealthProbe');
         }
     }
 

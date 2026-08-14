@@ -807,40 +807,14 @@ class FansHubWallet
         $orderNo = self::genOrderNo('WD');
         $now = time();
         $handler = (string)$channel['handler'];
-        // 先扣余额 + 入库；全站提现统一人工审核后再出款（不再自动代付）
+        // 原子扣红宝 + 入库；全站提现统一人工审核后再出款（不再自动代付）
         Db::startTrans();
         try {
-            $locked = Db::name('fans_account')->where('user_id', $userId)->lock(true)->find();
-            $curHb = (float)($locked['hongbao'] ?? 0);
-            if (!$locked || $curHb < $amount) {
-                throw new \RuntimeException(FansHubService::h5CopyText('srv_insufficient_hongbao'));
-            }
-            $newHb = round($curHb - $amount, 2);
-            $aff = Db::name('fans_account')
-                ->where('user_id', $userId)
-                ->where('hongbao', sprintf('%.2f', $curHb))
-                ->update([
-                    'hongbao'    => $newHb,
-                    'updatetime' => $now,
-                ]);
-            if (!$aff) {
-                throw new \RuntimeException(FansHubService::h5CopyText('srv_insufficient_hongbao'));
-            }
-            Db::name('fans_ledger')->insert([
-                'user_id'         => $userId,
-                'type'            => 'withdraw',
-                'rights_change'   => 0,
-                'balance_change'  => 0,
-                'hongbao_change'  => -$amount,
-                'rights_after'    => (float)$locked['rights'],
-                'balance_after'   => (float)$locked['balance'],
-                'hongbao_after'   => $newHb,
-                'remark'          => '提现红宝 ' . $orderNo,
-                'channel'         => (string)$channel['name'],
-                'biz_no'          => $orderNo,
-                'ref_type'        => 'withdraw_order',
-                'ref_id'          => 0,
-                'createtime'      => $now,
+            FansHubHongbaoLedger::debit($userId, $amount, 'withdraw', '提现红宝 ' . $orderNo, [
+                'channel'  => (string)$channel['name'],
+                'biz_no'   => $orderNo,
+                'ref_type' => 'withdraw_order',
+                'ref_id'   => 0,
             ]);
             Db::name('fans_withdraw_order')->insert([
                 'order_no'          => $orderNo,
@@ -1089,30 +1063,11 @@ class FansHubWallet
                 Db::commit();
                 return;
             }
-            $row = Db::name('fans_account')->where('user_id', $userId)->lock(true)->find();
-            if (!$row) {
-                throw new \RuntimeException('account missing');
-            }
-            $newHb = round((float)($row['hongbao'] ?? 0) + $amount, 2);
-            Db::name('fans_account')->where('user_id', $userId)->update([
-                'hongbao'    => $newHb,
-                'updatetime' => $now,
-            ]);
-            Db::name('fans_ledger')->insert([
-                'user_id'         => $userId,
-                'type'            => 'withdraw_refund',
-                'rights_change'   => 0,
-                'balance_change'  => 0,
-                'hongbao_change'  => $amount,
-                'rights_after'    => (float)$row['rights'],
-                'balance_after'   => (float)$row['balance'],
-                'hongbao_after'   => $newHb,
-                'remark'          => '提现失败退回红宝 ' . $orderNo,
-                'channel'         => '',
-                'biz_no'          => $orderNo,
-                'ref_type'        => 'withdraw_order',
-                'ref_id'          => (int)$order['id'],
-                'createtime'      => $now,
+            FansHubHongbaoLedger::credit($userId, $amount, 'withdraw_refund', '提现失败退回红宝 ' . $orderNo, [
+                'channel'  => '',
+                'biz_no'   => $orderNo,
+                'ref_type' => 'withdraw_order',
+                'ref_id'   => (int)$order['id'],
             ]);
             Db::name('fans_withdraw_order')->where('id', $order['id'])->update([
                 'status'     => 'rejected',
@@ -1165,6 +1120,7 @@ class FansHubWallet
                 $channelName
             );
             Db::commit();
+            FansHubImCache::bustWallet((int)$order['user_id']);
             return true;
         } catch (\Throwable $e) {
             Db::rollback();
@@ -1279,37 +1235,9 @@ class FansHubWallet
         if ($amount <= 0) {
             return;
         }
-        $now = time();
-        Db::startTrans();
-        try {
-            $row = Db::name('fans_account')->where('user_id', $userId)->lock(true)->find();
-            if (!$row) {
-                throw new \RuntimeException('account missing');
-            }
-            $newHb = round((float)($row['hongbao'] ?? 0) + $amount, 2);
-            Db::name('fans_account')->where('user_id', $userId)->update([
-                'hongbao'    => $newHb,
-                'updatetime' => $now,
-            ]);
-            Db::name('fans_ledger')->insert([
-                'user_id'         => $userId,
-                'type'            => $type,
-                'rights_change'   => 0,
-                'balance_change'  => 0,
-                'hongbao_change'  => $amount,
-                'rights_after'    => (float)$row['rights'],
-                'balance_after'   => (float)$row['balance'],
-                'hongbao_after'   => $newHb,
-                'remark'          => $remark,
-                'channel'         => $channel,
-                'createtime'      => $now,
-            ]);
-            Db::commit();
-        } catch (\Throwable $e) {
-            Db::rollback();
-            throw $e;
-        }
-        FansHubImCache::bustWallet($userId);
+        FansHubHongbaoLedger::credit($userId, $amount, $type, $remark, [
+            'channel' => (string)$channel,
+        ]);
     }
 
     /**

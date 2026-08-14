@@ -29,7 +29,8 @@ class TronFair
         $n = (int)$app['tron']['reveal_delay'];
       }
     } catch (\Throwable $e) {
-    }
+            CatchLog::quiet($e, 'Support.TronFair');
+        }
     return max(3, min(60, $n));
   }
 
@@ -42,7 +43,8 @@ class TronFair
         $n = (int)$app['tron']['commit_offset'];
       }
     } catch (\Throwable $e) {
-    }
+            CatchLog::quiet($e, 'Support.TronFair');
+        }
     return max(1, min(20, $n));
   }
 
@@ -189,10 +191,12 @@ class TronFair
           try {
             self::processReveal($packetId);
           } catch (\Throwable $ignore) {
-          }
+            CatchLog::quiet($ignore, 'Support.TronFair');
+        }
         }, [], false);
       } catch (\Throwable $ignore) {
-      }
+            CatchLog::quiet($ignore, 'Support.TronFair');
+        }
       return false;
     }
   }
@@ -327,6 +331,7 @@ class TronFair
         try {
           self::processReveal($packetId);
         } catch (\Throwable $ignore) {
+            CatchLog::quiet($ignore, 'Support.TronFair');
         }
       }, [], false);
     } catch (\Throwable $e) {

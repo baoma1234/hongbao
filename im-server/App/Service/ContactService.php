@@ -2,6 +2,8 @@
 
 namespace Im\Service;
 
+use Im\Support\CatchLog;
+
 use Im\Support\Db;
 use Im\Support\IdGenerator;
 use Im\Support\RedisClient;
@@ -28,6 +30,7 @@ class ContactService
                 return false;
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.ContactService');
         }
         $row = Db::fetch(
             'SELECT id FROM ' . Db::table('chat_contacts')
@@ -38,6 +41,7 @@ class ContactService
         try {
             RedisClient::conn()->setex($cacheKey, self::FRIEND_CACHE_TTL, $ok ? '1' : '0');
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.ContactService');
         }
         return $ok;
     }
@@ -56,6 +60,7 @@ class ContactService
                 RedisClient::key('friend:' . $peerId . ':' . $userId)
             );
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.ContactService');
         }
     }
 
@@ -761,6 +766,7 @@ class ContactService
                 $redis->del(\Im\Support\RedisClient::key('convlist:' . $userId . ':' . $lim));
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.ContactService');
         }
     }
 

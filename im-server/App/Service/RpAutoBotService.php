@@ -2,6 +2,8 @@
 
 namespace Im\Service;
 
+use Im\Support\CatchLog;
+
 use Im\Support\Db;
 use Im\Support\PushBus;
 use Im\Support\RedPacketUpdateBus;
@@ -69,6 +71,7 @@ class RpAutoBotService
         try {
             RedisClient::conn()->setex(RedisClient::key(self::HEARTBEAT_KEY), 30, (string)time());
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.RpAutoBotService');
         }
     }
 
@@ -263,7 +266,8 @@ class RpAutoBotService
             try {
                 PushBus::toGroup($groupId, 'group.message', ['message' => $msg]);
             } catch (\Throwable $e) {
-            }
+            CatchLog::quiet($e, 'Service.RpAutoBotService');
+        }
         }
 
         $burstSent = (int)($task['burst_sent'] ?? 0) + 1;
@@ -765,7 +769,8 @@ class RpAutoBotService
                 $gid = (int)($packet['group_id'] ?? $groupId);
                 RedPacketUpdateBus::publish($event, ['group_id' => $gid]);
             } catch (\Throwable $e) {
-            }
+            CatchLog::quiet($e, 'Service.RpAutoBotService');
+        }
         }
         $frozen = round((float)($result['frozen_amount'] ?? 0), 2);
         $this->taskLog($taskId, 'ok', 'grab ok', [
@@ -886,6 +891,7 @@ class RpAutoBotService
                 return true;
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.RpAutoBotService');
         }
         return false;
     }
@@ -975,6 +981,7 @@ class RpAutoBotService
         try {
             RedisClient::conn()->del(RedisClient::key(self::TASK_LOCK_PREFIX . (int)$taskId));
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.RpAutoBotService');
         }
     }
 
@@ -1011,6 +1018,7 @@ class RpAutoBotService
         try {
             RedisClient::conn()->del(RedisClient::key(self::GRAB_BUSY_PREFIX . (int)$taskId));
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.RpAutoBotService');
         }
     }
 
@@ -1037,6 +1045,7 @@ class RpAutoBotService
                 sprintf('%.3f', (float)$ts)
             );
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.RpAutoBotService');
         }
     }
 
@@ -1084,6 +1093,7 @@ class RpAutoBotService
                 }
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.RpAutoBotService');
         }
         $rows = Db::fetchAll(
             'SELECT user_id FROM ' . Db::table('fans_account')
@@ -1103,6 +1113,7 @@ class RpAutoBotService
                 json_encode($out, JSON_UNESCAPED_UNICODE)
             );
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.RpAutoBotService');
         }
         $mem = $out;
         $memAt = $now;
@@ -1133,6 +1144,7 @@ class RpAutoBotService
                 [mb_substr((string)$msg, 0, 250), time(), $taskId]
             );
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.RpAutoBotService');
         }
         $this->taskLog($taskId, 'error', (string)$msg);
     }
@@ -1182,6 +1194,7 @@ class RpAutoBotService
             }
             @file_put_contents($file, $line . "\n", FILE_APPEND | LOCK_EX);
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.RpAutoBotService');
         }
     }
 

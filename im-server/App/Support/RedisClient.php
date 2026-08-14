@@ -49,6 +49,7 @@ class RedisClient
                 self::$redis->close();
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Support.RedisClient');
         }
         self::$redis = null;
     }

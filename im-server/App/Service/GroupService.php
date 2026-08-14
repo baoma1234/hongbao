@@ -2,6 +2,8 @@
 
 namespace Im\Service;
 
+use Im\Support\CatchLog;
+
 use Im\Support\Db;
 use Im\Support\RedisClient;
 use Im\Support\ConnMap;
@@ -28,6 +30,7 @@ class GroupService
                 $n = max(100, (int)$app['group']['max_members']);
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.GroupService');
         }
         return $n;
     }
@@ -46,6 +49,7 @@ class GroupService
                 $n = max(100, (int)$app['group']['max_push_online']);
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.GroupService');
         }
         return $n;
     }
@@ -65,6 +69,7 @@ class GroupService
                 $uid = $cfgUid;
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.GroupService');
         }
         return $uid;
     }
@@ -134,7 +139,8 @@ class GroupService
                     ['1,3,4,5', time(), $groupId]
                 );
             } catch (\Throwable $e2) {
-            }
+            CatchLog::quiet($e2, 'Service.GroupService');
+        }
         }
         // 建群引导卡：永久绑定群主 1% 发包管理津贴
         if (!empty($options['bind_owner_rebate'])) {
@@ -170,13 +176,15 @@ class GroupService
                 }
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.GroupService');
         }
         $row = Db::fetch('SELECT * FROM ' . Db::table('chat_groups') . ' WHERE id=? LIMIT 1', [$groupId]);
         if ($row) {
             try {
                 RedisClient::conn()->setex($cacheKey, self::SPEAK_META_TTL, json_encode($row, JSON_UNESCAPED_UNICODE));
             } catch (\Throwable $e) {
-            }
+            CatchLog::quiet($e, 'Service.GroupService');
+        }
         }
         return $row;
     }
@@ -202,6 +210,7 @@ class GroupService
         try {
             $ver = (int)RedisClient::conn()->get(RedisClient::key('g:' . $groupId . ':infover'));
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.GroupService');
         }
         $cacheKey = RedisClient::key('ginfo:' . $groupId . ':' . $uid . ':v' . $ver);
         try {
@@ -213,6 +222,7 @@ class GroupService
                 }
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.GroupService');
         }
 
         $group = $this->get($groupId);
@@ -248,6 +258,7 @@ class GroupService
         try {
             RedisClient::conn()->setex($cacheKey, 20, json_encode($payload, JSON_UNESCAPED_UNICODE));
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.GroupService');
         }
         return $payload;
     }
@@ -262,6 +273,7 @@ class GroupService
         try {
             RedisClient::conn()->incr(RedisClient::key('g:' . $groupId . ':infover'));
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.GroupService');
         }
     }
 
@@ -299,6 +311,7 @@ class GroupService
             $r->del(RedisClient::key('g:' . $groupId . ':members'));
             $r->exec();
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.GroupService');
         }
     }
 
@@ -316,6 +329,7 @@ class GroupService
                 return [];
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.GroupService');
         }
 
         $rows = Db::fetchAll(
@@ -361,13 +375,15 @@ class GroupService
                     }
                     $out = array_values(array_unique(array_filter($out)));
                 } catch (\Throwable $eRedis) {
-                }
+            CatchLog::quiet($eRedis, 'Service.GroupService');
+        }
                 if (count($out) > $cap) {
                     $out = array_slice($out, 0, $cap);
                 }
                 return $out;
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.GroupService');
         }
 
         $this->ensureMemberSet($groupId);
@@ -384,7 +400,8 @@ class GroupService
                 }
                 $out = array_values(array_unique(array_filter($out)));
             } catch (\Throwable $eLocal) {
-            }
+            CatchLog::quiet($eLocal, 'Service.GroupService');
+        }
             if (count($out) > $cap) {
                 error_log('[IM] group online fanout capped gid=' . $groupId . ' online=' . count($out) . ' cap=' . $cap);
                 $out = array_slice($out, 0, $cap);
@@ -420,6 +437,7 @@ class GroupService
                 }
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.GroupService');
         }
         return $out;
     }
@@ -469,11 +487,13 @@ class GroupService
                         try {
                             $r->sAdd(RedisClient::key('online'), (string)$uid);
                         } catch (\Throwable $eAdd) {
-                        }
+            CatchLog::quiet($eAdd, 'Service.GroupService');
+        }
                     }
                 }
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.GroupService');
         }
         return array_values(array_keys($map));
     }
@@ -487,6 +507,7 @@ class GroupService
                 RedisClient::key('g:' . $gid . ':mset')
             );
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.GroupService');
         }
     }
 
@@ -507,6 +528,7 @@ class GroupService
             $r->del(RedisClient::key('g:' . $groupId . ':members'));
             ConnMap::addLocalGroupMember($groupId, $userId);
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.GroupService');
         }
     }
 
@@ -527,6 +549,7 @@ class GroupService
             $r->del(RedisClient::key('g:' . $groupId . ':members'));
             ConnMap::remLocalGroupMember($groupId, $userId);
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.GroupService');
         }
     }
 
@@ -536,6 +559,7 @@ class GroupService
         try {
             RedisClient::conn()->del(RedisClient::key('uid:' . (int)$userId . ':my_groups'));
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.GroupService');
         }
     }
 
@@ -563,6 +587,7 @@ class GroupService
                 return true;
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.GroupService');
         }
         // Redis 未命中时以库为准，并回写 Set，避免后台加人后前台「不在群里」
         $row = Db::fetch(
@@ -728,6 +753,7 @@ class GroupService
                 }
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.GroupService');
         }
         $row = Db::fetch(
             'SELECT * FROM ' . Db::table('chat_group_members')
@@ -738,7 +764,8 @@ class GroupService
             try {
                 RedisClient::conn()->setex($cacheKey, self::SPEAK_META_TTL, json_encode($row, JSON_UNESCAPED_UNICODE));
             } catch (\Throwable $e) {
-            }
+            CatchLog::quiet($e, 'Service.GroupService');
+        }
         }
         return $row;
     }
@@ -916,6 +943,7 @@ class GroupService
         } catch (\RuntimeException $e) {
             throw $e;
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.GroupService');
         }
         $modes = $this->parseForbidModes($group);
         if (!empty($modes[$mode])) {
@@ -1158,6 +1186,7 @@ class GroupService
                 }
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.GroupService');
         }
         return $ret;
     }
@@ -1368,7 +1397,8 @@ class GroupService
             try {
                 Db::rollBack();
             } catch (\Throwable $e2) {
-            }
+            CatchLog::quiet($e2, 'Service.GroupService');
+        }
             throw $e;
         }
         foreach ($memberIds as $uid) {
@@ -1380,6 +1410,7 @@ class GroupService
             RedisClient::conn()->del(RedisClient::key('g:' . $groupId . ':mset'));
             RedisClient::conn()->del(RedisClient::key('g:' . $groupId . ':members'));
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.GroupService');
         }
         return [
             'group_id'    => $groupId,

@@ -45,6 +45,7 @@ class ConnMap
             $r->setex(RedisClient::key('conn:' . $member), 180, (string)$userId);
             $r->sAdd(RedisClient::key('online'), (string)$userId);
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Support.ConnMap');
         }
         // 鉴权后重建本进程群倒排（auth 低频，可接受一次轻量查库）
         self::rebuildUserGroupIndex($userId);
@@ -76,6 +77,7 @@ class ConnMap
                 $r->sRem(RedisClient::key('online'), (string)$uid);
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Support.ConnMap');
         }
     }
 
@@ -113,6 +115,7 @@ class ConnMap
             }
             $r->exec();
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Support.ConnMap');
         }
     }
 
@@ -282,6 +285,7 @@ class ConnMap
             $r->sAdd($key, (string)self::$workerId);
             $r->expire($key, 600);
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Support.ConnMap');
         }
     }
 
@@ -296,6 +300,7 @@ class ConnMap
             $key = RedisClient::key('g:' . $groupId . ':workers');
             $r->sRem($key, (string)self::$workerId);
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Support.ConnMap');
         }
     }
 

@@ -2,6 +2,8 @@
 
 namespace Im\Handler;
 
+use Im\Support\CatchLog;
+
 use Im\Service\AuthService;
 use Im\Service\AdminService;
 use Im\Service\ChatForbidService;
@@ -101,7 +103,8 @@ class MessageRouter
             try {
                 OfficialStatsService::leaveView($viewGid, $uid);
             } catch (\Throwable $e) {
-            }
+            CatchLog::quiet($e, 'Handler.MessageRouter');
+        }
             $connection->viewingGroupId = 0;
         }
         ConnMap::unbindConn((string)$connection->id);
@@ -1171,7 +1174,8 @@ class MessageRouter
                         'by_user_id' => $uid,
                     ]);
                 } catch (\Throwable $ePush) {
-                }
+            CatchLog::quiet($ePush, 'Handler.MessageRouter');
+        }
             }
             try {
                 $this->pushToGroup($groupId, 'group.dissolved', [
@@ -1179,7 +1183,8 @@ class MessageRouter
                     'by_user_id' => $uid,
                 ]);
             } catch (\Throwable $eG) {
-            }
+            CatchLog::quiet($eG, 'Handler.MessageRouter');
+        }
         } catch (\Throwable $e) {
             $msg = $e->getMessage() ?: 'dissolve failed';
             if ($msg === 'only owner can dissolve') {
@@ -1482,6 +1487,7 @@ class MessageRouter
                 }
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Handler.MessageRouter');
         }
 
         $list = $this->messages->listConversations($uid, $limit);
@@ -1535,6 +1541,7 @@ class MessageRouter
         try {
             RedisClient::conn()->setex($cacheKey, 20, \Im\Support\Json::encode($list));
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Handler.MessageRouter');
         }
         $this->send($connection, 'conversation.list', ['list' => $list], $reqId);
     }
@@ -1626,6 +1633,7 @@ class MessageRouter
         try {
             $ip = (string)$connection->getRemoteIp();
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Handler.MessageRouter');
         }
         $fp = '';
         if (!empty($connection->deviceFp)) {
@@ -1644,6 +1652,7 @@ class MessageRouter
                 $groupId = (int)($meta['group_id'] ?? 0);
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Handler.MessageRouter');
         }
         $slider = [
             'slider_token'    => (string)($payload['slider_token'] ?? ''),
@@ -1739,13 +1748,15 @@ class MessageRouter
                 try {
                     $conn->send($json);
                 } catch (\Throwable $e) {
-                }
+            CatchLog::quiet($e, 'Handler.MessageRouter');
+        }
                 // 单点登录：通知后断开旧连接，避免旧端继续收发
                 if ($type === 'session.replaced') {
                     try {
                         $conn->close();
                     } catch (\Throwable $eClose) {
-                    }
+            CatchLog::quiet($eClose, 'Handler.MessageRouter');
+        }
                 }
             }
         }

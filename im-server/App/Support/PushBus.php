@@ -44,6 +44,7 @@ class PushBus
             // 启动时清空可能残留的旧消息，避免重启后洪峰
             $r->del(RedisClient::key('w:' . $wid . ':push'));
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Support.PushBus');
         }
     }
 
@@ -56,6 +57,7 @@ class PushBus
             $r->setex(RedisClient::key('worker:' . $wid . ':alive'), 20, '1');
             self::pruneDeadWorkers($r);
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Support.PushBus');
         }
     }
 
@@ -109,6 +111,7 @@ class PushBus
         try {
             (new \Im\Service\GroupService())->ensureMemberSet($groupId);
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Support.PushBus');
         }
         if (!self::$localDeliver) {
             self::toGroupExternal($groupId, $type, $data);
@@ -139,6 +142,7 @@ class PushBus
         try {
             (new \Im\Service\GroupService())->ensureMemberSet($groupId);
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Support.PushBus');
         }
         $envelope = [
             'v'      => 2,
@@ -173,6 +177,7 @@ class PushBus
             }
             self::pipelinePush($r, $targets, $json);
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Support.PushBus');
         }
     }
 
@@ -197,6 +202,7 @@ class PushBus
             }
             self::pipelinePush($r, $targets, $json);
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Support.PushBus');
         }
     }
 
@@ -279,6 +285,7 @@ class PushBus
             }
             self::pipelinePush($r, $targets, $json);
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Support.PushBus');
         }
     }
 
@@ -321,6 +328,7 @@ class PushBus
                 $r->discard();
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Support.PushBus');
         }
     }
 
@@ -446,6 +454,7 @@ class PushBus
                 self::deliverLocal($envelope);
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Support.PushBus');
         }
     }
 

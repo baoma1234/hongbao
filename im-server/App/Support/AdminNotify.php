@@ -20,6 +20,7 @@ class AdminNotify
             ], JSON_UNESCAPED_UNICODE));
             $r->lTrim(RedisClient::key('notify_queue'), 0, 999);
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Support.AdminNotify');
         }
     }
 }

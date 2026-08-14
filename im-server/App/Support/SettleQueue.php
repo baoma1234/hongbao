@@ -84,6 +84,7 @@ class SettleQueue
         try {
             RedisClient::conn()->del(RedisClient::key(self::ATTEMPT_PREFIX . $packetId));
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Support.SettleQueue');
         }
         self::resolveDlq($packetId);
     }
@@ -143,6 +144,7 @@ class SettleQueue
                 [time(), (int)$packetId]
             );
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Support.SettleQueue');
         }
     }
 

@@ -2,6 +2,8 @@
 
 namespace Im\Service;
 
+use Im\Support\CatchLog;
+
 use Im\Support\Db;
 use Im\Support\RedisClient;
 
@@ -145,6 +147,7 @@ class OfficialStatsService
             $r->sAdd($key, (string)$userId);
             $r->expire($key, 90);
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.OfficialStatsService');
         }
         return self::onlineCount($groupId);
     }
@@ -159,6 +162,7 @@ class OfficialStatsService
         try {
             RedisClient::conn()->sRem(RedisClient::key(self::KEY_VIEW_PREFIX . $groupId), (string)$userId);
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.OfficialStatsService');
         }
         return self::onlineCount($groupId);
     }
@@ -176,6 +180,7 @@ class OfficialStatsService
                 return $m;
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.OfficialStatsService');
         }
         return self::uniqueSeedForGroup($groupId);
     }

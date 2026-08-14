@@ -2,6 +2,8 @@
 
 namespace Im\Service;
 
+use Im\Support\CatchLog;
+
 use Im\Support\Db;
 use Im\Support\DrandClient;
 use Im\Support\NotifyPublisher;
@@ -121,6 +123,7 @@ class NiuniuService
         try {
             $this->groups->bumpViewerInfoCache($groupId);
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.NiuniuService');
         }
     }
 
@@ -136,6 +139,7 @@ class NiuniuService
         try {
             $this->groups->bumpViewerInfoCache($groupId);
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.NiuniuService');
         }
     }
 
@@ -158,6 +162,7 @@ class NiuniuService
                 return (int)$v;
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.NiuniuService');
         }
         $row = Db::fetch(
             'SELECT id FROM ' . Db::table('chat_niuniu_rounds')
@@ -1056,7 +1061,8 @@ class NiuniuService
                 try {
                     RedisClient::conn()->del($lockKey);
                 } catch (\Throwable $e) {
-                }
+            CatchLog::quiet($e, 'Service.NiuniuService');
+        }
             }
         }
     }
@@ -1758,6 +1764,7 @@ class NiuniuService
                 (string)(int)$roundId
             );
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.NiuniuService');
         }
     }
 
@@ -1766,6 +1773,7 @@ class NiuniuService
         try {
             RedisClient::conn()->del(RedisClient::key('niuniu:mute:' . (int)$groupId));
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.NiuniuService');
         }
     }
 
@@ -1799,6 +1807,7 @@ class NiuniuService
                 (string)$at
             );
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.NiuniuService');
         }
     }
 
@@ -1820,6 +1829,7 @@ class NiuniuService
         try {
             RedisClient::conn()->del(RedisClient::key('niuniu:loop:next:' . (int)$groupId));
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.NiuniuService');
         }
     }
 

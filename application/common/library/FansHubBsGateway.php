@@ -735,6 +735,7 @@ class FansHubBsGateway
                 (string)$channel['name']
             );
             Db::commit();
+            FansHubImCache::bustWallet((int)$order['user_id']);
         } catch (\Throwable $e) {
             Db::rollback();
             throw $e;
@@ -1006,6 +1007,7 @@ class FansHubBsGateway
                 (string)$channel['name']
             );
             Db::commit();
+            FansHubImCache::bustWallet((int)$order['user_id']);
         } catch (\Throwable $e) {
             Db::rollback();
             throw $e;

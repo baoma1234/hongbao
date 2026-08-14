@@ -2,6 +2,8 @@
 
 namespace Im\Service;
 
+use Im\Support\CatchLog;
+
 use Im\Support\Db;
 use Im\Support\TronFair;
 use Im\Support\TronBlockClient;
@@ -408,7 +410,8 @@ class RedPacketService
                     TronFair::cachePut($row);
                 }
             } catch (\Throwable $e) {
-            }
+            CatchLog::quiet($e, 'Service.RedPacketService');
+        }
         }
 
         // 扫雷未匹配：异步向后找哈希末位=雷号的区块，匹配后再拆包开抢
@@ -644,7 +647,8 @@ class RedPacketService
                         $minGate = $gMin;
                     }
                 } catch (\Throwable $e) {
-                }
+            CatchLog::quiet($e, 'Service.RedPacketService');
+        }
             }
         }
         $balances = $this->wallet->getBalances($userIds, false);
@@ -1160,7 +1164,8 @@ class RedPacketService
             try {
                 $this->abandonRelayRetry($packetId, 'admin_close');
             } catch (\Throwable $eAb) {
-            }
+            CatchLog::quiet($eAb, 'Service.RedPacketService');
+        }
         }
         try {
             $r = RedisClient::conn();
@@ -1485,7 +1490,8 @@ class RedPacketService
                 try {
                     $this->markBestLuck($packetId);
                 } catch (\Throwable $eBest) {
-                }
+            CatchLog::quiet($eBest, 'Service.RedPacketService');
+        }
                 try {
                     Db::exec(
                         'UPDATE ' . Db::table('chat_red_packets')
@@ -1494,7 +1500,8 @@ class RedPacketService
                         [$now, $now, $packetId]
                     );
                 } catch (\Throwable $eSt) {
-                }
+            CatchLog::quiet($eSt, 'Service.RedPacketService');
+        }
             } else {
                 $this->scheduleSettleAfterFinished($packetId, $packet);
                 $settlePending = true;
@@ -1505,6 +1512,7 @@ class RedPacketService
             $this->bumpDetailCacheVer($packetId);
             RedisClient::conn()->del(RedisClient::key('rp:cover:' . $packetId));
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.RedPacketService');
         }
 
         $view = $this->wallet->getWalletView($userId, true);
@@ -1648,6 +1656,7 @@ class RedPacketService
                 return false;
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.RedPacketService');
         }
         $hint = [
             'packet_type'  => (int)($packetHint['packet_type'] ?? 0),
@@ -1753,7 +1762,8 @@ class RedPacketService
             try {
                 RedisClient::conn()->del(RedisClient::key('rp:' . $packetId . ':settle_sched'));
             } catch (\Throwable $e) {
-            }
+            CatchLog::quiet($e, 'Service.RedPacketService');
+        }
         }
     }
 
@@ -1866,6 +1876,7 @@ class RedPacketService
             // 个数跟金额一样：受本群 min/max 约束，避免历史「插队 7 个包」把整条接龙永久带偏
             $count = $this->clampRelayCount($count, is_array($g) ? $g : []);
         } catch (\Throwable $eFix) {
+            CatchLog::quiet($eFix, 'Service.RedPacketService');
         }
         if ($amount <= 0 || $count <= 0) {
             return null;
@@ -1893,6 +1904,7 @@ class RedPacketService
                 return null;
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.RedPacketService');
         }
 
         // 验资：可用余额 + 本包最差者已冻续发额（解冻在 doSend 内、send 之前）
@@ -1909,6 +1921,7 @@ class RedPacketService
                 $frozenCredit = round((float)($worstFreeze['frozen_amount'] ?? 0), 2);
             }
         } catch (\Throwable $eFz) {
+            CatchLog::quiet($eFz, 'Service.RedPacketService');
         }
         if ($bal + $frozenCredit + 0.00001 < $amount) {
             error_log(sprintf(
@@ -2047,12 +2060,14 @@ class RedPacketService
                         [$packetId]
                     );
                 } catch (\Throwable $eMark) {
-                }
+            CatchLog::quiet($eMark, 'Service.RedPacketService');
+        }
                 $this->clearRelayRetry($packetId);
                 try {
                     RedisClient::conn()->del(RedisClient::key('rp:relay_send:' . $packetId));
                 } catch (\Throwable $eDel) {
-                }
+            CatchLog::quiet($eDel, 'Service.RedPacketService');
+        }
                 $msg = $result['message'] ?? null;
                 if (is_array($msg)) {
                     try {
@@ -2085,7 +2100,8 @@ class RedPacketService
                 try {
                     $this->reclaimRelayFreeze($senderUid, $unfrozeAmt, $worstRecId, $packet, $packetId);
                 } catch (\Throwable $eRf) {
-                }
+            CatchLog::quiet($eRf, 'Service.RedPacketService');
+        }
                 $this->releaseRelayClaim($packetId);
                 $this->markRelayRetry($packetId, 'send_fail:' . $e->getMessage());
                 return null;
@@ -2119,10 +2135,12 @@ class RedPacketService
                 [$packetId]
             );
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.RedPacketService');
         }
         try {
             RedisClient::conn()->del(RedisClient::key('rp:relay_send:' . $packetId));
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.RedPacketService');
         }
     }
 
@@ -2195,6 +2213,7 @@ class RedPacketService
             $r->del(RedisClient::key('rp:relay_retry:' . $packetId));
             $r->sRem(RedisClient::key('rp:relay_retry_set'), (string)$packetId);
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.RedPacketService');
         }
     }
 
@@ -2265,6 +2284,7 @@ class RedPacketService
             );
             $stillFrozen = (int)($sf['c'] ?? 0);
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.RedPacketService');
         }
         if ($stillFrozen <= 0) {
             try {
@@ -2275,12 +2295,14 @@ class RedPacketService
                     [$packetId]
                 );
             } catch (\Throwable $e) {
-            }
+            CatchLog::quiet($e, 'Service.RedPacketService');
+        }
             $this->clearRelayRetry($packetId);
             try {
                 RedisClient::conn()->del(RedisClient::key('rp:relay_send:' . $packetId));
             } catch (\Throwable $e) {
-            }
+            CatchLog::quiet($e, 'Service.RedPacketService');
+        }
         } else {
             error_log('[RP_RELAY] abandon keep pending freezes packet_id=' . $packetId
                 . ' left=' . $stillFrozen . ' reason=' . $reason);
@@ -2318,7 +2340,8 @@ class RedPacketService
                     $this->abandonRelayRetry($pid, 'group_relay_expire');
                 }
             } catch (\Throwable $e) {
-            }
+            CatchLog::quiet($e, 'Service.RedPacketService');
+        }
         }
         try {
             $rows = Db::fetchAll(
@@ -2332,6 +2355,7 @@ class RedPacketService
                 $this->abandonRelayRetry((int)$row['id'], 'group_relay_expire_db');
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.RedPacketService');
         }
     }
 
@@ -2388,7 +2412,8 @@ class RedPacketService
                     try {
                         $nxAlive = (bool)RedisClient::conn()->exists(RedisClient::key('rp:relay_send:' . $packetId));
                     } catch (\Throwable $eNx) {
-                    }
+            CatchLog::quiet($eNx, 'Service.RedPacketService');
+        }
                     if ($nxAlive) {
                         continue;
                     }
@@ -2594,7 +2619,8 @@ class RedPacketService
                                 [(int)($out['ledger_id'] ?? 0), $packetId, $uid]
                             );
                         } catch (\Throwable $eRec) {
-                        }
+            CatchLog::quiet($eRec, 'Service.RedPacketService');
+        }
                     }
                 } else {
                     Db::exec(
@@ -2638,7 +2664,8 @@ class RedPacketService
                 try {
                     Db::rollBack();
                 } catch (\Throwable $e2) {
-                }
+            CatchLog::quiet($e2, 'Service.RedPacketService');
+        }
                 error_log('[RP_DEBT][ALERT] collect fail id=' . $id . ' ' . $e->getMessage());
             }
         }
@@ -2763,6 +2790,7 @@ class RedPacketService
                 [time(), time()]
             );
         } catch (\Throwable $eLift) {
+            CatchLog::quiet($eLift, 'Service.RedPacketService');
         }
         $done = 0;
         $settler = new RedPacketSettlementService($this->wallet, ['red_packet' => $this->cfg]);
@@ -3133,7 +3161,8 @@ class RedPacketService
             try {
                 $this->clearRelayRetry($packetId);
             } catch (\Throwable $eClr) {
-            }
+            CatchLog::quiet($eClr, 'Service.RedPacketService');
+        }
         }
         // 接龙超时：群内公示自动结束（不扣最少者）；并清掉同群待续发，防止旧包复活
         if (!empty($isRelayExpire) && (int)($fresh['scope_type'] ?? 0) === 2) {
@@ -3266,7 +3295,8 @@ class RedPacketService
                     return (int)$m;
                 }
             } catch (\Throwable $e) {
-            }
+            CatchLog::quiet($e, 'Service.RedPacketService');
+        }
         }
         return 0;
     }
@@ -3329,9 +3359,11 @@ class RedPacketService
                 try {
                     $r->del($lockKey);
                 } catch (\Throwable $e) {
-                }
+            CatchLog::quiet($e, 'Service.RedPacketService');
+        }
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.RedPacketService');
         }
     }
 
@@ -3594,6 +3626,7 @@ class RedPacketService
         try {
             RedisClient::conn()->incr(RedisClient::key('rp:detail:ver:' . $packetId));
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.RedPacketService');
         }
     }
 
@@ -3609,6 +3642,7 @@ class RedPacketService
         try {
             $ver = (int)RedisClient::conn()->get(RedisClient::key('rp:detail:ver:' . $packetId));
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.RedPacketService');
         }
         $cacheKey = RedisClient::key('rp:detail:' . $packetId . ':' . $userId . ':' . (int)$viewerRole . ':v2:' . $ver);
         try {
@@ -3620,6 +3654,7 @@ class RedPacketService
                 }
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.RedPacketService');
         }
 
         $packet = Db::fetch('SELECT * FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1', [$packetId]);
@@ -3719,6 +3754,7 @@ class RedPacketService
         try {
             RedisClient::conn()->setex($cacheKey, 15, json_encode($result, JSON_UNESCAPED_UNICODE));
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.RedPacketService');
         }
         return $result;
     }

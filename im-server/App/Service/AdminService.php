@@ -2,6 +2,8 @@
 
 namespace Im\Service;
 
+use Im\Support\CatchLog;
+
 use Im\Support\Db;
 use Im\Support\IdGenerator;
 use Im\Support\RedisClient;
@@ -64,6 +66,7 @@ class AdminService
         try {
             RedisClient::conn()->del(RedisClient::key('admin:rows'));
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.AdminService');
         }
     }
 
@@ -106,6 +109,7 @@ class AdminService
                 }
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.AdminService');
         }
 
         $rows = Db::fetchAll(
@@ -128,6 +132,7 @@ class AdminService
         try {
             RedisClient::conn()->setex(RedisClient::key('admin:rows'), 60, json_encode($out, JSON_UNESCAPED_UNICODE));
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.AdminService');
         }
         return $out;
     }

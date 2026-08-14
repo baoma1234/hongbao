@@ -43,7 +43,8 @@ class GrabGuard
         $c = array_merge($c, $app['grab_guard']);
       }
     } catch (\Throwable $e) {
-    }
+            CatchLog::quiet($e, 'Support.GrabGuard');
+        }
     return $c;
   }
 
@@ -137,7 +138,8 @@ class GrabGuard
         }
       }
     } catch (\Throwable $e) {
-    }
+            CatchLog::quiet($e, 'Support.GrabGuard');
+        }
     return ['times' => $times, 'multi_members' => $multiMembers];
   }
 
@@ -212,7 +214,8 @@ class GrabGuard
       }
       $pipe->exec();
     } catch (\Throwable $e) {
-    }
+            CatchLog::quiet($e, 'Support.GrabGuard');
+        }
   }
 
   /**
@@ -244,7 +247,8 @@ class GrabGuard
       }
       $pipe->exec();
     } catch (\Throwable $e) {
-    }
+            CatchLog::quiet($e, 'Support.GrabGuard');
+        }
   }
 
   public static function clearChallenge($userId, $ip = '', $fp = '')
@@ -259,7 +263,8 @@ class GrabGuard
       }
       RedisClient::conn()->del(...$keys);
     } catch (\Throwable $e) {
-    }
+            CatchLog::quiet($e, 'Support.GrabGuard');
+        }
   }
 
   protected static function anyChallenged($userId, $ip, $fp)

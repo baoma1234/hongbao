@@ -88,6 +88,7 @@ class Db
         try {
             self::$pdo->exec('SET SESSION wait_timeout=28800, interactive_timeout=28800, net_read_timeout=60, net_write_timeout=60');
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Support.Db');
         }
         self::$lastOkAt = time();
         return self::$pdo;

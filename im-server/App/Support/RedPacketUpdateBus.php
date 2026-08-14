@@ -90,6 +90,7 @@ class RedPacketUpdateBus
                 $ms = max(40, min(800, (int)$cfg['redpacket']['update_coalesce_ms']));
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Support.RedPacketUpdateBus');
         }
         return $ms;
     }
@@ -233,6 +234,7 @@ class RedPacketUpdateBus
             $groupId = (int)($payload['group_id'] ?? 0);
             self::deliver($payload['event'], $groupId, []);
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Support.RedPacketUpdateBus');
         }
     }
 
@@ -244,6 +246,7 @@ class RedPacketUpdateBus
             $r = RedisClient::conn();
             $r->del(self::pendingKey($packetId), self::armedKey($packetId));
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Support.RedPacketUpdateBus');
         }
     }
 

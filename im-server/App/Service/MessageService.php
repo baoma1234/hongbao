@@ -2,6 +2,8 @@
 
 namespace Im\Service;
 
+use Im\Support\CatchLog;
+
 use Im\Support\Db;
 use Im\Support\IdGenerator;
 use Im\Support\RedisClient;
@@ -75,6 +77,7 @@ class MessageService
                 }
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.MessageService');
         }
         return $payload;
     }
@@ -272,6 +275,7 @@ class MessageService
             $r->lTrim($key, 0, 99);
             $r->expire($key, 86400 * 7);
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.MessageService');
         }
     }
 
@@ -305,7 +309,8 @@ class MessageService
                     return (int)$uid !== $from;
                 }));
             } catch (\Throwable $e) {
-            }
+            CatchLog::quiet($e, 'Service.MessageService');
+        }
         }
         if (!$uids) {
             return;
@@ -328,7 +333,8 @@ class MessageService
                     $r->expire($key, 86400 * 30);
                 }
             } catch (\Throwable $e2) {
-            }
+            CatchLog::quiet($e2, 'Service.MessageService');
+        }
         }
     }
 
@@ -339,6 +345,7 @@ class MessageService
                 RedisClient::key('unread:' . (int)$userId . ':' . (int)$conversationType . ':' . (string)$conversationId)
             );
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.MessageService');
         }
     }
 
@@ -449,6 +456,7 @@ class MessageService
                 RedisClient::key('convlist:' . $uid)
             );
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.MessageService');
         }
     }
 
@@ -495,9 +503,11 @@ class MessageService
                         ], JSON_UNESCAPED_UNICODE)
                     );
                 } catch (\Throwable $eLast) {
-                }
+            CatchLog::quiet($eLast, 'Service.MessageService');
+        }
             } catch (\Throwable $e) {
-            }
+            CatchLog::quiet($e, 'Service.MessageService');
+        }
             $uids = array_values(array_unique(array_filter(array_map('intval', $uids))));
         }
         try {
@@ -516,6 +526,7 @@ class MessageService
             $r->exec();
             // 列表短缓存靠 TTL 自然过期，避免群消息对上千在线用户逐个 DEL
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.MessageService');
         }
         // 私聊有新消息：恢复双方「已删除」隐藏，会话重新出现在列表
         if ($type === 1) {
@@ -560,6 +571,7 @@ class MessageService
                 ];
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.MessageService');
         }
         return $out;
     }
@@ -606,6 +618,7 @@ class MessageService
                 }
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.MessageService');
         }
         $groups = Db::fetchAll(
             'SELECT g.* FROM ' . Db::table('chat_groups') . ' g'
@@ -616,6 +629,7 @@ class MessageService
         try {
             RedisClient::conn()->setex($cacheKey, 60, json_encode($groups, JSON_UNESCAPED_UNICODE));
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.MessageService');
         }
         return $groups;
     }
@@ -626,6 +640,7 @@ class MessageService
         try {
             RedisClient::conn()->del(RedisClient::key('uid:' . (int)$userId . ':my_groups'));
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.MessageService');
         }
     }
 
@@ -650,6 +665,7 @@ class MessageService
             $r->zRemRangeByRank($key, 0, -201);
             $r->expire($key, 86400 * 30);
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.MessageService');
         }
     }
 
@@ -756,7 +772,8 @@ class MessageService
                     }
                 }
             } catch (\Throwable $e) {
-            }
+            CatchLog::quiet($e, 'Service.MessageService');
+        }
         }
 
         $sql = 'SELECT id,msg_id,conversation_type,conversation_id,group_id,from_user_id,to_user_id,'
@@ -793,7 +810,8 @@ class MessageService
                     $r->del($fullKey);
                 }
             } catch (\Throwable $e) {
-            }
+            CatchLog::quiet($e, 'Service.MessageService');
+        }
         }
         return $list;
     }
@@ -962,7 +980,8 @@ class MessageService
                         $r->zRem(RedisClient::key('pins:' . $userId), $member);
                     }
                 } catch (\Throwable $e) {
-                }
+            CatchLog::quiet($e, 'Service.MessageService');
+        }
             }
             unset($groupIdsNeeded);
             // 不再把「无消息的空群」塞进主会话列表（万人群会把列表撑爆）
@@ -1480,7 +1499,8 @@ class MessageService
             try {
                 Db::rollBack();
             } catch (\Throwable $e2) {
-            }
+            CatchLog::quiet($e2, 'Service.MessageService');
+        }
             throw new \RuntimeException('delete backup failed');
         }
 
@@ -1494,6 +1514,7 @@ class MessageService
             $r->sAdd($hk, $cid);
             $r->expire($hk, 86400 * 365);
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.MessageService');
         }
         $this->invalidateConvListCache($userId);
 
@@ -1558,6 +1579,7 @@ class MessageService
             $r->zRem(RedisClient::key('pins:' . $userId), $member);
             $r->del(RedisClient::key('unread:' . $userId . ':2:' . $groupId));
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.MessageService');
         }
         $this->invalidateConvListCache($userId);
 
@@ -1566,7 +1588,8 @@ class MessageService
             try {
                 $this->markConversationRead($userId, 2, (string)$groupId, $clearedMsgId);
             } catch (\Throwable $e) {
-            }
+            CatchLog::quiet($e, 'Service.MessageService');
+        }
         }
 
         return [
@@ -1611,6 +1634,7 @@ class MessageService
                 }
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.MessageService');
         }
 
         $out = [];
@@ -1636,6 +1660,7 @@ class MessageService
                 json_encode($out, JSON_UNESCAPED_UNICODE)
             );
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.MessageService');
         }
         return $out;
     }
@@ -1645,6 +1670,7 @@ class MessageService
         try {
             RedisClient::conn()->del(RedisClient::key('gclear:' . (int)$userId));
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.MessageService');
         }
     }
 
@@ -1692,7 +1718,8 @@ class MessageService
                     $r->zRem($ikey, $member);
                 }
             } catch (\Throwable $e) {
-            }
+            CatchLog::quiet($e, 'Service.MessageService');
+        }
         }
     }
 
@@ -1717,6 +1744,7 @@ class MessageService
                 }
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.MessageService');
         }
         return $out;
     }
@@ -1734,6 +1762,7 @@ class MessageService
                 $r->zRem($ikey, '1:' . $cid);
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.MessageService');
         }
         $items = array_values(array_filter($items, function ($it) use ($hidden) {
             if ((int)($it['conversation_type'] ?? 0) !== 1) {
@@ -1819,6 +1848,7 @@ class MessageService
             }
             $this->invalidateConvListCache($userId);
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.MessageService');
         }
     }
 
@@ -1833,6 +1863,7 @@ class MessageService
         try {
             $wasHidden = (bool)RedisClient::conn()->sIsMember(RedisClient::key('hidden:' . $userId), $cid);
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.MessageService');
         }
         if (!$wasHidden) {
             // Redis 未命中时也查库，避免漏恢复
@@ -1857,10 +1888,12 @@ class MessageService
                 [time(), $userId, $cid]
             );
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.MessageService');
         }
         try {
             RedisClient::conn()->sRem(RedisClient::key('hidden:' . $userId), $cid);
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.MessageService');
         }
         $this->invalidateConvListCache($userId);
     }

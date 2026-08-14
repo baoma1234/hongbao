@@ -34,7 +34,8 @@ class TronBlockClient
         return (int)$latest['block_num'];
       }
     } catch (\Throwable $e) {
-    }
+            CatchLog::quiet($e, 'Support.TronBlockClient');
+        }
 
     $cacheKey = 'tron:now_num';
     try {
@@ -46,7 +47,8 @@ class TronBlockClient
         return $num;
       }
     } catch (\Throwable $e) {
-    }
+            CatchLog::quiet($e, 'Support.TronBlockClient');
+        }
 
     $block = self::fetchNowBlock($timeout);
     $num = (int)$block['block_num'];
@@ -83,7 +85,8 @@ class TronBlockClient
         (string)$num
       );
     } catch (\Throwable $e) {
-    }
+            CatchLog::quiet($e, 'Support.TronBlockClient');
+        }
     self::cachePutBlock($out);
     return $out;
   }
@@ -149,6 +152,7 @@ class TronBlockClient
         try {
           RedisClient::conn()->del($lockKey);
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Support.TronBlockClient');
         }
       }
     }
@@ -221,7 +225,8 @@ class TronBlockClient
         }
       }
     } catch (\Throwable $e) {
-    }
+            CatchLog::quiet($e, 'Support.TronBlockClient');
+        }
     return null;
   }
 
@@ -243,7 +248,8 @@ class TronBlockClient
         ], JSON_UNESCAPED_UNICODE)
       );
     } catch (\Throwable $e) {
-    }
+            CatchLog::quiet($e, 'Support.TronBlockClient');
+        }
   }
 
   protected static function nowCacheTtl()
@@ -270,7 +276,8 @@ class TronBlockClient
         $cfg = $app['tron'];
       }
     } catch (\Throwable $e) {
-    }
+            CatchLog::quiet($e, 'Support.TronBlockClient');
+        }
     self::$cfg = $cfg;
     return self::$cfg;
   }

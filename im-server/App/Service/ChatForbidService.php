@@ -2,6 +2,8 @@
 
 namespace Im\Service;
 
+use Im\Support\CatchLog;
+
 use Im\Support\Db;
 use Im\Support\RedisClient;
 
@@ -58,6 +60,7 @@ class ChatForbidService
                 return $flags;
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.ChatForbidService');
         }
         try {
             $row = Db::fetch(
@@ -86,6 +89,7 @@ class ChatForbidService
                 $r->setex($key, 60, '{}');
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.ChatForbidService');
         }
     }
 
@@ -95,6 +99,7 @@ class ChatForbidService
         try {
             RedisClient::conn()->del(RedisClient::key('chat_forbid:' . (int)$userId));
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.ChatForbidService');
         }
     }
 
