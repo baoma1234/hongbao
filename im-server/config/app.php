@@ -96,7 +96,7 @@ return array_replace_recursive([
         'reuse_port' => (PHP_OS_FAMILY !== 'Windows'),
     ],
     'push' => [
-        'drain_interval' => 0.01,  // 高并发更勤刷跨进程队列
+        'drain_interval' => 0.03,  // 降低空闲 Redis 轮询；峰值仍靠 batch 消化
         'drain_batch'    => 2000,  // worker 多时加大单次消费
     ],
     // 17273 HTTP API（列表/历史/代聊）；与 WS count 独立
@@ -188,7 +188,7 @@ return array_replace_recursive([
         'ledger_table'               => 'fans_ledger',
         'wallet_field'               => 'hongbao',
         // 抢包验资余额短缓存（秒）；change() 后立即回写
-        'balance_cache_ttl'          => 3,
+        'balance_cache_ttl'          => 10,
     ],
     'admin_bridge' => [
         'key' => '758fa83a00956f0419cd8abae1b0e86acffa7c166acb9784',

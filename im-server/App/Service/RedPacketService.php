@@ -1396,16 +1396,11 @@ class RedPacketService
             } elseif ($packetType === 5) {
                 $grabRemark = '红包接龙入账';
             }
-            $walletChange = $this->wallet->change(
-                $userId,
-                $amount,
-                'red_packet_grab',
-                $grabRemark,
-                ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId]
-            );
-
-            // 赔付类玩法：拼手气/接龙领取瞬间锁定潜在赔付额；埋雷不冻结
+            $bizMeta = ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId];
             $frozenAmt = 0.0;
+            $walletAvail = null;
+            $walletFrozen = null;
+            // 拼手气/接龙：入账+冻结合并为一次 UPDATE，少 2～3 次 SQL
             if ($shouldFreeze && $needCompensate > 0.00001) {
                 $frozenAmt = round((float)$needCompensate, 2);
                 $freezeRemark = '红包潜在赔付冻结';
@@ -1414,13 +1409,18 @@ class RedPacketService
                 } elseif ($packetType === 5) {
                     $freezeRemark = '红宝接龙续发冻结';
                 }
-                $this->wallet->freeze(
+                $walletCombo = $this->wallet->creditAndFreeze(
                     $userId,
+                    $amount,
                     $frozenAmt,
+                    'red_packet_grab',
+                    $grabRemark,
                     'red_packet_freeze',
                     $freezeRemark,
-                    ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId]
+                    $bizMeta
                 );
+                $walletAvail = (float)($walletCombo['after'] ?? 0);
+                $walletFrozen = (float)($walletCombo['frozen_after'] ?? 0);
                 if ($recordId > 0) {
                     Db::exec(
                         'UPDATE ' . Db::table('chat_red_packet_records')
@@ -1428,6 +1428,15 @@ class RedPacketService
                         [sprintf('%.2f', $frozenAmt), $recordId]
                     );
                 }
+            } else {
+                $walletChange = $this->wallet->change(
+                    $userId,
+                    $amount,
+                    'red_packet_grab',
+                    $grabRemark,
+                    $bizMeta
+                );
+                $walletAvail = (float)($walletChange['after'] ?? 0);
             }
 
             // 埋雷中雷：不经冻结，直接赔付（payMineHitForRecord 幂等）
@@ -1452,13 +1461,27 @@ class RedPacketService
                         'compensate_status' => 0,
                     ],
                     $needCompensate,
-                    ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId]
+                    $bizMeta
                 );
                 $mineHit = !empty($pay['paid']) || !empty($pay['already']);
                 $minePayAmount = round((float)($pay['amount'] ?? $needCompensate), 2);
                 if ($mineHit) {
                     $frozenAmt = 0.0;
+                    // 中雷扣款后余额以钱包返回为准（避免再 force 读库）
+                    if (isset($pay['payer_after'])) {
+                        $walletAvail = (float)$pay['payer_after'];
+                    } else {
+                        $walletAvail = (float)$this->wallet->getBalance($userId, false);
+                    }
+                    $walletFrozen = (float)$this->wallet->getFrozen($userId, false);
                 }
+            }
+
+            if ($walletFrozen === null) {
+                $walletFrozen = (float)$this->wallet->getFrozen($userId, false);
+            }
+            if ($walletAvail === null) {
+                $walletAvail = (float)$this->wallet->getBalance($userId, false);
             }
 
             Db::commit();
@@ -1515,14 +1538,16 @@ class RedPacketService
             CatchLog::quiet($e, 'Service.RedPacketService');
         }
 
-        $view = $this->wallet->getWalletView($userId, true);
+        // 用本路径钱包返回值，避免 getWalletView(true) 再打 2 次库
+        $balOut = isset($walletAvail) ? round((float)$walletAvail, 2) : round((float)$this->wallet->getBalance($userId, false), 2);
+        $frOut = isset($walletFrozen) ? round((float)$walletFrozen, 2) : round((float)$this->wallet->getFrozen($userId, false), 2);
         return [
             'packet_id'           => $packetId,
             'amount'              => $amount,
             'remain_count'        => $remain,
             'status'              => $status,
-            'balance'             => $view['hongbao'],
-            'hongbao_frozen'      => $view['hongbao_frozen'],
+            'balance'             => $balOut,
+            'hongbao_frozen'      => $frOut,
             'frozen_amount'       => isset($frozenAmt) ? round((float)$frozenAmt, 2) : 0.0,
             'tail_digit'          => $tailDigit,
             'is_mine_hit'         => $mineHit,
@@ -1554,7 +1579,7 @@ class RedPacketService
         $packetNo = (string)($packet['packet_no'] ?? '');
         $amt = round((float)$compensateAmount, 2);
         if ($recordId <= 0 || $payerId <= 0 || $fromUserId <= 0 || $amt <= 0.00001) {
-            return ['paid' => false, 'already' => false, 'amount' => 0.0, 'ledger_id' => 0];
+            return ['paid' => false, 'already' => false, 'amount' => 0.0, 'ledger_id' => 0, 'payer_after' => null];
         }
 
         $fresh = Db::fetch(
@@ -1563,7 +1588,7 @@ class RedPacketService
             [$recordId]
         );
         if (!$fresh) {
-            return ['paid' => false, 'already' => false, 'amount' => 0.0, 'ledger_id' => 0];
+            return ['paid' => false, 'already' => false, 'amount' => 0.0, 'ledger_id' => 0, 'payer_after' => null];
         }
         if ((int)($fresh['compensate_status'] ?? 0) === 2) {
             return [
@@ -1571,6 +1596,7 @@ class RedPacketService
                 'already' => true,
                 'amount'  => round((float)($fresh['compensate_amount'] ?? $amt), 2),
                 'ledger_id' => 0,
+                'payer_after' => null,
             ];
         }
 
@@ -1637,7 +1663,7 @@ class RedPacketService
             $payerId,
             $amt
         ));
-        return ['paid' => true, 'already' => false, 'amount' => $amt, 'ledger_id' => $ledgerOutId];
+        return ['paid' => true, 'already' => false, 'amount' => $amt, 'ledger_id' => $ledgerOutId, 'payer_after' => (float)($out['after'] ?? 0)];
     }
 
     /**

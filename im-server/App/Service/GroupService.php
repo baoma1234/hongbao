@@ -355,60 +355,42 @@ class GroupService
         }
         $cap = self::maxPushOnline();
 
-        // 小群优先准：Redis online / uid:conns（cron 无本机 ConnMap，必须走 Redis）
+        // 热路径：SINTER(online, mset) + 本机连接补齐（避免再 SMEMBERS 全员/全局 online）
         try {
-            $members = $this->memberUserIds($groupId);
-            if (count($members) <= 500) {
-                $out = \Im\Support\ConnMap::filterOnlineUserIds($members);
-                $out = $this->mergeMembersWithActiveConns($members, $out);
-                // 再并 Redis online 集合（机器人/cron 发包时 inbox 扇出依赖此路径）
-                try {
-                    $this->ensureMemberSet($groupId);
-                    $ids = RedisClient::conn()->sInter(
-                        RedisClient::key('online'),
-                        RedisClient::key('g:' . $groupId . ':mset')
-                    );
-                    foreach (array_map('intval', $ids ?: []) as $uid) {
-                        if ($uid > 0) {
-                            $out[] = $uid;
-                        }
-                    }
-                    $out = array_values(array_unique(array_filter($out)));
-                } catch (\Throwable $eRedis) {
-            CatchLog::quiet($eRedis, 'Service.GroupService');
-        }
-                if (count($out) > $cap) {
-                    $out = array_slice($out, 0, $cap);
-                }
-                return $out;
-            }
-        } catch (\Throwable $e) {
-            CatchLog::quiet($e, 'Service.GroupService');
-        }
-
-        $this->ensureMemberSet($groupId);
-        try {
+            $this->ensureMemberSet($groupId);
             $ids = RedisClient::conn()->sInter(
                 RedisClient::key('online'),
                 RedisClient::key('g:' . $groupId . ':mset')
             );
             $out = array_values(array_unique(array_filter(array_map('intval', $ids ?: []))));
-            // 并入本机在线（SINTER 可能漏掉 Redis online 未写入的连接）
             try {
                 foreach (\Im\Support\ConnMap::filterLocalGroupMembers($groupId) as $uid) {
                     $out[] = (int)$uid;
                 }
                 $out = array_values(array_unique(array_filter($out)));
             } catch (\Throwable $eLocal) {
-            CatchLog::quiet($eLocal, 'Service.GroupService');
-        }
+                CatchLog::quiet($eLocal, 'Service.GroupService');
+            }
             if (count($out) > $cap) {
-                error_log('[IM] group online fanout capped gid=' . $groupId . ' online=' . count($out) . ' cap=' . $cap);
                 $out = array_slice($out, 0, $cap);
             }
             return $out;
         } catch (\Throwable $e) {
-            return \Im\Support\ConnMap::filterOnlineUserIds($this->memberUserIds($groupId));
+            CatchLog::quiet($e, 'Service.GroupService');
+        }
+
+        // 回退：成员表过滤（mset 未热或 Redis 异常）
+        try {
+            $members = $this->memberUserIds($groupId);
+            $out = \Im\Support\ConnMap::filterOnlineUserIds($members);
+            $out = $this->mergeMembersWithActiveConns($members, $out);
+            if (count($out) > $cap) {
+                $out = array_slice($out, 0, $cap);
+            }
+            return $out;
+        } catch (\Throwable $e2) {
+            CatchLog::quiet($e2, 'Service.GroupService');
+            return [];
         }
     }
 

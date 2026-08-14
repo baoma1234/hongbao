@@ -230,6 +230,119 @@ class WalletService
     }
 
     /**
+     * 抢包热路径：入账 + 冻结一次 UPDATE（少一轮 UPDATE/SELECT）。
+     * 语义等价于 change(+credit) 再 freeze(freezeAmt)。
+     *
+     * @return array{before:float,after:float,credit_after:float,frozen_before:float,frozen_after:float,delta:float,ledger_credit:int,ledger_freeze:int}
+     */
+    public function creditAndFreeze(
+        $userId,
+        $credit,
+        $freezeAmt,
+        $creditType,
+        $creditRemark,
+        $freezeType = 'red_packet_freeze',
+        $freezeRemark = '',
+        array $meta = []
+    ) {
+        $userId = (int)$userId;
+        $credit = round((float)$credit, 2);
+        $freezeAmt = round((float)$freezeAmt, 2);
+        if ($userId <= 0 || $credit <= 0) {
+            throw new \InvalidArgumentException('invalid creditAndFreeze');
+        }
+        if ($freezeAmt <= 0.00001) {
+            $chg = $this->change($userId, $credit, $creditType, $creditRemark, $meta);
+            $fr = $this->getFrozen($userId, false);
+            return [
+                'before'         => (float)$chg['before'],
+                'after'          => (float)$chg['after'],
+                'credit_after'   => (float)$chg['after'],
+                'frozen_before'  => $fr,
+                'frozen_after'   => $fr,
+                'delta'          => $credit,
+                'ledger_credit'  => (int)$chg['ledger_id'],
+                'ledger_freeze'  => 0,
+            ];
+        }
+
+        $field = $this->cfg['field'];
+        $now = time();
+        $cAbs = sprintf('%.2f', $credit);
+        $fAbs = sprintf('%.2f', $freezeAmt);
+        $table = Db::table($this->cfg['account_table']);
+        // hongbao 先加领取额再扣冻结；条件保证冻结不超过「领取后」可用余额
+        $affected = Db::exec(
+            "UPDATE {$table} SET"
+            . " `{$field}`=`{$field}`+(?)-(?),"
+            . " hongbao_frozen=hongbao_frozen+(?),"
+            . " updatetime=?"
+            . " WHERE user_id=? AND status='normal' AND (`{$field}`+(?))>=?",
+            [$cAbs, $fAbs, $fAbs, $now, $userId, $cAbs, $fAbs]
+        );
+        if ($affected <= 0) {
+            // 回退分步，保留原错误语义
+            $chg = $this->change($userId, $credit, $creditType, $creditRemark, $meta);
+            $fr = $this->freeze($userId, $freezeAmt, $freezeType, $freezeRemark, $meta);
+            return [
+                'before'         => (float)$chg['before'],
+                'after'          => (float)$fr['after'],
+                'credit_after'   => (float)$chg['after'],
+                'frozen_before'  => (float)$fr['frozen_before'],
+                'frozen_after'   => (float)$fr['frozen_after'],
+                'delta'          => $credit - $freezeAmt,
+                'ledger_credit'  => (int)$chg['ledger_id'],
+                'ledger_freeze'  => (int)$fr['ledger_id'],
+            ];
+        }
+
+        $row = Db::fetch(
+            "SELECT `{$field}` AS bal, hongbao_frozen, rights FROM {$table} WHERE user_id=? LIMIT 1",
+            [$userId]
+        );
+        $after = round((float)($row['bal'] ?? 0), 2);
+        $frozenAfter = round((float)($row['hongbao_frozen'] ?? 0), 2);
+        $creditAfter = round($after + $freezeAmt, 2);
+        $before = round($creditAfter - $credit, 2);
+        $frozenBefore = round($frozenAfter - $freezeAmt, 2);
+        $rights = (float)($row['rights'] ?? 0);
+
+        $ledgerCredit = $this->insertLedger(
+            $userId,
+            (string)$creditType,
+            $credit,
+            $creditAfter,
+            $rights,
+            (string)$creditRemark,
+            $meta,
+            $now
+        );
+        $ledgerFreeze = $this->insertLedger(
+            $userId,
+            (string)$freezeType,
+            -$freezeAmt,
+            $after,
+            $rights,
+            (string)$freezeRemark,
+            $meta,
+            $now
+        );
+        $this->cachePut($userId, $after);
+        $this->frozenCachePut($userId, $frozenAfter);
+
+        return [
+            'before'         => $before,
+            'after'          => $after,
+            'credit_after'   => $creditAfter,
+            'frozen_before'  => $frozenBefore,
+            'frozen_after'   => $frozenAfter,
+            'delta'          => round($credit - $freezeAmt, 2),
+            'ledger_credit'  => $ledgerCredit,
+            'ledger_freeze'  => $ledgerFreeze,
+        ];
+    }
+
+    /**
      * 冻结 → 可用（红包领完结算或过期时解冻）
      * @return array{before:float,after:float,frozen_before:float,frozen_after:float,delta:float,ledger_id:int}
      */

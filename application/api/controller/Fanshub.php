@@ -134,7 +134,7 @@ class Fanshub extends Api
      */
     public function jackpot()
     {
-        $data = FansHubService::jackpotPayload(true, true);
+        $data = FansHubService::jackpotPayload(false, true);
         $this->success('ok', $data);
     }
 

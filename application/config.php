@@ -184,14 +184,18 @@ return [
     // | 缓存设置
     // +----------------------------------------------------------------------
     'cache'                  => [
-        // 驱动方式
-        'type'   => 'File',
-        // 缓存保存目录
-        'path'   => CACHE_PATH,
-        // 缓存前缀
-        'prefix' => '',
-        // 缓存有效期 0表示永久缓存
-        'expire' => 0,
+        // Redis：避免 File 缓存在多 FPM 下锁盘（市场/jackpot 热写）
+        'type'       => Env::get('cache.type', 'Redis'),
+        'host'       => Env::get('redis.host', '127.0.0.1'),
+        'port'       => (int)Env::get('redis.port', 6379),
+        'password'   => Env::get('redis.password', ''),
+        'select'     => (int)Env::get('cache.select', 1),
+        'timeout'    => (int)Env::get('cache.timeout', 2),
+        'expire'     => 0,
+        'persistent' => false,
+        'prefix'     => Env::get('cache.prefix', 'tp:'),
+        // File 回退路径（仅当 cache.type=File 时使用）
+        'path'       => CACHE_PATH,
     ],
     // +----------------------------------------------------------------------
     // | 会话设置
