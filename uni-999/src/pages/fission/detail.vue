@@ -93,7 +93,7 @@
     </scroll-view>
     <BottomTabBar active="fission" />
 
-    <!-- 开奖后逐份拆红包：H5 / Safari / APK / IPA -->
+    <!-- 开奖后逐份拆红包：设计稿 1:1 + 拆开动画（H5 / Safari / APK / IPA） -->
     <view
       v-if="claimOpen"
       class="fx-claim-mask"
@@ -101,27 +101,46 @@
       @touchmove.stop.prevent
       @click="closeClaim"
     >
-      <view class="fx-claim-panel" :style="claimPanelStyle" @click.stop>
-        <view v-if="!claimOpened" class="fx-claim-closed" @click="doClaim">
-          <image class="fx-claim-img" src="/static/niuniu/claim-hongbao.png" mode="widthFix" />
-          <text class="fx-claim-cta">点击拆开红包</text>
-          <text class="fx-claim-remain">还剩 {{ claimRemainHint }} 份可领</text>
+      <view class="fx-claim-stage" @click.stop>
+        <!-- 未拆开：设计稿红包 + 金币可点拆开 -->
+        <view v-if="!claimOpened" class="fx-claim-closed" :class="{ 'is-opening': claimOpening }">
+          <image
+            class="fx-claim-art"
+            src="/static/fission/claim-hongbao.png"
+            mode="widthFix"
+          />
+          <view
+            class="fx-claim-seal"
+            :class="{ spin: claimOpening }"
+            @click="doClaim"
+          />
+          <view class="fx-claim-foot">
+            <text class="fx-claim-cta">{{ claimOpening ? '拆开中…' : '点击金币拆开红包' }}</text>
+            <text class="fx-claim-remain">还剩 {{ claimRemainHint }} 份可领</text>
+          </view>
         </view>
+        <!-- 已拆开：金额浮层 -->
         <view v-else class="fx-claim-opened">
-          <image class="fx-claim-img open" src="/static/niuniu/claim-open.png" mode="widthFix" />
-          <text class="fx-claim-got">恭喜获得</text>
-          <text class="fx-claim-amt">¥{{ claimAmtText }}</text>
-          <text class="fx-claim-sub">已入账红宝</text>
-          <button
-            v-if="unclaimedCount > 0"
-            type="button"
-            class="fx-claim-btn"
-            :disabled="claiming"
-            @click="prepareNextClaim"
-          >
-            继续拆下一份（剩 {{ unclaimedCount }}）
-          </button>
-          <button v-else type="button" class="fx-claim-btn ghost" @click="closeClaim">完成</button>
+          <image
+            class="fx-claim-art is-open"
+            src="/static/fission/claim-hongbao.png"
+            mode="widthFix"
+          />
+          <view class="fx-claim-result">
+            <text class="fx-claim-got">恭喜获得</text>
+            <text class="fx-claim-amt">¥{{ claimAmtText }}</text>
+            <text class="fx-claim-sub">已入账红宝</text>
+            <button
+              v-if="unclaimedCount > 0"
+              type="button"
+              class="fx-claim-btn"
+              :disabled="claiming"
+              @click="prepareNextClaim"
+            >
+              继续拆下一份（剩 {{ unclaimedCount }}）
+            </button>
+            <button v-else type="button" class="fx-claim-btn ghost" @click="closeClaim">完成</button>
+          </view>
         </view>
         <view class="fx-claim-x" @click="closeClaim">×</view>
       </view>
@@ -144,11 +163,13 @@ const scrollH = ref('100vh')
 const remainSec = ref(0)
 const claimOpen = ref(false)
 const claimOpened = ref(false)
+const claimOpening = ref(false)
 const claiming = ref(false)
 const claimAmt = ref(0)
 const claimSafeTop = ref(0)
 const claimSafeBottom = ref(0)
 let tickTimer = null
+let claimAnimTimer = null
 
 const hasActivity = computed(() => !!(detail.value && detail.value.has_activity))
 const state = computed(() => (detail.value && detail.value.state) || 'none')
@@ -180,7 +201,6 @@ const claimMaskStyle = computed(() => ({
   paddingTop: claimSafeTop.value + 'px',
   paddingBottom: claimSafeBottom.value + 'px',
 }))
-const claimPanelStyle = computed(() => ({}))
 
 const displayRules = computed(() => [
   '活动开始后每邀 1 位新人注册：邀请人和被邀请人各得 1 份（每人上限' + userCap.value + '）',
@@ -234,28 +254,42 @@ function onQualClick() {
 function openClaim() {
   measureScroll()
   claimOpened.value = false
+  claimOpening.value = false
   claimAmt.value = 0
   claimOpen.value = true
 }
 
 function closeClaim() {
-  if (claiming.value) return
+  if (claiming.value || claimOpening.value) return
   claimOpen.value = false
   claimOpened.value = false
+  claimOpening.value = false
 }
 
 function prepareNextClaim() {
-  if (claiming.value) return
+  if (claiming.value || claimOpening.value) return
   claimOpened.value = false
+  claimOpening.value = false
   claimAmt.value = 0
 }
 
+function waitMs(ms) {
+  return new Promise((resolve) => {
+    claimAnimTimer = setTimeout(() => {
+      claimAnimTimer = null
+      resolve()
+    }, ms)
+  })
+}
+
 async function doClaim() {
-  if (claiming.value || claimOpened.value) return
+  if (claiming.value || claimOpened.value || claimOpening.value) return
   claiming.value = true
+  claimOpening.value = true
   try {
-    const data = await apiRequest('fissionclaim', 'POST', {})
+    const [data] = await Promise.all([apiRequest('fissionclaim', 'POST', {}), waitMs(780)])
     claimAmt.value = Number((data && data.amount) || 0)
+    claimOpening.value = false
     claimOpened.value = true
     if (data && data.detail) {
       detail.value = data.detail
@@ -263,6 +297,7 @@ async function doClaim() {
       await loadDetail()
     }
   } catch (e) {
+    claimOpening.value = false
     uni.showToast({ title: (e && e.message) || '领取失败', icon: 'none' })
     if (String((e && e.message) || '').indexOf('没有可领取') >= 0) {
       claimOpen.value = false
@@ -349,7 +384,13 @@ onShow(() => {
   loadDetail()
 })
 
-onUnmounted(() => stopTick())
+onUnmounted(() => {
+  stopTick()
+  if (claimAnimTimer) {
+    clearTimeout(claimAnimTimer)
+    claimAnimTimer = null
+  }
+})
 </script>
 
 <style scoped>
@@ -797,7 +838,7 @@ onUnmounted(() => stopTick())
   top: 0;
   bottom: 0;
   z-index: 1200;
-  background: rgba(0, 0, 0, 0.72);
+  background: rgba(0, 0, 0, 0.86);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -806,57 +847,100 @@ onUnmounted(() => stopTick())
   overscroll-behavior: none;
   /* #endif */
 }
-.fx-claim-panel {
+.fx-claim-stage {
   position: relative;
-  width: min(86vw, 340px);
-  max-width: 340px;
-  padding: 18px 16px 22px;
-  border-radius: 18px;
-  background: linear-gradient(180deg, #2a120f 0%, #140a09 100%);
-  border: 1px solid rgba(255, 210, 120, 0.28);
+  width: min(92vw, 360px);
+  max-width: 360px;
   box-sizing: border-box;
   text-align: center;
 }
-.fx-claim-img {
-  width: 68%;
-  max-width: 220px;
-  margin: 8px auto 12px;
-  display: block;
+.fx-claim-closed,
+.fx-claim-opened {
+  position: relative;
+  width: 100%;
 }
-.fx-claim-img.open {
-  width: 72%;
+.fx-claim-closed.is-opening .fx-claim-art {
+  animation: fx-claim-shake 0.45s ease-in-out infinite;
+}
+.fx-claim-art {
+  width: 100%;
+  display: block;
+  margin: 0 auto;
+  filter: drop-shadow(0 18px 36px rgba(180, 20, 0, 0.45));
+}
+.fx-claim-art.is-open {
+  opacity: 0.28;
+  filter: blur(1px) brightness(0.55);
+  transform: scale(0.96);
+}
+/* 金币热区：对准设计稿中央 ¥ 印章 */
+.fx-claim-seal {
+  position: absolute;
+  left: 50%;
+  top: 34%;
+  width: 18vw;
+  height: 18vw;
+  max-width: 78px;
+  max-height: 78px;
+  min-width: 56px;
+  min-height: 56px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  z-index: 3;
+  box-shadow: 0 0 0 0 rgba(255, 214, 120, 0.55);
+  animation: fx-seal-pulse 1.5s ease-in-out infinite;
+}
+.fx-claim-seal.spin {
+  animation: fx-seal-spin 0.78s linear infinite;
+  box-shadow: 0 0 22px 6px rgba(255, 210, 100, 0.65);
+  background: radial-gradient(circle at 40% 35%, rgba(255, 236, 170, 0.35), rgba(212, 150, 40, 0.15) 55%, transparent 70%);
+}
+.fx-claim-foot {
+  margin-top: 10px;
+  padding: 0 8px 4px;
 }
 .fx-claim-cta {
   display: block;
   color: #ffe6a8;
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 800;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
 }
 .fx-claim-remain {
   display: block;
   color: #c9b08a;
   font-size: 13px;
 }
+.fx-claim-result {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  transform: translate(-50%, -50%);
+  width: 78%;
+  z-index: 4;
+  animation: fx-result-pop 0.42s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
 .fx-claim-got {
   display: block;
   color: #ffdca0;
-  font-size: 14px;
-  margin-top: 4px;
+  font-size: 15px;
+  margin-bottom: 4px;
 }
 .fx-claim-amt {
   display: block;
-  color: #fff1c2;
-  font-size: 34px;
+  color: #fff6d0;
+  font-size: 40px;
   font-weight: 900;
-  margin: 6px 0;
+  margin: 4px 0 6px;
   letter-spacing: 1px;
+  text-shadow: 0 4px 16px rgba(0, 0, 0, 0.55);
 }
 .fx-claim-sub {
   display: block;
   color: #b9a07a;
   font-size: 12px;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 .fx-claim-btn {
   width: 100%;
@@ -880,13 +964,58 @@ onUnmounted(() => stopTick())
 }
 .fx-claim-x {
   position: absolute;
-  top: 8px;
-  right: 12px;
-  width: 32px;
-  height: 32px;
-  line-height: 32px;
+  top: -6px;
+  right: 2px;
+  width: 36px;
+  height: 36px;
+  line-height: 36px;
   text-align: center;
   color: #d7c4a0;
-  font-size: 24px;
+  font-size: 28px;
+  z-index: 5;
+}
+@keyframes fx-seal-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 214, 120, 0.5);
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 12px rgba(255, 214, 120, 0);
+    transform: translate(-50%, -50%) scale(1.06);
+  }
+}
+@keyframes fx-seal-spin {
+  0% {
+    transform: translate(-50%, -50%) rotate(0deg) scale(1);
+  }
+  50% {
+    transform: translate(-50%, -50%) rotate(180deg) scale(1.1);
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(360deg) scale(1);
+  }
+}
+@keyframes fx-claim-shake {
+  0%,
+  100% {
+    transform: translateX(0) rotate(0deg);
+  }
+  25% {
+    transform: translateX(-3px) rotate(-0.6deg);
+  }
+  75% {
+    transform: translateX(3px) rotate(0.6deg);
+  }
+}
+@keyframes fx-result-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -40%) scale(0.7);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
 }
 </style>

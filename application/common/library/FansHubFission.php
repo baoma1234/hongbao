@@ -355,6 +355,86 @@ class FansHubFission
     }
 
     /**
+     * 后台给指定用户加资格份数
+     * - 进行中：写入资格并累加全局进度（可触发满额开奖），默认不校验单人上限
+     * - 已开奖：可补发可领取份（需指定每份 win_amount），不改全局进度
+     *
+     * @param int        $activityId
+     * @param int        $userId
+     * @param int        $count
+     * @param float|null $winAmount  已开奖时每份奖金；进行中传 null
+     * @return array{granted:int,activity_id:int,user_id:int,status:int}
+     */
+    public static function adminGrantQuals($activityId, $userId, $count, $winAmount = null)
+    {
+        $activityId = (int)$activityId;
+        $userId = (int)$userId;
+        $count = max(1, min(100, (int)$count));
+        if ($activityId <= 0 || $userId <= 0) {
+            throw new Exception('活动或用户无效');
+        }
+        $user = Db::name('user')->where('id', $userId)->find();
+        if (!$user) {
+            throw new Exception('用户不存在');
+        }
+        $act = Db::name('fans_fission_activity')->where('id', $activityId)->find();
+        if (!$act) {
+            throw new Exception('活动不存在');
+        }
+        $status = (int)$act['status'];
+        $granted = 0;
+
+        if ($status === FissionActivity::STATUS_RUNNING) {
+            for ($i = 0; $i < $count; $i++) {
+                $ref = (int)(microtime(true) * 1000000) + $i;
+                $ok = self::grantQualLocked(
+                    $activityId,
+                    $userId,
+                    FissionQual::SOURCE_ADMIN,
+                    $ref,
+                    false
+                );
+                if (!$ok) {
+                    break;
+                }
+                $granted++;
+            }
+        } elseif ($status === FissionActivity::STATUS_SUCCESS) {
+            $amt = round((float)$winAmount, 2);
+            if ($amt <= 0) {
+                throw new Exception('已开奖活动补发须指定每份奖金');
+            }
+            $now = time();
+            for ($i = 0; $i < $count; $i++) {
+                Db::name('fans_fission_qual')->insert([
+                    'activity_id' => $activityId,
+                    'user_id'     => $userId,
+                    'source'      => FissionQual::SOURCE_ADMIN,
+                    'ref_user_id' => (int)(microtime(true) * 1000000) + $i,
+                    'win_amount'  => $amt,
+                    'claimed'     => 0,
+                    'claimed_at'  => 0,
+                    'createtime'  => $now,
+                ]);
+                $granted++;
+            }
+        } else {
+            throw new Exception('仅进行中或已开奖活动可加份');
+        }
+
+        if ($granted <= 0) {
+            throw new Exception('未能加份（可能已满额或活动状态已变）');
+        }
+
+        return [
+            'granted'     => $granted,
+            'activity_id' => $activityId,
+            'user_id'     => $userId,
+            'status'      => $status,
+        ];
+    }
+
+    /**
      * 在活动行锁下发放 1 份资格；达全局上限则触发开奖
      *
      * @param bool $respectUserCap 是否校验单人上限（join/invite 均应校验）

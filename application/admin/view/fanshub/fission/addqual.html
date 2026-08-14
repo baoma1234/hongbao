@@ -1,0 +1,36 @@
+<form id="addqual-form" class="form-horizontal" role="form" data-toggle="validator" method="POST" action="">
+    {:token()}
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-3">活动 ID</label>
+        <div class="col-xs-12 col-sm-8">
+            <input type="number" class="form-control" name="activity_id" value="{$activity_id}" data-rule="required;integer" min="1">
+            <span class="help-block">进行中：加份计入进度；已开奖：补发可领取红包（须填每份奖金）</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-3">用户 ID / 手机号</label>
+        <div class="col-xs-12 col-sm-8">
+            <input type="text" class="form-control" name="user_key" value="" placeholder="如 10086 或 13800138000" data-rule="required">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-3">加份数量</label>
+        <div class="col-xs-12 col-sm-8">
+            <input type="number" class="form-control" name="count" value="1" min="1" max="100" data-rule="required;integer">
+            <span class="help-block">单次最多 100 份；进行中不受单人上限限制</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-3">每份奖金</label>
+        <div class="col-xs-12 col-sm-8">
+            <input type="number" step="0.01" min="0" class="form-control" name="win_amount" value="" placeholder="仅已开奖补发时必填">
+            <span class="help-block">进行中请留空；已开奖补发时填写每份金额（入账红宝）</span>
+        </div>
+    </div>
+    <div class="form-group layer-footer">
+        <label class="control-label col-xs-12 col-sm-3"></label>
+        <div class="col-xs-12 col-sm-8">
+            <button type="submit" class="btn btn-success btn-embossed">确认加份</button>
+        </div>
+    </div>
+</form>

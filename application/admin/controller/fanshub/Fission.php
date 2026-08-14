@@ -180,6 +180,60 @@ class Fission extends Backend
     }
 
     /**
+     * 给指定用户加资格份数
+     */
+    public function addqual($ids = null)
+    {
+        $id = (int)($ids ?: $this->request->param('ids'));
+        $row = null;
+        if ($id > 0) {
+            $row = Db::name('fans_fission_activity')->where('id', $id)->find();
+        }
+        if (!$row) {
+            $row = Db::name('fans_fission_activity')
+                ->where('status', 'in', [
+                    FissionActivity::STATUS_RUNNING,
+                    FissionActivity::STATUS_SUCCESS,
+                ])
+                ->order('id', 'desc')
+                ->find();
+        }
+        if (!$this->request->isPost()) {
+            $this->view->assign('row', $row ?: []);
+            $this->view->assign('activity_id', $row ? (int)$row['id'] : 0);
+            $this->view->assign('status', $row ? (int)$row['status'] : 0);
+            return $this->view->fetch();
+        }
+        $activityId = (int)$this->request->post('activity_id', $id);
+        $userKey = trim((string)$this->request->post('user_key', ''));
+        $count = (int)$this->request->post('count', 1);
+        $winAmount = $this->request->post('win_amount', '');
+        $winAmount = ($winAmount === '' || $winAmount === null) ? null : (float)$winAmount;
+
+        $userId = 0;
+        if ($userKey !== '') {
+            if (ctype_digit($userKey)) {
+                $userId = (int)$userKey;
+            }
+            if ($userId <= 0) {
+                $u = Db::name('user')->where('mobile', $userKey)->order('id', 'desc')->find();
+                if ($u) {
+                    $userId = (int)$u['id'];
+                }
+            }
+        }
+        if ($userId <= 0) {
+            $this->error('请填写有效的用户ID或手机号');
+        }
+        try {
+            $r = FansHubFission::adminGrantQuals($activityId, $userId, $count, $winAmount);
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: '加份失败');
+        }
+        $this->success('已为用户 #' . $userId . ' 加 ' . $r['granted'] . ' 份', null, $r);
+    }
+
+    /**
      * @param mixed $raw
      * @param int   $fallback
      */

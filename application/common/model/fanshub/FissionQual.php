@@ -14,4 +14,6 @@ class FissionQual extends Model
     const SOURCE_JOIN = 'join';
     const SOURCE_INVITE_REWARD = 'invite_reward';
     const SOURCE_INVITEE = 'invitee';
+    /** 后台手动加份 */
+    const SOURCE_ADMIN = 'admin';
 }

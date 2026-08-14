@@ -17,6 +17,9 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                 if (parseInt(r.status, 10) === 1) {
                     ops += ' <a href="javascript:;" class="btn btn-xs btn-danger btn-force-settle" data-id="' + r.id + '">一键开奖</a>';
                 }
+                if (parseInt(r.status, 10) === 1 || parseInt(r.status, 10) === 2) {
+                    ops += ' <a href="javascript:;" class="btn btn-xs btn-info btn-addqual-row" data-id="' + r.id + '">加份</a>';
+                }
                 html += '<tr>'
                     + '<td>' + r.id + '</td>'
                     + '<td>' + (r.title || '') + '</td>'
@@ -71,6 +74,15 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
         );
     }
 
+    function openAddQual(id) {
+        var url = 'fanshub/fission/addqual' + (id ? '/ids/' + id : '');
+        Fast.api.open(url, '给用户加份' + (id ? ' #' + id : ''), {
+            callback: function () {
+                load();
+            }
+        });
+    }
+
     var Controller = {
         index: function () {
             $('.btn-start').on('click', function () {
@@ -85,6 +97,9 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                     });
                 });
             });
+            $('.btn-addqual').on('click', function () {
+                openAddQual(0);
+            });
             $('.btn-maintain').on('click', function () {
                 Fast.api.ajax({url: 'fanshub/fission/maintain'}, function () {
                     load();
@@ -97,6 +112,9 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
             $(document).on('click', '#fission-rows .btn-force-settle', function () {
                 forceSettle($(this).data('id'));
             });
+            $(document).on('click', '#fission-rows .btn-addqual-row', function () {
+                openAddQual($(this).data('id'));
+            });
             load();
         },
         start: function () {
@@ -107,6 +125,12 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
         },
         edit: function () {
             Form.api.bindevent($('#edit-form'), function () {
+                Fast.api.close();
+                return false;
+            });
+        },
+        addqual: function () {
+            Form.api.bindevent($('#addqual-form'), function () {
                 Fast.api.close();
                 return false;
             });
