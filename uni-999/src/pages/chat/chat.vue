@@ -206,12 +206,22 @@
                 >{{ g.name }}</view>
               </scroll-view>
               <view class="emoji-grid">
-                <text
+                <view
                   v-for="(em, idx) in activeEmojis"
                   :key="'em' + idx"
                   class="emoji-item"
                   @click="insertEmoji(em)"
-                >{{ em }}</text>
+                >
+                  <image
+                    v-if="!emojiImgFailed[em]"
+                    class="emoji-item-img"
+                    :src="emojiImgUrl(em)"
+                    mode="aspectFit"
+                    lazy-load
+                    @error="onEmojiImgError(em)"
+                  />
+                  <text v-else class="emoji-item-fallback">{{ em }}</text>
+                </view>
               </view>
             </scroll-view>
             <scroll-view v-else scroll-y class="emoji-scroll">
@@ -740,7 +750,7 @@ import '../../styles/chat-room-uni-adapter.css'
 import '../../styles/chat-rp-send-uni-adapter.css'
 import '../../styles/chat-888-parity.css'
 import { apiRequest, fetchProfile, getToken, goLoginIfUnauthorized, uploadSticker } from '../../utils/auth.js'
-import { getApiBase, getImgBase, learnUploadCdnFromUrl, ensureAbsoluteHttpUrl } from '../../utils/config.js'
+import { getApiBase, getImgBase, learnUploadCdnFromUrl, ensureAbsoluteHttpUrl, packagedStaticUrl } from '../../utils/config.js'
 import { assetBase, applyServerCopy, copyState, localeState, tt } from '../../utils/i18n.js'
 import {
   avatarSrc,
@@ -763,7 +773,7 @@ import {
   getSafeAreaInsets,
   measureChatOverlayTop,
 } from '../../utils/safe-area.js'
-import { COMMON_EMOJIS, loadEmojiTree } from '../../utils/emoji.js'
+import { COMMON_EMOJIS, loadEmojiTree, emojiTwemojiUrl } from '../../utils/emoji.js'
 import { setInboxMyId, noteConversationRead } from '../../utils/im-inbox.js'
 import { playOpenRedPacketSound } from '../../utils/notify-sound.js'
 import { loadWalletBootstrap, money } from '../../utils/wallet.js'
@@ -997,10 +1007,18 @@ const canGrabDetail = ref(false)
 const grabSliderRef = ref(null)
 const emojiGroups = ref([{ id: 'common', name: '常用', chars: COMMON_EMOJIS.slice() }])
 const emojiGroupIdx = ref(0)
+const emojiImgFailed = ref({})
 const activeEmojis = computed(() => {
   const g = emojiGroups.value[emojiGroupIdx.value] || emojiGroups.value[0]
   return (g && g.chars) || COMMON_EMOJIS
 })
+function emojiImgUrl(em) {
+  return emojiTwemojiUrl(em)
+}
+function onEmojiImgError(em) {
+  if (!em || emojiImgFailed.value[em]) return
+  emojiImgFailed.value = Object.assign({}, emojiImgFailed.value, { [em]: 1 })
+}
 const stickerItems = ref([])
 const stickerQuota = ref({ count: 0, limit: 50, is_admin: false })
 const stickerUploading = ref(false)
@@ -2084,7 +2102,7 @@ function remapStickerAsciiPath(url) {
   })
 }
 
-/** 展示用：统一到可访问的 /888/stickers 或 /999/static/stickers，并编码 */
+/** 展示用：内置表情包优先走 999/打包 static，避免 App 远程 /888 空白灰块 */
 function normalizeStickerUrl(url) {
   let s = remapStickerAsciiPath(String(url || '').trim())
   if (!s) return ''
@@ -2099,28 +2117,46 @@ function normalizeStickerUrl(url) {
       // #endif
     } catch (e) {}
   }
-  // 999 发来的 fullurl 可能是 /999/static/stickers；展示优先改成同站 /888/stickers（两边文件都在）
+
+  // 统一抽出 stickers/ 相对段
+  let rel = ''
   if (s.indexOf('/999/static/stickers/') === 0) {
-    s = '/888/stickers/' + s.slice('/999/static/stickers/'.length)
+    rel = s.slice('/999/static/'.length)
   } else if (s.indexOf('/888/static/stickers/') === 0) {
-    s = '/888/stickers/' + s.slice('/888/static/stickers/'.length)
+    rel = s.slice('/888/static/'.length)
+  } else if (s.indexOf('/888/stickers/') === 0) {
+    rel = 'stickers/' + s.slice('/888/stickers/'.length)
+  } else if (s.indexOf('/stickers/') === 0) {
+    rel = 'stickers/' + s.slice('/stickers/'.length)
   } else if (s.indexOf('static/stickers/') === 0) {
-    s = '/888/stickers/' + s.slice('static/stickers/'.length)
+    rel = s.slice('static/'.length)
   } else if (s.indexOf('stickers/') === 0) {
-    s = '/888/' + s
-  } else if (s.startsWith('/')) {
-    // keep
-  } else if (s.startsWith('static/')) {
-    s = assetBase() + s
-  } else {
-    s = assetBase() + 'static/' + s.replace(/^\/+/, '')
+    rel = s
   }
-  s = encodeUriPath(remapStickerAsciiPath(s))
-  // App 必须 https 绝对地址，相对 /888/stickers 会空白
-  if (s && s.charAt(0) === '/') {
-    s = ensureAbsoluteHttpUrl(s, getApiBase()) || s
+
+  // 内置 wechat 表情包：App 用打包本地 /static；H5 用 /999/static
+  if (rel && rel.indexOf('stickers/') === 0 && rel.indexOf('stickers/uploads/') !== 0) {
+    return packagedStaticUrl(rel)
   }
-  return s
+
+  if (s.startsWith('/uploads/')) {
+    s = encodeUriPath(remapStickerAsciiPath(s))
+    if (s.charAt(0) === '/') {
+      s = ensureAbsoluteHttpUrl(s, getImgBase() || getApiBase()) || s
+    }
+    return s
+  }
+  if (s.startsWith('/')) {
+    s = encodeUriPath(remapStickerAsciiPath(s))
+    if (s.charAt(0) === '/') {
+      s = ensureAbsoluteHttpUrl(s, getApiBase()) || s
+    }
+    return s
+  }
+  if (s.startsWith('static/')) {
+    return packagedStaticUrl(s)
+  }
+  return packagedStaticUrl('static/' + s.replace(/^\/+/, ''))
 }
 
 /** 发给 IM 的 sticker url：必须命中服务端 allowlist（未编码的真实路径） */
@@ -2138,38 +2174,39 @@ function stickerSendUrl(url) {
       // #endif
     } catch (e) {}
   }
-  try {
-    s = decodeURIComponent(s)
-  } catch (e) {}
-  s = remapStickerAsciiPath(s)
+  // 打包本地 /static/stickers → 服务端 allow 的 /999/static/stickers
+  if (s.indexOf('/static/stickers/') === 0) {
+    return '/999' + s
+  }
   if (s.indexOf('/999/static/stickers/') === 0) {
-    return '/888/stickers/' + s.slice('/999/static/stickers/'.length)
+    return s
+  }
+  if (s.indexOf('/888/stickers/') === 0) {
+    return '/999/static/stickers/' + s.slice('/888/stickers/'.length)
   }
   if (s.indexOf('/888/static/stickers/') === 0) {
-    return '/888/stickers/' + s.slice('/888/static/stickers/'.length)
+    return '/999/static/stickers/' + s.slice('/888/static/stickers/'.length)
   }
   if (s.indexOf('static/stickers/') === 0) {
-    return '/888/stickers/' + s.slice('static/stickers/'.length)
+    return '/999/' + s
   }
   if (s.indexOf('stickers/') === 0) {
-    return '/888/' + s
+    return '/999/static/' + s
   }
   if (
-    s.indexOf('/888/stickers/') === 0 ||
     s.indexOf('/stickers/') === 0 ||
-    s.indexOf('/uploads/stickers/') === 0 ||
-    s.indexOf('/999/static/stickers/') === 0
+    s.indexOf('/uploads/stickers/') === 0
   ) {
     return s
   }
-  return s
+  return ''
 }
+
 function stickerUrl(m) {
   const ex = msgExtra(m)
-  // 优先 canonical url（/888/stickers），避免 fullurl 指向 /999 导致空白
   const raw = (ex && (ex.url || ex.fullurl)) || ''
   if (raw) return normalizeStickerUrl(raw)
-  return encodeUriPath(assetBase() + 'static/stickers/wechat/face/weixiao.png')
+  return packagedStaticUrl('stickers/wechat/face/weixiao.png')
 }
 function formatAmt(n) {
   const x = Number(n)

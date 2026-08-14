@@ -659,10 +659,35 @@
 }
 
 .chat-room-page .emoji-item {
+  position: relative;
   width: 12.5%;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
-  font-size: 26px;
+  /* 禁止继承灰色文字色，避免系统把 emoji 渲成灰框 */
+  color: initial;
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', sans-serif;
+  line-height: 1;
+  box-sizing: border-box;
+}
+
+.chat-room-page .emoji-item-img {
+  width: 28px;
+  height: 28px;
+  display: block;
+}
+
+.chat-room-page .emoji-item-fallback {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  font-size: 24px;
   line-height: 44px;
+  color: initial;
 }
 
 .chat-room-page .sticker-grid {
