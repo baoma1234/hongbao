@@ -26,14 +26,14 @@
                 "APP_KEY" : "omamxu",
                 "__plugin_info__" : {
                     "name" : "openinstall-uniapp-plugin",
-                    "description" : "uni-app 集成 openinstall：携参安装、拉起、渠道统计",
+                    "description" : "uni-app集成openinstall SDK插件",
                     "platforms" : "Android,iOS",
-                    "url" : "https://ext.dcloud.net.cn/plugin?id=692",
+                    "url" : "",
                     "android_package_name" : "uni.app.UNIHONGBAO999",
                     "ios_bundle_id" : "com.hongbao.iosapp",
                     "isCloud" : false,
-                    "bought" : 1,
-                    "pid" : "692",
+                    "bought" : -1,
+                    "pid" : "",
                     "parameters" : {
                         "APP_KEY" : {
                             "des" : "openinstall平台为应用分配的AppKey",
@@ -48,6 +48,7 @@
             "android" : {
                 "packagename" : "uni.app.UNIHONGBAO999",
                 "schemes" : "omamxu",
+                "abiFilters" : [ "armeabi-v7a", "arm64-v8a" ],
                 "permissions" : [
                     "<uses-permission android:name=\"android.permission.INTERNET\"/>",
                     "<uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\"/>",
@@ -57,14 +58,18 @@
                     "<uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\"/>",
                     "<uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\"/>",
                     "<uses-permission android:name=\"android.permission.CAMERA\"/>"
-                ],
-                  "abiFilters" : [ "armeabi-v7a", "arm64-v8a" ]
+                ]
             },
             "ios" : {
                 "appid" : "com.hongbao.iosapp",
                 "dSYMs" : false,
                 "idfa" : false,
-                "urltypes" : "omamxu",
+                "urltypes" : [
+                    {
+                        "urlidentifier" : "com.hongbao.iosapp",
+                        "urlschemes" : [ "omamxu" ]
+                    }
+                ],
                 "capabilities" : {
                     "entitlements" : {
                         "com.apple.developer.associated-domains" : [ "applinks:omamxu.oplinking.com" ]
