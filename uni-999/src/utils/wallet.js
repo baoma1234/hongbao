@@ -116,11 +116,16 @@ export function channelIconUrl(ch) {
     if (rel.indexOf('static/') === 0) return packagedStaticUrl(rel) || publicAbs(icon)
     return publicAbs(icon) || assetBase() + rel
   }
-  if (icon.startsWith('/888/') || icon.startsWith('/assets/') || icon.startsWith('/')) {
+  if (icon.startsWith('/888/')) {
+    // 历史路径：优先映射到 /999 或 /assets，避免继续依赖废弃 /888
+    const rest = icon.replace(/^\/888\//, '')
+    return publicAbs('/999/' + rest) || publicAbs('/assets/' + rest) || publicAbs(icon)
+  }
+  if (icon.startsWith('/assets/') || icon.startsWith('/')) {
     return publicAbs(icon)
   }
-  if (/^img\//i.test(icon)) return publicAbs('/888/' + icon.replace(/^\.\//, ''))
-  return publicAbs('/888/' + icon.replace(/^\.\//, ''))
+  if (/^img\//i.test(icon)) return publicAbs('/assets/' + icon.replace(/^\.\//, ''))
+  return publicAbs('/assets/' + icon.replace(/^\.\//, ''))
 }
 
 export function isOnlineCoopChannel(ch) {

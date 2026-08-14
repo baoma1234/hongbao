@@ -2997,6 +2997,21 @@ class FansHubService
             $hongbaoDelta = round($hongbaoDelta + $balanceDelta, 2);
             $balanceDelta = 0.0;
         }
+
+        // 仅动红宝：走原子账本（与 IM WalletService / 充提同形态）
+        if (abs($rightsDelta) < 1e-8 && abs($hongbaoDelta) > 1e-8) {
+            $meta = [
+                'channel'  => (string)$channel,
+                'admin_id' => (int)$adminId,
+            ];
+            if ($hongbaoDelta > 0) {
+                FansHubHongbaoLedger::credit($userId, $hongbaoDelta, $type, $remark, $meta);
+            } else {
+                FansHubHongbaoLedger::debit($userId, abs($hongbaoDelta), $type, $remark, $meta);
+            }
+            return self::getOrCreateAccount($userId);
+        }
+
         $snap = self::releaseExpiredRightsLock($account, false);
         $locked = (float)$snap['locked'];
         $lockDay = $snap['lock_day'];

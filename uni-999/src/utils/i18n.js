@@ -521,7 +521,6 @@ export function ensureLocaleLoaded(locale) {
       base + 'i18n/locales/' + encodeURIComponent(loc) + '.js',
       // #ifdef H5
       '/999/i18n/locales/' + encodeURIComponent(loc) + '.js',
-      '/888/i18n/locales/' + encodeURIComponent(loc) + '.js',
       // #endif
       // #ifdef APP-PLUS
       // App 包内静态资源（build 时同步到 static/i18n）

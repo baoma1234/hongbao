@@ -2,27 +2,25 @@
 
 namespace app\command;
 
-use app\common\library\RedPacketTronFair;
 use think\console\Command;
 use think\console\Input;
 use think\console\Output;
 
 /**
- * 波场红包开奖兜底轮询
- * crontab 每分钟：php think redpacket:tron-reveal
+ * 已停用：开奖兜底在 IM cron（TronFair::pollPendingReveals）。
+ * 保留命令名避免 crontab 报错，执行时 no-op。
  */
 class RedpacketTronReveal extends Command
 {
     protected function configure()
     {
         $this->setName('redpacket:tron-reveal')
-            ->setDescription('轮询处理待开奖波场哈希红包（队列兜底）');
+            ->setDescription('（已停用）波场红包开奖已收口到 IM；本命令不再写库');
     }
 
     protected function execute(Input $input, Output $output)
     {
-        $stat = RedPacketTronFair::pollPending(40);
-        $output->writeln('scanned=' . $stat['scanned'] . ' ok=' . $stat['ok'] . ' fail=' . $stat['fail']);
+        $output->writeln('skipped=im_only_reveal scanned=0 ok=0 fail=0');
         return 0;
     }
 }
