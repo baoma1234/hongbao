@@ -154,6 +154,18 @@ extract_for(
     true
 );
 
+extract_for(
+    ['/uni-999/src/pages/group/settings.vue'],
+    array_merge($sharedExtra, [
+        'chat-group-settings-page', 'chat-sub-main', 'chat-hero-spacer', 'chat-switch',
+        'chat-forbid-modes', 'chat-forbid-item', 'chat-forbid-check', 'is-on', 'on',
+    ]),
+    '/uni-999/src/styles/chat-group-settings.css',
+    "/* Auto-extracted from chat.bundle.css for group settings page. */\n",
+    $bundle,
+    true
+);
+
 // Slim parity for messages
 $msgClasses = collect_classes($root . '/uni-999/src/pages/messages/messages.vue', $sharedExtra);
 $prules = css_top_rules($paritySrc);
@@ -172,3 +184,16 @@ foreach ($prules as $rule) {
 $parityOut = "/* Slim parity for messages list (room/rp rules omitted). */\n" . implode("\n\n", $pkeep) . "\n";
 file_put_contents($root . '/uni-999/src/styles/chat-messages-parity.css', $parityOut);
 echo 'chat-messages-parity.css KB=' . round(strlen($parityOut) / 1024, 1) . PHP_EOL;
+
+// Group settings parity slice
+$gkeep = [];
+foreach ($prules as $rule) {
+    if (preg_match('/chat-group-settings|chat-setting-|chat-forbid|chat-switch|chat-member-|chat-action-|chat-invite-box/', $rule)
+        && !preg_match('/\.chat-room-page|\.chat-composer|\.chat-bubble|\.chat-rp-|\.chat-msg-/', $rule)
+    ) {
+        $gkeep[] = $rule;
+    }
+}
+$gout = "/* Slim parity for group settings (from chat-888-parity.css). */\n" . implode("\n\n", $gkeep) . "\n";
+file_put_contents($root . '/uni-999/src/styles/chat-group-settings-parity.css', $gout);
+echo 'chat-group-settings-parity.css KB=' . round(strlen($gout) / 1024, 1) . PHP_EOL;

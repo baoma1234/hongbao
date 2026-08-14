@@ -233,10 +233,63 @@ class FansHubPhase2
 
     public static function todayInviteCount($userId)
     {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return 0;
+        }
         $today = self::todayDate();
-        return (int)Invite::where('inviter_user_id', $userId)
+        $ck = 'fh:p2:today_inv:' . $userId . ':' . $today;
+        try {
+            $cached = \think\Cache::get($ck);
+            if ($cached !== false && $cached !== null) {
+                return (int)$cached;
+            }
+        } catch (\Throwable $e) {
+        }
+        $n = (int)Invite::where('inviter_user_id', $userId)
             ->where('createtime', '>=', strtotime($today . ' 00:00:00'))
             ->count();
+        try {
+            // 到次日 0 点过期；绑定时也会 rm
+            $ttl = max(30, strtotime($today . ' 23:59:59') - time());
+            \think\Cache::set($ck, $n, min(300, $ttl));
+        } catch (\Throwable $e) {
+        }
+        return $n;
+    }
+
+    /** 待解锁签到奖金合计（profile 短缓存） */
+    public static function pendingBonusSum($userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return 0.0;
+        }
+        $ck = 'fh:p2:pending_bonus:' . $userId;
+        try {
+            $cached = \think\Cache::get($ck);
+            if ($cached !== false && $cached !== null) {
+                return round((float)$cached, 2);
+            }
+        } catch (\Throwable $e) {
+        }
+        $n = (float)Checkin::where('user_id', $userId)
+            ->where('bonus_amount', '>', 0)
+            ->where('bonus_unlocked', 0)
+            ->sum('bonus_amount');
+        try {
+            \think\Cache::set($ck, $n, 60);
+        } catch (\Throwable $e) {
+        }
+        return round($n, 2);
+    }
+
+    public static function bustPendingBonusCache($userId)
+    {
+        try {
+            \think\Cache::rm('fh:p2:pending_bonus:' . (int)$userId);
+        } catch (\Throwable $e) {
+        }
     }
 
     protected static function todayDate()
@@ -397,10 +450,7 @@ class FansHubPhase2
         $registerCount = self::totalRegisterCount($userId);
         $today = self::todayDate();
         $todayCheckin = Checkin::where('user_id', $userId)->where('checkin_date', $today)->find();
-        $pendingBonus = (float)Checkin::where('user_id', $userId)
-            ->where('bonus_amount', '>', 0)
-            ->where('bonus_unlocked', 0)
-            ->sum('bonus_amount');
+        $pendingBonus = self::pendingBonusSum($userId);
 
         $profile['phase2'] = [
             'enabled'                 => true,
@@ -559,6 +609,7 @@ class FansHubPhase2
                 'day7_settled'    => 0,
                 'createtime'      => $now,
             ]);
+            self::bustPendingBonusCache($userId);
 
             $day7Extra = 0;
             if ($streakDay === 7 && $violent && $qualified) {
@@ -625,6 +676,7 @@ class FansHubPhase2
         if ($inviterUserId > 0) {
             try {
                 \think\Cache::rm('fh:p2:regcnt:' . $inviterUserId);
+                \think\Cache::rm('fh:p2:today_inv:' . $inviterUserId . ':' . self::todayDate());
             } catch (\Throwable $e) {
             }
         }
@@ -654,6 +706,7 @@ class FansHubPhase2
         FansHubService::changeAssets($userId, 0, (float)$row->bonus_amount, 'checkin_bonus', '今日暴力对账箱结算');
         $row->bonus_unlocked = 1;
         $row->save();
+        self::bustPendingBonusCache($userId);
         self::queueEvents($userId, [[
             'type'    => 'bonus_unlocked',
             'title'   => FansHubService::h5CopyText('phase2_bonus_unlocked_title'),

@@ -319,9 +319,8 @@ import {
   setGroupMuteAll,
   updateGroup,
 } from '../../utils/im.js'
-import '../../styles/chat.bundle.css'
-import '../../styles/chat-uni-adapter.css'
-import '../../styles/chat-888-parity.css'
+import '../../styles/chat-group-settings.css'
+import '../../styles/chat-group-settings-parity.css'
 
 function goBack() {
   safeNavigateBack(HOME_TAB)
