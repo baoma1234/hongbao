@@ -256,7 +256,9 @@ async function load(p, append) {
   loading.value = true
   error.value = ''
   try {
-    const data = await fetchLedger(p, 20, category.value)
+    const beforeId =
+      append && list.value.length ? Number(list.value[list.value.length - 1].id) || 0 : 0
+    const data = await fetchLedger(p, 20, category.value, beforeId)
     const rows = (data && data.list) || []
     page.value = (data && data.page) || p
     hasMore.value = !!(data && data.has_more)

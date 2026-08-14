@@ -33,6 +33,23 @@ class FansHubImCache
         }
     }
 
+    /** 绑定/改绑邀请人后清 IM 侧 inviter 缓存 */
+    public static function bustInviter($inviteeUserId)
+    {
+        $inviteeUserId = (int)$inviteeUserId;
+        if ($inviteeUserId <= 0) {
+            return;
+        }
+        try {
+            $r = self::conn();
+            if (!$r) {
+                return;
+            }
+            $r->del(self::prefix() . 'inviter:' . $inviteeUserId);
+        } catch (\Throwable $e) {
+        }
+    }
+
     protected static function prefix()
     {
         $cfg = self::redisCfg();

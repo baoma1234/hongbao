@@ -185,19 +185,29 @@ class FansHubWallet
             return ['list' => [], 'total' => 0, 'page' => $page, 'limit' => $limit, 'has_more' => false];
         }
         $category = trim((string)($opts['category'] ?? ''));
+        $beforeId = (int)($opts['before_id'] ?? 0);
         $typeMap = self::ledgerCategoryTypes();
         $filterTypes = ($category !== '' && $category !== 'all' && !empty($typeMap[$category]))
             ? $typeMap[$category]
             : null;
         // 仅用 limit+1 判断 has_more，避免大表二次 COUNT（前台不依赖精确 total）
+        // before_id：游标翻页（id < before_id），避免深 page OFFSET
         $rowsQuery = Db::name('fans_ledger')->where('user_id', $userId);
         if ($filterTypes) {
             $rowsQuery->where('type', 'in', $filterTypes);
         }
-        $rows = $rowsQuery
-            ->order('id', 'desc')
-            ->limit(($page - 1) * $limit, $limit + 1)
-            ->select();
+        if ($beforeId > 0) {
+            $rowsQuery->where('id', '<', $beforeId);
+            $rows = $rowsQuery
+                ->order('id', 'desc')
+                ->limit($limit + 1)
+                ->select();
+        } else {
+            $rows = $rowsQuery
+                ->order('id', 'desc')
+                ->limit(($page - 1) * $limit, $limit + 1)
+                ->select();
+        }
         if (!is_array($rows)) {
             $rows = $rows ? $rows->toArray() : [];
         }
@@ -317,14 +327,16 @@ class FansHubWallet
             unset($item);
         }
         $n = count($list);
+        $nextBeforeId = $n > 0 ? (int)$list[$n - 1]['id'] : 0;
         return [
-            'list'     => $list,
+            'list'            => $list,
             // 兼容旧字段：非精确总数，仅用于展示/翻页估算
-            'total'    => $hasMore ? (($page * $limit) + 1) : ((($page - 1) * $limit) + $n),
-            'page'     => $page,
-            'limit'    => $limit,
-            'has_more' => $hasMore,
-            'category' => ($category !== '' ? $category : 'all'),
+            'total'           => $hasMore ? (($page * $limit) + 1) : ((($page - 1) * $limit) + $n),
+            'page'            => $page,
+            'limit'           => $limit,
+            'has_more'        => $hasMore,
+            'category'        => ($category !== '' ? $category : 'all'),
+            'next_before_id'  => $nextBeforeId,
         ];
     }
 
@@ -342,123 +354,154 @@ class FansHubWallet
     {
         $type = $type === 'withdraw' ? 'withdraw' : 'recharge';
         $locale = FansHubService::requestLocale();
-        $partitions = [];
+        $cacheKey = 'fh:paych:v1:' . $type . ':' . $locale;
+        $base = null;
         try {
-            $prows = Db::name('fans_pay_partition')
-                ->where(['type' => $type, 'status' => 'normal'])
-                ->order('weigh desc,id asc')
-                ->select();
+            $cached = \think\Cache::get($cacheKey);
+            if (is_array($cached) && isset($cached['partitions'], $cached['list'])) {
+                $base = $cached;
+            }
         } catch (\Throwable $e) {
-            $prows = [];
-        }
-        $partMap = [];
-        foreach ($prows ?: [] as $p) {
-            $pid = (int)$p['id'];
-            $item = [
-                'id'        => $pid,
-                'code'      => (string)$p['code'],
-                'name'      => self::localizePartitionName($p, $locale),
-                'bind_mode' => (string)($p['bind_mode'] ?? 'none'),
-                'channels'  => [],
-            ];
-            $partitions[] = $item;
-            $partMap[$pid] = count($partitions) - 1;
         }
 
-        $rows = Db::name('fans_pay_channel')
-            ->where(['type' => $type, 'status' => 'normal'])
-            ->order('weigh desc,id desc')
-            ->select();
-        $list = [];
-        foreach ($rows as $row) {
-            $icon = trim((string)($row['icon'] ?? ''));
-            if ($icon === '') {
-                // 无图标时用默认图，避免通道从自助/钱包分区「消失」
-                $icon = '/assets/img/wallets/default-wallet.png';
+        if ($base === null) {
+            $partitions = [];
+            try {
+                $prows = Db::name('fans_pay_partition')
+                    ->where(['type' => $type, 'status' => 'normal'])
+                    ->order('weigh desc,id asc')
+                    ->select();
+            } catch (\Throwable $e) {
+                $prows = [];
             }
-            if (!preg_match('#^(https?:)?//#i', $icon) && !preg_match('#^data:#i', $icon)) {
-                if ($icon[0] !== '/') {
-                    $icon = '/' . ltrim($icon, '/');
+            $partMap = [];
+            foreach ($prows ?: [] as $p) {
+                $pid = (int)$p['id'];
+                $item = [
+                    'id'        => $pid,
+                    'code'      => (string)$p['code'],
+                    'name'      => self::localizePartitionName($p, $locale),
+                    'bind_mode' => (string)($p['bind_mode'] ?? 'none'),
+                    'channels'  => [],
+                ];
+                $partitions[] = $item;
+                $partMap[$pid] = count($partitions) - 1;
+            }
+
+            $rows = Db::name('fans_pay_channel')
+                ->where(['type' => $type, 'status' => 'normal'])
+                ->order('weigh desc,id desc')
+                ->select();
+            $list = [];
+            foreach ($rows as $row) {
+                $icon = trim((string)($row['icon'] ?? ''));
+                if ($icon === '') {
+                    // 无图标时用默认图，避免通道从自助/钱包分区「消失」
+                    $icon = '/assets/img/wallets/default-wallet.png';
                 }
-            } else {
-                $icon = cdnurl($icon, true);
-            }
-            $cfg = self::decodeConfig($row['config'] ?? '');
-            $payChannel = trim((string)($row['pay_channel'] ?? $cfg['payment_channel'] ?? $cfg['pay_channel'] ?? ''));
-            $pid = (int)($row['partition_id'] ?? 0);
-            $bindMode = 'none';
-            $partCode = '';
-            if ($pid > 0 && isset($partMap[$pid])) {
-                $bindMode = $partitions[$partMap[$pid]]['bind_mode'];
-                $partCode = $partitions[$partMap[$pid]]['code'];
-            } elseif ($pid === 0 && $partitions) {
-                // 未归属：按处理器猜测
-                $handler = strtolower((string)$row['handler']);
-                $guess = in_array($handler, ['wanhuitong', 'bs'], true) ? 'wallet' : 'self_service';
-                foreach ($partitions as $idx => $p) {
-                    if ($p['code'] === $guess) {
-                        $pid = $p['id'];
-                        $bindMode = $p['bind_mode'];
-                        $partCode = $p['code'];
-                        break;
+                if (!preg_match('#^(https?:)?//#i', $icon) && !preg_match('#^data:#i', $icon)) {
+                    if ($icon[0] !== '/') {
+                        $icon = '/' . ltrim($icon, '/');
+                    }
+                } else {
+                    $icon = cdnurl($icon, true);
+                }
+                $cfg = self::decodeConfig($row['config'] ?? '');
+                $payChannel = trim((string)($row['pay_channel'] ?? $cfg['payment_channel'] ?? $cfg['pay_channel'] ?? ''));
+                $pid = (int)($row['partition_id'] ?? 0);
+                $bindMode = 'none';
+                $partCode = '';
+                if ($pid > 0 && isset($partMap[$pid])) {
+                    $bindMode = $partitions[$partMap[$pid]]['bind_mode'];
+                    $partCode = $partitions[$partMap[$pid]]['code'];
+                } elseif ($pid === 0 && $partitions) {
+                    // 未归属：按处理器猜测
+                    $handler = strtolower((string)$row['handler']);
+                    $guess = in_array($handler, ['wanhuitong', 'bs'], true) ? 'wallet' : 'self_service';
+                    foreach ($partitions as $idx => $p) {
+                        if ($p['code'] === $guess) {
+                            $pid = $p['id'];
+                            $bindMode = $p['bind_mode'];
+                            $partCode = $p['code'];
+                            break;
+                        }
                     }
                 }
-            }
-            $walletType = self::resolveWalletType($row, $cfg);
-            $exchangeRate = (float)($cfg['callback_exchange_rate'] ?? $cfg['exchange_rate'] ?? 0);
-            $withdrawMode = strtolower(trim((string)($cfg['withdraw_mode'] ?? '')));
-            if ($withdrawMode === '' && strtolower((string)$row['handler']) === 'manual' && $partCode === 'online_coop') {
-                $withdrawMode = 'online_coop';
-            }
-            // 线上合作：仅已绑定并通过审核的主站账号可见
-            if ($withdrawMode === 'online_coop') {
-                if ((int)$userId <= 0) {
-                    continue;
+                $walletType = self::resolveWalletType($row, $cfg);
+                $exchangeRate = (float)($cfg['callback_exchange_rate'] ?? $cfg['exchange_rate'] ?? 0);
+                $withdrawMode = strtolower(trim((string)($cfg['withdraw_mode'] ?? '')));
+                if ($withdrawMode === '' && strtolower((string)$row['handler']) === 'manual' && $partCode === 'online_coop') {
+                    $withdrawMode = 'online_coop';
                 }
-                $acc = Db::name('fans_account')->where('user_id', (int)$userId)->find();
-                $mainUid = trim((string)($acc['main_uid'] ?? ''));
-                $audit = (string)($acc['main_uid_audit'] ?? '');
-                if ($mainUid === '' || $audit !== 'approved') {
-                    continue;
+                $platforms = $cfg['platforms'] ?? ['555'];
+                if (!is_array($platforms)) {
+                    $platforms = preg_split('/[\s,]+/', (string)$platforms);
+                }
+                $platforms = array_values(array_filter(array_map(function ($p) {
+                    return trim((string)$p);
+                }, $platforms)));
+                if (!$platforms) {
+                    $platforms = ['555'];
+                }
+                $ch = [
+                    'id'              => (int)$row['id'],
+                    'name'            => (string)$row['name'],
+                    'icon'            => $icon,
+                    'tip'             => (string)($row['tip'] ?? ''),
+                    'handler'         => (string)$row['handler'],
+                    'payment_channel' => $payChannel,
+                    'wallet_type'     => $walletType,
+                    'partition_id'    => $pid,
+                    'partition_code'  => $partCode,
+                    'bind_mode'       => $bindMode,
+                    'recharge_mode'   => strtolower(trim((string)($cfg['recharge_mode'] ?? ''))),
+                    'withdraw_mode'   => $withdrawMode,
+                    'platforms'       => $platforms,
+                    'exchange_rate'   => $exchangeRate > 0 ? $exchangeRate : 0,
+                    'min_amount'      => (float)$row['min_amount'],
+                    'max_amount'      => (float)$row['max_amount'],
+                    'quick_amounts'   => self::normalizeQuickAmounts($cfg['quick_amounts'] ?? null),
+                ];
+                $list[] = $ch;
+                if ($pid > 0 && isset($partMap[$pid])) {
+                    $partitions[$partMap[$pid]]['channels'][] = $ch;
                 }
             }
-            $platforms = $cfg['platforms'] ?? ['555'];
-            if (!is_array($platforms)) {
-                $platforms = preg_split('/[\s,]+/', (string)$platforms);
-            }
-            $platforms = array_values(array_filter(array_map(function ($p) {
-                return trim((string)$p);
-            }, $platforms)));
-            if (!$platforms) {
-                $platforms = ['555'];
-            }
-            $ch = [
-                'id'              => (int)$row['id'],
-                'name'            => (string)$row['name'],
-                'icon'            => $icon,
-                'tip'             => (string)($row['tip'] ?? ''),
-                'handler'         => (string)$row['handler'],
-                'payment_channel' => $payChannel,
-                'wallet_type'     => $walletType,
-                'partition_id'    => $pid,
-                'partition_code'  => $partCode,
-                'bind_mode'       => $bindMode,
-                'recharge_mode'   => strtolower(trim((string)($cfg['recharge_mode'] ?? ''))),
-                'withdraw_mode'   => $withdrawMode,
-                'platforms'       => $platforms,
-                'exchange_rate'   => $exchangeRate > 0 ? $exchangeRate : 0,
-                'min_amount'      => (float)$row['min_amount'],
-                'max_amount'      => (float)$row['max_amount'],
-                'quick_amounts'   => self::normalizeQuickAmounts($cfg['quick_amounts'] ?? null),
+
+            // 保留空分区：前台也要显示「自助 / 钱包地址」标题
+            $partitions = array_values($partitions);
+            $base = [
+                'partitions' => $partitions,
+                'list'       => $list,
             ];
-            $list[] = $ch;
-            if ($pid > 0 && isset($partMap[$pid])) {
-                $partitions[$partMap[$pid]]['channels'][] = $ch;
+            try {
+                \think\Cache::set($cacheKey, $base, 120);
+            } catch (\Throwable $e) {
             }
         }
 
-        // 保留空分区：前台也要显示「自助 / 钱包地址」标题
-        $partitions = array_values($partitions);
+        $partitions = $base['partitions'];
+        $list = $base['list'];
+
+        // 线上合作：仅已绑定并通过审核的主站账号可见（用户态过滤，不进缓存）
+        $allowOnlineCoop = false;
+        if ((int)$userId > 0) {
+            $acc = Db::name('fans_account')->where('user_id', (int)$userId)->find();
+            $mainUid = trim((string)($acc['main_uid'] ?? ''));
+            $audit = (string)($acc['main_uid_audit'] ?? '');
+            $allowOnlineCoop = ($mainUid !== '' && $audit === 'approved');
+        }
+        if (!$allowOnlineCoop) {
+            $list = array_values(array_filter($list, function ($ch) {
+                return strtolower(trim((string)($ch['withdraw_mode'] ?? ''))) !== 'online_coop';
+            }));
+            foreach ($partitions as &$part) {
+                $part['channels'] = array_values(array_filter($part['channels'] ?? [], function ($ch) {
+                    return strtolower(trim((string)($ch['withdraw_mode'] ?? ''))) !== 'online_coop';
+                }));
+            }
+            unset($part);
+        }
 
         $out = [
             'partitions' => $partitions,

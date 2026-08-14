@@ -859,16 +859,33 @@ class RedPacketService
         if ($userId <= 0) {
             return 0;
         }
+        $cacheKey = RedisClient::key('inviter:' . $userId);
+        try {
+            $cached = RedisClient::conn()->get($cacheKey);
+            if ($cached !== false && $cached !== null && $cached !== '') {
+                return (int)$cached;
+            }
+        } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'RedPacket.resolveInviter.cacheGet');
+        }
+        $id = 0;
         try {
             $row = Db::fetch(
                 'SELECT inviter_user_id FROM ' . Db::table('fans_invite')
                 . ' WHERE invitee_user_id=? ORDER BY id ASC LIMIT 1',
                 [$userId]
             );
-            return (int)($row['inviter_user_id'] ?? 0);
+            $id = (int)($row['inviter_user_id'] ?? 0);
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'RedPacket.resolveInviter.db');
             return 0;
         }
+        try {
+            RedisClient::conn()->setex($cacheKey, 300, (string)$id);
+        } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'RedPacket.resolveInviter.cacheSet');
+        }
+        return $id;
     }
 
     /**

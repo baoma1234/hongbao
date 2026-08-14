@@ -1514,9 +1514,33 @@ class FansHubService
         ];
     }
 
+    /** 邀请榜/排名缓存版本；绑定时 bump，避免全量 rm */
+    protected static function inviteCacheVer()
+    {
+        $v = (int)\think\Cache::get('fh:invite:ver');
+        return $v > 0 ? $v : 1;
+    }
+
+    public static function bumpInviteCacheVer()
+    {
+        try {
+            $v = self::inviteCacheVer();
+            \think\Cache::set('fh:invite:ver', $v + 1, 86400 * 30);
+        } catch (\Throwable $e) {
+        }
+    }
+
     public static function inviteLeaderboard($limit = 20)
     {
         $limit = min(50, max(1, (int)$limit));
+        $ck = 'fh:invite:lb:v' . self::inviteCacheVer() . ':' . $limit;
+        try {
+            $cached = \think\Cache::get($ck);
+            if (is_array($cached)) {
+                return $cached;
+            }
+        } catch (\Throwable $e) {
+        }
         $rows = Db::name('fans_invite')
             ->field('inviter_user_id, COUNT(*) AS invite_count')
             ->group('inviter_user_id')
@@ -1534,6 +1558,10 @@ class FansHubService
                 'invite_count' => (int)$row['invite_count'],
             ];
         }
+        try {
+            \think\Cache::set($ck, $result, 60);
+        } catch (\Throwable $e) {
+        }
         return $result;
     }
 
@@ -1543,18 +1571,36 @@ class FansHubService
         if ($userId <= 0) {
             return null;
         }
+        $ck = 'fh:invite:rank:v' . self::inviteCacheVer() . ':' . $userId;
+        try {
+            $cached = \think\Cache::get($ck);
+            if (is_array($cached) && array_key_exists('rank', $cached)) {
+                return $cached;
+            }
+        } catch (\Throwable $e) {
+        }
         $count = (int)Invite::where('inviter_user_id', $userId)->count();
         if ($count <= 0) {
-            return ['rank' => 0, 'invite_count' => 0];
+            $out = ['rank' => 0, 'invite_count' => 0];
+            try {
+                \think\Cache::set($ck, $out, 60);
+            } catch (\Throwable $e) {
+            }
+            return $out;
         }
         $prefix = config('database.prefix');
         $table = $prefix . 'fans_invite';
         $sql = "SELECT COUNT(*) AS c FROM (SELECT inviter_user_id FROM `{$table}` GROUP BY inviter_user_id HAVING COUNT(*) > ?) t";
         $better = (int)Db::query($sql, [$count])[0]['c'];
-        return [
+        $out = [
             'rank'         => $better + 1,
             'invite_count' => $count,
         ];
+        try {
+            \think\Cache::set($ck, $out, 60);
+        } catch (\Throwable $e) {
+        }
+        return $out;
     }
 
     public static function inviteCodeOffset()
@@ -2738,6 +2784,11 @@ class FansHubService
                 FansHubFission::onInviteBound((int)$inviterUserId, (int)$inviteeUserId);
             } catch (\Throwable $eFission) {
             }
+            self::bumpInviteCacheVer();
+            try {
+                FansHubImCache::bustInviter((int)$inviteeUserId);
+            } catch (\Throwable $eBust) {
+            }
             return true;
         } catch (\Throwable $e) {
             Db::rollback();
@@ -2860,6 +2911,11 @@ class FansHubService
                 'createtime'      => time(),
             ]);
         }
+        self::bumpInviteCacheVer();
+        try {
+            FansHubImCache::bustInviter((int)$inviteeUserId);
+        } catch (\Throwable $eBust) {
+        }
 
         return [
             'inviter_user_id' => $inviterUserId,
@@ -2919,9 +2975,17 @@ class FansHubService
 
     /**
      * 将已过期的密令标记为 expired
+     * bootstrap/profile 高频路径：最多每 60s 扫一次，避免写风暴
      */
     public static function expireSecrets()
     {
+        try {
+            if (\think\Cache::get('fh:expire_secrets_at')) {
+                return 0;
+            }
+            \think\Cache::set('fh:expire_secrets_at', 1, 60);
+        } catch (\Throwable $e) {
+        }
         $now = time();
         return Secret::where('status', 'in', ['pending', 'contacted'])
             ->where('expiretime', '>', 0)
