@@ -19,6 +19,8 @@ return array (
   'login_phone_placeholder' => 'Nhập SĐT Trung Quốc đại lục 11 số',
   'login_captcha_label' => '🔑 Xác minh bảo mật động',
   'login_captcha_placeholder' => 'Nhập mã SMS',
+  'login_invite_label' => '🎁 Mã mời (không bắt buộc)',
+  'login_invite_placeholder' => 'Để trống nếu không có',
   'login_captcha_btn' => 'Lấy mã',
   'login_submit_btn' => 'Vào sảnh phúc lợi chính thức — tặng {register_rights} cổ phiếu khởi đầu',
   'jackpot_label' => '📊 Màn hình realtime hệ sinh thái 红宝 toàn mạng',

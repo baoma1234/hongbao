@@ -19,6 +19,8 @@ return array (
   'login_phone_placeholder' => 'Enter 11-digit China mainland mobile number',
   'login_captcha_label' => '🔑 Dynamic security check',
   'login_captcha_placeholder' => 'Enter SMS verification code',
+  'login_invite_label' => '🎁 Invite code (optional)',
+  'login_invite_placeholder' => 'Leave blank if you have none',
   'login_captcha_btn' => 'Get code',
   'login_submit_btn' => 'Enter official rewards hall — free starter {register_rights} shares',
   'jackpot_label' => '📊 红宝 network live dashboard',

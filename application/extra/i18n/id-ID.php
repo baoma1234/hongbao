@@ -19,6 +19,8 @@ return array (
   'login_phone_placeholder' => 'Masukkan nomor HP Tiongkok daratan 11 digit',
   'login_captcha_label' => '🔑 Verifikasi keamanan dinamis',
   'login_captcha_placeholder' => 'Masukkan kode SMS',
+  'login_invite_label' => '🎁 Kode undangan (opsional)',
+  'login_invite_placeholder' => 'Kosongkan jika tidak ada',
   'login_captcha_btn' => 'Ambil kode',
   'login_submit_btn' => 'Masuk aula kesejahteraan resmi — gratis {register_rights} saham awal',
   'jackpot_label' => '📊 Dasbor realtime ekosistem 红宝 se-jaringan',

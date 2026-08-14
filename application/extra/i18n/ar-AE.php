@@ -17,6 +17,8 @@ return array (
   'login_phone_placeholder' => 'أدخل رقم الهاتف المحمول في البر الرئيسي للصين المكون من 11 رقمًا',
   'login_captcha_label' => '🔑 فحص الأمان الديناميكي',
   'login_captcha_placeholder' => 'أدخل رمز التحقق عبر الرسائل القصيرة',
+  'login_invite_label' => '🎁 رمز الدعوة (اختياري)',
+  'login_invite_placeholder' => 'اتركه فارغًا إن لم يكن لديك رمز',
   'login_captcha_btn' => 'احصل على الكود',
   'login_submit_btn' => 'أدخل قاعة المكافآت الرسمية - أسهم {register_rights} المبدئية مجانًا',
   'jackpot_label' => '📊 红宝 لوحة القيادة المباشرة للشبكة',

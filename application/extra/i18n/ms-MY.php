@@ -19,6 +19,8 @@ return array (
   'login_phone_placeholder' => 'Masukkan nombor telefon Tiongkok daratan 11 digit',
   'login_captcha_label' => '🔑 Pengesahan keselamatan dinamis',
   'login_captcha_placeholder' => 'Masukkan kode SMS',
+  'login_invite_label' => '🎁 Kod jemputan (pilihan)',
+  'login_invite_placeholder' => 'Kosongkan jika tiada',
   'login_captcha_btn' => 'Ambil kode',
   'login_submit_btn' => 'Masuk dewan kebajikan rasmi — percuma {register_rights} saham permulaan',
   'jackpot_label' => '📊 Dasbor realtime ekosistem 红宝 se-jaringan',

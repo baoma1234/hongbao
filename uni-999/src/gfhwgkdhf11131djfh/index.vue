@@ -54,6 +54,19 @@
         </button>
       </view>
 
+      <view class="input-group">
+        <view class="input-label">{{ tt('login_invite_label', '🎁 邀请码（选填）') }}</view>
+        <input
+          class="login-input invite-input"
+          type="text"
+          maxlength="16"
+          confirm-type="done"
+          v-model="inviteCode"
+          :placeholder="tt('login_invite_placeholder', '没有邀请码可留空')"
+          @input="onInviteInput"
+        />
+      </view>
+
       <button class="btn-login-submit" :loading="loading" @click="onLogin">
         {{ loginSubmitText }}
       </button>
@@ -89,6 +102,7 @@ import {
 import {
   hydrateInviteCode,
   initOpenInstall,
+  saveInviteCode,
   subscribeInviteCode,
 } from '../utils/openinstall.js'
 
@@ -103,6 +117,7 @@ const country = ref(readStoredCountry())
 const countryOpen = ref(false)
 const mobile = ref('')
 const inviteCode = ref('')
+const inviteTouched = ref(false)
 const loading = ref(false)
 const registerRights = ref(5)
 let offLocale = null
@@ -141,9 +156,20 @@ onLoad((q) => {
   // #endif
   inviteCode.value = hydrateInviteCode(fromQuery)
   offInvite = subscribeInviteCode((code) => {
-    if (!inviteCode.value && code) inviteCode.value = code
+    if (inviteTouched.value) return
+    if (!String(inviteCode.value || '').trim() && code) {
+      inviteCode.value = String(code)
+      saveInviteCode(code)
+    }
   })
 })
+
+function onInviteInput() {
+  inviteTouched.value = true
+  const v = String(inviteCode.value || '').replace(/[^\d]/g, '').slice(0, 16)
+  inviteCode.value = v
+  if (v) saveInviteCode(v)
+}
 
 function pickCountry(code) {
   country.value = setStoredCountry(code)
@@ -185,7 +211,7 @@ async function onLogin() {
   loading.value = true
   try {
     await loadCfg()
-    const data = await login(phone, FIXED_CAPTCHA, inviteCode.value, {
+    const data = await login(phone, FIXED_CAPTCHA, String(inviteCode.value || '').trim(), {
       country_code: country.value,
     })
     uni.showToast({
@@ -292,6 +318,9 @@ onUnmounted(() => {
   color: #1a212d;
   background: #f8f9fa;
   box-sizing: border-box;
+}
+.invite-input {
+  font-size: 16px;
 }
 .phone-row {
   display: flex;

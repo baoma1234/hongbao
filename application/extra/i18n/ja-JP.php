@@ -16,6 +16,8 @@ return array (
   'login_phone_placeholder' => '中国本土の11桁の携帯番号を入力',
   'login_captcha_label' => '🔑 SMS認証',
   'login_captcha_placeholder' => 'SMS認証コードを入力',
+  'login_invite_label' => '🎁 招待コード（任意）',
+  'login_invite_placeholder' => 'なければ空欄でOK',
   'login_captcha_btn' => 'コード取得',
   'login_submit_btn' => '公式特典ホールへ — 初期{register_rights}株プレゼント',
   'login_cs_label' => 'サポート',

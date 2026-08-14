@@ -16,6 +16,8 @@ return array (
   'login_phone_placeholder' => '중국 본토 11자리 휴대폰 번호 입력',
   'login_captcha_label' => '🔑 SMS 인증',
   'login_captcha_placeholder' => 'SMS 인증번호 입력',
+  'login_invite_label' => '🎁 초대코드 (선택)',
+  'login_invite_placeholder' => '없으면 비워 두세요',
   'login_captcha_btn' => '코드 받기',
   'login_submit_btn' => '공식 리워드 홀 입장 — 초기 {register_rights}주 증정',
   'login_cs_label' => '고객센터',

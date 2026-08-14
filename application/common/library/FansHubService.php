@@ -453,6 +453,8 @@ class FansHubService
                 'login_phone_placeholder'   => '手机号占位符',
                 'login_captcha_label'       => '验证码标签',
                 'login_captcha_placeholder' => '验证码占位符',
+                'login_invite_label'        => '邀请码标签',
+                'login_invite_placeholder'  => '邀请码占位符',
                 'login_captcha_btn'         => '获取验证码按钮',
                 'login_captcha_resend'      => '重发倒计时（{count}）',
                 'slider_modal_title'        => '滑块验证标题',

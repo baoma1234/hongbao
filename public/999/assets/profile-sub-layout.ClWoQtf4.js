@@ -1,1 +1,0 @@
-import{r as e,ac as o,ar as r}from"./index-BW6_pfIy.js";function a(){const a=e({}),t=e({});return{profileSubHdStyle:a,profileSubPageStyle:t,refreshProfileSubLayout:function(){const e=o();e&&e.overlayTop||r(),a.value={},t.value={}}}}export{a as u};

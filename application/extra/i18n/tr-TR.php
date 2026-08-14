@@ -16,6 +16,8 @@ return array (
   'login_phone_placeholder' => '11 haneli Çin anakara cep no girin',
   'login_captcha_label' => '🔑 SMS doğrulama',
   'login_captcha_placeholder' => 'SMS kodunu girin',
+  'login_invite_label' => '🎁 Davet kodu (isteğe bağlı)',
+  'login_invite_placeholder' => 'Yoksa boş bırakın',
   'login_captcha_btn' => 'Kod al',
   'login_submit_btn' => 'Resmi ödül salonuna gir — {register_rights} hisse hediye',
   'login_cs_label' => 'Destek',

@@ -63,6 +63,19 @@
         </button>
       </view>
 
+      <view class="input-group">
+        <view class="input-label">{{ tt('login_invite_label', '🎁 邀请码（选填）') }}</view>
+        <input
+          class="login-input invite-input"
+          type="text"
+          maxlength="16"
+          confirm-type="done"
+          v-model="inviteCode"
+          :placeholder="tt('login_invite_placeholder', '没有邀请码可留空')"
+          @input="onInviteInput"
+        />
+      </view>
+
       <button class="btn-login-submit" :loading="loading" @click="onLogin">
         {{ loginSubmitText }}
       </button>
@@ -114,6 +127,7 @@ import {
 import {
   hydrateInviteCode,
   initOpenInstall,
+  saveInviteCode,
   subscribeInviteCode,
 } from '../../utils/openinstall.js'
 
@@ -130,6 +144,7 @@ const countryOpen = ref(false)
 const mobile = ref('')
 const captcha = ref('')
 const inviteCode = ref('')
+const inviteTouched = ref(false)
 const loading = ref(false)
 const sending = ref(false)
 const smsLeft = ref(0)
@@ -191,9 +206,20 @@ onLoad((q) => {
   // #endif
   inviteCode.value = hydrateInviteCode(fromQuery)
   offInvite = subscribeInviteCode((code) => {
-    if (!inviteCode.value && code) inviteCode.value = code
+    if (inviteTouched.value) return
+    if (!String(inviteCode.value || '').trim() && code) {
+      inviteCode.value = String(code)
+      saveInviteCode(code)
+    }
   })
 })
+
+function onInviteInput() {
+  inviteTouched.value = true
+  const v = String(inviteCode.value || '').replace(/[^\d]/g, '').slice(0, 16)
+  inviteCode.value = v
+  if (v) saveInviteCode(v)
+}
 
 function getSmsCooldownRemain(phone) {
   if (!phone) return 0
@@ -380,7 +406,7 @@ async function onLogin() {
   loading.value = true
   try {
     await loadCfg()
-    const data = await login(phone, code, inviteCode.value, {
+    const data = await login(phone, code, String(inviteCode.value || '').trim(), {
       country_code: country.value,
     })
     uni.showToast({
@@ -549,6 +575,10 @@ onUnmounted(() => {
   color: #1a212d;
   background: #f8f9fa;
   box-sizing: border-box;
+}
+/* Safari：聚焦时避免小于 16px 被强制放大；App 同步 16px 也不伤布局 */
+.invite-input {
+  font-size: 16px;
 }
 .phone-row {
   display: flex;

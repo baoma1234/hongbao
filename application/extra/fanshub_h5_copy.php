@@ -15,6 +15,8 @@ return array (
   'login_phone_placeholder' => '请输入11位中国大陆手机号',
   'login_captcha_label' => '🔑 动态安全验校',
   'login_captcha_placeholder' => '请输入短信验证码',
+  'login_invite_label' => '🎁 邀请码（选填）',
+  'login_invite_placeholder' => '没有邀请码可留空',
   'login_captcha_btn' => '获取验证码',
   'login_submit_btn' => '进入官方福利大厅 ｜ 瓜分888888彩金',
   'jackpot_label' => '📊 红宝 全网生态实时大屏',

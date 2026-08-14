@@ -19,6 +19,8 @@ return array (
   'login_phone_placeholder' => 'បញ្ចូលលេខទូរស័ព្ទចិន mainland ១១ ខ្ទង់',
   'login_captcha_label' => '🔑 ផ្ទៀងផ្ទាត់សុវត្ថិភាពថាមវន្ត',
   'login_captcha_placeholder' => 'បញ្ចូលកូដ SMS',
+  'login_invite_label' => '🎁 លេខកូដអញ្ជើញ (ស្រេចចិត្ត)',
+  'login_invite_placeholder' => 'ទុកទទេ បើគ្មាន',
   'login_captcha_btn' => 'ទទួលកូដ',
   'login_submit_btn' => 'ចូលសាលាសុខុមាលភាពផ្លូវការ — ឥតគិតថ្លៃ {register_rights} ភាគហ៊ុដំបូង',
   'jackpot_label' => '📊 ផ្ទាំងផ្ទាល់ប្រព័ន្ធ 红宝 ទូទាំងបណ្តាញ',

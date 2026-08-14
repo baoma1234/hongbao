@@ -16,6 +16,8 @@ return array (
   'login_phone_placeholder' => 'Введите 11-значный номер Китая',
   'login_captcha_label' => '🔑 SMS-проверка',
   'login_captcha_placeholder' => 'Введите код из SMS',
+  'login_invite_label' => '🎁 Код приглашения (необязательно)',
+  'login_invite_placeholder' => 'Оставьте пустым, если нет кода',
   'login_captcha_btn' => 'Получить код',
   'login_submit_btn' => 'Войти в зал наград — {register_rights} акций в подарок',
   'login_cs_label' => 'Поддержка',
