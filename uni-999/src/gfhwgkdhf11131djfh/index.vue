@@ -86,6 +86,11 @@ import {
   setStoredCountry,
   toE164,
 } from '../utils/login-country.js'
+import {
+  hydrateInviteCode,
+  initOpenInstall,
+  subscribeInviteCode,
+} from '../utils/openinstall.js'
 
 /** 隐藏登录页固定验证码 */
 const FIXED_CAPTCHA = '465174'
@@ -101,6 +106,7 @@ const inviteCode = ref('')
 const loading = ref(false)
 const registerRights = ref(5)
 let offLocale = null
+let offInvite = null
 
 const countryMeta = computed(() => getCountryMeta(country.value))
 const phonePlaceholder = computed(() => {
@@ -123,17 +129,20 @@ if (getToken()) {
 }
 
 onLoad((q) => {
-  const code = (q && (q.code || q.invite)) || ''
-  if (code) inviteCode.value = String(code)
+  initOpenInstall()
+  let fromQuery = (q && (q.code || q.invite)) || ''
   // #ifdef H5
   try {
     if (typeof location !== 'undefined' && location.search) {
       const sp = new URLSearchParams(location.search)
-      const fromUrl = sp.get('code') || sp.get('invite') || ''
-      if (fromUrl) inviteCode.value = String(fromUrl)
+      fromQuery = sp.get('code') || sp.get('invite') || fromQuery
     }
   } catch (e) {}
   // #endif
+  inviteCode.value = hydrateInviteCode(fromQuery)
+  offInvite = subscribeInviteCode((code) => {
+    if (!inviteCode.value && code) inviteCode.value = code
+  })
 })
 
 function pickCountry(code) {
@@ -213,6 +222,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (typeof offLocale === 'function') offLocale()
+  if (typeof offInvite === 'function') offInvite()
 })
 </script>
 

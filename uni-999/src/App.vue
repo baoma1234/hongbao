@@ -13,6 +13,7 @@ import { startImInbox } from './utils/im-inbox.js'
 import { applySafeAreaCssVars } from './utils/safe-area.js'
 import { applyAppStatusBar } from './utils/status-bar.js'
 import { initSkin } from './utils/skin.js'
+import { initOpenInstall } from './utils/openinstall.js'
 import './styles/hb.css'
 import './styles/app-back-fix.css'
 
@@ -32,6 +33,8 @@ async function refreshRemoteEndpoints() {
  */
 onLaunch(async () => {
   initSkin()
+  // App 携参安装/拉起；H5 落地页记录邀请指纹（需用户同意隐私后再 init 的上架包，可改到协议同意后）
+  initOpenInstall()
   // 浅色顶栏 + 深色状态栏图标，避免时间/信号“消失”
   applyAppStatusBar()
   // App 自定义顶栏：用 statusBarHeight 垫开信号栏（env(safe-area) 在安卓常为 0）

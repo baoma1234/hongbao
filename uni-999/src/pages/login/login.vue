@@ -111,6 +111,11 @@ import {
   setStoredCountry,
   toE164,
 } from '../../utils/login-country.js'
+import {
+  hydrateInviteCode,
+  initOpenInstall,
+  subscribeInviteCode,
+} from '../../utils/openinstall.js'
 
 const SMS_COOLDOWN_KEY = 'fanshub_sms_cooldown'
 const DEFAULT_CS_ICON =
@@ -137,6 +142,7 @@ const csUrl = ref('')
 const csIconRemote = ref('')
 let timer = null
 let offLocale = null
+let offInvite = null
 let pendingSmsPhone = ''
 
 const countryMeta = computed(() => getCountryMeta(country.value))
@@ -173,17 +179,20 @@ if (getToken()) {
 }
 
 onLoad((q) => {
-  const code = (q && (q.code || q.invite)) || ''
-  if (code) inviteCode.value = String(code)
+  initOpenInstall()
+  let fromQuery = (q && (q.code || q.invite)) || ''
   // #ifdef H5
   try {
     if (typeof location !== 'undefined' && location.search) {
       const sp = new URLSearchParams(location.search)
-      const fromUrl = sp.get('code') || sp.get('invite') || ''
-      if (fromUrl) inviteCode.value = String(fromUrl)
+      fromQuery = sp.get('code') || sp.get('invite') || fromQuery
     }
   } catch (e) {}
   // #endif
+  inviteCode.value = hydrateInviteCode(fromQuery)
+  offInvite = subscribeInviteCode((code) => {
+    if (!inviteCode.value && code) inviteCode.value = code
+  })
 })
 
 function getSmsCooldownRemain(phone) {
@@ -412,6 +421,7 @@ onMounted(() => {
 onUnmounted(() => {
   if (timer) clearInterval(timer)
   if (typeof offLocale === 'function') offLocale()
+  if (typeof offInvite === 'function') offInvite()
 })
 </script>
 

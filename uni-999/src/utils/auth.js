@@ -1,4 +1,5 @@
 import { ensureAbsoluteHttpUrl, getApiBase, getDeviceFpKey, getImgBase, getLocale, getTokenKey, learnUploadCdnFromUrl, setUploadCdn } from './config.js'
+import { reportOpenInstallRegister } from './openinstall.js'
 
 export function getToken() {
   return uni.getStorageSync(getTokenKey()) || ''
@@ -187,6 +188,7 @@ export async function login(mobile, captcha, inviteCode = '', extra = {}) {
     device_fp: getDeviceFp(),
   })
   if (data && data.token) setToken(data.token)
+  if (data && data.is_new) reportOpenInstallRegister()
   return data
 }
 
