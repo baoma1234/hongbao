@@ -1,5 +1,6 @@
 /** Emoji：优先加载 emoji-tree.json（分类），失败回退常用列表；面板用 Twemoji 图避免灰块/方框 */
 import { assetBase } from './i18n.js'
+import { resolveStaticRequestUrl } from './config.js'
 
 export const COMMON_EMOJIS = [
   '😀', '😁', '😂', '🤣', '😃', '😄', '😅', '😆',
@@ -198,7 +199,7 @@ export async function loadEmojiTree() {
   if (treePromise) return treePromise
   treePromise = new Promise((resolve) => {
     uni.request({
-      url: assetBase() + 'static/data/emoji-tree.json',
+      url: resolveStaticRequestUrl(assetBase() + 'static/data/emoji-tree.json'),
       method: 'GET',
       success: (r) => {
         try {

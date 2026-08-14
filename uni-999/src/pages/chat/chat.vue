@@ -750,7 +750,7 @@ import '../../styles/chat-room-uni-adapter.css'
 import '../../styles/chat-rp-send-uni-adapter.css'
 import '../../styles/chat-888-parity.css'
 import { apiRequest, fetchProfile, getToken, goLoginIfUnauthorized, uploadSticker } from '../../utils/auth.js'
-import { getApiBase, getImgBase, learnUploadCdnFromUrl, ensureAbsoluteHttpUrl, packagedStaticUrl } from '../../utils/config.js'
+import { getApiBase, getImgBase, learnUploadCdnFromUrl, ensureAbsoluteHttpUrl, packagedStaticUrl, resolveStaticRequestUrl } from '../../utils/config.js'
 import { assetBase, applyServerCopy, copyState, localeState, tt } from '../../utils/i18n.js'
 import {
   avatarSrc,
@@ -2672,7 +2672,7 @@ function scrollToLatest(force) {
 async function loadStickers() {
   const baseItems = []
   try {
-    const stickerUrl = ensureAbsoluteHttpUrl(assetBase() + 'static/data/stickers.json')
+    const stickerUrl = resolveStaticRequestUrl(assetBase() + 'static/data/stickers.json')
     if (!stickerUrl) throw new Error('sticker url not ready')
     const res = await new Promise((resolve, reject) => {
       uni.request({

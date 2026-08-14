@@ -57,6 +57,29 @@ export function ensureAbsoluteHttpUrl(url, base) {
   return b + '/' + u.replace(/^\/+/, '')
 }
 
+/**
+ * 静态 JSON / 资源的 uni.request 地址：
+ * - H5：优先同源相对路径（/999/...），避免被 apiUri（ESA 加速域）改写成跨域
+ * - App：必须 https 绝对地址
+ */
+export function resolveStaticRequestUrl(relOrUrl) {
+  let u = String(relOrUrl || '').trim()
+  if (!u) return ''
+  if (isAbsoluteHttpUrl(u) || isAbsoluteWsUrl(u)) return u
+  if (!u.startsWith('/')) {
+    u = getStaticBase() + u.replace(/^\/+/, '')
+  }
+  // #ifdef H5
+  if (u.startsWith('/')) return u
+  try {
+    if (typeof location !== 'undefined' && location.origin && u.indexOf(location.origin) === 0) {
+      return u
+    }
+  } catch (e) {}
+  // #endif
+  return ensureAbsoluteHttpUrl(u, getApiBase()) || u
+}
+
 function applyFields(apiUri, socketUri, imgUri) {
   const api = trimSlash(apiUri)
   const sock = trimSlash(socketUri)
