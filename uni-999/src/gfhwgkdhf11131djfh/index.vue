@@ -54,7 +54,8 @@
         </button>
       </view>
 
-      <view class="input-group">
+      <!-- 邀请码输入先隐藏：URL / OpenInstall 仍自动灌入 inviteCode 并随登录提交 -->
+      <view v-if="false" class="input-group">
         <view class="input-label">{{ tt('login_invite_label', '🎁 邀请码（选填）') }}</view>
         <input
           class="login-input invite-input"

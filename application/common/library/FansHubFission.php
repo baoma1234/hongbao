@@ -172,7 +172,7 @@ class FansHubFission
     }
 
     /**
-     * 进入活动页：裂变资格仅通过「活动开始后邀请新人注册」获得，参与按钮不再发资格
+     * 进入活动页：裂变资格通过「活动开始后邀请新人注册」获得（邀请人与被邀请人各 1 份），参与按钮不再发资格
      */
     public static function join($userId)
     {
@@ -186,7 +186,7 @@ class FansHubFission
     }
 
     /**
-     * 邀请绑定成功后：仅邀请人 +1 资格（被邀请人不得）
+     * 邀请绑定成功后：邀请人 +1、被邀请人 +1（各一份）
      * 仅活动开始时间之后的新注册邀请计入
      */
     public static function onInviteBound($inviterUserId, $inviteeUserId)
@@ -220,8 +220,10 @@ class FansHubFission
                 }
             }
             $aid = (int)$act['id'];
-            // 仅邀请人：每成功邀请 1 位活动开始后注册的新人 → +1 份资格
+            // 邀请人：每成功邀请 1 位活动开始后注册的新人 → +1 份资格
             self::grantQualLocked($aid, $inviterUserId, FissionQual::SOURCE_INVITE_REWARD, $inviteeUserId, true);
+            // 被邀请人：因本次被邀请注册 → 各得 1 份资格（幂等：同 activity+invitee+source）
+            self::grantQualLocked($aid, $inviteeUserId, FissionQual::SOURCE_INVITEE, $inviterUserId, true);
         } catch (\Throwable $e) {
             // 不影响注册主流程
         }
@@ -596,8 +598,7 @@ class FansHubFission
     protected static function defaultRules()
     {
         return [
-            '仅邀请人可获得资格：活动开始后，每成功邀请 1 位新用户注册得 1 份',
-            '被邀请人不会因被邀请获得裂变资格',
+            '活动开始后，每成功邀请 1 位新用户注册：邀请人和被邀请人各获得 1 份裂变资格',
             '活动开始前的老下级不计入本次活动资格',
             '集满资格立即开奖；开奖后点「我的资格」逐份拆红包领取',
             '超时未集齐红包不发放，邀请下级关系永久保留',

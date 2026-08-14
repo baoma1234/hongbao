@@ -174,8 +174,7 @@ const claimMaskStyle = computed(() => ({
 const claimPanelStyle = computed(() => ({}))
 
 const displayRules = computed(() => [
-  '仅邀请人可得资格：活动开始后每邀 1 位新人注册 +1 份（上限' + userCap.value + '）',
-  '被邀请人不会获得裂变资格',
+  '活动开始后每邀 1 位新人注册：邀请人和被邀请人各得 1 份（每人上限' + userCap.value + '）',
   '活动开始前的老下级不计入',
   '集齐' + globalCap.value + '份资格立即开奖',
   '开奖后点「我的资格」逐份拆红包领取',
