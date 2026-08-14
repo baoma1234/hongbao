@@ -88,8 +88,7 @@ import {
   stripNational,
 } from '../../utils/login-country.js'
 import { friendLookup, friendRequest, friendRequests, imConnect } from '../../utils/im.js'
-import '../../styles/chat.bundle.css'
-import '../../styles/chat-uni-adapter.css'
+import '../../styles/chat-friend-shell.css'
 import '../../styles/friend-uni-adapter.css'
 
 const icoFriendReq = packagedStaticUrl('chat/plus_friend_req.png')

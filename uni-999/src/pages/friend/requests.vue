@@ -62,8 +62,7 @@ import {
   friendRequests,
   imConnect,
 } from '../../utils/im.js'
-import '../../styles/chat.bundle.css'
-import '../../styles/chat-uni-adapter.css'
+import '../../styles/chat-friend-shell.css'
 import '../../styles/friend-uni-adapter.css'
 
 const tab = ref('incoming')
