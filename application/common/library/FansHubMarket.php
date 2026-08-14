@@ -30,6 +30,8 @@ class FansHubMarket
     const CACHE_YDAY_PRICE = 'fanshub_market_yday_price';
     const CACHE_WITHDRAW_N = 'fanshub_market_withdraw_n';
     const CACHE_PRICE_FLOOR = 'fanshub_market_price_floor_v2';
+    const CACHE_PARTNER_FLOOR = 'fanshub_market_partner_floor';
+    const CACHE_AMOUNT_FLOOR = 'fanshub_market_amount_floor';
     const CACHE_CUMULATIVE = 'fanshub_market_cumulative';
     const CACHE_CUMULATIVE_DATE = 'fanshub_market_cumulative_ymd';
     const CACHE_CUMULATIVE_TICK_AT = 'fanshub_market_cumulative_tick_at';
@@ -500,9 +502,9 @@ class FansHubMarket
             $cached = max($base, self::rebuildCumulativeFromLedger());
         }
         $cached = (float)$cached;
-        // 历史异常缓存（远超软顶）回落到展示基数
-        if ($cached > $ceiling * 1.2 && $base <= $ceiling) {
-            $cached = $base;
+        // 远超软顶：钳到软顶，禁止回落到基数（大盘只升不降）
+        if ($cached > $ceiling) {
+            $cached = $ceiling;
         }
         // 配置上调基数后，缓存低于新基数时抬升，避免长期卡在旧低位
         if ($cached < $base) {
@@ -553,7 +555,12 @@ class FansHubMarket
         $ceiling = self::cumulativeCeiling();
         $cached = self::tickDailyCumulative();
         $cached = (float)$cached;
-        if ($cached > $ceiling * 1.2 && $base <= $ceiling) {
+        // 仅钳顶，禁止异常回落到基数
+        if ($cached > $ceiling) {
+            $cached = $ceiling;
+            \think\Cache::set(self::CACHE_CUMULATIVE, $cached, 86400 * 3650);
+        }
+        if ($cached < $base) {
             $cached = $base;
             \think\Cache::set(self::CACHE_CUMULATIVE, $cached, 86400 * 3650);
         }
@@ -626,12 +633,43 @@ class FansHubMarket
         \think\Cache::rm(self::CACHE_YDAY_PRICE);
         \think\Cache::rm(self::CACHE_WITHDRAW_N);
         \think\Cache::rm(self::CACHE_PRICE_FLOOR);
+        \think\Cache::rm(self::CACHE_PARTNER_FLOOR);
+        \think\Cache::rm(self::CACHE_AMOUNT_FLOOR);
         \think\Cache::rm(self::CACHE_CUMULATIVE);
         \think\Cache::rm(self::CACHE_CUMULATIVE_DATE);
         \think\Cache::rm(self::CACHE_CUMULATIVE_TICK_AT);
         \think\Cache::rm(self::CACHE_ISSUED_SHARES);
         \think\Cache::rm('fanshub_market_price_floor');
         \think\Cache::rm(self::CACHE_REAL_COUNT);
+    }
+
+    /**
+     * 整数高水位：展示值只升不降
+     */
+    protected static function ratchetInt($cacheKey, $value)
+    {
+        $value = max(0, (int)$value);
+        $floor = \think\Cache::get($cacheKey);
+        if ($floor !== false && $floor !== null) {
+            $value = max($value, (int)$floor);
+        }
+        \think\Cache::set($cacheKey, $value, 86400 * 3650);
+        return $value;
+    }
+
+    /**
+     * 浮点高水位：展示值只升不降
+     */
+    protected static function ratchetFloat($cacheKey, $value, $decimals = 2)
+    {
+        $value = max(0, (float)$value);
+        $floor = \think\Cache::get($cacheKey);
+        if ($floor !== false && $floor !== null) {
+            $value = max($value, (float)$floor);
+        }
+        $value = round($value, $decimals);
+        \think\Cache::set($cacheKey, $value, 86400 * 3650);
+        return $value;
     }
 
     /**
@@ -650,9 +688,10 @@ class FansHubMarket
         } else {
             self::tickDailyGrowth();
         }
-        $partners = self::partnerCountRaw();
+        // 人数 / 累计价值 / 股价：对外一律棘轮只升不降
+        $partners = self::ratchetInt(self::CACHE_PARTNER_FLOOR, self::partnerCountRaw());
         $price = self::getSharePrice(false);
-        $amount = self::getCumulativePayout($tick);
+        $amount = self::ratchetFloat(self::CACHE_AMOUNT_FLOOR, self::getCumulativePayout($tick));
         $seedShares = self::seedTotalShares();
         if ($issuedMemo === null) {
             $issuedMemo = self::totalSharesIssued();
@@ -660,6 +699,9 @@ class FansHubMarket
         $issued = $issuedMemo;
         $todayUp = self::todayPartnerUp();
         $priceUpPct = self::priceUpPercent();
+        // 涨幅展示不为负
+        $priceUpPct = max(0, (float)$priceUpPct);
+        $todayUp = max(0, (int)$todayUp);
 
         $payload = [
             'amount'              => $amount,

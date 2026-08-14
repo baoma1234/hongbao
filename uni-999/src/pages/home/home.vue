@@ -868,15 +868,14 @@ function marketVirtualBase() {
 function applyMarketScreen(data) {
   if (!data || typeof data !== 'object') return
   const prev = jackpot.value && typeof jackpot.value === 'object' ? jackpot.value : {}
-  const cfg = config.value || {}
-  const serverSync = cfg.jackpot_server_sync !== false
   const next = Object.assign({}, prev, data)
 
   const rawAmt = data.cumulative_payout !== undefined ? data.cumulative_payout : data.amount
   if (rawAmt !== undefined) {
     const n = parseFloat(rawAmt) || 0
     const prevAmt = parseFloat(prev.cumulative_payout != null ? prev.cumulative_payout : prev.amount) || 0
-    const amt = serverSync ? n : Math.max(prevAmt, n)
+    // 大盘累计价值：会话内只升不降
+    const amt = Math.max(prevAmt, n)
     next.amount = amt
     next.cumulative_payout = amt
   }
@@ -891,7 +890,8 @@ function applyMarketScreen(data) {
     let n = Math.max(0, parseInt(raw, 10) || 0)
     if (n <= 0) n = marketVirtualBase()
     const prevN = Math.max(0, parseInt(prev.partner_count != null ? prev.partner_count : prev.partners, 10) || 0)
-    next.partner_count = serverSync ? n : Math.max(prevN, n)
+    next.partner_count = Math.max(prevN, n)
+    next.partners = next.partner_count
   }
 
   if (data.partner_today_up !== undefined) {
@@ -900,9 +900,14 @@ function applyMarketScreen(data) {
   if (data.share_price !== undefined || data.current_share_price !== undefined) {
     const p = parseFloat(data.current_share_price != null ? data.current_share_price : data.share_price)
     if (!isNaN(p) && p > 0) {
-      next.share_price = p
-      next.current_share_price = p
+      const prevP = parseFloat(prev.current_share_price != null ? prev.current_share_price : prev.share_price) || 0
+      const price = Math.max(prevP, p)
+      next.share_price = price
+      next.current_share_price = price
     }
+  }
+  if (data.price_up_pct !== undefined) {
+    next.price_up_pct = Math.max(0, parseFloat(data.price_up_pct) || 0)
   }
   // 首屏无人数字段时用营销基数，避免一直显示 0
   if (!(next.partner_count > 0) && !(next.partners > 0)) {
