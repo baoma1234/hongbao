@@ -44,6 +44,7 @@ class Imagent extends Backend
 
     /**
      * 会话列表
+     * 避免对 chat_messages 全表 GROUP BY MAX(id)；改为近期消息扫描去重。
      */
     public function conversations()
     {
@@ -56,19 +57,26 @@ class Imagent extends Backend
 
         // 多取一些再过滤「用户已删」的私聊，避免后台会话列表残留僵尸会话
         $fetchLimit = min(500, max($limit * 3, $limit));
-        $privates = Db::query(
-            "SELECT m.* FROM fa_chat_messages m
-             INNER JOIN (
-                SELECT conversation_id, MAX(id) AS max_id
-                FROM fa_chat_messages
-                WHERE conversation_type=1 AND status=1
-                GROUP BY conversation_id
-             ) t ON m.id = t.max_id
-             INNER JOIN fa_user ua ON ua.id = m.from_user_id
-             INNER JOIN fa_user ub ON ub.id = m.to_user_id
-             ORDER BY m.id DESC
-             LIMIT {$fetchLimit}"
-        );
+        // 按 id 倒序扫近期消息，首遇 conversation_id 即最新一条（走 idx_conv_status_id / PRIMARY）
+        $scanLimit = min(8000, max(1000, $fetchLimit * 40));
+        $recentPriv = Db::name('chat_messages')
+            ->where(['conversation_type' => 1, 'status' => 1])
+            ->order('id', 'desc')
+            ->limit($scanLimit)
+            ->select();
+        $seenCid = [];
+        $privates = [];
+        foreach ($recentPriv ?: [] as $m) {
+            $cid = (string)($m['conversation_id'] ?? '');
+            if ($cid === '' || isset($seenCid[$cid])) {
+                continue;
+            }
+            $seenCid[$cid] = true;
+            $privates[] = $m;
+            if (count($privates) >= $fetchLimit) {
+                break;
+            }
+        }
         $peerIds = [];
         foreach ($privates as $m) {
             $peerIds[] = (int)$m['from_user_id'];
@@ -105,12 +113,30 @@ class Imagent extends Backend
         }
 
         $groups = Db::name('chat_groups')->whereIn('status', [1, 3])->order('id', 'desc')->limit($limit)->select();
+        $groupIds = [];
+        foreach ($groups ?: [] as $g) {
+            $groupIds[] = (int)$g['id'];
+        }
+        $lastByGid = [];
+        if ($groupIds) {
+            $idList = implode(',', array_map('intval', $groupIds));
+            $lastRows = Db::query(
+                "SELECT m.* FROM fa_chat_messages m
+                 INNER JOIN (
+                    SELECT conversation_id, MAX(id) AS max_id
+                    FROM fa_chat_messages
+                    WHERE conversation_type=2 AND status=1
+                      AND conversation_id IN ({$idList})
+                    GROUP BY conversation_id
+                 ) t ON m.id = t.max_id"
+            );
+            foreach ($lastRows ?: [] as $lr) {
+                $lastByGid[(int)$lr['conversation_id']] = $lr;
+            }
+        }
         foreach ($groups ?: [] as $g) {
             $gid = (int)$g['id'];
-            $last = Db::name('chat_messages')
-                ->where(['conversation_type' => 2, 'conversation_id' => (string)$gid, 'status' => 1])
-                ->order('id', 'desc')
-                ->find();
+            $last = $lastByGid[$gid] ?? null;
             $title = '群聊 #' . $gid . ' ' . ($g['name'] ?: '');
             $content = $last ? (string)$last['content'] : '(暂无消息)';
             if ($kw !== '' && stripos($title, $kw) === false && stripos($content, $kw) === false) {
@@ -219,7 +245,25 @@ class Imagent extends Backend
                 }
             }
 
-            $total = $q->count();
+            $total = null;
+            if (!$filterArr) {
+                try {
+                    $cached = \think\Cache::get('fh:admin:im:msg_total');
+                    if ($cached !== false && $cached !== null) {
+                        $total = (int)$cached;
+                    }
+                } catch (\Throwable $e) {
+                }
+            }
+            if ($total === null) {
+                $total = (int)$q->count();
+                if (!$filterArr) {
+                    try {
+                        \think\Cache::set('fh:admin:im:msg_total', $total, 30);
+                    } catch (\Throwable $e) {
+                    }
+                }
+            }
             $rows = Db::name('chat_messages');
             foreach ($filterArr as $field => $value) {
                 if ($value === '' || $value === null) {

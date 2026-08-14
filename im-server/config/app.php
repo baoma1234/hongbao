@@ -61,9 +61,9 @@ if (is_file($rpRuntime)) {
 }
 
 /**
- * Linux：按 CPU 核数拉满 Workerman（本机 80 核 → WS≈80、HTTP≈20）
+ * Linux：按 CPU 核数设 WS，但默认封顶 32（80 核机勿直接拉满）
  * Windows：强制 1（Workerman 多进程不完整）
- * local.php 可覆盖 count
+ * local.php 可覆盖 count（见 local.highperf.example.php）
  */
 $cpuCores = 1;
 if (PHP_OS_FAMILY !== 'Windows') {
@@ -79,14 +79,14 @@ if (PHP_OS_FAMILY !== 'Windows') {
     }
     $cpuCores = max(1, $n > 0 ? $n : 8);
 }
-$wsCountDefault = (PHP_OS_FAMILY === 'Windows') ? 1 : $cpuCores;
-// HTTP 约占 1/4 核，至少 8、最多 32（避免 MySQL 连接打爆）
-$httpCountDefault = (PHP_OS_FAMILY === 'Windows') ? 1 : max(8, min(32, (int)ceil($cpuCores / 4)));
+$wsCountDefault = (PHP_OS_FAMILY === 'Windows') ? 1 : min(32, $cpuCores);
+// HTTP 约占 WS 的 1/3～1/2，至少 4、最多 16（避免 MySQL 连接打爆）
+$httpCountDefault = (PHP_OS_FAMILY === 'Windows') ? 1 : max(4, min(16, (int)ceil($wsCountDefault / 3)));
 
 return array_replace_recursive([
     'websocket' => [
         'listen'     => 'websocket://0.0.0.0:17272',
-        // 高配默认 = CPU 核数；可用 local.php: 'websocket' => ['count' => 64]
+        // 默认封顶 32；高配机用 local.php / local.highperf.example.php 再冲高
         'count'      => $wsCountDefault,
         'name'       => 'FansHubIM',
         'heartbeat'  => 50,

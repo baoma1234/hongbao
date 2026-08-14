@@ -19,7 +19,7 @@ return [
         'reuse_port' => true,
     ],
     'push' => [
-        'drain_interval' => 0.01,
+        'drain_interval' => 0.03,
         'drain_batch'    => 2000,
     ],
     'cron' => [

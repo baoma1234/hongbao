@@ -251,7 +251,24 @@ class FansHubPhase2
 
     public static function totalRegisterCount($userId)
     {
-        return (int)Invite::where('inviter_user_id', $userId)->count();
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return 0;
+        }
+        $ck = 'fh:p2:regcnt:' . $userId;
+        try {
+            $cached = \think\Cache::get($ck);
+            if ($cached !== false && $cached !== null) {
+                return (int)$cached;
+            }
+        } catch (\Throwable $e) {
+        }
+        $n = (int)Invite::where('inviter_user_id', $userId)->count();
+        try {
+            \think\Cache::set($ck, $n, 60);
+        } catch (\Throwable $e) {
+        }
+        return $n;
     }
 
     public static function recountSubWithdrawn($userId)
@@ -268,6 +285,25 @@ class FansHubPhase2
             $account->save();
         }
         return $count;
+    }
+
+    /**
+     * 读路径优先用冗余字段；最多每 10 分钟全量对账一次，避免 profile/bootstrap JOIN 风暴
+     */
+    public static function subWithdrawnCountForProfile($userId)
+    {
+        $userId = (int)$userId;
+        $account = FansHubService::getOrCreateAccount($userId);
+        $ck = 'fh:p2:recount:' . $userId;
+        try {
+            if (!\think\Cache::get($ck)) {
+                \think\Cache::set($ck, 1, 600);
+                return self::recountSubWithdrawn($userId);
+            }
+        } catch (\Throwable $e) {
+            return self::recountSubWithdrawn($userId);
+        }
+        return (int)($account->sub_withdrawn_count ?? 0);
     }
 
     public static function honorProgress($subWithdrawnCount)
@@ -357,7 +393,7 @@ class FansHubPhase2
             return $profile;
         }
         $account = FansHubService::getOrCreateAccount($userId);
-        $subCount = self::recountSubWithdrawn($userId);
+        $subCount = self::subWithdrawnCountForProfile($userId);
         $registerCount = self::totalRegisterCount($userId);
         $today = self::todayDate();
         $todayCheckin = Checkin::where('user_id', $userId)->where('checkin_date', $today)->find();
@@ -585,6 +621,13 @@ class FansHubPhase2
 
     public static function onInviteRegistered($inviterUserId)
     {
+        $inviterUserId = (int)$inviterUserId;
+        if ($inviterUserId > 0) {
+            try {
+                \think\Cache::rm('fh:p2:regcnt:' . $inviterUserId);
+            } catch (\Throwable $e) {
+            }
+        }
         if (!self::enabled() || $inviterUserId <= 0) {
             return;
         }
@@ -675,6 +718,10 @@ class FansHubPhase2
         if ($invite) {
             $inviterId = (int)$invite->inviter_user_id;
             self::recountSubWithdrawn($inviterId);
+            try {
+                \think\Cache::set('fh:p2:recount:' . $inviterId, 1, 600);
+            } catch (\Throwable $e) {
+            }
             $honorEvents = self::tryClaimHonorTiers($inviterId);
             if ($honorEvents) {
                 self::queueEvents($inviterId, $honorEvents);
