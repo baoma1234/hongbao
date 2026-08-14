@@ -63,28 +63,6 @@
         </button>
       </view>
 
-      <view class="input-group">
-        <view class="input-label">邀请码（选填）</view>
-        <input
-          class="login-input"
-          type="number"
-          maxlength="12"
-          v-model="inviteCode"
-          placeholder="有邀请码自动带入，也可手填"
-        />
-        <view v-if="inviteCode" class="login-invite-hint">将归属邀请人 {{ inviteCode }}</view>
-        <!-- #ifdef H5 -->
-        <button
-          v-if="inviteCode"
-          type="button"
-          class="login-open-app-btn"
-          @click="onOpenAppInvite"
-        >
-          已安装 App？一键打开并带上邀请
-        </button>
-        <!-- #endif -->
-      </view>
-
       <button class="btn-login-submit" :loading="loading" @click="onLogin">
         {{ loginSubmitText }}
       </button>
@@ -108,17 +86,10 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { onLoad, onShow } from '@dcloudio/uni-app'
+import { onLoad } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
 import SliderCaptcha from '../../components/SliderCaptcha.vue'
 import { fetchConfig, getToken, login, sendSms } from '../../utils/auth.js'
-import {
-  clearInviteCode,
-  normalizeInviteCode,
-  resolveInviteCodeForLogin,
-  saveInviteCode,
-  tryOpenAppWithInvite,
-} from '../../utils/invite-attr.js'
 import {
   applyServerCopy,
   copyState,
@@ -201,31 +172,19 @@ if (getToken()) {
   uni.reLaunch({ url: '/pages/home/home' })
 }
 
-onLoad(async (q) => {
-  const code = await resolveInviteCodeForLogin(q || {})
-  if (code) inviteCode.value = code
-})
-
-onShow(async () => {
-  if (inviteCode.value) return
-  const code = await resolveInviteCodeForLogin({})
-  if (code) inviteCode.value = code
-})
-
-async function onOpenAppInvite() {
-  const code = normalizeInviteCode(inviteCode.value)
-  if (!code) {
-    uni.showToast({ title: '暂无邀请码', icon: 'none' })
-    return
-  }
-  let downloadUrl = ''
+onLoad((q) => {
+  const code = (q && (q.code || q.invite)) || ''
+  if (code) inviteCode.value = String(code)
+  // #ifdef H5
   try {
-    const cfg = await fetchConfig()
-    downloadUrl = String((cfg && cfg.app_download_url) || '')
+    if (typeof location !== 'undefined' && location.search) {
+      const sp = new URLSearchParams(location.search)
+      const fromUrl = sp.get('code') || sp.get('invite') || ''
+      if (fromUrl) inviteCode.value = String(fromUrl)
+    }
   } catch (e) {}
-  uni.showToast({ title: '正在打开 App…', icon: 'none' })
-  await tryOpenAppWithInvite(code, { downloadUrl, waitMs: 1800 })
-}
+  // #endif
+})
 
 function getSmsCooldownRemain(phone) {
   if (!phone) return 0
@@ -412,17 +371,9 @@ async function onLogin() {
   loading.value = true
   try {
     await loadCfg()
-    const invite = normalizeInviteCode(inviteCode.value) || (await resolveInviteCodeForLogin({}))
-    if (invite) {
-      inviteCode.value = invite
-      saveInviteCode(invite, { writeClipboard: false })
-    }
-    const data = await login(phone, code, invite, {
+    const data = await login(phone, code, inviteCode.value, {
       country_code: country.value,
     })
-    if (data && data.is_new) {
-      clearInviteCode()
-    }
     uni.showToast({
       title: data && data.is_new
         ? (t('alert_login_new') || '注册成功')
@@ -709,23 +660,5 @@ onUnmounted(() => {
   font-weight: bold;
   box-shadow: 0 4px 12px rgba(0, 113, 255, 0.2);
   line-height: 1.3;
-}
-.login-invite-hint {
-  margin-top: 6px;
-  font-size: 12px;
-  color: #c62828;
-  line-height: 1.4;
-}
-.login-open-app-btn {
-  margin-top: 10px;
-  width: 100%;
-  height: 40px;
-  line-height: 40px;
-  border-radius: 8px;
-  border: 1px solid rgba(198, 17, 20, 0.35);
-  background: #fff5f5;
-  color: #c61114;
-  font-size: 13px;
-  font-weight: 700;
 }
 </style>

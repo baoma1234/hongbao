@@ -30,25 +30,12 @@ async function refreshRemoteEndpoints() {
  * 已登录时不要盲目 reLaunch 大厅：
  * 刷新对话框 / 群设置等子页应留在当前 hash 路由。
  */
-onLaunch(async (launchOptions) => {
+onLaunch(async () => {
   initSkin()
   // 浅色顶栏 + 深色状态栏图标，避免时间/信号“消失”
   applyAppStatusBar()
   // App 自定义顶栏：用 statusBarHeight 垫开信号栏（env(safe-area) 在安卓常为 0）
   applySafeAreaCssVars()
-  // 邀请：H5 query / App URL Scheme / 剪贴板
-  try {
-    const {
-      bindAppInviteSchemeListener,
-      captureInviteFromAppArgs,
-      captureInviteFromQuery,
-      resolveInviteCodeForLogin,
-    } = await import('./utils/invite-attr.js')
-    bindAppInviteSchemeListener()
-    captureInviteFromAppArgs(launchOptions || {})
-    captureInviteFromQuery((launchOptions && launchOptions.query) || {})
-    await resolveInviteCodeForLogin((launchOptions && launchOptions.query) || {})
-  } catch (eInv) {}
   // 先拉远端 apiUri / socketUri / imgUri（有缓存则先用缓存）
   await refreshRemoteEndpoints()
   // 尽早拿到 OSS upload_cdn，避免会话/社群头像先拼成本站 /uploads
@@ -101,14 +88,6 @@ onShow(() => {
   try {
     uni.hideTabBar({ animation: false })
   } catch (e) {}
-  // 热启动：从外部 Scheme 再次进入时补抓邀请码
-  try {
-    import('./utils/invite-attr.js')
-      .then((m) => {
-        m.captureInviteFromAppArgs({})
-      })
-      .catch(() => {})
-  } catch (eInv) {}
   // 每次回到前台再拉一次远端配置
   refreshRemoteEndpoints()
   if (getToken()) {

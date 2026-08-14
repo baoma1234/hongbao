@@ -317,18 +317,11 @@ function copyLink() {
 
 async function shareLink() {
   const link = inviteLink.value
-  const code = String((me.value && me.value.invite_code) || '')
-  let scheme = ''
-  try {
-    const { buildAppInviteScheme } = await import('../../utils/invite-attr.js')
-    scheme = buildAppInviteScheme(code, { fission: 1, aid: act.value && act.value.id })
-  } catch (e0) {}
   const text =
     '🧧全网裂变红宝，¥' +
     poolText.value +
     ' 奖金池，快来一起拆！\n' +
-    (link || '') +
-    (scheme ? '\n打开App：' + scheme : '')
+    (link || '')
   // #ifdef H5
   try {
     if (typeof navigator !== 'undefined' && navigator.share) {

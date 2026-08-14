@@ -33,12 +33,10 @@
                     "<uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\"/>",
                     "<uses-permission android:name=\"android.permission.CAMERA\"/>"
                 ],
-                "abiFilters" : [ "armeabi-v7a", "arm64-v8a" ],
-                "schemes" : [ "hbsq", "hongbao" ]
+                  "abiFilters" : [ "armeabi-v7a", "arm64-v8a" ]
             },
             "ios" : {
-                "dSYMs" : false,
-                "urltypes" : "hbsq,hongbao"
+                "dSYMs" : false
             },
             "sdkConfigs" : {},
             "icons" : {

@@ -1164,13 +1164,7 @@ async function jumpToCustomerService() {
 async function copyAppUrl() {
   if (!appDownloadUrl.value) return
   try {
-    let text = String(appDownloadUrl.value)
-    try {
-      const { getStoredInviteCode, INVITE_CLIP_PREFIX } = await import('../../utils/invite-attr.js')
-      const inv = getStoredInviteCode()
-      if (inv) text = text + '\n' + INVITE_CLIP_PREFIX + inv
-    } catch (eInv) {}
-    await copyText(text)
+    await copyText(appDownloadUrl.value)
     uni.showToast({ title: t('withdraw_app_copy_ok') || '下载链接已复制', icon: 'none' })
   } catch (e) {
     uni.showToast({ title: '复制失败', icon: 'none' })
@@ -1209,11 +1203,6 @@ function onLotteryDone(payload) {
 }
 
 onShow(async () => {
-  // 未登录也可能从邀请链接进大厅再跳登录：先落邀请码
-  try {
-    const { captureInviteFromQuery } = await import('../../utils/invite-attr.js')
-    captureInviteFromQuery({})
-  } catch (eCap) {}
   if (!getToken()) {
     uni.reLaunch({ url: '/pages/login/login' })
     return
