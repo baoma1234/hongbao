@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS `fa_fans_secret` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `user_id` int(10) unsigned NOT NULL DEFAULT '0',
   `code` varchar(128) NOT NULL DEFAULT '' COMMENT '密令',
-  `amount` decimal(10,2) NOT NULL DEFAULT '0.00',
+  `amount` decimal(18,2) NOT NULL DEFAULT '0.00',
   `tier` enum('VIP','GREEN') NOT NULL DEFAULT 'GREEN',
   `main_uid` varchar(64) NOT NULL DEFAULT '',
   `status` enum('pending','contacted','completed','expired') NOT NULL DEFAULT 'pending',
