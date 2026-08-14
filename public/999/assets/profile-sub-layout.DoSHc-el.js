@@ -1,1 +1,0 @@
-import{r as e,ad as o,as as r}from"./index-BOdASP9-.js";function a(){const a=e({}),t=e({});return{profileSubHdStyle:a,profileSubPageStyle:t,refreshProfileSubLayout:function(){const e=o();e&&e.overlayTop||r(),a.value={},t.value={}}}}export{a as u};

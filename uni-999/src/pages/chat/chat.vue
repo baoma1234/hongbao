@@ -2672,8 +2672,8 @@ function scrollToLatest(force) {
 async function loadStickers() {
   const baseItems = []
   try {
-    const stickerUrl = resolveStaticRequestUrl(assetBase() + 'static/data/stickers.json')
-    if (!stickerUrl) throw new Error('sticker url not ready')
+    // 表情包清单固定走 ESA 加速域（需 ESA 已配 CORS）
+    const stickerUrl = 'https://shd12h.ykjab.com/999/static/data/stickers.json'
     const res = await new Promise((resolve, reject) => {
       uni.request({
         url: stickerUrl,
