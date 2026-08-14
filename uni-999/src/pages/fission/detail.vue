@@ -25,7 +25,8 @@
 
           <view v-if="state === 'success'" class="fx-result ok">
             <text class="fx-result-title">开奖成功</text>
-            <text class="fx-result-amt">你的中奖金额：¥{{ winText }}</text>
+            <text v-if="showWinAmount" class="fx-result-amt">你的中奖金额：¥{{ winText }}</text>
+            <text v-else-if="unclaimedCount > 0" class="fx-result-sub tip">点「我的资格」拆开红包后查看金额</text>
             <text v-if="unclaimedCount > 0" class="fx-result-sub tip">还有 {{ unclaimedCount }} 份待拆，点「我的资格」领取</text>
             <text v-else class="fx-result-sub">上下级关系永久保留</text>
           </view>
@@ -164,6 +165,14 @@ const subCount = computed(() => Number(me.value.subordinate_count || 0))
 const inviteLink = computed(() => String(me.value.invite_link || ''))
 const winText = computed(() => formatMoney(me.value.win_amount))
 const unclaimedCount = computed(() => Number(me.value.unclaimed_count || 0))
+const claimedCount = computed(() => Number(me.value.claimed_count || 0))
+/** 未拆开前不展示中奖金额；至少拆过一份且无待拆时才显示合计 */
+const showWinAmount = computed(() => {
+  if (state.value !== 'success') return false
+  if (unclaimedCount.value > 0) return false
+  if (claimedCount.value <= 0 && myQuals.value <= 0) return false
+  return Number(me.value.win_amount || 0) > 0 || claimedCount.value > 0
+})
 const canClaim = computed(() => !!me.value.can_claim || (state.value === 'success' && unclaimedCount.value > 0))
 const claimAmtText = computed(() => formatMoney(claimAmt.value))
 const claimRemainHint = computed(() => Math.max(1, unclaimedCount.value || 1))

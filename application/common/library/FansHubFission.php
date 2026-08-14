@@ -100,12 +100,13 @@ class FansHubFission
                 $win = null;
                 if ($r->win_amount !== null && $r->win_amount !== '') {
                     $win = round((float)$r->win_amount, 2);
-                    $myWin = round($myWin + $win, 2);
                 }
                 $isClaimed = (int)($r->claimed ?? 0) === 1;
                 if ($win !== null && $win > 0) {
                     if ($isClaimed) {
                         $claimed++;
+                        // 仅已拆开的份计入对外展示的中奖合计，避免未拆先看到金额
+                        $myWin = round($myWin + $win, 2);
                     } else {
                         $unclaimed++;
                     }
@@ -116,7 +117,8 @@ class FansHubFission
                 $qualItems[] = [
                     'id'         => (int)$r->id,
                     'source'     => (string)$r->source,
-                    'win_amount' => $win,
+                    // 未领取前不回传具体金额
+                    'win_amount' => $isClaimed ? $win : null,
                     'claimed'    => $isClaimed ? 1 : 0,
                     'claimed_at' => (int)($r->claimed_at ?? 0),
                 ];
