@@ -45,9 +45,8 @@ onLaunch(async () => {
   try {
     await fetchConfig()
   } catch (e) {}
-  try {
-    await initI18n()
-  } catch (e) {}
+  // 语言：BOOT 即时可用；完整包后台拉取，不挡启动
+  initI18n().catch(() => {})
 
   const token = getToken()
   if (!token) return

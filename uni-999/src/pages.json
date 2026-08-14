@@ -43,34 +43,6 @@
       }
     },
     {
-      "path": "pages/chat/chat",
-      "style": {
-        "navigationBarTitleText": "聊天",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/group/settings",
-      "style": {
-        "navigationBarTitleText": "群设置",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/friend/add",
-      "style": {
-        "navigationBarTitleText": "添加好友",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/friend/requests",
-      "style": {
-        "navigationBarTitleText": "好友申请",
-        "navigationStyle": "custom"
-      }
-    },
-    {
       "path": "pages/master/master",
       "style": {
         "navigationBarTitleText": "团长",
@@ -183,6 +155,57 @@
       }
     }
   ],
+  "subPackages": [
+    {
+      "root": "pages/chat",
+      "pages": [
+        {
+          "path": "chat",
+          "style": {
+            "navigationBarTitleText": "聊天",
+            "navigationStyle": "custom"
+          }
+        }
+      ]
+    },
+    {
+      "root": "pages/group",
+      "pages": [
+        {
+          "path": "settings",
+          "style": {
+            "navigationBarTitleText": "群设置",
+            "navigationStyle": "custom"
+          }
+        }
+      ]
+    },
+    {
+      "root": "pages/friend",
+      "pages": [
+        {
+          "path": "add",
+          "style": {
+            "navigationBarTitleText": "添加好友",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "requests",
+          "style": {
+            "navigationBarTitleText": "好友申请",
+            "navigationStyle": "custom"
+          }
+        }
+      ]
+    }
+  ],
+  "preloadRule": {
+    "pages/messages/messages": {
+      "network": "all",
+      "packages": ["pages/chat", "pages/friend"]
+    }
+  },
   "globalStyle": {
     "navigationBarTextStyle": "black",
     "navigationBarTitleText": "红宝",

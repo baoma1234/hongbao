@@ -814,6 +814,26 @@ import {
 import { setChatUnreadTotal } from '../../utils/tab-badge.js'
 
 const CREATE_GROUP_AVATARS = ['🐵', '🐼', '🦊', '🐯', '🦁', '🐶', '🐱', '🐰', '🐻', '🐨', '🐸', '🐷']
+let chatSubpkgPrefetched = false
+
+function prefetchChatSubpackages() {
+  if (chatSubpkgPrefetched) return
+  chatSubpkgPrefetched = true
+  const urls = ['/pages/chat/chat', '/pages/friend/add', '/pages/friend/requests']
+  urls.forEach((url) => {
+    try {
+      if (typeof uni.preloadPage === 'function') {
+        uni.preloadPage({ url })
+      }
+    } catch (e) {}
+  })
+  // #ifdef H5
+  // Vite 异步 chunk 预热（与 preloadPage 互补）
+  try {
+    import('../chat/chat.vue').catch(() => {})
+  } catch (e) {}
+  // #endif
+}
 
 const list = ref([])
 const loaded = ref(false)
@@ -2498,6 +2518,7 @@ onShow(() => {
     return
   }
   pageAlive = true
+  prefetchChatSubpackages()
   measureMessagesLayout()
   // Safari / 旋转后 windowHeight 偶发滞后，下一帧再量一次
   setTimeout(() => {

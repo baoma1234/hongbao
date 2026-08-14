@@ -594,6 +594,23 @@ export function syncTabBarLabels() {
   })
 }
 
+function scheduleIdleLocalePrefetch(locale) {
+  const loc = LOCALE_META[locale] ? locale : ''
+  if (!loc || fullLoaded[loc]) return
+  const run = () => {
+    ensureLocaleLoaded(loc).catch(() => {})
+  }
+  // #ifdef H5
+  if (typeof requestIdleCallback === 'function') {
+    try {
+      requestIdleCallback(() => run(), { timeout: 4500 })
+      return
+    } catch (e) {}
+  }
+  // #endif
+  setTimeout(run, 2200)
+}
+
 export async function setLocale(locale) {
   const loc = LOCALE_META[locale] ? locale : DEFAULT_LOCALE
   await ensureLocaleLoaded(loc)
@@ -629,17 +646,16 @@ export async function setLocale(locale) {
       fn(loc)
     } catch (e) {}
   })
+  if (loc !== DEFAULT_LOCALE) {
+    scheduleIdleLocalePrefetch(DEFAULT_LOCALE)
+  }
   return loc
 }
 
 export async function initI18n() {
   const loc = readStoredLocale()
   localeRef.value = loc
-  // 始终拉中文完整包作兜底，再拉当前语言
-  await ensureLocaleLoaded(DEFAULT_LOCALE)
-  if (loc !== DEFAULT_LOCALE) {
-    await ensureLocaleLoaded(loc)
-  }
+  // BOOT 立刻可用，先放开首屏；完整语言包异步补齐（避免启动串行等 ~50KB+）
   readyRef.value = true
   copyTick.value++
   // #ifdef H5
@@ -648,6 +664,19 @@ export async function initI18n() {
   }
   // #endif
   syncTabBarLabels()
+  // 只拉当前语言完整包（不再强制先下 zh-CN）
+  ensureLocaleLoaded(loc)
+    .then(() => {
+      copyTick.value++
+      syncTabBarLabels()
+    })
+    .catch(() => {})
+  // 空闲预拉兜底链：非中文 → zh；中文 → en（t() 缺 key 时用）
+  if (loc !== DEFAULT_LOCALE) {
+    scheduleIdleLocalePrefetch(DEFAULT_LOCALE)
+  } else {
+    scheduleIdleLocalePrefetch('en-PH')
+  }
   return loc
 }
 
