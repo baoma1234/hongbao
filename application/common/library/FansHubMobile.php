@@ -66,7 +66,74 @@ class FansHubMobile
                 'maxlen'  => 10,
                 'placeholder_key' => 'login_phone_placeholder_my',
             ],
+            'AE' => [
+                'code'    => 'AE',
+                'dial'    => '971',
+                'label'   => '阿联酋',
+                'label_en'=> 'United Arab Emirates',
+                'pattern' => '/^5\d{8}$/',
+                'maxlen'  => 9,
+                'placeholder_key' => 'login_phone_placeholder_ae',
+            ],
+            'TR' => [
+                'code'    => 'TR',
+                'dial'    => '90',
+                'label'   => '土耳其',
+                'label_en'=> 'Turkey',
+                'pattern' => '/^5\d{9}$/',
+                'maxlen'  => 10,
+                'placeholder_key' => 'login_phone_placeholder_tr',
+            ],
+            'RU' => [
+                'code'    => 'RU',
+                'dial'    => '7',
+                'label'   => '俄罗斯',
+                'label_en'=> 'Russia',
+                'pattern' => '/^9\d{9}$/',
+                'maxlen'  => 10,
+                'placeholder_key' => 'login_phone_placeholder_ru',
+            ],
+            'JP' => [
+                'code'    => 'JP',
+                'dial'    => '81',
+                'label'   => '日本',
+                'label_en'=> 'Japan',
+                'pattern' => '/^[789]0\d{8}$/',
+                'maxlen'  => 10,
+                'placeholder_key' => 'login_phone_placeholder_jp',
+            ],
+            'KR' => [
+                'code'    => 'KR',
+                'dial'    => '82',
+                'label'   => '韩国',
+                'label_en'=> 'South Korea',
+                'pattern' => '/^10\d{7,8}$/',
+                'maxlen'  => 11,
+                'placeholder_key' => 'login_phone_placeholder_kr',
+            ],
         ];
+    }
+
+    /**
+     * 按区号从长到短匹配 E.164，避免 +7 误伤 +971 等
+     */
+    protected static function matchCountryCodeByE164($mobile)
+    {
+        $mobile = trim((string)$mobile);
+        if ($mobile === '' || $mobile[0] !== '+') {
+            return '';
+        }
+        $best = '';
+        $bestLen = -1;
+        foreach (self::countries() as $code => $item) {
+            $prefix = '+' . $item['dial'];
+            $len = strlen($prefix);
+            if (strpos($mobile, $prefix) === 0 && $len > $bestLen) {
+                $best = $code;
+                $bestLen = $len;
+            }
+        }
+        return $best;
     }
 
     public static function country($code)
@@ -124,14 +191,13 @@ class FansHubMobile
             return false;
         }
         if ($mobile[0] === '+') {
-            foreach (self::countries() as $code => $item) {
-                $prefix = '+' . $item['dial'];
-                if (strpos($mobile, $prefix) === 0) {
-                    $national = substr($mobile, strlen($prefix));
-                    return self::isValidNational($national, $code);
-                }
+            $code = self::matchCountryCodeByE164($mobile);
+            if ($code === '') {
+                return false;
             }
-            return false;
+            $prefix = '+' . self::country($code)['dial'];
+            $national = substr($mobile, strlen($prefix));
+            return self::isValidNational($national, $code);
         }
         $countryCode = $countryCode !== '' ? $countryCode : 'CN';
         return self::isValidNational($mobile, $countryCode);
@@ -144,10 +210,9 @@ class FansHubMobile
             return 'CN';
         }
         if ($mobile[0] === '+') {
-            foreach (self::countries() as $code => $item) {
-                if (strpos($mobile, '+' . $item['dial']) === 0) {
-                    return $code;
-                }
+            $code = self::matchCountryCodeByE164($mobile);
+            if ($code !== '') {
+                return $code;
             }
         }
         if (Validate::regex($mobile, "^1\d{10}$")) {
@@ -163,13 +228,12 @@ class FansHubMobile
             return '';
         }
         if ($mobile[0] === '+') {
-            foreach (self::countries() as $code => $item) {
-                $prefix = '+' . $item['dial'];
-                if (strpos($mobile, $prefix) === 0) {
-                    $national = substr($mobile, strlen($prefix));
-                    if (self::isValidNational($national, $code)) {
-                        return $prefix . $national;
-                    }
+            $code = self::matchCountryCodeByE164($mobile);
+            if ($code !== '') {
+                $prefix = '+' . self::country($code)['dial'];
+                $national = substr($mobile, strlen($prefix));
+                if (self::isValidNational($national, $code)) {
+                    return $prefix . $national;
                 }
             }
         }
@@ -202,15 +266,13 @@ class FansHubMobile
         }
         $canonical = self::canonical($mobile);
         if ($canonical !== '' && $canonical[0] === '+') {
-            foreach (self::countries() as $code => $item) {
-                $prefix = '+' . $item['dial'];
-                if (strpos($canonical, $prefix) === 0) {
-                    $national = substr($canonical, strlen($prefix));
-                    if ($code === 'CN') {
-                        return $national;
-                    }
-                    return $canonical;
+            $code = self::matchCountryCodeByE164($canonical);
+            if ($code !== '') {
+                if ($code === 'CN') {
+                    $prefix = '+' . self::country($code)['dial'];
+                    return substr($canonical, strlen($prefix));
                 }
+                return $canonical;
             }
         }
         return $mobile;

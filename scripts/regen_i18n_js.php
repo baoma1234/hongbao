@@ -15,6 +15,11 @@ $map = [
     'vi-VN' => 'vi-VN.php',
     'ms-MY' => 'ms-MY.php',
     'km-KH' => 'km-KH.php',
+    'ar-AE' => 'ar-AE.php',
+    'tr-TR' => 'tr-TR.php',
+    'ru-RU' => 'ru-RU.php',
+    'ja-JP' => 'ja-JP.php',
+    'ko-KR' => 'ko-KR.php',
 ];
 $locales = ['zh-CN' => $zh];
 foreach ($map as $code => $file) {
@@ -37,7 +42,7 @@ if ($bundleJson === false) {
     exit(1);
 }
 $ver = date('YmdHis');
-$targets = ['888', 'fanshub', 'fanshubtest', '999'];
+$targets = ['fanshub', 'fanshubtest', '999'];
 $ok = true;
 foreach ($targets as $dir) {
     $i18nDir = $root . '/public/' . $dir . '/i18n';

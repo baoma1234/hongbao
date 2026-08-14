@@ -4,6 +4,31 @@
       <view class="match-card profile-card">
         <text class="profile-hint">{{ hintText }}</text>
 
+        <view v-if="hasPayPassword" class="profile-field phone-field">
+          <text class="lab">{{ tt('profile_mobile_label', '绑定手机') }}</text>
+          <view class="phone-row">
+            <view class="country-select" @click="countryOpen = !countryOpen">
+              <image class="flag" :src="flagUrl(countryMeta.flagIso)" mode="aspectFill" />
+              <text class="dial">+{{ countryMeta.dial }}</text>
+              <text class="caret">▾</text>
+            </view>
+            <input class="hb-input phone-input" disabled :value="nationalDisplay" />
+          </view>
+          <view v-if="countryOpen" class="country-panel">
+            <view
+              v-for="c in countries"
+              :key="c.code"
+              class="country-item"
+              :class="{ on: c.code === country }"
+              @click="pickCountry(c.code)"
+            >
+              <image class="flag" :src="flagUrl(c.flagIso)" mode="aspectFill" />
+              <text class="cname">{{ tt(c.labelKey, c.code) }}</text>
+              <text class="cdial">+{{ c.dial }}</text>
+            </view>
+          </view>
+        </view>
+
         <view v-if="hasPayPassword" class="profile-field">
           <text class="lab">{{ tt('profile_sms_code_label', '短信验证码') }}</text>
           <view class="profile-sms-row">
@@ -61,12 +86,23 @@ import {
   sendSms,
   setPayPassword,
 } from '../../utils/auth.js'
-import { localeState, tt } from '../../utils/i18n.js'
+import { localeState, tt, flagUrl } from '../../utils/i18n.js'
+import {
+  LOGIN_COUNTRIES,
+  getCountryMeta,
+  detectCountryFromE164,
+  nationalFromE164,
+} from '../../utils/login-country.js'
 import '../../styles/hb.css'
 
 const locale = localeState()
 const hasPayPassword = ref(false)
 const mobile = ref('')
+const country = ref('CN')
+const countryOpen = ref(false)
+const countries = LOGIN_COUNTRIES
+const countryMeta = computed(() => getCountryMeta(country.value))
+const nationalDisplay = computed(() => nationalFromE164(mobile.value) || mobile.value)
 const payPassword = ref('')
 const confirmPassword = ref('')
 const captcha = ref('')
@@ -122,6 +158,11 @@ function startCooldown(sec) {
     smsLeft.value -= 1
     if (smsLeft.value <= 0) clearSmsTimer()
   }, 1000)
+}
+
+function pickCountry(code) {
+  country.value = getCountryMeta(code).code
+  countryOpen.value = false
 }
 
 async function doSendSms(phone, sliderPayload) {
@@ -237,6 +278,7 @@ onShow(async () => {
     const p = await fetchProfile()
     hasPayPassword.value = !!p.has_pay_password
     mobile.value = p.mobile || ''
+    if (mobile.value) country.value = detectCountryFromE164(mobile.value)
   } catch (e) {}
 })
 
@@ -253,5 +295,86 @@ onUnmounted(clearSmsTimer)
   color: #8a7a6e;
   line-height: 1.5;
   margin-bottom: 4px;
+}
+.phone-field {
+  position: relative;
+}
+.phone-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.country-select {
+  flex: 0 0 108px;
+  width: 108px;
+  height: 44px;
+  padding: 0 6px;
+  border: 1px solid #e8ddd4;
+  border-radius: 8px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  box-sizing: border-box;
+}
+.country-select .flag {
+  width: 20px;
+  height: 14px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.country-select .dial {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1a212d;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.country-select .caret {
+  font-size: 10px;
+  color: #657786;
+}
+.phone-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.country-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  margin-top: 4px;
+  background: #fff;
+  border: 1px solid #e8ddd4;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  z-index: 20;
+  max-height: 280px;
+  overflow-y: auto;
+}
+.country-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #f0f3f6;
+}
+.country-item:last-child {
+  border-bottom: none;
+}
+.country-item.on {
+  background: #fff8f0;
+}
+.cname {
+  flex: 1;
+  font-size: 14px;
+  color: #1a212d;
+}
+.cdial {
+  font-size: 13px;
+  color: #8a7a6e;
 }
 </style>

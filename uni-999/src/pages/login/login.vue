@@ -546,8 +546,8 @@ onUnmounted(() => {
   align-items: stretch;
 }
 .country-select {
-  flex: 0 0 96px;
-  width: 96px;
+  flex: 0 0 108px;
+  width: 108px;
   height: 44px;
   padding: 0 6px;
   border: 1px solid #ccd6dd;
@@ -595,6 +595,8 @@ onUnmounted(() => {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
   z-index: 20;
   overflow: hidden;
+  max-height: 280px;
+  overflow-y: auto;
 }
 .country-item {
   display: flex;

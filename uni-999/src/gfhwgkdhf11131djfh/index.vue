@@ -289,8 +289,8 @@ onUnmounted(() => {
   align-items: stretch;
 }
 .country-select {
-  flex: 0 0 96px;
-  width: 96px;
+  flex: 0 0 108px;
+  width: 108px;
   height: 44px;
   padding: 0 6px;
   border: 1px solid #ccd6dd;

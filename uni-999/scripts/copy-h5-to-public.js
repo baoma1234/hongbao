@@ -1,5 +1,5 @@
 /**
- * Copy uni H5 build → public/999，并同步 /888 多语言包到 /999/i18n
+ * Copy uni H5 build → public/999，并同步 uni-999/src/static/i18n 到 /999/i18n
  * 注入苹果 apple-touch-icon（OSS 高清图）
  */
 const fs = require('fs')
@@ -7,7 +7,7 @@ const path = require('path')
 
 const src = path.resolve(__dirname, '../dist/build/h5')
 const dest = path.resolve(__dirname, '../../public/999')
-const localeSrc = path.resolve(__dirname, '../../public/888/i18n')
+const localeSrc = path.resolve(__dirname, '../src/static/i18n')
 const localeDest = path.join(dest, 'i18n')
 const APPLE_TOUCH_ICON =
   'https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/brand/apple-touch-icon-1024.png'
@@ -63,10 +63,6 @@ copyDir(src, dest)
 if (fs.existsSync(localeSrc)) {
   copyDir(localeSrc, localeDest)
   console.log('OK i18n synced to', localeDest)
-  // App 包内可读 /static/i18n/locales/*.js（切语言不依赖远端）
-  const appStaticI18n = path.resolve(__dirname, '../src/static/i18n')
-  copyDir(localeSrc, appStaticI18n)
-  console.log('OK i18n synced to', appStaticI18n)
 } else {
   console.warn('WARN missing locale source:', localeSrc)
 }
