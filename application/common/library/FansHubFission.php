@@ -317,11 +317,13 @@ class FansHubFission
                 return true;
             }
             $poolCents = (int)round((float)$act['pool_amount'] * 100);
-            $parts = self::splitPoolCents($poolCents, $n);
+            // 始终按活动上限（默认 100 份）拆池；一键开奖未满额时，未发出的份额留在平台，不抬高已参与份的金额
+            $splitN = max(1, $cap);
+            $parts = self::splitPoolCents($poolCents, $splitN);
             $now = time();
             $payouts = [];
             foreach ($quals as $i => $q) {
-                $cents = (int)$parts[$i];
+                $cents = (int)($parts[$i] ?? 0);
                 $amt = round($cents / 100, 2);
                 Db::name('fans_fission_qual')->where('id', (int)$q['id'])->update([
                     'win_amount' => $amt,
@@ -340,7 +342,7 @@ class FansHubFission
                 'status'       => FissionActivity::STATUS_SUCCESS,
                 'settled_time' => $now,
                 'updatetime'   => $now,
-                'global_quals' => max($n, $cap),
+                'global_quals' => $cap,
             ]);
             Db::commit();
             return true;

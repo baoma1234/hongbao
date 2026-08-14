@@ -152,7 +152,7 @@ class Fission extends Backend
     }
 
     /**
-     * 一键结算开奖：进度拉满 → 按已有资格派奖
+     * 一键结算开奖：进度拉满 → 按活动上限（默认 100 份）拆池派奖
      */
     public function forcesettle($ids = null)
     {
@@ -174,8 +174,9 @@ class Fission extends Backend
         if (!$ok) {
             $this->error('开奖失败，请刷新后重试');
         }
+        $cap = max(1, (int)$row['global_cap']);
         $qualCount = (int)Db::name('fans_fission_qual')->where('activity_id', $id)->count();
-        $this->success('已拉满进度并完成派奖（资格份数 ' . $qualCount . '）');
+        $this->success('已按 ' . $cap . ' 份拆池开奖（实际参与 ' . $qualCount . ' 份，余份不派发）');
     }
 
     /**
