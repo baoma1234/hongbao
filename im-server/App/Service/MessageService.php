@@ -2394,8 +2394,10 @@ class MessageService
         if ($path === '' || $path[0] !== '/') {
             return false;
         }
-        if (strpos($path, '/888/stickers/') !== 0
-            && strpos($path, '/999/static/stickers/') !== 0
+        // 新消息只允许 /999；仍接受历史 /888 入站
+        if (strpos($path, '/999/static/stickers/') !== 0
+            && strpos($path, '/888/stickers/') !== 0
+            && strpos($path, '/888/static/stickers/') !== 0
             && strpos($path, '/stickers/') !== 0
             && strpos($path, '/uploads/stickers/') !== 0) {
             return false;

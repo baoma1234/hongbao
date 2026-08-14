@@ -2102,7 +2102,7 @@ function remapStickerAsciiPath(url) {
   })
 }
 
-/** 展示用：内置表情包优先走 999/打包 static，避免 App 远程 /888 空白灰块 */
+/** 展示用：内置表情包优先走 999/打包 static；历史 /888 路径仅 remap 进 999，不再回写 888 */
 function normalizeStickerUrl(url) {
   let s = remapStickerAsciiPath(String(url || '').trim())
   if (!s) return ''
@@ -2118,7 +2118,7 @@ function normalizeStickerUrl(url) {
     } catch (e) {}
   }
 
-  // 统一抽出 stickers/ 相对段
+  // 统一抽出 stickers/ 相对段（含历史 /888 消息）
   let rel = ''
   if (s.indexOf('/999/static/stickers/') === 0) {
     rel = s.slice('/999/static/'.length)
@@ -2159,7 +2159,7 @@ function normalizeStickerUrl(url) {
   return packagedStaticUrl('static/' + s.replace(/^\/+/, ''))
 }
 
-/** 发给 IM 的 sticker url：必须命中服务端 allowlist（未编码的真实路径） */
+/** 发给 IM 的 sticker url：只允许 /999/static/stickers（历史 /888 入站 remap 到 999） */
 function stickerSendUrl(url) {
   let s = remapStickerAsciiPath(String(url || '').trim())
   if (!s) return ''
@@ -2790,7 +2790,7 @@ async function sendSticker(st) {
     extra: {
       pack: String(st.pack || 'wechat'),
       code,
-      // url / fullurl 都走 canonical /888/stickers，避免对端偏好 fullurl 时 404 空白
+      // url 固定 /999/static/stickers；fullurl 用展示地址（App 可走打包 static）
       url: sendUrl,
       fullurl: displayUrl || sendUrl,
     },

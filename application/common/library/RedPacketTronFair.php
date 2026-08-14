@@ -4,7 +4,6 @@ namespace app\common\library;
 
 use think\Cache;
 use think\Db;
-use think\Queue;
 
 /**
  * 红包波场官方哈希公平性（替换本地 SHA-256）
@@ -90,48 +89,15 @@ class RedPacketTronFair
     }
 
     /**
-     * 开奖触发：写入目标区块高度并延迟入队（绝不 sleep）
+     * 开奖调度已收口到 IM TronFair；ThinkPHP 侧不再写包 / 入队。
      */
     public static function scheduleReveal($packetId, $delaySec = 4)
     {
-        $packetId = (int)$packetId;
-        if ($packetId <= 0) {
-            return false;
-        }
-        $packet = Db::name('chat_red_packets')->where('id', $packetId)->find();
-        if (!$packet || !in_array((int)$packet['packet_type'], [2, 3], true)) {
-            return false;
-        }
-        if ((int)($packet['tron_status'] ?? 0) === self::STATUS_DONE && trim((string)($packet['tron_block_id'] ?? '')) !== '') {
-            return true;
-        }
-        $blockNum = (int)($packet['tron_block_num'] ?? 0);
-        if ($blockNum <= 0) {
-            try {
-                $blockNum = TronBlockClient::getNowBlockNum(3);
-            } catch (\Throwable $e) {
-                $blockNum = 0;
-            }
-        }
-        $now = time();
-        Db::name('chat_red_packets')->where('id', $packetId)->where('tron_status', '<>', self::STATUS_DONE)->update([
-            'tron_block_num' => $blockNum,
-            'tron_status'    => self::STATUS_PENDING,
-            'updatetime'     => $now,
-        ]);
-        try {
-            Queue::later((int)$delaySec, 'app\\job\\TronRedPacketReveal', [
-                'packet_id' => $packetId,
-            ]);
-        } catch (\Throwable $e) {
-            // 队列不可用时依赖 crontab 兜底
-            \think\Log::write('Tron schedule queue fail: ' . $e->getMessage(), 'error');
-        }
-        return true;
+        return false;
     }
 
     /**
-     * 队列 / 定时任务：拉取区块哈希并落库
+     * 只读：IM 为唯一 reveal 写者。若已 DONE 返回视图；否则返回 pending（不改库）。
      */
     public static function processReveal($packetId, $allowRetry = true)
     {
@@ -145,162 +111,21 @@ class RedPacketTronFair
             self::cachePut($view);
             return ['ok' => true, 'msg' => 'already', 'data' => $view];
         }
-        if (!in_array((int)$packet['packet_type'], [2, 3], true)) {
-            return ['ok' => false, 'msg' => 'type skip'];
-        }
-
-        $blockNum = (int)($packet['tron_block_num'] ?? 0);
-        try {
-            if ($blockNum <= 0) {
-                $offset = 2;
-                try {
-                    $fanshub = \think\Config::get('fanshub') ?: [];
-                    if (isset($fanshub['tron_commit_offset'])) {
-                        $offset = max(1, (int)$fanshub['tron_commit_offset']);
-                    }
-                } catch (\Throwable $ignore) {
-                }
-                $blockNum = TronBlockClient::getNowBlockNum(4) + $offset;
-                Db::name('chat_red_packets')->where('id', $packetId)->update([
-                    'tron_block_num' => $blockNum,
-                    'tron_status'    => self::STATUS_PENDING,
-                    'updatetime'     => time(),
-                ]);
-            }
-            // 拼手气：锁定高度直接开奖；扫雷：向后找哈希末位=手填雷号的区块（不改 mine_digit）
-            $packetType = (int)($packet['packet_type'] ?? 0);
-            $mineDigit = max(0, min(9, (int)($packet['mine_digit'] ?? 0)));
-            if ($packetType === 3) {
-                $nowHeight = TronBlockClient::getNowBlockNum(4);
-                if ($nowHeight < $blockNum) {
-                    if ($allowRetry) {
-                        try {
-                            Queue::later(3, 'app\\job\\TronRedPacketReveal', ['packet_id' => $packetId]);
-                        } catch (\Throwable $ignore) {
-                        }
-                    }
-                    return ['ok' => false, 'msg' => 'block not ready'];
-                }
-                $scan = 40;
-                $endNum = min($nowHeight, $blockNum + $scan - 1);
-                $found = null;
-                $lastTried = $blockNum - 1;
-                for ($n = $blockNum; $n <= $endNum; $n++) {
-                    $lastTried = $n;
-                    try {
-                        $block = TronBlockClient::getBlockByNum($n, 6);
-                    } catch (\Throwable $e) {
-                        break;
-                    }
-                    if (TronBlockClient::luckyDigitFromBlockId($block['block_id']) === $mineDigit) {
-                        $found = $block;
-                        break;
-                    }
-                }
-                if (!$found) {
-                    $next = $lastTried + 1;
-                    Db::name('chat_red_packets')->where('id', $packetId)->where('tron_status', '<>', self::STATUS_DONE)->update([
-                        'tron_block_num' => $next,
-                        'tron_status'    => self::STATUS_PENDING,
-                        'updatetime'     => time(),
-                    ]);
-                    if ($allowRetry) {
-                        try {
-                            Queue::later(3, 'app\\job\\TronRedPacketReveal', ['packet_id' => $packetId]);
-                        } catch (\Throwable $ignore) {
-                        }
-                    }
-                    return ['ok' => false, 'msg' => 'mine match continue'];
-                }
-                $lucky = TronBlockClient::luckyFromBlockId($found['block_id']);
-                $now = time();
-                Db::name('chat_red_packets')->where('id', $packetId)->update([
-                    'tron_block_num'   => (int)$found['block_num'],
-                    'tron_block_id'    => $found['block_id'],
-                    'tron_lucky'       => $lucky,
-                    'tron_status'      => self::STATUS_DONE,
-                    'fair_revealed_at' => $now,
-                    'fair_hash'        => $found['block_id'],
-                    'fair_seed'        => '',
-                    'fair_payload'     => '',
-                    'updatetime'       => $now,
-                ]);
-            } else {
-                $block = TronBlockClient::getBlockByNum($blockNum, 6);
-                $lucky = TronBlockClient::luckyFromBlockId($block['block_id']);
-                $now = time();
-                Db::name('chat_red_packets')->where('id', $packetId)->update([
-                    'tron_block_num'   => (int)$block['block_num'],
-                    'tron_block_id'    => $block['block_id'],
-                    'tron_lucky'       => $lucky,
-                    'tron_status'      => self::STATUS_DONE,
-                    'fair_revealed_at' => $now,
-                    'fair_hash'        => $block['block_id'],
-                    'fair_seed'        => '',
-                    'fair_payload'     => '',
-                    'updatetime'       => $now,
-                ]);
-            }
-            $packet = Db::name('chat_red_packets')->where('id', $packetId)->find();
-            $view = self::publicView($packet ?: []);
-            self::cachePut($view);
-            return ['ok' => true, 'msg' => 'done', 'data' => $view];
-        } catch (\Throwable $e) {
-            if ($allowRetry) {
-                try {
-                    Queue::later(3, 'app\\job\\TronRedPacketReveal', ['packet_id' => $packetId]);
-                } catch (\Throwable $ignore) {
-                }
-            }
-            Db::name('chat_red_packets')->where('id', $packetId)->where('tron_status', '<>', self::STATUS_DONE)->update([
-                'tron_status' => self::STATUS_FAIL,
-                'updatetime'  => time(),
-            ]);
-            return ['ok' => false, 'msg' => $e->getMessage()];
-        }
+        $view = self::publicView($packet);
+        return ['ok' => false, 'msg' => 'pending_im_reveal', 'data' => $view];
     }
 
     /**
-     * Crontab 兜底：处理超时未开奖
+     * Crontab 兜底已收口到 IM；此处不再扫库写开奖。
      */
     public static function pollPending($limit = 30)
     {
-        $limit = max(1, min(100, (int)$limit));
-        $rows = Db::name('chat_red_packets')
-            ->where('packet_type', 'in', [2, 3])
-            ->where('tron_status', 'in', [self::STATUS_PENDING, self::STATUS_FAIL])
-            ->where('updatetime', '<', time() - 3)
-            ->order('id', 'asc')
-            ->limit($limit)
-            ->field('id,tron_block_num')
-            ->select();
-        $ids = [];
-        $blockNums = [];
-        foreach ($rows ?: [] as $row) {
-            $ids[] = (int)$row['id'];
-            $bn = (int)($row['tron_block_num'] ?? 0);
-            if ($bn > 0) {
-                $blockNums[] = $bn;
-            }
-        }
-        if ($blockNums) {
-            TronBlockClient::prefetchBlocks($blockNums, 6);
-        }
-        $ok = 0;
-        $fail = 0;
-        foreach ($ids as $id) {
-            $r = self::processReveal((int)$id, false);
-            if (!empty($r['ok'])) {
-                $ok++;
-            } else {
-                $fail++;
-            }
-        }
         return [
-            'scanned'      => count($ids),
-            'ok'           => $ok,
-            'fail'         => $fail,
-            'prefetch_num' => count(array_unique($blockNums)),
+            'scanned'      => 0,
+            'ok'           => 0,
+            'fail'         => 0,
+            'prefetch_num' => 0,
+            'skipped'      => 'im_only_reveal',
         ];
     }
 

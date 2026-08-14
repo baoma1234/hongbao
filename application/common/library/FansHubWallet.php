@@ -837,6 +837,9 @@ class FansHubWallet
                 'hongbao_after'   => $newHb,
                 'remark'          => '提现红宝 ' . $orderNo,
                 'channel'         => (string)$channel['name'],
+                'biz_no'          => $orderNo,
+                'ref_type'        => 'withdraw_order',
+                'ref_id'          => 0,
                 'createtime'      => $now,
             ]);
             Db::name('fans_withdraw_order')->insert([
@@ -856,6 +859,7 @@ class FansHubWallet
             Db::rollback();
             throw $e;
         }
+        FansHubImCache::bustWallet($userId);
 
         $extra = [
             'action'     => 'manual',
@@ -1105,6 +1109,9 @@ class FansHubWallet
                 'hongbao_after'   => $newHb,
                 'remark'          => '提现失败退回红宝 ' . $orderNo,
                 'channel'         => '',
+                'biz_no'          => $orderNo,
+                'ref_type'        => 'withdraw_order',
+                'ref_id'          => (int)$order['id'],
                 'createtime'      => $now,
             ]);
             Db::name('fans_withdraw_order')->where('id', $order['id'])->update([
@@ -1117,6 +1124,7 @@ class FansHubWallet
             Db::rollback();
             throw $e;
         }
+        FansHubImCache::bustWallet($userId);
     }
 
     /**
@@ -1301,6 +1309,7 @@ class FansHubWallet
             Db::rollback();
             throw $e;
         }
+        FansHubImCache::bustWallet($userId);
     }
 
     /**

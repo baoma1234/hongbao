@@ -204,20 +204,7 @@ class Fanshub extends Api
         }
 
         $tronStatus = (int)($packet['tron_status'] ?? 0);
-        // 已抢完/过期但未绑定波场哈希：查询时补开奖（避免验证页一直空）
-        if ($tronStatus !== 2) {
-            try {
-                $r = \app\common\library\RedPacketTronFair::processReveal((int)$packet['id'], true);
-                if (!empty($r['ok']) && !empty($r['data']) && !empty($r['data']['revealed'])) {
-                    $this->success('ok', $r['data']);
-                }
-                $packet = \think\Db::name('chat_red_packets')->where('id', (int)$packet['id'])->find() ?: $packet;
-                $tronStatus = (int)($packet['tron_status'] ?? 0);
-            } catch (\Throwable $e) {
-                // 继续返回当前状态，前端可提示待开奖
-            }
-        }
-
+        // 开奖写库仅 IM TronFair；此处只读当前状态（未开奖时前端提示等待）
         $hasTron = trim((string)($packet['tron_block_id'] ?? '')) !== '' || (int)($packet['tron_block_num'] ?? 0) > 0;
         $legacyHash = trim((string)($packet['fair_hash'] ?? ''));
         if (!$hasTron && $legacyHash === '' && $tronStatus === 0) {

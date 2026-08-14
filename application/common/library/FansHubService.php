@@ -3041,6 +3041,9 @@ class FansHubService
             'admin_id'        => $adminId,
             'createtime'      => $now,
         ]);
+        if (abs($hongbaoDelta) > 1e-8) {
+            FansHubImCache::bustWallet($userId);
+        }
         if ($rightsDelta > 0) {
             FansHubMarket::onSharesGranted($rightsDelta);
         }
@@ -3324,12 +3327,10 @@ class FansHubService
             Db::rollback();
             throw $e;
         }
+        if (abs($deltas['hongbao']) > 1e-8) {
+            FansHubImCache::bustWallet($userId);
+        }
         return self::profilePayload($userId);
-    }
-
-    public static function exchange($userId, $ticketCount, $channel = '', $requestKey = '')
-    {
-        return self::swapAssets($userId, 'rights', 'hongbao', $ticketCount, $channel, $requestKey);
     }
 
     /**

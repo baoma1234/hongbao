@@ -111,11 +111,11 @@ class TronFair
         try {
           self::processReveal($packetId);
         } catch (\Throwable $e) {
-          error_log('[TRON] timer reveal fail packet=' . $packetId . ' ' . $e->getMessage());
+          CatchLog::quiet($e, 'tron.timer_reveal');
         }
       }, [], false);
     } catch (\Throwable $e) {
-      error_log('[TRON] Timer::add fail ' . $e->getMessage());
+      CatchLog::quiet($e, 'tron.timer_add');
     }
     return true;
   }
@@ -499,24 +499,10 @@ class TronFair
     }
   }
 
+  /** ThinkPHP reveal 已停写；不再双轨入队。 */
   protected static function enqueueThinkQueue($packetId, $delaySec)
   {
-    try {
-      $q = new \Redis();
-      if (!$q->connect('127.0.0.1', 6379, 1.5)) {
-        return;
-      }
-      $q->select(0);
-      $payload = json_encode([
-        'job'      => 'app\\job\\TronRedPacketReveal',
-        'data'     => ['packet_id' => (int)$packetId],
-        'id'       => bin2hex(random_bytes(16)),
-        'attempts' => 1,
-      ], JSON_UNESCAPED_UNICODE);
-      $q->zAdd('queues:default:delayed', time() + max(1, (int)$delaySec), $payload);
-    } catch (\Throwable $e) {
-      error_log('[TRON] enqueue think-queue fail: ' . $e->getMessage());
-    }
+    return;
   }
 
   public static function cachePut(array $packet)
@@ -530,6 +516,7 @@ class TronFair
       $r = RedisClient::conn();
       $r->setex(RedisClient::key('rp:tron:fair:' . $no), 86400, json_encode($view, JSON_UNESCAPED_UNICODE));
     } catch (\Throwable $e) {
+      CatchLog::quiet($e, 'tron.cachePut.im');
     }
     try {
       $q = new \Redis();
@@ -538,6 +525,7 @@ class TronFair
         $q->setex('rp:tron:fair:' . $no, 86400, json_encode($view, JSON_UNESCAPED_UNICODE));
       }
     } catch (\Throwable $e) {
+      CatchLog::quiet($e, 'tron.cachePut.think');
     }
   }
 

@@ -40,17 +40,7 @@ class Chatfair extends Api
         }
         $tronStatus = (int)($packet['tron_status'] ?? 0);
         $finished = in_array((int)$packet['status'], [2, 3, 5], true) || (int)($packet['remain_count'] ?? 1) <= 0;
-        if ($finished && $tronStatus !== 2) {
-            try {
-                $r = RedPacketTronFair::processReveal((int)$packet['id'], true);
-                if (!empty($r['ok']) && !empty($r['data']) && !empty($r['data']['revealed'])) {
-                    $this->success('ok', $r['data']);
-                }
-                $packet = Db::name('chat_red_packets')->where('id', (int)$packet['id'])->find() ?: $packet;
-                $tronStatus = (int)($packet['tron_status'] ?? 0);
-            } catch (\Throwable $e) {
-            }
-        }
+        // 开奖写库仅 IM；验证接口只读
         $hasTron = trim((string)($packet['tron_block_id'] ?? '')) !== '' || (int)($packet['tron_block_num'] ?? 0) > 0;
         if (!$hasTron && trim((string)($packet['fair_hash'] ?? '')) === '' && $tronStatus === 0 && !$finished) {
             $this->error('该红包暂无波场哈希（未开奖）');

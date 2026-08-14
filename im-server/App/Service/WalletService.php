@@ -4,6 +4,7 @@ namespace Im\Service;
 
 use Im\Support\Db;
 use Im\Support\RedisClient;
+use Im\Support\CatchLog;
 
 /**
  * 福利大厅钱包：fa_fans_account.hongbao（红宝）+ fa_fans_ledger
@@ -430,11 +431,11 @@ class WalletService
             );
             if ($affected <= 0) {
                 $this->ensureAccountForCredit($userId);
-                $affected = Db::exec(
+        $affected = Db::exec(
                     "UPDATE {$table} SET `{$field}`=`{$field}`+(?), updatetime=? WHERE user_id=? AND status='normal'",
                     [$abs, $now, $userId]
-                );
-                if ($affected <= 0) {
+        );
+        if ($affected <= 0) {
                     throw new \RuntimeException('account frozen');
                 }
             }
@@ -452,10 +453,10 @@ class WalletService
                     [$abs, $abs, $now, $userId, $abs]
                 );
             } else {
-                $affected = Db::exec(
+            $affected = Db::exec(
                     "UPDATE {$table} SET `{$field}`=`{$field}`-(?), updatetime=? WHERE user_id=? AND status='normal' AND `{$field}`>=?",
                     [$abs, $now, $userId, $abs]
-                );
+            );
             }
             if ($affected <= 0) {
                 $row = Db::fetch(
@@ -481,8 +482,8 @@ class WalletService
         $before = round($after - $delta, 2);
 
         $ledgerId = $this->insertLedger(
-            $userId,
-            (string)$type,
+                $userId,
+                (string)$type,
             $delta,
             $after,
             (float)($row['rights'] ?? 0),
@@ -551,6 +552,7 @@ class WalletService
                 return $bal;
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'wallet.cacheGet');
         }
         return null;
     }
@@ -563,6 +565,7 @@ class WalletService
         try {
             RedisClient::conn()->setex($this->cacheKey($userId), $this->cacheTtl(), sprintf('%.2f', $bal));
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'wallet.cachePut');
         }
     }
 
@@ -582,6 +585,7 @@ class WalletService
                 return $bal;
             }
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'wallet.frozenCacheGet');
         }
         return null;
     }
@@ -594,6 +598,7 @@ class WalletService
         try {
             RedisClient::conn()->setex($this->frozenCacheKey($userId), $this->cacheTtl(), sprintf('%.2f', $bal));
         } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'wallet.frozenCachePut');
         }
     }
 

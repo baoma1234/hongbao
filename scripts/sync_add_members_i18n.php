@@ -122,6 +122,5 @@ if (is_file($fansPath)) {
     }
 }
 
-passthru('php ' . escapeshellarg($root . '/scripts/export_copy_defaults.php'));
-passthru('php ' . escapeshellarg($root . '/scripts/generate_i18n_locales.php'));
+echo "run: php scripts/export_copy_defaults.php && php scripts/generate_i18n_locales.php\n";
 echo "done\n";
