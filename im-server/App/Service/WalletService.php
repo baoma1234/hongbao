@@ -356,6 +356,20 @@ class WalletService
         return (int)Db::lastId();
     }
 
+    /** 同 biz_no 可安全幂等跳过的入账类型（防双结算） */
+    protected function isIdempotentCreditType($type)
+    {
+        static $types = [
+            'red_packet_agent_rebate_in'  => true,
+            'red_packet_dual_rebate_in'   => true,
+            'red_packet_invite_rebate_in' => true,
+            'red_packet_grab'             => true,
+            'niuniu_win'                  => true,
+            'niuniu_packet'               => true,
+        ];
+        return isset($types[(string)$type]);
+    }
+
     /**
      * 红包相关流水备注统一带上红宝号，便于前后台对账检索
      */
@@ -417,6 +431,25 @@ class WalletService
         if (abs($delta) < 0.00001) {
             $bal = $this->getBalance($userId);
             return ['before' => $bal, 'after' => $bal, 'delta' => 0.0, 'ledger_id' => 0];
+        }
+
+        // 返佣等带 biz_no 的入账：同 user+type+biz_no 只入一次，防发送时/结算时双写
+        $bizNo = trim((string)($meta['biz_no'] ?? ''));
+        if ($delta > 0 && $bizNo !== '' && $this->isIdempotentCreditType((string)$type)) {
+            $hit = Db::fetch(
+                'SELECT id FROM ' . Db::table($this->cfg['ledger_table'])
+                . ' WHERE user_id=? AND type=? AND biz_no=? LIMIT 1',
+                [$userId, (string)$type, mb_substr($bizNo, 0, 40)]
+            );
+            if ($hit) {
+                $bal = $this->getBalance($userId, true);
+                return [
+                    'before'    => $bal,
+                    'after'     => $bal,
+                    'delta'     => 0.0,
+                    'ledger_id' => (int)($hit['id'] ?? 0),
+                ];
+            }
         }
 
         $field = $this->cfg['field'];
@@ -627,7 +660,17 @@ class WalletService
 
     protected function createAccount($userId)
     {
+        $userId = (int)$userId;
         $now = time();
+        // 账户曾被删后重建时，旧流水仍挂在同 user_id，会导致对账 SUM≠余额；重建前清孤儿账
+        try {
+            Db::exec(
+                'DELETE FROM ' . Db::table($this->cfg['ledger_table']) . ' WHERE user_id=?',
+                [$userId]
+            );
+        } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'wallet.purgeOrphanLedger');
+        }
         Db::exec(
             'INSERT INTO ' . Db::table($this->cfg['account_table'])
             . ' (id,user_id,rights,balance,main_uid,flow_stage,member_level,status,createtime,updatetime)'

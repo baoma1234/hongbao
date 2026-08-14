@@ -2028,6 +2028,8 @@ class FansHubService
         $rights = (float)self::config('register_rights', 5);
         Db::startTrans();
         try {
+            // 账户缺失后重建：清掉同 user_id 孤儿流水，避免 SUM(ledger) 虚高
+            Db::name('fans_ledger')->where('user_id', (int)$userId)->delete();
             // id 即会员ID（与 fa_user.id / user_id 相同），不再使用另一套自增会员号
             $account = Account::create([
                 'id'                     => (int)$userId,
