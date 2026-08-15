@@ -78,10 +78,39 @@
         </div>
     </div>
     <div class="form-group">
-        <label class="control-label col-xs-12 col-sm-2">时段间隔(JSON):</label>
+        <label class="control-label col-xs-12 col-sm-2">时段间隔:</label>
         <div class="col-xs-12 col-sm-8">
-            <textarea class="form-control" name="row[interval_windows]" rows="4">[{"start_hour":20,"end_hour":23,"interval_sec":30},{"start_hour":0,"end_hour":7,"interval_sec":120}]</textarea>
-            <span class="help-block">多段按时段<strong>固定间隔</strong>发包。留空=系统默认（20–23→30s，0–7→120s）；填 <code>[]</code> 关闭时段、全天只用上方间隔。</span>
+            <table class="table table-bordered table-condensed" style="margin-bottom:6px;max-width:520px">
+                <thead>
+                <tr>
+                    <th style="width:70px">段</th>
+                    <th>开始小时</th>
+                    <th>结束小时</th>
+                    <th>间隔(秒)</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td>第 1 段</td>
+                    <td><input class="form-control" name="row[iw][0][start_hour]" type="number" min="0" max="23" placeholder="0-23" value="{$intervalWinSlots.0.start_hour|default=''}"></td>
+                    <td><input class="form-control" name="row[iw][0][end_hour]" type="number" min="0" max="23" placeholder="0-23" value="{$intervalWinSlots.0.end_hour|default=''}"></td>
+                    <td><input class="form-control" name="row[iw][0][interval_sec]" type="number" min="5" placeholder="秒" value="{$intervalWinSlots.0.interval_sec|default=''}"></td>
+                </tr>
+                <tr>
+                    <td>第 2 段</td>
+                    <td><input class="form-control" name="row[iw][1][start_hour]" type="number" min="0" max="23" placeholder="0-23" value="{$intervalWinSlots.1.start_hour|default=''}"></td>
+                    <td><input class="form-control" name="row[iw][1][end_hour]" type="number" min="0" max="23" placeholder="0-23" value="{$intervalWinSlots.1.end_hour|default=''}"></td>
+                    <td><input class="form-control" name="row[iw][1][interval_sec]" type="number" min="5" placeholder="秒" value="{$intervalWinSlots.1.interval_sec|default=''}"></td>
+                </tr>
+                <tr>
+                    <td>第 3 段</td>
+                    <td><input class="form-control" name="row[iw][2][start_hour]" type="number" min="0" max="23" placeholder="0-23" value="{$intervalWinSlots.2.start_hour|default=''}"></td>
+                    <td><input class="form-control" name="row[iw][2][end_hour]" type="number" min="0" max="23" placeholder="0-23" value="{$intervalWinSlots.2.end_hour|default=''}"></td>
+                    <td><input class="form-control" name="row[iw][2][interval_sec]" type="number" min="5" placeholder="秒" value="{$intervalWinSlots.2.interval_sec|default=''}"></td>
+                </tr>
+                </tbody>
+            </table>
+            <span class="help-block">最多 3 段；小时为整点 0～23，可跨午夜（如 22～6）。三段都留空 = 全天只用上方「发包间隔」。默认示例：20–23 → 30s，0–7 → 120s。</span>
         </div>
     </div>
     <div class="form-group">

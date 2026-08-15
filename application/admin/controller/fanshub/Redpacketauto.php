@@ -31,6 +31,7 @@ class Redpacketauto extends Backend
             $params = $this->normalize($this->request->post('row/a'));
             $this->request->post(['row' => $params]);
         }
+        $this->view->assign('intervalWinSlots', $this->defaultIntervalWinSlots());
         return parent::add();
     }
 
@@ -39,8 +40,15 @@ class Redpacketauto extends Backend
         if ($this->request->isPost()) {
             $params = $this->normalize($this->request->post('row/a'));
             $this->request->post(['row' => $params]);
+            return parent::edit($ids);
         }
-        return parent::edit($ids);
+        $row = $this->model->get($ids);
+        if (!$row) {
+            $this->error(__('No Results were found'));
+        }
+        $this->view->assign('row', $row);
+        $this->view->assign('intervalWinSlots', $this->slotsFromIntervalWindows($row['interval_windows'] ?? null));
+        return $this->view->fetch();
     }
 
     /**
@@ -286,7 +294,8 @@ class Redpacketauto extends Backend
         $params['blessing'] = trim((string)($params['blessing'] ?? '恭喜发财')) ?: '恭喜发财';
         $params['mine_digit'] = 0; // 埋雷雷号运行时随机，后台不配置
         $params['interval_sec'] = max(5, (int)($params['interval_sec'] ?? 60));
-        $params['interval_windows'] = $this->normalizeIntervalWindows($params['interval_windows'] ?? null);
+        $params['interval_windows'] = $this->normalizeIntervalWindowsFromForm($params);
+        unset($params['iw']);
         $params['burst_count'] = max(1, (int)($params['burst_count'] ?? 1));
         $params['burst_window_sec'] = max(0, (int)($params['burst_window_sec'] ?? 0));
         if ($params['burst_window_sec'] > 0 && $params['burst_window_sec'] < 30) {
@@ -335,6 +344,54 @@ class Redpacketauto extends Backend
     }
 
     /**
+     * 表单最多 3 段：开始小时 / 结束小时 / 间隔秒 → 存 JSON
+     * 三段都空 → []（全天只用 interval_sec）
+     */
+    protected function normalizeIntervalWindowsFromForm(array $params)
+    {
+        $slots = $params['iw'] ?? null;
+        if (!is_array($slots)) {
+            // 兼容旧 JSON 字段
+            return $this->normalizeIntervalWindows($params['interval_windows'] ?? null);
+        }
+        $out = [];
+        $idx = 0;
+        foreach (array_values($slots) as $row) {
+            if ($idx >= 3) {
+                break;
+            }
+            $idx++;
+            if (!is_array($row)) {
+                continue;
+            }
+            $startRaw = trim((string)($row['start_hour'] ?? ''));
+            $endRaw = trim((string)($row['end_hour'] ?? ''));
+            $ivRaw = trim((string)($row['interval_sec'] ?? ''));
+            if ($startRaw === '' && $endRaw === '' && $ivRaw === '') {
+                continue;
+            }
+            if ($startRaw === '' || $endRaw === '' || $ivRaw === '') {
+                $this->error('时段第 ' . $idx . ' 段请填齐：开始小时、结束小时、间隔秒（或整段留空）');
+            }
+            $start = (int)$startRaw;
+            $end = (int)$endRaw;
+            $iv = (int)$ivRaw;
+            if ($start < 0 || $start > 23 || $end < 0 || $end > 23) {
+                $this->error('时段小时须在 0～23');
+            }
+            if ($iv < 5) {
+                $this->error('时段间隔至少 5 秒');
+            }
+            $out[] = [
+                'start_hour'   => $start,
+                'end_hour'     => $end,
+                'interval_sec' => $iv,
+            ];
+        }
+        return json_encode($out, JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
      * 时段间隔 JSON：空=用系统默认(20-23→30s,0-7→120s)；[]=关闭时段只用 interval_sec
      */
     protected function normalizeIntervalWindows($raw)
@@ -351,7 +408,7 @@ class Redpacketauto extends Backend
             }
             $arr = json_decode($trim, true);
             if (!is_array($arr)) {
-                $this->error('时段间隔 JSON 格式错误，例：[{"start_hour":20,"end_hour":23,"interval_sec":30}]');
+                $this->error('时段间隔格式错误');
             }
         }
         $out = [];
@@ -373,7 +430,48 @@ class Redpacketauto extends Backend
                 'end_hour'     => $end,
                 'interval_sec' => $iv,
             ];
+            if (count($out) >= 3) {
+                break;
+            }
         }
         return json_encode($out, JSON_UNESCAPED_UNICODE);
+    }
+
+    protected function defaultIntervalWinSlots()
+    {
+        return [
+            ['start_hour' => '20', 'end_hour' => '23', 'interval_sec' => '30'],
+            ['start_hour' => '0', 'end_hour' => '7', 'interval_sec' => '120'],
+            ['start_hour' => '', 'end_hour' => '', 'interval_sec' => ''],
+        ];
+    }
+
+    protected function slotsFromIntervalWindows($raw)
+    {
+        $slots = [
+            ['start_hour' => '', 'end_hour' => '', 'interval_sec' => ''],
+            ['start_hour' => '', 'end_hour' => '', 'interval_sec' => ''],
+            ['start_hour' => '', 'end_hour' => '', 'interval_sec' => ''],
+        ];
+        $trim = trim((string)$raw);
+        if ($trim === '' || $trim === 'null') {
+            return $this->defaultIntervalWinSlots();
+        }
+        $arr = json_decode($trim, true);
+        if (!is_array($arr)) {
+            return $this->defaultIntervalWinSlots();
+        }
+        for ($i = 0; $i < 3; $i++) {
+            if (!isset($arr[$i]) || !is_array($arr[$i])) {
+                continue;
+            }
+            $row = $arr[$i];
+            $slots[$i] = [
+                'start_hour'   => isset($row['start_hour']) ? (string)(int)$row['start_hour'] : '',
+                'end_hour'     => isset($row['end_hour']) ? (string)(int)$row['end_hour'] : '',
+                'interval_sec' => isset($row['interval_sec']) ? (string)(int)$row['interval_sec'] : '',
+            ];
+        }
+        return $slots;
     }
 }
