@@ -57,7 +57,7 @@ return array (
   'login_cs_enabled' => true,
   'login_cs_url' => '',
   'login_cs_icon' => 'https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/20260813/afe179a5f27ce0b94bf8a0f65af3d291.png',
-  'app_download_url' => 'https://your-app.com',
+  'app_download_url' => 'https://6r1ihgq.baibohaidun.com:1008/d/3rd7ddc9ic5rr2b',
   'main_station_url' => 'https://555.bio',
   'im_ws_url' => '',
   'im_admin' => 
@@ -1151,4 +1151,6 @@ return array (
   'google_auth_login_enabled' => true,
   'google_auth_secret' => 'WTQRCJSEQCBJO4QB',
   'google_auth_issuer' => 'FansHub',
+  // 后台管理员登录：每账号独立谷歌验证器（fa_admin.google_secret）
+  'admin_google_auth_enabled' => true,
 );

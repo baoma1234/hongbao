@@ -91,13 +91,23 @@ class Index extends Backend
                 $rule['captcha'] = 'require|captcha';
                 $data['captcha'] = $this->request->post('captcha');
             }
-            $validate = new Validate($rule, [], ['username' => __('Username'), 'password' => __('Password'), 'captcha' => __('Captcha')]);
+            $adminGa = (bool)\app\common\library\FansHubService::config('admin_google_auth_enabled');
+            if ($adminGa) {
+                $rule['google_code'] = 'require|length:6';
+                $data['google_code'] = preg_replace('/\s+/', '', (string)$this->request->post('google_code', ''));
+            }
+            $validate = new Validate($rule, [], [
+                'username'    => __('Username'),
+                'password'    => __('Password'),
+                'captcha'     => __('Captcha'),
+                'google_code' => '谷歌验证码',
+            ]);
             $result = $validate->check($data);
             if (!$result) {
                 $this->error($validate->getError(), $url, ['token' => $this->request->token()]);
             }
             AdminLog::setTitle(__('Login'));
-            $result = $this->auth->login($username, $password, $keeplogin ? $keeyloginhours * 3600 : 0);
+            $result = $this->auth->login($username, $password, ($keeplogin && !$adminGa) ? $keeyloginhours * 3600 : 0);
             if ($result === true) {
                 Hook::listen("admin_login_after", $this->request);
                 $this->success(__('Login successful'), $url, ['url' => $url, 'id' => $this->auth->id, 'username' => $username, 'avatar' => $this->auth->avatar]);
@@ -108,14 +118,16 @@ class Index extends Backend
             }
         }
 
-        // 根据客户端的cookie,判断是否可以自动登录
-        if ($this->auth->autologin()) {
+        // 启用后台谷歌验证时禁止 Cookie 自动登录绕过动态码
+        $adminGa = (bool)\app\common\library\FansHubService::config('admin_google_auth_enabled');
+        if (!$adminGa && $this->auth->autologin()) {
             Session::delete("referer");
             $this->redirect($url);
         }
         $background = Config::get('fastadmin.login_background');
         $background = $background ? (stripos($background, 'http') === 0 ? $background : config('site.cdnurl') . $background) : '';
-        $this->view->assign('keeyloginhours', $keeyloginhours);
+        $this->view->assign('keeyloginhours', $adminGa ? 0 : $keeyloginhours);
+        $this->view->assign('adminGoogleAuth', $adminGa);
         $this->view->assign('background', $background);
         $this->view->assign('title', __('Login'));
         Hook::listen("admin_login_init", $this->request);

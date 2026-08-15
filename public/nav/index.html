@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#c61114" />
+  <meta name="description" content="红宝官方导航 — APP 下载与网页版入口" />
+  <link rel="icon" href="https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/brand/apple-touch-icon-1024.png" />
+  <link rel="apple-touch-icon" href="https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/brand/apple-touch-icon-1024.png" />
+  <title>红宝官方导航</title>
+  <style>
+    :root {
+      --red: #e63022;
+      --red-deep: #9e1014;
+      --red-ink: #7a0c10;
+      --gold: #f0b04a;
+      --gold-deep: #e07a22;
+      --cream: #fff8f0;
+      --ink: #2a1c16;
+      --muted: #8a7a6e;
+      --line: rgba(224, 122, 34, 0.16);
+      --safe-b: env(safe-area-inset-bottom, 0px);
+      --safe-t: env(safe-area-inset-top, 0px);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      min-height: 100%;
+      background: #1a0a0a;
+      color: var(--ink);
+      font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      background:
+        radial-gradient(120% 80% at 50% -10%, rgba(230, 48, 34, 0.55) 0%, transparent 55%),
+        radial-gradient(80% 50% at 100% 100%, rgba(224, 122, 34, 0.18) 0%, transparent 50%),
+        linear-gradient(180deg, #2a0c0e 0%, #120808 45%, #0a0606 100%);
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    .page {
+      width: min(440px, 100%);
+      margin: 0 auto;
+      padding: calc(28px + var(--safe-t)) 20px calc(36px + var(--safe-b));
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: 36px 22px 30px;
+      border-radius: 24px;
+      color: #fff;
+      background: linear-gradient(145deg, #e63022 0%, #b40f14 48%, #7a0c10 100%);
+      box-shadow:
+        0 22px 48px rgba(158, 16, 20, 0.45),
+        inset 0 1px 0 rgba(255, 255, 255, 0.22);
+      animation: rise 0.6s ease-out both;
+    }
+
+    .hero::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(90% 60% at 100% -10%, rgba(255, 214, 140, 0.42) 0%, transparent 50%),
+        radial-gradient(60% 50% at -8% 120%, rgba(0, 0, 0, 0.28) 0%, transparent 55%);
+      animation: shine 5s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    .hero-mark {
+      position: absolute;
+      right: -8px;
+      bottom: -22px;
+      font-size: 88px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      color: rgba(255, 255, 255, 0.07);
+      line-height: 1;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .brand-row {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .logo {
+      width: 72px;
+      height: 72px;
+      border-radius: 18px;
+      object-fit: cover;
+      background: rgba(255, 255, 255, 0.12);
+      box-shadow:
+        0 8px 20px rgba(0, 0, 0, 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.35);
+      flex: 0 0 auto;
+      animation: logo-pop 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    .brand {
+      font-size: clamp(40px, 11vw, 48px);
+      font-weight: 900;
+      letter-spacing: 4px;
+      line-height: 1;
+      text-shadow: 0 2px 14px rgba(0, 0, 0, 0.2);
+    }
+
+    .lead {
+      position: relative;
+      z-index: 1;
+      margin-top: 16px;
+      font-size: 17px;
+      font-weight: 700;
+      opacity: 0.96;
+    }
+
+    .sub {
+      position: relative;
+      z-index: 1;
+      margin-top: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+      opacity: 0.78;
+    }
+
+    .sections {
+      margin-top: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      flex: 1;
+    }
+
+    .section {
+      animation: rise 0.55s ease-out both;
+    }
+
+    .section:nth-child(1) { animation-delay: 0.08s; }
+    .section:nth-child(2) { animation-delay: 0.16s; }
+
+    .section-hd {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 0 4px 10px;
+    }
+
+    .section-title {
+      font-size: 15px;
+      font-weight: 800;
+      color: #ffe7c2;
+      letter-spacing: 0.5px;
+    }
+
+    .section-hint {
+      font-size: 12px;
+      color: rgba(255, 231, 194, 0.55);
+    }
+
+    .list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .link {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px 16px 16px 14px;
+      border-radius: 16px;
+      background: linear-gradient(180deg, rgba(255, 248, 240, 0.98) 0%, rgba(255, 255, 255, 0.94) 100%);
+      border: 1px solid var(--line);
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.22);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .link:active {
+      transform: scale(0.985);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+    }
+
+    .badge {
+      flex: 0 0 auto;
+      min-width: 52px;
+      height: 52px;
+      padding: 0 8px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.3px;
+      color: #fff;
+    }
+
+    .badge-app {
+      background: linear-gradient(135deg, #e63022, #c61114);
+      box-shadow: 0 6px 14px rgba(198, 17, 20, 0.35);
+    }
+
+    .badge-web {
+      background: linear-gradient(135deg, #f0b04a, #e07a22);
+      box-shadow: 0 6px 14px rgba(224, 122, 34, 0.35);
+      color: #5a2a08;
+    }
+
+    .meta {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .meta-title {
+      display: block;
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--ink);
+      letter-spacing: 0.2px;
+    }
+
+    .meta-host {
+      display: block;
+      margin-top: 4px;
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 600;
+      word-break: break-all;
+    }
+
+    .arrow {
+      flex: 0 0 auto;
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(230, 48, 34, 0.08);
+      color: var(--red);
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .foot {
+      margin-top: 28px;
+      text-align: center;
+      font-size: 12px;
+      color: rgba(255, 231, 194, 0.42);
+      animation: rise 0.55s ease-out 0.24s both;
+    }
+
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes shine {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.82; }
+    }
+
+    @keyframes logo-pop {
+      from { opacity: 0; transform: scale(0.86); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    @media (min-width: 720px) {
+      .page { padding-top: calc(48px + var(--safe-t)); }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <div class="hero-mark" aria-hidden="true">红宝</div>
+      <div class="brand-row">
+        <img
+          class="logo"
+          src="https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/brand/apple-touch-icon-1024.png"
+          width="72"
+          height="72"
+          alt="红宝"
+        />
+        <h1 class="brand">红宝</h1>
+      </div>
+      <p class="lead">官方导航入口</p>
+      <p class="sub">选择 APP 下载或网页版，任一线路可用即可进入</p>
+    </header>
+
+    <div class="sections">
+      <section class="section" aria-labelledby="app-title">
+        <div class="section-hd">
+          <h2 id="app-title" class="section-title">APP 下载</h2>
+          <span class="section-hint">官方下载</span>
+        </div>
+        <div class="list">
+          <a class="link" href="https://6r1ihgq.baibohaidun.com:1008/d/3rd7ddc9ic5rr2b" target="_blank" rel="noopener noreferrer">
+            <span class="badge badge-app">APP</span>
+            <span class="meta">
+              <span class="meta-title">官方 APP 下载</span>
+              <span class="meta-host">baibohaidun.com · 点击安装</span>
+            </span>
+            <span class="arrow" aria-hidden="true">›</span>
+          </a>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="web-title">
+        <div class="section-hd">
+          <h2 id="web-title" class="section-title">网页版</h2>
+          <span class="section-hint">浏览器直接打开</span>
+        </div>
+        <div class="list">
+          <a class="link" href="https://qhb01.com" target="_blank" rel="noopener noreferrer">
+            <span class="badge badge-web">网页</span>
+            <span class="meta">
+              <span class="meta-title">线路一 · 网页版</span>
+              <span class="meta-host">qhb01.com</span>
+            </span>
+            <span class="arrow" aria-hidden="true">›</span>
+          </a>
+          <a class="link" href="https://qhb02.com" target="_blank" rel="noopener noreferrer">
+            <span class="badge badge-web">网页</span>
+            <span class="meta">
+              <span class="meta-title">线路二 · 网页版</span>
+              <span class="meta-host">qhb02.com</span>
+            </span>
+            <span class="arrow" aria-hidden="true">›</span>
+          </a>
+          <a class="link" href="https://qhb03.com" target="_blank" rel="noopener noreferrer">
+            <span class="badge badge-web">网页</span>
+            <span class="meta">
+              <span class="meta-title">线路三 · 网页版</span>
+              <span class="meta-host">qhb03.com</span>
+            </span>
+            <span class="arrow" aria-hidden="true">›</span>
+          </a>
+        </div>
+      </section>
+    </div>
+
+    <p class="foot">红宝官方 · 导航页</p>
+  </main>
+</body>
+</html>

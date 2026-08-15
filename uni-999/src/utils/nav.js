@@ -2,7 +2,7 @@
 export const HOME_TAB = '/pages/home/home'
 
 const TAB_RE =
-  /^\/pages\/(home\/home|exchange\/exchange|messages\/messages|master\/master|profile\/profile)/
+  /^\/pages\/(home\/home|exchange\/exchange|messages\/messages|master\/master|fission\/detail|profile\/profile)/
 
 function goFallback(url) {
   const target = String(url || HOME_TAB).trim() || HOME_TAB

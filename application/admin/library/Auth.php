@@ -57,6 +57,23 @@ class Auth extends \fast\Auth
             $this->setError('Password is incorrect');
             return false;
         }
+        // 后台谷歌验证：每个管理员独立密钥（fa_admin.google_secret）
+        if (\app\common\library\FansHubService::config('admin_google_auth_enabled')) {
+            $googleCode = preg_replace('/\s+/', '', (string)request()->post('google_code', ''));
+            $secret = \app\common\library\FansHubGoogleAuth::normalizeSecret(
+                $admin->getData('google_secret')
+            );
+            if ($secret === '') {
+                $this->setError('该账号未绑定谷歌验证器，请联系超管在「管理员管理」中绑定');
+                return false;
+            }
+            if ($googleCode === '' || !\app\common\library\FansHubGoogleAuth::verify($secret, $googleCode, 1)) {
+                $admin->loginfailure++;
+                $admin->save();
+                $this->setError('谷歌验证码错误');
+                return false;
+            }
+        }
         $admin->loginfailure = 0;
         $admin->logintime = time();
         $admin->loginip = request()->ip();

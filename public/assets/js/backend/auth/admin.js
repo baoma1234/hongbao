@@ -36,6 +36,11 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                         {field: 'groups_text', title: __('Group'), operate:false, formatter: Table.api.formatter.label},
                         {field: 'email', title: __('Email')},
                         {field: 'mobile', title: __('Mobile')},
+                        {field: 'google_bound', title: '谷歌验证', operate: false, formatter: function (value) {
+                                return parseInt(value, 10) === 1
+                                    ? '<span class="label label-success">已绑定</span>'
+                                    : '<span class="label label-warning">未绑定</span>';
+                            }},
                         {field: 'status', title: __("Status"), searchList: {"normal":__('Normal'),"hidden":__('Hidden')}, formatter: Table.api.formatter.status},
                         {field: 'logintime', title: __('Login time'), formatter: Table.api.formatter.datetime, operate: 'RANGE', addclass: 'datetimerange', sortable: true},
                         {field: 'operate', title: __('Operate'), table: table, events: Table.api.events.operate, formatter: function (value, row, index) {

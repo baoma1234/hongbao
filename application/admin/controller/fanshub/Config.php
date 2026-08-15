@@ -60,6 +60,7 @@ class Config extends Backend
             'main_uid_verify_api_key', 'main_uid_verify_timeout', 'main_uid_verify_success_codes',
             'main_uid_verify_match_phone', 'main_uid_min_length', 'main_uid_max_length', 'main_uid_pattern',
             'google_auth_login_enabled', 'google_auth_secret', 'google_auth_issuer',
+            'admin_google_auth_enabled',
         ],
     ];
 
@@ -259,6 +260,7 @@ class Config extends Backend
             'locale_auto_detect', 'api_sign_enabled', 'device_fp_limit_enabled',
             'main_uid_verify_enabled', 'main_uid_verify_local', 'main_uid_verify_match_phone',
             'google_auth_login_enabled',
+            'admin_google_auth_enabled',
             'login_cs_enabled',
             'exchange_rights_to_balance_enabled', 'exchange_balance_to_rights_enabled',
             'exchange_rb_enabled', 'exchange_br_enabled', 'exchange_rh_enabled',

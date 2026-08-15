@@ -37,6 +37,29 @@
         </div>
     </div>
     <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">谷歌验证器:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input type="text" class="form-control" id="google_secret" name="row[google_secret]" value="{$googleSecret|default=''|htmlentities}" placeholder="Base32 密钥，留空保存表示不修改" autocomplete="off"/>
+            <div class="checkbox">
+                <label><input type="checkbox" name="row[regen_google_secret]" value="1"> 重新生成密钥（勾选后忽略上方输入）</label>
+            </div>
+            <div class="checkbox">
+                <label><input type="checkbox" name="row[clear_google_secret]" value="1"> 清除密钥（启用后台谷歌登录后将无法登录）</label>
+            </div>
+            {if $googleSecret}
+            <p class="help-block" style="margin-top:8px;">
+                当前动态码：<code>{$googleCode|default=''}</code>
+                （请用 Authenticator 扫描下方二维码绑定，每账号独立）
+            </p>
+            {if $googleQrUrl}
+            <p><img src="{$googleQrUrl|htmlentities}" alt="Google Auth QR" style="max-width:180px;background:#fff;padding:6px;border-radius:8px;"/></p>
+            {/if}
+            {else/}
+            <p class="help-block">尚未绑定。可填写密钥或勾选「重新生成」后保存。</p>
+            {/if}
+        </div>
+    </div>
+    <div class="form-group">
         <label for="loginfailure" class="control-label col-xs-12 col-sm-2">{:__('Loginfailure')}:</label>
         <div class="col-xs-12 col-sm-8">
             <input type="number" class="form-control" id="loginfailure" name="row[loginfailure]" value="{$row.loginfailure|htmlentities}" data-rule="required" />

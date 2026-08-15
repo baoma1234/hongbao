@@ -105,6 +105,13 @@ class Admin extends Backend
                 $groups = isset($adminGroupName[$v['id']]) ? $adminGroupName[$v['id']] : [];
                 $v['groups'] = implode(',', array_keys($groups));
                 $v['groups_text'] = implode(',', array_values($groups));
+                $ga = '';
+                try {
+                    $ga = (string)$v->getData('google_secret');
+                } catch (\Exception $e) {
+                    $ga = '';
+                }
+                $v['google_bound'] = \app\common\library\FansHubGoogleAuth::normalizeSecret($ga) !== '' ? 1 : 0;
             }
             unset($v);
             $result = array("total" => $list->total(), "rows" => $list->items());
@@ -131,6 +138,14 @@ class Admin extends Backend
                     $params['salt'] = Random::alnum();
                     $params['password'] = $this->auth->getEncryptPassword($params['password'], $params['salt']);
                     $params['avatar'] = '/assets/img/avatar.png'; //设置新管理员默认头像。
+                    if (empty($params['google_secret'])) {
+                        $params['google_secret'] = \app\common\library\FansHubGoogleAuth::createSecret(16);
+                    } else {
+                        $params['google_secret'] = \app\common\library\FansHubGoogleAuth::normalizeSecret($params['google_secret']);
+                        if ($params['google_secret'] === '') {
+                            exception('谷歌验证器密钥格式无效（需 Base32）');
+                        }
+                    }
                     $result = $this->model->validate('Admin.add')->save($params);
                     if ($result === false) {
                         exception($this->model->getError());
@@ -187,6 +202,24 @@ class Admin extends Backend
                     } else {
                         unset($params['password'], $params['salt']);
                     }
+                    $clearGoogle = !empty($params['clear_google_secret']);
+                    $regenGoogle = !empty($params['regen_google_secret']);
+                    unset($params['clear_google_secret'], $params['regen_google_secret']);
+                    if ($clearGoogle) {
+                        $params['google_secret'] = '';
+                    } elseif ($regenGoogle) {
+                        $params['google_secret'] = \app\common\library\FansHubGoogleAuth::createSecret(16);
+                    } elseif (array_key_exists('google_secret', $params)) {
+                        $raw = trim((string)$params['google_secret']);
+                        if ($raw === '') {
+                            unset($params['google_secret']); // 留空表示不改
+                        } else {
+                            $params['google_secret'] = \app\common\library\FansHubGoogleAuth::normalizeSecret($raw);
+                            if ($params['google_secret'] === '') {
+                                exception('谷歌验证器密钥格式无效（需 Base32）');
+                            }
+                        }
+                    }
                     //这里需要针对username和email做唯一验证
                     $adminValidate = \think\Loader::validate('Admin');
                     $adminValidate->rule([
@@ -230,8 +263,17 @@ class Admin extends Backend
         foreach ($grouplist as $k => $v) {
             $groupids[] = $v['id'];
         }
+        $googleSecret = \app\common\library\FansHubGoogleAuth::normalizeSecret($row->getData('google_secret'));
+        $issuer = trim((string)\app\common\library\FansHubService::config('google_auth_issuer', 'FansHub')) ?: 'FansHub';
         $this->view->assign("row", $row);
         $this->view->assign("groupids", $groupids);
+        $this->view->assign('googleSecret', $googleSecret);
+        $this->view->assign('googleQrUrl', $googleSecret !== ''
+            ? \app\common\library\FansHubGoogleAuth::qrUrl($row['username'], $googleSecret, $issuer . '-Admin')
+            : '');
+        $this->view->assign('googleCode', $googleSecret !== ''
+            ? \app\common\library\FansHubGoogleAuth::getCode($googleSecret)
+            : '');
         return $this->view->fetch();
     }
 

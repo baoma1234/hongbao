@@ -123,6 +123,13 @@
                         </div>
                         {/if}
                         <!--@CaptchaEnd-->
+                        {if $adminGoogleAuth}
+                        <div class="input-group">
+                            <div class="input-group-addon"><span class="glyphicon glyphicon-phone" aria-hidden="true"></span></div>
+                            <input type="text" name="google_code" class="form-control" placeholder="谷歌验证码（6位）" maxlength="6" inputmode="numeric" autocomplete="one-time-code" data-rule="required;length(6)" value=""/>
+                        </div>
+                        <p class="help-block" style="margin-top:-6px;margin-bottom:12px;font-size:12px;">每个后台账号绑定独立谷歌验证器，请输入当前动态码</p>
+                        {/if}
                         {if $keeyloginhours>0}
                         <div class="form-group checkbox">
                             <label class="inline" for="keeplogin" data-toggle="tooltip" title="{:__('The duration of the session is %s hours', $keeyloginhours)}">

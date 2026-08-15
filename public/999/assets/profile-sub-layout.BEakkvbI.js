@@ -1,0 +1,1 @@
+import{r as e,af as o,au as r}from"./index-DeGGO8n7.js";function a(){const a=e({}),u=e({});return{profileSubHdStyle:a,profileSubPageStyle:u,refreshProfileSubLayout:function(){const e=o();e&&e.overlayTop||r(),a.value={},u.value={}}}}export{a as u};

@@ -15,7 +15,8 @@ class Admin extends Model
     protected $updateTime = 'updatetime';
     protected $hidden = [
         'password',
-        'salt'
+        'salt',
+        'google_secret',
     ];
 
     public static function init()
