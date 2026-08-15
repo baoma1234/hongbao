@@ -84,6 +84,7 @@ class PushBus
         // HTTP 桥等未 boot 的进程：无本地投递，走跨进程队列
         if (!self::$localDeliver) {
             self::toUsersExternal(array_values($ids), $type, $data);
+            OfflinePush::afterChatPush($type, $data);
             return;
         }
         $envelope = [
@@ -96,6 +97,7 @@ class PushBus
             'ts'     => time(),
         ];
         self::publish($envelope);
+        OfflinePush::afterChatPush($type, $data);
     }
 
     /**
@@ -115,6 +117,7 @@ class PushBus
         }
         if (!self::$localDeliver) {
             self::toGroupExternal($groupId, $type, $data);
+            OfflinePush::afterChatPush($type, $data);
             return;
         }
         $envelope = [
@@ -128,6 +131,7 @@ class PushBus
             'ts'     => time(),
         ];
         self::publishGroup($envelope);
+        OfflinePush::afterChatPush($type, $data);
     }
 
     /**

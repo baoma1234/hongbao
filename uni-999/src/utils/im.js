@@ -252,6 +252,13 @@ function handlePacket(raw) {
     reconnectAttempt = 0
     startPingLoop()
     emit('auth.ok', authMeta)
+    try {
+      import('./jpush.js').then((m) => {
+        if (m && typeof m.syncRegistrationAfterLogin === 'function') {
+          m.syncRegistrationAfterLogin()
+        }
+      }).catch(() => {})
+    } catch (e) {}
     return
   }
   if (packet.type === 'session.replaced') {
@@ -680,6 +687,14 @@ export function setGroupMuteAll(groupId, enabled) {
   return imSend(
     'group.mute_all',
     { group_id: groupId | 0, enabled: !!enabled },
+    true
+  )
+}
+
+export function setGroupNotifyMute(groupId, muted) {
+  return imSend(
+    'group.notify_mute',
+    { group_id: groupId | 0, notify_mute: muted ? 1 : 0 },
     true
   )
 }

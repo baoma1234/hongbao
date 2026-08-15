@@ -115,6 +115,7 @@ import {
   tt,
 } from '../../utils/i18n.js'
 import { imConnect } from '../../utils/im.js'
+import { syncRegistrationAfterLogin } from '../../utils/jpush.js'
 import { openExternalHttpUrl } from '../../utils/wallet.js'
 import {
   LOGIN_COUNTRIES,
@@ -426,6 +427,7 @@ async function onLogin() {
     }
     try {
       await imConnect()
+      syncRegistrationAfterLogin()
     } catch (e) {
       console.warn('im connect', e)
     }

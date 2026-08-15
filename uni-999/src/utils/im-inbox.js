@@ -9,6 +9,7 @@ import { getActiveChat } from './chat-route.js'
 import { markConversationRead, onImEvent } from './im.js'
 import { getChatUnreadTotal, setChatUnreadTotal } from './tab-badge.js'
 import { playIncomingMessageSound } from './notify-sound.js'
+import { isGroupNotifyMuted } from './group-notify-mute.js'
 
 const READ_KEY = 'fans_hub_999_chat_read'
 let started = false
@@ -234,7 +235,13 @@ function handleIncoming(msg) {
     }
     const relayAuto = !!(ex.relay_auto | 0)
     if (!(from && myUserId && from === myUserId && !relayAuto)) {
-      playIncomingMessageSound(msg)
+      const ctype = msgConvType(msg)
+      const cid = msgConvId(msg)
+      if (ctype === 2 && cid && isGroupNotifyMuted(cid)) {
+        /* 群消息不提醒：不响提示音 */
+      } else {
+        playIncomingMessageSound(msg)
+      }
     }
   } catch (e) {}
   if (shouldBumpUnread(msg)) bumpUnread(msg)

@@ -15,66 +15,20 @@
             "autoclose" : true,
             "delay" : 0
         },
-        "statusbar" : {
-            "immersed" : "supportedDevice",
-            "style" : "dark",
-            "background" : "#ffffff"
-        },
         "modules" : {},
-        "nativePlugins" : {
-            "openinstall-plugin" : {
-                "APP_KEY" : "omamxu",
-                "__plugin_info__" : {
-                    "name" : "openinstall-uniapp-plugin",
-                    "description" : "uni-app集成openinstall SDK插件",
-                    "platforms" : "Android,iOS",
-                    "url" : "",
-                    "android_package_name" : "uni.app.UNIHONGBAO999",
-                    "ios_bundle_id" : "com.hongbao.iosapp",
-                    "isCloud" : false,
-                    "bought" : -1,
-                    "pid" : "",
-                    "parameters" : {
-                        "APP_KEY" : {
-                            "des" : "openinstall平台为应用分配的AppKey",
-                            "key" : "com.openinstall.APP_KEY",
-                            "value" : "omamxu"
-                        }
-                    }
-                }
-            }
-        },
         "distribute" : {
             "android" : {
-                "packagename" : "uni.app.UNIHONGBAO999",
-                "schemes" : "omamxu",
-                "abiFilters" : [ "armeabi-v7a", "arm64-v8a" ],
                 "permissions" : [
-                    "<uses-permission android:name=\"android.permission.INTERNET\"/>",
-                    "<uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\"/>",
-                    "<uses-permission android:name=\"android.permission.ACCESS_WIFI_STATE\"/>",
                     "<uses-permission android:name=\"android.permission.CHANGE_NETWORK_STATE\"/>",
-                    "<uses-permission android:name=\"android.permission.WAKE_LOCK\"/>",
-                    "<uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\"/>",
-                    "<uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\"/>",
-                    "<uses-permission android:name=\"android.permission.CAMERA\"/>"
-                ]
+                    "<uses-permission android:name=\"android.permission.ACCESS_WIFI_STATE\"/>",
+                    "<uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\"/>",
+                    "<uses-permission android:name=\"android.permission.WAKE_LOCK\"/>"
+                ],
+                "schemes" : "omamxu"
             },
             "ios" : {
-                "appid" : "com.hongbao.iosapp",
-                "dSYMs" : false,
-                "idfa" : false,
-                "urltypes" : [
-                    {
-                        "urlidentifier" : "com.hongbao.iosapp",
-                        "urlschemes" : [ "omamxu" ]
-                    }
-                ],
-                "capabilities" : {
-                    "entitlements" : {
-                        "com.apple.developer.associated-domains" : [ "applinks:omamxu.oplinking.com" ]
-                    }
-                }
+                "urltypes" : "omamxu",
+                "dSYMs" : false
             },
             "sdkConfigs" : {},
             "icons" : {
@@ -106,6 +60,62 @@
                         "settings@3x" : "unpackage/res/icons/87x87.png",
                         "spotlight@2x" : "unpackage/res/icons/80x80.png",
                         "spotlight@3x" : "unpackage/res/icons/120x120.png"
+                    }
+                }
+            }
+        },
+        "nativePlugins" : {
+            "openinstall-plugin" : {
+                "APP_KEY" : "omamxu",
+                "__plugin_info__" : {
+                    "name" : "openinstall-uniapp-plugin",
+                    "description" : "uni-app集成openinstall SDK插件",
+                    "platforms" : "Android,iOS",
+                    "url" : "",
+                    "android_package_name" : "",
+                    "ios_bundle_id" : "",
+                    "isCloud" : false,
+                    "bought" : -1,
+                    "pid" : "",
+                    "parameters" : {
+                        "APP_KEY" : {
+                            "des" : "openinstall平台为应用分配的AppKey",
+                            "key" : "com.openinstall.APP_KEY",
+                            "value" : ""
+                        }
+                    }
+                }
+            },
+            "JG-JPush" : {
+                "JPUSH_APPKEY_ANDROID" : "8cdf371fe7b28e2981a712a2",
+                "JPUSH_APPKEY_IOS" : "8cdf371fe7b28e2981a712a2",
+                "JPUSH_CHANNEL" : "developer-default",
+                "__plugin_info__" : {
+                    "name" : "JG-JPush",
+                    "description" : "极光推送（请在 HBuilderX 插件市场导入正式包后云打包）",
+                    "platforms" : "Android,iOS",
+                    "url" : "",
+                    "android_package_name" : "",
+                    "ios_bundle_id" : "",
+                    "isCloud" : true,
+                    "bought" : 0,
+                    "pid" : "",
+                    "parameters" : {
+                        "JPUSH_APPKEY_ANDROID" : {
+                            "des" : "极光 Android AppKey",
+                            "key" : "JPUSH_APPKEY_ANDROID",
+                            "value" : "8cdf371fe7b28e2981a712a2"
+                        },
+                        "JPUSH_APPKEY_IOS" : {
+                            "des" : "极光 iOS AppKey",
+                            "key" : "JPUSH_APPKEY_IOS",
+                            "value" : "8cdf371fe7b28e2981a712a2"
+                        },
+                        "JPUSH_CHANNEL" : {
+                            "des" : "渠道名",
+                            "key" : "JPUSH_CHANNEL",
+                            "value" : "developer-default"
+                        }
                     }
                 }
             }

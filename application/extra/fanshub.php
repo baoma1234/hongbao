@@ -60,6 +60,10 @@ return array (
   'app_download_url' => 'https://6r1ihgq.baibohaidun.com:1008/d/3rd7ddc9ic5rr2b',
   'main_station_url' => 'https://555.bio',
   'im_ws_url' => '',
+  'jpush_enabled' => true,
+  'jpush_app_key' => '8cdf371fe7b28e2981a712a2',
+  'jpush_master_secret' => '17d85b80064c28b897f837a1',
+  'jpush_apns_production' => true,
   'im_admin' => 
   array (
     'bridge_url' => 'http://127.0.0.1:17273',

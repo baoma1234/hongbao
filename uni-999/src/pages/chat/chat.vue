@@ -776,6 +776,7 @@ import {
 import { COMMON_EMOJIS, loadEmojiTree, emojiTwemojiUrl } from '../../utils/emoji.js'
 import { setInboxMyId, noteConversationRead } from '../../utils/im-inbox.js'
 import { playOpenRedPacketSound } from '../../utils/notify-sound.js'
+import { setGroupNotifyMuted } from '../../utils/group-notify-mute.js'
 import { loadWalletBootstrap, money } from '../../utils/wallet.js'
 import stickerAsciiAlias from '../../static/data/sticker-ascii-alias.json'
 import {
@@ -4039,6 +4040,10 @@ function mergeGroupMeta(data) {
   if (next.policy && next.policy.forbid_modes) next.forbid_modes = next.policy.forbid_modes
   if (data.can_speak != null) next.can_speak = !!data.can_speak
   if (data.mute_all != null) next.mute_all = !!data.mute_all
+  if (data.notify_mute != null) {
+    next.notify_mute = !!(data.notify_mute | 0)
+    setGroupNotifyMuted(meta.value.group | 0, next.notify_mute)
+  }
   if (data.my_role != null) next.my_role = data.my_role | 0
   groupMeta.value = next
   const nextNotice = resolveGroupNotice(next.group || {})

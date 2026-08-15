@@ -184,6 +184,9 @@ class MessageRouter
                 case 'group.mute_all':
                     $this->handleGroupMuteAll($connection, $uid, $payload, $reqId);
                     break;
+                case 'group.notify_mute':
+                    $this->handleGroupNotifyMute($connection, $uid, $payload, $reqId);
+                    break;
                 case 'group.set_forbid':
                     $this->handleGroupSetForbid($connection, $uid, $payload, $reqId);
                     break;
@@ -1221,6 +1224,23 @@ class MessageRouter
         $this->send($connection, 'group.mute', $result + ['user_id' => $targetId], $reqId);
         $this->pushToGroup($groupId, 'group.message', ['message' => $sys]);
         $this->pushToGroup($groupId, 'group.members_changed', ['group_id' => $groupId, 'reason' => 'mute']);
+    }
+
+    protected function handleGroupNotifyMute(TcpConnection $connection, $uid, array $payload, $reqId)
+    {
+        $groupId = (int)($payload['group_id'] ?? 0);
+        $muted = !empty($payload['notify_mute']) || !empty($payload['muted']) || !empty($payload['enable']);
+        if (array_key_exists('notify_mute', $payload)) {
+            $muted = !empty($payload['notify_mute']);
+        } elseif (array_key_exists('muted', $payload)) {
+            $muted = !empty($payload['muted']);
+        }
+        try {
+            $result = $this->groups->setNotifyMute($groupId, $uid, $muted);
+            $this->send($connection, 'group.notify_mute', $result, $reqId);
+        } catch (\Throwable $e) {
+            $this->error($connection, $e->getMessage() ?: 'notify_mute failed', $reqId);
+        }
     }
 
     protected function formatMuteDuration($seconds)

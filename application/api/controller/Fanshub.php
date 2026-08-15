@@ -1022,6 +1022,44 @@ class Fanshub extends Api
     }
 
     /**
+     * App 上报极光 Registration ID（登录后 / 启动时）
+     * POST /api/fanshub/pushregister  {registration_id, platform: ios|android, enabled?}
+     */
+    public function pushregister()
+    {
+        try {
+            $rid = trim((string)$this->request->post('registration_id', $this->request->param('registration_id', '')));
+            $platform = trim((string)$this->request->post('platform', $this->request->param('platform', '')));
+            $enabled = $this->request->post('enabled', $this->request->param('enabled', 1));
+            $enabled = !($enabled === 0 || $enabled === '0' || $enabled === false || $enabled === 'false');
+            $data = \app\common\library\FansHubJPush::registerDevice((int)$this->auth->id, $rid, $platform, $enabled);
+            $this->success('ok', $data);
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: FansHubService::h5CopyText('api_operation_fail'));
+        }
+    }
+
+    /**
+     * 同步推送总开关到已登记设备
+     * POST /api/fanshub/pushprefs  {enabled: 0|1}
+     */
+    public function pushprefs()
+    {
+        try {
+            $enabled = $this->request->post('enabled', $this->request->param('enabled', 1));
+            $enabled = !($enabled === 0 || $enabled === '0' || $enabled === false || $enabled === 'false');
+            \app\common\library\FansHubJPush::setUserPushEnabled((int)$this->auth->id, $enabled);
+            $this->success('ok', ['enabled' => $enabled ? 1 : 0]);
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: FansHubService::h5CopyText('api_operation_fail'));
+        }
+    }
+
+    /**
      * 裂变红包：活动详情（需登录）
      * GET/POST /api/fanshub/fissiondetail
      */

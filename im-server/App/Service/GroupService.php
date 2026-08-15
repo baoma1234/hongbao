@@ -248,12 +248,14 @@ class GroupService
             'group'              => $group,
             'my_role'            => $myRole,
             'mute_all'           => $this->isMuteAll($groupId),
+            'notify_mute'        => $this->isNotifyMute($groupId, $uid),
             'forbid_modes'       => $this->parseForbidModes($group ?: []),
             'member_count'       => $this->publicMemberCount($group ?: []),
             'online_count'       => $isOfficial ? OfficialStatsService::onlineCount($groupId) : 0,
             'member_list_hidden' => !empty($policy['member_list_hidden']),
             'can_speak'          => $canSpeak,
             'policy'             => $policy,
+            'my_user_id'         => $uid,
         ];
         try {
             RedisClient::conn()->setex($cacheKey, 20, json_encode($payload, JSON_UNESCAPED_UNICODE));
@@ -1412,6 +1414,103 @@ class GroupService
         );
         $this->bumpViewerInfoCache($groupId);
         return ['mute_until' => $until];
+    }
+
+    /**
+     * 消息不提醒（免打扰）：不推送极光、客户端不响提示音
+     */
+    public function isNotifyMute($groupId, $userId)
+    {
+        $groupId = (int)$groupId;
+        $userId = (int)$userId;
+        if ($groupId <= 0 || $userId <= 0) {
+            return false;
+        }
+        try {
+            $this->ensureNotifyMuteSet($groupId);
+            return (bool)RedisClient::conn()->sIsMember(
+                RedisClient::key('g:' . $groupId . ':nmuteset'),
+                (string)$userId
+            );
+        } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.GroupService');
+        }
+        try {
+            $row = Db::fetch(
+                'SELECT notify_mute FROM ' . Db::table('chat_group_members')
+                . ' WHERE group_id=? AND user_id=? AND status=1 LIMIT 1',
+                [$groupId, $userId]
+            );
+            return $row && !empty($row['notify_mute']);
+        } catch (\Throwable $e2) {
+            return false;
+        }
+    }
+
+    public function setNotifyMute($groupId, $userId, $muted)
+    {
+        $groupId = (int)$groupId;
+        $userId = (int)$userId;
+        $muted = $muted ? 1 : 0;
+        if ($groupId <= 0 || $userId <= 0) {
+            throw new \InvalidArgumentException('group_id/user_id required');
+        }
+        $member = $this->getMember($groupId, $userId);
+        if (!$member) {
+            throw new \RuntimeException('not in group');
+        }
+        Db::exec(
+            'UPDATE ' . Db::table('chat_group_members')
+            . ' SET notify_mute=?, updatetime=? WHERE group_id=? AND user_id=? AND status=1',
+            [$muted, time(), $groupId, $userId]
+        );
+        try {
+            $r = RedisClient::conn();
+            $key = RedisClient::key('g:' . $groupId . ':nmuteset');
+            if ($muted) {
+                $r->sAdd($key, (string)$userId);
+            } else {
+                $r->sRem($key, (string)$userId);
+            }
+            $r->expire($key, self::MEMBER_SET_TTL);
+        } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.GroupService');
+        }
+        $this->bumpViewerInfoCache($groupId);
+        return ['group_id' => $groupId, 'notify_mute' => $muted ? 1 : 0];
+    }
+
+    public function ensureNotifyMuteSet($groupId)
+    {
+        $groupId = (int)$groupId;
+        if ($groupId <= 0) {
+            return;
+        }
+        $setKey = RedisClient::key('g:' . $groupId . ':nmuteset');
+        try {
+            $r = RedisClient::conn();
+            if ($r->exists($setKey)) {
+                $r->expire($setKey, self::MEMBER_SET_TTL);
+                return;
+            }
+            $rows = Db::fetchAll(
+                'SELECT user_id FROM ' . Db::table('chat_group_members')
+                . ' WHERE group_id=? AND status=1 AND notify_mute=1',
+                [$groupId]
+            );
+            $r->multi(\Redis::PIPELINE);
+            $r->del($setKey);
+            foreach ($rows as $row) {
+                $uid = (int)($row['user_id'] ?? 0);
+                if ($uid > 0) {
+                    $r->sAdd($setKey, (string)$uid);
+                }
+            }
+            $r->expire($setKey, self::MEMBER_SET_TTL);
+            $r->exec();
+        } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.GroupService');
+        }
     }
 
     public function setMemberAdmin($groupId, $operatorId, $targetId, $isAdmin)

@@ -57,6 +57,15 @@
       </view>
       <view v-else class="chat-setting-hint">成员列表已隐藏</view>
 
+      <view class="chat-setting-row chat-setting-toggle-row" @click="toggleNotifyMute">
+        <text>消息不提醒</text>
+        <view class="chat-switch" :class="{ 'is-on': notifyMute }" @click.stop="toggleNotifyMute">
+          <view class="chat-switch-track" />
+          <view class="chat-switch-knob" />
+        </view>
+      </view>
+      <view class="chat-setting-hint">开启后本群不推送、不播放提示音</view>
+
       <view v-if="canEdit" class="chat-setting-row chat-setting-toggle-row" @click="toggleMuteAll">
         <text>全员禁言</text>
         <view class="chat-switch" :class="{ 'is-on': muteAll }" @click.stop="toggleMuteAll">
@@ -321,8 +330,10 @@ import {
   setGroupAdmin,
   setGroupForbid,
   setGroupMuteAll,
+  setGroupNotifyMute,
   updateGroup,
 } from '../../utils/im.js'
+import { setGroupNotifyMuted } from '../../utils/group-notify-mute.js'
 import '../../styles/chat-group-settings.css'
 import '../../styles/chat-group-settings-parity.css'
 
@@ -355,6 +366,7 @@ const group = ref({})
 const myRole = ref(0)
 const myId = ref(0)
 const muteAll = ref(false)
+const notifyMute = ref(false)
 const memberCount = ref(0)
 const memberHidden = ref(false)
 const members = ref([])
@@ -493,6 +505,8 @@ async function loadInfo() {
     group.value = data.group || {}
     myRole.value = data.my_role | 0
     muteAll.value = !!data.mute_all
+    notifyMute.value = !!(data.notify_mute | 0)
+    setGroupNotifyMuted(groupId.value, notifyMute.value)
     memberCount.value = data.member_count | 0
     memberHidden.value = !!data.member_list_hidden
     if (data.my_user_id) myId.value = data.my_user_id | 0
@@ -638,6 +652,22 @@ async function applyMute(enabled) {
 
 function toggleMuteAll() {
   applyMute(!muteAll.value)
+}
+
+async function toggleNotifyMute() {
+  const next = !notifyMute.value
+  try {
+    await setGroupNotifyMute(groupId.value, next)
+    notifyMute.value = next
+    setGroupNotifyMuted(groupId.value, next)
+    uni.showToast({
+      title: next ? '已开启消息不提醒' : '已关闭消息不提醒',
+      icon: 'none',
+    })
+  } catch (e) {
+    uni.showToast({ title: (e && e.message) || '设置失败', icon: 'none' })
+    await loadInfo()
+  }
 }
 
 async function saveForbid() {
