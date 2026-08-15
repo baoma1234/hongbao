@@ -255,7 +255,11 @@ function handlePacket(raw) {
     try {
       import('./jpush.js').then((m) => {
         if (m && typeof m.syncRegistrationAfterLogin === 'function') {
-          m.syncRegistrationAfterLogin()
+          const uid =
+            (authMeta && (authMeta.user_id | 0)) ||
+            (authMeta && authMeta.user && (authMeta.user.id | 0)) ||
+            0
+          m.syncRegistrationAfterLogin(uid)
         }
       }).catch(() => {})
     } catch (e) {}

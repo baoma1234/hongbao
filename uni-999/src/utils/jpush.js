@@ -108,15 +108,17 @@ function readRegistrationId(jp) {
   })
 }
 
-function bindAliasIfPossible(jp) {
+function bindAliasIfPossible(jp, userId) {
   try {
     if (!jp || typeof jp.setAlias !== 'function') return
-    let uid = 0
-    try {
-      const raw = uni.getStorageSync('fans_hub_999_profile') || uni.getStorageSync('fans_hub_profile')
-      const p = typeof raw === 'string' ? JSON.parse(raw || '{}') : raw
-      uid = (p && (p.user_id || p.id)) | 0
-    } catch (e) {}
+    let uid = userId | 0
+    if (!uid) {
+      try {
+        const raw = uni.getStorageSync('fans_hub_999_profile') || uni.getStorageSync('fans_hub_profile')
+        const p = typeof raw === 'string' ? JSON.parse(raw || '{}') : raw
+        uid = (p && (p.user_id || p.id)) | 0
+      } catch (e) {}
+    }
     if (uid > 0) jp.setAlias({ alias: 'u' + uid })
   } catch (e) {}
 }
