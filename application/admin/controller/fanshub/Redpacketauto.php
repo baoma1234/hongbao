@@ -286,6 +286,7 @@ class Redpacketauto extends Backend
         $params['blessing'] = trim((string)($params['blessing'] ?? '恭喜发财')) ?: '恭喜发财';
         $params['mine_digit'] = 0; // 埋雷雷号运行时随机，后台不配置
         $params['interval_sec'] = max(5, (int)($params['interval_sec'] ?? 60));
+        $params['interval_windows'] = $this->normalizeIntervalWindows($params['interval_windows'] ?? null);
         $params['burst_count'] = max(1, (int)($params['burst_count'] ?? 1));
         $params['burst_window_sec'] = max(0, (int)($params['burst_window_sec'] ?? 0));
         if ($params['burst_window_sec'] > 0 && $params['burst_window_sec'] < 30) {
@@ -331,5 +332,48 @@ class Redpacketauto extends Backend
             $this->error('模式一自动抢包需填写抢包用户 ID（逗号分隔）');
         }
         return $params;
+    }
+
+    /**
+     * 时段间隔 JSON：空=用系统默认(20-23→30s,0-7→120s)；[]=关闭时段只用 interval_sec
+     */
+    protected function normalizeIntervalWindows($raw)
+    {
+        if ($raw === null) {
+            return null;
+        }
+        if (is_array($raw)) {
+            $arr = $raw;
+        } else {
+            $trim = trim((string)$raw);
+            if ($trim === '') {
+                return null;
+            }
+            $arr = json_decode($trim, true);
+            if (!is_array($arr)) {
+                $this->error('时段间隔 JSON 格式错误，例：[{"start_hour":20,"end_hour":23,"interval_sec":30}]');
+            }
+        }
+        $out = [];
+        foreach ($arr as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $start = (int)($row['start_hour'] ?? $row['start'] ?? -1);
+            $end = (int)($row['end_hour'] ?? $row['end'] ?? -1);
+            $iv = (int)($row['interval_sec'] ?? $row['interval'] ?? 0);
+            if ($start < 0 || $start > 23 || $end < 0 || $end > 23) {
+                $this->error('时段小时须在 0～23');
+            }
+            if ($iv < 5) {
+                $this->error('时段间隔至少 5 秒');
+            }
+            $out[] = [
+                'start_hour'   => $start,
+                'end_hour'     => $end,
+                'interval_sec' => $iv,
+            ];
+        }
+        return json_encode($out, JSON_UNESCAPED_UNICODE);
     }
 }

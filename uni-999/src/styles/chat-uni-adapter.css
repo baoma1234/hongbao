@@ -8,9 +8,12 @@
   min-height: 100dvh;
   box-sizing: border-box;
   background: #f3f4f6;
+  padding-top: 0 !important;
 }
 
-/* H5：TopBar 已有 spacer，勿再给 body 垫顶栏高度（否则网页顶上大块灰空白） */
+/* 各端 body 均不垫顶：H5 顶栏占流 / App 用 spacer，避免 padding-top 再空一截。
+ * 用更高特异性盖住 friend/settings 分包里遗留的 body.tab-messages { padding-top: calc(44px) } */
+html body.tab-messages,
 body.tab-messages {
   padding-top: 0 !important;
 }

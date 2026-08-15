@@ -335,6 +335,142 @@
   white-space: nowrap;
 }
 
+/* 添加/查看群成员浮层：CSS 瘦身后曾漏掉 fixed 布局，App 上会乱版且挡住搜索框 */
+.chat-group-invite-overlay {
+  position: fixed !important;
+  /* App：JS 内联 top；H5 用 calc */
+  top: var(
+    --chat-overlay-top,
+    calc(var(--top-bar-height, 48px) + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))
+  );
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  z-index: 13100 !important;
+  background: #f3f4f6 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+  pointer-events: auto !important;
+}
+
+.chat-group-invite-overlay .chat-hero-hd {
+  flex-shrink: 0 !important;
+  position: relative !important;
+  z-index: 5 !important;
+  padding: 10px 14px !important;
+  min-height: 48px !important;
+  background: linear-gradient(to right, #e63022, #c61114) !important;
+  color: #fff !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+}
+
+.chat-group-invite-overlay .chat-hero-title {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  text-align: center !important;
+  color: #fff !important;
+  font-size: 17px !important;
+  font-weight: 800 !important;
+}
+
+.chat-group-invite-overlay .chat-hero-back,
+.chat-group-invite-overlay .chat-hero-spacer {
+  width: 44px !important;
+  min-width: 44px !important;
+  height: 44px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  color: #fff !important;
+}
+
+.chat-group-invite-overlay .chat-sub-main {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: auto !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  position: relative !important;
+  z-index: 2 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  background: #fffdf9 !important;
+  box-sizing: border-box !important;
+  pointer-events: auto !important;
+}
+
+.chat-group-invite-overlay .chat-sub-toolbar {
+  flex-shrink: 0 !important;
+  position: relative !important;
+  z-index: 6 !important;
+  padding: 10px 12px 6px !important;
+  background: #fffdf9 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  pointer-events: auto !important;
+}
+
+.chat-group-invite-overlay .chat-add-member-btn {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  border: none !important;
+  border-radius: 10px !important;
+  padding: 10px 12px !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  color: #fff !important;
+  background: linear-gradient(135deg, #e53935, #c62828) !important;
+  line-height: 1.35 !important;
+  margin: 0 !important;
+}
+
+.chat-group-invite-overlay .chat-add-member-btn::after {
+  border: none !important;
+  display: none !important;
+}
+
+.chat-group-invite-overlay .chat-search-input,
+.chat-group-invite-overlay input.chat-search-input {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  line-height: 40px !important;
+  padding: 0 12px !important;
+  border: 1px solid #f0e2d2 !important;
+  border-radius: 10px !important;
+  background: #fff !important;
+  font-size: 14px !important;
+  color: #333 !important;
+  position: relative !important;
+  z-index: 7 !important;
+  pointer-events: auto !important;
+  -webkit-user-select: text !important;
+  user-select: text !important;
+}
+
+.chat-group-invite-overlay .chat-invite-item::after,
+.chat-group-invite-overlay .chat-member-item.chat-invite-item::after {
+  content: none !important;
+  display: none !important;
+}
+
 .chat-group-invite-overlay .chat-member-avatar,
 .chat-group-members-overlay .chat-member-avatar {
   width: 42px !important;

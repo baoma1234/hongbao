@@ -195,7 +195,10 @@ class FansHubRpAuto
                     return ['sent' => false, 'packet_id' => 0, 'reason' => '未到窗内下一次计划发包'];
                 }
             } else {
-                $interval = self::effectiveIntervalSec(max(5, (int)$task['interval_sec']));
+                $interval = self::effectiveIntervalSec(
+                    max(5, (int)$task['interval_sec']),
+                    $task['interval_windows'] ?? null
+                );
                 $last = (int)$task['last_send_time'];
                 if ($last > 0 && ($now - $last) < $interval) {
                     return ['sent' => false, 'packet_id' => 0, 'reason' => '未到发包间隔（剩余 ' . ($interval - ($now - $last)) . ' 秒）'];
@@ -446,17 +449,80 @@ class FansHubRpAuto
         return $out;
     }
 
-    protected static function effectiveIntervalSec($baseSec)
+    /**
+     * 发包间隔：时段固定秒数优先，否则用 base。
+     * 默认：20–23→30s，0–7→120s；显式 [] 关闭时段规则。
+     */
+    protected static function effectiveIntervalSec($baseSec, $windowsJson = null)
     {
         $base = max(5, (int)$baseSec);
         $hour = (int)date('G');
-        if ($hour >= 20 && $hour <= 23) {
-            return max(15, (int)round($base * 0.5));
-        }
-        if ($hour >= 0 && $hour < 8) {
-            return max($base * 2, (int)round($base * 2.0));
+        $windows = self::parseIntervalWindows($windowsJson);
+        foreach ($windows as $w) {
+            $start = (int)($w['start_hour'] ?? -1);
+            $end = (int)($w['end_hour'] ?? -1);
+            $iv = max(5, (int)($w['interval_sec'] ?? 0));
+            if ($start < 0 || $start > 23 || $end < 0 || $end > 23 || $iv < 5) {
+                continue;
+            }
+            if (self::hourInWindow($hour, $start, $end)) {
+                return $iv;
+            }
         }
         return $base;
+    }
+
+    protected static function parseIntervalWindows($raw)
+    {
+        if ($raw === null) {
+            return self::defaultIntervalWindows();
+        }
+        if (is_array($raw)) {
+            $arr = $raw;
+        } else {
+            $trim = trim((string)$raw);
+            if ($trim === '') {
+                return self::defaultIntervalWindows();
+            }
+            if ($trim === '[]') {
+                return [];
+            }
+            $arr = json_decode($trim, true);
+            if (!is_array($arr)) {
+                return self::defaultIntervalWindows();
+            }
+        }
+        $out = [];
+        foreach ($arr as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $out[] = [
+                'start_hour'   => (int)($row['start_hour'] ?? $row['start'] ?? -1),
+                'end_hour'     => (int)($row['end_hour'] ?? $row['end'] ?? -1),
+                'interval_sec' => (int)($row['interval_sec'] ?? $row['interval'] ?? 0),
+            ];
+        }
+        return $out;
+    }
+
+    protected static function defaultIntervalWindows()
+    {
+        return [
+            ['start_hour' => 20, 'end_hour' => 23, 'interval_sec' => 30],
+            ['start_hour' => 0, 'end_hour' => 7, 'interval_sec' => 120],
+        ];
+    }
+
+    protected static function hourInWindow($hour, $start, $end)
+    {
+        $hour = (int)$hour;
+        $start = (int)$start;
+        $end = (int)$end;
+        if ($start <= $end) {
+            return $hour >= $start && $hour <= $end;
+        }
+        return $hour >= $start || $hour <= $end;
     }
 
     /**

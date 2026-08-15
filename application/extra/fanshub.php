@@ -34,7 +34,7 @@ return array (
   'exchange_hb_enabled' => false,
   'exchange_rb_min' => 1,
   'exchange_br_min' => 1,
-  'exchange_rh_min' => 1.0,
+  'exchange_rh_min' => 50.0,
   'exchange_hr_min' => 50.0,
   'exchange_bh_min' => 50.0,
   'exchange_hb_min' => 50.0,

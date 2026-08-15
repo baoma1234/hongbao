@@ -739,6 +739,33 @@
     </view>
 
     <FriendScanSheet />
+
+    <!-- 红宝页运营弹窗：可跳转社群/公告（H5 / APK / IPA） -->
+    <view
+      v-if="msgPopupOpen && msgPopup"
+      class="msg-popup-mask"
+      @click="dismissMsgPopup('dismiss_day')"
+      @touchmove.stop.prevent="noopPopup"
+    >
+      <view class="msg-popup-card" @click.stop>
+        <view class="msg-popup-close" @click="dismissMsgPopup('dismiss_day')">×</view>
+        <image
+          v-if="msgPopupImage"
+          class="msg-popup-img"
+          :src="msgPopupImage"
+          mode="widthFix"
+        />
+        <text class="msg-popup-title">{{ msgPopup.title || '' }}</text>
+        <text class="msg-popup-body" v-if="msgPopup.content">{{ msgPopup.content }}</text>
+        <view class="msg-popup-btn" @click="clickMsgPopup">{{ msgPopup.btn_text || '查看' }}</view>
+        <view
+          v-if="msgPopup.show_mode !== 'once'"
+          class="msg-popup-mute"
+          @click="dismissMsgPopup('dismiss_day')"
+        >今日不再显示</view>
+      </view>
+    </view>
+
     <!-- 官方规则：fixed 钉在底栏上方，避免被 TabBar(z=9000) / overflow 裁切 -->
     <view
       v-if="homeTab === 'community' && communitySub === 'official'"
@@ -766,7 +793,7 @@ import '../../styles/chat-messages-list.css'
 import '../../styles/chat-uni-adapter.css'
 import '../../styles/chat-messages-parity.css'
 import { apiRequest, fetchProfile, getToken } from '../../utils/auth.js'
-import { applySafeAreaCssVars, getSafeAreaInsets, measureChatOverlayTop } from '../../utils/safe-area.js'
+import { applySafeAreaCssVars, getSafeAreaInsets, getTopBarContentHeight, measureChatOverlayTop } from '../../utils/safe-area.js'
 import {
   avatarLetter,
   avatarSrc,
@@ -845,6 +872,15 @@ const icoAddFriend = packagedStaticUrl('chat/plus_add_friend.png')
 const icoFriendReq = packagedStaticUrl('chat/plus_friend_req.png')
 const icoCreateGroup = packagedStaticUrl('chat/plus_create_group.png')
 const homeTab = ref('chat')
+/** 红宝页运营弹窗队列 */
+const msgPopupQueue = ref([])
+const msgPopup = ref(null)
+const msgPopupOpen = ref(false)
+const msgPopupImage = computed(() => {
+  const p = msgPopup.value
+  const imgs = (p && p.images) || []
+  return imgs[0] || ''
+})
 /** App WebView 常算不出 flex 高度：用 JS 量出面板/scroll 像素高 */
 const panelScrollPx = ref(420)
 const tabRootPx = ref(0)
@@ -971,11 +1007,17 @@ function measureMessagesLayout() {
     // #endif
     const inset = getSafeAreaInsets()
     const status = Number(inset.top || 0)
-    const topBar = 48
+    const topBar = getTopBarContentHeight()
     // 与 BottomTabBar 实际高度对齐：padding 6+6 + 按钮(8+30+3+字≈12+6) ≈ 71，取 72
     const tabBar = 72 + Number(inset.bottom || 0)
-    // TopBar 已有 spacer（status+48），#tabMessages 只占 spacer 下方到 Tab 上方
+    // #ifdef H5
+    // 顶栏 relative 已在 messages-page 流内占高；内容区扣「顶栏总高 + 底栏」
     const shell = Math.max(280, winH - status - topBar - tabBar)
+    // #endif
+    // #ifndef H5
+    // App：fixed 顶栏 + spacer 占位，#tabMessages 只占 spacer 下方到 Tab 上方
+    const shell = Math.max(280, winH - status - topBar - tabBar)
+    // #endif
     tabRootPx.value = shell
     // 再扣：红宝社区标题 + 连接行 + 会员ID行 + 四个子 Tab（约 168）
     const chrome = 168
@@ -1999,6 +2041,112 @@ async function switchHomeTab(tab) {
   }
 }
 
+function noopPopup() {}
+
+function showNextMsgPopup() {
+  const q = msgPopupQueue.value
+  if (!q.length) {
+    msgPopup.value = null
+    msgPopupOpen.value = false
+    return
+  }
+  msgPopup.value = q[0]
+  msgPopupOpen.value = true
+  const id = (q[0] && q[0].id) | 0
+  if (id) {
+    apiRequest('messagespopupack', 'POST', { popup_id: id, action: 'view' }).catch(() => {})
+  }
+}
+
+async function loadMsgPopups() {
+  try {
+    const data = await apiRequest('messagespopups', 'GET', {})
+    const list = (data && data.list) || []
+    msgPopupQueue.value = Array.isArray(list) ? list.slice() : []
+    showNextMsgPopup()
+  } catch (e) {
+    msgPopupQueue.value = []
+    msgPopupOpen.value = false
+  }
+}
+
+function shiftMsgPopup() {
+  const q = msgPopupQueue.value.slice()
+  if (q.length) q.shift()
+  msgPopupQueue.value = q
+  showNextMsgPopup()
+}
+
+async function dismissMsgPopup(action) {
+  const p = msgPopup.value
+  const id = (p && p.id) | 0
+  msgPopupOpen.value = false
+  if (id) {
+    try {
+      await apiRequest('messagespopupack', 'POST', {
+        popup_id: id,
+        action: action || 'dismiss_day',
+      })
+    } catch (e) {}
+  }
+  shiftMsgPopup()
+}
+
+async function clickMsgPopup() {
+  const p = msgPopup.value
+  if (!p) return
+  const id = (p.id) | 0
+  const jump = String(p.jump_type || 'none')
+  const extra = String(p.jump_extra || '').trim()
+  if (id) {
+    apiRequest('messagespopupack', 'POST', { popup_id: id, action: 'click' }).catch(() => {})
+  }
+  msgPopupOpen.value = false
+  shiftMsgPopup()
+
+  if (jump === 'community') {
+    await switchHomeTab('community')
+    return
+  }
+  if (jump === 'notice') {
+    const cat = extra || 'latest'
+    const allowed = ['latest', 'promote', 'ads', 'rules']
+    noticeCat.value = allowed.indexOf(cat) >= 0 ? cat : 'latest'
+    await switchHomeTab('notice')
+    return
+  }
+  if (jump === 'url' && extra) {
+    if (/^https?:\/\//i.test(extra)) {
+      // #ifdef H5
+      try {
+        window.open(extra, '_blank')
+      } catch (e) {
+        uni.navigateTo({ url: '/pages/common/webview?url=' + encodeURIComponent(extra) })
+      }
+      // #endif
+      // #ifndef H5
+      uni.navigateTo({
+        url: '/pages/common/webview?url=' + encodeURIComponent(extra),
+        fail: () => {
+          // #ifdef APP-PLUS
+          try {
+            plus.runtime.openURL(extra)
+          } catch (e2) {}
+          // #endif
+        },
+      })
+      // #endif
+      return
+    }
+    if (extra.indexOf('/pages/') === 0) {
+      uni.navigateTo({
+        url: extra,
+        fail: () => uni.switchTab({ url: extra, fail: () => {} }),
+      })
+    }
+  }
+}
+
 function setCommunitySub(sub) {
   communitySub.value = sub
   if (sub === 'mine' || sub === 'created' || sub === 'friends') {
@@ -2528,6 +2676,7 @@ onShow(() => {
   startImInbox()
   bindForegroundResume()
   resumeFromBackground('messages-onShow')
+  loadMsgPopups()
   if (typeof off === 'function') off()
   off = onImEvent((type, data) => {
     if (type === 'im.resume') {
@@ -2821,6 +2970,81 @@ onHide(() => {
   color: #999;
   font-weight: 600;
   white-space: nowrap;
+}
+
+.msg-popup-mask {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 30000;
+  background: rgba(20, 10, 5, 0.48);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 18px;
+  box-sizing: border-box;
+}
+.msg-popup-card {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 22px 18px 16px;
+  box-shadow: 0 12px 36px rgba(40, 20, 10, 0.22);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+.msg-popup-close {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  width: 32px;
+  height: 32px;
+  line-height: 32px;
+  text-align: center;
+  font-size: 22px;
+  color: #999;
+}
+.msg-popup-img {
+  width: 100%;
+  border-radius: 12px;
+  margin-bottom: 4px;
+}
+.msg-popup-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: #2a1f18;
+  text-align: center;
+  line-height: 1.35;
+}
+.msg-popup-body {
+  font-size: 13px;
+  color: #666;
+  line-height: 1.5;
+  text-align: center;
+  white-space: pre-wrap;
+}
+.msg-popup-btn {
+  margin-top: 6px;
+  height: 44px;
+  line-height: 44px;
+  text-align: center;
+  border-radius: 22px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(90deg, #e63022, #c61114);
+}
+.msg-popup-mute {
+  text-align: center;
+  font-size: 12px;
+  color: #999;
+  padding: 4px 0 2px;
 }
 /* App only：建群红头勿负 margin 上叠裁切正文；顶距用 --cg-app-top 压过 bundle !important */
 /* #ifdef APP-PLUS */

@@ -989,6 +989,39 @@ class Fanshub extends Api
     }
 
     /**
+     * 红宝消息页弹窗列表（需登录）
+     * GET /api/fanshub/messagespopups
+     */
+    public function messagespopups()
+    {
+        try {
+            $uid = (int)$this->auth->id;
+            $this->success('ok', \app\common\library\FansHubMessagesPopup::listForUser($uid));
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: FansHubService::h5CopyText('api_operation_fail'));
+        }
+    }
+
+    /**
+     * 红宝消息页弹窗回执
+     * POST /api/fanshub/messagespopupack  {popup_id, action: view|dismiss_day|dismiss_once|click}
+     */
+    public function messagespopupack()
+    {
+        try {
+            $popupId = (int)$this->request->post('popup_id', $this->request->param('popup_id', 0));
+            $action = (string)$this->request->post('action', $this->request->param('action', 'view'));
+            $this->success('ok', \app\common\library\FansHubMessagesPopup::ack($popupId, (int)$this->auth->id, $action));
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: FansHubService::h5CopyText('api_operation_fail'));
+        }
+    }
+
+    /**
      * 裂变红包：活动详情（需登录）
      * GET/POST /api/fanshub/fissiondetail
      */

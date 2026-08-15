@@ -54,9 +54,8 @@ body.tab-messages {
   padding-left: 0 !important;
   padding-right: 0 !important;
   padding-bottom: 0 !important;
-  padding-top: calc(
-    var(--top-bar-height, 44px) + var(--safe-area-inset-top, env(safe-area-inset-top, 0px))
-  ) !important;
+  /* 顶栏避让改由 chat-uni-adapter 按端处理（H5 CSS 垫高 / App spacer） */
+  padding-top: 0 !important;
   overflow: hidden;
   height: 100%;
   height: 100dvh;

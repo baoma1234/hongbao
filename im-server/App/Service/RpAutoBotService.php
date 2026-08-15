@@ -168,7 +168,10 @@ class RpAutoBotService
             }
             $task = $gate['task'];
         } else {
-            $interval = $this->effectiveIntervalSec((int)($task['interval_sec'] ?? 60));
+            $interval = $this->effectiveIntervalSec(
+                (int)($task['interval_sec'] ?? 60),
+                $task['interval_windows'] ?? null
+            );
             $last = (int)($task['last_send_time'] ?? 0);
             if ($last > 0 && ($now - $last) < $interval) {
                 $this->taskLogThrottled($taskId, 'interval', 'skip', 'interval not reached', [
@@ -532,18 +535,88 @@ class RpAutoBotService
         return max((float)self::GRAB_DELAY_FLOOR_SEC, $ms / 1000.0);
     }
 
-    /** 20–23 点加密；0–7 点放缓 */
-    protected function effectiveIntervalSec($baseSec)
+    /**
+     * 发包间隔：优先匹配「时段固定间隔」；未命中用 interval_sec。
+     * 默认窗：20–23 → 30s，0–7 → 120s（与 base=60 时旧倍率一致）。
+     * interval_windows 显式 [] 表示关闭时段规则，全天用 base。
+     *
+     * @param mixed $windowsJson
+     */
+    protected function effectiveIntervalSec($baseSec, $windowsJson = null)
     {
         $base = max(5, (int)$baseSec);
         $hour = (int)date('G');
-        if ($hour >= 20 && $hour <= 23) {
-            return max(15, (int)round($base * 0.5));
-        }
-        if ($hour >= 0 && $hour < 8) {
-            return max($base * 2, (int)round($base * 2.0));
+        $windows = $this->parseIntervalWindows($windowsJson);
+        foreach ($windows as $w) {
+            $start = (int)($w['start_hour'] ?? -1);
+            $end = (int)($w['end_hour'] ?? -1);
+            $iv = max(5, (int)($w['interval_sec'] ?? 0));
+            if ($start < 0 || $start > 23 || $end < 0 || $end > 23 || $iv < 5) {
+                continue;
+            }
+            if ($this->hourInWindow($hour, $start, $end)) {
+                return $iv;
+            }
         }
         return $base;
+    }
+
+    /**
+     * @param mixed $raw
+     * @return array<int,array{start_hour:int,end_hour:int,interval_sec:int}>
+     */
+    protected function parseIntervalWindows($raw)
+    {
+        if ($raw === null) {
+            return $this->defaultIntervalWindows();
+        }
+        if (is_array($raw)) {
+            $arr = $raw;
+        } else {
+            $trim = trim((string)$raw);
+            if ($trim === '') {
+                return $this->defaultIntervalWindows();
+            }
+            if ($trim === '[]') {
+                return [];
+            }
+            $arr = json_decode($trim, true);
+            if (!is_array($arr)) {
+                return $this->defaultIntervalWindows();
+            }
+        }
+        $out = [];
+        foreach ($arr as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $out[] = [
+                'start_hour'   => (int)($row['start_hour'] ?? $row['start'] ?? -1),
+                'end_hour'     => (int)($row['end_hour'] ?? $row['end'] ?? -1),
+                'interval_sec' => (int)($row['interval_sec'] ?? $row['interval'] ?? 0),
+            ];
+        }
+        return $out;
+    }
+
+    protected function defaultIntervalWindows()
+    {
+        return [
+            ['start_hour' => 20, 'end_hour' => 23, 'interval_sec' => 30],
+            ['start_hour' => 0, 'end_hour' => 7, 'interval_sec' => 120],
+        ];
+    }
+
+    protected function hourInWindow($hour, $start, $end)
+    {
+        $hour = (int)$hour;
+        $start = (int)$start;
+        $end = (int)$end;
+        if ($start <= $end) {
+            return $hour >= $start && $hour <= $end;
+        }
+        // 跨午夜：如 22–6
+        return $hour >= $start || $hour <= $end;
     }
 
     /**

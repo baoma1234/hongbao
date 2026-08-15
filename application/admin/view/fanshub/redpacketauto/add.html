@@ -74,11 +74,18 @@
         <label class="control-label col-xs-12 col-sm-2">发包间隔(秒):</label>
         <div class="col-xs-12 col-sm-8">
             <input class="form-control" name="row[interval_sec]" type="number" min="5" value="60">
-            <span class="help-block">仅当群内<strong>没有待领取红包</strong>时才会自动发。未启用下方「时间窗」时按此固定间隔。</span>
+            <span class="help-block">仅当群内<strong>没有待领取红包</strong>时才会自动发。未命中下方「时段间隔」时用此秒数（默认 60）。</span>
         </div>
     </div>
     <div class="form-group">
-        <label class="control-label col-xs-12 col-sm-2">时间窗发包:</label>
+        <label class="control-label col-xs-12 col-sm-2">时段间隔(JSON):</label>
+        <div class="col-xs-12 col-sm-8">
+            <textarea class="form-control" name="row[interval_windows]" rows="4">[{"start_hour":20,"end_hour":23,"interval_sec":30},{"start_hour":0,"end_hour":7,"interval_sec":120}]</textarea>
+            <span class="help-block">多段按时段<strong>固定间隔</strong>发包。留空=系统默认（20–23→30s，0–7→120s）；填 <code>[]</code> 关闭时段、全天只用上方间隔。</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">突发时间窗:</label>
         <div class="col-xs-12 col-sm-6">
             <div class="input-group">
                 <span class="input-group-addon">包数</span>
@@ -86,7 +93,7 @@
                 <span class="input-group-addon">窗长秒</span>
                 <input class="form-control" name="row[burst_window_sec]" type="number" min="0" value="0">
             </div>
-            <span class="help-block">例：包数=3、窗长=120 → 每 2 分钟内随机节奏发最多 3 包。窗长填 0 则用上方固定间隔。</span>
+            <span class="help-block">例：包数=3、窗长=120 → 每 2 分钟内随机节奏发最多 3 包。窗长填 0 则用固定/时段间隔。启用突发时不再走时段间隔。</span>
         </div>
     </div>
     <div class="form-group">

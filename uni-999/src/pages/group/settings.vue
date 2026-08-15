@@ -144,6 +144,8 @@
             v-model="memberKeyword"
             placeholder="搜索成员昵称/ID"
             confirm-type="search"
+            :adjust-position="true"
+            :hold-keyboard="true"
             @confirm="reloadMembers"
           />
         </view>
@@ -197,16 +199,18 @@
             v-model="inviteKeyword"
             placeholder="搜索用户名/手机号/ID"
             confirm-type="search"
+            :adjust-position="true"
+            :hold-keyboard="true"
             @confirm="reloadCandidates"
           />
         </view>
         <view class="chat-member-scroll-host">
           <scroll-view class="chat-member-list chat-invite-list" scroll-y :show-scrollbar="true">
-            <label
+            <view
               v-for="u in filteredCandidates"
               :key="u.user_id"
               class="chat-member-item chat-invite-item"
-              @click.prevent="toggleCandidate(u)"
+              @click="toggleCandidate(u)"
             >
               <view class="chat-forbid-check chat-invite-box" :class="{ on: !!selectedIds[u.user_id] }">
                 {{ selectedIds[u.user_id] ? '✓' : '' }}
@@ -222,7 +226,7 @@
                 <view class="chat-member-name">{{ u.nickname || ('ID' + u.user_id) }}</view>
                 <view class="chat-member-sub">ID {{ u.user_id }}</view>
               </view>
-            </label>
+            </view>
             <view v-if="!filteredCandidates.length && !candLoading" class="chat-empty">暂无可添加好友（仅好友可进群）</view>
             <view v-if="candLoading" class="chat-empty">加载中…</view>
           </scroll-view>
@@ -332,7 +336,14 @@ function refreshOverlayTop() {
   const r = applySafeAreaCssVars()
   const top = (r && r.overlayTop) || measureChatOverlayTop()
   // #ifdef APP-PLUS
-  appOverlayStyle.value = { top: top + 'px' }
+  appOverlayStyle.value = {
+    top: top + 'px',
+    position: 'fixed',
+    left: '0px',
+    right: '0px',
+    bottom: '0px',
+    zIndex: 13100,
+  }
   // #endif
   // #ifndef APP-PLUS
   appOverlayStyle.value = {}

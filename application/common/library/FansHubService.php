@@ -3191,10 +3191,10 @@ class FansHubService
         $code = self::exchangePairCode($from, $to);
         $cfg = self::config();
         if ($code === 'rh') {
-            return max(1, (float)($cfg['exchange_rh_min'] ?? $cfg['exchange_rb_min'] ?? $cfg['exchange_r2b_min'] ?? 1));
+            return max(1, (float)($cfg['exchange_rh_min'] ?? $cfg['exchange_rb_min'] ?? $cfg['exchange_r2b_min'] ?? 50));
         }
         if ($code === 'hr') {
-            return max(1, (float)($cfg['exchange_hr_min'] ?? $cfg['exchange_br_min'] ?? $cfg['exchange_b2r_min'] ?? 1));
+            return max(1, (float)($cfg['exchange_hr_min'] ?? $cfg['exchange_br_min'] ?? $cfg['exchange_b2r_min'] ?? 50));
         }
         return max(1, (float)($cfg['exchange_' . $code . '_min'] ?? 1));
     }

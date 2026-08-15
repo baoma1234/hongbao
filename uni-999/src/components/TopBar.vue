@@ -46,7 +46,10 @@
     </view>
   </view>
 
+  <!-- H5：顶栏改回流占位，不插 spacer，避免网页多一块空白 -->
+  <!-- #ifndef H5 -->
   <view v-if="!noSpacer" class="top-bar-spacer" :style="spacerStyle" />
+  <!-- #endif -->
 </template>
 
 <script setup>
@@ -212,6 +215,17 @@ onUnmounted(() => {
   overflow: visible;
   pointer-events: auto;
 }
+/* #ifdef H5 */
+.floating-top-bar {
+  /* 网页：占文档流，不靠 padding-top / spacer，避免顶上多一截空白 */
+  position: relative;
+  top: auto;
+  left: auto;
+  right: auto;
+  width: 100%;
+  flex-shrink: 0;
+}
+/* #endif */
 .top-bar-spacer {
   width: 100%;
   flex-shrink: 0;
