@@ -10,6 +10,7 @@ import { markConversationRead, onImEvent } from './im.js'
 import { getChatUnreadTotal, setChatUnreadTotal } from './tab-badge.js'
 import { playIncomingMessageSound } from './notify-sound.js'
 import { isGroupNotifyMuted } from './group-notify-mute.js'
+import { maybeShowLocalPush } from './local-push.js'
 
 const READ_KEY = 'fans_hub_999_chat_read'
 let started = false
@@ -238,9 +239,11 @@ function handleIncoming(msg) {
       const ctype = msgConvType(msg)
       const cid = msgConvId(msg)
       if (ctype === 2 && cid && isGroupNotifyMuted(cid)) {
-        /* 群消息不提醒：不响提示音 */
+        /* 群消息不提醒：不响提示音、不弹本地仿推送 */
       } else {
         playIncomingMessageSound(msg)
+        // 在线且不在会话列表 / 当前聊天室：顶部仿极光横幅（App 另发本地通知）
+        maybeShowLocalPush(msg, { myUserId })
       }
     }
   } catch (e) {}

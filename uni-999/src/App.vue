@@ -1,5 +1,10 @@
+<template>
+  <LocalPushBanner />
+</template>
+
 <script setup>
 import { onLaunch, onShow } from '@dcloudio/uni-app'
+import LocalPushBanner from './components/LocalPushBanner.vue'
 import { fetchConfig, getToken } from './utils/auth.js'
 import {
   buildChatUrl,
