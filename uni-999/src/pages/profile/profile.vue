@@ -106,6 +106,16 @@
           </view>
           <text class="profile-menu-arrow">›</text>
         </view>
+        <view class="profile-menu-row" @click="go('/pages/profile/settings')">
+          <view class="profile-menu-ico">
+            <AppGlyph name="settings" size="sm" />
+          </view>
+          <view class="profile-menu-main">
+            <text class="profile-menu-title">{{ tt('profile_menu_settings', '设置') }}</text>
+            <text class="profile-menu-sub">{{ tt('profile_menu_settings_sub', '静音、推送与版本') }}</text>
+          </view>
+          <text class="profile-menu-arrow">›</text>
+        </view>
       </view>
     </view>
 

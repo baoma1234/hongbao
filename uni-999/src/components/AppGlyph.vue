@@ -17,6 +17,7 @@ const GLYPHS = {
   info: '☺',
   password: '🔑',
   paypassword: '🔐',
+  settings: '⚙',
   search: '⌕',
   plus: '＋',
 }

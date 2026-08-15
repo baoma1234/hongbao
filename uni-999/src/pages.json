@@ -85,6 +85,13 @@
       }
     },
     {
+      "path": "pages/profile/settings",
+      "style": {
+        "navigationBarTitleText": "设置",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/wallet/wallet",
       "style": {
         "navigationBarTitleText": "钱包",

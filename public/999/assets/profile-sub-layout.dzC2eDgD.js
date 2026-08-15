@@ -1,1 +1,0 @@
-import{r as e,af as o,av as r}from"./index-DiA6RUBO.js";function a(){const a=e({}),t=e({});return{profileSubHdStyle:a,profileSubPageStyle:t,refreshProfileSubLayout:function(){const e=o();e&&e.overlayTop||r(),a.value={},t.value={}}}}export{a as u};

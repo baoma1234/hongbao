@@ -1,12 +1,16 @@
 /**
- * H5 消息提示音（Web Audio，无资源文件）
- * - 普通消息：双 ding，音量偏大
- * - 红包消息：更高音程，更醒目
- * - 开红包：上升短旋律
+ * 消息提示音
+ * - H5：Web Audio
+ * - App：优先 InnerAudio 本地 wav，失败则 plus.device.beep
+ * 尊重设置页「静音」开关
  */
+import { isMsgMuted } from './app-prefs.js'
+import { packagedStaticUrl } from './config.js'
+
 let audioCtx = null
 let lastBeepAt = 0
 let unlockBound = false
+let appAudio = null
 
 function ensureCtx() {
   try {
@@ -63,23 +67,70 @@ function throttleOk(ms) {
   return true
 }
 
-/** 普通消息提示（更大音量） */
+function playAppBeep(kind) {
+  // #ifdef APP-PLUS
+  try {
+    if (!appAudio) {
+      appAudio = uni.createInnerAudioContext()
+      appAudio.autoplay = false
+      appAudio.obeyMuteSwitch = false
+      appAudio.volume = 1
+      // 打包进 static 的短提示音；无文件时走 device.beep
+      try {
+        appAudio.src = packagedStaticUrl('sound/notify.wav')
+      } catch (e0) {
+        appAudio.src = '/static/sound/notify.wav'
+      }
+    }
+    try {
+      appAudio.stop()
+    } catch (e1) {}
+    appAudio.seek(0)
+    appAudio.play()
+    // 红包再补一次系统 beep 更醒目
+    if (kind === 'rp') {
+      try {
+        plus.device.beep(1)
+      } catch (e2) {}
+    }
+    return true
+  } catch (e) {
+    try {
+      plus.device.beep(kind === 'rp' ? 2 : 1)
+      return true
+    } catch (e3) {
+      return false
+    }
+  }
+  // #endif
+  // #ifndef APP-PLUS
+  return false
+  // #endif
+}
+
+/** 普通消息提示 */
 export function playNormalMsgSound() {
+  if (isMsgMuted()) return
+  if (!throttleOk(400)) return
+  if (playAppBeep('msg')) return
   bindUnlock()
   try {
     const ctx = ensureCtx()
-    if (!ctx || !throttleOk(400)) return
+    if (!ctx) return
     tone(ctx, 880, 0, 0.13, 0.22)
     tone(ctx, 1175, 0.15, 0.17, 0.2)
   } catch (e) {}
 }
 
-/** 红包消息提示（与普通区分：更亮、三连音） */
+/** 红包消息提示 */
 export function playRedPacketMsgSound() {
+  if (isMsgMuted()) return
+  if (!throttleOk(350)) return
+  if (playAppBeep('rp')) return
   bindUnlock()
   try {
     const ctx = ensureCtx()
-    if (!ctx || !throttleOk(350)) return
+    if (!ctx) return
     tone(ctx, 988, 0, 0.1, 0.2)
     tone(ctx, 1319, 0.12, 0.12, 0.22)
     tone(ctx, 1568, 0.26, 0.16, 0.18)
@@ -88,14 +139,15 @@ export function playRedPacketMsgSound() {
 
 /** 开红包成功 */
 export function playOpenRedPacketSound() {
+  if (isMsgMuted()) return
+  const now = Date.now()
+  if (lastBeepAt && now - lastBeepAt < 180) return
+  lastBeepAt = now
+  if (playAppBeep('rp')) return
   bindUnlock()
   try {
     const ctx = ensureCtx()
     if (!ctx) return
-    // 开包不与收消息共用节流，但短防抖
-    const now = Date.now()
-    if (lastBeepAt && now - lastBeepAt < 180) return
-    lastBeepAt = now
     tone(ctx, 523, 0, 0.08, 0.16)
     tone(ctx, 659, 0.09, 0.09, 0.18)
     tone(ctx, 784, 0.19, 0.1, 0.2)
@@ -104,11 +156,10 @@ export function playOpenRedPacketSound() {
 }
 
 /**
- * 根据消息类型播提示音
  * @param {object} msg
  */
 export function playIncomingMessageSound(msg) {
-  if (!msg) return
+  if (!msg || isMsgMuted()) return
   let ex = msg.extra || {}
   if (typeof ex === 'string') {
     try {
@@ -123,4 +174,6 @@ export function playIncomingMessageSound(msg) {
   else playNormalMsgSound()
 }
 
+// #ifdef H5
 bindUnlock()
+// #endif

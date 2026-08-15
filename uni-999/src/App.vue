@@ -14,6 +14,7 @@ import { applySafeAreaCssVars } from './utils/safe-area.js'
 import { applyAppStatusBar } from './utils/status-bar.js'
 import { initSkin } from './utils/skin.js'
 import { initOpenInstall } from './utils/openinstall.js'
+import { initPushOnLaunch } from './utils/jpush.js'
 import './styles/hb.css'
 import './styles/app-back-fix.css'
 
@@ -47,6 +48,10 @@ onLaunch(async () => {
   } catch (e) {}
   // 语言：BOOT 即时可用；完整包后台拉取，不挡启动
   initI18n().catch(() => {})
+  // 极光等推送：已装原生插件且用户未关推送时初始化
+  try {
+    initPushOnLaunch()
+  } catch (e) {}
 
   const token = getToken()
   if (!token) return

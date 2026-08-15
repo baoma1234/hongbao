@@ -351,8 +351,14 @@
                   @click="setNoticeCat('rules')"
                 >游戏规则</view>
               </view>
-              <view class="chat-notice-pane" :style="homeTab === 'notice' ? panelScrollStyle : null">
-              <scroll-view class="chat-notice-body-scroll" scroll-y :style="panelScrollStyle" :show-scrollbar="false">
+              <view class="chat-notice-pane">
+              <scroll-view
+                class="chat-notice-body-scroll"
+                scroll-y
+                :enable-flex="true"
+                :style="panelScrollStyle"
+                :show-scrollbar="false"
+              >
                 <view
                   v-if="fissionNoticeVisible && (noticeCat === 'latest' || noticeCat === 'promote')"
                   class="chat-fission-card"

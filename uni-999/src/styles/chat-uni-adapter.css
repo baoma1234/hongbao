@@ -796,7 +796,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   max-height: none !important;
 }
 
-/* 公告：与社群同款 absolute 填满，避免 iOS Safari height:0 空白 */
+/* 公告：对齐社群 pane（height:0 + flex），避免 App 上 height:auto 把列表压成空白 */
 #tabMessages #chatHomePanelNotice.chat-notice-feed-panel:not(.is-hidden) {
   overflow: hidden !important;
   display: flex !important;
@@ -814,13 +814,17 @@ body.tab-messages #tabMessages .chat-list-pane {
 #tabMessages .chat-notice-pane {
   flex: 1 1 0% !important;
   min-height: 0 !important;
-  height: auto !important;
+  height: 0 !important;
   position: relative !important;
   overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
 }
 
 .msg-tab-root .chat-notice-body-scroll,
 #tabMessages .chat-notice-body-scroll {
+  /* App scroll-view 勿用 display:flex，否则内容高度常为 0 */
+  display: block !important;
   flex: none !important;
   min-height: 120px !important;
   width: 100% !important;
@@ -831,6 +835,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   bottom: auto !important;
   box-sizing: border-box !important;
   -webkit-overflow-scrolling: touch;
+  overflow: hidden !important;
 }
 
 /* 公告列表不要 flex 撑高；末项后留 30px 可滚空白 */
