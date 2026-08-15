@@ -1,14 +1,14 @@
 /**
- * 极光推送（当前 manifest 插件：luanqing-jgpush）
+ * 极光推送（manifest 插件名：luanqing-jgpush）
  * - 在线：IM WebSocket + 本地提示音 / 仿推送横幅（不发极光）
- * - 离线：服务端按 Registration ID 发极光
- * - 登录后上报 RID + platform(ios|android)；并 setAlias(u{uid}) 便于排查
- *
- * 须用 HBuilderX 勾选云端插件后重新打 APK/IPA。
+ * - 离线：服务端按 Registration ID / 别名 u{uid} 发极光
+ * - 登录后 registerJPush + setAlias(u{uid}) + 尽量上报 RID
  */
 
 import { apiRequest, getToken } from './auth.js'
 import { isPushEnabled, setPushEnabled } from './app-prefs.js'
+
+const PLUGIN_ID = 'luanqing-jgpush'
 
 let jpush = null
 let registered = false
@@ -20,12 +20,8 @@ function tryGetJPush() {
   // #ifdef APP-PLUS
   try {
     if (typeof uni !== 'undefined' && uni.requireNativePlugin) {
-      jpush =
-        uni.requireNativePlugin('luanqing-jgpush') ||
-        uni.requireNativePlugin('JG-JPush') ||
-        uni.requireNativePlugin('JPush-Module') ||
-        uni.requireNativePlugin('JPushModule') ||
-        null
+      // 只加载已安装的云端插件，勿再 require JG-JPush（会刷「找不到插件」）
+      jpush = uni.requireNativePlugin(PLUGIN_ID) || null
     }
   } catch (e) {
     jpush = null
@@ -206,13 +202,13 @@ export function initPushOnLaunch() {
 }
 
 /** 登录成功 / auth.ok 后调用 */
-export function syncRegistrationAfterLogin() {
+export function syncRegistrationAfterLogin(userId) {
   // #ifdef APP-PLUS
   if (!getToken() || !isPushEnabled()) return Promise.resolve(null)
   const jp = tryGetJPush()
   if (!jp) return Promise.resolve(null)
   ensureRegistered(jp)
-  bindAliasIfPossible(jp)
+  bindAliasIfPossible(jp, userId)
   return readRegistrationId(jp).then((rid) => {
     if (rid) return uploadRegistration(rid, detectPlatform())
     // registerJPush 回调可能稍后才带出 RID，再等一轮
