@@ -137,14 +137,24 @@ class FansHubJPush
         } else {
             $uids = array_values(array_unique(array_filter(array_map('intval', (array)($opts['user_ids'] ?? [])))));
             $rids = self::registrationIdsForUsers($uids, $platform === 'all' ? 'all' : $platform);
-            if (!$rids) {
-                self::writeLog($opts + ['target_type' => 'user', 'target_ids' => $uids], 'fail', '', 'no devices');
-                return ['ok' => false, 'msg_id' => '', 'raw' => null, 'error' => 'no devices'];
+            if ($rids) {
+                $rids = array_slice($rids, 0, 1000);
+                $audience = ['registration_id' => $rids];
+                $targetType = 'users';
+                $targetIds = $uids;
+            } elseif ($uids) {
+                // 无 RID 时回退别名（App 登录后 setAlias u{uid}，适配 luanqing-jgpush）
+                $aliases = [];
+                foreach (array_slice($uids, 0, 1000) as $uid) {
+                    $aliases[] = 'u' . $uid;
+                }
+                $audience = ['alias' => $aliases];
+                $targetType = 'alias';
+                $targetIds = $uids;
+            } else {
+                self::writeLog($opts + ['target_type' => 'user', 'target_ids' => []], 'fail', '', 'no targets');
+                return ['ok' => false, 'msg_id' => '', 'raw' => null, 'error' => 'no targets'];
             }
-            $rids = array_slice($rids, 0, 1000);
-            $audience = ['registration_id' => $rids];
-            $targetType = 'users';
-            $targetIds = $uids;
         }
 
         $extras = is_array($opts['extras'] ?? null) ? $opts['extras'] : [];

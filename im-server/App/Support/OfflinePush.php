@@ -80,10 +80,6 @@ class OfflinePush
         }
 
         $rids = self::registrationIdsForUsers($targets);
-        if (!$rids) {
-            return;
-        }
-
         $title = self::pushTitle($type, $msg);
         $content = self::pushBody($msg);
         $extras = [
@@ -96,9 +92,26 @@ class OfflinePush
             'msg_type'           => $msgType,
         ];
 
-        // 分批（极光 registration_id ≤1000）
-        foreach (array_chunk($rids, 800) as $chunk) {
-            self::sendJPush($title, $content, $chunk, $extras, 'im_msg', $targets);
+        if ($rids) {
+            foreach (array_chunk($rids, 800) as $chunk) {
+                self::sendJPush($title, $content, ['registration_id' => $chunk], $extras, 'im_msg', $targets);
+            }
+            return;
+        }
+
+        // 无 RID：按别名 u{uid} 推（客户端登录后 setAlias）
+        $aliases = [];
+        foreach ($targets as $uid) {
+            $uid = (int)$uid;
+            if ($uid > 0) {
+                $aliases[] = 'u' . $uid;
+            }
+        }
+        if (!$aliases) {
+            return;
+        }
+        foreach (array_chunk($aliases, 800) as $chunk) {
+            self::sendJPush($title, $content, ['alias' => $chunk], $extras, 'im_msg', $targets);
         }
     }
 
@@ -239,11 +252,17 @@ class OfflinePush
         return substr($content, 0, 80);
     }
 
-    protected static function sendJPush($title, $content, array $rids, array $extras, $scene, array $userIds)
+    /**
+     * @param array $audience 如 ['registration_id'=>[...]] 或 ['alias'=>[...]]
+     */
+    protected static function sendJPush($title, $content, array $audience, array $extras, $scene, array $userIds)
     {
+        if (!$audience) {
+            return;
+        }
         $body = [
             'platform' => 'all',
-            'audience' => ['registration_id' => array_values($rids)],
+            'audience' => $audience,
             'notification' => [
                 'alert' => $content,
                 'android' => [
@@ -287,7 +306,7 @@ class OfflinePush
             'scene'       => $scene,
             'title'       => $title,
             'content'     => $content,
-            'target_type' => 'users',
+            'target_type' => isset($audience['alias']) ? 'alias' : 'users',
             'target_ids'  => array_slice(array_values($userIds), 0, 200),
             'platform'    => 'all',
             'msg_id'      => $msgId,

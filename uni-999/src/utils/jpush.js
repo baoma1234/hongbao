@@ -1,17 +1,17 @@
 /**
- * 极光推送（App 原生插件）
- * - 在线：IM WebSocket + 本地提示音（不发极光）
+ * 极光推送（当前 manifest 插件：luanqing-jgpush）
+ * - 在线：IM WebSocket + 本地提示音 / 仿推送横幅（不发极光）
  * - 离线：服务端按 Registration ID 发极光
- * - 登录后上报 RID + platform(ios|android)
+ * - 登录后上报 RID + platform(ios|android)；并 setAlias(u{uid}) 便于排查
  *
- * 云打包：在 HBuilderX 导入「极光推送」原生插件（如 JG-JPush），
- * AppKey 填 8cdf371fe7b28e2981a712a2，重新打 APK/IPA。
+ * 须用 HBuilderX 勾选云端插件后重新打 APK/IPA。
  */
 
 import { apiRequest, getToken } from './auth.js'
 import { isPushEnabled, setPushEnabled } from './app-prefs.js'
 
 let jpush = null
+let registered = false
 let lastRid = ''
 let reporting = false
 
@@ -21,6 +21,7 @@ function tryGetJPush() {
   try {
     if (typeof uni !== 'undefined' && uni.requireNativePlugin) {
       jpush =
+        uni.requireNativePlugin('luanqing-jgpush') ||
         uni.requireNativePlugin('JG-JPush') ||
         uni.requireNativePlugin('JPush-Module') ||
         uni.requireNativePlugin('JPushModule') ||
@@ -41,6 +42,31 @@ function detectPlatform() {
     if (p === 'android') return 'android'
   } catch (e) {}
   // #endif
+  return ''
+}
+
+function extractRid(raw) {
+  if (raw == null) return ''
+  if (typeof raw === 'string') {
+    const s = raw.trim()
+    if (s.length >= 8 && s.indexOf(' ') < 0 && s.indexOf('{') < 0) return s
+    try {
+      return extractRid(JSON.parse(s))
+    } catch (e) {
+      return ''
+    }
+  }
+  if (typeof raw !== 'object') return ''
+  const direct =
+    raw.registerID ||
+    raw.registrationID ||
+    raw.registrationId ||
+    raw.registration_id ||
+    raw.rid ||
+    ''
+  if (direct) return String(direct).trim()
+  if (raw.data) return extractRid(raw.data)
+  if (raw.info) return extractRid(raw.info)
   return ''
 }
 
@@ -70,24 +96,62 @@ function readRegistrationId(jp) {
     }
     try {
       if (typeof jp.getRegistrationID === 'function') {
-        jp.getRegistrationID((r) => {
-          const id =
-            (r && (r.registerID || r.registrationID || r.registrationId || r)) || ''
-          resolve(String(id || '').trim())
-        })
+        jp.getRegistrationID((r) => resolve(extractRid(r)))
         return
       }
       if (typeof jp.getRegistrationId === 'function') {
-        jp.getRegistrationId((r) => {
-          const id =
-            (r && (r.registerID || r.registrationID || r.registrationId || r)) || ''
-          resolve(String(id || '').trim())
-        })
+        jp.getRegistrationId((r) => resolve(extractRid(r)))
         return
       }
     } catch (e) {}
-    resolve('')
+    resolve(lastRid || '')
   })
+}
+
+function bindAliasIfPossible(jp) {
+  try {
+    if (!jp || typeof jp.setAlias !== 'function') return
+    let uid = 0
+    try {
+      const raw = uni.getStorageSync('fans_hub_999_profile') || uni.getStorageSync('fans_hub_profile')
+      const p = typeof raw === 'string' ? JSON.parse(raw || '{}') : raw
+      uid = (p && (p.user_id || p.id)) | 0
+    } catch (e) {}
+    if (uid > 0) jp.setAlias({ alias: 'u' + uid })
+  } catch (e) {}
+}
+
+function ensureRegistered(jp) {
+  if (!jp || registered) return
+  try {
+    if (typeof jp.registerJPush === 'function') {
+      jp.registerJPush((res) => {
+        try {
+          const rid = extractRid(res)
+          if (rid) uploadRegistration(rid, detectPlatform())
+          // 部分版本把 RID 放在 log 文案里
+          if (!rid && res && res.type === 'log') {
+            const text = JSON.stringify(res.data || res)
+            const m = text.match(/registration[_ ]?id["'\s:=]+([a-zA-Z0-9_-]{8,})/i)
+            if (m && m[1]) uploadRegistration(m[1], detectPlatform())
+          }
+          if (res && (res.type === 'notice-open' || res.type === 'notice')) {
+            // 点击通知进聊天：payload 若有会话信息可再扩展
+          }
+        } catch (e) {}
+      })
+      registered = true
+      return
+    }
+    if (typeof jp.init === 'function') {
+      jp.init()
+      registered = true
+    }
+    if (typeof jp.initJPushService === 'function') {
+      jp.initJPushService()
+      registered = true
+    }
+  } catch (e) {}
 }
 
 export function applyPushPreference(enabled) {
@@ -100,10 +164,14 @@ export function applyPushPreference(enabled) {
   if (!jp) return { ok: true, wired: false }
   try {
     if (enabled) {
+      ensureRegistered(jp)
       if (typeof jp.resumePush === 'function') jp.resumePush()
       syncRegistrationAfterLogin()
     } else if (typeof jp.stopPush === 'function') {
       jp.stopPush()
+    } else if (typeof jp.unregisterJPush === 'function') {
+      jp.unregisterJPush()
+      registered = false
     }
     return { ok: true, wired: true }
   } catch (e) {
@@ -123,20 +191,14 @@ export function initPushOnLaunch() {
   const jp = tryGetJPush()
   if (!jp) return
   try {
-    if (typeof jp.init === 'function') jp.init()
-    if (typeof jp.setDebug === 'function') jp.setDebug(false)
     if (!isPushEnabled()) {
       if (typeof jp.stopPush === 'function') jp.stopPush()
       return
     }
+    ensureRegistered(jp)
     if (typeof jp.resumePush === 'function') jp.resumePush()
-    // 延迟取 RID（原生 SDK 初始化需要时间）
-    setTimeout(() => {
-      syncRegistrationAfterLogin()
-    }, 1500)
-    setTimeout(() => {
-      syncRegistrationAfterLogin()
-    }, 5000)
+    setTimeout(() => syncRegistrationAfterLogin(), 1500)
+    setTimeout(() => syncRegistrationAfterLogin(), 5000)
   } catch (e) {}
   // #endif
 }
@@ -147,7 +209,19 @@ export function syncRegistrationAfterLogin() {
   if (!getToken() || !isPushEnabled()) return Promise.resolve(null)
   const jp = tryGetJPush()
   if (!jp) return Promise.resolve(null)
-  return readRegistrationId(jp).then((rid) => uploadRegistration(rid, detectPlatform()))
+  ensureRegistered(jp)
+  bindAliasIfPossible(jp)
+  return readRegistrationId(jp).then((rid) => {
+    if (rid) return uploadRegistration(rid, detectPlatform())
+    // registerJPush 回调可能稍后才带出 RID，再等一轮
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        readRegistrationId(jp).then((rid2) => {
+          resolve(uploadRegistration(rid2 || lastRid, detectPlatform()))
+        })
+      }, 2000)
+    })
+  })
   // #endif
   // #ifndef APP-PLUS
   return Promise.resolve(null)

@@ -27,8 +27,7 @@
                 "schemes" : "omamxu"
             },
             "ios" : {
-                "urltypes" : "omamxu",
-                "dSYMs" : false
+                "urltypes" : "omamxu"
             },
             "sdkConfigs" : {},
             "icons" : {
@@ -86,35 +85,119 @@
                     }
                 }
             },
-            "JG-JPush" : {
+            "luanqing-jgpush" : {
+                "HONOR_APPID" : "",
+                "JPUSH_ADVERTISINGID_IOS" : "",
                 "JPUSH_APPKEY_ANDROID" : "8cdf371fe7b28e2981a712a2",
                 "JPUSH_APPKEY_IOS" : "8cdf371fe7b28e2981a712a2",
-                "JPUSH_CHANNEL" : "developer-default",
+                "JPUSH_CHANNEL_ANDROID" : "developer-default",
+                "JPUSH_CHANNEL_IOS" : "developer-default",
+                "JPUSH_ISPRODUCTION_IOS" : "true",
+                "JPUSH_PKGNAME_ANDROID" : "uni.app.UNIHONGBAO999",
+                "MEIZU_APPID" : "",
+                "MEIZU_APPKEY" : "",
+                "OPPO_APPID" : "",
+                "OPPO_APPKEY" : "",
+                "OPPO_APPSECRET" : "",
+                "VIVO_APPID" : "",
+                "VIVO_APPKEY" : "",
+                "XIAOMI_APPID" : "",
+                "XIAOMI_APPKEY" : "",
                 "__plugin_info__" : {
-                    "name" : "JG-JPush",
-                    "description" : "极光推送（请在 HBuilderX 插件市场导入正式包后云打包）",
+                    "name" : "官方原生SDK极光推送 自定义消息+通知 离线 两行代码集AndroidIOS",
+                    "description" : "遵循极光官方的开发逻辑，用更便捷和简单的方式来集成极光推送，只需2行代码轻松集成，省去大量开发时间。",
                     "platforms" : "Android,iOS",
-                    "url" : "",
-                    "android_package_name" : "",
-                    "ios_bundle_id" : "",
+                    "url" : "https://ext.dcloud.net.cn/plugin?id=9438",
+                    "android_package_name" : "uni.app.UNIHONGBAO999",
+                    "ios_bundle_id" : "com.hongbao.iosapp",
                     "isCloud" : true,
-                    "bought" : 0,
-                    "pid" : "",
+                    "bought" : 1,
+                    "pid" : "9438",
                     "parameters" : {
+                        "HONOR_APPID" : {
+                            "des" : "若不集成厂商通道，可直接跳过以下配置",
+                            "key" : "",
+                            "value" : ""
+                        },
+                        "JPUSH_ADVERTISINGID_IOS" : {
+                            "des" : "[iOS]广告标识符（IDFA）如果不需要使用IDFA，可不填",
+                            "key" : "JPush:ADVERTISINGID",
+                            "value" : ""
+                        },
                         "JPUSH_APPKEY_ANDROID" : {
-                            "des" : "极光 Android AppKey",
-                            "key" : "JPUSH_APPKEY_ANDROID",
-                            "value" : "8cdf371fe7b28e2981a712a2"
+                            "des" : "安卓端在极光后台注册应用的appkey",
+                            "key" : "",
+                            "value" : ""
                         },
                         "JPUSH_APPKEY_IOS" : {
-                            "des" : "极光 iOS AppKey",
-                            "key" : "JPUSH_APPKEY_IOS",
-                            "value" : "8cdf371fe7b28e2981a712a2"
+                            "des" : "[iOS]极光portal配置应用信息时分配的AppKey",
+                            "key" : "JCore:APP_KEY",
+                            "value" : ""
                         },
-                        "JPUSH_CHANNEL" : {
-                            "des" : "渠道名",
-                            "key" : "JPUSH_CHANNEL",
-                            "value" : "developer-default"
+                        "JPUSH_CHANNEL_ANDROID" : {
+                            "des" : "安卓端极光渠道 暂时填写默认 developer-default 即可",
+                            "key" : "",
+                            "value" : ""
+                        },
+                        "JPUSH_CHANNEL_IOS" : {
+                            "des" : "[iOS]用于统计分发渠道，不需要可填默认值developer-default",
+                            "key" : "JCore:CHANNEL",
+                            "value" : ""
+                        },
+                        "JPUSH_ISPRODUCTION_IOS" : {
+                            "des" : "[iOS]是否是生产环境，是的话填true，不是的话填false或者不填",
+                            "key" : "JPush:ISPRODUCTION",
+                            "value" : ""
+                        },
+                        "JPUSH_PKGNAME_ANDROID" : {
+                            "des" : "安卓端在极光后台注册应用的包名",
+                            "key" : "",
+                            "value" : ""
+                        },
+                        "MEIZU_APPID" : {
+                            "des" : "若不集成厂商通道，可直接跳过以下配置",
+                            "key" : "",
+                            "value" : ""
+                        },
+                        "MEIZU_APPKEY" : {
+                            "des" : "若不集成厂商通道，可直接跳过以下配置",
+                            "key" : "",
+                            "value" : ""
+                        },
+                        "OPPO_APPID" : {
+                            "des" : "若不集成厂商通道，可直接跳过以下配置",
+                            "key" : "",
+                            "value" : ""
+                        },
+                        "OPPO_APPKEY" : {
+                            "des" : "若不集成厂商通道，可直接跳过以下配置",
+                            "key" : "",
+                            "value" : ""
+                        },
+                        "OPPO_APPSECRET" : {
+                            "des" : "若不集成厂商通道，可直接跳过以下配置",
+                            "key" : "",
+                            "value" : ""
+                        },
+                        "VIVO_APPID" : {
+                            "des" : "若不集成厂商通道，可直接跳过以下配置",
+                            "key" : "",
+                            "value" : ""
+                        },
+                        "VIVO_APPKEY" : {
+                            "des" : "若不集成厂商通道，可直接跳过以下配置",
+                            "key" : "",
+                            "value" : ""
+                        },
+                        "XIAOMI_APPID" : {
+                            "des" : "若不集成厂商通道，可直接跳过以下配置",
+                            "key" : "",
+                            "value" : ""
+                        },
+                        "XIAOMI_APPKEY" : {
+                            "des" : "若不集成厂商通道，可直接跳过以下配置",
+                            "key" : "",
+                            "value" : ""
                         }
                     }
                 }
