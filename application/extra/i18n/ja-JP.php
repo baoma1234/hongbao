@@ -105,4 +105,5 @@ return array (
   'asset_hongbao_label' => 'Hongbao',
   'asset_shares_label' => '株式',
   'wallet_not_login' => '未ログイン',
+  'wallet_ledger_type_exchange_swap' => '株式交換',
 );

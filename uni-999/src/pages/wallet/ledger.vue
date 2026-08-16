@@ -102,14 +102,31 @@ function goBack() {
 
 function typeTitle(item) {
   const type = String((item && item.type) || '')
+  const lab = String((item && (item.type_label || item.title || item.type_text)) || '').trim()
+  const localFallback = {
+    exchange_swap: '股份兑换',
+    exchange: '闪兑',
+    register: '注册赠送',
+    register_bonus: '拉新股份',
+    share: '分享奖励',
+    invite: '邀请奖励',
+    open_account: '开户奖励',
+    admin_adjust: '人工调整',
+    honor_tier: '荣誉晋升',
+  }
+  const fb = lab && lab !== type ? lab : (localFallback[type] || '变动')
   if (type) {
     const key = 'wallet_ledger_type_' + type
-    const translated = tt(key, '')
-    if (translated && translated !== key) return translated
+    const translated = tt(key, fb)
+    if (
+      translated &&
+      translated !== key &&
+      translated.indexOf('wallet_ledger_type_') !== 0
+    ) {
+      return translated
+    }
   }
-  const lab = String((item && (item.type_label || item.title || item.type_text)) || '')
-  if (lab && lab !== type) return lab
-  return type || '变动'
+  return fb || type || '变动'
 }
 
 const list = ref([])
@@ -280,7 +297,11 @@ async function load(p, append) {
     const beforeId =
       append && list.value.length ? Number(list.value[list.value.length - 1].id) || 0 : 0
     const data = await fetchLedger(p, 20, category.value, beforeId)
-    const rows = (data && data.list) || []
+    const rows = ((data && data.list) || []).filter((row) => {
+      if (category.value !== 'rights') return true
+      const r = Math.abs(parseFloat(row && row.rights_change) || 0)
+      return r >= 0.005
+    })
     page.value = (data && data.page) || p
     hasMore.value = !!(data && data.has_more)
     list.value = append ? list.value.concat(rows) : rows

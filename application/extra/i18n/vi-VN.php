@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 /**
  * FansHub H5 copy — vi-VN
@@ -714,6 +714,7 @@ Bán lẻ DeskHarvester thực thi 15 cổ kênh 1 và được cộng ₫75.00 
   'wallet_ledger_type_invite' => 'Thưởng mời',
   'wallet_ledger_type_open_account' => 'Thưởng mở TK',
   'wallet_ledger_type_exchange' => 'Đổi nhanh',
+  'wallet_ledger_type_exchange_swap' => 'Đổi cổ phần',
   'wallet_ledger_type_admin_adjust' => 'Điều chỉnh tay',
   'wallet_ledger_type_checkin' => 'Điểm danh tia lửa',
   'wallet_ledger_type_checkin_bonus' => 'Đối soát bạo lực',
@@ -990,3 +991,4 @@ Bán lẻ DeskHarvester thực thi 15 cổ kênh 1 và được cộng ₫75.00 
   'alert_operation_fail' => 'Thao tác thất bại',
   'login_cs_label' => 'Hỗ trợ',
 );
+

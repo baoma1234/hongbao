@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 /**
  * FansHub H5 copy — id-ID
@@ -714,6 +714,7 @@ Ritel DeskHarvester eksekusi 15 saham saluran 1 dan dikredit Rp75.00 via chat am
   'wallet_ledger_type_invite' => 'Hadiah undang',
   'wallet_ledger_type_open_account' => 'Hadiah buka akun',
   'wallet_ledger_type_exchange' => 'Flash-swap',
+  'wallet_ledger_type_exchange_swap' => 'Tukar saham',
   'wallet_ledger_type_admin_adjust' => 'Penyesuaian manual',
   'wallet_ledger_type_checkin' => 'Check-in spark',
   'wallet_ledger_type_checkin_bonus' => 'Rekonsiliasi brutal',
@@ -990,3 +991,4 @@ Ritel DeskHarvester eksekusi 15 saham saluran 1 dan dikredit Rp75.00 via chat am
   'alert_operation_fail' => 'Operasi gagal',
   'login_cs_label' => 'Bantuan',
 );
+

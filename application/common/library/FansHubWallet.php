@@ -207,8 +207,8 @@ class FansHubWallet
         // before_id：游标翻页（id < before_id），避免深 page OFFSET
         $rowsQuery = Db::name('fans_ledger')->where('user_id', $userId);
         if ($category === 'rights') {
-            // 股份流水：只看股份变动（增/减/兑换），不按类型误带纯红宝流水
-            $rowsQuery->whereRaw('ABS(`rights_change`) > 0.0000001');
+            // 股份流水：四舍五入到分后仍有增减（过滤 0.00 脏数据）
+            $rowsQuery->whereRaw('ROUND(`rights_change`, 2) <> 0');
         } elseif ($filterTypes) {
             $rowsQuery->where('type', 'in', $filterTypes);
         }
@@ -240,6 +240,10 @@ class FansHubWallet
             $bal = round((float)($row['balance_change'] ?? 0), 2);
             $rights = round((float)($row['rights_change'] ?? 0), 2);
             $hongbao = round((float)($row['hongbao_change'] ?? 0), 2);
+            // 股份分类：再挡一层四舍五入后为 0 的脏行
+            if ($category === 'rights' && abs($rights) < 0.005) {
+                continue;
+            }
             $bizNo = trim((string)($row['biz_no'] ?? ''));
             $refType = trim((string)($row['ref_type'] ?? ''));
             $refId = (int)($row['ref_id'] ?? 0);

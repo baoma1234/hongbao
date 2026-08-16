@@ -105,4 +105,5 @@ return array (
   'asset_hongbao_label' => 'Hongbao',
   'asset_shares_label' => 'Hisse',
   'wallet_not_login' => 'Giriş yapılmadı',
+  'wallet_ledger_type_exchange_swap' => 'Hisse takası',
 );

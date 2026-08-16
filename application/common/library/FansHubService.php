@@ -665,6 +665,7 @@ class FansHubService
                 'wallet_ledger_type_invite' => '流水类型-邀请奖励',
                 'wallet_ledger_type_open_account' => '流水类型-开户奖励',
                 'wallet_ledger_type_exchange' => '流水类型-闪兑',
+                'wallet_ledger_type_exchange_swap' => '流水类型-股份兑换',
                 'wallet_ledger_type_admin_adjust' => '流水类型-人工调整',
                 'wallet_ledger_type_checkin' => '流水类型-星火签到',
                 'wallet_ledger_type_checkin_bonus' => '流水类型-暴力对账',

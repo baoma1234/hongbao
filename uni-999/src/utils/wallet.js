@@ -751,10 +751,10 @@ export function ledgerAmountText(item, opts = {}) {
     return { text: sign + money(m), cls: m > 0 ? 'plus' : 'minus' }
   }
 
-  // 股份 Tab：只展示股份增减（同笔里的红宝变动忽略）
+  // 股份 Tab：只展示有实际股份增减（≥0.01）；更小的视为脏数据
   if (preferRights) {
-    if (Math.abs(rights) > 1e-9) return fmtRights(rights)
-    return { text: '0.00股', cls: '' }
+    if (Math.abs(rights) >= 0.005) return fmtRights(rights)
+    return { text: '', cls: '' }
   }
 
   // 全部等：股份+红宝同笔时一并展示，避免拉新「+股+红宝」被当成纯红宝

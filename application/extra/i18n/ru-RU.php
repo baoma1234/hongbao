@@ -105,4 +105,5 @@ return array (
   'asset_hongbao_label' => 'Hongbao',
   'asset_shares_label' => 'Акции',
   'wallet_not_login' => 'Не выполнен вход',
+  'wallet_ledger_type_exchange_swap' => 'Обмен акций',
 );

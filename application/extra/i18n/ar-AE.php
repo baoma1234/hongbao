@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 /**
  * FansHub H5 copy — ar-AE
@@ -709,6 +709,7 @@ return array (
   'wallet_ledger_type_invite' => 'دعوة المكافأة',
   'wallet_ledger_type_open_account' => 'مكافأة مفتوحة',
   'wallet_ledger_type_exchange' => 'مبادلة فلاش',
+  'wallet_ledger_type_exchange_swap' => 'تبديل الأسهم',
   'wallet_ledger_type_admin_adjust' => 'ضبط يدوي',
   'wallet_ledger_type_checkin' => 'سبارك تسجيل الدخول',
   'wallet_ledger_type_checkin_bonus' => 'مصالحة عنيفة',
@@ -1000,3 +1001,4 @@ return array (
   'login_phone_placeholder_jp' => 'أدخل رقم الجوال الياباني (70/80/90)',
   'login_phone_placeholder_kr' => 'أدخل رقم الجوال الكوري (يبدأ بـ 10)',
 );
+

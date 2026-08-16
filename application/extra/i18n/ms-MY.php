@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 /**
  * FansHub H5 copy — ms-MY
@@ -714,6 +714,7 @@ Ritel DeskHarvester eksekusi 15 saham saluran 1 dan dikreditkan RM75.00 via semb
   'wallet_ledger_type_invite' => 'Ganjaran jemput',
   'wallet_ledger_type_open_account' => 'Ganjaran buka akaun',
   'wallet_ledger_type_exchange' => 'Flash-swap',
+  'wallet_ledger_type_exchange_swap' => 'Tukar saham',
   'wallet_ledger_type_admin_adjust' => 'Penyesuaian manual',
   'wallet_ledger_type_checkin' => 'Check-in spark',
   'wallet_ledger_type_checkin_bonus' => 'Rekonsiliasi brutal',
@@ -990,3 +991,4 @@ Ritel DeskHarvester eksekusi 15 saham saluran 1 dan dikreditkan RM75.00 via semb
   'alert_operation_fail' => 'Operasi gagal',
   'login_cs_label' => 'Bantuan',
 );
+

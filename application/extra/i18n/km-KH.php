@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 /**
  * FansHub H5 copy — km-KH
@@ -714,6 +714,7 @@ User 555_vip99 ទើបទទួល ៛៥០ តាមបើករហ័ស + 
   'wallet_ledger_type_invite' => 'រង្វាន់អញ្ជើញ',
   'wallet_ledger_type_open_account' => 'រង្វាន់បើកគណនី',
   'wallet_ledger_type_exchange' => 'ប្តូររហ័ស',
+  'wallet_ledger_type_exchange_swap' => 'ប្តូរភាគហ៊ុន',
   'wallet_ledger_type_admin_adjust' => 'កែតម្រូវដោយដៃ',
   'wallet_ledger_type_checkin' => 'ចុះវត្តមាន spark',
   'wallet_ledger_type_checkin_bonus' => 'ផ្ទៀងផ្ទាត់ហឹង្សា',
@@ -990,3 +991,4 @@ User 555_vip99 ទើបទទួល ៛៥០ តាមបើករហ័ស + 
   'alert_operation_fail' => 'ប្រតិបត្តិការបរាជ័យ',
   'login_cs_label' => 'ជំនួយ',
 );
+

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 /**
  * FansHub H5 copy — en-PH
@@ -714,6 +714,7 @@ Retail DeskHarvester exercised 15 shares on Channel 1 and got ₱75.00 credited 
   'wallet_ledger_type_invite' => 'Invite reward',
   'wallet_ledger_type_open_account' => 'Open reward',
   'wallet_ledger_type_exchange' => 'Flash-swap',
+  'wallet_ledger_type_exchange_swap' => 'Share swap',
   'wallet_ledger_type_admin_adjust' => 'Manual adjust',
   'wallet_ledger_type_checkin' => 'Spark check-in',
   'wallet_ledger_type_checkin_bonus' => 'Violent reconcile',
@@ -990,3 +991,4 @@ Retail DeskHarvester exercised 15 shares on Channel 1 and got ₱75.00 credited 
   'alert_operation_fail' => 'Operation failed',
   'login_cs_label' => 'Support',
 );
+
