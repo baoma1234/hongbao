@@ -760,6 +760,7 @@
           :src="msgPopupImage"
           mode="widthFix"
           :show-menu-by-longpress="true"
+          @click="clickMsgPopup"
         />
         <text v-if="msgPopup.title" class="msg-popup-title">{{ msgPopup.title || '' }}</text>
         <text class="msg-popup-body" v-if="msgPopup.content">{{ msgPopup.content }}</text>
