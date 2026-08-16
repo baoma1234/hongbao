@@ -97,6 +97,28 @@ class FansHubJPush
     }
 
     /**
+     * 有有效 Registration ID 的用户（视为已用移动端 App 登录并上报推送）
+     * @param int[] $userIds
+     * @return int[]
+     */
+    public static function userIdsWithRegistration(array $userIds, $platform = 'all')
+    {
+        $userIds = array_values(array_unique(array_filter(array_map('intval', $userIds))));
+        if (!$userIds) {
+            return [];
+        }
+        $q = Db::name('chat_push_devices')
+            ->where('user_id', 'in', $userIds)
+            ->where('enabled', 1)
+            ->where('registration_id', '<>', '');
+        if ($platform === 'ios' || $platform === 'android') {
+            $q->where('platform', $platform);
+        }
+        $rows = $q->column('user_id');
+        return array_values(array_unique(array_filter(array_map('intval', $rows ?: []))));
+    }
+
+    /**
      * @param array $opts title,content,user_ids|registration_ids|audience_all,platform,extras,admin_id,scene
      * @return array{ok:bool,msg_id:string,raw:mixed,error?:string}
      */
@@ -136,24 +158,21 @@ class FansHubJPush
             $targetIds = $rids;
         } else {
             $uids = array_values(array_unique(array_filter(array_map('intval', (array)($opts['user_ids'] ?? [])))));
+            // 仅按 Registration ID 推：无 RID = 未用移动端 App 上报，不推、不写失败日志（避免 1011 刷屏）
             $rids = self::registrationIdsForUsers($uids, $platform === 'all' ? 'all' : $platform);
             if ($rids) {
                 $rids = array_slice($rids, 0, 1000);
                 $audience = ['registration_id' => $rids];
                 $targetType = 'users';
-                $targetIds = $uids;
-            } elseif ($uids) {
-                // 无 RID 时回退别名（App 登录后 setAlias u{uid}，适配 luanqing-jgpush）
-                $aliases = [];
-                foreach (array_slice($uids, 0, 1000) as $uid) {
-                    $aliases[] = 'u' . $uid;
-                }
-                $audience = ['alias' => $aliases];
-                $targetType = 'alias';
-                $targetIds = $uids;
+                $targetIds = self::userIdsWithRegistration($uids, $platform === 'all' ? 'all' : $platform);
             } else {
-                self::writeLog($opts + ['target_type' => 'user', 'target_ids' => []], 'fail', '', 'no targets');
-                return ['ok' => false, 'msg_id' => '', 'raw' => null, 'error' => 'no targets'];
+                return [
+                    'ok'      => false,
+                    'msg_id'  => '',
+                    'raw'     => null,
+                    'error'   => 'no registration_id',
+                    'skipped' => true,
+                ];
             }
         }
 
