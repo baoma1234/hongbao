@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 /**
  * FansHub H5 copy — vi-VN
