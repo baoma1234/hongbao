@@ -14,7 +14,17 @@ const APPLE_TOUCH_ICON =
 
 function rmDir(dir) {
   if (!fs.existsSync(dir)) return
-  fs.rmSync(dir, { recursive: true, force: true })
+  try {
+    fs.rmSync(dir, { recursive: true, force: true })
+  } catch (e) {
+    // Windows: 目录被占用时无法整夹删除，改为逐文件覆盖
+    if (e && (e.code === 'EBUSY' || e.code === 'EPERM' || e.code === 'ENOTEMPTY')) {
+      console.warn('WARN rmDir busy, overwrite instead:', dir, e.code)
+      return false
+    }
+    throw e
+  }
+  return true
 }
 
 function copyDir(from, to) {

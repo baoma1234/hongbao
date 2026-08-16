@@ -752,15 +752,16 @@
       @click="dismissMsgPopup('dismiss_day')"
       @touchmove.stop.prevent="noopPopup"
     >
-      <view class="msg-popup-card" @click.stop>
+      <view class="msg-popup-card" :class="{ 'is-poster': !!msgPopupImage }" @click.stop>
         <view class="msg-popup-close" @click="dismissMsgPopup('dismiss_day')">×</view>
         <image
           v-if="msgPopupImage"
           class="msg-popup-img"
           :src="msgPopupImage"
           mode="widthFix"
+          :show-menu-by-longpress="true"
         />
-        <text class="msg-popup-title">{{ msgPopup.title || '' }}</text>
+        <text v-if="msgPopup.title" class="msg-popup-title">{{ msgPopup.title || '' }}</text>
         <text class="msg-popup-body" v-if="msgPopup.content">{{ msgPopup.content }}</text>
         <view class="msg-popup-btn" @click="clickMsgPopup">{{ msgPopup.btn_text || '查看' }}</view>
         <view
@@ -806,6 +807,7 @@ import {
   displayTitle,
   formatConvTime,
   previewText,
+  publicUrl,
   resolveConvId,
 } from '../../utils/chat.js'
 import { t, tt } from '../../utils/i18n.js'
@@ -884,7 +886,8 @@ const msgPopupOpen = ref(false)
 const msgPopupImage = computed(() => {
   const p = msgPopup.value
   const imgs = (p && p.images) || []
-  return imgs[0] || ''
+  const raw = imgs[0] || ''
+  return raw ? publicUrl(raw) : ''
 })
 /** App WebView 常算不出 flex 高度：用 JS 量出面板/scroll 像素高 */
 const panelScrollPx = ref(420)
@@ -3014,7 +3017,7 @@ onHide(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px 18px;
+  padding: 16px 14px;
   box-sizing: border-box;
 }
 .msg-popup-card {
@@ -3029,6 +3032,18 @@ onHide(() => {
   flex-direction: column;
   align-items: stretch;
   gap: 10px;
+  box-sizing: border-box;
+  max-height: 88vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+/* 450×750 海报：按宽铺满，完整展示不裁切 */
+.msg-popup-card.is-poster {
+  width: 90%;
+  max-width: 360px;
+  padding: 36px 10px 14px;
+  gap: 8px;
 }
 .msg-popup-close {
   position: absolute;
@@ -3040,11 +3055,18 @@ onHide(() => {
   text-align: center;
   font-size: 22px;
   color: #999;
+  z-index: 2;
 }
 .msg-popup-img {
+  display: block;
   width: 100%;
+  height: auto;
   border-radius: 12px;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
+  background: #f3f3f3;
+}
+.msg-popup-card.is-poster .msg-popup-img {
+  border-radius: 10px;
 }
 .msg-popup-title {
   font-size: 17px;

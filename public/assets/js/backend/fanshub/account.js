@@ -35,12 +35,12 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                         return row.user_id ? ('ID' + row.user_id) : '-';
                     }},
                     {field: 'user.mobile', title: '手机号', operate: 'LIKE'},
-                    {field: 'inviter_user_id', title: '上线ID', operate: false, formatter: function (value) {
-                        return value ? value : '-';
+                    {field: 'inviter_user_id', title: '上线ID/上线手机', operate: false, formatter: function (value, row) {
+                        var id = value ? String(value) : '-';
+                        var mobile = row.inviter_mobile ? String(row.inviter_mobile) : '-';
+                        return '<div style="line-height:1.45;white-space:normal;">' + id + '<br>' + mobile + '</div>';
                     }},
-                    {field: 'inviter_mobile', title: '上线手机', operate: false, formatter: function (value) {
-                        return value ? value : '-';
-                    }},
+                    {field: 'inviter_mobile', title: '上线手机', visible: false, operate: false},
                     {field: 'rights', title: '股份', operate: 'BETWEEN'},
                     {field: 'hongbao', title: '红宝', operate: 'BETWEEN'},
                     {field: 'main_uid', title: '主站账号', operate: 'LIKE'},
@@ -75,14 +75,19 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                         if (!tags.length) return '<span class="text-muted">-</span>';
                         return '<span class="label label-danger" title="' + tags.join('、') + '">禁' + tags.length + '项</span>';
                     }},
-                    {field: 'createtime', title: '注册时间', operate: 'RANGE', addclass: 'datetimerange', sortable: true, formatter: Table.api.formatter.datetime},
-                    {field: 'user.joinip', title: '注册IP', operate: 'LIKE', formatter: function (value, row) {
-                        return value || row.joinip || '-';
+                    {field: 'createtime', title: '注册时间/注册IP', operate: 'RANGE', addclass: 'datetimerange', sortable: true, formatter: function (value, row, index) {
+                        var time = value ? Table.api.formatter.datetime(value, row, index) : '-';
+                        var ip = (row.user && row.user.joinip) || row.joinip || '-';
+                        return '<div style="line-height:1.45;white-space:normal;">' + time + '<br>' + ip + '</div>';
                     }},
-                    {field: 'logintime', title: '最后登录', operate: false, formatter: Table.api.formatter.datetime},
-                    {field: 'user.loginip', title: '登录IP', operate: 'LIKE', formatter: function (value, row) {
-                        return value || row.loginip || '-';
+                    {field: 'user.joinip', title: '注册IP', visible: false, operate: 'LIKE'},
+                    {field: 'logintime', title: '最后登录/登录IP', operate: false, formatter: function (value, row, index) {
+                        var ts = value || (row.user && row.user.logintime) || 0;
+                        var time = ts ? Table.api.formatter.datetime(ts, row, index) : '-';
+                        var ip = (row.user && row.user.loginip) || row.loginip || '-';
+                        return '<div style="line-height:1.45;white-space:normal;">' + time + '<br>' + ip + '</div>';
                     }},
+                    {field: 'user.loginip', title: '登录IP', visible: false, operate: 'LIKE'},
                     {field: 'updatetime', title: '更新时间', operate: 'RANGE', addclass: 'datetimerange', sortable: true, formatter: Table.api.formatter.datetime},
                     {
                         field: 'operate', title: '操作', table: table,

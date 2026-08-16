@@ -106,11 +106,22 @@ class FansHubMessagesPopup
         if (!in_array($mode, ['daily', 'once', 'always'], true)) {
             $mode = 'daily';
         }
+        $images = array_values(array_filter(array_map(function ($u) {
+            $u = trim((string)$u);
+            if ($u === '') {
+                return '';
+            }
+            try {
+                return \app\common\library\OssService::fullUrl($u, '');
+            } catch (\Throwable $e) {
+                return $u;
+            }
+        }, $images)));
         return [
             'id'         => (int)$r['id'],
             'title'      => (string)($r['title'] ?? ''),
             'content'    => (string)($r['content'] ?? ''),
-            'images'     => array_values(array_filter(array_map('strval', $images))),
+            'images'     => $images,
             'jump_type'  => $jump,
             'jump_extra' => (string)($r['jump_extra'] ?? ''),
             'btn_text'   => (string)(($r['btn_text'] ?? '') !== '' ? $r['btn_text'] : '查看'),
