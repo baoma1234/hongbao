@@ -81,7 +81,7 @@ onLaunch(async () => {
     return
   }
 
-  // 落在登录页 / 隐藏登录页或空 hash：进大厅；若有未清的聊天快照则回对话框
+  // 落在登录页 / 隐藏登录页或空 hash：进红宝；若有未清的聊天快照则回对话框
   if (!path || path.indexOf('pages/login/') === 0 || path.indexOf('gfhwgkdhf11131djfh/') === 0) {
     const room = getActiveChat()
     const chatUrl = room ? buildChatUrl(room) : ''
@@ -89,7 +89,7 @@ onLaunch(async () => {
       uni.reLaunch({ url: chatUrl })
       return
     }
-    uni.reLaunch({ url: '/pages/home/home' })
+    uni.reLaunch({ url: '/pages/messages/messages' })
   }
 })
 

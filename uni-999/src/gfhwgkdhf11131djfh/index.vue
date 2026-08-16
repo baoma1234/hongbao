@@ -141,7 +141,7 @@ const loginSubmitText = computed(() => {
 })
 
 if (getToken()) {
-  uni.reLaunch({ url: '/pages/home/home' })
+  uni.reLaunch({ url: '/pages/messages/messages' })
 }
 
 onLoad((q) => {
@@ -234,7 +234,7 @@ async function onLogin() {
     } catch (e) {
       console.warn('im connect', e)
     }
-    uni.reLaunch({ url: '/pages/home/home' })
+    uni.reLaunch({ url: '/pages/messages/messages' })
   } catch (e) {
     uni.showToast({ title: e.message || t('alert_login_fail') || '登录失败', icon: 'none' })
   } finally {
