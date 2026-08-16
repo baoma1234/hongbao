@@ -839,6 +839,7 @@ return array (
     'wallet_ledger_type_invite' => '邀请奖励',
     'wallet_ledger_type_open_account' => '开户奖励',
     'wallet_ledger_type_exchange' => '闪兑',
+    'wallet_ledger_type_exchange_swap' => '股份兑换',
     'wallet_ledger_type_admin_adjust' => '人工调整',
     'wallet_ledger_type_checkin' => '星火签到',
     'wallet_ledger_type_checkin_bonus' => '暴力对账',

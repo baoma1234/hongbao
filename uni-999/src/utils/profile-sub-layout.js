@@ -12,16 +12,11 @@ export function useProfileSubHdStyle() {
   function refreshProfileSubLayout() {
     const r = applySafeAreaCssVars()
     const overlayTop = (r && r.overlayTop) || measureChatOverlayTop()
-    // #ifdef APP-PLUS
+    // 四端统一内联 top：H5/Safari 上 CSS var 偶发滞后；App 上 env(safe-area) 常为 0
     profileSubHdStyle.value = { top: overlayTop + 'px' }
     profileSubPageStyle.value = {
       '--chat-overlay-top': overlayTop + 'px',
     }
-    // #endif
-    // #ifndef APP-PLUS
-    profileSubHdStyle.value = {}
-    profileSubPageStyle.value = {}
-    // #endif
   }
 
   return { profileSubHdStyle, profileSubPageStyle, refreshProfileSubLayout }

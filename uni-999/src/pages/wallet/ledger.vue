@@ -150,7 +150,14 @@ const emptyText = computed(() => {
 })
 
 function rowKey(item) {
-  return item.id || item.createtime + '-' + (item.hongbao_change || item.balance_change)
+  return (
+    item.id ||
+    item.createtime +
+      '-' +
+      (item.rights_change || 0) +
+      '-' +
+      (item.hongbao_change || item.balance_change || 0)
+  )
 }
 
 function formatLedgerTime(item) {
@@ -190,13 +197,21 @@ function formatLedgerTime(item) {
 }
 
 function amountText(item) {
-  return ledgerAmountText(item).text
+  return ledgerAmountText(item, { category: category.value }).text
 }
 function amountCls(item) {
-  return ledgerAmountText(item).cls
+  return ledgerAmountText(item, { category: category.value }).cls
 }
 function afterText(item) {
   const rights = parseFloat(item && item.rights_change) || 0
+  // 股份 Tab：结余只看股份
+  if (category.value === 'rights') {
+    if (item.rights_after != null && item.rights_after !== '') {
+      return Number(item.rights_after).toFixed(2) + '股'
+    }
+    return ''
+  }
+  // 有股份变动时优先展示股份结余（同笔红宝结余不混显）
   if (Math.abs(rights) > 1e-9 && item.rights_after != null && item.rights_after !== '') {
     return Number(item.rights_after).toFixed(2) + '股'
   }

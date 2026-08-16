@@ -734,18 +734,39 @@ export function turnoverHint(info) {
   return s
 }
 
-export function ledgerAmountText(item) {
+export function ledgerAmountText(item, opts = {}) {
+  item = item || {}
+  const preferRights = !!(opts.preferRights || opts.category === 'rights')
   let hb = parseFloat(item.hongbao_change) || 0
   const rights = parseFloat(item.rights_change) || 0
   const bal = parseFloat(item.balance_change) || 0
   if (hb === 0 && bal !== 0) hb = bal
-  if (hb !== 0) {
-    const sign = hb > 0 ? '+' : ''
-    return { text: sign + money(hb), cls: hb > 0 ? 'plus' : 'minus' }
+
+  const fmtRights = (r) => {
+    const sign = r > 0 ? '+' : ''
+    return { text: sign + Number(r).toFixed(2) + '股', cls: r > 0 ? 'plus' : 'minus' }
   }
-  if (rights !== 0) {
-    const sign = rights > 0 ? '+' : ''
-    return { text: sign + rights.toFixed(2) + '股', cls: rights > 0 ? 'plus' : 'minus' }
+  const fmtMoney = (m) => {
+    const sign = m > 0 ? '+' : ''
+    return { text: sign + money(m), cls: m > 0 ? 'plus' : 'minus' }
   }
+
+  // 股份 Tab：只展示股份增减（同笔里的红宝变动忽略）
+  if (preferRights) {
+    if (Math.abs(rights) > 1e-9) return fmtRights(rights)
+    return { text: '0.00股', cls: '' }
+  }
+
+  // 全部等：股份+红宝同笔时一并展示，避免拉新「+股+红宝」被当成纯红宝
+  if (Math.abs(rights) > 1e-9 && Math.abs(hb) > 1e-9) {
+    const rPart = (rights > 0 ? '+' : '') + Number(rights).toFixed(2) + '股'
+    const hPart = (hb > 0 ? '+' : '') + money(hb)
+    return {
+      text: rPart + ' ' + hPart,
+      cls: rights > 0 || hb > 0 ? 'plus' : 'minus',
+    }
+  }
+  if (Math.abs(hb) > 1e-9) return fmtMoney(hb)
+  if (Math.abs(rights) > 1e-9) return fmtRights(rights)
   return { text: '0.00', cls: '' }
 }

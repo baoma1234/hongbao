@@ -1043,14 +1043,8 @@ function measureMessagesLayout() {
     const topBar = getTopBarContentHeight()
     // 与 BottomTabBar 实际高度对齐：padding 6+6 + 按钮(8+30+3+字≈12+6) ≈ 71，取 72
     const tabBar = 72 + Number(inset.bottom || 0)
-    // #ifdef H5
-    // 顶栏 relative 已在 messages-page 流内占高；内容区扣「顶栏总高 + 底栏」
+    // 四端：fixed TopBar + spacer 占位；内容区扣「顶栏总高 + 底栏」
     const shell = Math.max(280, winH - status - topBar - tabBar)
-    // #endif
-    // #ifndef H5
-    // App：fixed 顶栏 + spacer 占位，#tabMessages 只占 spacer 下方到 Tab 上方
-    const shell = Math.max(280, winH - status - topBar - tabBar)
-    // #endif
     tabRootPx.value = shell
     // 再扣：红宝社区标题 + 连接行 + 会员ID行 + 四个子 Tab（约 168）
     const chrome = 168

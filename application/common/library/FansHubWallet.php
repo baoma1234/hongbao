@@ -61,6 +61,7 @@ class FansHubWallet
             'invite'            => '邀请奖励',
             'open_account'      => '开户奖励',
             'exchange'          => '闪兑',
+            'exchange_swap'     => '股份兑换',
             'admin_adjust'      => '人工调整',
             'checkin'           => '星火签到',
             'checkin_bonus'     => '暴力对账',
@@ -135,13 +136,17 @@ class FansHubWallet
                 'withdraw',
                 'withdraw_refund',
             ],
-            // 股份变动（邀请/注册/分享/开户等）
+            // 股份变动：增加/减少/兑换（实际列表以 rights_change≠0 为准，此列表作兜底）
             'rights' => [
                 'register',
                 'register_bonus',
                 'share',
                 'invite',
                 'open_account',
+                'exchange',
+                'exchange_swap',
+                'admin_adjust',
+                'honor_tier',
             ],
         ];
     }
@@ -182,7 +187,7 @@ class FansHubWallet
 
     /**
      * 会员资金流水列表
-     * @param array $opts category=rebate|hongbao_in|refund|freeze|recharge|withdraw|all
+     * @param array $opts category=rebate|hongbao_in|refund|freeze|recharge|withdraw|rights|all
      */
     public static function ledgerList($userId, $page = 1, $limit = 20, array $opts = [])
     {
@@ -201,7 +206,10 @@ class FansHubWallet
         // 仅用 limit+1 判断 has_more，避免大表二次 COUNT（前台不依赖精确 total）
         // before_id：游标翻页（id < before_id），避免深 page OFFSET
         $rowsQuery = Db::name('fans_ledger')->where('user_id', $userId);
-        if ($filterTypes) {
+        if ($category === 'rights') {
+            // 股份流水：只看股份变动（增/减/兑换），不按类型误带纯红宝流水
+            $rowsQuery->whereRaw('ABS(`rights_change`) > 0.0000001');
+        } elseif ($filterTypes) {
             $rowsQuery->where('type', 'in', $filterTypes);
         }
         if ($beforeId > 0) {

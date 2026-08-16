@@ -46,10 +46,8 @@
     </view>
   </view>
 
-  <!-- H5：顶栏改回流占位，不插 spacer，避免网页多一块空白 -->
-  <!-- #ifndef H5 -->
+  <!-- 四端统一：fixed 顶栏 + spacer 占位，滚动时顶栏不跟着走（H5/Safari/APK/IPA） -->
   <view v-if="!noSpacer" class="top-bar-spacer" :style="spacerStyle" />
-  <!-- #endif -->
 </template>
 
 <script setup>
@@ -209,23 +207,18 @@ onUnmounted(() => {
   padding-left: 12px;
   padding-right: 12px;
   box-sizing: border-box;
+  width: 100%;
   background: #ffffff;
   border-bottom: 1px solid rgba(101, 119, 134, 0.18);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
   overflow: visible;
   pointer-events: auto;
+  /* Safari / WebView：合成层，减少滚动时顶栏闪断 */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
-/* #ifdef H5 */
-.floating-top-bar {
-  /* 网页：占文档流，不靠 padding-top / spacer，避免顶上多一截空白 */
-  position: relative;
-  top: auto;
-  left: auto;
-  right: auto;
-  width: 100%;
-  flex-shrink: 0;
-}
-/* #endif */
 .top-bar-spacer {
   width: 100%;
   flex-shrink: 0;
