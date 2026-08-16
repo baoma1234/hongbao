@@ -4397,7 +4397,7 @@ class FansHubService
         if ($userId <= 0) {
             self::throwCopy('srv_user_not_found');
         }
-        $promoTypes = ['invite', 'share'];
+        $promoTypes = ['invite', 'share', 'register_bonus'];
         $rebateTypes = [
             'red_packet_rebate',
             'red_packet_agent_rebate_in',
@@ -4420,7 +4420,8 @@ class FansHubService
             $rights = round((float)($row['rights_sum'] ?? 0), 2);
             $balance = round((float)($row['balance_sum'] ?? 0), 2);
             $hongbao = round((float)($row['hongbao_sum'] ?? 0), 2);
-            $money = round($hongbao + $balance + $rights, 2);
+            // ¥ 累计佣金只计红宝/余额；股份单独计，避免邀请送股被当成人民币
+            $money = round($hongbao + $balance, 2);
             return [
                 'rights'  => $rights,
                 'balance' => $balance,
@@ -4438,13 +4439,29 @@ class FansHubService
         $labels = FansHubWallet::ledgerTypeLabels();
         $labelMap = [
             'invite'                      => '下级拉新奖励',
+            'register_bonus'              => '拉新股份',
             'share'                       => '今日推广收益',
             'red_packet_rebate'           => '推荐发包返佣',
             'red_packet_agent_rebate_in'  => '群主返佣',
             'red_packet_invite_rebate_in' => '推荐发包返佣',
             'red_packet_dual_rebate_in'   => '群主+推荐双重返佣',
         ];
-        $buildList = function (array $types, $limit = 20) use ($userId, $labels, $labelMap) {
+        $formatAmt = function ($rights, $balance, $hongbao) {
+            $h = round((float)$hongbao, 2);
+            $b = round((float)$balance, 2);
+            $r = round((float)$rights, 2);
+            if (abs($h) > 0.0000001 || abs($b) > 0.0000001) {
+                $m = abs($h) > 0.0000001 ? $h : $b;
+                $sign = $m > 0 ? '+' : '-';
+                return $sign . '¥ ' . number_format(abs($m), 2, '.', '');
+            }
+            if (abs($r) > 0.0000001) {
+                $sign = $r > 0 ? '+' : '-';
+                return $sign . number_format(abs($r), 2, '.', '') . '股';
+            }
+            return '¥ 0.00';
+        };
+        $buildList = function (array $types, $limit = 20) use ($userId, $labels, $labelMap, $formatAmt) {
             $rows = Ledger::where('user_id', $userId)
                 ->where('type', 'in', $types)
                 ->order('id', 'desc')
@@ -4455,14 +4472,18 @@ class FansHubService
                 $type = (string)$row->type;
                 $remark = (string)$row->remark;
                 $revenueType = self::resolveRpRebateRevenueType($type, $remark);
+                $rc = round((float)$row->rights_change, 2);
+                $bc = round((float)$row->balance_change, 2);
+                $hc = round((float)($row->hongbao_change ?? 0), 2);
                 $list[] = [
                     'id'             => (int)$row->id,
                     'type'           => $type,
                     'revenue_type'   => $revenueType,
                     'type_label'     => self::rpRebateTypeLabel($revenueType, $type, $labelMap, $labels),
-                    'rights_change'  => round((float)$row->rights_change, 2),
-                    'balance_change' => round((float)$row->balance_change, 2),
-                    'hongbao_change' => round((float)($row->hongbao_change ?? 0), 2),
+                    'rights_change'  => $rc,
+                    'balance_change' => $bc,
+                    'hongbao_change' => $hc,
+                    'amount_text'    => $formatAmt($rc, $bc, $hc),
                     'remark'         => $remark,
                     'createtime'     => (int)$row->createtime,
                 ];
@@ -4477,13 +4498,17 @@ class FansHubService
             ->select();
         $withdrawList = [];
         foreach ($withdrawRows as $row) {
+            $rc = round((float)$row->rights_change, 2);
+            $bc = round((float)$row->balance_change, 2);
+            $hc = round((float)($row->hongbao_change ?? 0), 2);
             $withdrawList[] = [
                 'id'             => (int)$row->id,
                 'type'           => 'withdraw',
                 'type_label'     => $labels['withdraw'] ?? '提现扣款',
-                'rights_change'  => round((float)$row->rights_change, 2),
-                'balance_change' => round((float)$row->balance_change, 2),
-                'hongbao_change' => round((float)($row->hongbao_change ?? 0), 2),
+                'rights_change'  => $rc,
+                'balance_change' => $bc,
+                'hongbao_change' => $hc,
+                'amount_text'    => $formatAmt($rc, $bc, $hc),
                 'remark'         => (string)$row->remark,
                 'createtime'     => (int)$row->createtime,
             ];
@@ -4504,6 +4529,8 @@ class FansHubService
             'total_money'     => (float)$total['money'],
             'today_money'     => (float)$today['money'],
             'rebate_money'    => (float)$rebate['money'],
+            'total_rights'    => (float)$total['rights'],
+            'promo_rights'    => (float)$promo['rights'],
             'recent'          => $buildList($allTypes, 20),
             'promo_recent'    => $buildList($promoTypes, 30),
             'rebate_recent'   => $buildList($rebateTypes, 30),

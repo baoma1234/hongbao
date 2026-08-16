@@ -125,6 +125,7 @@ const primaryTabs = [
   { key: 'withdraw', label: '提现', ico: '↑', tone: 'out' },
 ]
 const moreTabs = [
+  { key: 'rights', label: '股份', ico: '股', tone: 'rights' },
   { key: 'hongbao_in', label: '红宝入账', ico: '🧧', tone: 'hb' },
   { key: 'hongbao_niuniu', label: '红宝牛牛', ico: '🐂', tone: 'nn' },
   { key: 'refund', label: '红宝退回', ico: '↩', tone: 'back' },
@@ -137,6 +138,7 @@ function toggleFiltersMore() {
   filtersExpanded.value = !filtersExpanded.value
 }
 const emptyText = computed(() => {
+  if (category.value === 'rights') return '暂无股份流水'
   if (category.value === 'rebate') return '暂无红宝返佣流水'
   if (category.value === 'hongbao_in') return '暂无红宝入账流水'
   if (category.value === 'hongbao_niuniu') return '暂无红宝牛牛流水'
@@ -194,6 +196,10 @@ function amountCls(item) {
   return ledgerAmountText(item).cls
 }
 function afterText(item) {
+  const rights = parseFloat(item && item.rights_change) || 0
+  if (Math.abs(rights) > 1e-9 && item.rights_after != null && item.rights_after !== '') {
+    return Number(item.rights_after).toFixed(2) + '股'
+  }
   let afterHb = item.hongbao_after
   if ((afterHb == null || afterHb === '') && item.balance_after != null) {
     afterHb = item.balance_after
@@ -352,7 +358,8 @@ onShow(() => {
 }
 .wallet-ledger-filter.tone-hb.is-on,
 .wallet-ledger-filter.tone-rebate.is-on,
-.wallet-ledger-filter.tone-nn.is-on {
+.wallet-ledger-filter.tone-nn.is-on,
+.wallet-ledger-filter.tone-rights.is-on {
   background: linear-gradient(135deg, #ff7043, #e53935);
   border-color: transparent;
   color: #fff;

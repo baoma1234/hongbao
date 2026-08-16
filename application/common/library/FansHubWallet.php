@@ -135,6 +135,14 @@ class FansHubWallet
                 'withdraw',
                 'withdraw_refund',
             ],
+            // 股份变动（邀请/注册/分享/开户等）
+            'rights' => [
+                'register',
+                'register_bonus',
+                'share',
+                'invite',
+                'open_account',
+            ],
         ];
     }
 

@@ -1262,10 +1262,17 @@ function formatCommissionAmt(row) {
   const h = Number(row.hongbao_change || 0)
   const b = Number(row.balance_change || 0)
   const r = Number(row.rights_change || 0)
-  const money = h || b || r || Number(row.amount || 0)
-  if (!money) return '¥ 0.00'
-  const abs = Math.abs(money).toFixed(2)
-  return (money > 0 ? '+¥ ' : '-¥ ') + abs
+  // 股份变动显示「股」；红宝/余额才显示 ¥（邀请拉新是股份，不是红宝）
+  if (Math.abs(h) > 1e-9 || Math.abs(b) > 1e-9) {
+    const money = Math.abs(h) > 1e-9 ? h : b
+    const abs = Math.abs(money).toFixed(2)
+    return (money > 0 ? '+¥ ' : '-¥ ') + abs
+  }
+  if (Math.abs(r) > 1e-9) {
+    const abs = Math.abs(r).toFixed(2)
+    return (r > 0 ? '+' : '-') + abs + '股'
+  }
+  return '¥ 0.00'
 }
 
 const commissionListTitle = computed(() => {
