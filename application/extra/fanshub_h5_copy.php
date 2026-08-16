@@ -323,6 +323,7 @@ return array (
   'phase2_urge_copy' => '老哥红宝快凑够了，点这里一键进福利大厅提现：{link}',
   'phase2_honor_tier_title' => '🏆 晋升【{name}】',
   'phase2_honor_tier_msg' => '直属成型提现达标！奖励 {rights} 股（约￥{rights_val}）+ ￥{balance} 红宝已发放。',
+  'phase2_honor_tier_unlock_only_msg' => '直属成型提现达标！已晋升「{name}」。',
   'phase2_honor_name_1' => '青铜团长',
   'phase2_honor_name_2' => '白银团长',
   'phase2_honor_name_3' => '钻石团长',

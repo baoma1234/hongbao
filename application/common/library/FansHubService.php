@@ -1668,9 +1668,21 @@ class FansHubService
     {
         return [
             1 => ['name' => '普通会员', 'invite_reward' => 1.0],
-            2 => ['name' => '银牌会员', 'invite_reward' => 2.0],
-            3 => ['name' => '金牌会员', 'invite_reward' => 5.0],
+            2 => ['name' => '银牌会员', 'invite_reward' => 1.0],
+            3 => ['name' => '金牌会员', 'invite_reward' => 1.0],
         ];
+    }
+
+    /** 下级拉新固定股份（与等级无关） */
+    public static function inviteRewardRights()
+    {
+        return max(0, (float)self::config('invite_reward_rights', 1));
+    }
+
+    /** 下级拉新固定红宝（与等级无关） */
+    public static function inviteRewardHongbao()
+    {
+        return max(0, (float)self::config('invite_reward_hongbao', 3));
     }
 
     public static function memberLevels()
@@ -1775,16 +1787,9 @@ class FansHubService
 
     public static function inviteRewardForUser($userId)
     {
-        if (!self::config('member_level_enabled')) {
-            return (float)self::config('share_rights', 1);
-        }
-        $account = self::getOrCreateAccount($userId);
-        $level = (int)($account->member_level ?? self::config('default_member_level', 1));
-        $levels = self::memberLevels();
-        if (isset($levels[$level])) {
-            return (float)$levels[$level]['invite_reward'];
-        }
-        return (float)self::config('share_rights', 1);
+        // 拉新奖励全站统一：固定股份，不再按会员等级差异化
+        unset($userId);
+        return self::inviteRewardRights();
     }
 
     public static function verifyApiSign($request)
@@ -2166,6 +2171,7 @@ class FansHubService
             $payload['member_level'] = $level;
             $payload['member_level_name'] = self::memberLevelName($level);
             $payload['invite_reward'] = self::inviteRewardForUser($userId);
+            $payload['invite_reward_hongbao'] = self::inviteRewardHongbao();
         }
         return FansHubPhase2::enrichProfile($userId, $payload);
     }
@@ -2765,7 +2771,8 @@ class FansHubService
                 return false;
             }
         }
-        $shareRights = self::inviteRewardForUser($inviterUserId);
+        $shareRights = self::inviteRewardRights();
+        $hongbaoReward = self::inviteRewardHongbao();
         Db::startTrans();
         try {
             Invite::create([
@@ -2776,8 +2783,9 @@ class FansHubService
                 'inviter_ip'      => (string)request()->ip(),
                 'createtime'      => time(),
             ]);
-            self::changeAssets($inviterUserId, $shareRights, 0, 'invite', '邀请新用户奖励', 0, '');
-            self::recordTask($inviterUserId, 'invite', $shareRights, 0, '', 'invitee:' . $inviteeUserId);
+            // 固定：股份 +1、红宝 +3（balance 入参会并入红宝）
+            self::changeAssets($inviterUserId, $shareRights, $hongbaoReward, 'invite', '邀请新用户奖励', 0, '');
+            self::recordTask($inviterUserId, 'invite', $shareRights, $hongbaoReward, '', 'invitee:' . $inviteeUserId);
             FansHubPhase2::onInviteRegistered($inviterUserId);
             Db::commit();
             try {
@@ -4450,14 +4458,18 @@ class FansHubService
             $h = round((float)$hongbao, 2);
             $b = round((float)$balance, 2);
             $r = round((float)$rights, 2);
+            $parts = [];
+            if (abs($r) > 0.0000001) {
+                $sign = $r > 0 ? '+' : '-';
+                $parts[] = $sign . number_format(abs($r), 2, '.', '') . '股';
+            }
             if (abs($h) > 0.0000001 || abs($b) > 0.0000001) {
                 $m = abs($h) > 0.0000001 ? $h : $b;
                 $sign = $m > 0 ? '+' : '-';
-                return $sign . '¥ ' . number_format(abs($m), 2, '.', '');
+                $parts[] = $sign . '¥ ' . number_format(abs($m), 2, '.', '');
             }
-            if (abs($r) > 0.0000001) {
-                $sign = $r > 0 ? '+' : '-';
-                return $sign . number_format(abs($r), 2, '.', '') . '股';
+            if ($parts) {
+                return implode(' ', $parts);
             }
             return '¥ 0.00';
         };

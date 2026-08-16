@@ -49,11 +49,11 @@ class FansHubPhase2
     public static function defaultHonorTiers()
     {
         return [
-            1 => ['id' => 1, 'name' => '青铜团长', 'threshold' => 1, 'rights' => 10, 'balance' => 0],
-            2 => ['id' => 2, 'name' => '白银团长', 'threshold' => 5, 'rights' => 50, 'balance' => 100],
-            3 => ['id' => 3, 'name' => '钻石团长', 'threshold' => 10, 'rights' => 100, 'balance' => 300],
-            4 => ['id' => 4, 'name' => '最强王者', 'threshold' => 20, 'rights' => 200, 'balance' => 800],
-            5 => ['id' => 5, 'name' => '荣耀王者', 'threshold' => 50, 'rights' => 500, 'balance' => 2000],
+            1 => ['id' => 1, 'name' => '青铜团长', 'threshold' => 1, 'rights' => 0, 'balance' => 0],
+            2 => ['id' => 2, 'name' => '白银团长', 'threshold' => 5, 'rights' => 0, 'balance' => 0],
+            3 => ['id' => 3, 'name' => '钻石团长', 'threshold' => 10, 'rights' => 0, 'balance' => 0],
+            4 => ['id' => 4, 'name' => '最强王者', 'threshold' => 20, 'rights' => 0, 'balance' => 0],
+            5 => ['id' => 5, 'name' => '荣耀王者', 'threshold' => 50, 'rights' => 0, 'balance' => 0],
         ];
     }
 
@@ -175,24 +175,35 @@ class FansHubPhase2
         if ($title === '' || $title === $titleKey) {
             $title = FansHubService::h5CopyText('phase2_honor_tier_title', ['name' => $tierName]);
         }
-        $message = FansHubService::h5CopyText($msgKey, [
-            'name'       => $tierName,
-            'rights'     => $rights,
-            'balance'    => number_format($balance, 2, '.', ''),
-            'rights_val' => $rightsVal,
-            'pack_total' => $packTotal,
-            'sub'        => $subCount,
-            'need_next'  => max(0, $nextNeed),
-        ]);
-        if ($message === '' || $message === $msgKey) {
-            $message = FansHubService::h5CopyText('phase2_honor_tier_msg', [
+        if ($rights <= 0 && $balance <= 0) {
+            $message = FansHubService::h5CopyText('phase2_honor_tier_unlock_only_msg', [
+                'name'      => $tierName,
+                'sub'       => $subCount,
+                'need_next' => max(0, $nextNeed),
+            ]);
+            if ($message === '' || $message === 'phase2_honor_tier_unlock_only_msg') {
+                $message = '直属成型提现达标！已晋升「' . $tierName . '」。';
+            }
+        } else {
+            $message = FansHubService::h5CopyText($msgKey, [
                 'name'       => $tierName,
                 'rights'     => $rights,
                 'balance'    => number_format($balance, 2, '.', ''),
                 'rights_val' => $rightsVal,
                 'pack_total' => $packTotal,
                 'sub'        => $subCount,
+                'need_next'  => max(0, $nextNeed),
             ]);
+            if ($message === '' || $message === $msgKey) {
+                $message = FansHubService::h5CopyText('phase2_honor_tier_msg', [
+                    'name'       => $tierName,
+                    'rights'     => $rights,
+                    'balance'    => number_format($balance, 2, '.', ''),
+                    'rights_val' => $rightsVal,
+                    'pack_total' => $packTotal,
+                    'sub'        => $subCount,
+                ]);
+            }
         }
         return [
             'type'    => 'honor_tier',

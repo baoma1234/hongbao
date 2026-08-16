@@ -1,6 +1,6 @@
 <div class="panel panel-default panel-intro">
     <div class="panel-heading">
-        <div class="panel-lead"><em>会员等级配置</em> 按邀请人等级发放不同邀请奖励股份</div>
+        <div class="panel-lead"><em>会员等级配置</em> 等级展示用；下级拉新奖励已全站固定（股份+红宝），不再按等级差异发放</div>
         <div class="panel-actions">
             <a href="fanshub.config" class="btn btn-xs btn-default addtabsit"><i class="fa fa-arrow-left"></i> 返回活动配置</a>
             <a href="fanshub/account" class="btn btn-xs btn-primary addtabsit"><i class="fa fa-user"></i> 用户账户</a>
@@ -13,9 +13,9 @@
                 <div class="col-xs-12 col-sm-8">
                     <label class="checkbox-inline">
                         <input type="checkbox" name="member_level_enabled" value="1" {if condition="!empty($config.member_level_enabled)"}checked{/if}>
-                        开启会员等级（按邀请人等级发放不同邀请奖励股份）
+                        开启会员等级（等级名称/展示；拉新奖励不按等级差异发放）
                     </label>
-                    <span class="help-block">关闭时，所有用户邀请奖励统一使用活动配置中的「分享送股」：<strong>{$shareRights|default='1'}</strong> 股/人。</span>
+                    <span class="help-block">下级拉新固定奖励见「活动配置 → 基础参数」：股份 <strong>{$config.invite_reward_rights|default='1'}</strong> + 红宝 <strong>{$config.invite_reward_hongbao|default='3'}</strong>；下方「邀请奖励」请统一填 1 便于后台对照。</span>
                 </div>
             </div>
             <div class="form-group">

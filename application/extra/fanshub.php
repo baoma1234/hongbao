@@ -78,7 +78,7 @@ return array (
   'invite_base_url' => '',
   'h5_entry_path' => '999',
   'share_text' => '【红宝官方通知】分享送钱，免费瓜分888,888.00元官方直营全现金红包大池！
-短信登录当场免费赠送 5 股活跃资产股份！每成功拉一个好兄弟来占位永久再加 1 股（可直接闪兑变现）！
+短信登录当场免费赠送 5 股活跃资产股份！每成功拉一个好兄弟来占位，永久再加 1 股 + 3 红宝（可直接闪兑变现）！
 单笔凑满 50 元即可无条件拉起官方 VIP 福利下款，速度扫码锁定最终现金股份：',
   'marquee_text' => '核心团队长 老A团队 3分钟前成功兑换 80股 股份，已联系专属客服成功领取 400.00 元官方红宝！
 用户 555_vip99 刚刚凭借 红宝官方极速开户 与 3人占位 成功领取50元红宝，跑满游戏流水已被财务人工批放！
@@ -98,14 +98,16 @@ return array (
     2 => 
     array (
       'name' => '银牌会员',
-      'invite_reward' => 2.0,
+      'invite_reward' => 1.0,
     ),
     3 => 
     array (
       'name' => '金牌会员',
-      'invite_reward' => 5.0,
+      'invite_reward' => 1.0,
     ),
   ),
+  'invite_reward_rights' => 1,
+  'invite_reward_hongbao' => 3,
   'share_daily_max' => 20,
   'share_cooldown_seconds' => 2,
   'jackpot_base' => 1000000.0,
@@ -449,6 +451,7 @@ return array (
     'phase2_urge_copy' => '老哥红宝快凑够了，点这里一键进福利大厅提现：{link}',
     'phase2_honor_tier_title' => '🏆 晋升【{name}】',
     'phase2_honor_tier_msg' => '直属成型提现达标！奖励 {rights} 股（约￥{rights_val}）+ ￥{balance} 红宝已发放。',
+    'phase2_honor_tier_unlock_only_msg' => '直属成型提现达标！已晋升「{name}」。',
     'phase2_honor_name_1' => '青铜团长',
     'phase2_honor_name_2' => '白银团长',
     'phase2_honor_name_3' => '钻石团长',
@@ -1108,7 +1111,7 @@ return array (
   'phase2_enabled' => true,
   'checkin_base_amount' => 1,
   'checkin_violent_bonus' => 4,
-  'register_bonus_rights' => 1,
+  'register_bonus_rights' => 0,
   'honor_tiers' => 
   array (
     0 => 
@@ -1116,7 +1119,7 @@ return array (
       'id' => 1,
       'name' => '青铜团长',
       'threshold' => 1,
-      'rights' => 10,
+      'rights' => 0,
       'balance' => 0,
     ),
     1 => 
@@ -1124,32 +1127,32 @@ return array (
       'id' => 2,
       'name' => '白银团长',
       'threshold' => 5,
-      'rights' => 50,
-      'balance' => 100,
+      'rights' => 0,
+      'balance' => 0,
     ),
     2 => 
     array (
       'id' => 3,
       'name' => '钻石团长',
       'threshold' => 10,
-      'rights' => 100,
-      'balance' => 300,
+      'rights' => 0,
+      'balance' => 0,
     ),
     3 => 
     array (
       'id' => 4,
       'name' => '最强王者',
       'threshold' => 20,
-      'rights' => 200,
-      'balance' => 800,
+      'rights' => 0,
+      'balance' => 0,
     ),
     4 => 
     array (
       'id' => 5,
       'name' => '荣耀王者',
       'threshold' => 50,
-      'rights' => 500,
-      'balance' => 2000,
+      'rights' => 0,
+      'balance' => 0,
     ),
   ),
   'google_auth_login_enabled' => true,
