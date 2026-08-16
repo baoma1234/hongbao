@@ -27,14 +27,25 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                 sortOrder: 'desc',
                 columns: [[
                     {checkbox: true},
-                    {field: 'user_id', title: '会员ID', sortable: true},
+                    {field: 'user_id', title: '会员ID', sortable: true, formatter: function (value) {
+                        if (!value) return '-';
+                        var v = String(value);
+                        return '<a href="javascript:;" class="btn-copy-cell text-primary" data-copy="' +
+                            $('<div/>').text(v).html() + '" title="点击复制">' + $('<div/>').text(v).html() + '</a>';
+                    }},
                     {field: 'user.nickname', title: '昵称', operate: 'LIKE', formatter: function (value, row) {
                         if (row.nickname) return row.nickname;
                         if (value) return value;
                         if (row.user && row.user.nickname) return row.user.nickname;
                         return row.user_id ? ('ID' + row.user_id) : '-';
                     }},
-                    {field: 'user.mobile', title: '手机号', operate: 'LIKE'},
+                    {field: 'user.mobile', title: '手机号', operate: 'LIKE', formatter: function (value, row) {
+                        var v = value || (row.user && row.user.mobile) || '';
+                        if (!v) return '-';
+                        v = String(v);
+                        return '<a href="javascript:;" class="btn-copy-cell text-primary" data-copy="' +
+                            $('<div/>').text(v).html() + '" title="点击复制">' + $('<div/>').text(v).html() + '</a>';
+                    }},
                     {field: 'inviter_user_id', title: '上线ID/上线手机', operate: false, formatter: function (value, row) {
                         var id = value ? String(value) : '-';
                         var mobile = row.inviter_mobile ? String(row.inviter_mobile) : '-';
@@ -150,6 +161,31 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                 ]]
             });
             Table.api.bindevent(table);
+            $(document).off('click.fanshubCopy', '.btn-copy-cell').on('click.fanshubCopy', '.btn-copy-cell', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var text = String($(this).data('copy') || '').trim();
+                if (!text) return;
+                var done = function () {
+                    Toastr.success('已复制：' + text);
+                };
+                var fail = function () {
+                    window.prompt('复制以下内容', text);
+                };
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(done).catch(fail);
+                } else {
+                    try {
+                        var $t = $('<textarea readonly></textarea>').val(text).css({position: 'fixed', left: '-9999px'}).appendTo('body');
+                        $t[0].select();
+                        document.execCommand('copy');
+                        $t.remove();
+                        done();
+                    } catch (err) {
+                        fail();
+                    }
+                }
+            });
             // 覆盖工具栏批量删除确认：强调真删除不可恢复
             var toolbar = $('#toolbar');
             toolbar.off('click', '.btn-del').on('click', '.btn-del', function () {
