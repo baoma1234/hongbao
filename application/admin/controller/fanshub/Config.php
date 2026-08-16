@@ -23,7 +23,7 @@ class Config extends Backend
         'basic' => [
             'single_ticket_value', 'withdraw_threshold', 'max_vote_percent',
             'register_rights', 'share_rights', 'open_account_rights',
-            'register_bonus_rights', 'invite_reward_rights', 'invite_reward_hongbao',
+            'invite_reward_rights', 'invite_reward_hongbao',
             'secret_lock_seconds',
             'customer_service_url', 'app_download_url', 'main_station_url',
             'login_cs_enabled', 'login_cs_url', 'login_cs_icon',
@@ -277,7 +277,7 @@ class Config extends Backend
         ];
         $floatFields = [
             'single_ticket_value', 'withdraw_threshold', 'max_vote_percent',
-            'register_bonus_rights', 'invite_reward_rights', 'invite_reward_hongbao',
+            'invite_reward_rights', 'invite_reward_hongbao',
             'exchange_r2b_min', 'exchange_b2r_min', 'exchange_rb_min', 'exchange_br_min',
             'exchange_rh_min', 'exchange_hr_min', 'exchange_bh_min', 'exchange_hb_min', 'hongbao_unit_value',
             'jackpot_base', 'jackpot_ceiling', 'jackpot_grow_min', 'jackpot_grow_max',
@@ -317,6 +317,17 @@ class Config extends Backend
                 $data[$field] = (float)$value;
             } else {
                 $data[$field] = (string)$value;
+            }
+        }
+
+        // 下级拉新只保留 invite 固定奖励，强制关闭额外股份
+        if ($section === '' || $section === 'basic') {
+            $data['register_bonus_rights'] = 0;
+            if (!isset($data['invite_reward_rights'])) {
+                $data['invite_reward_rights'] = 1;
+            }
+            if (!isset($data['invite_reward_hongbao'])) {
+                $data['invite_reward_hongbao'] = 3;
             }
         }
 

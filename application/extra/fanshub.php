@@ -106,6 +106,7 @@ return array (
       'invite_reward' => 1.0,
     ),
   ),
+  'register_bonus_rights' => 0,
   'invite_reward_rights' => 1,
   'invite_reward_hongbao' => 3,
   'share_daily_max' => 20,
@@ -1113,7 +1114,6 @@ return array (
   'phase2_enabled' => true,
   'checkin_base_amount' => 1,
   'checkin_violent_bonus' => 4,
-  'register_bonus_rights' => 0,
   'honor_tiers' => 
   array (
     0 => 

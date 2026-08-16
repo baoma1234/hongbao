@@ -69,7 +69,8 @@ class FansHubPhase2
 
     public static function registerBonusRights()
     {
-        return (float)FansHubService::config('register_bonus_rights', 1);
+        // 已废弃：下级拉新只走 invite 固定奖励，不再额外发 register_bonus
+        return 0.0;
     }
 
     protected static function eventCacheKey($userId)
@@ -694,10 +695,7 @@ class FansHubPhase2
         if (!self::enabled() || $inviterUserId <= 0) {
             return;
         }
-        $bonusRights = self::registerBonusRights();
-        if ($bonusRights > 0) {
-            FansHubService::changeAssets($inviterUserId, $bonusRights, 0, 'register_bonus', '拉新注册额外股份');
-        }
+        // 拉新奖励已并入 invite 固定发放（股份+红宝），不再发 register_bonus
         self::unlockTodayViolentBonus($inviterUserId);
         self::tryReviveStreak($inviterUserId);
     }

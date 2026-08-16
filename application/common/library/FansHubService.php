@@ -2784,8 +2784,8 @@ class FansHubService
                 'inviter_ip'      => (string)request()->ip(),
                 'createtime'      => time(),
             ]);
-            // 固定：股份 +1、红宝 +3（balance 入参会并入红宝）
-            self::changeAssets($inviterUserId, $shareRights, $hongbaoReward, 'invite', '邀请新用户奖励', 0, '');
+            // 固定邀请奖励：股份 +1、红宝 +3（仅 type=invite，不再叠加 register_bonus）
+            self::changeAssets($inviterUserId, $shareRights, $hongbaoReward, 'invite', '邀请奖励', 0, '');
             self::recordTask($inviterUserId, 'invite', $shareRights, $hongbaoReward, '', 'invitee:' . $inviteeUserId);
             FansHubPhase2::onInviteRegistered($inviterUserId);
             Db::commit();
@@ -4447,8 +4447,8 @@ class FansHubService
 
         $labels = FansHubWallet::ledgerTypeLabels();
         $labelMap = [
-            'invite'                      => '下级拉新奖励',
-            'register_bonus'              => '拉新股份',
+            'invite'                      => '邀请奖励',
+            'register_bonus'              => '拉新股份(已停用)',
             'share'                       => '今日推广收益',
             'red_packet_rebate'           => '推荐发包返佣',
             'red_packet_agent_rebate_in'  => '群主返佣',

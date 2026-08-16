@@ -56,7 +56,7 @@ class FansHubWallet
     {
         return [
             'register'          => '注册赠送',
-            'register_bonus'    => '拉新股份',
+            'register_bonus'    => '拉新股份(已停用)',
             'share'             => '分享奖励',
             'invite'            => '邀请奖励',
             'open_account'      => '开户奖励',
