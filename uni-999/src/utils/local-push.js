@@ -1,7 +1,7 @@
 /**
- * 在线本地「仿极光」推送
- * - WebSocket 已连通时不发极光
- * - 人不在会话列表、也不在当前聊天室时：顶部横幅 +（App）本地通知
+ * 在线本地「仿极光」推送（仅应用内顶部横幅）
+ * - 不调用 plus.push，避免未勾选 Push 模块时弹出 HTML5+ Runtime 提示
+ * - 离线系统推送走极光原生插件 luanqing-jgpush
  */
 import { previewText } from './chat.js'
 import { buildChatUrl, getActiveChat, getHashRoutePath } from './chat-route.js'
@@ -13,7 +13,6 @@ import { getSafeAreaInsets } from './safe-area.js'
 const listeners = []
 let lastShowAt = 0
 let hideTimer = null
-let clickBound = false
 
 export function onLocalPush(fn) {
   if (typeof fn !== 'function') return () => {}
@@ -51,7 +50,6 @@ function currentRoutePath() {
 export function isOnConversationListPage() {
   const path = currentRoutePath()
   if (!path) return false
-  // 精确匹配主列表；share-poster 等子页仍可弹横幅
   return (
     path === 'pages/messages/messages' ||
     path.indexOf('pages/messages/messages?') === 0
@@ -139,43 +137,6 @@ function buildChatPayload(msg) {
   }
 }
 
-function bindAppPushClick() {
-  // #ifdef APP-PLUS
-  if (clickBound) return
-  clickBound = true
-  try {
-    plus.push.addEventListener(
-      'click',
-      (msg) => {
-        try {
-          const raw = (msg && (msg.payload || msg.content)) || ''
-          let data = null
-          if (typeof raw === 'string' && raw.charAt(0) === '{') data = JSON.parse(raw)
-          else if (raw && typeof raw === 'object') data = raw
-          if (!data || !(data.type | 0)) return
-          const url = buildChatUrl(data)
-          if (url) uni.navigateTo({ url })
-        } catch (e) {}
-      },
-      false
-    )
-  } catch (e) {}
-  // #endif
-}
-
-function createNativeLocal(title, body, chatPayload) {
-  // #ifdef APP-PLUS
-  try {
-    bindAppPushClick()
-    if (typeof plus === 'undefined' || !plus.push || !plus.push.createMessage) return
-    plus.push.createMessage(String(body || ''), JSON.stringify(chatPayload || {}), {
-      title: String(title || '红宝'),
-      cover: false,
-    })
-  } catch (e) {}
-  // #endif
-}
-
 /**
  * @param {object} msg
  * @param {{ myUserId?: number }} [opts]
@@ -201,9 +162,7 @@ export function maybeShowLocalPush(msg, opts = {}) {
   const gid = type === 2 ? String(msg.group_id || msg.conversation_id || '') : ''
   if (type === 2 && gid && isGroupNotifyMuted(gid)) return false
 
-  // 正在看这个会话：不弹
   if (matchesActiveChat(msg)) return false
-  // 在会话列表页：列表会刷新，不必仿推送
   if (isOnConversationListPage()) return false
 
   const now = Date.now()
@@ -232,8 +191,6 @@ export function maybeShowLocalPush(msg, opts = {}) {
     emit(null)
   }, 4500)
 
-  // App：再写一条本地系统通知（切到后台/通知栏可见；前台 iOS 可能不展示，横幅兜底）
-  createNativeLocal(title, body, chat)
   return true
 }
 
