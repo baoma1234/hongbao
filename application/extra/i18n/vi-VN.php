@@ -654,7 +654,7 @@ Bán lẻ DeskHarvester thực thi 15 cổ kênh 1 và được cộng ₫75.00 
   'swap_asset_balance' => 'Hongbao',
   'swap_asset_hongbao' => 'Hongbao',
   'swap_all_btn' => 'Tất cả',
-  'swap_min_hint' => 'Tối thiểu mỗi lần 1',
+  'swap_min_hint' => 'Tối thiểu mỗi lần {min}',
   'swap_to_label' => 'Đích đổi',
   'swap_rate_label' => 'Tỷ lệ đổi',
   'swap_est_label' => 'Dự kiến nhận',
@@ -990,5 +990,5 @@ Bán lẻ DeskHarvester thực thi 15 cổ kênh 1 và được cộng ₫75.00 
   'alert_load_fail' => 'Tải thất bại',
   'alert_operation_fail' => 'Thao tác thất bại',
   'login_cs_label' => 'Hỗ trợ',
+  'swap_t1_lock_hint' => 'Hongbao đổi sang cổ bị khóa đến ngày hôm sau mới đổi lại',
 );
-

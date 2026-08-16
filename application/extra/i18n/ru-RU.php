@@ -106,4 +106,6 @@ return array (
   'asset_shares_label' => 'Акции',
   'wallet_not_login' => 'Не выполнен вход',
   'wallet_ledger_type_exchange_swap' => 'Обмен акций',
+  'swap_min_hint' => 'Минимум {min} за раз',
+  'swap_t1_lock_hint' => 'Hongbao→акции блокируются до следующего дня',
 );

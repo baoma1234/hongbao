@@ -106,4 +106,6 @@ return array (
   'asset_shares_label' => '주식',
   'wallet_not_login' => '로그인되지 않음',
   'wallet_ledger_type_exchange_swap' => '주식 교환',
+  'swap_min_hint' => '회당 최소 {min}',
+  'swap_t1_lock_hint' => 'Hongbao→주식은 당일 잠금, 다음날부터 재환전 가능',
 );

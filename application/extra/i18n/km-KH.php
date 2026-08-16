@@ -654,7 +654,7 @@ User 555_vip99 ទើបទទួល ៛៥០ តាមបើករហ័ស + 
   'swap_asset_balance' => 'Hongbao',
   'swap_asset_hongbao' => 'Hongbao',
   'swap_all_btn' => 'ទាំងអស់',
-  'swap_min_hint' => 'អប្បបរមា ១ ក្នុងមួយលើក',
+  'swap_min_hint' => 'អប្បបរមា {min} ក្នុងមួយលើក',
   'swap_to_label' => 'ទៅ',
   'swap_rate_label' => 'អត្រា',
   'swap_est_label' => 'ប៉ាន់ស្មានទទួល',
@@ -990,5 +990,5 @@ User 555_vip99 ទើបទទួល ៛៥០ តាមបើករហ័ស + 
   'alert_load_fail' => 'ផ្ទុកបរាជ័យ',
   'alert_operation_fail' => 'ប្រតិបត្តិការបរាជ័យ',
   'login_cs_label' => 'ជំនួយ',
+  'swap_t1_lock_hint' => 'Hongbao→ភាគហ៊ុនចាក់សោរហូតដល់ថ្ងៃស្អែកទើបប្តូរវិញបាន',
 );
-

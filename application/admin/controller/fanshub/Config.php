@@ -321,10 +321,13 @@ class Config extends Backend
         }
 
         if ($section === '' || $section === 'exchange') {
-            $data['exchange_rights_to_balance_enabled'] = !empty($data['exchange_rb_enabled']);
-            $data['exchange_balance_to_rights_enabled'] = !empty($data['exchange_br_enabled']);
-            $data['exchange_r2b_min'] = max(1, (float)($data['exchange_rb_min'] ?? $data['exchange_r2b_min'] ?? 1));
-            $data['exchange_b2r_min'] = max(1, (float)($data['exchange_br_min'] ?? $data['exchange_b2r_min'] ?? 1));
+            $data['exchange_rights_to_balance_enabled'] = !empty($data['exchange_rh_enabled'] ?? $data['exchange_rb_enabled']);
+            $data['exchange_balance_to_rights_enabled'] = !empty($data['exchange_hr_enabled'] ?? $data['exchange_br_enabled']);
+            // 以 rh/hr 为准（页面字段）；兼容旧 rb/br
+            $data['exchange_r2b_min'] = max(1, (float)($data['exchange_rh_min'] ?? $data['exchange_rb_min'] ?? $data['exchange_r2b_min'] ?? 50));
+            $data['exchange_b2r_min'] = max(1, (float)($data['exchange_hr_min'] ?? $data['exchange_br_min'] ?? $data['exchange_b2r_min'] ?? 50));
+            $data['exchange_rh_min'] = $data['exchange_r2b_min'];
+            $data['exchange_hr_min'] = $data['exchange_b2r_min'];
             $data['exchange_rb_min'] = $data['exchange_r2b_min'];
             $data['exchange_br_min'] = $data['exchange_b2r_min'];
             if (!isset($data['hongbao_unit_value']) || (float)$data['hongbao_unit_value'] <= 0) {

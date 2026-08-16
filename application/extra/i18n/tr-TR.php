@@ -106,4 +106,6 @@ return array (
   'asset_shares_label' => 'Hisse',
   'wallet_not_login' => 'Giriş yapılmadı',
   'wallet_ledger_type_exchange_swap' => 'Hisse takası',
+  'swap_min_hint' => 'Tur başına en az {min}',
+  'swap_t1_lock_hint' => 'Hongbao→hisse aynı gün kilitli, ertesi gün geri çevrilebilir',
 );

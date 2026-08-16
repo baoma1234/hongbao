@@ -649,7 +649,7 @@ return array (
   'swap_asset_balance' => 'هونغباو',
   'swap_asset_hongbao' => 'هونغباو',
   'swap_all_btn' => 'الجميع',
-  'swap_min_hint' => 'الحد الأدنى 1 لكل مقايضة',
+  'swap_min_hint' => 'الحد الأدنى {min} لكل مقايضة',
   'swap_to_label' => 'ل',
   'swap_rate_label' => 'معدل',
   'swap_est_label' => 'EST. ائتمان',
@@ -1000,5 +1000,5 @@ return array (
   'login_phone_placeholder_ru' => 'أدخل رقم الجوال الروسي (يبدأ بـ 9، 10 أرقام)',
   'login_phone_placeholder_jp' => 'أدخل رقم الجوال الياباني (70/80/90)',
   'login_phone_placeholder_kr' => 'أدخل رقم الجوال الكوري (يبدأ بـ 10)',
+  'swap_t1_lock_hint' => 'تحويل Hongbao إلى أسهم يُقفل حتى اليوم التالي قبل إعادة التحويل',
 );
-

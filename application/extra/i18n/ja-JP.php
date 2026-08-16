@@ -106,4 +106,6 @@ return array (
   'asset_shares_label' => '株式',
   'wallet_not_login' => '未ログイン',
   'wallet_ledger_type_exchange_swap' => '株式交換',
+  'swap_min_hint' => '1回あたり最低 {min}',
+  'swap_t1_lock_hint' => 'Hongbao→株式は当日ロック、翌日以降に換戻し可能',
 );

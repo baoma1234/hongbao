@@ -129,7 +129,7 @@ const config = ref({})
 const profile = ref({})
 const fromAsset = ref('rights')
 const toAsset = ref('hongbao')
-const amount = ref('1')
+const amount = ref('50')
 const submitting = ref(false)
 const nowText = ref('')
 
@@ -137,6 +137,16 @@ const pair = computed(() => pairInfo(config.value, fromAsset.value, toAsset.valu
 const anyEnabled = computed(() =>
   ASSETS.some((f) => ASSETS.some((to) => f !== to && pairInfo(config.value, f, to).enabled))
 )
+
+function pairMin() {
+  return Math.max(1, Number(pair.value.min) || 50)
+}
+
+function syncAmountToMin() {
+  const min = pairMin()
+  amount.value =
+    fromAsset.value === 'rights' ? String(Math.ceil(min)) : String(Number(min.toFixed(2)))
+}
 
 function touchCopy() {
   void locale.value
@@ -231,8 +241,17 @@ const availText = computed(() => {
 
 const minHint = computed(() => {
   touchCopy()
-  const p = pair.value
-  return tt('profile_ex_max_hint', '单笔上限 {max}', { max: p.max })
+  const min = pairMin()
+  const base = tt('swap_min_hint', '单次最低 {min}', { min })
+  // 红宝→股份：强调兑入锁定隔天
+  if (fromAsset.value === 'hongbao' && toAsset.value === 'rights') {
+    const t1 = tt(
+      'swap_t1_lock_hint',
+      '红宝兑入的股份当日锁定，次日才可兑回红宝'
+    )
+    return base + ' · ' + t1
+  }
+  return base
 })
 
 const sharePrice = computed(() => {
@@ -292,12 +311,12 @@ function parseAmount() {
 }
 
 function clampAmount() {
-  const p = pair.value
-  const min = Math.max(1, Number(p.min) || 1)
-  const max = Math.max(min, Number(p.max) || 99999)
+  const min = pairMin()
+  const max = Math.max(min, Number(pair.value.max) || 99999)
   let raw = parseAmount()
-  if (!(raw > 0)) {
-    amount.value = fromAsset.value === 'rights' ? '1' : '1'
+  if (!(raw > 0) || raw < min - 1e-8) {
+    amount.value =
+      fromAsset.value === 'rights' ? String(Math.ceil(min)) : String(Number(min.toFixed(2)))
     return
   }
   if (raw > max + 1e-8) {
@@ -327,6 +346,7 @@ function onFromPick(e) {
   const idx = (e.detail && e.detail.value) | 0
   fromAsset.value = ASSETS[idx] || 'rights'
   ensureToValid()
+  syncAmountToMin()
   tickTime()
 }
 
@@ -334,6 +354,7 @@ function onToPick(e) {
   const idx = (e.detail && e.detail.value) | 0
   const next = toOptions.value[idx]
   if (next) toAsset.value = next
+  syncAmountToMin()
   tickTime()
 }
 
@@ -352,6 +373,7 @@ function flip() {
   }
   fromAsset.value = nextFrom
   toAsset.value = nextTo
+  syncAmountToMin()
   tickTime()
 }
 
@@ -371,11 +393,18 @@ async function onSubmit() {
   }
   clampAmount()
   const amt = parseAmount()
-  const min = Math.max(1, Number(p.min) || 1)
+  const min = pairMin()
   const max = Math.max(min, Number(p.max) || 99999)
   if (!(amt > 0)) {
     uni.showToast({
       title: tt('alert_exchange_amount_invalid', '请输入转出数量'),
+      icon: 'none',
+    })
+    return
+  }
+  if (amt < min - 1e-8) {
+    uni.showToast({
+      title: tt('srv_exchange_min', '单次最低 {min}', { min }),
       icon: 'none',
     })
     return
@@ -431,6 +460,7 @@ async function load() {
     config.value = boot.config
     profile.value = boot.profile
     ensureToValid()
+    syncAmountToMin()
     tickTime()
   } catch (e) {
     uni.showToast({

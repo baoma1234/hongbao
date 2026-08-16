@@ -61,25 +61,25 @@ export function pairInfo(cfg, from, to) {
     const p = pairs[key]
     return {
       enabled: p.enabled !== false,
-      min: Number(p.min) || 1,
+      min: Math.max(1, Number(p.min) || 50),
       max: Number(p.max) || DEFAULT_MAX,
     }
   }
   if (f === 'rights' && t === 'hongbao') {
     return {
       enabled: cfg ? cfg.exchange_rights_to_balance_enabled !== false : true,
-      min: Math.max(1, Number((cfg && cfg.exchange_r2b_min) || 1)),
+      min: Math.max(1, Number((cfg && (cfg.exchange_r2b_min || cfg.exchange_rh_min)) || 50)),
       max: DEFAULT_MAX,
     }
   }
   if (f === 'hongbao' && t === 'rights') {
     return {
       enabled: cfg ? cfg.exchange_balance_to_rights_enabled !== false : true,
-      min: Math.max(1, Number((cfg && cfg.exchange_b2r_min) || 1)),
+      min: Math.max(1, Number((cfg && (cfg.exchange_b2r_min || cfg.exchange_hr_min)) || 50)),
       max: DEFAULT_MAX,
     }
   }
-  return { enabled: false, min: 1, max: DEFAULT_MAX }
+  return { enabled: false, min: 50, max: DEFAULT_MAX }
 }
 
 export function unitValue(cfg, asset, sharePrice) {

@@ -654,7 +654,7 @@ Retail DeskHarvester exercised 15 shares on Channel 1 and got ₱75.00 credited 
   'swap_asset_balance' => 'Hongbao',
   'swap_asset_hongbao' => 'Hongbao',
   'swap_all_btn' => 'All',
-  'swap_min_hint' => 'Min 1 per swap',
+  'swap_min_hint' => 'Min {min} per swap',
   'swap_to_label' => 'To',
   'swap_rate_label' => 'Rate',
   'swap_est_label' => 'Est. credit',
@@ -990,5 +990,5 @@ Retail DeskHarvester exercised 15 shares on Channel 1 and got ₱75.00 credited 
   'alert_load_fail' => 'Load failed',
   'alert_operation_fail' => 'Operation failed',
   'login_cs_label' => 'Support',
+  'swap_t1_lock_hint' => 'Hongbao→shares lock until next day before swapping back',
 );
-

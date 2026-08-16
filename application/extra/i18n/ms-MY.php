@@ -654,7 +654,7 @@ Ritel DeskHarvester eksekusi 15 saham saluran 1 dan dikreditkan RM75.00 via semb
   'swap_asset_balance' => 'Hongbao',
   'swap_asset_hongbao' => 'Hongbao',
   'swap_all_btn' => 'Semua',
-  'swap_min_hint' => 'Min 1 per tukar',
+  'swap_min_hint' => 'Min {min} per tukar',
   'swap_to_label' => 'Ke',
   'swap_rate_label' => 'Kurs',
   'swap_est_label' => 'Estimasi kredit',
@@ -990,5 +990,5 @@ Ritel DeskHarvester eksekusi 15 saham saluran 1 dan dikreditkan RM75.00 via semb
   'alert_load_fail' => 'Gagal memuat',
   'alert_operation_fail' => 'Operasi gagal',
   'login_cs_label' => 'Bantuan',
+  'swap_t1_lock_hint' => 'Hongbao→saham dikunci hingga esok sebelum tukar balik',
 );
-
