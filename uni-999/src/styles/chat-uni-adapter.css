@@ -812,13 +812,14 @@ body.tab-messages #tabMessages .chat-list-pane {
 }
 
 #tabMessages .chat-notice-pane {
-  flex: 1 1 0% !important;
-  min-height: 0 !important;
-  height: 0 !important;
+  /* App/IPA：勿用 height:0；高度由内联 noticePaneStyle 像素给出 */
+  flex: none !important;
+  min-height: 120px !important;
   position: relative !important;
   overflow: hidden !important;
-  display: flex !important;
-  flex-direction: column !important;
+  display: block !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
 }
 
 .msg-tab-root .chat-notice-body-scroll,
@@ -836,6 +837,15 @@ body.tab-messages #tabMessages .chat-list-pane {
   box-sizing: border-box !important;
   -webkit-overflow-scrolling: touch;
   overflow: hidden !important;
+}
+/* IPA：内层也要继承像素高，否则外层有高、里层 0 → 空白划不动 */
+.msg-tab-root .chat-notice-body-scroll .uni-scroll-view,
+#tabMessages .chat-notice-body-scroll .uni-scroll-view {
+  height: 100% !important;
+  min-height: 100% !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* 公告列表不要 flex 撑高；末项后留 30px 可滚空白 */

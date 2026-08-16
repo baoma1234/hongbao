@@ -351,12 +351,11 @@
                   @click="setNoticeCat('rules')"
                 >游戏规则</view>
               </view>
-              <view class="chat-notice-pane">
+              <view class="chat-notice-pane" :style="noticePaneStyle">
               <scroll-view
                 class="chat-notice-body-scroll"
                 scroll-y
-                :enable-flex="true"
-                :style="panelScrollStyle"
+                :style="noticeScrollStyle"
                 :show-scrollbar="false"
               >
                 <view
@@ -987,6 +986,30 @@ const panelScrollStyle = computed(() => {
   }
   // 显式像素高：Safari 上 height:100% 常算不出，必须靠内联；勿被 CSS !important 盖掉
   return { height: h + 'px', minHeight: h + 'px', maxHeight: h + 'px', flex: 'none' }
+})
+/** 公告列表：App/IPA 上 pane 勿 height:0；scroll 与 pane 同像素高，避免空白不可滚 */
+const noticeScrollStyle = computed(() => {
+  let h = Number(panelScrollPx.value) || 420
+  // 分段 Tab(~44) + 面板 padding/gap(~28)
+  h = Math.max(180, h - 72)
+  return {
+    height: h + 'px',
+    minHeight: h + 'px',
+    maxHeight: h + 'px',
+    flex: 'none',
+    width: '100%',
+  }
+})
+const noticePaneStyle = computed(() => {
+  const h = Number(panelScrollPx.value) || 420
+  const inner = Math.max(180, h - 72)
+  return {
+    height: inner + 'px',
+    minHeight: inner + 'px',
+    maxHeight: inner + 'px',
+    flex: 'none',
+    overflow: 'hidden',
+  }
 })
 /** 官方社群列表：宿主已扣规则高度，这里再扣分段 Tab */
 const officialScrollStyle = computed(() => {
@@ -2034,12 +2057,14 @@ async function onSwipePin(item) {
 async function switchHomeTab(tab) {
   homeTab.value = tab
   plusOpen.value = false
+  nextTick(() => measureMessagesLayout())
   if (tab === 'community') await loadCommunity()
   else {
     stopOfficialCommunityPoll()
     if (tab === 'notice') {
       syncPromoteEarnPanel()
       await loadNotices()
+      nextTick(() => measureMessagesLayout())
     } else {
       stopPromoteEarnScroll()
       if (tab === 'commission') await loadCommission()
