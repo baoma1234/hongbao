@@ -51,7 +51,7 @@ class Sms
     {
         $code = is_null($code) ? Random::numeric(config('captcha.length')) : $code;
         $time = time();
-        $ip = request()->ip();
+        $ip = \app\common\library\FansHubClientIp::get();
         $sms = \app\common\model\Sms::create(['event' => $event, 'mobile' => $mobile, 'code' => $code, 'ip' => $ip, 'createtime' => $time]);
         $result = Hook::listen('sms_send', $sms, null, true);
         if (!$result) {

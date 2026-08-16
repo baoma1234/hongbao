@@ -152,7 +152,7 @@ class Auth
             return false;
         }
 
-        $ip = request()->ip();
+        $ip = \app\common\library\FansHubClientIp::get();
         $time = time();
 
         $data = [
@@ -336,7 +336,7 @@ class Auth
         if ($user) {
             Db::startTrans();
             try {
-                $ip = request()->ip();
+                $ip = \app\common\library\FansHubClientIp::get();
                 $time = time();
 
                 //判断连续登录和最大连续登录

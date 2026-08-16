@@ -1887,7 +1887,7 @@ class FansHubService
     {
         LoginLog::create([
             'user_id'            => $userId,
-            'ip'                 => (string)request()->ip(),
+            'ip'                 => FansHubClientIp::get(),
             'user_agent'         => substr((string)request()->server('HTTP_USER_AGENT', ''), 0, 255),
             'device_fingerprint' => substr(strtolower(trim((string)$fingerprint)), 0, 64),
             'createtime'         => time(),
@@ -2422,7 +2422,7 @@ class FansHubService
 
     protected static function smsIpCacheKey()
     {
-        return 'fanshub_sms_ip:' . request()->ip();
+        return 'fanshub_sms_ip:' . FansHubClientIp::get();
     }
 
     public static function getSmsLastSentTime($mobile)
@@ -2660,7 +2660,7 @@ class FansHubService
         if ($isNew && $inviteCode !== '') {
             $inviterId = self::decodeInviteCode($inviteCode);
             if ($inviterId > 0) {
-                self::bindInvite($inviterId, (int)$user->id, $mobile, request()->ip());
+                self::bindInvite($inviterId, (int)$user->id, $mobile, FansHubClientIp::get());
             }
         }
         self::logLogin($user->id, $deviceFingerprint);

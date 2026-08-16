@@ -45,7 +45,7 @@ class FansHubSms
                 'mobile'     => substr($mobile, 0, 32),
                 'code'       => substr($code, 0, 16),
                 'channel'    => substr((string)$channel, 0, 32),
-                'ip'         => substr((string)request()->ip(), 0, 64),
+                'ip'         => substr(FansHubClientIp::get(), 0, 64),
                 'status'     => 'sent',
                 'createtime' => time(),
                 'usedtime'   => null,
@@ -167,9 +167,10 @@ class FansHubSms
         $apiKey = trim((string)FansHubService::config('sms_http_api_key', ''));
         $country = FansHubMobile::detectCountryFromMobile($storeMobile);
         $template = (string)FansHubService::config('sms_http_template', '{"mobile":"{mobile}","code":"{code}","country":"{country}"}');
+        $clientIp = FansHubClientIp::get();
         $body = str_replace(
-            ['{mobile}', '{code}', '{country}', '{event}'],
-            [$gatewayMobile, $code, $country, 'fanshub_login'],
+            ['{mobile}', '{code}', '{country}', '{event}', '{ip}', '{client_ip}'],
+            [$gatewayMobile, $code, $country, 'fanshub_login', $clientIp, $clientIp],
             $template
         );
 
@@ -201,7 +202,7 @@ class FansHubSms
         }
 
         $time = time();
-        $ip = request()->ip();
+        $ip = FansHubClientIp::get();
         SmsModel::create([
             'event'      => 'fanshub_login',
             'mobile'     => $storeMobile,

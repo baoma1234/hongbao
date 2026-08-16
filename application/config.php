@@ -54,7 +54,9 @@ return [
     // 控制器类后缀
     'controller_suffix'      => false,
     // 获取IP的变量
-    'http_agent_ip'          => 'REMOTE_ADDR',
+    // 客户端 IP：勿用 REMOTE_ADDR（反代/阿里云 SLB 后是机房 IP）
+    // 留空则走 X-Forwarded-For；有 Nginx 时优先读 X-Real-IP
+    'http_agent_ip'          => 'HTTP_X_REAL_IP',
     // +----------------------------------------------------------------------
     // | 模块设置
     // +----------------------------------------------------------------------

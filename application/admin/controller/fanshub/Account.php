@@ -68,7 +68,10 @@ class Account extends Backend
             foreach ($list as $row) {
                 $userIds[] = (int)$row->user_id;
                 if ($row->getRelation('user')) {
-                    $row->getRelation('user')->visible(['id', 'mobile', 'nickname', 'username', 'jointime', 'createtime']);
+                    $row->getRelation('user')->visible([
+                        'id', 'mobile', 'nickname', 'username', 'jointime', 'createtime',
+                        'joinip', 'loginip', 'logintime',
+                    ]);
                 }
                 $u = $row->user;
                 $nick = '';
@@ -77,6 +80,9 @@ class Account extends Backend
                 }
                 $row->nickname = $nick !== '' ? $nick : ('ID' . (int)$row->user_id);
                 $row->jointime = $u && !empty($u->jointime) ? (int)$u->jointime : (int)($row->createtime ?: 0);
+                $row->joinip = $u ? (string)($u->joinip ?? '') : '';
+                $row->loginip = $u ? (string)($u->loginip ?? '') : '';
+                $row->logintime = $u && !empty($u->logintime) ? (int)$u->logintime : 0;
             }
             $inviterMap = FansHubService::getInviterInfoMap($userIds);
             foreach ($list as $row) {

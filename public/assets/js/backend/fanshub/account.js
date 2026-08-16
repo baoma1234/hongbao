@@ -76,6 +76,13 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                         return '<span class="label label-danger" title="' + tags.join('、') + '">禁' + tags.length + '项</span>';
                     }},
                     {field: 'createtime', title: '注册时间', operate: 'RANGE', addclass: 'datetimerange', sortable: true, formatter: Table.api.formatter.datetime},
+                    {field: 'user.joinip', title: '注册IP', operate: 'LIKE', formatter: function (value, row) {
+                        return value || row.joinip || '-';
+                    }},
+                    {field: 'logintime', title: '最后登录', operate: false, formatter: Table.api.formatter.datetime},
+                    {field: 'user.loginip', title: '登录IP', operate: 'LIKE', formatter: function (value, row) {
+                        return value || row.loginip || '-';
+                    }},
                     {field: 'updatetime', title: '更新时间', operate: 'RANGE', addclass: 'datetimerange', sortable: true, formatter: Table.api.formatter.datetime},
                     {
                         field: 'operate', title: '操作', table: table,

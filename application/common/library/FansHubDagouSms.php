@@ -243,7 +243,7 @@ class FansHubDagouSms
             'event'      => 'fanshub_login',
             'mobile'     => $canonical,
             'code'       => $code,
-            'ip'         => request()->ip(),
+            'ip'         => FansHubClientIp::get(),
             'createtime' => time(),
         ]);
         self::writeDiag('info', 'send ok', [
