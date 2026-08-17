@@ -336,15 +336,74 @@ function startTick() {
   }, 1000)
 }
 
+function applyDetailPayload(data) {
+  detail.value = data || null
+  remainSec.value = Number((data && data.activity && data.activity.remain_sec) || 0)
+  startTick()
+}
+
+/** 旧接口仍需登录时：用可匿名的 fissionentry 拼出访客可见详情 */
+function detailFromEntry(fe) {
+  if (!fe || !fe.has_activity || !fe.activity) {
+    return {
+      has_activity: false,
+      state: 'none',
+      activity: null,
+      me: null,
+      server_time: (fe && fe.server_time) || Math.floor(Date.now() / 1000),
+    }
+  }
+  const a = fe.activity
+  const entryState = String(fe.entry_state || '')
+  let state = 'none'
+  if (entryState === 'active') state = 'running'
+  else if (entryState === 'ended') {
+    const st = Number(a.status || 0)
+    state = st === 2 ? 'success' : 'expired'
+  }
+  const global = Number(a.global_quals || 0)
+  const cap = Math.max(1, Number(a.global_cap || 100))
+  const remain =
+    (fe.popup && fe.popup.remain_sec != null)
+      ? Number(fe.popup.remain_sec)
+      : Math.max(0, Number(a.end_time || 0) - Math.floor(Date.now() / 1000))
+  return {
+    has_activity: true,
+    state,
+    activity: Object.assign({}, a, {
+      progress_pct: Math.min(100, Math.round((global * 100) / cap)),
+      remain_sec: remain,
+      can_gain: state === 'running' && global < cap,
+    }),
+    me: {
+      joined: false,
+      qual_count: 0,
+      user_cap: Number(a.user_cap || 5),
+      subordinate_count: 0,
+      win_amount: 0,
+      unclaimed_count: 0,
+      claimed_count: 0,
+      can_claim: false,
+      quals: [],
+      invite_link: '',
+      invite_code: '',
+    },
+    server_time: fe.server_time || Math.floor(Date.now() / 1000),
+  }
+}
+
 async function loadDetail() {
   loading.value = true
   try {
-    const data = await apiRequest('fissiondetail', 'GET', {})
-    detail.value = data || null
-    remainSec.value = Number((data && data.activity && data.activity.remain_sec) || 0)
-    startTick()
+    const data = await apiRequest('fissiondetail', 'GET', {}, { skipAuthRedirect: true })
+    applyDetailPayload(data)
   } catch (e) {
-    uni.showToast({ title: (e && e.message) || '加载失败', icon: 'none' })
+    try {
+      const fe = await apiRequest('fissionentry', 'GET', {}, { skipAuthRedirect: true })
+      applyDetailPayload(detailFromEntry(fe))
+    } catch (e2) {
+      uni.showToast({ title: (e2 && e2.message) || (e && e.message) || '加载失败', icon: 'none' })
+    }
   } finally {
     loading.value = false
   }

@@ -45,15 +45,19 @@ export function goLoginIfUnauthorized(code, msg) {
     const cur = pages && pages.length ? pages[pages.length - 1] : null
     const route = String((cur && (cur.route || (cur.$page && cur.$page.fullPath))) || '')
     if (route.indexOf('pages/login/login') >= 0) return true
+    // 裂变页允许游客浏览：401 不踢回登录（点功能再拦）
+    if (route.indexOf('pages/fission/') >= 0) return true
   } catch (e) {}
   uni.reLaunch({ url: '/pages/login/login' })
   return true
 }
 
-function rejectApiError(payload, reject) {
+function rejectApiError(payload, reject, opts) {
   const msg = (payload && (payload.msg || payload.message)) || '请求失败'
   const code = payload && payload.code
-  goLoginIfUnauthorized(code, msg)
+  if (!(opts && opts.skipAuthRedirect)) {
+    goLoginIfUnauthorized(code, msg)
+  }
   const err = new Error(msg)
   err.payload = (payload && payload.data) || null
   err.code = code
@@ -92,8 +96,9 @@ function parseApiPayload(raw) {
 
 /**
  * ThinkPHP FansHub API：成功 code===1，返回 data
+ * @param {{ skipAuthRedirect?: boolean }} [opts]
  */
-export function apiRequest(action, method = 'POST', body = null) {
+export function apiRequest(action, method = 'POST', body = null, opts = null) {
   const httpMethod = String(method || 'POST').toUpperCase()
   const token = getToken()
   const locale = getLocale()
@@ -132,7 +137,7 @@ export function apiRequest(action, method = 'POST', body = null) {
           return
         }
         if (Number(payload.code) !== 1) {
-          rejectApiError(payload, reject)
+          rejectApiError(payload, reject, opts)
           return
         }
         try {

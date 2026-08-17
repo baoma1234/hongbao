@@ -145,9 +145,23 @@ function toggleLang() {
 
 function goFission() {
   closePanels()
+  const url = '/pages/fission/detail'
+  // 登录页非 tab：switchTab 在 H5/App 上常失败或需连点；reLaunch 四端稳进
+  try {
+    const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : []
+    const cur = pages && pages.length ? pages[pages.length - 1] : null
+    const route = String((cur && cur.route) || '')
+    if (
+      route.indexOf('pages/login/') === 0 ||
+      route.indexOf('gfhwgkdhf11131djfh/') === 0
+    ) {
+      uni.reLaunch({ url })
+      return
+    }
+  } catch (e) {}
   uni.switchTab({
-    url: '/pages/fission/detail',
-    fail: () => uni.navigateTo({ url: '/pages/fission/detail' }),
+    url,
+    fail: () => uni.reLaunch({ url }),
   })
 }
 
