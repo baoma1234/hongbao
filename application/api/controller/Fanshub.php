@@ -989,42 +989,41 @@ class Fanshub extends Api
     }
 
     /**
-     * 鱼虾蟹大厅看板（可匿名；下注接口后续单独鉴权）
+     * 鱼虾蟹大厅看板（可匿名；底栏默认不展示）
      * GET /api/fanshub/yxxhall
      */
     public function yxxhall()
     {
-        $cfg = \app\common\library\FansHubService::config();
-        $enabled = !empty($cfg['yxx_enabled']);
-        $this->success('ok', [
-            'enabled'      => $enabled ? 1 : 0,
-            'tab_visible'  => !empty($cfg['yxx_tab_visible']) ? 1 : 0,
-            'stake_min'    => max(1, (int)($cfg['yxx_stake_min'] ?? 50)),
-            'stake_max'    => max(1, (int)($cfg['yxx_stake_max'] ?? 200)),
-            'cycle_max'    => max(2, (int)($cfg['yxx_cycle_max'] ?? 50)),
-            'boom_from'    => max(1, (int)($cfg['yxx_boom_from'] ?? 30)),
-            'faces'        => ['fish', 'shrimp', 'crab', 'gourd', 'coin', 'deer'],
-            'marquee'      => '🔥 爆点高能预警：每一轮 30-50 有效局之内必定触发一次爆点事件！触发后随机释放爆点池 50% 或 100% 奖金。若连续出现两次 50% 半爆释放，下一次爆点事件将跨周期强制 100% 全额释放清空！利益分配：本局总投注扣除 3% 平台服务费、5% 划入爆点池，剩余 92% 全额进入本局分配池。',
-            'round'        => [
-                'pool'         => 24680,
-                'boom_pool'    => 0,
-                'round_index'  => 0,
-                'remain_sec'   => 12,
-                'player_count' => 28,
-                'in_boom_zone' => 0,
-                'status'       => $enabled ? 'preview' : 'off',
-            ],
-            'dice'         => ['虾', '鱼', '老虎'],
-            'history_line' => '上局：螃蟹 公鸡 老虎  |  上局：葫芦 虾 虾',
-            'live_bets'    => [
-                '用户A  押虾  300积分',
-                '用户B  押老虎  800积分',
-                '用户C  押葫芦  50积分',
-                '用户D  押鱼  150积分',
-            ],
-            'history'      => [],
-            'preview'      => 1,
-        ]);
+        $uid = 0;
+        try {
+            if ($this->auth && $this->auth->isLogin()) {
+                $uid = (int)$this->auth->id;
+            }
+        } catch (\Throwable $e) {
+            $uid = 0;
+        }
+        $this->success('ok', \app\common\library\FansHubYxx::hallPayload($uid));
+    }
+
+    /**
+     * 鱼虾蟹预览下注（登录；不扣款）
+     * POST /api/fanshub/yxxbet
+     */
+    public function yxxbet()
+    {
+        $face = (string)$this->request->post('face', '');
+        $stake = (int)$this->request->post('stake', 0);
+        $nick = '';
+        try {
+            $info = $this->auth ? $this->auth->getUserinfo() : [];
+            $nick = (string)($info['nickname'] ?? '');
+            $data = \app\common\library\FansHubYxx::placePreviewBet((int)$this->auth->id, $face, $stake, $nick);
+            $this->success('已记录本局预览（不扣款）', $data);
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: '下注失败');
+        }
     }
 
     /**

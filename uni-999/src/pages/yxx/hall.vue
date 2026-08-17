@@ -14,7 +14,7 @@
     <view class="yxx-stats">
       <view class="yxx-pill">
         <text class="yxx-pill-ico">⏱</text>
-        <text>本局剩余 {{ remainSec }}秒</text>
+        <text>{{ timerText }}</text>
       </view>
       <view class="yxx-pill">
         <text class="yxx-pill-ico">👤</text>
@@ -32,22 +32,28 @@
             v-for="f in faces"
             :key="f.id"
             class="yxx-cell"
-            :class="{ on: selectedFace === f.id }"
+            :class="{ on: selectedFace === f.id, win: settleFace === f.id }"
             @click="pickFace(f.id)"
           >
             <view class="yxx-ring">
-              <text class="yxx-emo">{{ f.emo }}</text>
+              <view class="yxx-ring-in">
+                <text class="yxx-emo">{{ f.emo }}</text>
+              </view>
             </view>
             <text class="yxx-lab">{{ f.label }}</text>
+            <text v-if="myFace === f.id" class="yxx-chip">已押 {{ myStake }}</text>
           </view>
         </view>
       </view>
 
-      <view class="yxx-reveal">
+      <view class="yxx-reveal" :class="{ open: phase === 'reveal' }">
+        <view class="yxx-spark" v-if="phase === 'reveal'">
+          <text v-for="n in 6" :key="n" class="yxx-coin" :class="'c' + n">●</text>
+        </view>
         <view class="yxx-bowl" />
         <view class="yxx-dice-row">
           <view v-for="(d, i) in diceShow" :key="i" class="yxx-die">
-            <text>{{ d }}</text>
+            <text>{{ d || '·' }}</text>
           </view>
         </view>
         <text class="yxx-reveal-cap">{{ revealHint }}</text>
@@ -56,32 +62,53 @@
       <view class="yxx-feed">
         <text class="yxx-hist">{{ historyLine }}</text>
         <view class="yxx-feed-list">
-          <text v-for="(row, i) in feed" :key="i" class="yxx-feed-item">{{ row }}</text>
+          <view class="yxx-feed-col">
+            <text v-for="(row, i) in feedLeft" :key="'l' + i" class="yxx-feed-item">{{ row }}</text>
+          </view>
+          <view class="yxx-feed-col">
+            <text v-for="(row, i) in feedRight" :key="'r' + i" class="yxx-feed-item">{{ row }}</text>
+          </view>
         </view>
       </view>
     </scroll-view>
 
     <view class="yxx-dock">
-      <view class="yxx-amt">
-        <input
-          class="yxx-input"
-          type="number"
-          :value="String(stake)"
-          :placeholder="'积分 ' + stakeMin + '-' + stakeMax"
-          @input="onAmt"
-        />
-        <text class="yxx-amt-lab">积分</text>
+      <view class="yxx-chips">
+        <view
+          v-for="n in chipOpts"
+          :key="n"
+          class="yxx-qchip"
+          :class="{ on: stake === n }"
+          @click="stake = n"
+        >{{ n }}</view>
       </view>
-      <view class="yxx-confirm" hover-class="yxx-hit" @click="onBet">确认下注</view>
+      <view class="yxx-dock-row">
+        <view class="yxx-amt">
+          <input
+            class="yxx-input"
+            type="number"
+            :value="String(stake)"
+            :placeholder="'积分 ' + stakeMin + '-' + stakeMax"
+            @input="onAmt"
+          />
+          <text class="yxx-amt-lab">积分</text>
+        </view>
+        <view
+          class="yxx-confirm"
+          :class="{ off: phase !== 'betting' || betting }"
+          hover-class="yxx-hit"
+          @click="onBet"
+        >{{ confirmText }}</view>
+      </view>
     </view>
 
     <view v-if="rulesOpen" class="yxx-mask" @click="rulesOpen = false">
       <view class="yxx-sheet" @click.stop>
         <text class="yxx-sheet-t">鱼虾蟹 · 大厅规则（内测）</text>
         <scroll-view scroll-y class="yxx-sheet-body">
-          <text class="yxx-sheet-p">大厅：每局限选 1 门。起注 {{ stakeMin }} 积分，最高 {{ stakeMax }} 积分。</text>
-          <text class="yxx-sheet-p">本页视觉按三骰传统台面；结算未上线前不扣款。正式规则将锁定为「单骰固定赔率」或「三骰彩池」其中一套。</text>
-          <text class="yxx-sheet-p">计划抽水：3% 平台服务费 + 5% 爆点池，剩余 92% 分配。中奖示例（固定赔率）：50×6×92%=276。</text>
+          <text class="yxx-sheet-p">入口未对全员开放。每局限选 1 门，{{ stakeMin }}–{{ stakeMax }} 积分。</text>
+          <text class="yxx-sheet-p">本页按效果图走三骰揭碗；正式结算按白皮书单骰。当前为预览局，确认下注不扣款。</text>
+          <text class="yxx-sheet-p">计划抽水：3% 平台 + 5% 爆点池，剩余 92%。固定赔率示例：50×6×92%=276。</text>
           <text class="yxx-sheet-p">爆点：30–50 有效局内必触发一次，释放 50% 或 100%；连续两次半爆后下次强制全清。</text>
         </scroll-view>
         <view class="yxx-sheet-ok" @click="rulesOpen = false">知道了</view>
@@ -92,20 +119,21 @@
 
 <script setup>
 import { computed, onUnmounted, ref } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+import { onHide, onShow } from '@dcloudio/uni-app'
 import { apiRequest, getToken } from '../../utils/auth.js'
 import { applySafeAreaCssVars, getSafeAreaInsets } from '../../utils/safe-area.js'
 
 const FACE_MAP = {
-  gourd: { id: 'gourd', emo: '🎃', label: '葫芦', short: '葫芦' },
-  crab: { id: 'crab', emo: '🦀', label: '螃蟹', short: '螃蟹' },
-  shrimp: { id: 'shrimp', emo: '🦐', label: '虾', short: '虾' },
-  fish: { id: 'fish', emo: '🐟', label: '鱼', short: '鱼' },
-  rooster: { id: 'rooster', emo: '🐓', label: '公鸡', short: '公鸡' },
-  tiger: { id: 'tiger', emo: '🐯', label: '老虎', short: '老虎' },
+  gourd: { id: 'gourd', emo: '🎃', label: '葫芦' },
+  crab: { id: 'crab', emo: '🦀', label: '螃蟹' },
+  shrimp: { id: 'shrimp', emo: '🦐', label: '虾' },
+  fish: { id: 'fish', emo: '🐟', label: '鱼' },
+  rooster: { id: 'rooster', emo: '🐓', label: '公鸡' },
+  tiger: { id: 'tiger', emo: '🐯', label: '老虎' },
 }
 
 const faces = [FACE_MAP.gourd, FACE_MAP.crab, FACE_MAP.shrimp, FACE_MAP.fish, FACE_MAP.rooster, FACE_MAP.tiger]
+const chipOpts = [50, 100, 150, 200]
 
 const padTop = ref(20)
 const padBottom = ref(8)
@@ -117,20 +145,21 @@ const stake = ref(50)
 const pool = ref(24680)
 const remainSec = ref(12)
 const playerCount = ref(28)
+const phase = ref('betting')
+const settleFace = ref('')
+const myFace = ref('')
+const myStake = ref(0)
 const rulesOpen = ref(false)
-const diceShow = ref(['虾', '鱼', '老虎'])
-const historyLine = ref('上局：螃蟹 公鸡 老虎  |  上局：葫芦 虾 虾')
-const feed = ref([
-  '用户A  押虾  300积分',
-  '用户B  押老虎  800积分',
-  '用户C  押葫芦  50积分',
-  '用户D  押鱼  150积分',
-])
-let tick = null
+const betting = ref(false)
+const diceShow = ref(['', '', ''])
+const historyLine = ref('等待首局开奖')
+const feed = ref([])
+let poll = null
+let lastRound = -1
 
 const pagePad = computed(() => ({
   paddingTop: padTop.value + 'px',
-  paddingBottom: padBottom.value + 64 + 'px',
+  paddingBottom: padBottom.value + 108 + 'px',
 }))
 
 const poolText = computed(() => {
@@ -138,9 +167,32 @@ const poolText = computed(() => {
   return n.toLocaleString('zh-CN')
 })
 
-const revealHint = computed(() =>
-  selectedFace.value ? '已选「' + (FACE_MAP[selectedFace.value] || {}).label + '」· 开奖动画为预览' : '开奖区预览 · 正式局将按哈希开骰'
-)
+const timerText = computed(() => {
+  const n = remainSec.value
+  if (phase.value === 'locking') return '封盘开奖 ' + n + '秒'
+  if (phase.value === 'reveal') return '开奖展示 ' + n + '秒'
+  return '本局剩余 ' + n + '秒'
+})
+
+const confirmText = computed(() => {
+  if (betting.value) return '提交中'
+  if (phase.value === 'locking') return '已封盘'
+  if (phase.value === 'reveal') return '开奖中'
+  return '确认下注'
+})
+
+const revealHint = computed(() => {
+  if (phase.value === 'locking') return '金碗扣住 · 即将揭晓'
+  if (phase.value === 'reveal') {
+    const lab = (FACE_MAP[settleFace.value] || {}).label
+    return lab ? '本局结算门（单骰）：' + lab : '揭碗开奖'
+  }
+  if (selectedFace.value) return '已选「' + ((FACE_MAP[selectedFace.value] || {}).label || '') + '」· 预览不扣款'
+  return '点选图案后确认下注 · 内测不扣款'
+})
+
+const feedLeft = computed(() => feed.value.filter((_, i) => i % 2 === 0))
+const feedRight = computed(() => feed.value.filter((_, i) => i % 2 === 1))
 
 function measure() {
   try {
@@ -151,7 +203,7 @@ function measure() {
     padBottom.value = Math.max(8, Number(inset.bottom || 0))
     const header = 56
     const stats = 44
-    const dock = 64 + padBottom.value
+    const dock = 108 + padBottom.value
     const h = (sys.windowHeight || 667) - padTop.value - header - stats - dock
     scrollH.value = Math.max(240, h) + 'px'
   } catch (e) {
@@ -167,6 +219,7 @@ function goBack() {
 }
 
 function pickFace(id) {
+  if (phase.value !== 'betting') return
   selectedFace.value = selectedFace.value === id ? '' : id
 }
 
@@ -179,7 +232,52 @@ function onAmt(e) {
   stake.value = Math.min(stakeMax.value, Math.max(0, n))
 }
 
-function onBet() {
+function applyHall(data) {
+  if (!data) return
+  stakeMin.value = Number(data.stake_min || 50)
+  stakeMax.value = Number(data.stake_max || 200)
+  const r = data.round || {}
+  if (r.pool != null) pool.value = Number(r.pool)
+  if (r.remain_sec != null) remainSec.value = Number(r.remain_sec)
+  if (r.player_count != null) playerCount.value = Number(r.player_count)
+  phase.value = String(r.phase || 'betting')
+  const idx = Number(r.round_index || 0)
+  if (idx !== lastRound) {
+    lastRound = idx
+    myFace.value = ''
+    myStake.value = 0
+    settleFace.value = ''
+  }
+  if (Array.isArray(data.live_bets) && data.live_bets.length) {
+    feed.value = data.live_bets.map((b) => String(b))
+  }
+  if (data.history_line) historyLine.value = String(data.history_line)
+  const labels = Array.isArray(data.dice_labels) ? data.dice_labels : data.dice
+  if (phase.value === 'reveal' && Array.isArray(labels) && labels.length === 3) {
+    diceShow.value = labels.map((x) => String(x || ''))
+  } else if (phase.value !== 'reveal') {
+    diceShow.value = ['', '', '']
+  }
+  settleFace.value = phase.value === 'reveal' ? String(data.settle_face || '') : ''
+  const mine = data.my_bet
+  if (mine && mine.face) {
+    myFace.value = String(mine.face)
+    myStake.value = Number(mine.stake || 0)
+    selectedFace.value = myFace.value
+    if (myStake.value) stake.value = myStake.value
+  }
+  if (stake.value < stakeMin.value) stake.value = stakeMin.value
+}
+
+async function loadHall() {
+  try {
+    const data = await apiRequest('yxxhall', 'GET', {}, { skipAuthRedirect: true })
+    applyHall(data)
+  } catch (e) {}
+}
+
+async function onBet() {
+  if (phase.value !== 'betting' || betting.value) return
   if (!selectedFace.value) {
     uni.showToast({ title: '请先点选一个图案', icon: 'none' })
     return
@@ -192,53 +290,54 @@ function onBet() {
     uni.reLaunch({ url: '/pages/login/login' })
     return
   }
-  uni.showToast({ title: '内测预览：本局不扣款', icon: 'none' })
+  betting.value = true
+  try {
+    const data = await apiRequest('yxxbet', 'POST', {
+      face: selectedFace.value,
+      stake: stake.value,
+    })
+    applyHall(data)
+    uni.showToast({ title: '已记录预览，本局不扣款', icon: 'none' })
+  } catch (e) {
+    uni.showToast({ title: (e && e.message) || '下注失败', icon: 'none' })
+  } finally {
+    betting.value = false
+  }
 }
 
-function startTick() {
-  if (tick) clearInterval(tick)
-  tick = setInterval(() => {
-    if (remainSec.value > 0) remainSec.value -= 1
-    else remainSec.value = 12
+function startPoll() {
+  if (poll) clearInterval(poll)
+  poll = setInterval(() => {
+    loadHall()
   }, 1000)
 }
 
-async function loadHall() {
-  try {
-    const data = await apiRequest('yxxhall', 'GET', {}, { skipAuthRedirect: true })
-    if (!data) return
-    stakeMin.value = Number(data.stake_min || 50)
-    stakeMax.value = Number(data.stake_max || 200)
-    const r = data.round || {}
-    if (r.pool) pool.value = Number(r.pool)
-    if (r.remain_sec != null) remainSec.value = Number(r.remain_sec)
-    if (r.player_count != null) playerCount.value = Number(r.player_count)
-    if (Array.isArray(data.live_bets) && data.live_bets.length) {
-      feed.value = data.live_bets.map((b) => String(b))
-    }
-    if (data.history_line) historyLine.value = String(data.history_line)
-    if (Array.isArray(data.dice) && data.dice.length === 3) diceShow.value = data.dice.map(String)
-    if (stake.value < stakeMin.value) stake.value = stakeMin.value
-  } catch (e) {}
+function stopPoll() {
+  if (poll) {
+    clearInterval(poll)
+    poll = null
+  }
 }
 
 onShow(() => {
   measure()
   loadHall()
-  startTick()
+  startPoll()
+})
+
+onHide(() => {
+  stopPoll()
 })
 
 onUnmounted(() => {
-  if (tick) {
-    clearInterval(tick)
-    tick = null
-  }
+  stopPoll()
 })
 </script>
 
 <style scoped>
 .yxx-page {
   min-height: 100vh;
+  min-height: -webkit-fill-available;
   background:
     radial-gradient(circle at 50% 18%, rgba(180, 40, 30, 0.55) 0%, transparent 42%),
     linear-gradient(180deg, #6b0d0d 0%, #3a0508 42%, #1a0204 100%);
@@ -355,22 +454,32 @@ onUnmounted(() => {
   text-align: center;
 }
 .yxx-ring {
-  width: 72px;
-  height: 72px;
+  width: 74px;
+  height: 74px;
   margin: 0 auto;
   border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, #fff3c4, #d7a23a 42%, #8a4a10);
   border: 3px solid #f3d07a;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35), inset 0 2px 6px rgba(255, 255, 255, 0.35);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.yxx-cell.on .yxx-ring {
+.yxx-ring-in {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 32%, #e23b32, #7a1014 72%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.yxx-cell.on .yxx-ring,
+.yxx-cell.win .yxx-ring {
   box-shadow: 0 0 0 3px #fff3c4, 0 0 16px rgba(255, 210, 80, 0.7);
 }
 .yxx-emo {
-  font-size: 34px;
+  font-size: 30px;
   line-height: 1;
 }
 .yxx-lab {
@@ -380,11 +489,21 @@ onUnmounted(() => {
   font-weight: 800;
   color: #ffe29a;
 }
+.yxx-chip {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  color: #4a2200;
+  background: #f0c14b;
+}
 .yxx-reveal {
   margin-top: -48px;
   align-items: center;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 .yxx-bowl {
   width: 88px;
@@ -392,7 +511,12 @@ onUnmounted(() => {
   border-radius: 44px 44px 10px 10px;
   background: linear-gradient(180deg, #f8e19a, #c48a22);
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.35);
-  transform: rotate(-18deg) translateX(-36px);
+  transform: rotate(0deg) translate(0, 36px);
+  z-index: 2;
+  transition: transform 0.45s ease;
+}
+.yxx-reveal.open .yxx-bowl {
+  transform: rotate(-18deg) translate(-36px, -8px);
 }
 .yxx-dice-row {
   display: flex;
@@ -420,6 +544,27 @@ onUnmounted(() => {
   font-size: 11px;
   color: rgba(255, 230, 180, 0.75);
 }
+.yxx-spark {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 8px;
+  height: 80px;
+  pointer-events: none;
+}
+.yxx-coin {
+  position: absolute;
+  left: 50%;
+  color: #ffd56a;
+  font-size: 10px;
+  opacity: 0.85;
+}
+.yxx-coin.c1 { transform: translate(-48px, 8px); }
+.yxx-coin.c2 { transform: translate(36px, 0); }
+.yxx-coin.c3 { transform: translate(-20px, -12px); }
+.yxx-coin.c4 { transform: translate(52px, 22px); }
+.yxx-coin.c5 { transform: translate(-60px, 28px); }
+.yxx-coin.c6 { transform: translate(8px, 18px); }
 .yxx-feed {
   margin: 10px 12px 16px;
   border-radius: 12px;
@@ -435,13 +580,22 @@ onUnmounted(() => {
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 .yxx-feed-list {
+  display: flex;
+  gap: 8px;
   padding: 6px 10px 8px;
+}
+.yxx-feed-col {
+  flex: 1;
+  min-width: 0;
 }
 .yxx-feed-item {
   display: block;
-  font-size: 12px;
+  font-size: 11px;
   color: rgba(255, 247, 230, 0.88);
   line-height: 1.7;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .yxx-dock {
   position: fixed;
@@ -451,12 +605,35 @@ onUnmounted(() => {
   z-index: 20;
   max-width: 480px;
   margin: 0 auto;
-  display: flex;
-  gap: 10px;
-  padding: 8px 12px;
+  padding: 6px 12px;
   padding-bottom: calc(8px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
   background: linear-gradient(180deg, rgba(80, 10, 12, 0.92), #3a0608);
   box-sizing: border-box;
+}
+.yxx-chips {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.yxx-qchip {
+  flex: 1;
+  height: 28px;
+  line-height: 28px;
+  text-align: center;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #ffe29a;
+  border: 1px solid rgba(240, 193, 75, 0.45);
+  background: rgba(80, 12, 14, 0.8);
+}
+.yxx-qchip.on {
+  color: #4a2200;
+  background: linear-gradient(180deg, #f0c14b, #c48418);
+}
+.yxx-dock-row {
+  display: flex;
+  gap: 10px;
 }
 .yxx-amt {
   flex: 1;
@@ -494,6 +671,9 @@ onUnmounted(() => {
   background: linear-gradient(180deg, #e23b32, #a31218);
   border: 1px solid #f0c14b;
   box-shadow: 0 4px 10px rgba(120, 10, 10, 0.4);
+}
+.yxx-confirm.off {
+  opacity: 0.55;
 }
 .yxx-mask {
   position: fixed;
