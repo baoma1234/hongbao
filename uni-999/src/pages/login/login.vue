@@ -191,8 +191,18 @@ const loginSubmitText = computed(() => {
   )
 })
 
+/** 从裂变等页点功能进登录时，登录成功后回到原页 */
+function resolvePostLoginUrl() {
+  try {
+    const u = String(uni.getStorageSync('fanshub_login_return') || '').trim()
+    uni.removeStorageSync('fanshub_login_return')
+    if (u.indexOf('/pages/') === 0 && u.indexOf('..') < 0) return u
+  } catch (e) {}
+  return '/pages/messages/messages'
+}
+
 if (getToken()) {
-  uni.reLaunch({ url: '/pages/messages/messages' })
+  uni.reLaunch({ url: resolvePostLoginUrl() })
 }
 
 onLoad((q) => {
@@ -431,7 +441,7 @@ async function onLogin() {
     } catch (e) {
       console.warn('im connect', e)
     }
-    uni.reLaunch({ url: '/pages/messages/messages' })
+    uni.reLaunch({ url: resolvePostLoginUrl() })
   } catch (e) {
     uni.showToast({ title: e.message || t('alert_login_fail') || '登录失败', icon: 'none' })
   } finally {

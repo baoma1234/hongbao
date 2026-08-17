@@ -126,11 +126,14 @@ class FansHubFission
         }
         // 直属下级：仅统计活动开始后绑定的邀请（与资格发放窗口一致）
         $startTs = max(0, (int)$act['start_time']);
-        $subQ = Invite::where('inviter_user_id', $userId);
-        if ($userId > 0 && $startTs > 0) {
-            $subQ->where('createtime', '>=', $startTs);
+        $subCount = 0;
+        if ($userId > 0) {
+            $subQ = Invite::where('inviter_user_id', $userId);
+            if ($startTs > 0) {
+                $subQ->where('createtime', '>=', $startTs);
+            }
+            $subCount = (int)$subQ->count();
         }
-        $subCount = $userId > 0 ? (int)$subQ->count() : 0;
 
         $inviteLink = '';
         $inviteCode = '';

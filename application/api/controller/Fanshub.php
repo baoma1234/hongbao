@@ -17,7 +17,7 @@ use think\Validate;
  */
 class Fanshub extends Api
 {
-    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'communityrecommend', 'fissionentry'];
+    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail'];
     protected $noNeedRight = '*';
 
     public function _initialize()
@@ -25,7 +25,7 @@ class Fanshub extends Api
         FansHubSms::boot();
         parent::_initialize();
         $action = strtolower($this->request->action());
-        $exempt = ['config', 'bootstrap', 'comments', 'inviteleaderboard', 'slidercaptcha', 'grabslider', 'jackpot', 'notices', 'communityrecommend', 'fissionentry'];
+        $exempt = ['config', 'bootstrap', 'comments', 'inviteleaderboard', 'slidercaptcha', 'grabslider', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail'];
         if (in_array($action, $exempt, true)) {
             return;
         }
@@ -1060,13 +1060,21 @@ class Fanshub extends Api
     }
 
     /**
-     * 裂变红包：活动详情（需登录）
+     * 裂变红包：活动详情（可匿名浏览；登录后带个人资格/邀请链）
      * GET/POST /api/fanshub/fissiondetail
      */
     public function fissiondetail()
     {
         try {
-            $this->success('ok', \app\common\library\FansHubFission::detailPayload((int)$this->auth->id));
+            $uid = 0;
+            try {
+                if ($this->auth && $this->auth->isLogin()) {
+                    $uid = (int)$this->auth->id;
+                }
+            } catch (\Throwable $e) {
+                $uid = 0;
+            }
+            $this->success('ok', \app\common\library\FansHubFission::detailPayload($uid));
         } catch (HttpResponseException $e) {
             throw $e;
         } catch (\Throwable $e) {

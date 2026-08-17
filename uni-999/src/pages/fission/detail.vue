@@ -241,7 +241,18 @@ function measureScroll() {
   }
 }
 
+/** 未登录点功能 → 登录页；登录后回到裂变页 */
+function requireLogin() {
+  if (getToken()) return true
+  try {
+    uni.setStorageSync('fanshub_login_return', '/pages/fission/detail')
+  } catch (e) {}
+  uni.reLaunch({ url: '/pages/login/login' })
+  return false
+}
+
 function onQualClick() {
+  if (!requireLogin()) return
   if (!canClaim.value) {
     if (state.value === 'success' && myQuals.value > 0 && unclaimedCount.value <= 0) {
       uni.showToast({ title: '奖已领完', icon: 'none' })
@@ -284,6 +295,7 @@ function waitMs(ms) {
 
 async function doClaim() {
   if (claiming.value || claimOpened.value || claimOpening.value) return
+  if (!requireLogin()) return
   claiming.value = true
   claimOpening.value = true
   try {
@@ -325,10 +337,6 @@ function startTick() {
 }
 
 async function loadDetail() {
-  if (!getToken()) {
-    uni.reLaunch({ url: '/pages/login/login' })
-    return
-  }
   loading.value = true
   try {
     const data = await apiRequest('fissiondetail', 'GET', {})
@@ -343,6 +351,7 @@ async function loadDetail() {
 }
 
 function copyLink() {
+  if (!requireLogin()) return
   const link = inviteLink.value
   if (!link) {
     uni.showToast({ title: '暂无邀请链接', icon: 'none' })
@@ -359,6 +368,7 @@ function copyLink() {
 }
 
 async function shareLink() {
+  if (!requireLogin()) return
   const link = inviteLink.value
   const text =
     '🧧全网裂变红宝，¥' +
