@@ -745,31 +745,27 @@
 
     <FriendScanSheet />
 
-    <!-- 红宝页运营弹窗：可跳转社群/公告（H5 / APK / IPA） -->
+    <!-- 红宝页运营弹窗：仅海报图 + 下方关闭（H5 / Safari / APK / IPA） -->
     <view
-      v-if="msgPopupOpen && msgPopup"
+      v-if="msgPopupOpen && msgPopup && msgPopupImage"
       class="msg-popup-mask"
       @click="dismissMsgPopup('dismiss_day')"
       @touchmove.stop.prevent="noopPopup"
     >
-      <view class="msg-popup-card" :class="{ 'is-poster': !!msgPopupImage }" @click.stop>
-        <view class="msg-popup-close" @click="dismissMsgPopup('dismiss_day')">×</view>
+      <view class="msg-popup-wrap" @click.stop>
         <image
-          v-if="msgPopupImage"
           class="msg-popup-img"
           :src="msgPopupImage"
           mode="widthFix"
           :show-menu-by-longpress="true"
           @click="clickMsgPopup"
         />
-        <text v-if="msgPopup.title" class="msg-popup-title">{{ msgPopup.title || '' }}</text>
-        <text class="msg-popup-body" v-if="msgPopup.content">{{ msgPopup.content }}</text>
-        <view class="msg-popup-btn" @click="clickMsgPopup">{{ msgPopup.btn_text || '查看' }}</view>
         <view
-          v-if="msgPopup.show_mode !== 'once'"
-          class="msg-popup-mute"
+          class="msg-popup-close"
+          hover-class="msg-popup-close--active"
+          :hover-stay-time="80"
           @click="dismissMsgPopup('dismiss_day')"
-        >今日不再显示</view>
+        >×</view>
       </view>
     </view>
 
@@ -2080,7 +2076,16 @@ async function switchHomeTab(tab) {
 function noopPopup() {}
 
 function showNextMsgPopup() {
-  const q = msgPopupQueue.value
+  const q = msgPopupQueue.value.slice()
+  // 仅展示带图海报；无图条目跳过
+  while (q.length) {
+    const head = q[0]
+    const imgs = (head && head.images) || []
+    const raw = imgs[0] || ''
+    if (raw) break
+    q.shift()
+  }
+  msgPopupQueue.value = q
   if (!q.length) {
     msgPopup.value = null
     msgPopupOpen.value = false
@@ -3015,91 +3020,50 @@ onHide(() => {
   top: 0;
   bottom: 0;
   z-index: 30000;
-  background: rgba(20, 10, 5, 0.48);
+  background: rgba(0, 0, 0, 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px 14px;
+  padding: 20px 18px;
+  padding-top: calc(20px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
+  padding-bottom: calc(24px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
   box-sizing: border-box;
 }
-.msg-popup-card {
-  position: relative;
+.msg-popup-wrap {
   width: 100%;
-  max-width: 320px;
-  background: #fff;
-  border-radius: 16px;
-  padding: 22px 18px 16px;
-  box-shadow: 0 12px 36px rgba(40, 20, 10, 0.22);
+  max-width: 360px;
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  gap: 10px;
+  align-items: center;
+  gap: 16px;
   box-sizing: border-box;
-  max-height: 88vh;
-  overflow-x: hidden;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-}
-/* 450×750 海报：按宽铺满，完整展示不裁切 */
-.msg-popup-card.is-poster {
-  width: 90%;
-  max-width: 360px;
-  padding: 36px 10px 14px;
-  gap: 8px;
-}
-.msg-popup-close {
-  position: absolute;
-  top: 6px;
-  right: 10px;
-  width: 32px;
-  height: 32px;
-  line-height: 32px;
-  text-align: center;
-  font-size: 22px;
-  color: #999;
-  z-index: 2;
+  max-height: 100%;
 }
 .msg-popup-img {
   display: block;
   width: 100%;
   height: auto;
+  max-height: min(72vh, 640px);
   border-radius: 12px;
-  margin-bottom: 2px;
-  background: #f3f3f3;
+  background: transparent;
 }
-.msg-popup-card.is-poster .msg-popup-img {
-  border-radius: 10px;
-}
-.msg-popup-title {
-  font-size: 17px;
-  font-weight: 800;
-  color: #2a1f18;
+.msg-popup-close {
+  width: 40px;
+  height: 40px;
+  line-height: 38px;
   text-align: center;
-  line-height: 1.35;
-}
-.msg-popup-body {
-  font-size: 13px;
-  color: #666;
-  line-height: 1.5;
-  text-align: center;
-  white-space: pre-wrap;
-}
-.msg-popup-btn {
-  margin-top: 6px;
-  height: 44px;
-  line-height: 44px;
-  text-align: center;
-  border-radius: 22px;
-  font-size: 15px;
-  font-weight: 800;
+  border-radius: 50%;
+  font-size: 28px;
+  font-weight: 300;
   color: #fff;
-  background: linear-gradient(90deg, #e63022, #c61114);
+  background: rgba(255, 255, 255, 0.18);
+  border: 1.5px solid rgba(255, 255, 255, 0.55);
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
-.msg-popup-mute {
-  text-align: center;
-  font-size: 12px;
-  color: #999;
-  padding: 4px 0 2px;
+.msg-popup-close--active {
+  opacity: 0.75;
+  background: rgba(255, 255, 255, 0.28);
 }
 /* App only：建群红头勿负 margin 上叠裁切正文；顶距用 --cg-app-top 压过 bundle !important */
 /* #ifdef APP-PLUS */
