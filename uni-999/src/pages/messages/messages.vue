@@ -766,6 +766,13 @@
           :hover-stay-time="80"
           @click="dismissMsgPopup('dismiss_day')"
         >×</view>
+        <view
+          v-if="msgPopup.show_mode !== 'once'"
+          class="msg-popup-mute"
+          hover-class="msg-popup-mute--active"
+          :hover-stay-time="80"
+          @click="dismissMsgPopup('dismiss_day')"
+        >今日不再显示</view>
       </view>
     </view>
 
@@ -3035,7 +3042,7 @@ onHide(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
   box-sizing: border-box;
   max-height: 100%;
 }
@@ -3064,6 +3071,19 @@ onHide(() => {
 .msg-popup-close--active {
   opacity: 0.75;
   background: rgba(255, 255, 255, 0.28);
+}
+.msg-popup-mute {
+  margin-top: -6px;
+  padding: 6px 12px 2px;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.82);
+  text-align: center;
+  letter-spacing: 0.4px;
+  flex-shrink: 0;
+}
+.msg-popup-mute--active {
+  opacity: 0.7;
 }
 /* App only：建群红头勿负 margin 上叠裁切正文；顶距用 --cg-app-top 压过 bundle !important */
 /* #ifdef APP-PLUS */
