@@ -1,7 +1,8 @@
 /**
  * 消息提示音
- * - H5：Web Audio
- * - App：优先 InnerAudio 本地 wav，失败则 plus.device.beep
+ * - 私聊：更响、更高；群聊：更轻、更低
+ * - H5：优先 wav，失败走 Web Audio
+ * - App：InnerAudio 本地 wav，失败则 plus.device.beep
  * 尊重设置页「静音」开关
  */
 import { isMsgMuted } from './app-prefs.js'
@@ -10,7 +11,18 @@ import { packagedStaticUrl } from './config.js'
 let audioCtx = null
 let lastBeepAt = 0
 let unlockBound = false
-let appAudio = null
+/** @type {Record<string, UniApp.InnerAudioContext>} */
+const appPlayers = {}
+/** @type {Record<string, HTMLAudioElement>} */
+const h5Players = {}
+
+function isGroupScope(scope) {
+  return scope === 'group'
+}
+
+function soundFile(scope) {
+  return isGroupScope(scope) ? 'sound/notify-group.wav' : 'sound/notify.wav'
+}
 
 function ensureCtx() {
   try {
@@ -37,6 +49,23 @@ function bindUnlock() {
       src.connect(ctx.destination)
       src.start(0)
     } catch (e) {}
+    try {
+      Object.keys(h5Players).forEach((k) => {
+        const a = h5Players[k]
+        if (!a) return
+        a.muted = true
+        const p = a.play()
+        if (p && typeof p.then === 'function') {
+          p.then(() => {
+            a.pause()
+            a.currentTime = 0
+            a.muted = false
+          }).catch(() => {
+            a.muted = false
+          })
+        }
+      })
+    } catch (e2) {}
     document.removeEventListener('pointerdown', unlock, true)
     document.removeEventListener('touchstart', unlock, true)
     document.removeEventListener('keydown', unlock, true)
@@ -67,28 +96,33 @@ function throttleOk(ms) {
   return true
 }
 
-function playAppBeep(kind) {
+function playAppBeep(kind, scope) {
   // #ifdef APP-PLUS
+  const group = isGroupScope(scope)
+  const key = group ? 'group' : 'private'
   try {
-    if (!appAudio) {
-      appAudio = uni.createInnerAudioContext()
-      appAudio.autoplay = false
-      appAudio.obeyMuteSwitch = false
-      appAudio.volume = 1
-      // 打包进 static 的短提示音；无文件时走 device.beep
+    if (!appPlayers[key]) {
+      const a = uni.createInnerAudioContext()
+      a.autoplay = false
+      a.obeyMuteSwitch = false
+      a.volume = group ? 0.42 : 1
       try {
-        appAudio.src = packagedStaticUrl('sound/notify.wav')
+        a.src = packagedStaticUrl(soundFile(scope))
       } catch (e0) {
-        appAudio.src = '/static/sound/notify.wav'
+        a.src = '/static/' + soundFile(scope)
       }
+      appPlayers[key] = a
     }
+    const player = appPlayers[key]
+    player.volume = group ? 0.42 : 1
     try {
-      appAudio.stop()
+      player.stop()
     } catch (e1) {}
-    appAudio.seek(0)
-    appAudio.play()
-    // 红包再补一次系统 beep 更醒目
-    if (kind === 'rp') {
+    try {
+      player.seek(0)
+    } catch (e1b) {}
+    player.play()
+    if (kind === 'rp' && !group) {
       try {
         plus.device.beep(1)
       } catch (e2) {}
@@ -96,7 +130,7 @@ function playAppBeep(kind) {
     return true
   } catch (e) {
     try {
-      plus.device.beep(kind === 'rp' ? 2 : 1)
+      plus.device.beep(group ? 1 : kind === 'rp' ? 2 : 1)
       return true
     } catch (e3) {
       return false
@@ -108,33 +142,92 @@ function playAppBeep(kind) {
   // #endif
 }
 
-/** 普通消息提示 */
-export function playNormalMsgSound() {
-  if (isMsgMuted()) return
-  if (!throttleOk(400)) return
-  if (playAppBeep('msg')) return
+function playH5Wav(kind, scope) {
+  // #ifdef H5
+  try {
+    if (typeof Audio === 'undefined') return false
+    const group = isGroupScope(scope)
+    const key = group ? 'group' : 'private'
+    if (!h5Players[key]) {
+      const a = new Audio(packagedStaticUrl(soundFile(scope)))
+      a.preload = 'auto'
+      try {
+        a.setAttribute('playsinline', 'true')
+      } catch (e0) {}
+      h5Players[key] = a
+    }
+    const a = h5Players[key]
+    a.volume = group ? 0.4 : 1
+    try {
+      a.currentTime = 0
+    } catch (e1) {}
+    const p = a.play()
+    if (p && typeof p.catch === 'function') {
+      p.catch(() => playWebTone(kind, scope))
+    }
+    return true
+  } catch (e) {
+    return false
+  }
+  // #endif
+  // #ifndef H5
+  return false
+  // #endif
+}
+
+function playWebTone(kind, scope) {
   bindUnlock()
   try {
     const ctx = ensureCtx()
     if (!ctx) return
-    tone(ctx, 880, 0, 0.13, 0.22)
-    tone(ctx, 1175, 0.15, 0.17, 0.2)
+    const group = isGroupScope(scope)
+    if (kind === 'open') {
+      tone(ctx, 523, 0, 0.08, 0.16)
+      tone(ctx, 659, 0.09, 0.09, 0.18)
+      tone(ctx, 784, 0.19, 0.1, 0.2)
+      tone(ctx, 1047, 0.3, 0.18, 0.22)
+      return
+    }
+    if (kind === 'rp') {
+      if (group) {
+        tone(ctx, 698, 0, 0.1, 0.1)
+        tone(ctx, 880, 0.12, 0.12, 0.11)
+        tone(ctx, 1046, 0.26, 0.14, 0.1)
+      } else {
+        tone(ctx, 988, 0, 0.11, 0.38)
+        tone(ctx, 1319, 0.13, 0.13, 0.4)
+        tone(ctx, 1568, 0.28, 0.18, 0.34)
+      }
+      return
+    }
+    if (group) {
+      tone(ctx, 523, 0, 0.12, 0.1)
+      tone(ctx, 659, 0.14, 0.14, 0.09)
+    } else {
+      tone(ctx, 988, 0, 0.14, 0.4)
+      tone(ctx, 1319, 0.16, 0.18, 0.38)
+    }
   } catch (e) {}
 }
 
-/** 红包消息提示 */
-export function playRedPacketMsgSound() {
+function playNotify(kind, scope) {
+  if (playAppBeep(kind, scope)) return
+  if (playH5Wav(kind, scope)) return
+  playWebTone(kind, scope)
+}
+
+/** 普通消息提示 @param {'private'|'group'} [scope] */
+export function playNormalMsgSound(scope) {
+  if (isMsgMuted()) return
+  if (!throttleOk(400)) return
+  playNotify('msg', scope === 'group' ? 'group' : 'private')
+}
+
+/** 红包消息提示 @param {'private'|'group'} [scope] */
+export function playRedPacketMsgSound(scope) {
   if (isMsgMuted()) return
   if (!throttleOk(350)) return
-  if (playAppBeep('rp')) return
-  bindUnlock()
-  try {
-    const ctx = ensureCtx()
-    if (!ctx) return
-    tone(ctx, 988, 0, 0.1, 0.2)
-    tone(ctx, 1319, 0.12, 0.12, 0.22)
-    tone(ctx, 1568, 0.26, 0.16, 0.18)
-  } catch (e) {}
+  playNotify('rp', scope === 'group' ? 'group' : 'private')
 }
 
 /** 开红包成功 */
@@ -143,16 +236,15 @@ export function playOpenRedPacketSound() {
   const now = Date.now()
   if (lastBeepAt && now - lastBeepAt < 180) return
   lastBeepAt = now
-  if (playAppBeep('rp')) return
-  bindUnlock()
-  try {
-    const ctx = ensureCtx()
-    if (!ctx) return
-    tone(ctx, 523, 0, 0.08, 0.16)
-    tone(ctx, 659, 0.09, 0.09, 0.18)
-    tone(ctx, 784, 0.19, 0.1, 0.2)
-    tone(ctx, 1047, 0.3, 0.18, 0.22)
-  } catch (e) {}
+  playNotify('open', 'private')
+}
+
+function msgSoundScope(msg) {
+  const type = (msg && msg.conversation_type) | 0
+  if (type === 2) return 'group'
+  if (type === 1) return 'private'
+  if (((msg && msg.group_id) | 0) > 0) return 'group'
+  return 'private'
 }
 
 /**
@@ -170,8 +262,9 @@ export function playIncomingMessageSound(msg) {
   }
   const relayAuto = !!(ex.relay_auto | 0)
   const mtype = (msg.msg_type | 0) || 0
-  if (mtype === 2 || relayAuto) playRedPacketMsgSound()
-  else playNormalMsgSound()
+  const scope = msgSoundScope(msg)
+  if (mtype === 2 || relayAuto) playRedPacketMsgSound(scope)
+  else playNormalMsgSound(scope)
 }
 
 // #ifdef H5
