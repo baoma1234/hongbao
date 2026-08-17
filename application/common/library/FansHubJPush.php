@@ -27,6 +27,22 @@ class FansHubJPush
         return self::appKey() !== '' && self::masterSecret() !== '';
     }
 
+    /** 过滤插件日志/别名误当 Registration ID */
+    public static function isValidRegistrationId($rid)
+    {
+        $rid = trim((string)$rid);
+        if ($rid === '' || strlen($rid) < 10 || strlen($rid) > 128) {
+            return false;
+        }
+        if (preg_match('/^u\d+$/i', $rid)) {
+            return false;
+        }
+        if (!preg_match('/^[a-zA-Z0-9_-]+$/', $rid)) {
+            return false;
+        }
+        return true;
+    }
+
     /**
      * 登录/App 上报 Registration ID
      */
@@ -41,7 +57,7 @@ class FansHubJPush
         if ($platform !== 'ios' && $platform !== 'android') {
             $platform = '';
         }
-        if ($userId <= 0 || $rid === '' || strlen($rid) < 8) {
+        if ($userId <= 0 || !self::isValidRegistrationId($rid)) {
             throw new \InvalidArgumentException('invalid registration');
         }
         $now = time();
@@ -93,7 +109,14 @@ class FansHubJPush
             $q->where('platform', $platform);
         }
         $rows = $q->column('registration_id');
-        return array_values(array_unique(array_filter(array_map('strval', $rows ?: []))));
+        $out = [];
+        foreach ($rows ?: [] as $rid) {
+            $rid = (string)$rid;
+            if (self::isValidRegistrationId($rid)) {
+                $out[$rid] = $rid;
+            }
+        }
+        return array_values($out);
     }
 
     /**

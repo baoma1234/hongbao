@@ -41,11 +41,28 @@ function detectPlatform() {
   return ''
 }
 
+/** 极光 Registration ID：拒绝把插件日志/别名文案当 RID 上报 */
+function isValidRegistrationId(rid) {
+  const id = String(rid || '').trim()
+  if (!id || id.length < 10 || id.length > 128) return false
+  // 别名 u12345678 不是 RID
+  if (/^u\d+$/i.test(id)) return false
+  // 仅字母数字下划线横线（插件成功文案含中文/括号会被拒）
+  if (!/^[a-zA-Z0-9_-]+$/.test(id)) return false
+  if (/别名|注册|成功|失败|极光|状态|设置/.test(id)) return false
+  return true
+}
+
 function extractRid(raw) {
   if (raw == null) return ''
   if (typeof raw === 'string') {
     const s = raw.trim()
-    if (s.length >= 8 && s.indexOf(' ') < 0 && s.indexOf('{') < 0) return s
+    if (isValidRegistrationId(s)) return s
+    // 从日志文案里抠 RID，例如「注册：成功(13065ffa4f5f251335…)」
+    const m = s.match(/(?:registration[_ ]?id|registerID|成功[（(])\s*[=:：]?\s*([a-zA-Z0-9_-]{10,128})/i)
+    if (m && isValidRegistrationId(m[1])) return m[1]
+    const m2 = s.match(/\(([a-zA-Z0-9_-]{10,128})\)/)
+    if (m2 && isValidRegistrationId(m2[1])) return m2[1]
     try {
       return extractRid(JSON.parse(s))
     } catch (e) {
@@ -53,6 +70,10 @@ function extractRid(raw) {
     }
   }
   if (typeof raw !== 'object') return ''
+  // 插件回调常把 type=log 的整段文案塞进 data，不能当 RID
+  if (raw.type === 'log' || raw.type === 'alias' || raw.type === 'tags') {
+    return extractRid(raw.data != null ? raw.data : raw.info)
+  }
   const direct =
     raw.registerID ||
     raw.registrationID ||
@@ -60,7 +81,11 @@ function extractRid(raw) {
     raw.registration_id ||
     raw.rid ||
     ''
-  if (direct) return String(direct).trim()
+  if (direct && isValidRegistrationId(String(direct).trim())) return String(direct).trim()
+  if (direct) {
+    const fromText = extractRid(String(direct))
+    if (fromText) return fromText
+  }
   if (raw.data) return extractRid(raw.data)
   if (raw.info) return extractRid(raw.info)
   return ''
@@ -69,7 +94,7 @@ function extractRid(raw) {
 function uploadRegistration(rid, platform) {
   if (!getToken()) return Promise.resolve(null)
   const id = String(rid || '').trim()
-  if (!id || id.length < 8) return Promise.resolve(null)
+  if (!isValidRegistrationId(id)) return Promise.resolve(null)
   if (reporting && id === lastRid) return Promise.resolve(null)
   reporting = true
   lastRid = id
@@ -127,12 +152,6 @@ function ensureRegistered(jp) {
         try {
           const rid = extractRid(res)
           if (rid) uploadRegistration(rid, detectPlatform())
-          // 部分版本把 RID 放在 log 文案里
-          if (!rid && res && res.type === 'log') {
-            const text = JSON.stringify(res.data || res)
-            const m = text.match(/registration[_ ]?id["'\s:=]+([a-zA-Z0-9_-]{8,})/i)
-            if (m && m[1]) uploadRegistration(m[1], detectPlatform())
-          }
           if (res && (res.type === 'notice-open' || res.type === 'notice')) {
             // 点击通知进聊天：payload 若有会话信息可再扩展
           }

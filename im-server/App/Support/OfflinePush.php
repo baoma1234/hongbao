@@ -183,7 +183,8 @@ class OfflinePush
             );
             foreach ($rows as $row) {
                 $rid = trim((string)($row['registration_id'] ?? ''));
-                if ($rid !== '') {
+                // 拒绝插件日志/别名误入库的假 RID，避免挡住 alias 回退
+                if ($rid !== '' && self::isValidRegistrationId($rid)) {
                     $rids[$rid] = $rid;
                 }
             }
@@ -339,6 +340,21 @@ class OfflinePush
         } catch (\Throwable $e) {
             CatchLog::quiet($e, 'Support.OfflinePush');
         }
+    }
+
+    protected static function isValidRegistrationId($rid)
+    {
+        $rid = trim((string)$rid);
+        if ($rid === '' || strlen($rid) < 10 || strlen($rid) > 128) {
+            return false;
+        }
+        if (preg_match('/^u\d+$/i', $rid)) {
+            return false;
+        }
+        if (!preg_match('/^[a-zA-Z0-9_-]+$/', $rid)) {
+            return false;
+        }
+        return true;
     }
 
     protected static function claimOnce($key, $ttl)
