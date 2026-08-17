@@ -1018,7 +1018,7 @@ class Fanshub extends Api
             $info = $this->auth ? $this->auth->getUserinfo() : [];
             $nick = (string)($info['nickname'] ?? '');
             $data = \app\common\library\FansHubYxx::placePreviewBet((int)$this->auth->id, $face, $stake, $nick);
-            $this->success('已记录本局预览（不扣款）', $data);
+            $this->success(\app\common\library\FansHubService::h5CopyText('yxx_preview_ok') ?: 'ok', $data);
         } catch (HttpResponseException $e) {
             throw $e;
         } catch (\Throwable $e) {

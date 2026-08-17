@@ -5,10 +5,10 @@
         <text class="yxx-back-char">‹</text>
       </view>
       <view class="yxx-titles">
-        <text class="yxx-title">鱼虾蟹</text>
-        <text class="yxx-sub">Bầu Cua Cá Cọp</text>
+        <text class="yxx-title">{{ t('yxx_title') }}</text>
+        <text class="yxx-sub">{{ t('yxx_subtitle') }}</text>
       </view>
-      <view class="yxx-rules-btn" hover-class="yxx-hit" @click="rulesOpen = true">规则</view>
+      <view class="yxx-rules-btn" hover-class="yxx-hit" @click="rulesOpen = true">{{ t('yxx_rules') }}</view>
     </view>
 
     <view class="yxx-stats">
@@ -18,10 +18,10 @@
       </view>
       <view class="yxx-pill">
         <text class="yxx-pill-ico">👤</text>
-        <text>参与人数 {{ playerCount }}人</text>
+        <text>{{ t('yxx_players', { n: playerCount }) }}</text>
       </view>
       <view class="yxx-pill gold">
-        <text>本局奖金池 {{ poolText }}积分</text>
+        <text>{{ t('yxx_pool', { n: poolText }) }}</text>
       </view>
     </view>
 
@@ -41,7 +41,7 @@
               </view>
             </view>
             <text class="yxx-lab">{{ f.label }}</text>
-            <text v-if="myFace === f.id" class="yxx-chip">已押 {{ myStake }}</text>
+            <text v-if="myFace === f.id" class="yxx-chip">{{ t('yxx_staked', { n: myStake }) }}</text>
           </view>
         </view>
       </view>
@@ -52,7 +52,7 @@
         </view>
         <view class="yxx-bowl" />
         <view class="yxx-dice-row">
-          <view v-for="(d, i) in diceShow" :key="i" class="yxx-die">
+          <view v-for="(d, i) in diceLabels" :key="i" class="yxx-die">
             <text>{{ d || '·' }}</text>
           </view>
         </view>
@@ -88,10 +88,10 @@
             class="yxx-input"
             type="number"
             :value="String(stake)"
-            :placeholder="'积分 ' + stakeMin + '-' + stakeMax"
+            :placeholder="t('yxx_points_range', { min: stakeMin, max: stakeMax })"
             @input="onAmt"
           />
-          <text class="yxx-amt-lab">积分</text>
+          <text class="yxx-amt-lab">{{ t('yxx_points') }}</text>
         </view>
         <view
           class="yxx-confirm"
@@ -104,14 +104,14 @@
 
     <view v-if="rulesOpen" class="yxx-mask" @click="rulesOpen = false">
       <view class="yxx-sheet" @click.stop>
-        <text class="yxx-sheet-t">鱼虾蟹 · 大厅规则（内测）</text>
+        <text class="yxx-sheet-t">{{ t('yxx_rules_title') }}</text>
         <scroll-view scroll-y class="yxx-sheet-body">
-          <text class="yxx-sheet-p">入口未对全员开放。每局限选 1 门，{{ stakeMin }}–{{ stakeMax }} 积分。</text>
-          <text class="yxx-sheet-p">本页按效果图走三骰揭碗；正式结算按白皮书单骰。当前为预览局，确认下注不扣款。</text>
-          <text class="yxx-sheet-p">计划抽水：3% 平台 + 5% 爆点池，剩余 92%。固定赔率示例：50×6×92%=276。</text>
-          <text class="yxx-sheet-p">爆点：30–50 有效局内必触发一次，释放 50% 或 100%；连续两次半爆后下次强制全清。</text>
+          <text class="yxx-sheet-p">{{ t('yxx_rules_p1', { min: stakeMin, max: stakeMax }) }}</text>
+          <text class="yxx-sheet-p">{{ t('yxx_rules_p2') }}</text>
+          <text class="yxx-sheet-p">{{ t('yxx_rules_p3') }}</text>
+          <text class="yxx-sheet-p">{{ t('yxx_rules_p4') }}</text>
         </scroll-view>
-        <view class="yxx-sheet-ok" @click="rulesOpen = false">知道了</view>
+        <view class="yxx-sheet-ok" @click="rulesOpen = false">{{ t('yxx_rules_ok') }}</view>
       </view>
     </view>
   </view>
@@ -121,18 +121,23 @@
 import { computed, onUnmounted, ref } from 'vue'
 import { onHide, onShow } from '@dcloudio/uni-app'
 import { apiRequest, getToken } from '../../utils/auth.js'
+import { localeState, t } from '../../utils/i18n.js'
 import { applySafeAreaCssVars, getSafeAreaInsets } from '../../utils/safe-area.js'
 
-const FACE_MAP = {
-  gourd: { id: 'gourd', emo: '🎃', label: '葫芦' },
-  crab: { id: 'crab', emo: '🦀', label: '螃蟹' },
-  shrimp: { id: 'shrimp', emo: '🦐', label: '虾' },
-  fish: { id: 'fish', emo: '🐟', label: '鱼' },
-  rooster: { id: 'rooster', emo: '🐓', label: '公鸡' },
-  tiger: { id: 'tiger', emo: '🐯', label: '老虎' },
+const FACE_EMO = {
+  gourd: '🎃',
+  crab: '🦀',
+  shrimp: '🦐',
+  fish: '🐟',
+  rooster: '🐓',
+  tiger: '🐯',
 }
-
-const faces = [FACE_MAP.gourd, FACE_MAP.crab, FACE_MAP.shrimp, FACE_MAP.fish, FACE_MAP.rooster, FACE_MAP.tiger]
+const FACE_IDS = ['gourd', 'crab', 'shrimp', 'fish', 'rooster', 'tiger']
+const locale = localeState()
+const faces = computed(() => {
+  void locale.value
+  return FACE_IDS.map((id) => ({ id, emo: FACE_EMO[id], label: t('yxx_face_' + id) }))
+})
 const chipOpts = [50, 100, 150, 200]
 
 const padTop = ref(20)
@@ -152,8 +157,8 @@ const myStake = ref(0)
 const rulesOpen = ref(false)
 const betting = ref(false)
 const diceShow = ref(['', '', ''])
-const historyLine = ref('等待首局开奖')
-const feed = ref([])
+const historyRows = ref([])
+const feedRows = ref([])
 let poll = null
 let lastRound = -1
 
@@ -168,29 +173,67 @@ const poolText = computed(() => {
 })
 
 const timerText = computed(() => {
+  void locale.value
   const n = remainSec.value
-  if (phase.value === 'locking') return '封盘开奖 ' + n + '秒'
-  if (phase.value === 'reveal') return '开奖展示 ' + n + '秒'
-  return '本局剩余 ' + n + '秒'
+  if (phase.value === 'locking') return t('yxx_timer_lock', { n })
+  if (phase.value === 'reveal') return t('yxx_timer_reveal', { n })
+  return t('yxx_timer_bet', { n })
 })
 
 const confirmText = computed(() => {
-  if (betting.value) return '提交中'
-  if (phase.value === 'locking') return '已封盘'
-  if (phase.value === 'reveal') return '开奖中'
-  return '确认下注'
+  void locale.value
+  if (betting.value) return t('yxx_confirming')
+  if (phase.value === 'locking') return t('yxx_sealed')
+  if (phase.value === 'reveal') return t('yxx_drawing')
+  return t('yxx_confirm')
 })
+
+function faceLabel(id) {
+  void locale.value
+  const k = String(id || '')
+  if (!k) return ''
+  return t('yxx_face_' + k) || k
+}
 
 const revealHint = computed(() => {
-  if (phase.value === 'locking') return '金碗扣住 · 即将揭晓'
+  void locale.value
+  if (phase.value === 'locking') return t('yxx_hint_lock')
   if (phase.value === 'reveal') {
-    const lab = (FACE_MAP[settleFace.value] || {}).label
-    return lab ? '本局结算门（单骰）：' + lab : '揭碗开奖'
+    const lab = faceLabel(settleFace.value)
+    return lab ? t('yxx_hint_reveal', { face: lab }) : t('yxx_hint_lock')
   }
-  if (selectedFace.value) return '已选「' + ((FACE_MAP[selectedFace.value] || {}).label || '') + '」· 预览不扣款'
-  return '点选图案后确认下注 · 内测不扣款'
+  if (selectedFace.value) return t('yxx_hint_pick', { face: faceLabel(selectedFace.value) })
+  return t('yxx_hint_idle')
 })
 
+const historyLine = computed(() => {
+  void locale.value
+  const rows = historyRows.value.slice(0, 2)
+  if (!rows.length) return t('yxx_hist_wait')
+  return rows
+    .map((r) => {
+      const faces = (r.dice || []).map((id) => faceLabel(id)).filter(Boolean).join(' ')
+      return t('yxx_hist_round', { faces })
+    })
+    .join('  |  ')
+})
+
+const feed = computed(() => {
+  void locale.value
+  return feedRows.value.map((row) => {
+    if (typeof row === 'string') return row
+    return t('yxx_feed_line', {
+      nick: row.nick || '',
+      face: faceLabel(row.face),
+      stake: row.stake || 0,
+    })
+  })
+})
+
+const diceLabels = computed(() => {
+  void locale.value
+  return diceShow.value.map((id) => (id ? faceLabel(id) : ''))
+})
 const feedLeft = computed(() => feed.value.filter((_, i) => i % 2 === 0))
 const feedRight = computed(() => feed.value.filter((_, i) => i % 2 === 1))
 
@@ -248,13 +291,15 @@ function applyHall(data) {
     myStake.value = 0
     settleFace.value = ''
   }
-  if (Array.isArray(data.live_bets) && data.live_bets.length) {
-    feed.value = data.live_bets.map((b) => String(b))
+  if (Array.isArray(data.live_bets)) {
+    feedRows.value = data.live_bets
   }
-  if (data.history_line) historyLine.value = String(data.history_line)
-  const labels = Array.isArray(data.dice_labels) ? data.dice_labels : data.dice
-  if (phase.value === 'reveal' && Array.isArray(labels) && labels.length === 3) {
-    diceShow.value = labels.map((x) => String(x || ''))
+  if (Array.isArray(data.history)) {
+    historyRows.value = data.history
+  }
+  const ids = Array.isArray(data.dice) ? data.dice : []
+  if (phase.value === 'reveal' && ids.length === 3) {
+    diceShow.value = ids.map((x) => String(x || ''))
   } else if (phase.value !== 'reveal') {
     diceShow.value = ['', '', '']
   }
@@ -279,11 +324,11 @@ async function loadHall() {
 async function onBet() {
   if (phase.value !== 'betting' || betting.value) return
   if (!selectedFace.value) {
-    uni.showToast({ title: '请先点选一个图案', icon: 'none' })
+    uni.showToast({ title: t('yxx_pick_face'), icon: 'none' })
     return
   }
   if (stake.value < stakeMin.value) {
-    uni.showToast({ title: '起注 ' + stakeMin.value + ' 积分', icon: 'none' })
+    uni.showToast({ title: t('yxx_stake_min', { n: stakeMin.value }), icon: 'none' })
     return
   }
   if (!getToken()) {
@@ -297,9 +342,9 @@ async function onBet() {
       stake: stake.value,
     })
     applyHall(data)
-    uni.showToast({ title: '已记录预览，本局不扣款', icon: 'none' })
+    uni.showToast({ title: t('yxx_preview_ok'), icon: 'none' })
   } catch (e) {
-    uni.showToast({ title: (e && e.message) || '下注失败', icon: 'none' })
+    uni.showToast({ title: (e && e.message) || t('yxx_bet_fail'), icon: 'none' })
   } finally {
     betting.value = false
   }

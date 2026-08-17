@@ -16,6 +16,7 @@ use Im\Service\GroupService;
 use Im\Service\MessageService;
 use Im\Service\NiuniuService;
 use Im\Service\NiuniuAutoBotService;
+use Im\Service\YxxHallTickService;
 use Im\Service\RedPacketService;
 use Im\Service\RpAutoBotService;
 use Im\Support\Db;
@@ -65,6 +66,7 @@ $worker->onWorkerStart = function () use ($cfg, $cronCfg) {
     $autoBusy = false;
     $niuniuBusy = false;
     $nnAutoBusy = false;
+    $yxxBusy = false;
 
     // 启动先拉一次哈希
     try {
@@ -176,12 +178,32 @@ $worker->onWorkerStart = function () use ($cfg, $cronCfg) {
         }
     });
 
+    $yxxTickUrl = (string)($cronCfg['yxx_tick_url'] ?? '');
+    $yxxTickEvery = (float)($cronCfg['yxx_tick_interval'] ?? 2);
+    $yxxTickEvery = max(1.0, min(10.0, $yxxTickEvery));
+    if ($yxxTickUrl !== '') {
+        Timer::add($yxxTickEvery, function () use ($yxxTickUrl, &$yxxBusy) {
+            if ($yxxBusy) {
+                return;
+            }
+            $yxxBusy = true;
+            try {
+                YxxHallTickService::tick($yxxTickUrl);
+            } catch (\Throwable $e) {
+                error_log('[CRON][YXX] ' . $e->getMessage());
+            } finally {
+                $yxxBusy = false;
+            }
+        });
+    }
+
     error_log(sprintf(
-        '[CRON] started tron=%.1fs refund=%ds settle=%ds auto=%ds niuniu=2s nn_auto=2s',
+        '[CRON] started tron=%.1fs refund=%ds settle=%ds auto=%ds niuniu=2s nn_auto=2s yxx=%.1fs',
         $hashPoll,
         $refundEvery,
         $settleEvery,
-        $autoEvery
+        $autoEvery,
+        $yxxTickEvery
     ));
 };
 
