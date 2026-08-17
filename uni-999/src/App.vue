@@ -75,6 +75,7 @@ onLaunch(async () => {
     path.indexOf('pages/messages/') === 0 ||
     path.indexOf('pages/exchange/') === 0 ||
     path.indexOf('pages/fission/') === 0 ||
+    path.indexOf('pages/yxx/') === 0 ||
     path.indexOf('pages/master/') === 0 ||
     path.indexOf('pages/profile/') === 0
   ) {

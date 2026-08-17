@@ -17,7 +17,7 @@ use think\Validate;
  */
 class Fanshub extends Api
 {
-    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail'];
+    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail', 'yxxhall'];
     protected $noNeedRight = '*';
 
     public function _initialize()
@@ -25,7 +25,7 @@ class Fanshub extends Api
         FansHubSms::boot();
         parent::_initialize();
         $action = strtolower($this->request->action());
-        $exempt = ['config', 'bootstrap', 'comments', 'inviteleaderboard', 'slidercaptcha', 'grabslider', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail'];
+        $exempt = ['config', 'bootstrap', 'comments', 'inviteleaderboard', 'slidercaptcha', 'grabslider', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail', 'yxxhall'];
         if (in_array($action, $exempt, true)) {
             return;
         }
@@ -986,6 +986,35 @@ class Fanshub extends Api
             $uid = 0;
         }
         $this->success('ok', \app\common\library\FansHubFission::entryPayload($uid));
+    }
+
+    /**
+     * 鱼虾蟹大厅看板（可匿名；下注接口后续单独鉴权）
+     * GET /api/fanshub/yxxhall
+     */
+    public function yxxhall()
+    {
+        $cfg = \app\common\library\FansHubService::config();
+        $enabled = !empty($cfg['yxx_enabled']);
+        $this->success('ok', [
+            'enabled'      => $enabled ? 1 : 0,
+            'tab_visible'  => !empty($cfg['yxx_tab_visible']) ? 1 : 0,
+            'stake_min'    => max(1, (int)($cfg['yxx_stake_min'] ?? 50)),
+            'stake_max'    => max(1, (int)($cfg['yxx_stake_max'] ?? 200)),
+            'cycle_max'    => max(2, (int)($cfg['yxx_cycle_max'] ?? 50)),
+            'boom_from'    => max(1, (int)($cfg['yxx_boom_from'] ?? 30)),
+            'faces'        => ['fish', 'shrimp', 'crab', 'gourd', 'coin', 'deer'],
+            'marquee'      => '🔥 爆点高能预警：每一轮 30-50 有效局之内必定触发一次爆点事件！触发后随机释放爆点池 50% 或 100% 奖金。若连续出现两次 50% 半爆释放，下一次爆点事件将跨周期强制 100% 全额释放清空！利益分配：本局总投注扣除 3% 平台服务费、5% 划入爆点池，剩余 92% 全额进入本局分配池。',
+            'round'        => [
+                'pool'         => 0,
+                'boom_pool'    => 0,
+                'round_index'  => 0,
+                'in_boom_zone' => 0,
+                'status'       => $enabled ? 'preview' : 'off',
+            ],
+            'history'      => [],
+            'preview'      => 1,
+        ]);
     }
 
     /**

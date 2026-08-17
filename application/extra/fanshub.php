@@ -64,6 +64,12 @@ return array (
   'jpush_app_key' => '8cdf371fe7b28e2981a712a2',
   'jpush_master_secret' => '17d85b80064c28b897f837a1',
   'jpush_apns_production' => true,
+  'yxx_enabled' => true,
+  'yxx_tab_visible' => false,
+  'yxx_stake_min' => 50,
+  'yxx_stake_max' => 200,
+  'yxx_cycle_max' => 50,
+  'yxx_boom_from' => 30,
   'im_admin' => 
   array (
     'bridge_url' => 'http://127.0.0.1:17273',

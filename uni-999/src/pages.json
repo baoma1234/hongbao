@@ -160,6 +160,13 @@
         "navigationBarTitleText": "裂变红宝",
         "navigationStyle": "custom"
       }
+    },
+    {
+      "path": "pages/yxx/hall",
+      "style": {
+        "navigationBarTitleText": "鱼虾蟹",
+        "navigationStyle": "custom"
+      }
     }
   ],
   "subPackages": [
