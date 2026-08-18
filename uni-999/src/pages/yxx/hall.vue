@@ -27,6 +27,10 @@
 
     <scroll-view scroll-y class="yxx-scroll" :style="{ height: scrollH }">
       <view class="yxx-grid-wrap">
+        <view class="yxx-stud s1" />
+        <view class="yxx-stud s2" />
+        <view class="yxx-stud s3" />
+        <view class="yxx-stud s4" />
         <view class="yxx-grid">
           <view
             v-for="f in faces"
@@ -36,9 +40,7 @@
             @click="pickFace(f.id)"
           >
             <view class="yxx-ring">
-              <view class="yxx-ring-in">
-                <text class="yxx-emo">{{ f.emo }}</text>
-              </view>
+              <image class="yxx-face-img" :src="f.src" mode="aspectFill" />
             </view>
             <text class="yxx-lab">{{ f.label }}</text>
             <text v-if="myFace === f.id" class="yxx-chip">{{ t('yxx_staked', { n: myStake }) }}</text>
@@ -50,10 +52,11 @@
         <view class="yxx-spark" v-if="phase === 'reveal'">
           <text v-for="n in 6" :key="n" class="yxx-coin" :class="'c' + n">●</text>
         </view>
-        <view class="yxx-bowl" />
+        <image class="yxx-bowl-img" :src="bowlSrc" mode="aspectFit" />
         <view class="yxx-dice-row">
-          <view v-for="(d, i) in diceLabels" :key="i" class="yxx-die">
-            <text>{{ d || '·' }}</text>
+          <view v-for="(id, i) in diceShow" :key="i" class="yxx-die">
+            <image v-if="id" class="yxx-die-img" :src="faceSrc(id)" mode="aspectFill" />
+            <text class="yxx-die-lab">{{ diceLabels[i] || '·' }}</text>
           </view>
         </view>
         <text class="yxx-reveal-cap">{{ revealHint }}</text>
@@ -63,10 +66,16 @@
         <text class="yxx-hist">{{ historyLine }}</text>
         <view class="yxx-feed-list">
           <view class="yxx-feed-col">
-            <text v-for="(row, i) in feedLeft" :key="'l' + i" class="yxx-feed-item">{{ row }}</text>
+            <view v-for="(row, i) in feedLeft" :key="'l' + i" class="yxx-feed-item">
+              <text class="yxx-nick">{{ row.nick }}</text>
+              <text class="yxx-feed-txt">{{ row.line }}</text>
+            </view>
           </view>
           <view class="yxx-feed-col">
-            <text v-for="(row, i) in feedRight" :key="'r' + i" class="yxx-feed-item">{{ row }}</text>
+            <view v-for="(row, i) in feedRight" :key="'r' + i" class="yxx-feed-item">
+              <text class="yxx-nick">{{ row.nick }}</text>
+              <text class="yxx-feed-txt">{{ row.line }}</text>
+            </view>
           </view>
         </view>
       </view>
@@ -122,21 +131,18 @@ import { computed, onUnmounted, ref } from 'vue'
 import { onHide, onShow } from '@dcloudio/uni-app'
 import { apiRequest, getToken } from '../../utils/auth.js'
 import { localeState, t } from '../../utils/i18n.js'
+import { packagedStaticUrl } from '../../utils/config.js'
 import { applySafeAreaCssVars, getSafeAreaInsets } from '../../utils/safe-area.js'
 
-const FACE_EMO = {
-  gourd: '🎃',
-  crab: '🦀',
-  shrimp: '🦐',
-  fish: '🐟',
-  rooster: '🐓',
-  tiger: '🐯',
-}
 const FACE_IDS = ['gourd', 'crab', 'shrimp', 'fish', 'rooster', 'tiger']
+function faceSrc(id) {
+  return packagedStaticUrl('yxx/' + id + '.png')
+}
+const bowlSrc = packagedStaticUrl('yxx/bowl.png')
 const locale = localeState()
 const faces = computed(() => {
   void locale.value
-  return FACE_IDS.map((id) => ({ id, emo: FACE_EMO[id], label: t('yxx_face_' + id) }))
+  return FACE_IDS.map((id) => ({ id, src: faceSrc(id), label: t('yxx_face_' + id) }))
 })
 const chipOpts = [50, 100, 150, 200]
 
@@ -218,15 +224,17 @@ const historyLine = computed(() => {
     .join('  |  ')
 })
 
-const feed = computed(() => {
+const feedItems = computed(() => {
   void locale.value
   return feedRows.value.map((row) => {
-    if (typeof row === 'string') return row
-    return t('yxx_feed_line', {
+    if (typeof row === 'string') {
+      return { nick: '', line: row }
+    }
+    const face = faceLabel(row.face)
+    return {
       nick: row.nick || '',
-      face: faceLabel(row.face),
-      stake: row.stake || 0,
-    })
+      line: t('yxx_feed_line', { nick: '·', face, stake: row.stake || 0 }).replace(/^·\s*/, ''),
+    }
   })
 })
 
@@ -234,8 +242,8 @@ const diceLabels = computed(() => {
   void locale.value
   return diceShow.value.map((id) => (id ? faceLabel(id) : ''))
 })
-const feedLeft = computed(() => feed.value.filter((_, i) => i % 2 === 0))
-const feedRight = computed(() => feed.value.filter((_, i) => i % 2 === 1))
+const feedLeft = computed(() => feedItems.value.filter((_, i) => i % 2 === 0))
+const feedRight = computed(() => feedItems.value.filter((_, i) => i % 2 === 1))
 
 function measure() {
   try {
@@ -481,12 +489,25 @@ onUnmounted(() => {
 }
 .yxx-grid-wrap {
   margin: 4px 12px 0;
-  padding: 12px 8px 56px;
+  padding: 14px 8px 56px;
   border-radius: 16px;
+  position: relative;
   background: linear-gradient(180deg, rgba(90, 12, 16, 0.92), rgba(50, 6, 10, 0.92));
   border: 2px solid #e0b24a;
   box-shadow: inset 0 0 0 1px rgba(255, 220, 140, 0.35), 0 8px 24px rgba(0, 0, 0, 0.35);
 }
+.yxx-stud {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff3c4, #d7a23a 55%, #8a4a10);
+  z-index: 2;
+}
+.yxx-stud.s1 { top: 8px; left: 8px; }
+.yxx-stud.s2 { top: 8px; right: 8px; }
+.yxx-stud.s3 { bottom: 8px; left: 8px; }
+.yxx-stud.s4 { bottom: 8px; right: 8px; }
 .yxx-grid {
   display: flex;
   flex-wrap: wrap;
@@ -499,33 +520,22 @@ onUnmounted(() => {
   text-align: center;
 }
 .yxx-ring {
-  width: 74px;
-  height: 74px;
+  width: 78px;
+  height: 78px;
   margin: 0 auto;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #fff3c4, #d7a23a 42%, #8a4a10);
-  border: 3px solid #f3d07a;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  overflow: hidden;
+  border: 2px solid #f3d07a;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 220, 140, 0.25);
+  background: #5a1010;
 }
-.yxx-ring-in {
-  width: 58px;
-  height: 58px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 40% 32%, #e23b32, #7a1014 72%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.yxx-face-img {
+  width: 78px;
+  height: 78px;
 }
 .yxx-cell.on .yxx-ring,
 .yxx-cell.win .yxx-ring {
   box-shadow: 0 0 0 3px #fff3c4, 0 0 16px rgba(255, 210, 80, 0.7);
-}
-.yxx-emo {
-  font-size: 30px;
-  line-height: 1;
 }
 .yxx-lab {
   display: block;
@@ -550,18 +560,15 @@ onUnmounted(() => {
   flex-direction: column;
   position: relative;
 }
-.yxx-bowl {
-  width: 88px;
-  height: 28px;
-  border-radius: 44px 44px 10px 10px;
-  background: linear-gradient(180deg, #f8e19a, #c48a22);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.35);
-  transform: rotate(0deg) translate(0, 36px);
+.yxx-bowl-img {
+  width: 108px;
+  height: 72px;
   z-index: 2;
+  transform: translate(0, 28px) rotate(0deg);
   transition: transform 0.45s ease;
 }
-.yxx-reveal.open .yxx-bowl {
-  transform: rotate(-18deg) translate(-36px, -8px);
+.yxx-reveal.open .yxx-bowl-img {
+  transform: translate(-28px, -10px) rotate(-22deg);
 }
 .yxx-dice-row {
   display: flex;
@@ -572,17 +579,30 @@ onUnmounted(() => {
   background: radial-gradient(circle, rgba(180, 30, 30, 0.55), transparent 70%);
 }
 .yxx-die {
-  width: 48px;
-  height: 48px;
+  width: 52px;
+  height: 52px;
   border-radius: 8px;
   background: #fff;
   color: #b01018;
-  font-size: 13px;
-  font-weight: 900;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  overflow: hidden;
+  position: relative;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.35);
+}
+.yxx-die-img {
+  width: 52px;
+  height: 52px;
+}
+.yxx-die-lab {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  font-size: 9px;
+  font-weight: 900;
+  text-align: center;
+  color: #fff8e6;
+  background: rgba(140, 16, 20, 0.78);
+  line-height: 14px;
 }
 .yxx-reveal-cap {
   margin-top: 4px;
@@ -634,10 +654,30 @@ onUnmounted(() => {
   min-width: 0;
 }
 .yxx-feed-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  margin-bottom: 4px;
+}
+.yxx-nick {
+  flex-shrink: 0;
+  max-width: 42%;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  color: #fff4d6;
+  background: #c41a22;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.yxx-feed-txt {
+  flex: 1;
+  min-width: 0;
   font-size: 11px;
   color: rgba(255, 247, 230, 0.88);
-  line-height: 1.7;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -685,7 +725,8 @@ onUnmounted(() => {
   position: relative;
   height: 44px;
   border-radius: 10px;
-  background: #fff;
+  background: rgba(28, 8, 10, 0.92);
+  border: 1px solid rgba(240, 193, 75, 0.35);
   display: flex;
   align-items: center;
 }
@@ -695,13 +736,13 @@ onUnmounted(() => {
   padding: 0 52px 0 12px;
   font-size: 16px;
   font-weight: 800;
-  color: #3a1408;
+  color: #ffe29a;
 }
 .yxx-amt-lab {
   position: absolute;
   right: 10px;
   font-size: 13px;
-  color: #9a6a3a;
+  color: #f0c14b;
   font-weight: 700;
 }
 .yxx-confirm {
@@ -709,7 +750,7 @@ onUnmounted(() => {
   height: 44px;
   line-height: 44px;
   text-align: center;
-  border-radius: 10px;
+  border-radius: 22px;
   font-size: 16px;
   font-weight: 900;
   color: #fff8e6;
