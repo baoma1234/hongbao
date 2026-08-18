@@ -11,6 +11,31 @@ use think\Config;
  */
 class FansHubYxxStore
 {
+    /** 0=大厅；>0 时下注/快照/派彩 key 带 g{id}: 前缀 */
+    protected static $groupId = 0;
+
+    public static function useGroup($groupId)
+    {
+        self::$groupId = max(0, (int)$groupId);
+    }
+
+    public static function groupId()
+    {
+        return (int)self::$groupId;
+    }
+
+    protected static function gpre()
+    {
+        $g = (int)self::$groupId;
+        return $g > 0 ? ('g' . $g . ':') : '';
+    }
+
+    /** 不含 cache.prefix 的逻辑名 */
+    public static function cacheName($short)
+    {
+        return 'fh:yxx:' . self::gpre() . $short;
+    }
+
     public static function redis()
     {
         try {
@@ -39,22 +64,22 @@ class FansHubYxxStore
 
     public static function betHashKey($roundIndex)
     {
-        return self::rkey('fh:yxx:bh:' . (int)$roundIndex);
+        return self::rkey(self::cacheName('bh:' . (int)$roundIndex));
     }
 
     public static function liveKey($roundIndex)
     {
-        return self::rkey('fh:yxx:lv:' . (int)$roundIndex);
+        return self::rkey(self::cacheName('lv:' . (int)$roundIndex));
     }
 
     public static function statsKey($roundIndex)
     {
-        return self::rkey('fh:yxx:st:' . (int)$roundIndex);
+        return self::rkey(self::cacheName('st:' . (int)$roundIndex));
     }
 
     public static function snapKey()
     {
-        return self::rkey('fh:yxx:snap');
+        return self::rkey(self::cacheName('snap'));
     }
 
     /**
@@ -145,7 +170,7 @@ class FansHubYxxStore
             return;
         }
 
-        $rows = Cache::get('fh:yxx:bets:' . (int)$roundIndex);
+        $rows = Cache::get(self::cacheName('bets:' . (int)$roundIndex));
         if (!is_array($rows)) {
             $rows = [];
         }
@@ -160,7 +185,7 @@ class FansHubYxxStore
         if (!$found) {
             $rows[] = $row;
         }
-        Cache::set('fh:yxx:bets:' . (int)$roundIndex, $rows, 120);
+        Cache::set(self::cacheName('bets:' . (int)$roundIndex), $rows, 120);
         self::clearSnap();
     }
 
@@ -177,7 +202,7 @@ class FansHubYxxStore
             $row = json_decode($raw, true);
             return is_array($row) ? $row : null;
         }
-        $rows = Cache::get('fh:yxx:bets:' . (int)$roundIndex);
+        $rows = Cache::get(self::cacheName('bets:' . (int)$roundIndex));
         if (!is_array($rows)) {
             return null;
         }
@@ -221,7 +246,7 @@ class FansHubYxxStore
             }
             return $rows;
         }
-        $rows = Cache::get('fh:yxx:bets:' . (int)$roundIndex);
+        $rows = Cache::get(self::cacheName('bets:' . (int)$roundIndex));
         return is_array($rows) ? $rows : [];
     }
 
@@ -282,7 +307,7 @@ class FansHubYxxStore
             $data = json_decode($raw, true);
             return is_array($data) ? $data : null;
         }
-        $data = Cache::get('fh:yxx:snap');
+        $data = Cache::get(self::cacheName('snap'));
         return is_array($data) ? $data : null;
     }
 
@@ -295,7 +320,7 @@ class FansHubYxxStore
             $redis->setex(self::snapKey(), $ttl, $json);
             return;
         }
-        Cache::set('fh:yxx:snap', $payload, $ttl);
+        Cache::set(self::cacheName('snap'), $payload, $ttl);
     }
 
     public static function clearSnap()
@@ -308,7 +333,7 @@ class FansHubYxxStore
             }
             return;
         }
-        Cache::rm('fh:yxx:snap');
+        Cache::rm(self::cacheName('snap'));
     }
 
     /**
@@ -319,7 +344,7 @@ class FansHubYxxStore
         $ttl = max(60, (int)$ttl);
         $redis = self::redis();
         if (!$redis) {
-            Cache::set('fh:yxx:bets:' . (int)$roundIndex, $rows, $ttl);
+            Cache::set(self::cacheName('bets:' . (int)$roundIndex), $rows, $ttl);
             self::clearSnap();
             return;
         }
@@ -362,11 +387,11 @@ class FansHubYxxStore
                 if ($uid <= 0 || empty($item['pay'])) {
                     continue;
                 }
-                Cache::set('fh:yxx:winpay:' . $uid, $item['pay'], 3600);
+                Cache::set(self::cacheName('winpay:' . $uid), $item['pay'], 3600);
             }
             return;
         }
-        $qkey = self::rkey('fh:yxx:winq');
+        $qkey = self::rkey(self::cacheName('winq'));
         $chunks = array_chunk($items, 400);
         foreach ($chunks as $chunk) {
             try {
@@ -377,7 +402,7 @@ class FansHubYxxStore
                         continue;
                     }
                     $redis->setex(
-                        self::rkey('fh:yxx:winpay:' . $uid),
+                        self::rkey(self::cacheName('winpay:' . $uid)),
                         3600,
                         json_encode($item['pay'], JSON_UNESCAPED_UNICODE)
                     );
@@ -390,7 +415,7 @@ class FansHubYxxStore
                     if ($uid <= 0 || empty($item['pay'])) {
                         continue;
                     }
-                    Cache::set('fh:yxx:winpay:' . $uid, $item['pay'], 3600);
+                    Cache::set(self::cacheName('winpay:' . $uid), $item['pay'], 3600);
                 }
             }
         }
@@ -411,7 +436,7 @@ class FansHubYxxStore
         if (!$redis) {
             return [];
         }
-        $key = self::rkey('fh:yxx:winq');
+        $key = self::rkey(self::cacheName('winq'));
         $uids = [];
         try {
             $redis->multi(\Redis::PIPELINE);
@@ -616,6 +641,53 @@ class FansHubYxxStore
         return self::rkey('fh:yxx:rlive:left');
     }
 
+    public static function rainWtKey($eventId)
+    {
+        return self::rkey('fh:yxx:rainwt:' . (int)$eventId);
+    }
+
+    public static function addRainWeights($eventId, array $weights, $ttl)
+    {
+        $redis = self::redis();
+        if (!$redis) {
+            return;
+        }
+        $key = self::rainWtKey($eventId);
+        $ttl = max(20, (int)$ttl);
+        foreach (array_chunk($weights, 400, true) as $chunk) {
+            try {
+                $redis->multi(\Redis::PIPELINE);
+                foreach ($chunk as $uid => $w) {
+                    $uid = (int)$uid;
+                    if ($uid > 0) {
+                        $redis->hSet($key, (string)$uid, (string)max(1, (int)$w));
+                    }
+                }
+                $redis->exec();
+            } catch (\Throwable $e) {
+            }
+        }
+        try {
+            $redis->expire($key, $ttl);
+        } catch (\Throwable $e) {
+        }
+    }
+
+    public static function rainWeight($eventId, $uid)
+    {
+        $uid = (int)$uid;
+        $redis = self::redis();
+        if (!$redis || $uid <= 0) {
+            return 0;
+        }
+        try {
+            $v = $redis->hGet(self::rainWtKey($eventId), (string)$uid);
+            return max(0, (int)$v);
+        } catch (\Throwable $e) {
+            return 0;
+        }
+    }
+
     public static function addRainEligible($eventId, array $uids, $ttl)
     {
         $redis = self::redis();
@@ -763,7 +835,7 @@ class FansHubYxxStore
             return;
         }
         try {
-            $redis->del(self::rainLeftKey(), self::rainElKey($eventId), self::rainGotKey($eventId));
+            $redis->del(self::rainLeftKey(), self::rainElKey($eventId), self::rainGotKey($eventId), self::rainWtKey($eventId));
         } catch (\Throwable $e) {
         }
     }

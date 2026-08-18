@@ -442,6 +442,11 @@ class FansHubYxxPool
      */
     public static function afterRoundSettled($roundIndex, $grossPoolAfter, array $meta = [])
     {
+        $gid = \app\common\library\FansHubYxx::currentGroupId();
+        if ($gid > 0) {
+            FansHubYxxGroup::setGross($gid, $grossPoolAfter);
+            return null;
+        }
         $cfg = self::configMap();
         if (empty($cfg['enabled'])) {
             self::setGrossPool($grossPoolAfter);
@@ -684,6 +689,10 @@ class FansHubYxxPool
         }
         self::setGrossPool(max(0, (int)$grossPool - $releaseAmount));
         $ttl = $claimSec + 30;
+        $weightSum = 0;
+        foreach ($eligible as $w) {
+            $weightSum += max(1, (int)$w);
+        }
         FansHubYxxStore::setJson('fh:yxx:rlive', [
             'event_id'    => $eventId,
             'release'     => $releaseAmount,
@@ -693,6 +702,7 @@ class FansHubYxxPool
             'cap'         => $cap,
             'eligible_n'  => $n,
             'claim_sec'   => $claimSec,
+            'weight_sum'  => $weightSum,
         ], $ttl);
         try {
             $redis = FansHubYxxStore::redis();
@@ -702,6 +712,7 @@ class FansHubYxxPool
         } catch (\Throwable $e) {
         }
         FansHubYxxStore::addRainEligible($eventId, array_keys($eligible), $ttl);
+        FansHubYxxStore::addRainWeights($eventId, $eligible, $ttl);
         Cache::rm('fh:yxx:poolsnap');
         FansHubYxxStore::clearSnap();
         return [
@@ -712,6 +723,7 @@ class FansHubYxxPool
             'hash_seed'    => substr((string)$seed, 0, 32),
             'round_index'  => (int)$roundIndex,
             'live'         => 1,
+            'weight_sum'   => $weightSum,
         ];
     }
 
@@ -861,11 +873,19 @@ class FansHubYxxPool
         }
         $n = max(1, (int)($live['eligible_n'] ?? 1));
         $release = max(1, (int)($live['release'] ?? 1));
-        $avg = max(1, (int)floor($release / $n));
-        $seed = (string)($live['seed'] ?? '');
-        $h = hexdec(substr(hash('sha256', $seed . '|' . $uid), 0, 6));
-        $jitter = 50 + ((int)$h % 101);
-        $want = (int)max(1, min((int)($live['cap'] ?? ($avg * 2)), (int)floor($avg * $jitter / 100)));
+        $w = FansHubYxxStore::rainWeight($eventId, $uid);
+        if ($w <= 0) {
+            $w = 1;
+        }
+        $sum = max(1, (int)($live['weight_sum'] ?? $n));
+        $cap = (int)($live['cap'] ?? 0);
+        $want = (int)floor($release * $w / $sum);
+        if ($want < 1) {
+            $want = 1;
+        }
+        if ($cap > 0) {
+            $want = min($want, $cap);
+        }
         $got = FansHubYxxStore::rainTake($want);
         if ($got <= 0) {
             FansHubYxxStore::rainUnmarkGot($eventId, $uid);
@@ -877,7 +897,7 @@ class FansHubYxxPool
                 'event_id'   => $eventId,
                 'user_id'    => $uid,
                 'amount'     => $got,
-                'weight'     => 1,
+                'weight'     => $w,
                 'popup_seen' => 1,
                 'paid'       => 1,
                 'createtime' => $now,
@@ -888,7 +908,7 @@ class FansHubYxxPool
                     'event_id'   => $eventId,
                     'user_id'    => $uid,
                     'amount'     => $got,
-                    'weight'     => 1,
+                    'weight'     => $w,
                     'popup_seen' => 1,
                     'createtime' => $now,
                 ]);

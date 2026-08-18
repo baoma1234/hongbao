@@ -272,6 +272,14 @@
               <text class="chat-attach-icon">⏹</text>
               <text>关闭牛牛</text>
             </view>
+            <view v-if="canEnterYxx" class="chat-attach-item" @click="onAttachPick('yxx')">
+              <text class="chat-attach-icon">🎲</text>
+              <text>鱼虾蟹</text>
+            </view>
+            <view v-if="canStopYxx" class="chat-attach-item" @click="onAttachPick('yxx_stop')">
+              <text class="chat-attach-icon">⏹</text>
+              <text>关闭鱼虾蟹</text>
+            </view>
             <view v-if="isPrivate" class="chat-attach-item" @click="onAttachPick('transfer')">
               <text class="chat-attach-icon">💸</text>
               <text>转账</text>
@@ -1184,6 +1192,10 @@ const canStopNiuniu = computed(() => {
   if (pol.can_stop_niuniu) return true
   return !!(niuniuLooping.value && ((groupMeta.value && groupMeta.value.my_role) | 0) >= 2)
 })
+
+const canEnterYxx = computed(() => !isPrivate.value && ((meta.value.group | 0) > 0))
+const canStartYxx = computed(() => !isPrivate.value && ((groupMeta.value && groupMeta.value.my_role) | 0) >= 2)
+const canStopYxx = computed(() => canStartYxx.value)
 
 const forbidModes = computed(() => {
   const m = groupMeta.value || {}
@@ -2412,6 +2424,10 @@ function onAttachPick(kind) {
     startNiuniuRound(2)
   } else if (kind === 'niuniu_stop') {
     stopNiuniuLoop()
+  } else if (kind === 'yxx') {
+    openYxxTable()
+  } else if (kind === 'yxx_stop') {
+    stopYxxTable()
   } else if (kind === 'transfer') {
     openTransferSend()
   }
@@ -3188,6 +3204,28 @@ async function sendText() {
     markRead().catch(() => {})
   } catch (e) {
     uni.showToast({ title: e.message || '发送失败', icon: 'none' })
+  }
+}
+
+async function openYxxTable() {
+  const gid = meta.value.group | 0
+  if (!gid) return
+  if (canStartYxx.value) {
+    try {
+      await apiRequest('yxxgroupstart', 'POST', { group_id: gid })
+    } catch (e) {}
+  }
+  uni.navigateTo({ url: '/pages/yxx/hall?group_id=' + gid })
+}
+
+async function stopYxxTable() {
+  const gid = meta.value.group | 0
+  if (!gid || !canStopYxx.value) return
+  try {
+    await apiRequest('yxxgroupstop', 'POST', { group_id: gid })
+    uni.showToast({ title: '已关闭本群鱼虾蟹', icon: 'none' })
+  } catch (e) {
+    uni.showToast({ title: (e && e.message) || '关闭失败', icon: 'none' })
   }
 }
 

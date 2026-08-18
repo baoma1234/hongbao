@@ -8,7 +8,7 @@
       </view>
       <view class="yxx-titles">
         <text class="yxx-title">{{ t('yxx_title') }}</text>
-        <text class="yxx-sub">{{ t('yxx_subtitle') }}</text>
+        <text class="yxx-sub">{{ groupId ? (groupName || t('yxx_subtitle_group')) : t('yxx_subtitle') }}</text>
       </view>
       <view class="yxx-h-side yxx-h-right">
         <view class="yxx-rules-btn" hover-class="yxx-hit" @click="openVerify">{{ t('yxx_verify') }}</view>
@@ -46,7 +46,7 @@
       <view class="yxx-pool-track">
         <view class="yxx-pool-fill" :style="{ width: rainProgress + '%' }" />
       </view>
-      <text class="yxx-pool-prog">{{ rainProgText }}</text>
+      <text v-if="!groupId" class="yxx-pool-prog">{{ rainProgText }}</text>
     </view>
 
     <scroll-view scroll-y class="yxx-scroll" :style="{ height: scrollH }">
@@ -144,12 +144,13 @@
           <text class="yxx-sheet-p">{{ t('yxx_rules_p3') }}</text>
           <text class="yxx-sheet-p">{{ t('yxx_rules_p4') }}</text>
           <text class="yxx-sheet-p">{{ t('yxx_rules_p5') }}</text>
+          <text v-if="groupId" class="yxx-sheet-p">{{ t('yxx_rules_group') }}</text>
         </scroll-view>
         <view class="yxx-sheet-ok" @click="rulesOpen = false">{{ t('yxx_rules_ok') }}</view>
       </view>
     </view>
 
-    <view v-if="rainOpen" class="yxx-mask yxx-rain-mask" @click.stop>
+    <view v-if="rainOpen && !groupId" class="yxx-mask yxx-rain-mask" @click.stop>
       <view class="yxx-rain-fall">
         <text
           v-for="n in rainDrops"
@@ -172,7 +173,7 @@
 
 <script setup>
 import { computed, onUnmounted, ref } from 'vue'
-import { onHide, onResize, onShow } from '@dcloudio/uni-app'
+import { onHide, onLoad, onResize, onShow } from '@dcloudio/uni-app'
 import { apiRequest, getToken } from '../../utils/auth.js'
 import { localeState, t } from '../../utils/i18n.js'
 import { packagedStaticUrl } from '../../utils/config.js'
@@ -227,6 +228,8 @@ const rainNeedGrab = ref(false)
 const rainGrabbing = ref(false)
 const poolStatus = ref('normal')
 const tronBlockNum = ref(0)
+const groupId = ref(0)
+const groupName = ref('')
 let netPoll = null
 let tickTimer = null
 let lastRound = -1
@@ -496,9 +499,12 @@ function applyHall(data) {
   rainProgress.value = Math.min(100, Number(pinfo.rain_progress || 0))
   poolStatus.value = String(data.pool_status || pinfo.pool_status || 'normal')
   tronBlockNum.value = Number(r.tron_block_num || 0)
+  if (data.group && data.group.group_name) {
+    groupName.value = String(data.group.group_name)
+  }
   measure()
 
-  const popup = data.rain_popup
+  const popup = groupId.value ? null : data.rain_popup
   const ev = Number((popup && popup.event_id) || 0)
   if (popup && ev > 0 && ev !== rainClaimedEvent) {
     const expired = Number(popup.expire_at || 0) > 0 && Number(popup.expire_at) <= Math.floor(Date.now() / 1000)
@@ -560,9 +566,16 @@ async function ackRain() {
 
 async function loadHall() {
   try {
-    const data = await apiRequest('yxxhall', 'GET', {}, { skipAuthRedirect: true })
+    const data = await apiRequest('yxxhall', 'GET', groupParams(), {
+      skipAuthRedirect: groupId.value <= 0,
+    })
     applyHall(data)
-  } catch (e) {}
+  } catch (e) {
+    const msg = (e && e.message) || ''
+    if (groupId.value > 0 && msg) {
+      uni.showToast({ title: msg, icon: 'none' })
+    }
+  }
 }
 
 async function onBet() {
@@ -585,10 +598,10 @@ async function onBet() {
   }
   betting.value = true
   try {
-    const data = await apiRequest('yxxbet', 'POST', {
+    const data = await apiRequest('yxxbet', 'POST', groupParams({
       face: selectedFace.value,
       stake: stake.value,
-    })
+    }))
     applyHall(data)
     if (realMoney.value) {
       uni.showToast({ title: t('yxx_bet_ok', { n: stake.value }), icon: 'none' })
@@ -636,6 +649,18 @@ function stopPoll() {
     tickTimer = null
   }
 }
+
+function groupParams(extra) {
+  const g = groupId.value | 0
+  const out = extra ? Object.assign({}, extra) : {}
+  if (g > 0) out.group_id = g
+  return out
+}
+
+onLoad((q) => {
+  const g = parseInt(String((q && q.group_id) || '0'), 10) || 0
+  groupId.value = g > 0 ? g : 0
+})
 
 onShow(() => {
   measure()

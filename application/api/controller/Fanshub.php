@@ -1002,7 +1002,14 @@ class Fanshub extends Api
         } catch (\Throwable $e) {
             $uid = 0;
         }
-        $this->success('ok', \app\common\library\FansHubYxx::hallPayload($uid));
+        $groupId = (int)$this->request->param('group_id', 0);
+        try {
+            $this->success('ok', \app\common\library\FansHubYxx::hallPayload($uid, $groupId));
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: '加载失败');
+        }
     }
 
     /**
@@ -1030,7 +1037,7 @@ class Fanshub extends Api
         try {
             $info = $this->auth ? $this->auth->getUserinfo() : [];
             $nick = (string)($info['nickname'] ?? '');
-            $data = \app\common\library\FansHubYxx::placeBet((int)$this->auth->id, $face, $stake, $nick);
+            $data = \app\common\library\FansHubYxx::placeBet((int)$this->auth->id, $face, $stake, $nick, (int)$this->request->post('group_id', 0));
             $real = !empty($data['real_money']);
             if ($real) {
                 $msg = \app\common\library\FansHubService::h5CopyText('yxx_bet_ok', ['n' => $stake]) ?: '下注成功';
@@ -1086,6 +1093,40 @@ class Fanshub extends Api
             throw $e;
         } catch (\Throwable $e) {
             $this->error($e->getMessage() ?: '领取失败');
+        }
+    }
+
+    /**
+     * 群主/管理员开启本群鱼虾蟹桌
+     * POST /api/fanshub/yxxgroupstart
+     */
+    public function yxxgroupstart()
+    {
+        $groupId = (int)$this->request->post('group_id', 0);
+        try {
+            $data = \app\common\library\FansHubYxxGroup::start($groupId, (int)$this->auth->id);
+            $this->success('ok', $data);
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: '开启失败');
+        }
+    }
+
+    /**
+     * 群主/管理员关闭本群鱼虾蟹桌（爆点池保留）
+     * POST /api/fanshub/yxxgroupstop
+     */
+    public function yxxgroupstop()
+    {
+        $groupId = (int)$this->request->post('group_id', 0);
+        try {
+            $data = \app\common\library\FansHubYxxGroup::stop($groupId, (int)$this->auth->id);
+            $this->success('ok', $data);
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: '关闭失败');
         }
     }
 
