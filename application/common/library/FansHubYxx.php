@@ -61,14 +61,18 @@ class FansHubYxx
 
     public static function hallPayload($uid = 0)
     {
+        $uid = (int)$uid;
+        // 登录用户热路径只读快照；机器人/结算交给 yxxtick（匿名/cron）
         $clock = self::clock();
         self::tickBotsThrottled($clock);
-        self::maybeSettleRounds();
+        if ((string)$clock['phase'] !== 'betting') {
+            self::maybeSettleRounds();
+        }
         $clock = self::clock();
         $snap = self::publicHallSnap($clock);
-        $uid = (int)$uid;
         $my = null;
         if ($uid > 0) {
+            self::lazyCreditWin($uid);
             $row = FansHubYxxStore::getBet((int)$clock['round_index'], $uid);
             if (is_array($row)) {
                 $my = self::formatMyBet($row);
@@ -83,6 +87,62 @@ class FansHubYxx
         $snap['server_ts'] = time();
         $snap['poll_ms'] = ($clock['phase'] === 'betting') ? 2500 : 1000;
         return $snap;
+    }
+
+    /**
+     * cron / 匿名踢一脚：机器人入注 + 结算。大厅万人轮询不再走这里。
+     */
+    public static function tickEngine()
+    {
+        $clock = self::clock();
+        $bots = self::tickBotsThrottled($clock);
+        self::maybeSettleRounds();
+        $clock = self::clock();
+        return [
+            'ok'          => 1,
+            'round_index' => (int)$clock['round_index'],
+            'phase'       => (string)$clock['phase'],
+            'remain_sec'  => (int)$clock['remain_sec'],
+            'bots'        => (int)$bots,
+        ];
+    }
+
+    /**
+     * 开奖派彩惰性入账：结算进程只写 Redis，用户进大厅再打钱包。
+     */
+    protected static function lazyCreditWin($uid)
+    {
+        $uid = (int)$uid;
+        if ($uid <= 0) {
+            return;
+        }
+        $pay = FansHubYxxStore::getJson('fh:yxx:winpay:' . $uid);
+        if (!is_array($pay)) {
+            return;
+        }
+        $roundIndex = (int)($pay['round_index'] ?? 0);
+        $amount = (int)($pay['amount'] ?? 0);
+        $face = (string)($pay['face'] ?? '');
+        if ($roundIndex < 0 || $amount <= 0) {
+            FansHubYxxStore::delName('fh:yxx:winpay:' . $uid);
+            return;
+        }
+        $lockName = 'fh:yxx:wpaid:' . $roundIndex . ':' . $uid;
+        if (!FansHubYxxStore::acquireLock($lockName, 86400 * 7)) {
+            FansHubYxxStore::delName('fh:yxx:winpay:' . $uid);
+            return;
+        }
+        try {
+            FansHubHongbaoLedger::credit($uid, $amount, 'yxx_win', '鱼虾蟹中奖 R' . $roundIndex, [
+                'biz_no'   => 'YXXW' . $roundIndex . '-' . $uid,
+                'ref_type' => 'yxx_round',
+                'ref_id'   => $roundIndex,
+                'channel'  => $face,
+            ]);
+            FansHubYxxStore::delName('fh:yxx:winpay:' . $uid);
+        } catch (\Throwable $e) {
+            FansHubYxxStore::releaseLock($lockName);
+        }
     }
 
     /**
@@ -461,6 +521,7 @@ class FansHubYxx
             ? FansHubYxxPool::capProportionalShares($releasedBoom, $winWeights)
             : [];
 
+        $winPays = [];
         for ($i = 0; $i < count($rows); $i++) {
             if (empty($rows[$i]['settled'])) {
                 continue;
@@ -472,25 +533,26 @@ class FansHubYxx
                 continue;
             }
 
-            $stake = (int)($rows[$i]['stake'] ?? 0);
             $uid = (int)($rows[$i]['uid'] ?? 0);
             $isBot = !empty($rows[$i]['bot']) || $uid <= 0;
             $payout = (int)($rows[$i]['payout'] ?? 0);
 
             if ($realMoney && !$isBot && !empty($rows[$i]['debited']) && $payout > 0) {
-                try {
-                    FansHubHongbaoLedger::credit($uid, $payout, 'yxx_win', '鱼虾蟹中奖 R' . $roundIndex, [
-                        'biz_no'   => 'YXXW' . $roundIndex . '-' . $uid,
-                        'ref_type' => 'yxx_round',
-                        'ref_id'   => $roundIndex,
-                        'channel'  => $settleFace,
-                    ]);
-                } catch (\Throwable $e) {
-                }
+                $winPays[] = [
+                    'uid' => $uid,
+                    'pay' => [
+                        'round_index' => $roundIndex,
+                        'amount'      => $payout,
+                        'face'        => $settleFace,
+                    ],
+                ];
             }
         }
 
         FansHubYxxStore::writeBets($roundIndex, $rows, 86400);
+        if ($winPays) {
+            FansHubYxxStore::fanoutWin($winPays);
+        }
         $roundMeta = [
             'settle_face' => $settleFace,
             'dice'        => $dice,

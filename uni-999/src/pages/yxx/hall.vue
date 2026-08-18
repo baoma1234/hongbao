@@ -146,6 +146,14 @@
     </view>
 
     <view v-if="rainOpen" class="yxx-mask yxx-rain-mask" @click.stop>
+      <view class="yxx-rain-fall">
+        <text
+          v-for="n in rainDrops"
+          :key="'drop' + n"
+          class="yxx-drop"
+          :class="'d' + n"
+        >🧧</text>
+      </view>
       <view class="yxx-rain-card" @click.stop>
         <text class="yxx-rain-ico">🧧</text>
         <text class="yxx-rain-title">{{ t('yxx_rain_title') }}</text>
@@ -176,6 +184,7 @@ const faces = computed(() => {
   return FACE_IDS.map((id) => ({ id, src: faceSrc(id), label: t('yxx_face_' + id) }))
 })
 const chipOpts = [50, 100, 150, 200]
+const rainDrops = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 
 const padTop = ref(20)
 const padBottom = ref(8)
@@ -753,6 +762,8 @@ onUnmounted(() => {
   text-align: right;
 }
 .yxx-rain-card {
+  position: relative;
+  z-index: 2;
   width: 86%;
   max-width: 320px;
   margin: 0;
@@ -802,7 +813,7 @@ onUnmounted(() => {
 }
 .yxx-grid-wrap {
   margin: 4px 12px 0;
-  padding: 14px 8px 56px;
+  padding: 12px 8px 52px;
   border-radius: 16px;
   position: relative;
   background: linear-gradient(180deg, rgba(90, 12, 16, 0.92), rgba(50, 6, 10, 0.92));
@@ -833,8 +844,8 @@ onUnmounted(() => {
   text-align: center;
 }
 .yxx-ring {
-  width: 78px;
-  height: 78px;
+  width: 68px;
+  height: 68px;
   margin: 0 auto;
   border-radius: 50%;
   overflow: hidden;
@@ -843,8 +854,8 @@ onUnmounted(() => {
   background: #5a1010;
 }
 .yxx-face-img {
-  width: 78px;
-  height: 78px;
+  width: 68px;
+  height: 68px;
 }
 .yxx-cell.on .yxx-ring,
 .yxx-cell.win .yxx-ring {
@@ -1087,6 +1098,43 @@ onUnmounted(() => {
   align-items: center;
   padding: 0 16px;
   box-sizing: border-box;
+  overflow: hidden;
+}
+.yxx-rain-fall {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.yxx-drop {
+  position: absolute;
+  top: -8%;
+  font-size: 22px;
+  line-height: 1;
+  opacity: 0.92;
+  animation-name: yxx-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+.yxx-drop.d1 { left: 6%; animation-duration: 1.6s; animation-delay: 0s; }
+.yxx-drop.d2 { left: 14%; animation-duration: 1.9s; animation-delay: 0.2s; font-size: 18px; }
+.yxx-drop.d3 { left: 22%; animation-duration: 1.5s; animation-delay: 0.45s; }
+.yxx-drop.d4 { left: 31%; animation-duration: 2.1s; animation-delay: 0.1s; font-size: 20px; }
+.yxx-drop.d5 { left: 39%; animation-duration: 1.7s; animation-delay: 0.55s; }
+.yxx-drop.d6 { left: 48%; animation-duration: 1.8s; animation-delay: 0.3s; font-size: 24px; }
+.yxx-drop.d7 { left: 56%; animation-duration: 2s; animation-delay: 0.15s; }
+.yxx-drop.d8 { left: 64%; animation-duration: 1.55s; animation-delay: 0.7s; font-size: 18px; }
+.yxx-drop.d9 { left: 72%; animation-duration: 1.85s; animation-delay: 0.25s; }
+.yxx-drop.d10 { left: 80%; animation-duration: 1.65s; animation-delay: 0.5s; }
+.yxx-drop.d11 { left: 88%; animation-duration: 2.05s; animation-delay: 0.05s; font-size: 20px; }
+.yxx-drop.d12 { left: 93%; animation-duration: 1.75s; animation-delay: 0.4s; }
+@keyframes yxx-fall {
+  0% { transform: translateY(0); opacity: 0; }
+  12% { opacity: 0.95; }
+  100% { transform: translateY(118%); opacity: 0.75; }
 }
 .yxx-sheet {
   width: 100%;

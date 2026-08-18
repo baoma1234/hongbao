@@ -17,7 +17,7 @@ use think\Validate;
  */
 class Fanshub extends Api
 {
-    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail', 'yxxhall', 'yxxfair'];
+    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail', 'yxxhall', 'yxxtick', 'yxxfair'];
     protected $noNeedRight = '*';
 
     public function _initialize()
@@ -25,7 +25,7 @@ class Fanshub extends Api
         FansHubSms::boot();
         parent::_initialize();
         $action = strtolower($this->request->action());
-        $exempt = ['config', 'bootstrap', 'comments', 'inviteleaderboard', 'slidercaptcha', 'grabslider', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail', 'yxxhall', 'yxxfair'];
+        $exempt = ['config', 'bootstrap', 'comments', 'inviteleaderboard', 'slidercaptcha', 'grabslider', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail', 'yxxhall', 'yxxtick', 'yxxfair'];
         if (in_array($action, $exempt, true)) {
             return;
         }
@@ -1003,6 +1003,15 @@ class Fanshub extends Api
             $uid = 0;
         }
         $this->success('ok', \app\common\library\FansHubYxx::hallPayload($uid));
+    }
+
+    /**
+     * 鱼虾蟹引擎踢一脚（匿名；供 IM cron，勿当看板）
+     * GET /api/fanshub/yxxtick
+     */
+    public function yxxtick()
+    {
+        $this->success('ok', \app\common\library\FansHubYxx::tickEngine());
     }
 
     /**

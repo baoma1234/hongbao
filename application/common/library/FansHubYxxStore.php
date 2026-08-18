@@ -349,6 +349,52 @@ class FansHubYxxStore
     }
 
     /**
+     * 结算后惰性派彩：只写 Redis，不在当局循环里打钱包。
+     *
+     * @param array $items [ ['uid'=>, 'pay'=>array], ... ]
+     */
+    public static function fanoutWin(array $items)
+    {
+        $redis = self::redis();
+        if (!$redis) {
+            foreach ($items as $item) {
+                $uid = (int)($item['uid'] ?? 0);
+                if ($uid <= 0 || empty($item['pay'])) {
+                    continue;
+                }
+                Cache::set('fh:yxx:winpay:' . $uid, $item['pay'], 3600);
+            }
+            return;
+        }
+        $chunks = array_chunk($items, 400);
+        foreach ($chunks as $chunk) {
+            try {
+                $redis->multi(\Redis::PIPELINE);
+                foreach ($chunk as $item) {
+                    $uid = (int)($item['uid'] ?? 0);
+                    if ($uid <= 0 || empty($item['pay'])) {
+                        continue;
+                    }
+                    $redis->setex(
+                        self::rkey('fh:yxx:winpay:' . $uid),
+                        3600,
+                        json_encode($item['pay'], JSON_UNESCAPED_UNICODE)
+                    );
+                }
+                $redis->exec();
+            } catch (\Throwable $e) {
+                foreach ($chunk as $item) {
+                    $uid = (int)($item['uid'] ?? 0);
+                    if ($uid <= 0 || empty($item['pay'])) {
+                        continue;
+                    }
+                    Cache::set('fh:yxx:winpay:' . $uid, $item['pay'], 3600);
+                }
+            }
+        }
+    }
+
+    /**
      * 红包雨扇出：每用户两条 SETEX，pipeline 分片。
      *
      * @param array $items [ ['uid'=>, 'pop'=>array, 'pay'=>array], ... ]
