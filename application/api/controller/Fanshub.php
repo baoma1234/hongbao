@@ -1062,16 +1062,19 @@ class Fanshub extends Api
      */
     public function yxxbet()
     {
-        $face = (string)$this->request->post('face', '');
+        $face = (string)$this->request->post('faces', $this->request->post('face', ''));
         $stake = (int)$this->request->post('stake', 0);
         $nick = '';
         try {
             $info = $this->auth ? $this->auth->getUserinfo() : [];
             $nick = (string)($info['nickname'] ?? '');
-            $data = \app\common\library\FansHubYxx::placeBet((int)$this->auth->id, $face, $stake, $nick, (int)$this->request->post('group_id', 0));
+            $gid = (int)$this->request->post('group_id', 0);
+            $data = \app\common\library\FansHubYxx::placeBet((int)$this->auth->id, $face, $stake, $nick, $gid);
             $real = !empty($data['real_money']);
+            $mine = is_array($data['my_bet'] ?? null) ? $data['my_bet'] : [];
+            $shown = (int)($mine['stake'] ?? $stake);
             if ($real) {
-                $msg = \app\common\library\FansHubService::h5CopyText('yxx_bet_ok', ['n' => $stake]) ?: '下注成功';
+                $msg = \app\common\library\FansHubService::h5CopyText('yxx_bet_ok', ['n' => $shown]) ?: '下注成功';
             } else {
                 $msg = \app\common\library\FansHubService::h5CopyText('yxx_preview_ok') ?: 'ok';
             }

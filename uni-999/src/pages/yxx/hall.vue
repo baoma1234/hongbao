@@ -60,14 +60,14 @@
             v-for="f in faces"
             :key="f.id"
             class="yxx-cell"
-            :class="{ on: selectedFace === f.id, win: settleFace === f.id }"
+            :class="{ on: isPicked(f.id), win: settleFace === f.id }"
             @click="pickFace(f.id)"
           >
             <view class="yxx-ring">
               <image class="yxx-face-img" :src="f.src" mode="aspectFill" />
             </view>
             <text class="yxx-lab">{{ f.label }}</text>
-            <text v-if="myFace === f.id" class="yxx-chip">{{ t('yxx_staked', { n: myStake }) }}</text>
+            <text v-if="isMineFace(f.id)" class="yxx-chip">{{ t('yxx_staked', { n: myUnit }) }}</text>
           </view>
         </view>
       </view>
@@ -106,6 +106,9 @@
     </scroll-view>
 
     <view class="yxx-dock" :style="dockStyle">
+      <view v-if="groupId" class="yxx-cover" :class="{ on: coverOn }" hover-class="yxx-hit" @click="toggleCover">
+        {{ coverOn ? t('yxx_cover_off') : t('yxx_cover') }}
+      </view>
       <view class="yxx-chips">
         <view
           v-for="n in chipOpts"
@@ -196,7 +199,7 @@ const padTop = ref(20)
 const padBottom = ref(8)
 const pageH = ref(667)
 const scrollH = ref('60vh')
-const selectedFace = ref('')
+const selectedFaces = ref([])
 const stakeMin = ref(50)
 const stakeMax = ref(200)
 const stake = ref(50)
@@ -205,7 +208,8 @@ const remainSec = ref(12)
 const playerCount = ref(28)
 const phase = ref('betting')
 const settleFace = ref('')
-const myFace = ref('')
+const myFaces = ref([])
+const myUnit = ref(0)
 const myStake = ref(0)
 const rulesOpen = ref(false)
 const betting = ref(false)
@@ -348,9 +352,13 @@ const revealHint = computed(() => {
     const lab = faceLabel(settleFace.value)
     return lab ? t('yxx_hint_reveal', { face: lab }) : t('yxx_hint_lock')
   }
-  if (selectedFace.value) {
+  if (selectedFaces.value.length > 1) {
+    const key = realMoney.value ? 'yxx_hint_pick_multi_real' : 'yxx_hint_pick_multi'
+    return t(key, { n: selectedFaces.value.length, unit: stake.value, total: selectedFaces.value.length * stake.value })
+  }
+  if (selectedFaces.value.length === 1) {
     const key = realMoney.value ? 'yxx_hint_pick_real' : 'yxx_hint_pick'
-    return t(key, { face: faceLabel(selectedFace.value) })
+    return t(key, { face: faceLabel(selectedFaces.value[0]) })
   }
   return t(realMoney.value ? 'yxx_hint_idle_real' : 'yxx_hint_idle')
 })
@@ -373,7 +381,14 @@ const feedItems = computed(() => {
     if (typeof row === 'string') {
       return { nick: '', line: row }
     }
-    const face = faceLabel(row.face)
+    const ids = Array.isArray(row.faces) && row.faces.length ? row.faces : [row.face]
+    if (ids.length > 1) {
+      return {
+        nick: row.nick || '',
+        line: t('yxx_feed_cover', { n: ids.length, stake: row.stake || 0 }),
+      }
+    }
+    const face = faceLabel(ids[0])
     return {
       nick: row.nick || '',
       line: t('yxx_feed_line', { nick: '·', face, stake: row.stake || 0 }).replace(/^·\s*/, ''),
@@ -408,7 +423,7 @@ function measure() {
     const tronLine = tronBlockNum.value > 0 ? 24 : 0
     const poolBar = poolEnabled.value ? 52 : 0
     const banner = poolStatus.value && poolStatus.value !== 'normal' ? 28 : 0
-    const dock = 108 + padBottom.value
+    const dock = 108 + (groupId.value ? 36 : 0) + padBottom.value
     const h = pageH.value - padTop.value - header - stats - tronLine - poolBar - banner - dock
     scrollH.value = Math.max(220, h) + 'px'
   } catch (e) {
@@ -430,9 +445,32 @@ function openVerify() {
   })
 }
 
+function isPicked(id) {
+  return selectedFaces.value.indexOf(id) >= 0
+}
+
+function isMineFace(id) {
+  return myFaces.value.indexOf(id) >= 0
+}
+
+const coverOn = computed(() => selectedFaces.value.length === FACE_IDS.length)
+
 function pickFace(id) {
   if (phase.value !== 'betting') return
-  selectedFace.value = selectedFace.value === id ? '' : id
+  if (groupId.value) {
+    const cur = selectedFaces.value.slice()
+    const i = cur.indexOf(id)
+    if (i >= 0) cur.splice(i, 1)
+    else cur.push(id)
+    selectedFaces.value = cur
+    return
+  }
+  selectedFaces.value = selectedFaces.value[0] === id ? [] : [id]
+}
+
+function toggleCover() {
+  if (phase.value !== 'betting') return
+  selectedFaces.value = coverOn.value ? [] : FACE_IDS.slice()
 }
 
 function onAmt(e) {
@@ -462,7 +500,8 @@ function applyHall(data) {
   const idx = Number(r.round_index || 0)
   if (idx !== lastRound) {
     lastRound = idx
-    myFace.value = ''
+    myFaces.value = []
+    myUnit.value = 0
     myStake.value = 0
     myResult.value = ''
     myPayout.value = 0
@@ -482,11 +521,14 @@ function applyHall(data) {
   }
   settleFace.value = phase.value === 'reveal' ? String(data.settle_face || '') : ''
   const mine = data.my_bet
-  if (mine && mine.face) {
-    myFace.value = String(mine.face)
-    myStake.value = Number(mine.stake || 0)
-    selectedFace.value = myFace.value
-    if (myStake.value) stake.value = myStake.value
+  if (mine && (mine.face || (Array.isArray(mine.faces) && mine.faces.length))) {
+    const picked = Array.isArray(mine.faces) && mine.faces.length ? mine.faces.map(String) : [String(mine.face)]
+    myFaces.value = picked
+    selectedFaces.value = picked.slice()
+    const unit = Number(mine.unit || 0) || (picked.length > 1 ? Math.floor(Number(mine.stake || 0) / picked.length) : Number(mine.stake || 0))
+    myUnit.value = unit
+    myStake.value = Number(mine.stake || unit * picked.length || 0)
+    if (unit) stake.value = unit
     myResult.value = String(mine.result || '')
     myPayout.value = Number(mine.payout || 0)
   }
@@ -584,7 +626,7 @@ async function onBet() {
     return
   }
   if (phase.value !== 'betting' || betting.value) return
-  if (!selectedFace.value) {
+  if (!selectedFaces.value.length) {
     uni.showToast({ title: t('yxx_pick_face'), icon: 'none' })
     return
   }
@@ -598,13 +640,16 @@ async function onBet() {
   }
   betting.value = true
   try {
+    const picked = selectedFaces.value.slice()
+    const total = stake.value * picked.length
     const data = await apiRequest('yxxbet', 'POST', groupParams({
-      face: selectedFace.value,
+      faces: picked.join(','),
+      face: picked[0],
       stake: stake.value,
     }))
     applyHall(data)
     if (realMoney.value) {
-      uni.showToast({ title: t('yxx_bet_ok', { n: stake.value }), icon: 'none' })
+      uni.showToast({ title: t('yxx_bet_ok', { n: total }), icon: 'none' })
     } else {
       uni.showToast({ title: t('yxx_preview_ok'), icon: 'none' })
     }
@@ -1116,6 +1161,22 @@ onUnmounted(() => {
   display: flex;
   gap: 8px;
   margin-bottom: 6px;
+}
+.yxx-cover {
+  height: 28px;
+  line-height: 28px;
+  text-align: center;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #ffe29a;
+  border: 1px solid rgba(240, 193, 75, 0.45);
+  background: rgba(80, 12, 14, 0.8);
+  margin-bottom: 6px;
+}
+.yxx-cover.on {
+  color: #4a2200;
+  background: linear-gradient(180deg, #f0c14b, #c48418);
 }
 .yxx-qchip {
   flex: 1;

@@ -361,14 +361,16 @@ class FansHubYxx
 
         $live = [];
         foreach (FansHubYxxStore::liveFeed($roundIndex, 16) as $row) {
-            $face = (string)($row['face'] ?? '');
-            if (!isset(self::FACE_LABEL[$face])) {
+            $faces = self::facesOf($row);
+            if (!$faces) {
                 continue;
             }
             $live[] = [
                 'nick'  => (string)($row['nick'] ?? ''),
-                'face'  => $face,
-                'stake' => (int)($row['stake'] ?? 0),
+                'face'  => $faces[0],
+                'faces' => $faces,
+                'unit'  => self::unitOf($row),
+                'stake' => self::totalOf($row),
                 'bot'   => !empty($row['bot']) ? 1 : 0,
             ];
         }
@@ -394,6 +396,7 @@ class FansHubYxx
             'bot_enabled' => $cfg['bot_enabled'] ? 1 : 0,
             'payout_mult' => self::PAYOUT_MULT,
             'faces'       => self::FACE_IDS,
+            'allow_multi' => $gid > 0 ? 1 : 0,
             'settle_mode' => 'single_die',
             'pool'        => $poolInfo,
             'rain_popup'  => null,
@@ -443,7 +446,7 @@ class FansHubYxx
     public static function placePreviewBet($uid, $face, $stake, $nick = '')
     {
         $uid = (int)$uid;
-        self::assertBetInput($uid, $face, $stake);
+        list($faces, $unit) = self::assertBetInput($uid, $face, $stake);
         $nick = self::normalizeNick($uid, $nick);
         $roundIndex = (int)self::clock()['round_index'];
         $lockName = self::ck('ubet:' . $roundIndex . ':' . $uid);
@@ -451,12 +454,14 @@ class FansHubYxx
             throw new \RuntimeException(FansHubService::h5CopyText('yxx_err_fast') ?: '操作太快，请稍后再试');
         }
         try {
-            $face = strtolower(trim((string)$face));
+            $total = $unit * count($faces);
             FansHubYxxStore::putBet($roundIndex, [
                 'uid'     => $uid,
                 'nick'    => $nick,
-                'face'    => $face,
-                'stake'   => (int)$stake,
+                'face'    => $faces[0],
+                'faces'   => $faces,
+                'unit'    => $unit,
+                'stake'   => $total,
                 'bot'     => 0,
                 'debited' => 0,
                 'settled' => 0,
@@ -473,7 +478,7 @@ class FansHubYxx
     public static function placeRealBet($uid, $face, $stake, $nick = '')
     {
         $uid = (int)$uid;
-        self::assertBetInput($uid, $face, $stake);
+        list($faces, $unit) = self::assertBetInput($uid, $face, $stake);
         $nick = self::normalizeNick($uid, $nick);
         $roundIndex = (int)self::clock()['round_index'];
         $lockName = self::ck('ubet:' . $roundIndex . ':' . $uid);
@@ -484,9 +489,9 @@ class FansHubYxx
             $prev = FansHubYxxStore::getBet($roundIndex, $uid);
             $prevStake = 0;
             if (is_array($prev) && empty($prev['bot'])) {
-                $prevStake = (int)($prev['stake'] ?? 0);
+                $prevStake = self::totalOf($prev);
             }
-            $stake = (int)$stake;
+            $stake = $unit * count($faces);
             $g = self::currentGroupId();
             $tag = $g > 0 ? ('-G' . $g) : '';
             if ($prevStake !== $stake) {
@@ -511,11 +516,12 @@ class FansHubYxx
                     FansHubYxxGroup::touchDaily($g, $uid, $stake);
                 }
             }
-            $face = strtolower(trim((string)$face));
             FansHubYxxStore::putBet($roundIndex, [
                 'uid'     => $uid,
                 'nick'    => $nick,
-                'face'    => $face,
+                'face'    => $faces[0],
+                'faces'   => $faces,
+                'unit'    => $unit,
                 'stake'   => $stake,
                 'bot'     => 0,
                 'debited' => 1,
@@ -636,17 +642,18 @@ class FansHubYxx
         $totalStakeAll = 0;
         for ($i = 0; $i < count($rows); $i++) {
             $row = $rows[$i];
-            $stake = (int)($row['stake'] ?? 0);
             $uid = (int)($row['uid'] ?? 0);
-            $face = (string)($row['face'] ?? '');
             $isBot = !empty($row['bot']) || $uid <= 0;
+            $total = self::totalOf($row);
+            $unit = self::unitOf($row);
+            $faces = self::facesOf($row);
 
-            $totalStakeAll += $stake;
+            $totalStakeAll += $total;
             if (!$isBot) {
-                $humanStake += $stake;
+                $humanStake += $total;
             }
-            if ($face === $settleFace) {
-                $totalStakeWon += $stake;
+            if (in_array($settleFace, $faces, true)) {
+                $totalStakeWon += $unit;
             }
         }
 
@@ -747,23 +754,23 @@ class FansHubYxx
                 continue;
             }
 
-            $stake = (int)($rows[$i]['stake'] ?? 0);
             $uid = (int)($rows[$i]['uid'] ?? 0);
             $isBot = !empty($rows[$i]['bot']) || $uid <= 0;
-            $won = ((string)($rows[$i]['face'] ?? '') === $settleFace);
+            $unit = self::unitOf($rows[$i]);
+            $won = in_array($settleFace, self::facesOf($rows[$i]), true);
 
             $rows[$i]['settled'] = 1;
             $rows[$i]['won'] = $won ? 1 : 0;
 
-            $basePayout = $won ? (int)round($stake * self::PAYOUT_MULT) : 0;
+            $basePayout = $won ? (int)round($unit * self::PAYOUT_MULT) : 0;
             $rows[$i]['payout'] = $basePayout;
 
             if ($won && !$isBot && $releasedBoom > 0 && $totalStakeWon > 0) {
-                $w = $stake;
+                $w = $unit;
                 if ($gid <= 0) {
                     $games = (int)($dayGames[$uid] ?? 0);
                     if ($games < 10) {
-                        $w = max(1, (int)floor($stake * 0.1));
+                        $w = max(1, (int)floor($unit * 0.1));
                     }
                 }
                 $winWeights[$i] = $w;
@@ -844,17 +851,101 @@ class FansHubYxx
             $key = $clock['phase'] === 'locking' ? 'yxx_err_sealed' : 'yxx_err_drawing';
             throw new \RuntimeException(FansHubService::h5CopyText($key) ?: '已封盘');
         }
-        $face = strtolower(trim((string)$face));
-        if (!isset(self::FACE_LABEL[$face])) {
-            throw new \RuntimeException(FansHubService::h5CopyText('yxx_err_face') ?: '请选择一个图案');
-        }
-        $stake = (int)$stake;
-        if ($stake < $cfg['stake_min'] || $stake > $cfg['stake_max']) {
+        $allowMulti = self::currentGroupId() > 0;
+        $faces = self::parseFaceInput($face, $allowMulti);
+        $unit = (int)$stake;
+        if ($unit < $cfg['stake_min'] || $unit > $cfg['stake_max']) {
             throw new \RuntimeException(FansHubService::h5CopyText('yxx_err_stake', [
                 'min' => $cfg['stake_min'],
                 'max' => $cfg['stake_max'],
             ]) ?: ('下注 ' . $cfg['stake_min'] . '-' . $cfg['stake_max'] . ' 积分'));
         }
+        return [$faces, $unit];
+    }
+
+    /**
+     * @param mixed $raw
+     * @return string[]
+     */
+    public static function parseFaceInput($raw, $allowMulti)
+    {
+        $parts = [];
+        if (is_array($raw)) {
+            $parts = $raw;
+        } else {
+            $raw = trim((string)$raw);
+            if ($raw !== '') {
+                $parts = preg_split('/[,\s|]+/', $raw);
+            }
+        }
+        $out = [];
+        foreach ($parts as $f) {
+            $f = strtolower(trim((string)$f));
+            if (isset(self::FACE_LABEL[$f]) && !isset($out[$f])) {
+                $out[$f] = $f;
+            }
+        }
+        $out = array_values($out);
+        if (!$out) {
+            throw new \RuntimeException(FansHubService::h5CopyText('yxx_err_face') ?: '请选择一个图案');
+        }
+        if (!$allowMulti && count($out) > 1) {
+            throw new \RuntimeException(FansHubService::h5CopyText('yxx_err_face_one') ?: '大厅每局限选一门');
+        }
+        return $out;
+    }
+
+    /**
+     * @return string[]
+     */
+    public static function facesOf(array $row)
+    {
+        $out = [];
+        $raw = $row['faces'] ?? null;
+        $parts = [];
+        if (is_array($raw)) {
+            $parts = $raw;
+        } elseif (is_string($raw) && $raw !== '') {
+            $parts = preg_split('/[,\s|]+/', $raw);
+        }
+        foreach ($parts as $f) {
+            $f = strtolower(trim((string)$f));
+            if (isset(self::FACE_LABEL[$f]) && !isset($out[$f])) {
+                $out[$f] = $f;
+            }
+        }
+        if (!$out) {
+            $f = strtolower(trim((string)($row['face'] ?? '')));
+            if (isset(self::FACE_LABEL[$f])) {
+                $out[$f] = $f;
+            }
+        }
+        return array_values($out);
+    }
+
+    public static function unitOf(array $row)
+    {
+        $unit = (int)($row['unit'] ?? 0);
+        if ($unit > 0) {
+            return $unit;
+        }
+        $faces = self::facesOf($row);
+        $stake = max(0, (int)($row['stake'] ?? 0));
+        $n = count($faces);
+        if ($n > 1 && $stake > 0) {
+            return max(1, (int)floor($stake / $n));
+        }
+        return $stake;
+    }
+
+    public static function totalOf(array $row)
+    {
+        $faces = self::facesOf($row);
+        $unit = (int)($row['unit'] ?? 0);
+        if ($unit > 0 && $faces) {
+            return $unit * count($faces);
+        }
+        return max(0, (int)($row['stake'] ?? 0));
     }
 
     protected static function normalizeNick($uid, $nick)
@@ -868,9 +959,13 @@ class FansHubYxx
 
     protected static function formatMyBet(array $row)
     {
+        $faces = self::facesOf($row);
+        $unit = self::unitOf($row);
         $out = [
-            'face'  => (string)($row['face'] ?? ''),
-            'stake' => (int)($row['stake'] ?? 0),
+            'face'  => $faces ? $faces[0] : (string)($row['face'] ?? ''),
+            'faces' => $faces,
+            'unit'  => $unit,
+            'stake' => self::totalOf($row),
         ];
         if (!empty($row['settled'])) {
             $out['result'] = !empty($row['won']) ? 'win' : 'lose';
