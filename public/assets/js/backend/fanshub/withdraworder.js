@@ -70,15 +70,27 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                                 var tip = gateway
                                     ? '将向代付通道提交出款，提交后等待通道回调到账（不会立刻标记已打款）。确定提交？'
                                     : '该通道无代付接口，确认已线下打款完成？';
-                                Layer.confirm(tip, function (index) {
-                                    Backend.api.ajax({
-                                        url: 'fanshub/withdraworder/markpaid',
-                                        data: {ids: row.id}
-                                    }, function (data, ret) {
-                                        Layer.close(index);
-                                        Layer.msg((ret && ret.msg) || '已提交', {icon: 1});
-                                        table.bootstrapTable('refresh');
-                                        return false;
+                                Layer.confirm(tip, function (confirmIndex) {
+                                    Layer.close(confirmIndex);
+                                    Layer.prompt({
+                                        title: '请输入谷歌验证码（6位）',
+                                        formType: 0,
+                                        maxlength: 6
+                                    }, function (googleCode, promptIndex) {
+                                        googleCode = String(googleCode || '').replace(/\s+/g, '');
+                                        if (!/^\d{6}$/.test(googleCode)) {
+                                            Layer.msg('请输入6位谷歌验证码', {icon: 2});
+                                            return false;
+                                        }
+                                        Backend.api.ajax({
+                                            url: 'fanshub/withdraworder/markpaid',
+                                            data: {ids: row.id, google_code: googleCode}
+                                        }, function (data, ret) {
+                                            Layer.close(promptIndex);
+                                            Layer.msg((ret && ret.msg) || '已提交', {icon: 1});
+                                            table.bootstrapTable('refresh');
+                                            return false;
+                                        });
                                     });
                                 });
                             },

@@ -583,6 +583,35 @@ class Auth extends \fast\Auth
     }
 
     /**
+     * 校验当前登录管理员的谷歌动态码（提现打款等敏感操作）
+     *
+     * @throws \RuntimeException
+     */
+    public function assertGoogleCode($code)
+    {
+        $code = preg_replace('/\s+/', '', (string)$code);
+        if ($code === '' || !preg_match('/^\d{6}$/', $code)) {
+            throw new \RuntimeException('请输入6位谷歌验证码');
+        }
+        $adminId = (int)$this->id;
+        if ($adminId <= 0) {
+            throw new \RuntimeException('未登录');
+        }
+        $admin = Admin::get($adminId);
+        if (!$admin) {
+            throw new \RuntimeException('管理员不存在');
+        }
+        $secret = \app\common\library\FansHubGoogleAuth::normalizeSecret($admin->getData('google_secret'));
+        if ($secret === '') {
+            throw new \RuntimeException('当前账号未绑定谷歌验证器，请在「权限管理 → 管理员管理」中绑定后再打款');
+        }
+        if (!\app\common\library\FansHubGoogleAuth::verify($secret, $code, 1)) {
+            throw new \RuntimeException('谷歌验证码错误');
+        }
+        return true;
+    }
+
+    /**
      * 获取错误信息
      * @return string
      */

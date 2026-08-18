@@ -97,6 +97,11 @@ class Withdraworder extends Backend
             $this->error('参数错误');
         }
         try {
+            $this->auth->assertGoogleCode($this->request->post('google_code', ''));
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage());
+        }
+        try {
             $result = FansHubWallet::adminMarkWithdrawPaid($id);
         } catch (\Throwable $e) {
             $this->error($e->getMessage());
