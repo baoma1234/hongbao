@@ -30,6 +30,10 @@
       </view>
     </view>
 
+    <view v-if="tronLineText" class="yxx-tron-line" hover-class="yxx-hit" @click="openVerify">
+      <text>{{ tronLineText }}</text>
+    </view>
+
     <view v-if="poolStatus && poolStatus !== 'normal'" class="yxx-status-banner">
       <text>{{ statusBannerText }}</text>
     </view>
@@ -219,6 +223,7 @@ const rainRelease = ref(0)
 const rainParticipants = ref(0)
 const rainGrantId = ref(0)
 const poolStatus = ref('normal')
+const tronBlockNum = ref(0)
 let netPoll = null
 let tickTimer = null
 let lastRound = -1
@@ -280,6 +285,13 @@ const statusBannerText = computed(() => {
   if (poolStatus.value === 'paused') return t('yxx_status_paused')
   if (poolStatus.value === 'degraded') return t('yxx_status_degraded')
   return ''
+})
+
+const tronLineText = computed(() => {
+  void locale.value
+  const n = Number(tronBlockNum.value) || 0
+  if (n <= 0) return ''
+  return t('yxx_tron_lock', { n })
 })
 
 const timerText = computed(() => {
@@ -376,10 +388,11 @@ function measure() {
     pageH.value = Math.max(480, Number(sys.windowHeight || 667))
     const header = 62
     const stats = 44
+    const tronLine = tronBlockNum.value > 0 ? 24 : 0
     const poolBar = poolEnabled.value ? 52 : 0
     const banner = poolStatus.value && poolStatus.value !== 'normal' ? 28 : 0
     const dock = 108 + padBottom.value
-    const h = pageH.value - padTop.value - header - stats - poolBar - banner - dock
+    const h = pageH.value - padTop.value - header - stats - tronLine - poolBar - banner - dock
     scrollH.value = Math.max(220, h) + 'px'
   } catch (e) {
     scrollH.value = '58vh'
@@ -394,15 +407,7 @@ function goBack() {
 }
 
 function openVerify() {
-  const rows = historyRows.value || []
-  let idx = 0
-  if (phase.value === 'reveal' && lastRound >= 0) {
-    idx = lastRound
-  } else if (rows.length && rows[0] && rows[0].round_index != null) {
-    idx = Number(rows[0].round_index) || 0
-  } else if (lastRound > 0) {
-    idx = lastRound - 1
-  }
+  const idx = lastRound >= 0 ? lastRound : 0
   uni.navigateTo({
     url: '/pages/common/fair-verify?kind=yxx&round_index=' + encodeURIComponent(String(idx)),
   })
@@ -476,6 +481,7 @@ function applyHall(data) {
   baseReserve.value = Number(pinfo.base_reserve || 0)
   rainProgress.value = Math.min(100, Number(pinfo.rain_progress || 0))
   poolStatus.value = String(data.pool_status || pinfo.pool_status || 'normal')
+  tronBlockNum.value = Number(r.tron_block_num || 0)
   const nextPoll = Number(data.poll_ms || 0)
   if (nextPoll >= 800 && nextPoll !== netPollMs) {
     netPollMs = nextPoll
@@ -709,6 +715,15 @@ onUnmounted(() => {
 }
 .yxx-pill-ico {
   font-size: 11px;
+}
+.yxx-tron-line {
+  margin: 0 10px 8px;
+  padding: 4px 8px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255, 220, 140, 0.95);
+  letter-spacing: 0.2px;
 }
 .yxx-status-banner {
   margin: 0 10px 8px;

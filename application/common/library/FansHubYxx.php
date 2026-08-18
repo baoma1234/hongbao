@@ -7,6 +7,7 @@ use think\Db;
 
 /**
  * 鱼虾蟹大厅：全局 20s 局钟；白皮书单骰结算（第一颗骰）；台面展示三骰。
+ * 开奖绑定未来波场区块：投注/封盘锁定高度，揭晓取 Block Hash 前 3 字节。
  * yxx_real_money=true 时扣红宝并按 6×92%=5.52 倍派彩；false 为预览局。
  */
 class FansHubYxx
@@ -56,6 +57,7 @@ class FansHubYxx
             'bot_enabled'    => array_key_exists('yxx_bot_enabled', $cfg) ? !empty($cfg['yxx_bot_enabled']) : true,
             'bot_count_min'  => $botMin,
             'bot_count_max'  => $botMax,
+            'tron_offset'    => max(2, min(8, (int)($cfg['yxx_tron_offset'] ?? 4))),
         ];
     }
 
@@ -64,9 +66,12 @@ class FansHubYxx
         $uid = (int)$uid;
         // 登录用户热路径只读快照；机器人/结算交给 yxxtick（匿名/cron）
         $clock = self::clock();
+        self::ensureTronCommit((int)$clock['round_index']);
         self::tickBotsThrottled($clock);
-        if ((string)$clock['phase'] !== 'betting') {
+        if ((string)$clock['phase'] === 'reveal') {
             self::maybeSettleRounds();
+        } else {
+            self::settleRoundIfNeeded(((int)$clock['round_index']) - 1);
         }
         $clock = self::clock();
         $snap = self::publicHallSnap($clock);
@@ -95,6 +100,7 @@ class FansHubYxx
     public static function tickEngine()
     {
         $clock = self::clock();
+        self::ensureTronCommit((int)$clock['round_index']);
         $bots = self::tickBotsThrottled($clock);
         self::maybeSettleRounds();
         $clock = self::clock();
@@ -161,8 +167,12 @@ class FansHubYxx
         }
 
         $cfg = self::configMap();
-        $dice = self::diceForRound($roundIndex);
         $revealed = ($phase === 'reveal');
+        if ($revealed) {
+            self::resolveTronForRound($roundIndex);
+        }
+        $tronPub = self::tronPublic($roundIndex, $revealed);
+        $dice = self::diceForRound($roundIndex);
         $stats = FansHubYxxStore::stats($roundIndex);
         $stakeSum = (int)$stats['stake'];
         $playerN = (int)$stats['players'];
@@ -180,10 +190,11 @@ class FansHubYxx
             }
             $d = self::diceForRound($idx);
             $history[] = [
-                'round_index' => $idx,
-                'dice'        => $d,
-                'settle_face' => $d[0],
-                'hash_seed'   => self::roundHashSeed($idx),
+                'round_index'    => $idx,
+                'dice'           => $d,
+                'settle_face'    => $d[0],
+                'hash_seed'      => self::roundHashSeed($idx),
+                'tron_block_num' => (int)(self::tronPublic($idx, true)['tron_block_num'] ?? 0),
             ];
         }
 
@@ -230,6 +241,8 @@ class FansHubYxx
                 'bot_count'    => $botN,
                 'in_boom_zone' => ($cycleCount >= $cfg['boom_from'] && $cycleCount <= $cfg['cycle_max']) ? 1 : 0,
                 'status'       => $cfg['enabled'] ? ($realMoney ? 'live' : 'preview') : 'off',
+                'tron_block_num' => (int)($tronPub['tron_block_num'] ?? 0),
+                'tron_ready'     => (int)($tronPub['tron_ready'] ?? 0),
             ],
             'dice'        => $revealed ? $dice : ['', '', ''],
             'settle_face' => $revealed ? $dice[0] : '',
@@ -379,7 +392,8 @@ class FansHubYxx
     {
         $clock = self::clock();
         $roundIndex = (int)$clock['round_index'];
-        if ($clock['phase'] !== 'betting') {
+        // 当局等 reveal，给锁定的波场块出块时间（封盘 3s 不够）
+        if ($clock['phase'] === 'reveal') {
             self::settleRoundIfNeeded($roundIndex);
         }
         self::settleRoundIfNeeded($roundIndex - 1);
@@ -403,6 +417,13 @@ class FansHubYxx
             if (Cache::get($doneKey)) {
                 return;
             }
+            if (!self::resolveTronForRound($roundIndex)) {
+                return;
+            }
+            $dice = self::diceForRound($roundIndex);
+            if ($dice[0] === '' || !isset(self::FACE_LABEL[$dice[0]])) {
+                return;
+            }
             self::doSettleRound($roundIndex);
             Cache::set($doneKey, 1, 86400 * 7);
             FansHubYxxStore::clearSnap();
@@ -416,6 +437,10 @@ class FansHubYxx
         $cfg = self::configMap();
         $realMoney = !empty($cfg['real_money']);
 
+        $tronRes = Cache::get('fh:yxx:tronres:' . $roundIndex);
+        if (!is_array($tronRes)) {
+            $tronRes = [];
+        }
         $dice = self::diceForRound($roundIndex);
         $settleFace = $dice[0];
         $rows = FansHubYxxStore::loadBets($roundIndex);
@@ -561,8 +586,10 @@ class FansHubYxx
             'boom_add'    => $boomAdd,
             'boom_release'=> $releasedBoom,
             'cycle_after' => $cycleAfter,
-            'hash_seed'   => $hashSeed,
-            'ts'          => time(),
+            'hash_seed'      => $hashSeed,
+            'tron_block_num' => (int)($tronRes['block_num'] ?? 0),
+            'tron_block_id'  => (string)($tronRes['block_id'] ?? ''),
+            'ts'             => time(),
         ];
         Cache::set('fh:yxx:roundmeta:' . $roundIndex, $roundMeta, 86400 * 7);
 
@@ -664,14 +691,176 @@ class FansHubYxx
         ];
     }
 
+    /**
+     * 投注/封盘阶段锁定未来波场高度（只写高度，不写哈希）。
+     */
+    protected static function ensureTronCommit($roundIndex)
+    {
+        $roundIndex = (int)$roundIndex;
+        if ($roundIndex < 0) {
+            return;
+        }
+        if (Cache::get('fh:yxx:troncommit:' . $roundIndex) || Cache::get('fh:yxx:tronres:' . $roundIndex)) {
+            return;
+        }
+        $clock = self::clock();
+        if ((int)$clock['round_index'] !== $roundIndex || $clock['phase'] === 'reveal') {
+            return;
+        }
+        $lockName = 'fh:yxx:tronclk:' . $roundIndex;
+        if (!FansHubYxxStore::acquireLock($lockName, 8)) {
+            return;
+        }
+        try {
+            if (Cache::get('fh:yxx:troncommit:' . $roundIndex)) {
+                return;
+            }
+            $now = TronBlockClient::getNowBlockNum(3);
+            $offset = (int)(self::configMap()['tron_offset'] ?? 4);
+            $target = (int)$now + $offset;
+            if ($target <= 0) {
+                return;
+            }
+            Cache::set('fh:yxx:troncommit:' . $roundIndex, [
+                'block_num' => $target,
+                'now_num'   => (int)$now,
+                'ts'        => time(),
+            ], 86400 * 7);
+            FansHubYxxStore::clearSnap();
+        } catch (\Throwable $e) {
+        } finally {
+            FansHubYxxStore::releaseLock($lockName);
+        }
+    }
+
+    /**
+     * 拉取已锁定高度的 Block Hash。未出块则返回 false（不标记已结算）。
+     */
+    protected static function resolveTronForRound($roundIndex)
+    {
+        $roundIndex = (int)$roundIndex;
+        if ($roundIndex < 0) {
+            return false;
+        }
+        $res = Cache::get('fh:yxx:tronres:' . $roundIndex);
+        if (is_array($res) && self::normalizeHexSeed((string)($res['block_id'] ?? '')) !== '') {
+            return true;
+        }
+        if (is_array($res) && !empty($res['legacy'])) {
+            return true;
+        }
+        $commit = Cache::get('fh:yxx:troncommit:' . $roundIndex);
+        $blockNum = (int)($commit['block_num'] ?? 0);
+        if ($blockNum <= 0) {
+            $clock = self::clock();
+            if ((int)$clock['round_index'] > $roundIndex) {
+                Cache::set('fh:yxx:tronres:' . $roundIndex, [
+                    'block_num' => 0,
+                    'block_id'  => '',
+                    'legacy'    => 1,
+                ], 86400 * 7);
+                return true;
+            }
+            return false;
+        }
+        try {
+            $block = TronBlockClient::getBlockByNum($blockNum, 5);
+            $id = self::normalizeHexSeed((string)($block['block_id'] ?? ''));
+            if ($id === '') {
+                return false;
+            }
+            Cache::set('fh:yxx:tronres:' . $roundIndex, [
+                'block_num' => $blockNum,
+                'block_id'  => $id,
+            ], 86400 * 7);
+            FansHubYxxStore::clearSnap();
+            return true;
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    protected static function tronPublic($roundIndex, $revealed)
+    {
+        $roundIndex = (int)$roundIndex;
+        $res = Cache::get('fh:yxx:tronres:' . $roundIndex);
+        $commit = Cache::get('fh:yxx:troncommit:' . $roundIndex);
+        $meta = Cache::get('fh:yxx:roundmeta:' . $roundIndex);
+        $num = (int)($res['block_num'] ?? $commit['block_num'] ?? $meta['tron_block_num'] ?? 0);
+        $id = '';
+        if ($revealed) {
+            $id = self::normalizeHexSeed((string)($res['block_id'] ?? $meta['tron_block_id'] ?? ''));
+        }
+        return [
+            'tron_block_num' => $num,
+            'tron_block_id'  => $id,
+            'tron_ready'     => ($id !== '') ? 1 : 0,
+            'legacy'         => !empty($res['legacy']) ? 1 : 0,
+        ];
+    }
+
+    protected static function normalizeHexSeed($hex)
+    {
+        $hex = strtolower(trim((string)$hex));
+        if (strpos($hex, '0x') === 0) {
+            $hex = substr($hex, 2);
+        }
+        return $hex;
+    }
+
     public static function diceForRound($roundIndex)
     {
-        return self::diceFromSeed(self::roundHashSeed($roundIndex));
+        $seed = self::roundHashSeed($roundIndex);
+        if ($seed === '') {
+            return ['', '', ''];
+        }
+        return self::diceFromSeed($seed);
     }
 
     public static function roundHashSeed($roundIndex)
     {
-        return hash('sha256', 'yxx-hall-v1|' . (int)$roundIndex);
+        $roundIndex = (int)$roundIndex;
+        $res = Cache::get('fh:yxx:tronres:' . $roundIndex);
+        if (is_array($res)) {
+            $id = self::normalizeHexSeed((string)($res['block_id'] ?? ''));
+            if ($id !== '') {
+                return $id;
+            }
+            if (!empty($res['legacy'])) {
+                return hash('sha256', 'yxx-hall-v1|' . $roundIndex);
+            }
+        }
+        $meta = Cache::get('fh:yxx:roundmeta:' . $roundIndex);
+        if (is_array($meta)) {
+            $s = self::normalizeHexSeed((string)($meta['hash_seed'] ?? ''));
+            if ($s !== '') {
+                return $s;
+            }
+        }
+        try {
+            $row = Db::name('fans_yxx_rounds')->where('round_index', $roundIndex)->find();
+            if (is_array($row)) {
+                $id = self::normalizeHexSeed((string)($row['tron_block_id'] ?? ''));
+                if ($id !== '') {
+                    Cache::set('fh:yxx:tronres:' . $roundIndex, [
+                        'block_num' => (int)($row['tron_block_num'] ?? 0),
+                        'block_id'  => $id,
+                    ], 86400 * 7);
+                    return $id;
+                }
+                $s = trim((string)($row['hash_seed'] ?? ''));
+                if ($s !== '') {
+                    Cache::set('fh:yxx:tronres:' . $roundIndex, [
+                        'block_num' => 0,
+                        'block_id'  => '',
+                        'legacy'    => 1,
+                    ], 86400 * 7);
+                    return $s;
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+        return '';
     }
 
     public static function diceFromSeed($hexSeed)
@@ -689,7 +878,7 @@ class FansHubYxx
     }
 
     /**
-     * 公开验真：仅返回已开奖期（当前局须已进入 reveal）。
+     * 公开验真：仅返回已开奖期（当前局须已进入 reveal）；投注中可查锁定高度。
      */
     public static function verifyPayload($roundIndex)
     {
@@ -700,8 +889,14 @@ class FansHubYxx
         $clock = self::clock();
         $cur = (int)$clock['round_index'];
         $revealed = ($roundIndex < $cur) || ($roundIndex === $cur && $clock['phase'] === 'reveal');
-        $seed = self::roundHashSeed($roundIndex);
-        $dice = self::diceForRound($roundIndex);
+        if ($revealed) {
+            self::resolveTronForRound($roundIndex);
+        } else {
+            self::ensureTronCommit($roundIndex);
+        }
+        $tron = self::tronPublic($roundIndex, $revealed);
+        $seed = $revealed ? self::roundHashSeed($roundIndex) : '';
+        $dice = ($revealed && $seed !== '') ? self::diceForRound($roundIndex) : ['', '', ''];
         $archived = null;
         try {
             $archived = Db::name('fans_yxx_rounds')->where('round_index', $roundIndex)->find();
@@ -713,43 +908,83 @@ class FansHubYxx
         $seedMatch = true;
         if ($revealed && $archived) {
             $storedFace = (string)($archived['settle_face'] ?? '');
-            $storedSeed = (string)($archived['hash_seed'] ?? '');
-            if ($storedFace !== '') {
+            $storedSeed = self::normalizeHexSeed((string)($archived['hash_seed'] ?? ''));
+            if ($storedFace !== '' && $dice[0] !== '') {
                 $faceMatch = ($storedFace === $dice[0]);
             }
-            if ($storedSeed !== '') {
-                $seedMatch = ($storedSeed === $seed);
+            if ($storedSeed !== '' && $seed !== '') {
+                $seedMatch = ($storedSeed === self::normalizeHexSeed($seed));
             }
         }
 
-        $ok = $revealed && $faceMatch && $seedMatch;
+        $hasDice = ($dice[0] !== '');
+        $ok = $revealed && $hasDice && $faceMatch && $seedMatch;
         $labels = [];
         foreach ($dice as $id) {
-            $labels[] = self::FACE_LABEL[$id] ?? $id;
+            $labels[] = $id !== '' ? (self::FACE_LABEL[$id] ?? $id) : '';
+        }
+
+        $tronNum = (int)($tron['tron_block_num'] ?? 0);
+        if ($tronNum <= 0 && $archived) {
+            $tronNum = (int)($archived['tron_block_num'] ?? 0);
+        }
+        $tronId = $revealed ? (string)($tron['tron_block_id'] ?? '') : '';
+        if ($revealed && $tronId === '' && $archived) {
+            $tronId = self::normalizeHexSeed((string)($archived['tron_block_id'] ?? ''));
+        }
+        $legacy = $revealed && $tronNum <= 0 && $seed !== '';
+        $tronStatus = 0;
+        if ($tronId !== '') {
+            $tronStatus = 2;
+        } elseif ($tronNum > 0) {
+            $tronStatus = $revealed ? 1 : 1;
+        }
+
+        $formula = $legacy
+            ? 'SHA256("yxx-hall-v1|" + round_index)（旧局）'
+            : '波场 Block Hash（投注开始锁定高度，开奖取该块哈希）';
+        $hint = '该期尚未开奖；已锁定波场高度后可在 TronScan 核对，出块后再复算三骰。';
+        if ($revealed && $hasDice) {
+            $hint = '复算：Block Hash 前 3 字节映射为 ' . implode(' / ', $labels) . '，结算门=' . (self::FACE_LABEL[$dice[0]] ?? $dice[0]);
+        } elseif ($revealed && $tronNum > 0 && $tronId === '') {
+            $hint = '已锁定波场高度 #' . $tronNum . '，等待出块后开奖。';
+        } elseif ($revealed && $legacy) {
+            $hint = '复算：' . $seed . ' 前 3 字节映射为 ' . implode(' / ', $labels);
+        }
+
+        $statusLabel = '尚未开奖';
+        if ($revealed && $hasDice) {
+            $statusLabel = '已开奖';
+        } elseif ($revealed && $tronNum > 0) {
+            $statusLabel = '等待波场出块';
         }
 
         return [
-            'kind'          => 'yxx',
-            'type_label'    => '鱼虾蟹大厅',
-            'round_index'   => $roundIndex,
-            'revealed'      => $revealed ? 1 : 0,
-            'status_label'  => $revealed ? '已开奖' : '尚未开奖',
-            'settle_face'   => $revealed ? $dice[0] : '',
-            'settle_label'  => $revealed ? (self::FACE_LABEL[$dice[0]] ?? $dice[0]) : '',
-            'dice'          => $revealed ? $dice : ['', '', ''],
-            'dice_labels'   => $revealed ? $labels : ['', '', ''],
-            'hash_seed'     => $revealed ? $seed : '',
-            'hash_formula'  => 'SHA256("yxx-hall-v1|" + round_index)',
-            'hash_rule'     => '种子前 3 字节各自 mod 6 → 三骰；第一颗为结算门',
-            'verify_ok'     => $ok ? 1 : 0,
-            'face_match'    => $faceMatch ? 1 : 0,
-            'seed_match'    => $seedMatch ? 1 : 0,
-            'human_stake'   => $archived ? (int)$archived['human_stake'] : 0,
-            'pool_inject'   => $archived ? (int)$archived['pool_inject'] : 0,
-            'boom_release'  => $archived ? (int)$archived['boom_release'] : 0,
-            'verify_hint'   => $revealed
-                ? ('复算：' . $seed . ' 前 3 字节映射为 ' . implode(' / ', $labels) . '，结算门=' . (self::FACE_LABEL[$dice[0]] ?? $dice[0]))
-                : '该期尚未开奖，开奖后再查询可核对种子与图腾。',
+            'kind'            => 'yxx',
+            'type_label'      => '鱼虾蟹大厅',
+            'round_index'     => $roundIndex,
+            'revealed'        => ($revealed && $hasDice) ? 1 : 0,
+            'status_label'    => $statusLabel,
+            'settle_face'     => $hasDice ? $dice[0] : '',
+            'settle_label'    => $hasDice ? (self::FACE_LABEL[$dice[0]] ?? $dice[0]) : '',
+            'dice'            => $hasDice ? $dice : ['', '', ''],
+            'dice_labels'     => $hasDice ? $labels : ['', '', ''],
+            'hash_seed'       => $hasDice ? $seed : '',
+            'hash_formula'    => $formula,
+            'hash_rule'       => '种子前 3 字节各自 mod 6 → 三骰；第一颗为结算门',
+            'verify_ok'       => $ok ? 1 : 0,
+            'face_match'      => $faceMatch ? 1 : 0,
+            'seed_match'      => $seedMatch ? 1 : 0,
+            'human_stake'     => $archived ? (int)$archived['human_stake'] : 0,
+            'pool_inject'     => $archived ? (int)$archived['pool_inject'] : 0,
+            'boom_release'    => $archived ? (int)$archived['boom_release'] : 0,
+            'tron_status'     => $tronStatus,
+            'tron_block_num'  => $tronNum,
+            'targetBlockNum'  => $tronNum,
+            'tron_block_id'   => $tronId,
+            'block_id'        => $tronId,
+            'tronscan_url'    => $tronNum > 0 ? ('https://tronscan.org/#/block/' . $tronNum) : '',
+            'verify_hint'     => $hint,
         ];
     }
 

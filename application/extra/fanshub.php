@@ -83,6 +83,7 @@ return array (
   'yxx_rain_cooldown_sec' => 3600,
   'yxx_rain_daily_max' => 3,
   'yxx_rain_min_bet' => 50,
+  'yxx_tron_offset' => 4,
   'im_admin' => 
   array (
     'bridge_url' => 'http://127.0.0.1:17273',

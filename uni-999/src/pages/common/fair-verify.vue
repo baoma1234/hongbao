@@ -34,7 +34,7 @@
               <text>{{ statusTitle }}</text>
               <text>{{ statusText }}</text>
             </view>
-            <view v-if="!isYxx" class="fv-row"><text>波场开奖</text><text>{{ tronStatusLabel(result.tron_status) }}</text></view>
+            <view v-if="!isYxx || hasYxxTron" class="fv-row"><text>波场开奖</text><text>{{ tronStatusLabel(result.tron_status) }}</text></view>
             <view v-if="isYxx" class="fv-row">
               <text>结算门</text>
               <text class="strong">{{ result.settle_label || result.settle_face || '—' }}</text>
@@ -85,7 +85,7 @@
             </view>
           </view>
 
-          <view v-if="!isYxx" class="fv-card">
+          <view v-if="!isYxx || hasYxxTron" class="fv-card">
             <view class="fv-sub tight">波场（TRON）官方区块哈希</view>
             <view class="fv-row"><text>官方区块高度</text><text class="strong">{{ blockNum || '—' }}</text></view>
             <view v-if="lucky" class="fv-row"><text>哈希末位字符</text><text class="strong">{{ lucky }}</text></view>
@@ -220,6 +220,10 @@ const { profileSubHdStyle, profileSubPageStyle, refreshProfileSubLayout } = useP
 const isNiuniu = computed(() => kind.value === 'niuniu' || (result.value && result.value.kind === 'niuniu'))
 const isYxx = computed(() => kind.value === 'yxx' || (result.value && result.value.kind === 'yxx'))
 const isRp = computed(() => !isNiuniu.value && !isYxx.value)
+const hasYxxTron = computed(() => {
+  const d = result.value || {}
+  return !!(Number(d.tron_block_num || d.targetBlockNum || 0) > 0 || d.tron_block_id || d.block_id)
+})
 const pageTitle = computed(() => (isYxx.value ? '鱼虾蟹开奖验真' : '波场官方哈希验证'))
 const queryLabel = computed(() => {
   if (isYxx.value) return '鱼虾蟹期号 round_index'
@@ -248,7 +252,7 @@ const statusText = computed(() => {
 })
 const pageSub = computed(() => {
   if (isYxx.value) {
-    return '大厅每期开奖种子 = SHA256("yxx-hall-v1|" + 期号)。前 3 字节各自 mod 6 得到三骰，第一颗为结算门。开奖后可在此复算核对。'
+    return '投注开始时锁定未来波场区块高度；开奖用该块 Block Hash 前 3 字节各自 mod 6 得到三骰，第一颗为结算门。可在 TronScan / OKLink 核验。旧局无波场锁定时仍用 SHA256 种子。'
   }
   return isNiuniu.value
     ? '尾数牛牛由「波场 Block Hash + 领取序号」派生 00-99 尾数（领取后才赋值）。先在本站查询复算，再跳转 TronScan / OKLink 核验区块。'

@@ -335,6 +335,8 @@ class FansHubYxxPool
                 'gross_pool_after' => (int)($meta['gross_pool_after'] ?? 0),
                 'cycle_count'      => (int)($meta['cycle_after'] ?? 0),
                 'hash_seed'        => (string)($meta['hash_seed'] ?? ''),
+                'tron_block_num'   => (int)($meta['tron_block_num'] ?? 0),
+                'tron_block_id'    => (string)($meta['tron_block_id'] ?? ''),
                 'createtime'       => time(),
             ]);
         } catch (\Throwable $e) {
