@@ -17,7 +17,7 @@ use think\Validate;
  */
 class Fanshub extends Api
 {
-    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail', 'yxxhall'];
+    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail', 'yxxhall', 'yxxfair'];
     protected $noNeedRight = '*';
 
     public function _initialize()
@@ -25,7 +25,7 @@ class Fanshub extends Api
         FansHubSms::boot();
         parent::_initialize();
         $action = strtolower($this->request->action());
-        $exempt = ['config', 'bootstrap', 'comments', 'inviteleaderboard', 'slidercaptcha', 'grabslider', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail', 'yxxhall'];
+        $exempt = ['config', 'bootstrap', 'comments', 'inviteleaderboard', 'slidercaptcha', 'grabslider', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail', 'yxxhall', 'yxxfair'];
         if (in_array($action, $exempt, true)) {
             return;
         }
@@ -1029,6 +1029,50 @@ class Fanshub extends Api
             throw $e;
         } catch (\Throwable $e) {
             $this->error($e->getMessage() ?: '下注失败');
+        }
+    }
+
+    /**
+     * 鱼虾蟹开奖验真（可匿名；仅返回已开奖期）
+     * GET /api/fanshub/yxxfair?round_index=123
+     */
+    public function yxxfair()
+    {
+        $roundIndex = (int)$this->request->param('round_index', 0);
+        if ($roundIndex <= 0) {
+            $no = trim((string)$this->request->param('packet_no', $this->request->param('round_id', '')));
+            if (preg_match('/^(?:yxx|yx)[#\-:_]?(\d+)$/i', $no, $m)) {
+                $roundIndex = (int)$m[1];
+            } elseif (ctype_digit($no)) {
+                $roundIndex = (int)$no;
+            }
+        }
+        if ($roundIndex < 0) {
+            $this->error('请提供期号 round_index');
+        }
+        try {
+            $this->success('ok', \app\common\library\FansHubYxx::verifyPayload($roundIndex));
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: '验真失败');
+        }
+    }
+
+    /**
+     * 鱼虾蟹红包雨弹窗确认（已自动入账，仅标记已读）
+     * POST /api/fanshub/yxxrainack
+     */
+    public function yxxrainack()
+    {
+        $grantId = (int)$this->request->post('grant_id', 0);
+        try {
+            \app\common\library\FansHubYxxPool::ackPopup((int)$this->auth->id, $grantId);
+            $this->success('ok');
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: '操作失败');
         }
     }
 

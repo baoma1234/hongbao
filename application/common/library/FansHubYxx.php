@@ -3,6 +3,7 @@
 namespace app\common\library;
 
 use think\Cache;
+use think\Db;
 
 /**
  * 鱼虾蟹大厅：全局 20s 局钟；白皮书单骰结算（第一颗骰）；台面展示三骰。
@@ -102,6 +103,7 @@ class FansHubYxx
                 'round_index' => $idx,
                 'dice'        => self::diceForRound($idx),
                 'settle_face' => self::diceForRound($idx)[0],
+                'hash_seed'   => self::roundHashSeed($idx),
             ];
         }
 
@@ -122,6 +124,8 @@ class FansHubYxx
             }
         }
 
+        $poolInfo = FansHubYxxPool::hallPoolPayload();
+        $rainPopup = ($uid > 0) ? FansHubYxxPool::pendingPopup($uid) : null;
         $realMoney = !empty($cfg['real_money']);
         return [
             'enabled'     => $cfg['enabled'] ? 1 : 0,
@@ -137,6 +141,9 @@ class FansHubYxx
             'payout_mult' => self::PAYOUT_MULT,
             'faces'       => self::FACE_IDS,
             'settle_mode' => 'single_die',
+            'pool'        => $poolInfo,
+            'rain_popup'  => $rainPopup,
+            'pool_status' => (string)($poolInfo['pool_status'] ?? 'normal'),
             'round'       => [
                 'round_index'  => $roundIndex,
                 'phase'        => $phase,
@@ -200,12 +207,14 @@ class FansHubYxx
                     'ref_type' => 'yxx_round',
                     'ref_id'   => $roundIndex,
                 ]);
+                FansHubYxxPool::adjustDailyBet($uid, -$prevStake);
             }
             FansHubHongbaoLedger::debit($uid, $stake, 'yxx_bet', '鱼虾蟹下注 R' . $roundIndex, [
                 'biz_no'   => 'YXX' . $roundIndex . '-' . $uid,
                 'ref_type' => 'yxx_round',
                 'ref_id'   => $roundIndex,
             ], true);
+            FansHubYxxPool::touchDailyBet($uid, $stake);
         }
         $rows = self::upsertBetRow($rows, $uid, $face, $stake, $nick, 1);
         Cache::set(self::betKey($roundIndex), $rows, 120);
@@ -343,11 +352,14 @@ class FansHubYxx
         $cycleAdvance = $humanStake > 0 ? 1 : 0;
         $cycleAfter = $cycleBefore + $cycleAdvance;
 
-        // 爆点释放：在 [boom_from, cycle_max] 区间内触发一次
+        // 爆点释放：在 [boom_from, cycle_max] 区间内触发一次（熔断 paused/locked 时只蓄水不释放）
         $releasedBoom = 0;
         $nextHalfBoomCount = 0;
         $halfBoomCount = (int)Cache::get('fh:yxx:boom_half_count');
-        if ($cycleAfter >= (int)$cfg['boom_from'] && $cycleAfter <= (int)$cfg['cycle_max']) {
+        if (FansHubYxxPool::canBoomRelease()
+            && $cycleAfter >= (int)$cfg['boom_from']
+            && $cycleAfter <= (int)$cfg['cycle_max']
+        ) {
             $releasedKey = 'fh:yxx:boom_release:' . (int)$cycleAfter;
             if (!Cache::get($releasedKey)) {
                 $forceFull = $halfBoomCount >= 2;
@@ -380,15 +392,12 @@ class FansHubYxx
 
         // 更新爆点/循环缓存（无论是否释放都先写入最新累积值）
         $boomPoolAfterRelease = max(0, $boomPoolAfterAdd - $releasedBoom);
-        Cache::set('fh:yxx:boom_pool', $boomPoolAfterRelease, 86400 * 30);
+        $hashSeed = self::roundHashSeed($roundIndex);
         Cache::set('fh:yxx:cycle_count', max(0, $cycleAfter), 86400 * 30);
         Cache::set('fh:yxx:boom_half_count', max(0, $nextHalfBoomCount), 86400 * 30);
 
-        // 结算行：单骰固定倍率 + 爆点释放奖金分摊
-        $bonusFloor = [];
-        $bonusRemainder = [];
-        $bonusSumFloor = 0;
-
+        // 结算行：单骰固定倍率 + 爆点释放奖金分摊（双重上限）
+        $winWeights = [];
         for ($i = 0; $i < count($rows); $i++) {
             if (!empty($rows[$i]['settled'])) {
                 continue;
@@ -405,29 +414,14 @@ class FansHubYxx
             $basePayout = $won ? (int)round($stake * self::PAYOUT_MULT) : 0;
             $rows[$i]['payout'] = $basePayout;
 
-            if ($won && $releasedBoom > 0 && $totalStakeWon > 0) {
-                $rawBonus = $releasedBoom * ($stake / max(1, $totalStakeWon));
-                $floorBonus = (int)floor($rawBonus);
-                $bonusFloor[$i] = $floorBonus;
-                $bonusRemainder[$i] = $rawBonus - $floorBonus;
-                $bonusSumFloor += $floorBonus;
-            } else {
-                $bonusFloor[$i] = 0;
-                $bonusRemainder[$i] = 0.0;
+            if ($won && !$isBot && $releasedBoom > 0 && $totalStakeWon > 0) {
+                $winWeights[$i] = $stake;
             }
         }
 
-        $remain = (int)max(0, $releasedBoom - $bonusSumFloor);
-        if ($remain > 0 && !empty($bonusRemainder)) {
-            arsort($bonusRemainder); // 余数最大优先拿 1 分
-            foreach ($bonusRemainder as $idx => $r) {
-                if ($remain <= 0) {
-                    break;
-                }
-                $bonusFloor[(int)$idx] = ((int)($bonusFloor[(int)$idx] ?? 0)) + 1;
-                $remain--;
-            }
-        }
+        $bonusFloor = ($releasedBoom > 0 && $winWeights)
+            ? FansHubYxxPool::capProportionalShares($releasedBoom, $winWeights)
+            : [];
 
         for ($i = 0; $i < count($rows); $i++) {
             if (empty($rows[$i]['settled'])) {
@@ -459,7 +453,7 @@ class FansHubYxx
         }
 
         Cache::set(self::betKey($roundIndex), $rows, 86400);
-        Cache::set('fh:yxx:roundmeta:' . $roundIndex, [
+        $roundMeta = [
             'settle_face' => $settleFace,
             'dice'        => $dice,
             'human_stake' => $humanStake,
@@ -467,8 +461,15 @@ class FansHubYxx
             'boom_add'    => $boomAdd,
             'boom_release'=> $releasedBoom,
             'cycle_after' => $cycleAfter,
+            'hash_seed'   => $hashSeed,
             'ts'          => time(),
-        ], 86400 * 7);
+        ];
+        Cache::set('fh:yxx:roundmeta:' . $roundIndex, $roundMeta, 86400 * 7);
+
+        $rainSummary = FansHubYxxPool::afterRoundSettled($roundIndex, $boomPoolAfterRelease, $roundMeta);
+        if (is_array($rainSummary)) {
+            Cache::set('fh:yxx:last_rain', $rainSummary, 86400);
+        }
     }
 
     protected static function assertBetInput($uid, $face, $stake)
@@ -479,6 +480,9 @@ class FansHubYxx
         $cfg = self::configMap();
         if (empty($cfg['enabled'])) {
             throw new \RuntimeException(FansHubService::h5CopyText('yxx_err_closed') ?: '鱼虾蟹暂未开放');
+        }
+        if (!FansHubYxxPool::canBet()) {
+            throw new \RuntimeException(FansHubService::h5CopyText('yxx_err_locked') ?: '鱼虾蟹已暂停');
         }
         $clock = self::clock();
         if ($clock['phase'] !== 'betting') {
@@ -562,7 +566,7 @@ class FansHubYxx
 
     protected static function boomPool()
     {
-        return max(0, (int)Cache::get('fh:yxx:boom_pool'));
+        return FansHubYxxPool::grossPool();
     }
 
     protected static function cycleCount()
@@ -602,11 +606,90 @@ class FansHubYxx
 
     public static function diceForRound($roundIndex)
     {
-        $raw = hash('sha256', 'yxx-hall-v1|' . (int)$roundIndex, true);
+        return self::diceFromSeed(self::roundHashSeed($roundIndex));
+    }
+
+    public static function roundHashSeed($roundIndex)
+    {
+        return hash('sha256', 'yxx-hall-v1|' . (int)$roundIndex);
+    }
+
+    public static function diceFromSeed($hexSeed)
+    {
+        $hexSeed = strtolower(trim((string)$hexSeed));
+        $raw = ctype_xdigit($hexSeed) ? @hex2bin($hexSeed) : false;
+        if ($raw === false || strlen($raw) < 3) {
+            $raw = hash('sha256', (string)$hexSeed, true);
+        }
         return [
             self::FACE_IDS[ord($raw[0]) % 6],
             self::FACE_IDS[ord($raw[1]) % 6],
             self::FACE_IDS[ord($raw[2]) % 6],
+        ];
+    }
+
+    /**
+     * 公开验真：仅返回已开奖期（当前局须已进入 reveal）。
+     */
+    public static function verifyPayload($roundIndex)
+    {
+        $roundIndex = (int)$roundIndex;
+        if ($roundIndex < 0) {
+            throw new \RuntimeException('无效期号');
+        }
+        $clock = self::clock();
+        $cur = (int)$clock['round_index'];
+        $revealed = ($roundIndex < $cur) || ($roundIndex === $cur && $clock['phase'] === 'reveal');
+        $seed = self::roundHashSeed($roundIndex);
+        $dice = self::diceForRound($roundIndex);
+        $archived = null;
+        try {
+            $archived = Db::name('fans_yxx_rounds')->where('round_index', $roundIndex)->find();
+        } catch (\Throwable $e) {
+            $archived = null;
+        }
+
+        $faceMatch = true;
+        $seedMatch = true;
+        if ($revealed && $archived) {
+            $storedFace = (string)($archived['settle_face'] ?? '');
+            $storedSeed = (string)($archived['hash_seed'] ?? '');
+            if ($storedFace !== '') {
+                $faceMatch = ($storedFace === $dice[0]);
+            }
+            if ($storedSeed !== '') {
+                $seedMatch = ($storedSeed === $seed);
+            }
+        }
+
+        $ok = $revealed && $faceMatch && $seedMatch;
+        $labels = [];
+        foreach ($dice as $id) {
+            $labels[] = self::FACE_LABEL[$id] ?? $id;
+        }
+
+        return [
+            'kind'          => 'yxx',
+            'type_label'    => '鱼虾蟹大厅',
+            'round_index'   => $roundIndex,
+            'revealed'      => $revealed ? 1 : 0,
+            'status_label'  => $revealed ? '已开奖' : '尚未开奖',
+            'settle_face'   => $revealed ? $dice[0] : '',
+            'settle_label'  => $revealed ? (self::FACE_LABEL[$dice[0]] ?? $dice[0]) : '',
+            'dice'          => $revealed ? $dice : ['', '', ''],
+            'dice_labels'   => $revealed ? $labels : ['', '', ''],
+            'hash_seed'     => $revealed ? $seed : '',
+            'hash_formula'  => 'SHA256("yxx-hall-v1|" + round_index)',
+            'hash_rule'     => '种子前 3 字节各自 mod 6 → 三骰；第一颗为结算门',
+            'verify_ok'     => $ok ? 1 : 0,
+            'face_match'    => $faceMatch ? 1 : 0,
+            'seed_match'    => $seedMatch ? 1 : 0,
+            'human_stake'   => $archived ? (int)$archived['human_stake'] : 0,
+            'pool_inject'   => $archived ? (int)$archived['pool_inject'] : 0,
+            'boom_release'  => $archived ? (int)$archived['boom_release'] : 0,
+            'verify_hint'   => $revealed
+                ? ('复算：' . $seed . ' 前 3 字节映射为 ' . implode(' / ', $labels) . '，结算门=' . (self::FACE_LABEL[$dice[0]] ?? $dice[0]))
+                : '该期尚未开奖，开奖后再查询可核对种子与图腾。',
         ];
     }
 

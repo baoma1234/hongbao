@@ -8,6 +8,7 @@
         <text class="yxx-title">{{ t('yxx_title') }}</text>
         <text class="yxx-sub">{{ t('yxx_subtitle') }}</text>
       </view>
+      <view class="yxx-rules-btn" hover-class="yxx-hit" @click="openVerify">{{ t('yxx_verify') }}</view>
       <view class="yxx-rules-btn" hover-class="yxx-hit" @click="rulesOpen = true">{{ t('yxx_rules') }}</view>
     </view>
 
@@ -23,6 +24,21 @@
       <view class="yxx-pill gold">
         <text>{{ t('yxx_pool', { n: poolText }) }}</text>
       </view>
+    </view>
+
+    <view v-if="poolStatus && poolStatus !== 'normal'" class="yxx-status-banner">
+      <text>{{ statusBannerText }}</text>
+    </view>
+
+    <view v-if="poolEnabled" class="yxx-pool-bar">
+      <view class="yxx-pool-row">
+        <text class="yxx-pool-txt">{{ poolGrossText }}</text>
+        <text class="yxx-pool-txt dim">{{ poolReserveText }}</text>
+      </view>
+      <view class="yxx-pool-track">
+        <view class="yxx-pool-fill" :style="{ width: rainProgress + '%' }" />
+      </view>
+      <text class="yxx-pool-prog">{{ rainProgText }}</text>
     </view>
 
     <scroll-view scroll-y class="yxx-scroll" :style="{ height: scrollH }">
@@ -63,7 +79,7 @@
       </view>
 
       <view class="yxx-feed">
-        <text class="yxx-hist">{{ historyLine }}</text>
+        <text class="yxx-hist" @click="openVerify">{{ historyLine }}</text>
         <view class="yxx-feed-list">
           <view class="yxx-feed-col">
             <view v-for="(row, i) in feedLeft" :key="'l' + i" class="yxx-feed-item">
@@ -104,7 +120,7 @@
         </view>
         <view
           class="yxx-confirm"
-          :class="{ off: phase !== 'betting' || betting }"
+          :class="{ off: phase !== 'betting' || betting || poolStatus === 'locked' }"
           hover-class="yxx-hit"
           @click="onBet"
         >{{ confirmText }}</view>
@@ -119,8 +135,19 @@
           <text class="yxx-sheet-p">{{ t('yxx_rules_p2') }}</text>
           <text class="yxx-sheet-p">{{ t('yxx_rules_p3') }}</text>
           <text class="yxx-sheet-p">{{ t('yxx_rules_p4') }}</text>
+          <text class="yxx-sheet-p">{{ t('yxx_rules_p5') }}</text>
         </scroll-view>
         <view class="yxx-sheet-ok" @click="rulesOpen = false">{{ t('yxx_rules_ok') }}</view>
+      </view>
+    </view>
+
+    <view v-if="rainOpen" class="yxx-mask" @click.stop>
+      <view class="yxx-rain-card" @click.stop>
+        <text class="yxx-rain-ico">🧧</text>
+        <text class="yxx-rain-title">{{ t('yxx_rain_title') }}</text>
+        <text class="yxx-rain-amt">+{{ rainAmount }}</text>
+        <text class="yxx-rain-body">{{ rainBodyText }}</text>
+        <view class="yxx-rain-btn" hover-class="yxx-hit" @click="ackRain">{{ t('yxx_rain_ok') }}</view>
       </view>
     </view>
   </view>
@@ -168,6 +195,16 @@ const feedRows = ref([])
 const realMoney = ref(false)
 const myResult = ref('')
 const myPayout = ref(0)
+const poolEnabled = ref(false)
+const grossPool = ref(0)
+const baseReserve = ref(0)
+const rainProgress = ref(0)
+const rainOpen = ref(false)
+const rainAmount = ref(0)
+const rainRelease = ref(0)
+const rainParticipants = ref(0)
+const rainGrantId = ref(0)
+const poolStatus = ref('normal')
 let poll = null
 let lastRound = -1
 
@@ -181,6 +218,38 @@ const poolText = computed(() => {
   return n.toLocaleString('zh-CN')
 })
 
+const poolGrossText = computed(() => {
+  void locale.value
+  return t('yxx_pool_gross', { n: (Number(grossPool.value) || 0).toLocaleString('zh-CN') })
+})
+
+const poolReserveText = computed(() => {
+  void locale.value
+  return t('yxx_pool_reserve', { n: (Number(baseReserve.value) || 0).toLocaleString('zh-CN') })
+})
+
+const rainProgText = computed(() => {
+  void locale.value
+  return t('yxx_pool_rain_prog', { n: rainProgress.value })
+})
+
+const rainBodyText = computed(() => {
+  void locale.value
+  return t('yxx_rain_body', {
+    amount: rainAmount.value,
+    release: (Number(rainRelease.value) || 0).toLocaleString('zh-CN'),
+    participants: rainParticipants.value,
+  })
+})
+
+const statusBannerText = computed(() => {
+  void locale.value
+  if (poolStatus.value === 'locked') return t('yxx_status_locked')
+  if (poolStatus.value === 'paused') return t('yxx_status_paused')
+  if (poolStatus.value === 'degraded') return t('yxx_status_degraded')
+  return ''
+})
+
 const timerText = computed(() => {
   void locale.value
   const n = remainSec.value
@@ -191,6 +260,7 @@ const timerText = computed(() => {
 
 const confirmText = computed(() => {
   void locale.value
+  if (poolStatus.value === 'locked') return t('yxx_err_locked')
   if (betting.value) return t('yxx_confirming')
   if (phase.value === 'locking') return t('yxx_sealed')
   if (phase.value === 'reveal') return t('yxx_drawing')
@@ -266,8 +336,10 @@ function measure() {
     padBottom.value = Math.max(8, Number(inset.bottom || 0))
     const header = 56
     const stats = 44
+    const poolBar = poolEnabled.value ? 52 : 0
+    const banner = poolStatus.value && poolStatus.value !== 'normal' ? 28 : 0
     const dock = 108 + padBottom.value
-    const h = (sys.windowHeight || 667) - padTop.value - header - stats - dock
+    const h = (sys.windowHeight || 667) - padTop.value - header - stats - poolBar - banner - dock
     scrollH.value = Math.max(240, h) + 'px'
   } catch (e) {
     scrollH.value = '58vh'
@@ -278,6 +350,21 @@ function goBack() {
   uni.switchTab({
     url: '/pages/messages/messages',
     fail: () => uni.reLaunch({ url: '/pages/messages/messages' }),
+  })
+}
+
+function openVerify() {
+  const rows = historyRows.value || []
+  let idx = 0
+  if (phase.value === 'reveal' && lastRound >= 0) {
+    idx = lastRound
+  } else if (rows.length && rows[0] && rows[0].round_index != null) {
+    idx = Number(rows[0].round_index) || 0
+  } else if (lastRound > 0) {
+    idx = lastRound - 1
+  }
+  uni.navigateTo({
+    url: '/pages/common/fair-verify?kind=yxx&round_index=' + encodeURIComponent(String(idx)),
   })
 }
 
@@ -337,6 +424,30 @@ function applyHall(data) {
     myPayout.value = Number(mine.payout || 0)
   }
   if (stake.value < stakeMin.value) stake.value = stakeMin.value
+
+  const pinfo = data.pool || {}
+  poolEnabled.value = !!pinfo.pool_enabled
+  grossPool.value = Number(pinfo.gross_pool || 0)
+  baseReserve.value = Number(pinfo.base_reserve || 0)
+  rainProgress.value = Math.min(100, Number(pinfo.rain_progress || 0))
+  poolStatus.value = String(data.pool_status || pinfo.pool_status || 'normal')
+  measure()
+
+  const popup = data.rain_popup
+  if (popup && popup.amount > 0) {
+    rainAmount.value = Number(popup.amount || 0)
+    rainRelease.value = Number(popup.release || 0)
+    rainParticipants.value = Number(popup.participants || 0)
+    rainGrantId.value = Number(popup.grant_id || 0)
+    rainOpen.value = true
+  }
+}
+
+async function ackRain() {
+  rainOpen.value = false
+  try {
+    await apiRequest('yxxrainack', 'POST', { grant_id: rainGrantId.value })
+  } catch (e) {}
 }
 
 async function loadHall() {
@@ -347,6 +458,10 @@ async function loadHall() {
 }
 
 async function onBet() {
+  if (poolStatus.value === 'locked') {
+    uni.showToast({ title: t('yxx_err_locked'), icon: 'none' })
+    return
+  }
   if (phase.value !== 'betting' || betting.value) return
   if (!selectedFace.value) {
     uni.showToast({ title: t('yxx_pick_face'), icon: 'none' })
@@ -440,9 +555,10 @@ onUnmounted(() => {
 }
 .yxx-rules-btn {
   width: auto;
-  padding: 0 10px;
+  min-width: 36px;
+  padding: 0 8px;
   border-radius: 10px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
   color: #ffe29a;
 }
@@ -504,6 +620,102 @@ onUnmounted(() => {
 }
 .yxx-pill-ico {
   font-size: 11px;
+}
+.yxx-status-banner {
+  margin: 0 10px 8px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(180, 40, 20, 0.55);
+  border: 1px solid rgba(255, 180, 80, 0.45);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  color: #ffe29a;
+}
+.yxx-pool-bar {
+  margin: 0 10px 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(40, 6, 8, 0.75);
+  border: 1px solid rgba(255, 190, 90, 0.35);
+}
+.yxx-pool-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.yxx-pool-txt {
+  font-size: 10px;
+  font-weight: 700;
+  color: #ffe29a;
+}
+.yxx-pool-txt.dim {
+  color: rgba(255, 255, 255, 0.65);
+}
+.yxx-pool-track {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+.yxx-pool-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #f0c14b, #ff6b3d);
+  transition: width 0.4s ease;
+}
+.yxx-pool-prog {
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.72);
+  text-align: right;
+}
+.yxx-rain-card {
+  width: 82%;
+  max-width: 320px;
+  margin: 28vh auto 0;
+  padding: 24px 18px 18px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #8f1212, #4a0608);
+  border: 2px solid #f0c14b;
+  text-align: center;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+}
+.yxx-rain-ico {
+  font-size: 42px;
+  line-height: 1.2;
+}
+.yxx-rain-title {
+  display: block;
+  margin-top: 6px;
+  font-size: 20px;
+  font-weight: 900;
+  color: #ffd56a;
+}
+.yxx-rain-amt {
+  display: block;
+  margin: 10px 0;
+  font-size: 36px;
+  font-weight: 900;
+  color: #fff3c4;
+}
+.yxx-rain-body {
+  display: block;
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 14px;
+}
+.yxx-rain-btn {
+  display: inline-block;
+  padding: 10px 28px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #f0c14b, #c48418);
+  color: #4a2200;
+  font-size: 15px;
+  font-weight: 800;
 }
 .yxx-scroll {
   box-sizing: border-box;
@@ -664,6 +876,8 @@ onUnmounted(() => {
   font-size: 11px;
   color: #ffe29a;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 .yxx-feed-list {
   display: flex;

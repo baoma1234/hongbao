@@ -1,0 +1,57 @@
+<div class="panel panel-default panel-intro">
+    {:build_heading()}
+    <div class="panel-body">
+        <div class="row" style="margin-bottom:16px;">
+            <div class="col-sm-3">
+                <div class="well well-sm"><strong>蓄水总额</strong><div style="font-size:22px;">{$dash.gross|default=0}</div></div>
+            </div>
+            <div class="col-sm-3">
+                <div class="well well-sm"><strong>保护底座 20%</strong><div style="font-size:22px;">{$dash.base_reserve|default=0}</div></div>
+            </div>
+            <div class="col-sm-3">
+                <div class="well well-sm"><strong>可派发</strong><div style="font-size:22px;">{$dash.distributable|default=0}</div></div>
+            </div>
+            <div class="col-sm-3">
+                <div class="well well-sm">
+                    <strong>当前状态</strong>
+                    <div style="font-size:16px;margin-top:6px;">{$dash.status_label|default='正常运行'}</div>
+                    <div class="text-muted">有效局 {$dash.cycle_count|default=0} · 今日红包雨 {$dash.rain_day_count|default=0}/{$dash.rain_daily_max|default=3}</div>
+                </div>
+            </div>
+        </div>
+
+        <form id="status-form" class="form-horizontal" style="margin-bottom:20px;">
+            <fieldset>
+                <legend>熔断开关（需谷歌验证码）</legend>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">运行状态</label>
+                    <div class="col-xs-12 col-sm-8">
+                        {foreach name="statusLabels" item="lab" key="st"}
+                        <label class="radio-inline" style="display:block;margin:4px 0;">
+                            <input type="radio" name="status" value="{$st}" {if $dash.status==$st}checked{/if}> {$lab}
+                        </label>
+                        {/foreach}
+                        <span class="help-block">降级：停红包雨。暂停：停红包雨和爆点释放，仍可下注。锁死：禁止新下注，已下注局仍会结算。</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">谷歌验证码</label>
+                    <div class="col-xs-12 col-sm-3">
+                        <input type="text" class="form-control" name="google_code" maxlength="6" autocomplete="off" placeholder="6 位">
+                    </div>
+                    <div class="col-xs-12 col-sm-3">
+                        <button type="button" class="btn btn-danger btn-setstatus">确认切换</button>
+                    </div>
+                </div>
+            </fieldset>
+        </form>
+
+        <div id="toolbar" class="toolbar">
+            {:build_toolbar('refresh')}
+        </div>
+        <table id="table" class="table table-striped table-bordered table-hover"
+               data-operate-detail="{:$auth->check('fanshub/yxxpool/raindetail')}"
+               width="100%">
+        </table>
+    </div>
+</div>

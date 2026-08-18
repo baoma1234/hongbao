@@ -1,0 +1,45 @@
+<div class="panel panel-default panel-intro">
+    <div class="panel-heading">
+        <em>鱼虾蟹红包雨 #{$row.id}</em>
+        <div class="panel-lead">期号 R{$row.round_index} · 释放 {$row.release_amount} · {$row.participant_count} 人 · {$row.time_text}</div>
+    </div>
+    <div class="panel-body">
+        <table class="table table-bordered">
+            <tr>
+                <th width="140">释放金额</th><td>{$row.release_amount}</td>
+                <th width="140">人数</th><td>{$row.participant_count}</td>
+            </tr>
+            <tr>
+                <th>释放前总额</th><td>{$row.gross_pool_before}</td>
+                <th>释放后总额</th><td>{$row.gross_pool_after}</td>
+            </tr>
+            <tr>
+                <th>哈希种子</th>
+                <td colspan="3" style="word-break:break-all;font-family:monospace;font-size:12px;">{$row.hash_seed|default='-'}</td>
+            </tr>
+        </table>
+        <h4 style="margin:16px 0 8px;">派发明细（金额降序，最多 500）</h4>
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped">
+                <thead>
+                <tr>
+                    <th>用户</th>
+                    <th>金额</th>
+                    <th>权重（当日下注）</th>
+                    <th>时间</th>
+                </tr>
+                </thead>
+                <tbody>
+                {volist name="grants" id="g"}
+                <tr>
+                    <td>{$g.nickname} ({$g.user_id})</td>
+                    <td>{$g.amount}</td>
+                    <td>{$g.weight}</td>
+                    <td>{$g.time_text}</td>
+                </tr>
+                {/volist}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

@@ -74,6 +74,15 @@ return array (
   'yxx_bot_count_min' => 10,
   'yxx_bot_count_max' => 22,
   'yxx_real_money' => true,
+  'yxx_pool_enabled' => true,
+  'yxx_pool_reserve_rate' => 0.20,
+  'yxx_rain_trigger' => 200000,
+  'yxx_rain_release_rate' => 0.10,
+  'yxx_user_rate_cap' => 0.05,
+  'yxx_user_abs_cap' => 10000,
+  'yxx_rain_cooldown_sec' => 3600,
+  'yxx_rain_daily_max' => 3,
+  'yxx_rain_min_bet' => 50,
   'im_admin' => 
   array (
     'bridge_url' => 'http://127.0.0.1:17273',

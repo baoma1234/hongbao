@@ -3,24 +3,24 @@
     <TopBar />
     <view class="fv-hd profile-sub-hd" :style="profileSubHdStyle">
       <text class="profile-back-btn" @click="goBack">‹</text>
-      <text class="profile-sub-title">波场官方哈希验证</text>
+      <text class="profile-sub-title">{{ pageTitle }}</text>
       <text class="profile-sub-spacer" />
     </view>
     <scroll-view scroll-y class="fv-scroll" :style="{ height: scrollH }">
       <view class="fv-wrap">
-        <view class="fv-h1">波场官方哈希验证</view>
+        <view class="fv-h1">{{ pageTitle }}</view>
         <view class="fv-sub">{{ pageSub }}</view>
 
         <view class="fv-card">
-          <text class="fv-label">{{ isNiuniu ? '牛牛局号 round_id' : '红包单号 packet_no' }}</text>
+          <text class="fv-label">{{ queryLabel }}</text>
           <input
             class="fv-input"
             v-model="queryNo"
-            :placeholder="isNiuniu ? '例如 128' : 'rp...'"
+            :placeholder="queryPlaceholder"
           />
           <button type="button" class="fv-btn" :disabled="busy" @click="verify()">查询并验证</button>
           <button type="button" class="fv-btn fv-btn2" @click="goBack">
-            {{ isNiuniu ? '返回开奖明细' : '返回红包详情' }}
+            {{ backLabel }}
           </button>
           <view v-if="formErr" class="fv-err">{{ formErr }}</view>
         </view>
@@ -28,17 +28,26 @@
         <view v-if="result" class="fv-result">
           <view class="fv-card">
             <view class="fv-row"><text>玩法</text><text class="strong">{{ result.type_label || '—' }}</text></view>
+            <view v-if="isYxx" class="fv-row"><text>期号</text><text>#{{ result.round_index || queryNo }}</text></view>
             <view v-if="isNiuniu" class="fv-row"><text>局号</text><text>#{{ result.round_id || queryNo }}</text></view>
             <view class="fv-row">
-              <text>{{ isNiuniu ? '对局状态' : '红包状态' }}</text>
-              <text>{{ isNiuniu ? (result.status_label || statusLabel(result.status)) : statusLabel(result.status) }}</text>
+              <text>{{ statusTitle }}</text>
+              <text>{{ statusText }}</text>
             </view>
-            <view class="fv-row"><text>波场开奖</text><text>{{ tronStatusLabel(result.tron_status) }}</text></view>
-            <view v-if="!isNiuniu" class="fv-row">
+            <view v-if="!isYxx" class="fv-row"><text>波场开奖</text><text>{{ tronStatusLabel(result.tron_status) }}</text></view>
+            <view v-if="isYxx" class="fv-row">
+              <text>结算门</text>
+              <text class="strong">{{ result.settle_label || result.settle_face || '—' }}</text>
+            </view>
+            <view v-if="isYxx" class="fv-row">
+              <text>三骰展示</text>
+              <text>{{ (result.dice_labels || []).filter(Boolean).join(' / ') || '—' }}</text>
+            </view>
+            <view v-if="isRp" class="fv-row">
               <text>可抢池</text>
               <text>¥{{ poolAmount }} / {{ (result.total_count || 0) }}个</text>
             </view>
-            <view v-if="!isNiuniu" class="fv-row"><text>发包总额</text><text>¥{{ money(result.total_amount) }}</text></view>
+            <view v-if="isRp" class="fv-row"><text>发包总额</text><text>¥{{ money(result.total_amount) }}</text></view>
             <view v-if="isNiuniu" class="fv-row">
               <text>奖池 / 可发</text>
               <text>¥{{ money(result.pool_amount) }} / ¥{{ money(result.distributable) }}</text>
@@ -47,16 +56,40 @@
               <text>包数</text>
               <text>{{ result.share_count || 0 }} × ¥{{ money(result.share_price) }}</text>
             </view>
-            <view v-if="!isNiuniu && Number(result.packet_type || 0) === 3" class="fv-row">
+            <view v-if="isRp && Number(result.packet_type || 0) === 3" class="fv-row">
               <text>手填雷号</text><text class="strong">{{ result.mine_digit != null ? result.mine_digit : '—' }}</text>
             </view>
           </view>
 
-          <view class="fv-card">
+          <view v-if="isYxx" class="fv-card">
+            <view class="fv-sub tight">哈希种子复算</view>
+            <view class="fv-row"><text>公式</text><text class="strong">{{ result.hash_formula || 'SHA256' }}</text></view>
+            <view class="fv-row"><text>规则</text><text>{{ result.hash_rule || '—' }}</text></view>
+            <text class="fv-label mt">Hash Seed</text>
+            <view class="fv-mono">{{ result.hash_seed || '尚未开奖' }}</view>
+            <view v-if="result.verify_hint" class="fv-sub">{{ result.verify_hint }}</view>
+            <view class="fv-row">
+              <text>总体结果</text>
+              <text v-if="result.revealed" :class="result.verify_ok ? 'fv-tag ok' : 'fv-tag bad'">
+                {{ result.verify_ok ? '复算一致' : '复算不一致' }}
+              </text>
+              <text v-else class="fv-tag wait">待开奖</text>
+            </view>
+            <view v-if="result.revealed" class="fv-row">
+              <text>归档图腾</text>
+              <text :class="result.face_match ? 'fv-tag ok' : 'fv-tag bad'">{{ result.face_match ? '一致' : '不一致' }}</text>
+            </view>
+            <view v-if="result.revealed" class="fv-row">
+              <text>归档种子</text>
+              <text :class="result.seed_match ? 'fv-tag ok' : 'fv-tag bad'">{{ result.seed_match ? '一致' : '不一致' }}</text>
+            </view>
+          </view>
+
+          <view v-if="!isYxx" class="fv-card">
             <view class="fv-sub tight">波场（TRON）官方区块哈希</view>
             <view class="fv-row"><text>官方区块高度</text><text class="strong">{{ blockNum || '—' }}</text></view>
             <view v-if="lucky" class="fv-row"><text>哈希末位字符</text><text class="strong">{{ lucky }}</text></view>
-            <view v-if="!isNiuniu && result.revealed && result.lucky_digit != null" class="fv-row">
+            <view v-if="isRp && result.revealed && result.lucky_digit != null" class="fv-row">
               <text>末位映射 0-9</text><text class="strong">{{ result.lucky_digit }}</text>
             </view>
             <text class="fv-label mt">Block Hash</text>
@@ -76,7 +109,7 @@
           </view>
 
           <!-- 红包：金额验证 -->
-          <view v-if="!isNiuniu && result.revealed" class="fv-card">
+          <view v-if="isRp && result.revealed" class="fv-card">
             <view class="fv-sub tight"><text class="strong">金额验证</text>（哈希 + 单号链下复算）</view>
             <view class="fv-row">
               <text>总体结果</text>
@@ -174,7 +207,7 @@ import { apiRequest, getToken } from '../../utils/auth.js'
 import { useProfileSubHdStyle } from '../../utils/profile-sub-layout.js'
 import '../../styles/hb.css'
 
-const kind = ref('rp') // rp | niuniu
+const kind = ref('rp') // rp | niuniu | yxx
 const queryNo = ref('')
 const packetId = ref(0)
 const formErr = ref('')
@@ -185,11 +218,42 @@ let retryTimer = null
 const { profileSubHdStyle, profileSubPageStyle, refreshProfileSubLayout } = useProfileSubHdStyle()
 
 const isNiuniu = computed(() => kind.value === 'niuniu' || (result.value && result.value.kind === 'niuniu'))
-const pageSub = computed(() =>
-  isNiuniu.value
+const isYxx = computed(() => kind.value === 'yxx' || (result.value && result.value.kind === 'yxx'))
+const isRp = computed(() => !isNiuniu.value && !isYxx.value)
+const pageTitle = computed(() => (isYxx.value ? '鱼虾蟹开奖验真' : '波场官方哈希验证'))
+const queryLabel = computed(() => {
+  if (isYxx.value) return '鱼虾蟹期号 round_index'
+  if (isNiuniu.value) return '牛牛局号 round_id'
+  return '红包单号 packet_no'
+})
+const queryPlaceholder = computed(() => {
+  if (isYxx.value) return '例如 12345'
+  if (isNiuniu.value) return '例如 128'
+  return 'rp...'
+})
+const backLabel = computed(() => {
+  if (isYxx.value) return '返回大厅'
+  if (isNiuniu.value) return '返回开奖明细'
+  return '返回红包详情'
+})
+const statusTitle = computed(() => {
+  if (isYxx.value) return '开奖状态'
+  if (isNiuniu.value) return '对局状态'
+  return '红包状态'
+})
+const statusText = computed(() => {
+  const d = result.value || {}
+  if (isYxx.value || isNiuniu.value) return d.status_label || statusLabel(d.status)
+  return statusLabel(d.status)
+})
+const pageSub = computed(() => {
+  if (isYxx.value) {
+    return '大厅每期开奖种子 = SHA256("yxx-hall-v1|" + 期号)。前 3 字节各自 mod 6 得到三骰，第一颗为结算门。开奖后可在此复算核对。'
+  }
+  return isNiuniu.value
     ? '尾数牛牛由「波场 Block Hash + 领取序号」派生 00-99 尾数（领取后才赋值）。先在本站查询复算，再跳转 TronScan / OKLink 核验区块。'
     : '拼手气金额由「波场 Block Hash + 单号」链下拆分。扫雷另要求：哈希末位必须等于手填雷号后才拆包开抢；中雷看金额尾数。可在 TronScan / OKLink 核验。'
-)
+})
 
 function measureScroll() {
   try {
@@ -249,6 +313,13 @@ function tronStatusLabel(st) {
 }
 
 function goBack() {
+  if (isYxx.value) {
+    uni.navigateTo({
+      url: '/pages/yxx/hall',
+      fail: () => safeNavigateBack(HOME_TAB),
+    })
+    return
+  }
   safeNavigateBack(HOME_TAB)
 }
 
@@ -267,10 +338,14 @@ function openUrl(url) {
 
 function detectKindFromInput(raw) {
   const s = String(raw || '').trim()
+  if (/^(?:yxx|yx)[#\-:_]?\d+$/i.test(s) || (kind.value === 'yxx' && /^\d+$/.test(s))) {
+    return 'yxx'
+  }
   if (/^(?:nn|niuniu)[#\-:_]?\d+$/i.test(s) || (kind.value === 'niuniu' && /^\d+$/.test(s))) {
     return 'niuniu'
   }
   if (/^rp/i.test(s)) return 'rp'
+  if (kind.value === 'yxx') return 'yxx'
   return kind.value === 'niuniu' ? 'niuniu' : 'rp'
 }
 
@@ -279,10 +354,10 @@ async function verify(opts) {
   formErr.value = ''
   const no = String(queryNo.value || '').trim()
   if (!no) {
-    formErr.value = isNiuniu.value ? '请填写牛牛局号' : '请填写红包单号'
+    formErr.value = isYxx.value ? '请填写鱼虾蟹期号' : isNiuniu.value ? '请填写牛牛局号' : '请填写红包单号'
     return
   }
-  if (!getToken()) {
+  if (!isYxx.value && !getToken()) {
     formErr.value = '请先登录后再查询验证'
     return
   }
@@ -290,7 +365,11 @@ async function verify(opts) {
   busy.value = true
   try {
     let data
-    if (useKind === 'niuniu') {
+    if (useKind === 'yxx') {
+      const rid = parseInt(String(no).replace(/^(?:yxx|yx)[#\-:_]?/i, ''), 10)
+      data = await apiRequest('yxxfair', 'GET', { round_index: isFinite(rid) ? rid : no }, { skipAuthRedirect: true })
+      kind.value = 'yxx'
+    } else if (useKind === 'niuniu') {
       const rid = parseInt(String(no).replace(/^(?:nn|niuniu)[#\-:_]?/i, ''), 10) || 0
       data = await apiRequest('nnfair', 'GET', { round_id: rid || no })
       kind.value = 'niuniu'
@@ -329,15 +408,21 @@ onLoad((q) => {
   measureScroll()
   const k = String((q && (q.kind || q.type)) || '').toLowerCase()
   if (k === 'niuniu' || k === 'nn' || k === 'niu') kind.value = 'niuniu'
+  if (k === 'yxx' || k === 'yx') kind.value = 'yxx'
+  const yxxRound = parseInt(String((q && (q.round_index || q.round)) || '0'), 10) || 0
   const rid = parseInt(String((q && (q.round_id || q.rid)) || '0'), 10) || 0
   const no = decodeURIComponent(String((q && (q.packet_no || q.no)) || ''))
   const pid = parseInt(String((q && (q.packet_id || q.pid)) || '0'), 10) || 0
-  if (rid > 0) {
+  if (yxxRound > 0 || (kind.value === 'yxx' && rid > 0)) {
+    kind.value = 'yxx'
+    queryNo.value = String(yxxRound || rid)
+  } else if (rid > 0) {
     kind.value = 'niuniu'
     queryNo.value = String(rid)
   } else if (no) {
     queryNo.value = no
-    if (/^(?:nn|niuniu)/i.test(no) || (/^\d+$/.test(no) && k === 'niuniu')) kind.value = 'niuniu'
+    if (/^(?:yxx|yx)/i.test(no) || (/^\d+$/.test(no) && k === 'yxx')) kind.value = 'yxx'
+    else if (/^(?:nn|niuniu)/i.test(no) || (/^\d+$/.test(no) && k === 'niuniu')) kind.value = 'niuniu'
   }
   if (pid > 0) packetId.value = pid
   if (queryNo.value) verify().catch(() => {})
