@@ -165,7 +165,12 @@
       "path": "pages/yxx/hall",
       "style": {
         "navigationBarTitleText": "鱼虾蟹",
-        "navigationStyle": "custom"
+        "navigationStyle": "custom",
+        "disableScroll": true,
+        "app-plus": {
+          "bounce": "none",
+          "softinputMode": "adjustPan"
+        }
       }
     }
   ],

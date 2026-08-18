@@ -1,15 +1,19 @@
 <template>
   <view class="yxx-page" :style="pagePad">
     <view class="yxx-header">
-      <view class="yxx-back" hover-class="yxx-hit" @click="goBack">
-        <text class="yxx-back-char">‹</text>
+      <view class="yxx-h-side yxx-h-left">
+        <view class="yxx-back" hover-class="yxx-hit" @click="goBack">
+          <text class="yxx-back-char">‹</text>
+        </view>
       </view>
       <view class="yxx-titles">
         <text class="yxx-title">{{ t('yxx_title') }}</text>
         <text class="yxx-sub">{{ t('yxx_subtitle') }}</text>
       </view>
-      <view class="yxx-rules-btn" hover-class="yxx-hit" @click="openVerify">{{ t('yxx_verify') }}</view>
-      <view class="yxx-rules-btn" hover-class="yxx-hit" @click="rulesOpen = true">{{ t('yxx_rules') }}</view>
+      <view class="yxx-h-side yxx-h-right">
+        <view class="yxx-rules-btn" hover-class="yxx-hit" @click="openVerify">{{ t('yxx_verify') }}</view>
+        <view class="yxx-rules-btn" hover-class="yxx-hit" @click="rulesOpen = true">{{ t('yxx_rules') }}</view>
+      </view>
     </view>
 
     <view class="yxx-stats">
@@ -97,7 +101,7 @@
       </view>
     </scroll-view>
 
-    <view class="yxx-dock">
+    <view class="yxx-dock" :style="dockStyle">
       <view class="yxx-chips">
         <view
           v-for="n in chipOpts"
@@ -128,7 +132,7 @@
     </view>
 
     <view v-if="rulesOpen" class="yxx-mask" @click="rulesOpen = false">
-      <view class="yxx-sheet" @click.stop>
+      <view class="yxx-sheet" :style="sheetStyle" @click.stop>
         <text class="yxx-sheet-t">{{ t('yxx_rules_title') }}</text>
         <scroll-view scroll-y class="yxx-sheet-body">
           <text class="yxx-sheet-p">{{ t('yxx_rules_p1', { min: stakeMin, max: stakeMax }) }}</text>
@@ -141,7 +145,7 @@
       </view>
     </view>
 
-    <view v-if="rainOpen" class="yxx-mask" @click.stop>
+    <view v-if="rainOpen" class="yxx-mask yxx-rain-mask" @click.stop>
       <view class="yxx-rain-card" @click.stop>
         <text class="yxx-rain-ico">🧧</text>
         <text class="yxx-rain-title">{{ t('yxx_rain_title') }}</text>
@@ -155,7 +159,7 @@
 
 <script setup>
 import { computed, onUnmounted, ref } from 'vue'
-import { onHide, onShow } from '@dcloudio/uni-app'
+import { onHide, onResize, onShow } from '@dcloudio/uni-app'
 import { apiRequest, getToken } from '../../utils/auth.js'
 import { localeState, t } from '../../utils/i18n.js'
 import { packagedStaticUrl } from '../../utils/config.js'
@@ -175,6 +179,7 @@ const chipOpts = [50, 100, 150, 200]
 
 const padTop = ref(20)
 const padBottom = ref(8)
+const pageH = ref(667)
 const scrollH = ref('60vh')
 const selectedFace = ref('')
 const stakeMin = ref(50)
@@ -205,12 +210,30 @@ const rainRelease = ref(0)
 const rainParticipants = ref(0)
 const rainGrantId = ref(0)
 const poolStatus = ref('normal')
-let poll = null
+let netPoll = null
+let tickTimer = null
 let lastRound = -1
+let syncAt = 0
+let syncRemain = 12
+let hitZero = false
+let netPollMs = 2500
 
 const pagePad = computed(() => ({
   paddingTop: padTop.value + 'px',
   paddingBottom: padBottom.value + 108 + 'px',
+  height: pageH.value + 'px',
+}))
+
+const dockStyle = computed(() => ({
+  paddingBottom: Math.max(8, padBottom.value) + 'px',
+  left: '50%',
+  width: '100%',
+  maxWidth: '480px',
+  transform: 'translateX(-50%)',
+}))
+
+const sheetStyle = computed(() => ({
+  paddingBottom: 16 + Math.max(8, padBottom.value) + 'px',
 }))
 
 const poolText = computed(() => {
@@ -332,15 +355,23 @@ function measure() {
     applySafeAreaCssVars()
     const sys = uni.getSystemInfoSync() || {}
     const inset = getSafeAreaInsets()
+    let bottom = Number(inset.bottom || 0)
+    if (bottom < 1) {
+      const sa = sys.safeArea
+      if (sa && typeof sa.bottom === 'number' && sys.screenHeight) {
+        bottom = Math.max(0, Number(sys.screenHeight) - Number(sa.bottom))
+      }
+    }
     padTop.value = Math.max(12, Number(inset.top || sys.statusBarHeight || 20))
-    padBottom.value = Math.max(8, Number(inset.bottom || 0))
-    const header = 56
+    padBottom.value = Math.max(8, bottom)
+    pageH.value = Math.max(480, Number(sys.windowHeight || 667))
+    const header = 62
     const stats = 44
     const poolBar = poolEnabled.value ? 52 : 0
     const banner = poolStatus.value && poolStatus.value !== 'normal' ? 28 : 0
     const dock = 108 + padBottom.value
-    const h = (sys.windowHeight || 667) - padTop.value - header - stats - poolBar - banner - dock
-    scrollH.value = Math.max(240, h) + 'px'
+    const h = pageH.value - padTop.value - header - stats - poolBar - banner - dock
+    scrollH.value = Math.max(220, h) + 'px'
   } catch (e) {
     scrollH.value = '58vh'
   }
@@ -389,7 +420,12 @@ function applyHall(data) {
   stakeMax.value = Number(data.stake_max || 200)
   const r = data.round || {}
   if (r.pool != null) pool.value = Number(r.pool)
-  if (r.remain_sec != null) remainSec.value = Number(r.remain_sec)
+  if (r.remain_sec != null) {
+    remainSec.value = Number(r.remain_sec)
+    syncRemain = remainSec.value
+    syncAt = Date.now()
+    hitZero = remainSec.value <= 0
+  }
   if (r.player_count != null) playerCount.value = Number(r.player_count)
   phase.value = String(r.phase || 'betting')
   const idx = Number(r.round_index || 0)
@@ -431,6 +467,11 @@ function applyHall(data) {
   baseReserve.value = Number(pinfo.base_reserve || 0)
   rainProgress.value = Math.min(100, Number(pinfo.rain_progress || 0))
   poolStatus.value = String(data.pool_status || pinfo.pool_status || 'normal')
+  const nextPoll = Number(data.poll_ms || 0)
+  if (nextPoll >= 800 && nextPoll !== netPollMs) {
+    netPollMs = nextPoll
+    startNetPoll()
+  }
   measure()
 
   const popup = data.rain_popup
@@ -494,17 +535,38 @@ async function onBet() {
   }
 }
 
-function startPoll() {
-  if (poll) clearInterval(poll)
-  poll = setInterval(() => {
+function tickLocal() {
+  if (!syncAt) return
+  const elapsed = Math.floor((Date.now() - syncAt) / 1000)
+  const next = Math.max(0, syncRemain - elapsed)
+  if (next !== remainSec.value) remainSec.value = next
+  if (next <= 0 && !hitZero) {
+    hitZero = true
     loadHall()
-  }, 1000)
+  }
+}
+
+function startNetPoll() {
+  if (netPoll) clearInterval(netPoll)
+  netPoll = setInterval(() => {
+    loadHall()
+  }, Math.max(800, netPollMs))
+}
+
+function startPoll() {
+  stopPoll()
+  tickTimer = setInterval(tickLocal, 250)
+  startNetPoll()
 }
 
 function stopPoll() {
-  if (poll) {
-    clearInterval(poll)
-    poll = null
+  if (netPoll) {
+    clearInterval(netPoll)
+    netPoll = null
+  }
+  if (tickTimer) {
+    clearInterval(tickTimer)
+    tickTimer = null
   }
 }
 
@@ -518,6 +580,10 @@ onHide(() => {
   stopPoll()
 })
 
+onResize(() => {
+  measure()
+})
+
 onUnmounted(() => {
   stopPoll()
 })
@@ -525,8 +591,8 @@ onUnmounted(() => {
 
 <style scoped>
 .yxx-page {
-  min-height: 100vh;
-  min-height: -webkit-fill-available;
+  height: 100%;
+  overflow: hidden;
   background:
     radial-gradient(circle at 50% 18%, rgba(180, 40, 30, 0.55) 0%, transparent 42%),
     linear-gradient(180deg, #6b0d0d 0%, #3a0508 42%, #1a0204 100%);
@@ -540,6 +606,20 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 4px 12px 6px;
+}
+.yxx-h-side {
+  width: 31%;
+  min-width: 72px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+.yxx-h-left {
+  justify-content: flex-start;
+}
+.yxx-h-right {
+  justify-content: flex-end;
+  gap: 4px;
 }
 .yxx-back,
 .yxx-rules-btn {
@@ -578,9 +658,9 @@ onUnmounted(() => {
 }
 .yxx-title {
   display: block;
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 900;
-  letter-spacing: 4px;
+  letter-spacing: 3px;
   color: #ffd56a;
   text-shadow: 0 2px 0 #7a3a00, 0 0 12px rgba(255, 200, 80, 0.45);
 }
@@ -673,9 +753,9 @@ onUnmounted(() => {
   text-align: right;
 }
 .yxx-rain-card {
-  width: 82%;
+  width: 86%;
   max-width: 320px;
-  margin: 28vh auto 0;
+  margin: 0;
   padding: 24px 18px 18px;
   border-radius: 18px;
   background: linear-gradient(180deg, #8f1212, #4a0608);
@@ -919,16 +999,11 @@ onUnmounted(() => {
 }
 .yxx-dock {
   position: fixed;
-  left: 0;
-  right: 0;
   bottom: 0;
   z-index: 20;
-  max-width: 480px;
-  margin: 0 auto;
-  padding: 6px 12px;
-  padding-bottom: calc(8px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
-  background: linear-gradient(180deg, rgba(80, 10, 12, 0.92), #3a0608);
   box-sizing: border-box;
+  padding: 6px 12px;
+  background: linear-gradient(180deg, rgba(80, 10, 12, 0.92), #3a0608);
 }
 .yxx-chips {
   display: flex;
@@ -998,19 +1073,27 @@ onUnmounted(() => {
 }
 .yxx-mask {
   position: fixed;
-  inset: 0;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
   z-index: 40;
   background: rgba(0, 0, 0, 0.55);
   display: flex;
   align-items: flex-end;
   justify-content: center;
 }
+.yxx-rain-mask {
+  align-items: center;
+  padding: 0 16px;
+  box-sizing: border-box;
+}
 .yxx-sheet {
   width: 100%;
   max-width: 480px;
   background: #2a0a0c;
   border-radius: 16px 16px 0 0;
-  padding: 16px 16px calc(16px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  padding: 16px;
   box-sizing: border-box;
 }
 .yxx-sheet-t {
@@ -1038,5 +1121,12 @@ onUnmounted(() => {
   border-radius: 10px;
   background: linear-gradient(180deg, #e23b32, #a31218);
   font-weight: 800;
+}
+</style>
+<style>
+page {
+  height: 100%;
+  overflow: hidden;
+  background: #1a0204;
 }
 </style>

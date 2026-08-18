@@ -63,6 +63,7 @@ class FansHubYxxPool
     {
         $status = self::normalizeStatus($status);
         Cache::set(self::CACHE_STATUS, $status, 86400);
+        Cache::rm('fh:yxx:poolsnap');
         try {
             $exists = Db::name('fans_yxx_pool_state')->where('id', 1)->value('id');
             if ($exists) {
@@ -231,6 +232,7 @@ class FansHubYxxPool
     {
         $amount = max(0, (int)$amount);
         Cache::set(self::CACHE_GROSS, $amount, 86400 * 30);
+        Cache::rm('fh:yxx:poolsnap');
         try {
             Db::name('fans_yxx_pool_state')->where('id', 1)->update([
                 'gross_pool' => $amount,
@@ -371,11 +373,10 @@ class FansHubYxxPool
             return null;
         }
 
-        $lockKey = 'fh:yxx:rain_lock';
-        if (Cache::get($lockKey)) {
+        $lockName = 'fh:yxx:rain_lock';
+        if (!FansHubYxxStore::acquireLock($lockName, 25)) {
             return null;
         }
-        Cache::set($lockKey, 1, 15);
 
         try {
             $state = Db::name('fans_yxx_pool_state')->where('id', 1)->find();
@@ -410,49 +411,79 @@ class FansHubYxxPool
                 return null;
             }
 
+            $grantRows = [];
             $paidSum = 0;
             $participant = 0;
             $maxGrant = 0;
+            foreach ($shares as $uid => $amount) {
+                $uid = (int)$uid;
+                $amount = (int)$amount;
+                if ($uid <= 0 || $amount <= 0) {
+                    continue;
+                }
+                $grantRows[] = [
+                    'user_id'    => $uid,
+                    'amount'     => $amount,
+                    'weight'     => (int)($eligible[$uid] ?? 1),
+                    'popup_seen' => 0,
+                    'paid'       => 0,
+                    'createtime' => $now,
+                ];
+                $paidSum += $amount;
+                $participant++;
+                $maxGrant = max($maxGrant, $amount);
+            }
+            if (!$grantRows) {
+                return null;
+            }
+
             Db::startTrans();
             try {
                 $eventId = Db::name('fans_yxx_rain_events')->insertGetId([
                     'round_index'       => (int)$roundIndex,
-                    'release_amount'    => $releaseAmount,
-                    'participant_count' => count($shares),
+                    'release_amount'    => $paidSum,
+                    'participant_count' => $participant,
                     'hash_seed'         => substr($seed, 0, 128),
                     'gross_pool_before' => (int)$grossPool,
-                    'gross_pool_after'  => max(0, (int)$grossPool - $releaseAmount),
+                    'gross_pool_after'  => max(0, (int)$grossPool - $paidSum),
                     'status'            => 1,
                     'createtime'        => $now,
                 ]);
 
-                foreach ($shares as $uid => $amount) {
-                    $uid = (int)$uid;
-                    $amount = (int)$amount;
-                    if ($uid <= 0 || $amount <= 0) {
-                        continue;
+                foreach ($grantRows as &$row) {
+                    $row['event_id'] = $eventId;
+                }
+                unset($row);
+
+                $chunks = array_chunk($grantRows, 400);
+                $omitPaid = false;
+                foreach ($chunks as $chunk) {
+                    $toInsert = $chunk;
+                    if ($omitPaid) {
+                        foreach ($toInsert as &$row) {
+                            unset($row['paid']);
+                        }
+                        unset($row);
                     }
-                    Db::name('fans_yxx_rain_grants')->insert([
-                        'event_id'   => $eventId,
-                        'user_id'    => $uid,
-                        'amount'     => $amount,
-                        'weight'     => (int)($eligible[$uid] ?? 1),
-                        'popup_seen' => 0,
-                        'createtime' => $now,
-                    ]);
-                    FansHubHongbaoLedger::credit($uid, $amount, 'yxx_rain', '鱼虾蟹红包雨 R' . (int)$roundIndex, [
-                        'biz_no'   => 'YXXRAIN' . $eventId . '-' . $uid,
-                        'ref_type' => 'yxx_rain',
-                        'ref_id'   => $eventId,
-                    ]);
-                    $paidSum += $amount;
-                    $participant++;
-                    $maxGrant = max($maxGrant, $amount);
+                    try {
+                        Db::name('fans_yxx_rain_grants')->insertAll($toInsert);
+                    } catch (\Throwable $e) {
+                        if (!$omitPaid) {
+                            $omitPaid = true;
+                            foreach ($toInsert as &$row) {
+                                unset($row['paid']);
+                            }
+                            unset($row);
+                            Db::name('fans_yxx_rain_grants')->insertAll($toInsert);
+                        } else {
+                            throw $e;
+                        }
+                    }
                 }
 
                 $newGross = max(0, (int)$grossPool - $paidSum);
                 Db::name('fans_yxx_pool_state')->where('id', 1)->update([
-                    'gross_pool'     => $newGross,
+                    'gross_pool'       => $newGross,
                     'last_rain_at'     => $now,
                     'rain_day'         => $today,
                     'rain_day_count'   => $dayCount + 1,
@@ -461,20 +492,100 @@ class FansHubYxxPool
                 Db::commit();
                 self::setGrossPool($newGross);
 
+                $fanout = [];
+                foreach ($grantRows as $row) {
+                    $uid = (int)$row['user_id'];
+                    $amount = (int)$row['amount'];
+                    $pop = [
+                        'grant_id'     => 0,
+                        'event_id'     => (int)$eventId,
+                        'amount'       => $amount,
+                        'release'      => $paidSum,
+                        'participants' => $participant,
+                        'hash_seed'    => substr($seed, 0, 32),
+                        'round_index'  => (int)$roundIndex,
+                    ];
+                    $fanout[] = [
+                        'uid' => $uid,
+                        'pop' => $pop,
+                        'pay' => [
+                            'event_id'    => (int)$eventId,
+                            'amount'      => $amount,
+                            'round_index' => (int)$roundIndex,
+                        ],
+                    ];
+                }
+                FansHubYxxStore::fanoutRain($fanout);
+
                 return [
-                    'event_id'      => (int)$eventId,
-                    'release'       => $paidSum,
-                    'participants'  => $participant,
-                    'max_grant'     => $maxGrant,
-                    'hash_seed'     => substr($seed, 0, 32),
-                    'round_index'   => (int)$roundIndex,
+                    'event_id'     => (int)$eventId,
+                    'release'      => $paidSum,
+                    'participants' => $participant,
+                    'max_grant'    => $maxGrant,
+                    'hash_seed'    => substr($seed, 0, 32),
+                    'round_index'  => (int)$roundIndex,
                 ];
             } catch (\Throwable $e) {
                 Db::rollback();
                 return null;
             }
         } finally {
-            Cache::rm($lockKey);
+            FansHubYxxStore::releaseLock($lockName);
+        }
+    }
+
+    /**
+     * 首次进入大厅时入账，避免触发时 1 万次 wallet 循环。
+     */
+    protected static function lazyCreditRain($uid)
+    {
+        $uid = (int)$uid;
+        if ($uid <= 0) {
+            return;
+        }
+        $pay = FansHubYxxStore::getJson('fh:yxx:rainpay:' . $uid);
+        if (!is_array($pay)) {
+            return;
+        }
+        $eventId = (int)($pay['event_id'] ?? 0);
+        $amount = (int)($pay['amount'] ?? 0);
+        $roundIndex = (int)($pay['round_index'] ?? 0);
+        if ($eventId <= 0 || $amount <= 0) {
+            FansHubYxxStore::delName('fh:yxx:rainpay:' . $uid);
+            return;
+        }
+        $lockName = 'fh:yxx:rainpaylock:' . $uid . ':' . $eventId;
+        if (!FansHubYxxStore::acquireLock($lockName, 20)) {
+            return;
+        }
+        try {
+            $paid = null;
+            try {
+                $paid = Db::name('fans_yxx_rain_grants')
+                    ->where(['event_id' => $eventId, 'user_id' => $uid])
+                    ->value('paid');
+            } catch (\Throwable $e) {
+                $paid = null;
+            }
+            if ((int)$paid === 1) {
+                FansHubYxxStore::delName('fh:yxx:rainpay:' . $uid);
+                return;
+            }
+            FansHubHongbaoLedger::credit($uid, $amount, 'yxx_rain', '鱼虾蟹红包雨 R' . $roundIndex, [
+                'biz_no'   => 'YXXRAIN' . $eventId . '-' . $uid,
+                'ref_type' => 'yxx_rain',
+                'ref_id'   => $eventId,
+            ]);
+            try {
+                Db::name('fans_yxx_rain_grants')
+                    ->where(['event_id' => $eventId, 'user_id' => $uid])
+                    ->update(['paid' => 1]);
+            } catch (\Throwable $e) {
+            }
+            FansHubYxxStore::delName('fh:yxx:rainpay:' . $uid);
+        } catch (\Throwable $e) {
+        } finally {
+            FansHubYxxStore::releaseLock($lockName);
         }
     }
 
@@ -483,6 +594,11 @@ class FansHubYxxPool
         $uid = (int)$uid;
         if ($uid <= 0) {
             return null;
+        }
+        self::lazyCreditRain($uid);
+        $cached = FansHubYxxStore::getJson('fh:yxx:rainpop:' . $uid);
+        if (is_array($cached) && (int)($cached['amount'] ?? 0) > 0) {
+            return $cached;
         }
         try {
             $row = Db::name('fans_yxx_rain_grants')
@@ -516,6 +632,7 @@ class FansHubYxxPool
         if ($uid <= 0) {
             return false;
         }
+        FansHubYxxStore::delName('fh:yxx:rainpop:' . $uid);
         try {
             $q = Db::name('fans_yxx_rain_grants')->where('user_id', $uid)->where('popup_seen', 0);
             if ($grantId > 0) {
@@ -530,11 +647,15 @@ class FansHubYxxPool
 
     public static function hallPoolPayload()
     {
+        $hit = Cache::get('fh:yxx:poolsnap');
+        if (is_array($hit)) {
+            return $hit;
+        }
         $cfg = self::configMap();
         $gross = self::grossPool();
         $split = self::splitPool($gross);
         $status = self::poolStatus();
-        return [
+        $out = [
             'pool_enabled'    => !empty($cfg['enabled']) ? 1 : 0,
             'gross_pool'      => $split['gross'],
             'base_reserve'    => $split['base_reserve'],
@@ -544,6 +665,8 @@ class FansHubYxxPool
             'user_cap_hint'   => self::singleUserCap($split['distributable']),
             'pool_status'     => $status,
         ];
+        Cache::set('fh:yxx:poolsnap', $out, 1);
+        return $out;
     }
 
     protected static function clampFloat($v, $min, $max)
