@@ -156,6 +156,7 @@
           :key="'drop' + n"
           class="yxx-drop"
           :class="'d' + n"
+          @click.stop="onRainDrop"
         >🧧</text>
       </view>
       <view class="yxx-rain-card" hover-class="yxx-hit" @click.stop="rainNeedGrab ? grabRain() : ackRain()">
@@ -495,11 +496,6 @@ function applyHall(data) {
   rainProgress.value = Math.min(100, Number(pinfo.rain_progress || 0))
   poolStatus.value = String(data.pool_status || pinfo.pool_status || 'normal')
   tronBlockNum.value = Number(r.tron_block_num || 0)
-  const nextPoll = Number(data.poll_ms || 0)
-  if (nextPoll >= 800 && nextPoll !== netPollMs) {
-    netPollMs = nextPoll
-    startNetPoll()
-  }
   measure()
 
   const popup = data.rain_popup
@@ -514,6 +510,12 @@ function applyHall(data) {
       rainGrantId.value = Number(popup.grant_id || 0)
       rainOpen.value = true
     }
+  }
+  const nextPoll = Number(data.poll_ms || 0)
+  const wantPoll = rainOpen.value ? 1000 : nextPoll
+  if (wantPoll >= 800 && wantPoll !== netPollMs) {
+    netPollMs = wantPoll
+    startNetPoll()
   }
 }
 
@@ -536,6 +538,12 @@ async function grabRain() {
     }
   } finally {
     rainGrabbing.value = false
+  }
+}
+
+function onRainDrop() {
+  if (rainNeedGrab.value) {
+    grabRain()
   }
 }
 
@@ -1181,6 +1189,7 @@ onUnmounted(() => {
   animation-name: yxx-fall;
   animation-timing-function: linear;
   animation-iteration-count: infinite;
+  pointer-events: auto;
 }
 .yxx-drop.d1 { left: 6%; animation-duration: 1.6s; animation-delay: 0s; }
 .yxx-drop.d2 { left: 14%; animation-duration: 1.9s; animation-delay: 0.2s; font-size: 18px; }

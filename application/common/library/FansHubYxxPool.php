@@ -500,6 +500,10 @@ class FansHubYxxPool
             }
 
             $seed = $hashSeed !== '' ? $hashSeed : hash('sha256', 'yxx-rain|' . (int)$roundIndex . '|' . $grossPool . '|' . $now);
+            if (FansHubYxxStore::redis()) {
+                return self::triggerLiveRain($roundIndex, $grossPool, $seed, $eligible, $releaseAmount, $dayCount, $today, $now, $cfg);
+            }
+
             $shares = self::capProportionalShares($releaseAmount, $eligible);
             if (!$shares) {
                 return null;
@@ -644,6 +648,74 @@ class FansHubYxxPool
     }
 
     /**
+     * 真抢池：只建场次 + Redis 剩余额，不预插万人 grants。
+     */
+    protected static function triggerLiveRain($roundIndex, $grossPool, $seed, array $eligible, $releaseAmount, $dayCount, $today, $now, array $cfg)
+    {
+        $n = count($eligible);
+        $releaseAmount = (int)$releaseAmount;
+        $claimSec = (int)$cfg['rain_claim_sec'];
+        $expireAt = (int)$now + $claimSec;
+        $cap = self::singleUserCap($releaseAmount);
+        $eventId = 0;
+        Db::startTrans();
+        try {
+            $eventId = (int)Db::name('fans_yxx_rain_events')->insertGetId([
+                'round_index'       => (int)$roundIndex,
+                'release_amount'    => $releaseAmount,
+                'participant_count' => 0,
+                'hash_seed'         => substr((string)$seed, 0, 128),
+                'gross_pool_before' => (int)$grossPool,
+                'gross_pool_after'  => max(0, (int)$grossPool - $releaseAmount),
+                'status'            => 1,
+                'createtime'        => (int)$now,
+            ]);
+            Db::name('fans_yxx_pool_state')->where('id', 1)->update([
+                'gross_pool'     => max(0, (int)$grossPool - $releaseAmount),
+                'last_rain_at'   => (int)$now,
+                'rain_day'       => (string)$today,
+                'rain_day_count' => (int)$dayCount + 1,
+                'updatetime'     => (int)$now,
+            ]);
+            Db::commit();
+        } catch (\Throwable $e) {
+            Db::rollback();
+            return null;
+        }
+        self::setGrossPool(max(0, (int)$grossPool - $releaseAmount));
+        $ttl = $claimSec + 30;
+        FansHubYxxStore::setJson('fh:yxx:rlive', [
+            'event_id'    => $eventId,
+            'release'     => $releaseAmount,
+            'seed'        => substr((string)$seed, 0, 128),
+            'expire_at'   => $expireAt,
+            'round_index' => (int)$roundIndex,
+            'cap'         => $cap,
+            'eligible_n'  => $n,
+            'claim_sec'   => $claimSec,
+        ], $ttl);
+        try {
+            $redis = FansHubYxxStore::redis();
+            if ($redis) {
+                $redis->setex(FansHubYxxStore::rainLeftKey(), $ttl, (string)$releaseAmount);
+            }
+        } catch (\Throwable $e) {
+        }
+        FansHubYxxStore::addRainEligible($eventId, array_keys($eligible), $ttl);
+        Cache::rm('fh:yxx:poolsnap');
+        FansHubYxxStore::clearSnap();
+        return [
+            'event_id'     => $eventId,
+            'release'      => $releaseAmount,
+            'participants' => $n,
+            'max_grant'    => $cap,
+            'hash_seed'    => substr((string)$seed, 0, 32),
+            'round_index'  => (int)$roundIndex,
+            'live'         => 1,
+        ];
+    }
+
+    /**
      * 点开领取：此时才入账。ack 也会走到这里，兼容旧包。
      */
     public static function claimRain($uid, $grantId = 0)
@@ -658,6 +730,10 @@ class FansHubYxxPool
             throw new \RuntimeException(FansHubService::h5CopyText('yxx_err_fast') ?: '操作太快，请稍后再试');
         }
         try {
+            $liveOut = self::claimLiveRain($uid);
+            if (is_array($liveOut)) {
+                return $liveOut;
+            }
             $row = null;
             try {
                 $q = Db::name('fans_yxx_rain_grants')->alias('g')
@@ -741,6 +817,123 @@ class FansHubYxxPool
     }
 
     /**
+     * 真抢：从 Redis 剩余池扣额，成功才写 grant + 账本。
+     * @return array|null  null 表示没有进行中的真抢场（或本用户未入围）
+     */
+    protected static function claimLiveRain($uid)
+    {
+        $live = FansHubYxxStore::getJson('fh:yxx:rlive');
+        $now = time();
+        if (!is_array($live) || (int)($live['expire_at'] ?? 0) <= $now) {
+            return null;
+        }
+        $eventId = (int)($live['event_id'] ?? 0);
+        if ($eventId <= 0) {
+            return null;
+        }
+        if (!FansHubYxxStore::rainIsEligible($eventId, $uid)) {
+            return null;
+        }
+        $ttl = max(20, (int)($live['claim_sec'] ?? 45) + 30);
+        if (FansHubYxxStore::rainHasGot($eventId, $uid) || !FansHubYxxStore::rainMarkGot($eventId, $uid, $ttl)) {
+            try {
+                $paid = Db::name('fans_yxx_rain_grants')
+                    ->where('event_id', $eventId)
+                    ->where('user_id', $uid)
+                    ->where('paid', 1)
+                    ->order('id', 'desc')
+                    ->find();
+            } catch (\Throwable $e) {
+                $paid = null;
+            }
+            if ($paid) {
+                return [
+                    'grant_id'     => (int)$paid['id'],
+                    'event_id'     => $eventId,
+                    'amount'       => (int)$paid['amount'],
+                    'release'      => (int)($live['release'] ?? 0),
+                    'participants' => (int)($live['eligible_n'] ?? 0),
+                    'round_index'  => (int)($live['round_index'] ?? 0),
+                    'claimed'      => 1,
+                ];
+            }
+            throw new \RuntimeException(FansHubService::h5CopyText('yxx_rain_missed') ?: '来晚了，红包已过期');
+        }
+        $n = max(1, (int)($live['eligible_n'] ?? 1));
+        $release = max(1, (int)($live['release'] ?? 1));
+        $avg = max(1, (int)floor($release / $n));
+        $seed = (string)($live['seed'] ?? '');
+        $h = hexdec(substr(hash('sha256', $seed . '|' . $uid), 0, 6));
+        $jitter = 50 + ((int)$h % 101);
+        $want = (int)max(1, min((int)($live['cap'] ?? ($avg * 2)), (int)floor($avg * $jitter / 100)));
+        $got = FansHubYxxStore::rainTake($want);
+        if ($got <= 0) {
+            FansHubYxxStore::rainUnmarkGot($eventId, $uid);
+            throw new \RuntimeException(FansHubService::h5CopyText('yxx_rain_missed') ?: '来晚了，红包已过期');
+        }
+        $grantId = 0;
+        try {
+            $grantId = (int)Db::name('fans_yxx_rain_grants')->insertGetId([
+                'event_id'   => $eventId,
+                'user_id'    => $uid,
+                'amount'     => $got,
+                'weight'     => 1,
+                'popup_seen' => 1,
+                'paid'       => 1,
+                'createtime' => $now,
+            ]);
+        } catch (\Throwable $e) {
+            try {
+                $grantId = (int)Db::name('fans_yxx_rain_grants')->insertGetId([
+                    'event_id'   => $eventId,
+                    'user_id'    => $uid,
+                    'amount'     => $got,
+                    'weight'     => 1,
+                    'popup_seen' => 1,
+                    'createtime' => $now,
+                ]);
+            } catch (\Throwable $e2) {
+                FansHubYxxStore::rainGiveBack($got);
+                FansHubYxxStore::rainUnmarkGot($eventId, $uid);
+                throw new \RuntimeException(FansHubService::h5CopyText('yxx_err_fast') ?: '操作太快，请稍后再试');
+            }
+        }
+        if ($grantId <= 0) {
+            FansHubYxxStore::rainGiveBack($got);
+            FansHubYxxStore::rainUnmarkGot($eventId, $uid);
+            throw new \RuntimeException(FansHubService::h5CopyText('yxx_err_fast') ?: '操作太快，请稍后再试');
+        }
+        try {
+            FansHubHongbaoLedger::credit($uid, $got, 'yxx_rain', '鱼虾蟹红包雨 R' . (int)($live['round_index'] ?? 0), [
+                'biz_no'   => 'YXXRAIN' . $eventId . '-' . $uid,
+                'ref_type' => 'yxx_rain',
+                'ref_id'   => $eventId,
+            ]);
+            try {
+                Db::name('fans_yxx_rain_events')->where('id', $eventId)->setInc('participant_count', 1);
+            } catch (\Throwable $e) {
+            }
+        } catch (\Throwable $e) {
+            try {
+                Db::name('fans_yxx_rain_grants')->where('id', $grantId)->delete();
+            } catch (\Throwable $e2) {
+            }
+            FansHubYxxStore::rainGiveBack($got);
+            FansHubYxxStore::rainUnmarkGot($eventId, $uid);
+            throw new \RuntimeException(FansHubService::h5CopyText('yxx_err_fast') ?: '领取失败');
+        }
+        return [
+            'grant_id'     => $grantId,
+            'event_id'     => $eventId,
+            'amount'       => $got,
+            'release'      => $release,
+            'participants' => (int)($live['eligible_n'] ?? 0),
+            'round_index'  => (int)($live['round_index'] ?? 0),
+            'claimed'      => 1,
+        ];
+    }
+
+    /**
      * 过期未点开的份额退回蓄水池。cron 每秒一小批。
      */
     public static function expireUnclaimedRain()
@@ -775,34 +968,67 @@ class FansHubYxxPool
                     ->where('paid', 0)
                     ->limit(250)
                     ->select();
-                $refund = 0;
-                $ids = [];
-                foreach ($grants ?: [] as $g) {
-                    $ids[] = (int)$g['id'];
-                    $refund += (int)($g['amount'] ?? 0);
-                    $uid = (int)($g['user_id'] ?? 0);
-                    if ($uid > 0) {
-                        FansHubYxxStore::delName('fh:yxx:rainpop:' . $uid);
-                        FansHubYxxStore::delName('fh:yxx:rainpay:' . $uid);
-                    }
+                $list = [];
+                if ($grants) {
+                    $list = is_array($grants) ? $grants : (method_exists($grants, 'toArray') ? $grants->toArray() : []);
                 }
-                if ($ids) {
-                    Db::name('fans_yxx_rain_grants')->where('id', 'in', $ids)->update(['paid' => 2, 'popup_seen' => 1]);
-                    if ($refund > 0) {
-                        $gross = self::grossPool() + $refund;
-                        self::setGrossPool($gross);
+                if (!$list) {
+                    $paid2 = 0;
+                    try {
+                        $paid2 = (int)Db::name('fans_yxx_rain_grants')->where('event_id', $eventId)->where('paid', 2)->count();
+                    } catch (\Throwable $e) {
+                    }
+                    if ($paid2 <= 0) {
+                        $paidSum = 0;
                         try {
-                            Db::name('fans_yxx_pool_state')->where('id', 1)->update([
-                                'gross_pool' => $gross,
-                                'updatetime' => time(),
-                            ]);
+                            $paidSum = (int)Db::name('fans_yxx_rain_grants')->where('event_id', $eventId)->where('paid', 1)->sum('amount');
                         } catch (\Throwable $e) {
                         }
+                        $refund = max(0, (int)($ev['release_amount'] ?? 0) - $paidSum);
+                        if ($refund > 0) {
+                            $gross = self::grossPool() + $refund;
+                            self::setGrossPool($gross);
+                            try {
+                                Db::name('fans_yxx_pool_state')->where('id', 1)->update([
+                                    'gross_pool' => $gross,
+                                    'updatetime' => time(),
+                                ]);
+                            } catch (\Throwable $e2) {
+                            }
+                        }
                     }
-                }
-                $left = (int)Db::name('fans_yxx_rain_grants')->where('event_id', $eventId)->where('paid', 0)->count();
-                if ($left <= 0) {
                     Db::name('fans_yxx_rain_events')->where('id', $eventId)->update(['status' => 3]);
+                    FansHubYxxStore::clearRainLive($eventId);
+                } else {
+                    $refund = 0;
+                    $ids = [];
+                    foreach ($list as $g) {
+                        $ids[] = (int)$g['id'];
+                        $refund += (int)($g['amount'] ?? 0);
+                        $uid = (int)($g['user_id'] ?? 0);
+                        if ($uid > 0) {
+                            FansHubYxxStore::delName('fh:yxx:rainpop:' . $uid);
+                            FansHubYxxStore::delName('fh:yxx:rainpay:' . $uid);
+                        }
+                    }
+                    if ($ids) {
+                        Db::name('fans_yxx_rain_grants')->where('id', 'in', $ids)->update(['paid' => 2, 'popup_seen' => 1]);
+                        if ($refund > 0) {
+                            $gross = self::grossPool() + $refund;
+                            self::setGrossPool($gross);
+                            try {
+                                Db::name('fans_yxx_pool_state')->where('id', 1)->update([
+                                    'gross_pool' => $gross,
+                                    'updatetime' => time(),
+                                ]);
+                            } catch (\Throwable $e) {
+                            }
+                        }
+                    }
+                    $left = (int)Db::name('fans_yxx_rain_grants')->where('event_id', $eventId)->where('paid', 0)->count();
+                    if ($left <= 0) {
+                        Db::name('fans_yxx_rain_events')->where('id', $eventId)->update(['status' => 3]);
+                    }
                 }
             } catch (\Throwable $e) {
             } finally {
@@ -816,6 +1042,30 @@ class FansHubYxxPool
         $uid = (int)$uid;
         if ($uid <= 0) {
             return null;
+        }
+        $now = time();
+        $live = FansHubYxxStore::getJson('fh:yxx:rlive');
+        if (is_array($live) && (int)($live['expire_at'] ?? 0) > $now) {
+            $eventId = (int)($live['event_id'] ?? 0);
+            $claimSec = (int)self::configMap()['rain_claim_sec'];
+            if ($eventId > 0
+                && FansHubYxxStore::rainIsEligible($eventId, $uid)
+                && !FansHubYxxStore::rainHasGot($eventId, $uid)
+            ) {
+                return [
+                    'grant_id'     => 0,
+                    'event_id'     => $eventId,
+                    'need_grab'    => 1,
+                    'amount'       => 0,
+                    'release'      => (int)($live['release'] ?? 0),
+                    'participants' => (int)($live['eligible_n'] ?? 0),
+                    'hash_seed'    => (string)($live['seed'] ?? ''),
+                    'round_index'  => (int)($live['round_index'] ?? 0),
+                    'expire_at'    => (int)$live['expire_at'],
+                    'claim_sec'    => $claimSec,
+                    'live'         => 1,
+                ];
+            }
         }
         $cached = FansHubYxxStore::getJson('fh:yxx:rainpop:' . $uid);
         if (is_array($cached) && (int)($cached['event_id'] ?? 0) > 0) {

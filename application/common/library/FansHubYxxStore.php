@@ -585,4 +585,186 @@ class FansHubYxxStore
         }
         Cache::rm($name);
     }
+
+    public static function setJson($name, array $data, $ttl)
+    {
+        $ttl = max(5, (int)$ttl);
+        $redis = self::redis();
+        $raw = json_encode($data, JSON_UNESCAPED_UNICODE);
+        if ($redis) {
+            try {
+                $redis->setex(self::rkey($name), $ttl, $raw);
+                return;
+            } catch (\Throwable $e) {
+            }
+        }
+        Cache::set($name, $data, $ttl);
+    }
+
+    public static function rainElKey($eventId)
+    {
+        return self::rkey('fh:yxx:rainel:' . (int)$eventId);
+    }
+
+    public static function rainGotKey($eventId)
+    {
+        return self::rkey('fh:yxx:raingot:' . (int)$eventId);
+    }
+
+    public static function rainLeftKey()
+    {
+        return self::rkey('fh:yxx:rlive:left');
+    }
+
+    public static function addRainEligible($eventId, array $uids, $ttl)
+    {
+        $redis = self::redis();
+        if (!$redis) {
+            return;
+        }
+        $key = self::rainElKey($eventId);
+        $ttl = max(20, (int)$ttl);
+        foreach (array_chunk($uids, 400) as $chunk) {
+            try {
+                $redis->multi(\Redis::PIPELINE);
+                foreach ($chunk as $uid) {
+                    $uid = (int)$uid;
+                    if ($uid > 0) {
+                        $redis->sAdd($key, (string)$uid);
+                    }
+                }
+                $redis->exec();
+            } catch (\Throwable $e) {
+            }
+        }
+        try {
+            $redis->expire($key, $ttl);
+        } catch (\Throwable $e) {
+        }
+    }
+
+    public static function rainIsEligible($eventId, $uid)
+    {
+        $uid = (int)$uid;
+        $redis = self::redis();
+        if (!$redis || $uid <= 0) {
+            return false;
+        }
+        try {
+            return (bool)$redis->sIsMember(self::rainElKey($eventId), (string)$uid);
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    public static function rainHasGot($eventId, $uid)
+    {
+        $uid = (int)$uid;
+        $redis = self::redis();
+        if (!$redis || $uid <= 0) {
+            return false;
+        }
+        try {
+            return (bool)$redis->sIsMember(self::rainGotKey($eventId), (string)$uid);
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    /** @return bool true = 新抢到名额 */
+    public static function rainMarkGot($eventId, $uid, $ttl)
+    {
+        $uid = (int)$uid;
+        $redis = self::redis();
+        if (!$redis || $uid <= 0) {
+            return false;
+        }
+        try {
+            $n = $redis->sAdd(self::rainGotKey($eventId), (string)$uid);
+            $redis->expire(self::rainGotKey($eventId), max(20, (int)$ttl));
+            return $n === 1 || $n === true;
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    public static function rainUnmarkGot($eventId, $uid)
+    {
+        $redis = self::redis();
+        if (!$redis) {
+            return;
+        }
+        try {
+            $redis->sRem(self::rainGotKey($eventId), (string)$uid);
+        } catch (\Throwable $e) {
+        }
+    }
+
+    public static function rainTake($want)
+    {
+        $want = max(0, (int)$want);
+        if ($want <= 0) {
+            return 0;
+        }
+        $redis = self::redis();
+        if (!$redis) {
+            return 0;
+        }
+        try {
+            $left = (int)$redis->decrBy(self::rainLeftKey(), $want);
+            if ($left >= 0) {
+                return $want;
+            }
+            $actual = $want + $left;
+            $redis->set(self::rainLeftKey(), 0);
+            return max(0, $actual);
+        } catch (\Throwable $e) {
+            return 0;
+        }
+    }
+
+    public static function rainGiveBack($n)
+    {
+        $n = (int)$n;
+        if ($n <= 0) {
+            return;
+        }
+        $redis = self::redis();
+        if (!$redis) {
+            return;
+        }
+        try {
+            $redis->incrBy(self::rainLeftKey(), $n);
+        } catch (\Throwable $e) {
+        }
+    }
+
+    public static function rainRefundLeft()
+    {
+        $redis = self::redis();
+        if (!$redis) {
+            return 0;
+        }
+        try {
+            $n = (int)$redis->get(self::rainLeftKey());
+            $redis->set(self::rainLeftKey(), 0);
+            return max(0, $n);
+        } catch (\Throwable $e) {
+            return 0;
+        }
+    }
+
+    public static function clearRainLive($eventId)
+    {
+        $eventId = (int)$eventId;
+        self::delName('fh:yxx:rlive');
+        $redis = self::redis();
+        if (!$redis) {
+            return;
+        }
+        try {
+            $redis->del(self::rainLeftKey(), self::rainElKey($eventId), self::rainGotKey($eventId));
+        } catch (\Throwable $e) {
+        }
+    }
 }

@@ -107,6 +107,14 @@ class Yxxpool extends Backend
             $uid = (int)($g['user_id'] ?? 0);
             $g['nickname'] = $nickMap[$uid] ?? ('UID ' . $uid);
             $g['time_text'] = !empty($g['createtime']) ? date('Y-m-d H:i:s', (int)$g['createtime']) : '-';
+            $paid = (int)($g['paid'] ?? 1);
+            if ($paid === 0) {
+                $g['paid_text'] = '待领';
+            } elseif ($paid === 2) {
+                $g['paid_text'] = '过期';
+            } else {
+                $g['paid_text'] = '已领';
+            }
         }
         unset($g);
         $row['time_text'] = !empty($row['createtime']) ? date('Y-m-d H:i:s', (int)$row['createtime']) : '-';

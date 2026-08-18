@@ -18,7 +18,7 @@
                 <td colspan="3" style="word-break:break-all;font-family:monospace;font-size:12px;">{$row.hash_seed|default='-'}</td>
             </tr>
         </table>
-        <h4 style="margin:16px 0 8px;">派发明细（金额降序，最多 500）</h4>
+        <h4 style="margin:16px 0 8px;">领取明细（金额降序，最多 500；真抢模式仅列出已抢到的用户）</h4>
         <div class="table-responsive">
             <table class="table table-bordered table-striped">
                 <thead>
@@ -26,6 +26,7 @@
                     <th>用户</th>
                     <th>金额</th>
                     <th>权重（当日下注）</th>
+                    <th>状态</th>
                     <th>时间</th>
                 </tr>
                 </thead>
@@ -35,6 +36,7 @@
                     <td>{$g.nickname} ({$g.user_id})</td>
                     <td>{$g.amount}</td>
                     <td>{$g.weight}</td>
+                    <td>{$g.paid_text}</td>
                     <td>{$g.time_text}</td>
                 </tr>
                 {/volist}

@@ -95,7 +95,11 @@ class FansHubYxx
         $snap['round']['phase'] = (string)$clock['phase'];
         $snap['round']['round_index'] = (int)$clock['round_index'];
         $snap['server_ts'] = time();
-        $snap['poll_ms'] = ($clock['phase'] === 'betting') ? 2500 : 1000;
+        $poll = ($clock['phase'] === 'betting') ? 2500 : 1000;
+        if (is_array($rainPopup)) {
+            $poll = 1000;
+        }
+        $snap['poll_ms'] = $poll;
         return $snap;
     }
 
