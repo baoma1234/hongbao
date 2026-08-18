@@ -373,6 +373,31 @@ class FansHubYxxStore
         self::clearSnap();
     }
 
+    public static function clearRoundBets($roundIndex)
+    {
+        $roundIndex = (int)$roundIndex;
+        $redis = self::redis();
+        if ($redis) {
+            try {
+                $redis->del(self::betHashKey($roundIndex));
+            } catch (\Throwable $e) {
+            }
+            try {
+                $redis->del(self::liveKey($roundIndex));
+            } catch (\Throwable $e) {
+            }
+            try {
+                $redis->del(self::statsKey($roundIndex));
+            } catch (\Throwable $e) {
+            }
+        }
+        try {
+            Cache::rm(self::cacheName('bets:' . $roundIndex));
+        } catch (\Throwable $e) {
+        }
+        self::clearSnap();
+    }
+
     /**
      * 结算后惰性派彩：只写 Redis，不在当局循环里打钱包。
      *

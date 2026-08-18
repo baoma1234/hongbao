@@ -17,7 +17,7 @@ use think\Validate;
  */
 class Fanshub extends Api
 {
-    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail', 'yxxhall', 'yxxtick', 'yxxfair'];
+    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail', 'yxxhall', 'yxxtick', 'yxxfair', 'yxxgroupdissolve'];
     protected $noNeedRight = '*';
 
     public function _initialize()
@@ -25,7 +25,7 @@ class Fanshub extends Api
         FansHubSms::boot();
         parent::_initialize();
         $action = strtolower($this->request->action());
-        $exempt = ['config', 'bootstrap', 'comments', 'inviteleaderboard', 'slidercaptcha', 'grabslider', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail', 'yxxhall', 'yxxtick', 'yxxfair'];
+        $exempt = ['config', 'bootstrap', 'comments', 'inviteleaderboard', 'slidercaptcha', 'grabslider', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail', 'yxxhall', 'yxxtick', 'yxxfair', 'yxxgroupdissolve'];
         if (in_array($action, $exempt, true)) {
             return;
         }
@@ -1023,6 +1023,37 @@ class Fanshub extends Api
             $this->error('forbidden', null, 403);
         }
         $this->success('ok', \app\common\library\FansHubYxx::tickEngine());
+    }
+
+    /**
+     * 群解散后强制结算本群鱼虾蟹爆点池（匿名；仅本机 IM）
+     * POST /api/fanshub/yxxgroupdissolve
+     */
+    public function yxxgroupdissolve()
+    {
+        $remote = (string)($this->request->server('REMOTE_ADDR') ?: '');
+        if ($remote !== '127.0.0.1' && $remote !== '::1') {
+            $this->error('forbidden', null, 403);
+        }
+        $groupId = (int)$this->request->param('group_id', 0);
+        $raw = $this->request->param('member_ids', '');
+        $ids = [];
+        if (is_array($raw)) {
+            $ids = $raw;
+        } else {
+            $raw = trim((string)$raw);
+            if ($raw !== '') {
+                $ids = preg_split('/[,\s]+/', $raw);
+            }
+        }
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
+        try {
+            $this->success('ok', \app\common\library\FansHubYxx::dissolveGroupTable($groupId, $ids));
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: 'settle failed');
+        }
     }
 
     /**

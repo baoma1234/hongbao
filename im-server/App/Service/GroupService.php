@@ -1396,10 +1396,60 @@ class GroupService
         } catch (\Throwable $e) {
             CatchLog::quiet($e, 'Service.GroupService');
         }
+        $this->settleYxxOnDissolve($groupId, $memberIds);
         return [
             'group_id'    => $groupId,
             'member_ids'  => $memberIds,
         ];
+    }
+
+    /**
+     * 解散后通知 PHP 强制分完本群鱼虾蟹爆点池；失败不影响解散本身。
+     */
+    protected function settleYxxOnDissolve($groupId, array $memberIds)
+    {
+        $groupId = (int)$groupId;
+        if ($groupId <= 0) {
+            return;
+        }
+        $url = '';
+        try {
+            $app = require dirname(__DIR__, 2) . '/config/app.php';
+            $url = trim((string)($app['cron']['yxx_dissolve_url'] ?? ''));
+            if ($url === '') {
+                $tick = trim((string)($app['cron']['yxx_tick_url'] ?? ''));
+                if ($tick !== '') {
+                    $url = preg_replace('#yxxtick/?$#', 'yxxgroupdissolve', $tick);
+                }
+            }
+        } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.GroupService');
+        }
+        if ($url === '' || $url === null) {
+            return;
+        }
+        $body = http_build_query([
+            'group_id'   => $groupId,
+            'member_ids' => implode(',', array_map('intval', $memberIds)),
+        ]);
+        $ctx = stream_context_create([
+            'http' => [
+                'method'        => 'POST',
+                'timeout'       => 8,
+                'ignore_errors' => true,
+                'header'        => "Content-Type: application/x-www-form-urlencoded\r\nContent-Length: " . strlen($body) . "\r\n",
+                'content'       => $body,
+            ],
+        ]);
+        $raw = @file_get_contents($url, false, $ctx);
+        $line = '';
+        if (!empty($http_response_header[0])) {
+            $line = (string)$http_response_header[0];
+        }
+        if ($line !== '' && strpos($line, '200') === false) {
+            error_log('[YXX] dissolve settle HTTP ' . $line . ' gid=' . $groupId);
+        }
+        unset($raw);
     }
 
     public function muteMember($groupId, $operatorId, $targetId, $seconds)

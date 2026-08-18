@@ -261,4 +261,132 @@ class FansHubYxxGroup
         $row = self::row($groupId);
         return max(0, (int)($row['boom_half_count'] ?? 0));
     }
+
+    public static function touchDaily($groupId, $uid, $stake)
+    {
+        self::adjustDaily($groupId, $uid, max(0, (int)$stake), true);
+    }
+
+    public static function adjustDaily($groupId, $uid, $delta, $countInc = false)
+    {
+        $groupId = (int)$groupId;
+        $uid = (int)$uid;
+        $delta = (int)$delta;
+        if ($groupId <= 0 || $uid <= 0 || $delta === 0) {
+            return;
+        }
+        $date = date('Ymd');
+        $now = time();
+        try {
+            $row = Db::name('fans_yxx_group_daily')
+                ->where(['group_id' => $groupId, 'user_id' => $uid, 'bet_date' => $date])
+                ->find();
+            if ($row) {
+                $nextTotal = max(0, (int)$row['bet_total'] + $delta);
+                $nextCount = (int)$row['bet_count'] + ($countInc && $delta > 0 ? 1 : 0);
+                Db::name('fans_yxx_group_daily')->where('id', (int)$row['id'])->update([
+                    'bet_count'  => $nextCount,
+                    'bet_total'  => $nextTotal,
+                    'updatetime' => $now,
+                ]);
+            } elseif ($delta > 0) {
+                Db::name('fans_yxx_group_daily')->insert([
+                    'group_id'   => $groupId,
+                    'user_id'    => $uid,
+                    'bet_date'   => $date,
+                    'bet_count'  => 1,
+                    'bet_total'  => $delta,
+                    'updatetime' => $now,
+                ]);
+            }
+        } catch (\Throwable $e) {
+        }
+    }
+
+    /**
+     * @return array<int,int> uid => 本群累计下注
+     */
+    public static function stakeTotals($groupId)
+    {
+        $groupId = (int)$groupId;
+        if ($groupId <= 0) {
+            return [];
+        }
+        try {
+            $rows = Db::name('fans_yxx_group_daily')
+                ->where('group_id', $groupId)
+                ->field('user_id, SUM(bet_total) AS t')
+                ->group('user_id')
+                ->select();
+            $out = [];
+            foreach (is_array($rows) ? $rows : [] as $row) {
+                $uid = (int)($row['user_id'] ?? 0);
+                $t = (int)($row['t'] ?? 0);
+                if ($uid > 0 && $t > 0) {
+                    $out[$uid] = $t;
+                }
+            }
+            return $out;
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    /**
+     * 解散群强制分完本群爆点池（关桌不调用）。
+     * @param int[] $memberIds
+     */
+    public static function payoutBoomOnDissolve($groupId, array $memberIds)
+    {
+        $groupId = (int)$groupId;
+        self::ensureRow($groupId);
+        $pool = self::gross($groupId);
+        Db::name('fans_yxx_group_state')->where('group_id', $groupId)->update([
+            'is_open'    => 0,
+            'updatetime' => time(),
+        ]);
+        self::markOpen($groupId, false);
+        if ($pool <= 0) {
+            return ['ok' => 1, 'paid' => 0, 'pool' => 0];
+        }
+        $weights = self::stakeTotals($groupId);
+        if (!$weights) {
+            foreach ($memberIds as $uid) {
+                $uid = (int)$uid;
+                if ($uid > 0) {
+                    $weights[$uid] = 1;
+                }
+            }
+        }
+        $shares = $weights ? FansHubYxxPool::capProportionalShares($pool, $weights) : [];
+        $paid = 0;
+        foreach ($shares as $uid => $amt) {
+            $uid = (int)$uid;
+            $amt = (int)$amt;
+            if ($uid <= 0 || $amt <= 0) {
+                continue;
+            }
+            $biz = 'YXXDISSOLVE-G' . $groupId . '-' . $uid;
+            try {
+                $hit = Db::name('fans_ledger')
+                    ->where('user_id', $uid)
+                    ->where('type', 'yxx_win')
+                    ->where('biz_no', $biz)
+                    ->find();
+                if ($hit) {
+                    $paid += $amt;
+                    continue;
+                }
+                FansHubHongbaoLedger::credit($uid, $amt, 'yxx_win', '鱼虾蟹群解散爆点结算', [
+                    'biz_no'   => $biz,
+                    'ref_type' => 'yxx_group',
+                    'ref_id'   => $groupId,
+                ]);
+                $paid += $amt;
+            } catch (\Throwable $e) {
+            }
+        }
+        self::setGross($groupId, 0);
+        return ['ok' => 1, 'paid' => $paid, 'pool' => $pool];
+    }
 }

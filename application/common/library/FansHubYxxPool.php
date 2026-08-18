@@ -407,6 +407,35 @@ class FansHubYxxPool
         }
     }
 
+    /**
+     * 当日大厅局数（含本局已记入的 bet_count）。未满 10 局爆点权重 ×0.1。
+     * @param int[] $uids
+     * @return array<int,int> uid => count
+     */
+    public static function dayGameCounts(array $uids)
+    {
+        $uids = array_values(array_unique(array_filter(array_map('intval', $uids))));
+        if (!$uids) {
+            return [];
+        }
+        $date = date('Ymd');
+        try {
+            $rows = Db::name('fans_yxx_daily_bet')
+                ->where('bet_date', $date)
+                ->where('user_id', 'in', $uids)
+                ->column('bet_count', 'user_id');
+            $out = [];
+            if (is_array($rows)) {
+                foreach ($rows as $uid => $n) {
+                    $out[(int)$uid] = max(0, (int)$n);
+                }
+            }
+            return $out;
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
     public static function archiveRound($roundIndex, array $meta)
     {
         $roundIndex = (int)$roundIndex;

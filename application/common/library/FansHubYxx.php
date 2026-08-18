@@ -247,6 +247,72 @@ class FansHubYxx
     }
 
     /**
+     * 解散群：先尽量结算/退注当局，再按本群累计下注权重强制分完爆点池。
+     * 关桌（stop）不走这里。
+     */
+    public static function dissolveGroupTable($groupId, array $memberIds)
+    {
+        $groupId = (int)$groupId;
+        if ($groupId <= 0) {
+            return ['ok' => 0, 'paid' => 0];
+        }
+        $lockName = 'fh:yxx:dissolve:g' . $groupId;
+        if (!FansHubYxxStore::acquireLock($lockName, 30)) {
+            return ['ok' => 0, 'busy' => 1];
+        }
+        try {
+            return self::withGroup($groupId, function () use ($groupId, $memberIds) {
+                try {
+                    self::maybeSettleRounds();
+                } catch (\Throwable $e) {
+                }
+                for ($i = 0; $i < 8; $i++) {
+                    self::dripWins();
+                }
+                foreach ($memberIds as $uid) {
+                    try {
+                        self::lazyCreditWin((int)$uid);
+                    } catch (\Throwable $e) {
+                    }
+                }
+                $clock = self::clock();
+                $ri = (int)($clock['round_index'] ?? 0);
+                $phase = (string)($clock['phase'] ?? '');
+                if ($ri >= 0 && ($phase === 'betting' || $phase === 'lock')) {
+                    $rows = FansHubYxxStore::loadBets($ri);
+                    foreach (is_array($rows) ? $rows : [] as $row) {
+                        if (!is_array($row)) {
+                            continue;
+                        }
+                        $uid = (int)($row['uid'] ?? 0);
+                        $stake = (int)($row['stake'] ?? 0);
+                        if ($uid <= 0 || $stake <= 0 || !empty($row['bot']) || !empty($row['settled'])) {
+                            continue;
+                        }
+                        if (empty($row['debited'])) {
+                            continue;
+                        }
+                        try {
+                            FansHubHongbaoLedger::credit($uid, $stake, 'yxx_bet_refund', '鱼虾蟹群解散退注 R' . $ri, [
+                                'biz_no'   => 'YXXDISR' . $ri . '-G' . $groupId . '-' . $uid,
+                                'ref_type' => 'yxx_group',
+                                'ref_id'   => $groupId,
+                            ]);
+                            FansHubYxxPool::adjustDailyBet($uid, -$stake);
+                            FansHubYxxGroup::adjustDaily($groupId, $uid, -$stake);
+                        } catch (\Throwable $e) {
+                        }
+                    }
+                    FansHubYxxStore::clearRoundBets($ri);
+                }
+                return FansHubYxxGroup::payoutBoomOnDissolve($groupId, $memberIds);
+            });
+        } finally {
+            FansHubYxxStore::releaseLock($lockName);
+        }
+    }
+
+    /**
      * 大厅公共快照 TTL 1s。remain_sec / my_bet / rain_popup 在外层覆盖。
      */
     protected static function publicHallSnap(array $clock)
@@ -431,6 +497,9 @@ class FansHubYxx
                         'ref_id'   => $roundIndex,
                     ]);
                     FansHubYxxPool::adjustDailyBet($uid, -$prevStake);
+                    if ($g > 0) {
+                        FansHubYxxGroup::adjustDaily($g, $uid, -$prevStake);
+                    }
                 }
                 FansHubHongbaoLedger::debit($uid, $stake, 'yxx_bet', '鱼虾蟹下注 R' . $roundIndex, [
                     'biz_no'   => 'YXX' . $roundIndex . $tag . '-' . $uid,
@@ -438,6 +507,9 @@ class FansHubYxx
                     'ref_id'   => $roundIndex,
                 ], true);
                 FansHubYxxPool::touchDailyBet($uid, $stake);
+                if ($g > 0) {
+                    FansHubYxxGroup::touchDaily($g, $uid, $stake);
+                }
             }
             $face = strtolower(trim((string)$face));
             FansHubYxxStore::putBet($roundIndex, [
@@ -658,6 +730,17 @@ class FansHubYxx
         }
 
         // 结算行：单骰固定倍率 + 爆点释放奖金分摊（双重上限）
+        $dayGames = [];
+        if ($gid <= 0 && $releasedBoom > 0) {
+            $need = [];
+            for ($i = 0; $i < count($rows); $i++) {
+                $u = (int)($rows[$i]['uid'] ?? 0);
+                if ($u > 0 && empty($rows[$i]['bot'])) {
+                    $need[$u] = true;
+                }
+            }
+            $dayGames = FansHubYxxPool::dayGameCounts(array_keys($need));
+        }
         $winWeights = [];
         for ($i = 0; $i < count($rows); $i++) {
             if (!empty($rows[$i]['settled'])) {
@@ -676,7 +759,14 @@ class FansHubYxx
             $rows[$i]['payout'] = $basePayout;
 
             if ($won && !$isBot && $releasedBoom > 0 && $totalStakeWon > 0) {
-                $winWeights[$i] = $stake;
+                $w = $stake;
+                if ($gid <= 0) {
+                    $games = (int)($dayGames[$uid] ?? 0);
+                    if ($games < 10) {
+                        $w = max(1, (int)floor($stake * 0.1));
+                    }
+                }
+                $winWeights[$i] = $w;
             }
         }
 
