@@ -308,26 +308,144 @@ class FansHubYxx
     {
         $cfg = self::configMap();
         $realMoney = !empty($cfg['real_money']);
+
         $dice = self::diceForRound($roundIndex);
         $settleFace = $dice[0];
         $rows = self::loadBets($roundIndex);
+
+        // 先计算人类下注量 + 中奖门口总下注量（用于爆点分摊）
         $humanStake = 0;
-        foreach ($rows as &$row) {
-            if (!empty($row['settled'])) {
-                continue;
-            }
+        $totalStakeWon = 0;
+        $totalStakeAll = 0;
+        for ($i = 0; $i < count($rows); $i++) {
+            $row = $rows[$i];
             $stake = (int)($row['stake'] ?? 0);
             $uid = (int)($row['uid'] ?? 0);
+            $face = (string)($row['face'] ?? '');
             $isBot = !empty($row['bot']) || $uid <= 0;
+
+            $totalStakeAll += $stake;
             if (!$isBot) {
                 $humanStake += $stake;
             }
-            $won = ((string)($row['face'] ?? '') === $settleFace);
-            $row['settled'] = 1;
-            $row['won'] = $won ? 1 : 0;
-            $payout = $won ? (int)round($stake * self::PAYOUT_MULT) : 0;
-            $row['payout'] = $payout;
-            if ($realMoney && $won && !$isBot && !empty($row['debited']) && $payout > 0) {
+            if ($face === $settleFace) {
+                $totalStakeWon += $stake;
+            }
+        }
+
+        // 爆点池累积（按人类有效投注 5% 进入）
+        $boomPoolBefore = self::boomPool();
+        $boomAdd = $humanStake > 0 ? (int)floor($humanStake * self::BOOM_RATE) : 0;
+        $boomPoolAfterAdd = max(0, $boomPoolBefore + $boomAdd);
+
+        // 循环计数：仅在人类有投注时推进一次（保持“有效局”概念）
+        $cycleBefore = self::cycleCount();
+        $cycleAdvance = $humanStake > 0 ? 1 : 0;
+        $cycleAfter = $cycleBefore + $cycleAdvance;
+
+        // 爆点释放：在 [boom_from, cycle_max] 区间内触发一次
+        $releasedBoom = 0;
+        $nextHalfBoomCount = 0;
+        $halfBoomCount = (int)Cache::get('fh:yxx:boom_half_count');
+        if ($cycleAfter >= (int)$cfg['boom_from'] && $cycleAfter <= (int)$cfg['cycle_max']) {
+            $releasedKey = 'fh:yxx:boom_release:' . (int)$cycleAfter;
+            if (!Cache::get($releasedKey)) {
+                $forceFull = $halfBoomCount >= 2;
+                if ($forceFull) {
+                    $releasePercent = 1.0;
+                    $nextHalfBoomCount = 0;
+                } else {
+                    $seed = hexdec(substr(hash('sha256', 'yxx-boom|' . (int)$cycleAfter . '|' . (int)$roundIndex), 0, 8));
+                    $isHalf = ($seed % 2) === 0;
+                    if ($isHalf) {
+                        $releasePercent = 0.5;
+                        $nextHalfBoomCount = $halfBoomCount + 1;
+                    } else {
+                        $releasePercent = 1.0;
+                        $nextHalfBoomCount = 0;
+                    }
+                }
+
+                $releasedBoom = (int)floor($boomPoolAfterAdd * $releasePercent);
+                $releasedBoom = max(0, min($releasedBoom, $boomPoolAfterAdd));
+
+                Cache::set($releasedKey, 1, 86400 * 30);
+                Cache::set('fh:yxx:boom_half_count', $nextHalfBoomCount, 86400 * 30);
+            } else {
+                $nextHalfBoomCount = $halfBoomCount;
+            }
+        } else {
+            $nextHalfBoomCount = $halfBoomCount;
+        }
+
+        // 更新爆点/循环缓存（无论是否释放都先写入最新累积值）
+        $boomPoolAfterRelease = max(0, $boomPoolAfterAdd - $releasedBoom);
+        Cache::set('fh:yxx:boom_pool', $boomPoolAfterRelease, 86400 * 30);
+        Cache::set('fh:yxx:cycle_count', max(0, $cycleAfter), 86400 * 30);
+        Cache::set('fh:yxx:boom_half_count', max(0, $nextHalfBoomCount), 86400 * 30);
+
+        // 结算行：单骰固定倍率 + 爆点释放奖金分摊
+        $bonusFloor = [];
+        $bonusRemainder = [];
+        $bonusSumFloor = 0;
+
+        for ($i = 0; $i < count($rows); $i++) {
+            if (!empty($rows[$i]['settled'])) {
+                continue;
+            }
+
+            $stake = (int)($rows[$i]['stake'] ?? 0);
+            $uid = (int)($rows[$i]['uid'] ?? 0);
+            $isBot = !empty($rows[$i]['bot']) || $uid <= 0;
+            $won = ((string)($rows[$i]['face'] ?? '') === $settleFace);
+
+            $rows[$i]['settled'] = 1;
+            $rows[$i]['won'] = $won ? 1 : 0;
+
+            $basePayout = $won ? (int)round($stake * self::PAYOUT_MULT) : 0;
+            $rows[$i]['payout'] = $basePayout;
+
+            if ($won && $releasedBoom > 0 && $totalStakeWon > 0) {
+                $rawBonus = $releasedBoom * ($stake / max(1, $totalStakeWon));
+                $floorBonus = (int)floor($rawBonus);
+                $bonusFloor[$i] = $floorBonus;
+                $bonusRemainder[$i] = $rawBonus - $floorBonus;
+                $bonusSumFloor += $floorBonus;
+            } else {
+                $bonusFloor[$i] = 0;
+                $bonusRemainder[$i] = 0.0;
+            }
+        }
+
+        $remain = (int)max(0, $releasedBoom - $bonusSumFloor);
+        if ($remain > 0 && !empty($bonusRemainder)) {
+            arsort($bonusRemainder); // 余数最大优先拿 1 分
+            foreach ($bonusRemainder as $idx => $r) {
+                if ($remain <= 0) {
+                    break;
+                }
+                $bonusFloor[(int)$idx] = ((int)($bonusFloor[(int)$idx] ?? 0)) + 1;
+                $remain--;
+            }
+        }
+
+        for ($i = 0; $i < count($rows); $i++) {
+            if (empty($rows[$i]['settled'])) {
+                continue;
+            }
+            $rows[$i]['payout'] = (int)($rows[$i]['payout'] ?? 0) + (int)($bonusFloor[$i] ?? 0);
+
+            $won = !empty($rows[$i]['won']);
+            if (!$won) {
+                continue;
+            }
+
+            $stake = (int)($rows[$i]['stake'] ?? 0);
+            $uid = (int)($rows[$i]['uid'] ?? 0);
+            $isBot = !empty($rows[$i]['bot']) || $uid <= 0;
+            $payout = (int)($rows[$i]['payout'] ?? 0);
+
+            if ($realMoney && !$isBot && !empty($rows[$i]['debited']) && $payout > 0) {
                 try {
                     FansHubHongbaoLedger::credit($uid, $payout, 'yxx_win', '鱼虾蟹中奖 R' . $roundIndex, [
                         'biz_no'   => 'YXXW' . $roundIndex . '-' . $uid,
@@ -339,17 +457,16 @@ class FansHubYxx
                 }
             }
         }
-        unset($row);
+
         Cache::set(self::betKey($roundIndex), $rows, 86400);
-        if ($humanStake > 0) {
-            $boomAdd = (int)floor($humanStake * self::BOOM_RATE);
-            Cache::set('fh:yxx:boom_pool', self::boomPool() + $boomAdd, 86400 * 30);
-            Cache::set('fh:yxx:cycle_count', self::cycleCount() + 1, 86400 * 30);
-        }
         Cache::set('fh:yxx:roundmeta:' . $roundIndex, [
             'settle_face' => $settleFace,
             'dice'        => $dice,
             'human_stake' => $humanStake,
+            'total_stake_won' => $totalStakeWon,
+            'boom_add'    => $boomAdd,
+            'boom_release'=> $releasedBoom,
+            'cycle_after' => $cycleAfter,
             'ts'          => time(),
         ], 86400 * 7);
     }
