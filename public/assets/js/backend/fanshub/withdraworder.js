@@ -66,12 +66,17 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                             },
                             'click .btn-markpaid': function (e, value, row) {
                                 e.stopPropagation();
-                                Layer.confirm('确认已打款完成？', function (index) {
+                                var gateway = !!row.payout_gateway;
+                                var tip = gateway
+                                    ? '将向代付通道提交出款，提交后等待通道回调到账（不会立刻标记已打款）。确定提交？'
+                                    : '该通道无代付接口，确认已线下打款完成？';
+                                Layer.confirm(tip, function (index) {
                                     Backend.api.ajax({
                                         url: 'fanshub/withdraworder/markpaid',
                                         data: {ids: row.id}
-                                    }, function () {
+                                    }, function (data, ret) {
                                         Layer.close(index);
+                                        Layer.msg((ret && ret.msg) || '已提交', {icon: 1});
                                         table.bootstrapTable('refresh');
                                         return false;
                                     });
@@ -109,10 +114,12 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                                 html.push('<a href="javascript:;" class="btn btn-xs btn-warning btn-approve" title="审核通过"><i class="fa fa-gavel"></i> 审核通过</a>');
                                 html.push('<a href="javascript:;" class="btn btn-xs btn-danger btn-reject" title="拒绝退回"><i class="fa fa-times"></i> 拒绝</a>');
                             } else if (row.status === 'processing') {
-                                html.push('<a href="javascript:;" class="btn btn-xs btn-success btn-markpaid" title="确认打款"><i class="fa fa-check"></i> 打款</a>');
+                                if (!row.payout_submitted) {
+                                    html.push('<a href="javascript:;" class="btn btn-xs btn-success btn-markpaid" title="提交打款"><i class="fa fa-check"></i> 打款</a>');
+                                }
                                 html.push('<a href="javascript:;" class="btn btn-xs btn-danger btn-reject" title="拒绝退回"><i class="fa fa-times"></i> 拒绝</a>');
-                                if (row.handler === 'bs') {
-                                    html.push('<a href="javascript:;" class="btn btn-xs btn-info btn-bs-query" title="BS查单"><i class="fa fa-search"></i> BS查单</a>');
+                                if (row.handler === 'bs' || row.handler === 'wanhuitong') {
+                                    html.push('<a href="javascript:;" class="btn btn-xs btn-info btn-bs-query" title="查单"><i class="fa fa-search"></i> 查单</a>');
                                 }
                             }
                             return html.join(' ');

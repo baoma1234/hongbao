@@ -1243,7 +1243,8 @@ class FansHubWallet
     }
 
     /**
-     * 后台确认提现打款完成
+     * 后台打款：有代付网关则提交第三方；人工通道则直接标记已打款。
+     * @return array{mode:string,message:string,gateway_ok?:bool}
      */
     public static function adminMarkWithdrawPaid($orderId, $remark = '')
     {
@@ -1253,18 +1254,116 @@ class FansHubWallet
             throw new \RuntimeException('订单不存在');
         }
         if ($order['status'] === 'paid') {
-            return true;
+            return ['mode' => 'paid', 'message' => '订单已是打款完成'];
         }
-        // 须先审核通过（processing）再打款
         if ((string)$order['status'] !== 'processing') {
             throw new \RuntimeException('请先审核通过后再打款');
         }
+
+        $handler = strtolower(trim((string)($order['handler'] ?? '')));
+        if (self::withdrawHasPayoutGateway($handler)) {
+            if (self::withdrawPayoutAlreadySubmitted($order)) {
+                throw new \RuntimeException('该笔已提交代付，请等待通道回调或使用查单，勿重复打款');
+            }
+            $channel = Db::name('fans_pay_channel')->where('id', (int)$order['channel_id'])->find();
+            if (!$channel) {
+                throw new \RuntimeException('提现通道不存在');
+            }
+            $accountInfo = [];
+            if (!empty($order['account_info'])) {
+                $decoded = is_array($order['account_info'])
+                    ? $order['account_info']
+                    : json_decode((string)$order['account_info'], true);
+                if (is_array($decoded)) {
+                    $accountInfo = $decoded;
+                }
+            }
+            $submit = self::dispatchWithdrawPayout(
+                $handler,
+                $channel,
+                (int)$order['user_id'],
+                (float)$order['amount'],
+                (string)$order['order_no'],
+                $accountInfo,
+                false
+            );
+            $msg = trim((string)($submit['message'] ?? ''));
+            if ($msg === '') {
+                $msg = '代付已提交，等待通道回调到账';
+            }
+            return [
+                'mode'       => 'gateway',
+                'message'    => $msg,
+                'gateway_ok' => true,
+                'action'     => (string)($submit['action'] ?? 'submitted'),
+            ];
+        }
+
         Db::name('fans_withdraw_order')->where('id', $orderId)->update([
             'status'     => 'paid',
             'remark'     => $remark !== '' ? $remark : ('后台确认打款 ' . date('Y-m-d H:i:s')),
             'updatetime' => time(),
         ]);
-        return true;
+        return ['mode' => 'manual', 'message' => '已确认打款'];
+    }
+
+    public static function withdrawHasPayoutGateway($handler)
+    {
+        return in_array(strtolower(trim((string)$handler)), ['bs', 'wanhuitong', 'jiuyuan', 'merchant'], true);
+    }
+
+    public static function withdrawPayoutAlreadySubmitted(array $order)
+    {
+        $remark = (string)($order['remark'] ?? '');
+        foreach (['wanhuipay:', 'bs submitted', 'bs remit', 'jiuyuan:', 'jiuyuan submitted', 'merchant submitted', '代付已提交'] as $needle) {
+            if ($needle !== '' && stripos($remark, $needle) !== false) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 代付同步失败：后台打款默认不退红宝，便于重试或人工拒绝。
+     */
+    public static function markWithdrawPayoutFailed(array $order, $message, $refundOnFail = false)
+    {
+        $msg = trim((string)$message);
+        if ($msg === '') {
+            $msg = '代付提交失败';
+        }
+        if ($refundOnFail) {
+            self::refundWithdrawOrder($order, $msg);
+            return;
+        }
+        Db::name('fans_withdraw_order')->where('id', (int)$order['id'])->update([
+            'remark'     => mb_substr('代付提交失败: ' . $msg, 0, 250),
+            'updatetime' => time(),
+        ]);
+    }
+
+    protected static function dispatchWithdrawPayout($handler, array $channel, $userId, $amount, $orderNo, array $accountInfo, $refundOnFail = false)
+    {
+        try {
+            switch (strtolower(trim((string)$handler))) {
+                case 'jiuyuan':
+                    return FansHubJiuyuanGateway::buildWithdrawSubmit($channel, $orderNo, $amount, $userId, $accountInfo, $refundOnFail);
+                case 'wanhuitong':
+                    return FansHubWanhuitongGateway::buildWithdrawSubmit($channel, $orderNo, $amount, $userId, $accountInfo, $refundOnFail);
+                case 'bs':
+                    return FansHubBsGateway::buildWithdrawSubmit($channel, $orderNo, $amount, $userId, $accountInfo);
+                case 'merchant':
+                    return FansHubPayGateway::submitWithdraw($channel, $orderNo, $amount, $userId, $accountInfo);
+                default:
+                    throw new \RuntimeException('该通道不支持代付提交');
+            }
+        } catch (\Throwable $e) {
+            $order = Db::name('fans_withdraw_order')->where('order_no', $orderNo)->find();
+            if ($order && !self::withdrawPayoutAlreadySubmitted($order) && stripos((string)($order['remark'] ?? ''), '代付提交失败') === false) {
+                self::markWithdrawPayoutFailed($order, $e->getMessage(), false);
+            }
+            throw $e;
+        }
     }
 
     /**

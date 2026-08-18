@@ -2,9 +2,12 @@
 
 namespace app\common\library;
 
+use think\Db;
+
 /**
- * 充值/提现 — 仅记录 PHP 服务端发起的 CURL（不含浏览器跳转/表单提交）
- * 日志：runtime/log/pay_curl/recharge_YYYYMMDD.log | withdraw_YYYYMMDD.log
+ * 充值/提现第三方请求/回调详情日志
+ * - runtime/log/pay_curl/recharge_YYYYMMDD.log | withdraw_YYYYMMDD.log
+ * - runtime/log/pay_curl/order/{订单号}.log （按单号检索）
  */
 class FansHubPayCurlLog
 {
@@ -88,19 +91,53 @@ class FansHubPayCurlLog
         return (string)$raw;
     }
 
-    public static function logMeta($scene, $gateway, $orderNo, $action = '')
+    public static function logMeta($scene, $gateway, $orderNo, $action = '', array $extra = [])
     {
-        return [
+        return array_merge([
             'scene'    => $scene,
             'gateway'  => $gateway,
             'order_no' => (string)$orderNo,
             'action'   => $action,
-        ];
+        ], $extra);
+    }
+
+    public static function pickOrderNo(array $params)
+    {
+        foreach (['order_no', 'merchant_order_no', 'merchantOrderNo', 'pay_orderid', 'out_trade_no', 'mchOrderNo'] as $key) {
+            $v = trim((string)($params[$key] ?? ''));
+            if ($v !== '') {
+                return $v;
+            }
+        }
+        return '';
     }
 
     public static function recordServerRequest(array $logMeta, $method, $url, array $params, $contentType, $raw, $err, $httpCode, $started)
     {
         self::write($logMeta, $method, $url, $params, $contentType, $raw, $err, $httpCode, $started);
+    }
+
+    /**
+     * 第三方回调 / 反查（入站）
+     */
+    public static function logInbound($scene, array $meta)
+    {
+        $scene = self::normalizeScene($scene);
+        if ($scene === '') {
+            return;
+        }
+        try {
+            $meta['scene'] = $scene;
+            $meta['source'] = 'inbound';
+            if (empty($meta['action'])) {
+                $meta['action'] = 'notify';
+            }
+            if (empty($meta['order_no']) && !empty($meta['params']) && is_array($meta['params'])) {
+                $meta['order_no'] = self::pickOrderNo($meta['params']);
+            }
+            self::logRequest($scene, self::enrichFromOrder($meta));
+        } catch (\Throwable $e) {
+        }
     }
 
     protected static function write(array $logMeta, $method, $url, array $params, $contentType, $raw, $err, $httpCode, $started)
@@ -109,8 +146,8 @@ class FansHubPayCurlLog
             return;
         }
         try {
-            self::logRequest($logMeta['scene'], [
-                'source'       => 'server',
+            $meta = array_merge($logMeta, [
+                'source'       => (string)($logMeta['source'] ?? 'server'),
                 'gateway'      => (string)($logMeta['gateway'] ?? ''),
                 'order_no'     => (string)($logMeta['order_no'] ?? ''),
                 'action'       => (string)($logMeta['action'] ?? ''),
@@ -123,6 +160,7 @@ class FansHubPayCurlLog
                 'error'        => $err !== '' ? $err : '',
                 'response'     => $raw === false ? '' : (string)$raw,
             ]);
+            self::logRequest($meta['scene'], self::enrichFromOrder($meta));
         } catch (\Throwable $e) {
         }
     }
@@ -139,12 +177,16 @@ class FansHubPayCurlLog
             @mkdir($dir, 0755, true);
         }
 
+        $source = (string)($meta['source'] ?? 'server');
         $lines = [];
         $lines[] = '========== ' . date('Y-m-d H:i:s') . ' ==========';
         $lines[] = 'scene: ' . $scene;
-        $lines[] = 'source: server';
-        foreach (['gateway', 'order_no', 'action', 'method', 'url', 'http_code', 'duration_ms', 'error'] as $key) {
-            if (!empty($meta[$key]) || (isset($meta[$key]) && $meta[$key] === 0)) {
+        $lines[] = 'source: ' . ($source !== '' ? $source : 'server');
+        foreach ([
+            'gateway', 'action', 'order_no', 'order_id', 'user_id', 'channel_id', 'amount',
+            'order_status', 'ip', 'method', 'url', 'http_code', 'duration_ms', 'result', 'error',
+        ] as $key) {
+            if (!empty($meta[$key]) || (isset($meta[$key]) && $meta[$key] === 0) || (isset($meta[$key]) && $meta[$key] === '0')) {
                 $lines[] = $key . ': ' . $meta[$key];
             }
         }
@@ -152,20 +194,40 @@ class FansHubPayCurlLog
         if (!empty($meta['params']) && is_array($meta['params'])) {
             $masked = self::maskParams($meta['params']);
             $lines[] = 'request_params: ' . self::encode($masked);
-            $lines[] = 'curl: ' . self::buildCurlCommand(
-                (string)($meta['method'] ?? 'POST'),
-                (string)($meta['url'] ?? ''),
-                $masked,
-                (string)($meta['content_type'] ?? 'json')
-            );
+            if ($source !== 'inbound') {
+                $cmd = self::buildCurlCommand(
+                    (string)($meta['method'] ?? 'POST'),
+                    (string)($meta['url'] ?? ''),
+                    $masked,
+                    (string)($meta['content_type'] ?? 'json')
+                );
+                if ($cmd !== '') {
+                    $lines[] = 'curl: ' . $cmd;
+                }
+            }
         }
 
+        if (array_key_exists('raw_body', $meta) && (string)$meta['raw_body'] !== '') {
+            $lines[] = 'raw_body: ' . self::clip((string)$meta['raw_body'], 16000);
+        }
         if (array_key_exists('response', $meta)) {
-            $lines[] = 'response: ' . self::clip((string)$meta['response'], 8000);
+            $lines[] = 'response: ' . self::clip((string)$meta['response'], 16000);
+        }
+        if (!empty($meta['note'])) {
+            $lines[] = 'note: ' . self::clip((string)$meta['note'], 2000);
         }
 
         $lines[] = '';
-        @file_put_contents(self::logFile($scene), implode(PHP_EOL, $lines) . PHP_EOL, FILE_APPEND | LOCK_EX);
+        $chunk = implode(PHP_EOL, $lines) . PHP_EOL;
+        @file_put_contents(self::logFile($scene), $chunk, FILE_APPEND | LOCK_EX);
+        $orderFile = self::orderLogFile((string)($meta['order_no'] ?? ''));
+        if ($orderFile !== '') {
+            $orderDir = dirname($orderFile);
+            if (!is_dir($orderDir)) {
+                @mkdir($orderDir, 0755, true);
+            }
+            @file_put_contents($orderFile, $chunk, FILE_APPEND | LOCK_EX);
+        }
     }
 
     public static function maskParams(array $params)
@@ -228,6 +290,54 @@ class FansHubPayCurlLog
     protected static function logFile($scene)
     {
         return self::logDir() . DIRECTORY_SEPARATOR . $scene . '_' . date('Ymd') . '.log';
+    }
+
+    protected static function orderLogFile($orderNo)
+    {
+        $orderNo = trim((string)$orderNo);
+        if ($orderNo === '' || strtolower($orderNo) === 'balance') {
+            return '';
+        }
+        if (!preg_match('/^[A-Za-z0-9_\-]{6,80}$/', $orderNo)) {
+            return '';
+        }
+        return self::logDir() . DIRECTORY_SEPARATOR . 'order' . DIRECTORY_SEPARATOR . $orderNo . '.log';
+    }
+
+    protected static function enrichFromOrder(array $meta)
+    {
+        $orderNo = trim((string)($meta['order_no'] ?? ''));
+        $scene = self::normalizeScene($meta['scene'] ?? '');
+        if ($orderNo === '' || $scene === '' || strtolower($orderNo) === 'balance') {
+            return $meta;
+        }
+        if (!empty($meta['order_id']) && !empty($meta['user_id'])) {
+            return $meta;
+        }
+        try {
+            $table = $scene === self::SCENE_WITHDRAW ? 'fans_withdraw_order' : 'fans_recharge_order';
+            $row = Db::name($table)->where('order_no', $orderNo)->find();
+            if (!$row) {
+                return $meta;
+            }
+            if (empty($meta['order_id'])) {
+                $meta['order_id'] = (int)$row['id'];
+            }
+            if (empty($meta['user_id'])) {
+                $meta['user_id'] = (int)$row['user_id'];
+            }
+            if (empty($meta['channel_id'])) {
+                $meta['channel_id'] = (int)$row['channel_id'];
+            }
+            if (!isset($meta['amount']) || $meta['amount'] === '' || $meta['amount'] === null) {
+                $meta['amount'] = $row['amount'];
+            }
+            if (empty($meta['order_status'])) {
+                $meta['order_status'] = (string)($row['status'] ?? '');
+            }
+        } catch (\Throwable $e) {
+        }
+        return $meta;
     }
 
     protected static function maskValue($value)

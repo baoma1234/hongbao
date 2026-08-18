@@ -161,6 +161,58 @@ class FansHubPayGateway
         ];
     }
 
+    /**
+     * 后台打款：服务端 POST 商户代付（测试通道不真实请求）
+     */
+    public static function submitWithdraw(array $channel, $orderNo, $amount, $userId, array $accountInfo = [])
+    {
+        $submit = self::buildWithdrawSubmit($channel, $orderNo, $amount, $userId, $accountInfo);
+        $url = trim((string)($submit['url'] ?? ''));
+        $params = is_array($submit['params'] ?? null) ? $submit['params'] : [];
+        if ($url === '') {
+            throw new \RuntimeException('商户代付地址未配置');
+        }
+        if (self::isInternalTestSubmit($url)) {
+            Db::name('fans_withdraw_order')->where('order_no', $orderNo)->update([
+                'status'     => 'processing',
+                'remark'     => 'merchant submitted (test)',
+                'updatetime' => time(),
+            ]);
+            return [
+                'action'  => 'submitted',
+                'message' => '测试通道已记录，未真实出款',
+                'gateway' => 'merchant',
+                'status'  => 'processing',
+            ];
+        }
+        $contentType = strtolower((string)($submit['method'] ?? 'POST')) === 'get' ? 'json' : 'form';
+        $raw = $contentType === 'form'
+            ? FansHubPayCurlLog::postForm($url, $params, FansHubPayCurlLog::logMeta(
+                FansHubPayCurlLog::SCENE_WITHDRAW,
+                'merchant',
+                $orderNo,
+                'withdraw_submit'
+            ))
+            : FansHubPayCurlLog::postJson($url, $params, FansHubPayCurlLog::logMeta(
+                FansHubPayCurlLog::SCENE_WITHDRAW,
+                'merchant',
+                $orderNo,
+                'withdraw_submit'
+            ));
+        Db::name('fans_withdraw_order')->where('order_no', $orderNo)->update([
+            'status'     => 'processing',
+            'remark'     => mb_substr('merchant submitted ' . trim(mb_substr((string)$raw, 0, 120)), 0, 250),
+            'updatetime' => time(),
+        ]);
+        return [
+            'action'  => 'submitted',
+            'message' => '代付已提交，等待通道回调到账',
+            'gateway' => 'merchant',
+            'status'  => 'processing',
+            'raw'     => mb_substr((string)$raw, 0, 400),
+        ];
+    }
+
     public static function handleRechargeNotify($channelId, array $params)
     {
         $channel = self::loadChannel((int)$channelId, 'recharge');

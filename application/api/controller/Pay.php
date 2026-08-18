@@ -4,6 +4,7 @@ namespace app\api\controller;
 
 use app\common\controller\Api;
 use app\common\library\FansHubPayGateway;
+use app\common\library\FansHubPayCurlLog;
 use think\Response;
 
 /**
@@ -53,12 +54,36 @@ class Pay extends Api
         $clientIp = (string)$this->request->ip();
         $row = \think\Db::name('fans_pay_channel')->where('id', $channelId)->find();
         $handler = $row ? (string)$row['handler'] : '';
-        if ($handler === 'bs') {
-            $body = \app\common\library\FansHubBsGateway::handleWithdrawVerify($channelId, $params, $clientIp);
+        try {
+            if ($handler === 'bs') {
+                $body = \app\common\library\FansHubBsGateway::handleWithdrawVerify($channelId, $params, $clientIp);
+            } else {
+                $body = \app\common\library\FansHubWanhuitongGateway::handleWithdrawVerify($channelId, $params, $clientIp);
+            }
+            FansHubPayCurlLog::logInbound(FansHubPayCurlLog::SCENE_WITHDRAW, [
+                'gateway'  => $handler !== '' ? $handler : 'wanhuitong',
+                'action'   => 'withdraw_verify',
+                'order_no' => FansHubPayCurlLog::pickOrderNo($params),
+                'ip'       => $clientIp,
+                'url'      => (string)$this->request->url(true),
+                'params'   => $params,
+                'raw_body' => is_string($raw) ? $raw : '',
+                'result'   => is_array($body) ? json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : (string)$body,
+            ]);
             return json($body);
+        } catch (\Throwable $e) {
+            FansHubPayCurlLog::logInbound(FansHubPayCurlLog::SCENE_WITHDRAW, [
+                'gateway'  => $handler !== '' ? $handler : 'wanhuitong',
+                'action'   => 'withdraw_verify',
+                'order_no' => FansHubPayCurlLog::pickOrderNo($params),
+                'ip'       => $clientIp,
+                'url'      => (string)$this->request->url(true),
+                'params'   => $params,
+                'raw_body' => is_string($raw) ? $raw : '',
+                'error'    => $e->getMessage(),
+            ]);
+            throw $e;
         }
-        $body = \app\common\library\FansHubWanhuitongGateway::handleWithdrawVerify($channelId, $params, $clientIp);
-        return json($body);
     }
 
     /**
@@ -123,7 +148,6 @@ class Pay extends Api
     {
         $channelId = (int)$this->request->param('channel_id', 0);
         $params = array_merge($this->request->get(), $this->request->post());
-        // JSON 回调体
         $raw = $this->request->getContent();
         if (is_string($raw) && $raw !== '') {
             $json = json_decode($raw, true);
@@ -131,6 +155,9 @@ class Pay extends Api
                 $params = array_merge($params, $json);
             }
         }
+        $scene = $type === 'withdraw' ? FansHubPayCurlLog::SCENE_WITHDRAW : FansHubPayCurlLog::SCENE_RECHARGE;
+        $clientIp = (string)$this->request->ip();
+        $handler = '';
         try {
             if ($channelId <= 0) {
                 throw new \RuntimeException('channel_id missing');
@@ -142,12 +169,10 @@ class Pay extends Api
                     ? \app\common\library\FansHubJiuyuanGateway::handleWithdrawNotify($channelId, $params)
                     : \app\common\library\FansHubJiuyuanGateway::handleRechargeNotify($channelId, $params);
             } elseif ($handler === 'wanhuitong') {
-                $clientIp = (string)$this->request->ip();
                 $body = $type === 'withdraw'
                     ? \app\common\library\FansHubWanhuitongGateway::handleWithdrawNotify($channelId, $params, $clientIp)
                     : \app\common\library\FansHubWanhuitongGateway::handleRechargeNotify($channelId, $params, $clientIp);
             } elseif ($handler === 'bs') {
-                $clientIp = (string)$this->request->ip();
                 $body = $type === 'withdraw'
                     ? \app\common\library\FansHubBsGateway::handleWithdrawNotify($channelId, $params, $clientIp)
                     : \app\common\library\FansHubBsGateway::handleRechargeNotify($channelId, $params, $clientIp);
@@ -156,8 +181,30 @@ class Pay extends Api
                     ? FansHubPayGateway::handleWithdrawNotify($channelId, $params)
                     : FansHubPayGateway::handleRechargeNotify($channelId, $params);
             }
+            FansHubPayCurlLog::logInbound($scene, [
+                'gateway'    => $handler !== '' ? $handler : 'merchant',
+                'action'     => $type . '_notify',
+                'order_no'   => FansHubPayCurlLog::pickOrderNo($params),
+                'channel_id' => $channelId,
+                'ip'         => $clientIp,
+                'url'        => (string)$this->request->url(true),
+                'params'     => $params,
+                'raw_body'   => is_string($raw) ? $raw : '',
+                'result'     => is_string($body) ? $body : json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            ]);
             return Response::create($body, 'html', 200)->contentType('text/plain', 'utf-8');
         } catch (\Throwable $e) {
+            FansHubPayCurlLog::logInbound($scene, [
+                'gateway'    => $handler !== '' ? $handler : 'merchant',
+                'action'     => $type . '_notify',
+                'order_no'   => FansHubPayCurlLog::pickOrderNo($params),
+                'channel_id' => $channelId,
+                'ip'         => $clientIp,
+                'url'        => (string)$this->request->url(true),
+                'params'     => $params,
+                'raw_body'   => is_string($raw) ? $raw : '',
+                'error'      => $e->getMessage(),
+            ]);
             return Response::create('FAIL:' . $e->getMessage(), 'html', 200)->contentType('text/plain', 'utf-8');
         }
     }

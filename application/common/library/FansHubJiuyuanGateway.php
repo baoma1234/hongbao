@@ -151,7 +151,7 @@ class FansHubJiuyuanGateway
     /**
      * 提交代付（服务端 POST）
      */
-    public static function buildWithdrawSubmit(array $channel, $orderNo, $amount, $userId, array $accountInfo = [])
+    public static function buildWithdrawSubmit(array $channel, $orderNo, $amount, $userId, array $accountInfo = [], $refundOnFail = false)
     {
         $cfg = self::config($channel);
         self::assertConfig($cfg, 'withdraw');
@@ -223,12 +223,12 @@ class FansHubJiuyuanGateway
         }
         $status = strtolower((string)($json['status'] ?? ''));
         if ($status !== 'success') {
-            // 同步失败：退回余额
+            $failMsg = (string)($json['msg'] ?? '代付提交失败');
             $order = Db::name('fans_withdraw_order')->where('order_no', $orderNo)->find();
             if ($order) {
-                FansHubWallet::refundWithdrawOrder($order, (string)($json['msg'] ?? '代付提交失败'));
+                FansHubWallet::markWithdrawPayoutFailed($order, $failMsg, $refundOnFail);
             }
-            throw new \RuntimeException((string)($json['msg'] ?? '代付提交失败'));
+            throw new \RuntimeException($failMsg);
         }
         $tradeNo = (string)($json['transaction_id'] ?? '');
         Db::name('fans_withdraw_order')->where('order_no', $orderNo)->update([

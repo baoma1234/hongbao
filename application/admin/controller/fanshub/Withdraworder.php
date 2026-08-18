@@ -60,6 +60,8 @@ class Withdraworder extends Backend
                 } else {
                     $row['account_info_text'] = '';
                 }
+                $row['payout_gateway'] = FansHubWallet::withdrawHasPayoutGateway((string)$row['handler']);
+                $row['payout_submitted'] = FansHubWallet::withdrawPayoutAlreadySubmitted($row->toArray());
             }
             return json(['total' => $list->total(), 'rows' => $list->items()]);
         }
@@ -95,11 +97,12 @@ class Withdraworder extends Backend
             $this->error('参数错误');
         }
         try {
-            FansHubWallet::adminMarkWithdrawPaid($id);
+            $result = FansHubWallet::adminMarkWithdrawPaid($id);
         } catch (\Throwable $e) {
             $this->error($e->getMessage());
         }
-        $this->success('已确认打款');
+        $msg = is_array($result) ? (string)($result['message'] ?? '') : '';
+        $this->success($msg !== '' ? $msg : '已提交打款');
     }
 
     /**
@@ -135,11 +138,16 @@ class Withdraworder extends Backend
         if (!$order) {
             $this->error('订单不存在');
         }
-        if ((string)$order['handler'] !== 'bs') {
-            $this->error('仅支持 BS 通道订单查单');
-        }
+        $handler = strtolower(trim((string)$order['handler']));
+        $result = '';
         try {
-            $result = FansHubBsGateway::syncWithdrawFromQuery((int)$order['channel_id'], (string)$order['order_no']);
+            if ($handler === 'bs') {
+                $result = FansHubBsGateway::syncWithdrawFromQuery((int)$order['channel_id'], (string)$order['order_no']);
+            } elseif ($handler === 'wanhuitong') {
+                $result = \app\common\library\FansHubWanhuitongGateway::syncWithdrawFromQuery((int)$order['channel_id'], (string)$order['order_no']);
+            } else {
+                $this->error('该通道暂不支持查单');
+            }
         } catch (\Throwable $e) {
             $this->error($e->getMessage());
         }

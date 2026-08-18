@@ -444,7 +444,12 @@ class FansHubWanhuitongGateway
             'nonce_str'   => self::nonceStr(32),
         ];
         $params['sign'] = self::sign($params, $cfg['private_key']);
-        $raw = self::httpPostJson($cfg['balance_url'], $params);
+        $raw = self::httpPostJson($cfg['balance_url'], $params, FansHubPayCurlLog::logMeta(
+            FansHubPayCurlLog::SCENE_WITHDRAW,
+            'wanhuitong',
+            'balance',
+            'withdraw_balance'
+        ));
         $json = self::decodeJson($raw);
         if (!$json) {
             throw new \RuntimeException('wanhuipay 余额查询返回非 JSON：' . mb_substr((string)$raw, 0, 160));
@@ -490,7 +495,12 @@ class FansHubWanhuitongGateway
             'nonce_str'   => self::nonceStr(32),
         ];
         $params['sign'] = self::sign($params, $cfg['private_key']);
-        $raw = self::httpPostJson($cfg['query_url'], $params);
+        $raw = self::httpPostJson($cfg['query_url'], $params, FansHubPayCurlLog::logMeta(
+            FansHubPayCurlLog::SCENE_RECHARGE,
+            'wanhuitong',
+            $platformOrderNo,
+            'payment_query'
+        ));
         $json = self::decodeJson($raw);
         if (!$json) {
             throw new \RuntimeException('wanhuipay 查询返回非 JSON：' . mb_substr((string)$raw, 0, 160));
@@ -596,7 +606,7 @@ class FansHubWanhuitongGateway
      * 代付查询：POST /api/withdraw/query
      * 注意：order_no 为平台订单号（下单返回 data.order_no），不是商户单号
      */
-    public static function queryWithdraw(array $channel, $platformOrderNo)
+    public static function queryWithdraw(array $channel, $platformOrderNo, $merchantOrderNo = '')
     {
         $cfg = self::config($channel);
         self::assertConfig($cfg, 'query');
@@ -611,7 +621,14 @@ class FansHubWanhuitongGateway
             'nonce_str'   => self::nonceStr(32),
         ];
         $params['sign'] = self::sign($params, $cfg['private_key']);
-        $raw = self::httpPostJson($cfg['withdraw_query_url'], $params);
+        $logOrderNo = trim((string)$merchantOrderNo) !== '' ? trim((string)$merchantOrderNo) : $platformOrderNo;
+        $raw = self::httpPostJson($cfg['withdraw_query_url'], $params, FansHubPayCurlLog::logMeta(
+            FansHubPayCurlLog::SCENE_WITHDRAW,
+            'wanhuitong',
+            $logOrderNo,
+            'withdraw_query',
+            ['note' => 'platform_order_no=' . $platformOrderNo]
+        ));
         $json = self::decodeJson($raw);
         if (!$json) {
             throw new \RuntimeException('wanhuipay 代付查询返回非 JSON：' . mb_substr((string)$raw, 0, 160));
@@ -636,7 +653,7 @@ class FansHubWanhuitongGateway
         if ($platformNo === '') {
             throw new \RuntimeException('本地单尚未保存平台订单号，无法查询');
         }
-        return self::queryWithdraw($channel, $platformNo);
+        return self::queryWithdraw($channel, $platformNo, $merchantOrderNo);
     }
 
     /**
@@ -777,7 +794,7 @@ class FansHubWanhuitongGateway
      * 代付创建：POST /api/withdraw/create
      * withdraw_type=2 钱包代付；=1 三方（微信/支付宝/银行卡）
      */
-    public static function buildWithdrawSubmit(array $channel, $orderNo, $amount, $userId, array $accountInfo = [])
+    public static function buildWithdrawSubmit(array $channel, $orderNo, $amount, $userId, array $accountInfo = [], $refundOnFail = false)
     {
         $cfg = self::config($channel);
         self::assertConfig($cfg, 'recharge');
@@ -856,11 +873,12 @@ class FansHubWanhuitongGateway
 
         $code = $json['code'] ?? null;
         if ((int)$code !== 200) {
+            $failMsg = (string)($json['message'] ?? $json['msg'] ?? '代付提交失败') . ' (code=' . $code . ')';
             $order = Db::name('fans_withdraw_order')->where('order_no', $orderNo)->find();
             if ($order) {
-                FansHubWallet::refundWithdrawOrder($order, (string)($json['message'] ?? $json['msg'] ?? '代付提交失败'));
+                FansHubWallet::markWithdrawPayoutFailed($order, $failMsg, $refundOnFail);
             }
-            throw new \RuntimeException((string)($json['message'] ?? $json['msg'] ?? '代付提交失败') . ' (code=' . $code . ')');
+            throw new \RuntimeException($failMsg);
         }
 
         $data = (isset($json['data']) && is_array($json['data'])) ? $json['data'] : [];
