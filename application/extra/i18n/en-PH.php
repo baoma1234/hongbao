@@ -1033,4 +1033,11 @@ Retail DeskHarvester exercised 15 shares on Channel 1 and got ₱75.00 credited 
   'yxx_err_drawing' => 'Drawing now, wait for next round',
   'yxx_err_face' => 'Pick a symbol',
   'yxx_err_stake' => 'Bet {min}-{max} pts',
+  'yxx_bet_ok' => 'Bet placed · {n} pts debited',
+  'yxx_win_toast' => 'You won +{n} pts',
+  'yxx_lose_toast' => 'No win this round',
+  'yxx_hint_pick_real' => 'Picked {face} · confirm to debit',
+  'yxx_hint_win' => 'You won +{n} pts',
+  'yxx_hint_lose' => 'No win · next round',
+  'yxx_hint_idle_real' => 'Pick a symbol and confirm bet',
 );

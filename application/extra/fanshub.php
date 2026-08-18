@@ -73,6 +73,7 @@ return array (
   'yxx_bot_enabled' => true,
   'yxx_bot_count_min' => 10,
   'yxx_bot_count_max' => 22,
+  'yxx_real_money' => true,
   'im_admin' => 
   array (
     'bridge_url' => 'http://127.0.0.1:17273',

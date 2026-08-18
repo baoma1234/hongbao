@@ -165,6 +165,9 @@ const betting = ref(false)
 const diceShow = ref(['', '', ''])
 const historyRows = ref([])
 const feedRows = ref([])
+const realMoney = ref(false)
+const myResult = ref('')
+const myPayout = ref(0)
 let poll = null
 let lastRound = -1
 
@@ -205,11 +208,20 @@ const revealHint = computed(() => {
   void locale.value
   if (phase.value === 'locking') return t('yxx_hint_lock')
   if (phase.value === 'reveal') {
+    if (myResult.value === 'win' && myPayout.value > 0) {
+      return t('yxx_hint_win', { n: myPayout.value })
+    }
+    if (myResult.value === 'lose') {
+      return t('yxx_hint_lose')
+    }
     const lab = faceLabel(settleFace.value)
     return lab ? t('yxx_hint_reveal', { face: lab }) : t('yxx_hint_lock')
   }
-  if (selectedFace.value) return t('yxx_hint_pick', { face: faceLabel(selectedFace.value) })
-  return t('yxx_hint_idle')
+  if (selectedFace.value) {
+    const key = realMoney.value ? 'yxx_hint_pick_real' : 'yxx_hint_pick'
+    return t(key, { face: faceLabel(selectedFace.value) })
+  }
+  return t(realMoney.value ? 'yxx_hint_idle_real' : 'yxx_hint_idle')
 })
 
 const historyLine = computed(() => {
@@ -285,6 +297,7 @@ function onAmt(e) {
 
 function applyHall(data) {
   if (!data) return
+  realMoney.value = !!(data.real_money || data.debit)
   stakeMin.value = Number(data.stake_min || 50)
   stakeMax.value = Number(data.stake_max || 200)
   const r = data.round || {}
@@ -297,6 +310,8 @@ function applyHall(data) {
     lastRound = idx
     myFace.value = ''
     myStake.value = 0
+    myResult.value = ''
+    myPayout.value = 0
     settleFace.value = ''
   }
   if (Array.isArray(data.live_bets)) {
@@ -318,6 +333,8 @@ function applyHall(data) {
     myStake.value = Number(mine.stake || 0)
     selectedFace.value = myFace.value
     if (myStake.value) stake.value = myStake.value
+    myResult.value = String(mine.result || '')
+    myPayout.value = Number(mine.payout || 0)
   }
   if (stake.value < stakeMin.value) stake.value = stakeMin.value
 }
@@ -350,7 +367,11 @@ async function onBet() {
       stake: stake.value,
     })
     applyHall(data)
-    uni.showToast({ title: t('yxx_preview_ok'), icon: 'none' })
+    if (realMoney.value) {
+      uni.showToast({ title: t('yxx_bet_ok', { n: stake.value }), icon: 'none' })
+    } else {
+      uni.showToast({ title: t('yxx_preview_ok'), icon: 'none' })
+    }
   } catch (e) {
     uni.showToast({ title: (e && e.message) || t('yxx_bet_fail'), icon: 'none' })
   } finally {

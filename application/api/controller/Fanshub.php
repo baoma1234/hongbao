@@ -1006,7 +1006,7 @@ class Fanshub extends Api
     }
 
     /**
-     * 鱼虾蟹预览下注（登录；不扣款）
+     * 鱼虾蟹下注（登录；yxx_real_money 时扣红宝）
      * POST /api/fanshub/yxxbet
      */
     public function yxxbet()
@@ -1017,8 +1017,14 @@ class Fanshub extends Api
         try {
             $info = $this->auth ? $this->auth->getUserinfo() : [];
             $nick = (string)($info['nickname'] ?? '');
-            $data = \app\common\library\FansHubYxx::placePreviewBet((int)$this->auth->id, $face, $stake, $nick);
-            $this->success(\app\common\library\FansHubService::h5CopyText('yxx_preview_ok') ?: 'ok', $data);
+            $data = \app\common\library\FansHubYxx::placeBet((int)$this->auth->id, $face, $stake, $nick);
+            $real = !empty($data['real_money']);
+            if ($real) {
+                $msg = \app\common\library\FansHubService::h5CopyText('yxx_bet_ok', ['n' => $stake]) ?: '下注成功';
+            } else {
+                $msg = \app\common\library\FansHubService::h5CopyText('yxx_preview_ok') ?: 'ok';
+            }
+            $this->success($msg, $data);
         } catch (HttpResponseException $e) {
             throw $e;
         } catch (\Throwable $e) {

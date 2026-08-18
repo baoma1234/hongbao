@@ -5,9 +5,8 @@ namespace app\common\library;
 use think\Cache;
 
 /**
- * 鱼虾蟹大厅：隐藏预览局（不扣款、底栏默认不展示）。
- * 结算口径按白皮书单骰；台面按效果图展示三骰。
- * 机器人在下注窗内按计划秒错峰入场，写入与真人同一份投注缓存。
+ * 鱼虾蟹大厅：全局 20s 局钟；白皮书单骰结算（第一颗骰）；台面展示三骰。
+ * yxx_real_money=true 时扣红宝并按 6×92%=5.52 倍派彩；false 为预览局。
  */
 class FansHubYxx
 {
@@ -34,6 +33,10 @@ class FansHubYxx
     const CYCLE_SEC = 20;
     const EPOCH = 1755446400;
 
+    /** 单门中奖倍数：6 × 92% */
+    const PAYOUT_MULT = 5.52;
+    const BOOM_RATE = 0.05;
+
     public static function configMap()
     {
         $cfg = FansHubService::config();
@@ -44,6 +47,7 @@ class FansHubYxx
         return [
             'enabled'        => !empty($cfg['yxx_enabled']),
             'tab_visible'    => !empty($cfg['yxx_tab_visible']),
+            'real_money'     => array_key_exists('yxx_real_money', $cfg) ? !empty($cfg['yxx_real_money']) : false,
             'stake_min'      => $min,
             'stake_max'      => $max,
             'cycle_max'      => max(2, (int)($cfg['yxx_cycle_max'] ?? 50)),
@@ -57,6 +61,7 @@ class FansHubYxx
     public static function hallPayload($uid = 0)
     {
         self::tickBots();
+        self::maybeSettleRounds();
         $cfg = self::configMap();
         $clock = self::clock();
         $roundIndex = (int)$clock['round_index'];
@@ -74,12 +79,14 @@ class FansHubYxx
                 $botN++;
             }
         }
-        $pool = 18000 + ($roundIndex % 8000) + $stakeSum;
+        $boomPool = self::boomPool();
+        $cycleCount = self::cycleCount();
+        $pool = (int)floor($stakeSum * 0.92) + $boomPool;
         $my = null;
         if ($uid > 0) {
             foreach ($rows as $row) {
                 if ((int)($row['uid'] ?? 0) === (int)$uid) {
-                    $my = $row;
+                    $my = self::formatMyBet($row);
                     break;
                 }
             }
@@ -94,6 +101,7 @@ class FansHubYxx
             $history[] = [
                 'round_index' => $idx,
                 'dice'        => self::diceForRound($idx),
+                'settle_face' => self::diceForRound($idx)[0],
             ];
         }
 
@@ -114,28 +122,32 @@ class FansHubYxx
             }
         }
 
+        $realMoney = !empty($cfg['real_money']);
         return [
             'enabled'     => $cfg['enabled'] ? 1 : 0,
-            'tab_visible' => 0,
-            'preview'     => 1,
-            'debit'       => 0,
+            'tab_visible' => $cfg['tab_visible'] ? 1 : 0,
+            'preview'     => $realMoney ? 0 : 1,
+            'real_money'  => $realMoney ? 1 : 0,
+            'debit'       => $realMoney ? 1 : 0,
             'stake_min'   => $cfg['stake_min'],
             'stake_max'   => $cfg['stake_max'],
             'cycle_max'   => $cfg['cycle_max'],
             'boom_from'   => $cfg['boom_from'],
             'bot_enabled' => $cfg['bot_enabled'] ? 1 : 0,
+            'payout_mult' => self::PAYOUT_MULT,
             'faces'       => self::FACE_IDS,
-            'settle_mode' => 'single_die_preview',
+            'settle_mode' => 'single_die',
             'round'       => [
                 'round_index'  => $roundIndex,
                 'phase'        => $phase,
                 'remain_sec'   => (int)$clock['remain_sec'],
                 'pool'         => $pool,
-                'boom_pool'    => 0,
+                'boom_pool'    => $boomPool,
+                'cycle_count'  => $cycleCount,
                 'player_count' => count($users),
                 'bot_count'    => $botN,
-                'in_boom_zone' => 0,
-                'status'       => $cfg['enabled'] ? 'preview' : 'off',
+                'in_boom_zone' => ($cycleCount >= $cfg['boom_from'] && $cycleCount <= $cfg['cycle_max']) ? 1 : 0,
+                'status'       => $cfg['enabled'] ? ($realMoney ? 'live' : 'preview') : 'off',
             ],
             'dice'        => $revealed ? $dice : ['', '', ''],
             'settle_face' => $revealed ? $dice[0] : '',
@@ -145,71 +157,61 @@ class FansHubYxx
         ];
     }
 
+    public static function placeBet($uid, $face, $stake, $nick = '')
+    {
+        $cfg = self::configMap();
+        if (!empty($cfg['real_money'])) {
+            return self::placeRealBet($uid, $face, $stake, $nick);
+        }
+        return self::placePreviewBet($uid, $face, $stake, $nick);
+    }
+
     public static function placePreviewBet($uid, $face, $stake, $nick = '')
     {
         $uid = (int)$uid;
-        if ($uid <= 0) {
-            throw new \RuntimeException(FansHubService::h5CopyText('yxx_err_login') ?: '请先登录');
-        }
-        $cfg = self::configMap();
-        if (empty($cfg['enabled'])) {
-            throw new \RuntimeException(FansHubService::h5CopyText('yxx_err_closed') ?: '鱼虾蟹暂未开放');
-        }
-        $clock = self::clock();
-        if ($clock['phase'] !== 'betting') {
-            $key = $clock['phase'] === 'locking' ? 'yxx_err_sealed' : 'yxx_err_drawing';
-            throw new \RuntimeException(FansHubService::h5CopyText($key) ?: '已封盘');
-        }
-        $face = strtolower(trim((string)$face));
-        if (!isset(self::FACE_LABEL[$face])) {
-            throw new \RuntimeException(FansHubService::h5CopyText('yxx_err_face') ?: '请选择一个图案');
-        }
-        $stake = (int)$stake;
-        if ($stake < $cfg['stake_min'] || $stake > $cfg['stake_max']) {
-            throw new \RuntimeException(FansHubService::h5CopyText('yxx_err_stake', [
-                'min' => $cfg['stake_min'],
-                'max' => $cfg['stake_max'],
-            ]) ?: ('下注 ' . $cfg['stake_min'] . '-' . $cfg['stake_max'] . ' 积分'));
-        }
-        $nick = trim((string)$nick);
-        if ($nick === '') {
-            $nick = 'U' . $uid;
-        }
-        $roundIndex = (int)$clock['round_index'];
+        self::assertBetInput($uid, $face, $stake);
+        $nick = self::normalizeNick($uid, $nick);
+        $roundIndex = (int)self::clock()['round_index'];
         $rows = self::loadBets($roundIndex);
-        $found = false;
-        foreach ($rows as &$row) {
-            if ((int)($row['uid'] ?? 0) === $uid) {
-                $row['face'] = $face;
-                $row['stake'] = $stake;
-                $row['nick'] = mb_substr($nick, 0, 12, 'UTF-8');
-                $row['ts'] = time();
-                $row['bot'] = 0;
-                $found = true;
-                break;
-            }
-        }
-        unset($row);
-        if (!$found) {
-            $rows[] = [
-                'uid'   => $uid,
-                'nick'  => mb_substr($nick, 0, 12, 'UTF-8'),
-                'face'  => $face,
-                'stake' => $stake,
-                'bot'   => 0,
-                'ts'    => time(),
-            ];
-        }
-        if (count($rows) > 120) {
-            $rows = array_slice($rows, -120);
-        }
+        $rows = self::upsertBetRow($rows, $uid, $face, $stake, $nick, 0);
         Cache::set(self::betKey($roundIndex), $rows, 120);
         return self::hallPayload($uid);
     }
 
-    /**
-     * 按本局计划把到期机器人写入投注缓存（可被大厅轮询或 IM cron 反复调用）。
-     */
+    public static function placeRealBet($uid, $face, $stake, $nick = '')
+    {
+        $uid = (int)$uid;
+        self::assertBetInput($uid, $face, $stake);
+        $nick = self::normalizeNick($uid, $nick);
+        $roundIndex = (int)self::clock()['round_index'];
+        $rows = self::loadBets($roundIndex);
+        $prevStake = 0;
+        foreach ($rows as $row) {
+            if ((int)($row['uid'] ?? 0) === $uid && empty($row['bot'])) {
+                $prevStake = (int)($row['stake'] ?? 0);
+                break;
+            }
+        }
+        $stake = (int)$stake;
+        if ($prevStake !== $stake) {
+            if ($prevStake > 0) {
+                FansHubHongbaoLedger::credit($uid, $prevStake, 'yxx_bet_refund', '鱼虾蟹改注退回 R' . $roundIndex, [
+                    'biz_no'   => 'YXXR' . $roundIndex . '-' . $uid,
+                    'ref_type' => 'yxx_round',
+                    'ref_id'   => $roundIndex,
+                ]);
+            }
+            FansHubHongbaoLedger::debit($uid, $stake, 'yxx_bet', '鱼虾蟹下注 R' . $roundIndex, [
+                'biz_no'   => 'YXX' . $roundIndex . '-' . $uid,
+                'ref_type' => 'yxx_round',
+                'ref_id'   => $roundIndex,
+            ], true);
+        }
+        $rows = self::upsertBetRow($rows, $uid, $face, $stake, $nick, 1);
+        Cache::set(self::betKey($roundIndex), $rows, 120);
+        return self::hallPayload($uid);
+    }
+
     public static function tickBots()
     {
         $cfg = self::configMap();
@@ -264,6 +266,191 @@ class FansHubYxx
         } finally {
             Cache::rm($lockKey);
         }
+    }
+
+    protected static function maybeSettleRounds()
+    {
+        $clock = self::clock();
+        $roundIndex = (int)$clock['round_index'];
+        if ($clock['phase'] !== 'betting') {
+            self::settleRoundIfNeeded($roundIndex);
+        }
+        self::settleRoundIfNeeded($roundIndex - 1);
+    }
+
+    protected static function settleRoundIfNeeded($roundIndex)
+    {
+        $roundIndex = (int)$roundIndex;
+        if ($roundIndex < 0) {
+            return;
+        }
+        $doneKey = 'fh:yxx:settled:' . $roundIndex;
+        if (Cache::get($doneKey)) {
+            return;
+        }
+        $lockKey = 'fh:yxx:settlelock:' . $roundIndex;
+        if (Cache::get($lockKey)) {
+            return;
+        }
+        Cache::set($lockKey, 1, 10);
+        try {
+            if (Cache::get($doneKey)) {
+                return;
+            }
+            self::doSettleRound($roundIndex);
+            Cache::set($doneKey, 1, 86400 * 7);
+        } finally {
+            Cache::rm($lockKey);
+        }
+    }
+
+    protected static function doSettleRound($roundIndex)
+    {
+        $cfg = self::configMap();
+        $realMoney = !empty($cfg['real_money']);
+        $dice = self::diceForRound($roundIndex);
+        $settleFace = $dice[0];
+        $rows = self::loadBets($roundIndex);
+        $humanStake = 0;
+        foreach ($rows as &$row) {
+            if (!empty($row['settled'])) {
+                continue;
+            }
+            $stake = (int)($row['stake'] ?? 0);
+            $uid = (int)($row['uid'] ?? 0);
+            $isBot = !empty($row['bot']) || $uid <= 0;
+            if (!$isBot) {
+                $humanStake += $stake;
+            }
+            $won = ((string)($row['face'] ?? '') === $settleFace);
+            $row['settled'] = 1;
+            $row['won'] = $won ? 1 : 0;
+            $payout = $won ? (int)round($stake * self::PAYOUT_MULT) : 0;
+            $row['payout'] = $payout;
+            if ($realMoney && $won && !$isBot && !empty($row['debited']) && $payout > 0) {
+                try {
+                    FansHubHongbaoLedger::credit($uid, $payout, 'yxx_win', '鱼虾蟹中奖 R' . $roundIndex, [
+                        'biz_no'   => 'YXXW' . $roundIndex . '-' . $uid,
+                        'ref_type' => 'yxx_round',
+                        'ref_id'   => $roundIndex,
+                        'channel'  => $settleFace,
+                    ]);
+                } catch (\Throwable $e) {
+                }
+            }
+        }
+        unset($row);
+        Cache::set(self::betKey($roundIndex), $rows, 86400);
+        if ($humanStake > 0) {
+            $boomAdd = (int)floor($humanStake * self::BOOM_RATE);
+            Cache::set('fh:yxx:boom_pool', self::boomPool() + $boomAdd, 86400 * 30);
+            Cache::set('fh:yxx:cycle_count', self::cycleCount() + 1, 86400 * 30);
+        }
+        Cache::set('fh:yxx:roundmeta:' . $roundIndex, [
+            'settle_face' => $settleFace,
+            'dice'        => $dice,
+            'human_stake' => $humanStake,
+            'ts'          => time(),
+        ], 86400 * 7);
+    }
+
+    protected static function assertBetInput($uid, $face, $stake)
+    {
+        if ($uid <= 0) {
+            throw new \RuntimeException(FansHubService::h5CopyText('yxx_err_login') ?: '请先登录');
+        }
+        $cfg = self::configMap();
+        if (empty($cfg['enabled'])) {
+            throw new \RuntimeException(FansHubService::h5CopyText('yxx_err_closed') ?: '鱼虾蟹暂未开放');
+        }
+        $clock = self::clock();
+        if ($clock['phase'] !== 'betting') {
+            $key = $clock['phase'] === 'locking' ? 'yxx_err_sealed' : 'yxx_err_drawing';
+            throw new \RuntimeException(FansHubService::h5CopyText($key) ?: '已封盘');
+        }
+        $face = strtolower(trim((string)$face));
+        if (!isset(self::FACE_LABEL[$face])) {
+            throw new \RuntimeException(FansHubService::h5CopyText('yxx_err_face') ?: '请选择一个图案');
+        }
+        $stake = (int)$stake;
+        if ($stake < $cfg['stake_min'] || $stake > $cfg['stake_max']) {
+            throw new \RuntimeException(FansHubService::h5CopyText('yxx_err_stake', [
+                'min' => $cfg['stake_min'],
+                'max' => $cfg['stake_max'],
+            ]) ?: ('下注 ' . $cfg['stake_min'] . '-' . $cfg['stake_max'] . ' 积分'));
+        }
+    }
+
+    protected static function normalizeNick($uid, $nick)
+    {
+        $nick = trim((string)$nick);
+        if ($nick === '') {
+            $nick = 'U' . (int)$uid;
+        }
+        return mb_substr($nick, 0, 12, 'UTF-8');
+    }
+
+    protected static function upsertBetRow(array $rows, $uid, $face, $stake, $nick, $debited)
+    {
+        $face = strtolower(trim((string)$face));
+        $found = false;
+        foreach ($rows as &$row) {
+            if ((int)($row['uid'] ?? 0) === (int)$uid && empty($row['bot'])) {
+                $row['face'] = $face;
+                $row['stake'] = (int)$stake;
+                $row['nick'] = $nick;
+                $row['ts'] = time();
+                $row['bot'] = 0;
+                $row['debited'] = $debited ? 1 : 0;
+                $row['settled'] = 0;
+                $row['won'] = 0;
+                $row['payout'] = 0;
+                $found = true;
+                break;
+            }
+        }
+        unset($row);
+        if (!$found) {
+            $rows[] = [
+                'uid'     => (int)$uid,
+                'nick'    => $nick,
+                'face'    => $face,
+                'stake'   => (int)$stake,
+                'bot'     => 0,
+                'debited' => $debited ? 1 : 0,
+                'settled' => 0,
+                'won'     => 0,
+                'payout'  => 0,
+                'ts'      => time(),
+            ];
+        }
+        if (count($rows) > 120) {
+            $rows = array_slice($rows, -120);
+        }
+        return $rows;
+    }
+
+    protected static function formatMyBet(array $row)
+    {
+        $out = [
+            'face'  => (string)($row['face'] ?? ''),
+            'stake' => (int)($row['stake'] ?? 0),
+        ];
+        if (!empty($row['settled'])) {
+            $out['result'] = !empty($row['won']) ? 'win' : 'lose';
+            $out['payout'] = (int)($row['payout'] ?? 0);
+        }
+        return $out;
+    }
+
+    protected static function boomPool()
+    {
+        return max(0, (int)Cache::get('fh:yxx:boom_pool'));
+    }
+
+    protected static function cycleCount()
+    {
+        return max(0, (int)Cache::get('fh:yxx:cycle_count'));
     }
 
     public static function clock()

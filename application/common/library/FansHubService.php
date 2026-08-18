@@ -1371,6 +1371,7 @@ class FansHubService
             'yxx_tab_visible'      => !empty($cfg['yxx_tab_visible']),
             'yxx_stake_min'        => max(1, (int)($cfg['yxx_stake_min'] ?? 50)),
             'yxx_stake_max'        => max(1, (int)($cfg['yxx_stake_max'] ?? 200)),
+            'yxx_real_money'       => !empty($cfg['yxx_real_money']),
             'mine_compensate_rates'=> (function () {
                 $rp = FansHubRedPacket::configMap();
                 return [
