@@ -158,12 +158,12 @@
           :class="'d' + n"
         >🧧</text>
       </view>
-      <view class="yxx-rain-card" @click.stop>
+      <view class="yxx-rain-card" hover-class="yxx-hit" @click.stop="rainNeedGrab ? grabRain() : ackRain()">
         <text class="yxx-rain-ico">🧧</text>
         <text class="yxx-rain-title">{{ t('yxx_rain_title') }}</text>
-        <text class="yxx-rain-amt">+{{ rainAmount }}</text>
+        <text v-if="!rainNeedGrab" class="yxx-rain-amt">+{{ rainAmount }}</text>
         <text class="yxx-rain-body">{{ rainBodyText }}</text>
-        <view class="yxx-rain-btn" hover-class="yxx-hit" @click="ackRain">{{ t('yxx_rain_ok') }}</view>
+        <view class="yxx-rain-btn" hover-class="yxx-hit">{{ rainBtnText }}</view>
       </view>
     </view>
   </view>
@@ -222,11 +222,14 @@ const rainAmount = ref(0)
 const rainRelease = ref(0)
 const rainParticipants = ref(0)
 const rainGrantId = ref(0)
+const rainNeedGrab = ref(false)
+const rainGrabbing = ref(false)
 const poolStatus = ref('normal')
 const tronBlockNum = ref(0)
 let netPoll = null
 let tickTimer = null
 let lastRound = -1
+let rainClaimedEvent = 0
 let syncAt = 0
 let syncRemain = 12
 let hitZero = false
@@ -272,11 +275,21 @@ const rainProgText = computed(() => {
 
 const rainBodyText = computed(() => {
   void locale.value
+  if (rainNeedGrab.value) {
+    return t('yxx_rain_sealed')
+  }
   return t('yxx_rain_body', {
     amount: rainAmount.value,
     release: (Number(rainRelease.value) || 0).toLocaleString('zh-CN'),
     participants: rainParticipants.value,
   })
+})
+
+const rainBtnText = computed(() => {
+  void locale.value
+  if (rainGrabbing.value) return t('yxx_rain_grabbing')
+  if (rainNeedGrab.value) return t('yxx_rain_grab')
+  return t('yxx_rain_ok')
 })
 
 const statusBannerText = computed(() => {
@@ -490,16 +503,47 @@ function applyHall(data) {
   measure()
 
   const popup = data.rain_popup
-  if (popup && popup.amount > 0) {
-    rainAmount.value = Number(popup.amount || 0)
-    rainRelease.value = Number(popup.release || 0)
-    rainParticipants.value = Number(popup.participants || 0)
-    rainGrantId.value = Number(popup.grant_id || 0)
-    rainOpen.value = true
+  const ev = Number((popup && popup.event_id) || 0)
+  if (popup && ev > 0 && ev !== rainClaimedEvent) {
+    const expired = Number(popup.expire_at || 0) > 0 && Number(popup.expire_at) <= Math.floor(Date.now() / 1000)
+    if (!expired) {
+      rainNeedGrab.value = !!popup.need_grab
+      rainAmount.value = rainNeedGrab.value ? 0 : Number(popup.amount || 0)
+      rainRelease.value = Number(popup.release || 0)
+      rainParticipants.value = Number(popup.participants || 0)
+      rainGrantId.value = Number(popup.grant_id || 0)
+      rainOpen.value = true
+    }
+  }
+}
+
+async function grabRain() {
+  if (!rainNeedGrab.value || rainGrabbing.value) return
+  rainGrabbing.value = true
+  try {
+    const data = await apiRequest('yxxraingrab', 'POST', { grant_id: rainGrantId.value })
+    rainAmount.value = Number((data && data.amount) || 0)
+    rainRelease.value = Number((data && data.release) || rainRelease.value)
+    rainParticipants.value = Number((data && data.participants) || rainParticipants.value)
+    rainNeedGrab.value = false
+    rainClaimedEvent = Number((data && data.event_id) || rainGrantId.value || 0)
+  } catch (e) {
+    const msg = (e && e.message) || ''
+    rainOpen.value = false
+    rainNeedGrab.value = false
+    if (msg) {
+      uni.showToast({ title: msg, icon: 'none' })
+    }
+  } finally {
+    rainGrabbing.value = false
   }
 }
 
 async function ackRain() {
+  if (rainNeedGrab.value) {
+    await grabRain()
+    return
+  }
   rainOpen.value = false
   try {
     await apiRequest('yxxrainack', 'POST', { grant_id: rainGrantId.value })
@@ -815,8 +859,12 @@ onUnmounted(() => {
   margin-bottom: 14px;
 }
 .yxx-rain-btn {
-  display: inline-block;
-  padding: 10px 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 168px;
+  min-height: 48px;
+  padding: 12px 28px;
   border-radius: 999px;
   background: linear-gradient(180deg, #f0c14b, #c48418);
   color: #4a2200;

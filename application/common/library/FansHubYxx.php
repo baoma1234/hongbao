@@ -42,22 +42,27 @@ class FansHubYxx
     public static function configMap()
     {
         $cfg = FansHubService::config();
-        $min = max(1, (int)($cfg['yxx_stake_min'] ?? 50));
-        $max = max($min, (int)($cfg['yxx_stake_max'] ?? 200));
-        $botMin = max(0, (int)($cfg['yxx_bot_count_min'] ?? 10));
-        $botMax = max($botMin, (int)($cfg['yxx_bot_count_max'] ?? 22));
+        $over = FansHubYxxPool::runtimeSettings();
+        $min = max(1, (int)($over['stake_min'] ?? $cfg['yxx_stake_min'] ?? 50));
+        $max = max($min, (int)($over['stake_max'] ?? $cfg['yxx_stake_max'] ?? 200));
+        $botMin = max(0, (int)($over['bot_count_min'] ?? $cfg['yxx_bot_count_min'] ?? 10));
+        $botMax = max($botMin, (int)($over['bot_count_max'] ?? $cfg['yxx_bot_count_max'] ?? 22));
+        $botEnabled = array_key_exists('yxx_bot_enabled', $cfg) ? !empty($cfg['yxx_bot_enabled']) : true;
+        if (array_key_exists('bot_enabled', $over)) {
+            $botEnabled = !empty($over['bot_enabled']);
+        }
         return [
             'enabled'        => !empty($cfg['yxx_enabled']),
             'tab_visible'    => !empty($cfg['yxx_tab_visible']),
             'real_money'     => array_key_exists('yxx_real_money', $cfg) ? !empty($cfg['yxx_real_money']) : false,
             'stake_min'      => $min,
             'stake_max'      => $max,
-            'cycle_max'      => max(2, (int)($cfg['yxx_cycle_max'] ?? 50)),
-            'boom_from'      => max(1, (int)($cfg['yxx_boom_from'] ?? 30)),
-            'bot_enabled'    => array_key_exists('yxx_bot_enabled', $cfg) ? !empty($cfg['yxx_bot_enabled']) : true,
+            'cycle_max'      => max(2, (int)($over['cycle_max'] ?? $cfg['yxx_cycle_max'] ?? 50)),
+            'boom_from'      => max(1, (int)($over['boom_from'] ?? $cfg['yxx_boom_from'] ?? 30)),
+            'bot_enabled'    => $botEnabled,
             'bot_count_min'  => $botMin,
             'bot_count_max'  => $botMax,
-            'tron_offset'    => max(2, min(8, (int)($cfg['yxx_tron_offset'] ?? 4))),
+            'tron_offset'    => max(2, min(8, (int)($over['tron_offset'] ?? $cfg['yxx_tron_offset'] ?? 4))),
         ];
     }
 
@@ -103,6 +108,8 @@ class FansHubYxx
         self::ensureTronCommit((int)$clock['round_index']);
         $bots = self::tickBotsThrottled($clock);
         self::maybeSettleRounds();
+        self::dripWins();
+        FansHubYxxPool::expireUnclaimedRain();
         $clock = self::clock();
         return [
             'ok'          => 1,
@@ -148,6 +155,16 @@ class FansHubYxx
             FansHubYxxStore::delName('fh:yxx:winpay:' . $uid);
         } catch (\Throwable $e) {
             FansHubYxxStore::releaseLock($lockName);
+        }
+    }
+
+    /**
+     * cron 分批把中奖写入钱包，避免万人同时进大厅打 InnoDB。
+     */
+    protected static function dripWins()
+    {
+        foreach (FansHubYxxStore::popWinQueue(120) as $uid) {
+            self::lazyCreditWin((int)$uid);
         }
     }
 

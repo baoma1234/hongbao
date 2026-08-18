@@ -22,7 +22,10 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                     {field: 'gross_pool_before', title: '释放前'},
                     {field: 'gross_pool_after', title: '释放后'},
                     {field: 'status', title: '状态', formatter: function (v) {
-                        return parseInt(v, 10) === 1 ? '已派发' : '熔断';
+                        var n = parseInt(v, 10);
+                        if (n === 1) return '可领取';
+                        if (n === 3) return '已结束';
+                        return '熔断';
                     }},
                     {field: 'createtime', title: '时间', formatter: Table.api.formatter.datetime, operate: 'RANGE', addclass: 'datetimerange', sortable: true},
                     {
@@ -46,7 +49,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
 
             $(document).on('click', '.btn-setstatus', function () {
                 var status = $('input[name="status"]:checked').val() || '';
-                var code = String($('input[name="google_code"]').val() || '').replace(/\s+/g, '');
+                var code = String($('#status-form input[name="google_code"]').val() || '').replace(/\s+/g, '');
                 if (!status) {
                     Layer.msg('请选择状态');
                     return;
@@ -58,6 +61,24 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                 Backend.api.ajax({
                     url: 'fanshub/yxxpool/setstatus',
                     data: {status: status, google_code: code}
+                }, function () {
+                    setTimeout(function () {
+                        location.reload();
+                    }, 400);
+                    return false;
+                });
+            });
+
+            $(document).on('click', '.btn-savesettings', function () {
+                var code = String($('#knob-form input[name="google_code"]').val() || '').replace(/\s+/g, '');
+                if (!/^\d{6}$/.test(code)) {
+                    Layer.msg('请输入6位谷歌验证码');
+                    return;
+                }
+                var data = $('#knob-form').serialize();
+                Backend.api.ajax({
+                    url: 'fanshub/yxxpool/savesettings',
+                    data: data
                 }, function () {
                     setTimeout(function () {
                         location.reload();

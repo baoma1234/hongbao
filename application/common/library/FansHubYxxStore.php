@@ -366,6 +366,7 @@ class FansHubYxxStore
             }
             return;
         }
+        $qkey = self::rkey('fh:yxx:winq');
         $chunks = array_chunk($items, 400);
         foreach ($chunks as $chunk) {
             try {
@@ -380,6 +381,7 @@ class FansHubYxxStore
                         3600,
                         json_encode($item['pay'], JSON_UNESCAPED_UNICODE)
                     );
+                    $redis->rPush($qkey, (string)$uid);
                 }
                 $redis->exec();
             } catch (\Throwable $e) {
@@ -392,6 +394,46 @@ class FansHubYxxStore
                 }
             }
         }
+        try {
+            $redis->expire($qkey, 3600);
+        } catch (\Throwable $e) {
+        }
+    }
+
+    /**
+     * cron 分批入账：每次弹出最多 $n 个中奖 uid。
+     * @return int[]
+     */
+    public static function popWinQueue($n = 120)
+    {
+        $n = max(1, min(400, (int)$n));
+        $redis = self::redis();
+        if (!$redis) {
+            return [];
+        }
+        $key = self::rkey('fh:yxx:winq');
+        $uids = [];
+        try {
+            $redis->multi(\Redis::PIPELINE);
+            for ($i = 0; $i < $n; $i++) {
+                $redis->lPop($key);
+            }
+            $raw = $redis->exec();
+            if (is_array($raw)) {
+                foreach ($raw as $v) {
+                    if ($v === false || $v === null || $v === '') {
+                        continue;
+                    }
+                    $uid = (int)$v;
+                    if ($uid > 0) {
+                        $uids[] = $uid;
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            return [];
+        }
+        return $uids;
     }
 
     /**
@@ -399,8 +441,10 @@ class FansHubYxxStore
      *
      * @param array $items [ ['uid'=>, 'pop'=>array, 'pay'=>array], ... ]
      */
-    public static function fanoutRain(array $items)
+    public static function fanoutRain(array $items, $popTtl = 90, $payTtl = 300)
     {
+        $popTtl = max(20, min(600, (int)$popTtl));
+        $payTtl = max($popTtl, min(3600, (int)$payTtl));
         $redis = self::redis();
         if (!$redis) {
             foreach ($items as $item) {
@@ -409,10 +453,10 @@ class FansHubYxxStore
                     continue;
                 }
                 if (!empty($item['pop'])) {
-                    Cache::set('fh:yxx:rainpop:' . $uid, $item['pop'], 180);
+                    Cache::set('fh:yxx:rainpop:' . $uid, $item['pop'], $popTtl);
                 }
                 if (!empty($item['pay'])) {
-                    Cache::set('fh:yxx:rainpay:' . $uid, $item['pay'], 3600);
+                    Cache::set('fh:yxx:rainpay:' . $uid, $item['pay'], $payTtl);
                 }
             }
             return;
@@ -429,14 +473,14 @@ class FansHubYxxStore
                     if (!empty($item['pop'])) {
                         $redis->setex(
                             self::rkey('fh:yxx:rainpop:' . $uid),
-                            180,
+                            $popTtl,
                             json_encode($item['pop'], JSON_UNESCAPED_UNICODE)
                         );
                     }
                     if (!empty($item['pay'])) {
                         $redis->setex(
                             self::rkey('fh:yxx:rainpay:' . $uid),
-                            3600,
+                            $payTtl,
                             json_encode($item['pay'], JSON_UNESCAPED_UNICODE)
                         );
                     }
@@ -449,10 +493,10 @@ class FansHubYxxStore
                         continue;
                     }
                     if (!empty($item['pop'])) {
-                        Cache::set('fh:yxx:rainpop:' . $uid, $item['pop'], 180);
+                        Cache::set('fh:yxx:rainpop:' . $uid, $item['pop'], $popTtl);
                     }
                     if (!empty($item['pay'])) {
-                        Cache::set('fh:yxx:rainpay:' . $uid, $item['pay'], 3600);
+                        Cache::set('fh:yxx:rainpay:' . $uid, $item['pay'], $payTtl);
                     }
                 }
             }

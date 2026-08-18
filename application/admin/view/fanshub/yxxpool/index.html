@@ -46,6 +46,50 @@
             </fieldset>
         </form>
 
+        <form id="knob-form" class="form-horizontal" style="margin-bottom:20px;">
+            <fieldset>
+                <legend>大厅参数（不含底栏入口；需谷歌验证码）</legend>
+                <p class="help-block" style="margin-left:16px;">底栏开关仍关闭，等你明确说开再开。此处只改注额、机器人、红包雨窗口、波场偏移。</p>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">下注</label>
+                    <div class="col-xs-12 col-sm-2"><input type="number" class="form-control" name="stake_min" value="{$knobs.stake_min|default=50}" placeholder="最小"></div>
+                    <div class="col-xs-12 col-sm-2"><input type="number" class="form-control" name="stake_max" value="{$knobs.stake_max|default=200}" placeholder="最大"></div>
+                    <label class="control-label col-xs-12 col-sm-2">爆点局</label>
+                    <div class="col-xs-12 col-sm-2"><input type="number" class="form-control" name="boom_from" value="{$knobs.boom_from|default=30}" placeholder="起"></div>
+                    <div class="col-xs-12 col-sm-2"><input type="number" class="form-control" name="cycle_max" value="{$knobs.cycle_max|default=50}" placeholder="止"></div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">机器人</label>
+                    <div class="col-xs-12 col-sm-2">
+                        <select class="form-control" name="bot_enabled">
+                            <option value="1" {if $knobs.bot_enabled}selected{/if}>开</option>
+                            <option value="0" {if !$knobs.bot_enabled}selected{/if}>关</option>
+                        </select>
+                    </div>
+                    <div class="col-xs-12 col-sm-2"><input type="number" class="form-control" name="bot_count_min" value="{$knobs.bot_count_min|default=10}" placeholder="最少"></div>
+                    <div class="col-xs-12 col-sm-2"><input type="number" class="form-control" name="bot_count_max" value="{$knobs.bot_count_max|default=22}" placeholder="最多"></div>
+                    <label class="control-label col-xs-12 col-sm-2">波场偏移</label>
+                    <div class="col-xs-12 col-sm-2"><input type="number" class="form-control" name="tron_offset" value="{$knobs.tron_offset|default=4}" min="2" max="8"></div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">红包雨</label>
+                    <div class="col-xs-12 col-sm-2"><input type="number" class="form-control" name="rain_trigger" value="{$knobs.rain_trigger|default=200000}" placeholder="触发额"></div>
+                    <div class="col-xs-12 col-sm-2"><input type="number" class="form-control" name="rain_claim_sec" value="{$knobs.rain_claim_sec|default=45}" placeholder="领取秒"></div>
+                    <div class="col-xs-12 col-sm-2"><input type="number" class="form-control" name="rain_cooldown_sec" value="{$knobs.rain_cooldown_sec|default=3600}" placeholder="冷却秒"></div>
+                    <div class="col-xs-12 col-sm-2"><input type="number" class="form-control" name="rain_daily_max" value="{$knobs.rain_daily_max|default=3}" placeholder="每日次数"></div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">谷歌验证码</label>
+                    <div class="col-xs-12 col-sm-3">
+                        <input type="text" class="form-control" name="google_code" maxlength="6" autocomplete="off" placeholder="6 位">
+                    </div>
+                    <div class="col-xs-12 col-sm-3">
+                        <button type="button" class="btn btn-primary btn-savesettings">保存参数</button>
+                    </div>
+                </div>
+            </fieldset>
+        </form>
+
         <div id="toolbar" class="toolbar">
             {:build_toolbar('refresh')}
         </div>

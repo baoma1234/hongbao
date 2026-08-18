@@ -115,7 +115,7 @@ return array_replace_recursive([
         'settle_interval'     => 2,
         'settle_limit'        => 30,
         'auto_interval'       => 2,
-        'yxx_tick_url'        => 'http://127.0.0.1:7111/api/fanshub/yxxtick',
+        'yxx_tick_url'        => 'http://127.0.0.1:7201/api/fanshub/yxxtick',
         'yxx_tick_interval'   => 1,
     ],
     'db'    => $db,

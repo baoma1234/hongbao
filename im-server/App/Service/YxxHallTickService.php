@@ -21,6 +21,14 @@ class YxxHallTickService
                 'header'        => "X-Fanshub-Locale: zh-CN\r\n",
             ],
         ]);
-        @file_get_contents($url, false, $ctx);
+        $raw = @file_get_contents($url, false, $ctx);
+        $line = '';
+        if (!empty($http_response_header[0])) {
+            $line = (string)$http_response_header[0];
+        }
+        if ($line !== '' && strpos($line, '200') === false) {
+            error_log('[CRON][YXX] tick HTTP ' . $line . ' url=' . $url);
+        }
+        unset($raw);
     }
 }

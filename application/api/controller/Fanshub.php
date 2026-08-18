@@ -1011,6 +1011,10 @@ class Fanshub extends Api
      */
     public function yxxtick()
     {
+        $remote = (string)($this->request->server('REMOTE_ADDR') ?: '');
+        if ($remote !== '127.0.0.1' && $remote !== '::1') {
+            $this->error('forbidden', null, 403);
+        }
         $this->success('ok', \app\common\library\FansHubYxx::tickEngine());
     }
 
@@ -1069,7 +1073,24 @@ class Fanshub extends Api
     }
 
     /**
-     * 鱼虾蟹红包雨弹窗确认（已自动入账，仅标记已读）
+     * 鱼虾蟹红包雨点开领取（登录；此时才入账）
+     * POST /api/fanshub/yxxraingrab
+     */
+    public function yxxraingrab()
+    {
+        $grantId = (int)$this->request->post('grant_id', 0);
+        try {
+            $data = \app\common\library\FansHubYxxPool::claimRain((int)$this->auth->id, $grantId);
+            $this->success('ok', $data);
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: '领取失败');
+        }
+    }
+
+    /**
+     * 鱼虾蟹红包雨弹窗确认（未领取时等同点开入账）
      * POST /api/fanshub/yxxrainack
      */
     public function yxxrainack()

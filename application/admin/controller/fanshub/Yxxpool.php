@@ -22,6 +22,7 @@ class Yxxpool extends Backend
         }
         $this->view->assign('dash', FansHubYxxPool::dashboard());
         $this->view->assign('statusLabels', FansHubYxxPool::statusLabels());
+        $this->view->assign('knobs', FansHubYxxPool::knobDefaults());
         return $this->view->fetch();
     }
 
@@ -42,6 +43,23 @@ class Yxxpool extends Backend
         $this->success('已切换为：' . (FansHubYxxPool::statusLabels()[$status] ?? $status), [
             'status' => $status,
         ]);
+    }
+
+    /**
+     * 保存大厅参数（不含底栏开关；需谷歌验证码）
+     */
+    public function savesettings()
+    {
+        if (!$this->request->isPost()) {
+            $this->error('非法请求');
+        }
+        try {
+            $this->auth->assertGoogleCode($this->request->post('google_code', ''));
+        } catch (\RuntimeException $e) {
+            $this->error($e->getMessage());
+        }
+        $saved = FansHubYxxPool::saveRuntimeSettings($this->request->post());
+        $this->success('参数已保存（底栏入口仍关闭，需另行开启）', $saved);
     }
 
     public function rains()
