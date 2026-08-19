@@ -79,7 +79,7 @@
         <image class="yxx-bowl-img" :src="bowlSrc" mode="aspectFit" />
         <view class="yxx-dice-row">
           <view v-for="(id, i) in diceShow" :key="i" class="yxx-die">
-            <image v-if="id" class="yxx-die-img" :src="faceSrc(id)" mode="aspectFill" />
+            <image v-if="id" class="yxx-die-img" :src="diceSnapshotSrc(i, id)" mode="aspectFill" />
             <text class="yxx-die-lab">{{ diceLabels[i] || '·' }}</text>
           </view>
         </view>
@@ -185,6 +185,30 @@ import { applySafeAreaCssVars, getSafeAreaInsets } from '../../utils/safe-area.j
 const FACE_IDS = ['gourd', 'crab', 'shrimp', 'fish', 'rooster', 'tiger']
 function faceSrc(id) {
   return packagedStaticUrl('yxx/' + id + '.png') + '?v=2'
+}
+// 12 张“带朝向的筛子快照”：根据 dice-row 位置 + face id 取不同编号
+function diceSnapshotSrc(pos, id) {
+  const k = String(id || '')
+  const odd = {
+    gourd: '1',
+    crab: '3',
+    shrimp: '5',
+    fish: '7',
+    rooster: '9',
+    tiger: '11',
+  }
+  const even = {
+    gourd: '2',
+    crab: '4',
+    shrimp: '6',
+    fish: '8',
+    rooster: '10',
+    tiger: '12',
+  }
+  const m = pos === 0 ? odd : even
+  const n = m[k]
+  if (!n) return ''
+  return packagedStaticUrl('yxx/dice/' + n + '.png')
 }
 const bowlSrc = packagedStaticUrl('yxx/bowl.png') + '?v=2'
 const locale = localeState()
