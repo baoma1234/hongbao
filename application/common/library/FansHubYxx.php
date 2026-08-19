@@ -379,8 +379,8 @@ class FansHubYxx
 
         $cfg = self::configMap();
         $revealed = ($phase === 'reveal');
-        if ($revealed) {
-            self::resolveTronForRound($roundIndex);
+        if ($revealed || $phase === 'locking') {
+            self::ensureDisplayDice($roundIndex, $phase);
         }
         $tronPub = self::tronPublic($roundIndex, $revealed);
         $dice = self::diceForRound($roundIndex);
@@ -465,8 +465,8 @@ class FansHubYxx
                 'tron_block_num' => (int)($tronPub['tron_block_num'] ?? 0),
                 'tron_ready'     => (int)($tronPub['tron_ready'] ?? 0),
             ],
-            'dice'        => $revealed ? $dice : ['', '', ''],
-            'settle_face' => $revealed ? $dice[0] : '',
+            'dice'        => ($revealed || ($phase === 'locking' && ($dice[0] ?? '') !== '')) ? $dice : ['', '', ''],
+            'settle_face' => $revealed ? $dice[0] : (($phase === 'locking' && ($dice[0] ?? '') !== '') ? $dice[0] : ''),
             'history'     => $history,
             'live_bets'   => $live,
             'my_bet'      => null,
@@ -1124,6 +1124,32 @@ class FansHubYxx
         } finally {
             FansHubYxxStore::releaseLock($lockName);
         }
+    }
+
+    /**
+     * 封盘/开奖展示阶段：尽量解析波场；reveal 仍无结果时用 legacy，避免前台空白。
+     */
+    protected static function ensureDisplayDice($roundIndex, $phase)
+    {
+        $roundIndex = (int)$roundIndex;
+        $phase = (string)$phase;
+        if ($phase !== 'reveal' && $phase !== 'locking') {
+            return;
+        }
+        self::resolveTronForRound($roundIndex);
+        $dice = self::diceForRound($roundIndex);
+        if (($dice[0] ?? '') !== '') {
+            return;
+        }
+        if ($phase !== 'reveal') {
+            return;
+        }
+        Cache::set('fh:yxx:tronres:' . $roundIndex, [
+            'block_num' => 0,
+            'block_id'  => '',
+            'legacy'    => 1,
+        ], 86400 * 7);
+        FansHubYxxStore::clearSnap();
     }
 
     /**

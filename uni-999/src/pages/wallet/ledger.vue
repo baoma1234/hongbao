@@ -90,7 +90,7 @@
 <script setup>
 import ProfileSubPage from '../../components/ProfileSubPage.vue'
 import { ref, computed } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+import { onLoad, onShow } from '@dcloudio/uni-app'
 import { getToken } from '../../utils/auth.js'
 import { fetchLedger, ledgerAmountText, money } from '../../utils/wallet.js'
 import { tt } from '../../utils/i18n.js'
@@ -145,6 +145,7 @@ const moreTabs = [
   { key: 'rights', label: '股份', ico: '股', tone: 'rights' },
   { key: 'hongbao_in', label: '红宝入账', ico: '🧧', tone: 'hb' },
   { key: 'hongbao_niuniu', label: '红宝牛牛', ico: '🐂', tone: 'nn' },
+  { key: 'hongbao_yxx', label: tt('wallet_ledger_cat_yxx', '鱼虾蟹'), ico: '🦐', tone: 'yxx' },
   { key: 'refund', label: '红宝退回', ico: '↩', tone: 'back' },
   { key: 'rebate', label: '红宝返佣', ico: '%', tone: 'rebate' },
 ]
@@ -159,6 +160,7 @@ const emptyText = computed(() => {
   if (category.value === 'rebate') return '暂无红宝返佣流水'
   if (category.value === 'hongbao_in') return '暂无红宝入账流水'
   if (category.value === 'hongbao_niuniu') return '暂无红宝牛牛流水'
+  if (category.value === 'hongbao_yxx') return tt('wallet_ledger_empty_yxx', '暂无鱼虾蟹流水')
   if (category.value === 'refund') return '暂无红宝退回流水'
   if (category.value === 'freeze') return '暂无冻结记录'
   if (category.value === 'recharge') return '暂无充值流水'
@@ -326,6 +328,14 @@ function setCategory(cat) {
   load(1, false)
 }
 
+onLoad((q) => {
+  const cat = String((q && q.category) || '').trim()
+  if (cat) {
+    category.value = cat
+    if (moreCatKeys.indexOf(cat) >= 0) filtersExpanded.value = true
+  }
+})
+
 onShow(() => {
   if (moreCatOn.value) filtersExpanded.value = true
   list.value = []
@@ -395,6 +405,7 @@ onShow(() => {
 .wallet-ledger-filter.tone-hb.is-on,
 .wallet-ledger-filter.tone-rebate.is-on,
 .wallet-ledger-filter.tone-nn.is-on,
+.wallet-ledger-filter.tone-yxx.is-on,
 .wallet-ledger-filter.tone-rights.is-on {
   background: linear-gradient(135deg, #ff7043, #e53935);
   border-color: transparent;

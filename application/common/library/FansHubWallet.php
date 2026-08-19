@@ -91,6 +91,11 @@ class FansHubWallet
             'niuniu_win'                   => '牛牛奖金',
             'niuniu_fee_in'                => '牛牛手续费',
             'niuniu_refund'                => '牛牛流局退回',
+            'yxx_bet'                      => '鱼虾蟹下注',
+            'yxx_win'                      => '鱼虾蟹中奖',
+            'yxx_bet_refund'               => '鱼虾蟹退回',
+            'yxx_rain'                     => '鱼虾蟹红包雨',
+            'yxx_owner'                    => '鱼虾蟹群主分成',
         ];
     }
 
@@ -120,6 +125,13 @@ class FansHubWallet
                 'niuniu_win',
                 'niuniu_fee_in',
                 'niuniu_refund',
+            ],
+            'hongbao_yxx' => [
+                'yxx_bet',
+                'yxx_win',
+                'yxx_bet_refund',
+                'yxx_rain',
+                'yxx_owner',
             ],
             'refund' => [
                 'red_packet_refund',

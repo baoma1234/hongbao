@@ -2,18 +2,18 @@
   <TopBar :noSpacer="true" />
   <view class="yxx-page" :style="pagePad">
     <view class="yxx-header">
-      <view class="yxx-h-side yxx-h-left">
+      <view class="yxx-h-left">
         <view class="yxx-back" hover-class="yxx-hit" @click="goBack">
           <text class="yxx-back-char">‹</text>
         </view>
       </view>
       <view class="yxx-titles">
-        <text class="yxx-title">{{ t('yxx_title') }}</text>
-        <text class="yxx-sub">{{ groupId ? (groupName || t('yxx_subtitle_group')) : t('yxx_subtitle') }}</text>
+        <text class="yxx-title">{{ pageTitle }}</text>
       </view>
-      <view class="yxx-h-side yxx-h-right">
+      <view class="yxx-h-right">
         <view class="yxx-rules-btn" hover-class="yxx-hit" @click="openVerify">{{ t('yxx_verify') }}</view>
-        <view class="yxx-rules-btn" hover-class="yxx-hit" @click="historyOpen = true">历史</view>
+        <view class="yxx-rules-btn" hover-class="yxx-hit" @click="historyOpen = true">{{ t('yxx_history') }}</view>
+        <view class="yxx-rules-btn" hover-class="yxx-hit" @click="openLedger">{{ t('yxx_ledger') }}</view>
         <view class="yxx-rules-btn" hover-class="yxx-hit" @click="rulesOpen = true">{{ t('yxx_rules') }}</view>
       </view>
     </view>
@@ -30,6 +30,10 @@
       <view class="yxx-pill gold">
         <text>{{ t('yxx_pool', { n: poolText }) }}</text>
       </view>
+    </view>
+
+    <view v-if="resultBannerText" class="yxx-result-banner">
+      <text>{{ resultBannerText }}</text>
     </view>
 
     <view v-if="tronLineText" class="yxx-tron-line" hover-class="yxx-hit" @click="openVerify">
@@ -74,15 +78,16 @@
         </view>
       </view>
 
-      <view class="yxx-reveal" :class="{ open: phase === 'reveal' }">
-        <view class="yxx-spark" v-if="phase === 'reveal'">
+      <view class="yxx-reveal" :class="{ open: revealOpen }">
+        <view class="yxx-spark" v-if="revealOpen">
           <text v-for="n in 6" :key="n" class="yxx-coin" :class="'c' + n">●</text>
         </view>
         <image class="yxx-bowl-img" :src="bowlSrc" mode="aspectFit" />
         <view class="yxx-dice-row">
           <view v-for="(id, i) in diceShow" :key="i" class="yxx-die">
             <image v-if="id" class="yxx-die-img" :src="diceSnapshotSrc(i, id)" mode="aspectFill" />
-            <text class="yxx-die-lab">{{ diceLabels[i] || '·' }}</text>
+            <text v-else class="yxx-die-fallback">{{ diceLabels[i] || t('yxx_dice_pending') }}</text>
+            <text v-if="id" class="yxx-die-lab">{{ diceLabels[i] || '·' }}</text>
           </view>
         </view>
         <text class="yxx-reveal-cap">{{ revealHint }}</text>
@@ -156,15 +161,15 @@
     </view>
     <view v-if="historyOpen" class="yxx-mask" @click="historyOpen = false">
       <view class="yxx-sheet" :style="sheetStyle" @click.stop>
-        <text class="yxx-sheet-t">历史记录</text>
+        <text class="yxx-sheet-t">{{ t('yxx_history_title') }}</text>
         <scroll-view scroll-y class="yxx-sheet-body">
           <text v-if="!historyRows.length" class="yxx-sheet-p">{{ t('yxx_hist_wait') }}</text>
           <view v-for="(r, i) in historyRows" :key="'h' + i" class="yxx-hrow">
-            <text class="yxx-hrow-r">第{{ Number(r.round_index || 0) }}期</text>
+            <text class="yxx-hrow-r">{{ t('yxx_history_round', { n: Number(r.round_index || 0) }) }}</text>
             <text class="yxx-hrow-d">{{ ((r.dice || []).map((id) => faceLabel(id)).filter(Boolean).join(' ') || '—') }}</text>
           </view>
         </scroll-view>
-        <view class="yxx-sheet-ok" @click="historyOpen = false">知道了</view>
+        <view class="yxx-sheet-ok" @click="historyOpen = false">{{ t('yxx_rules_ok') }}</view>
       </view>
     </view>
 
@@ -292,9 +297,28 @@ let netPollMs = 4000
 
 const pagePad = computed(() => ({
   paddingTop: padTop.value + getTopBarContentHeight() + 'px',
-  paddingBottom: padBottom.value + 108 + 'px',
+  paddingBottom: padBottom.value + 108 + (groupId.value ? 36 : 0) + 'px',
   height: pageH.value + 'px',
 }))
+
+const pageTitle = computed(() => {
+  void locale.value
+  if (groupId.value && groupName.value) {
+    return groupName.value
+  }
+  return t('yxx_title')
+})
+
+const revealOpen = computed(() => phase.value === 'locking' || phase.value === 'reveal')
+
+const resultBannerText = computed(() => {
+  void locale.value
+  if (!revealOpen.value) return ''
+  const lab = faceLabel(settleFace.value)
+  if (lab) return t('yxx_result_banner', { face: lab })
+  if (phase.value === 'reveal' || phase.value === 'locking') return t('yxx_dice_pending')
+  return ''
+})
 
 const dockStyle = computed(() => ({
   paddingBottom: Math.max(8, padBottom.value) + 'px',
@@ -465,15 +489,16 @@ function measure() {
     padTop.value = Math.max(12, Number(inset.top || sys.statusBarHeight || 20))
     padBottom.value = Math.max(8, bottom)
     pageH.value = Math.max(480, Number(sys.windowHeight || 667))
-    const header = 62
+    const header = 52
     const stats = 44
+    const resultBanner = resultBannerText.value ? 32 : 0
     const tronLine = tronBlockNum.value > 0 ? 24 : 0
     const poolBar = poolEnabled.value ? 52 : 0
     const banner = poolStatus.value && poolStatus.value !== 'normal' ? 28 : 0
     const dock = 108 + (groupId.value ? 36 : 0) + padBottom.value
     const topBarH = getTopBarContentHeight()
     const h =
-      pageH.value - padTop.value - topBarH - header - stats - tronLine - poolBar - banner - dock
+      pageH.value - padTop.value - topBarH - header - stats - resultBanner - tronLine - poolBar - banner - dock
     scrollH.value = Math.max(220, h) + 'px'
   } catch (e) {
     scrollH.value = '58vh'
@@ -491,6 +516,12 @@ function openVerify() {
   const idx = lastRound >= 0 ? lastRound : 0
   uni.navigateTo({
     url: '/pages/common/fair-verify?kind=yxx&round_index=' + encodeURIComponent(String(idx)),
+  })
+}
+
+function openLedger() {
+  uni.navigateTo({
+    url: '/pages/wallet/ledger?category=hongbao_yxx',
   })
 }
 
@@ -563,12 +594,19 @@ function applyHall(data) {
     historyRows.value = data.history
   }
   const ids = Array.isArray(data.dice) ? data.dice : []
-  if (phase.value === 'reveal' && ids.length === 3) {
-    diceShow.value = ids.map((x) => String(x || ''))
-  } else if (phase.value !== 'reveal') {
+  if (phase.value === 'reveal' || phase.value === 'locking') {
+    if (ids.length === 3) {
+      diceShow.value = ids.map((x) => String(x || ''))
+    } else if (String(data.settle_face || '')) {
+      const sf = String(data.settle_face)
+      diceShow.value = [sf, ids[1] || '', ids[2] || '']
+    }
+  } else {
     diceShow.value = ['', '', '']
   }
-  settleFace.value = phase.value === 'reveal' ? String(data.settle_face || '') : ''
+  settleFace.value = (phase.value === 'reveal' || phase.value === 'locking')
+    ? String(data.settle_face || diceShow.value[0] || '')
+    : ''
   const mine = data.my_bet
   if (mine && (mine.face || (Array.isArray(mine.faces) && mine.faces.length))) {
     const picked = Array.isArray(mine.faces) && mine.faces.length ? mine.faces.map(String) : [String(mine.face)]
@@ -788,24 +826,27 @@ onUnmounted(() => {
   margin: 0 auto;
 }
 .yxx-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  padding: 4px 12px 6px;
-}
-.yxx-h-side {
-  width: 31%;
-  min-width: 72px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 6px;
+  position: relative;
+  z-index: 3;
 }
 .yxx-h-left {
+  display: flex;
+  align-items: center;
   justify-content: flex-start;
 }
 .yxx-h-right {
+  display: flex;
+  align-items: center;
   justify-content: flex-end;
   gap: 4px;
+  max-width: 46vw;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .yxx-back,
 .yxx-rules-btn {
@@ -821,12 +862,14 @@ onUnmounted(() => {
 }
 .yxx-rules-btn {
   width: auto;
-  min-width: 36px;
-  padding: 0 8px;
+  min-width: 34px;
+  height: 36px;
+  padding: 0 7px;
   border-radius: 10px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
   color: #ffe29a;
+  flex-shrink: 0;
 }
 .yxx-back-char {
   font-size: 32px;
@@ -839,23 +882,32 @@ onUnmounted(() => {
   opacity: 0.82;
 }
 .yxx-titles {
-  flex: 1;
+  min-width: 0;
   text-align: center;
+  padding: 0 2px;
 }
 .yxx-title {
   display: block;
-  font-size: 24px;
+  font-size: clamp(17px, 4.8vw, 22px);
   font-weight: 900;
-  letter-spacing: 3px;
+  letter-spacing: 2px;
   color: #ffd56a;
   text-shadow: 0 2px 0 #7a3a00, 0 0 12px rgba(255, 200, 80, 0.45);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.yxx-sub {
-  display: block;
-  margin-top: 2px;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.78);
-  letter-spacing: 0.4px;
+.yxx-result-banner {
+  margin: 0 10px 8px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(240, 193, 75, 0.28), rgba(120, 40, 10, 0.45));
+  border: 1px solid rgba(255, 210, 120, 0.55);
+  text-align: center;
+  font-size: 14px;
+  font-weight: 900;
+  color: #fff3c4;
+  letter-spacing: 0.5px;
 }
 .yxx-stats {
   display: flex;
@@ -1003,7 +1055,7 @@ onUnmounted(() => {
 }
 .yxx-grid-wrap {
   margin: 4px 12px 0;
-  padding: 12px 8px 52px;
+  padding: 12px 8px 20px;
   border-radius: 16px;
   position: relative;
   background: linear-gradient(180deg, rgba(90, 12, 16, 0.92), rgba(50, 6, 10, 0.92));
@@ -1068,39 +1120,39 @@ onUnmounted(() => {
   background: #f0c14b;
 }
 .yxx-reveal {
-  margin-top: -48px;
+  margin: 8px 12px 0;
   align-items: center;
   display: flex;
   flex-direction: column;
   position: relative;
+  min-height: 132px;
 }
 .yxx-bowl-img {
   width: 108px;
   height: 72px;
   position: relative;
-  /* 默认：盖住骰子区域（开奖前） */
   z-index: 2;
-  transform: translate(0, 28px) rotate(0deg);
+  transform: translate(0, 18px) rotate(0deg);
   transition: transform 0.45s ease;
 }
 .yxx-reveal.open .yxx-bowl-img {
-  /* 避免盖住色子区域：上移幅度稍减 */
-  transform: translate(-28px, -4px) rotate(-22deg);
+  transform: translate(-24px, -8px) rotate(-22deg);
 }
 .yxx-dice-row {
   display: flex;
   gap: 10px;
-  margin-top: -6px;
+  margin-top: 4px;
   padding: 10px 16px 8px;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(180, 30, 30, 0.55), transparent 70%);
   position: relative;
-  /* 默认：在 bowl 下方 */
   z-index: 1;
-  opacity: 0;
+  opacity: 0.35;
+  min-height: 72px;
+  align-items: center;
+  justify-content: center;
 }
 
-/* 开奖时：让摇色子区域露出来（在 bowl 上方） */
 .yxx-reveal.open .yxx-dice-row {
   z-index: 3;
   opacity: 1;
@@ -1118,6 +1170,19 @@ onUnmounted(() => {
 .yxx-die-img {
   width: 52px;
   height: 52px;
+}
+.yxx-die-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #8a1018;
+  text-align: center;
+  padding: 4px;
+  box-sizing: border-box;
 }
 .yxx-die-lab {
   position: absolute;
