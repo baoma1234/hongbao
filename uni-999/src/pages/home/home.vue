@@ -983,32 +983,8 @@ async function copyShareLink() {
 
     // 先提示“邀请成功”，符合你的回归需求
     uni.showToast({
-      title: t('alert_share_invite_ok') || t('alert_share_copied') || '成功邀请好友送股份',
+      title: '成功分享群并邀请好友送股份',
       icon: 'success',
-    })
-
-    // 再发奖：点击不立刻给股份，避免重复点击刷份数
-    const rewardData = await apiRequest('share', 'POST', {})
-    if (rewardData && rewardData.profile) {
-      profile.value = rewardData.profile
-      syncUidFromProfile(rewardData.profile)
-    }
-
-    let toastMsg = (rewardData && rewardData.message) || ''
-    if (!toastMsg) {
-      toastMsg =
-        rewardData && rewardData.rewarded
-          ? t('alert_share_reward_ok') || t('alert_share_rewarded') || '分享成功，奖励已到账'
-          : t('alert_share_copied') || '邀请成功'
-    }
-    toastMsg = String(toastMsg)
-      .replace(/【[^】]*】/g, '')
-      .replace(/\\n+/g, ' ')
-      .trim()
-
-    uni.showToast({
-      title: toastMsg || '邀请成功',
-      icon: rewardData && rewardData.rewarded ? 'success' : 'none',
     })
   } catch (e) {
     uni.showToast({ title: e.message || t('alert_share_fail') || '分享失败', icon: 'none' })
