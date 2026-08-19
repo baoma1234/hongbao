@@ -161,6 +161,22 @@ class FansHubYxxGroup
         return self::publicState($groupId);
     }
 
+    /** 后台强制关桌（不校验群管理员） */
+    public static function adminForceClose($groupId)
+    {
+        $groupId = (int)$groupId;
+        if ($groupId <= 0) {
+            throw new \RuntimeException('无效群 ID');
+        }
+        self::ensureRow($groupId);
+        Db::name('fans_yxx_group_state')->where('group_id', $groupId)->update([
+            'is_open'    => 0,
+            'updatetime' => time(),
+        ]);
+        self::markOpen($groupId, false);
+        return self::publicState($groupId);
+    }
+
     public static function publicState($groupId)
     {
         $row = self::ensureRow($groupId);

@@ -20,6 +20,39 @@
             </div>
         </div>
 
+        <form id="global-form" class="form-horizontal" style="margin-bottom:20px;">
+            <fieldset>
+                <legend>总开关与奖池比例（写入 fanshub.php；需谷歌验证码）</legend>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">功能开关</label>
+                    <div class="col-xs-12 col-sm-10">
+                        <label class="checkbox-inline"><input type="checkbox" name="yxx_enabled" value="1" {if $globalKnobs.yxx_enabled}checked{/if}> 鱼虾蟹总开关</label>
+                        <label class="checkbox-inline"><input type="checkbox" name="yxx_tab_visible" value="1" {if $globalKnobs.yxx_tab_visible}checked{/if}> 底栏入口可见</label>
+                        <label class="checkbox-inline"><input type="checkbox" name="yxx_real_money" value="1" {if $globalKnobs.yxx_real_money}checked{/if}> 真金下注</label>
+                        <label class="checkbox-inline"><input type="checkbox" name="yxx_pool_enabled" value="1" {if $globalKnobs.yxx_pool_enabled}checked{/if}> 大奖池/红包雨</label>
+                        <span class="help-block">底栏入口开启后，H5/APK 需刷新或重进；关闭真金时为预览局。</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">奖池比例</label>
+                    <div class="col-xs-12 col-sm-2"><input type="number" step="0.01" class="form-control" name="yxx_pool_reserve_rate" value="{$globalKnobs.yxx_pool_reserve_rate|default=0.20}" placeholder="保护底座"></div>
+                    <div class="col-xs-12 col-sm-2"><input type="number" step="0.01" class="form-control" name="yxx_rain_release_rate" value="{$globalKnobs.yxx_rain_release_rate|default=0.10}" placeholder="红包雨释放"></div>
+                    <div class="col-xs-12 col-sm-2"><input type="number" step="0.01" class="form-control" name="yxx_user_rate_cap" value="{$globalKnobs.yxx_user_rate_cap|default=0.05}" placeholder="单人比例上限"></div>
+                    <div class="col-xs-12 col-sm-2"><input type="number" class="form-control" name="yxx_user_abs_cap" value="{$globalKnobs.yxx_user_abs_cap|default=10000}" placeholder="单人绝对上限"></div>
+                    <div class="col-xs-12 col-sm-2"><input type="number" class="form-control" name="yxx_rain_min_bet" value="{$globalKnobs.yxx_rain_min_bet|default=50}" placeholder="红包雨最低下注"></div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">谷歌验证码</label>
+                    <div class="col-xs-12 col-sm-3">
+                        <input type="text" class="form-control" name="google_code" maxlength="6" autocomplete="off" placeholder="6 位">
+                    </div>
+                    <div class="col-xs-12 col-sm-3">
+                        <button type="button" class="btn btn-warning btn-saveglobal">保存总开关</button>
+                    </div>
+                </div>
+            </fieldset>
+        </form>
+
         <form id="status-form" class="form-horizontal" style="margin-bottom:20px;">
             <fieldset>
                 <legend>熔断开关（需谷歌验证码）</legend>
@@ -48,8 +81,8 @@
 
         <form id="knob-form" class="form-horizontal" style="margin-bottom:20px;">
             <fieldset>
-                <legend>大厅参数（不含底栏入口；需谷歌验证码）</legend>
-                <p class="help-block" style="margin-left:16px;">底栏开关仍关闭，等你明确说开再开。此处只改注额、机器人、红包雨窗口、波场偏移。</p>
+                <legend>大厅参数（runtime 覆盖；需谷歌验证码）</legend>
+                <p class="help-block" style="margin-left:16px;">注额/机器人/红包雨窗口/波场偏移写入奖池表 settings JSON，优先于 fanshub.php 默认值。</p>
                 <div class="form-group">
                     <label class="control-label col-xs-12 col-sm-2">下注</label>
                     <div class="col-xs-12 col-sm-2"><input type="number" class="form-control" name="stake_min" value="{$knobs.stake_min|default=50}" placeholder="最小"></div>

@@ -23,6 +23,7 @@ class Yxxpool extends Backend
         $this->view->assign('dash', FansHubYxxPool::dashboard());
         $this->view->assign('statusLabels', FansHubYxxPool::statusLabels());
         $this->view->assign('knobs', FansHubYxxPool::knobDefaults());
+        $this->view->assign('globalKnobs', FansHubYxxPool::globalKnobDefaults());
         return $this->view->fetch();
     }
 
@@ -59,7 +60,28 @@ class Yxxpool extends Backend
             $this->error($e->getMessage());
         }
         $saved = FansHubYxxPool::saveRuntimeSettings($this->request->post());
-        $this->success('参数已保存（底栏入口仍关闭，需另行开启）', $saved);
+        $this->success('大厅参数已保存', $saved);
+    }
+
+    /**
+     * 保存总开关与奖池比例（写入 fanshub.php；需谷歌验证码）
+     */
+    public function saveglobal()
+    {
+        if (!$this->request->isPost()) {
+            $this->error('非法请求');
+        }
+        try {
+            $this->auth->assertGoogleCode($this->request->post('google_code', ''));
+        } catch (\RuntimeException $e) {
+            $this->error($e->getMessage());
+        }
+        try {
+            $saved = FansHubYxxPool::saveGlobalConfig($this->request->post());
+        } catch (\RuntimeException $e) {
+            $this->error($e->getMessage());
+        }
+        $this->success('总开关与奖池比例已保存', $saved);
     }
 
     public function rains()

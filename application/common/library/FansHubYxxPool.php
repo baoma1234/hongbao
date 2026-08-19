@@ -227,6 +227,63 @@ class FansHubYxxPool
         ];
     }
 
+    /**
+     * fanshub.php 中的鱼虾蟹总开关与奖池比例（非 runtime JSON 覆盖项）。
+     */
+    public static function globalKnobDefaults()
+    {
+        $cfg = FansHubService::config();
+        return [
+            'yxx_enabled'           => !empty($cfg['yxx_enabled']) ? 1 : 0,
+            'yxx_tab_visible'       => !empty($cfg['yxx_tab_visible']) ? 1 : 0,
+            'yxx_real_money'        => !empty($cfg['yxx_real_money']) ? 1 : 0,
+            'yxx_pool_enabled'      => !empty($cfg['yxx_pool_enabled']) ? 1 : 0,
+            'yxx_pool_reserve_rate'   => (float)($cfg['yxx_pool_reserve_rate'] ?? 0.20),
+            'yxx_rain_release_rate' => (float)($cfg['yxx_rain_release_rate'] ?? 0.10),
+            'yxx_user_rate_cap'       => (float)($cfg['yxx_user_rate_cap'] ?? 0.05),
+            'yxx_user_abs_cap'        => (int)($cfg['yxx_user_abs_cap'] ?? 10000),
+            'yxx_rain_min_bet'        => (int)($cfg['yxx_rain_min_bet'] ?? 50),
+        ];
+    }
+
+    public static function saveGlobalConfig(array $in)
+    {
+        $data = FansHubService::config();
+        if (!is_array($data)) {
+            $data = [];
+        }
+        $boolKeys = ['yxx_enabled', 'yxx_tab_visible', 'yxx_real_money', 'yxx_pool_enabled'];
+        foreach ($boolKeys as $k) {
+            if (array_key_exists($k, $in)) {
+                $data[$k] = !empty($in[$k]);
+            }
+        }
+        $floatKeys = [
+            'yxx_pool_reserve_rate'   => [0, 0.5],
+            'yxx_rain_release_rate'   => [0.01, 0.5],
+            'yxx_user_rate_cap'       => [0.01, 0.5],
+        ];
+        foreach ($floatKeys as $k => $range) {
+            if (!array_key_exists($k, $in)) {
+                continue;
+            }
+            $v = (float)$in[$k];
+            $data[$k] = max($range[0], min($range[1], $v));
+        }
+        if (array_key_exists('yxx_user_abs_cap', $in)) {
+            $data['yxx_user_abs_cap'] = max(1, (int)$in['yxx_user_abs_cap']);
+        }
+        if (array_key_exists('yxx_rain_min_bet', $in)) {
+            $data['yxx_rain_min_bet'] = max(1, (int)$in['yxx_rain_min_bet']);
+        }
+        if (!FansHubService::saveFanshubConfig($data)) {
+            throw new \RuntimeException('保存 fanshub 配置失败');
+        }
+        Cache::rm('fh:yxx:poolsnap');
+        Cache::rm('fh:yxx:settings');
+        return self::globalKnobDefaults();
+    }
+
     public static function splitPool($grossPool)
     {
         $grossPool = max(0, (int)$grossPool);

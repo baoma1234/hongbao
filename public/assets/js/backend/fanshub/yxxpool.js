@@ -86,6 +86,37 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                     return false;
                 });
             });
+
+            $(document).on('click', '.btn-saveglobal', function () {
+                var code = String($('#global-form input[name="google_code"]').val() || '').replace(/\s+/g, '');
+                if (!/^\d{6}$/.test(code)) {
+                    Layer.msg('请输入6位谷歌验证码');
+                    return;
+                }
+                var data = $('#global-form').serializeArray();
+                ['yxx_enabled', 'yxx_tab_visible', 'yxx_real_money', 'yxx_pool_enabled'].forEach(function (k) {
+                    var on = $('#global-form input[name="' + k + '"]').is(':checked');
+                    var found = false;
+                    data.forEach(function (row) {
+                        if (row.name === k) {
+                            row.value = on ? '1' : '0';
+                            found = true;
+                        }
+                    });
+                    if (!found) {
+                        data.push({name: k, value: on ? '1' : '0'});
+                    }
+                });
+                Backend.api.ajax({
+                    url: 'fanshub/yxxpool/saveglobal',
+                    data: $.param(data)
+                }, function () {
+                    setTimeout(function () {
+                        location.reload();
+                    }, 400);
+                    return false;
+                });
+            });
         },
         raindetail: function () {}
     };
