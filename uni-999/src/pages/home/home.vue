@@ -47,7 +47,6 @@
             <text class="user-phone">{{ mobileMask }}</text>
             <text class="user-status-tag" :class="{ 'master-tag': isMasterRank }">{{ t('user_status_shield') || '密匙防护已开启' }}</text>
           </view>
-          <view id="userRank" class="status-tag" :class="{ 'master-tag': isMasterRank }">{{ rankText }}</view>
         </view>
 
         <view class="flow-stepper" aria-label="福利进度">
@@ -67,7 +66,7 @@
           <view class="share-promo-card" role="button" @click="copyShareLink">
             <view class="share-promo-glow" />
             <view class="share-promo-inner single-line">
-              <text class="share-promo-text">{{ t('share_promo_btn') || '📢 邀请 1 人开户 ➡️ 额外送 1 份股 (多邀多得)' }}</text>
+              <text class="share-promo-text">{{ t('share_promo_btn') || '📢 免费裂变吸筹：每邀请一人即送一份' }}</text>
               <button type="button" class="btn-share-action" :disabled="shareSubmitting" @click.stop="copyShareLink">
                 {{ shareSubmitting ? (t('api_loading') || '处理中...') : (t('share_promo_action_btn') || '点击立即分享') }}
               </button>
@@ -437,20 +436,6 @@ const fissionPopupRemain = computed(() => {
   const sec = s % 60
   const pad = (n) => (n < 10 ? '0' + n : '' + n)
   return pad(h) + ':' + pad(m) + ':' + pad(sec)
-})
-
-const rankText = computed(() => {
-  const p = profile.value || {}
-  const p2 = p.phase2 || {}
-  const rank = p.invite_rank || {}
-  if (p2.enabled && p2.user_mode === 'master') {
-    const c = p2.total_register_count || rank.invite_count || 0
-    return t('user_rank_master', { count: c }) || `👑 荣誉团长 · 已邀${c}人`
-  }
-  if (rank.invite_count > 0) {
-    return t('user_rank_template', { rank: rank.rank, count: rank.invite_count }) || `邀请排行第 ${rank.rank} · 已邀 ${rank.invite_count} 人`
-  }
-  return t('user_rank_default') || '特权确权账户'
 })
 
 const flowStage = computed(() => (profile.value && profile.value.flow_stage) || 'stage1')

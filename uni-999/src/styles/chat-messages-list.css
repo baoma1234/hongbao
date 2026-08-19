@@ -54,7 +54,7 @@ body.tab-messages {
   padding-left: 0 !important;
   padding-right: 0 !important;
   padding-bottom: 0 !important;
-  /* 顶栏避让改由 chat-uni-adapter 按端处理（H5 CSS 垫高 / App spacer） */
+  /* 勿垫顶：H5 顶栏占流 / App 用 spacer；再 padding-top 会空出 ~44px */
   padding-top: 0 !important;
   overflow: hidden;
   height: 100%;
@@ -1616,8 +1616,9 @@ body.tab-messages .bottom-action-bar {
   overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  /* 勿 display:flex：App/IPA 上 scroll-view 内容会被压成空白 */
-  display: block;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   padding-bottom: 30px;
   box-sizing: border-box;
 }
