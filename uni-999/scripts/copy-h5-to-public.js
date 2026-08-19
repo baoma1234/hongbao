@@ -10,7 +10,7 @@ const dest = path.resolve(__dirname, '../../public/999')
 const localeSrc = path.resolve(__dirname, '../src/static/i18n')
 const localeDest = path.join(dest, 'i18n')
 const APPLE_TOUCH_ICON =
-  'https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/brand/apple-touch-icon-1024.png'
+  'https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/brand/apple-touch-icon-1024-v2.png'
 
 function rmDir(dir) {
   if (!fs.existsSync(dir)) return
