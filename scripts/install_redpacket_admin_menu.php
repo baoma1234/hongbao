@@ -41,15 +41,17 @@ function ensurePerm(PDO $pdo, $insert, $rule, $pid, $name, $title, $now)
     ensureMenu($pdo, $insert, $rule, $pid, $name, $title, 'fa fa-circle-o', 0, 0, $now);
 }
 
-// 父级：优先挂在「即时通讯」下，否则挂 fanshub
+// 红包全局配置 → 玩法大全（若有）；其余红包菜单仍挂即时通讯
+$playId = (int)$pdo->query("SELECT id FROM {$rule} WHERE name='fanshub_play' LIMIT 1")->fetchColumn();
 $imId = (int)$pdo->query("SELECT id FROM {$rule} WHERE name='fanshub_im' LIMIT 1")->fetchColumn();
 $parentId = $imId ?: (int)$pdo->query("SELECT id FROM {$rule} WHERE name='fanshub' LIMIT 1")->fetchColumn();
+$configParentId = $playId ?: $parentId;
 if ($parentId <= 0) {
     fwrite(STDERR, "fanshub / fanshub_im menu missing\n");
     exit(1);
 }
 
-$configId = ensureMenu($pdo, $insert, $rule, $parentId, 'fanshub/redpacketconfig', '红包全局配置', 'fa fa-sliders', 1, 70, $now, '金额/个数/抽水/返点/过期');
+$configId = ensureMenu($pdo, $insert, $rule, $configParentId, 'fanshub/redpacketconfig', '红包全局配置', 'fa fa-sliders', 1, 70, $now, '金额/个数/抽水/返点/过期');
 ensurePerm($pdo, $insert, $rule, $configId, 'fanshub/redpacketconfig/index', '查看/保存', $now);
 
 $skinId = ensureMenu($pdo, $insert, $rule, $parentId, 'fanshub/redpacketskin', '红包皮肤', 'fa fa-picture-o', 1, 65, $now, '750x1000 皮肤');

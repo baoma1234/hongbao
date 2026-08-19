@@ -103,10 +103,11 @@ function ensureMenu(PDO $pdo, $insert, $rule, $pid, $name, $title, $icon, $ismen
     return (int)$pdo->lastInsertId();
 }
 
+$playId = (int)$pdo->query("SELECT id FROM {$rule} WHERE name='fanshub_play' LIMIT 1")->fetchColumn();
 $imId = (int)$pdo->query("SELECT id FROM {$rule} WHERE name='fanshub_im' LIMIT 1")->fetchColumn();
-$parentId = $imId ?: (int)$pdo->query("SELECT id FROM {$rule} WHERE name='fanshub' LIMIT 1")->fetchColumn();
+$parentId = $playId ?: $imId ?: (int)$pdo->query("SELECT id FROM {$rule} WHERE name='fanshub' LIMIT 1")->fetchColumn();
 if ($parentId > 0) {
-    $id = ensureMenu($pdo, $insert, $rule, $parentId, 'fanshub/niuniuauto', '尾数牛牛自动任务', 'fa fa-android', 1, 66, $now, '随机人数购入/自动领取');
+    $id = ensureMenu($pdo, $insert, $rule, $parentId, 'fanshub/niuniuauto', '尾数牛牛自动对局', 'fa fa-android', 1, 66, $now, '随机人数购入/自动领取');
     foreach ([
         'index' => '查看',
         'add' => '添加',

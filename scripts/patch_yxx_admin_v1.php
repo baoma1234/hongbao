@@ -35,7 +35,10 @@ function ensureMenu(PDO $pdo, $insert, $rule, $pid, $name, $title, $icon, $ismen
     return (int)$pdo->lastInsertId();
 }
 
-$parentId = (int)$pdo->query("SELECT id FROM {$rule} WHERE name='fanshub' LIMIT 1")->fetchColumn();
+$parentId = (int)$pdo->query("SELECT id FROM {$rule} WHERE name='fanshub_play' LIMIT 1")->fetchColumn();
+if ($parentId <= 0) {
+    $parentId = (int)$pdo->query("SELECT id FROM {$rule} WHERE name='fanshub' LIMIT 1")->fetchColumn();
+}
 if ($parentId <= 0) {
     fwrite(STDERR, "fanshub menu missing\n");
     exit(1);

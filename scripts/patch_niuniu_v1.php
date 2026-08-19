@@ -168,10 +168,11 @@ function ensureMenu(PDO $pdo, $insert, $rule, $pid, $name, $title, $icon, $ismen
     return (int)$pdo->lastInsertId();
 }
 
+$playId = (int)$pdo->query("SELECT id FROM {$rule} WHERE name='fanshub_play' LIMIT 1")->fetchColumn();
 $imId = (int)$pdo->query("SELECT id FROM {$rule} WHERE name='fanshub_im' LIMIT 1")->fetchColumn();
-$parentId = $imId ?: (int)$pdo->query("SELECT id FROM {$rule} WHERE name='fanshub' LIMIT 1")->fetchColumn();
+$parentId = $playId ?: $imId ?: (int)$pdo->query("SELECT id FROM {$rule} WHERE name='fanshub' LIMIT 1")->fetchColumn();
 if ($parentId > 0) {
-    $cfgId = ensureMenu($pdo, $insert, $rule, $parentId, 'fanshub/niuniuconfig', '红宝尾数牛牛配置', 'fa fa-bullseye', 1, 68, $now, '单独全局配置');
+    $cfgId = ensureMenu($pdo, $insert, $rule, $parentId, 'fanshub/niuniuconfig', '红包尾数牛牛配置', 'fa fa-bullseye', 1, 68, $now, '单独全局配置');
     ensureMenu($pdo, $insert, $rule, $cfgId, 'fanshub/niuniuconfig/index', '查看/保存', 'fa fa-circle-o', 0, 0, $now);
     $listId = ensureMenu($pdo, $insert, $rule, $parentId, 'fanshub/niuniu', '尾数牛牛对局', 'fa fa-list', 1, 67, $now, '对局列表');
     foreach (['index' => '查看', 'detail' => '详情'] as $act => $title) {
