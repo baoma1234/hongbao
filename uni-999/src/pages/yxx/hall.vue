@@ -184,9 +184,9 @@ import { applySafeAreaCssVars, getSafeAreaInsets } from '../../utils/safe-area.j
 
 const FACE_IDS = ['gourd', 'crab', 'shrimp', 'fish', 'rooster', 'tiger']
 function faceSrc(id) {
-  return packagedStaticUrl('yxx/' + id + '.png')
+  return packagedStaticUrl('yxx/' + id + '.png') + '?v=2'
 }
-const bowlSrc = packagedStaticUrl('yxx/bowl.png')
+const bowlSrc = packagedStaticUrl('yxx/bowl.png') + '?v=2'
 const locale = localeState()
 const faces = computed(() => {
   void locale.value

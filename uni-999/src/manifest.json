@@ -2,8 +2,8 @@
     "name" : "红宝",
     "appid" : "__UNI__5346609",
     "description" : "红宝",
-    "versionName" : "2.8.0",
-    "versionCode" : "127",
+    "versionName" : "2.9.0",
+    "versionCode" : "128",
     "transformPx" : false,
     "app-plus" : {
         "usingComponents" : true,
