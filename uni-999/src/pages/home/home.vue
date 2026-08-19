@@ -982,10 +982,11 @@ async function copyShareLink() {
     await copyText(shareText)
 
     // 先提示“邀请成功”，符合你的回归需求
-    uni.showToast({
-      title: '成功分享群并邀请好友送股份',
-      icon: 'success',
-    })
+    // uni.showToast 在部分端会截断长文案，所以拆成两段保证完整可读
+    uni.showToast({ title: '成功分享群', icon: 'success' })
+    setTimeout(() => {
+      uni.showToast({ title: '邀请好友送股份', icon: 'success' })
+    }, 900)
   } catch (e) {
     uni.showToast({ title: e.message || t('alert_share_fail') || '分享失败', icon: 'none' })
   } finally {
