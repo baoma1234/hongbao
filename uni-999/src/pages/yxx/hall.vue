@@ -1048,11 +1048,13 @@ onUnmounted(() => {
   position: relative;
   /* 默认：在 bowl 下方 */
   z-index: 1;
+  opacity: 0;
 }
 
 /* 开奖时：让摇色子区域露出来（在 bowl 上方） */
 .yxx-reveal.open .yxx-dice-row {
   z-index: 3;
+  opacity: 1;
 }
 .yxx-die {
   width: 52px;
