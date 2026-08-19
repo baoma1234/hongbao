@@ -1,4 +1,5 @@
 <template>
+  <TopBar :noSpacer="true" />
   <view class="yxx-page" :style="pagePad">
     <view class="yxx-header">
       <view class="yxx-h-side yxx-h-left">
@@ -194,7 +195,8 @@ import { onHide, onLoad, onResize, onShow } from '@dcloudio/uni-app'
 import { apiRequest, getToken } from '../../utils/auth.js'
 import { localeState, t } from '../../utils/i18n.js'
 import { getUploadsBase, packagedStaticUrl } from '../../utils/config.js'
-import { applySafeAreaCssVars, getSafeAreaInsets } from '../../utils/safe-area.js'
+import { applySafeAreaCssVars, getSafeAreaInsets, getTopBarContentHeight } from '../../utils/safe-area.js'
+import TopBar from '../../components/TopBar.vue'
 
 const FACE_IDS = ['gourd', 'crab', 'shrimp', 'fish', 'rooster', 'tiger']
 function faceSrc(id) {
@@ -289,7 +291,7 @@ let hitZero = false
 let netPollMs = 4000
 
 const pagePad = computed(() => ({
-  paddingTop: padTop.value + 'px',
+  paddingTop: padTop.value + getTopBarContentHeight() + 'px',
   paddingBottom: padBottom.value + 108 + 'px',
   height: pageH.value + 'px',
 }))
@@ -469,7 +471,9 @@ function measure() {
     const poolBar = poolEnabled.value ? 52 : 0
     const banner = poolStatus.value && poolStatus.value !== 'normal' ? 28 : 0
     const dock = 108 + (groupId.value ? 36 : 0) + padBottom.value
-    const h = pageH.value - padTop.value - header - stats - tronLine - poolBar - banner - dock
+    const topBarH = getTopBarContentHeight()
+    const h =
+      pageH.value - padTop.value - topBarH - header - stats - tronLine - poolBar - banner - dock
     scrollH.value = Math.max(220, h) + 'px'
   } catch (e) {
     scrollH.value = '58vh'
