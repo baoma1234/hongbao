@@ -1028,12 +1028,14 @@ onUnmounted(() => {
 .yxx-bowl-img {
   width: 108px;
   height: 72px;
-  z-index: 2;
+  position: relative;
+  z-index: 1;
   transform: translate(0, 28px) rotate(0deg);
   transition: transform 0.45s ease;
 }
 .yxx-reveal.open .yxx-bowl-img {
-  transform: translate(-28px, -10px) rotate(-22deg);
+  /* 避免盖住色子区域：上移幅度稍减 */
+  transform: translate(-28px, -4px) rotate(-22deg);
 }
 .yxx-dice-row {
   display: flex;
@@ -1042,6 +1044,8 @@ onUnmounted(() => {
   padding: 10px 16px 8px;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(180, 30, 30, 0.55), transparent 70%);
+  position: relative;
+  z-index: 2;
 }
 .yxx-die {
   width: 52px;
