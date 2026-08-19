@@ -241,7 +241,7 @@ let rainClaimedEvent = 0
 let syncAt = 0
 let syncRemain = 12
 let hitZero = false
-let netPollMs = 2500
+let netPollMs = 4000
 
 const pagePad = computed(() => ({
   paddingTop: padTop.value + 'px',
@@ -561,7 +561,7 @@ function applyHall(data) {
   }
   const nextPoll = Number(data.poll_ms || 0)
   const wantPoll = rainOpen.value ? 1000 : nextPoll
-  if (wantPoll >= 800 && wantPoll !== netPollMs) {
+  if (wantPoll >= 1200 && wantPoll !== netPollMs) {
     netPollMs = wantPoll
     startNetPoll()
   }
@@ -675,7 +675,7 @@ function startNetPoll() {
   if (netPoll) clearInterval(netPoll)
   netPoll = setInterval(() => {
     loadHall()
-  }, Math.max(800, netPollMs))
+  }, Math.max(1200, netPollMs))
 }
 
 function startPoll() {

@@ -110,16 +110,7 @@ class FansHubYxx
                     throw new \RuntimeException(FansHubService::h5CopyText('yxx_err_table_closed') ?: '本群尚未开启鱼虾蟹');
                 }
             }
-            $clock = self::clock();
-            self::ensureTronCommit((int)$clock['round_index']);
-            if ($groupId <= 0) {
-                self::tickBotsThrottled($clock);
-            }
-            if ((string)$clock['phase'] === 'reveal') {
-                self::maybeSettleRounds();
-            } else {
-                self::settleRoundIfNeeded(((int)$clock['round_index']) - 1);
-            }
+            // 万人轮询只读：结算/机器人/波场锁定一律走 tickEngine(cron)
             $clock = self::clock();
             $snap = self::publicHallSnap($clock);
             $my = null;
@@ -141,9 +132,10 @@ class FansHubYxx
             $snap['round']['phase'] = (string)$clock['phase'];
             $snap['round']['round_index'] = (int)$clock['round_index'];
             $snap['server_ts'] = time();
-            $poll = ($clock['phase'] === 'betting') ? 2500 : 1000;
+            // 拉长轮询：下注 4s / 封盘揭晓 1.5s；有红包雨时 1.5s
+            $poll = ($clock['phase'] === 'betting') ? 4000 : 1500;
             if (is_array($rainPopup)) {
-                $poll = 1000;
+                $poll = 1500;
             }
             $snap['poll_ms'] = $poll;
             return $snap;
@@ -160,7 +152,7 @@ class FansHubYxx
             self::ensureTronCommit((int)$clock['round_index']);
             $bots = self::tickBotsThrottled($clock);
             self::maybeSettleRounds();
-            self::dripWins();
+            self::dripWins(240, 450);
             FansHubYxxPool::expireUnclaimedRain();
             $clock = self::clock();
             return [
@@ -172,25 +164,33 @@ class FansHubYxx
             ];
         });
         $gids = FansHubYxxGroup::openIds();
+        $totalG = count($gids);
+        $cursor = (int)Cache::get('fh:yxx:gcursor');
+        if ($cursor < 0) {
+            $cursor = 0;
+        }
+        $limit = 60;
         $n = 0;
-        foreach ($gids as $gid) {
-            if ($n >= 40) {
-                break;
-            }
-            $gid = (int)$gid;
+        for ($i = 0; $i < $totalG && $n < $limit; $i++) {
+            $idx = ($cursor + $i) % $totalG;
+            $gid = (int)$gids[$idx];
             if ($gid <= 0) {
                 continue;
             }
             try {
                 self::withGroup($gid, function () {
                     self::maybeSettleRounds();
-                    self::dripWins();
+                    self::dripWins(200, 350);
                 });
                 $n++;
             } catch (\Throwable $e) {
             }
         }
+        if ($totalG > 0) {
+            Cache::set('fh:yxx:gcursor', ($cursor + max(1, $n)) % $totalG, 86400);
+        }
         $hall['group_tables'] = $n;
+        $hall['group_open'] = $totalG;
         return $hall;
     }
 
@@ -204,45 +204,95 @@ class FansHubYxx
             return;
         }
         $payName = FansHubYxxStore::cacheName('winpay:' . $uid);
-        $pay = FansHubYxxStore::getJson($payName);
-        if (!is_array($pay)) {
+        $blob = FansHubYxxStore::getJson($payName);
+        if (!is_array($blob)) {
             return;
+        }
+        $rest = [];
+        if (!empty($blob['batch']) && is_array($blob['batch'])) {
+            $rest = $blob['batch'];
+            $pay = array_shift($rest);
+            if (!is_array($pay)) {
+                FansHubYxxStore::delName($payName);
+                return;
+            }
+        } else {
+            $pay = $blob;
         }
         $roundIndex = (int)($pay['round_index'] ?? 0);
         $amount = (int)($pay['amount'] ?? 0);
         $face = (string)($pay['face'] ?? '');
         if ($roundIndex < 0 || $amount <= 0) {
-            FansHubYxxStore::delName($payName);
+            if ($rest) {
+                FansHubYxxStore::setJson($payName, ['batch' => $rest, 'round_index' => $roundIndex, 'amount' => 1], 3600);
+            } else {
+                FansHubYxxStore::delName($payName);
+            }
             return;
         }
-        $lockName = self::ck('wpaid:' . $roundIndex . ':' . $uid);
+        $g = self::currentGroupId();
+        $type = (string)($pay['type'] ?? 'yxx_win');
+        if ($type !== 'yxx_owner' && $type !== 'yxx_win') {
+            $type = 'yxx_win';
+        }
+        if (!empty($pay['biz_no'])) {
+            $biz = mb_substr((string)$pay['biz_no'], 0, 40);
+        } else {
+            $biz = ($type === 'yxx_owner' ? 'YXXOWN' : 'YXXW') . $roundIndex . ($g > 0 ? ('-G' . $g) : '') . '-' . $uid;
+        }
+        $lockName = self::ck('wpaid:' . $biz);
         if (!FansHubYxxStore::acquireLock($lockName, 86400 * 7)) {
-            FansHubYxxStore::delName($payName);
+            if ($rest) {
+                FansHubYxxStore::setJson($payName, ['batch' => $rest, 'round_index' => $roundIndex, 'amount' => 1], 3600);
+            } else {
+                FansHubYxxStore::delName($payName);
+            }
             return;
         }
         try {
-            $g = self::currentGroupId();
-            $biz = 'YXXW' . $roundIndex . ($g > 0 ? ('-G' . $g) : '') . '-' . $uid;
-            $remark = $g > 0 ? ('鱼虾蟹群中奖 R' . $roundIndex) : ('鱼虾蟹中奖 R' . $roundIndex);
-            FansHubHongbaoLedger::credit($uid, $amount, 'yxx_win', $remark, [
+            if (!empty($pay['remark'])) {
+                $remark = (string)$pay['remark'];
+            } else {
+                $remark = $type === 'yxx_owner'
+                    ? ('鱼虾蟹群主分成 R' . $roundIndex)
+                    : ($g > 0 ? ('鱼虾蟹群中奖 R' . $roundIndex) : ('鱼虾蟹中奖 R' . $roundIndex));
+            }
+            FansHubHongbaoLedger::credit($uid, $amount, $type, $remark, [
                 'biz_no'   => $biz,
-                'ref_type' => 'yxx_round',
-                'ref_id'   => $roundIndex,
+                'ref_type' => (string)($pay['ref_type'] ?? 'yxx_round'),
+                'ref_id'   => (int)($pay['ref_id'] ?? $roundIndex),
                 'channel'  => $face,
             ]);
-            FansHubYxxStore::delName($payName);
+            if ($rest) {
+                FansHubYxxStore::setJson($payName, ['batch' => $rest, 'round_index' => $roundIndex, 'amount' => 1], 3600);
+                $redis = FansHubYxxStore::redis();
+                if ($redis) {
+                    try {
+                        $redis->rPush(FansHubYxxStore::rkey(FansHubYxxStore::cacheName('winq')), (string)$uid);
+                    } catch (\Throwable $e) {
+                    }
+                }
+            } else {
+                FansHubYxxStore::delName($payName);
+            }
         } catch (\Throwable $e) {
             FansHubYxxStore::releaseLock($lockName);
         }
     }
 
     /**
-     * cron 分批把中奖写入钱包，避免万人同时进大厅打 InnoDB。
+     * cron 分批把中奖写入钱包；按时间预算截断，避免拖死 yxxtick。
      */
-    protected static function dripWins()
+    protected static function dripWins($batch = 240, $budgetMs = 450)
     {
-        foreach (FansHubYxxStore::popWinQueue(120) as $uid) {
+        $batch = max(40, min(400, (int)$batch));
+        $budgetMs = max(100, min(2000, (int)$budgetMs));
+        $t0 = microtime(true);
+        foreach (FansHubYxxStore::popWinQueue($batch) as $uid) {
             self::lazyCreditWin((int)$uid);
+            if (((microtime(true) - $t0) * 1000) >= $budgetMs) {
+                break;
+            }
         }
     }
 
@@ -421,7 +471,7 @@ class FansHubYxx
             'live_bets'   => $live,
             'my_bet'      => null,
         ];
-        FansHubYxxStore::setSnap($payload, 1);
+        FansHubYxxStore::setSnap($payload, 2);
         return $payload;
     }
 
@@ -437,6 +487,9 @@ class FansHubYxx
             }
             $cfg = self::configMap();
             if (!empty($cfg['real_money'])) {
+                if (!FansHubYxxStore::redis()) {
+                    throw new \RuntimeException(FansHubService::h5CopyText('yxx_err_busy') ?: '大厅繁忙，请稍后再试');
+                }
                 return self::placeRealBet($uid, $face, $stake, $nick);
             }
             return self::placePreviewBet($uid, $face, $stake, $nick);
@@ -662,14 +715,19 @@ class FansHubYxx
             $ownerId = FansHubYxxGroup::ownerId($gid);
             $cut = (int)floor($humanStake * FansHubYxxGroup::OWNER_RATE);
             if ($ownerId > 0 && $cut > 0) {
-                try {
-                    FansHubHongbaoLedger::credit($ownerId, $cut, 'yxx_owner', '鱼虾蟹群主分成 R' . $roundIndex, [
-                        'biz_no'   => 'YXXOWN' . $roundIndex . '-G' . $gid,
-                        'ref_type' => 'yxx_group',
-                        'ref_id'   => $gid,
-                    ]);
-                } catch (\Throwable $e) {
-                }
+                FansHubYxxStore::fanoutWin([[
+                    'uid' => $ownerId,
+                    'pay' => [
+                        'round_index' => $roundIndex,
+                        'amount'      => $cut,
+                        'face'        => '',
+                        'type'        => 'yxx_owner',
+                        'biz_no'      => 'YXXOWN' . $roundIndex . '-G' . $gid,
+                        'remark'      => '鱼虾蟹群主分成 R' . $roundIndex,
+                        'ref_type'    => 'yxx_group',
+                        'ref_id'      => $gid,
+                    ],
+                ]]);
             }
         }
 

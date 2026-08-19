@@ -166,7 +166,7 @@ class FansHubYxxStore
             $redis->lPush($lk, $json);
             $redis->lTrim($lk, 0, 15);
             $redis->expire($lk, $ttl);
-            self::clearSnap();
+            // 不立刻清 snap：靠 1s TTL 刷新人数/池，避免万人下注把看板打穿
             return;
         }
 
@@ -400,54 +400,88 @@ class FansHubYxxStore
 
     /**
      * 结算后惰性派彩：只写 Redis，不在当局循环里打钱包。
+     * 同一 uid 已有待入账时追加 batch（群主既中奖又拿分成）。
      *
      * @param array $items [ ['uid'=>, 'pay'=>array], ... ]
      */
     public static function fanoutWin(array $items)
     {
         $redis = self::redis();
-        if (!$redis) {
-            foreach ($items as $item) {
-                $uid = (int)($item['uid'] ?? 0);
-                if ($uid <= 0 || empty($item['pay'])) {
-                    continue;
-                }
-                Cache::set(self::cacheName('winpay:' . $uid), $item['pay'], 3600);
-            }
-            return;
-        }
-        $qkey = self::rkey(self::cacheName('winq'));
+        $qkey = $redis ? self::rkey(self::cacheName('winq')) : '';
         $chunks = array_chunk($items, 400);
         foreach ($chunks as $chunk) {
-            try {
-                $redis->multi(\Redis::PIPELINE);
-                foreach ($chunk as $item) {
-                    $uid = (int)($item['uid'] ?? 0);
-                    if ($uid <= 0 || empty($item['pay'])) {
-                        continue;
+            $mergeLater = [];
+            if ($redis) {
+                try {
+                    $redis->multi(\Redis::PIPELINE);
+                    $order = [];
+                    foreach ($chunk as $item) {
+                        $uid = (int)($item['uid'] ?? 0);
+                        if ($uid <= 0 || empty($item['pay']) || !is_array($item['pay'])) {
+                            continue;
+                        }
+                        $rk = self::rkey(self::cacheName('winpay:' . $uid));
+                        $json = json_encode($item['pay'], JSON_UNESCAPED_UNICODE);
+                        $redis->set($rk, $json, ['nx', 'ex' => 3600]);
+                        $redis->rPush($qkey, (string)$uid);
+                        $order[] = $item;
                     }
-                    $redis->setex(
-                        self::rkey(self::cacheName('winpay:' . $uid)),
-                        3600,
-                        json_encode($item['pay'], JSON_UNESCAPED_UNICODE)
-                    );
-                    $redis->rPush($qkey, (string)$uid);
+                    $raw = $redis->exec();
+                    $j = 0;
+                    foreach ($order as $item) {
+                        $setOk = $raw[$j] ?? false;
+                        $j += 2;
+                        if (!$setOk) {
+                            $mergeLater[] = $item;
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    $mergeLater = $chunk;
                 }
-                $redis->exec();
-            } catch (\Throwable $e) {
-                foreach ($chunk as $item) {
-                    $uid = (int)($item['uid'] ?? 0);
-                    if ($uid <= 0 || empty($item['pay'])) {
-                        continue;
+            } else {
+                $mergeLater = $chunk;
+            }
+            foreach ($mergeLater as $item) {
+                $uid = (int)($item['uid'] ?? 0);
+                if ($uid <= 0 || empty($item['pay']) || !is_array($item['pay'])) {
+                    continue;
+                }
+                $name = self::cacheName('winpay:' . $uid);
+                $old = self::getJson($name);
+                self::setJson($name, self::mergeWinPay($old, $item['pay']), 3600);
+                if ($redis) {
+                    try {
+                        $redis->rPush($qkey, (string)$uid);
+                    } catch (\Throwable $e) {
                     }
-                    Cache::set(self::cacheName('winpay:' . $uid), $item['pay'], 3600);
                 }
             }
         }
-        try {
-            $redis->expire($qkey, 3600);
-        } catch (\Throwable $e) {
+        if ($redis) {
+            try {
+                $redis->expire($qkey, 3600);
+            } catch (\Throwable $e) {
+            }
         }
+    }
+
+    protected static function mergeWinPay($old, array $pay)
+    {
+        if (!is_array($old) || (!isset($old['amount']) && empty($old['batch']))) {
+            return $pay;
+        }
+        $batch = [];
+        if (!empty($old['batch']) && is_array($old['batch'])) {
+            $batch = $old['batch'];
+        } else {
+            $batch[] = $old;
+        }
+        $batch[] = $pay;
+        return [
+            'batch'       => $batch,
+            'round_index' => (int)($pay['round_index'] ?? ($old['round_index'] ?? 0)),
+            'amount'      => 1,
+        ];
     }
 
     /**

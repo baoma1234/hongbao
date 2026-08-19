@@ -19,11 +19,20 @@ class FansHubYxxGroup
         if ($groupId <= 0 || $uid <= 0) {
             throw new \RuntimeException(FansHubService::h5CopyText('yxx_err_login') ?: '请先登录');
         }
+        $ck = 'fh:yxx:mem:' . $groupId . ':' . $uid;
+        $hit = \think\Cache::get($ck);
+        if ($hit === 1) {
+            return ['group_id' => $groupId, 'user_id' => $uid, 'status' => 1];
+        }
+        if ($hit === 0) {
+            throw new \RuntimeException(FansHubService::h5CopyText('yxx_err_not_member') ?: '你不在该群');
+        }
         $mem = Db::name('chat_group_members')
             ->where('group_id', $groupId)
             ->where('user_id', $uid)
             ->where('status', 1)
             ->find();
+        \think\Cache::set($ck, $mem ? 1 : 0, 45);
         if (!$mem) {
             throw new \RuntimeException(FansHubService::h5CopyText('yxx_err_not_member') ?: '你不在该群');
         }
@@ -78,6 +87,19 @@ class FansHubYxxGroup
 
     public static function isOpen($groupId)
     {
+        $groupId = (int)$groupId;
+        if ($groupId <= 0) {
+            return false;
+        }
+        $redis = FansHubYxxStore::redis();
+        if ($redis) {
+            try {
+                if ($redis->sIsMember(FansHubYxxStore::rkey(self::OPEN_SET), (string)$groupId)) {
+                    return true;
+                }
+            } catch (\Throwable $e) {
+            }
+        }
         $row = self::row($groupId);
         return $row && !empty($row['is_open']);
     }

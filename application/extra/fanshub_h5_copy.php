@@ -1069,6 +1069,7 @@ return array (
   'yxx_rain_sealed' => '红包雨来了，点红包领取',
   'yxx_rain_missed' => '来晚了，红包已过期',
   'yxx_err_fast' => '操作太快，请稍后再试',
+  'yxx_err_busy' => '大厅繁忙，请稍后再试',
   'yxx_err_login' => '请先登录',
   'yxx_err_closed' => '鱼虾蟹暂未开放',
   'yxx_err_sealed' => '已封盘',

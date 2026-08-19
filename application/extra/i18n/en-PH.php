@@ -1066,4 +1066,5 @@ Retail DeskHarvester exercised 15 shares on Channel 1 and got ₱75.00 credited 
   'yxx_rain_sealed' => 'Lucky rain! Tap a red packet to claim',
   'yxx_rain_missed' => 'Too late — this rain expired',
   'yxx_err_fast' => 'Too fast, try again',
+  'yxx_err_busy' => 'Hall busy, try again',
 );

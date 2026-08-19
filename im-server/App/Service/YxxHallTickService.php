@@ -16,7 +16,7 @@ class YxxHallTickService
         $ctx = stream_context_create([
             'http' => [
                 'method'        => 'GET',
-                'timeout'       => 8,
+                'timeout'       => 18,
                 'ignore_errors' => true,
                 'header'        => "X-Fanshub-Locale: zh-CN\r\n",
             ],
