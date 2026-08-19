@@ -215,9 +215,9 @@ class FansHubWallet
         if ($beforeId > 0) {
             $rowsQuery->where('id', '<', $beforeId);
             $rows = $rowsQuery
-                ->order('id', 'desc')
+            ->order('id', 'desc')
                 ->limit($limit + 1)
-                ->select();
+            ->select();
         } else {
             $rows = $rowsQuery
                 ->order('id', 'desc')
@@ -408,24 +408,24 @@ class FansHubWallet
                 $partMap[$pid] = count($partitions) - 1;
             }
 
-            $rows = Db::name('fans_pay_channel')
-                ->where(['type' => $type, 'status' => 'normal'])
-                ->order('weigh desc,id desc')
-                ->select();
-            $list = [];
-            foreach ($rows as $row) {
-                $icon = trim((string)($row['icon'] ?? ''));
-                if ($icon === '') {
+        $rows = Db::name('fans_pay_channel')
+            ->where(['type' => $type, 'status' => 'normal'])
+            ->order('weigh desc,id desc')
+            ->select();
+        $list = [];
+        foreach ($rows as $row) {
+            $icon = trim((string)($row['icon'] ?? ''));
+            if ($icon === '') {
                     // 无图标时用默认图，避免通道从自助/钱包分区「消失」
                     $icon = '/assets/img/wallets/default-wallet.png';
+            }
+            if (!preg_match('#^(https?:)?//#i', $icon) && !preg_match('#^data:#i', $icon)) {
+                if ($icon[0] !== '/') {
+                    $icon = '/' . ltrim($icon, '/');
                 }
-                if (!preg_match('#^(https?:)?//#i', $icon) && !preg_match('#^data:#i', $icon)) {
-                    if ($icon[0] !== '/') {
-                        $icon = '/' . ltrim($icon, '/');
-                    }
-                } else {
-                    $icon = cdnurl($icon, true);
-                }
+            } else {
+                $icon = cdnurl($icon, true);
+            }
                 $cfg = self::decodeConfig($row['config'] ?? '');
                 $payChannel = trim((string)($row['pay_channel'] ?? $cfg['payment_channel'] ?? $cfg['pay_channel'] ?? ''));
                 $pid = (int)($row['partition_id'] ?? 0);
@@ -1317,7 +1317,7 @@ class FansHubWallet
         $remark = (string)($order['remark'] ?? '');
         foreach (['wanhuipay:', 'bs submitted', 'bs remit', 'jiuyuan:', 'jiuyuan submitted', 'merchant submitted', '代付已提交'] as $needle) {
             if ($needle !== '' && stripos($remark, $needle) !== false) {
-                return true;
+        return true;
             }
         }
         return false;

@@ -182,7 +182,7 @@ class RedPacketService
                     $agentRate = round((float)($this->cfg['user_rp_agent_rebate_rate_vip']
                         ?? $this->cfg['agent_rebate_rate_vip'] ?? 0.01), 4);
                 } else {
-                    $agentRate = round((float)($this->cfg['agent_rebate_rate_vip'] ?? 0.01), 4);
+                $agentRate = round((float)($this->cfg['agent_rebate_rate_vip'] ?? 0.01), 4);
                 }
             }
             $grpRate = round((float)($group['rp_agent_rebate_rate'] ?? 0), 4);
@@ -447,7 +447,7 @@ class RedPacketService
         }
         if ($scopeType === 2) {
             try {
-                $msg = $this->messages->sendGroup($fromUserId, $groupId, '[红包]' . $blessing, 2, $extra);
+            $msg = $this->messages->sendGroup($fromUserId, $groupId, '[红包]' . $blessing, 2, $extra);
             } catch (\Throwable $eMsg) {
                 // 扣款已提交：绝不能因发言限制导致无卡片；再强制落一条红包消息
                 error_log('[RP_SEND] sendGroup fail after debit packet=' . $packetId . ' ' . $eMsg->getMessage());
@@ -1004,29 +1004,29 @@ class RedPacketService
             $minCount = max(1, (int)($this->cfg['user_rp_min_count'] ?? 1));
             $maxCount = max($minCount, (int)($this->cfg['user_rp_max_count'] ?? 500));
         } else {
-            $minCount = (int)($group['rp_min_count'] ?? 0);
-            $maxCount = (int)($group['rp_max_count'] ?? 0);
-            if ($minCount <= 0) {
+        $minCount = (int)($group['rp_min_count'] ?? 0);
+        $maxCount = (int)($group['rp_max_count'] ?? 0);
+        if ($minCount <= 0) {
                 if ($isRelay) {
                     $minCount = $isVip
                         ? (int)($this->cfg['relay_vip_min_count'] ?? $this->cfg['vip_min_count'] ?? 5)
                         : (int)($this->cfg['relay_min_count'] ?? $this->cfg['min_count'] ?? 5);
                 } else {
-                    $minCount = $isVip
-                        ? (int)($this->cfg['vip_min_count'] ?? 5)
-                        : (int)($this->cfg['min_count'] ?? 5);
+            $minCount = $isVip
+                ? (int)($this->cfg['vip_min_count'] ?? 5)
+                : (int)($this->cfg['min_count'] ?? 5);
                 }
-            }
-            if ($maxCount <= 0) {
+        }
+        if ($maxCount <= 0) {
                 if ($isRelay) {
                     $maxCount = $isVip
                         ? (int)($this->cfg['relay_vip_max_count'] ?? $this->cfg['vip_max_count'] ?? 10)
                         : (int)($this->cfg['relay_max_count'] ?? $this->cfg['max_count'] ?? 10);
                 } else {
-                    $maxCount = $isVip
-                        ? (int)($this->cfg['vip_max_count'] ?? 10)
-                        : (int)($this->cfg['max_count'] ?? 10);
-                }
+            $maxCount = $isVip
+                ? (int)($this->cfg['vip_max_count'] ?? 10)
+                : (int)($this->cfg['max_count'] ?? 10);
+        }
             }
         }
         if ($minCount < 1) {
@@ -1215,9 +1215,9 @@ class RedPacketService
         $packet = $this->packetMetaForGrab($packetId);
         $fromRedisMeta = $packet !== null;
         if (!$packet) {
-            $packet = Db::fetch('SELECT * FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1', [$packetId]);
-            if (!$packet) {
-                throw new \RuntimeException('packet not found');
+        $packet = Db::fetch('SELECT * FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1', [$packetId]);
+        if (!$packet) {
+            throw new \RuntimeException('packet not found');
             }
         }
         if ((int)$packet['scope_type'] === 2) {
@@ -1277,24 +1277,24 @@ class RedPacketService
                     }
                     $bal = $this->wallet->getBalance($userId, true);
                     if ($minGate > 0 && $bal <= $minGate + 0.00001) {
-                        error_log(sprintf(
+                error_log(sprintf(
                             '[RP_GRAB][ERROR] mine min gate reject user=%d packet_id=%d bal=%.2f need_gt=%.2f',
-                            $userId,
-                            $packetId,
+                    $userId,
+                    $packetId,
                             $bal,
                             $minGate
                         ));
                         throw new \RuntimeException('balance_below_mine_min');
                     }
-                }
-                error_log(sprintf(
+            }
+            error_log(sprintf(
                     '[RP_GRAB][ERROR] balance gate reject user=%d packet_id=%d packet_no=%s need=%.2f type=%d',
-                    $userId,
-                    $packetId,
+                $userId,
+                $packetId,
                     $packetNo,
                     $needCompensate,
                     $packetType
-                ));
+            ));
                 throw new \RuntimeException('balance_not_enough_for_compensate:' . sprintf('%.2f', $needCompensate));
             }
         }
@@ -1305,7 +1305,7 @@ class RedPacketService
 
         // 若 Redis 队列丢失但库仍可抢，尝试按剩余均分补种（兜底）
         if (!$fromRedisMeta) {
-            $this->ensureRedisSeeded($packet, $queueKey, $metaKey);
+        $this->ensureRedisSeeded($packet, $queueKey, $metaKey);
         }
 
         // ---------- 关键节点：Redis 原子弹队列（Lua LPOP + SADD，防并发超发）----------
@@ -1439,7 +1439,7 @@ class RedPacketService
                 $walletAvail = (float)($walletCombo['after'] ?? 0);
                 $walletFrozen = (float)($walletCombo['frozen_after'] ?? 0);
                 if ($recordId > 0) {
-                    Db::exec(
+            Db::exec(
                         'UPDATE ' . Db::table('chat_red_packet_records')
                         . ' SET frozen_amount=?, freeze_status=1 WHERE id=?',
                         [sprintf('%.2f', $frozenAmt), $recordId]
@@ -1447,9 +1447,9 @@ class RedPacketService
                 }
             } else {
                 $walletChange = $this->wallet->change(
-                    $userId,
-                    $amount,
-                    'red_packet_grab',
+                $userId,
+                $amount,
+                'red_packet_grab',
                     $grabRemark,
                     $bizMeta
                 );
@@ -1528,7 +1528,7 @@ class RedPacketService
             // 普通/专属：无赔付结算，直接标最佳并落 status=5，避免永久占 status=2 堵 cron
             if (in_array($packetType, [1, 4], true)) {
                 try {
-                    $this->markBestLuck($packetId);
+                $this->markBestLuck($packetId);
                 } catch (\Throwable $eBest) {
             CatchLog::quiet($eBest, 'Service.RedPacketService');
         }
@@ -2081,14 +2081,14 @@ class RedPacketService
                     $this->releaseRelayClaim($packetId);
                     $this->markRelayRetry($packetId, 'balance_not_enough_after_unfreeze');
                     return null;
-                }
-                $result = $this->send([
+            }
+            $result = $this->send([
                     'from_user_id' => $senderUid,
-                    'scope_type'   => 2,
-                    'group_id'     => $groupId,
+                'scope_type'   => 2,
+                'group_id'     => $groupId,
                     'packet_type'  => 5,
-                    'total_amount' => $amount,
-                    'total_count'  => $count,
+                'total_amount' => $amount,
+                'total_count'  => $count,
                     'blessing'     => (string)(($packet['blessing'] ?? '') !== '' ? $packet['blessing'] : '红宝接龙'),
                     'robot_send'   => true,
                     'trusted_robot'=> true,
@@ -2111,9 +2111,9 @@ class RedPacketService
                 } catch (\Throwable $eDel) {
             CatchLog::quiet($eDel, 'Service.RedPacketService');
         }
-                $msg = $result['message'] ?? null;
-                if (is_array($msg)) {
-                    try {
+            $msg = $result['message'] ?? null;
+            if (is_array($msg)) {
+                try {
                         // cron/无 localDeliver 时 toGroup 走 toGroupExternal；WS 进程则本机+跨进程
                         \Im\Support\PushBus::toGroup($groupId, 'group.message', ['message' => $msg]);
                         \Im\Support\PushBus::toGroup($groupId, 'redpacket.relay_next', [
@@ -2123,22 +2123,22 @@ class RedPacketService
                             'from_user_id' => $senderUid,
                             'relay_auto' => 1,
                         ]);
-                    } catch (\Throwable $e) {
+                } catch (\Throwable $e) {
                         error_log('[RP_RELAY] push fail group=' . $groupId . ' ' . $e->getMessage());
-                    }
+                }
                 } else {
                     error_log('[RP_RELAY] next round sent but message empty group=' . $groupId . ' from_packet=' . $packetId);
-                }
-                error_log(sprintf(
+            }
+            error_log(sprintf(
                     '[RP_RELAY] next round sent group=%d amount=%.2f count=%d worst_sender=%d from_packet=%d',
-                    $groupId,
-                    $amount,
-                    $count,
+                $groupId,
+                $amount,
+                $count,
                     $senderUid,
                     $packetId
-                ));
-                return is_array($msg) ? $msg : null;
-            } catch (\Throwable $e) {
+            ));
+            return is_array($msg) ? $msg : null;
+        } catch (\Throwable $e) {
                 error_log('[RP_RELAY][ALERT] next round fail group=' . $groupId . ' packet=' . $packetId . ' err=' . $e->getMessage());
                 try {
                     $this->reclaimRelayFreeze($senderUid, $unfrozeAmt, $worstRecId, $packet, $packetId);
@@ -2147,8 +2147,8 @@ class RedPacketService
         }
                 $this->releaseRelayClaim($packetId);
                 $this->markRelayRetry($packetId, 'send_fail:' . $e->getMessage());
-                return null;
-            }
+            return null;
+        }
         };
 
         // 延迟 1～2.5 秒续发（提速）；失败由 cron 重试；认领防双发
@@ -3381,7 +3381,7 @@ class RedPacketService
                 } elseif ($ptype === 4) {
                     $cents = $this->splitLucky($remainCent, $remainCount, $minCent);
                 } else {
-                    $cents = $this->splitEqual($remainCent, $remainCount, $minCent);
+                $cents = $this->splitEqual($remainCent, $remainCount, $minCent);
                 }
                 $expireAt = (int)$packet['expiretime'];
                 // 关键：补种不得清空 grabbed，否则已领用户可再抢造成超发压力
@@ -3403,7 +3403,7 @@ class RedPacketService
                     $r->del($lockKey);
                 } catch (\Throwable $e) {
             CatchLog::quiet($e, 'Service.RedPacketService');
-        }
+                }
             }
         } catch (\Throwable $e) {
             CatchLog::quiet($e, 'Service.RedPacketService');

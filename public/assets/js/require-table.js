@@ -10,7 +10,7 @@ define(['jquery', 'bootstrap', 'moment', 'moment/locale/zh-cn', 'bootstrap-table
             search: true, //是否启用快速搜索
             cache: false,
             commonSearch: true, //是否启用通用搜索
-            searchFormVisible: false, //是否始终显示搜索表单
+            searchFormVisible: true, //是否始终显示搜索表单
             titleForm: '', //为空则不显示标题，不定义默认显示：普通搜索
             idTable: 'commonTable',
             showExport: true,

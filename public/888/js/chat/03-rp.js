@@ -624,7 +624,7 @@
             'error'
           );
         }
-        return;
+      return;
       }
     }
     if (packetType === 3 && (mineDigit < 0 || mineDigit > 9 || isNaN(mineDigit))) {

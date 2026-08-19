@@ -605,12 +605,11 @@ class Fanshub extends Api
     public function share()
     {
         try {
-            if ($this->request->post('copy_only')) {
-                $this->success('ok', FansHubService::buildSharePayload($this->auth->id));
-                return;
-            }
-            $data = FansHubService::shareReward($this->auth->id);
-            $this->success($data['message'] ?: FansHubService::h5CopyText('alert_share_reward_ok'), $data);
+            // 兼容旧版 App：无论是否传 copy_only，都只返回分享文案，不再发放股份奖励
+            $data = FansHubService::buildSharePayload($this->auth->id);
+            $data['rewarded'] = false;
+            $data['message'] = '成功分享群并邀请好友送股份';
+            $this->success('ok', $data);
         } catch (HttpResponseException $e) {
             throw $e;
         } catch (\Throwable $e) {

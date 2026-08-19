@@ -4116,65 +4116,6 @@ class FansHubService
         ];
     }
 
-    public static function shareReward($userId)
-    {
-        $payload = self::buildSharePayload($userId);
-        // 防止并发连点导致重复加股份
-        $shareLockKey = 'fanshub_share_click_lock_' . (int)$userId;
-        if (\think\Cache::get($shareLockKey)) {
-            $payload['message'] = self::h5CopyText('alert_share_copied');
-            return $payload;
-        }
-        \think\Cache::set($shareLockKey, 1, 3);
-        try {
-
-            // 紧急兜底：即使配置写成 0，也至少保留 60 秒冷却，避免被连点刷份数
-            $cooldown = max(60, (int)self::config('share_cooldown_seconds', 300));
-            $dailyMax = (int)self::config('share_daily_max', 20);
-            $todayStart = strtotime(date('Y-m-d 00:00:00'));
-            $todayCount = Ledger::where('user_id', $userId)
-                ->where('type', 'share')
-                ->where('remark', '分享裂变奖励')
-                ->where('createtime', '>=', $todayStart)
-                ->count();
-            $lastShare = Ledger::where('user_id', $userId)
-                ->where('type', 'share')
-                ->where('remark', '分享裂变奖励')
-                ->order('id', 'desc')
-                ->find();
-
-            if ($dailyMax > 0 && $todayCount >= $dailyMax) {
-                $payload['message'] = self::h5CopyText('alert_share_daily_limit');
-                return $payload;
-            }
-            if ($lastShare && $cooldown > 0 && (time() - $lastShare->createtime) < $cooldown) {
-                $wait = $cooldown - (time() - $lastShare->createtime);
-                if ($wait <= 60) {
-                    $payload['message'] = self::h5CopyText('alert_share_cooldown_wait_sec', [
-                        'seconds' => max(1, (int)$wait),
-                    ]);
-                } else {
-                    $payload['message'] = self::h5CopyText('alert_share_cooldown_wait', [
-                        'minutes' => max(1, (int)ceil($wait / 60)),
-                    ]);
-                }
-                return $payload;
-            }
-
-            $rights = (float)self::config('share_rights', 1);
-            self::changeAssets($userId, $rights, 0, 'share', '分享裂变奖励');
-            self::recordTask($userId, 'share', $rights, 0, '', 'share_click');
-            $payload['profile'] = self::profilePayload($userId);
-            $payload['rewarded'] = true;
-            $payload['message'] = self::h5CopyText('alert_share_reward_ok', [
-                'rights' => rtrim(rtrim(number_format($rights, 2, '.', ''), '0'), '.') ?: '0',
-            ]);
-            return $payload;
-        } finally {
-            \think\Cache::rm($shareLockKey);
-        }
-    }
-
     public static function createSecret($userId, $requestKey = '')
     {
         self::assertIdempotent($userId, 'createsecret', $requestKey, true);
