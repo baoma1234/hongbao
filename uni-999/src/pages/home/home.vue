@@ -68,8 +68,8 @@
             <view class="share-promo-glow" />
             <view class="share-promo-inner single-line">
               <text class="share-promo-text">{{ t('share_promo_btn') || '📢 邀请 1 人开户 ➡️ 额外送 1 份股 (多邀多得)' }}</text>
-              <button type="button" class="btn-share-action" @click.stop="copyShareLink">
-                {{ t('share_promo_action_btn') || '点击立即分享' }}
+              <button type="button" class="btn-share-action" :disabled="shareSubmitting" @click.stop="copyShareLink">
+                {{ shareSubmitting ? (t('api_loading') || '处理中...') : (t('share_promo_action_btn') || '点击立即分享') }}
               </button>
             </view>
           </view>
@@ -285,6 +285,7 @@ const secretLockSeconds = ref(900)
 const appDownloadUrl = ref('')
 const mainStationUrl = ref('https://555.bio')
 const lotteryRef = ref(null)
+const shareSubmitting = ref(false)
 const fissionEntry = ref(null)
 const fissionPopupOpen = ref(false)
 const fissionPopupRemainSec = ref(0)
@@ -972,6 +973,8 @@ function stopPoll() {
 }
 
 async function copyShareLink() {
+  if (shareSubmitting.value) return
+  shareSubmitting.value = true
   try {
     const data = await apiRequest('share', 'POST', {})
     if (data && data.profile) {
@@ -995,6 +998,8 @@ async function copyShareLink() {
     })
   } catch (e) {
     uni.showToast({ title: e.message || t('alert_share_fail') || '分享失败', icon: 'none' })
+  } finally {
+    shareSubmitting.value = false
   }
 }
 
