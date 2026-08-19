@@ -225,7 +225,7 @@ class WithdrawUrge
             $createApplyDiff = (int)floor(($applyTime - $createTime) / 60);
         }
 
-        $title = $isNew ? '🆕 新订单待处理提醒' : "⏰ 提现催单提醒（第{$urgeNum}次）";
+        $title = $isNew ? '您有新的提现订单等待处理' : "⏰ 提现催单提醒（第{$urgeNum}次）";
         $text = $title . "\n"
             . "━━━━━━━━━━━━━━\n"
             . "📋 订单号：01{$order['order_no']}\n"

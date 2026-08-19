@@ -15,7 +15,21 @@ require $root . '/thinkphp/base.php';
 use app\common\library\OssService;
 
 $dir = $root . '/uni-999/src/static/yxx';
-$names = ['bowl.png', 'gourd.png', 'crab.png', 'shrimp.png', 'fish.png', 'rooster.png', 'tiger.png'];
+$files = [
+    ['local' => $dir . '/bowl.png', 'key' => '999/static/yxx/bowl.png'],
+    ['local' => $dir . '/gourd.png', 'key' => '999/static/yxx/gourd.png'],
+    ['local' => $dir . '/crab.png', 'key' => '999/static/yxx/crab.png'],
+    ['local' => $dir . '/shrimp.png', 'key' => '999/static/yxx/shrimp.png'],
+    ['local' => $dir . '/fish.png', 'key' => '999/static/yxx/fish.png'],
+    ['local' => $dir . '/rooster.png', 'key' => '999/static/yxx/rooster.png'],
+    ['local' => $dir . '/tiger.png', 'key' => '999/static/yxx/tiger.png'],
+];
+for ($i = 1; $i <= 12; $i++) {
+    $files[] = [
+        'local' => $dir . '/dice/' . $i . '.png',
+        'key'   => '999/static/yxx/dice/' . $i . '.png',
+    ];
+}
 
 if (!OssService::enabled()) {
     fwrite(STDERR, "OSS disabled\n");
@@ -24,14 +38,14 @@ if (!OssService::enabled()) {
 
 $base = rtrim(OssService::publicBase(), '/');
 $okAll = true;
-foreach ($names as $name) {
-    $local = $dir . '/' . $name;
+foreach ($files as $item) {
+    $local = (string)$item['local'];
     if (!is_file($local)) {
         fwrite(STDERR, "missing $local\n");
         $okAll = false;
         continue;
     }
-    $key = '999/static/yxx/' . $name;
+    $key = (string)$item['key'];
     $ok = OssService::putLocalFile($local, $key);
     $url = $base . '/' . $key;
     echo ($ok ? 'OK' : 'FAIL') . " $url\n";

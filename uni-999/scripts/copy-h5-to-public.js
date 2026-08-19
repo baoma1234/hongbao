@@ -43,7 +43,7 @@ function ensureAppleTouchIcon(htmlPath) {
   if (html.indexOf('rel="apple-touch-icon"') >= 0) return
   const tags =
     '\n    <meta name="apple-mobile-web-app-capable" content="yes" />\n' +
-    '    <meta name="apple-mobile-web-app-title" content="抢红包" />\n' +
+    '    <meta name="apple-mobile-web-app-title" content="抢红宝" />\n' +
     '    <link rel="apple-touch-icon" sizes="180x180" href="' +
     APPLE_TOUCH_ICON +
     '" />\n' +

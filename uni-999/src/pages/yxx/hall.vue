@@ -12,6 +12,7 @@
       </view>
       <view class="yxx-h-side yxx-h-right">
         <view class="yxx-rules-btn" hover-class="yxx-hit" @click="openVerify">{{ t('yxx_verify') }}</view>
+        <view class="yxx-rules-btn" hover-class="yxx-hit" @click="historyOpen = true">历史</view>
         <view class="yxx-rules-btn" hover-class="yxx-hit" @click="rulesOpen = true">{{ t('yxx_rules') }}</view>
       </view>
     </view>
@@ -87,7 +88,7 @@
       </view>
 
       <view class="yxx-feed">
-        <text class="yxx-hist" @click="openVerify">{{ historyLine }}</text>
+        <text class="yxx-hist" @click="historyOpen = true">{{ historyLine }}</text>
         <view class="yxx-feed-list">
           <view class="yxx-feed-col">
             <view v-for="(row, i) in feedLeft" :key="'l' + i" class="yxx-feed-item">
@@ -152,6 +153,19 @@
         <view class="yxx-sheet-ok" @click="rulesOpen = false">{{ t('yxx_rules_ok') }}</view>
       </view>
     </view>
+    <view v-if="historyOpen" class="yxx-mask" @click="historyOpen = false">
+      <view class="yxx-sheet" :style="sheetStyle" @click.stop>
+        <text class="yxx-sheet-t">历史记录</text>
+        <scroll-view scroll-y class="yxx-sheet-body">
+          <text v-if="!historyRows.length" class="yxx-sheet-p">{{ t('yxx_hist_wait') }}</text>
+          <view v-for="(r, i) in historyRows" :key="'h' + i" class="yxx-hrow">
+            <text class="yxx-hrow-r">第{{ Number(r.round_index || 0) }}期</text>
+            <text class="yxx-hrow-d">{{ ((r.dice || []).map((id) => faceLabel(id)).filter(Boolean).join(' ') || '—') }}</text>
+          </view>
+        </scroll-view>
+        <view class="yxx-sheet-ok" @click="historyOpen = false">知道了</view>
+      </view>
+    </view>
 
     <view v-if="rainOpen && !groupId" class="yxx-mask yxx-rain-mask" @click.stop>
       <view class="yxx-rain-fall">
@@ -179,12 +193,18 @@ import { computed, onUnmounted, ref } from 'vue'
 import { onHide, onLoad, onResize, onShow } from '@dcloudio/uni-app'
 import { apiRequest, getToken } from '../../utils/auth.js'
 import { localeState, t } from '../../utils/i18n.js'
-import { packagedStaticUrl } from '../../utils/config.js'
+import { getUploadsBase, packagedStaticUrl } from '../../utils/config.js'
 import { applySafeAreaCssVars, getSafeAreaInsets } from '../../utils/safe-area.js'
 
 const FACE_IDS = ['gourd', 'crab', 'shrimp', 'fish', 'rooster', 'tiger']
 function faceSrc(id) {
   return packagedStaticUrl('yxx/' + id + '.png') + '?v=2'
+}
+function yxxStaticUrl(rel) {
+  const p = String(rel || '').replace(/^\/+/, '')
+  const oss = String(getUploadsBase() || '').replace(/\/+$/, '')
+  if (oss) return oss + '/999/static/' + p
+  return packagedStaticUrl(p)
 }
 // 12 张“带朝向的筛子快照”：根据 dice-row 位置 + face id 取不同编号
 function diceSnapshotSrc(pos, id) {
@@ -208,7 +228,7 @@ function diceSnapshotSrc(pos, id) {
   const m = pos === 0 ? odd : even
   const n = m[k]
   if (!n) return ''
-  return packagedStaticUrl('yxx/dice/' + n + '.png')
+  return yxxStaticUrl('yxx/dice/' + n + '.png') + '?v=1'
 }
 const bowlSrc = packagedStaticUrl('yxx/bowl.png') + '?v=2'
 const locale = localeState()
@@ -236,6 +256,7 @@ const myFaces = ref([])
 const myUnit = ref(0)
 const myStake = ref(0)
 const rulesOpen = ref(false)
+const historyOpen = ref(false)
 const betting = ref(false)
 const diceShow = ref(['', '', ''])
 const historyRows = ref([])
@@ -1355,6 +1376,24 @@ onUnmounted(() => {
   line-height: 1.55;
   color: #f6e6c8;
   margin-bottom: 8px;
+}
+.yxx-hrow {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.yxx-hrow-r {
+  color: #ffe6a3;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.yxx-hrow-d {
+  color: #fff4d4;
+  font-size: 12px;
+  flex: 1;
+  text-align: right;
 }
 .yxx-sheet-ok {
   margin-top: 8px;
