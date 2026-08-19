@@ -201,7 +201,7 @@ return array (
     'user_rank_master' => '🎖️ 荣誉团长 · 已邀{count}人',
     'balance_progress_ready' => '✓ 已达提现门槛，可立即提现',
     'balance_progress_pct' => '已达提现门槛的 {pct}%',
-    'share_promo_btn' => '📢 免费裂变吸筹：发群获得 3~99 份盲盒权益 (管道抽水)',
+    'share_promo_btn' => '📢 免费裂变吸筹：每邀请一人即送一份',
     'share_promo_action_btn' => '点击立即分享',
     'asset_valuation_hint' => '(💡当前估值:￥{amount} 元 )',
     'lottery_eyebrow' => '红宝 · VIP 入厅礼',
