@@ -1029,7 +1029,8 @@ onUnmounted(() => {
   width: 108px;
   height: 72px;
   position: relative;
-  z-index: 1;
+  /* 默认：盖住骰子区域（开奖前） */
+  z-index: 2;
   transform: translate(0, 28px) rotate(0deg);
   transition: transform 0.45s ease;
 }
@@ -1045,7 +1046,13 @@ onUnmounted(() => {
   border-radius: 50%;
   background: radial-gradient(circle, rgba(180, 30, 30, 0.55), transparent 70%);
   position: relative;
-  z-index: 2;
+  /* 默认：在 bowl 下方 */
+  z-index: 1;
+}
+
+/* 开奖时：让摇色子区域露出来（在 bowl 上方） */
+.yxx-reveal.open .yxx-dice-row {
+  z-index: 3;
 }
 .yxx-die {
   width: 52px;
