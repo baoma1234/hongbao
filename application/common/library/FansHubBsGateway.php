@@ -356,7 +356,7 @@ class FansHubBsGateway
 
     public static function buildSignString(array $params)
     {
-        unset($params['sign']);
+        unset($params['sign'], $params['channel_id'], $params['s']);
         $out = [];
         foreach ($params as $k => $v) {
             if ($k === 'signType') {

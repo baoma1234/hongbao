@@ -309,7 +309,7 @@ class FansHubWanhuitongGateway
      */
     public static function buildSignString(array $params)
     {
-        unset($params['sign']);
+        unset($params['sign'], $params['channel_id'], $params['s']);
         foreach ($params as $k => $v) {
             if (is_array($v) || is_object($v)) {
                 $params[$k] = json_encode($v, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -1391,6 +1391,8 @@ class FansHubWanhuitongGateway
             $params = array_merge($params['data'], $params);
             unset($params['data']);
         }
+        // URL 路由参数不得参与验签
+        unset($params['channel_id'], $params['s']);
         return $params;
     }
 

@@ -43,7 +43,10 @@ class Pay extends Api
     public function withdrawverify()
     {
         $channelId = (int)$this->request->param('channel_id', 0);
-        $params = array_merge($this->request->get(), $this->request->post());
+        $params = $this->request->post();
+        if (!is_array($params)) {
+            $params = [];
+        }
         $raw = $this->request->getContent();
         if (is_string($raw) && $raw !== '') {
             $json = json_decode($raw, true);
@@ -51,6 +54,15 @@ class Pay extends Api
                 $params = array_merge($params, $json);
             }
         }
+        foreach ($this->request->get() as $k => $v) {
+            if ($k === 'channel_id' || $k === 's') {
+                continue;
+            }
+            if (!array_key_exists($k, $params)) {
+                $params[$k] = $v;
+            }
+        }
+        unset($params['channel_id'], $params['s']);
         $clientIp = (string)$this->request->ip();
         $row = \think\Db::name('fans_pay_channel')->where('id', $channelId)->find();
         $handler = $row ? (string)$row['handler'] : '';
@@ -147,7 +159,11 @@ class Pay extends Api
     protected function handleNotify($type)
     {
         $channelId = (int)$this->request->param('channel_id', 0);
-        $params = array_merge($this->request->get(), $this->request->post());
+        // 只取 POST / JSON body 参与验签；URL 上的 channel_id 仅用于路由，切勿并入签名串
+        $params = $this->request->post();
+        if (!is_array($params)) {
+            $params = [];
+        }
         $raw = $this->request->getContent();
         if (is_string($raw) && $raw !== '') {
             $json = json_decode($raw, true);
@@ -155,6 +171,16 @@ class Pay extends Api
                 $params = array_merge($params, $json);
             }
         }
+        // 兼容少数网关用 query 传业务字段，但仍剔除路由参数
+        foreach ($this->request->get() as $k => $v) {
+            if ($k === 'channel_id' || $k === 's') {
+                continue;
+            }
+            if (!array_key_exists($k, $params)) {
+                $params[$k] = $v;
+            }
+        }
+        unset($params['channel_id'], $params['s']);
         $scene = $type === 'withdraw' ? FansHubPayCurlLog::SCENE_WITHDRAW : FansHubPayCurlLog::SCENE_RECHARGE;
         $clientIp = (string)$this->request->ip();
         $handler = '';
