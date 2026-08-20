@@ -528,13 +528,13 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
     }
 
     function avatarHtml(m, mine) {
-        var label = String((m && (m.from_label || m.from_user_id)) || '?');
-        var short = label.replace(/^ID/i, '').slice(0, 2);
         var av = m && (m.from_avatar || m.avatar || '');
+        var label = String((m && (m.from_label || m.from_user_id)) || '?');
+        var short = label.replace(/^ID/i, '').replace(/\(ID\d+\)/g, '').trim().slice(0, 1) || (mine ? '我' : '客');
         if (av) {
-            return '<div class="im-avatar"><img src="' + esc(av) + '" alt=""></div>';
+            return '<div class="im-avatar"><img src="' + esc(av) + '" alt="" onerror="this.style.display=\'none\';this.parentNode.textContent=\'' + esc(short).replace(/'/g, '') + '\';"></div>';
         }
-        return '<div class="im-avatar">' + esc(short || (mine ? '我' : '客')) + '</div>';
+        return '<div class="im-avatar">' + esc(short) + '</div>';
     }
 
     function renderConvList(list) {

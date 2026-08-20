@@ -656,6 +656,7 @@ class Imagent extends Backend
             'createtime'        => (int)$r['createtime'],
             'createtime_text'   => !empty($r['createtime']) ? date('Y-m-d H:i:s', (int)$r['createtime']) : '',
             'from_label'        => $this->userLabel($users, (int)$r['from_user_id']),
+            'from_avatar'       => $this->userAvatar($users, (int)$r['from_user_id']),
         ];
     }
 
@@ -665,7 +666,7 @@ class Imagent extends Backend
         if (!$ids) {
             return [];
         }
-        $rows = Db::name('user')->where('id', 'in', $ids)->field('id,nickname,username,mobile')->select();
+        $rows = Db::name('user')->where('id', 'in', $ids)->field('id,nickname,username,mobile,avatar')->select();
         $map = [];
         foreach ($rows ?: [] as $row) {
             $map[(int)$row['id']] = $row;
@@ -693,6 +694,36 @@ class Imagent extends Backend
             return $mask . '(ID' . $uid . ')';
         }
         return 'ID' . $uid;
+    }
+
+    protected function userAvatar(array $users, $uid)
+    {
+        $uid = (int)$uid;
+        $default = 'https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/brand/default-avatar.png';
+        if ($uid <= 0) {
+            return $default;
+        }
+        $u = $users[$uid] ?? null;
+        $avatar = trim((string)($u['avatar'] ?? ''));
+        if ($avatar === '') {
+            return $default;
+        }
+        if (preg_match('#^https?://#i', $avatar) || strpos($avatar, '//') === 0) {
+            return $avatar;
+        }
+        if (class_exists('\\app\\common\\library\\OssService')) {
+            try {
+                $full = \app\common\library\OssService::fullUrl($avatar, '');
+                if (is_string($full) && $full !== '') {
+                    return $full;
+                }
+            } catch (\Throwable $e) {
+            }
+        }
+        if (function_exists('cdnurl')) {
+            return (string)cdnurl($avatar, true);
+        }
+        return $avatar;
     }
 
     protected function callBridge($path, array $body)
