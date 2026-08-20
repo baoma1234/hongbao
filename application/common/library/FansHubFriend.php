@@ -39,7 +39,7 @@ class FansHubFriend
             }
             self::ensureContact($fromId, $toId, $now);
             self::ensureContact($toId, $fromId, $now);
-            self::insertPrivateText($toId, $fromId, '我们已经是好友了~', $now);
+            self::insertPrivateText($toId, $fromId, '您好~我们已经是好友了~', $now);
             Db::commit();
         } catch (\Throwable $e) {
             Db::rollback();
