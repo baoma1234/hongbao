@@ -1,4 +1,7 @@
 <form id="add-form" class="form-horizontal" role="form" data-toggle="validator" method="POST" action="">
+    <div class="alert alert-info" style="margin:0 15px 12px;">
+        添加后该会员可作为代聊「托管账号」发言。删除/停用只移除托管登记，不会删除会员账号。
+    </div>
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">会员ID:</label>
         <div class="col-xs-12 col-sm-8">
@@ -34,3 +37,86 @@
         </div>
     </div>
 </form>
+
+<hr style="margin:8px 15px;">
+<div style="padding:0 15px 16px;">
+    <h4 style="margin:0 0 10px;font-size:14px;font-weight:700;">已登记托管账号</h4>
+    {if empty($agents)}
+    <div class="text-muted">暂无，请先上方添加。</div>
+    {else /}
+    <div class="table-responsive">
+        <table class="table table-striped table-bordered table-hover" style="margin:0;">
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>会员ID</th>
+                <th>备注</th>
+                <th>范围</th>
+                <th>状态</th>
+                <th width="140">操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            {volist name="agents" id="ag"}
+            <tr>
+                <td>{$ag.id}</td>
+                <td>{$ag.user_id}</td>
+                <td>{$ag.label|default='-'|htmlentities}</td>
+                <td>
+                    {switch name="ag.scope"}
+                    {case value="private"}仅私聊{/case}
+                    {case value="group"}仅群聊{/case}
+                    {default /}私聊+群聊
+                    {/switch}
+                </td>
+                <td>
+                    {if $ag.status==1}
+                    <span class="text-success">启用</span>
+                    {else /}
+                    <span class="text-muted">已停用</span>
+                    {/if}
+                </td>
+                <td>
+                    {if $ag.status==1}
+                    <a href="javascript:;" class="btn btn-xs btn-warning btn-agent-off" data-id="{$ag.id}">停用</a>
+                    {/if}
+                    <a href="javascript:;" class="btn btn-xs btn-danger btn-agent-del" data-id="{$ag.id}">删除</a>
+                </td>
+            </tr>
+            {/volist}
+            </tbody>
+        </table>
+    </div>
+    {/if}
+</div>
+<script>
+require(['jquery', 'backend'], function ($, Backend) {
+    function postAgentDel(id, hard) {
+        Backend.api.ajax({
+            url: 'fanshub/imagent/agentdel',
+            data: { id: id, hard: hard ? 1 : 0 }
+        }, function () {
+            setTimeout(function () {
+                location.reload();
+            }, 400);
+            return false;
+        });
+    }
+    $(document).on('click', '.btn-agent-off', function () {
+        var id = parseInt($(this).data('id'), 10) || 0;
+        if (!id) return;
+        Layer.confirm('停用后该账号不再出现在代聊下拉，确认？', function (idx) {
+            Layer.close(idx);
+            postAgentDel(id, false);
+        });
+    });
+    $(document).on('click', '.btn-agent-del', function () {
+        var id = parseInt($(this).data('id'), 10) || 0;
+        if (!id) return;
+        Layer.confirm('将从托管表彻底删除登记（不删会员），确认？', function (idx) {
+            Layer.close(idx);
+            postAgentDel(id, true);
+        });
+    });
+});
+</script>

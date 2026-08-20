@@ -11,6 +11,8 @@ use think\Db;
 class Imagent extends Backend
 {
     protected $model = null;
+    /** agentdel 与 add 同权，避免未建菜单节点导致 403 */
+    protected $noNeedRight = ['agentdel'];
 
     public function index()
     {
@@ -605,6 +607,26 @@ class Imagent extends Backend
             if ($userId <= 0) {
                 $this->error('请填写托管会员ID');
             }
+            $exists = Db::name('user')->where('id', $userId)->find();
+            if (!$exists) {
+                $this->error('会员ID不存在');
+            }
+            $dup = Db::name('chat_agent_accounts')->where('user_id', $userId)->find();
+            if ($dup) {
+                if ((int)$dup['status'] === 1) {
+                    $this->error('该会员已是托管账号');
+                }
+                Db::name('chat_agent_accounts')->where('id', (int)$dup['id'])->update([
+                    'admin_id'     => (int)($params['admin_id'] ?? $this->auth->id),
+                    'label'        => trim((string)($params['label'] ?? '')),
+                    'scope'        => in_array(($params['scope'] ?? 'all'), ['all', 'private', 'group'], true) ? $params['scope'] : 'all',
+                    'friend_reply' => mb_substr(trim((string)($params['friend_reply'] ?? '')), 0, 500),
+                    'status'       => 1,
+                    'updatetime'   => time(),
+                ]);
+                $this->flushAgentCache();
+                $this->success('已重新启用该托管账号');
+            }
             $now = time();
             try {
                 Db::name('chat_agent_accounts')->insert([
@@ -620,9 +642,90 @@ class Imagent extends Backend
             } catch (\Throwable $e) {
                 $this->error($e->getMessage());
             }
+            $this->flushAgentCache();
             $this->success();
         }
+        $agents = Db::name('chat_agent_accounts')->order('status', 'desc')->order('id', 'desc')->select();
+        $this->view->assign('agents', $agents ?: []);
         return $this->view->fetch();
+    }
+
+    /**
+     * 删除/停用托管账号（从代聊下拉移除；不删会员本身）
+     */
+    public function agentdel()
+    {
+        if (!$this->request->isPost()) {
+            $this->error('非法请求');
+        }
+        if (!$this->auth->check('fanshub/imagent/add') && !$this->auth->isSuperAdmin()) {
+            $this->error(__('You have no permission'));
+        }
+        $id = (int)$this->request->post('id', 0);
+        $hard = (int)$this->request->post('hard', 0) === 1;
+        if ($id <= 0) {
+            $ids = $this->request->post('ids');
+            if (is_array($ids)) {
+                $id = (int)($ids[0] ?? 0);
+            } else {
+                $id = (int)explode(',', (string)$ids)[0];
+            }
+        }
+        if ($id <= 0) {
+            $this->error('请选择托管账号');
+        }
+        $row = Db::name('chat_agent_accounts')->where('id', $id)->find();
+        if (!$row) {
+            $this->error('记录不存在');
+        }
+        if ($hard) {
+            Db::name('chat_agent_accounts')->where('id', $id)->delete();
+            $this->flushAgentCache();
+            $this->success('已删除托管登记');
+        }
+        Db::name('chat_agent_accounts')->where('id', $id)->update([
+            'status'     => 0,
+            'updatetime' => time(),
+        ]);
+        $this->flushAgentCache();
+        $this->success('已停用，不再出现在代聊托管列表');
+    }
+
+    protected function flushAgentCache()
+    {
+        try {
+            $cfg = \think\Config::get('fanshub') ?: [];
+            $redis = is_array($cfg['redis'] ?? null) ? $cfg['redis'] : [];
+            // IM AdminService 短缓存键
+            if (class_exists('\\think\\Cache')) {
+                \think\Cache::rm('fh:admin:im:agents');
+            }
+        } catch (\Throwable $e) {
+        }
+        try {
+            $cfg = require dirname(__DIR__, 3) . '/im-server/config/app.php';
+            if (!is_array($cfg) || empty($cfg['redis'])) {
+                return;
+            }
+            if (!class_exists('\\Redis')) {
+                return;
+            }
+            $r = new \Redis();
+            $host = (string)($cfg['redis']['host'] ?? '127.0.0.1');
+            $port = (int)($cfg['redis']['port'] ?? 6379);
+            $r->connect($host, $port, 1.5);
+            $pass = (string)($cfg['redis']['password'] ?? '');
+            if ($pass !== '') {
+                $r->auth($pass);
+            }
+            $db = (int)($cfg['redis']['db'] ?? 0);
+            if ($db > 0) {
+                $r->select($db);
+            }
+            $prefix = (string)($cfg['redis']['prefix'] ?? 'im:');
+            $r->del($prefix . 'admin:rows', $prefix . 'admin:ids');
+        } catch (\Throwable $e) {
+        }
     }
 
     /** 兼容旧入口 */
