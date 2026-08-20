@@ -1227,29 +1227,33 @@ onUnmounted(() => {
   background: #f0c14b;
 }
 .yxx-reveal {
-  margin: 8px 12px 0;
+  margin: 8px 12px 4px;
   align-items: center;
   display: flex;
   flex-direction: column;
   position: relative;
-  min-height: 168px;
-  padding-bottom: 22px;
+  min-height: 236px;
+  padding-bottom: 8px;
   box-sizing: border-box;
 }
 .yxx-bowl-img {
   position: absolute;
   left: 50%;
-  top: 4px;
-  width: 220px;
-  height: 148px;
+  top: 28px;
+  width: 268px;
+  height: 178px;
   z-index: 5;
   transform: translateX(-50%);
-  transition: transform 0.45s ease;
+  transition: transform 0.5s ease, top 0.5s ease, width 0.5s ease, height 0.5s ease, opacity 0.35s ease;
   pointer-events: none;
 }
 .yxx-reveal.open .yxx-bowl-img {
-  transform: translate(calc(-50% - 56px), -14px) rotate(-24deg);
+  top: 2px;
+  width: 96px;
+  height: 64px;
+  transform: translateX(-50%) rotate(-18deg);
   z-index: 2;
+  opacity: 0.92;
 }
 .yxx-reveal.shaking .yxx-bowl-img {
   animation: yxx-bowl-shake 0.18s linear infinite;
@@ -1263,7 +1267,7 @@ onUnmounted(() => {
   background: radial-gradient(circle, rgba(180, 30, 30, 0.55), transparent 70%);
   position: absolute;
   left: 50%;
-  top: 42px;
+  top: 68px;
   transform: translateX(-50%);
   z-index: 1;
   opacity: 0;
@@ -1275,6 +1279,7 @@ onUnmounted(() => {
 }
 
 .yxx-reveal.open .yxx-dice-row {
+  top: 78px;
   z-index: 3;
   opacity: 1;
   visibility: visible;
@@ -1324,7 +1329,7 @@ onUnmounted(() => {
 }
 .yxx-reveal-cap {
   margin-top: auto;
-  padding-top: 148px;
+  padding-top: 196px;
   font-size: 11px;
   color: rgba(255, 230, 180, 0.75);
   position: relative;
@@ -1558,9 +1563,9 @@ onUnmounted(() => {
   100% { transform: translate(0, 0) rotate(0deg); }
 }
 @keyframes yxx-bowl-shake {
-  0% { transform: translate(calc(-50% - 56px), -14px) rotate(-18deg); }
-  50% { transform: translate(calc(-50% - 48px), -20px) rotate(-30deg); }
-  100% { transform: translate(calc(-50% - 56px), -14px) rotate(-18deg); }
+  0% { transform: translateX(-50%) rotate(-12deg); }
+  50% { transform: translateX(-50%) rotate(-26deg) translateY(-4px); }
+  100% { transform: translateX(-50%) rotate(-12deg); }
 }
 .yxx-sheet {
   width: 100%;
