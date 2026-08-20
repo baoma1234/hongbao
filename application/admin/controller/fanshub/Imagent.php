@@ -45,8 +45,7 @@ class Imagent extends Backend
     }
 
     /**
-     * 会话列表
-     * 避免对 chat_messages 全表 GROUP BY MAX(id)；改为近期消息扫描去重。
+     * 会话列表：托管账号 fa_chat_user_conversations 收件箱 + 短缓存（避免扫 chat_messages）
      */
     public function conversations()
     {
@@ -55,14 +54,217 @@ class Imagent extends Backend
         }
         $limit = max(1, min(200, (int)$this->request->param('limit', 80)));
         $kw = trim((string)$this->request->param('q', ''));
-        $items = [];
+        $agentIds = array_keys($this->agentUserIdMap());
+        if (!$agentIds) {
+            $this->success('ok', null, ['list' => []]);
+        }
 
-        // 多取一些再过滤「用户已删」的私聊，避免后台会话列表残留僵尸会话
-        $fetchLimit = min(500, max($limit * 3, $limit));
-        // 按 id 倒序扫近期消息，首遇 conversation_id 即最新一条（走 idx_conv_status_id / PRIMARY）
-        $scanLimit = min(8000, max(1000, $fetchLimit * 40));
+        $cacheKey = 'fh:admin:im:convs:v2:' . md5($limit . '|' . $kw . '|' . implode(',', $agentIds));
+        try {
+            $cached = \think\Cache::get($cacheKey);
+            if (is_array($cached) && isset($cached['list'])) {
+                $this->success('ok', null, $cached);
+            }
+        } catch (\Throwable $e) {
+        }
+
+        $items = $this->conversationsFromInbox($agentIds, $limit, $kw);
+        if ($items === null) {
+            $items = $this->conversationsLegacyScan($agentIds, $limit, $kw);
+        }
+
+        usort($items, function ($x, $y) {
+            $ud = ((int)($y['updatetime'] ?? 0)) <=> ((int)($x['updatetime'] ?? 0));
+            if ($ud !== 0) {
+                return $ud;
+            }
+            return ((int)($y['last_id'] ?? 0)) <=> ((int)($x['last_id'] ?? 0));
+        });
+        $payload = ['list' => array_slice($items, 0, $limit)];
+        try {
+            \think\Cache::set($cacheKey, $payload, 3);
+        } catch (\Throwable $e) {
+        }
+        $this->success('ok', null, $payload);
+    }
+
+    /**
+     * @param int[] $agentIds
+     * @return array|null null=表不可用/空，走回退
+     */
+    protected function conversationsFromInbox(array $agentIds, $limit, $kw)
+    {
+        $agentIds = array_values(array_filter(array_map('intval', $agentIds)));
+        if (!$agentIds) {
+            return [];
+        }
+        $fetch = min(400, max($limit * 4, $limit));
+        $in = implode(',', $agentIds);
+        try {
+            $rows = Db::query(
+                "SELECT conversation_type, conversation_id,
+                        MAX(peer_user_id) AS peer_user_id,
+                        MAX(group_id) AS group_id,
+                        MAX(last_msg_id) AS last_msg_id,
+                        MAX(last_msg_time) AS last_msg_time
+                 FROM fa_chat_user_conversations
+                 WHERE user_id IN ({$in}) AND last_msg_id > 0
+                 GROUP BY conversation_type, conversation_id
+                 ORDER BY last_msg_id DESC
+                 LIMIT {$fetch}"
+            );
+        } catch (\Throwable $e) {
+            return null;
+        }
+        if (!$rows) {
+            return null;
+        }
+
+        $msgIds = [];
+        $groupIds = [];
+        $peerIds = [];
+        foreach ($rows as $r) {
+            $mid = (int)($r['last_msg_id'] ?? 0);
+            if ($mid > 0) {
+                $msgIds[$mid] = true;
+            }
+            if ((int)($r['conversation_type'] ?? 0) === 2) {
+                $gid = (int)($r['group_id'] ?? $r['conversation_id'] ?? 0);
+                if ($gid > 0) {
+                    $groupIds[$gid] = true;
+                }
+            } else {
+                $pid = (int)($r['peer_user_id'] ?? 0);
+                if ($pid > 0) {
+                    $peerIds[$pid] = true;
+                }
+            }
+        }
+        $msgs = $this->messagesByIds(array_keys($msgIds));
+        $groups = [];
+        if ($groupIds) {
+            $gRows = Db::name('chat_groups')->where('id', 'in', array_keys($groupIds))->select();
+            foreach ($gRows ?: [] as $g) {
+                $groups[(int)$g['id']] = $g;
+            }
+        }
+        foreach ($msgs as $m) {
+            $peerIds[(int)$m['from_user_id']] = true;
+            $peerIds[(int)$m['to_user_id']] = true;
+        }
+        $users = $this->usersMap(array_keys($peerIds));
+        $agentMap = array_fill_keys($agentIds, true);
+
+        $items = [];
+        foreach ($rows as $r) {
+            $ctype = (int)($r['conversation_type'] ?? 0);
+            $cid = (string)($r['conversation_id'] ?? '');
+            $lastId = (int)($r['last_msg_id'] ?? 0);
+            $m = $msgs[$lastId] ?? null;
+            if ($ctype === 1) {
+                $peerId = (int)($r['peer_user_id'] ?? 0);
+                if ($peerId <= 0 || isset($agentMap[$peerId])) {
+                    if ($m) {
+                        $peerId = $this->resolvePrivatePeerId((int)$m['from_user_id'], (int)$m['to_user_id'], $agentMap);
+                    }
+                }
+                if ($peerId <= 0) {
+                    continue;
+                }
+                $nick = $this->userNick($users, $peerId);
+                $title = $nick !== '' ? $nick : ('ID' . $peerId);
+                $content = $m ? (string)$m['content'] : '';
+                if ($kw !== '' && stripos($title, $kw) === false && stripos($content, $kw) === false
+                    && stripos((string)$peerId, $kw) === false) {
+                    continue;
+                }
+                $a = $m ? (int)$m['from_user_id'] : 0;
+                $b = $m ? (int)$m['to_user_id'] : 0;
+                if ($a <= 0 || $b <= 0) {
+                    $a = $peerId;
+                    $b = (int)$agentIds[0];
+                }
+                $items[] = [
+                    'conversation_type' => 1,
+                    'conversation_id'   => $cid !== '' ? $cid : (min($a, $b) . '_' . max($a, $b)),
+                    'group_id'          => 0,
+                    'peer_a'            => $a,
+                    'peer_b'            => $b,
+                    'peer_user_id'      => $peerId,
+                    'peer_nickname'     => $title,
+                    'peer_avatar'       => $this->userAvatar($users, $peerId),
+                    'title'             => $title,
+                    'last_content'      => $content,
+                    'last_msg_type'     => $m ? (int)$m['msg_type'] : 0,
+                    'updatetime'        => $m ? (int)$m['createtime'] : (int)($r['last_msg_time'] ?? 0),
+                    'last_id'           => $lastId,
+                ];
+            } elseif ($ctype === 2) {
+                $gid = (int)($r['group_id'] ?? $cid);
+                if ($gid <= 0) {
+                    continue;
+                }
+                $g = $groups[$gid] ?? null;
+                $gName = $g ? trim((string)($g['name'] ?? '')) : '';
+                $title = $gName !== '' ? $gName : ('群聊 #' . $gid);
+                $content = $m ? (string)$m['content'] : '(暂无消息)';
+                if ($kw !== '' && stripos($title, $kw) === false && stripos($content, $kw) === false) {
+                    continue;
+                }
+                $gAvatar = $g ? trim((string)($g['avatar'] ?? '')) : '';
+                $items[] = [
+                    'conversation_type' => 2,
+                    'conversation_id'   => (string)$gid,
+                    'group_id'          => $gid,
+                    'peer_a'            => 0,
+                    'peer_b'            => 0,
+                    'peer_user_id'      => 0,
+                    'peer_nickname'     => $title,
+                    'peer_avatar'       => $this->normalizeAvatarUrl($gAvatar),
+                    'title'             => $title,
+                    'last_content'      => $content,
+                    'last_msg_type'     => $m ? (int)$m['msg_type'] : 0,
+                    'updatetime'        => $m ? (int)$m['createtime'] : (int)($r['last_msg_time'] ?? ($g['updatetime'] ?? 0)),
+                    'last_id'           => $lastId,
+                ];
+            }
+        }
+        return $items;
+    }
+
+    /**
+     * @param int[] $ids
+     * @return array<int,array>
+     */
+    protected function messagesByIds(array $ids)
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
+        if (!$ids) {
+            return [];
+        }
+        $rows = Db::name('chat_messages')->where('id', 'in', $ids)->where('status', 'in', [1, 2])->select();
+        $map = [];
+        foreach ($rows ?: [] as $r) {
+            $map[(int)$r['id']] = $r;
+        }
+        return $map;
+    }
+
+    /**
+     * 旧扫库回退（收件箱表缺失或尚未回填时）
+     * @param int[] $agentIds
+     */
+    protected function conversationsLegacyScan(array $agentIds, $limit, $kw)
+    {
+        $items = [];
+        $agentMap = array_fill_keys(array_map('intval', $agentIds), true);
+        $fetchLimit = min(300, max($limit * 3, $limit));
+        $scanLimit = min(3000, max(800, $fetchLimit * 20));
         $recentPriv = Db::name('chat_messages')
             ->where(['conversation_type' => 1, 'status' => 1])
+            ->where(function ($q) use ($agentIds) {
+                $q->where('from_user_id', 'in', $agentIds)->whereOr('to_user_id', 'in', $agentIds);
+            })
             ->order('id', 'desc')
             ->limit($scanLimit)
             ->select();
@@ -85,18 +287,10 @@ class Imagent extends Backend
             $peerIds[] = (int)$m['to_user_id'];
         }
         $users = $this->usersMap($peerIds);
-        $agentIds = $this->agentUserIdMap();
-        $privKept = 0;
         foreach ($privates as $m) {
-            if ($privKept >= $limit) {
-                break;
-            }
             $a = (int)$m['from_user_id'];
             $b = (int)$m['to_user_id'];
-            if (!isset($users[$a]) || !isset($users[$b])) {
-                continue;
-            }
-            $peerId = $this->resolvePrivatePeerId($a, $b, $agentIds);
+            $peerId = $this->resolvePrivatePeerId($a, $b, $agentMap);
             if ($peerId <= 0) {
                 continue;
             }
@@ -121,41 +315,17 @@ class Imagent extends Backend
                 'updatetime'        => (int)$m['createtime'],
                 'last_id'           => (int)$m['id'],
             ];
-            $privKept++;
         }
 
-        $groups = Db::name('chat_groups')->whereIn('status', [1, 3])->order('id', 'desc')->limit($limit)->select();
-        $groupIds = [];
-        foreach ($groups ?: [] as $g) {
-            $groupIds[] = (int)$g['id'];
-        }
-        $lastByGid = [];
-        if ($groupIds) {
-            $idList = implode(',', array_map('intval', $groupIds));
-            $lastRows = Db::query(
-                "SELECT m.* FROM fa_chat_messages m
-                 INNER JOIN (
-                    SELECT conversation_id, MAX(id) AS max_id
-                    FROM fa_chat_messages
-                    WHERE conversation_type=2 AND status=1
-                      AND conversation_id IN ({$idList})
-                    GROUP BY conversation_id
-                 ) t ON m.id = t.max_id"
-            );
-            foreach ($lastRows ?: [] as $lr) {
-                $lastByGid[(int)$lr['conversation_id']] = $lr;
-            }
-        }
+        $groups = Db::name('chat_groups')->whereIn('status', [1, 3])
+            ->order('updatetime', 'desc')->order('id', 'desc')->limit($limit)->select();
         foreach ($groups ?: [] as $g) {
             $gid = (int)$g['id'];
-            $last = $lastByGid[$gid] ?? null;
             $gName = trim((string)($g['name'] ?? ''));
             $title = $gName !== '' ? $gName : ('群聊 #' . $gid);
-            $content = $last ? (string)$last['content'] : '(暂无消息)';
-            if ($kw !== '' && stripos($title, $kw) === false && stripos($content, $kw) === false) {
+            if ($kw !== '' && stripos($title, $kw) === false) {
                 continue;
             }
-            $gAvatar = trim((string)($g['avatar'] ?? ''));
             $items[] = [
                 'conversation_type' => 2,
                 'conversation_id'   => (string)$gid,
@@ -164,19 +334,15 @@ class Imagent extends Backend
                 'peer_b'            => 0,
                 'peer_user_id'      => 0,
                 'peer_nickname'     => $title,
-                'peer_avatar'       => $this->normalizeAvatarUrl($gAvatar),
+                'peer_avatar'       => $this->normalizeAvatarUrl(trim((string)($g['avatar'] ?? ''))),
                 'title'             => $title,
-                'last_content'      => $content,
-                'last_msg_type'     => $last ? (int)$last['msg_type'] : 0,
-                'updatetime'        => $last ? (int)$last['createtime'] : (int)($g['updatetime'] ?: $g['createtime']),
-                'last_id'           => $last ? (int)$last['id'] : 0,
+                'last_content'      => '',
+                'last_msg_type'     => 0,
+                'updatetime'        => (int)($g['updatetime'] ?: $g['createtime']),
+                'last_id'           => 0,
             ];
         }
-
-        usort($items, function ($x, $y) {
-            return ((int)$y['updatetime']) <=> ((int)$x['updatetime']);
-        });
-        $this->success('ok', null, ['list' => array_slice($items, 0, $limit)]);
+        return $items;
     }
 
     /**
@@ -723,7 +889,7 @@ class Imagent extends Backend
                 $r->select($db);
             }
             $prefix = (string)($cfg['redis']['prefix'] ?? 'im:');
-            $r->del($prefix . 'admin:rows', $prefix . 'admin:ids');
+            $r->del($prefix . 'admin:rows');
         } catch (\Throwable $e) {
         }
     }
