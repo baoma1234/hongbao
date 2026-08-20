@@ -585,11 +585,22 @@ class FansHubBsGateway
             throw new \RuntimeException('请填写 USDT 收款地址');
         }
 
+        // 本地订单 amount 为人民币红宝；提交 BS 时换算为 USDT（如 100 / 6.67 ≈ 14.99）
+        $cnyAmount = round((float)$amount, 2);
+        $rate = (float)($cfg['callback_exchange_rate'] ?? 0);
+        $submitAmount = $cnyAmount;
+        if ($rate > 0) {
+            $submitAmount = round($cnyAmount / $rate, 4);
+        }
+        if ($submitAmount <= 0) {
+            throw new \RuntimeException('换算后的 USDT 金额无效');
+        }
+
         $params = [
             'merchantId'             => $cfg['merchant_id'],
             'version'                => $cfg['api_version'],
             'merchantOrderNo'        => $orderNo,
-            'amount'                 => number_format((float)$amount, 2, '.', ''),
+            'amount'                 => number_format($submitAmount, 2, '.', ''),
             'coinType'               => $cfg['coin_type'],
             'bookingAddress'         => $address,
             'callbackCurrencyCode'   => $cfg['callback_currency_code'],
@@ -629,12 +640,16 @@ class FansHubBsGateway
             throw new \RuntimeException((string)($json['msg'] ?? 'BS 代付受理失败'));
         }
         $localStatus = 'processing';
-        $remark = 'bs submitted';
+        $remark = 'bs submitted cny=' . number_format($cnyAmount, 2, '.', '')
+            . ' usdt=' . number_format($submitAmount, 2, '.', '');
+        if ($rate > 0) {
+            $remark .= ' rate=' . $rate;
+        }
         if (!empty($json['remitCoinAmount'])) {
             $remark .= ' remit=' . $json['remitCoinAmount'];
         }
         if (!empty($json['exchangeRate'])) {
-            $remark .= ' rate=' . $json['exchangeRate'];
+            $remark .= ' gw_rate=' . $json['exchangeRate'];
         }
         Db::name('fans_withdraw_order')->where('order_no', $orderNo)->update([
             'status'     => $localStatus,
@@ -700,7 +715,7 @@ class FansHubBsGateway
             throw new \RuntimeException('unknown status=' . $status);
         }
 
-        $creditAmount = self::resolveRechargeCreditAmount($params, $order);
+        $creditAmount = self::resolveRechargeCreditAmount($params, $order, $cfg);
         if ($creditAmount <= 0) {
             throw new \RuntimeException('callbackOrderAmount missing or invalid');
         }
@@ -977,12 +992,10 @@ class FansHubBsGateway
             throw new \RuntimeException('unknown status=' . $status);
         }
 
-        $creditAmount = (float)($json['callbackOrderAmount'] ?? 0);
+        $cfg = self::config($channel);
+        $creditAmount = self::resolveRechargeCreditAmount($json, $order, $cfg);
         if ($creditAmount <= 0) {
-            $creditAmount = (float)($json['addFundsCoinAmount'] ?? 0);
-        }
-        if ($creditAmount <= 0) {
-            $creditAmount = (float)$order['amount'];
+            throw new \RuntimeException('BS 查单入账金额无效');
         }
 
         $now = time();
@@ -1015,23 +1028,40 @@ class FansHubBsGateway
         return 'paid';
     }
 
-    protected static function resolveRechargeCreditAmount(array $params, array $order)
+    /**
+     * 充值入账金额（人民币/红宝）。
+     * 用户按 USDT 下单；有汇率时：入账 = USDT × callback_exchange_rate（如 10×6.67=66.7）。
+     */
+    protected static function resolveRechargeCreditAmount(array $params, array $order, array $cfg = [])
     {
-        // 优先使用回调法币金额，避免“币量”和“入账币种”混淆导致上分单位错误。
+        $rate = (float)($cfg['callback_exchange_rate'] ?? 0);
+        $coin = (float)($params['payCoinAmount'] ?? $params['addFundsCoinAmount'] ?? 0);
+        if ($coin <= 0) {
+            $coin = (float)($params['amount'] ?? 0);
+        }
+        if ($coin <= 0) {
+            $coin = (float)($order['amount'] ?? 0);
+        }
+
+        // 优先回调法币金额；若数值几乎等于币量且配置了汇率，视为未换算，改用 币×汇率
         $callbackAmount = (float)($params['callbackOrderAmount'] ?? 0);
         if ($callbackAmount > 0) {
+            if ($rate > 0 && $coin > 0 && abs($callbackAmount - $coin) < 0.0001) {
+                return round($coin * $rate, 2);
+            }
             return round($callbackAmount, 2);
         }
         $currencyAmount = (float)($params['currencyOrderAmount'] ?? 0);
         if ($currencyAmount > 0) {
+            if ($rate > 0 && $coin > 0 && abs($currencyAmount - $coin) < 0.0001) {
+                return round($coin * $rate, 2);
+            }
             return round($currencyAmount, 2);
         }
-        $amount = (float)($params['amount'] ?? 0);
-        if ($amount > 0) {
-            return round($amount, 2);
+        if ($coin > 0 && $rate > 0) {
+            return round($coin * $rate, 2);
         }
-        $fallback = (float)($order['amount'] ?? 0);
-        return $fallback > 0 ? round($fallback, 2) : 0;
+        return $coin > 0 ? round($coin, 2) : 0;
     }
 
     /**

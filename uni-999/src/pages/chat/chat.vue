@@ -2311,19 +2311,88 @@ function canRecallLocal(m) {
   return t > 0 && Date.now() / 1000 - t <= 120
 }
 
+function isPlainTextMsg(m) {
+  if (!m || isRecalled(m) || isSystemMsg(m)) return false
+  if (msgType(m) !== 1 || isSticker(m)) return false
+  if (isRp(m) || isNiuniu(m) || isFissionShare(m) || isTransfer(m)) return false
+  return true
+}
+
+function msgCopyText(m) {
+  if (!m || isRecalled(m) || isSystemMsg(m)) return ''
+  if (isPlainTextMsg(m) || isSticker(m)) {
+    return String(m.content || m.text || '').trim()
+  }
+  if (isImage(m) || isVideo(m) || isFile(m)) {
+    return String(mediaUrl(m) || '').trim()
+  }
+  if (isRp(m)) return String(rpTitle(m) || '').trim()
+  if (isTransfer(m)) {
+    const title = String(transferTitle(m) || '').trim()
+    const amt = transferAmount(m)
+    return (title ? title + ' ' : '') + '¥' + amt
+  }
+  if (isNiuniu(m) || isFissionShare(m)) {
+    return String(m.content || m.text || '').trim()
+  }
+  const raw = String(m.content || m.text || '').trim()
+  return raw && raw !== '[消息]' ? raw : ''
+}
+
+function canCopyMsg(m) {
+  return !!msgCopyText(m)
+}
+
+function copyMsgContent(m) {
+  const text = msgCopyText(m)
+  if (!text) {
+    uni.showToast({ title: rpT('chat_msg_copy_fail', '复制失败'), icon: 'none' })
+    return
+  }
+  uni.setClipboardData({
+    data: text,
+    success: () => uni.showToast({ title: rpT('chat_msg_copy_ok', '已复制'), icon: 'none' }),
+    fail: () => uni.showToast({ title: rpT('chat_msg_copy_fail', '复制失败'), icon: 'none' }),
+  })
+}
+
 function onMsgLongPress(m) {
-  if (!canRecallLocal(m)) return
-  const label = isPrivate.value ? '删除消息' : '撤回消息'
+  if (!m || isRecalled(m) || isSystemMsg(m)) return
+  const copyable = canCopyMsg(m)
+  const recallable = canRecallLocal(m)
+  if (!copyable && !recallable) return
+  if (copyable && !recallable) {
+    copyMsgContent(m)
+    return
+  }
+  const items = []
+  const actions = []
+  if (copyable) {
+    items.push(rpT('chat_msg_copy', '复制'))
+    actions.push('copy')
+  }
+  if (recallable) {
+    items.push(isPrivate.value ? rpT('chat_msg_delete', '删除消息') : rpT('chat_msg_recall', '撤回消息'))
+    actions.push('recall')
+  }
   uni.showActionSheet({
-    itemList: [label],
+    itemList: items,
     success: async (res) => {
-      if (res.tapIndex !== 0) return
+      const action = actions[res.tapIndex]
+      if (action === 'copy') {
+        copyMsgContent(m)
+        return
+      }
+      if (action !== 'recall') return
       try {
         const packet = await recallMessage(m.id || m.msg_id)
         const body = (packet && packet.data) || {}
         const msg = body.message || Object.assign({}, m, { status: 2 })
         applyRecalled(msg)
-        uni.showToast({ title: isPrivate.value ? '已删除' : '已撤回', icon: 'none' })
+        uni.showToast({
+          title: isPrivate.value ? rpT('chat_msg_delete_ok', '已删除') : rpT('chat_msg_recall_ok', '已撤回'),
+          icon: 'none',
+        })
       } catch (e) {
         uni.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
       }

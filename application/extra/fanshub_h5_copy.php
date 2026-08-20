@@ -459,6 +459,13 @@ return array (
   'chat_new_group' => '建群',
   'chat_back' => '‹ 返回',
   'chat_send' => '发送',
+  'chat_msg_copy' => '复制',
+  'chat_msg_copy_ok' => '已复制',
+  'chat_msg_copy_fail' => '复制失败',
+  'chat_msg_recall' => '撤回消息',
+  'chat_msg_delete' => '删除消息',
+  'chat_msg_recall_ok' => '已撤回',
+  'chat_msg_delete_ok' => '已删除',
   'chat_input_placeholder' => '输入消息…',
   'chat_admin_only_hint' => '仅可与平台客服管理员私聊，群聊由官方创建',
   'chat_admin_welcome' => '您好，欢迎来到红宝！
