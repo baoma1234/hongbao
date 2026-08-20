@@ -20,6 +20,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
     var audioUnlocked = false;
     var notifyAudio = null;
     var toastedKeys = {};
+    var convTabType = 1; // 1私聊 2群聊，默认私聊
     var CS_SOUND_URL = (typeof Config !== 'undefined' && Config.site && Config.site.cdnurl
         ? String(Config.site.cdnurl)
         : '') + '/assets/sound/admin/' + encodeURIComponent('客服.mp3');
@@ -507,6 +508,71 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
         return esc(m.content || '');
     }
 
+    function agentIdSet() {
+        var map = {};
+        $('#agentSelect option').each(function () {
+            var id = parseInt($(this).val(), 10) || 0;
+            if (id > 0) map[id] = 1;
+        });
+        return map;
+    }
+
+    function isMineMessage(m) {
+        var from = parseInt(m && m.from_user_id, 10) || 0;
+        if (from <= 0) return false;
+        var agents = agentIdSet();
+        if (agents[from]) return true;
+        // 兼容：当前下拉选中的托管号
+        var selected = parseInt($('#agentSelect').val(), 10) || 0;
+        return selected > 0 && from === selected;
+    }
+
+    function avatarHtml(m, mine) {
+        var label = String((m && (m.from_label || m.from_user_id)) || '?');
+        var short = label.replace(/^ID/i, '').slice(0, 2);
+        var av = m && (m.from_avatar || m.avatar || '');
+        if (av) {
+            return '<div class="im-avatar"><img src="' + esc(av) + '" alt=""></div>';
+        }
+        return '<div class="im-avatar">' + esc(short || (mine ? '我' : '客')) + '</div>';
+    }
+
+    function renderConvList(list) {
+        var all = list || [];
+        var privateN = 0;
+        var groupN = 0;
+        all.forEach(function (it) {
+            if ((parseInt(it.conversation_type, 10) || 1) === 2) groupN++;
+            else privateN++;
+        });
+        $('#tabCountPrivate').text(privateN);
+        $('#tabCountGroup').text(groupN);
+
+        var filtered = all.filter(function (it) {
+            return (parseInt(it.conversation_type, 10) || 1) === convTabType;
+        });
+        var box = $('#convList');
+        if (!filtered.length) {
+            box.html('<div class="im-empty">' + (convTabType === 2 ? '暂无群聊会话' : '暂无私聊会话') + '</div>');
+            return;
+        }
+        var html = filtered.map(function (it) {
+            var active = current && String(current.conversation_id) === String(it.conversation_id) && current.conversation_type == it.conversation_type ? ' active' : '';
+            return '<button type="button" class="im-conv-item' + active + '"' +
+                ' data-type="' + it.conversation_type + '"' +
+                ' data-cid="' + esc(it.conversation_id) + '"' +
+                ' data-gid="' + (it.group_id || 0) + '"' +
+                ' data-a="' + (it.peer_a || 0) + '"' +
+                ' data-b="' + (it.peer_b || 0) + '"' +
+                ' data-title="' + esc(it.title) + '">' +
+                '<div class="im-conv-title">' + esc(it.title) + '</div>' +
+                '<div class="im-conv-preview">' + esc(previewLabel(it)) + '</div>' +
+                '<div class="im-conv-time">' + esc(fmtTime(it.updatetime)) + '</div>' +
+                '</button>';
+        }).join('');
+        box.html(html);
+    }
+
     function loadConversations(opts) {
         opts = opts || {};
         if (opts.poll && pollBusy) return;
@@ -520,26 +586,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
             var list = (data && data.list) || [];
             lastConversations = list;
             detectNewMessages(list);
-            var box = $('#convList');
-            if (!list.length) {
-                box.html('<div class="im-empty">暂无会话</div>');
-                return false;
-            }
-            var html = list.map(function (it) {
-                var active = current && String(current.conversation_id) === String(it.conversation_id) && current.conversation_type == it.conversation_type ? ' active' : '';
-                return '<button type="button" class="im-conv-item' + active + '"' +
-                    ' data-type="' + it.conversation_type + '"' +
-                    ' data-cid="' + esc(it.conversation_id) + '"' +
-                    ' data-gid="' + (it.group_id || 0) + '"' +
-                    ' data-a="' + (it.peer_a || 0) + '"' +
-                    ' data-b="' + (it.peer_b || 0) + '"' +
-                    ' data-title="' + esc(it.title) + '">' +
-                    '<div class="im-conv-title">' + esc(it.title) + '</div>' +
-                    '<div class="im-conv-preview">' + esc(it.last_content || '') + '</div>' +
-                    '<div class="im-conv-time">' + esc(fmtTime(it.updatetime)) + '</div>' +
-                    '</button>';
-            }).join('');
-            box.html(html);
+            renderConvList(list);
             return false;
         }, function () {
             return false;
@@ -550,6 +597,13 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
 
     function openRoom(meta) {
         current = meta;
+        var roomType = parseInt(meta.conversation_type, 10) || 1;
+        if (roomType !== convTabType) {
+            convTabType = roomType;
+            $('#convTabs .im-tab').removeClass('active');
+            $('#convTabs .im-tab[data-tab="' + roomType + '"]').addClass('active');
+            renderConvList(lastConversations);
+        }
         $('#roomTitle').text(meta.title || '会话');
         $('#convList .im-conv-item').removeClass('active');
         $('#convList .im-conv-item').filter(function () {
@@ -583,7 +637,6 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                 box.html('<div class="im-empty">暂无消息</div>');
                 return false;
             }
-            var agentId = parseInt($('#agentSelect').val(), 10) || 0;
             var html = list.map(function (m) {
                 var type = parseInt(m.msg_type, 10) || 1;
                 var recalled = m.status == 2;
@@ -593,7 +646,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                 if (type === 3) {
                     return '<div class="im-row system"><div class="im-sys">' + esc(m.content || '') + '</div></div>';
                 }
-                var mine = agentId > 0 && m.from_user_id == agentId;
+                var mine = isMineMessage(m);
                 var deleted = m.status == 3;
                 var bubbleClass = 'im-bubble';
                 if (type === 4 || type === 5 || type === 7) bubbleClass += ' media';
@@ -606,12 +659,14 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                         : '<a href="javascript:;" class="btn btn-link btn-xs btn-del-msg" data-id="' + m.id + '">删除</a>') +
                     '</div>';
                 return '<div class="im-row' + (mine ? ' me' : '') + (deleted ? ' im-deleted' : '') + '" data-id="' + m.id + '">' +
+                    avatarHtml(m, mine) +
+                    '<div class="im-col">' +
+                    '<div class="im-name">' + esc(m.from_label || ('ID' + m.from_user_id)) + '</div>' +
                     '<div class="' + bubbleClass + '">' +
-                    '<div style="font-size:11px;opacity:.8;margin-bottom:4px;">' + esc(m.from_label || ('ID' + m.from_user_id)) + '</div>' +
                     renderMsgBody(m) +
                     '<span class="im-meta">#' + m.id + ' · ' + esc(m.createtime_text || fmtTime(m.createtime)) + (deleted ? ' · 已删' : '') + '</span>' +
                     ops +
-                    '</div></div>';
+                    '</div></div></div>';
             }).join('');
             box.html(html);
             box.scrollTop(box[0].scrollHeight);
@@ -883,6 +938,17 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                 $(this).removeClass('btn-default').addClass('btn-primary');
                 $('#btnViewChat').removeClass('btn-primary').addClass('btn-default');
                 initTable();
+            });
+            $('#convTabs').on('click', '.im-tab', function () {
+                var tab = parseInt($(this).attr('data-tab'), 10) || 1;
+                if (tab === convTabType) return;
+                convTabType = tab;
+                $('#convTabs .im-tab').removeClass('active');
+                $(this).addClass('active');
+                renderConvList(lastConversations);
+            });
+            $('#agentSelect').on('change', function () {
+                if (current) loadHistory();
             });
             $('#btnRefreshAll').on('click', function () {
                 loadConversations();

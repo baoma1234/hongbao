@@ -1,5 +1,12 @@
 <style>
-.im-wrap { display:flex; height:calc(100vh - 140px); min-height:520px; border:1px solid #e5e5e5; background:#fff; border-radius:4px; overflow:hidden; }
+.im-wrap { display:flex; height:calc(100vh - 180px); min-height:520px; border:1px solid #e5e5e5; background:#fff; border-radius:0 0 4px 4px; overflow:hidden; }
+.im-chat-tabs { display:flex; gap:0; border:1px solid #e5e5e5; border-bottom:0; border-radius:4px 4px 0 0; background:#fff; overflow:hidden; }
+.im-chat-tabs .im-tab { flex:1; border:0; background:#f7f9fb; color:#5a6a7a; font-weight:700; font-size:13px; padding:11px 12px; cursor:pointer; border-right:1px solid #e5e5e5; }
+.im-chat-tabs .im-tab:last-child { border-right:0; }
+.im-chat-tabs .im-tab:hover { background:#eef5ff; color:#1a212d; }
+.im-chat-tabs .im-tab.active { background:#2f80ed; color:#fff; }
+.im-chat-tabs .im-tab .im-tab-count { display:inline-block; min-width:18px; margin-left:6px; padding:0 6px; border-radius:10px; font-size:11px; font-weight:600; background:rgba(0,0,0,.08); }
+.im-chat-tabs .im-tab.active .im-tab-count { background:rgba(255,255,255,.22); }
 .im-side { width:300px; border-right:1px solid #e5e5e5; display:flex; flex-direction:column; background:#f7f9fb; }
 .im-side-hd { padding:10px; border-bottom:1px solid #e5e5e5; background:#fff; }
 .im-conv-list { flex:1; overflow:auto; }
@@ -13,12 +20,18 @@
 .im-main-hd { padding:12px 14px; border-bottom:1px solid #e5e5e5; font-weight:700; background:#fff; display:flex; justify-content:space-between; align-items:center; gap:8px; }
 .im-msgs { flex:1; overflow:auto; padding:14px; background:#f4f6f9; }
 .im-empty { color:#8a97a8; text-align:center; padding:40px 12px; }
-.im-row { margin-bottom:12px; display:flex; }
-.im-row.me { justify-content:flex-end; }
+.im-row { margin-bottom:14px; display:flex; justify-content:flex-start; align-items:flex-end; gap:8px; }
+.im-row.me { justify-content:flex-end; flex-direction:row-reverse; }
 .im-row.system { justify-content:center; }
 .im-sys { background:transparent; border:0; color:#8a97a8; font-size:12px; padding:4px 10px; }
-.im-bubble { max-width:72%; background:#fff; border:1px solid #e1e8ed; border-radius:10px; padding:8px 10px; font-size:13px; line-height:1.45; word-break:break-word; position:relative; }
-.im-row.me .im-bubble { background:#2f80ed; color:#fff; border-color:#2f80ed; }
+.im-avatar { flex:0 0 36px; width:36px; height:36px; border-radius:50%; background:#d0d7e2; color:#445; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+.im-row.me .im-avatar { background:#2f80ed; color:#fff; }
+.im-avatar img { width:100%; height:100%; object-fit:cover; display:block; }
+.im-col { max-width:min(72%, 520px); display:flex; flex-direction:column; align-items:flex-start; min-width:0; }
+.im-row.me .im-col { align-items:flex-end; }
+.im-name { font-size:11px; color:#8a97a8; margin:0 2px 4px; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.im-bubble { max-width:100%; background:#fff; border:1px solid #e1e8ed; border-radius:10px 10px 10px 4px; padding:8px 10px; font-size:13px; line-height:1.45; word-break:break-word; position:relative; box-shadow:0 1px 2px rgba(16,24,40,.04); }
+.im-row.me .im-bubble { background:#2f80ed; color:#fff; border-color:#2f80ed; border-radius:10px 10px 4px 10px; }
 .im-bubble.media, .im-bubble.sticker { padding:6px; background:#fff; border-color:#e1e8ed; }
 .im-row.me .im-bubble.media, .im-row.me .im-bubble.sticker { background:#fff; color:#333; }
 .im-media-img, .im-sticker-img { display:block; max-width:220px; max-height:220px; border-radius:8px; cursor:zoom-in; }
@@ -104,6 +117,10 @@
         </div>
 
         <div class="im-panel-chat show" id="panelChat">
+            <div class="im-chat-tabs" id="convTabs">
+                <button type="button" class="im-tab active" data-tab="1">私聊<span class="im-tab-count" id="tabCountPrivate">0</span></button>
+                <button type="button" class="im-tab" data-tab="2">群聊<span class="im-tab-count" id="tabCountGroup">0</span></button>
+            </div>
             <div class="im-wrap">
                 <div class="im-side">
                     <div class="im-side-hd">
