@@ -2,15 +2,18 @@
   <TopBar :noSpacer="true" />
   <view class="yxx-page" :style="pagePad">
     <view class="yxx-header">
-      <view class="yxx-h-left">
-        <view class="yxx-back" hover-class="yxx-hit" @click="goBack">
-          <text class="yxx-back-char">‹</text>
+      <view class="yxx-h-row1">
+        <view class="yxx-h-left">
+          <view class="yxx-back" hover-class="yxx-hit" @click="goBack">
+            <text class="yxx-back-char">‹</text>
+          </view>
         </view>
+        <view class="yxx-titles">
+          <text class="yxx-title">{{ pageTitle }}</text>
+        </view>
+        <view class="yxx-h-spacer" />
       </view>
-      <view class="yxx-titles">
-        <text class="yxx-title">{{ pageTitle }}</text>
-      </view>
-      <view class="yxx-h-right">
+      <view class="yxx-h-row2 yxx-h-side yxx-h-right">
         <view class="yxx-rules-btn" hover-class="yxx-hit" @click="openVerify">{{ t('yxx_verify') }}</view>
         <view class="yxx-rules-btn" hover-class="yxx-hit" @click="historyOpen = true">{{ t('yxx_history') }}</view>
         <view class="yxx-rules-btn" hover-class="yxx-hit" @click="openLedger">{{ t('yxx_ledger') }}</view>
@@ -78,16 +81,21 @@
         </view>
       </view>
 
-      <view class="yxx-reveal" :class="{ open: revealOpen }">
+      <view class="yxx-reveal" :class="{ open: revealOpen, shaking: diceShaking }">
         <view class="yxx-spark" v-if="revealOpen">
           <text v-for="n in 6" :key="n" class="yxx-coin" :class="'c' + n">●</text>
         </view>
         <image class="yxx-bowl-img" :src="bowlSrc" mode="aspectFit" />
         <view class="yxx-dice-row">
-          <view v-for="(id, i) in diceShow" :key="i" class="yxx-die">
+          <view
+            v-for="(id, i) in diceShow"
+            :key="i"
+            class="yxx-die"
+            :class="{ shake: diceShaking }"
+          >
             <image v-if="id" class="yxx-die-img" :src="diceSnapshotSrc(i, id)" mode="aspectFill" />
             <text v-else class="yxx-die-fallback">{{ diceLabels[i] || t('yxx_dice_pending') }}</text>
-            <text v-if="id" class="yxx-die-lab">{{ diceLabels[i] || '·' }}</text>
+            <text v-if="id && !diceShaking" class="yxx-die-lab">{{ diceLabels[i] || '·' }}</text>
           </view>
         </view>
         <text class="yxx-reveal-cap">{{ revealHint }}</text>
@@ -232,7 +240,11 @@ function diceSnapshotSrc(pos, id) {
     rooster: '10',
     tiger: '12',
   }
-  const m = pos === 0 ? odd : even
+  // 摇动时在奇偶朝向间切换，定格后仍按位置选朝向
+  const useOdd = diceShaking.value
+    ? ((shakeTick.value + Number(pos || 0)) % 2 === 0)
+    : Number(pos || 0) === 0
+  const m = useOdd ? odd : even
   const n = m[k]
   if (!n) return ''
   return yxxStaticUrl('yxx/dice/' + n + '.png') + '?v=1'
@@ -265,7 +277,14 @@ const myStake = ref(0)
 const rulesOpen = ref(false)
 const historyOpen = ref(false)
 const betting = ref(false)
-const diceShow = ref(['', '', ''])
+const diceFinal = ref(['', '', ''])
+const diceSpin = ref(['', '', ''])
+const diceShaking = ref(false)
+let shakeTimer = null
+let shakeEndTimer = null
+let lastShakeKey = ''
+const shakeTick = ref(0)
+const diceShow = computed(() => (diceShaking.value ? diceSpin.value : diceFinal.value))
 const historyRows = ref([])
 const feedRows = ref([])
 const realMoney = ref(false)
@@ -469,7 +488,9 @@ const feedItems = computed(() => {
 
 const diceLabels = computed(() => {
   void locale.value
-  return diceShow.value.map((id) => (id ? faceLabel(id) : ''))
+  // 摇动中不显示面名，避免闪字；用最终结果文案
+  if (diceShaking.value) return ['', '', '']
+  return diceFinal.value.map((id) => (id ? faceLabel(id) : ''))
 })
 const feedLeft = computed(() => feedItems.value.filter((_, i) => i % 2 === 0))
 const feedRight = computed(() => feedItems.value.filter((_, i) => i % 2 === 1))
@@ -562,6 +583,82 @@ function onAmt(e) {
   stake.value = Math.min(stakeMax.value, Math.max(0, n))
 }
 
+function stopDiceShake() {
+  if (shakeTimer) {
+    clearInterval(shakeTimer)
+    shakeTimer = null
+  }
+  if (shakeEndTimer) {
+    clearTimeout(shakeEndTimer)
+    shakeEndTimer = null
+  }
+  diceShaking.value = false
+}
+
+function randFaceId() {
+  return FACE_IDS[Math.floor(Math.random() * FACE_IDS.length)]
+}
+
+/** 开奖摇色子：用现有 12 张快照图快速切换朝向/点数，再定格最终结果（不缺图） */
+function startDiceShake(finalIds) {
+  const finals = (finalIds || []).map((x) => String(x || ''))
+  while (finals.length < 3) finals.push('')
+  diceFinal.value = finals.slice(0, 3)
+  const hasAny = finals.some(Boolean)
+  if (!hasAny) {
+    stopDiceShake()
+    diceSpin.value = ['', '', '']
+    return
+  }
+  stopDiceShake()
+  diceShaking.value = true
+  shakeTick.value = 0
+  const tick = () => {
+    shakeTick.value += 1
+    diceSpin.value = [
+      finals[0] ? randFaceId() : '',
+      finals[1] ? randFaceId() : '',
+      finals[2] ? randFaceId() : '',
+    ]
+  }
+  tick()
+  shakeTimer = setInterval(tick, 70)
+  shakeEndTimer = setTimeout(() => {
+    if (shakeTimer) {
+      clearInterval(shakeTimer)
+      shakeTimer = null
+    }
+    shakeEndTimer = null
+    diceSpin.value = diceFinal.value.slice()
+    diceShaking.value = false
+  }, 1600)
+}
+
+function applyDiceForPhase(ids, settleFaceId) {
+  const phaseOk = phase.value === 'reveal' || phase.value === 'locking'
+  if (!phaseOk) {
+    stopDiceShake()
+    lastShakeKey = ''
+    diceFinal.value = ['', '', '']
+    diceSpin.value = ['', '', '']
+    return
+  }
+  let next = ['', '', '']
+  if (ids.length === 3) {
+    next = ids.map((x) => String(x || ''))
+  } else if (settleFaceId) {
+    next = [settleFaceId, ids[1] || '', ids[2] || '']
+  }
+  const key = String(lastRound) + ':' + next.join(',')
+  if (key === lastShakeKey) {
+    diceFinal.value = next
+    if (!diceShaking.value) diceSpin.value = next
+    return
+  }
+  lastShakeKey = key
+  startDiceShake(next)
+}
+
 function applyHall(data) {
   if (!data) return
   realMoney.value = !!(data.real_money || data.debit)
@@ -580,6 +677,7 @@ function applyHall(data) {
   const idx = Number(r.round_index || 0)
   if (idx !== lastRound) {
     lastRound = idx
+    lastShakeKey = ''
     myFaces.value = []
     myUnit.value = 0
     myStake.value = 0
@@ -594,18 +692,9 @@ function applyHall(data) {
     historyRows.value = data.history
   }
   const ids = Array.isArray(data.dice) ? data.dice : []
-  if (phase.value === 'reveal' || phase.value === 'locking') {
-    if (ids.length === 3) {
-      diceShow.value = ids.map((x) => String(x || ''))
-    } else if (String(data.settle_face || '')) {
-      const sf = String(data.settle_face)
-      diceShow.value = [sf, ids[1] || '', ids[2] || '']
-    }
-  } else {
-    diceShow.value = ['', '', '']
-  }
+  applyDiceForPhase(ids, String(data.settle_face || ''))
   settleFace.value = (phase.value === 'reveal' || phase.value === 'locking')
-    ? String(data.settle_face || diceShow.value[0] || '')
+    ? String(data.settle_face || diceFinal.value[0] || '')
     : ''
   const mine = data.my_bet
   if (mine && (mine.face || (Array.isArray(mine.faces) && mine.faces.length))) {
@@ -802,6 +891,7 @@ onShow(() => {
 
 onHide(() => {
   stopPoll()
+  stopDiceShake()
 })
 
 onResize(() => {
@@ -810,6 +900,7 @@ onResize(() => {
 
 onUnmounted(() => {
   stopPoll()
+  stopDiceShake()
 })
 </script>
 
@@ -826,13 +917,32 @@ onUnmounted(() => {
   margin: 0 auto;
 }
 .yxx-header {
-  display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) auto;
-  align-items: center;
+  display: flex;
+  flex-direction: column;
   gap: 6px;
-  padding: 4px 10px 6px;
+  padding: 4px 10px 8px;
   position: relative;
   z-index: 3;
+}
+.yxx-h-row1 {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 6px;
+}
+.yxx-h-spacer {
+  width: 44px;
+  height: 1px;
+}
+.yxx-h-row2 {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  width: 100%;
+  flex-wrap: wrap;
+  max-width: none;
+  overflow: visible;
 }
 .yxx-h-left {
   display: flex;
@@ -843,10 +953,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 4px;
-  max-width: 46vw;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  gap: 6px;
 }
 .yxx-back,
 .yxx-rules-btn {
@@ -1138,6 +1245,9 @@ onUnmounted(() => {
 .yxx-reveal.open .yxx-bowl-img {
   transform: translate(-24px, -8px) rotate(-22deg);
 }
+.yxx-reveal.shaking .yxx-bowl-img {
+  animation: yxx-bowl-shake 0.18s linear infinite;
+}
 .yxx-dice-row {
   display: flex;
   gap: 10px;
@@ -1166,6 +1276,9 @@ onUnmounted(() => {
   overflow: hidden;
   position: relative;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.35);
+}
+.yxx-die.shake {
+  animation: yxx-die-shake 0.12s linear infinite;
 }
 .yxx-die-img {
   width: 52px;
@@ -1420,6 +1533,18 @@ onUnmounted(() => {
   0% { transform: translateY(0); opacity: 0; }
   12% { opacity: 0.95; }
   100% { transform: translateY(118%); opacity: 0.75; }
+}
+@keyframes yxx-die-shake {
+  0% { transform: translate(0, 0) rotate(0deg); }
+  25% { transform: translate(2px, -3px) rotate(-8deg); }
+  50% { transform: translate(-2px, 2px) rotate(7deg); }
+  75% { transform: translate(1px, 2px) rotate(-5deg); }
+  100% { transform: translate(0, 0) rotate(0deg); }
+}
+@keyframes yxx-bowl-shake {
+  0% { transform: translate(-24px, -8px) rotate(-18deg); }
+  50% { transform: translate(-20px, -12px) rotate(-28deg); }
+  100% { transform: translate(-24px, -8px) rotate(-18deg); }
 }
 .yxx-sheet {
   width: 100%;
