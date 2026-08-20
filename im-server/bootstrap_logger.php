@@ -10,7 +10,8 @@
 
 use Workerman\Worker;
 
-$imRuntimeLogDir = __DIR__ . '/runtime/log';
+$imRuntimeDir = __DIR__ . '/runtime';
+$imRuntimeLogDir = $imRuntimeDir . '/log';
 if (!is_dir($imRuntimeLogDir)) {
     @mkdir($imRuntimeLogDir, 0775, true);
 }
@@ -20,6 +21,9 @@ $tag = preg_replace('/[^a-zA-Z0-9_-]+/', '_', pathinfo($script, PATHINFO_FILENAM
 
 $workermanLog = $imRuntimeLogDir . '/workerman-' . $tag . '.log';
 $phpErrorLog = $imRuntimeLogDir . '/php-error-' . $tag . '.log';
+// 固定 pid，避免默认写到 vendor/ 且 stop/restart 找不到旧 master
+Worker::$pidFile = $imRuntimeDir . '/workerman-' . $tag . '.pid';
+Worker::$statusFile = $imRuntimeDir . '/workerman-' . $tag . '.status';
 
 /**
  * 超过上限则截断（启动时一次；避免无 logrotate 时再次涨死盘）。
@@ -62,4 +66,4 @@ if (DIRECTORY_SEPARATOR === '/') {
 @ini_set('log_errors', '1');
 @ini_set('error_log', $phpErrorLog);
 
-unset($imRuntimeLogDir, $script, $tag, $workermanLog, $phpErrorLog, $capLogFile, $legacyVendorLog, $legacySize, $fh);
+unset($imRuntimeDir, $imRuntimeLogDir, $script, $tag, $workermanLog, $phpErrorLog, $capLogFile, $legacyVendorLog, $legacySize, $fh);

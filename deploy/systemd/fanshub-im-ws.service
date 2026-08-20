@@ -21,8 +21,10 @@ Restart=always
 RestartSec=3
 LimitNOFILE=200000
 LimitNPROC=65535
-KillMode=process
-# 避免把海量 error_log 写进磁盘文件；业务日志见 im-server/runtime/log/
+# process 只杀主进程，子 Worker 会残留占端口 → Address already in use
+KillMode=control-group
+TimeoutStopSec=20
+KillSignal=SIGTERM
 StandardOutput=null
 StandardError=journal
 SyslogIdentifier=fanshub-im-ws
