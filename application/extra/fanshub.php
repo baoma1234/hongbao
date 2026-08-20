@@ -95,7 +95,7 @@ return array (
   'default_cs_user_id' => 88888888,
   'default_cs_mobile' => '18811111111',
   'default_cs_nickname' => '红宝客服',
-  'invite_base_url' => '',
+  'invite_base_url' => 'https://hbsq.bio',
   'h5_entry_path' => '999',
   'share_text' => '【红宝官方通知】分享送钱，免费瓜分888,888.00元官方直营全现金红包大池！
 短信登录当场免费赠送 5 股活跃资产股份！每成功拉一个好兄弟来占位，永久再加 1 股 + 3 红宝（可直接闪兑变现）！

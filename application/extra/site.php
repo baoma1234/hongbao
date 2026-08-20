@@ -19,7 +19,7 @@ return array (
     'page' => '单页',
     'article' => '文章',
     'test' => 'Test',
-    'invite_base_url' => 'https://555fx1.bio',
+    'invite_base_url' => 'https://hbsq.bio',
     'customer_service_url' => 'https://207.56.160.234:1609/index?key=2cec09cee86179dd03a1e78c02b15b0b',
   ),
   'configgroup' => 
