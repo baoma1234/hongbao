@@ -937,7 +937,7 @@ onUnmounted(() => {
 .yxx-h-row2 {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   gap: 6px;
   width: 100%;
   flex-wrap: wrap;
@@ -952,7 +952,7 @@ onUnmounted(() => {
 .yxx-h-right {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   gap: 6px;
 }
 .yxx-back,
@@ -1232,18 +1232,24 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   position: relative;
-  min-height: 132px;
+  min-height: 168px;
+  padding-bottom: 22px;
+  box-sizing: border-box;
 }
 .yxx-bowl-img {
-  width: 108px;
-  height: 72px;
-  position: relative;
-  z-index: 2;
-  transform: translate(0, 18px) rotate(0deg);
+  position: absolute;
+  left: 50%;
+  top: 4px;
+  width: 220px;
+  height: 148px;
+  z-index: 5;
+  transform: translateX(-50%);
   transition: transform 0.45s ease;
+  pointer-events: none;
 }
 .yxx-reveal.open .yxx-bowl-img {
-  transform: translate(-24px, -8px) rotate(-22deg);
+  transform: translate(calc(-50% - 56px), -14px) rotate(-24deg);
+  z-index: 2;
 }
 .yxx-reveal.shaking .yxx-bowl-img {
   animation: yxx-bowl-shake 0.18s linear infinite;
@@ -1251,21 +1257,28 @@ onUnmounted(() => {
 .yxx-dice-row {
   display: flex;
   gap: 10px;
-  margin-top: 4px;
+  margin: 0;
   padding: 10px 16px 8px;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(180, 30, 30, 0.55), transparent 70%);
-  position: relative;
+  position: absolute;
+  left: 50%;
+  top: 42px;
+  transform: translateX(-50%);
   z-index: 1;
-  opacity: 0.35;
+  opacity: 0;
+  visibility: hidden;
   min-height: 72px;
   align-items: center;
   justify-content: center;
+  pointer-events: none;
 }
 
 .yxx-reveal.open .yxx-dice-row {
   z-index: 3;
   opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
 }
 .yxx-die {
   width: 52px;
@@ -1310,9 +1323,12 @@ onUnmounted(() => {
   line-height: 14px;
 }
 .yxx-reveal-cap {
-  margin-top: 4px;
+  margin-top: auto;
+  padding-top: 148px;
   font-size: 11px;
   color: rgba(255, 230, 180, 0.75);
+  position: relative;
+  z-index: 4;
 }
 .yxx-spark {
   position: absolute;
@@ -1542,9 +1558,9 @@ onUnmounted(() => {
   100% { transform: translate(0, 0) rotate(0deg); }
 }
 @keyframes yxx-bowl-shake {
-  0% { transform: translate(-24px, -8px) rotate(-18deg); }
-  50% { transform: translate(-20px, -12px) rotate(-28deg); }
-  100% { transform: translate(-24px, -8px) rotate(-18deg); }
+  0% { transform: translate(calc(-50% - 56px), -14px) rotate(-18deg); }
+  50% { transform: translate(calc(-50% - 48px), -20px) rotate(-30deg); }
+  100% { transform: translate(calc(-50% - 56px), -14px) rotate(-18deg); }
 }
 .yxx-sheet {
   width: 100%;
