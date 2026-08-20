@@ -18,14 +18,32 @@ class MessageService
             throw new \InvalidArgumentException('invalid private chat target');
         }
         AdminService::assertCanPrivateChat($fromUserId, $toUserId);
+        return $this->insertPrivateMessage($fromUserId, $toUserId, $content, $msgType, $extra);
+    }
+
+    /**
+     * 跳过私聊鉴权落库（仅用于刚建好友后的问候语等已保证关系的系统消息）
+     */
+    public function sendPrivateTrusted($fromUserId, $toUserId, $content, $msgType = 1, $extra = null)
+    {
+        $fromUserId = (int)$fromUserId;
+        $toUserId = (int)$toUserId;
+        if ($fromUserId <= 0 || $toUserId <= 0 || $fromUserId === $toUserId) {
+            throw new \InvalidArgumentException('invalid private chat target');
+        }
+        return $this->insertPrivateMessage($fromUserId, $toUserId, $content, $msgType, $extra);
+    }
+
+    protected function insertPrivateMessage($fromUserId, $toUserId, $content, $msgType = 1, $extra = null)
+    {
         list($content, $msgType, $extra) = $this->prepareOutgoing($content, $msgType, $extra);
-        $conv = IdGenerator::privateConversationId($fromUserId, $toUserId);
+        $conv = IdGenerator::privateConversationId((int)$fromUserId, (int)$toUserId);
         return $this->insertMessage([
             'conversation_type' => 1,
             'conversation_id'   => $conv,
             'group_id'          => 0,
-            'from_user_id'      => $fromUserId,
-            'to_user_id'        => $toUserId,
+            'from_user_id'      => (int)$fromUserId,
+            'to_user_id'        => (int)$toUserId,
             'msg_type'          => (int)$msgType,
             'content'           => $content,
             'extra'             => $extra,

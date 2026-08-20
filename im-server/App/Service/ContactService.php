@@ -13,6 +13,9 @@ class ContactService
     /** 好友关系短缓存；ensureRow 建好好友后立即失效 */
     const FRIEND_CACHE_TTL = 30;
 
+    /** 普通用户互加好友后的默认问候语 */
+    const FRIEND_GREETING = '您好~我们已经是好友了~';
+
     public function isFriend($userId, $peerId)
     {
         $userId = (int)$userId;
@@ -187,10 +190,16 @@ class ContactService
         $this->ensureRow($toId, $fromId, $now);
         $greetingMsg = null;
         if ($sendGreeting) {
-            $text = '我们已经是好友了~';
             try {
-                $greetingMsg = (new MessageService())->sendPrivate($toId, $fromId, $text, 1);
+                // Trusted：避免好友短缓存仍为 0 时 assertCanPrivateChat 拦掉问候语
+                $greetingMsg = (new MessageService())->sendPrivateTrusted(
+                    $toId,
+                    $fromId,
+                    self::FRIEND_GREETING,
+                    1
+                );
             } catch (\Throwable $e) {
+                error_log('[FRIEND] greeting fail req=' . $requestId . ' ' . $e->getMessage());
                 $greetingMsg = null;
             }
         }
@@ -857,8 +866,8 @@ class ContactService
                     'UPDATE ' . Db::table('chat_contacts') . ' SET status=1 WHERE id=?',
                     [(int)$existing['id']]
                 );
-                $this->invalidateFriendCache($userId, $peerId);
             }
+            $this->warmFriendCache($userId, $peerId, true);
             return;
         }
         Db::exec(
@@ -866,6 +875,24 @@ class ContactService
             . ' (user_id,peer_user_id,status,createtime) VALUES (?,?,1,?)',
             [$userId, $peerId, $now]
         );
-        $this->invalidateFriendCache($userId, $peerId);
+        $this->warmFriendCache($userId, $peerId, true);
+    }
+
+    /** 清短缓存并写成好友=1，避免紧随其后的私聊鉴权误判 */
+    protected function warmFriendCache($userId, $peerId, $isFriend = true)
+    {
+        $userId = (int)$userId;
+        $peerId = (int)$peerId;
+        if ($userId <= 0 || $peerId <= 0) {
+            return;
+        }
+        $flag = $isFriend ? '1' : '0';
+        try {
+            $r = RedisClient::conn();
+            $r->setex(RedisClient::key('friend:' . $userId . ':' . $peerId), self::FRIEND_CACHE_TTL, $flag);
+            $r->setex(RedisClient::key('friend:' . $peerId . ':' . $userId), self::FRIEND_CACHE_TTL, $flag);
+        } catch (\Throwable $e) {
+            $this->invalidateFriendCache($userId, $peerId);
+        }
     }
 }
