@@ -558,17 +558,25 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
         }
         var html = filtered.map(function (it) {
             var active = current && String(current.conversation_id) === String(it.conversation_id) && current.conversation_type == it.conversation_type ? ' active' : '';
+            var title = String(it.peer_nickname || it.title || '');
+            var av = String(it.peer_avatar || '');
+            var short = title.replace(/^ID/i, '').trim().slice(0, 1) || ((parseInt(it.conversation_type, 10) || 1) === 2 ? '群' : '客');
+            var avHtml = av
+                ? '<div class="im-conv-avatar"><img src="' + esc(av) + '" alt="" onerror="this.remove();"></div>'
+                : '<div class="im-conv-avatar">' + esc(short) + '</div>';
             return '<button type="button" class="im-conv-item' + active + '"' +
                 ' data-type="' + it.conversation_type + '"' +
                 ' data-cid="' + esc(it.conversation_id) + '"' +
                 ' data-gid="' + (it.group_id || 0) + '"' +
                 ' data-a="' + (it.peer_a || 0) + '"' +
                 ' data-b="' + (it.peer_b || 0) + '"' +
-                ' data-title="' + esc(it.title) + '">' +
-                '<div class="im-conv-title">' + esc(it.title) + '</div>' +
+                ' data-title="' + esc(title) + '">' +
+                avHtml +
+                '<div class="im-conv-body">' +
+                '<div class="im-conv-title">' + esc(title) + '</div>' +
                 '<div class="im-conv-preview">' + esc(previewLabel(it)) + '</div>' +
                 '<div class="im-conv-time">' + esc(fmtTime(it.updatetime)) + '</div>' +
-                '</button>';
+                '</div></button>';
         }).join('');
         box.html(html);
     }

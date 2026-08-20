@@ -83,6 +83,7 @@ class Imagent extends Backend
             $peerIds[] = (int)$m['to_user_id'];
         }
         $users = $this->usersMap($peerIds);
+        $agentIds = $this->agentUserIdMap();
         $privKept = 0;
         foreach ($privates as $m) {
             if ($privKept >= $limit) {
@@ -93,8 +94,14 @@ class Imagent extends Backend
             if (!isset($users[$a]) || !isset($users[$b])) {
                 continue;
             }
-            $title = '私聊 ' . $this->userLabel($users, $a) . ' ↔ ' . $this->userLabel($users, $b);
-            if ($kw !== '' && stripos($title, $kw) === false && stripos((string)$m['content'], $kw) === false) {
+            $peerId = $this->resolvePrivatePeerId($a, $b, $agentIds);
+            if ($peerId <= 0) {
+                continue;
+            }
+            $nick = $this->userNick($users, $peerId);
+            $title = $nick !== '' ? $nick : ('ID' . $peerId);
+            if ($kw !== '' && stripos($title, $kw) === false && stripos((string)$m['content'], $kw) === false
+                && stripos((string)$peerId, $kw) === false) {
                 continue;
             }
             $items[] = [
@@ -103,6 +110,9 @@ class Imagent extends Backend
                 'group_id'          => 0,
                 'peer_a'            => $a,
                 'peer_b'            => $b,
+                'peer_user_id'      => $peerId,
+                'peer_nickname'     => $title,
+                'peer_avatar'       => $this->userAvatar($users, $peerId),
                 'title'             => $title,
                 'last_content'      => (string)$m['content'],
                 'last_msg_type'     => (int)$m['msg_type'],
@@ -137,17 +147,22 @@ class Imagent extends Backend
         foreach ($groups ?: [] as $g) {
             $gid = (int)$g['id'];
             $last = $lastByGid[$gid] ?? null;
-            $title = '群聊 #' . $gid . ' ' . ($g['name'] ?: '');
+            $gName = trim((string)($g['name'] ?? ''));
+            $title = $gName !== '' ? $gName : ('群聊 #' . $gid);
             $content = $last ? (string)$last['content'] : '(暂无消息)';
             if ($kw !== '' && stripos($title, $kw) === false && stripos($content, $kw) === false) {
                 continue;
             }
+            $gAvatar = trim((string)($g['avatar'] ?? ''));
             $items[] = [
                 'conversation_type' => 2,
                 'conversation_id'   => (string)$gid,
                 'group_id'          => $gid,
                 'peer_a'            => 0,
                 'peer_b'            => 0,
+                'peer_user_id'      => 0,
+                'peer_nickname'     => $title,
+                'peer_avatar'       => $this->normalizeAvatarUrl($gAvatar),
                 'title'             => $title,
                 'last_content'      => $content,
                 'last_msg_type'     => $last ? (int)$last['msg_type'] : 0,
@@ -704,7 +719,77 @@ class Imagent extends Backend
             return $default;
         }
         $u = $users[$uid] ?? null;
-        $avatar = trim((string)($u['avatar'] ?? ''));
+        return $this->normalizeAvatarUrl(trim((string)($u['avatar'] ?? '')), $default);
+    }
+
+    protected function userNick(array $users, $uid)
+    {
+        $uid = (int)$uid;
+        if ($uid <= 0) {
+            return '';
+        }
+        $u = $users[$uid] ?? null;
+        if (!$u) {
+            return 'ID' . $uid;
+        }
+        $nick = trim((string)($u['nickname'] ?: $u['username'] ?: ''));
+        if ($nick !== '') {
+            return $nick;
+        }
+        $mob = (string)($u['mobile'] ?? '');
+        if ($mob !== '') {
+            return strlen($mob) >= 7 ? (substr($mob, 0, 3) . '****' . substr($mob, -4)) : $mob;
+        }
+        return 'ID' . $uid;
+    }
+
+    /** @return array<int,true> */
+    protected function agentUserIdMap()
+    {
+        static $map = null;
+        if (is_array($map)) {
+            return $map;
+        }
+        $map = [];
+        try {
+            $rows = Db::name('chat_agent_accounts')->where('status', 1)->column('user_id');
+            foreach ($rows ?: [] as $uid) {
+                $uid = (int)$uid;
+                if ($uid > 0) {
+                    $map[$uid] = true;
+                }
+            }
+        } catch (\Throwable $e) {
+            $map = [];
+        }
+        return $map;
+    }
+
+    /**
+     * 私聊展示对方：优先非托管账号；若双方都是/都不是托管，取另一侧中非「最新消息发送方」优先用户侧
+     */
+    protected function resolvePrivatePeerId($a, $b, array $agentIds)
+    {
+        $a = (int)$a;
+        $b = (int)$b;
+        $aAgent = isset($agentIds[$a]);
+        $bAgent = isset($agentIds[$b]);
+        if ($aAgent && !$bAgent) {
+            return $b;
+        }
+        if ($bAgent && !$aAgent) {
+            return $a;
+        }
+        // 双方同为托管或都不是：取较小 id 以外的「对方」仍需一个展示位，优先非发送方意义不大，取较大 id
+        return max($a, $b);
+    }
+
+    protected function normalizeAvatarUrl($avatar, $default = '')
+    {
+        $default = $default !== ''
+            ? $default
+            : 'https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/brand/default-avatar.png';
+        $avatar = trim((string)$avatar);
         if ($avatar === '') {
             return $default;
         }
