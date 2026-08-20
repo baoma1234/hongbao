@@ -20,6 +20,9 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
     var audioUnlocked = false;
     var notifyAudio = null;
     var toastedKeys = {};
+    var CS_SOUND_URL = (typeof Config !== 'undefined' && Config.site && Config.site.cdnurl
+        ? String(Config.site.cdnurl)
+        : '') + '/assets/sound/admin/' + encodeURIComponent('客服.mp3');
     var EMOJIS = ['😀','😁','😂','🤣','😊','😍','😘','😜','🤔','🙄','😴','😭','😤','😱','👍','👎','👏','🙏','🔥','❤️','💔','🎉','🧧','💰','✅','❌','⭐','🌟','💯','🤝'];
 
     function esc(s) {
@@ -79,54 +82,31 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
         } catch (e) {}
         try {
             if (!notifyAudio) {
-                // 短促叮声（WAV data URI），不依赖外部 mp3
-                notifyAudio = new Audio(
-                    'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA='
-                );
+                notifyAudio = new Audio(CS_SOUND_URL);
+                notifyAudio.preload = 'auto';
             }
             notifyAudio.volume = 0.01;
             var p = notifyAudio.play();
             if (p && p.then) p.then(function () {
                 notifyAudio.pause();
                 notifyAudio.currentTime = 0;
-                notifyAudio.volume = 0.85;
+                notifyAudio.volume = 0.9;
             }).catch(function () {});
         } catch (e2) {}
     }
 
-    function playBeepOnce(freq, startAt, dur, vol) {
-        try {
-            var AudioContext = window.AudioContext || window.webkitAudioContext;
-            if (!AudioContext) return;
-            if (!wsAudioCtx) wsAudioCtx = new AudioContext();
-            var ctx = wsAudioCtx;
-            if (ctx.state === 'suspended' && ctx.resume) ctx.resume().catch(function () {});
-            var osc = ctx.createOscillator();
-            var gain = ctx.createGain();
-            osc.type = 'sine';
-            osc.frequency.value = freq;
-            var t0 = ctx.currentTime + (startAt || 0);
-            gain.gain.setValueAtTime(0.0001, t0);
-            gain.gain.exponentialRampToValueAtTime(vol || 0.22, t0 + 0.02);
-            gain.gain.exponentialRampToValueAtTime(0.0001, t0 + (dur || 0.18));
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.start(t0);
-            osc.stop(t0 + (dur || 0.18) + 0.02);
-        } catch (e) {}
-    }
-
-    function playBeep() {
+    function playCsNotify() {
         unlockAudio();
-        // 两声提示，比原来的轻 beep 更明显
-        playBeepOnce(880, 0, 0.16, 0.25);
-        playBeepOnce(1175, 0.2, 0.18, 0.22);
         try {
-            if (notifyAudio) {
-                notifyAudio.currentTime = 0;
-                var p = notifyAudio.play();
-                if (p && p.catch) p.catch(function () {});
+            if (!notifyAudio) {
+                notifyAudio = new Audio(CS_SOUND_URL);
+                notifyAudio.preload = 'auto';
+                notifyAudio.volume = 0.9;
             }
+            notifyAudio.pause();
+            notifyAudio.currentTime = 0;
+            var p = notifyAudio.play();
+            if (p && p.catch) p.catch(function () {});
         } catch (e) {}
     }
 
@@ -175,6 +155,10 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
     }
 
     function showImToast(it) {
+        // 群消息：不弹窗、不播音、不闪标题（列表仍会刷新）
+        if ((parseInt(it.conversation_type, 10) || 1) === 2) {
+            return;
+        }
         var key = toastDedupeKey(it);
         if (key && toastedKeys[key]) return;
         if (key) {
@@ -207,7 +191,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
             $('#btnViewAll').removeClass('btn-primary').addClass('btn-default');
             if (el.parentNode) el.parentNode.removeChild(el);
         };
-        playBeep();
+        playCsNotify();
         flashDocumentTitle(it.title || '新消息');
         desktopNotify(it);
         box.appendChild(el);
@@ -270,6 +254,12 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
             return;
         }
 
+        // 群消息：只刷新会话列表，不提示
+        if (type === 2) {
+            scheduleRefreshList();
+            return;
+        }
+
         var base = null;
         for (var i = 0; i < lastConversations.length; i++) {
             var it = lastConversations[i];
@@ -278,15 +268,15 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                 break;
             }
         }
-        var title = base ? base.title : (type === 2 ? ('群聊 #' + cid) : ('私聊 · ID ' + (msg.from_user_id || '')));
+        var title = base ? base.title : ('私聊 · ID ' + (msg.from_user_id || ''));
 
         showImToast({
             title: title,
             conversation_type: type,
             conversation_id: String(cid),
-            group_id: type === 2 ? (parseInt(msg.group_id, 10) || 0) : 0,
-            peer_a: type === 1 ? (parseInt(msg.from_user_id, 10) || 0) : 0,
-            peer_b: type === 1 ? (parseInt(msg.to_user_id, 10) || 0) : 0,
+            group_id: 0,
+            peer_a: parseInt(msg.from_user_id, 10) || 0,
+            peer_b: parseInt(msg.to_user_id, 10) || 0,
             last_msg_type: parseInt(msg.msg_type, 10) || 1,
             last_content: String(msg.content || ''),
             last_id: msgDbId,
@@ -407,7 +397,8 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                     && String(current.conversation_type) === String(it.conversation_type);
                 if (viewing) {
                     if (!wsConnected) loadHistory();
-                } else {
+                } else if ((parseInt(it.conversation_type, 10) || 1) !== 2) {
+                    // 群聊轮询兜底也不弹提示
                     news.push(it);
                 }
             }

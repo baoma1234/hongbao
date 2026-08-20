@@ -4,7 +4,7 @@ return array (
   'name' => '红宝',
   'beian' => '',
   'cdnurl' => '',
-  'version' => '1.0.1',
+  'version' => '1.0.2',
   'timezone' => 'Asia/Shanghai',
   'forbiddenip' => '',
   'languages' => 
