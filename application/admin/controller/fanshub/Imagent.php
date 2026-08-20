@@ -52,17 +52,43 @@ class Imagent extends Backend
         if (!$this->request->isAjax()) {
             $this->error('非法请求');
         }
-        $limit = max(1, min(200, (int)$this->request->param('limit', 80)));
+        $limit = max(1, min(120, (int)$this->request->param('limit', 60)));
         $kw = trim((string)$this->request->param('q', ''));
+        $sinceId = (int)$this->request->param('since_id', 0);
         $agentIds = array_keys($this->agentUserIdMap());
         if (!$agentIds) {
-            $this->success('ok', null, ['list' => []]);
+            $this->success('ok', null, ['list' => [], 'max_last_id' => 0]);
         }
 
-        $cacheKey = 'fh:admin:im:convs:v2:' . md5($limit . '|' . $kw . '|' . implode(',', $agentIds));
+        // 轻量探活：有 since_id 且无搜索时，max(last_msg_id) 未变则直接返回
+        if ($sinceId > 0 && $kw === '') {
+            try {
+                $maxId = (int)Db::name('chat_user_conversations')
+                    ->where('user_id', 'in', $agentIds)
+                    ->where('last_msg_id', '>', 0)
+                    ->max('last_msg_id');
+                if ($maxId > 0 && $maxId <= $sinceId) {
+                    $this->success('ok', null, [
+                        'unchanged'   => 1,
+                        'max_last_id' => $sinceId,
+                        'list'        => [],
+                    ]);
+                }
+            } catch (\Throwable $e) {
+            }
+        }
+
+        $cacheKey = 'fh:admin:im:convs:v3:' . md5($limit . '|' . $kw . '|' . implode(',', $agentIds));
         try {
             $cached = \think\Cache::get($cacheKey);
             if (is_array($cached) && isset($cached['list'])) {
+                if ($sinceId > 0 && $kw === '' && (int)($cached['max_last_id'] ?? 0) <= $sinceId) {
+                    $this->success('ok', null, [
+                        'unchanged'   => 1,
+                        'max_last_id' => $sinceId,
+                        'list'        => [],
+                    ]);
+                }
                 $this->success('ok', null, $cached);
             }
         } catch (\Throwable $e) {
@@ -80,9 +106,14 @@ class Imagent extends Backend
             }
             return ((int)($y['last_id'] ?? 0)) <=> ((int)($x['last_id'] ?? 0));
         });
-        $payload = ['list' => array_slice($items, 0, $limit)];
+        $list = array_slice($items, 0, $limit);
+        $maxLast = 0;
+        foreach ($list as $it) {
+            $maxLast = max($maxLast, (int)($it['last_id'] ?? 0));
+        }
+        $payload = ['list' => $list, 'max_last_id' => $maxLast];
         try {
-            \think\Cache::set($cacheKey, $payload, 3);
+            \think\Cache::set($cacheKey, $payload, 8);
         } catch (\Throwable $e) {
         }
         $this->success('ok', null, $payload);
@@ -98,27 +129,41 @@ class Imagent extends Backend
         if (!$agentIds) {
             return [];
         }
-        $fetch = min(400, max($limit * 4, $limit));
-        $in = implode(',', $agentIds);
+        // 按托管账号分别走 idx_user_last，再合并去重（比跨用户 GROUP BY 快）
+        $per = min(120, max($limit * 2, 40));
+        $best = [];
         try {
-            $rows = Db::query(
-                "SELECT conversation_type, conversation_id,
-                        MAX(peer_user_id) AS peer_user_id,
-                        MAX(group_id) AS group_id,
-                        MAX(last_msg_id) AS last_msg_id,
-                        MAX(last_msg_time) AS last_msg_time
-                 FROM fa_chat_user_conversations
-                 WHERE user_id IN ({$in}) AND last_msg_id > 0
-                 GROUP BY conversation_type, conversation_id
-                 ORDER BY last_msg_id DESC
-                 LIMIT {$fetch}"
-            );
+            foreach ($agentIds as $aid) {
+                $part = Db::name('chat_user_conversations')
+                    ->where('user_id', $aid)
+                    ->where('last_msg_id', '>', 0)
+                    ->order('last_msg_id', 'desc')
+                    ->limit($per)
+                    ->field('conversation_type,conversation_id,peer_user_id,group_id,last_msg_id,last_msg_time')
+                    ->select();
+                foreach ($part ?: [] as $r) {
+                    $ctype = (int)($r['conversation_type'] ?? 0);
+                    $cid = (string)($r['conversation_id'] ?? '');
+                    if ($cid === '' || ($ctype !== 1 && $ctype !== 2)) {
+                        continue;
+                    }
+                    $key = $ctype . ':' . $cid;
+                    $mid = (int)($r['last_msg_id'] ?? 0);
+                    if (!isset($best[$key]) || $mid > (int)$best[$key]['last_msg_id']) {
+                        $best[$key] = $r;
+                    }
+                }
+            }
         } catch (\Throwable $e) {
             return null;
         }
-        if (!$rows) {
+        if (!$best) {
             return null;
         }
+        uasort($best, function ($a, $b) {
+            return ((int)($b['last_msg_id'] ?? 0)) <=> ((int)($a['last_msg_id'] ?? 0));
+        });
+        $rows = array_slice(array_values($best), 0, min(400, max($limit * 4, $limit)));
 
         $msgIds = [];
         $groupIds = [];
@@ -143,7 +188,7 @@ class Imagent extends Backend
         $msgs = $this->messagesByIds(array_keys($msgIds));
         $groups = [];
         if ($groupIds) {
-            $gRows = Db::name('chat_groups')->where('id', 'in', array_keys($groupIds))->select();
+            $gRows = Db::name('chat_groups')->where('id', 'in', array_keys($groupIds))->field('id,name,avatar,updatetime,createtime')->select();
             foreach ($gRows ?: [] as $g) {
                 $groups[(int)$g['id']] = $g;
             }
@@ -242,7 +287,11 @@ class Imagent extends Backend
         if (!$ids) {
             return [];
         }
-        $rows = Db::name('chat_messages')->where('id', 'in', $ids)->where('status', 'in', [1, 2])->select();
+        $rows = Db::name('chat_messages')
+            ->where('id', 'in', $ids)
+            ->where('status', 'in', [1, 2])
+            ->field('id,conversation_type,conversation_id,group_id,from_user_id,to_user_id,msg_type,content,createtime')
+            ->select();
         $map = [];
         foreach ($rows ?: [] as $r) {
             $map[(int)$r['id']] = $r;

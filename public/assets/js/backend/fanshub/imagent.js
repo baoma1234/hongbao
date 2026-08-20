@@ -21,6 +21,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
     var notifyAudio = null;
     var toastedKeys = {};
     var convTabType = 1; // 1私聊 2群聊，默认私聊
+    var convSinceId = 0;
     var CS_SOUND_URL = (typeof Config !== 'undefined' && Config.site && Config.site.cdnurl
         ? String(Config.site.cdnurl)
         : '') + '/assets/sound/admin/' + encodeURIComponent('客服.mp3');
@@ -586,13 +587,27 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
         if (opts.poll && pollBusy) return;
         if (opts.poll) pollBusy = true;
         var q = $('#convSearch').val() || '';
+        var data = { q: q, limit: 60 };
+        if (opts.poll && !q && convSinceId > 0) {
+            data.since_id = convSinceId;
+        }
         Backend.api.ajax({
             url: 'fanshub/imagent/conversations',
-            data: { q: q, limit: 100 },
+            data: data,
             loading: opts.poll ? false : undefined
-        }, function (data) {
-            var list = (data && data.list) || [];
+        }, function (ret) {
+            if (ret && ret.unchanged) {
+                return false;
+            }
+            var list = (ret && ret.list) || [];
             lastConversations = list;
+            if (ret && ret.max_last_id) {
+                convSinceId = Math.max(convSinceId, parseInt(ret.max_last_id, 10) || 0);
+            } else {
+                list.forEach(function (it) {
+                    convSinceId = Math.max(convSinceId, parseInt(it.last_id, 10) || 0);
+                });
+            }
             detectNewMessages(list);
             renderConvList(list);
             return false;
@@ -930,9 +945,9 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
             });
             if (pollTimer) clearInterval(pollTimer);
             pollTimer = setInterval(function () {
-                // WS 通时也轮询作兜底（toast 有去重）
+                // 列表有 since_id 短探活；新消息主要靠 WS
                 loadConversations({ poll: true });
-            }, 4000);
+            }, 10000);
 
             $('#btnViewChat').on('click', function () {
                 $('#panelChat').addClass('show');

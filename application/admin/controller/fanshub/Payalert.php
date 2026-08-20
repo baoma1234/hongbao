@@ -18,27 +18,35 @@ class Payalert extends Backend
      */
     public function stats()
     {
+        $cacheKey = 'fh:admin:payalert:stats:v1';
+        try {
+            $cached = \think\Cache::get($cacheKey);
+            if (is_array($cached)) {
+                $this->success('', null, $cached);
+            }
+        } catch (\Throwable $e) {
+        }
+
         $rechargeIds = Db::name('fans_recharge_order')
             ->where('status', 'pending')
             ->order('id', 'desc')
-            ->limit(80)
+            ->limit(40)
             ->column('id');
+        // 只 count，不拉 withdraw ids（前端只用数量判断是否循环播）
         $withdrawCount = (int)Db::name('fans_withdraw_order')
             ->where('status', 'in', ['pending', 'processing'])
             ->count();
-        $withdrawIds = [];
-        if ($withdrawCount > 0) {
-            $withdrawIds = Db::name('fans_withdraw_order')
-                ->where('status', 'in', ['pending', 'processing'])
-                ->order('id', 'desc')
-                ->limit(40)
-                ->column('id');
-        }
-        $this->success('', null, [
+
+        $data = [
             'recharge_ids'     => array_values(array_map('intval', (array)$rechargeIds)),
             'withdraw_pending' => $withdrawCount,
-            'withdraw_ids'     => array_values(array_map('intval', (array)$withdrawIds)),
+            'withdraw_ids'     => [],
             'ts'               => time(),
-        ]);
+        ];
+        try {
+            \think\Cache::set($cacheKey, $data, 4);
+        } catch (\Throwable $e) {
+        }
+        $this->success('', null, $data);
     }
 }

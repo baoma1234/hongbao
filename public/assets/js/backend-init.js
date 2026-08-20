@@ -9,8 +9,8 @@ define(['jquery', 'backend'], function ($, Backend) {
         : '') + '/assets/sound/admin/';
     var URL_RECHARGE = SOUND_BASE + encodeURIComponent('充值.mp3');
     var URL_WITHDRAW = SOUND_BASE + encodeURIComponent('提现.mp3');
-    var POLL_MS = 5000;
-    var WITHDRAW_REPEAT_MS = 8000;
+    var POLL_MS = 12000;
+    var WITHDRAW_REPEAT_MS = 10000;
     var SEEN_KEY = 'fanshub_payalert_recharge_seen_v1';
 
     var audioUnlocked = false;
