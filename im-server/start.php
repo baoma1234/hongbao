@@ -20,6 +20,7 @@ use Workerman\Timer;
 use Workerman\Worker;
 
 require __DIR__ . '/vendor/autoload.php';
+require __DIR__ . '/bootstrap_logger.php';
 
 $cfg = require __DIR__ . '/config/app.php';
 

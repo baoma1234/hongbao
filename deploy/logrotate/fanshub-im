@@ -1,0 +1,22 @@
+# 安装：cp deploy/logrotate/fanshub-im /etc/logrotate.d/fanshub-im
+# 按实际站点路径修改下方 path
+
+/www/wwwroot/hbsq.bio/im-server/runtime/log/*.log {
+    daily
+    rotate 7
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+    maxsize 32M
+}
+
+/www/wwwroot/hbsq.bio/im-server/vendor/workerman/workerman.log {
+    daily
+    rotate 1
+    missingok
+    notifempty
+    copytruncate
+    maxsize 16M
+}

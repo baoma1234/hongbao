@@ -22,6 +22,10 @@ RestartSec=3
 LimitNOFILE=200000
 LimitNPROC=65535
 KillMode=process
+# 避免把海量 error_log 写进磁盘文件；业务日志见 im-server/runtime/log/
+StandardOutput=null
+StandardError=journal
+SyslogIdentifier=fanshub-im-ws
 
 [Install]
 WantedBy=multi-user.target

@@ -17,6 +17,9 @@ RestartSec=3
 LimitNOFILE=65535
 LimitNPROC=65535
 KillMode=process
+StandardOutput=null
+StandardError=journal
+SyslogIdentifier=fanshub-im-cron
 
 [Install]
 WantedBy=multi-user.target
