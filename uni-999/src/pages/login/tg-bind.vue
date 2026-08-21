@@ -14,7 +14,14 @@
         <text>{{ bootText }}</text>
       </view>
 
-      <template v-else-if="needBind">
+      <view v-else-if="!needBind" class="tg-boot tg-boot-error">
+        <text>{{ bootText || '请从 Telegram 机器人进入' }}</text>
+      </view>
+
+      <template v-else>
+        <view v-if="bootText" class="tg-bind-warn">
+          <text>{{ bootText }}</text>
+        </view>
         <view class="input-group">
           <view class="input-label">{{ t('login_phone_label') }}</view>
           <view class="phone-row">
@@ -165,18 +172,29 @@ function loadTelegramWebApp() {
         resolve(window.Telegram.WebApp)
         return
       }
+      const finish = () => {
+        resolve((typeof window !== 'undefined' && window.Telegram && window.Telegram.WebApp) || null)
+      }
       const exist = document.querySelector('script[data-tg-webapp]')
       if (exist) {
-        exist.addEventListener('load', () => resolve(window.Telegram && window.Telegram.WebApp))
+        // 脚本可能已加载完，load 不会再触发 → 必须立即检查 + 超时兜底
+        if (window.Telegram && window.Telegram.WebApp) {
+          finish()
+          return
+        }
+        exist.addEventListener('load', finish)
+        exist.addEventListener('error', finish)
+        setTimeout(finish, 2500)
         return
       }
       const s = document.createElement('script')
       s.src = 'https://telegram.org/js/telegram-web-app.js'
       s.async = true
       s.setAttribute('data-tg-webapp', '1')
-      s.onload = () => resolve(window.Telegram && window.Telegram.WebApp)
-      s.onerror = () => resolve(null)
+      s.onload = finish
+      s.onerror = finish
       document.head.appendChild(s)
+      setTimeout(finish, 4000)
     } catch (e) {
       resolve(null)
     }
@@ -184,6 +202,27 @@ function loadTelegramWebApp() {
     // #ifndef H5
     resolve(null)
     // #endif
+  })
+}
+
+/** Telegram 偶发 initData 稍晚才注入，短轮询几次 */
+function waitForInitData(tg, rounds = 8, gapMs = 200) {
+  return new Promise((resolve) => {
+    let n = 0
+    const tick = () => {
+      const raw = tg && tg.initData ? String(tg.initData) : ''
+      if (raw) {
+        resolve(raw)
+        return
+      }
+      n += 1
+      if (n >= rounds) {
+        resolve('')
+        return
+      }
+      setTimeout(tick, gapMs)
+    }
+    tick()
   })
 }
 
@@ -201,14 +240,16 @@ async function enterWithToken(data) {
 
 async function runAuth() {
   booting.value = true
-  bootText.value = '正在验证 Telegram…'
+  needBind.value = false
+  bootText.value = '正在连接 Telegram…'
   const tg = await loadTelegramWebApp()
   if (tg) {
     try {
       tg.ready()
       if (typeof tg.expand === 'function') tg.expand()
     } catch (e) {}
-    initData.value = String(tg.initData || '')
+    bootText.value = '正在验证 Telegram…'
+    initData.value = await waitForInitData(tg)
     const u = tg.initDataUnsafe && tg.initDataUnsafe.user
     if (u) {
       tgName.value = [u.first_name, u.last_name].filter(Boolean).join(' ')
@@ -219,8 +260,10 @@ async function runAuth() {
       inviteCode.value = String(sp)
       saveInviteCode(String(sp))
     }
+  } else {
+    initData.value = ''
   }
-  // 非 TG 环境兜底：已有 token 直接进厅
+  // 非 TG WebApp（无 initData）：提示错误，不要静默空白
   if (!initData.value) {
     if (getToken()) {
       bootText.value = '已登录，正在进入…'
@@ -229,7 +272,7 @@ async function runAuth() {
     }
     booting.value = false
     needBind.value = false
-    bootText.value = '请在 Telegram 内打开本页'
+    bootText.value = '请从 Telegram 机器人「进入游戏」打开本页（浏览器直接打开无法绑定）'
     uni.showToast({ title: '请从 Telegram 机器人进入', icon: 'none' })
     return
   }
@@ -241,13 +284,16 @@ async function runAuth() {
     }
     needBind.value = true
     booting.value = false
+    bootText.value = ''
     if (data && data.tg && data.tg.start_param && !inviteCode.value) {
       inviteCode.value = String(data.tg.start_param)
       saveInviteCode(inviteCode.value)
     }
   } catch (e) {
     booting.value = false
-    needBind.value = !!initData.value
+    // 有 initData 仍展示绑定表单，方便重试短信绑定
+    needBind.value = true
+    bootText.value = (e && e.message) || 'Telegram 验证失败，请填写手机号绑定'
     uni.showToast({ title: (e && e.message) || 'Telegram 验证失败', icon: 'none' })
   }
 }
@@ -391,6 +437,19 @@ onUnmounted(() => {
   padding: 40px 12px;
   color: #888;
   font-size: 14px;
+}
+.tg-boot-error {
+  color: #c62828;
+  line-height: 1.6;
+}
+.tg-bind-warn {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 13px;
+  line-height: 1.45;
 }
 .input-group {
   margin-bottom: 16px;
