@@ -1,0 +1,107 @@
+<div class="panel panel-default panel-intro">
+    <div class="panel-heading">
+        <div class="panel-lead">
+            <em>财务总览</em>
+            <span class="text-muted" style="font-size:12px;margin-left:8px;">日 / 周 / 月 充值与提现 · 成功率 · 人数 · 生成于 {$stats.generated_at|htmlentities}</span>
+        </div>
+    </div>
+    <div class="panel-body">
+        <div class="alert alert-info" style="margin-bottom:16px;">
+            <strong>口径：</strong>
+            按订单创建时间统计；成功=已到账/已打款（status=paid）。
+            <b>成功率</b>=成功笔数/全部下单；
+            <b>完结成功率</b>=成功/(成功+失败)，不含进行中。
+            本周=周一至今，本月=月初至今。
+        </div>
+
+        {volist name="stats.periods" id="p"}
+        <div class="box box-{$p.box}" style="margin-bottom:18px;">
+            <div class="box-header with-border">
+                <h3 class="box-title">{$p.label}充提概况</h3>
+                <span class="text-muted" style="margin-left:10px;font-size:12px;">{$p.start_txt} ~ {$p.end_txt}</span>
+                <span class="pull-right text-muted">净入账（成功充值−成功提现）<b style="color:#3c8dbc;">￥{$p.net_paid}</b></span>
+            </div>
+            <div class="box-body" style="padding-top:10px;">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h4 style="margin-top:0;"><i class="fa fa-plus-circle text-green"></i> 充值</h4>
+                        <table class="table table-bordered table-condensed" style="margin-bottom:0;">
+                            <tbody>
+                            <tr><th style="width:38%;">订单数</th><td>{$p.recharge.order_count} 笔（待处理 {$p.recharge.pending_count} / 失败 {$p.recharge.fail_count}）</td></tr>
+                            <tr><th>成功订单</th><td><b class="text-success">{$p.recharge.paid_count}</b> 笔 / ￥{$p.recharge.paid_amount}</td></tr>
+                            <tr><th>成功率</th><td><b>{$p.recharge.success_rate}%</b>（完结成功率 {$p.recharge.finish_rate}%）</td></tr>
+                            <tr><th>下单人数</th><td>{$p.recharge.user_count} 人</td></tr>
+                            <tr><th>成功充值人数</th><td><b class="text-success">{$p.recharge.paid_user_count}</b> 人</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h4 style="margin-top:0;"><i class="fa fa-minus-circle text-red"></i> 提现</h4>
+                        <table class="table table-bordered table-condensed" style="margin-bottom:0;">
+                            <tbody>
+                            <tr><th style="width:38%;">订单数</th><td>{$p.withdraw.order_count} 笔（待处理 {$p.withdraw.pending_count} / 失败 {$p.withdraw.fail_count}）</td></tr>
+                            <tr><th>成功订单</th><td><b class="text-success">{$p.withdraw.paid_count}</b> 笔 / ￥{$p.withdraw.paid_amount}</td></tr>
+                            <tr><th>成功率</th><td><b>{$p.withdraw.success_rate}%</b>（完结成功率 {$p.withdraw.finish_rate}%）</td></tr>
+                            <tr><th>下单人数</th><td>{$p.withdraw.user_count} 人</td></tr>
+                            <tr><th>成功提现人数</th><td><b class="text-success">{$p.withdraw.paid_user_count}</b> 人</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {/volist}
+
+        <div class="box box-info">
+            <div class="box-header with-border">
+                <h3 class="box-title">近 30 日每日明细</h3>
+            </div>
+            <div class="box-body" style="padding:0; overflow-x:auto;">
+                <table class="table table-bordered table-striped table-hover" style="margin:0; min-width:1100px;">
+                    <thead>
+                    <tr>
+                        <th rowspan="2" style="vertical-align:middle;">日期</th>
+                        <th colspan="6" class="text-center bg-success" style="background:#dff0d8;">充值</th>
+                        <th colspan="6" class="text-center" style="background:#f2dede;">提现</th>
+                        <th rowspan="2" style="vertical-align:middle;">净入账</th>
+                    </tr>
+                    <tr>
+                        <th>订单</th>
+                        <th>成功</th>
+                        <th>成功额</th>
+                        <th>成功率</th>
+                        <th>下单人</th>
+                        <th>成功人</th>
+                        <th>订单</th>
+                        <th>成功</th>
+                        <th>成功额</th>
+                        <th>成功率</th>
+                        <th>下单人</th>
+                        <th>成功人</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {volist name="stats.daily" id="d"}
+                    <tr>
+                        <td>{$d.day}</td>
+                        <td>{$d.recharge.order_count}</td>
+                        <td>{$d.recharge.paid_count}</td>
+                        <td>￥{$d.recharge.paid_amount}</td>
+                        <td>{$d.recharge.success_rate}%</td>
+                        <td>{$d.recharge.user_count}</td>
+                        <td>{$d.recharge.paid_user_count}</td>
+                        <td>{$d.withdraw.order_count}</td>
+                        <td>{$d.withdraw.paid_count}</td>
+                        <td>￥{$d.withdraw.paid_amount}</td>
+                        <td>{$d.withdraw.success_rate}%</td>
+                        <td>{$d.withdraw.user_count}</td>
+                        <td>{$d.withdraw.paid_user_count}</td>
+                        <td>￥{$d.net_paid}</td>
+                    </tr>
+                    {/volist}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
