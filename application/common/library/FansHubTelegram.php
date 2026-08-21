@@ -32,20 +32,29 @@ class FansHubTelegram
     public static function webAppUrl($startParam = '')
     {
         $cfg = FansHubService::config();
-        $base = rtrim((string)($cfg['invite_base_url'] ?: ''), '/');
-        if ($base === '') {
-            try {
-                $base = rtrim((string)request()->domain(), '/');
-            } catch (\Throwable $e) {
-                $base = '';
+        $full = trim((string)($cfg['telegram_webapp_url'] ?? ''));
+        if ($full !== '' && preg_match('#^https?://#i', $full)) {
+            $url = $full;
+        } else {
+            $base = rtrim((string)($cfg['invite_base_url'] ?: ''), '/');
+            if ($base === '') {
+                try {
+                    $base = rtrim((string)request()->domain(), '/');
+                } catch (\Throwable $e) {
+                    $base = '';
+                }
+            }
+            $path = trim((string)($cfg['telegram_webapp_path'] ?? '999/#/pages/login/tg-bind'));
+            $path = ltrim($path, '/');
+            if ($path !== '' && preg_match('#^https?://#i', $path)) {
+                $url = $path;
+            } else {
+                $url = $base !== '' ? ($base . '/' . $path) : ('/' . $path);
             }
         }
-        $path = trim((string)($cfg['telegram_webapp_path'] ?? '999/#/pages/login/tg-bind'), '/');
-        $url = $base !== '' ? ($base . '/' . $path) : ('/' . $path);
         $startParam = trim((string)$startParam);
         if ($startParam !== '') {
             $sep = strpos($url, '?') === false ? '?' : '&';
-            // hash 路由：参数放在 # 前或用 start_param 由 TG 注入；此处附带 invite 兜底
             if (strpos($url, '#') !== false) {
                 $parts = explode('#', $url, 2);
                 $url = $parts[0] . $sep . 'tg_start=' . rawurlencode($startParam)

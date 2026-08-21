@@ -14,7 +14,7 @@ use think\Config as ThinkConfig;
 class Config extends Backend
 {
     protected $noNeedRight = [
-        'index', 'basic', 'exchange', 'invite', 'copy', 'market', 'security',
+        'index', 'basic', 'exchange', 'invite', 'copy', 'market', 'security', 'telegram',
         'save', 'resetcopy', 'checklist', 'testuidverify', 'resetjackpot', 'i18n', 'savei18n',
     ];
 
@@ -63,6 +63,11 @@ class Config extends Backend
             'google_auth_login_enabled', 'google_auth_secret', 'google_auth_issuer',
             'admin_google_auth_enabled',
         ],
+        'telegram' => [
+            'telegram_bot_enabled', 'telegram_bot_token', 'telegram_bot_username',
+            'telegram_webapp_url', 'telegram_webapp_path', 'telegram_cs_text',
+            'telegram_webhook_secret', 'telegram_init_max_age',
+        ],
     ];
 
     protected $sectionMeta = [
@@ -72,6 +77,7 @@ class Config extends Backend
         'copy' => ['title' => 'H5文案', 'desc' => '大厅界面中文默认文案'],
         'market' => ['title' => '大盘控盘', 'desc' => '虚拟人数、股价与创造价值'],
         'security' => ['title' => '安全校验', 'desc' => '签名、设备指纹、主站 UID 与谷歌验证器'],
+        'telegram' => ['title' => 'Telegram', 'desc' => '机器人、进入游戏 WebApp 地址与客服文案'],
     ];
 
     public function index()
@@ -108,6 +114,11 @@ class Config extends Backend
     public function security()
     {
         return $this->renderSection('security');
+    }
+
+    public function telegram()
+    {
+        return $this->renderSection('telegram');
     }
 
     protected function renderSection($section)
@@ -263,6 +274,7 @@ class Config extends Backend
             'google_auth_login_enabled',
             'admin_google_auth_enabled',
             'login_cs_enabled',
+            'telegram_bot_enabled',
             'exchange_rights_to_balance_enabled', 'exchange_balance_to_rights_enabled',
             'exchange_rb_enabled', 'exchange_br_enabled', 'exchange_rh_enabled',
             'exchange_hr_enabled', 'exchange_bh_enabled', 'exchange_hb_enabled',
@@ -274,6 +286,7 @@ class Config extends Backend
             'market_virtual_base', 'market_virtual_per_real', 'market_daily_grow_min', 'market_daily_grow_max',
             'market_smooth_day_min', 'market_smooth_day_max', 'market_smooth_night_min', 'market_smooth_night_max',
             'market_day_start_hour', 'market_day_end_hour',
+            'telegram_init_max_age',
         ];
         $floatFields = [
             'single_ticket_value', 'withdraw_threshold', 'max_vote_percent',
@@ -343,6 +356,21 @@ class Config extends Backend
             $data['exchange_br_min'] = $data['exchange_b2r_min'];
             if (!isset($data['hongbao_unit_value']) || (float)$data['hongbao_unit_value'] <= 0) {
                 $data['hongbao_unit_value'] = 1.0;
+            }
+        }
+
+        if ($section === '' || $section === 'telegram') {
+            if (isset($data['telegram_bot_username'])) {
+                $data['telegram_bot_username'] = ltrim(trim((string)$data['telegram_bot_username']), '@');
+            }
+            if (isset($data['telegram_webapp_url'])) {
+                $data['telegram_webapp_url'] = trim((string)$data['telegram_webapp_url']);
+            }
+            if (isset($data['telegram_webapp_path'])) {
+                $data['telegram_webapp_path'] = trim((string)$data['telegram_webapp_path'], " \t\n\r\0\x0B/");
+            }
+            if (empty($data['telegram_init_max_age']) || (int)$data['telegram_init_max_age'] < 300) {
+                $data['telegram_init_max_age'] = 86400;
             }
         }
 

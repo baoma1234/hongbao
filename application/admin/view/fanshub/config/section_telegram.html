@@ -1,0 +1,56 @@
+<div class="form-group">
+    <label class="control-label col-xs-12 col-sm-2">启用机器人:</label>
+    <div class="col-xs-12 col-sm-8">
+        <label><input type="checkbox" name="telegram_bot_enabled" value="1" {if condition="!empty($config.telegram_bot_enabled)"}checked{/if}> 开启 Telegram 机器人 / WebApp</label>
+    </div>
+</div>
+<div class="form-group">
+    <label class="control-label col-xs-12 col-sm-2">Bot Token:</label>
+    <div class="col-xs-12 col-sm-8">
+        <input class="form-control" name="telegram_bot_token" type="text" value="{$config.telegram_bot_token|default=''|htmlentities}" placeholder="BotFather 发给你的 Token">
+        <span class="help-block">改 Token 后请到服务器执行：php scripts/set_telegram_bot_webhook.php</span>
+    </div>
+</div>
+<div class="form-group">
+    <label class="control-label col-xs-12 col-sm-2">机器人用户名:</label>
+    <div class="col-xs-12 col-sm-8">
+        <input class="form-control" name="telegram_bot_username" type="text" value="{$config.telegram_bot_username|default=''|htmlentities}" placeholder="如 qhb_bio（不要带 @）">
+    </div>
+</div>
+<div class="form-group">
+    <label class="control-label col-xs-12 col-sm-2">进入游戏地址:</label>
+    <div class="col-xs-12 col-sm-8">
+        <input class="form-control" name="telegram_webapp_url" type="text" value="{$config.telegram_webapp_url|default=''|htmlentities}" placeholder="https://hbsq.bio/999/#/pages/login/tg-bind">
+        <span class="help-block">完整 URL 优先；留空则用下方相对路径 + 邀请域名拼接。Bot「进入游戏」按钮打开此地址。</span>
+    </div>
+</div>
+<div class="form-group">
+    <label class="control-label col-xs-12 col-sm-2">相对路径(备用):</label>
+    <div class="col-xs-12 col-sm-8">
+        <input class="form-control" name="telegram_webapp_path" type="text" value="{$config.telegram_webapp_path|default='999/#/pages/login/tg-bind'|htmlentities}" placeholder="999/#/pages/login/tg-bind">
+    </div>
+</div>
+<div class="form-group">
+    <label class="control-label col-xs-12 col-sm-2">客服回复文案:</label>
+    <div class="col-xs-12 col-sm-8">
+        <textarea class="form-control" name="telegram_cs_text" rows="4">{$config.telegram_cs_text|default=''|htmlentities}</textarea>
+    </div>
+</div>
+<div class="form-group">
+    <label class="control-label col-xs-12 col-sm-2">Webhook 密钥:</label>
+    <div class="col-xs-12 col-sm-8">
+        <input class="form-control" name="telegram_webhook_secret" type="text" value="{$config.telegram_webhook_secret|default=''|htmlentities}">
+    </div>
+</div>
+<div class="form-group">
+    <label class="control-label col-xs-12 col-sm-2">initData 有效秒数:</label>
+    <div class="col-xs-12 col-sm-8">
+        <input class="form-control" name="telegram_init_max_age" type="number" value="{$config.telegram_init_max_age|default='86400'}">
+    </div>
+</div>
+<div class="form-group">
+    <label class="control-label col-xs-12 col-sm-2">绑定用户:</label>
+    <div class="col-xs-12 col-sm-8">
+        <a href="{:url('fanshub.telegramuser/index')}" class="btn btn-info btn-sm addtabsit"><i class="fa fa-users"></i> 查看 Telegram 绑定用户</a>
+    </div>
+</div>

@@ -201,6 +201,9 @@ define(['jquery', 'bootstrap', 'backend', 'form'], function ($, undefined, Backe
             bindForm();
             bindUidTest();
         },
+        telegram: function () {
+            bindForm();
+        },
         i18n: function () {
             bindI18n();
         }
