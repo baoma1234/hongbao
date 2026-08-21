@@ -45,6 +45,43 @@ class Account extends Backend
         $this->assignconfig('canHardDelete', $this->auth->check('fanshub/account/del'));
     }
 
+    /**
+     * 从上线搜索条件解析 invitee user_id 列表；无条件返回 null；无匹配返回 []
+     * 同时从 filter/op 中剔除虚拟字段，避免 buildparams 查不存在的列
+     * @return int[]|null
+     */
+    protected function pullInviterInviteeIds()
+    {
+        $filterRaw = $this->request->get('filter', '');
+        $opRaw = $this->request->get('op', '');
+        $filterArr = is_string($filterRaw) ? (json_decode($filterRaw, true) ?: []) : (is_array($filterRaw) ? $filterRaw : []);
+        $opArr = is_string($opRaw) ? (json_decode($opRaw, true) ?: []) : (is_array($opRaw) ? $opRaw : []);
+
+        $inviterUserId = isset($filterArr['inviter_user_id']) ? trim((string)$filterArr['inviter_user_id']) : '';
+        $inviterMobile = isset($filterArr['inviter_mobile']) ? trim((string)$filterArr['inviter_mobile']) : '';
+        unset($filterArr['inviter_user_id'], $filterArr['inviter_mobile']);
+        unset($opArr['inviter_user_id'], $opArr['inviter_mobile']);
+        $this->request->get([
+            'filter' => json_encode($filterArr, JSON_UNESCAPED_UNICODE),
+            'op'     => json_encode($opArr, JSON_UNESCAPED_UNICODE),
+        ]);
+
+        if ($inviterUserId === '' && $inviterMobile === '') {
+            return null;
+        }
+
+        $q = Db::name('fans_invite')->alias('i');
+        if ($inviterUserId !== '') {
+            $q->where('i.inviter_user_id', (int)$inviterUserId);
+        }
+        if ($inviterMobile !== '') {
+            $q->join('user u', 'u.id = i.inviter_user_id', 'INNER')
+                ->where('u.mobile', 'like', '%' . $inviterMobile . '%');
+        }
+        $ids = $q->column('i.invitee_user_id');
+        return array_values(array_unique(array_filter(array_map('intval', $ids ?: []))));
+    }
+
     public function index()
     {
         $this->request->filter(['strip_tags', 'trim']);
@@ -52,16 +89,25 @@ class Account extends Backend
             if ($this->request->request('keyField')) {
                 return $this->selectpage();
             }
+            $inviteeIds = $this->pullInviterInviteeIds();
             list($where, $sort, $order, $offset, $limit) = $this->buildparams();
             // 默认按注册/开户时间倒序（避免按主键 id 乱序）
             if ($sort === '' || $sort === null || $sort === 'id') {
                 $sort = 'createtime';
                 $order = $order ?: 'desc';
             }
-            $list = $this->model
+            $query = $this->model
                 ->with(['user'])
                 ->where($where)
-                ->where('is_bot', 0)
+                ->where('is_bot', 0);
+            if ($inviteeIds !== null) {
+                if (!$inviteeIds) {
+                    $query->where('user_id', 0);
+                } else {
+                    $query->where('user_id', 'in', $inviteeIds);
+                }
+            }
+            $list = $query
                 ->order($sort, $order)
                 ->paginate($limit);
             $userIds = [];
@@ -496,10 +542,17 @@ class Account extends Backend
     public function export()
     {
         $this->request->filter(['strip_tags', 'trim']);
+        $inviteeIds = $this->pullInviterInviteeIds();
         list($where, $sort, $order) = $this->buildparams();
-        $rows = $this->exportQueryRows(
-            $this->model->with(['user'])->where($where)->where('is_bot', 0)->order($sort, $order)
-        );
+        $query = $this->model->with(['user'])->where($where)->where('is_bot', 0);
+        if ($inviteeIds !== null) {
+            if (!$inviteeIds) {
+                $query->where('user_id', 0);
+            } else {
+                $query->where('user_id', 'in', $inviteeIds);
+            }
+        }
+        $rows = $this->exportQueryRows($query->order($sort, $order));
         $stageList = $this->model->getFlowStageList();
         $statusList = $this->model->getStatusList();
         $uidAuditList = $this->model->getUidAuditList();

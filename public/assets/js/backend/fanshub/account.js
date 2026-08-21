@@ -46,12 +46,19 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                         return '<a href="javascript:;" class="btn-copy-cell text-primary" data-copy="' +
                             $('<div/>').text(v).html() + '" title="点击复制">' + $('<div/>').text(v).html() + '</a>';
                     }},
-                    {field: 'inviter_user_id', title: '上线ID/上线手机', operate: false, formatter: function (value, row) {
-                        var id = value ? String(value) : '-';
-                        var mobile = row.inviter_mobile ? String(row.inviter_mobile) : '-';
-                        return '<div style="line-height:1.45;white-space:normal;">' + id + '<br>' + mobile + '</div>';
+                    {field: 'inviter_user_id', title: '上线ID', operate: '=', formatter: function (value) {
+                        if (!value) return '-';
+                        var v = String(value);
+                        return '<a href="javascript:;" class="btn-copy-cell text-primary" data-copy="' +
+                            $('<div/>').text(v).html() + '" title="点击复制">' + $('<div/>').text(v).html() + '</a>';
                     }},
-                    {field: 'inviter_mobile', title: '上线手机', visible: false, operate: false},
+                    {field: 'inviter_mobile', title: '上线手机', operate: 'LIKE', formatter: function (value, row) {
+                        var v = value || row.inviter_mobile || '';
+                        if (!v) return '-';
+                        v = String(v);
+                        return '<a href="javascript:;" class="btn-copy-cell text-primary" data-copy="' +
+                            $('<div/>').text(v).html() + '" title="点击复制">' + $('<div/>').text(v).html() + '</a>';
+                    }},
                     {field: 'rights', title: '股份', operate: 'BETWEEN'},
                     {field: 'hongbao', title: '红宝', operate: 'BETWEEN'},
                     {field: 'main_uid', title: '主站账号', operate: 'LIKE'},
