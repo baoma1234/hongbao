@@ -150,4 +150,45 @@ return array (
   'yxx_err_drawing' => '개봉 중입니다. 다음 국을 기다리세요',
   'yxx_err_face' => '문양을 선택하세요',
   'yxx_err_stake' => '베팅 {min}-{max}점',
+
+  // Telegram Bot
+  'tg_kb_enter' => '🎮 게임 입장',
+  'tg_kb_account' => '👤 계정',
+  'tg_kb_invite' => '🎁 친구 초대',
+  'tg_kb_cs' => '🙋 고객센터',
+  'tg_kb_home' => '🏠 메인 메뉴',
+  'tg_kb_lang' => '🌐 언어',
+  'tg_brand_fallback' => 'Hongbao Telegram',
+  'tg_welcome' => "{bot}에 오신 것을 환영합니다 🤖
+
+「{enter}」를 눌러 Telegram 안에서 웹을 여세요.
+처음에는 SMS로 휴대폰을 연동하세요.
+
+메뉴:
+{account} — 홍바오 / 지분
+{invite} — 초대 링크
+{cs} — 고객센터
+{home} — 메뉴 새로고침
+{lang} — 언어 변경",
+  'tg_hint_menu' => '아래 메뉴 버튼을 사용해 주세요～',
+  'tg_menu_updating' => '⏳ 메뉴 업데이트 중…',
+  'tg_need_bind' => "⚠️ 아직 계정이 연동되지 않았습니다.
+먼저 「{enter}」를 눌러 휴대폰 인증을 완료하세요.",
+  'tg_account_body' => "👤 계정
+
+UID: {uid}
+휴대폰: {mobile}
+홍바오: {hongbao}
+지분: {rights}",
+  'tg_invite_fail' => '초대 링크를 만들 수 없습니다. 나중에 다시 시도하세요.',
+  'tg_invite_link' => "🎁 내 초대 링크:
+{link}",
+  'tg_invite_tg' => "🤖 Telegram 초대:
+{link}",
+  'tg_cs_text' => "🙋 도움이 필요하신가요? 24시간 공식 고객센터:
+👉 @BIO_kf",
+  'tg_lang_title' => "🌐 언어 선택
+Choose language",
+  'tg_lang_done' => '✅ 언어가 변경됨: {label}',
+  'tg_lang_back' => '« 메뉴로 돌아가기',
 );

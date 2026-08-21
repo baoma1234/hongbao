@@ -1028,4 +1028,45 @@ return array (
   'yxx_err_drawing' => 'جارٍ السحب، انتظر الجولة التالية',
   'yxx_err_face' => 'اختر رمزًا',
   'yxx_err_stake' => 'رهان {min}-{max} نقطة',
+
+  // Telegram Bot
+  'tg_kb_enter' => '🎮 دخول اللعبة',
+  'tg_kb_account' => '👤 الحساب',
+  'tg_kb_invite' => '🎁 دعوة الأصدقاء',
+  'tg_kb_cs' => '🙋 الدعم',
+  'tg_kb_home' => '🏠 القائمة الرئيسية',
+  'tg_kb_lang' => '🌐 اللغة',
+  'tg_brand_fallback' => 'Hongbao Telegram',
+  'tg_welcome' => "مرحبًا بك في {bot} 🤖
+
+اضغط 「{enter}」 لفتح الويب داخل Telegram.
+أول مرة: اربط الهاتف عبر رمز SMS.
+
+القائمة:
+{account} — Hongbao / الأسهم
+{invite} — رابط الدعوة
+{cs} — الدعم
+{home} — تحديث القائمة
+{lang} — تغيير اللغة",
+  'tg_hint_menu' => 'يرجى استخدام أزرار القائمة أدناه～',
+  'tg_menu_updating' => '⏳ جارٍ تحديث القائمة…',
+  'tg_need_bind' => "⚠️ الحساب غير مربوط بعد.
+اضغط 「{enter}」 وتحقق من الهاتف أولاً.",
+  'tg_account_body' => "👤 الحساب
+
+UID: {uid}
+الهاتف: {mobile}
+Hongbao: {hongbao}
+الأسهم: {rights}",
+  'tg_invite_fail' => 'تعذر إنشاء رابط الدعوة. حاول لاحقًا.',
+  'tg_invite_link' => "🎁 رابط دعوتك:
+{link}",
+  'tg_invite_tg' => "🤖 دعوة Telegram:
+{link}",
+  'tg_cs_text' => "🙋 تحتاج مساعدة؟ تواصل مع الدعم على مدار الساعة:
+👉 @BIO_kf",
+  'tg_lang_title' => "🌐 اختر اللغة
+Choose language",
+  'tg_lang_done' => '✅ تم التبديل إلى: {label}',
+  'tg_lang_back' => '« العودة للقائمة',
 );

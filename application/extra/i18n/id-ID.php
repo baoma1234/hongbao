@@ -1033,4 +1033,45 @@ Ritel DeskHarvester eksekusi 15 saham saluran 1 dan dikredit Rp75.00 via chat am
   'yxx_err_drawing' => 'Sedang undi, tunggu ronde berikutnya',
   'yxx_err_face' => 'Pilih satu simbol',
   'yxx_err_stake' => 'Taruhan {min}-{max} poin',
+
+  // Telegram Bot
+  'tg_kb_enter' => '🎮 Masuk game',
+  'tg_kb_account' => '👤 Akun',
+  'tg_kb_invite' => '🎁 Undang teman',
+  'tg_kb_cs' => '🙋 CS',
+  'tg_kb_home' => '🏠 Menu utama',
+  'tg_kb_lang' => '🌐 Bahasa',
+  'tg_brand_fallback' => 'Hongbao Telegram',
+  'tg_welcome' => "Selamat datang di {bot} 🤖
+
+Ketuk 「{enter}」 untuk buka web di Telegram.
+Pertama kali: ikat nomor (OTP). Akun lama terikat otomatis; nomor baru daftar otomatis.
+
+Menu:
+{account} — Hongbao / saham
+{invite} — Link undangan
+{cs} — CS
+{home} — Segarkan menu
+{lang} — Ganti bahasa",
+  'tg_hint_menu' => 'Silakan gunakan tombol menu di bawah～',
+  'tg_menu_updating' => '⏳ Memperbarui menu…',
+  'tg_need_bind' => "⚠️ Belum mengikat akun.
+Ketuk 「{enter}」 dan verifikasi nomor dulu.",
+  'tg_account_body' => "👤 Akun
+
+UID: {uid}
+HP: {mobile}
+Hongbao: {hongbao}
+Saham: {rights}",
+  'tg_invite_fail' => 'Gagal membuat link undangan. Coba lagi nanti.',
+  'tg_invite_link' => "🎁 Link undangan Anda:
+{link}",
+  'tg_invite_tg' => "🤖 Undangan Telegram:
+{link}",
+  'tg_cs_text' => "🙋 Butuh bantuan? Hubungi CS 24 jam:
+👉 @BIO_kf",
+  'tg_lang_title' => "🌐 Pilih bahasa
+Choose language",
+  'tg_lang_done' => '✅ Bahasa diganti ke: {label}',
+  'tg_lang_back' => '« Kembali ke menu',
 );

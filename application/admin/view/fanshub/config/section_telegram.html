@@ -31,9 +31,17 @@
     </div>
 </div>
 <div class="form-group">
-    <label class="control-label col-xs-12 col-sm-2">客服回复文案:</label>
+    <label class="control-label col-xs-12 col-sm-2">客服回复文案(中文):</label>
     <div class="col-xs-12 col-sm-8">
         <textarea class="form-control" name="telegram_cs_text" rows="4">{$config.telegram_cs_text|default=''|htmlentities}</textarea>
+        <span class="help-block">仅覆盖中文客服回复。其它语言请到「多语言」里编辑 <code>tg_cs_text</code>；键盘/欢迎语等同组 <code>tg_*</code> 键。</span>
+    </div>
+</div>
+<div class="form-group">
+    <label class="control-label col-xs-12 col-sm-2">多语言:</label>
+    <div class="col-xs-12 col-sm-8">
+        <a href="{:url('fanshub.config/i18n')}" class="btn btn-default btn-sm addtabsit"><i class="fa fa-language"></i> 编辑 Telegram 键盘与回复语（与红宝语言对齐）</a>
+        <span class="help-block">用户点键盘「切换语言」后，菜单按钮与机器人回复都会按所选语言切换；进入游戏 WebApp 会带上 <code>locale=</code>。</span>
     </div>
 </div>
 <div class="form-group">

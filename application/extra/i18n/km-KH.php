@@ -1033,4 +1033,45 @@ User 555_vip99 ទើបទទួល ៛៥០ តាមបើករហ័ស + 
   'yxx_err_drawing' => 'កំពុងបើករង្វាន់ សូមរង់ចាំវគ្គបន្ទាប់',
   'yxx_err_face' => 'សូមជ្រើសរូបសញ្ញា',
   'yxx_err_stake' => 'ភ្នាល់ {min}-{max} ពិន្ទុ',
+
+  // Telegram Bot
+  'tg_kb_enter' => '🎮 ចូលហ្គេម',
+  'tg_kb_account' => '👤 គណនី',
+  'tg_kb_invite' => '🎁 អញ្ជើញមិត្ត',
+  'tg_kb_cs' => '🙋 ជំនួយ',
+  'tg_kb_home' => '🏠 ម៉ឺនុយ',
+  'tg_kb_lang' => '🌐 ភាសា',
+  'tg_brand_fallback' => 'Hongbao Telegram',
+  'tg_welcome' => "សូមស្វាគមន៍ {bot} 🤖
+
+ចុច 「{enter}」 ដើម្បីបើកគេហទំព័រក្នុង Telegram។
+លើកដំបូងត្រូវភ្ជាប់ទូរស័ព្ទ (OTP)។
+
+ម៉ឺនុយ:
+{account} — Hongbao / ភាគហ៊ុន
+{invite} — តំណអញ្ជើញ
+{cs} — ជំនួយ
+{home} — ផ្ទុកម៉ឺនុយឡើងវិញ
+{lang} — ប្តូរភាសា",
+  'tg_hint_menu' => 'សូមប្រើប៊ូតុងម៉ឺនុយខាងក្រោម～',
+  'tg_menu_updating' => '⏳ កំពុងធ្វើបច្ចុប្បន្នភាពម៉ឺនុយ…',
+  'tg_need_bind' => "⚠️ មិនទាន់ភ្ជាប់គណនី។
+ចុច 「{enter}」 ហើយផ្ទៀងផ្ទាត់ទូរស័ព្ទសិន។",
+  'tg_account_body' => "👤 គណនី
+
+UID: {uid}
+ទូរស័ព្ទ: {mobile}
+Hongbao: {hongbao}
+ភាគហ៊ុន: {rights}",
+  'tg_invite_fail' => 'មិនអាចបង្កើតតំណអញ្ជើញ។ សូមព្យាយាមម្តងទៀត។',
+  'tg_invite_link' => "🎁 តំណអញ្ជើញរបស់អ្នក:
+{link}",
+  'tg_invite_tg' => "🤖 អញ្ជើញ Telegram:
+{link}",
+  'tg_cs_text' => "🙋 ត្រូវការជំនួយ? ទាក់ទង CS 24ម៉ោង:
+👉 @BIO_kf",
+  'tg_lang_title' => "🌐 ជ្រើសភាសា
+Choose language",
+  'tg_lang_done' => '✅ បានប្តូរទៅ: {label}',
+  'tg_lang_back' => '« ត្រឡប់ម៉ឺនុយ',
 );

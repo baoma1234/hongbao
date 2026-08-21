@@ -1033,4 +1033,45 @@ Ritel DeskHarvester eksekusi 15 saham saluran 1 dan dikreditkan RM75.00 via semb
   'yxx_err_drawing' => 'Sedang undi, tunggu pusingan seterusnya',
   'yxx_err_face' => 'Pilih satu simbol',
   'yxx_err_stake' => 'Taruhan {min}-{max} mata',
+
+  // Telegram Bot
+  'tg_kb_enter' => '🎮 Masuk game',
+  'tg_kb_account' => '👤 Akaun',
+  'tg_kb_invite' => '🎁 Jemput rakan',
+  'tg_kb_cs' => '🙋 Sokongan',
+  'tg_kb_home' => '🏠 Menu utama',
+  'tg_kb_lang' => '🌐 Bahasa',
+  'tg_brand_fallback' => 'Hongbao Telegram',
+  'tg_welcome' => "Selamat datang ke {bot} 🤖
+
+Ketik 「{enter}」 untuk buka web dalam Telegram.
+Kali pertama: ikat telefon (OTP). Akaun sedia ada diikat auto; nombor baharu daftar auto.
+
+Menu:
+{account} — Hongbao / saham
+{invite} — Pautan jemput
+{cs} — Sokongan
+{home} — Muat semula menu
+{lang} — Tukar bahasa",
+  'tg_hint_menu' => 'Sila guna butang menu di bawah～',
+  'tg_menu_updating' => '⏳ Mengemas kini menu…',
+  'tg_need_bind' => "⚠️ Belum ikat akaun.
+Ketik 「{enter}」 dan sahkan telefon dahulu.",
+  'tg_account_body' => "👤 Akaun
+
+UID: {uid}
+Telefon: {mobile}
+Hongbao: {hongbao}
+Saham: {rights}",
+  'tg_invite_fail' => 'Tidak dapat jana pautan jemput. Cuba lagi nanti.',
+  'tg_invite_link' => "🎁 Pautan jemput anda:
+{link}",
+  'tg_invite_tg' => "🤖 Jemput Telegram:
+{link}",
+  'tg_cs_text' => "🙋 Perlu bantuan? Hubungi sokongan 24j:
+👉 @BIO_kf",
+  'tg_lang_title' => "🌐 Pilih bahasa
+Choose language",
+  'tg_lang_done' => '✅ Bahasa ditukar kepada: {label}',
+  'tg_lang_back' => '« Kembali ke menu',
 );

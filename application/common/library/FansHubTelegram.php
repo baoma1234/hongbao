@@ -9,10 +9,20 @@ use think\Exception;
 use think\Log;
 
 /**
- * Telegram Bot + WebApp：绑定手机 / 菜单 / 校验 initData
+ * Telegram Bot + WebApp：绑定手机 / 菜单 / 多语言 / 校验 initData
  */
 class FansHubTelegram
 {
+    /** @var array action => copy key */
+    protected static $kbActions = [
+        'enter'   => 'tg_kb_enter',
+        'account' => 'tg_kb_account',
+        'invite'  => 'tg_kb_invite',
+        'cs'      => 'tg_kb_cs',
+        'home'    => 'tg_kb_home',
+        'lang'    => 'tg_kb_lang',
+    ];
+
     public static function enabled()
     {
         return !empty(FansHubService::config('telegram_bot_enabled'))
@@ -29,7 +39,10 @@ class FansHubTelegram
         return trim((string)FansHubService::config('telegram_webhook_secret', ''));
     }
 
-    public static function webAppUrl($startParam = '')
+    /**
+     * WebApp 入口；带 locale 与红宝 H5 对齐
+     */
+    public static function webAppUrl($startParam = '', $locale = '')
     {
         $cfg = FansHubService::config();
         $full = trim((string)($cfg['telegram_webapp_url'] ?? ''));
@@ -63,6 +76,10 @@ class FansHubTelegram
         if (stripos($url, 'tg_bind=') === false) {
             $url .= (strpos($url, '?') === false ? '?' : '&') . 'tg_bind=1';
         }
+        $locale = self::normalizeLocale($locale);
+        if ($locale !== '' && stripos($url, 'locale=') === false) {
+            $url .= (strpos($url, '?') === false ? '?' : '&') . 'locale=' . rawurlencode($locale);
+        }
         $startParam = trim((string)$startParam);
         if ($startParam !== '') {
             $sep = strpos($url, '?') === false ? '?' : '&';
@@ -71,13 +88,155 @@ class FansHubTelegram
         return $url;
     }
 
-    public static function csText()
+    public static function normalizeLocale($locale)
     {
-        $t = (string)FansHubService::config('telegram_cs_text', '');
-        if ($t === '') {
-            $t = "🙋 如有疑问，请联系 24 小时官方客服通道：\n👉 @BIO_kf";
+        $locale = trim((string)$locale);
+        $codes = FansHubService::i18nLocaleCodes();
+        if ($locale !== '' && isset($codes[$locale])) {
+            return $locale;
         }
-        return $t;
+        if ($locale !== '') {
+            $short = strtolower(substr($locale, 0, 2));
+            $map = [
+                'zh' => 'zh-CN',
+                'en' => 'en-PH',
+                'id' => 'id-ID',
+                'vi' => 'vi-VN',
+                'ms' => 'ms-MY',
+                'km' => 'km-KH',
+                'ar' => 'ar-AE',
+                'tr' => 'tr-TR',
+                'ru' => 'ru-RU',
+                'ja' => 'ja-JP',
+                'ko' => 'ko-KR',
+            ];
+            if (isset($map[$short]) && isset($codes[$map[$short]])) {
+                return $map[$short];
+            }
+        }
+        $def = (string)FansHubService::config('default_locale', 'zh-CN');
+        return isset($codes[$def]) ? $def : 'zh-CN';
+    }
+
+    public static function getLocale($tgUserId, array $from = [])
+    {
+        $tgUserId = (int)$tgUserId;
+        if ($tgUserId > 0) {
+            try {
+                $row = Db::name('fans_telegram_pref')->where('tg_user_id', $tgUserId)->find();
+                if ($row && !empty($row['locale'])) {
+                    return self::normalizeLocale($row['locale']);
+                }
+            } catch (\Throwable $e) {
+            }
+        }
+        if (!empty($from['language_code'])) {
+            return self::normalizeLocale($from['language_code']);
+        }
+        return self::normalizeLocale('');
+    }
+
+    public static function setLocale($tgUserId, $locale)
+    {
+        $tgUserId = (int)$tgUserId;
+        $locale = self::normalizeLocale($locale);
+        if ($tgUserId <= 0) {
+            return $locale;
+        }
+        $now = time();
+        try {
+            $exist = Db::name('fans_telegram_pref')->where('tg_user_id', $tgUserId)->find();
+            if ($exist) {
+                Db::name('fans_telegram_pref')->where('tg_user_id', $tgUserId)->update([
+                    'locale'     => $locale,
+                    'updatetime' => $now,
+                ]);
+            } else {
+                Db::name('fans_telegram_pref')->insert([
+                    'tg_user_id' => $tgUserId,
+                    'locale'     => $locale,
+                    'updatetime' => $now,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            Log::write('TG setLocale fail: ' . $e->getMessage(), 'error');
+        }
+        return $locale;
+    }
+
+    public static function t($key, $locale, array $vars = [])
+    {
+        $locale = self::normalizeLocale($locale);
+        $copy = FansHubService::getH5CopyForLocale($locale);
+        $tpl = (string)($copy[$key] ?? '');
+        if ($tpl === '' && $locale !== 'zh-CN') {
+            $zh = FansHubService::getH5CopyForLocale('zh-CN');
+            $tpl = (string)($zh[$key] ?? '');
+        }
+        foreach ($vars as $name => $value) {
+            $tpl = str_replace('{' . $name . '}', (string)$value, $tpl);
+        }
+        return FansHubService::utf8Safe($tpl);
+    }
+
+    public static function kbLabel($action, $locale)
+    {
+        $key = self::$kbActions[$action] ?? '';
+        return $key !== '' ? self::t($key, $locale) : '';
+    }
+
+    /**
+     * 匹配任意语言键盘文案 → action（切换语言后旧文案仍可点）
+     */
+    public static function matchKbAction($text)
+    {
+        $text = trim((string)$text);
+        if ($text === '' || $text === '/menu') {
+            return $text === '/menu' ? 'home' : '';
+        }
+        static $map = null;
+        if ($map === null) {
+            $map = [];
+            $codes = array_keys(FansHubService::i18nLocaleCodes());
+            foreach ($codes as $code) {
+                foreach (self::$kbActions as $action => $key) {
+                    $label = trim(self::t($key, $code));
+                    if ($label !== '') {
+                        $map[$label] = $action;
+                    }
+                }
+            }
+            // 兼容旧硬编码中文
+            $legacy = [
+                '🎮 进入游戏' => 'enter',
+                '👤 账号信息' => 'account',
+                '账号信息' => 'account',
+                '🎁 邀请好友' => 'invite',
+                '邀请好友' => 'invite',
+                '🙋 官方客服' => 'cs',
+                '官方客服' => 'cs',
+                '🏠 返回主菜单' => 'home',
+                '返回主菜单' => 'home',
+            ];
+            foreach ($legacy as $k => $a) {
+                $map[$k] = $a;
+            }
+        }
+        return $map[$text] ?? '';
+    }
+
+    public static function csText($locale = 'zh-CN')
+    {
+        $locale = self::normalizeLocale($locale);
+        // 中文可被后台 Telegram 配置覆盖；其它语言走多语言包
+        if ($locale === 'zh-CN') {
+            $cfg = trim((string)FansHubService::config('telegram_cs_text', ''));
+            if ($cfg !== '') {
+                return $cfg;
+            }
+        }
+        $t = self::t('tg_cs_text', $locale);
+        return $t !== '' ? $t : "🙋 Support: @BIO_kf";
     }
 
     /**
@@ -239,6 +398,7 @@ class FansHubTelegram
                 'username'    => $tg['tg_username'],
                 'first_name'  => $tg['tg_first_name'],
                 'start_param' => $tg['start_param'],
+                'locale'      => self::getLocale($tg['tg_user_id'], $tg['raw_user'] ?? []),
             ];
             return $data;
         }
@@ -251,6 +411,7 @@ class FansHubTelegram
                 'username'    => $tg['tg_username'],
                 'first_name'  => $tg['tg_first_name'],
                 'start_param' => $tg['start_param'],
+                'locale'      => self::getLocale($tg['tg_user_id'], $tg['raw_user'] ?? []),
             ],
         ];
     }
@@ -287,25 +448,30 @@ class FansHubTelegram
             'tg_user_id' => $tg['tg_user_id'],
             'username'   => $tg['tg_username'],
             'first_name' => $tg['tg_first_name'],
+            'locale'     => self::getLocale($tg['tg_user_id'], $tg['raw_user'] ?? []),
         ];
         return $login;
     }
 
-    public static function mainMenuKeyboard()
+    public static function mainMenuKeyboard($locale = 'zh-CN')
     {
-        $webUrl = self::webAppUrl();
+        $locale = self::normalizeLocale($locale);
+        $webUrl = self::webAppUrl('', $locale);
         return [
             'keyboard' => [
                 [
-                    ['text' => '🎮 进入游戏', 'web_app' => ['url' => $webUrl]],
+                    ['text' => self::kbLabel('enter', $locale), 'web_app' => ['url' => $webUrl]],
                 ],
                 [
-                    ['text' => '👤 账号信息'],
-                    ['text' => '🎁 邀请好友'],
+                    ['text' => self::kbLabel('account', $locale)],
+                    ['text' => self::kbLabel('invite', $locale)],
                 ],
                 [
-                    ['text' => '🙋 官方客服'],
-                    ['text' => '🏠 返回主菜单'],
+                    ['text' => self::kbLabel('cs', $locale)],
+                    ['text' => self::kbLabel('home', $locale)],
+                ],
+                [
+                    ['text' => self::kbLabel('lang', $locale)],
                 ],
             ],
             'resize_keyboard'   => true,
@@ -313,18 +479,47 @@ class FansHubTelegram
         ];
     }
 
-    public static function welcomeText()
+    public static function languageInlineKeyboard($locale = 'zh-CN')
     {
+        $locale = self::normalizeLocale($locale);
+        $codes = FansHubService::i18nLocaleCodes();
+        $rows = [];
+        $row = [];
+        foreach ($codes as $code => $label) {
+            $mark = ($code === $locale) ? '✓ ' : '';
+            $row[] = [
+                'text'          => $mark . $label,
+                'callback_data' => 'tg:set:' . $code,
+            ];
+            if (count($row) >= 2) {
+                $rows[] = $row;
+                $row = [];
+            }
+        }
+        if ($row) {
+            $rows[] = $row;
+        }
+        $rows[] = [[
+            'text'          => self::t('tg_lang_back', $locale),
+            'callback_data' => 'tg:home',
+        ]];
+        return ['inline_keyboard' => $rows];
+    }
+
+    public static function welcomeText($locale = 'zh-CN')
+    {
+        $locale = self::normalizeLocale($locale);
         $name = (string)FansHubService::config('telegram_bot_username', '');
-        $line = $name !== '' ? ('@' . ltrim($name, '@')) : '红宝 Telegram';
-        return "欢迎使用 {$line} 🤖\n\n"
-            . "点击下方「🎮 进入游戏」在 Telegram 内打开网页。\n"
-            . "首次需绑定手机号（验证码登录），已有账号自动绑定，新号自动注册。\n\n"
-            . "菜单说明：\n"
-            . "👤 账号信息 — 查看红宝 / 股份\n"
-            . "🎁 邀请好友 — 获取邀请链接\n"
-            . "🙋 官方客服 — 联系客服\n"
-            . "🏠 返回主菜单 — 刷新本菜单";
+        $bot = $name !== '' ? ('@' . ltrim($name, '@')) : self::t('tg_brand_fallback', $locale);
+        return self::t('tg_welcome', $locale, [
+            'bot'     => $bot,
+            'enter'   => self::kbLabel('enter', $locale),
+            'account' => self::kbLabel('account', $locale),
+            'invite'  => self::kbLabel('invite', $locale),
+            'cs'      => self::kbLabel('cs', $locale),
+            'home'    => self::kbLabel('home', $locale),
+            'lang'    => self::kbLabel('lang', $locale),
+        ]);
     }
 
     public static function handleUpdate(array $update)
@@ -345,23 +540,36 @@ class FansHubTelegram
         $msg = $cq['message'] ?? [];
         $chatId = $msg['chat']['id'] ?? ($cq['from']['id'] ?? 0);
         $from = $cq['from'] ?? [];
+        $tgId = (int)($from['id'] ?? 0);
+        $locale = self::getLocale($tgId, $from);
+
         if ($id !== '') {
             self::api('answerCallbackQuery', ['callback_query_id' => $id]);
         }
-        if ($data === 'menu:home' || $data === 'menu:main') {
-            return self::sendMainMenu($chatId);
+        if ($data === 'menu:home' || $data === 'menu:main' || $data === 'tg:home') {
+            return self::sendMainMenu($chatId, null, $from);
         }
-        if ($data === 'menu:account') {
+        if ($data === 'menu:account' || $data === 'tg:account') {
             return self::replyAccount($chatId, $from);
         }
-        if ($data === 'menu:invite') {
+        if ($data === 'menu:invite' || $data === 'tg:invite') {
             return self::replyInvite($chatId, $from);
         }
-        if ($data === 'menu:cs') {
+        if ($data === 'menu:cs' || $data === 'tg:cs') {
             return self::api('sendMessage', [
                 'chat_id' => $chatId,
-                'text'    => self::csText(),
+                'text'    => self::csText($locale),
             ]);
+        }
+        if ($data === 'tg:lang' || $data === 'menu:lang') {
+            return self::sendLanguagePicker($chatId, $from);
+        }
+        if (preg_match('/^tg:set:([A-Za-z]{2}-[A-Za-z]{2})$/', $data, $m)) {
+            $next = self::setLocale($tgId, $m[1]);
+            $codes = FansHubService::i18nLocaleCodes();
+            $label = $codes[$next] ?? $next;
+            $done = self::t('tg_lang_done', $next, ['label' => $label]);
+            return self::sendMainMenu($chatId, $done . "\n\n" . self::welcomeText($next), $from);
         }
         return ['ok' => true];
     }
@@ -377,88 +585,116 @@ class FansHubTelegram
         }
         $chatId = $chat['id'] ?? 0;
         $from = $message['from'] ?? [];
+        $tgId = (int)($from['id'] ?? 0);
+        $locale = self::getLocale($tgId, $from);
         $text = trim((string)($message['text'] ?? ''));
+
         // /start CODE
         if (preg_match('/^\/start(?:@\w+)?(?:\s+(.+))?$/u', $text, $m)) {
             $start = trim((string)($m[1] ?? ''));
-            // 若带邀请码，WebApp URL 可带上（键盘仍用默认；start_param 由 deep-link 注入）
             if ($start !== '') {
-                // 存短缓存供 WebApp 无 start_param 时兜底（可选）
                 try {
-                    \think\Cache::set('tg_start_' . (int)($from['id'] ?? 0), $start, 3600);
+                    \think\Cache::set('tg_start_' . $tgId, $start, 3600);
                 } catch (\Throwable $e) {
                 }
             }
-            return self::sendMainMenu($chatId);
+            return self::sendMainMenu($chatId, null, $from);
         }
-        if ($text === '🏠 返回主菜单' || $text === '返回主菜单' || $text === '/menu') {
-            return self::sendMainMenu($chatId);
+
+        $action = self::matchKbAction($text);
+        if ($action === 'home') {
+            return self::sendMainMenu($chatId, null, $from);
         }
-        if ($text === '👤 账号信息' || $text === '账号信息') {
+        if ($action === 'account') {
             return self::replyAccount($chatId, $from);
         }
-        if ($text === '🎁 邀请好友' || $text === '邀请好友') {
+        if ($action === 'invite') {
             return self::replyInvite($chatId, $from);
         }
-        if ($text === '🙋 官方客服' || $text === '官方客服') {
+        if ($action === 'cs') {
             return self::api('sendMessage', [
                 'chat_id' => $chatId,
-                'text'    => self::csText(),
+                'text'    => self::csText($locale),
             ]);
         }
-        // 其它文本：提示菜单
-        return self::sendMainMenu($chatId, "请使用下方菜单按钮操作～\n\n" . self::welcomeText());
+        if ($action === 'lang') {
+            return self::sendLanguagePicker($chatId, $from);
+        }
+        // enter 是 web_app，一般不会以纯文本到达；其它文本提示菜单
+        $hint = self::t('tg_hint_menu', $locale) . "\n\n" . self::welcomeText($locale);
+        return self::sendMainMenu($chatId, $hint, $from);
     }
 
-    public static function sendMainMenu($chatId, $text = null)
+    public static function sendLanguagePicker($chatId, array $from = [])
     {
-        // 先卸掉旧键盘（旧 web_app 可能仍是带 #/ 的地址），再下发新键盘
+        $tgId = (int)($from['id'] ?? 0);
+        $locale = self::getLocale($tgId, $from);
+        return self::api('sendMessage', [
+            'chat_id'      => $chatId,
+            'text'         => self::t('tg_lang_title', $locale),
+            'reply_markup' => json_encode(self::languageInlineKeyboard($locale), JSON_UNESCAPED_UNICODE),
+        ]);
+    }
+
+    public static function sendMainMenu($chatId, $text = null, array $from = [])
+    {
+        $tgId = (int)($from['id'] ?? 0);
+        if ($tgId <= 0) {
+            $tgId = (int)$chatId;
+        }
+        $locale = self::getLocale($tgId, $from);
+        // 先卸掉旧键盘（旧 web_app / 旧语言），再下发新键盘
         try {
             self::api('sendMessage', [
                 'chat_id'      => $chatId,
-                'text'         => '⏳ 正在更新菜单…',
+                'text'         => self::t('tg_menu_updating', $locale),
                 'reply_markup' => json_encode(['remove_keyboard' => true], JSON_UNESCAPED_UNICODE),
             ]);
         } catch (\Throwable $e) {
         }
         return self::api('sendMessage', [
             'chat_id'      => $chatId,
-            'text'         => $text !== null ? $text : self::welcomeText(),
-            'reply_markup' => json_encode(self::mainMenuKeyboard(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'text'         => $text !== null ? $text : self::welcomeText($locale),
+            'reply_markup' => json_encode(self::mainMenuKeyboard($locale), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         ]);
     }
 
-    protected static function needBindHint($chatId)
+    protected static function needBindHint($chatId, array $from = [])
     {
-        $webUrl = self::webAppUrl();
+        $tgId = (int)($from['id'] ?? 0);
+        $locale = self::getLocale($tgId, $from);
+        $enter = self::kbLabel('enter', $locale);
+        $webUrl = self::webAppUrl('', $locale);
         return self::api('sendMessage', [
             'chat_id'      => $chatId,
-            'text'         => "⚠️ 尚未绑定账号。\n请先点击「🎮 进入游戏」完成手机号验证绑定。",
+            'text'         => self::t('tg_need_bind', $locale, ['enter' => $enter]),
             'reply_markup' => json_encode([
                 'inline_keyboard' => [
-                    [['text' => '🎮 进入游戏', 'web_app' => ['url' => $webUrl]]],
+                    [['text' => $enter, 'web_app' => ['url' => $webUrl]]],
                 ],
-            ], JSON_UNESCAPED_UNICODE),
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         ]);
     }
 
     protected static function replyAccount($chatId, array $from)
     {
         $tgId = (int)($from['id'] ?? 0);
+        $locale = self::getLocale($tgId, $from);
         $bind = self::findBindByTg($tgId);
         if (!$bind) {
-            return self::needBindHint($chatId);
+            return self::needBindHint($chatId, $from);
         }
         $profile = FansHubService::profilePayload((int)$bind['user_id']);
         $hongbao = number_format((float)($profile['hongbao'] ?? 0), 2, '.', '');
         $rights = number_format((float)($profile['rights'] ?? 0), 2, '.', '');
         $uid = (int)($profile['user_id'] ?? 0);
         $mask = (string)($profile['mobile_mask'] ?? '');
-        $text = "👤 账号信息\n\n"
-            . "UID：{$uid}\n"
-            . "手机：{$mask}\n"
-            . "红宝余额：{$hongbao}\n"
-            . "股份：{$rights}";
+        $text = self::t('tg_account_body', $locale, [
+            'uid'     => $uid,
+            'mobile'  => $mask,
+            'hongbao' => $hongbao,
+            'rights'  => $rights,
+        ]);
         return self::api('sendMessage', [
             'chat_id' => $chatId,
             'text'    => $text,
@@ -468,23 +704,23 @@ class FansHubTelegram
     protected static function replyInvite($chatId, array $from)
     {
         $tgId = (int)($from['id'] ?? 0);
+        $locale = self::getLocale($tgId, $from);
         $bind = self::findBindByTg($tgId);
         if (!$bind) {
-            return self::needBindHint($chatId);
+            return self::needBindHint($chatId, $from);
         }
         $share = FansHubService::buildSharePayload((int)$bind['user_id']);
         $link = (string)($share['share_link'] ?? '');
-        $text = (string)($share['share_text'] ?? '');
         if ($link === '') {
-            $text = '暂无法生成邀请链接，请稍后重试。';
-        } elseif ($text === '') {
-            $text = "🎁 你的邀请链接：\n" . $link;
+            $text = self::t('tg_invite_fail', $locale);
+        } else {
+            $text = self::t('tg_invite_link', $locale, ['link' => $link]);
         }
-        // Bot deep-link 便于在 TG 内拉新
         $botUser = ltrim((string)FansHubService::config('telegram_bot_username', ''), '@');
         $code = (string)(($share['profile']['invite_code'] ?? '') ?: '');
         if ($botUser !== '' && $code !== '') {
-            $text .= "\n\n🤖 Telegram 邀请：\nhttps://t.me/{$botUser}?start=" . rawurlencode($code);
+            $tgLink = 'https://t.me/' . $botUser . '?start=' . rawurlencode($code);
+            $text .= "\n\n" . self::t('tg_invite_tg', $locale, ['link' => $tgLink]);
         }
         return self::api('sendMessage', [
             'chat_id' => $chatId,

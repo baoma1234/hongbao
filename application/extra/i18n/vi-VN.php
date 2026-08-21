@@ -1033,4 +1033,45 @@ Bán lẻ DeskHarvester thực thi 15 cổ kênh 1 và được cộng ₫75.00 
   'yxx_err_drawing' => 'Đang mở thưởng, đợi ván sau',
   'yxx_err_face' => 'Hãy chọn một hình',
   'yxx_err_stake' => 'Cược {min}-{max} điểm',
+
+  // Telegram Bot
+  'tg_kb_enter' => '🎮 Vào game',
+  'tg_kb_account' => '👤 Tài khoản',
+  'tg_kb_invite' => '🎁 Mời bạn',
+  'tg_kb_cs' => '🙋 CSKH',
+  'tg_kb_home' => '🏠 Menu chính',
+  'tg_kb_lang' => '🌐 Ngôn ngữ',
+  'tg_brand_fallback' => 'Hongbao Telegram',
+  'tg_welcome' => "Chào mừng dùng {bot} 🤖
+
+Bấm 「{enter}」 để mở web trong Telegram.
+Lần đầu cần gắn SĐT (OTP). Có tài khoản sẽ tự gắn; số mới tự đăng ký.
+
+Menu:
+{account} — Hongbao / cổ phần
+{invite} — Link mời
+{cs} — CSKH
+{home} — Làm mới menu
+{lang} — Đổi ngôn ngữ",
+  'tg_hint_menu' => 'Vui lòng dùng nút menu bên dưới～',
+  'tg_menu_updating' => '⏳ Đang cập nhật menu…',
+  'tg_need_bind' => "⚠️ Chưa gắn tài khoản.
+Bấm 「{enter}」 và xác minh SĐT trước.",
+  'tg_account_body' => "👤 Tài khoản
+
+UID: {uid}
+SĐT: {mobile}
+Hongbao: {hongbao}
+Cổ phần: {rights}",
+  'tg_invite_fail' => 'Không tạo được link mời. Thử lại sau.',
+  'tg_invite_link' => "🎁 Link mời của bạn:
+{link}",
+  'tg_invite_tg' => "🤖 Mời qua Telegram:
+{link}",
+  'tg_cs_text' => "🙋 Cần hỗ trợ? Liên hệ CSKH 24h:
+👉 @BIO_kf",
+  'tg_lang_title' => "🌐 Chọn ngôn ngữ
+Choose language",
+  'tg_lang_done' => '✅ Đã chuyển sang: {label}',
+  'tg_lang_back' => '« Về menu',
 );

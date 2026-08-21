@@ -138,6 +138,8 @@ class FansHubService
             'phase2_honor_progress', 'phase2_confirm_violent_msg', 'phase2_checkin_violent_btn',
             'phase2_checkin_normal_btn', 'jackpot_partners', 'jackpot_price_line',
             'marquee_text', 'chat_rp_type_lucky_desc', 'chat_rp_type_relay_desc', 'chat_rp_mine_hint',
+            'tg_welcome', 'tg_need_bind', 'tg_account_body', 'tg_cs_text', 'tg_lang_title',
+            'tg_invite_link', 'tg_invite_tg',
         ];
     }
 
@@ -1183,6 +1185,27 @@ class FansHubService
                 'login_phone_placeholder_kr'  => '韩国手机号占位',
                 'aria_lang_select'            => '语言选择无障碍',
                 'aria_country_select'         => '区号选择无障碍',
+            ],
+            'Telegram机器人' => [
+                'tg_kb_enter'        => '键盘-进入游戏',
+                'tg_kb_account'      => '键盘-账号信息',
+                'tg_kb_invite'       => '键盘-邀请好友',
+                'tg_kb_cs'           => '键盘-官方客服',
+                'tg_kb_home'         => '键盘-返回主菜单',
+                'tg_kb_lang'         => '键盘-切换语言',
+                'tg_brand_fallback'  => '欢迎-品牌兜底名',
+                'tg_welcome'         => '欢迎全文（{bot}{enter}{account}{invite}{cs}{home}{lang}）',
+                'tg_hint_menu'       => '提示-请用菜单操作',
+                'tg_menu_updating'   => '提示-正在更新菜单',
+                'tg_need_bind'       => '提示-尚未绑定（{enter}）',
+                'tg_account_body'    => '账号信息正文（{uid}{mobile}{hongbao}{rights}）',
+                'tg_invite_fail'     => '邀请-生成失败',
+                'tg_invite_link'     => '邀请-链接正文（{link}）',
+                'tg_invite_tg'       => '邀请-Telegram深链（{link}）',
+                'tg_cs_text'         => '客服回复正文',
+                'tg_lang_title'      => '语言选择标题',
+                'tg_lang_done'       => '语言已切换（{label}）',
+                'tg_lang_back'       => '语言页-返回菜单',
             ],
         ];
     }

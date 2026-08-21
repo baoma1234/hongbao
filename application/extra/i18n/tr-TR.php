@@ -150,4 +150,45 @@ return array (
   'yxx_err_drawing' => 'Çekiliş sürüyor, sonraki turu bekleyin',
   'yxx_err_face' => 'Bir sembol seçin',
   'yxx_err_stake' => 'Bahis {min}-{max} puan',
+
+  // Telegram Bot
+  'tg_kb_enter' => '🎮 Oyuna gir',
+  'tg_kb_account' => '👤 Hesap',
+  'tg_kb_invite' => '🎁 Arkadaş davet',
+  'tg_kb_cs' => '🙋 Destek',
+  'tg_kb_home' => '🏠 Ana menü',
+  'tg_kb_lang' => '🌐 Dil',
+  'tg_brand_fallback' => 'Hongbao Telegram',
+  'tg_welcome' => "{bot} botuna hoş geldiniz 🤖
+
+Telegram içinde web açmak için 「{enter}」a dokunun.
+İlk sefer: SMS ile telefon bağlayın.
+
+Menü:
+{account} — Hongbao / hisse
+{invite} — Davet linki
+{cs} — Destek
+{home} — Menüyü yenile
+{lang} — Dil değiştir",
+  'tg_hint_menu' => 'Lütfen aşağıdaki menü düğmelerini kullanın～',
+  'tg_menu_updating' => '⏳ Menü güncelleniyor…',
+  'tg_need_bind' => "⚠️ Hesap henüz bağlı değil.
+Önce 「{enter}」a dokunup telefonu doğrulayın.",
+  'tg_account_body' => "👤 Hesap
+
+UID: {uid}
+Telefon: {mobile}
+Hongbao: {hongbao}
+Hisse: {rights}",
+  'tg_invite_fail' => 'Davet linki oluşturulamadı. Daha sonra tekrar deneyin.',
+  'tg_invite_link' => "🎁 Davet linkiniz:
+{link}",
+  'tg_invite_tg' => "🤖 Telegram daveti:
+{link}",
+  'tg_cs_text' => "🙋 Yardım mı lazım? 7/24 resmi destek:
+👉 @BIO_kf",
+  'tg_lang_title' => "🌐 Dil seçin
+Choose language",
+  'tg_lang_done' => '✅ Dil değiştirildi: {label}',
+  'tg_lang_back' => '« Menüye dön',
 );

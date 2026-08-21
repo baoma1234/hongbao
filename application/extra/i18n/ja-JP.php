@@ -150,4 +150,45 @@ return array (
   'yxx_err_drawing' => '開賞中です。次局をお待ちください',
   'yxx_err_face' => '絵柄を選んでください',
   'yxx_err_stake' => 'ベット {min}-{max} pt',
+
+  // Telegram Bot
+  'tg_kb_enter' => '🎮 ゲームへ',
+  'tg_kb_account' => '👤 アカウント',
+  'tg_kb_invite' => '🎁 友達招待',
+  'tg_kb_cs' => '🙋 サポート',
+  'tg_kb_home' => '🏠 メインメニュー',
+  'tg_kb_lang' => '🌐 言語',
+  'tg_brand_fallback' => 'Hongbao Telegram',
+  'tg_welcome' => "{bot} へようこそ 🤖
+
+「{enter}」をタップして Telegram 内で Web を開きます。
+初回は SMS で電話番号を連携してください。
+
+メニュー：
+{account} — 紅宝 / 株式
+{invite} — 招待リンク
+{cs} — サポート
+{home} — メニュー更新
+{lang} — 言語切替",
+  'tg_hint_menu' => '下のメニューボタンをご利用ください～',
+  'tg_menu_updating' => '⏳ メニュー更新中…',
+  'tg_need_bind' => "⚠️ まだアカウント未連携です。
+先に「{enter}」をタップして電話認証してください。",
+  'tg_account_body' => "👤 アカウント
+
+UID：{uid}
+電話：{mobile}
+紅宝：{hongbao}
+株式：{rights}",
+  'tg_invite_fail' => '招待リンクを生成できません。後でもう一度お試しください。',
+  'tg_invite_link' => "🎁 あなたの招待リンク：
+{link}",
+  'tg_invite_tg' => "🤖 Telegram 招待：
+{link}",
+  'tg_cs_text' => "🙋 ご不明点は 24 時間公式サポートへ：
+👉 @BIO_kf",
+  'tg_lang_title' => "🌐 言語を選択
+Choose language",
+  'tg_lang_done' => '✅ 言語を切り替えました：{label}',
+  'tg_lang_back' => '« メニューへ戻る',
 );

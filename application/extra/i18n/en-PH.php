@@ -1067,4 +1067,45 @@ Retail DeskHarvester exercised 15 shares on Channel 1 and got ₱75.00 credited 
   'yxx_rain_missed' => 'Too late — this rain expired',
   'yxx_err_fast' => 'Too fast, try again',
   'yxx_err_busy' => 'Hall busy, try again',
+
+  // Telegram Bot
+  'tg_kb_enter' => '🎮 Enter game',
+  'tg_kb_account' => '👤 Account',
+  'tg_kb_invite' => '🎁 Invite friends',
+  'tg_kb_cs' => '🙋 Support',
+  'tg_kb_home' => '🏠 Main menu',
+  'tg_kb_lang' => '🌐 Language',
+  'tg_brand_fallback' => 'Hongbao Telegram',
+  'tg_welcome' => "Welcome to {bot} 🤖
+
+Tap 「{enter}」 to open the web app inside Telegram.
+First time: bind phone via SMS. Existing accounts bind automatically; new numbers register.
+
+Menu:
+{account} — Hongbao / shares
+{invite} — Invite link
+{cs} — Support
+{home} — Refresh menu
+{lang} — Switch language",
+  'tg_hint_menu' => 'Please use the menu buttons below～',
+  'tg_menu_updating' => '⏳ Updating menu…',
+  'tg_need_bind' => "⚠️ Account not bound yet.
+Tap 「{enter}」 and verify your phone first.",
+  'tg_account_body' => "👤 Account
+
+UID: {uid}
+Phone: {mobile}
+Hongbao: {hongbao}
+Shares: {rights}",
+  'tg_invite_fail' => 'Unable to generate invite link. Please try again later.',
+  'tg_invite_link' => "🎁 Your invite link:
+{link}",
+  'tg_invite_tg' => "🤖 Telegram invite:
+{link}",
+  'tg_cs_text' => "🙋 Need help? Contact 24h official support:
+👉 @BIO_kf",
+  'tg_lang_title' => "🌐 Choose language
+请选择语言",
+  'tg_lang_done' => '✅ Language set to: {label}',
+  'tg_lang_back' => '« Back to menu',
 );

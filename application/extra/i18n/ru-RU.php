@@ -150,4 +150,45 @@ return array (
   'yxx_err_drawing' => 'Идёт розыгрыш, ждите следующий раунд',
   'yxx_err_face' => 'Выберите символ',
   'yxx_err_stake' => 'Ставка {min}-{max} очков',
+
+  // Telegram Bot
+  'tg_kb_enter' => '🎮 Войти в игру',
+  'tg_kb_account' => '👤 Аккаунт',
+  'tg_kb_invite' => '🎁 Пригласить',
+  'tg_kb_cs' => '🙋 Поддержка',
+  'tg_kb_home' => '🏠 Главное меню',
+  'tg_kb_lang' => '🌐 Язык',
+  'tg_brand_fallback' => 'Hongbao Telegram',
+  'tg_welcome' => "Добро пожаловать в {bot} 🤖
+
+Нажмите 「{enter}」, чтобы открыть веб в Telegram.
+Сначала привяжите телефон по SMS.
+
+Меню:
+{account} — Hongbao / акции
+{invite} — Ссылка-приглашение
+{cs} — Поддержка
+{home} — Обновить меню
+{lang} — Сменить язык",
+  'tg_hint_menu' => 'Пожалуйста, используйте кнопки меню ниже～',
+  'tg_menu_updating' => '⏳ Обновление меню…',
+  'tg_need_bind' => "⚠️ Аккаунт ещё не привязан.
+Сначала нажмите 「{enter}」 и подтвердите телефон.",
+  'tg_account_body' => "👤 Аккаунт
+
+UID: {uid}
+Телефон: {mobile}
+Hongbao: {hongbao}
+Акции: {rights}",
+  'tg_invite_fail' => 'Не удалось создать ссылку. Попробуйте позже.',
+  'tg_invite_link' => "🎁 Ваша ссылка:
+{link}",
+  'tg_invite_tg' => "🤖 Приглашение Telegram:
+{link}",
+  'tg_cs_text' => "🙋 Нужна помощь? Поддержка 24/7:
+👉 @BIO_kf",
+  'tg_lang_title' => "🌐 Выберите язык
+Choose language",
+  'tg_lang_done' => '✅ Язык изменён на: {label}',
+  'tg_lang_back' => '« Назад в меню',
 );

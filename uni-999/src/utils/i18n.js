@@ -372,7 +372,32 @@ const fullLoaded = Object.create(null)
 const serverCopy = Object.create(null)
 const copyTick = ref(0)
 
+function readQueryLocale() {
+  // #ifdef H5
+  try {
+    if (typeof location === 'undefined') return ''
+    const m = String(location.search || '').match(/[?&]locale=([^&]+)/)
+    if (!m || !m[1]) return ''
+    const v = decodeURIComponent(String(m[1]).replace(/\+/g, ' ')).trim()
+    return LOCALE_META[v] ? v : ''
+  } catch (e) {
+    return ''
+  }
+  // #endif
+  // #ifndef H5
+  return ''
+  // #endif
+}
+
 function readStoredLocale() {
+  // Telegram WebApp URL 带 locale= 时与机器人语言对齐（优先于本地缓存）
+  const fromQuery = readQueryLocale()
+  if (fromQuery) {
+    try {
+      uni.setStorageSync(LOCALE_STORAGE_KEY, fromQuery)
+    } catch (e) {}
+    return fromQuery
+  }
   try {
     const v = uni.getStorageSync(LOCALE_STORAGE_KEY) || DEFAULT_LOCALE
     return LOCALE_META[v] ? v : DEFAULT_LOCALE
