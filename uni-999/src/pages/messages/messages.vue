@@ -3048,9 +3048,9 @@ onHide(() => {
 }
 .msg-popup-img {
   display: block;
-  width: 100%;
+  width: 85%;
   height: auto;
-  max-height: min(72vh, 640px);
+  max-height: min(61.2vh, 544px);
   border-radius: 12px;
   background: transparent;
 }

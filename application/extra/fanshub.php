@@ -99,8 +99,8 @@ return array (
   'h5_entry_path' => '999',
   // Telegram 机器人（用户 Bot；token 在 BotFather 创建后填入）
   'telegram_bot_enabled' => true,
-  'telegram_bot_token' => '',
-  'telegram_bot_username' => '',
+  'telegram_bot_token' => '8400237628:AAH_vPWWyqOKyJx5g9oRz-9MuCdUvqJSEmk',
+  'telegram_bot_username' => 'qhb_bio',
   'telegram_webhook_secret' => 'hb_tg_wh_a3f9c2e81b7d4056',
   // WebApp 在 TG 内打开的 H5 绑定/进厅页
   'telegram_webapp_path' => '999/#/pages/login/tg-bind',
