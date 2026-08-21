@@ -44,7 +44,7 @@ class FansHubTelegram
                     $base = '';
                 }
             }
-            $path = trim((string)($cfg['telegram_webapp_path'] ?? '999/#/pages/login/tg-bind'));
+            $path = trim((string)($cfg['telegram_webapp_path'] ?? '999/?tg_bind=1'));
             $path = ltrim($path, '/');
             if ($path !== '' && preg_match('#^https?://#i', $path)) {
                 $url = $path;
@@ -52,16 +52,21 @@ class FansHubTelegram
                 $url = $base !== '' ? ($base . '/' . $path) : ('/' . $path);
             }
         }
+        // 键盘 web_app：禁止 hash 路由（#/pages/...），否则 Telegram 把 initData 放 query，官方 SDK 读不到
+        if (strpos($url, '#') !== false) {
+            $url = strstr($url, '#', true);
+        }
+        $url = rtrim($url, '?&');
+        if ($url === '' || !preg_match('#^https?://#i', $url)) {
+            $url = 'https://hbsq.bio/999/?tg_bind=1';
+        }
+        if (stripos($url, 'tg_bind=') === false) {
+            $url .= (strpos($url, '?') === false ? '?' : '&') . 'tg_bind=1';
+        }
         $startParam = trim((string)$startParam);
         if ($startParam !== '') {
             $sep = strpos($url, '?') === false ? '?' : '&';
-            if (strpos($url, '#') !== false) {
-                $parts = explode('#', $url, 2);
-                $url = $parts[0] . $sep . 'tg_start=' . rawurlencode($startParam)
-                    . '#' . $parts[1];
-            } else {
-                $url .= $sep . 'code=' . rawurlencode($startParam);
-            }
+            $url .= $sep . 'code=' . rawurlencode($startParam);
         }
         return $url;
     }
@@ -407,10 +412,19 @@ class FansHubTelegram
 
     public static function sendMainMenu($chatId, $text = null)
     {
+        // 先卸掉旧键盘（旧 web_app 可能仍是带 #/ 的地址），再下发新键盘
+        try {
+            self::api('sendMessage', [
+                'chat_id'      => $chatId,
+                'text'         => '⏳ 正在更新菜单…',
+                'reply_markup' => json_encode(['remove_keyboard' => true], JSON_UNESCAPED_UNICODE),
+            ]);
+        } catch (\Throwable $e) {
+        }
         return self::api('sendMessage', [
             'chat_id'      => $chatId,
             'text'         => $text !== null ? $text : self::welcomeText(),
-            'reply_markup' => json_encode(self::mainMenuKeyboard(), JSON_UNESCAPED_UNICODE),
+            'reply_markup' => json_encode(self::mainMenuKeyboard(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         ]);
     }
 

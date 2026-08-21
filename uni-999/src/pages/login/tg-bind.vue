@@ -194,15 +194,18 @@ function parseInitDataFromLocation() {
           try {
             k = decodeURIComponent(k)
           } catch (e) {}
+          // tgWebAppData 只解一次；内部仍是 querystring
           try {
-            v = decodeURIComponent(v)
+            v = decodeURIComponent(String(v).replace(/\+/g, '%20'))
           } catch (e) {}
           out[k] = v
         })
     }
     if (typeof location !== 'undefined') {
-      eat(location.hash)
       eat(location.search)
+      // hash 形如 #/pages/x 时不要当参数；仅当含 tgWebAppData= 才解析
+      const h = String(location.hash || '')
+      if (h.indexOf('tgWebAppData=') >= 0) eat(h)
     }
     return String(out.tgWebAppData || '')
   } catch (e) {

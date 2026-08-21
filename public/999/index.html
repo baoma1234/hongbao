@@ -66,12 +66,19 @@
           var fromSearch = parsePairs(search)
           if (fromHash.tgWebAppData) storeInitData(fromHash.tgWebAppData)
           if (fromSearch.tgWebAppData) storeInitData(fromSearch.tgWebAppData)
-          if (fromSearch.tg_bind === '1' || fromHash.tgWebAppData || fromSearch.tgWebAppData) {
+          // 兼容旧键盘 URL：hash 已是 #/pages/...，initData 只在 query
+          if (!fromSearch.tgWebAppData && search.indexOf('tgWebAppData=') >= 0) {
+            try {
+              var m = search.match(/(?:^|[?&])tgWebAppData=([^&]*)/)
+              if (m && m[1]) storeInitData(decodeURIComponent(m[1].replace(/\+/g, '%20')))
+            } catch (e2) {}
+          }
+          if (fromSearch.tg_bind === '1' || fromHash.tgWebAppData || fromSearch.tgWebAppData || search.indexOf('tgWebAppData=') >= 0) {
             try { sessionStorage.setItem('__tg_bind', '1') } catch (e) {}
           }
           window.__HB_TG_BOOT__ = {
             hadTgHash: hash.indexOf('tgWebAppData=') >= 0,
-            wantBind: fromSearch.tg_bind === '1' || !!fromHash.tgWebAppData || !!fromSearch.tgWebAppData
+            wantBind: fromSearch.tg_bind === '1' || !!fromHash.tgWebAppData || !!fromSearch.tgWebAppData || search.indexOf('tgWebAppData=') >= 0
           }
         } catch (e) {}
       })()
@@ -103,7 +110,7 @@
     </script>
     <!--preload-links-->
     <!--app-context-->
-    <script type="module" crossorigin src="/999/assets/index-Ba_zIcmk.js"></script>
+    <script type="module" crossorigin src="/999/assets/index-OZBfG417.js"></script>
     <link rel="stylesheet" crossorigin href="/999/assets/index-h2L3XHNj.css">
   </head>
   <body>

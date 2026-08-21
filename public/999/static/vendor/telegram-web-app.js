@@ -8,6 +8,23 @@
   } catch (e) {}
 
   var initParams = urlParseHashParams(locationHash);
+  // 红宝：Reply Keyboard 的 web_app 若 URL 已带 #/ 路由，Telegram 会把 tgWebAppData 放在 query，
+  // 官方 SDK 只解析 hash，导致 initData 为空。此处合并 location.search。
+  try {
+    var locSearch = '';
+    try { locSearch = String(location.search || ''); } catch (e) {}
+    if (locSearch.charAt(0) === '?') {
+      locSearch = locSearch.substr(1);
+    }
+    if (locSearch.length) {
+      var searchParams = urlParseQueryString(locSearch);
+      for (var sk in searchParams) {
+        if (typeof initParams[sk] === 'undefined' || initParams[sk] === null || initParams[sk] === '') {
+          initParams[sk] = searchParams[sk];
+        }
+      }
+    }
+  } catch (e) {}
   var storedParams = sessionStorageGet('initParams');
   if (storedParams) {
     for (var key in storedParams) {
