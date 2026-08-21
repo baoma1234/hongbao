@@ -283,24 +283,103 @@ if (!function_exists('var_export_short')) {
     }
 }
 
+if (!function_exists('default_user_avatar')) {
+    /**
+     * 统一默认头像（相对路径，写入库 / 回退用）
+     */
+    function default_user_avatar_path()
+    {
+        return '/uploads/20260813/f48cc40355dd0f6d814e68ff6e414443.png';
+    }
+
+    /**
+     * 统一默认头像（可返回绝对 CDN/OSS 地址）
+     * @param bool $absolute
+     * @return string
+     */
+    function default_user_avatar($absolute = true)
+    {
+        $path = default_user_avatar_path();
+        if (!$absolute) {
+            return $path;
+        }
+        if (class_exists('\\app\\common\\library\\OssService')) {
+            try {
+                $full = \app\common\library\OssService::fullUrl($path, '');
+                if (is_string($full) && $full !== '') {
+                    return $full;
+                }
+            } catch (\Throwable $e) {
+            }
+        }
+        if (function_exists('cdnurl')) {
+            return (string)cdnurl($path, true);
+        }
+        return $path;
+    }
+
+    /**
+     * 空头像 / SVG data URI 等占位头像
+     */
+    function is_placeholder_avatar($avatar)
+    {
+        $avatar = trim((string)$avatar);
+        if ($avatar === '') {
+            return true;
+        }
+        if (stripos($avatar, 'data:image/svg') === 0) {
+            return true;
+        }
+        // 旧版默认图也视为占位，统一换新
+        if (strpos($avatar, '/uploads/brand/default-avatar.png') !== false) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * 规范化用户头像：SVG/空 → 默认图
+     * @param string $avatar
+     * @param bool   $absolute 是否转绝对地址
+     * @return string
+     */
+    function normalize_user_avatar($avatar, $absolute = true)
+    {
+        $avatar = trim((string)$avatar);
+        if (is_placeholder_avatar($avatar)) {
+            return default_user_avatar($absolute);
+        }
+        if (!$absolute) {
+            return $avatar;
+        }
+        if (preg_match('#^https?://#i', $avatar) || strpos($avatar, '//') === 0) {
+            return $avatar;
+        }
+        if (class_exists('\\app\\common\\library\\OssService')) {
+            try {
+                $full = \app\common\library\OssService::fullUrl($avatar, '');
+                if (is_string($full) && $full !== '') {
+                    return $full;
+                }
+            } catch (\Throwable $e) {
+            }
+        }
+        if (function_exists('cdnurl')) {
+            return (string)cdnurl($avatar, true);
+        }
+        return $avatar;
+    }
+}
+
 if (!function_exists('letter_avatar')) {
     /**
-     * 首字母头像
+     * 首字母头像（已统一改为默认静态头像，不再生成 SVG data URI）
      * @param $text
      * @return string
      */
     function letter_avatar($text)
     {
-        $total = unpack('L', hash('adler32', $text, true))[1];
-        $hue = $total % 360;
-        list($r, $g, $b) = hsv2rgb($hue / 360, 0.3, 0.9);
-
-        $bg = "rgb({$r},{$g},{$b})";
-        $color = "#ffffff";
-        $first = mb_strtoupper(mb_substr($text, 0, 1));
-        $src = base64_encode('<svg xmlns="http://www.w3.org/2000/svg" version="1.1" height="100" width="100"><rect fill="' . $bg . '" x="0" y="0" width="100" height="100"></rect><text x="50" y="50" font-size="50" text-copy="fast" fill="' . $color . '" text-anchor="middle" text-rights="admin" dominant-baseline="central">' . $first . '</text></svg>');
-        $value = 'data:image/svg+xml;base64,' . $src;
-        return $value;
+        return default_user_avatar(false);
     }
 }
 

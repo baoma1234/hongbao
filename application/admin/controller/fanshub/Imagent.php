@@ -1032,7 +1032,7 @@ class Imagent extends Backend
     protected function userAvatar(array $users, $uid)
     {
         $uid = (int)$uid;
-        $default = 'https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/brand/default-avatar.png';
+        $default = default_user_avatar(true);
         if ($uid <= 0) {
             return $default;
         }
@@ -1104,29 +1104,10 @@ class Imagent extends Backend
 
     protected function normalizeAvatarUrl($avatar, $default = '')
     {
-        $default = $default !== ''
-            ? $default
-            : 'https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/brand/default-avatar.png';
-        $avatar = trim((string)$avatar);
-        if ($avatar === '') {
-            return $default;
+        if ($default === '') {
+            $default = default_user_avatar(true);
         }
-        if (preg_match('#^https?://#i', $avatar) || strpos($avatar, '//') === 0) {
-            return $avatar;
-        }
-        if (class_exists('\\app\\common\\library\\OssService')) {
-            try {
-                $full = \app\common\library\OssService::fullUrl($avatar, '');
-                if (is_string($full) && $full !== '') {
-                    return $full;
-                }
-            } catch (\Throwable $e) {
-            }
-        }
-        if (function_exists('cdnurl')) {
-            return (string)cdnurl($avatar, true);
-        }
-        return $avatar;
+        return normalize_user_avatar($avatar, true) ?: $default;
     }
 
     protected function callBridge($path, array $body)

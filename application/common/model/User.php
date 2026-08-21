@@ -54,10 +54,9 @@ class User extends Model
      */
     public function getAvatarAttr($value, $data)
     {
-        if (!$value) {
-            //如果不需要启用首字母头像，请使用
-            //$value = '/assets/img/avatar.png';
-            $value = letter_avatar($data['nickname']);
+        $value = trim((string)$value);
+        if (is_placeholder_avatar($value)) {
+            return default_user_avatar_path();
         }
         return $value;
     }

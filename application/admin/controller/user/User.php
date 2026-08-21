@@ -46,7 +46,7 @@ class User extends Backend
                 ->order($sort, $order)
                 ->paginate($limit);
             foreach ($list as $k => $v) {
-                $v->avatar = $v->avatar ? cdnurl($v->avatar, true) : letter_avatar($v->nickname);
+                $v->avatar = normalize_user_avatar($v->avatar, true);
                 $v->hidden(['password', 'salt']);
             }
             $result = array("total" => $list->total(), "rows" => $list->items());

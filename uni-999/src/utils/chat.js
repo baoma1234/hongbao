@@ -201,13 +201,22 @@ export function publicUrl(pathOrUrl) {
   return url
 }
 
-/** 默认头像（OSS）；空头像 / 无效头像统一回退 */
+/** 默认头像（统一静态图）；空头像 / SVG data URI / 旧默认图回退 */
+export const DEFAULT_AVATAR_PATH = '/uploads/20260813/f48cc40355dd0f6d814e68ff6e414443.png'
 export const DEFAULT_AVATAR_OSS =
-  'https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/brand/default-avatar.png'
-export const DEFAULT_AVATAR_VER = '202608131330'
+  'https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/20260813/f48cc40355dd0f6d814e68ff6e414443.png'
+export const DEFAULT_AVATAR_VER = '202608211700'
 
 export function defaultAvatarUrl() {
-  return DEFAULT_AVATAR_OSS + '?v=' + DEFAULT_AVATAR_VER
+  return publicUrl(DEFAULT_AVATAR_PATH) || (DEFAULT_AVATAR_OSS + '?v=' + DEFAULT_AVATAR_VER)
+}
+
+function isPlaceholderAvatar(url) {
+  const raw = String(url == null ? '' : url).trim()
+  if (!raw) return true
+  if (/^data:image\/svg/i.test(raw)) return true
+  if (raw.indexOf('/uploads/brand/default-avatar.png') >= 0) return true
+  return false
 }
 
 /** 对齐 888 avatarSrc：空头像也回默认图，避免空白块；短 LRU 缓存减轻列表重复拼 URL */
@@ -220,7 +229,7 @@ export function avatarSrc(url) {
   const hit = avatarSrcCache.get(key)
   if (hit) return hit
   let out = defaultAvatarUrl()
-  if (raw) {
+  if (raw && !isPlaceholderAvatar(raw)) {
     if (
       raw.indexOf('/') < 0 &&
       !/^https?:\/\//i.test(raw) &&

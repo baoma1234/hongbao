@@ -2141,14 +2141,8 @@ class FansHubService
             'mobile_mask' => self::maskMobile($mobile),
             'nickname'    => (string)($user->nickname ?? ''),
             'username'    => (string)($user->username ?? ''),
-            'avatar'      => (string)($user->avatar ?? '') !== ''
-                ? (string)$user->avatar
-                : 'https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/brand/default-avatar.png',
-            'avatar_url'  => (trim((string)($user->avatar ?? '')) !== '')
-                ? (class_exists('\\app\\common\\library\\OssService')
-                    ? \app\common\library\OssService::fullUrl((string)$user->avatar, '')
-                    : cdnurl((string)$user->avatar, true))
-                : 'https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/brand/default-avatar.png',
+            'avatar'      => normalize_user_avatar((string)($user->avatar ?? ''), false),
+            'avatar_url'  => normalize_user_avatar((string)($user->avatar ?? ''), true),
             'rights'      => (float)$account->rights,
             'rights_locked'=> (float)$lockSnap['locked'],
             'rights_free' => (float)$lockSnap['free'],
@@ -2634,7 +2628,7 @@ class FansHubService
             $user = self::findUserByMobile($mobile);
             // 新注册无头像时写入全局默认头像（OSS）
             if ($user && trim((string)($user->avatar ?? '')) === '') {
-                $defaultAvatar = 'https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/brand/default-avatar.png';
+                $defaultAvatar = default_user_avatar_path();
                 try {
                     $user->avatar = $defaultAvatar;
                     $user->save();
@@ -4281,11 +4275,7 @@ class FansHubService
             $list[] = [
                 'id'             => (int)$row->id,
                 'author_name'    => $row->localized('author_name', $locale) ?: '红宝官方公告',
-                'author_avatar'  => $row->author_avatar
-                    ? (class_exists('\\app\\common\\library\\OssService')
-                        ? \app\common\library\OssService::fullUrl((string)$row->author_avatar, '')
-                        : cdnurl((string)$row->author_avatar, true))
-                    : '',
+                'author_avatar'  => normalize_user_avatar((string)($row->author_avatar ?? ''), true),
                 'category'       => $catCode,
                 'category_label' => \app\common\model\fanshub\Notice::categoryLabel($catCode, $locale),
                 'content'        => $row->localized('content', $locale),
