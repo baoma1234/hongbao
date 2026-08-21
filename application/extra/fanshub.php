@@ -102,10 +102,10 @@ return array (
   'telegram_bot_token' => '8400237628:AAH_vPWWyqOKyJx5g9oRz-9MuCdUvqJSEmk',
   'telegram_bot_username' => 'qhb_bio',
   'telegram_webhook_secret' => 'hb_tg_wh_a3f9c2e81b7d4056',
-  // 完整进入地址优先；空则用 telegram_webapp_path + invite_base_url
-  'telegram_webapp_url' => 'https://hbsq.bio/999/#/pages/login/tg-bind',
-  // WebApp 在 TG 内打开的 H5 绑定/进厅页（相对路径备用）
-  'telegram_webapp_path' => '999/#/pages/login/tg-bind',
+  // 完整进入地址：勿带 #/ 路由，避免与 Telegram #tgWebAppData 冲突
+  'telegram_webapp_url' => 'https://hbsq.bio/999/?tg_bind=1',
+  // WebApp 相对路径备用（同样不要用 #/）
+  'telegram_webapp_path' => '999/?tg_bind=1',
   'telegram_cs_text' => "🙋 如有疑问，请联系 24 小时官方客服通道：\n👉 @BIO_kf",
   'telegram_init_max_age' => 86400,
   'share_text' => '【红宝官方通知】分享送钱，免费瓜分888,888.00元官方直营全现金红包大池！

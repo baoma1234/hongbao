@@ -20,8 +20,8 @@
 <div class="form-group">
     <label class="control-label col-xs-12 col-sm-2">进入游戏地址:</label>
     <div class="col-xs-12 col-sm-8">
-        <input class="form-control" name="telegram_webapp_url" type="text" value="{$config.telegram_webapp_url|default=''|htmlentities}" placeholder="https://hbsq.bio/999/#/pages/login/tg-bind">
-        <span class="help-block">完整 URL 优先；留空则用下方相对路径 + 邀请域名拼接。Bot「进入游戏」按钮打开此地址。</span>
+        <input class="form-control" name="telegram_webapp_url" type="text" value="{$config.telegram_webapp_url|default=''|htmlentities}" placeholder="https://hbsq.bio/999/?tg_bind=1">
+        <span class="help-block">完整 URL 优先。勿使用带 #/ 的 hash 路由（会与 Telegram 的 #tgWebAppData 冲突）。推荐：https://域名/999/?tg_bind=1</span>
     </div>
 </div>
 <div class="form-group">

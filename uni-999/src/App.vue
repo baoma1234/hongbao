@@ -59,6 +59,22 @@ onLaunch(async () => {
   } catch (e) {}
 
   const token = getToken()
+  // Telegram WebApp 绑定入口：即使已有 token 也不要踢走（未绑定 TG 时需留在本页）
+  try {
+    // #ifdef H5
+    const pathNow = getHashRoutePath()
+    const tgBind =
+      pathNow.indexOf('pages/login/tg-bind') === 0 ||
+      (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('__tg_bind') === '1')
+    if (tgBind) {
+      if (pathNow.indexOf('pages/login/tg-bind') !== 0) {
+        uni.reLaunch({ url: '/pages/login/tg-bind' })
+      }
+      return
+    }
+    // #endif
+  } catch (e) {}
+
   if (!token) return
 
   startImInbox()

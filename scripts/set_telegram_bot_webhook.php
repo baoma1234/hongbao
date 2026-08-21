@@ -50,3 +50,26 @@ curl_setopt($infoCh, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($infoCh, CURLOPT_SSL_VERIFYPEER, false);
 echo curl_exec($infoCh) . "\n";
 curl_close($infoCh);
+
+// 同步「进入游戏」菜单按钮（无 hash，避免 #tgWebAppData 冲突）
+require_once $root . '/thinkphp/base.php';
+\think\App::initCommon();
+$webUrl = \app\common\library\FansHubTelegram::webAppUrl();
+$menuApi = 'https://api.telegram.org/bot' . $token . '/setChatMenuButton';
+$menuPost = [
+    'menu_button' => json_encode([
+        'type' => 'web_app',
+        'text' => '进入游戏',
+        'web_app' => ['url' => $webUrl],
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+];
+$mch = curl_init($menuApi);
+curl_setopt($mch, CURLOPT_POST, true);
+curl_setopt($mch, CURLOPT_POSTFIELDS, $menuPost);
+curl_setopt($mch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($mch, CURLOPT_SSL_VERIFYPEER, false);
+curl_setopt($mch, CURLOPT_TIMEOUT, 20);
+$menuRes = curl_exec($mch);
+curl_close($mch);
+echo "web_app_url={$webUrl}\n";
+echo "setChatMenuButton={$menuRes}\n";

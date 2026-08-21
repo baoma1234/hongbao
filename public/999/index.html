@@ -31,9 +31,79 @@
       href="https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/brand/apple-touch-icon-1024-v2.png"
     />
     <title>红宝999</title>
+    <!--
+      Telegram WebApp：hash 路由会与 #tgWebAppData 冲突。
+      1) 先把 tgWebAppData 存入 sessionStorage
+      2) 再加载本地 telegram-web-app.js（国内访问 telegram.org 常失败）
+      3) SDK 读完 hash 后，改写为 uni 路由 #/pages/login/tg-bind
+    -->
+    <script>
+      (function () {
+        function storeInitData(raw) {
+          if (!raw) return
+          try { sessionStorage.setItem('__tg_initData', raw) } catch (e) {}
+          try { sessionStorage.setItem('tgWebAppData', raw) } catch (e) {}
+        }
+        function parsePairs(str) {
+          var out = {}
+          String(str || '').replace(/^[#?]/, '').split('&').forEach(function (pair) {
+            var i = pair.indexOf('=')
+            if (i < 0) return
+            var k = pair.slice(0, i)
+            var v = pair.slice(i + 1)
+            try { k = decodeURIComponent(k) } catch (e) {}
+            try { v = decodeURIComponent(v) } catch (e) {}
+            out[k] = v
+          })
+          return out
+        }
+        try {
+          var hash = ''
+          var search = ''
+          try { hash = String(location.hash || '') } catch (e) {}
+          try { search = String(location.search || '') } catch (e) {}
+          var fromHash = parsePairs(hash)
+          var fromSearch = parsePairs(search)
+          if (fromHash.tgWebAppData) storeInitData(fromHash.tgWebAppData)
+          if (fromSearch.tgWebAppData) storeInitData(fromSearch.tgWebAppData)
+          if (fromSearch.tg_bind === '1' || fromHash.tgWebAppData || fromSearch.tgWebAppData) {
+            try { sessionStorage.setItem('__tg_bind', '1') } catch (e) {}
+          }
+          window.__HB_TG_BOOT__ = {
+            hadTgHash: hash.indexOf('tgWebAppData=') >= 0,
+            wantBind: fromSearch.tg_bind === '1' || !!fromHash.tgWebAppData || !!fromSearch.tgWebAppData
+          }
+        } catch (e) {}
+      })()
+    </script>
+    <script src="/999/static/vendor/telegram-web-app.js" data-tg-webapp="1"></script>
+    <script>
+      (function () {
+        try {
+          var boot = window.__HB_TG_BOOT__ || {}
+          var hash = ''
+          try { hash = String(location.hash || '') } catch (e) {}
+          var search = ''
+          try { search = String(location.search || '') } catch (e) {}
+          var want =
+            boot.wantBind ||
+            /(?:^|[?&])tg_bind=1(?:&|$)/.test(search) ||
+            hash.indexOf('tgWebAppData=') >= 0 ||
+            (sessionStorage.getItem('__tg_initData') || '') !== ''
+          if (!want) return
+          // SDK 已从 #tgWebAppData 初始化后，把 hash 交给 uni 路由
+          if (hash.indexOf('tgWebAppData=') >= 0 || hash === '' || hash === '#') {
+            var path = String(location.pathname || '/999/') + search
+            history.replaceState(null, '', path + '#/pages/login/tg-bind')
+          } else if (hash.indexOf('/pages/login/tg-bind') < 0 && /(?:^|[?&])tg_bind=1(?:&|$)/.test(search)) {
+            history.replaceState(null, '', String(location.pathname || '/999/') + search + '#/pages/login/tg-bind')
+          }
+        } catch (e) {}
+      })()
+    </script>
     <!--preload-links-->
     <!--app-context-->
-    <script type="module" crossorigin src="/999/assets/index-DPdLr8oi.js"></script>
+    <script type="module" crossorigin src="/999/assets/index-Ba_zIcmk.js"></script>
     <link rel="stylesheet" crossorigin href="/999/assets/index-h2L3XHNj.css">
   </head>
   <body>

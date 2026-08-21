@@ -164,6 +164,64 @@ function startCooldown(sec) {
   }, 1000)
 }
 
+function readStoredTgInitData() {
+  // #ifdef H5
+  try {
+    if (typeof sessionStorage === 'undefined') return ''
+    return String(sessionStorage.getItem('__tg_initData') || sessionStorage.getItem('tgWebAppData') || '')
+  } catch (e) {
+    return ''
+  }
+  // #endif
+  // #ifndef H5
+  return ''
+  // #endif
+}
+
+function parseInitDataFromLocation() {
+  // #ifdef H5
+  try {
+    const out = {}
+    const eat = (str) => {
+      String(str || '')
+        .replace(/^[#?]/, '')
+        .split('&')
+        .forEach((pair) => {
+          const i = pair.indexOf('=')
+          if (i < 0) return
+          let k = pair.slice(0, i)
+          let v = pair.slice(i + 1)
+          try {
+            k = decodeURIComponent(k)
+          } catch (e) {}
+          try {
+            v = decodeURIComponent(v)
+          } catch (e) {}
+          out[k] = v
+        })
+    }
+    if (typeof location !== 'undefined') {
+      eat(location.hash)
+      eat(location.search)
+    }
+    return String(out.tgWebAppData || '')
+  } catch (e) {
+    return ''
+  }
+  // #endif
+  // #ifndef H5
+  return ''
+  // #endif
+}
+
+function resolveInitData(tg) {
+  const fromTg = tg && tg.initData ? String(tg.initData) : ''
+  if (fromTg) return fromTg
+  const stored = readStoredTgInitData()
+  if (stored) return stored
+  return parseInitDataFromLocation()
+}
+
 function loadTelegramWebApp() {
   return new Promise((resolve) => {
     // #ifdef H5
@@ -177,7 +235,6 @@ function loadTelegramWebApp() {
       }
       const exist = document.querySelector('script[data-tg-webapp]')
       if (exist) {
-        // 脚本可能已加载完，load 不会再触发 → 必须立即检查 + 超时兜底
         if (window.Telegram && window.Telegram.WebApp) {
           finish()
           return
@@ -187,14 +244,27 @@ function loadTelegramWebApp() {
         setTimeout(finish, 2500)
         return
       }
-      const s = document.createElement('script')
-      s.src = 'https://telegram.org/js/telegram-web-app.js'
-      s.async = true
-      s.setAttribute('data-tg-webapp', '1')
-      s.onload = finish
-      s.onerror = finish
-      document.head.appendChild(s)
-      setTimeout(finish, 4000)
+      // 优先本站静态文件（telegram.org 在国内常不可达）
+      const localSrc = ((typeof location !== 'undefined' && location.pathname.indexOf('/999') === 0)
+        ? '/999'
+        : '') + '/static/vendor/telegram-web-app.js'
+      const tryUrls = [localSrc, 'https://telegram.org/js/telegram-web-app.js']
+      let idx = 0
+      const loadNext = () => {
+        if (idx >= tryUrls.length) {
+          finish()
+          return
+        }
+        const s = document.createElement('script')
+        s.src = tryUrls[idx++]
+        s.async = true
+        s.setAttribute('data-tg-webapp', '1')
+        s.onload = finish
+        s.onerror = loadNext
+        document.head.appendChild(s)
+      }
+      loadNext()
+      setTimeout(finish, 5000)
     } catch (e) {
       resolve(null)
     }
@@ -206,11 +276,11 @@ function loadTelegramWebApp() {
 }
 
 /** Telegram 偶发 initData 稍晚才注入，短轮询几次 */
-function waitForInitData(tg, rounds = 8, gapMs = 200) {
+function waitForInitData(tg, rounds = 12, gapMs = 150) {
   return new Promise((resolve) => {
     let n = 0
     const tick = () => {
-      const raw = tg && tg.initData ? String(tg.initData) : ''
+      const raw = resolveInitData(tg)
       if (raw) {
         resolve(raw)
         return
@@ -228,6 +298,12 @@ function waitForInitData(tg, rounds = 8, gapMs = 200) {
 
 async function enterWithToken(data) {
   if (data && data.token) setToken(data.token)
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem('__tg_bind')
+      sessionStorage.removeItem('__tg_initData')
+    }
+  } catch (e) {}
   try {
     await imConnect()
     syncRegistrationAfterLogin()
