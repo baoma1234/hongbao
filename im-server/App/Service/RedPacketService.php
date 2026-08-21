@@ -142,7 +142,9 @@ class RedPacketService
             'robot_send'    => !empty($params['robot_send']),
             'trusted_robot' => !empty($params['trusted_robot']),
             'robot_relay'   => !empty($params['robot_relay']),
-        ]);
+            'scope_type'    => $scopeType,
+            'group_id'      => $groupId,
+        ], $this->groups);
 
         // 平台抽水在发送时从总额划出：例 100×3%=3，可抢池=97；扫雷赔付按倍率×total_amount
         $platformFee = round($totalAmount * $feeRate, 2);

@@ -264,7 +264,7 @@
               <text>红包</text>
             </view>
             <view
-              v-else-if="!hasRecharged"
+              v-else-if="!hasRecharged && !isOfficialGroup"
               class="chat-attach-item chat-attach-item-muted"
               @click="onAttachPick('rp')"
             >
@@ -1018,7 +1018,7 @@ const showSticker = ref(false)
 const showAttach = ref(false)
 const walletBalance = ref(0)
 const walletFrozen = ref(0)
-/** 曾成功充值：解锁发红包/转账；未充值仅官方群可抢（默认 false，等 profile 回填） */
+/** 曾成功充值：解锁私聊/非官方群发抢与转账；未充值仍可在官方群发/抢（默认 false，等 profile 回填） */
 const hasRecharged = ref(false)
 const rpSending = ref(false)
 const transferSending = ref(false)
@@ -1231,11 +1231,16 @@ const isOfficialGroup = computed(() => {
 function rechargeGateTip(kind) {
   if (kind === 'transfer') return '未充值账号不能转账，请先充值'
   if (kind === 'grab') return '未充值账号仅可在官方群领取红包'
-  return '未充值账号不能发红包，请先充值'
+  return '未充值账号仅可在官方群发红包，请先充值'
+}
+
+/** 未充值：官方群可发红包；私聊/非官方群不可发 */
+function canSendRpByRecharge() {
+  return !!hasRecharged.value || !!isOfficialGroup.value
 }
 
 function canCap(cap) {
-  if (cap === 'rp' && !hasRecharged.value) return false
+  if (cap === 'rp' && !canSendRpByRecharge()) return false
   if (isPrivate.value) return true
   const pol = groupPolicy.value || {}
   const key = 'can_send_' + cap
@@ -2526,7 +2531,7 @@ function onAttachPick(kind) {
     }
     pickFile()
   } else if (kind === 'rp') {
-    if (!hasRecharged.value) {
+    if (!canSendRpByRecharge()) {
       uni.showToast({ title: rechargeGateTip('rp'), icon: 'none' })
       return
     }
@@ -2593,7 +2598,7 @@ async function openRpSend() {
   showAttach.value = false
   showEmoji.value = false
   showSticker.value = false
-  if (!hasRecharged.value) {
+  if (!canSendRpByRecharge()) {
     uni.showToast({ title: rechargeGateTip('rp'), icon: 'none' })
     return
   }
@@ -3901,7 +3906,7 @@ async function submitNiuniuBuy() {
 
 async function sendRp() {
   if (rpSending.value) return
-  if (!hasRecharged.value) {
+  if (!canSendRpByRecharge()) {
     uni.showToast({ title: rechargeGateTip('rp'), icon: 'none' })
     return
   }

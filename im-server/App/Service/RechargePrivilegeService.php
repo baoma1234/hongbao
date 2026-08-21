@@ -8,14 +8,14 @@ use Im\Support\RedisClient;
 
 /**
  * 未充值账号资金权限：
- * - 可社交、可收款（转账入账 / 官方群抢红包）
- * - 不可发红包、不可转账
- * - 私聊 / 非官方群红包仅可见不可领
+ * - 可社交、可收款（转账入账）
+ * - 官方群可发/抢红包；私聊 / 非官方群红包仅可见不可领、不可发
+ * - 不可转账
  * 官方群 = chat_groups.is_recommend=1
  */
 class RechargePrivilegeService
 {
-    const MSG_NEED_RECHARGE_SEND_RP = '未充值账号不能发红包，请先充值';
+    const MSG_NEED_RECHARGE_SEND_RP = '未充值账号仅可在官方群发红包，请先充值';
     const MSG_NEED_RECHARGE_TRANSFER = '未充值账号不能转账，请先充值';
     const MSG_NEED_RECHARGE_GRAB = '未充值账号仅可在官方群领取红包';
 
@@ -155,12 +155,40 @@ class RechargePrivilegeService
         }
     }
 
-    public static function assertCanSendRedPacket($userId, array $opts = [])
+    /**
+     * @param array $opts robot_* / scope_type / group_id
+     */
+    public static function assertCanSendRedPacket($userId, array $opts = [], GroupService $groups = null)
     {
         if (self::isPrivilegedActor($userId, $opts)) {
             return;
         }
-        if (!self::hasRecharged($userId)) {
+        if (self::hasRecharged($userId)) {
+            return;
+        }
+        // 未充值：仅官方群可发
+        $scope = (int)($opts['scope_type'] ?? 0);
+        if ($scope === 1) {
+            throw new \RuntimeException(self::MSG_NEED_RECHARGE_SEND_RP);
+        }
+        $groupId = (int)($opts['group_id'] ?? 0);
+        if ($groupId <= 0) {
+            throw new \RuntimeException(self::MSG_NEED_RECHARGE_SEND_RP);
+        }
+        $group = null;
+        if ($groups) {
+            $group = $groups->get($groupId);
+        } else {
+            try {
+                $group = Db::fetch(
+                    'SELECT id, is_recommend FROM ' . Db::table('chat_groups') . ' WHERE id=? LIMIT 1',
+                    [$groupId]
+                );
+            } catch (\Throwable $e) {
+                $group = null;
+            }
+        }
+        if (!$group || !OfficialStatsService::isOfficialRecommend($group)) {
             throw new \RuntimeException(self::MSG_NEED_RECHARGE_SEND_RP);
         }
     }
