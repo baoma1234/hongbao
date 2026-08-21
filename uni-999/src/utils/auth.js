@@ -45,6 +45,7 @@ export function goLoginIfUnauthorized(code, msg) {
     const cur = pages && pages.length ? pages[pages.length - 1] : null
     const route = String((cur && (cur.route || (cur.$page && cur.$page.fullPath))) || '')
     if (route.indexOf('pages/login/login') >= 0) return true
+    if (route.indexOf('pages/login/tg-bind') >= 0) return true
     // 裂变页允许游客浏览：401 不踢回登录（点功能再拦）
     if (route.indexOf('pages/fission/') >= 0) return true
   } catch (e) {}

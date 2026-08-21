@@ -8,6 +8,13 @@
       }
     },
     {
+      "path": "pages/login/tg-bind",
+      "style": {
+        "navigationBarTitleText": "Telegram 绑定",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "gfhwgkdhf11131djfh/index",
       "style": {
         "navigationBarTitleText": "登录",

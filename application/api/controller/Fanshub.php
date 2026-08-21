@@ -7,6 +7,7 @@ use app\common\library\FansHubMobile;
 use app\common\library\FansHubService;
 use app\common\library\FansHubSliderCaptcha;
 use app\common\library\FansHubSms;
+use app\common\library\FansHubTelegram;
 use app\common\library\Sms as Smslib;
 use app\common\model\User;
 use think\exception\HttpResponseException;
@@ -17,7 +18,7 @@ use think\Validate;
  */
 class Fanshub extends Api
 {
-    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail', 'yxxhall', 'yxxtick', 'yxxfair', 'yxxgroupdissolve'];
+    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'tgauth', 'tgbind', 'tgsendsms', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail', 'yxxhall', 'yxxtick', 'yxxfair', 'yxxgroupdissolve'];
     protected $noNeedRight = '*';
 
     public function _initialize()
@@ -25,7 +26,7 @@ class Fanshub extends Api
         FansHubSms::boot();
         parent::_initialize();
         $action = strtolower($this->request->action());
-        $exempt = ['config', 'bootstrap', 'comments', 'inviteleaderboard', 'slidercaptcha', 'grabslider', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail', 'yxxhall', 'yxxtick', 'yxxfair', 'yxxgroupdissolve'];
+        $exempt = ['config', 'bootstrap', 'comments', 'inviteleaderboard', 'slidercaptcha', 'grabslider', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail', 'yxxhall', 'yxxtick', 'yxxfair', 'yxxgroupdissolve', 'tgauth', 'tgbind', 'tgsendsms'];
         if (in_array($action, $exempt, true)) {
             return;
         }
@@ -489,6 +490,94 @@ class Fanshub extends Api
         }
         try {
             $data = FansHubService::loginOrRegister($mobile, $captcha, $inviteCode, $deviceFp);
+            $this->success('ok', $data);
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: FansHubService::h5CopyText('api_operation_fail'));
+        }
+    }
+
+    /**
+     * Telegram WebApp：用 initData 换登录态（已绑定则直接 token）
+     */
+    public function tgauth()
+    {
+        $initData = (string)$this->request->post('init_data', $this->request->post('initData', ''));
+        try {
+            $data = FansHubTelegram::authByInitData($initData);
+            $this->success('ok', $data);
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: FansHubService::h5CopyText('api_operation_fail'));
+        }
+    }
+
+    /**
+     * Telegram WebApp：发短信（须先校验 initData；跳过滑块）
+     */
+    public function tgsendsms()
+    {
+        $initData = (string)$this->request->post('init_data', $this->request->post('initData', ''));
+        try {
+            FansHubTelegram::validateInitData($initData);
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage());
+        }
+        $mobile = $this->normalizeMobileInput();
+        if ($mobile === '') {
+            $this->error(FansHubService::h5CopyText('api_mobile_invalid'));
+        }
+        $retryAfter = FansHubService::getSmsRetryAfter($mobile);
+        if ($retryAfter > 0) {
+            $this->error(
+                FansHubService::h5CopyText('api_sms_too_frequent_wait', ['seconds' => $retryAfter]),
+                ['retry_after' => $retryAfter]
+            );
+        }
+        try {
+            FansHubService::assertSmsIpAllowed();
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage());
+        }
+        $interval = FansHubService::smsSendInterval();
+        if (FansHubService::config('sms_mock_enabled')) {
+            FansHubService::markSmsSent($mobile);
+            $mockCode = (string)FansHubService::config('sms_mock_code', '123456');
+            \app\common\library\FansHubSms::writeLog($mobile, $mockCode, 'fanshub_login', 'mock');
+            $this->success(FansHubService::h5CopyText('api_sms_mock_title'), [
+                'mock'        => true,
+                'mock_code'   => $mockCode,
+                'hint'        => FansHubService::h5CopyText('api_sms_mock_hint', ['code' => $mockCode]),
+                'retry_after' => $interval,
+            ]);
+        }
+        $ret = FansHubSms::sendLoginCode($mobile);
+        if ($ret) {
+            FansHubService::markSmsSent($mobile);
+            $this->success(FansHubService::h5CopyText('api_sms_sent_ok'), ['retry_after' => $interval]);
+        }
+        $this->error(FansHubService::h5CopyText('api_sms_send_fail'));
+    }
+
+    /**
+     * Telegram WebApp：手机号验证码绑定/注册并签发 token
+     */
+    public function tgbind()
+    {
+        $initData = (string)$this->request->post('init_data', $this->request->post('initData', ''));
+        $mobile = $this->normalizeMobileInput();
+        $captcha = $this->request->post('captcha');
+        $inviteCode = trim((string)$this->request->post('code', $this->request->post('invite', '')));
+        $deviceFp = $this->request->post('device_fp', '');
+        if ($mobile === '' || !$captcha) {
+            $this->error(FansHubService::h5CopyText('api_params_incomplete'));
+        }
+        try {
+            $data = FansHubTelegram::bindByPhone($initData, $mobile, $captcha, $inviteCode, $deviceFp);
             $this->success('ok', $data);
         } catch (HttpResponseException $e) {
             throw $e;

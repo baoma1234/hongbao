@@ -97,6 +97,15 @@ return array (
   'default_cs_nickname' => '红宝客服',
   'invite_base_url' => 'https://hbsq.bio',
   'h5_entry_path' => '999',
+  // Telegram 机器人（用户 Bot；token 在 BotFather 创建后填入）
+  'telegram_bot_enabled' => true,
+  'telegram_bot_token' => '',
+  'telegram_bot_username' => '',
+  'telegram_webhook_secret' => 'hb_tg_wh_a3f9c2e81b7d4056',
+  // WebApp 在 TG 内打开的 H5 绑定/进厅页
+  'telegram_webapp_path' => '999/#/pages/login/tg-bind',
+  'telegram_cs_text' => "🙋 如有疑问，请联系 24 小时官方客服通道：\n👉 @BIO_kf",
+  'telegram_init_max_age' => 86400,
   'share_text' => '【红宝官方通知】分享送钱，免费瓜分888,888.00元官方直营全现金红包大池！
 短信登录当场免费赠送 5 股活跃资产股份！每成功拉一个好兄弟来占位，永久再加 1 股 + 3 红宝（可直接闪兑变现）！
 单笔凑满 50 元即可无条件拉起官方 VIP 福利下款，速度扫码锁定最终现金股份：',
