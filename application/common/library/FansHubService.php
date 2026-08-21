@@ -2165,6 +2165,7 @@ class FansHubService
             'loginip'     => (string)($user->loginip ?? ''),
             'invite_rank' => self::inviteRankForUser($userId),
             'has_pay_password' => self::hasPayPassword($userId),
+            'has_recharged' => self::userHasRecharged($userId, $account),
         ];
         if (!empty(self::config('member_level_enabled'))) {
             $level = (int)($account->member_level ?? 1);
@@ -2317,6 +2318,43 @@ class FansHubService
     {
         $account = self::getOrCreateAccount((int)$userId);
         return $account && trim((string)($account->pay_password ?? '')) !== '';
+    }
+
+    /**
+     * 是否曾成功充值（解锁发红包/转账/私域领红包）
+     * @param object|null $account 可选已加载账户
+     */
+    public static function userHasRecharged($userId, $account = null)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return false;
+        }
+        if ($account === null) {
+            try {
+                $account = self::getOrCreateAccount($userId);
+            } catch (\Throwable $e) {
+                $account = null;
+            }
+        }
+        if ($account && (int)($account->is_bot ?? 0) === 1) {
+            return true;
+        }
+        if ($account && (int)($account->has_recharged ?? 0) === 1) {
+            return true;
+        }
+        try {
+            $paid = Db::name('fans_recharge_order')
+                ->where('user_id', $userId)
+                ->where('status', 'paid')
+                ->value('id');
+            if ($paid) {
+                FansHubWallet::markAccountHasRecharged($userId);
+                return true;
+            }
+        } catch (\Throwable $e) {
+        }
+        return false;
     }
 
     protected static function encryptPayPassword($password, $salt)

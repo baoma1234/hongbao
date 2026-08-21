@@ -47,6 +47,7 @@ class TransferService
 
         AdminService::assertCanPrivateChat($fromUserId, $toUserId);
         ChatForbidService::assertCanSendRedPacket($fromUserId);
+        RechargePrivilegeService::assertCanSendTransfer($fromUserId);
 
         $transferNo = IdGenerator::transferNo();
         $field = $this->wallet->field();

@@ -138,6 +138,12 @@ class RedPacketService
             throw new \InvalidArgumentException('too many packets');
         }
 
+        RechargePrivilegeService::assertCanSendRedPacket($fromUserId, [
+            'robot_send'    => !empty($params['robot_send']),
+            'trusted_robot' => !empty($params['trusted_robot']),
+            'robot_relay'   => !empty($params['robot_relay']),
+        ]);
+
         // 平台抽水在发送时从总额划出：例 100×3%=3，可抢池=97；扫雷赔付按倍率×total_amount
         $platformFee = round($totalAmount * $feeRate, 2);
         if ($platformFee < 0) {
@@ -1230,6 +1236,7 @@ class RedPacketService
                 throw new \RuntimeException('only recipient can grab');
             }
         }
+        RechargePrivilegeService::assertCanGrabRedPacket($userId, $packet, $this->groups);
         if (!$fromRedisMeta && (int)$packet['status'] !== 1) {
             throw new \RuntimeException('packet closed');
         }

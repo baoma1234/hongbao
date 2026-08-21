@@ -46,6 +46,7 @@ class FansHubWallet
             'withdraw_threshold'       => (float)($cfg['withdraw_threshold'] ?? 50),
             'wallet_asset'             => 'hongbao',
             'has_pay_password'         => FansHubService::hasPayPassword($userId),
+            'has_recharged'            => FansHubService::userHasRecharged($userId, $account),
         ];
     }
 
@@ -1412,6 +1413,35 @@ class FansHubWallet
         FansHubHongbaoLedger::credit($userId, $amount, $type, $remark, [
             'channel' => (string)$channel,
         ]);
+        if ((string)$type === 'recharge') {
+            self::markAccountHasRecharged((int)$userId);
+        }
+    }
+
+    /**
+     * 标记「曾成功充值」（解锁发红包/转账/私域抢红包）
+     */
+    public static function markAccountHasRecharged($userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return;
+        }
+        try {
+            Db::name('fans_account')
+                ->where('user_id', $userId)
+                ->where('has_recharged', 0)
+                ->update(['has_recharged' => 1, 'updatetime' => time()]);
+        } catch (\Throwable $e) {
+            try {
+                Db::name('fans_account')
+                    ->where('user_id', $userId)
+                    ->update(['has_recharged' => 1, 'updatetime' => time()]);
+            } catch (\Throwable $e2) {
+            }
+        }
+        FansHubImCache::markHasRecharged($userId);
+        FansHubImCache::bustWallet($userId);
     }
 
     /**

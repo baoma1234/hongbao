@@ -1137,6 +1137,7 @@ class GroupService
             'rp_detail_locked'   => !$isOpen,
             'can_send_rp'        => $canSendRp,
             'rp_relay_admin_only'=> (bool)$relayAdminOnly,
+            'is_official'        => OfficialStatsService::isOfficialRecommend($group),
             'can_send_text'      => $isAdmin || empty($forbids['text']),
             'can_send_image'     => $isAdmin || empty($forbids['image']),
             'can_send_emoji'     => $isAdmin || empty($forbids['emoji']),

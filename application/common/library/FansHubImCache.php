@@ -33,6 +33,23 @@ class FansHubImCache
         }
     }
 
+    /** 首充标记写入后刷新 IM 缓存（设为已充值） */
+    public static function markHasRecharged($userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return;
+        }
+        try {
+            $r = self::conn();
+            if (!$r) {
+                return;
+            }
+            $r->setex(self::prefix() . 'has_recharged:' . $userId, 86400 * 7, '1');
+        } catch (\Throwable $e) {
+        }
+    }
+
     /** 绑定/改绑邀请人后清 IM 侧 inviter 缓存 */
     public static function bustInviter($inviteeUserId)
     {

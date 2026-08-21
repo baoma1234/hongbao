@@ -263,6 +263,14 @@
               <text class="chat-attach-icon">🧧</text>
               <text>红包</text>
             </view>
+            <view
+              v-else-if="!hasRecharged"
+              class="chat-attach-item chat-attach-item-muted"
+              @click="onAttachPick('rp')"
+            >
+              <text class="chat-attach-icon">🧧</text>
+              <text>红包</text>
+            </view>
             <!-- 普通多包模式前台暂隐；入口统一为原「单结果」，展示名「尾数牛牛」 -->
             <view v-if="canStartNiuniu" class="chat-attach-item" @click="onAttachPick('niuniu_single')">
               <text class="chat-attach-icon">🐂</text>
@@ -280,7 +288,15 @@
               <text class="chat-attach-icon">⏹</text>
               <text>关闭鱼虾蟹</text>
             </view>
-            <view v-if="isPrivate" class="chat-attach-item" @click="onAttachPick('transfer')">
+            <view v-if="isPrivate && hasRecharged" class="chat-attach-item" @click="onAttachPick('transfer')">
+              <text class="chat-attach-icon">💸</text>
+              <text>转账</text>
+            </view>
+            <view
+              v-else-if="isPrivate"
+              class="chat-attach-item chat-attach-item-muted"
+              @click="onAttachPick('transfer')"
+            >
               <text class="chat-attach-icon">💸</text>
               <text>转账</text>
             </view>
@@ -1002,6 +1018,8 @@ const showSticker = ref(false)
 const showAttach = ref(false)
 const walletBalance = ref(0)
 const walletFrozen = ref(0)
+/** 曾成功充值：解锁发红包/转账；未充值仅官方群可抢（默认 false，等 profile 回填） */
+const hasRecharged = ref(false)
 const rpSending = ref(false)
 const transferSending = ref(false)
 const transferForm = reactive({ amount: '', remark: '' })
@@ -1202,7 +1220,22 @@ const forbidModes = computed(() => {
   return m.forbid_modes || (groupPolicy.value && groupPolicy.value.forbid_modes) || {}
 })
 
+const isOfficialGroup = computed(() => {
+  if (isPrivate.value) return false
+  const pol = groupPolicy.value || {}
+  if (pol.is_official === true || pol.is_official === 1) return true
+  const g = (groupMeta.value && groupMeta.value.group) || {}
+  return (g.is_recommend | 0) === 1
+})
+
+function rechargeGateTip(kind) {
+  if (kind === 'transfer') return '未充值账号不能转账，请先充值'
+  if (kind === 'grab') return '未充值账号仅可在官方群领取红包'
+  return '未充值账号不能发红包，请先充值'
+}
+
 function canCap(cap) {
+  if (cap === 'rp' && !hasRecharged.value) return false
   if (isPrivate.value) return true
   const pol = groupPolicy.value || {}
   const key = 'can_send_' + cap
@@ -1221,6 +1254,17 @@ function canCap(cap) {
     if (pol.can_send_rp === false || pol.rp_robot_only === true) return false
   }
   return true
+}
+
+function canGrabInCurrentScene(packet) {
+  if (hasRecharged.value) return true
+  const scope = packet ? (packet.scope_type | 0) : (isPrivate.value ? 1 : 2)
+  if (scope === 1) return false
+  if (packet && (packet.group_id | 0) > 0) {
+    // 详情里若无群标记，回退当前会话官方判定
+    return isOfficialGroup.value
+  }
+  return isOfficialGroup.value
 }
 
 const composerLocked = computed(() => {
@@ -2482,6 +2526,10 @@ function onAttachPick(kind) {
     }
     pickFile()
   } else if (kind === 'rp') {
+    if (!hasRecharged.value) {
+      uni.showToast({ title: rechargeGateTip('rp'), icon: 'none' })
+      return
+    }
     if (!canCap('rp')) {
       uni.showToast({ title: '本群禁止发红宝', icon: 'none' })
       return
@@ -2498,6 +2546,10 @@ function onAttachPick(kind) {
   } else if (kind === 'yxx_stop') {
     stopYxxTable()
   } else if (kind === 'transfer') {
+    if (!hasRecharged.value) {
+      uni.showToast({ title: rechargeGateTip('transfer'), icon: 'none' })
+      return
+    }
     openTransferSend()
   }
 }
@@ -2541,6 +2593,10 @@ async function openRpSend() {
   showAttach.value = false
   showEmoji.value = false
   showSticker.value = false
+  if (!hasRecharged.value) {
+    uni.showToast({ title: rechargeGateTip('rp'), icon: 'none' })
+    return
+  }
   if (!canCap('rp')) {
     uni.showToast({ title: '本群禁止发红宝', icon: 'none' })
     return
@@ -2569,6 +2625,10 @@ async function openTransferSend() {
     uni.showToast({ title: '仅私聊可转账', icon: 'none' })
     return
   }
+  if (!hasRecharged.value) {
+    uni.showToast({ title: rechargeGateTip('transfer'), icon: 'none' })
+    return
+  }
   transferForm.amount = ''
   transferForm.remark = ''
   await refreshWallet()
@@ -2579,6 +2639,10 @@ async function submitTransfer() {
   if (transferSending.value) return
   if (!isPrivate.value) {
     uni.showToast({ title: '仅私聊可转账', icon: 'none' })
+    return
+  }
+  if (!hasRecharged.value) {
+    uni.showToast({ title: rechargeGateTip('transfer'), icon: 'none' })
     return
   }
   const amount = parseFloat(transferForm.amount) || 0
@@ -2642,11 +2706,17 @@ async function refreshWallet() {
     const info = (boot && boot.info) || boot || {}
     walletBalance.value = Number(info.hongbao != null ? info.hongbao : info.balance) || 0
     walletFrozen.value = Number(info.hongbao_frozen) || 0
+    if (info && info.has_recharged != null) {
+      hasRecharged.value = !!info.has_recharged
+    }
   } catch (e) {
     try {
       const p = await fetchProfile()
       walletBalance.value = Number(p && (p.hongbao != null ? p.hongbao : p.money)) || 0
       walletFrozen.value = Number(p && p.hongbao_frozen) || 0
+      if (p && p.has_recharged != null) {
+        hasRecharged.value = !!p.has_recharged
+      }
     } catch (e2) {}
   }
 }
@@ -3137,6 +3207,9 @@ async function ensureUser() {
     myId = (p && (p.user_id || p.id)) | 0
     myUserId.value = myId
     myAvatar.value = (p && (p.avatar_url || p.avatar)) || ''
+    if (p && p.has_recharged != null) {
+      hasRecharged.value = !!p.has_recharged
+    }
     setInboxMyId(myId)
   } catch (e) {}
 }
@@ -3828,6 +3901,10 @@ async function submitNiuniuBuy() {
 
 async function sendRp() {
   if (rpSending.value) return
+  if (!hasRecharged.value) {
+    uni.showToast({ title: rechargeGateTip('rp'), icon: 'none' })
+    return
+  }
   if (!canCap('rp')) {
     uni.showToast({ title: '本群禁止发红宝', icon: 'none' })
     return
@@ -4005,6 +4082,10 @@ function showGrabFailTip(rawMsg) {
 async function tryGrab(packetId, sliderPayload = null) {
   grabbing.value = true
   try {
+    if (!canGrabInCurrentScene()) {
+      showGrabFailTip(rechargeGateTip('grab'))
+      return null
+    }
     const packet = await grabRedPacket(packetId, sliderPayload || {})
     const data = (packet && packet.data) || packet || {}
     if (data.code === 'slider_required' || (packet && packet.type === 'redpacket.challenge')) {
@@ -4066,6 +4147,9 @@ async function openDetail(packetId) {
     let canGrab = !!(remain > 0 && !grabbed && (status === 0 || status === 1))
     // 私聊红包仅对方可领
     if ((p.scope_type | 0) === 1 && (p.to_user_id | 0) !== (myId | 0)) {
+      canGrab = false
+    }
+    if (!canGrabInCurrentScene(p)) {
       canGrab = false
     }
     if (p.expiretime && (p.expiretime | 0) > 0 && (p.expiretime | 0) < Math.floor(Date.now() / 1000)) {
@@ -4987,5 +5071,8 @@ function closeRpDetail() {
 }
 .nn-pack-result-btn.busy {
   opacity: 0.65;
+}
+.chat-attach-item-muted {
+  opacity: 0.45;
 }
 </style>

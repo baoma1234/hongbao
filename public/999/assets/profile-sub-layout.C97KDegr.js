@@ -1,0 +1,1 @@
+import{r as o,aj as e,aA as a}from"./index-AMQctPkb.js";function r(){const r=o({}),t=o({});return{profileSubHdStyle:r,profileSubPageStyle:t,refreshProfileSubLayout:function(){const o=e(),u=o&&o.overlayTop||a();r.value={top:u+"px"},t.value={"--chat-overlay-top":u+"px"}}}}export{r as u};
