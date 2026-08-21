@@ -18,6 +18,7 @@ class FansHubBsGateway
     const REMIT_CREATE_URL = 'https://gateway.bishengusdt.com/api/coin/remitOrder/create';
     const REMIT_QUERY_URL = 'https://gateway.bishengusdt.com/api/coin/remitOrder/query';
     const BALANCE_QUERY_URL = 'https://gateway.bishengusdt.com/api/coin/balance/query';
+    const RATE_QUERY_URL = 'https://gateway.bishengusdt.com/api/merchant/queryChannelRate';
 
     /**
      * 收银台代收默认通道配置（商户凭证稍后填入 runtime/bs.credentials.php）
@@ -213,6 +214,7 @@ class FansHubBsGateway
             'withdraw_url'         => self::REMIT_CREATE_URL,
             'withdraw_query_url'   => self::REMIT_QUERY_URL,
             'balance_query_url'    => self::BALANCE_QUERY_URL,
+            'rate_query_url'       => self::RATE_QUERY_URL,
             'callback_ips'         => self::DEFAULT_CALLBACK_IPS,
         ];
     }
@@ -351,6 +353,7 @@ class FansHubBsGateway
             'recharge_query_url'       => trim((string)($cfg['recharge_query_url'] ?? $defaults['recharge_query_url'])),
             'withdraw_query_url'       => trim((string)($cfg['withdraw_query_url'] ?? $defaults['withdraw_query_url'])),
             'balance_query_url'        => trim((string)($cfg['balance_query_url'] ?? $defaults['balance_query_url'])),
+            'rate_query_url'           => trim((string)($cfg['rate_query_url'] ?? self::RATE_QUERY_URL)),
         ];
     }
 
@@ -1161,6 +1164,219 @@ class FansHubBsGateway
             'updatetime' => time(),
         ]);
         return 'paid';
+    }
+
+    /**
+     * 商户通道汇率：POST /api/merchant/queryChannelRate（version 固定 1.0.0）
+     *
+     * @return array{code:string,coinType:string,collectionExchangeRate:string,paymentExchangeRate:string,msg?:string}
+     */
+    public static function queryChannelRate(array $channel, $coinType = 'USDT_TRC20')
+    {
+        $cfg = self::config($channel);
+        $privateKey = trim((string)($cfg['private_key'] ?? ''));
+        $merchantKey = trim((string)($cfg['merchant_key'] ?? ''));
+        if ($cfg['sign_type'] === 'MD5') {
+            if ($merchantKey === '') {
+                throw new \RuntimeException('BS 通道未配置 MD5 商户密钥');
+            }
+        } elseif ($privateKey === '') {
+            throw new \RuntimeException('BS 商户 RSA 私钥未配置');
+        }
+        $coinType = strtoupper(trim((string)$coinType));
+        if ($coinType === '') {
+            $coinType = 'USDT_TRC20';
+        }
+        $merchantId = trim((string)$cfg['merchant_id']);
+        if ($merchantId === '') {
+            throw new \RuntimeException('BS 商户号为空');
+        }
+        // 文档：版本号固定 1.0.0
+        $params = [
+            'merchantId' => $merchantId,
+            'version'    => '1.0.0',
+            'coinType'   => $coinType,
+        ];
+        if ($cfg['sign_type'] === 'MD5') {
+            $params['signType'] = 'MD5';
+        }
+        $params['sign'] = self::sign($params, $cfg);
+
+        $url = trim((string)($cfg['rate_query_url'] ?? ''));
+        if ($url === '') {
+            $url = self::RATE_QUERY_URL;
+        }
+        $raw = self::httpPostJson($url, $params, FansHubPayCurlLog::logMeta(
+            FansHubPayCurlLog::SCENE_RECHARGE,
+            'bs',
+            'rate',
+            'query_channel_rate'
+        ));
+        $json = self::decodeJson($raw);
+        if (!$json) {
+            throw new \RuntimeException('BS 汇率查询返回非 JSON：' . mb_substr((string)$raw, 0, 160));
+        }
+        if ((string)($json['code'] ?? '') !== '0') {
+            throw new \RuntimeException((string)($json['msg'] ?? 'BS 汇率查询失败') . ' (code=' . ($json['code'] ?? '') . ')');
+        }
+        if (!empty($cfg['platform_public_key']) || $cfg['sign_type'] === 'MD5') {
+            if (!self::verify($json, $cfg)) {
+                throw new \RuntimeException('BS 汇率查询响应验签失败');
+            }
+        }
+        return $json;
+    }
+
+    /**
+     * 定位 BS 主商户（名称含「主商户」，否则取最早启用的 BS 商户）
+     */
+    public static function findMainMerchant()
+    {
+        $row = Db::name('fans_pay_merchant')
+            ->where('gateway', self::GATEWAY_NAME)
+            ->where('status', 'normal')
+            ->where('name', 'like', '%主商户%')
+            ->order('id', 'asc')
+            ->find();
+        if ($row) {
+            return $row;
+        }
+        return Db::name('fans_pay_merchant')
+            ->where('gateway', self::GATEWAY_NAME)
+            ->where('status', 'normal')
+            ->order('id', 'asc')
+            ->find() ?: null;
+    }
+
+    /**
+     * 拉取主商户汇率并写入：代收→充值通道、代付→提现通道；同时写入商户 config
+     *
+     * @param int|null $merchantId 指定商户，空则自动找主商户
+     * @return array
+     */
+    public static function syncMainMerchantRates($merchantId = null)
+    {
+        $merchant = null;
+        if ($merchantId !== null && (int)$merchantId > 0) {
+            $merchant = self::loadMerchant((int)$merchantId);
+        }
+        if (!$merchant) {
+            $merchant = self::findMainMerchant();
+        }
+        if (!$merchant) {
+            throw new \RuntimeException('未找到启用的 BS 商户');
+        }
+        $mid = (int)$merchant['id'];
+        $channels = Db::name('fans_pay_channel')
+            ->where('merchant_id', $mid)
+            ->where('handler', self::GATEWAY_NAME)
+            ->select();
+        $channels = $channels ? (is_array($channels) ? $channels : $channels->toArray()) : [];
+        if (!$channels) {
+            // 无通道时用商户凭证构造探测行
+            $channels = [[
+                'id'          => 0,
+                'type'        => 'recharge',
+                'handler'     => self::GATEWAY_NAME,
+                'merchant_id' => $mid,
+                'merchant_no' => $merchant['merchant_no'],
+                'pay_channel' => 'USDT_TRC20',
+                'config'      => json_encode([
+                    'coin_type'   => 'USDT_TRC20',
+                    'merchant_no' => $merchant['merchant_no'],
+                ], JSON_UNESCAPED_UNICODE),
+            ]];
+        }
+
+        $coinMap = [];
+        foreach ($channels as $ch) {
+            $cfg = FansHubWallet::decodeConfigPublic($ch['config'] ?? '');
+            $ct = strtoupper(trim((string)($cfg['coin_type'] ?? $ch['pay_channel'] ?? 'USDT_TRC20')));
+            if ($ct === '' || $ct === 'CNY') {
+                $ct = 'USDT_TRC20';
+            }
+            $coinMap[$ct] = true;
+        }
+        if (!$coinMap) {
+            $coinMap['USDT_TRC20'] = true;
+        }
+
+        $probe = $channels[0];
+        $now = time();
+        $out = [
+            'merchant_id'   => $mid,
+            'merchant_no'   => (string)$merchant['merchant_no'],
+            'merchant_name' => (string)$merchant['name'],
+            'coins'         => [],
+            'updated'       => 0,
+        ];
+        $mCfg = self::decodeMerchantConfig($merchant);
+        $mCfg['rates'] = isset($mCfg['rates']) && is_array($mCfg['rates']) ? $mCfg['rates'] : [];
+
+        foreach (array_keys($coinMap) as $coin) {
+            $json = self::queryChannelRate($probe, $coin);
+            $collect = trim((string)($json['collectionExchangeRate'] ?? ''));
+            $payment = trim((string)($json['paymentExchangeRate'] ?? ''));
+            if ($collect === '' && $payment === '') {
+                throw new \RuntimeException('BS 汇率为空 coin=' . $coin);
+            }
+            if ($collect === '') {
+                $collect = $payment;
+            }
+            if ($payment === '') {
+                $payment = $collect;
+            }
+
+            foreach ($channels as $ch) {
+                $cid = (int)($ch['id'] ?? 0);
+                if ($cid <= 0) {
+                    continue;
+                }
+                $cfg = FansHubWallet::decodeConfigPublic($ch['config'] ?? '');
+                $ct = strtoupper(trim((string)($cfg['coin_type'] ?? $ch['pay_channel'] ?? 'USDT_TRC20')));
+                if ($ct === '' || $ct === 'CNY') {
+                    $ct = 'USDT_TRC20';
+                }
+                if ($ct !== $coin) {
+                    continue;
+                }
+                $type = (string)($ch['type'] ?? '');
+                $rate = $type === 'withdraw' ? $payment : $collect;
+                $cfg['callback_exchange_rate'] = $rate;
+                $cfg['exchange_rate'] = $rate;
+                $cfg['rate_synced_at'] = $now;
+                $cfg['rate_source'] = 'bs_queryChannelRate';
+                Db::name('fans_pay_channel')->where('id', $cid)->update([
+                    'config'     => json_encode($cfg, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                    'updatetime' => $now,
+                ]);
+                $out['updated']++;
+            }
+
+            $mCfg['rates'][$coin] = [
+                'collection' => $collect,
+                'payment'    => $payment,
+                'synced_at'  => $now,
+            ];
+            // 兼容旧字段：主币种写到 callback_exchange_rate
+            if ($coin === 'USDT_TRC20' || empty($mCfg['callback_exchange_rate'])) {
+                $mCfg['callback_exchange_rate'] = $collect;
+                $mCfg['payment_exchange_rate'] = $payment;
+                $mCfg['collection_exchange_rate'] = $collect;
+            }
+            $out['coins'][$coin] = [
+                'collectionExchangeRate' => $collect,
+                'paymentExchangeRate'    => $payment,
+            ];
+        }
+
+        $mCfg['rate_synced_at'] = $now;
+        Db::name('fans_pay_merchant')->where('id', $mid)->update([
+            'config'     => json_encode($mCfg, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'updatetime' => $now,
+        ]);
+
+        return $out;
     }
 
     /**

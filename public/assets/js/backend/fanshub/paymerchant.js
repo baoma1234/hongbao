@@ -52,6 +52,22 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                                     Layer.alert(ret.msg || '查询成功', {title: '商户余额', icon: 1});
                                     return false;
                                 }
+                            },
+                            {
+                                name: 'syncrates',
+                                text: '同步汇率',
+                                title: '同步 BS 通道汇率',
+                                classname: 'btn btn-xs btn-warning btn-ajax',
+                                icon: 'fa fa-exchange',
+                                url: 'fanshub/paymerchant/syncrates',
+                                visible: function (row) {
+                                    return row && row.gateway === 'bs';
+                                },
+                                success: function (data, ret) {
+                                    Layer.alert(ret.msg || '同步成功', {title: 'BS 汇率', icon: 1});
+                                    table.bootstrapTable('refresh');
+                                    return false;
+                                }
                             }
                         ],
                         formatter: Table.api.formatter.operate

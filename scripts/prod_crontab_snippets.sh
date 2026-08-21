@@ -2,6 +2,8 @@
 # 生产日检 crontab 行（以 root 或 www 用户安装）
 # crontab -e 后粘贴（路径按站点改）：
 #
+# 每天 00:05 同步 BS USDT 主商户代收/代付汇率
+# 5 0 * * * cd /www/wwwroot/hbsq.bio && /usr/bin/php think fanshub:bs-rates >> runtime/log/bs_rates.log 2>&1
 # 每 5 分钟健康+对账（失败 exit 1，可接告警）
 # */5 * * * * cd /www/wwwroot/hbsq.bio && /usr/bin/php scripts/im_health_probe.php >/dev/null 2>&1
 # 每天 03:40 对账

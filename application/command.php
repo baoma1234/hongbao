@@ -19,6 +19,7 @@ return [
     'app\admin\command\Api',
     'app\command\WithdrawUrge',
     'app\command\FanshubMaintain',
+    'app\command\FanshubBsRates',
     'app\command\FanshubUidSugar',
     'app\command\RedpacketTronReveal',
     'app\command\RedpacketAuto',

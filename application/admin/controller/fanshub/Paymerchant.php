@@ -137,6 +137,37 @@ class Paymerchant extends Backend
         }
     }
 
+    /**
+     * 同步 BS 通道汇率（代收→充值 / 代付→提现）
+     */
+    public function syncrates($ids = null)
+    {
+        $id = (int)($ids ?: $this->request->param('ids'));
+        $merchant = $this->model->get($id);
+        if (!$merchant) {
+            $this->error(__('No Results were found'));
+        }
+        if ((string)$merchant['gateway'] !== 'bs') {
+            $this->error('仅支持 BS 必胜 USDT 商户');
+        }
+        try {
+            $ret = FansHubBsGateway::syncMainMerchantRates($id);
+            $parts = [];
+            foreach ((array)$ret['coins'] as $coin => $rates) {
+                $parts[] = sprintf(
+                    '%s 代收%s / 代付%s',
+                    $coin,
+                    (string)($rates['collectionExchangeRate'] ?? '-'),
+                    (string)($rates['paymentExchangeRate'] ?? '-')
+                );
+            }
+            $msg = '已更新 ' . (int)$ret['updated'] . ' 个通道：' . implode('；', $parts);
+            $this->success($msg, null, $ret);
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage());
+        }
+    }
+
     public function batchchannels($ids = null)
     {
         $id = (int)($ids ?: $this->request->param('ids'));
