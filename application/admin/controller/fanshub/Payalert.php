@@ -14,7 +14,7 @@ class Payalert extends Backend
     protected $layout = '';
 
     /**
-     * 返回待提醒订单快照（前端负责：充值按 id 只播一次，提现有单持续播）
+     * 返回待提醒订单快照（前端负责：充值按 id 只播一次，提现仅 pending 有单持续播）
      */
     public function stats()
     {
@@ -32,9 +32,9 @@ class Payalert extends Backend
             ->order('id', 'desc')
             ->limit(40)
             ->column('id');
-        // 只 count，不拉 withdraw ids（前端只用数量判断是否循环播）
+        // 只催待审核；已通过待打款(processing)不循环播
         $withdrawCount = (int)Db::name('fans_withdraw_order')
-            ->where('status', 'in', ['pending', 'processing'])
+            ->where('status', 'pending')
             ->count();
 
         $data = [

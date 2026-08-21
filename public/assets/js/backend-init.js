@@ -174,6 +174,7 @@ define(['jquery', 'backend'], function ($, Backend) {
             playRechargeOnce();
         }
 
+        // 提现：仅 pending（待审核）循环催；processing（待打款）不播
         if (withdrawPending > 0) startWithdrawLoop();
         else stopWithdrawLoop();
     }
