@@ -349,6 +349,17 @@ class Fanshub extends Api
             $claimed = (int)($s['claimed'] ?? 0) === 1;
             $tail = $claimed ? (string)($s['tail_digits'] ?? '') : '';
             $niuLabel = $claimed ? (string)($s['niu_label'] ?? '') : '';
+            if ($claimed && $niuLabel === '') {
+                $pt = (int)($s['niu_point'] ?? -1);
+                if ($pt === 0) {
+                    $niuLabel = '牛牛';
+                } elseif ($pt >= 1 && $pt <= 9) {
+                    $niuLabel = '牛' . $pt;
+                } elseif ($tail !== '') {
+                    $meta = \app\common\library\NiuniuTronFair::calcNiu($tail);
+                    $niuLabel = (string)($meta['label'] ?? '');
+                }
+            }
             $list[] = [
                 'id'          => (int)($s['id'] ?? 0),
                 'user_id'     => $uid,
@@ -358,10 +369,11 @@ class Fanshub extends Api
                 'claim_seq'   => (int)($s['claim_seq'] ?? 0),
                 'claimed_at'  => (int)($s['claimed_at'] ?? 0),
                 'tail_digits' => $tail,
+                'niu_point'   => $claimed ? (int)($s['niu_point'] ?? 0) : 0,
                 'niu_label'   => $niuLabel,
                 'niu_type'    => $niuLabel,
                 'category'    => $niuLabel,
-                'result'      => ($claimed && $tail !== '') ? ('尾数' . $tail . ' ' . $niuLabel) : '',
+                'result'      => ($claimed && $tail !== '') ? ('尾数' . $tail . ($niuLabel !== '' ? ' ' . $niuLabel : '')) : '',
                 'amount'      => round((float)($s['amount'] ?? 0), 2),
                 'win_amount'  => round((float)($s['win_amount'] ?? 0), 4),
                 'is_mine'     => $uid === $userId,

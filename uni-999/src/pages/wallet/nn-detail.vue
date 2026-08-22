@@ -62,6 +62,31 @@ const poolText = computed(() => {
 })
 
 /** 与聊天领取明细一致：同一用户只展示一行（多份合并奖金） */
+function calcNiuLabelFromTail(tail) {
+  const s = String(tail || '').replace(/\D/g, '').padStart(2, '0').slice(-2)
+  if (!s || s.length < 2) return ''
+  const a = parseInt(s[0], 10)
+  const b = parseInt(s[1], 10)
+  if (isNaN(a) || isNaN(b)) return ''
+  const point = (a + b) % 10
+  return point === 0 ? '牛牛' : '牛' + point
+}
+
+function resolveNiuLabel(row) {
+  if (!row) return ''
+  let niu = String(row.niu_label || row.niu_type || row.category || '').trim()
+  if (niu && niu !== '未领取') return niu
+  const pt = Number(row.niu_point)
+  if (!isNaN(pt) && pt >= 0 && pt <= 9) return pt === 0 ? '牛牛' : '牛' + pt
+  if (row.result && String(row.result) !== '未领取') {
+    const m = String(row.result).replace(/^尾数/, '').trim().match(/^\S+\s+(.+)$/)
+    if (m && m[1]) return m[1].trim()
+  }
+  const tail = row.tail_digits != null && row.tail_digits !== '' ? String(row.tail_digits) : ''
+  if (tail) return calcNiuLabelFromTail(tail)
+  return ''
+}
+
 function mergeSharesByUser(list) {
   const rows = Array.isArray(list) ? list.filter(Boolean) : []
   const map = new Map()
@@ -114,11 +139,18 @@ function mergeSharesByUser(list) {
     if (s.is_mine) g.is_mine = true
   })
   return Array.from(map.values())
-    .map((g) =>
-      Object.assign({}, g, {
+    .map((g) => {
+      const out = Object.assign({}, g, {
         win_amount: Math.round((Number(g.win_amount) || 0) * 10000) / 10000,
       })
-    )
+      const niu = resolveNiuLabel(out)
+      if (niu) {
+        out.niu_label = niu
+        out.niu_type = niu
+        out.category = niu
+      }
+      return out
+    })
     .sort((a, b) => {
       const ca = a && a.claimed ? 0 : 1
       const cb = b && b.claimed ? 0 : 1
@@ -184,7 +216,7 @@ function formatResultShort(row) {
   if (!row) return '--'
   if (!row.claimed) return '未领取'
   const tail = row.tail_digits != null && row.tail_digits !== '' ? String(row.tail_digits) : ''
-  const niu = row.niu_label || row.niu_type || row.category || ''
+  const niu = resolveNiuLabel(row)
   if (tail) return tail + (niu ? ' ' + niu : '')
   if (row.result && String(row.result) !== '未领取') {
     return String(row.result).replace(/^尾数/, '')
