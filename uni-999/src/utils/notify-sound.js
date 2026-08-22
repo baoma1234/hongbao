@@ -1,8 +1,7 @@
 /**
  * 消息提示音
- * - 私聊：私聊提醒.mp3；群聊：群聊提醒.mp3
- * - H5：mp3，失败走 Web Audio
- * - App：InnerAudio 多路径重试（本地 mp3/wav → 线上 mp3），勿叠加系统 beep
+ * - H5：私聊/群聊 mp3（网页正常）
+ * - App：优先打包 wav（InnerAudio 兼容更好），失败再试 mp3 / 线上资源
  * 尊重设置页「静音」开关
  */
 import { isMsgMuted } from './app-prefs.js'
@@ -33,11 +32,11 @@ function pushUnique(list, item) {
   if (s && list.indexOf(s) < 0) list.push(s)
 }
 
-/** App 播放候选：本地打包 mp3/wav → _www 绝对路径 → 线上 /999/static（防旧包未带上新音频） */
+/** App 播放候选：本地 wav/mp3 → _www 绝对路径 → 线上 /999/static */
 function appSoundSrcList(scope) {
   const out = []
   const base = soundBasename(scope)
-  const rels = [soundFile(scope, 'mp3'), soundFile(scope, 'wav')]
+  const rels = [soundFile(scope, 'wav'), soundFile(scope, 'mp3')]
   rels.forEach((rel) => {
     pushUnique(out, packagedStaticUrl(rel))
     // #ifdef APP-PLUS
@@ -50,8 +49,10 @@ function appSoundSrcList(scope) {
   })
   // #ifdef APP-PLUS
   try {
-    const remote = getStaticBase() + 'static/sound/' + base + '.mp3'
-    if (/^https?:\/\//i.test(remote)) pushUnique(out, remote)
+    const remoteWav = getStaticBase() + 'static/sound/' + base + '.wav'
+    const remoteMp3 = getStaticBase() + 'static/sound/' + base + '.mp3'
+    if (/^https?:\/\//i.test(remoteWav)) pushUnique(out, remoteWav)
+    if (/^https?:\/\//i.test(remoteMp3)) pushUnique(out, remoteMp3)
   } catch (e2) {}
   // #endif
   return out
