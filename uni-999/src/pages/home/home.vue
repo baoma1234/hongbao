@@ -223,7 +223,7 @@
           <button type="button" class="modal-action-btn primary" @click="jumpToCustomerService">
             {{ t('withdraw_btn_cs') || '💬 一键复制密令 · 匹配专属客服' }}
           </button>
-          <button type="button" class="modal-action-btn gold" v-if="appDownloadUrl" @click="copyAppUrl">
+          <button type="button" class="modal-action-btn gold" v-if="appDownloadUrl" @click.stop="openAppDownload">
             {{ t('withdraw_btn_app') || '📥 下载官方红宝聊天App' }}
           </button>
           <button type="button" class="modal-close-btn" @click="closeWithdrawModal">
@@ -268,6 +268,7 @@ import { apiRequest, fetchProfile, getToken } from '../../utils/auth.js'
 import { localeState, t, tt, applyServerCopy } from '../../utils/i18n.js'
 import { imConnect } from '../../utils/im.js'
 import { copyText } from '../../utils/master.js'
+import { openExternalHttpUrl } from '../../utils/wallet.js'
 import '../../styles/home.css'
 import '../../styles/tabs-extra.css'
 import '../../styles/social-modals.css'
@@ -1150,14 +1151,22 @@ async function jumpToCustomerService() {
   }, 350)
 }
 
-async function copyAppUrl() {
-  if (!appDownloadUrl.value) return
-  try {
-    await copyText(appDownloadUrl.value)
-    uni.showToast({ title: t('withdraw_app_copy_ok') || '下载链接已复制', icon: 'none' })
-  } catch (e) {
-    uni.showToast({ title: '复制失败', icon: 'none' })
+async function openAppDownload() {
+  const url = String(appDownloadUrl.value || '').trim()
+  if (!url) {
+    uni.showToast({ title: '暂无下载链接', icon: 'none' })
+    return
   }
+  try {
+    await copyText(url)
+  } catch (e) {
+    /* 打开链接优先，复制失败不阻断 */
+  }
+  if (openExternalHttpUrl(url)) {
+    uni.showToast({ title: t('withdraw_app_copy_ok') || '下载链接已复制并打开', icon: 'none' })
+    return
+  }
+  uni.showToast({ title: '链接已复制，请在浏览器打开', icon: 'none' })
 }
 
 watch(locale, () => {
