@@ -159,7 +159,7 @@
           />
         </view>
         <view class="chat-member-scroll-host">
-          <scroll-view class="chat-member-list" scroll-y :show-scrollbar="true">
+          <scroll-view class="chat-member-list" scroll-y :show-scrollbar="true" :style="memberListStyle">
             <view
               v-for="m in filteredMembers"
               :key="m.user_id"
@@ -214,7 +214,7 @@
           />
         </view>
         <view class="chat-member-scroll-host">
-          <scroll-view class="chat-member-list chat-invite-list" scroll-y :show-scrollbar="true">
+          <scroll-view class="chat-member-list chat-invite-list" scroll-y :show-scrollbar="true" :style="memberListStyle">
             <view
               v-for="u in filteredCandidates"
               :key="u.user_id"
@@ -341,23 +341,49 @@ function goBack() {
   safeNavigateBack(HOME_TAB)
 }
 
-/** App 浮层 top 内联；H5 为空走 CSS，避免网页多垫 */
+/** App 浮层：固定像素高度（部分 WebView 忽略 fixed+bottom:0，会只剩顶栏高度导致设置页透出来） */
 const appOverlayStyle = ref({})
+const memberListStyle = ref({})
 function refreshOverlayTop() {
   const r = applySafeAreaCssVars()
   const top = (r && r.overlayTop) || measureChatOverlayTop()
   // #ifdef APP-PLUS
+  let wh = 640
+  try {
+    const sys = uni.getSystemInfoSync() || {}
+    wh = Number(sys.windowHeight || sys.screenHeight || 0) || 640
+  } catch (e) {}
+  const overlayH = Math.max(240, Math.floor(wh - top))
   appOverlayStyle.value = {
     top: top + 'px',
-    position: 'fixed',
     left: '0px',
     right: '0px',
     bottom: '0px',
+    height: overlayH + 'px',
+    width: '100%',
+    position: 'fixed',
     zIndex: 13100,
+    backgroundColor: '#f3f4f6',
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+  }
+  // 顶栏约 48 + 工具条(添加按钮+搜索约 96 / 仅搜索约 52) + 邀请底栏约 72
+  const tool = addSheet.value ? 52 : canEdit.value ? 96 : 52
+  const ft = addSheet.value ? 72 : 0
+  const listH = Math.max(180, Math.floor(overlayH - 48 - tool - ft))
+  memberListStyle.value = {
+    height: listH + 'px',
+    position: 'relative',
+    top: 'auto',
+    bottom: 'auto',
+    left: 'auto',
+    right: 'auto',
   }
   // #endif
   // #ifndef APP-PLUS
   appOverlayStyle.value = {}
+  memberListStyle.value = {}
   // #endif
 }
 
@@ -559,6 +585,7 @@ async function openMembersPane() {
   }
   membersPane.value = true
   memberKeyword.value = ''
+  refreshOverlayTop()
   await loadMembersList('')
 }
 
@@ -793,6 +820,7 @@ async function openAddMembers() {
   Object.keys(selectedIds).forEach((k) => {
     delete selectedIds[k]
   })
+  refreshOverlayTop()
   await loadCandidates()
 }
 
