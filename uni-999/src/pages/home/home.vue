@@ -208,13 +208,16 @@
           </view>
           <view class="cs-step-card">
             <view class="cs-step-line">
-              <text class="step-num">1</text>{{ withdrawStepText(1) }}
+              <text class="step-num">1</text>
+              <text class="cs-step-txt">{{ withdrawStepText(1) }}</text>
             </view>
             <view class="cs-step-line">
-              <text class="step-num">2</text>{{ withdrawStepText(2) }}
+              <text class="step-num">2</text>
+              <text class="cs-step-txt">{{ withdrawStepText(2) }}</text>
             </view>
             <view class="cs-step-line">
-              <text class="step-num">3</text>{{ withdrawStepText(3) }}
+              <text class="step-num">3</text>
+              <text class="cs-step-txt">{{ withdrawStepText(3) }}</text>
             </view>
           </view>
           <button type="button" class="modal-action-btn primary" @click="jumpToCustomerService">
