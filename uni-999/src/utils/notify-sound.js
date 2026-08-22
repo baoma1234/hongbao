@@ -1,17 +1,17 @@
 /**
  * 消息提示音
  * - 私聊：私聊提醒.mp3；群聊：群聊提醒.mp3
- * - H5：优先 mp3，失败走 Web Audio
- * - App：InnerAudio 本地 mp3，失败则 plus.device.beep
+ * - H5：mp3，失败走 Web Audio
+ * - App：InnerAudio 多路径重试（本地 mp3/wav → 线上 mp3），勿叠加系统 beep
  * 尊重设置页「静音」开关
  */
 import { isMsgMuted } from './app-prefs.js'
-import { packagedStaticUrl } from './config.js'
+import { getStaticBase, packagedStaticUrl } from './config.js'
 
 let audioCtx = null
 let lastBeepAt = 0
 let unlockBound = false
-/** @type {Record<string, UniApp.InnerAudioContext>} */
+/** @type {Record<string, UniApp.InnerAudioContext|null>} */
 const appPlayers = {}
 /** @type {Record<string, HTMLAudioElement>} */
 const h5Players = {}
@@ -20,8 +20,53 @@ function isGroupScope(scope) {
   return scope === 'group'
 }
 
-function soundFile(scope) {
-  return isGroupScope(scope) ? 'sound/notify-group.mp3' : 'sound/notify.mp3'
+function soundBasename(scope) {
+  return isGroupScope(scope) ? 'notify-group' : 'notify'
+}
+
+function soundFile(scope, ext) {
+  return 'sound/' + soundBasename(scope) + '.' + (ext || 'mp3')
+}
+
+function pushUnique(list, item) {
+  const s = String(item || '').trim()
+  if (s && list.indexOf(s) < 0) list.push(s)
+}
+
+/** App 播放候选：本地打包 mp3/wav → _www 绝对路径 → 线上 /999/static（防旧包未带上新音频） */
+function appSoundSrcList(scope) {
+  const out = []
+  const base = soundBasename(scope)
+  const rels = [soundFile(scope, 'mp3'), soundFile(scope, 'wav')]
+  rels.forEach((rel) => {
+    pushUnique(out, packagedStaticUrl(rel))
+    // #ifdef APP-PLUS
+    try {
+      if (typeof plus !== 'undefined' && plus.io && plus.io.convertLocalFileSystemURL) {
+        pushUnique(out, plus.io.convertLocalFileSystemURL('_www/static/' + rel))
+      }
+    } catch (e) {}
+    // #endif
+  })
+  // #ifdef APP-PLUS
+  try {
+    const remote = getStaticBase() + 'static/sound/' + base + '.mp3'
+    if (/^https?:\/\//i.test(remote)) pushUnique(out, remote)
+  } catch (e2) {}
+  // #endif
+  return out
+}
+
+function destroyAppPlayer(key) {
+  const p = appPlayers[key]
+  if (!p) return
+  try {
+    p.stop()
+  } catch (e) {}
+  try {
+    p.destroy()
+  } catch (e2) {}
+  appPlayers[key] = null
 }
 
 function ensureCtx() {
@@ -98,44 +143,54 @@ function throttleOk(ms) {
 
 function playAppBeep(kind, scope) {
   // #ifdef APP-PLUS
-  const group = isGroupScope(scope)
-  const key = group ? 'group' : 'private'
-  try {
-    if (!appPlayers[key]) {
+  const key = isGroupScope(scope) ? 'group' : 'private'
+  const sources = appSoundSrcList(scope)
+  if (!sources.length) return false
+
+  let idx = 0
+  let settled = false
+
+  const finish = (ok) => {
+    if (settled) return
+    settled = true
+    if (!ok) playWebTone(kind, scope)
+  }
+
+  const attempt = () => {
+    if (idx >= sources.length) {
+      finish(false)
+      return
+    }
+    const src = sources[idx++]
+    destroyAppPlayer(key)
+    try {
       const a = uni.createInnerAudioContext()
       a.autoplay = false
       a.obeyMuteSwitch = false
       a.volume = 1
-      try {
-        a.src = packagedStaticUrl(soundFile(scope))
-      } catch (e0) {
-        a.src = '/static/' + soundFile(scope)
-      }
+      a.src = src
       appPlayers[key] = a
-    }
-    const player = appPlayers[key]
-    player.volume = 1
-    try {
-      player.stop()
-    } catch (e1) {}
-    try {
-      player.seek(0)
-    } catch (e1b) {}
-    player.play()
-    if (kind === 'rp' && !group) {
+      a.onError(() => {
+        destroyAppPlayer(key)
+        attempt()
+      })
+      a.onPlay(() => {
+        finish(true)
+      })
       try {
-        plus.device.beep(1)
-      } catch (e2) {}
-    }
-    return true
-  } catch (e) {
-    try {
-      plus.device.beep(group ? 1 : kind === 'rp' ? 2 : 1)
-      return true
-    } catch (e3) {
-      return false
+        a.stop()
+      } catch (e1) {}
+      try {
+        a.seek(0)
+      } catch (e1b) {}
+      a.play()
+    } catch (e) {
+      attempt()
     }
   }
+
+  attempt()
+  return true
   // #endif
   // #ifndef APP-PLUS
   return false
@@ -149,7 +204,7 @@ function playH5Wav(kind, scope) {
     const group = isGroupScope(scope)
     const key = group ? 'group' : 'private'
     if (!h5Players[key]) {
-      const a = new Audio(packagedStaticUrl(soundFile(scope)))
+      const a = new Audio(packagedStaticUrl(soundFile(scope, 'mp3')))
       a.preload = 'auto'
       try {
         a.setAttribute('playsinline', 'true')
