@@ -2,8 +2,8 @@
     "name" : "红宝",
     "appid" : "__UNI__5346609",
     "description" : "红宝",
-    "versionName" : "2.0.0",
-    "versionCode" : "152",
+    "versionName" : "2.1.0",
+    "versionCode" : "153",
     "transformPx" : false,
     "app-plus" : {
         "usingComponents" : true,
@@ -15,20 +15,37 @@
             "autoclose" : true,
             "delay" : 0
         },
-        "modules" : {},
+        "modules" : {
+            "Camera" : {},
+            "Gallery" : {},
+            "Barcode" : {}
+        },
         "distribute" : {
             "android" : {
                 "permissions" : [
                     "<uses-permission android:name=\"android.permission.CHANGE_NETWORK_STATE\"/>",
                     "<uses-permission android:name=\"android.permission.ACCESS_WIFI_STATE\"/>",
                     "<uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\"/>",
-                    "<uses-permission android:name=\"android.permission.WAKE_LOCK\"/>"
+                    "<uses-permission android:name=\"android.permission.WAKE_LOCK\"/>",
+                    "<uses-permission android:name=\"android.permission.CAMERA\"/>",
+                    "<uses-permission android:name=\"android.permission.FLASHLIGHT\"/>",
+                    "<uses-permission android:name=\"android.permission.VIBRATE\"/>",
+                    "<uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\"/>",
+                    "<uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\"/>",
+                    "<uses-permission android:name=\"android.permission.READ_MEDIA_IMAGES\"/>",
+                    "<uses-feature android:name=\"android.hardware.camera\" android:required=\"false\"/>",
+                    "<uses-feature android:name=\"android.hardware.camera.autofocus\" android:required=\"false\"/>"
                 ],
                 "schemes" : "omamxu"
             },
             "ios" : {
                 "urltypes" : "omamxu",
-                "dSYMs" : false
+                "dSYMs" : false,
+                "privacyDescription" : {
+                    "NSCameraUsageDescription" : "用于扫一扫加好友、拍摄头像与聊天图片",
+                    "NSPhotoLibraryUsageDescription" : "用于从相册选择头像、聊天图片与识别二维码",
+                    "NSPhotoLibraryAddUsageDescription" : "用于保存分享海报到相册"
+                }
             },
             "sdkConfigs" : {},
             "icons" : {
