@@ -299,73 +299,73 @@
   flex-shrink: 0;
 }
 
-/* 手动结算密令弹窗：整体宽/长缩小 25%（保留为原尺寸的 75%） */
+/* 手动结算密令弹窗：整体宽/长缩小 15%（保留为原尺寸的 85%） */
 .home-modal-root .modal-mask:not(.fission-popup-mask) .modal-box {
-  width: 75%;
-  max-width: min(285px, 75%);
-  padding: 18px 15px;
-  border-radius: 12px;
+  width: 85%;
+  max-width: min(323px, 85%);
+  padding: 20px 17px;
+  border-radius: 14px;
   box-sizing: border-box;
 }
 .home-modal-root .modal-mask:not(.fission-popup-mask) .modal-sub-label {
-  font-size: 9px;
+  font-size: 10px;
   color: var(--text-muted);
 }
 .home-modal-root .modal-mask:not(.fission-popup-mask) .modal-secret-label {
-  font-size: 9px;
+  font-size: 10px;
   color: var(--accent);
   font-weight: bold;
-  margin-bottom: 4px;
+  margin-bottom: 5px;
 }
 .home-modal-root .modal-mask:not(.fission-popup-mask) .modal-title {
-  font-size: 13px;
-  margin-bottom: 9px;
+  font-size: 14.5px;
+  margin-bottom: 10px;
 }
 .home-modal-root .modal-mask:not(.fission-popup-mask) .modal-money {
-  font-size: 24px;
-  margin: 6px 0 12px;
+  font-size: 27px;
+  margin: 7px 0 14px;
 }
 .home-modal-root .modal-mask:not(.fission-popup-mask) .secret-code-box {
-  padding: 10px 8px;
-  border-radius: 8px;
-  font-size: 10px;
-  margin-bottom: 8px;
+  padding: 12px 9px;
+  border-radius: 9px;
+  font-size: 11px;
+  margin-bottom: 9px;
 }
 .home-modal-root .modal-mask:not(.fission-popup-mask) .secret-timer {
-  font-size: 9px;
-  margin-bottom: 10px;
+  font-size: 10px;
+  margin-bottom: 12px;
 }
 .home-modal-root .modal-mask:not(.fission-popup-mask) .secret-timer span,
 .home-modal-root .modal-mask:not(.fission-popup-mask) .secret-timer text {
-  font-size: 10.5px;
+  font-size: 12px;
 }
 .home-modal-root .modal-mask:not(.fission-popup-mask) .cs-step-card {
-  padding: 10px;
-  border-radius: 8px;
-  margin-bottom: 10px;
+  padding: 12px;
+  border-radius: 9px;
+  margin-bottom: 12px;
 }
 .home-modal-root .modal-mask:not(.fission-popup-mask) .cs-step-card .step-num {
-  width: 15px;
-  height: 15px;
-  line-height: 15px;
-  font-size: 8px;
-  margin-right: 4px;
+  width: 17px;
+  height: 17px;
+  line-height: 17px;
+  font-size: 9px;
+  margin-right: 5px;
 }
 .home-modal-root .modal-mask:not(.fission-popup-mask) .cs-step-card .cs-step-line,
 .home-modal-root .modal-mask:not(.fission-popup-mask) .cs-step-card .cs-step-line text {
-  font-size: 9px;
-  margin-bottom: 6px;
+  font-size: 10px;
+  margin-bottom: 7px;
 }
 .home-modal-root .modal-mask:not(.fission-popup-mask) .modal-action-btn {
-  padding: 10px;
-  border-radius: 8px;
-  font-size: 10.5px;
-  margin-bottom: 6px;
+  padding: 12px;
+  border-radius: 9px;
+  font-size: 12px;
+  margin-bottom: 7px;
 }
 .home-modal-root .modal-mask:not(.fission-popup-mask) .modal-close-btn {
-  padding: 9px;
-  border-radius: 8px;
-  font-size: 10px;
+  padding: 10px;
+  border-radius: 9px;
+  font-size: 11px;
 }
 
 .home-modal-root .cs-step-card {
