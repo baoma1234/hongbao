@@ -201,6 +201,9 @@
                     </view>
                     <view v-if="!communityRecs.length" class="chat-empty chat-empty-glass">暂无推荐社群</view>
                     <view v-if="communityRecs.length" class="chat-official-end">————— 已经滑到底部啦 —————</view>
+                    <view class="chat-list-scroll-pad" aria-hidden="true">
+                      <text class="chat-list-scroll-pad-mark"> </text>
+                    </view>
                   </view>
                 </scroll-view>
               </view>
@@ -244,7 +247,9 @@
                       </view>
                       <view v-if="!myGroups.length && communityExtraLoading" class="chat-empty chat-empty-glass">加载中…</view>
                       <view v-else-if="!myGroups.length" class="chat-empty chat-empty-glass">暂无已加入社群</view>
-                      <view class="chat-list-scroll-pad" />
+                      <view class="chat-list-scroll-pad" aria-hidden="true">
+                        <text class="chat-list-scroll-pad-mark"> </text>
+                      </view>
                   </view>
                 </scroll-view>
               </view>
@@ -277,7 +282,9 @@
                       </view>
                       <view v-if="!myCreatedGroups.length && communityExtraLoading" class="chat-empty chat-empty-glass">加载中…</view>
                       <view v-else-if="!myCreatedGroups.length" class="chat-empty chat-empty-glass">暂无我创建/管理的群</view>
-                      <view class="chat-list-scroll-pad" />
+                      <view class="chat-list-scroll-pad" aria-hidden="true">
+                        <text class="chat-list-scroll-pad-mark"> </text>
+                      </view>
                   </view>
                 </scroll-view>
               </view>
@@ -317,7 +324,9 @@
                       </view>
                       <view v-if="!friends.length && communityExtraLoading" class="chat-empty chat-empty-glass">加载中…</view>
                       <view v-else-if="!friends.length" class="chat-empty chat-empty-glass">暂无好友</view>
-                      <view class="chat-list-scroll-pad" />
+                      <view class="chat-list-scroll-pad" aria-hidden="true">
+                        <text class="chat-list-scroll-pad-mark"> </text>
+                      </view>
                   </view>
                 </scroll-view>
               </view>
@@ -490,7 +499,9 @@
                     </view>
                   </view>
                   <view v-if="!notices.length" class="chat-empty chat-empty-glass">暂无公告</view>
-                  <view class="chat-list-scroll-pad" />
+                  <view class="chat-list-scroll-pad" aria-hidden="true">
+                    <text class="chat-list-scroll-pad-mark"> </text>
+                  </view>
                 </view>
               </scroll-view>
               </view>
@@ -590,7 +601,9 @@
                     <view class="chat-commission-row-amt" :class="{ 'is-out': isAmtOut(row) }">{{ formatCommissionAmt(row) }}</view>
                   </view>
                   <view v-if="!commissionRows.length" class="chat-empty chat-empty-glass">{{ commissionEmptyText }}</view>
-                  <view class="chat-list-scroll-pad" />
+                  <view class="chat-list-scroll-pad" aria-hidden="true">
+                    <text class="chat-list-scroll-pad-mark"> </text>
+                  </view>
                 </view>
               </view>
               </scroll-view>

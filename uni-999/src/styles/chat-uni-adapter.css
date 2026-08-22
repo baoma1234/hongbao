@@ -174,9 +174,15 @@ body.tab-messages #tabMessages .chat-list-pane {
   overscroll-behavior: contain;
   box-sizing: border-box !important;
 }
-/* 会话列表内容区：末项后再撑 20px（App 上 list padding 常无效） */
+/* 会话 / 社群 / 佣金 / 公告：scroll 内容区末项后再撑 20px（App 上 list padding 常无效） */
 #tabMessages .chat-conv-scroll .uni-scroll-view-content,
-.msg-tab-root .chat-conv-scroll .uni-scroll-view-content {
+#tabMessages .chat-community-body-scroll .uni-scroll-view-content,
+#tabMessages .chat-commission-body-scroll .uni-scroll-view-content,
+#tabMessages .chat-notice-body-scroll .uni-scroll-view-content,
+.msg-tab-root .chat-conv-scroll .uni-scroll-view-content,
+.msg-tab-root .chat-community-body-scroll .uni-scroll-view-content,
+.msg-tab-root .chat-commission-body-scroll .uni-scroll-view-content,
+.msg-tab-root .chat-notice-body-scroll .uni-scroll-view-content {
   padding-bottom: 20px !important;
   box-sizing: border-box !important;
 }

@@ -1,17 +1,18 @@
 /**
  * 消息提示音
- * - H5：私聊/群聊 mp3（网页正常）
- * - App：优先打包 wav（InnerAudio 兼容更好），失败再试 mp3 / 线上资源
+ * - H5：本地 mp3（/999/static）
+ * - App：只播打包进 APK/IPA 的本地文件，禁止远程 URL
+ *   优先 mp3，失败再 wav；再用 plus.audio / InnerAudio；最后 beep
  * 尊重设置页「静音」开关
  */
 import { isMsgMuted } from './app-prefs.js'
-import { getStaticBase, packagedStaticUrl } from './config.js'
+import { packagedStaticUrl } from './config.js'
 
 let audioCtx = null
 let lastBeepAt = 0
 let unlockBound = false
 /** @type {Record<string, UniApp.InnerAudioContext|null>} */
-const appPlayers = {}
+const appInner = {}
 /** @type {Record<string, HTMLAudioElement>} */
 const h5Players = {}
 
@@ -23,8 +24,8 @@ function soundBasename(scope) {
   return isGroupScope(scope) ? 'notify-group' : 'notify'
 }
 
-function soundFile(scope, ext) {
-  return 'sound/' + soundBasename(scope) + '.' + (ext || 'mp3')
+function soundRel(scope, ext) {
+  return 'sound/' + soundBasename(scope) + '.' + ext
 }
 
 function pushUnique(list, item) {
@@ -32,34 +33,33 @@ function pushUnique(list, item) {
   if (s && list.indexOf(s) < 0) list.push(s)
 }
 
-/** App 播放候选：本地 wav/mp3 → _www 绝对路径 → 线上 /999/static */
-function appSoundSrcList(scope) {
+/**
+ * App 仅本地路径（打进包的 static）：
+ * 1) /static/sound/xxx.mp3|wav
+ * 2) _www 转换后的绝对路径（iOS/部分安卓 InnerAudio 需要）
+ * 禁止 https 远程，避免未同步/失败时静音
+ */
+function appLocalSrcList(scope) {
   const out = []
-  const base = soundBasename(scope)
-  const rels = [soundFile(scope, 'wav'), soundFile(scope, 'mp3')]
-  rels.forEach((rel) => {
-    pushUnique(out, packagedStaticUrl(rel))
+  ;['mp3', 'wav'].forEach((ext) => {
+    const rel = soundRel(scope, ext)
     // #ifdef APP-PLUS
     try {
       if (typeof plus !== 'undefined' && plus.io && plus.io.convertLocalFileSystemURL) {
+        // iOS/部分安卓：绝对路径最稳
         pushUnique(out, plus.io.convertLocalFileSystemURL('_www/static/' + rel))
+        pushUnique(out, plus.io.convertLocalFileSystemURL('/static/' + rel))
       }
     } catch (e) {}
     // #endif
+    pushUnique(out, packagedStaticUrl(rel))
+    pushUnique(out, '/static/' + rel)
   })
-  // #ifdef APP-PLUS
-  try {
-    const remoteWav = getStaticBase() + 'static/sound/' + base + '.wav'
-    const remoteMp3 = getStaticBase() + 'static/sound/' + base + '.mp3'
-    if (/^https?:\/\//i.test(remoteWav)) pushUnique(out, remoteWav)
-    if (/^https?:\/\//i.test(remoteMp3)) pushUnique(out, remoteMp3)
-  } catch (e2) {}
-  // #endif
   return out
 }
 
-function destroyAppPlayer(key) {
-  const p = appPlayers[key]
+function destroyInner(key) {
+  const p = appInner[key]
   if (!p) return
   try {
     p.stop()
@@ -67,7 +67,7 @@ function destroyAppPlayer(key) {
   try {
     p.destroy()
   } catch (e2) {}
-  appPlayers[key] = null
+  appInner[key] = null
 }
 
 function ensureCtx() {
@@ -146,11 +146,15 @@ function playAppBeep(kind, scope) {
   // #ifdef APP-PLUS
   const group = isGroupScope(scope)
   const key = group ? 'group' : 'private'
-  const sources = appSoundSrcList(scope)
-  if (!sources.length) return false
+  const sources = appLocalSrcList(scope)
+  if (!sources.length) {
+    try {
+      plus.device.beep(1)
+    } catch (e0) {}
+    return true
+  }
 
   let idx = 0
-
   const fallbackBeep = () => {
     try {
       plus.device.beep(group ? 1 : kind === 'rp' ? 2 : 1)
@@ -163,7 +167,7 @@ function playAppBeep(kind, scope) {
       return
     }
     const src = sources[idx++]
-    destroyAppPlayer(key)
+    destroyInner(key)
     try {
       const a = uni.createInnerAudioContext()
       a.autoplay = false
@@ -171,16 +175,11 @@ function playAppBeep(kind, scope) {
       a.volume = 1
       a.src = src
       a.onError(() => {
-        destroyAppPlayer(key)
+        destroyInner(key)
         attempt()
       })
-      appPlayers[key] = a
-      try {
-        a.stop()
-      } catch (e1) {}
-      try {
-        a.seek(0)
-      } catch (e1b) {}
+      appInner[key] = a
+      // 勿对新建实例先 stop/seek：部分机型会直接静音
       a.play()
     } catch (e) {
       attempt()
@@ -202,7 +201,7 @@ function playH5Wav(kind, scope) {
     const group = isGroupScope(scope)
     const key = group ? 'group' : 'private'
     if (!h5Players[key]) {
-      const a = new Audio(packagedStaticUrl(soundFile(scope, 'mp3')))
+      const a = new Audio(packagedStaticUrl(soundRel(scope, 'mp3')))
       a.preload = 'auto'
       try {
         a.setAttribute('playsinline', 'true')
