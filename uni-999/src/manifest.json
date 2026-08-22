@@ -2,8 +2,8 @@
     "name" : "红宝",
     "appid" : "__UNI__5346609",
     "description" : "红宝",
-    "versionName" : "2.1.0",
-    "versionCode" : "153",
+    "versionName" : "2.2.0",
+    "versionCode" : "154",
     "transformPx" : false,
     "app-plus" : {
         "usingComponents" : true,
@@ -32,9 +32,7 @@
                     "<uses-permission android:name=\"android.permission.VIBRATE\"/>",
                     "<uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\"/>",
                     "<uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\"/>",
-                    "<uses-permission android:name=\"android.permission.READ_MEDIA_IMAGES\"/>",
-                    "<uses-feature android:name=\"android.hardware.camera\" android:required=\"false\"/>",
-                    "<uses-feature android:name=\"android.hardware.camera.autofocus\" android:required=\"false\"/>"
+                    "<uses-permission android:name=\"android.permission.READ_MEDIA_IMAGES\"/>"
                 ],
                 "schemes" : "omamxu"
             },
