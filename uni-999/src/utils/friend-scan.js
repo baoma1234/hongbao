@@ -43,6 +43,86 @@ function loadScriptOnce(src) {
   })
 }
 
+/** App：把 chooseImage 路径转成 plus.barcode.scan 可用的本地 URL */
+function toBarcodePath(filePath) {
+  let p = String(filePath || '').trim()
+  if (!p) return ''
+  // #ifdef APP-PLUS
+  try {
+    if (typeof plus !== 'undefined' && plus.io) {
+      if (p.indexOf('file://') === 0) {
+        const abs = p.replace(/^file:\/\//, '')
+        if (plus.io.convertAbsoluteFileSystem) {
+          const rel = plus.io.convertAbsoluteFileSystem(abs)
+          if (rel) return rel
+        }
+        return abs
+      }
+      if (p.indexOf('/') === 0 || /^[a-zA-Z]:[\\/]/.test(p)) {
+        if (plus.io.convertAbsoluteFileSystem) {
+          const rel = plus.io.convertAbsoluteFileSystem(p)
+          if (rel) return rel
+        }
+      }
+    }
+  } catch (e) {
+    /* keep original */
+  }
+  // #endif
+  return p
+}
+
+async function decodeQrFromPathApp(filePath) {
+  // #ifdef APP-PLUS
+  if (typeof plus === 'undefined' || !plus.barcode || typeof plus.barcode.scan !== 'function') {
+    throw new Error('扫码模块未就绪，请重新安装 App')
+  }
+  let scanPath = toBarcodePath(filePath)
+  // 大图/截图压缩后再识别，提高成功率
+  try {
+    if (plus.zip && typeof plus.zip.compressImage === 'function') {
+      const dst = '_doc/qr_album_' + Date.now() + '.jpg'
+      const compressed = await new Promise((resolve, reject) => {
+        plus.zip.compressImage(
+          {
+            src: scanPath,
+            dst,
+            quality: 80,
+            width: '1200px',
+            height: '1200px',
+            overwrite: true,
+          },
+          (res) => resolve((res && res.target) || dst),
+          () => resolve(scanPath)
+        )
+      })
+      if (compressed) scanPath = compressed
+    }
+  } catch (e) {
+    /* use original path */
+  }
+  const filters =
+    typeof plus.barcode.QR !== 'undefined' ? [plus.barcode.QR] : undefined
+  return await new Promise((resolve, reject) => {
+    plus.barcode.scan(
+      scanPath,
+      (type, result) => {
+        const text = result != null ? String(result) : ''
+        if (!text) reject(new Error('未识别到二维码'))
+        else resolve(text)
+      },
+      (err) => {
+        reject(new Error((err && (err.message || err.errMsg)) || '未识别到二维码'))
+      },
+      filters
+    )
+  })
+  // #endif
+  // #ifndef APP-PLUS
+  throw new Error('当前端不支持相册识码')
+  // #endif
+}
+
 async function decodeQrFromPath(filePath) {
   // #ifdef H5
   await loadScriptOnce(assetBase() + 'static/vendor/jsQR.js')
@@ -64,8 +144,8 @@ async function decodeQrFromPath(filePath) {
   if (!code || !code.data) throw new Error('未识别到二维码')
   return String(code.data)
   // #endif
-  // #ifndef H5
-  throw new Error('请使用扫一扫')
+  // #ifdef APP-PLUS
+  return decodeQrFromPathApp(filePath)
   // #endif
 }
 
