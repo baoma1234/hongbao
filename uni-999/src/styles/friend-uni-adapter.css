@@ -1,4 +1,5 @@
-/* uni-999 好友内页：套用 chat.bundle 时的外壳适配 */
+/* uni-999 好友内页：套用 chat.bundle 时的外壳适配
+ * App：uni-view 默认 block，必须对横排布局强制 flex !important（H5 类选择器通常够用） */
 
 .chat-friend-page {
   min-height: 100vh;
@@ -13,6 +14,10 @@
   position: sticky;
   top: 0;
   z-index: 20;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
   padding: 10px 14px !important;
   min-height: 48px;
   background: linear-gradient(to right, #e63022, #c61114) !important;
@@ -25,13 +30,15 @@
   font-size: 17px;
   font-weight: 800;
   text-align: center;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .chat-friend-page .chat-hero-back,
 .chat-friend-page .chat-hero-spacer {
   width: 44px;
   height: 44px;
-  display: flex;
+  display: flex !important;
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
@@ -46,14 +53,43 @@
 }
 
 .chat-friend-page .chat-add-friend-req-link {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
   width: 100%;
   box-sizing: border-box;
   text-align: left;
   border: none;
   background: #fff;
+}
+
+.chat-friend-page .chat-add-friend-req-link-ico {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(232, 74, 69, 0.08);
+  overflow: hidden;
+}
+
+.chat-friend-page .chat-add-friend-req-link-ico .chat-plus-menu-ico-img,
+.chat-friend-page .chat-add-friend-req-link-ico image,
+.chat-friend-page .chat-add-friend-req-link-ico uni-image,
+.chat-friend-page .chat-add-friend-req-link-ico img {
+  width: 28px !important;
+  height: 28px !important;
+  display: block !important;
+}
+
+.chat-friend-page .chat-add-friend-req-link-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px;
 }
 
 .chat-friend-page .chat-add-friend-req-link-title,
@@ -76,7 +112,7 @@
   box-sizing: border-box;
   font-size: 15px;
   line-height: 1.2;
-  display: flex;
+  display: flex !important;
   align-items: center;
   justify-content: center;
   gap: 4px;
@@ -103,7 +139,7 @@
 }
 .chat-friend-page .chat-add-friend-phone-row {
   position: relative;
-  display: flex;
+  display: flex !important;
   align-items: stretch;
   gap: 8px;
 }
@@ -118,7 +154,7 @@
   box-shadow: 0 8px 20px rgba(120, 60, 20, 0.12);
 }
 .chat-friend-page .chat-add-friend-country-panel .country-item {
-  display: flex;
+  display: flex !important;
   align-items: center;
   gap: 10px;
   padding: 12px 14px;
@@ -194,20 +230,56 @@
   display: none;
 }
 
+.chat-friend-page .chat-friend-req-tabs {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
 .chat-friend-page .chat-friend-req-tab {
-  display: inline-flex;
+  display: inline-flex !important;
   align-items: center;
   justify-content: center;
   gap: 6px;
 }
 
+.chat-friend-page .chat-friend-req-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px;
+}
+
+.chat-friend-page .chat-friend-req-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.chat-friend-page .chat-friend-req-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px;
+}
+
+.chat-friend-page .chat-friend-req-actions {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .chat-friend-page .chat-friend-req-avatar,
 .chat-friend-page .chat-friend-req-avatar-img {
-  display: flex;
+  display: flex !important;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 40px !important;
+  height: 40px !important;
   border-radius: 50%;
   overflow: hidden;
   flex-shrink: 0;
@@ -216,13 +288,13 @@
   background: linear-gradient(160deg, #fff5f3, #ffe3df);
 }
 .chat-friend-page .chat-friend-req-avatar-img {
-  display: block;
+  display: block !important;
   object-fit: cover;
   background: #f0f0f0;
 }
 
 .chat-friend-page .chat-friend-req-btn {
-  display: inline-flex;
+  display: inline-flex !important;
   align-items: center;
   justify-content: center;
 }

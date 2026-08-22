@@ -282,6 +282,7 @@ body.tab-messages #tabMessages .chat-list-pane {
 }
 #tabMessages .chat-my-group-item,
 #tabMessages .chat-feed-item {
+  display: flex !important;
   padding: 8px 10px !important;
   gap: 10px !important;
   border-radius: 14px !important;
@@ -1440,4 +1441,165 @@ body.tab-messages #tabMessages .chat-list-pane {
   padding: 6px 10px;
   border-radius: 999px;
   background: #fff0f0;
+}
+
+/* === APP-MSG-TAB-ROOT-FALLBACK === */
+/* App 上部分机型 #id 选择器不稳定：社群群列表/好友列表用 .msg-tab-root 强制 flex + 头像铺满
+ * （H5 仍走上方 #tabMessages 规则；此前只有会话行写了 display:flex !important） */
+.msg-tab-root .chat-home-tab,
+.msg-tab-root .chat-community-seg-btn {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box;
+  line-height: normal;
+}
+.msg-tab-root .chat-my-group-item,
+.msg-tab-root .chat-feed-item,
+.msg-tab-root .chat-official-row,
+.msg-tab-root .chat-plus-menu-item,
+.msg-tab-root .chat-group-card {
+  display: flex !important;
+  align-items: center !important;
+  box-sizing: border-box !important;
+  line-height: normal;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.msg-tab-root .chat-my-group-item,
+.msg-tab-root .chat-feed-item {
+  justify-content: space-between !important;
+  gap: 10px !important;
+  width: 100% !important;
+  padding: 8px 10px !important;
+  border-radius: 14px !important;
+  background: #fffdf8 !important;
+  border: 1px solid rgba(230, 190, 130, 0.45) !important;
+  box-shadow: 0 2px 8px rgba(160, 120, 70, 0.08) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.msg-tab-root .chat-my-groups-list,
+.msg-tab-root .chat-friend-feed-list,
+.msg-tab-root .chat-official-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+}
+.msg-tab-root .chat-my-group-main {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+}
+.msg-tab-root .chat-my-group-create-text,
+.msg-tab-root .chat-feed-body,
+.msg-tab-root .chat-feed-text {
+  display: flex !important;
+  flex-direction: column !important;
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+}
+.msg-tab-root .chat-feed-body {
+  gap: 2px !important;
+}
+.msg-tab-root .chat-my-group-create-text {
+  gap: 4px !important;
+}
+.msg-tab-root .chat-avatar,
+.msg-tab-root .chat-my-group-avatar,
+.msg-tab-root .chat-feed-avatar {
+  position: relative !important;
+  overflow: hidden !important;
+  flex-shrink: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.msg-tab-root .chat-avatar,
+.msg-tab-root .chat-official-list .chat-avatar,
+.msg-tab-root .chat-friend-feed-list .chat-avatar {
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 14px !important;
+}
+.msg-tab-root .chat-my-group-avatar {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 10px !important;
+  background: #fff !important;
+}
+.msg-tab-root .chat-avatar uni-image,
+.msg-tab-root .chat-avatar image,
+.msg-tab-root .chat-my-group-avatar uni-image,
+.msg-tab-root .chat-my-group-avatar image,
+.msg-tab-root .chat-feed-avatar uni-image,
+.msg-tab-root .chat-feed-avatar image,
+.msg-tab-root .chat-group-card .icon-box uni-image,
+.msg-tab-root .chat-group-card .icon-box image {
+  width: 100% !important;
+  height: 100% !important;
+  display: block !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+}
+.msg-tab-root .chat-avatar uni-image img,
+.msg-tab-root .chat-avatar img,
+.msg-tab-root .chat-my-group-avatar uni-image img,
+.msg-tab-root .chat-my-group-avatar img,
+.msg-tab-root .chat-feed-avatar uni-image img,
+.msg-tab-root .chat-feed-avatar img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+.msg-tab-root .chat-my-group-name,
+.msg-tab-root .chat-my-group-name text {
+  color: #3d2e22 !important;
+  font-weight: 800 !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+.msg-tab-root .chat-my-group-sub,
+.msg-tab-root .chat-my-group-sub text {
+  color: #9a8574 !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+}
+.msg-tab-root .chat-my-group-count {
+  flex-shrink: 0 !important;
+  color: #c61114 !important;
+  font-weight: 800 !important;
+}
+.msg-tab-root .chat-my-group-count text {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: #9a8574 !important;
+}
+.msg-tab-root .chat-feed-text,
+.msg-tab-root .chat-feed-text text {
+  color: #3d2e22 !important;
+  font-weight: 700 !important;
+}
+.msg-tab-root .chat-community-seg {
+  display: flex !important;
+  align-items: stretch !important;
+  height: 38px !important;
+  padding: 2px !important;
+  box-sizing: border-box !important;
+}
+.msg-tab-root .chat-official-row {
+  justify-content: flex-start !important;
+  gap: 10px !important;
+  width: 100% !important;
+}
+.msg-tab-root .chat-official-body {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
 }
