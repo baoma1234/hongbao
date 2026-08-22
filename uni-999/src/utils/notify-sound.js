@@ -1,8 +1,8 @@
 /**
  * 消息提示音
- * - 私聊：更响、更高；群聊：更轻、更低
- * - H5：优先 wav，失败走 Web Audio
- * - App：InnerAudio 本地 wav，失败则 plus.device.beep
+ * - 私聊：私聊提醒.mp3；群聊：群聊提醒.mp3
+ * - H5：优先 mp3，失败走 Web Audio
+ * - App：InnerAudio 本地 mp3，失败则 plus.device.beep
  * 尊重设置页「静音」开关
  */
 import { isMsgMuted } from './app-prefs.js'
@@ -21,7 +21,7 @@ function isGroupScope(scope) {
 }
 
 function soundFile(scope) {
-  return isGroupScope(scope) ? 'sound/notify-group.wav' : 'sound/notify.wav'
+  return isGroupScope(scope) ? 'sound/notify-group.mp3' : 'sound/notify.mp3'
 }
 
 function ensureCtx() {
