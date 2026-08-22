@@ -1211,9 +1211,22 @@ const canStopNiuniu = computed(() => {
   return !!(niuniuLooping.value && ((groupMeta.value && groupMeta.value.my_role) | 0) >= 2)
 })
 
-const canEnterYxx = computed(() => !isPrivate.value && ((meta.value.group | 0) > 0))
-const canStartYxx = computed(() => !isPrivate.value && ((groupMeta.value && groupMeta.value.my_role) | 0) >= 2)
-const canStopYxx = computed(() => canStartYxx.value)
+const canEnterYxx = computed(() => {
+  if (isPrivate.value) return false
+  const pol = groupPolicy.value || {}
+  if (pol.can_start_yxx) return true
+  return !!(pol.yxx_enabled && pol.yxx_table_open)
+})
+const canStartYxx = computed(() => {
+  if (isPrivate.value) return false
+  const pol = groupPolicy.value || {}
+  return !!pol.can_start_yxx
+})
+const canStopYxx = computed(() => {
+  if (isPrivate.value) return false
+  const pol = groupPolicy.value || {}
+  return !!pol.can_stop_yxx
+})
 
 const forbidModes = computed(() => {
   const m = groupMeta.value || {}
@@ -3356,7 +3369,7 @@ async function sendText() {
 
 async function openYxxTable() {
   const gid = meta.value.group | 0
-  if (!gid) return
+  if (!gid || !canEnterYxx.value) return
   if (canStartYxx.value) {
     try {
       await apiRequest('yxxgroupstart', 'POST', { group_id: gid })

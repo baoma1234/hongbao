@@ -71,6 +71,26 @@ class FansHubYxxGroup
         }
     }
 
+    public static function isPermitted($groupId)
+    {
+        $groupId = (int)$groupId;
+        if ($groupId <= 0) {
+            return false;
+        }
+        try {
+            return (int)Db::name('chat_groups')->where('id', $groupId)->value('yxx_enabled') === 1;
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    public static function assertPermitted($groupId)
+    {
+        if (!self::isPermitted($groupId)) {
+            throw new \RuntimeException(FansHubService::h5CopyText('yxx_err_group_disabled') ?: '本群未开通鱼虾蟹');
+        }
+    }
+
     public static function row($groupId)
     {
         $groupId = (int)$groupId;
@@ -138,6 +158,7 @@ class FansHubYxxGroup
     public static function start($groupId, $uid)
     {
         self::assertAdmin($groupId, $uid);
+        self::assertPermitted($groupId);
         $row = self::ensureRow($groupId);
         $now = time();
         Db::name('fans_yxx_group_state')->where('group_id', (int)$groupId)->update([

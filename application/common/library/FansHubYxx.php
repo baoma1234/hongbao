@@ -106,6 +106,7 @@ class FansHubYxx
                     throw new \RuntimeException(FansHubService::h5CopyText('yxx_err_login') ?: '请先登录');
                 }
                 FansHubYxxGroup::assertMember($groupId, $uid);
+                FansHubYxxGroup::assertPermitted($groupId);
                 if (!FansHubYxxGroup::isOpen($groupId)) {
                     throw new \RuntimeException(FansHubService::h5CopyText('yxx_err_table_closed') ?: '本群尚未开启鱼虾蟹');
                 }
@@ -481,6 +482,7 @@ class FansHubYxx
         return self::withGroup($groupId, function () use ($uid, $face, $stake, $nick, $groupId) {
             if ($groupId > 0) {
                 FansHubYxxGroup::assertMember($groupId, (int)$uid);
+                FansHubYxxGroup::assertPermitted($groupId);
                 if (!FansHubYxxGroup::isOpen($groupId)) {
                     throw new \RuntimeException(FansHubService::h5CopyText('yxx_err_table_closed') ?: '本群尚未开启鱼虾蟹');
                 }

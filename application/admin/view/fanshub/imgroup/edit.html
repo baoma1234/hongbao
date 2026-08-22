@@ -217,6 +217,13 @@
             </div>
         </div>
         <div class="form-group">
+            <label class="control-label col-xs-12 col-sm-2">鱼虾蟹:</label>
+            <div class="col-xs-12 col-sm-8">
+                {:build_radios('row[yxx_enabled]', ['1'=>'开启', '0'=>'关闭'], isset($row['yxx_enabled']) ? (string)$row['yxx_enabled'] : '0')}
+                <span class="help-block">默认关闭。仅后台开启后，群主/管理员才能在群内开桌；成员仅能在开桌后进入。</span>
+            </div>
+        </div>
+        <div class="form-group">
             <label class="control-label col-xs-12 col-sm-2">牛牛玩法说明:</label>
             <div class="col-xs-12 col-sm-8">
                 <textarea class="form-control" name="row[niuniu_desc]" rows="4" placeholder="留空则用全局默认规则文案">{$row.niuniu_desc|default=''}</textarea>

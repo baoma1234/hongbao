@@ -16,7 +16,7 @@
       <view class="yxx-h-row2 yxx-h-side yxx-h-right">
         <view class="yxx-rules-btn" hover-class="yxx-hit" @click="openVerify">{{ t('yxx_verify') }}</view>
         <view class="yxx-rules-btn" hover-class="yxx-hit" @click="historyOpen = true">{{ t('yxx_history') }}</view>
-        <view class="yxx-rules-btn" hover-class="yxx-hit" @click="openLedger">{{ t('yxx_ledger') }}</view>
+        <view v-if="YXX_LEDGER_VISIBLE" class="yxx-rules-btn" hover-class="yxx-hit" @click="openLedger">{{ t('yxx_ledger') }}</view>
         <view class="yxx-rules-btn" hover-class="yxx-hit" @click="rulesOpen = true">{{ t('yxx_rules') }}</view>
       </view>
     </view>
@@ -303,6 +303,8 @@ const rainNeedGrab = ref(false)
 const rainGrabbing = ref(false)
 const poolStatus = ref('normal')
 const tronBlockNum = ref(0)
+/** 鱼虾蟹流水入口：待产品通知后再开放 */
+const YXX_LEDGER_VISIBLE = false
 const groupId = ref(0)
 const groupName = ref('')
 let netPoll = null

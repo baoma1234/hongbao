@@ -1158,7 +1158,25 @@ class GroupService
             'niuniu_loop_mode'   => max(1, min(2, (int)($group['niuniu_loop_mode'] ?? 1))),
             'can_start_niuniu'   => $isAdmin && (int)($group['niuniu_enabled'] ?? 0) === 1,
             'can_stop_niuniu'    => $isAdmin && (int)($group['niuniu_enabled'] ?? 0) === 1 && (int)($group['niuniu_loop'] ?? 0) === 1,
+            'yxx_enabled'        => (int)($group['yxx_enabled'] ?? 0) === 1,
+            'yxx_table_open'     => false,
+            'can_start_yxx'      => false,
+            'can_stop_yxx'       => false,
         ];
+        if ((int)($group['yxx_enabled'] ?? 0) === 1) {
+            try {
+                $yxxSt = Db::fetch(
+                    'SELECT is_open FROM ' . Db::table('fans_yxx_group_state') . ' WHERE group_id=? LIMIT 1',
+                    [(int)($group['id'] ?? 0)]
+                );
+                $open = $yxxSt && (int)($yxxSt['is_open'] ?? 0) === 1;
+                $ret['yxx_table_open'] = $open;
+                $ret['can_start_yxx'] = $isAdmin;
+                $ret['can_stop_yxx'] = $isAdmin && $open;
+            } catch (\Throwable $e) {
+                CatchLog::quiet($e, 'Service.GroupService');
+            }
+        }
         try {
             $muteRid = \Im\Support\RedisClient::conn()->get(\Im\Support\RedisClient::key('niuniu:mute:' . (int)($group['id'] ?? 0)));
             if ($muteRid) {

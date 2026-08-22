@@ -14,6 +14,7 @@
  *   6. patch_yxx_group_v1.php        群桌爆点池
  *   7. patch_yxx_group_daily_v1.php  群桌日下注权重（解散分池）
  *   8. patch_yxx_admin_v2.php        后台补齐（总开关/群桌/日下注/权限）
+ *   9. patch_yxx_group_perm_v1.php   群聊 yxx_enabled 后台开通字段
  *
  * 不改 yxx_tab_visible。IM 解散挂钩还要重启 IM 进程。
  */
@@ -28,11 +29,12 @@ $files = [
     'patch_yxx_group_v1.php',
     'patch_yxx_group_daily_v1.php',
     'patch_yxx_admin_v2.php',
+    'patch_yxx_group_perm_v1.php',
 ];
 $fail = 0;
 foreach ($files as $i => $name) {
     $path = $root . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . $name;
-    echo "\n===== " . ($i + 1) . '/8 ' . $name . " =====\n";
+    echo "\n===== " . ($i + 1) . '/9 ' . $name . " =====\n";
     if (!is_file($path)) {
         fwrite(STDERR, "MISSING {$path}\n");
         $fail++;

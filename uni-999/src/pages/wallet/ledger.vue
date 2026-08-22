@@ -136,6 +136,9 @@ const loading = ref(false)
 const error = ref('')
 const category = ref('all')
 const filtersExpanded = ref(false)
+/** 鱼虾蟹流水筛选：待产品通知后再开放 */
+const YXX_LEDGER_VISIBLE = false
+
 const primaryTabs = [
   { key: 'all', label: '全部', ico: '☰', tone: 'all' },
   { key: 'recharge', label: '充值', ico: '↓', tone: 'in' },
@@ -148,7 +151,7 @@ const moreTabs = [
   { key: 'hongbao_yxx', label: tt('wallet_ledger_cat_yxx', '鱼虾蟹'), ico: '🦐', tone: 'yxx' },
   { key: 'refund', label: '红宝退回', ico: '↩', tone: 'back' },
   { key: 'rebate', label: '红宝返佣', ico: '%', tone: 'rebate' },
-]
+].filter((t) => YXX_LEDGER_VISIBLE || t.key !== 'hongbao_yxx')
 const moreCatKeys = moreTabs.map((t) => t.key)
 const moreCatOn = computed(() => moreCatKeys.indexOf(category.value) >= 0)
 
@@ -330,9 +333,11 @@ function setCategory(cat) {
 
 onLoad((q) => {
   const cat = String((q && q.category) || '').trim()
-  if (cat) {
+  if (cat && (YXX_LEDGER_VISIBLE || cat !== 'hongbao_yxx')) {
     category.value = cat
     if (moreCatKeys.indexOf(cat) >= 0) filtersExpanded.value = true
+  } else if (cat === 'hongbao_yxx') {
+    category.value = 'all'
   }
 })
 
