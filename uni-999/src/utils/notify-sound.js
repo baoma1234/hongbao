@@ -144,22 +144,22 @@ function throttleOk(ms) {
 
 function playAppBeep(kind, scope) {
   // #ifdef APP-PLUS
-  const key = isGroupScope(scope) ? 'group' : 'private'
+  const group = isGroupScope(scope)
+  const key = group ? 'group' : 'private'
   const sources = appSoundSrcList(scope)
   if (!sources.length) return false
 
   let idx = 0
-  let settled = false
 
-  const finish = (ok) => {
-    if (settled) return
-    settled = true
-    if (!ok) playWebTone(kind, scope)
+  const fallbackBeep = () => {
+    try {
+      plus.device.beep(group ? 1 : kind === 'rp' ? 2 : 1)
+    } catch (e) {}
   }
 
   const attempt = () => {
     if (idx >= sources.length) {
-      finish(false)
+      fallbackBeep()
       return
     }
     const src = sources[idx++]
@@ -170,14 +170,11 @@ function playAppBeep(kind, scope) {
       a.obeyMuteSwitch = false
       a.volume = 1
       a.src = src
-      appPlayers[key] = a
       a.onError(() => {
         destroyAppPlayer(key)
         attempt()
       })
-      a.onPlay(() => {
-        finish(true)
-      })
+      appPlayers[key] = a
       try {
         a.stop()
       } catch (e1) {}
