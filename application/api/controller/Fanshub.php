@@ -347,6 +347,8 @@ class Fanshub extends Api
             $uid = (int)($s['user_id'] ?? 0);
             $u = $users[$uid] ?? [];
             $claimed = (int)($s['claimed'] ?? 0) === 1;
+            $tail = $claimed ? (string)($s['tail_digits'] ?? '') : '';
+            $niuLabel = $claimed ? (string)($s['niu_label'] ?? '') : '';
             $list[] = [
                 'id'          => (int)($s['id'] ?? 0),
                 'user_id'     => $uid,
@@ -355,8 +357,11 @@ class Fanshub extends Api
                 'claimed'     => $claimed,
                 'claim_seq'   => (int)($s['claim_seq'] ?? 0),
                 'claimed_at'  => (int)($s['claimed_at'] ?? 0),
-                'tail_digits' => $claimed ? (string)($s['tail_digits'] ?? '') : '',
-                'niu_type'    => $claimed ? (string)($s['niu_type'] ?? '') : '',
+                'tail_digits' => $tail,
+                'niu_label'   => $niuLabel,
+                'niu_type'    => $niuLabel,
+                'category'    => $niuLabel,
+                'result'      => ($claimed && $tail !== '') ? ('尾数' . $tail . ' ' . $niuLabel) : '',
                 'amount'      => round((float)($s['amount'] ?? 0), 2),
                 'win_amount'  => round((float)($s['win_amount'] ?? 0), 4),
                 'is_mine'     => $uid === $userId,

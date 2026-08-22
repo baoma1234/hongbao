@@ -141,7 +141,17 @@ function formatTime(ts) {
   const d = new Date(t < 1e12 ? t * 1000 : t)
   if (isNaN(d.getTime())) return ''
   const p = (n) => (n < 10 ? '0' + n : '' + n)
-  return p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds())
+  return (
+    p(d.getMonth() + 1) +
+    '-' +
+    p(d.getDate()) +
+    ' ' +
+    p(d.getHours()) +
+    ':' +
+    p(d.getMinutes()) +
+    ':' +
+    p(d.getSeconds())
+  )
 }
 
 function formatBonus(v) {
