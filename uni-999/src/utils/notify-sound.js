@@ -105,7 +105,7 @@ function playAppBeep(kind, scope) {
       const a = uni.createInnerAudioContext()
       a.autoplay = false
       a.obeyMuteSwitch = false
-      a.volume = group ? 0.42 : 1
+      a.volume = 1
       try {
         a.src = packagedStaticUrl(soundFile(scope))
       } catch (e0) {
@@ -114,7 +114,7 @@ function playAppBeep(kind, scope) {
       appPlayers[key] = a
     }
     const player = appPlayers[key]
-    player.volume = group ? 0.42 : 1
+    player.volume = 1
     try {
       player.stop()
     } catch (e1) {}
@@ -157,7 +157,7 @@ function playH5Wav(kind, scope) {
       h5Players[key] = a
     }
     const a = h5Players[key]
-    a.volume = group ? 0.4 : 1
+    a.volume = 1
     try {
       a.currentTime = 0
     } catch (e1) {}
