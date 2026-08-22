@@ -196,9 +196,9 @@
       <view class="modal-mask" :class="{ 'is-open': withdrawOpen }" @click="closeWithdrawModal">
         <view class="modal-box" @click.stop>
           <view class="modal-title">{{ withdrawTitle }}</view>
-          <view style="font-size: 12px; color: var(--text-muted)">{{ t('withdraw_amount_label') || '当前待领取福利总金额' }}</view>
+          <view class="modal-sub-label">{{ t('withdraw_amount_label') || '当前待领取福利总金额' }}</view>
           <view class="modal-money">￥{{ hongbaoText }}</view>
-          <view style="font-size: 12px; color: var(--accent); font-weight: bold; margin-bottom: 6px">
+          <view class="modal-secret-label">
             {{ t('withdraw_secret_label') || '🔐 您的专属密令（请点击复制）' }}
           </view>
           <view class="secret-code-box" @click="copySecretCode">{{ secretCode || (t('withdraw_secret_loading') || 'FH-LOADING') }}</view>
