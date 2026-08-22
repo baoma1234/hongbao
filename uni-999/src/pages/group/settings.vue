@@ -356,6 +356,7 @@ function refreshOverlayTop() {
   const overlayH = Math.max(240, Math.floor(wh - top))
   appOverlayStyle.value = {
     top: top + 'px',
+    '--chat-overlay-top': top + 'px',
     left: '0px',
     right: '0px',
     bottom: '0px',
