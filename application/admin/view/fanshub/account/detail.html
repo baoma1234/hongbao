@@ -42,6 +42,7 @@
             </td></tr>
             <tr><th>流程阶段</th><td>{$detail.account.flow_stage}</td></tr>
             <tr><th>账户状态</th><td>{$detail.account.status}</td></tr>
+            <tr><th>用户信息备注</th><td>{$row.admin_remark|default='-'|htmlentities}</td></tr>
             <tr><th>谷歌验证器</th><td>
                 {if condition="!empty($row.google_secret)"}
                 <code>{$row.google_secret|htmlentities}</code>
@@ -54,11 +55,7 @@
         {if !empty($detail.phase2)}
         <h4>星火二期</h4>
         <table class="table table-bordered">
-            <tr><th width="140">用户态</th><td>{eq name="detail.phase2.user_mode" value="master"}团长{else/}新手{/eq}</td></tr>
-            <tr><th>连续签到</th><td>{$detail.phase2.fission_streak_days} 天 {if !$detail.phase2.fission_streak_qualified}<span class="label label-warning">连签已冻结</span>{/if}</td></tr>
             <tr><th>最后签到日</th><td>{$detail.phase2.fission_last_checkin_date|default='-'|htmlentities}</td></tr>
-            <tr><th>下线提现数</th><td>{$detail.phase2.sub_withdrawn_count}</td></tr>
-            <tr><th>荣誉段位</th><td>{$detail.phase2.honor_tier_name|default='未晋升'|htmlentities}（{$detail.phase2.honor_tier_claimed}）</td></tr>
             <tr><th>邀请人数</th><td>{$detail.phase2.invite_count}</td></tr>
             <tr><th>新手首提</th><td>{if $detail.phase2.first_withdraw_done}<span class="label label-success">已完成</span>{else/}<span class="label label-default">未完成</span>{/if}</td></tr>
         </table>

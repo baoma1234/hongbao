@@ -150,24 +150,14 @@
             </select>
         </div>
     </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">用户信息备注:</label>
+        <div class="col-xs-12 col-sm-8">
+            <textarea class="form-control" name="row[admin_remark]" rows="3" maxlength="500" placeholder="仅后台可见，前台/H5/App 不展示">{$row.admin_remark|default=''|htmlentities}</textarea>
+            <span class="help-block">运营内部备注，最多 500 字。</span>
+        </div>
+    </div>
     {if $phase2Enabled}
-    <div class="form-group">
-        <label class="control-label col-xs-12 col-sm-2">用户态:</label>
-        <div class="col-xs-12 col-sm-8">
-            <select id="c-user_mode" class="form-control selectpicker" name="row[user_mode]">
-                {foreach name="userModeList" item="vo" key="k"}
-                <option value="{$k}" {eq name="row.user_mode" value="$k"}selected{/eq}>{$vo}</option>
-                {/foreach}
-            </select>
-            <span class="help-block">团长态通常由首次 VIP 密令审核通过后自动解锁，也可人工调整。</span>
-        </div>
-    </div>
-    <div class="form-group">
-        <label class="control-label col-xs-12 col-sm-2">连续签到天:</label>
-        <div class="col-xs-12 col-sm-8">
-            <input class="form-control" name="row[fission_streak_days]" type="number" min="0" max="7" value="{$row.fission_streak_days|default=0|htmlentities}">
-        </div>
-    </div>
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">7天暴击资格:</label>
         <div class="col-xs-12 col-sm-8">
@@ -180,22 +170,6 @@
         <label class="control-label col-xs-12 col-sm-2">最后签到日:</label>
         <div class="col-xs-12 col-sm-8">
             <input class="form-control" name="row[fission_last_checkin_date]" type="date" value="{$row.fission_last_checkin_date|default=''|htmlentities}">
-        </div>
-    </div>
-    <div class="form-group">
-        <label class="control-label col-xs-12 col-sm-2">下线提现数:</label>
-        <div class="col-xs-12 col-sm-8">
-            <input class="form-control" name="row[sub_withdrawn_count]" type="number" min="0" value="{$row.sub_withdrawn_count|default=0|htmlentities}">
-        </div>
-    </div>
-    <div class="form-group">
-        <label class="control-label col-xs-12 col-sm-2">荣誉段位:</label>
-        <div class="col-xs-12 col-sm-8">
-            <select class="form-control selectpicker" name="row[honor_tier_claimed]">
-                {foreach name="honorTierList" item="vo" key="k"}
-                <option value="{$k}" {eq name="row.honor_tier_claimed" value="$k"}selected{/eq}>{$vo}</option>
-                {/foreach}
-            </select>
         </div>
     </div>
     <div class="form-group">

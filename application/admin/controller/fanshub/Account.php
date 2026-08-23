@@ -281,10 +281,13 @@ class Account extends Backend
         unset($params['rights'], $params['balance'], $params['hongbao']);
 
         $meta = [];
-        foreach (['main_uid', 'flow_stage', 'status', 'member_level', 'turnover'] as $field) {
+        foreach (['main_uid', 'flow_stage', 'status', 'member_level', 'turnover', 'admin_remark'] as $field) {
             if (array_key_exists($field, $params)) {
                 $meta[$field] = $params[$field];
             }
+        }
+        if (array_key_exists('admin_remark', $meta)) {
+            $meta['admin_remark'] = mb_substr(trim((string)$meta['admin_remark']), 0, 500);
         }
         if ($clearGoogleSecret) {
             $meta['google_secret'] = '';

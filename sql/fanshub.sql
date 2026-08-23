@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS `fa_fans_account` (
   `status` enum('normal','frozen') NOT NULL DEFAULT 'normal' COMMENT '状态',
   `google_secret` varchar(64) NOT NULL DEFAULT '' COMMENT '谷歌验证器密钥(Base32)',
   `chat_forbid` varchar(255) NOT NULL DEFAULT '' COMMENT '聊天禁言JSON',
+  `admin_remark` varchar(500) NOT NULL DEFAULT '' COMMENT '后台用户信息备注(仅后台可见)',
   `createtime` int(10) unsigned DEFAULT NULL,
   `updatetime` int(10) unsigned DEFAULT NULL,
   PRIMARY KEY (`id`),
