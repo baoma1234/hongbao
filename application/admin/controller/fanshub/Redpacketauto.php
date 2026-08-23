@@ -306,6 +306,11 @@ class Redpacketauto extends Backend
             $params['burst_window_sec'] = max(60, $params['interval_sec'] * $params['burst_count']);
         }
         $params['auto_send'] = !empty($params['auto_send']) ? 1 : 0;
+        $params['continuous_send'] = !empty($params['continuous_send']) ? 1 : 0;
+        // 接龙任务强制关闭持续发，保持「有忙包/待续发则不发」
+        if ((int)$params['packet_type'] === 5) {
+            $params['continuous_send'] = 0;
+        }
         $params['auto_grab'] = !empty($params['auto_grab']) ? 1 : 0;
         $params['actor_mode'] = ((int)($params['actor_mode'] ?? 1) === 2) ? 2 : 1;
         $params['grab_user_ids'] = preg_replace(

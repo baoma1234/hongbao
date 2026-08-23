@@ -191,28 +191,8 @@ class RpAutoBotService
             ]);
             return ['sent' => false, 'packet_id' => 0];
         }
-        $openCnt = $this->countBusyPackets($groupId);
-        if ($openCnt > 0) {
-            $this->taskLogThrottled($taskId, 'open', 'skip', 'group has open/settling packets', [
-                'group_id' => $groupId,
-                'open'     => $openCnt,
-            ], 30);
-            return ['sent' => false, 'packet_id' => 0];
-        }
-        // 接龙：上一包已抢完、正等「最少者」续发时，禁止机器人插队发包
-        if ($this->hasPendingRelay($groupId)) {
-            $this->taskLogThrottled($taskId, 'relay', 'skip', 'pending relay next round', [
-                'group_id' => $groupId,
-            ], 30);
-            return ['sent' => false, 'packet_id' => 0];
-        }
 
-        $sendUid = $this->pickSendUserId($task);
-        if ($sendUid <= 0) {
-            throw new \RuntimeException('未配置发包用户ID');
-        }
         $group = $this->groups->get($groupId) ?: [];
-        $amount = $this->resolveSendAmount($task, $group);
         // 1普通 2拼手气 3扫雷 5接龙（接龙群常见仅开放 type=5）
         $packetType = (int)($task['packet_type'] ?? 2);
         if (!in_array($packetType, [1, 2, 3, 5], true)) {
@@ -233,6 +213,34 @@ class RpAutoBotService
                 );
             }
         }
+
+        $isRelay = ($packetType === 5);
+        // 持续发：有未领完也可发；接龙群/接龙任务强制保持原样（有忙包或待续发则不发）
+        $continuous = !$isRelay && (int)($task['continuous_send'] ?? 0) === 1;
+        if (!$continuous) {
+            $openCnt = $this->countBusyPackets($groupId);
+            if ($openCnt > 0) {
+                $this->taskLogThrottled($taskId, 'open', 'skip', 'group has open/settling packets', [
+                    'group_id' => $groupId,
+                    'open'     => $openCnt,
+                    'relay'    => $isRelay ? 1 : 0,
+                ], 30);
+                return ['sent' => false, 'packet_id' => 0];
+            }
+        }
+        // 接龙：上一包已抢完、正等「最少者」续发时，禁止机器人插队发包
+        if ($isRelay && $this->hasPendingRelay($groupId)) {
+            $this->taskLogThrottled($taskId, 'relay', 'skip', 'pending relay next round', [
+                'group_id' => $groupId,
+            ], 30);
+            return ['sent' => false, 'packet_id' => 0];
+        }
+
+        $sendUid = $this->pickSendUserId($task);
+        if ($sendUid <= 0) {
+            throw new \RuntimeException('未配置发包用户ID');
+        }
+        $amount = $this->resolveSendAmount($task, $group);
         $count = $this->resolveSendCount($task, $group, $packetType);
         if ($amount <= 0 || $count <= 0) {
             throw new \RuntimeException('金额/个数无效');

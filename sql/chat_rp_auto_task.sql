@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS `fa_chat_rp_auto_task` (
   `burst_sent` int(10) unsigned NOT NULL DEFAULT '0' COMMENT '当前窗已发包数',
   `burst_next_at` int(10) unsigned NOT NULL DEFAULT '0' COMMENT '窗内下一次计划发包unix',
   `auto_send` tinyint(1) NOT NULL DEFAULT '1',
+  `continuous_send` tinyint(1) unsigned NOT NULL DEFAULT '0' COMMENT '1=持续发(有未领完也可发);接龙任务忽略',
   `auto_grab` tinyint(1) NOT NULL DEFAULT '1',
   `actor_mode` tinyint(3) unsigned NOT NULL DEFAULT '1' COMMENT '1=发包/抢包UID池 2=机器人账户随机发抢',
   `grab_user_ids` varchar(512) NOT NULL DEFAULT '' COMMENT '抢包机器人UID,逗号分隔',

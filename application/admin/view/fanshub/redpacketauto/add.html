@@ -18,6 +18,13 @@
         </div>
     </div>
     <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">持续发:</label>
+        <div class="col-xs-12 col-sm-8">
+            <label class="checkbox-inline"><input type="checkbox" name="row[continuous_send]" value="1"> 开启（群内已有未领完红包仍可继续发）</label>
+            <span class="help-block">默认关闭：群内有未领完/结算中红包时不发。接龙类型任务忽略此开关，始终按原规则（有忙包或待续发则不发）。</span>
+        </div>
+    </div>
+    <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">发抢模式:</label>
         <div class="col-xs-12 col-sm-8">
             <label class="radio-inline"><input type="radio" name="row[actor_mode]" value="1" checked> 模式一：发包/抢包 UID 池</label>
@@ -74,7 +81,7 @@
         <label class="control-label col-xs-12 col-sm-2">发包间隔(秒):</label>
         <div class="col-xs-12 col-sm-8">
             <input class="form-control" name="row[interval_sec]" type="number" min="5" value="60">
-            <span class="help-block">仅当群内<strong>没有待领取红包</strong>时才会自动发。未命中下方「时段间隔」时用此秒数（默认 60）。</span>
+            <span class="help-block">自动发包间隔。未开「持续发」时：仅当群内<strong>没有待领取红包</strong>才会发。开启「持续发」后：到间隔就发（接龙除外）。未命中下方「时段间隔」时用此秒数（默认 60）。</span>
         </div>
     </div>
     <div class="form-group">
@@ -122,7 +129,7 @@
                 <span class="input-group-addon">窗长秒</span>
                 <input class="form-control" name="row[burst_window_sec]" type="number" min="0" value="0">
             </div>
-            <span class="help-block">例：包数=3、窗长=120 → 每 2 分钟内随机节奏发最多 3 包。窗长填 0 则用固定/时段间隔。启用突发时不再走时段间隔。</span>
+            <span class="help-block">例：包数=3、窗长=120 → 每 2 分钟内<strong>随机节奏发最多 3 包</strong>。未开「持续发」时仍须群内无待领包。窗长填 0 则退回固定/时段间隔。启用突发时<strong>不再</strong>走时段间隔。</span>
         </div>
     </div>
     <div class="form-group">
