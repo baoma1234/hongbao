@@ -318,7 +318,7 @@ class Redpacketauto extends Backend
             '',
             str_replace(["\xef\xbc\x8c", '、', '|'], ',', (string)($params['grab_user_ids'] ?? ''))
         );
-        $params['grab_delay_min_ms'] = max(5000, (int)($params['grab_delay_min_ms'] ?? 5000));
+        $params['grab_delay_min_ms'] = max(1000, (int)($params['grab_delay_min_ms'] ?? 5000));
         $params['grab_delay_max_ms'] = max($params['grab_delay_min_ms'], (int)($params['grab_delay_max_ms'] ?? 15000));
         if ($params['grab_delay_max_ms'] > 120000) {
             $params['grab_delay_max_ms'] = 120000;

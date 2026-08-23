@@ -161,7 +161,7 @@
                 <span class="input-group-addon">最大</span>
                 <input class="form-control" name="row[grab_delay_max_ms]" type="number" min="0" value="{$row.grab_delay_max_ms}">
             </div>
-            <span class="help-block">单位毫秒，建议 5000～15000。每个红包独立随机延迟后去抢；群内多个待领包可同时排期并行抢，互不等待。</span>
+            <span class="help-block">单位毫秒，最短 1000。例：3000～5000 表示每个包随机延迟 3～5 秒后去抢；多包可并行。保存后立即按配置生效（不再强制抬到 5 秒）。</span>
         </div>
     </div>
     <div class="form-group">

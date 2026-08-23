@@ -34,8 +34,8 @@ class RpAutoBotService
     /** 真人优先：新包发出后机器人至少等待秒数 */
     const HUMAN_FIRST_MIN_SEC = 8;
     const HUMAN_FIRST_MAX_SEC = 12;
-    /** 后台未配或配错时的硬底（秒） */
-    const GRAB_DELAY_FLOOR_SEC = 5;
+    /** 后台未配或配错时的硬底（秒）；允许最短约 1s */
+    const GRAB_DELAY_FLOOR_SEC = 1;
 
     /** @var RedPacketService */
     protected $redPackets;
@@ -460,16 +460,22 @@ class RpAutoBotService
                 continue;
             }
 
-            // 每包独立随机 delay；新包再拉长到真人优先窗
+            // 每包独立随机 delay；新包可再拉长，但不超过后台配置的最大延迟
             $coolSec = $this->randomGrabDelaySec($task);
+            list($minMs, $maxMs) = $this->grabDelayBounds($task);
+            $maxSec = max((float)self::GRAB_DELAY_FLOOR_SEC, $maxMs / 1000.0);
             $created = (int)($meta['createtime'] ?? 0);
             $age = $created > 0 ? max(0, time() - $created) : 0;
-            $humanNeed = random_int(self::HUMAN_FIRST_MIN_SEC, self::HUMAN_FIRST_MAX_SEC);
+            $humanNeed = (float)random_int(self::HUMAN_FIRST_MIN_SEC, self::HUMAN_FIRST_MAX_SEC);
+            $humanNeed = min($humanNeed, $maxSec);
             $delaySec = $coolSec;
             if ($age < $humanNeed) {
                 $delaySec = max($delaySec, (float)($humanNeed - $age));
             }
             $delaySec = max((float)self::GRAB_DELAY_FLOOR_SEC, min(120.0, $delaySec));
+            // 最终仍夹在后台配置区间内（避免真人优先窗抬过 max）
+            $minSec = max((float)self::GRAB_DELAY_FLOOR_SEC, $minMs / 1000.0);
+            $delaySec = max($minSec, min($maxSec, $delaySec));
 
             if (!$this->tryMarkGrabBusy($taskId, $packetId, (int)ceil($delaySec) + 20)) {
                 $skippedBusy++;
@@ -530,7 +536,7 @@ class RpAutoBotService
         }
         if ($maxMs < $floorMs) {
             $minMs = $floorMs;
-            $maxMs = 15000;
+            $maxMs = max($floorMs, 5000);
         }
         $maxMs = min(120000, $maxMs);
         return [$minMs, $maxMs];

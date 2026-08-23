@@ -349,18 +349,18 @@ class FansHubRpAuto
         }
 
         // CLI 兜底：按任务配置 sleep（上限 15s），避免无 WS 时变成秒级连抢
-        $minMs = max(5000, (int)$task['grab_delay_min_ms']);
+        $minMs = max(1000, (int)$task['grab_delay_min_ms']);
         $maxMs = max($minMs, (int)$task['grab_delay_max_ms']);
         if ($maxMs <= 120 && $minMs <= 120) {
             $minMs *= 1000;
             $maxMs *= 1000;
         }
-        if ($maxMs < 5000) {
-            $minMs = 5000;
-            $maxMs = 15000;
+        if ($maxMs < 1000) {
+            $minMs = 1000;
+            $maxMs = 5000;
         }
         $sleepMs = $minMs + ($maxMs > $minMs ? mt_rand(0, $maxMs - $minMs) : 0);
-        $sleepMs = min(15000, max(5000, $sleepMs));
+        $sleepMs = min(15000, max(1000, $sleepMs));
 
         shuffle($uids);
         foreach ($packetIds as $packetId) {
