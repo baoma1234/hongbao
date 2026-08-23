@@ -21,27 +21,31 @@ class FansHubHongbaoLedger
         if ($userId <= 0 || $amount <= 0) {
             throw new \InvalidArgumentException('invalid credit');
         }
-        $now = time();
-        $ownTrans = !self::inTrans();
-        if ($ownTrans) {
-            Db::startTrans();
-        }
-        try {
-            $aff = Db::name('fans_account')
-                ->where('user_id', $userId)
-                ->where('status', 'normal')
-                ->inc('hongbao', $amount)
-                ->update(['updatetime' => $now]);
-            if ($aff <= 0) {
-                $row = Db::name('fans_account')->where('user_id', $userId)->find();
-                if (!$row) {
-                    throw new \RuntimeException('account missing');
-                }
-                if ((string)($row['status'] ?? '') !== 'normal') {
-                    throw new \RuntimeException(FansHubService::h5CopyText('srv_account_frozen') ?: 'account frozen');
-                }
-                throw new \RuntimeException('credit failed');
+            $now = time();
+            $ownTrans = !self::inTrans();
+            if ($ownTrans) {
+                Db::startTrans();
             }
+            try {
+                $q = Db::name('fans_account')
+                    ->where('user_id', $userId)
+                    ->where('status', 'normal')
+                    ->inc('hongbao', $amount);
+                // 充值红宝同步计入累计流水（提现门槛用）
+                if ((string)$type === 'recharge') {
+                    $q->inc('turnover', $amount);
+                }
+                $aff = $q->update(['updatetime' => $now]);
+                if ($aff <= 0) {
+                    $row = Db::name('fans_account')->where('user_id', $userId)->find();
+                    if (!$row) {
+                        throw new \RuntimeException('account missing');
+                    }
+                    if ((string)($row['status'] ?? '') !== 'normal') {
+                        throw new \RuntimeException(FansHubService::h5CopyText('srv_account_frozen') ?: 'account frozen');
+                    }
+                    throw new \RuntimeException('credit failed');
+                }
             $row = Db::name('fans_account')->where('user_id', $userId)->find();
             $after = round((float)($row['hongbao'] ?? 0), 2);
             $before = round($after - $amount, 2);

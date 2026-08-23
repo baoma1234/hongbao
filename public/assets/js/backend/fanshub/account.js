@@ -115,6 +115,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                         return '<div class="fanshub-acc-cell">'
                             + infoLine('股份', escCell(row.rights != null ? row.rights : '-'))
                             + infoLine('红宝', escCell(row.hongbao != null ? row.hongbao : '-'))
+                            + infoLine('累计流水', escCell(row.turnover != null ? row.turnover : '0'))
                             + infoLine('VIP等级', fmtVip(row))
                             + infoLine('阶段', escCell(fmtStage(row)))
                             + infoLine('支付密码', fmtPayPwd(row))
@@ -123,6 +124,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                     }},
                     {field: 'rights', title: '股份', visible: false, operate: 'BETWEEN'},
                     {field: 'hongbao', title: '红宝', visible: false, operate: 'BETWEEN'},
+                    {field: 'turnover', title: '累计流水', visible: false, operate: 'BETWEEN'},
                     {field: 'member_level', title: 'VIP等级', visible: false, searchList: $.extend({}, Config.memberLevelList || {})},
                     {field: 'flow_stage', title: '阶段', visible: false, searchList: {"stage1": "阶段一", "stage2": "阶段二"}},
                     {field: 'admin_remark', title: '用户信息备注', operate: 'LIKE', formatter: function (value) {
