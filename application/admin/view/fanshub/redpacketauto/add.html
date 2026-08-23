@@ -154,14 +154,24 @@
     </div>
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">抢包延迟ms:</label>
-        <div class="col-xs-12 col-sm-4">
-            <div class="input-group">
-                <span class="input-group-addon">最小</span>
-                <input class="form-control" name="row[grab_delay_min_ms]" type="number" min="0" value="5000">
-                <span class="input-group-addon">最大</span>
-                <input class="form-control" name="row[grab_delay_max_ms]" type="number" min="0" value="15000">
+        <div class="col-xs-12 col-sm-8">
+            <div class="row" style="margin-left:0;margin-right:0">
+                <div class="col-xs-12 col-sm-6" style="padding-left:0;padding-right:6px;margin-bottom:8px">
+                    <div class="input-group">
+                        <span class="input-group-addon">最小</span>
+                        <input class="form-control" name="row[grab_delay_min_ms]" type="number" min="0" value="5000">
+                        <span class="input-group-addon">ms</span>
+                    </div>
+                </div>
+                <div class="col-xs-12 col-sm-6" style="padding-left:6px;padding-right:0;margin-bottom:8px">
+                    <div class="input-group">
+                        <span class="input-group-addon">最大</span>
+                        <input class="form-control" name="row[grab_delay_max_ms]" type="number" min="0" value="15000">
+                        <span class="input-group-addon">ms</span>
+                    </div>
+                </div>
             </div>
-            <span class="help-block">单位毫秒，最短 1000。例：3000～5000 表示每个包随机延迟 3～5 秒后去抢；多包可并行。保存后立即按配置生效（不再强制抬到 5 秒）。</span>
+            <span class="help-block">单位毫秒，最短 1000。例：3000～5000 表示每个包随机延迟 3～5 秒后去抢；多包可并行。</span>
         </div>
     </div>
     <div class="form-group">
