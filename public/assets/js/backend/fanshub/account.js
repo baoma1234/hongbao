@@ -4,7 +4,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
             if (!$('#fanshub-account-promote-style').length) {
                 $('<style id="fanshub-account-promote-style">')
                     .text('.btn-promote-master{background-color:#6a62cb!important;border-color:#6a62cb!important;color:#fff!important;}.btn-promote-master:hover,.btn-promote-master:focus{background-color:#5a52b8!important;border-color:#5a52b8!important;color:#fff!important;}'
-                        + '.fanshub-acc-cell{line-height:1.55;white-space:normal;text-align:left;min-width:168px;}'
+                        + '.fanshub-acc-cell{line-height:1.55;white-space:normal;text-align:left;min-width:150px;}'
                         + '.fanshub-acc-cell .fanshub-acc-line+.fanshub-acc-line{margin-top:2px;}')
                     .appendTo('head');
             }
@@ -26,6 +26,41 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
             }
             function pickMobile(row) {
                 return (row.user && row.user.mobile) || row.mobile || '';
+            }
+            function fmtVip(row) {
+                var map = Config.memberLevelList || {};
+                var key = String(row.member_level === undefined || row.member_level === null ? '' : row.member_level);
+                var name = map[key];
+                if (!name) {
+                    return key === '' ? '-' : ('VIP' + key);
+                }
+                return '<span class="label label-warning">VIP' + key + '</span> ' + escCell(name);
+            }
+            function fmtStage(row) {
+                return row.flow_stage === 'stage2' ? '阶段二' : (row.flow_stage === 'stage1' ? '阶段一' : (row.flow_stage || '-'));
+            }
+            function fmtPayPwd(row) {
+                return row.pay_password
+                    ? '<span class="label label-success">已设置</span>'
+                    : '<span class="text-muted">未设置</span>';
+            }
+            function fmtChatForbid(row) {
+                var value = row.chat_forbid;
+                if (!value) return '<span class="text-muted">-</span>';
+                var map = {text:'文字', image:'图片', sticker:'表情', video:'视频', file:'文件', rp_send:'发红包', rp_grab:'领红包'};
+                var obj = null;
+                try { obj = typeof value === 'object' ? value : JSON.parse(value); } catch (e) { return '-'; }
+                if (!obj) return '-';
+                var tags = [];
+                Object.keys(map).forEach(function (k) {
+                    if (obj[k]) tags.push(map[k]);
+                });
+                if (!tags.length) return '<span class="text-muted">-</span>';
+                return '<span class="label label-danger" title="' + tags.join('、') + '">禁' + tags.length + '项</span>';
+            }
+            function fmtDt(ts) {
+                if (!ts) return '-';
+                return Table.api.formatter.datetime(ts, {}, 0);
             }
             Table.api.init({
                 extend: {
@@ -52,14 +87,17 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                         var uid = value || row.user_id || '-';
                         var nick = pickNickname(row);
                         var mobile = pickMobile(row);
+                        var mainUid = row.main_uid || '';
                         return '<div class="fanshub-acc-cell">'
                             + infoLine('会员ID', copyCell(uid))
                             + infoLine('昵称', escCell(nick))
                             + infoLine('手机号', copyCell(mobile))
+                            + infoLine('主站账号', mainUid ? copyCell(mainUid) : '-')
                             + '</div>';
                     }},
                     {field: 'user.nickname', title: '昵称', visible: false, operate: 'LIKE'},
                     {field: 'user.mobile', title: '手机号', visible: false, operate: 'LIKE'},
+                    {field: 'main_uid', title: '主站账号', visible: false, operate: 'LIKE'},
                     {field: 'agent_info', title: '代理信息', operate: false, formatter: function (value, row) {
                         var upId = row.inviter_user_id || '';
                         var upMobile = row.inviter_mobile || '';
@@ -73,19 +111,20 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                     {field: 'inviter_user_id', title: '上线ID', visible: false, operate: '='},
                     {field: 'inviter_mobile', title: '上线手机', visible: false, operate: 'LIKE'},
                     {field: 'sub_withdrawn_count', title: '下线提现', visible: false, operate: 'BETWEEN'},
-                    {field: 'rights', title: '股份', operate: 'BETWEEN'},
-                    {field: 'hongbao', title: '红宝', operate: 'BETWEEN'},
-                    {field: 'main_uid', title: '主站账号', operate: 'LIKE'},
-                    {field: 'member_level', title: 'VIP等级', searchList: $.extend({}, Config.memberLevelList || {}), formatter: function (value, row) {
-                        var map = Config.memberLevelList || {};
-                        var key = String(value === undefined || value === null ? '' : value);
-                        var name = map[key];
-                        if (!name) {
-                            return key === '' ? '-' : ('VIP' + key);
-                        }
-                        return '<span class="label label-warning">VIP' + key + '</span> ' + name;
+                    {field: 'user_status', title: '用户状态', operate: false, formatter: function (value, row) {
+                        return '<div class="fanshub-acc-cell">'
+                            + infoLine('股份', escCell(row.rights != null ? row.rights : '-'))
+                            + infoLine('红宝', escCell(row.hongbao != null ? row.hongbao : '-'))
+                            + infoLine('VIP等级', fmtVip(row))
+                            + infoLine('阶段', escCell(fmtStage(row)))
+                            + infoLine('支付密码', fmtPayPwd(row))
+                            + infoLine('聊天禁言', fmtChatForbid(row))
+                            + '</div>';
                     }},
-                    {field: 'flow_stage', title: '阶段', searchList: {"stage1": "阶段一", "stage2": "阶段二"}, formatter: Table.api.formatter.normal},
+                    {field: 'rights', title: '股份', visible: false, operate: 'BETWEEN'},
+                    {field: 'hongbao', title: '红宝', visible: false, operate: 'BETWEEN'},
+                    {field: 'member_level', title: 'VIP等级', visible: false, searchList: $.extend({}, Config.memberLevelList || {})},
+                    {field: 'flow_stage', title: '阶段', visible: false, searchList: {"stage1": "阶段一", "stage2": "阶段二"}},
                     {field: 'admin_remark', title: '用户信息备注', operate: 'LIKE', formatter: function (value) {
                         var v = String(value || '').trim();
                         if (!v) return '<span class="text-muted">-</span>';
@@ -93,36 +132,22 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                         return '<span title="' + escCell(v) + '">' + escCell(short) + '</span>';
                     }},
                     {field: 'status', title: '状态', searchList: {"normal": "正常", "frozen": "冻结"}, formatter: Table.api.formatter.status},
-                    {field: 'pay_password', title: '支付密码', operate: false, formatter: function (value) {
-                        return value ? '<span class="label label-success">已设置</span>' : '<span class="text-muted">未设置</span>';
+                    {field: 'op_time', title: '操作时间', operate: false, formatter: function (value, row) {
+                        var joinTs = row.createtime || 0;
+                        var joinIp = (row.user && row.user.joinip) || row.joinip || '-';
+                        var loginTs = row.logintime || (row.user && row.user.logintime) || 0;
+                        var loginIp = (row.user && row.user.loginip) || row.loginip || '-';
+                        var updTs = row.updatetime || 0;
+                        return '<div class="fanshub-acc-cell">'
+                            + infoLine('注册', escCell(fmtDt(joinTs)) + ' / ' + escCell(joinIp))
+                            + infoLine('登录', escCell(fmtDt(loginTs)) + ' / ' + escCell(loginIp))
+                            + infoLine('更新', escCell(fmtDt(updTs)))
+                            + '</div>';
                     }},
-                    {field: 'chat_forbid', title: '聊天禁言', operate: false, formatter: function (value) {
-                        if (!value) return '<span class="text-muted">-</span>';
-                        var map = {text:'文字', image:'图片', sticker:'表情', video:'视频', file:'文件', rp_send:'发红包', rp_grab:'领红包'};
-                        var obj = null;
-                        try { obj = typeof value === 'object' ? value : JSON.parse(value); } catch (e) { return '-'; }
-                        if (!obj) return '-';
-                        var tags = [];
-                        Object.keys(map).forEach(function (k) {
-                            if (obj[k]) tags.push(map[k]);
-                        });
-                        if (!tags.length) return '<span class="text-muted">-</span>';
-                        return '<span class="label label-danger" title="' + tags.join('、') + '">禁' + tags.length + '项</span>';
-                    }},
-                    {field: 'createtime', title: '注册时间/注册IP', operate: 'RANGE', addclass: 'datetimerange', sortable: true, formatter: function (value, row, index) {
-                        var time = value ? Table.api.formatter.datetime(value, row, index) : '-';
-                        var ip = (row.user && row.user.joinip) || row.joinip || '-';
-                        return '<div style="line-height:1.45;white-space:normal;">' + time + '<br>' + ip + '</div>';
-                    }},
+                    {field: 'createtime', title: '注册时间', visible: false, operate: 'RANGE', addclass: 'datetimerange', sortable: true},
                     {field: 'user.joinip', title: '注册IP', visible: false, operate: 'LIKE'},
-                    {field: 'logintime', title: '最后登录/登录IP', operate: false, formatter: function (value, row, index) {
-                        var ts = value || (row.user && row.user.logintime) || 0;
-                        var time = ts ? Table.api.formatter.datetime(ts, row, index) : '-';
-                        var ip = (row.user && row.user.loginip) || row.loginip || '-';
-                        return '<div style="line-height:1.45;white-space:normal;">' + time + '<br>' + ip + '</div>';
-                    }},
                     {field: 'user.loginip', title: '登录IP', visible: false, operate: 'LIKE'},
-                    {field: 'updatetime', title: '更新时间', operate: 'RANGE', addclass: 'datetimerange', sortable: true, formatter: Table.api.formatter.datetime},
+                    {field: 'updatetime', title: '更新时间', visible: false, operate: 'RANGE', addclass: 'datetimerange', sortable: true},
                     {
                         field: 'operate', title: '操作', table: table,
                         events: Table.api.events.operate,
