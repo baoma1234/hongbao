@@ -42,10 +42,10 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                             "red_packet_expire_clawback": "未领完此包作废收回金额"
                         };
                     })(), formatter: Table.api.formatter.normal},
-                    {field: 'rights_change', title: '股份变动'},
-                    {field: 'hongbao_change', title: '红宝变动', operate: false},
-                    {field: 'rights_after', title: '股份结余'},
-                    {field: 'hongbao_after', title: '红宝结余', operate: false},
+                    {field: 'rights_change', title: '股份变动', operate: 'BETWEEN'},
+                    {field: 'hongbao_change', title: '红宝变动', operate: 'BETWEEN'},
+                    {field: 'rights_after', title: '股份结余', operate: 'BETWEEN'},
+                    {field: 'hongbao_after', title: '红宝结余', operate: 'BETWEEN'},
                     {field: 'biz_no', title: '红宝号', operate: 'LIKE'},
                     {field: 'remark', title: '备注', operate: 'LIKE'},
                     {field: 'channel', title: '通道', operate: 'LIKE'},
