@@ -126,8 +126,11 @@ class ChatForbidService
     public static function assertCanGrabRedPacket($userId)
     {
         $flags = self::getFlags($userId);
-        if (!empty($flags['rp_grab'])) {
-            throw new \RuntimeException(self::LABELS['rp_grab']);
+        // 禁止领红包，或禁言（禁止发文字）时不可领
+        if (!empty($flags['rp_grab']) || !empty($flags['text'])) {
+            throw new \RuntimeException(
+                !empty($flags['rp_grab']) ? self::LABELS['rp_grab'] : '禁言中不可领取红包'
+            );
         }
     }
 

@@ -15,7 +15,7 @@
         <div class="col-xs-12 col-sm-8">
             <button type="button" class="btn btn-default btn-sm" id="btnForbidAll">全选禁止</button>
             <button type="button" class="btn btn-default btn-sm" id="btnForbidNone">全部取消</button>
-            <span class="help-block" style="margin:6px 0 0;">勾选即禁止对应能力；可单独勾选，也可全选。</span>
+            <span class="help-block" style="margin:6px 0 0;">勾选即禁止对应能力。勾选「禁止发文字」时会自动同步禁止领红包；群内被禁言同样不可领红包。</span>
         </div>
     </div>
     <div class="form-group">
@@ -45,6 +45,12 @@ require(['jquery'], function ($) {
     });
     $('#btnForbidNone').on('click', function () {
         $('#chatforbid-form .forbid-flag').prop('checked', false);
+    });
+    // 勾选禁止发文字时同步勾选禁止领红包
+    $('#chatforbid-form').on('change', 'input.forbid-flag[name="forbid[text]"]', function () {
+        if ($(this).is(':checked')) {
+            $('#chatforbid-form input.forbid-flag[name="forbid[rp_grab]"]').prop('checked', true);
+        }
     });
 });
 </script>

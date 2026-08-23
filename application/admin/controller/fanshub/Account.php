@@ -116,7 +116,7 @@ class Account extends Backend
                 if ($row->getRelation('user')) {
                     $row->getRelation('user')->visible([
                         'id', 'mobile', 'nickname', 'username', 'jointime', 'createtime',
-                        'joinip', 'loginip', 'logintime',
+                        'joinip', 'loginip', 'logintime', 'status',
                     ]);
                 }
                 $u = $row->user;
@@ -467,6 +467,10 @@ class Account extends Backend
                     $flags[$k] = 1;
                 }
             }
+            // 禁言（禁止发文字）时同步禁止领红包
+            if (!empty($flags['text'])) {
+                $flags['rp_grab'] = 1;
+            }
             $encoded = $flags ? json_encode($flags, JSON_UNESCAPED_UNICODE) : '';
             Db::name('fans_account')->where('id', $row->id)->update([
                 'chat_forbid' => $encoded,
@@ -489,6 +493,61 @@ class Account extends Backend
         $this->view->assign('flagDefs', $flagDefs);
         $this->view->assign('current', $current);
         return $this->view->fetch();
+    }
+
+    /**
+     * 封禁 / 解封登录：封禁后立即踢下线且不可再登录
+     */
+    public function ban($ids = null)
+    {
+        $row = $this->model->get($ids);
+        if (!$row) {
+            $this->error(__('No Results were found'));
+        }
+        $uid = (int)$row->user_id;
+        if ($uid <= 0) {
+            $this->error('用户无效');
+        }
+        try {
+            if (class_exists('\app\common\library\FansHubDefaultCs')
+                && \app\common\library\FansHubDefaultCs::isDefaultCs($uid)) {
+                $this->error('默认客服不可封禁');
+            }
+        } catch (\Throwable $e) {
+            if ($uid === 88888888) {
+                $this->error('默认客服不可封禁');
+            }
+        }
+        $user = \app\common\model\User::get($uid);
+        if (!$user) {
+            $this->error('主站用户不存在');
+        }
+        $now = time();
+        $cur = (string)($user->status ?? '');
+        if ($cur === 'normal') {
+            $oldTokens = Db::name('user_token')->where('user_id', $uid)->column('token');
+            if (!is_array($oldTokens)) {
+                $oldTokens = [];
+            }
+            Db::name('user')->where('id', $uid)->update([
+                'status'     => 'hidden',
+                'updatetime' => $now,
+            ]);
+            try {
+                \app\common\library\Token::clear($uid);
+            } catch (\Throwable $e) {
+            }
+            try {
+                FansHubService::forceKickOffline($uid, array_values($oldTokens), '账号已被封禁', 'banned');
+            } catch (\Throwable $e) {
+            }
+            $this->success('已封禁并踢下线，该账号无法再登录');
+        }
+        Db::name('user')->where('id', $uid)->update([
+            'status'     => 'normal',
+            'updatetime' => $now,
+        ]);
+        $this->success('已解除封禁，可重新登录');
     }
 
     /**

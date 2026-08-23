@@ -2763,6 +2763,48 @@ class FansHubService
                 return;
             }
         }
+        self::pushSessionReplaced($userId, $oldEncryptedTokens, 'login_elsewhere', '账号已在其他设备登录');
+    }
+
+    /**
+     * 后台封禁等：清 IM token 缓存并强制踢下线（提示自定义文案）
+     *
+     * @param int   $userId
+     * @param array $oldEncryptedTokens
+     * @param string $message
+     * @param string $reason
+     */
+    public static function forceKickOffline($userId, array $oldEncryptedTokens = [], $message = '账号已被封禁', $reason = 'banned')
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return;
+        }
+        $message = trim((string)$message);
+        if ($message === '') {
+            $message = '账号已被封禁';
+        }
+        $reason = trim((string)$reason) ?: 'banned';
+        self::pushSessionReplaced($userId, $oldEncryptedTokens, $reason, $message);
+        // 清用户 brief 缓存，避免短窗内仍用旧状态
+        try {
+            $r = FansHubOfficialStats::redisPublic();
+            if ($r) {
+                $prefix = FansHubOfficialStats::REDIS_PREFIX;
+                $r->del($prefix . 'ub:' . $userId);
+            }
+        } catch (\Throwable $e) {
+        }
+    }
+
+    /**
+     * @param int    $userId
+     * @param array  $oldEncryptedTokens
+     * @param string $reason
+     * @param string $message
+     */
+    protected static function pushSessionReplaced($userId, array $oldEncryptedTokens, $reason, $message)
+    {
         try {
             $r = FansHubOfficialStats::redisPublic();
             if (!$r) {
@@ -2783,10 +2825,10 @@ class FansHubService
                 'v'      => 1,
                 'type'   => 'session.replaced',
                 'data'   => [
-                    'reason'  => 'login_elsewhere',
-                    'message' => '账号已在其他设备登录',
+                    'reason'  => (string)$reason,
+                    'message' => (string)$message,
                 ],
-                'uids'   => [$userId],
+                'uids'   => [(int)$userId],
                 'except' => '',
                 'from'   => -1,
                 'ts'     => time(),

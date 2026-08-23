@@ -1229,8 +1229,15 @@ class RedPacketService
             }
         }
         if ((int)$packet['scope_type'] === 2) {
-            if (!$this->groups->isMember((int)$packet['group_id'], $userId)) {
+            $groupId = (int)$packet['group_id'];
+            if (!$this->groups->isMember($groupId, $userId)) {
                 throw new \RuntimeException('not in group');
+            }
+            // 群内被禁言不可领红包
+            $member = $this->groups->getMember($groupId, $userId);
+            $muteUntil = (int)($member['mute_until'] ?? 0);
+            if ($muteUntil > time()) {
+                throw new \RuntimeException('禁言中不可领取红包');
             }
         } elseif ((int)$packet['scope_type'] === 1) {
             // 私聊红包仅对方可领（发包人/机器人不可领）
@@ -1238,6 +1245,7 @@ class RedPacketService
                 throw new \RuntimeException('only recipient can grab');
             }
         }
+        ChatForbidService::assertCanGrabRedPacket($userId);
         RechargePrivilegeService::assertCanGrabRedPacket($userId, $packet, $this->groups);
         if (!$fromRedisMeta && (int)$packet['status'] !== 1) {
             throw new \RuntimeException('packet closed');

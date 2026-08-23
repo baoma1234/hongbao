@@ -120,6 +120,9 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                             + infoLine('阶段', escCell(fmtStage(row)))
                             + infoLine('支付密码', fmtPayPwd(row))
                             + infoLine('聊天禁言', fmtChatForbid(row))
+                            + infoLine('登录封禁', (row.user && row.user.status === 'hidden')
+                                ? '<span class="text-danger">已封禁</span>'
+                                : '<span class="text-success">正常</span>')
                             + '</div>';
                     }},
                     {field: 'rights', title: '股份', visible: false, operate: 'BETWEEN'},
@@ -176,6 +179,34 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                             url: 'fanshub/account/chatforbid',
                             visible: function () {
                                 return true;
+                            }
+                        }, {
+                            name: 'ban',
+                            text: '封禁',
+                            title: '封禁登录',
+                            classname: 'btn btn-xs btn-danger btn-ajax',
+                            icon: 'fa fa-lock',
+                            url: 'fanshub/account/ban',
+                            confirm: '确认封禁该用户？将立即踢下线，且无法再登录。',
+                            visible: function (row) {
+                                return !(row.user && row.user.status === 'hidden');
+                            },
+                            success: function () {
+                                table.bootstrapTable('refresh');
+                            }
+                        }, {
+                            name: 'unban',
+                            text: '解封',
+                            title: '解除封禁',
+                            classname: 'btn btn-xs btn-success btn-ajax',
+                            icon: 'fa fa-unlock',
+                            url: 'fanshub/account/ban',
+                            confirm: '确认解除封禁？解除后用户可重新登录。',
+                            visible: function (row) {
+                                return !!(row.user && row.user.status === 'hidden');
+                            },
+                            success: function () {
+                                table.bootstrapTable('refresh');
                             }
                         }, {
                             name: 'promotemaster',
