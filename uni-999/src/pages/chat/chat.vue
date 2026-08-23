@@ -166,7 +166,17 @@
                   <text class="file-ext">{{ fileMeta(m) }}</text>
                   <text class="meta">{{ msgTime(m) }}</text>
                 </view>
-                <view v-else class="chat-bubble text-msg" @longpress="onMsgLongPress(m)">
+                <view
+                  v-else
+                  class="chat-bubble text-msg"
+                  @touchstart="onTextMsgHoldStart(m, $event)"
+                  @touchmove="onTextMsgHoldMove($event)"
+                  @touchend="onTextMsgHoldEnd"
+                  @touchcancel="onTextMsgHoldEnd"
+                  @mousedown="onTextMsgHoldStart(m, $event)"
+                  @mouseup="onTextMsgHoldEnd"
+                  @mouseleave="onTextMsgHoldEnd"
+                >
                   <text class="content">{{ msgText(m) }}</text>
                   <text class="meta">{{ msgTime(m) }}</text>
                 </view>
@@ -2380,25 +2390,24 @@ function isPlainTextMsg(m) {
   return true
 }
 
+/** 仅纯文字消息可复制；长按需满 2 秒 */
+const MSG_COPY_HOLD_MS = 2000
+let textMsgHoldTimer = null
+let textMsgHoldMsg = null
+let textMsgHoldPoint = null
+
+function clearTextMsgHold() {
+  if (textMsgHoldTimer) {
+    clearTimeout(textMsgHoldTimer)
+    textMsgHoldTimer = null
+  }
+  textMsgHoldMsg = null
+  textMsgHoldPoint = null
+}
+
 function msgCopyText(m) {
-  if (!m || isRecalled(m) || isSystemMsg(m)) return ''
-  if (isPlainTextMsg(m) || isSticker(m)) {
-    return String(m.content || m.text || '').trim()
-  }
-  if (isImage(m) || isVideo(m) || isFile(m)) {
-    return String(mediaUrl(m) || '').trim()
-  }
-  if (isRp(m)) return String(rpTitle(m) || '').trim()
-  if (isTransfer(m)) {
-    const title = String(transferTitle(m) || '').trim()
-    const amt = transferAmount(m)
-    return (title ? title + ' ' : '') + '¥' + amt
-  }
-  if (isNiuniu(m) || isFissionShare(m)) {
-    return String(m.content || m.text || '').trim()
-  }
-  const raw = String(m.content || m.text || '').trim()
-  return raw && raw !== '[消息]' ? raw : ''
+  if (!isPlainTextMsg(m)) return ''
+  return String(m.content || m.text || '').trim()
 }
 
 function canCopyMsg(m) {
@@ -2418,8 +2427,47 @@ function copyMsgContent(m) {
   })
 }
 
+function eventPoint(e) {
+  const t = (e && e.touches && e.touches[0]) || (e && e.changedTouches && e.changedTouches[0])
+  if (t) return { x: t.clientX || t.pageX || 0, y: t.clientY || t.pageY || 0 }
+  if (e && typeof e.clientX === 'number') return { x: e.clientX, y: e.clientY }
+  return null
+}
+
+function onTextMsgHoldStart(m, e) {
+  clearTextMsgHold()
+  if (!isPlainTextMsg(m)) return
+  // 触摸与鼠标并存时：忽略随后的 mousedown，避免计时重置
+  if (e && e.type === 'mousedown' && e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) return
+  if (e && e.type === 'mousedown' && typeof e.button === 'number' && e.button !== 0) return
+  textMsgHoldMsg = m
+  textMsgHoldPoint = eventPoint(e)
+  textMsgHoldTimer = setTimeout(() => {
+    textMsgHoldTimer = null
+    const target = textMsgHoldMsg
+    textMsgHoldMsg = null
+    textMsgHoldPoint = null
+    if (!target) return
+    onMsgLongPress(target)
+  }, MSG_COPY_HOLD_MS)
+}
+
+function onTextMsgHoldMove(e) {
+  if (!textMsgHoldTimer || !textMsgHoldPoint) return
+  const p = eventPoint(e)
+  if (!p) return
+  if (Math.abs(p.x - textMsgHoldPoint.x) > 12 || Math.abs(p.y - textMsgHoldPoint.y) > 12) {
+    clearTextMsgHold()
+  }
+}
+
+function onTextMsgHoldEnd() {
+  clearTextMsgHold()
+}
+
 function onMsgLongPress(m) {
   if (!m || isRecalled(m) || isSystemMsg(m)) return
+  // 仅文字可复制；其它类型长按只用于撤回/删除
   const copyable = canCopyMsg(m)
   const recallable = canRecallLocal(m)
   if (!copyable && !recallable) return
@@ -4567,6 +4615,7 @@ onShow(() => {
 })
 
 onUnload(() => {
+  clearTextMsgHold()
   stopNiuniuTick()
   markRead()
     .catch(() => {})
@@ -4599,6 +4648,12 @@ function closeRpDetail() {
 </style>
 
 <style scoped>
+/* 文字气泡：禁用系统选中/呼出，改由长按 2s 复制 */
+.chat-bubble.text-msg {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
 /* 详情/会话样式走 chat.bundle + chat-888-parity；此处仅房间页微补 */
 .chat-rp-grab-error {
   margin: 10px 12px 0;
