@@ -83,8 +83,9 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                 sortOrder: 'desc',
                 columns: [[
                     {checkbox: true},
-                    {field: 'user_id', title: '用户信息', operate: false, sortable: true, formatter: function (value, row) {
-                        var uid = value || row.user_id || '-';
+                    {field: 'user_id', title: '用户ID', visible: false, operate: '='},
+                    {field: 'user_info', title: '用户信息', operate: false, formatter: function (value, row) {
+                        var uid = row.user_id || '-';
                         var nick = pickNickname(row);
                         var mobile = pickMobile(row);
                         var mainUid = row.main_uid || '';

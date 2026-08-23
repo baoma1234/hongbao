@@ -19,7 +19,7 @@ class Account extends Backend
 
     protected $model = null;
     protected $relationSearch = true;
-    protected $searchFields = 'id,main_uid,user.nickname,user.mobile';
+    protected $searchFields = 'id,user_id,main_uid,user.nickname,user.mobile';
 
     public function _initialize()
     {
