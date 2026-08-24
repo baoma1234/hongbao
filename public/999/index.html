@@ -41,8 +41,22 @@
       (function () {
         function storeInitData(raw) {
           if (!raw) return
-          try { sessionStorage.setItem('__tg_initData', raw) } catch (e) {}
-          try { sessionStorage.setItem('tgWebAppData', raw) } catch (e) {}
+          var s = String(raw)
+          // 解到出现字面量 hash=（防止整段仍是 %3D/%26 编码）
+          var i, decoded
+          for (i = 0; i < 3; i++) {
+            if (/(?:^|&)hash=/.test(s)) break
+            if (s.indexOf('%') < 0) break
+            try {
+              decoded = decodeURIComponent(s.replace(/\+/g, '%20'))
+            } catch (e) {
+              break
+            }
+            if (decoded === s) break
+            s = decoded
+          }
+          try { sessionStorage.setItem('__tg_initData', s) } catch (e) {}
+          try { sessionStorage.setItem('tgWebAppData', s) } catch (e) {}
         }
         function parsePairs(str) {
           var out = {}
@@ -110,7 +124,7 @@
     </script>
     <!--preload-links-->
     <!--app-context-->
-    <script type="module" crossorigin src="/999/assets/index-CRoHRV9r.js"></script>
+    <script type="module" crossorigin src="/999/assets/index-DzRB23lk.js"></script>
     <link rel="stylesheet" crossorigin href="/999/assets/index-h2L3XHNj.css">
   </head>
   <body>

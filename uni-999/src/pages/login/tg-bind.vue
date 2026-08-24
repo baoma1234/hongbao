@@ -219,10 +219,28 @@ function parseInitDataFromLocation() {
 
 function resolveInitData(tg) {
   const fromTg = tg && tg.initData ? String(tg.initData) : ''
-  if (fromTg) return fromTg
+  if (fromTg) return normalizeInitDataClient(fromTg)
   const stored = readStoredTgInitData()
-  if (stored) return stored
-  return parseInitDataFromLocation()
+  if (stored) return normalizeInitDataClient(stored)
+  return normalizeInitDataClient(parseInitDataFromLocation())
+}
+
+/** 将整段仍 URL 编码的 initData 解到含字面量 hash= */
+function normalizeInitDataClient(raw) {
+  let s = String(raw || '').trim()
+  if (!s) return ''
+  for (let i = 0; i < 3; i++) {
+    if (/(?:^|&)hash=/.test(s)) break
+    if (s.indexOf('%') < 0) break
+    try {
+      const decoded = decodeURIComponent(s.replace(/\+/g, '%20'))
+      if (decoded === s) break
+      s = decoded
+    } catch (e) {
+      break
+    }
+  }
+  return s
 }
 
 function loadTelegramWebApp() {

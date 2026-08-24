@@ -240,6 +240,37 @@ class FansHubTelegram
     }
 
     /**
+     * 归一化 WebApp initData：部分客户端 / 前端会把整段再 URL 编码一次，
+     * 形如 user%3D...%26hash%3D...，parse_str 会拿不到 hash →「数据无效」。
+     */
+    public static function normalizeInitData($initData)
+    {
+        $initData = trim((string)$initData);
+        if ($initData === '') {
+            return '';
+        }
+        // 已是标准 query（含字面量 hash=）
+        if (preg_match('/(?:^|&)hash=/', $initData)) {
+            return $initData;
+        }
+        // 仍是整段 percent-encoding 时反复解码，直到出现 hash= 或无法再解
+        for ($i = 0; $i < 3; $i++) {
+            if (strpos($initData, '%') === false) {
+                break;
+            }
+            $decoded = rawurldecode($initData);
+            if ($decoded === $initData) {
+                break;
+            }
+            $initData = $decoded;
+            if (preg_match('/(?:^|&)hash=/', $initData)) {
+                break;
+            }
+        }
+        return $initData;
+    }
+
+    /**
      * 校验 Telegram WebApp initData，成功返回解析数组（含 user）
      *
      * @param string $initData
@@ -248,7 +279,7 @@ class FansHubTelegram
      */
     public static function validateInitData($initData)
     {
-        $initData = trim((string)$initData);
+        $initData = self::normalizeInitData($initData);
         if ($initData === '') {
             throw new Exception('缺少 Telegram 登录数据');
         }
@@ -262,10 +293,14 @@ class FansHubTelegram
             throw new Exception('Telegram 数据无效');
         }
         $hash = (string)$params['hash'];
-        unset($params['hash']);
+        // 官方文档：校验 HMAC 时须同时排除 hash 与 signature
+        unset($params['hash'], $params['signature']);
         ksort($params);
         $lines = [];
         foreach ($params as $k => $v) {
+            if (is_array($v)) {
+                continue;
+            }
             $lines[] = $k . '=' . $v;
         }
         $dataCheckString = implode("\n", $lines);

@@ -108,14 +108,41 @@
       return params;
     }
     var queryStringParams = queryString.split('&');
-    var i, param, paramName, paramValue;
+    var i, param, eq, paramName, paramValue;
     for (i = 0; i < queryStringParams.length; i++) {
-      param = queryStringParams[i].split('=');
-      paramName = urlSafeDecode(param[0]);
-      paramValue = param[1] == null ? null : urlSafeDecode(param[1]);
+      param = queryStringParams[i];
+      // 只按第一个 = 分割；值里可能含 =（如 signature base64 padding）
+      eq = param.indexOf('=');
+      if (eq < 0) {
+        paramName = urlSafeDecode(param);
+        paramValue = null;
+      } else {
+        paramName = urlSafeDecode(param.substr(0, eq));
+        paramValue = urlSafeDecode(param.substr(eq + 1));
+      }
       params[paramName] = paramValue;
     }
     return params;
+  }
+
+  // 红宝：若 tgWebAppData 仍是整段编码（user%3D...%26hash%3D...），再解一次
+  function normalizeTgWebAppData(raw) {
+    var s = raw == null ? '' : String(raw);
+    if (!s) return s;
+    if (/(?:^|&)hash=/.test(s)) return s;
+    var i, decoded;
+    for (i = 0; i < 3; i++) {
+      if (s.indexOf('%') < 0) break;
+      try {
+        decoded = decodeURIComponent(s.replace(/\+/g, '%20'));
+      } catch (e) {
+        break;
+      }
+      if (decoded === s) break;
+      s = decoded;
+      if (/(?:^|&)hash=/.test(s)) break;
+    }
+    return s;
   }
 
   // Telegram apps will implement this logic to add service params (e.g. tgShareScoreUrl) to game URL
@@ -281,7 +308,8 @@
     urlParseHashParams: urlParseHashParams,
     urlAppendHashParams: urlAppendHashParams,
     sessionStorageSet: sessionStorageSet,
-    sessionStorageGet: sessionStorageGet
+    sessionStorageGet: sessionStorageGet,
+    normalizeTgWebAppData: normalizeTgWebAppData
   };
 
   // For Windows Phone app
@@ -313,7 +341,7 @@
   var webAppHeaderColor = null;
 
   if (initParams.tgWebAppData && initParams.tgWebAppData.length) {
-    webAppInitData = initParams.tgWebAppData;
+    webAppInitData = Utils.normalizeTgWebAppData(initParams.tgWebAppData);
     webAppInitDataUnsafe = Utils.urlParseQueryString(webAppInitData);
     for (var key in webAppInitDataUnsafe) {
       var val = webAppInitDataUnsafe[key];
