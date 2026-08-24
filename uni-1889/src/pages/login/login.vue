@@ -13,6 +13,17 @@
       </view>
 
       <view class="input-group">
+        <view class="input-label">客服入口码</view>
+        <input
+          class="login-input"
+          type="text"
+          maxlength="8"
+          v-model="entryCode"
+          placeholder="请输入 1889"
+        />
+      </view>
+
+      <view class="input-group">
         <view class="input-label">{{ t('login_phone_label') }}</view>
         <view class="phone-row">
           <view class="country-select" @click="countryOpen = !countryOpen">
@@ -145,6 +156,7 @@ const country = ref(readStoredCountry())
 const countryOpen = ref(false)
 const mobile = ref('')
 const captcha = ref('')
+const entryCode = ref('')
 const inviteCode = ref('')
 const inviteTouched = ref(false)
 const loading = ref(false)
@@ -161,6 +173,7 @@ let timer = null
 let offLocale = null
 let offInvite = null
 let pendingSmsPhone = ''
+const ENTRY_CODE = '1889'
 
 const countryMeta = computed(() => getCountryMeta(country.value))
 const csIcon = computed(() => {
@@ -367,6 +380,10 @@ function onSliderCancel() {
 
 async function onSendSms() {
   countryOpen.value = false
+  if (String(entryCode.value || '').trim() !== ENTRY_CODE) {
+    uni.showToast({ title: '请输入正确的客服入口码 1889', icon: 'none' })
+    return
+  }
   const phone = toE164(mobile.value, country.value)
   if (!phone || !isValidNational(mobile.value, country.value)) {
     uni.showToast({
@@ -398,6 +415,10 @@ async function onSendSms() {
 
 async function onLogin() {
   countryOpen.value = false
+  if (String(entryCode.value || '').trim() !== ENTRY_CODE) {
+    uni.showToast({ title: '请输入正确的客服入口码 1889', icon: 'none' })
+    return
+  }
   const phone = toE164(mobile.value, country.value)
   const code = String(captcha.value || '').trim()
   if (!String(mobile.value || '').trim()) {

@@ -23,9 +23,9 @@ const cfg = {
   /** 上传/图片基址；空则回退 API_BASE；bootstrap.upload_cdn（OSS）优先于远端 imgUri */
   IMG_BASE: '',
   UPLOAD_CDN: '',
-  TOKEN_KEY: 'fans_hub_token',
-  DEVICE_FP_KEY: 'fans_hub_device_fp',
-  LOCALE_KEY: 'fans_hub_locale',
+  TOKEN_KEY: 'fans_hub_1889_token',
+  DEVICE_FP_KEY: 'fans_hub_1889_device_fp',
+  LOCALE_KEY: 'fans_hub_1889_locale',
   LOCALE: 'zh-CN',
   /** 最近一次远端配置拉取时间 */
   RUNTIME_FETCHED_AT: 0,

@@ -10,6 +10,17 @@
         <text class="login-subtitle-line">{{ statusHint }}</text>
       </view>
 
+      <view class="input-group">
+        <view class="input-label">客服入口码</view>
+        <input
+          class="login-input"
+          type="text"
+          maxlength="8"
+          v-model="entryCode"
+          placeholder="请输入 1889"
+        />
+      </view>
+
       <view v-if="booting" class="tg-boot">
         <text>{{ bootText }}</text>
       </view>
@@ -111,6 +122,7 @@ const country = ref(readStoredCountry())
 const countryOpen = ref(false)
 const mobile = ref('')
 const captcha = ref('')
+const entryCode = ref('')
 const inviteCode = ref('')
 const loading = ref(false)
 const sending = ref(false)
@@ -122,6 +134,7 @@ const bootText = ref('正在连接 Telegram…')
 const initData = ref('')
 const tgName = ref('')
 let timer = null
+const ENTRY_CODE = '1889'
 
 const countryMeta = computed(() => getCountryMeta(country.value))
 const phonePlaceholder = computed(() => {
@@ -379,6 +392,10 @@ async function runAuth() {
 
 async function onSendSms() {
   if (sending.value || smsLeft.value > 0) return
+  if (String(entryCode.value || '').trim() !== ENTRY_CODE) {
+    uni.showToast({ title: '请输入正确的客服入口码 1889', icon: 'none' })
+    return
+  }
   const phone = toE164(mobile.value, country.value)
   if (!String(mobile.value || '').trim()) {
     uni.showToast({ title: t('alert_phone_required') || '请输入手机号', icon: 'none' })
@@ -415,6 +432,10 @@ async function onSendSms() {
 
 async function onBind() {
   if (loading.value) return
+  if (String(entryCode.value || '').trim() !== ENTRY_CODE) {
+    uni.showToast({ title: '请输入正确的客服入口码 1889', icon: 'none' })
+    return
+  }
   const phone = toE164(mobile.value, country.value)
   const code = String(captcha.value || '').trim()
   if (!phone || !isValidNational(mobile.value, country.value)) {
