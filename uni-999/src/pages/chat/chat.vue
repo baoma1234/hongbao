@@ -417,7 +417,7 @@
                 <input class="chat-rp-count-input" type="digit" v-model="rpForm.total_count" placeholder="5-10" />
                 <text class="chat-rp-unit">个</text>
               </view>
-              <view class="chat-rp-field-hint">{{ rpCountFieldHint }}</view>
+              <view v-if="rpShowCountFieldHint" class="chat-rp-field-hint">{{ rpCountFieldHint }}</view>
             </view>
 
             <view v-if="!isPrivate" class="chat-rp-field chat-rp-field--type">
@@ -1471,6 +1471,12 @@ const rpCountFieldHint = computed(() => {
     return '扫雷固定 5/7/9'
   }
   return rpCountHintLabel.value
+})
+
+/** 普通红宝(1)、随机红宝(4) 不展示个数提示 */
+const rpShowCountFieldHint = computed(() => {
+  const t = rpForm.packet_type | 0
+  return t !== 1 && t !== 4
 })
 
 const rpCountOptions = computed(() => {
