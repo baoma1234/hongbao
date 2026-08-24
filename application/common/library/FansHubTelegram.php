@@ -85,6 +85,10 @@ class FansHubTelegram
             $sep = strpos($url, '?') === false ? '?' : '&';
             $url .= $sep . 'code=' . rawurlencode($startParam);
         }
+        // 避免 Telegram 客户端长期缓存旧 web_app 地址（曾带 #/ 路由的版本）
+        if (stripos($url, 'tg_v=') === false) {
+            $url .= (strpos($url, '?') === false ? '?' : '&') . 'tg_v=3';
+        }
         return $url;
     }
 
@@ -172,12 +176,12 @@ class FansHubTelegram
             return;
         }
         try {
-            \think\Cache::set('tg_touch_' . $tgUserId, time(), 900);
+            \think\Cache::set('tg_touch_' . $tgUserId, time(), 3600);
         } catch (\Throwable $e) {
         }
     }
 
-    public static function recentBotTouch($tgUserId, $maxAge = 900)
+    public static function recentBotTouch($tgUserId, $maxAge = 3600)
     {
         $tgUserId = (int)$tgUserId;
         if ($tgUserId <= 0) {
@@ -908,7 +912,7 @@ class FansHubTelegram
             $codes = FansHubService::i18nLocaleCodes();
             $label = $codes[$next] ?? $next;
             $done = self::t('tg_lang_done', $next, ['label' => $label]);
-            return self::sendMainMenu($chatId, $done . "\n\n" . self::welcomeText($next), $from);
+            return self::sendMainMenu($chatId, $done . "\n\n" . self::welcomeText($next), $from, true);
         }
         return ['ok' => true];
     }
@@ -976,21 +980,25 @@ class FansHubTelegram
         ]);
     }
 
-    public static function sendMainMenu($chatId, $text = null, array $from = [])
+    public static function sendMainMenu($chatId, $text = null, array $from = [], $forceRefreshKeyboard = false)
     {
         $tgId = (int)($from['id'] ?? 0);
         if ($tgId <= 0) {
             $tgId = (int)$chatId;
         }
+        // 下发过菜单 = 用户已与机器人建立会话，WebApp 绑手机可兜底
+        self::touchBotUser($tgId);
         $locale = self::getLocale($tgId, $from);
-        // 先卸掉旧键盘（旧 web_app / 旧语言），再下发新键盘
-        try {
-            self::api('sendMessage', [
-                'chat_id'      => $chatId,
-                'text'         => self::t('tg_menu_updating', $locale),
-                'reply_markup' => json_encode(['remove_keyboard' => true], JSON_UNESCAPED_UNICODE),
-            ]);
-        } catch (\Throwable $e) {
+        // 仅切换语言等场景才先卸旧键盘；/start 首次不要再发「正在更新菜单」
+        if ($forceRefreshKeyboard) {
+            try {
+                self::api('sendMessage', [
+                    'chat_id'      => $chatId,
+                    'text'         => self::t('tg_menu_updating', $locale),
+                    'reply_markup' => json_encode(['remove_keyboard' => true], JSON_UNESCAPED_UNICODE),
+                ]);
+            } catch (\Throwable $e) {
+            }
         }
         return self::api('sendMessage', [
             'chat_id'      => $chatId,

@@ -61,12 +61,13 @@
         function parsePairs(str) {
           var out = {}
           String(str || '').replace(/^[#?]/, '').split('&').forEach(function (pair) {
+            if (!pair) return
             var i = pair.indexOf('=')
             if (i < 0) return
             var k = pair.slice(0, i)
             var v = pair.slice(i + 1)
             try { k = decodeURIComponent(k) } catch (e) {}
-            try { v = decodeURIComponent(v) } catch (e) {}
+            try { v = decodeURIComponent(String(v).replace(/\+/g, '%20')) } catch (e) {}
             out[k] = v
           })
           return out
@@ -83,7 +84,10 @@
           // 兼容旧键盘 URL：hash 已是 #/pages/...，initData 只在 query
           if (!fromSearch.tgWebAppData && search.indexOf('tgWebAppData=') >= 0) {
             try {
-              var m = search.match(/(?:^|[?&])tgWebAppData=([^&]*)/)
+              var m = search.match(/(?:^|[?&])tgWebAppData=([\s\S]*?)(?:&tgWebAppVersion=|&tgWebAppPlatform=|$)/)
+              if (!m || !m[1]) {
+                m = search.match(/(?:^|[?&])tgWebAppData=([^&]*)/)
+              }
               if (m && m[1]) storeInitData(decodeURIComponent(m[1].replace(/\+/g, '%20')))
             } catch (e2) {}
           }
@@ -124,7 +128,7 @@
     </script>
     <!--preload-links-->
     <!--app-context-->
-    <script type="module" crossorigin src="/999/assets/index-BeiTjEEM.js"></script>
+    <script type="module" crossorigin src="/999/assets/index-DEIK3DAD.js"></script>
     <link rel="stylesheet" crossorigin href="/999/assets/index-h2L3XHNj.css">
   </head>
   <body>

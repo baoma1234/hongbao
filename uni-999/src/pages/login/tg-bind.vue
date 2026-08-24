@@ -345,23 +345,23 @@ function loadTelegramWebApp() {
   })
 }
 
-/** 等到 initData 含 hash，或 initDataUnsafe 已有 user.id + hash */
-function waitForInitData(tg, rounds = 24, gapMs = 150) {
+/** 等到 initDataUnsafe 有 user.id，或 initData 含 hash */
+function waitForInitData(tg, rounds = 45, gapMs = 200) {
   return new Promise((resolve) => {
     let n = 0
     const tick = () => {
       const raw = resolveInitData(tg)
+      if (hasTgIdentity(tg)) {
+        resolve(raw || buildInitDataFromUnsafe((tg && tg.initDataUnsafe) || {}))
+        return
+      }
       if (raw && /(?:^|&)hash=/.test(raw)) {
         resolve(raw)
         return
       }
-      if (hasTgIdentity(tg)) {
-        resolve(raw || buildInitDataFromUnsafe(tg.initDataUnsafe))
-        return
-      }
       n += 1
       if (n >= rounds) {
-        resolve(raw || '')
+        resolve(raw || buildInitDataFromUnsafe((tg && tg.initDataUnsafe) || {}))
         return
       }
       setTimeout(tick, gapMs)
@@ -463,6 +463,12 @@ async function runAuth() {
     bootText.value = '请从 Telegram 机器人「进入游戏」打开本页（浏览器直接打开无法绑定）'
     uni.showToast({ title: '请从 Telegram 机器人进入', icon: 'none' })
     return
+  }
+  // 已有 TG 用户：先出绑定表单，再后台验登录态
+  if (hasTgIdentity(tg)) {
+    needBind.value = true
+    booting.value = false
+    bootText.value = ''
   }
   try {
     const data = await apiRequest('tgauth', 'POST', tgInitPayload(tg))
