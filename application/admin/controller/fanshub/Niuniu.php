@@ -14,13 +14,55 @@ class Niuniu extends Backend
 {
     protected $noNeedRight = [];
 
+    /**
+     * 从筛选条件里抽取参与用户ID，并剔除虚拟字段，避免 buildparams 查不存在的列
+     *
+     * @return int|null null=未筛该项；0=无有效用户ID；>0=参与用户ID
+     */
+    protected function pullParticipantUserId()
+    {
+        $filterRaw = $this->request->get('filter', '');
+        $opRaw = $this->request->get('op', '');
+        $filterArr = is_string($filterRaw) ? (json_decode($filterRaw, true) ?: []) : (is_array($filterRaw) ? $filterRaw : []);
+        $opArr = is_string($opRaw) ? (json_decode($opRaw, true) ?: []) : (is_array($opRaw) ? $opRaw : []);
+
+        $hasUserId = array_key_exists('participant_user_id', $filterArr);
+        $userId = $hasUserId ? (int)$filterArr['participant_user_id'] : 0;
+        unset($filterArr['participant_user_id'], $opArr['participant_user_id']);
+        $this->request->get([
+            'filter' => json_encode($filterArr, JSON_UNESCAPED_UNICODE),
+            'op'     => json_encode($opArr, JSON_UNESCAPED_UNICODE),
+        ]);
+
+        if (!$hasUserId) {
+            return null;
+        }
+        return $userId > 0 ? $userId : 0;
+    }
+
     public function index()
     {
         if ($this->request->isAjax()) {
+            $participantUserId = $this->pullParticipantUserId();
             list($where, $sort, $order, $offset, $limit) = $this->buildparams();
-            $total = Db::name('chat_niuniu_rounds')->where($where)->count();
-            $list = Db::name('chat_niuniu_rounds')
-                ->where($where)
+            $query = Db::name('chat_niuniu_rounds');
+            if ($where) {
+                $query->where($where);
+            }
+            if ($participantUserId !== null) {
+                if ($participantUserId <= 0) {
+                    $query->where('id', 0);
+                } else {
+                    $roundIds = Db::name('chat_niuniu_shares')
+                        ->where('user_id', $participantUserId)
+                        ->distinct(true)
+                        ->column('round_id');
+                    $roundIds = array_values(array_unique(array_filter(array_map('intval', $roundIds ?: []))));
+                    $query->where('id', 'in', $roundIds ?: [0]);
+                }
+            }
+            $total = (clone $query)->count();
+            $list = $query
                 ->order($sort, $order)
                 ->limit($offset, $limit)
                 ->select();

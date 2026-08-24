@@ -18,6 +18,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                     [
                         {field: 'id', title: 'ID', sortable: true},
                         {field: 'group_id', title: '群ID'},
+                        {field: 'participant_user_id', title: '用户ID', visible: false, operate: '='},
                         {field: 'status', title: '状态', formatter: function (v) {
                             var m = {1: '购入中', 2: '领取中', 3: '已结算', 4: '作废', 5: '流局'};
                             return m[v] || v;
