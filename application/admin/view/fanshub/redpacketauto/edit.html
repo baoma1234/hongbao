@@ -87,25 +87,32 @@
         <label class="control-label col-xs-12 col-sm-2">模式二大奖:</label>
         <div class="col-xs-12 col-sm-8">
             <div class="row" style="margin-left:0;margin-right:0">
-                <div class="col-xs-12 col-sm-6" style="padding-left:0;padding-right:6px;margin-bottom:8px">
+                <div class="col-xs-6 col-sm-3" style="padding-left:0;padding-right:6px;margin-bottom:8px">
                     <div class="input-group">
                         <span class="input-group-addon">大奖最小</span>
                         <input class="form-control" name="row[amount_mode2_jackpot_min]" type="number" step="10" min="10" value="{$row.amount_mode2_jackpot_min|default=200|round=0}">
-                        <span class="input-group-addon">最大</span>
+                    </div>
+                </div>
+                <div class="col-xs-6 col-sm-3" style="padding-left:6px;padding-right:6px;margin-bottom:8px">
+                    <div class="input-group">
+                        <span class="input-group-addon">大奖最大</span>
                         <input class="form-control" name="row[amount_mode2_jackpot_max]" type="number" step="10" min="10" value="{$row.amount_mode2_jackpot_max|default=300|round=0}">
                     </div>
                 </div>
-                <div class="col-xs-12 col-sm-6" style="padding-left:6px;padding-right:0;margin-bottom:8px">
+                <div class="col-xs-6 col-sm-3" style="padding-left:6px;padding-right:6px;margin-bottom:8px">
                     <div class="input-group">
-                        <span class="input-group-addon">每</span>
+                        <span class="input-group-addon">间隔最少包</span>
                         <input class="form-control" name="row[amount_mode2_every_min]" type="number" min="1" value="{$row.amount_mode2_every_min|default=10}">
-                        <span class="input-group-addon">～</span>
+                    </div>
+                </div>
+                <div class="col-xs-6 col-sm-3" style="padding-left:6px;padding-right:0;margin-bottom:8px">
+                    <div class="input-group">
+                        <span class="input-group-addon">间隔最多包</span>
                         <input class="form-control" name="row[amount_mode2_every_max]" type="number" min="1" value="{$row.amount_mode2_every_max|default=20}">
-                        <span class="input-group-addon">包后插发</span>
                     </div>
                 </div>
             </div>
-            <span class="help-block">仅模式二生效。例：小额 10～100、大奖 200～300、每 10～20 包插一包大奖。</span>
+            <span class="help-block">仅模式二生效。发满「间隔最少～最多」个小额包后，下一包按大奖最小～最大随机插发。</span>
         </div>
     </div>
     <div class="form-group">
