@@ -25,6 +25,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                     {field: 'send_user_id', title: '发包UID'},
                     {field: 'send_user_ids', title: '发包UID池', operate: 'LIKE'},
                     {field: 'packet_type', title: '类型', searchList: Config.packetTypeList, formatter: Table.api.formatter.normal},
+                    {field: 'amount_mode', title: '金额模式', searchList: {"1":"区间","2":"小额+大奖"}, formatter: Table.api.formatter.normal},
                     {field: 'amount_min', title: '金额最小'},
                     {field: 'amount_max', title: '金额最大'},
                     {field: 'total_count', title: '个数'},

@@ -33,4 +33,12 @@ class Redpacketauto extends Model
             '2' => '模式二：机器人账户',
         ];
     }
+
+    public function getAmountModeList()
+    {
+        return [
+            '1' => '模式一：金额区间',
+            '2' => '模式二：小额+大奖',
+        ];
+    }
 }

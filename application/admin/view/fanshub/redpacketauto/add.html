@@ -50,6 +50,14 @@
         </div>
     </div>
     <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">金额模式:</label>
+        <div class="col-xs-12 col-sm-8">
+            <label class="radio-inline"><input type="radio" name="row[amount_mode]" value="1" checked> 模式一：金额区间（下方最小/最大）</label>
+            <label class="radio-inline"><input type="radio" name="row[amount_mode]" value="2"> 模式二：10～100 随机，每 10～20 包插发 200～300</label>
+            <span class="help-block">接龙红包强制用模式一（固定/区间）。模式二：常态按 10 步进在 10～100 随机；发满随机 10～20 个小额包后，下一包发 200～300。</span>
+        </div>
+    </div>
+    <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">金额范围:</label>
         <div class="col-xs-12 col-sm-6">
             <div class="input-group">
@@ -60,7 +68,7 @@
                 <span class="input-group-addon">个数</span>
                 <input class="form-control" name="row[total_count]" type="number" min="1" value="5">
             </div>
-            <span class="help-block">金额必须是<strong>10 的整数倍</strong>（10/20/30…）。最小=最大 → 固定；最小&lt;最大 → 区间内按 10 步进随机。埋雷个数运行时随机 <strong>5/7/9</strong>（此处个数可忽略）。群「固定金额」优先（亦对齐到 10 的倍数）。</span>
+            <span class="help-block">模式一：金额须为 <strong>10 的整数倍</strong>；最小=最大 → 固定；否则按 10 步进随机。模式二时此区间仅作展示/兜底，实际按 10～100 / 200～300 规则。埋雷个数运行时随机 <strong>5/7/9</strong>。群「固定金额」仅模式一生效。</span>
         </div>
     </div>
     <div class="form-group">

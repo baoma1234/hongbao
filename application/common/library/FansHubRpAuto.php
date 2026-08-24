@@ -226,7 +226,9 @@ class FansHubRpAuto
             throw new Exception('未配置发包用户ID');
         }
         $group = Db::name('chat_groups')->where('id', $groupId)->find() ?: [];
-        $amount = self::resolveSendAmount($task, $group);
+        $packetType = (int)$task['packet_type'] ?: 2;
+        $amountPlan = self::resolveSendAmountPlan($task, $group, $packetType);
+        $amount = (float)($amountPlan['amount'] ?? 0);
         $count = (int)$task['total_count'];
         if ($amount <= 0 || $count <= 0) {
             throw new Exception('金额/个数无效');
@@ -234,7 +236,6 @@ class FansHubRpAuto
 
         self::ensureAgentAccount($sendUid);
 
-        $packetType = (int)$task['packet_type'] ?: 2;
         $mineDigit = ($packetType === 3) ? random_int(0, 9) : 0;
 
         $result = FansHubImBridge::post('/agent/send_redpacket', [
@@ -279,14 +280,16 @@ class FansHubRpAuto
         }
 
         Db::name('chat_rp_auto_task')->where('id', $id)->update([
-            'last_send_time'     => $now,
-            'last_packet_id'     => $packetId,
-            'today_count'        => (int)$task['today_count'] + 1,
-            'burst_window_start' => $useBurst ? $burstStart : 0,
-            'burst_sent'         => $useBurst ? $burstSent : 0,
-            'burst_next_at'      => $burstNext,
-            'last_error'         => '',
-            'updatetime'         => $now,
+            'last_send_time'      => $now,
+            'last_packet_id'      => $packetId,
+            'today_count'         => (int)$task['today_count'] + 1,
+            'burst_window_start'  => $useBurst ? $burstStart : 0,
+            'burst_sent'          => $useBurst ? $burstSent : 0,
+            'burst_next_at'       => $burstNext,
+            'amount_mode2_count'  => (int)($amountPlan['next_mode2_count'] ?? 0),
+            'amount_mode2_target' => (int)($amountPlan['next_mode2_target'] ?? 0),
+            'last_error'          => '',
+            'updatetime'          => $now,
         ]);
 
         return ['sent' => true, 'packet_id' => $packetId, 'reason' => ''];
@@ -523,6 +526,61 @@ class FansHubRpAuto
             return $hour >= $start && $hour <= $end;
         }
         return $hour >= $start || $hour <= $end;
+    }
+
+    /**
+     * @return array{amount:float,amount_mode:int,jackpot:bool,next_mode2_count:int,next_mode2_target:int}
+     */
+    protected static function resolveSendAmountPlan(array $task, array $group, $packetType)
+    {
+        $packetType = (int)$packetType;
+        $mode = ((int)($task['amount_mode'] ?? 1) === 2) ? 2 : 1;
+        if ($packetType === 5) {
+            $mode = 1;
+        }
+
+        if ($mode === 2) {
+            $streak = max(0, (int)($task['amount_mode2_count'] ?? 0));
+            $target = (int)($task['amount_mode2_target'] ?? 0);
+            if ($target < 10 || $target > 20) {
+                $target = mt_rand(10, 20);
+            }
+            if ($streak >= $target) {
+                return [
+                    'amount'            => (float)self::randomAmountByTen(200, 300),
+                    'amount_mode'       => 2,
+                    'jackpot'           => true,
+                    'next_mode2_count'  => 0,
+                    'next_mode2_target' => mt_rand(10, 20),
+                ];
+            }
+            return [
+                'amount'            => (float)self::randomAmountByTen(10, 100),
+                'amount_mode'       => 2,
+                'jackpot'           => false,
+                'next_mode2_count'  => $streak + 1,
+                'next_mode2_target' => $target,
+            ];
+        }
+
+        return [
+            'amount'            => self::resolveSendAmount($task, $group),
+            'amount_mode'       => 1,
+            'jackpot'           => false,
+            'next_mode2_count'  => (int)($task['amount_mode2_count'] ?? 0),
+            'next_mode2_target' => (int)($task['amount_mode2_target'] ?? 0),
+        ];
+    }
+
+    protected static function randomAmountByTen($min, $max)
+    {
+        $minInt = (int)(ceil(max(10, (int)round($min)) / 10) * 10);
+        $maxInt = (int)(ceil(max($minInt, (int)round($max)) / 10) * 10);
+        if ($minInt === $maxInt) {
+            return $minInt;
+        }
+        $steps = (int)(($maxInt - $minInt) / 10);
+        return $minInt + mt_rand(0, max(0, $steps)) * 10;
     }
 
     /**

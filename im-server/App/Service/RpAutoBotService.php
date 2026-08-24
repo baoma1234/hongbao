@@ -240,7 +240,8 @@ class RpAutoBotService
         if ($sendUid <= 0) {
             throw new \RuntimeException('未配置发包用户ID');
         }
-        $amount = $this->resolveSendAmount($task, $group);
+        $amountPlan = $this->resolveSendAmountPlan($task, $group, $packetType);
+        $amount = (float)($amountPlan['amount'] ?? 0);
         $count = $this->resolveSendCount($task, $group, $packetType);
         if ($amount <= 0 || $count <= 0) {
             throw new \RuntimeException('金额/个数无效');
@@ -287,16 +288,23 @@ class RpAutoBotService
             $burstNext = $this->planNextBurstAt($task, $now, $burstSent);
         }
 
+        $mode2Count = (int)($amountPlan['next_mode2_count'] ?? (int)($task['amount_mode2_count'] ?? 0));
+        $mode2Target = (int)($amountPlan['next_mode2_target'] ?? (int)($task['amount_mode2_target'] ?? 0));
+
         Db::exec(
             'UPDATE ' . Db::table('chat_rp_auto_task')
             . ' SET last_send_time=?, last_packet_id=?, today_count=today_count+1,'
-            . ' burst_window_start=?, burst_sent=?, burst_next_at=?, last_error=?, updatetime=? WHERE id=?',
+            . ' burst_window_start=?, burst_sent=?, burst_next_at=?,'
+            . ' amount_mode2_count=?, amount_mode2_target=?,'
+            . ' last_error=?, updatetime=? WHERE id=?',
             [
                 $now,
                 $packetId,
                 (int)($task['burst_window_start'] ?? ($useBurst ? $now : 0)),
                 $useBurst ? $burstSent : 0,
                 $burstNext,
+                $mode2Count,
+                $mode2Target,
                 '',
                 $now,
                 $taskId,
@@ -310,6 +318,8 @@ class RpAutoBotService
             'uid'         => $sendUid,
             'mine'        => $mineDigit,
             'amount'      => $amount,
+            'amount_mode' => (int)($amountPlan['amount_mode'] ?? 1),
+            'jackpot'     => !empty($amountPlan['jackpot']) ? 1 : 0,
             'count'       => $count,
             'burst'       => $useBurst ? ($burstSent . '/' . $burstCount) : '0',
             'packet_id'   => $packetId,
@@ -634,10 +644,70 @@ class RpAutoBotService
     }
 
     /**
-     * 任务金额：amount_min/amount_max（相等=固定，否则区间随机）
+     * 任务金额计划。
+     * - 接龙(type=5)：始终走模式一（固定/区间），忽略 amount_mode=2
+     * - 模式一：amount_min/amount_max（相等=固定，否则区间随机，步长 10）
+     * - 模式二：常态 10～100 随机；发够 10～20 个小额包后插发一包 200～300
+     * 群 rp_fixed_amount 仅对模式一生效。
+     *
+     * @return array{amount:float,amount_mode:int,jackpot:bool,next_mode2_count:int,next_mode2_target:int}
+     */
+    protected function resolveSendAmountPlan(array $task, array $group, $packetType)
+    {
+        $packetType = (int)$packetType;
+        $mode = ((int)($task['amount_mode'] ?? 1) === 2) ? 2 : 1;
+        if ($packetType === 5) {
+            $mode = 1;
+        }
+
+        if ($mode === 2) {
+            $streak = max(0, (int)($task['amount_mode2_count'] ?? 0));
+            $target = (int)($task['amount_mode2_target'] ?? 0);
+            if ($target < 10 || $target > 20) {
+                $target = random_int(10, 20);
+            }
+            $jackpot = ($streak >= $target);
+            if ($jackpot) {
+                $amount = $this->randomAmountByTen(200, 300);
+                return [
+                    'amount'             => (float)$amount,
+                    'amount_mode'        => 2,
+                    'jackpot'            => true,
+                    'next_mode2_count'   => 0,
+                    'next_mode2_target'  => random_int(10, 20),
+                ];
+            }
+            $amount = $this->randomAmountByTen(10, 100);
+            return [
+                'amount'             => (float)$amount,
+                'amount_mode'        => 2,
+                'jackpot'            => false,
+                'next_mode2_count'   => $streak + 1,
+                'next_mode2_target'  => $target,
+            ];
+        }
+
+        $amount = $this->resolveSendAmountMode1($task, $group);
+        return [
+            'amount'             => (float)$amount,
+            'amount_mode'        => 1,
+            'jackpot'            => false,
+            'next_mode2_count'   => (int)($task['amount_mode2_count'] ?? 0),
+            'next_mode2_target'  => (int)($task['amount_mode2_target'] ?? 0),
+        ];
+    }
+
+    /** 兼容旧调用 */
+    protected function resolveSendAmount(array $task, array $group)
+    {
+        return $this->resolveSendAmountMode1($task, $group);
+    }
+
+    /**
+     * 模式一：amount_min/amount_max（相等=固定，否则区间随机）
      * 必须是 10 的整数倍；群 rp_fixed_amount 优先；再夹到群 rp_min/max（亦取整到 10 的倍数）。
      */
-    protected function resolveSendAmount(array $task, array $group)
+    protected function resolveSendAmountMode1(array $task, array $group)
     {
         $groupFixed = (float)($group['rp_fixed_amount'] ?? 0);
         if ($groupFixed > 0) {
@@ -671,12 +741,7 @@ class RpAutoBotService
 
         $minInt = $this->roundToTen(max(10, (int)round($min)));
         $maxInt = $this->roundToTen(max($minInt, (int)round($max)));
-        if ($minInt === $maxInt) {
-            $amount = $minInt;
-        } else {
-            $steps = (int)(($maxInt - $minInt) / 10);
-            $amount = $minInt + random_int(0, max(0, $steps)) * 10;
-        }
+        $amount = $this->randomAmountByTen($minInt, $maxInt);
 
         $gMin = (float)($group['rp_min_amount'] ?? 0);
         $gMax = (float)($group['rp_max_amount'] ?? 0);
@@ -693,6 +758,18 @@ class RpAutoBotService
             }
         }
         return (float)$this->roundToTen(max(10, (int)$amount));
+    }
+
+    /** [min,max] 内按 10 步进随机（含端点） */
+    protected function randomAmountByTen($min, $max)
+    {
+        $minInt = $this->roundToTen(max(10, (int)round($min)));
+        $maxInt = $this->roundToTen(max($minInt, (int)round($max)));
+        if ($minInt === $maxInt) {
+            return $minInt;
+        }
+        $steps = (int)(($maxInt - $minInt) / 10);
+        return $minInt + random_int(0, max(0, $steps)) * 10;
     }
 
     /** 向上取整到 ≥10 的 10 的倍数（已是则不变；0~9 → 10） */
