@@ -1,0 +1,291 @@
+{
+  "pages": [
+    {
+      "path": "pages/login/login",
+      "style": {
+        "navigationBarTitleText": "登录",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/login/tg-bind",
+      "style": {
+        "navigationBarTitleText": "Telegram 绑定",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "gfhwgkdhf11131djfh/index",
+      "style": {
+        "navigationBarTitleText": "登录",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/home/home",
+      "style": {
+        "navigationBarTitleText": "大厅",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/exchange/exchange",
+      "style": {
+        "navigationBarTitleText": "闪兑",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/messages/messages",
+      "style": {
+        "navigationBarTitleText": "红宝",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/messages/share-poster",
+      "style": {
+        "navigationBarTitleText": "分享推广",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/master/master",
+      "style": {
+        "navigationBarTitleText": "团长",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/profile/profile",
+      "style": {
+        "navigationBarTitleText": "我的",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/profile/info",
+      "style": {
+        "navigationBarTitleText": "编辑资料",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/profile/password",
+      "style": {
+        "navigationBarTitleText": "登录密码",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/profile/paypassword",
+      "style": {
+        "navigationBarTitleText": "修改支付密码",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/profile/qr",
+      "style": {
+        "navigationBarTitleText": "我的二维码",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/profile/settings",
+      "style": {
+        "navigationBarTitleText": "设置",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/wallet/wallet",
+      "style": {
+        "navigationBarTitleText": "钱包",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/wallet/recharge",
+      "style": {
+        "navigationBarTitleText": "充值",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/wallet/withdraw",
+      "style": {
+        "navigationBarTitleText": "提现",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/wallet/ledger",
+      "style": {
+        "navigationBarTitleText": "资金流水",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/wallet/rp-detail",
+      "style": {
+        "navigationBarTitleText": "红包详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/wallet/nn-detail",
+      "style": {
+        "navigationBarTitleText": "牛牛明细",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/wallet/payee",
+      "style": {
+        "navigationBarTitleText": "收款地址",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/common/webview",
+      "style": {
+        "navigationBarTitleText": "详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/common/fair-verify",
+      "style": {
+        "navigationBarTitleText": "公平验证",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/fission/detail",
+      "style": {
+        "navigationBarTitleText": "裂变红宝",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/yxx/hall",
+      "style": {
+        "navigationBarTitleText": "鱼虾蟹",
+        "navigationStyle": "custom",
+        "disableScroll": true,
+        "app-plus": {
+          "bounce": "none",
+          "softinputMode": "adjustPan"
+        }
+      }
+    }
+  ],
+  "subPackages": [
+    {
+      "root": "pages/chat",
+      "pages": [
+        {
+          "path": "chat",
+          "style": {
+            "navigationBarTitleText": "聊天",
+            "navigationStyle": "custom"
+          }
+        }
+      ]
+    },
+    {
+      "root": "pages/group",
+      "pages": [
+        {
+          "path": "settings",
+          "style": {
+            "navigationBarTitleText": "群设置",
+            "navigationStyle": "custom"
+          }
+        }
+      ]
+    },
+    {
+      "root": "pages/friend",
+      "pages": [
+        {
+          "path": "add",
+          "style": {
+            "navigationBarTitleText": "添加好友",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "requests",
+          "style": {
+            "navigationBarTitleText": "好友申请",
+            "navigationStyle": "custom"
+          }
+        }
+      ]
+    }
+  ],
+  "preloadRule": {
+    "pages/messages/messages": {
+      "network": "all",
+      "packages": ["pages/chat", "pages/friend"]
+    }
+  },
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "红宝",
+    "navigationBarBackgroundColor": "#ffffff",
+    "backgroundColor": "#ffffff",
+    "app-plus": {
+      "bounce": "none",
+      "titleNView": false,
+      "softinputMode": "adjustResize"
+    }
+  },
+  "easycom": {
+    "autoscan": true,
+    "custom": {
+      "^TopBar$": "@/components/TopBar.vue"
+    }
+  },
+  "tabBar": {
+    "custom": true,
+    "color": "#90A4AE",
+    "selectedColor": "#0071FF",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/home/home",
+        "text": "大厅",
+        "iconPath": "static/tab/home.png",
+        "selectedIconPath": "static/tab/home.png"
+      },
+      {
+        "pagePath": "pages/exchange/exchange",
+        "text": "闪兑",
+        "iconPath": "static/tab/exchange.png",
+        "selectedIconPath": "static/tab/exchange.png"
+      },
+      {
+        "pagePath": "pages/messages/messages",
+        "text": "红宝",
+        "iconPath": "static/tab/hongbao.png",
+        "selectedIconPath": "static/tab/hongbao.png"
+      },
+      {
+        "pagePath": "pages/fission/detail",
+        "text": "裂变",
+        "iconPath": "static/tab/fission.png",
+        "selectedIconPath": "static/tab/fission.png"
+      },
+      {
+        "pagePath": "pages/profile/profile",
+        "text": "我的",
+        "iconPath": "static/tab/profile.png",
+        "selectedIconPath": "static/tab/profile.png"
+      }
+    ]
+  }
+}

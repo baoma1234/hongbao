@@ -1,0 +1,107 @@
+/* uni-1889 闪兑：复用 888 share-swap 时的 token + 外壳 */
+#tabExchange {
+  --bg-main: #f4f6f9;
+  --bg-card: #ffffff;
+  --primary: #00c853;
+  --secondary: #ff9100;
+  --accent: #0071ff;
+  --text-main: #1a212d;
+  --text-muted: #657786;
+  --danger: #ff3b30;
+  color: var(--text-main);
+  background: var(--bg-main);
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  box-sizing: border-box;
+}
+
+#tabExchange.tab-page {
+  display: block;
+  width: 100%;
+  min-height: calc(100vh - var(--top-bar-height, 44px) - 56px);
+  min-height: calc(100dvh - var(--top-bar-height, 44px) - 56px);
+  padding: 10px 15px 88px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+#tabExchange .page-hero-title {
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--text-main);
+  margin: 0 0 12px;
+  letter-spacing: 0.2px;
+}
+
+#tabExchange .exchange-closed-banner {
+  background: #fff3e0;
+  border: 1px solid #ffcc80;
+  color: #e65100;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+#tabExchange .share-swap-submit,
+#tabExchange uni-button.share-swap-submit {
+  height: 48px !important;
+  min-height: 48px !important;
+  max-height: 48px !important;
+  line-height: 1 !important;
+  padding: 0 16px !important;
+  margin-top: 16px;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 15px !important;
+  font-weight: 800;
+  text-align: center;
+  vertical-align: middle;
+  box-sizing: border-box !important;
+}
+#tabExchange .share-swap-submit .uni-button-text,
+#tabExchange uni-button.share-swap-submit span {
+  line-height: 1 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  transform: none !important;
+}
+
+#tabExchange .share-swap-btn-all::after,
+#tabExchange .share-swap-submit::after,
+#tabExchange .share-swap-arrow::after {
+  border: none;
+  display: none;
+}
+
+#tabExchange .share-swap-input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+}
+
+#tabExchange .share-swap-select-card picker {
+  flex: 1;
+  min-width: 0;
+}
+
+#tabExchange .share-swap-select-face {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-main);
+}

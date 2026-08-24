@@ -1,0 +1,254 @@
+{
+    "name" : "红宝客服1889",
+    "appid" : "__UNI__5346609",
+    "description" : "红宝客服版 1889",
+    "versionName" : "2.5.0",
+    "versionCode" : "157",
+    "transformPx" : false,
+    "app-plus" : {
+        "usingComponents" : true,
+        "nvueStyleCompiler" : "uni-app",
+        "compilerVersion" : 3,
+        "splashscreen" : {
+            "alwaysShowBeforeRender" : true,
+            "waiting" : true,
+            "autoclose" : true,
+            "delay" : 0
+        },
+        "modules" : {
+            "Camera" : {},
+            "Gallery" : {},
+            "Barcode" : {}
+        },
+        "distribute" : {
+            "android" : {
+                "permissions" : [
+                    "<uses-permission android:name=\"android.permission.CHANGE_NETWORK_STATE\"/>",
+                    "<uses-permission android:name=\"android.permission.ACCESS_WIFI_STATE\"/>",
+                    "<uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\"/>",
+                    "<uses-permission android:name=\"android.permission.WAKE_LOCK\"/>",
+                    "<uses-permission android:name=\"android.permission.CAMERA\"/>",
+                    "<uses-permission android:name=\"android.permission.FLASHLIGHT\"/>",
+                    "<uses-permission android:name=\"android.permission.VIBRATE\"/>",
+                    "<uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\"/>",
+                    "<uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\"/>",
+                    "<uses-permission android:name=\"android.permission.READ_MEDIA_IMAGES\"/>"
+                ],
+                "schemes" : "omamxu"
+            },
+            "ios" : {
+                "urltypes" : "omamxu",
+                "dSYMs" : false,
+                "privacyDescription" : {
+                    "NSCameraUsageDescription" : "用于扫一扫加好友、拍摄头像与聊天图片",
+                    "NSPhotoLibraryUsageDescription" : "用于从相册选择头像、聊天图片与识别二维码",
+                    "NSPhotoLibraryAddUsageDescription" : "用于保存分享海报到相册"
+                }
+            },
+            "sdkConfigs" : {},
+            "icons" : {
+                "android" : {
+                    "hdpi" : "unpackage/res/icons/72x72.png",
+                    "xhdpi" : "unpackage/res/icons/96x96.png",
+                    "xxhdpi" : "unpackage/res/icons/144x144.png",
+                    "xxxhdpi" : "unpackage/res/icons/192x192.png"
+                },
+                "ios" : {
+                    "appstore" : "unpackage/res/icons/1024x1024.png",
+                    "ipad" : {
+                        "app" : "unpackage/res/icons/76x76.png",
+                        "app@2x" : "unpackage/res/icons/152x152.png",
+                        "notification" : "unpackage/res/icons/20x20.png",
+                        "notification@2x" : "unpackage/res/icons/40x40.png",
+                        "proapp@2x" : "unpackage/res/icons/167x167.png",
+                        "settings" : "unpackage/res/icons/29x29.png",
+                        "settings@2x" : "unpackage/res/icons/58x58.png",
+                        "spotlight" : "unpackage/res/icons/40x40.png",
+                        "spotlight@2x" : "unpackage/res/icons/80x80.png"
+                    },
+                    "iphone" : {
+                        "app@2x" : "unpackage/res/icons/120x120.png",
+                        "app@3x" : "unpackage/res/icons/180x180.png",
+                        "notification@2x" : "unpackage/res/icons/40x40.png",
+                        "notification@3x" : "unpackage/res/icons/60x60.png",
+                        "settings@2x" : "unpackage/res/icons/58x58.png",
+                        "settings@3x" : "unpackage/res/icons/87x87.png",
+                        "spotlight@2x" : "unpackage/res/icons/80x80.png",
+                        "spotlight@3x" : "unpackage/res/icons/120x120.png"
+                    }
+                }
+            }
+        },
+        "nativePlugins" : {
+            "openinstall-plugin" : {
+                "APP_KEY" : "omamxu",
+                "__plugin_info__" : {
+                    "name" : "openinstall-uniapp-plugin",
+                    "description" : "uni-app集成openinstall SDK插件",
+                    "platforms" : "Android,iOS",
+                    "url" : "",
+                    "android_package_name" : "",
+                    "ios_bundle_id" : "",
+                    "isCloud" : false,
+                    "bought" : -1,
+                    "pid" : "",
+                    "parameters" : {
+                        "APP_KEY" : {
+                            "des" : "openinstall平台为应用分配的AppKey",
+                            "key" : "com.openinstall.APP_KEY",
+                            "value" : ""
+                        }
+                    }
+                }
+            },
+            "luanqing-jgpush" : {
+                "HONOR_APPID" : "",
+                "JPUSH_ADVERTISINGID_IOS" : "",
+                "JPUSH_APPKEY_ANDROID" : "8cdf371fe7b28e2981a712a2",
+                "JPUSH_APPKEY_IOS" : "8cdf371fe7b28e2981a712a2",
+                "JPUSH_CHANNEL_ANDROID" : "developer-default",
+                "JPUSH_CHANNEL_IOS" : "developer-default",
+                "JPUSH_ISPRODUCTION_IOS" : "true",
+                "JPUSH_PKGNAME_ANDROID" : "uni.app.UNIHONGBAO1889",
+                "MEIZU_APPID" : "",
+                "MEIZU_APPKEY" : "",
+                "OPPO_APPID" : "",
+                "OPPO_APPKEY" : "",
+                "OPPO_APPSECRET" : "",
+                "VIVO_APPID" : "",
+                "VIVO_APPKEY" : "",
+                "XIAOMI_APPID" : "",
+                "XIAOMI_APPKEY" : "",
+                "__plugin_info__" : {
+                    "name" : "官方原生SDK极光推送 自定义消息+通知 离线 两行代码集AndroidIOS",
+                    "description" : "遵循极光官方的开发逻辑，用更便捷和简单的方式来集成极光推送，只需2行代码轻松集成，省去大量开发时间。",
+                    "platforms" : "Android,iOS",
+                    "url" : "https://ext.dcloud.net.cn/plugin?id=9438",
+                    "android_package_name" : "uni.app.UNIHONGBAO1889",
+                    "ios_bundle_id" : "com.hongbao.iosapp",
+                    "isCloud" : true,
+                    "bought" : 1,
+                    "pid" : "9438",
+                    "parameters" : {
+                        "HONOR_APPID" : {
+                            "des" : "若不集成厂商通道，可直接跳过以下配置",
+                            "key" : "",
+                            "value" : ""
+                        },
+                        "JPUSH_ADVERTISINGID_IOS" : {
+                            "des" : "[iOS]广告标识符（IDFA）如果不需要使用IDFA，可不填",
+                            "key" : "JPush:ADVERTISINGID",
+                            "value" : ""
+                        },
+                        "JPUSH_APPKEY_ANDROID" : {
+                            "des" : "安卓端在极光后台注册应用的appkey",
+                            "key" : "",
+                            "value" : ""
+                        },
+                        "JPUSH_APPKEY_IOS" : {
+                            "des" : "[iOS]极光portal配置应用信息时分配的AppKey",
+                            "key" : "JCore:APP_KEY",
+                            "value" : ""
+                        },
+                        "JPUSH_CHANNEL_ANDROID" : {
+                            "des" : "安卓端极光渠道 暂时填写默认 developer-default 即可",
+                            "key" : "",
+                            "value" : ""
+                        },
+                        "JPUSH_CHANNEL_IOS" : {
+                            "des" : "[iOS]用于统计分发渠道，不需要可填默认值developer-default",
+                            "key" : "JCore:CHANNEL",
+                            "value" : ""
+                        },
+                        "JPUSH_ISPRODUCTION_IOS" : {
+                            "des" : "[iOS]是否是生产环境，是的话填true，不是的话填false或者不填",
+                            "key" : "JPush:ISPRODUCTION",
+                            "value" : ""
+                        },
+                        "JPUSH_PKGNAME_ANDROID" : {
+                            "des" : "安卓端在极光后台注册应用的包名",
+                            "key" : "",
+                            "value" : ""
+                        },
+                        "MEIZU_APPID" : {
+                            "des" : "若不集成厂商通道，可直接跳过以下配置",
+                            "key" : "",
+                            "value" : ""
+                        },
+                        "MEIZU_APPKEY" : {
+                            "des" : "若不集成厂商通道，可直接跳过以下配置",
+                            "key" : "",
+                            "value" : ""
+                        },
+                        "OPPO_APPID" : {
+                            "des" : "若不集成厂商通道，可直接跳过以下配置",
+                            "key" : "",
+                            "value" : ""
+                        },
+                        "OPPO_APPKEY" : {
+                            "des" : "若不集成厂商通道，可直接跳过以下配置",
+                            "key" : "",
+                            "value" : ""
+                        },
+                        "OPPO_APPSECRET" : {
+                            "des" : "若不集成厂商通道，可直接跳过以下配置",
+                            "key" : "",
+                            "value" : ""
+                        },
+                        "VIVO_APPID" : {
+                            "des" : "若不集成厂商通道，可直接跳过以下配置",
+                            "key" : "",
+                            "value" : ""
+                        },
+                        "VIVO_APPKEY" : {
+                            "des" : "若不集成厂商通道，可直接跳过以下配置",
+                            "key" : "",
+                            "value" : ""
+                        },
+                        "XIAOMI_APPID" : {
+                            "des" : "若不集成厂商通道，可直接跳过以下配置",
+                            "key" : "",
+                            "value" : ""
+                        },
+                        "XIAOMI_APPKEY" : {
+                            "des" : "若不集成厂商通道，可直接跳过以下配置",
+                            "key" : "",
+                            "value" : ""
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "quickapp" : {},
+    "mp-weixin" : {
+        "appid" : "",
+        "setting" : {
+            "urlCheck" : false
+        },
+        "usingComponents" : true
+    },
+    "mp-alipay" : {
+        "usingComponents" : true
+    },
+    "mp-baidu" : {
+        "usingComponents" : true
+    },
+    "mp-toutiao" : {
+        "usingComponents" : true
+    },
+    "h5" : {
+        "title" : "红宝客服1889",
+        "router" : {
+            "mode" : "hash",
+            "base" : "/1889/"
+        },
+        "devServer" : {
+            "port" : 5189
+        }
+    },
+    "uniStatistics" : {
+        "enable" : false
+    },
+    "vueVersion" : "3"
+}

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <script>
+      var coverSupport = 'CSS' in window && typeof CSS.supports === 'function' && (CSS.supports('top: env(a)') ||
+        CSS.supports('top: constant(a)'))
+      document.write(
+        '<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0' +
+        (coverSupport ? ', viewport-fit=cover' : '') + '" />')
+    </script>
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="抢红宝" />
+    <!-- 苹果高清主屏图标（OSS 1024） -->
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/brand/apple-touch-icon-1024-v2.png"
+    />
+    <link
+      rel="apple-touch-icon"
+      sizes="1024x1024"
+      href="https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/brand/apple-touch-icon-1024-v2.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      href="https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/brand/apple-touch-icon-1024-v2.png"
+    />
+    <title></title>
+    <!--
+      Telegram WebApp：hash 路由会与 #tgWebAppData 冲突。
+      1) 先把 tgWebAppData 存入 sessionStorage
+      2) 再加载本地 telegram-web-app.js（国内访问 telegram.org 常失败）
+      3) SDK 读完 hash 后，改写为 uni 路由 #/pages/login/tg-bind
+    -->
+    <script>
+      (function () {
+        function storeInitData(raw) {
+          if (!raw) return
+          try { sessionStorage.setItem('__tg_initData', raw) } catch (e) {}
+          try { sessionStorage.setItem('tgWebAppData', raw) } catch (e) {}
+        }
+        function parsePairs(str) {
+          var out = {}
+          String(str || '').replace(/^[#?]/, '').split('&').forEach(function (pair) {
+            var i = pair.indexOf('=')
+            if (i < 0) return
+            var k = pair.slice(0, i)
+            var v = pair.slice(i + 1)
+            try { k = decodeURIComponent(k) } catch (e) {}
+            try { v = decodeURIComponent(v) } catch (e) {}
+            out[k] = v
+          })
+          return out
+        }
+        try {
+          var hash = ''
+          var search = ''
+          try { hash = String(location.hash || '') } catch (e) {}
+          try { search = String(location.search || '') } catch (e) {}
+          var fromHash = parsePairs(hash)
+          var fromSearch = parsePairs(search)
+          if (fromHash.tgWebAppData) storeInitData(fromHash.tgWebAppData)
+          if (fromSearch.tgWebAppData) storeInitData(fromSearch.tgWebAppData)
+          // 兼容旧键盘 URL：hash 已是 #/pages/...，initData 只在 query
+          if (!fromSearch.tgWebAppData && search.indexOf('tgWebAppData=') >= 0) {
+            try {
+              var m = search.match(/(?:^|[?&])tgWebAppData=([^&]*)/)
+              if (m && m[1]) storeInitData(decodeURIComponent(m[1].replace(/\+/g, '%20')))
+            } catch (e2) {}
+          }
+          if (fromSearch.tg_bind === '1' || fromHash.tgWebAppData || fromSearch.tgWebAppData || search.indexOf('tgWebAppData=') >= 0) {
+            try { sessionStorage.setItem('__tg_bind', '1') } catch (e) {}
+          }
+          window.__HB_TG_BOOT__ = {
+            hadTgHash: hash.indexOf('tgWebAppData=') >= 0,
+            wantBind: fromSearch.tg_bind === '1' || !!fromHash.tgWebAppData || !!fromSearch.tgWebAppData || search.indexOf('tgWebAppData=') >= 0
+          }
+        } catch (e) {}
+      })()
+    </script>
+    <script src="/1889/static/vendor/telegram-web-app.js" data-tg-webapp="1"></script>
+    <script>
+      (function () {
+        try {
+          var boot = window.__HB_TG_BOOT__ || {}
+          var hash = ''
+          try { hash = String(location.hash || '') } catch (e) {}
+          var search = ''
+          try { search = String(location.search || '') } catch (e) {}
+          var want =
+            boot.wantBind ||
+            /(?:^|[?&])tg_bind=1(?:&|$)/.test(search) ||
+            hash.indexOf('tgWebAppData=') >= 0 ||
+            (sessionStorage.getItem('__tg_initData') || '') !== ''
+          if (!want) return
+          // SDK 已从 #tgWebAppData 初始化后，把 hash 交给 uni 路由
+          if (hash.indexOf('tgWebAppData=') >= 0 || hash === '' || hash === '#') {
+            var path = String(location.pathname || '/1889/') + search
+            history.replaceState(null, '', path + '#/pages/login/tg-bind')
+          } else if (hash.indexOf('/pages/login/tg-bind') < 0 && /(?:^|[?&])tg_bind=1(?:&|$)/.test(search)) {
+            history.replaceState(null, '', String(location.pathname || '/1889/') + search + '#/pages/login/tg-bind')
+          }
+        } catch (e) {}
+      })()
+    </script>
+    <!--preload-links-->
+    <!--app-context-->
+  </head>
+  <body>
+    <div id="app"><!--app-html--></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

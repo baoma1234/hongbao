@@ -1,0 +1,1611 @@
+/* uni-1889 消息页适配：复用 888 chat.bundle.css 时补齐外壳高度
+ * 同时用 .msg-tab-root：App 上部分机型 #id 选择器不稳定 */
+.messages-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  box-sizing: border-box;
+  background: #f3f4f6;
+  padding-top: 0 !important;
+}
+
+/* 各端 body 均不垫顶：H5 顶栏占流 / App 用 spacer，避免 padding-top 再空一截。
+ * 用更高特异性盖住 friend/settings 分包里遗留的 body.tab-messages { padding-top: calc(44px) } */
+html body.tab-messages,
+body.tab-messages {
+  padding-top: 0 !important;
+}
+
+/* 仅 iOS Safari H5：锁住整页滚动，避免会话列表下滑时整页橡皮筋回弹把列表拽回顶部 */
+html.tab-messages-ios-safari,
+body.tab-messages-ios-safari {
+  overflow: hidden !important;
+  height: 100% !important;
+  overscroll-behavior-y: none !important;
+  -webkit-overflow-scrolling: auto;
+}
+body.tab-messages-ios-safari {
+  position: relative !important;
+  width: 100% !important;
+  touch-action: manipulation;
+}
+html.tab-messages-ios-safari .msg-tab-root .chat-conv-scroll .uni-scroll-view,
+html.tab-messages-ios-safari #tabMessages .chat-conv-scroll .uni-scroll-view,
+body.tab-messages-ios-safari .msg-tab-root .chat-conv-scroll .uni-scroll-view,
+body.tab-messages-ios-safari #tabMessages .chat-conv-scroll .uni-scroll-view {
+  overscroll-behavior-y: contain !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+.msg-tab-root.tab-page,
+#tabMessages.tab-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  /* 高度由 JS（扣 TopBar spacer + 底栏）写入；CSS 仅作兜底 */
+  --tab-bar-space: calc(72px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  height: calc(
+    100vh - var(--top-bar-height, 48px) - var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) -
+      var(--tab-bar-space)
+  );
+  min-height: 320px;
+  padding-bottom: 0;
+  background: var(--color-bg-page, #f5f5f5);
+  overflow: hidden;
+  box-sizing: border-box;
+  flex: 1 1 auto;
+}
+
+.msg-tab-root .chat-shell,
+#tabMessages .chat-shell {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.msg-tab-root .chat-list-pane,
+#tabMessages .chat-list-pane,
+body.tab-messages #tabMessages .chat-list-pane {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  /* 覆盖 chat.bundle 的 --chat-bottom-gap，列表贴到底栏上沿 */
+  padding-bottom: 0 !important;
+}
+
+.msg-tab-root .chat-list-main,
+#tabMessages .chat-list-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* 贴底，避免公告区下方多出一块空白 */
+  padding-bottom: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+.msg-tab-root .chat-home-panel,
+#tabMessages .chat-home-panel {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.msg-tab-root .chat-home-panel.is-hidden,
+#tabMessages .chat-home-panel.is-hidden {
+  display: none !important;
+}
+
+/* 佣金：外层定高裁切，内部 scroll-view 用 JS 像素高滚动（勿 height:100%!important，Safari 会盖掉内联高） */
+#tabMessages #chatHomePanelCommission.chat-home-panel:not(.is-hidden),
+#tabMessages .chat-commission-panel:not(.is-hidden),
+.msg-tab-root #chatHomePanelCommission.chat-home-panel:not(.is-hidden),
+.msg-tab-root .chat-commission-panel:not(.is-hidden) {
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  position: relative !important;
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  box-sizing: border-box !important;
+}
+
+#tabMessages .chat-commission-body-scroll,
+.msg-tab-root .chat-commission-body-scroll {
+  position: relative !important;
+  left: auto !important;
+  right: auto !important;
+  top: auto !important;
+  bottom: auto !important;
+  width: 100% !important;
+  flex: none !important;
+  min-height: 120px !important;
+  /* height / minHeight 由 messages.vue panelScrollStyle 内联像素写入 */
+  box-sizing: border-box !important;
+  padding: 10px 12px 24px !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 会话列表：scroll-view 负责滚动（App 标签是 uni-scroll-view，勿写 scroll-view.xxx） */
+.msg-tab-root .chat-conv-ptr-host,
+#tabMessages .chat-conv-ptr-host {
+  flex: 1 1 0% !important;
+  min-height: 120px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  position: relative !important;
+  box-sizing: border-box !important;
+}
+.msg-tab-root .chat-conv-scroll,
+#tabMessages .chat-conv-scroll {
+  position: relative !important;
+  left: auto !important;
+  right: auto !important;
+  top: auto !important;
+  bottom: auto !important;
+  flex: none !important;
+  width: 100% !important;
+  min-height: 120px !important;
+  box-sizing: border-box !important;
+  -webkit-overflow-scrolling: touch;
+}
+/* H5 Safari：内层滚动容器也开 touch momentum（外层已由 JS 定死像素高） */
+#tabMessages .chat-conv-scroll .uni-scroll-view,
+#tabMessages .chat-community-body-scroll .uni-scroll-view,
+#tabMessages .chat-official-scroll .uni-scroll-view,
+#tabMessages .chat-notice-body-scroll .uni-scroll-view,
+#tabMessages .chat-commission-body-scroll .uni-scroll-view,
+.msg-tab-root .chat-conv-scroll .uni-scroll-view,
+.msg-tab-root .chat-community-body-scroll .uni-scroll-view,
+.msg-tab-root .chat-official-scroll .uni-scroll-view,
+.msg-tab-root .chat-notice-body-scroll .uni-scroll-view,
+.msg-tab-root .chat-commission-body-scroll .uni-scroll-view {
+  height: 100% !important;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  box-sizing: border-box !important;
+}
+/* 会话 / 社群 / 佣金 / 公告：scroll 内容区末项后再撑 20px（App 上 list padding 常无效） */
+#tabMessages .chat-conv-scroll .uni-scroll-view-content,
+#tabMessages .chat-community-body-scroll .uni-scroll-view-content,
+#tabMessages .chat-commission-body-scroll .uni-scroll-view-content,
+#tabMessages .chat-notice-body-scroll .uni-scroll-view-content,
+.msg-tab-root .chat-conv-scroll .uni-scroll-view-content,
+.msg-tab-root .chat-community-body-scroll .uni-scroll-view-content,
+.msg-tab-root .chat-commission-body-scroll .uni-scroll-view-content,
+.msg-tab-root .chat-notice-body-scroll .uni-scroll-view-content {
+  padding-bottom: 20px !important;
+  box-sizing: border-box !important;
+}
+#tabMessages .chat-list-scroll-pad,
+.msg-tab-root .chat-list-scroll-pad {
+  display: block !important;
+  width: 100% !important;
+  height: 20px !important;
+  min-height: 20px !important;
+  max-height: 20px !important;
+  flex-shrink: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+}
+
+.msg-tab-root .chat-conv-list,
+#tabMessages .chat-conv-list {
+  flex: none !important;
+  height: auto !important;
+  min-height: 0 !important;
+  overflow: visible !important;
+  overflow-x: visible !important;
+  overflow-y: visible !important;
+  padding-bottom: 20px !important;
+  box-sizing: border-box !important;
+}
+
+/* 恢复社群/公告/佣金底色与内边距（勿被透明 chat 面板规则波及） */
+#tabMessages .chat-community-glass:not(.is-hidden) {
+  background:
+    radial-gradient(120% 80% at 50% -10%, rgba(255, 236, 210, 0.95) 0%, transparent 55%),
+    linear-gradient(180deg, #fbf4ea 0%, #f3e6d6 100%) !important;
+  padding: 6px 10px 12px !important;
+  gap: 8px !important;
+}
+#tabMessages .chat-notice-feed-panel:not(.is-hidden) {
+  background:
+    radial-gradient(120% 80% at 50% -10%, rgba(255, 236, 210, 0.95) 0%, transparent 55%),
+    linear-gradient(180deg, #fbf4ea 0%, #f3e6d6 100%) !important;
+  padding: 8px 12px 10px !important;
+  gap: 10px !important;
+}
+#tabMessages .chat-commission-panel:not(.is-hidden) {
+  background: #fff8f3 !important;
+  padding: 0 !important;
+}
+
+/* uni view/button 默认样式复位，贴近 888 原生按钮 */
+#tabMessages .chat-hero-icon-btn,
+#tabMessages .chat-home-tab,
+#tabMessages .chat-community-seg-btn,
+#tabMessages .chat-plus-menu-item,
+#tabMessages .chat-group-card,
+#tabMessages .chat-my-group-item,
+#tabMessages .chat-feed-item,
+#tabMessages .chat-commission-nav-item,
+#tabMessages .chat-commission-withdraw-btn,
+#tabMessages .chat-home-search-cancel,
+#tabMessages .chat-mini-btn {
+  box-sizing: border-box;
+  line-height: normal;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* uni-view 默认 display:block，分段/Tab 需 flex 居中（888 用 button） */
+#tabMessages .chat-home-tab,
+#tabMessages .chat-community-seg-btn {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 会话行：强制 flex，避免 uni-view 把头像挤没 */
+#tabMessages .chat-conv-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 10px 20px 10px 10px !important;
+}
+
+/* 社群：官方群组 / 我的群组 / 我创建的 / 好友列表 间距统一收紧 */
+#tabMessages .chat-community-seg {
+  height: 38px !important;
+  padding: 2px !important;
+}
+#tabMessages .chat-community-hero-cards {
+  gap: 4px !important;
+  padding: 2px 0 6px !important;
+}
+#tabMessages .chat-group-card {
+  padding: 6px 3px 5px !important;
+  border-radius: 12px !important;
+}
+#tabMessages .chat-community-glass-panel {
+  padding: 10px 8px !important;
+  border-radius: 18px !important;
+}
+#tabMessages .chat-my-groups-list,
+#tabMessages .chat-friend-feed-list,
+#tabMessages .chat-official-list {
+  gap: 6px !important;
+}
+#tabMessages .chat-my-group-item,
+#tabMessages .chat-feed-item {
+  display: flex !important;
+  padding: 8px 10px !important;
+  gap: 10px !important;
+  border-radius: 14px !important;
+  align-items: center !important;
+  /* App 列表卡顿主因：逐行 backdrop-filter；改实色背景 */
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: #fffdf8 !important;
+  border: 1px solid rgba(230, 190, 130, 0.45) !important;
+  box-shadow: 0 2px 8px rgba(160, 120, 70, 0.08) !important;
+  filter: none !important;
+}
+#tabMessages .chat-my-group-main {
+  gap: 8px !important;
+}
+#tabMessages .chat-my-group-create {
+  margin-bottom: 6px !important;
+}
+#tabMessages .chat-my-group-avatar {
+  width: 36px !important;
+  height: 36px !important;
+}
+
+/* 好友列表头像：与会话列表 .chat-avatar 同尺寸（勿再压成 36 圆） */
+#tabMessages .chat-friend-feed-list .chat-avatar {
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 14px !important;
+}
+#tabMessages .chat-friend-feed-list .chat-feed-online-dot {
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 10px !important;
+  height: 10px !important;
+  z-index: 2;
+}
+
+/* 官方社群头像：与会话群头像一致 */
+#tabMessages .chat-official-list .chat-avatar,
+#tabMessages .chat-official-list .chat-avatar.group {
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 14px !important;
+  overflow: hidden !important;
+  flex-shrink: 0 !important;
+}
+
+/* uni-image 在 H5 默认 320x240，必须在头像容器内强制铺满 */
+#tabMessages .chat-avatar,
+#tabMessages .chat-my-group-avatar,
+#tabMessages .chat-feed-avatar,
+#tabMessages .chat-group-card .icon-box {
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+#tabMessages .chat-avatar {
+  width: 48px !important;
+  height: 48px !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+}
+
+#tabMessages .chat-avatar uni-image,
+#tabMessages .chat-avatar image,
+#tabMessages .chat-avatar .uni-image,
+#tabMessages .chat-my-group-avatar uni-image,
+#tabMessages .chat-my-group-avatar image,
+#tabMessages .chat-feed-avatar uni-image,
+#tabMessages .chat-feed-avatar image,
+#tabMessages .chat-group-card .icon-box uni-image,
+#tabMessages .chat-group-card .icon-box image {
+  width: 100% !important;
+  height: 100% !important;
+  display: block !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+}
+
+#tabMessages .chat-avatar uni-image div,
+#tabMessages .chat-my-group-avatar uni-image div,
+#tabMessages .chat-feed-avatar uni-image div,
+#tabMessages .chat-group-card .icon-box uni-image div {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+#tabMessages .chat-avatar uni-image img,
+#tabMessages .chat-avatar img,
+#tabMessages .chat-my-group-avatar uni-image img,
+#tabMessages .chat-my-group-avatar img,
+#tabMessages .chat-feed-avatar uni-image img,
+#tabMessages .chat-feed-avatar img,
+#tabMessages .chat-group-card .icon-box uni-image img,
+#tabMessages .chat-group-card .icon-box img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
+}
+
+/*
+ * 公告卡头：class 直接挂在 <image> 上。
+ * 不可写 width/height:100%，否则 .chat-notice-hd { display:flex } 时头像会撑满整行把布局打乱。
+ */
+#tabMessages .chat-notice-hd {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 10px !important;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+#tabMessages .chat-notice-avatar,
+#tabMessages uni-image.chat-notice-avatar,
+#tabMessages image.chat-notice-avatar {
+  width: 42px !important;
+  height: 42px !important;
+  max-width: 42px !important;
+  max-height: 42px !important;
+  flex: 0 0 42px !important;
+  border-radius: 12px !important;
+  overflow: hidden;
+  position: relative;
+  display: block !important;
+  background: #fff4d6;
+  box-sizing: border-box;
+}
+#tabMessages .chat-notice-avatar img,
+#tabMessages .chat-notice-avatar div,
+#tabMessages .chat-notice-avatar .uni-image,
+#tabMessages .chat-notice-avatar uni-image {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
+}
+#tabMessages .chat-notice-meta {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  overflow: hidden;
+}
+#tabMessages .chat-notice-time {
+  flex: 0 0 auto !important;
+  white-space: nowrap;
+}
+
+#tabMessages .chat-avatar.group {
+  background: linear-gradient(160deg, #fff8ee, #ffe8cc);
+  color: #b8751a;
+}
+
+#tabMessages .chat-plus-menu-ico-img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  border-radius: 7px;
+}
+
+#tabMessages .chat-my-group-avatar,
+#tabMessages .chat-feed-avatar,
+#tabMessages .chat-group-card .icon-box,
+#tabMessages .chat-commission-row-ico,
+#tabMessages .chat-commission-nav-ico {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+#tabMessages .chat-commission-nav-glyph,
+.chat-commission-nav-glyph {
+  display: block !important;
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  color: #ff6a2a !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+#tabMessages .chat-home-search-input {
+  width: 100%;
+  height: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 14px;
+}
+
+#tabMessages .chat-reconnect {
+  color: var(--color-primary-start, #e63022);
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+/* ---------- 红宝玻璃风：uni text 强制继承 888 色值 ---------- */
+#tabMessages .chat-hero-title,
+#tabMessages .chat-list-hero .chat-hero-title {
+  color: #fff !important;
+  font-size: 20px !important;
+  font-weight: 800 !important;
+  text-shadow: 0 1px 3px rgba(80, 10, 8, 0.3);
+}
+#tabMessages .chat-hero-icon-btn {
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.16) !important;
+  border: 1px solid rgba(255, 233, 176, 0.45) !important;
+}
+#tabMessages .chat-plus-menu {
+  background: #fffdf9 !important;
+  border: 1.5px solid transparent !important;
+  background-image: linear-gradient(#fffdf9, #fffdf9), linear-gradient(145deg, #ffe9b0, #f0b04a, #e07a22) !important;
+  background-origin: border-box !important;
+  background-clip: padding-box, border-box !important;
+  box-shadow: 0 10px 24px rgba(176, 120, 50, 0.18) !important;
+  border-radius: 14px !important;
+  overflow: hidden;
+  z-index: 50;
+}
+#tabMessages .chat-plus-menu-mask {
+  z-index: 45;
+}
+#tabMessages .chat-plus-menu-item {
+  color: #3d2e22 !important;
+  font-weight: 700 !important;
+  background: transparent !important;
+}
+#tabMessages .chat-plus-menu-item text {
+  color: inherit !important;
+}
+#tabMessages .chat-conn {
+  color: #9a8574 !important;
+  font-size: 12px !important;
+}
+#tabMessages .chat-conn.ok {
+  color: #c61114 !important;
+}
+#tabMessages .chat-my-id {
+  color: #8a7a6e !important;
+  font-size: 12px !important;
+  font-weight: 700;
+  padding: 0 !important;
+}
+/* 顶栏四 Tab：对齐 888 glass（红渐变选中） */
+#tabMessages .chat-home-tab {
+  color: #9a8574 !important;
+  font-weight: 700 !important;
+}
+#tabMessages .chat-home-tab.active {
+  color: #fff !important;
+  background: linear-gradient(to right, #e63022, #c61114) !important;
+  border-radius: 18px !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
+}
+#tabMessages .chat-home-tab.active::after {
+  display: none !important;
+}
+#tabMessages .chat-conv-title,
+#tabMessages .chat-conv-title text {
+  color: #2a1f18 !important;
+  font-weight: 800;
+}
+#tabMessages .chat-conv-title-main {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1;
+  gap: 4px;
+}
+#tabMessages .chat-conv-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 客服标签：覆盖上方 title text 的深色，保持白字 */
+#tabMessages .chat-admin-tag,
+#tabMessages .chat-admin-tag text,
+#tabMessages .chat-conv-title .chat-admin-tag,
+#tabMessages .chat-conv-title .chat-admin-tag text,
+#tabMessages .chat-conv-title text.chat-admin-tag {
+  color: #fff !important;
+}
+#tabMessages .chat-conv-preview,
+#tabMessages .chat-conv-time {
+  color: #9a8574 !important;
+}
+/* 仅聊天面板外壳透明；会话列表白底由 bundle 负责 */
+#tabMessages #chatHomePanelChat.chat-home-panel:not(.is-hidden) {
+  background: transparent !important;
+}
+#tabMessages .chat-empty.chat-empty-glass {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.45) 0%, rgba(255, 246, 232, 0.35) 100%) padding-box,
+    linear-gradient(145deg, rgba(255, 233, 176, 0.7), rgba(224, 122, 34, 0.4)) border-box !important;
+}
+
+/* 社群 / 公告分段：对齐 888 橙红渐变胶囊 */
+#tabMessages .chat-community-seg-btn {
+  color: #6b6b6b !important;
+  font-weight: 700 !important;
+  position: relative;
+}
+#tabMessages .chat-community-seg-btn.active {
+  color: #fff !important;
+  background: linear-gradient(90deg, #ffb347 0%, #ff7a2f 45%, #e83b1a 100%) !important;
+  box-shadow:
+    0 3px 10px rgba(232, 59, 26, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+  text-shadow: 0 1px 1px rgba(120, 20, 8, 0.15);
+}
+
+/* 社群卡片 / 列表文字（uni text 继承） */
+#tabMessages .chat-group-card .title,
+#tabMessages .chat-group-card .subtitle,
+#tabMessages .chat-my-group-name,
+#tabMessages .chat-my-group-sub,
+#tabMessages .chat-feed-text,
+#tabMessages .chat-feed-status,
+#tabMessages .chat-my-group-count,
+#tabMessages .chat-empty-glass {
+  color: inherit;
+}
+#tabMessages .chat-group-card .title {
+  color: #3d2e22 !important;
+}
+#tabMessages .chat-group-card .subtitle {
+  color: #9a8574 !important;
+}
+#tabMessages .chat-my-group-name,
+#tabMessages .chat-my-group-name text {
+  color: #3d2e22 !important;
+}
+#tabMessages .chat-my-group-sub,
+#tabMessages .chat-my-group-sub text {
+  color: #9a8574 !important;
+  font-size: 12px;
+  font-weight: 600;
+}
+#tabMessages .chat-my-group-count {
+  color: #c61114 !important;
+}
+#tabMessages .chat-my-group-count text {
+  font-size: 11px;
+  font-weight: 700;
+  color: #9a8574 !important;
+}
+#tabMessages .chat-feed-text,
+#tabMessages .chat-feed-text text {
+  color: #3d2e22 !important;
+  font-weight: 700;
+}
+#tabMessages .chat-feed-status {
+  color: #9a8574 !important;
+}
+#tabMessages .chat-feed-status.on {
+  color: #2f9e44 !important;
+}
+
+/* 公告卡片文字 */
+#tabMessages .chat-notice-name,
+#tabMessages .chat-notice-name text {
+  color: #1a1a1a !important;
+  font-weight: 700;
+}
+#tabMessages .chat-notice-day,
+#tabMessages .chat-notice-time,
+#tabMessages .chat-notice-day text,
+#tabMessages .chat-notice-time text {
+  color: #9a9a9a !important;
+}
+#tabMessages .chat-notice-tag,
+#tabMessages .chat-notice-tag text {
+  color: #e23b2f !important;
+  font-weight: 700;
+}
+#tabMessages .chat-notice-body {
+  color: #222 !important;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 公告分段下划线（对齐 888 active::after） */
+#tabMessages .chat-community-seg-btn.active::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 4px;
+  width: 14px;
+  height: 2px;
+  margin-left: -7px;
+  border-radius: 2px;
+  background: rgba(90, 18, 10, 0.45);
+}
+
+#tabMessages .chat-notice-seg .chat-community-seg-btn {
+  font-size: 12px !important;
+  letter-spacing: 0 !important;
+  padding: 0 2px 2px !important;
+}
+
+/* 社群：外层不滚，内部 scroll-view 滚（对齐公告/聊天列表） */
+#tabMessages #chatHomePanelCommunity.chat-home-panel:not(.is-hidden),
+#tabMessages .chat-community-glass:not(.is-hidden) {
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+}
+
+#tabMessages .chat-community-pane {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  height: 0 !important;
+  /* 非 active 必须隐藏：否则 v-show 会被 !important 盖掉，多面板叠在一起 */
+  display: none !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  position: relative !important;
+}
+#tabMessages .chat-community-pane.active {
+  display: flex !important;
+}
+
+#tabMessages .chat-community-pane.chat-community-pane--official.active,
+#tabMessages .chat-community-pane.chat-community-pane--feed.active {
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* 规则卡片：fixed 钉在底栏上方（z > TabBar 9000） */
+#tabMessages .chat-official-rules,
+#tabMessages .chat-official-rules--dock,
+.msg-tab-root .chat-official-rules,
+.msg-tab-root .chat-official-rules--dock,
+.messages-page .chat-official-rules--dock {
+  flex: 0 0 auto !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  display: flex !important;
+}
+.messages-page .chat-official-rules--dock {
+  position: fixed !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: calc(72px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))) !important;
+  z-index: 9100 !important;
+  margin: 0 auto 0px !important;
+  width: calc(100% - 20px) !important;
+  max-width: 720px !important;
+  box-sizing: border-box !important;
+}
+
+#tabMessages .chat-community-glass .chat-community-seg {
+  flex: 0 0 auto !important;
+}
+
+.msg-tab-root .chat-community-body-scroll,
+.msg-tab-root .chat-official-scroll,
+#tabMessages .chat-community-body-scroll,
+#tabMessages .chat-official-scroll {
+  flex: none !important;
+  min-height: 120px !important;
+  width: 100% !important;
+  position: relative !important;
+  left: auto !important;
+  right: auto !important;
+  top: auto !important;
+  bottom: auto !important;
+  box-sizing: border-box !important;
+  -webkit-overflow-scrolling: touch;
+  overflow: hidden !important;
+}
+/* 内层必须吃满像素高，否则 App/Safari 只露出可视约 4 行且无法滚动 */
+#tabMessages .chat-community-body-scroll .uni-scroll-view,
+#tabMessages .chat-official-scroll .uni-scroll-view,
+.msg-tab-root .chat-community-body-scroll .uni-scroll-view,
+.msg-tab-root .chat-official-scroll .uni-scroll-view {
+  height: 100% !important;
+  max-height: 100% !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+#tabMessages .chat-community-body-scroll .uni-scroll-view-content,
+#tabMessages .chat-official-scroll .uni-scroll-view-content {
+  height: auto !important;
+}
+
+#tabMessages .chat-community-pane-body,
+#tabMessages .chat-my-groups-list,
+#tabMessages .chat-friend-feed-list,
+#tabMessages .chat-official-list {
+  flex: none !important;
+  height: auto !important;
+  min-height: 0 !important;
+  overflow: visible !important;
+}
+/* 好友/我的群：末项后再留 20px（padding，App 上空 view 易塌） */
+#tabMessages .chat-friend-feed-list,
+#tabMessages .chat-my-groups-list {
+  padding-bottom: 20px !important;
+  box-sizing: border-box !important;
+}
+/* 旧玻璃面板若仍出现：禁止二次滚动裁切 */
+#tabMessages .chat-community-glass-panel {
+  overflow: visible !important;
+  height: auto !important;
+  min-height: 0 !important;
+  flex: none !important;
+  max-height: none !important;
+}
+
+/* 公告：对齐社群 pane（height:0 + flex），避免 App 上 height:auto 把列表压成空白 */
+#tabMessages #chatHomePanelNotice.chat-notice-feed-panel:not(.is-hidden) {
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  position: relative !important;
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  box-sizing: border-box !important;
+}
+
+#tabMessages .chat-notice-feed-panel .chat-notice-seg {
+  flex: 0 0 auto !important;
+}
+
+#tabMessages .chat-notice-pane {
+  /* App/IPA：勿用 height:0；高度由内联 noticePaneStyle 像素给出 */
+  flex: none !important;
+  min-height: 120px !important;
+  position: relative !important;
+  overflow: hidden !important;
+  display: block !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.msg-tab-root .chat-notice-body-scroll,
+#tabMessages .chat-notice-body-scroll {
+  /* App scroll-view 勿用 display:flex，否则内容高度常为 0 */
+  display: block !important;
+  flex: none !important;
+  min-height: 120px !important;
+  width: 100% !important;
+  position: relative !important;
+  left: auto !important;
+  right: auto !important;
+  top: auto !important;
+  bottom: auto !important;
+  box-sizing: border-box !important;
+  -webkit-overflow-scrolling: touch;
+  overflow: hidden !important;
+}
+/* IPA：内层也要继承像素高，否则外层有高、里层 0 → 空白划不动 */
+.msg-tab-root .chat-notice-body-scroll .uni-scroll-view,
+#tabMessages .chat-notice-body-scroll .uni-scroll-view {
+  height: 100% !important;
+  min-height: 100% !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 公告列表不要 flex 撑高；末项后留 30px 可滚空白 */
+#tabMessages .chat-notice-feed,
+.msg-tab-root .chat-notice-feed {
+  flex: none !important;
+  min-height: 0 !important;
+  height: auto !important;
+  padding-bottom: 30px !important;
+  box-sizing: border-box !important;
+}
+
+#tabMessages .chat-notice-avatar-fallback {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  color: #e8952a;
+  background: #fff4d6 !important;
+}
+
+#tabMessages .chat-notice-action-btn,
+#tabMessages .chat-notice-share-btn {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  line-height: 1.2;
+}
+
+#tabMessages .chat-notice-imgs {
+  display: grid !important;
+  gap: 6px;
+}
+#tabMessages .chat-notice-imgs.imgs-full {
+  display: flex !important;
+  flex-direction: column !important;
+}
+#tabMessages .chat-notice-img-wrap {
+  width: 100% !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+#tabMessages .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap {
+  aspect-ratio: 1 !important;
+}
+#tabMessages .chat-notice-imgs.imgs-1 .chat-notice-img-wrap,
+#tabMessages .chat-notice-imgs.imgs-full .chat-notice-img-wrap {
+  aspect-ratio: auto !important;
+  height: auto !important;
+}
+#tabMessages .chat-notice-img,
+#tabMessages .chat-notice-img-wrap uni-image,
+#tabMessages .chat-notice-img-wrap image {
+  width: 100% !important;
+  display: block !important;
+  max-width: 100% !important;
+}
+/* 九宫格：铺满格子 */
+#tabMessages .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img,
+#tabMessages .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap uni-image,
+#tabMessages .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap image,
+#tabMessages .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap img {
+  height: 100% !important;
+  object-fit: cover !important;
+}
+/* 长图：禁止写死 height，让 widthFix 自己写入高度 */
+#tabMessages .chat-notice-imgs.imgs-1 .chat-notice-img,
+#tabMessages .chat-notice-imgs.imgs-full .chat-notice-img,
+#tabMessages .chat-notice-imgs.imgs-1 .chat-notice-img-wrap uni-image,
+#tabMessages .chat-notice-imgs.imgs-full .chat-notice-img-wrap uni-image,
+#tabMessages .chat-notice-imgs.imgs-1 .chat-notice-img-wrap image,
+#tabMessages .chat-notice-imgs.imgs-full .chat-notice-img-wrap image {
+  max-height: none !important;
+}
+
+#tabMessages .chat-promote-earn-wrap {
+  display: block !important;
+  flex: 0 0 auto;
+  margin-bottom: 10px;
+}
+#tabMessages .chat-promote-earn-card {
+  padding: 10px 10px 8px !important;
+}
+#tabMessages .chat-promote-earn-live {
+  color: #9a9a9a !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+}
+#tabMessages .chat-promote-earn-title,
+#tabMessages .chat-promote-earn-title text {
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  color: #1a1a1a !important;
+}
+#tabMessages .chat-promote-earn-th,
+#tabMessages .chat-promote-earn-th text {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: #333 !important;
+  line-height: 1.2 !important;
+  padding: 4px 2px !important;
+}
+#tabMessages .chat-promote-earn-th.is-active > .pe-th-pill,
+#tabMessages .chat-promote-earn-th.is-active > .pe-th-pill text {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  min-width: 58px;
+  padding: 3px 8px 4px !important;
+  border-radius: 999px;
+  color: #fff !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  background: linear-gradient(90deg, #ff9a3c 0%, #ff6a1f 48%, #e83b1a 100%);
+  box-shadow: 0 2px 8px rgba(232, 59, 26, 0.28);
+}
+#tabMessages .chat-promote-earn-td,
+#tabMessages .chat-promote-earn-td text {
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  color: #2a2a2a !important;
+  text-align: center;
+  line-height: 1.25 !important;
+  padding: 4px 2px !important;
+}
+#tabMessages .chat-promote-earn-td.is-amt,
+#tabMessages .chat-promote-earn-td.is-amt text {
+  color: #e83b1a !important;
+  font-weight: 800 !important;
+}
+/* 一次可见 4 行：4 * 36 = 144 */
+#tabMessages .chat-promote-earn-viewport {
+  height: 144px !important;
+  max-height: 144px !important;
+  overflow: hidden !important;
+}
+#tabMessages .chat-promote-earn-row {
+  min-height: 36px !important;
+  height: 36px !important;
+  box-sizing: border-box;
+}
+
+
+/* 佣金面板：hero 白字 + 入口/列表色 */
+#tabMessages .chat-commission-hero-label,
+#tabMessages .chat-commission-hero-value,
+#tabMessages .chat-commission-stat-label,
+#tabMessages .chat-commission-stat-value,
+#tabMessages .chat-commission-hero-label text,
+#tabMessages .chat-commission-hero-value text,
+#tabMessages .chat-commission-stat-label text,
+#tabMessages .chat-commission-stat-value text {
+  color: #fff !important;
+}
+#tabMessages .chat-commission-withdraw-btn,
+#tabMessages .chat-commission-withdraw-btn text,
+.msg-tab-root .chat-commission-withdraw-btn,
+.msg-tab-root .chat-commission-withdraw-btn text {
+  color: #333 !important;
+  font-weight: 700;
+}
+#tabMessages .chat-commission-withdraw-btn,
+.msg-tab-root .chat-commission-withdraw-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  padding: 0 12px !important;
+  min-height: 24px !important;
+  height: 24px !important;
+  line-height: 24px !important;
+  box-sizing: border-box !important;
+}
+#tabMessages .chat-commission-nav-label,
+#tabMessages .chat-commission-nav-label text {
+  color: #222 !important;
+  font-weight: 700;
+}
+#tabMessages .chat-commission-recent-hd {
+  color: #222 !important;
+  font-weight: 800;
+}
+#tabMessages .chat-commission-row-title {
+  color: #222 !important;
+  font-weight: 700;
+}
+#tabMessages .chat-commission-row-time {
+  color: #9a9a9a !important;
+}
+#tabMessages .chat-commission-row-amt {
+  color: #e23b2f !important;
+  font-weight: 800;
+}
+#tabMessages .chat-commission-row-amt.is-out {
+  color: #2f9e44 !important;
+}
+
+/* 建群面板：盖住 TopBar / TabBar */
+.chat-create-group-pane {
+  position: fixed !important;
+  left: 0;
+  right: 0;
+  /* top 不用 !important：App 需内联覆盖；H5/Safari 仍用下方 calc */
+  top: calc(
+    var(--top-bar-height, 48px) + var(--safe-area-inset-top, env(safe-area-inset-top, 0px))
+  );
+  bottom: 0;
+  z-index: 12000 !important;
+  display: none;
+  flex-direction: column;
+  background: #f3f4f6 !important;
+}
+.chat-create-group-pane.open {
+  display: flex !important;
+}
+.chat-create-group-pane .chat-cg-header {
+  padding-top: 12px !important;
+  padding-bottom: 36px !important;
+  flex-shrink: 0;
+}
+.chat-create-group-pane .chat-cg-title,
+.chat-create-group-pane .chat-cg-next-top,
+.chat-create-group-pane .chat-cg-back {
+  color: #fff !important;
+}
+.chat-create-group-pane .chat-cg-next-top.is-disabled,
+.chat-create-group-pane .chat-cg-next-inner.is-disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+.chat-create-group-pane .chat-cg-main {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: -24px !important;
+  border-top-left-radius: 18px;
+  border-top-right-radius: 18px;
+  background: #fffdf9 !important;
+  position: relative;
+  z-index: 2;
+  padding: 18px 14px 40px !important;
+  box-sizing: border-box;
+}
+.chat-create-group-pane .chat-cg-name-input {
+  flex: 1;
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 16px;
+  color: #3d2e22;
+  font-weight: 700;
+}
+.chat-create-group-pane .chat-cg-card-header,
+.chat-create-group-pane .chat-cg-card-body,
+.chat-create-group-pane .chat-cg-section-title,
+.chat-create-group-pane .chat-cg-hint {
+  color: #3d2e22;
+}
+.chat-create-group-pane .chat-cg-section-title text,
+.chat-create-group-pane .chat-cg-card-header text,
+.chat-create-group-pane .chat-cg-card-body text,
+.chat-create-group-pane .chat-cg-hint {
+  color: inherit !important;
+}
+.chat-create-group-pane .chat-cg-hint {
+  color: #9a8574 !important;
+  font-size: 12px;
+  margin-top: 12px;
+}
+.chat-create-group-pane .chat-cg-input-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.chat-create-group-pane .chat-cg-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  background: linear-gradient(160deg, #fff8ee, #ffe8cc);
+  border: 1.5px solid rgba(240, 176, 74, 0.55);
+  flex-shrink: 0;
+}
+.chat-create-group-pane .chat-cg-input-box {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1.5px solid transparent;
+  background-image: linear-gradient(#fff, #fff), linear-gradient(145deg, #ffe9b0, #f0b04a, #e07a22);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+}
+.chat-create-group-pane .chat-cg-next-inner {
+  flex-shrink: 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: linear-gradient(to right, #e63022, #c61114);
+  color: #fff !important;
+  font-size: 13px;
+  font-weight: 800;
+}
+.chat-create-group-pane .chat-cg-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.chat-create-group-pane .chat-cg-card {
+  text-align: left;
+  padding: 14px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1.5px solid rgba(224, 122, 34, 0.22);
+  box-sizing: border-box;
+}
+.chat-create-group-pane .chat-cg-card.active,
+.chat-create-group-pane .chat-cg-card.active-light {
+  border-color: transparent;
+  background-image: linear-gradient(#fff8f0, #fff8f0), linear-gradient(145deg, #ffe9b0, #f0b04a, #e07a22);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  box-shadow: 0 6px 14px rgba(170, 120, 55, 0.12);
+}
+.chat-create-group-pane .chat-cg-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+.chat-create-group-pane .chat-cg-card-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: #9a8574 !important;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.chat-create-group-pane .chat-cg-radio {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid #f0b04a;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  position: relative;
+}
+.chat-create-group-pane .chat-cg-card.active .chat-cg-radio,
+.chat-create-group-pane .chat-cg-card.active-light .chat-cg-radio {
+  border-color: #c61114;
+  background: radial-gradient(circle at center, #c61114 0 45%, transparent 48%);
+}
+.chat-create-group-pane .chat-cg-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f0b04a;
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+.chat-create-group-pane .chat-cg-section-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: #8a7a6e !important;
+  margin: 8px 0 10px;
+}
+
+/* 会话左滑：置顶 + 删除（精致小钮，对齐微信交互） */
+#tabMessages .chat-conv-swipe {
+  background: #e8e6eb;
+}
+#tabMessages .chat-conv-swipe .chat-conv-item {
+  will-change: transform;
+  backface-visibility: hidden;
+}
+#tabMessages .chat-conv-swipe-actions {
+  width: 128px;
+}
+#tabMessages .chat-conv-swipe-btn {
+  width: 64px;
+  transition: filter 0.12s ease, transform 0.12s ease;
+}
+#tabMessages .chat-conv-swipe-pin {
+  background: linear-gradient(165deg, #c5c3c9 0%, #a09ea6 100%);
+}
+#tabMessages .chat-conv-swipe-del {
+  background: linear-gradient(165deg, #ff6f72 0%, #e5484d 100%);
+}
+#tabMessages .chat-conv-swipe-lab {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  line-height: 1.2;
+  text-align: center;
+  padding: 0 4px;
+}
+#tabMessages .chat-conv-swipe.open .chat-conv-swipe-btn,
+#tabMessages .chat-conv-swipe.is-dragging .chat-conv-swipe-btn {
+  animation: chatConvActionIn 0.18s ease;
+}
+#tabMessages .chat-conv-swipe-btn:active {
+  transform: scale(0.94);
+  filter: brightness(0.92);
+}
+@keyframes chatConvActionIn {
+  from { opacity: 0.5; transform: translateX(8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* 裂变红包公告卡 */
+#tabMessages .chat-fission-card {
+  margin: 10px 12px 14px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: linear-gradient(165deg, #0d1b3a 0%, #152a52 100%);
+  box-shadow: 0 8px 24px rgba(10, 20, 40, 0.35);
+}
+#tabMessages .chat-fission-card-hd {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px 0;
+}
+#tabMessages .chat-fission-card-tag {
+  font-size: 11px;
+  color: #ffd27a;
+  font-weight: 700;
+}
+#tabMessages .chat-fission-card-time {
+  font-size: 11px;
+  color: #8a9bb5;
+}
+#tabMessages .chat-fission-envelope {
+  margin: 10px 14px 16px;
+  padding: 22px 16px 16px;
+  border-radius: 14px;
+  text-align: center;
+  background: linear-gradient(165deg, #ff5a2a 0%, #c62828 70%, #8b0000 100%);
+  color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+#tabMessages .chat-fission-title {
+  display: block;
+  font-size: 15px;
+  letter-spacing: 4px;
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+#tabMessages .chat-fission-pool {
+  display: block;
+  font-size: 28px;
+  font-weight: 800;
+  color: #ffe082;
+  margin-bottom: 6px;
+}
+#tabMessages .chat-fission-progress,
+#tabMessages .chat-fission-remain {
+  display: block;
+  font-size: 12px;
+  opacity: 0.95;
+  margin-bottom: 4px;
+}
+#tabMessages .chat-fission-cta {
+  margin: 12px auto 8px;
+  max-width: 220px;
+  background: linear-gradient(180deg, #ffe08a, #f0b429);
+  color: #4a3200;
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 42px;
+  border-radius: 22px;
+}
+#tabMessages .chat-fission-cta.disabled {
+  filter: grayscale(0.8);
+  opacity: 0.7;
+}
+#tabMessages .chat-fission-risk {
+  display: block;
+  font-size: 10px;
+  opacity: 0.85;
+}
+#tabMessages .chat-fission-card-ft {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 14px 12px;
+}
+#tabMessages .chat-fission-card-ft .chat-notice-share-btn {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 210, 122, 0.45);
+  color: #ffd27a;
+}
+
+/* 分享选人面板 */
+.chat-share-sheet-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 16000;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.chat-share-sheet {
+  width: 100%;
+  max-width: 520px;
+  max-height: 72vh;
+  background: #fff;
+  border-radius: 16px 16px 0 0;
+  padding: 14px 14px calc(14px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.chat-share-sheet-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.chat-share-sheet-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #1a212d;
+}
+.chat-share-sheet-close {
+  font-size: 13px;
+  color: #657786;
+  padding: 4px 8px;
+}
+.chat-share-sheet-preview {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #657786;
+  background: #f5f7fa;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.chat-share-sheet-list {
+  flex: 1;
+  max-height: 48vh;
+}
+.chat-share-sec-lab {
+  font-size: 12px;
+  font-weight: 800;
+  color: #8a97a8;
+  margin: 8px 4px 6px;
+}
+.chat-share-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 6px;
+  border-radius: 10px;
+}
+.chat-share-row:active {
+  background: #f7f8fa;
+}
+.chat-share-av {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #eee;
+  flex-shrink: 0;
+}
+.chat-share-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1a212d;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-share-go {
+  font-size: 12px;
+  font-weight: 800;
+  color: #c62828;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #fff0f0;
+}
+
+/* === APP-MSG-TAB-ROOT-FALLBACK === */
+/* App 上部分机型 #id 选择器不稳定：社群群列表/好友列表用 .msg-tab-root 强制 flex + 头像铺满
+ * （H5 仍走上方 #tabMessages 规则；此前只有会话行写了 display:flex !important） */
+.msg-tab-root .chat-home-tab,
+.msg-tab-root .chat-community-seg-btn {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box;
+  line-height: normal;
+}
+.msg-tab-root .chat-my-group-item,
+.msg-tab-root .chat-feed-item,
+.msg-tab-root .chat-official-row,
+.msg-tab-root .chat-plus-menu-item,
+.msg-tab-root .chat-group-card {
+  display: flex !important;
+  align-items: center !important;
+  box-sizing: border-box !important;
+  line-height: normal;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.msg-tab-root .chat-my-group-item,
+.msg-tab-root .chat-feed-item {
+  justify-content: space-between !important;
+  gap: 10px !important;
+  width: 100% !important;
+  padding: 8px 10px !important;
+  border-radius: 14px !important;
+  background: #fffdf8 !important;
+  border: 1px solid rgba(230, 190, 130, 0.45) !important;
+  box-shadow: 0 2px 8px rgba(160, 120, 70, 0.08) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.msg-tab-root .chat-my-groups-list,
+.msg-tab-root .chat-friend-feed-list,
+.msg-tab-root .chat-official-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+}
+.msg-tab-root .chat-my-group-main {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+}
+.msg-tab-root .chat-my-group-create-text,
+.msg-tab-root .chat-feed-body,
+.msg-tab-root .chat-feed-text {
+  display: flex !important;
+  flex-direction: column !important;
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+}
+.msg-tab-root .chat-feed-body {
+  gap: 2px !important;
+}
+.msg-tab-root .chat-my-group-create-text {
+  gap: 4px !important;
+}
+.msg-tab-root .chat-avatar,
+.msg-tab-root .chat-my-group-avatar,
+.msg-tab-root .chat-feed-avatar {
+  position: relative !important;
+  overflow: hidden !important;
+  flex-shrink: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.msg-tab-root .chat-avatar,
+.msg-tab-root .chat-official-list .chat-avatar,
+.msg-tab-root .chat-friend-feed-list .chat-avatar {
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 14px !important;
+}
+.msg-tab-root .chat-my-group-avatar {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 10px !important;
+  background: #fff !important;
+}
+.msg-tab-root .chat-avatar uni-image,
+.msg-tab-root .chat-avatar image,
+.msg-tab-root .chat-my-group-avatar uni-image,
+.msg-tab-root .chat-my-group-avatar image,
+.msg-tab-root .chat-feed-avatar uni-image,
+.msg-tab-root .chat-feed-avatar image,
+.msg-tab-root .chat-group-card .icon-box uni-image,
+.msg-tab-root .chat-group-card .icon-box image {
+  width: 100% !important;
+  height: 100% !important;
+  display: block !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+}
+.msg-tab-root .chat-avatar uni-image img,
+.msg-tab-root .chat-avatar img,
+.msg-tab-root .chat-my-group-avatar uni-image img,
+.msg-tab-root .chat-my-group-avatar img,
+.msg-tab-root .chat-feed-avatar uni-image img,
+.msg-tab-root .chat-feed-avatar img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+.msg-tab-root .chat-my-group-name,
+.msg-tab-root .chat-my-group-name text {
+  color: #3d2e22 !important;
+  font-weight: 800 !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+.msg-tab-root .chat-my-group-sub,
+.msg-tab-root .chat-my-group-sub text {
+  color: #9a8574 !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+}
+.msg-tab-root .chat-my-group-count {
+  flex-shrink: 0 !important;
+  color: #c61114 !important;
+  font-weight: 800 !important;
+}
+.msg-tab-root .chat-my-group-count text {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: #9a8574 !important;
+}
+.msg-tab-root .chat-feed-text,
+.msg-tab-root .chat-feed-text text {
+  color: #3d2e22 !important;
+  font-weight: 700 !important;
+}
+.msg-tab-root .chat-community-seg {
+  display: flex !important;
+  align-items: stretch !important;
+  height: 38px !important;
+  padding: 2px !important;
+  box-sizing: border-box !important;
+}
+.msg-tab-root .chat-official-row {
+  justify-content: flex-start !important;
+  gap: 10px !important;
+  width: 100% !important;
+}
+.msg-tab-root .chat-official-body {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+}

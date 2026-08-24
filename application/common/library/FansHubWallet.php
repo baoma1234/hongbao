@@ -1537,6 +1537,7 @@ class FansHubWallet
         $userIds[] = (int)$packet['from_user_id'];
         $userIds = array_values(array_unique(array_filter($userIds)));
         $profiles = [];
+        $botMap = [];
         if ($userIds) {
             $users = Db::name('user')->where('id', 'in', $userIds)->field('id,nickname,avatar,username')->select();
             if (!is_array($users)) {
@@ -1547,6 +1548,12 @@ class FansHubWallet
                     'nickname' => (string)($u['nickname'] ?: ($u['username'] ?: ('用户' . $u['id']))),
                     'avatar'   => (string)($u['avatar'] ?? ''),
                 ];
+            }
+            $bots = Db::name('fans_account')->where('user_id', 'in', $userIds)->column('is_bot', 'user_id');
+            if (is_array($bots)) {
+                foreach ($bots as $uid => $isBot) {
+                    $botMap[(int)$uid] = (int)$isBot === 1 ? 1 : 0;
+                }
             }
         }
         $outRecords = [];
@@ -1564,6 +1571,7 @@ class FansHubWallet
                 'createtime'  => (int)($r['createtime'] ?? 0),
                 'nickname'    => $p['nickname'],
                 'avatar'      => $p['avatar'],
+                'is_bot'      => !empty($botMap[$uid]) ? 1 : 0,
             ];
         }
         $from = $profiles[(int)$packet['from_user_id']] ?? ['nickname' => '用户' . (int)$packet['from_user_id'], 'avatar' => ''];

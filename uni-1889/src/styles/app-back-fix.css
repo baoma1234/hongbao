@@ -1,0 +1,95 @@
+/* App：原生 svg 不渲染 + bundle 把 .chat-hero-back 设成 font-size:0 → 返回键消失 */
+.chat-hero-back,
+.chat-hero-more,
+.chat-room-page .chat-hero-back,
+.chat-room-page .chat-hero-more,
+.chat-group-settings-page .chat-hero-back,
+.chat-friend-page .chat-hero-back,
+#tabMessages .chat-hero-back,
+.chat-sub-pane .chat-hero-back,
+.chat-room-pane .chat-hero-back {
+  font-size: 22px !important;
+  line-height: 1 !important;
+  color: #fff !important;
+  z-index: 30 !important;
+  position: relative;
+  min-width: 44px !important;
+  min-height: 44px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  pointer-events: auto !important;
+}
+
+.chat-hero-back-char {
+  display: inline-block !important;
+  font-size: 28px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  color: #fff !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translateY(-1px);
+}
+
+/* 消息页搜索/加号：App 不渲染 SVG，用文字 glyph */
+.chat-hero-glyph {
+  display: block !important;
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  color: #fff !important;
+}
+
+.profile-sub-hd {
+  /* 布局见 hb.css：profile-sub-page > .profile-sub-hd 为 fixed */
+  z-index: 1200;
+}
+
+/*
+ * App：内联 top 由 useProfileSubHdStyle 写入；此处补红条内边距与 body 占位高度
+ */
+/* #ifdef APP-PLUS */
+.profile-sub-page,
+.webview-page,
+.fv-page {
+  --profile-sub-hd-h: 66px;
+}
+.profile-sub-page > .profile-sub-hd,
+.webview-page > .profile-sub-hd,
+.fv-page > .profile-sub-hd,
+.fv-page > .fv-hd.profile-sub-hd {
+  padding-top: 14px !important;
+  padding-bottom: 14px !important;
+  min-height: var(--profile-sub-hd-h) !important;
+}
+.chat-group-settings-page > .chat-hero-hd {
+  padding-top: 14px !important;
+}
+/* #endif */
+
+.profile-back-btn {
+  position: relative;
+  z-index: 3;
+  font-size: 26px !important;
+  color: #fff !important;
+}
+
+/* 聊天输入栏：App 不渲染 SVG，用文字 glyph */
+#chatEmojiBtn .chat-tool-glyph,
+#chatAttachBtn .chat-tool-glyph,
+.chat-tool-icon .chat-tool-glyph,
+.btn-plus .chat-tool-glyph {
+  display: block !important;
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  color: inherit !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+#chatAttachBtn .chat-tool-glyph--plus,
+.btn-plus .chat-tool-glyph--plus {
+  font-size: 26px !important;
+  transform: translateY(-1px);
+}

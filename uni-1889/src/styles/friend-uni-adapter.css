@@ -1,0 +1,300 @@
+/* uni-1889 好友内页：套用 chat.bundle 时的外壳适配
+ * App：uni-view 默认 block，必须对横排布局强制 flex !important（H5 类选择器通常够用） */
+
+.chat-friend-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  /* TopBar spacer 已占位 */
+  padding-top: 0;
+  background: #f6f1ea;
+  box-sizing: border-box;
+}
+
+.chat-friend-page .chat-hero-hd {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+  padding: 10px 14px !important;
+  min-height: 48px;
+  background: linear-gradient(to right, #e63022, #c61114) !important;
+  color: #fff !important;
+  box-sizing: border-box;
+}
+
+.chat-friend-page .chat-hero-title {
+  color: #fff !important;
+  font-size: 17px;
+  font-weight: 800;
+  text-align: center;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.chat-friend-page .chat-hero-back,
+.chat-friend-page .chat-hero-spacer {
+  width: 44px;
+  height: 44px;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  color: #fff;
+}
+
+.chat-friend-page .chat-sub-main {
+  padding: 12px 14px 28px;
+  margin-top: 0;
+  box-sizing: border-box;
+  background: #fffdf9;
+}
+
+.chat-friend-page .chat-add-friend-req-link {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+  border: none;
+  background: #fff;
+}
+
+.chat-friend-page .chat-add-friend-req-link-ico {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(232, 74, 69, 0.08);
+  overflow: hidden;
+}
+
+.chat-friend-page .chat-add-friend-req-link-ico .chat-plus-menu-ico-img,
+.chat-friend-page .chat-add-friend-req-link-ico image,
+.chat-friend-page .chat-add-friend-req-link-ico uni-image,
+.chat-friend-page .chat-add-friend-req-link-ico img {
+  width: 28px !important;
+  height: 28px !important;
+  display: block !important;
+}
+
+.chat-friend-page .chat-add-friend-req-link-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px;
+}
+
+.chat-friend-page .chat-add-friend-req-link-title,
+.chat-friend-page .chat-add-friend-req-link-sub {
+  display: block;
+}
+
+.chat-friend-page .chat-plus-menu-ico-img {
+  width: 28px;
+  height: 28px;
+  display: block;
+}
+
+.chat-friend-page .chat-add-friend-country {
+  min-width: 92px;
+  min-height: 48px;
+  height: 48px;
+  text-align: center;
+  padding: 0 8px;
+  box-sizing: border-box;
+  font-size: 15px;
+  line-height: 1.2;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px solid #e8d9c8;
+  border-radius: 10px;
+  background: #fff;
+  flex-shrink: 0;
+}
+.chat-friend-page .chat-add-friend-country .flag {
+  width: 22px;
+  height: 16px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.chat-friend-page .chat-add-friend-country .dial {
+  font-size: 14px;
+  font-weight: 700;
+  color: #3d2e22;
+}
+.chat-friend-page .chat-add-friend-country .caret {
+  font-size: 10px;
+  color: #9a8574;
+  margin-left: 2px;
+}
+.chat-friend-page .chat-add-friend-phone-row {
+  position: relative;
+  display: flex !important;
+  align-items: stretch;
+  gap: 8px;
+}
+.chat-friend-page .chat-add-friend-country-panel {
+  position: relative;
+  z-index: 20;
+  margin: 8px 0 4px;
+  border: 1px solid #e8d9c8;
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+  box-shadow: 0 8px 20px rgba(120, 60, 20, 0.12);
+}
+.chat-friend-page .chat-add-friend-country-panel .country-item {
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #f3ebe2;
+}
+.chat-friend-page .chat-add-friend-country-panel .country-item:last-child {
+  border-bottom: none;
+}
+.chat-friend-page .chat-add-friend-country-panel .country-item.on {
+  background: #fff8f0;
+}
+.chat-friend-page .chat-add-friend-country-panel .flag {
+  width: 22px;
+  height: 16px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.chat-friend-page .chat-add-friend-country-panel .cname {
+  flex: 1;
+  font-size: 14px;
+  color: #3d2e22;
+  font-weight: 600;
+}
+.chat-friend-page .chat-add-friend-country-panel .cdial {
+  font-size: 13px;
+  color: #9a8574;
+  font-weight: 700;
+}
+
+.chat-friend-page .chat-setting-input,
+.chat-friend-page .chat-add-friend-mobile,
+.chat-friend-page .chat-add-friend-userid,
+.chat-friend-page uni-input.chat-setting-input,
+.chat-friend-page uni-input.chat-add-friend-mobile,
+.chat-friend-page uni-input.chat-add-friend-userid {
+  width: 100%;
+  min-height: 48px !important;
+  height: 48px !important;
+  box-sizing: border-box;
+  font-size: 16px !important;
+  line-height: 1.4 !important;
+  padding: 12px 14px !important;
+  display: block !important;
+  background: #fff;
+  border: 1px solid #e8d9c8;
+  border-radius: 10px;
+}
+.chat-friend-page .chat-setting-input .uni-input-wrapper,
+.chat-friend-page .chat-add-friend-mobile .uni-input-wrapper,
+.chat-friend-page .chat-add-friend-userid .uni-input-wrapper {
+  height: 100% !important;
+  min-height: 24px;
+  display: flex !important;
+  align-items: center;
+}
+.chat-friend-page .chat-setting-input .uni-input-input,
+.chat-friend-page .chat-add-friend-mobile .uni-input-input,
+.chat-friend-page .chat-add-friend-userid .uni-input-input {
+  min-height: 24px !important;
+  height: 24px !important;
+  font-size: 16px !important;
+  line-height: 24px !important;
+}
+
+.chat-friend-page .chat-setting-save-btn {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 14px;
+}
+
+.chat-friend-page .chat-setting-save-btn::after {
+  border: none;
+  display: none;
+}
+
+.chat-friend-page .chat-friend-req-tabs {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.chat-friend-page .chat-friend-req-tab {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.chat-friend-page .chat-friend-req-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px;
+}
+
+.chat-friend-page .chat-friend-req-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.chat-friend-page .chat-friend-req-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px;
+}
+
+.chat-friend-page .chat-friend-req-actions {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.chat-friend-page .chat-friend-req-avatar,
+.chat-friend-page .chat-friend-req-avatar-img {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  font-weight: 800;
+  color: #c61114;
+  background: linear-gradient(160deg, #fff5f3, #ffe3df);
+}
+.chat-friend-page .chat-friend-req-avatar-img {
+  display: block !important;
+  object-fit: cover;
+  background: #f0f0f0;
+}
+
+.chat-friend-page .chat-friend-req-btn {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+}

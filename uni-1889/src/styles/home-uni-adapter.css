@@ -1,0 +1,693 @@
+/* uni-1889 首页：复用 888 home/tabs-extra/social-modals 时的 token + 外壳适配 */
+
+#tabHome {
+  --bg-main: #f4f6f9;
+  --bg-card: #ffffff;
+  --primary: #00c853;
+  --secondary: #ff9100;
+  --accent: #0071ff;
+  --text-main: #1a212d;
+  --text-muted: #657786;
+  --danger: #ff3b30;
+  --gold-grad: linear-gradient(135deg, #ffe082 0%, #ffb300 100%);
+  --gold-btn: linear-gradient(135deg, #ffd54f 0%, #ff8f00 50%, #ff6f00 100%);
+  color: var(--text-main);
+  background: var(--bg-main);
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  box-sizing: border-box;
+}
+
+#tabHome.tab-page {
+  display: block;
+  width: 100%;
+  min-height: calc(100vh - var(--top-bar-height, 44px) - 56px);
+  min-height: calc(100dvh - var(--top-bar-height, 44px) - 56px);
+  padding: 10px 15px 88px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+#tabHome *,
+#tabHome *::before,
+#tabHome *::after {
+  box-sizing: border-box;
+}
+
+/* uni view/button 复位，贴近 888 原生控件 */
+#tabHome .home-quick-btn,
+#tabHome .cta-open-account,
+#tabHome .btn-uid-submit,
+#tabHome .btn-manual-settle,
+#tabHome .btn-share-action,
+#tabHome .modal-action-btn,
+#tabHome .modal-close-btn {
+  box-sizing: border-box;
+  line-height: normal;
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+  font-family: inherit;
+}
+
+#tabHome .home-quick-btn::after,
+#tabHome .cta-open-account::after,
+#tabHome .btn-uid-submit::after,
+#tabHome .btn-manual-settle::after,
+#tabHome .btn-share-action::after,
+#tabHome .modal-action-btn::after,
+#tabHome .modal-close-btn::after {
+  border: none;
+  display: none;
+}
+
+#tabHome .id-input-box {
+  width: 100%;
+  min-height: 48px;
+  height: 48px;
+  box-sizing: border-box;
+  display: block;
+  font-size: 16px !important;
+  line-height: 48px !important;
+  padding: 0 12px !important;
+  pointer-events: auto !important;
+  -webkit-user-select: text;
+  user-select: text;
+  position: relative;
+  z-index: 2;
+}
+#tabHome uni-input.id-input-box,
+#tabHome .id-input-box.uni-input {
+  display: block !important;
+  height: 48px !important;
+  min-height: 48px !important;
+}
+#tabHome .id-input-box .uni-input-wrapper {
+  width: 100%;
+  height: 48px !important;
+  min-height: 48px !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+}
+#tabHome .id-input-box .uni-input-input {
+  width: 100%;
+  height: 24px !important;
+  min-height: 24px !important;
+  font-size: 16px !important;
+  font-weight: 700;
+  line-height: 24px !important;
+  text-align: center;
+  pointer-events: auto !important;
+}
+
+/*
+ * 宝箱火花：uni 用 view 代替 i
+ */
+.wl-sparkles .wl-spark {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #fff59d;
+  box-shadow: 0 0 12px #ffeb3b, 0 0 4px #fff;
+  animation: wlSparkle 2.4s ease-in-out infinite;
+  opacity: 0;
+}
+.wl-sparkles .wl-spark:nth-child(1) { top: 12%; left: 18%; animation-delay: 0s; }
+.wl-sparkles .wl-spark:nth-child(2) { top: 20%; right: 14%; animation-delay: 0.4s; }
+.wl-sparkles .wl-spark:nth-child(3) { bottom: 22%; left: 12%; animation-delay: 0.8s; }
+.wl-sparkles .wl-spark:nth-child(4) { bottom: 16%; right: 18%; animation-delay: 1.2s; }
+.wl-sparkles .wl-spark:nth-child(5) { top: 46%; left: 6%; animation-delay: 0.2s; }
+.wl-sparkles .wl-spark:nth-child(6) { top: 50%; right: 6%; animation-delay: 1s; }
+
+/**
+ * jackpot 文字：强制对齐 888 home.css
+ * （page / #tabHome 全局 color+font 会压过 uni-view 上的 class 色）
+ */
+#tabHome .jackpot-container {
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
+/* uni-text 默认 inline，对齐 888 块级排版 */
+#tabHome .jackpot-container .jackpot-meta,
+#tabHome .jackpot-container .jackpot-pool-label,
+#tabHome .jackpot-container .jackpot-val,
+#tabHome .jackpot-container .jackpot-price-line,
+#tabHome .jackpot-container .jackpot-hint-line {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+}
+#tabHome .jackpot-label {
+  display: inline-block !important;
+  align-self: center;
+  max-width: 100%;
+  font-size: 17px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.6px !important;
+  line-height: 1.4 !important;
+  margin: 0 0 2px !important;
+  padding: 2px 4px !important;
+  color: #fffef5 !important;
+  -webkit-text-fill-color: #fffef5;
+  text-shadow:
+    0 0 6px rgba(255, 224, 130, 0.55),
+    0 1px 2px rgba(0, 0, 0, 0.35) !important;
+  transform-origin: center center;
+  animation: jackpotLabelBreath 1.8s ease-in-out infinite;
+}
+#tabHome .jackpot-meta {
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  color: #ffe082 !important;
+  -webkit-text-fill-color: #ffe082;
+  margin: 0 !important;
+  line-height: 1.45 !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: unset !important;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+  animation: jackpotTextPulse 3.2s ease-in-out infinite;
+}
+#tabHome .jackpot-pool-label {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.95);
+  margin: 0 !important;
+  line-height: 1.35 !important;
+  animation: jackpotTextPulse 3s ease-in-out 0.2s infinite;
+}
+#tabHome .jackpot-val {
+  font-size: 30px !important;
+  font-weight: 900 !important;
+  margin: 4px 0 !important;
+  font-family: Impact, monospace, sans-serif !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.22), 0 0 18px rgba(255, 224, 130, 0.35) !important;
+  letter-spacing: -0.5px !important;
+  line-height: 1.15 !important;
+  animation: jackpotNumGlow 2.2s ease-in-out infinite;
+}
+#tabHome .jackpot-price-line {
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff;
+  margin: 0 !important;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.2) !important;
+  line-height: 1.4 !important;
+  animation: jackpotTextPulse 2.6s ease-in-out 0.35s infinite;
+}
+#tabHome .jackpot-hint-line {
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff;
+  opacity: 0.92;
+  margin: 0 !important;
+  line-height: 1.35 !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation: jackpotTextPulse 3.4s ease-in-out 0.5s infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  #tabHome .jackpot-container::before,
+  #tabHome .jackpot-label,
+  #tabHome .jackpot-label::after,
+  #tabHome .jackpot-val,
+  #tabHome .jackpot-meta,
+  #tabHome .jackpot-pool-label,
+  #tabHome .jackpot-price-line,
+  #tabHome .jackpot-hint-line {
+    animation: none !important;
+  }
+  #tabHome .jackpot-label {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  #tabHome .jackpot-label::after {
+    display: none !important;
+  }
+}
+
+/* 锁定态用 view 展示账号：保证文字可见、换行居中同 input */
+#tabHome .id-input-box.is-locked {
+  display: block;
+  line-height: 1.4;
+  min-height: 48px;
+  box-sizing: border-box;
+  word-break: break-all;
+}
+
+/* 跑马灯：uni 无 body.tab-home，首页常开动画 */
+#tabHome .marquee-content {
+  animation-play-state: running;
+}
+
+/* 弹层挂在 #tabHome 外：必须自带 box-sizing，否则 width:100%+padding 会右侧溢出被盖 */
+.home-modal-root,
+.home-modal-root *,
+.home-modal-root *::before,
+.home-modal-root *::after {
+  box-sizing: border-box;
+}
+
+.home-modal-root {
+  --bg-main: #f4f6f9;
+  --bg-card: #ffffff;
+  --primary: #00c853;
+  --secondary: #ff9100;
+  --accent: #0071ff;
+  --text-main: #1a212d;
+  --text-muted: #657786;
+  --danger: #ff3b30;
+  --gold-btn: linear-gradient(135deg, #ffd54f 0%, #ff8f00 50%, #ff6f00 100%);
+}
+
+#tabHome .modal-mask.is-open,
+.home-modal-root .modal-mask.is-open {
+  display: flex !important;
+}
+
+.home-modal-root .modal-mask {
+  z-index: 10050;
+  left: 0;
+  right: 0;
+  width: 100%;
+  max-width: 100vw;
+  padding: 16px 14px;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.home-modal-root .modal-box {
+  width: 100%;
+  max-width: min(380px, 100%);
+  margin: 0 auto;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  flex-shrink: 0;
+}
+
+/* 手动结算密令弹窗：整体宽/长缩小 15%（保留为原尺寸的 85%） */
+.home-modal-root .modal-mask:not(.fission-popup-mask) .modal-box {
+  width: 85%;
+  max-width: min(323px, 85%);
+  padding: 20px 17px;
+  border-radius: 14px;
+  box-sizing: border-box;
+}
+.home-modal-root .modal-mask:not(.fission-popup-mask) .modal-sub-label {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.home-modal-root .modal-mask:not(.fission-popup-mask) .modal-secret-label {
+  font-size: 10px;
+  color: var(--accent);
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+.home-modal-root .modal-mask:not(.fission-popup-mask) .modal-title {
+  font-size: 14.5px;
+  margin-bottom: 10px;
+}
+.home-modal-root .modal-mask:not(.fission-popup-mask) .modal-money {
+  font-size: 27px;
+  margin: 7px 0 14px;
+}
+.home-modal-root .modal-mask:not(.fission-popup-mask) .secret-code-box {
+  padding: 12px 9px;
+  border-radius: 9px;
+  font-size: 11px;
+  margin-bottom: 9px;
+}
+.home-modal-root .modal-mask:not(.fission-popup-mask) .secret-timer {
+  font-size: 10px;
+  margin-bottom: 12px;
+}
+.home-modal-root .modal-mask:not(.fission-popup-mask) .secret-timer span,
+.home-modal-root .modal-mask:not(.fission-popup-mask) .secret-timer text {
+  font-size: 12px;
+}
+.home-modal-root .modal-mask:not(.fission-popup-mask) .cs-step-card {
+  padding: 12px;
+  border-radius: 9px;
+  margin-bottom: 12px;
+}
+.home-modal-root .modal-mask:not(.fission-popup-mask) .cs-step-card .step-num {
+  width: 17px;
+  height: 17px;
+  line-height: 17px;
+  font-size: 9px;
+  margin-right: 0;
+  flex-shrink: 0;
+}
+.home-modal-root .modal-mask:not(.fission-popup-mask) .cs-step-card .cs-step-line {
+  margin-bottom: 7px;
+}
+.home-modal-root .modal-mask:not(.fission-popup-mask) .cs-step-card .cs-step-txt {
+  font-size: 10px;
+}
+.home-modal-root .modal-mask:not(.fission-popup-mask) .modal-action-btn {
+  padding: 12px;
+  border-radius: 9px;
+  font-size: 12px;
+  margin-bottom: 7px;
+}
+.home-modal-root .modal-mask:not(.fission-popup-mask) .modal-close-btn {
+  padding: 10px;
+  border-radius: 9px;
+  font-size: 11px;
+}
+
+.home-modal-root .cs-step-card {
+  text-align: left;
+}
+.home-modal-root .cs-step-card .cs-step-line {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-main);
+  line-height: 1.6;
+  margin-bottom: 8px;
+  text-align: left;
+}
+.home-modal-root .cs-step-card .cs-step-line:last-child {
+  margin-bottom: 0;
+}
+.home-modal-root .cs-step-card .step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--accent);
+  color: #fff;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  text-align: center;
+  line-height: 20px;
+  font-size: 11px;
+  font-weight: bold;
+  margin-right: 0;
+}
+.home-modal-root .cs-step-card .cs-step-txt {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-main);
+  line-height: 1.6;
+  text-align: left;
+}
+
+/* user-info 对齐 888：状态绿标 + 等级胶囊；整行左右居中 */
+#tabHome .user-info {
+  display: flex !important;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 8px 10px;
+  margin-top: 12px;
+  margin-bottom: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #e1e8ed;
+  text-align: center;
+}
+#tabHome .user-id {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: var(--text-main);
+  font-size: 12px;
+  line-height: 1.45;
+  gap: 2px 0;
+  text-align: center;
+}
+#tabHome .user-id .user-phone {
+  font-weight: 700;
+  color: var(--text-main);
+  font-size: 12px;
+}
+#tabHome .user-id .user-status-tag {
+  color: #00c853 !important;
+  font-size: 10px !important;
+  background: rgba(0, 200, 83, 0.08);
+  padding: 3px 8px;
+  border-radius: 6px;
+  margin-left: 6px;
+  font-weight: bold;
+  line-height: 1.2;
+}
+#tabHome .user-id .user-status-tag.master-tag {
+  color: #5e35b1 !important;
+  background: rgba(94, 53, 177, 0.1);
+}
+#tabHome .user-info .status-tag,
+#tabHome #userRank.status-tag {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: unset !important;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+/* 互动大厅：与上方多 5px，整块居中 */
+#tabHome .home-social-section {
+  margin-top: 23px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-bottom: 12px;
+  max-width: 400px;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+}
+#tabHome .home-social-section .page-hero-title,
+#tabHome .home-social-section .page-hero-sub {
+  text-align: center;
+}
+#tabHome .home-social-section .match-card {
+  text-align: center !important;
+  margin-left: auto;
+  margin-right: auto;
+}
+#tabHome .home-social-section .leaderboard-item {
+  justify-content: center;
+  gap: 12px;
+}
+
+.text-muted {
+  color: var(--text-muted, #657786);
+}
+
+/* 全网裂变红包首页入口：与分享条同宽、同列布局对齐 */
+#tabHome .fission-home-entry {
+  position: relative;
+  width: 100%;
+  max-width: 300px;
+  margin: 8px auto 0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: linear-gradient(120deg, #c62828 0%, #e65100 55%, #f9a825 100%);
+  color: #fff;
+  box-shadow: 0 6px 20px rgba(198, 40, 40, 0.32);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+#tabHome .fission-home-entry:active {
+  transform: scale(0.985);
+  box-shadow: 0 3px 12px rgba(198, 40, 40, 0.28);
+}
+#tabHome .fission-home-entry.is-ended {
+  filter: grayscale(0.85);
+  opacity: 0.72;
+  box-shadow: none;
+}
+#tabHome .fission-home-entry-glow {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.22) 0%, transparent 42%),
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.06) 0 6px, transparent 6px 12px);
+  pointer-events: none;
+}
+#tabHome .fission-home-entry-inner.single-line {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px 10px;
+  gap: 6px;
+  text-align: center;
+}
+#tabHome .fission-home-entry-title {
+  display: block;
+  width: 100%;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+#tabHome .fission-home-entry-sub {
+  display: block;
+  width: 100%;
+  font-size: 10px;
+  line-height: 1.25;
+  opacity: 0.95;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#tabHome .fission-home-entry-arrow {
+  flex: 0 0 auto;
+  align-self: center;
+  margin: 0 auto;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+  background: rgba(0, 0, 0, 0.2);
+  color: #fff;
+  padding: 6px 16px;
+  border-radius: 999px;
+  line-height: 1.2;
+}
+
+/* 裂变弹窗：海报背景 + 文字 */
+.home-modal-root .fission-popup-mask.is-open {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 16px;
+  box-sizing: border-box;
+  background: rgba(4, 10, 24, 0.82);
+}
+.home-modal-root .fission-popup-wrap {
+  width: min(82vw, 320px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.home-modal-root .fission-popup-card {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  border-radius: 18px;
+  overflow: hidden;
+  color: #fff;
+  box-shadow:
+    0 0 0 2px rgba(255, 196, 67, 0.28),
+    0 18px 40px rgba(0, 0, 0, 0.55);
+}
+.home-modal-root .fission-popup-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  z-index: 0;
+}
+.home-modal-root .fission-popup-body {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 45%;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 8px 16px 20px;
+  text-align: center;
+  background: linear-gradient(180deg, transparent 0%, rgba(140, 10, 16, 0.18) 18%, rgba(90, 0, 8, 0.55) 100%);
+  box-sizing: border-box;
+}
+.home-modal-root .fission-popup-pool-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.home-modal-root .fission-popup-yen {
+  font-size: 18px;
+  font-weight: 800;
+  color: #ffe082;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+.home-modal-root .fission-popup-num {
+  font-size: 38px;
+  font-weight: 900;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.45);
+}
+.home-modal-root .fission-popup-unit {
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffe082;
+  margin-left: 2px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+.home-modal-root .fission-popup-progress,
+.home-modal-root .fission-popup-remain {
+  display: block;
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.96);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+.home-modal-root .fission-popup-cta {
+  display: block;
+  margin: 12px auto 8px;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #ffe082;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+.home-modal-root .fission-popup-risk {
+  display: block;
+  font-size: 11px;
+  line-height: 1.4;
+  color: rgba(255, 236, 200, 0.9);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+.home-modal-root .fission-popup-close {
+  margin-top: 16px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.75);
+  color: #fff;
+  font-size: 26px;
+  line-height: 32px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.2);
+}
