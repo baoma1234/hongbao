@@ -88,6 +88,37 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
         api: {
             bindevent: function () {
                 Form.api.bindevent($("form[role=form]"));
+                var $form = $("form[role=form]");
+                var sharedNames = ['row[amount_min]', 'row[amount_max]', 'row[total_count]'];
+                var syncAmountMode = function () {
+                    var mode2 = $form.find('input[name="row[amount_mode]"]:checked').val() === '2';
+                    var $m1 = $form.find('.rp-amt-mode1');
+                    var $m2 = $form.find('.rp-amt-mode2');
+                    var $from = mode2 ? $m1 : $m2;
+                    var $to = mode2 ? $m2 : $m1;
+                    sharedNames.forEach(function (name) {
+                        var $src = $from.find('input[name="' + name + '"]');
+                        var $dst = $to.find('input[name="' + name + '"]');
+                        if ($src.length && $dst.length && !$src.prop('disabled')) {
+                            $dst.val($src.val());
+                        }
+                    });
+                    $m1.toggle(!mode2);
+                    $m2.toggle(mode2);
+                    // 仅互斥字段互斥启用；模式二专用四项始终提交，避免切回模式一保存时被默认值覆盖
+                    sharedNames.forEach(function (name) {
+                        $m1.find('input[name="' + name + '"]').prop('disabled', mode2);
+                        $m2.find('input[name="' + name + '"]').prop('disabled', !mode2);
+                    });
+                    $m2.find(
+                        'input[name="row[amount_mode2_every_min]"],' +
+                        'input[name="row[amount_mode2_every_max]"],' +
+                        'input[name="row[amount_mode2_jackpot_min]"],' +
+                        'input[name="row[amount_mode2_jackpot_max]"]'
+                    ).prop('disabled', false);
+                };
+                $form.on('change', 'input[name="row[amount_mode]"]', syncAmountMode);
+                syncAmountMode();
             }
         }
     };
