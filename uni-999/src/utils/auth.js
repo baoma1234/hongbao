@@ -122,7 +122,7 @@ export function apiRequest(action, method = 'POST', body = null, opts = null) {
       .join('&')
     if (qs) url += (url.indexOf('?') >= 0 ? '&' : '?') + qs
   } else {
-    data = Object.assign({}, body || {}, { locale })
+    data = JSON.stringify(Object.assign({}, body || {}, { locale }))
   }
 
   return new Promise((resolve, reject) => {

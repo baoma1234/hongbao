@@ -249,6 +249,10 @@ class FansHubTelegram
         if ($initData === '') {
             return '';
         }
+        // Api 控制器默认 htmlspecialchars 会把 & 变成 &amp;，导致 parse_str 丢 hash
+        if (strpos($initData, '&amp;') !== false) {
+            $initData = htmlspecialchars_decode($initData, ENT_QUOTES | ENT_HTML5);
+        }
         // 已是标准 query（含字面量 hash=）
         if (preg_match('/(?:^|&)hash=/', $initData)) {
             return $initData;
@@ -263,11 +267,67 @@ class FansHubTelegram
                 break;
             }
             $initData = $decoded;
+            if (strpos($initData, '&amp;') !== false) {
+                $initData = htmlspecialchars_decode($initData, ENT_QUOTES | ENT_HTML5);
+            }
             if (preg_match('/(?:^|&)hash=/', $initData)) {
                 break;
             }
         }
         return $initData;
+    }
+
+    /**
+     * 从请求读取 initData（跳过 htmlspecialchars，避免 & → &amp;）
+     *
+     * @param \think\Request|null $request
+     * @return string
+     */
+    public static function readInitDataFromRequest($request = null)
+    {
+        try {
+            $request = $request ?: request();
+        } catch (\Throwable $e) {
+            return '';
+        }
+        // 第三参 null = 不走 Api 全局 trim/strip_tags/htmlspecialchars
+        $initData = (string)$request->post('init_data', '', null);
+        if ($initData === '') {
+            $initData = (string)$request->post('initData', '', null);
+        }
+        $b64 = (string)$request->post('init_data_b64', '', null);
+        if ($b64 === '') {
+            $b64 = (string)$request->post('initDataB64', '', null);
+        }
+        if ($b64 !== '') {
+            $decoded = base64_decode(strtr($b64, '-_', '+/'), true);
+            if (is_string($decoded) && $decoded !== '') {
+                $initData = $decoded;
+            }
+        }
+        // 兜底：直接读原始 JSON body（避免 $_POST 表单拆分 / 过滤器）
+        if ($initData === '' || !preg_match('/(?:^|&)hash=/', self::normalizeInitData($initData))) {
+            $raw = (string)$request->getInput();
+            if ($raw !== '' && ($raw[0] === '{' || $raw[0] === '%')) {
+                $j = json_decode($raw, true);
+                if (!is_array($j) && strpos($raw, '%') !== false) {
+                    $j = json_decode(rawurldecode($raw), true);
+                }
+                if (is_array($j)) {
+                    if (!empty($j['init_data_b64']) && is_string($j['init_data_b64'])) {
+                        $d = base64_decode(strtr($j['init_data_b64'], '-_', '+/'), true);
+                        if (is_string($d) && $d !== '') {
+                            $initData = $d;
+                        }
+                    } elseif (!empty($j['init_data']) && is_string($j['init_data'])) {
+                        $initData = $j['init_data'];
+                    } elseif (!empty($j['initData']) && is_string($j['initData'])) {
+                        $initData = $j['initData'];
+                    }
+                }
+            }
+        }
+        return self::normalizeInitData($initData);
     }
 
     /**

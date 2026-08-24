@@ -520,7 +520,7 @@ class Fanshub extends Api
      */
     public function tgauth()
     {
-        $initData = (string)$this->request->post('init_data', $this->request->post('initData', ''));
+        $initData = FansHubTelegram::readInitDataFromRequest($this->request);
         try {
             $data = FansHubTelegram::authByInitData($initData);
             $this->success('ok', $data);
@@ -536,7 +536,7 @@ class Fanshub extends Api
      */
     public function tgsendsms()
     {
-        $initData = (string)$this->request->post('init_data', $this->request->post('initData', ''));
+        $initData = FansHubTelegram::readInitDataFromRequest($this->request);
         try {
             FansHubTelegram::validateInitData($initData);
         } catch (\Throwable $e) {
@@ -585,7 +585,7 @@ class Fanshub extends Api
      */
     public function tgbind()
     {
-        $initData = (string)$this->request->post('init_data', $this->request->post('initData', ''));
+        $initData = FansHubTelegram::readInitDataFromRequest($this->request);
         $mobile = $this->normalizeMobileInput();
         $captcha = $this->request->post('captcha');
         $inviteCode = trim((string)$this->request->post('code', $this->request->post('invite', '')));

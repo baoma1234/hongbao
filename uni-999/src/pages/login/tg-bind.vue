@@ -296,25 +296,46 @@ function loadTelegramWebApp() {
   })
 }
 
-/** Telegram 偶发 initData 稍晚才注入，短轮询几次 */
-function waitForInitData(tg, rounds = 12, gapMs = 150) {
+/** Telegram 偶发 initData 稍晚才注入；须等到含字面量 hash= 再提交 */
+function waitForInitData(tg, rounds = 20, gapMs = 150) {
   return new Promise((resolve) => {
     let n = 0
     const tick = () => {
       const raw = resolveInitData(tg)
-      if (raw) {
+      if (raw && /(?:^|&)hash=/.test(raw)) {
         resolve(raw)
         return
       }
       n += 1
       if (n >= rounds) {
-        resolve('')
+        resolve(raw || '')
         return
       }
       setTimeout(tick, gapMs)
     }
     tick()
   })
+}
+
+function encodeInitDataB64(raw) {
+  const s = String(raw || '')
+  if (!s) return ''
+  try {
+    // #ifdef H5
+    if (typeof btoa === 'function') {
+      return btoa(unescape(encodeURIComponent(s)))
+    }
+    // #endif
+  } catch (e) {}
+  return ''
+}
+
+function tgInitPayload() {
+  const init = String(initData.value || '')
+  const body = { init_data: init }
+  const b64 = encodeInitDataB64(init)
+  if (b64) body.init_data_b64 = b64
+  return body
 }
 
 async function enterWithToken(data) {
@@ -374,7 +395,7 @@ async function runAuth() {
     return
   }
   try {
-    const data = await apiRequest('tgauth', 'POST', { init_data: initData.value })
+    const data = await apiRequest('tgauth', 'POST', tgInitPayload())
     if (data && data.token && data.bound !== false) {
       await enterWithToken(data)
       return
@@ -412,7 +433,7 @@ async function onSendSms() {
   sending.value = true
   try {
     const data = await apiRequest('tgsendsms', 'POST', {
-      init_data: initData.value,
+      ...tgInitPayload(),
       mobile: phone,
       country_code: country.value,
     })
@@ -449,7 +470,7 @@ async function onBind() {
   loading.value = true
   try {
     const data = await apiRequest('tgbind', 'POST', {
-      init_data: initData.value,
+      ...tgInitPayload(),
       mobile: phone,
       captcha: code,
       code: String(inviteCode.value || '').trim(),
