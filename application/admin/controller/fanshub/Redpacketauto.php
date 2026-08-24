@@ -259,20 +259,19 @@ class Redpacketauto extends Backend
         $amountMin = (float)($params['amount_min'] ?? 0);
         $amountMax = (float)($params['amount_max'] ?? 0);
         $legacyAmt = (float)($params['total_amount'] ?? 0);
+        if ($amountMin <= 0 && $legacyAmt > 0) {
+            $amountMin = $legacyAmt;
+        }
+        if ($amountMax <= 0 && $legacyAmt > 0) {
+            $amountMax = $legacyAmt;
+        }
         if ((int)$params['amount_mode'] === 2) {
-            // 模式二展示/兜底：常态区间默认 10～100（运行时也写死此范围）
             if ($amountMin <= 0) {
                 $amountMin = 10;
             }
             if ($amountMax <= 0) {
                 $amountMax = 100;
             }
-        }
-        if ($amountMin <= 0 && $legacyAmt > 0) {
-            $amountMin = $legacyAmt;
-        }
-        if ($amountMax <= 0 && $legacyAmt > 0) {
-            $amountMax = $legacyAmt;
         }
         if ($amountMin <= 0 && $amountMax > 0) {
             $amountMin = $amountMax;
@@ -298,10 +297,34 @@ class Redpacketauto extends Backend
         $params['amount_min'] = sprintf('%.2f', $amountMin);
         $params['amount_max'] = sprintf('%.2f', $amountMax);
         $params['total_amount'] = $params['amount_min']; // 列表兼容展示下限
+
+        $jpMin = (int)round((float)($params['amount_mode2_jackpot_min'] ?? 200));
+        $jpMax = (int)round((float)($params['amount_mode2_jackpot_max'] ?? 300));
+        if ($jpMin <= 0) {
+            $jpMin = 200;
+        }
+        if ($jpMax <= 0) {
+            $jpMax = 300;
+        }
+        if ($jpMax < $jpMin) {
+            $tmp = $jpMin;
+            $jpMin = $jpMax;
+            $jpMax = $tmp;
+        }
+        if ($jpMin % 10 !== 0 || $jpMax % 10 !== 0) {
+            $this->error('模式二大奖金额必须是 10 的整数倍');
+        }
+        $params['amount_mode2_jackpot_min'] = sprintf('%.2f', $jpMin);
+        $params['amount_mode2_jackpot_max'] = sprintf('%.2f', $jpMax);
+        $everyMin = max(1, (int)($params['amount_mode2_every_min'] ?? 10));
+        $everyMax = max($everyMin, (int)($params['amount_mode2_every_max'] ?? 20));
+        $params['amount_mode2_every_min'] = $everyMin;
+        $params['amount_mode2_every_max'] = $everyMax;
         $params['amount_mode2_count'] = max(0, (int)($params['amount_mode2_count'] ?? 0));
         $params['amount_mode2_target'] = max(0, (int)($params['amount_mode2_target'] ?? 0));
-        if ((int)$params['amount_mode'] === 2 && $params['amount_mode2_target'] <= 0) {
-            $params['amount_mode2_target'] = 0; // 运行时首次随机 10～20
+        if ((int)$params['amount_mode'] === 2 && $params['amount_mode2_target'] > 0
+            && ($params['amount_mode2_target'] < $everyMin || $params['amount_mode2_target'] > $everyMax)) {
+            $params['amount_mode2_target'] = 0;
         }
         $params['total_count'] = max(1, (int)($params['total_count'] ?? 5));
         if ((int)$params['packet_type'] === 3) {

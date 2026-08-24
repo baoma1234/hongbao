@@ -13,7 +13,8 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
             html = '<tr><td colspan="8">暂无活动</td></tr>';
         } else {
             $.each(rows, function (_, r) {
-                var ops = '<a href="javascript:;" class="btn btn-xs btn-primary btn-edit" data-id="' + r.id + '">编辑</a>';
+                var ops = '<a href="javascript:;" class="btn btn-xs btn-primary btn-edit" data-id="' + r.id + '">编辑</a>'
+                    + ' <a href="javascript:;" class="btn btn-xs btn-warning btn-progress" data-id="' + r.id + '">编辑进度</a>';
                 if (parseInt(r.status, 10) === 1) {
                     ops += ' <a href="javascript:;" class="btn btn-xs btn-danger btn-force-settle" data-id="' + r.id + '">一键开奖</a>';
                 }
@@ -51,6 +52,15 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
 
     function openEdit(id) {
         Fast.api.open('fanshub/fission/edit/ids/' + id, '编辑裂变活动 #' + id, {
+            callback: function () {
+                load();
+            }
+        });
+    }
+
+    function openProgress(id) {
+        Fast.api.open('fanshub/fission/progress/ids/' + id, '编辑进度 #' + id, {
+            area: ['480px', '360px'],
             callback: function () {
                 load();
             }
@@ -109,6 +119,9 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
             $(document).on('click', '#fission-rows .btn-edit', function () {
                 openEdit($(this).data('id'));
             });
+            $(document).on('click', '#fission-rows .btn-progress', function () {
+                openProgress($(this).data('id'));
+            });
             $(document).on('click', '#fission-rows .btn-force-settle', function () {
                 forceSettle($(this).data('id'));
             });
@@ -125,6 +138,12 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
         },
         edit: function () {
             Form.api.bindevent($('#edit-form'), function () {
+                Fast.api.close();
+                return false;
+            });
+        },
+        progress: function () {
+            Form.api.bindevent($('#progress-form'), function () {
                 Fast.api.close();
                 return false;
             });

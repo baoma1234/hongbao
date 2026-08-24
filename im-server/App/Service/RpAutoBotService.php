@@ -128,14 +128,31 @@ class RpAutoBotService
         }
 
         $packetId = 0;
+        $sendUid = 0;
         if ((int)($task['auto_send'] ?? 0) === 1) {
             $sent = $this->maybeSend($task);
             if (!empty($sent['sent'])) {
                 $packetId = (int)$sent['packet_id'];
+                $sendUid = (int)($sent['send_uid'] ?? 0);
             }
         }
 
         if ((int)($task['auto_grab'] ?? 0) === 1) {
+            // 机器人刚发出的包：发包人立刻领自己的一份
+            if ($packetId > 0 && $sendUid > 0) {
+                try {
+                    $ok = $this->doGrabOnce($taskId, $packetId, $sendUid, $groupId);
+                    $this->taskLog($taskId, $ok ? 'ok' : 'skip', 'sender self-grab', [
+                        'packet_id' => $packetId,
+                        'uid'       => $sendUid,
+                    ]);
+                } catch (\Throwable $e) {
+                    $this->taskLog($taskId, 'error', 'sender self-grab: ' . $e->getMessage(), [
+                        'packet_id' => $packetId,
+                        'uid'       => $sendUid,
+                    ]);
+                }
+            }
             $this->maybeScheduleGrab($task, $packetId);
         }
     }
@@ -325,7 +342,7 @@ class RpAutoBotService
             'packet_id'   => $packetId,
         ]);
 
-        return ['sent' => true, 'packet_id' => $packetId];
+        return ['sent' => true, 'packet_id' => $packetId, 'send_uid' => $sendUid];
     }
 
     /**
@@ -647,7 +664,7 @@ class RpAutoBotService
      * 任务金额计划。
      * - 接龙(type=5)：始终走模式一（固定/区间），忽略 amount_mode=2
      * - 模式一：amount_min/amount_max（相等=固定，否则区间随机，步长 10）
-     * - 模式二：常态 10～100 随机；发够 10～20 个小额包后插发一包 200～300
+     * - 模式二：常态用 amount_min/max；发满 every_min～every_max 个小额包后插发 jackpot_min～jackpot_max
      * 群 rp_fixed_amount 仅对模式一生效。
      *
      * @return array{amount:float,amount_mode:int,jackpot:bool,next_mode2_count:int,next_mode2_target:int}
@@ -661,23 +678,24 @@ class RpAutoBotService
         }
 
         if ($mode === 2) {
+            $cfg = $this->mode2AmountConfig($task);
             $streak = max(0, (int)($task['amount_mode2_count'] ?? 0));
             $target = (int)($task['amount_mode2_target'] ?? 0);
-            if ($target < 10 || $target > 20) {
-                $target = random_int(10, 20);
+            if ($target < $cfg['every_min'] || $target > $cfg['every_max']) {
+                $target = random_int($cfg['every_min'], $cfg['every_max']);
             }
             $jackpot = ($streak >= $target);
             if ($jackpot) {
-                $amount = $this->randomAmountByTen(200, 300);
+                $amount = $this->randomAmountByTen($cfg['jackpot_min'], $cfg['jackpot_max']);
                 return [
                     'amount'             => (float)$amount,
                     'amount_mode'        => 2,
                     'jackpot'            => true,
                     'next_mode2_count'   => 0,
-                    'next_mode2_target'  => random_int(10, 20),
+                    'next_mode2_target'  => random_int($cfg['every_min'], $cfg['every_max']),
                 ];
             }
-            $amount = $this->randomAmountByTen(10, 100);
+            $amount = $this->randomAmountByTen($cfg['normal_min'], $cfg['normal_max']);
             return [
                 'amount'             => (float)$amount,
                 'amount_mode'        => 2,
@@ -694,6 +712,49 @@ class RpAutoBotService
             'jackpot'            => false,
             'next_mode2_count'   => (int)($task['amount_mode2_count'] ?? 0),
             'next_mode2_target'  => (int)($task['amount_mode2_target'] ?? 0),
+        ];
+    }
+
+    /**
+     * @return array{normal_min:int,normal_max:int,jackpot_min:int,jackpot_max:int,every_min:int,every_max:int}
+     */
+    protected function mode2AmountConfig(array $task)
+    {
+        $normalMin = (int)round((float)($task['amount_min'] ?? 0));
+        $normalMax = (int)round((float)($task['amount_max'] ?? 0));
+        if ($normalMin <= 0) {
+            $normalMin = 10;
+        }
+        if ($normalMax <= 0) {
+            $normalMax = 100;
+        }
+        if ($normalMax < $normalMin) {
+            $tmp = $normalMin;
+            $normalMin = $normalMax;
+            $normalMax = $tmp;
+        }
+        $jackpotMin = (int)round((float)($task['amount_mode2_jackpot_min'] ?? 200));
+        $jackpotMax = (int)round((float)($task['amount_mode2_jackpot_max'] ?? 300));
+        if ($jackpotMin <= 0) {
+            $jackpotMin = 200;
+        }
+        if ($jackpotMax <= 0) {
+            $jackpotMax = 300;
+        }
+        if ($jackpotMax < $jackpotMin) {
+            $tmp = $jackpotMin;
+            $jackpotMin = $jackpotMax;
+            $jackpotMax = $tmp;
+        }
+        $everyMin = max(1, (int)($task['amount_mode2_every_min'] ?? 10));
+        $everyMax = max($everyMin, (int)($task['amount_mode2_every_max'] ?? 20));
+        return [
+            'normal_min'  => $this->roundToTen(max(10, $normalMin)),
+            'normal_max'  => $this->roundToTen(max(10, $normalMax)),
+            'jackpot_min' => $this->roundToTen(max(10, $jackpotMin)),
+            'jackpot_max' => $this->roundToTen(max(10, $jackpotMax)),
+            'every_min'   => $everyMin,
+            'every_max'   => $everyMax,
         ];
     }
 

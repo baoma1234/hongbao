@@ -52,9 +52,9 @@
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">金额模式:</label>
         <div class="col-xs-12 col-sm-8">
-            <label class="radio-inline"><input type="radio" name="row[amount_mode]" value="1" {if condition='!isset($row.amount_mode) || $row.amount_mode != 2'}checked{/if}> 模式一：金额区间（下方最小/最大）</label>
-            <label class="radio-inline"><input type="radio" name="row[amount_mode]" value="2" {eq name="row.amount_mode" value="2"}checked{/eq}> 模式二：10～100 随机，每 10～20 包插发 200～300</label>
-            <span class="help-block">接龙红包强制用模式一（固定/区间）。模式二：常态 10～100；发满随机 10～20 个小额包后插发一包 200～300。当前计数 {$row.amount_mode2_count|default=0}/{if condition='$row.amount_mode2_target'}{$row.amount_mode2_target}{else/}?{/if}</span>
+            <label class="radio-inline"><input type="radio" name="row[amount_mode]" value="1" {if condition='!isset($row.amount_mode) || $row.amount_mode != 2'}checked{/if}> 模式一：金额区间</label>
+            <label class="radio-inline"><input type="radio" name="row[amount_mode]" value="2" {eq name="row.amount_mode" value="2"}checked{/eq}> 模式二：小额随机 + 定期大奖</label>
+            <span class="help-block">接龙红包强制模式一。模式二用下方「金额范围」作小额区间，「个数」为每包份数；大奖区间与插发包数可另配。当前计数 {$row.amount_mode2_count|default=0}/{if condition='$row.amount_mode2_target'}{$row.amount_mode2_target}{else/}?{/if}</span>
         </div>
     </div>
     <div class="form-group">
@@ -68,7 +68,24 @@
                 <span class="input-group-addon">个数</span>
                 <input class="form-control" name="row[total_count]" type="number" min="1" value="{$row.total_count}">
             </div>
-            <span class="help-block">模式一：金额须为 <strong>10 的整数倍</strong>；最小=最大 → 固定；否则按 10 步进随机。模式二时此区间仅作展示/兜底。埋雷个数运行时随机 <strong>5/7/9</strong>。群「固定金额」仅模式一生效。</span>
+            <span class="help-block">须为 <strong>10 的整数倍</strong>。模式一：最小=最大 → 固定，否则随机。模式二：此区间=小额包金额；个数=每包份数（埋雷仍随机 5/7/9）。</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">模式二大奖:</label>
+        <div class="col-xs-12 col-sm-8">
+            <div class="input-group" style="max-width:640px">
+                <span class="input-group-addon">大奖最小</span>
+                <input class="form-control" name="row[amount_mode2_jackpot_min]" type="number" step="10" min="10" value="{$row.amount_mode2_jackpot_min|default=200|round=0}">
+                <span class="input-group-addon">最大</span>
+                <input class="form-control" name="row[amount_mode2_jackpot_max]" type="number" step="10" min="10" value="{$row.amount_mode2_jackpot_max|default=300|round=0}">
+                <span class="input-group-addon">每</span>
+                <input class="form-control" name="row[amount_mode2_every_min]" type="number" min="1" value="{$row.amount_mode2_every_min|default=10}">
+                <span class="input-group-addon">～</span>
+                <input class="form-control" name="row[amount_mode2_every_max]" type="number" min="1" value="{$row.amount_mode2_every_max|default=20}">
+                <span class="input-group-addon">小额包后插发</span>
+            </div>
+            <span class="help-block">仅模式二生效。例：小额 10～100、大奖 200～300、每 10～20 包插一包大奖。</span>
         </div>
     </div>
     <div class="form-group">

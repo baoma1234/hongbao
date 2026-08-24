@@ -142,11 +142,13 @@ class FansHubRpAuto
         }
 
         $packetId = 0;
+        $sendUid = 0;
         if ((int)$task['auto_send'] === 1) {
             $sent = self::maybeSend($task, $force);
             if ($sent['sent']) {
                 $out['send'] = 1;
                 $packetId = (int)$sent['packet_id'];
+                $sendUid = (int)($sent['send_uid'] ?? 0);
             } else {
                 $out['skip']++;
                 $out['reason'] = (string)($sent['reason'] ?? '未发包');
@@ -154,6 +156,17 @@ class FansHubRpAuto
         }
 
         if ((int)$task['auto_grab'] === 1) {
+            if ($packetId > 0 && $sendUid > 0) {
+                try {
+                    FansHubImBridge::post('/agent/grab_redpacket', [
+                        'agent_user_id' => $sendUid,
+                        'packet_id'     => $packetId,
+                    ]);
+                    $out['grab']++;
+                } catch (\Throwable $e) {
+                    // 已领/余额不足等忽略，继续走常规抢包
+                }
+            }
             $grabbed = self::maybeGrab($task, $packetId);
             $out['grab'] += $grabbed;
         }
@@ -292,7 +305,7 @@ class FansHubRpAuto
             'updatetime'          => $now,
         ]);
 
-        return ['sent' => true, 'packet_id' => $packetId, 'reason' => ''];
+        return ['sent' => true, 'packet_id' => $packetId, 'send_uid' => $sendUid, 'reason' => ''];
     }
 
     protected static function pickSendUserId(array $task)
@@ -540,22 +553,23 @@ class FansHubRpAuto
         }
 
         if ($mode === 2) {
+            $cfg = self::mode2AmountConfig($task);
             $streak = max(0, (int)($task['amount_mode2_count'] ?? 0));
             $target = (int)($task['amount_mode2_target'] ?? 0);
-            if ($target < 10 || $target > 20) {
-                $target = mt_rand(10, 20);
+            if ($target < $cfg['every_min'] || $target > $cfg['every_max']) {
+                $target = mt_rand($cfg['every_min'], $cfg['every_max']);
             }
             if ($streak >= $target) {
                 return [
-                    'amount'            => (float)self::randomAmountByTen(200, 300),
+                    'amount'            => (float)self::randomAmountByTen($cfg['jackpot_min'], $cfg['jackpot_max']),
                     'amount_mode'       => 2,
                     'jackpot'           => true,
                     'next_mode2_count'  => 0,
-                    'next_mode2_target' => mt_rand(10, 20),
+                    'next_mode2_target' => mt_rand($cfg['every_min'], $cfg['every_max']),
                 ];
             }
             return [
-                'amount'            => (float)self::randomAmountByTen(10, 100),
+                'amount'            => (float)self::randomAmountByTen($cfg['normal_min'], $cfg['normal_max']),
                 'amount_mode'       => 2,
                 'jackpot'           => false,
                 'next_mode2_count'  => $streak + 1,
@@ -569,6 +583,50 @@ class FansHubRpAuto
             'jackpot'           => false,
             'next_mode2_count'  => (int)($task['amount_mode2_count'] ?? 0),
             'next_mode2_target' => (int)($task['amount_mode2_target'] ?? 0),
+        ];
+    }
+
+    protected static function mode2AmountConfig(array $task)
+    {
+        $normalMin = (int)round((float)($task['amount_min'] ?? 0));
+        $normalMax = (int)round((float)($task['amount_max'] ?? 0));
+        if ($normalMin <= 0) {
+            $normalMin = 10;
+        }
+        if ($normalMax <= 0) {
+            $normalMax = 100;
+        }
+        if ($normalMax < $normalMin) {
+            $tmp = $normalMin;
+            $normalMin = $normalMax;
+            $normalMax = $tmp;
+        }
+        $jackpotMin = (int)round((float)($task['amount_mode2_jackpot_min'] ?? 200));
+        $jackpotMax = (int)round((float)($task['amount_mode2_jackpot_max'] ?? 300));
+        if ($jackpotMin <= 0) {
+            $jackpotMin = 200;
+        }
+        if ($jackpotMax <= 0) {
+            $jackpotMax = 300;
+        }
+        if ($jackpotMax < $jackpotMin) {
+            $tmp = $jackpotMin;
+            $jackpotMin = $jackpotMax;
+            $jackpotMax = $tmp;
+        }
+        $everyMin = max(1, (int)($task['amount_mode2_every_min'] ?? 10));
+        $everyMax = max($everyMin, (int)($task['amount_mode2_every_max'] ?? 20));
+        $round10 = function ($n) {
+            $n = max(10, (int)$n);
+            return (int)(ceil($n / 10) * 10);
+        };
+        return [
+            'normal_min'  => $round10($normalMin),
+            'normal_max'  => $round10($normalMax),
+            'jackpot_min' => $round10($jackpotMin),
+            'jackpot_max' => $round10($jackpotMax),
+            'every_min'   => $everyMin,
+            'every_max'   => $everyMax,
         ];
     }
 

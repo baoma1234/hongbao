@@ -88,7 +88,6 @@ class Fission extends Backend
                 $this->error('参数错误');
             }
             $pool = max(0.01, (float)($params['pool_amount'] ?? $row['pool_amount']));
-            $globalQuals = max(0, (int)($params['global_quals'] ?? $row['global_quals']));
             $globalCap = max(1, (int)($params['global_cap'] ?? $row['global_cap']));
             $userCap = max(1, (int)($params['user_cap'] ?? $row['user_cap']));
             $status = (int)($params['status'] ?? $row['status']);
@@ -99,9 +98,6 @@ class Fission extends Backend
                 FissionActivity::STATUS_EXPIRED,
             ], true)) {
                 $this->error('状态无效');
-            }
-            if ($globalQuals > $globalCap) {
-                $this->error('当前进度不能大于全局上限');
             }
             if ($status === FissionActivity::STATUS_RUNNING) {
                 $other = Db::name('fans_fission_activity')
@@ -119,7 +115,6 @@ class Fission extends Backend
             }
             $data = [
                 'pool_amount'  => round($pool, 2),
-                'global_quals' => $globalQuals,
                 'global_cap'   => $globalCap,
                 'user_cap'     => $userCap,
                 'status'       => $status,
@@ -148,6 +143,36 @@ class Fission extends Backend
             FissionActivity::STATUS_SUCCESS => '开奖成功',
             FissionActivity::STATUS_EXPIRED => '超时作废',
         ]);
+        return $this->view->fetch();
+    }
+
+    /**
+     * 单独编辑进度（全局资格数）
+     */
+    public function progress($ids = null)
+    {
+        $id = (int)($ids ?: $this->request->param('ids'));
+        $row = Db::name('fans_fission_activity')->where('id', $id)->find();
+        if (!$row) {
+            $this->error(__('No Results were found'));
+        }
+        if ($this->request->isPost()) {
+            $params = $this->request->post('row/a');
+            if (!is_array($params)) {
+                $this->error('参数错误');
+            }
+            $globalQuals = max(0, (int)($params['global_quals'] ?? $row['global_quals']));
+            $globalCap = max(1, (int)($row['global_cap'] ?? 1));
+            if ($globalQuals > $globalCap) {
+                $this->error('当前进度不能大于全局上限 ' . $globalCap);
+            }
+            Db::name('fans_fission_activity')->where('id', $id)->update([
+                'global_quals' => $globalQuals,
+                'updatetime'   => time(),
+            ]);
+            $this->success('进度已保存');
+        }
+        $this->view->assign('row', $row);
         return $this->view->fetch();
     }
 
