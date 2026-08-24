@@ -2776,7 +2776,7 @@ class MessageService
     protected function isAllowedMediaUrl($url, $msgType)
     {
         $url = trim((string)$url);
-        if ($url === '' || strlen($url) > 500) {
+        if ($url === '' || strlen($url) > 1200) {
             return false;
         }
         if (strpos($url, '..') !== false) {
@@ -2786,6 +2786,13 @@ class MessageService
         if (preg_match('#^https?://#i', $url)) {
             $parts = parse_url($url);
             $path = (string)($parts['path'] ?? '');
+            // OSS/CDN 绝对地址：路径中含 /uploads/ 即可（公告图常见）
+            if ($path !== '' && strpos($path, '/uploads/') !== 0) {
+                $pos = strpos($path, '/uploads/');
+                if ($pos !== false) {
+                    $path = substr($path, $pos);
+                }
+            }
         }
         if ($path === '' || $path[0] !== '/') {
             return false;

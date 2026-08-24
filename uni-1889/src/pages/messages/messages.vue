@@ -1482,21 +1482,46 @@ function handleNoticeAction(action, url, label) {
 
 async function shareNoticeToCommunity(n) {
   const cat = noticeCatLabel(n)
-  const text = String((n && n.content) || '').trim()
-  let shareText = (cat ? ('【' + cat + '】') : '') + (text ? text.slice(0, 120) : '红宝官方公告')
-  try {
-    if (getToken()) {
-      const share = await apiRequest('share', 'POST', { copy_only: 1 })
-      if (share && share.share_text) shareText += '\n' + share.share_text
-      else if (share && share.share_link) shareText += '\n' + share.share_link
-    }
-  } catch (e) {}
-  openShareSheet(shareText)
+  const text = String((n && (n.content || n.summary || n.title)) || '').trim()
+  const shareText = (cat ? ('【' + cat + '】\n') : '') + (text || '')
+  const images = noticeImages(n)
+    .slice(0, 9)
+    .map((src) => noticeImageMediaExtra(src))
+    .filter(Boolean)
+  await openShareSheet(shareText, images)
+}
+
+/** 公告图转 IM 图片消息 extra（须为 /uploads/ 路径，IM 才放行） */
+function noticeImageMediaExtra(src) {
+  const raw = String(src || '').trim()
+  if (!raw) return null
+  let path = raw
+  let full = ''
+  if (/^https?:\/\//i.test(raw)) {
+    full = raw
+    const m = raw.match(/^https?:\/\/[^/?#]+(\/[^?#]*)/i)
+    path = (m && m[1]) || raw
+  } else if (raw.charAt(0) === '/') {
+    path = raw
+    full = publicUrl(raw) || avatarSrc(raw) || raw
+  } else {
+    path = '/' + raw.replace(/^\/+/, '')
+    full = publicUrl(path) || avatarSrc(path) || path
+  }
+  const up = path.match(/(\/uploads\/[^?#]+)/i) || String(full || '').match(/(\/uploads\/[^?#]+)/i)
+  if (up) path = up[1]
+  if (path.indexOf('/uploads/') !== 0) return null
+  path = path.split('?')[0].split('#')[0]
+  const ext = (path.split('.').pop() || '').toLowerCase()
+  if (!['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext)) return null
+  if (!full) full = publicUrl(path) || path
+  return { url: path, fullurl: full, name: '' }
 }
 
 const shareSheetOpen = ref(false)
 const shareLoading = ref(false)
 const shareTextPayload = ref('')
+const shareImagePayloads = ref([])
 const shareFissionPayload = ref(null)
 const shareFriendTargets = ref([])
 const shareGroupTargets = ref([])
@@ -1507,8 +1532,12 @@ const sharePreviewText = computed(() => {
     const p = shareFissionPayload.value
     return '裂变红宝卡片 · ¥' + (p.pool || '0') + ' · ' + (p.quals || 0) + '/' + (p.cap || 100)
   }
-  const s = String(shareTextPayload.value || '')
-  return s.length > 80 ? s.slice(0, 80) + '…' : s
+  const imgs = shareImagePayloads.value || []
+  const s = String(shareTextPayload.value || '').trim()
+  const imgPart = imgs.length ? imgs.length + ' 张图片' : ''
+  const textPart = s ? (s.length > 60 ? s.slice(0, 60) + '…' : s) : ''
+  if (imgPart && textPart) return imgPart + ' + ' + textPart
+  return textPart || imgPart || '公告'
 })
 const shareTargets = computed(() => [
   ...(shareFriendTargets.value || []),
@@ -1522,6 +1551,8 @@ function shareFriendId(f) {
 function closeShareSheet() {
   shareSheetOpen.value = false
   shareFissionPayload.value = null
+  shareImagePayloads.value = []
+  shareTextPayload.value = ''
 }
 
 async function loadShareTargets() {
@@ -1567,10 +1598,11 @@ async function loadShareTargets() {
   }
 }
 
-async function openShareSheet(text) {
+async function openShareSheet(text, images) {
   shareFissionPayload.value = null
   shareTextPayload.value = String(text || '').trim()
-  if (!shareTextPayload.value) {
+  shareImagePayloads.value = Array.isArray(images) ? images.filter(Boolean) : []
+  if (!shareTextPayload.value && !shareImagePayloads.value.length) {
     uni.showToast({ title: '分享内容为空', icon: 'none' })
     return
   }
@@ -1584,6 +1616,7 @@ async function openFissionShare() {
   const ended = fissionNoticeEnded.value ? 1 : 0
   const act = (fissionNotice.value && fissionNotice.value.activity) || {}
   shareTextPayload.value = ''
+  shareImagePayloads.value = []
   shareFissionPayload.value = {
     pool: String(pool),
     quals: quals | 0,
@@ -1592,6 +1625,23 @@ async function openFissionShare() {
     activity_id: (act.id | 0) || 0,
   }
   await loadShareTargets()
+}
+
+async function sendNoticeSharePayload(sendFn) {
+  const images = shareImagePayloads.value || []
+  for (let i = 0; i < images.length; i++) {
+    const ex = images[i]
+    if (!ex || !ex.url) continue
+    await sendFn({
+      content: '[图片]',
+      msg_type: 4,
+      extra: { url: ex.url, fullurl: ex.fullurl || ex.url, name: ex.name || '' },
+    })
+  }
+  const text = String(shareTextPayload.value || '').trim()
+  if (text) {
+    await sendFn({ content: text, msg_type: 1 })
+  }
 }
 
 async function sendShareToFriend(f) {
@@ -1621,10 +1671,8 @@ async function sendShareToFriend(f) {
         true
       )
     } else {
-      await imSend(
-        'private.send',
-        { to_user_id: peer, content: shareTextPayload.value, msg_type: 1 },
-        true
+      await sendNoticeSharePayload((body) =>
+        imSend('private.send', Object.assign({ to_user_id: peer }, body), true)
       )
     }
     uni.showToast({ title: '已分享给好友', icon: 'success' })
@@ -1663,10 +1711,8 @@ async function sendShareToGroup(g) {
         true
       )
     } else {
-      await imSend(
-        'group.send',
-        { group_id: gid, content: shareTextPayload.value, msg_type: 1 },
-        true
+      await sendNoticeSharePayload((body) =>
+        imSend('group.send', Object.assign({ group_id: gid }, body), true)
       )
     }
     uni.showToast({ title: '已分享到群', icon: 'success' })
