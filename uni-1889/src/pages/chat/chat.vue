@@ -66,7 +66,10 @@
                 <image :src="msgAvatar(m)" mode="aspectFill" lazy-load />
               </view>
               <view class="chat-msg-main" :class="{ 'has-niuniu': isNiuniu(m) || isFissionShare(m) }">
-                <view v-if="showSender(m)" class="chat-msg-nick locked">{{ senderName(m) }}</view>
+                <view v-if="showSender(m)" class="chat-msg-nick locked">
+                  {{ senderName(m) }}
+                  <text v-if="msgIsBot(m)" class="chat-rp-bot-tag">机</text>
+                </view>
 
                 <!-- 红宝：对齐 888 bubble-rp；信封用 CSS 代替内联 SVG，减轻列表主线程 -->
                 <view
@@ -2120,6 +2123,12 @@ function showSender(m) {
 }
 function senderName(m) {
   return String((m && (m.nickname || m.from_nickname)) || ('ID' + ((m && m.from_user_id) | 0)))
+}
+function msgIsBot(m) {
+  if (!m) return false
+  if ((m.is_bot | 0) === 1) return true
+  const fu = m.from_user
+  return !!(fu && ((fu.is_bot | 0) === 1))
 }
 function mediaUrl(m) {
   const ex = msgExtra(m)

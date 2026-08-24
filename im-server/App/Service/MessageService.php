@@ -227,7 +227,7 @@ class MessageService
     }
 
     /**
-     * 批量为历史消息附带 from_nickname / from_avatar / from_user
+     * 批量为历史消息附带 from_nickname / from_avatar / from_user / is_bot
      */
     public function enrichMessagesWithSenders(array $list)
     {
@@ -246,19 +246,52 @@ class MessageService
         }
         $auth = new AuthService([]);
         $map = $auth->usersBriefMap($ids);
+        $botMap = $this->botFlagsMap($ids);
         foreach ($list as &$m) {
-            $m = $this->attachSenderFields($m, $map, $auth);
+            $m = $this->attachSenderFields($m, $map, $auth, $botMap);
         }
         unset($m);
         return $list;
     }
 
     /**
-     * @param array           $msg
-     * @param array|null      $map  预取的 usersBriefMap；null 则单条查询
-     * @param AuthService|null $auth
+     * user_id => 0|1（fans_account.is_bot）
+     *
+     * @param int[] $userIds
+     * @return array<int,int>
      */
-    public function attachSenderFields(array $msg, $map = null, $auth = null)
+    public function botFlagsMap(array $userIds)
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $userIds), function ($id) {
+            return $id > 0;
+        })));
+        if (!$ids) {
+            return [];
+        }
+        $out = [];
+        try {
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $rows = Db::fetchAll(
+                'SELECT user_id, is_bot FROM ' . Db::table('fans_account')
+                . " WHERE user_id IN ({$placeholders})",
+                $ids
+            );
+            foreach ($rows ?: [] as $row) {
+                $out[(int)$row['user_id']] = ((int)($row['is_bot'] ?? 0) === 1) ? 1 : 0;
+            }
+        } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.MessageService');
+        }
+        return $out;
+    }
+
+    /**
+     * @param array            $msg
+     * @param array|null       $map  预取的 usersBriefMap；null 则单条查询
+     * @param AuthService|null $auth
+     * @param array|null       $botMap 预取的 botFlagsMap；null 则单条查询
+     */
+    public function attachSenderFields(array $msg, $map = null, $auth = null, $botMap = null)
     {
         $fid = (int)($msg['from_user_id'] ?? 0);
         if ($fid <= 0) {
@@ -270,16 +303,22 @@ class MessageService
         if ($map === null) {
             $map = $auth->usersBriefMap([$fid]);
         }
+        if ($botMap === null) {
+            $botMap = $this->botFlagsMap([$fid]);
+        }
         $u = $map[$fid] ?? null;
         $nick = $auth->displayNameFromBrief($u, $fid);
         $avatar = is_array($u) ? (string)($u['avatar'] ?? '') : '';
+        $isBot = !empty($botMap[$fid]) ? 1 : 0;
         $msg['from_nickname'] = $nick;
         $msg['from_avatar'] = $avatar;
+        $msg['is_bot'] = $isBot;
         $msg['from_user'] = [
             'id'       => $fid,
             'user_id'  => $fid,
             'nickname' => $nick,
             'avatar'   => $avatar,
+            'is_bot'   => $isBot,
         ];
         return $msg;
     }
