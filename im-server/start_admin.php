@@ -237,7 +237,11 @@ $http->onMessage = function (TcpConnection $connection, Request $request) use ($
             if ($probe && (int)($probe['scope_type'] ?? 0) === 1) {
                 throw new RuntimeException('private red packet: robot grab disabled');
             }
-            $result = $redPackets->grab($packetId, $agentUid);
+            $grabOpts = [];
+            if (!empty($body['robot_self_grab'])) {
+                $grabOpts['robot_self_grab'] = true;
+            }
+            $result = $redPackets->grab($packetId, $agentUid, $grabOpts);
             $packet = $result['packet'] ?? null;
             if (is_array($packet)) {
                 $event = [

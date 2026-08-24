@@ -1212,7 +1212,10 @@ class RedPacketService
      * 3) MySQL 写领取明细 + 入账 + 冻结潜在赔付额
      * 4) 若为最后一个包，触发 Settlement 结算（解冻非赔付方 / 中雷/最差赔付）
      */
-    public function grab($packetId, $userId)
+    /**
+     * @param array $opts robot_self_grab=true 时：发包机器人领自己刚发的包，跳过「再冻一份总额」验资（刚扣完通常不够）
+     */
+    public function grab($packetId, $userId, array $opts = [])
     {
         $packetId = (int)$packetId;
         $userId = (int)$userId;
@@ -1228,6 +1231,8 @@ class RedPacketService
             throw new \RuntimeException('packet not found');
             }
         }
+        $robotSelfGrab = !empty($opts['robot_self_grab'])
+            && $userId === (int)($packet['from_user_id'] ?? 0);
         if ((int)$packet['scope_type'] === 2) {
             $groupId = (int)$packet['group_id'];
             if (!$this->groups->isMember($groupId, $userId)) {
@@ -1282,7 +1287,11 @@ class RedPacketService
             // 仅拼手气/接龙冻结；埋雷不冻结
             $shouldFreeze = in_array($packetType, [2, 5], true);
             $needCompensate = $this->potentialCompensateNeed($packet);
-            if (!$this->canAffordGrabCompensate($userId, $packet)) {
+            // 机器人自领刚发的包：跳过拼手气/接龙「再冻总额」门槛（发包刚扣完通常不够 2 倍）
+            // 埋雷仍走验资（中雷要赔）；拼手气发包人最差已免赔，自领只入账不冻结即可
+            if ($robotSelfGrab && in_array($packetType, [2, 5], true)) {
+                $shouldFreeze = false;
+            } elseif (!$this->canAffordGrabCompensate($userId, $packet)) {
                 if ($packetType === 3) {
                     $minGate = round((float)($this->cfg['min_amount'] ?? 10), 2);
                     if ((int)($packet['group_id'] ?? 0) > 0) {

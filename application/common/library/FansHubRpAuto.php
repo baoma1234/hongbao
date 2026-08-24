@@ -159,12 +159,13 @@ class FansHubRpAuto
             if ($packetId > 0 && $sendUid > 0) {
                 try {
                     FansHubImBridge::post('/agent/grab_redpacket', [
-                        'agent_user_id' => $sendUid,
-                        'packet_id'     => $packetId,
+                        'agent_user_id'   => $sendUid,
+                        'packet_id'      => $packetId,
+                        'robot_self_grab'=> 1,
                     ]);
                     $out['grab']++;
                 } catch (\Throwable $e) {
-                    // 已领/余额不足等忽略，继续走常规抢包
+                    // 已领/余额不足/埋雷哈希未就绪等忽略，继续走常规抢包
                 }
             }
             $grabbed = self::maybeGrab($task, $packetId);

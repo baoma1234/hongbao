@@ -138,23 +138,78 @@ class RpAutoBotService
         }
 
         if ((int)($task['auto_grab'] ?? 0) === 1) {
-            // 机器人刚发出的包：发包人立刻领自己的一份
+            // 机器人刚发出的包：发包人立刻领自己的一份（余额不够冻总额时走 robot_self_grab）
             if ($packetId > 0 && $sendUid > 0) {
-                try {
-                    $ok = $this->doGrabOnce($taskId, $packetId, $sendUid, $groupId);
-                    $this->taskLog($taskId, $ok ? 'ok' : 'skip', 'sender self-grab', [
-                        'packet_id' => $packetId,
-                        'uid'       => $sendUid,
-                    ]);
-                } catch (\Throwable $e) {
-                    $this->taskLog($taskId, 'error', 'sender self-grab: ' . $e->getMessage(), [
-                        'packet_id' => $packetId,
-                        'uid'       => $sendUid,
-                    ]);
-                }
+                $this->trySenderSelfGrab($taskId, $packetId, $sendUid, $groupId, 0);
             }
             $this->maybeScheduleGrab($task, $packetId);
         }
+    }
+
+    /**
+     * 发包机器人立刻自领；埋雷等哈希未就绪时短间隔重试。
+     */
+    protected function trySenderSelfGrab($taskId, $packetId, $sendUid, $groupId, $attempt = 0)
+    {
+        $taskId = (int)$taskId;
+        $packetId = (int)$packetId;
+        $sendUid = (int)$sendUid;
+        $groupId = (int)$groupId;
+        $attempt = (int)$attempt;
+        if ($packetId <= 0 || $sendUid <= 0) {
+            return;
+        }
+        try {
+            $ok = $this->doGrabOnce($taskId, $packetId, $sendUid, $groupId, ['robot_self_grab' => true]);
+            $this->taskLog($taskId, $ok ? 'ok' : 'skip', 'sender self-grab', [
+                'packet_id' => $packetId,
+                'uid'       => $sendUid,
+                'attempt'   => $attempt,
+            ]);
+            if ($ok) {
+                return;
+            }
+        } catch (\Throwable $e) {
+            $msg = $e->getMessage();
+            $this->taskLog($taskId, 'error', 'sender self-grab: ' . $msg, [
+                'packet_id' => $packetId,
+                'uid'       => $sendUid,
+                'attempt'   => $attempt,
+            ]);
+            // 非软错误不重试
+            if (!$this->isSoftGrabError($msg)) {
+                return;
+            }
+        }
+
+        // 已领 / 包已空：不再重试
+        $exists = Db::fetch(
+            'SELECT id FROM ' . Db::table('chat_red_packet_records')
+            . ' WHERE packet_id=? AND user_id=? LIMIT 1',
+            [$packetId, $sendUid]
+        );
+        if ($exists) {
+            return;
+        }
+        $open = Db::fetch(
+            'SELECT id, status, remain_count, packet_type, tron_status FROM ' . Db::table('chat_red_packets')
+            . ' WHERE id=? LIMIT 1',
+            [$packetId]
+        );
+        if (!$open || (int)$open['status'] !== 1 || (int)$open['remain_count'] <= 0) {
+            return;
+        }
+        if ($attempt >= 15) {
+            return;
+        }
+        // 埋雷等哈希 / 瞬时失败：1s 后重试
+        Timer::add(1.0, function () use ($taskId, $packetId, $sendUid, $groupId, $attempt) {
+            try {
+                $this->trySenderSelfGrab($taskId, $packetId, $sendUid, $groupId, $attempt + 1);
+            } catch (\Throwable $e) {
+                CatchLog::quiet($e, 'Service.RpAutoBotService');
+            }
+        }, [], false);
     }
 
     /**
@@ -476,61 +531,68 @@ class RpAutoBotService
             if ($packetId <= 0) {
                 continue;
             }
-            // 该包已有待执行 Timer，不重复排
-            if ($this->isGrabBusy($taskId, $packetId)) {
-                $skippedBusy++;
-                continue;
-            }
-            $uid = $this->pickGrabUidForPacket($packetId, $uids);
-            if ($uid <= 0) {
-                $skippedUid++;
-                continue;
-            }
-
-            // 每包独立随机 delay；新包可再拉长，但不超过后台配置的最大延迟
-            $coolSec = $this->randomGrabDelaySec($task);
-            list($minMs, $maxMs) = $this->grabDelayBounds($task);
-            $maxSec = max((float)self::GRAB_DELAY_FLOOR_SEC, $maxMs / 1000.0);
-            $created = (int)($meta['createtime'] ?? 0);
-            $age = $created > 0 ? max(0, time() - $created) : 0;
-            $humanNeed = (float)random_int(self::HUMAN_FIRST_MIN_SEC, self::HUMAN_FIRST_MAX_SEC);
-            $humanNeed = min($humanNeed, $maxSec);
-            $delaySec = $coolSec;
-            if ($age < $humanNeed) {
-                $delaySec = max($delaySec, (float)($humanNeed - $age));
-            }
-            $delaySec = max((float)self::GRAB_DELAY_FLOOR_SEC, min(120.0, $delaySec));
-            // 最终仍夹在后台配置区间内（避免真人优先窗抬过 max）
-            $minSec = max((float)self::GRAB_DELAY_FLOOR_SEC, $minMs / 1000.0);
-            $delaySec = max($minSec, min($maxSec, $delaySec));
-
-            if (!$this->tryMarkGrabBusy($taskId, $packetId, (int)ceil($delaySec) + 20)) {
-                $skippedBusy++;
-                continue;
-            }
-
-            $this->taskLog($taskId, 'info', 'grab scheduled', [
-                'packet_id' => $packetId,
-                'uid'       => $uid,
-                'delay_sec' => round($delaySec, 1),
-                'cfg_ms'    => $this->grabDelayBounds($task),
-                'parallel'  => 1,
-            ]);
-            $scheduled++;
-
-            Timer::add($delaySec, function () use ($taskId, $packetId, $uid, $groupId) {
-                try {
-                    $this->doGrabOnce($taskId, $packetId, $uid, $groupId);
-                } catch (\Throwable $e) {
-                    $this->touchError($taskId, 'grab u' . $uid . ' p' . $packetId . ': ' . $e->getMessage());
-                    $this->taskLog($taskId, 'error', 'grab timer: ' . $e->getMessage(), [
-                        'packet_id' => $packetId,
-                        'uid'       => $uid,
-                    ]);
-                } finally {
-                    $this->clearGrabBusy($taskId, $packetId);
+            $remain = max(1, (int)($meta['remain_count'] ?? 1));
+            // 同一包可并行排多个机器人（各用独立 delay），最多跟剩余份数对齐
+            $maxSlots = min($remain, 8);
+            $pickedThisRound = [];
+            for ($slot = 0; $slot < $maxSlots; $slot++) {
+                $uid = $this->pickGrabUidForPacket($packetId, $uids, $pickedThisRound);
+                if ($uid <= 0) {
+                    $skippedUid++;
+                    break;
                 }
-            }, [], false);
+                if ($this->isGrabBusy($taskId, $packetId, $uid)) {
+                    $skippedBusy++;
+                    continue;
+                }
+
+                // 每包独立随机 delay；新包可再拉长，但不超过后台配置的最大延迟
+                $coolSec = $this->randomGrabDelaySec($task);
+                list($minMs, $maxMs) = $this->grabDelayBounds($task);
+                $maxSec = max((float)self::GRAB_DELAY_FLOOR_SEC, $maxMs / 1000.0);
+                $created = (int)($meta['createtime'] ?? 0);
+                $age = $created > 0 ? max(0, time() - $created) : 0;
+                $humanNeed = (float)random_int(self::HUMAN_FIRST_MIN_SEC, self::HUMAN_FIRST_MAX_SEC);
+                $humanNeed = min($humanNeed, $maxSec);
+                $delaySec = $coolSec;
+                if ($age < $humanNeed) {
+                    $delaySec = max($delaySec, (float)($humanNeed - $age));
+                }
+                $delaySec = max((float)self::GRAB_DELAY_FLOOR_SEC, min(120.0, $delaySec));
+                // 最终仍夹在后台配置区间内（避免真人优先窗抬过 max）
+                $minSec = max((float)self::GRAB_DELAY_FLOOR_SEC, $minMs / 1000.0);
+                $delaySec = max($minSec, min($maxSec, $delaySec));
+
+                if (!$this->tryMarkGrabBusy($taskId, $packetId, $uid, (int)ceil($delaySec) + 20)) {
+                    $skippedBusy++;
+                    continue;
+                }
+                $pickedThisRound[$uid] = 1;
+
+                $this->taskLog($taskId, 'info', 'grab scheduled', [
+                    'packet_id' => $packetId,
+                    'uid'       => $uid,
+                    'delay_sec' => round($delaySec, 1),
+                    'cfg_ms'    => $this->grabDelayBounds($task),
+                    'parallel'  => 1,
+                    'slot'      => $slot + 1,
+                ]);
+                $scheduled++;
+
+                Timer::add($delaySec, function () use ($taskId, $packetId, $uid, $groupId) {
+                    try {
+                        $this->doGrabOnce($taskId, $packetId, $uid, $groupId);
+                    } catch (\Throwable $e) {
+                        $this->touchError($taskId, 'grab u' . $uid . ' p' . $packetId . ': ' . $e->getMessage());
+                        $this->taskLog($taskId, 'error', 'grab timer: ' . $e->getMessage(), [
+                            'packet_id' => $packetId,
+                            'uid'       => $uid,
+                        ]);
+                    } finally {
+                        $this->clearGrabBusy($taskId, $packetId, $uid);
+                    }
+                }, [], false);
+            }
         }
 
         if ($scheduled <= 0 && ($skippedBusy > 0 || $skippedUid > 0)) {
@@ -895,11 +957,12 @@ class RpAutoBotService
         return $row;
     }
 
-    protected function doGrabOnce($taskId, $packetId, $uid, $groupId)
+    protected function doGrabOnce($taskId, $packetId, $uid, $groupId, array $opts = [])
     {
         $packetId = (int)$packetId;
         $uid = (int)$uid;
         $groupId = (int)$groupId;
+        $robotSelfGrab = !empty($opts['robot_self_grab']);
         if ($packetId <= 0 || $uid <= 0) {
             return false;
         }
@@ -912,7 +975,7 @@ class RpAutoBotService
             return false;
         }
         $open = Db::fetch(
-            'SELECT id, remain_count, status, group_id, packet_type, total_amount, total_count, scope_type'
+            'SELECT id, remain_count, status, group_id, packet_type, total_amount, total_count, scope_type, from_user_id'
             . ' FROM ' . Db::table('chat_red_packets')
             . ' WHERE id=? LIMIT 1',
             [$packetId]
@@ -920,8 +983,14 @@ class RpAutoBotService
         if (!$open || (int)$open['status'] !== 1 || (int)$open['remain_count'] <= 0) {
             return false;
         }
+        if ($robotSelfGrab && $uid !== (int)($open['from_user_id'] ?? 0)) {
+            $robotSelfGrab = false;
+            $opts['robot_self_grab'] = false;
+        }
         // 领前再验一次：余额不够赔付则不抢（与真人同一闸门）
-        if (!$this->redPackets->canAffordGrabCompensate($uid, $open)) {
+        // 机器人自领拼手气/接龙：跳过（grab 内只入账不冻）；埋雷仍验资
+        $skipPrecheck = $robotSelfGrab && in_array((int)($open['packet_type'] ?? 0), [2, 5], true);
+        if (!$skipPrecheck && !$this->redPackets->canAffordGrabCompensate($uid, $open)) {
             $need = $this->redPackets->potentialCompensateNeed($open);
             error_log(sprintf(
                 '[RP_AUTO] grab precheck reject task=%d packet=%d uid=%d need=%.2f',
@@ -949,7 +1018,7 @@ class RpAutoBotService
         }
 
         try {
-            $result = $this->redPackets->grab($packetId, $uid);
+            $result = $this->redPackets->grab($packetId, $uid, $opts);
         } catch (\Throwable $e) {
             $msg = $e->getMessage();
             // 余额不够赔付：与真人同一套闸门，软跳过换下一个 UID
@@ -1009,14 +1078,22 @@ class RpAutoBotService
 
     /**
      * 每个待领包：从未领过且红宝够赔付/冻结的 grab_user_ids 里随机选 1 个去抢。
+     * @param int[] $excludeUids 本轮已排程 UID
      * @return int user_id，无可抢 UID 时返回 0
      */
-    protected function pickGrabUidForPacket($packetId, array $uids)
+    protected function pickGrabUidForPacket($packetId, array $uids, array $excludeUids = [])
     {
         $uids = array_values(array_filter(array_map('intval', $uids)));
         $packetId = (int)$packetId;
         if (!$uids || $packetId <= 0) {
             return 0;
+        }
+        $excludeMap = [];
+        foreach ($excludeUids as $k => $v) {
+            $id = is_int($k) && $v === 1 ? (int)$k : (int)$v;
+            if ($id > 0) {
+                $excludeMap[$id] = 1;
+            }
         }
         $packet = Db::fetch(
             'SELECT id, packet_type, total_amount, total_count, scope_type, group_id, status, remain_count'
@@ -1041,7 +1118,7 @@ class RpAutoBotService
         }
         $pool = [];
         foreach ($uids as $uid) {
-            if ($uid > 0 && empty($grabbed[$uid])) {
+            if ($uid > 0 && empty($grabbed[$uid]) && empty($excludeMap[$uid])) {
                 $pool[] = $uid;
             }
         }
@@ -1203,15 +1280,20 @@ class RpAutoBotService
         }
     }
 
-    protected function grabBusyKey($taskId, $packetId)
+    protected function grabBusyKey($taskId, $packetId, $uid = 0)
     {
-        return RedisClient::key(self::GRAB_BUSY_PREFIX . (int)$taskId . ':' . (int)$packetId);
+        $uid = (int)$uid;
+        $base = self::GRAB_BUSY_PREFIX . (int)$taskId . ':' . (int)$packetId;
+        if ($uid > 0) {
+            $base .= ':' . $uid;
+        }
+        return RedisClient::key($base);
     }
 
-    protected function isGrabBusy($taskId, $packetId)
+    protected function isGrabBusy($taskId, $packetId, $uid = 0)
     {
         try {
-            $v = RedisClient::conn()->get($this->grabBusyKey($taskId, $packetId));
+            $v = RedisClient::conn()->get($this->grabBusyKey($taskId, $packetId, $uid));
             return $v !== false && $v !== null && $v !== '';
         } catch (\Throwable $e) {
             // 失败时当作忙碌，避免无 Redis 时叠 Timer 连抢
@@ -1219,13 +1301,13 @@ class RpAutoBotService
         }
     }
 
-    /** @return bool 是否成功占到该包的坑 */
-    protected function tryMarkGrabBusy($taskId, $packetId, $ttl)
+    /** @return bool 是否成功占到该包+UID 的坑 */
+    protected function tryMarkGrabBusy($taskId, $packetId, $uid, $ttl)
     {
         try {
             $r = RedisClient::conn();
             return (bool)$r->set(
-                $this->grabBusyKey($taskId, $packetId),
+                $this->grabBusyKey($taskId, $packetId, $uid),
                 (string)microtime(true),
                 ['nx', 'ex' => max(5, (int)$ttl)]
             );
@@ -1234,10 +1316,10 @@ class RpAutoBotService
         }
     }
 
-    protected function clearGrabBusy($taskId, $packetId)
+    protected function clearGrabBusy($taskId, $packetId, $uid = 0)
     {
         try {
-            RedisClient::conn()->del($this->grabBusyKey($taskId, $packetId));
+            RedisClient::conn()->del($this->grabBusyKey($taskId, $packetId, $uid));
         } catch (\Throwable $e) {
             CatchLog::quiet($e, 'Service.RpAutoBotService');
         }
