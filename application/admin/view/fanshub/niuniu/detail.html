@@ -1,7 +1,10 @@
 <div class="panel panel-default panel-intro">
     <div class="panel-heading">
         <em>尾数牛牛对局 #{$row.id}</em>
-        <div class="panel-lead">{$row.status_label}｜{$row.game_mode_label}｜已领 {$claimed_count}/{$share_total}</div>
+        <div class="panel-lead">
+            {$row.status_label}｜{$row.game_mode_label}｜已领 {$claimed_count}/{$share_total} 份
+            {if condition="$is_single_mode"}｜{$person_total} 人{/if}
+        </div>
     </div>
     <div class="panel-body">
         <table class="table table-bordered">
@@ -33,13 +36,17 @@
         </table>
 
         <h4 style="margin:16px 0 8px;">领取结果（按真实领取时间）</h4>
-        <p class="text-muted" style="margin-bottom:8px;">未领取不出尾数/牛数；领取后按领取序号从 hash 派生。</p>
+        <p class="text-muted" style="margin-bottom:8px;">
+            未领取不出尾数/牛数；领取后按领取序号从 hash 派生。
+            {if condition="$is_single_mode"}单结果玩法按人合并展示，奖金为该用户全部份额合计。{/if}
+            「红包额」为尾数入账；「开奖奖金」为结算分池奖金。
+        </p>
         <div class="table-responsive">
             <table class="table table-bordered table-striped table-hover">
                 <thead>
                 <tr>
                     <th>领取序</th>
-                    <th>份号</th>
+                    <th>{if condition="$is_single_mode"}份数{else/}份号{/if}</th>
                     <th>用户</th>
                     <th>领取状态</th>
                     <th>领取时间</th>
@@ -47,7 +54,7 @@
                     <th>结果</th>
                     <th>档位</th>
                     <th>红包额</th>
-                    <th>奖金</th>
+                    <th>开奖奖金</th>
                     <th>红包入账</th>
                 </tr>
                 </thead>
@@ -55,7 +62,7 @@
                 {volist name="shares" id="s"}
                 <tr class="{if condition='$s.claimed'}success{else/}active{/if}">
                     <td>{if condition="$s.claim_seq"}{$s.claim_seq}{else/}-{/if}</td>
-                    <td>{$s.share_no}</td>
+                    <td>{$s.share_no_text}</td>
                     <td>{$s.nickname}<br><span class="text-muted">#{$s.user_id}</span></td>
                     <td>{$s.claimed_label}</td>
                     <td>{$s.claimed_at_text}</td>
@@ -63,7 +70,13 @@
                     <td>{$s.niu_label}</td>
                     <td>{$s.tier_label}</td>
                     <td>{$s.amount}</td>
-                    <td>{$s.win_amount}</td>
+                    <td>
+                        {if condition="$s.win_amount gt 0"}
+                        <strong style="color:#c62828;">{$s.win_amount_text}</strong>
+                        {else/}
+                        {$s.win_amount_text}
+                        {/if}
+                    </td>
                     <td>{$s.packet_paid}</td>
                 </tr>
                 {/volist}

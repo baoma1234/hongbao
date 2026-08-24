@@ -46,7 +46,8 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                                     title: '领取结果',
                                     classname: 'btn btn-xs btn-info btn-dialog',
                                     icon: 'fa fa-list',
-                                    url: 'fanshub/niuniu/detail'
+                                    url: 'fanshub/niuniu/detail',
+                                    extend: 'data-area=\'["90%","90%"]\''
                                 }
                             ],
                             formatter: Table.api.formatter.operate

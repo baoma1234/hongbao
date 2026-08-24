@@ -132,9 +132,12 @@ class Niuniu extends Backend
             $uid = (int)($s['user_id'] ?? 0);
             $tail = trim((string)($s['tail_digits'] ?? ''));
             $claimedAt = (int)($s['claimed_at'] ?? 0);
+            $winAmt = round((float)($s['win_amount'] ?? 0), 4);
+            $pktAmt = ($claimed && $tail !== '') ? round((float)($s['amount'] ?? 0), 2) : null;
             $rows[] = [
                 'id'            => (int)($s['id'] ?? 0),
                 'share_no'      => (int)($s['share_no'] ?? 0),
+                'share_count'   => 1,
                 'user_id'       => $uid,
                 'nickname'      => $nickMap[$uid] ?? ('用户' . $uid),
                 'claim_seq'     => (int)($s['claim_seq'] ?? 0),
@@ -148,18 +151,78 @@ class Niuniu extends Backend
                 'tier_label'    => $claimed && $tail !== ''
                     ? ($tierMap[(int)($s['niu_tier'] ?? 0)] ?? '-')
                     : '-',
-                'amount'        => $claimed && $tail !== ''
-                    ? sprintf('%.2f', round((float)($s['amount'] ?? 0), 2))
-                    : '-',
-                'win_amount'    => sprintf('%.4f', round((float)($s['win_amount'] ?? 0), 4)),
+                'amount'        => $pktAmt !== null ? sprintf('%.2f', $pktAmt) : '-',
+                'amount_raw'    => $pktAmt,
+                'win_amount'    => $winAmt,
+                'win_amount_text' => $winAmt > 0 ? sprintf('%.4f', $winAmt) : '0',
                 'packet_paid'   => (int)($s['packet_paid'] ?? 0) === 1 ? '已入账' : '-',
             ];
         }
 
+        // 单结果：与前台领取明细一致，同一用户只展示一行并合并奖金
+        if ($mode === 2 && $rows) {
+            $merged = [];
+            $order = [];
+            foreach ($rows as $r) {
+                $uid = (int)$r['user_id'];
+                if (!isset($merged[$uid])) {
+                    $merged[$uid] = $r;
+                    $order[] = $uid;
+                    continue;
+                }
+                $g = &$merged[$uid];
+                $g['share_count'] = ((int)$g['share_count']) + 1;
+                $g['win_amount'] = round((float)$g['win_amount'] + (float)$r['win_amount'], 4);
+                if ((int)$r['claim_seq'] > 0 && ((int)$g['claim_seq'] <= 0 || (int)$r['claim_seq'] < (int)$g['claim_seq'])) {
+                    $g['claim_seq'] = (int)$r['claim_seq'];
+                }
+                if ((int)$r['claimed_at'] > 0 && ((int)$g['claimed_at'] <= 0 || (int)$r['claimed_at'] < (int)$g['claimed_at'])) {
+                    $g['claimed_at'] = (int)$r['claimed_at'];
+                    $g['claimed_at_text'] = $r['claimed_at_text'];
+                }
+                if ($r['claimed']) {
+                    $g['claimed'] = true;
+                    $g['claimed_label'] = '已领取';
+                    if ($g['tail_digits'] === '-' && $r['tail_digits'] !== '-') {
+                        $g['tail_digits'] = $r['tail_digits'];
+                        $g['niu_label'] = $r['niu_label'];
+                        $g['niu_tier'] = $r['niu_tier'];
+                        $g['tier_label'] = $r['tier_label'];
+                        $g['amount'] = $r['amount'];
+                        $g['amount_raw'] = $r['amount_raw'];
+                    }
+                }
+                if ($r['packet_paid'] === '已入账') {
+                    $g['packet_paid'] = '已入账';
+                }
+                unset($g);
+            }
+            $rows = [];
+            foreach ($order as $uid) {
+                $g = $merged[$uid];
+                $n = max(1, (int)$g['share_count']);
+                $win = round((float)$g['win_amount'], 4);
+                $g['win_amount'] = $win;
+                $g['win_amount_text'] = $win > 0 ? sprintf('%.4f', $win) : '0';
+                $g['share_no_text'] = $n > 1 ? ('×' . $n . '份') : (string)(int)$g['share_no'];
+                if ($g['amount_raw'] !== null && $n > 1) {
+                    $g['amount'] = sprintf('%.2f', $g['amount_raw']) . '/' . $n;
+                }
+                $rows[] = $g;
+            }
+        } else {
+            foreach ($rows as &$r) {
+                $r['share_no_text'] = (string)(int)$r['share_no'];
+            }
+            unset($r);
+        }
+
         $this->view->assign('row', $row);
         $this->view->assign('shares', $rows);
-        $this->view->assign('share_total', count($rows));
+        $this->view->assign('share_total', count($shares));
+        $this->view->assign('person_total', count($rows));
         $this->view->assign('claimed_count', $claimedCount);
+        $this->view->assign('is_single_mode', $mode === 2);
         return $this->view->fetch();
     }
 }
