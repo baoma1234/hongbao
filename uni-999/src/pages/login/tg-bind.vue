@@ -121,6 +121,8 @@ const needBind = ref(false)
 const bootText = ref('正在连接 Telegram…')
 const initData = ref('')
 const tgName = ref('')
+/** @type {import('vue').Ref<object|null>} */
+const tgWebApp = ref(null)
 let timer = null
 
 const countryMeta = computed(() => getCountryMeta(country.value))
@@ -217,12 +219,59 @@ function parseInitDataFromLocation() {
   // #endif
 }
 
+function extractUserJsonFromInitStr(raw) {
+  let s = String(raw || '').replace(/&amp;/g, '&')
+  const m = s.match(/(?:^|&)user=([^&]*)/)
+  if (!m) return ''
+  try {
+    return decodeURIComponent(String(m[1]).replace(/\+/g, '%20'))
+  } catch (e) {
+    return String(m[1] || '')
+  }
+}
+
+function buildInitDataFromUnsafe(unsafe) {
+  if (!unsafe || !unsafe.hash || !unsafe.auth_date) return ''
+  const parts = []
+  if (unsafe.query_id) parts.push('query_id=' + unsafe.query_id)
+  parts.push('auth_date=' + unsafe.auth_date)
+  if (unsafe.user) {
+    const u = typeof unsafe.user === 'string' ? unsafe.user : JSON.stringify(unsafe.user)
+    parts.push('user=' + u)
+  }
+  if (unsafe.start_param) parts.push('start_param=' + unsafe.start_param)
+  if (unsafe.chat_instance) parts.push('chat_instance=' + unsafe.chat_instance)
+  if (unsafe.chat_type) parts.push('chat_type=' + unsafe.chat_type)
+  parts.push('hash=' + unsafe.hash)
+  return parts.join('&')
+}
+
 function resolveInitData(tg) {
+  const unsafe = (tg && tg.initDataUnsafe) || {}
+  let s = ''
   const fromTg = tg && tg.initData ? String(tg.initData) : ''
-  if (fromTg) return normalizeInitDataClient(fromTg)
-  const stored = readStoredTgInitData()
-  if (stored) return normalizeInitDataClient(stored)
-  return normalizeInitDataClient(parseInitDataFromLocation())
+  if (fromTg) s = normalizeInitDataClient(fromTg)
+  if (!s) {
+    const stored = readStoredTgInitData()
+    if (stored) s = normalizeInitDataClient(stored)
+  }
+  if (!s) s = normalizeInitDataClient(parseInitDataFromLocation())
+  s = String(s || '').replace(/&amp;/g, '&')
+  // initData 字符串缺 hash 时，从 initDataUnsafe 补上
+  if (unsafe.hash && !/(?:^|&)hash=/.test(s)) {
+    if (s && !s.endsWith('&')) s += '&'
+    s += 'hash=' + unsafe.hash
+  }
+  if (!s && unsafe.hash && unsafe.auth_date) {
+    s = buildInitDataFromUnsafe(unsafe)
+  }
+  return s
+}
+
+function hasTgIdentity(tg) {
+  const unsafe = (tg && tg.initDataUnsafe) || {}
+  const uid = unsafe.user && unsafe.user.id
+  return !!uid
 }
 
 /** 将整段仍 URL 编码的 initData 解到含字面量 hash= */
@@ -296,14 +345,18 @@ function loadTelegramWebApp() {
   })
 }
 
-/** Telegram 偶发 initData 稍晚才注入；须等到含字面量 hash= 再提交 */
-function waitForInitData(tg, rounds = 20, gapMs = 150) {
+/** 等到 initData 含 hash，或 initDataUnsafe 已有 user.id + hash */
+function waitForInitData(tg, rounds = 24, gapMs = 150) {
   return new Promise((resolve) => {
     let n = 0
     const tick = () => {
       const raw = resolveInitData(tg)
       if (raw && /(?:^|&)hash=/.test(raw)) {
         resolve(raw)
+        return
+      }
+      if (hasTgIdentity(tg)) {
+        resolve(raw || buildInitDataFromUnsafe(tg.initDataUnsafe))
         return
       }
       n += 1
@@ -330,11 +383,27 @@ function encodeInitDataB64(raw) {
   return ''
 }
 
-function tgInitPayload() {
+function tgInitPayload(tg) {
   const init = String(initData.value || '')
-  const body = { init_data: init }
+  const unsafe = (tg && tg.initDataUnsafe) || {}
+  const body = {}
   const b64 = encodeInitDataB64(init)
   if (b64) body.init_data_b64 = b64
+  if (init) body.init_data = init
+  if (unsafe.user && unsafe.user.id) {
+    body.tg_user_id = unsafe.user.id
+  }
+  if (unsafe.hash) body.tg_hash = String(unsafe.hash)
+  body.tg_auth_date = String(unsafe.auth_date || Math.floor(Date.now() / 1000))
+  const userJson = extractUserJsonFromInitStr(init)
+    || (unsafe.user
+      ? (typeof unsafe.user === 'string' ? unsafe.user : JSON.stringify(unsafe.user))
+      : '')
+  if (userJson) body.tg_user_json = userJson
+  if (unsafe.start_param) body.tg_start_param = String(unsafe.start_param)
+  if (unsafe.query_id) body.tg_query_id = String(unsafe.query_id)
+  if (unsafe.chat_instance) body.tg_chat_instance = String(unsafe.chat_instance)
+  if (unsafe.chat_type) body.tg_chat_type = String(unsafe.chat_type)
   return body
 }
 
@@ -361,6 +430,7 @@ async function runAuth() {
   needBind.value = false
   bootText.value = '正在连接 Telegram…'
   const tg = await loadTelegramWebApp()
+  tgWebApp.value = tg
   if (tg) {
     try {
       tg.ready()
@@ -381,8 +451,8 @@ async function runAuth() {
   } else {
     initData.value = ''
   }
-  // 非 TG WebApp（无 initData）：提示错误，不要静默空白
-  if (!initData.value) {
+  const canBind = hasTgIdentity(tg) || !!initData.value
+  if (!canBind) {
     if (getToken()) {
       bootText.value = '已登录，正在进入…'
       uni.reLaunch({ url: '/pages/home/home' })
@@ -395,7 +465,7 @@ async function runAuth() {
     return
   }
   try {
-    const data = await apiRequest('tgauth', 'POST', tgInitPayload())
+    const data = await apiRequest('tgauth', 'POST', tgInitPayload(tg))
     if (data && data.token && data.bound !== false) {
       await enterWithToken(data)
       return
@@ -409,10 +479,14 @@ async function runAuth() {
     }
   } catch (e) {
     booting.value = false
-    // 有 initData 仍展示绑定表单，方便重试短信绑定
     needBind.value = true
-    bootText.value = (e && e.message) || 'Telegram 验证失败，请填写手机号绑定'
-    uni.showToast({ title: (e && e.message) || 'Telegram 验证失败', icon: 'none' })
+    // 已有 Telegram 用户身份：直接展示绑定表单，不弹「数据无效」
+    if (hasTgIdentity(tg)) {
+      bootText.value = ''
+    } else {
+      bootText.value = (e && e.message) || 'Telegram 验证失败，请填写手机号绑定'
+      uni.showToast({ title: (e && e.message) || 'Telegram 验证失败', icon: 'none' })
+    }
   }
 }
 
@@ -433,7 +507,7 @@ async function onSendSms() {
   sending.value = true
   try {
     const data = await apiRequest('tgsendsms', 'POST', {
-      ...tgInitPayload(),
+      ...tgInitPayload(tgWebApp.value),
       mobile: phone,
       country_code: country.value,
     })
@@ -470,7 +544,7 @@ async function onBind() {
   loading.value = true
   try {
     const data = await apiRequest('tgbind', 'POST', {
-      ...tgInitPayload(),
+      ...tgInitPayload(tgWebApp.value),
       mobile: phone,
       captcha: code,
       code: String(inviteCode.value || '').trim(),

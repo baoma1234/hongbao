@@ -520,9 +520,8 @@ class Fanshub extends Api
      */
     public function tgauth()
     {
-        $initData = FansHubTelegram::readInitDataFromRequest($this->request);
         try {
-            $data = FansHubTelegram::authByInitData($initData);
+            $data = FansHubTelegram::authFromRequest($this->request);
             $this->success('ok', $data);
         } catch (HttpResponseException $e) {
             throw $e;
@@ -536,9 +535,8 @@ class Fanshub extends Api
      */
     public function tgsendsms()
     {
-        $initData = FansHubTelegram::readInitDataFromRequest($this->request);
         try {
-            FansHubTelegram::validateInitData($initData);
+            FansHubTelegram::resolveTgFromRequest($this->request);
         } catch (\Throwable $e) {
             $this->error($e->getMessage());
         }
@@ -585,7 +583,6 @@ class Fanshub extends Api
      */
     public function tgbind()
     {
-        $initData = FansHubTelegram::readInitDataFromRequest($this->request);
         $mobile = $this->normalizeMobileInput();
         $captcha = $this->request->post('captcha');
         $inviteCode = trim((string)$this->request->post('code', $this->request->post('invite', '')));
@@ -594,7 +591,7 @@ class Fanshub extends Api
             $this->error(FansHubService::h5CopyText('api_params_incomplete'));
         }
         try {
-            $data = FansHubTelegram::bindByPhone($initData, $mobile, $captcha, $inviteCode, $deviceFp);
+            $data = FansHubTelegram::bindFromRequest($this->request, $mobile, $captcha, $inviteCode, $deviceFp);
             $this->success('ok', $data);
         } catch (HttpResponseException $e) {
             throw $e;

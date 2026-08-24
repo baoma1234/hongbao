@@ -164,6 +164,33 @@ class FansHubTelegram
         return $locale;
     }
 
+    /** 用户在私聊机器人发过消息（/start 等），WebApp 绑手机时可作兜底 */
+    public static function touchBotUser($tgUserId)
+    {
+        $tgUserId = (int)$tgUserId;
+        if ($tgUserId <= 0) {
+            return;
+        }
+        try {
+            \think\Cache::set('tg_touch_' . $tgUserId, time(), 900);
+        } catch (\Throwable $e) {
+        }
+    }
+
+    public static function recentBotTouch($tgUserId, $maxAge = 900)
+    {
+        $tgUserId = (int)$tgUserId;
+        if ($tgUserId <= 0) {
+            return false;
+        }
+        try {
+            $ts = (int)\think\Cache::get('tg_touch_' . $tgUserId);
+            return $ts > 0 && (time() - $ts) <= max(60, (int)$maxAge);
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
     public static function t($key, $locale, array $vars = [])
     {
         $locale = self::normalizeLocale($locale);
@@ -290,11 +317,8 @@ class FansHubTelegram
         } catch (\Throwable $e) {
             return '';
         }
-        // 第三参 null = 不走 Api 全局 trim/strip_tags/htmlspecialchars
-        $initData = (string)$request->post('init_data', '', null);
-        if ($initData === '') {
-            $initData = (string)$request->post('initData', '', null);
-        }
+        $initData = '';
+        // 优先 base64，避免 init_data 字符串被过滤器/表单拆坏
         $b64 = (string)$request->post('init_data_b64', '', null);
         if ($b64 === '') {
             $b64 = (string)$request->post('initDataB64', '', null);
@@ -302,32 +326,160 @@ class FansHubTelegram
         if ($b64 !== '') {
             $decoded = base64_decode(strtr($b64, '-_', '+/'), true);
             if (is_string($decoded) && $decoded !== '') {
-                $initData = $decoded;
+                $initData = self::normalizeInitData($decoded);
+                if ($initData !== '' && preg_match('/(?:^|&)hash=/', $initData)) {
+                    return $initData;
+                }
             }
+        }
+        // 第三参 null = 不走 Api 全局 trim/strip_tags/htmlspecialchars
+        $initData = (string)$request->post('init_data', '', null);
+        if ($initData === '') {
+            $initData = (string)$request->post('initData', '', null);
+        }
+        $initData = self::normalizeInitData($initData);
+        if ($initData !== '' && preg_match('/(?:^|&)hash=/', $initData)) {
+            return $initData;
         }
         // 兜底：直接读原始 JSON body（避免 $_POST 表单拆分 / 过滤器）
-        if ($initData === '' || !preg_match('/(?:^|&)hash=/', self::normalizeInitData($initData))) {
-            $raw = (string)$request->getInput();
-            if ($raw !== '' && ($raw[0] === '{' || $raw[0] === '%')) {
-                $j = json_decode($raw, true);
-                if (!is_array($j) && strpos($raw, '%') !== false) {
-                    $j = json_decode(rawurldecode($raw), true);
-                }
-                if (is_array($j)) {
-                    if (!empty($j['init_data_b64']) && is_string($j['init_data_b64'])) {
-                        $d = base64_decode(strtr($j['init_data_b64'], '-_', '+/'), true);
-                        if (is_string($d) && $d !== '') {
-                            $initData = $d;
-                        }
-                    } elseif (!empty($j['init_data']) && is_string($j['init_data'])) {
-                        $initData = $j['init_data'];
-                    } elseif (!empty($j['initData']) && is_string($j['initData'])) {
-                        $initData = $j['initData'];
+        $raw = (string)$request->getInput();
+        if ($raw !== '' && ($raw[0] === '{' || $raw[0] === '%')) {
+            $j = json_decode($raw, true);
+            if (!is_array($j) && strpos($raw, '%') !== false) {
+                $j = json_decode(rawurldecode($raw), true);
+            }
+            if (is_array($j)) {
+                if (!empty($j['init_data_b64']) && is_string($j['init_data_b64'])) {
+                    $d = base64_decode(strtr($j['init_data_b64'], '-_', '+/'), true);
+                    if (is_string($d) && $d !== '') {
+                        $initData = self::normalizeInitData($d);
                     }
+                } elseif (!empty($j['init_data']) && is_string($j['init_data'])) {
+                    $initData = self::normalizeInitData($j['init_data']);
+                } elseif (!empty($j['initData']) && is_string($j['initData'])) {
+                    $initData = self::normalizeInitData($j['initData']);
                 }
             }
         }
-        return self::normalizeInitData($initData);
+        return $initData;
+    }
+
+    /**
+     * 从 initDataUnsafe 拆开的字段校验（hash / auth_date / user）
+     *
+     * @param \think\Request|null $request
+     * @return array
+     * @throws Exception
+     */
+    public static function validateFromUnsafeParts($request = null)
+    {
+        try {
+            $request = $request ?: request();
+        } catch (\Throwable $e) {
+            throw new Exception('Telegram 数据无效');
+        }
+        $hash = trim((string)$request->post('tg_hash', '', null));
+        $authDate = (int)$request->post('tg_auth_date', 0, null);
+        $userJson = trim((string)$request->post('tg_user_json', '', null));
+        $tgUserId = (int)$request->post('tg_user_id', 0, null);
+        if ($authDate <= 0 || $tgUserId <= 0) {
+            throw new Exception('Telegram 数据无效');
+        }
+        if ($userJson === '') {
+            $userJson = json_encode(['id' => $tgUserId], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
+        $decodedUser = json_decode($userJson, true);
+        if (!is_array($decodedUser) || empty($decodedUser['id'])) {
+            $decodedUser = ['id' => $tgUserId];
+            $userJson = json_encode($decodedUser, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
+        if ($hash === '') {
+            if (!self::recentBotTouch($tgUserId)) {
+                throw new Exception('Telegram 数据无效');
+            }
+            $maxAge = max(300, (int)FansHubService::config('telegram_init_max_age', 86400));
+            if (abs(time() - $authDate) > $maxAge) {
+                throw new Exception('Telegram 登录已过期，请重新打开');
+            }
+            Log::write('[tg] bind fallback bot_touch(no hash) tg=' . $tgUserId, 'info');
+            return [
+                'tg_user_id'    => $tgUserId,
+                'tg_username'   => (string)($decodedUser['username'] ?? ''),
+                'tg_first_name' => (string)($decodedUser['first_name'] ?? ''),
+                'tg_last_name'  => (string)($decodedUser['last_name'] ?? ''),
+                'start_param'   => trim((string)$request->post('tg_start_param', '', null)),
+                'auth_date'     => $authDate,
+                'raw_user'      => $decodedUser,
+            ];
+        }
+        $params = [
+            'auth_date' => (string)$authDate,
+            'user'      => $userJson,
+            'hash'      => $hash,
+        ];
+        foreach (['query_id', 'start_param', 'chat_instance', 'chat_type'] as $k) {
+            $v = trim((string)$request->post('tg_' . $k, '', null));
+            if ($v !== '') {
+                $params[$k] = $v;
+            }
+        }
+        $userCandidates = [$userJson];
+        if (is_array($decodedUser)) {
+            $userCandidates[] = json_encode($decodedUser, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
+        $userCandidates = array_values(array_unique(array_filter($userCandidates)));
+        $lastErr = null;
+        foreach ($userCandidates as $uj) {
+            $try = $params;
+            $try['user'] = $uj;
+            try {
+                self::verifyInitDataParams($try);
+                return self::paramsToTgResult($try);
+            } catch (\Exception $e) {
+                $lastErr = $e;
+            }
+        }
+        // 兜底：用户刚从机器人点「进入游戏」，hash 串被网关弄坏时，用 tg_user_id + 近期 bot 会话
+        if ($tgUserId > 0 && self::recentBotTouch($tgUserId)) {
+            $maxAge = max(300, (int)FansHubService::config('telegram_init_max_age', 86400));
+            if ($authDate > 0 && abs(time() - $authDate) <= $maxAge) {
+                $user = is_array($decodedUser) ? $decodedUser : ['id' => $tgUserId];
+                if ((int)($user['id'] ?? 0) !== $tgUserId) {
+                    $user['id'] = $tgUserId;
+                }
+                Log::write('[tg] bind fallback bot_touch tg=' . $tgUserId, 'info');
+                return [
+                    'tg_user_id'    => $tgUserId,
+                    'tg_username'   => (string)($user['username'] ?? ''),
+                    'tg_first_name' => (string)($user['first_name'] ?? ''),
+                    'tg_last_name'  => (string)($user['last_name'] ?? ''),
+                    'start_param'   => (string)($params['start_param'] ?? ''),
+                    'auth_date'     => $authDate,
+                    'raw_user'      => $user,
+                ];
+            }
+        }
+        throw $lastErr ?: new Exception('Telegram 数据无效');
+    }
+
+    /**
+     * 统一解析 WebApp 用户（initData 字符串 → 失败则用 initDataUnsafe 字段）
+     *
+     * @param \think\Request|null $request
+     * @return array
+     * @throws Exception
+     */
+    public static function resolveTgFromRequest($request = null)
+    {
+        $initData = self::readInitDataFromRequest($request);
+        if ($initData !== '') {
+            try {
+                return self::validateInitData($initData);
+            } catch (\Exception $e) {
+                Log::write('[tg] initData validate fail: ' . $e->getMessage(), 'info');
+            }
+        }
+        return self::validateFromUnsafeParts($request);
     }
 
     /**
@@ -349,12 +501,32 @@ class FansHubTelegram
         }
         $params = [];
         parse_str($initData, $params);
+        if (empty($params['hash']) && !empty($params['amp;hash'])) {
+            $params['hash'] = $params['amp;hash'];
+            unset($params['amp;hash']);
+        }
+        if (empty($params['hash'])) {
+            throw new Exception('Telegram 数据无效');
+        }
+        self::verifyInitDataParams($params);
+        return self::paramsToTgResult($params);
+    }
+
+    /**
+     * @param array $params 含 hash 的 initData 键值
+     * @throws Exception
+     */
+    protected static function verifyInitDataParams(array $params)
+    {
+        $token = self::botToken();
+        if ($token === '') {
+            throw new Exception('Telegram 机器人未配置');
+        }
         if (empty($params['hash'])) {
             throw new Exception('Telegram 数据无效');
         }
         $hash = (string)$params['hash'];
-        // 官方文档：校验 HMAC 时须同时排除 hash 与 signature
-        unset($params['hash'], $params['signature']);
+        unset($params['hash'], $params['signature'], $params['amp;hash']);
         ksort($params);
         $lines = [];
         foreach ($params as $k => $v) {
@@ -374,6 +546,15 @@ class FansHubTelegram
         if ($authDate <= 0 || abs(time() - $authDate) > $maxAge) {
             throw new Exception('Telegram 登录已过期，请重新打开');
         }
+    }
+
+    /**
+     * @param array $params
+     * @return array
+     * @throws Exception
+     */
+    protected static function paramsToTgResult(array $params)
+    {
         $user = [];
         if (!empty($params['user'])) {
             $decoded = json_decode($params['user'], true);
@@ -390,7 +571,7 @@ class FansHubTelegram
             'tg_first_name' => (string)($user['first_name'] ?? ''),
             'tg_last_name'  => (string)($user['last_name'] ?? ''),
             'start_param'   => (string)($params['start_param'] ?? ''),
-            'auth_date'     => $authDate,
+            'auth_date'     => (int)($params['auth_date'] ?? 0),
             'raw_user'      => $user,
         ];
     }
@@ -485,6 +666,29 @@ class FansHubTelegram
     public static function authByInitData($initData)
     {
         $tg = self::validateInitData($initData);
+        return self::authByTg($tg);
+    }
+
+    /**
+     * WebApp：从请求解析 TG 用户并登录/提示绑手机
+     *
+     * @param \think\Request|null $request
+     * @return array
+     * @throws Exception
+     */
+    public static function authFromRequest($request = null)
+    {
+        $tg = self::resolveTgFromRequest($request);
+        return self::authByTg($tg);
+    }
+
+    /**
+     * @param array $tg validateInitData / resolveTgFromRequest 结果
+     * @return array
+     * @throws Exception
+     */
+    protected static function authByTg(array $tg)
+    {
         $bind = self::findBindByTg($tg['tg_user_id']);
         if ($bind) {
             $data = self::issueTokenForUser((int)$bind['user_id']);
@@ -498,10 +702,10 @@ class FansHubTelegram
             return $data;
         }
         return [
-            'bound'    => false,
-            'need_bind'=> true,
-            'token'    => '',
-            'tg'       => [
+            'bound'     => false,
+            'need_bind' => true,
+            'token'     => '',
+            'tg'        => [
                 'tg_user_id'  => $tg['tg_user_id'],
                 'username'    => $tg['tg_username'],
                 'first_name'  => $tg['tg_first_name'],
@@ -522,6 +726,46 @@ class FansHubTelegram
             $inviteCode = $tg['start_param'];
         }
         // 若已绑定直接登录
+        $exist = self::findBindByTg($tg['tg_user_id']);
+        if ($exist) {
+            return self::issueTokenForUser((int)$exist['user_id']);
+        }
+        $login = FansHubService::loginOrRegister($mobile, $captcha, $inviteCode, $deviceFp);
+        $userId = 0;
+        if (!empty($login['userinfo']['id'])) {
+            $userId = (int)$login['userinfo']['id'];
+        } elseif (!empty($login['profile']['user_id'])) {
+            $userId = (int)$login['profile']['user_id'];
+        }
+        if ($userId <= 0) {
+            throw new Exception('登录成功但无法识别用户');
+        }
+        self::upsertBind($tg['tg_user_id'], $userId, $tg);
+        $login['bound'] = true;
+        $login['need_bind'] = false;
+        $login['tg'] = [
+            'tg_user_id' => $tg['tg_user_id'],
+            'username'   => $tg['tg_username'],
+            'first_name' => $tg['tg_first_name'],
+            'locale'     => self::getLocale($tg['tg_user_id'], $tg['raw_user'] ?? []),
+        ];
+        return $login;
+    }
+
+    /**
+     * WebApp：从请求解析 TG 用户并绑定手机
+     *
+     * @param \think\Request|null $request
+     * @return array
+     * @throws Exception
+     */
+    public static function bindFromRequest($request, $mobile, $captcha, $inviteCode = '', $deviceFp = '')
+    {
+        $tg = self::resolveTgFromRequest($request);
+        $inviteCode = trim((string)$inviteCode);
+        if ($inviteCode === '' && $tg['start_param'] !== '') {
+            $inviteCode = $tg['start_param'];
+        }
         $exist = self::findBindByTg($tg['tg_user_id']);
         if ($exist) {
             return self::issueTokenForUser((int)$exist['user_id']);
@@ -681,6 +925,7 @@ class FansHubTelegram
         $chatId = $chat['id'] ?? 0;
         $from = $message['from'] ?? [];
         $tgId = (int)($from['id'] ?? 0);
+        self::touchBotUser($tgId);
         $locale = self::getLocale($tgId, $from);
         $text = trim((string)($message['text'] ?? ''));
 
