@@ -23,7 +23,7 @@
             <view class="rp-detail-main">
               <view class="rp-detail-name-row">
                 <text class="rp-detail-name">{{ r.nickname || ('用户' + r.user_id) }}</text>
-                <text v-if="r.is_bot" class="rp-detail-bot-tag">机器人</text>
+                <text v-if="r.is_bot" class="rp-detail-bot-tag">机</text>
               </view>
               <text class="rp-detail-amt">
                 ￥{{ formatAmt(r.amount) }}
@@ -230,10 +230,16 @@ onLoad((q) => {
 }
 .rp-detail-bot-tag {
   flex: 0 0 auto;
-  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
   line-height: 1;
-  padding: 3px 6px;
-  border-radius: 999px;
+  font-weight: 700;
+  padding: 0;
+  border-radius: 4px;
   color: #fff;
   background: linear-gradient(135deg, #ff8a00, #ff5a36);
 }

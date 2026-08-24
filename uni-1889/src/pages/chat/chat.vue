@@ -712,7 +712,7 @@
                 >
                   <text v-if="recordGray(r)" class="chat-rp-lock">🔒</text>
                   {{ r.nickname || ('用户' + (r.user_id || '')) }}
-                  <text v-if="r.is_bot && !recordGray(r)" class="chat-rp-bot-tag">机器人</text>
+                  <text v-if="r.is_bot && !recordGray(r)" class="chat-rp-bot-tag">机</text>
                 </view>
                 <view class="chat-rp-record-amt">
                   ￥{{ formatAmt(r.amount) }}
@@ -5152,13 +5152,16 @@ function closeRpDetail() {
 .chat-rp-bot-tag {
   display: inline-flex;
   align-items: center;
-  margin-left: 6px;
-  padding: 2px 6px;
-  border-radius: 999px;
+  justify-content: center;
+  margin-left: 4px;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border-radius: 4px;
   background: linear-gradient(135deg, #ff8a00, #ff5a36);
   color: #fff;
   font-size: 10px;
-  line-height: 1.2;
+  line-height: 1;
   font-weight: 700;
   vertical-align: middle;
 }

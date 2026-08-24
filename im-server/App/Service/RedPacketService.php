@@ -3704,7 +3704,7 @@ class RedPacketService
         } catch (\Throwable $e) {
             CatchLog::quiet($e, 'Service.RedPacketService');
         }
-        $cacheKey = RedisClient::key('rp:detail:' . $packetId . ':' . $userId . ':' . (int)$viewerRole . ':v2:' . $ver);
+        $cacheKey = RedisClient::key('rp:detail:' . $packetId . ':' . $userId . ':' . (int)$viewerRole . ':v3:' . $ver);
         try {
             $cached = RedisClient::conn()->get($cacheKey);
             if ($cached !== false && $cached !== null && $cached !== '') {
@@ -3779,6 +3779,25 @@ class RedPacketService
         }, $records);
         $authBrief = new AuthService([]);
         $users = $authBrief->usersBriefMap($uids);
+        $botMap = [];
+        if ($uids) {
+            $uidList = array_values(array_unique(array_filter($uids)));
+            if ($uidList) {
+                $placeholders = implode(',', array_fill(0, count($uidList), '?'));
+                try {
+                    $botRows = Db::fetchAll(
+                        'SELECT user_id, is_bot FROM ' . Db::table('fans_account')
+                        . " WHERE user_id IN ({$placeholders})",
+                        $uidList
+                    );
+                    foreach ($botRows ?: [] as $br) {
+                        $botMap[(int)$br['user_id']] = ((int)($br['is_bot'] ?? 0) === 1) ? 1 : 0;
+                    }
+                } catch (\Throwable $e) {
+                    CatchLog::quiet($e, 'Service.RedPacketService');
+                }
+            }
+        }
         $enriched = [];
         foreach ($records as $r) {
             $uid = (int)$r['user_id'];
@@ -3794,6 +3813,7 @@ class RedPacketService
                 'profile_clickable' => $rowClickable,
                 'avatar_gray'       => false,
                 'name_masked'       => false,
+                'is_bot'            => !empty($botMap[$uid]) ? 1 : 0,
             ]);
         }
         $result = [
