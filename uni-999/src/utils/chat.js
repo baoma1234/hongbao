@@ -65,6 +65,15 @@ export function isSystemMsg(m) {
   return mt === 3 || mt === 99
 }
 
+/** 退群系统提示（服务端已停发；历史/残留推送仍过滤） */
+export function isLeaveGroupTip(m) {
+  if (!m) return false
+  const ex = msgExtra(m)
+  if (String(ex.event || '') === 'leave') return true
+  const c = String(m.content || '')
+  return /退出了群组/.test(c)
+}
+
 export function recallTip(m, myId, isPrivate) {
   const mine = (m && (m.from_user_id | 0)) === (myId | 0)
   if (isPrivate) return mine ? '你删除了一条消息' : '对方删除了一条消息'
@@ -74,6 +83,7 @@ export function recallTip(m, myId, isPrivate) {
 export function previewText(last) {
   if (!last) return '暂无消息'
   if (typeof last === 'string') return last
+  if (isLeaveGroupTip(last)) return '暂无消息'
   if (isRecalled(last)) return '[已撤回]'
   const mt = msgType(last)
   const ex = msgExtra(last)

@@ -790,6 +790,7 @@ import {
   avatarSrc,
   isRecalled,
   isSystemMsg,
+  isLeaveGroupTip,
   msgExtra,
   msgType,
   normalizeMessage,
@@ -848,7 +849,7 @@ const msgRevealCount = ref(MSG_RENDER_CAP)
 const historyExhausted = ref(false)
 const historyLoadingOlder = ref(false)
 const visibleMessages = computed(() => {
-  const all = messages.value || []
+  const all = (messages.value || []).filter((m) => !isLeaveGroupTip(m))
   const n = Math.max(MSG_RENDER_CAP, msgRevealCount.value | 0)
   if (all.length <= n) return all
   return all.slice(all.length - n)
@@ -2340,6 +2341,7 @@ function roomConversationId() {
 function appendLocalMessage(raw) {
   if (!raw) return false
   let msg = normalizeMessage(Object.assign({}, raw))
+  if (isLeaveGroupTip(msg)) return false
   if (!(msg.conversation_type | 0)) {
     msg = Object.assign({}, msg, {
       conversation_type: meta.value.type | 0,
