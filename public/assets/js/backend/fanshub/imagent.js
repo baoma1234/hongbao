@@ -1178,6 +1178,33 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
         },
         add: function () {
             Form.api.bindevent($('form[role=form]'));
+            var postAgentDel = function (id, hard) {
+                Backend.api.ajax({
+                    url: 'fanshub/imagent/agentdel',
+                    data: {id: id, hard: hard ? 1 : 0}
+                }, function () {
+                    setTimeout(function () {
+                        location.reload();
+                    }, 400);
+                    return false;
+                });
+            };
+            $(document).off('click.imagentAgent').on('click.imagentAgent', '.btn-agent-off', function () {
+                var id = parseInt($(this).data('id'), 10) || 0;
+                if (!id) return;
+                Layer.confirm('停用后该账号不再出现在代聊下拉，确认？', function (idx) {
+                    Layer.close(idx);
+                    postAgentDel(id, false);
+                });
+            });
+            $(document).on('click.imagentAgent', '.btn-agent-del', function () {
+                var id = parseInt($(this).data('id'), 10) || 0;
+                if (!id) return;
+                Layer.confirm('将从托管表彻底删除登记（不删会员），确认？', function (idx) {
+                    Layer.close(idx);
+                    postAgentDel(id, true);
+                });
+            });
         },
         edit: function () {
             Form.api.bindevent($('#edit-form'));
