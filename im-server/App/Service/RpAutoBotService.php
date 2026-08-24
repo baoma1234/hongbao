@@ -138,8 +138,8 @@ class RpAutoBotService
         }
 
         if ((int)($task['auto_grab'] ?? 0) === 1) {
-            // 机器人刚发出的包：发包人立刻领自己的一份（余额不够冻总额时走 robot_self_grab）
-            if ($packetId > 0 && $sendUid > 0) {
+            // 开启「自动抢自己」：发包人立刻领自己的一份，其余机器人再按延迟抢剩余份
+            if ((int)($task['auto_grab_self'] ?? 0) === 1 && $packetId > 0 && $sendUid > 0) {
                 $this->trySenderSelfGrab($taskId, $packetId, $sendUid, $groupId, 0);
             }
             $this->maybeScheduleGrab($task, $packetId);

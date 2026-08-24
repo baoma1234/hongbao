@@ -354,6 +354,10 @@ class Redpacketauto extends Backend
             $params['continuous_send'] = 0;
         }
         $params['auto_grab'] = !empty($params['auto_grab']) ? 1 : 0;
+        $params['auto_grab_self'] = !empty($params['auto_grab_self']) ? 1 : 0;
+        if (!$params['auto_grab']) {
+            $params['auto_grab_self'] = 0;
+        }
         $params['actor_mode'] = ((int)($params['actor_mode'] ?? 1) === 2) ? 2 : 1;
         $params['grab_user_ids'] = preg_replace(
             '/[^\d,\s;]/',

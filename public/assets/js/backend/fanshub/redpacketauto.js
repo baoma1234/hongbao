@@ -35,6 +35,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                     {field: 'auto_send', title: '自动发', formatter: function (v) { return parseInt(v, 10) === 1 ? '是' : '否'; }},
                     {field: 'continuous_send', title: '持续发', searchList: {"0":"否","1":"是"}, formatter: function (v) { return parseInt(v, 10) === 1 ? '是' : '否'; }},
                     {field: 'auto_grab', title: '自动抢', formatter: function (v) { return parseInt(v, 10) === 1 ? '是' : '否'; }},
+                    {field: 'auto_grab_self', title: '抢自己', formatter: function (v) { return parseInt(v, 10) === 1 ? '是' : '否'; }},
                     {field: 'actor_mode', title: '发抢模式', searchList: {"1":"UID池","2":"机器人账户"}, formatter: Table.api.formatter.normal},
                     {field: 'grab_user_ids', title: '抢包UID', operate: 'LIKE'},
                     {field: 'today_count', title: '今日发包'},

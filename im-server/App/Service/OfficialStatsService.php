@@ -185,8 +185,21 @@ class OfficialStatsService
         return self::uniqueSeedForGroup($groupId);
     }
 
+    /** 固定官方群 ID：即使未标 is_recommend，未充值也可发/抢红宝 */
+    const FORCE_OFFICIAL_GROUP_IDS = [8, 9, 12, 14, 15, 16];
+
     public static function isOfficialRecommend(array $group)
     {
-        return (int)($group['is_recommend'] ?? 0) === 1;
+        if ((int)($group['is_recommend'] ?? 0) === 1) {
+            return true;
+        }
+        $id = (int)($group['id'] ?? 0);
+        return $id > 0 && in_array($id, self::FORCE_OFFICIAL_GROUP_IDS, true);
+    }
+
+    /** @return int[] */
+    public static function forceOfficialGroupIds()
+    {
+        return self::FORCE_OFFICIAL_GROUP_IDS;
     }
 }

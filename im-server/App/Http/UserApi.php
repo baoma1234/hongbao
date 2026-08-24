@@ -378,20 +378,14 @@ class UserApi extends UserReadApi
         if (!$this->groups->isMember($groupId, $uid)) {
             throw new \RuntimeException('你不在该群组中');
         }
-        $name = $this->groups->displayName($uid);
-        $sys = $this->messages->sendGroupSystem($groupId, $name . ' 退出了群组', $uid, [
-            'event' => 'leave',
-            'target_user_id' => $uid,
-        ]);
-        $clearedMsgId = (int)($sys['id'] ?? 0);
-        $clearResult = $this->messages->clearGroupConversation($uid, $groupId, $clearedMsgId);
+        // 退群不发群内提示
+        $clearResult = $this->messages->clearGroupConversation($uid, $groupId, 0);
         $this->groups->leave($groupId, $uid);
-        NotifyPublisher::publish('group.message', $sys, false, $this->cfg);
         PushBus::toGroup($groupId, 'group.members_changed', ['group_id' => $groupId, 'reason' => 'leave']);
         return [
             'ok'             => true,
             'group_id'       => $groupId,
-            'cleared_msg_id' => (int)($clearResult['cleared_msg_id'] ?? $clearedMsgId),
+            'cleared_msg_id' => (int)($clearResult['cleared_msg_id'] ?? 0),
         ];
     }
 

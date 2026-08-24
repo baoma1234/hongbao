@@ -156,7 +156,7 @@ class FansHubRpAuto
         }
 
         if ((int)$task['auto_grab'] === 1) {
-            if ($packetId > 0 && $sendUid > 0) {
+            if ((int)($task['auto_grab_self'] ?? 0) === 1 && $packetId > 0 && $sendUid > 0) {
                 try {
                     FansHubImBridge::post('/agent/grab_redpacket', [
                         'agent_user_id'   => $sendUid,

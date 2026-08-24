@@ -1127,21 +1127,14 @@ class MessageRouter
             if (!$this->groups->isMember($groupId, $uid)) {
                 throw new \RuntimeException('not in group');
             }
-            $name = $this->groups->displayName($uid);
-            $sys = $this->messages->sendGroupSystem($groupId, $name . ' 退出了群组', $uid, [
-                'event' => 'leave',
-                'target_user_id' => $uid,
-            ]);
-            $clearedMsgId = (int)($sys['id'] ?? 0);
-            // 本端水位：退群后旧消息不可见；原消息不删，他人不受影响
-            $clearResult = $this->messages->clearGroupConversation($uid, $groupId, $clearedMsgId);
+            // 退群不发群内提示；仅清本人会话水位并通知成员列表变更
+            $clearResult = $this->messages->clearGroupConversation($uid, $groupId, 0);
             $this->groups->leave($groupId, $uid);
             $this->send($connection, 'group.leave.ok', [
                 'ok'             => true,
                 'group_id'       => $groupId,
-                'cleared_msg_id' => (int)($clearResult['cleared_msg_id'] ?? $clearedMsgId),
+                'cleared_msg_id' => (int)($clearResult['cleared_msg_id'] ?? 0),
             ], $reqId);
-            $this->pushToGroup($groupId, 'group.message', ['message' => $sys]);
             $this->pushToGroup($groupId, 'group.members_changed', ['group_id' => $groupId, 'reason' => 'leave']);
         } catch (\Throwable $e) {
             $msg = $e->getMessage() ?: 'leave failed';
