@@ -59,14 +59,26 @@
     </div>
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">金额范围:</label>
-        <div class="col-xs-12 col-sm-6">
-            <div class="input-group">
-                <span class="input-group-addon">最小</span>
-                <input class="form-control" name="row[amount_min]" type="number" step="10" min="10" value="{if condition='$row.amount_min gt 0'}{$row.amount_min|round=0}{else /}{$row.total_amount|round=0}{/if}">
-                <span class="input-group-addon">最大</span>
-                <input class="form-control" name="row[amount_max]" type="number" step="10" min="10" value="{if condition='$row.amount_max gt 0'}{$row.amount_max|round=0}{else /}{$row.total_amount|round=0}{/if}">
-                <span class="input-group-addon">个数</span>
-                <input class="form-control" name="row[total_count]" type="number" min="1" value="{$row.total_count}">
+        <div class="col-xs-12 col-sm-8">
+            <div class="row" style="margin-left:0;margin-right:0">
+                <div class="col-xs-12 col-sm-4" style="padding-left:0;padding-right:6px;margin-bottom:8px">
+                    <div class="input-group">
+                        <span class="input-group-addon">最小</span>
+                        <input class="form-control" name="row[amount_min]" type="number" step="10" min="10" value="{if condition='$row.amount_min gt 0'}{$row.amount_min|round=0}{else /}{$row.total_amount|round=0}{/if}">
+                    </div>
+                </div>
+                <div class="col-xs-12 col-sm-4" style="padding-left:6px;padding-right:6px;margin-bottom:8px">
+                    <div class="input-group">
+                        <span class="input-group-addon">最大</span>
+                        <input class="form-control" name="row[amount_max]" type="number" step="10" min="10" value="{if condition='$row.amount_max gt 0'}{$row.amount_max|round=0}{else /}{$row.total_amount|round=0}{/if}">
+                    </div>
+                </div>
+                <div class="col-xs-12 col-sm-4" style="padding-left:6px;padding-right:0;margin-bottom:8px">
+                    <div class="input-group">
+                        <span class="input-group-addon">个数</span>
+                        <input class="form-control" name="row[total_count]" type="number" min="1" value="{$row.total_count}">
+                    </div>
+                </div>
             </div>
             <span class="help-block">须为 <strong>10 的整数倍</strong>。模式一：最小=最大 → 固定，否则随机。模式二：此区间=小额包金额；个数=每包份数（埋雷仍随机 5/7/9）。</span>
         </div>
@@ -74,16 +86,24 @@
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">模式二大奖:</label>
         <div class="col-xs-12 col-sm-8">
-            <div class="input-group" style="max-width:640px">
-                <span class="input-group-addon">大奖最小</span>
-                <input class="form-control" name="row[amount_mode2_jackpot_min]" type="number" step="10" min="10" value="{$row.amount_mode2_jackpot_min|default=200|round=0}">
-                <span class="input-group-addon">最大</span>
-                <input class="form-control" name="row[amount_mode2_jackpot_max]" type="number" step="10" min="10" value="{$row.amount_mode2_jackpot_max|default=300|round=0}">
-                <span class="input-group-addon">每</span>
-                <input class="form-control" name="row[amount_mode2_every_min]" type="number" min="1" value="{$row.amount_mode2_every_min|default=10}">
-                <span class="input-group-addon">～</span>
-                <input class="form-control" name="row[amount_mode2_every_max]" type="number" min="1" value="{$row.amount_mode2_every_max|default=20}">
-                <span class="input-group-addon">小额包后插发</span>
+            <div class="row" style="margin-left:0;margin-right:0">
+                <div class="col-xs-12 col-sm-6" style="padding-left:0;padding-right:6px;margin-bottom:8px">
+                    <div class="input-group">
+                        <span class="input-group-addon">大奖最小</span>
+                        <input class="form-control" name="row[amount_mode2_jackpot_min]" type="number" step="10" min="10" value="{$row.amount_mode2_jackpot_min|default=200|round=0}">
+                        <span class="input-group-addon">最大</span>
+                        <input class="form-control" name="row[amount_mode2_jackpot_max]" type="number" step="10" min="10" value="{$row.amount_mode2_jackpot_max|default=300|round=0}">
+                    </div>
+                </div>
+                <div class="col-xs-12 col-sm-6" style="padding-left:6px;padding-right:0;margin-bottom:8px">
+                    <div class="input-group">
+                        <span class="input-group-addon">每</span>
+                        <input class="form-control" name="row[amount_mode2_every_min]" type="number" min="1" value="{$row.amount_mode2_every_min|default=10}">
+                        <span class="input-group-addon">～</span>
+                        <input class="form-control" name="row[amount_mode2_every_max]" type="number" min="1" value="{$row.amount_mode2_every_max|default=20}">
+                        <span class="input-group-addon">包后插发</span>
+                    </div>
+                </div>
             </div>
             <span class="help-block">仅模式二生效。例：小额 10～100、大奖 200～300、每 10～20 包插一包大奖。</span>
         </div>
