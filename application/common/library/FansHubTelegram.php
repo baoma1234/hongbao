@@ -1082,6 +1082,21 @@ class FansHubTelegram
         if ($token === '') {
             return ['ok' => false, 'description' => 'bot token empty'];
         }
+        // 出站审计：成功发出的文案也会落日志，便于区分「本机发」vs「Token 被盗在外部发」
+        if (in_array((string)$method, ['sendMessage', 'sendPhoto', 'copyMessage', 'forwardMessage'], true)) {
+            $preview = '';
+            if (isset($data['text'])) {
+                $preview = mb_substr(preg_replace('/\s+/u', ' ', (string)$data['text']), 0, 120);
+            } elseif (isset($data['caption'])) {
+                $preview = mb_substr(preg_replace('/\s+/u', ' ', (string)$data['caption']), 0, 120);
+            }
+            Log::write(sprintf(
+                '[tg-out] method=%s chat_id=%s preview=%s',
+                $method,
+                (string)($data['chat_id'] ?? ''),
+                $preview
+            ), 'info');
+        }
         $url = 'https://api.telegram.org/bot' . $token . '/' . $method;
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
