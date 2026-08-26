@@ -9,8 +9,9 @@ use Im\Support\RedisClient;
 /**
  * 未充值账号资金权限：
  * - 可社交
- * - 未充值：不能发/领红包，不能发/收转账
- * - 已充值：不能把红包/转账发给未充值用户（私聊）
+ * - 未充值：不能发红包/转账；不能收转账；不可领私聊/非推荐群红包
+ * - 未充值：可抢「推荐群」(is_recommend=1) 红包
+ * - 已充值：私聊红包/转账不能发给未充值对方
  */
 class RechargePrivilegeService
 {
@@ -18,7 +19,7 @@ class RechargePrivilegeService
     const MSG_NEED_RECHARGE_SEND_RP_TO = '对方未充值，无法发红包';
     const MSG_NEED_RECHARGE_TRANSFER = '未充值账号不能转账，请先充值';
     const MSG_NEED_RECHARGE_RECEIVE_TRANSFER = '对方未充值，无法收款';
-    const MSG_NEED_RECHARGE_GRAB = '未充值账号不能领取红包，请先充值';
+    const MSG_NEED_RECHARGE_GRAB = '未充值账号仅可领取推荐群红包，请先充值';
 
     /** @var array<int,array{ok:bool,at:float}> */
     protected static $mem = [];
@@ -210,8 +211,44 @@ class RechargePrivilegeService
         if (self::isPrivilegedActor($userId)) {
             return;
         }
-        if (!self::hasRecharged($userId)) {
-            throw new \RuntimeException(self::MSG_NEED_RECHARGE_GRAB);
+        if (self::hasRecharged($userId)) {
+            return;
+        }
+        // 未充值：仅可抢推荐群红包
+        $scope = (int)($packet['scope_type'] ?? 0);
+        $groupId = (int)($packet['group_id'] ?? 0);
+        if ($scope === 2 && $groupId > 0 && self::isRecommendGroup($groupId, $groups)) {
+            return;
+        }
+        throw new \RuntimeException(self::MSG_NEED_RECHARGE_GRAB);
+    }
+
+    /** 是否官方推荐群（is_recommend=1） */
+    protected static function isRecommendGroup($groupId, GroupService $groups = null)
+    {
+        $groupId = (int)$groupId;
+        if ($groupId <= 0) {
+            return false;
+        }
+        try {
+            if ($groups) {
+                $g = $groups->get($groupId);
+                if (is_array($g) && OfficialStatsService::isOfficialRecommend($g)) {
+                    return true;
+                }
+            }
+        } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.RechargePrivilegeService');
+        }
+        try {
+            $row = Db::fetch(
+                'SELECT is_recommend FROM ' . Db::table('chat_groups') . ' WHERE id=? LIMIT 1',
+                [$groupId]
+            );
+            return $row && (int)($row['is_recommend'] ?? 0) === 1;
+        } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.RechargePrivilegeService');
+            return false;
         }
     }
 }
