@@ -19,12 +19,13 @@ $pdo = new PDO(
 );
 $prefix = $d['prefix'] ?? 'fa_';
 $table = $prefix . 'user';
-$default = '/uploads/20260813/f48cc40355dd0f6d814e68ff6e414443.png';
+$default = '/uploads/20260827/66a512d4927f66cb97135477153ba4e7.png';
 $dry = in_array('--dry-run', $argv, true);
 
 $countSql = "SELECT COUNT(*) FROM `{$table}` WHERE
   avatar IS NULL OR avatar='' OR avatar LIKE 'data:image/svg%'
-  OR avatar LIKE '%/uploads/brand/default-avatar.png%'";
+  OR avatar LIKE '%/uploads/brand/default-avatar.png%'
+  OR avatar LIKE '%f48cc40355dd0f6d814e68ff6e414443%'";
 $n = (int)$pdo->query($countSql)->fetchColumn();
 echo "Matched users: {$n}\n";
 echo "Default avatar: {$default}\n";
@@ -36,7 +37,8 @@ if ($dry) {
 
 $sql = "UPDATE `{$table}` SET avatar=:av WHERE
   avatar IS NULL OR avatar='' OR avatar LIKE 'data:image/svg%'
-  OR avatar LIKE '%/uploads/brand/default-avatar.png%'";
+  OR avatar LIKE '%/uploads/brand/default-avatar.png%'
+  OR avatar LIKE '%f48cc40355dd0f6d814e68ff6e414443%'";
 $st = $pdo->prepare($sql);
 $st->execute([':av' => $default]);
 echo "Updated rows: " . $st->rowCount() . "\n";

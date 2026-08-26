@@ -212,10 +212,10 @@ export function publicUrl(pathOrUrl) {
 }
 
 /** 默认头像（统一静态图）；空头像 / SVG data URI / 旧默认图回退 */
-export const DEFAULT_AVATAR_PATH = '/uploads/20260813/f48cc40355dd0f6d814e68ff6e414443.png'
+export const DEFAULT_AVATAR_PATH = '/uploads/20260827/66a512d4927f66cb97135477153ba4e7.png'
 export const DEFAULT_AVATAR_OSS =
-  'https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/20260813/f48cc40355dd0f6d814e68ff6e414443.png'
-export const DEFAULT_AVATAR_VER = '202608211700'
+  'https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/20260827/66a512d4927f66cb97135477153ba4e7.png'
+export const DEFAULT_AVATAR_VER = '202608270240'
 
 export function defaultAvatarUrl() {
   return publicUrl(DEFAULT_AVATAR_PATH) || (DEFAULT_AVATAR_OSS + '?v=' + DEFAULT_AVATAR_VER)
@@ -226,6 +226,7 @@ function isPlaceholderAvatar(url) {
   if (!raw) return true
   if (/^data:image\/svg/i.test(raw)) return true
   if (raw.indexOf('/uploads/brand/default-avatar.png') >= 0) return true
+  if (raw.indexOf('f48cc40355dd0f6d814e68ff6e414443') >= 0) return true
   return false
 }
 

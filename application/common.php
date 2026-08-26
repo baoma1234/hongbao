@@ -289,7 +289,7 @@ if (!function_exists('default_user_avatar')) {
      */
     function default_user_avatar_path()
     {
-        return '/uploads/20260813/f48cc40355dd0f6d814e68ff6e414443.png';
+        return '/uploads/20260827/66a512d4927f66cb97135477153ba4e7.png';
     }
 
     /**
@@ -332,6 +332,9 @@ if (!function_exists('default_user_avatar')) {
         }
         // 旧版默认图也视为占位，统一换新
         if (strpos($avatar, '/uploads/brand/default-avatar.png') !== false) {
+            return true;
+        }
+        if (strpos($avatar, 'f48cc40355dd0f6d814e68ff6e414443') !== false) {
             return true;
         }
         return false;
