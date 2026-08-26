@@ -9,13 +9,13 @@ use Im\Support\RedisClient;
 /**
  * 未充值账号资金权限：
  * - 可社交
- * - 未充值：不能发红包/转账；不能收转账；不可领私聊/非推荐群红包
- * - 未充值：可抢「推荐群」(is_recommend=1) 红包
+ * - 未充值：不能发私聊/非推荐群红包，不能发/收转账
+ * - 未充值：可在推荐群(is_recommend=1)发/抢红包
  * - 已充值：私聊红包/转账不能发给未充值对方
  */
 class RechargePrivilegeService
 {
-    const MSG_NEED_RECHARGE_SEND_RP = '未充值账号不能发红包，请先充值';
+    const MSG_NEED_RECHARGE_SEND_RP = '未充值账号仅可在推荐群发红包，请先充值';
     const MSG_NEED_RECHARGE_SEND_RP_TO = '对方未充值，无法发红包';
     const MSG_NEED_RECHARGE_TRANSFER = '未充值账号不能转账，请先充值';
     const MSG_NEED_RECHARGE_RECEIVE_TRANSFER = '对方未充值，无法收款';
@@ -165,13 +165,18 @@ class RechargePrivilegeService
         if (self::isPrivilegedActor($userId, $opts)) {
             return;
         }
-        // 未充值：不能发给任何人
+        $scope = (int)($opts['scope_type'] ?? 0);
+        $groupId = (int)($opts['group_id'] ?? 0);
+        $toUserId = (int)($opts['to_user_id'] ?? 0);
+
+        // 未充值：仅可在推荐群发红包
         if (!self::hasRecharged($userId)) {
+            if ($scope === 2 && $groupId > 0 && self::isRecommendGroup($groupId, $groups)) {
+                return;
+            }
             throw new \RuntimeException(self::MSG_NEED_RECHARGE_SEND_RP);
         }
         // 已充值：私聊红包不能发给未充值对方
-        $scope = (int)($opts['scope_type'] ?? 0);
-        $toUserId = (int)($opts['to_user_id'] ?? 0);
         if ($scope === 1 && $toUserId > 0) {
             if (self::isPrivilegedActor($toUserId)) {
                 return;
