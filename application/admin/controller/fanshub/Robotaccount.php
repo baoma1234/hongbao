@@ -56,11 +56,18 @@ class Robotaccount extends Backend
                 ->paginate($limit);
             foreach ($list as $row) {
                 if ($row->getRelation('user')) {
-                    $row->getRelation('user')->visible(['id', 'mobile', 'nickname', 'username', 'jointime']);
+                    $row->getRelation('user')->visible(['id', 'mobile', 'nickname', 'username', 'avatar', 'jointime']);
                 }
                 $u = $row->user;
                 $nick = $u ? trim((string)($u->nickname ?: $u->username ?: '')) : '';
                 $row->nickname = $nick !== '' ? $nick : ('ID' . (int)$row->user_id);
+                $avatar = $u ? (string)($u->avatar ?? '') : '';
+                $row->avatar = function_exists('normalize_user_avatar')
+                    ? normalize_user_avatar($avatar, true)
+                    : $avatar;
+                if ($u) {
+                    $u->avatar = $row->avatar;
+                }
             }
             return json(['total' => $list->total(), 'rows' => $list->items()]);
         }

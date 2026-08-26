@@ -83,6 +83,16 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                 sortOrder: 'desc',
                 columns: [[
                     {checkbox: true},
+                    {
+                        field: 'avatar',
+                        title: '头像',
+                        operate: false,
+                        events: Table.api.events.image,
+                        formatter: function (value, row) {
+                            var url = value || (row.user && row.user.avatar) || '';
+                            return Table.api.formatter.image.call(this, url, row, 0);
+                        }
+                    },
                     {field: 'user_id', title: '用户ID', visible: false, operate: '='},
                     {field: 'user_info', title: '用户信息', operate: false, formatter: function (value, row) {
                         var uid = row.user_id || '-';

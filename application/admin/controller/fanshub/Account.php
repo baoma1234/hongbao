@@ -115,7 +115,7 @@ class Account extends Backend
                 $userIds[] = (int)$row->user_id;
                 if ($row->getRelation('user')) {
                     $row->getRelation('user')->visible([
-                        'id', 'mobile', 'nickname', 'username', 'jointime', 'createtime',
+                        'id', 'mobile', 'nickname', 'username', 'avatar', 'jointime', 'createtime',
                         'joinip', 'loginip', 'logintime', 'status',
                     ]);
                 }
@@ -125,6 +125,13 @@ class Account extends Backend
                     $nick = trim((string)($u->nickname ?: $u->username ?: ''));
                 }
                 $row->nickname = $nick !== '' ? $nick : ('ID' . (int)$row->user_id);
+                $avatar = $u ? (string)($u->avatar ?? '') : '';
+                $row->avatar = function_exists('normalize_user_avatar')
+                    ? normalize_user_avatar($avatar, true)
+                    : $avatar;
+                if ($u) {
+                    $u->avatar = $row->avatar;
+                }
                 $row->jointime = $u && !empty($u->jointime) ? (int)$u->jointime : (int)($row->createtime ?: 0);
                 $row->joinip = $u ? (string)($u->joinip ?? '') : '';
                 $row->loginip = $u ? (string)($u->loginip ?? '') : '';

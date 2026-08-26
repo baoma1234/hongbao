@@ -19,6 +19,16 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                 sortOrder: 'desc',
                 columns: [[
                     {checkbox: true},
+                    {
+                        field: 'avatar',
+                        title: '头像',
+                        operate: false,
+                        events: Table.api.events.image,
+                        formatter: function (value, row) {
+                            var url = value || (row.user && row.user.avatar) || '';
+                            return Table.api.formatter.image.call(this, url, row, 0);
+                        }
+                    },
                     {field: 'user_id', title: '会员ID', sortable: true},
                     {field: 'user.nickname', title: '昵称', operate: 'LIKE', formatter: function (value, row) {
                         return row.nickname || value || (row.user && row.user.nickname) || ('ID' + row.user_id);
