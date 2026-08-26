@@ -164,6 +164,7 @@ class FansHubYxxPool
         $allow = [
             'stake_min', 'stake_max', 'boom_from', 'cycle_max',
             'bot_count_min', 'bot_count_max', 'bot_enabled',
+            'bot_stake_min', 'bot_stake_max', 'bot_real',
             'rain_trigger', 'rain_cooldown_sec', 'rain_daily_max', 'rain_claim_sec',
             'tron_offset',
         ];
@@ -173,7 +174,7 @@ class FansHubYxxPool
                 continue;
             }
             $v = $in[$k];
-            if ($k === 'bot_enabled') {
+            if ($k === 'bot_enabled' || $k === 'bot_real') {
                 $out[$k] = !empty($v) ? 1 : 0;
                 continue;
             }
@@ -184,6 +185,9 @@ class FansHubYxxPool
         }
         if (isset($out['bot_count_min'], $out['bot_count_max']) && (int)$out['bot_count_max'] < (int)$out['bot_count_min']) {
             $out['bot_count_max'] = (int)$out['bot_count_min'];
+        }
+        if (isset($out['bot_stake_min'], $out['bot_stake_max']) && (int)$out['bot_stake_max'] < (int)$out['bot_stake_min']) {
+            $out['bot_stake_max'] = (int)$out['bot_stake_min'];
         }
         if (isset($out['tron_offset'])) {
             $out['tron_offset'] = max(2, min(8, (int)$out['tron_offset']));
@@ -219,6 +223,9 @@ class FansHubYxxPool
             'bot_count_min'     => (int)$y['bot_count_min'],
             'bot_count_max'     => (int)$y['bot_count_max'],
             'bot_enabled'       => !empty($y['bot_enabled']) ? 1 : 0,
+            'bot_stake_min'     => (int)$y['bot_stake_min'],
+            'bot_stake_max'     => (int)$y['bot_stake_max'],
+            'bot_real'          => !empty($y['bot_real']) ? 1 : 0,
             'rain_trigger'      => (int)$p['rain_trigger'],
             'rain_cooldown_sec' => (int)$p['rain_cooldown_sec'],
             'rain_daily_max'    => (int)$p['rain_daily_max'],

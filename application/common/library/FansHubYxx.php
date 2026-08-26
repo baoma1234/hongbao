@@ -77,9 +77,25 @@ class FansHubYxx
         $max = max($min, (int)($over['stake_max'] ?? $cfg['yxx_stake_max'] ?? 200));
         $botMin = max(0, (int)($over['bot_count_min'] ?? $cfg['yxx_bot_count_min'] ?? 10));
         $botMax = max($botMin, (int)($over['bot_count_max'] ?? $cfg['yxx_bot_count_max'] ?? 22));
+        $botStakeMin = max(1, (int)($over['bot_stake_min'] ?? $cfg['yxx_bot_stake_min'] ?? $min));
+        $botStakeMax = max($botStakeMin, (int)($over['bot_stake_max'] ?? $cfg['yxx_bot_stake_max'] ?? $max));
+        // 机器人注额不得超出大厅允许区间
+        if ($botStakeMin < $min) {
+            $botStakeMin = $min;
+        }
+        if ($botStakeMax > $max) {
+            $botStakeMax = $max;
+        }
+        if ($botStakeMax < $botStakeMin) {
+            $botStakeMax = $botStakeMin;
+        }
         $botEnabled = array_key_exists('yxx_bot_enabled', $cfg) ? !empty($cfg['yxx_bot_enabled']) : true;
         if (array_key_exists('bot_enabled', $over)) {
             $botEnabled = !empty($over['bot_enabled']);
+        }
+        $botReal = array_key_exists('yxx_bot_real', $cfg) ? !empty($cfg['yxx_bot_real']) : false;
+        if (array_key_exists('bot_real', $over)) {
+            $botReal = !empty($over['bot_real']);
         }
         return [
             'enabled'        => !empty($cfg['yxx_enabled']),
@@ -92,6 +108,9 @@ class FansHubYxx
             'bot_enabled'    => $botEnabled,
             'bot_count_min'  => $botMin,
             'bot_count_max'  => $botMax,
+            'bot_stake_min'  => $botStakeMin,
+            'bot_stake_max'  => $botStakeMax,
+            'bot_real'       => $botReal,
             'tron_offset'    => max(2, min(8, (int)($over['tron_offset'] ?? $cfg['yxx_tron_offset'] ?? 4))),
         ];
     }
@@ -611,14 +630,27 @@ class FansHubYxx
         $clock = self::clock();
         $roundIndex = (int)$clock['round_index'];
         $offset = (int)$clock['offset'];
-        $plan = self::botPlan($roundIndex, $cfg);
+        $useReal = !empty($cfg['bot_real']) && !empty($cfg['real_money']);
+        $plan = self::botPlan($roundIndex, $cfg, $useReal);
         $added = 0;
         foreach ($plan as $bot) {
             if ((int)$bot['at'] > $offset) {
                 continue;
             }
             $buid = (int)$bot['uid'];
+            if ($buid === 0) {
+                continue;
+            }
             if (FansHubYxxStore::hasBet($roundIndex, $buid)) {
+                continue;
+            }
+            if ($useReal && $buid > 0) {
+                try {
+                    self::placeRealBet($buid, (string)$bot['face'], (int)$bot['stake'], (string)$bot['nick']);
+                    $added++;
+                } catch (\Throwable $e) {
+                    // 余额不足等：跳过该机器人，不阻断其它
+                }
                 continue;
             }
             FansHubYxxStore::putBet($roundIndex, [
@@ -1409,7 +1441,7 @@ class FansHubYxx
         ];
     }
 
-    private static function botPlan($roundIndex, array $cfg)
+    private static function botPlan($roundIndex, array $cfg, $useReal = false)
     {
         $min = (int)$cfg['bot_count_min'];
         $max = (int)$cfg['bot_count_max'];
@@ -1418,18 +1450,111 @@ class FansHubYxx
         }
         $seed = hexdec(substr(hash('sha256', 'yxx-bots|' . (int)$roundIndex), 0, 8));
         $n = $min + ($seed % max(1, $max - $min + 1));
-        $stakes = [50, 100, 150, 200];
+        $stakeMin = max(1, (int)($cfg['bot_stake_min'] ?? $cfg['stake_min'] ?? 50));
+        $stakeMax = max($stakeMin, (int)($cfg['bot_stake_max'] ?? $cfg['stake_max'] ?? 200));
+        // 在区间内按 50 步进取可选注额；区间过窄则用两端
+        $step = 50;
+        $stakes = [];
+        for ($s = $stakeMin; $s <= $stakeMax; $s += $step) {
+            $stakes[] = $s;
+        }
+        if (!$stakes) {
+            $stakes = [$stakeMin];
+        }
+        if ($stakes[count($stakes) - 1] !== $stakeMax) {
+            $stakes[] = $stakeMax;
+        }
         $nicks = self::BOT_NICKS;
+        $actors = [];
+        if ($useReal) {
+            $actors = self::listRobotActors($n * 3);
+            if (!$actors) {
+                return [];
+            }
+            // 打乱但可复现：按本期 seed 排序再截断
+            usort($actors, function ($a, $b) use ($seed) {
+                $ha = hexdec(substr(hash('sha256', $seed . '|' . $a['uid']), 0, 8));
+                $hb = hexdec(substr(hash('sha256', $seed . '|' . $b['uid']), 0, 8));
+                return $ha <=> $hb;
+            });
+            $n = min($n, count($actors));
+        }
         $plan = [];
         for ($i = 0; $i < $n; $i++) {
+            $stake = $stakes[($seed + $i * 11) % count($stakes)];
+            if ($useReal) {
+                $actor = $actors[$i];
+                $bal = (float)($actor['hongbao'] ?? 0);
+                if ($bal + 1e-6 < $stake) {
+                    // 余额不够：降到区间内最大可下，仍不够则跳过
+                    $afford = 0;
+                    foreach ($stakes as $cand) {
+                        if ($cand <= $bal && $cand > $afford) {
+                            $afford = $cand;
+                        }
+                    }
+                    if ($afford <= 0) {
+                        continue;
+                    }
+                    $stake = $afford;
+                }
+                $plan[] = [
+                    'uid'   => (int)$actor['uid'],
+                    'nick'  => (string)$actor['nick'],
+                    'face'  => self::FACE_IDS[($seed + $i * 3) % 6],
+                    'stake' => (int)$stake,
+                    'at'    => 1 + (($seed + $i * 13) % 10),
+                ];
+                continue;
+            }
             $plan[] = [
                 'uid'   => -20000 - $i,
                 'nick'  => $nicks[($seed + $i * 7) % count($nicks)],
                 'face'  => self::FACE_IDS[($seed + $i * 3) % 6],
-                'stake' => $stakes[($seed + $i * 11) % count($stakes)],
+                'stake' => (int)$stake,
                 'at'    => 1 + (($seed + $i * 13) % 10),
             ];
         }
         return $plan;
+    }
+
+    /**
+     * 真金机器人：fans_account.is_bot=1 且状态正常
+     *
+     * @return array{uid:int,nick:string,hongbao:float}[]
+     */
+    private static function listRobotActors($limit = 80)
+    {
+        $limit = max(1, min(200, (int)$limit));
+        try {
+            $rows = Db::name('fans_account')
+                ->alias('a')
+                ->join('user u', 'u.id = a.user_id', 'LEFT')
+                ->where('a.is_bot', 1)
+                ->where('a.status', 'normal')
+                ->field('a.user_id AS uid, a.hongbao, u.nickname')
+                ->order('a.id', 'asc')
+                ->limit($limit)
+                ->select();
+        } catch (\Throwable $e) {
+            return [];
+        }
+        $out = [];
+        foreach ($rows ?: [] as $row) {
+            $uid = (int)($row['uid'] ?? 0);
+            if ($uid <= 0) {
+                continue;
+            }
+            $nick = trim((string)($row['nickname'] ?? ''));
+            if ($nick === '') {
+                $nick = '机器人' . $uid;
+            }
+            $out[] = [
+                'uid'     => $uid,
+                'nick'    => mb_substr($nick, 0, 16),
+                'hongbao' => (float)($row['hongbao'] ?? 0),
+            ];
+        }
+        return $out;
     }
 }

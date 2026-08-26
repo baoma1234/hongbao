@@ -99,10 +99,25 @@
                             <option value="0" {if !$knobs.bot_enabled}selected{/if}>关</option>
                         </select>
                     </div>
-                    <div class="col-xs-12 col-sm-2"><input type="number" class="form-control" name="bot_count_min" value="{$knobs.bot_count_min|default=10}" placeholder="最少"></div>
-                    <div class="col-xs-12 col-sm-2"><input type="number" class="form-control" name="bot_count_max" value="{$knobs.bot_count_max|default=22}" placeholder="最多"></div>
+                    <div class="col-xs-12 col-sm-2"><input type="number" class="form-control" name="bot_count_min" value="{$knobs.bot_count_min|default=10}" placeholder="人数最少"></div>
+                    <div class="col-xs-12 col-sm-2"><input type="number" class="form-control" name="bot_count_max" value="{$knobs.bot_count_max|default=22}" placeholder="人数最多"></div>
                     <label class="control-label col-xs-12 col-sm-2">波场偏移</label>
                     <div class="col-xs-12 col-sm-2"><input type="number" class="form-control" name="tron_offset" value="{$knobs.tron_offset|default=4}" min="2" max="8"></div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">机器人注额</label>
+                    <div class="col-xs-12 col-sm-2"><input type="number" class="form-control" name="bot_stake_min" value="{$knobs.bot_stake_min|default=50}" placeholder="金额最少"></div>
+                    <div class="col-xs-12 col-sm-2"><input type="number" class="form-control" name="bot_stake_max" value="{$knobs.bot_stake_max|default=200}" placeholder="金额最多"></div>
+                    <label class="control-label col-xs-12 col-sm-2">真金买入</label>
+                    <div class="col-xs-12 col-sm-2">
+                        <select class="form-control" name="bot_real">
+                            <option value="1" {if $knobs.bot_real}selected{/if}>开（扣机器人红宝）</option>
+                            <option value="0" {if !$knobs.bot_real}selected{/if}>关（仅展示）</option>
+                        </select>
+                    </div>
+                    <div class="col-xs-12 col-sm-2">
+                        <span class="help-block" style="margin:6px 0 0;">真金需「机器人账号」有余额</span>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label class="control-label col-xs-12 col-sm-2">红包雨</label>

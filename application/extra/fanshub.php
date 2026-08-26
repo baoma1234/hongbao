@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 return array (
   'single_ticket_value' => 5.0,
@@ -73,11 +73,15 @@ return array (
   'yxx_bot_enabled' => true,
   'yxx_bot_count_min' => 10,
   'yxx_bot_count_max' => 22,
+  // 机器人每期注额区间；bot_real=true 时用 is_bot 账号真金扣款
+  'yxx_bot_stake_min' => 50,
+  'yxx_bot_stake_max' => 200,
+  'yxx_bot_real' => true,
   'yxx_real_money' => true,
   'yxx_pool_enabled' => true,
-  'yxx_pool_reserve_rate' => 0.20,
+  'yxx_pool_reserve_rate' => 0.2,
   'yxx_rain_trigger' => 200000,
-  'yxx_rain_release_rate' => 0.10,
+  'yxx_rain_release_rate' => 0.1,
   'yxx_user_rate_cap' => 0.05,
   'yxx_user_abs_cap' => 10000,
   'yxx_rain_cooldown_sec' => 3600,
@@ -97,16 +101,14 @@ return array (
   'default_cs_nickname' => '红宝客服',
   'invite_base_url' => 'https://hbsq.bio',
   'h5_entry_path' => '999',
-  // Telegram 机器人（用户 Bot；token 在 BotFather 创建后填入）
   'telegram_bot_enabled' => true,
-  'telegram_bot_token' => '8400237628:AAH_vPWWyqOKyJx5g9oRz-9MuCdUvqJSEmk',
-  'telegram_bot_username' => 'qhb_bio',
-  'telegram_webhook_secret' => 'hb_tg_wh_a3f9c2e81b7d4056',
-  // 完整进入地址：勿带 #/ 路由，避免与 Telegram #tgWebAppData 冲突
+  'telegram_bot_token' => '',
+  'telegram_bot_username' => 'QHB_GF_bot',
+  'telegram_webhook_secret' => 'hb_tg_wh_e7c2a9f14d8b6035',
   'telegram_webapp_url' => 'https://hbsq.bio/999/?tg_bind=1',
-  // WebApp 相对路径备用（同样不要用 #/）
   'telegram_webapp_path' => '999/?tg_bind=1',
-  'telegram_cs_text' => "🙋 如有疑问，请联系 24 小时官方客服通道：\n👉 @BIO_kf",
+  'telegram_cs_text' => '🙋 如有疑问，请联系 24 小时官方客服通道：
+👉 @BIO_kf',
   'telegram_init_max_age' => 86400,
   'share_text' => '【红宝官方通知】分享送钱，免费瓜分888,888.00元官方直营全现金红包大池！
 短信登录当场免费赠送 5 股活跃资产股份！每成功拉一个好兄弟来占位，永久再加 1 股 + 3 红宝（可直接闪兑变现）！
@@ -185,7 +187,8 @@ return array (
     'skin_option_a' => '激情中国红',
     'skin_option_b' => '皇家高级蓝',
     'skin_option_d' => '科技冷银灰',
-    'login_subtitle' => "红宝多样玩法 · 欢乐一站畅玩\n🔥火热开启领取888,888元",
+    'login_subtitle' => '红宝多样玩法 · 欢乐一站畅玩
+🔥火热开启领取888,888元',
     'login_subtitle_line1' => '红宝多样玩法 · 欢乐一站畅玩',
     'login_subtitle_line2' => '🔥火热开启领取888,888元',
     'login_phone_label' => '📱 散户特权登记：请输入您的手机号码',
@@ -1191,6 +1194,5 @@ return array (
   'google_auth_login_enabled' => true,
   'google_auth_secret' => 'WTQRCJSEQCBJO4QB',
   'google_auth_issuer' => 'FansHub',
-  // 后台管理员登录：每账号独立谷歌验证器（fa_admin.google_secret）
   'admin_google_auth_enabled' => true,
 );
