@@ -168,7 +168,7 @@ class Imgroup extends Backend
                     'notice_i18n'   => $noticeI18n,
                     'notice_images' => $noticeImages,
                     'member_count'  => count($all),
-                    'max_members'   => 500,
+                    'max_members'   => 10000,
                     'is_recommend'  => ((int)($params['is_recommend'] ?? 0) === 1) ? 1 : 0,
                     'weigh'         => (int)($params['weigh'] ?? 0),
                     'rp_enabled_types' => '1,3,4,5',

@@ -680,12 +680,34 @@ class GroupService
         if ($max <= 0) {
             $max = self::maxMembers();
         }
-        $cnt = (int)($group['member_count'] ?? 0);
+        // 推荐群展示人数常远高于历史 max_members(如500)，加群按配置上限放宽，避免“群已满”
+        if ($isRecommend) {
+            $max = max($max, self::maxMembers());
+        }
+        $cnt = $this->realMemberCount($groupId, $group);
         if ($cnt >= $max) {
             throw new \RuntimeException('group full');
         }
         $this->addMembers($groupId, [$userId], 1);
         return $this->get($groupId);
+    }
+
+    /** 真实入群人数（优先成员表计数，避免 member_count 与展示人数脱节） */
+    protected function realMemberCount($groupId, array $group = null)
+    {
+        $groupId = (int)$groupId;
+        try {
+            $row = Db::fetch(
+                'SELECT COUNT(*) AS c FROM ' . Db::table('chat_group_members') . ' WHERE group_id=?',
+                [$groupId]
+            );
+            if ($row !== null) {
+                return (int)($row['c'] ?? 0);
+            }
+        } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.GroupService');
+        }
+        return (int)(($group['member_count'] ?? 0));
     }
 
     protected function hasRecommendColumn()
@@ -1828,7 +1850,11 @@ class GroupService
         if ($max <= 0) {
             $max = self::maxMembers();
         }
-        $cnt = (int)($group['member_count'] ?? 0);
+        $isRecommend = $this->hasRecommendColumn() && (int)($group['is_recommend'] ?? 0) === 1;
+        if ($isRecommend) {
+            $max = max($max, self::maxMembers());
+        }
+        $cnt = $this->realMemberCount($groupId, $group);
         $ids = array_values(array_unique(array_filter(array_map('intval', $memberIds), function ($uid) {
             return $uid > 0;
         })));
