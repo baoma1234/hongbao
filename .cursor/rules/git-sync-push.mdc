@@ -9,10 +9,11 @@ When finishing a batch of meaningful code changes in this project:
 
 1. Create a git commit (concise message focused on why).
 2. Push to `origin` (`https://github.com/baoma1234/hongbao.git`) on `main` with `git push -u origin HEAD` if needed.
-3. Do **not** commit secrets: `.env`, `im-server/config/local.php`, credentials, zip dumps.
+3. Do **not** commit secrets: `.env`, `im-server/config/local.php`, credentials, zip dumps, **Telegram bot tokens / webhook secrets**.
 4. Do **not** amend unless the usual amend safety rules allow it.
 5. Do **not** force-push to `main`.
 6. After push, briefly tell the user the commit is on GitHub so the other server can `git pull`.
+7. **Never push** local Telegram bot config (`telegram_bot_token` / `telegram_webhook_secret` real values). Production is configured on the server; see `no-push-telegram-secrets.mdc`.
 
 ## SMS production flags（推送前必核）
 
