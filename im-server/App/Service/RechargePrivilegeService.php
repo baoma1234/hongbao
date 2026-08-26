@@ -9,13 +9,13 @@ use Im\Support\RedisClient;
 /**
  * 未充值账号资金权限：
  * - 可社交
- * - 不可发/领红包、不可转账、不可收转账（须先充值）
- * 官方群发红包例外仍保留（仅「发」；「领」一律要充值）
- * 官方群 = chat_groups.is_recommend=1
+ * - 未充值：不能发/领红包，不能发/收转账
+ * - 已充值：不能把红包/转账发给未充值用户（私聊）
  */
 class RechargePrivilegeService
 {
-    const MSG_NEED_RECHARGE_SEND_RP = '未充值账号仅可在官方群发红包，请先充值';
+    const MSG_NEED_RECHARGE_SEND_RP = '未充值账号不能发红包，请先充值';
+    const MSG_NEED_RECHARGE_SEND_RP_TO = '对方未充值，无法发红包';
     const MSG_NEED_RECHARGE_TRANSFER = '未充值账号不能转账，请先充值';
     const MSG_NEED_RECHARGE_RECEIVE_TRANSFER = '对方未充值，无法收款';
     const MSG_NEED_RECHARGE_GRAB = '未充值账号不能领取红包，请先充值';
@@ -157,40 +157,27 @@ class RechargePrivilegeService
     }
 
     /**
-     * @param array $opts robot_* / scope_type / group_id
+     * @param array $opts robot_* / scope_type / group_id / to_user_id
      */
     public static function assertCanSendRedPacket($userId, array $opts = [], GroupService $groups = null)
     {
         if (self::isPrivilegedActor($userId, $opts)) {
             return;
         }
-        if (self::hasRecharged($userId)) {
-            return;
+        // 未充值：不能发给任何人
+        if (!self::hasRecharged($userId)) {
+            throw new \RuntimeException(self::MSG_NEED_RECHARGE_SEND_RP);
         }
-        // 未充值：仅官方群可发
+        // 已充值：私聊红包不能发给未充值对方
         $scope = (int)($opts['scope_type'] ?? 0);
-        if ($scope === 1) {
-            throw new \RuntimeException(self::MSG_NEED_RECHARGE_SEND_RP);
-        }
-        $groupId = (int)($opts['group_id'] ?? 0);
-        if ($groupId <= 0) {
-            throw new \RuntimeException(self::MSG_NEED_RECHARGE_SEND_RP);
-        }
-        $group = null;
-        if ($groups) {
-            $group = $groups->get($groupId);
-        } else {
-            try {
-                $group = Db::fetch(
-                    'SELECT id, is_recommend FROM ' . Db::table('chat_groups') . ' WHERE id=? LIMIT 1',
-                    [$groupId]
-                );
-            } catch (\Throwable $e) {
-                $group = null;
+        $toUserId = (int)($opts['to_user_id'] ?? 0);
+        if ($scope === 1 && $toUserId > 0) {
+            if (self::isPrivilegedActor($toUserId)) {
+                return;
             }
-        }
-        if (!$group || !OfficialStatsService::isOfficialRecommend($group)) {
-            throw new \RuntimeException(self::MSG_NEED_RECHARGE_SEND_RP);
+            if (!self::hasRecharged($toUserId)) {
+                throw new \RuntimeException(self::MSG_NEED_RECHARGE_SEND_RP_TO);
+            }
         }
     }
 
