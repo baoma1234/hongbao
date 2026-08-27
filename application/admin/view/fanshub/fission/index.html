@@ -2,7 +2,8 @@
     {:build_heading()}
     <div class="panel-body">
             <div class="alert alert-info">
-            裂变红包：奖金池 / 全局资格 / 时长 / 单人上限。满额自动开奖；也可「一键开奖」拉满进度并派奖；超时由 <code>php think fission:maintain</code> 作废。可用「给用户加份」手动补发资格。
+            裂变红包：奖金池 / 全局资格 / 时长 / 单人上限。满额自动开奖；也可「一键开奖」拉满进度并派奖；超时由 <code>php think fission:maintain</code> 作废。
+            <strong>开奖成功或超时后默认自动再开下一轮（72 小时 / 3 天）</strong>，参数沿用上一轮；关闭请在配置里设 <code>fission_auto_restart=false</code>。可用「给用户加份」手动补发资格。
         </div>
         <p>
             <a href="javascript:;" class="btn btn-success btn-start">开启新一轮</a>

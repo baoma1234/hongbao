@@ -39,31 +39,18 @@ class Fission extends Backend
         if (!$this->request->isPost()) {
             return $this->view->fetch();
         }
-        $running = Db::name('fans_fission_activity')->where('status', 1)->find();
-        if ($running) {
-            $this->error('已有进行中的活动 #' . $running['id']);
+        try {
+            $id = FansHubFission::startRound([
+                'pool_amount'    => (float)$this->request->post('pool_amount', 1000),
+                'global_cap'     => (int)$this->request->post('global_cap', 100),
+                'user_cap'       => (int)$this->request->post('user_cap', 5),
+                'duration_hours' => (int)$this->request->post('duration_hours', 72),
+                'title'          => (string)$this->request->post('title', '全网裂变红宝'),
+            ]);
+            $this->success('已开启活动 #' . $id);
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage());
         }
-        $pool = max(0.01, (float)$this->request->post('pool_amount', 1000));
-        $globalCap = max(1, (int)$this->request->post('global_cap', 100));
-        $userCap = max(1, (int)$this->request->post('user_cap', 5));
-        $hours = max(1, (int)$this->request->post('duration_hours', 72));
-        $title = trim((string)$this->request->post('title', '全网裂变红宝')) ?: '全网裂变红宝';
-        $now = time();
-        $id = Db::name('fans_fission_activity')->insertGetId([
-            'title'          => $title,
-            'pool_amount'    => round($pool, 2),
-            'global_cap'     => $globalCap,
-            'user_cap'       => $userCap,
-            'duration_hours' => $hours,
-            'global_quals'   => 0,
-            'status'         => FissionActivity::STATUS_RUNNING,
-            'start_time'     => $now,
-            'end_time'       => $now + $hours * 3600,
-            'settled_time'   => 0,
-            'createtime'     => $now,
-            'updatetime'     => $now,
-        ]);
-        $this->success('已开启活动 #' . $id);
     }
 
     public function maintain()

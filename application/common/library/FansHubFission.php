@@ -235,7 +235,7 @@ class FansHubFission
     }
 
     /**
-     * 定时：超时作废 / 满额开奖兜底
+     * 定时：超时作废 / 满额开奖兜底 / 结束后自动再开下一轮
      */
     public static function maintain()
     {
@@ -250,7 +250,97 @@ class FansHubFission
                 $settled++;
             }
         }
-        return ['expired' => $expired, 'settled' => $settled];
+        // settle/expire 内已尝试自动再开；此处兜底（例如上次失败或开关刚打开）
+        $restarted = self::tryAutoRestart();
+        return ['expired' => $expired, 'settled' => $settled, 'restarted' => $restarted];
+    }
+
+    /**
+     * 开启新一轮（同时仅允许一条进行中）
+     * @param array $opts title/pool_amount/global_cap/user_cap/duration_hours
+     * @return int 新活动 id
+     */
+    public static function startRound(array $opts = [])
+    {
+        $pool = max(0.01, (float)($opts['pool_amount'] ?? 1000));
+        $globalCap = max(1, (int)($opts['global_cap'] ?? 100));
+        $userCap = max(1, (int)($opts['user_cap'] ?? 5));
+        $hours = max(1, (int)($opts['duration_hours'] ?? 72));
+        $title = trim((string)($opts['title'] ?? '全网裂变红宝'));
+        if ($title === '') {
+            $title = '全网裂变红宝';
+        }
+
+        Db::startTrans();
+        try {
+            $running = Db::name('fans_fission_activity')
+                ->where('status', FissionActivity::STATUS_RUNNING)
+                ->lock(true)
+                ->find();
+            if ($running) {
+                Db::commit();
+                throw new Exception('已有进行中的活动 #' . (int)$running['id']);
+            }
+            $now = time();
+            $id = (int)Db::name('fans_fission_activity')->insertGetId([
+                'title'          => $title,
+                'pool_amount'    => round($pool, 2),
+                'global_cap'     => $globalCap,
+                'user_cap'       => $userCap,
+                'duration_hours' => $hours,
+                'global_quals'   => 0,
+                'status'         => FissionActivity::STATUS_RUNNING,
+                'start_time'     => $now,
+                'end_time'       => $now + $hours * 3600,
+                'settled_time'   => 0,
+                'createtime'     => $now,
+                'updatetime'     => $now,
+            ]);
+            Db::commit();
+            return $id;
+        } catch (Exception $e) {
+            Db::rollback();
+            throw $e;
+        } catch (\Throwable $e) {
+            Db::rollback();
+            throw $e;
+        }
+    }
+
+    /**
+     * 上一轮开奖成功/超时后，自动再开一轮（默认 72 小时=3 天）
+     * @return int 新活动 id，未开启则 0
+     */
+    public static function tryAutoRestart()
+    {
+        if (!FansHubService::config('fission_auto_restart', true)) {
+            return 0;
+        }
+        $hours = max(1, (int)FansHubService::config('fission_auto_duration_hours', 72));
+        try {
+            $running = Db::name('fans_fission_activity')
+                ->where('status', FissionActivity::STATUS_RUNNING)
+                ->find();
+            if ($running) {
+                return 0;
+            }
+            $prev = Db::name('fans_fission_activity')
+                ->where('status', 'in', [FissionActivity::STATUS_SUCCESS, FissionActivity::STATUS_EXPIRED])
+                ->order('id', 'desc')
+                ->find();
+            if (!$prev) {
+                return 0;
+            }
+            return self::startRound([
+                'title'          => (string)($prev['title'] ?? '全网裂变红宝'),
+                'pool_amount'    => (float)($prev['pool_amount'] ?? 1000),
+                'global_cap'     => (int)($prev['global_cap'] ?? 100),
+                'user_cap'       => (int)($prev['user_cap'] ?? 5),
+                'duration_hours' => $hours,
+            ]);
+        } catch (\Throwable $e) {
+            return 0;
+        }
     }
 
     public static function tickExpire()
@@ -266,7 +356,11 @@ class FansHubFission
                 'settled_time' => $now,
                 'updatetime'   => $now,
             ]);
-        return (int)$n;
+        $n = (int)$n;
+        if ($n > 0) {
+            self::tryAutoRestart();
+        }
+        return $n;
     }
 
     /**
@@ -319,6 +413,7 @@ class FansHubFission
                     'global_quals' => $cap,
                 ]);
                 Db::commit();
+                self::tryAutoRestart();
                 return true;
             }
             $poolCents = (int)round((float)$act['pool_amount'] * 100);
@@ -350,6 +445,7 @@ class FansHubFission
                 'global_quals' => $cap,
             ]);
             Db::commit();
+            self::tryAutoRestart();
             return true;
         } catch (\Throwable $e) {
             Db::rollback();
