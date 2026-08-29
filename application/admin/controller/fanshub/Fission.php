@@ -246,6 +246,80 @@ class Fission extends Backend
     }
 
     /**
+     * 某一期资格 / 领取记录
+     */
+    public function claims($ids = null)
+    {
+        $id = (int)($ids ?: $this->request->param('ids'));
+        $row = Db::name('fans_fission_activity')->where('id', $id)->find();
+        if (!$row) {
+            $this->error(__('No Results were found'));
+        }
+
+        $quals = Db::name('fans_fission_qual')
+            ->alias('q')
+            ->join('user u', 'u.id = q.user_id', 'LEFT')
+            ->where('q.activity_id', $id)
+            ->field('q.id,q.user_id,q.source,q.ref_user_id,q.win_amount,q.claimed,q.claimed_at,q.createtime,u.mobile,u.nickname')
+            ->order('q.claimed desc,q.claimed_at desc,q.id asc')
+            ->select();
+        if ($quals instanceof \think\Collection || $quals instanceof \think\model\Collection) {
+            $quals = $quals->toArray();
+        } elseif (!is_array($quals)) {
+            $quals = [];
+        }
+
+        $sourceMap = [
+            'join'          => '参与',
+            'invite_reward' => '邀请奖励',
+            'invitee'       => '被邀请',
+            'admin'         => '后台加份',
+        ];
+        $claimedCount = 0;
+        $claimedAmount = 0.0;
+        $unclaimedCount = 0;
+        $unclaimedAmount = 0.0;
+        foreach ($quals as &$q) {
+            $src = (string)($q['source'] ?? '');
+            $q['source_label'] = $sourceMap[$src] ?? $src;
+            $win = $q['win_amount'] !== null && $q['win_amount'] !== ''
+                ? round((float)$q['win_amount'], 2)
+                : null;
+            $q['win_amount_fmt'] = $win === null ? '-' : number_format($win, 2, '.', '');
+            $isClaimed = (int)($q['claimed'] ?? 0) === 1;
+            $q['claimed_label'] = $isClaimed ? '已领取' : (($win !== null && $win > 0) ? '待领取' : '未开奖');
+            $q['claimed_at_text'] = !empty($q['claimed_at']) ? date('Y-m-d H:i:s', (int)$q['claimed_at']) : '-';
+            $q['createtime_text'] = !empty($q['createtime']) ? date('Y-m-d H:i:s', (int)$q['createtime']) : '-';
+            if ($isClaimed && $win !== null) {
+                $claimedCount++;
+                $claimedAmount += $win;
+            } elseif ($win !== null && $win > 0) {
+                $unclaimedCount++;
+                $unclaimedAmount += $win;
+            }
+        }
+        unset($q);
+
+        $statusMap = [
+            FissionActivity::STATUS_DRAFT   => '草稿',
+            FissionActivity::STATUS_RUNNING => '进行中',
+            FissionActivity::STATUS_SUCCESS => '开奖成功',
+            FissionActivity::STATUS_EXPIRED => '超时作废',
+        ];
+        $this->view->assign('row', $row);
+        $this->view->assign('status_label', $statusMap[(int)$row['status']] ?? (string)$row['status']);
+        $this->view->assign('quals', $quals);
+        $this->view->assign('summary', [
+            'total'            => count($quals),
+            'claimed_count'    => $claimedCount,
+            'claimed_amount'   => round($claimedAmount, 2),
+            'unclaimed_count'  => $unclaimedCount,
+            'unclaimed_amount' => round($unclaimedAmount, 2),
+        ]);
+        return $this->view->fetch();
+    }
+
+    /**
      * @param mixed $raw
      * @param int   $fallback
      */

@@ -4125,7 +4125,21 @@ class FansHubService
             }
             throw $e;
         }
-        return ['status' => 'approved'];
+        // 核销通过后发放开户股份（幂等：已领过则跳过）
+        $rightsGranted = 0.0;
+        try {
+            $before = Ledger::where('user_id', $userId)->where('type', 'open_account')->count();
+            self::openAccountReward($userId);
+            if ($before <= 0) {
+                $rightsGranted = (float)self::config('open_account_rights', 2);
+            }
+        } catch (\Throwable $e) {
+            try {
+                \think\Log::write('openAccountReward after approveMainUid fail uid=' . $userId . ' ' . $e->getMessage(), 'error');
+            } catch (\Throwable $e2) {
+            }
+        }
+        return ['status' => 'approved', 'open_account_rights' => $rightsGranted];
     }
 
     /**

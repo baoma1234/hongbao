@@ -21,6 +21,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                 if (parseInt(r.status, 10) === 1 || parseInt(r.status, 10) === 2) {
                     ops += ' <a href="javascript:;" class="btn btn-xs btn-info btn-addqual-row" data-id="' + r.id + '">加份</a>';
                 }
+                ops += ' <a href="javascript:;" class="btn btn-xs btn-default btn-claims" data-id="' + r.id + '">领取记录</a>';
                 html += '<tr>'
                     + '<td>' + r.id + '</td>'
                     + '<td>' + (r.title || '') + '</td>'
@@ -64,6 +65,12 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
             callback: function () {
                 load();
             }
+        });
+    }
+
+    function openClaims(id) {
+        Fast.api.open('fanshub/fission/claims/ids/' + id, '领取记录 #' + id, {
+            area: ['960px', '720px']
         });
     }
 
@@ -128,6 +135,9 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
             $(document).on('click', '#fission-rows .btn-addqual-row', function () {
                 openAddQual($(this).data('id'));
             });
+            $(document).on('click', '#fission-rows .btn-claims', function () {
+                openClaims($(this).data('id'));
+            });
             load();
         },
         start: function () {
@@ -153,7 +163,8 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                 Fast.api.close();
                 return false;
             });
-        }
+        },
+        claims: function () {}
     };
     return Controller;
 });

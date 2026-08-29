@@ -74,6 +74,10 @@ class Uidaudit extends Backend
             $reasonText = FansHubService::resolveUidRejectReasonText($reasonCode);
             $this->success('已自动拒绝并回前台：' . ($reasonText !== '' ? $reasonText : $reasonCode));
         }
+        $rights = is_array($result) ? (float)($result['open_account_rights'] ?? 0) : 0;
+        if ($rights > 0) {
+            $this->success('已核销通过（SugarCRM 已验证），并发放开户股份 ' . rtrim(rtrim(number_format($rights, 2, '.', ''), '0'), '.') . ' 股');
+        }
         $this->success('已核销通过（SugarCRM 已验证）');
     }
 
@@ -87,7 +91,7 @@ class Uidaudit extends Backend
             $this->error(__('No Results were found'));
         }
         try {
-            FansHubService::approveMainUid($row->user_id, ['skip_sugarcrm' => true]);
+            $result = FansHubService::approveMainUid($row->user_id, ['skip_sugarcrm' => true]);
             \think\Log::write(sprintf(
                 'UID forceapprove admin=%s account_id=%s user_id=%s pending=%s',
                 $this->auth->id ?? 0,
@@ -98,7 +102,11 @@ class Uidaudit extends Backend
         } catch (\Throwable $e) {
             $this->error($e->getMessage());
         }
-        $this->success('已强制核销通过（未校验 SugarCRM）');
+        $rights = is_array($result) ? (float)($result['open_account_rights'] ?? 0) : 0;
+        if ($rights > 0) {
+            $this->success('已强制核销通过，并发放开户股份 ' . rtrim(rtrim(number_format($rights, 2, '.', ''), '0'), '.') . ' 股');
+        }
+        $this->success('已强制核销通过（未校验 SugarCRM；开户股份此前已发放或无需再发）');
     }
 
     public function reject($ids = null)
