@@ -124,6 +124,16 @@ class FansHubFission
                 ];
             }
         }
+        // 自动再开后，上一期 SUCCESS 的待领仍可领：汇总所有已开奖未领份数
+        $claimableUnclaimed = $userId > 0 ? self::countUserUnclaimedOnSuccess($userId) : 0;
+        $priorUnclaimed = 0;
+        if ($state === 'running' && $claimableUnclaimed > 0) {
+            $priorUnclaimed = $claimableUnclaimed;
+            $unclaimed = $claimableUnclaimed;
+        } elseif ($claimableUnclaimed > $unclaimed) {
+            // 多期 SUCCESS 都有待领时，以全量可领为准
+            $unclaimed = $claimableUnclaimed;
+        }
         // 直属下级：仅统计活动开始后绑定的邀请（与资格发放窗口一致）
         $startTs = max(0, (int)$act['start_time']);
         $subCount = 0;
@@ -166,7 +176,9 @@ class FansHubFission
                 'win_amount'        => $myWin,
                 'unclaimed_count'   => $unclaimed,
                 'claimed_count'     => $claimed,
-                'can_claim'         => $state === 'success' && $unclaimed > 0,
+                // 含跨期待领：unclaimed 已合并 countUserUnclaimedOnSuccess
+                'can_claim'         => $unclaimed > 0,
+                'prior_claim_pending' => $priorUnclaimed > 0 ? 1 : 0,
                 'quals'             => $qualItems,
                 'invite_link'       => $inviteLink,
                 'invite_code'       => $inviteCode,
@@ -679,9 +691,10 @@ class FansHubFission
 
     /**
      * 开奖后领取一份资格红包（入账红宝）
+     * 自动再开新一期后，仍可领取上一期（及更早）SUCCESS 的未领份
      *
      * @param int $userId
-     * @param int $qualId 0=自动取下一份未领
+     * @param int $qualId 0=自动取下一份未领（跨期，先旧后新）
      * @return array
      */
     public static function claim($userId, $qualId = 0)
@@ -692,35 +705,57 @@ class FansHubFission
             throw new Exception('请先登录');
         }
         self::tickExpire();
-        $act = self::latestVisibleActivity();
-        if (!$act || (int)$act['status'] !== FissionActivity::STATUS_SUCCESS) {
-            throw new Exception('活动尚未开奖或不可领取');
-        }
-        $aid = (int)$act['id'];
 
         $q = null;
         $amt = 0.0;
+        $aid = 0;
         Db::startTrans();
         try {
             if ($qualId > 0) {
                 $q = Db::name('fans_fission_qual')
                     ->where('id', $qualId)
-                    ->where('activity_id', $aid)
                     ->where('user_id', $userId)
                     ->lock(true)
                     ->find();
+                if (!$q) {
+                    throw new Exception('没有可领取的红包');
+                }
+                $actRow = Db::name('fans_fission_activity')
+                    ->where('id', (int)$q['activity_id'])
+                    ->lock(true)
+                    ->find();
+                if (!$actRow || (int)$actRow['status'] !== FissionActivity::STATUS_SUCCESS) {
+                    throw new Exception('活动尚未开奖或不可领取');
+                }
             } else {
+                // 跨已开奖期次取最早一份未领（不锁 join，先定位再锁行）
+                $pick = Db::name('fans_fission_qual')
+                    ->alias('q')
+                    ->join('fans_fission_activity a', 'a.id = q.activity_id')
+                    ->where('q.user_id', $userId)
+                    ->where('q.claimed', 0)
+                    ->where('q.win_amount', '>', 0)
+                    ->where('a.status', FissionActivity::STATUS_SUCCESS)
+                    ->field('q.id')
+                    ->order('q.id', 'asc')
+                    ->find();
+                if (!$pick) {
+                    throw new Exception('没有可领取的红包');
+                }
                 $q = Db::name('fans_fission_qual')
-                    ->where('activity_id', $aid)
+                    ->where('id', (int)$pick['id'])
                     ->where('user_id', $userId)
-                    ->where('claimed', 0)
-                    ->where('win_amount', '>', 0)
-                    ->order('id', 'asc')
                     ->lock(true)
                     ->find();
-            }
-            if (!$q) {
-                throw new Exception('没有可领取的红包');
+                if (!$q) {
+                    throw new Exception('没有可领取的红包');
+                }
+                $actRow = Db::name('fans_fission_activity')
+                    ->where('id', (int)$q['activity_id'])
+                    ->find();
+                if (!$actRow || (int)$actRow['status'] !== FissionActivity::STATUS_SUCCESS) {
+                    throw new Exception('活动尚未开奖或不可领取');
+                }
             }
             if ((int)($q['claimed'] ?? 0) === 1) {
                 throw new Exception('该份资格已领取');
@@ -729,6 +764,7 @@ class FansHubFission
             if ($amt <= 0) {
                 throw new Exception('该份资格暂无奖金');
             }
+            $aid = (int)$q['activity_id'];
             $now = time();
             $upd = Db::name('fans_fission_qual')
                 ->where('id', (int)$q['id'])
@@ -775,6 +811,28 @@ class FansHubFission
             'remain_unclaimed' => (int)($detail['me']['unclaimed_count'] ?? 0),
             'detail'           => $detail,
         ];
+    }
+
+    /** 用户在所有「开奖成功」期次上的待领份数 */
+    protected static function countUserUnclaimedOnSuccess($userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return 0;
+        }
+        try {
+            $n = Db::name('fans_fission_qual')
+                ->alias('q')
+                ->join('fans_fission_activity a', 'a.id = q.activity_id')
+                ->where('q.user_id', $userId)
+                ->where('q.claimed', 0)
+                ->where('q.win_amount', '>', 0)
+                ->where('a.status', FissionActivity::STATUS_SUCCESS)
+                ->count();
+            return (int)$n;
+        } catch (\Throwable $e) {
+            return 0;
+        }
     }
 
     protected static function defaultRules()
