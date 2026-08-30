@@ -1,6 +1,6 @@
 <?php
 /**
- * Upload YXX face + bowl PNGs to OSS.
+ * Upload YXX face + bowl + dicenew PNGs to OSS.
  * php scripts/upload_yxx_icons.php
  */
 $root = dirname(__DIR__);
@@ -26,8 +26,8 @@ $files = [
 ];
 for ($i = 1; $i <= 18; $i++) {
     $files[] = [
-        'local' => $dir . '/dice/' . $i . '.png',
-        'key'   => '999/static/yxx/dice/' . $i . '.png',
+        'local' => $dir . '/dicenew/' . $i . '.png',
+        'key'   => '999/static/yxx/dicenew/' . $i . '.png',
     ];
 }
 

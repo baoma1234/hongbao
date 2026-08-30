@@ -250,7 +250,7 @@ function diceSnapshotSrc(pos, id) {
   }
   const n = m[k]
   if (!n) return ''
-  return yxxStaticUrl('yxx/dice/' + n + '.png') + '?v=5'
+  return yxxStaticUrl('yxx/dicenew/' + n + '.png') + '?v=1'
 }
 const bowlSrc = packagedStaticUrl('yxx/bowl.png') + '?v=2'
 const locale = localeState()
@@ -1292,21 +1292,23 @@ onUnmounted(() => {
   pointer-events: auto;
 }
 .yxx-die {
-  width: 68px;
-  height: 68px;
-  border-radius: 10px;
+  width: 72px;
+  height: 72px;
+  border-radius: 0;
   background: transparent;
   color: #b01018;
-  overflow: visible;
+  overflow: hidden;
   position: relative;
   box-shadow: none;
+  flex: 0 0 72px;
 }
 .yxx-die.shake {
   animation: yxx-die-shake 0.14s linear infinite;
 }
 .yxx-die-img {
-  width: 68px;
-  height: 68px;
+  width: 72px;
+  height: 72px;
+  display: block;
 }
 .yxx-die-fallback {
   display: flex;
