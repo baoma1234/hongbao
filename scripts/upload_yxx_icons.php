@@ -24,7 +24,7 @@ $files = [
     ['local' => $dir . '/rooster.png', 'key' => '999/static/yxx/rooster.png'],
     ['local' => $dir . '/tiger.png', 'key' => '999/static/yxx/tiger.png'],
 ];
-for ($i = 1; $i <= 12; $i++) {
+for ($i = 1; $i <= 18; $i++) {
     $files[] = [
         'local' => $dir . '/dice/' . $i . '.png',
         'key'   => '999/static/yxx/dice/' . $i . '.png',
