@@ -604,7 +604,7 @@ function randFaceId() {
   return FACE_IDS[Math.floor(Math.random() * FACE_IDS.length)]
 }
 
-/** 开奖摇色子：18 张朝向图快速切换，再按左/正/右定格（展示更久） */
+/** 开奖摇色子：约 2s 翻滚，再按左/正/右定格；定格后靠 reveal 阶段多展示一会儿 */
 function startDiceShake(finalIds) {
   const finals = (finalIds || []).map((x) => String(x || ''))
   while (finals.length < 3) finals.push('')
@@ -627,8 +627,8 @@ function startDiceShake(finalIds) {
     ]
   }
   tick()
-  // 约 4s 翻滚 + 定格后仍留在 reveal 阶段多看一会儿
-  shakeTimer = setInterval(tick, 90)
+  // 开奖翻滚约 2s，定格后由后端 reveal 阶段继续展示筛子
+  shakeTimer = setInterval(tick, 70)
   shakeEndTimer = setTimeout(() => {
     if (shakeTimer) {
       clearInterval(shakeTimer)
@@ -637,7 +637,7 @@ function startDiceShake(finalIds) {
     shakeEndTimer = null
     diceSpin.value = diceFinal.value.slice()
     diceShaking.value = false
-  }, 4000)
+  }, 2000)
 }
 
 function applyDiceForPhase(ids, settleFaceId) {

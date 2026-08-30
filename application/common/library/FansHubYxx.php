@@ -29,9 +29,9 @@ class FansHubYxx
         'Mei', 'Ken', 'Tom', 'Anna', '用户A', '用户B', '用户C', '用户D',
     ];
 
-    const BET_SEC = 10;
+    const BET_SEC = 9;
     const LOCK_SEC = 3;
-    const REVEAL_SEC = 7;
+    const REVEAL_SEC = 8;
     const CYCLE_SEC = 20;
     const EPOCH = 1755446400;
 
