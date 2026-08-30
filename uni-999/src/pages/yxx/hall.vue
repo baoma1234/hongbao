@@ -93,7 +93,7 @@
             class="yxx-die"
             :class="{ shake: diceShaking }"
           >
-            <image v-if="id" class="yxx-die-img" :src="diceSnapshotSrc(i, id)" mode="aspectFill" />
+            <image v-if="id" class="yxx-die-img" :src="diceSnapshotSrc(i, id)" mode="aspectFit" />
             <text v-else class="yxx-die-fallback">{{ diceLabels[i] || t('yxx_dice_pending') }}</text>
             <text v-if="id && !diceShaking" class="yxx-die-lab">{{ diceLabels[i] || '·' }}</text>
           </view>
@@ -221,33 +221,36 @@ function yxxStaticUrl(rel) {
   if (oss) return oss + '/999/static/' + p
   return packagedStaticUrl(p)
 }
-// 12 张“带朝向的筛子快照”：根据 dice-row 位置 + face id 取不同编号
+/**
+ * 18 张黄金筛子快照（左倾 1–11 奇数 / 右倾 2–12 偶数 / 正对 13–18）
+ * 定格按座位：左骰左倾、中骰正对、右骰右倾
+ * 例：葫芦螃蟹虾 → 1.png 14.png 6.png；鱼螃蟹老虎 → 7.png 14.png 12.png
+ */
+const DICE_POSE_LEFT = {
+  gourd: '1', crab: '3', shrimp: '5', fish: '7', rooster: '9', tiger: '11',
+}
+const DICE_POSE_FRONT = {
+  gourd: '13', crab: '14', shrimp: '15', fish: '16', rooster: '17', tiger: '18',
+}
+const DICE_POSE_RIGHT = {
+  gourd: '2', crab: '4', shrimp: '6', fish: '8', rooster: '10', tiger: '12',
+}
+const DICE_POSE_BY_SEAT = [DICE_POSE_LEFT, DICE_POSE_FRONT, DICE_POSE_RIGHT]
+
 function diceSnapshotSrc(pos, id) {
   const k = String(id || '')
-  const odd = {
-    gourd: '1',
-    crab: '3',
-    shrimp: '5',
-    fish: '7',
-    rooster: '9',
-    tiger: '11',
+  const seat = Math.min(2, Math.max(0, Number(pos) || 0))
+  let m
+  if (diceShaking.value) {
+    // 摇动时三朝向轮换，视觉更像立体翻滚
+    const cycle = [DICE_POSE_LEFT, DICE_POSE_FRONT, DICE_POSE_RIGHT]
+    m = cycle[(shakeTick.value + seat) % 3]
+  } else {
+    m = DICE_POSE_BY_SEAT[seat]
   }
-  const even = {
-    gourd: '2',
-    crab: '4',
-    shrimp: '6',
-    fish: '8',
-    rooster: '10',
-    tiger: '12',
-  }
-  // 摇动时在奇偶朝向间切换，定格后仍按位置选朝向
-  const useOdd = diceShaking.value
-    ? ((shakeTick.value + Number(pos || 0)) % 2 === 0)
-    : Number(pos || 0) === 0
-  const m = useOdd ? odd : even
   const n = m[k]
   if (!n) return ''
-  return yxxStaticUrl('yxx/dice/' + n + '.png') + '?v=1'
+  return yxxStaticUrl('yxx/dice/' + n + '.png') + '?v=3'
 }
 const bowlSrc = packagedStaticUrl('yxx/bowl.png') + '?v=2'
 const locale = localeState()
@@ -601,7 +604,7 @@ function randFaceId() {
   return FACE_IDS[Math.floor(Math.random() * FACE_IDS.length)]
 }
 
-/** 开奖摇色子：用现有 12 张快照图快速切换朝向/点数，再定格最终结果（不缺图） */
+/** 开奖摇色子：18 张朝向图快速切换，再按左/正/右定格（展示更久） */
 function startDiceShake(finalIds) {
   const finals = (finalIds || []).map((x) => String(x || ''))
   while (finals.length < 3) finals.push('')
@@ -624,7 +627,8 @@ function startDiceShake(finalIds) {
     ]
   }
   tick()
-  shakeTimer = setInterval(tick, 70)
+  // 约 4s 翻滚 + 定格后仍留在 reveal 阶段多看一会儿
+  shakeTimer = setInterval(tick, 90)
   shakeEndTimer = setTimeout(() => {
     if (shakeTimer) {
       clearInterval(shakeTimer)
@@ -633,7 +637,7 @@ function startDiceShake(finalIds) {
     shakeEndTimer = null
     diceSpin.value = diceFinal.value.slice()
     diceShaking.value = false
-  }, 1600)
+  }, 4000)
 }
 
 function applyDiceForPhase(ids, settleFaceId) {
@@ -1262,9 +1266,9 @@ onUnmounted(() => {
 }
 .yxx-dice-row {
   display: flex;
-  gap: 10px;
+  gap: 14px;
   margin: 0;
-  padding: 10px 16px 8px;
+  padding: 8px 12px 6px;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(180, 30, 30, 0.55), transparent 70%);
   position: absolute;
@@ -1274,7 +1278,7 @@ onUnmounted(() => {
   z-index: 1;
   opacity: 0;
   visibility: hidden;
-  min-height: 72px;
+  min-height: 88px;
   align-items: center;
   justify-content: center;
   pointer-events: none;
@@ -1288,28 +1292,28 @@ onUnmounted(() => {
   pointer-events: auto;
 }
 .yxx-die {
-  width: 52px;
-  height: 52px;
-  border-radius: 8px;
-  background: #fff;
+  width: 68px;
+  height: 68px;
+  border-radius: 10px;
+  background: transparent;
   color: #b01018;
-  overflow: hidden;
+  overflow: visible;
   position: relative;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.35);
+  box-shadow: none;
 }
 .yxx-die.shake {
-  animation: yxx-die-shake 0.12s linear infinite;
+  animation: yxx-die-shake 0.14s linear infinite;
 }
 .yxx-die-img {
-  width: 52px;
-  height: 52px;
+  width: 68px;
+  height: 68px;
 }
 .yxx-die-fallback {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 52px;
-  height: 52px;
+  width: 68px;
+  height: 68px;
   font-size: 11px;
   font-weight: 800;
   color: #8a1018;
@@ -1321,17 +1325,18 @@ onUnmounted(() => {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 0;
-  font-size: 9px;
+  bottom: -16px;
+  font-size: 10px;
   font-weight: 900;
   text-align: center;
   color: #fff8e6;
-  background: rgba(140, 16, 20, 0.78);
+  background: transparent;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75);
   line-height: 14px;
 }
 .yxx-reveal-cap {
   margin-top: auto;
-  padding-top: 196px;
+  padding-top: 210px;
   font-size: 11px;
   color: rgba(255, 230, 180, 0.75);
   position: relative;
