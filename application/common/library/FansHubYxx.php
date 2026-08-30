@@ -7,7 +7,7 @@ use think\Db;
 
 /**
  * 鱼虾蟹大厅：全局 20s 局钟；白皮书单骰结算（第一颗骰）；台面展示三骰。
- * 开奖绑定未来波场区块：投注/封盘锁定高度，揭晓取 Block Hash 前 3 字节。
+ * 开奖绑定未来波场区块：投注/封盘锁定高度，揭晓用 Block Hash（跳过前导 0x00 后）前 3 字节。
  * yxx_real_money=true 时扣红宝并按 6×92%=5.52 倍派彩；false 为预览局。
  */
 class FansHubYxx
@@ -1322,6 +1322,14 @@ class FansHubYxx
         $raw = ctype_xdigit($hexSeed) ? @hex2bin($hexSeed) : false;
         if ($raw === false || strlen($raw) < 3) {
             $raw = hash('sha256', (string)$hexSeed, true);
+        } else {
+            // Tron Block ID 常以大量 0x00 开头，直接取前 3 字节会恒为葫芦/葫芦/葫芦
+            $trimmed = ltrim($raw, "\0");
+            if (strlen($trimmed) >= 3) {
+                $raw = $trimmed;
+            } else {
+                $raw = hash('sha256', $hexSeed, true);
+            }
         }
         return [
             self::FACE_IDS[ord($raw[0]) % 6],
@@ -1398,11 +1406,11 @@ class FansHubYxx
             : '波场 Block Hash（投注开始锁定高度，开奖取该块哈希）';
         $hint = '该期尚未开奖；已锁定波场高度后可在 TronScan 核对，出块后再复算三骰。';
         if ($revealed && $hasDice) {
-            $hint = '复算：Block Hash 前 3 字节映射为 ' . implode(' / ', $labels) . '，结算门=' . (self::FACE_LABEL[$dice[0]] ?? $dice[0]);
+            $hint = '复算：Block Hash 去掉前导 00 后取前 3 字节 → ' . implode(' / ', $labels) . '，结算门=' . (self::FACE_LABEL[$dice[0]] ?? $dice[0]);
         } elseif ($revealed && $tronNum > 0 && $tronId === '') {
             $hint = '已锁定波场高度 #' . $tronNum . '，等待出块后开奖。';
         } elseif ($revealed && $legacy) {
-            $hint = '复算：' . $seed . ' 前 3 字节映射为 ' . implode(' / ', $labels);
+            $hint = '复算：' . $seed . ' 去掉前导 00 后取前 3 字节 → ' . implode(' / ', $labels);
         }
 
         $statusLabel = '尚未开奖';
@@ -1424,7 +1432,7 @@ class FansHubYxx
             'dice_labels'     => $hasDice ? $labels : ['', '', ''],
             'hash_seed'       => $hasDice ? $seed : '',
             'hash_formula'    => $formula,
-            'hash_rule'       => '种子前 3 字节各自 mod 6 → 三骰；第一颗为结算门',
+            'hash_rule'       => 'Block Hash 去掉前导 00 后前 3 字节各自 mod 6 → 三骰；第一颗为结算门',
             'verify_ok'       => $ok ? 1 : 0,
             'face_match'      => $faceMatch ? 1 : 0,
             'seed_match'      => $seedMatch ? 1 : 0,
