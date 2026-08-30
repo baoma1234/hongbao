@@ -250,7 +250,7 @@ function diceSnapshotSrc(pos, id) {
   }
   const n = m[k]
   if (!n) return ''
-  return yxxStaticUrl('yxx/dice/' + n + '.png') + '?v=4'
+  return yxxStaticUrl('yxx/dice/' + n + '.png') + '?v=5'
 }
 const bowlSrc = packagedStaticUrl('yxx/bowl.png') + '?v=2'
 const locale = localeState()
