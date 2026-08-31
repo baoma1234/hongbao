@@ -549,9 +549,10 @@ class FansHubYxx
         return self::hallPayload($uid, self::currentGroupId());
     }
 
-    public static function placeRealBet($uid, $face, $stake, $nick = '')
+    public static function placeRealBet($uid, $face, $stake, $nick = '', $asBot = false)
     {
         $uid = (int)$uid;
+        $asBot = !empty($asBot);
         list($faces, $unit) = self::assertBetInput($uid, $face, $stake);
         $nick = self::normalizeNick($uid, $nick);
         $roundIndex = (int)self::clock()['round_index'];
@@ -562,7 +563,7 @@ class FansHubYxx
         try {
             $prev = FansHubYxxStore::getBet($roundIndex, $uid);
             $prevStake = 0;
-            if (is_array($prev) && empty($prev['bot'])) {
+            if (is_array($prev) && (empty($prev['bot']) || $asBot)) {
                 $prevStake = self::totalOf($prev);
             }
             $stake = $unit * count($faces);
@@ -575,9 +576,11 @@ class FansHubYxx
                         'ref_type' => 'yxx_round',
                         'ref_id'   => $roundIndex,
                     ]);
-                    FansHubYxxPool::adjustDailyBet($uid, -$prevStake);
-                    if ($g > 0) {
-                        FansHubYxxGroup::adjustDaily($g, $uid, -$prevStake);
+                    if (!$asBot) {
+                        FansHubYxxPool::adjustDailyBet($uid, -$prevStake);
+                        if ($g > 0) {
+                            FansHubYxxGroup::adjustDaily($g, $uid, -$prevStake);
+                        }
                     }
                 }
                 FansHubHongbaoLedger::debit($uid, $stake, 'yxx_bet', '鱼虾蟹下注 R' . $roundIndex, [
@@ -585,9 +588,12 @@ class FansHubYxx
                     'ref_type' => 'yxx_round',
                     'ref_id'   => $roundIndex,
                 ], true);
-                FansHubYxxPool::touchDailyBet($uid, $stake);
-                if ($g > 0) {
-                    FansHubYxxGroup::touchDaily($g, $uid, $stake);
+                // 机器人不计入红包雨资格日投，避免抢走真人雨包
+                if (!$asBot) {
+                    FansHubYxxPool::touchDailyBet($uid, $stake);
+                    if ($g > 0) {
+                        FansHubYxxGroup::touchDaily($g, $uid, $stake);
+                    }
                 }
             }
             FansHubYxxStore::putBet($roundIndex, [
@@ -597,7 +603,7 @@ class FansHubYxx
                 'faces'   => $faces,
                 'unit'    => $unit,
                 'stake'   => $stake,
-                'bot'     => 0,
+                'bot'     => $asBot ? 1 : 0,
                 'debited' => 1,
                 'settled' => 0,
                 'won'     => 0,
@@ -646,20 +652,24 @@ class FansHubYxx
             }
             if ($useReal && $buid > 0) {
                 try {
-                    self::placeRealBet($buid, (string)$bot['face'], (int)$bot['stake'], (string)$bot['nick']);
+                    self::placeRealBet($buid, (string)$bot['face'], (int)$bot['stake'], (string)$bot['nick'], true);
                     $added++;
+                    continue;
                 } catch (\Throwable $e) {
-                    // 余额不足等：跳过该机器人，不阻断其它
+                    // 余额不足等：同 uid 写展示注，计入人数/奖金池/蓄水，下轮 tick 不再重试
                 }
-                continue;
             }
             FansHubYxxStore::putBet($roundIndex, [
-                'uid'   => $buid,
-                'nick'  => (string)$bot['nick'],
-                'face'  => (string)$bot['face'],
-                'stake' => (int)$bot['stake'],
-                'bot'   => 1,
-                'ts'    => time(),
+                'uid'     => $buid,
+                'nick'    => (string)$bot['nick'],
+                'face'    => (string)$bot['face'],
+                'stake'   => (int)$bot['stake'],
+                'bot'     => 1,
+                'debited' => 0,
+                'settled' => 0,
+                'won'     => 0,
+                'payout'  => 0,
+                'ts'      => time(),
             ]);
             $added++;
         }
@@ -765,14 +775,14 @@ class FansHubYxx
             }
         }
 
-        // 爆点池累积（按人类有效投注 5% 进入）
+        // 爆点/蓄水池：人类 + 机器人下注一并计入（人数/奖金池展示已含机器人，蓄水与红包雨需同步）
         $boomPoolBefore = self::boomPool();
-        $boomAdd = $humanStake > 0 ? (int)floor($humanStake * self::BOOM_RATE) : 0;
+        $boomAdd = $totalStakeAll > 0 ? (int)floor($totalStakeAll * self::BOOM_RATE) : 0;
         $boomPoolAfterAdd = max(0, $boomPoolBefore + $boomAdd);
 
-        // 循环计数：仅在人类有投注时推进一次（保持“有效局”概念）
+        // 循环计数：本局有任意有效投注（含机器人）即推进
         $cycleBefore = self::cycleCount();
-        $cycleAdvance = $humanStake > 0 ? 1 : 0;
+        $cycleAdvance = $totalStakeAll > 0 ? 1 : 0;
         $cycleAfter = $cycleBefore + $cycleAdvance;
 
         // 爆点释放：在 [boom_from, cycle_max] 区间内触发一次（熔断 paused/locked 时只蓄水不释放）
@@ -886,10 +896,10 @@ class FansHubYxx
             }
 
             $uid = (int)($rows[$i]['uid'] ?? 0);
-            $isBot = !empty($rows[$i]['bot']) || $uid <= 0;
             $payout = (int)($rows[$i]['payout'] ?? 0);
 
-            if ($realMoney && !$isBot && !empty($rows[$i]['debited']) && $payout > 0) {
+            // 真金已扣款（含真金机器人）派彩；虚机人 uid<=0 / 未扣款不派。爆点加成仅人类（上段 winWeights）。
+            if ($realMoney && $uid > 0 && !empty($rows[$i]['debited']) && $payout > 0) {
                 $winPays[] = [
                     'uid' => $uid,
                     'pay' => [
@@ -909,6 +919,7 @@ class FansHubYxx
             'settle_face' => $settleFace,
             'dice'        => $dice,
             'human_stake' => $humanStake,
+            'total_stake' => $totalStakeAll,
             'total_stake_won' => $totalStakeWon,
             'boom_add'    => $boomAdd,
             'boom_release'=> $releasedBoom,

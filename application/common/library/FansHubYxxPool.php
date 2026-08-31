@@ -464,6 +464,18 @@ class FansHubYxxPool
                     $out[$uid] = max(1, (int)($row['bet_total'] ?? 1));
                 }
             }
+            if ($out) {
+                // 排除真金机器人账号，红包雨只分给真人
+                $botIds = Db::name('fans_account')
+                    ->where('user_id', 'in', array_keys($out))
+                    ->where('is_bot', 1)
+                    ->column('user_id');
+                if (is_array($botIds)) {
+                    foreach ($botIds as $bid) {
+                        unset($out[(int)$bid]);
+                    }
+                }
+            }
             return $out;
         } catch (\Throwable $e) {
             return [];
