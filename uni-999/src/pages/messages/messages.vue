@@ -315,7 +315,7 @@ import '../../styles/chat-uni-adapter.css'
 import '../../styles/chat-messages-parity.css'
 import '../../styles/chat-qq-theme.css'
 import { apiRequest, fetchProfile, getToken } from '../../utils/auth.js'
-import { applySafeAreaCssVars, getSafeAreaInsets, getTopBarContentHeight, measureChatOverlayTop } from '../../utils/safe-area.js'
+import { applySafeAreaCssVars, getSafeAreaInsets, getTopBarContentHeight } from '../../utils/safe-area.js'
 import {
   avatarSrc,
   convKey,
@@ -568,12 +568,17 @@ const createGroupAppFix = true
 // #ifndef APP-PLUS
 const createGroupAppFix = false
 // #endif
-/** App 建群面板顶距用 JS 测量，避免 env(safe-area) 为 0 时被顶栏盖住；H5/Safari 仍走 CSS */
+/** 建群全屏 QQ 顶栏：写入安全区顶距（H5 / Safari / APK / IPA） */
 const createGroupPaneStyle = computed(() => {
-  if (!createGroupOpen.value || !createGroupAppFix) return null
+  if (!createGroupOpen.value) return null
   applySafeAreaCssVars()
-  const top = measureChatOverlayTop() + QQ_MSG_NAV_CONTENT
-  return { '--cg-app-top': Math.max(44, top) + 'px' }
+  const inset = getSafeAreaInsets()
+  const pad = Math.max(0, Number(inset.top || 0)) + 6
+  return {
+    top: '0px',
+    zIndex: 20100,
+    '--cg-header-pad-top': pad + 'px',
+  }
 })
 const myGroups = ref([])
 const friendReqPending = ref(0)
@@ -1889,18 +1894,10 @@ onHide(() => {
 .msg-popup-mute--active {
   opacity: 0.7;
 }
-/* App only：建群红头勿负 margin 上叠裁切正文；顶距用 --cg-app-top 压过 bundle !important */
+/* App：建群 QQ 全屏顶栏由 chat-qq-theme + --cg-header-pad-top 处理 */
 /* #ifdef APP-PLUS */
 .chat-create-group-pane.cg-app-fix {
-  top: var(--cg-app-top, 88px) !important;
-}
-.chat-create-group-pane.cg-app-fix .chat-cg-header {
-  padding-top: 14px !important;
-  padding-bottom: 18px !important;
-}
-.chat-create-group-pane.cg-app-fix .chat-cg-main {
-  margin-top: 0 !important;
-  padding-top: 18px !important;
+  top: 0 !important;
 }
 /* #endif */
 </style>

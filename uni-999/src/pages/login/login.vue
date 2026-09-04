@@ -239,10 +239,11 @@ const flagSrc = computed(() => {
   return flagUrl(opt ? opt.flagIso : 'cn')
 })
 const chromeStyle = computed(() => ({
-  paddingTop: Math.max(0, Number(padTop.value) || 0) + 'px',
+  /* 语言按钮相对状态栏再下移一点，避免贴顶 */
+  paddingTop: Math.max(0, Number(padTop.value) || 0) + 12 + 'px',
 }))
 const langPanelStyle = computed(() => {
-  const top = Math.max(0, Number(padTop.value) || 0) + 52
+  const top = Math.max(0, Number(padTop.value) || 0) + 12 + 52
   return { top: top + 'px' }
 })
 /** 表单上方留白含状态栏，避免内容顶到刘海/状态栏 */

@@ -314,7 +314,7 @@ import '../../styles/chat-uni-adapter.css'
 import '../../styles/chat-messages-parity.css'
 import '../../styles/chat-qq-theme.css'
 import { apiRequest, getToken } from '../../utils/auth.js'
-import { applySafeAreaCssVars, getSafeAreaInsets, getTopBarContentHeight, measureChatOverlayTop } from '../../utils/safe-area.js'
+import { applySafeAreaCssVars, getSafeAreaInsets, getTopBarContentHeight } from '../../utils/safe-area.js'
 import { avatarSrc } from '../../utils/chat.js'
 import {
   canCreateGroupFromAuth,
@@ -347,11 +347,17 @@ const createGroupAppFix = true
 // #ifndef APP-PLUS
 const createGroupAppFix = false
 // #endif
+/** 建群全屏 QQ 顶栏：写入安全区顶距（H5 / Safari / APK / IPA） */
 const createGroupPaneStyle = computed(() => {
-  if (!createGroupOpen.value || !createGroupAppFix) return null
+  if (!createGroupOpen.value) return null
   applySafeAreaCssVars()
-  const top = measureChatOverlayTop()
-  return { '--cg-app-top': Math.max(44, top) + 'px' }
+  const inset = getSafeAreaInsets()
+  const pad = Math.max(0, Number(inset.top || 0)) + 6
+  return {
+    top: '0px',
+    zIndex: 20100,
+    '--cg-header-pad-top': pad + 'px',
+  }
 })
 
 const communitySub = ref('official')
@@ -906,17 +912,10 @@ onHide(() => {
   font-weight: 500;
   white-space: nowrap;
 }
+/* App：建群 QQ 全屏顶栏由 chat-qq-theme + --cg-header-pad-top 处理 */
 /* #ifdef APP-PLUS */
 .chat-create-group-pane.cg-app-fix {
-  top: var(--cg-app-top, 88px) !important;
-}
-.chat-create-group-pane.cg-app-fix .chat-cg-header {
-  padding-top: 14px !important;
-  padding-bottom: 18px !important;
-}
-.chat-create-group-pane.cg-app-fix .chat-cg-main {
-  margin-top: 0 !important;
-  padding-top: 18px !important;
+  top: 0 !important;
 }
 /* #endif */
 </style>
