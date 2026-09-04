@@ -33,7 +33,7 @@
                   :style="officialScrollStyle"
                   :show-scrollbar="false"
                 >
-                  <view class="chat-official-list">
+                  <view class="chat-official-list" :style="officialListPadStyle">
                     <view
                       v-for="(g, idx) in communityRecs"
                       :key="g.id || g.group_id"
@@ -369,33 +369,32 @@ let communityExtraInflight = null
 let pageAlive = false
 let off = null
 
-const OFFICIAL_RULES_DOCK_PX = 96
+const OFFICIAL_RULES_DOCK_PX = 88
+const SEG_CHROME_PX = 48
 
 const tabRootStyle = computed(() => {
   const h = Number(tabRootPx.value) || 0
   if (h < 200) return {}
   return { height: h + 'px', minHeight: h + 'px' }
 })
+/** panel 铺满 tabRoot；官方 Tab 不再额外缩短留下白缝，规则卡用列表底 padding 避让 */
 const communityHostStyle = computed(() => {
-  let h = Number(panelScrollPx.value) || 420
-  if (communitySub.value === 'official') {
-    h = Math.max(200, h - OFFICIAL_RULES_DOCK_PX)
-  }
+  const h = Number(panelScrollPx.value) || 420
   return { height: h + 'px', minHeight: h + 'px', maxHeight: h + 'px', flex: 'none', overflow: 'hidden' }
 })
 const panelScrollStyle = computed(() => {
   let h = Number(panelScrollPx.value) || 420
-  h = Math.max(180, h - 52)
-  if (communitySub.value === 'official') {
-    h = Math.max(140, h - OFFICIAL_RULES_DOCK_PX)
-  }
+  h = Math.max(180, h - SEG_CHROME_PX)
   return { height: h + 'px', minHeight: h + 'px', maxHeight: h + 'px', flex: 'none' }
 })
 const officialScrollStyle = computed(() => {
   let h = Number(panelScrollPx.value) || 420
-  h = Math.max(140, h - 52 - OFFICIAL_RULES_DOCK_PX)
+  h = Math.max(140, h - SEG_CHROME_PX)
   return { height: h + 'px', minHeight: h + 'px', maxHeight: h + 'px', flex: 'none' }
 })
+const officialListPadStyle = computed(() => ({
+  paddingBottom: OFFICIAL_RULES_DOCK_PX + 16 + 'px',
+}))
 
 function measureCommunityLayout() {
   try {
@@ -415,11 +414,11 @@ function measureCommunityLayout() {
     const inset = getSafeAreaInsets()
     const status = Number(inset.top || 0)
     const topBar = getTopBarContentHeight()
-    const tabBar = 72 + Number(inset.bottom || 0)
+    // 与公告/佣金一致：底栏约 64 + safe，避免列表与 Tab 之间留白缝
+    const tabBar = 64 + Number(inset.bottom || 0)
     const shell = Math.max(280, winH - status - topBar - tabBar)
     tabRootPx.value = shell
-    const chrome = 52
-    panelScrollPx.value = Math.max(220, shell - chrome)
+    panelScrollPx.value = Math.max(220, shell)
   } catch (e) {
     tabRootPx.value = 0
     panelScrollPx.value = 420
@@ -757,7 +756,7 @@ onHide(() => {
   display: flex;
   flex-direction: column;
   gap: 0;
-  padding: 0 0 20px;
+  padding: 0;
   box-sizing: border-box;
   background: transparent;
 }
@@ -860,7 +859,7 @@ onHide(() => {
   position: fixed !important;
   left: 0;
   right: 0;
-  bottom: calc(72px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  bottom: calc(64px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
   z-index: 9100 !important;
   margin: 0 10px 0;
   flex: none;

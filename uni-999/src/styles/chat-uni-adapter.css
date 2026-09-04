@@ -741,7 +741,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   position: fixed !important;
   left: 0 !important;
   right: 0 !important;
-  bottom: calc(72px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))) !important;
+  bottom: calc(64px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))) !important;
   z-index: 9100 !important;
   margin: 0 auto 0px !important;
   width: calc(100% - 20px) !important;
