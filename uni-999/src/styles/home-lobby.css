@@ -66,15 +66,15 @@
 .game-lobby-online-badge {
   position: absolute;
   left: auto;
-  right: 10px;
-  top: 10px;
+  right: 8px;
+  top: 8px;
   z-index: 2;
-  max-width: calc(100% - 20px);
-  padding: 5px 12px;
+  max-width: calc(100% - 16px);
+  padding: 3px 8px;
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.42);
   border: 1px solid rgba(255, 230, 120, 0.55);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
   box-sizing: border-box;
   pointer-events: none;
 }
@@ -83,19 +83,19 @@
   display: block;
   text-align: left;
   margin: 0;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
   color: #fff8d6;
-  line-height: 1.35;
+  line-height: 1.3;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
 }
 
 .game-lobby-online-num {
   color: #ffe14a;
   font-weight: 900;
-  font-size: 16px;
+  font-size: 13px;
   text-shadow:
-    0 0 8px rgba(255, 210, 40, 0.75),
+    0 0 6px rgba(255, 210, 40, 0.75),
     0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
@@ -376,7 +376,9 @@
 }
 
 .game-lobby-invite {
+  /* 上下间距一致（相对上方游戏区 / 下方滚动留白） */
   margin-top: 14px;
+  margin-bottom: 14px;
   border-radius: 999px;
   overflow: hidden;
   line-height: 0;
@@ -399,7 +401,7 @@
 
 .game-lobby-scroll-pad {
   width: 100%;
-  height: 12px;
+  height: 0;
   pointer-events: none;
 }
 

@@ -197,6 +197,13 @@
       }
     },
     {
+      "path": "pages/fission/claims",
+      "style": {
+        "navigationBarTitleText": "领取记录",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/yxx/hall",
       "style": {
         "navigationBarTitleText": "红宝大厅",

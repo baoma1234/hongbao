@@ -3,9 +3,8 @@
     <!-- 全屏背景：吉祥物在上、下方留白放表单（四端同一张图） -->
     <image class="login-page-bg" :src="heroBg" mode="aspectFill" />
 
-    <!-- logo / 语言：叠在背景图左上、右上（无公共顶栏） -->
+    <!-- 语言：叠在背景图右上（无公共顶栏） -->
     <view class="login-chrome" :style="chromeStyle">
-      <image class="login-chrome-logo" :src="logoSrc" mode="aspectFit" />
       <view
         class="login-lang-wrap"
         hover-class="login-lang-wrap--hover"
@@ -158,7 +157,6 @@ import {
   getLocale,
   localeOptions,
   localeState,
-  logoUrl,
   onLocaleChange,
   setLocale,
   t,
@@ -186,7 +184,7 @@ import { getUploadsBase, packagedStaticUrl } from '../../utils/config.js'
 import { applySafeAreaCssVars, getSafeAreaInsets } from '../../utils/safe-area.js'
 
 const SMS_COOLDOWN_KEY = 'fanshub_sms_cooldown'
-const LOGIN_BG_VER = '1'
+const LOGIN_BG_VER = '2'
 
 const locale = localeState()
 const copyTick = copyState()
@@ -216,12 +214,11 @@ let pickingLang = false
 const heroBg = computed(() => {
   const oss = String(getUploadsBase() || '').replace(/\/+$/, '')
   if (oss) {
-    return oss + '/999/static/login/bg-hero.png?v=' + LOGIN_BG_VER
+    return oss + '/999/static/login/bg-hero.jpg?v=' + LOGIN_BG_VER
   }
-  return packagedStaticUrl('login/bg-hero.png') + '?v=' + LOGIN_BG_VER
+  return packagedStaticUrl('login/bg-hero.jpg') + '?v=' + LOGIN_BG_VER
 })
 
-const logoSrc = logoUrl()
 const localeId = ref(getLocale())
 const langOpen = ref(false)
 const padTop = ref(getSafeAreaInsets().top)
@@ -623,19 +620,12 @@ onUnmounted(() => {
   z-index: 20;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 10px;
   padding-left: 14px;
   padding-right: 14px;
   padding-bottom: 6px;
   box-sizing: border-box;
-  pointer-events: none;
-}
-.login-chrome-logo {
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
-  flex-shrink: 0;
   pointer-events: none;
 }
 .login-lang-wrap {

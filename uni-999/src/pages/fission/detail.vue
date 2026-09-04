@@ -163,41 +163,6 @@
         <view class="fx-claim-x" @click="closeClaim">×</view>
       </view>
     </view>
-
-    <!-- 奖金池领取记录 -->
-    <view
-      v-if="poolOpen"
-      class="fx-claim-mask fx-pool-mask"
-      :style="claimMaskStyle"
-      @touchmove.stop.prevent
-      @click="closePoolRecords"
-    >
-      <view class="fx-pool-sheet" @click.stop>
-        <view class="fx-pool-hd">
-          <text class="fx-pool-title">奖金池领取记录</text>
-          <text class="fx-pool-x" @click="closePoolRecords">×</text>
-        </view>
-        <view class="fx-pool-summary">
-          <text>奖金池 ¥{{ formatMoney(poolSummary.pool_amount) }}</text>
-          <text>余额 ¥{{ formatMoney(poolSummary.remain_balance) }}</text>
-          <text>已领 {{ poolSummary.claimed_count || 0 }} 份 / ¥{{ formatMoney(poolSummary.claimed_amount) }}</text>
-          <text>待领 {{ poolSummary.unclaimed_count || 0 }} 份 / ¥{{ formatMoney(poolSummary.unclaimed_amount) }}</text>
-        </view>
-        <scroll-view scroll-y class="fx-pool-list" :style="{ maxHeight: poolListH }">
-          <view v-if="poolLoading" class="fx-pool-empty">加载中…</view>
-          <view v-else-if="!poolList.length" class="fx-pool-empty">暂无资格记录</view>
-          <view v-for="row in poolList" :key="'pr-' + row.id" class="fx-pool-row">
-            <view class="fx-pool-row-main">
-              <text class="fx-pool-nick">{{ row.nickname || ('用户' + row.user_id) }}</text>
-              <text class="fx-pool-amt">¥{{ formatMoney(row.amount) }}</text>
-            </view>
-            <text class="fx-pool-meta">
-              {{ row.claimed ? ('已领取 ' + formatTs(row.claimed_at)) : '待领取' }}
-            </text>
-          </view>
-        </scroll-view>
-      </view>
-    </view>
   </view>
 </template>
 
@@ -223,11 +188,6 @@ const claiming = ref(false)
 const claimAmt = ref(0)
 const claimSafeTop = ref(0)
 const claimSafeBottom = ref(0)
-const poolOpen = ref(false)
-const poolLoading = ref(false)
-const poolList = ref([])
-const poolSummary = ref({})
-const poolListH = ref('50vh')
 let tickTimer = null
 let claimAnimTimer = null
 
@@ -288,22 +248,6 @@ function formatMoney(v) {
   return n.toFixed(2).replace(/\.00$/, '')
 }
 
-function formatTs(ts) {
-  const t = (ts | 0) * 1000
-  if (!t) return ''
-  const d = new Date(t)
-  const pad = (n) => (n < 10 ? '0' + n : '' + n)
-  return (
-    pad(d.getMonth() + 1) +
-    '-' +
-    pad(d.getDate()) +
-    ' ' +
-    pad(d.getHours()) +
-    ':' +
-    pad(d.getMinutes())
-  )
-}
-
 function measureScroll() {
   try {
     applySafeAreaCssVars()
@@ -316,7 +260,6 @@ function measureScroll() {
     scrollH.value = Math.max(280, h) + 'px'
     claimSafeTop.value = Math.max(0, Number(inset.top || sys.statusBarHeight || 0))
     claimSafeBottom.value = Math.max(0, Number(inset.bottom || 0))
-    poolListH.value = Math.max(220, Math.floor((sys.windowHeight || 667) * 0.48)) + 'px'
   } catch (e) {
     scrollH.value = '70vh'
   }
@@ -345,33 +288,10 @@ function onQualClick() {
   openClaim()
 }
 
-async function openPoolRecords() {
-  measureScroll()
-  poolOpen.value = true
-  poolLoading.value = true
-  poolList.value = []
-  try {
-    const aid = (act.value && act.value.id) | 0
-    const data = await apiRequest(
-      'fissionclaims',
-      'GET',
-      { activity_id: aid || 0 },
-      { skipAuthRedirect: true }
-    )
-    poolSummary.value = (data && data.summary) || {}
-    poolList.value = (data && data.list) || []
-    if (detail.value && data && data.summary) {
-      detail.value = Object.assign({}, detail.value, { pool_summary: data.summary })
-    }
-  } catch (e) {
-    uni.showToast({ title: (e && e.message) || '加载失败', icon: 'none' })
-  } finally {
-    poolLoading.value = false
-  }
-}
-
-function closePoolRecords() {
-  poolOpen.value = false
+function openPoolRecords() {
+  const aid = (act.value && act.value.id) | 0
+  const q = aid > 0 ? '?activity_id=' + aid : ''
+  uni.navigateTo({ url: '/pages/fission/claims' + q })
 }
 
 function copyGroupLink() {
@@ -673,7 +593,8 @@ onUnmounted(() => {
 
 .prize-title-wrapper {
   display: flex;
-  align-items: baseline;
+  flex-direction: column;
+  align-items: center;
   margin-bottom: 22px;
   filter: drop-shadow(0px 4px 6px rgba(242, 154, 32, 0.2));
 }
@@ -694,7 +615,8 @@ onUnmounted(() => {
   font-size: 64px;
   font-weight: 900;
   font-family: 'DIN Alternate', 'Impact', sans-serif;
-  margin-right: 12px;
+  margin-right: 0;
+  margin-bottom: 8px;
   line-height: 1;
   letter-spacing: -2px;
   animation: flowLight 3s linear infinite;
@@ -706,6 +628,7 @@ onUnmounted(() => {
   letter-spacing: 0;
 }
 .prize-label {
+  display: block;
   background: linear-gradient(120deg, #ffe8ad 0%, #ffffff 50%, #f29a20 100%);
   background-size: 200% auto;
   -webkit-background-clip: text;
@@ -1230,80 +1153,5 @@ onUnmounted(() => {
 }
 .prize-title-wrapper {
   cursor: pointer;
-}
-.fx-pool-mask {
-  align-items: flex-end;
-  justify-content: center;
-}
-.fx-pool-sheet {
-  width: 100%;
-  max-width: 480px;
-  background: #1a1520;
-  border-radius: 16px 16px 0 0;
-  padding: 14px 14px calc(14px + env(safe-area-inset-bottom, 0px));
-  box-sizing: border-box;
-}
-.fx-pool-hd {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
-.fx-pool-title {
-  color: #ffe6b0;
-  font-size: 16px;
-  font-weight: 700;
-}
-.fx-pool-x {
-  color: #cbb896;
-  font-size: 26px;
-  line-height: 1;
-  padding: 0 4px;
-}
-.fx-pool-summary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 12px;
-  margin-bottom: 10px;
-  padding: 10px;
-  border-radius: 10px;
-  background: rgba(255, 214, 120, 0.08);
-}
-.fx-pool-summary text {
-  color: #e8d4a8;
-  font-size: 12px;
-}
-.fx-pool-list {
-  width: 100%;
-}
-.fx-pool-empty {
-  color: #9a8b72;
-  text-align: center;
-  padding: 28px 0;
-  font-size: 13px;
-}
-.fx-pool-row {
-  padding: 10px 4px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-}
-.fx-pool-row-main {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.fx-pool-nick {
-  color: #f5ecd6;
-  font-size: 14px;
-}
-.fx-pool-amt {
-  color: #ffd27a;
-  font-size: 14px;
-  font-weight: 700;
-}
-.fx-pool-meta {
-  display: block;
-  margin-top: 4px;
-  color: #9a8b72;
-  font-size: 11px;
 }
 </style>
