@@ -1,11 +1,13 @@
 <template>
-  <view class="fv-page" :style="profileSubPageStyle">
-    <TopBar :title="pageTitle" />
-    <view class="fv-hd profile-sub-hd profile-sub-hd--back-only" :style="profileSubHdStyle">
-      <text class="profile-back-btn" @click="goBack">‹</text>
-      <text class="profile-sub-spacer" />
+  <view class="fv-page fv-page--qq" :style="pageSafeStyle">
+    <view class="chat-hero-hd chat-hero-hd--bar-actions chat-hero-hd--qq-nav" :style="qqNavPadStyle">
+      <view class="chat-hero-back" hover-class="chat-hero-back--active" @click="goBack">
+        <text class="chat-hero-back-char">‹</text>
+      </view>
+      <text class="chat-hero-title chat-hero-title--qq">{{ pageTitle }}</text>
+      <view class="chat-hero-more chat-hero-more--spacer" aria-hidden="true" />
     </view>
-    <scroll-view scroll-y class="fv-scroll" :style="{ height: scrollH }">
+    <scroll-view scroll-y class="fv-scroll" :style="{ height: scrollH }" :show-scrollbar="false">
       <view class="fv-wrap">
         <view class="fv-sub">{{ pageSub }}</view>
 
@@ -200,10 +202,9 @@
 import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
-import TopBar from '../../components/TopBar.vue'
 import { apiRequest, getToken } from '../../utils/auth.js'
-import { useProfileSubHdStyle } from '../../utils/profile-sub-layout.js'
-import '../../styles/hb.css'
+import { applySafeAreaCssVars, getSafeAreaInsets } from '../../utils/safe-area.js'
+import '../../styles/chat-qq-theme.css'
 
 const kind = ref('rp') // rp | niuniu | yxx
 const queryNo = ref('')
@@ -212,8 +213,9 @@ const formErr = ref('')
 const result = ref(null)
 const busy = ref(false)
 const scrollH = ref('70vh')
+const qqNavPadStyle = ref({})
+const pageSafeStyle = ref({})
 let retryTimer = null
-const { profileSubHdStyle, profileSubPageStyle, refreshProfileSubLayout } = useProfileSubHdStyle()
 
 const isNiuniu = computed(() => kind.value === 'niuniu' || (result.value && result.value.kind === 'niuniu'))
 const isYxx = computed(() => kind.value === 'yxx' || (result.value && result.value.kind === 'yxx'))
@@ -257,13 +259,22 @@ const pageSub = computed(() => {
     : '拼手气金额由「波场 Block Hash + 单号」链下拆分。扫雷另要求：哈希末位必须等于手填雷号后才拆包开抢；中雷看金额尾数。可在 TronScan / OKLink 核验。'
 })
 
-function measureScroll() {
+function refreshLayout() {
+  const r = applySafeAreaCssVars()
+  const insetTop = Math.max(
+    0,
+    Number(r && r.top != null ? r.top : getSafeAreaInsets().top) || 0
+  )
+  // QQ 顶栏：安全区 + 内容行，与群设置一致
+  qqNavPadStyle.value = { paddingTop: insetTop + 6 + 'px' }
+  pageSafeStyle.value = {
+    '--safe-area-inset-top': insetTop + 'px',
+  }
   try {
     const sys = uni.getSystemInfoSync() || {}
     const wh = Number(sys.windowHeight) || 640
-    const topBar = 48
-    const hd = 56
-    scrollH.value = Math.max(240, wh - topBar - hd) + 'px'
+    const navH = insetTop + 6 + 44 + 8
+    scrollH.value = Math.max(240, Math.floor(wh - navH)) + 'px'
   } catch (e) {
     scrollH.value = '70vh'
   }
@@ -406,8 +417,7 @@ async function verify(opts) {
 }
 
 onLoad((q) => {
-  refreshProfileSubLayout()
-  measureScroll()
+  refreshLayout()
   const k = String((q && (q.kind || q.type)) || '').toLowerCase()
   if (k === 'niuniu' || k === 'nn' || k === 'niu') kind.value = 'niuniu'
   if (k === 'yxx' || k === 'yx') kind.value = 'yxx'
@@ -431,12 +441,11 @@ onLoad((q) => {
 })
 
 onMounted(() => {
-  refreshProfileSubLayout()
-  measureScroll()
+  refreshLayout()
 })
 
 onShow(() => {
-  refreshProfileSubLayout()
+  refreshLayout()
 })
 
 onUnmounted(() => {
@@ -447,29 +456,27 @@ onUnmounted(() => {
 <style scoped>
 .fv-page {
   min-height: 100vh;
+  min-height: 100dvh;
   height: 100vh;
-  background: #f5f6f8;
+  height: 100dvh;
+  background: #ededed;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
   padding-top: 0;
   overflow: hidden;
 }
-.fv-hd {
-  flex: 0 0 auto;
-  position: relative;
-  z-index: 5;
-}
 .fv-scroll {
   flex: 1 1 auto;
   width: 100%;
   min-height: 0;
   box-sizing: border-box;
+  background: #ededed;
 }
 .fv-wrap {
   max-width: 720px;
   margin: 0 auto;
-  padding: 16px 14px 40px;
+  padding: 12px 12px calc(28px + env(safe-area-inset-bottom, 0px));
   box-sizing: border-box;
 }
 .fv-input {

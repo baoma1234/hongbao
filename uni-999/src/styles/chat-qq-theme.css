@@ -1546,3 +1546,91 @@
 #tabMessages .chat-commission-row-amt.is-out {
   color: var(--qq-text-sub) !important;
 }
+
+/* ========== 公平验证 fair-verify QQ ========== */
+.fv-page--qq {
+  background: #ededed !important;
+}
+
+.fv-page--qq .chat-hero-hd--qq-nav {
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  flex-shrink: 0 !important;
+  position: relative !important;
+  z-index: 20 !important;
+  padding-left: 4px !important;
+  padding-right: 4px !important;
+  padding-bottom: 8px !important;
+  background: #ffffff !important;
+  color: #191919 !important;
+  border-bottom: 0.5px solid #e5e5e5 !important;
+  box-shadow: none !important;
+  box-sizing: border-box !important;
+}
+
+.fv-page--qq .chat-hero-hd--qq-nav::before {
+  display: none !important;
+}
+
+.fv-page--qq .chat-hero-back,
+.fv-page--qq .chat-hero-more {
+  width: 44px !important;
+  height: 44px !important;
+  flex-shrink: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #191919 !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+}
+
+.fv-page--qq .chat-hero-more--spacer {
+  pointer-events: none !important;
+  opacity: 0 !important;
+}
+
+.fv-page--qq .chat-hero-back-char {
+  color: #191919 !important;
+  font-size: 28px !important;
+  font-weight: 400 !important;
+  line-height: 1 !important;
+}
+
+.fv-page--qq .chat-hero-title--qq {
+  flex: 1 !important;
+  min-width: 0 !important;
+  text-align: center !important;
+  font-size: 17px !important;
+  font-weight: 600 !important;
+  color: #191919 !important;
+  -webkit-text-fill-color: #191919 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  padding: 0 4px !important;
+}
+
+.fv-page--qq .fv-scroll {
+  background: #ededed !important;
+}
+
+.fv-page--qq .fv-card {
+  background: #ffffff !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+.fv-page--qq .fv-btn {
+  background: #12b7f5 !important;
+  border-radius: 6px !important;
+}
+
+.fv-page--qq .fv-btn2 {
+  background: #07c160 !important;
+}
+
