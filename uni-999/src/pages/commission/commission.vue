@@ -167,10 +167,11 @@ function measureCommissionLayout() {
     const inset = getSafeAreaInsets()
     const status = Number(inset.top || 0)
     const topBar = getTopBarContentHeight()
-    const tabBar = 72 + Number(inset.bottom || 0)
+    // 与公告页一致：勿过大预留底栏，避免列表底露出灰缝
+    const tabBar = 64 + Number(inset.bottom || 0)
     const shell = Math.max(280, winH - status - topBar - tabBar)
     tabRootPx.value = shell
-    panelScrollPx.value = Math.max(220, shell - 56)
+    panelScrollPx.value = Math.max(220, shell)
   } catch (e) {
     tabRootPx.value = 0
     panelScrollPx.value = 420

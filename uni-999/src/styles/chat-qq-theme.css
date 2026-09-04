@@ -1109,7 +1109,7 @@
 #tabCommission .chat-shell,
 #tabCommission .chat-list-main,
 #tabCommission .chat-list-pane {
-  background: var(--qq-bg-page) !important;
+  background: #ffffff !important;
 }
 
 /* —— 公告：整页白底，避免列表下方露出灰底 —— */
@@ -1364,12 +1364,12 @@
   color: var(--qq-text-sub) !important;
 }
 
-/* —— 佣金 —— */
+/* —— 佣金：整页白底，避免列表下方露出灰底 —— */
 #tabCommission .chat-commission-panel,
 #tabMessages .chat-commission-panel,
 .commission-page .chat-commission-panel,
 .msg-tab-root .chat-commission-panel {
-  background: var(--qq-bg-page) !important;
+  background: #ffffff !important;
   padding: 10px 0 24px !important;
 }
 
@@ -1377,7 +1377,7 @@
 #tabCommission .chat-commission-body-scroll .uni-scroll-view,
 #tabCommission .chat-commission-body-scroll .uni-scroll-view-content,
 .commission-page .chat-commission-body-scroll {
-  background: var(--qq-bg-page) !important;
+  background: #ffffff !important;
 }
 
 #tabCommission .chat-commission-hero-card,
