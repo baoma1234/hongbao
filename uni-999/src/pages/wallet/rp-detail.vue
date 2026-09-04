@@ -1,5 +1,5 @@
-﻿<template>
-  <ProfileSubPage title="红包详情" body-class="hb-sub" back-fallback="/pages/wallet/ledger">
+<template>
+  <ProfileSubPage title="红宝详情" body-class="hb-sub" back-fallback="/pages/wallet/ledger">
       <view v-if="loading" class="wallet-ledger-empty">加载中…</view>
       <view v-else-if="error" class="wallet-warn" style="text-align:center">{{ error }}</view>
       <view v-else-if="detail" class="rp-detail">

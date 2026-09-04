@@ -1,6 +1,6 @@
 <template>
   <view class="hb-page" :key="pageKey">
-    <TopBar />
+    <TopBar :title="tt('tab_bar_profile', '我的') || '我的'" />
     <view class="profile-vip-hero">
       <view class="profile-vip-hero-shine" />
       <text class="profile-vip-watermark">{{ t('brand_name') }}</text>

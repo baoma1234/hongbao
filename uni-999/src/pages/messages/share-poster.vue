@@ -1,8 +1,8 @@
-﻿<template>
+<template>
   <view class="chat-share-poster-page">
-    <view class="chat-hero-hd">
+    <TopBar title="分享推广赚佣金" />
+    <view class="chat-hero-hd chat-hero-hd--bar-actions">
       <view class="chat-hero-back" @click="goBack">‹</view>
-      <view class="chat-hero-title">分享推广赚佣金</view>
       <view class="chat-hero-spacer" />
     </view>
     <view class="chat-share-poster-main">
@@ -33,6 +33,7 @@
 import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
 import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
+import TopBar from '../../components/TopBar.vue'
 import { apiRequest, getToken } from '../../utils/auth.js'
 import { assetBase, localeState, t } from '../../utils/i18n.js'
 import '../../styles/share-poster.css'

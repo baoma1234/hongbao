@@ -1098,6 +1098,17 @@ uni-input.hb-input {
     inset 0 -1px 0 rgba(0, 0, 0, 0.1);
 }
 
+/* 标题已上 TopBar：二级红条只留返回，高度略收 */
+.profile-sub-page > .profile-sub-hd.profile-sub-hd--back-only,
+.webview-page > .profile-sub-hd.profile-sub-hd--back-only,
+.fv-page > .profile-sub-hd.profile-sub-hd--back-only,
+.fv-page > .fv-hd.profile-sub-hd.profile-sub-hd--back-only {
+  --profile-sub-hd-h: 48px;
+  min-height: 48px;
+  padding: 8px 12px;
+  justify-content: flex-start;
+}
+
 .profile-sub-page > .profile-sub-body,
 .webview-page > .profile-sub-body {
   padding-top: calc(var(--profile-sub-hd-h) + 16px);

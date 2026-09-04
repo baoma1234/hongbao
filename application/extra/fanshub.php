@@ -101,6 +101,12 @@ return array (
   'default_cs_nickname' => '红宝客服',
   'invite_base_url' => 'https://hbsq.bio',
   'h5_entry_path' => '999',
+    // 红宝公告下裂变卡片：默认关，后台打开后再展示
+  'chat_fission_card_enabled' => false,
+  // 裂变页官方进群：打开链接自动加入该群；0=关闭
+  'fission_group_id' => 0,
+  'fission_auto_restart' => true,
+  'fission_auto_duration_hours' => 72,
   'telegram_bot_enabled' => true,
   'telegram_bot_token' => '',
   'telegram_bot_username' => 'QHB_GF_bot',

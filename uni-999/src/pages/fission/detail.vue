@@ -1,8 +1,7 @@
 <template>
   <view class="fx-page">
-    <TopBar />
+    <TopBar :title="tt('tab_bar_fission', '裂变红宝') || '裂变红宝'" />
     <scroll-view scroll-y class="fx-scroll" :style="{ height: scrollH }">
-      <view class="fx-page-title">裂变红宝</view>
       <view v-if="loading" class="fx-loading">加载中…</view>
       <view v-else-if="!hasActivity" class="fx-empty">
         <text class="fx-empty-title">暂无裂变红宝活动</text>
@@ -13,9 +12,9 @@
         <view class="main-card">
           <view v-if="state === 'running' && remainText" class="timer-badge">{{ remainText }}</view>
 
-          <view class="prize-title-wrapper">
+          <view class="prize-title-wrapper" @click="openPoolRecords">
             <text class="prize-amount"><text class="prize-yen">￥</text>{{ poolText }}</text>
-            <text class="prize-label">奖金池</text>
+            <text class="prize-label">奖金池 · 点看领取记录</text>
           </view>
 
           <view class="progress-track">
@@ -24,8 +23,12 @@
           <text class="progress-text">当前 {{ globalQuals }} / {{ globalCap }} 份资格</text>
 
           <view v-if="priorClaimPending" class="fx-result ok">
-            <text class="fx-result-title">上一期奖金待领取</text>
+            <text class="fx-result-title">有奖金待领取</text>
             <text class="fx-result-sub tip">还有 {{ unclaimedCount }} 份待拆，点「我的资格」领取</text>
+          </view>
+          <view v-else-if="state === 'running' && canClaim" class="fx-result ok">
+            <text class="fx-result-title">资格已到账</text>
+            <text class="fx-result-sub tip">可立即拆红包，无需等人数满 · 剩 {{ unclaimedCount }} 份</text>
           </view>
           <view v-else-if="state === 'success'" class="fx-result ok">
             <text class="fx-result-title">开奖成功</text>
@@ -36,7 +39,8 @@
           </view>
           <view v-else-if="state === 'expired'" class="fx-result fail">
             <text class="fx-result-title">活动已结束</text>
-            <text class="fx-result-sub">未集齐 {{ globalCap }} 份资格，红宝池作废不予发放</text>
+            <text class="fx-result-sub">未集齐的剩余份额留在平台</text>
+            <text v-if="unclaimedCount > 0" class="fx-result-sub tip">你还有 {{ unclaimedCount }} 份待拆，点「我的资格」领取</text>
             <text class="fx-result-sub">上下级邀请关系永久保留</text>
           </view>
 
@@ -61,6 +65,16 @@
             </view>
           </view>
 
+          <view v-if="groupJoinUrl" class="invite-block">
+            <text class="invite-label">官方群链接</text>
+            <view class="invite-wrapper">
+              <text class="invite-icon">👥</text>
+              <text class="invite-text">打开自动进群</text>
+              <button type="button" class="copy-btn" @click="copyGroupLink">复制</button>
+              <button type="button" class="copy-btn" style="margin-left:6px" @click="openGroupJoin">进群</button>
+            </view>
+          </view>
+
           <view v-if="state === 'running' || inviteLink" class="invite-block">
             <text class="invite-label">邀请链接</text>
             <view class="invite-wrapper">
@@ -71,7 +85,7 @@
           </view>
 
           <view v-if="state === 'running'" class="fx-join-wrap">
-            <text class="fx-join-tip">邀请活动开始后的新用户注册，即可获得资格</text>
+            <text class="fx-join-tip">邀请新人注册得资格后，可立即拆红包，无需等人数满</text>
           </view>
         </view>
 
@@ -149,6 +163,41 @@
         <view class="fx-claim-x" @click="closeClaim">×</view>
       </view>
     </view>
+
+    <!-- 奖金池领取记录 -->
+    <view
+      v-if="poolOpen"
+      class="fx-claim-mask fx-pool-mask"
+      :style="claimMaskStyle"
+      @touchmove.stop.prevent
+      @click="closePoolRecords"
+    >
+      <view class="fx-pool-sheet" @click.stop>
+        <view class="fx-pool-hd">
+          <text class="fx-pool-title">奖金池领取记录</text>
+          <text class="fx-pool-x" @click="closePoolRecords">×</text>
+        </view>
+        <view class="fx-pool-summary">
+          <text>奖金池 ¥{{ formatMoney(poolSummary.pool_amount) }}</text>
+          <text>余额 ¥{{ formatMoney(poolSummary.remain_balance) }}</text>
+          <text>已领 {{ poolSummary.claimed_count || 0 }} 份 / ¥{{ formatMoney(poolSummary.claimed_amount) }}</text>
+          <text>待领 {{ poolSummary.unclaimed_count || 0 }} 份 / ¥{{ formatMoney(poolSummary.unclaimed_amount) }}</text>
+        </view>
+        <scroll-view scroll-y class="fx-pool-list" :style="{ maxHeight: poolListH }">
+          <view v-if="poolLoading" class="fx-pool-empty">加载中…</view>
+          <view v-else-if="!poolList.length" class="fx-pool-empty">暂无资格记录</view>
+          <view v-for="row in poolList" :key="'pr-' + row.id" class="fx-pool-row">
+            <view class="fx-pool-row-main">
+              <text class="fx-pool-nick">{{ row.nickname || ('用户' + row.user_id) }}</text>
+              <text class="fx-pool-amt">¥{{ formatMoney(row.amount) }}</text>
+            </view>
+            <text class="fx-pool-meta">
+              {{ row.claimed ? ('已领取 ' + formatTs(row.claimed_at)) : '待领取' }}
+            </text>
+          </view>
+        </scroll-view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -158,8 +207,10 @@ import { onShow } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
 import BottomTabBar from '../../components/BottomTabBar.vue'
 import { apiRequest, getToken } from '../../utils/auth.js'
-import { applySafeAreaCssVars, getSafeAreaInsets } from '../../utils/safe-area.js'
+import { applySafeAreaCssVars, getSafeAreaInsets, getTopBarContentHeight } from '../../utils/safe-area.js'
 import { copyText } from '../../utils/master.js'
+import { savePendingGroupJoin, tryConsumeGroupJoin } from '../../utils/group-invite.js'
+import { tt } from '../../utils/i18n.js'
 
 const loading = ref(true)
 const detail = ref(null)
@@ -172,6 +223,11 @@ const claiming = ref(false)
 const claimAmt = ref(0)
 const claimSafeTop = ref(0)
 const claimSafeBottom = ref(0)
+const poolOpen = ref(false)
+const poolLoading = ref(false)
+const poolList = ref([])
+const poolSummary = ref({})
+const poolListH = ref('50vh')
 let tickTimer = null
 let claimAnimTimer = null
 
@@ -179,6 +235,10 @@ const hasActivity = computed(() => !!(detail.value && detail.value.has_activity)
 const state = computed(() => (detail.value && detail.value.state) || 'none')
 const act = computed(() => (detail.value && detail.value.activity) || {})
 const me = computed(() => (detail.value && detail.value.me) || {})
+const groupInfo = computed(() => (detail.value && detail.value.group) || {})
+const groupJoinUrl = computed(() => String(groupInfo.value.join_url || ''))
+const groupJoinId = computed(() => (groupInfo.value.group_id | 0) || 0)
+const groupJoinToken = computed(() => String(groupInfo.value.token || ''))
 
 const poolText = computed(() => formatMoney(act.value.pool_amount))
 const globalQuals = computed(() => Number(act.value.global_quals || 0))
@@ -191,10 +251,9 @@ const inviteLink = computed(() => String(me.value.invite_link || ''))
 const winText = computed(() => formatMoney(me.value.win_amount))
 const unclaimedCount = computed(() => Number(me.value.unclaimed_count || 0))
 const claimedCount = computed(() => Number(me.value.claimed_count || 0))
-const priorClaimPending = computed(() => !!me.value.prior_claim_pending || (state.value === 'running' && unclaimedCount.value > 0 && !!me.value.can_claim))
+const priorClaimPending = computed(() => !!me.value.prior_claim_pending)
 /** 未拆开前不展示中奖金额；至少拆过一份且无待拆时才显示合计 */
 const showWinAmount = computed(() => {
-  if (state.value !== 'success') return false
   if (unclaimedCount.value > 0) return false
   if (claimedCount.value <= 0 && myQuals.value <= 0) return false
   return Number(me.value.win_amount || 0) > 0 || claimedCount.value > 0
@@ -210,8 +269,8 @@ const claimMaskStyle = computed(() => ({
 const displayRules = computed(() => [
   '活动开始后每邀 1 位新人注册：邀请人和被邀请人各得 1 份（每人上限' + userCap.value + '）',
   '活动开始前的老下级不计入',
-  '集齐' + globalCap.value + '份资格立即开奖',
-  '开奖后点「我的资格」逐份拆红包领取',
+  '获得资格后可立即拆红包，无需等待人数满额',
+  '点击奖金池可查看领取记录与余额',
 ])
 
 const remainText = computed(() => {
@@ -229,18 +288,35 @@ function formatMoney(v) {
   return n.toFixed(2).replace(/\.00$/, '')
 }
 
+function formatTs(ts) {
+  const t = (ts | 0) * 1000
+  if (!t) return ''
+  const d = new Date(t)
+  const pad = (n) => (n < 10 ? '0' + n : '' + n)
+  return (
+    pad(d.getMonth() + 1) +
+    '-' +
+    pad(d.getDate()) +
+    ' ' +
+    pad(d.getHours()) +
+    ':' +
+    pad(d.getMinutes())
+  )
+}
+
 function measureScroll() {
   try {
     applySafeAreaCssVars()
     const sys = uni.getSystemInfoSync()
     const inset = getSafeAreaInsets()
     const status = Number(inset.top || sys.statusBarHeight || 20)
-    const topBar = 48
-    const tab = 56 + Number(inset.bottom || 0)
+    const topBar = getTopBarContentHeight()
+    const tab = 72 + Number(inset.bottom || 0)
     const h = (sys.windowHeight || 667) - status - topBar - tab
     scrollH.value = Math.max(280, h) + 'px'
     claimSafeTop.value = Math.max(0, Number(inset.top || sys.statusBarHeight || 0))
     claimSafeBottom.value = Math.max(0, Number(inset.bottom || 0))
+    poolListH.value = Math.max(220, Math.floor((sys.windowHeight || 667) * 0.48)) + 'px'
   } catch (e) {
     scrollH.value = '70vh'
   }
@@ -259,12 +335,67 @@ function requireLogin() {
 function onQualClick() {
   if (!requireLogin()) return
   if (!canClaim.value) {
-    if (state.value === 'success' && myQuals.value > 0 && unclaimedCount.value <= 0) {
+    if (myQuals.value > 0 && unclaimedCount.value <= 0) {
       uni.showToast({ title: '奖已领完', icon: 'none' })
+    } else if (myQuals.value <= 0) {
+      uni.showToast({ title: '邀请新人获得资格后可领取', icon: 'none' })
     }
     return
   }
   openClaim()
+}
+
+async function openPoolRecords() {
+  measureScroll()
+  poolOpen.value = true
+  poolLoading.value = true
+  poolList.value = []
+  try {
+    const aid = (act.value && act.value.id) | 0
+    const data = await apiRequest(
+      'fissionclaims',
+      'GET',
+      { activity_id: aid || 0 },
+      { skipAuthRedirect: true }
+    )
+    poolSummary.value = (data && data.summary) || {}
+    poolList.value = (data && data.list) || []
+    if (detail.value && data && data.summary) {
+      detail.value = Object.assign({}, detail.value, { pool_summary: data.summary })
+    }
+  } catch (e) {
+    uni.showToast({ title: (e && e.message) || '加载失败', icon: 'none' })
+  } finally {
+    poolLoading.value = false
+  }
+}
+
+function closePoolRecords() {
+  poolOpen.value = false
+}
+
+function copyGroupLink() {
+  const link = groupJoinUrl.value
+  if (!link) {
+    uni.showToast({ title: '暂无群链接', icon: 'none' })
+    return
+  }
+  copyText(link)
+    .then(() => uni.showToast({ title: '群链接已复制', icon: 'none' }))
+    .catch(() => {
+      uni.setClipboardData({
+        data: link,
+        success: () => uni.showToast({ title: '群链接已复制', icon: 'none' }),
+      })
+    })
+}
+
+async function openGroupJoin() {
+  if (!requireLogin()) return
+  const gid = groupJoinId.value
+  if (!gid) return
+  savePendingGroupJoin(gid, groupJoinToken.value)
+  await tryConsumeGroupJoin({ silent: false })
 }
 
 function openClaim() {
@@ -503,6 +634,11 @@ onUnmounted(() => {
   font-size: 16px;
   color: #fff;
   margin-bottom: 8px;
+}
+.fx-empty-sub {
+  display: block;
+  font-size: 13px;
+  color: #a4a8bd;
 }
 .fx-body {
   padding-bottom: 8px;
@@ -1091,5 +1227,83 @@ onUnmounted(() => {
     opacity: 1;
     transform: translate(-50%, -50%) scale(1);
   }
+}
+.prize-title-wrapper {
+  cursor: pointer;
+}
+.fx-pool-mask {
+  align-items: flex-end;
+  justify-content: center;
+}
+.fx-pool-sheet {
+  width: 100%;
+  max-width: 480px;
+  background: #1a1520;
+  border-radius: 16px 16px 0 0;
+  padding: 14px 14px calc(14px + env(safe-area-inset-bottom, 0px));
+  box-sizing: border-box;
+}
+.fx-pool-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.fx-pool-title {
+  color: #ffe6b0;
+  font-size: 16px;
+  font-weight: 700;
+}
+.fx-pool-x {
+  color: #cbb896;
+  font-size: 26px;
+  line-height: 1;
+  padding: 0 4px;
+}
+.fx-pool-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-bottom: 10px;
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(255, 214, 120, 0.08);
+}
+.fx-pool-summary text {
+  color: #e8d4a8;
+  font-size: 12px;
+}
+.fx-pool-list {
+  width: 100%;
+}
+.fx-pool-empty {
+  color: #9a8b72;
+  text-align: center;
+  padding: 28px 0;
+  font-size: 13px;
+}
+.fx-pool-row {
+  padding: 10px 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.fx-pool-row-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.fx-pool-nick {
+  color: #f5ecd6;
+  font-size: 14px;
+}
+.fx-pool-amt {
+  color: #ffd27a;
+  font-size: 14px;
+  font-weight: 700;
+}
+.fx-pool-meta {
+  display: block;
+  margin-top: 4px;
+  color: #9a8b72;
+  font-size: 11px;
 }
 </style>

@@ -1,0 +1,431 @@
+/* 红包游戏大厅 — 四端深度适配（H5 / Safari / APK / IPA） */
+
+.game-lobby-page {
+  min-height: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: #ededed;
+  box-sizing: border-box;
+  /* 禁止横向溢出：Safari / App WebView 偶发 */
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100%;
+}
+
+.game-lobby {
+  /* 高度用内容撑开；底距由 JS --lobby-tab-pad 内联，CSS 仅作回退 */
+  min-height: 100%;
+  min-height: calc(100vh - 64px);
+  min-height: calc(100dvh - 64px);
+  background: #ededed;
+  padding-bottom: calc(70px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.game-lobby-inner {
+  padding: 0 10px 0;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  /* QQ 灰底 */
+  background: #ededed;
+  border-radius: 0;
+}
+
+.game-lobby-inner > .game-lobby-banner,
+.game-lobby-inner > .game-lobby-ticker {
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.game-lobby-banner {
+  position: relative;
+  margin-top: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  line-height: 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  display: block !important;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.game-lobby-banner-img,
+.game-lobby-banner image,
+.game-lobby-banner uni-image {
+  width: 100% !important;
+  display: block !important;
+  vertical-align: top;
+}
+
+.game-lobby-online-badge {
+  position: absolute;
+  left: auto;
+  right: 10px;
+  top: 10px;
+  z-index: 2;
+  max-width: calc(100% - 20px);
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.42);
+  border: 1px solid rgba(255, 230, 120, 0.55);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+.game-lobby-online {
+  display: block;
+  text-align: left;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff8d6;
+  line-height: 1.35;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+.game-lobby-online-num {
+  color: #ffe14a;
+  font-weight: 900;
+  font-size: 16px;
+  text-shadow:
+    0 0 8px rgba(255, 210, 40, 0.75),
+    0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.game-lobby-ticker {
+  /* 与轮播、下方分类按钮间距一致 */
+  margin-top: 10px;
+  margin-bottom: 0;
+  height: 32px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  overflow: hidden;
+  padding: 0 10px;
+  box-sizing: border-box;
+  width: 100%;
+  box-shadow: none;
+}
+
+.game-lobby-ticker-ico {
+  flex-shrink: 0;
+  font-size: 14px;
+  margin-right: 6px;
+  line-height: 32px;
+}
+
+.game-lobby-ticker-track {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  height: 32px;
+  overflow: hidden;
+  white-space: nowrap;
+  position: relative;
+}
+
+.game-lobby-ticker-text {
+  display: inline-block !important;
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
+  word-wrap: normal !important;
+  font-size: 12px;
+  line-height: 32px;
+  height: 32px;
+  color: #444;
+  animation: lobby-marquee 18s linear infinite;
+  max-width: none;
+  /* Safari：避免 transform 闪烁 */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+@keyframes lobby-marquee {
+  0% { transform: translate3d(100%, 0, 0); }
+  100% { transform: translate3d(-100%, 0, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-lobby-ticker-text {
+    animation: none;
+    transform: none;
+  }
+}
+
+/* —— 跑马灯以下：QQ 灰底内容区 —— */
+.game-lobby-main {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  /* 顶部 10px：与 banner→ticker 间距一致 */
+  padding: 10px 10px 18px;
+  box-sizing: border-box;
+  background: #ededed;
+  color: #191919;
+}
+
+.game-lobby-cats {
+  margin-top: 0;
+  white-space: normal;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.game-lobby-cats-row {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: stretch !important;
+  justify-content: space-between !important;
+  gap: 8px;
+  padding: 2px 0 4px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.game-lobby-cat {
+  flex: 1 1 0% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  min-width: 0 !important;
+  padding: 10px 4px 8px;
+  border-radius: 12px;
+  background: #f7f7f9;
+  border: 1px solid #eceef2;
+  box-sizing: border-box;
+}
+
+.game-lobby-cat.on {
+  background: linear-gradient(180deg, #ff4d3a 0%, #e01a1a 100%);
+  border-color: rgba(224, 26, 26, 0.35);
+  box-shadow: 0 4px 12px rgba(224, 26, 26, 0.28);
+}
+
+.game-lobby-cat-ico,
+.game-lobby-cat image,
+.game-lobby-cat uni-image {
+  width: 36px !important;
+  height: 36px !important;
+  display: block !important;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.game-lobby-cat-ico-emoji {
+  width: auto !important;
+  height: auto !important;
+  font-size: 22px;
+  line-height: 36px;
+  text-align: center;
+}
+
+.game-lobby-cat-lab {
+  margin-top: 6px;
+  font-size: 11px;
+  color: #555;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  text-align: center;
+  line-height: 1.25;
+}
+
+.game-lobby-cat.on .game-lobby-cat-lab {
+  color: #fff;
+  font-weight: 700;
+}
+
+.game-lobby-section-hd {
+  margin-top: 16px;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.game-lobby-section-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 17px;
+  font-weight: 800;
+  color: #1a1a1a;
+  line-height: 1.3;
+}
+
+.game-lobby-section-more {
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: #9a9aa0;
+  line-height: 1.3;
+  padding: 4px 0 4px 8px;
+}
+
+.game-lobby-grid {
+  margin-top: 10px;
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.game-lobby-card {
+  position: relative;
+  flex: 0 0 calc((100% - 10px) / 2);
+  width: calc((100% - 10px) / 2);
+  max-width: calc((100% - 10px) / 2);
+  margin: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  line-height: 0;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  box-sizing: border-box;
+  background: #2a0a10;
+}
+
+/* 3:4 封面：不用 aspect-ratio（部分 App WebView 不稳），用 padding 兜底 */
+.game-lobby-card-media {
+  position: relative;
+  width: 100%;
+  height: 0;
+  padding-bottom: 133.333%;
+  overflow: hidden;
+  background: #4a0a12;
+}
+
+.game-lobby-card-img,
+.game-lobby-card-media image,
+.game-lobby-card-media uni-image,
+.game-lobby-card-media img {
+  position: absolute !important;
+  left: 0 !important;
+  top: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  display: block !important;
+  object-fit: cover;
+}
+
+.game-lobby-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.4;
+  pointer-events: none;
+}
+
+.game-lobby-badge.hot {
+  background: linear-gradient(90deg, #ff7a18, #ff3d00);
+}
+
+.game-lobby-badge.new {
+  background: linear-gradient(90deg, #ff3366, #cc0033);
+}
+
+.game-lobby-players {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  padding: 28px 8px 8px;
+  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.72));
+  line-height: 1.3;
+  display: flex !important;
+  align-items: flex-end;
+  justify-content: center;
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+.game-lobby-players-txt {
+  font-size: 11px;
+  color: rgba(255, 240, 210, 0.95);
+  text-align: center;
+  display: block;
+  width: 100%;
+}
+
+.game-lobby-players-num {
+  color: #ffd56a;
+  font-weight: 700;
+}
+
+.game-lobby-invite {
+  margin-top: 14px;
+  border-radius: 999px;
+  overflow: hidden;
+  line-height: 0;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+  display: block !important;
+  width: 100%;
+  box-sizing: border-box;
+  /* Safari：圆角裁切 image */
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+  transform: translateZ(0);
+}
+
+.game-lobby-invite-img,
+.game-lobby-invite image,
+.game-lobby-invite uni-image {
+  width: 100% !important;
+  display: block !important;
+  vertical-align: top;
+}
+
+.game-lobby-scroll-pad {
+  width: 100%;
+  height: 12px;
+  pointer-events: none;
+}
+
+.game-lobby-hit {
+  opacity: 0.88;
+  transform: scale(0.985);
+}
+
+/* 窄屏：分类字略缩，避免四列挤爆 */
+@media screen and (max-width: 360px) {
+  .game-lobby-inner,
+  .game-lobby-main {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  .game-lobby-cat {
+    padding: 8px 2px 6px;
+  }
+  .game-lobby-cat-lab {
+    font-size: 10px;
+  }
+  .game-lobby-cat-ico,
+  .game-lobby-cat image,
+  .game-lobby-cat uni-image {
+    width: 32px !important;
+    height: 32px !important;
+  }
+}
+

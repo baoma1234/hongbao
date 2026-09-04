@@ -1,5 +1,5 @@
 <template>
-  <TopBar :noSpacer="true" />
+  <TopBar :noSpacer="true" :title="pageTitle" />
   <view class="yxx-page" :style="pagePad">
     <view class="yxx-header">
       <view class="yxx-h-row1">
@@ -8,9 +8,7 @@
             <text class="yxx-back-char">‹</text>
           </view>
         </view>
-        <view class="yxx-titles">
-          <text class="yxx-title">{{ pageTitle }}</text>
-        </view>
+        <view class="yxx-h-spacer" />
         <view class="yxx-h-spacer" />
       </view>
       <view class="yxx-h-row2 yxx-h-side yxx-h-right">

@@ -266,6 +266,17 @@ export function startImInbox() {
     if (type === 'private.message' || type === 'group.message' || type === 'redpacket.relay_next') {
       const msg = (data && data.message) || data
       handleIncoming(msg)
+      return
+    }
+    // 后台代聊 / 对端撤回编辑删除：更新会话列表预览（不计未读）
+    if (
+      type === 'message.recalled' ||
+      type === 'message.edited' ||
+      type === 'message.deleted' ||
+      type === 'message.restored'
+    ) {
+      const msg = (data && data.message) || data
+      if (msg) emitIncoming(msg)
     }
   })
 }

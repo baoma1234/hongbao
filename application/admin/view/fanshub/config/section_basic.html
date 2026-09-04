@@ -26,6 +26,22 @@
         <span class="help-block">建议透明底 PNG；前端显示「图标 + 底部客服文案（多语言）」</span>
     </div>
 </div>
+<div class="form-group">
+    <label class="control-label col-xs-12 col-sm-2">裂变红宝卡片:</label>
+    <div class="col-xs-12 col-sm-8">
+        <label class="checkbox-inline" style="padding-left:0;margin-right:16px;">
+            <input type="checkbox" name="chat_fission_card_enabled" value="1" {if condition="!empty($config.chat_fission_card_enabled)"}checked{/if}> 在公告「最新发布 / 推广赚钱」显示裂变卡片
+        </label>
+        <span class="help-block">默认关闭；仅控制 <code>chat-fission-card</code>，不影响公告 Tab 与其它分类。</span>
+    </div>
+</div>
+<div class="form-group">
+    <label class="control-label col-xs-12 col-sm-2">裂变官方群ID:</label>
+    <div class="col-xs-12 col-sm-8">
+        <input class="form-control" name="fission_group_id" type="number" min="0" value="{$config.fission_group_id|default='0'}">
+        <span class="help-block">填 IM 群 ID；裂变页显示进群链接，打开后自动加入（群需为开放群或官方推荐群，或带邀请签名）。填 0 关闭。</span>
+    </div>
+</div>
 <div class="form-group"><label class="control-label col-xs-12 col-sm-2">App下载链接:</label><div class="col-xs-12 col-sm-8"><input class="form-control" name="app_download_url" type="text" value="{$config.app_download_url|default=''|htmlentities}"></div></div>
 <div class="form-group"><label class="control-label col-xs-12 col-sm-2">主站链接:</label><div class="col-xs-12 col-sm-8"><input class="form-control" name="main_station_url" type="text" value="{$config.main_station_url|default=''|htmlentities}"></div></div>
 <div class="form-group"><label class="control-label col-xs-12 col-sm-2">H5 入口路径:</label><div class="col-xs-12 col-sm-8"><input class="form-control" name="h5_entry_path" type="text" value="{$config.h5_entry_path|default='999'|htmlentities}"><span class="help-block">站点根路径跳转与邀请链接用，正式入口填 <code>999</code>（旧版 <code>888</code> 仍可访问）</span></div></div>

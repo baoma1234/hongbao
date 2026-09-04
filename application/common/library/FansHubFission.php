@@ -87,6 +87,9 @@ class FansHubFission
             $state = 'none';
         }
 
+        // 有资格即可开包：把尚未赋值的资格按「奖金池/上限」定额发出
+        self::ensureQualPayouts((int)$act['id']);
+
         $myQuals = 0;
         $myWin = 0.0;
         $unclaimed = 0;
@@ -124,14 +127,13 @@ class FansHubFission
                 ];
             }
         }
-        // 自动再开后，上一期 SUCCESS 的待领仍可领：汇总所有已开奖未领份数
-        $claimableUnclaimed = $userId > 0 ? self::countUserUnclaimedOnSuccess($userId) : 0;
+        // 跨期待领（含进行中已赋额、已开奖未领）
+        $claimableUnclaimed = $userId > 0 ? self::countUserClaimable($userId) : 0;
         $priorUnclaimed = 0;
-        if ($state === 'running' && $claimableUnclaimed > 0) {
-            $priorUnclaimed = $claimableUnclaimed;
-            $unclaimed = $claimableUnclaimed;
-        } elseif ($claimableUnclaimed > $unclaimed) {
-            // 多期 SUCCESS 都有待领时，以全量可领为准
+        if ($claimableUnclaimed > $unclaimed) {
+            if ($state === 'running') {
+                $priorUnclaimed = max(0, $claimableUnclaimed - $unclaimed);
+            }
             $unclaimed = $claimableUnclaimed;
         }
         // 直属下级：仅统计活动开始后绑定的邀请（与资格发放窗口一致）
@@ -176,16 +178,187 @@ class FansHubFission
                 'win_amount'        => $myWin,
                 'unclaimed_count'   => $unclaimed,
                 'claimed_count'     => $claimed,
-                // 含跨期待领：unclaimed 已合并 countUserUnclaimedOnSuccess
+                // 有资格（已赋额未领）即可拆，无需等人数满
                 'can_claim'         => $unclaimed > 0,
                 'prior_claim_pending' => $priorUnclaimed > 0 ? 1 : 0,
                 'quals'             => $qualItems,
                 'invite_link'       => $inviteLink,
                 'invite_code'       => $inviteCode,
             ],
+            'group' => FansHubService::fissionGroupInvitePayload(),
+            'pool_summary' => self::poolSummary((int)$act['id'], $act),
             'rules' => self::defaultRules(),
             'server_time' => $now,
         ];
+    }
+
+    /**
+     * 奖金池领取记录（点击奖金池查看）
+     * 未领也会把当前资格定额发出，列表可见
+     */
+    public static function claimsPayload($activityId = 0)
+    {
+        self::tickExpire();
+        $activityId = (int)$activityId;
+        if ($activityId <= 0) {
+            $act = self::latestVisibleActivity();
+        } else {
+            $act = Db::name('fans_fission_activity')->where('id', $activityId)->find();
+        }
+        if (!$act) {
+            return [
+                'has_activity' => false,
+                'activity'     => null,
+                'summary'      => [
+                    'pool_amount'      => 0,
+                    'claimed_amount'   => 0,
+                    'unclaimed_amount' => 0,
+                    'remain_balance'   => 0,
+                    'total'            => 0,
+                    'claimed_count'    => 0,
+                    'unclaimed_count'  => 0,
+                ],
+                'list'         => [],
+                'server_time'  => time(),
+            ];
+        }
+        $aid = (int)$act['id'];
+        self::ensureQualPayouts($aid);
+        $summary = self::poolSummary($aid, $act);
+        $rows = Db::name('fans_fission_qual')
+            ->alias('q')
+            ->join('user u', 'u.id = q.user_id', 'LEFT')
+            ->where('q.activity_id', $aid)
+            ->field('q.id,q.user_id,q.win_amount,q.claimed,q.claimed_at,q.createtime,q.source,u.nickname,u.avatar')
+            ->order('q.claimed desc,q.claimed_at desc,q.id asc')
+            ->limit(200)
+            ->select();
+        $rows = is_array($rows) ? $rows : $rows->toArray();
+        $list = [];
+        foreach ($rows as $r) {
+            $nick = trim((string)($r['nickname'] ?? ''));
+            if ($nick === '') {
+                $nick = '用户' . (int)$r['user_id'];
+            }
+            $list[] = [
+                'id'         => (int)$r['id'],
+                'user_id'    => (int)$r['user_id'],
+                'nickname'   => self::maskNick($nick),
+                'avatar'     => (string)($r['avatar'] ?? ''),
+                'amount'     => round((float)($r['win_amount'] ?? 0), 2),
+                'claimed'    => (int)($r['claimed'] ?? 0) === 1 ? 1 : 0,
+                'claimed_at' => (int)($r['claimed_at'] ?? 0),
+                'createtime' => (int)($r['createtime'] ?? 0),
+                'source'     => (string)($r['source'] ?? ''),
+            ];
+        }
+        return [
+            'has_activity' => true,
+            'activity'     => self::publicActivityFields($act),
+            'summary'      => $summary,
+            'list'         => $list,
+            'server_time'  => time(),
+        ];
+    }
+
+    protected static function poolSummary($activityId, array $act = null)
+    {
+        $activityId = (int)$activityId;
+        if (!$act) {
+            $act = Db::name('fans_fission_activity')->where('id', $activityId)->find() ?: [];
+        }
+        $pool = round((float)($act['pool_amount'] ?? 0), 2);
+        $claimedAmt = 0.0;
+        $unclaimedAmt = 0.0;
+        $claimedCount = 0;
+        $unclaimedCount = 0;
+        $total = 0;
+        try {
+            $agg = Db::name('fans_fission_qual')
+                ->where('activity_id', $activityId)
+                ->field('COUNT(*) AS total,'
+                    . 'SUM(CASE WHEN claimed=1 THEN 1 ELSE 0 END) AS claimed_count,'
+                    . 'SUM(CASE WHEN claimed=0 AND win_amount>0 THEN 1 ELSE 0 END) AS unclaimed_count,'
+                    . 'SUM(CASE WHEN claimed=1 THEN win_amount ELSE 0 END) AS claimed_amount,'
+                    . 'SUM(CASE WHEN claimed=0 AND win_amount>0 THEN win_amount ELSE 0 END) AS unclaimed_amount')
+                ->find();
+            if ($agg) {
+                $total = (int)($agg['total'] ?? 0);
+                $claimedCount = (int)($agg['claimed_count'] ?? 0);
+                $unclaimedCount = (int)($agg['unclaimed_count'] ?? 0);
+                $claimedAmt = round((float)($agg['claimed_amount'] ?? 0), 2);
+                $unclaimedAmt = round((float)($agg['unclaimed_amount'] ?? 0), 2);
+            }
+        } catch (\Throwable $e) {
+        }
+        return [
+            'pool_amount'      => $pool,
+            'claimed_amount'   => $claimedAmt,
+            'unclaimed_amount' => $unclaimedAmt,
+            // 奖金池余额：总池 - 已领取
+            'remain_balance'   => max(0, round($pool - $claimedAmt, 2)),
+            'total'            => $total,
+            'claimed_count'    => $claimedCount,
+            'unclaimed_count'  => $unclaimedCount,
+        ];
+    }
+
+    protected static function maskNick($nick)
+    {
+        $nick = (string)$nick;
+        $len = function_exists('mb_strlen') ? mb_strlen($nick, 'UTF-8') : strlen($nick);
+        if ($len <= 1) {
+            return $nick . '*';
+        }
+        if ($len === 2) {
+            $a = function_exists('mb_substr') ? mb_substr($nick, 0, 1, 'UTF-8') : substr($nick, 0, 1);
+            return $a . '*';
+        }
+        $a = function_exists('mb_substr') ? mb_substr($nick, 0, 1, 'UTF-8') : substr($nick, 0, 1);
+        $b = function_exists('mb_substr') ? mb_substr($nick, -1, 1, 'UTF-8') : substr($nick, -1);
+        return $a . '***' . $b;
+    }
+
+    /**
+     * 把尚未赋额的资格按「奖金池 / 全局上限」定额发出（无人领取也可见记录）
+     */
+    public static function ensureQualPayouts($activityId)
+    {
+        $activityId = (int)$activityId;
+        if ($activityId <= 0) {
+            return 0;
+        }
+        $act = Db::name('fans_fission_activity')->where('id', $activityId)->find();
+        if (!$act) {
+            return 0;
+        }
+        $unit = self::unitWinAmount($act);
+        if ($unit <= 0) {
+            return 0;
+        }
+        try {
+            $n1 = (int)Db::name('fans_fission_qual')
+                ->where('activity_id', $activityId)
+                ->whereNull('win_amount')
+                ->update(['win_amount' => $unit]);
+            $n2 = (int)Db::name('fans_fission_qual')
+                ->where('activity_id', $activityId)
+                ->where('win_amount', '<=', 0)
+                ->update(['win_amount' => $unit]);
+            return $n1 + $n2;
+        } catch (\Throwable $e) {
+            return 0;
+        }
+    }
+
+    protected static function unitWinAmount(array $act)
+    {
+        $cap = max(1, (int)($act['global_cap'] ?? 100));
+        $cents = (int)round((float)($act['pool_amount'] ?? 0) * 100);
+        if ($cents <= 0) {
+            return 0.0;
+        }
+        return round(max(1, (int)floor($cents / $cap)) / 100, 2);
     }
 
     /**
@@ -417,38 +590,32 @@ class FansHubFission
             // 只取前 global_cap 份，防止并发超发
             $quals = array_slice($quals, 0, $cap);
             $n = count($quals);
+            $now = time();
             if ($n <= 0) {
                 Db::name('fans_fission_activity')->where('id', $activityId)->update([
                     'status'       => FissionActivity::STATUS_SUCCESS,
-                    'settled_time' => time(),
-                    'updatetime'   => time(),
+                    'settled_time' => $now,
+                    'updatetime'   => $now,
                     'global_quals' => $cap,
                 ]);
                 Db::commit();
                 self::tryAutoRestart();
                 return true;
             }
-            $poolCents = (int)round((float)$act['pool_amount'] * 100);
-            // 始终按活动上限（默认 100 份）拆池；一键开奖未满额时，未发出的份额留在平台，不抬高已参与份的金额
-            $splitN = max(1, $cap);
-            $parts = self::splitPoolCents($poolCents, $splitN);
-            $now = time();
-            $payouts = [];
-            foreach ($quals as $i => $q) {
-                $cents = (int)($parts[$i] ?? 0);
-                $amt = round($cents / 100, 2);
+            // 已提前赋额的资格保留原金额；仅给尚未赋额的补定额（兼容旧数据）
+            $unit = self::unitWinAmount($act);
+            foreach ($quals as $q) {
+                $exist = isset($q['win_amount']) && $q['win_amount'] !== null && $q['win_amount'] !== ''
+                    ? round((float)$q['win_amount'], 2)
+                    : 0.0;
+                if ($exist > 0) {
+                    continue;
+                }
                 Db::name('fans_fission_qual')->where('id', (int)$q['id'])->update([
-                    'win_amount' => $amt,
+                    'win_amount' => $unit,
                     'claimed'    => 0,
                     'claimed_at' => 0,
                 ]);
-                if ($amt > 0) {
-                    $payouts[] = [
-                        'user_id' => (int)$q['user_id'],
-                        'amount'  => $amt,
-                        'qual_id' => (int)$q['id'],
-                    ];
-                }
             }
             Db::name('fans_fission_activity')->where('id', $activityId)->update([
                 'status'       => FissionActivity::STATUS_SUCCESS,
@@ -625,7 +792,7 @@ class FansHubFission
                 'user_id'     => $userId,
                 'source'      => $source,
                 'ref_user_id' => $refUserId,
-                'win_amount'  => null,
+                'win_amount'  => self::unitWinAmount($act),
                 'claimed'     => 0,
                 'claimed_at'  => 0,
                 'createtime'  => $now,
@@ -690,8 +857,8 @@ class FansHubFission
     }
 
     /**
-     * 开奖后领取一份资格红包（入账红宝）
-     * 自动再开新一期后，仍可领取上一期（及更早）SUCCESS 的未领份
+     * 有资格即可领取一份红包（入账红宝），无需等人数满
+     * 自动再开新一期后，仍可领取上一期未领份
      *
      * @param int $userId
      * @param int $qualId 0=自动取下一份未领（跨期，先旧后新）
@@ -705,10 +872,20 @@ class FansHubFission
             throw new Exception('请先登录');
         }
         self::tickExpire();
+        // 领取前先把当前进行中活动的未赋额资格定额发出
+        $running = self::getRunningActivityRow(false);
+        if ($running) {
+            self::ensureQualPayouts((int)$running['id']);
+        }
 
         $q = null;
         $amt = 0.0;
         $aid = 0;
+        $claimableStatus = [
+            FissionActivity::STATUS_RUNNING,
+            FissionActivity::STATUS_SUCCESS,
+            FissionActivity::STATUS_EXPIRED,
+        ];
         Db::startTrans();
         try {
             if ($qualId > 0) {
@@ -724,18 +901,26 @@ class FansHubFission
                     ->where('id', (int)$q['activity_id'])
                     ->lock(true)
                     ->find();
-                if (!$actRow || (int)$actRow['status'] !== FissionActivity::STATUS_SUCCESS) {
-                    throw new Exception('活动尚未开奖或不可领取');
+                if (!$actRow || !in_array((int)$actRow['status'], $claimableStatus, true)) {
+                    throw new Exception('活动不可领取');
+                }
+                // 补发定额（兼容旧未赋额数据）
+                if (!(round((float)($q['win_amount'] ?? 0), 2) > 0)) {
+                    $unit = self::unitWinAmount($actRow);
+                    if ($unit > 0) {
+                        Db::name('fans_fission_qual')->where('id', (int)$q['id'])->update(['win_amount' => $unit]);
+                        $q['win_amount'] = $unit;
+                    }
                 }
             } else {
-                // 跨已开奖期次取最早一份未领（不锁 join，先定位再锁行）
+                // 跨期取最早一份未领（进行中/已开奖/已结束但已赋额均可）
                 $pick = Db::name('fans_fission_qual')
                     ->alias('q')
                     ->join('fans_fission_activity a', 'a.id = q.activity_id')
                     ->where('q.user_id', $userId)
                     ->where('q.claimed', 0)
                     ->where('q.win_amount', '>', 0)
-                    ->where('a.status', FissionActivity::STATUS_SUCCESS)
+                    ->where('a.status', 'in', $claimableStatus)
                     ->field('q.id')
                     ->order('q.id', 'asc')
                     ->find();
@@ -753,8 +938,8 @@ class FansHubFission
                 $actRow = Db::name('fans_fission_activity')
                     ->where('id', (int)$q['activity_id'])
                     ->find();
-                if (!$actRow || (int)$actRow['status'] !== FissionActivity::STATUS_SUCCESS) {
-                    throw new Exception('活动尚未开奖或不可领取');
+                if (!$actRow || !in_array((int)$actRow['status'], $claimableStatus, true)) {
+                    throw new Exception('活动不可领取');
                 }
             }
             if ((int)($q['claimed'] ?? 0) === 1) {
@@ -813,8 +998,8 @@ class FansHubFission
         ];
     }
 
-    /** 用户在所有「开奖成功」期次上的待领份数 */
-    protected static function countUserUnclaimedOnSuccess($userId)
+    /** 用户在可领期次上的待领份数（进行中/已开奖/已结束但已赋额） */
+    protected static function countUserClaimable($userId)
     {
         $userId = (int)$userId;
         if ($userId <= 0) {
@@ -827,7 +1012,11 @@ class FansHubFission
                 ->where('q.user_id', $userId)
                 ->where('q.claimed', 0)
                 ->where('q.win_amount', '>', 0)
-                ->where('a.status', FissionActivity::STATUS_SUCCESS)
+                ->where('a.status', 'in', [
+                    FissionActivity::STATUS_RUNNING,
+                    FissionActivity::STATUS_SUCCESS,
+                    FissionActivity::STATUS_EXPIRED,
+                ])
                 ->count();
             return (int)$n;
         } catch (\Throwable $e) {
@@ -835,13 +1024,20 @@ class FansHubFission
         }
     }
 
+    /** @deprecated 兼容旧调用 */
+    protected static function countUserUnclaimedOnSuccess($userId)
+    {
+        return self::countUserClaimable($userId);
+    }
+
     protected static function defaultRules()
     {
         return [
             '活动开始后，每成功邀请 1 位新用户注册：邀请人和被邀请人各获得 1 份裂变资格',
             '活动开始前的老下级不计入本次活动资格',
-            '集满资格立即开奖；开奖后点「我的资格」逐份拆红包领取',
-            '超时未集齐红包不发放，邀请下级关系永久保留',
+            '获得资格后可立即拆红包领取，无需等待人数满额',
+            '点击奖金池可查看领取记录与奖金池余额',
+            '超时未集齐的剩余份额留在平台，已获资格仍可领取；邀请下级关系永久保留',
         ];
     }
 

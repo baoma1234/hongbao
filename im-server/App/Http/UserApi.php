@@ -359,7 +359,8 @@ class UserApi extends UserReadApi
     protected function groupJoin($uid, array $body)
     {
         $groupId = (int)($body['group_id'] ?? 0);
-        $group = $this->groups->joinOpenGroup($groupId, $uid);
+        $token = (string)($body['invite_token'] ?? $body['gt'] ?? '');
+        $group = $this->groups->joinOpenGroup($groupId, $uid, $token);
         return [
             'group'    => $group ?: new \stdClass(),
             'group_id' => $groupId,

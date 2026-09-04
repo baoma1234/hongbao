@@ -1,14 +1,12 @@
-﻿<template>
+<template>
   <view class="fv-page" :style="profileSubPageStyle">
-    <TopBar />
-    <view class="fv-hd profile-sub-hd" :style="profileSubHdStyle">
+    <TopBar :title="pageTitle" />
+    <view class="fv-hd profile-sub-hd profile-sub-hd--back-only" :style="profileSubHdStyle">
       <text class="profile-back-btn" @click="goBack">‹</text>
-      <text class="profile-sub-title">{{ pageTitle }}</text>
       <text class="profile-sub-spacer" />
     </view>
     <scroll-view scroll-y class="fv-scroll" :style="{ height: scrollH }">
       <view class="fv-wrap">
-        <view class="fv-h1">{{ pageTitle }}</view>
         <view class="fv-sub">{{ pageSub }}</view>
 
         <view class="fv-card">

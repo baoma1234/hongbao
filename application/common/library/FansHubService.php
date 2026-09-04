@@ -1243,7 +1243,89 @@ class FansHubService
 
     public static function jackpotPayload($tick = true, $lite = false)
     {
-        return FansHubMarket::screenPayload($tick, $lite);
+        $data = FansHubMarket::screenPayload($tick, $lite);
+        if ($lite) {
+            $players = self::lobbyBotPlayers();
+            $data['lobby_bot_players'] = $players;
+            $data['lobby_bot_nicks'] = array_values(array_map(static function ($p) {
+                return (string)($p['name'] ?? '');
+            }, $players));
+        }
+        return $data;
+    }
+
+    /**
+     * 大厅跑马灯 / 战绩：真金机器人昵称+头像（不足时用鱼虾蟹假人昵称补）
+     * @return array<int, array{name:string,avatar:string}>
+     */
+    public static function lobbyBotPlayers($limit = 48)
+    {
+        $limit = max(8, min(80, (int)$limit));
+        $out = [];
+        $seen = [];
+        try {
+            $rows = \think\Db::name('fans_account')
+                ->alias('a')
+                ->join('user u', 'u.id = a.user_id', 'LEFT')
+                ->where('a.is_bot', 1)
+                ->where('a.status', 'normal')
+                ->field('u.nickname,u.avatar')
+                ->order('a.id', 'desc')
+                ->limit($limit)
+                ->select();
+            foreach ($rows ?: [] as $row) {
+                $n = trim((string)($row['nickname'] ?? ''));
+                if ($n === '') {
+                    continue;
+                }
+                $n = mb_substr($n, 0, 16);
+                if (isset($seen[$n])) {
+                    continue;
+                }
+                $seen[$n] = 1;
+                $avatar = '';
+                try {
+                    $avatar = normalize_user_avatar((string)($row['avatar'] ?? ''), true);
+                } catch (\Throwable $e2) {
+                    $avatar = trim((string)($row['avatar'] ?? ''));
+                }
+                $out[] = [
+                    'name'   => $n,
+                    'avatar' => $avatar,
+                ];
+            }
+        } catch (\Throwable $e) {
+        }
+        $fallback = FansHubYxx::BOT_NICKS;
+        if (!is_array($fallback)) {
+            $fallback = [];
+        }
+        foreach ($fallback as $nick) {
+            if (count($out) >= $limit) {
+                break;
+            }
+            $n = trim((string)$nick);
+            if ($n === '' || isset($seen[$n])) {
+                continue;
+            }
+            $seen[$n] = 1;
+            $out[] = [
+                'name'   => mb_substr($n, 0, 16),
+                'avatar' => '',
+            ];
+        }
+        return $out;
+    }
+
+    /**
+     * 大厅跑马灯：真金机器人昵称（不足时用鱼虾蟹假人昵称补）
+     * @return string[]
+     */
+    public static function lobbyBotNicks($limit = 48)
+    {
+        return array_values(array_map(static function ($p) {
+            return (string)($p['name'] ?? '');
+        }, self::lobbyBotPlayers($limit)));
     }
 
     /**
@@ -1392,6 +1474,10 @@ class FansHubService
             'im_ws_url'            => self::utf8Safe($cfg['im_ws_url'] ?? ''),
             'yxx_enabled'          => !empty($cfg['yxx_enabled']),
             'yxx_tab_visible'      => !empty($cfg['yxx_tab_visible']),
+            // 红宝公告裂变卡片（默认关，后台开才展示）
+            'chat_fission_card_enabled'   => !empty($cfg['chat_fission_card_enabled']),
+            'fission_group_id'            => max(0, (int)($cfg['fission_group_id'] ?? 0)),
+            'fission_group_join_url'      => self::fissionGroupInvitePayload()['join_url'] ?? '',
             'yxx_stake_min'        => max(1, (int)($cfg['yxx_stake_min'] ?? 50)),
             'yxx_stake_max'        => max(1, (int)($cfg['yxx_stake_max'] ?? 200)),
             'yxx_real_money'       => !empty($cfg['yxx_real_money']),
@@ -4224,6 +4310,70 @@ class FansHubService
             'share_link' => $link,
             'rewarded'   => false,
             'message'    => '',
+        ];
+    }
+
+    /** 群进群链接签名（与 IM join 校验一致） */
+    public static function groupInviteSecret()
+    {
+        $secret = trim((string)self::config('api_sign_secret', ''));
+        return $secret !== '' ? $secret : 'fanshub-group-invite';
+    }
+
+    public static function groupInviteToken($groupId)
+    {
+        $groupId = (int)$groupId;
+        if ($groupId <= 0) {
+            return '';
+        }
+        return substr(hash_hmac('sha256', 'group_invite:' . $groupId, self::groupInviteSecret()), 0, 20);
+    }
+
+    public static function verifyGroupInviteToken($groupId, $token)
+    {
+        $expect = self::groupInviteToken($groupId);
+        $token = trim((string)$token);
+        return $expect !== '' && $token !== '' && hash_equals($expect, $token);
+    }
+
+    /**
+     * 生成打开即自动进群的链接
+     * 形如：https://域名/999/?join_group=12&gt=xxxx
+     */
+    public static function buildGroupInviteUrl($groupId)
+    {
+        $groupId = (int)$groupId;
+        if ($groupId <= 0) {
+            return '';
+        }
+        $cfg = self::config();
+        $base = rtrim((string)($cfg['invite_base_url'] ?: request()->domain()), '/');
+        $h5Path = trim((string)($cfg['h5_entry_path'] ?? '999'), '/');
+        if ($base === '' || $h5Path === '') {
+            return '';
+        }
+        $token = self::groupInviteToken($groupId);
+        return $base . '/' . $h5Path . '?join_group=' . $groupId . '&gt=' . rawurlencode($token);
+    }
+
+    /** 裂变页官方进群（后台配置 fission_group_id） */
+    public static function fissionGroupInvitePayload()
+    {
+        $gid = max(0, (int)self::config('fission_group_id', 0));
+        if ($gid <= 0) {
+            return [
+                'group_id'  => 0,
+                'join_url'  => '',
+                'token'     => '',
+                'enabled'   => false,
+            ];
+        }
+        $token = self::groupInviteToken($gid);
+        return [
+            'group_id' => $gid,
+            'join_url' => self::buildGroupInviteUrl($gid),
+            'token'    => $token,
+            'enabled'  => true,
         ];
     }
 

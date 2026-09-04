@@ -1,6 +1,6 @@
 <template>
   <view class="login-page tg-bind-page">
-    <TopBar />
+    <TopBar :title="tt('login_tg_bind_title', '绑定 Telegram')" />
     <view class="login-wrapper">
       <view class="login-brand">
         <image class="login-logo-img" :src="logo" mode="aspectFit" />
@@ -90,6 +90,7 @@ import {
   localeState,
   logoUrl,
   t,
+  tt,
 } from '../../utils/i18n.js'
 import { imConnect } from '../../utils/im.js'
 import { syncRegistrationAfterLogin } from '../../utils/jpush.js'

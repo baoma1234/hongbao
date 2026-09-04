@@ -173,6 +173,13 @@ $http->onMessage = function (TcpConnection $connection, Request $request) use ($
                 $connection->send(corsJson(400, ['message' => 'type and message required']));
                 return;
             }
+            // 代聊编辑/撤回/删除：先刷 Redis recent，再推送，避免前端拉历史又盖回旧内容
+            if (in_array($type, ['message.recalled', 'message.edited', 'message.deleted', 'message.restored'], true)) {
+                try {
+                    $messages->patchRecentByMessage($msg);
+                } catch (\Throwable $e) {
+                }
+            }
             publishNotify($type, $msg, !empty($body['admin_only']));
             $connection->send(corsJson(200, ['ok' => true]));
             return;

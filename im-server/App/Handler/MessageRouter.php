@@ -908,7 +908,8 @@ class MessageRouter
     protected function handleGroupJoin(TcpConnection $connection, $uid, array $payload, $reqId)
     {
         $groupId = (int)($payload['group_id'] ?? 0);
-        $group = $this->groups->joinOpenGroup($groupId, $uid);
+        $token = (string)($payload['invite_token'] ?? $payload['gt'] ?? '');
+        $group = $this->groups->joinOpenGroup($groupId, $uid, $token);
         $this->send($connection, 'group.joined', [
             'group' => $group ?: new \stdClass(),
             'group_id' => $groupId,

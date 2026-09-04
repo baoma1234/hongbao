@@ -1,11 +1,10 @@
-﻿<template>
+<template>
   <view class="chat-shell chat-friend-page">
-    <TopBar />
-    <view class="chat-hero-hd">
+    <TopBar :title="tt('chat_add_friend_title', '添加好友') || '添加好友'" />
+    <view class="chat-hero-hd chat-hero-hd--bar-actions">
       <view class="chat-hero-back" @click="goBack">
           <text class="chat-hero-back-char">‹</text>
         </view>
-      <view class="chat-hero-title">添加好友</view>
       <view class="chat-hero-spacer" />
     </view>
 
@@ -77,7 +76,7 @@ import { onLoad, onShow } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
 import { getToken } from '../../utils/auth.js'
 import { packagedStaticUrl } from '../../utils/config.js'
-import { flagUrl, t } from '../../utils/i18n.js'
+import { flagUrl, t, tt } from '../../utils/i18n.js'
 import {
   LOGIN_COUNTRIES,
   getCountryMeta,

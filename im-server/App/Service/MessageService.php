@@ -101,6 +101,64 @@ class MessageService
     }
 
     /**
+     * 就地更新 / 剔除 Redis recent 中的消息（后台代聊编辑、撤回、软删后调用）
+     * status=3 从缓存移除；其它状态覆盖同 id 条目（找不到则不追加，避免打乱顺序）
+     *
+     * @param array $payload normalizeMessage / formatMessage 形
+     * @return bool 是否命中并更新
+     */
+    public function patchRecentByMessage(array $payload)
+    {
+        $messageId = (int)($payload['id'] ?? 0);
+        $ctype = (int)($payload['conversation_type'] ?? 0);
+        $cid = (string)($payload['conversation_id'] ?? '');
+        if ($messageId <= 0 || ($ctype !== 1 && $ctype !== 2) || $cid === '') {
+            return false;
+        }
+        $status = (int)($payload['status'] ?? 0);
+        try {
+            $key = RedisClient::key('conv:' . $ctype . ':' . $cid . ':recent');
+            $r = RedisClient::conn();
+            $list = $r->lRange($key, 0, 99);
+            if (!is_array($list) || !$list) {
+                return false;
+            }
+            foreach ($list as $i => $raw) {
+                $j = json_decode((string)$raw, true);
+                if (!is_array($j) || (int)($j['id'] ?? 0) !== $messageId) {
+                    continue;
+                }
+                if ($status === 3) {
+                    // 软删：重建列表去掉该项（保持 lRange 左侧为最新）
+                    $newList = [];
+                    foreach ($list as $k => $raw2) {
+                        if ((int)$k === (int)$i) {
+                            continue;
+                        }
+                        $newList[] = $raw2;
+                    }
+                    $r->del($key);
+                    foreach ($newList as $raw3) {
+                        $r->rPush($key, $raw3);
+                    }
+                    if ($newList) {
+                        $r->lTrim($key, 0, 99);
+                        $r->expire($key, 86400 * 7);
+                    }
+                    return true;
+                }
+                $merged = array_merge($j, $payload);
+                $merged['id'] = $messageId;
+                $r->lSet($key, $i, json_encode($merged, JSON_UNESCAPED_UNICODE));
+                return true;
+            }
+        } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.MessageService');
+        }
+        return false;
+    }
+
+    /**
      * 插入群消息且不校验发言权限（红包扣款已成功后的兜底落库）
      */
     public function insertGroupMessageUnchecked($fromUserId, $groupId, $content, $msgType = 1, $extra = null)
@@ -991,9 +1049,14 @@ class MessageService
                     $rows = [];
                     foreach ($rawList ?: [] as $raw) {
                         $j = json_decode((string)$raw, true);
-                        if (is_array($j) && !empty($j['id'])) {
-                            $rows[] = $this->normalizeMessage($j);
+                        if (!is_array($j) || empty($j['id'])) {
+                            continue;
                         }
+                        // 软删不回放；与 DB status IN (1,2) 对齐
+                        if ((int)($j['status'] ?? 1) === 3) {
+                            continue;
+                        }
+                        $rows[] = $this->normalizeMessage($j);
                     }
                     if ($rows) {
                         return array_reverse($rows);
@@ -1082,7 +1145,9 @@ class MessageService
         $row['status'] = 2;
         $row['content'] = $isPrivate ? '[已删除]' : '[已撤回]';
         $normalized = $this->normalizeMessage($row);
-        $this->cacheRecent($normalized);
+        if (!$this->patchRecentByMessage($normalized)) {
+            $this->cacheRecent($normalized);
+        }
         return $normalized;
     }
 

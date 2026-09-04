@@ -5,12 +5,9 @@
     :style="profileSubPageStyle"
     :key="pageKey === '' || pageKey == null ? undefined : pageKey"
   >
-    <TopBar />
-    <view class="profile-sub-hd" :style="profileSubHdStyle">
+    <TopBar :title="String(title || '').trim()" />
+    <view class="profile-sub-hd profile-sub-hd--back-only" :style="profileSubHdStyle">
       <text class="profile-back-btn" @click="handleBack">‹</text>
-      <text class="profile-sub-title">
-        <slot name="title">{{ title }}</slot>
-      </text>
       <text class="profile-sub-spacer" />
     </view>
     <view class="profile-sub-body" :class="bodyClass">

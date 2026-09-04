@@ -1,9 +1,8 @@
-﻿<template>
+<template>
   <view class="hb-page webview-page" :style="profileSubPageStyle">
-    <TopBar />
-    <view class="profile-sub-hd" :style="profileSubHdStyle">
+    <TopBar :title="title" />
+    <view class="profile-sub-hd profile-sub-hd--back-only" :style="profileSubHdStyle">
       <text class="profile-back-btn" @click="goBack">‹</text>
-      <text class="profile-sub-title">{{ title }}</text>
       <text class="profile-sub-spacer" />
     </view>
     <!-- #ifdef H5 -->

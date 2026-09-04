@@ -27,6 +27,8 @@ class Config extends Backend
             'secret_lock_seconds',
             'customer_service_url', 'app_download_url', 'main_station_url',
             'login_cs_enabled', 'login_cs_url', 'login_cs_icon',
+            'chat_fission_card_enabled',
+            'fission_group_id',
             'h5_entry_path', 'default_locale', 'locale_auto_detect',
         ],
         'exchange' => [
@@ -274,6 +276,7 @@ class Config extends Backend
             'google_auth_login_enabled',
             'admin_google_auth_enabled',
             'login_cs_enabled',
+            'chat_fission_card_enabled',
             'telegram_bot_enabled',
             'exchange_rights_to_balance_enabled', 'exchange_balance_to_rights_enabled',
             'exchange_rb_enabled', 'exchange_br_enabled', 'exchange_rh_enabled',
@@ -287,6 +290,7 @@ class Config extends Backend
             'market_smooth_day_min', 'market_smooth_day_max', 'market_smooth_night_min', 'market_smooth_night_max',
             'market_day_start_hour', 'market_day_end_hour',
             'telegram_init_max_age',
+            'fission_group_id',
         ];
         $floatFields = [
             'single_ticket_value', 'withdraw_threshold', 'max_vote_percent',

@@ -19,6 +19,7 @@ import { applySafeAreaCssVars } from './utils/safe-area.js'
 import { applyAppStatusBar } from './utils/status-bar.js'
 import { initSkin } from './utils/skin.js'
 import { initOpenInstall } from './utils/openinstall.js'
+import { captureGroupJoinFromUrl, tryConsumeGroupJoin } from './utils/group-invite.js'
 import { initPushOnLaunch } from './utils/jpush.js'
 import './styles/hb.css'
 import './styles/app-back-fix.css'
@@ -41,6 +42,8 @@ onLaunch(async () => {
   initSkin()
   // App 携参安装/拉起；H5 落地页记录邀请指纹（需用户同意隐私后再 init 的上架包，可改到协议同意后）
   initOpenInstall()
+  // 群进群链接：?join_group=&gt=
+  captureGroupJoinFromUrl()
   // 浅色顶栏 + 深色状态栏图标，避免时间/信号“消失”
   applyAppStatusBar()
   // App 自定义顶栏：用 statusBarHeight 垫开信号栏（env(safe-area) 在安卓常为 0）
@@ -80,6 +83,8 @@ onLaunch(async () => {
   startImInbox()
   bindForegroundResume()
   imConnect().catch(() => {})
+  // 已登录：消费待进群链接
+  tryConsumeGroupJoin({ silent: true }).catch(() => {})
 
   const path = getHashRoutePath()
   // 已在聊天室 / 群设置 / 钱包等：尊重 URL，不打断
@@ -89,6 +94,9 @@ onLaunch(async () => {
     path.indexOf('pages/wallet/') === 0 ||
     path.indexOf('pages/home/') === 0 ||
     path.indexOf('pages/messages/') === 0 ||
+    path.indexOf('pages/community/') === 0 ||
+    path.indexOf('pages/notice/') === 0 ||
+    path.indexOf('pages/commission/') === 0 ||
     path.indexOf('pages/exchange/') === 0 ||
     path.indexOf('pages/fission/') === 0 ||
     path.indexOf('pages/yxx/') === 0 ||

@@ -45,6 +45,7 @@
 <script setup>
 import { computed, onUnmounted, ref } from 'vue'
 import { t } from '../utils/i18n.js'
+import '../styles/welcome-lottery.css'
 
 const props = defineProps({
   sharePrice: { type: Number, default: 5 },

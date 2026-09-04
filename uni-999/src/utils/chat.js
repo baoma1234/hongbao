@@ -59,6 +59,10 @@ export function isRecalled(m) {
   return !!(m && (m.status | 0) === 2)
 }
 
+export function isDeletedMsg(m) {
+  return !!(m && (m.status | 0) === 3)
+}
+
 export function isSystemMsg(m) {
   if (!m) return false
   const mt = msgType(m)
@@ -85,6 +89,7 @@ export function previewText(last) {
   if (typeof last === 'string') return last
   if (isLeaveGroupTip(last)) return '暂无消息'
   if (isRecalled(last)) return '[已撤回]'
+  if (isDeletedMsg(last)) return '[已删除]'
   const mt = msgType(last)
   const ex = msgExtra(last)
   if (mt === 2) {

@@ -1,193 +1,89 @@
 <template>
-  <view>
+  <view class="game-lobby-page">
     <TopBar />
-    <view id="tabHome" class="tab-page active">
-      <!-- 大奖池（结构/class 对齐 888 tab-home） -->
-      <view class="jackpot-container">
-        <text class="jackpot-label">{{ t('jackpot_label') || '📊 红宝 全网生态实时大屏' }}</text>
-        <text class="jackpot-meta">{{ partnersText }}</text>
-        <text class="jackpot-pool-label">{{ t('jackpot_pool_label') || '💰 平台已累计为合伙人创造价值' }}</text>
-        <text class="jackpot-val">{{ jackpotMoneyText }}</text>
-        <text class="jackpot-price-line">{{ priceText }}</text>
-        <text class="jackpot-hint-line">{{ t('jackpot_hint') || '💡 等额闪兑销毁股份 · 累计价值只涨不跌 · 股价由达标转化人数驱动' }}</text>
+    <view class="game-lobby" :style="lobbyPageStyle">
+      <view class="game-lobby-inner">
+        <view class="game-lobby-banner" hover-class="game-lobby-hit" @click="onCarnivalBanner">
+          <image class="game-lobby-banner-img" :src="lobbyAsset('750x400.png')" mode="widthFix" />
+          <view class="game-lobby-online-badge">
+            <text class="game-lobby-online">
+              {{ tt('lobby_online', '在线玩家') }}
+              <text class="game-lobby-online-num">{{ onlineCountText }}</text>
+              {{ tt('lobby_online_unit', '人') }}
+            </text>
+          </view>
+        </view>
+
+        <view class="game-lobby-ticker">
+          <text class="game-lobby-ticker-ico">📢</text>
+          <view class="game-lobby-ticker-track">
+            <view class="game-lobby-ticker-text">{{ tickerText }}</view>
+          </view>
+        </view>
       </view>
 
-      <!-- 资产面板 -->
-      <view class="header-panel">
-        <view class="assets-grid">
-          <view class="asset-card asset-card-rights">
-            <text class="asset-label">{{ t('asset_rights_label') || '持有资产 (未清算)' }}</text>
-            <view class="asset-value asset-value-gold">
-              <text>{{ rightsText }}</text>
-              <text class="asset-unit"> {{ t('asset_rights_unit') || '份' }}</text>
-            </view>
-            <view class="asset-valuation-hint" v-if="rightsValuationHint" :style="{ display: 'block' }">{{ rightsValuationHint }}</view>
-          </view>
-          <view class="asset-card-divider" aria-hidden="true" />
-          <view class="asset-card asset-card-hongbao">
-            <text class="asset-label">{{ t('asset_hongbao_label') || '红宝' }}</text>
-            <view class="asset-value asset-value-green">
-              <text class="asset-currency">￥</text><text>{{ hongbaoText }}</text>
-            </view>
-            <view class="asset-frozen-hint" v-if="frozenVisible">
-              <text>{{ t('asset_hongbao_frozen_label') || '冻结' }}</text>
-              <text class="asset-currency">￥</text><text>{{ frozenText }}</text>
-            </view>
-            <view class="asset-progress-wrap">
-              <view class="asset-progress-bar">
-                <view class="asset-progress-fill" :style="{ width: progressPct + '%' }" />
-              </view>
+      <!-- 跑马灯以下：QQ 灰底区（分类 / 热门游戏 / 邀请条） -->
+      <view class="game-lobby-main">
+        <view class="game-lobby-cats">
+          <view class="game-lobby-cats-row">
+            <view
+              v-for="cat in lobbyCategories"
+              :key="cat.id"
+              class="game-lobby-cat"
+              :class="{ on: activeCat === cat.id }"
+              hover-class="game-lobby-hit"
+              @click="onLobbyCat(cat)"
+            >
+              <image
+                v-if="cat.iconImg || cat.iconStatic"
+                class="game-lobby-cat-ico"
+                :src="lobbyCatIcon(cat)"
+                mode="aspectFit"
+              />
+              <text v-else class="game-lobby-cat-ico game-lobby-cat-ico-emoji">{{ cat.icon }}</text>
+              <text class="game-lobby-cat-lab">{{ cat.label }}</text>
             </view>
           </view>
         </view>
 
-        <view class="user-info">
-          <view class="user-id">
-            <text>{{ t('user_account_status') || '资产账户状态:' }}</text>
-            <text class="user-phone">{{ mobileMask }}</text>
-            <text class="user-status-tag" :class="{ 'master-tag': isMasterRank }">{{ t('user_status_shield') || '密匙防护已开启' }}</text>
-          </view>
+        <view class="game-lobby-section-hd">
+          <text class="game-lobby-section-title">{{ tt('lobby_hot_games', '热门游戏') }}</text>
+          <text class="game-lobby-section-more" @click="goTab('/pages/messages/messages')">
+            {{ tt('lobby_all_games', '全部游戏') }} ›
+          </text>
         </view>
 
-        <view class="flow-stepper" aria-label="福利进度">
+        <view class="game-lobby-grid">
           <view
-            v-for="s in stepperSteps"
-            :key="s.n"
-            class="flow-step"
-            :class="{ done: s.done, active: s.active }"
-            :data-step="s.n"
+            v-for="game in visibleGames"
+            :key="game.id"
+            class="game-lobby-card"
+            hover-class="game-lobby-hit"
+            @click="onGameTap(game)"
           >
-            <text class="n">{{ s.n }}</text>
-            <text class="t">{{ s.label }}</text>
-          </view>
-        </view>
-
-        <view id="newbiePromoBlock" v-if="!isMasterRank">
-          <view class="share-promo-card" role="button" @click="copyShareLink">
-            <view class="share-promo-glow" />
-            <view class="share-promo-inner single-line">
-              <text class="share-promo-text">{{ t('share_promo_btn') || '📢 免费裂变吸筹：每邀请一人即送一份' }}</text>
-              <button type="button" class="btn-share-action" :disabled="shareSubmitting" @click.stop="copyShareLink">
-                {{ shareSubmitting ? (t('api_loading') || '处理中...') : (t('share_promo_action_btn') || '点击立即分享') }}
-              </button>
+            <view class="game-lobby-card-media">
+              <image class="game-lobby-card-img" :src="lobbyAsset(game.cover)" mode="aspectFill" />
+            </view>
+            <view v-if="game.badge" class="game-lobby-badge" :class="game.badge">{{ game.badge.toUpperCase() }}</view>
+            <view class="game-lobby-players">
+              <text class="game-lobby-players-txt">
+                <template v-if="game.comingSoon">
+                  {{ tt('lobby_coming_soon', '敬请期待') }}
+                </template>
+                <template v-else>
+                  <text class="game-lobby-players-num">{{ game.playersText }}</text>
+                  {{ tt('lobby_playing', '人在玩') }}
+                </template>
+              </text>
             </view>
           </view>
         </view>
 
-        <!-- 全网裂变红包入口：与分享条同宽同结构对齐；无活动隐藏；结束置灰 -->
-        <view
-          v-if="fissionEntryState !== 'hidden'"
-          class="fission-home-entry"
-          :class="{ 'is-ended': fissionEntryState === 'ended' }"
-          @click="goFission"
-        >
-          <view class="fission-home-entry-glow" />
-          <view class="fission-home-entry-inner single-line">
-            <text class="fission-home-entry-title">{{ fissionEntryTitle }}</text>
-            <text class="fission-home-entry-sub">{{ fissionEntrySub }}</text>
-            <text class="fission-home-entry-arrow">{{
-              fissionEntryState === 'ended'
-                ? tt('fission_home_entry_ended', '已结束')
-                : tt('fission_home_entry_go', '去参与 ›')
-            }}</text>
-          </view>
+        <view class="game-lobby-invite" hover-class="game-lobby-hit" @click="copyShareLink">
+          <image class="game-lobby-invite-img" :src="lobbyAsset('750x150.png')" mode="widthFix" />
         </view>
-      </view>
-
-      <!-- 开户 CTA：已绑定游戏账号或团长时隐藏（对齐 888 团长隐藏 + 有账号不再引导开户） -->
-      <view class="user-panel" id="newbieOpenPanel" v-if="showNewbieOpenPanel">
-        <button type="button" class="cta-open-account" @click="goToMainStation">
-          <text class="cta-open-account-label">{{ openAccountLabel }}</text>
-          <text class="cta-open-account-badge">{{ openAccountBadge }}</text>
-        </button>
-      </view>
-
-      <!-- VIP 领取 -->
-      <view class="home-claim-section" id="homeClaimSection">
-        <view class="page-hero-title">{{ t('page_hero_claim_title') || '🏦 VIP 特批领取' }}</view>
-        <view class="page-hero-sub">{{ t('page_hero_claim_sub') || '回填现金站游戏账号 → 提交核销 → 生成密令联系客服上分' }}</view>
-        <view class="match-card" style="padding: 15px">
-          <view class="uid-section visible" id="uidSection">
-            <text class="uid-label">{{ t('uid_label') || '🔑 第一步：请输入您在红宝现金站注册成功的账号' }}</text>
-            <!-- 锁定态用 view 展示：uni disabled input 常不刷新/文字透明导致空白 -->
-            <view v-if="uidLocked" class="id-input-box is-locked">{{ displayGameUid }}</view>
-            <input
-              v-else
-              class="id-input-box"
-              type="text"
-              maxlength="32"
-              v-model="gameUid"
-              :placeholder="t('uid_placeholder') || '例如：555bio（必须使用同手机号注册），否则小妹无法在后台核销上分'"
-              @blur="onUidBlur"
-              @confirm="submitUID"
-            />
-            <view class="uid-submit-row" v-if="!uidApproved">
-              <button type="button" class="btn-uid-submit" :disabled="uidBtnDisabled || uidSubmitting" @click="submitUID">
-                {{ uidBtnText }}
-              </button>
-            </view>
-            <view class="uid-status-hint" :class="uidHintClass">{{ uidHintText }}</view>
-          </view>
-        </view>
-        <button type="button" class="btn-manual-settle" @click="openWithdrawModal">
-          <text>{{ settleTitle }}</text>
-          <text class="sub-label">{{ settleSub }}</text>
-        </button>
-      </view>
-
-      <!-- 快捷入口 -->
-      <view class="home-quick-grid">
-        <button type="button" class="home-quick-btn hq-exchange" @click="goTab('/pages/exchange/exchange')">
-          <text>{{ tt('home_quick_exchange', '⚡ 去闪兑') }}</text>
-          <text>{{ tt('home_quick_exchange_sub', '股份秒变红宝') }}</text>
-        </button>
-        <button type="button" class="home-quick-btn hq-master" @click="goTab('/pages/fission/detail')">
-          <text>{{ tt('home_quick_fission', '🧧 裂变红宝') }}</text>
-          <text>{{ tt('home_quick_fission_sub', '邀请瓜分奖金池') }}</text>
-        </button>
-        <button type="button" class="home-quick-btn hq-messages" @click="goTab('/pages/messages/messages')">
-          <text>{{ tt('home_quick_messages', '红宝社区') }}</text>
-          <text>{{ tt('home_quick_messages_sub', '私聊 · 群聊 · 红包') }}</text>
-        </button>
-        <button type="button" class="home-quick-btn hq-profile" @click="goTab('/pages/profile/profile')">
-          <text>{{ tt('home_quick_profile', '👤 个人中心') }}</text>
-          <text>{{ tt('home_quick_profile_sub', '资料 · 密码 · 退出') }}</text>
-        </button>
-      </view>
-
-      <!-- 跑马灯：暂时隐藏 -->
-      <view v-if="false" class="marquee-box" style="margin-top: 14px">
-        <view class="marquee-content">
-          <view v-for="(m, i) in marqueeItems" :key="i" class="marquee-item">{{ m }}</view>
-        </view>
-      </view>
-
-      <!-- 排行榜 + 页脚：暂时隐藏 -->
-      <view v-if="false" class="home-social-section" id="homeSocialSection">
-        <view class="page-hero-title">{{ t('page_hero_social_title') || '💬 互动大厅' }}</view>
-        <view class="page-hero-sub">{{ t('page_hero_social_sub') || '看排行 · 刷视频文 · 蹭气氛，专注拉新与晒单' }}</view>
-        <view class="match-card" style="margin-top: 0; padding: 15px">
-          <view style="font-size: 14px; margin-bottom: 10px; color: var(--secondary); font-weight: 700">
-            {{ t('leaderboard_title') || '🏆 邀请裂变排行榜 TOP10' }}
-          </view>
-          <view class="leaderboard-list">
-            <view v-if="!leaderboard.length" class="text-muted" style="font-size: 12px">
-              {{ t('leaderboard_loading') || '加载中...' }}
-            </view>
-            <view v-for="item in leaderboard" :key="item.rank + '-' + item.mobile_mask" class="leaderboard-item">
-              <view>
-                <text class="leaderboard-rank">{{ rankBadge(item.rank) }}</text>
-                <text> {{ item.mobile_mask || (t('leaderboard_user_fallback') || '用户') }}</text>
-              </view>
-              <view class="leaderboard-count">{{ inviteCountText(item.invite_count) }}</view>
-            </view>
-          </view>
-        </view>
-        <view style="margin-top: 25px; padding: 10px; font-size: 10px; color: #657786; text-align: center; line-height: 1.6">
-          <view>{{ t('footer_line1') || '📊 本平台性质为【红宝 官方活跃粉丝度模拟福利推广营销互动调查大厅】' }}</view>
-          <view>{{ t('footer_line2') || '安全承诺：全盘无资金充值入口。所有股份及红宝均属于用户活跃度内部福利。领取统一由官方 VIP 福利中心人工核准，并采用安全方式精准充值至您的 红宝 主站账户中。活动最终解释权归 红宝 官方所有。' }}</view>
-          <view>{{ t('footer_line3') || '© 2026 红宝 Open-Marketing Platform. 服务协议 | 合规声明' }}</view>
-        </view>
+        <!-- 末项留白：App/Safari 底栏 + Home 指示条，避免邀请条被挡 -->
+        <view class="game-lobby-scroll-pad" aria-hidden="true" />
       </view>
     </view>
 
@@ -246,7 +142,7 @@
               <text class="fission-popup-progress">当前 {{ fissionPopupQuals }} / {{ fissionPopupCap }} 份资格</text>
               <text class="fission-popup-remain">剩余 {{ fissionPopupRemain }}</text>
               <text class="fission-popup-cta">点击拆开红包</text>
-              <text class="fission-popup-risk">72小时未集齐资格，红包池作废</text>
+              <text class="fission-popup-risk">有资格即可拆包，无需等人数满</text>
             </view>
           </view>
           <view class="fission-popup-close" @click="dismissFissionPopup">×</view>
@@ -269,8 +165,9 @@ import { localeState, t, tt, applyServerCopy } from '../../utils/i18n.js'
 import { imConnect } from '../../utils/im.js'
 import { copyText } from '../../utils/master.js'
 import { openExternalHttpUrl } from '../../utils/wallet.js'
-import '../../styles/home.css'
-import '../../styles/tabs-extra.css'
+import { getUploadsBase, packagedStaticUrl } from '../../utils/config.js'
+import { applySafeAreaCssVars, getSafeAreaInsets } from '../../utils/safe-area.js'
+import '../../styles/home-lobby.css'
 import '../../styles/social-modals.css'
 import '../../styles/home-uni-adapter.css'
 
@@ -292,12 +189,213 @@ const shareSubmitting = ref(false)
 const fissionEntry = ref(null)
 const fissionPopupOpen = ref(false)
 const fissionPopupRemainSec = ref(0)
+/** 底栏 Home 指示条（App 上 env(safe-area) 常为 0，靠 JS 测量） */
+const lobbySafeBottom = ref(0)
 let fissionPopupTick = null
 let pollTimer = null
 let pollLocalTimer = null
 let lbTimer = null
 let secretTimer = null
 let secretRequestId = ''
+let tickerTimer = null
+let onlinePollTimer = null
+
+const TAB_BAR_CONTENT_PX = 64
+
+function measureLobbySafeBottom() {
+  try {
+    applySafeAreaCssVars()
+    let bottom = Math.max(0, Number(getSafeAreaInsets().bottom) || 0)
+    // #ifdef APP-PLUS
+    try {
+      const sys = uni.getSystemInfoSync() || {}
+      const sa = sys.safeArea || null
+      const sh = Number(sys.screenHeight) || 0
+      if (bottom < 1 && sa && sh > 0) {
+        const gap = Math.max(0, sh - Number(sa.bottom || 0))
+        if (gap > 0 && gap < 80) bottom = gap
+      }
+      if (bottom < 1) {
+        const inset = sys.safeAreaInsets || {}
+        bottom = Math.max(0, Number(inset.bottom) || 0)
+      }
+    } catch (e0) {}
+    // #endif
+    lobbySafeBottom.value = bottom
+  } catch (e) {
+    lobbySafeBottom.value = 0
+  }
+}
+
+const lobbyPageStyle = computed(() => {
+  const pad = TAB_BAR_CONTENT_PX + Math.max(0, Number(lobbySafeBottom.value) || 0) + 16
+  return {
+    paddingBottom: pad + 'px',
+    '--lobby-safe-bottom': (Number(lobbySafeBottom.value) || 0) + 'px',
+    '--lobby-tab-pad': pad + 'px',
+  }
+})
+
+const activeCat = ref('hot')
+const onlineCountLive = ref(0)
+const lobbyBotNicks = ref([])
+const tickerText = ref('')
+const tickerGames = ['红包扫雷', '红包接龙', '红包牛牛', '趣味鱼虾蟹', '红包对战', '幸运盲盒']
+
+const lobbyCategories = computed(() => [
+  { id: 'hot', iconImg: '1.png', label: tt('lobby_cat_hot', '热门推荐') },
+  { id: 'games', iconImg: '3.png', label: tt('lobby_cat_games', '红宝游戏') },
+  { id: 'notice', iconImg: '66.png', label: tt('lobby_cat_notice', '红宝公告'), action: 'notice' },
+  {
+    id: 'commission',
+    iconStatic: 'tab/community.png',
+    label: tt('lobby_cat_commission', '红宝佣金'),
+    action: 'commission',
+  },
+])
+
+const LOBBY_ASSET_VER = '8'
+
+/** 01–06 固定排序：接龙 / 扫雷 / 牛牛 / 对战 / 盲盒 / 鱼虾蟹 */
+const lobbyGames = [
+  { id: 'jielong', cover: '01.png', badge: 'hot', ratio: 0.82, cats: ['hot', 'rp'], route: 'messages' },
+  { id: 'saolei', cover: '02.png', badge: '', ratio: 0.65, cats: ['hot', 'rp'], route: 'messages' },
+  { id: 'niuniu', cover: '03.png', badge: '', ratio: 0.55, cats: ['hot', 'card'], route: 'messages' },
+  { id: 'battle', cover: '04.png', badge: '', ratio: 0.5, cats: ['hot', 'pvp'], route: 'messages' },
+  { id: 'blindbox', cover: '05.png', badge: 'new', ratio: 0.43, cats: ['hot', 'event'], route: 'fission', comingSoon: true },
+  { id: 'yxx', cover: '06.png', badge: '', ratio: 0.34, cats: ['hot', 'card', 'rp'], route: 'yxx', comingSoon: true },
+]
+
+function lobbyAsset(name) {
+  const p = String(name || '').replace(/^\/+/, '')
+  const oss = String(getUploadsBase() || '').replace(/\/+$/, '')
+  if (oss) {
+    return oss + '/999/static/home/lobby/' + p + '?v=' + LOBBY_ASSET_VER
+  }
+  return packagedStaticUrl('home/lobby/' + p) + '?v=' + LOBBY_ASSET_VER
+}
+
+function lobbyCatIcon(cat) {
+  if (cat && cat.iconStatic) {
+    const p = String(cat.iconStatic || '').replace(/^\/+/, '')
+    const oss = String(getUploadsBase() || '').replace(/\/+$/, '')
+    if (oss) return oss + '/999/static/' + p + '?v=' + LOBBY_ASSET_VER
+    return packagedStaticUrl(p) + '?v=' + LOBBY_ASSET_VER
+  }
+  return lobbyAsset(cat && cat.iconImg)
+}
+
+function applyLobbyExtras(data) {
+  if (!data || typeof data !== 'object') return
+  const raw =
+    data.partner_count !== undefined
+      ? data.partner_count
+      : data.fission_user_count !== undefined
+        ? data.fission_user_count
+        : data.partners
+  if (raw !== undefined) {
+    let n = Math.max(0, parseInt(raw, 10) || 0)
+    if (n <= 0) n = marketVirtualBase()
+    onlineCountLive.value = n
+  }
+  const nicks = data.lobby_bot_nicks
+  if (Array.isArray(nicks) && nicks.length) {
+    lobbyBotNicks.value = nicks.map((x) => String(x || '').trim()).filter(Boolean)
+    if (!tickerText.value) {
+      rotateTicker()
+    }
+  }
+}
+
+function pickTickerNick() {
+  const list = lobbyBotNicks.value.length ? lobbyBotNicks.value : ['红包玩家88', '幸运星', '财神到']
+  const i = Math.floor(Math.random() * list.length)
+  return list[i] || list[0]
+}
+
+function rotateTicker() {
+  const game = tickerGames[Math.floor(Math.random() * tickerGames.length)] || '红包扫雷'
+  const amt = (50 + Math.floor(Math.random() * 950)).toFixed(2)
+  const name = pickTickerNick()
+  tickerText.value =
+    tt('lobby_ticker', '恭喜玩家 {name} 在 {game} 中获得 {amount} 红包!', {
+      name,
+      game,
+      amount: amt,
+    }) || `恭喜玩家 ${name} 在 ${game} 中获得 ${amt} 红包!`
+}
+
+function startTicker() {
+  stopTicker()
+  rotateTicker()
+  tickerTimer = setInterval(rotateTicker, 6000)
+}
+
+function stopTicker() {
+  if (tickerTimer) {
+    clearInterval(tickerTimer)
+    tickerTimer = null
+  }
+}
+
+const onlineCount = computed(() => {
+  const live = Number(onlineCountLive.value) || 0
+  if (live > 0) return Math.floor(live)
+  const j = jackpot.value || config.value || {}
+  const n = Number(j.partner_count != null ? j.partner_count : j.partners)
+  if (!isNaN(n) && n > 0) return Math.floor(n)
+  return marketVirtualBase()
+})
+
+const onlineCountText = computed(() => formatCountNum(onlineCount.value))
+
+const visibleGames = computed(() => {
+  const base = onlineCount.value
+  return lobbyGames
+    .filter((g) => {
+      if (activeCat.value === 'hot') return g.cats.includes('hot')
+      if (activeCat.value === 'games') return g.cats.includes('rp')
+      return g.cats.includes(activeCat.value)
+    })
+    .map((g) => ({
+      ...g,
+      playersText: g.comingSoon
+        ? tt('lobby_coming_soon', '敬请期待')
+        : formatCountNum(Math.max(120, Math.floor(base * g.ratio))),
+    }))
+    .sort((a, b) => String(a.cover).localeCompare(String(b.cover)))
+})
+
+function onLobbyCat(cat) {
+  if (!cat) return
+  const action = String(cat.action || '')
+  if (action === 'notice') {
+    uni.navigateTo({ url: '/pages/notice/notice' })
+    return
+  }
+  if (action === 'commission') {
+    uni.navigateTo({ url: '/pages/commission/commission' })
+    return
+  }
+  activeCat.value = cat.id
+}
+
+function onCarnivalBanner() {
+  if (fissionEntryState.value !== 'hidden') {
+    goFission()
+    return
+  }
+  goTab('/pages/messages/messages')
+}
+
+function onGameTap(game) {
+  if (!game) return
+  if (game.comingSoon) {
+    uni.showToast({ title: tt('lobby_coming_soon', '敬请期待'), icon: 'none' })
+    return
+  }
+  uni.navigateTo({ url: '/pages/home/game-detail?game=' + encodeURIComponent(game.id) })
+}
 
 const withdrawThreshold = computed(() => {
   const c = config.value || {}
@@ -715,10 +813,18 @@ async function loadBootstrap() {
       if (data.profile) {
         profile.value = data.profile
         syncUidFromProfile(data.profile)
+        try {
+          uni.$emit && uni.$emit('fanshub-profile-updated', data.profile)
+        } catch (e0) {}
       }
       if (data.config) applyConfig(data.config)
-      if (data.market) applyMarketScreen(data.market)
-      else if (data.jackpot) applyMarketScreen(data.jackpot)
+      if (data.market) {
+        applyMarketScreen(data.market)
+        applyLobbyExtras(data.market)
+      } else if (data.jackpot) {
+        applyMarketScreen(data.jackpot)
+        applyLobbyExtras(data.jackpot)
+      }
       // 排行榜统一走 loadLeaderboard（虚拟榜+真实合并），不直接用 bootstrap 短列表
       if (data.home && data.home.fission) applyFissionEntry(data.home.fission)
     }
@@ -845,7 +951,17 @@ async function loadLeaderboard() {
 async function pollJackpot() {
   try {
     const data = await apiRequest('jackpot', 'GET')
-    if (data) applyMarketScreen(data)
+    if (data) {
+      applyMarketScreen(data)
+      applyLobbyExtras(data)
+    }
+  } catch (e) {}
+}
+
+async function pollOnlineLive() {
+  try {
+    const data = await apiRequest('jackpot', 'GET')
+    if (data) applyLobbyExtras(data)
   } catch (e) {}
 }
 
@@ -923,7 +1039,9 @@ function tickMarketLocal() {
   const isDay = hour >= 8 && hour < 23
   const add = isDay ? 3 + Math.floor(Math.random() * 10) : Math.floor(Math.random() * 3)
   const pc = Math.max(0, parseInt(prev.partner_count != null ? prev.partner_count : prev.partners, 10) || 0)
-  prev.partner_count = pc + add
+  const nextPc = pc + add
+  prev.partner_count = nextPc
+  onlineCountLive.value = nextPc
   jackpot.value = prev
 }
 
@@ -931,9 +1049,13 @@ function startPoll() {
   stopPoll()
   pollJackpot()
   loadLeaderboard()
+  startTicker()
   pollTimer = setInterval(() => {
     pollJackpot()
   }, 20000)
+  onlinePollTimer = setInterval(() => {
+    pollOnlineLive()
+  }, 5000)
   // 本地氛围：金额/人数微动（仅非服务端同步时）
   if (!pollLocalTimer) {
     pollLocalTimer = setInterval(tickMarketLocal, 60000)
@@ -947,9 +1069,14 @@ function startPoll() {
 }
 
 function stopPoll() {
+  stopTicker()
   if (pollTimer) {
     clearInterval(pollTimer)
     pollTimer = null
+  }
+  if (onlinePollTimer) {
+    clearInterval(onlinePollTimer)
+    onlinePollTimer = null
   }
   if (pollLocalTimer) {
     clearInterval(pollLocalTimer)
@@ -963,21 +1090,34 @@ function stopPoll() {
 
 async function copyShareLink() {
   if (shareSubmitting.value) return
+  if (!getToken()) {
+    try {
+      uni.setStorageSync('fanshub_login_return', '/pages/home/home')
+    } catch (e) {}
+    uni.reLaunch({ url: '/pages/login/login' })
+    return
+  }
   shareSubmitting.value = true
   try {
-    // 先只拿“分享文案”，不发股份；复制成功后再请求真正奖励。
-    const copyData = await apiRequest('share', 'POST', { copy_only: true })
-    const shareText = (copyData && copyData.share_text) || ''
-    await copyText(shareText)
-
-    // 先提示“邀请成功”，符合你的回归需求
-    // uni.showToast 在部分端会截断长文案，所以拆成两段保证完整可读
-    uni.showToast({ title: '成功分享群', icon: 'success' })
-    setTimeout(() => {
-      uni.showToast({ title: '邀请好友送股份', icon: 'success' })
-    }, 900)
+    const data = await apiRequest('share', 'POST', { copy_only: true })
+    const link = String((data && data.share_link) || '').trim()
+    const shareText = String((data && data.share_text) || '').trim()
+    // 优先复制带邀请码的专属链接；文案里没有链接时用 share_link
+    let out = link
+    if (shareText && (/https?:\/\//i.test(shareText) || /code=/i.test(shareText))) {
+      out = shareText
+    } else if (link && shareText) {
+      out = shareText + (shareText.indexOf(link) >= 0 ? '' : '\n' + link)
+    } else if (shareText) {
+      out = shareText
+    }
+    if (!out) {
+      throw new Error('暂无邀请链接')
+    }
+    await copyText(out)
+    uni.showToast({ title: '邀请链接已复制', icon: 'success' })
   } catch (e) {
-    uni.showToast({ title: e.message || t('alert_share_fail') || '分享失败', icon: 'none' })
+    uni.showToast({ title: (e && e.message) || t('alert_share_fail') || '复制失败', icon: 'none' })
   } finally {
     shareSubmitting.value = false
   }
@@ -1205,6 +1345,7 @@ onShow(async () => {
     uni.reLaunch({ url: '/pages/login/login' })
     return
   }
+  measureLobbySafeBottom()
   try {
     uni.$on && uni.$on('fanshub-profile-updated', onProfileUpdated)
   } catch (e) {}
@@ -1212,6 +1353,7 @@ onShow(async () => {
   imConnect().catch(() => {})
   startPoll()
   nextTick(() => {
+    measureLobbySafeBottom()
     try {
       lotteryRef.value && lotteryRef.value.schedule && lotteryRef.value.schedule()
     } catch (e2) {}

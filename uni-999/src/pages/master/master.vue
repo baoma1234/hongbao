@@ -1,6 +1,6 @@
 <template>
   <view class="hb-page tab-master-page">
-    <TopBar />
+    <TopBar :title="t('page_hero_master_title') || '团长专属二期大厅'" />
     <view id="tabMaster" class="tab-page active">
       <view class="master-festive-bg" aria-hidden="true">
         <view class="master-glow master-glow--a" />
@@ -12,9 +12,6 @@
 
       <view class="master-page-inner">
         <view class="master-hero">
-          <view class="page-hero-title master-hero-title">
-            {{ t('page_hero_master_title') || '团长专属二期大厅' }}
-          </view>
           <view class="master-hero-sub">
             {{ t('page_hero_master_sub') || '荣誉天梯明牌奖励 · 7天星火暴击 · 战队催活雷达' }}
           </view>
@@ -302,7 +299,10 @@ function goHome() {
 }
 
 function goExchange() {
-  uni.switchTab({ url: '/pages/exchange/exchange' })
+  uni.navigateTo({
+    url: '/pages/exchange/exchange',
+    fail: () => uni.reLaunch({ url: '/pages/exchange/exchange' }),
+  })
 }
 
 async function onCopyPromo() {

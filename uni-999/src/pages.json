@@ -24,7 +24,21 @@
     {
       "path": "pages/home/home",
       "style": {
-        "navigationBarTitleText": "大厅",
+        "navigationBarTitleText": "红宝",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/home/game-detail",
+      "style": {
+        "navigationBarTitleText": "游戏详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/community/community",
+      "style": {
+        "navigationBarTitleText": "社群",
         "navigationStyle": "custom"
       }
     },
@@ -38,7 +52,21 @@
     {
       "path": "pages/messages/messages",
       "style": {
-        "navigationBarTitleText": "红宝",
+        "navigationBarTitleText": "消息",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/notice/notice",
+      "style": {
+        "navigationBarTitleText": "公告",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/commission/commission",
+      "style": {
+        "navigationBarTitleText": "佣金",
         "navigationStyle": "custom"
       }
     },
@@ -129,7 +157,7 @@
     {
       "path": "pages/wallet/rp-detail",
       "style": {
-        "navigationBarTitleText": "红包详情",
+        "navigationBarTitleText": "红宝详情",
         "navigationStyle": "custom"
       }
     },
@@ -171,7 +199,7 @@
     {
       "path": "pages/yxx/hall",
       "style": {
-        "navigationBarTitleText": "鱼虾蟹",
+        "navigationBarTitleText": "红宝大厅",
         "navigationStyle": "custom",
         "disableScroll": true,
         "app-plus": {
@@ -258,19 +286,19 @@
     "list": [
       {
         "pagePath": "pages/home/home",
-        "text": "大厅",
+        "text": "红宝",
         "iconPath": "static/tab/home.png",
         "selectedIconPath": "static/tab/home.png"
       },
       {
-        "pagePath": "pages/exchange/exchange",
-        "text": "闪兑",
-        "iconPath": "static/tab/exchange.png",
-        "selectedIconPath": "static/tab/exchange.png"
+        "pagePath": "pages/community/community",
+        "text": "社群",
+        "iconPath": "static/tab/community.png",
+        "selectedIconPath": "static/tab/community.png"
       },
       {
         "pagePath": "pages/messages/messages",
-        "text": "红宝",
+        "text": "消息",
         "iconPath": "static/tab/hongbao.png",
         "selectedIconPath": "static/tab/hongbao.png"
       },

@@ -48,13 +48,13 @@ export function getSafeAreaInsets() {
   return { top, bottom, left, right }
 }
 
-/** 与 TopBar / App.vue 一致：窄屏 44，否则 48 */
+/** 与 TopBar / App.vue 一致：大厅同步加高（窄屏 60，否则 64） */
 export function getTopBarContentHeight() {
-  let bar = 48
+  let bar = 64
   try {
     const sys = uni.getSystemInfoSync() || {}
     const w = Number(sys.windowWidth) || 0
-    if (w > 0 && w <= 480) bar = 44
+    if (w > 0 && w <= 480) bar = 60
   } catch (e) {}
   return bar
 }

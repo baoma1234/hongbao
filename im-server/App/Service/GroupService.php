@@ -654,10 +654,11 @@ class GroupService
         return $out;
     }
 
-    public function joinOpenGroup($groupId, $userId)
+    public function joinOpenGroup($groupId, $userId, $inviteToken = '')
     {
         $groupId = (int)$groupId;
         $userId = (int)$userId;
+        $inviteToken = trim((string)$inviteToken);
         if ($groupId <= 0 || $userId <= 0) {
             throw new \InvalidArgumentException('invalid params');
         }
@@ -672,8 +673,9 @@ class GroupService
         $mode = (string)($group['privacy_mode'] ?? '');
         $isOpen = ($mode === 'open') || ($mode === '' && (int)($group['hide_member_list'] ?? 1) === 0);
         $isRecommend = $this->hasRecommendColumn() && (int)($group['is_recommend'] ?? 0) === 1;
-        // 开放群 或 官方推荐群 都可从「官方社群」加入
-        if (!$isOpen && !$isRecommend) {
+        $tokenOk = $inviteToken !== '' && $this->verifyGroupInviteToken($groupId, $inviteToken);
+        // 开放群 / 官方推荐群 / 有效进群链接 可加入
+        if (!$isOpen && !$isRecommend && !$tokenOk) {
             throw new \RuntimeException('private group');
         }
         $max = (int)($group['max_members'] ?? 0);
@@ -681,7 +683,7 @@ class GroupService
             $max = self::maxMembers();
         }
         // 推荐群展示人数常远高于历史 max_members(如500)，加群按配置上限放宽，避免“群已满”
-        if ($isRecommend) {
+        if ($isRecommend || $tokenOk) {
             $max = max($max, self::maxMembers());
         }
         $cnt = $this->realMemberCount($groupId, $group);
@@ -690,6 +692,47 @@ class GroupService
         }
         $this->addMembers($groupId, [$userId], 1);
         return $this->get($groupId);
+    }
+
+    /** 与 FansHubService::groupInviteToken 算法一致 */
+    public function verifyGroupInviteToken($groupId, $token)
+    {
+        $groupId = (int)$groupId;
+        $token = trim((string)$token);
+        if ($groupId <= 0 || $token === '') {
+            return false;
+        }
+        $expect = $this->groupInviteToken($groupId);
+        return $expect !== '' && hash_equals($expect, $token);
+    }
+
+    public function groupInviteToken($groupId)
+    {
+        $groupId = (int)$groupId;
+        if ($groupId <= 0) {
+            return '';
+        }
+        return substr(hash_hmac('sha256', 'group_invite:' . $groupId, $this->groupInviteSecret()), 0, 20);
+    }
+
+    protected function groupInviteSecret()
+    {
+        static $secret = null;
+        if ($secret !== null) {
+            return $secret;
+        }
+        $secret = 'fanshub-group-invite';
+        try {
+            $path = dirname(__DIR__, 3) . '/application/extra/fanshub.php';
+            if (is_file($path)) {
+                $cfg = include $path;
+                if (is_array($cfg) && !empty($cfg['api_sign_secret'])) {
+                    $secret = (string)$cfg['api_sign_secret'];
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+        return $secret;
     }
 
     /** 真实入群人数（优先成员表计数，避免 member_count 与展示人数脱节） */

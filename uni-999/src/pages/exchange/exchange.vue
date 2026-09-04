@@ -1,8 +1,7 @@
 <template>
   <view :key="pageKey">
-    <TopBar />
+    <TopBar :title="tt('page_hero_exchange_title', 'VIP 闪兑大厅')" />
     <view id="tabExchange" class="tab-page active">
-      <view class="page-hero-title">{{ tt('page_hero_exchange_title', '⚡ VIP 闪兑大厅') }}</view>
       <view class="exchange-closed-banner" v-if="!anyEnabled">
         {{ tt('profile_ex_r2b_closed', tt('alert_exchange_disabled', '股份兑换红宝已关闭')) }}
       </view>
@@ -90,7 +89,7 @@
         </view>
       </view>
     </view>
-    <BottomTabBar active="exchange" />
+    <BottomTabBar active="home" />
   </view>
 </template>
 

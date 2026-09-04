@@ -707,9 +707,10 @@ class Imagent extends Backend
         if ((int)$row['status'] !== 1) {
             $this->error('该消息无法撤回');
         }
+        $isPrivate = (int)($row['conversation_type'] ?? 0) === 1;
         Db::name('chat_messages')->where('id', $id)->update(['status' => 2]);
         $row['status'] = 2;
-        $row['content'] = '[已撤回]';
+        $row['content'] = $isPrivate ? '[已删除]' : '[已撤回]';
         $payload = $this->formatMessage($row);
         $this->publishImNotify('message.recalled', $payload, false);
         $this->publishImNotify('message.recalled', $payload, true);
@@ -763,10 +764,24 @@ class Imagent extends Backend
             }
             Db::name('chat_messages')->where('id', $id)->update($data);
             $fresh = Db::name('chat_messages')->where('id', $id)->find();
-            $this->success('已保存', null, $this->formatMessage($fresh, $this->usersMap([
+            $payload = $this->formatMessage($fresh, $this->usersMap([
                 (int)$fresh['from_user_id'],
                 (int)$fresh['to_user_id'],
-            ])));
+            ]));
+            $st = (int)($payload['status'] ?? 1);
+            if ($st === 2) {
+                $isPrivate = (int)($payload['conversation_type'] ?? 0) === 1;
+                $payload['content'] = $isPrivate ? '[已删除]' : '[已撤回]';
+                $this->publishImNotify('message.recalled', $payload, false);
+                $this->publishImNotify('message.recalled', $payload, true);
+            } elseif ($st === 3) {
+                $this->publishImNotify('message.deleted', $payload, false);
+                $this->publishImNotify('message.deleted', $payload, true);
+            } else {
+                $this->publishImNotify('message.edited', $payload, false);
+                $this->publishImNotify('message.edited', $payload, true);
+            }
+            $this->success('已保存', null, $payload);
         }
         $this->view->assign('row', $row);
         return $this->view->fetch();
@@ -789,7 +804,18 @@ class Imagent extends Backend
         if (!$idList) {
             $this->error('请选择消息');
         }
+        $rows = Db::name('chat_messages')->where('id', 'in', $idList)->select();
         $n = Db::name('chat_messages')->where('id', 'in', $idList)->update(['status' => 3]);
+        foreach ($rows ?: [] as $row) {
+            $row = is_array($row) ? $row : (array)$row;
+            $row['status'] = 3;
+            $payload = $this->formatMessage($row, $this->usersMap([
+                (int)$row['from_user_id'],
+                (int)$row['to_user_id'],
+            ]));
+            $this->publishImNotify('message.deleted', $payload, false);
+            $this->publishImNotify('message.deleted', $payload, true);
+        }
         $this->success('已删除 ' . $n . ' 条', null, ['count' => $n]);
     }
 
@@ -811,6 +837,15 @@ class Imagent extends Backend
             $this->error('请选择消息');
         }
         $n = Db::name('chat_messages')->where('id', 'in', $idList)->update(['status' => 1]);
+        $rows = Db::name('chat_messages')->where('id', 'in', $idList)->select();
+        foreach ($rows ?: [] as $row) {
+            $payload = $this->formatMessage($row, $this->usersMap([
+                (int)$row['from_user_id'],
+                (int)$row['to_user_id'],
+            ]));
+            $this->publishImNotify('message.restored', $payload, false);
+            $this->publishImNotify('message.restored', $payload, true);
+        }
         $this->success('已恢复 ' . $n . ' 条', null, ['count' => $n]);
     }
 

@@ -18,7 +18,7 @@ use think\Validate;
  */
 class Fanshub extends Api
 {
-    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'tgauth', 'tgbind', 'tgsendsms', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail', 'yxxhall', 'yxxtick', 'yxxfair', 'yxxgroupdissolve'];
+    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'tgauth', 'tgbind', 'tgsendsms', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail', 'fissionclaims', 'yxxhall', 'yxxtick', 'yxxfair', 'yxxgroupdissolve'];
     protected $noNeedRight = '*';
 
     public function _initialize()
@@ -26,7 +26,7 @@ class Fanshub extends Api
         FansHubSms::boot();
         parent::_initialize();
         $action = strtolower($this->request->action());
-        $exempt = ['config', 'bootstrap', 'comments', 'inviteleaderboard', 'slidercaptcha', 'grabslider', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail', 'yxxhall', 'yxxtick', 'yxxfair', 'yxxgroupdissolve', 'tgauth', 'tgbind', 'tgsendsms'];
+        $exempt = ['config', 'bootstrap', 'comments', 'inviteleaderboard', 'slidercaptcha', 'grabslider', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail', 'fissionclaims', 'yxxhall', 'yxxtick', 'yxxfair', 'yxxgroupdissolve', 'tgauth', 'tgbind', 'tgsendsms'];
         if (in_array($action, $exempt, true)) {
             return;
         }
@@ -1394,13 +1394,56 @@ class Fanshub extends Api
 
     /**
      * 裂变红包：开奖后逐份拆红包领取（需登录）
-     * POST /api/fanshub/fissionclaim  body: qual_id? 
+     * POST /api/fanshub/fissionclaim  body: qual_id?
      */
     public function fissionclaim()
     {
         try {
             $qualId = (int)$this->request->post('qual_id', 0);
             $this->success('ok', \app\common\library\FansHubFission::claim((int)$this->auth->id, $qualId));
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: FansHubService::h5CopyText('api_operation_fail'));
+        }
+    }
+
+    /**
+     * 裂变红包：奖金池领取记录（可匿名）
+     * GET /api/fanshub/fissionclaims?activity_id=
+     */
+    public function fissionclaims()
+    {
+        try {
+            $aid = (int)$this->request->get('activity_id', $this->request->post('activity_id', 0));
+            $this->success('ok', \app\common\library\FansHubFission::claimsPayload($aid));
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: FansHubService::h5CopyText('api_operation_fail'));
+        }
+    }
+
+    /**
+     * 生成群进群链接（需登录且为群成员）
+     * POST /api/fanshub/groupinvitelink  body: group_id
+     */
+    public function groupinvitelink()
+    {
+        try {
+            $gid = (int)$this->request->post('group_id', 0);
+            if ($gid <= 0) {
+                $this->error('无效群组');
+            }
+            $url = FansHubService::buildGroupInviteUrl($gid);
+            if ($url === '') {
+                $this->error('无法生成链接');
+            }
+            $this->success('ok', [
+                'group_id' => $gid,
+                'join_url' => $url,
+                'token'    => FansHubService::groupInviteToken($gid),
+            ]);
         } catch (HttpResponseException $e) {
             throw $e;
         } catch (\Throwable $e) {

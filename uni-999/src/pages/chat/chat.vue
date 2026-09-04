@@ -1,15 +1,20 @@
 <template>
   <view class="chat-room-page" :style="roomSafeStyle">
-    <TopBar />
     <view class="chat-room-pane open">
-      <view class="chat-hero-hd">
-        <view class="chat-hero-back" hover-class="chat-hero-back--active" @click="goBack">
+      <view class="chat-hero-hd chat-hero-hd--bar-actions chat-hero-hd--qq-nav">
+        <view class="chat-hero-back" hover-class="chat-hero-back--active" @click="onHeroBack">
           <text class="chat-hero-back-char">‹</text>
         </view>
-        <view class="chat-hero-title chat-room-title">{{ title }}</view>
-        <view class="chat-hero-more" hover-class="chat-hero-back--active" @click="openMore">
+        <text class="chat-hero-title chat-hero-title--qq">{{ heroTitleText }}</text>
+        <view
+          v-if="!detailVisible"
+          class="chat-hero-more"
+          hover-class="chat-hero-back--active"
+          @click="openMore"
+        >
           <text class="chat-hero-back-char">···</text>
         </view>
+        <view v-else class="chat-hero-more chat-hero-more--spacer" aria-hidden="true" />
       </view>
 
       <view class="chat-room-main">
@@ -328,7 +333,7 @@
               @focus="onInputFocus"
             />
             <view
-              v-if="attachAllowed"
+              v-if="attachAllowed && !hasComposerText"
               id="chatAttachBtn"
               class="btn-plus"
               :class="{ active: showAttach }"
@@ -337,9 +342,13 @@
               <text class="chat-tool-glyph chat-tool-glyph--plus" aria-hidden="true">＋</text>
             </view>
             <view
+              v-if="hasComposerText || !attachAllowed"
               id="chatSendBtn"
               class="chat-send-btn"
-              :class="{ disabled: composerLocked || !canCap('text') }"
+              :class="{
+                'chat-send-btn--qq': hasComposerText,
+                disabled: composerLocked || !canCap('text'),
+              }"
               @click="sendText"
             >发送</view>
           </view>
@@ -640,21 +649,14 @@
       </view>
     </view>
 
-    <!-- 红包详情：对齐 888 #chatRpDetailPane -->
+    <!-- 红包详情：对齐 888 #chatRpDetailPane（顶栏复用 QQ nav） -->
     <view
       v-if="detailVisible"
       id="chatRpDetailPane"
-      class="chat-sub-pane open chat-detail-overlay"
+      class="chat-sub-pane open chat-detail-overlay chat-detail-overlay--no-hero"
       aria-hidden="false"
       :style="appSubPaneStyle"
     >
-      <view class="chat-hero-hd">
-        <view class="chat-hero-back" hover-class="chat-hero-back--active" @click="closeRpDetail">
-          <text class="chat-hero-back-char">‹</text>
-        </view>
-        <view class="chat-hero-title">红包详情</view>
-        <view class="chat-hero-spacer" />
-      </view>
       <view class="chat-sub-main">
         <view id="chatRpDetailBody">
           <view
@@ -777,12 +779,12 @@
 import { computed, nextTick, reactive, ref } from 'vue'
 import { onLoad, onShow, onUnload } from '@dcloudio/uni-app'
 import GrabSlider from '../../components/GrabSlider.vue'
-import TopBar from '../../components/TopBar.vue'
 import ChatNiuniuCard from '../../components/ChatNiuniuCard.vue'
 import '../../styles/chat.bundle.css'
 import '../../styles/chat-room-uni-adapter.css'
 import '../../styles/chat-rp-send-uni-adapter.css'
 import '../../styles/chat-888-parity.css'
+import '../../styles/chat-qq-theme.css'
 import { apiRequest, fetchProfile, getToken, goLoginIfUnauthorized, uploadSticker } from '../../utils/auth.js'
 import { getApiBase, getImgBase, learnUploadCdnFromUrl, ensureAbsoluteHttpUrl, packagedStaticUrl, resolveStaticRequestUrl } from '../../utils/config.js'
 import { assetBase, applyServerCopy, copyState, localeState, tt } from '../../utils/i18n.js'
@@ -840,6 +842,7 @@ const title = ref('聊天')
 const peerNickname = ref('')
 const remark = ref('')
 const text = ref('')
+const hasComposerText = computed(() => String(text.value || '').trim().length > 0)
 const messages = ref([])
 /** 渲染窗口：默认只画最近 N 条；点「查看更早」先扩本地，并继续 before_id 拉库 */
 const MSG_RENDER_CAP = 40
@@ -1039,6 +1042,10 @@ const grabbing = ref(false)
 const detailVisible = ref(false)
 const detail = ref(null)
 const grabErrorTip = ref('')
+const heroTitleText = computed(() => {
+  if (detailVisible.value) return '红宝详情'
+  return title.value || '聊天'
+})
 const moreVisible = ref(false)
 const myGrabAmount = ref('')
 const canGrabDetail = ref(false)
@@ -2376,11 +2383,66 @@ function applyRecalled(msg) {
   const id = String(msg.id || msg.msg_id || '')
   if (!id) return
   const list = messages.value.slice()
-  const idx = list.findIndex((x) => String(x.id || x.msg_id) === id)
+  const idx = list.findIndex((x) => {
+    const a = String(x.id || '')
+    const b = String(x.msg_id || '')
+    return (a && a === id) || (b && b === id) || String(x.id || x.msg_id) === id
+  })
   if (idx >= 0) {
     list[idx] = Object.assign({}, list[idx], msg, { status: 2 })
     messages.value = list
   }
+}
+
+function applyEdited(msg) {
+  if (!msg || !sameRoom(msg)) return
+  const id = String(msg.id || msg.msg_id || '')
+  if (!id) return
+  const list = messages.value.slice()
+  const idx = list.findIndex((x) => {
+    const a = String(x.id || '')
+    const b = String(x.msg_id || '')
+    return (a && a === id) || (b && b === id) || String(x.id || x.msg_id) === id
+  })
+  if (idx >= 0) {
+    list[idx] = Object.assign({}, list[idx], msg, {
+      status: (msg.status | 0) || 1,
+      content: msg.content != null ? msg.content : list[idx].content,
+    })
+    messages.value = list
+  }
+}
+
+function applyDeleted(msg) {
+  if (!msg || !sameRoom(msg)) return
+  const id = String(msg.id || msg.msg_id || '')
+  if (!id) return
+  messages.value = messages.value.filter((x) => {
+    const a = String(x.id || '')
+    const b = String(x.msg_id || '')
+    if (a && a === id) return false
+    if (b && b === id) return false
+    return String(x.id || x.msg_id) !== id
+  })
+}
+
+function applyRestored(msg) {
+  if (!msg || !sameRoom(msg)) return
+  const id = String(msg.id || msg.msg_id || '')
+  if (!id) return
+  const list = messages.value.slice()
+  const idx = list.findIndex((x) => {
+    const a = String(x.id || '')
+    const b = String(x.msg_id || '')
+    return (a && a === id) || (b && b === id) || String(x.id || x.msg_id) === id
+  })
+  if (idx >= 0) {
+    list[idx] = Object.assign({}, list[idx], msg, { status: 1 })
+    messages.value = list
+    return
+  }
+  // 本地没有则插入（按 id 排序靠后）
+  appendLocalMessage(Object.assign({}, msg, { status: 1 }))
 }
 
 function canRecallLocal(m) {
@@ -3265,6 +3327,14 @@ async function goBack() {
   safeNavigateBack(HOME_TAB)
 }
 
+function onHeroBack() {
+  if (detailVisible.value) {
+    closeRpDetail()
+    return
+  }
+  goBack()
+}
+
 function openMore() {
   if (isPrivate.value) {
     moreVisible.value = true
@@ -3335,9 +3405,30 @@ async function fetchHistory(opts) {
     map.set(String(msgId(m)), m)
   })
   incoming.forEach((m) => {
-    map.set(String(msgId(m)), normalizeMessage(m))
+    const key = String(msgId(m))
+    const next = normalizeMessage(m)
+    const ns = (next.status | 0) || 1
+    if (ns === 3) {
+      map.delete(key)
+      return
+    }
+    const prev = map.get(key)
+    if (!prev) {
+      map.set(key, next)
+      return
+    }
+    const ps = (prev.status | 0) || 1
+    // 本地已撤回：勿被脏 Redis（仍 status=1）盖回
+    if (ps === 2 && ns === 1) {
+      map.set(key, Object.assign({}, next, { status: 2, content: prev.content || next.content }))
+      return
+    }
+    // 服务端状态更高或内容更新 → 覆盖
+    map.set(key, Object.assign({}, prev, next))
   })
-  const merged = Array.from(map.values()).sort((a, b) => {
+  const merged = Array.from(map.values())
+    .filter((m) => ((m.status | 0) || 1) !== 3)
+    .sort((a, b) => {
     const ai = (a.id | 0) || 0
     const bi = (b.id | 0) || 0
     if (ai && bi && ai !== bi) return ai - bi
@@ -4544,6 +4635,21 @@ onLoad(async (query) => {
       applyRecalled(msg)
       return
     }
+    if (type === 'message.edited') {
+      const msg = (data && data.message) || data
+      applyEdited(msg)
+      return
+    }
+    if (type === 'message.deleted') {
+      const msg = (data && data.message) || data
+      applyDeleted(msg)
+      return
+    }
+    if (type === 'message.restored') {
+      const msg = (data && data.message) || data
+      applyRestored(msg)
+      return
+    }
     if (type === 'redpacket.update') {
       const ok = applyRedPacketUpdateLocal(data)
       // 结算/开奖等立即事件若本地未命中消息，再兜底拉一次
@@ -4653,6 +4759,18 @@ function closeRpDetail() {
   border-top-right-radius: 0 !important;
 }
 /* #endif */
+
+/* 红宝详情复用 QQ 顶栏：去掉内嵌 hero，占位与 more 同宽 */
+.chat-room-page .chat-hero-more--spacer {
+  width: 44px !important;
+  height: 44px !important;
+  flex-shrink: 0 !important;
+  pointer-events: none !important;
+}
+.chat-room-page #chatRpDetailPane.chat-detail-overlay--no-hero .chat-sub-main {
+  margin-top: 0 !important;
+  border-radius: 0 !important;
+}
 </style>
 
 <style scoped>

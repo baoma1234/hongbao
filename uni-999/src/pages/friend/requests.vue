@@ -1,11 +1,10 @@
-﻿<template>
+<template>
   <view class="chat-shell chat-friend-page">
-    <TopBar />
-    <view class="chat-hero-hd">
+    <TopBar title="好友申请" />
+    <view class="chat-hero-hd chat-hero-hd--bar-actions">
       <view class="chat-hero-back" @click="goBack">
           <text class="chat-hero-back-char">‹</text>
         </view>
-      <view class="chat-hero-title">好友申请</view>
       <view class="chat-hero-spacer" />
     </view>
 

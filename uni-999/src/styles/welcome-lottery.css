@@ -1,0 +1,404 @@
+/* Welcome lottery overlay — extracted from home.css */
+
+.welcome-lottery-mask {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 12000;
+    background:
+        radial-gradient(ellipse at 50% 28%, rgba(255, 193, 7, 0.42) 0%, transparent 48%),
+        radial-gradient(circle at 50% 70%, rgba(255, 140, 0, 0.22) 0%, transparent 55%),
+        rgba(8, 6, 4, 0.94);
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    overflow: hidden;
+}
+.welcome-lottery-mask.show { display: flex; animation: wlMaskIn 0.35s ease; }
+@keyframes wlMaskIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+.welcome-lottery-aura {
+    position: absolute;
+    width: 300px;
+    height: 300px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 215, 64, 0.55) 0%, rgba(255, 152, 0, 0.18) 45%, transparent 72%);
+    filter: blur(6px);
+    animation: wlAuraPulse 3.2s ease-in-out infinite;
+    pointer-events: none;
+}
+@keyframes wlAuraPulse {
+    0%, 100% { transform: scale(0.85); opacity: 0.55; }
+    50% { transform: scale(1.2); opacity: 1; }
+}
+.welcome-lottery-panel {
+    width: min(92vw, 360px);
+    text-align: center;
+    padding: 26px 22px 22px;
+    border-radius: 22px;
+    background:
+        linear-gradient(165deg, rgba(255, 213, 79, 0.28) 0%, transparent 34%),
+        linear-gradient(160deg, #2a1f10 0%, #1a1208 42%, #120e08 100%);
+    border: 1.5px solid rgba(255, 213, 79, 0.85);
+    box-shadow:
+        0 24px 60px rgba(0, 0, 0, 0.65),
+        0 0 40px rgba(255, 193, 7, 0.25),
+        0 0 0 1px rgba(255, 236, 179, 0.2) inset,
+        0 1px 0 rgba(255, 248, 200, 0.55) inset;
+    position: relative;
+    overflow: hidden;
+    animation: wlPanelIn 0.55s cubic-bezier(0.2, 0.85, 0.25, 1);
+}
+@keyframes wlPanelIn {
+    from { opacity: 0; transform: translateY(28px) scale(0.92); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.welcome-lottery-shine {
+    position: absolute;
+    inset: -40% -60%;
+    background: linear-gradient(115deg, transparent 35%, rgba(255, 248, 200, 0.28) 50%, transparent 65%);
+    animation: wlShineSweep 4.5s ease-in-out infinite;
+    pointer-events: none;
+}
+@keyframes wlShineSweep {
+    0% { transform: translateX(-30%) rotate(12deg); }
+    100% { transform: translateX(40%) rotate(12deg); }
+}
+.welcome-lottery-eyebrow {
+    position: relative;
+    z-index: 1;
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #FFECB3;
+    border: 1px solid rgba(255, 213, 79, 0.75);
+    border-radius: 999px;
+    padding: 4px 12px;
+    margin-bottom: 10px;
+    background: linear-gradient(135deg, rgba(255, 193, 7, 0.35), rgba(255, 152, 0, 0.22));
+    text-shadow: 0 0 8px rgba(255, 200, 80, 0.5);
+}
+.welcome-lottery-title {
+    position: relative;
+    z-index: 1;
+    font-size: 20px;
+    font-weight: 900;
+    color: #FFE566;
+    margin-bottom: 4px;
+    letter-spacing: 1.5px;
+    text-shadow: 0 0 22px rgba(255, 215, 0, 0.65), 0 2px 0 rgba(120, 70, 0, 0.45);
+    font-family: "Songti SC", "STSong", "Noto Serif SC", Georgia, serif;
+}
+.welcome-lottery-subtitle {
+    position: relative;
+    z-index: 1;
+    font-size: 11px;
+    color: rgba(255, 236, 179, 0.92);
+    margin-bottom: 18px;
+    letter-spacing: 0.4px;
+}
+.welcome-lottery-chest-wrap {
+    position: relative;
+    z-index: 1;
+    width: 168px;
+    height: 168px;
+    margin: 0 auto 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.wl-ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255, 213, 79, 0.65);
+    pointer-events: none;
+}
+.wl-ring-a {
+    width: 148px;
+    height: 148px;
+    animation: wlRingSpin 10s linear infinite;
+    border-style: dashed;
+    box-shadow: 0 0 18px rgba(255, 193, 7, 0.35);
+}
+.wl-ring-b {
+    width: 168px;
+    height: 168px;
+    border-color: rgba(255, 224, 130, 0.45);
+    animation: wlRingSpin 16s linear infinite reverse;
+    box-shadow: 0 0 30px rgba(255, 193, 7, 0.28);
+}
+@keyframes wlRingSpin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+.welcome-lottery-chest {
+    position: relative;
+    width: 112px;
+    height: 112px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    outline: none;
+    background:
+        radial-gradient(circle at 50% 22%, rgba(255, 236, 179, 0.55) 0%, transparent 48%),
+        linear-gradient(155deg, #5D4037 0%, #3E2723 40%, #1A0E08 100%);
+    border: 2.5px solid #FFD54F;
+    box-shadow:
+        0 12px 32px rgba(0, 0, 0, 0.45),
+        0 0 0 4px rgba(255, 193, 7, 0.28),
+        0 0 36px rgba(255, 193, 7, 0.55),
+        inset 0 1px 0 rgba(255, 248, 225, 0.55);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    user-select: none;
+    animation: wlChestSway 2.6s ease-in-out infinite;
+}
+@keyframes wlChestSway {
+    0%, 55%, 100% { transform: rotate(0deg) translateY(0); }
+    8%  { transform: rotate(-12deg) translateY(-2px); }
+    16% { transform: rotate(12deg) translateY(-3px); }
+    24% { transform: rotate(-10deg) translateY(-2px); }
+    32% { transform: rotate(9deg) translateY(-4px); }
+    40% { transform: rotate(-5deg) translateY(-1px); }
+    48% { transform: rotate(3deg) translateY(-2px); }
+}
+.welcome-lottery-chest:hover,
+.welcome-lottery-chest:focus-visible {
+    animation: none;
+    transform: translateY(-4px) scale(1.03) rotate(0deg);
+    box-shadow:
+        0 16px 36px rgba(0, 0, 0, 0.5),
+        0 0 0 5px rgba(255, 213, 79, 0.4),
+        0 0 48px rgba(255, 215, 0, 0.7),
+        inset 0 1px 0 rgba(255, 248, 225, 0.65);
+}
+.welcome-lottery-chest:active { transform: scale(0.96) rotate(0deg); }
+.wl-chest-body {
+    position: relative;
+    width: 72px;
+    height: 58px;
+    border-radius: 8px 8px 10px 10px;
+    background: linear-gradient(180deg, #6D4C41 0%, #3E2723 55%, #1B1008 100%);
+    border: 2px solid #FFC107;
+    box-shadow: inset 0 8px 14px rgba(255, 236, 179, 0.22), 0 0 12px rgba(255, 193, 7, 0.35);
+}
+.wl-chest-lid {
+    position: absolute;
+    left: -3px;
+    right: -3px;
+    top: -18px;
+    height: 26px;
+    border-radius: 10px 10px 4px 4px;
+    background: linear-gradient(180deg, #FFB300 0%, #FF8F00 45%, #E65100 100%);
+    border: 2px solid #FFE082;
+    transform-origin: bottom center;
+    transition: transform 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.15);
+    box-shadow: 0 -2px 14px rgba(255, 193, 7, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+.wl-chest-lid::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 6px;
+    width: 24px;
+    height: 6px;
+    transform: translateX(-50%);
+    border-radius: 3px;
+    background: linear-gradient(90deg, #FF6F00, #FFF59D, #FFD54F, #FF6F00);
+    box-shadow: 0 0 8px rgba(255, 235, 59, 0.8);
+}
+.wl-chest-lock {
+    position: absolute;
+    left: 50%;
+    top: 14px;
+    transform: translateX(-50%);
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: #3E2723;
+    font-weight: 900;
+    background: radial-gradient(circle at 35% 30%, #FFFDE7, #FFEB3B 40%, #FFC107 70%, #FF8F00);
+    box-shadow: 0 0 16px rgba(255, 235, 59, 0.9), 0 0 4px #FFD54F;
+    z-index: 2;
+}
+.wl-chest-glow {
+    position: absolute;
+    inset: 8px 10px auto;
+    height: 12px;
+    border-radius: 50%;
+    background: rgba(255, 236, 179, 0.55);
+    filter: blur(4px);
+    animation: wlInnerGlow 1.8s ease-in-out infinite;
+}
+@keyframes wlInnerGlow {
+    0%, 100% { opacity: 0.45; }
+    50% { opacity: 1; }
+}
+.wl-sparkles {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+.wl-sparkles i {
+    position: absolute;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #FFF59D;
+    box-shadow: 0 0 12px #FFEB3B, 0 0 4px #FFF;
+    animation: wlSparkle 2.4s ease-in-out infinite;
+    opacity: 0;
+}
+.wl-sparkles i:nth-child(1) { top: 12%; left: 18%; animation-delay: 0s; }
+.wl-sparkles i:nth-child(2) { top: 20%; right: 14%; animation-delay: 0.4s; }
+.wl-sparkles i:nth-child(3) { bottom: 22%; left: 12%; animation-delay: 0.8s; }
+.wl-sparkles i:nth-child(4) { bottom: 16%; right: 18%; animation-delay: 1.2s; }
+.wl-sparkles i:nth-child(5) { top: 46%; left: 6%; animation-delay: 0.2s; }
+.wl-sparkles i:nth-child(6) { top: 50%; right: 6%; animation-delay: 1s; }
+@keyframes wlSparkle {
+    0%, 100% { opacity: 0; transform: scale(0.4); }
+    40% { opacity: 1; transform: scale(1.35); }
+    70% { opacity: 0.5; transform: scale(0.75); }
+}
+.welcome-lottery-chest.shaking {
+    animation: lotteryChestShake 0.11s linear infinite !important;
+}
+@keyframes lotteryChestShake {
+    0% { transform: rotate(0deg) scale(1); }
+    25% { transform: rotate(-10deg) scale(1.05); }
+    50% { transform: rotate(10deg) scale(1.03); }
+    75% { transform: rotate(-7deg) scale(1.06); }
+    100% { transform: rotate(0deg) scale(1); }
+}
+.welcome-lottery-chest.opened {
+    animation: none !important;
+    transform: scale(1.06) rotate(0deg);
+    box-shadow:
+        0 16px 40px rgba(0, 0, 0, 0.5),
+        0 0 0 5px rgba(255, 213, 79, 0.45),
+        0 0 60px rgba(255, 235, 59, 0.85),
+        inset 0 1px 0 rgba(255, 248, 225, 0.7);
+}
+.welcome-lottery-chest.opened .wl-chest-lid {
+    transform: rotateX(-78deg) translateY(-6px);
+}
+.welcome-lottery-chest.opened .wl-chest-lock {
+    opacity: 0.35;
+    transform: translateX(-50%) scale(0.8);
+}
+.wl-burst {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    background:
+        radial-gradient(circle, rgba(255, 235, 59, 0.75) 0%, transparent 55%),
+        conic-gradient(from 0deg, transparent, rgba(255, 193, 7, 0.55), transparent 30%, rgba(255, 235, 59, 0.4), transparent 60%, rgba(255, 152, 0, 0.5), transparent);
+    border-radius: 50%;
+}
+.wl-burst.show {
+    animation: wlBurstFlash 0.7s ease-out forwards;
+}
+@keyframes wlBurstFlash {
+    0% { opacity: 0; transform: scale(0.4); }
+    35% { opacity: 1; transform: scale(1.15); }
+    100% { opacity: 0; transform: scale(1.55); }
+}
+.welcome-lottery-shares {
+    position: relative;
+    z-index: 1;
+    font-size: 13px;
+    font-weight: 800;
+    color: #FFE082;
+    margin-bottom: 4px;
+    letter-spacing: 1px;
+    text-shadow: 0 0 10px rgba(255, 193, 7, 0.45);
+}
+.welcome-lottery-price {
+    position: relative;
+    z-index: 1;
+    font-size: 34px;
+    font-weight: 900;
+    color: #FFFDE7;
+    margin-bottom: 10px;
+    font-family: "DIN Alternate", "Helvetica Neue", Arial Black, Impact, sans-serif;
+    text-shadow: 0 0 24px rgba(255, 235, 59, 0.7), 0 2px 0 rgba(120, 60, 0, 0.4);
+    min-height: 40px;
+    letter-spacing: 0.5px;
+}
+.welcome-lottery-price.revealed {
+    animation: wlPriceReveal 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+    color: #FFEB3B;
+}
+@keyframes wlPriceReveal {
+    0% { transform: scale(0.6); opacity: 0.2; filter: blur(4px); }
+    60% { transform: scale(1.12); opacity: 1; filter: blur(0); }
+    100% { transform: scale(1); }
+}
+.welcome-lottery-hint {
+    position: relative;
+    z-index: 1;
+    font-size: 12px;
+    color: #FFF8E1;
+    line-height: 1.5;
+    margin-bottom: 16px;
+}
+.welcome-lottery-hint.pulse {
+    animation: wlHintPulse 1.4s ease-in-out infinite;
+}
+@keyframes wlHintPulse {
+    0%, 100% { opacity: 0.75; }
+    50% { opacity: 1; text-shadow: 0 0 12px rgba(255, 235, 59, 0.55); }
+}
+.welcome-lottery-close-btn {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    border: none;
+    padding: 13px 16px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
+    background: linear-gradient(135deg, #FFF59D 0%, #FFD54F 35%, #FFB300 70%, #FF8F00 100%);
+    color: #3E2723;
+    box-shadow: 0 6px 20px rgba(255, 193, 7, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.55);
+    transition: opacity 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+    letter-spacing: 0.5px;
+}
+.welcome-lottery-close-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    box-shadow: none;
+    filter: grayscale(0.15);
+}
+.welcome-lottery-close-btn:not(:disabled):hover {
+    box-shadow: 0 8px 26px rgba(255, 193, 7, 0.75);
+}
+.welcome-lottery-close-btn:not(:disabled):active {
+    transform: scale(0.98);
+}
+@media (prefers-reduced-motion: reduce) {
+    .welcome-lottery-mask.show,
+    .welcome-lottery-panel,
+    .welcome-lottery-aura,
+    .welcome-lottery-shine,
+    .wl-ring-a, .wl-ring-b,
+    .welcome-lottery-chest,
+    .wl-sparkles i,
+    .wl-chest-glow,
+    .welcome-lottery-hint.pulse,
+    .welcome-lottery-price.revealed,
+    .wl-burst.show {
+        animation: none !important;
+    }
+}

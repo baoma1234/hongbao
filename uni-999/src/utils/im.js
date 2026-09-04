@@ -638,8 +638,11 @@ export function listMyGroups() {
   return imSend('group.list', {}, true)
 }
 
-export function joinGroup(groupId) {
-  return imSend('group.join', { group_id: groupId | 0 }, true)
+export function joinGroup(groupId, inviteToken = '') {
+  const body = { group_id: groupId | 0 }
+  const t = String(inviteToken || '').trim()
+  if (t) body.invite_token = t
+  return imSend('group.join', body, true)
 }
 
 export function listFriends() {

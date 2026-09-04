@@ -1,12 +1,13 @@
-﻿<template>
-  <view class="chat-group-settings-page">
-    <TopBar />
-    <view class="chat-hero-hd">
-      <view class="chat-hero-back" @click="goBack">
-          <text class="chat-hero-back-char">‹</text>
-        </view>
-      <view class="chat-hero-title">群设置</view>
-      <view class="chat-hero-spacer" />
+<template>
+  <view class="chat-group-settings-page chat-group-settings-page--qq">
+    <view class="chat-hero-hd chat-hero-hd--bar-actions chat-hero-hd--qq-nav" :style="qqNavPadStyle">
+      <view class="chat-hero-back" hover-class="chat-hero-back--active" @click="goBack">
+        <text class="chat-hero-back-char">‹</text>
+      </view>
+      <text class="chat-hero-title chat-hero-title--qq">{{ settingsBarTitle }}</text>
+      <view class="chat-hero-more" style="opacity:0;pointer-events:none">
+        <text class="chat-hero-back-char">···</text>
+      </view>
     </view>
 
     <scroll-view scroll-y class="chat-sub-main" :show-scrollbar="true">
@@ -48,6 +49,10 @@
 
       <view v-if="canEdit" class="chat-setting-row" @click="openAddMembers">
         <text>添加群成员</text>
+        <text class="chat-setting-arrow">›</text>
+      </view>
+      <view v-if="canEdit" class="chat-setting-row" @click="copyGroupInviteLink">
+        <text>复制进群链接</text>
         <text class="chat-setting-arrow">›</text>
       </view>
 
@@ -132,11 +137,10 @@
       :style="appOverlayStyle"
       aria-hidden="false"
     >
-      <view class="chat-hero-hd">
+      <view class="chat-hero-hd chat-hero-hd--bar-actions">
         <view class="chat-hero-back" @click="closeMembersPane">
           <text class="chat-hero-back-char">‹</text>
         </view>
-        <view class="chat-hero-title">群成员</view>
         <view class="chat-hero-spacer" />
       </view>
       <view class="chat-sub-main">
@@ -193,11 +197,10 @@
 
     <!-- 添加成员：对齐 888 invite pane -->
     <view v-if="addSheet" class="chat-group-invite-overlay" :style="appOverlayStyle" aria-hidden="false">
-      <view class="chat-hero-hd">
+      <view class="chat-hero-hd chat-hero-hd--bar-actions">
         <view class="chat-hero-back" @click="closeAddSheet">
           <text class="chat-hero-back-char">‹</text>
         </view>
-        <view class="chat-hero-title">添加群成员</view>
         <view class="chat-hero-spacer" />
       </view>
       <view class="chat-sub-main">
@@ -313,10 +316,10 @@
 import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
 import { computed, reactive, ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
-import TopBar from '../../components/TopBar.vue'
-import { fetchProfile, getToken, uploadCommonFile } from '../../utils/auth.js'
+import { fetchProfile, getToken, uploadCommonFile, apiRequest } from '../../utils/auth.js'
 import { avatarSrc } from '../../utils/chat.js'
-import { applySafeAreaCssVars, measureChatOverlayTop } from '../../utils/safe-area.js'
+import { copyText } from '../../utils/master.js'
+import { applySafeAreaCssVars, getSafeAreaInsets } from '../../utils/safe-area.js'
 import {
   addGroupMembers,
   fetchGroupInfo,
@@ -336,17 +339,23 @@ import {
 import { setGroupNotifyMuted } from '../../utils/group-notify-mute.js'
 import '../../styles/chat-group-settings.css'
 import '../../styles/chat-group-settings-parity.css'
+import '../../styles/chat-qq-theme.css'
 
 function goBack() {
   safeNavigateBack(HOME_TAB)
 }
 
+const qqNavPadStyle = computed(() => {
+  const top = Math.max(0, Number(getSafeAreaInsets().top || 0))
+  return { paddingTop: top + 6 + 'px' }
+})
+
 /** App 浮层：固定像素高度（部分 WebView 忽略 fixed+bottom:0，会只剩顶栏高度导致设置页透出来） */
 const appOverlayStyle = ref({})
 const memberListStyle = ref({})
 function refreshOverlayTop() {
-  const r = applySafeAreaCssVars()
-  const top = (r && r.overlayTop) || measureChatOverlayTop()
+  applySafeAreaCssVars()
+  const top = Math.max(0, Number(getSafeAreaInsets().top || 0)) + 50
   // #ifdef APP-PLUS
   let wh = 640
   try {
@@ -364,7 +373,7 @@ function refreshOverlayTop() {
     width: '100%',
     position: 'fixed',
     zIndex: 13100,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#ededed',
     display: 'flex',
     flexDirection: 'column',
     overflow: 'hidden',
@@ -415,6 +424,12 @@ const selectedIds = reactive({})
 const editNameVal = ref('')
 const editNoticeVal = ref('')
 const avatarBusy = ref(false)
+
+const settingsBarTitle = computed(() => {
+  if (addSheet.value) return '添加群成员'
+  if (membersPane.value) return '群成员'
+  return '群设置'
+})
 
 const forbidItems = [
   { key: 'text', label: '禁止发言' },
@@ -795,6 +810,22 @@ function closeAddSheet() {
   Object.keys(selectedIds).forEach((k) => {
     delete selectedIds[k]
   })
+}
+
+async function copyGroupInviteLink() {
+  if (!canEdit.value || !groupId.value) return
+  try {
+    const data = await apiRequest('groupinvitelink', 'POST', { group_id: groupId.value })
+    const link = String((data && data.join_url) || '')
+    if (!link) {
+      uni.showToast({ title: '生成失败', icon: 'none' })
+      return
+    }
+    await copyText(link)
+    uni.showToast({ title: '进群链接已复制', icon: 'none' })
+  } catch (e) {
+    uni.showToast({ title: (e && e.message) || '复制失败', icon: 'none' })
+  }
 }
 
 function reloadCandidates() {

@@ -1,11 +1,26 @@
 <template>
-  <view class="floating-top-bar" :style="barStyle">
+  <view class="floating-top-bar" :class="{ 'is-guest': !isLoggedIn }" :style="barStyle">
     <view class="brand" @click="goHome">
       <image class="logo" :src="logoSrc" mode="aspectFit" />
-      <text class="brand-text">{{ brand }}</text>
+      <view v-if="isLoggedIn" class="brand-meta">
+        <text v-if="nickText" class="nick">{{ nickText }}</text>
+        <view class="bal" hover-class="btn-hit" @click.stop="goRecharge">
+          <text class="bal-ico">¥</text>
+          <text class="bal-num">{{ balText }}</text>
+        </view>
+      </view>
     </view>
+
     <view class="actions">
-      <!-- 只用 @click：uni-app 会映射为 tap；再绑 @tap 会双触发导致开关立刻关闭 -->
+      <template v-if="isLoggedIn">
+        <view class="act-btn act-btn--recharge" hover-class="btn-hit" @click.stop="goRecharge">
+          <text>{{ rechargeLab }}</text>
+        </view>
+        <view class="act-btn act-btn--cs" hover-class="btn-hit" @click.stop="openCs">
+          <text>{{ csLab }}</text>
+        </view>
+      </template>
+      <!-- 语言：登录页也显示；登录后收紧放右侧 -->
       <view
         class="lang-wrap"
         hover-class="lang-wrap-hover"
@@ -17,15 +32,9 @@
         <text class="lang-text">{{ localeLabel }}</text>
         <text class="caret">▾</text>
       </view>
-      <view class="fission-btn" hover-class="fission-btn-hover" @click.stop="goFission">
-        <view class="fission-btn-glass" aria-hidden="true" />
-        <text class="fission-ico">🧧</text>
-        <text class="fission-lab">裂变红宝</text>
-      </view>
     </view>
   </view>
 
-  <!-- 面板/遮罩提到顶栏外，避免被顶栏 stacking / overflow 裁切或盖住 -->
   <view
     v-if="langOpen"
     class="lang-mask"
@@ -46,7 +55,6 @@
     </view>
   </view>
 
-  <!-- 四端统一：fixed 顶栏 + spacer 占位，滚动时顶栏不跟着走（H5/Safari/APK/IPA） -->
   <view v-if="!noSpacer" class="top-bar-spacer" :style="spacerStyle" />
 </template>
 
@@ -59,39 +67,38 @@ import {
   logoUrl,
   onLocaleChange,
   setLocale,
-  t,
+  tt,
 } from '../utils/i18n.js'
 import {
   applySafeAreaCssVars,
   getSafeAreaInsets,
   getTopBarContentHeight,
 } from '../utils/safe-area.js'
+import { fetchConfig, fetchProfile, getToken } from '../utils/auth.js'
+import { openExternalHttpUrl } from '../utils/wallet.js'
 
 defineProps({
-  /** 为 true 时不插 spacer（页面自己用 padding 避让）；红宝会话页请用默认 spacer */
   noSpacer: { type: Boolean, default: false },
-  /** @deprecated 全局已统一为裂变红包入口，保留兼容旧调用 */
+  /** @deprecated 保留兼容 */
   fissionLink: { type: Boolean, default: true },
+  /** @deprecated 顶栏标题已隐藏 */
+  title: { type: String, default: '' },
 })
 
 const locale = ref(getLocale())
 const langOpen = ref(false)
-/** 状态栏垫高（px），内联保证不被 page CSS 变量盖掉 */
 const padTop = ref(getSafeAreaInsets().top)
+const profile = ref(null)
+const csUrl = ref('')
 let offLocale = null
 let lastToggleAt = 0
 let pickingLang = false
 
 const logoSrc = logoUrl()
-const brand = computed(() => {
-  void locale.value
-  return t('brand_name')
-})
 const locales = computed(() => {
   void locale.value
   return localeOptions()
 })
-
 const localeLabel = computed(() => {
   const opt = locales.value.find((x) => x.id === locale.value)
   return (opt && opt.label) || locale.value
@@ -99,6 +106,46 @@ const localeLabel = computed(() => {
 const flagSrc = computed(() => {
   const opt = locales.value.find((x) => x.id === locale.value)
   return flagOf(opt ? opt.flagIso : 'cn')
+})
+
+function isLoginRoute() {
+  try {
+    const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : []
+    const cur = pages && pages.length ? pages[pages.length - 1] : null
+    const route = String((cur && cur.route) || '')
+    return (
+      route.indexOf('pages/login/') === 0 ||
+      route.indexOf('gfhwgkdhf11131djfh/') === 0
+    )
+  } catch (e) {
+    return false
+  }
+}
+
+const isLoggedIn = computed(() => !isLoginRoute() && !!getToken())
+
+const nickText = computed(() => {
+  void locale.value
+  const p = profile.value || {}
+  return String(
+    p.nickname || p.username || p.mobile_mask || p.mobile || tt('lobby_member', '会员') || '会员'
+  ).trim()
+})
+
+const balText = computed(() => {
+  const p = profile.value || {}
+  const n = p.hongbao != null ? p.hongbao : p.account && p.account.hongbao
+  const v = Math.max(0, Number(n) || 0)
+  return v.toFixed(2)
+})
+
+const rechargeLab = computed(() => {
+  void locale.value
+  return tt('lobby_recharge', '充值')
+})
+const csLab = computed(() => {
+  void locale.value
+  return tt('lobby_cs', '客服')
 })
 
 const barStyle = computed(() => {
@@ -112,57 +159,27 @@ const barStyle = computed(() => {
 const spacerStyle = computed(() => {
   const p = Math.max(0, Number(padTop.value) || 0)
   const h = getTopBarContentHeight()
-  return {
-    height: h + p + 'px',
-  }
+  return { height: h + p + 'px' }
 })
 const langPanelStyle = computed(() => {
   const p = Math.max(0, Number(padTop.value) || 0)
   const h = getTopBarContentHeight()
-  return {
-    top: p + h + 4 + 'px',
-  }
+  return { top: p + h + 4 + 'px' }
 })
 
 function flagOf(iso) {
   return flagUrl(iso)
 }
-
 function noop() {}
-
 function closePanels() {
   if (pickingLang) return
   langOpen.value = false
 }
-
 function toggleLang() {
   const now = Date.now()
-  // 防双击/双事件：300ms 内只响应一次
   if (now - lastToggleAt < 300) return
   lastToggleAt = now
   langOpen.value = !langOpen.value
-}
-
-function goFission() {
-  closePanels()
-  const url = '/pages/fission/detail'
-  // 登录页非 tab：switchTab 在 H5/App 上常失败或需连点；reLaunch 四端稳进
-  try {
-    const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : []
-    const cur = pages && pages.length ? pages[pages.length - 1] : null
-    const route = String((cur && cur.route) || '')
-    if (
-      route.indexOf('pages/login/') === 0 ||
-      route.indexOf('gfhwgkdhf11131djfh/') === 0
-    ) {
-      uni.reLaunch({ url })
-      return
-    }
-  } catch (e) {}
-  uni.switchTab({
-    url,
-    fail: () => uni.reLaunch({ url }),
-  })
 }
 
 async function pickLocale(id) {
@@ -173,7 +190,6 @@ async function pickLocale(id) {
     await setLocale(id)
     locale.value = id
   } catch (e) {
-    // 切语言失败不弹「请求失败」，保留当前语言
     console.warn('setLocale', e)
   } finally {
     setTimeout(() => {
@@ -184,10 +200,72 @@ async function pickLocale(id) {
 
 function goHome() {
   closePanels()
+  if (isLoginRoute() || !getToken()) {
+    uni.reLaunch({ url: '/pages/login/login' })
+    return
+  }
   uni.switchTab({
     url: '/pages/home/home',
-    fail: () => uni.reLaunch({ url: '/pages/login/login' }),
+    fail: () => uni.reLaunch({ url: '/pages/home/home' }),
   })
+}
+
+function goRecharge() {
+  closePanels()
+  uni.navigateTo({
+    url: '/pages/wallet/recharge',
+    fail: () =>
+      uni.navigateTo({
+        url: '/pages/wallet/wallet',
+        fail: () => uni.switchTab({ url: '/pages/home/home' }),
+      }),
+  })
+}
+
+function openCs() {
+  closePanels()
+  const url = String(csUrl.value || '').trim()
+  if (url && /^https?:\/\//i.test(url)) {
+    openExternalHttpUrl(url)
+    return
+  }
+  uni.navigateTo({
+    url:
+      '/pages/chat/chat?type=1&peer=' +
+      encodeURIComponent('88888888') +
+      '&id=' +
+      encodeURIComponent('') +
+      '&title=' +
+      encodeURIComponent('红宝客服') +
+      '&nickname=' +
+      encodeURIComponent('红宝客服'),
+  })
+}
+
+function applyProfile(p) {
+  if (p && typeof p === 'object') profile.value = p
+}
+
+function onProfileUpdated(p) {
+  applyProfile(p)
+}
+
+async function hydrateUser() {
+  if (!getToken() || isLoginRoute()) {
+    profile.value = null
+    return
+  }
+  try {
+    const p = await fetchProfile()
+    applyProfile(p)
+  } catch (e) {}
+  try {
+    const cfg = await fetchConfig()
+    if (cfg) {
+      const u = String(cfg.customer_service_url || cfg.login_cs_url || '').trim()
+      if (u) csUrl.value = u
+    }
+  } catch (e2) {}
 }
 
 function refreshPad() {
@@ -201,10 +279,17 @@ onMounted(() => {
   offLocale = onLocaleChange((id) => {
     locale.value = id
   })
+  hydrateUser()
+  try {
+    uni.$on && uni.$on('fanshub-profile-updated', onProfileUpdated)
+  } catch (e) {}
 })
 
 onUnmounted(() => {
   if (offLocale) offLocale()
+  try {
+    uni.$off && uni.$off('fanshub-profile-updated', onProfileUpdated)
+  } catch (e) {}
 })
 </script>
 
@@ -218,16 +303,18 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-left: 12px;
-  padding-right: 12px;
+  gap: 8px;
+  padding-left: 10px;
+  padding-right: 10px;
   box-sizing: border-box;
   width: 100%;
+  /* QQ 顶栏：白底 + 浅灰分割线 */
   background: #ffffff;
-  border-bottom: 1px solid rgba(101, 119, 134, 0.18);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid #e5e5e5;
+  box-shadow: none;
+  color: #191919;
   overflow: visible;
   pointer-events: auto;
-  /* Safari / WebView：合成层，减少滚动时顶栏闪断 */
   -webkit-transform: translateZ(0);
   transform: translateZ(0);
   -webkit-backface-visibility: hidden;
@@ -242,33 +329,112 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
   pointer-events: auto;
 }
 .logo {
-  width: 34px;
-  height: 34px;
+  width: 46px;
+  height: 46px;
   flex-shrink: 0;
+  border-radius: 10px;
   pointer-events: none;
 }
-.brand-text {
-  font-size: 16px;
-  font-weight: 900;
-  color: #e80000;
+.brand-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+.nick {
+  font-size: 14px;
+  font-weight: 700;
+  color: #191919;
   letter-spacing: 0.2px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 28vw;
+  max-width: 42vw;
+  line-height: 1.15;
   pointer-events: none;
 }
 .actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-shrink: 0;
   position: relative;
   z-index: 2;
   pointer-events: auto;
+  max-width: 100%;
+  min-width: 0;
+}
+.bal {
+  display: flex;
+  align-items: baseline;
+  gap: 1px;
+  max-width: 42vw;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  border: none;
+  box-sizing: border-box;
+  margin: 0;
+  line-height: 1.15;
+}
+.bal-ico {
+  font-size: 12px;
+  font-weight: 700;
+  color: #07c160;
+  line-height: 1.15;
+  flex-shrink: 0;
+  font-family: inherit;
+}
+.bal-num {
+  font-size: 12px;
+  font-weight: 700;
+  color: #07c160;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.15;
+}
+.act-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 6px;
+  box-sizing: border-box;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  color: #191919;
+}
+.act-btn text {
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+}
+.act-btn--recharge {
+  background: #07c160;
+  color: #ffffff;
+  border: 1px solid #07c160;
+  box-shadow: none;
+}
+.act-btn--cs {
+  background: #f7f7f7;
+  border: 1px solid #e5e5e5;
+  color: #191919;
+}
+.btn-hit {
+  opacity: 0.88;
+  transform: scale(0.97);
 }
 .lang-wrap {
   position: relative;
@@ -279,98 +445,23 @@ onUnmounted(() => {
   box-sizing: border-box;
   min-height: 32px;
   padding: 3px 9px 3px 7px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 6px;
+  border: 1px solid #e5e5e5;
   overflow: hidden;
   isolation: isolate;
-  /* 以 #fff4ec 为基调的暖杏渐变 */
-  background:
-    linear-gradient(160deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 244, 236, 0.25) 45%, rgba(255, 214, 190, 0.4) 100%),
-    linear-gradient(135deg, #fffaf6 0%, #fff4ec 42%, #ffdcc8 100%);
-  box-shadow:
-    0 2px 8px rgba(232, 100, 60, 0.18),
-    0 1px 0 rgba(255, 255, 255, 0.8),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    inset 0 -1px 3px rgba(232, 120, 80, 0.12);
+  background: #f7f7f7;
+  box-shadow: none;
   transform: translateZ(0);
   cursor: pointer;
   pointer-events: auto;
-  -webkit-tap-highlight-color: rgba(232, 59, 26, 0.12);
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0.06);
 }
 .lang-wrap-hover {
   opacity: 0.92;
+  background: #eeeeee;
 }
 .lang-btn-glass {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  z-index: 0;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.12) 42%, rgba(255, 255, 255, 0) 70%),
-    radial-gradient(120% 80% at 18% 0%, rgba(255, 255, 255, 0.55), transparent 55%);
-}
-.fission-btn {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  box-sizing: border-box;
-  min-height: 32px;
-  padding: 3px 9px 3px 7px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.42);
-  overflow: hidden;
-  isolation: isolate;
-  background:
-    linear-gradient(160deg, rgba(255, 120, 90, 0.55) 0%, rgba(220, 40, 40, 0.35) 42%, rgba(160, 20, 30, 0.45) 100%),
-    linear-gradient(135deg, #ff5a3a 0%, #e12626 52%, #b01018 100%);
-  box-shadow:
-    0 3px 10px rgba(176, 16, 24, 0.38),
-    0 1px 0 rgba(255, 200, 160, 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    inset 0 -1px 3px rgba(90, 0, 0, 0.28);
-  transform: translateZ(0);
-  cursor: pointer;
-  pointer-events: auto;
-}
-.fission-btn-hover {
-  opacity: 0.92;
-}
-.fission-btn-glass {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  z-index: 0;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.38) 0%, rgba(255, 255, 255, 0.06) 42%, rgba(255, 255, 255, 0) 70%),
-    radial-gradient(120% 80% at 20% 0%, rgba(255, 255, 255, 0.35), transparent 55%);
-}
-.fission-ico,
-.fission-lab {
-  position: relative;
-  z-index: 1;
-  pointer-events: none;
-}
-.fission-ico {
-  font-size: 11px;
-  line-height: 1;
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.2));
-}
-.fission-lab {
-  font-size: 10px;
-  font-weight: 900;
-  color: #fff;
-  white-space: nowrap;
-  letter-spacing: 0.2px;
-  text-shadow: 0 1px 2px rgba(80, 0, 0, 0.35);
-  transform-origin: center center;
-  animation: fission-lab-breathe 1.8s ease-in-out infinite;
-}
-@keyframes fission-lab-breathe {
-  0%, 100% { transform: scale(1); opacity: 0.92; }
-  50% { transform: scale(1.1); opacity: 1; }
+  display: none;
 }
 .flag {
   position: relative;
@@ -391,23 +482,21 @@ onUnmounted(() => {
   position: relative;
   z-index: 1;
   font-size: 10px;
-  font-weight: 900;
-  color: #e83b1a;
+  font-weight: 700;
+  color: #191919;
   max-width: 56px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   letter-spacing: 0.2px;
-  text-shadow: none;
 }
 .caret {
   position: relative;
   z-index: 1;
   font-size: 9px;
-  color: #e83b1a;
+  color: #999999;
   margin-left: 1px;
-  text-shadow: none;
-  opacity: 0.85;
+  opacity: 0.9;
 }
 .lang-mask {
   position: fixed;
@@ -422,10 +511,10 @@ onUnmounted(() => {
   min-width: 160px;
   max-height: 60vh;
   overflow-y: auto;
-  background: #fff;
-  border: 1px solid #e1e8ed;
-  border-radius: 10px;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12);
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
   padding: 4px;
   -webkit-overflow-scrolling: touch;
   pointer-events: auto;
@@ -435,21 +524,39 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   padding: 12px 12px;
-  border-radius: 8px;
+  border-radius: 6px;
   font-size: 13px;
-  font-weight: 700;
-  color: var(--text-main, #1a212d);
+  font-weight: 600;
+  color: #191919;
   cursor: pointer;
 }
 .panel-item.on,
 .panel-item-hover {
-  background: #fff4ec;
-  color: #e83b1a;
+  background: #f5f5f5;
+  color: #07c160;
 }
-@media (max-width: 480px) {
-  .brand { max-width: 42vw; }
-  .fission-lab { font-size: 9px; }
-  .lang-wrap,
-  .fission-btn { padding: 2px 8px 2px 6px; min-height: 28px; }
+@media (max-width: 380px) {
+  .logo {
+    width: 42px;
+    height: 42px;
+  }
+  .nick {
+    font-size: 13px;
+    max-width: 36vw;
+  }
+  .bal {
+    max-width: 36vw;
+  }
+  .bal-num {
+    font-size: 11px;
+  }
+  .act-btn {
+    min-height: 30px;
+    padding: 0 8px;
+    font-size: 11px;
+  }
+  .lang-text {
+    max-width: 36px;
+  }
 }
 </style>

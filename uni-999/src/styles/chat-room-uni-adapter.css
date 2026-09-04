@@ -51,6 +51,26 @@
   box-sizing: border-box;
 }
 
+/* QQ 单顶栏：压过红渐变 */
+.chat-room-page .chat-room-pane > .chat-hero-hd.chat-hero-hd--qq-nav {
+  background: #ffffff !important;
+  color: #191919 !important;
+  border-bottom: 0.5px solid #e5e5e5 !important;
+  box-shadow: none !important;
+  padding-left: 4px !important;
+  padding-right: 4px !important;
+  padding-bottom: 8px !important;
+}
+
+.chat-room-page .chat-hero-hd--qq-nav .chat-hero-back,
+.chat-room-page .chat-hero-hd--qq-nav .chat-hero-more {
+  color: #191919 !important;
+}
+
+.chat-room-page .chat-hero-hd--qq-nav .chat-hero-back-char {
+  color: #191919 !important;
+}
+
 .chat-room-page .chat-hero-back,
 .chat-room-page .chat-hero-more {
   width: 44px;
@@ -98,6 +118,19 @@
   pointer-events: none !important;
   position: relative;
   z-index: 1;
+}
+
+/* QQ 白顶栏：标题必须深色（覆盖上方 #fff，含 uni-text） */
+.chat-room-page .chat-hero-hd--qq-nav .chat-hero-title,
+.chat-room-page .chat-hero-hd--qq-nav .chat-hero-title--qq,
+.chat-room-page .chat-hero-hd--qq-nav .chat-hero-title text,
+.chat-room-page .chat-hero-hd--qq-nav .chat-hero-title--qq text,
+.chat-room-page .chat-room-pane > .chat-hero-hd.chat-hero-hd--qq-nav .chat-hero-title,
+.chat-room-page .chat-room-pane > .chat-hero-hd.chat-hero-hd--qq-nav .chat-hero-title--qq {
+  color: #191919 !important;
+  -webkit-text-fill-color: #191919 !important;
+  text-shadow: none !important;
+  font-weight: 600 !important;
 }
 
 .chat-room-page .chat-room-main {

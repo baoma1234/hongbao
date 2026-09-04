@@ -1,12 +1,13 @@
 <template>
   <view class="bottom-action-bar show" :class="{ 'is-six': tabs.length > 5 }">
     <view
-      v-for="item in tabs"
+      v-for="(item, idx) in tabs"
       :key="item.tab"
       class="tab-btn"
       :class="{
         active: selected === item.tab,
         'tab-master': item.tab === 'fission',
+        'tab-center': idx === centerTabIndex,
         'has-chat-unread': item.tab === 'messages' && unread > 0,
       }"
       :data-tab="item.tab"
@@ -56,7 +57,10 @@ const selected = computed(() => {
     const pages = getCurrentPages()
     const cur = pages && pages.length ? pages[pages.length - 1] : null
     const route = (cur && (cur.route || '')) || ''
-    if (route.indexOf('pages/exchange/') >= 0) return 'exchange'
+    if (route.indexOf('pages/community/') >= 0) return 'community'
+    if (route.indexOf('pages/exchange/') >= 0) return 'home'
+    if (route.indexOf('pages/notice/') >= 0) return 'home'
+    if (route.indexOf('pages/commission/') >= 0) return 'home'
     if (route.indexOf('pages/messages/') >= 0) return 'messages'
     if (route.indexOf('pages/yxx/') >= 0) return 'yxx'
     if (route.indexOf('pages/fission/') >= 0) return 'fission'
@@ -72,21 +76,21 @@ const tabs = computed(() => {
     {
       tab: 'home',
       path: '/pages/home/home',
-      label: t('tab_bar_home') || '大厅',
+      label: t('tab_bar_home') || '红宝',
       icon: packagedStaticUrl('tab/home.png'),
       nativeTab: true,
     },
     {
-      tab: 'exchange',
-      path: '/pages/exchange/exchange',
-      label: t('tab_bar_exchange') || '闪兑',
-      icon: packagedStaticUrl('tab/exchange.png'),
+      tab: 'community',
+      path: '/pages/community/community',
+      label: t('tab_bar_community') || '社群',
+      icon: packagedStaticUrl('tab/community.png'),
       nativeTab: true,
     },
     {
       tab: 'messages',
       path: '/pages/messages/messages',
-      label: t('tab_bar_messages') || '红宝',
+      label: t('tab_bar_messages') || '消息',
       icon: packagedStaticUrl('logo.png'),
       nativeTab: true,
     },
@@ -118,6 +122,13 @@ const tabs = computed(() => {
     }
   )
   return list
+})
+
+/** 底栏最中间一项：图标放大一倍 */
+const centerTabIndex = computed(() => {
+  const n = tabs.value.length
+  if (n <= 0) return -1
+  return Math.floor((n - 1) / 2)
 })
 
 function refreshUnread(n) {

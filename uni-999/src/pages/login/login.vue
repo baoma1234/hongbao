@@ -1,116 +1,166 @@
 <template>
   <view class="login-page">
-    <TopBar />
+    <!-- 全屏背景：吉祥物在上、下方留白放表单（四端同一张图） -->
+    <image class="login-page-bg" :src="heroBg" mode="aspectFill" />
 
-    <view class="login-wrapper">
-      <view class="login-brand">
-        <image class="login-logo-img" :src="logo" mode="aspectFit" />
-        <view class="login-logo">{{ t('brand_name') }}</view>
+    <!-- logo / 语言：叠在背景图左上、右上（无公共顶栏） -->
+    <view class="login-chrome" :style="chromeStyle">
+      <image class="login-chrome-logo" :src="logoSrc" mode="aspectFit" />
+      <view
+        class="login-lang-wrap"
+        hover-class="login-lang-wrap--hover"
+        :hover-stay-time="80"
+        @click.stop="toggleLang"
+      >
+        <image class="login-lang-flag" :src="flagSrc" mode="aspectFill" />
+        <text class="login-lang-text">{{ localeLabel }}</text>
+        <text class="login-lang-caret">▾</text>
       </view>
-      <view class="login-subtitle">
-        <text class="login-subtitle-line">{{ t('login_subtitle_line1') || '红宝多样玩法 · 欢乐一站畅玩' }}</text>
-        <text class="login-subtitle-line">{{ t('login_subtitle_line2') || '🔥火热开启领取888,888元' }}</text>
-      </view>
-
-      <view class="input-group">
-        <view class="input-label">{{ t('login_phone_label') }}</view>
-        <view class="phone-row">
-          <view class="country-select" @click="countryOpen = !countryOpen">
-            <image class="flag" :src="flagUrl(countryMeta.flagIso)" mode="aspectFill" />
-            <text class="dial">+{{ countryMeta.dial }}</text>
-            <text class="caret">▾</text>
-          </view>
-          <input
-            class="login-input phone-input"
-            type="number"
-            :maxlength="countryMeta.maxlen"
-            v-model="mobile"
-            :placeholder="phonePlaceholder"
-            @input="onPhoneInput"
-          />
-        </view>
-        <view v-if="countryOpen" class="country-panel">
-          <view
-            v-for="c in countries"
-            :key="c.code"
-            class="country-item"
-            :class="{ on: c.code === country }"
-            @click="pickCountry(c.code)"
-          >
-            <image class="flag" :src="flagUrl(c.flagIso)" mode="aspectFill" />
-            <text class="cname">{{ t(c.labelKey) || c.code }}</text>
-            <text class="cdial">+{{ c.dial }}</text>
-          </view>
-        </view>
-      </view>
-
-      <view class="input-group captcha-group">
-        <view class="input-label">{{ t('login_captcha_label') }}</view>
-        <input
-          class="login-input captcha-input"
-          type="number"
-          maxlength="6"
-          v-model="captcha"
-          :placeholder="t('login_captcha_placeholder')"
-        />
-        <button
-          class="captcha-btn"
-          :class="{ disabled: smsLeft > 0 || sending }"
-          :disabled="smsLeft > 0 || sending"
-          @click="onSendSms"
-        >
-          {{ smsBtnText }}
-        </button>
-      </view>
-
-      <!-- 邀请码输入先隐藏：URL / OpenInstall 仍自动灌入 inviteCode 并随登录提交 -->
-      <view v-if="false" class="input-group">
-        <view class="input-label">{{ tt('login_invite_label', '🎁 邀请码（选填）') }}</view>
-        <input
-          class="login-input invite-input"
-          type="text"
-          maxlength="16"
-          confirm-type="done"
-          v-model="inviteCode"
-          :placeholder="tt('login_invite_placeholder', '没有邀请码可留空')"
-          @input="onInviteInput"
-        />
-      </view>
-
-      <button class="btn-login-submit" :loading="loading" @click="onLogin">
-        {{ loginSubmitText }}
-      </button>
     </view>
+    <view
+      v-if="langOpen"
+      class="login-lang-mask"
+      @click="closeLang"
+      @touchmove.stop.prevent="noop"
+    />
+    <view v-if="langOpen" class="login-lang-panel" :style="langPanelStyle" @click.stop>
+      <view
+        v-for="opt in locales"
+        :key="opt.id"
+        class="login-lang-item"
+        :class="{ on: opt.id === localeId }"
+        hover-class="login-lang-item--hover"
+        @click.stop="pickLocale(opt.id)"
+      >
+        <image class="login-lang-flag" :src="flagUrl(opt.flagIso)" mode="aspectFill" />
+        <text class="login-lang-item-lab">{{ opt.label }}</text>
+      </view>
+    </view>
+
+    <scroll-view scroll-y class="login-scroll" :show-scrollbar="false">
+      <view class="login-shell">
+        <!-- 背景图已含品牌与 slogan，此处仅留表单上方留白 -->
+        <view class="login-hero-spacer" :style="heroSpacerStyle" aria-hidden="true" />
+
+        <view class="login-card">
+          <view class="login-card-hd">
+            <view class="login-card-title-row">
+              <text class="login-diamond">◆</text>
+              <text class="login-card-title">{{ welcomeTitle }}</text>
+              <text class="login-diamond">◆</text>
+            </view>
+            <text class="login-card-sub">{{ welcomeSub }}</text>
+          </view>
+
+          <view class="input-group">
+            <view class="phone-row">
+              <view class="country-select" @click="countryOpen = !countryOpen">
+                <image class="flag" :src="flagUrl(countryMeta.flagIso)" mode="aspectFill" />
+                <text class="dial">+{{ countryMeta.dial }}</text>
+                <text class="caret">▾</text>
+              </view>
+              <input
+                class="login-input phone-input"
+                type="number"
+                :maxlength="countryMeta.maxlen"
+                v-model="mobile"
+                :placeholder="phonePlaceholder"
+                @input="onPhoneInput"
+              />
+            </view>
+            <view v-if="countryOpen" class="country-panel">
+              <view
+                v-for="c in countries"
+                :key="c.code"
+                class="country-item"
+                :class="{ on: c.code === country }"
+                @click="pickCountry(c.code)"
+              >
+                <image class="flag" :src="flagUrl(c.flagIso)" mode="aspectFill" />
+                <text class="cname">{{ t(c.labelKey) || c.code }}</text>
+                <text class="cdial">+{{ c.dial }}</text>
+              </view>
+            </view>
+          </view>
+
+          <view class="input-group captcha-group">
+            <view class="captcha-row">
+              <view class="captcha-field">
+                <text class="captcha-lock">🔒</text>
+                <input
+                  class="login-input captcha-input"
+                  type="number"
+                  maxlength="6"
+                  v-model="captcha"
+                  :placeholder="t('login_captcha_placeholder') || '请输入验证码'"
+                />
+              </view>
+              <button
+                class="captcha-btn"
+                :class="{ disabled: smsLeft > 0 || sending }"
+                :disabled="smsLeft > 0 || sending"
+                @click="onSendSms"
+              >
+                {{ smsBtnText }}
+              </button>
+            </view>
+          </view>
+
+          <!-- 邀请码输入先隐藏：URL / OpenInstall 仍自动灌入 inviteCode 并随登录提交 -->
+          <view v-if="false" class="input-group">
+            <view class="input-label">{{ tt('login_invite_label', '🎁 邀请码（选填）') }}</view>
+            <input
+              class="login-input invite-input"
+              type="text"
+              maxlength="16"
+              confirm-type="done"
+              v-model="inviteCode"
+              :placeholder="tt('login_invite_placeholder', '没有邀请码可留空')"
+              @input="onInviteInput"
+            />
+          </view>
+
+          <button class="btn-login-submit" :loading="loading" @click="onLogin">
+            {{ loginSubmitText }}
+          </button>
+
+          <view
+            v-if="csVisible"
+            class="login-cs-link"
+            hover-class="login-cs-link--active"
+            role="link"
+            @click="openLoginCs"
+          >
+            <text class="login-cs-link-text">{{ csLinkText }}</text>
+          </view>
+        </view>
+
+        <view class="login-foot">
+          <text class="login-foot-main">{{ footMain }}</text>
+          <text class="login-foot-copy">{{ footCopy }}</text>
+        </view>
+      </view>
+    </scroll-view>
 
     <SliderCaptcha ref="sliderRef" @success="onSliderOk" @cancel="onSliderCancel" />
-
-    <view
-      v-if="csVisible"
-      class="login-cs-float"
-      role="button"
-      hover-class="login-cs-float--active"
-      @click="openLoginCs"
-    >
-      <view class="login-cs-img-wrap" :style="{ backgroundImage: 'url(' + csIcon + ')' }">
-        <image class="login-cs-img" :src="csIcon" mode="aspectFit" />
-      </view>
-    </view>
   </view>
 </template>
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import TopBar from '../../components/TopBar.vue'
 import SliderCaptcha from '../../components/SliderCaptcha.vue'
 import { fetchConfig, getToken, login, sendSms } from '../../utils/auth.js'
 import {
   applyServerCopy,
   copyState,
   flagUrl,
+  getLocale,
+  localeOptions,
   localeState,
   logoUrl,
   onLocaleChange,
+  setLocale,
   t,
   tt,
 } from '../../utils/i18n.js'
@@ -132,14 +182,14 @@ import {
   saveInviteCode,
   subscribeInviteCode,
 } from '../../utils/openinstall.js'
+import { getUploadsBase, packagedStaticUrl } from '../../utils/config.js'
+import { applySafeAreaCssVars, getSafeAreaInsets } from '../../utils/safe-area.js'
 
 const SMS_COOLDOWN_KEY = 'fanshub_sms_cooldown'
-const DEFAULT_CS_ICON =
-  'https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/20260813/afe179a5f27ce0b94bf8a0f65af3d291.png'
+const LOGIN_BG_VER = '1'
 
 const locale = localeState()
 const copyTick = copyState()
-const logo = logoUrl()
 const countries = LOGIN_COUNTRIES
 const country = ref(readStoredCountry())
 const countryOpen = ref(false)
@@ -156,39 +206,119 @@ const registerRights = ref(5)
 const sliderRef = ref(null)
 const csEnabled = ref(true)
 const csUrl = ref('')
-const csIconRemote = ref('')
 let timer = null
 let offLocale = null
 let offInvite = null
 let pendingSmsPhone = ''
+let lastLangToggleAt = 0
+let pickingLang = false
+
+const heroBg = computed(() => {
+  const oss = String(getUploadsBase() || '').replace(/\/+$/, '')
+  if (oss) {
+    return oss + '/999/static/login/bg-hero.png?v=' + LOGIN_BG_VER
+  }
+  return packagedStaticUrl('login/bg-hero.png') + '?v=' + LOGIN_BG_VER
+})
+
+const logoSrc = logoUrl()
+const localeId = ref(getLocale())
+const langOpen = ref(false)
+const padTop = ref(getSafeAreaInsets().top)
+
+const locales = computed(() => {
+  void localeId.value
+  return localeOptions()
+})
+const localeLabel = computed(() => {
+  const opt = locales.value.find((x) => x.id === localeId.value)
+  return (opt && opt.label) || localeId.value
+})
+const flagSrc = computed(() => {
+  const opt = locales.value.find((x) => x.id === localeId.value)
+  return flagUrl(opt ? opt.flagIso : 'cn')
+})
+const chromeStyle = computed(() => ({
+  paddingTop: Math.max(0, Number(padTop.value) || 0) + 'px',
+}))
+const langPanelStyle = computed(() => {
+  const top = Math.max(0, Number(padTop.value) || 0) + 52
+  return { top: top + 'px' }
+})
+/** 表单上方留白含状态栏，避免内容顶到刘海/状态栏 */
+const heroSpacerStyle = computed(() => ({
+  paddingTop: Math.max(0, Number(padTop.value) || 0) + 'px',
+}))
+
+function noop() {}
+function closeLang() {
+  if (pickingLang) return
+  langOpen.value = false
+}
+function toggleLang() {
+  const now = Date.now()
+  if (now - lastLangToggleAt < 300) return
+  lastLangToggleAt = now
+  langOpen.value = !langOpen.value
+}
+async function pickLocale(id) {
+  pickingLang = true
+  langOpen.value = false
+  try {
+    if (id === localeId.value) return
+    await setLocale(id)
+    localeId.value = id
+  } catch (e) {
+    console.warn('setLocale', e)
+  } finally {
+    setTimeout(() => {
+      pickingLang = false
+    }, 120)
+  }
+}
 
 const countryMeta = computed(() => getCountryMeta(country.value))
-const csIcon = computed(() => {
-  const remote = String(csIconRemote.value || '').trim()
-  if (remote) return remote
-  return DEFAULT_CS_ICON
-})
 const csVisible = computed(() => !!csEnabled.value)
+const csLinkText = computed(() => {
+  void locale.value
+  void copyTick.value
+  return tt('login_cs_link', '联系在线客服')
+})
 const phonePlaceholder = computed(() => {
   void locale.value
-  return t(countryMeta.value.placeholderKey) || t('login_phone_placeholder')
+  return t(countryMeta.value.placeholderKey) || t('login_phone_placeholder') || '请输入您的手机号'
 })
 const smsBtnText = computed(() => {
   void locale.value
   if (smsLeft.value > 0) {
     return t('login_captcha_resend', { count: smsLeft.value }) || smsLeft.value + 's'
   }
-  return t('login_captcha_btn')
+  return t('login_captcha_btn') || '获取验证码'
 })
 const loginSubmitText = computed(() => {
   void locale.value
   void copyTick.value
-  void registerRights.value
-  return tt(
-    'login_submit_btn',
-    '进入官方福利大厅，白嫖初始{register_rights}股',
-    { register_rights: registerRights.value }
-  )
+  return tt('login_enter_game', '登录 / 进入游戏')
+})
+const welcomeTitle = computed(() => {
+  void locale.value
+  void copyTick.value
+  return tt('login_welcome_title', '欢迎来到{brand}', { brand: t('brand_name') || '红宝' })
+})
+const welcomeSub = computed(() => {
+  void locale.value
+  void copyTick.value
+  return tt('login_welcome_sub', '登录开启好运之旅')
+})
+const footMain = computed(() => {
+  void locale.value
+  void copyTick.value
+  return tt('login_foot_main', '{brand} | 快乐游戏 好运常在', { brand: t('brand_name') || '红宝' })
+})
+const footCopy = computed(() => {
+  void locale.value
+  void copyTick.value
+  return tt('login_foot_copy', '© {year} 红宝游戏 All Rights Reserved', { year: new Date().getFullYear() })
 })
 
 /** 从裂变等页点功能进登录时，登录成功后回到原页 */
@@ -311,8 +441,6 @@ async function loadCfg() {
   else csEnabled.value = true
   const url = String(cfg.login_cs_url || cfg.customer_service_url || '').trim()
   csUrl.value = url
-  const icon = String(cfg.login_cs_icon || '').trim()
-  if (icon) csIconRemote.value = icon
 }
 
 function openLoginCs() {
@@ -450,10 +578,13 @@ async function onLogin() {
 }
 
 onMounted(() => {
+  const insets = applySafeAreaCssVars()
+  padTop.value = (insets && insets.top != null) ? insets.top : getSafeAreaInsets().top
+  localeId.value = getLocale()
   loadCfg()
   syncCooldownFromStorage()
-  offLocale = onLocaleChange(() => {
-    // 语言切换后占位/按钮文案随 locale 计算属性刷新
+  offLocale = onLocaleChange((id) => {
+    localeId.value = id
   })
 })
 
@@ -468,106 +599,194 @@ onUnmounted(() => {
 .login-page {
   min-height: 100vh;
   min-height: 100dvh;
-  background: var(--bg-main, #f5f7fa);
+  background: #8b020a;
   box-sizing: border-box;
   position: relative;
+  overflow: hidden;
 }
-.login-cs-float {
+.login-page-bg {
   position: fixed;
-  right: max(8px, env(safe-area-inset-right, 0px));
-  top: 25%;
-  z-index: 120;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+  z-index: 0;
+  pointer-events: none;
+  object-position: center top;
+}
+.login-chrome {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  width: 80px;
-  padding: 0;
-  margin: 0;
-  background: transparent;
-  border: none;
-}
-.login-cs-float--active {
-  opacity: 0.88;
-}
-.login-cs-img-wrap {
-  width: 80px;
-  height: 80px;
-  background-color: transparent;
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: contain;
-}
-.login-cs-img {
-  width: 80px;
-  height: 80px;
-  display: block;
-  background-color: transparent;
-}
-/* #ifdef APP-PLUS */
-.login-cs-float {
-  right: 10px;
-  top: 25%;
-}
-.login-cs-img {
-  width: 80px;
-  height: 80px;
-}
-.login-cs-img-wrap {
-  width: 80px;
-  height: 80px;
-}
-/* #endif */
-.login-wrapper {
-  max-width: 400px;
-  width: calc(100% - 32px);
-  margin: 40px auto 0;
-  padding: 30px 20px;
-  background: #fff;
-  border-radius: 16px;
-  box-shadow: 0 4px 25px rgba(0, 0, 0, 0.06);
-  border: 1px solid #e1e8ed;
-  text-align: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-left: 14px;
+  padding-right: 14px;
+  padding-bottom: 6px;
   box-sizing: border-box;
+  pointer-events: none;
 }
-.login-brand {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-bottom: 6px;
+.login-chrome-logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  pointer-events: none;
 }
-.login-logo-img {
-  width: 112px;
-  height: 112px;
-  margin-bottom: 2px;
-}
-.login-logo {
-  font-size: 28px;
-  font-weight: 900;
-  color: #e80000;
-  margin-bottom: 6px;
-  letter-spacing: 1px;
-  line-height: 1.2;
-}
-.login-subtitle {
-  font-size: 13px;
-  color: #657786;
-  margin-bottom: 25px;
-  font-weight: 500;
-  display: flex;
-  flex-direction: column;
+.login-lang-wrap {
+  display: inline-flex;
   align-items: center;
   gap: 4px;
-  line-height: 1.35;
+  min-height: 32px;
+  padding: 4px 10px 4px 8px;
+  border-radius: 999px;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+  pointer-events: auto;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0.06);
 }
-.login-subtitle-line {
-  display: block;
-  width: 100%;
+.login-lang-wrap--hover {
+  opacity: 0.92;
+  transform: scale(0.98);
+}
+.login-lang-flag {
+  width: 16px;
+  height: 11px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+  pointer-events: none;
+}
+.login-lang-text {
+  font-size: 11px;
+  font-weight: 700;
+  color: #1a1a1a;
+  max-width: 64px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.login-lang-caret {
+  font-size: 9px;
+  color: #888;
+  pointer-events: none;
+}
+.login-lang-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: transparent;
+}
+.login-lang-panel {
+  position: fixed;
+  right: 14px;
+  z-index: 31;
+  min-width: 148px;
+  max-height: 56vh;
+  overflow-y: auto;
+  padding: 6px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+  box-sizing: border-box;
+}
+.login-lang-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 10px;
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+.login-lang-item--hover {
+  background: #f5f5f5;
+}
+.login-lang-item.on {
+  background: #fff5f5;
+}
+.login-lang-item-lab {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1a1a;
+  pointer-events: none;
+}
+.login-scroll {
+  position: relative;
+  z-index: 2;
+  height: 100vh;
+  height: 100dvh;
+  box-sizing: border-box;
+}
+.login-shell {
+  max-width: 440px;
+  margin: 0 auto;
+  padding: 4px 16px 28px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+/* 顶部留出吉祥物区域，表单落在背景下方留白 */
+.login-hero-spacer {
+  flex: 0 0 auto;
+  height: 36vh;
+  min-height: 210px;
+  max-height: 320px;
+  box-sizing: border-box;
+}
+.login-card {
+  position: relative;
+  z-index: 3;
+  margin-top: 120px;
+  padding: 22px 18px 16px;
+  background: #fff;
+  border-radius: 28px;
+  border: 2px solid rgba(232, 40, 40, 0.55);
+  box-shadow: 0 12px 32px rgba(80, 0, 20, 0.28);
+  box-sizing: border-box;
+}
+.login-card-hd {
   text-align: center;
+  margin-bottom: 18px;
+}
+.login-card-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.login-diamond {
+  color: #e82020;
+  font-size: 10px;
+  line-height: 1;
+}
+.login-card-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: #1a1a1a;
+  letter-spacing: 0.5px;
+}
+.login-card-sub {
+  display: block;
+  margin-top: 6px;
+  font-size: 13px;
+  color: #9aa0a6;
+  font-weight: 500;
 }
 .input-group {
   position: relative;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
   text-align: left;
 }
 .input-label {
@@ -579,48 +798,52 @@ onUnmounted(() => {
 }
 .login-input {
   width: 100%;
-  height: 44px;
+  height: 48px;
   padding: 0 14px;
-  border: 1px solid #ccd6dd;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: bold;
+  border: 1px solid #e6e8eb;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
   color: #1a212d;
-  background: #f8f9fa;
+  background: #f7f8fa;
   box-sizing: border-box;
 }
-/* Safari：聚焦时避免小于 16px 被强制放大；App 同步 16px 也不伤布局 */
 .invite-input {
   font-size: 16px;
 }
 .phone-row {
   display: flex;
-  gap: 8px;
+  gap: 0;
   align-items: stretch;
+  border: 1px solid #e6e8eb;
+  border-radius: 12px;
+  background: #f7f8fa;
+  overflow: hidden;
 }
 .country-select {
-  flex: 0 0 108px;
-  width: 108px;
-  height: 44px;
-  padding: 0 6px;
-  border: 1px solid #ccd6dd;
-  border-radius: 8px;
-  background: #f8f9fa;
+  flex: 0 0 102px;
+  width: 102px;
+  height: 48px;
+  padding: 0 8px;
+  border: none;
+  border-right: 1px solid #e6e8eb;
+  border-radius: 0;
+  background: transparent;
   display: flex;
   align-items: center;
   gap: 4px;
   box-sizing: border-box;
 }
 .country-select .flag {
-  width: 20px;
-  height: 14px;
+  width: 22px;
+  height: 15px;
   border-radius: 2px;
   flex-shrink: 0;
 }
 .country-select .dial {
   flex: 1;
-  font-size: 12px;
-  font-weight: bold;
+  font-size: 13px;
+  font-weight: 700;
   color: #1a212d;
   min-width: 0;
   overflow: hidden;
@@ -635,6 +858,10 @@ onUnmounted(() => {
   flex: 1 1 auto;
   min-width: 0;
   width: auto;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  height: 48px;
 }
 .country-panel {
   position: absolute;
@@ -644,11 +871,11 @@ onUnmounted(() => {
   margin-top: 4px;
   background: #fff;
   border: 1px solid #e1e8ed;
-  border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-  z-index: 20;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  z-index: 30;
   overflow: hidden;
-  max-height: 280px;
+  max-height: 260px;
   overflow-y: auto;
 }
 .country-item {
@@ -662,7 +889,7 @@ onUnmounted(() => {
   border-bottom: none;
 }
 .country-item.on {
-  background: #f5f9ff;
+  background: #fff5f5;
 }
 .country-item .flag {
   width: 22px;
@@ -680,40 +907,132 @@ onUnmounted(() => {
   color: #657786;
   font-weight: 600;
 }
-.captcha-group .captcha-input {
-  padding-right: 108px;
+.captcha-row {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+.captcha-field {
+  flex: 1 1 auto;
+  min-width: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.captcha-lock {
+  position: absolute;
+  left: 12px;
+  z-index: 1;
+  font-size: 14px;
+  line-height: 1;
+  pointer-events: none;
+}
+.captcha-input {
+  padding-left: 36px;
 }
 .captcha-btn {
-  position: absolute;
-  right: 8px;
-  bottom: 5px;
+  flex: 0 0 auto;
   margin: 0;
-  background: #0071ff;
+  min-width: 108px;
+  height: 48px;
+  padding: 0 14px;
+  background: linear-gradient(180deg, #ff4d3a 0%, #e01a1a 100%);
   color: #fff;
   border: none;
-  padding: 7px 12px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: bold;
-  line-height: 1.2;
-  height: auto;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 48px;
+  box-shadow: 0 4px 10px rgba(224, 26, 26, 0.28);
 }
 .captcha-btn.disabled,
 .captcha-btn[disabled] {
   background: #ccd6dd;
   color: #657786;
+  box-shadow: none;
 }
 .btn-login-submit {
   width: 100%;
-  margin-top: 10px;
-  background: linear-gradient(135deg, #0071ff 0%, #00c853 100%);
+  margin-top: 6px;
+  height: 50px;
+  background: linear-gradient(90deg, #ff4d29 0%, #ff1a1a 100%);
   color: #fff;
   border: none;
-  padding: 14px;
-  border-radius: 8px;
-  font-size: 15px;
-  font-weight: bold;
-  box-shadow: 0 4px 12px rgba(0, 113, 255, 0.2);
-  line-height: 1.3;
+  border-radius: 999px;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  box-shadow:
+    0 6px 16px rgba(255, 40, 40, 0.35),
+    inset 0 1px 0 rgba(255, 220, 160, 0.35);
+  line-height: 50px;
+}
+.login-cs-link {
+  margin-top: 14px;
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.login-cs-link--active {
+  opacity: 0.72;
+}
+.login-cs-link-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e01a1a;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  line-height: 1.4;
+}
+.login-foot {
+  margin-top: 18px;
+  text-align: center;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+}
+.login-foot-main {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+  letter-spacing: 0.5px;
+}
+.login-foot-copy {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+}
+/* #ifdef APP-PLUS */
+.login-page-bg {
+  /* App：fixed 偶发高度异常，改 absolute 铺满页 */
+  position: absolute;
+}
+.login-scroll {
+  height: auto;
+  min-height: 100vh;
+}
+.login-shell {
+  min-height: 100vh;
+}
+.login-hero-spacer {
+  height: 36vh;
+  min-height: 205px;
+}
+.login-card {
+  margin-top: 120px;
+}
+/* #endif */
+
+@media screen and (max-height: 700px) {
+  .login-hero-spacer {
+    height: 32vh;
+    min-height: 180px;
+    max-height: 240px;
+  }
+  .login-card {
+    margin-top: 120px;
+    padding: 18px 16px 14px;
+  }
 }
 </style>

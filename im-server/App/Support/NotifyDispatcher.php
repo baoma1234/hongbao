@@ -26,6 +26,11 @@ class NotifyDispatcher
                     'event'   => $type,
                     'message' => $message,
                 ]);
+            } elseif (in_array($type, ['message.edited', 'message.deleted', 'message.restored'], true)) {
+                PushBus::toUsers($uids, 'admin.notify', [
+                    'event'   => $type,
+                    'message' => $message,
+                ]);
             } else {
                 PushBus::toUsers($uids, $type, ['message' => $message]);
             }

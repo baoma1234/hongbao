@@ -1,5 +1,5 @@
-/* uni-999 消息页适配：复用 888 chat.bundle.css 时补齐外壳高度
- * 同时用 .msg-tab-root：App 上部分机型 #id 选择器不稳定 */
+/* uni-999 ???????? 888 chat.bundle.css ???????
+ * ??? .msg-tab-root?App ????? #id ?????? */
 .messages-page {
   display: flex;
   flex-direction: column;
@@ -11,14 +11,14 @@
   padding-top: 0 !important;
 }
 
-/* 各端 body 均不垫顶：H5 顶栏占流 / App 用 spacer，避免 padding-top 再空一截。
- * 用更高特异性盖住 friend/settings 分包里遗留的 body.tab-messages { padding-top: calc(44px) } */
+/* ?? body ?????H5 ???? / App ? spacer??? padding-top ?????
+ * ???????? friend/settings ?????? body.tab-messages { padding-top: calc(44px) } */
 html body.tab-messages,
 body.tab-messages {
   padding-top: 0 !important;
 }
 
-/* 仅 iOS Safari H5：锁住整页滚动，避免会话列表下滑时整页橡皮筋回弹把列表拽回顶部 */
+/* ? iOS Safari H5??????????????????????????????? */
 html.tab-messages-ios-safari,
 body.tab-messages-ios-safari {
   overflow: hidden !important;
@@ -44,7 +44,7 @@ body.tab-messages-ios-safari #tabMessages .chat-conv-scroll .uni-scroll-view {
   display: flex;
   flex-direction: column;
   width: 100%;
-  /* 高度由 JS（扣 TopBar spacer + 底栏）写入；CSS 仅作兜底 */
+  /* ??? JS?? TopBar spacer + ??????CSS ???? */
   --tab-bar-space: calc(72px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
   height: calc(
     100vh - var(--top-bar-height, 48px) - var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) -
@@ -74,7 +74,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  /* 覆盖 chat.bundle 的 --chat-bottom-gap，列表贴到底栏上沿 */
+  /* ?? chat.bundle ? --chat-bottom-gap????????? */
   padding-bottom: 0 !important;
 }
 
@@ -85,7 +85,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  /* 贴底，避免公告区下方多出一块空白 */
+  /* ???????????????? */
   padding-bottom: 0 !important;
   margin-bottom: 0 !important;
 }
@@ -104,7 +104,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   display: none !important;
 }
 
-/* 佣金：外层定高裁切，内部 scroll-view 用 JS 像素高滚动（勿 height:100%!important，Safari 会盖掉内联高） */
+/* ???????????? scroll-view ? JS ??????? height:100%!important?Safari ??????? */
 #tabMessages #chatHomePanelCommission.chat-home-panel:not(.is-hidden),
 #tabMessages .chat-commission-panel:not(.is-hidden),
 .msg-tab-root #chatHomePanelCommission.chat-home-panel:not(.is-hidden),
@@ -128,13 +128,13 @@ body.tab-messages #tabMessages .chat-list-pane {
   width: 100% !important;
   flex: none !important;
   min-height: 120px !important;
-  /* height / minHeight 由 messages.vue panelScrollStyle 内联像素写入 */
+  /* height / minHeight ? messages.vue panelScrollStyle ?????? */
   box-sizing: border-box !important;
   padding: 10px 12px 24px !important;
   -webkit-overflow-scrolling: touch;
 }
 
-/* 会话列表：scroll-view 负责滚动（App 标签是 uni-scroll-view，勿写 scroll-view.xxx） */
+/* ?????scroll-view ?????App ??? uni-scroll-view??? scroll-view.xxx? */
 .msg-tab-root .chat-conv-ptr-host,
 #tabMessages .chat-conv-ptr-host {
   flex: 1 1 0% !important;
@@ -158,7 +158,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   box-sizing: border-box !important;
   -webkit-overflow-scrolling: touch;
 }
-/* H5 Safari：内层滚动容器也开 touch momentum（外层已由 JS 定死像素高） */
+/* H5 Safari????????? touch momentum????? JS ?????? */
 #tabMessages .chat-conv-scroll .uni-scroll-view,
 #tabMessages .chat-community-body-scroll .uni-scroll-view,
 #tabMessages .chat-official-scroll .uni-scroll-view,
@@ -174,7 +174,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   overscroll-behavior: contain;
   box-sizing: border-box !important;
 }
-/* 会话 / 社群 / 佣金 / 公告：scroll 内容区末项后再撑 20px（App 上 list padding 常无效） */
+/* ?? / ?? / ?? / ???scroll ???????? 20px?App ? list padding ???? */
 #tabMessages .chat-conv-scroll .uni-scroll-view-content,
 #tabMessages .chat-community-body-scroll .uni-scroll-view-content,
 #tabMessages .chat-commission-body-scroll .uni-scroll-view-content,
@@ -210,7 +210,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   box-sizing: border-box !important;
 }
 
-/* 恢复社群/公告/佣金底色与内边距（勿被透明 chat 面板规则波及） */
+/* ????/??/????????????? chat ??????? */
 #tabMessages .chat-community-glass:not(.is-hidden) {
   background:
     radial-gradient(120% 80% at 50% -10%, rgba(255, 236, 210, 0.95) 0%, transparent 55%),
@@ -230,7 +230,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   padding: 0 !important;
 }
 
-/* uni view/button 默认样式复位，贴近 888 原生按钮 */
+/* uni view/button ????????? 888 ???? */
 #tabMessages .chat-hero-icon-btn,
 #tabMessages .chat-home-tab,
 #tabMessages .chat-community-seg-btn,
@@ -248,7 +248,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   appearance: none;
 }
 
-/* uni-view 默认 display:block，分段/Tab 需 flex 居中（888 用 button） */
+/* uni-view ?? display:block???/Tab ? flex ???888 ? button? */
 #tabMessages .chat-home-tab,
 #tabMessages .chat-community-seg-btn {
   display: flex !important;
@@ -256,7 +256,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   justify-content: center;
 }
 
-/* 会话行：强制 flex，避免 uni-view 把头像挤没 */
+/* ?????? flex??? uni-view ????? */
 #tabMessages .chat-conv-item {
   display: flex !important;
   align-items: center !important;
@@ -264,7 +264,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   padding: 10px 20px 10px 10px !important;
 }
 
-/* 社群：官方群组 / 我的群组 / 我创建的 / 好友列表 间距统一收紧 */
+/* ??????? / ???? / ???? / ???? ?????? */
 #tabMessages .chat-community-seg {
   height: 38px !important;
   padding: 2px !important;
@@ -284,39 +284,40 @@ body.tab-messages #tabMessages .chat-list-pane {
 #tabMessages .chat-my-groups-list,
 #tabMessages .chat-friend-feed-list,
 #tabMessages .chat-official-list {
-  gap: 6px !important;
+  gap: 0 !important;
 }
 #tabMessages .chat-my-group-item,
 #tabMessages .chat-feed-item {
   display: flex !important;
-  padding: 8px 10px !important;
-  gap: 10px !important;
-  border-radius: 14px !important;
+  padding: 12px 16px !important;
+  gap: 12px !important;
+  border-radius: 0 !important;
   align-items: center !important;
-  /* App 列表卡顿主因：逐行 backdrop-filter；改实色背景 */
+  /* App list: avoid per-row backdrop-filter */
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-  background: #fffdf8 !important;
-  border: 1px solid rgba(230, 190, 130, 0.45) !important;
-  box-shadow: 0 2px 8px rgba(160, 120, 70, 0.08) !important;
+  background: #ffffff !important;
+  border: none !important;
+  border-bottom: 0.5px solid #e5e5e5 !important;
+  box-shadow: none !important;
   filter: none !important;
 }
 #tabMessages .chat-my-group-main {
   gap: 8px !important;
 }
 #tabMessages .chat-my-group-create {
-  margin-bottom: 6px !important;
+  margin-bottom: 0 !important;
 }
 #tabMessages .chat-my-group-avatar {
-  width: 36px !important;
-  height: 36px !important;
+  width: 48px !important;
+  height: 48px !important;
 }
 
-/* 好友列表头像：与会话列表 .chat-avatar 同尺寸（勿再压成 36 圆） */
+/* Friend list avatar */
 #tabMessages .chat-friend-feed-list .chat-avatar {
   width: 48px !important;
   height: 48px !important;
-  border-radius: 14px !important;
+  border-radius: 50% !important;
 }
 #tabMessages .chat-friend-feed-list .chat-feed-online-dot {
   right: 0 !important;
@@ -326,17 +327,17 @@ body.tab-messages #tabMessages .chat-list-pane {
   z-index: 2;
 }
 
-/* 官方社群头像：与会话群头像一致 */
+/* Official community avatar */
 #tabMessages .chat-official-list .chat-avatar,
 #tabMessages .chat-official-list .chat-avatar.group {
   width: 48px !important;
   height: 48px !important;
-  border-radius: 14px !important;
+  border-radius: 50% !important;
   overflow: hidden !important;
   flex-shrink: 0 !important;
 }
 
-/* uni-image 在 H5 默认 320x240，必须在头像容器内强制铺满 */
+/* uni-image ? H5 ?? 320x240????????????? */
 #tabMessages .chat-avatar,
 #tabMessages .chat-my-group-avatar,
 #tabMessages .chat-feed-avatar,
@@ -390,11 +391,12 @@ body.tab-messages #tabMessages .chat-list-pane {
   height: 100% !important;
   object-fit: cover !important;
   display: block !important;
+  border-radius: 50% !important;
 }
 
 /*
- * 公告卡头：class 直接挂在 <image> 上。
- * 不可写 width/height:100%，否则 .chat-notice-hd { display:flex } 时头像会撑满整行把布局打乱。
+ * ?????class ???? <image> ??
+ * ??? width/height:100%??? .chat-notice-hd { display:flex } ??????????????
  */
 #tabMessages .chat-notice-hd {
   display: flex !important;
@@ -487,7 +489,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   text-decoration: underline;
 }
 
-/* ---------- 红宝玻璃风：uni text 强制继承 888 色值 ---------- */
+/* ---------- ??????uni text ???? 888 ?? ---------- */
 #tabMessages .chat-hero-title,
 #tabMessages .chat-list-hero .chat-hero-title {
   color: #fff !important;
@@ -535,7 +537,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   font-weight: 700;
   padding: 0 !important;
 }
-/* 顶栏四 Tab：对齐 888 glass（红渐变选中） */
+/* ??? Tab??? 888 glass??????? */
 #tabMessages .chat-home-tab {
   color: #9a8574 !important;
   font-weight: 700 !important;
@@ -566,19 +568,21 @@ body.tab-messages #tabMessages .chat-list-pane {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* 客服标签：覆盖上方 title text 的深色，保持白字 */
+/* ??????? chat-qq-theme ?????????? */
 #tabMessages .chat-admin-tag,
 #tabMessages .chat-admin-tag text,
 #tabMessages .chat-conv-title .chat-admin-tag,
 #tabMessages .chat-conv-title .chat-admin-tag text,
 #tabMessages .chat-conv-title text.chat-admin-tag {
-  color: #fff !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  background: #12b7f5 !important;
 }
 #tabMessages .chat-conv-preview,
 #tabMessages .chat-conv-time {
   color: #9a8574 !important;
 }
-/* 仅聊天面板外壳透明；会话列表白底由 bundle 负责 */
+/* ????????????????? bundle ?? */
 #tabMessages #chatHomePanelChat.chat-home-panel:not(.is-hidden) {
   background: transparent !important;
 }
@@ -588,7 +592,7 @@ body.tab-messages #tabMessages .chat-list-pane {
     linear-gradient(145deg, rgba(255, 233, 176, 0.7), rgba(224, 122, 34, 0.4)) border-box !important;
 }
 
-/* 社群 / 公告分段：对齐 888 橙红渐变胶囊 */
+/* ?? / ??????? 888 ?????? */
 #tabMessages .chat-community-seg-btn {
   color: #6b6b6b !important;
   font-weight: 700 !important;
@@ -603,7 +607,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   text-shadow: 0 1px 1px rgba(120, 20, 8, 0.15);
 }
 
-/* 社群卡片 / 列表文字（uni text 继承） */
+/* ???? / ?????uni text ??? */
 #tabMessages .chat-group-card .title,
 #tabMessages .chat-group-card .subtitle,
 #tabMessages .chat-my-group-name,
@@ -650,7 +654,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   color: #2f9e44 !important;
 }
 
-/* 公告卡片文字 */
+/* ?????? */
 #tabMessages .chat-notice-name,
 #tabMessages .chat-notice-name text {
   color: #1a1a1a !important;
@@ -673,7 +677,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   word-break: break-word;
 }
 
-/* 公告分段下划线（对齐 888 active::after） */
+/* ?????????? 888 active::after? */
 #tabMessages .chat-community-seg-btn.active::after {
   content: '';
   position: absolute;
@@ -692,7 +696,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   padding: 0 2px 2px !important;
 }
 
-/* 社群：外层不滚，内部 scroll-view 滚（对齐公告/聊天列表） */
+/* ?????????? scroll-view ??????/????? */
 #tabMessages #chatHomePanelCommunity.chat-home-panel:not(.is-hidden),
 #tabMessages .chat-community-glass:not(.is-hidden) {
   overflow: hidden !important;
@@ -705,7 +709,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   flex: 1 1 0% !important;
   min-height: 0 !important;
   height: 0 !important;
-  /* 非 active 必须隐藏：否则 v-show 会被 !important 盖掉，多面板叠在一起 */
+  /* ? active ??????? v-show ?? !important ?????????? */
   display: none !important;
   flex-direction: column !important;
   overflow: hidden !important;
@@ -721,7 +725,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   flex-direction: column !important;
 }
 
-/* 规则卡片：fixed 钉在底栏上方（z > TabBar 9000） */
+/* ?????fixed ???????z > TabBar 9000? */
 #tabMessages .chat-official-rules,
 #tabMessages .chat-official-rules--dock,
 .msg-tab-root .chat-official-rules,
@@ -765,7 +769,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   -webkit-overflow-scrolling: touch;
   overflow: hidden !important;
 }
-/* 内层必须吃满像素高，否则 App/Safari 只露出可视约 4 行且无法滚动 */
+/* ???????????? App/Safari ?????? 4 ?????? */
 #tabMessages .chat-community-body-scroll .uni-scroll-view,
 #tabMessages .chat-official-scroll .uni-scroll-view,
 .msg-tab-root .chat-community-body-scroll .uni-scroll-view,
@@ -788,13 +792,13 @@ body.tab-messages #tabMessages .chat-list-pane {
   min-height: 0 !important;
   overflow: visible !important;
 }
-/* 好友/我的群：末项后再留 20px（padding，App 上空 view 易塌） */
+/* ??/????????? 20px?padding?App ?? view ??? */
 #tabMessages .chat-friend-feed-list,
 #tabMessages .chat-my-groups-list {
   padding-bottom: 20px !important;
   box-sizing: border-box !important;
 }
-/* 旧玻璃面板若仍出现：禁止二次滚动裁切 */
+/* ?????????????????? */
 #tabMessages .chat-community-glass-panel {
   overflow: visible !important;
   height: auto !important;
@@ -803,7 +807,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   max-height: none !important;
 }
 
-/* 公告：对齐社群 pane（height:0 + flex），避免 App 上 height:auto 把列表压成空白 */
+/* ??????? pane?height:0 + flex???? App ? height:auto ??????? */
 #tabMessages #chatHomePanelNotice.chat-notice-feed-panel:not(.is-hidden) {
   overflow: hidden !important;
   display: flex !important;
@@ -819,7 +823,7 @@ body.tab-messages #tabMessages .chat-list-pane {
 }
 
 #tabMessages .chat-notice-pane {
-  /* App/IPA：勿用 height:0；高度由内联 noticePaneStyle 像素给出 */
+  /* App/IPA??? height:0?????? noticePaneStyle ???? */
   flex: none !important;
   min-height: 120px !important;
   position: relative !important;
@@ -831,7 +835,7 @@ body.tab-messages #tabMessages .chat-list-pane {
 
 .msg-tab-root .chat-notice-body-scroll,
 #tabMessages .chat-notice-body-scroll {
-  /* App scroll-view 勿用 display:flex，否则内容高度常为 0 */
+  /* App scroll-view ?? display:flex????????? 0 */
   display: block !important;
   flex: none !important;
   min-height: 120px !important;
@@ -845,7 +849,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   -webkit-overflow-scrolling: touch;
   overflow: hidden !important;
 }
-/* IPA：内层也要继承像素高，否则外层有高、里层 0 → 空白划不动 */
+/* IPA???????????????????? 0 ? ????? */
 .msg-tab-root .chat-notice-body-scroll .uni-scroll-view,
 #tabMessages .chat-notice-body-scroll .uni-scroll-view {
   height: 100% !important;
@@ -855,7 +859,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   -webkit-overflow-scrolling: touch;
 }
 
-/* 公告列表不要 flex 撑高；末项后留 30px 可滚空白 */
+/* ?????? flex ??????? 30px ???? */
 #tabMessages .chat-notice-feed,
 .msg-tab-root .chat-notice-feed {
   flex: none !important;
@@ -912,7 +916,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   display: block !important;
   max-width: 100% !important;
 }
-/* 九宫格：铺满格子 */
+/* ???????? */
 #tabMessages .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img,
 #tabMessages .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap uni-image,
 #tabMessages .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap image,
@@ -920,7 +924,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   height: 100% !important;
   object-fit: cover !important;
 }
-/* 长图：禁止写死 height，让 widthFix 自己写入高度 */
+/* ??????? height?? widthFix ?????? */
 #tabMessages .chat-notice-imgs.imgs-1 .chat-notice-img,
 #tabMessages .chat-notice-imgs.imgs-full .chat-notice-img,
 #tabMessages .chat-notice-imgs.imgs-1 .chat-notice-img-wrap uni-image,
@@ -985,7 +989,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   color: #e83b1a !important;
   font-weight: 800 !important;
 }
-/* 一次可见 4 行：4 * 36 = 144 */
+/* ???? 4 ??4 * 36 = 144 */
 #tabMessages .chat-promote-earn-viewport {
   height: 144px !important;
   max-height: 144px !important;
@@ -998,7 +1002,7 @@ body.tab-messages #tabMessages .chat-list-pane {
 }
 
 
-/* 佣金面板：hero 白字 + 入口/列表色 */
+/* ?????QQ ????? */
 #tabMessages .chat-commission-hero-label,
 #tabMessages .chat-commission-hero-value,
 #tabMessages .chat-commission-stat-label,
@@ -1006,15 +1010,37 @@ body.tab-messages #tabMessages .chat-list-pane {
 #tabMessages .chat-commission-hero-label text,
 #tabMessages .chat-commission-hero-value text,
 #tabMessages .chat-commission-stat-label text,
-#tabMessages .chat-commission-stat-value text {
-  color: #fff !important;
+#tabMessages .chat-commission-stat-value text,
+#tabCommission .chat-commission-hero-label,
+#tabCommission .chat-commission-hero-value,
+#tabCommission .chat-commission-stat-label,
+#tabCommission .chat-commission-stat-value,
+#tabCommission .chat-commission-hero-label text,
+#tabCommission .chat-commission-hero-value text,
+#tabCommission .chat-commission-stat-label text,
+#tabCommission .chat-commission-stat-value text,
+.msg-tab-root .chat-commission-hero-label,
+.msg-tab-root .chat-commission-hero-value,
+.msg-tab-root .chat-commission-stat-label,
+.msg-tab-root .chat-commission-stat-value {
+  color: #191919 !important;
+}
+#tabMessages .chat-commission-hero-label,
+#tabMessages .chat-commission-stat-label,
+#tabCommission .chat-commission-hero-label,
+#tabCommission .chat-commission-stat-label,
+.msg-tab-root .chat-commission-hero-label,
+.msg-tab-root .chat-commission-stat-label {
+  color: #999999 !important;
 }
 #tabMessages .chat-commission-withdraw-btn,
 #tabMessages .chat-commission-withdraw-btn text,
 .msg-tab-root .chat-commission-withdraw-btn,
-.msg-tab-root .chat-commission-withdraw-btn text {
-  color: #333 !important;
-  font-weight: 700;
+.msg-tab-root .chat-commission-withdraw-btn text,
+#tabCommission .chat-commission-withdraw-btn,
+#tabCommission .chat-commission-withdraw-btn text {
+  color: #ffffff !important;
+  font-weight: 500;
 }
 #tabMessages .chat-commission-withdraw-btn,
 .msg-tab-root .chat-commission-withdraw-btn {
@@ -1045,19 +1071,19 @@ body.tab-messages #tabMessages .chat-list-pane {
   color: #9a9a9a !important;
 }
 #tabMessages .chat-commission-row-amt {
-  color: #e23b2f !important;
-  font-weight: 800;
+  color: #07c160 !important;
+  font-weight: 600;
 }
 #tabMessages .chat-commission-row-amt.is-out {
-  color: #2f9e44 !important;
+  color: #999999 !important;
 }
 
-/* 建群面板：盖住 TopBar / TabBar */
+/* ??????? TopBar / TabBar */
 .chat-create-group-pane {
   position: fixed !important;
   left: 0;
   right: 0;
-  /* top 不用 !important：App 需内联覆盖；H5/Safari 仍用下方 calc */
+  /* top ?? !important?App ??????H5/Safari ???? calc */
   top: calc(
     var(--top-bar-height, 48px) + var(--safe-area-inset-top, env(safe-area-inset-top, 0px))
   );
@@ -1233,7 +1259,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   margin: 8px 0 10px;
 }
 
-/* 会话左滑：置顶 + 删除（精致小钮，对齐微信交互） */
+/* ??????? + ??????????????? */
 #tabMessages .chat-conv-swipe {
   background: #e8e6eb;
 }
@@ -1275,30 +1301,35 @@ body.tab-messages #tabMessages .chat-list-pane {
   to { opacity: 1; transform: translateX(0); }
 }
 
-/* 裂变红包公告卡 */
-#tabMessages .chat-fission-card {
+/* Fission notice card */
+#tabMessages .chat-fission-card,
+#tabNotice .chat-fission-card {
   margin: 10px 12px 14px;
   border-radius: 16px;
   overflow: hidden;
   background: linear-gradient(165deg, #0d1b3a 0%, #152a52 100%);
   box-shadow: 0 8px 24px rgba(10, 20, 40, 0.35);
 }
-#tabMessages .chat-fission-card-hd {
+#tabMessages .chat-fission-card-hd,
+#tabNotice .chat-fission-card-hd {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 10px 14px 0;
 }
-#tabMessages .chat-fission-card-tag {
+#tabMessages .chat-fission-card-tag,
+#tabNotice .chat-fission-card-tag {
   font-size: 11px;
   color: #ffd27a;
   font-weight: 700;
 }
-#tabMessages .chat-fission-card-time {
+#tabMessages .chat-fission-card-time,
+#tabNotice .chat-fission-card-time {
   font-size: 11px;
   color: #8a9bb5;
 }
-#tabMessages .chat-fission-envelope {
+#tabMessages .chat-fission-envelope,
+#tabNotice .chat-fission-envelope {
   margin: 10px 14px 16px;
   padding: 22px 16px 16px;
   border-radius: 14px;
@@ -1307,14 +1338,16 @@ body.tab-messages #tabMessages .chat-list-pane {
   color: #fff;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
-#tabMessages .chat-fission-title {
+#tabMessages .chat-fission-title,
+#tabNotice .chat-fission-title {
   display: block;
   font-size: 15px;
   letter-spacing: 4px;
   margin-bottom: 8px;
   font-weight: 700;
 }
-#tabMessages .chat-fission-pool {
+#tabMessages .chat-fission-pool,
+#tabNotice .chat-fission-pool {
   display: block;
   font-size: 28px;
   font-weight: 800;
@@ -1322,13 +1355,16 @@ body.tab-messages #tabMessages .chat-list-pane {
   margin-bottom: 6px;
 }
 #tabMessages .chat-fission-progress,
-#tabMessages .chat-fission-remain {
+#tabNotice .chat-fission-progress,
+#tabMessages .chat-fission-remain,
+#tabNotice .chat-fission-remain {
   display: block;
   font-size: 12px;
   opacity: 0.95;
   margin-bottom: 4px;
 }
-#tabMessages .chat-fission-cta {
+#tabMessages .chat-fission-cta,
+#tabNotice .chat-fission-cta {
   margin: 12px auto 8px;
   max-width: 220px;
   background: linear-gradient(180deg, #ffe08a, #f0b429);
@@ -1338,27 +1374,31 @@ body.tab-messages #tabMessages .chat-list-pane {
   line-height: 42px;
   border-radius: 22px;
 }
-#tabMessages .chat-fission-cta.disabled {
+#tabMessages .chat-fission-cta.disabled,
+#tabNotice .chat-fission-cta.disabled {
   filter: grayscale(0.8);
   opacity: 0.7;
 }
-#tabMessages .chat-fission-risk {
+#tabMessages .chat-fission-risk,
+#tabNotice .chat-fission-risk {
   display: block;
   font-size: 10px;
   opacity: 0.85;
 }
-#tabMessages .chat-fission-card-ft {
+#tabMessages .chat-fission-card-ft,
+#tabNotice .chat-fission-card-ft {
   display: flex;
   justify-content: flex-end;
   padding: 0 14px 12px;
 }
-#tabMessages .chat-fission-card-ft .chat-notice-share-btn {
+#tabMessages .chat-fission-card-ft .chat-notice-share-btn,
+#tabNotice .chat-fission-card-ft .chat-notice-share-btn {
   background: rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 210, 122, 0.45);
   color: #ffd27a;
 }
 
-/* 分享选人面板 */
+/* ?????? */
 .chat-share-sheet-mask {
   position: fixed;
   inset: 0;
@@ -1450,8 +1490,8 @@ body.tab-messages #tabMessages .chat-list-pane {
 }
 
 /* === APP-MSG-TAB-ROOT-FALLBACK === */
-/* App 上部分机型 #id 选择器不稳定：社群群列表/好友列表用 .msg-tab-root 强制 flex + 头像铺满
- * （H5 仍走上方 #tabMessages 规则；此前只有会话行写了 display:flex !important） */
+/* App ????? #id ????????????/????? .msg-tab-root ?? flex + ????
+ * ?H5 ???? #tabMessages ???????????? display:flex !important? */
 .msg-tab-root .chat-home-tab,
 .msg-tab-root .chat-community-seg-btn {
   display: flex !important;
@@ -1475,13 +1515,14 @@ body.tab-messages #tabMessages .chat-list-pane {
 .msg-tab-root .chat-my-group-item,
 .msg-tab-root .chat-feed-item {
   justify-content: space-between !important;
-  gap: 10px !important;
+  gap: 12px !important;
   width: 100% !important;
-  padding: 8px 10px !important;
-  border-radius: 14px !important;
-  background: #fffdf8 !important;
-  border: 1px solid rgba(230, 190, 130, 0.45) !important;
-  box-shadow: 0 2px 8px rgba(160, 120, 70, 0.08) !important;
+  padding: 12px 16px !important;
+  border-radius: 0 !important;
+  background: #ffffff !important;
+  border: none !important;
+  border-bottom: 0.5px solid #e5e5e5 !important;
+  box-shadow: none !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
@@ -1528,7 +1569,7 @@ body.tab-messages #tabMessages .chat-list-pane {
 .msg-tab-root .chat-friend-feed-list .chat-avatar {
   width: 48px !important;
   height: 48px !important;
-  border-radius: 14px !important;
+  border-radius: 50% !important;
 }
 .msg-tab-root .chat-my-group-avatar {
   width: 36px !important;
@@ -1559,6 +1600,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   width: 100% !important;
   height: 100% !important;
   object-fit: cover !important;
+  border-radius: 50% !important;
 }
 .msg-tab-root .chat-my-group-name,
 .msg-tab-root .chat-my-group-name text {
