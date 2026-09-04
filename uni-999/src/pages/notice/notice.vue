@@ -284,7 +284,8 @@ const panelHostStyle = computed(() => {
 })
 const noticeScrollStyle = computed(() => {
   let h = Number(panelScrollPx.value) || 420
-  h = Math.max(180, h - 72)
+  // 仅扣分类 Seg 高度，避免再额外 -72 把列表裁短露出灰底
+  h = Math.max(180, h - 48)
   return {
     height: h + 'px',
     minHeight: h + 'px',
@@ -295,7 +296,7 @@ const noticeScrollStyle = computed(() => {
 })
 const noticePaneStyle = computed(() => {
   const h = Number(panelScrollPx.value) || 420
-  const inner = Math.max(180, h - 72)
+  const inner = Math.max(180, h - 48)
   return {
     height: inner + 'px',
     minHeight: inner + 'px',
@@ -323,10 +324,12 @@ function measureNoticeLayout() {
     const inset = getSafeAreaInsets()
     const status = Number(inset.top || 0)
     const topBar = getTopBarContentHeight()
-    const tabBar = 72 + Number(inset.bottom || 0)
+    // 底栏约 52 + padding；勿过大，否则列表底与 Tab 之间留灰缝
+    const tabBar = 64 + Number(inset.bottom || 0)
     const shell = Math.max(280, winH - status - topBar - tabBar)
     tabRootPx.value = shell
-    panelScrollPx.value = Math.max(220, shell - 56)
+    // panel 铺满 tabRoot，Seg 高度在 noticePane 内再扣
+    panelScrollPx.value = Math.max(220, shell)
   } catch (e) {
     tabRootPx.value = 0
     panelScrollPx.value = 420

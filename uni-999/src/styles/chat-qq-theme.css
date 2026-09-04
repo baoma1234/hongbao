@@ -1097,24 +1097,27 @@
 
 /* ========== 公告 / 佣金 — QQ 扁平（#tabNotice / #tabCommission） ========== */
 .messages-page.notice-page,
-.messages-page.commission-page,
 #tabNotice,
-#tabCommission,
 #tabNotice .chat-shell,
-#tabCommission .chat-shell,
 #tabNotice .chat-list-main,
+#tabNotice .chat-list-pane {
+  background: #ffffff !important;
+}
+
+.messages-page.commission-page,
+#tabCommission,
+#tabCommission .chat-shell,
 #tabCommission .chat-list-main,
-#tabNotice .chat-list-pane,
 #tabCommission .chat-list-pane {
   background: var(--qq-bg-page) !important;
 }
 
-/* —— 公告 —— */
+/* —— 公告：整页白底，避免列表下方露出灰底 —— */
 #tabNotice .chat-notice-feed-panel,
 #tabMessages .chat-notice-feed-panel,
 .notice-page .chat-notice-feed-panel,
 .msg-tab-root .chat-notice-feed-panel {
-  background: var(--qq-bg-page) !important;
+  background: #ffffff !important;
   background-image: none !important;
   padding: 0 0 8px !important;
   gap: 0 !important;
@@ -1163,7 +1166,7 @@
 #tabNotice .chat-notice-body-scroll .uni-scroll-view-content,
 .notice-page .chat-notice-pane,
 .notice-page .chat-notice-body-scroll {
-  background: var(--qq-bg-page) !important;
+  background: #ffffff !important;
 }
 
 #tabNotice .chat-notice-feed,
