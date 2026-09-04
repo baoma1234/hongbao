@@ -1,6 +1,6 @@
 /**
- * QQ 风聊天主题（会话列表 + 对话框）
- * 在 chat-uni-adapter / chat-room-uni-adapter 之后加载
+ * QQ ?????????? + ????
+ * ? chat-uni-adapter / chat-room-uni-adapter ????
  */
 :root {
   --qq-bg-page: #ededed;
@@ -17,7 +17,7 @@
   --qq-badge: #fa5151;
 }
 
-/* ========== QQ 列表顶栏（消息 / 社群，替代品牌 TopBar） ========== */
+/* ========== QQ ??????? / ??????? TopBar? ========== */
 .qq-list-nav {
   position: fixed;
   top: 0;
@@ -157,7 +157,7 @@
   background: rgba(255, 255, 255, 0.1) !important;
 }
 
-/* ========== 对话框 ========== */
+/* ========== ??? ========== */
 .chat-room-page .chat-room-pane {
   top: 0 !important;
   background: var(--qq-bg-page) !important;
@@ -167,7 +167,7 @@
   background: var(--qq-bg-page) !important;
 }
 
-/* 单顶栏：白底 + 标题居中（替代站点 TopBar） */
+/* ?????? + ????????? TopBar? */
 .chat-room-page .chat-hero-hd--qq-nav {
   display: flex !important;
   align-items: center !important;
@@ -239,7 +239,7 @@
   display: none !important;
 }
 
-/* 气泡：左白右绿 */
+/* ??????? */
 .chat-room-page .chat-room-pane .chat-bubble,
 .chat-room-page .chat-bubble.text-msg {
   background: var(--qq-bubble-other) !important;
@@ -288,7 +288,7 @@
   font-size: 12px !important;
 }
 
-/* 输入区 */
+/* ??? */
 .chat-room-page .chat-composer-wrap {
   background: #f7f7f7 !important;
   border-top: 1px solid var(--qq-border) !important;
@@ -348,8 +348,8 @@
   color: rgba(255, 255, 255, 0.9) !important;
 }
 
-/* ========== 会话列表（消息 Tab）+ 社群 Tab — 全量 QQ ========== */
-/* 消息：列表区白底；社群：页面灰底（避免列表不足时大片空白） */
+/* ========== ??????? Tab?+ ?? Tab ? ?? QQ ========== */
+/* ????????????????????????????? */
 .msg-tab-root,
 #tabMessages .chat-list-main,
 #tabMessages .chat-shell,
@@ -374,7 +374,7 @@
   background: var(--qq-bg-list) !important;
 }
 
-/* 常驻搜索条 */
+/* ????? */
 #tabMessages .chat-home-search-area--qq,
 .messages-page--qq .chat-home-search-area--qq {
   background: var(--qq-bg-list) !important;
@@ -536,7 +536,7 @@
   font-weight: 400 !important;
 }
 
-/* 客服标签：实心蓝底白字（勿白字+浅蓝底，会看不见） */
+/* ???????????????+????????? */
 #tabMessages .chat-admin-tag,
 #tabMessages .chat-admin-tag text,
 #tabMessages .chat-conv-title .chat-admin-tag,
@@ -591,7 +591,7 @@
   border-radius: 1px !important;
 }
 
-/* 左滑：扁平；行间不要下划线 */
+/* ????????????? */
 #tabMessages .chat-conv-swipe,
 #tabMessages .chat-conv-swipe .chat-conv-item,
 .messages-page--qq .chat-conv-swipe,
@@ -637,7 +637,7 @@
   text-align: center !important;
 }
 
-/* —— 社群 —— */
+/* ?? ?? ?? */
 #tabMessages .chat-community-glass:not(.is-hidden),
 #tabCommunity .chat-community-glass:not(.is-hidden),
 .msg-tab-root .chat-community-glass:not(.is-hidden),
@@ -707,7 +707,7 @@
   display: none !important;
 }
 
-/* 我的群组 / 我创建的 / 好友：与官方社群同款扁平 QQ 行（压过奶油卡片） */
+/* ???? / ???? / ???????????? QQ ????????? */
 #tabMessages .chat-my-groups-list,
 #tabCommunity .chat-my-groups-list,
 #tabMessages .chat-friend-feed-list,
@@ -850,7 +850,7 @@
   color: var(--qq-text-sub) !important;
 }
 
-/* 官方群：扁平 QQ 行 */
+/* ?????? QQ ? */
 #tabMessages .chat-official-list,
 #tabCommunity .chat-official-list,
 .msg-tab-root .chat-official-list {
@@ -903,7 +903,7 @@
   padding: 6px 12px !important;
 }
 
-/* 规则 dock */
+/* ?? dock */
 #tabMessages .chat-official-rules,
 #tabCommunity .chat-official-rules,
 #tabMessages .chat-official-rules--dock,
@@ -931,7 +931,7 @@
   color: var(--qq-accent) !important;
 }
 
-/* 创建群弹层：全屏 QQ 顶栏（盖住品牌 TopBar） */
+/* ???????? QQ ??????? TopBar? */
 .chat-create-group-pane {
   top: 0 !important;
   bottom: 0 !important;
@@ -940,6 +940,23 @@
 }
 .chat-create-group-pane.open {
   display: flex !important;
+}
+.chat-create-group-pane .chat-cg-title {
+  position: absolute !important;
+  left: 76px !important;
+  right: 76px !important;
+  flex: none !important;
+  text-align: center !important;
+  color: #191919 !important;
+  font-size: 17px !important;
+  font-weight: 600 !important;
+  line-height: 44px !important;
+  height: 44px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  text-shadow: none !important;
+  pointer-events: none !important;
 }
 .chat-create-group-pane .chat-cg-header {
   flex-shrink: 0 !important;
@@ -952,27 +969,19 @@
     --cg-header-pad-top,
     calc(6px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))
   ) !important;
-  padding-bottom: 8px !important;
-  padding-left: 4px !important;
-  padding-right: 12px !important;
-  background: var(--qq-bg-nav) !important;
-  color: var(--qq-text-main) !important;
+  padding-bottom: 0 !important;
+  padding-left: 2px !important;
+  padding-right: 10px !important;
+  background: #ffffff !important;
+  color: #191919 !important;
   border: none !important;
-  border-bottom: 0.5px solid var(--qq-border) !important;
+  border-bottom: 0.5px solid #e5e5e5 !important;
   box-shadow: none !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   position: relative !important;
   z-index: 1 !important;
-}
-.chat-create-group-pane .chat-cg-title {
-  flex: 1 !important;
-  text-align: center !important;
-  color: #191919 !important;
-  font-size: 17px !important;
-  font-weight: 600 !important;
-  line-height: 44px !important;
-  text-shadow: none !important;
+  box-sizing: border-box !important;
 }
 .chat-create-group-pane .chat-cg-back,
 .chat-create-group-pane .chat-cg-title,
@@ -981,20 +990,21 @@
 }
 .chat-create-group-pane .chat-cg-back {
   display: inline-flex !important;
+  flex-direction: row !important;
   align-items: center !important;
-  justify-content: center !important;
-  width: 44px !important;
+  justify-content: flex-start !important;
+  width: auto !important;
+  min-width: 72px !important;
+  max-width: none !important;
   height: 44px !important;
-  min-width: 44px !important;
-  max-width: 44px !important;
   margin: 0 !important;
-  padding: 0 !important;
+  padding: 0 4px 0 2px !important;
   border: none !important;
   background: transparent !important;
   box-shadow: none !important;
   border-radius: 0 !important;
   color: #191919 !important;
-  font-size: 28px !important;
+  font-size: 16px !important;
   line-height: 1 !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -1003,21 +1013,39 @@
   pointer-events: auto !important;
   z-index: 2 !important;
   position: relative !important;
+  gap: 0 !important;
 }
 .chat-create-group-pane .chat-cg-back--hit {
   opacity: 0.55 !important;
 }
 .chat-create-group-pane .chat-cg-back-ico,
-.chat-create-group-pane .chat-cg-back .chat-hero-back-char,
-.chat-create-group-pane .chat-cg-back text {
+.chat-create-group-pane .chat-cg-back .chat-hero-back-char {
   display: block !important;
   color: #191919 !important;
-  font-size: 32px !important;
+  font-size: 30px !important;
   font-weight: 400 !important;
   line-height: 44px !important;
   height: 44px !important;
+  width: 22px !important;
   text-align: center !important;
   text-shadow: none !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  flex-shrink: 0 !important;
+}
+.chat-create-group-pane .chat-cg-back-lab {
+  display: block !important;
+  color: #191919 !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  line-height: 44px !important;
+  height: 44px !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  flex-shrink: 0 !important;
+}
+.chat-create-group-pane .chat-cg-back text {
+  color: #191919 !important;
   opacity: 1 !important;
   visibility: visible !important;
 }
@@ -1196,7 +1224,7 @@
   color: #999999 !important;
 }
 
-/* App：建群全屏顶距走安全区，不再垫在 TopBar 下方 */
+/* App???????????????? TopBar ?? */
 .chat-create-group-pane.cg-app-fix {
   top: 0 !important;
 }
@@ -1212,7 +1240,7 @@
   padding-top: 12px !important;
 }
 
-/* 底栏：QQ 灰字 + 蓝选中 */
+/* ???QQ ?? + ??? */
 .bottom-action-bar {
   background: #f7f7f7 !important;
   border-top: 0.5px solid var(--qq-border) !important;
@@ -1262,7 +1290,7 @@
   line-height: 14px !important;
 }
 
-/* ========== 群设置 QQ ========== */
+/* ========== ??? QQ ========== */
 .chat-group-settings-page--qq {
   min-height: 100vh;
   min-height: 100dvh;
@@ -1362,7 +1390,7 @@
   border-color: #12b7f5 !important;
 }
 
-/* ========== 公告 / 佣金 — QQ 扁平（#tabNotice / #tabCommission） ========== */
+/* ========== ?? / ?? ? QQ ???#tabNotice / #tabCommission? ========== */
 .messages-page.notice-page,
 #tabNotice,
 #tabNotice .chat-shell,
@@ -1379,7 +1407,7 @@
   background: #ffffff !important;
 }
 
-/* —— 公告：整页白底，避免列表下方露出灰底 —— */
+/* ?? ?????????????????? ?? */
 #tabNotice .chat-notice-feed-panel,
 #tabMessages .chat-notice-feed-panel,
 .notice-page .chat-notice-feed-panel,
@@ -1594,7 +1622,7 @@
   background: #ffffff !important;
 }
 
-/* 裂变卡：保留活动氛围，按钮改 QQ 蓝/白 */
+/* ?????????????? QQ ?/? */
 #tabNotice .chat-fission-card,
 #tabMessages .chat-fission-card,
 .notice-page .chat-fission-card {
@@ -1631,7 +1659,7 @@
   color: var(--qq-text-sub) !important;
 }
 
-/* —— 佣金：整页白底，避免列表下方露出灰底 —— */
+/* ?? ?????????????????? ?? */
 #tabCommission .chat-commission-panel,
 #tabMessages .chat-commission-panel,
 .commission-page .chat-commission-panel,
@@ -1817,7 +1845,7 @@
   color: var(--qq-text-sub) !important;
 }
 
-/* ========== 公平验证 fair-verify QQ ========== */
+/* ========== ???? fair-verify QQ ========== */
 .fv-page--qq {
   background: #ededed !important;
 }
@@ -1905,7 +1933,7 @@
 }
 
 
-/* ========== Ⱥ���ó�Ա/���븡�� QQ ========== */
+/* ========== ????�??/?????? QQ ========== */
 .chat-group-overlay--qq {
   background: #ededed !important;
   z-index: 13100 !important;
@@ -1990,4 +2018,167 @@
   background: #12b7f5 !important;
   border-color: #12b7f5 !important;
   color: #ffffff !important;
+}
+
+/* ========== ����Ⱥ / Ⱥ���� �� ��� QQ �տڣ�ѹ�� cream/��ͷ������ ========== */
+.chat-create-group-pane .chat-cg-next-top {
+  min-width: 72px !important;
+  text-align: right !important;
+  padding-right: 2px !important;
+  color: #12b7f5 !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  line-height: 44px !important;
+  height: 44px !important;
+  z-index: 2 !important;
+  position: relative !important;
+}
+.chat-create-group-pane .chat-cg-cards {
+  gap: 0 !important;
+  background: #ffffff !important;
+  border-radius: 8px !important;
+  border: 0.5px solid #e5e5e5 !important;
+  overflow: hidden !important;
+}
+.chat-create-group-pane .chat-cg-card {
+  margin: 0 !important;
+  border: none !important;
+  border-bottom: 0.5px solid #f0f0f0 !important;
+  border-radius: 0 !important;
+  background: #ffffff !important;
+  padding: 14px 14px !important;
+  box-shadow: none !important;
+}
+.chat-create-group-pane .chat-cg-card:last-child {
+  border-bottom: none !important;
+}
+.chat-create-group-pane .chat-cg-card.active,
+.chat-create-group-pane .chat-cg-card.active-light {
+  background: #f2f9ff !important;
+  border-color: transparent !important;
+}
+.chat-create-group-pane .chat-cg-avatar,
+.chat-create-group-pane .chat-cg-input-box,
+.chat-create-group-pane .chat-cg-input-group {
+  box-shadow: none !important;
+  background-image: none !important;
+}
+
+.chat-group-settings-page--qq {
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 100vh !important;
+  min-height: 100dvh !important;
+  background: #ededed !important;
+}
+.chat-group-settings-page--qq > .chat-sub-main {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: auto !important;
+  background: #ededed !important;
+  padding: 0 0 24px !important;
+  box-sizing: border-box !important;
+}
+.chat-group-settings-page--qq .chat-setting-profile {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  margin: 10px 0 0 !important;
+  padding: 16px 14px !important;
+  background: #ffffff !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+.chat-group-settings-page--qq .chat-setting-avatar-img {
+  border-radius: 8px !important;
+}
+.chat-group-settings-page--qq .chat-setting-avatar-edit {
+  background: rgba(0, 0, 0, 0.45) !important;
+  color: #ffffff !important;
+  border-radius: 0 0 8px 8px !important;
+}
+.chat-group-settings-page--qq .chat-setting-edit,
+.chat-group-settings-page--qq .chat-setting-block {
+  margin: 10px 0 0 !important;
+  padding: 12px 14px !important;
+  background: #ffffff !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+.chat-group-settings-page--qq .chat-setting-row {
+  margin: 0 !important;
+  padding: 14px 14px !important;
+  background: #ffffff !important;
+  border: none !important;
+  border-bottom: 0.5px solid #e5e5e5 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  color: #191919 !important;
+  font-size: 16px !important;
+}
+.chat-group-settings-page--qq .chat-setting-arrow {
+  color: #c8c8c8 !important;
+}
+.chat-group-settings-page--qq .chat-setting-input,
+.chat-group-settings-page--qq .chat-setting-textarea {
+  background: #f5f5f5 !important;
+  border: none !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+  color: #191919 !important;
+}
+.chat-group-settings-page--qq .chat-setting-hint {
+  margin: 8px 14px !important;
+  color: #999999 !important;
+  font-size: 12px !important;
+}
+.chat-group-settings-page--qq .chat-action-sheet-panel {
+  background: #ffffff !important;
+  border-radius: 12px 12px 0 0 !important;
+}
+.chat-group-settings-page--qq .chat-action-item {
+  color: #191919 !important;
+  border-bottom: 0.5px solid #f0f0f0 !important;
+  background: #ffffff !important;
+}
+.chat-group-settings-page--qq .chat-action-item.danger {
+  color: #fa5151 !important;
+}
+.chat-group-settings-page--qq .chat-action-item.cancel {
+  color: #191919 !important;
+  font-weight: 600 !important;
+}
+
+.chat-group-overlay--qq {
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  background: #ededed !important;
+}
+.chat-group-overlay--qq .chat-member-item--qq::after {
+  content: '?' !important;
+  font-size: 18px !important;
+  color: #c8c8c8 !important;
+}
+.chat-group-overlay--qq .chat-invite-item.chat-member-item--qq::after {
+  display: none !important;
+}
+.chat-group-overlay--qq .chat-member-tag {
+  border-radius: 4px !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+}
+.chat-group-overlay--qq .chat-member-tag.owner {
+  background: #fff3e8 !important;
+  color: #e67e22 !important;
+}
+.chat-group-overlay--qq .chat-member-tag.admin {
+  background: #e8f6ff !important;
+  color: #12b7f5 !important;
+}
+.chat-group-overlay--qq .chat-member-tag.muted {
+  background: #f5f5f5 !important;
+  color: #999999 !important;
 }

@@ -1,10 +1,14 @@
 <template>
   <view class="chat-group-settings-page chat-group-settings-page--qq">
-    <TopBar :title="settingsBarTitle" />
-    <view class="gs-qq-backbar">
-      <view class="gs-qq-back" hover-class="gs-qq-back--hit" @click="goBack">
-        <text class="gs-qq-back-ico">‹</text>
-        <text class="gs-qq-back-lab">返回</text>
+    <!-- 单一 QQ 顶栏：‹返回 + 居中标题（群设置 / 群成员 / 添加群成员） -->
+    <view class="gs-qq-nav" :style="gsNavStyle">
+      <view class="gs-qq-nav-inner">
+        <view class="gs-qq-nav-back" hover-class="gs-qq-nav-back--hit" @click="goBack">
+          <text class="gs-qq-nav-back-ico">‹</text>
+          <text class="gs-qq-nav-back-lab">返回</text>
+        </view>
+        <text class="gs-qq-nav-title">{{ settingsBarTitle }}</text>
+        <view class="gs-qq-nav-side" />
       </view>
     </view>
 
@@ -310,8 +314,7 @@ import { onLoad, onShow } from '@dcloudio/uni-app'
 import { fetchProfile, getToken, uploadCommonFile, apiRequest } from '../../utils/auth.js'
 import { avatarSrc } from '../../utils/chat.js'
 import { copyText } from '../../utils/master.js'
-import { applySafeAreaCssVars, getSafeAreaInsets, getTopBarContentHeight } from '../../utils/safe-area.js'
-import TopBar from '../../components/TopBar.vue'
+import { applySafeAreaCssVars, getSafeAreaInsets } from '../../utils/safe-area.js'
 import {
   addGroupMembers,
   fetchGroupInfo,
@@ -345,20 +348,19 @@ function goBack() {
   safeNavigateBack(HOME_TAB)
 }
 
-const qqNavPadStyle = computed(() => {
+const gsNavStyle = computed(() => {
   const top = Math.max(0, Number(getSafeAreaInsets().top || 0))
   return { paddingTop: top + 6 + 'px' }
 })
 
-/** 浮层顶距：公共 TopBar + 返回条下方 */
+/** 浮层顶距：QQ 顶栏底边下方 */
 const appOverlayStyle = ref({})
 const memberListStyle = ref({})
-const GS_CHROME = 50
+const GS_NAV_CONTENT = 44
 function refreshOverlayTop() {
   applySafeAreaCssVars()
-  const topBar = getTopBarContentHeight()
   const status = Math.max(0, Number(getSafeAreaInsets().top || 0))
-  const top = status + topBar + GS_CHROME
+  const top = status + 6 + GS_NAV_CONTENT
   // #ifdef APP-PLUS
   let wh = 640
   try {
@@ -952,36 +954,67 @@ onShow(() => {
 </script>
 
 <style scoped>
-.gs-qq-backbar {
-  display: flex;
-  align-items: center;
-  height: 44px;
-  padding: 0 6px;
+.gs-qq-nav {
+  position: sticky;
+  top: 0;
+  z-index: 200;
   background: #ffffff;
   border-bottom: 0.5px solid #e5e5e5;
   box-sizing: border-box;
   flex-shrink: 0;
 }
-.gs-qq-back {
+.gs-qq-nav-inner {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px 0 2px;
+  box-sizing: border-box;
+  position: relative;
+}
+.gs-qq-nav-back {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  min-height: 44px;
-  padding: 0 8px 0 4px;
+  gap: 0;
+  min-width: 72px;
+  height: 44px;
+  padding: 0 4px 0 2px;
   box-sizing: border-box;
+  z-index: 2;
 }
-.gs-qq-back--hit {
+.gs-qq-nav-back--hit {
   opacity: 0.55;
 }
-.gs-qq-back-ico {
-  font-size: 28px;
+.gs-qq-nav-back-ico {
+  font-size: 30px;
   font-weight: 400;
   color: #191919;
   line-height: 44px;
+  width: 22px;
+  text-align: center;
 }
-.gs-qq-back-lab {
+.gs-qq-nav-back-lab {
   font-size: 16px;
   color: #191919;
   line-height: 44px;
+}
+.gs-qq-nav-title {
+  position: absolute;
+  left: 76px;
+  right: 76px;
+  text-align: center;
+  font-size: 17px;
+  font-weight: 600;
+  color: #191919;
+  line-height: 44px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.gs-qq-nav-side {
+  min-width: 72px;
+  height: 44px;
+  flex-shrink: 0;
 }
 </style>

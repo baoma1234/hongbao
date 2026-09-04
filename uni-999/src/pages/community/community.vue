@@ -193,8 +193,9 @@
       <view class="chat-cg-header">
         <view class="chat-cg-back" hover-class="chat-cg-back--hit" @click="closeCreateGroupPane">
           <text class="chat-cg-back-ico">‹</text>
+          <text class="chat-cg-back-lab">返回</text>
         </view>
-        <view class="chat-cg-title">创建新群聊</view>
+        <text class="chat-cg-title">创建新群聊</text>
         <view
           class="chat-cg-next-top"
           :class="{ 'is-disabled': createGroupSubmitting }"

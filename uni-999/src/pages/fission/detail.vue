@@ -85,7 +85,7 @@
           </view>
 
           <view v-if="state === 'running'" class="fx-join-wrap">
-            <text class="fx-join-tip">邀请新人注册得资格后，可立即拆红包，无需等人数满</text>
+            <text class="fx-join-tip">邀请新人注册得资格后，可立即拆红包</text>
           </view>
         </view>
 
