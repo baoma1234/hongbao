@@ -248,13 +248,13 @@ const lobbyCategories = computed(() => [
   { id: 'notice', iconImg: '66.png', label: tt('lobby_cat_notice', '红宝公告'), action: 'notice' },
   {
     id: 'commission',
-    iconStatic: 'tab/community.png',
+    iconImg: 'commission.png',
     label: tt('lobby_cat_commission', '红宝佣金'),
     action: 'commission',
   },
 ])
 
-const LOBBY_ASSET_VER = '8'
+const LOBBY_ASSET_VER = '9'
 
 /** 01–06 固定排序：接龙 / 扫雷 / 牛牛 / 对战 / 盲盒 / 鱼虾蟹 */
 const lobbyGames = [

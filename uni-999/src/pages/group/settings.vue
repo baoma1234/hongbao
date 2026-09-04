@@ -1,12 +1,10 @@
 <template>
   <view class="chat-group-settings-page chat-group-settings-page--qq">
-    <view class="chat-hero-hd chat-hero-hd--bar-actions chat-hero-hd--qq-nav" :style="qqNavPadStyle">
-      <view class="chat-hero-back" hover-class="chat-hero-back--active" @click="goBack">
-        <text class="chat-hero-back-char">‹</text>
-      </view>
-      <text class="chat-hero-title chat-hero-title--qq">{{ settingsBarTitle }}</text>
-      <view class="chat-hero-more" style="opacity:0;pointer-events:none">
-        <text class="chat-hero-back-char">···</text>
+    <TopBar :title="settingsBarTitle" />
+    <view class="gs-qq-backbar">
+      <view class="gs-qq-back" hover-class="gs-qq-back--hit" @click="goBack">
+        <text class="gs-qq-back-ico">‹</text>
+        <text class="gs-qq-back-lab">返回</text>
       </view>
     </view>
 
@@ -130,29 +128,23 @@
       </view>
     </scroll-view>
 
-    <!-- 群成员：对齐 888 #chatGroupMembersPane -->
+    <!-- 群成员：共用公共头，无第二层返回 -->
     <view
       v-if="membersPane"
-      class="chat-group-invite-overlay chat-group-members-overlay"
+      class="chat-group-invite-overlay chat-group-members-overlay chat-group-overlay--qq"
       :style="appOverlayStyle"
       aria-hidden="false"
     >
-      <view class="chat-hero-hd chat-hero-hd--bar-actions">
-        <view class="chat-hero-back" @click="closeMembersPane">
-          <text class="chat-hero-back-char">‹</text>
-        </view>
-        <view class="chat-hero-spacer" />
-      </view>
-      <view class="chat-sub-main">
-        <view class="chat-sub-toolbar">
+      <view class="chat-sub-main chat-sub-main--overlay">
+        <view class="chat-sub-toolbar chat-sub-toolbar--qq">
           <button
             v-if="canEdit"
             type="button"
-            class="chat-add-member-btn"
+            class="chat-add-member-btn chat-add-member-btn--qq"
             @click="fromMembersToInvite"
           >添加群成员</button>
           <input
-            class="chat-search-input"
+            class="chat-search-input chat-search-input--qq"
             type="text"
             v-model="memberKeyword"
             placeholder="搜索成员昵称/ID"
@@ -163,11 +155,11 @@
           />
         </view>
         <view class="chat-member-scroll-host">
-          <scroll-view class="chat-member-list" scroll-y :show-scrollbar="true" :style="memberListStyle">
+          <scroll-view class="chat-member-list chat-member-list--qq" scroll-y :show-scrollbar="true" :style="memberListStyle">
             <view
               v-for="m in filteredMembers"
               :key="m.user_id"
-              class="chat-member-item"
+              class="chat-member-item chat-member-item--qq"
               @click.stop="onMemberTap(m)"
             >
               <view class="chat-member-avatar">
@@ -195,18 +187,17 @@
       </view>
     </view>
 
-    <!-- 添加成员：对齐 888 invite pane -->
-    <view v-if="addSheet" class="chat-group-invite-overlay" :style="appOverlayStyle" aria-hidden="false">
-      <view class="chat-hero-hd chat-hero-hd--bar-actions">
-        <view class="chat-hero-back" @click="closeAddSheet">
-          <text class="chat-hero-back-char">‹</text>
-        </view>
-        <view class="chat-hero-spacer" />
-      </view>
-      <view class="chat-sub-main">
-        <view class="chat-sub-toolbar">
+    <!-- 添加成员：共用公共头，无第二层返回 -->
+    <view
+      v-if="addSheet"
+      class="chat-group-invite-overlay chat-group-overlay--qq"
+      :style="appOverlayStyle"
+      aria-hidden="false"
+    >
+      <view class="chat-sub-main chat-sub-main--overlay">
+        <view class="chat-sub-toolbar chat-sub-toolbar--qq">
           <input
-            class="chat-search-input"
+            class="chat-search-input chat-search-input--qq"
             type="text"
             v-model="inviteKeyword"
             placeholder="搜索用户名/手机号/ID"
@@ -217,11 +208,11 @@
           />
         </view>
         <view class="chat-member-scroll-host">
-          <scroll-view class="chat-member-list chat-invite-list" scroll-y :show-scrollbar="true" :style="memberListStyle">
+          <scroll-view class="chat-member-list chat-invite-list chat-member-list--qq" scroll-y :show-scrollbar="true" :style="memberListStyle">
             <view
               v-for="u in filteredCandidates"
               :key="u.user_id"
-              class="chat-member-item chat-invite-item"
+              class="chat-member-item chat-invite-item chat-member-item--qq"
               @click="toggleCandidate(u)"
             >
               <view class="chat-forbid-check chat-invite-box" :class="{ on: !!selectedIds[u.user_id] }">
@@ -243,10 +234,10 @@
             <view v-if="candLoading" class="chat-empty">加载中…</view>
           </scroll-view>
         </view>
-        <view class="chat-invite-ft">
+        <view class="chat-invite-ft chat-invite-ft--qq">
           <button
             type="button"
-            class="chat-invite-confirm-btn"
+            class="chat-invite-confirm-btn chat-invite-confirm-btn--qq"
             :disabled="addSaving || !selectedCount"
             @click="confirmAddMembers"
           >
@@ -319,7 +310,8 @@ import { onLoad, onShow } from '@dcloudio/uni-app'
 import { fetchProfile, getToken, uploadCommonFile, apiRequest } from '../../utils/auth.js'
 import { avatarSrc } from '../../utils/chat.js'
 import { copyText } from '../../utils/master.js'
-import { applySafeAreaCssVars, getSafeAreaInsets } from '../../utils/safe-area.js'
+import { applySafeAreaCssVars, getSafeAreaInsets, getTopBarContentHeight } from '../../utils/safe-area.js'
+import TopBar from '../../components/TopBar.vue'
 import {
   addGroupMembers,
   fetchGroupInfo,
@@ -342,6 +334,14 @@ import '../../styles/chat-group-settings-parity.css'
 import '../../styles/chat-qq-theme.css'
 
 function goBack() {
+  if (addSheet.value) {
+    closeAddSheet()
+    return
+  }
+  if (membersPane.value) {
+    closeMembersPane()
+    return
+  }
   safeNavigateBack(HOME_TAB)
 }
 
@@ -350,12 +350,15 @@ const qqNavPadStyle = computed(() => {
   return { paddingTop: top + 6 + 'px' }
 })
 
-/** App 浮层：固定像素高度（部分 WebView 忽略 fixed+bottom:0，会只剩顶栏高度导致设置页透出来） */
+/** 浮层顶距：公共 TopBar + 返回条下方 */
 const appOverlayStyle = ref({})
 const memberListStyle = ref({})
+const GS_CHROME = 50
 function refreshOverlayTop() {
   applySafeAreaCssVars()
-  const top = Math.max(0, Number(getSafeAreaInsets().top || 0)) + 50
+  const topBar = getTopBarContentHeight()
+  const status = Math.max(0, Number(getSafeAreaInsets().top || 0))
+  const top = status + topBar + GS_CHROME
   // #ifdef APP-PLUS
   let wh = 640
   try {
@@ -378,10 +381,9 @@ function refreshOverlayTop() {
     flexDirection: 'column',
     overflow: 'hidden',
   }
-  // 顶栏约 48 + 工具条(添加按钮+搜索约 96 / 仅搜索约 52) + 邀请底栏约 72
   const tool = addSheet.value ? 52 : canEdit.value ? 96 : 52
   const ft = addSheet.value ? 72 : 0
-  const listH = Math.max(180, Math.floor(overlayH - 48 - tool - ft))
+  const listH = Math.max(180, Math.floor(overlayH - tool - ft))
   memberListStyle.value = {
     height: listH + 'px',
     position: 'relative',
@@ -392,7 +394,10 @@ function refreshOverlayTop() {
   }
   // #endif
   // #ifndef APP-PLUS
-  appOverlayStyle.value = {}
+  appOverlayStyle.value = {
+    top: top + 'px',
+    '--chat-overlay-top': top + 'px',
+  }
   memberListStyle.value = {}
   // #endif
 }
@@ -945,3 +950,38 @@ onShow(() => {
   if (groupId.value) loadInfo()
 })
 </script>
+
+<style scoped>
+.gs-qq-backbar {
+  display: flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 6px;
+  background: #ffffff;
+  border-bottom: 0.5px solid #e5e5e5;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+.gs-qq-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 44px;
+  padding: 0 8px 0 4px;
+  box-sizing: border-box;
+}
+.gs-qq-back--hit {
+  opacity: 0.55;
+}
+.gs-qq-back-ico {
+  font-size: 28px;
+  font-weight: 400;
+  color: #191919;
+  line-height: 44px;
+}
+.gs-qq-back-lab {
+  font-size: 16px;
+  color: #191919;
+  line-height: 44px;
+}
+</style>

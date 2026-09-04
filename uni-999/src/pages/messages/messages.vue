@@ -53,6 +53,20 @@
       </view>
     </view>
 
+    <!-- 搜索条：放在资料条下方，避免被会话列表盖住 -->
+    <view v-if="searchOpen" class="qq-msg-search">
+      <view class="qq-msg-search-box">
+        <input
+          class="qq-msg-search-input"
+          v-model="keyword"
+          focus
+          placeholder="搜索会话 / 昵称 / 内容"
+          confirm-type="search"
+        />
+      </view>
+      <text class="qq-msg-search-cancel" @click="clearSearch">取消</text>
+    </view>
+
     <view
       id="tabMessages"
       class="tab-page active msg-tab-root"
@@ -61,15 +75,6 @@
       <view class="chat-shell">
         <view class="chat-list-pane">
           <view class="chat-list-main">
-            <view class="chat-home-search-area">
-              <view v-if="searchOpen" class="chat-home-search-row">
-                <view class="chat-home-search-box">
-                  <input class="chat-home-search-input" v-model="keyword" focus placeholder="搜索会话 / 昵称 / 内容" />
-                </view>
-                <view class="chat-home-search-cancel" @click="clearSearch">取消</view>
-              </view>
-            </view>
-
             <!-- 聊天 -->
             <view
               id="chatHomePanelChat"
@@ -168,8 +173,8 @@
       :style="createGroupPaneStyle"
     >
       <view class="chat-cg-header">
-        <view class="chat-cg-back" @click="closeCreateGroupPane">
-          <text class="chat-hero-back-char">‹</text>
+        <view class="chat-cg-back" hover-class="chat-cg-back--hit" @click="closeCreateGroupPane">
+          <text class="chat-cg-back-ico">‹</text>
         </view>
         <view class="chat-cg-title">创建新群聊</view>
         <view
@@ -532,10 +537,11 @@ function measureMessagesLayout() {
     const status = Number(inset.top || 0)
     const topBar = getTopBarContentHeight()
     const tabBar = 72 + Number(inset.bottom || 0)
-    // 扣公共顶栏 + 资料条
-    const shell = Math.max(280, winH - status - topBar - QQ_MSG_NAV_CONTENT - tabBar)
+    const searchH = searchOpen.value ? 48 : 0
+    // 扣公共顶栏 + 资料条 + 可选搜索条
+    const shell = Math.max(280, winH - status - topBar - QQ_MSG_NAV_CONTENT - searchH - tabBar)
     tabRootPx.value = shell
-    const chrome = searchOpen.value ? 52 : 8
+    const chrome = 8
     let next = Math.max(220, shell - chrome)
     if (isIosSafariH5() && panelScrollPx.value > 0) {
       const shrink = panelScrollPx.value - next
@@ -1484,6 +1490,51 @@ onHide(() => {
   box-sizing: border-box;
   width: 100%;
   flex-shrink: 0;
+  overflow: visible;
+}
+.chat-plus-menu-wrap {
+  position: relative;
+  z-index: 60;
+  overflow: visible;
+}
+.qq-msg-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: #ffffff;
+  border-bottom: 0.5px solid #e5e5e5;
+  box-sizing: border-box;
+  position: relative;
+  z-index: 40;
+  flex-shrink: 0;
+}
+.qq-msg-search-box {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  background: #f5f5f5;
+  border-radius: 6px;
+  box-sizing: border-box;
+}
+.qq-msg-search-input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  font-size: 15px;
+  color: #191919;
+  background: transparent;
+  border: none;
+}
+.qq-msg-search-cancel {
+  flex-shrink: 0;
+  font-size: 15px;
+  color: #12b7f5;
+  font-weight: 500;
+  padding: 4px 2px;
 }
 .qq-msg-nav-inner {
   height: 56px;

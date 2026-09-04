@@ -1104,7 +1104,7 @@ body.tab-messages #tabMessages .chat-list-pane {
 .chat-create-group-pane .chat-cg-title,
 .chat-create-group-pane .chat-cg-next-top,
 .chat-create-group-pane .chat-cg-back {
-  color: #fff !important;
+  color: #191919 !important;
 }
 .chat-create-group-pane .chat-cg-next-top.is-disabled,
 .chat-create-group-pane .chat-cg-next-inner.is-disabled {

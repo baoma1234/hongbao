@@ -191,8 +191,8 @@
       :style="createGroupPaneStyle"
     >
       <view class="chat-cg-header">
-        <view class="chat-cg-back" @click="closeCreateGroupPane">
-          <text class="chat-hero-back-char">‹</text>
+        <view class="chat-cg-back" hover-class="chat-cg-back--hit" @click="closeCreateGroupPane">
+          <text class="chat-cg-back-ico">‹</text>
         </view>
         <view class="chat-cg-title">创建新群聊</view>
         <view
