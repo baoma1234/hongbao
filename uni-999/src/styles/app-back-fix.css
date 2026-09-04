@@ -1,16 +1,16 @@
-/* 建群全屏：强制 QQ「‹返回」可见（压过 cream font-size:0 / 空心圆） */
+/* 建群全屏：强制 QQ「‹」可见（压过 cream font-size:0 / 空心圆） */
 .chat-create-group-pane .chat-cg-back,
 .chat-create-group-pane.open .chat-cg-back {
   display: inline-flex !important;
   flex-direction: row !important;
   align-items: center !important;
-  justify-content: flex-start !important;
-  width: auto !important;
-  min-width: 72px !important;
-  max-width: none !important;
+  justify-content: center !important;
+  width: 44px !important;
+  min-width: 44px !important;
+  max-width: 44px !important;
   height: 44px !important;
   min-height: 44px !important;
-  padding: 0 4px 0 2px !important;
+  padding: 0 !important;
   border: none !important;
   border-radius: 0 !important;
   background: transparent !important;
@@ -23,19 +23,21 @@
   z-index: 5 !important;
   position: relative !important;
 }
+.chat-create-group-pane .chat-cg-back-lab {
+  display: none !important;
+}
 .chat-create-group-pane .chat-cg-back-ico,
-.chat-create-group-pane .chat-cg-back-lab,
 .chat-create-group-pane .chat-cg-back text {
   display: inline-block !important;
   color: #191919 !important;
   opacity: 1 !important;
   visibility: visible !important;
-  font-size: 16px !important;
+  font-size: 32px !important;
   line-height: 44px !important;
 }
 .chat-create-group-pane .chat-cg-back-ico {
-  font-size: 30px !important;
-  width: 22px !important;
+  font-size: 32px !important;
+  width: 28px !important;
   text-align: center !important;
 }
 .chat-create-group-pane .chat-cg-back svg {
