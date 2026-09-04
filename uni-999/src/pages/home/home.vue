@@ -254,7 +254,7 @@ const lobbyCategories = computed(() => [
   },
 ])
 
-const LOBBY_ASSET_VER = '10'
+const LOBBY_ASSET_VER = '11'
 
 /** 01–06 固定排序：接龙 / 扫雷 / 牛牛 / 对战 / 盲盒 / 鱼虾蟹 */
 const lobbyGames = [
@@ -276,10 +276,9 @@ function lobbyAsset(name) {
 }
 
 function lobbyCatIcon(cat) {
+  // logo 等站点 static 图走打包路径（与 TopBar logoUrl 一致），勿拼 OSS——CDN 上通常没有 /999/static/logo.png
   if (cat && cat.iconStatic) {
     const p = String(cat.iconStatic || '').replace(/^\/+/, '')
-    const oss = String(getUploadsBase() || '').replace(/\/+$/, '')
-    if (oss) return oss + '/999/static/' + p + '?v=' + LOBBY_ASSET_VER
     return packagedStaticUrl(p) + '?v=' + LOBBY_ASSET_VER
   }
   return lobbyAsset(cat && cat.iconImg)
