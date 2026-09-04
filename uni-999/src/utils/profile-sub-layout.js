@@ -2,8 +2,8 @@ import { ref } from 'vue'
 import { applySafeAreaCssVars, measureChatOverlayTop } from './safe-area.js'
 
 /**
- * 我的/钱包二级页红条 profile-sub-hd：App 上 CSS var(--chat-overlay-top) 常失效，
- * 须内联 top 与 TopBar 底边对齐，避免标题被白顶栏压住。
+ * 我的/钱包二级页 QQ 白返回条：App 上 CSS var(--chat-overlay-top) 常失效，
+ * 须内联 top 与 TopBar 底边对齐，避免被白顶栏压住。
  */
 export function useProfileSubHdStyle() {
   const profileSubHdStyle = ref({})

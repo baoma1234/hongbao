@@ -1053,7 +1053,7 @@ uni-input.hb-input {
   font-size: 14px;
 }
 
-/* ---------- 我的 · 二级页（对齐 888 profile-sub） ---------- */
+/* ---------- 我的 · 二级页（QQ：白顶返回条 + 灰底） ---------- */
 .profile-sub-page {
   padding: 0 0 28px;
   /* TopBar spacer 已占位；勿再用 CSS var（App 常偏小）导致顶栏挡住 profile-sub-hd */
@@ -1061,13 +1061,23 @@ uni-input.hb-input {
   box-sizing: border-box;
   min-height: 100vh;
   min-height: 100dvh;
-  --profile-sub-hd-h: 62px;
-  background:
-    radial-gradient(120% 70% at 50% -8%, rgba(255, 236, 210, 0.95) 0%, transparent 55%),
-    linear-gradient(180deg, #fffbf3 0%, #f8efe3 50%, #f3e6d6 100%);
+  --profile-sub-hd-h: 44px;
+  background: #ededed !important;
+  background-image: none !important;
 }
 
-/* fixed 比 sticky 稳：H5/Safari/App 滚动时红条贴在 TopBar 下沿，不会上顶压字 */
+.profile-sub-page.hb-page,
+.webview-page.hb-page {
+  background: #ededed !important;
+  background-image: none !important;
+}
+
+.profile-sub-page .hb-sub,
+.profile-sub-page .profile-sub-body {
+  background: transparent;
+}
+
+/* fixed：H5/Safari/App 滚动时返回条贴在 TopBar 下沿 */
 .profile-sub-page > .profile-sub-hd,
 .webview-page > .profile-sub-hd,
 .fv-page > .profile-sub-hd,
@@ -1086,32 +1096,28 @@ uni-input.hb-input {
   display: flex;
   align-items: center;
   gap: 0;
-  padding: 12px 12px 14px;
-  color: #fff;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0) 55%),
-    var(--hb-red-grad);
-  border-bottom: 1px solid rgba(253, 228, 179, 0.55);
-  box-shadow:
-    0 10px 24px rgba(180, 30, 25, 0.26),
-    inset 0 2px 0 rgba(255, 255, 255, 0.28),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+  padding: 0 8px 0 2px;
+  color: #191919;
+  background: #ffffff !important;
+  background-image: none !important;
+  border-bottom: 0.5px solid #e5e5e5;
+  box-shadow: none;
 }
 
-/* 标题已上 TopBar：二级红条只留返回，高度略收 */
+/* 标题已上 TopBar：二级条只留 ‹ */
 .profile-sub-page > .profile-sub-hd.profile-sub-hd--back-only,
 .webview-page > .profile-sub-hd.profile-sub-hd--back-only,
 .fv-page > .profile-sub-hd.profile-sub-hd--back-only,
 .fv-page > .fv-hd.profile-sub-hd.profile-sub-hd--back-only {
-  --profile-sub-hd-h: 48px;
-  min-height: 48px;
-  padding: 8px 12px;
+  --profile-sub-hd-h: 44px;
+  min-height: 44px;
+  padding: 0 8px 0 2px;
   justify-content: flex-start;
 }
 
 .profile-sub-page > .profile-sub-body,
 .webview-page > .profile-sub-body {
-  padding-top: calc(var(--profile-sub-hd-h) + 16px);
+  padding-top: calc(var(--profile-sub-hd-h) + 12px);
 }
 
 .profile-back-btn {
@@ -1120,37 +1126,37 @@ uni-input.hb-input {
   justify-content: center;
   flex-shrink: 0;
   box-sizing: border-box;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   margin: 0;
   padding: 0;
-  border: 1.5px solid rgba(253, 228, 179, 0.45);
-  background: rgba(255, 255, 255, 0.18);
-  border-radius: 50%;
-  color: #fff;
-  font-size: 22px;
+  border: none;
+  background: transparent;
+  border-radius: 0;
+  color: #191919;
+  font-size: 32px;
   font-weight: 400;
-  line-height: 1;
-  transform: translateX(-0.5px);
+  line-height: 44px;
+  transform: none;
 }
 
 .profile-sub-title {
   flex: 1;
   text-align: center;
-  color: #fff;
+  color: #191919;
   font-size: 17px;
-  font-weight: 800;
-  text-shadow: 0 1px 3px rgba(80, 10, 8, 0.3);
+  font-weight: 600;
+  text-shadow: none;
 }
 
 .profile-sub-spacer {
-  width: 36px;
-  min-width: 36px;
+  width: 44px;
+  min-width: 44px;
   flex-shrink: 0;
 }
 
 .profile-sub-body {
-  padding: 16px 12px 0;
+  padding: 12px 12px 0;
 }
 
 .profile-card {

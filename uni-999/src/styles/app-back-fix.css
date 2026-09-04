@@ -93,21 +93,31 @@
 }
 
 /*
- * App：内联 top 由 useProfileSubHdStyle 写入；此处补红条内边距与 body 占位高度
+ * App：内联 top 由 useProfileSubHdStyle 写入；QQ 白条勿再垫成大红条高度
  */
 /* #ifdef APP-PLUS */
 .profile-sub-page,
 .webview-page,
 .fv-page {
-  --profile-sub-hd-h: 66px;
+  --profile-sub-hd-h: 44px;
 }
 .profile-sub-page > .profile-sub-hd,
 .webview-page > .profile-sub-hd,
 .fv-page > .profile-sub-hd,
 .fv-page > .fv-hd.profile-sub-hd {
-  padding-top: 14px !important;
-  padding-bottom: 14px !important;
-  min-height: var(--profile-sub-hd-h) !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  min-height: 44px !important;
+  background: #ffffff !important;
+  color: #191919 !important;
+  box-shadow: none !important;
+  border-bottom: 0.5px solid #e5e5e5 !important;
+}
+.profile-sub-page > .profile-sub-hd.profile-sub-hd--back-only,
+.webview-page > .profile-sub-hd.profile-sub-hd--back-only,
+.fv-page > .profile-sub-hd.profile-sub-hd--back-only {
+  --profile-sub-hd-h: 44px;
+  min-height: 44px !important;
 }
 .chat-group-settings-page > .chat-hero-hd {
   padding-top: 14px !important;
@@ -117,8 +127,15 @@
 .profile-back-btn {
   position: relative;
   z-index: 3;
-  font-size: 26px !important;
-  color: #fff !important;
+  font-size: 32px !important;
+  color: #191919 !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  width: 44px !important;
+  height: 44px !important;
+  line-height: 44px !important;
 }
 
 /* 聊天输入栏：App 不渲染 SVG，用文字 glyph */
