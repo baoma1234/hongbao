@@ -345,12 +345,13 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
   flex: 1 1 auto;
   overflow: hidden;
 }
 .nick {
+  display: block;
   font-size: 14px;
   font-weight: 700;
   color: #191919;
@@ -359,8 +360,10 @@ onUnmounted(() => {
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 42vw;
-  line-height: 1.15;
+  line-height: 16px;
+  height: 16px;
   pointer-events: none;
+  box-sizing: border-box;
 }
 .actions {
   display: flex;
@@ -378,19 +381,23 @@ onUnmounted(() => {
   align-items: center;
   gap: 1px;
   max-width: 42vw;
-  padding: 2px 8px 2px 7px;
+  /* 左右对称；左缘与昵称文字对齐（绿胶囊内边距一致） */
+  padding: 1px 7px;
+  min-height: 18px;
   border-radius: 999px;
   background: rgba(7, 193, 96, 0.12);
   border: 1px solid rgba(7, 193, 96, 0.28);
   box-sizing: border-box;
   margin: 0;
-  line-height: 1.15;
+  line-height: 16px;
+  align-self: flex-start;
 }
 .bal-ico {
   font-size: 12px;
   font-weight: 700;
   color: #07c160;
-  line-height: 1.15;
+  line-height: 16px;
+  height: 16px;
   flex-shrink: 0;
   font-family: inherit;
 }
@@ -401,7 +408,8 @@ onUnmounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  line-height: 1.15;
+  line-height: 16px;
+  height: 16px;
 }
 .act-btn {
   display: flex;

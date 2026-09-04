@@ -143,9 +143,30 @@ function onTabUnread(n) {
   refreshUnread(n)
 }
 
+function currentRoute() {
+  try {
+    const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : []
+    const cur = pages && pages.length ? pages[pages.length - 1] : null
+    return String((cur && cur.route) || '').replace(/^\//, '')
+  } catch (e) {
+    return ''
+  }
+}
+
+function isOnTabPage(item) {
+  if (!item || !item.path) return false
+  const route = currentRoute()
+  if (!route) return false
+  const target = String(item.path || '')
+    .replace(/^\//, '')
+    .replace(/\?.*$/, '')
+  return route === target
+}
+
 function switchTo(item) {
   if (!item) return
-  if (selected.value === item.tab) return
+  // 公告/佣金等子页也会高亮「大厅」；必须按真实路由判断，否则点大厅无法退回
+  if (isOnTabPage(item)) return
   if (item.nativeTab === false) {
     uni.reLaunch({ url: item.path })
     return

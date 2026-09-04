@@ -1,7 +1,7 @@
 <template>
   <view class="login-page">
-    <!-- 全屏背景：吉祥物在上、下方留白放表单（四端同一张图） -->
-    <image class="login-page-bg" :src="heroBg" mode="aspectFill" />
+    <!-- 全屏背景：CSS cover + top，四端避免 image aspectFill 裁切顶部 -->
+    <view class="login-page-bg" :style="heroBgStyle" aria-hidden="true" />
 
     <!-- 语言：叠在背景图右上（无公共顶栏） -->
     <view class="login-chrome" :style="chromeStyle">
@@ -184,7 +184,7 @@ import { getUploadsBase, packagedStaticUrl } from '../../utils/config.js'
 import { applySafeAreaCssVars, getSafeAreaInsets } from '../../utils/safe-area.js'
 
 const SMS_COOLDOWN_KEY = 'fanshub_sms_cooldown'
-const LOGIN_BG_VER = '2'
+const LOGIN_BG_VER = '3'
 
 const locale = localeState()
 const copyTick = copyState()
@@ -218,6 +218,9 @@ const heroBg = computed(() => {
   }
   return packagedStaticUrl('login/bg-hero.jpg') + '?v=' + LOGIN_BG_VER
 })
+const heroBgStyle = computed(() => ({
+  backgroundImage: 'url("' + String(heroBg.value || '').replace(/\\/g, '/').replace(/"/g, '%22') + '")',
+}))
 
 const localeId = ref(getLocale())
 const langOpen = ref(false)
@@ -596,21 +599,28 @@ onUnmounted(() => {
 .login-page {
   min-height: 100vh;
   min-height: 100dvh;
+  min-height: -webkit-fill-available;
   background: #8b020a;
   box-sizing: border-box;
   position: relative;
   overflow: hidden;
 }
 .login-page-bg {
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
+  right: 0;
+  bottom: 0;
   width: 100%;
   height: 100%;
-  height: 100dvh;
+  min-height: 100%;
   z-index: 0;
   pointer-events: none;
-  object-position: center top;
+  background-color: #8b020a;
+  background-repeat: no-repeat;
+  background-position: center top;
+  background-size: cover;
+  -webkit-background-size: cover;
 }
 .login-chrome {
   position: fixed;
@@ -995,7 +1005,7 @@ onUnmounted(() => {
 }
 /* #ifdef APP-PLUS */
 .login-page-bg {
-  /* App：fixed 偶发高度异常，改 absolute 铺满页 */
+  /* App：铺满页，顶对齐 cover，避免裁切品牌顶区 */
   position: absolute;
 }
 .login-scroll {
