@@ -244,7 +244,7 @@ const tickerGames = ['红包扫雷', '红包接龙', '红包牛牛', '趣味鱼�
 
 const lobbyCategories = computed(() => [
   { id: 'hot', iconImg: '1.png', label: tt('lobby_cat_hot', '热门推荐') },
-  { id: 'games', iconImg: '3.png', label: tt('lobby_cat_games', '红宝游戏') },
+  { id: 'games', iconStatic: 'logo.png', label: tt('lobby_cat_games', '红宝游戏') },
   { id: 'notice', iconImg: '66.png', label: tt('lobby_cat_notice', '红宝公告'), action: 'notice' },
   {
     id: 'commission',
@@ -254,7 +254,7 @@ const lobbyCategories = computed(() => [
   },
 ])
 
-const LOBBY_ASSET_VER = '9'
+const LOBBY_ASSET_VER = '10'
 
 /** 01–06 固定排序：接龙 / 扫雷 / 牛牛 / 对战 / 盲盒 / 鱼虾蟹 */
 const lobbyGames = [
