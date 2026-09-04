@@ -14,8 +14,8 @@ require $root . '/thinkphp/base.php';
 
 use app\common\library\OssService;
 
-$local = $root . '/uni-999/src/static/login/bg-hero.png';
-$key = '999/static/login/bg-hero.png';
+$local = $root . '/uni-999/src/static/login/bg-hero.jpg';
+$key = '999/static/login/bg-hero.jpg';
 
 if (!is_file($local)) {
     fwrite(STDERR, "missing $local\n");
