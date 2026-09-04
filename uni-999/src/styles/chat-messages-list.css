@@ -846,7 +846,6 @@ body.tab-messages .bottom-action-bar {
 .chat-room-pane,
 .chat-sub-pane,
 .chat-rp-send-pane,
-.chat-create-group-pane,
 #chatAddFriendPane {
   top: var(--top-bar-height, 44px) !important;
   bottom: 0 !important;
@@ -859,11 +858,29 @@ body.tab-messages .bottom-action-bar {
   padding-top: 0 !important;
 }
 
+/* 建群：必须盖住公共 TopBar，自带 QQ 返回栏 */
+.chat-create-group-pane {
+  top: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  max-width: none !important;
+  height: auto !important;
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
 .chat-room-pane.open,
 .chat-sub-pane.open,
-.chat-rp-send-pane.open,
-.chat-create-group-pane.open {
+.chat-rp-send-pane.open {
   z-index: 9600 !important;
+  display: flex !important;
+  flex-direction: column;
+}
+
+.chat-create-group-pane.open {
+  z-index: 40000 !important;
   display: flex !important;
   flex-direction: column;
 }

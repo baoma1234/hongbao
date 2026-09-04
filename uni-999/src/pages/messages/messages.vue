@@ -623,15 +623,19 @@ const createGroupAppFix = true
 // #ifndef APP-PLUS
 const createGroupAppFix = false
 // #endif
-/** 建群全屏 QQ 顶栏：写入安全区顶距（H5 / Safari / APK / IPA） */
+/** 建群全屏 QQ 顶栏：盖住公共 TopBar（H5 / Safari / APK / IPA） */
 const createGroupPaneStyle = computed(() => {
   if (!createGroupOpen.value) return null
   applySafeAreaCssVars()
   const inset = getSafeAreaInsets()
   const pad = Math.max(0, Number(inset.top || 0)) + 6
   return {
+    position: 'fixed',
     top: '0px',
-    zIndex: 20100,
+    left: '0px',
+    right: '0px',
+    bottom: '0px',
+    zIndex: 40000,
     '--cg-header-pad-top': pad + 'px',
   }
 })
@@ -1881,7 +1885,7 @@ onHide(() => {
   position: fixed !important;
   left: 0;
   right: 0;
-  bottom: calc(72px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  bottom: calc(72px + 14px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
   z-index: 9100 !important;
   margin: 0 10px 0;
   flex: none;
@@ -1890,6 +1894,7 @@ onHide(() => {
   margin-right: auto;
   width: calc(100% - 20px);
   box-sizing: border-box;
+  padding: 8px 12px;
 }
 .chat-official-rules-ico {
   width: 42px;

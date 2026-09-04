@@ -5,7 +5,6 @@
       <view class="gs-qq-nav-inner">
         <view class="gs-qq-nav-back" hover-class="gs-qq-nav-back--hit" @click="goBack">
           <text class="gs-qq-nav-back-ico">‹</text>
-          <text class="gs-qq-nav-back-lab">返回</text>
         </view>
         <text class="gs-qq-nav-title">{{ settingsBarTitle }}</text>
         <view class="gs-qq-nav-side" />
@@ -975,10 +974,12 @@ onShow(() => {
 .gs-qq-nav-back {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0;
-  min-width: 72px;
+  min-width: 44px;
+  width: 44px;
   height: 44px;
-  padding: 0 4px 0 2px;
+  padding: 0;
   box-sizing: border-box;
   z-index: 2;
 }
@@ -986,22 +987,17 @@ onShow(() => {
   opacity: 0.55;
 }
 .gs-qq-nav-back-ico {
-  font-size: 30px;
+  font-size: 32px;
   font-weight: 400;
   color: #191919;
   line-height: 44px;
-  width: 22px;
+  width: 28px;
   text-align: center;
-}
-.gs-qq-nav-back-lab {
-  font-size: 16px;
-  color: #191919;
-  line-height: 44px;
 }
 .gs-qq-nav-title {
   position: absolute;
-  left: 76px;
-  right: 76px;
+  left: 52px;
+  right: 52px;
   text-align: center;
   font-size: 17px;
   font-weight: 600;
@@ -1013,7 +1009,8 @@ onShow(() => {
   pointer-events: none;
 }
 .gs-qq-nav-side {
-  min-width: 72px;
+  min-width: 44px;
+  width: 44px;
   height: 44px;
   flex-shrink: 0;
 }
