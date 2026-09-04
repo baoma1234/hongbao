@@ -193,14 +193,10 @@
               maxlength="64"
               v-model="createGroupName"
               placeholder="请输入群名称"
+              placeholder-class="chat-cg-name-ph"
               confirm-type="done"
               @confirm="submitCreateGroup"
             />
-            <view
-              class="chat-cg-next-inner"
-              :class="{ 'is-disabled': createGroupSubmitting }"
-              @click="submitCreateGroup"
-            >下一步</view>
           </view>
         </view>
 
@@ -240,7 +236,7 @@
         <view class="chat-cg-cards">
           <view
             class="chat-cg-card"
-            :class="{ 'active-light': createGroupMode === 'chat' }"
+            :class="{ active: createGroupMode === 'chat' }"
             @click="createGroupMode = 'chat'"
           >
             <view class="chat-cg-card-header">
