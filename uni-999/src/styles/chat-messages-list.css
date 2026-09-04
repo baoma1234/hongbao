@@ -2350,8 +2350,7 @@ body.tab-messages {
 #tabMessages .chat-sub-pane .chat-hero-back,
 #tabMessages .chat-room-pane .chat-hero-back,
 #tabMessages .chat-room-pane .chat-hero-more,
-.chat-rp-send-pane .chat-hero-back:not(#chatRpCancelBtn),
-.chat-create-group-pane .chat-cg-back {
+.chat-rp-send-pane .chat-hero-back:not(#chatRpCancelBtn) {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -2377,8 +2376,7 @@ body.tab-messages {
 
 #tabMessages .chat-sub-pane .chat-hero-back svg,
 #tabMessages .chat-room-pane .chat-hero-back svg,
-.chat-rp-send-pane .chat-hero-back svg,
-.chat-create-group-pane .chat-cg-back svg {
+.chat-rp-send-pane .chat-hero-back svg {
   display: block;
   width: 24px;
   height: 24px;
@@ -2573,15 +2571,14 @@ body.tab-messages {
   display: flex !important;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 14px 14px 44px !important;
-  background: var(--hg-hero-glass) !important;
-  color: #fff !important;
+  gap: 4px;
+  min-height: 44px;
+  padding: 6px 10px 0 2px !important;
+  background: #ffffff !important;
+  color: #191919 !important;
   border: none !important;
-  border-bottom: 1px solid var(--hg-gold-edge) !important;
-  box-shadow:
-    0 10px 24px rgba(180, 30, 25, 0.28),
-    inset 0 2px 0 rgba(255, 255, 255, 0.28) !important;
+  border-bottom: 0.5px solid #e5e5e5 !important;
+  box-shadow: none !important;
   position: relative;
   z-index: 1;
 }
@@ -2589,29 +2586,30 @@ body.tab-messages {
 .chat-create-group-pane .chat-cg-title {
   flex: 1;
   text-align: center;
-  color: #fff !important;
-  font-size: 20px !important;
-  font-weight: 800 !important;
-  text-shadow: 0 1px 3px rgba(80, 10, 8, 0.3) !important;
+  color: #191919 !important;
+  font-size: 17px !important;
+  font-weight: 600 !important;
+  text-shadow: none !important;
 }
 
 .chat-create-group-pane .chat-cg-back {
   display: inline-flex !important;
+  flex-direction: row !important;
   align-items: center !important;
-  justify-content: center !important;
+  justify-content: flex-start !important;
   box-sizing: border-box !important;
-  width: 40px !important;
-  height: 40px !important;
-  min-width: 40px !important;
-  max-width: 40px !important;
+  width: auto !important;
+  height: 44px !important;
+  min-width: 72px !important;
+  max-width: none !important;
   margin: 0 !important;
-  padding: 0 !important;
-  border: 1.5px solid rgba(253, 228, 179, 0.45) !important;
-  background: rgba(255, 255, 255, 0.18) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
-  border-radius: 50% !important;
-  color: #fff !important;
-  font-size: 0 !important;
+  padding: 0 4px 0 2px !important;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  color: #191919 !important;
+  font-size: 16px !important;
   font-weight: 400 !important;
   line-height: 1 !important;
   transform: none !important;
@@ -2619,27 +2617,30 @@ body.tab-messages {
 }
 
 .chat-create-group-pane .chat-cg-back svg {
-  display: block;
-  width: 24px;
-  height: 24px;
+  display: none !important;
 }
 
 .chat-create-group-pane .chat-cg-next-top {
-  border: 1px solid rgba(255, 255, 255, 0.55) !important;
-  background: rgba(255, 255, 255, 0.22) !important;
-  color: #fff !important;
-  border-radius: 999px !important;
-  padding: 6px 14px !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  min-width: 40px;
+  border: none !important;
+  background: transparent !important;
+  color: #12b7f5 !important;
+  border-radius: 0 !important;
+  padding: 0 4px !important;
+  box-shadow: none !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  min-width: 72px;
   flex-shrink: 0;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  line-height: 44px !important;
+  height: 44px !important;
+  text-align: right !important;
 }
 
 .chat-create-group-pane .chat-cg-next-top:disabled {
-  background: rgba(255, 255, 255, 0.12) !important;
-  color: rgba(255, 255, 255, 0.55) !important;
+  background: transparent !important;
+  color: #b0b0b0 !important;
   opacity: 1 !important;
   filter: none !important;
 }

@@ -1042,8 +1042,7 @@ body.tab-messages {
 #tabMessages .chat-sub-pane .chat-hero-back,
 #tabMessages .chat-room-pane .chat-hero-back,
 #tabMessages .chat-room-pane .chat-hero-more,
-.chat-rp-send-pane .chat-hero-back:not(#chatRpCancelBtn),
-.chat-create-group-pane .chat-cg-back {
+.chat-rp-send-pane .chat-hero-back:not(#chatRpCancelBtn) {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -1093,8 +1092,7 @@ body.tab-messages {
 
 #tabMessages .chat-sub-pane .chat-hero-back svg,
 #tabMessages .chat-room-pane .chat-hero-back svg,
-.chat-rp-send-pane .chat-hero-back svg,
-.chat-create-group-pane .chat-cg-back svg {
+.chat-rp-send-pane .chat-hero-back svg {
   display: block;
   width: 24px;
   height: 24px;

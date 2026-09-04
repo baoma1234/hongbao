@@ -490,8 +490,9 @@ const panelScrollStyle = computed(() => {
   return { height: h + 'px', minHeight: h + 'px', maxHeight: h + 'px', flex: 'none' }
 })
 
-/** QQ 资料条高度（在公共 TopBar 下方） */
+/** QQ 资料条高度（在公共 TopBar 下方；略留余量避免首条被压） */
 const QQ_MSG_NAV_CONTENT = 56
+const qqMsgNavPx = ref(QQ_MSG_NAV_CONTENT)
 const myProfile = ref(null)
 const myNickText = computed(() => {
   const p = myProfile.value || {}
@@ -519,6 +520,33 @@ function goMyProfile() {
   })
 }
 
+function applyMessagesShell(winH, status, topBar, navH, searchH, tabBar) {
+  const nav = Math.max(QQ_MSG_NAV_CONTENT, Number(navH) || QQ_MSG_NAV_CONTENT)
+  qqMsgNavPx.value = nav
+  // 扣公共顶栏 + 资料条 + 可选搜索条；多扣 4px 避免首条贴顶被裁
+  const shell = Math.max(280, winH - status - topBar - nav - searchH - tabBar - 4)
+  tabRootPx.value = shell
+  const chrome = 4
+  let next = Math.max(220, shell - chrome)
+  if (isIosSafariH5() && panelScrollPx.value > 0) {
+    const shrink = panelScrollPx.value - next
+    if (shrink > 0 && shrink < 120) next = panelScrollPx.value
+  }
+  panelScrollPx.value = next
+}
+
+function applyMessagesShellFromTop(winH, topUsed, tabBar) {
+  const shell = Math.max(280, winH - topUsed - tabBar - 4)
+  tabRootPx.value = shell
+  const chrome = 4
+  let next = Math.max(220, shell - chrome)
+  if (isIosSafariH5() && panelScrollPx.value > 0) {
+    const shrink = panelScrollPx.value - next
+    if (shrink > 0 && shrink < 120) next = panelScrollPx.value
+  }
+  panelScrollPx.value = next
+}
+
 function measureMessagesLayout() {
   try {
     applySafeAreaCssVars()
@@ -538,17 +566,37 @@ function measureMessagesLayout() {
     const status = Number(inset.top || 0)
     const topBar = getTopBarContentHeight()
     const tabBar = 72 + Number(inset.bottom || 0)
-    const searchH = searchOpen.value ? 48 : 0
-    // 扣公共顶栏 + 资料条 + 可选搜索条
-    const shell = Math.max(280, winH - status - topBar - QQ_MSG_NAV_CONTENT - searchH - tabBar)
-    tabRootPx.value = shell
-    const chrome = 8
-    let next = Math.max(220, shell - chrome)
-    if (isIosSafariH5() && panelScrollPx.value > 0) {
-      const shrink = panelScrollPx.value - next
-      if (shrink > 0 && shrink < 120) next = panelScrollPx.value
-    }
-    panelScrollPx.value = next
+    const searchHFallback = searchOpen.value ? 48 : 0
+    applyMessagesShell(winH, status, topBar, qqMsgNavPx.value, searchHFallback, tabBar)
+    // 用资料条底边实测顶占用，避免首条被上边盖住
+    try {
+      uni
+        .createSelectorQuery()
+        .select('.qq-msg-nav')
+        .boundingClientRect()
+        .select('.qq-msg-search')
+        .boundingClientRect()
+        .exec((res) => {
+          try {
+            const navRect = res && res[0]
+            const searchRect = res && res[1]
+            if (navRect && navRect.bottom > 40) {
+              if (navRect.height > 40) qqMsgNavPx.value = Math.ceil(navRect.height)
+              const searchH =
+                searchOpen.value && searchRect && searchRect.height > 20
+                  ? Math.ceil(searchRect.height)
+                  : searchOpen.value
+                    ? 48
+                    : 0
+              applyMessagesShellFromTop(winH, navRect.bottom + searchH, tabBar)
+              return
+            }
+            const navH =
+              navRect && navRect.height > 40 ? Math.ceil(navRect.height) : qqMsgNavPx.value
+            applyMessagesShell(winH, status, topBar, navH, searchHFallback, tabBar)
+          } catch (e2) {}
+        })
+    } catch (e1) {}
   } catch (e) {
     tabRootPx.value = 0
     panelScrollPx.value = 420
@@ -1952,4 +2000,43 @@ onHide(() => {
   top: 0 !important;
 }
 /* #endif */
+
+/* 建群返回：scoped 再压一层，保证 IPA/APK 可见「‹返回」 */
+.chat-create-group-pane .chat-cg-back {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  width: auto !important;
+  min-width: 72px !important;
+  max-width: none !important;
+  height: 44px !important;
+  padding: 0 4px 0 2px !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #191919 !important;
+  font-size: 16px !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  z-index: 5 !important;
+}
+.chat-create-group-pane .chat-cg-back-ico {
+  display: inline-block !important;
+  font-size: 30px !important;
+  color: #191919 !important;
+  line-height: 44px !important;
+  width: 22px !important;
+  text-align: center !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+.chat-create-group-pane .chat-cg-back-lab {
+  display: inline-block !important;
+  font-size: 16px !important;
+  color: #191919 !important;
+  line-height: 44px !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
 </style>

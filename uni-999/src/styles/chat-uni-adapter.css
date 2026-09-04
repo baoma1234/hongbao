@@ -46,8 +46,9 @@ body.tab-messages-ios-safari #tabMessages .chat-conv-scroll .uni-scroll-view {
   width: 100%;
   /* ??? JS?? TopBar spacer + ??????CSS ???? */
   --tab-bar-space: calc(72px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  --qq-msg-nav-h: 56px;
   height: calc(
-    100vh - var(--top-bar-height, 48px) - var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) -
+    100vh - var(--top-bar-offset, 64px) - var(--qq-msg-nav-h, 56px) -
       var(--tab-bar-space)
   );
   min-height: 320px;

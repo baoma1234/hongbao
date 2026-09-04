@@ -1017,4 +1017,53 @@ onShow(() => {
   height: 44px;
   flex-shrink: 0;
 }
+
+/* 本页 scoped：压过 cream 渐变残留，四端 QQ 白单元格 */
+.chat-group-settings-page--qq {
+  background: #ededed !important;
+}
+.chat-setting-card,
+.chat-setting-edit,
+.chat-setting-block,
+.chat-setting-profile {
+  background: #ffffff !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+.chat-setting-row {
+  background: #ffffff !important;
+  border: none !important;
+  border-bottom: 0.5px solid #e5e5e5 !important;
+  box-shadow: none !important;
+  color: #191919 !important;
+  font-size: 16px !important;
+}
+.chat-setting-save-btn {
+  background: #12b7f5 !important;
+  border: none !important;
+  border-radius: 6px !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+.chat-setting-leave-btn,
+.chat-setting-dissolve-btn {
+  background: #ffffff !important;
+  border: none !important;
+  border-radius: 0 !important;
+  color: #fa5151 !important;
+  box-shadow: none !important;
+  font-size: 16px !important;
+}
+.chat-switch.is-on .chat-switch-track {
+  background: #12b7f5 !important;
+}
+.chat-forbid-check.on {
+  background: #12b7f5 !important;
+  border-color: #12b7f5 !important;
+  color: #ffffff !important;
+}
+.chat-group-overlay--qq {
+  background: #ededed !important;
+}
 </style>

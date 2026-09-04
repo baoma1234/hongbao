@@ -919,4 +919,43 @@ onHide(() => {
   top: 0 !important;
 }
 /* #endif */
+
+/* 建群返回：scoped 再压一层，保证 IPA/APK 可见「‹返回」 */
+.chat-create-group-pane .chat-cg-back {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  width: auto !important;
+  min-width: 72px !important;
+  max-width: none !important;
+  height: 44px !important;
+  padding: 0 4px 0 2px !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #191919 !important;
+  font-size: 16px !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  z-index: 5 !important;
+}
+.chat-create-group-pane .chat-cg-back-ico {
+  display: inline-block !important;
+  font-size: 30px !important;
+  color: #191919 !important;
+  line-height: 44px !important;
+  width: 22px !important;
+  text-align: center !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+.chat-create-group-pane .chat-cg-back-lab {
+  display: inline-block !important;
+  font-size: 16px !important;
+  color: #191919 !important;
+  line-height: 44px !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
 </style>
