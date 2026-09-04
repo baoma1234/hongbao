@@ -374,14 +374,14 @@ onUnmounted(() => {
   min-width: 0;
 }
 .bal {
-  display: flex;
-  align-items: baseline;
+  display: inline-flex;
+  align-items: center;
   gap: 1px;
   max-width: 42vw;
-  padding: 0;
-  border-radius: 0;
-  background: transparent;
-  border: none;
+  padding: 2px 8px 2px 7px;
+  border-radius: 999px;
+  background: rgba(7, 193, 96, 0.12);
+  border: 1px solid rgba(7, 193, 96, 0.28);
   box-sizing: border-box;
   margin: 0;
   line-height: 1.15;
