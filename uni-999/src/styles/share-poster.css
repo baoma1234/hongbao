@@ -94,6 +94,8 @@
   background: #ffffff;
   box-shadow: none;
   box-sizing: border-box;
+  text-align: center;
+  line-height: 1.4;
 }
 
 .chat-share-poster-btn.primary {
@@ -101,4 +103,8 @@
   background: #12b7f5;
   border: none;
   box-shadow: none;
+}
+
+.chat-share-poster-btn:active {
+  opacity: 0.85;
 }

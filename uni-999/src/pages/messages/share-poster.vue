@@ -1,46 +1,52 @@
 <template>
-  <ProfileSubPage
-    title="分享推广赚佣金"
-    back-fallback="/pages/messages/messages"
-    page-class="chat-share-poster-page"
-  >
-    <view class="chat-share-poster-main">
-      <view class="chat-share-poster-card" id="chatSharePosterCard">
-        <view class="chat-share-poster-brand">红宝</view>
-        <view class="chat-share-poster-title">邀请好友 · 共享收益</view>
-        <view class="chat-share-poster-uid">
-          我的邀请码 <text class="strong">{{ inviteCode || '—' }}</text>
-        </view>
-        <view class="chat-share-poster-qr-wrap">
-          <image v-if="qrDataUrl" class="chat-share-poster-qr-img" :src="qrDataUrl" mode="aspectFit" />
-          <text v-else>{{ loading ? '加载中…' : '—' }}</text>
-        </view>
-        <view class="chat-share-poster-hint">扫码或打开链接，自动带上你的邀请码</view>
-        <view class="chat-share-poster-link">{{ shareLink || '—' }}</view>
-      </view>
-      <button type="button" class="chat-share-poster-btn primary" @click="copyLink">
-        📋 一键复制分享链接
-      </button>
-      <button type="button" class="chat-share-poster-btn" @click="savePoster">
-        💾 保存海报到相册
-      </button>
+  <view class="hb-page profile-sub-page chat-share-poster-page" :style="profileSubPageStyle">
+    <TopBar title="分享推广赚佣金" />
+    <view class="profile-sub-hd profile-sub-hd--back-only" :style="profileSubHdStyle">
+      <text class="profile-back-btn" @click="goBack">‹</text>
+      <text class="profile-sub-spacer" />
     </view>
-  </ProfileSubPage>
+    <view class="profile-sub-body">
+      <view class="chat-share-poster-main">
+        <view class="chat-share-poster-card" id="chatSharePosterCard">
+          <view class="chat-share-poster-brand">红宝</view>
+          <view class="chat-share-poster-title">邀请好友 · 共享收益</view>
+          <view class="chat-share-poster-uid">
+            我的邀请码 <text class="strong">{{ inviteCode || '—' }}</text>
+          </view>
+          <view class="chat-share-poster-qr-wrap">
+            <image v-if="qrDataUrl" class="chat-share-poster-qr-img" :src="qrDataUrl" mode="aspectFit" />
+            <text v-else>{{ loading ? '加载中…' : '—' }}</text>
+          </view>
+          <view class="chat-share-poster-hint">扫码或打开链接，自动带上你的邀请码</view>
+          <view class="chat-share-poster-link">{{ shareLink || '—' }}</view>
+        </view>
+        <view class="chat-share-poster-btn primary" @click="copyLink">一键复制分享链接</view>
+        <view class="chat-share-poster-btn" @click="savePoster">保存海报到相册</view>
+      </view>
+    </view>
+  </view>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import ProfileSubPage from '../../components/ProfileSubPage.vue'
+import TopBar from '../../components/TopBar.vue'
+import { safeNavigateBack } from '../../utils/nav.js'
+import { useProfileSubHdStyle } from '../../utils/profile-sub-layout.js'
 import { apiRequest, getToken } from '../../utils/auth.js'
-import { assetBase, localeState, t } from '../../utils/i18n.js'
+import { assetBase, t } from '../../utils/i18n.js'
 import '../../styles/share-poster.css'
 
-const locale = localeState()
+const MSG_TAB = '/pages/messages/messages'
 const inviteCode = ref('')
 const shareLink = ref('')
 const qrDataUrl = ref('')
 const loading = ref(false)
+const { profileSubHdStyle, profileSubPageStyle, refreshProfileSubLayout } = useProfileSubHdStyle()
+
+function goBack() {
+  safeNavigateBack(MSG_TAB)
+}
 
 function buildInviteDownloadLink(link, code) {
   const L = String(link || '').trim()
@@ -253,9 +259,18 @@ function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
   if (line) ctx.fillText(line, x, y)
 }
 
-onShow(() => {
-  load()
+onMounted(() => {
+  refreshProfileSubLayout()
 })
 
-void locale
+onShow(() => {
+  refreshProfileSubLayout()
+  load()
+})
 </script>
+
+<style scoped>
+.chat-share-poster-page {
+  min-height: 100%;
+}
+</style>
