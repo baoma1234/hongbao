@@ -34,7 +34,14 @@
               hover-class="game-lobby-hit"
               @click="onLobbyCat(cat)"
             >
-              <image class="game-lobby-cat-tile" :src="lobbyCatTile(cat)" mode="widthFix" />
+              <image
+                v-if="cat.iconImg || cat.iconStatic"
+                class="game-lobby-cat-ico"
+                :src="lobbyCatIcon(cat)"
+                mode="aspectFit"
+              />
+              <text v-else class="game-lobby-cat-ico game-lobby-cat-ico-emoji">{{ cat.icon }}</text>
+              <text class="game-lobby-cat-lab">{{ cat.label }}</text>
             </view>
           </view>
         </view>
@@ -242,18 +249,18 @@ const tickerText = ref('')
 const tickerGames = ['红宝扫雷', '红宝接龙', '红宝牛牛', '趣味鱼虾蟹', '红宝对战', '幸运盲盒']
 
 const lobbyCategories = computed(() => [
-  { id: 'hot', tile: 'cat-hot.png', label: tt('lobby_cat_hot', '热门推荐') },
-  { id: 'games', tile: 'cat-games.png', label: tt('lobby_cat_games', '红宝游戏') },
-  { id: 'notice', tile: 'cat-notice.png', label: tt('lobby_cat_notice', '红宝公告'), action: 'notice' },
+  { id: 'hot', iconImg: '1.png', label: tt('lobby_cat_hot', '热门推荐') },
+  { id: 'games', iconStatic: 'logo.png', label: tt('lobby_cat_games', '红宝游戏') },
+  { id: 'notice', iconImg: '66.png', label: tt('lobby_cat_notice', '红宝公告'), action: 'notice' },
   {
     id: 'commission',
-    tile: 'cat-commission.png',
+    iconImg: 'commission.png',
     label: tt('lobby_cat_commission', '红宝佣金'),
     action: 'commission',
   },
 ])
 
-const LOBBY_ASSET_VER = '13'
+const LOBBY_ASSET_VER = '14'
 
 /**
  * 热门推荐：红宝接龙只保留一张（人数=四个接龙群之和）
@@ -353,14 +360,8 @@ function lobbyAsset(name) {
   return packagedStaticUrl('home/lobby/' + p) + '?v=' + LOBBY_ASSET_VER
 }
 
-function lobbyCatTile(cat) {
-  const p = String((cat && cat.tile) || '').replace(/^\/+/, '')
-  // 分类整图走打包 static，避免 OSS 缺图；与 TopBar logo 一致
-  return packagedStaticUrl('home/lobby/' + p) + '?v=' + LOBBY_ASSET_VER
-}
-
 function lobbyCatIcon(cat) {
-  if (cat && cat.tile) return lobbyCatTile(cat)
+  // logo 等站点 static 图走打包路径（与 TopBar logoUrl 一致），勿拼 OSS——CDN 上通常没有 /999/static/logo.png
   if (cat && cat.iconStatic) {
     const p = String(cat.iconStatic || '').replace(/^\/+/, '')
     return packagedStaticUrl(p) + '?v=' + LOBBY_ASSET_VER

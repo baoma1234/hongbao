@@ -197,47 +197,56 @@
   flex: 1 1 0% !important;
   display: flex !important;
   flex-direction: column !important;
-  align-items: stretch !important;
+  align-items: center !important;
   justify-content: flex-start !important;
   min-width: 0 !important;
-  padding: 0 !important;
-  border-radius: 14px;
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
+  padding: 10px 4px 8px;
+  border-radius: 12px;
+  background: #f7f7f9;
+  border: 1px solid #eceef2;
   box-sizing: border-box;
-  overflow: hidden;
 }
 
 .game-lobby-cat.on {
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  transform: scale(0.96);
-  opacity: 0.92;
-}
-
-/*
- * 勿写 height:auto —— uni-app <image> 会高度塌成 0。
- * mode=widthFix 由引擎按宽度算高度；仅约束宽度。
- */
-.game-lobby-cat-tile,
-.game-lobby-cat .game-lobby-cat-tile,
-.game-lobby-cat image.game-lobby-cat-tile,
-.game-lobby-cat uni-image.game-lobby-cat-tile {
-  width: 100% !important;
-  max-width: 100% !important;
-  display: block !important;
-  line-height: 0 !important;
-  border-radius: 14px;
-  pointer-events: none;
-  vertical-align: top;
+  background: linear-gradient(180deg, #ff4d3a 0%, #e01a1a 100%);
+  border-color: rgba(224, 26, 26, 0.35);
+  box-shadow: 0 4px 12px rgba(224, 26, 26, 0.28);
 }
 
 .game-lobby-cat-ico,
-.game-lobby-cat-ico-emoji,
+.game-lobby-cat image,
+.game-lobby-cat uni-image {
+  width: 36px !important;
+  height: 36px !important;
+  display: block !important;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.game-lobby-cat-ico-emoji {
+  width: auto !important;
+  height: auto !important;
+  font-size: 22px;
+  line-height: 36px;
+  text-align: center;
+}
+
 .game-lobby-cat-lab {
-  display: none !important;
+  margin-top: 6px;
+  font-size: 11px;
+  color: #555;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  text-align: center;
+  line-height: 1.25;
+}
+
+.game-lobby-cat.on .game-lobby-cat-lab {
+  color: #fff;
+  font-weight: 700;
 }
 
 .game-lobby-section-hd {
@@ -409,7 +418,16 @@
     padding-right: 10px;
   }
   .game-lobby-cat {
-    padding: 0 !important;
+    padding: 8px 2px 6px;
+  }
+  .game-lobby-cat-lab {
+    font-size: 10px;
+  }
+  .game-lobby-cat-ico,
+  .game-lobby-cat image,
+  .game-lobby-cat uni-image {
+    width: 32px !important;
+    height: 32px !important;
   }
 }
 
