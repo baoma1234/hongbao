@@ -8,7 +8,7 @@ use think\Db;
  * 官方社群展示人数（全端一致）
  * - 每个群各自成员基数（约 1.7万～1.8万；注册时各群 +1）
  * - 展示值 = 持久化基数（无秒级抖动）；定时任务每日小幅上浮，偶尔 -1/-2
- * - 在线人数已不再对用户展示
+ * - 在线人数：全站合计约 15000 ±2000，按桶刷新后随机分到各官方群，群间相差 ≤500
  */
 class FansHubOfficialStats
 {
@@ -21,8 +21,24 @@ class FansHubOfficialStats
     const FLOAT_BUCKET_SEC = 2;
     const FLOAT_MAX = 10;
 
+    /** 在线合计中枢与振幅 */
+    const ONLINE_TOTAL_BASE = 15000;
+    const ONLINE_TOTAL_AMPLITUDE = 2000;
+    /** 任意两官方群在线相差上限 */
+    const ONLINE_MAX_GROUP_DIFF = 500;
+    /** 在线刷新桶（秒），与大厅/社群轮询接近 */
+    const ONLINE_BUCKET_SEC = 20;
+
     /** @var \Redis|null */
     protected static $redis;
+
+    /** @var array|null */
+    protected static $officialIdsCache;
+    /** @var int */
+    protected static $officialIdsCacheAt = 0;
+    /** @var array<int,array<int,int>> */
+    protected static $onlineMapMemo = [];
+
 
     /** 相对基数的确定性偏移：[-10, 10]（兼容旧调用；展示人数已不再叠加） */
     public static function floatDelta($salt, $bucket = null)
@@ -224,14 +240,168 @@ class FansHubOfficialStats
         if ($h < 0) {
             $h = -$h;
         }
-        // 约 2200～4899，每群固定不同
+        // 非官方群兜底：约 2200～4899
         return 2200 + ($h % 2700);
+    }
+
+    public static function onlineBucket($time = null)
+    {
+        $t = $time !== null ? (int)$time : time();
+        return (int)floor($t / self::ONLINE_BUCKET_SEC);
+    }
+
+    /** 当前桶的在线合计：15000 ± 2000（桶内全端一致） */
+    public static function onlineTotalForBucket($bucket = null)
+    {
+        $bucket = $bucket !== null ? (int)$bucket : self::onlineBucket();
+        $h = crc32('ot:' . $bucket);
+        if ($h < 0) {
+            $h = -$h;
+        }
+        $span = self::ONLINE_TOTAL_AMPLITUDE * 2 + 1;
+        $delta = ($h % $span) - self::ONLINE_TOTAL_AMPLITUDE;
+        return max(1000, self::ONLINE_TOTAL_BASE + $delta);
+    }
+
+    /** 官方推荐群 id 列表（短缓存） */
+    public static function officialRecommendIds()
+    {
+        $now = time();
+        if (is_array(self::$officialIdsCache) && ($now - self::$officialIdsCacheAt) < 60) {
+            return self::$officialIdsCache;
+        }
+        $ids = [];
+        try {
+            $rows = Db::name('chat_groups')
+                ->where('status', 'in', [1, 3])
+                ->where('is_recommend', 1)
+                ->order('weigh', 'desc')
+                ->order('id', 'asc')
+                ->column('id');
+            foreach ((array)$rows as $id) {
+                $id = (int)$id;
+                if ($id > 0) {
+                    $ids[] = $id;
+                }
+            }
+        } catch (\Throwable $e) {
+            $ids = [];
+        }
+        $ids = array_values(array_unique($ids));
+        sort($ids);
+        self::$officialIdsCache = $ids;
+        self::$officialIdsCacheAt = $now;
+        return $ids;
+    }
+
+    /**
+     * 将合计随机分到各官方群：群间相差 ≤ ONLINE_MAX_GROUP_DIFF，且求和 = total
+     * @return array<int,int> gid => online
+     */
+    public static function onlineCountMap($bucket = null)
+    {
+        $bucket = $bucket !== null ? (int)$bucket : self::onlineBucket();
+        if (isset(self::$onlineMapMemo[$bucket])) {
+            return self::$onlineMapMemo[$bucket];
+        }
+
+        $ids = self::officialRecommendIds();
+        $n = count($ids);
+        if ($n <= 0) {
+            self::$onlineMapMemo[$bucket] = [];
+            return [];
+        }
+
+        $total = self::onlineTotalForBucket($bucket);
+        $half = (int)floor(self::ONLINE_MAX_GROUP_DIFF / 2);
+        $base = (int)floor($total / $n);
+        $rem = (int)($total % $n);
+
+        $raw = [];
+        foreach ($ids as $i => $gid) {
+            $h = crc32('og:' . $bucket . ':' . $gid);
+            if ($h < 0) {
+                $h = -$h;
+            }
+            // [-half, +half]，保证任意两群原始偏移差 ≤ MAX
+            $off = ($h % (self::ONLINE_MAX_GROUP_DIFF + 1)) - $half;
+            $raw[$gid] = $base + $off + ($i < $rem ? 1 : 0);
+        }
+
+        // 偏移后求和可能偏离 total，按稳定顺序抹平
+        $sum = 0;
+        foreach ($raw as $v) {
+            $sum += (int)$v;
+        }
+        $diff = $sum - $total;
+        if ($diff !== 0) {
+            $i = 0;
+            $step = $diff > 0 ? 1 : -1;
+            $left = abs($diff);
+            while ($left > 0) {
+                $gid = $ids[$i % $n];
+                $raw[$gid] -= $step;
+                $left--;
+                $i++;
+            }
+        }
+
+        foreach ($raw as $gid => $v) {
+            $raw[$gid] = max(80, (int)$v);
+        }
+
+        // 再压一遍极差（抹平后偶发超限）
+        $min = min($raw);
+        $max = max($raw);
+        if (($max - $min) > self::ONLINE_MAX_GROUP_DIFF) {
+            $mid = (int)round(($min + $max) / 2);
+            foreach ($raw as $gid => $v) {
+                $raw[$gid] = max($mid - $half, min($mid + $half, (int)$v));
+            }
+            $sum2 = 0;
+            foreach ($raw as $v) {
+                $sum2 += (int)$v;
+            }
+            $diff2 = $sum2 - $total;
+            if ($diff2 !== 0) {
+                $i = 0;
+                $step = $diff2 > 0 ? 1 : -1;
+                $left = abs($diff2);
+                while ($left > 0) {
+                    $gid = $ids[$i % $n];
+                    $next = (int)$raw[$gid] - $step;
+                    if ($next >= ($mid - $half) && $next <= ($mid + $half)) {
+                        $raw[$gid] = $next;
+                        $left--;
+                    }
+                    $i++;
+                    if ($i > $n * self::ONLINE_MAX_GROUP_DIFF + 10) {
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 只保留最近几个桶，避免常驻内存膨胀
+        if (count(self::$onlineMapMemo) > 4) {
+            self::$onlineMapMemo = [];
+        }
+        self::$onlineMapMemo[$bucket] = $raw;
+        return $raw;
     }
 
     public static function onlineCount($groupId)
     {
         $groupId = (int)$groupId;
-        return max(0, self::onlineBase($groupId) + self::floatDelta('oo:' . $groupId) + self::viewerCount($groupId));
+        if ($groupId <= 0) {
+            return 0;
+        }
+        $map = self::onlineCountMap();
+        if (isset($map[$groupId])) {
+            return (int)$map[$groupId];
+        }
+        // 非官方推荐群：沿用旧兜底
+        return max(0, self::onlineBase($groupId) + self::floatDelta('oo:' . $groupId));
     }
 
     public static function viewerCount($groupId)

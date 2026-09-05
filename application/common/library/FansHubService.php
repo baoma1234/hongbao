@@ -4854,7 +4854,6 @@ class FansHubService
             $item = $g;
             $item['is_member'] = !empty($joined[$gid]);
             $base = (int)($g['display_member_count'] ?? $g['member_count'] ?? 0);
-            // 每群各自基数 + 2s 确定性浮动（±10）；在线同理
             $item['member_count'] = FansHubOfficialStats::memberCount($gid, $base);
             $item['online_count'] = FansHubOfficialStats::onlineCount($gid);
             $out[] = $item;
