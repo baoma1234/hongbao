@@ -1,10 +1,9 @@
 <template>
-  <view class="chat-share-poster-page">
-    <TopBar title="分享推广赚佣金" />
-    <view class="chat-hero-hd chat-hero-hd--bar-actions">
-      <view class="chat-hero-back" @click="goBack">‹</view>
-      <view class="chat-hero-spacer" />
-    </view>
+  <ProfileSubPage
+    title="分享推广赚佣金"
+    back-fallback="/pages/messages/messages"
+    page-class="chat-share-poster-page"
+  >
     <view class="chat-share-poster-main">
       <view class="chat-share-poster-card" id="chatSharePosterCard">
         <view class="chat-share-poster-brand">红宝</view>
@@ -26,14 +25,13 @@
         💾 保存海报到相册
       </button>
     </view>
-  </view>
+  </ProfileSubPage>
 </template>
 
 <script setup>
-import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
 import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import TopBar from '../../components/TopBar.vue'
+import ProfileSubPage from '../../components/ProfileSubPage.vue'
 import { apiRequest, getToken } from '../../utils/auth.js'
 import { assetBase, localeState, t } from '../../utils/i18n.js'
 import '../../styles/share-poster.css'
@@ -43,10 +41,6 @@ const inviteCode = ref('')
 const shareLink = ref('')
 const qrDataUrl = ref('')
 const loading = ref(false)
-
-function goBack() {
-  safeNavigateBack(HOME_TAB)
-}
 
 function buildInviteDownloadLink(link, code) {
   const L = String(link || '').trim()
@@ -262,4 +256,6 @@ function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
 onShow(() => {
   load()
 })
+
+void locale
 </script>
