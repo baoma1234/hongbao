@@ -197,56 +197,43 @@
   flex: 1 1 0% !important;
   display: flex !important;
   flex-direction: column !important;
-  align-items: center !important;
-  justify-content: flex-start !important;
+  align-items: stretch !important;
+  justify-content: center !important;
   min-width: 0 !important;
-  padding: 10px 4px 8px;
-  border-radius: 12px;
-  background: #f7f7f9;
-  border: 1px solid #eceef2;
+  padding: 0 !important;
+  border-radius: 14px;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .game-lobby-cat.on {
-  background: linear-gradient(180deg, #ff4d3a 0%, #e01a1a 100%);
-  border-color: rgba(224, 26, 26, 0.35);
-  box-shadow: 0 4px 12px rgba(224, 26, 26, 0.28);
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  transform: scale(0.96);
+  opacity: 0.92;
+}
+
+.game-lobby-cat-tile,
+.game-lobby-cat .game-lobby-cat-tile,
+.game-lobby-cat image.game-lobby-cat-tile,
+.game-lobby-cat uni-image.game-lobby-cat-tile {
+  width: 100% !important;
+  height: auto !important;
+  display: block !important;
+  line-height: 0;
+  flex-shrink: 0;
+  border-radius: 14px;
+  pointer-events: none;
 }
 
 .game-lobby-cat-ico,
-.game-lobby-cat image,
-.game-lobby-cat uni-image {
-  width: 36px !important;
-  height: 36px !important;
-  display: block !important;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
-.game-lobby-cat-ico-emoji {
-  width: auto !important;
-  height: auto !important;
-  font-size: 22px;
-  line-height: 36px;
-  text-align: center;
-}
-
+.game-lobby-cat-ico-emoji,
 .game-lobby-cat-lab {
-  margin-top: 6px;
-  font-size: 11px;
-  color: #555;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-  text-align: center;
-  line-height: 1.25;
-}
-
-.game-lobby-cat.on .game-lobby-cat-lab {
-  color: #fff;
-  font-weight: 700;
+  display: none !important;
 }
 
 .game-lobby-section-hd {
@@ -418,16 +405,7 @@
     padding-right: 10px;
   }
   .game-lobby-cat {
-    padding: 8px 2px 6px;
-  }
-  .game-lobby-cat-lab {
-    font-size: 10px;
-  }
-  .game-lobby-cat-ico,
-  .game-lobby-cat image,
-  .game-lobby-cat uni-image {
-    width: 32px !important;
-    height: 32px !important;
+    padding: 0 !important;
   }
 }
 
