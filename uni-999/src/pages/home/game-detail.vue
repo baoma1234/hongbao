@@ -165,6 +165,27 @@ function resolveActiveGroupMatch() {
 }
 
 function syncPlayersFromOfficial() {
+  const g = game.value
+  if (!g) {
+    matchedGroupId.value = 0
+    playersText.value = '—'
+    return
+  }
+  // 接龙大厅卡：展示四档群在线合计；进群仍按所选场次
+  if (g.sumGroupMatch) {
+    let sum = 0
+    const rows = officialGroups.value || []
+    for (let i = 0; i < rows.length; i++) {
+      if (g.sumGroupMatch.test(String(rows[i].name || ''))) {
+        sum += groupDisplayOnline(rows[i])
+      }
+    }
+    playersText.value = sum > 0 ? formatCountNum(sum) : '—'
+    const sessMatch = resolveActiveGroupMatch()
+    const row = findOfficialGroup(sessMatch)
+    matchedGroupId.value = row ? (row.id || row.group_id) | 0 : 0
+    return
+  }
   const matcher = resolveActiveGroupMatch()
   const row = findOfficialGroup(matcher)
   if (row) {

@@ -1,4 +1,6 @@
-/** 大厅游戏详情：与官方推荐群对齐（接龙四档 / 扫雷 / 牛牛 / 全员自由发宝） */
+/** 大厅游戏详情：接龙人数=四档群之和；扫雷/牛牛/对战归红宝游戏 */
+
+const JIELONG_SUM_MATCH = /红宝接龙\s*(20|50|100|500)群/
 
 const JIELONG_BASE = {
   badge: 'hot',
@@ -13,6 +15,7 @@ const JIELONG_BASE = {
     '公平随机算法开奖，全程可验。',
   ],
   startRoute: 'group',
+  sumGroupMatch: JIELONG_SUM_MATCH,
 }
 
 function jielongDetail(tier) {
@@ -23,22 +26,18 @@ function jielongDetail(tier) {
     num: 1,
     title: '红宝接龙' + t + '群',
     groupMatch: new RegExp('红宝接龙\\s*' + t + '群'),
+    sumGroupMatch: null,
     sessions: [{ tag: t + '红宝场', mult: t, entry: t, max: '—' }],
     fixedSession: 0,
   }
 }
 
 export const LOBBY_GAME_DETAILS = {
-  jielong20: jielongDetail(20),
-  jielong50: jielongDetail(50),
-  jielong100: jielongDetail(100),
-  jielong500: jielongDetail(500),
-  /** 兼容旧链接 */
   jielong: {
     ...JIELONG_BASE,
     id: 'jielong',
     num: 1,
-    title: '红包接龙',
+    title: '红宝接龙',
     groupMatch: /红宝接龙\s*20群/,
     sessions: [
       { tag: '20红宝场', mult: '20', entry: '20', max: '—', groupMatch: /红宝接龙\s*20群/ },
@@ -46,12 +45,16 @@ export const LOBBY_GAME_DETAILS = {
       { tag: '100红宝场', mult: '100', entry: '100', max: '—', groupMatch: /红宝接龙\s*100群/ },
       { tag: '500红宝场', mult: '500', entry: '500', max: '—', groupMatch: /红宝接龙\s*500群/ },
     ],
-    startRoute: 'group',
   },
+  /** 兼容旧分档链接 */
+  jielong20: jielongDetail(20),
+  jielong50: jielongDetail(50),
+  jielong100: jielongDetail(100),
+  jielong500: jielongDetail(500),
   saolei: {
     id: 'saolei',
     num: 2,
-    title: '红包扫雷',
+    title: '红宝扫雷',
     badge: 'hot',
     badgeText: '热门',
     hero: 'detail-02.png',
@@ -70,7 +73,7 @@ export const LOBBY_GAME_DETAILS = {
   niuniu: {
     id: 'niuniu',
     num: 3,
-    title: '红包牛牛',
+    title: '红宝牛牛',
     badge: '',
     badgeText: '',
     hero: 'detail-03.png',
@@ -86,19 +89,19 @@ export const LOBBY_GAME_DETAILS = {
     sessions: [{ tag: '牛牛场', mult: '标准', entry: '标准', max: '—' }],
     startRoute: 'group',
   },
-  /** 全员自动发包群 = 全员自由发宝群10-1000 */
-  freeall: {
-    id: 'freeall',
+  /** 红宝对战 → 进全员自由发宝群10-1000（原全员自动发包） */
+  battle: {
+    id: 'battle',
     num: 4,
-    title: '全员自由发宝群10-1000',
+    title: '红宝对战',
     badge: '',
     badgeText: '',
     hero: 'detail-04.png',
     groupMatch: /全员自由发宝|全员自动发包/,
     intro:
-      '全员自由发包玩法，群内任意成员可按规则发宝与抢包。场次金额 10–1000 红宝自由选择，热闹互动、节奏自定。',
+      '多人实时对战模式，匹配对手同台竞技。胜者赢取对方红包奖池，场次金额 10–1000 红宝自由选择。',
     rules: [
-      '进入「全员自由发宝群10-1000」即可参与。',
+      '进入「全员自由发宝群10-1000」即可参与对战玩法。',
       '按群内规则自由发包、抢包，金额区间 10–1000 红宝。',
       '公平随机算法开奖，全程可验。',
       '请遵守群规，理性娱乐。',
@@ -106,8 +109,7 @@ export const LOBBY_GAME_DETAILS = {
     sessions: [{ tag: '自由场', mult: '10-1000', entry: '10-1000', max: '—' }],
     startRoute: 'group',
   },
-  /** 兼容旧 id */
-  battle: null,
+  freeall: null,
   yxx: {
     id: 'yxx',
     num: 6,
@@ -129,7 +131,7 @@ export const LOBBY_GAME_DETAILS = {
   },
 }
 
-LOBBY_GAME_DETAILS.battle = LOBBY_GAME_DETAILS.freeall
+LOBBY_GAME_DETAILS.freeall = LOBBY_GAME_DETAILS.battle
 
 export function getLobbyGameDetail(id) {
   const key = String(id || '').trim()

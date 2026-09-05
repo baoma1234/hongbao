@@ -246,7 +246,7 @@ const onlineCountLive = ref(0)
 const officialGroups = ref([])
 const lobbyBotNicks = ref([])
 const tickerText = ref('')
-const tickerGames = ['红包扫雷', '红包接龙', '红包牛牛', '趣味鱼虾蟹', '全员自由发宝', '幸运盲盒']
+const tickerGames = ['红宝扫雷', '红宝接龙', '红宝牛牛', '趣味鱼虾蟹', '红宝对战', '幸运盲盒']
 
 const lobbyCategories = computed(() => [
   { id: 'hot', iconImg: '1.png', label: tt('lobby_cat_hot', '热门推荐') },
@@ -263,74 +263,46 @@ const lobbyCategories = computed(() => [
 const LOBBY_ASSET_VER = '11'
 
 /**
- * 前四：红宝接龙 20/50/100/500（热门推荐），在玩人数 = 对应官方群在线
- * 全员卡：全员自由发宝群10-1000（即原「全员自动发包」）
+ * 热门推荐：红宝接龙只保留一张（人数=四个接龙群之和）
+ * 红宝游戏：接龙 / 扫雷 / 牛牛 / 对战
  */
 const lobbyGames = [
   {
-    id: 'jielong20',
+    id: 'jielong',
     cover: '01.png',
     order: 1,
     badge: 'hot',
-    badgeLabel: '20',
-    cats: ['hot', 'rp'],
-    groupMatch: /红宝接龙\s*20群/,
-  },
-  {
-    id: 'jielong50',
-    cover: '01.png',
-    order: 2,
-    badge: 'hot',
-    badgeLabel: '50',
-    cats: ['hot', 'rp'],
-    groupMatch: /红宝接龙\s*50群/,
-  },
-  {
-    id: 'jielong100',
-    cover: '01.png',
-    order: 3,
-    badge: 'hot',
-    badgeLabel: '100',
-    cats: ['hot', 'rp'],
-    groupMatch: /红宝接龙\s*100群/,
-  },
-  {
-    id: 'jielong500',
-    cover: '01.png',
-    order: 4,
-    badge: 'hot',
-    badgeLabel: '500',
-    cats: ['hot', 'rp'],
-    groupMatch: /红宝接龙\s*500群/,
+    cats: ['hot', 'games'],
+    sumGroupMatch: /红宝接龙\s*(20|50|100|500)群/,
   },
   {
     id: 'saolei',
     cover: '02.png',
-    order: 5,
+    order: 2,
     badge: '',
-    cats: ['hot', 'rp'],
+    cats: ['games'],
     groupMatch: /扫雷/,
   },
   {
     id: 'niuniu',
     cover: '03.png',
-    order: 6,
+    order: 3,
     badge: '',
-    cats: ['hot', 'card'],
+    cats: ['games'],
     groupMatch: /牛牛/,
   },
   {
-    id: 'freeall',
+    id: 'battle',
     cover: '04.png',
-    order: 7,
+    order: 4,
     badge: '',
-    cats: ['hot', 'pvp'],
+    cats: ['games'],
     groupMatch: /全员自由发宝|全员自动发包/,
   },
   {
     id: 'blindbox',
     cover: '05.png',
-    order: 8,
+    order: 5,
     badge: 'new',
     cats: ['hot', 'event'],
     comingSoon: true,
@@ -338,9 +310,9 @@ const lobbyGames = [
   {
     id: 'yxx',
     cover: '06.png',
-    order: 9,
+    order: 6,
     badge: '',
-    cats: ['hot', 'card', 'rp'],
+    cats: ['hot', 'card'],
     comingSoon: true,
   },
 ]
@@ -359,8 +331,22 @@ function findOfficialGroup(matcher) {
   return rows.find((g) => matcher.test(String(g.name || ''))) || null
 }
 
+function sumOfficialByMatch(matcher) {
+  if (!matcher) return 0
+  const rows = officialGroups.value || []
+  let sum = 0
+  for (let i = 0; i < rows.length; i++) {
+    const name = String(rows[i].name || '')
+    if (typeof matcher === 'string' ? name.indexOf(matcher) >= 0 : matcher.test(name)) {
+      sum += groupDisplayOnline(rows[i])
+    }
+  }
+  return sum
+}
+
 function gamePlayersCount(game) {
   if (!game || game.comingSoon) return 0
+  if (game.sumGroupMatch) return sumOfficialByMatch(game.sumGroupMatch)
   const row = findOfficialGroup(game.groupMatch)
   return row ? groupDisplayOnline(row) : 0
 }
@@ -444,7 +430,7 @@ const visibleGames = computed(() => {
   return lobbyGames
     .filter((g) => {
       if (activeCat.value === 'hot') return g.cats.includes('hot')
-      if (activeCat.value === 'games') return g.cats.includes('rp')
+      if (activeCat.value === 'games') return g.cats.includes('games')
       return g.cats.includes(activeCat.value)
     })
     .map((g) => {
