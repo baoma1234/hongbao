@@ -1,0 +1,53 @@
+<form id="add-form" class="form-horizontal" role="form" data-toggle="validator" method="POST" action="">
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">备注名:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input type="text" class="form-control" name="row[title]" value="{$row.title|default=''|htmlentities}" maxlength="64" placeholder="后台识别用">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">轮播图:</label>
+        <div class="col-xs-12 col-sm-8">
+            <div class="input-group">
+                <input id="c-image" class="form-control" size="50" name="row[image]" type="text" value="{$row.image|default=''|htmlentities}" data-rule="required">
+                <div class="input-group-addon no-border no-padding">
+                    <span><button type="button" id="faupload-image" class="btn btn-danger faupload" data-input-id="c-image" data-mimetype="image/gif,image/jpeg,image/png,image/jpg,image/bmp,image/webp" data-multiple="false" data-preview-id="p-image"><i class="fa fa-upload"></i> {:__('Upload')}</button></span>
+                </div>
+            </div>
+            <ul class="row list-inline faupload-preview" id="p-image"></ul>
+            <span class="help-block">建议 750×400；也可填相对路径如 home/lobby/750x400.png</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">点击跳转:</label>
+        <div class="col-xs-12 col-sm-8">
+            {:build_radios('row[link_type]', $linkTypeList, $row.link_type|default='fission')}
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">跳转地址:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input type="text" class="form-control" name="row[link_url]" value="{$row.link_url|default=''|htmlentities}" placeholder="link_type=url 时填写">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">排序:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input type="number" class="form-control" name="row[weigh]" value="{$row.weigh|default=0}">
+            <span class="help-block">越大越靠前</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">状态:</label>
+        <div class="col-xs-12 col-sm-8">
+            {:build_radios('row[status]', $statusList, $row.status|default='normal')}
+        </div>
+    </div>
+    <div class="form-group layer-footer">
+        <label class="control-label col-xs-12 col-sm-2"></label>
+        <div class="col-xs-12 col-sm-8">
+            <button type="submit" class="btn btn-success btn-embossed">{:__('OK')}</button>
+            <button type="reset" class="btn btn-default btn-embossed">{:__('Reset')}</button>
+        </div>
+    </div>
+</form>

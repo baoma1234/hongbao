@@ -55,11 +55,26 @@
   box-sizing: border-box;
 }
 
+.game-lobby-banner-swiper {
+  width: 100%;
+  aspect-ratio: 750 / 400;
+  min-height: 140px;
+  height: auto;
+}
+
+.game-lobby-banner-swiper swiper-item,
+.game-lobby-banner-swiper .uni-swiper-item {
+  height: 100% !important;
+  line-height: 0;
+}
+
 .game-lobby-banner-img,
 .game-lobby-banner image,
 .game-lobby-banner uni-image {
   width: 100% !important;
+  height: 100% !important;
   display: block !important;
+  object-fit: cover;
   vertical-align: top;
 }
 

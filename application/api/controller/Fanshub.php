@@ -18,7 +18,7 @@ use think\Validate;
  */
 class Fanshub extends Api
 {
-    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'tgauth', 'tgbind', 'tgsendsms', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail', 'fissionclaims', 'yxxhall', 'yxxtick', 'yxxfair', 'yxxgroupdissolve'];
+    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'tgauth', 'tgbind', 'tgsendsms', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail', 'fissionclaims', 'yxxhall', 'yxxtick', 'yxxfair', 'yxxgroupdissolve', 'lobbyhome'];
     protected $noNeedRight = '*';
 
     public function _initialize()
@@ -26,7 +26,7 @@ class Fanshub extends Api
         FansHubSms::boot();
         parent::_initialize();
         $action = strtolower($this->request->action());
-        $exempt = ['config', 'bootstrap', 'comments', 'inviteleaderboard', 'slidercaptcha', 'grabslider', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail', 'fissionclaims', 'yxxhall', 'yxxtick', 'yxxfair', 'yxxgroupdissolve', 'tgauth', 'tgbind', 'tgsendsms'];
+        $exempt = ['config', 'bootstrap', 'comments', 'inviteleaderboard', 'slidercaptcha', 'grabslider', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail', 'fissionclaims', 'yxxhall', 'yxxtick', 'yxxfair', 'yxxgroupdissolve', 'tgauth', 'tgbind', 'tgsendsms', 'lobbyhome'];
         if (in_array($action, $exempt, true)) {
             return;
         }
@@ -45,6 +45,15 @@ class Fanshub extends Api
     public function config()
     {
         $this->success('ok', FansHubService::publicConfig());
+    }
+
+    /**
+     * 大厅装修：轮播 / 分类 / 游戏格 / 邀请条
+     * GET /api/fanshub/lobbyhome
+     */
+    public function lobbyhome()
+    {
+        $this->success('ok', \app\common\library\FansHubLobby::homePayload());
     }
 
     /**

@@ -3,8 +3,25 @@
     <TopBar />
     <view class="game-lobby" :style="lobbyPageStyle">
       <view class="game-lobby-inner">
-        <view class="game-lobby-banner" hover-class="game-lobby-hit" @click="onCarnivalBanner">
-          <image class="game-lobby-banner-img" :src="lobbyAsset('750x400.png')" mode="widthFix" />
+        <view class="game-lobby-banner">
+          <swiper
+            class="game-lobby-banner-swiper"
+            circular
+            autoplay
+            :interval="4000"
+            :duration="400"
+            indicator-dots
+            indicator-color="rgba(255,255,255,0.35)"
+            indicator-active-color="#ffffff"
+          >
+            <swiper-item
+              v-for="(b, bi) in lobbyBanners"
+              :key="b.id || bi"
+              @click="onBannerTap(b)"
+            >
+              <image class="game-lobby-banner-img" :src="bannerSrc(b)" mode="aspectFill" />
+            </swiper-item>
+          </swiper>
           <view class="game-lobby-online-badge">
             <text class="game-lobby-online">
               {{ tt('lobby_online', '在线玩家') }}
@@ -35,12 +52,12 @@
               @click="onLobbyCat(cat)"
             >
               <image
-                v-if="cat.iconImg || cat.iconStatic"
+                v-if="catIconSrc(cat)"
                 class="game-lobby-cat-ico"
-                :src="lobbyCatIcon(cat)"
+                :src="catIconSrc(cat)"
                 mode="aspectFit"
               />
-              <text v-else class="game-lobby-cat-ico game-lobby-cat-ico-emoji">{{ cat.icon }}</text>
+              <text v-else class="game-lobby-cat-ico game-lobby-cat-ico-emoji">{{ cat.icon || '🎮' }}</text>
               <text class="game-lobby-cat-lab">{{ cat.label }}</text>
             </view>
           </view>
@@ -62,7 +79,7 @@
             @click="onGameTap(game)"
           >
             <view class="game-lobby-card-media">
-              <image class="game-lobby-card-img" :src="lobbyAsset(game.cover)" mode="aspectFill" />
+              <image class="game-lobby-card-img" :src="gameCoverSrc(game)" mode="aspectFill" />
             </view>
             <view
               v-if="game.badgeLabel || game.badge"
@@ -83,8 +100,8 @@
           </view>
         </view>
 
-        <view class="game-lobby-invite" hover-class="game-lobby-hit" @click="copyShareLink">
-          <image class="game-lobby-invite-img" :src="lobbyAsset('750x150.png')" mode="widthFix" />
+        <view class="game-lobby-invite" hover-class="game-lobby-hit" @click="onInviteTap">
+          <image class="game-lobby-invite-img" :src="inviteSrc" mode="widthFix" />
         </view>
         <!-- 末项留白：App/Safari 底栏 + Home 指示条，避免邀请条被挡 -->
         <view class="game-lobby-scroll-pad" aria-hidden="true" />
@@ -247,30 +264,24 @@ const officialGroups = ref([])
 const lobbyBotNicks = ref([])
 const tickerText = ref('')
 const tickerGames = ['红宝扫雷', '红宝接龙', '红宝牛牛', '趣味鱼虾蟹', '红宝对战', '幸运盲盒']
+/** 后台大厅装修（lobbyhome）；空则走本地默认 */
+const remoteLobby = ref(null)
 
-const lobbyCategories = computed(() => [
-  { id: 'hot', iconImg: '1.png', label: tt('lobby_cat_hot', '热门推荐') },
-  { id: 'games', iconStatic: 'logo.png', label: tt('lobby_cat_games', '红宝游戏') },
-  { id: 'notice', iconImg: '66.png', label: tt('lobby_cat_notice', '红宝公告'), action: 'notice' },
-  {
-    id: 'commission',
-    iconImg: 'commission.png',
-    label: tt('lobby_cat_commission', '红宝佣金'),
-    action: 'commission',
-  },
-])
+const DEFAULT_CATEGORIES = [
+  { id: 'hot', iconImg: '1.png', label: '热门推荐', action: 'filter' },
+  { id: 'games', iconStatic: 'logo.png', label: '红宝游戏', action: 'filter' },
+  { id: 'notice', iconImg: '66.png', label: '红宝公告', action: 'notice' },
+  { id: 'commission', iconImg: 'commission.png', label: '红宝佣金', action: 'commission' },
+]
 
-const LOBBY_ASSET_VER = '14'
+const LOBBY_ASSET_VER = '15'
 
-/**
- * 热门推荐：红宝接龙只保留一张（人数=四个接龙群之和）
- * 红宝游戏：接龙 / 扫雷 / 牛牛 / 对战
- */
-const lobbyGames = [
+/** 默认游戏格：盲盒/鱼虾蟹已隐藏（后台 status=hidden） */
+const DEFAULT_GAMES = [
   {
     id: 'jielong',
     cover: '01.png',
-    order: 1,
+    order: 100,
     badge: 'hot',
     cats: ['hot', 'games'],
     sumGroupMatch: /红宝接龙\s*(20|50|100|500)群/,
@@ -278,7 +289,7 @@ const lobbyGames = [
   {
     id: 'saolei',
     cover: '02.png',
-    order: 2,
+    order: 90,
     badge: '',
     cats: ['hot', 'games'],
     groupMatch: /扫雷/,
@@ -286,7 +297,7 @@ const lobbyGames = [
   {
     id: 'niuniu',
     cover: '03.png',
-    order: 3,
+    order: 80,
     badge: '',
     cats: ['hot', 'games'],
     groupMatch: /牛牛/,
@@ -294,28 +305,114 @@ const lobbyGames = [
   {
     id: 'battle',
     cover: '04.png',
-    order: 4,
+    order: 70,
     badge: '',
     cats: ['hot', 'games'],
     groupMatch: /全员自由发宝|全员自动发包/,
   },
-  {
-    id: 'blindbox',
-    cover: '05.png',
-    order: 5,
-    badge: 'new',
-    cats: ['hot', 'event'],
-    comingSoon: true,
-  },
-  {
-    id: 'yxx',
-    cover: '06.png',
-    order: 6,
-    badge: '',
-    cats: ['hot', 'card'],
-    comingSoon: true,
-  },
 ]
+
+function safeRegExp(pattern) {
+  const s = String(pattern || '').trim()
+  if (!s) return null
+  try {
+    return new RegExp(s)
+  } catch (e) {
+    return null
+  }
+}
+
+function normalizeRemotePath(raw) {
+  let p = String(raw || '').trim().replace(/^\/+/, '')
+  if (!p) return ''
+  if (/^https?:\/\//i.test(p)) return p
+  p = p.replace(/^static\//, '')
+  if (p.indexOf('home/lobby/') === 0) return p.slice('home/lobby/'.length)
+  return p
+}
+
+const lobbyCategories = computed(() => {
+  const rows = remoteLobby.value && remoteLobby.value.categories
+  if (Array.isArray(rows) && rows.length) {
+    return rows.map((c) => ({
+      id: String(c.key || c.id || ''),
+      label: String(c.title || c.key || ''),
+      iconUrl: String(c.icon || ''),
+      iconRaw: String(c.icon_raw || c.icon || ''),
+      iconStatic: String(c.icon_static || ''),
+      action: String(c.action || 'filter'),
+      actionUrl: String(c.action_url || ''),
+      packaged: !!c.packaged,
+    }))
+  }
+  return DEFAULT_CATEGORIES.map((c) => ({
+    ...c,
+    label: c.id === 'hot'
+      ? tt('lobby_cat_hot', c.label)
+      : c.id === 'games'
+        ? tt('lobby_cat_games', c.label)
+        : c.id === 'notice'
+          ? tt('lobby_cat_notice', c.label)
+          : tt('lobby_cat_commission', c.label),
+  }))
+})
+
+const lobbyGamesList = computed(() => {
+  const rows = remoteLobby.value && remoteLobby.value.games
+  if (Array.isArray(rows) && rows.length) {
+    return rows.map((g) => ({
+      id: String(g.key || g.id || ''),
+      cover: normalizeRemotePath(g.cover_raw || g.cover || ''),
+      coverUrl: String(g.cover || ''),
+      badge: String(g.badge || ''),
+      cats: Array.isArray(g.cats) ? g.cats.map(String) : [],
+      groupMatch: safeRegExp(g.group_match),
+      sumGroupMatch: safeRegExp(g.sum_group_match),
+      comingSoon: !!g.coming_soon,
+      order: Number(g.order) || 0,
+      packaged: !!g.packaged,
+    }))
+  }
+  return DEFAULT_GAMES
+})
+
+const lobbyBanners = computed(() => {
+  const rows = remoteLobby.value && remoteLobby.value.banners
+  if (Array.isArray(rows) && rows.length) {
+    return rows.map((b, i) => ({
+      id: b.id || 'b' + i,
+      image: String(b.image || ''),
+      imageRaw: String(b.image_raw || b.image || ''),
+      linkType: String(b.link_type || 'none'),
+      linkUrl: String(b.link_url || ''),
+      packaged: !!b.packaged,
+    }))
+  }
+  return [{ id: 'default', imageRaw: '750x400.png', linkType: 'fission', packaged: true }]
+})
+
+const lobbyInvite = computed(() => {
+  const rows = remoteLobby.value && remoteLobby.value.invites
+  if (Array.isArray(rows) && rows.length) {
+    const b = rows[0]
+    return {
+      image: String(b.image || ''),
+      imageRaw: String(b.image_raw || b.image || ''),
+      linkType: String(b.link_type || 'share'),
+      linkUrl: String(b.link_url || ''),
+      packaged: !!b.packaged,
+    }
+  }
+  return { imageRaw: '750x150.png', linkType: 'share', packaged: true }
+})
+
+const inviteSrc = computed(() => {
+  const inv = lobbyInvite.value
+  if (inv.image && /^https?:\/\//i.test(inv.image)) return inv.image
+  const raw = normalizeRemotePath(inv.imageRaw || inv.image || '750x150.png')
+  if (/^https?:\/\//i.test(raw)) return raw
+  return lobbyAsset(raw || '750x150.png')
+})
 
 /** 与社群页 groupMembersText 同一口径 */
 function groupDisplayOnline(g) {
@@ -361,12 +458,40 @@ function lobbyAsset(name) {
 }
 
 function lobbyCatIcon(cat) {
-  // logo 等站点 static 图走打包路径（与 TopBar logoUrl 一致），勿拼 OSS——CDN 上通常没有 /999/static/logo.png
   if (cat && cat.iconStatic) {
     const p = String(cat.iconStatic || '').replace(/^\/+/, '')
     return packagedStaticUrl(p) + '?v=' + LOBBY_ASSET_VER
   }
   return lobbyAsset(cat && cat.iconImg)
+}
+
+function catIconSrc(cat) {
+  if (!cat) return ''
+  if (cat.iconStatic) {
+    return packagedStaticUrl(String(cat.iconStatic).replace(/^\/+/, '')) + '?v=' + LOBBY_ASSET_VER
+  }
+  if (cat.iconUrl && /^https?:\/\//i.test(cat.iconUrl)) return cat.iconUrl
+  if (cat.iconImg) return lobbyAsset(cat.iconImg)
+  const raw = normalizeRemotePath(cat.iconRaw || cat.iconUrl || '')
+  if (!raw) return ''
+  if (/^https?:\/\//i.test(raw)) return raw
+  return lobbyAsset(raw)
+}
+
+function bannerSrc(b) {
+  if (!b) return lobbyAsset('750x400.png')
+  if (b.image && /^https?:\/\//i.test(b.image)) return b.image
+  const raw = normalizeRemotePath(b.imageRaw || b.image || '750x400.png')
+  if (/^https?:\/\//i.test(raw)) return raw
+  return lobbyAsset(raw || '750x400.png')
+}
+
+function gameCoverSrc(game) {
+  if (!game) return lobbyAsset('01.png')
+  if (game.coverUrl && /^https?:\/\//i.test(game.coverUrl)) return game.coverUrl
+  const raw = normalizeRemotePath(game.cover || '')
+  if (/^https?:\/\//i.test(raw)) return raw
+  return lobbyAsset(raw || '01.png')
 }
 
 function applyLobbyExtras(data) {
@@ -427,7 +552,7 @@ const onlineCount = computed(() => {
 const onlineCountText = computed(() => formatCountNum(onlineCount.value))
 
 const visibleGames = computed(() => {
-  return lobbyGames
+  return lobbyGamesList.value
     .filter((g) => {
       if (activeCat.value === 'hot') return g.cats.includes('hot')
       if (activeCat.value === 'games') return g.cats.includes('games')
@@ -445,7 +570,7 @@ const visibleGames = computed(() => {
             : '—',
       }
     })
-    .sort((a, b) => (a.order || 0) - (b.order || 0))
+    .sort((a, b) => (b.order || 0) - (a.order || 0))
 })
 
 function onLobbyCat(cat) {
@@ -459,7 +584,35 @@ function onLobbyCat(cat) {
     uni.navigateTo({ url: '/pages/commission/commission' })
     return
   }
+  if (action === 'url' && cat.actionUrl) {
+    const u = String(cat.actionUrl).trim()
+    if (/^https?:\/\//i.test(u)) {
+      openExternalHttpUrl(u)
+    } else if (u.indexOf('/pages/') === 0) {
+      uni.navigateTo({ url: u, fail: () => uni.reLaunch({ url: u }) })
+    }
+    return
+  }
   activeCat.value = cat.id
+}
+
+function onBannerTap(b) {
+  const lt = String((b && b.linkType) || 'none')
+  if (lt === 'fission') {
+    onCarnivalBanner()
+    return
+  }
+  if (lt === 'messages') {
+    goTab('/pages/messages/messages')
+    return
+  }
+  if (lt === 'url' && b && b.linkUrl) {
+    const u = String(b.linkUrl).trim()
+    if (/^https?:\/\//i.test(u)) openExternalHttpUrl(u)
+    else if (u.indexOf('/pages/') === 0) uni.navigateTo({ url: u, fail: () => uni.reLaunch({ url: u }) })
+    return
+  }
+  onCarnivalBanner()
 }
 
 function onCarnivalBanner() {
@@ -468,6 +621,19 @@ function onCarnivalBanner() {
     return
   }
   goTab('/pages/messages/messages')
+}
+
+function onInviteTap() {
+  const inv = lobbyInvite.value || {}
+  const lt = String(inv.linkType || 'share')
+  if (lt === 'url' && inv.linkUrl) {
+    const u = String(inv.linkUrl).trim()
+    if (/^https?:\/\//i.test(u)) openExternalHttpUrl(u)
+    else if (u.indexOf('/pages/') === 0) uni.navigateTo({ url: u, fail: () => uni.reLaunch({ url: u }) })
+    return
+  }
+  if (lt === 'none') return
+  copyShareLink()
 }
 
 function onGameTap(game) {
@@ -887,6 +1053,22 @@ watch(
     syncUidFromProfile(profile.value)
   }
 )
+
+async function loadLobbyHome() {
+  try {
+    const data = await apiRequest('lobbyhome', 'GET', {})
+    if (data && typeof data === 'object') {
+      remoteLobby.value = data
+      const cats = lobbyCategories.value
+      if (cats.length && !cats.some((c) => c.id === activeCat.value && (!c.action || c.action === 'filter'))) {
+        const first = cats.find((c) => !c.action || c.action === 'filter')
+        if (first) activeCat.value = first.id
+      }
+    }
+  } catch (e) {
+    /* keep defaults */
+  }
+}
 
 async function loadBootstrap() {
   try {
@@ -1440,6 +1622,7 @@ onShow(async () => {
     uni.$on && uni.$on('fanshub-profile-updated', onProfileUpdated)
   } catch (e) {}
   await loadBootstrap()
+  await loadLobbyHome()
   imConnect().catch(() => {})
   startPoll()
   nextTick(() => {
