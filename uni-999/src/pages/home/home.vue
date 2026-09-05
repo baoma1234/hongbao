@@ -280,7 +280,7 @@ const lobbyGames = [
     cover: '02.png',
     order: 2,
     badge: '',
-    cats: ['games'],
+    cats: ['hot', 'games'],
     groupMatch: /扫雷/,
   },
   {
@@ -288,7 +288,7 @@ const lobbyGames = [
     cover: '03.png',
     order: 3,
     badge: '',
-    cats: ['games'],
+    cats: ['hot', 'games'],
     groupMatch: /牛牛/,
   },
   {
@@ -296,7 +296,7 @@ const lobbyGames = [
     cover: '04.png',
     order: 4,
     badge: '',
-    cats: ['games'],
+    cats: ['hot', 'games'],
     groupMatch: /全员自由发宝|全员自动发包/,
   },
   {
