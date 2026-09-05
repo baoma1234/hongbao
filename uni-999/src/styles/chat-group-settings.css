@@ -897,49 +897,45 @@ body.tab-messages .bottom-action-bar {
   box-shadow: var(--shadow-warm);
 }
 
-.chat-cg-card.active {
+.chat-cg-card.active,
+.chat-cg-card.active-light {
   border: none;
-  box-shadow: var(--shadow-warm);
+  box-shadow: none;
+  background: #f2f9ff;
 }
 
-.chat-cg-card.active .chat-cg-card-header {
-  background: linear-gradient(to right, #ff6b33, #e80000);
-  color: #fff;
-  padding-bottom: 14px;
+.chat-cg-card.active .chat-cg-card-header,
+.chat-cg-card.active-light .chat-cg-card-header {
+  background: transparent;
+  color: #12b7f5;
+  padding-bottom: 0;
 }
 
-.chat-cg-card.active .chat-cg-radio {
-  border-color: #fff;
+.chat-cg-card.active .chat-cg-radio,
+.chat-cg-card.active-light .chat-cg-radio {
+  border-color: #12b7f5;
+  background: #12b7f5;
 }
 
 .chat-cg-card.active .chat-cg-radio::after,
 .chat-cg-card.active-light .chat-cg-radio::after {
   content: '';
-  width: 8px;
-  height: 8px;
-  border-radius: var(--radius-circle);
-  background: #fff;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ffffff;
+  display: block;
 }
 
-.chat-cg-card.active .chat-cg-dot {
-  background: var(--color-amount);
+.chat-cg-card.active .chat-cg-dot,
+.chat-cg-card.active-light .chat-cg-dot {
+  background: #12b7f5;
 }
 
-.chat-cg-card.active .chat-cg-card-body {
-  padding-top: 10px;
-}
-
-.chat-cg-card.active-light {
-  border-color: #ff8c4a;
-  box-shadow: 0 4px 12px rgba(255, 140, 74, 0.12);
-}
-
-.chat-cg-card.active-light .chat-cg-radio {
-  border-color: #ff8c4a;
-}
-
-.chat-cg-card.active-light .chat-cg-radio::after {
-  background: #ff8c4a;
+.chat-cg-card.active .chat-cg-card-body,
+.chat-cg-card.active-light .chat-cg-card-body {
+  padding-top: 0;
+  color: #888888;
 }
 
 .chat-community-seg-btn.active {
@@ -1242,12 +1238,9 @@ body.tab-messages {
 .chat-create-group-pane .chat-cg-card.active,
 .chat-create-group-pane .chat-cg-card.active-light {
   border-color: transparent !important;
-  background:
-    linear-gradient(180deg, #fff8f0 0%, #ffe8d6 100%) padding-box,
-    linear-gradient(145deg, #ffe9b0, #E63022) border-box !important;
-  box-shadow:
-    0 8px 18px rgba(198, 17, 20, 0.14),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+  background: #f2f9ff !important;
+  background-image: none !important;
+  box-shadow: none !important;
 }
 
 #tabMessages .chat-sub-main {

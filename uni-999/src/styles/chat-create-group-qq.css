@@ -1,0 +1,254 @@
+/**
+ * 创建新群聊 — 最终 QQ 样式（必须在 messages/community 最后导入）
+ * 压过 chat.bundle / friend-shell / group-settings 残留奶油规则
+ */
+.chat-create-group-pane,
+.chat-create-group-pane.open,
+.messages-page .chat-create-group-pane,
+.community-page .chat-create-group-pane {
+  background: #ededed !important;
+  color: #191919 !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  z-index: 40000 !important;
+}
+
+.chat-create-group-pane .chat-cg-header {
+  background: #ffffff !important;
+  color: #191919 !important;
+  border: none !important;
+  border-bottom: 0.5px solid #e5e5e5 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  padding-bottom: 0 !important;
+  min-height: 44px !important;
+}
+
+.chat-create-group-pane .chat-cg-title {
+  color: #191919 !important;
+  font-size: 17px !important;
+  font-weight: 600 !important;
+  text-shadow: none !important;
+}
+
+.chat-create-group-pane .chat-cg-back {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  color: #191919 !important;
+  font-size: 16px !important;
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+}
+
+.chat-create-group-pane .chat-cg-back-ico,
+.chat-create-group-pane .chat-cg-back text {
+  color: #191919 !important;
+  font-size: 32px !important;
+  line-height: 44px !important;
+}
+
+.chat-create-group-pane .chat-cg-next-top {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #12b7f5 !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  border-radius: 0 !important;
+  padding: 0 4px !important;
+  line-height: 44px !important;
+  height: 44px !important;
+  min-width: 72px !important;
+  text-align: right !important;
+}
+
+.chat-create-group-pane .chat-cg-next-top.is-disabled,
+.chat-create-group-pane .chat-cg-next-top:disabled {
+  color: #b0b0b0 !important;
+  background: transparent !important;
+}
+
+.chat-create-group-pane .chat-cg-main {
+  background: #ededed !important;
+  margin-top: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 12px 12px 28px !important;
+}
+
+.chat-create-group-pane .chat-cg-input-group {
+  background: #ffffff !important;
+  border: 0.5px solid #e5e5e5 !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  background-image: none !important;
+  padding: 14px 12px !important;
+  margin-bottom: 14px !important;
+}
+
+.chat-create-group-pane .chat-cg-avatar {
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 8px !important;
+  background: #f5f5f5 !important;
+  background-image: none !important;
+  border: 0.5px solid #e5e5e5 !important;
+  box-shadow: none !important;
+  color: #191919 !important;
+}
+
+.chat-create-group-pane .chat-cg-input-box {
+  background: transparent !important;
+  background-image: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+}
+
+.chat-create-group-pane .chat-cg-name-input,
+.chat-create-group-pane .chat-cg-input-box input {
+  color: #191919 !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  background: transparent !important;
+}
+
+.chat-create-group-pane .chat-cg-next-inner {
+  display: none !important;
+}
+
+.chat-create-group-pane .chat-cg-section-title,
+.chat-create-group-pane .chat-cg-section-title span,
+.chat-create-group-pane .chat-cg-section-title text {
+  color: #888888 !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  background: transparent !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  text-align: left !important;
+}
+
+.chat-create-group-pane .chat-cg-section-title::before,
+.chat-create-group-pane .chat-cg-section-title::after {
+  display: none !important;
+  content: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  background: none !important;
+}
+
+.chat-create-group-pane .chat-cg-cards {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+  background: #ffffff !important;
+  border: 0.5px solid #e5e5e5 !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  margin-bottom: 12px !important;
+}
+
+.chat-create-group-pane .chat-cg-card {
+  background: #ffffff !important;
+  background-image: none !important;
+  border: none !important;
+  border-bottom: 0.5px solid #f0f0f0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 14px !important;
+  color: #191919 !important;
+}
+
+.chat-create-group-pane .chat-cg-card:last-child {
+  border-bottom: none !important;
+}
+
+.chat-create-group-pane .chat-cg-card.active,
+.chat-create-group-pane .chat-cg-card.active-light {
+  background: #f2f9ff !important;
+  background-image: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.chat-create-group-pane .chat-cg-card-header,
+.chat-create-group-pane .chat-cg-card.active .chat-cg-card-header,
+.chat-create-group-pane .chat-cg-card.active-light .chat-cg-card-header {
+  background: transparent !important;
+  background-image: none !important;
+  color: #191919 !important;
+  padding: 0 !important;
+  margin-bottom: 6px !important;
+  justify-content: flex-start !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+}
+
+.chat-create-group-pane .chat-cg-card.active .chat-cg-card-header,
+.chat-create-group-pane .chat-cg-card.active-light .chat-cg-card-header,
+.chat-create-group-pane .chat-cg-card.active .chat-cg-card-header text,
+.chat-create-group-pane .chat-cg-card.active-light .chat-cg-card-header text {
+  color: #12b7f5 !important;
+}
+
+.chat-create-group-pane .chat-cg-card-body,
+.chat-create-group-pane .chat-cg-card.active .chat-cg-card-body,
+.chat-create-group-pane .chat-cg-card.active-light .chat-cg-card-body,
+.chat-create-group-pane .chat-cg-card-body text {
+  color: #888888 !important;
+  background: transparent !important;
+  padding-top: 0 !important;
+  font-size: 12px !important;
+}
+
+.chat-create-group-pane .chat-cg-radio {
+  width: 18px !important;
+  height: 18px !important;
+  border: 1.5px solid #c8c8c8 !important;
+  border-radius: 50% !important;
+  background: #ffffff !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+.chat-create-group-pane .chat-cg-card.active .chat-cg-radio,
+.chat-create-group-pane .chat-cg-card.active-light .chat-cg-radio {
+  border-color: #12b7f5 !important;
+  background: #12b7f5 !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+.chat-create-group-pane .chat-cg-card.active .chat-cg-radio::after,
+.chat-create-group-pane .chat-cg-card.active-light .chat-cg-radio::after {
+  content: '' !important;
+  width: 6px !important;
+  height: 6px !important;
+  border-radius: 50% !important;
+  background: #ffffff !important;
+  display: block !important;
+}
+
+.chat-create-group-pane .chat-cg-dot {
+  background: #12b7f5 !important;
+  width: 5px !important;
+  height: 5px !important;
+}
+
+.chat-create-group-pane .chat-cg-hint {
+  color: #999999 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  font-weight: 400 !important;
+}

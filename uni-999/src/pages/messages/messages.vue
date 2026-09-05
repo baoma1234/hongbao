@@ -315,6 +315,7 @@ import '../../styles/chat-messages-list.css'
 import '../../styles/chat-uni-adapter.css'
 import '../../styles/chat-messages-parity.css'
 import '../../styles/chat-qq-theme.css'
+import '../../styles/chat-create-group-qq.css'
 import { apiRequest, fetchProfile, getToken } from '../../utils/auth.js'
 import { applySafeAreaCssVars, getSafeAreaInsets, getTopBarContentHeight } from '../../utils/safe-area.js'
 import {

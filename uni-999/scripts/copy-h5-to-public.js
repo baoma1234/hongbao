@@ -78,4 +78,21 @@ if (fs.existsSync(localeSrc)) {
 }
 
 ensureAppleTouchIcon(path.join(dest, 'index.html'))
+
+// index.html 禁止缓存，避免新旧 CSS hash 混用（建群页旧奶油样式）
+fs.writeFileSync(
+  path.join(dest, '.htaccess'),
+  '# Prevent index.html cache mixing old/new CSS hashes\n' +
+    '<IfModule mod_headers.c>\n' +
+    '  <FilesMatch "^(index\\.html)$">\n' +
+    '    Header set Cache-Control "no-cache, no-store, must-revalidate"\n' +
+    '    Header set Pragma "no-cache"\n' +
+    '    Header set Expires "0"\n' +
+    '  </FilesMatch>\n' +
+    '  <FilesMatch "\\.(js|css|png|jpg|jpeg|gif|svg|woff2?|ttf|ico)$">\n' +
+    '    Header set Cache-Control "public, max-age=31536000, immutable"\n' +
+    '  </FilesMatch>\n' +
+    '</IfModule>\n'
+)
+
 console.log('OK copied to', dest)
