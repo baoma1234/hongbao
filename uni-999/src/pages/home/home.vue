@@ -64,7 +64,11 @@
             <view class="game-lobby-card-media">
               <image class="game-lobby-card-img" :src="lobbyAsset(game.cover)" mode="aspectFill" />
             </view>
-            <view v-if="game.badge" class="game-lobby-badge" :class="game.badge">{{ game.badge.toUpperCase() }}</view>
+            <view
+              v-if="game.badgeLabel || game.badge"
+              class="game-lobby-badge"
+              :class="game.badgeClass || game.badge || 'hot'"
+            >{{ game.badgeLabel || String(game.badge).toUpperCase() }}</view>
             <view class="game-lobby-players">
               <text class="game-lobby-players-txt">
                 <template v-if="game.comingSoon">
@@ -238,9 +242,11 @@ const lobbyPageStyle = computed(() => {
 
 const activeCat = ref('hot')
 const onlineCountLive = ref(0)
+/** 官方推荐群（与社群页 communityrecommend 同源） */
+const officialGroups = ref([])
 const lobbyBotNicks = ref([])
 const tickerText = ref('')
-const tickerGames = ['红包扫雷', '红包接龙', '红包牛牛', '趣味鱼虾蟹', '红包对战', '幸运盲盒']
+const tickerGames = ['红包扫雷', '红包接龙', '红包牛牛', '趣味鱼虾蟹', '全员自由发宝', '幸运盲盒']
 
 const lobbyCategories = computed(() => [
   { id: 'hot', iconImg: '1.png', label: tt('lobby_cat_hot', '热门推荐') },
@@ -256,15 +262,108 @@ const lobbyCategories = computed(() => [
 
 const LOBBY_ASSET_VER = '11'
 
-/** 01–06 固定排序：接龙 / 扫雷 / 牛牛 / 对战 / 盲盒 / 鱼虾蟹 */
+/**
+ * 前四：红宝接龙 20/50/100/500（热门推荐），在玩人数 = 对应官方群在线
+ * 全员卡：全员自由发宝群10-1000（即原「全员自动发包」）
+ */
 const lobbyGames = [
-  { id: 'jielong', cover: '01.png', badge: 'hot', ratio: 0.82, cats: ['hot', 'rp'], route: 'messages' },
-  { id: 'saolei', cover: '02.png', badge: '', ratio: 0.65, cats: ['hot', 'rp'], route: 'messages' },
-  { id: 'niuniu', cover: '03.png', badge: '', ratio: 0.55, cats: ['hot', 'card'], route: 'messages' },
-  { id: 'battle', cover: '04.png', badge: '', ratio: 0.5, cats: ['hot', 'pvp'], route: 'messages' },
-  { id: 'blindbox', cover: '05.png', badge: 'new', ratio: 0.43, cats: ['hot', 'event'], route: 'fission', comingSoon: true },
-  { id: 'yxx', cover: '06.png', badge: '', ratio: 0.34, cats: ['hot', 'card', 'rp'], route: 'yxx', comingSoon: true },
+  {
+    id: 'jielong20',
+    cover: '01.png',
+    order: 1,
+    badge: 'hot',
+    badgeLabel: '20',
+    cats: ['hot', 'rp'],
+    groupMatch: /红宝接龙\s*20群/,
+  },
+  {
+    id: 'jielong50',
+    cover: '01.png',
+    order: 2,
+    badge: 'hot',
+    badgeLabel: '50',
+    cats: ['hot', 'rp'],
+    groupMatch: /红宝接龙\s*50群/,
+  },
+  {
+    id: 'jielong100',
+    cover: '01.png',
+    order: 3,
+    badge: 'hot',
+    badgeLabel: '100',
+    cats: ['hot', 'rp'],
+    groupMatch: /红宝接龙\s*100群/,
+  },
+  {
+    id: 'jielong500',
+    cover: '01.png',
+    order: 4,
+    badge: 'hot',
+    badgeLabel: '500',
+    cats: ['hot', 'rp'],
+    groupMatch: /红宝接龙\s*500群/,
+  },
+  {
+    id: 'saolei',
+    cover: '02.png',
+    order: 5,
+    badge: '',
+    cats: ['hot', 'rp'],
+    groupMatch: /扫雷/,
+  },
+  {
+    id: 'niuniu',
+    cover: '03.png',
+    order: 6,
+    badge: '',
+    cats: ['hot', 'card'],
+    groupMatch: /牛牛/,
+  },
+  {
+    id: 'freeall',
+    cover: '04.png',
+    order: 7,
+    badge: '',
+    cats: ['hot', 'pvp'],
+    groupMatch: /全员自由发宝|全员自动发包/,
+  },
+  {
+    id: 'blindbox',
+    cover: '05.png',
+    order: 8,
+    badge: 'new',
+    cats: ['hot', 'event'],
+    comingSoon: true,
+  },
+  {
+    id: 'yxx',
+    cover: '06.png',
+    order: 9,
+    badge: '',
+    cats: ['hot', 'card', 'rp'],
+    comingSoon: true,
+  },
 ]
+
+/** 与社群页 groupMembersText 同一口径 */
+function groupDisplayOnline(g) {
+  return (g && (g.online_count || g.member_count || g.display_member_count)) | 0
+}
+
+function findOfficialGroup(matcher) {
+  const rows = officialGroups.value || []
+  if (!matcher) return null
+  if (typeof matcher === 'string') {
+    return rows.find((g) => String(g.name || '').indexOf(matcher) >= 0) || null
+  }
+  return rows.find((g) => matcher.test(String(g.name || ''))) || null
+}
+
+function gamePlayersCount(game) {
+  if (!game || game.comingSoon) return 0
+  const row = findOfficialGroup(game.groupMatch)
+  return row ? groupDisplayOnline(row) : 0
+}
 
 function lobbyAsset(name) {
   const p = String(name || '').replace(/^\/+/, '')
@@ -286,17 +385,7 @@ function lobbyCatIcon(cat) {
 
 function applyLobbyExtras(data) {
   if (!data || typeof data !== 'object') return
-  const raw =
-    data.partner_count !== undefined
-      ? data.partner_count
-      : data.fission_user_count !== undefined
-        ? data.fission_user_count
-        : data.partners
-  if (raw !== undefined) {
-    let n = Math.max(0, parseInt(raw, 10) || 0)
-    if (n <= 0) n = marketVirtualBase()
-    onlineCountLive.value = n
-  }
+  // 在线人数改走官方社群合计，不再用 partner_count 覆盖 banner
   const nicks = data.lobby_bot_nicks
   if (Array.isArray(nicks) && nicks.length) {
     lobbyBotNicks.value = nicks.map((x) => String(x || '').trim()).filter(Boolean)
@@ -338,31 +427,39 @@ function stopTicker() {
 }
 
 const onlineCount = computed(() => {
+  const rows = officialGroups.value || []
+  let sum = 0
+  for (let i = 0; i < rows.length; i++) {
+    sum += groupDisplayOnline(rows[i])
+  }
+  if (sum > 0) return sum
   const live = Number(onlineCountLive.value) || 0
   if (live > 0) return Math.floor(live)
-  const j = jackpot.value || config.value || {}
-  const n = Number(j.partner_count != null ? j.partner_count : j.partners)
-  if (!isNaN(n) && n > 0) return Math.floor(n)
   return marketVirtualBase()
 })
 
 const onlineCountText = computed(() => formatCountNum(onlineCount.value))
 
 const visibleGames = computed(() => {
-  const base = onlineCount.value
   return lobbyGames
     .filter((g) => {
       if (activeCat.value === 'hot') return g.cats.includes('hot')
       if (activeCat.value === 'games') return g.cats.includes('rp')
       return g.cats.includes(activeCat.value)
     })
-    .map((g) => ({
-      ...g,
-      playersText: g.comingSoon
-        ? tt('lobby_coming_soon', '敬请期待')
-        : formatCountNum(Math.max(120, Math.floor(base * g.ratio))),
-    }))
-    .sort((a, b) => String(a.cover).localeCompare(String(b.cover)))
+    .map((g) => {
+      const n = gamePlayersCount(g)
+      const ready = (officialGroups.value || []).length > 0
+      return {
+        ...g,
+        playersText: g.comingSoon
+          ? tt('lobby_coming_soon', '敬请期待')
+          : ready
+            ? formatCountNum(n)
+            : '—',
+      }
+    })
+    .sort((a, b) => (a.order || 0) - (b.order || 0))
 })
 
 function onLobbyCat(cat) {
@@ -959,9 +1056,16 @@ async function pollJackpot() {
 
 async function pollOnlineLive() {
   try {
+    const rec = await apiRequest('communityrecommend', 'GET', {})
+    const rows = (rec && (rec.list || rec.rows || rec.items)) || rec || []
+    if (Array.isArray(rows)) {
+      officialGroups.value = rows
+    }
+  } catch (e) {}
+  try {
     const data = await apiRequest('jackpot', 'GET')
     if (data) applyLobbyExtras(data)
-  } catch (e) {}
+  } catch (e2) {}
 }
 
 function marketVirtualBase() {
@@ -1040,13 +1144,14 @@ function tickMarketLocal() {
   const pc = Math.max(0, parseInt(prev.partner_count != null ? prev.partner_count : prev.partners, 10) || 0)
   const nextPc = pc + add
   prev.partner_count = nextPc
-  onlineCountLive.value = nextPc
+  // 大厅在线人数以官方社群合计为准，本地氛围不再改写 onlineCountLive
   jackpot.value = prev
 }
 
 function startPoll() {
   stopPoll()
   pollJackpot()
+  pollOnlineLive()
   loadLeaderboard()
   startTicker()
   pollTimer = setInterval(() => {
@@ -1054,7 +1159,7 @@ function startPoll() {
   }, 20000)
   onlinePollTimer = setInterval(() => {
     pollOnlineLive()
-  }, 5000)
+  }, 20000)
   // 本地氛围：金额/人数微动（仅非服务端同步时）
   if (!pollLocalTimer) {
     pollLocalTimer = setInterval(tickMarketLocal, 60000)

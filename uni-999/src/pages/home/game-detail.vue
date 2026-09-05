@@ -109,7 +109,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { onLoad, onShow, onHide } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
 import BottomTabBar from '../../components/BottomTabBar.vue'
@@ -129,7 +129,9 @@ const SUB_NAV_H = 48
 const gameId = ref('')
 const game = computed(() => getLobbyGameDetail(gameId.value))
 const selectedSession = ref(0)
-const playersText = ref('8,000')
+const playersText = ref('—')
+const matchedGroupId = ref(0)
+const officialGroups = ref([])
 const records = ref([])
 const botPlayers = ref([])
 const scrollH = ref('100vh')
@@ -139,6 +141,40 @@ let recordsRefreshTimer = null
 
 const gemLabel = computed(() => tt('game_detail_gem', '红宝'))
 const defaultAvatar = computed(() => packagedStaticUrl('default-avatar.png'))
+
+function groupDisplayOnline(g) {
+  return (g && (g.online_count || g.member_count || g.display_member_count)) | 0
+}
+
+function findOfficialGroup(matcher) {
+  const rows = officialGroups.value || []
+  if (!matcher) return null
+  if (typeof matcher === 'string') {
+    return rows.find((x) => String(x.name || '').indexOf(matcher) >= 0) || null
+  }
+  return rows.find((x) => matcher.test(String(x.name || ''))) || null
+}
+
+function resolveActiveGroupMatch() {
+  const g = game.value
+  if (!g) return null
+  const sessions = g.sessions || []
+  const sess = sessions[selectedSession.value]
+  if (sess && sess.groupMatch) return sess.groupMatch
+  return g.groupMatch || null
+}
+
+function syncPlayersFromOfficial() {
+  const matcher = resolveActiveGroupMatch()
+  const row = findOfficialGroup(matcher)
+  if (row) {
+    matchedGroupId.value = (row.id || row.group_id) | 0
+    playersText.value = formatCountNum(groupDisplayOnline(row))
+    return
+  }
+  matchedGroupId.value = 0
+  playersText.value = '—'
+}
 
 function sessionEntryText(s) {
   const e = String((s && s.entry) || '').trim()
@@ -328,17 +364,21 @@ function stopRecordsRefresh() {
 
 async function loadExtras() {
   try {
+    const rec = await apiRequest('communityrecommend', 'GET', {})
+    const rows = (rec && (rec.list || rec.rows || rec.items)) || rec || []
+    if (Array.isArray(rows)) officialGroups.value = rows
+  } catch (e0) {
+    officialGroups.value = []
+  }
+  syncPlayersFromOfficial()
+  try {
     const data = await apiRequest('jackpot', 'GET')
     if (data) {
-      const pc = Math.max(0, parseInt(data.partner_count, 10) || 8000)
-      const ratio = game.value ? game.value.playerRatio : 0.5
-      playersText.value = formatCountNum(Math.max(120, Math.floor(pc * ratio)))
       botPlayers.value = normalizeBotPlayers(data.lobby_bot_players, data.lobby_bot_nicks)
       refreshRecordsFromPool()
       return
     }
   } catch (e) {}
-  playersText.value = formatCountNum(8000)
   botPlayers.value = []
   refreshRecordsFromPool()
 }
@@ -406,6 +446,21 @@ function onStart() {
     uni.navigateTo({ url: '/pages/yxx/hall' })
     return
   }
+  const gid = matchedGroupId.value | 0
+  if (game.value.startRoute === 'group' && gid > 0) {
+    uni.navigateTo({
+      url: '/pages/chat/chat?type=2&id=' + gid,
+      fail() {
+        uni.switchTab({
+          url: '/pages/messages/messages',
+          fail() {
+            uni.reLaunch({ url: '/pages/messages/messages' })
+          },
+        })
+      },
+    })
+    return
+  }
   uni.switchTab({
     url: '/pages/messages/messages',
     fail() {
@@ -416,7 +471,12 @@ function onStart() {
 
 onLoad((query) => {
   gameId.value = String((query && query.game) || '').trim()
-  selectedSession.value = 0
+  const g = getLobbyGameDetail(gameId.value)
+  selectedSession.value = g && g.fixedSession != null ? g.fixedSession | 0 : 0
+})
+
+watch(selectedSession, () => {
+  syncPlayersFromOfficial()
 })
 
 onShow(() => {
