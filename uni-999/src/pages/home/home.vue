@@ -253,7 +253,7 @@ const lobbyCategories = computed(() => [
   },
 ])
 
-const LOBBY_ASSET_VER = '12'
+const LOBBY_ASSET_VER = '13'
 
 /**
  * 热门推荐：红宝接龙只保留一张（人数=四个接龙群之和）

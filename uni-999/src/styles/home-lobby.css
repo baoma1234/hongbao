@@ -198,7 +198,7 @@
   display: flex !important;
   flex-direction: column !important;
   align-items: stretch !important;
-  justify-content: center !important;
+  justify-content: flex-start !important;
   min-width: 0 !important;
   padding: 0 !important;
   border-radius: 14px;
@@ -217,17 +217,21 @@
   opacity: 0.92;
 }
 
+/*
+ * 勿写 height:auto —— uni-app <image> 会高度塌成 0。
+ * mode=widthFix 由引擎按宽度算高度；仅约束宽度。
+ */
 .game-lobby-cat-tile,
 .game-lobby-cat .game-lobby-cat-tile,
 .game-lobby-cat image.game-lobby-cat-tile,
 .game-lobby-cat uni-image.game-lobby-cat-tile {
   width: 100% !important;
-  height: auto !important;
+  max-width: 100% !important;
   display: block !important;
-  line-height: 0;
-  flex-shrink: 0;
+  line-height: 0 !important;
   border-radius: 14px;
   pointer-events: none;
+  vertical-align: top;
 }
 
 .game-lobby-cat-ico,
