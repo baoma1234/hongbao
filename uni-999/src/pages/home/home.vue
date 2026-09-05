@@ -263,7 +263,7 @@ const onlineCountLive = ref(0)
 const officialGroups = ref([])
 const lobbyBotNicks = ref([])
 const tickerText = ref('')
-const tickerGames = ['红宝扫雷', '红宝接龙', '红宝牛牛', '趣味鱼虾蟹', '红宝对战', '幸运盲盒']
+const tickerGames = ['红宝扫雷', '红宝接龙', '红宝牛牛', '红宝对战', '幸运盲盒']
 /** 后台大厅装修（lobbyhome）；空则走本地默认 */
 const remoteLobby = ref(null)
 
