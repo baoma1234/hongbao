@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 return array (
   'single_ticket_value' => 5.0,
