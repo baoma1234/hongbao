@@ -341,8 +341,8 @@ onUnmounted(() => {
   pointer-events: auto;
 }
 .logo {
-  width: 46px;
-  height: 46px;
+  width: 60px;
+  height: 60px;
   flex-shrink: 0;
   border-radius: 10px;
   pointer-events: none;
@@ -552,8 +552,8 @@ onUnmounted(() => {
 }
 @media (max-width: 380px) {
   .logo {
-    width: 42px;
-    height: 42px;
+    width: 60px;
+    height: 60px;
   }
   .nick {
     font-size: 13px;

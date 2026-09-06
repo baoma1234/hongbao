@@ -3,7 +3,7 @@
     <TopBar />
     <view class="game-lobby" :style="lobbyPageStyle">
       <view class="game-lobby-inner">
-        <view class="game-lobby-banner">
+        <view v-if="lobbyBanners.length" class="game-lobby-banner">
           <swiper
             class="game-lobby-banner-swiper"
             circular
@@ -19,7 +19,12 @@
               :key="b.id || bi"
               @click="onBannerTap(b)"
             >
-              <image class="game-lobby-banner-img" :src="bannerSrc(b)" mode="aspectFill" />
+              <image
+                v-if="bannerSrc(b)"
+                class="game-lobby-banner-img"
+                :src="bannerSrc(b)"
+                mode="aspectFill"
+              />
             </swiper-item>
           </swiper>
           <view class="game-lobby-online-badge">
@@ -80,7 +85,12 @@
             @click="onGameTap(game)"
           >
             <view class="game-lobby-card-media">
-              <image class="game-lobby-card-img" :src="gameCoverSrc(game)" mode="aspectFill" />
+              <image
+                v-if="gameCoverSrc(game)"
+                class="game-lobby-card-img"
+                :src="gameCoverSrc(game)"
+                mode="aspectFill"
+              />
             </view>
             <view
               v-if="game.badgeLabel || game.badge"
@@ -101,7 +111,12 @@
           </view>
         </view>
 
-        <view class="game-lobby-invite" hover-class="game-lobby-hit" @click="onInviteTap">
+        <view
+          v-if="inviteSrc"
+          class="game-lobby-invite"
+          hover-class="game-lobby-hit"
+          @click="onInviteTap"
+        >
           <image class="game-lobby-invite-img" :src="inviteSrc" mode="widthFix" />
         </view>
         <!-- 末项留白：App/Safari 底栏 + Home 指示条，避免邀请条被挡 -->
@@ -265,61 +280,10 @@ const officialGroups = ref([])
 const lobbyBotNicks = ref([])
 const tickerText = ref('')
 const tickerGames = ['红宝扫雷', '红宝接龙', '红宝牛牛', '红宝对战', '幸运盲盒']
-/** 后台大厅装修（lobbyhome）；空则走本地默认 */
+/** 后台大厅装修（lobbyhome）；未加载前不展示本地占位图 */
 const remoteLobby = ref(null)
 
-/** 分类整图（含文案），UI 不再叠字；顺序 = 热门/游戏/公告/佣金 */
-const CAT_FULL_TILE = {
-  hot: 'cat-1.png',
-  games: 'cat-2.png',
-  notice: 'cat-3.png',
-  commission: 'cat-4.png',
-}
-
-const DEFAULT_CATEGORIES = [
-  { id: 'hot', iconImg: 'cat-1.png', label: '热门推荐', action: 'filter' },
-  { id: 'games', iconImg: 'cat-2.png', label: '红宝游戏', action: 'filter' },
-  { id: 'notice', iconImg: 'cat-3.png', label: '红宝公告', action: 'notice' },
-  { id: 'commission', iconImg: 'cat-4.png', label: '红宝佣金', action: 'commission' },
-]
-
-const LOBBY_ASSET_VER = '17'
-
-/** 默认游戏格：盲盒/鱼虾蟹已隐藏（后台 status=hidden） */
-const DEFAULT_GAMES = [
-  {
-    id: 'jielong',
-    cover: '01.png',
-    order: 100,
-    badge: 'hot',
-    cats: ['hot', 'games'],
-    sumGroupMatch: /红宝接龙\s*(20|50|100|500)群/,
-  },
-  {
-    id: 'saolei',
-    cover: '02.png',
-    order: 90,
-    badge: '',
-    cats: ['hot', 'games'],
-    groupMatch: /扫雷/,
-  },
-  {
-    id: 'niuniu',
-    cover: '03.png',
-    order: 80,
-    badge: '',
-    cats: ['hot', 'games'],
-    groupMatch: /牛牛/,
-  },
-  {
-    id: 'battle',
-    cover: '04.png',
-    order: 70,
-    badge: '',
-    cats: ['hot', 'games'],
-    groupMatch: /全员自由发宝|全员自动发包/,
-  },
-]
+const LOBBY_ASSET_VER = '18'
 
 function safeRegExp(pattern) {
   const s = String(pattern || '').trim()
@@ -340,87 +304,92 @@ function normalizeRemotePath(raw) {
   return p
 }
 
+/** 只用后台返回地址：绝对 URL /uploads → OSS；home/lobby 走 OSS static（不再用本地打包占位覆盖） */
+function mediaUrl(resolved, raw) {
+  const u = String(resolved || '').trim()
+  if (/^https?:\/\//i.test(u) || u.indexOf('data:') === 0) return u
+  let p = String(raw || u || '').trim()
+  if (/^https?:\/\//i.test(p)) return p
+  p = p.replace(/^\/+/, '').replace(/^static\//, '')
+  if (!p) return ''
+  const base = String(getUploadsBase() || '').replace(/\/+$/, '')
+  if (p.indexOf('uploads/') === 0) {
+    return base ? base + '/' + p : '/' + p
+  }
+  if (p.indexOf('999/static/') === 0) {
+    return base ? base + '/' + p + '?v=' + LOBBY_ASSET_VER : '/' + p + '?v=' + LOBBY_ASSET_VER
+  }
+  let lobbyFile = ''
+  if (p.indexOf('home/lobby/') === 0) lobbyFile = p.slice('home/lobby/'.length)
+  else if (p.indexOf('/') < 0 && /\.(png|jpe?g|webp|gif)$/i.test(p)) lobbyFile = p
+  if (lobbyFile) {
+    // 后台仍存种子路径时，读 OSS 上的同名图，不回退本地打包文件
+    if (base) return base + '/999/static/home/lobby/' + lobbyFile + '?v=' + LOBBY_ASSET_VER
+    return ''
+  }
+  return ''
+}
+
 const lobbyCategories = computed(() => {
   const rows = remoteLobby.value && remoteLobby.value.categories
-  if (Array.isArray(rows) && rows.length) {
-    return rows.map((c) => ({
-      id: String(c.key || c.id || ''),
-      label: String(c.title || c.key || ''),
-      iconUrl: String(c.icon || ''),
-      iconRaw: String(c.icon_raw || c.icon || ''),
-      iconStatic: String(c.icon_static || ''),
-      action: String(c.action || 'filter'),
-      actionUrl: String(c.action_url || ''),
-      packaged: !!c.packaged,
-    }))
-  }
-  return DEFAULT_CATEGORIES.map((c) => ({
-    ...c,
-    label: c.id === 'hot'
-      ? tt('lobby_cat_hot', c.label)
-      : c.id === 'games'
-        ? tt('lobby_cat_games', c.label)
-        : c.id === 'notice'
-          ? tt('lobby_cat_notice', c.label)
-          : tt('lobby_cat_commission', c.label),
+  if (!Array.isArray(rows) || !rows.length) return []
+  return rows.map((c) => ({
+    id: String(c.key || c.id || ''),
+    label: String(c.title || c.key || ''),
+    iconUrl: String(c.icon || ''),
+    iconRaw: String(c.icon_raw || c.icon || ''),
+    iconStatic: String(c.icon_static || ''),
+    action: String(c.action || 'filter'),
+    actionUrl: String(c.action_url || ''),
   }))
 })
 
 const lobbyGamesList = computed(() => {
   const rows = remoteLobby.value && remoteLobby.value.games
-  if (Array.isArray(rows) && rows.length) {
-    return rows.map((g) => ({
-      id: String(g.key || g.id || ''),
-      cover: normalizeRemotePath(g.cover_raw || g.cover || ''),
-      coverUrl: String(g.cover || ''),
-      badge: String(g.badge || ''),
-      cats: Array.isArray(g.cats) ? g.cats.map(String) : [],
-      groupMatch: safeRegExp(g.group_match),
-      sumGroupMatch: safeRegExp(g.sum_group_match),
-      comingSoon: !!g.coming_soon,
-      order: Number(g.order) || 0,
-      packaged: !!g.packaged,
-    }))
-  }
-  return DEFAULT_GAMES
+  if (!Array.isArray(rows) || !rows.length) return []
+  return rows.map((g) => ({
+    id: String(g.key || g.id || ''),
+    cover: normalizeRemotePath(g.cover_raw || g.cover || ''),
+    coverUrl: String(g.cover || ''),
+    badge: String(g.badge || ''),
+    cats: Array.isArray(g.cats) ? g.cats.map(String) : [],
+    groupMatch: safeRegExp(g.group_match),
+    sumGroupMatch: safeRegExp(g.sum_group_match),
+    comingSoon: !!g.coming_soon,
+    order: Number(g.order) || 0,
+  }))
 })
 
 const lobbyBanners = computed(() => {
   const rows = remoteLobby.value && remoteLobby.value.banners
-  if (Array.isArray(rows) && rows.length) {
-    return rows.map((b, i) => ({
+  if (!Array.isArray(rows) || !rows.length) return []
+  return rows
+    .map((b, i) => ({
       id: b.id || 'b' + i,
       image: String(b.image || ''),
       imageRaw: String(b.image_raw || b.image || ''),
       linkType: String(b.link_type || 'none'),
       linkUrl: String(b.link_url || ''),
-      packaged: !!b.packaged,
     }))
-  }
-  return [{ id: 'default', imageRaw: '750x400.png', linkType: 'fission', packaged: true }]
+    .filter((b) => !!mediaUrl(b.image, b.imageRaw))
 })
 
 const lobbyInvite = computed(() => {
   const rows = remoteLobby.value && remoteLobby.value.invites
-  if (Array.isArray(rows) && rows.length) {
-    const b = rows[0]
-    return {
-      image: String(b.image || ''),
-      imageRaw: String(b.image_raw || b.image || ''),
-      linkType: String(b.link_type || 'share'),
-      linkUrl: String(b.link_url || ''),
-      packaged: !!b.packaged,
-    }
+  if (!Array.isArray(rows) || !rows.length) return null
+  const b = rows[0]
+  return {
+    image: String(b.image || ''),
+    imageRaw: String(b.image_raw || b.image || ''),
+    linkType: String(b.link_type || 'share'),
+    linkUrl: String(b.link_url || ''),
   }
-  return { imageRaw: '750x150.png', linkType: 'share', packaged: true }
 })
 
 const inviteSrc = computed(() => {
   const inv = lobbyInvite.value
-  if (inv.image && /^https?:\/\//i.test(inv.image)) return inv.image
-  const raw = normalizeRemotePath(inv.imageRaw || inv.image || '750x150.png')
-  if (/^https?:\/\//i.test(raw)) return raw
-  return lobbyAsset(raw || '750x150.png')
+  if (!inv) return ''
+  return mediaUrl(inv.image, inv.imageRaw)
 })
 
 /** 与社群页 groupMembersText 同一口径 */
@@ -457,55 +426,27 @@ function gamePlayersCount(game) {
   return row ? groupDisplayOnline(row) : 0
 }
 
-function lobbyAsset(name) {
-  const p = String(name || '').replace(/^\/+/, '')
-  const oss = String(getUploadsBase() || '').replace(/\/+$/, '')
-  if (oss) {
-    return oss + '/999/static/home/lobby/' + p + '?v=' + LOBBY_ASSET_VER
-  }
-  return packagedStaticUrl('home/lobby/' + p) + '?v=' + LOBBY_ASSET_VER
-}
-
-function lobbyCatIcon(cat) {
-  if (cat && cat.iconStatic) {
-    const p = String(cat.iconStatic || '').replace(/^\/+/, '')
-    return packagedStaticUrl(p) + '?v=' + LOBBY_ASSET_VER
-  }
-  return lobbyAsset(cat && cat.iconImg)
-}
-
 function catIconSrc(cat) {
   if (!cat) return ''
-  // 整图只在本站 /999/static（未上 OSS），必须走 packagedStaticUrl，勿拼 CDN
-  const tile = CAT_FULL_TILE[cat.id]
-  if (tile) {
-    return packagedStaticUrl('home/lobby/' + tile) + '?v=' + LOBBY_ASSET_VER
-  }
+  // 优先后台 icon 绝对地址；icon_static 仅当明确配置（如 logo.png）
+  const fromCms = mediaUrl(cat.iconUrl, cat.iconRaw)
+  if (fromCms) return fromCms
   if (cat.iconStatic) {
-    return packagedStaticUrl(String(cat.iconStatic).replace(/^\/+/, '')) + '?v=' + LOBBY_ASSET_VER
+    const p = String(cat.iconStatic || '').replace(/^\/+/, '')
+    if (!p) return ''
+    return packagedStaticUrl(p) + '?v=' + LOBBY_ASSET_VER
   }
-  if (cat.iconUrl && /^https?:\/\//i.test(cat.iconUrl)) return cat.iconUrl
-  if (cat.iconImg) return lobbyAsset(cat.iconImg)
-  const raw = normalizeRemotePath(cat.iconRaw || cat.iconUrl || '')
-  if (!raw) return ''
-  if (/^https?:\/\//i.test(raw)) return raw
-  return lobbyAsset(raw)
+  return ''
 }
 
 function bannerSrc(b) {
-  if (!b) return lobbyAsset('750x400.png')
-  if (b.image && /^https?:\/\//i.test(b.image)) return b.image
-  const raw = normalizeRemotePath(b.imageRaw || b.image || '750x400.png')
-  if (/^https?:\/\//i.test(raw)) return raw
-  return lobbyAsset(raw || '750x400.png')
+  if (!b) return ''
+  return mediaUrl(b.image, b.imageRaw)
 }
 
 function gameCoverSrc(game) {
-  if (!game) return lobbyAsset('01.png')
-  if (game.coverUrl && /^https?:\/\//i.test(game.coverUrl)) return game.coverUrl
-  const raw = normalizeRemotePath(game.cover || '')
-  if (/^https?:\/\//i.test(raw)) return raw
-  return lobbyAsset(raw || '01.png')
+  if (!game) return ''
+  return mediaUrl(game.coverUrl, game.cover)
 }
 
 function applyLobbyExtras(data) {

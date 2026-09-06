@@ -29,8 +29,24 @@ class FansHubLobby
             return $u;
         }
         $u = ltrim(str_replace('\\', '/', $u), '/');
-        // 打包 static：home/lobby/xxx.png → 前端用 packagedStaticUrl
+        // 打包 static：home/lobby/xxx.png → OSS /999/static/...（启用时）或原相对路径
         if (strpos($u, 'home/lobby/') === 0 || strpos($u, 'static/') === 0) {
+            $path = $u;
+            if (strpos($path, 'static/') === 0) {
+                $path = substr($path, strlen('static/'));
+            }
+            if (strpos($path, 'home/lobby/') === 0) {
+                try {
+                    if (class_exists('\\app\\common\\library\\OssService') && \app\common\library\OssService::enabled()) {
+                        $full = \app\common\library\OssService::fullUrl('/999/static/' . $path, '');
+                        if ($full !== '') {
+                            return $full;
+                        }
+                    }
+                } catch (\Throwable $e) {
+                }
+                return '/999/static/' . $path;
+            }
             return $u;
         }
         try {
