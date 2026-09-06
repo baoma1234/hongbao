@@ -32,7 +32,7 @@
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">大厅分类:</label>
         <div class="col-xs-12 col-sm-8">
-            {:build_checkboxs('row[cats]', $catList, (isset($row['cats']) ? $row['cats'] : ''))}
+            {:build_checkboxs('row[cats][]', $catList, (isset($row['cats']) ? $row['cats'] : ''))}
             <span class="help-block">可多选；出现在所选分类下</span>
         </div>
     </div>

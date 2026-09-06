@@ -59,8 +59,14 @@ if (!function_exists('build_checkboxs')) {
         $html = [];
         $selected = is_null($selected) ? [] : $selected;
         $selected = is_array($selected) ? $selected : explode(',', $selected);
+        // 多选必须用 name[]，否则同名 checkbox 只会提交最后一个
+        if (substr($name, -2) !== '[]') {
+            $name .= '[]';
+        }
+        $idBase = str_replace(['[', ']', '.'], '', $name);
         foreach ($list as $k => $v) {
-            $html[] = sprintf(Form::label("{$name}-{$k}", "%s " . str_replace('%', '%%', $v)), Form::checkbox($name, $k, in_array($k, $selected), ['id' => "{$name}-{$k}"]));
+            $id = $idBase . '-' . $k;
+            $html[] = sprintf(Form::label($id, "%s " . str_replace('%', '%%', $v)), Form::checkbox($name, $k, in_array((string)$k, array_map('strval', $selected), true), ['id' => $id]));
         }
         return '<div class="checkbox">' . implode(' ', $html) . '</div>';
     }
