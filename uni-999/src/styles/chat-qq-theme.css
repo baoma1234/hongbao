@@ -2440,7 +2440,7 @@
   position: relative !important;
   z-index: 40 !important;
   flex-shrink: 0 !important;
-  background: #dde2eb !important;
+  background: #ffffff !important;
 }
 .messages-page--qq-me #tabMessages.tab-page,
 .messages-page--qq-me .msg-tab-root.tab-page {

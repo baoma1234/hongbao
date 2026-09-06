@@ -1,18 +1,16 @@
 <template>
   <view class="messages-page messages-page--qq-me">
     <TopBar title="消息" />
-    <!-- 公共 TopBar 下方：头像 + 昵称 + ID + 加号 -->
+    <!-- 公共 TopBar 下方：搜索框 + 加号菜单 -->
     <view class="qq-msg-nav">
-      <view class="qq-msg-nav-inner">
-        <view class="qq-msg-me" hover-class="qq-msg-me--hit" @click="goMyProfile">
-          <view class="qq-msg-avatar-wrap">
-            <image class="qq-msg-avatar" :src="myAvatarSrc" mode="aspectFill" />
-            <view class="qq-msg-online-dot" />
-          </view>
-          <view class="qq-msg-me-meta">
-            <text class="qq-msg-nick">{{ myNickText }}</text>
-            <text class="qq-msg-id">ID {{ myUidText }}</text>
-          </view>
+      <view class="qq-msg-search">
+        <view class="qq-msg-search-box">
+          <input
+            class="qq-msg-search-input"
+            v-model="keyword"
+            placeholder="搜索会话 / 昵称 / 内容"
+            confirm-type="search"
+          />
         </view>
         <view class="chat-plus-menu-wrap">
           <view class="qq-msg-plus" hover-class="qq-msg-plus--hit" @click.stop="plusOpen = !plusOpen">
@@ -24,9 +22,6 @@
             @click="plusOpen = false"
           />
           <view v-if="plusOpen" class="chat-plus-menu chat-plus-menu--qq" @click.stop>
-            <view class="chat-plus-menu-item" @click="onPlusAction('search')">
-              <text>搜索</text>
-            </view>
             <view class="chat-plus-menu-item" @click="onPlusAction('scan')">
               <image class="chat-plus-menu-ico-img" :src="icoScan" mode="aspectFit" />
               <text>扫一扫</text>
@@ -51,20 +46,6 @@
           </view>
         </view>
       </view>
-    </view>
-
-    <!-- 搜索条：放在资料条下方，避免被会话列表盖住 -->
-    <view v-if="searchOpen" class="qq-msg-search">
-      <view class="qq-msg-search-box">
-        <input
-          class="qq-msg-search-input"
-          v-model="keyword"
-          focus
-          placeholder="搜索会话 / 昵称 / 内容"
-          confirm-type="search"
-        />
-      </view>
-      <text class="qq-msg-search-cancel" @click="clearSearch">取消</text>
     </view>
 
     <view
@@ -487,7 +468,7 @@ const panelScrollStyle = computed(() => {
 })
 
 /** QQ 资料条高度（在公共 TopBar 下方；略留余量避免首条被压） */
-const QQ_MSG_NAV_CONTENT = 56
+const QQ_MSG_NAV_CONTENT = 52
 const qqMsgNavPx = ref(QQ_MSG_NAV_CONTENT)
 const myProfile = ref(null)
 const myNickText = computed(() => {
@@ -519,8 +500,8 @@ function goMyProfile() {
 function applyMessagesShell(winH, status, topBar, navH, searchH, tabBar) {
   const nav = Math.max(QQ_MSG_NAV_CONTENT, Number(navH) || QQ_MSG_NAV_CONTENT)
   qqMsgNavPx.value = nav
-  // 扣公共顶栏 + 资料条 + 可选搜索条；多扣 4px 避免首条贴顶被裁
-  const shell = Math.max(280, winH - status - topBar - nav - searchH - tabBar - 4)
+  // 扣公共顶栏 + 搜索加号条；多扣 4px 避免首条贴顶被裁
+  const shell = Math.max(280, winH - status - topBar - nav - (Number(searchH) || 0) - tabBar - 4)
   tabRootPx.value = shell
   const chrome = 4
   let next = Math.max(220, shell - chrome)
@@ -562,34 +543,24 @@ function measureMessagesLayout() {
     const status = Number(inset.top || 0)
     const topBar = getTopBarContentHeight()
     const tabBar = 72 + Number(inset.bottom || 0)
-    const searchHFallback = searchOpen.value ? 48 : 0
-    applyMessagesShell(winH, status, topBar, qqMsgNavPx.value, searchHFallback, tabBar)
-    // 用资料条底边实测顶占用，避免首条被上边盖住
+    applyMessagesShell(winH, status, topBar, qqMsgNavPx.value, 0, tabBar)
+    // 用搜索条底边实测顶占用，避免首条被上边盖住
     try {
       uni
         .createSelectorQuery()
         .select('.qq-msg-nav')
         .boundingClientRect()
-        .select('.qq-msg-search')
-        .boundingClientRect()
         .exec((res) => {
           try {
             const navRect = res && res[0]
-            const searchRect = res && res[1]
             if (navRect && navRect.bottom > 40) {
-              if (navRect.height > 40) qqMsgNavPx.value = Math.ceil(navRect.height)
-              const searchH =
-                searchOpen.value && searchRect && searchRect.height > 20
-                  ? Math.ceil(searchRect.height)
-                  : searchOpen.value
-                    ? 48
-                    : 0
-              applyMessagesShellFromTop(winH, navRect.bottom + searchH, tabBar)
+              if (navRect.height > 30) qqMsgNavPx.value = Math.ceil(navRect.height)
+              applyMessagesShellFromTop(winH, navRect.bottom, tabBar)
               return
             }
             const navH =
-              navRect && navRect.height > 40 ? Math.ceil(navRect.height) : qqMsgNavPx.value
-            applyMessagesShell(winH, status, topBar, navH, searchHFallback, tabBar)
+              navRect && navRect.height > 30 ? Math.ceil(navRect.height) : qqMsgNavPx.value
+            applyMessagesShell(winH, status, topBar, navH, 0, tabBar)
           } catch (e2) {}
         })
     } catch (e1) {}
@@ -599,7 +570,7 @@ function measureMessagesLayout() {
   }
 }
 
-const searchOpen = ref(false)
+const searchOpen = ref(true)
 const keyword = ref('')
 const plusOpen = ref(false)
 const canCreateGroup = ref(false)
@@ -726,15 +697,11 @@ function unreadOf(item) {
 }
 
 function toggleSearch() {
-  searchOpen.value = !searchOpen.value
   plusOpen.value = false
-  nextTick(() => measureMessagesLayout())
 }
 
 function clearSearch() {
   keyword.value = ''
-  searchOpen.value = false
-  nextTick(() => measureMessagesLayout())
 }
 
 function itemPreview(item) {
@@ -1302,8 +1269,6 @@ async function loadMyIdLine() {
 async function onPlusAction(kind) {
   plusOpen.value = false
   if (kind === 'search') {
-    searchOpen.value = true
-    nextTick(() => measureMessagesLayout())
     return
   }
   if (kind === 'share') {
@@ -1540,7 +1505,7 @@ onHide(() => {
 .qq-msg-nav {
   position: relative;
   z-index: 50;
-  background: #dde2eb;
+  background: #ffffff;
   box-sizing: border-box;
   width: 100%;
   flex-shrink: 0;
@@ -1550,6 +1515,7 @@ onHide(() => {
   position: relative;
   z-index: 60;
   overflow: visible;
+  flex-shrink: 0;
 }
 .qq-msg-search {
   display: flex;
