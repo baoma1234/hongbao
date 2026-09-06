@@ -467,6 +467,7 @@ export function applyServerCopy(copy) {
       // 服务端仍是中文，本地已有非中文译文 → 不覆盖
       if (local && looksMostlyChinese(s) && !looksMostlyChinese(String(local))) return
     }
+    if (serverCopy[k] === s) return
     serverCopy[k] = s
     n++
   })
@@ -630,6 +631,8 @@ export function ensureLocaleLoaded(locale) {
   return loadPromises[loc]
 }
 
+let lastTabBarTexts = ''
+
 export function syncTabBarLabels() {
   const items = [
     { index: 0, text: t('tab_bar_messages') },
@@ -638,6 +641,10 @@ export function syncTabBarLabels() {
     { index: 3, text: t('tab_bar_fission') || t('tab_bar_master') },
     { index: 4, text: t('tab_bar_profile') },
   ]
+  const sig = items.map((it) => it.text).join('|')
+  // 文案未变时勿反复 setTabBarItem，否则原生/自定义底栏文字会闪
+  if (sig === lastTabBarTexts) return
+  lastTabBarTexts = sig
   items.forEach((it) => {
     try {
       uni.setTabBarItem({ index: it.index, text: it.text })

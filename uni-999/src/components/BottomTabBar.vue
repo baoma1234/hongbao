@@ -17,7 +17,7 @@
         <text v-if="item.emoji" class="tab-ico-emoji">{{ item.emoji }}</text>
         <image v-else :src="item.icon" mode="aspectFit" />
       </view>
-      <text>{{ item.label }}</text>
+      <text class="tab-label">{{ item.label }}</text>
       <text v-if="item.tab === 'messages' && unread > 0" class="chat-tab-badge">
         {{ unread > 99 ? '99+' : unread }}
       </text>
@@ -26,7 +26,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { localeState, t } from '../utils/i18n.js'
 import { packagedStaticUrl } from '../utils/config.js'
 import { getChatUnreadTotal } from '../utils/tab-badge.js'
@@ -40,6 +40,43 @@ const props = defineProps({
 const locale = localeState()
 const unread = ref(0)
 const yxxTabOn = ref(false)
+
+/** 文案缓存：避免 copyTick / 配置轮询反复重绘导致底栏文字闪烁 */
+const labelCache = ref({
+  messages: '消息',
+  community: '社群',
+  home: '红宝',
+  yxx: '鱼虾蟹',
+  fission: '裂变',
+  profile: '我的',
+})
+
+function refreshLabelCache() {
+  const next = {
+    messages: t('tab_bar_messages') || '消息',
+    community: t('tab_bar_community') || '社群',
+    home: t('tab_bar_home') || '红宝',
+    yxx: t('tab_bar_yxx') || '鱼虾蟹',
+    fission: t('tab_bar_fission') || t('tab_bar_master') || '裂变',
+    profile: t('tab_bar_profile') || '我的',
+  }
+  const cur = labelCache.value
+  let changed = false
+  Object.keys(next).forEach((k) => {
+    if (next[k] !== cur[k]) changed = true
+  })
+  if (changed) labelCache.value = next
+}
+
+watch(
+  locale,
+  () => {
+    refreshLabelCache()
+    setTimeout(refreshLabelCache, 400)
+    setTimeout(refreshLabelCache, 2200)
+  },
+  { immediate: true }
+)
 
 function refreshYxxTabFlag(cfg) {
   try {
@@ -71,27 +108,27 @@ const selected = computed(() => {
 })
 
 const tabs = computed(() => {
-  void locale.value
+  const L = labelCache.value
   const list = [
     {
       tab: 'messages',
       path: '/pages/messages/messages',
-      label: t('tab_bar_messages') || '消息',
-      icon: packagedStaticUrl('logo.png'),
+      label: L.messages,
+      icon: packagedStaticUrl('tab/messages.png'),
       nativeTab: true,
     },
     {
       tab: 'community',
       path: '/pages/community/community',
-      label: t('tab_bar_community') || '社群',
+      label: L.community,
       icon: packagedStaticUrl('tab/community.png'),
       nativeTab: true,
     },
     {
       tab: 'home',
       path: '/pages/home/home',
-      label: t('tab_bar_home') || '红宝',
-      icon: packagedStaticUrl('tab/home.png'),
+      label: L.home,
+      icon: packagedStaticUrl('logo.png'),
       nativeTab: true,
     },
   ]
@@ -99,7 +136,7 @@ const tabs = computed(() => {
     list.push({
       tab: 'yxx',
       path: '/pages/yxx/hall',
-      label: t('tab_bar_yxx') || '鱼虾蟹',
+      label: L.yxx,
       icon: '',
       nativeTab: false,
       emoji: '🦀',
@@ -109,14 +146,14 @@ const tabs = computed(() => {
     {
       tab: 'fission',
       path: '/pages/fission/detail',
-      label: t('tab_bar_fission') || '裂变',
+      label: L.fission,
       icon: packagedStaticUrl('tab/fission.png'),
       nativeTab: true,
     },
     {
       tab: 'profile',
       path: '/pages/profile/profile',
-      label: t('tab_bar_profile') || '我的',
+      label: L.profile,
       icon: packagedStaticUrl('tab/profile.png'),
       nativeTab: true,
     }
@@ -178,6 +215,7 @@ function switchTo(item) {
 }
 
 onMounted(() => {
+  refreshLabelCache()
   refreshUnread()
   fetchConfig()
     .then((cfg) => refreshYxxTabFlag(cfg))

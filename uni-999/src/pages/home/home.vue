@@ -198,7 +198,7 @@ import WelcomeLottery from '../../components/WelcomeLottery.vue'
 import { apiRequest, fetchProfile, getToken } from '../../utils/auth.js'
 import { localeState, t, tt, applyServerCopy } from '../../utils/i18n.js'
 import { imConnect } from '../../utils/im.js'
-import { copyText } from '../../utils/master.js'
+import { copyText, copyTextDeferred } from '../../utils/master.js'
 import { openExternalHttpUrl } from '../../utils/wallet.js'
 import { getUploadsBase, packagedStaticUrl } from '../../utils/config.js'
 import { applySafeAreaCssVars, getSafeAreaInsets } from '../../utils/safe-area.js'
@@ -1313,7 +1313,23 @@ function stopPoll() {
   }
 }
 
-async function copyShareLink() {
+function buildShareCopyText(data) {
+  const link = String((data && data.share_link) || '').trim()
+  const shareText = String((data && data.share_text) || '').trim()
+  // 优先复制带邀请码的专属链接；文案里没有链接时用 share_link
+  let out = link
+  if (shareText && (/https?:\/\//i.test(shareText) || /code=/i.test(shareText))) {
+    out = shareText
+  } else if (link && shareText) {
+    out = shareText + (shareText.indexOf(link) >= 0 ? '' : '\n' + link)
+  } else if (shareText) {
+    out = shareText
+  }
+  return out
+}
+
+/** iOS Safari：必须在 click 同步栈内启动 clipboard（勿先 await 接口） */
+function copyShareLink() {
   if (shareSubmitting.value) return
   if (!getToken()) {
     try {
@@ -1323,29 +1339,22 @@ async function copyShareLink() {
     return
   }
   shareSubmitting.value = true
-  try {
+  const work = (async () => {
     const data = await apiRequest('share', 'POST', { copy_only: true })
-    const link = String((data && data.share_link) || '').trim()
-    const shareText = String((data && data.share_text) || '').trim()
-    // 优先复制带邀请码的专属链接；文案里没有链接时用 share_link
-    let out = link
-    if (shareText && (/https?:\/\//i.test(shareText) || /code=/i.test(shareText))) {
-      out = shareText
-    } else if (link && shareText) {
-      out = shareText + (shareText.indexOf(link) >= 0 ? '' : '\n' + link)
-    } else if (shareText) {
-      out = shareText
-    }
-    if (!out) {
-      throw new Error('暂无邀请链接')
-    }
-    await copyText(out)
-    uni.showToast({ title: '邀请链接已复制', icon: 'success' })
-  } catch (e) {
-    uni.showToast({ title: (e && e.message) || t('alert_share_fail') || '复制失败', icon: 'none' })
-  } finally {
-    shareSubmitting.value = false
-  }
+    const out = buildShareCopyText(data)
+    if (!out) throw new Error('暂无邀请链接')
+    return out
+  })()
+  copyTextDeferred(work)
+    .then(() => {
+      uni.showToast({ title: '邀请链接已复制', icon: 'success' })
+    })
+    .catch((e) => {
+      uni.showToast({ title: (e && e.message) || t('alert_share_fail') || '复制失败', icon: 'none' })
+    })
+    .finally(() => {
+      shareSubmitting.value = false
+    })
 }
 
 function goToMainStation() {

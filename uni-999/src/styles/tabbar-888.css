@@ -42,6 +42,18 @@
   min-height: 52px;
 }
 
+/* 固定行高 + 禁过渡：避免文案重绘 / 选中态切换时文字闪一下 */
+.bottom-action-bar .tab-btn .tab-label {
+  display: block;
+  height: 12px;
+  line-height: 12px;
+  font-size: 10px;
+  font-weight: 700;
+  color: inherit;
+  transition: none;
+  -webkit-font-smoothing: antialiased;
+}
+
 .bottom-action-bar .tab-btn::after {
   border: none;
   display: none;

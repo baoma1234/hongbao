@@ -294,8 +294,8 @@
       {
         "pagePath": "pages/messages/messages",
         "text": "消息",
-        "iconPath": "static/tab/hongbao.png",
-        "selectedIconPath": "static/tab/hongbao.png"
+        "iconPath": "static/tab/messages.png",
+        "selectedIconPath": "static/tab/messages.png"
       },
       {
         "pagePath": "pages/community/community",
@@ -306,8 +306,8 @@
       {
         "pagePath": "pages/home/home",
         "text": "红宝",
-        "iconPath": "static/tab/home.png",
-        "selectedIconPath": "static/tab/home.png"
+        "iconPath": "static/logo.png",
+        "selectedIconPath": "static/logo.png"
       },
       {
         "pagePath": "pages/fission/detail",

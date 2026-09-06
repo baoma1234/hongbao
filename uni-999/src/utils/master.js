@@ -32,19 +32,107 @@ export async function urgeCopy(inviteeUserId) {
   return apiRequest('urgecopy', 'POST', { invitee_user_id: inviteeUserId | 0 })
 }
 
-export function copyText(text) {
-  const s = String(text || '')
-  return new Promise((resolve, reject) => {
-    if (!s) {
-      reject(new Error('empty'))
-      return
+/** H5：textarea + execCommand，部分旧 WebView 可用 */
+function copyTextExecCommand(s) {
+  // #ifdef H5
+  try {
+    if (typeof document === 'undefined') return false
+    const ta = document.createElement('textarea')
+    ta.value = s
+    ta.setAttribute('readonly', '')
+    ta.setAttribute('aria-hidden', 'true')
+    ta.style.cssText =
+      'position:fixed;top:0;left:0;width:1px;height:1px;padding:0;margin:0;border:0;opacity:0;'
+    document.body.appendChild(ta)
+    ta.focus()
+    ta.select()
+    ta.setSelectionRange(0, s.length)
+    let ok = false
+    try {
+      ok = document.execCommand('copy')
+    } catch (e) {
+      ok = false
     }
+    document.body.removeChild(ta)
+    return !!ok
+  } catch (e2) {
+    return false
+  }
+  // #endif
+  // #ifndef H5
+  return false
+  // #endif
+}
+
+function copyTextUni(s) {
+  return new Promise((resolve, reject) => {
     uni.setClipboardData({
       data: s,
       success: () => resolve(true),
       fail: (err) => reject(err || new Error('copy fail')),
     })
   })
+}
+
+/**
+ * 复制纯文本。iOS Safari：await 后再 writeText 会丢手势 → NotAllowedError。
+ * 已有字符串时优先同步 Clipboard / execCommand。
+ */
+export function copyText(text) {
+  const s = String(text || '')
+  if (!s) return Promise.reject(new Error('empty'))
+  // #ifdef H5
+  try {
+    if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(s).then(
+        () => true,
+        () => {
+          if (copyTextExecCommand(s)) return true
+          return copyTextUni(s)
+        }
+      )
+    }
+  } catch (e) {}
+  if (copyTextExecCommand(s)) return Promise.resolve(true)
+  // #endif
+  return copyTextUni(s)
+}
+
+/**
+ * 复制「异步才拿到」的文案（邀请链接等）。
+ * 必须在 click 同步栈内调用本函数（勿先 await 再 copy）。
+ * Safari：用 ClipboardItem(Promise) 保住用户手势。
+ * @param {Promise<string>|string} textOrPromise
+ */
+export function copyTextDeferred(textOrPromise) {
+  const pending = Promise.resolve(textOrPromise).then((raw) => {
+    const s = String(raw || '')
+    if (!s) throw new Error('empty')
+    return s
+  })
+  // #ifdef H5
+  try {
+    if (
+      typeof navigator !== 'undefined' &&
+      navigator.clipboard &&
+      typeof ClipboardItem !== 'undefined' &&
+      typeof navigator.clipboard.write === 'function'
+    ) {
+      const item = new ClipboardItem({
+        'text/plain': pending.then((s) => new Blob([s], { type: 'text/plain' })),
+      })
+      return navigator.clipboard.write([item]).then(
+        () => true,
+        () =>
+          pending.then((s) => {
+            if (copyTextExecCommand(s)) return true
+            return copyTextUni(s)
+          })
+      )
+    }
+  } catch (e) {}
+  // #endif
+  return pending.then((s) => copyText(s))
 }
 
 function teamRadarDaySeed() {

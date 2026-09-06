@@ -312,7 +312,7 @@ import { computed, reactive, ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { fetchProfile, getToken, uploadCommonFile, apiRequest } from '../../utils/auth.js'
 import { avatarSrc } from '../../utils/chat.js'
-import { copyText } from '../../utils/master.js'
+import { copyTextDeferred } from '../../utils/master.js'
 import { applySafeAreaCssVars, getSafeAreaInsets } from '../../utils/safe-area.js'
 import {
   addGroupMembers,
@@ -818,20 +818,22 @@ function closeAddSheet() {
   })
 }
 
-async function copyGroupInviteLink() {
+/** iOS Safari：click 同步栈内启动 clipboard，链接在 Promise 里异步生成 */
+function copyGroupInviteLink() {
   if (!canEdit.value || !groupId.value) return
-  try {
+  const work = (async () => {
     const data = await apiRequest('groupinvitelink', 'POST', { group_id: groupId.value })
     const link = String((data && data.join_url) || '')
-    if (!link) {
-      uni.showToast({ title: '生成失败', icon: 'none' })
-      return
-    }
-    await copyText(link)
-    uni.showToast({ title: '进群链接已复制', icon: 'none' })
-  } catch (e) {
-    uni.showToast({ title: (e && e.message) || '复制失败', icon: 'none' })
-  }
+    if (!link) throw new Error('生成失败')
+    return link
+  })()
+  copyTextDeferred(work)
+    .then(() => {
+      uni.showToast({ title: '进群链接已复制', icon: 'none' })
+    })
+    .catch((e) => {
+      uni.showToast({ title: (e && e.message) || '复制失败', icon: 'none' })
+    })
 }
 
 function reloadCandidates() {
