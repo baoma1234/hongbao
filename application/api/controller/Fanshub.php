@@ -18,7 +18,7 @@ use think\Validate;
  */
 class Fanshub extends Api
 {
-    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'tgauth', 'tgbind', 'tgsendsms', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail', 'fissionclaims', 'yxxhall', 'yxxtick', 'yxxfair', 'yxxgroupdissolve', 'lobbyhome'];
+    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'tgauth', 'tgbind', 'tgsendsms', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail', 'fissionclaims', 'yxxhall', 'yxxtick', 'yxxfair', 'yxxgroupdissolve', 'lobbyhome', 'pushdevicedisable'];
     protected $noNeedRight = '*';
 
     public function _initialize()
@@ -1338,6 +1338,23 @@ class Fanshub extends Api
             $enabled = !($enabled === 0 || $enabled === '0' || $enabled === false || $enabled === 'false');
             $data = \app\common\library\FansHubJPush::registerDevice((int)$this->auth->id, $rid, $platform, $enabled);
             $this->success('ok', $data);
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: FansHubService::h5CopyText('api_operation_fail'));
+        }
+    }
+
+    /**
+     * 按 Registration ID 关闭推送（可匿名：退出/重装后清残留设备）
+     * POST /api/fanshub/pushdevicedisable  {registration_id}
+     */
+    public function pushdevicedisable()
+    {
+        try {
+            $rid = trim((string)$this->request->post('registration_id', $this->request->param('registration_id', '')));
+            $n = \app\common\library\FansHubJPush::disableByRegistrationId($rid);
+            $this->success('ok', ['disabled' => $n]);
         } catch (HttpResponseException $e) {
             throw $e;
         } catch (\Throwable $e) {

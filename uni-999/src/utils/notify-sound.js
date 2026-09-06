@@ -161,12 +161,38 @@ function playAppBeep(kind, scope) {
     } catch (e) {}
   }
 
-  const attempt = () => {
+  // 优先 plus.audio（与 H5 同一套 mp3/wav，比 InnerAudio 稳）
+  const tryPlusAudio = (src) => {
+    try {
+      if (typeof plus === 'undefined' || !plus.audio || !plus.audio.createPlayer) return false
+      const player = plus.audio.createPlayer(src)
+      player.setSessionCategory && player.setSessionCategory('ambient')
+      player.play(
+        () => {
+          try {
+            player.stop()
+          } catch (e1) {}
+        },
+        () => {
+          try {
+            player.stop()
+          } catch (e2) {}
+          attemptInner()
+        }
+      )
+      return true
+    } catch (e) {
+      return false
+    }
+  }
+
+  const attemptInner = () => {
     if (idx >= sources.length) {
       fallbackBeep()
       return
     }
     const src = sources[idx++]
+    if (tryPlusAudio(src)) return
     destroyInner(key)
     try {
       const a = uni.createInnerAudioContext()
@@ -176,17 +202,16 @@ function playAppBeep(kind, scope) {
       a.src = src
       a.onError(() => {
         destroyInner(key)
-        attempt()
+        attemptInner()
       })
       appInner[key] = a
-      // 勿对新建实例先 stop/seek：部分机型会直接静音
       a.play()
     } catch (e) {
-      attempt()
+      attemptInner()
     }
   }
 
-  attempt()
+  attemptInner()
   return true
   // #endif
   // #ifndef APP-PLUS

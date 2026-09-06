@@ -3,7 +3,7 @@
 </template>
 
 <script setup>
-import { onLaunch, onShow } from '@dcloudio/uni-app'
+import { onLaunch, onShow, onHide } from '@dcloudio/uni-app'
 import LocalPushBanner from './components/LocalPushBanner.vue'
 import { fetchConfig, getToken } from './utils/auth.js'
 import {
@@ -20,7 +20,7 @@ import { applyAppStatusBar } from './utils/status-bar.js'
 import { initSkin } from './utils/skin.js'
 import { initOpenInstall } from './utils/openinstall.js'
 import { captureGroupJoinFromUrl, tryConsumeGroupJoin } from './utils/group-invite.js'
-import { initPushOnLaunch } from './utils/jpush.js'
+import { initPushOnLaunch, setAppPushForeground } from './utils/jpush.js'
 import './styles/hb.css'
 import './styles/app-back-fix.css'
 
@@ -131,9 +131,23 @@ onShow(() => {
     startImInbox()
     bindForegroundResume()
     imConnect().catch(() => {})
+    // 使用中：停系统推送，只留 WS 本地提示音
+    try {
+      setAppPushForeground(true)
+    } catch (e2) {}
   } else {
     imDisconnect()
+    try {
+      setAppPushForeground(true)
+    } catch (e3) {}
   }
+})
+
+onHide(() => {
+  // 进后台：已登录且开推送时恢复系统通知
+  try {
+    if (getToken()) setAppPushForeground(false)
+  } catch (e) {}
 })
 </script>
 

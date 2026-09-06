@@ -269,11 +269,12 @@ class OfflinePush
                 'android' => [
                     'alert'  => $content,
                     'title'  => $title,
+                    'sound'  => 'notify',
                     'extras' => $extras,
                 ],
                 'ios' => [
                     'alert'  => ['title' => $title, 'body' => $content],
-                    'sound'  => 'default',
+                    'sound'  => 'notify.wav',
                     'badge'  => '+1',
                     'extras' => $extras,
                 ],

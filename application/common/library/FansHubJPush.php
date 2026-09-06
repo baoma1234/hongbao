@@ -91,6 +91,19 @@ class FansHubJPush
         ]);
     }
 
+    /** 按 RID 关闭推送（退出/重装残留） */
+    public static function disableByRegistrationId($registrationId)
+    {
+        $rid = trim((string)$registrationId);
+        if (!self::isValidRegistrationId($rid)) {
+            return 0;
+        }
+        return (int)Db::name('chat_push_devices')->where('registration_id', $rid)->update([
+            'enabled'    => 0,
+            'updatetime' => time(),
+        ]);
+    }
+
     /**
      * @param int[] $userIds
      * @return string[] registration ids
@@ -208,11 +221,12 @@ class FansHubJPush
                 'android' => [
                     'alert'  => $content,
                     'title'  => $title,
+                    'sound'  => 'notify',
                     'extras' => $extras,
                 ],
                 'ios' => [
                     'alert'  => ['title' => $title, 'body' => $content],
-                    'sound'  => 'default',
+                    'sound'  => 'notify.wav',
                     'badge'  => '+1',
                     'extras' => $extras,
                 ],

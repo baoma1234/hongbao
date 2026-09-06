@@ -20,6 +20,13 @@ export function getDeviceFp() {
 }
 
 export function logoutLocal() {
+  try {
+    import('./jpush.js')
+      .then((m) => {
+        if (m && typeof m.clearPushSession === 'function') m.clearPushSession()
+      })
+      .catch(() => {})
+  } catch (e) {}
   setToken('')
 }
 
@@ -227,6 +234,11 @@ export async function changePayPassword(payPassword, confirmPassword, captcha) {
 
 export async function logoutRemote() {
   try {
+    // 先禁推送设备再 logout，保证带 token
+    try {
+      const m = await import('./jpush.js')
+      if (m && typeof m.clearPushSession === 'function') m.clearPushSession()
+    } catch (e0) {}
     await apiRequest('logout', 'POST', {})
   } catch (e) {
     /* 本地仍清登录态 */

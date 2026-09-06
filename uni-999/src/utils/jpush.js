@@ -1,26 +1,30 @@
 /**
  * 极光推送（manifest 插件名：luanqing-jgpush）
- * - 在线：IM WebSocket + 本地提示音 / 仿推送横幅（不发极光）
- * - 离线：服务端按 Registration ID / 别名 u{uid} 发极光
- * - 登录后 registerJPush + setAlias(u{uid}) + 尽量上报 RID
+ * - 在线 / 前台：只用 IM WebSocket + 本地提示音（停系统推送）
+ * - 后台离线：服务端按 Registration ID 发极光
+ * - 未登录：不注册、清别名、停推送、尽量禁用本机 RID
+ * - 登录后：register + setAlias(u{uid}) + 上报 RID
  */
 
 import { apiRequest, getToken } from './auth.js'
+import { getApiBase, getLocale } from './config.js'
 import { isPushEnabled, setPushEnabled } from './app-prefs.js'
 
 const PLUGIN_ID = 'luanqing-jgpush'
+const RID_CACHE_KEY = 'hb_jpush_rid'
 
 let jpush = null
 let registered = false
 let lastRid = ''
 let reporting = false
+/** 前台时停系统通知，避免与本地提示音叠播 */
+let foregroundSilenced = false
 
 function tryGetJPush() {
   if (jpush) return jpush
   // #ifdef APP-PLUS
   try {
     if (typeof uni !== 'undefined' && uni.requireNativePlugin) {
-      // 只加载已安装的云端插件，勿再 require JG-JPush（会刷「找不到插件」）
       jpush = uni.requireNativePlugin(PLUGIN_ID) || null
     }
   } catch (e) {
@@ -41,13 +45,32 @@ function detectPlatform() {
   return ''
 }
 
+function rememberRid(rid) {
+  const id = String(rid || '').trim()
+  if (!isValidRegistrationId(id)) return
+  lastRid = id
+  try {
+    uni.setStorageSync(RID_CACHE_KEY, id)
+  } catch (e) {}
+}
+
+function cachedRid() {
+  if (lastRid && isValidRegistrationId(lastRid)) return lastRid
+  try {
+    const s = String(uni.getStorageSync(RID_CACHE_KEY) || '').trim()
+    if (isValidRegistrationId(s)) {
+      lastRid = s
+      return s
+    }
+  } catch (e) {}
+  return ''
+}
+
 /** 极光 Registration ID：拒绝把插件日志/别名文案当 RID 上报 */
 function isValidRegistrationId(rid) {
   const id = String(rid || '').trim()
   if (!id || id.length < 10 || id.length > 128) return false
-  // 别名 u12345678 不是 RID
   if (/^u\d+$/i.test(id)) return false
-  // 仅字母数字下划线横线（插件成功文案含中文/括号会被拒）
   if (!/^[a-zA-Z0-9_-]+$/.test(id)) return false
   if (/别名|注册|成功|失败|极光|状态|设置/.test(id)) return false
   return true
@@ -58,7 +81,6 @@ function extractRid(raw) {
   if (typeof raw === 'string') {
     const s = raw.trim()
     if (isValidRegistrationId(s)) return s
-    // 从日志文案里抠 RID，例如「注册：成功(13065ffa4f5f251335…)」
     const m = s.match(/(?:registration[_ ]?id|registerID|成功[（(])\s*[=:：]?\s*([a-zA-Z0-9_-]{10,128})/i)
     if (m && isValidRegistrationId(m[1])) return m[1]
     const m2 = s.match(/\(([a-zA-Z0-9_-]{10,128})\)/)
@@ -70,7 +92,6 @@ function extractRid(raw) {
     }
   }
   if (typeof raw !== 'object') return ''
-  // 插件回调常把 type=log 的整段文案塞进 data，不能当 RID
   if (raw.type === 'log' || raw.type === 'alias' || raw.type === 'tags') {
     return extractRid(raw.data != null ? raw.data : raw.info)
   }
@@ -91,13 +112,42 @@ function extractRid(raw) {
   return ''
 }
 
+function clearAlias(jp) {
+  if (!jp) return
+  try {
+    if (typeof jp.deleteAlias === 'function') jp.deleteAlias({})
+    else if (typeof jp.clearAlias === 'function') jp.clearAlias()
+    else if (typeof jp.delAlias === 'function') jp.delAlias()
+    else if (typeof jp.removeAlias === 'function') jp.removeAlias()
+    else if (typeof jp.setAlias === 'function') jp.setAlias({ alias: '' })
+  } catch (e) {}
+}
+
+function stopPushLocal(jp) {
+  if (!jp) return
+  try {
+    if (typeof jp.stopPush === 'function') jp.stopPush()
+    else if (typeof jp.unregisterJPush === 'function') {
+      jp.unregisterJPush()
+      registered = false
+    }
+  } catch (e) {}
+}
+
+function resumePushLocal(jp) {
+  if (!jp || !isPushEnabled() || !getToken()) return
+  try {
+    if (typeof jp.resumePush === 'function') jp.resumePush()
+  } catch (e) {}
+}
+
 function uploadRegistration(rid, platform) {
   if (!getToken()) return Promise.resolve(null)
   const id = String(rid || '').trim()
   if (!isValidRegistrationId(id)) return Promise.resolve(null)
   if (reporting && id === lastRid) return Promise.resolve(null)
   reporting = true
-  lastRid = id
+  rememberRid(id)
   return apiRequest('pushregister', 'POST', {
     registration_id: id,
     platform: platform || detectPlatform(),
@@ -109,23 +159,58 @@ function uploadRegistration(rid, platform) {
     })
 }
 
+/** 未登录也可按 RID 关闭推送（重装/退出后残留设备） */
+function disableRidOnServer(rid) {
+  const id = String(rid || cachedRid() || '').trim()
+  if (!isValidRegistrationId(id)) return Promise.resolve(null)
+  const base = String(getApiBase() || '').replace(/\/+$/, '')
+  if (!base) return Promise.resolve(null)
+  const url = base + '/api/fanshub/pushdevicedisable'
+  const locale = getLocale()
+  return new Promise((resolve) => {
+    try {
+      uni.request({
+        url,
+        method: 'POST',
+        data: { registration_id: id, platform: detectPlatform() },
+        header: {
+          'Content-Type': 'application/json',
+          'X-Fanshub-Locale': locale || '',
+        },
+        timeout: 8000,
+        complete: () => resolve(null),
+      })
+    } catch (e) {
+      resolve(null)
+    }
+  })
+}
+
 function readRegistrationId(jp) {
   return new Promise((resolve) => {
     if (!jp) {
-      resolve('')
+      resolve(cachedRid())
       return
     }
     try {
       if (typeof jp.getRegistrationID === 'function') {
-        jp.getRegistrationID((r) => resolve(extractRid(r)))
+        jp.getRegistrationID((r) => {
+          const id = extractRid(r)
+          if (id) rememberRid(id)
+          resolve(id || cachedRid())
+        })
         return
       }
       if (typeof jp.getRegistrationId === 'function') {
-        jp.getRegistrationId((r) => resolve(extractRid(r)))
+        jp.getRegistrationId((r) => {
+          const id = extractRid(r)
+          if (id) rememberRid(id)
+          resolve(id || cachedRid())
+        })
         return
       }
     } catch (e) {}
-    resolve(lastRid || '')
+    resolve(cachedRid())
   })
 }
 
@@ -146,14 +231,15 @@ function bindAliasIfPossible(jp, userId) {
 
 function ensureRegistered(jp) {
   if (!jp || registered) return
+  if (!getToken() || !isPushEnabled()) return
   try {
     if (typeof jp.registerJPush === 'function') {
       jp.registerJPush((res) => {
         try {
           const rid = extractRid(res)
-          if (rid) uploadRegistration(rid, detectPlatform())
-          if (res && (res.type === 'notice-open' || res.type === 'notice')) {
-            // 点击通知进聊天：payload 若有会话信息可再扩展
+          if (rid) {
+            rememberRid(rid)
+            if (getToken()) uploadRegistration(rid, detectPlatform())
           }
         } catch (e) {}
       })
@@ -171,24 +257,75 @@ function ensureRegistered(jp) {
   } catch (e) {}
 }
 
+/**
+ * 退出登录 / 未登录启动：停推送、清别名、禁用本机 RID
+ */
+export function clearPushSession() {
+  // #ifdef APP-PLUS
+  const jp = tryGetJPush()
+  const rid = cachedRid()
+  foregroundSilenced = false
+  try {
+    if (getToken() && rid) {
+      apiRequest('pushregister', 'POST', {
+        registration_id: rid,
+        platform: detectPlatform(),
+        enabled: 0,
+      }).catch(() => {})
+    } else if (rid) {
+      disableRidOnServer(rid)
+    }
+  } catch (e) {}
+  clearAlias(jp)
+  stopPushLocal(jp)
+  registered = false
+  // #endif
+}
+
+/**
+ * App 在前台：停系统通知（只用 WS 本地提示音）
+ * App 进后台：恢复系统推送（若已登录且开关开）
+ */
+export function setAppPushForeground(active) {
+  // #ifdef APP-PLUS
+  const jp = tryGetJPush()
+  if (!jp) return
+  if (active) {
+    foregroundSilenced = true
+    stopPushLocal(jp)
+    return
+  }
+  foregroundSilenced = false
+  if (!getToken() || !isPushEnabled()) {
+    stopPushLocal(jp)
+    clearAlias(jp)
+    return
+  }
+  ensureRegistered(jp)
+  resumePushLocal(jp)
+  // #endif
+}
+
 export function applyPushPreference(enabled) {
   setPushEnabled(!!enabled)
   // #ifdef APP-PLUS
   const jp = tryGetJPush()
   try {
-    apiRequest('pushprefs', 'POST', { enabled: enabled ? 1 : 0 }).catch(() => {})
+    if (getToken()) {
+      apiRequest('pushprefs', 'POST', { enabled: enabled ? 1 : 0 }).catch(() => {})
+    }
   } catch (e) {}
   if (!jp) return { ok: true, wired: false }
   try {
-    if (enabled) {
+    if (enabled && getToken()) {
       ensureRegistered(jp)
-      if (typeof jp.resumePush === 'function') jp.resumePush()
+      if (!foregroundSilenced) resumePushLocal(jp)
       syncRegistrationAfterLogin()
-    } else if (typeof jp.stopPush === 'function') {
-      jp.stopPush()
-    } else if (typeof jp.unregisterJPush === 'function') {
-      jp.unregisterJPush()
+    } else {
+      clearAlias(jp)
+      stopPushLocal(jp)
       registered = false
+      if (cachedRid()) disableRidOnServer(cachedRid())
     }
     return { ok: true, wired: true }
   } catch (e) {
@@ -197,7 +334,9 @@ export function applyPushPreference(enabled) {
   // #endif
   // #ifndef APP-PLUS
   try {
-    apiRequest('pushprefs', 'POST', { enabled: enabled ? 1 : 0 }).catch(() => {})
+    if (getToken()) {
+      apiRequest('pushprefs', 'POST', { enabled: enabled ? 1 : 0 }).catch(() => {})
+    }
   } catch (e) {}
   return { ok: true, wired: false }
   // #endif
@@ -208,12 +347,34 @@ export function initPushOnLaunch() {
   const jp = tryGetJPush()
   if (!jp) return
   try {
-    if (!isPushEnabled()) {
-      if (typeof jp.stopPush === 'function') jp.stopPush()
+    // 未登录或用户关推送：绝不 resume，并清别名 / 禁 RID，避免重装后仍收旧账号推送
+    if (!getToken() || !isPushEnabled()) {
+      clearPushSession()
+      // 仍短暂 register 一次只为拿到 RID 去 disable（不 resume）
+      try {
+        if (typeof jp.registerJPush === 'function' && !registered) {
+          jp.registerJPush((res) => {
+            const rid = extractRid(res)
+            if (rid) {
+              rememberRid(rid)
+              disableRidOnServer(rid)
+            }
+          })
+          registered = true
+        }
+      } catch (e2) {}
+      setTimeout(() => {
+        readRegistrationId(jp).then((rid) => {
+          if (rid) disableRidOnServer(rid)
+          clearAlias(jp)
+          stopPushLocal(jp)
+        })
+      }, 1200)
       return
     }
     ensureRegistered(jp)
-    if (typeof jp.resumePush === 'function') jp.resumePush()
+    // 启动先当在前台：不弹系统通知
+    setAppPushForeground(true)
     setTimeout(() => syncRegistrationAfterLogin(), 1500)
     setTimeout(() => syncRegistrationAfterLogin(), 5000)
   } catch (e) {}
@@ -228,9 +389,11 @@ export function syncRegistrationAfterLogin(userId) {
   if (!jp) return Promise.resolve(null)
   ensureRegistered(jp)
   bindAliasIfPossible(jp, userId)
+  // 登录后若在前台仍静默系统推送
+  if (foregroundSilenced) stopPushLocal(jp)
+  else resumePushLocal(jp)
   return readRegistrationId(jp).then((rid) => {
     if (rid) return uploadRegistration(rid, detectPlatform())
-    // registerJPush 回调可能稍后才带出 RID，再等一轮
     return new Promise((resolve) => {
       setTimeout(() => {
         readRegistrationId(jp).then((rid2) => {
