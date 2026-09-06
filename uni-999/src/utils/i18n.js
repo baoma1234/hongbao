@@ -631,25 +631,9 @@ export function ensureLocaleLoaded(locale) {
   return loadPromises[loc]
 }
 
-let lastTabBarTexts = ''
-
+/** 底栏自定义组件已写死中文，勿随语言包/服务端 copy 改写（会闪） */
 export function syncTabBarLabels() {
-  const items = [
-    { index: 0, text: t('tab_bar_messages') },
-    { index: 1, text: t('tab_bar_community') || '社群' },
-    { index: 2, text: t('tab_bar_home') },
-    { index: 3, text: t('tab_bar_fission') || t('tab_bar_master') },
-    { index: 4, text: t('tab_bar_profile') },
-  ]
-  const sig = items.map((it) => it.text).join('|')
-  // 文案未变时勿反复 setTabBarItem，否则原生/自定义底栏文字会闪
-  if (sig === lastTabBarTexts) return
-  lastTabBarTexts = sig
-  items.forEach((it) => {
-    try {
-      uni.setTabBarItem({ index: it.index, text: it.text })
-    } catch (e) {}
-  })
+  // no-op：pages.json + BottomTabBar 固定 消息/社群/红宝/裂变/我的
 }
 
 function scheduleIdleLocalePrefetch(locale) {
