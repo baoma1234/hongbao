@@ -64,6 +64,8 @@
                 :maxlength="countryMeta.maxlen"
                 v-model="mobile"
                 :placeholder="phonePlaceholder"
+                placeholder-class="login-input-ph"
+                placeholder-style="font-size:13px;font-weight:500;color:#9aa0a6"
                 @input="onPhoneInput"
               />
             </view>
@@ -92,6 +94,8 @@
                   maxlength="6"
                   v-model="captcha"
                   :placeholder="t('login_captcha_placeholder') || '请输入验证码'"
+                  placeholder-class="login-input-ph"
+                  placeholder-style="font-size:13px;font-weight:500;color:#9aa0a6"
                 />
               </view>
               <button
@@ -115,6 +119,8 @@
               confirm-type="done"
               v-model="inviteCode"
               :placeholder="tt('login_invite_placeholder', '没有邀请码可留空')"
+              placeholder-class="login-input-ph"
+              placeholder-style="font-size:13px;font-weight:500;color:#9aa0a6"
               @input="onInviteInput"
             />
           </view>
@@ -808,6 +814,14 @@ onUnmounted(() => {
   color: #1a212d;
   background: #f7f8fa;
   box-sizing: border-box;
+}
+/* H5: uni 渲染的 placeholder 节点；App 走 placeholder-class / placeholder-style */
+.login-input-ph,
+.login-page :deep(.uni-input-placeholder),
+.login-page :deep(.input-placeholder) {
+  font-size: 13px !important;
+  font-weight: 500;
+  color: #9aa0a6;
 }
 .invite-input {
   font-size: 16px;
