@@ -74,10 +74,10 @@ const tabs = computed(() => {
   void locale.value
   const list = [
     {
-      tab: 'home',
-      path: '/pages/home/home',
-      label: t('tab_bar_home') || '红宝',
-      icon: packagedStaticUrl('tab/home.png'),
+      tab: 'messages',
+      path: '/pages/messages/messages',
+      label: t('tab_bar_messages') || '消息',
+      icon: packagedStaticUrl('logo.png'),
       nativeTab: true,
     },
     {
@@ -88,10 +88,10 @@ const tabs = computed(() => {
       nativeTab: true,
     },
     {
-      tab: 'messages',
-      path: '/pages/messages/messages',
-      label: t('tab_bar_messages') || '消息',
-      icon: packagedStaticUrl('logo.png'),
+      tab: 'home',
+      path: '/pages/home/home',
+      label: t('tab_bar_home') || '红宝',
+      icon: packagedStaticUrl('tab/home.png'),
       nativeTab: true,
     },
   ]

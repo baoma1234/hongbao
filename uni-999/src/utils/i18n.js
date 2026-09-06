@@ -632,9 +632,9 @@ export function ensureLocaleLoaded(locale) {
 
 export function syncTabBarLabels() {
   const items = [
-    { index: 0, text: t('tab_bar_home') },
+    { index: 0, text: t('tab_bar_messages') },
     { index: 1, text: t('tab_bar_community') || '社群' },
-    { index: 2, text: t('tab_bar_messages') },
+    { index: 2, text: t('tab_bar_home') },
     { index: 3, text: t('tab_bar_fission') || t('tab_bar_master') },
     { index: 4, text: t('tab_bar_profile') },
   ]

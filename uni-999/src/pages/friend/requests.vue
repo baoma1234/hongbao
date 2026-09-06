@@ -1,7 +1,7 @@
 <template>
   <view class="chat-shell chat-friend-page">
     <TopBar title="好友申请" />
-    <view class="chat-hero-hd chat-hero-hd--bar-actions">
+    <view class="chat-hero-hd chat-hero-hd--bar-actions chat-hero-hd--qq-nav">
       <view class="chat-hero-back" @click="goBack">
           <text class="chat-hero-back-char">‹</text>
         </view>
@@ -63,6 +63,8 @@ import {
 } from '../../utils/im.js'
 import '../../styles/chat-friend-shell.css'
 import '../../styles/friend-uni-adapter.css'
+import '../../styles/chat-qq-theme.css'
+import '../../styles/friend-qq.css'
 
 const tab = ref('incoming')
 const cache = ref({ incoming: [], outgoing: [], pending_count: 0 })

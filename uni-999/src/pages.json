@@ -292,10 +292,10 @@
     "borderStyle": "black",
     "list": [
       {
-        "pagePath": "pages/home/home",
-        "text": "红宝",
-        "iconPath": "static/tab/home.png",
-        "selectedIconPath": "static/tab/home.png"
+        "pagePath": "pages/messages/messages",
+        "text": "消息",
+        "iconPath": "static/tab/hongbao.png",
+        "selectedIconPath": "static/tab/hongbao.png"
       },
       {
         "pagePath": "pages/community/community",
@@ -304,10 +304,10 @@
         "selectedIconPath": "static/tab/community.png"
       },
       {
-        "pagePath": "pages/messages/messages",
-        "text": "消息",
-        "iconPath": "static/tab/hongbao.png",
-        "selectedIconPath": "static/tab/hongbao.png"
+        "pagePath": "pages/home/home",
+        "text": "红宝",
+        "iconPath": "static/tab/home.png",
+        "selectedIconPath": "static/tab/home.png"
       },
       {
         "pagePath": "pages/fission/detail",

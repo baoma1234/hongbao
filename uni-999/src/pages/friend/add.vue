@@ -1,7 +1,7 @@
 <template>
   <view class="chat-shell chat-friend-page">
     <TopBar :title="tt('chat_add_friend_title', '添加好友') || '添加好友'" />
-    <view class="chat-hero-hd chat-hero-hd--bar-actions">
+    <view class="chat-hero-hd chat-hero-hd--bar-actions chat-hero-hd--qq-nav">
       <view class="chat-hero-back" @click="goBack">
           <text class="chat-hero-back-char">‹</text>
         </view>
@@ -89,6 +89,8 @@ import {
 import { friendLookup, friendRequest, friendRequests, imConnect } from '../../utils/im.js'
 import '../../styles/chat-friend-shell.css'
 import '../../styles/friend-uni-adapter.css'
+import '../../styles/chat-qq-theme.css'
+import '../../styles/friend-qq.css'
 
 const icoFriendReq = packagedStaticUrl('chat/plus_friend_req.png')
 const countries = LOGIN_COUNTRIES

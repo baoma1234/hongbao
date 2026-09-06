@@ -1,0 +1,351 @@
+/**
+ * 好友添加 / 申请 — QQ 样式（最后导入，压过 friend-shell / friend-uni-adapter 奶油红）
+ * 四端：H5 / Safari / APK / IPA — 用后代选择器 + !important
+ */
+.chat-friend-page,
+.chat-shell.chat-friend-page {
+  background: #ededed !important;
+  color: #191919 !important;
+  min-height: 100vh !important;
+  min-height: 100dvh !important;
+}
+
+.chat-friend-page .chat-hero-hd,
+.chat-friend-page .chat-hero-hd--bar-actions,
+.chat-friend-page .chat-hero-hd--qq-nav {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 20 !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  min-height: 44px !important;
+  padding: 0 8px 0 4px !important;
+  background: #ffffff !important;
+  color: #191919 !important;
+  border: none !important;
+  border-bottom: 0.5px solid #e5e5e5 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.chat-friend-page .chat-hero-back,
+.chat-friend-page .chat-hero-spacer {
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex: 0 0 auto !important;
+  color: #191919 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.chat-friend-page .chat-hero-back-char,
+.chat-friend-page .chat-hero-back text {
+  color: #191919 !important;
+  font-size: 32px !important;
+  font-weight: 400 !important;
+  line-height: 44px !important;
+  text-shadow: none !important;
+}
+
+.chat-friend-page .chat-sub-main {
+  padding: 12px 0 28px !important;
+  margin: 0 !important;
+  background: #ededed !important;
+  box-sizing: border-box !important;
+}
+
+/* 好友申请入口行 */
+.chat-friend-page .chat-add-friend-req-link {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  margin: 0 0 12px !important;
+  padding: 14px 16px !important;
+  background: #ffffff !important;
+  border: none !important;
+  border-top: 0.5px solid #e5e5e5 !important;
+  border-bottom: 0.5px solid #e5e5e5 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.chat-friend-page .chat-add-friend-req-link-ico {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 50% !important;
+  background: #f5f5f5 !important;
+  overflow: hidden !important;
+}
+
+.chat-friend-page .chat-add-friend-req-link-title {
+  color: #191919 !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+}
+
+.chat-friend-page .chat-add-friend-req-link-sub {
+  color: #999999 !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+}
+
+.chat-friend-page .chat-add-friend-req-link-arrow {
+  color: #c7c7c7 !important;
+  font-size: 22px !important;
+  font-weight: 300 !important;
+}
+
+.chat-friend-page .chat-friend-req-badge,
+.chat-friend-page .chat-add-friend-req-badge {
+  background: #fa5151 !important;
+  color: #ffffff !important;
+  border-radius: 10px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  min-width: 18px !important;
+  padding: 0 5px !important;
+  line-height: 18px !important;
+  text-align: center !important;
+}
+
+/* 表单卡片 */
+.chat-friend-page .chat-add-friend-card {
+  margin: 0 12px !important;
+  padding: 16px 14px !important;
+  background: #ffffff !important;
+  border: 0.5px solid #e5e5e5 !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+
+.chat-friend-page .chat-setting-label {
+  color: #999999 !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  margin: 0 0 8px !important;
+}
+
+.chat-friend-page .chat-setting-input,
+.chat-friend-page .chat-add-friend-mobile,
+.chat-friend-page .chat-add-friend-userid {
+  background: #f5f5f5 !important;
+  border: none !important;
+  border-radius: 6px !important;
+  color: #191919 !important;
+  font-size: 15px !important;
+  height: 40px !important;
+  padding: 0 12px !important;
+  box-shadow: none !important;
+}
+
+.chat-friend-page .chat-add-friend-phone-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.chat-friend-page .chat-add-friend-country,
+.chat-friend-page .country-select {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  height: 40px !important;
+  padding: 0 10px !important;
+  background: #f5f5f5 !important;
+  border: none !important;
+  border-radius: 6px !important;
+  color: #191919 !important;
+  flex-shrink: 0 !important;
+}
+
+.chat-friend-page .chat-add-friend-or {
+  text-align: center !important;
+  color: #999999 !important;
+  font-size: 13px !important;
+  margin: 14px 0 !important;
+}
+
+.chat-friend-page .chat-add-friend-hint {
+  display: block !important;
+  color: #999999 !important;
+  font-size: 12px !important;
+  line-height: 1.45 !important;
+  margin: 10px 0 16px !important;
+}
+
+.chat-friend-page .chat-setting-save-btn,
+.chat-friend-page button.chat-setting-save-btn {
+  width: 100% !important;
+  height: 44px !important;
+  line-height: 44px !important;
+  border: none !important;
+  border-radius: 6px !important;
+  background: #12b7f5 !important;
+  color: #ffffff !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+
+.chat-friend-page .chat-setting-save-btn[disabled],
+.chat-friend-page button.chat-setting-save-btn[disabled] {
+  background: #b0e0f5 !important;
+  color: #ffffff !important;
+  opacity: 1 !important;
+}
+
+.chat-friend-page .country-panel,
+.chat-friend-page .chat-add-friend-country-panel {
+  background: #ffffff !important;
+  border: 0.5px solid #e5e5e5 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08) !important;
+  margin-top: 8px !important;
+  overflow: hidden !important;
+}
+
+.chat-friend-page .country-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 12px 14px !important;
+  border-bottom: 0.5px solid #e5e5e5 !important;
+  background: #ffffff !important;
+  color: #191919 !important;
+}
+
+.chat-friend-page .country-item.on {
+  background: #f5f5f5 !important;
+  color: #12b7f5 !important;
+}
+
+/* 申请列表 tabs */
+.chat-friend-page .chat-friend-req-tabs {
+  display: flex !important;
+  align-items: stretch !important;
+  margin: 0 12px 12px !important;
+  padding: 3px !important;
+  height: 36px !important;
+  background: #f5f5f5 !important;
+  border-radius: 8px !important;
+  border: none !important;
+  box-sizing: border-box !important;
+}
+
+.chat-friend-page .chat-friend-req-tab {
+  flex: 1 1 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4px !important;
+  color: #666666 !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+}
+
+.chat-friend-page .chat-friend-req-tab.active {
+  background: #ffffff !important;
+  color: #191919 !important;
+  font-weight: 600 !important;
+  box-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.08) !important;
+}
+
+.chat-friend-page .chat-friend-req-list {
+  background: #ffffff !important;
+  border-top: 0.5px solid #e5e5e5 !important;
+  border-bottom: 0.5px solid #e5e5e5 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.chat-friend-page .chat-friend-req-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 12px 16px !important;
+  background: #ffffff !important;
+  border: none !important;
+  border-bottom: 0.5px solid #e5e5e5 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.chat-friend-page .chat-friend-req-item:last-child {
+  border-bottom: none !important;
+}
+
+.chat-friend-page .chat-friend-req-avatar-img,
+.chat-friend-page .chat-friend-req-avatar-img image,
+.chat-friend-page .chat-friend-req-avatar-img uni-image {
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
+  background: #e8e8e8 !important;
+  flex-shrink: 0 !important;
+}
+
+.chat-friend-page .chat-friend-req-name {
+  color: #191919 !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+}
+
+.chat-friend-page .chat-friend-req-sub,
+.chat-friend-page .chat-friend-req-status {
+  color: #999999 !important;
+  font-size: 13px !important;
+}
+
+.chat-friend-page .chat-friend-req-actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-shrink: 0 !important;
+}
+
+.chat-friend-page .chat-friend-req-btn {
+  min-width: 56px !important;
+  height: 30px !important;
+  line-height: 30px !important;
+  padding: 0 12px !important;
+  border-radius: 4px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  text-align: center !important;
+  box-sizing: border-box !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.chat-friend-page .chat-friend-req-btn.accept {
+  background: #12b7f5 !important;
+  color: #ffffff !important;
+}
+
+.chat-friend-page .chat-friend-req-btn.reject {
+  background: #f5f5f5 !important;
+  color: #666666 !important;
+}
+
+.chat-friend-page .chat-empty,
+.chat-friend-page .chat-empty-sm {
+  color: #999999 !important;
+  background: transparent !important;
+  padding: 40px 16px !important;
+  text-align: center !important;
+}
