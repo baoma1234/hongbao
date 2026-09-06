@@ -56,7 +56,7 @@
                   v-if="catIconSrc(cat)"
                   class="game-lobby-cat-ico"
                   :src="catIconSrc(cat)"
-                  mode="widthFix"
+                  mode="aspectFit"
                 />
                 <text v-else class="game-lobby-cat-ico-emoji">{{ cat.icon || '🎮' }}</text>
               </view>
