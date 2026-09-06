@@ -1448,6 +1448,8 @@ class FansHubService
             })(),
             'secret_lock_seconds'  => (int)($cfg['secret_lock_seconds'] ?? 900),
             'customer_service_url' => self::utf8Safe($cfg['customer_service_url'] ?? ''),
+            'default_cs_user_id'   => (int)($cfg['default_cs_user_id'] ?? 88888888),
+            'default_cs_nickname'  => self::utf8Safe($cfg['default_cs_nickname'] ?? '红宝客服'),
             'login_cs_enabled'     => !isset($cfg['login_cs_enabled']) || !empty($cfg['login_cs_enabled']),
             'login_cs_url'         => self::utf8Safe((function () use ($cfg) {
                 $u = trim((string)($cfg['login_cs_url'] ?? ''));

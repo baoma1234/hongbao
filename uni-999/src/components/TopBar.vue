@@ -75,7 +75,6 @@ import {
   getTopBarContentHeight,
 } from '../utils/safe-area.js'
 import { fetchConfig, fetchProfile, getToken } from '../utils/auth.js'
-import { openExternalHttpUrl } from '../utils/wallet.js'
 
 defineProps({
   noSpacer: { type: Boolean, default: false },
@@ -89,7 +88,8 @@ const locale = ref(getLocale())
 const langOpen = ref(false)
 const padTop = ref(getSafeAreaInsets().top)
 const profile = ref(null)
-const csUrl = ref('')
+const csPeerId = ref(88888888)
+const csNick = ref('红宝客服')
 let offLocale = null
 let lastToggleAt = 0
 let pickingLang = false
@@ -224,21 +224,26 @@ function goRecharge() {
 
 function openCs() {
   closePanels()
-  const url = String(csUrl.value || '').trim()
-  if (url && /^https?:\/\//i.test(url)) {
-    openExternalHttpUrl(url)
+  if (!getToken()) {
+    try {
+      uni.setStorageSync('fanshub_login_return', '/pages/home/home')
+    } catch (e) {}
+    uni.reLaunch({ url: '/pages/login/login' })
     return
   }
+  // 站内红宝客服私聊（不走外链）
+  const peer = Math.max(1, Number(csPeerId.value) || 88888888)
+  const nick = String(csNick.value || '红宝客服').trim() || '红宝客服'
   uni.navigateTo({
     url:
       '/pages/chat/chat?type=1&peer=' +
-      encodeURIComponent('88888888') +
+      encodeURIComponent(String(peer)) +
       '&id=' +
       encodeURIComponent('') +
       '&title=' +
-      encodeURIComponent('红宝客服') +
+      encodeURIComponent(nick) +
       '&nickname=' +
-      encodeURIComponent('红宝客服'),
+      encodeURIComponent(nick),
   })
 }
 
@@ -262,8 +267,10 @@ async function hydrateUser() {
   try {
     const cfg = await fetchConfig()
     if (cfg) {
-      const u = String(cfg.customer_service_url || cfg.login_cs_url || '').trim()
-      if (u) csUrl.value = u
+      const id = parseInt(cfg.default_cs_user_id, 10)
+      if (!isNaN(id) && id > 0) csPeerId.value = id
+      const nick = String(cfg.default_cs_nickname || '').trim()
+      if (nick) csNick.value = nick
     }
   } catch (e2) {}
 }
