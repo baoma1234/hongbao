@@ -531,7 +531,10 @@ function friendSwipeFrontStyle(f) {
 function touchPoint(ev) {
   const t = (ev && ev.touches && ev.touches[0]) || (ev && ev.changedTouches && ev.changedTouches[0])
   if (!t) return null
-  return { x: t.clientX, y: t.clientY }
+  const x = t.clientX != null ? t.clientX : t.pageX != null ? t.pageX : t.x
+  const y = t.clientY != null ? t.clientY : t.pageY != null ? t.pageY : t.y
+  if (x == null || y == null) return null
+  return { x: Number(x) || 0, y: Number(y) || 0 }
 }
 
 function onFriendSwipeStart(ev, f) {
@@ -569,6 +572,11 @@ function onFriendSwipeMove(ev, f) {
     closeFriendSwipe(swipeState.key)
     swipeDragKey.value = swipeState.key
   }
+  // 横向滑动时挡住 scroll-view 竖滚，避免抢手势
+  try {
+    if (ev && typeof ev.preventDefault === 'function') ev.preventDefault()
+    if (ev && typeof ev.stopPropagation === 'function') ev.stopPropagation()
+  } catch (e) {}
   swipeState.moved = true
   const nx = Math.max(-FRIEND_SWIPE_W, Math.min(0, swipeState.baseX + dx))
   swipeOffset.value = nx
@@ -984,6 +992,8 @@ onHide(() => {
 }
 .chat-friend-swipe {
   background: #fff;
+  touch-action: pan-y;
+  overflow: hidden;
 }
 .chat-friend-swipe.no-swipe .chat-feed-item {
   transform: none !important;
@@ -996,6 +1006,8 @@ onHide(() => {
   z-index: 1;
   background: #fff;
   will-change: transform;
+  /* 覆盖主题里可能残留的 transform:none，保证左滑可见 */
+  transform: translateX(0);
 }
 .chat-official-body {
   flex: 1 1 auto;

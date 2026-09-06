@@ -737,6 +737,12 @@
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   filter: none !important;
+}
+
+/* 群行禁用 transform；好友左滑行勿写 transform:none !important（会盖掉内联 translateX） */
+#tabMessages .chat-my-group-item,
+#tabCommunity .chat-my-group-item,
+.msg-tab-root .chat-my-group-item {
   transform: none !important;
 }
 
@@ -747,6 +753,11 @@
 .msg-tab-root .chat-my-group-item:active,
 .msg-tab-root .chat-feed-item:active {
   background: #ececec !important;
+}
+
+#tabMessages .chat-my-group-item:active,
+#tabCommunity .chat-my-group-item:active,
+.msg-tab-root .chat-my-group-item:active {
   transform: none !important;
 }
 
