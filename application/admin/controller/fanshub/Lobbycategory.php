@@ -35,7 +35,7 @@ class Lobbycategory extends Backend
         if ($p['title'] === '') {
             $this->error('请填写分类名');
         }
-        $p['icon'] = trim((string)($p['icon'] ?? ''));
+        $p['icon'] = FansHubLobby::normalizeStoredPath($p['icon'] ?? '');
         $p['icon_static'] = trim((string)($p['icon_static'] ?? ''));
         $act = strtolower(trim((string)($p['action'] ?? 'filter')));
         if (!isset($this->model->getActionList()[$act])) {
@@ -54,7 +54,8 @@ class Lobbycategory extends Backend
         if ($this->request->isAjax()) {
             list($where, $sort, $order, $offset, $limit) = $this->buildparams();
             $list = $this->model->where($where)->order($sort, $order)->paginate($limit);
-            return json(['total' => $list->total(), 'rows' => $list->items()]);
+            $rows = FansHubLobby::mapAdminImageFields($list->items(), ['icon']);
+            return json(['total' => $list->total(), 'rows' => $rows]);
         }
         return $this->view->fetch();
     }

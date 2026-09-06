@@ -28,7 +28,7 @@ class Lobbyinvite extends Backend
     protected function normalize(array $p)
     {
         $p['title'] = mb_substr(trim((string)($p['title'] ?? '')), 0, 64);
-        $p['image'] = trim((string)($p['image'] ?? ''));
+        $p['image'] = FansHubLobby::normalizeStoredPath($p['image'] ?? '');
         if ($p['image'] === '') {
             $this->error('请上传邀请条图片');
         }
@@ -49,7 +49,8 @@ class Lobbyinvite extends Backend
         if ($this->request->isAjax()) {
             list($where, $sort, $order, $offset, $limit) = $this->buildparams();
             $list = $this->model->where($where)->order($sort, $order)->paginate($limit);
-            return json(['total' => $list->total(), 'rows' => $list->items()]);
+            $rows = FansHubLobby::mapAdminImageFields($list->items(), ['image']);
+            return json(['total' => $list->total(), 'rows' => $rows]);
         }
         return $this->view->fetch();
     }

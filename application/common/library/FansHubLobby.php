@@ -28,14 +28,14 @@ class FansHubLobby
         if (preg_match('#^https?://#i', $u)) {
             return $u;
         }
-        $u = ltrim($u, '/');
+        $u = ltrim(str_replace('\\', '/', $u), '/');
         // 打包 static：home/lobby/xxx.png → 前端用 packagedStaticUrl
         if (strpos($u, 'home/lobby/') === 0 || strpos($u, 'static/') === 0) {
             return $u;
         }
         try {
             if (class_exists('\\app\\common\\library\\OssService') && \app\common\library\OssService::enabled()) {
-                $full = \app\common\library\OssService::fullUrl($u, '');
+                $full = \app\common\library\OssService::fullUrl('/' . $u, '');
                 if ($full) {
                     return $full;
                 }
@@ -43,9 +43,121 @@ class FansHubLobby
         } catch (\Throwable $e) {
         }
         if (function_exists('cdnurl')) {
-            return cdnurl($u, true);
+            return cdnurl('/' . $u, true);
         }
         return '/' . $u;
+    }
+
+    /**
+     * 后台列表/预览绝对地址（打包图走 /999/static，上传图走 OSS）
+     */
+    public static function adminUrl($raw)
+    {
+        $u = trim((string)$raw);
+        if ($u === '') {
+            return '';
+        }
+        if (preg_match('#^https?://#i', $u) || stripos($u, 'data:') === 0) {
+            try {
+                if (class_exists('\\app\\common\\library\\OssService') && \app\common\library\OssService::enabled()) {
+                    $path = parse_url($u, PHP_URL_PATH);
+                    if (is_string($path) && strpos($path, '/uploads/') === 0) {
+                        $oss = \app\common\library\OssService::fullUrl($path, '');
+                        if ($oss !== '') {
+                            return $oss;
+                        }
+                    }
+                }
+            } catch (\Throwable $e) {
+            }
+            return $u;
+        }
+        $path = ltrim(str_replace('\\', '/', $u), '/');
+        if (strpos($path, 'static/') === 0) {
+            $path = substr($path, strlen('static/'));
+        }
+        if (strpos($path, 'home/lobby/') === 0) {
+            $rel = '/999/static/' . $path;
+            try {
+                if (class_exists('\\app\\common\\library\\OssService') && \app\common\library\OssService::enabled()) {
+                    $full = \app\common\library\OssService::fullUrl($rel, '');
+                    if ($full !== '') {
+                        return $full;
+                    }
+                }
+            } catch (\Throwable $e) {
+            }
+            return $rel;
+        }
+        // 已是 /999/static/... 时同样优先 OSS
+        if (strpos($path, '999/static/') === 0) {
+            $rel = '/' . $path;
+            try {
+                if (class_exists('\\app\\common\\library\\OssService') && \app\common\library\OssService::enabled()) {
+                    $full = \app\common\library\OssService::fullUrl($rel, '');
+                    if ($full !== '') {
+                        return $full;
+                    }
+                }
+            } catch (\Throwable $e) {
+            }
+            return $rel;
+        }
+        try {
+            if (class_exists('\\app\\common\\library\\OssService') && \app\common\library\OssService::enabled()) {
+                $full = \app\common\library\OssService::fullUrl('/' . $path, '');
+                if ($full !== '') {
+                    return $full;
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+        if (function_exists('cdnurl')) {
+            return cdnurl('/' . $path, true);
+        }
+        return '/' . $path;
+    }
+
+    /**
+     * 保存前：OSS/本站绝对上传地址收成 /uploads/...
+     */
+    public static function normalizeStoredPath($raw)
+    {
+        $u = trim((string)$raw);
+        if ($u === '') {
+            return '';
+        }
+        if (preg_match('#^https?://#i', $u)) {
+            $path = parse_url($u, PHP_URL_PATH);
+            if (is_string($path) && $path !== '' && strpos($path, '/uploads/') === 0) {
+                return $path;
+            }
+            return $u;
+        }
+        if (isset($u[0]) && $u[0] !== '/' && strpos($u, 'uploads/') === 0) {
+            return '/' . $u;
+        }
+        return $u;
+    }
+
+    /** @param array|\think\Collection $rows @return array */
+    public static function mapAdminImageFields($rows, array $fields)
+    {
+        $out = [];
+        foreach ((array)$rows as $row) {
+            if (is_object($row) && method_exists($row, 'toArray')) {
+                $item = $row->toArray();
+            } else {
+                $item = (array)$row;
+            }
+            foreach ($fields as $f) {
+                if (array_key_exists($f, $item)) {
+                    $item[$f] = self::adminUrl($item[$f]);
+                }
+            }
+            $out[] = $item;
+        }
+        return $out;
     }
 
     public static function isPackagedStatic($path)

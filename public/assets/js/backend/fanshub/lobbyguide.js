@@ -1,4 +1,4 @@
-define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefined, Backend, Table, Form) {
+define(['jquery', 'bootstrap', 'backend', 'table', 'form', './lobby-common'], function ($, undefined, Backend, Table, Form, Lobby) {
     var Controller = {
         index: function () {
             Table.api.init({
@@ -22,6 +22,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                     {field: 'id', title: 'ID'},
                     {field: 'game_key', title: 'Key', operate: 'LIKE'},
                     {field: 'title', title: '标题', operate: 'LIKE'},
+                    {field: 'hero', title: '头图', operate: false, formatter: Lobby.imageFormatter, events: Table.api.events.image},
                     {field: 'intro', title: '简介', operate: 'LIKE', formatter: function (v) {
                         v = String(v || '');
                         return v.length > 36 ? v.substr(0, 36) + '…' : v;
@@ -35,7 +36,12 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
         },
         add: function () { Controller.api.bindevent(); },
         edit: function () { Controller.api.bindevent(); },
-        api: { bindevent: function () { Form.api.bindevent($('form[role=form]')); } }
+        api: {
+            bindevent: function () {
+                Form.api.bindevent($('form[role=form]'));
+                Lobby.refreshPreviews($('form[role=form]'));
+            }
+        }
     };
     return Controller;
 });

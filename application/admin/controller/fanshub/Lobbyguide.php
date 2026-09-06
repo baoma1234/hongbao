@@ -3,6 +3,7 @@
 namespace app\admin\controller\fanshub;
 
 use app\common\controller\Backend;
+use app\common\library\FansHubLobby;
 use app\common\library\FansHubLobbyGuide;
 
 /**
@@ -35,7 +36,7 @@ class Lobbyguide extends Backend
         }
         $p['intro'] = trim((string)($p['intro'] ?? ''));
         $p['rules'] = trim((string)($p['rules'] ?? ''));
-        $p['hero'] = trim((string)($p['hero'] ?? ''));
+        $p['hero'] = FansHubLobby::normalizeStoredPath($p['hero'] ?? '');
         $p['badge'] = mb_substr(trim((string)($p['badge'] ?? '')), 0, 16);
         $p['badge_text'] = mb_substr(trim((string)($p['badge_text'] ?? '')), 0, 32);
         $p['weigh'] = (int)($p['weigh'] ?? 0);
@@ -49,7 +50,8 @@ class Lobbyguide extends Backend
         if ($this->request->isAjax()) {
             list($where, $sort, $order, $offset, $limit) = $this->buildparams();
             $list = $this->model->where($where)->order($sort, $order)->paginate($limit);
-            return json(['total' => $list->total(), 'rows' => $list->items()]);
+            $rows = FansHubLobby::mapAdminImageFields($list->items(), ['hero']);
+            return json(['total' => $list->total(), 'rows' => $rows]);
         }
         return $this->view->fetch();
     }

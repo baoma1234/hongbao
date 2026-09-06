@@ -50,7 +50,7 @@ class Lobbygame extends Backend
         if ($p['title'] === '') {
             $this->error('请填写游戏名');
         }
-        $p['cover'] = trim((string)($p['cover'] ?? ''));
+        $p['cover'] = FansHubLobby::normalizeStoredPath($p['cover'] ?? '');
         if ($p['cover'] === '') {
             $this->error('请上传封面图');
         }
@@ -83,7 +83,8 @@ class Lobbygame extends Backend
         if ($this->request->isAjax()) {
             list($where, $sort, $order, $offset, $limit) = $this->buildparams();
             $list = $this->model->where($where)->order($sort, $order)->paginate($limit);
-            return json(['total' => $list->total(), 'rows' => $list->items()]);
+            $rows = FansHubLobby::mapAdminImageFields($list->items(), ['cover']);
+            return json(['total' => $list->total(), 'rows' => $rows]);
         }
         return $this->view->fetch();
     }
