@@ -178,21 +178,19 @@ if ($cnt === 0) {
 }
 
 $rule = $prefix . 'auth_rule';
-$fansPid = $pdo->query("SELECT id FROM {$rule} WHERE name='fanshub' LIMIT 1")->fetchColumn();
-if (!$fansPid) {
-    fwrite(STDERR, "fanshub menu missing\n");
-    exit(1);
-}
 $insert = $pdo->prepare("INSERT INTO {$rule} (type,pid,name,title,icon,url,`condition`,remark,ismenu,menutype,createtime,updatetime,weigh,status) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
 
+// 顶级菜单「大厅装修」（与会员运营/即时通讯同级，避免埋在福利大厅里找不到）
 $parentName = 'fanshub_lobby';
 $parentId = $pdo->query("SELECT id FROM {$rule} WHERE name=" . $pdo->quote($parentName) . " LIMIT 1")->fetchColumn();
 if (!$parentId) {
-    $insert->execute(['file', (int)$fansPid, $parentName, '大厅装修', 'fa fa-th-large', '', '', '轮播/分类/游戏格/邀请条', 1, null, $now, $now, 55, 'normal']);
+    $insert->execute(['file', 0, $parentName, '大厅装修', 'fa fa-th-large', '', '', '轮播/分类/游戏格/玩法说明/邀请条', 1, null, $now, $now, 47, 'normal']);
     $parentId = (int)$pdo->lastInsertId();
     echo "OK menu {$parentName} #{$parentId}\n";
 } else {
-    echo "SKIP menu {$parentName} #{$parentId}\n";
+    $pdo->prepare("UPDATE {$rule} SET pid=0, ismenu=1, status='normal', title='大厅装修', icon='fa fa-th-large', weigh=47, updatetime=? WHERE id=?")
+        ->execute([$now, (int)$parentId]);
+    echo "OK menu {$parentName} #{$parentId} promoted to top\n";
 }
 
 $menus = [
@@ -211,7 +209,9 @@ foreach ($menus as $m) {
         $pid = (int)$pdo->lastInsertId();
         echo "OK menu {$name} #{$pid}\n";
     } else {
-        echo "SKIP menu {$name} #{$pid}\n";
+        $pdo->prepare("UPDATE {$rule} SET pid=?, ismenu=1, status='normal', title=?, icon=?, weigh=?, updatetime=? WHERE id=?")
+            ->execute([(int)$parentId, $m[1], $m[2], $m[3], $now, (int)$pid]);
+        echo "OK menu {$name} #{$pid} synced\n";
     }
     $allRuleIds[] = (int)$pid;
     foreach (['index' => '查看', 'add' => '添加', 'edit' => '编辑', 'del' => '删除', 'multi' => '批量更新'] as $act => $title) {
