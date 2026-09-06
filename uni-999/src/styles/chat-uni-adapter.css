@@ -299,19 +299,26 @@ body.tab-messages #tabMessages .chat-list-pane {
   -webkit-backdrop-filter: none !important;
   background: #ffffff !important;
   border: none !important;
-  border-bottom: 0.5px solid #e5e5e5 !important;
   box-shadow: none !important;
   filter: none !important;
+}
+#tabMessages .chat-my-group-item {
+  border-bottom: none !important;
+}
+#tabMessages .chat-feed-item {
+  border-bottom: 0.5px solid #e5e5e5 !important;
+}
+#tabMessages .chat-my-group-avatar {
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
 }
 #tabMessages .chat-my-group-main {
   gap: 8px !important;
 }
 #tabMessages .chat-my-group-create {
   margin-bottom: 0 !important;
-}
-#tabMessages .chat-my-group-avatar {
-  width: 48px !important;
-  height: 48px !important;
 }
 
 /* Friend list avatar */
@@ -1542,10 +1549,15 @@ body.tab-messages #tabMessages .chat-list-pane {
   border-radius: 0 !important;
   background: #ffffff !important;
   border: none !important;
-  border-bottom: 0.5px solid #e5e5e5 !important;
   box-shadow: none !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+}
+.msg-tab-root .chat-my-group-item {
+  border-bottom: none !important;
+}
+.msg-tab-root .chat-feed-item {
+  border-bottom: 0.5px solid #e5e5e5 !important;
 }
 .msg-tab-root .chat-my-groups-list,
 .msg-tab-root .chat-friend-feed-list,
@@ -1593,10 +1605,13 @@ body.tab-messages #tabMessages .chat-list-pane {
   border-radius: 50% !important;
 }
 .msg-tab-root .chat-my-group-avatar {
-  width: 36px !important;
-  height: 36px !important;
-  border-radius: 10px !important;
-  background: #fff !important;
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 50% !important;
+  background: #e8e8e8 !important;
+  border: none !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
 }
 .msg-tab-root .chat-avatar uni-image,
 .msg-tab-root .chat-avatar image,

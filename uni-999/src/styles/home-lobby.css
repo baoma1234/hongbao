@@ -43,6 +43,7 @@
   margin-right: auto;
 }
 
+/* 750×450：padding 兜底（App WebView 上 aspect-ratio 不稳） */
 .game-lobby-banner {
   position: relative;
   margin-top: 0;
@@ -52,14 +53,19 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   display: block !important;
   width: 100%;
+  height: 0;
+  padding-bottom: 60%; /* 450 / 750 */
   box-sizing: border-box;
+  background: #2a0a10;
 }
 
 .game-lobby-banner-swiper {
+  position: absolute;
+  left: 0;
+  top: 0;
   width: 100%;
-  aspect-ratio: 750 / 400;
-  min-height: 140px;
-  height: auto;
+  height: 100%;
+  min-height: 0;
 }
 
 .game-lobby-banner-swiper swiper-item,

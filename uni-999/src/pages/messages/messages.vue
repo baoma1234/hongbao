@@ -1784,7 +1784,7 @@ onHide(() => {
   border-radius: 0;
   background: #fff;
   box-shadow: none;
-  border-bottom: 1px solid #e5e5e5;
+  border-bottom: none;
 }
 /* 官方社群头像：复用会话列表 .chat-avatar.group（见 chat-uni-adapter） */
 .chat-official-body {

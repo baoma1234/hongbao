@@ -981,7 +981,7 @@ onHide(() => {
   border-radius: 0;
   background: #fff;
   box-shadow: none;
-  border-bottom: 0.5px solid #e5e5e5;
+  border-bottom: none;
 }
 .chat-friend-feed-list,
 .chat-my-groups-list {

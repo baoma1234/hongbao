@@ -724,11 +724,12 @@
 #tabMessages .chat-feed-item,
 #tabCommunity .chat-feed-item,
 .msg-tab-root .chat-my-group-item,
-.msg-tab-root .chat-feed-item {
+.msg-tab-root .chat-feed-item,
+.community-page .chat-my-group-item,
+.community-page .chat-feed-item {
   background: #ffffff !important;
   background-image: none !important;
   border: none !important;
-  border-bottom: 0.5px solid #e5e5e5 !important;
   box-shadow: none !important;
   border-radius: 0 !important;
   margin: 0 !important;
@@ -737,6 +738,21 @@
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   filter: none !important;
+}
+
+/* 官方社群 / 我的群组：去掉底部分割线；好友列表保留 */
+#tabMessages .chat-my-group-item,
+#tabCommunity .chat-my-group-item,
+.msg-tab-root .chat-my-group-item,
+.community-page .chat-my-group-item {
+  border-bottom: none !important;
+}
+
+#tabMessages .chat-feed-item,
+#tabCommunity .chat-feed-item,
+.msg-tab-root .chat-feed-item,
+.community-page .chat-feed-item {
+  border-bottom: 0.5px solid #e5e5e5 !important;
 }
 
 /* 群行禁用 transform；好友左滑行勿写 transform:none !important（会盖掉内联 translateX） */
@@ -805,26 +821,42 @@
 
 #tabMessages .chat-my-group-avatar,
 #tabCommunity .chat-my-group-avatar,
-.msg-tab-root .chat-my-group-avatar {
+.msg-tab-root .chat-my-group-avatar,
+.community-page .chat-my-group-avatar {
   width: 48px !important;
   height: 48px !important;
-  border-radius: 6px !important;
+  border-radius: 50% !important;
   overflow: hidden !important;
   border: none !important;
   box-shadow: none !important;
   background: #e8e8e8 !important;
 }
 
+#tabMessages .chat-my-group-avatar image,
+#tabMessages .chat-my-group-avatar uni-image,
+#tabCommunity .chat-my-group-avatar image,
+#tabCommunity .chat-my-group-avatar uni-image,
+.msg-tab-root .chat-my-group-avatar image,
+.msg-tab-root .chat-my-group-avatar uni-image,
+.community-page .chat-my-group-avatar image,
+.community-page .chat-my-group-avatar uni-image {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
+}
+
 #tabMessages .chat-my-group-avatar-plus,
 #tabCommunity .chat-my-group-avatar-plus,
-.msg-tab-root .chat-my-group-avatar-plus {
+.msg-tab-root .chat-my-group-avatar-plus,
+.community-page .chat-my-group-avatar-plus {
   background: #f5f5f5 !important;
   color: var(--qq-accent) !important;
   border: none !important;
   box-shadow: none !important;
   font-size: 28px !important;
   font-weight: 400 !important;
-  border-radius: 6px !important;
+  border-radius: 50% !important;
 }
 
 #tabMessages .chat-my-group-create,
@@ -873,12 +905,42 @@
 #tabMessages .chat-official-row,
 #tabCommunity .chat-official-row,
 .msg-tab-root .chat-official-row,
-.messages-page .chat-official-row {
+.messages-page .chat-official-row,
+.community-page .chat-official-row {
   border-radius: 0 !important;
   background: #ffffff !important;
   box-shadow: none !important;
-  border-bottom: 0.5px solid #e5e5e5 !important;
+  border: none !important;
+  border-bottom: none !important;
   padding: 12px 16px !important;
+}
+
+/* 官方社群头像：与会话列表同为圆形 */
+#tabMessages .chat-official-list .chat-avatar,
+#tabMessages .chat-official-list .chat-avatar.group,
+#tabCommunity .chat-official-list .chat-avatar,
+#tabCommunity .chat-official-list .chat-avatar.group,
+.msg-tab-root .chat-official-list .chat-avatar,
+.community-page .chat-official-list .chat-avatar {
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
+  flex-shrink: 0 !important;
+}
+
+#tabMessages .chat-official-list .chat-avatar image,
+#tabMessages .chat-official-list .chat-avatar uni-image,
+#tabCommunity .chat-official-list .chat-avatar image,
+#tabCommunity .chat-official-list .chat-avatar uni-image,
+.msg-tab-root .chat-official-list .chat-avatar image,
+.msg-tab-root .chat-official-list .chat-avatar uni-image,
+.community-page .chat-official-list .chat-avatar image,
+.community-page .chat-official-list .chat-avatar uni-image {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
 }
 
 #tabMessages .chat-official-title,
