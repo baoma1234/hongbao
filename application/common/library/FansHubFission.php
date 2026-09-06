@@ -320,7 +320,8 @@ class FansHubFission
     }
 
     /**
-     * 把尚未赋额的资格按「奖金池 / 全局上限」定额发出（无人领取也可见记录）
+     * 把尚未赋额的资格按「奖金池 / 全局上限」随机发出（二倍均值，不是均分）
+     * 若未领份额仍全是旧均分金额，则一次性重拆为随机包。
      */
     public static function ensureQualPayouts($activityId)
     {
@@ -328,29 +329,28 @@ class FansHubFission
         if ($activityId <= 0) {
             return 0;
         }
-        $act = Db::name('fans_fission_activity')->where('id', $activityId)->find();
-        if (!$act) {
-            return 0;
-        }
-        $unit = self::unitWinAmount($act);
-        if ($unit <= 0) {
-            return 0;
-        }
         try {
-            $n1 = (int)Db::name('fans_fission_qual')
-                ->where('activity_id', $activityId)
-                ->whereNull('win_amount')
-                ->update(['win_amount' => $unit]);
-            $n2 = (int)Db::name('fans_fission_qual')
-                ->where('activity_id', $activityId)
-                ->where('win_amount', '<=', 0)
-                ->update(['win_amount' => $unit]);
-            return $n1 + $n2;
+            Db::startTrans();
+            $act = Db::name('fans_fission_activity')->where('id', $activityId)->lock(true)->find();
+            if (!$act) {
+                Db::commit();
+                return 0;
+            }
+            $n = self::assignRandomPayoutsLocked($act, false);
+            Db::commit();
+            return $n;
         } catch (\Throwable $e) {
+            try {
+                Db::rollback();
+            } catch (\Throwable $ignore) {
+            }
             return 0;
         }
     }
 
+    /**
+     * 旧均分单价（仅用于识别历史均分数据 / 兼容展示）
+     */
     protected static function unitWinAmount(array $act)
     {
         $cap = max(1, (int)($act['global_cap'] ?? 100));
@@ -359,6 +359,132 @@ class FansHubFission
             return 0.0;
         }
         return round(max(1, (int)floor($cents / $cap)) / 100, 2);
+    }
+
+    /**
+     * 二倍均值：从剩余金额/剩余包数抽 1 包（单位：分）
+     */
+    protected static function randomPacketCents($remainCents, $leftSlots)
+    {
+        $remainCents = max(0, (int)$remainCents);
+        $leftSlots = max(1, (int)$leftSlots);
+        if ($remainCents <= 0) {
+            return 0;
+        }
+        if ($leftSlots <= 1) {
+            return $remainCents;
+        }
+        if ($remainCents < $leftSlots) {
+            return 1;
+        }
+        $max = max(1, (int)floor(($remainCents / $leftSlots) * 2));
+        $max = min($max, $remainCents - ($leftSlots - 1));
+        return $max <= 1 ? 1 : random_int(1, $max);
+    }
+
+    /**
+     * 活动锁下：下一份新资格的随机金额（元）
+     * 按「已赋额份数」占坑，未赋额资格不重复扣坑。
+     */
+    protected static function nextRandomWinAmountLocked(array $act)
+    {
+        $cap = max(1, (int)($act['global_cap'] ?? 100));
+        $poolCents = (int)round((float)($act['pool_amount'] ?? 0) * 100);
+        if ($poolCents <= 0) {
+            return 0.0;
+        }
+        $aid = (int)($act['id'] ?? 0);
+        $agg = Db::name('fans_fission_qual')
+            ->where('activity_id', $aid)
+            ->field(
+                'COUNT(*) AS cnt,'
+                . 'SUM(CASE WHEN win_amount IS NOT NULL AND win_amount>0 THEN 1 ELSE 0 END) AS paid_slots,'
+                . 'COALESCE(SUM(CASE WHEN win_amount IS NOT NULL AND win_amount>0 THEN win_amount ELSE 0 END),0) AS paid'
+            )
+            ->find();
+        $paidSlots = (int)($agg['paid_slots'] ?? 0);
+        $paidCents = (int)round((float)($agg['paid'] ?? 0) * 100);
+        $leftSlots = max(1, $cap - $paidSlots);
+        $remainCents = max(0, $poolCents - $paidCents);
+        return round(self::randomPacketCents($remainCents, $leftSlots) / 100, 2);
+    }
+
+    /**
+     * 活动锁下为资格赋随机金额。
+     * @param bool $forceResplitUnclaimed 强制重拆所有未领（开奖时用）
+     */
+    protected static function assignRandomPayoutsLocked(array $act, $forceResplitUnclaimed = false)
+    {
+        $activityId = (int)($act['id'] ?? 0);
+        $cap = max(1, (int)($act['global_cap'] ?? 100));
+        $poolCents = (int)round((float)($act['pool_amount'] ?? 0) * 100);
+        if ($activityId <= 0 || $poolCents <= 0) {
+            return 0;
+        }
+        $quals = Db::name('fans_fission_qual')
+            ->where('activity_id', $activityId)
+            ->order('id', 'asc')
+            ->lock(true)
+            ->select();
+        $quals = is_array($quals) ? $quals : $quals->toArray();
+        if (!$quals) {
+            return 0;
+        }
+
+        $unit = self::unitWinAmount($act);
+        $unclaimed = [];
+        foreach ($quals as $q) {
+            if ((int)($q['claimed'] ?? 0) === 1) {
+                continue;
+            }
+            $unclaimed[] = $q;
+        }
+        $needFill = false;
+        $allEven = count($unclaimed) >= 2;
+        foreach ($unclaimed as $q) {
+            $w = isset($q['win_amount']) && $q['win_amount'] !== null && $q['win_amount'] !== ''
+                ? round((float)$q['win_amount'], 2)
+                : 0.0;
+            if ($w <= 0) {
+                $needFill = true;
+                $allEven = false;
+            } elseif ($unit > 0 && abs($w - $unit) > 0.001) {
+                $allEven = false;
+            }
+        }
+        $doResplit = $forceResplitUnclaimed || $needFill || $allEven;
+        if (!$doResplit) {
+            return 0;
+        }
+
+        $paidCents = 0;
+        $slot = 0;
+        $changed = 0;
+        foreach ($quals as $q) {
+            $claimed = (int)($q['claimed'] ?? 0) === 1;
+            $exist = isset($q['win_amount']) && $q['win_amount'] !== null && $q['win_amount'] !== ''
+                ? round((float)$q['win_amount'], 2)
+                : 0.0;
+            if ($claimed && $exist > 0) {
+                $paidCents += (int)round($exist * 100);
+                $slot++;
+                continue;
+            }
+            // 未领：随机赋额（含旧均分重拆、空额补发）
+            $leftSlots = max(1, $cap - $slot);
+            $remainCents = max(0, $poolCents - $paidCents);
+            $cents = self::randomPacketCents($remainCents, $leftSlots);
+            $amt = round($cents / 100, 2);
+            if (abs($exist - $amt) > 0.001 || $exist <= 0) {
+                Db::name('fans_fission_qual')->where('id', (int)$q['id'])->update([
+                    'win_amount' => $amt,
+                ]);
+                $changed++;
+            }
+            $paidCents += $cents;
+            $slot++;
+        }
+        return $changed;
     }
 
     /**
@@ -602,21 +728,8 @@ class FansHubFission
                 self::tryAutoRestart();
                 return true;
             }
-            // 已提前赋额的资格保留原金额；仅给尚未赋额的补定额（兼容旧数据）
-            $unit = self::unitWinAmount($act);
-            foreach ($quals as $q) {
-                $exist = isset($q['win_amount']) && $q['win_amount'] !== null && $q['win_amount'] !== ''
-                    ? round((float)$q['win_amount'], 2)
-                    : 0.0;
-                if ($exist > 0) {
-                    continue;
-                }
-                Db::name('fans_fission_qual')->where('id', (int)$q['id'])->update([
-                    'win_amount' => $unit,
-                    'claimed'    => 0,
-                    'claimed_at' => 0,
-                ]);
-            }
+            // 未赋额 / 旧均分未领 → 随机赋额（已随机的保留）
+            self::assignRandomPayoutsLocked($act, false);
             Db::name('fans_fission_activity')->where('id', $activityId)->update([
                 'status'       => FissionActivity::STATUS_SUCCESS,
                 'settled_time' => $now,
@@ -792,7 +905,7 @@ class FansHubFission
                 'user_id'     => $userId,
                 'source'      => $source,
                 'ref_user_id' => $refUserId,
-                'win_amount'  => self::unitWinAmount($act),
+                'win_amount'  => self::nextRandomWinAmountLocked($act),
                 'claimed'     => 0,
                 'claimed_at'  => 0,
                 'createtime'  => $now,
@@ -904,12 +1017,12 @@ class FansHubFission
                 if (!$actRow || !in_array((int)$actRow['status'], $claimableStatus, true)) {
                     throw new Exception('活动不可领取');
                 }
-                // 补发定额（兼容旧未赋额数据）
+                // 补发随机金额（兼容旧未赋额数据）
                 if (!(round((float)($q['win_amount'] ?? 0), 2) > 0)) {
-                    $unit = self::unitWinAmount($actRow);
-                    if ($unit > 0) {
-                        Db::name('fans_fission_qual')->where('id', (int)$q['id'])->update(['win_amount' => $unit]);
-                        $q['win_amount'] = $unit;
+                    $amtFill = self::nextRandomWinAmountLocked($actRow);
+                    if ($amtFill > 0) {
+                        Db::name('fans_fission_qual')->where('id', (int)$q['id'])->update(['win_amount' => $amtFill]);
+                        $q['win_amount'] = $amtFill;
                     }
                 }
             } else {
