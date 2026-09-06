@@ -56,7 +56,7 @@
                   v-if="catIconSrc(cat)"
                   class="game-lobby-cat-ico"
                   :src="catIconSrc(cat)"
-                  mode="aspectFit"
+                  mode="widthFix"
                 />
                 <text v-else class="game-lobby-cat-ico-emoji">{{ cat.icon || '🎮' }}</text>
               </view>
@@ -283,7 +283,7 @@ const DEFAULT_CATEGORIES = [
   { id: 'commission', iconImg: 'cat-4.png', label: '红宝佣金', action: 'commission' },
 ]
 
-const LOBBY_ASSET_VER = '16'
+const LOBBY_ASSET_VER = '17'
 
 /** 默认游戏格：盲盒/鱼虾蟹已隐藏（后台 status=hidden） */
 const DEFAULT_GAMES = [
@@ -476,9 +476,11 @@ function lobbyCatIcon(cat) {
 
 function catIconSrc(cat) {
   if (!cat) return ''
-  // 固定四格整图优先（CMS 旧小图标不覆盖）
+  // 整图只在本站 /999/static（未上 OSS），必须走 packagedStaticUrl，勿拼 CDN
   const tile = CAT_FULL_TILE[cat.id]
-  if (tile) return lobbyAsset(tile)
+  if (tile) {
+    return packagedStaticUrl('home/lobby/' + tile) + '?v=' + LOBBY_ASSET_VER
+  }
   if (cat.iconStatic) {
     return packagedStaticUrl(String(cat.iconStatic).replace(/^\/+/, '')) + '?v=' + LOBBY_ASSET_VER
   }
