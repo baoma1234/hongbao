@@ -21,7 +21,7 @@
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">点击动作:</label>
         <div class="col-xs-12 col-sm-8">
-            {:build_radios('row[link_type]', $linkTypeList, $row.link_type|default='share')}
+            {:build_radios('row[link_type]', $linkTypeList, (isset($row['link_type']) ? $row['link_type'] : 'share'))}
         </div>
     </div>
     <div class="form-group">
@@ -40,7 +40,7 @@
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">状态:</label>
         <div class="col-xs-12 col-sm-8">
-            {:build_radios('row[status]', $statusList, $row.status|default='normal')}
+            {:build_radios('row[status]', $statusList, (isset($row['status']) ? $row['status'] : 'normal'))}
         </div>
     </div>
     <div class="form-group layer-footer">
