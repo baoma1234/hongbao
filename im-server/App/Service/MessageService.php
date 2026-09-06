@@ -1030,8 +1030,12 @@ class MessageService
         $beforeId = (int)$beforeId;
         $userId = (int)$userId;
         $minId = 0;
-        if ($conversationType === 2 && $userId > 0) {
-            $minId = $this->groupClearedMsgId($userId, (int)$conversationId);
+        if ($userId > 0) {
+            if ($conversationType === 2) {
+                $minId = $this->groupClearedMsgId($userId, (int)$conversationId);
+            } elseif ($conversationType === 1) {
+                $minId = $this->privateClearedMsgId($userId, $conversationId);
+            }
         }
 
         // 首屏：优先 Redis recent（写入时已 LPUSH），避免每次打开会话扫表
@@ -1580,7 +1584,7 @@ class MessageService
                     $items[$idx]['is_im_admin'] = true;
                     $items[$idx]['is_default_cs'] = true;
                     $items[$idx]['pinned'] = true;
-                    $items[$idx]['undeletable'] = true;
+                    $items[$idx]['undeletable'] = false;
                     if ($items[$idx]['title'] === '' && !empty($csMeta['label'])) {
                         $items[$idx]['title'] = (string)$csMeta['label'];
                     }
@@ -1596,7 +1600,7 @@ class MessageService
                         'is_im_admin'       => true,
                         'is_default_cs'     => true,
                         'pinned'            => true,
-                        'undeletable'       => true,
+                        'undeletable'       => false,
                         'updatetime'        => 0,
                         'unread_count'      => 0,
                     ];
@@ -1616,7 +1620,8 @@ class MessageService
             if ((int)($it['conversation_type'] ?? 0) === 1 && AdminService::isDefaultCs((int)($it['peer_user_id'] ?? 0))) {
                 $it['pinned'] = true;
                 $it['is_default_cs'] = true;
-                $it['undeletable'] = true;
+                // 允许用户删除；本端水位软删，后台代聊仍可查原消息
+                $it['undeletable'] = false;
                 if (empty($it['title'])) {
                     $it['title'] = '红宝客服';
                 }
@@ -1752,7 +1757,8 @@ class MessageService
     }
 
     /**
-     * 删除私聊会话（仅对本用户隐藏列表）：备份消息到删除表，不删对方可见的原消息
+     * 删除私聊会话（仅对本用户隐藏列表）：备份消息到删除表，不删对方可见的原消息。
+     * 红宝客服：额外写入本端水位，用户历史清空；fa_chat_messages 保留，后台代聊可查。
      */
     public function hidePrivateConversation($userId, $conversationId, $peerUserId = 0)
     {
@@ -1777,9 +1783,7 @@ class MessageService
         if ($peerUserId <= 0) {
             $peerUserId = ($a === $userId) ? $b : $a;
         }
-        if (AdminService::isDefaultCs($peerUserId)) {
-            throw new \RuntimeException('红宝客服会话不可删除');
-        }
+        $isDefaultCs = AdminService::isDefaultCs($peerUserId);
 
         $msgTable = Db::table('chat_messages');
         $delTable = Db::table('chat_conversation_deleted');
@@ -1810,6 +1814,7 @@ class MessageService
             'peer_user_id' => $peerUserId,
             'last_message' => $lastPreview,
             'msg_count'    => count($rows),
+            'is_default_cs'=> $isDefaultCs ? 1 : 0,
         ], JSON_UNESCAPED_UNICODE);
 
         Db::begin();
@@ -1877,6 +1882,16 @@ class MessageService
             throw new \RuntimeException('delete backup failed');
         }
 
+        // 红宝客服：本端水位软删历史（原消息保留给代聊）
+        $clearedMsgId = 0;
+        if ($isDefaultCs) {
+            try {
+                $clearedMsgId = $this->clearPrivateConversationHistory($userId, $cid, $peerUserId, $lastMsgId);
+            } catch (\Throwable $e) {
+                CatchLog::quiet($e, 'Service.MessageService');
+            }
+        }
+
         $member = '1:' . $cid;
         try {
             $r = RedisClient::conn();
@@ -1897,8 +1912,137 @@ class MessageService
             'peer_user_id'      => $peerUserId,
             'backup_id'         => (int)$backupId,
             'backup_msg_count'  => count($rows),
+            'cleared_msg_id'    => (int)$clearedMsgId,
             'deleted'           => true,
         ];
+    }
+
+    /**
+     * 私聊本端软删水位：用户历史仅展示 id > cleared_msg_id；原表消息不动
+     */
+    public function clearPrivateConversationHistory($userId, $conversationId, $peerUserId = 0, $clearedMsgId = 0)
+    {
+        $userId = (int)$userId;
+        $cid = (string)$conversationId;
+        $peerUserId = (int)$peerUserId;
+        $clearedMsgId = (int)$clearedMsgId;
+        if ($userId <= 0 || $cid === '') {
+            throw new \InvalidArgumentException('invalid conversation');
+        }
+        if ($peerUserId <= 0) {
+            $bits = explode('_', $cid);
+            if (count($bits) === 2) {
+                $a = (int)$bits[0];
+                $b = (int)$bits[1];
+                $peerUserId = ($a === $userId) ? $b : $a;
+            }
+        }
+        if ($clearedMsgId <= 0) {
+            $row = Db::fetch(
+                'SELECT MAX(id) AS mid FROM ' . Db::table('chat_messages')
+                . ' WHERE conversation_type=1 AND conversation_id=? AND status IN (1,2)',
+                [$cid]
+            );
+            $clearedMsgId = (int)($row['mid'] ?? 0);
+        }
+        $prev = $this->privateClearedMsgId($userId, $cid);
+        if ($clearedMsgId < $prev) {
+            $clearedMsgId = $prev;
+        }
+        $now = time();
+        $table = Db::table('chat_private_msg_cleared');
+        Db::exec(
+            "INSERT INTO {$table} (user_id, conversation_id, peer_user_id, cleared_msg_id, updatetime, createtime)"
+            . ' VALUES (?,?,?,?,?,?)'
+            . ' ON DUPLICATE KEY UPDATE'
+            . ' peer_user_id=VALUES(peer_user_id),'
+            . ' cleared_msg_id=GREATEST(cleared_msg_id, VALUES(cleared_msg_id)),'
+            . ' updatetime=VALUES(updatetime)',
+            [$userId, $cid, $peerUserId, $clearedMsgId, $now, $now]
+        );
+        $this->bustPrivateClearedCache($userId);
+        if ($clearedMsgId > 0) {
+            try {
+                $this->markConversationRead($userId, 1, $cid, $clearedMsgId);
+            } catch (\Throwable $e) {
+                CatchLog::quiet($e, 'Service.MessageService');
+            }
+        }
+        return $clearedMsgId;
+    }
+
+    public function privateClearedMsgId($userId, $conversationId)
+    {
+        $userId = (int)$userId;
+        $cid = (string)$conversationId;
+        if ($userId <= 0 || $cid === '') {
+            return 0;
+        }
+        $map = $this->privateClearedMap($userId);
+        return (int)($map[$cid] ?? 0);
+    }
+
+    /** @return array<string,int> conversation_id => cleared_msg_id */
+    protected function privateClearedMap($userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return [];
+        }
+        try {
+            $r = RedisClient::conn();
+            $ck = RedisClient::key('pclear:' . $userId);
+            $cached = $r->get($ck);
+            if ($cached !== false && $cached !== null && $cached !== '') {
+                $decoded = json_decode((string)$cached, true);
+                if (is_array($decoded)) {
+                    $out = [];
+                    foreach ($decoded as $cid => $mid) {
+                        $out[(string)$cid] = (int)$mid;
+                    }
+                    return $out;
+                }
+            }
+        } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.MessageService');
+        }
+
+        $out = [];
+        try {
+            $rows = Db::fetchAll(
+                'SELECT conversation_id, cleared_msg_id FROM ' . Db::table('chat_private_msg_cleared')
+                . ' WHERE user_id=?',
+                [$userId]
+            );
+            foreach ($rows as $row) {
+                $cid = (string)($row['conversation_id'] ?? '');
+                if ($cid !== '') {
+                    $out[$cid] = (int)($row['cleared_msg_id'] ?? 0);
+                }
+            }
+        } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.MessageService');
+            return [];
+        }
+        try {
+            RedisClient::conn()->setex(
+                RedisClient::key('pclear:' . $userId),
+                300,
+                json_encode($out, JSON_UNESCAPED_UNICODE)
+            );
+        } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.MessageService');
+        }
+        return $out;
+    }
+
+    protected function bustPrivateClearedCache($userId)
+    {
+        try {
+            RedisClient::conn()->del(RedisClient::key('pclear:' . (int)$userId));
+        } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.MessageService');
+        }
     }
 
     /**
@@ -2364,7 +2508,7 @@ class MessageService
             }
         }
 
-        // 群软删水位：未读从 cleared_msg_id 之后算起
+        // 群/私聊软删水位：未读从 cleared_msg_id 之后算起
         $clearedMap = $this->groupClearedMap($userId);
         if ($clearedMap) {
             foreach ($needSql as $key => $t) {
@@ -2372,6 +2516,18 @@ class MessageService
                     continue;
                 }
                 $wm = (int)($clearedMap[(int)$t['id']] ?? 0);
+                if ($wm > 0) {
+                    $cursors[$key] = max($cursors[$key] ?? 0, $wm);
+                }
+            }
+        }
+        $privateCleared = $this->privateClearedMap($userId);
+        if ($privateCleared) {
+            foreach ($needSql as $key => $t) {
+                if ((int)$t['type'] !== 1) {
+                    continue;
+                }
+                $wm = (int)($privateCleared[(string)$t['id']] ?? 0);
                 if ($wm > 0) {
                     $cursors[$key] = max($cursors[$key] ?? 0, $wm);
                 }

@@ -988,9 +988,14 @@ function confirmDeleteConv(item) {
   if (!item) return
   const type = item.conversation_type | 0
   const id = resolveConvId(item)
+  const csSoft = type === 1 && !!item.is_default_cs
   uni.showModal({
     title: '删除会话',
-    content: '从列表移除「' + displayTitle(item) + '」？聊天记录不会清空。',
+    content: csSoft
+      ? '删除「' + displayTitle(item) + '」？本端聊天记录将清空，后台客服仍可查看。'
+      : type === 2
+        ? '从列表移除「' + displayTitle(item) + '」？本端聊天记录将清空。'
+        : '从列表移除「' + displayTitle(item) + '」？聊天记录不会清空。',
     success: async (r) => {
       if (!r.confirm) return
       try {

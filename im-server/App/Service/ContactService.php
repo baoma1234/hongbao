@@ -622,7 +622,7 @@ class ContactService
                 'is_default_cs'   => AdminService::isDefaultCs($pid),
                 'is_im_admin'     => AdminService::isImAdmin($pid),
                 'pinned'          => AdminService::isDefaultCs($pid),
-                'undeletable'     => AdminService::isDefaultCs($pid),
+                'undeletable'     => false,
             ];
         }
         $onlineMap = [];
