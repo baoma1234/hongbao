@@ -10,9 +10,7 @@
             autoplay
             :interval="4000"
             :duration="400"
-            indicator-dots
-            indicator-color="rgba(255,255,255,0.35)"
-            indicator-active-color="#ffffff"
+            :indicator-dots="false"
           >
             <swiper-item
               v-for="(b, bi) in lobbyBanners"

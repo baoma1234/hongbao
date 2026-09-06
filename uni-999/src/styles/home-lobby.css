@@ -68,6 +68,17 @@
   min-height: 0;
 }
 
+/* 隐藏轮播定位点（四端） */
+.game-lobby-banner-swiper .uni-swiper-dots,
+.game-lobby-banner-swiper .uni-swiper-dot,
+.game-lobby-banner .uni-swiper-dots,
+.game-lobby-banner .wx-swiper-dots {
+  display: none !important;
+  opacity: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+}
+
 .game-lobby-banner-swiper swiper-item,
 .game-lobby-banner-swiper .uni-swiper-item {
   height: 100% !important;
