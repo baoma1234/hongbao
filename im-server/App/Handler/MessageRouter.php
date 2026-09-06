@@ -299,6 +299,10 @@ class MessageRouter
                 case 'friend.set_remark':
                     $this->handleFriendSetRemark($connection, $uid, $payload, $reqId);
                     break;
+                case 'friend.delete':
+                case 'friend.remove':
+                    $this->handleFriendDelete($connection, $uid, $payload, $reqId);
+                    break;
                 default:
                     $this->error($connection, 'unknown_type', $reqId);
             }
@@ -1084,6 +1088,26 @@ class MessageRouter
             $this->send($connection, 'friend.remark.ok', $result, $reqId);
         } catch (\Throwable $e) {
             $this->error($connection, $e->getMessage() ?: '备注失败', $reqId);
+        }
+    }
+
+    protected function handleFriendDelete(TcpConnection $connection, $uid, array $payload, $reqId)
+    {
+        $peerId = (int)($payload['peer_user_id'] ?? $payload['user_id'] ?? $payload['to_user_id'] ?? 0);
+        try {
+            $result = $this->contacts->deleteFriend($uid, $peerId);
+            $this->send($connection, 'friend.deleted', $result, $reqId);
+            $peerId = (int)($result['peer_user_id'] ?? $peerId);
+            if ($peerId > 0) {
+                $this->pushToUser($peerId, 'friend.deleted', [
+                    'peer_user_id'    => (int)$uid,
+                    'conversation_id'=> (string)($result['conversation_id'] ?? ''),
+                    'deleted'        => true,
+                    'by_peer'        => true,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            $this->error($connection, $e->getMessage() ?: '删除失败', $reqId);
         }
     }
 

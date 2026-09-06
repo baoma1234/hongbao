@@ -616,13 +616,14 @@ class ContactService
             }
             $list[] = [
                 'user_id'         => $pid,
+                'peer_user_id'    => $pid,
                 'nickname'        => $nick !== '' ? $nick : ('ID' . $pid),
                 'avatar'          => (string)($row['avatar'] ?? ''),
                 'online'          => false,
                 'is_default_cs'   => AdminService::isDefaultCs($pid),
                 'is_im_admin'     => AdminService::isImAdmin($pid),
                 'pinned'          => AdminService::isDefaultCs($pid),
-                'undeletable'     => false,
+                'undeletable'     => AdminService::isDefaultCs($pid),
             ];
         }
         $onlineMap = [];
@@ -657,6 +658,42 @@ class ContactService
             return !empty($a['online']) ? -1 : 1;
         });
         return $list;
+    }
+
+    /**
+     * 删除好友（双向软删 status=0）。红宝客服不可删。
+     */
+    public function deleteFriend($userId, $peerId)
+    {
+        $userId = (int)$userId;
+        $peerId = (int)$peerId;
+        if ($userId <= 0 || $peerId <= 0 || $userId === $peerId) {
+            throw new \InvalidArgumentException('invalid user');
+        }
+        if (AdminService::isDefaultCs($peerId)) {
+            throw new \RuntimeException('红宝客服不可删除');
+        }
+        $convId = $this->privateConversationId($userId, $peerId);
+        if (!$this->isFriend($userId, $peerId)) {
+            return [
+                'peer_user_id'    => $peerId,
+                'conversation_id' => $convId,
+                'deleted'         => true,
+                'already'         => true,
+            ];
+        }
+        Db::exec(
+            'UPDATE ' . Db::table('chat_contacts')
+            . ' SET status=0 WHERE (user_id=? AND peer_user_id=?) OR (user_id=? AND peer_user_id=?)',
+            [$userId, $peerId, $peerId, $userId]
+        );
+        $this->invalidateFriendCache($userId, $peerId);
+        $this->warmFriendCache($userId, $peerId, false);
+        return [
+            'peer_user_id'    => $peerId,
+            'conversation_id' => $convId,
+            'deleted'         => true,
+        ];
     }
 
     /**

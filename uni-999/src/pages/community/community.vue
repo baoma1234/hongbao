@@ -154,20 +154,42 @@
                     <view
                       v-for="f in friends"
                       :key="f.peer_user_id || f.user_id"
-                      class="chat-feed-item"
-                      :class="{ 'is-pinned-cs': !!(f.is_default_cs || f.pinned) }"
-                      @click="openFriendChat(f)"
+                      class="chat-conv-swipe chat-friend-swipe"
+                      :class="{
+                        open: swipeOpenKey === friendKey(f),
+                        'is-dragging': swipeDragKey === friendKey(f),
+                        'no-swipe': isCsFriend(f),
+                      }"
                     >
-                      <view class="chat-avatar">
-                        <image :src="avatarSrc(f.avatar_url || f.avatar)" mode="aspectFill" lazy-load />
-                        <view class="chat-feed-online-dot" :class="{ off: !f.online }" />
-                      </view>
-                      <view class="chat-feed-body">
-                        <view class="chat-feed-text">
-                          <text v-if="f.is_default_cs || f.pinned" class="chat-feed-pin">📌</text>
-                          {{ friendName(f) }}
+                      <view v-if="!isCsFriend(f)" class="chat-conv-swipe-actions chat-friend-swipe-actions">
+                        <view
+                          class="chat-conv-swipe-btn chat-conv-swipe-del"
+                          @click.stop="onFriendSwipeDelete(f)"
+                        >
+                          <text class="chat-conv-swipe-lab">删除</text>
                         </view>
-                        <view class="chat-feed-status" :class="{ on: !!f.online }">{{ f.online ? '刚刚在线' : '暂时离开' }}</view>
+                      </view>
+                      <view
+                        class="chat-feed-item"
+                        :class="{ 'is-pinned-cs': !!(f.is_default_cs || f.pinned) }"
+                        :style="friendSwipeFrontStyle(f)"
+                        @touchstart="onFriendSwipeStart($event, f)"
+                        @touchmove="onFriendSwipeMove($event, f)"
+                        @touchend="onFriendSwipeEnd($event, f)"
+                        @touchcancel="onFriendSwipeEnd($event, f)"
+                        @click="onFriendClick(f)"
+                      >
+                        <view class="chat-avatar">
+                          <image :src="avatarSrc(f.avatar_url || f.avatar)" mode="aspectFill" lazy-load />
+                          <view class="chat-feed-online-dot" :class="{ off: !f.online }" />
+                        </view>
+                        <view class="chat-feed-body">
+                          <view class="chat-feed-text">
+                            <text v-if="f.is_default_cs || f.pinned" class="chat-feed-pin">📌</text>
+                            {{ friendName(f) }}
+                          </view>
+                          <view class="chat-feed-status" :class="{ on: !!f.online }">{{ f.online ? '刚刚在线' : '暂时离开' }}</view>
+                        </view>
                       </view>
                     </view>
                     <view v-if="!friends.length && communityExtraLoading" class="chat-empty chat-empty-glass">加载中…</view>
@@ -316,7 +338,9 @@ import { avatarSrc } from '../../utils/chat.js'
 import {
   canCreateGroupFromAuth,
   createGroup,
+  deleteFriend,
   getImAuthMeta,
+  hideConversation,
   imConnect,
   joinGroup,
   listFriends,
@@ -454,6 +478,172 @@ function openGameRulesFromCommunity() {
 
 function friendName(f) {
   return f.remark || f.peer_nickname || f.nickname || ('ID' + (f.peer_user_id || f.user_id || ''))
+}
+
+function friendKey(f) {
+  return 'f:' + ((f && (f.peer_user_id || f.user_id)) | 0)
+}
+
+function isCsFriend(f) {
+  return !!(f && (f.is_default_cs || f.undeletable))
+}
+
+const swipeOpenKey = ref('')
+const swipeDragKey = ref('')
+const swipeOffset = ref(0)
+const FRIEND_SWIPE_W = 64
+let swipeState = null
+let skipNextFriendClick = false
+
+function closeFriendSwipe(exceptKey) {
+  if (!exceptKey) {
+    swipeOpenKey.value = ''
+    swipeDragKey.value = ''
+    swipeOffset.value = 0
+    return
+  }
+  if (swipeOpenKey.value && swipeOpenKey.value !== exceptKey) {
+    swipeOpenKey.value = ''
+  }
+}
+
+function friendSwipeFrontStyle(f) {
+  const key = friendKey(f)
+  if (swipeDragKey.value === key) {
+    const x = Number(swipeOffset.value) || 0
+    return {
+      transform: 'translateX(' + x + 'px)',
+      transition: 'none',
+    }
+  }
+  if (swipeOpenKey.value === key) {
+    return {
+      transform: 'translateX(-' + FRIEND_SWIPE_W + 'px)',
+      transition: 'transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1)',
+    }
+  }
+  return {
+    transform: 'translateX(0)',
+    transition: 'transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1)',
+  }
+}
+
+function touchPoint(ev) {
+  const t = (ev && ev.touches && ev.touches[0]) || (ev && ev.changedTouches && ev.changedTouches[0])
+  if (!t) return null
+  return { x: t.clientX, y: t.clientY }
+}
+
+function onFriendSwipeStart(ev, f) {
+  if (isCsFriend(f)) {
+    swipeState = null
+    return
+  }
+  const p = touchPoint(ev)
+  if (!p || !f) return
+  const key = friendKey(f)
+  const baseX = swipeOpenKey.value === key ? -FRIEND_SWIPE_W : 0
+  swipeState = {
+    key,
+    startX: p.x,
+    startY: p.y,
+    baseX,
+    moved: false,
+    horizontal: false,
+  }
+}
+
+function onFriendSwipeMove(ev, f) {
+  if (isCsFriend(f) || !swipeState || !f || swipeState.key !== friendKey(f)) return
+  const p = touchPoint(ev)
+  if (!p) return
+  const dx = p.x - swipeState.startX
+  const dy = p.y - swipeState.startY
+  if (!swipeState.horizontal) {
+    if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return
+    if (Math.abs(dx) <= Math.abs(dy)) {
+      swipeState = null
+      return
+    }
+    swipeState.horizontal = true
+    closeFriendSwipe(swipeState.key)
+    swipeDragKey.value = swipeState.key
+  }
+  swipeState.moved = true
+  const nx = Math.max(-FRIEND_SWIPE_W, Math.min(0, swipeState.baseX + dx))
+  swipeOffset.value = nx
+  if (nx <= -FRIEND_SWIPE_W / 2) swipeOpenKey.value = swipeState.key
+  else if (swipeOpenKey.value === swipeState.key) swipeOpenKey.value = ''
+}
+
+function onFriendSwipeEnd(ev, f) {
+  if (!swipeState || !f || swipeState.key !== friendKey(f)) {
+    swipeState = null
+    return
+  }
+  const st = swipeState
+  swipeState = null
+  if (!st.horizontal) {
+    swipeDragKey.value = ''
+    return
+  }
+  const open = swipeOffset.value <= -FRIEND_SWIPE_W * 0.4
+  swipeDragKey.value = ''
+  swipeOffset.value = 0
+  swipeOpenKey.value = open ? st.key : ''
+  skipNextFriendClick = true
+}
+
+function onFriendClick(f) {
+  if (skipNextFriendClick) {
+    skipNextFriendClick = false
+    return
+  }
+  const key = friendKey(f)
+  if (swipeOpenKey.value && swipeOpenKey.value !== key) {
+    closeFriendSwipe()
+    return
+  }
+  if (swipeOpenKey.value === key) {
+    closeFriendSwipe()
+    return
+  }
+  openFriendChat(f)
+}
+
+function onFriendSwipeDelete(f) {
+  closeFriendSwipe()
+  confirmDeleteFriend(f)
+}
+
+function confirmDeleteFriend(f) {
+  if (!f || isCsFriend(f)) {
+    uni.showToast({ title: '红宝客服不可删除', icon: 'none' })
+    return
+  }
+  const peer = (f.peer_user_id || f.user_id) | 0
+  if (!peer) return
+  uni.showModal({
+    title: '删除好友',
+    content: '删除好友「' + friendName(f) + '」？双方将解除好友关系。',
+    success: async (r) => {
+      if (!r.confirm) return
+      try {
+        await imConnect()
+        await deleteFriend(peer)
+        try {
+          const cid = f.conversation_id || ''
+          await hideConversation(1, cid, { to_user_id: peer })
+        } catch (e2) {}
+        friends.value = (friends.value || []).filter((x) => ((x.peer_user_id || x.user_id) | 0) !== peer)
+        communityExtraOk = false
+        communityExtraAt = 0
+        uni.showToast({ title: '已删除', icon: 'none' })
+      } catch (e) {
+        uni.showToast({ title: (e && e.message) || '删除失败', icon: 'none' })
+      }
+    },
+  })
 }
 
 function setCommunitySub(sub) {
@@ -710,10 +900,18 @@ onShow(() => {
   bindForegroundResume()
   resumeFromBackground('community-onShow')
   if (typeof off === 'function') off()
-  off = onImEvent((type) => {
+  off = onImEvent((type, data) => {
     if (type === 'auth.ok') refreshAuthFlags()
     if (type === 'group.created' || type === 'group.kicked') {
       loadMyGroupsSafe()
+    }
+    if (type === 'friend.deleted') {
+      const peer = (data && (data.peer_user_id || data.user_id)) | 0
+      if (peer > 0) {
+        friends.value = (friends.value || []).filter((x) => ((x.peer_user_id || x.user_id) | 0) !== peer)
+      }
+      communityExtraOk = false
+      communityExtraAt = 0
     }
   })
   void loadCommunity().then(() => refreshAuthFlags())
@@ -783,6 +981,21 @@ onHide(() => {
   box-sizing: border-box;
   gap: 0 !important;
   background: transparent;
+}
+.chat-friend-swipe {
+  background: #fff;
+}
+.chat-friend-swipe.no-swipe .chat-feed-item {
+  transform: none !important;
+}
+.chat-friend-swipe-actions {
+  width: 64px !important;
+}
+.chat-friend-swipe .chat-feed-item {
+  position: relative;
+  z-index: 1;
+  background: #fff;
+  will-change: transform;
 }
 .chat-official-body {
   flex: 1 1 auto;

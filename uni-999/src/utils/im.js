@@ -634,6 +634,10 @@ export function friendCancel(requestId) {
   return imSend('friend.cancel', { request_id: requestId | 0 }, true)
 }
 
+export function deleteFriend(peerUserId) {
+  return imSend('friend.delete', { peer_user_id: peerUserId | 0 }, true)
+}
+
 export function listMyGroups() {
   return imSend('group.list', {}, true)
 }
