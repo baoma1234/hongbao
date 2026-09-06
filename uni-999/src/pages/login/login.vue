@@ -335,7 +335,7 @@ function resolvePostLoginUrl() {
     uni.removeStorageSync('fanshub_login_return')
     if (u.indexOf('/pages/') === 0 && u.indexOf('..') < 0) return u
   } catch (e) {}
-  return '/pages/messages/messages'
+  return '/pages/home/home'
 }
 
 if (getToken()) {

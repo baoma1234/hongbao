@@ -1113,7 +1113,9 @@ class MessageService
 
     /**
      * 撤回消息（status=2）
-     * 本人 2 分钟内可撤；IM 管理员可撤任意消息
+     * - 本人：群聊限 2 分钟；私聊可随时删（前端展示「删除」）
+     * - 群主：可撤回本群任意文字/图片，无时间限制
+     * - IM 管理员：可撤任意消息
      */
     public function recall($messageId, $operatorId)
     {
@@ -1129,19 +1131,30 @@ class MessageService
         if ((int)$row['status'] !== 1) {
             throw new \RuntimeException('cannot recall');
         }
-        $isOwner = (int)$row['from_user_id'] === $operatorId;
+
+        $isPrivate = (int)($row['conversation_type'] ?? 0) === 1;
+        $isSender = (int)$row['from_user_id'] === $operatorId;
         $isAdmin = AdminService::isImAdmin($operatorId);
-        if (!$isOwner && !$isAdmin) {
+        $groupId = (int)($row['group_id'] ?? 0);
+        $isGroupOwner = !$isPrivate && $groupId > 0 && (new GroupService())->isOwner($groupId, $operatorId);
+        $msgType = (int)($row['msg_type'] ?? 0);
+        // 群主仅可管文字(1)、图片(4)；表情包等不在此列
+        $ownerTargetOk = $msgType === 1 || $msgType === 4;
+
+        if (!$isSender && !$isAdmin && !($isGroupOwner && $ownerTargetOk)) {
             throw new \RuntimeException('no permission');
         }
-        // 私聊：本人可随时删除（前端展示为「删除」）；群聊本人仍限 2 分钟撤回
-        $isPrivate = (int)($row['conversation_type'] ?? 0) === 1;
-        if ($isOwner && !$isAdmin && !$isPrivate) {
+        // 本人非管理员：群聊仍限 2 分钟；私聊本人可随时删
+        if ($isSender && !$isAdmin && !$isPrivate) {
             $age = time() - (int)$row['createtime'];
             if ($age > 120) {
-                throw new \RuntimeException('recall expired');
+                // 超时后若本人不是群主，或消息类型群主也不能管 → 失败
+                if (!($isGroupOwner && $ownerTargetOk)) {
+                    throw new \RuntimeException('recall expired');
+                }
             }
         }
+
         Db::exec(
             'UPDATE ' . Db::table('chat_messages') . ' SET status=2 WHERE id=? AND status=1',
             [$messageId]

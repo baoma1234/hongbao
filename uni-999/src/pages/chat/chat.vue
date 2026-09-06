@@ -2446,8 +2446,24 @@ function applyRestored(msg) {
   appendLocalMessage(Object.assign({}, msg, { status: 1 }))
 }
 
+function isGroupOwnerLocal() {
+  return !isPrivate.value && ((groupMeta.value && groupMeta.value.my_role) | 0) === 3
+}
+
+/** 群主可管：纯文字 / 图片（不含表情包、视频、红包等） */
+function isOwnerRecallTarget(m) {
+  if (!m || isRecalled(m) || isSystemMsg(m)) return false
+  if (isImage(m)) return true
+  if (msgType(m) === 1 && !isSticker(m)) return true
+  return false
+}
+
 function canRecallLocal(m) {
-  if (!m || !isMine(m) || isRecalled(m) || isSystemMsg(m)) return false
+  if (!m || isRecalled(m) || isSystemMsg(m)) return false
+  // 群主：任意成员的文字/图片，无时间限制
+  if (isGroupOwnerLocal() && isOwnerRecallTarget(m)) return true
+  // 本人：私聊可删；群聊限 2 分钟
+  if (!isMine(m)) return false
   if (isPrivate.value) return true
   const ts = (m.createtime | 0) || 0
   const t = ts < 1e12 ? ts : Math.floor(ts / 1000)

@@ -114,7 +114,7 @@ onLaunch(async () => {
       uni.reLaunch({ url: chatUrl })
       return
     }
-    uni.reLaunch({ url: '/pages/messages/messages' })
+    uni.reLaunch({ url: '/pages/home/home' })
   }
 })
 
