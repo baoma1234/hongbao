@@ -229,10 +229,16 @@ foreach ($menus as $m) {
 
 $grp = $pdo->query("SELECT id,rules FROM {$prefix}auth_group WHERE id=1 LIMIT 1")->fetch(PDO::FETCH_ASSOC);
 if ($grp) {
-    $rules = array_filter(array_map('intval', explode(',', (string)$grp['rules'])));
-    $merged = array_values(array_unique(array_merge($rules, $allRuleIds)));
-    $pdo->prepare("UPDATE {$prefix}auth_group SET rules=? WHERE id=1")->execute([implode(',', $merged)]);
-    echo "OK granted group#1\n";
+    $raw = trim((string)$grp['rules']);
+    // 超级管理员 rules='*' 时勿改写成 ID 列表，否则会把全部菜单权限收窄掉
+    if ($raw === '*') {
+        echo "SKIP grant group#1 (rules=*)\n";
+    } else {
+        $rules = array_filter(array_map('intval', explode(',', $raw)));
+        $merged = array_values(array_unique(array_merge($rules, $allRuleIds)));
+        $pdo->prepare("UPDATE {$prefix}auth_group SET rules=? WHERE id=1")->execute([implode(',', $merged)]);
+        echo "OK granted group#1\n";
+    }
 }
 
 $cacheDir = $root . '/runtime/cache';
