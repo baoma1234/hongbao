@@ -51,14 +51,15 @@
               hover-class="game-lobby-hit"
               @click="onLobbyCat(cat)"
             >
-              <image
-                v-if="catIconSrc(cat)"
-                class="game-lobby-cat-ico"
-                :src="catIconSrc(cat)"
-                mode="aspectFit"
-              />
-              <text v-else class="game-lobby-cat-ico game-lobby-cat-ico-emoji">{{ cat.icon || '🎮' }}</text>
-              <text class="game-lobby-cat-lab">{{ cat.label }}</text>
+              <view class="game-lobby-cat-tile">
+                <image
+                  v-if="catIconSrc(cat)"
+                  class="game-lobby-cat-ico"
+                  :src="catIconSrc(cat)"
+                  mode="aspectFit"
+                />
+                <text v-else class="game-lobby-cat-ico-emoji">{{ cat.icon || '🎮' }}</text>
+              </view>
             </view>
           </view>
         </view>
@@ -267,14 +268,22 @@ const tickerGames = ['红宝扫雷', '红宝接龙', '红宝牛牛', '红宝对�
 /** 后台大厅装修（lobbyhome）；空则走本地默认 */
 const remoteLobby = ref(null)
 
+/** 分类整图（含文案），UI 不再叠字；顺序 = 热门/游戏/公告/佣金 */
+const CAT_FULL_TILE = {
+  hot: 'cat-1.png',
+  games: 'cat-2.png',
+  notice: 'cat-3.png',
+  commission: 'cat-4.png',
+}
+
 const DEFAULT_CATEGORIES = [
-  { id: 'hot', iconImg: '1.png', label: '热门推荐', action: 'filter' },
-  { id: 'games', iconStatic: 'logo.png', label: '红宝游戏', action: 'filter' },
-  { id: 'notice', iconImg: '66.png', label: '红宝公告', action: 'notice' },
-  { id: 'commission', iconImg: 'commission.png', label: '红宝佣金', action: 'commission' },
+  { id: 'hot', iconImg: 'cat-1.png', label: '热门推荐', action: 'filter' },
+  { id: 'games', iconImg: 'cat-2.png', label: '红宝游戏', action: 'filter' },
+  { id: 'notice', iconImg: 'cat-3.png', label: '红宝公告', action: 'notice' },
+  { id: 'commission', iconImg: 'cat-4.png', label: '红宝佣金', action: 'commission' },
 ]
 
-const LOBBY_ASSET_VER = '15'
+const LOBBY_ASSET_VER = '16'
 
 /** 默认游戏格：盲盒/鱼虾蟹已隐藏（后台 status=hidden） */
 const DEFAULT_GAMES = [
@@ -467,6 +476,9 @@ function lobbyCatIcon(cat) {
 
 function catIconSrc(cat) {
   if (!cat) return ''
+  // 固定四格整图优先（CMS 旧小图标不覆盖）
+  const tile = CAT_FULL_TILE[cat.id]
+  if (tile) return lobbyAsset(tile)
   if (cat.iconStatic) {
     return packagedStaticUrl(String(cat.iconStatic).replace(/^\/+/, '')) + '?v=' + LOBBY_ASSET_VER
   }
