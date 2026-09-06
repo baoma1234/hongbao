@@ -341,7 +341,7 @@ class Config extends Backend
         if ($section === '' || $section === 'basic') {
             $data['register_bonus_rights'] = 0;
             if (!isset($data['invite_reward_rights'])) {
-                $data['invite_reward_rights'] = 1;
+                $data['invite_reward_rights'] = 0;
             }
             if (!isset($data['invite_reward_hongbao'])) {
                 $data['invite_reward_hongbao'] = 3;

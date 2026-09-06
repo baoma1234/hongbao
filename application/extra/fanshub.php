@@ -40,7 +40,7 @@ return array (
   'exchange_hb_min' => 50.0,
   'exchange_max' => 99999.0,
   'hongbao_unit_value' => 1.0,
-  'register_rights' => 5,
+  'register_rights' => 0,
   'share_rights' => 1,
   'open_account_rights' => 2,
   'secret_lock_seconds' => 900,
@@ -110,15 +110,14 @@ return array (
   'telegram_bot_enabled' => true,
   'telegram_bot_token' => '',
   'telegram_bot_username' => 'QHB_GF_bot',
-  'telegram_webhook_secret' => 'hb_tg_wh_e7c2a9f14d8b6035',
+  'telegram_webhook_secret' => '',
   'telegram_webapp_url' => 'https://hbsq.bio/999/?tg_bind=1',
   'telegram_webapp_path' => '999/?tg_bind=1',
   'telegram_cs_text' => '🙋 如有疑问，请联系 24 小时官方客服通道：
 👉 @BIO_kf',
   'telegram_init_max_age' => 86400,
-  'share_text' => '【红宝官方通知】分享送钱，免费瓜分888,888.00元官方直营全现金红包大池！
-短信登录当场免费赠送 5 股活跃资产股份！每成功拉一个好兄弟来占位，永久再加 1 股 + 3 红宝（可直接闪兑变现）！
-单笔凑满 50 元即可无条件拉起官方 VIP 福利下款，速度扫码锁定最终现金股份：',
+  'share_text' => '【红宝官方通知】分享成功，免费领取现金红包，每成功拉一个好友来占位立得3 元红宝，永久成为下级，永久代理返利0.5%，好友建群娱乐返利1%最高返利1.5%
+邀请链接',
   'marquee_text' => '核心团队长 老A团队 3分钟前成功兑换 80股 股份，已联系专属客服成功领取 400.00 元官方红宝！
 用户 555_vip99 刚刚凭借 红宝官方极速开户 与 3人占位 成功领取50元红宝，跑满游戏流水已被财务人工批放！
 散户 盘口收割机 刚刚通过通道一成功行使 15股，通过官方安全社交软件完成秒到账上款 75.00 元！',
@@ -146,7 +145,7 @@ return array (
     ),
   ),
   'register_bonus_rights' => 0,
-  'invite_reward_rights' => 1,
+  'invite_reward_rights' => 0,
   'invite_reward_hongbao' => 3,
   'share_daily_max' => 20,
   'share_cooldown_seconds' => 2,

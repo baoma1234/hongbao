@@ -18,7 +18,7 @@ use think\Validate;
  */
 class Fanshub extends Api
 {
-    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'tgauth', 'tgbind', 'tgsendsms', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail', 'fissionclaims', 'yxxhall', 'yxxtick', 'yxxfair', 'yxxgroupdissolve', 'lobbyhome', 'pushdevicedisable'];
+    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'tgauth', 'tgbind', 'tgsendsms', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail', 'fissionclaims', 'yxxhall', 'yxxtick', 'yxxfair', 'yxxgroupdissolve', 'lobbyhome', 'lobbyguide', 'pushdevicedisable'];
     protected $noNeedRight = '*';
 
     public function _initialize()
@@ -26,7 +26,7 @@ class Fanshub extends Api
         FansHubSms::boot();
         parent::_initialize();
         $action = strtolower($this->request->action());
-        $exempt = ['config', 'bootstrap', 'comments', 'inviteleaderboard', 'slidercaptcha', 'grabslider', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail', 'fissionclaims', 'yxxhall', 'yxxtick', 'yxxfair', 'yxxgroupdissolve', 'tgauth', 'tgbind', 'tgsendsms', 'lobbyhome', 'pushdevicedisable'];
+        $exempt = ['config', 'bootstrap', 'comments', 'inviteleaderboard', 'slidercaptcha', 'grabslider', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail', 'fissionclaims', 'yxxhall', 'yxxtick', 'yxxfair', 'yxxgroupdissolve', 'tgauth', 'tgbind', 'tgsendsms', 'lobbyhome', 'lobbyguide', 'pushdevicedisable'];
         if (in_array($action, $exempt, true)) {
             return;
         }
@@ -54,6 +54,20 @@ class Fanshub extends Api
     public function lobbyhome()
     {
         $this->success('ok', \app\common\library\FansHubLobby::homePayload());
+    }
+
+    /**
+     * 玩法说明（游戏详情简介/规则，可匿名）
+     * GET /api/fanshub/lobbyguide?game=saolei
+     */
+    public function lobbyguide()
+    {
+        $game = trim((string)$this->request->param('game', $this->request->param('key', '')));
+        if ($game !== '') {
+            $one = \app\common\library\FansHubLobbyGuide::one($game);
+            $this->success('ok', $one ?: new \stdClass());
+        }
+        $this->success('ok', ['list' => array_values(\app\common\library\FansHubLobbyGuide::allMap())]);
     }
 
     /**

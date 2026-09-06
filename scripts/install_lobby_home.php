@@ -83,6 +83,25 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS `{$prefix}fans_lobby_invites` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='大厅邀请条'");
 echo "OK fans_lobby_invites\n";
 
+$pdo->exec("CREATE TABLE IF NOT EXISTS `{$prefix}fans_lobby_guides` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `game_key` varchar(32) NOT NULL DEFAULT '' COMMENT '详情页 game= 参数',
+  `title` varchar(64) NOT NULL DEFAULT '',
+  `intro` text COMMENT '游戏简介',
+  `rules` text COMMENT '游戏规则，每行一条',
+  `hero` varchar(255) NOT NULL DEFAULT '' COMMENT '头图',
+  `badge` varchar(16) NOT NULL DEFAULT '',
+  `badge_text` varchar(32) NOT NULL DEFAULT '',
+  `weigh` int NOT NULL DEFAULT 0,
+  `status` enum('normal','hidden') NOT NULL DEFAULT 'normal',
+  `createtime` int unsigned DEFAULT NULL,
+  `updatetime` int unsigned DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_game_key` (`game_key`),
+  KEY `idx_status_weigh` (`status`,`weigh`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='大厅玩法说明';");
+echo "OK fans_lobby_guides\n";
+
 // seeds
 $cnt = (int)$pdo->query("SELECT COUNT(*) FROM `{$prefix}fans_lobby_banners`")->fetchColumn();
 if ($cnt === 0) {
@@ -128,6 +147,36 @@ if ($cnt === 0) {
     echo "OK seed invite\n";
 }
 
+$cnt = (int)$pdo->query("SELECT COUNT(*) FROM `{$prefix}fans_lobby_guides`")->fetchColumn();
+if ($cnt === 0) {
+    $gins = $pdo->prepare("INSERT INTO `{$prefix}fans_lobby_guides` (game_key,title,intro,rules,hero,badge,badge_text,weigh,status,createtime,updatetime) VALUES (?,?,?,?,?,?,?,?,?,?,?)");
+    $gins->execute([
+        'jielong', '红宝接龙',
+        '经典接龙玩法，按顺序抢红包并接力发包。手气与策略并重，连击接龙可触发更高奖励倍率，适合群聊热闹互动。',
+        "按顺序轮流抢红包，抢完需在规定时间续发下一包。\n未续包或超时将退出当前接龙，已得奖励保留。\n共有 20 / 50 / 100 / 500 四档红宝场次，按自身实力选择。\n公平随机算法开奖，全程可验。",
+        'home/lobby/detail-01.png', 'hot', '热门', 100, 'normal', $now, $now,
+    ]);
+    $gins->execute([
+        'saolei', '红宝扫雷',
+        '经典扫雷玩法，点击格子找出数字或避开地雷，成功避开所有地雷即可获得倍率奖励。紧张刺激，考验运气与策略！',
+        "点击格子，如果是地雷则游戏结束。\n数字表示周围地雷数量，帮助判断安全格。\n成功翻开所有安全格后获得对应奖励。\n场次金额区间 10–1000 红宝，自由选择入场金额。",
+        'home/lobby/detail-02.png', 'hot', '热门', 90, 'normal', $now, $now,
+    ]);
+    $gins->execute([
+        'niuniu', '红宝牛牛',
+        '经典牛牛比牌玩法，五张牌凑牛型比大小。牌型越大奖励越高，支持快速多局对战，节奏紧凑、刺激上头。',
+        "系统自动发牌，五张牌组成牛型比大小。\n牛九、牛牛等特殊牌型有额外倍率加成。\n每局独立结算，赢家通吃或按规则分配奖池。\n当前开放标准牛牛场，进入群聊即可开局。",
+        'home/lobby/detail-03.png', '', '', 80, 'normal', $now, $now,
+    ]);
+    $gins->execute([
+        'battle', '红宝对战',
+        '多人实时对战模式，匹配对手同台竞技。胜者赢取对方红包奖池，场次金额 10–1000 红宝自由选择。',
+        "进入「全员自由发宝群10-1000」即可参与对战玩法。\n按群内规则自由发包、抢包，金额区间 10–1000 红宝。\n公平随机算法开奖，全程可验。\n请遵守群规，理性娱乐。",
+        'home/lobby/detail-04.png', '', '', 70, 'normal', $now, $now,
+    ]);
+    echo "OK seed guides\n";
+}
+
 $rule = $prefix . 'auth_rule';
 $fansPid = $pdo->query("SELECT id FROM {$rule} WHERE name='fanshub' LIMIT 1")->fetchColumn();
 if (!$fansPid) {
@@ -150,6 +199,7 @@ $menus = [
     ['fanshub/lobbybanner', '轮播图管理', 'fa fa-picture-o', 40],
     ['fanshub/lobbycategory', '大厅分类管理', 'fa fa-th', 30],
     ['fanshub/lobbygame', '大厅分类游戏管理', 'fa fa-gamepad', 20],
+    ['fanshub/lobbyguide', '玩法说明', 'fa fa-book', 15],
     ['fanshub/lobbyinvite', '邀请条管理', 'fa fa-gift', 10],
 ];
 $allRuleIds = [(int)$parentId];

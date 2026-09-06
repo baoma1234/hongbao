@@ -127,7 +127,24 @@ const RECORD_BUCKET_MS = 10 * 60 * 1000
 const SUB_NAV_H = 48
 
 const gameId = ref('')
-const game = computed(() => getLobbyGameDetail(gameId.value))
+const remoteGuide = ref(null)
+const game = computed(() => {
+  const base = getLobbyGameDetail(gameId.value)
+  if (!base) return null
+  const g = remoteGuide.value
+  if (!g || typeof g !== 'object') return base
+  const next = { ...base }
+  if (g.title) next.title = String(g.title)
+  if (g.intro) next.intro = String(g.intro)
+  if (Array.isArray(g.rules) && g.rules.length) next.rules = g.rules.map(String)
+  if (g.hero_raw || g.hero) {
+    const raw = String(g.hero_raw || '').replace(/^home\/lobby\//, '')
+    if (raw && !/^https?:\/\//i.test(raw)) next.hero = raw
+  }
+  if (g.badge != null && String(g.badge) !== '') next.badge = String(g.badge)
+  if (g.badge_text) next.badgeText = String(g.badge_text)
+  return next
+})
 const selectedSession = ref(0)
 const playersText = ref('—')
 const matchedGroupId = ref(0)
@@ -215,7 +232,13 @@ function heroAsset(name) {
   return packagedStaticUrl('home/lobby/' + p) + '?v=' + LOBBY_ASSET_VER
 }
 
-const heroUrl = computed(() => (game.value ? heroAsset(game.value.hero) : ''))
+const heroUrl = computed(() => {
+  const g = game.value
+  if (!g) return ''
+  const rem = remoteGuide.value
+  if (rem && rem.hero && /^https?:\/\//i.test(String(rem.hero))) return String(rem.hero)
+  return heroAsset(g.hero)
+})
 
 function formatCountNum(n) {
   const x = Math.max(0, Math.floor(Number(n) || 0))
@@ -383,7 +406,26 @@ function stopRecordsRefresh() {
   }
 }
 
+async function loadGuide() {
+  const id = String(gameId.value || '').trim()
+  if (!id) {
+    remoteGuide.value = null
+    return
+  }
+  try {
+    const data = await apiRequest('lobbyguide', 'GET', { game: id })
+    if (data && typeof data === 'object' && (data.intro || data.rules || data.title)) {
+      remoteGuide.value = data
+    } else {
+      remoteGuide.value = null
+    }
+  } catch (e) {
+    remoteGuide.value = null
+  }
+}
+
 async function loadExtras() {
+  await loadGuide()
   try {
     const rec = await apiRequest('communityrecommend', 'GET', {})
     const rows = (rec && (rec.list || rec.rows || rec.items)) || rec || []

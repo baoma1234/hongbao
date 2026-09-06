@@ -1791,7 +1791,7 @@ class FansHubService
     /** 下级拉新固定股份（与等级无关） */
     public static function inviteRewardRights()
     {
-        return max(0, (float)self::config('invite_reward_rights', 1));
+        return max(0, (float)self::config('invite_reward_rights', 0));
     }
 
     /** 下级拉新固定红宝（与等级无关） */
@@ -2191,7 +2191,7 @@ class FansHubService
             return $account;
         }
         $now = time();
-        $rights = (float)self::config('register_rights', 5);
+        $rights = max(0, (float)self::config('register_rights', 0));
         Db::startTrans();
         try {
             // 账户缺失后重建：清掉同 user_id 孤儿流水，避免 SUM(ledger) 虚高
@@ -2212,17 +2212,19 @@ class FansHubService
                 'createtime'             => $now,
                 'updatetime'             => $now,
             ]);
-            Ledger::create([
-                'user_id'        => $userId,
-                'type'           => 'register',
-                'rights_change'  => $rights,
-                'balance_change' => 0,
-                'rights_after'   => $rights,
-                'balance_after'  => 0,
-                'remark'         => '新用户注册赠送',
-                'admin_id'       => 0,
-                'createtime'     => $now,
-            ]);
+            if ($rights > 0) {
+                Ledger::create([
+                    'user_id'        => $userId,
+                    'type'           => 'register',
+                    'rights_change'  => $rights,
+                    'balance_change' => 0,
+                    'rights_after'   => $rights,
+                    'balance_after'  => 0,
+                    'remark'         => '新用户注册赠送',
+                    'admin_id'       => 0,
+                    'createtime'     => $now,
+                ]);
+            }
             Db::commit();
             FansHubMarket::onRealUserJoined();
             if ($rights > 0) {
@@ -2972,9 +2974,11 @@ class FansHubService
                 'inviter_ip'      => (string)request()->ip(),
                 'createtime'      => time(),
             ]);
-            // 固定邀请奖励：股份 +1、红宝 +3（仅 type=invite，不再叠加 register_bonus）
-            self::changeAssets($inviterUserId, $shareRights, $hongbaoReward, 'invite', '邀请奖励', 0, '');
-            self::recordTask($inviterUserId, 'invite', $shareRights, $hongbaoReward, '', 'invitee:' . $inviteeUserId);
+            // 邀请奖励：默认仅红宝 +3（股份可配为 0）
+            if ($shareRights != 0 || $hongbaoReward != 0) {
+                self::changeAssets($inviterUserId, $shareRights, $hongbaoReward, 'invite', '邀请奖励', 0, '');
+                self::recordTask($inviterUserId, 'invite', $shareRights, $hongbaoReward, '', 'invitee:' . $inviteeUserId);
+            }
             FansHubPhase2::onInviteRegistered($inviterUserId);
             Db::commit();
             try {
