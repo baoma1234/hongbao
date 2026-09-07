@@ -3585,7 +3585,7 @@ button.chat-rp-fair-link {
   position: relative;
   width: 64px;
   height: 64px;
-  border-radius: var(--radius-md);
+  border-radius: 50%;
   border: 1px solid var(--color-border-warm);
   background: #fff5eb;
   padding: 0;
@@ -3599,6 +3599,7 @@ button.chat-rp-fair-link {
   height: 100%;
   object-fit: cover;
   display: block;
+  border-radius: 50%;
 }
 .chat-setting-avatar-fallback {
   display: flex;
@@ -3798,6 +3799,7 @@ button.chat-rp-fair-link {
   font-size: var(--font-size-xs);
   color: var(--color-text-hint);
   line-height: 1.4;
+  text-align: center;
 }
 .chat-setting-leave-btn {
   width: 100%;

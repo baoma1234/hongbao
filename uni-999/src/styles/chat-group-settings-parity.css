@@ -651,11 +651,16 @@
   opacity: 0.55;
 }
 
+.chat-group-settings-page .chat-setting-avatar-btn {
+  border-radius: 50% !important;
+  overflow: hidden !important;
+}
 .chat-group-settings-page .chat-setting-avatar-img {
   width: 100%;
   height: 100%;
   display: block;
   object-fit: cover;
+  border-radius: 50% !important;
 }
 
 .chat-group-settings-page .chat-setting-avatar-btn.can-edit:active {

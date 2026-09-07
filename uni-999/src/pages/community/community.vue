@@ -1009,6 +1009,9 @@ onHide(() => {
   /* 覆盖主题里可能残留的 transform:none，保证左滑可见 */
   transform: translateX(0);
 }
+.chat-friend-swipe .chat-feed-item.is-pinned-cs {
+  border-bottom: none !important;
+}
 .chat-official-body {
   flex: 1 1 auto;
   min-width: 0;

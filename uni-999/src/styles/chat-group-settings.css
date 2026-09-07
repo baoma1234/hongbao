@@ -440,7 +440,7 @@ body.tab-messages .bottom-action-bar {
   position: relative;
   width: 64px;
   height: 64px;
-  border-radius: var(--radius-md);
+  border-radius: 50%;
   border: 1px solid var(--color-border-warm);
   background: #fff5eb;
   padding: 0;
@@ -456,6 +456,7 @@ body.tab-messages .bottom-action-bar {
   height: 100%;
   object-fit: cover;
   display: block;
+  border-radius: 50%;
 }
 
 .chat-setting-avatar-edit {
@@ -631,6 +632,7 @@ body.tab-messages .bottom-action-bar {
   font-size: var(--font-size-xs);
   color: var(--color-text-hint);
   line-height: 1.4;
+  text-align: center;
 }
 
 .chat-setting-leave-btn {

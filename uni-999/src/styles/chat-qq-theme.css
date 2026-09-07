@@ -762,6 +762,14 @@
   border-bottom: 0.5px solid #e5e5e5 !important;
 }
 
+/* 官方置顶社群：不要底部分割线 */
+#tabMessages .chat-feed-item.is-pinned-cs,
+#tabCommunity .chat-feed-item.is-pinned-cs,
+.msg-tab-root .chat-feed-item.is-pinned-cs,
+.community-page .chat-feed-item.is-pinned-cs {
+  border-bottom: none !important;
+}
+
 /* 群行禁用 transform；好友左滑行勿写 transform:none !important（会盖掉内联 translateX） */
 #tabMessages .chat-my-group-item,
 #tabCommunity .chat-my-group-item,
@@ -2184,13 +2192,17 @@
   border-radius: 0 !important;
   box-shadow: none !important;
 }
+.chat-group-settings-page--qq .chat-setting-avatar-btn {
+  border-radius: 50% !important;
+  overflow: hidden !important;
+}
 .chat-group-settings-page--qq .chat-setting-avatar-img {
-  border-radius: 8px !important;
+  border-radius: 50% !important;
 }
 .chat-group-settings-page--qq .chat-setting-avatar-edit {
   background: rgba(0, 0, 0, 0.45) !important;
   color: #ffffff !important;
-  border-radius: 0 0 8px 8px !important;
+  border-radius: 0 !important;
 }
 .chat-group-settings-page--qq .chat-setting-edit,
 .chat-group-settings-page--qq .chat-setting-block {
@@ -2227,6 +2239,7 @@
   margin: 8px 14px !important;
   color: #999999 !important;
   font-size: 12px !important;
+  text-align: center !important;
 }
 .chat-group-settings-page--qq .chat-action-sheet-panel {
   background: #ffffff !important;
