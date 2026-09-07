@@ -80,7 +80,7 @@ if ($need <= 0) {
     echo "already >= target, only sync cap/quals\n";
     if ($apply) {
         Db::name('fans_fission_activity')->where('id', $aid)->update([
-            'global_cap'   => $target,
+            'global_cap'   => max($target, (int)($act['global_cap'] ?? $target)),
             'global_quals' => $target,
             'updatetime'   => time(),
         ]);
@@ -88,16 +88,17 @@ if ($need <= 0) {
     exit(0);
 }
 
-$remain = round(max(0.01, $pool - $existSum), 2);
+$cap = max(1, (int)$act['global_cap']);
+$remain = round(max(0, $pool - $existSum), 2);
 $remainCents = (int)round($remain * 100);
-echo "need_bots={$need} remain_pool={$remain}\n";
+$slotsLeftToCap = max(1, $cap - $existCnt);
+echo "need_bots={$need} remain_pool={$remain} slots_left_to_cap={$slotsLeftToCap}\n";
 
-// 二倍均值拆剩余金额
-$parts = splitCents($remainCents, $need);
-if (array_sum($parts) !== $remainCents) {
-    fwrite(STDERR, "split sum mismatch\n");
-    exit(1);
-}
+// 按「剩余金额 / 剩余至 cap 份数」二倍均值，只取本次 need 份（不把整池分光）
+$fullParts = splitCents($remainCents, $slotsLeftToCap);
+$parts = array_slice($fullParts, 0, $need);
+$partsSum = array_sum($parts);
+echo "new_parts_sum_cents={$partsSum} reserved_for_later_cents=" . ($remainCents - $partsSum) . "\n";
 
 $bots = Db::name('fans_account')
     ->alias('a')

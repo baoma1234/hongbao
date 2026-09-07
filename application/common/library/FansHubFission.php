@@ -230,7 +230,7 @@ class FansHubFission
             ->join('user u', 'u.id = q.user_id', 'LEFT')
             ->where('q.activity_id', $aid)
             ->field('q.id,q.user_id,q.win_amount,q.claimed,q.claimed_at,q.createtime,q.source,u.nickname,u.avatar')
-            ->orderRaw('q.claimed DESC, IF(q.claimed=1, q.claimed_at, q.createtime) ASC, q.id ASC')
+            ->orderRaw('COALESCE(NULLIF(q.claimed_at, 0), q.createtime) DESC, q.id DESC')
             ->limit(200)
             ->select();
         $rows = is_array($rows) ? $rows : $rows->toArray();
@@ -1272,7 +1272,6 @@ class FansHubFission
                     }
                 }
                 $remainCents = (int)round(max(0, $pool - $allSum) * 100);
-                $botPoolCents = (int)round(max(0, $pool - $humanSum) * 100);
 
                 // 可选机器人：本活动领取次数 < maxPerBot
                 $bots = Db::name('fans_account')
@@ -1303,25 +1302,32 @@ class FansHubFission
                 }
 
                 $newParts = [];
-                $redistribute = $remainCents < $need;
-                if ($redistribute) {
-                    // 剩余池不够新份：真人金额固定，把机器人池在「旧机器人份 + 新份」间重拆
-                    $nBotSlots = count($botRows) + $need;
-                    $parts = self::splitPoolCents($botPoolCents, max(1, $nBotSlots));
+                $afterCnt = $existCnt + $need;
+                $poolCents = (int)round($pool * 100);
+                // 按 global_cap 预留：当前进度只占用 pool * afterCnt/cap，剩余留给未发出的份
+                $idealAssignedCents = (int)round($poolCents * $afterCnt / $cap);
+                $minReserve = max(0, $cap - $afterCnt); // 未发出份至少各留 1 分
+                $idealAssignedCents = min($idealAssignedCents, max(0, $poolCents - $minReserve));
+                $humanCents = (int)round($humanSum * 100);
+                $botBudgetCents = max(0, $idealAssignedCents - $humanCents);
+                $nBotSlots = count($botRows) + $need;
+
+                $needRebalance = count($botRows) > 0
+                    && ($remainCents < $need || $allSum > ($idealAssignedCents / 100) + 0.009);
+
+                if ($needRebalance) {
+                    // 真人金额固定；机器人旧份+新份按 cap 进度预算重拆
+                    $parts = self::splitPoolCents(max($nBotSlots, $botBudgetCents), max(1, $nBotSlots));
+                    // 若预算不足人均 1 分，splitPoolCents 已处理
                     for ($i = 0; $i < count($botRows); $i++) {
                         $old = round((float)$botRows[$i]['win_amount'], 2);
                         $newAmt = round(($parts[$i] ?? 0) / 100, 2);
                         $delta = round($newAmt - $old, 2);
                         if (abs($delta) > 1e-8) {
-                            FansHubService::changeAssets(
+                            self::softAdjustBotHongbao(
                                 (int)$botRows[$i]['user_id'],
-                                0,
-                                0,
-                                'fission_reward',
-                                '裂变进度对齐重拆机器人金额 #' . $activityId . ' qual#' . $botRows[$i]['id'],
-                                0,
-                                'fission_bot_fill_rebalance',
-                                $delta
+                                $delta,
+                                '裂变进度对齐重拆机器人金额 #' . $activityId . ' qual#' . $botRows[$i]['id']
                             );
                             Db::name('fans_fission_qual')->where('id', (int)$botRows[$i]['id'])->update([
                                 'win_amount' => $newAmt,
@@ -1332,7 +1338,10 @@ class FansHubFission
                         $newParts[] = (int)($parts[count($botRows) + $i] ?? 0);
                     }
                 } else {
-                    $newParts = self::splitPoolCents($remainCents, $need);
+                    // 按「剩余金额 / 剩余至 cap 的份数」二倍均值，只取本次 need 份，不把池子一次分光
+                    $slotsLeftToCap = max(1, $cap - $existCnt);
+                    $fullParts = self::splitPoolCents($remainCents, $slotsLeftToCap);
+                    $newParts = array_slice($fullParts, 0, $need);
                 }
 
                 $startTs = (int)$act['start_time'];
@@ -1382,6 +1391,9 @@ class FansHubFission
                 }
             }
 
+            // 资格条数对齐后：按 cap 进度重拆机器人金额，避免历史错误把池子提前分光
+            self::rebalanceBotWinAmountsLocked($activityId, $act, $target);
+
             Db::name('fans_fission_activity')->where('id', $activityId)->update([
                 'global_quals' => $target,
                 'updatetime'   => time(),
@@ -1408,6 +1420,136 @@ class FansHubFission
             $msg .= '（资格条数已对齐，无需增减机器人）';
         }
         return ['ok' => true, 'added' => $added, 'removed' => $removed, 'message' => $msg];
+    }
+
+    /**
+     * 机器人金额冲正：增加照常入账；扣减时余额不足则尽量扣，不抛错。
+     */
+    protected static function softAdjustBotHongbao($userId, $delta, $remark)
+    {
+        $userId = (int)$userId;
+        $delta = round((float)$delta, 2);
+        if ($userId <= 0 || abs($delta) <= 1e-8) {
+            return;
+        }
+        try {
+            if ($delta > 0) {
+                FansHubService::changeAssets(
+                    $userId,
+                    0,
+                    0,
+                    'fission_reward',
+                    $remark,
+                    0,
+                    'fission_bot_fill_rebalance',
+                    $delta
+                );
+                return;
+            }
+            $acc = FansHubService::getOrCreateAccount($userId);
+            $have = round((float)($acc->hongbao ?? 0), 2);
+            $take = round(min(abs($delta), max(0, $have)), 2);
+            if ($take <= 1e-8) {
+                return;
+            }
+            FansHubService::changeAssets(
+                $userId,
+                0,
+                0,
+                'fission_reward',
+                $remark,
+                0,
+                'fission_bot_fill_rebalance',
+                -$take
+            );
+        } catch (\Throwable $e) {
+            // ignore
+        }
+    }
+
+    /**
+     * 活动锁内：真人金额不动，按「当前份数/global_cap」占用奖池比例，重拆机器人 win_amount 并冲正红宝。
+     * 例：pool=1000 cap=100 当前 77 份 → 总额约 770，剩余约 230 留给未发出份。
+     */
+    protected static function rebalanceBotWinAmountsLocked($activityId, array $act, $currentCnt = null)
+    {
+        $activityId = (int)$activityId;
+        $cap = max(1, (int)($act['global_cap'] ?? 100));
+        $pool = round((float)($act['pool_amount'] ?? 0), 2);
+        $poolCents = (int)round($pool * 100);
+        if ($activityId <= 0 || $poolCents <= 0) {
+            return 0;
+        }
+
+        $rows = Db::name('fans_fission_qual')
+            ->alias('q')
+            ->join('fans_account a', 'a.user_id=q.user_id', 'LEFT')
+            ->where('q.activity_id', $activityId)
+            ->field('q.*,COALESCE(a.is_bot,0) AS is_bot')
+            ->order('q.id', 'asc')
+            ->lock(true)
+            ->select();
+        $rows = is_array($rows) ? $rows : ($rows ? $rows->toArray() : []);
+        $existCnt = count($rows);
+        if ($existCnt <= 0) {
+            return 0;
+        }
+        $cnt = $currentCnt === null ? $existCnt : max(0, min((int)$currentCnt, $cap));
+        // 若传入 target 大于实际行数，仍按实际行数占坑（未插入的份不占金额）
+        $cnt = min($cnt, $existCnt);
+
+        $humanSum = 0.0;
+        $botRows = [];
+        $allSum = 0.0;
+        foreach ($rows as $r) {
+            $amt = round((float)($r['win_amount'] ?? 0), 2);
+            $allSum = round($allSum + $amt, 2);
+            if ((int)($r['is_bot'] ?? 0) === 1) {
+                $botRows[] = $r;
+            } else {
+                $humanSum = round($humanSum + $amt, 2);
+            }
+        }
+        if (!$botRows) {
+            return 0;
+        }
+
+        $idealAssignedCents = (int)round($poolCents * $cnt / $cap);
+        $minReserve = max(0, $cap - $cnt);
+        $idealAssignedCents = min($idealAssignedCents, max(0, $poolCents - $minReserve));
+        $humanCents = (int)round($humanSum * 100);
+        $botBudgetCents = max(count($botRows), $idealAssignedCents - $humanCents);
+        // 不能超过「池子 - 真人 - 未发出份保底」
+        $botBudgetCents = min($botBudgetCents, max(0, $poolCents - $humanCents - $minReserve));
+
+        $idealYuan = round($idealAssignedCents / 100, 2);
+        // 已与目标接近则跳过（±1 分 * 份数容差）
+        if (abs($allSum - $idealYuan) < 0.02 && abs(round($allSum - $humanSum, 2) - round($botBudgetCents / 100, 2)) < 0.02) {
+            return 0;
+        }
+
+        $parts = self::splitPoolCents($botBudgetCents, count($botRows));
+        $changed = 0;
+        foreach ($botRows as $i => $r) {
+            $old = round((float)$r['win_amount'], 2);
+            $newAmt = round(($parts[$i] ?? 0) / 100, 2);
+            $delta = round($newAmt - $old, 2);
+            if (abs($delta) <= 1e-8) {
+                continue;
+            }
+            if ((int)($r['claimed'] ?? 0) === 1) {
+                self::softAdjustBotHongbao(
+                    (int)$r['user_id'],
+                    $delta,
+                    '裂变按总份数重拆机器人金额 #' . $activityId . ' qual#' . $r['id']
+                );
+            }
+            Db::name('fans_fission_qual')->where('id', (int)$r['id'])->update([
+                'win_amount' => $newAmt,
+            ]);
+            $changed++;
+        }
+        return $changed;
     }
 
     protected static function splitPoolCents($totalCents, $n)
