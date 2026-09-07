@@ -213,7 +213,18 @@ export function mediaImageUrls(m) {
   if (Array.isArray(ex.images)) {
     for (let i = 0; i < ex.images.length && out.length < 5; i++) {
       const img = ex.images[i]
-      push((img && (img.fullurl || img.url)) || '')
+      if (typeof img === 'string') push(img)
+      else push((img && (img.fullurl || img.url)) || '')
+    }
+  }
+  if (!out.length && Array.isArray(ex.image_fullurls)) {
+    for (let i = 0; i < ex.image_fullurls.length && out.length < 5; i++) {
+      push(ex.image_fullurls[i])
+    }
+  }
+  if (!out.length && Array.isArray(ex.image_urls)) {
+    for (let i = 0; i < ex.image_urls.length && out.length < 5; i++) {
+      push(ex.image_urls[i])
     }
   }
   if (!out.length) {

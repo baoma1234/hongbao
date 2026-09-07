@@ -1326,12 +1326,11 @@ class FansHubFission
                 $overspent = $remainCents < $need || ((int)round($allSum * 100) > $maxAssignable);
 
                 if ($overspent && (count($botRows) > 0 || $need > 0)) {
-                    // 池子不够或历史超额：真人不动，把「非真人份额」按总份数二倍均值重拆
-                    // 例：1000/100 份 → 先拆成 100 包，已有机器人拿其中对应份，绝不是「7 份就固定 70」
+                    // 池子不够或历史超额：真人不动，按「剩余总份」逐包二倍均值重拆机器人+新份
                     $nonHumanSlots = max(1, $cap - $humanCnt);
-                    $budget = max(0, $poolCents - $humanCents);
-                    $budget = min($budget, max(0, $poolCents - $humanCents - $minReserveFen));
-                    $allParts = self::splitPoolCents(max($nonHumanSlots, $budget), $nonHumanSlots);
+                    $budget = max(0, $poolCents - $humanCents - $minReserveFen);
+                    $drawN = count($botRows) + $need;
+                    $allParts = self::drawSequentialPackets($budget, $nonHumanSlots, $drawN);
                     $nOld = count($botRows);
                     for ($i = 0; $i < $nOld; $i++) {
                         $old = round((float)$botRows[$i]['win_amount'], 2);
@@ -1352,9 +1351,11 @@ class FansHubFission
                         $newParts[] = (int)($allParts[$nOld + $i] ?? 0);
                     }
                 } else {
-                    // 正常：剩余金额按「剩余至 cap 的份数」二倍均值随机，只取本次 need 份
-                    $fullParts = self::splitPoolCents($remainCents, $slotsLeftToCap);
-                    $newParts = array_slice($fullParts, 0, $need);
+                    // 正常：从「剩余金额 / 剩余至 cap 份」连续抽 need 包（微信拆红包），避免「先拆满再截前 N」导致合计总贴均价
+                    $paidCentsNow = (int)round($allSum * 100);
+                    $remainNow = max(0, $poolCents - $paidCentsNow);
+                    $leftNow = max(1, $cap - $existCnt);
+                    $newParts = self::drawSequentialPackets($remainNow, $leftNow, $need);
                 }
 
                 $startTs = (int)$act['start_time'];
@@ -1413,8 +1414,8 @@ class FansHubFission
                 }
             }
 
-            // 仅当超额占用奖池时，按「总份数二倍均值」重拆机器人（不做「进度×均价」）
-            self::rebalanceBotWinAmountsLocked($activityId, $act, $target);
+            // 填充后强制按「连续抽取」重拆机器人金额，避免合计总贴 N×均价
+            self::forceResplitBotAmountsWeChatLocked($activityId, $act);
             // 校正误写入的未来领取时间（例如按活动 end_time 排到了明天）
             self::clampFutureClaimedAtLocked($activityId);
 
@@ -1622,6 +1623,90 @@ class FansHubFission
      * 强制按「池子/总份数」二倍均值重拆机器人金额（真人不动）。
      * 用于纠正历史「进度×均价」假随机。
      */
+    /**
+     * 连续二倍均值抽包（微信拆红包开包顺序），比「先拆满再截前 N」更贴近真随机波动。
+     * @return int[] 每包分
+     */
+    protected static function drawSequentialPackets($remainCents, $leftSlots, $drawCount)
+    {
+        $remain = max(0, (int)$remainCents);
+        $left = max(1, (int)$leftSlots);
+        $n = max(0, (int)$drawCount);
+        $parts = [];
+        for ($i = 0; $i < $n; $i++) {
+            if ($left <= 0 || $remain <= 0) {
+                $parts[] = 0;
+                continue;
+            }
+            $c = self::randomPacketCents($remain, $left);
+            $parts[] = $c;
+            $remain = max(0, $remain - $c);
+            $left--;
+        }
+        return $parts;
+    }
+
+    /**
+     * 活动锁内：强制用连续抽取重拆机器人金额（真人不动）。
+     */
+    protected static function forceResplitBotAmountsWeChatLocked($activityId, array $act)
+    {
+        $activityId = (int)$activityId;
+        $cap = max(1, (int)($act['global_cap'] ?? 100));
+        $poolCents = (int)round((float)($act['pool_amount'] ?? 0) * 100);
+        if ($activityId <= 0 || $poolCents <= 0) {
+            return 0;
+        }
+        $rows = Db::name('fans_fission_qual')
+            ->alias('q')
+            ->join('fans_account a', 'a.user_id=q.user_id', 'LEFT')
+            ->where('q.activity_id', $activityId)
+            ->field('q.*,COALESCE(a.is_bot,0) AS is_bot')
+            ->order('q.id', 'asc')
+            ->lock(true)
+            ->select();
+        $rows = is_array($rows) ? $rows : ($rows ? $rows->toArray() : []);
+        $humanSum = 0.0;
+        $botRows = [];
+        foreach ($rows as $r) {
+            if ((int)($r['is_bot'] ?? 0) === 1) {
+                $botRows[] = $r;
+            } else {
+                $humanSum = round($humanSum + (float)($r['win_amount'] ?? 0), 2);
+            }
+        }
+        if (!$botRows) {
+            return 0;
+        }
+        $humanCnt = count($rows) - count($botRows);
+        $humanCents = (int)round($humanSum * 100);
+        $minReserve = max(0, $cap - count($rows));
+        $nonHumanSlots = max(1, $cap - $humanCnt);
+        $budget = max(0, $poolCents - $humanCents - $minReserve);
+        $allParts = self::drawSequentialPackets($budget, $nonHumanSlots, count($botRows));
+        $changed = 0;
+        foreach ($botRows as $i => $r) {
+            $old = round((float)$r['win_amount'], 2);
+            $newAmt = round(($allParts[$i] ?? 0) / 100, 2);
+            $delta = round($newAmt - $old, 2);
+            if (abs($delta) <= 1e-8) {
+                continue;
+            }
+            if ((int)($r['claimed'] ?? 0) === 1) {
+                self::softAdjustBotHongbao(
+                    (int)$r['user_id'],
+                    $delta,
+                    '裂变强制随机重拆 #' . $activityId . ' qual#' . $r['id']
+                );
+            }
+            Db::name('fans_fission_qual')->where('id', (int)$r['id'])->update([
+                'win_amount' => $newAmt,
+            ]);
+            $changed++;
+        }
+        return $changed;
+    }
+
     public static function forceResplitBotAmountsWeChat($activityId)
     {
         $activityId = (int)$activityId;
@@ -1632,61 +1717,13 @@ class FansHubFission
         $changed = 0;
         Db::startTrans();
         try {
-            $cap = max(1, (int)$act['global_cap']);
-            $poolCents = (int)round((float)$act['pool_amount'] * 100);
-            $rows = Db::name('fans_fission_qual')
-                ->alias('q')
-                ->join('fans_account a', 'a.user_id=q.user_id', 'LEFT')
-                ->where('q.activity_id', $activityId)
-                ->field('q.*,COALESCE(a.is_bot,0) AS is_bot')
-                ->order('q.id', 'asc')
-                ->lock(true)
-                ->select();
-            $rows = is_array($rows) ? $rows : ($rows ? $rows->toArray() : []);
-            $humanSum = 0.0;
-            $botRows = [];
-            foreach ($rows as $r) {
-                if ((int)($r['is_bot'] ?? 0) === 1) {
-                    $botRows[] = $r;
-                } else {
-                    $humanSum = round($humanSum + (float)($r['win_amount'] ?? 0), 2);
-                }
-            }
-            if (!$botRows) {
-                Db::commit();
-                return ['ok' => true, 'changed' => 0, 'message' => '无机器人份可重拆'];
-            }
-            $humanCnt = count($rows) - count($botRows);
-            $humanCents = (int)round($humanSum * 100);
-            $minReserve = max(0, $cap - count($rows));
-            $nonHumanSlots = max(1, $cap - $humanCnt);
-            $budget = max(0, $poolCents - $humanCents - $minReserve);
-            $allParts = self::splitPoolCents(max($nonHumanSlots, $budget), $nonHumanSlots);
-            foreach ($botRows as $i => $r) {
-                $old = round((float)$r['win_amount'], 2);
-                $newAmt = round(($allParts[$i] ?? 0) / 100, 2);
-                $delta = round($newAmt - $old, 2);
-                if (abs($delta) <= 1e-8) {
-                    continue;
-                }
-                if ((int)($r['claimed'] ?? 0) === 1) {
-                    self::softAdjustBotHongbao(
-                        (int)$r['user_id'],
-                        $delta,
-                        '裂变强制随机重拆 #' . $activityId . ' qual#' . $r['id']
-                    );
-                }
-                Db::name('fans_fission_qual')->where('id', (int)$r['id'])->update([
-                    'win_amount' => $newAmt,
-                ]);
-                $changed++;
-            }
+            $changed = self::forceResplitBotAmountsWeChatLocked($activityId, $act);
             Db::commit();
         } catch (\Throwable $e) {
             Db::rollback();
             return ['ok' => false, 'changed' => 0, 'message' => $e->getMessage() ?: '重拆失败'];
         }
-        return ['ok' => true, 'changed' => $changed, 'message' => '已按总份数随机重拆 ' . $changed . ' 份机器人'];
+        return ['ok' => true, 'changed' => $changed, 'message' => '已按连续抽取随机重拆 ' . $changed . ' 份机器人'];
     }
 
     protected static function splitPoolCents($totalCents, $n)

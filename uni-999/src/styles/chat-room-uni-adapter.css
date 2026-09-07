@@ -474,7 +474,7 @@
 
 .chat-room-page .chat-composer.chat-footer {
   display: flex !important;
-  align-items: center;
+  align-items: flex-end;
   gap: 8px;
   padding: 8px 10px;
   box-sizing: border-box;
@@ -776,4 +776,15 @@
   font-size: 16px !important;
   color: #191919 !important;
   box-sizing: border-box;
+}
+.chat-room-page .input-box.input-box--multi,
+.chat-room-page .chat-composer .input-box.input-box--multi {
+  height: auto !important;
+  min-height: 36px !important;
+  max-height: 152px !important;
+  line-height: 22px !important;
+  padding: 7px 12px !important;
+  overflow-y: auto !important;
+  word-break: break-word;
+  white-space: pre-wrap;
 }

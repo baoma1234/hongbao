@@ -57,11 +57,11 @@
         <text class="chat-setting-arrow">›</text>
       </view>
 
-      <view v-if="!memberHidden" class="chat-setting-row" @click="openMembersPane">
-        <text>查看群成员</text>
+      <view class="chat-setting-row" @click="openMembersPane">
+        <text>{{ staffOnly ? '群主与管理员' : '查看群成员' }}</text>
         <text class="chat-setting-arrow">›</text>
       </view>
-      <view v-else class="chat-setting-hint">成员列表已隐藏</view>
+      <view v-if="staffOnly" class="chat-setting-hint">隐私群仅展示群主与管理员；群主可点成员设为管理员</view>
 
       <view class="chat-setting-row chat-setting-toggle-row" @click="toggleNotifyMute">
         <text>消息不提醒</text>
@@ -424,6 +424,7 @@ const muteAll = ref(false)
 const notifyMute = ref(false)
 const memberCount = ref(0)
 const memberHidden = ref(false)
+const staffOnly = ref(false)
 const members = ref([])
 const membersPane = ref(false)
 const membersLoading = ref(false)
@@ -446,7 +447,7 @@ const avatarBusy = ref(false)
 
 const settingsBarTitle = computed(() => {
   if (addSheet.value) return '添加群成员'
-  if (membersPane.value) return '群成员'
+  if (membersPane.value) return staffOnly.value ? '群主与管理员' : '群成员'
   return '群设置'
 })
 
@@ -572,6 +573,7 @@ async function loadInfo() {
     setGroupNotifyMuted(groupId.value, notifyMute.value)
     memberCount.value = data.member_count | 0
     memberHidden.value = !!data.member_list_hidden
+    staffOnly.value = !!(data.staff_only || (data.policy && data.policy.member_list_hidden))
     if (data.my_user_id) myId.value = data.my_user_id | 0
     applyForbid(data.forbid_modes || (data.policy && data.policy.forbid_modes) || {})
     const pol = data.policy || {}
@@ -581,7 +583,7 @@ async function loadInfo() {
     if (group.value.name) {
       uni.setNavigationBarTitle({ title: group.value.name })
     }
-    if (memberHidden.value) {
+    if (memberHidden.value && !staffOnly.value) {
       members.value = []
     }
     refreshInviteLinkCache()
@@ -591,7 +593,7 @@ async function loadInfo() {
 }
 
 async function loadMembersList(keyword) {
-  if (!groupId.value || memberHidden.value) {
+  if (!groupId.value) {
     members.value = []
     return
   }
@@ -603,6 +605,7 @@ async function loadMembersList(keyword) {
     if (md.member_count != null) memberCount.value = md.member_count | 0
     if (md.my_role != null) myRole.value = md.my_role | 0
     if (md.mute_all != null) muteAll.value = !!md.mute_all
+    if (md.staff_only != null) staffOnly.value = !!md.staff_only
   } catch (e) {
     uni.showToast({ title: (e && e.message) || '加载成员失败', icon: 'none' })
     members.value = []
@@ -617,10 +620,6 @@ function closeMembersPane() {
 }
 
 async function openMembersPane() {
-  if (memberHidden.value) {
-    uni.showToast({ title: '隐私群已隐藏成员列表', icon: 'none' })
-    return
-  }
   membersPane.value = true
   memberKeyword.value = ''
   refreshOverlayTop()

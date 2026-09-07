@@ -252,7 +252,8 @@ class GroupService
             'forbid_modes'       => $this->parseForbidModes($group ?: []),
             'member_count'       => $this->publicMemberCount($group ?: []),
             'online_count'       => $isOfficial ? OfficialStatsService::onlineCount($groupId) : 0,
-            'member_list_hidden' => !empty($policy['member_list_hidden']),
+            'member_list_hidden' => false,
+            'staff_only'         => !empty($policy['member_list_hidden']),
             'can_speak'          => $canSpeak,
             'policy'             => $policy,
             'my_user_id'         => $uid,
@@ -1042,19 +1043,7 @@ class GroupService
         }
         $groupRow = $this->get($groupId) ?: [];
         $myRole = $this->memberRole($groupId, $operatorId);
-        $hideList = $this->shouldHideMemberList($groupRow, $myRole);
-        if ($hideList) {
-            $policy = $this->buildPolicy($groupRow, $myRole);
-            return [
-                'group'              => $groupRow,
-                'my_role'            => $myRole,
-                'mute_all'           => $this->isMuteAll($groupId),
-                'list'               => [],
-                'member_count'       => $this->publicMemberCount($groupRow),
-                'member_list_hidden' => true,
-                'policy'             => $policy,
-            ];
-        }
+        $hideFullList = $this->shouldHideMemberList($groupRow, $myRole);
         $rows = $this->members($groupId);
         $ids = array_map(function ($r) {
             return (int)$r['user_id'];
@@ -1064,6 +1053,11 @@ class GroupService
         $now = time();
         $list = [];
         foreach ($rows as $row) {
+            $role = (int)$row['role'];
+            // 隐私群普通成员：仍可见群主与管理员（不全量隐藏）
+            if ($hideFullList && $role < 2) {
+                continue;
+            }
             $uid = (int)$row['user_id'];
             $u = $users[$uid] ?? null;
             $nick = '';
@@ -1082,7 +1076,7 @@ class GroupService
             }
             $item = [
                 'user_id'    => $uid,
-                'role'       => (int)$row['role'],
+                'role'       => $role,
                 'nickname'   => $nick,
                 'mobile'     => $mobile,
                 'avatar'     => $avatar,
@@ -1097,6 +1091,15 @@ class GroupService
             }
             $list[] = $item;
         }
+        // 群主/管理员在前
+        usort($list, function ($a, $b) {
+            $ra = (int)($a['role'] ?? 0);
+            $rb = (int)($b['role'] ?? 0);
+            if ($ra !== $rb) {
+                return $rb <=> $ra;
+            }
+            return ((int)$a['user_id']) <=> ((int)$b['user_id']);
+        });
         $policy = $this->buildPolicy($groupRow, $myRole);
         $canView = !empty($policy['can_view_profile']);
         foreach ($list as &$item) {
@@ -1110,6 +1113,7 @@ class GroupService
             'list'               => $list,
             'member_count'       => $this->publicMemberCount($groupRow),
             'member_list_hidden' => false,
+            'staff_only'         => (bool)$hideFullList,
             'policy'             => $policy,
         ];
     }
@@ -1195,7 +1199,8 @@ class GroupService
             'chat_mode'          => $isGrab ? 'grab' : 'chat',
             'privacy_label'      => $isOpen ? '开放群' : '隐私群',
             'chat_mode_label'    => $isGrab ? '红宝模式' : '聊天模式',
-            'member_list_hidden' => $this->shouldHideMemberList($group, $role),
+            'member_list_hidden' => false,
+            'staff_only'         => $this->shouldHideMemberList($group, $role),
             'can_view_profile'   => $isOpen || $role >= 2,
             'can_add_friend'     => $isOpen,
             'can_mention'        => $isOpen || $role >= 2,

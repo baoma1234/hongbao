@@ -158,20 +158,21 @@
                   <image class="chat-sticker-img" :src="stickerUrl(m)" mode="aspectFit" lazy-load />
                   <text class="meta">{{ msgTime(m) }}</text>
                 </view>
-                <view v-else-if="isImage(m)" class="chat-bubble media" @longpress.stop="onMsgLongPress(m, $event)">
+                <view v-else-if="isImage(m)" class="chat-bubble media" :class="{ 'is-album': mediaImageList(m).length > 1 }" @longpress.stop="onMsgLongPress(m, $event)">
                   <view
                     v-if="mediaImageList(m).length > 1"
-                    class="chat-media-album"
-                    :class="'n' + Math.min(mediaImageList(m).length, 5)"
+                    class="chat-tg-album"
+                    :class="'tg-n' + Math.min(mediaImageList(m).length, 5)"
                   >
-                    <image
+                    <view
                       v-for="(u, ii) in mediaImageList(m)"
                       :key="'alb' + msgId(m) + '-' + ii"
-                      class="chat-media-album-item"
-                      :src="u"
-                      mode="aspectFill"
+                      class="chat-tg-album-cell"
+                      :class="'c' + (ii + 1)"
                       @click.stop="previewImageMsg(m, ii)"
-                    />
+                    >
+                      <image class="chat-tg-album-img" :src="u" mode="aspectFill" />
+                    </view>
                   </view>
                   <image
                     v-else
@@ -397,16 +398,24 @@
             <view v-if="canCap('emoji')" id="chatEmojiBtn" class="chat-tool-icon" @click="toggleEmoji">
               <text class="chat-tool-glyph" aria-hidden="true">☺</text>
             </view>
-            <input
+            <textarea
               id="chatInput"
-              class="input-box"
+              class="input-box input-box--multi"
               v-model="text"
-              confirm-type="send"
-              maxlength="2000"
+              :auto-height="true"
+              :fixed="false"
+              :show-confirm-bar="false"
+              :adjust-position="true"
               :disabled="composerLocked || !canCap('text')"
               :placeholder="composerPlaceholder"
+              maxlength="2000"
+              confirm-type="send"
+              :style="composerInputStyle"
               @confirm="sendText"
               @focus="onInputFocus"
+              @linechange="onComposerLineChange"
+              @input="onComposerInput"
+              @keydown.enter.exact.prevent="onComposerEnter"
             />
             <view
               v-if="attachAllowed"
@@ -956,6 +965,38 @@ const title = ref('聊天')
 const peerNickname = ref('')
 const remark = ref('')
 const text = ref('')
+/** Telegram 风格输入：随行数增高 */
+const composerLineCount = ref(1)
+const composerInputStyle = computed(() => {
+  const lines = Math.max(1, Math.min(6, composerLineCount.value | 0))
+  const h = 20 + lines * 22
+  return {
+    minHeight: '36px',
+    height: h + 'px',
+    maxHeight: '152px',
+  }
+})
+function onComposerLineChange(e) {
+  const n = Number((e && e.detail && e.detail.lineCount) || 0)
+  if (n > 0) composerLineCount.value = n
+}
+function onComposerInput() {
+  const s = String(text.value || '')
+  const n = Math.max(1, s.split(/\r?\n/).length)
+  // H5 无 linechange 时按换行粗估；App auto-height 仍以 linechange 为准
+  if (n !== composerLineCount.value && n <= 6) {
+    const approx = Math.min(6, Math.max(n, Math.ceil(s.length / 18)))
+    composerLineCount.value = Math.max(composerLineCount.value, Math.min(6, approx))
+  }
+  if (!s) composerLineCount.value = 1
+}
+function onComposerEnter(e) {
+  // H5：Enter 发送；Shift+Enter 换行（浏览器默认）
+  try {
+    if (e && e.shiftKey) return
+  } catch (err) {}
+  sendText()
+}
 /** 待发送媒体草稿（先贴输入区，点发送再上传 OSS） */
 const MAX_PENDING_IMAGES = 5
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024
@@ -4002,6 +4043,8 @@ async function sendPendingMedia() {
           fullurl: images[0].fullurl,
           name: images[0].name || '',
           images,
+          image_urls: images.map((x) => x.url),
+          image_fullurls: images.map((x) => x.fullurl).filter(Boolean),
           count: images.length,
         },
         label
@@ -5384,6 +5427,70 @@ function closeRpDetail() {
 .chat-media-album.n4 .chat-media-album-item {
   width: 110px;
   height: 110px;
+}
+/* Telegram 风格拼图相册 */
+.chat-bubble.media.is-album {
+  padding: 4px !important;
+  max-width: min(280px, 72vw);
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.chat-tg-album {
+  display: grid;
+  gap: 2px;
+  width: min(268px, 70vw);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #d0d0d0;
+}
+.chat-tg-album-cell {
+  position: relative;
+  overflow: hidden;
+  background: #c8c8c8;
+  min-height: 0;
+  min-width: 0;
+}
+.chat-tg-album-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.chat-tg-album.tg-n2 {
+  grid-template-columns: 1fr 1fr;
+  height: 160px;
+}
+.chat-tg-album.tg-n3 {
+  grid-template-columns: 1.2fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  height: 200px;
+}
+.chat-tg-album.tg-n3 .c1 {
+  grid-row: 1 / span 2;
+}
+.chat-tg-album.tg-n4 {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  height: 220px;
+}
+.chat-tg-album.tg-n5 {
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: 1.15fr 1fr;
+  height: 230px;
+}
+.chat-tg-album.tg-n5 .c1 {
+  grid-column: 1 / span 2;
+}
+.chat-room-page .input-box.input-box--multi,
+.chat-room-page .chat-composer .input-box.input-box--multi {
+  height: auto !important;
+  min-height: 36px !important;
+  max-height: 124px !important;
+  line-height: 22px !important;
+  padding: 7px 12px !important;
+  overflow-y: auto !important;
+  resize: none;
+  word-break: break-word;
+  white-space: pre-wrap;
 }
 .chat-wx-msg-mask {
   position: fixed;

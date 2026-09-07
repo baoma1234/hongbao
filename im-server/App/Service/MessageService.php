@@ -554,6 +554,15 @@ class MessageService
                 $msg['extra'] = ['name' => (string)($msg['extra']['name'] ?? '')];
             } elseif ($msgType === 6) {
                 $msg['extra'] = ['code' => (string)($msg['extra']['code'] ?? '')];
+            } elseif ($msgType === 4 || $msgType === 5) {
+                // 会话预览也保留多图字段，避免客户端只剩首张 url
+                $keep = [];
+                foreach (['url', 'fullurl', 'thumb', 'name', 'images', 'image_urls', 'image_fullurls', 'count'] as $k) {
+                    if (array_key_exists($k, $msg['extra'])) {
+                        $keep[$k] = $msg['extra'][$k];
+                    }
+                }
+                $msg['extra'] = $keep ?: null;
             } else {
                 unset($msg['extra']);
             }
@@ -2960,7 +2969,18 @@ class MessageService
             $extra = $this->normalizeExtra($extra, false, $msgType === 7);
             if ($msgType === 4 && !empty($extra['images']) && is_array($extra['images'])) {
                 $normImgs = [];
+                $flatUrls = [];
+                $flatFull = [];
                 foreach (array_slice($extra['images'], 0, 5) as $img) {
+                    if (is_string($img) && $img !== '') {
+                        $u = trim($img);
+                        if (!$this->isAllowedMediaUrl($u, 4)) {
+                            throw new \InvalidArgumentException('invalid media url');
+                        }
+                        $normImgs[] = ['url' => $u];
+                        $flatUrls[] = $u;
+                        continue;
+                    }
                     if (!is_array($img)) {
                         continue;
                     }
@@ -2972,14 +2992,20 @@ class MessageService
                     $fu = trim((string)($img['fullurl'] ?? ''));
                     if ($fu !== '') {
                         $row['fullurl'] = mb_substr($fu, 0, 500);
+                        $flatFull[] = $row['fullurl'];
                     }
                     $normImgs[] = $row;
+                    $flatUrls[] = $u;
                 }
                 if (!$normImgs) {
                     throw new \InvalidArgumentException('invalid media url');
                 }
                 $extra['images'] = $normImgs;
                 $extra['count'] = count($normImgs);
+                $extra['image_urls'] = $flatUrls;
+                if ($flatFull) {
+                    $extra['image_fullurls'] = $flatFull;
+                }
                 $extra['url'] = $normImgs[0]['url'];
                 if (!empty($normImgs[0]['fullurl'])) {
                     $extra['fullurl'] = $normImgs[0]['fullurl'];
@@ -3048,7 +3074,15 @@ class MessageService
         // 多图相册（同一条图片消息）
         if (!$sticker && !$file && !empty($extra['images']) && is_array($extra['images'])) {
             $imgs = [];
+            $flatUrls = [];
+            $flatFull = [];
             foreach (array_slice($extra['images'], 0, 5) as $img) {
+                if (is_string($img) && $img !== '') {
+                    $u = mb_substr(trim($img), 0, 500);
+                    $imgs[] = ['url' => $u];
+                    $flatUrls[] = $u;
+                    continue;
+                }
                 if (!is_array($img)) {
                     continue;
                 }
@@ -3060,17 +3094,43 @@ class MessageService
                 $fu = trim((string)($img['fullurl'] ?? ''));
                 if ($fu !== '') {
                     $row['fullurl'] = mb_substr($fu, 0, 500);
+                    $flatFull[] = $row['fullurl'];
                 }
                 $imgs[] = $row;
+                $flatUrls[] = $row['url'];
             }
             if ($imgs) {
                 $clean['images'] = $imgs;
                 $clean['count'] = count($imgs);
+                $clean['image_urls'] = $flatUrls;
+                if ($flatFull) {
+                    $clean['image_fullurls'] = $flatFull;
+                }
                 if (empty($clean['url'])) {
                     $clean['url'] = $imgs[0]['url'];
                 }
                 if (empty($clean['fullurl']) && !empty($imgs[0]['fullurl'])) {
                     $clean['fullurl'] = $imgs[0]['fullurl'];
+                }
+            }
+        } elseif (!$sticker && !$file && !empty($extra['image_urls']) && is_array($extra['image_urls'])) {
+            // 兼容扁平 urls
+            $flatUrls = [];
+            $imgs = [];
+            foreach (array_slice($extra['image_urls'], 0, 5) as $u) {
+                $u = mb_substr(trim((string)$u), 0, 500);
+                if ($u === '') {
+                    continue;
+                }
+                $flatUrls[] = $u;
+                $imgs[] = ['url' => $u];
+            }
+            if ($imgs) {
+                $clean['images'] = $imgs;
+                $clean['image_urls'] = $flatUrls;
+                $clean['count'] = count($imgs);
+                if (empty($clean['url'])) {
+                    $clean['url'] = $imgs[0]['url'];
                 }
             }
         }
