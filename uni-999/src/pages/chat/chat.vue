@@ -160,10 +160,26 @@
                 </view>
                 <view v-else-if="isImage(m)" class="chat-bubble media" @longpress.stop="onMsgLongPress(m, $event)">
                   <image class="chat-media-img" :src="mediaUrl(m)" mode="widthFix" @click.stop="previewImageMsg(m)" />
+                  <view v-if="mediaCaption(m)" class="chat-media-caption">
+                    <text
+                      v-for="(p, i) in splitTextLinks(mediaCaption(m))"
+                      :key="'ic' + msgId(m) + '-' + i"
+                      :class="{ 'content-link': p.t === 'link' }"
+                      @click.stop="p.t === 'link' && openMsgLink(p.v)"
+                    >{{ p.v }}</text>
+                  </view>
                   <text class="meta">{{ msgTime(m) }}</text>
                 </view>
                 <view v-else-if="isVideo(m)" class="chat-bubble media" @longpress.stop="onMsgLongPress(m, $event)">
                   <video class="chat-media-video" :src="mediaUrl(m)" controls playsinline />
+                  <view v-if="mediaCaption(m)" class="chat-media-caption">
+                    <text
+                      v-for="(p, i) in splitTextLinks(mediaCaption(m))"
+                      :key="'vc' + msgId(m) + '-' + i"
+                      :class="{ 'content-link': p.t === 'link' }"
+                      @click.stop="p.t === 'link' && openMsgLink(p.v)"
+                    >{{ p.v }}</text>
+                  </view>
                   <text class="meta">{{ msgTime(m) }}</text>
                 </view>
                 <view v-else-if="isFile(m)" class="chat-bubble media file" @longpress.stop="onMsgLongPress(m, $event)" @click="openFileMsg(m)">
@@ -183,7 +199,14 @@
                   @mouseup="onTextMsgHoldEnd"
                   @mouseleave="onTextMsgHoldEnd"
                 >
-                  <text class="content">{{ msgText(m) }}</text>
+                  <view class="content content-rich">
+                    <text
+                      v-for="(p, i) in msgTextParts(m)"
+                      :key="'t' + msgId(m) + '-' + i"
+                      :class="{ 'content-link': p.t === 'link' }"
+                      @click.stop="p.t === 'link' && openMsgLink(p.v)"
+                    >{{ p.v }}</text>
+                  </view>
                   <text class="meta">{{ msgTime(m) }}</text>
                 </view>
               </view>
@@ -815,11 +838,13 @@ import {
   isRecalled,
   isSystemMsg,
   isLeaveGroupTip,
+  mediaCaptionText,
   msgExtra,
   msgType,
   normalizeMessage,
   publicUrl,
   recallTip,
+  splitTextLinks,
 } from '../../utils/chat.js'
 import {
   clearActiveChat,
@@ -836,7 +861,7 @@ import { COMMON_EMOJIS, loadEmojiTree, emojiTwemojiUrl } from '../../utils/emoji
 import { setInboxMyId, noteConversationRead } from '../../utils/im-inbox.js'
 import { playOpenRedPacketSound } from '../../utils/notify-sound.js'
 import { setGroupNotifyMuted } from '../../utils/group-notify-mute.js'
-import { loadWalletBootstrap, money } from '../../utils/wallet.js'
+import { loadWalletBootstrap, money, openExternalHttpUrl } from '../../utils/wallet.js'
 import stickerAsciiAlias from '../../static/data/sticker-ascii-alias.json'
 import {
   bindForegroundResume,
@@ -2150,6 +2175,22 @@ function msgTime(m) {
 function msgText(m) {
   return (m && (m.content || m.text)) || '[消息]'
 }
+function msgTextParts(m) {
+  return splitTextLinks(msgText(m))
+}
+function mediaCaption(m) {
+  return mediaCaptionText(m)
+}
+function openMsgLink(url) {
+  const u = String(url || '').trim()
+  if (!u) return
+  if (!openExternalHttpUrl(u)) {
+    uni.setClipboardData({
+      data: u,
+      success: () => uni.showToast({ title: '链接已复制', icon: 'none' }),
+    })
+  }
+}
 function showSender(m) {
   return (meta.value.type | 0) === 2 && !isMine(m)
 }
@@ -3286,6 +3327,44 @@ async function sendMediaMessage(msgType, extra, label) {
   return packet
 }
 
+/** 图片/视频配文：优先输入框文字，否则可选填写 */
+async function resolveMediaCaption(placeholder, fallbackLabel) {
+  const fromComposer = String(text.value || '').trim()
+  if (fromComposer) {
+    text.value = ''
+    return fromComposer
+  }
+  const tip = String(placeholder || '添加文字说明（可留空）')
+  try {
+    const res = await new Promise((resolve) => {
+      uni.showModal({
+        title: tip,
+        editable: true,
+        placeholderText: '可选',
+        success: (r) => resolve(r),
+        fail: () => resolve(null),
+      })
+    })
+    if (res && res.confirm) {
+      const c = String(res.content != null ? res.content : '').trim()
+      if (c) return c
+    }
+  } catch (e) {
+    /* ignore */
+  }
+  // #ifdef H5
+  try {
+    if (typeof window !== 'undefined' && typeof window.prompt === 'function') {
+      const v = window.prompt(tip, '')
+      if (v != null && String(v).trim()) return String(v).trim()
+    }
+  } catch (e2) {
+    /* ignore */
+  }
+  // #endif
+  return fallbackLabel
+}
+
 async function pickImage() {
   if (mediaSending.value) return
   try {
@@ -3300,6 +3379,7 @@ async function pickImage() {
     })
     const filePath = String((chosen && chosen.tempFilePaths && chosen.tempFilePaths[0]) || '')
     if (!filePath) return
+    const caption = await resolveMediaCaption('图片说明（可留空）', '[图片]')
     mediaSending.value = true
     uni.showLoading({ title: '上传中…', mask: true })
     const up = await uploadCommonFile(filePath)
@@ -3307,7 +3387,7 @@ async function pickImage() {
     await sendMediaMessage(
       4,
       { url: path, fullurl: full, name: up.name || '' },
-      '[图片]'
+      caption || '[图片]'
     )
   } catch (e) {
     const msg = (e && e.message) || ''
@@ -3334,6 +3414,7 @@ async function pickVideo() {
     })
     const filePath = String((chosen && chosen.tempFilePath) || '')
     if (!filePath) return
+    const caption = await resolveMediaCaption('视频说明（可留空）', '[视频]')
     mediaSending.value = true
     uni.showLoading({ title: '上传中…', mask: true })
     const up = await uploadCommonFile(filePath)
@@ -3341,7 +3422,7 @@ async function pickVideo() {
     await sendMediaMessage(
       5,
       { url: path, fullurl: full, name: up.name || '' },
-      '[视频]'
+      caption || '[视频]'
     )
   } catch (e) {
     const msg = (e && e.message) || ''
@@ -4883,6 +4964,24 @@ function closeRpDetail() {
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
+}
+.content-rich {
+  display: block;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+.content-link {
+  color: #576b95;
+  text-decoration: underline;
+}
+.chat-media-caption {
+  display: block;
+  margin-top: 6px;
+  padding: 0 2px;
+  font-size: 15px;
+  line-height: 1.45;
+  word-break: break-word;
+  white-space: pre-wrap;
 }
 .chat-wx-msg-mask {
   position: fixed;

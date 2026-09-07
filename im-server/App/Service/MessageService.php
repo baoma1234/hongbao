@@ -1030,17 +1030,20 @@ class MessageService
         $beforeId = (int)$beforeId;
         $userId = (int)$userId;
         $minId = 0;
+        $minJoinTime = 0;
         if ($userId > 0) {
             if ($conversationType === 2) {
                 $minId = $this->groupClearedMsgId($userId, (int)$conversationId);
+                $member = (new GroupService())->getMember((int)$conversationId, $userId);
+                $minJoinTime = (int)($member['jointime'] ?? 0);
             } elseif ($conversationType === 1) {
                 $minId = $this->privateClearedMsgId($userId, $conversationId);
             }
         }
 
         // 首屏：优先 Redis recent（写入时已 LPUSH），避免每次打开会话扫表
-        // 有软删水位时跳过共享缓存，直接查库，避免漏补较早但仍可见的消息
-        if ($beforeId <= 0 && $minId <= 0) {
+        // 有软删水位 / 入群时间过滤时跳过共享缓存，避免新成员看到入群前历史
+        if ($beforeId <= 0 && $minId <= 0 && $minJoinTime <= 0) {
             try {
                 $key = RedisClient::key('conv:' . $conversationType . ':' . $conversationId . ':recent');
                 $r = RedisClient::conn();
@@ -1079,6 +1082,10 @@ class MessageService
             $sql .= ' AND id > ?';
             $bind[] = $minId;
         }
+        if ($minJoinTime > 0) {
+            $sql .= ' AND createtime >= ?';
+            $bind[] = $minJoinTime;
+        }
         if ($beforeId > 0) {
             $sql .= ' AND id < ?';
             $bind[] = $beforeId;
@@ -1086,8 +1093,8 @@ class MessageService
         $sql .= ' ORDER BY id DESC LIMIT ' . $limit;
         $rows = Db::fetchAll($sql, $bind);
         $list = array_map([$this, 'normalizeMessage'], array_reverse($rows));
-        // 回填 recent，供下次秒开（LPUSH 后左侧为最新）；有水位时不写共享缓存
-        if ($beforeId <= 0 && $minId <= 0 && $list) {
+        // 回填 recent，供下次秒开（LPUSH 后左侧为最新）；有水位/入群过滤时不写共享缓存
+        if ($beforeId <= 0 && $minId <= 0 && $minJoinTime <= 0 && $list) {
             try {
                 $key = RedisClient::key('conv:' . $conversationType . ':' . $conversationId . ':recent');
                 $fullKey = RedisClient::key('conv:' . $conversationType . ':' . $conversationId . ':recent_full');
@@ -1490,6 +1497,7 @@ class MessageService
                 }
                 $this->filterHiddenPrivateConversations($userId, $items);
                 $this->filterClearedGroupConversations($userId, $items);
+                $this->filterGroupJoinHistoryPreviews($userId, $items);
                 $this->seedInboxFromItems($userId, $items);
             } else {
                 // 无收件箱行：一次性 GROUP BY 冷启动并回填 Redis + 表
@@ -1570,6 +1578,7 @@ class MessageService
                 }
                 $this->filterHiddenPrivateConversations($userId, $items);
                 $this->filterClearedGroupConversations($userId, $items);
+                $this->filterGroupJoinHistoryPreviews($userId, $items);
                 $this->seedInboxFromItems($userId, $items);
             }
         }
@@ -1628,6 +1637,8 @@ class MessageService
         $this->filterDeletedPeerConversations($userId, $items);
         // 用户删除的群聊：水位软删，列表仅保留 cleared_msg_id 之后的新消息
         $this->filterClearedGroupConversations($userId, $items);
+        // 新成员：会话预览不展示入群前的最后一条
+        $this->filterGroupJoinHistoryPreviews($userId, $items);
 
         $this->applyPinnedFlags($userId, $items);
         foreach ($items as &$it) {
@@ -2252,6 +2263,57 @@ class MessageService
             CatchLog::quiet($e, 'Service.MessageService');
         }
         }
+    }
+
+    /**
+     * 新入群成员：会话列表预览不展示入群前的消息
+     */
+    protected function filterGroupJoinHistoryPreviews($userId, array &$items)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0 || !$items) {
+            return;
+        }
+        $groups = new GroupService();
+        $msgTable = Db::table('chat_messages');
+        foreach ($items as &$it) {
+            if ((int)($it['conversation_type'] ?? 0) !== 2) {
+                continue;
+            }
+            $gid = (int)($it['group_id'] ?? $it['conversation_id'] ?? 0);
+            if ($gid <= 0) {
+                continue;
+            }
+            $member = $groups->getMember($gid, $userId);
+            $joinTs = (int)($member['jointime'] ?? 0);
+            if ($joinTs <= 0) {
+                continue;
+            }
+            $last = $it['last_message'] ?? null;
+            $lastTs = (int)($last['createtime'] ?? 0);
+            if (is_array($last) && $lastTs >= $joinTs) {
+                continue;
+            }
+            $clearedId = $this->groupClearedMsgId($userId, $gid);
+            $sql = 'SELECT id,msg_id,conversation_type,conversation_id,group_id,from_user_id,to_user_id,'
+                . 'msg_type,content,extra,status,createtime FROM ' . $msgTable
+                . ' WHERE conversation_type=2 AND conversation_id=? AND status IN (1,2)'
+                . ' AND createtime>=?';
+            $bind = [(string)$gid, $joinTs];
+            if ($clearedId > 0) {
+                $sql .= ' AND id>?';
+                $bind[] = $clearedId;
+            }
+            $sql .= ' ORDER BY id DESC LIMIT 1';
+            $row = Db::fetch($sql, $bind);
+            if ($row) {
+                $it['last_message'] = $this->slimLastMessage($this->normalizeMessage($row));
+                $it['updatetime'] = (int)($row['createtime'] ?? $joinTs);
+            } else {
+                $it['last_message'] = null;
+            }
+        }
+        unset($it);
     }
 
     /** @return array<string,bool> conversation_id => true */

@@ -1984,15 +1984,24 @@ class GroupService
     protected function ensureMember($groupId, $userId, $role, $now)
     {
         $row = Db::fetch(
-            'SELECT id FROM ' . Db::table('chat_group_members') . ' WHERE group_id=? AND user_id=? LIMIT 1',
+            'SELECT id, status FROM ' . Db::table('chat_group_members') . ' WHERE group_id=? AND user_id=? LIMIT 1',
             [$groupId, $userId]
         );
         if ($row) {
-            Db::exec(
-                'UPDATE ' . Db::table('chat_group_members')
-                . ' SET role=?, status=1, updatetime=? WHERE id=?',
-                [$role, $now, (int)$row['id']]
-            );
+            // 已在群：只更新角色/状态；重新入群：刷新 jointime，历史从新入群起算
+            if ((int)($row['status'] ?? 0) === 1) {
+                Db::exec(
+                    'UPDATE ' . Db::table('chat_group_members')
+                    . ' SET role=?, status=1, updatetime=? WHERE id=?',
+                    [$role, $now, (int)$row['id']]
+                );
+            } else {
+                Db::exec(
+                    'UPDATE ' . Db::table('chat_group_members')
+                    . ' SET role=?, status=1, jointime=?, updatetime=? WHERE id=?',
+                    [$role, $now, $now, (int)$row['id']]
+                );
+            }
             return;
         }
         Db::exec(

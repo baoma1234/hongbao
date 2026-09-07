@@ -104,9 +104,13 @@ export function previewText(last) {
     return '[裂变红宝] 官方活动'
   }
   if (mt === 4) {
+    const cap = String(last.content || '').trim()
+    if (cap && cap !== '[图片]') return '[图片] ' + cap
     return '[图片]'
   }
   if (mt === 5) {
+    const cap = String(last.content || '').trim()
+    if (cap && cap !== '[视频]') return '[视频] ' + cap
     return '[视频]'
   }
   if (mt === 6) {
@@ -133,14 +137,63 @@ export function formatConvTime(ts) {
   const now = new Date()
   const pad = (n) => (n < 10 ? '0' + n : '' + n)
   const hm = pad(d.getHours()) + ':' + pad(d.getMinutes())
-  if (
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate()
-  ) {
-    return hm
+  const startOfDay = (x) => {
+    const y = new Date(x)
+    y.setHours(0, 0, 0, 0)
+    return y.getTime()
   }
-  return pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + hm
+  const diffDays = Math.round((startOfDay(now) - startOfDay(d)) / 86400000)
+  if (diffDays === 0) return hm
+  if (diffDays === 1) return '昨天'
+  if (diffDays >= 2 && diffDays <= 6) {
+    return ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'][d.getDay()]
+  }
+  // 同年：09-04；跨年：2025-09-04
+  const md = pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+  if (d.getFullYear() === now.getFullYear()) return md
+  return d.getFullYear() + '-' + md
+}
+
+/**
+ * 把文本拆成纯文本 / 可点链接段（避免 v-html XSS，四端用 <text> 渲染）
+ * @returns {{ t: 'text'|'link', v: string }[]}
+ */
+export function splitTextLinks(raw) {
+  const s = String(raw || '')
+  if (!s) return []
+  const out = []
+  const re = /https?:\/\/[^\s<>"']+/gi
+  let last = 0
+  let m
+  while ((m = re.exec(s))) {
+    if (m.index > last) {
+      out.push({ t: 'text', v: s.slice(last, m.index) })
+    }
+    let url = m[0]
+    let trail = ''
+    const tm = url.match(/^(.*?)([),.;:!?'"\]\}，。！？；：、》」』]+)$/u)
+    if (tm && tm[1]) {
+      url = tm[1]
+      trail = tm[2]
+    }
+    if (url) out.push({ t: 'link', v: url })
+    if (trail) out.push({ t: 'text', v: trail })
+    last = m.index + m[0].length
+  }
+  if (last < s.length) out.push({ t: 'text', v: s.slice(last) })
+  if (!out.length) out.push({ t: 'text', v: s })
+  return out
+}
+
+/** 媒体说明：排除默认占位文案 */
+export function mediaCaptionText(m) {
+  const mt = msgType(m)
+  if (mt !== 4 && mt !== 5) return ''
+  const c = String((m && (m.content || m.text)) || '').trim()
+  if (!c) return ''
+  if (mt === 4 && (c === '[图片]' || c === '[Image]')) return ''
+  if (mt === 5 && (c === '[视频]' || c === '[Video]')) return ''
+  return c
 }
 
 export function displayTitle(item) {
