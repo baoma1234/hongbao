@@ -2032,14 +2032,28 @@
   margin-bottom: 10px !important;
 }
 .chat-group-overlay--qq .chat-add-member-btn--qq {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   height: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
   line-height: 36px !important;
+  padding: 0 12px !important;
+  margin: 0 !important;
   border-radius: 6px !important;
   background: #12b7f5 !important;
   color: #ffffff !important;
   border: none !important;
   font-size: 14px !important;
   font-weight: 600 !important;
+  box-sizing: border-box !important;
+  /* uni-app button 默认行高/内边距会导致文字偏上 */
+  vertical-align: middle !important;
+}
+.chat-group-overlay--qq .chat-add-member-btn--qq::after {
+  border: none !important;
+  display: none !important;
 }
 .chat-group-overlay--qq .chat-search-input--qq {
   height: 36px !important;
@@ -2235,17 +2249,28 @@
   background: #ededed !important;
 }
 .chat-group-overlay--qq .chat-member-item--qq::after {
-  content: '?' !important;
+  content: '\203A' !important; /* › 右箭头，勿用损坏的 ? */
   font-size: 18px !important;
+  line-height: 1 !important;
   color: #c8c8c8 !important;
+  position: absolute !important;
+  right: 12px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
 }
 .chat-group-overlay--qq .chat-invite-item.chat-member-item--qq::after {
   display: none !important;
+}
+.chat-group-overlay--qq .chat-member-tags {
+  margin-right: 14px !important;
+  align-items: center !important;
 }
 .chat-group-overlay--qq .chat-member-tag {
   border-radius: 4px !important;
   font-size: 11px !important;
   font-weight: 500 !important;
+  line-height: 1.2 !important;
+  padding: 2px 6px !important;
 }
 .chat-group-overlay--qq .chat-member-tag.owner {
   background: #fff3e8 !important;
