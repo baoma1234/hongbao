@@ -153,11 +153,12 @@ class Fission extends Backend
             if ($globalQuals > $globalCap) {
                 $this->error('当前进度不能大于全局上限 ' . $globalCap);
             }
-            Db::name('fans_fission_activity')->where('id', $id)->update([
-                'global_quals' => $globalQuals,
-                'updatetime'   => time(),
-            ]);
-            $this->success('进度已保存');
+            // 保存进度后自动补齐/下调机器人已领取（时间排序、单机最多 3 次）
+            $sync = FansHubFission::syncBotClaimsToProgress($id, $globalQuals, 3);
+            if (empty($sync['ok'])) {
+                $this->error($sync['message'] ?? '进度保存失败');
+            }
+            $this->success($sync['message'] ?? '进度已保存');
         }
         $this->view->assign('row', $row);
         return $this->view->fetch();

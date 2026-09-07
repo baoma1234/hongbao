@@ -1157,6 +1157,259 @@ class FansHubFission
     /**
      * 二倍均值法拆分红包（单位：分），保证合计精确且每份至少 1 分
      */
+    /**
+     * 后台「编辑进度」后：把资格条数对齐到目标进度，差额用机器人已领取填充。
+     * - 真人资格不动
+     * - 单机器人本活动最多领取 $maxPerBot 次（默认 3）
+     * - 新记录 claimed_at 沿活动时间轴生成并升序
+     * - 进度下调时仅删除机器人 admin 填充记录并冲回红宝
+     *
+     * @param int      $activityId
+     * @param int|null $targetQuals 目标进度（null 则用活动当前 global_quals）
+     * @param int      $maxPerBot
+     * @return array{ok:bool,added:int,removed:int,message:string}
+     */
+    public static function syncBotClaimsToProgress($activityId, $targetQuals = null, $maxPerBot = 3)
+    {
+        $activityId = (int)$activityId;
+        $maxPerBot = max(1, (int)$maxPerBot);
+        $act = Db::name('fans_fission_activity')->where('id', $activityId)->find();
+        if (!$act) {
+            return ['ok' => false, 'added' => 0, 'removed' => 0, 'message' => '活动不存在'];
+        }
+        $cap = max(1, (int)$act['global_cap']);
+        $target = $targetQuals === null ? (int)$act['global_quals'] : (int)$targetQuals;
+        $target = max(0, min($target, $cap));
+        $pool = round((float)$act['pool_amount'], 2);
+
+        $added = 0;
+        $removed = 0;
+
+        Db::startTrans();
+        try {
+            $existing = Db::name('fans_fission_qual')
+                ->alias('q')
+                ->join('fans_account a', 'a.user_id=q.user_id', 'LEFT')
+                ->where('q.activity_id', $activityId)
+                ->field('q.*,COALESCE(a.is_bot,0) AS is_bot')
+                ->order('q.id', 'asc')
+                ->lock(true)
+                ->select();
+            $existing = is_array($existing) ? $existing : ($existing ? $existing->toArray() : []);
+            $existCnt = count($existing);
+            $need = $target - $existCnt;
+
+            // 每人在本活动已有份数（含真人；机器人填充也算）
+            $claimCounts = [];
+            foreach ($existing as $r) {
+                $uid = (int)$r['user_id'];
+                if ($uid <= 0) {
+                    continue;
+                }
+                $claimCounts[$uid] = ($claimCounts[$uid] ?? 0) + 1;
+            }
+
+            if ($need < 0) {
+                // 优先删：admin + 机器人 + 已领取
+                $removable = [];
+                foreach ($existing as $r) {
+                    if ((int)$r['is_bot'] !== 1) {
+                        continue;
+                    }
+                    if ((string)$r['source'] !== FissionQual::SOURCE_ADMIN) {
+                        continue;
+                    }
+                    if ((int)$r['claimed'] !== 1) {
+                        continue;
+                    }
+                    $removable[] = $r;
+                }
+                usort($removable, function ($a, $b) {
+                    $ta = (int)($a['claimed_at'] ?: $a['createtime'] ?: 0);
+                    $tb = (int)($b['claimed_at'] ?: $b['createtime'] ?: 0);
+                    if ($ta !== $tb) {
+                        return $tb <=> $ta;
+                    }
+                    return (int)$b['id'] <=> (int)$a['id'];
+                });
+                $toRemove = min(count($removable), -$need);
+                for ($i = 0; $i < $toRemove; $i++) {
+                    $r = $removable[$i];
+                    $uid = (int)$r['user_id'];
+                    $amt = round((float)$r['win_amount'], 2);
+                    if ($amt > 0) {
+                        FansHubService::changeAssets(
+                            $uid,
+                            0,
+                            0,
+                            'fission_reward',
+                            '裂变进度下调冲回机器人领取 #' . $activityId . ' qual#' . $r['id'],
+                            0,
+                            'fission_bot_fill_revoke',
+                            -$amt
+                        );
+                    }
+                    Db::name('fans_fission_qual')->where('id', (int)$r['id'])->delete();
+                    $removed++;
+                }
+                if ($existCnt - $removed > $target) {
+                    throw new Exception(
+                        '进度下调失败：可删除的机器人填充不足（真人资格不会删），当前仍多 '
+                        . ($existCnt - $removed - $target) . ' 份'
+                    );
+                }
+            } elseif ($need > 0) {
+                $humanSum = 0.0;
+                $allSum = 0.0;
+                $botRows = [];
+                foreach ($existing as $r) {
+                    $amt = round((float)$r['win_amount'], 2);
+                    $allSum = round($allSum + $amt, 2);
+                    if ((int)$r['is_bot'] === 1) {
+                        $botRows[] = $r;
+                    } else {
+                        $humanSum = round($humanSum + $amt, 2);
+                    }
+                }
+                $remainCents = (int)round(max(0, $pool - $allSum) * 100);
+                $botPoolCents = (int)round(max(0, $pool - $humanSum) * 100);
+
+                // 可选机器人：本活动领取次数 < maxPerBot
+                $bots = Db::name('fans_account')
+                    ->alias('a')
+                    ->join('user u', 'u.id=a.user_id')
+                    ->where('a.is_bot', 1)
+                    ->where('a.status', 'normal')
+                    ->where('u.status', 'normal')
+                    ->field('a.user_id,u.nickname')
+                    ->orderRaw('RAND()')
+                    ->select();
+                $bots = is_array($bots) ? $bots : ($bots ? $bots->toArray() : []);
+                $eligible = [];
+                foreach ($bots as $b) {
+                    $uid = (int)$b['user_id'];
+                    $used = (int)($claimCounts[$uid] ?? 0);
+                    $left = $maxPerBot - $used;
+                    for ($k = 0; $k < $left; $k++) {
+                        $eligible[] = $b;
+                    }
+                }
+                shuffle($eligible);
+                if (count($eligible) < $need) {
+                    throw new Exception(
+                        '可用机器人领取次数不足（单机最多 ' . $maxPerBot . ' 次），还差 '
+                        . ($need - count($eligible)) . ' 份'
+                    );
+                }
+
+                $newParts = [];
+                $redistribute = $remainCents < $need;
+                if ($redistribute) {
+                    // 剩余池不够新份：真人金额固定，把机器人池在「旧机器人份 + 新份」间重拆
+                    $nBotSlots = count($botRows) + $need;
+                    $parts = self::splitPoolCents($botPoolCents, max(1, $nBotSlots));
+                    for ($i = 0; $i < count($botRows); $i++) {
+                        $old = round((float)$botRows[$i]['win_amount'], 2);
+                        $newAmt = round(($parts[$i] ?? 0) / 100, 2);
+                        $delta = round($newAmt - $old, 2);
+                        if (abs($delta) > 1e-8) {
+                            FansHubService::changeAssets(
+                                (int)$botRows[$i]['user_id'],
+                                0,
+                                0,
+                                'fission_reward',
+                                '裂变进度对齐重拆机器人金额 #' . $activityId . ' qual#' . $botRows[$i]['id'],
+                                0,
+                                'fission_bot_fill_rebalance',
+                                $delta
+                            );
+                            Db::name('fans_fission_qual')->where('id', (int)$botRows[$i]['id'])->update([
+                                'win_amount' => $newAmt,
+                            ]);
+                        }
+                    }
+                    for ($i = 0; $i < $need; $i++) {
+                        $newParts[] = (int)($parts[count($botRows) + $i] ?? 0);
+                    }
+                } else {
+                    $newParts = self::splitPoolCents($remainCents, $need);
+                }
+
+                $startTs = (int)$act['start_time'];
+                $endTs = min(time(), (int)$act['end_time'] ?: time());
+                if ($endTs <= $startTs + 60) {
+                    $endTs = $startTs + 86400;
+                }
+                $times = [];
+                for ($i = 0; $i < $need; $i++) {
+                    $t = (int)round($startTs + ($endTs - $startTs) * (($i + 0.5) / $need));
+                    $t += random_int(-120, 300);
+                    $t = max($startTs + 30, min($endTs - 10, $t));
+                    $times[] = $t;
+                }
+                sort($times);
+
+                for ($i = 0; $i < $need; $i++) {
+                    $bot = $eligible[$i];
+                    $uid = (int)$bot['user_id'];
+                    $amt = round(($newParts[$i] ?? 0) / 100, 2);
+                    $claimedAt = $times[$i];
+                    $ct = max($startTs + 10, $claimedAt - random_int(20, 90));
+                    $qid = (int)Db::name('fans_fission_qual')->insertGetId([
+                        'activity_id' => $activityId,
+                        'user_id'     => $uid,
+                        'source'      => FissionQual::SOURCE_ADMIN,
+                        'ref_user_id' => 0,
+                        'win_amount'  => $amt,
+                        'claimed'     => 1,
+                        'claimed_at'  => $claimedAt,
+                        'createtime'  => $ct,
+                    ]);
+                    if ($amt > 0) {
+                        FansHubService::changeAssets(
+                            $uid,
+                            0,
+                            0,
+                            'fission_reward',
+                            '裂变红包机器人填充 #' . $activityId . ' qual#' . $qid,
+                            0,
+                            'fission_bot_fill',
+                            $amt
+                        );
+                    }
+                    $claimCounts[$uid] = ($claimCounts[$uid] ?? 0) + 1;
+                    $added++;
+                }
+            }
+
+            Db::name('fans_fission_activity')->where('id', $activityId)->update([
+                'global_quals' => $target,
+                'updatetime'   => time(),
+            ]);
+            Db::commit();
+        } catch (\Throwable $e) {
+            Db::rollback();
+            return [
+                'ok'      => false,
+                'added'   => 0,
+                'removed' => 0,
+                'message' => $e->getMessage() ?: '机器人领取同步失败',
+            ];
+        }
+
+        $msg = '进度已保存为 ' . $target;
+        if ($added > 0) {
+            $msg .= '，已补 ' . $added . ' 份机器人领取（单机最多 ' . $maxPerBot . ' 次）';
+        }
+        if ($removed > 0) {
+            $msg .= '，已删 ' . $removed . ' 份机器人填充';
+        }
+        if ($added === 0 && $removed === 0) {
+            $msg .= '（资格条数已对齐，无需增减机器人）';
+        }
+        return ['ok' => true, 'added' => $added, 'removed' => $removed, 'message' => $msg];
+    }
+
     protected static function splitPoolCents($totalCents, $n)
     {
         $totalCents = max(0, (int)$totalCents);
