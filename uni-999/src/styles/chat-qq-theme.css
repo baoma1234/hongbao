@@ -312,8 +312,14 @@
   max-width: 30px !important;
   border-radius: 50% !important;
   background: transparent !important;
-  border: 1px solid #c8c8c8 !important;
+  border: none !important;
   box-shadow: none !important;
+  outline: none !important;
+}
+.chat-room-page .btn-plus::after,
+.chat-room-page #chatAttachBtn.btn-plus::after {
+  border: none !important;
+  display: none !important;
 }
 
 .chat-room-page .btn-plus .chat-tool-glyph,

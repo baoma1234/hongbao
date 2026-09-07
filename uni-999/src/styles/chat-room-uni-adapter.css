@@ -526,6 +526,7 @@
   min-width: 30px !important;
   max-width: 30px !important;
   border-radius: 50% !important;
+  border: none !important;
   background: linear-gradient(135deg, #e63022 0%, #c61114 100%) !important;
   box-shadow: 0 4px 10px rgba(198, 17, 20, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
   color: #fff !important;
