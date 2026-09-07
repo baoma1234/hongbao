@@ -194,7 +194,7 @@ try {
         $ok++;
     }
     Db::name('fans_fission_activity')->where('id', $aid)->update([
-        'global_cap'   => $target,
+        'global_cap'   => max($target, (int)($act['global_cap'] ?? $target)),
         'global_quals' => $target,
         'updatetime'   => time(),
     ]);
