@@ -2446,23 +2446,9 @@ function applyRestored(msg) {
   appendLocalMessage(Object.assign({}, msg, { status: 1 }))
 }
 
-function isGroupOwnerLocal() {
-  return !isPrivate.value && ((groupMeta.value && groupMeta.value.my_role) | 0) === 3
-}
-
-/** 群主可管：纯文字 / 图片（不含表情包、视频、红包等） */
-function isOwnerRecallTarget(m) {
-  if (!m || isRecalled(m) || isSystemMsg(m)) return false
-  if (isImage(m)) return true
-  if (msgType(m) === 1 && !isSticker(m)) return true
-  return false
-}
-
+/** 本人可撤回：私聊随时；群聊限 2 分钟 */
 function canRecallLocal(m) {
   if (!m || isRecalled(m) || isSystemMsg(m)) return false
-  // 群主：任意成员的文字/图片，无时间限制
-  if (isGroupOwnerLocal() && isOwnerRecallTarget(m)) return true
-  // 本人：私聊可删；群聊限 2 分钟
   if (!isMine(m)) return false
   if (isPrivate.value) return true
   const ts = (m.createtime | 0) || 0
@@ -2497,7 +2483,9 @@ function msgCopyText(m) {
   return String(m.content || m.text || '').trim()
 }
 
+/** 别人的文字可复制（含群主长按他人消息） */
 function canCopyMsg(m) {
+  if (!m || isMine(m)) return false
   return !!msgCopyText(m)
 }
 
@@ -2554,14 +2542,10 @@ function onTextMsgHoldEnd() {
 
 function onMsgLongPress(m) {
   if (!m || isRecalled(m) || isSystemMsg(m)) return
-  // 仅文字可复制；其它类型长按只用于撤回/删除
+  // 别人的文字 → 复制；自己的且未超时 → 撤回（群主同样可复制他人文字）
   const copyable = canCopyMsg(m)
   const recallable = canRecallLocal(m)
   if (!copyable && !recallable) return
-  if (copyable && !recallable) {
-    copyMsgContent(m)
-    return
-  }
   const items = []
   const actions = []
   if (copyable) {
