@@ -8,7 +8,7 @@ use think\Db;
  * 官方社群展示人数（全端一致）
  * - 每个群各自成员基数（约 1.7万～1.8万；注册时各群 +1）
  * - 展示值 = 持久化基数（无秒级抖动）；定时任务每日小幅上浮，偶尔 -1/-2
- * - 在线人数：全站合计约 15000 ±2000，按桶刷新后随机分到各官方群，群间相差 ≤500
+ * - 在线人数：全站合计约 15000，按分钟桶缓慢游走（每分钟 ±10～30），再分到各官方群
  */
 class FansHubOfficialStats
 {
@@ -21,13 +21,15 @@ class FansHubOfficialStats
     const FLOAT_BUCKET_SEC = 2;
     const FLOAT_MAX = 10;
 
-    /** 在线合计中枢与振幅 */
+    /** 在线合计中枢；每分钟步长 10～30；相对中枢最大偏离 */
     const ONLINE_TOTAL_BASE = 15000;
-    const ONLINE_TOTAL_AMPLITUDE = 2000;
+    const ONLINE_STEP_MIN = 10;
+    const ONLINE_STEP_MAX = 30;
+    const ONLINE_DRIFT_MAX = 400;
     /** 任意两官方群在线相差上限 */
     const ONLINE_MAX_GROUP_DIFF = 500;
-    /** 在线刷新桶（秒），与大厅/社群轮询接近 */
-    const ONLINE_BUCKET_SEC = 20;
+    /** 在线刷新桶：1 分钟 */
+    const ONLINE_BUCKET_SEC = 60;
 
     /** @var \Redis|null */
     protected static $redis;
@@ -250,17 +252,68 @@ class FansHubOfficialStats
         return (int)floor($t / self::ONLINE_BUCKET_SEC);
     }
 
-    /** 当前桶的在线合计：15000 ± 2000（桶内全端一致） */
-    public static function onlineTotalForBucket($bucket = null)
+    /** 某一分钟桶的确定性步长：±ONLINE_STEP_MIN～MAX */
+    public static function onlineStepForBucket($bucket)
     {
-        $bucket = $bucket !== null ? (int)$bucket : self::onlineBucket();
-        $h = crc32('ot:' . $bucket);
+        $h = crc32('otstep:' . (int)$bucket);
         if ($h < 0) {
             $h = -$h;
         }
-        $span = self::ONLINE_TOTAL_AMPLITUDE * 2 + 1;
-        $delta = ($h % $span) - self::ONLINE_TOTAL_AMPLITUDE;
-        return max(1000, self::ONLINE_TOTAL_BASE + $delta);
+        $span = self::ONLINE_STEP_MAX - self::ONLINE_STEP_MIN + 1;
+        $mag = self::ONLINE_STEP_MIN + ($h % $span);
+        $sign = ($h & 1) ? 1 : -1;
+        return $sign * $mag;
+    }
+
+    /**
+     * 当前分钟的在线合计：从当日起点对 15000 做随机游走，每分钟仅 ±10～30
+     * （全端一致；相邻分钟变化受控，避免旧版 ±2000 乱跳）
+     */
+    public static function onlineTotalForBucket($bucket = null)
+    {
+        $bucket = $bucket !== null ? (int)$bucket : self::onlineBucket();
+        static $memo = [];
+        if (isset($memo[$bucket])) {
+            return $memo[$bucket];
+        }
+
+        $dayStart = (int)(floor($bucket / 1440) * 1440);
+        $prev = $bucket - 1;
+        if ($prev >= $dayStart && isset($memo[$prev])) {
+            $v = (int)$memo[$prev] + self::onlineStepForBucket($bucket);
+        } else {
+            $v = self::ONLINE_TOTAL_BASE;
+            $dayH = crc32('otday:' . $dayStart);
+            if ($dayH < 0) {
+                $dayH = -$dayH;
+            }
+            $v += ($dayH % 61) - 30;
+            for ($b = $dayStart + 1; $b <= $bucket; $b++) {
+                $v += self::onlineStepForBucket($b);
+                $lo = self::ONLINE_TOTAL_BASE - self::ONLINE_DRIFT_MAX;
+                $hi = self::ONLINE_TOTAL_BASE + self::ONLINE_DRIFT_MAX;
+                if ($v < $lo) {
+                    $v = $lo + 5;
+                } elseif ($v > $hi) {
+                    $v = $hi - 5;
+                }
+            }
+        }
+
+        $lo = self::ONLINE_TOTAL_BASE - self::ONLINE_DRIFT_MAX;
+        $hi = self::ONLINE_TOTAL_BASE + self::ONLINE_DRIFT_MAX;
+        if ($v < $lo) {
+            $v = $lo + 5;
+        } elseif ($v > $hi) {
+            $v = $hi - 5;
+        }
+
+        $out = max(1000, (int)$v);
+        $memo[$bucket] = $out;
+        if (count($memo) > 16) {
+            $memo = [$bucket => $out];
+        }
+        return $out;
     }
 
     /** 官方推荐群 id 列表（短缓存） */
@@ -319,7 +372,8 @@ class FansHubOfficialStats
 
         $raw = [];
         foreach ($ids as $i => $gid) {
-            $h = crc32('og:' . $bucket . ':' . $gid);
+            // 群间相对偏移只跟群 id 绑定，不随分钟桶重洗，避免单群每分钟乱跳
+            $h = crc32('og:' . $gid);
             if ($h < 0) {
                 $h = -$h;
             }
@@ -400,8 +454,8 @@ class FansHubOfficialStats
         if (isset($map[$groupId])) {
             return (int)$map[$groupId];
         }
-        // 非官方推荐群：沿用旧兜底
-        return max(0, self::onlineBase($groupId) + self::floatDelta('oo:' . $groupId));
+        // 非官方推荐群：沿用旧兜底（按分钟桶小幅浮动，避免秒级乱跳）
+        return max(0, self::onlineBase($groupId) + self::floatDelta('oo:' . $groupId, self::onlineBucket()));
     }
 
     public static function viewerCount($groupId)
