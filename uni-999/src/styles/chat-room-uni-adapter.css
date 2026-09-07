@@ -238,8 +238,8 @@
 .chat-room-page .chat-msg-avatar {
   width: 40px !important;
   height: 40px !important;
-  border-radius: 4px !important;
-  overflow: hidden;
+  border-radius: 50% !important;
+  overflow: hidden !important;
   flex-shrink: 0;
   display: flex !important;
   align-items: center;
@@ -254,6 +254,8 @@
 .chat-room-page .chat-msg-avatar .uni-image {
   width: 100% !important;
   height: 100% !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
   display: block !important;
 }
 
@@ -263,6 +265,7 @@
   width: 100% !important;
   height: 100% !important;
   object-fit: cover !important;
+  border-radius: 50% !important;
   display: block !important;
 }
 
@@ -310,6 +313,25 @@
   line-height: inherit;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.chat-room-page .chat-bubble .content-rich,
+.chat-room-page .chat-bubble .content-rich text,
+.chat-room-page .chat-bubble .content-rich uni-text,
+.chat-room-page .chat-bubble .content-rich span,
+.chat-room-page .chat-media-caption,
+.chat-room-page .chat-media-caption text,
+.chat-room-page .chat-media-caption uni-text {
+  white-space: pre-wrap !important;
+  word-break: break-word;
+}
+
+.chat-room-page .chat-bubble .content-br {
+  display: block !important;
+  width: 100% !important;
+  height: 0 !important;
+  line-height: 0 !important;
+  overflow: hidden !important;
 }
 
 .chat-room-page .chat-sticker-img {
@@ -475,7 +497,7 @@
 .chat-room-page .chat-composer.chat-footer {
   display: flex !important;
   align-items: flex-end;
-  gap: 8px;
+  gap: 6px;
   padding: 8px 10px;
   box-sizing: border-box;
   background: rgba(247, 247, 247, 0.96);
@@ -485,6 +507,7 @@
 .chat-room-page .btn-plus,
 .chat-room-page #chatSendBtn,
 .chat-room-page .chat-send-btn {
+  flex: 0 0 auto !important;
   flex-shrink: 0;
   border: none;
   background: transparent;
@@ -494,15 +517,17 @@
   align-items: center;
   justify-content: center;
   line-height: 1;
+  box-sizing: border-box;
 }
 
 .chat-room-page .btn-plus {
-  width: 38px !important;
-  height: 38px !important;
-  min-width: 38px !important;
+  width: 30px !important;
+  height: 30px !important;
+  min-width: 30px !important;
+  max-width: 30px !important;
   border-radius: 50% !important;
   background: linear-gradient(135deg, #e63022 0%, #c61114 100%) !important;
-  box-shadow: 0 6px 14px rgba(198, 17, 20, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
+  box-shadow: 0 4px 10px rgba(198, 17, 20, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
   color: #fff !important;
 }
 
@@ -511,8 +536,8 @@
 }
 
 .chat-room-page .btn-plus svg {
-  width: 20px !important;
-  height: 20px !important;
+  width: 16px !important;
+  height: 16px !important;
   fill: #fff !important;
   color: #fff !important;
 }
@@ -520,7 +545,7 @@
 .chat-room-page .chat-tool-icon .chat-tool-glyph,
 .chat-room-page #chatEmojiBtn .chat-tool-glyph {
   display: block !important;
-  font-size: 22px !important;
+  font-size: 20px !important;
   font-weight: 700 !important;
   line-height: 1 !important;
   color: #333 !important;
@@ -530,7 +555,7 @@
 .chat-room-page .btn-plus .chat-tool-glyph,
 .chat-room-page #chatAttachBtn .chat-tool-glyph {
   display: block !important;
-  font-size: 26px !important;
+  font-size: 18px !important;
   font-weight: 700 !important;
   line-height: 1 !important;
   color: #fff !important;
@@ -539,15 +564,17 @@
 }
 
 .chat-room-page .chat-send-btn {
-  min-width: auto !important;
-  height: auto !important;
-  padding: 8px 6px !important;
-  border-radius: 0 !important;
+  min-width: 44px !important;
+  max-width: 56px !important;
+  height: 30px !important;
+  padding: 0 10px !important;
+  border-radius: 6px !important;
   background: transparent !important;
   color: #c61114 !important;
-  font-size: 15px !important;
+  font-size: 14px !important;
   font-weight: 700 !important;
   box-shadow: none !important;
+  white-space: nowrap !important;
 }
 
 .chat-room-page .chat-emoji-panel,
@@ -752,14 +779,15 @@
 }
 
 .chat-room-page .chat-tool-icon {
-  width: 36px;
-  height: 36px;
+  width: 30px !important;
+  height: 30px !important;
+  min-width: 30px !important;
   color: #5a5a5a;
 }
 
 .chat-room-page .chat-tool-icon svg {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   display: block;
 }
 

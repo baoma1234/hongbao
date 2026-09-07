@@ -158,19 +158,20 @@ export function formatConvTime(ts) {
 }
 
 /**
- * 把文本拆成纯文本 / 可点链接段（避免 v-html XSS，四端用 <text> 渲染）
- * @returns {{ t: 'text'|'link', v: string }[]}
+ * 把文本拆成纯文本 / 可点链接 / 换行段（避免 v-html XSS，四端用 <text> 渲染）
+ * Safari / uni-text 对 white-space:pre-wrap 常失效，故显式拆出 br
+ * @returns {{ t: 'text'|'link'|'br', v: string }[]}
  */
 export function splitTextLinks(raw) {
   const s = String(raw || '')
   if (!s) return []
-  const out = []
+  const linked = []
   const re = /https?:\/\/[^\s<>"']+/gi
   let last = 0
   let m
   while ((m = re.exec(s))) {
     if (m.index > last) {
-      out.push({ t: 'text', v: s.slice(last, m.index) })
+      linked.push({ t: 'text', v: s.slice(last, m.index) })
     }
     let url = m[0]
     let trail = ''
@@ -179,12 +180,26 @@ export function splitTextLinks(raw) {
       url = tm[1]
       trail = tm[2]
     }
-    if (url) out.push({ t: 'link', v: url })
-    if (trail) out.push({ t: 'text', v: trail })
+    if (url) linked.push({ t: 'link', v: url })
+    if (trail) linked.push({ t: 'text', v: trail })
     last = m.index + m[0].length
   }
-  if (last < s.length) out.push({ t: 'text', v: s.slice(last) })
-  if (!out.length) out.push({ t: 'text', v: s })
+  if (last < s.length) linked.push({ t: 'text', v: s.slice(last) })
+  if (!linked.length) linked.push({ t: 'text', v: s })
+
+  const out = []
+  for (let i = 0; i < linked.length; i++) {
+    const p = linked[i]
+    if (p.t === 'link') {
+      out.push(p)
+      continue
+    }
+    const lines = String(p.v || '').split(/\r\n|\n|\r/)
+    for (let li = 0; li < lines.length; li++) {
+      if (li > 0) out.push({ t: 'br', v: '\n' })
+      if (lines[li]) out.push({ t: 'text', v: lines[li] })
+    }
+  }
   return out
 }
 

@@ -182,24 +182,28 @@
                     @click.stop="previewImageMsg(m, 0)"
                   />
                   <view v-if="mediaCaption(m)" class="chat-media-caption">
-                    <text
-                      v-for="(p, i) in splitTextLinks(mediaCaption(m))"
-                      :key="'ic' + msgId(m) + '-' + i"
-                      :class="{ 'content-link': p.t === 'link' }"
-                      @click.stop="p.t === 'link' && openMsgLink(p.v)"
-                    >{{ p.v }}</text>
+                    <template v-for="(p, i) in splitTextLinks(mediaCaption(m))" :key="'ic' + msgId(m) + '-' + i">
+                      <view v-if="p.t === 'br'" class="content-br" />
+                      <text
+                        v-else
+                        :class="{ 'content-link': p.t === 'link' }"
+                        @click.stop="p.t === 'link' && openMsgLink(p.v)"
+                      >{{ p.v }}</text>
+                    </template>
                   </view>
                   <text class="meta">{{ msgTime(m) }}</text>
                 </view>
                 <view v-else-if="isVideo(m)" class="chat-bubble media" @longpress.stop="onMsgLongPress(m, $event)">
                   <video class="chat-media-video" :src="mediaUrl(m)" controls playsinline />
                   <view v-if="mediaCaption(m)" class="chat-media-caption">
-                    <text
-                      v-for="(p, i) in splitTextLinks(mediaCaption(m))"
-                      :key="'vc' + msgId(m) + '-' + i"
-                      :class="{ 'content-link': p.t === 'link' }"
-                      @click.stop="p.t === 'link' && openMsgLink(p.v)"
-                    >{{ p.v }}</text>
+                    <template v-for="(p, i) in splitTextLinks(mediaCaption(m))" :key="'vc' + msgId(m) + '-' + i">
+                      <view v-if="p.t === 'br'" class="content-br" />
+                      <text
+                        v-else
+                        :class="{ 'content-link': p.t === 'link' }"
+                        @click.stop="p.t === 'link' && openMsgLink(p.v)"
+                      >{{ p.v }}</text>
+                    </template>
                   </view>
                   <text class="meta">{{ msgTime(m) }}</text>
                 </view>
@@ -221,12 +225,14 @@
                   @mouseleave="onTextMsgHoldEnd"
                 >
                   <view class="content content-rich">
-                    <text
-                      v-for="(p, i) in msgTextParts(m)"
-                      :key="'t' + msgId(m) + '-' + i"
-                      :class="{ 'content-link': p.t === 'link' }"
-                      @click.stop="p.t === 'link' && openMsgLink(p.v)"
-                    >{{ p.v }}</text>
+                    <template v-for="(p, i) in msgTextParts(m)" :key="'t' + msgId(m) + '-' + i">
+                      <view v-if="p.t === 'br'" class="content-br" />
+                      <text
+                        v-else
+                        :class="{ 'content-link': p.t === 'link' }"
+                        @click.stop="p.t === 'link' && openMsgLink(p.v)"
+                      >{{ p.v }}</text>
+                    </template>
                   </view>
                   <text class="meta">{{ msgTime(m) }}</text>
                 </view>
@@ -5390,6 +5396,23 @@ function closeRpDetail() {
   display: block;
   word-break: break-word;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.content-br {
+  display: block;
+  width: 100%;
+  height: 0;
+  line-height: 0;
+  overflow: hidden;
+}
+.content-rich :deep(text),
+.content-rich :deep(uni-text),
+.content-rich :deep(span),
+.chat-media-caption :deep(text),
+.chat-media-caption :deep(uni-text),
+.chat-media-caption :deep(span) {
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 .content-link {
   color: #576b95;
