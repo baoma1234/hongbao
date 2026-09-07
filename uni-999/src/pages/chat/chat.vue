@@ -79,7 +79,7 @@
                   class="chat-rp-card bubble-rp"
                   :class="rpCardClass(m)"
                   @click="onRpTap(m)"
-                  @longpress="onMsgLongPress(m)"
+                  @longpress.stop="onMsgLongPress(m, $event)"
                 >
                   <view class="rp-top">
                     <view class="rp-icon-box rp-icon-css" aria-hidden="true">
@@ -118,7 +118,7 @@
                   v-else-if="isFissionShare(m)"
                   class="chat-fission-share-card"
                   :class="{ me: isMine(m) }"
-                  @longpress="onMsgLongPress(m)"
+                  @longpress.stop="onMsgLongPress(m, $event)"
                 >
                   <view class="chat-fission-share-hd">
                     <text class="chat-fission-share-tag">官方活动</text>
@@ -139,7 +139,7 @@
                   v-else-if="isTransfer(m)"
                   class="chat-transfer-card"
                   :class="{ me: isMine(m) }"
-                  @longpress="onMsgLongPress(m)"
+                  @longpress.stop="onMsgLongPress(m, $event)"
                 >
                   <view class="tf-top">
                     <view class="tf-icon" aria-hidden="true">💸</view>
@@ -154,19 +154,19 @@
                   </view>
                 </view>
 
-                <view v-else-if="isSticker(m)" class="chat-bubble sticker" @longpress="onMsgLongPress(m)">
+                <view v-else-if="isSticker(m)" class="chat-bubble sticker" @longpress.stop="onMsgLongPress(m, $event)">
                   <image class="chat-sticker-img" :src="stickerUrl(m)" mode="aspectFit" lazy-load />
                   <text class="meta">{{ msgTime(m) }}</text>
                 </view>
-                <view v-else-if="isImage(m)" class="chat-bubble media" @longpress="onMsgLongPress(m)">
+                <view v-else-if="isImage(m)" class="chat-bubble media" @longpress.stop="onMsgLongPress(m, $event)">
                   <image class="chat-media-img" :src="mediaUrl(m)" mode="widthFix" @click.stop="previewImageMsg(m)" />
                   <text class="meta">{{ msgTime(m) }}</text>
                 </view>
-                <view v-else-if="isVideo(m)" class="chat-bubble media" @longpress="onMsgLongPress(m)">
+                <view v-else-if="isVideo(m)" class="chat-bubble media" @longpress.stop="onMsgLongPress(m, $event)">
                   <video class="chat-media-video" :src="mediaUrl(m)" controls playsinline />
                   <text class="meta">{{ msgTime(m) }}</text>
                 </view>
-                <view v-else-if="isFile(m)" class="chat-bubble media file" @longpress="onMsgLongPress(m)" @click="openFileMsg(m)">
+                <view v-else-if="isFile(m)" class="chat-bubble media file" @longpress.stop="onMsgLongPress(m, $event)" @click="openFileMsg(m)">
                   <text class="file-name">{{ fileName(m) }}</text>
                   <text class="file-ext">{{ fileMeta(m) }}</text>
                   <text class="meta">{{ msgTime(m) }}</text>
@@ -174,6 +174,7 @@
                 <view
                   v-else
                   class="chat-bubble text-msg"
+                  @longpress.stop="onMsgLongPress(m, $event)"
                   @touchstart="onTextMsgHoldStart(m, $event)"
                   @touchmove="onTextMsgHoldMove($event)"
                   @touchend="onTextMsgHoldEnd"
@@ -770,6 +771,26 @@
           {{ remark ? '修改备注' : '设置备注' }}
         </button>
         <button type="button" class="chat-action-item cancel" @click="moreVisible = false">关闭</button>
+      </view>
+    </view>
+    <!-- 微信式消息长按菜单：复制 / 撤回 -->
+    <view
+      v-if="msgMenu.show"
+      class="chat-wx-msg-mask"
+      @click="closeMsgMenu"
+      @touchmove.stop.prevent
+    >
+      <view class="chat-wx-msg-menu" :style="msgMenuStyle" @click.stop>
+        <view
+          v-for="(it, idx) in msgMenu.items"
+          :key="'mm' + idx + it.action"
+          class="chat-wx-msg-menu-item"
+          hover-class="chat-wx-msg-menu-item--on"
+          @click="onMsgMenuAction(it.action)"
+        >
+          <text class="chat-wx-msg-menu-ico">{{ it.action === 'copy' ? '⧉' : '↩' }}</text>
+          <text class="chat-wx-msg-menu-lab">{{ it.label }}</text>
+        </view>
       </view>
     </view>
   </view>
@@ -2463,29 +2484,13 @@ function isPlainTextMsg(m) {
   return true
 }
 
-/** 仅纯文字消息可复制；长按需满 2 秒 */
-const MSG_COPY_HOLD_MS = 2000
-let textMsgHoldTimer = null
-let textMsgHoldMsg = null
-let textMsgHoldPoint = null
-
-function clearTextMsgHold() {
-  if (textMsgHoldTimer) {
-    clearTimeout(textMsgHoldTimer)
-    textMsgHoldTimer = null
-  }
-  textMsgHoldMsg = null
-  textMsgHoldPoint = null
-}
-
 function msgCopyText(m) {
   if (!isPlainTextMsg(m)) return ''
   return String(m.content || m.text || '').trim()
 }
 
-/** 别人的文字可复制（含群主长按他人消息） */
+/** 纯文字可复制（自己/别人都可，对齐微信） */
 function canCopyMsg(m) {
-  if (!m || isMine(m)) return false
   return !!msgCopyText(m)
 }
 
@@ -2503,28 +2508,57 @@ function copyMsgContent(m) {
 }
 
 function eventPoint(e) {
-  const t = (e && e.touches && e.touches[0]) || (e && e.changedTouches && e.changedTouches[0])
-  if (t) return { x: t.clientX || t.pageX || 0, y: t.clientY || t.pageY || 0 }
+  const t =
+    (e && e.touches && e.touches[0]) ||
+    (e && e.changedTouches && e.changedTouches[0]) ||
+    (e && e.detail && (e.detail.touches || e.detail.changedTouches) && (e.detail.touches || e.detail.changedTouches)[0])
+  if (t) {
+    return {
+      x: Number(t.clientX != null ? t.clientX : t.pageX) || 0,
+      y: Number(t.clientY != null ? t.clientY : t.pageY) || 0,
+    }
+  }
   if (e && typeof e.clientX === 'number') return { x: e.clientX, y: e.clientY }
+  if (e && e.detail && typeof e.detail.x === 'number') return { x: e.detail.x, y: e.detail.y }
   return null
+}
+
+/** scroll-view 内系统 longpress 常失效：文字额外用 ~0.5s 按住（对齐微信） */
+const MSG_HOLD_MS = 480
+let textMsgHoldTimer = null
+let textMsgHoldMsg = null
+let textMsgHoldPoint = null
+let textMsgHoldEvent = null
+let msgMenuOpenedAt = 0
+
+function clearTextMsgHold() {
+  if (textMsgHoldTimer) {
+    clearTimeout(textMsgHoldTimer)
+    textMsgHoldTimer = null
+  }
+  textMsgHoldMsg = null
+  textMsgHoldPoint = null
+  textMsgHoldEvent = null
 }
 
 function onTextMsgHoldStart(m, e) {
   clearTextMsgHold()
   if (!isPlainTextMsg(m)) return
-  // 触摸与鼠标并存时：忽略随后的 mousedown，避免计时重置
   if (e && e.type === 'mousedown' && e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) return
   if (e && e.type === 'mousedown' && typeof e.button === 'number' && e.button !== 0) return
   textMsgHoldMsg = m
   textMsgHoldPoint = eventPoint(e)
+  textMsgHoldEvent = e
   textMsgHoldTimer = setTimeout(() => {
     textMsgHoldTimer = null
     const target = textMsgHoldMsg
+    const ev = textMsgHoldEvent
     textMsgHoldMsg = null
     textMsgHoldPoint = null
+    textMsgHoldEvent = null
     if (!target) return
-    onMsgLongPress(target)
-  }, MSG_COPY_HOLD_MS)
+    onMsgLongPress(target, ev)
+  }, MSG_HOLD_MS)
 }
 
 function onTextMsgHoldMove(e) {
@@ -2540,45 +2574,98 @@ function onTextMsgHoldEnd() {
   clearTextMsgHold()
 }
 
-function onMsgLongPress(m) {
+/** 微信式气泡旁悬浮菜单 */
+const msgMenu = ref({
+  show: false,
+  msg: null,
+  left: 0,
+  top: 0,
+  items: [],
+})
+
+const msgMenuStyle = computed(() => ({
+  left: (msgMenu.value.left | 0) + 'px',
+  top: (msgMenu.value.top | 0) + 'px',
+}))
+
+function closeMsgMenu() {
+  msgMenu.value = { show: false, msg: null, left: 0, top: 0, items: [] }
+}
+
+function onMsgLongPress(m, e) {
   if (!m || isRecalled(m) || isSystemMsg(m)) return
-  // 别人的文字 → 复制；自己的且未超时 → 撤回（群主同样可复制他人文字）
-  const copyable = canCopyMsg(m)
-  const recallable = canRecallLocal(m)
-  if (!copyable && !recallable) return
+  const now = Date.now()
+  if (now - msgMenuOpenedAt < 450) return
+  msgMenuOpenedAt = now
+  clearTextMsgHold()
+
   const items = []
-  const actions = []
-  if (copyable) {
-    items.push(rpT('chat_msg_copy', '复制'))
-    actions.push('copy')
+  if (canCopyMsg(m)) {
+    items.push({ action: 'copy', label: rpT('chat_msg_copy', '复制') })
   }
-  if (recallable) {
-    items.push(isPrivate.value ? rpT('chat_msg_delete', '删除消息') : rpT('chat_msg_recall', '撤回消息'))
-    actions.push('recall')
+  if (canRecallLocal(m)) {
+    items.push({
+      action: 'recall',
+      label: isPrivate.value ? rpT('chat_msg_delete', '删除') : rpT('chat_msg_recall', '撤回'),
+    })
   }
-  uni.showActionSheet({
-    itemList: items,
-    success: async (res) => {
-      const action = actions[res.tapIndex]
-      if (action === 'copy') {
-        copyMsgContent(m)
-        return
-      }
-      if (action !== 'recall') return
-      try {
-        const packet = await recallMessage(m.id || m.msg_id)
-        const body = (packet && packet.data) || {}
-        const msg = body.message || Object.assign({}, m, { status: 2 })
-        applyRecalled(msg)
-        uni.showToast({
-          title: isPrivate.value ? rpT('chat_msg_delete_ok', '已删除') : rpT('chat_msg_recall_ok', '已撤回'),
-          icon: 'none',
-        })
-      } catch (e) {
-        uni.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
-      }
-    },
-  })
+  if (!items.length) return
+
+  try {
+    uni.vibrateShort({ type: 'medium' })
+  } catch (err) {
+    /* ignore */
+  }
+
+  const p = eventPoint(e)
+  let sys = { windowWidth: 375, windowHeight: 667 }
+  try {
+    sys = uni.getSystemInfoSync() || sys
+  } catch (err2) {
+    /* ignore */
+  }
+  const ww = Number(sys.windowWidth) || 375
+  const wh = Number(sys.windowHeight) || 667
+  const menuW = Math.max(72, items.length * 68)
+  const menuH = 58
+  const x = p && p.x > 0 ? p.x : ww / 2
+  const y = p && p.y > 0 ? p.y : wh * 0.4
+  let left = Math.round(x - menuW / 2)
+  let top = Math.round(y - menuH - 28)
+  left = Math.max(8, Math.min(left, ww - menuW - 8))
+  if (top < 12) top = Math.round(y + 20)
+  top = Math.max(8, Math.min(top, wh - menuH - 8))
+
+  msgMenu.value = {
+    show: true,
+    msg: m,
+    left,
+    top,
+    items,
+  }
+}
+
+async function onMsgMenuAction(action) {
+  const m = msgMenu.value.msg
+  closeMsgMenu()
+  if (!m) return
+  if (action === 'copy') {
+    copyMsgContent(m)
+    return
+  }
+  if (action !== 'recall') return
+  try {
+    const packet = await recallMessage(m.id || m.msg_id)
+    const body = (packet && packet.data) || {}
+    const msg = body.message || Object.assign({}, m, { status: 2 })
+    applyRecalled(msg)
+    uni.showToast({
+      title: isPrivate.value ? rpT('chat_msg_delete_ok', '已删除') : rpT('chat_msg_recall_ok', '已撤回'),
+      icon: 'none',
+    })
+  } catch (err) {
+    uni.showToast({ title: (err && err.message) || '操作失败', icon: 'none' })
+  }
 }
 
 function closePanels() {
@@ -4775,11 +4862,54 @@ function closeRpDetail() {
 </style>
 
 <style scoped>
-/* 文字气泡：禁用系统选中/呼出，改由长按 2s 复制 */
+/* 文字气泡：禁用系统选中，改用微信式长按菜单 */
 .chat-bubble.text-msg {
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
+}
+.chat-wx-msg-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 30000;
+  background: transparent;
+}
+.chat-wx-msg-menu {
+  position: fixed;
+  z-index: 30001;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  background: rgba(48, 48, 48, 0.96);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+}
+.chat-wx-msg-menu-item {
+  min-width: 64px;
+  padding: 10px 16px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.chat-wx-msg-menu-item + .chat-wx-msg-menu-item {
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+}
+.chat-wx-msg-menu-item--on {
+  background: rgba(255, 255, 255, 0.12);
+}
+.chat-wx-msg-menu-ico {
+  color: #fff;
+  font-size: 16px;
+  line-height: 1;
+}
+.chat-wx-msg-menu-lab {
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 /* 详情/会话样式走 chat.bundle + chat-888-parity；此处仅房间页微补 */
 .chat-rp-grab-error {
