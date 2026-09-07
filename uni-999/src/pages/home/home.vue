@@ -234,6 +234,9 @@ let secretTimer = null
 let secretRequestId = ''
 let tickerTimer = null
 let onlinePollTimer = null
+let onlineJitterTimer = null
+/** 在线人数相对基数的氛围浮动（约 ±10/分钟） */
+const onlineCountJitter = ref(0)
 
 const TAB_BAR_CONTENT_PX = 64
 
@@ -506,7 +509,37 @@ const onlineCount = computed(() => {
   return marketVirtualBase()
 })
 
-const onlineCountText = computed(() => formatCountNum(onlineCount.value))
+/** 展示用：基数 + 每分钟约 ±10 浮动 */
+const onlineCountDisplay = computed(() => {
+  const base = Math.max(0, Number(onlineCount.value) || 0)
+  return Math.max(1, base + (onlineCountJitter.value | 0))
+})
+
+const onlineCountText = computed(() => formatCountNum(onlineCountDisplay.value))
+
+function tickOnlineJitter() {
+  // 每分钟上下浮动约 10（6～14），并限制相对基数不要漂太远
+  const step = 6 + Math.floor(Math.random() * 9)
+  const sign = Math.random() < 0.5 ? -1 : 1
+  let next = (onlineCountJitter.value | 0) + sign * step
+  next = Math.max(-48, Math.min(48, next))
+  const base = Math.max(0, Number(onlineCount.value) || 0)
+  if (base + next < 1) next = 1 - base
+  onlineCountJitter.value = next
+}
+
+function startOnlineJitter() {
+  stopOnlineJitter()
+  tickOnlineJitter()
+  onlineJitterTimer = setInterval(tickOnlineJitter, 60000)
+}
+
+function stopOnlineJitter() {
+  if (onlineJitterTimer) {
+    clearInterval(onlineJitterTimer)
+    onlineJitterTimer = null
+  }
+}
 
 const visibleGames = computed(() => {
   return lobbyGamesList.value
@@ -1279,6 +1312,7 @@ function startPoll() {
   pollOnlineLive()
   loadLeaderboard()
   startTicker()
+  startOnlineJitter()
   pollTimer = setInterval(() => {
     pollJackpot()
   }, 20000)
@@ -1299,6 +1333,7 @@ function startPoll() {
 
 function stopPoll() {
   stopTicker()
+  stopOnlineJitter()
   if (pollTimer) {
     clearInterval(pollTimer)
     pollTimer = null
