@@ -466,15 +466,19 @@ function pickTickerNick() {
 }
 
 function rotateTicker() {
-  const game = tickerGames[Math.floor(Math.random() * tickerGames.length)] || '红包扫雷'
-  const amt = (50 + Math.floor(Math.random() * 950)).toFixed(2)
-  const name = pickTickerNick()
-  tickerText.value =
-    tt('lobby_ticker', '恭喜玩家 {name} 在 {game} 中获得 {amount} 红包!', {
-      name,
-      game,
-      amount: amt,
-    }) || `恭喜玩家 ${name} 在 ${game} 中获得 ${amt} 红包!`
+  // 一条跑马灯拼入全部玩法（含幸运盲盒），避免随机轮播长期看不到某款
+  const parts = tickerGames.map((game) => {
+    const amt = (50 + Math.floor(Math.random() * 950)).toFixed(2)
+    const name = pickTickerNick()
+    return (
+      tt('lobby_ticker', '恭喜玩家 {name} 在 {game} 中获得 {amount} 红包!', {
+        name,
+        game,
+        amount: amt,
+      }) || `恭喜玩家 ${name} 在 ${game} 中获得 ${amt} 红包!`
+    )
+  })
+  tickerText.value = parts.join('　　★　　')
 }
 
 function startTicker() {

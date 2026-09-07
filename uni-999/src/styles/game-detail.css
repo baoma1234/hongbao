@@ -275,13 +275,6 @@
   border: none;
 }
 
-.gd-start-sub {
-  display: block;
-  margin-top: 8px;
-  font-size: 12px;
-  color: rgba(255, 240, 210, 0.65);
-}
-
 .gd-records-hd {
   display: flex;
   align-items: center;

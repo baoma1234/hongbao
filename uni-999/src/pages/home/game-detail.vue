@@ -73,7 +73,6 @@
           <button type="button" class="gd-start-btn" hover-class="gd-hit" @click="onStart">
             {{ tt('game_detail_start', '立即开始') }}
           </button>
-          <text class="gd-start-sub">{{ tt('game_detail_remain', '今日剩余次数：10 次') }}</text>
         </view>
 
         <view class="gd-card gd-records">
