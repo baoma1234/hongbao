@@ -357,10 +357,10 @@
               @focus="onInputFocus"
             />
             <view
-              v-if="attachAllowed && !hasComposerText"
+              v-if="attachAllowed"
               id="chatAttachBtn"
               class="btn-plus"
-              :class="{ active: showAttach }"
+              :class="{ active: showAttach, disabled: mediaSending || textSending }"
               @click="toggleAttach"
             >
               <text class="chat-tool-glyph chat-tool-glyph--plus" aria-hidden="true">＋</text>
@@ -371,10 +371,10 @@
               class="chat-send-btn"
               :class="{
                 'chat-send-btn--qq': hasComposerText,
-                disabled: composerLocked || !canCap('text'),
+                disabled: composerLocked || !canCap('text') || textSending,
               }"
               @click="sendText"
-            >发送</view>
+            >{{ textSending ? '…' : '发送' }}</view>
           </view>
         </view>
       </view>
@@ -1098,6 +1098,7 @@ const rpSending = ref(false)
 const transferSending = ref(false)
 const transferForm = reactive({ amount: '', remark: '' })
 const mediaSending = ref(false)
+const textSending = ref(false)
 const grabbing = ref(false)
 const detailVisible = ref(false)
 const detail = ref(null)
@@ -2945,6 +2946,7 @@ async function ensureEmojisLoaded() {
 }
 
 function toggleAttach() {
+  if (mediaSending.value || textSending.value) return
   if (!attachAllowed.value) {
     uni.showToast({ title: '附件已禁止', icon: 'none' })
     return
@@ -3844,12 +3846,19 @@ async function fetchHistory(opts) {
 }
 
 async function sendText() {
+  if (textSending.value || mediaSending.value) return
   if (composerLocked.value || !canCap('text')) {
     uni.showToast({ title: composerPlaceholder.value || '暂不可发言', icon: 'none' })
     return
   }
   const content = String(text.value || '').trim()
   if (!content) return
+  // 立刻上锁并清空，避免连点/回车重复发送同一条
+  textSending.value = true
+  text.value = ''
+  showEmoji.value = false
+  showSticker.value = false
+  showAttach.value = false
   try {
     let packet
     if (meta.value.type == 2) {
@@ -3858,15 +3867,15 @@ async function sendText() {
       packet = await imSend('private.send', { to_user_id: meta.value.peer | 0, content, msg_type: 1 }, true)
     }
     const msg = (packet && packet.data && packet.data.message) || null
-    text.value = ''
-    showEmoji.value = false
-    showSticker.value = false
-    showAttach.value = false
     if (msg) appendLocalMessage(msg)
     else await fetchHistory({ forceScroll: true })
     markRead().catch(() => {})
   } catch (e) {
+    // 失败时若输入框仍空则还原，方便重发
+    if (!String(text.value || '').trim()) text.value = content
     uni.showToast({ title: e.message || '发送失败', icon: 'none' })
+  } finally {
+    textSending.value = false
   }
 }
 
