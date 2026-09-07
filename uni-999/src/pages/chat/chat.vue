@@ -809,7 +809,7 @@
         :style="msgMenuStyle"
         @click.stop
       >
-        <view class="chat-wx-msg-menu-arrow" />
+        <view class="chat-wx-msg-menu-arrow" :style="msgMenuArrowStyle" />
         <view class="chat-wx-msg-menu-row">
           <view
             v-for="(it, idx) in msgMenu.items"
@@ -2653,6 +2653,7 @@ const msgMenu = ref({
   left: 0,
   top: 0,
   place: 'below',
+  arrowLeft: 40,
   items: [],
 })
 
@@ -2662,8 +2663,21 @@ const msgMenuStyle = computed(() => ({
   visibility: msgMenu.value.top < -100 ? 'hidden' : 'visible',
 }))
 
+const msgMenuArrowStyle = computed(() => ({
+  left: (msgMenu.value.arrowLeft | 0) + 'px',
+  marginLeft: '0',
+}))
+
 function closeMsgMenu() {
-  msgMenu.value = { show: false, msg: null, left: 0, top: 0, place: 'below', items: [] }
+  msgMenu.value = {
+    show: false,
+    msg: null,
+    left: 0,
+    top: 0,
+    place: 'below',
+    arrowLeft: 40,
+    items: [],
+  }
 }
 
 function sysWinSize() {
@@ -2683,54 +2697,66 @@ function placeMsgMenuBelowBubble(m, items) {
   const menuW = Math.max(64, items.length * 58)
   const menuH = 72
   const gap = 8
-  // 先按屏幕中部占位，再测量气泡后贴到底边下方
+  // 先占位再测气泡：贴正下方，右缘对齐气泡右边
   msgMenu.value = {
     show: true,
     msg: m,
-    left: Math.round((ww - menuW) / 2),
+    left: Math.round(ww - menuW - 8),
     top: -999,
     place: 'below',
+    arrowLeft: Math.max(12, menuW - 28),
     items,
   }
   nextTick(() => {
     try {
-      const sel = '#m' + String(msgId(m)).replace(/([ !"#$%&'()*+,./:;<=>?@[\\\]^`{|}~])/g, '\\$1')
+      const mid = String(msgId(m)).replace(/([ !"#$%&'()*+,./:;<=>?@[\\\]^`{|}~])/g, '\\$1')
+      const rowSel = '#m' + mid
+      const bubbleSel = rowSel + ' .chat-msg-main'
       const q = uni.createSelectorQuery()
       if (chatPageProxy) q.in(chatPageProxy)
-      q.select(sel)
-        .boundingClientRect((rect) => {
-          if (!rect || !rect.width) {
-            // 测量失败：落在触点下方中部
-            msgMenu.value = Object.assign({}, msgMenu.value, {
-              left: Math.max(8, Math.round((ww - menuW) / 2)),
-              top: Math.round(wh * 0.42),
-              place: 'below',
-            })
-            return
+      q.select(bubbleSel)
+        .boundingClientRect()
+      q.select(rowSel)
+        .boundingClientRect()
+      q.exec((rects) => {
+        const rect = (rects && rects[0] && rects[0].width ? rects[0] : null)
+          || (rects && rects[1] && rects[1].width ? rects[1] : null)
+        if (!rect) {
+          msgMenu.value = Object.assign({}, msgMenu.value, {
+            left: Math.max(8, ww - menuW - 8),
+            top: Math.round(wh * 0.42),
+            place: 'below',
+            arrowLeft: Math.max(12, menuW - 28),
+          })
+          return
+        }
+        // 从气泡右边起：菜单右缘对齐气泡右缘
+        let left = Math.round(rect.right - menuW)
+        left = Math.max(8, Math.min(left, ww - menuW - 8))
+        let top = Math.round(rect.bottom + gap)
+        let place = 'below'
+        if (top + menuH > wh - 12) {
+          const above = Math.round(rect.top - menuH - gap)
+          if (above >= 8) {
+            top = above
+            place = 'above'
+          } else {
+            top = Math.max(8, wh - menuH - 12)
+            place = 'below'
           }
-          let left = Math.round(rect.left + rect.width / 2 - menuW / 2)
-          left = Math.max(8, Math.min(left, ww - menuW - 8))
-          let top = Math.round(rect.bottom + gap)
-          let place = 'below'
-          // 底部不够时仍优先下方贴底；实在溢出才翻到上方
-          if (top + menuH > wh - 12) {
-            const above = Math.round(rect.top - menuH - gap)
-            if (above >= 8) {
-              top = above
-              place = 'above'
-            } else {
-              top = Math.max(8, wh - menuH - 12)
-              place = 'below'
-            }
-          }
-          msgMenu.value = Object.assign({}, msgMenu.value, { left, top, place })
-        })
-        .exec()
+        }
+        // 箭头对准气泡右半侧（靠近消息右边）
+        const tipX = rect.right - 18
+        let arrowLeft = Math.round(tipX - left)
+        arrowLeft = Math.max(12, Math.min(arrowLeft, menuW - 12))
+        msgMenu.value = Object.assign({}, msgMenu.value, { left, top, place, arrowLeft })
+      })
     } catch (err) {
       msgMenu.value = Object.assign({}, msgMenu.value, {
-        left: Math.max(8, Math.round((ww - menuW) / 2)),
+        left: Math.max(8, ww - menuW - 8),
         top: Math.round(wh * 0.42),
         place: 'below',
+        arrowLeft: Math.max(12, menuW - 28),
       })
     }
   })
@@ -5145,7 +5171,7 @@ function closeRpDetail() {
 }
 .chat-wx-msg-menu-arrow {
   position: absolute;
-  left: 50%;
+  left: 40px;
   top: -6px;
   width: 0;
   height: 0;
