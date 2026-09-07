@@ -40,25 +40,30 @@ function copyDir(from, to) {
 function ensureAppleTouchIcon(htmlPath) {
   if (!fs.existsSync(htmlPath)) return
   let html = fs.readFileSync(htmlPath, 'utf8')
-  if (html.indexOf('rel="apple-touch-icon"') >= 0) return
-  const tags =
-    '\n    <meta name="apple-mobile-web-app-capable" content="yes" />\n' +
-    '    <meta name="apple-mobile-web-app-title" content="抢红宝" />\n' +
-    '    <link rel="apple-touch-icon" sizes="180x180" href="' +
-    APPLE_TOUCH_ICON +
-    '" />\n' +
-    '    <link rel="apple-touch-icon" sizes="1024x1024" href="' +
-    APPLE_TOUCH_ICON +
-    '" />\n' +
-    '    <link rel="icon" type="image/png" href="' +
-    APPLE_TOUCH_ICON +
-    '" />\n'
-  if (html.indexOf('</title>') >= 0) {
-    html = html.replace('</title>', '</title>' + tags)
-  } else if (html.indexOf('<head>') >= 0) {
-    html = html.replace('<head>', '<head>' + tags)
-  } else {
-    return
+  // 统一主屏幕名 / 书签标题
+  html = html.replace(
+    /<meta\s+name="apple-mobile-web-app-title"\s+content="[^"]*"\s*\/?>/i,
+    '<meta name="apple-mobile-web-app-title" content="红宝" />'
+  )
+  html = html.replace(/<title>[^<]*<\/title>/i, '<title>红宝</title>')
+  if (html.indexOf('rel="apple-touch-icon"') < 0) {
+    const tags =
+      '\n    <meta name="apple-mobile-web-app-capable" content="yes" />\n' +
+      '    <meta name="apple-mobile-web-app-title" content="红宝" />\n' +
+      '    <link rel="apple-touch-icon" sizes="180x180" href="' +
+      APPLE_TOUCH_ICON +
+      '" />\n' +
+      '    <link rel="apple-touch-icon" sizes="1024x1024" href="' +
+      APPLE_TOUCH_ICON +
+      '" />\n' +
+      '    <link rel="icon" type="image/png" href="' +
+      APPLE_TOUCH_ICON +
+      '" />\n'
+    if (html.indexOf('</title>') >= 0) {
+      html = html.replace('</title>', '</title>' + tags)
+    } else if (html.indexOf('<head>') >= 0) {
+      html = html.replace('<head>', '<head>' + tags)
+    }
   }
   fs.writeFileSync(htmlPath, html)
 }

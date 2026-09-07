@@ -238,7 +238,7 @@
         "usingComponents" : true
     },
     "h5" : {
-        "title" : "红宝999",
+        "title" : "红宝",
         "router" : {
             "mode" : "hash",
             "base" : "/999/"
