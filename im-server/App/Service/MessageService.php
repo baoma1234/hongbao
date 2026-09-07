@@ -1113,8 +1113,8 @@ class MessageService
 
     /**
      * 撤回消息（status=2）
-     * - 本人：群聊限 2 分钟；私聊可随时删（前端展示「删除」）
-     * - 群主：可撤回本群任意文字/图片，无时间限制
+     * - 本人：私聊 / 群聊均限 2 分钟
+     * - 群主：可撤回本群任意文字(1)/图片(4)/视频(5)，无时间限制
      * - IM 管理员：可撤任意消息
      */
     public function recall($messageId, $operatorId)
@@ -1138,17 +1138,18 @@ class MessageService
         $groupId = (int)($row['group_id'] ?? 0);
         $isGroupOwner = !$isPrivate && $groupId > 0 && (new GroupService())->isOwner($groupId, $operatorId);
         $msgType = (int)($row['msg_type'] ?? 0);
-        // 群主仅可管文字(1)、图片(4)；表情包等不在此列
-        $ownerTargetOk = $msgType === 1 || $msgType === 4;
+        $content = (string)($row['content'] ?? '');
+        // 群主可管：文字 / 图片 / 视频（表情包不在此列）
+        $isStickerLike = $msgType === 6 || ($msgType === 1 && preg_match('/^\[[^\]]+\]$/u', $content));
+        $ownerTargetOk = (!$isStickerLike && $msgType === 1) || $msgType === 4 || $msgType === 5;
 
         if (!$isSender && !$isAdmin && !($isGroupOwner && $ownerTargetOk)) {
             throw new \RuntimeException('no permission');
         }
-        // 本人非管理员：群聊仍限 2 分钟；私聊本人可随时删
-        if ($isSender && !$isAdmin && !$isPrivate) {
+        // 本人非管理员：私聊与群聊均限 2 分钟；超时后仅群主且目标类型可管时可继续撤
+        if ($isSender && !$isAdmin) {
             $age = time() - (int)$row['createtime'];
             if ($age > 120) {
-                // 超时后若本人不是群主，或消息类型群主也不能管 → 失败
                 if (!($isGroupOwner && $ownerTargetOk)) {
                     throw new \RuntimeException('recall expired');
                 }
@@ -1160,7 +1161,7 @@ class MessageService
             [$messageId]
         );
         $row['status'] = 2;
-        $row['content'] = $isPrivate ? '[已删除]' : '[已撤回]';
+        $row['content'] = '[已撤回]';
         $normalized = $this->normalizeMessage($row);
         if (!$this->patchRecentByMessage($normalized)) {
             $this->cacheRecent($normalized);

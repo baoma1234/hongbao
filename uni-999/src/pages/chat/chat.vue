@@ -2467,14 +2467,30 @@ function applyRestored(msg) {
   appendLocalMessage(Object.assign({}, msg, { status: 1 }))
 }
 
-/** 本人可撤回：私聊随时；群聊限 2 分钟 */
-function canRecallLocal(m) {
-  if (!m || isRecalled(m) || isSystemMsg(m)) return false
-  if (!isMine(m)) return false
-  if (isPrivate.value) return true
-  const ts = (m.createtime | 0) || 0
+/** 本人可撤回：私聊/群聊均限 2 分钟；群主可撤任意人文字/图片/视频（无时限） */
+function isGroupOwnerLocal() {
+  return !isPrivate.value && ((groupMeta.value && groupMeta.value.my_role) | 0) === 3
+}
+
+function isWithinRecallWindow(m) {
+  const ts = (m && m.createtime) | 0
   const t = ts < 1e12 ? ts : Math.floor(ts / 1000)
   return t > 0 && Date.now() / 1000 - t <= 120
+}
+
+/** 群主可管：文字 / 图片 / 视频（不含表情包） */
+function isOwnerRecallTarget(m) {
+  if (!m || isRecalled(m) || isSystemMsg(m)) return false
+  if (isImage(m) || isVideo(m)) return true
+  if (msgType(m) === 1 && !isSticker(m)) return true
+  return false
+}
+
+function canRecallLocal(m) {
+  if (!m || isRecalled(m) || isSystemMsg(m)) return false
+  if (isGroupOwnerLocal() && isOwnerRecallTarget(m)) return true
+  if (!isMine(m)) return false
+  return isWithinRecallWindow(m)
 }
 
 function isPlainTextMsg(m) {
@@ -2606,7 +2622,7 @@ function onMsgLongPress(m, e) {
   if (canRecallLocal(m)) {
     items.push({
       action: 'recall',
-      label: isPrivate.value ? rpT('chat_msg_delete', '删除') : rpT('chat_msg_recall', '撤回'),
+      label: rpT('chat_msg_recall', '撤回'),
     })
   }
   if (!items.length) return
@@ -2660,7 +2676,7 @@ async function onMsgMenuAction(action) {
     const msg = body.message || Object.assign({}, m, { status: 2 })
     applyRecalled(msg)
     uni.showToast({
-      title: isPrivate.value ? rpT('chat_msg_delete_ok', '已删除') : rpT('chat_msg_recall_ok', '已撤回'),
+      title: rpT('chat_msg_recall_ok', '已撤回'),
       icon: 'none',
     })
   } catch (err) {

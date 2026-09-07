@@ -80,8 +80,8 @@ export function isLeaveGroupTip(m) {
 
 export function recallTip(m, myId, isPrivate) {
   const mine = (m && (m.from_user_id | 0)) === (myId | 0)
-  if (isPrivate) return mine ? '你删除了一条消息' : '对方删除了一条消息'
   if (mine) return '你撤回了一条消息'
+  if (isPrivate) return '对方撤回了一条消息'
   return '一条消息被撤回'
 }
 
