@@ -224,6 +224,21 @@ class FansHubFission
         }
         $aid = (int)$act['id'];
         self::ensureQualPayouts($aid);
+        // 打开领取记录时顺带校正误写入的未来时间
+        $futureCnt = (int)Db::name('fans_fission_qual')
+            ->where('activity_id', $aid)
+            ->where('claimed', 1)
+            ->where('claimed_at', '>', time())
+            ->count();
+        if ($futureCnt > 0) {
+            try {
+                Db::startTrans();
+                self::clampFutureClaimedAtLocked($aid);
+                Db::commit();
+            } catch (\Throwable $e) {
+                Db::rollback();
+            }
+        }
         $summary = self::poolSummary($aid, $act);
         $rows = Db::name('fans_fission_qual')
             ->alias('q')
@@ -1345,15 +1360,24 @@ class FansHubFission
                 }
 
                 $startTs = (int)$act['start_time'];
-                $endTs = min(time(), (int)$act['end_time'] ?: time());
+                $nowTs = time();
+                $actEnd = (int)$act['end_time'] ?: $nowTs;
+                // 领取时间只能落在「开始 → 当前」，绝不能写到活动结束日的未来时刻
+                $endTs = min($nowTs, $actEnd);
                 if ($endTs <= $startTs + 60) {
-                    $endTs = $startTs + 86400;
+                    $endTs = $nowTs;
+                    $startTs = max(0, min($startTs, $nowTs - 600));
+                }
+                if ($endTs <= $startTs + 30) {
+                    $startTs = max(0, $endTs - 600);
                 }
                 $times = [];
                 for ($i = 0; $i < $need; $i++) {
-                    $t = (int)round($startTs + ($endTs - $startTs) * (($i + 0.5) / $need));
-                    $t += random_int(-120, 300);
-                    $t = max($startTs + 30, min($endTs - 10, $t));
+                    $span = max(1, $endTs - $startTs);
+                    $t = (int)round($startTs + $span * (($i + 0.5) / $need));
+                    $t += random_int(-120, 180);
+                    $t = max($startTs + 30, min($endTs - 1, $t));
+                    $t = min($t, $nowTs - 1);
                     $times[] = $t;
                 }
                 sort($times);
@@ -1393,6 +1417,8 @@ class FansHubFission
 
             // 资格条数对齐后：按 cap 进度重拆机器人金额，避免历史错误把池子提前分光
             self::rebalanceBotWinAmountsLocked($activityId, $act, $target);
+            // 校正误写入的未来领取时间（例如按活动 end_time 排到了明天）
+            self::clampFutureClaimedAtLocked($activityId);
 
             Db::name('fans_fission_activity')->where('id', $activityId)->update([
                 'global_quals' => $target,
@@ -1420,6 +1446,49 @@ class FansHubFission
             $msg .= '（资格条数已对齐，无需增减机器人）';
         }
         return ['ok' => true, 'added' => $added, 'removed' => $removed, 'message' => $msg];
+    }
+
+    /**
+     * 活动锁内：把误写入「未来」的领取时间拉回到 [活动开始, now)。
+     */
+    protected static function clampFutureClaimedAtLocked($activityId)
+    {
+        $activityId = (int)$activityId;
+        $now = time();
+        if ($activityId <= 0) {
+            return 0;
+        }
+        $act = Db::name('fans_fission_activity')->where('id', $activityId)->find();
+        if (!$act) {
+            return 0;
+        }
+        $startTs = max(0, (int)$act['start_time']);
+        $rows = Db::name('fans_fission_qual')
+            ->where('activity_id', $activityId)
+            ->where('claimed', 1)
+            ->where('claimed_at', '>', $now)
+            ->order('id', 'asc')
+            ->lock(true)
+            ->select();
+        $rows = is_array($rows) ? $rows : ($rows ? $rows->toArray() : []);
+        if (!$rows) {
+            return 0;
+        }
+        $n = count($rows);
+        $spanStart = max($startTs + 30, $now - max(3600, $n * 180));
+        $spanStart = min($spanStart, $now - max(60, $n));
+        $changed = 0;
+        for ($i = 0; $i < $n; $i++) {
+            $t = (int)round($spanStart + ($now - $spanStart) * (($i + 0.5) / $n));
+            $t = max($spanStart, min($now - 1, $t));
+            $ct = max($startTs + 10, $t - random_int(20, 90));
+            Db::name('fans_fission_qual')->where('id', (int)$rows[$i]['id'])->update([
+                'claimed_at' => $t,
+                'createtime' => min((int)$rows[$i]['createtime'] ?: $ct, $t),
+            ]);
+            $changed++;
+        }
+        return $changed;
     }
 
     /**

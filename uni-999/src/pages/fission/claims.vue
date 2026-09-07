@@ -71,20 +71,21 @@ function formatTime(ts) {
   ts = Number(ts || 0)
   if (!ts) return ''
   if (ts > 1e12) ts = Math.floor(ts / 1000)
-  const d = new Date(ts * 1000)
+  // 统一按东八区展示，避免设备时区把领取时间显示成隔天
+  const d = new Date((ts + 8 * 3600) * 1000)
   const pad = (n) => (n < 10 ? '0' + n : '' + n)
   return (
-    d.getFullYear() +
+    d.getUTCFullYear() +
     '-' +
-    pad(d.getMonth() + 1) +
+    pad(d.getUTCMonth() + 1) +
     '-' +
-    pad(d.getDate()) +
+    pad(d.getUTCDate()) +
     ' ' +
-    pad(d.getHours()) +
+    pad(d.getUTCHours()) +
     ':' +
-    pad(d.getMinutes()) +
+    pad(d.getUTCMinutes()) +
     ':' +
-    pad(d.getSeconds())
+    pad(d.getUTCSeconds())
   )
 }
 

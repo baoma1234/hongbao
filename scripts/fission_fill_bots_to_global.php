@@ -120,17 +120,25 @@ if (count($bots) < $need) {
 shuffle($bots);
 
 $startTs = (int)$act['start_time'];
-$endTs = min(time(), (int)$act['end_time'] ?: time());
+$nowTs = time();
+$actEnd = (int)$act['end_time'] ?: $nowTs;
+$endTs = min($nowTs, $actEnd);
 if ($endTs <= $startTs + 60) {
-    $endTs = $startTs + 86400;
+    $endTs = $nowTs;
+    $startTs = max(0, min($startTs, $nowTs - 600));
+}
+if ($endTs <= $startTs + 30) {
+    $startTs = max(0, $endTs - 600);
 }
 
-// 在活动时间轴上均匀/微扰生成领取时间，再排序
+// 在「开始→当前」时间轴上生成领取时间，绝不写入未来
 $times = [];
 for ($i = 0; $i < $need; $i++) {
-    $t = (int)round($startTs + ($endTs - $startTs) * (($i + 0.5) / $need));
-    $t += random_int(-120, 300);
-    $t = max($startTs + 30, min($endTs - 10, $t));
+    $span = max(1, $endTs - $startTs);
+    $t = (int)round($startTs + $span * (($i + 0.5) / $need));
+    $t += random_int(-120, 180);
+    $t = max($startTs + 30, min($endTs - 1, $t));
+    $t = min($t, $nowTs - 1);
     $times[] = $t;
 }
 sort($times);
