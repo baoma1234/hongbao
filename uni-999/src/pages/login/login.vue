@@ -1,10 +1,11 @@
 <template>
-  <view class="login-page">
+  <view class="login-page" @touchmove.stop.prevent="noop">
     <!-- 全屏背景：CSS cover + top，四端避免 image aspectFill 裁切顶部 -->
     <view class="login-page-bg" :style="heroBgStyle" aria-hidden="true" />
 
-    <!-- 语言：叠在背景图右上（无公共顶栏） -->
+    <!-- 顶栏：左 logo-l，右语言切换，同一行对齐 -->
     <view class="login-chrome" :style="chromeStyle">
+      <image class="login-brand-logo" :src="brandLogo" mode="heightFix" aria-hidden="true" />
       <view
         class="login-lang-wrap"
         hover-class="login-lang-wrap--hover"
@@ -36,116 +37,113 @@
       </view>
     </view>
 
-    <scroll-view scroll-y class="login-scroll" :show-scrollbar="false">
-      <view class="login-shell">
-        <!-- 背景图已含品牌与 slogan，此处仅留表单上方留白 -->
-        <view class="login-hero-spacer" :style="heroSpacerStyle" aria-hidden="true" />
-
-        <view class="login-card">
-          <view class="login-card-hd">
-            <view class="login-card-title-row">
-              <text class="login-diamond">◆</text>
-              <text class="login-card-title">{{ welcomeTitle }}</text>
-              <text class="login-diamond">◆</text>
-            </view>
-            <text class="login-card-sub">{{ welcomeSub }}</text>
+    <!-- 禁止滚动：固定壳层，表单落在背景图下方留白区 -->
+    <view class="login-body">
+      <view class="login-hero-spacer" aria-hidden="true" />
+      <view class="login-card">
+        <view class="login-card-hd">
+          <view class="login-card-title-row">
+            <text class="login-diamond">◆</text>
+            <text class="login-card-title">{{ welcomeTitle }}</text>
+            <text class="login-diamond">◆</text>
           </view>
+          <text class="login-card-sub">{{ welcomeSub }}</text>
+        </view>
 
-          <view class="input-group">
-            <view class="phone-row">
-              <view class="country-select" @click="countryOpen = !countryOpen">
-                <image class="flag" :src="flagUrl(countryMeta.flagIso)" mode="aspectFill" />
-                <text class="dial">+{{ countryMeta.dial }}</text>
-                <text class="caret">▾</text>
-              </view>
-              <input
-                class="login-input phone-input"
-                type="number"
-                :maxlength="countryMeta.maxlen"
-                v-model="mobile"
-                :placeholder="phonePlaceholder"
-                placeholder-class="login-input-ph"
-                placeholder-style="font-size:13px;font-weight:500;color:#9aa0a6"
-                @input="onPhoneInput"
-              />
+        <view class="input-group">
+          <view class="phone-row">
+            <view class="country-select" @click="countryOpen = !countryOpen">
+              <image class="flag" :src="flagUrl(countryMeta.flagIso)" mode="aspectFill" />
+              <text class="dial">+{{ countryMeta.dial }}</text>
+              <text class="caret">▾</text>
             </view>
-            <view v-if="countryOpen" class="country-panel">
-              <view
-                v-for="c in countries"
-                :key="c.code"
-                class="country-item"
-                :class="{ on: c.code === country }"
-                @click="pickCountry(c.code)"
-              >
-                <image class="flag" :src="flagUrl(c.flagIso)" mode="aspectFill" />
-                <text class="cname">{{ t(c.labelKey) || c.code }}</text>
-                <text class="cdial">+{{ c.dial }}</text>
-              </view>
-            </view>
-          </view>
-
-          <view class="input-group captcha-group">
-            <view class="captcha-row">
-              <view class="captcha-field">
-                <text class="captcha-lock">🔒</text>
-                <input
-                  class="login-input captcha-input"
-                  type="number"
-                  maxlength="6"
-                  v-model="captcha"
-                  :placeholder="t('login_captcha_placeholder') || '请输入验证码'"
-                  placeholder-class="login-input-ph"
-                  placeholder-style="font-size:13px;font-weight:500;color:#9aa0a6"
-                />
-              </view>
-              <button
-                class="captcha-btn"
-                :class="{ disabled: smsLeft > 0 || sending }"
-                :disabled="smsLeft > 0 || sending"
-                @click="onSendSms"
-              >
-                {{ smsBtnText }}
-              </button>
-            </view>
-          </view>
-
-          <!-- 邀请码输入先隐藏：URL / OpenInstall 仍自动灌入 inviteCode 并随登录提交 -->
-          <view v-if="false" class="input-group">
-            <view class="input-label">{{ tt('login_invite_label', '🎁 邀请码（选填）') }}</view>
             <input
-              class="login-input invite-input"
-              type="text"
-              maxlength="16"
-              confirm-type="done"
-              v-model="inviteCode"
-              :placeholder="tt('login_invite_placeholder', '没有邀请码可留空')"
+              class="login-input phone-input"
+              type="number"
+              :maxlength="countryMeta.maxlen"
+              v-model="mobile"
+              :placeholder="phonePlaceholder"
               placeholder-class="login-input-ph"
               placeholder-style="font-size:13px;font-weight:500;color:#9aa0a6"
-              @input="onInviteInput"
+              @input="onPhoneInput"
             />
           </view>
-
-          <button class="btn-login-submit" :loading="loading" @click="onLogin">
-            {{ loginSubmitText }}
-          </button>
-
-          <view
-            v-if="csVisible"
-            class="login-cs-link"
-            hover-class="login-cs-link--active"
-            role="link"
-            @click="openLoginCs"
-          >
-            <text class="login-cs-link-text">{{ csLinkText }}</text>
+          <view v-if="countryOpen" class="country-panel">
+            <view
+              v-for="c in countries"
+              :key="c.code"
+              class="country-item"
+              :class="{ on: c.code === country }"
+              @click="pickCountry(c.code)"
+            >
+              <image class="flag" :src="flagUrl(c.flagIso)" mode="aspectFill" />
+              <text class="cname">{{ t(c.labelKey) || c.code }}</text>
+              <text class="cdial">+{{ c.dial }}</text>
+            </view>
           </view>
         </view>
 
-        <view class="login-foot">
-          <text class="login-foot-main">{{ footMain }}</text>
-          <text class="login-foot-copy">{{ footCopy }}</text>
+        <view class="input-group captcha-group">
+          <view class="captcha-row">
+            <view class="captcha-field">
+              <text class="captcha-lock">🔒</text>
+              <input
+                class="login-input captcha-input"
+                type="number"
+                maxlength="6"
+                v-model="captcha"
+                :placeholder="t('login_captcha_placeholder') || '请输入验证码'"
+                placeholder-class="login-input-ph"
+                placeholder-style="font-size:13px;font-weight:500;color:#9aa0a6"
+              />
+            </view>
+            <button
+              class="captcha-btn"
+              :class="{ disabled: smsLeft > 0 || sending }"
+              :disabled="smsLeft > 0 || sending"
+              @click="onSendSms"
+            >
+              {{ smsBtnText }}
+            </button>
+          </view>
+        </view>
+
+        <!-- 邀请码输入先隐藏：URL / OpenInstall 仍自动灌入 inviteCode 并随登录提交 -->
+        <view v-if="false" class="input-group">
+          <view class="input-label">{{ tt('login_invite_label', '🎁 邀请码（选填）') }}</view>
+          <input
+            class="login-input invite-input"
+            type="text"
+            maxlength="16"
+            confirm-type="done"
+            v-model="inviteCode"
+            :placeholder="tt('login_invite_placeholder', '没有邀请码可留空')"
+            placeholder-class="login-input-ph"
+            placeholder-style="font-size:13px;font-weight:500;color:#9aa0a6"
+            @input="onInviteInput"
+          />
+        </view>
+
+        <button class="btn-login-submit" :loading="loading" @click="onLogin">
+          {{ loginSubmitText }}
+        </button>
+
+        <view
+          v-if="csVisible"
+          class="login-cs-link"
+          hover-class="login-cs-link--active"
+          role="link"
+          @click="openLoginCs"
+        >
+          <text class="login-cs-link-text">{{ csLinkText }}</text>
         </view>
       </view>
-    </scroll-view>
+
+      <view class="login-foot">
+        <text class="login-foot-main">{{ footMain }}</text>
+        <text class="login-foot-copy">{{ footCopy }}</text>
+      </view>
+    </view>
 
     <SliderCaptcha ref="sliderRef" @success="onSliderOk" @cancel="onSliderCancel" />
   </view>
@@ -190,7 +188,7 @@ import { getUploadsBase, packagedStaticUrl } from '../../utils/config.js'
 import { applySafeAreaCssVars, getSafeAreaInsets } from '../../utils/safe-area.js'
 
 const SMS_COOLDOWN_KEY = 'fanshub_sms_cooldown'
-const LOGIN_BG_VER = '3'
+const LOGIN_BG_VER = '4'
 
 const locale = localeState()
 const copyTick = copyState()
@@ -220,9 +218,16 @@ let pickingLang = false
 const heroBg = computed(() => {
   const oss = String(getUploadsBase() || '').replace(/\/+$/, '')
   if (oss) {
-    return oss + '/999/static/login/bg-hero.jpg?v=' + LOGIN_BG_VER
+    return oss + '/999/static/login/bj.jpg?v=' + LOGIN_BG_VER
   }
-  return packagedStaticUrl('login/bg-hero.jpg') + '?v=' + LOGIN_BG_VER
+  return packagedStaticUrl('login/bj.jpg') + '?v=' + LOGIN_BG_VER
+})
+const brandLogo = computed(() => {
+  const oss = String(getUploadsBase() || '').replace(/\/+$/, '')
+  if (oss) {
+    return oss + '/999/static/login/logo-l.png?v=' + LOGIN_BG_VER
+  }
+  return packagedStaticUrl('login/logo-l.png') + '?v=' + LOGIN_BG_VER
 })
 const heroBgStyle = computed(() => ({
   backgroundImage: 'url("' + String(heroBg.value || '').replace(/\\/g, '/').replace(/"/g, '%22') + '")',
@@ -245,17 +250,12 @@ const flagSrc = computed(() => {
   return flagUrl(opt ? opt.flagIso : 'cn')
 })
 const chromeStyle = computed(() => ({
-  /* 语言按钮相对状态栏再下移一点，避免贴顶 */
-  paddingTop: Math.max(0, Number(padTop.value) || 0) + 12 + 'px',
+  paddingTop: Math.max(0, Number(padTop.value) || 0) + 10 + 'px',
 }))
 const langPanelStyle = computed(() => {
-  const top = Math.max(0, Number(padTop.value) || 0) + 12 + 52
+  const top = Math.max(0, Number(padTop.value) || 0) + 10 + 48
   return { top: top + 'px' }
 })
-/** 表单上方留白含状态栏，避免内容顶到刘海/状态栏 */
-const heroSpacerStyle = computed(() => ({
-  paddingTop: Math.max(0, Number(padTop.value) || 0) + 'px',
-}))
 
 function noop() {}
 function closeLang() {
@@ -604,13 +604,20 @@ onUnmounted(() => {
 
 <style scoped>
 .login-page {
-  min-height: 100vh;
-  min-height: 100dvh;
-  min-height: -webkit-fill-available;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  height: 100vh;
+  height: 100dvh;
+  max-height: -webkit-fill-available;
   background: #8b020a;
   box-sizing: border-box;
-  position: relative;
   overflow: hidden;
+  overscroll-behavior: none;
 }
 .login-page-bg {
   position: absolute;
@@ -636,13 +643,21 @@ onUnmounted(() => {
   right: 0;
   z-index: 20;
   display: flex;
+  flex-direction: row;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 10px;
   padding-left: 14px;
   padding-right: 14px;
   padding-bottom: 6px;
   box-sizing: border-box;
+  pointer-events: none;
+}
+.login-brand-logo {
+  height: 34px;
+  width: auto;
+  max-width: 148px;
+  flex-shrink: 0;
   pointer-events: none;
 }
 .login-lang-wrap {
@@ -726,42 +741,45 @@ onUnmounted(() => {
   color: #1a1a1a;
   pointer-events: none;
 }
-.login-scroll {
-  position: relative;
+.login-body {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   z-index: 2;
-  height: 100vh;
-  height: 100dvh;
-  box-sizing: border-box;
-}
-.login-shell {
+  width: 100%;
   max-width: 440px;
   margin: 0 auto;
-  padding: 4px 16px 28px;
+  padding: 0 16px;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  min-height: 100vh;
-  min-height: 100dvh;
+  justify-content: flex-end;
+  overflow: hidden;
+  pointer-events: none;
 }
-/* 顶部留出吉祥物区域，表单落在背景下方留白 */
+/* 顶部留出吉祥物区域，表单固定落在背景下方留白 */
 .login-hero-spacer {
-  flex: 0 0 auto;
-  height: 36vh;
-  min-height: 210px;
-  max-height: 320px;
-  box-sizing: border-box;
+  flex: 1 1 auto;
+  min-height: 38vh;
+  pointer-events: none;
 }
 .login-card {
   position: relative;
   z-index: 3;
-  margin-top: 120px;
+  flex: 0 0 auto;
+  margin-top: 0;
+  margin-bottom: 10px;
   padding: 22px 18px 16px;
   background: #fff;
   border-radius: 28px;
   border: 2px solid rgba(232, 40, 40, 0.55);
   box-shadow: 0 12px 32px rgba(80, 0, 20, 0.28);
   box-sizing: border-box;
+  pointer-events: auto;
 }
 .login-card-hd {
   text-align: center;
@@ -1001,53 +1019,57 @@ onUnmounted(() => {
   line-height: 1.4;
 }
 .login-foot {
-  margin-top: 18px;
+  flex: 0 0 auto;
+  margin-top: 0;
   text-align: center;
-  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: 2px;
+  pointer-events: none;
 }
 .login-foot-main {
   display: block;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.92);
   letter-spacing: 0.5px;
 }
 .login-foot-copy {
   display: block;
-  margin-top: 6px;
-  font-size: 11px;
+  margin-top: 4px;
+  font-size: 10px;
   color: rgba(255, 255, 255, 0.55);
 }
 /* #ifdef APP-PLUS */
+.login-page {
+  position: fixed;
+}
 .login-page-bg {
-  /* App：铺满页，顶对齐 cover，避免裁切品牌顶区 */
   position: absolute;
 }
-.login-scroll {
-  height: auto;
-  min-height: 100vh;
-}
-.login-shell {
-  min-height: 100vh;
-}
 .login-hero-spacer {
-  height: 36vh;
-  min-height: 205px;
+  min-height: 34vh;
 }
-.login-card {
-  margin-top: 120px;
+.login-brand-logo {
+  height: 32px;
 }
 /* #endif */
 
 @media screen and (max-height: 700px) {
   .login-hero-spacer {
-    height: 32vh;
-    min-height: 180px;
-    max-height: 240px;
+    min-height: 28vh;
   }
   .login-card {
-    margin-top: 120px;
-    padding: 18px 16px 14px;
+    margin-bottom: 6px;
+    padding: 16px 14px 12px;
+    border-radius: 22px;
+  }
+  .login-card-hd {
+    margin-bottom: 12px;
+  }
+  .login-card-title {
+    font-size: 18px;
+  }
+  .login-brand-logo {
+    height: 28px;
   }
 }
 </style>

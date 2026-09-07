@@ -4,7 +4,12 @@
       "path": "pages/login/login",
       "style": {
         "navigationBarTitleText": "登录",
-        "navigationStyle": "custom"
+        "navigationStyle": "custom",
+        "disableScroll": true,
+        "app-plus": {
+          "bounce": "none",
+          "softinputMode": "adjustPan"
+        }
       }
     },
     {
