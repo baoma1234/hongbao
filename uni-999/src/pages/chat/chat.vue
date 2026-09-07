@@ -229,6 +229,26 @@
           class="chat-composer-wrap"
           :class="{ 'is-muted': composerLocked, 'is-extras-locked': extrasLocked }"
         >
+          <view v-if="pendingMedia" class="chat-pending-media">
+            <image
+              v-if="pendingMedia.kind === 'image'"
+              class="chat-pending-thumb"
+              :src="pendingMedia.preview"
+              mode="aspectFill"
+            />
+            <view v-else class="chat-pending-video">
+              <image
+                v-if="pendingMedia.preview"
+                class="chat-pending-thumb"
+                :src="pendingMedia.preview"
+                mode="aspectFill"
+              />
+              <text class="chat-pending-video-lab">视频</text>
+            </view>
+            <view class="chat-pending-remove" hover-class="chat-pending-remove--on" @click.stop="clearPendingMedia">
+              <text>×</text>
+            </view>
+          </view>
           <view class="chat-emoji-panel" :class="{ open: showEmoji || showSticker }">
             <view class="chat-expr-mode-tabs">
               <view class="chat-expr-mode-btn" :class="{ active: showEmoji && !showSticker }" @click="openEmojiOnly">表情</view>
@@ -366,15 +386,15 @@
               <text class="chat-tool-glyph chat-tool-glyph--plus" aria-hidden="true">＋</text>
             </view>
             <view
-              v-if="hasComposerText || !attachAllowed"
+              v-if="hasComposerSendable || !attachAllowed"
               id="chatSendBtn"
               class="chat-send-btn"
               :class="{
-                'chat-send-btn--qq': hasComposerText,
-                disabled: composerLocked || !canCap('text') || textSending,
+                'chat-send-btn--qq': hasComposerSendable,
+                disabled: composerLocked || textSending || mediaSending || (!pendingMedia && !canCap('text')),
               }"
               @click="sendText"
-            >{{ textSending ? '…' : '发送' }}</view>
+            >{{ textSending || mediaSending ? '…' : '发送' }}</view>
           </view>
         </view>
       </view>
@@ -902,7 +922,11 @@ const title = ref('聊天')
 const peerNickname = ref('')
 const remark = ref('')
 const text = ref('')
+/** 待发送媒体草稿（先贴输入区，点发送再发） */
+const pendingMedia = ref(null)
 const hasComposerText = computed(() => String(text.value || '').trim().length > 0)
+/** 输入框有字，或已贴图/视频草稿 */
+const hasComposerSendable = computed(() => hasComposerText.value || !!pendingMedia.value)
 const messages = ref([])
 /** 渲染窗口：默认只画最近 N 条；点「查看更早」先扩本地，并继续 before_id 拉库 */
 const MSG_RENDER_CAP = 40
@@ -3500,46 +3524,12 @@ async function sendMediaMessage(msgType, extra, label) {
   return packet
 }
 
-/** 图片/视频配文：优先输入框文字，否则可选填写 */
-async function resolveMediaCaption(placeholder, fallbackLabel) {
-  const fromComposer = String(text.value || '').trim()
-  if (fromComposer) {
-    text.value = ''
-    return fromComposer
-  }
-  const tip = String(placeholder || '添加文字说明（可留空）')
-  try {
-    const res = await new Promise((resolve) => {
-      uni.showModal({
-        title: tip,
-        editable: true,
-        placeholderText: '可选',
-        success: (r) => resolve(r),
-        fail: () => resolve(null),
-      })
-    })
-    if (res && res.confirm) {
-      const c = String(res.content != null ? res.content : '').trim()
-      if (c) return c
-    }
-  } catch (e) {
-    /* ignore */
-  }
-  // #ifdef H5
-  try {
-    if (typeof window !== 'undefined' && typeof window.prompt === 'function') {
-      const v = window.prompt(tip, '')
-      if (v != null && String(v).trim()) return String(v).trim()
-    }
-  } catch (e2) {
-    /* ignore */
-  }
-  // #endif
-  return fallbackLabel
+function clearPendingMedia() {
+  pendingMedia.value = null
 }
 
 async function pickImage() {
-  if (mediaSending.value) return
+  if (mediaSending.value || textSending.value) return
   try {
     const chosen = await new Promise((resolve, reject) => {
       uni.chooseImage({
@@ -3552,20 +3542,26 @@ async function pickImage() {
     })
     const filePath = String((chosen && chosen.tempFilePaths && chosen.tempFilePaths[0]) || '')
     if (!filePath) return
-    const caption = await resolveMediaCaption('图片说明（可留空）', '[图片]')
     mediaSending.value = true
     uni.showLoading({ title: '上传中…', mask: true })
     const up = await uploadCommonFile(filePath)
     const { path, full } = mediaPathsFromUpload(up)
-    await sendMediaMessage(
-      4,
-      { url: path, fullurl: full, name: up.name || '' },
-      caption || '[图片]'
-    )
+    pendingMedia.value = {
+      kind: 'image',
+      msgType: 4,
+      preview: filePath,
+      path,
+      full,
+      name: up.name || '',
+      fallback: '[图片]',
+    }
+    showAttach.value = false
+    showEmoji.value = false
+    showSticker.value = false
   } catch (e) {
     const msg = (e && e.message) || ''
     if (!/cancel|deny|fail chooseImage/i.test(msg)) {
-      uni.showToast({ title: msg || '发送失败', icon: 'none' })
+      uni.showToast({ title: msg || '上传失败', icon: 'none' })
     }
   } finally {
     uni.hideLoading()
@@ -3574,7 +3570,7 @@ async function pickImage() {
 }
 
 async function pickVideo() {
-  if (mediaSending.value) return
+  if (mediaSending.value || textSending.value) return
   try {
     const chosen = await new Promise((resolve, reject) => {
       uni.chooseVideo({
@@ -3587,20 +3583,26 @@ async function pickVideo() {
     })
     const filePath = String((chosen && chosen.tempFilePath) || '')
     if (!filePath) return
-    const caption = await resolveMediaCaption('视频说明（可留空）', '[视频]')
     mediaSending.value = true
     uni.showLoading({ title: '上传中…', mask: true })
     const up = await uploadCommonFile(filePath)
     const { path, full } = mediaPathsFromUpload(up)
-    await sendMediaMessage(
-      5,
-      { url: path, fullurl: full, name: up.name || '' },
-      caption || '[视频]'
-    )
+    pendingMedia.value = {
+      kind: 'video',
+      msgType: 5,
+      preview: String(chosen.thumbTempFilePath || filePath || ''),
+      path,
+      full,
+      name: up.name || '',
+      fallback: '[视频]',
+    }
+    showAttach.value = false
+    showEmoji.value = false
+    showSticker.value = false
   } catch (e) {
     const msg = (e && e.message) || ''
     if (!/cancel|deny|fail chooseVideo/i.test(msg)) {
-      uni.showToast({ title: msg || '发送失败', icon: 'none' })
+      uni.showToast({ title: msg || '上传失败', icon: 'none' })
     }
   } finally {
     uni.hideLoading()
@@ -3845,8 +3847,49 @@ async function fetchHistory(opts) {
   if (forceScroll || stickToBottom) scrollToLatest(forceScroll)
 }
 
+async function sendPendingMedia() {
+  const draft = pendingMedia.value
+  if (!draft || textSending.value || mediaSending.value) return
+  if (composerLocked.value) {
+    uni.showToast({ title: composerPlaceholder.value || '暂不可发言', icon: 'none' })
+    return
+  }
+  const needCap = draft.kind === 'image' ? 'image' : 'video'
+  if (!canCap(needCap)) {
+    uni.showToast({ title: draft.kind === 'image' ? '图片消息已禁止' : '视频消息已禁止', icon: 'none' })
+    return
+  }
+  const captionRaw = String(text.value || '').trim()
+  const caption = captionRaw || draft.fallback || '[图片]'
+  textSending.value = true
+  text.value = ''
+  pendingMedia.value = null
+  showEmoji.value = false
+  showSticker.value = false
+  showAttach.value = false
+  try {
+    await sendMediaMessage(
+      draft.msgType,
+      { url: draft.path, fullurl: draft.full, name: draft.name || '' },
+      caption
+    )
+    markRead().catch(() => {})
+  } catch (e) {
+    pendingMedia.value = draft
+    if (!String(text.value || '').trim() && captionRaw) text.value = captionRaw
+    uni.showToast({ title: (e && e.message) || '发送失败', icon: 'none' })
+  } finally {
+    textSending.value = false
+  }
+}
+
 async function sendText() {
   if (textSending.value || mediaSending.value) return
+  // 有贴图/视频草稿：点发送一并发出（输入框文字作配文）
+  if (pendingMedia.value) {
+    await sendPendingMedia()
+    return
+  }
   if (composerLocked.value || !canCap('text')) {
     uni.showToast({ title: composerPlaceholder.value || '暂不可发言', icon: 'none' })
     return
@@ -5096,6 +5139,7 @@ onShow(() => {
 onUnload(() => {
   clearTextMsgHold()
   stopNiuniuTick()
+  pendingMedia.value = null
   markRead()
     .catch(() => {})
     .finally(() => {
@@ -5804,5 +5848,61 @@ function closeRpDetail() {
 }
 .chat-attach-item-muted {
   opacity: 0.45;
+}
+.chat-pending-media {
+  position: relative;
+  margin: 0 10px 8px;
+  width: 72px;
+  height: 72px;
+  border-radius: 10px;
+  overflow: visible;
+  background: #f2f3f5;
+  box-sizing: border-box;
+}
+.chat-pending-thumb {
+  width: 72px;
+  height: 72px;
+  border-radius: 10px;
+  display: block;
+  background: #e8e8e8;
+}
+.chat-pending-video {
+  width: 72px;
+  height: 72px;
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+  background: #222;
+}
+.chat-pending-video .chat-pending-thumb {
+  opacity: 0.85;
+}
+.chat-pending-video-lab {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  text-align: center;
+  font-size: 11px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.45);
+  padding: 2px 0;
+}
+.chat-pending-remove {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 16px;
+  line-height: 20px;
+  text-align: center;
+  z-index: 2;
+}
+.chat-pending-remove--on {
+  opacity: 0.85;
 }
 </style>
