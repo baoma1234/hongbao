@@ -504,29 +504,11 @@ function onStart() {
     uni.showToast({ title: tt('lobby_coming_soon', '敬请期待'), icon: 'none' })
     return
   }
-  if (game.value.startRoute === 'yxx') {
-    uni.navigateTo({ url: '/pages/yxx/hall' })
-    return
-  }
-  const gid = matchedGroupId.value | 0
-  if (game.value.startRoute === 'group' && gid > 0) {
-    uni.navigateTo({
-      url: '/pages/chat/chat?type=2&id=' + gid,
-      fail() {
-        uni.switchTab({
-          url: '/pages/messages/messages',
-          fail() {
-            uni.reLaunch({ url: '/pages/messages/messages' })
-          },
-        })
-      },
-    })
-    return
-  }
+  // 立即开始 → 官方社群
   uni.switchTab({
-    url: '/pages/messages/messages',
+    url: '/pages/community/community',
     fail() {
-      uni.reLaunch({ url: '/pages/messages/messages' })
+      uni.reLaunch({ url: '/pages/community/community' })
     },
   })
 }
