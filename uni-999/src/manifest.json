@@ -2,8 +2,8 @@
     "name" : "红宝",
     "appid" : "__UNI__5346609",
     "description" : "红宝",
-    "versionName" : "5.2.0",
-    "versionCode" : "232",
+    "versionName" : "5.3.0",
+    "versionCode" : "233",
     "transformPx" : false,
     "app-plus" : {
         "usingComponents" : true,
@@ -42,7 +42,7 @@
                 "privacyDescription" : {
                     "NSCameraUsageDescription" : "用于扫一扫加好友、拍摄头像与聊天图片",
                     "NSPhotoLibraryUsageDescription" : "用于从相册选择头像、聊天图片与识别二维码",
-                    "NSPhotoLibraryAddUsageDescription" : "用于保存分享海报到相册"
+                    "NSPhotoLibraryAddUsageDescription" : "用于保存分享海报与聊天图片到相册"
                 }
             },
             "sdkConfigs" : {},

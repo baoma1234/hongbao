@@ -796,23 +796,36 @@
         <button type="button" class="chat-action-item cancel" @click="moreVisible = false">关闭</button>
       </view>
     </view>
-    <!-- 微信式消息长按菜单：复制 / 撤回 -->
+    <!-- 微信式消息长按菜单：固定在气泡下方 -->
     <view
       v-if="msgMenu.show"
       class="chat-wx-msg-mask"
       @click="closeMsgMenu"
       @touchmove.stop.prevent
     >
-      <view class="chat-wx-msg-menu" :style="msgMenuStyle" @click.stop>
-        <view
-          v-for="(it, idx) in msgMenu.items"
-          :key="'mm' + idx + it.action"
-          class="chat-wx-msg-menu-item"
-          hover-class="chat-wx-msg-menu-item--on"
-          @click="onMsgMenuAction(it.action)"
-        >
-          <text class="chat-wx-msg-menu-ico">{{ it.action === 'copy' ? '⧉' : '↩' }}</text>
-          <text class="chat-wx-msg-menu-lab">{{ it.label }}</text>
+      <view
+        class="chat-wx-msg-menu"
+        :class="{ 'is-above': msgMenu.place === 'above' }"
+        :style="msgMenuStyle"
+        @click.stop
+      >
+        <view class="chat-wx-msg-menu-arrow" />
+        <view class="chat-wx-msg-menu-row">
+          <view
+            v-for="(it, idx) in msgMenu.items"
+            :key="'mm' + idx + it.action"
+            class="chat-wx-msg-menu-item"
+            hover-class="chat-wx-msg-menu-item--on"
+            @click="onMsgMenuAction(it.action)"
+          >
+            <view class="chat-wx-msg-menu-ico-wrap" aria-hidden="true">
+              <view v-if="it.action === 'copy'" class="chat-wx-ico chat-wx-ico-copy" />
+              <view v-else-if="it.action === 'recall'" class="chat-wx-ico chat-wx-ico-recall" />
+              <view v-else-if="it.action === 'save'" class="chat-wx-ico chat-wx-ico-save" />
+              <text v-else class="chat-wx-msg-menu-ico">·</text>
+            </view>
+            <text class="chat-wx-msg-menu-lab">{{ it.label }}</text>
+          </view>
         </view>
       </view>
     </view>
@@ -820,7 +833,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, reactive, ref } from 'vue'
+import { computed, getCurrentInstance, nextTick, reactive, ref } from 'vue'
 import { onLoad, onShow, onUnload } from '@dcloudio/uni-app'
 import GrabSlider from '../../components/GrabSlider.vue'
 import ChatNiuniuCard from '../../components/ChatNiuniuCard.vue'
@@ -2631,22 +2644,96 @@ function onTextMsgHoldEnd() {
   clearTextMsgHold()
 }
 
-/** 微信式气泡旁悬浮菜单 */
+/** 微信式气泡下方操作栏 */
+const chatPageInst = getCurrentInstance()
+const chatPageProxy = chatPageInst && chatPageInst.proxy
 const msgMenu = ref({
   show: false,
   msg: null,
   left: 0,
   top: 0,
+  place: 'below',
   items: [],
 })
 
 const msgMenuStyle = computed(() => ({
   left: (msgMenu.value.left | 0) + 'px',
   top: (msgMenu.value.top | 0) + 'px',
+  visibility: msgMenu.value.top < -100 ? 'hidden' : 'visible',
 }))
 
 function closeMsgMenu() {
-  msgMenu.value = { show: false, msg: null, left: 0, top: 0, items: [] }
+  msgMenu.value = { show: false, msg: null, left: 0, top: 0, place: 'below', items: [] }
+}
+
+function sysWinSize() {
+  try {
+    const sys = uni.getSystemInfoSync() || {}
+    return {
+      ww: Number(sys.windowWidth) || 375,
+      wh: Number(sys.windowHeight) || 667,
+    }
+  } catch (e) {
+    return { ww: 375, wh: 667 }
+  }
+}
+
+function placeMsgMenuBelowBubble(m, items) {
+  const { ww, wh } = sysWinSize()
+  const menuW = Math.max(64, items.length * 58)
+  const menuH = 72
+  const gap = 8
+  // 先按屏幕中部占位，再测量气泡后贴到底边下方
+  msgMenu.value = {
+    show: true,
+    msg: m,
+    left: Math.round((ww - menuW) / 2),
+    top: -999,
+    place: 'below',
+    items,
+  }
+  nextTick(() => {
+    try {
+      const sel = '#m' + String(msgId(m)).replace(/([ !"#$%&'()*+,./:;<=>?@[\\\]^`{|}~])/g, '\\$1')
+      const q = uni.createSelectorQuery()
+      if (chatPageProxy) q.in(chatPageProxy)
+      q.select(sel)
+        .boundingClientRect((rect) => {
+          if (!rect || !rect.width) {
+            // 测量失败：落在触点下方中部
+            msgMenu.value = Object.assign({}, msgMenu.value, {
+              left: Math.max(8, Math.round((ww - menuW) / 2)),
+              top: Math.round(wh * 0.42),
+              place: 'below',
+            })
+            return
+          }
+          let left = Math.round(rect.left + rect.width / 2 - menuW / 2)
+          left = Math.max(8, Math.min(left, ww - menuW - 8))
+          let top = Math.round(rect.bottom + gap)
+          let place = 'below'
+          // 底部不够时仍优先下方贴底；实在溢出才翻到上方
+          if (top + menuH > wh - 12) {
+            const above = Math.round(rect.top - menuH - gap)
+            if (above >= 8) {
+              top = above
+              place = 'above'
+            } else {
+              top = Math.max(8, wh - menuH - 12)
+              place = 'below'
+            }
+          }
+          msgMenu.value = Object.assign({}, msgMenu.value, { left, top, place })
+        })
+        .exec()
+    } catch (err) {
+      msgMenu.value = Object.assign({}, msgMenu.value, {
+        left: Math.max(8, Math.round((ww - menuW) / 2)),
+        top: Math.round(wh * 0.42),
+        place: 'below',
+      })
+    }
+  })
 }
 
 function onMsgLongPress(m, e) {
@@ -2657,14 +2744,14 @@ function onMsgLongPress(m, e) {
   clearTextMsgHold()
 
   const items = []
+  if (isImage(m)) {
+    items.push({ action: 'save', label: rpT('chat_msg_save', '保存') })
+  }
   if (canCopyMsg(m)) {
     items.push({ action: 'copy', label: rpT('chat_msg_copy', '复制') })
   }
   if (canRecallLocal(m)) {
-    items.push({
-      action: 'recall',
-      label: rpT('chat_msg_recall', '撤回'),
-    })
+    items.push({ action: 'recall', label: rpT('chat_msg_recall', '撤回') })
   }
   if (!items.length) return
 
@@ -2674,31 +2761,85 @@ function onMsgLongPress(m, e) {
     /* ignore */
   }
 
-  const p = eventPoint(e)
-  let sys = { windowWidth: 375, windowHeight: 667 }
-  try {
-    sys = uni.getSystemInfoSync() || sys
-  } catch (err2) {
-    /* ignore */
-  }
-  const ww = Number(sys.windowWidth) || 375
-  const wh = Number(sys.windowHeight) || 667
-  const menuW = Math.max(72, items.length * 68)
-  const menuH = 58
-  const x = p && p.x > 0 ? p.x : ww / 2
-  const y = p && p.y > 0 ? p.y : wh * 0.4
-  let left = Math.round(x - menuW / 2)
-  let top = Math.round(y - menuH - 28)
-  left = Math.max(8, Math.min(left, ww - menuW - 8))
-  if (top < 12) top = Math.round(y + 20)
-  top = Math.max(8, Math.min(top, wh - menuH - 8))
+  placeMsgMenuBelowBubble(m, items)
+}
 
-  msgMenu.value = {
-    show: true,
-    msg: m,
-    left,
-    top,
-    items,
+async function saveChatImage(m) {
+  const url = mediaUrl(m)
+  if (!url) {
+    uni.showToast({ title: '无法保存', icon: 'none' })
+    return
+  }
+  // #ifdef H5
+  try {
+    if (typeof document !== 'undefined') {
+      const a = document.createElement('a')
+      a.href = url
+      a.target = '_blank'
+      a.rel = 'noopener'
+      a.download = 'chat_' + Date.now() + '.jpg'
+      // 跨域图：尝试 blob 下载，失败则新开页
+      const canFetch = /^https?:\/\//i.test(url)
+      if (canFetch && typeof fetch === 'function') {
+        try {
+          const res = await fetch(url, { mode: 'cors', credentials: 'omit' })
+          if (res.ok) {
+            const blob = await res.blob()
+            const obj = URL.createObjectURL(blob)
+            a.href = obj
+            document.body.appendChild(a)
+            a.click()
+            document.body.removeChild(a)
+            setTimeout(() => URL.revokeObjectURL(obj), 2000)
+            uni.showToast({ title: '已开始下载', icon: 'none' })
+            return
+          }
+        } catch (e0) {
+          /* fallthrough */
+        }
+      }
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      uni.showToast({ title: '请在打开的图片上另存', icon: 'none' })
+      return
+    }
+  } catch (e1) {
+    /* fallthrough */
+  }
+  // #endif
+  uni.showLoading({ title: '保存中…', mask: true })
+  try {
+    const dl = await new Promise((resolve, reject) => {
+      uni.downloadFile({
+        url,
+        success: resolve,
+        fail: reject,
+      })
+    })
+    const filePath = String((dl && dl.tempFilePath) || '')
+    if (!filePath) throw new Error('下载失败')
+    await new Promise((resolve, reject) => {
+      uni.saveImageToPhotosAlbum({
+        filePath,
+        success: resolve,
+        fail: reject,
+      })
+    })
+    uni.showToast({ title: '已保存到相册', icon: 'none' })
+  } catch (err) {
+    const msg = String((err && (err.errMsg || err.message)) || '')
+    if (/auth|deny|permission|authorize/i.test(msg)) {
+      uni.showModal({
+        title: '需要相册权限',
+        content: '请在系统设置中允许访问相册后再保存',
+        showCancel: false,
+      })
+    } else {
+      uni.showToast({ title: msg || '保存失败', icon: 'none' })
+    }
+  } finally {
+    uni.hideLoading()
   }
 }
 
@@ -2708,6 +2849,10 @@ async function onMsgMenuAction(action) {
   if (!m) return
   if (action === 'copy') {
     copyMsgContent(m)
+    return
+  }
+  if (action === 'save') {
+    await saveChatImage(m)
     return
   }
   if (action !== 'recall') return
@@ -4992,37 +5137,142 @@ function closeRpDetail() {
 .chat-wx-msg-menu {
   position: fixed;
   z-index: 30001;
+  background: #4c4c4c;
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+  padding: 0;
+  overflow: visible;
+}
+.chat-wx-msg-menu-arrow {
+  position: absolute;
+  left: 50%;
+  top: -6px;
+  width: 0;
+  height: 0;
+  margin-left: -6px;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 6px solid #4c4c4c;
+}
+.chat-wx-msg-menu.is-above .chat-wx-msg-menu-arrow {
+  top: auto;
+  bottom: -6px;
+  border-bottom: none;
+  border-top: 6px solid #4c4c4c;
+}
+.chat-wx-msg-menu-row {
   display: flex;
   flex-direction: row;
   align-items: stretch;
-  background: rgba(48, 48, 48, 0.96);
-  border-radius: 10px;
   overflow: hidden;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+  border-radius: 6px;
 }
 .chat-wx-msg-menu-item {
-  min-width: 64px;
-  padding: 10px 16px 8px;
+  width: 58px;
+  padding: 10px 0 8px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 5px;
 }
 .chat-wx-msg-menu-item + .chat-wx-msg-menu-item {
   border-left: 1px solid rgba(255, 255, 255, 0.12);
 }
 .chat-wx-msg-menu-item--on {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.1);
+}
+.chat-wx-msg-menu-ico-wrap {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .chat-wx-msg-menu-ico {
   color: #fff;
-  font-size: 16px;
+  font-size: 18px;
   line-height: 1;
+}
+.chat-wx-ico {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  box-sizing: border-box;
+}
+/* 复制：两层叠放方框 */
+.chat-wx-ico-copy::before,
+.chat-wx-ico-copy::after {
+  content: '';
+  position: absolute;
+  border: 1.5px solid #fff;
+  border-radius: 2px;
+  box-sizing: border-box;
+}
+.chat-wx-ico-copy::before {
+  left: 0;
+  top: 3px;
+  width: 12px;
+  height: 12px;
+}
+.chat-wx-ico-copy::after {
+  left: 4px;
+  top: 0;
+  width: 12px;
+  height: 12px;
+  background: #4c4c4c;
+}
+/* 撤回：弯箭头 */
+.chat-wx-ico-recall::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 3px;
+  width: 12px;
+  height: 10px;
+  border: 1.5px solid #fff;
+  border-right: 0;
+  border-bottom: 0;
+  border-radius: 10px 0 0 0;
+  box-sizing: border-box;
+}
+.chat-wx-ico-recall::after {
+  content: '';
+  position: absolute;
+  left: 1px;
+  top: 1px;
+  border: 4px solid transparent;
+  border-right-color: #fff;
+  border-left: 0;
+}
+/* 保存：向下箭头 + 托盘 */
+.chat-wx-ico-save::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  bottom: 0;
+  width: 14px;
+  height: 7px;
+  border: 1.5px solid #fff;
+  border-top: 0;
+  border-radius: 0 0 2px 2px;
+  box-sizing: border-box;
+}
+.chat-wx-ico-save::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 1px;
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid #fff;
+  border-bottom: 1.5px solid #fff;
+  transform: rotate(45deg);
+  box-sizing: border-box;
 }
 .chat-wx-msg-menu-lab {
   color: #fff;
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.2;
   white-space: nowrap;
 }
