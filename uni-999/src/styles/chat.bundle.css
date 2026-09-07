@@ -3908,7 +3908,7 @@ button.chat-rp-fair-link {
 .chat-member-avatar {
   width: 42px;
   height: 42px;
-  border-radius: 12px;
+  border-radius: 50%;
   overflow: hidden;
   background: var(--color-primary-gradient);
   color: #fff;
@@ -3922,6 +3922,7 @@ button.chat-rp-fair-link {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: 50%;
 }
 .chat-member-main { flex: 1; min-width: 0; }
 .chat-member-name {

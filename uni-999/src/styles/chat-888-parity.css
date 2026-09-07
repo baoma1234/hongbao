@@ -635,7 +635,7 @@
   min-height: 42px !important;
   max-width: 42px !important;
   max-height: 42px !important;
-  border-radius: 12px !important;
+  border-radius: 50% !important;
   overflow: hidden !important;
   position: relative !important;
   flex-shrink: 0 !important;
@@ -657,6 +657,8 @@
   height: 42px !important;
   max-width: 42px !important;
   max-height: 42px !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
   display: block !important;
   flex-shrink: 0 !important;
 }
@@ -668,6 +670,7 @@
 .chat-group-members-overlay .chat-member-avatar .uni-image > div {
   width: 100% !important;
   height: 100% !important;
+  border-radius: 50% !important;
   overflow: hidden !important;
 }
 .chat-group-invite-overlay .chat-member-avatar uni-image img,
@@ -679,6 +682,7 @@
   width: 100% !important;
   height: 100% !important;
   object-fit: cover !important;
+  border-radius: 50% !important;
   display: block !important;
 }
 .chat-group-invite-overlay .chat-hero-hd {

@@ -2083,8 +2083,9 @@
 .chat-group-overlay--qq .chat-member-item--qq::after {
   color: #c8c8c8 !important;
 }
+.chat-group-overlay--qq .chat-member-avatar,
 .chat-group-overlay--qq .chat-member-avatar-img {
-  border-radius: 6px !important;
+  border-radius: 50% !important;
 }
 .chat-group-overlay--qq .chat-member-name {
   color: #191919 !important;
