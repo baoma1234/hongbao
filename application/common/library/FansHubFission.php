@@ -1317,32 +1317,31 @@ class FansHubFission
                 }
 
                 $newParts = [];
-                $afterCnt = $existCnt + $need;
+                $slotsLeftToCap = max(1, $cap - $existCnt);
                 $poolCents = (int)round($pool * 100);
-                // 按 global_cap 预留：当前进度只占用 pool * afterCnt/cap，剩余留给未发出的份
-                $idealAssignedCents = (int)round($poolCents * $afterCnt / $cap);
-                $minReserve = max(0, $cap - $afterCnt); // 未发出份至少各留 1 分
-                $idealAssignedCents = min($idealAssignedCents, max(0, $poolCents - $minReserve));
                 $humanCents = (int)round($humanSum * 100);
-                $botBudgetCents = max(0, $idealAssignedCents - $humanCents);
-                $nBotSlots = count($botRows) + $need;
+                $humanCnt = $existCnt - count($botRows);
+                $minReserveFen = max(0, $cap - ($existCnt + $need)); // 未发出份至少 1 分
+                $maxAssignable = max(0, $poolCents - $minReserveFen);
+                $overspent = $remainCents < $need || ((int)round($allSum * 100) > $maxAssignable);
 
-                $needRebalance = count($botRows) > 0
-                    && ($remainCents < $need || $allSum > ($idealAssignedCents / 100) + 0.009);
-
-                if ($needRebalance) {
-                    // 真人金额固定；机器人旧份+新份按 cap 进度预算重拆
-                    $parts = self::splitPoolCents(max($nBotSlots, $botBudgetCents), max(1, $nBotSlots));
-                    // 若预算不足人均 1 分，splitPoolCents 已处理
-                    for ($i = 0; $i < count($botRows); $i++) {
+                if ($overspent && (count($botRows) > 0 || $need > 0)) {
+                    // 池子不够或历史超额：真人不动，把「非真人份额」按总份数二倍均值重拆
+                    // 例：1000/100 份 → 先拆成 100 包，已有机器人拿其中对应份，绝不是「7 份就固定 70」
+                    $nonHumanSlots = max(1, $cap - $humanCnt);
+                    $budget = max(0, $poolCents - $humanCents);
+                    $budget = min($budget, max(0, $poolCents - $humanCents - $minReserveFen));
+                    $allParts = self::splitPoolCents(max($nonHumanSlots, $budget), $nonHumanSlots);
+                    $nOld = count($botRows);
+                    for ($i = 0; $i < $nOld; $i++) {
                         $old = round((float)$botRows[$i]['win_amount'], 2);
-                        $newAmt = round(($parts[$i] ?? 0) / 100, 2);
+                        $newAmt = round(($allParts[$i] ?? 0) / 100, 2);
                         $delta = round($newAmt - $old, 2);
                         if (abs($delta) > 1e-8) {
                             self::softAdjustBotHongbao(
                                 (int)$botRows[$i]['user_id'],
                                 $delta,
-                                '裂变进度对齐重拆机器人金额 #' . $activityId . ' qual#' . $botRows[$i]['id']
+                                '裂变红包按总份数随机重拆 #' . $activityId . ' qual#' . $botRows[$i]['id']
                             );
                             Db::name('fans_fission_qual')->where('id', (int)$botRows[$i]['id'])->update([
                                 'win_amount' => $newAmt,
@@ -1350,11 +1349,10 @@ class FansHubFission
                         }
                     }
                     for ($i = 0; $i < $need; $i++) {
-                        $newParts[] = (int)($parts[count($botRows) + $i] ?? 0);
+                        $newParts[] = (int)($allParts[$nOld + $i] ?? 0);
                     }
                 } else {
-                    // 按「剩余金额 / 剩余至 cap 的份数」二倍均值，只取本次 need 份，不把池子一次分光
-                    $slotsLeftToCap = max(1, $cap - $existCnt);
+                    // 正常：剩余金额按「剩余至 cap 的份数」二倍均值随机，只取本次 need 份
                     $fullParts = self::splitPoolCents($remainCents, $slotsLeftToCap);
                     $newParts = array_slice($fullParts, 0, $need);
                 }
@@ -1415,7 +1413,7 @@ class FansHubFission
                 }
             }
 
-            // 资格条数对齐后：按 cap 进度重拆机器人金额，避免历史错误把池子提前分光
+            // 仅当超额占用奖池时，按「总份数二倍均值」重拆机器人（不做「进度×均价」）
             self::rebalanceBotWinAmountsLocked($activityId, $act, $target);
             // 校正误写入的未来领取时间（例如按活动 end_time 排到了明天）
             self::clampFutureClaimedAtLocked($activityId);
@@ -1537,8 +1535,9 @@ class FansHubFission
     }
 
     /**
-     * 活动锁内：真人金额不动，按「当前份数/global_cap」占用奖池比例，重拆机器人 win_amount 并冲正红宝。
-     * 例：pool=1000 cap=100 当前 77 份 → 总额约 770，剩余约 230 留给未发出份。
+     * 活动锁内：真人金额不动。
+     * 仅当已分配总额超过「池子 − 未发出份保底」时，把非真人份额按 global_cap 做二倍均值随机重拆。
+     * 注意：不是「当前 N 份就固定 N/cap×池子」（避免 7 份≈70 元的假随机）。
      */
     protected static function rebalanceBotWinAmountsLocked($activityId, array $act, $currentCnt = null)
     {
@@ -1564,7 +1563,6 @@ class FansHubFission
             return 0;
         }
         $cnt = $currentCnt === null ? $existCnt : max(0, min((int)$currentCnt, $cap));
-        // 若传入 target 大于实际行数，仍按实际行数占坑（未插入的份不占金额）
         $cnt = min($cnt, $existCnt);
 
         $humanSum = 0.0;
@@ -1583,25 +1581,24 @@ class FansHubFission
             return 0;
         }
 
-        $idealAssignedCents = (int)round($poolCents * $cnt / $cap);
-        $minReserve = max(0, $cap - $cnt);
-        $idealAssignedCents = min($idealAssignedCents, max(0, $poolCents - $minReserve));
-        $humanCents = (int)round($humanSum * 100);
-        $botBudgetCents = max(count($botRows), $idealAssignedCents - $humanCents);
-        // 不能超过「池子 - 真人 - 未发出份保底」
-        $botBudgetCents = min($botBudgetCents, max(0, $poolCents - $humanCents - $minReserve));
-
-        $idealYuan = round($idealAssignedCents / 100, 2);
-        // 已与目标接近则跳过（±1 分 * 份数容差）
-        if (abs($allSum - $idealYuan) < 0.02 && abs(round($allSum - $humanSum, 2) - round($botBudgetCents / 100, 2)) < 0.02) {
+        $minReserve = max(0, $cap - $cnt); // 未发出份各留至少 1 分
+        $maxAssignableYuan = round(max(0, $poolCents - $minReserve) / 100, 2);
+        // 未超额则不动：保留历史上二倍均值的真实随机结果
+        if ($allSum <= $maxAssignableYuan + 0.009) {
             return 0;
         }
 
-        $parts = self::splitPoolCents($botBudgetCents, count($botRows));
+        $humanCnt = $existCnt - count($botRows);
+        $humanCents = (int)round($humanSum * 100);
+        $nonHumanSlots = max(1, $cap - $humanCnt);
+        $budget = max(count($botRows), $poolCents - $humanCents - $minReserve);
+        $budget = min($budget, max(0, $poolCents - $humanCents));
+        // 按总份数拆非真人包，现有机器人只取前 N 份（其余留给未发出份）
+        $allParts = self::splitPoolCents(max($nonHumanSlots, $budget), $nonHumanSlots);
         $changed = 0;
         foreach ($botRows as $i => $r) {
             $old = round((float)$r['win_amount'], 2);
-            $newAmt = round(($parts[$i] ?? 0) / 100, 2);
+            $newAmt = round(($allParts[$i] ?? 0) / 100, 2);
             $delta = round($newAmt - $old, 2);
             if (abs($delta) <= 1e-8) {
                 continue;
@@ -1610,7 +1607,7 @@ class FansHubFission
                 self::softAdjustBotHongbao(
                     (int)$r['user_id'],
                     $delta,
-                    '裂变按总份数重拆机器人金额 #' . $activityId . ' qual#' . $r['id']
+                    '裂变红包按总份数随机重拆 #' . $activityId . ' qual#' . $r['id']
                 );
             }
             Db::name('fans_fission_qual')->where('id', (int)$r['id'])->update([
@@ -1619,6 +1616,77 @@ class FansHubFission
             $changed++;
         }
         return $changed;
+    }
+
+    /**
+     * 强制按「池子/总份数」二倍均值重拆机器人金额（真人不动）。
+     * 用于纠正历史「进度×均价」假随机。
+     */
+    public static function forceResplitBotAmountsWeChat($activityId)
+    {
+        $activityId = (int)$activityId;
+        $act = Db::name('fans_fission_activity')->where('id', $activityId)->find();
+        if (!$act) {
+            return ['ok' => false, 'changed' => 0, 'message' => '活动不存在'];
+        }
+        $changed = 0;
+        Db::startTrans();
+        try {
+            $cap = max(1, (int)$act['global_cap']);
+            $poolCents = (int)round((float)$act['pool_amount'] * 100);
+            $rows = Db::name('fans_fission_qual')
+                ->alias('q')
+                ->join('fans_account a', 'a.user_id=q.user_id', 'LEFT')
+                ->where('q.activity_id', $activityId)
+                ->field('q.*,COALESCE(a.is_bot,0) AS is_bot')
+                ->order('q.id', 'asc')
+                ->lock(true)
+                ->select();
+            $rows = is_array($rows) ? $rows : ($rows ? $rows->toArray() : []);
+            $humanSum = 0.0;
+            $botRows = [];
+            foreach ($rows as $r) {
+                if ((int)($r['is_bot'] ?? 0) === 1) {
+                    $botRows[] = $r;
+                } else {
+                    $humanSum = round($humanSum + (float)($r['win_amount'] ?? 0), 2);
+                }
+            }
+            if (!$botRows) {
+                Db::commit();
+                return ['ok' => true, 'changed' => 0, 'message' => '无机器人份可重拆'];
+            }
+            $humanCnt = count($rows) - count($botRows);
+            $humanCents = (int)round($humanSum * 100);
+            $minReserve = max(0, $cap - count($rows));
+            $nonHumanSlots = max(1, $cap - $humanCnt);
+            $budget = max(0, $poolCents - $humanCents - $minReserve);
+            $allParts = self::splitPoolCents(max($nonHumanSlots, $budget), $nonHumanSlots);
+            foreach ($botRows as $i => $r) {
+                $old = round((float)$r['win_amount'], 2);
+                $newAmt = round(($allParts[$i] ?? 0) / 100, 2);
+                $delta = round($newAmt - $old, 2);
+                if (abs($delta) <= 1e-8) {
+                    continue;
+                }
+                if ((int)($r['claimed'] ?? 0) === 1) {
+                    self::softAdjustBotHongbao(
+                        (int)$r['user_id'],
+                        $delta,
+                        '裂变强制随机重拆 #' . $activityId . ' qual#' . $r['id']
+                    );
+                }
+                Db::name('fans_fission_qual')->where('id', (int)$r['id'])->update([
+                    'win_amount' => $newAmt,
+                ]);
+                $changed++;
+            }
+            Db::commit();
+        } catch (\Throwable $e) {
+            Db::rollback();
+            return ['ok' => false, 'changed' => 0, 'message' => $e->getMessage() ?: '重拆失败'];
+        }
+        return ['ok' => true, 'changed' => $changed, 'message' => '已按总份数随机重拆 ' . $changed . ' 份机器人'];
     }
 
     protected static function splitPoolCents($totalCents, $n)
