@@ -142,22 +142,199 @@ class Upload
     }
 
     /**
-     * 检测文件大小
+     * 是否图片（按 MIME / 后缀）
+     */
+    protected function isImageUpload()
+    {
+        $type = strtolower((string)($this->fileInfo['type'] ?? ''));
+        $suffix = strtolower((string)($this->fileInfo['suffix'] ?? ''));
+        if (in_array($type, ['image/gif', 'image/jpg', 'image/jpeg', 'image/bmp', 'image/png', 'image/webp'], true)) {
+            return true;
+        }
+        return in_array($suffix, ['gif', 'jpg', 'jpeg', 'bmp', 'png', 'webp'], true);
+    }
+
+    /**
+     * 是否视频
+     */
+    protected function isVideoUpload()
+    {
+        $type = strtolower((string)($this->fileInfo['type'] ?? ''));
+        $suffix = strtolower((string)($this->fileInfo['suffix'] ?? ''));
+        if (strpos($type, 'video/') === 0) {
+            return true;
+        }
+        return in_array($suffix, ['mp4', 'webm', 'mov', 'm4v', 'avi', 'mkv', '3gp'], true);
+    }
+
+    /**
+     * 解析配置里的 maxsize 字符串 → 字节
+     */
+    protected function parseMaxsizeBytes($raw)
+    {
+        preg_match('/([0-9\.]+)(\w+)/', (string)$raw, $matches);
+        $size = $matches ? $matches[1] : $raw;
+        $unit = $matches ? strtolower($matches[2]) : 'b';
+        $typeDict = ['b' => 0, 'k' => 1, 'kb' => 1, 'm' => 2, 'mb' => 2, 'gb' => 3, 'g' => 3];
+        return (int)((float)$size * pow(1024, $typeDict[$unit] ?? 0));
+    }
+
+    /**
+     * 检测文件大小：图片 ≤5MB，视频 ≤200MB，其它走 upload.maxsize
      * @throws UploadException
      */
     protected function checkSize()
     {
-        preg_match('/([0-9\.]+)(\w+)/', $this->config['maxsize'], $matches);
-        $size = $matches ? $matches[1] : $this->config['maxsize'];
-        $type = $matches ? strtolower($matches[2]) : 'b';
-        $typeDict = ['b' => 0, 'k' => 1, 'kb' => 1, 'm' => 2, 'mb' => 2, 'gb' => 3, 'g' => 3];
-        $size = (int)($size * pow(1024, $typeDict[$type] ?? 0));
-        if ($this->fileInfo['size'] > $size) {
+        $fileSize = (int)($this->fileInfo['size'] ?? 0);
+        if ($this->isImageUpload()) {
+            $max = (int)($this->config['image_maxsize'] ?? 5242880);
+            if ($max <= 0) {
+                $max = 5242880;
+            }
+        } elseif ($this->isVideoUpload()) {
+            $max = (int)($this->config['video_maxsize'] ?? 209715200);
+            if ($max <= 0) {
+                $max = 209715200;
+            }
+        } else {
+            $max = $this->parseMaxsizeBytes($this->config['maxsize'] ?? '10mb');
+        }
+        if ($fileSize > $max) {
             throw new UploadException(__(
                 'File is too big (%sMiB), Max filesize: %sMiB.',
-                round($this->fileInfo['size'] / pow(1024, 2), 2),
-                round($size / pow(1024, 2), 2)
+                round($fileSize / pow(1024, 2), 2),
+                round($max / pow(1024, 2), 2)
             ));
+        }
+    }
+
+    /**
+     * 落盘后压缩图片（GIF 不动；再同步 OSS）
+     * @param string $absPath 本地绝对路径
+     */
+    protected function compressImageFile($absPath)
+    {
+        $absPath = (string)$absPath;
+        if ($absPath === '' || !is_file($absPath) || !function_exists('getimagesize')) {
+            return;
+        }
+        $suffix = strtolower((string)($this->fileInfo['suffix'] ?? pathinfo($absPath, PATHINFO_EXTENSION)));
+        if ($suffix === 'gif') {
+            return;
+        }
+        $info = @getimagesize($absPath);
+        if (!$info || empty($info[0]) || empty($info[1])) {
+            return;
+        }
+        $srcW = (int)$info[0];
+        $srcH = (int)$info[1];
+        $type = (int)($info[2] ?? 0);
+        $maxEdge = (int)($this->config['image_max_edge'] ?? 1920);
+        if ($maxEdge <= 0) {
+            $maxEdge = 1920;
+        }
+        $quality = (int)($this->config['image_quality'] ?? 82);
+        if ($quality < 40) {
+            $quality = 40;
+        }
+        if ($quality > 95) {
+            $quality = 95;
+        }
+
+        $dstW = $srcW;
+        $dstH = $srcH;
+        $scale = 1.0;
+        $long = max($srcW, $srcH);
+        if ($long > $maxEdge) {
+            $scale = $maxEdge / $long;
+            $dstW = max(1, (int)round($srcW * $scale));
+            $dstH = max(1, (int)round($srcH * $scale));
+        }
+
+        $create = null;
+        if ($type === IMAGETYPE_JPEG && function_exists('imagecreatefromjpeg')) {
+            $create = 'imagecreatefromjpeg';
+        } elseif ($type === IMAGETYPE_PNG && function_exists('imagecreatefrompng')) {
+            $create = 'imagecreatefrompng';
+        } elseif ($type === IMAGETYPE_WEBP && function_exists('imagecreatefromwebp')) {
+            $create = 'imagecreatefromwebp';
+        } elseif ($type === IMAGETYPE_BMP && function_exists('imagecreatefrombmp')) {
+            $create = 'imagecreatefrombmp';
+        } else {
+            return;
+        }
+
+        $src = @$create($absPath);
+        if (!$src) {
+            return;
+        }
+        $dst = imagecreatetruecolor($dstW, $dstH);
+        if (!$dst) {
+            imagedestroy($src);
+            return;
+        }
+        if ($type === IMAGETYPE_PNG || $type === IMAGETYPE_WEBP) {
+            imagealphablending($dst, false);
+            imagesavealpha($dst, true);
+            $transparent = imagecolorallocatealpha($dst, 0, 0, 0, 127);
+            imagefilledrectangle($dst, 0, 0, $dstW, $dstH, $transparent);
+        }
+        imagecopyresampled($dst, $src, 0, 0, 0, 0, $dstW, $dstH, $srcW, $srcH);
+        imagedestroy($src);
+
+        $tmp = $absPath . '.cmp.' . getmypid() . '.' . mt_rand(1000, 9999);
+        $ok = false;
+        if ($type === IMAGETYPE_JPEG || $suffix === 'jpg' || $suffix === 'jpeg') {
+            $ok = imagejpeg($dst, $tmp, $quality);
+        } elseif ($type === IMAGETYPE_WEBP && function_exists('imagewebp')) {
+            $ok = imagewebp($dst, $tmp, $quality);
+        } elseif ($type === IMAGETYPE_PNG) {
+            // PNG 压缩等级 0–9；过大 PNG 可再压成 JPEG（去掉透明）以控体积
+            $ok = imagepng($dst, $tmp, 6);
+            if ($ok && filesize($tmp) > 2 * 1024 * 1024 && function_exists('imagejpeg')) {
+                @unlink($tmp);
+                $flat = imagecreatetruecolor($dstW, $dstH);
+                $white = imagecolorallocate($flat, 255, 255, 255);
+                imagefilledrectangle($flat, 0, 0, $dstW, $dstH, $white);
+                imagecopy($flat, $dst, 0, 0, 0, 0, $dstW, $dstH);
+                $ok = imagejpeg($flat, $tmp, $quality);
+                imagedestroy($flat);
+                if ($ok) {
+                    $this->fileInfo['suffix'] = 'jpg';
+                    $this->fileInfo['type'] = 'image/jpeg';
+                }
+            }
+        } elseif ($type === IMAGETYPE_BMP && function_exists('imagejpeg')) {
+            $ok = imagejpeg($dst, $tmp, $quality);
+            if ($ok) {
+                $this->fileInfo['suffix'] = 'jpg';
+                $this->fileInfo['type'] = 'image/jpeg';
+            }
+        }
+        imagedestroy($dst);
+
+        if (!$ok || !is_file($tmp)) {
+            @unlink($tmp);
+            return;
+        }
+        $newSize = (int)filesize($tmp);
+        $oldSize = (int)@filesize($absPath);
+        // 仅当明显更小或做过缩放时替换
+        if ($newSize > 0 && ($scale < 1.0 || $newSize < $oldSize)) {
+            @unlink($absPath);
+            // 若后缀从 png/bmp 改为 jpg，需要改落盘文件名由调用方处理；此处同名覆盖
+            if (!@rename($tmp, $absPath)) {
+                @copy($tmp, $absPath);
+                @unlink($tmp);
+            }
+            clearstatcache(true, $absPath);
+            $this->fileInfo['size'] = (int)@filesize($absPath);
+            $this->fileInfo['imagewidth'] = $dstW;
+            $this->fileInfo['imageheight'] = $dstH;
+        } else {
+            @unlink($tmp);
+            $this->fileInfo['imagewidth'] = $srcW;
+            $this->fileInfo['imageheight'] = $srcH;
         }
     }
 
@@ -399,6 +576,40 @@ class Upload
             }
         }
         $this->file = $file;
+
+        // 图片：先本地压缩，再记附件 / 同步 OSS（大图控体积）
+        $savedName = $file->getSaveName();
+        $absSaved = $destDir . $savedName;
+        if ($this->isImageUpload() && is_file($absSaved)) {
+            $oldSuffix = strtolower((string)($this->fileInfo['suffix'] ?? ''));
+            $this->compressImageFile($absSaved);
+            $newSuffix = strtolower((string)($this->fileInfo['suffix'] ?? $oldSuffix));
+            // PNG/BMP 压成 JPG 时改扩展名，保持 URL 与真实格式一致
+            if ($newSuffix !== '' && $newSuffix !== $oldSuffix && preg_match('/^[a-z0-9]+$/', $newSuffix)) {
+                $base = preg_replace('/\.[^.]+$/', '', $savedName);
+                $newName = $base . '.' . $newSuffix;
+                $newAbs = $destDir . $newName;
+                if ($newAbs !== $absSaved && @rename($absSaved, $newAbs)) {
+                    $savedName = $newName;
+                    $absSaved = $newAbs;
+                    $fileName = $newName;
+                    try {
+                        $file->setSaveName($newName);
+                    } catch (\Throwable $e) {
+                    }
+                }
+            }
+            if (is_file($absSaved)) {
+                $sha1 = @sha1_file($absSaved) ?: $sha1;
+                $this->fileInfo['size'] = (int)@filesize($absSaved);
+                $imgInfo = @getimagesize($absSaved);
+                if ($imgInfo) {
+                    $this->fileInfo['imagewidth'] = (int)($imgInfo[0] ?? 0);
+                    $this->fileInfo['imageheight'] = (int)($imgInfo[1] ?? 0);
+                }
+            }
+        }
+
         $category = request()->post('category');
         $category = array_key_exists($category, config('site.attachmentcategory') ?? []) ? $category : '';
         $auth = Auth::instance();
@@ -413,7 +624,7 @@ class Upload
             'imagetype'   => $this->fileInfo['suffix'],
             'imageframes' => 0,
             'mimetype'    => $this->fileInfo['type'],
-            'url'         => $uploadDir . $file->getSaveName(),
+            'url'         => $uploadDir . $savedName,
             'uploadtime'  => time(),
             'storage'     => 'local',
             'sha1'        => $sha1,

@@ -229,26 +229,38 @@
           class="chat-composer-wrap"
           :class="{ 'is-muted': composerLocked, 'is-extras-locked': extrasLocked }"
         >
-          <view v-if="pendingMedia" class="chat-pending-media">
-            <image
-              v-if="pendingMedia.kind === 'image'"
-              class="chat-pending-thumb"
-              :src="pendingMedia.preview"
-              mode="aspectFill"
-            />
-            <view v-else class="chat-pending-video">
-              <image
-                v-if="pendingMedia.preview"
-                class="chat-pending-thumb"
-                :src="pendingMedia.preview"
-                mode="aspectFill"
-              />
-              <text class="chat-pending-video-lab">视频</text>
+          <scroll-view v-if="pendingMedias.length" scroll-x class="chat-pending-media-row" :show-scrollbar="false">
+            <view class="chat-pending-media-inner">
+              <view
+                v-for="(pm, pmi) in pendingMedias"
+                :key="pm.id || pmi"
+                class="chat-pending-media"
+              >
+                <image
+                  v-if="pm.kind === 'image'"
+                  class="chat-pending-thumb"
+                  :src="pm.preview"
+                  mode="aspectFill"
+                />
+                <view v-else class="chat-pending-video">
+                  <image
+                    v-if="pm.preview"
+                    class="chat-pending-thumb"
+                    :src="pm.preview"
+                    mode="aspectFill"
+                  />
+                  <text class="chat-pending-video-lab">视频</text>
+                </view>
+                <view
+                  class="chat-pending-remove"
+                  hover-class="chat-pending-remove--on"
+                  @click.stop="removePendingMedia(pmi)"
+                >
+                  <text>×</text>
+                </view>
+              </view>
             </view>
-            <view class="chat-pending-remove" hover-class="chat-pending-remove--on" @click.stop="clearPendingMedia">
-              <text>×</text>
-            </view>
-          </view>
+          </scroll-view>
           <view class="chat-emoji-panel" :class="{ open: showEmoji || showSticker }">
             <view class="chat-expr-mode-tabs">
               <view class="chat-expr-mode-btn" :class="{ active: showEmoji && !showSticker }" @click="openEmojiOnly">表情</view>
@@ -391,7 +403,7 @@
               class="chat-send-btn"
               :class="{
                 'chat-send-btn--qq': hasComposerSendable,
-                disabled: composerLocked || textSending || mediaSending || (!pendingMedia && !canCap('text')),
+                disabled: composerLocked || textSending || mediaSending || (!hasPendingMedia && !canCap('text')),
               }"
               @click="sendText"
             >{{ textSending || mediaSending ? '…' : '发送' }}</view>
@@ -922,11 +934,16 @@ const title = ref('聊天')
 const peerNickname = ref('')
 const remark = ref('')
 const text = ref('')
-/** 待发送媒体草稿（先贴输入区，点发送再发） */
-const pendingMedia = ref(null)
+/** 待发送媒体草稿（先贴输入区，点发送再上传 OSS） */
+const MAX_PENDING_IMAGES = 5
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024
+const MAX_VIDEO_BYTES = 200 * 1024 * 1024
+const pendingMedias = ref([])
+const hasPendingMedia = computed(() => (pendingMedias.value || []).length > 0)
 const hasComposerText = computed(() => String(text.value || '').trim().length > 0)
 /** 输入框有字，或已贴图/视频草稿 */
-const hasComposerSendable = computed(() => hasComposerText.value || !!pendingMedia.value)
+const hasComposerSendable = computed(() => hasComposerText.value || hasPendingMedia.value)
+let pendingMediaSeq = 0
 const messages = ref([])
 /** 渲染窗口：默认只画最近 N 条；点「查看更早」先扩本地，并继续 before_id 拉库 */
 const MSG_RENDER_CAP = 40
@@ -3456,6 +3473,8 @@ async function uploadCommonFile(filePath) {
       filePath,
       name: 'file',
       header: token ? { token } : {},
+      // 大视频：拉长超时（H5 / 部分端生效）
+      timeout: 600000,
       success: (res) => {
         try {
           const body = JSON.parse((res && res.data) || '{}')
@@ -3525,52 +3544,111 @@ async function sendMediaMessage(msgType, extra, label) {
 }
 
 function clearPendingMedia() {
-  pendingMedia.value = null
+  pendingMedias.value = []
+}
+
+function removePendingMedia(idx) {
+  const i = idx | 0
+  const list = pendingMedias.value || []
+  if (i < 0 || i >= list.length) return
+  pendingMedias.value = list.slice(0, i).concat(list.slice(i + 1))
+}
+
+function formatSizeLimitTip(bytes, kind) {
+  const mb = Math.round((bytes / (1024 * 1024)) * 10) / 10
+  return kind === 'video' ? `视频不能超过 ${mb}MB` : `图片不能超过 ${mb}MB`
+}
+
+async function resolveLocalFileSize(filePath, hintSize) {
+  const hint = Number(hintSize || 0)
+  if (hint > 0) return hint
+  const path = String(filePath || '')
+  if (!path) return 0
+  try {
+    const info = await new Promise((resolve, reject) => {
+      uni.getFileInfo({
+        filePath: path,
+        success: resolve,
+        fail: reject,
+      })
+    })
+    return Number((info && info.size) || 0)
+  } catch (e) {
+    return 0
+  }
 }
 
 async function pickImage() {
   if (mediaSending.value || textSending.value) return
+  const list = pendingMedias.value || []
+  if (list.some((x) => x && x.kind === 'video')) {
+    uni.showToast({ title: '请先移除视频再选图片', icon: 'none' })
+    return
+  }
+  const remain = MAX_PENDING_IMAGES - list.filter((x) => x && x.kind === 'image').length
+  if (remain <= 0) {
+    uni.showToast({ title: `最多选 ${MAX_PENDING_IMAGES} 张图`, icon: 'none' })
+    return
+  }
   try {
     const chosen = await new Promise((resolve, reject) => {
       uni.chooseImage({
-        count: 1,
-        sizeType: ['compressed'],
+        count: remain,
+        sizeType: ['compressed', 'original'],
         sourceType: ['album', 'camera'],
         success: resolve,
         fail: reject,
       })
     })
-    const filePath = String((chosen && chosen.tempFilePaths && chosen.tempFilePaths[0]) || '')
-    if (!filePath) return
-    mediaSending.value = true
-    uni.showLoading({ title: '上传中…', mask: true })
-    const up = await uploadCommonFile(filePath)
-    const { path, full } = mediaPathsFromUpload(up)
-    pendingMedia.value = {
-      kind: 'image',
-      msgType: 4,
-      preview: filePath,
-      path,
-      full,
-      name: up.name || '',
-      fallback: '[图片]',
+    const paths = (chosen && chosen.tempFilePaths) || []
+    const files = (chosen && chosen.tempFiles) || []
+    if (!paths.length) return
+    const next = list.slice()
+    for (let i = 0; i < paths.length; i++) {
+      if (next.filter((x) => x && x.kind === 'image').length >= MAX_PENDING_IMAGES) break
+      const filePath = String(paths[i] || '')
+      if (!filePath) continue
+      const hint = files[i] ? Number(files[i].size || 0) : 0
+      const size = await resolveLocalFileSize(filePath, hint)
+      if (size > MAX_IMAGE_BYTES) {
+        uni.showToast({ title: formatSizeLimitTip(MAX_IMAGE_BYTES, 'image'), icon: 'none' })
+        continue
+      }
+      pendingMediaSeq += 1
+      next.push({
+        id: 'pm-' + pendingMediaSeq,
+        kind: 'image',
+        msgType: 4,
+        preview: filePath,
+        filePath,
+        size,
+        name: (files[i] && (files[i].name || files[i].path)) || '',
+        fallback: '[图片]',
+      })
     }
+    pendingMedias.value = next
     showAttach.value = false
     showEmoji.value = false
     showSticker.value = false
   } catch (e) {
-    const msg = (e && e.message) || ''
+    const msg = (e && e.message) || (e && e.errMsg) || ''
     if (!/cancel|deny|fail chooseImage/i.test(msg)) {
-      uni.showToast({ title: msg || '上传失败', icon: 'none' })
+      uni.showToast({ title: msg || '选择图片失败', icon: 'none' })
     }
-  } finally {
-    uni.hideLoading()
-    mediaSending.value = false
   }
 }
 
 async function pickVideo() {
   if (mediaSending.value || textSending.value) return
+  const list = pendingMedias.value || []
+  if (list.some((x) => x && x.kind === 'image')) {
+    uni.showToast({ title: '请先移除图片再选视频', icon: 'none' })
+    return
+  }
+  if (list.some((x) => x && x.kind === 'video')) {
+    uni.showToast({ title: '一次只能发一条视频', icon: 'none' })
+    return
+  }
   try {
     const chosen = await new Promise((resolve, reject) => {
       uni.chooseVideo({
@@ -3583,30 +3661,32 @@ async function pickVideo() {
     })
     const filePath = String((chosen && chosen.tempFilePath) || '')
     if (!filePath) return
-    mediaSending.value = true
-    uni.showLoading({ title: '上传中…', mask: true })
-    const up = await uploadCommonFile(filePath)
-    const { path, full } = mediaPathsFromUpload(up)
-    pendingMedia.value = {
-      kind: 'video',
-      msgType: 5,
-      preview: String(chosen.thumbTempFilePath || filePath || ''),
-      path,
-      full,
-      name: up.name || '',
-      fallback: '[视频]',
+    const size = await resolveLocalFileSize(filePath, Number((chosen && chosen.size) || 0))
+    if (size > MAX_VIDEO_BYTES) {
+      uni.showToast({ title: formatSizeLimitTip(MAX_VIDEO_BYTES, 'video'), icon: 'none' })
+      return
     }
+    pendingMediaSeq += 1
+    pendingMedias.value = [
+      {
+        id: 'pm-' + pendingMediaSeq,
+        kind: 'video',
+        msgType: 5,
+        preview: String(chosen.thumbTempFilePath || filePath || ''),
+        filePath,
+        size,
+        name: '',
+        fallback: '[视频]',
+      },
+    ]
     showAttach.value = false
     showEmoji.value = false
     showSticker.value = false
   } catch (e) {
-    const msg = (e && e.message) || ''
+    const msg = (e && e.message) || (e && e.errMsg) || ''
     if (!/cancel|deny|fail chooseVideo/i.test(msg)) {
-      uni.showToast({ title: msg || '上传失败', icon: 'none' })
+      uni.showToast({ title: msg || '选择视频失败', icon: 'none' })
     }
-  } finally {
-    uni.hideLoading()
-    mediaSending.value = false
   }
 }
 
@@ -3848,45 +3928,59 @@ async function fetchHistory(opts) {
 }
 
 async function sendPendingMedia() {
-  const draft = pendingMedia.value
-  if (!draft || textSending.value || mediaSending.value) return
+  const drafts = (pendingMedias.value || []).slice()
+  if (!drafts.length || textSending.value || mediaSending.value) return
   if (composerLocked.value) {
     uni.showToast({ title: composerPlaceholder.value || '暂不可发言', icon: 'none' })
     return
   }
-  const needCap = draft.kind === 'image' ? 'image' : 'video'
+  const needCap = drafts[0].kind === 'image' ? 'image' : 'video'
   if (!canCap(needCap)) {
-    uni.showToast({ title: draft.kind === 'image' ? '图片消息已禁止' : '视频消息已禁止', icon: 'none' })
+    uni.showToast({ title: drafts[0].kind === 'image' ? '图片消息已禁止' : '视频消息已禁止', icon: 'none' })
     return
   }
   const captionRaw = String(text.value || '').trim()
-  const caption = captionRaw || draft.fallback || '[图片]'
   textSending.value = true
+  mediaSending.value = true
   text.value = ''
-  pendingMedia.value = null
   showEmoji.value = false
   showSticker.value = false
   showAttach.value = false
   try {
-    await sendMediaMessage(
-      draft.msgType,
-      { url: draft.path, fullurl: draft.full, name: draft.name || '' },
-      caption
-    )
+    for (let i = 0; i < drafts.length; i++) {
+      const draft = drafts[i]
+      const remain = drafts.slice(i)
+      pendingMedias.value = remain
+      const tip =
+        drafts.length > 1 ? `上传中 ${i + 1}/${drafts.length}…` : '上传中…'
+      uni.showLoading({ title: tip, mask: true })
+      const up = await uploadCommonFile(draft.filePath)
+      const { path, full } = mediaPathsFromUpload(up)
+      const label =
+        i === 0 && captionRaw ? captionRaw : draft.fallback || (draft.kind === 'video' ? '[视频]' : '[图片]')
+      await sendMediaMessage(
+        draft.msgType,
+        { url: path, fullurl: full, name: draft.name || up.name || '' },
+        label
+      )
+      pendingMedias.value = drafts.slice(i + 1)
+    }
+    pendingMedias.value = []
     markRead().catch(() => {})
   } catch (e) {
-    pendingMedia.value = draft
     if (!String(text.value || '').trim() && captionRaw) text.value = captionRaw
     uni.showToast({ title: (e && e.message) || '发送失败', icon: 'none' })
   } finally {
+    uni.hideLoading()
     textSending.value = false
+    mediaSending.value = false
   }
 }
 
 async function sendText() {
   if (textSending.value || mediaSending.value) return
-  // 有贴图/视频草稿：点发送一并发出（输入框文字作配文）
-  if (pendingMedia.value) {
+  // 有贴图/视频草稿：点发送再上传并发送（输入框文字作首张配文）
+  if (hasPendingMedia.value) {
     await sendPendingMedia()
     return
   }
@@ -5139,7 +5233,7 @@ onShow(() => {
 onUnload(() => {
   clearTextMsgHold()
   stopNiuniuTick()
-  pendingMedia.value = null
+  pendingMedias.value = []
   markRead()
     .catch(() => {})
     .finally(() => {
@@ -5849,9 +5943,23 @@ function closeRpDetail() {
 .chat-attach-item-muted {
   opacity: 0.45;
 }
+.chat-pending-media-row {
+  width: auto;
+  max-width: 100%;
+  margin: 0 6px 8px 10px;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+.chat-pending-media-inner {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  padding: 8px 4px 4px 0;
+}
 .chat-pending-media {
   position: relative;
-  margin: 0 10px 8px;
+  flex-shrink: 0;
+  margin-right: 10px;
   width: 72px;
   height: 72px;
   border-radius: 10px;
