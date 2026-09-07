@@ -747,7 +747,7 @@
   filter: none !important;
 }
 
-/* 官方社群 / 我的群组：去掉底部分割线；好友列表保留 */
+/* 官方社群 / 我的群组 / 好友列表：去掉底部分割线 */
 #tabMessages .chat-my-group-item,
 #tabCommunity .chat-my-group-item,
 .msg-tab-root .chat-my-group-item,
@@ -755,19 +755,14 @@
   border-bottom: none !important;
 }
 
-#tabMessages .chat-feed-item,
 #tabCommunity .chat-feed-item,
-.msg-tab-root .chat-feed-item,
 .community-page .chat-feed-item {
-  border-bottom: 0.5px solid #e5e5e5 !important;
+  border-bottom: none !important;
 }
 
-/* 官方置顶社群：不要底部分割线 */
-#tabMessages .chat-feed-item.is-pinned-cs,
-#tabCommunity .chat-feed-item.is-pinned-cs,
-.msg-tab-root .chat-feed-item.is-pinned-cs,
-.community-page .chat-feed-item.is-pinned-cs {
-  border-bottom: none !important;
+#tabMessages .chat-feed-item,
+.msg-tab-root .chat-feed-item {
+  border-bottom: 0.5px solid #e5e5e5 !important;
 }
 
 /* 群行禁用 transform；好友左滑行勿写 transform:none !important（会盖掉内联 translateX） */
