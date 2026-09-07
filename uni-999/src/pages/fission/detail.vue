@@ -277,12 +277,17 @@ function requireLogin() {
 
 function onQualClick() {
   if (!requireLogin()) return
+  // 没有资格时也打开领取记录（与点奖金池一致）
+  if (myQuals.value <= 0 && unclaimedCount.value <= 0) {
+    openPoolRecords()
+    return
+  }
   if (!canClaim.value) {
     if (myQuals.value > 0 && unclaimedCount.value <= 0) {
       uni.showToast({ title: '奖已领完', icon: 'none' })
-    } else if (myQuals.value <= 0) {
-      uni.showToast({ title: '邀请新人获得资格后可领取', icon: 'none' })
+      return
     }
+    openPoolRecords()
     return
   }
   openClaim()

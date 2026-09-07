@@ -230,7 +230,7 @@ class FansHubFission
             ->join('user u', 'u.id = q.user_id', 'LEFT')
             ->where('q.activity_id', $aid)
             ->field('q.id,q.user_id,q.win_amount,q.claimed,q.claimed_at,q.createtime,q.source,u.nickname,u.avatar')
-            ->order('q.claimed desc,q.claimed_at desc,q.id asc')
+            ->orderRaw('q.claimed DESC, IF(q.claimed=1, q.claimed_at, q.createtime) ASC, q.id ASC')
             ->limit(200)
             ->select();
         $rows = is_array($rows) ? $rows : $rows->toArray();
