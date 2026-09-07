@@ -32,7 +32,7 @@ export async function urgeCopy(inviteeUserId) {
   return apiRequest('urgecopy', 'POST', { invitee_user_id: inviteeUserId | 0 })
 }
 
-/** H5：textarea + execCommand，部分旧 WebView 可用 */
+/** H5：textarea + execCommand，部分旧 WebView / iOS 书签可用 */
 function copyTextExecCommand(s) {
   // #ifdef H5
   try {
@@ -41,8 +41,9 @@ function copyTextExecCommand(s) {
     ta.value = s
     ta.setAttribute('readonly', '')
     ta.setAttribute('aria-hidden', 'true')
+    // iOS Standalone：opacity:0 常导致 copy 失败；用极低透明度 + 16px 防缩放
     ta.style.cssText =
-      'position:fixed;top:0;left:0;width:1px;height:1px;padding:0;margin:0;border:0;opacity:0;'
+      'position:fixed;top:0;left:0;width:2px;height:2px;padding:0;margin:0;border:0;opacity:0.01;font-size:16px;z-index:-1;'
     document.body.appendChild(ta)
     ta.focus()
     ta.select()
@@ -75,25 +76,23 @@ function copyTextUni(s) {
 }
 
 /**
- * 复制纯文本。iOS Safari：await 后再 writeText 会丢手势 → NotAllowedError。
- * 已有字符串时优先同步 Clipboard / execCommand。
+ * 复制纯文本。
+ * iOS 书签/Standalone：必须在 click 同步栈内 execCommand；先 await 再 writeText 会 NotAllowedError。
  */
 export function copyText(text) {
   const s = String(text || '')
   if (!s) return Promise.reject(new Error('empty'))
   // #ifdef H5
+  // 同步手势内优先 execCommand（书签打开最稳）
+  if (copyTextExecCommand(s)) return Promise.resolve(true)
   try {
     if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
       return navigator.clipboard.writeText(s).then(
         () => true,
-        () => {
-          if (copyTextExecCommand(s)) return true
-          return copyTextUni(s)
-        }
+        () => copyTextUni(s)
       )
     }
   } catch (e) {}
-  if (copyTextExecCommand(s)) return Promise.resolve(true)
   // #endif
   return copyTextUni(s)
 }

@@ -303,6 +303,19 @@
         <button type="button" class="chat-action-item cancel" @click="closeMemberSheets">关闭</button>
       </view>
     </view>
+
+    <!-- iOS 书签等剪贴板受限：可长按/再试复制 -->
+    <view v-if="inviteLinkSheet" class="chat-invite-link-sheet" @click="closeInviteLinkSheet">
+      <view class="chat-invite-link-panel" @click.stop>
+        <view class="chat-invite-link-title">进群链接</view>
+        <text class="chat-invite-link-text" selectable user-select>{{ inviteLinkCache || '生成中…' }}</text>
+        <view class="chat-invite-link-actions">
+          <button type="button" class="chat-setting-save-btn" @click="retryCopyInviteLink">复制</button>
+          <button type="button" class="chat-invite-link-close" @click="closeInviteLinkSheet">关闭</button>
+        </view>
+        <view class="chat-setting-hint">若仍失败，请长按上方链接手动复制</view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -312,7 +325,7 @@ import { computed, reactive, ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { fetchProfile, getToken, uploadCommonFile, apiRequest } from '../../utils/auth.js'
 import { avatarSrc } from '../../utils/chat.js'
-import { copyTextDeferred } from '../../utils/master.js'
+import { copyText, copyTextDeferred } from '../../utils/master.js'
 import { applySafeAreaCssVars, getSafeAreaInsets } from '../../utils/safe-area.js'
 import {
   addGroupMembers,
@@ -459,6 +472,8 @@ const groupAvatar = computed(() => {
   return avatarSrc(g.avatar_url || g.avatar || '')
 })
 const canEdit = computed(() => (myRole.value | 0) >= 2)
+const inviteLinkCache = ref('')
+const inviteLinkSheet = ref(false)
 const roleText = computed(() => roleLabel(myRole.value))
 const DISSOLVE_MIN_AGE_SEC = 60 * 60
 const groupAgeSec = computed(() => {
@@ -569,6 +584,7 @@ async function loadInfo() {
     if (memberHidden.value) {
       members.value = []
     }
+    refreshInviteLinkCache()
   } catch (e) {
     uni.showToast({ title: (e && e.message) || '加载失败', icon: 'none' })
   }
@@ -818,21 +834,71 @@ function closeAddSheet() {
   })
 }
 
-/** iOS Safari：click 同步栈内启动 clipboard，链接在 Promise 里异步生成 */
+/** 进群页预拉链接，保证点击时同步复制（iOS 书签不丢手势） */
+async function refreshInviteLinkCache() {
+  if (!groupId.value || (myRole.value | 0) < 2) return
+  try {
+    const data = await apiRequest('groupinvitelink', 'POST', { group_id: groupId.value })
+    const link = String((data && data.join_url) || '')
+    if (link) inviteLinkCache.value = link
+  } catch (e) {}
+}
+
+function closeInviteLinkSheet() {
+  inviteLinkSheet.value = false
+}
+
+function retryCopyInviteLink() {
+  const link = String(inviteLinkCache.value || '')
+  if (!link) {
+    uni.showToast({ title: '链接未就绪', icon: 'none' })
+    return
+  }
+  copyText(link)
+    .then(() => {
+      uni.showToast({ title: '进群链接已复制', icon: 'none' })
+      inviteLinkSheet.value = false
+    })
+    .catch(() => {
+      uni.showToast({ title: '请长按链接手动复制', icon: 'none' })
+    })
+}
+
+/** iOS Safari/书签：预拉链接后同步 copy；失败则弹出可长按面板 */
 function copyGroupInviteLink() {
   if (!canEdit.value || !groupId.value) return
+  const cached = String(inviteLinkCache.value || '')
+  if (cached) {
+    copyText(cached)
+      .then(() => {
+        uni.showToast({ title: '进群链接已复制', icon: 'none' })
+      })
+      .catch(() => {
+        inviteLinkSheet.value = true
+      })
+    refreshInviteLinkCache()
+    return
+  }
   const work = (async () => {
     const data = await apiRequest('groupinvitelink', 'POST', { group_id: groupId.value })
     const link = String((data && data.join_url) || '')
     if (!link) throw new Error('生成失败')
+    inviteLinkCache.value = link
     return link
   })()
   copyTextDeferred(work)
     .then(() => {
       uni.showToast({ title: '进群链接已复制', icon: 'none' })
     })
-    .catch((e) => {
-      uni.showToast({ title: (e && e.message) || '复制失败', icon: 'none' })
+    .catch(() => {
+      work
+        .then((link) => {
+          inviteLinkCache.value = link
+          inviteLinkSheet.value = true
+        })
+        .catch((e) => {
+          uni.showToast({ title: (e && e.message) || '复制失败', icon: 'none' })
+        })
     })
 }
 
@@ -1064,5 +1130,62 @@ onShow(() => {
 }
 .chat-group-overlay--qq {
   background: #ededed !important;
+}
+.chat-invite-link-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 50000;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 18px;
+  box-sizing: border-box;
+}
+.chat-invite-link-panel {
+  width: 100%;
+  max-width: 420px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px 14px 12px;
+  box-sizing: border-box;
+}
+.chat-invite-link-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #191919;
+  margin-bottom: 10px;
+  text-align: center;
+}
+.chat-invite-link-text {
+  display: block;
+  padding: 10px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #191919;
+  word-break: break-all;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.chat-invite-link-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+.chat-invite-link-actions .chat-setting-save-btn {
+  flex: 1;
+  margin: 0 !important;
+}
+.chat-invite-link-close {
+  flex: 1;
+  height: 40px;
+  line-height: 40px;
+  border-radius: 6px;
+  background: #f2f3f5;
+  color: #191919;
+  font-size: 15px;
+  border: none;
 }
 </style>

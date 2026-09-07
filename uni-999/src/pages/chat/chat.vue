@@ -159,7 +159,27 @@
                   <text class="meta">{{ msgTime(m) }}</text>
                 </view>
                 <view v-else-if="isImage(m)" class="chat-bubble media" @longpress.stop="onMsgLongPress(m, $event)">
-                  <image class="chat-media-img" :src="mediaUrl(m)" mode="widthFix" @click.stop="previewImageMsg(m)" />
+                  <view
+                    v-if="mediaImageList(m).length > 1"
+                    class="chat-media-album"
+                    :class="'n' + Math.min(mediaImageList(m).length, 5)"
+                  >
+                    <image
+                      v-for="(u, ii) in mediaImageList(m)"
+                      :key="'alb' + msgId(m) + '-' + ii"
+                      class="chat-media-album-item"
+                      :src="u"
+                      mode="aspectFill"
+                      @click.stop="previewImageMsg(m, ii)"
+                    />
+                  </view>
+                  <image
+                    v-else
+                    class="chat-media-img"
+                    :src="mediaUrl(m)"
+                    mode="widthFix"
+                    @click.stop="previewImageMsg(m, 0)"
+                  />
                   <view v-if="mediaCaption(m)" class="chat-media-caption">
                     <text
                       v-for="(p, i) in splitTextLinks(mediaCaption(m))"
@@ -884,6 +904,7 @@ import {
   isSystemMsg,
   isLeaveGroupTip,
   mediaCaptionText,
+  mediaImageUrls,
   msgExtra,
   msgType,
   normalizeMessage,
@@ -891,6 +912,7 @@ import {
   recallTip,
   splitTextLinks,
 } from '../../utils/chat.js'
+import { tryOpenGroupInviteFromUrl } from '../../utils/group-invite.js'
 import {
   clearActiveChat,
   getActiveChat,
@@ -2236,9 +2258,14 @@ function msgTextParts(m) {
 function mediaCaption(m) {
   return mediaCaptionText(m)
 }
+function mediaImageList(m) {
+  return mediaImageUrls(m)
+}
 function openMsgLink(url) {
   const u = String(url || '').trim()
   if (!u) return
+  // 进群链接：四端内直接加群并打开群聊
+  if (tryOpenGroupInviteFromUrl(u, { silent: false })) return
   if (!openExternalHttpUrl(u)) {
     uni.setClipboardData({
       data: u,
@@ -2833,7 +2860,8 @@ function onMsgLongPress(m, e) {
 }
 
 async function saveChatImage(m) {
-  const url = mediaUrl(m)
+  const urls = mediaImageList(m)
+  const url = urls[0] || mediaUrl(m)
   if (!url) {
     uni.showToast({ title: '无法保存', icon: 'none' })
     return
@@ -3733,10 +3761,11 @@ async function pickFile() {
   }
 }
 
-function previewImageMsg(m) {
-  const cur = mediaUrl(m)
-  if (!cur) return
-  uni.previewImage({ current: cur, urls: [cur] })
+function previewImageMsg(m, index) {
+  const urls = mediaImageList(m)
+  if (!urls.length) return
+  const i = Math.max(0, Math.min(urls.length - 1, index | 0))
+  uni.previewImage({ current: urls[i], urls })
 }
 
 function openFileMsg(m) {
@@ -3947,17 +3976,48 @@ async function sendPendingMedia() {
   showSticker.value = false
   showAttach.value = false
   try {
+    // 多图：全部上传后合成一条图片消息（extra.images）
+    if (drafts[0].kind === 'image') {
+      const images = []
+      for (let i = 0; i < drafts.length; i++) {
+        pendingMedias.value = drafts.slice(i)
+        const tip =
+          drafts.length > 1 ? `上传中 ${i + 1}/${drafts.length}…` : '上传中…'
+        uni.showLoading({ title: tip, mask: true })
+        const up = await uploadCommonFile(drafts[i].filePath)
+        const { path, full } = mediaPathsFromUpload(up)
+        images.push({
+          url: path,
+          fullurl: full,
+          name: drafts[i].name || up.name || '',
+        })
+      }
+      const label =
+        captionRaw ||
+        (images.length > 1 ? '[图片]x' + images.length : '[图片]')
+      await sendMediaMessage(
+        4,
+        {
+          url: images[0].url,
+          fullurl: images[0].fullurl,
+          name: images[0].name || '',
+          images,
+          count: images.length,
+        },
+        label
+      )
+      pendingMedias.value = []
+      markRead().catch(() => {})
+      return
+    }
+    // 视频：单条
     for (let i = 0; i < drafts.length; i++) {
       const draft = drafts[i]
-      const remain = drafts.slice(i)
-      pendingMedias.value = remain
-      const tip =
-        drafts.length > 1 ? `上传中 ${i + 1}/${drafts.length}…` : '上传中…'
-      uni.showLoading({ title: tip, mask: true })
+      pendingMedias.value = drafts.slice(i)
+      uni.showLoading({ title: '上传中…', mask: true })
       const up = await uploadCommonFile(draft.filePath)
       const { path, full } = mediaPathsFromUpload(up)
-      const label =
-        i === 0 && captionRaw ? captionRaw : draft.fallback || (draft.kind === 'video' ? '[视频]' : '[图片]')
+      const label = captionRaw || draft.fallback || '[视频]'
       await sendMediaMessage(
         draft.msgType,
         { url: path, fullurl: full, name: draft.name || up.name || '' },
@@ -5300,6 +5360,30 @@ function closeRpDetail() {
   line-height: 1.45;
   word-break: break-word;
   white-space: pre-wrap;
+}
+.chat-media-album {
+  display: flex;
+  flex-wrap: wrap;
+  width: 228px;
+  max-width: 70vw;
+  gap: 4px;
+  box-sizing: border-box;
+}
+.chat-media-album-item {
+  width: 110px;
+  height: 110px;
+  border-radius: 6px;
+  background: #e8e8e8;
+  display: block;
+}
+.chat-media-album.n3 .chat-media-album-item,
+.chat-media-album.n5 .chat-media-album-item {
+  width: 72px;
+  height: 72px;
+}
+.chat-media-album.n4 .chat-media-album-item {
+  width: 110px;
+  height: 110px;
 }
 .chat-wx-msg-mask {
   position: fixed;

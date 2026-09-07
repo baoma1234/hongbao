@@ -104,9 +104,12 @@ export function previewText(last) {
     return '[裂变红宝] 官方活动'
   }
   if (mt === 4) {
+    const imgs = Array.isArray(ex.images) ? ex.images : []
+    const n = imgs.length > 1 ? imgs.length : (Number(ex.count) > 1 ? Number(ex.count) : 1)
     const cap = String(last.content || '').trim()
-    if (cap && cap !== '[图片]') return '[图片] ' + cap
-    return '[图片]'
+    const base = n > 1 ? '[图片]x' + n : '[图片]'
+    if (cap && cap !== '[图片]' && !/^\[图片\]x\d+$/i.test(cap)) return base + ' ' + cap
+    return base
   }
   if (mt === 5) {
     const cap = String(last.content || '').trim()
@@ -191,9 +194,32 @@ export function mediaCaptionText(m) {
   if (mt !== 4 && mt !== 5) return ''
   const c = String((m && (m.content || m.text)) || '').trim()
   if (!c) return ''
-  if (mt === 4 && (c === '[图片]' || c === '[Image]')) return ''
+  if (mt === 4 && (c === '[图片]' || c === '[Image]' || /^\[图片\]x\d+$/i.test(c))) return ''
   if (mt === 5 && (c === '[视频]' || c === '[Video]')) return ''
   return c
+}
+
+/** 图片消息全部可展示 URL（单图或多图相册，最多 5） */
+export function mediaImageUrls(m) {
+  const ex = msgExtra(m)
+  const out = []
+  const seen = {}
+  const push = (raw) => {
+    const u = publicUrl(raw)
+    if (!u || seen[u]) return
+    seen[u] = true
+    out.push(u)
+  }
+  if (Array.isArray(ex.images)) {
+    for (let i = 0; i < ex.images.length && out.length < 5; i++) {
+      const img = ex.images[i]
+      push((img && (img.fullurl || img.url)) || '')
+    }
+  }
+  if (!out.length) {
+    push((ex && (ex.fullurl || ex.url)) || '')
+  }
+  return out
 }
 
 export function displayTitle(item) {

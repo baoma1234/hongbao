@@ -2958,21 +2958,51 @@ class MessageService
         }
         if ($msgType === 4 || $msgType === 5 || $msgType === 7) {
             $extra = $this->normalizeExtra($extra, false, $msgType === 7);
-            $url = (string)($extra['url'] ?? '');
-            if ($msgType === 7) {
-                if (!$this->isAllowedFileUrl($url)) {
-                    throw new \InvalidArgumentException('invalid file url');
+            if ($msgType === 4 && !empty($extra['images']) && is_array($extra['images'])) {
+                $normImgs = [];
+                foreach (array_slice($extra['images'], 0, 5) as $img) {
+                    if (!is_array($img)) {
+                        continue;
+                    }
+                    $u = (string)($img['url'] ?? '');
+                    if (!$this->isAllowedMediaUrl($u, 4)) {
+                        throw new \InvalidArgumentException('invalid media url');
+                    }
+                    $row = ['url' => $u];
+                    $fu = trim((string)($img['fullurl'] ?? ''));
+                    if ($fu !== '') {
+                        $row['fullurl'] = mb_substr($fu, 0, 500);
+                    }
+                    $normImgs[] = $row;
                 }
-            } elseif (!$this->isAllowedMediaUrl($url, $msgType)) {
-                throw new \InvalidArgumentException('invalid media url');
+                if (!$normImgs) {
+                    throw new \InvalidArgumentException('invalid media url');
+                }
+                $extra['images'] = $normImgs;
+                $extra['count'] = count($normImgs);
+                $extra['url'] = $normImgs[0]['url'];
+                if (!empty($normImgs[0]['fullurl'])) {
+                    $extra['fullurl'] = $normImgs[0]['fullurl'];
+                }
+                $url = $extra['url'];
+            } else {
+                $url = (string)($extra['url'] ?? '');
+                if ($msgType === 7) {
+                    if (!$this->isAllowedFileUrl($url)) {
+                        throw new \InvalidArgumentException('invalid file url');
+                    }
+                } elseif (!$this->isAllowedMediaUrl($url, $msgType)) {
+                    throw new \InvalidArgumentException('invalid media url');
+                }
+                $extra['url'] = $url;
             }
-            $extra['url'] = $url;
             if (isset($extra['thumb']) && !$this->isAllowedMediaUrl((string)$extra['thumb'], 4)) {
                 unset($extra['thumb']);
             }
             if ($content === '') {
                 if ($msgType === 4) {
-                    $content = '[图片]';
+                    $n = !empty($extra['images']) && is_array($extra['images']) ? count($extra['images']) : 1;
+                    $content = $n > 1 ? ('[图片]x' . $n) : '[图片]';
                 } elseif ($msgType === 5) {
                     $content = '[视频]';
                 } else {
@@ -3013,6 +3043,35 @@ class MessageService
         foreach (['w', 'h', 'duration', 'size'] as $key) {
             if (isset($extra[$key])) {
                 $clean[$key] = max(0, (int)$extra[$key]);
+            }
+        }
+        // 多图相册（同一条图片消息）
+        if (!$sticker && !$file && !empty($extra['images']) && is_array($extra['images'])) {
+            $imgs = [];
+            foreach (array_slice($extra['images'], 0, 5) as $img) {
+                if (!is_array($img)) {
+                    continue;
+                }
+                $u = trim((string)($img['url'] ?? ''));
+                if ($u === '') {
+                    continue;
+                }
+                $row = ['url' => mb_substr($u, 0, 500)];
+                $fu = trim((string)($img['fullurl'] ?? ''));
+                if ($fu !== '') {
+                    $row['fullurl'] = mb_substr($fu, 0, 500);
+                }
+                $imgs[] = $row;
+            }
+            if ($imgs) {
+                $clean['images'] = $imgs;
+                $clean['count'] = count($imgs);
+                if (empty($clean['url'])) {
+                    $clean['url'] = $imgs[0]['url'];
+                }
+                if (empty($clean['fullurl']) && !empty($imgs[0]['fullurl'])) {
+                    $clean['fullurl'] = $imgs[0]['fullurl'];
+                }
             }
         }
         return $clean;

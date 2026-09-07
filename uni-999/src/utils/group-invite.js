@@ -39,6 +39,44 @@ export function readUrlGroupJoin() {
   }
 }
 
+/** 从任意链接字符串解析进群参数（私聊点链接 / 外链） */
+export function parseGroupJoinFromHref(href) {
+  const raw = String(href || '').trim()
+  if (!raw) return null
+  try {
+    let gid = 0
+    let token = ''
+    const gm = raw.match(/[?&#](?:join_group|g)=(\d+)/i)
+    if (gm) gid = parseInt(gm[1], 10) || 0
+    const tm = raw.match(/[?&#](?:gt|invite_token)=([^&#\s]+)/i)
+    if (tm) {
+      try {
+        token = decodeURIComponent(String(tm[1] || '').trim())
+      } catch (e) {
+        token = String(tm[1] || '').trim()
+      }
+    }
+    if (gid <= 0 && /^https?:\/\//i.test(raw)) {
+      try {
+        const u = new URL(raw)
+        gid = parseInt(String(u.searchParams.get('join_group') || u.searchParams.get('g') || '0'), 10) || 0
+        token = String(u.searchParams.get('gt') || u.searchParams.get('invite_token') || token || '').trim()
+        const hash = String(u.hash || '')
+        const qi = hash.indexOf('?')
+        if (qi >= 0) {
+          const sp = new URLSearchParams(hash.slice(qi + 1))
+          if (!gid) gid = parseInt(String(sp.get('join_group') || sp.get('g') || '0'), 10) || 0
+          if (!token) token = String(sp.get('gt') || sp.get('invite_token') || '').trim()
+        }
+      } catch (e2) {}
+    }
+    if (gid <= 0) return null
+    return { group_id: gid, token }
+  } catch (e) {
+    return null
+  }
+}
+
 export function peekPendingGroupJoin() {
   try {
     const raw = uni.getStorageSync(GROUP_JOIN_STORAGE_KEY)
@@ -76,6 +114,18 @@ export function captureGroupJoinFromUrl() {
 }
 
 /**
+ * 聊天里点进群链接：App/H5 内直接加群进房，不跳系统浏览器。
+ * @returns {boolean} 是否识别为进群链接并已开始处理
+ */
+export function tryOpenGroupInviteFromUrl(url, opts = {}) {
+  const parsed = parseGroupJoinFromHref(url)
+  if (!parsed || !(parsed.group_id | 0)) return false
+  savePendingGroupJoin(parsed.group_id, parsed.token)
+  tryConsumeGroupJoin(opts).catch(() => {})
+  return true
+}
+
+/**
  * 已登录则执行进群并进入聊天；未登录则保留 pending，登录后会再试。
  * @returns {Promise<boolean>} 是否已处理并跳转
  */
@@ -88,6 +138,10 @@ export async function tryConsumeGroupJoin(opts = {}) {
     try {
       uni.setStorageSync('fanshub_login_return', '/pages/messages/messages')
     } catch (e) {}
+    if (!silent) {
+      uni.showToast({ title: '请先登录后进群', icon: 'none' })
+      uni.navigateTo({ url: '/pages/login/login' })
+    }
     return false
   }
   const gid = pending.group_id | 0
