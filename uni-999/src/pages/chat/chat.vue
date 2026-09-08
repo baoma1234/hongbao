@@ -968,8 +968,6 @@ import {
 } from '../../utils/im.js'
 
 const title = ref('聊天')
-/** 进群链接进房：顶栏锁定为「群」+id，不被群资料覆盖 */
-const inviteTitleLocked = ref(false)
 const peerNickname = ref('')
 const remark = ref('')
 const text = ref('')
@@ -5015,9 +5013,29 @@ function mergeGroupMeta(data) {
   }
   if (data.my_role != null) next.my_role = data.my_role | 0
   groupMeta.value = next
-  // 进群链接：顶栏已锁「群」+id；其它进房保持 onLoad 传入的 title，不用群资料覆盖
-  if (inviteTitleLocked.value && (meta.value.group | 0) > 0) {
-    title.value = '群' + (meta.value.group | 0)
+  // 群聊顶栏：用群资料名称覆盖占位「聊天」/ 旧版「群」+id
+  if (!isPrivate.value) {
+    const gName = String(
+      (next.group && (next.group.name || next.group.title)) ||
+        data.name ||
+        data.title ||
+        ''
+    ).trim()
+    if (gName) {
+      const cur = String(title.value || '').trim()
+      if (!cur || cur === '聊天' || /^群\d+$/.test(cur)) {
+        title.value = gName
+        saveActiveChat({
+          type: meta.value.type,
+          id: meta.value.conversationId,
+          peer: meta.value.peer,
+          group: meta.value.group,
+          title: title.value,
+          nickname: peerNickname.value,
+          remark: remark.value,
+        })
+      }
+    }
   }
   const nextNotice = resolveGroupNotice(next.group || {})
   if (nextNotice && nextNotice !== prevNotice) {
@@ -5185,14 +5203,11 @@ onLoad(async (query) => {
     try {
       rawTitle = decodeURIComponent(rawTitle)
     } catch (e) {}
-    const fromInvite = String(q.invite || '') === '1' || /^群\d+$/.test(rawTitle)
-    const gid = parseInt(q.group || '0', 10) || 0
-    if (fromInvite && gid > 0) {
-      title.value = '群' + gid
-      inviteTitleLocked.value = true
+    // 旧进群链接曾写死「群」+id：当作无标题，等 group.info 填真实群名
+    if (!rawTitle || rawTitle === '聊天' || /^群\d+$/.test(rawTitle)) {
+      title.value = '聊天'
     } else {
-      title.value = rawTitle || '聊天'
-      inviteTitleLocked.value = false
+      title.value = rawTitle
     }
   }
   peerNickname.value = decodeURIComponent(q.nickname || '')

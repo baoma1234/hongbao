@@ -106,23 +106,25 @@ export function clearPendingGroupJoin() {
   } catch (e) {}
 }
 
-/** 进群链接进房：顶栏群昵称固定为「群」+ 群 id */
-export function inviteGroupTitle(groupId) {
+/** 进群链接进房 URL：优先带群资料名称，勿用「群」+id 顶替 */
+export function inviteChatUrl(groupId, groupName = '') {
   const gid = groupId | 0
-  return gid > 0 ? '群' + gid : '群'
-}
-
-export function inviteChatUrl(groupId) {
-  const gid = groupId | 0
-  return (
+  const name = String(groupName || '').trim()
+  let url =
     '/pages/chat/chat?type=2&id=' +
     encodeURIComponent(gid) +
     '&group=' +
-    encodeURIComponent(gid) +
-    '&title=' +
-    encodeURIComponent(inviteGroupTitle(gid)) +
-    '&invite=1'
-  )
+    encodeURIComponent(gid)
+  if (name) {
+    url += '&title=' + encodeURIComponent(name)
+  }
+  return url
+}
+
+function groupNameFromJoinPacket(packet) {
+  const data = (packet && packet.data) || packet || {}
+  const group = data.group || data
+  return String((group && (group.name || group.title)) || '').trim()
 }
 
 /** 启动时：从 URL 记下待进群 */
@@ -167,17 +169,17 @@ export async function tryConsumeGroupJoin(opts = {}) {
   const token = String(pending.token || '').trim()
   try {
     await imConnect().catch(() => {})
-    await joinGroup(gid, token)
+    const packet = await joinGroup(gid, token)
     clearPendingGroupJoin()
     if (!silent) {
       uni.showToast({ title: '已加入群聊', icon: 'none' })
     }
     uni.navigateTo({
-      url: inviteChatUrl(gid),
+      url: inviteChatUrl(gid, groupNameFromJoinPacket(packet)),
     })
     return true
   } catch (e) {
-    // 已在群内也算成功
+    // 已在群内也算成功：进房后由 chat 拉 group.info 显示真实群名
     const msg = String((e && e.message) || '')
     if (/already|已在|member/i.test(msg) || msg === '') {
       clearPendingGroupJoin()
