@@ -402,7 +402,12 @@
 
           <view class="chat-composer chat-footer">
             <view v-if="canCap('emoji')" id="chatEmojiBtn" class="chat-tool-icon" @click="toggleEmoji">
-              <text class="chat-tool-glyph" aria-hidden="true">☺</text>
+              <image
+                class="chat-tool-glyph chat-tool-glyph--emoji"
+                :src="composerEmojiIcon"
+                mode="aspectFit"
+                aria-hidden="true"
+              />
             </view>
             <textarea
               id="chatInput"
@@ -971,6 +976,8 @@ const title = ref('聊天')
 const peerNickname = ref('')
 const remark = ref('')
 const text = ref('')
+/** 输入栏表情按钮图标（四端 static） */
+const composerEmojiIcon = packagedStaticUrl('chat/composer-emoji.png')
 /** Telegram 风格输入：随行数增高 */
 const composerLineCount = ref(1)
 const composerInputStyle = computed(() => {

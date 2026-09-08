@@ -138,12 +138,20 @@
   line-height: 44px !important;
 }
 
-/* 聊天输入栏：App 不渲染 SVG，用文字 glyph */
+/* 聊天输入栏：App 工具图标居中 */
+#chatEmojiBtn,
+.chat-tool-icon {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
 #chatEmojiBtn .chat-tool-glyph,
 #chatAttachBtn .chat-tool-glyph,
 .chat-tool-icon .chat-tool-glyph,
 .btn-plus .chat-tool-glyph {
-  display: block !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   font-size: 22px !important;
   font-weight: 700 !important;
   line-height: 1 !important;
@@ -151,8 +159,15 @@
   opacity: 1 !important;
   visibility: visible !important;
 }
+#chatEmojiBtn .chat-tool-glyph--emoji,
+.chat-tool-icon .chat-tool-glyph--emoji {
+  width: 24px !important;
+  height: 24px !important;
+  display: block !important;
+  margin: 0 !important;
+}
 #chatAttachBtn .chat-tool-glyph--plus,
 .btn-plus .chat-tool-glyph--plus {
   font-size: 26px !important;
-  transform: translateY(-1px);
+  transform: none;
 }

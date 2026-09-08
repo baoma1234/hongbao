@@ -294,10 +294,21 @@
   border-top: 1px solid var(--qq-border) !important;
 }
 
-.chat-room-page .chat-composer.chat-footer {
-  background: #f7f7f7 !important;
-  padding: 6px 10px !important;
-  min-height: 0 !important;
+.chat-room-page .chat-composer .chat-tool-icon,
+.chat-room-page #chatEmojiBtn.chat-tool-icon {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 30px !important;
+  height: 30px !important;
+  padding: 0 !important;
+}
+.chat-room-page #chatEmojiBtn .chat-tool-glyph--emoji,
+.chat-room-page .chat-tool-icon .chat-tool-glyph--emoji {
+  width: 24px !important;
+  height: 24px !important;
+  display: block !important;
+  margin: 0 auto !important;
 }
 
 .chat-room-page .chat-composer .input-box {
