@@ -1,1 +1,0 @@
-import{r as o,f as e,ah as r}from"./index-C2M_s39V.js";function t(){const t=o({}),a=o({});return{profileSubHdStyle:t,profileSubPageStyle:a,refreshProfileSubLayout:function(){const o=e(),u=o&&o.overlayTop||r();t.value={top:u+"px"},a.value={"--chat-overlay-top":u+"px"}}}}export{t as u};
