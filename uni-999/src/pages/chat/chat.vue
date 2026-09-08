@@ -1002,7 +1002,7 @@ const composerInputStyle = computed(() => {
       minHeight: COMPOSER_MIN_H + 'px',
       height: COMPOSER_MAX_H + 'px',
       maxHeight: COMPOSER_MAX_H + 'px',
-      overflowY: 'scroll',
+      overflowY: 'auto',
     }
   }
   return {
@@ -1059,17 +1059,17 @@ function measureComposerHeightH5() {
       composerHeightPx.value = Math.min(COMPOSER_MAX_H, sh)
       composerAtMax.value = sh > COMPOSER_MAX_H
     }
-    // 同步外层 wrapper；顶满后固定高度并允许内滚
+    // 同步外层 wrapper 高度；滚动只发生在 textarea，避免双滚动条
     const wrap = root.querySelector('.uni-textarea-wrapper')
     if (wrap) {
       wrap.style.height = composerHeightPx.value + 'px'
       wrap.style.maxHeight = COMPOSER_MAX_H + 'px'
-      wrap.style.overflowY = composerAtMax.value ? 'scroll' : 'hidden'
+      wrap.style.overflow = 'hidden'
     }
     if (composerAtMax.value) {
       ta.style.height = COMPOSER_MAX_H + 'px'
       ta.style.maxHeight = COMPOSER_MAX_H + 'px'
-      ta.style.overflowY = 'scroll'
+      ta.style.overflowY = 'auto'
     }
     scheduleMeasureMsgScroll()
     return true
@@ -5832,9 +5832,7 @@ uni-page-body {
 .chat-room-page .input-box.input-box--multi.is-scrollable {
   height: 176px !important;
   max-height: 176px !important;
-  overflow-y: auto !important;
-  -webkit-overflow-scrolling: touch;
-  touch-action: pan-y;
+  overflow: hidden !important;
 }
 .chat-room-page .chat-composer.is-composer-max .uni-textarea-textarea,
 .chat-room-page .chat-composer.is-composer-max textarea,
@@ -5842,7 +5840,8 @@ uni-page-body {
   height: 176px !important;
   max-height: 176px !important;
   min-height: 0 !important;
-  overflow-y: scroll !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
 }

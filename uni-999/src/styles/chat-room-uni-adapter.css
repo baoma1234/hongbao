@@ -888,15 +888,13 @@
   line-height: 22px !important;
   box-sizing: border-box !important;
 }
-/* 顶满后：固定最大高度，内部可滚（关掉 auto-height 后才生效） */
+/* 顶满后：只让真正的 textarea 内滚，外层 wrapper 不滚（避免双滚动条） */
 .chat-room-page .chat-composer.is-composer-max .input-box.input-box--multi,
 .chat-room-page .chat-composer.is-composer-max .uni-textarea-wrapper,
 .chat-room-page .input-box.input-box--multi.is-scrollable {
   height: 176px !important;
   max-height: 176px !important;
-  overflow-y: auto !important;
-  -webkit-overflow-scrolling: touch;
-  touch-action: pan-y;
+  overflow: hidden !important;
 }
 .chat-room-page .chat-composer.is-composer-max .uni-textarea-textarea,
 .chat-room-page .chat-composer.is-composer-max textarea,
@@ -905,7 +903,8 @@
   height: 176px !important;
   max-height: 176px !important;
   min-height: 0 !important;
-  overflow-y: scroll !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
 }
