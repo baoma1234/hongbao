@@ -711,6 +711,10 @@ function itemPreview(item) {
 }
 
 function itemTime(item) {
+  // 置顶客服：时间位固定显示「在线」（四端一致，不随真实 WS 状态变化）
+  if (item && (item.is_default_cs || (item.is_im_admin && item.pinned))) {
+    return '在线'
+  }
   const last = item.last_message
   const ts = item.updatetime || (last && last.createtime) || 0
   return formatConvTime(ts)
@@ -802,7 +806,7 @@ function upsertListFromMessage(msg) {
       conversation_id: id,
       group_id: type === 2 ? (msg.group_id | 0) : 0,
       peer_user_id: type === 1 ? ((msg.from_user_id | 0) === (myIdNum() | 0) ? msg.to_user_id : msg.from_user_id) : 0,
-      title: type === 2 ? '群 ' + id : 'ID ' + (msg.from_user_id || ''),
+      title: type === 2 ? '群' + id : 'ID ' + (msg.from_user_id || ''),
       last_message: msg,
       updatetime: msg.createtime | 0,
       unread_count: localUnread.value[key] | 0,

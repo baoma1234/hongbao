@@ -968,6 +968,8 @@ import {
 } from '../../utils/im.js'
 
 const title = ref('聊天')
+/** 进群链接进房：顶栏锁定为「群」+id，不被群资料覆盖 */
+const inviteTitleLocked = ref(false)
 const peerNickname = ref('')
 const remark = ref('')
 const text = ref('')
@@ -5013,6 +5015,10 @@ function mergeGroupMeta(data) {
   }
   if (data.my_role != null) next.my_role = data.my_role | 0
   groupMeta.value = next
+  // 进群链接：顶栏已锁「群」+id；其它进房保持 onLoad 传入的 title，不用群资料覆盖
+  if (inviteTitleLocked.value && (meta.value.group | 0) > 0) {
+    title.value = '群' + (meta.value.group | 0)
+  }
   const nextNotice = resolveGroupNotice(next.group || {})
   if (nextNotice && nextNotice !== prevNotice) {
     noticePinClosed.value = false
@@ -5174,7 +5180,21 @@ onLoad(async (query) => {
   noticePinExpanded.value = false
   noticeDismissedText.value = ''
   groupMeta.value = null
-  title.value = decodeURIComponent(q.title || '聊天')
+  {
+    let rawTitle = String(q.title || '')
+    try {
+      rawTitle = decodeURIComponent(rawTitle)
+    } catch (e) {}
+    const fromInvite = String(q.invite || '') === '1' || /^群\d+$/.test(rawTitle)
+    const gid = parseInt(q.group || '0', 10) || 0
+    if (fromInvite && gid > 0) {
+      title.value = '群' + gid
+      inviteTitleLocked.value = true
+    } else {
+      title.value = rawTitle || '聊天'
+      inviteTitleLocked.value = false
+    }
+  }
   peerNickname.value = decodeURIComponent(q.nickname || '')
   remark.value = decodeURIComponent(q.remark || '')
   if (isPrivate.value) {

@@ -542,9 +542,16 @@
   margin-top: 4px !important;
 }
 
+/* QQ 会话时间：浅灰 #b2b2b2（App 上 #id 可能失效，用页面 class 兜底） */
 #tabMessages .chat-conv-time,
-#tabMessages .chat-conv-time text {
-  color: var(--qq-text-time) !important;
+#tabMessages .chat-conv-time text,
+.msg-tab-root .chat-conv-time,
+.msg-tab-root .chat-conv-time text,
+.messages-page .chat-conv-time,
+.messages-page .chat-conv-time text,
+.messages-page--qq-me .chat-conv-time,
+.messages-page--qq-me .chat-conv-time text {
+  color: var(--qq-text-time, #b2b2b2) !important;
   font-size: 12px !important;
   font-weight: 400 !important;
 }

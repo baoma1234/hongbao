@@ -106,6 +106,25 @@ export function clearPendingGroupJoin() {
   } catch (e) {}
 }
 
+/** 进群链接进房：顶栏群昵称固定为「群」+ 群 id */
+export function inviteGroupTitle(groupId) {
+  const gid = groupId | 0
+  return gid > 0 ? '群' + gid : '群'
+}
+
+export function inviteChatUrl(groupId) {
+  const gid = groupId | 0
+  return (
+    '/pages/chat/chat?type=2&id=' +
+    encodeURIComponent(gid) +
+    '&group=' +
+    encodeURIComponent(gid) +
+    '&title=' +
+    encodeURIComponent(inviteGroupTitle(gid)) +
+    '&invite=1'
+  )
+}
+
 /** 启动时：从 URL 记下待进群 */
 export function captureGroupJoinFromUrl() {
   const fromUrl = readUrlGroupJoin()
@@ -154,13 +173,7 @@ export async function tryConsumeGroupJoin(opts = {}) {
       uni.showToast({ title: '已加入群聊', icon: 'none' })
     }
     uni.navigateTo({
-      url:
-        '/pages/chat/chat?type=2&id=' +
-        encodeURIComponent(gid) +
-        '&group=' +
-        encodeURIComponent(gid) +
-        '&title=' +
-        encodeURIComponent('群' + gid),
+      url: inviteChatUrl(gid),
     })
     return true
   } catch (e) {
@@ -169,11 +182,7 @@ export async function tryConsumeGroupJoin(opts = {}) {
     if (/already|已在|member/i.test(msg) || msg === '') {
       clearPendingGroupJoin()
       uni.navigateTo({
-        url:
-          '/pages/chat/chat?type=2&id=' +
-          encodeURIComponent(gid) +
-          '&group=' +
-          encodeURIComponent(gid),
+        url: inviteChatUrl(gid),
       })
       return true
     }

@@ -253,7 +253,7 @@ export function displayTitle(item) {
   if (item.remark) return String(item.remark)
   if (item.title) return String(item.title)
   if (item.peer_nickname) return String(item.peer_nickname)
-  if ((item.conversation_type | 0) === 2) return '群 ' + (item.group_id || item.conversation_id || '')
+  if ((item.conversation_type | 0) === 2) return '群' + (item.group_id || item.conversation_id || '')
   return '用户' + (item.peer_user_id || '')
 }
 

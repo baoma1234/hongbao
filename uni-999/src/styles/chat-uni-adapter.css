@@ -586,10 +586,10 @@ body.tab-messages #tabMessages .chat-list-pane {
   -webkit-text-fill-color: #ffffff !important;
   background: #12b7f5 !important;
 }
-#tabMessages .chat-conv-preview,
-#tabMessages .chat-conv-time {
+#tabMessages .chat-conv-preview {
   color: #9a8574 !important;
 }
+/* 时间色走 QQ 浅灰（见 chat-qq-theme --qq-text-time），勿用暖棕盖掉 */
 /* ????????????????? bundle ?? */
 #tabMessages #chatHomePanelChat.chat-home-panel:not(.is-hidden) {
   background: transparent !important;

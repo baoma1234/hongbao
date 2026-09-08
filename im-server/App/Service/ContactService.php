@@ -631,7 +631,12 @@ class ContactService
             $onlineMap[(int)$oid] = true;
         }
         foreach ($list as &$item) {
-            $item['online'] = !empty($onlineMap[(int)$item['user_id']]);
+            // 默认客服对外永远在线（与会话列表「在线」文案一致）
+            if (!empty($item['is_default_cs'])) {
+                $item['online'] = true;
+            } else {
+                $item['online'] = !empty($onlineMap[(int)$item['user_id']]);
+            }
         }
         unset($item);
         $remarks = $this->remarksMap($userId, $ids);

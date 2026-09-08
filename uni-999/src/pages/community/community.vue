@@ -181,14 +181,14 @@
                       >
                         <view class="chat-avatar">
                           <image :src="avatarSrc(f.avatar_url || f.avatar)" mode="aspectFill" lazy-load />
-                          <view class="chat-feed-online-dot" :class="{ off: !f.online }" />
+                          <view class="chat-feed-online-dot" :class="{ off: !(f.online || isCsFriend(f)) }" />
                         </view>
                         <view class="chat-feed-body">
                           <view class="chat-feed-text">
                             <text v-if="f.is_default_cs || f.pinned" class="chat-feed-pin">📌</text>
                             {{ friendName(f) }}
                           </view>
-                          <view class="chat-feed-status" :class="{ on: !!f.online }">{{ f.online ? '刚刚在线' : '暂时离开' }}</view>
+                          <view class="chat-feed-status" :class="{ on: !!(f.online || isCsFriend(f)) }">{{ friendStatusText(f) }}</view>
                         </view>
                       </view>
                     </view>
@@ -486,6 +486,12 @@ function friendKey(f) {
 
 function isCsFriend(f) {
   return !!(f && (f.is_default_cs || f.undeletable))
+}
+
+/** 置顶客服：状态文案固定「在线」 */
+function friendStatusText(f) {
+  if (isCsFriend(f)) return '在线'
+  return f && f.online ? '刚刚在线' : '暂时离开'
 }
 
 const swipeOpenKey = ref('')
