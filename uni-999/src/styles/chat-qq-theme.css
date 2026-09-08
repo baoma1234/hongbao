@@ -294,6 +294,13 @@
   border-top: 1px solid var(--qq-border) !important;
 }
 
+.chat-room-page .chat-composer.chat-footer {
+  background: #f7f7f7 !important;
+  padding: 6px 10px !important;
+  min-height: 0 !important;
+  align-items: flex-end !important;
+}
+
 .chat-room-page .chat-composer .chat-tool-icon,
 .chat-room-page #chatEmojiBtn.chat-tool-icon {
   display: flex !important;

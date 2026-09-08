@@ -841,11 +841,30 @@
 .chat-room-page .input-box.input-box--multi,
 .chat-room-page .chat-composer .input-box.input-box--multi {
   min-height: 36px !important;
-  max-height: 152px !important;
+  max-height: 132px !important;
   line-height: 22px !important;
   padding: 7px 12px !important;
-  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  overflow-y: hidden !important;
   word-break: break-word;
   white-space: pre-wrap;
   box-sizing: border-box !important;
+}
+/* 未顶满：禁止滚动（含 uni-textarea-wrapper） */
+.chat-room-page .chat-composer .uni-textarea-wrapper,
+.chat-room-page .chat-composer .uni-textarea-textarea,
+.chat-room-page .chat-composer textarea {
+  overflow-x: hidden !important;
+  overflow-y: hidden !important;
+  max-height: 132px !important;
+  box-sizing: border-box !important;
+}
+/* 顶满后再内滚，像 Telegram */
+.chat-room-page .chat-composer.is-composer-max .input-box.input-box--multi,
+.chat-room-page .chat-composer.is-composer-max .uni-textarea-wrapper,
+.chat-room-page .chat-composer.is-composer-max .uni-textarea-textarea,
+.chat-room-page .chat-composer.is-composer-max textarea,
+.chat-room-page .input-box.input-box--multi.is-scrollable {
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
 }
