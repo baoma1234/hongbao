@@ -828,9 +828,6 @@
 .chat-room-page .chat-composer .input-box {
   flex: 1 1 auto !important;
   min-width: 0 !important;
-  height: 36px !important;
-  line-height: 36px;
-  padding: 0 12px !important;
   border-radius: 10px !important;
   border: 1px solid rgba(0, 0, 0, 0.06) !important;
   background: #fff !important;
@@ -838,10 +835,18 @@
   color: #191919 !important;
   box-sizing: border-box;
 }
+/* 单行样式勿锁死 multi，否则无法往上加高 */
+.chat-room-page .chat-composer .input-box:not(.input-box--multi) {
+  height: 36px !important;
+  line-height: 36px;
+  padding: 0 12px !important;
+}
 .chat-room-page .input-box.input-box--multi,
 .chat-room-page .chat-composer .input-box.input-box--multi {
+  /* 用 CSS 变量驱动高度，避免 auto/36px !important 锁死 */
+  height: var(--composer-input-h, 36px) !important;
   min-height: 36px !important;
-  max-height: 132px !important;
+  max-height: 200px !important;
   line-height: 22px !important;
   padding: 7px 12px !important;
   overflow-x: hidden !important;
@@ -852,14 +857,27 @@
 }
 /* 未顶满：禁止滚动（含 uni-textarea-wrapper） */
 .chat-room-page .chat-composer .uni-textarea-wrapper,
+.chat-room-page .chat-composer uni-textarea,
 .chat-room-page .chat-composer .uni-textarea-textarea,
 .chat-room-page .chat-composer textarea {
+  height: var(--composer-input-h, 36px) !important;
+  min-height: 36px !important;
+  max-height: 200px !important;
   overflow-x: hidden !important;
   overflow-y: hidden !important;
-  max-height: 132px !important;
   box-sizing: border-box !important;
 }
-/* 顶满后再内滚，像 Telegram */
+/* H5 测高：临时放开，读真实 scrollHeight */
+.chat-room-page .chat-composer.is-measuring-h .input-box.input-box--multi,
+.chat-room-page .chat-composer.is-measuring-h .uni-textarea-wrapper,
+.chat-room-page .chat-composer.is-measuring-h uni-textarea,
+.chat-room-page .chat-composer.is-measuring-h .uni-textarea-textarea,
+.chat-room-page .chat-composer.is-measuring-h textarea {
+  height: auto !important;
+  max-height: none !important;
+  overflow-y: hidden !important;
+}
+/* 顶满后再内滚 */
 .chat-room-page .chat-composer.is-composer-max .input-box.input-box--multi,
 .chat-room-page .chat-composer.is-composer-max .uni-textarea-wrapper,
 .chat-room-page .chat-composer.is-composer-max .uni-textarea-textarea,
