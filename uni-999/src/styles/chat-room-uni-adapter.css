@@ -496,9 +496,11 @@
 
 .chat-room-page .chat-composer.chat-footer {
   display: flex !important;
-  align-items: flex-end;
-  gap: 6px;
-  padding: 8px 10px;
+  align-items: flex-end !important;
+  gap: 6px !important;
+  /* 首行更矮：勿叠加 safe-area（wrap 已垫底） */
+  padding: 6px 10px !important;
+  min-height: 0 !important;
   box-sizing: border-box;
   background: rgba(247, 247, 247, 0.96);
 }
@@ -822,7 +824,6 @@
 }
 .chat-room-page .input-box.input-box--multi,
 .chat-room-page .chat-composer .input-box.input-box--multi {
-  height: auto !important;
   min-height: 36px !important;
   max-height: 152px !important;
   line-height: 22px !important;
@@ -830,4 +831,5 @@
   overflow-y: auto !important;
   word-break: break-word;
   white-space: pre-wrap;
+  box-sizing: border-box !important;
 }

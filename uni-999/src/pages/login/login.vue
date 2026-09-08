@@ -86,7 +86,12 @@
         <view class="input-group captcha-group">
           <view class="captcha-row">
             <view class="captcha-field">
-              <text class="captcha-lock">🔒</text>
+              <view class="captcha-lock" aria-hidden="true">
+                <view class="captcha-lock-shackle" />
+                <view class="captcha-lock-body">
+                  <view class="captcha-lock-keyhole" />
+                </view>
+              </view>
               <input
                 class="login-input captcha-input"
                 type="number"
@@ -857,13 +862,14 @@ onUnmounted(() => {
   flex: 0 0 102px;
   width: 102px;
   height: 48px;
-  padding: 0 8px;
+  padding: 0 6px;
   border: none;
   border-right: 1px solid #e6e8eb;
   border-radius: 0;
   background: transparent;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
   box-sizing: border-box;
 }
@@ -874,11 +880,13 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 .country-select .dial {
-  flex: 1;
+  flex: 0 1 auto;
   font-size: 13px;
   font-weight: 700;
   color: #1a212d;
   min-width: 0;
+  text-align: center;
+  line-height: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -886,6 +894,8 @@ onUnmounted(() => {
 .country-select .caret {
   font-size: 10px;
   color: #657786;
+  flex-shrink: 0;
+  line-height: 1;
 }
 .phone-input {
   flex: 1 1 auto;
@@ -954,11 +964,44 @@ onUnmounted(() => {
 }
 .captcha-lock {
   position: absolute;
-  left: 12px;
+  left: 14px;
   z-index: 1;
-  font-size: 14px;
-  line-height: 1;
+  width: 14px;
+  height: 16px;
   pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+}
+.captcha-lock-shackle {
+  width: 8px;
+  height: 7px;
+  margin-bottom: -1px;
+  border: 1.5px solid #9aa3af;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  box-sizing: border-box;
+  background: transparent;
+}
+.captcha-lock-body {
+  width: 12px;
+  height: 9px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #c61114 0%, #e63022 100%);
+  box-shadow: 0 1px 2px rgba(198, 17, 20, 0.25);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 2px;
+  box-sizing: border-box;
+}
+.captcha-lock-keyhole {
+  width: 2px;
+  height: 3px;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.95);
+  flex-shrink: 0;
 }
 .captcha-input {
   padding-left: 36px;

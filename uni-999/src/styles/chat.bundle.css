@@ -2678,12 +2678,14 @@ body.chat-room-open .bottom-action-bar {
   background: rgba(248, 249, 250, 0.75);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  padding: 12px 14px calc(12px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  /* safe-area 由 .chat-composer-wrap 承担，此处勿再垫高 */
+  padding: 6px 10px;
   border-top: 1px solid rgba(255, 255, 255, 0.6);
   display: flex;
-  align-items: center;
-  gap: 12px;
+  align-items: flex-end;
+  gap: 6px;
   box-shadow: 0 -4px 20px rgba(0,0,0,0.03);
+  min-height: 0;
 }
 
 .chat-room-pane .chat-tool-icon {

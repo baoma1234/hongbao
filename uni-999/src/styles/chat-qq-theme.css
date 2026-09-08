@@ -296,6 +296,8 @@
 
 .chat-room-page .chat-composer.chat-footer {
   background: #f7f7f7 !important;
+  padding: 6px 10px !important;
+  min-height: 0 !important;
 }
 
 .chat-room-page .chat-composer .input-box {

@@ -975,7 +975,8 @@ const text = ref('')
 const composerLineCount = ref(1)
 const composerInputStyle = computed(() => {
   const lines = Math.max(1, Math.min(6, composerLineCount.value | 0))
-  const h = 20 + lines * 22
+  // 单行固定 36px，与 QQ 一行输入对齐；多行再增高
+  const h = lines <= 1 ? 36 : Math.min(152, 14 + lines * 22)
   return {
     minHeight: '36px',
     height: h + 'px',
@@ -984,17 +985,17 @@ const composerInputStyle = computed(() => {
 })
 function onComposerLineChange(e) {
   const n = Number((e && e.detail && e.detail.lineCount) || 0)
-  if (n > 0) composerLineCount.value = n
+  if (n > 0) composerLineCount.value = Math.min(6, n)
 }
 function onComposerInput() {
   const s = String(text.value || '')
-  const n = Math.max(1, s.split(/\r?\n/).length)
-  // H5 无 linechange 时按换行粗估；App auto-height 仍以 linechange 为准
-  if (n !== composerLineCount.value && n <= 6) {
-    const approx = Math.min(6, Math.max(n, Math.ceil(s.length / 18)))
-    composerLineCount.value = Math.max(composerLineCount.value, Math.min(6, approx))
+  if (!s) {
+    composerLineCount.value = 1
+    return
   }
-  if (!s) composerLineCount.value = 1
+  // 仅按显式换行计行；勿用字数粗估把首行撑高（四端一致）
+  const n = Math.max(1, s.split(/\r?\n/).length)
+  composerLineCount.value = Math.min(6, n)
 }
 function onComposerEnter(e) {
   // H5：Enter 发送；Shift+Enter 换行（浏览器默认）
@@ -5540,7 +5541,6 @@ function closeRpDetail() {
 }
 .chat-room-page .input-box.input-box--multi,
 .chat-room-page .chat-composer .input-box.input-box--multi {
-  height: auto !important;
   min-height: 36px !important;
   max-height: 124px !important;
   line-height: 22px !important;
@@ -5549,6 +5549,7 @@ function closeRpDetail() {
   resize: none;
   word-break: break-word;
   white-space: pre-wrap;
+  box-sizing: border-box !important;
 }
 .chat-wx-msg-mask {
   position: fixed;
