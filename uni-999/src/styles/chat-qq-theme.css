@@ -527,6 +527,15 @@
 }
 
 #tabMessages .chat-conv-title,
+.msg-tab-root .chat-conv-title,
+.messages-page .chat-conv-title,
+.messages-page--qq-me .chat-conv-title {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+
+#tabMessages .chat-conv-title,
 #tabMessages .chat-conv-title text:not(.chat-conv-time),
 #tabMessages .chat-conv-name,
 #tabMessages .chat-conv-name text {
@@ -563,6 +572,13 @@
   -webkit-text-fill-color: #b2b2b2 !important;
   font-size: 12px !important;
   font-weight: 400 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 16px !important;
+  height: 16px !important;
+  align-self: center !important;
+  box-sizing: border-box !important;
 }
 
 /* ???????????????+????????? */

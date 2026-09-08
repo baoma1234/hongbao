@@ -1,1 +1,0 @@
-import{r as o,f as e,ah as r}from"./index-_KYBBtUt.js";function t(){const t=o({}),a=o({});return{profileSubHdStyle:t,profileSubPageStyle:a,refreshProfileSubLayout:function(){const o=e(),u=o&&o.overlayTop||r();t.value={top:u+"px"},a.value={"--chat-overlay-top":u+"px"}}}}export{t as u};

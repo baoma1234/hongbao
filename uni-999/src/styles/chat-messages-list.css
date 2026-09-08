@@ -537,6 +537,7 @@ body.tab-messages .bottom-action-bar {
 
 .chat-conv-title {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
   font-size: var(--font-size-sm);
@@ -549,6 +550,12 @@ body.tab-messages .bottom-action-bar {
   font-weight: 400;
   color: #b2b2b2;
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 16px;
+  height: 16px;
+  align-self: center;
 }
 
 .chat-conv-preview {

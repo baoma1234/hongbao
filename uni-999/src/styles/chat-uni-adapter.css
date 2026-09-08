@@ -564,12 +564,26 @@ body.tab-messages #tabMessages .chat-list-pane {
   color: #2a1f18 !important;
   font-weight: 800;
 }
+#tabMessages .chat-conv-title {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
 #tabMessages .chat-conv-title-main {
   display: flex;
   align-items: center;
   min-width: 0;
   flex: 1;
   gap: 4px;
+}
+#tabMessages .chat-conv-time,
+#tabMessages .chat-conv-title text.chat-conv-time {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  align-self: center !important;
+  line-height: 16px !important;
+  height: 16px !important;
 }
 #tabMessages .chat-conv-name {
   overflow: hidden;
