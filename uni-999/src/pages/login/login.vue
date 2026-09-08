@@ -859,10 +859,10 @@ onUnmounted(() => {
   overflow: hidden;
 }
 .country-select {
-  flex: 0 0 102px;
-  width: 102px;
+  flex: 0 0 84px;
+  width: 84px;
   height: 48px;
-  padding: 0 6px;
+  padding: 0 4px;
   border: none;
   border-right: 1px solid #e6e8eb;
   border-radius: 0;
@@ -1009,14 +1009,15 @@ onUnmounted(() => {
 .captcha-btn {
   flex: 0 0 auto;
   margin: 0;
-  min-width: 108px;
+  min-width: 90px;
+  max-width: 96px;
   height: 48px;
-  padding: 0 14px;
+  padding: 0 10px;
   background: linear-gradient(180deg, #ff4d3a 0%, #e01a1a 100%);
   color: #fff;
   border: none;
   border-radius: 12px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   line-height: 48px;
   box-shadow: 0 4px 10px rgba(224, 26, 26, 0.28);

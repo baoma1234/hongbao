@@ -403,7 +403,7 @@
             <view
               class="chat-composer chat-footer"
               :class="{ 'is-composer-max': composerAtMax }"
-              :style="composerShellStyle"
+              :style="composerWrapStyle"
             >
             <view v-if="canCap('emoji')" id="chatEmojiBtn" class="chat-tool-icon" @click="toggleEmoji">
               <image
@@ -983,50 +983,37 @@ const remark = ref('')
 const text = ref('')
 /** 输入栏表情按钮图标（四端 static） */
 const composerEmojiIcon = packagedStaticUrl('chat/composer-emoji.png')
-/** Telegram：文字多了整框往上加高全部显示，约 8 行后再内滚 */
+/** Telegram 风格：单行不起滚；文字多了向上加高并全显；约 6～7 行后再内滚 */
 const COMPOSER_MIN_H = 36
-const COMPOSER_MAX_H = 200
+const COMPOSER_MAX_H = 176
 const COMPOSER_LINE_H = 22
 const COMPOSER_PAD_Y = 14
-const COMPOSER_MAX_LINES = 8
+const COMPOSER_MAX_LINES = 7
 const composerLineCount = ref(1)
 const composerHeightPx = ref(COMPOSER_MIN_H)
 const composerAtMax = ref(false)
-/** 变量挂在 composer 上，wrapper / textarea 一起继承，整框往上加高 */
-const composerShellStyle = computed(() => ({
-  '--composer-input-h': composerHeightPx.value + 'px',
+const composerWrapStyle = computed(() => ({
+  '--composer-h': composerHeightPx.value + 'px',
 }))
 const composerInputStyle = computed(() => ({
   minHeight: COMPOSER_MIN_H + 'px',
+  height: composerHeightPx.value + 'px',
   maxHeight: COMPOSER_MAX_H + 'px',
   overflowY: composerAtMax.value ? 'auto' : 'hidden',
 }))
 
-function applyComposerHeight(px, linesHint) {
-  const raw = Math.max(COMPOSER_MIN_H, px | 0)
-  composerHeightPx.value = Math.min(COMPOSER_MAX_H, raw)
-  composerAtMax.value = raw > COMPOSER_MAX_H
-  if (linesHint > 0) {
-    composerLineCount.value = Math.min(COMPOSER_MAX_LINES, linesHint | 0)
-  } else {
-    composerLineCount.value = Math.min(
-      COMPOSER_MAX_LINES,
-      Math.max(1, Math.round((composerHeightPx.value - COMPOSER_PAD_Y) / COMPOSER_LINE_H))
-    )
-  }
-  if (composerLineCount.value >= COMPOSER_MAX_LINES) composerAtMax.value = true
-}
-
 function applyComposerLines(lines) {
   const n = Math.max(1, Math.min(30, lines | 0))
+  composerLineCount.value = Math.min(COMPOSER_MAX_LINES, n)
   if (n <= 1) {
     composerHeightPx.value = COMPOSER_MIN_H
     composerAtMax.value = false
-    composerLineCount.value = 1
     return
   }
   const raw = COMPOSER_PAD_Y + n * COMPOSER_LINE_H
-  applyComposerHeight(raw, Math.min(COMPOSER_MAX_LINES, n))
+  const capped = Math.min(COMPOSER_MAX_H, Math.max(COMPOSER_MIN_H, raw))
+  composerHeightPx.value = capped
+  composerAtMax.value = raw > COMPOSER_MAX_H || n >= COMPOSER_MAX_LINES
 }
 
 function measureComposerHeightH5() {
@@ -1038,32 +1025,49 @@ function measureComposerHeightH5() {
       root.querySelector('textarea') ||
       root.querySelector('.uni-textarea-textarea')
     if (!ta) return false
-    // 临时放开 !important 高度，否则 scrollHeight 被当前框高截断
-    root.classList.add('is-measuring-h')
-    void ta.offsetHeight
+    const prevH = ta.style.height
+    const prevMax = ta.style.maxHeight
+    const prevOverflow = ta.style.overflowY
+    // 先坍到最小再量真实内容高度（含软换行）
+    ta.style.height = '0px'
+    ta.style.maxHeight = 'none'
+    ta.style.overflowY = 'hidden'
     const sh = Math.max(COMPOSER_MIN_H, ta.scrollHeight | 0)
-    root.classList.remove('is-measuring-h')
-    applyComposerHeight(sh, 0)
+    ta.style.height = prevH
+    ta.style.maxHeight = prevMax
+    ta.style.overflowY = prevOverflow
+    if (sh <= COMPOSER_MIN_H + 2) {
+      composerHeightPx.value = COMPOSER_MIN_H
+      composerAtMax.value = false
+      composerLineCount.value = 1
+    } else {
+      const lines = Math.max(1, Math.ceil((sh - COMPOSER_PAD_Y) / COMPOSER_LINE_H))
+      composerLineCount.value = Math.min(COMPOSER_MAX_LINES, lines)
+      composerHeightPx.value = Math.min(COMPOSER_MAX_H, sh)
+      composerAtMax.value = sh > COMPOSER_MAX_H
+    }
+    // 同步外层 wrapper，避免 uni-textarea-wrapper 裁切
+    const wrap = root.querySelector('.uni-textarea-wrapper')
+    if (wrap) {
+      wrap.style.height = composerHeightPx.value + 'px'
+      wrap.style.maxHeight = COMPOSER_MAX_H + 'px'
+      wrap.style.overflowY = composerAtMax.value ? 'auto' : 'hidden'
+    }
     return true
   } catch (e) {
-    try {
-      const root = document.querySelector('.chat-room-page .chat-composer')
-      if (root) root.classList.remove('is-measuring-h')
-    } catch (err) {}
     return false
   }
 }
 
 function onComposerLineChange(e) {
-  const d = (e && e.detail) || {}
-  const n = Number(d.lineCount || 0)
-  const h = Number(d.height || 0)
-  // App / 部分端：linechange 带软换行后的真实高度
-  if (h > 0) {
-    applyComposerHeight(Math.max(COMPOSER_MIN_H, Math.round(h + 4)), n)
-    return
+  const n = Number((e && e.detail && e.detail.lineCount) || 0)
+  if (n > 0) {
+    applyComposerLines(n)
+    // App auto-height 后再用实测校正（若可）
+    nextTick(() => {
+      measureComposerHeightH5()
+    })
   }
-  if (n > 0) applyComposerLines(n)
 }
 
 function onComposerInput() {
@@ -1075,10 +1079,10 @@ function onComposerInput() {
     return
   }
   nextTick(() => {
-    if (measureComposerHeightH5()) return
-    // App：优先等 linechange（含软换行）；先按显式换行兜底
-    const n = Math.max(1, s.split(/\r?\n/).length)
-    if (n > 1) applyComposerLines(n)
+    if (!measureComposerHeightH5()) {
+      const n = Math.max(1, s.split(/\r?\n/).length)
+      applyComposerLines(n)
+    }
   })
 }
 function onComposerEnter(e) {
@@ -5631,9 +5635,9 @@ function closeRpDetail() {
 }
 .chat-room-page .input-box.input-box--multi,
 .chat-room-page .chat-composer .input-box.input-box--multi {
-  height: var(--composer-input-h, 36px) !important;
   min-height: 36px !important;
-  max-height: 200px !important;
+  max-height: 176px !important;
+  height: var(--composer-h, 36px) !important;
   line-height: 22px !important;
   padding: 7px 12px !important;
   overflow-x: hidden !important;
@@ -5643,24 +5647,33 @@ function closeRpDetail() {
   white-space: pre-wrap;
   box-sizing: border-box !important;
 }
-.chat-room-page .chat-composer .uni-textarea-wrapper,
-.chat-room-page .chat-composer .uni-textarea-textarea {
-  height: var(--composer-input-h, 36px) !important;
+.chat-room-page .chat-composer .uni-textarea-wrapper {
+  width: 100% !important;
+  height: var(--composer-h, 36px) !important;
+  min-height: 36px !important;
+  max-height: 176px !important;
   overflow-x: hidden !important;
   overflow-y: hidden !important;
-  max-height: 200px !important;
+  box-sizing: border-box !important;
 }
-.chat-room-page .chat-composer.is-measuring-h .input-box.input-box--multi,
-.chat-room-page .chat-composer.is-measuring-h .uni-textarea-wrapper,
-.chat-room-page .chat-composer.is-measuring-h .uni-textarea-textarea {
-  height: auto !important;
-  max-height: none !important;
+.chat-room-page .chat-composer .uni-textarea-textarea,
+.chat-room-page .chat-composer textarea {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 100% !important;
+  max-height: 100% !important;
+  overflow-x: hidden !important;
+  overflow-y: hidden !important;
+  line-height: 22px !important;
+  box-sizing: border-box !important;
 }
 .chat-room-page .chat-composer.is-composer-max .input-box.input-box--multi,
 .chat-room-page .chat-composer.is-composer-max .uni-textarea-wrapper,
 .chat-room-page .chat-composer.is-composer-max .uni-textarea-textarea,
+.chat-room-page .chat-composer.is-composer-max textarea,
 .chat-room-page .input-box.input-box--multi.is-scrollable {
   overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
 }
 .chat-wx-msg-mask {
   position: fixed;
