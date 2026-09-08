@@ -560,7 +560,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   display: none !important;
 }
 #tabMessages .chat-conv-title,
-#tabMessages .chat-conv-title text {
+#tabMessages .chat-conv-title text:not(.chat-conv-time) {
   color: #2a1f18 !important;
   font-weight: 800;
 }

@@ -133,39 +133,25 @@ export function previewText(last) {
   return last.content || last.text || '暂无消息'
 }
 
-/**
- * 会话列表时间（对齐 QQ）：
- * 今天 → 凌晨/上午/中午/下午/晚上 + H:mm（小时不补零）
- * 昨天 → 昨天
- * 近一周 → 星期X
- * 更早 → MM-DD / YYYY-MM-DD
- */
 export function formatConvTime(ts) {
   const t = Number(ts) || 0
   if (!t) return ''
   const d = new Date(t < 1e12 ? t * 1000 : t)
   const now = new Date()
   const pad = (n) => (n < 10 ? '0' + n : '' + n)
+  const hm = pad(d.getHours()) + ':' + pad(d.getMinutes())
   const startOfDay = (x) => {
     const y = new Date(x)
     y.setHours(0, 0, 0, 0)
     return y.getTime()
   }
   const diffDays = Math.round((startOfDay(now) - startOfDay(d)) / 86400000)
-  if (diffDays === 0) {
-    const h = d.getHours()
-    const m = pad(d.getMinutes())
-    let period = '晚上'
-    if (h < 6) period = '凌晨'
-    else if (h < 12) period = '上午'
-    else if (h < 13) period = '中午'
-    else if (h < 18) period = '下午'
-    return period + h + ':' + m
-  }
+  if (diffDays === 0) return hm
   if (diffDays === 1) return '昨天'
   if (diffDays >= 2 && diffDays <= 6) {
     return ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'][d.getDay()]
   }
+  // 同年：09-04；跨年：2025-09-04
   const md = pad(d.getMonth() + 1) + '-' + pad(d.getDate())
   if (d.getFullYear() === now.getFullYear()) return md
   return d.getFullYear() + '-' + md

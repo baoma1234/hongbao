@@ -527,7 +527,7 @@
 }
 
 #tabMessages .chat-conv-title,
-#tabMessages .chat-conv-title text,
+#tabMessages .chat-conv-title text:not(.chat-conv-time),
 #tabMessages .chat-conv-name,
 #tabMessages .chat-conv-name text {
   color: var(--qq-text-main) !important;
@@ -542,16 +542,25 @@
   margin-top: 4px !important;
 }
 
-/* QQ 会话时间：浅灰 #b2b2b2（App 上 #id 可能失效，用页面 class 兜底） */
+/* QQ 会话时间：浅灰（须压过 .chat-conv-title text 的深色） */
+#tabMessages .chat-conv-title .chat-conv-time,
+#tabMessages .chat-conv-title text.chat-conv-time,
 #tabMessages .chat-conv-time,
 #tabMessages .chat-conv-time text,
+.msg-tab-root .chat-conv-title .chat-conv-time,
+.msg-tab-root .chat-conv-title text.chat-conv-time,
 .msg-tab-root .chat-conv-time,
 .msg-tab-root .chat-conv-time text,
+.messages-page .chat-conv-title .chat-conv-time,
+.messages-page .chat-conv-title text.chat-conv-time,
 .messages-page .chat-conv-time,
 .messages-page .chat-conv-time text,
+.messages-page--qq-me .chat-conv-title .chat-conv-time,
+.messages-page--qq-me .chat-conv-title text.chat-conv-time,
 .messages-page--qq-me .chat-conv-time,
 .messages-page--qq-me .chat-conv-time text {
-  color: var(--qq-text-time, #b2b2b2) !important;
+  color: #b2b2b2 !important;
+  -webkit-text-fill-color: #b2b2b2 !important;
   font-size: 12px !important;
   font-weight: 400 !important;
 }
