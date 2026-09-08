@@ -526,21 +526,32 @@
   min-width: 30px !important;
   max-width: 30px !important;
   border-radius: 50% !important;
+  /* QQ：无红色圆底；仅灰「＋」字（勿再写红渐变，避免与 theme 加载顺序打架） */
   border: none !important;
-  background: linear-gradient(135deg, #e63022 0%, #c61114 100%) !important;
-  box-shadow: 0 4px 10px rgba(198, 17, 20, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
-  color: #fff !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  color: #666 !important;
+}
+
+.chat-room-page .btn-plus::after,
+.chat-room-page #chatAttachBtn.btn-plus::after {
+  border: none !important;
+  display: none !important;
+  background: transparent !important;
+  content: none !important;
 }
 
 .chat-room-page .btn-plus.active {
-  filter: brightness(0.96);
+  filter: none;
+  opacity: 0.85;
 }
 
 .chat-room-page .btn-plus svg {
   width: 16px !important;
   height: 16px !important;
-  fill: #fff !important;
-  color: #fff !important;
+  fill: #666 !important;
+  color: #666 !important;
 }
 
 .chat-room-page .chat-tool-icon .chat-tool-glyph,
@@ -554,12 +565,15 @@
   visibility: visible !important;
 }
 .chat-room-page .btn-plus .chat-tool-glyph,
-.chat-room-page #chatAttachBtn .chat-tool-glyph {
+.chat-room-page #chatAttachBtn .chat-tool-glyph,
+.chat-room-page .btn-plus .chat-tool-glyph--plus,
+.chat-room-page #chatAttachBtn .chat-tool-glyph--plus {
   display: block !important;
-  font-size: 18px !important;
-  font-weight: 700 !important;
+  font-size: 22px !important;
+  font-weight: 400 !important;
   line-height: 1 !important;
-  color: #fff !important;
+  color: #666 !important;
+  -webkit-text-fill-color: #666 !important;
   opacity: 1 !important;
   visibility: visible !important;
 }

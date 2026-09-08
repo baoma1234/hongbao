@@ -305,27 +305,37 @@
   min-height: 36px !important;
 }
 
-.chat-room-page .btn-plus {
+.chat-room-page .btn-plus,
+.chat-room-page #chatAttachBtn.btn-plus {
   width: 30px !important;
   height: 30px !important;
   min-width: 30px !important;
   max-width: 30px !important;
   border-radius: 50% !important;
   background: transparent !important;
+  background-image: none !important;
   border: none !important;
   box-shadow: none !important;
   outline: none !important;
+  color: #666 !important;
 }
 .chat-room-page .btn-plus::after,
-.chat-room-page #chatAttachBtn.btn-plus::after {
+.chat-room-page #chatAttachBtn.btn-plus::after,
+.chat-room-page .btn-plus::before,
+.chat-room-page #chatAttachBtn.btn-plus::before {
   border: none !important;
   display: none !important;
+  background: transparent !important;
+  content: none !important;
 }
 
 .chat-room-page .btn-plus .chat-tool-glyph,
-.chat-room-page #chatAttachBtn .chat-tool-glyph {
+.chat-room-page #chatAttachBtn .chat-tool-glyph,
+.chat-room-page .btn-plus .chat-tool-glyph--plus,
+.chat-room-page #chatAttachBtn .chat-tool-glyph--plus {
   color: #666 !important;
-  font-size: 18px !important;
+  -webkit-text-fill-color: #666 !important;
+  font-size: 22px !important;
   font-weight: 400 !important;
 }
 
