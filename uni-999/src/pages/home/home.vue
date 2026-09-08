@@ -195,7 +195,7 @@ import { onShow, onHide } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
 import BottomTabBar from '../../components/BottomTabBar.vue'
 import WelcomeLottery from '../../components/WelcomeLottery.vue'
-import { apiRequest, fetchProfile, getToken } from '../../utils/auth.js'
+import { apiRequest, fetchProfile, getToken, notifyProfileUpdated } from '../../utils/auth.js'
 import { localeState, t, tt, applyServerCopy } from '../../utils/i18n.js'
 import { imConnect } from '../../utils/im.js'
 import { copyText, copyTextDeferred } from '../../utils/master.js'
@@ -1608,6 +1608,7 @@ function onLotteryDone(payload) {
       if (p) {
         profile.value = p
         syncUidFromProfile(p)
+        notifyProfileUpdated(p)
       }
     })
     .catch(() => {})

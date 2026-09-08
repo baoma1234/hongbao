@@ -6,12 +6,17 @@
   flex-direction: column;
   width: 100%;
   max-width: 100%;
+  height: 100%;
   height: 100vh;
   height: 100dvh;
+  max-height: 100%;
+  max-height: 100vh;
+  max-height: 100dvh;
   /* TopBar spacer 已占位；勿再用 CSS var（App 常为 0）重复垫高或垫不足 */
   padding-top: 0;
   overflow: hidden;
   overflow-x: hidden;
+  overscroll-behavior: none;
   background: #ededed;
   box-sizing: border-box;
 }
@@ -181,15 +186,18 @@
 }
 
 .chat-room-page .chat-msg-scroll {
-  flex: 1 1 0% !important;
+  /* 像素高度由 --chat-msg-h 驱动，避免 composer 加高把整页撑出视口 */
+  flex: 0 0 auto !important;
   min-height: 0 !important;
-  height: auto !important;
+  height: var(--chat-msg-h, 50vh) !important;
+  max-height: var(--chat-msg-h, 50vh) !important;
   width: 100%;
   max-width: 100%;
   padding: 12px 12px 16px;
   box-sizing: border-box;
   background: #ededed;
   overflow-x: hidden !important;
+  overscroll-behavior: contain;
 }
 
 .chat-room-page .chat-msg-row {

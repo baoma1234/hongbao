@@ -60,6 +60,7 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
 import {
   flagUrl,
   getLocale,
@@ -252,7 +253,17 @@ function applyProfile(p) {
 }
 
 function onProfileUpdated(p) {
-  applyProfile(p)
+  if (!p || typeof p !== 'object') return
+  profile.value = Object.assign({}, profile.value || {}, p)
+}
+
+function hydrateFromSnap() {
+  try {
+    const raw = uni.getStorageSync('fanshub_profile_snap')
+    if (!raw) return
+    const p = typeof raw === 'string' ? JSON.parse(raw) : raw
+    if (p && typeof p === 'object') applyProfile(p)
+  } catch (e) {}
 }
 
 async function hydrateUser() {
@@ -260,9 +271,13 @@ async function hydrateUser() {
     profile.value = null
     return
   }
+  hydrateFromSnap()
   try {
     const p = await fetchProfile()
     applyProfile(p)
+    try {
+      uni.setStorageSync('fanshub_profile_snap', JSON.stringify(p))
+    } catch (e0) {}
   } catch (e) {}
   try {
     const cfg = await fetchConfig()
@@ -279,6 +294,11 @@ function refreshPad() {
   const r = applySafeAreaCssVars()
   padTop.value = r.top
 }
+
+onShow(() => {
+  refreshPad()
+  hydrateUser()
+})
 
 onMounted(() => {
   refreshPad()

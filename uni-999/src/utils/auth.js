@@ -209,6 +209,58 @@ export async function fetchProfile() {
   return apiRequest('profile', 'GET')
 }
 
+/**
+ * 广播资料/余额变更给 TopBar 等已挂载实例。
+ * 支持完整 profile、局部字段，或 walletbootstrap `{ info }`。
+ */
+export function notifyProfileUpdated(data) {
+  if (!data || typeof data !== 'object') return null
+  let patch = null
+  if (data.profile && typeof data.profile === 'object') {
+    patch = data.profile
+  } else if (data.info && typeof data.info === 'object') {
+    const info = data.info
+    patch = {
+      hongbao: info.hongbao != null ? info.hongbao : info.balance,
+      hongbao_frozen: info.hongbao_frozen,
+      has_recharged: info.has_recharged,
+    }
+  } else if (
+    data.hongbao != null ||
+    data.balance != null ||
+    data.account ||
+    data.rights != null ||
+    data.nickname != null ||
+    data.id != null
+  ) {
+    patch = data
+  }
+  if (!patch) return null
+  let profile = patch
+  try {
+    let prev = null
+    const raw = uni.getStorageSync('fanshub_profile_snap')
+    if (raw) {
+      prev = typeof raw === 'string' ? JSON.parse(raw) : raw
+    }
+    if (prev && typeof prev === 'object') {
+      profile = Object.assign({}, prev, patch)
+      if (patch.hongbao == null && patch.balance != null) {
+        profile.hongbao = patch.balance
+      }
+    } else if (patch.hongbao == null && patch.balance != null) {
+      profile = Object.assign({}, patch, { hongbao: patch.balance })
+    }
+    uni.setStorageSync('fanshub_profile_snap', JSON.stringify(profile))
+  } catch (e) {}
+  try {
+    if (typeof uni.$emit === 'function') {
+      uni.$emit('fanshub-profile-updated', profile)
+    }
+  } catch (e2) {}
+  return profile
+}
+
 export async function updateProfile(nickname) {
   return apiRequest('updateprofile', 'POST', { nickname })
 }

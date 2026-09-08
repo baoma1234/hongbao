@@ -43,6 +43,7 @@
         <scroll-view
           scroll-y
           class="chat-msg-scroll"
+          :style="msgScrollStyle"
           :scroll-into-view="scrollInto"
           :scroll-top="scrollTop"
           :scroll-with-animation="false"
@@ -910,7 +911,7 @@
 </template>
 
 <script setup>
-import { computed, getCurrentInstance, nextTick, reactive, ref } from 'vue'
+import { computed, getCurrentInstance, nextTick, reactive, ref, watch } from 'vue'
 import { onLoad, onShow, onUnload } from '@dcloudio/uni-app'
 import GrabSlider from '../../components/GrabSlider.vue'
 import ChatNiuniuCard from '../../components/ChatNiuniuCard.vue'
@@ -920,7 +921,7 @@ import '../../styles/chat-rp-send-uni-adapter.css'
 import '../../styles/chat-888-parity.css'
 import '../../styles/chat-qq-theme.css'
 import '../../styles/chat-create-group-qq.css'
-import { apiRequest, fetchProfile, getToken, goLoginIfUnauthorized, uploadSticker } from '../../utils/auth.js'
+import { apiRequest, fetchProfile, getToken, goLoginIfUnauthorized, notifyProfileUpdated, uploadSticker } from '../../utils/auth.js'
 import { getApiBase, getImgBase, learnUploadCdnFromUrl, ensureAbsoluteHttpUrl, packagedStaticUrl, resolveStaticRequestUrl } from '../../utils/config.js'
 import { assetBase, applyServerCopy, copyState, localeState, tt } from '../../utils/i18n.js'
 import {
@@ -1008,12 +1009,14 @@ function applyComposerLines(lines) {
   if (n <= 1) {
     composerHeightPx.value = COMPOSER_MIN_H
     composerAtMax.value = false
+    scheduleMeasureMsgScroll()
     return
   }
   const raw = COMPOSER_PAD_Y + n * COMPOSER_LINE_H
   const capped = Math.min(COMPOSER_MAX_H, Math.max(COMPOSER_MIN_H, raw))
   composerHeightPx.value = capped
   composerAtMax.value = raw > COMPOSER_MAX_H || n >= COMPOSER_MAX_LINES
+  scheduleMeasureMsgScroll()
 }
 
 function measureComposerHeightH5() {
@@ -1053,6 +1056,7 @@ function measureComposerHeightH5() {
       wrap.style.maxHeight = COMPOSER_MAX_H + 'px'
       wrap.style.overflowY = composerAtMax.value ? 'auto' : 'hidden'
     }
+    scheduleMeasureMsgScroll()
     return true
   } catch (e) {
     return false
@@ -1076,6 +1080,7 @@ function onComposerInput() {
     composerLineCount.value = 1
     composerHeightPx.value = COMPOSER_MIN_H
     composerAtMax.value = false
+    scheduleMeasureMsgScroll()
     return
   }
   nextTick(() => {
@@ -1223,29 +1228,105 @@ const niuniuDetailRound = ref(null)
 const niuniuDetailRows = ref([])
 /** 房间页 CSS 变量：保证 App 浮层能继承到真实顶栏高度 */
 const roomSafeStyle = ref({})
+/** 消息列表像素高度（顶栏+公告+composer 之外的剩余视口） */
+const msgScrollPx = ref(0)
+const msgScrollStyle = computed(() => {
+  const h = msgScrollPx.value | 0
+  return h > 0 ? { height: h + 'px' } : {}
+})
 /** App 详情浮层内联 top（H5 为空，走 CSS，避免网页多垫） */
 const appSubPaneStyle = ref({})
 /** App 回到底部按钮用像素 bottom（env(safe-area) 在 APK 常为 0） */
 const jumpLatestStyle = ref({})
+let measureMsgScrollTimer = null
+let offKeyboardHeight = null
+let offWinResize = null
+/** setup 同步捕获，供 setTimeout 测量使用（异步里 getCurrentInstance 为空） */
+const chatLayoutProxy = (() => {
+  try {
+    const inst = getCurrentInstance()
+    return inst && inst.proxy
+  } catch (e) {
+    return null
+  }
+})()
+
 function refreshChatSafeLayout() {
   const r = applySafeAreaCssVars()
   const overlayTop = (r && r.overlayTop) || measureChatOverlayTop()
   const insetTop = (r && r.top != null ? r.top : getSafeAreaInsets().top) || 0
   const insetBottom = (r && r.bottom != null ? r.bottom : getSafeAreaInsets().bottom) || 0
+  const msgH = msgScrollPx.value > 0 ? msgScrollPx.value : 240
   roomSafeStyle.value = {
     '--chat-overlay-top': overlayTop + 'px',
     '--safe-area-inset-top': insetTop + 'px',
     '--safe-area-inset-bottom': insetBottom + 'px',
+    '--chat-msg-h': msgH + 'px',
   }
   // #ifdef APP-PLUS
   appSubPaneStyle.value = { top: overlayTop + 'px' }
-  jumpLatestStyle.value = {
-    bottom: 78 + insetBottom + 'px',
-  }
   // #endif
   // #ifndef APP-PLUS
-  jumpLatestStyle.value = {}
+  appSubPaneStyle.value = {}
   // #endif
+  scheduleMeasureMsgScroll()
+}
+
+function scheduleMeasureMsgScroll() {
+  if (measureMsgScrollTimer) clearTimeout(measureMsgScrollTimer)
+  measureMsgScrollTimer = setTimeout(() => {
+    measureMsgScrollTimer = null
+    measureMsgScrollHeight()
+  }, 32)
+}
+
+function measureMsgScrollHeight() {
+  try {
+    const sys = uni.getSystemInfoSync() || {}
+    const winH = Math.max(320, Number(sys.windowHeight || sys.screenHeight || 667))
+    const proxy = chatLayoutProxy
+    const q = uni.createSelectorQuery()
+    if (proxy) q.in(proxy)
+    q.select('.chat-room-page .chat-hero-hd').boundingClientRect()
+    q.select('.chat-room-page .chat-notice-pin').boundingClientRect()
+    q.select('.chat-room-page .chat-composer-wrap').boundingClientRect()
+    q.exec((rects) => {
+      try {
+        const hero = (rects && rects[0]) || null
+        const notice = (rects && rects[1]) || null
+        const composer = (rects && rects[2]) || null
+        const top =
+          Math.max(0, Number(hero && hero.height) || 0) +
+          Math.max(0, Number(notice && notice.height) || 0)
+        let bottom = Math.max(0, Number(composer && composer.height) || 0)
+        if (bottom < 40) {
+          const insetB = getSafeAreaInsets().bottom || 0
+          bottom =
+            12 +
+            insetB +
+            Math.max(COMPOSER_MIN_H, Number(composerHeightPx.value) || COMPOSER_MIN_H) +
+            18
+          try {
+            if (showEmoji.value || showSticker.value) bottom += 260
+            if (showAttach.value) bottom += 120
+            if (hasPendingMedia.value) bottom += 72
+          } catch (e3) {}
+        }
+        const h = Math.max(140, Math.floor(winH - top - bottom))
+        if (Math.abs(h - (msgScrollPx.value | 0)) >= 2) {
+          msgScrollPx.value = h
+          const cur = roomSafeStyle.value || {}
+          roomSafeStyle.value = Object.assign({}, cur, { '--chat-msg-h': h + 'px' })
+        }
+        // #ifdef APP-PLUS
+        jumpLatestStyle.value = { bottom: Math.max(56, bottom + 8) + 'px' }
+        // #endif
+        // #ifndef APP-PLUS
+        jumpLatestStyle.value = {}
+        // #endif
+      } catch (e2) {}
+    })
+  } catch (e) {}
 }
 const niuniuDetailPoolText = computed(() => {
   const r = niuniuDetailRound.value
@@ -1441,6 +1522,13 @@ const noticePinVisible = computed(() => {
   if (isPrivate.value || noticePinClosed.value) return false
   return !!(noticePinText.value || noticePinImages.value.length)
 })
+
+watch(
+  [showEmoji, showSticker, showAttach, hasPendingMedia, noticePinVisible, noticePinExpanded, composerHeightPx],
+  () => {
+    scheduleMeasureMsgScroll()
+  }
+)
 
 function toggleNoticePinExpand() {
   noticePinExpanded.value = !noticePinExpanded.value
@@ -3368,6 +3456,12 @@ async function refreshWallet() {
     if (info && info.has_recharged != null) {
       hasRecharged.value = !!info.has_recharged
     }
+    // loadWalletBootstrap(force) 已 notify；兜底再广播一次本地余额
+    notifyProfileUpdated({
+      hongbao: walletBalance.value,
+      hongbao_frozen: walletFrozen.value,
+      has_recharged: hasRecharged.value,
+    })
   } catch (e) {
     try {
       const p = await fetchProfile()
@@ -3376,6 +3470,7 @@ async function refreshWallet() {
       if (p && p.has_recharged != null) {
         hasRecharged.value = !!p.has_recharged
       }
+      notifyProfileUpdated(p)
     } catch (e2) {}
   }
 }
@@ -5263,6 +5358,23 @@ function leaveRoomToList(tip) {
 
 onLoad(async (query) => {
   refreshChatSafeLayout()
+  try {
+    if (typeof uni.onKeyboardHeightChange === 'function') {
+      offKeyboardHeight = (res) => {
+        scheduleMeasureMsgScroll()
+      }
+      uni.onKeyboardHeightChange(offKeyboardHeight)
+    }
+  } catch (eKb) {}
+  // #ifdef H5
+  try {
+    if (typeof window !== 'undefined') {
+      offWinResize = () => scheduleMeasureMsgScroll()
+      window.addEventListener('resize', offWinResize)
+      window.addEventListener('orientationchange', offWinResize)
+    }
+  } catch (eRs) {}
+  // #endif
   if (!getToken()) {
     uni.reLaunch({ url: '/pages/login/login' })
     return
@@ -5457,6 +5569,7 @@ onLoad(async (query) => {
 
 onShow(() => {
   refreshChatSafeLayout()
+  scheduleMeasureMsgScroll()
   if (!getToken() || !roomAlive) return
   bindForegroundResume()
   resumeFromBackground('chat-onShow')
@@ -5470,6 +5583,25 @@ onShow(() => {
 })
 
 onUnload(() => {
+  if (measureMsgScrollTimer) {
+    clearTimeout(measureMsgScrollTimer)
+    measureMsgScrollTimer = null
+  }
+  try {
+    if (offKeyboardHeight && typeof uni.offKeyboardHeightChange === 'function') {
+      uni.offKeyboardHeightChange(offKeyboardHeight)
+    }
+  } catch (eKb) {}
+  offKeyboardHeight = null
+  // #ifdef H5
+  try {
+    if (offWinResize && typeof window !== 'undefined') {
+      window.removeEventListener('resize', offWinResize)
+      window.removeEventListener('orientationchange', offWinResize)
+    }
+  } catch (eRs) {}
+  // #endif
+  offWinResize = null
   clearTextMsgHold()
   stopNiuniuTick()
   pendingMedias.value = []
@@ -5491,6 +5623,19 @@ function closeRpDetail() {
 </script>
 
 <style>
+/* 锁死页面滚动：只让消息列表滚，避免顶栏/输入框跟着跑、下拉出空白 */
+/* #ifdef H5 */
+page {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+uni-page-body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+/* #endif */
 /* App 专用：详情主体取消 -24px 盖板上叠，避免顶到标题字；H5 不编译此段 */
 /* #ifdef APP-PLUS */
 .chat-room-page .chat-detail-overlay .chat-sub-main,

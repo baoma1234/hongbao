@@ -171,7 +171,7 @@ import { computed, ref, onUnmounted } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
 import BottomTabBar from '../../components/BottomTabBar.vue'
-import { apiRequest, getToken } from '../../utils/auth.js'
+import { apiRequest, fetchProfile, getToken, notifyProfileUpdated } from '../../utils/auth.js'
 import { applySafeAreaCssVars, getSafeAreaInsets, getTopBarContentHeight } from '../../utils/safe-area.js'
 import { copyText } from '../../utils/master.js'
 import { savePendingGroupJoin, tryConsumeGroupJoin } from '../../utils/group-invite.js'
@@ -364,6 +364,16 @@ async function doClaim() {
     claimAmt.value = Number((data && data.amount) || 0)
     claimOpening.value = false
     claimOpened.value = true
+    try {
+      if (data && data.profile) {
+        notifyProfileUpdated(data.profile)
+      } else if (data && (data.hongbao != null || data.balance != null)) {
+        notifyProfileUpdated(data)
+      } else {
+        const p = await fetchProfile()
+        notifyProfileUpdated(p)
+      }
+    } catch (e0) {}
     if (data && data.detail) {
       detail.value = data.detail
     } else {

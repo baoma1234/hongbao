@@ -1,4 +1,4 @@
-import { apiRequest, fetchProfile } from './auth.js'
+import { apiRequest, fetchProfile, notifyProfileUpdated } from './auth.js'
 import {
   ensureAbsoluteHttpUrl,
   FALLBACK_RUNTIME,
@@ -155,6 +155,7 @@ export async function loadWalletBootstrap(force = false) {
     const bundle = await apiRequest('walletbootstrap', 'POST', {})
     _boot = bundle || {}
     _bootAt = Date.now()
+    if (force) notifyProfileUpdated(_boot)
     return _boot
   } catch (e) {
     const [info, recharge, withdraw] = await Promise.all([
@@ -164,6 +165,7 @@ export async function loadWalletBootstrap(force = false) {
     ])
     _boot = { info, recharge, withdraw }
     _bootAt = Date.now()
+    if (force) notifyProfileUpdated(_boot)
     return _boot
   }
 }

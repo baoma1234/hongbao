@@ -229,7 +229,12 @@
           "path": "chat",
           "style": {
             "navigationBarTitleText": "聊天",
-            "navigationStyle": "custom"
+            "navigationStyle": "custom",
+            "disableScroll": true,
+            "app-plus": {
+              "bounce": "none",
+              "softinputMode": "adjustResize"
+            }
           }
         }
       ]

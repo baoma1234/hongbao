@@ -1,4 +1,4 @@
-import { apiRequest, fetchProfile } from './auth.js'
+import { apiRequest, fetchProfile, notifyProfileUpdated } from './auth.js'
 
 const DEFAULT_MAX = 99999
 
@@ -33,23 +33,7 @@ export function hongbaoOf(profile) {
 
 /** 规范化 exchangeswap / profile 返回，并广播给首页等页刷新 */
 export function applySwapProfile(data) {
-  if (!data || typeof data !== 'object') return null
-  let profile = null
-  if (data.profile && typeof data.profile === 'object') {
-    profile = data.profile
-  } else if (data.hongbao != null || data.rights != null || data.account || data.rights_free != null) {
-    profile = data
-  }
-  if (!profile) return null
-  try {
-    uni.setStorageSync('fanshub_profile_snap', JSON.stringify(profile))
-  } catch (e) {}
-  try {
-    if (typeof uni.$emit === 'function') {
-      uni.$emit('fanshub-profile-updated', profile)
-    }
-  } catch (e2) {}
-  return profile
+  return notifyProfileUpdated(data)
 }
 
 export function pairInfo(cfg, from, to) {
