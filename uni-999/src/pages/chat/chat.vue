@@ -419,7 +419,7 @@
               class="input-box input-box--multi"
               :class="{ 'is-scrollable': composerAtMax }"
               v-model="text"
-              :auto-height="true"
+              :auto-height="!composerAtMax"
               :fixed="false"
               :show-confirm-bar="false"
               :adjust-position="true"
@@ -996,12 +996,22 @@ const composerAtMax = ref(false)
 const composerWrapStyle = computed(() => ({
   '--composer-h': composerHeightPx.value + 'px',
 }))
-const composerInputStyle = computed(() => ({
-  minHeight: COMPOSER_MIN_H + 'px',
-  height: composerHeightPx.value + 'px',
-  maxHeight: COMPOSER_MAX_H + 'px',
-  overflowY: composerAtMax.value ? 'auto' : 'hidden',
-}))
+const composerInputStyle = computed(() => {
+  if (composerAtMax.value) {
+    return {
+      minHeight: COMPOSER_MIN_H + 'px',
+      height: COMPOSER_MAX_H + 'px',
+      maxHeight: COMPOSER_MAX_H + 'px',
+      overflowY: 'scroll',
+    }
+  }
+  return {
+    minHeight: COMPOSER_MIN_H + 'px',
+    height: composerHeightPx.value + 'px',
+    maxHeight: COMPOSER_MAX_H + 'px',
+    overflowY: 'hidden',
+  }
+})
 
 function applyComposerLines(lines) {
   const n = Math.max(1, Math.min(30, lines | 0))
@@ -1049,12 +1059,17 @@ function measureComposerHeightH5() {
       composerHeightPx.value = Math.min(COMPOSER_MAX_H, sh)
       composerAtMax.value = sh > COMPOSER_MAX_H
     }
-    // 同步外层 wrapper，避免 uni-textarea-wrapper 裁切
+    // 同步外层 wrapper；顶满后固定高度并允许内滚
     const wrap = root.querySelector('.uni-textarea-wrapper')
     if (wrap) {
       wrap.style.height = composerHeightPx.value + 'px'
       wrap.style.maxHeight = COMPOSER_MAX_H + 'px'
-      wrap.style.overflowY = composerAtMax.value ? 'auto' : 'hidden'
+      wrap.style.overflowY = composerAtMax.value ? 'scroll' : 'hidden'
+    }
+    if (composerAtMax.value) {
+      ta.style.height = COMPOSER_MAX_H + 'px'
+      ta.style.maxHeight = COMPOSER_MAX_H + 'px'
+      ta.style.overflowY = 'scroll'
     }
     scheduleMeasureMsgScroll()
     return true
@@ -5804,9 +5819,9 @@ uni-page-body {
 .chat-room-page .chat-composer .uni-textarea-textarea,
 .chat-room-page .chat-composer textarea {
   width: 100% !important;
-  height: 100% !important;
-  min-height: 100% !important;
-  max-height: 100% !important;
+  height: var(--composer-h, 36px) !important;
+  min-height: 36px !important;
+  max-height: 176px !important;
   overflow-x: hidden !important;
   overflow-y: hidden !important;
   line-height: 22px !important;
@@ -5814,11 +5829,22 @@ uni-page-body {
 }
 .chat-room-page .chat-composer.is-composer-max .input-box.input-box--multi,
 .chat-room-page .chat-composer.is-composer-max .uni-textarea-wrapper,
-.chat-room-page .chat-composer.is-composer-max .uni-textarea-textarea,
-.chat-room-page .chat-composer.is-composer-max textarea,
 .chat-room-page .input-box.input-box--multi.is-scrollable {
+  height: 176px !important;
+  max-height: 176px !important;
   overflow-y: auto !important;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+.chat-room-page .chat-composer.is-composer-max .uni-textarea-textarea,
+.chat-room-page .chat-composer.is-composer-max textarea,
+.chat-room-page .input-box.input-box--multi.is-scrollable textarea {
+  height: 176px !important;
+  max-height: 176px !important;
+  min-height: 0 !important;
+  overflow-y: scroll !important;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
 }
 .chat-wx-msg-mask {
   position: fixed;
