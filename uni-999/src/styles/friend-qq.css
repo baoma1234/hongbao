@@ -186,7 +186,11 @@
 .chat-friend-page button.chat-setting-save-btn {
   width: 100% !important;
   height: 44px !important;
+  min-height: 44px !important;
+  max-height: 44px !important;
   line-height: 44px !important;
+  padding: 0 12px !important;
+  margin: 14px 0 0 !important;
   border: none !important;
   border-radius: 6px !important;
   background: #12b7f5 !important;
@@ -195,6 +199,18 @@
   font-weight: 500 !important;
   box-shadow: none !important;
   text-shadow: none !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  vertical-align: middle !important;
+}
+
+.chat-friend-page .chat-setting-save-btn::after,
+.chat-friend-page button.chat-setting-save-btn::after {
+  border: none !important;
+  display: none !important;
 }
 
 .chat-friend-page .chat-setting-save-btn[disabled],
