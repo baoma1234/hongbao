@@ -533,7 +533,18 @@ body.tab-messages .bottom-action-bar {
 
 .chat-conv-item.is-admin .chat-conv-preview { color: var(--color-amount); }
 
-.chat-conv-body { flex: 1; min-width: 0; }
+.chat-conv-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-conv-body-main {
+  flex: 1;
+  min-width: 0;
+}
 
 .chat-conv-title {
   display: flex;
@@ -556,6 +567,34 @@ body.tab-messages .bottom-action-bar {
   line-height: 16px;
   height: 16px;
   align-self: center;
+}
+
+/* 置顶客服：在线绿圈，相对整块 chat-conv-body 上下居中 */
+.chat-conv-time--online {
+  height: 22px;
+  padding: 0 8px 0 6px;
+  border-radius: 999px;
+  border: 1px solid #07c160;
+  background: rgba(7, 193, 96, 0.1);
+  box-sizing: border-box;
+  gap: 4px;
+  align-self: center;
+}
+
+.chat-conv-online-ring {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #07c160;
+  box-shadow: 0 0 0 2px rgba(7, 193, 96, 0.25);
+  flex-shrink: 0;
+}
+
+.chat-conv-online-lab {
+  color: #07c160;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
 }
 
 .chat-conv-preview {

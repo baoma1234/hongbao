@@ -581,6 +581,57 @@
   box-sizing: border-box !important;
 }
 
+/* 置顶客服在线：绿圈徽章，相对 chat-conv-body 垂直居中 */
+#tabMessages .chat-conv-body,
+.msg-tab-root .chat-conv-body,
+.messages-page .chat-conv-body,
+.messages-page--qq-me .chat-conv-body {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+#tabMessages .chat-conv-body-main,
+.msg-tab-root .chat-conv-body-main,
+.messages-page .chat-conv-body-main {
+  flex: 1 1 0% !important;
+  min-width: 0 !important;
+}
+#tabMessages .chat-conv-time--online,
+.msg-tab-root .chat-conv-time--online,
+.messages-page .chat-conv-time--online,
+.messages-page--qq-me .chat-conv-time--online {
+  height: 22px !important;
+  min-height: 22px !important;
+  padding: 0 8px 0 6px !important;
+  border-radius: 999px !important;
+  border: 1px solid #07c160 !important;
+  background: rgba(7, 193, 96, 0.1) !important;
+  gap: 4px !important;
+  align-self: center !important;
+  flex-shrink: 0 !important;
+}
+#tabMessages .chat-conv-time--online .chat-conv-online-lab,
+#tabMessages .chat-conv-time--online text.chat-conv-online-lab,
+.msg-tab-root .chat-conv-time--online .chat-conv-online-lab,
+.messages-page .chat-conv-time--online .chat-conv-online-lab,
+.messages-page--qq-me .chat-conv-time--online .chat-conv-online-lab {
+  color: #07c160 !important;
+  -webkit-text-fill-color: #07c160 !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+}
+#tabMessages .chat-conv-online-ring,
+.msg-tab-root .chat-conv-online-ring,
+.messages-page .chat-conv-online-ring {
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  background: #07c160 !important;
+  box-shadow: 0 0 0 2px rgba(7, 193, 96, 0.25) !important;
+  flex-shrink: 0 !important;
+}
+
 /* ???????????????+????????? */
 #tabMessages .chat-admin-tag,
 #tabMessages .chat-admin-tag text,

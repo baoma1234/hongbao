@@ -121,15 +121,21 @@
                             {{ unreadOf(item) > 99 ? '99+' : unreadOf(item) }}
                           </view>
                         </view>
-                        <view class="chat-conv-body">
-                          <view class="chat-conv-title">
-                            <view class="chat-conv-title-main">
-                              <text class="chat-conv-name">{{ displayTitle(item) }}</text>
-                              <text v-if="item.is_im_admin" class="chat-admin-tag">客服</text>
+                        <view class="chat-conv-body" :class="{ 'has-online': isPinnedCsOnline(item) }">
+                          <view class="chat-conv-body-main">
+                            <view class="chat-conv-title">
+                              <view class="chat-conv-title-main">
+                                <text class="chat-conv-name">{{ displayTitle(item) }}</text>
+                                <text v-if="item.is_im_admin" class="chat-admin-tag">客服</text>
+                              </view>
+                              <text v-if="!isPinnedCsOnline(item)" class="chat-conv-time">{{ itemTime(item) }}</text>
                             </view>
-                            <text class="chat-conv-time">{{ itemTime(item) }}</text>
+                            <view class="chat-conv-preview">{{ itemPreview(item) }}</view>
                           </view>
-                          <view class="chat-conv-preview">{{ itemPreview(item) }}</view>
+                          <view v-if="isPinnedCsOnline(item)" class="chat-conv-time chat-conv-time--online">
+                            <view class="chat-conv-online-ring" aria-hidden="true" />
+                            <text class="chat-conv-online-lab">在线</text>
+                          </view>
                         </view>
                       </view>
                     </view>
@@ -710,11 +716,12 @@ function itemPreview(item) {
   return item.is_im_admin ? '点击开始咨询' : '暂无消息'
 }
 
+function isPinnedCsOnline(item) {
+  return !!(item && (item.is_default_cs || (item.is_im_admin && item.pinned)))
+}
+
 function itemTime(item) {
-  // 置顶客服：时间位固定显示「在线」（四端一致，不随真实 WS 状态变化）
-  if (item && (item.is_default_cs || (item.is_im_admin && item.pinned))) {
-    return '在线'
-  }
+  if (isPinnedCsOnline(item)) return ''
   const last = item.last_message
   const ts = item.updatetime || (last && last.createtime) || 0
   return formatConvTime(ts)

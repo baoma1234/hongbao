@@ -585,6 +585,30 @@ body.tab-messages #tabMessages .chat-list-pane {
   line-height: 16px !important;
   height: 16px !important;
 }
+#tabMessages .chat-conv-body {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+#tabMessages .chat-conv-body-main {
+  flex: 1 1 0% !important;
+  min-width: 0 !important;
+}
+#tabMessages .chat-conv-time--online {
+  height: 22px !important;
+  min-height: 22px !important;
+  padding: 0 8px 0 6px !important;
+  border-radius: 999px !important;
+  border: 1px solid #07c160 !important;
+  background: rgba(7, 193, 96, 0.1) !important;
+  gap: 4px !important;
+}
+#tabMessages .chat-conv-time--online .chat-conv-online-lab,
+#tabMessages .chat-conv-time--online text {
+  color: #07c160 !important;
+  -webkit-text-fill-color: #07c160 !important;
+  font-weight: 600 !important;
+}
 #tabMessages .chat-conv-name {
   overflow: hidden;
   text-overflow: ellipsis;
