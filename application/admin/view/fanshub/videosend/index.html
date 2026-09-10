@@ -1,0 +1,97 @@
+<div class="panel panel-default panel-intro">
+    {:build_heading()}
+    <div class="panel-body">
+        <form id="videosend-form" class="form-horizontal" role="form">
+            {:token()}
+            <div class="form-group">
+                <label class="control-label col-xs-12 col-sm-2">托管账号</label>
+                <div class="col-xs-12 col-sm-8">
+                    <select class="form-control" name="agent_user_id" id="agent_user_id" required>
+                        <option value="">请选择</option>
+                        {volist name="agents" id="ag"}
+                        <option value="{$ag.user_id}">
+                            {$ag.label|default='客服'|htmlentities}
+                            （UID {$ag.user_id}）
+                        </option>
+                        {/volist}
+                    </select>
+                    <span class="help-block">用该托管号身份发送；须已在目标群内或可私聊对方。</span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="control-label col-xs-12 col-sm-2">发送目标</label>
+                <div class="col-xs-12 col-sm-8">
+                    <label class="radio-inline">
+                        <input type="radio" name="conversation_type" value="2" checked> 群聊
+                    </label>
+                    <label class="radio-inline">
+                        <input type="radio" name="conversation_type" value="1"> 私聊
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-group" id="row-group">
+                <label class="control-label col-xs-12 col-sm-2">群</label>
+                <div class="col-xs-12 col-sm-8">
+                    <select class="form-control" name="group_id" id="group_id">
+                        <option value="">请选择或下方手填 ID</option>
+                        {volist name="groups" id="g"}
+                        <option value="{$g.id}">#{$g.id} {$g.name|default=''|htmlentities}</option>
+                        {/volist}
+                    </select>
+                    <input type="number" class="form-control" style="margin-top:8px;" name="group_id_manual" id="group_id_manual" placeholder="手填群 ID（优先于下拉）" min="1">
+                </div>
+            </div>
+
+            <div class="form-group" id="row-peer" style="display:none;">
+                <label class="control-label col-xs-12 col-sm-2">对方用户 ID</label>
+                <div class="col-xs-12 col-sm-8">
+                    <input type="number" class="form-control" name="to_user_id" id="to_user_id" placeholder="私聊对方 UID" min="1">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="control-label col-xs-12 col-sm-2">视频地址</label>
+                <div class="col-xs-12 col-sm-8">
+                    <textarea class="form-control" name="video_url" id="video_url" rows="3" required placeholder="https://.../xxx.m3u8 或 https://.../xxx.mp4"></textarea>
+                    <span class="help-block">支持 <code>mp4</code> 与 <code>m3u8</code>（HLS）。建议 HTTPS，便于 H5 播放。</span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="control-label col-xs-12 col-sm-2">封面图（可选）</label>
+                <div class="col-xs-12 col-sm-8">
+                    <div class="input-group">
+                        <input type="text" class="form-control" name="thumb_url" id="thumb_url" placeholder="https://.../cover.jpg">
+                        <div class="input-group-btn">
+                            <button type="button" class="btn btn-default faupload" data-input-id="thumb_url" data-mimetype="image/*" data-multiple="false">
+                                <i class="fa fa-upload"></i> 上传
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="control-label col-xs-12 col-sm-2">文案（可选）</label>
+                <div class="col-xs-12 col-sm-8">
+                    <input type="text" class="form-control" name="content" id="content" placeholder="默认 [视频]" maxlength="200">
+                </div>
+            </div>
+
+            <div class="form-group layer-footer">
+                <label class="control-label col-xs-12 col-sm-2"></label>
+                <div class="col-xs-12 col-sm-8">
+                    <button type="submit" class="btn btn-primary btn-embossed" id="btn-send">
+                        <i class="fa fa-paper-plane"></i> 发送视频
+                    </button>
+                    <span id="send-result" class="text-muted" style="margin-left:12px;"></span>
+                </div>
+            </div>
+        </form>
+        <div class="alert alert-info" style="margin-top:16px;">
+            发送后客户端按视频消息展示；长视频优先用 m3u8。若桥接不可达，会尝试直写库（实时推送可能延迟）。
+        </div>
+    </div>
+</div>
