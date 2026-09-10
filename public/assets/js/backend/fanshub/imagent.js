@@ -429,13 +429,13 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
 
     function mediaUrl(extra) {
         if (!extra) return '';
-        var u = String(extra.url || extra.fullurl || '');
+        var u = String(extra.fullurl || extra.url || '');
         if (String(extra.url || '').indexOf('/888/stickers/') === 0) {
             u = String(extra.url);
         } else if (u.indexOf('/999/static/stickers/') === 0) {
             u = '/888/stickers/' + u.slice('/999/static/stickers/'.length);
         }
-        if (!u) u = String(extra.fullurl || extra.url || '');
+        if (!u) u = String(extra.url || extra.fullurl || '');
         if (!u) return '';
         // 编码中文路径段
         try {
@@ -449,8 +449,8 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
     }
 
     function closePanels() {
-        $('#panelEmoji,#panelSticker,#panelRedpacket').removeClass('open');
-        $('#btnEmoji,#btnSticker,#btnRedpacket').removeClass('active');
+        $('#panelEmoji,#panelSticker,#panelRedpacket,#panelVideoUrl').removeClass('open');
+        $('#btnEmoji,#btnSticker,#btnRedpacket,#btnVideoUrl').removeClass('active');
     }
 
     function togglePanel(id, btn) {
@@ -1019,6 +1019,33 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
             $('#btnVideo').on('click', function () {
                 if (!current) { Layer.msg('请先选择会话'); return; }
                 $('#imVideoInput').click();
+            });
+            $('#btnVideoUrl').on('click', function () {
+                if (!current) { Layer.msg('请先选择会话'); return; }
+                togglePanel('#panelVideoUrl', this);
+            });
+            $('#btnSendExtVideo').on('click', function () {
+                var url = $.trim($('#extVideoUrl').val() || '');
+                var thumb = $.trim($('#extVideoThumb').val() || '');
+                if (!url) {
+                    Layer.msg('请填写视频地址');
+                    return;
+                }
+                if (!/^https?:\/\//i.test(url)) {
+                    Layer.msg('请填写完整 http(s) 地址');
+                    return;
+                }
+                var path = String(url.split('?')[0] || '').toLowerCase();
+                if (!/\.(m3u8|mp4|webm|mov|m4v)$/i.test(path)) {
+                    Layer.msg('仅支持 m3u8 / mp4 / webm / mov / m4v');
+                    return;
+                }
+                var extra = { url: url, fullurl: url };
+                if (thumb) {
+                    extra.thumb = thumb;
+                    extra.poster = thumb;
+                }
+                sendRich(5, '[视频]', extra);
             });
             $('#btnFile').on('click', function () {
                 if (!current) { Layer.msg('请先选择会话'); return; }

@@ -3022,7 +3022,7 @@ class MessageService
                 }
                 $extra['url'] = $url;
             }
-            if (isset($extra['thumb']) && !$this->isAllowedMediaUrl((string)$extra['thumb'], 4)) {
+            if (isset($extra['thumb']) && !$this->isAllowedThumbUrl((string)$extra['thumb'])) {
                 unset($extra['thumb']);
             }
             if ($content === '') {
@@ -3059,7 +3059,7 @@ class MessageService
         } elseif ($file) {
             $keys = ['url', 'fullurl', 'name', 'ext', 'mime'];
         } else {
-            $keys = ['url', 'fullurl', 'thumb', 'name'];
+            $keys = ['url', 'fullurl', 'thumb', 'name', 'poster', 'cover'];
         }
         foreach ($keys as $key) {
             if (!empty($extra[$key])) {
@@ -3189,6 +3189,29 @@ class MessageService
             'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'mp4', 'webm', 'mov', 'm4v',
         ];
         return $ext !== '' && in_array($ext, $allow, true);
+    }
+
+    /** 视频封面：允许 /uploads/ 或 https? 绝对图链 */
+    protected function isAllowedThumbUrl($url)
+    {
+        if ($this->isAllowedMediaUrl($url, 4)) {
+            return true;
+        }
+        $url = trim((string)$url);
+        if ($url === '' || strlen($url) > 1200 || strpos($url, '..') !== false) {
+            return false;
+        }
+        if (!preg_match('#^https?://#i', $url)) {
+            return false;
+        }
+        $parts = parse_url($url);
+        $path = (string)($parts['path'] ?? '');
+        $host = strtolower((string)($parts['host'] ?? ''));
+        if ($host === '') {
+            return false;
+        }
+        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        return in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'], true);
     }
 
     protected function isAllowedMediaUrl($url, $msgType)
