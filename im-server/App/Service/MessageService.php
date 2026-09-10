@@ -3063,7 +3063,9 @@ class MessageService
         }
         foreach ($keys as $key) {
             if (!empty($extra[$key])) {
-                $clean[$key] = mb_substr(trim((string)$extra[$key]), 0, 500);
+                // 视频/HLS 链接常带长 query，放宽到 1200
+                $maxLen = ($key === 'url' || $key === 'fullurl') ? 1200 : 500;
+                $clean[$key] = mb_substr(trim((string)$extra[$key]), 0, $maxLen);
             }
         }
         foreach (['w', 'h', 'duration', 'size'] as $key) {
@@ -3198,6 +3200,16 @@ class MessageService
         if (strpos($url, '..') !== false) {
             return false;
         }
+        // 视频 HLS：允许 https? 绝对地址 *.m3u8（含 query）
+        if ((int)$msgType === 5 && preg_match('#^https?://#i', $url)) {
+            $parts = parse_url($url);
+            $path = (string)($parts['path'] ?? '');
+            $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+            $host = strtolower((string)($parts['host'] ?? ''));
+            if ($ext === 'm3u8' && $host !== '') {
+                return true;
+            }
+        }
         $path = $url;
         if (preg_match('#^https?://#i', $url)) {
             $parts = parse_url($url);
@@ -3218,7 +3230,7 @@ class MessageService
         }
         $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
         $imageExt = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
-        $videoExt = ['mp4', 'webm', 'mov', 'm4v'];
+        $videoExt = ['mp4', 'webm', 'mov', 'm4v', 'm3u8'];
         if ((int)$msgType === 4) {
             return in_array($ext, $imageExt, true);
         }

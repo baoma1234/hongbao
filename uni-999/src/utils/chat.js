@@ -20,6 +20,17 @@ export function msgType(m) {
   return (m.msg_type | 0) || (m.type | 0) || 1
 }
 
+/** 是否 HLS / m3u8 地址（忽略 query） */
+export function isHlsUrl(u) {
+  const raw = String(u || '').trim()
+  if (!raw) return false
+  const noHash = raw.split('#')[0]
+  const path = noHash.split('?')[0].toLowerCase()
+  if (path.endsWith('.m3u8')) return true
+  if (/[?&](format|type|ext)=m3u8\b/i.test(noHash)) return true
+  return false
+}
+
 export function msgExtra(m) {
   if (!m) return {}
   let e = m.extra

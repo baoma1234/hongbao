@@ -195,7 +195,7 @@
                   <text class="meta">{{ msgTime(m) }}</text>
                 </view>
                 <view v-else-if="isVideo(m)" class="chat-bubble media" @longpress.stop="onMsgLongPress(m, $event)">
-                  <video class="chat-media-video" :src="mediaUrl(m)" controls playsinline />
+                  <ChatMediaVideo :src="mediaUrl(m)" :poster="mediaPoster(m)" />
                   <view v-if="mediaCaption(m)" class="chat-media-caption">
                     <template v-for="(p, i) in splitTextLinks(mediaCaption(m))" :key="'vc' + msgId(m) + '-' + i">
                       <view v-if="p.t === 'br'" class="content-br" />
@@ -915,6 +915,7 @@ import { computed, getCurrentInstance, nextTick, reactive, ref, watch } from 'vu
 import { onLoad, onShow, onUnload } from '@dcloudio/uni-app'
 import GrabSlider from '../../components/GrabSlider.vue'
 import ChatNiuniuCard from '../../components/ChatNiuniuCard.vue'
+import ChatMediaVideo from '../../components/ChatMediaVideo.vue'
 import '../../styles/chat.bundle.css'
 import '../../styles/chat-room-uni-adapter.css'
 import '../../styles/chat-rp-send-uni-adapter.css'
@@ -2523,6 +2524,11 @@ function mediaUrl(m) {
   // 优先 fullurl（绝对地址）；相对 /uploads 用 api/img 基址拼接，勿再裁成同站路径
   const raw = (ex && (ex.fullurl || ex.url)) || ''
   return publicUrl(raw)
+}
+function mediaPoster(m) {
+  const ex = msgExtra(m)
+  const raw = (ex && (ex.thumb || ex.poster || ex.cover)) || ''
+  return raw ? publicUrl(raw) : ''
 }
 function fileName(m) {
   const ex = msgExtra(m)
