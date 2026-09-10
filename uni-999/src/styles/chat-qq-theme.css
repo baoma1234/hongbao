@@ -254,6 +254,15 @@
   color: var(--qq-text-main) !important;
 }
 
+/* 媒体/视频气泡保持白底，避免配文被绿色气泡盖住或看不清 */
+.chat-room-page .chat-bubble.media,
+.chat-room-page .chat-room-pane .chat-bubble.media,
+.chat-room-page .chat-msg-row.me .chat-bubble.media,
+.chat-room-page .chat-room-pane .chat-msg-row.me .chat-bubble.media {
+  background: #ffffff !important;
+  color: #111111 !important;
+}
+
 .chat-room-page .chat-room-pane .chat-msg-row:not(.me) .chat-bubble:not(.media):not(.sticker):not(.emoji-only)::before {
   border-color: transparent var(--qq-bubble-other) transparent transparent !important;
 }

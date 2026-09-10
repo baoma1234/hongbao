@@ -218,11 +218,49 @@ export function splitTextLinks(raw) {
 export function mediaCaptionText(m) {
   const mt = msgType(m)
   if (mt !== 4 && mt !== 5) return ''
+  const ex = msgExtra(m)
+  const fromExtra = String((ex && (ex.caption || ex.text || ex.desc)) || '').trim()
   const c = String((m && (m.content || m.text)) || '').trim()
-  if (!c) return ''
-  if (mt === 4 && (c === '[图片]' || c === '[Image]' || /^\[图片\]x\d+$/i.test(c))) return ''
-  if (mt === 5 && (c === '[视频]' || c === '[Video]')) return ''
-  return c
+  const raw = fromExtra || c
+  if (!raw) return ''
+  if (mt === 4 && (raw === '[图片]' || raw === '[Image]' || /^\[图片\]x\d+$/i.test(raw))) return ''
+  if (mt === 5 && (raw === '[视频]' || raw === '[Video]')) return ''
+  return raw
+}
+
+/** 视频消息上方预览图（最多 5；不含视频本身 URL） */
+export function mediaVideoPreviewUrls(m) {
+  if (msgType(m) !== 5) return []
+  const ex = msgExtra(m)
+  const out = []
+  const seen = {}
+  const push = (raw) => {
+    const u = publicUrl(raw)
+    if (!u || seen[u]) return
+    // 排除视频/m3u8，避免把视频地址当预览图
+    const low = u.toLowerCase().split('?')[0]
+    if (/\.(m3u8|mp4|webm|mov|m4v)$/i.test(low) || isHlsUrl(u)) return
+    seen[u] = true
+    out.push(u)
+  }
+  if (Array.isArray(ex.images)) {
+    for (let i = 0; i < ex.images.length && out.length < 5; i++) {
+      const img = ex.images[i]
+      if (typeof img === 'string') push(img)
+      else push((img && (img.fullurl || img.url)) || '')
+    }
+  }
+  if (!out.length && Array.isArray(ex.image_fullurls)) {
+    for (let i = 0; i < ex.image_fullurls.length && out.length < 5; i++) {
+      push(ex.image_fullurls[i])
+    }
+  }
+  if (!out.length && Array.isArray(ex.image_urls)) {
+    for (let i = 0; i < ex.image_urls.length && out.length < 5; i++) {
+      push(ex.image_urls[i])
+    }
+  }
+  return out
 }
 
 /** 图片消息全部可展示 URL（单图或多图相册，最多 5） */

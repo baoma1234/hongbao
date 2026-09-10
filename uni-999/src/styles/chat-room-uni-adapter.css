@@ -284,8 +284,21 @@
   min-width: 0;
 }
 
+/* 视频消息：主列拉满滚动区剩余宽度（顶到 scroll-view-content） */
+.chat-room-page .chat-msg-row.is-video-full .chat-msg-main {
+  flex: 1 1 auto;
+  width: auto;
+  max-width: none !important;
+  min-width: 0;
+}
+
 .chat-room-page .chat-msg-row.me .chat-msg-main {
   align-items: flex-end;
+}
+
+.chat-room-page .chat-msg-row.is-video-full.me .chat-msg-main,
+.chat-room-page .chat-msg-row.is-video-full .chat-msg-main {
+  align-items: stretch;
 }
 
 .chat-room-page .chat-msg-nick {
@@ -358,12 +371,67 @@
   border-radius: 8px;
 }
 
+.chat-room-page .chat-bubble.media.is-video-full {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box;
+  padding: 6px !important;
+  background: #fff !important;
+  color: #111 !important;
+}
+
+.chat-room-page .chat-msg-row.me .chat-bubble.media.is-video-full {
+  background: #fff !important;
+  color: #111 !important;
+}
+
+.chat-room-page .chat-media-video-wrap,
+.chat-room-page .chat-media-video-wrap .chat-media-video,
 .chat-room-page .chat-media-video {
-  width: 200px;
-  max-width: 70vw;
-  height: 140px;
+  width: 100% !important;
+  max-width: none !important;
+  box-sizing: border-box;
+}
+
+.chat-room-page .chat-media-video {
+  min-height: 180px;
+  max-height: min(72vh, 520px);
+  height: auto;
   border-radius: 8px;
   background: #000;
+}
+
+.chat-room-page .chat-video-previews {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  margin-bottom: 6px;
+}
+
+.chat-room-page .chat-video-preview-img {
+  display: block;
+  width: 100%;
+  border-radius: 6px;
+  background: #e8e8e8;
+}
+
+.chat-room-page .chat-media-caption {
+  display: block !important;
+  margin-top: 8px;
+  padding: 2px 4px 0;
+  color: #111 !important;
+  font-size: 15px !important;
+  line-height: 1.45 !important;
+  word-break: break-word;
+  white-space: pre-wrap !important;
+}
+
+.chat-room-page .chat-media-caption text,
+.chat-room-page .chat-media-caption uni-text,
+.chat-room-page .chat-bubble.media.is-video-full .chat-media-caption,
+.chat-room-page .chat-msg-row.me .chat-bubble.media.is-video-full .chat-media-caption {
+  color: #111 !important;
 }
 
 /* 红包卡：确保 uni view 也能吃到 luxury 布局 */

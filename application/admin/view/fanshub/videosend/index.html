@@ -52,6 +52,22 @@
             </div>
 
             <div class="form-group">
+                <label class="control-label col-xs-12 col-sm-2">预览图（可选）</label>
+                <div class="col-xs-12 col-sm-8">
+                    <textarea class="form-control" name="preview_urls" id="preview_urls" rows="4" placeholder="每行一个图片 URL，最多 5 张；展示在视频上方"></textarea>
+                    <div class="input-group" style="margin-top:8px;">
+                        <input type="text" class="form-control" id="preview_upload_tmp" placeholder="上传后追加到上方列表">
+                        <div class="input-group-btn">
+                            <button type="button" class="btn btn-default faupload" data-input-id="preview_upload_tmp" data-mimetype="image/*" data-multiple="false" id="btn-preview-upload">
+                                <i class="fa fa-upload"></i> 上传图片
+                            </button>
+                        </div>
+                    </div>
+                    <span class="help-block">客户端先显示预览图，下方再播视频。</span>
+                </div>
+            </div>
+
+            <div class="form-group">
                 <label class="control-label col-xs-12 col-sm-2">视频地址</label>
                 <div class="col-xs-12 col-sm-8">
                     <textarea class="form-control" name="video_url" id="video_url" rows="3" required placeholder="https://.../xxx.m3u8 或 https://.../xxx.mp4"></textarea>
@@ -63,7 +79,7 @@
                 <label class="control-label col-xs-12 col-sm-2">封面图（可选）</label>
                 <div class="col-xs-12 col-sm-8">
                     <div class="input-group">
-                        <input type="text" class="form-control" name="thumb_url" id="thumb_url" placeholder="https://.../cover.jpg">
+                        <input type="text" class="form-control" name="thumb_url" id="thumb_url" placeholder="https://.../cover.jpg（播放器 poster）">
                         <div class="input-group-btn">
                             <button type="button" class="btn btn-default faupload" data-input-id="thumb_url" data-mimetype="image/*" data-multiple="false">
                                 <i class="fa fa-upload"></i> 上传
@@ -76,7 +92,7 @@
             <div class="form-group">
                 <label class="control-label col-xs-12 col-sm-2">文案（可选）</label>
                 <div class="col-xs-12 col-sm-8">
-                    <input type="text" class="form-control" name="content" id="content" placeholder="默认 [视频]" maxlength="200">
+                    <textarea class="form-control" name="content" id="content" rows="2" placeholder="显示在视频下方的说明文字" maxlength="500"></textarea>
                 </div>
             </div>
 
@@ -91,7 +107,7 @@
             </div>
         </form>
         <div class="alert alert-info" style="margin-top:16px;">
-            发送后客户端按视频消息展示；长视频优先用 m3u8。若桥接不可达，会尝试直写库（实时推送可能延迟）。
+            布局：预览图（上）→ 视频（中）→ 文案（下）。长视频优先用 m3u8。
         </div>
     </div>
 </div>

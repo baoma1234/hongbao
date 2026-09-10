@@ -1225,13 +1225,15 @@ body.tab-messages .bottom-action-bar {
 }
 .chat-media-video-wrap {
   position: relative;
-  display: inline-block;
-  max-width: min(240px, 78vw);
+  display: block;
+  width: 100%;
+  max-width: none;
 }
 .chat-media-video {
   display: block;
-  max-width: min(240px, 78vw);
-  max-height: 220px;
+  width: 100%;
+  max-width: none;
+  max-height: min(72vh, 520px);
   border-radius: 12px;
   background: #000;
 }

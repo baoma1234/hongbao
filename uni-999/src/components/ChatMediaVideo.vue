@@ -188,12 +188,13 @@ onBeforeUnmount(() => {
 .chat-media-video-wrap {
   position: relative;
   width: 100%;
-  max-width: 240px;
+  max-width: none;
 }
 .chat-media-video {
   width: 100%;
-  max-width: 240px;
-  max-height: 320px;
+  max-width: none;
+  min-height: 180px;
+  max-height: min(72vh, 520px);
   border-radius: 8px;
   background: #000;
   display: block;

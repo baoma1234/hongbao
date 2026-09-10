@@ -62,7 +62,7 @@
             :id="'m' + msgId(m)"
             :key="msgId(m)"
             class="chat-msg-row"
-            :class="{ me: isMine(m), system: isSysRow(m), 'group-msg': showSender(m) }"
+            :class="{ me: isMine(m), system: isSysRow(m), 'group-msg': showSender(m), 'is-video-full': isVideo(m) }"
           >
             <view v-if="isSysRow(m)" class="sys-notice">
               <view class="notice-inner">{{ sysText(m) }}</view>
@@ -194,7 +194,25 @@
                   </view>
                   <text class="meta">{{ msgTime(m) }}</text>
                 </view>
-                <view v-else-if="isVideo(m)" class="chat-bubble media" @longpress.stop="onMsgLongPress(m, $event)">
+                <view
+                  v-else-if="isVideo(m)"
+                  class="chat-bubble media is-video-full"
+                  @longpress.stop="onMsgLongPress(m, $event)"
+                >
+                  <view
+                    v-if="mediaVideoPreviews(m).length"
+                    class="chat-video-previews"
+                    :class="'vn' + Math.min(mediaVideoPreviews(m).length, 5)"
+                  >
+                    <image
+                      v-for="(pu, pi) in mediaVideoPreviews(m)"
+                      :key="'vp' + msgId(m) + '-' + pi"
+                      class="chat-video-preview-img"
+                      :src="pu"
+                      mode="widthFix"
+                      @click.stop="previewVideoImages(m, pi)"
+                    />
+                  </view>
                   <ChatMediaVideo :src="mediaUrl(m)" :poster="mediaPoster(m)" />
                   <view v-if="mediaCaption(m)" class="chat-media-caption">
                     <template v-for="(p, i) in splitTextLinks(mediaCaption(m))" :key="'vc' + msgId(m) + '-' + i">
@@ -932,6 +950,7 @@ import {
   isLeaveGroupTip,
   mediaCaptionText,
   mediaImageUrls,
+  mediaVideoPreviewUrls,
   msgExtra,
   msgType,
   normalizeMessage,
@@ -2497,6 +2516,17 @@ function msgTextParts(m) {
 }
 function mediaCaption(m) {
   return mediaCaptionText(m)
+}
+function mediaVideoPreviews(m) {
+  return mediaVideoPreviewUrls(m)
+}
+function previewVideoImages(m, idx) {
+  const urls = mediaVideoPreviews(m)
+  if (!urls.length) return
+  const i = Math.max(0, Math.min(urls.length - 1, idx | 0))
+  try {
+    uni.previewImage({ urls, current: urls[i] })
+  } catch (e) {}
 }
 function mediaImageList(m) {
   return mediaImageUrls(m)
@@ -4275,11 +4305,11 @@ async function sendPendingMedia() {
       const up = await uploadCommonFile(draft.filePath)
       const { path, full } = mediaPathsFromUpload(up)
       const label = captionRaw || draft.fallback || '[视频]'
-      await sendMediaMessage(
-        draft.msgType,
-        { url: path, fullurl: full, name: draft.name || up.name || '' },
-        label
-      )
+      const vExtra = { url: path, fullurl: full, name: draft.name || up.name || '' }
+      if (captionRaw && captionRaw !== '[视频]') {
+        vExtra.caption = captionRaw
+      }
+      await sendMediaMessage(draft.msgType, vExtra, label)
       pendingMedias.value = drafts.slice(i + 1)
     }
     pendingMedias.value = []
@@ -5716,12 +5746,31 @@ uni-page-body {
 }
 .chat-media-caption {
   display: block;
-  margin-top: 6px;
-  padding: 0 2px;
+  margin-top: 8px;
+  padding: 0 4px;
   font-size: 15px;
   line-height: 1.45;
+  color: #111;
   word-break: break-word;
   white-space: pre-wrap;
+}
+.chat-video-previews {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  margin-bottom: 6px;
+}
+.chat-video-preview-img {
+  display: block;
+  width: 100%;
+  border-radius: 6px;
+  background: #e8e8e8;
+}
+.chat-bubble.media.is-video-full {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 .chat-media-album {
   display: flex;

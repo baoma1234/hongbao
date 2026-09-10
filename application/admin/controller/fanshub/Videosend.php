@@ -5,7 +5,7 @@ namespace app\admin\controller\fanshub;
 use think\Db;
 
 /**
- * 视频发送（群/私聊，支持 mp4 / m3u8 外链）
+ * 视频发送（群/私聊，支持 mp4 / m3u8 外链 + 预览图 + 文案）
  *
  * @icon fa fa-film
  */
@@ -69,6 +69,62 @@ class Videosend extends Imagent
             $extra['thumb'] = $thumb;
             $extra['poster'] = $thumb;
         }
+        if ($content !== '' && $content !== '[视频]') {
+            $extra['caption'] = mb_substr($content, 0, 500);
+        }
+
+        $images = [];
+        if (!empty($extraIn['images']) && is_array($extraIn['images'])) {
+            foreach ($extraIn['images'] as $img) {
+                if (is_string($img) && trim($img) !== '') {
+                    $images[] = ['url' => trim($img), 'fullurl' => trim($img)];
+                } elseif (is_array($img)) {
+                    $u = trim((string)($img['url'] ?? $img['fullurl'] ?? ''));
+                    if ($u !== '') {
+                        $images[] = [
+                            'url'     => $u,
+                            'fullurl' => trim((string)($img['fullurl'] ?? $u)),
+                        ];
+                    }
+                }
+            }
+        }
+        $previewRaw = trim((string)$this->request->post('preview_urls', ''));
+        if ($previewRaw !== '') {
+            $lines = preg_split('/\r\n|\n|\r/', $previewRaw);
+            foreach ($lines as $line) {
+                $u = trim((string)$line);
+                if ($u === '' || !preg_match('#^https?://#i', $u)) {
+                    continue;
+                }
+                $images[] = ['url' => $u, 'fullurl' => $u];
+            }
+        }
+        if ($images) {
+            // 去重，最多 5 张
+            $seen = [];
+            $uniq = [];
+            foreach ($images as $img) {
+                $k = $img['url'];
+                if (isset($seen[$k])) {
+                    continue;
+                }
+                $seen[$k] = 1;
+                $uniq[] = $img;
+                if (count($uniq) >= 5) {
+                    break;
+                }
+            }
+            $extra['images'] = $uniq;
+            $extra['count'] = count($uniq);
+            $extra['image_urls'] = array_column($uniq, 'url');
+            $extra['image_fullurls'] = array_values(array_filter(array_column($uniq, 'fullurl')));
+            if ($thumb === '' && !empty($uniq[0]['url'])) {
+                $extra['thumb'] = $uniq[0]['url'];
+                $extra['poster'] = $uniq[0]['url'];
+            }
+        }
+
         if ($content === '') {
             $content = '[视频]';
         }

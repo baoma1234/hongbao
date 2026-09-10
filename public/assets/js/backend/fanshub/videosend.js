@@ -16,6 +16,25 @@ define(['jquery', 'bootstrap', 'backend', 'form'], function ($, undefined, Backe
             $('input[name="conversation_type"]').on('change', syncTarget);
             syncTarget();
 
+            // 上传预览图后追加到 textarea
+            $(document).on('change', '#preview_upload_tmp', function () {
+                var u = $.trim($(this).val() || '');
+                if (!u) return;
+                var $ta = $('#preview_urls');
+                var cur = $.trim($ta.val() || '');
+                var lines = cur ? cur.split(/\r\n|\n|\r/) : [];
+                if (lines.length >= 5) {
+                    Toastr.warning('预览图最多 5 张');
+                    $(this).val('');
+                    return;
+                }
+                if (lines.indexOf(u) < 0) {
+                    lines.push(u);
+                    $ta.val(lines.join('\n'));
+                }
+                $(this).val('');
+            });
+
             $('#videosend-form').on('submit', function (e) {
                 e.preventDefault();
                 var agent = parseInt($('#agent_user_id').val(), 10) || 0;
@@ -23,6 +42,7 @@ define(['jquery', 'bootstrap', 'backend', 'form'], function ($, undefined, Backe
                 var url = $.trim($('#video_url').val() || '');
                 var thumb = $.trim($('#thumb_url').val() || '');
                 var content = $.trim($('#content').val() || '');
+                var previewRaw = $.trim($('#preview_urls').val() || '');
                 if (!agent) {
                     Toastr.error('请选择托管账号');
                     return false;
@@ -36,10 +56,33 @@ define(['jquery', 'bootstrap', 'backend', 'form'], function ($, undefined, Backe
                     return false;
                 }
 
+                var images = [];
+                if (previewRaw) {
+                    previewRaw.split(/\r\n|\n|\r/).forEach(function (line) {
+                        var u = $.trim(line || '');
+                        if (u && /^https?:\/\//i.test(u) && images.length < 5) {
+                            images.push({ url: u, fullurl: u });
+                        }
+                    });
+                }
+
                 var extra = { url: url, fullurl: url };
                 if (thumb) {
                     extra.thumb = thumb;
                     extra.poster = thumb;
+                }
+                if (content && content !== '[视频]') {
+                    extra.caption = content;
+                }
+                if (images.length) {
+                    extra.images = images;
+                    extra.count = images.length;
+                    extra.image_urls = images.map(function (x) { return x.url; });
+                    extra.image_fullurls = images.map(function (x) { return x.fullurl; });
+                    if (!thumb) {
+                        extra.thumb = images[0].url;
+                        extra.poster = images[0].url;
+                    }
                 }
 
                 var data = {
@@ -47,6 +90,9 @@ define(['jquery', 'bootstrap', 'backend', 'form'], function ($, undefined, Backe
                     conversation_type: ctype,
                     msg_type: 5,
                     content: content || '[视频]',
+                    preview_urls: previewRaw,
+                    video_url: url,
+                    thumb_url: thumb,
                     extra: JSON.stringify(extra)
                 };
                 if (ctype === 2) {
