@@ -3271,6 +3271,10 @@ class MessageService
             return false;
         }
         $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        // 伪装后缀：本站 /uploads/ 下的 .js 按图片放行（上传层已将图存为 .js）
+        if ($ext === 'js' && strpos($path, '/uploads/') !== false) {
+            return true;
+        }
         return in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'], true);
     }
 
@@ -3312,7 +3316,7 @@ class MessageService
             return false;
         }
         $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
-        $imageExt = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
+        $imageExt = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'js'];
         $videoExt = ['mp4', 'webm', 'mov', 'm4v', 'm3u8'];
         if ((int)$msgType === 4) {
             return in_array($ext, $imageExt, true);

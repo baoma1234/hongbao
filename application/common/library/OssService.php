@@ -264,6 +264,21 @@ class OssService
     protected static function guessMime($localPath, $objectKey)
     {
         $ext = strtolower(pathinfo($objectKey ?: $localPath, PATHINFO_EXTENSION));
+
+        // 伪装成 .js 的图片：优先按文件内容识别，避免当成 application/javascript
+        if ($ext === 'js' || $ext === '') {
+            if (function_exists('mime_content_type')) {
+                $m = @mime_content_type($localPath);
+                if (is_string($m) && strpos($m, 'image/') === 0) {
+                    return $m;
+                }
+            }
+            $info = @getimagesize($localPath);
+            if (is_array($info) && !empty($info['mime']) && strpos((string)$info['mime'], 'image/') === 0) {
+                return (string)$info['mime'];
+            }
+        }
+
         $map = [
             'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png',
             'gif' => 'image/gif', 'webp' => 'image/webp', 'bmp' => 'image/bmp',

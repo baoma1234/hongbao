@@ -580,11 +580,12 @@ class Upload
         // 图片：先本地压缩，再记附件 / 同步 OSS（大图控体积）
         $savedName = $file->getSaveName();
         $absSaved = $destDir . $savedName;
+        $realImageType = '';
         if ($this->isImageUpload() && is_file($absSaved)) {
             $oldSuffix = strtolower((string)($this->fileInfo['suffix'] ?? ''));
             $this->compressImageFile($absSaved);
             $newSuffix = strtolower((string)($this->fileInfo['suffix'] ?? $oldSuffix));
-            // PNG/BMP 压成 JPG 时改扩展名，保持 URL 与真实格式一致
+            // PNG/BMP 压成 JPG 时改扩展名，保持 URL 与真实格式一致（随后再统一伪装成 .js）
             if ($newSuffix !== '' && $newSuffix !== $oldSuffix && preg_match('/^[a-z0-9]+$/', $newSuffix)) {
                 $base = preg_replace('/\.[^.]+$/', '', $savedName);
                 $newName = $base . '.' . $newSuffix;
@@ -608,11 +609,56 @@ class Upload
                     $this->fileInfo['imageheight'] = (int)($imgInfo[1] ?? 0);
                 }
             }
+
+            // 防封：图片落盘/OSS 对象统一用 .js 后缀；MIME 仍为 image/*
+            $realImageType = strtolower((string)($this->fileInfo['suffix'] ?? 'jpg'));
+            if (!in_array($realImageType, ['gif', 'jpg', 'jpeg', 'bmp', 'png', 'webp'], true)) {
+                $realImageType = 'jpg';
+            }
+            $mimeMap = [
+                'gif'  => 'image/gif',
+                'jpg'  => 'image/jpeg',
+                'jpeg' => 'image/jpeg',
+                'bmp'  => 'image/bmp',
+                'png'  => 'image/png',
+                'webp' => 'image/webp',
+            ];
+            if (strpos((string)($this->fileInfo['type'] ?? ''), 'image/') !== 0) {
+                $this->fileInfo['type'] = $mimeMap[$realImageType] ?? 'image/jpeg';
+            }
+            $base = preg_replace('/\.[^.]+$/', '', $savedName);
+            $disguiseName = $base . '.js';
+            $disguiseAbs = $destDir . $disguiseName;
+            if ($disguiseName !== $savedName && is_file($absSaved)) {
+                $renamed = @rename($absSaved, $disguiseAbs);
+                if (!$renamed && @copy($absSaved, $disguiseAbs)) {
+                    @unlink($absSaved);
+                    $renamed = is_file($disguiseAbs);
+                }
+                if ($renamed) {
+                    $savedName = $disguiseName;
+                    $absSaved = $disguiseAbs;
+                    $fileName = $disguiseName;
+                    try {
+                        $file->setSaveName($disguiseName);
+                    } catch (\Throwable $e) {
+                    }
+                    if (is_file($absSaved)) {
+                        $sha1 = @sha1_file($absSaved) ?: $sha1;
+                        $this->fileInfo['size'] = (int)@filesize($absSaved);
+                    }
+                }
+            }
         }
 
         $category = request()->post('category');
         $category = array_key_exists($category, config('site.attachmentcategory') ?? []) ? $category : '';
         $auth = Auth::instance();
+        $imageTypeForDb = $realImageType !== '' ? $realImageType : (string)($this->fileInfo['suffix'] ?? '');
+        $extparam = '';
+        if ($realImageType !== '' && substr($savedName, -3) === '.js') {
+            $extparam = json_encode(['real_ext' => $realImageType, 'disguise' => 'js'], JSON_UNESCAPED_UNICODE);
+        }
         $params = array(
             'admin_id'    => (int)session('admin.id'),
             'user_id'     => (int)$auth->id,
@@ -621,14 +667,14 @@ class Upload
             'filesize'    => $this->fileInfo['size'],
             'imagewidth'  => $this->fileInfo['imagewidth'],
             'imageheight' => $this->fileInfo['imageheight'],
-            'imagetype'   => $this->fileInfo['suffix'],
+            'imagetype'   => $imageTypeForDb,
             'imageframes' => 0,
             'mimetype'    => $this->fileInfo['type'],
             'url'         => $uploadDir . $savedName,
             'uploadtime'  => time(),
             'storage'     => 'local',
             'sha1'        => $sha1,
-            'extparam'    => '',
+            'extparam'    => $extparam,
         );
         $attachment = new Attachment();
         $attachment->data(array_filter($params));
