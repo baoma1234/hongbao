@@ -1472,6 +1472,31 @@ class FansHubService
                 return self::utf8Safe($raw);
             })(),
             'app_download_url'     => self::utf8Safe($cfg['app_download_url'] ?? ''),
+            'app_update'           => [
+                'enabled' => !empty($cfg['app_update_enabled']),
+                'android' => [
+                    'version_name' => self::utf8Safe($cfg['app_android_version_name'] ?? ''),
+                    'version_code' => max(0, (int)($cfg['app_android_version_code'] ?? 0)),
+                    'download_url' => self::utf8Safe(
+                        ($cfg['app_android_download_url'] ?? '') !== ''
+                            ? ($cfg['app_android_download_url'] ?? '')
+                            : ($cfg['app_download_url'] ?? '')
+                    ),
+                    'force'        => !empty($cfg['app_android_force_update']),
+                    'note'         => self::utf8Safe($cfg['app_android_update_note'] ?? ''),
+                ],
+                'ios' => [
+                    'version_name' => self::utf8Safe($cfg['app_ios_version_name'] ?? ''),
+                    'version_code' => max(0, (int)($cfg['app_ios_version_code'] ?? 0)),
+                    'download_url' => self::utf8Safe(
+                        ($cfg['app_ios_download_url'] ?? '') !== ''
+                            ? ($cfg['app_ios_download_url'] ?? '')
+                            : ($cfg['app_download_url'] ?? '')
+                    ),
+                    'force'        => !empty($cfg['app_ios_force_update']),
+                    'note'         => self::utf8Safe($cfg['app_ios_update_note'] ?? ''),
+                ],
+            ],
             'main_station_url'     => self::utf8Safe($cfg['main_station_url'] ?? ''),
             'im_ws_url'            => self::utf8Safe($cfg['im_ws_url'] ?? ''),
             'yxx_enabled'          => !empty($cfg['yxx_enabled']),

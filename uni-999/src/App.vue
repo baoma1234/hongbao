@@ -6,6 +6,7 @@
 import { onLaunch, onShow, onHide } from '@dcloudio/uni-app'
 import LocalPushBanner from './components/LocalPushBanner.vue'
 import { fetchConfig, getToken } from './utils/auth.js'
+import { checkAppUpdate } from './utils/app-update.js'
 import {
   buildChatUrl,
   getActiveChat,
@@ -51,8 +52,13 @@ onLaunch(async () => {
   // 先拉远端 apiUri / socketUri / imgUri（有缓存则先用缓存）
   await refreshRemoteEndpoints()
   // 尽早拿到 OSS upload_cdn，避免会话/社群头像先拼成本站 /uploads
+  let bootCfg = null
   try {
-    await fetchConfig()
+    bootCfg = await fetchConfig()
+  } catch (e) {}
+  // App 冷启动：检测安卓/iOS 是否需更新（H5 跳过）
+  try {
+    await checkAppUpdate(bootCfg)
   } catch (e) {}
   // 语言：BOOT 即时可用；完整包后台拉取，不挡启动
   initI18n().catch(() => {})

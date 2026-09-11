@@ -286,9 +286,9 @@
 
 /* 视频消息：主列拉满滚动区剩余宽度（顶到 scroll-view-content） */
 .chat-room-page .chat-msg-row.is-video-full .chat-msg-main {
-  flex: 1 1 auto;
-  width: auto;
-  max-width: none !important;
+  flex: 0 1 auto;
+  width: min(88%, calc(100% - 52px));
+  max-width: min(88%, calc(100% - 52px)) !important;
   min-width: 0;
 }
 

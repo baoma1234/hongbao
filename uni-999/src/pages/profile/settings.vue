@@ -17,6 +17,18 @@
       </view>
     </view>
 
+    <!-- #ifdef APP-PLUS -->
+    <view class="settings-card" style="margin-top:12px;">
+      <view class="settings-row" @click="onCheckUpdate">
+        <view class="settings-main">
+          <text class="settings-title">{{ tt('profile_settings_check_update', '检查更新') }}</text>
+          <text class="settings-sub">{{ tt('profile_settings_check_update_sub', '检测是否有新版本') }}</text>
+        </view>
+        <text class="settings-arrow">›</text>
+      </view>
+    </view>
+    <!-- #endif -->
+
     <view class="settings-ver">
       <text class="settings-ver-lab">{{ tt('profile_settings_version', '版本号') }}</text>
       <text class="settings-ver-val">{{ versionText }}</text>
@@ -34,6 +46,8 @@ import {
   isPushEnabled,
   setMsgMuted,
 } from '../../utils/app-prefs.js'
+import { checkAppUpdate } from '../../utils/app-update.js'
+import { fetchConfig } from '../../utils/auth.js'
 import { applyPushPreference, isJPushPluginPresent } from '../../utils/jpush.js'
 import { copyState, localeState, tt } from '../../utils/i18n.js'
 
@@ -103,6 +117,23 @@ function onPushChange(e) {
   }
 }
 
+async function onCheckUpdate() {
+  uni.showLoading({ title: '检查中…', mask: true })
+  let cfg = null
+  try {
+    cfg = await fetchConfig()
+  } catch (e) {}
+  uni.hideLoading()
+  const r = await checkAppUpdate(cfg, { force: true })
+  if (r && r.upToDate) {
+    uni.showToast({ title: '已是最新版本', icon: 'none' })
+    return
+  }
+  if (r && (r.skipped || r.reason === 'disabled')) {
+    uni.showToast({ title: '暂无更新配置', icon: 'none' })
+  }
+}
+
 onShow(() => {
   refresh()
 })
@@ -137,7 +168,13 @@ onShow(() => {
 .settings-title {
   font-size: 15px;
   font-weight: 700;
-  color: #2a1f18;
+  color: #1a212d;
+}
+.settings-arrow {
+  font-size: 22px;
+  color: #c0c4cc;
+  line-height: 1;
+  padding-left: 4px;
 }
 .settings-sub {
   font-size: 12px;
