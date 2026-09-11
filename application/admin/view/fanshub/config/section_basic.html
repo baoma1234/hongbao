@@ -42,53 +42,7 @@
         <span class="help-block">填 IM 群 ID；裂变页显示进群链接，打开后自动加入（群需为开放群或官方推荐群，或带邀请签名）。填 0 关闭。</span>
     </div>
 </div>
-<div class="form-group"><label class="control-label col-xs-12 col-sm-2">App下载链接:</label><div class="col-xs-12 col-sm-8"><input class="form-control" name="app_download_url" type="text" value="{$config.app_download_url|default=''|htmlentities}"><span class="help-block">通用下载页；安卓/iOS 未单独填写时回退用此链接</span></div></div>
-
-<div class="form-group">
-    <label class="control-label col-xs-12 col-sm-2">App 更新检测:</label>
-    <div class="col-xs-12 col-sm-8">
-        <label class="checkbox-inline" style="padding-left:0;">
-            <input type="checkbox" name="app_update_enabled" value="1" {if condition="!isset($config.app_update_enabled) || $config.app_update_enabled"}checked{/if}> 开启（仅原生 App 冷启动检测，H5 不弹）
-        </label>
-    </div>
-</div>
-<div class="form-group">
-    <label class="control-label col-xs-12 col-sm-2">安卓最新版:</label>
-    <div class="col-xs-12 col-sm-8">
-        <div class="row">
-            <div class="col-xs-6" style="padding-left:0;">
-                <input class="form-control" name="app_android_version_name" type="text" value="{$config.app_android_version_name|default=''|htmlentities}" placeholder="versionName 如 4.8.0">
-            </div>
-            <div class="col-xs-6" style="padding-right:0;">
-                <input class="form-control" name="app_android_version_code" type="number" min="0" value="{$config.app_android_version_code|default='0'}" placeholder="versionCode 如 260">
-            </div>
-        </div>
-        <input class="form-control" style="margin-top:8px;" name="app_android_download_url" type="text" value="{$config.app_android_download_url|default=''|htmlentities}" placeholder="安卓 APK / 下载页 URL（可空=用上方通用链接）">
-        <textarea class="form-control" style="margin-top:8px;" name="app_android_update_note" rows="2" placeholder="更新说明（可选）">{$config.app_android_update_note|default=''|htmlentities}</textarea>
-        <label class="checkbox-inline" style="padding-left:0;margin-top:6px;">
-            <input type="checkbox" name="app_android_force_update" value="1" {if condition="!empty($config.app_android_force_update)"}checked{/if}> 强制更新（不可取消）
-        </label>
-        <span class="help-block">客户端 versionCode &lt; 后台配置则弹窗；发版后记得把这里改成新包版本。</span>
-    </div>
-</div>
-<div class="form-group">
-    <label class="control-label col-xs-12 col-sm-2">iOS 最新版:</label>
-    <div class="col-xs-12 col-sm-8">
-        <div class="row">
-            <div class="col-xs-6" style="padding-left:0;">
-                <input class="form-control" name="app_ios_version_name" type="text" value="{$config.app_ios_version_name|default=''|htmlentities}" placeholder="versionName 如 4.8.0">
-            </div>
-            <div class="col-xs-6" style="padding-right:0;">
-                <input class="form-control" name="app_ios_version_code" type="number" min="0" value="{$config.app_ios_version_code|default='0'}" placeholder="versionCode 如 260">
-            </div>
-        </div>
-        <input class="form-control" style="margin-top:8px;" name="app_ios_download_url" type="text" value="{$config.app_ios_download_url|default=''|htmlentities}" placeholder="iOS 安装 / TestFlight / 商店 URL（可空=通用链接）">
-        <textarea class="form-control" style="margin-top:8px;" name="app_ios_update_note" rows="2" placeholder="更新说明（可选）">{$config.app_ios_update_note|default=''|htmlentities}</textarea>
-        <label class="checkbox-inline" style="padding-left:0;margin-top:6px;">
-            <input type="checkbox" name="app_ios_force_update" value="1" {if condition="!empty($config.app_ios_force_update)"}checked{/if}> 强制更新（不可取消）
-        </label>
-    </div>
-</div>
+<div class="form-group"><label class="control-label col-xs-12 col-sm-2">App下载链接:</label><div class="col-xs-12 col-sm-8"><input class="form-control" name="app_download_url" type="text" value="{$config.app_download_url|default=''|htmlentities}"><span class="help-block">通用下载页兜底；版本与平台下载请到 <strong>会员运营 → APP升级</strong> 管理（每次发布保留历史）。</span></div></div>
 
 <div class="form-group"><label class="control-label col-xs-12 col-sm-2">主站链接:</label><div class="col-xs-12 col-sm-8"><input class="form-control" name="main_station_url" type="text" value="{$config.main_station_url|default=''|htmlentities}"></div></div>
 <div class="form-group"><label class="control-label col-xs-12 col-sm-2">H5 入口路径:</label><div class="col-xs-12 col-sm-8"><input class="form-control" name="h5_entry_path" type="text" value="{$config.h5_entry_path|default='999'|htmlentities}"><span class="help-block">站点根路径跳转与邀请链接用，正式入口填 <code>999</code>（旧版 <code>888</code> 仍可访问）</span></div></div>

@@ -1,0 +1,24 @@
+<div class="panel panel-default panel-intro">
+    {:build_heading()}
+    <div class="panel-body">
+        <div class="alert alert-info" style="margin-bottom:12px;">
+            <label style="font-weight:normal;margin:0;">
+                <input type="checkbox" id="app-update-enabled" {if $updateEnabled}checked{/if}> 开启 App 内更新检测（仅 APK/IPA 冷启动）
+            </label>
+            <span class="text-muted" style="margin-left:12px;">通用下载兜底：{$fallbackDownload|default='（未配置）'|htmlentities}</span>
+            <div style="margin-top:6px;font-size:12px;color:#666;">
+                每次「添加」都会新增一条历史；点「设为当前」后客户端才按该版本检测。请勿删除当前推送版本。
+            </div>
+        </div>
+        <div id="toolbar" class="toolbar">
+            <a href="javascript:;" class="btn btn-primary btn-refresh" title="{:__('Refresh')}"><i class="fa fa-refresh"></i></a>
+            <a href="javascript:;" class="btn btn-success btn-add {:$auth->check('fanshub/appupdate/add')?'':'hide'}" title="{:__('Add')}"><i class="fa fa-plus"></i> 发布新版本</a>
+            <a href="javascript:;" class="btn btn-danger btn-del btn-disabled disabled {:$auth->check('fanshub/appupdate/del')?'':'hide'}" title="隐藏"><i class="fa fa-eye-slash"></i> 隐藏</a>
+        </div>
+        <table id="table" class="table table-striped table-bordered table-hover table-nowrap"
+               data-operate-edit="{:$auth->check('fanshub/appupdate/edit')}"
+               data-operate-del="{:$auth->check('fanshub/appupdate/del')}"
+               width="100%">
+        </table>
+    </div>
+</div>

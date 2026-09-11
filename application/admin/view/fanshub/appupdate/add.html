@@ -1,0 +1,69 @@
+<form id="add-form" class="form-horizontal" role="form" data-toggle="validator" method="POST" action="">
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">平台:</label>
+        <div class="col-xs-12 col-sm-8">
+            {:build_radios('row[platform]', $platformList, $row.platform|default='android')}
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">versionName:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input type="text" class="form-control" name="row[version_name]" value="{$row.version_name|default=''|htmlentities}" placeholder="如 4.9.0" maxlength="32">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">versionCode:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input type="number" class="form-control" name="row[version_code]" data-rule="required" min="1" value="{$row.version_code|default='0'}" placeholder="如 261（必须大于旧版）">
+            <span class="help-block">客户端用 versionCode 比较；每次发版请递增。</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">下载地址:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input type="text" class="form-control" name="row[download_url]" value="{$row.download_url|default=''|htmlentities}" placeholder="APK / IPA / TestFlight / 下载页 URL">
+            <span class="help-block">留空则客户端回退用「App下载链接」通用地址。</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">更新说明:</label>
+        <div class="col-xs-12 col-sm-8">
+            <textarea class="form-control" name="row[update_note]" rows="3" maxlength="1000" placeholder="弹窗展示给用户">{$row.update_note|default=''|htmlentities}</textarea>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">强制更新:</label>
+        <div class="col-xs-12 col-sm-8">
+            <label class="radio-inline"><input type="radio" name="row[force_update]" value="0" {if condition="empty($row.force_update)"}checked{/if}> 否（可稍后）</label>
+            <label class="radio-inline"><input type="radio" name="row[force_update]" value="1" {if condition="!empty($row.force_update)"}checked{/if}> 是</label>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">备注:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input type="text" class="form-control" name="row[remark]" value="{$row.remark|default=''|htmlentities}" placeholder="仅后台可见" maxlength="255">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">状态:</label>
+        <div class="col-xs-12 col-sm-8">
+            {:build_radios('row[status]', $statusList, $row.status|default='normal')}
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">设为当前:</label>
+        <div class="col-xs-12 col-sm-8">
+            <label class="checkbox-inline" style="padding-left:0;">
+                <input type="checkbox" name="row[set_current]" value="1" {if condition="!isset($row.set_current) || $row.set_current"}checked{/if}> 保存后立即推送给客户端
+            </label>
+            <span class="help-block">不勾选则仅存历史，需在列表点「设为当前」才会生效。</span>
+        </div>
+    </div>
+    <div class="form-group layer-footer">
+        <label class="control-label col-xs-12 col-sm-2"></label>
+        <div class="col-xs-12 col-sm-8">
+            <button type="submit" class="btn btn-success btn-embossed">{:__('OK')}</button>
+            <button type="reset" class="btn btn-default btn-embossed">{:__('Reset')}</button>
+        </div>
+    </div>
+</form>

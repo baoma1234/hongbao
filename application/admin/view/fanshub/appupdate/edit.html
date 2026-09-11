@@ -1,0 +1,66 @@
+<form id="edit-form" class="form-horizontal" role="form" data-toggle="validator" method="POST" action="">
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">平台:</label>
+        <div class="col-xs-12 col-sm-8">
+            {:build_radios('row[platform]', $platformList, $row.platform|default='android')}
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">versionName:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input type="text" class="form-control" name="row[version_name]" value="{$row.version_name|default=''|htmlentities}" placeholder="如 4.9.0" maxlength="32">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">versionCode:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input type="number" class="form-control" name="row[version_code]" data-rule="required" min="1" value="{$row.version_code|default='0'}">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">下载地址:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input type="text" class="form-control" name="row[download_url]" value="{$row.download_url|default=''|htmlentities}">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">更新说明:</label>
+        <div class="col-xs-12 col-sm-8">
+            <textarea class="form-control" name="row[update_note]" rows="3" maxlength="1000">{$row.update_note|default=''|htmlentities}</textarea>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">强制更新:</label>
+        <div class="col-xs-12 col-sm-8">
+            <label class="radio-inline"><input type="radio" name="row[force_update]" value="0" {if condition="empty($row.force_update)"}checked{/if}> 否</label>
+            <label class="radio-inline"><input type="radio" name="row[force_update]" value="1" {if condition="!empty($row.force_update)"}checked{/if}> 是</label>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">备注:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input type="text" class="form-control" name="row[remark]" value="{$row.remark|default=''|htmlentities}" maxlength="255">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">状态:</label>
+        <div class="col-xs-12 col-sm-8">
+            {:build_radios('row[status]', $statusList, $row.status|default='normal')}
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">设为当前:</label>
+        <div class="col-xs-12 col-sm-8">
+            <label class="checkbox-inline" style="padding-left:0;">
+                <input type="checkbox" name="row[set_current]" value="1" {if condition="!empty($row.set_current)"}checked{/if}> 保存后设为当前推送版本
+            </label>
+        </div>
+    </div>
+    <div class="form-group layer-footer">
+        <label class="control-label col-xs-12 col-sm-2"></label>
+        <div class="col-xs-12 col-sm-8">
+            <button type="submit" class="btn btn-success btn-embossed">{:__('OK')}</button>
+            <button type="reset" class="btn btn-default btn-embossed">{:__('Reset')}</button>
+        </div>
+    </div>
+</form>

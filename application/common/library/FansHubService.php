@@ -1393,6 +1393,71 @@ class FansHubService
         ];
     }
 
+    /**
+     * App 更新检测：优先读 fanshub_app_update 当前推送行，回退配置文件。
+     */
+    public static function publicAppUpdatePayload(array $cfg = null)
+    {
+        if ($cfg === null) {
+            $cfg = self::config() ?: [];
+        }
+        if (!is_array($cfg)) {
+            $cfg = [];
+        }
+        $fallback = self::utf8Safe($cfg['app_download_url'] ?? '');
+        $enabled = !isset($cfg['app_update_enabled']) || !empty($cfg['app_update_enabled']);
+
+        $fromCfg = function ($plat) use ($cfg, $fallback) {
+            $prefix = 'app_' . $plat . '_';
+            $url = trim((string)($cfg[$prefix . 'download_url'] ?? ''));
+            if ($url === '') {
+                $url = $fallback;
+            }
+            return [
+                'version_name' => self::utf8Safe($cfg[$prefix . 'version_name'] ?? ''),
+                'version_code' => max(0, (int)($cfg[$prefix . 'version_code'] ?? 0)),
+                'download_url' => self::utf8Safe($url),
+                'force'        => !empty($cfg[$prefix . 'force_update']),
+                'note'         => self::utf8Safe($cfg[$prefix . 'update_note'] ?? ''),
+            ];
+        };
+
+        $out = [
+            'enabled' => $enabled,
+            'android' => $fromCfg('android'),
+            'ios'     => $fromCfg('ios'),
+        ];
+
+        try {
+            foreach (['android', 'ios'] as $plat) {
+                $row = \think\Db::name('fanshub_app_update')
+                    ->where('platform', $plat)
+                    ->where('is_current', 1)
+                    ->where('status', 'normal')
+                    ->order('id', 'desc')
+                    ->find();
+                if (!$row) {
+                    continue;
+                }
+                $url = trim((string)($row['download_url'] ?? ''));
+                if ($url === '') {
+                    $url = $fallback;
+                }
+                $out[$plat] = [
+                    'version_name' => self::utf8Safe($row['version_name'] ?? ''),
+                    'version_code' => max(0, (int)($row['version_code'] ?? 0)),
+                    'download_url' => self::utf8Safe($url),
+                    'force'        => !empty($row['force_update']),
+                    'note'         => self::utf8Safe($row['update_note'] ?? ''),
+                ];
+            }
+        } catch (\Throwable $e) {
+            // 表未安装时回退配置
+        }
+
+        return $out;
+    }
+
     public static function publicConfig()
     {
         $cfg = self::config();
@@ -1472,31 +1537,7 @@ class FansHubService
                 return self::utf8Safe($raw);
             })(),
             'app_download_url'     => self::utf8Safe($cfg['app_download_url'] ?? ''),
-            'app_update'           => [
-                'enabled' => !empty($cfg['app_update_enabled']),
-                'android' => [
-                    'version_name' => self::utf8Safe($cfg['app_android_version_name'] ?? ''),
-                    'version_code' => max(0, (int)($cfg['app_android_version_code'] ?? 0)),
-                    'download_url' => self::utf8Safe(
-                        ($cfg['app_android_download_url'] ?? '') !== ''
-                            ? ($cfg['app_android_download_url'] ?? '')
-                            : ($cfg['app_download_url'] ?? '')
-                    ),
-                    'force'        => !empty($cfg['app_android_force_update']),
-                    'note'         => self::utf8Safe($cfg['app_android_update_note'] ?? ''),
-                ],
-                'ios' => [
-                    'version_name' => self::utf8Safe($cfg['app_ios_version_name'] ?? ''),
-                    'version_code' => max(0, (int)($cfg['app_ios_version_code'] ?? 0)),
-                    'download_url' => self::utf8Safe(
-                        ($cfg['app_ios_download_url'] ?? '') !== ''
-                            ? ($cfg['app_ios_download_url'] ?? '')
-                            : ($cfg['app_download_url'] ?? '')
-                    ),
-                    'force'        => !empty($cfg['app_ios_force_update']),
-                    'note'         => self::utf8Safe($cfg['app_ios_update_note'] ?? ''),
-                ],
-            ],
+            'app_update'           => self::publicAppUpdatePayload($cfg),
             'main_station_url'     => self::utf8Safe($cfg['main_station_url'] ?? ''),
             'im_ws_url'            => self::utf8Safe($cfg['im_ws_url'] ?? ''),
             'yxx_enabled'          => !empty($cfg['yxx_enabled']),
