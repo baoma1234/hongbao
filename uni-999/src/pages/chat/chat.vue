@@ -3058,17 +3058,18 @@ let desktopImageIngestLock = false
  * 电脑端：截图 / 资源管理器复制 / 网页复制 / 拖放 → 待发图
  * @returns {boolean} 是否已消费（应 preventDefault）
  */
-function ingestDesktopImagePayload(dt) {
+function ingestDesktopImagePayload(dt, opts) {
   // #ifdef H5
   if (!dt || !roomAlive) return false
   const now = Date.now()
-  if (desktopImageIngestLock || now - lastDesktopImageIngestAt < 600) return true
+  if (desktopImageIngestLock || now - lastDesktopImageIngestAt < 800) return true
   desktopImageIngestLock = true
   lastDesktopImageIngestAt = now
+  const multi = !!(opts && opts.multi)
   try {
     let digested
     try {
-      digested = digestClipboardPayload(dt)
+      digested = digestClipboardPayload(dt, { multi })
     } catch (e) {
       return false
     }
@@ -3076,7 +3077,8 @@ function ingestDesktopImagePayload(dt) {
     const files = (digested && digested.files) || []
     if (!reuse.length && !files.length) return false
     if (reuse.length) addPendingReuseImages(reuse)
-    if (files.length) pasteExternalImageFiles(files)
+    // Ctrl+V：最多 1 张；拖放可多张
+    if (files.length) pasteExternalImageFiles(multi ? files : files.slice(0, 1))
     return true
   } finally {
     desktopImageIngestLock = false
@@ -3088,37 +3090,37 @@ function ingestDesktopImagePayload(dt) {
 }
 
 function onComposerPaste(e) {
-  // H5：页面级 document paste 已统一处理；此处仅兜底（避免与 document 重复贴两张）
+  // H5：只拦截默认插入，真正入库只走 document 捕获（杜绝贴两张）
   // #ifdef H5
-  if (h5DesktopImageBound) {
-    try {
-      const ev = e && (e.clipboardData || (e.detail && e.detail.clipboardData) || e)
-      const cd = (ev && ev.clipboardData) || (typeof e === 'object' && e.clipboardData) || null
-      if (cd) {
-        const dig = digestClipboardPayload(cd)
-        if (dig && (dig.files.length || dig.reuse.length || dig.consumedText)) {
-          if (e && typeof e.preventDefault === 'function') e.preventDefault()
-          if (e && typeof e.stopPropagation === 'function') e.stopPropagation()
-        }
-      }
-    } catch (err) {
-      /* ignore */
-    }
-    return
-  }
   try {
     const ev = e && (e.clipboardData || (e.detail && e.detail.clipboardData) || e)
     const cd = (ev && ev.clipboardData) || (typeof e === 'object' && e.clipboardData) || null
-    if (cd && ingestDesktopImagePayload(cd)) {
+    if (!cd) return
+    if (h5DesktopImageBound) {
+      // document 已处理或即将处理；这里只阻止 textarea 插入乱码
+      if (clipboardLooksLikeImage(cd)) {
+        if (e && typeof e.preventDefault === 'function') e.preventDefault()
+        if (e && typeof e.stopPropagation === 'function') e.stopPropagation()
+      }
+      return
+    }
+    if (ingestDesktopImagePayload(cd)) {
       if (e && typeof e.preventDefault === 'function') e.preventDefault()
       if (e && typeof e.stopPropagation === 'function') e.stopPropagation()
-      return
     }
   } catch (err) {
     /* fallthrough */
   }
   // #endif
-  // App / 通用：粘贴后 text 里可能出现标记，交给 watch 处理
+}
+
+function clipboardLooksLikeImage(cd) {
+  try {
+    const dig = digestClipboardPayload(cd, { multi: false })
+    return !!(dig && (dig.files.length || dig.reuse.length || dig.consumedText))
+  } catch (e) {
+    return false
+  }
 }
 
 /** @returns {number} 实际加入张数 */
@@ -3180,35 +3182,25 @@ function pasteExternalImageFiles(files) {
 }
 
 // #ifdef H5
-/** 页面级粘贴：焦点不在输入框时 Ctrl+V 也能贴图 */
+/** 页面级粘贴：唯一入库入口（捕获阶段） */
 function onDocumentPasteImage(e) {
   if (!roomAlive || !e) return
-  // 其它可编辑区（如公告编辑）放过
   try {
     const t = e.target
     if (t) {
+      if (t.isContentEditable) return
       const tag = String(t.tagName || '').toLowerCase()
-      const editable =
-        t.isContentEditable ||
-        tag === 'input' ||
-        (tag === 'textarea' && t.id !== 'chatInput' && !(t.className && String(t.className).indexOf('input-box') >= 0))
-      if (editable && tag !== 'textarea') return
-      // 输入框内由 @paste 处理；若 uni 未带上 clipboardData，这里兜底
-      if (tag === 'textarea' || (t.classList && t.classList.contains('uni-textarea-textarea'))) {
-        const cd = e.clipboardData
-        if (cd && ingestDesktopImagePayload(cd)) {
-          e.preventDefault()
-          e.stopPropagation()
-        }
-        return
-      }
+      if (tag === 'input') return
+      // 绑定仅在聊天页存活；若粘贴目标不在聊天页则放过
+      if (typeof t.closest === 'function' && !t.closest('.chat-room-page')) return
     }
   } catch (err) {
     /* continue */
   }
   const cd = e.clipboardData
-  if (cd && ingestDesktopImagePayload(cd)) {
+  if (cd && ingestDesktopImagePayload(cd, { multi: false })) {
     e.preventDefault()
+    e.stopPropagation()
   }
 }
 
@@ -3234,21 +3226,23 @@ function onDocumentDropImage(e) {
   if (!roomAlive || !e) return
   const dt = e.dataTransfer
   if (!dt) return
-  if (ingestDesktopImagePayload(dt)) {
+  if (ingestDesktopImagePayload(dt, { multi: true })) {
     e.preventDefault()
     e.stopPropagation()
   }
 }
 
 function bindH5DesktopImageIngest() {
-  if (h5DesktopImageBound || typeof document === 'undefined') return
+  if (typeof document === 'undefined') return
+  // 先卸再绑，避免 keep-alive / 重复 onLoad 叠两个监听 → 第一次贴两张
+  unbindH5DesktopImageIngest()
   document.addEventListener('paste', onDocumentPasteImage, true)
   document.addEventListener('dragover', onDocumentDragOverImage, true)
   document.addEventListener('drop', onDocumentDropImage, true)
   h5DesktopImageBound = true
 }
 function unbindH5DesktopImageIngest() {
-  if (!h5DesktopImageBound || typeof document === 'undefined') return
+  if (typeof document === 'undefined') return
   document.removeEventListener('paste', onDocumentPasteImage, true)
   document.removeEventListener('dragover', onDocumentDragOverImage, true)
   document.removeEventListener('drop', onDocumentDropImage, true)

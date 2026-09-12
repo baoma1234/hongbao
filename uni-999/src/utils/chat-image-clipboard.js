@@ -174,12 +174,16 @@ function pushUniqueFile(files, f, seen) {
 /**
  * 从 DataTransfer / ClipboardData 收集图片 File（截图、资源管理器、网页拖放）
  * @param {DataTransfer|ClipboardEvent['clipboardData']|null} dt
+ * @param {{ singleImage?: boolean }} [opts] 粘贴时 true：剪贴板多编码（png+bmp）只留一张
  * @returns {File[]}
  */
-export function collectImageFilesFromDataTransfer(dt) {
+export function collectImageFilesFromDataTransfer(dt, opts) {
+  const singleImage = !!(opts && opts.singleImage)
   const files = []
   const seen = {}
   if (!dt) return files
+
+  const fromItems = []
   try {
     const items = dt.items
     if (items && items.length) {
@@ -188,24 +192,62 @@ export function collectImageFilesFromDataTransfer(dt) {
         if (!it) continue
         if (it.kind === 'file' && String(it.type || '').indexOf('image/') === 0) {
           const f = typeof it.getAsFile === 'function' ? it.getAsFile() : null
-          pushUniqueFile(files, f, seen)
+          if (f && isImageFile(f)) fromItems.push(f)
         }
       }
     }
   } catch (e) {
     /* ignore */
   }
+
+  if (fromItems.length) {
+    if (singleImage || fromItems.length > 1) {
+      // Win 剪贴板常同时有 image/png + image/bmp（同图不同编码）→ 只留最优一张
+      fromItems.sort((a, b) => scoreImageMime(b && b.type) - scoreImageMime(a && a.type))
+      pushUniqueFile(files, fromItems[0], seen)
+      if (!singleImage) {
+        // 拖放多文件：同 size+空名视为重复编码，跳过；有真实文件名则追加
+        for (let i = 1; i < fromItems.length; i++) {
+          const f = fromItems[i]
+          const n = String((f && f.name) || '').trim()
+          const generic = !n || /^image\.(png|jpe?g|bmp|webp)$/i.test(n) || n === 'image'
+          if (generic && files[0] && Number(f.size) === Number(files[0].size)) continue
+          if (generic && files[0] && scoreImageMime(f.type) < scoreImageMime(files[0].type)) continue
+          // 无文件名的额外 image/* 一律视为同图多格式
+          if (generic) continue
+          pushUniqueFile(files, f, seen)
+        }
+      }
+    } else {
+      pushUniqueFile(files, fromItems[0], seen)
+    }
+    // items 已有图时不再读 files（常与 items 重复）
+    return files
+  }
+
   try {
     const list = dt.files
     if (list && list.length) {
       for (let i = 0; i < list.length; i++) {
         pushUniqueFile(files, list[i], seen)
+        if (singleImage && files.length) break
       }
     }
   } catch (e2) {
     /* ignore */
   }
   return files
+}
+
+function scoreImageMime(type) {
+  const t = String(type || '').toLowerCase()
+  if (t === 'image/png') return 100
+  if (t === 'image/webp') return 90
+  if (t === 'image/jpeg' || t === 'image/jpg') return 80
+  if (t === 'image/gif') return 70
+  if (t === 'image/bmp' || t === 'image/x-bmp' || t === 'image/x-ms-bmp') return 20
+  if (t.indexOf('image/') === 0) return 40
+  return 0
 }
 
 /**
@@ -306,11 +348,14 @@ export function extractImagesFromClipboardText(text) {
 
 /**
  * 统一消化一次粘贴 / 拖放的 DataTransfer
+ * @param {DataTransfer|null} dt
+ * @param {{ multi?: boolean }} [opts] multi=true 用于拖放多文件
  * @returns {{ reuse: object[], files: File[], consumedText: boolean }}
  */
-export function digestClipboardPayload(dt) {
+export function digestClipboardPayload(dt, opts) {
   const empty = { reuse: [], files: [], consumedText: false }
   if (!dt) return empty
+  const multi = !!(opts && opts.multi)
   let plain = ''
   let html = ''
   try {
@@ -329,19 +374,23 @@ export function digestClipboardPayload(dt) {
     return { reuse: fromText.reuse, files: [], consumedText: true }
   }
 
-  const files = collectImageFilesFromDataTransfer(dt)
+  const files = collectImageFilesFromDataTransfer(dt, { singleImage: !multi })
   const fromHtml = extractImagesFromClipboardHtml(html)
-  const reuse = fromHtml.reuse.slice()
   // 截图/复制图时常同时带 image/* 与 html data URL，只取位图，避免同一张贴两次
-  const allFiles = files.length ? files : fromHtml.files
+  const allFiles = files.length ? files : fromHtml.files.slice(0, multi ? 5 : 1)
   const seen = {}
   const uniqFiles = []
   for (let i = 0; i < allFiles.length; i++) {
     pushUniqueFile(uniqFiles, allFiles[i], seen)
   }
   return {
-    reuse: files.length ? [] : reuse,
+    reuse: files.length ? [] : reuseLimited(fromHtml.reuse, multi ? 5 : 1),
     files: uniqFiles,
-    consumedText: fromText.markerHit || (!files.length && reuse.length > 0) || uniqFiles.length > 0,
+    consumedText: fromText.markerHit || (!files.length && fromHtml.reuse.length > 0) || uniqFiles.length > 0,
   }
+}
+
+function reuseLimited(list, n) {
+  const arr = Array.isArray(list) ? list : []
+  return arr.slice(0, Math.max(1, n | 0))
 }
