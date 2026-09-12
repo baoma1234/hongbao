@@ -1,4 +1,83 @@
 define(['jquery', 'bootstrap', 'backend', 'form'], function ($, undefined, Backend, Form) {
+    var MAX_PREVIEW = 5;
+
+    function absUrl(u) {
+        u = $.trim(u || '');
+        if (!u) return '';
+        if (/^https?:\/\//i.test(u) || u.indexOf('data:') === 0) return u;
+        if (u.charAt(0) === '/') {
+            try {
+                if (typeof Fast !== 'undefined' && Fast.api && Fast.api.cdnurl) {
+                    return Fast.api.cdnurl(u, true) || (location.origin + u);
+                }
+            } catch (e) {}
+            return location.origin + u;
+        }
+        return u;
+    }
+
+    function parsePreviewList() {
+        var raw = $.trim($('#preview_urls').val() || '');
+        if (!raw) return [];
+        var parts = raw.split(/[\r\n,]+/);
+        var out = [];
+        var seen = {};
+        for (var i = 0; i < parts.length; i++) {
+            var u = $.trim(parts[i] || '');
+            if (!u) continue;
+            var full = absUrl(u);
+            if (!full || seen[full]) continue;
+            seen[full] = 1;
+            out.push(full);
+            if (out.length >= MAX_PREVIEW) break;
+        }
+        return out;
+    }
+
+    function syncPreviewInput(list) {
+        var lim = (list || []).slice(0, MAX_PREVIEW);
+        $('#preview_urls').val(lim.join(','));
+        renderThumbs(lim);
+    }
+
+    function renderThumbs(list) {
+        var $box = $('#preview-thumbs');
+        if (!$box.length) return;
+        list = list || parsePreviewList();
+        if (!list.length) {
+            $box.empty();
+            return;
+        }
+        var html = '';
+        for (var i = 0; i < list.length; i++) {
+            var u = list[i];
+            html += '<div class="videosend-thumb" data-idx="' + i + '">'
+                + '<img src="' + $('<div/>').text(u).html() + '" alt="">'
+                + '<a href="javascript:;" class="videosend-thumb-del" title="移除" data-idx="' + i + '">&times;</a>'
+                + '</div>';
+        }
+        $box.html(html);
+    }
+
+    function openPhotos(start) {
+        var list = parsePreviewList();
+        if (!list.length) return;
+        var data = [];
+        for (var i = 0; i < list.length; i++) {
+            data.push({ src: list[i], thumb: list[i] });
+        }
+        var idx = Math.max(0, Math.min(list.length - 1, start | 0));
+        try {
+            Layer.photos({
+                photos: { title: '预览图', data: data, start: idx },
+                anim: 5,
+                shade: 0.5
+            });
+        } catch (e) {
+            window.open(list[idx], '_blank');
+        }
+    }
+
     var Controller = {
         index: function () {
             Form.api.bindevent($('#videosend-form'));
@@ -16,23 +95,42 @@ define(['jquery', 'bootstrap', 'backend', 'form'], function ($, undefined, Backe
             $('input[name="conversation_type"]').on('change', syncTarget);
             syncTarget();
 
-            // 上传预览图后追加到 textarea
-            $(document).on('change', '#preview_upload_tmp', function () {
-                var u = $.trim($(this).val() || '');
-                if (!u) return;
-                var $ta = $('#preview_urls');
-                var cur = $.trim($ta.val() || '');
-                var lines = cur ? cur.split(/\r\n|\n|\r/) : [];
-                if (lines.length >= 5) {
-                    Toastr.warning('预览图最多 5 张');
-                    $(this).val('');
-                    return;
+            // 上传/图库选择后：限制 5 张并刷新缩略图
+            $('#preview_urls').on('change input', function () {
+                var list = parsePreviewList();
+                if (list.length > MAX_PREVIEW) {
+                    Toastr.warning('预览图最多 ' + MAX_PREVIEW + ' 张');
                 }
-                if (lines.indexOf(u) < 0) {
-                    lines.push(u);
-                    $ta.val(lines.join('\n'));
+                syncPreviewInput(list);
+            });
+            renderThumbs();
+
+            // 点缩略图浏览；点 × 移除
+            $('#preview-thumbs').on('click', '.videosend-thumb-del', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var idx = parseInt($(this).data('idx'), 10) || 0;
+                var list = parsePreviewList();
+                list.splice(idx, 1);
+                syncPreviewInput(list);
+            }).on('click', '.videosend-thumb', function (e) {
+                if ($(e.target).closest('.videosend-thumb-del').length) return;
+                openPhotos(parseInt($(this).data('idx'), 10) || 0);
+            });
+
+            // faupload 预览区点击也可放大（代理）
+            $('#p-preview-imgs').on('click', 'li img, img', function (e) {
+                e.preventDefault();
+                var src = absUrl($(this).attr('src') || '');
+                var list = parsePreviewList();
+                var idx = 0;
+                for (var i = 0; i < list.length; i++) {
+                    if (list[i] === src || list[i].indexOf(src) >= 0 || src.indexOf(list[i]) >= 0) {
+                        idx = i;
+                        break;
+                    }
                 }
-                $(this).val('');
+                openPhotos(idx);
             });
 
             $('#videosend-form').on('submit', function (e) {
@@ -40,9 +138,9 @@ define(['jquery', 'bootstrap', 'backend', 'form'], function ($, undefined, Backe
                 var agent = parseInt($('#agent_user_id').val(), 10) || 0;
                 var ctype = parseInt($('input[name="conversation_type"]:checked').val(), 10) || 2;
                 var url = $.trim($('#video_url').val() || '');
-                var thumb = $.trim($('#thumb_url').val() || '');
+                var thumb = absUrl($('#thumb_url').val() || '');
                 var content = $.trim($('#content').val() || '');
-                var previewRaw = $.trim($('#preview_urls').val() || '');
+                var images = parsePreviewList();
                 if (!agent) {
                     Toastr.error('请选择托管账号');
                     return false;
@@ -56,16 +154,6 @@ define(['jquery', 'bootstrap', 'backend', 'form'], function ($, undefined, Backe
                     return false;
                 }
 
-                var images = [];
-                if (previewRaw) {
-                    previewRaw.split(/\r\n|\n|\r/).forEach(function (line) {
-                        var u = $.trim(line || '');
-                        if (u && /^https?:\/\//i.test(u) && images.length < 5) {
-                            images.push({ url: u, fullurl: u });
-                        }
-                    });
-                }
-
                 var extra = { url: url, fullurl: url };
                 if (thumb) {
                     extra.thumb = thumb;
@@ -75,13 +163,15 @@ define(['jquery', 'bootstrap', 'backend', 'form'], function ($, undefined, Backe
                     extra.caption = content;
                 }
                 if (images.length) {
-                    extra.images = images;
+                    extra.images = images.map(function (u) {
+                        return { url: u, fullurl: u };
+                    });
                     extra.count = images.length;
-                    extra.image_urls = images.map(function (x) { return x.url; });
-                    extra.image_fullurls = images.map(function (x) { return x.fullurl; });
+                    extra.image_urls = images.slice();
+                    extra.image_fullurls = images.slice();
                     if (!thumb) {
-                        extra.thumb = images[0].url;
-                        extra.poster = images[0].url;
+                        extra.thumb = images[0];
+                        extra.poster = images[0];
                     }
                 }
 
@@ -90,7 +180,7 @@ define(['jquery', 'bootstrap', 'backend', 'form'], function ($, undefined, Backe
                     conversation_type: ctype,
                     msg_type: 5,
                     content: content || '[视频]',
-                    preview_urls: previewRaw,
+                    preview_urls: images.join('\n'),
                     video_url: url,
                     thumb_url: thumb,
                     extra: JSON.stringify(extra)

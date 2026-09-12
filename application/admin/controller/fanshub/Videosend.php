@@ -91,9 +91,17 @@ class Videosend extends Imagent
         }
         $previewRaw = trim((string)$this->request->post('preview_urls', ''));
         if ($previewRaw !== '') {
-            $lines = preg_split('/\r\n|\n|\r/', $previewRaw);
+            $lines = preg_split('/[\r\n,]+/', $previewRaw);
             foreach ($lines as $line) {
                 $u = trim((string)$line);
+                if ($u === '') {
+                    continue;
+                }
+                if (!preg_match('#^https?://#i', $u)) {
+                    if (strpos($u, '/uploads/') === 0 && class_exists('\\app\\common\\library\\OssService')) {
+                        $u = \app\common\library\OssService::fullUrl($u, '');
+                    }
+                }
                 if ($u === '' || !preg_match('#^https?://#i', $u)) {
                     continue;
                 }

@@ -54,16 +54,34 @@
             <div class="form-group">
                 <label class="control-label col-xs-12 col-sm-2">预览图（可选）</label>
                 <div class="col-xs-12 col-sm-8">
-                    <textarea class="form-control" name="preview_urls" id="preview_urls" rows="4" placeholder="每行一个图片 URL，最多 5 张；展示在视频上方"></textarea>
-                    <div class="input-group" style="margin-top:8px;">
-                        <input type="text" class="form-control" id="preview_upload_tmp" placeholder="上传后追加到上方列表">
-                        <div class="input-group-btn">
-                            <button type="button" class="btn btn-default faupload" data-input-id="preview_upload_tmp" data-mimetype="image/*" data-multiple="false" id="btn-preview-upload">
-                                <i class="fa fa-upload"></i> 上传图片
-                            </button>
+                    <div class="input-group">
+                        <input type="text" class="form-control" name="preview_urls" id="preview_urls" placeholder="多图逗号分隔，最多 5 张；也可粘贴 URL">
+                        <div class="input-group-addon no-border no-padding">
+                            <span>
+                                <button type="button" id="faupload-preview" class="btn btn-danger faupload"
+                                        data-input-id="preview_urls"
+                                        data-mimetype="image/gif,image/jpeg,image/png,image/jpg,image/bmp,image/webp"
+                                        data-multiple="true"
+                                        data-maxcount="5"
+                                        data-preview-id="p-preview-imgs">
+                                    <i class="fa fa-upload"></i> 多选上传
+                                </button>
+                            </span>
+                            <span>
+                                <button type="button" id="fachoose-preview" class="btn btn-primary fachoose"
+                                        data-input-id="preview_urls"
+                                        data-mimetype="image/*"
+                                        data-multiple="true"
+                                        data-maxcount="5"
+                                        data-preview-id="p-preview-imgs">
+                                    <i class="fa fa-list"></i> 浏览图库
+                                </button>
+                            </span>
                         </div>
                     </div>
-                    <span class="help-block">客户端先显示预览图，下方再播视频。</span>
+                    <ul class="row list-inline faupload-preview" id="p-preview-imgs" style="margin-top:8px;"></ul>
+                    <div id="preview-thumbs" class="videosend-thumbs" style="margin-top:8px;"></div>
+                    <span class="help-block">客户端先显示预览图（最多 5 张），下方再播视频；点击缩略图可放大浏览。</span>
                 </div>
             </div>
 
@@ -79,13 +97,24 @@
                 <label class="control-label col-xs-12 col-sm-2">封面图（可选）</label>
                 <div class="col-xs-12 col-sm-8">
                     <div class="input-group">
-                        <input type="text" class="form-control" name="thumb_url" id="thumb_url" placeholder="https://.../cover.jpg（播放器 poster）">
-                        <div class="input-group-btn">
-                            <button type="button" class="btn btn-default faupload" data-input-id="thumb_url" data-mimetype="image/*" data-multiple="false">
-                                <i class="fa fa-upload"></i> 上传
-                            </button>
+                        <input type="text" class="form-control" name="thumb_url" id="thumb_url" placeholder="播放器 poster，可空">
+                        <div class="input-group-addon no-border no-padding">
+                            <span>
+                                <button type="button" class="btn btn-danger faupload" data-input-id="thumb_url"
+                                        data-mimetype="image/gif,image/jpeg,image/png,image/jpg,image/bmp,image/webp"
+                                        data-multiple="false" data-preview-id="p-thumb">
+                                    <i class="fa fa-upload"></i> 上传
+                                </button>
+                            </span>
+                            <span>
+                                <button type="button" class="btn btn-primary fachoose" data-input-id="thumb_url"
+                                        data-mimetype="image/*" data-multiple="false" data-preview-id="p-thumb">
+                                    <i class="fa fa-list"></i> 浏览
+                                </button>
+                            </span>
                         </div>
                     </div>
+                    <ul class="row list-inline faupload-preview" id="p-thumb" style="margin-top:8px;"></ul>
                 </div>
             </div>
 
@@ -111,3 +140,17 @@
         </div>
     </div>
 </div>
+<style>
+.videosend-thumbs { display:flex; flex-wrap:wrap; gap:8px; }
+.videosend-thumb {
+  position:relative; width:88px; height:88px; border:1px solid #e5e5e5; border-radius:6px;
+  overflow:hidden; background:#f7f7f7; cursor:zoom-in;
+}
+.videosend-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+.videosend-thumb-del {
+  position:absolute; top:2px; right:4px; width:20px; height:20px; line-height:18px; text-align:center;
+  background:rgba(0,0,0,.55); color:#fff; border-radius:50%; font-size:14px; text-decoration:none;
+}
+.videosend-thumb-del:hover { background:#d9534f; color:#fff; }
+#p-preview-imgs img { max-width:88px; max-height:88px; cursor:zoom-in; }
+</style>
