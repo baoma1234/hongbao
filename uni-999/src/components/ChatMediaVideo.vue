@@ -186,18 +186,25 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .chat-media-video-wrap {
-  position: relative;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   width: 100%;
+  height: 100%;
   max-width: none;
 }
 .chat-media-video {
   width: 100%;
+  height: 100%;
   max-width: none;
-  min-height: 180px;
-  max-height: min(72vh, 520px);
-  border-radius: 8px;
+  min-height: 0;
+  max-height: none;
+  border-radius: 0;
   background: #000;
   display: block;
+  object-fit: contain;
 }
 .chat-media-video-err {
   position: absolute;
@@ -210,7 +217,7 @@ onBeforeUnmount(() => {
   background: rgba(0, 0, 0, 0.72);
   color: #fff;
   font-size: 12px;
-  border-radius: 8px;
+  border-radius: 0;
   padding: 8px;
   text-align: center;
 }

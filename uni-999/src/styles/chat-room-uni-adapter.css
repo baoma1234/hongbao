@@ -284,12 +284,11 @@
   min-width: 0;
 }
 
-/* 视频消息：扣本侧头像+间距，右边再空出一个头像宽（40+8） */
+/* 视频消息：卡片宽约 320，右侧再空一头像 */
 .chat-room-page .chat-msg-row.is-video-full .chat-msg-main {
   flex: 0 1 auto;
-  /* 40 头像 + 8 gap + 40 对侧留白 + 8 */
-  width: calc(100% - 96px);
-  max-width: calc(100% - 96px) !important;
+  width: min(320px, calc(100% - 96px));
+  max-width: min(320px, calc(100% - 96px)) !important;
   min-width: 0;
 }
 
@@ -376,52 +375,62 @@
   width: 100% !important;
   max-width: 100% !important;
   box-sizing: border-box;
-  padding: 6px !important;
-  background: #fff !important;
+  padding: 0 !important;
+  background: transparent !important;
   color: #111 !important;
+  box-shadow: none !important;
 }
 
 .chat-room-page .chat-msg-row.me .chat-bubble.media.is-video-full {
-  background: #fff !important;
+  background: transparent !important;
   color: #111 !important;
 }
 
-.chat-room-page .chat-media-video-wrap,
+.chat-room-page .chat-video-card {
+  width: 100%;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #111;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.chat-room-page .chat-media-video-wrap {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+}
+
 .chat-room-page .chat-media-video-wrap .chat-media-video,
 .chat-room-page .chat-media-video {
   width: 100% !important;
+  height: 100% !important;
   max-width: none !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  border-radius: 0 !important;
+  background: #000;
+  object-fit: contain;
   box-sizing: border-box;
 }
 
-.chat-room-page .chat-media-video {
-  min-height: 180px;
-  max-height: min(72vh, 520px);
-  height: auto;
-  border-radius: 8px;
-  background: #000;
-}
-
-.chat-room-page .chat-video-stack {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-}
 .chat-room-page .chat-video-previews {
   display: grid;
-  gap: 2px;
+  gap: 1.5px;
   width: 100%;
   overflow: hidden;
-  border-radius: 8px 8px 0 0;
-  background: #d0d0d0;
+  background: #111;
 }
 .chat-room-page .chat-video-preview-cell {
   position: relative;
   overflow: hidden;
-  background: #c8c8c8;
+  background: #1c1c1e;
   min-width: 0;
   min-height: 0;
-  aspect-ratio: 1 / 1;
 }
 .chat-room-page .chat-video-preview-img {
   display: block;
@@ -430,33 +439,77 @@
 }
 .chat-room-page .chat-video-previews.vn1 {
   grid-template-columns: 1fr;
+  height: 168px;
 }
-.chat-room-page .chat-video-previews.vn1 .chat-video-preview-cell {
-  aspect-ratio: 16 / 10;
+.chat-room-page .chat-video-previews.vn2 {
+  grid-template-columns: 1fr 1fr;
+  height: 156px;
 }
-.chat-room-page .chat-video-previews.vn2,
-.chat-room-page .chat-video-previews.vn3,
-.chat-room-page .chat-video-previews.vn4,
+.chat-room-page .chat-video-previews.vn3 {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 128px 112px;
+}
+.chat-room-page .chat-video-previews.vn3 .chat-video-preview-cell:nth-child(3) {
+  grid-column: 1 / -1;
+}
+.chat-room-page .chat-video-previews.vn4 {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 118px 118px;
+}
 .chat-room-page .chat-video-previews.vn5 {
   grid-template-columns: 1fr 1fr;
+  grid-template-rows: 104px 104px 100px;
 }
-.chat-room-page .chat-video-previews.vn3 .chat-video-preview-cell:nth-child(3),
 .chat-room-page .chat-video-previews.vn5 .chat-video-preview-cell:nth-child(5) {
   grid-column: 1 / -1;
-  aspect-ratio: 16 / 9;
 }
 .chat-room-page .chat-video-player-row {
+  position: relative;
   width: 100%;
-  margin-top: 2px;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  overflow: hidden;
+}
+.chat-room-page .chat-video-card.has-previews .chat-video-player-row {
+  border-top: 1.5px solid #111;
+}
+.chat-room-page .chat-video-time-badge {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 2;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+.chat-room-page .chat-video-time-badge text,
+.chat-room-page .chat-video-time-badge uni-text {
+  font-size: 11px !important;
+  line-height: 1.3 !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+  opacity: 1 !important;
+}
+.chat-room-page .chat-video-footer {
+  background: #fff;
+  padding: 8px 10px 6px;
+}
+.chat-room-page .chat-video-footer-meta {
+  display: block;
+  margin-top: 4px;
+  text-align: right;
+  font-size: 11px;
+  line-height: 1.2;
+  color: #8e8e93;
 }
 
 .chat-room-page .chat-media-caption {
   display: block !important;
-  margin-top: 8px;
-  padding: 2px 4px 0;
-  color: #111 !important;
-  font-size: 15px !important;
-  line-height: 1.45 !important;
+  margin-top: 0;
+  padding: 0;
+  color: #1c1c1e !important;
+  font-size: 14px !important;
+  line-height: 1.4 !important;
   word-break: break-word;
   white-space: pre-wrap !important;
 }
@@ -465,7 +518,7 @@
 .chat-room-page .chat-media-caption uni-text,
 .chat-room-page .chat-bubble.media.is-video-full .chat-media-caption,
 .chat-room-page .chat-msg-row.me .chat-bubble.media.is-video-full .chat-media-caption {
-  color: #111 !important;
+  color: #1c1c1e !important;
 }
 
 /* 红包卡：确保 uni view 也能吃到 luxury 布局 */

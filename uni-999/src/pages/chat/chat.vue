@@ -199,8 +199,7 @@
                   class="chat-bubble media is-video-full"
                   @longpress.stop="onMsgLongPress(m, $event)"
                 >
-                  <!-- Telegram 对齐：预览图分行 → 视频一行 → 文案一行 -->
-                  <view class="chat-video-stack">
+                  <view class="chat-video-card" :class="{ 'has-previews': mediaVideoPreviews(m).length > 0, 'has-caption': !!mediaCaption(m) }">
                     <view
                       v-if="mediaVideoPreviews(m).length"
                       class="chat-video-previews"
@@ -217,18 +216,23 @@
                     </view>
                     <view class="chat-video-player-row">
                       <ChatMediaVideo :src="mediaUrl(m)" :poster="mediaPoster(m)" />
+                      <view v-if="!mediaCaption(m)" class="chat-video-time-badge">
+                        <text>{{ msgTime(m) }}</text>
+                      </view>
                     </view>
-                    <view v-if="mediaCaption(m)" class="chat-media-caption chat-video-caption-row">
-                      <template v-for="(p, i) in splitTextLinks(mediaCaption(m))" :key="'vc' + msgId(m) + '-' + i">
-                        <view v-if="p.t === 'br'" class="content-br" />
-                        <text
-                          v-else
-                          :class="{ 'content-link': p.t === 'link' }"
-                          @click.stop="p.t === 'link' && openMsgLink(p.v)"
-                        >{{ p.v }}</text>
-                      </template>
+                    <view v-if="mediaCaption(m)" class="chat-video-footer">
+                      <view class="chat-media-caption chat-video-caption-row">
+                        <template v-for="(p, i) in splitTextLinks(mediaCaption(m))" :key="'vc' + msgId(m) + '-' + i">
+                          <view v-if="p.t === 'br'" class="content-br" />
+                          <text
+                            v-else
+                            :class="{ 'content-link': p.t === 'link' }"
+                            @click.stop="p.t === 'link' && openMsgLink(p.v)"
+                          >{{ p.v }}</text>
+                        </template>
+                      </view>
+                      <text class="chat-video-footer-meta">{{ msgTime(m) }}</text>
                     </view>
-                    <text class="meta">{{ msgTime(m) }}</text>
                   </view>
                 </view>
                 <view v-else-if="isFile(m)" class="chat-bubble media file" @longpress.stop="onMsgLongPress(m, $event)" @click="openFileMsg(m)">
@@ -5753,88 +5757,122 @@ uni-page-body {
   display: block;
   margin-top: 8px;
   padding: 0 4px;
-  font-size: 15px;
-  line-height: 1.45;
-  color: #111;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #1c1c1e;
   word-break: break-word;
   white-space: pre-wrap;
 }
-/* 视频消息：图 / 视频 / 文案各占一排（对齐 Telegram） */
-.chat-video-stack {
-  display: flex;
-  flex-direction: column;
+/* —— 视频消息：Telegram 一体媒体卡 —— */
+.chat-video-card {
   width: 100%;
-  gap: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #111;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 .chat-video-previews {
   display: grid;
-  gap: 2px;
+  gap: 1.5px;
   width: 100%;
   overflow: hidden;
-  border-radius: 8px 8px 0 0;
-  background: #d0d0d0;
+  background: #111;
 }
 .chat-video-preview-cell {
   position: relative;
   overflow: hidden;
-  background: #c8c8c8;
+  background: #1c1c1e;
   min-width: 0;
   min-height: 0;
-  aspect-ratio: 1 / 1;
 }
 .chat-video-preview-img {
   display: block;
   width: 100%;
   height: 100%;
 }
-/* 1 张：整行 */
+/* 1 张 */
 .chat-video-previews.vn1 {
   grid-template-columns: 1fr;
+  height: 168px;
 }
-.chat-video-previews.vn1 .chat-video-preview-cell {
-  aspect-ratio: 16 / 10;
-}
-/* 2 张：一排两个 */
+/* 2 张：并排 */
 .chat-video-previews.vn2 {
   grid-template-columns: 1fr 1fr;
+  height: 156px;
 }
-/* 3 张：上边两个一排，第三张单独一排 */
+/* 3 张：上二下一 */
 .chat-video-previews.vn3 {
   grid-template-columns: 1fr 1fr;
+  grid-template-rows: 128px 112px;
 }
 .chat-video-previews.vn3 .chat-video-preview-cell:nth-child(3) {
   grid-column: 1 / -1;
-  aspect-ratio: 16 / 9;
 }
-/* 4 张：两排各两个 */
+/* 4 张：2×2 */
 .chat-video-previews.vn4 {
   grid-template-columns: 1fr 1fr;
+  grid-template-rows: 118px 118px;
 }
-/* 5 张：两排各两个 + 第五张单独一排 */
+/* 5 张：2+2+1 */
 .chat-video-previews.vn5 {
   grid-template-columns: 1fr 1fr;
+  grid-template-rows: 104px 104px 100px;
 }
 .chat-video-previews.vn5 .chat-video-preview-cell:nth-child(5) {
   grid-column: 1 / -1;
-  aspect-ratio: 16 / 9;
 }
 .chat-video-player-row {
+  position: relative;
   width: 100%;
-  margin-top: 2px;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  overflow: hidden;
+}
+.chat-video-card.has-previews .chat-video-player-row {
+  border-top: 1.5px solid #111;
+}
+.chat-video-time-badge {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 2;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+.chat-video-time-badge text {
+  font-size: 11px;
+  line-height: 1.3;
+  color: rgba(255, 255, 255, 0.92);
+}
+.chat-video-footer {
+  background: #fff;
+  padding: 8px 10px 6px;
 }
 .chat-video-caption-row {
-  margin-top: 8px;
+  margin: 0;
+  padding: 0;
+}
+.chat-video-footer-meta {
+  display: block;
+  margin-top: 4px;
+  text-align: right;
+  font-size: 11px;
+  line-height: 1.2;
+  color: #8e8e93;
 }
 .chat-bubble.media.is-video-full {
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  padding: 4px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
-/* 与 adapter 一致：视频主列右侧空出一个头像宽 */
 .chat-msg-row.is-video-full .chat-msg-main {
-  width: calc(100% - 96px);
-  max-width: calc(100% - 96px);
+  width: min(320px, calc(100% - 96px));
+  max-width: min(320px, calc(100% - 96px));
 }
 .chat-media-album {
   display: flex;
