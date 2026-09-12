@@ -5831,6 +5831,11 @@ uni-page-body {
   box-sizing: border-box;
   padding: 4px !important;
 }
+/* 与 adapter 一致：视频主列右侧空出一个头像宽 */
+.chat-msg-row.is-video-full .chat-msg-main {
+  width: calc(100% - 96px);
+  max-width: calc(100% - 96px);
+}
 .chat-media-album {
   display: flex;
   flex-wrap: wrap;

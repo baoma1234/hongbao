@@ -284,11 +284,12 @@
   min-width: 0;
 }
 
-/* 视频消息：主列拉满滚动区剩余宽度（顶到 scroll-view-content） */
+/* 视频消息：扣本侧头像+间距，右边再空出一个头像宽（40+8） */
 .chat-room-page .chat-msg-row.is-video-full .chat-msg-main {
   flex: 0 1 auto;
-  width: min(88%, calc(100% - 52px));
-  max-width: min(88%, calc(100% - 52px)) !important;
+  /* 40 头像 + 8 gap + 40 对侧留白 + 8 */
+  width: calc(100% - 96px);
+  max-width: calc(100% - 96px) !important;
   min-width: 0;
 }
 
@@ -401,19 +402,52 @@
   background: #000;
 }
 
-.chat-room-page .chat-video-previews {
+.chat-room-page .chat-video-stack {
   display: flex;
   flex-direction: column;
-  gap: 4px;
   width: 100%;
-  margin-bottom: 6px;
 }
-
+.chat-room-page .chat-video-previews {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 8px 8px 0 0;
+  background: #d0d0d0;
+}
+.chat-room-page .chat-video-preview-cell {
+  position: relative;
+  overflow: hidden;
+  background: #c8c8c8;
+  min-width: 0;
+  min-height: 0;
+  aspect-ratio: 1 / 1;
+}
 .chat-room-page .chat-video-preview-img {
   display: block;
   width: 100%;
-  border-radius: 6px;
-  background: #e8e8e8;
+  height: 100%;
+}
+.chat-room-page .chat-video-previews.vn1 {
+  grid-template-columns: 1fr;
+}
+.chat-room-page .chat-video-previews.vn1 .chat-video-preview-cell {
+  aspect-ratio: 16 / 10;
+}
+.chat-room-page .chat-video-previews.vn2,
+.chat-room-page .chat-video-previews.vn3,
+.chat-room-page .chat-video-previews.vn4,
+.chat-room-page .chat-video-previews.vn5 {
+  grid-template-columns: 1fr 1fr;
+}
+.chat-room-page .chat-video-previews.vn3 .chat-video-preview-cell:nth-child(3),
+.chat-room-page .chat-video-previews.vn5 .chat-video-preview-cell:nth-child(5) {
+  grid-column: 1 / -1;
+  aspect-ratio: 16 / 9;
+}
+.chat-room-page .chat-video-player-row {
+  width: 100%;
+  margin-top: 2px;
 }
 
 .chat-room-page .chat-media-caption {
