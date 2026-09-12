@@ -356,8 +356,8 @@ class Auth
 
                 $this->_user = $user;
 
-                // 非机器人 / 非默认客服：单点登录，先清掉旧 token，再写入本次 token
-                // 默认客服 88888888 允许多点登录（多设备同时在线接待）
+                // 非机器人 / 非默认客服 / 非白名单：单点登录，先清掉旧 token，再写入本次 token
+                // 默认客服 88888888、以及 multi_login_user_ids 允许多点登录（多设备同时在线）
                 $allowMultiLogin = false;
                 $oldEncryptedTokens = [];
                 try {
@@ -366,6 +366,23 @@ class Auth
                     }
                 } catch (\Throwable $eCs) {
                     $allowMultiLogin = ((int)$user->id === 88888888);
+                }
+                if (!$allowMultiLogin) {
+                    try {
+                        $multiIds = FansHubService::config('multi_login_user_ids', [55555555]);
+                        if (!is_array($multiIds)) {
+                            $multiIds = [];
+                        }
+                        $uid = (int)$user->id;
+                        foreach ($multiIds as $mid) {
+                            if ((int)$mid === $uid) {
+                                $allowMultiLogin = true;
+                                break;
+                            }
+                        }
+                    } catch (\Throwable $eMulti) {
+                        // ignore
+                    }
                 }
                 if (!$allowMultiLogin) {
                     try {
