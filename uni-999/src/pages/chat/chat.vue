@@ -199,32 +199,37 @@
                   class="chat-bubble media is-video-full"
                   @longpress.stop="onMsgLongPress(m, $event)"
                 >
-                  <view
-                    v-if="mediaVideoPreviews(m).length"
-                    class="chat-video-previews"
-                    :class="'vn' + Math.min(mediaVideoPreviews(m).length, 5)"
-                  >
-                    <image
-                      v-for="(pu, pi) in mediaVideoPreviews(m)"
-                      :key="'vp' + msgId(m) + '-' + pi"
-                      class="chat-video-preview-img"
-                      :src="pu"
-                      mode="widthFix"
-                      @click.stop="previewVideoImages(m, pi)"
-                    />
+                  <!-- Telegram 对齐：预览图分行 → 视频一行 → 文案一行 -->
+                  <view class="chat-video-stack">
+                    <view
+                      v-if="mediaVideoPreviews(m).length"
+                      class="chat-video-previews"
+                      :class="'vn' + Math.min(mediaVideoPreviews(m).length, 5)"
+                    >
+                      <view
+                        v-for="(pu, pi) in mediaVideoPreviews(m)"
+                        :key="'vp' + msgId(m) + '-' + pi"
+                        class="chat-video-preview-cell"
+                        @click.stop="previewVideoImages(m, pi)"
+                      >
+                        <image class="chat-video-preview-img" :src="pu" mode="aspectFill" />
+                      </view>
+                    </view>
+                    <view class="chat-video-player-row">
+                      <ChatMediaVideo :src="mediaUrl(m)" :poster="mediaPoster(m)" />
+                    </view>
+                    <view v-if="mediaCaption(m)" class="chat-media-caption chat-video-caption-row">
+                      <template v-for="(p, i) in splitTextLinks(mediaCaption(m))" :key="'vc' + msgId(m) + '-' + i">
+                        <view v-if="p.t === 'br'" class="content-br" />
+                        <text
+                          v-else
+                          :class="{ 'content-link': p.t === 'link' }"
+                          @click.stop="p.t === 'link' && openMsgLink(p.v)"
+                        >{{ p.v }}</text>
+                      </template>
+                    </view>
+                    <text class="meta">{{ msgTime(m) }}</text>
                   </view>
-                  <ChatMediaVideo :src="mediaUrl(m)" :poster="mediaPoster(m)" />
-                  <view v-if="mediaCaption(m)" class="chat-media-caption">
-                    <template v-for="(p, i) in splitTextLinks(mediaCaption(m))" :key="'vc' + msgId(m) + '-' + i">
-                      <view v-if="p.t === 'br'" class="content-br" />
-                      <text
-                        v-else
-                        :class="{ 'content-link': p.t === 'link' }"
-                        @click.stop="p.t === 'link' && openMsgLink(p.v)"
-                      >{{ p.v }}</text>
-                    </template>
-                  </view>
-                  <text class="meta">{{ msgTime(m) }}</text>
                 </view>
                 <view v-else-if="isFile(m)" class="chat-bubble media file" @longpress.stop="onMsgLongPress(m, $event)" @click="openFileMsg(m)">
                   <text class="file-name">{{ fileName(m) }}</text>
@@ -5754,23 +5759,77 @@ uni-page-body {
   word-break: break-word;
   white-space: pre-wrap;
 }
-.chat-video-previews {
+/* 视频消息：图 / 视频 / 文案各占一排（对齐 Telegram） */
+.chat-video-stack {
   display: flex;
   flex-direction: column;
-  gap: 4px;
   width: 100%;
-  margin-bottom: 6px;
+  gap: 0;
+}
+.chat-video-previews {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 8px 8px 0 0;
+  background: #d0d0d0;
+}
+.chat-video-preview-cell {
+  position: relative;
+  overflow: hidden;
+  background: #c8c8c8;
+  min-width: 0;
+  min-height: 0;
+  aspect-ratio: 1 / 1;
 }
 .chat-video-preview-img {
   display: block;
   width: 100%;
-  border-radius: 6px;
-  background: #e8e8e8;
+  height: 100%;
+}
+/* 1 张：整行 */
+.chat-video-previews.vn1 {
+  grid-template-columns: 1fr;
+}
+.chat-video-previews.vn1 .chat-video-preview-cell {
+  aspect-ratio: 16 / 10;
+}
+/* 2 张：一排两个 */
+.chat-video-previews.vn2 {
+  grid-template-columns: 1fr 1fr;
+}
+/* 3 张：上边两个一排，第三张单独一排 */
+.chat-video-previews.vn3 {
+  grid-template-columns: 1fr 1fr;
+}
+.chat-video-previews.vn3 .chat-video-preview-cell:nth-child(3) {
+  grid-column: 1 / -1;
+  aspect-ratio: 16 / 9;
+}
+/* 4 张：两排各两个 */
+.chat-video-previews.vn4 {
+  grid-template-columns: 1fr 1fr;
+}
+/* 5 张：两排各两个 + 第五张单独一排 */
+.chat-video-previews.vn5 {
+  grid-template-columns: 1fr 1fr;
+}
+.chat-video-previews.vn5 .chat-video-preview-cell:nth-child(5) {
+  grid-column: 1 / -1;
+  aspect-ratio: 16 / 9;
+}
+.chat-video-player-row {
+  width: 100%;
+  margin-top: 2px;
+}
+.chat-video-caption-row {
+  margin-top: 8px;
 }
 .chat-bubble.media.is-video-full {
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
+  padding: 4px !important;
 }
 .chat-media-album {
   display: flex;

@@ -165,6 +165,13 @@ class Videosend extends Imagent
             $result = $this->callBridge('/agent/send_private', $payload);
             $this->publishOutgoingMessage($result);
         }
-        $this->success('已发送', null, $result);
+        // 只回传精简字段，避免过大/非 UTF-8 数据导致前端 JSON 解析失败
+        $slim = is_array($result) ? [
+            'id'         => (int)($result['id'] ?? 0),
+            'msg_type'   => (int)($result['msg_type'] ?? 5),
+            'content'    => (string)($result['content'] ?? ''),
+            'created_at' => $result['created_at'] ?? ($result['createtime'] ?? null),
+        ] : ['ok' => 1];
+        $this->success('已发送', null, $slim);
     }
 }

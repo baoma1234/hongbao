@@ -78,9 +78,109 @@ define(['jquery', 'bootstrap', 'backend', 'form'], function ($, undefined, Backe
         }
     }
 
+    function doSend() {
+        var agent = parseInt($('#agent_user_id').val(), 10) || 0;
+        var ctype = parseInt($('input[name="conversation_type"]:checked').val(), 10) || 2;
+        var url = $.trim($('#video_url').val() || '');
+        var thumb = absUrl($('#thumb_url').val() || '');
+        var content = $.trim($('#content').val() || '');
+        var images = parsePreviewList();
+        if (!agent) {
+            Toastr.error('请选择托管账号');
+            return false;
+        }
+        if (!url) {
+            Toastr.error('请填写视频地址');
+            return false;
+        }
+        if (!/^https?:\/\//i.test(url)) {
+            Toastr.error('视频地址须以 http:// 或 https:// 开头');
+            return false;
+        }
+
+        var extra = { url: url, fullurl: url };
+        if (thumb) {
+            extra.thumb = thumb;
+            extra.poster = thumb;
+        }
+        if (content && content !== '[视频]') {
+            extra.caption = content;
+        }
+        if (images.length) {
+            extra.images = images.map(function (u) {
+                return { url: u, fullurl: u };
+            });
+            extra.count = images.length;
+            extra.image_urls = images.slice();
+            extra.image_fullurls = images.slice();
+            if (!thumb) {
+                extra.thumb = images[0];
+                extra.poster = images[0];
+            }
+        }
+
+        var data = {
+            agent_user_id: agent,
+            conversation_type: ctype,
+            msg_type: 5,
+            content: content || '[视频]',
+            preview_urls: images.join('\n'),
+            video_url: url,
+            thumb_url: thumb,
+            extra: JSON.stringify(extra)
+        };
+        var token = $('input[name="__token__"]').val();
+        if (token) {
+            data.__token__ = token;
+        }
+        if (ctype === 2) {
+            var gid = parseInt($('#group_id_manual').val(), 10) || 0;
+            if (!gid) {
+                gid = parseInt($('#group_id').val(), 10) || 0;
+            }
+            if (!gid) {
+                Toastr.error('请选择或填写群 ID');
+                return false;
+            }
+            data.group_id = gid;
+        } else {
+            var peer = parseInt($('#to_user_id').val(), 10) || 0;
+            if (!peer) {
+                Toastr.error('请填写对方用户 ID');
+                return false;
+            }
+            data.to_user_id = peer;
+        }
+
+        var $btn = $('#btn-send').prop('disabled', true);
+        $('#send-result').text('发送中…');
+        Fast.api.ajax({
+            url: 'fanshub/videosend/send',
+            data: data
+        }, function (data, ret) {
+            $('#send-result').text(ret.msg || '已发送');
+            Toastr.success(ret.msg || '已发送');
+            $btn.prop('disabled', false);
+            return false;
+        }, function (data, ret) {
+            var msg = (ret && ret.msg) ? ret.msg : '发送失败';
+            if (typeof msg === 'string' && msg.indexOf('Unexpected token') >= 0) {
+                msg = '接口返回异常（非 JSON），请确认已授权「视频发送/发送」并清后台缓存后重试';
+            }
+            $('#send-result').text(msg);
+            Toastr.error(msg);
+            $btn.prop('disabled', false);
+            return false;
+        });
+        return false;
+    }
+
     var Controller = {
         index: function () {
-            Form.api.bindevent($('#videosend-form'));
+            // 只绑定上传/图库；禁止 Form 默认把整表提交到 index（会返回 HTML → Unexpected token '<'）
+            Form.api.bindevent($('#videosend-form'), null, null, function () {
+                return false;
+            });
 
             function syncTarget() {
                 var t = parseInt($('input[name="conversation_type"]:checked').val(), 10) || 2;
@@ -95,7 +195,6 @@ define(['jquery', 'bootstrap', 'backend', 'form'], function ($, undefined, Backe
             $('input[name="conversation_type"]').on('change', syncTarget);
             syncTarget();
 
-            // 上传/图库选择后：限制 5 张并刷新缩略图
             $('#preview_urls').on('change input', function () {
                 var list = parsePreviewList();
                 if (list.length > MAX_PREVIEW) {
@@ -105,7 +204,6 @@ define(['jquery', 'bootstrap', 'backend', 'form'], function ($, undefined, Backe
             });
             renderThumbs();
 
-            // 点缩略图浏览；点 × 移除
             $('#preview-thumbs').on('click', '.videosend-thumb-del', function (e) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -118,7 +216,6 @@ define(['jquery', 'bootstrap', 'backend', 'form'], function ($, undefined, Backe
                 openPhotos(parseInt($(this).data('idx'), 10) || 0);
             });
 
-            // faupload 预览区点击也可放大（代理）
             $('#p-preview-imgs').on('click', 'li img, img', function (e) {
                 e.preventDefault();
                 var src = absUrl($(this).attr('src') || '');
@@ -133,91 +230,14 @@ define(['jquery', 'bootstrap', 'backend', 'form'], function ($, undefined, Backe
                 openPhotos(idx);
             });
 
+            $('#btn-send').on('click', function (e) {
+                e.preventDefault();
+                doSend();
+                return false;
+            });
             $('#videosend-form').on('submit', function (e) {
                 e.preventDefault();
-                var agent = parseInt($('#agent_user_id').val(), 10) || 0;
-                var ctype = parseInt($('input[name="conversation_type"]:checked').val(), 10) || 2;
-                var url = $.trim($('#video_url').val() || '');
-                var thumb = absUrl($('#thumb_url').val() || '');
-                var content = $.trim($('#content').val() || '');
-                var images = parsePreviewList();
-                if (!agent) {
-                    Toastr.error('请选择托管账号');
-                    return false;
-                }
-                if (!url) {
-                    Toastr.error('请填写视频地址');
-                    return false;
-                }
-                if (!/^https?:\/\//i.test(url)) {
-                    Toastr.error('视频地址须以 http:// 或 https:// 开头');
-                    return false;
-                }
-
-                var extra = { url: url, fullurl: url };
-                if (thumb) {
-                    extra.thumb = thumb;
-                    extra.poster = thumb;
-                }
-                if (content && content !== '[视频]') {
-                    extra.caption = content;
-                }
-                if (images.length) {
-                    extra.images = images.map(function (u) {
-                        return { url: u, fullurl: u };
-                    });
-                    extra.count = images.length;
-                    extra.image_urls = images.slice();
-                    extra.image_fullurls = images.slice();
-                    if (!thumb) {
-                        extra.thumb = images[0];
-                        extra.poster = images[0];
-                    }
-                }
-
-                var data = {
-                    agent_user_id: agent,
-                    conversation_type: ctype,
-                    msg_type: 5,
-                    content: content || '[视频]',
-                    preview_urls: images.join('\n'),
-                    video_url: url,
-                    thumb_url: thumb,
-                    extra: JSON.stringify(extra)
-                };
-                if (ctype === 2) {
-                    var gid = parseInt($('#group_id_manual').val(), 10) || 0;
-                    if (!gid) {
-                        gid = parseInt($('#group_id').val(), 10) || 0;
-                    }
-                    if (!gid) {
-                        Toastr.error('请选择或填写群 ID');
-                        return false;
-                    }
-                    data.group_id = gid;
-                } else {
-                    var peer = parseInt($('#to_user_id').val(), 10) || 0;
-                    if (!peer) {
-                        Toastr.error('请填写对方用户 ID');
-                        return false;
-                    }
-                    data.to_user_id = peer;
-                }
-
-                var $btn = $('#btn-send').prop('disabled', true);
-                $('#send-result').text('发送中…');
-                Fast.api.ajax({
-                    url: 'fanshub/videosend/send',
-                    data: data
-                }, function (data, ret) {
-                    $('#send-result').text(ret.msg || '已发送');
-                    Toastr.success(ret.msg || '已发送');
-                    $btn.prop('disabled', false);
-                    return false;
-                }, function (data, ret) {
-                    $('#send-result').text(ret.msg || '发送失败');
-                    $btn.prop('disabled', false);
-                });
+                doSend();
                 return false;
             });
         }
