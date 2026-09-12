@@ -332,15 +332,16 @@ export function digestClipboardPayload(dt) {
   const files = collectImageFilesFromDataTransfer(dt)
   const fromHtml = extractImagesFromClipboardHtml(html)
   const reuse = fromHtml.reuse.slice()
-  const allFiles = files.concat(fromHtml.files)
+  // 截图/复制图时常同时带 image/* 与 html data URL，只取位图，避免同一张贴两次
+  const allFiles = files.length ? files : fromHtml.files
   const seen = {}
   const uniqFiles = []
   for (let i = 0; i < allFiles.length; i++) {
     pushUniqueFile(uniqFiles, allFiles[i], seen)
   }
   return {
-    reuse,
+    reuse: files.length ? [] : reuse,
     files: uniqFiles,
-    consumedText: fromText.markerHit || reuse.length > 0 || uniqFiles.length > 0,
+    consumedText: fromText.markerHit || (!files.length && reuse.length > 0) || uniqFiles.length > 0,
   }
 }

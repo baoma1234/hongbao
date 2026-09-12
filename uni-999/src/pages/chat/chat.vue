@@ -3046,8 +3046,13 @@ function tryConsumeImageClipboardText(raw) {
   return n > 0
 }
 
-/** 防 document + textarea 双触发 */
+// #ifdef H5
+let h5DesktopImageBound = false
+// #endif
+
+/** 防 document + textarea / uni 合成 paste 双触发 */
 let lastDesktopImageIngestAt = 0
+let desktopImageIngestLock = false
 
 /**
  * 电脑端：截图 / 资源管理器复制 / 网页复制 / 拖放 → 待发图
@@ -3057,31 +3062,25 @@ function ingestDesktopImagePayload(dt) {
   // #ifdef H5
   if (!dt || !roomAlive) return false
   const now = Date.now()
-  if (now - lastDesktopImageIngestAt < 280) return true
-  let digested
-  try {
-    digested = digestClipboardPayload(dt)
-  } catch (e) {
-    return false
-  }
-  const reuse = (digested && digested.reuse) || []
-  const files = (digested && digested.files) || []
-  if (!reuse.length && !files.length) return false
+  if (desktopImageIngestLock || now - lastDesktopImageIngestAt < 600) return true
+  desktopImageIngestLock = true
   lastDesktopImageIngestAt = now
-  let added = 0
-  if (reuse.length) {
-    added += addPendingReuseImages(reuse)
-  }
-  if (files.length) {
-    added += pasteExternalImageFiles(files) || 0
-  }
-  if (added > 0) {
-    if (reuse.length && !files.length) {
-      /* toast 已在 addPendingReuseImages / paste 内 */
+  try {
+    let digested
+    try {
+      digested = digestClipboardPayload(dt)
+    } catch (e) {
+      return false
     }
+    const reuse = (digested && digested.reuse) || []
+    const files = (digested && digested.files) || []
+    if (!reuse.length && !files.length) return false
+    if (reuse.length) addPendingReuseImages(reuse)
+    if (files.length) pasteExternalImageFiles(files)
     return true
+  } finally {
+    desktopImageIngestLock = false
   }
-  return !!(digested && digested.consumedText)
   // #endif
   // #ifndef H5
   return false
@@ -3089,8 +3088,24 @@ function ingestDesktopImagePayload(dt) {
 }
 
 function onComposerPaste(e) {
-  // H5：输入框粘贴（截图 / 文件 / 红宝标记 / HTML 内嵌图）
+  // H5：页面级 document paste 已统一处理；此处仅兜底（避免与 document 重复贴两张）
   // #ifdef H5
+  if (h5DesktopImageBound) {
+    try {
+      const ev = e && (e.clipboardData || (e.detail && e.detail.clipboardData) || e)
+      const cd = (ev && ev.clipboardData) || (typeof e === 'object' && e.clipboardData) || null
+      if (cd) {
+        const dig = digestClipboardPayload(cd)
+        if (dig && (dig.files.length || dig.reuse.length || dig.consumedText)) {
+          if (e && typeof e.preventDefault === 'function') e.preventDefault()
+          if (e && typeof e.stopPropagation === 'function') e.stopPropagation()
+        }
+      }
+    } catch (err) {
+      /* ignore */
+    }
+    return
+  }
   try {
     const ev = e && (e.clipboardData || (e.detail && e.detail.clipboardData) || e)
     const cd = (ev && ev.clipboardData) || (typeof e === 'object' && e.clipboardData) || null
@@ -3225,7 +3240,6 @@ function onDocumentDropImage(e) {
   }
 }
 
-let h5DesktopImageBound = false
 function bindH5DesktopImageIngest() {
   if (h5DesktopImageBound || typeof document === 'undefined') return
   document.addEventListener('paste', onDocumentPasteImage, true)
