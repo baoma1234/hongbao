@@ -3313,7 +3313,9 @@ async function uploadPasteBlobFile(file) {
   fd.append('file', normalized, fname)
   const headers = {}
   if (token) headers.token = token
-  const res = await fetch(url, { method: 'POST', headers, body: fd, credentials: 'include' })
+  // 跨域 API 常回 Access-Control-Allow-Origin: *；credentials:include 会被浏览器直接拦
+  // 鉴权靠 header.token（与 uni.uploadFile 一致），勿带 cookie
+  const res = await fetch(url, { method: 'POST', headers, body: fd, credentials: 'omit' })
   const text = await res.text()
   let body = {}
   try {
@@ -3327,6 +3329,36 @@ async function uploadPasteBlobFile(file) {
     throw new Error(msg)
   }
   return body.data || {}
+}
+
+/** 粘贴图上传：优先与选图同一条 uni.uploadFile，避免 fetch+credentials 踩 CORS * */
+async function uploadPendingImageDraft(draft) {
+  if (draft && draft.filePath) {
+    return uploadCommonFile(draft.filePath)
+  }
+  if (draft && draft.pasteFile) {
+    let blobUrl = ''
+    try {
+      const normalized = normalizePasteImageFile(draft.pasteFile) || draft.pasteFile
+      blobUrl = URL.createObjectURL(normalized)
+      return await uploadCommonFile(blobUrl)
+    } catch (e1) {
+      try {
+        return await uploadPasteBlobFile(draft.pasteFile)
+      } catch (e2) {
+        throw e1
+      }
+    } finally {
+      if (blobUrl) {
+        try {
+          URL.revokeObjectURL(blobUrl)
+        } catch (e) {
+          /* ignore */
+        }
+      }
+    }
+  }
+  throw new Error('没有可上传的图片')
 }
 
 function eventPoint(e) {
@@ -4705,23 +4737,7 @@ async function sendPendingMedia() {
         const tip =
           drafts.length > 1 ? `上传中 ${i + 1}/${drafts.length}…` : '上传中…'
         uni.showLoading({ title: tip, mask: true })
-        let up
-        // 粘贴图：优先走与选图相同的 uni.uploadFile(blob:)，避免 fetch + 空 MIME 被拒
-        if (draft.filePath) {
-          try {
-            up = await uploadCommonFile(draft.filePath)
-          } catch (e1) {
-            if (draft.pasteFile) {
-              up = await uploadPasteBlobFile(draft.pasteFile)
-            } else {
-              throw e1
-            }
-          }
-        } else if (draft.pasteFile) {
-          up = await uploadPasteBlobFile(draft.pasteFile)
-        } else {
-          throw new Error('没有可上传的图片')
-        }
+        const up = await uploadPendingImageDraft(draft)
         const { path, full } = mediaPathsFromUpload(up)
         images.push({
           url: path,
