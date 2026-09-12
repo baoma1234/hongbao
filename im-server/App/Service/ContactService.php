@@ -121,13 +121,13 @@ class ContactService
         }
 
         $now = time();
-        // 客服号：自动通过 + 自定义回复
-        if (AdminService::isImAdmin($toUserId) && !AdminService::isImAdmin($fromUserId)) {
+        // 客服号 / 自动通过白名单：自动通过 + 可选欢迎回复
+        if (AdminService::autoAcceptsFriend($toUserId) && !AdminService::isImAdmin($fromUserId)) {
             $this->ensureRow($fromUserId, $toUserId, $now);
-            // 客服侧也建联系，便于后台会话
+            // 对侧也建联系，便于会话列表
             $this->ensureRow($toUserId, $fromUserId, $now);
             $reqId = $this->insertRequest($fromUserId, $toUserId, $message, 1, $toUserId, $now);
-            $reply = AdminService::csFriendReply($toUserId);
+            $reply = AdminService::autoAcceptFriendReply($toUserId);
             $msg = null;
             if ($reply !== '') {
                 try {

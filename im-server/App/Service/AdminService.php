@@ -43,6 +43,91 @@ class AdminService
     }
 
     /**
+     * 被加好友时是否自动通过（托管客服 / 默认客服 / 配置白名单）
+     * 白名单账号不必进 chat_agent_accounts（不托管）
+     */
+    public static function autoAcceptsFriend($userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return false;
+        }
+        if (self::isDefaultCs($userId) || self::isImAdmin($userId)) {
+            return true;
+        }
+        return in_array($userId, self::autoAcceptFriendUserIds(), true);
+    }
+
+    /**
+     * @return int[]
+     */
+    public static function autoAcceptFriendUserIds()
+    {
+        static $cache = null;
+        static $at = 0;
+        if ($cache !== null && (time() - $at) < 30) {
+            return $cache;
+        }
+        // 默认含 BIO_客服；可被 fanshub.php auto_accept_friend_user_ids 覆盖
+        $ids = [55555555];
+        $cfgFile = dirname(__DIR__, 3) . '/application/extra/fanshub.php';
+        if (is_file($cfgFile)) {
+            try {
+                $cfg = include $cfgFile;
+                if (is_array($cfg) && isset($cfg['auto_accept_friend_user_ids']) && is_array($cfg['auto_accept_friend_user_ids'])) {
+                    $ids = [];
+                    foreach ($cfg['auto_accept_friend_user_ids'] as $id) {
+                        $id = (int)$id;
+                        if ($id > 0) {
+                            $ids[] = $id;
+                        }
+                    }
+                }
+            } catch (\Throwable $e) {
+                CatchLog::quiet($e, 'Service.AdminService');
+            }
+        }
+        $cache = array_values(array_unique($ids));
+        $at = time();
+        return $cache;
+    }
+
+    /**
+     * 自动通过后的欢迎语：托管号走客服回复；白名单可单独配置，默认空（不发）
+     */
+    public static function autoAcceptFriendReply($userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return '';
+        }
+        if (self::isImAdmin($userId) || self::isDefaultCs($userId)) {
+            return self::csFriendReply($userId);
+        }
+        $cfgFile = dirname(__DIR__, 3) . '/application/extra/fanshub.php';
+        if (is_file($cfgFile)) {
+            try {
+                $cfg = include $cfgFile;
+                if (is_array($cfg)) {
+                    $map = $cfg['auto_accept_friend_replies'] ?? null;
+                    if (is_array($map) && isset($map[$userId])) {
+                        return mb_substr(trim((string)$map[$userId]), 0, 500);
+                    }
+                    if (is_array($map) && isset($map[(string)$userId])) {
+                        return mb_substr(trim((string)$map[(string)$userId]), 0, 500);
+                    }
+                    if (!empty($cfg['auto_accept_friend_reply'])) {
+                        return mb_substr(trim((string)$cfg['auto_accept_friend_reply']), 0, 500);
+                    }
+                }
+            } catch (\Throwable $e) {
+                CatchLog::quiet($e, 'Service.AdminService');
+            }
+        }
+        return '';
+    }
+
+    /**
      * @return array<int,true>
      */
     public static function adminIdMap()
