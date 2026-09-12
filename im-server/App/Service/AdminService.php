@@ -43,7 +43,7 @@ class AdminService
     }
 
     /**
-     * 被加好友时是否自动通过（托管客服 / 默认客服 / 配置白名单）
+     * 被加好友时是否自动通过（托管客服 / 默认客服 / 配置白名单 / BIO 固定号）
      * 白名单账号不必进 chat_agent_accounts（不托管）
      */
     public static function autoAcceptsFriend($userId)
@@ -52,10 +52,30 @@ class AdminService
         if ($userId <= 0) {
             return false;
         }
+        // BIO_客服固定 ID（与手机 18888888887 绑定），避免配置漏配导致失效
+        if ($userId === 55555555) {
+            return true;
+        }
         if (self::isDefaultCs($userId) || self::isImAdmin($userId)) {
             return true;
         }
-        return in_array($userId, self::autoAcceptFriendUserIds(), true);
+        if (in_array($userId, self::autoAcceptFriendUserIds(), true)) {
+            return true;
+        }
+        // 兜底：按手机号识别 BIO 客服（库内可能是 +8618888888887）
+        try {
+            $row = Db::fetch(
+                'SELECT mobile FROM ' . Db::table('user') . ' WHERE id=? LIMIT 1',
+                [$userId]
+            );
+            $digits = preg_replace('/\D+/', '', (string)($row['mobile'] ?? ''));
+            if ($digits !== '' && (substr($digits, -11) === '18888888887' || $digits === '18888888887')) {
+                return true;
+            }
+        } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.AdminService');
+        }
+        return false;
     }
 
     /**
@@ -68,14 +88,13 @@ class AdminService
         if ($cache !== null && (time() - $at) < 30) {
             return $cache;
         }
-        // 默认含 BIO_客服；可被 fanshub.php auto_accept_friend_user_ids 覆盖
+        // 硬编码默认，配置只做追加合并（禁止空数组清空默认）
         $ids = [55555555];
         $cfgFile = dirname(__DIR__, 3) . '/application/extra/fanshub.php';
         if (is_file($cfgFile)) {
             try {
                 $cfg = include $cfgFile;
                 if (is_array($cfg) && isset($cfg['auto_accept_friend_user_ids']) && is_array($cfg['auto_accept_friend_user_ids'])) {
-                    $ids = [];
                     foreach ($cfg['auto_accept_friend_user_ids'] as $id) {
                         $id = (int)$id;
                         if ($id > 0) {
