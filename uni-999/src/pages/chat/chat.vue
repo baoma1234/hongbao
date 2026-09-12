@@ -980,6 +980,7 @@ import {
 import {
   CHAT_IMG_CLIP_MARKER,
   copyChatImagesToClipboard,
+  digestClipboardPayload,
   extractReusableImagesFromMsg,
   getCopiedChatImages,
   parseChatImageClipboard,
@@ -3045,36 +3046,58 @@ function tryConsumeImageClipboardText(raw) {
   return n > 0
 }
 
+/** 防 document + textarea 双触发 */
+let lastDesktopImageIngestAt = 0
+
+/**
+ * 电脑端：截图 / 资源管理器复制 / 网页复制 / 拖放 → 待发图
+ * @returns {boolean} 是否已消费（应 preventDefault）
+ */
+function ingestDesktopImagePayload(dt) {
+  // #ifdef H5
+  if (!dt || !roomAlive) return false
+  const now = Date.now()
+  if (now - lastDesktopImageIngestAt < 280) return true
+  let digested
+  try {
+    digested = digestClipboardPayload(dt)
+  } catch (e) {
+    return false
+  }
+  const reuse = (digested && digested.reuse) || []
+  const files = (digested && digested.files) || []
+  if (!reuse.length && !files.length) return false
+  lastDesktopImageIngestAt = now
+  let added = 0
+  if (reuse.length) {
+    added += addPendingReuseImages(reuse)
+  }
+  if (files.length) {
+    added += pasteExternalImageFiles(files) || 0
+  }
+  if (added > 0) {
+    if (reuse.length && !files.length) {
+      /* toast 已在 addPendingReuseImages / paste 内 */
+    }
+    return true
+  }
+  return !!(digested && digested.consumedText)
+  // #endif
+  // #ifndef H5
+  return false
+  // #endif
+}
+
 function onComposerPaste(e) {
-  // H5：优先吃剪贴板里的红宝图片标记或图片文件
+  // H5：输入框粘贴（截图 / 文件 / 红宝标记 / HTML 内嵌图）
   // #ifdef H5
   try {
     const ev = e && (e.clipboardData || (e.detail && e.detail.clipboardData) || e)
     const cd = (ev && ev.clipboardData) || (typeof e === 'object' && e.clipboardData) || null
-    if (cd) {
-      const plain = cd.getData && cd.getData('text/plain')
-      if (plain && String(plain).indexOf(CHAT_IMG_CLIP_MARKER) === 0) {
-        if (e && typeof e.preventDefault === 'function') e.preventDefault()
-        if (e && e.detail && typeof e.stopPropagation === 'function') e.stopPropagation()
-        tryConsumeImageClipboardText(plain)
-        return
-      }
-      const items = cd.items
-      if (items && items.length) {
-        const files = []
-        for (let i = 0; i < items.length; i++) {
-          const it = items[i]
-          if (it && it.kind === 'file' && it.type && it.type.indexOf('image/') === 0) {
-            const f = it.getAsFile && it.getAsFile()
-            if (f) files.push(f)
-          }
-        }
-        if (files.length) {
-          if (e && typeof e.preventDefault === 'function') e.preventDefault()
-          pasteExternalImageFiles(files)
-          return
-        }
-      }
+    if (cd && ingestDesktopImagePayload(cd)) {
+      if (e && typeof e.preventDefault === 'function') e.preventDefault()
+      if (e && typeof e.stopPropagation === 'function') e.stopPropagation()
+      return
     }
   } catch (err) {
     /* fallthrough */
@@ -3083,19 +3106,21 @@ function onComposerPaste(e) {
   // App / 通用：粘贴后 text 里可能出现标记，交给 watch 处理
 }
 
-async function pasteExternalImageFiles(files) {
-  if (!files || !files.length) return
+/** @returns {number} 实际加入张数 */
+function pasteExternalImageFiles(files) {
+  if (!files || !files.length) return 0
   const cur = pendingMedias.value || []
   if (cur.some((x) => x && x.kind === 'video')) {
     uni.showToast({ title: '请先移除视频再粘贴图片', icon: 'none' })
-    return
+    return 0
   }
   const remain = MAX_PENDING_IMAGES - cur.filter((x) => x && x.kind === 'image').length
   if (remain <= 0) {
     uni.showToast({ title: `最多选 ${MAX_PENDING_IMAGES} 张图`, icon: 'none' })
-    return
+    return 0
   }
   const take = files.slice(0, remain)
+  let added = 0
   // #ifdef H5
   try {
     const next = cur.slice()
@@ -3116,20 +3141,106 @@ async function pasteExternalImageFiles(files) {
         filePath: blobUrl,
         pasteFile: file,
         size: Number(file.size || 0),
-        name: file.name || '',
+        name: file.name || 'paste.jpg',
         fallback: '[图片]',
       })
+      added += 1
     }
     pendingMedias.value = next
     showAttach.value = false
-    if (next.length > cur.length) {
-      uni.showToast({ title: '已粘贴，发送时将上传', icon: 'none' })
+    showEmoji.value = false
+    showSticker.value = false
+    if (added > 0) {
+      uni.showToast({
+        title: added > 1 ? `已粘贴 ${added} 张，发送时上传` : '已粘贴，发送时将上传',
+        icon: 'none',
+      })
     }
   } catch (e) {
     uni.showToast({ title: '粘贴失败', icon: 'none' })
+    return 0
   }
   // #endif
+  return added
 }
+
+// #ifdef H5
+/** 页面级粘贴：焦点不在输入框时 Ctrl+V 也能贴图 */
+function onDocumentPasteImage(e) {
+  if (!roomAlive || !e) return
+  // 其它可编辑区（如公告编辑）放过
+  try {
+    const t = e.target
+    if (t) {
+      const tag = String(t.tagName || '').toLowerCase()
+      const editable =
+        t.isContentEditable ||
+        tag === 'input' ||
+        (tag === 'textarea' && t.id !== 'chatInput' && !(t.className && String(t.className).indexOf('input-box') >= 0))
+      if (editable && tag !== 'textarea') return
+      // 输入框内由 @paste 处理；若 uni 未带上 clipboardData，这里兜底
+      if (tag === 'textarea' || (t.classList && t.classList.contains('uni-textarea-textarea'))) {
+        const cd = e.clipboardData
+        if (cd && ingestDesktopImagePayload(cd)) {
+          e.preventDefault()
+          e.stopPropagation()
+        }
+        return
+      }
+    }
+  } catch (err) {
+    /* continue */
+  }
+  const cd = e.clipboardData
+  if (cd && ingestDesktopImagePayload(cd)) {
+    e.preventDefault()
+  }
+}
+
+function onDocumentDragOverImage(e) {
+  if (!roomAlive || !e) return
+  try {
+    const types = e.dataTransfer && e.dataTransfer.types
+    if (!types) return
+    let ok = false
+    for (let i = 0; i < types.length; i++) {
+      const ty = String(types[i] || '')
+      if (ty === 'Files' || ty.indexOf('image') >= 0 || ty === 'text/uri-list') ok = true
+    }
+    if (!ok) return
+    e.preventDefault()
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
+  } catch (err) {
+    /* ignore */
+  }
+}
+
+function onDocumentDropImage(e) {
+  if (!roomAlive || !e) return
+  const dt = e.dataTransfer
+  if (!dt) return
+  if (ingestDesktopImagePayload(dt)) {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+}
+
+let h5DesktopImageBound = false
+function bindH5DesktopImageIngest() {
+  if (h5DesktopImageBound || typeof document === 'undefined') return
+  document.addEventListener('paste', onDocumentPasteImage, true)
+  document.addEventListener('dragover', onDocumentDragOverImage, true)
+  document.addEventListener('drop', onDocumentDropImage, true)
+  h5DesktopImageBound = true
+}
+function unbindH5DesktopImageIngest() {
+  if (!h5DesktopImageBound || typeof document === 'undefined') return
+  document.removeEventListener('paste', onDocumentPasteImage, true)
+  document.removeEventListener('dragover', onDocumentDragOverImage, true)
+  document.removeEventListener('drop', onDocumentDropImage, true)
+  h5DesktopImageBound = false
+}
+// #endif
 
 async function uploadPasteBlobFile(file) {
   const url = ensureAbsoluteHttpUrl('/api/common/upload', getApiBase())
@@ -5753,6 +5864,9 @@ onLoad(async (query) => {
   markRead().catch(() => {})
 
   roomAlive = true
+  // #ifdef H5
+  bindH5DesktopImageIngest()
+  // #endif
   bindForegroundResume()
   await ensureUser()
   off = onImEvent((type, data) => {
@@ -5906,6 +6020,9 @@ onUnload(() => {
   } catch (eKb) {}
   offKeyboardHeight = null
   // #ifdef H5
+  try {
+    unbindH5DesktopImageIngest()
+  } catch (ePaste) {}
   try {
     if (offWinResize && typeof window !== 'undefined') {
       window.removeEventListener('resize', offWinResize)
