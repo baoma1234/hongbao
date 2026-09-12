@@ -316,6 +316,15 @@
               </view>
             </view>
           </scroll-view>
+          <view
+            v-if="copiedImageHint"
+            class="chat-paste-img-bar"
+            hover-class="chat-paste-img-bar--on"
+            @click="pasteCachedChatImages"
+          >
+            <text class="chat-paste-img-bar-txt">粘贴已复制的图片（免上传）</text>
+            <text class="chat-paste-img-bar-x" @click.stop="copiedImageHint = false">×</text>
+          </view>
           <view class="chat-emoji-panel" :class="{ open: showEmoji || showSticker }">
             <view class="chat-expr-mode-tabs">
               <view class="chat-expr-mode-btn" :class="{ active: showEmoji && !showSticker }" @click="openEmojiOnly">表情</view>
@@ -460,6 +469,7 @@
               @linechange="onComposerLineChange"
               @input="onComposerInput"
               @keydown.enter.exact.prevent="onComposerEnter"
+              @paste="onComposerPaste"
             />
             <view
               v-if="attachAllowed"
@@ -967,6 +977,14 @@ import {
   recallTip,
   splitTextLinks,
 } from '../../utils/chat.js'
+import {
+  CHAT_IMG_CLIP_MARKER,
+  copyChatImagesToClipboard,
+  extractReusableImagesFromMsg,
+  getCopiedChatImages,
+  parseChatImageClipboard,
+  toUploadsPath,
+} from '../../utils/chat-image-clipboard.js'
 import { tryOpenGroupInviteFromUrl } from '../../utils/group-invite.js'
 import {
   clearActiveChat,
@@ -1147,6 +1165,7 @@ const MAX_IMAGE_BYTES = 5 * 1024 * 1024
 const MAX_VIDEO_BYTES = 200 * 1024 * 1024
 const pendingMedias = ref([])
 const hasPendingMedia = computed(() => (pendingMedias.value || []).length > 0)
+const copiedImageHint = ref(false)
 const hasComposerText = computed(() => String(text.value || '').trim().length > 0)
 /** 输入框有字，或已贴图/视频草稿 */
 const hasComposerSendable = computed(() => hasComposerText.value || hasPendingMedia.value)
@@ -1354,6 +1373,7 @@ function measureMsgScrollHeight() {
             if (showEmoji.value || showSticker.value) bottom += 260
             if (showAttach.value) bottom += 120
             if (hasPendingMedia.value) bottom += 72
+            if (copiedImageHint.value) bottom += 36
           } catch (e3) {}
         }
         const h = Math.max(140, Math.floor(winH - top - bottom))
@@ -1568,7 +1588,7 @@ const noticePinVisible = computed(() => {
 })
 
 watch(
-  [showEmoji, showSticker, showAttach, hasPendingMedia, noticePinVisible, noticePinExpanded, composerHeightPx],
+  [showEmoji, showSticker, showAttach, hasPendingMedia, copiedImageHint, noticePinVisible, noticePinExpanded, composerHeightPx],
   () => {
     scheduleMeasureMsgScroll()
   }
@@ -2917,6 +2937,10 @@ function canCopyMsg(m) {
   return !!msgCopyText(m)
 }
 
+function canCopyImageMsg(m) {
+  return isImage(m) && extractReusableImagesFromMsg(m).length > 0
+}
+
 function copyMsgContent(m) {
   const text = msgCopyText(m)
   if (!text) {
@@ -2928,6 +2952,201 @@ function copyMsgContent(m) {
     success: () => uni.showToast({ title: rpT('chat_msg_copy_ok', '已复制'), icon: 'none' }),
     fail: () => uni.showToast({ title: rpT('chat_msg_copy_fail', '复制失败'), icon: 'none' }),
   })
+}
+
+async function copyChatImageMsg(m) {
+  const items = extractReusableImagesFromMsg(m)
+  if (!items.length) {
+    uni.showToast({ title: rpT('chat_msg_copy_fail', '复制失败'), icon: 'none' })
+    return
+  }
+  try {
+    await copyChatImagesToClipboard(items)
+    copiedImageHint.value = true
+    uni.showToast({
+      title: '已复制，可点下方「粘贴」或输入框粘贴',
+      icon: 'none',
+    })
+  } catch (e) {
+    uni.showToast({ title: (e && e.message) || rpT('chat_msg_copy_fail', '复制失败'), icon: 'none' })
+  }
+}
+
+function pasteCachedChatImages() {
+  const items = getCopiedChatImages()
+  if (!items.length) {
+    copiedImageHint.value = false
+    uni.showToast({ title: '没有已复制的图片', icon: 'none' })
+    return
+  }
+  const n = addPendingReuseImages(items)
+  if (n > 0) {
+    copiedImageHint.value = false
+    uni.showToast({ title: n > 1 ? `已粘贴 ${n} 张图（免上传）` : '已粘贴图片（免上传）', icon: 'none' })
+  }
+}
+
+function addPendingReuseImages(items) {
+  const list = Array.isArray(items) ? items : []
+  if (!list.length) return 0
+  const cur = pendingMedias.value || []
+  if (cur.some((x) => x && x.kind === 'video')) {
+    uni.showToast({ title: '请先移除视频再粘贴图片', icon: 'none' })
+    return 0
+  }
+  let added = 0
+  const next = cur.slice()
+  const have = {}
+  next.forEach((x) => {
+    if (x && x.reuseUrl) have[x.reuseUrl] = 1
+    else if (x && x.filePath) have[x.filePath] = 1
+  })
+  for (let i = 0; i < list.length; i++) {
+    if (next.filter((x) => x && x.kind === 'image').length >= MAX_PENDING_IMAGES) {
+      if (added === 0) uni.showToast({ title: `最多选 ${MAX_PENDING_IMAGES} 张图`, icon: 'none' })
+      break
+    }
+    const it = list[i]
+    const path = toUploadsPath(it && it.url) || toUploadsPath(it && it.fullurl)
+    if (!path || have[path]) continue
+    have[path] = 1
+    pendingMediaSeq += 1
+    const full = String((it && it.fullurl) || '').trim() || publicUrl(path) || path
+    next.push({
+      id: 'pm-' + pendingMediaSeq,
+      kind: 'image',
+      msgType: 4,
+      preview: String((it && it.preview) || '') || publicUrl(full) || publicUrl(path) || full,
+      filePath: '',
+      reuseUrl: path,
+      reuseFull: full,
+      size: 0,
+      name: '',
+      fallback: '[图片]',
+    })
+    added += 1
+  }
+  if (added) {
+    pendingMedias.value = next
+    showAttach.value = false
+    showEmoji.value = false
+    showSticker.value = false
+  }
+  return added
+}
+
+function tryConsumeImageClipboardText(raw) {
+  const parsed = parseChatImageClipboard(raw)
+  if (!parsed || !parsed.length) return false
+  const n = addPendingReuseImages(parsed)
+  if (n > 0) {
+    uni.showToast({ title: n > 1 ? `已粘贴 ${n} 张图（免上传）` : '已粘贴图片（免上传）', icon: 'none' })
+  }
+  return n > 0
+}
+
+function onComposerPaste(e) {
+  // H5：优先吃剪贴板里的红宝图片标记或图片文件
+  // #ifdef H5
+  try {
+    const ev = e && (e.clipboardData || (e.detail && e.detail.clipboardData) || e)
+    const cd = (ev && ev.clipboardData) || (typeof e === 'object' && e.clipboardData) || null
+    if (cd) {
+      const plain = cd.getData && cd.getData('text/plain')
+      if (plain && String(plain).indexOf(CHAT_IMG_CLIP_MARKER) === 0) {
+        if (e && typeof e.preventDefault === 'function') e.preventDefault()
+        if (e && e.detail && typeof e.stopPropagation === 'function') e.stopPropagation()
+        tryConsumeImageClipboardText(plain)
+        return
+      }
+      const items = cd.items
+      if (items && items.length) {
+        const files = []
+        for (let i = 0; i < items.length; i++) {
+          const it = items[i]
+          if (it && it.kind === 'file' && it.type && it.type.indexOf('image/') === 0) {
+            const f = it.getAsFile && it.getAsFile()
+            if (f) files.push(f)
+          }
+        }
+        if (files.length) {
+          if (e && typeof e.preventDefault === 'function') e.preventDefault()
+          pasteExternalImageFiles(files)
+          return
+        }
+      }
+    }
+  } catch (err) {
+    /* fallthrough */
+  }
+  // #endif
+  // App / 通用：粘贴后 text 里可能出现标记，交给 watch 处理
+}
+
+async function pasteExternalImageFiles(files) {
+  if (!files || !files.length) return
+  const cur = pendingMedias.value || []
+  if (cur.some((x) => x && x.kind === 'video')) {
+    uni.showToast({ title: '请先移除视频再粘贴图片', icon: 'none' })
+    return
+  }
+  const remain = MAX_PENDING_IMAGES - cur.filter((x) => x && x.kind === 'image').length
+  if (remain <= 0) {
+    uni.showToast({ title: `最多选 ${MAX_PENDING_IMAGES} 张图`, icon: 'none' })
+    return
+  }
+  const take = files.slice(0, remain)
+  // #ifdef H5
+  try {
+    const next = cur.slice()
+    for (let i = 0; i < take.length; i++) {
+      const file = take[i]
+      if (!file) continue
+      if (file.size > MAX_IMAGE_BYTES) {
+        uni.showToast({ title: formatSizeLimitTip(MAX_IMAGE_BYTES, 'image'), icon: 'none' })
+        continue
+      }
+      const blobUrl = URL.createObjectURL(file)
+      pendingMediaSeq += 1
+      next.push({
+        id: 'pm-' + pendingMediaSeq,
+        kind: 'image',
+        msgType: 4,
+        preview: blobUrl,
+        filePath: blobUrl,
+        pasteFile: file,
+        size: Number(file.size || 0),
+        name: file.name || '',
+        fallback: '[图片]',
+      })
+    }
+    pendingMedias.value = next
+    showAttach.value = false
+    if (next.length > cur.length) {
+      uni.showToast({ title: '已粘贴，发送时将上传', icon: 'none' })
+    }
+  } catch (e) {
+    uni.showToast({ title: '粘贴失败', icon: 'none' })
+  }
+  // #endif
+}
+
+async function uploadPasteBlobFile(file) {
+  const url = ensureAbsoluteHttpUrl('/api/common/upload', getApiBase())
+  if (!url) throw new Error('接口地址未就绪，请检查网络后重试')
+  const token = getToken()
+  const fd = new FormData()
+  fd.append('file', file, file.name || 'paste.jpg')
+  const headers = {}
+  if (token) headers.token = token
+  const res = await fetch(url, { method: 'POST', headers, body: fd, credentials: 'include' })
+  const body = await res.json().catch(() => ({}))
+  if ((body && body.code) !== 1) {
+    const msg = (body && (body.msg || body.message)) || '上传失败'
+    goLoginIfUnauthorized(body && body.code, msg)
+    throw new Error(msg)
+  }
+  return body.data || {}
 }
 
 function eventPoint(e) {
@@ -3125,6 +3344,9 @@ function onMsgLongPress(m, e) {
   const items = []
   if (isImage(m)) {
     items.push({ action: 'save', label: rpT('chat_msg_save', '保存') })
+    if (canCopyImageMsg(m)) {
+      items.push({ action: 'copy', label: rpT('chat_msg_copy', '复制') })
+    }
   }
   if (canCopyMsg(m)) {
     items.push({ action: 'copy', label: rpT('chat_msg_copy', '复制') })
@@ -3228,7 +3450,11 @@ async function onMsgMenuAction(action) {
   closeMsgMenu()
   if (!m) return
   if (action === 'copy') {
-    copyMsgContent(m)
+    if (isImage(m)) {
+      await copyChatImageMsg(m)
+    } else {
+      copyMsgContent(m)
+    }
     return
   }
   if (action === 'save') {
@@ -3261,6 +3487,15 @@ function onInputFocus() {
   showSticker.value = false
   showAttach.value = false
 }
+
+/** 文本里出现复制标记时转为待发图（免上传） */
+watch(text, (v) => {
+  const raw = String(v || '')
+  if (raw.indexOf(CHAT_IMG_CLIP_MARKER) < 0) return
+  if (tryConsumeImageClipboardText(raw)) {
+    text.value = ''
+  }
+})
 
 function openEmojiOnly() {
   if (!canCap('emoji') && !canCap('text')) {
@@ -4275,15 +4510,32 @@ async function sendPendingMedia() {
       const images = []
       for (let i = 0; i < drafts.length; i++) {
         pendingMedias.value = drafts.slice(i)
+        const draft = drafts[i]
+        // 红宝内复制的图：直接复用 /uploads 路径，不重新上传
+        if (draft.reuseUrl && toUploadsPath(draft.reuseUrl)) {
+          const path = toUploadsPath(draft.reuseUrl)
+          const full = String(draft.reuseFull || '').trim() || publicUrl(path) || path
+          images.push({
+            url: path,
+            fullurl: full,
+            name: draft.name || '',
+          })
+          continue
+        }
         const tip =
           drafts.length > 1 ? `上传中 ${i + 1}/${drafts.length}…` : '上传中…'
         uni.showLoading({ title: tip, mask: true })
-        const up = await uploadCommonFile(drafts[i].filePath)
+        let up
+        if (draft.pasteFile && typeof fetch === 'function') {
+          up = await uploadPasteBlobFile(draft.pasteFile)
+        } else {
+          up = await uploadCommonFile(draft.filePath)
+        }
         const { path, full } = mediaPathsFromUpload(up)
         images.push({
           url: path,
           fullurl: full,
-          name: drafts[i].name || up.name || '',
+          name: draft.name || up.name || '',
         })
       }
       const label =
@@ -6650,6 +6902,34 @@ uni-page-body {
   margin: 0 6px 8px 10px;
   white-space: nowrap;
   box-sizing: border-box;
+}
+.chat-paste-img-bar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 10px 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #eef5ff;
+  border: 1px solid #cfe0ff;
+  box-sizing: border-box;
+}
+.chat-paste-img-bar--on {
+  opacity: 0.85;
+}
+.chat-paste-img-bar-txt {
+  flex: 1;
+  font-size: 13px;
+  color: #2f6fed;
+  line-height: 1.3;
+}
+.chat-paste-img-bar-x {
+  margin-left: 10px;
+  font-size: 18px;
+  line-height: 1;
+  color: #8aa4d8;
+  padding: 0 4px;
 }
 .chat-pending-media-inner {
   display: flex;
