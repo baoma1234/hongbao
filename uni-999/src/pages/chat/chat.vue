@@ -3142,8 +3142,9 @@ function pasteExternalImageFiles(files) {
   try {
     const next = cur.slice()
     for (let i = 0; i < take.length; i++) {
-      const file = take[i]
-      if (!file) continue
+      const raw = take[i]
+      if (!raw) continue
+      const file = normalizePasteImageFile(raw) || raw
       if (file.size > MAX_IMAGE_BYTES) {
         uni.showToast({ title: formatSizeLimitTip(MAX_IMAGE_BYTES, 'image'), icon: 'none' })
         continue
@@ -3158,7 +3159,7 @@ function pasteExternalImageFiles(files) {
         filePath: blobUrl,
         pasteFile: file,
         size: Number(file.size || 0),
-        name: file.name || 'paste.jpg',
+        name: file.name || 'paste.png',
         fallback: '[图片]',
       })
       added += 1
@@ -3250,16 +3251,76 @@ function unbindH5DesktopImageIngest() {
 }
 // #endif
 
+/** 剪贴板 File 常无 type / 无后缀，服务端 checkMimetype 会直接拒 */
+function normalizePasteImageFile(file) {
+  if (!file) return null
+  const mime0 = String(file.type || '').toLowerCase()
+  const name0 = String(file.name || '').trim()
+  let ext = ''
+  if (mime0 === 'image/jpeg' || mime0 === 'image/jpg') ext = 'jpg'
+  else if (mime0 === 'image/png') ext = 'png'
+  else if (mime0 === 'image/webp') ext = 'webp'
+  else if (mime0 === 'image/gif') ext = 'gif'
+  else if (mime0 === 'image/bmp' || mime0 === 'image/x-bmp' || mime0 === 'image/x-ms-bmp') ext = 'bmp'
+  if (!ext) {
+    const m = /\.(jpe?g|png|gif|webp|bmp)$/i.exec(name0)
+    if (m) ext = m[1].toLowerCase().replace('jpeg', 'jpg')
+  }
+  if (!ext) ext = 'png'
+  const typeMap = {
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    webp: 'image/webp',
+    gif: 'image/gif',
+    bmp: 'image/bmp',
+  }
+  const type = typeMap[ext] || (mime0.indexOf('image/') === 0 ? mime0 : 'image/png')
+  const safeName =
+    name0 && /\.[a-z0-9]+$/i.test(name0) && !/^\./.test(name0) ? name0 : 'paste.' + ext
+  try {
+    if (typeof File !== 'undefined') {
+      return new File([file], safeName, {
+        type,
+        lastModified: Number(file.lastModified) || Date.now(),
+      })
+    }
+  } catch (e) {
+    /* fallthrough */
+  }
+  try {
+    if (typeof Blob !== 'undefined') {
+      const blob = file instanceof Blob ? file : new Blob([file], { type })
+      blob.name = safeName
+      return blob
+    }
+  } catch (e2) {
+    /* ignore */
+  }
+  return file
+}
+
 async function uploadPasteBlobFile(file) {
   const url = ensureAbsoluteHttpUrl('/api/common/upload', getApiBase())
   if (!url) throw new Error('接口地址未就绪，请检查网络后重试')
+  const normalized = normalizePasteImageFile(file) || file
   const token = getToken()
   const fd = new FormData()
-  fd.append('file', file, file.name || 'paste.jpg')
+  const fname =
+    (normalized && normalized.name) ||
+    (file && file.name) ||
+    'paste.png'
+  fd.append('file', normalized, fname)
   const headers = {}
   if (token) headers.token = token
   const res = await fetch(url, { method: 'POST', headers, body: fd, credentials: 'include' })
-  const body = await res.json().catch(() => ({}))
+  const text = await res.text()
+  let body = {}
+  try {
+    body = text ? JSON.parse(text) : {}
+  } catch (e) {
+    throw new Error(res.ok ? '上传失败' : '上传失败(' + res.status + ')')
+  }
   if ((body && body.code) !== 1) {
     const msg = (body && (body.msg || body.message)) || '上传失败'
     goLoginIfUnauthorized(body && body.code, msg)
@@ -4645,10 +4706,21 @@ async function sendPendingMedia() {
           drafts.length > 1 ? `上传中 ${i + 1}/${drafts.length}…` : '上传中…'
         uni.showLoading({ title: tip, mask: true })
         let up
-        if (draft.pasteFile && typeof fetch === 'function') {
+        // 粘贴图：优先走与选图相同的 uni.uploadFile(blob:)，避免 fetch + 空 MIME 被拒
+        if (draft.filePath) {
+          try {
+            up = await uploadCommonFile(draft.filePath)
+          } catch (e1) {
+            if (draft.pasteFile) {
+              up = await uploadPasteBlobFile(draft.pasteFile)
+            } else {
+              throw e1
+            }
+          }
+        } else if (draft.pasteFile) {
           up = await uploadPasteBlobFile(draft.pasteFile)
         } else {
-          up = await uploadCommonFile(draft.filePath)
+          throw new Error('没有可上传的图片')
         }
         const { path, full } = mediaPathsFromUpload(up)
         images.push({
