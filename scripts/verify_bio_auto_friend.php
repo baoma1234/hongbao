@@ -1,6 +1,6 @@
 <?php
 /**
- * 校验 BIO 客服自动通过（不依赖 DB）
+ * 校验 BIO / 40ky 客服自动通过（不依赖 DB）
  * php scripts/verify_bio_auto_friend.php
  */
 $root = dirname(__DIR__);
@@ -17,12 +17,18 @@ spl_autoload_register(function ($class) use ($root) {
 
 use Im\Service\AdminService;
 
-$uid = 55555555;
-$ok = AdminService::autoAcceptsFriend($uid);
-echo 'autoAcceptsFriend(55555555)=' . ($ok ? 'YES' : 'NO') . "\n";
+$ids = [55555555, 44444444];
+$fail = false;
+foreach ($ids as $uid) {
+    $ok = AdminService::autoAcceptsFriend($uid);
+    echo "autoAcceptsFriend({$uid})=" . ($ok ? 'YES' : 'NO') . "\n";
+    if (!$ok) {
+        $fail = true;
+    }
+}
 echo 'autoAcceptFriendUserIds=' . json_encode(AdminService::autoAcceptFriendUserIds()) . "\n";
-if (!$ok) {
-    fwrite(STDERR, "FAIL: BIO should auto-accept\n");
+if ($fail) {
+    fwrite(STDERR, "FAIL\n");
     exit(1);
 }
 echo "OK\n";
