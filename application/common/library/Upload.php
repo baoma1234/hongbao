@@ -106,14 +106,39 @@ class Upload
     protected function checkMimetype()
     {
         $mimetypeArr = explode(',', strtolower($this->config['mimetype']));
-        $typeArr = explode('/', $this->fileInfo['type']);
-        //Mimetype值不正确
-        if (stripos($this->fileInfo['type'], '/') === false) {
+        $type = strtolower(trim((string)($this->fileInfo['type'] ?? '')));
+        $suffix = strtolower((string)($this->fileInfo['suffix'] ?? ''));
+
+        // 剪贴板 / Telegram 粘贴：MIME 常为空或 application/octet-stream，允许靠后缀放行
+        $suffixOk = $suffix !== '' && (
+            in_array($suffix, $mimetypeArr, true) || in_array('.' . $suffix, $mimetypeArr, true)
+        );
+        if ($type === '' || $type === 'application/octet-stream' || stripos($type, '/') === false) {
+            if ($suffixOk) {
+                // 补一个合法 MIME，后续 checkImage / 压缩才认图
+                $mimeMap = [
+                    'jpg'  => 'image/jpeg',
+                    'jpeg' => 'image/jpeg',
+                    'png'  => 'image/png',
+                    'gif'  => 'image/gif',
+                    'bmp'  => 'image/bmp',
+                    'webp' => 'image/webp',
+                    'mp4'  => 'video/mp4',
+                    'webm' => 'video/webm',
+                    'mp3'  => 'audio/mpeg',
+                    'wav'  => 'audio/wav',
+                ];
+                if (isset($mimeMap[$suffix])) {
+                    $this->fileInfo['type'] = $mimeMap[$suffix];
+                }
+                return true;
+            }
             throw new UploadException(__('Uploaded file format is limited'));
         }
-        //验证文件后缀
-        if (in_array($this->fileInfo['suffix'], $mimetypeArr) || in_array('.' . $this->fileInfo['suffix'], $mimetypeArr)
-            || in_array($typeArr[0] . "/*", $mimetypeArr) || (in_array($this->fileInfo['type'], $mimetypeArr) && stripos($this->fileInfo['type'], '/') !== false)) {
+
+        $typeArr = explode('/', $type);
+        if (in_array($suffix, $mimetypeArr, true) || in_array('.' . $suffix, $mimetypeArr, true)
+            || in_array($typeArr[0] . '/*', $mimetypeArr, true) || (in_array($type, $mimetypeArr, true) && stripos($type, '/') !== false)) {
             return true;
         }
         throw new UploadException(__('Uploaded file format is limited'));

@@ -3144,12 +3144,12 @@ function pasteExternalImageFiles(files) {
     for (let i = 0; i < take.length; i++) {
       const raw = take[i]
       if (!raw) continue
-      const file = normalizePasteImageFile(raw) || raw
-      if (file.size > MAX_IMAGE_BYTES) {
+      // 预览仍用原 blob；真正上传前再 async 规范化（含魔数嗅探）
+      if (raw.size > MAX_IMAGE_BYTES) {
         uni.showToast({ title: formatSizeLimitTip(MAX_IMAGE_BYTES, 'image'), icon: 'none' })
         continue
       }
-      const blobUrl = URL.createObjectURL(file)
+      const blobUrl = URL.createObjectURL(raw)
       pendingMediaSeq += 1
       next.push({
         id: 'pm-' + pendingMediaSeq,
@@ -3157,9 +3157,9 @@ function pasteExternalImageFiles(files) {
         msgType: 4,
         preview: blobUrl,
         filePath: blobUrl,
-        pasteFile: file,
-        size: Number(file.size || 0),
-        name: file.name || 'paste.png',
+        pasteFile: raw,
+        size: Number(raw.size || 0),
+        name: raw.name || 'paste.png',
         fallback: '[图片]',
       })
       added += 1
@@ -3251,8 +3251,37 @@ function unbindH5DesktopImageIngest() {
 }
 // #endif
 
-/** 剪贴板 File 常无 type / 无后缀，服务端 checkMimetype 会直接拒 */
-function normalizePasteImageFile(file) {
+/** 按文件头识别真实图片格式（Telegram 剪贴板常无 MIME / 乱后缀） */
+async function sniffImageExtFromBlob(blob) {
+  if (!blob || typeof blob.slice !== 'function') return ''
+  try {
+    const buf = await blob.slice(0, 16).arrayBuffer()
+    const u = new Uint8Array(buf)
+    if (u.length >= 8 && u[0] === 0x89 && u[1] === 0x50 && u[2] === 0x4e && u[3] === 0x47) return 'png'
+    if (u.length >= 3 && u[0] === 0xff && u[1] === 0xd8 && u[2] === 0xff) return 'jpg'
+    if (u.length >= 6 && u[0] === 0x47 && u[1] === 0x49 && u[2] === 0x46 && u[3] === 0x38) return 'gif'
+    if (
+      u.length >= 12 &&
+      u[0] === 0x52 &&
+      u[1] === 0x49 &&
+      u[2] === 0x46 &&
+      u[3] === 0x46 &&
+      u[8] === 0x57 &&
+      u[9] === 0x45 &&
+      u[10] === 0x42 &&
+      u[11] === 0x50
+    ) {
+      return 'webp'
+    }
+    if (u.length >= 2 && u[0] === 0x42 && u[1] === 0x4d) return 'bmp'
+  } catch (e) {
+    /* ignore */
+  }
+  return ''
+}
+
+/** 剪贴板 File 常无 type / 无后缀；Telegram 尤甚。必须写出合法 name+MIME 再上传 */
+async function normalizePasteImageFile(file) {
   if (!file) return null
   const mime0 = String(file.type || '').toLowerCase()
   const name0 = String(file.name || '').trim()
@@ -3266,7 +3295,9 @@ function normalizePasteImageFile(file) {
     const m = /\.(jpe?g|png|gif|webp|bmp)$/i.exec(name0)
     if (m) ext = m[1].toLowerCase().replace('jpeg', 'jpg')
   }
-  if (!ext) ext = 'png'
+  if (!ext) {
+    ext = (await sniffImageExtFromBlob(file)) || 'png'
+  }
   const typeMap = {
     jpg: 'image/jpeg',
     jpeg: 'image/jpeg',
@@ -3275,9 +3306,9 @@ function normalizePasteImageFile(file) {
     gif: 'image/gif',
     bmp: 'image/bmp',
   }
-  const type = typeMap[ext] || (mime0.indexOf('image/') === 0 ? mime0 : 'image/png')
-  const safeName =
-    name0 && /\.[a-z0-9]+$/i.test(name0) && !/^\./.test(name0) ? name0 : 'paste.' + ext
+  const type = typeMap[ext] || 'image/png'
+  // 即使原名有后缀，也统一成 paste.xxx，避免 Telegram 奇怪文件名导致服务端判 suffix=file
+  const safeName = 'paste.' + ext
   try {
     if (typeof File !== 'undefined') {
       return new File([file], safeName, {
@@ -3290,8 +3321,12 @@ function normalizePasteImageFile(file) {
   }
   try {
     if (typeof Blob !== 'undefined') {
-      const blob = file instanceof Blob ? file : new Blob([file], { type })
-      blob.name = safeName
+      const blob = new Blob([file], { type })
+      try {
+        blob.name = safeName
+      } catch (eName) {
+        /* ignore */
+      }
       return blob
     }
   } catch (e2) {
@@ -3303,13 +3338,10 @@ function normalizePasteImageFile(file) {
 async function uploadPasteBlobFile(file) {
   const url = ensureAbsoluteHttpUrl('/api/common/upload', getApiBase())
   if (!url) throw new Error('接口地址未就绪，请检查网络后重试')
-  const normalized = normalizePasteImageFile(file) || file
+  const normalized = (await normalizePasteImageFile(file)) || file
   const token = getToken()
   const fd = new FormData()
-  const fname =
-    (normalized && normalized.name) ||
-    (file && file.name) ||
-    'paste.png'
+  const fname = String((normalized && normalized.name) || 'paste.png').replace(/^\.+/, '') || 'paste.png'
   fd.append('file', normalized, fname)
   const headers = {}
   if (token) headers.token = token
@@ -3331,32 +3363,16 @@ async function uploadPasteBlobFile(file) {
   return body.data || {}
 }
 
-/** 粘贴图上传：优先与选图同一条 uni.uploadFile，避免 fetch+credentials 踩 CORS * */
+/**
+ * 粘贴图：必须用 FormData 显式带 paste.png 文件名。
+ * uni.uploadFile(blob:) 在 H5 常丢后缀 → 服务端 suffix=file →「上传文件格式受限制」
+ */
 async function uploadPendingImageDraft(draft) {
+  if (draft && draft.pasteFile) {
+    return uploadPasteBlobFile(draft.pasteFile)
+  }
   if (draft && draft.filePath) {
     return uploadCommonFile(draft.filePath)
-  }
-  if (draft && draft.pasteFile) {
-    let blobUrl = ''
-    try {
-      const normalized = normalizePasteImageFile(draft.pasteFile) || draft.pasteFile
-      blobUrl = URL.createObjectURL(normalized)
-      return await uploadCommonFile(blobUrl)
-    } catch (e1) {
-      try {
-        return await uploadPasteBlobFile(draft.pasteFile)
-      } catch (e2) {
-        throw e1
-      }
-    } finally {
-      if (blobUrl) {
-        try {
-          URL.revokeObjectURL(blobUrl)
-        } catch (e) {
-          /* ignore */
-        }
-      }
-    }
   }
   throw new Error('没有可上传的图片')
 }
