@@ -1043,8 +1043,12 @@ class MessageService
         if ($userId > 0) {
             if ($conversationType === 2) {
                 $minId = $this->groupClearedMsgId($userId, (int)$conversationId);
-                $member = (new GroupService())->getMember((int)$conversationId, $userId);
-                $minJoinTime = (int)($member['jointime'] ?? 0);
+                $groups = new GroupService();
+                // 群开启「新成员可见历史」时不做入群时间截断
+                if (!$groups->newMemberSeeHistory((int)$conversationId)) {
+                    $member = $groups->getMember((int)$conversationId, $userId);
+                    $minJoinTime = (int)($member['jointime'] ?? 0);
+                }
             } elseif ($conversationType === 1) {
                 $minId = $this->privateClearedMsgId($userId, $conversationId);
             }
@@ -2294,6 +2298,9 @@ class MessageService
                 continue;
             }
             $member = $groups->getMember($gid, $userId);
+            if ($groups->newMemberSeeHistory($gid)) {
+                continue;
+            }
             $joinTs = (int)($member['jointime'] ?? 0);
             if ($joinTs <= 0) {
                 continue;

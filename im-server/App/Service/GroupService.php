@@ -189,6 +189,13 @@ class GroupService
         return $row;
     }
 
+    /** 新成员是否可见入群前历史消息 */
+    public function newMemberSeeHistory($groupId)
+    {
+        $group = $this->get((int)$groupId);
+        return (int)($group['new_member_see_history'] ?? 0) === 1;
+    }
+
     protected function viewerInfoVer($groupId)
     {
         try {

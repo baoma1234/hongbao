@@ -83,6 +83,13 @@
         </div>
     </div>
     <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">新成员看历史:</label>
+        <div class="col-xs-12 col-sm-8">
+            {:build_radios('row[new_member_see_history]', ['1'=>'可见入群前消息', '0'=>'仅看入群后'], isset($row['new_member_see_history']) ? (string)$row['new_member_see_history'] : '0')}
+            <span class="help-block">默认仅看入群后；选「可见」则新用户可翻看该群全部历史</span>
+        </div>
+    </div>
+    <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">排序权重:</label>
         <div class="col-xs-12 col-sm-8">
             <input type="number" class="form-control" name="row[weigh]" value="{$row.weigh|default=0}">
