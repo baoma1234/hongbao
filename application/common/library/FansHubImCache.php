@@ -50,6 +50,127 @@ class FansHubImCache
         }
     }
 
+    /**
+     * 实时在线真实用户（WebSocket Redis online 集合，排除 is_bot=1）
+     *
+     * @param array{page?:int,limit?:int} $opts
+     * @return array{total:int,list:array,raw_online:int,bot_online:int}
+     */
+    public static function realtimeOnlineReal(array $opts = [])
+    {
+        $page = max(1, (int)($opts['page'] ?? 1));
+        $limit = min(200, max(1, (int)($opts['limit'] ?? 50)));
+        $empty = ['total' => 0, 'list' => [], 'raw_online' => 0, 'bot_online' => 0];
+        try {
+            $r = self::conn();
+            if (!$r) {
+                return $empty;
+            }
+            $raw = $r->sMembers(self::prefix() . 'online');
+            if (!is_array($raw) || !$raw) {
+                return $empty;
+            }
+            $ids = [];
+            foreach ($raw as $v) {
+                $id = (int)$v;
+                if ($id > 0) {
+                    $ids[$id] = $id;
+                }
+            }
+            $ids = array_values($ids);
+            $rawOnline = count($ids);
+            if (!$ids) {
+                return $empty;
+            }
+
+            $botIds = [];
+            foreach (array_chunk($ids, 500) as $chunk) {
+                $rows = \think\Db::name('fans_account')
+                    ->where('user_id', 'in', $chunk)
+                    ->where('is_bot', 1)
+                    ->column('user_id');
+                foreach ($rows ?: [] as $bid) {
+                    $botIds[(int)$bid] = 1;
+                }
+            }
+            $realIds = [];
+            foreach ($ids as $id) {
+                if (!isset($botIds[$id])) {
+                    $realIds[] = $id;
+                }
+            }
+            // 再排除库中已不存在的会员
+            $existMap = [];
+            foreach (array_chunk($realIds, 500) as $chunk) {
+                $rows = \think\Db::name('user')
+                    ->where('id', 'in', $chunk)
+                    ->where('status', 'normal')
+                    ->column('id');
+                foreach ($rows ?: [] as $uid) {
+                    $existMap[(int)$uid] = 1;
+                }
+            }
+            $realIds = array_values(array_filter($realIds, function ($id) use ($existMap) {
+                return isset($existMap[$id]);
+            }));
+            sort($realIds);
+            $total = count($realIds);
+            $offset = ($page - 1) * $limit;
+            $pageIds = array_slice($realIds, $offset, $limit);
+            $list = [];
+            if ($pageIds) {
+                $users = \think\Db::name('user')
+                    ->where('id', 'in', $pageIds)
+                    ->field('id,nickname,mobile,avatar,logintime,status')
+                    ->select();
+                $uMap = [];
+                foreach ($users ?: [] as $u) {
+                    $uMap[(int)$u['id']] = $u;
+                }
+                foreach ($pageIds as $uid) {
+                    $u = $uMap[$uid] ?? null;
+                    if (!$u) {
+                        continue;
+                    }
+                    $mobile = (string)($u['mobile'] ?? '');
+                    $digits = preg_replace('/\D+/', '', $mobile);
+                    $mask = $digits;
+                    if (strlen($digits) >= 7) {
+                        $mask = substr($digits, 0, 3) . '****' . substr($digits, -4);
+                    }
+                    $avatar = '';
+                    if (function_exists('normalize_user_avatar')) {
+                        $avatar = (string)normalize_user_avatar($u['avatar'] ?? '', true);
+                    } else {
+                        $avatar = (string)($u['avatar'] ?? '');
+                    }
+                    $list[] = [
+                        'user_id'   => $uid,
+                        'nickname'  => (string)($u['nickname'] ?: ('UID' . $uid)),
+                        'mobile'    => $mask,
+                        'avatar'    => $avatar,
+                        'logintime' => (int)($u['logintime'] ?? 0),
+                    ];
+                }
+            }
+            return [
+                'total'      => $total,
+                'list'       => $list,
+                'raw_online' => $rawOnline,
+                'bot_online' => count($botIds),
+            ];
+        } catch (\Throwable $e) {
+            return $empty;
+        }
+    }
+
+    /** @return int 实时在线真实人数 */
+    public static function realtimeOnlineRealCount()
+    {
+        $data = self::realtimeOnlineReal(['page' => 1, 'limit' => 1]);
+        return (int)($data['total'] ?? 0);
+    }
+
     /** 绑定/改绑邀请人后清 IM 侧 inviter 缓存 */
     public static function bustInviter($inviteeUserId)
     {

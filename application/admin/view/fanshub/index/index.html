@@ -24,6 +24,18 @@
                 </div>
             </div>
             <div class="col-sm-3 col-xs-6">
+                <a href="javascript:;" class="btn-online-list" style="display:block;color:inherit;text-decoration:none;" title="点击查看在线列表">
+                    <div class="info-box bg-maroon" style="cursor:pointer;">
+                        <span class="info-box-icon"><i class="fa fa-wifi"></i></span>
+                        <div class="info-box-content">
+                            <span class="info-box-text">实时在线（真实）</span>
+                            <span class="info-box-number" id="online-real-count">{$stats.online_real|default=0}</span>
+                            <span class="progress-description">点开查看列表 · 已排除机器人</span>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-sm-3 col-xs-6">
                 <div class="info-box bg-yellow">
                     <span class="info-box-icon"><i class="fa fa-ticket"></i></span>
                     <div class="info-box-content">
@@ -42,6 +54,8 @@
                     </div>
                 </div>
             </div>
+        </div>
+        <div class="row">
             <div class="col-sm-3 col-xs-6">
                 <div class="info-box bg-purple">
                     <span class="info-box-icon"><i class="fa fa-line-chart"></i></span>
