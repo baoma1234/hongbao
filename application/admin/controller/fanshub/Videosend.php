@@ -25,10 +25,11 @@ class Videosend extends Imagent
                 'label'   => $u ? (string)($u['nickname'] ?: '深夜欲望') : '深夜欲望',
             ];
         }
+        // 仅「新成员可见历史」的群（当前：70/71/72）；含禁言群 status=3
         $groups = Db::name('chat_groups')
-            ->where('status', 1)
-            ->order('id', 'desc')
-            ->limit(80)
+            ->where('new_member_see_history', 1)
+            ->whereIn('status', [1, 3])
+            ->order('id', 'asc')
             ->field('id,name,owner_user_id')
             ->select();
 
@@ -55,6 +56,22 @@ class Videosend extends Imagent
         $u = Db::name('user')->where('id', $userId)->find();
         if (!$u) {
             $this->error('发送账号不存在');
+        }
+    }
+
+    protected function assertVideosendGroup($groupId)
+    {
+        $groupId = (int)$groupId;
+        if ($groupId <= 0) {
+            $this->error('请选择群');
+        }
+        $g = Db::name('chat_groups')
+            ->where('id', $groupId)
+            ->where('new_member_see_history', 1)
+            ->whereIn('status', [1, 3])
+            ->find();
+        if (!$g) {
+            $this->error('仅可向「新成员可见历史」的群发送');
         }
     }
 
@@ -189,9 +206,7 @@ class Videosend extends Imagent
             if ($groupId <= 0) {
                 $groupId = (int)$this->request->post('conversation_id');
             }
-            if ($groupId <= 0) {
-                $this->error('缺少群ID');
-            }
+            $this->assertVideosendGroup($groupId);
             $payload['group_id'] = $groupId;
             $result = $this->callBridge('/agent/send_group', $payload);
             $this->publishOutgoingMessage($result);

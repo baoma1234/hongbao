@@ -33,13 +33,13 @@
             <div class="form-group" id="row-group">
                 <label class="control-label col-xs-12 col-sm-2">群</label>
                 <div class="col-xs-12 col-sm-8">
-                    <select class="form-control" name="group_id" id="group_id">
-                        <option value="">请选择或下方手填 ID</option>
+                    <select class="form-control" name="group_id" id="group_id" required>
+                        <option value="">请选择</option>
                         {volist name="groups" id="g"}
                         <option value="{$g.id}">#{$g.id} {$g.name|default=''|htmlentities}</option>
                         {/volist}
                     </select>
-                    <input type="number" class="form-control" style="margin-top:8px;" name="group_id_manual" id="group_id_manual" placeholder="手填群 ID（优先于下拉）" min="1">
+                    <span class="help-block">仅显示已开启「新成员可见历史」的群（当前：日本AV / 成人视频 / 国产自拍）。</span>
                 </div>
             </div>
 

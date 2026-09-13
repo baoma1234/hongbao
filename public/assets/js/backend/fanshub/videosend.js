@@ -131,12 +131,9 @@ define(['jquery', 'bootstrap', 'backend', 'form'], function ($, undefined, Backe
             data.__token__ = token;
         }
         if (ctype === 2) {
-            var gid = parseInt($('#group_id_manual').val(), 10) || 0;
+            var gid = parseInt($('#group_id').val(), 10) || 0;
             if (!gid) {
-                gid = parseInt($('#group_id').val(), 10) || 0;
-            }
-            if (!gid) {
-                Toastr.error('请选择或填写群 ID');
+                Toastr.error('请选择群');
                 return false;
             }
             data.group_id = gid;
