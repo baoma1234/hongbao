@@ -9,19 +9,19 @@ When finishing a batch of meaningful code changes in this project:
 
 1. Create a git commit (concise message focused on why).
 2. Push to `origin` (`https://github.com/baoma1234/hongbao.git`) on `main` with `git push -u origin HEAD` if needed.
-3. Do **not** commit secrets: `.env`, `im-server/config/local.php`, credentials, zip dumps, **Telegram bot tokens / webhook secrets**.
-4. Do **not** amend unless the usual amend safety rules allow it.
-5. Do **not** force-push to `main`.
-6. After push, briefly tell the user the commit is on GitHub so the other server can `git pull`.
-7. **Never push** local Telegram bot config (`telegram_bot_token` / `telegram_webhook_secret` real values). Production is configured on the server; see `no-push-telegram-secrets.mdc`.
+3. Do **not** commit unrelated secrets: `.env`, `im-server/config/local.php`, DB passwords, zip dumps.
+4. **`fanshub.php` 含 Telegram Token / webhook secret：要一并提交推送**（私有仓库；见 `no-push-telegram-secrets.mdc`）。
+5. Do **not** amend unless the usual amend safety rules allow it.
+6. Do **not** force-push to `main`.
+7. After push, briefly tell the user the commit is on GitHub so the other server can `git pull`.
 
 ## `fanshub.php` 必须随 Git 同步
 
-正式配置以本机 `application/extra/fanshub.php` 为准（运维可从 Downloads / 生产机覆盖过来）。
+正式配置以本机 `application/extra/fanshub.php` 为准。
 
 - 有业务配置改动或用户要求同步时：**本地与 GitHub 都要更新该文件**（其它服务器 `git pull`）
-- 推送前：`telegram_bot_token` / `telegram_webhook_secret` **置空**；推完再写回本机真实值（见 `no-push-telegram-secrets.mdc`）
-- 不要因「怕带密钥」而整文件不提交——其它业务键（白名单、短信开关、文案等）仍要进仓库
+- 推送时保留 `telegram_bot_token` / `telegram_webhook_secret` 真实值（私有仓）
+- 同时带上白名单、短信开关、文案等全部正式键
 
 ## SMS production flags（推送前必核）
 
