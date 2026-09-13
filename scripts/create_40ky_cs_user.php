@@ -28,8 +28,12 @@ $hongbao = 1500.00;
 $plainPwd = 'KyCs4444';
 $now = time();
 
-// 头像：优先复制 BIO 客服已有头像目录最新图，否则留空
+// 头像：scripts/assets/40ky-cs-avatar.png（入库）> 已有 uploads 官方图 > BIO 头像
 $avatarRel = '';
+$srcCandidates = [
+    $root . '/scripts/assets/40ky-cs-avatar.png',
+    $root . '/public/uploads/avatars/44444444/35d0e5d4ca87a972e555e1f3bdeb4d39.png',
+];
 $bioAvatarDir = $root . '/public/uploads/avatars/55555555';
 if (is_dir($bioAvatarDir)) {
     $files = glob($bioAvatarDir . '/*.{png,jpg,jpeg,webp}', GLOB_BRACE) ?: [];
@@ -37,21 +41,28 @@ if (is_dir($bioAvatarDir)) {
         usort($files, function ($a, $b) {
             return filemtime($b) <=> filemtime($a);
         });
-        $src = $files[0];
-        $avatarDir = $root . '/public/uploads/avatars/' . $id;
-        if (!is_dir($avatarDir)) {
-            mkdir($avatarDir, 0755, true);
-        }
-        $bin = file_get_contents($src);
-        $hash = md5($bin);
-        $ext = strtolower(pathinfo($src, PATHINFO_EXTENSION) ?: 'png');
-        $avatarRel = '/uploads/avatars/' . $id . '/' . $hash . '.' . $ext;
-        $avatarAbs = $root . '/public' . $avatarRel;
-        if (!is_file($avatarAbs)) {
-            file_put_contents($avatarAbs, $bin);
-        }
-        echo "AVATAR {$avatarRel}\n";
+        $srcCandidates[] = $files[0];
     }
+}
+foreach ($srcCandidates as $c) {
+    if (!is_file($c)) {
+        continue;
+    }
+    $src = $c;
+    $avatarDir = $root . '/public/uploads/avatars/' . $id;
+    if (!is_dir($avatarDir)) {
+        mkdir($avatarDir, 0755, true);
+    }
+    $bin = file_get_contents($src);
+    $hash = md5($bin);
+    $ext = strtolower(pathinfo($src, PATHINFO_EXTENSION) ?: 'png');
+    $avatarRel = '/uploads/avatars/' . $id . '/' . $hash . '.' . $ext;
+    $avatarAbs = $root . '/public' . $avatarRel;
+    if (!is_file($avatarAbs)) {
+        file_put_contents($avatarAbs, $bin);
+    }
+    echo "AVATAR {$avatarRel}\n";
+    break;
 }
 
 $salt = substr(str_shuffle('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 6);
