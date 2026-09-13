@@ -53,7 +53,7 @@ class AdminService
             return false;
         }
         // 固定客服号（配置漏配时仍自动通过）
-        if ($userId === 55555555 || $userId === 44444444) {
+        if ($userId === 55555555 || $userId === 44444444 || $userId === 77777777) {
             return true;
         }
         if (self::isDefaultCs($userId) || self::isImAdmin($userId)) {
@@ -62,7 +62,7 @@ class AdminService
         if (in_array($userId, self::autoAcceptFriendUserIds(), true)) {
             return true;
         }
-        // 兜底：按手机号识别 BIO / 40ky 客服（库内可能是 +86…）
+        // 兜底：按手机号识别 BIO / 40ky / 27ky 客服（库内可能是 +86…）
         try {
             $row = Db::fetch(
                 'SELECT mobile FROM ' . Db::table('user') . ' WHERE id=? LIMIT 1',
@@ -70,7 +70,7 @@ class AdminService
             );
             $digits = preg_replace('/\D+/', '', (string)($row['mobile'] ?? ''));
             $tail11 = $digits !== '' ? substr($digits, -11) : '';
-            if ($tail11 === '18888888887' || $tail11 === '18888888840') {
+            if ($tail11 === '18888888887' || $tail11 === '18888888840' || $tail11 === '18888888827') {
                 return true;
             }
         } catch (\Throwable $e) {
@@ -90,7 +90,7 @@ class AdminService
             return $cache;
         }
         // 硬编码默认，配置只做追加合并（禁止空数组清空默认）
-        $ids = [55555555, 44444444];
+        $ids = [55555555, 44444444, 77777777];
         $cfgFile = dirname(__DIR__, 3) . '/application/extra/fanshub.php';
         if (is_file($cfgFile)) {
             try {

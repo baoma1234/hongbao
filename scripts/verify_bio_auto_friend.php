@@ -17,7 +17,7 @@ spl_autoload_register(function ($class) use ($root) {
 
 use Im\Service\AdminService;
 
-$ids = [55555555, 44444444];
+$ids = [55555555, 44444444, 77777777];
 $fail = false;
 foreach ($ids as $uid) {
     $ok = AdminService::autoAcceptsFriend($uid);
