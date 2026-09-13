@@ -307,10 +307,17 @@
     </view>
 
     <view
-      v-if="communitySub === 'official'"
+      v-if="communitySub === 'official' && !officialRulesDockClosed"
       class="chat-official-rules chat-official-rules--dock"
       @click="openGameRulesFromCommunity"
     >
+      <view
+        class="chat-official-rules-close"
+        hover-class="chat-official-rules-close--active"
+        @click.stop="closeOfficialRulesDock"
+      >
+        <text class="chat-official-rules-close-x">×</text>
+      </view>
       <view class="chat-official-rules-ico">📜</view>
       <view class="chat-official-rules-text">
         <text class="chat-official-rules-title">🧧 红宝官方游戏规则</text>
@@ -401,9 +408,33 @@ let pageAlive = false
 let off = null
 
 const OFFICIAL_RULES_DOCK_FALLBACK_PX = 132
+const OFFICIAL_RULES_DOCK_CLOSED_PAD_PX = 24
+const OFFICIAL_RULES_DOCK_CLOSED_KEY = 'fh_community_rules_dock_closed'
 const SEG_CHROME_PX = 48
 /** 规则条盖住列表的实测/估算留白（写入 --official-dock-clear） */
 const officialDockClearPx = ref(OFFICIAL_RULES_DOCK_FALLBACK_PX)
+const officialRulesDockClosed = ref(false)
+
+function readOfficialRulesDockClosed() {
+  try {
+    return uni.getStorageSync(OFFICIAL_RULES_DOCK_CLOSED_KEY) === '1'
+  } catch (e) {
+    return false
+  }
+}
+
+function closeOfficialRulesDock() {
+  officialRulesDockClosed.value = true
+  officialDockClearPx.value = OFFICIAL_RULES_DOCK_CLOSED_PAD_PX
+  try {
+    uni.setStorageSync(OFFICIAL_RULES_DOCK_CLOSED_KEY, '1')
+  } catch (e) {}
+}
+
+officialRulesDockClosed.value = readOfficialRulesDockClosed()
+if (officialRulesDockClosed.value) {
+  officialDockClearPx.value = OFFICIAL_RULES_DOCK_CLOSED_PAD_PX
+}
 
 const tabRootStyle = computed(() => {
   const h = Number(tabRootPx.value) || 0
@@ -425,10 +456,14 @@ const officialScrollStyle = computed(() => {
   h = Math.max(140, h - SEG_CHROME_PX)
   return { height: h + 'px', minHeight: h + 'px', maxHeight: h + 'px', flex: 'none' }
 })
-const officialListPadStyle = computed(() => ({
-  // 主题曾用 padding!important 盖掉内联；改由底部 spacer + CSS 变量控制
-  '--official-dock-clear': Math.max(100, Number(officialDockClearPx.value) || OFFICIAL_RULES_DOCK_FALLBACK_PX) + 'px',
-}))
+const officialListPadStyle = computed(() => {
+  const clear = officialRulesDockClosed.value
+    ? OFFICIAL_RULES_DOCK_CLOSED_PAD_PX
+    : Math.max(100, Number(officialDockClearPx.value) || OFFICIAL_RULES_DOCK_FALLBACK_PX)
+  return {
+    '--official-dock-clear': clear + 'px',
+  }
+})
 
 function estimateOfficialDockClearPx() {
   applySafeAreaCssVars()
@@ -446,6 +481,10 @@ function estimateOfficialDockClearPx() {
 
 function measureOfficialDockClearance() {
   if (communitySub.value !== 'official') return
+  if (officialRulesDockClosed.value) {
+    officialDockClearPx.value = OFFICIAL_RULES_DOCK_CLOSED_PAD_PX
+    return
+  }
   const fallback = Math.max(OFFICIAL_RULES_DOCK_FALLBACK_PX, estimateOfficialDockClearPx())
   officialDockClearPx.value = fallback
   nextTick(() => {
@@ -457,6 +496,10 @@ function measureOfficialDockClearance() {
         .select('.chat-community-pane--official .chat-community-body-scroll')
         .boundingClientRect()
         .exec((res) => {
+          if (officialRulesDockClosed.value) {
+            officialDockClearPx.value = OFFICIAL_RULES_DOCK_CLOSED_PAD_PX
+            return
+          }
           const dock = res && res[0]
           const scroll = res && res[1]
           if (!dock || !scroll || !(dock.height > 0) || !(scroll.height > 0)) {
@@ -1177,7 +1220,30 @@ onHide(() => {
   width: calc(100% - 20px);
   box-sizing: border-box;
   padding: 8px 12px !important;
+  padding-right: 36px !important;
   min-height: 0;
+}
+.chat-official-rules-close {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  z-index: 2;
+  width: 28px;
+  height: 28px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+}
+.chat-official-rules-close--active {
+  background: rgba(0, 0, 0, 0.06);
+}
+.chat-official-rules-close-x {
+  font-size: 20px;
+  line-height: 20px;
+  color: #999;
+  font-weight: 400;
 }
 .chat-official-rules-ico {
   width: 36px;

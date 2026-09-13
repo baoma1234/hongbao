@@ -3,7 +3,7 @@
     "appid" : "__UNI__5346609",
     "description" : "红宝",
     "versionName" : "4.6.2",
-    "versionCode" : "268",
+    "versionCode" : "269",
     "transformPx" : false,
     "app-plus" : {
         "usingComponents" : true,

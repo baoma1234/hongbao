@@ -2690,8 +2690,23 @@
 .community-page .chat-official-rules--dock,
 .messages-page .chat-official-rules--dock {
   bottom: calc(72px + 14px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))) !important;
-  padding: 8px 12px !important;
+  padding: 8px 36px 8px 12px !important;
   z-index: 8500 !important;
+}
+
+#tabCommunity .chat-official-rules-close,
+.community-page .chat-official-rules-close,
+.messages-page .chat-official-rules-close {
+  position: absolute !important;
+  top: 2px !important;
+  right: 2px !important;
+  z-index: 3 !important;
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 14px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 /* ========== ???????? QQ ????? cream ???/???? ========== */
