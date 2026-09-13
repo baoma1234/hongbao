@@ -86,7 +86,7 @@ define(['jquery', 'bootstrap', 'backend', 'form'], function ($, undefined, Backe
         var content = $.trim($('#video_caption').val() || $('#content').val() || '');
         var images = parsePreviewList();
         if (!agent) {
-            Toastr.error('请选择托管账号');
+            Toastr.error('请选择发送账号');
             return false;
         }
         if (!url) {

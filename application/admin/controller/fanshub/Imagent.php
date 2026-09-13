@@ -1199,7 +1199,21 @@ class Imagent extends Backend
         }
         $row = Db::name('chat_agent_accounts')->where(['user_id' => $agent, 'status' => 1])->find();
         if (!$row) {
-            $this->error('托管账号未登记，且 IM 桥接不可达');
+            // 视频发送白名单账号可不托管
+            $cfg = \think\Config::get('fanshub') ?: [];
+            $allow = [11111111];
+            if (!empty($cfg['videosend_sender_user_ids']) && is_array($cfg['videosend_sender_user_ids'])) {
+                foreach ($cfg['videosend_sender_user_ids'] as $vid) {
+                    $vid = (int)$vid;
+                    if ($vid > 0) {
+                        $allow[] = $vid;
+                    }
+                }
+            }
+            if (!in_array($agent, array_values(array_unique($allow)), true)
+                || !Db::name('user')->where('id', $agent)->find()) {
+                $this->error('托管账号未登记，且 IM 桥接不可达');
+            }
         }
         $now = time();
         $msgId = sprintf('m%s%04d', date('YmdHis'), random_int(0, 9999));

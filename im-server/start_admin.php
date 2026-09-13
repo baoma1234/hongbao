@@ -403,11 +403,42 @@ function assertUserExists($userId)
     }
 }
 
+function videosendSenderUserIds()
+{
+    static $ids = null;
+    if ($ids !== null) {
+        return $ids;
+    }
+    $ids = [11111111]; // 深夜欲望兜底
+    $cfgFile = dirname(__DIR__) . '/application/extra/fanshub.php';
+    if (is_file($cfgFile)) {
+        try {
+            $cfg = include $cfgFile;
+            if (is_array($cfg) && !empty($cfg['videosend_sender_user_ids']) && is_array($cfg['videosend_sender_user_ids'])) {
+                foreach ($cfg['videosend_sender_user_ids'] as $id) {
+                    $id = (int)$id;
+                    if ($id > 0) {
+                        $ids[] = $id;
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+    }
+    $ids = array_values(array_unique($ids));
+    return $ids;
+}
+
 function assertAgent($agentUserId, $adminId = 0)
 {
     $agentUserId = (int)$agentUserId;
     if ($agentUserId <= 0) {
         throw new InvalidArgumentException('agent_user_id required');
+    }
+    // 视频发送白名单：允许未托管账号以该身份代发
+    if (in_array($agentUserId, videosendSenderUserIds(), true)) {
+        assertUserExists($agentUserId);
+        return;
     }
     $row = Db::fetch(
         'SELECT * FROM ' . Db::table('chat_agent_accounts') . ' WHERE user_id=? AND status=1 LIMIT 1',

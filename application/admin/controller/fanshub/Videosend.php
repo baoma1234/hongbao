@@ -17,6 +17,26 @@ class Videosend extends Imagent
             ->where('status', 1)
             ->order('id', 'desc')
             ->select();
+        $agents = is_array($agents) ? $agents : [];
+        $seen = [];
+        foreach ($agents as $ag) {
+            $seen[(int)($ag['user_id'] ?? 0)] = true;
+        }
+        // 固定发送号（不托管）：置顶出现在下拉
+        foreach ($this->videosendSenderUserIds() as $uid) {
+            if ($uid <= 0 || isset($seen[$uid])) {
+                continue;
+            }
+            $u = Db::name('user')->where('id', $uid)->field('id,nickname')->find();
+            if (!$u) {
+                continue;
+            }
+            array_unshift($agents, [
+                'user_id' => $uid,
+                'label'   => (string)($u['nickname'] ?: ('UID ' . $uid)),
+            ]);
+            $seen[$uid] = true;
+        }
         $groups = Db::name('chat_groups')
             ->where('status', 1)
             ->order('id', 'desc')
@@ -24,9 +44,50 @@ class Videosend extends Imagent
             ->field('id,name,owner_user_id')
             ->select();
 
-        $this->view->assign('agents', $agents ?: []);
+        $this->view->assign('agents', $agents);
         $this->view->assign('groups', $groups ?: []);
         return $this->view->fetch();
+    }
+
+    /**
+     * @return int[]
+     */
+    protected function videosendSenderUserIds()
+    {
+        $cfg = \think\Config::get('fanshub') ?: [];
+        $ids = [];
+        if (!empty($cfg['videosend_sender_user_ids']) && is_array($cfg['videosend_sender_user_ids'])) {
+            foreach ($cfg['videosend_sender_user_ids'] as $id) {
+                $id = (int)$id;
+                if ($id > 0) {
+                    $ids[] = $id;
+                }
+            }
+        }
+        // 硬编码兜底：深夜欲望
+        if (!in_array(11111111, $ids, true)) {
+            $ids[] = 11111111;
+        }
+        return array_values(array_unique($ids));
+    }
+
+    protected function assertVideosendSender($userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            $this->error('请选择发送账号');
+        }
+        if (in_array($userId, $this->videosendSenderUserIds(), true)) {
+            $u = Db::name('user')->where('id', $userId)->find();
+            if (!$u) {
+                $this->error('发送账号不存在');
+            }
+            return;
+        }
+        $row = Db::name('chat_agent_accounts')->where(['user_id' => $userId, 'status' => 1])->find();
+        if (!$row) {
+            $this->error('发送账号未登记（非托管且不在视频发送白名单）');
+        }
     }
 
     /**
@@ -62,9 +123,7 @@ class Videosend extends Imagent
         if ($thumb === '' && !empty($extraIn['thumb'])) {
             $thumb = trim((string)$extraIn['thumb']);
         }
-        if ($agentUserId <= 0) {
-            $this->error('请选择托管账号');
-        }
+        $this->assertVideosendSender($agentUserId);
         if ($url === '') {
             $this->error('请填写视频地址');
         }
