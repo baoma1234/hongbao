@@ -7,15 +7,14 @@
                 <label class="control-label col-xs-12 col-sm-2">发送账号</label>
                 <div class="col-xs-12 col-sm-8">
                     <select class="form-control" name="agent_user_id" id="agent_user_id" required>
-                        <option value="">请选择</option>
                         {volist name="agents" id="ag"}
-                        <option value="{$ag.user_id}">
-                            {$ag.label|default='客服'|htmlentities}
+                        <option value="{$ag.user_id}" selected>
+                            {$ag.label|default='深夜欲望'|htmlentities}
                             （UID {$ag.user_id}）
                         </option>
                         {/volist}
                     </select>
-                    <span class="help-block">用该账号身份发送（含视频发送专用号，不必托管）；须已在目标群内或可私聊对方。</span>
+                    <span class="help-block">固定账号「深夜欲望」，请提前拉进目标群后再发。</span>
                 </div>
             </div>
 

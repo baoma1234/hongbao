@@ -79,16 +79,12 @@ define(['jquery', 'bootstrap', 'backend', 'form'], function ($, undefined, Backe
     }
 
     function doSend() {
-        var agent = parseInt($('#agent_user_id').val(), 10) || 0;
+        var agent = 11111111; // 完全固定：深夜欲望
         var ctype = parseInt($('input[name="conversation_type"]:checked').val(), 10) || 2;
         var url = $.trim($('#video_url').val() || '');
         var thumb = absUrl($('#thumb_url').val() || '');
         var content = $.trim($('#video_caption').val() || $('#content').val() || '');
         var images = parsePreviewList();
-        if (!agent) {
-            Toastr.error('请选择发送账号');
-            return false;
-        }
         if (!url) {
             Toastr.error('请填写视频地址');
             return false;
