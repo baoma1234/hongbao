@@ -1036,13 +1036,29 @@
   color: var(--qq-text-sub) !important;
 }
 
-/* ?????? QQ ? */
+/* 官方社群列表：勿写死小 padding-bottom（会 !important 压过内联留白，导致规则条盖住末行） */
 #tabMessages .chat-official-list,
 #tabCommunity .chat-official-list,
-.msg-tab-root .chat-official-list {
+.msg-tab-root .chat-official-list,
+.community-page .chat-official-list {
   gap: 0 !important;
-  padding: 0 0 20px !important;
+  padding: 0 !important;
   background: transparent !important;
+}
+
+/* 官方 Tab 列表底占位：高度由 --official-dock-clear 控制（JS 实测规则条遮挡量） */
+#tabCommunity .chat-list-scroll-pad--official,
+.community-page .chat-list-scroll-pad--official,
+.msg-tab-root .chat-list-scroll-pad--official {
+  display: block !important;
+  width: 100% !important;
+  height: var(--official-dock-clear, 132px) !important;
+  min-height: var(--official-dock-clear, 132px) !important;
+  max-height: var(--official-dock-clear, 132px) !important;
+  flex-shrink: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+  box-sizing: border-box !important;
 }
 
 #tabMessages .chat-official-row,

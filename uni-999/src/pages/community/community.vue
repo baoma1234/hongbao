@@ -53,7 +53,7 @@
                       <view class="chat-official-join" @click.stop="openGroup(g)">立即进群</view>
                     </view>
                     <view v-if="!communityRecs.length" class="chat-empty chat-empty-glass">暂无推荐社群</view>
-                    <view class="chat-list-scroll-pad" aria-hidden="true">
+                    <view class="chat-list-scroll-pad chat-list-scroll-pad--official" aria-hidden="true">
                       <text class="chat-list-scroll-pad-mark"> </text>
                     </view>
                   </view>
@@ -400,15 +400,17 @@ let communityExtraInflight = null
 let pageAlive = false
 let off = null
 
-const OFFICIAL_RULES_DOCK_PX = 88
+const OFFICIAL_RULES_DOCK_FALLBACK_PX = 132
 const SEG_CHROME_PX = 48
+/** 规则条盖住列表的实测/估算留白（写入 --official-dock-clear） */
+const officialDockClearPx = ref(OFFICIAL_RULES_DOCK_FALLBACK_PX)
 
 const tabRootStyle = computed(() => {
   const h = Number(tabRootPx.value) || 0
   if (h < 200) return {}
   return { height: h + 'px', minHeight: h + 'px' }
 })
-/** panel 铺满 tabRoot；官方 Tab 不再额外缩短留下白缝，规则卡用列表底 padding 避让 */
+/** panel 铺满 tabRoot；官方 Tab 不再额外缩短留下白缝，规则卡用列表底占位避让 */
 const communityHostStyle = computed(() => {
   const h = Number(panelScrollPx.value) || 420
   return { height: h + 'px', minHeight: h + 'px', maxHeight: h + 'px', flex: 'none', overflow: 'hidden' }
@@ -424,8 +426,55 @@ const officialScrollStyle = computed(() => {
   return { height: h + 'px', minHeight: h + 'px', maxHeight: h + 'px', flex: 'none' }
 })
 const officialListPadStyle = computed(() => ({
-  paddingBottom: OFFICIAL_RULES_DOCK_PX + 16 + 'px',
+  // 主题曾用 padding!important 盖掉内联；改由底部 spacer + CSS 变量控制
+  '--official-dock-clear': Math.max(100, Number(officialDockClearPx.value) || OFFICIAL_RULES_DOCK_FALLBACK_PX) + 'px',
 }))
+
+function estimateOfficialDockClearPx() {
+  applySafeAreaCssVars()
+  const inset = getSafeAreaInsets()
+  const safeB = Math.max(0, Number(inset.bottom || 0))
+  // 与 .chat-official-rules--dock 的 bottom 公式对齐：72(底栏估) + 14(缝) + safe
+  const dockBottomFromViewport = 72 + 14 + safeB
+  // 与 measureCommunityLayout 扣底栏一致：64 + safe
+  const scrollBottomFromViewport = 64 + safeB
+  const overlapIntoScroll = Math.max(0, dockBottomFromViewport - scrollBottomFromViewport)
+  // 规则条本体约：padding 8*2 + 图标 36~42 + 双行文案 ≈ 60~72
+  const dockCardH = 72
+  return Math.ceil(overlapIntoScroll + dockCardH + 24)
+}
+
+function measureOfficialDockClearance() {
+  if (communitySub.value !== 'official') return
+  const fallback = Math.max(OFFICIAL_RULES_DOCK_FALLBACK_PX, estimateOfficialDockClearPx())
+  officialDockClearPx.value = fallback
+  nextTick(() => {
+    try {
+      uni
+        .createSelectorQuery()
+        .select('.chat-official-rules--dock')
+        .boundingClientRect()
+        .select('.chat-community-pane--official .chat-community-body-scroll')
+        .boundingClientRect()
+        .exec((res) => {
+          const dock = res && res[0]
+          const scroll = res && res[1]
+          if (!dock || !scroll || !(dock.height > 0) || !(scroll.height > 0)) {
+            officialDockClearPx.value = fallback
+            return
+          }
+          const scrollBottom = Number(scroll.top || 0) + Number(scroll.height || 0)
+          const dockTop = Number(dock.top || 0)
+          // 规则条伸进列表可视区的高度 + 余量，保证末行可完整滚出
+          const cover = Math.max(0, scrollBottom - dockTop)
+          const clear = Math.ceil(cover + 20)
+          officialDockClearPx.value = Math.max(100, Math.min(240, clear || fallback))
+        })
+    } catch (e) {
+      officialDockClearPx.value = fallback
+    }
+  })
+}
 
 function measureCommunityLayout() {
   try {
@@ -454,6 +503,7 @@ function measureCommunityLayout() {
     tabRootPx.value = 0
     panelScrollPx.value = 420
   }
+  measureOfficialDockClearance()
 }
 
 function groupMembersText(g) {
@@ -712,6 +762,7 @@ async function loadCommunity() {
   await loadCommunityExtra({ force: false })
   markMineInRecs()
   startOfficialCommunityPoll()
+  nextTick(() => measureOfficialDockClearance())
 }
 
 function normalizeMyGroups(list) {
@@ -911,6 +962,12 @@ onShow(() => {
   setTimeout(() => {
     if (pageAlive) measureCommunityLayout()
   }, 50)
+  setTimeout(() => {
+    if (pageAlive) measureOfficialDockClearance()
+  }, 180)
+  setTimeout(() => {
+    if (pageAlive) measureOfficialDockClearance()
+  }, 400)
   bindForegroundResume()
   resumeFromBackground('community-onShow')
   if (typeof off === 'function') off()
@@ -964,12 +1021,23 @@ onHide(() => {
   pointer-events: none;
   box-sizing: border-box;
 }
+.chat-list-scroll-pad--official {
+  /* 实际高度由 --official-dock-clear（theme !important）控制 */
+  height: var(--official-dock-clear, 132px);
+  min-height: var(--official-dock-clear, 132px);
+  max-height: var(--official-dock-clear, 132px);
+}
 .chat-list-scroll-pad-mark {
   display: block;
   height: 20px;
   line-height: 20px;
   font-size: 20px;
   opacity: 0;
+}
+.chat-list-scroll-pad--official .chat-list-scroll-pad-mark {
+  height: 1px;
+  line-height: 1px;
+  font-size: 1px;
 }
 .chat-official-list {
   display: flex;
