@@ -83,7 +83,7 @@ define(['jquery', 'bootstrap', 'backend', 'form'], function ($, undefined, Backe
         var ctype = parseInt($('input[name="conversation_type"]:checked').val(), 10) || 2;
         var url = $.trim($('#video_url').val() || '');
         var thumb = absUrl($('#thumb_url').val() || '');
-        var content = $.trim($('#content').val() || '');
+        var content = $.trim($('#video_caption').val() || $('#content').val() || '');
         var images = parsePreviewList();
         if (!agent) {
             Toastr.error('请选择托管账号');
@@ -124,6 +124,7 @@ define(['jquery', 'bootstrap', 'backend', 'form'], function ($, undefined, Backe
             conversation_type: ctype,
             msg_type: 5,
             content: content || '[视频]',
+            caption: content || '',
             preview_urls: images.join('\n'),
             video_url: url,
             thumb_url: thumb,

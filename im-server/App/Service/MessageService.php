@@ -3073,7 +3073,22 @@ class MessageService
                     unset($extra['images'], $extra['image_urls'], $extra['image_fullurls'], $extra['count']);
                 }
             }
-            if (!empty($extra['caption'])) {
+            // 视频文案：caption / content 双向补齐，避免只剩占位「[视频]」
+            if ($msgType === 5) {
+                $cap = trim((string)($extra['caption'] ?? ''));
+                $t = trim((string)$content);
+                if ($cap === '' && $t !== '' && $t !== '[视频]' && strcasecmp($t, '[Video]') !== 0) {
+                    $cap = mb_substr($t, 0, 500);
+                }
+                if ($cap !== '') {
+                    $extra['caption'] = mb_substr($cap, 0, 500);
+                    if ($content === '' || $content === '[视频]' || strcasecmp($content, '[Video]') === 0) {
+                        $content = $extra['caption'];
+                    }
+                } else {
+                    unset($extra['caption']);
+                }
+            } elseif (!empty($extra['caption'])) {
                 $extra['caption'] = mb_substr(trim((string)$extra['caption']), 0, 500);
             }
             if ($content === '') {
@@ -3086,11 +3101,6 @@ class MessageService
                 } else {
                     $name = (string)($extra['name'] ?? '文件');
                     $content = '[文件]' . mb_substr($name, 0, 80);
-                }
-            } elseif ($msgType === 5 && empty($extra['caption'])) {
-                $t = trim((string)$content);
-                if ($t !== '' && $t !== '[视频]' && strcasecmp($t, '[Video]') !== 0) {
-                    $extra['caption'] = mb_substr($t, 0, 500);
                 }
             }
             return [$content, $msgType, $extra];
@@ -3119,12 +3129,20 @@ class MessageService
             $keys = ['url', 'fullurl', 'thumb', 'name', 'poster', 'cover', 'caption'];
         }
         foreach ($keys as $key) {
+            if ($key === 'caption') {
+                if (!array_key_exists('caption', $extra)) {
+                    continue;
+                }
+                $cap = trim((string)$extra['caption']);
+                if ($cap === '') {
+                    continue;
+                }
+                $clean['caption'] = mb_substr($cap, 0, 500);
+                continue;
+            }
             if (!empty($extra[$key])) {
                 // 视频/HLS 链接常带长 query，放宽到 1200
                 $maxLen = ($key === 'url' || $key === 'fullurl') ? 1200 : 500;
-                if ($key === 'caption') {
-                    $maxLen = 500;
-                }
                 $clean[$key] = mb_substr(trim((string)$extra[$key]), 0, $maxLen);
             }
         }

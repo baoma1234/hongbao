@@ -40,11 +40,22 @@ class Videosend extends Imagent
 
         $agentUserId = (int)$this->request->post('agent_user_id');
         $ctype = (int)$this->request->post('conversation_type', 2);
-        $content = trim((string)$this->request->post('content', ''));
+        $extraIn = $this->parseExtraInput($this->request->post('extra'));
+
+        // 文案：caption 字段 / content / extra.caption（三者任一有值即可；避免 content 被框架吃掉）
+        $caption = trim((string)$this->request->post('caption', ''));
+        if ($caption === '') {
+            $caption = trim((string)$this->request->post('content', ''));
+        }
+        if ($caption === '' && !empty($extraIn['caption'])) {
+            $caption = trim((string)$extraIn['caption']);
+        }
+        if ($caption === '[视频]' || strcasecmp($caption, '[Video]') === 0) {
+            $caption = '';
+        }
 
         $url = trim((string)$this->request->post('video_url', ''));
         $thumb = trim((string)$this->request->post('thumb_url', ''));
-        $extraIn = $this->parseExtraInput($this->request->post('extra'));
         if ($url === '' && !empty($extraIn['url'])) {
             $url = trim((string)$extraIn['url']);
         }
@@ -69,8 +80,8 @@ class Videosend extends Imagent
             $extra['thumb'] = $thumb;
             $extra['poster'] = $thumb;
         }
-        if ($content !== '' && $content !== '[视频]') {
-            $extra['caption'] = mb_substr($content, 0, 500);
+        if ($caption !== '') {
+            $extra['caption'] = mb_substr($caption, 0, 500);
         }
 
         $images = [];
@@ -133,9 +144,8 @@ class Videosend extends Imagent
             }
         }
 
-        if ($content === '') {
-            $content = '[视频]';
-        }
+        // content 与 caption 对齐：有文案时 content 也写成文案，便于会话列表/旧客户端展示
+        $content = $caption !== '' ? mb_substr($caption, 0, 500) : '[视频]';
 
         $payload = [
             'agent_user_id' => $agentUserId,
