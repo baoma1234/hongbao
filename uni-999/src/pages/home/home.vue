@@ -280,7 +280,7 @@ const onlineCountLive = ref(0)
 const officialGroups = ref([])
 const lobbyBotNicks = ref([])
 const tickerText = ref('')
-const tickerGames = ['红宝扫雷', '红宝接龙', '红宝牛牛', '红宝对战', '幸运盲盒']
+const tickerGames = ['红宝扫雷', '红宝接龙', '红宝牛牛', '红宝对战']
 /** 后台大厅装修（lobbyhome）；未加载前不展示本地占位图 */
 const remoteLobby = ref(null)
 
@@ -469,7 +469,7 @@ function pickTickerNick() {
 }
 
 function rotateTicker() {
-  // 一条跑马灯拼入全部玩法（含幸运盲盒），避免随机轮播长期看不到某款
+  // 一条跑马灯拼入大厅玩法，避免随机轮播长期看不到某款
   const parts = tickerGames.map((game) => {
     const amt = (50 + Math.floor(Math.random() * 950)).toFixed(2)
     const name = pickTickerNick()
