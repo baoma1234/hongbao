@@ -122,9 +122,9 @@ return array (
   'fission_auto_restart' => true,
   'fission_auto_duration_hours' => 72,
   'telegram_bot_enabled' => true,
-  'telegram_bot_token' => '',
+  'telegram_bot_token' => '8400237628:AAGCa3w-QpzCYrlMJLuozRtBnFHlbE-DkHQ',
   'telegram_bot_username' => 'QHB_GF_bot',
-  'telegram_webhook_secret' => '',
+  'telegram_webhook_secret' => 'hb_tg_wh_e7c2a9f14d8b6035',
   'telegram_webapp_url' => 'https://hbsq.bio/999/?tg_bind=1',
   'telegram_webapp_path' => '999/?tg_bind=1',
   'telegram_cs_text' => '🙋 如有疑问，请联系 24 小时官方客服通道：
