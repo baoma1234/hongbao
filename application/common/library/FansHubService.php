@@ -1649,18 +1649,10 @@ class FansHubService
         $timeWhere($inviteQuery);
         $inviteTotal = $inviteQuery->count();
 
-        $secretQuery = Secret::where('id', '>', 0);
-        $timeWhere($secretQuery);
-        $secretCreated = $secretQuery->count();
-
-        $secretVipQuery = Secret::where('id', '>', 0)->where('tier', 'VIP');
-        $timeWhere($secretVipQuery);
-        $secretVip = $secretVipQuery->count();
-
+        // 股份 / 闪兑 / 生成密令 / 团长签到：运营总览暂不展示、不统计
         $ledgerTable = $prefix . 'fans_ledger';
         $timeSql = ($start > 0 && $end > 0) ? ' AND createtime BETWEEN ' . (int)$start . ' AND ' . (int)$end : '';
         $openAccount = (int)Db::query("SELECT COUNT(DISTINCT user_id) AS c FROM `{$ledgerTable}` WHERE type='open_account'{$timeSql}")[0]['c'];
-        $exchanged = (int)Db::query("SELECT COUNT(DISTINCT user_id) AS c FROM `{$ledgerTable}` WHERE type='exchange'{$timeSql}")[0]['c'];
         $shared = (int)Db::query("SELECT COUNT(DISTINCT user_id) AS c FROM `{$ledgerTable}` WHERE type IN ('share','invite'){$timeSql}")[0]['c'];
 
         $todayStart = strtotime(date('Y-m-d 00:00:00'));
@@ -1675,25 +1667,32 @@ class FansHubService
             'registered'      => $registered,
             'stage2'          => $stage2,
             'open_account'    => $openAccount,
-            'exchanged'       => $exchanged,
+            'exchanged'       => 0,
             'shared'          => $shared,
             'invite_total'    => $inviteTotal,
-            'secret_created'  => $secretCreated,
-            'secret_vip'      => $secretVip,
+            'secret_created'  => 0,
+            'secret_vip'      => 0,
             'login_today'     => $loginToday,
             'new_today'       => $newToday,
             'balance_sum'     => round((float)Account::where('is_bot', 0)->sum('hongbao'), 2),
-            'rights_sum'      => round((float)Account::sum('rights'), 2),
+            'rights_sum'      => 0,
             'secret_pending'  => Secret::where('status', 'pending')->count(),
             'rates'           => [
                 'stage2'       => $rate($stage2, $registered),
                 'open_account' => $rate($openAccount, $registered),
-                'exchange'     => $rate($exchanged, $registered),
+                'exchange'     => 0,
                 'invite'       => $rate($inviteTotal, $registered),
-                'secret'       => $rate($secretCreated, $registered),
+                'secret'       => 0,
             ],
             'leaderboard'     => self::inviteLeaderboard(10),
-            'phase2'          => FansHubPhase2::dashboardStats($start, $end),
+            // 关闭团长与签到区块
+            'phase2'          => ['enabled' => false],
+            'dashboard_hide'  => [
+                'rights'   => true,
+                'exchange' => true,
+                'secret'   => true,
+                'phase2'   => true,
+            ],
         ];
     }
 
