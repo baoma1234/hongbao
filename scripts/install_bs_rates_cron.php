@@ -47,7 +47,9 @@ function runOnce($php, $think, $log, $root)
 
 if (stripos(PHP_OS, 'WIN') === 0) {
     $task = 'FansHubBsRates';
-    $tr = $php . ' ' . $think . ' fanshub:bs-rates';
+    $vbs = $root . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'win_php_think_hidden.vbs';
+    // 用 wscript 无窗口启动，避免每天弹 php.exe 黑框
+    $tr = 'wscript.exe //B //Nologo "' . $vbs . '" "' . $php . '" "' . $think . '" fanshub:bs-rates';
     exec('schtasks /Delete /TN "' . $task . '" /F 2>NUL');
     $cmd = 'schtasks /Create /TN "' . $task . '" /TR "' . $tr . '" /SC DAILY /ST 00:05 /RL LIMITED /F';
     echo "run: {$cmd}\n";
@@ -57,7 +59,7 @@ if (stripos(PHP_OS, 'WIN') === 0) {
         fwrite(STDERR, "FAILED code={$code}. 请用管理员 PowerShell 再跑本脚本。\n");
         exit(1);
     }
-    echo "OK Windows scheduled task [{$task}] daily at 00:05.\n";
+    echo "OK Windows scheduled task [{$task}] daily at 00:05 (hidden, no console popup).\n";
     if ($doRun) {
         runOnce($php, $think, $log, $root);
     }

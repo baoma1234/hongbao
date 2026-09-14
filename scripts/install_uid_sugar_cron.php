@@ -21,8 +21,9 @@ echo "cmd={$php} {$think} fanshub:uid-sugar\n";
 
 if (stripos(PHP_OS, 'WIN') === 0) {
     $task = 'FansHubUidSugar';
-    // schtasks /TR 需要一整段带引号的命令行
-    $tr = $php . ' ' . $think . ' fanshub:uid-sugar';
+    $vbs = $root . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'win_php_think_hidden.vbs';
+    // 用 wscript 无窗口启动，避免每分钟弹出 php.exe 黑框
+    $tr = 'wscript.exe //B //Nologo "' . $vbs . '" "' . $php . '" "' . $think . '" fanshub:uid-sugar';
     exec('schtasks /Delete /TN "' . $task . '" /F 2>NUL');
     $cmd = 'schtasks /Create /TN "' . $task . '" /TR "' . $tr . '" /SC MINUTE /MO 1 /RL LIMITED /F';
     echo "run: {$cmd}\n";
@@ -32,7 +33,7 @@ if (stripos(PHP_OS, 'WIN') === 0) {
         fwrite(STDERR, "FAILED code={$code}. 请用管理员 PowerShell 再跑本脚本。\n");
         exit(1);
     }
-    echo "OK Windows scheduled task [{$task}] every 1 minute.\n";
+    echo "OK Windows scheduled task [{$task}] every 1 minute (hidden, no console popup).\n";
     echo "Test: schtasks /Run /TN {$task}\n";
     exit(0);
 }
