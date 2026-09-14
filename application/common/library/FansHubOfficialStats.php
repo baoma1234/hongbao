@@ -8,7 +8,8 @@ use think\Db;
  * 官方社群展示人数（全端一致）
  * - 每个群各自成员基数（约 1.7万～1.8万；注册时各群 +1）
  * - 展示值 = 持久化基数（无秒级抖动）；定时任务每日小幅上浮，偶尔 -1/-2
- * - 在线人数：全站合计约 15000，按分钟桶缓慢游走（每分钟 ±10～30），再分到各官方群
+ * - 在线人数：全站合计 11500～16500；08:00–22:00 中枢约 16500，22:00–08:00 中枢约 11500；
+ *   每分钟 ±10～30 游走并缓缓拉向当前时段中枢，再分到各官方群
  */
 class FansHubOfficialStats
 {
@@ -21,15 +22,23 @@ class FansHubOfficialStats
     const FLOAT_BUCKET_SEC = 2;
     const FLOAT_MAX = 10;
 
-    /** 在线合计中枢；每分钟步长 10～30；相对中枢最大偏离 */
-    const ONLINE_TOTAL_BASE = 15000;
+    /** 在线合计：夜间中枢 / 日间中枢 / 硬上下限 */
+    const ONLINE_MIN = 11500;
+    const ONLINE_MAX = 16500;
+    const ONLINE_NIGHT_CENTER = 11500;
+    const ONLINE_DAY_CENTER = 16500;
+    /** 兼容旧常量名（取日夜中点） */
+    const ONLINE_TOTAL_BASE = 14000;
     const ONLINE_STEP_MIN = 10;
     const ONLINE_STEP_MAX = 30;
-    const ONLINE_DRIFT_MAX = 400;
+    /** @deprecated 改用 ONLINE_MIN/MAX；保留避免外部引用报错 */
+    const ONLINE_DRIFT_MAX = 2500;
     /** 任意两官方群在线相差上限 */
     const ONLINE_MAX_GROUP_DIFF = 500;
     /** 在线刷新桶：1 分钟 */
     const ONLINE_BUCKET_SEC = 60;
+    /** 早晚过渡时长（分钟）：08:00 起升、22:00 前降 */
+    const ONLINE_RAMP_MINUTES = 90;
 
     /** @var \Redis|null */
     protected static $redis;
@@ -265,9 +274,42 @@ class FansHubOfficialStats
         return $sign * $mag;
     }
 
+    /** smoothstep：0～1 缓入缓出 */
+    protected static function onlineSmoothstep($x)
+    {
+        $x = max(0.0, min(1.0, (float)$x));
+        return $x * $x * (3.0 - 2.0 * $x);
+    }
+
     /**
-     * 当前分钟的在线合计：从当日起点对 15000 做随机游走，每分钟仅 ±10～30
-     * （全端一致；相邻分钟变化受控，避免旧版 ±2000 乱跳）
+     * 按时段给出在线中枢：08:00–22:00 → 16500，22:00–08:00 → 11500（边界 90 分钟平滑过渡）
+     */
+    public static function onlineCenterForBucket($bucket)
+    {
+        $t = (int)$bucket * self::ONLINE_BUCKET_SEC;
+        $mins = ((int)date('G', $t)) * 60 + (int)date('i', $t);
+        $dayOn = 8 * 60;
+        $dayOff = 22 * 60;
+        $ramp = max(1, (int)self::ONLINE_RAMP_MINUTES);
+        $lo = (float)self::ONLINE_NIGHT_CENTER;
+        $hi = (float)self::ONLINE_DAY_CENTER;
+
+        $p = 0.0;
+        if ($mins >= $dayOn && $mins < $dayOff) {
+            if ($mins < $dayOn + $ramp) {
+                $p = self::onlineSmoothstep(($mins - $dayOn) / $ramp);
+            } elseif ($mins > $dayOff - $ramp) {
+                $p = self::onlineSmoothstep(($dayOff - $mins) / $ramp);
+            } else {
+                $p = 1.0;
+            }
+        }
+
+        return (int)round($lo + ($hi - $lo) * $p);
+    }
+
+    /**
+     * 当前分钟的在线合计：围绕时段中枢做 ±10～30 游走，并缓缓拉回中枢；硬夹在 11500～16500
      */
     public static function onlineTotalForBucket($bucket = null)
     {
@@ -281,34 +323,41 @@ class FansHubOfficialStats
         $prev = $bucket - 1;
         if ($prev >= $dayStart && isset($memo[$prev])) {
             $v = (int)$memo[$prev] + self::onlineStepForBucket($bucket);
+            $center = self::onlineCenterForBucket($bucket);
+            $err = $center - $v;
+            if (abs($err) > 20) {
+                $v += (int)round($err / 80);
+            }
         } else {
-            $v = self::ONLINE_TOTAL_BASE;
+            $v = self::onlineCenterForBucket($dayStart);
             $dayH = crc32('otday:' . $dayStart);
             if ($dayH < 0) {
                 $dayH = -$dayH;
             }
             $v += ($dayH % 61) - 30;
+            $v = max(self::ONLINE_MIN, min(self::ONLINE_MAX, $v));
             for ($b = $dayStart + 1; $b <= $bucket; $b++) {
                 $v += self::onlineStepForBucket($b);
-                $lo = self::ONLINE_TOTAL_BASE - self::ONLINE_DRIFT_MAX;
-                $hi = self::ONLINE_TOTAL_BASE + self::ONLINE_DRIFT_MAX;
-                if ($v < $lo) {
-                    $v = $lo + 5;
-                } elseif ($v > $hi) {
-                    $v = $hi - 5;
+                $center = self::onlineCenterForBucket($b);
+                $err = $center - $v;
+                if (abs($err) > 20) {
+                    $v += (int)round($err / 80);
+                }
+                if ($v < self::ONLINE_MIN) {
+                    $v = self::ONLINE_MIN + 5;
+                } elseif ($v > self::ONLINE_MAX) {
+                    $v = self::ONLINE_MAX - 5;
                 }
             }
         }
 
-        $lo = self::ONLINE_TOTAL_BASE - self::ONLINE_DRIFT_MAX;
-        $hi = self::ONLINE_TOTAL_BASE + self::ONLINE_DRIFT_MAX;
-        if ($v < $lo) {
-            $v = $lo + 5;
-        } elseif ($v > $hi) {
-            $v = $hi - 5;
+        if ($v < self::ONLINE_MIN) {
+            $v = self::ONLINE_MIN + 5;
+        } elseif ($v > self::ONLINE_MAX) {
+            $v = self::ONLINE_MAX - 5;
         }
 
-        $out = max(1000, (int)$v);
+        $out = max(self::ONLINE_MIN, min(self::ONLINE_MAX, (int)$v));
         $memo[$bucket] = $out;
         if (count($memo) > 16) {
             $memo = [$bucket => $out];

@@ -235,7 +235,7 @@ let secretRequestId = ''
 let tickerTimer = null
 let onlinePollTimer = null
 let onlineJitterTimer = null
-/** 在线人数相对基数的氛围浮动（每分钟 ±10～30） */
+/** 在线人数相对基数的氛围浮动（每分钟 ±10～30；展示硬夹在 11500～16500） */
 const onlineCountJitter = ref(0)
 
 const TAB_BAR_CONTENT_PX = 64
@@ -509,10 +509,14 @@ const onlineCount = computed(() => {
   return marketVirtualBase()
 })
 
-/** 展示用：基数 + 每分钟 ±10～30 浮动 */
+/** 展示用：基数 + 每分钟 ±10～30 浮动，夹在 11500～16500 */
 const onlineCountDisplay = computed(() => {
   const base = Math.max(0, Number(onlineCount.value) || 0)
-  return Math.max(1, base + (onlineCountJitter.value | 0))
+  const n = Math.max(1, base + (onlineCountJitter.value | 0))
+  if (base >= 10000) {
+    return Math.max(11500, Math.min(16500, n))
+  }
+  return n
 })
 
 const onlineCountText = computed(() => formatCountNum(onlineCountDisplay.value))

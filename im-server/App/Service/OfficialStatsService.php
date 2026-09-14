@@ -8,7 +8,9 @@ use Im\Support\Db;
 use Im\Support\RedisClient;
 
 /**
- * 官方社群展示人数（与 PHP FansHubOfficialStats 一致：持久化基数，无秒级抖动）
+ * 官方社群展示人数（与 PHP FansHubOfficialStats 一致）
+ * - 成员：持久化基数，无秒级抖动
+ * - 在线：全站合计 11500～16500；08:00–22:00 中枢约 16500，22:00–08:00 中枢约 11500
  */
 class OfficialStatsService
 {
@@ -17,6 +19,23 @@ class OfficialStatsService
     const DEFAULT_BASE = 17888;
     const FLOAT_BUCKET_SEC = 2;
     const FLOAT_MAX = 10;
+
+    const ONLINE_MIN = 11500;
+    const ONLINE_MAX = 16500;
+    const ONLINE_NIGHT_CENTER = 11500;
+    const ONLINE_DAY_CENTER = 16500;
+    const ONLINE_STEP_MIN = 10;
+    const ONLINE_STEP_MAX = 30;
+    const ONLINE_MAX_GROUP_DIFF = 500;
+    const ONLINE_BUCKET_SEC = 60;
+    const ONLINE_RAMP_MINUTES = 90;
+
+    /** @var array|null */
+    protected static $officialIdsCache;
+    /** @var int */
+    protected static $officialIdsCacheAt = 0;
+    /** @var array<int,array<int,int>> */
+    protected static $onlineMapMemo = [];
 
     public static function floatDelta($salt, $bucket = null)
     {
@@ -94,10 +113,237 @@ class OfficialStatsService
         return 2200 + ($h % 2700);
     }
 
+    public static function onlineBucket($time = null)
+    {
+        $t = $time !== null ? (int)$time : time();
+        return (int)floor($t / self::ONLINE_BUCKET_SEC);
+    }
+
+    public static function onlineStepForBucket($bucket)
+    {
+        $h = crc32('otstep:' . (int)$bucket);
+        if ($h < 0) {
+            $h = -$h;
+        }
+        $span = self::ONLINE_STEP_MAX - self::ONLINE_STEP_MIN + 1;
+        $mag = self::ONLINE_STEP_MIN + ($h % $span);
+        $sign = ($h & 1) ? 1 : -1;
+        return $sign * $mag;
+    }
+
+    protected static function onlineSmoothstep($x)
+    {
+        $x = max(0.0, min(1.0, (float)$x));
+        return $x * $x * (3.0 - 2.0 * $x);
+    }
+
+    public static function onlineCenterForBucket($bucket)
+    {
+        $t = (int)$bucket * self::ONLINE_BUCKET_SEC;
+        $mins = ((int)date('G', $t)) * 60 + (int)date('i', $t);
+        $dayOn = 8 * 60;
+        $dayOff = 22 * 60;
+        $ramp = max(1, (int)self::ONLINE_RAMP_MINUTES);
+        $lo = (float)self::ONLINE_NIGHT_CENTER;
+        $hi = (float)self::ONLINE_DAY_CENTER;
+
+        $p = 0.0;
+        if ($mins >= $dayOn && $mins < $dayOff) {
+            if ($mins < $dayOn + $ramp) {
+                $p = self::onlineSmoothstep(($mins - $dayOn) / $ramp);
+            } elseif ($mins > $dayOff - $ramp) {
+                $p = self::onlineSmoothstep(($dayOff - $mins) / $ramp);
+            } else {
+                $p = 1.0;
+            }
+        }
+
+        return (int)round($lo + ($hi - $lo) * $p);
+    }
+
+    public static function onlineTotalForBucket($bucket = null)
+    {
+        $bucket = $bucket !== null ? (int)$bucket : self::onlineBucket();
+        static $memo = [];
+        if (isset($memo[$bucket])) {
+            return $memo[$bucket];
+        }
+
+        $dayStart = (int)(floor($bucket / 1440) * 1440);
+        $prev = $bucket - 1;
+        if ($prev >= $dayStart && isset($memo[$prev])) {
+            $v = (int)$memo[$prev] + self::onlineStepForBucket($bucket);
+            $center = self::onlineCenterForBucket($bucket);
+            $err = $center - $v;
+            if (abs($err) > 20) {
+                $v += (int)round($err / 80);
+            }
+        } else {
+            $v = self::onlineCenterForBucket($dayStart);
+            $dayH = crc32('otday:' . $dayStart);
+            if ($dayH < 0) {
+                $dayH = -$dayH;
+            }
+            $v += ($dayH % 61) - 30;
+            $v = max(self::ONLINE_MIN, min(self::ONLINE_MAX, $v));
+            for ($b = $dayStart + 1; $b <= $bucket; $b++) {
+                $v += self::onlineStepForBucket($b);
+                $center = self::onlineCenterForBucket($b);
+                $err = $center - $v;
+                if (abs($err) > 20) {
+                    $v += (int)round($err / 80);
+                }
+                if ($v < self::ONLINE_MIN) {
+                    $v = self::ONLINE_MIN + 5;
+                } elseif ($v > self::ONLINE_MAX) {
+                    $v = self::ONLINE_MAX - 5;
+                }
+            }
+        }
+
+        if ($v < self::ONLINE_MIN) {
+            $v = self::ONLINE_MIN + 5;
+        } elseif ($v > self::ONLINE_MAX) {
+            $v = self::ONLINE_MAX - 5;
+        }
+
+        $out = max(self::ONLINE_MIN, min(self::ONLINE_MAX, (int)$v));
+        $memo[$bucket] = $out;
+        if (count($memo) > 16) {
+            $memo = [$bucket => $out];
+        }
+        return $out;
+    }
+
+    public static function officialRecommendIds()
+    {
+        $now = time();
+        if (is_array(self::$officialIdsCache) && ($now - self::$officialIdsCacheAt) < 60) {
+            return self::$officialIdsCache;
+        }
+        $ids = [];
+        try {
+            $rows = Db::fetchAll(
+                'SELECT id FROM ' . Db::table('chat_groups')
+                . ' WHERE status IN (1,3) AND is_recommend=1 ORDER BY weigh DESC, id ASC'
+            );
+            foreach ((array)$rows as $row) {
+                $id = (int)($row['id'] ?? 0);
+                if ($id > 0) {
+                    $ids[] = $id;
+                }
+            }
+        } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.OfficialStatsService');
+            $ids = [];
+        }
+        $ids = array_values(array_unique($ids));
+        sort($ids);
+        self::$officialIdsCache = $ids;
+        self::$officialIdsCacheAt = $now;
+        return $ids;
+    }
+
+    /** @return array<int,int> */
+    public static function onlineCountMap($bucket = null)
+    {
+        $bucket = $bucket !== null ? (int)$bucket : self::onlineBucket();
+        if (isset(self::$onlineMapMemo[$bucket])) {
+            return self::$onlineMapMemo[$bucket];
+        }
+
+        $ids = self::officialRecommendIds();
+        $n = count($ids);
+        if ($n <= 0) {
+            self::$onlineMapMemo[$bucket] = [];
+            return [];
+        }
+
+        $total = self::onlineTotalForBucket($bucket);
+        $half = (int)floor(self::ONLINE_MAX_GROUP_DIFF / 2);
+        $base = (int)floor($total / $n);
+        $rem = (int)($total % $n);
+
+        $raw = [];
+        foreach ($ids as $i => $gid) {
+            $h = crc32('og:' . $gid);
+            if ($h < 0) {
+                $h = -$h;
+            }
+            $off = ($h % (self::ONLINE_MAX_GROUP_DIFF + 1)) - $half;
+            $raw[$gid] = $base + $off + ($i < $rem ? 1 : 0);
+        }
+
+        $sum = 0;
+        foreach ($raw as $v) {
+            $sum += (int)$v;
+        }
+        $diff = $sum - $total;
+        if ($diff !== 0) {
+            $i = 0;
+            $step = $diff > 0 ? 1 : -1;
+            $left = abs($diff);
+            while ($left > 0) {
+                $gid = $ids[$i % $n];
+                $raw[$gid] -= $step;
+                $left--;
+                $i++;
+            }
+        }
+
+        foreach ($raw as $gid => $v) {
+            $raw[$gid] = max(80, (int)$v);
+        }
+
+        $min = min($raw);
+        $max = max($raw);
+        if (($max - $min) > self::ONLINE_MAX_GROUP_DIFF) {
+            $mid = (int)round(($min + $max) / 2);
+            foreach ($raw as $gid => $v) {
+                $raw[$gid] = max($mid - $half, min($mid + $half, (int)$v));
+            }
+            $sum2 = 0;
+            foreach ($raw as $v) {
+                $sum2 += (int)$v;
+            }
+            $diff2 = $sum2 - $total;
+            if ($diff2 !== 0) {
+                $i = 0;
+                $step = $diff2 > 0 ? 1 : -1;
+                $left = abs($diff2);
+                while ($left > 0) {
+                    $gid = $ids[$i % $n];
+                    $next = (int)$raw[$gid] - $step;
+                    if ($next >= ($mid - $half) && $next <= ($mid + $half)) {
+                        $raw[$gid] = $next;
+                        $left--;
+                    }
+                    $i++;
+                    if ($i > $n * self::ONLINE_MAX_GROUP_DIFF + 10) {
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (count(self::$onlineMapMemo) > 4) {
+            self::$onlineMapMemo = [];
+        }
+        self::$onlineMapMemo[$bucket] = $raw;
+        return $raw;
+    }
+
     public static function onlineCount($groupId)
     {
         $groupId = (int)$groupId;
-        return max(0, self::onlineBase($groupId) + self::floatDelta('oo:' . $groupId) + self::viewerCount($groupId));
+        if ($groupId <= 0) {
+            return 0;
+        }
+        $map = self::onlineCountMap();
+        if (isset($map[$groupId])) {
+            return (int)$map[$groupId];
+        }
+        return max(0, self::onlineBase($groupId) + self::floatDelta('oo:' . $groupId, self::onlineBucket()));
     }
 
     public static function viewerCount($groupId)
