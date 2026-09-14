@@ -997,8 +997,10 @@ import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
 import {
   applySafeAreaCssVars,
   getSafeAreaInsets,
+  isEditableFocused,
   measureChatOverlayTop,
   resetSafariViewportAfterKeyboard,
+  setSafariKeyboardGuardPaused,
 } from '../../utils/safe-area.js'
 import { COMMON_EMOJIS, loadEmojiTree, emojiTwemojiUrl } from '../../utils/emoji.js'
 import { setInboxMyId, noteConversationRead } from '../../utils/im-inbox.js'
@@ -1304,15 +1306,19 @@ const msgScrollStyle = computed(() => {
 const appSubPaneStyle = ref({})
 /** App 回到底部按钮用像素 bottom（env(safe-area) 在 APK 常为 0） */
 const jumpLatestStyle = ref({})
-/** H5 Safari：键盘弹起时用 visualViewport 贴底，收起强制 0 清鬼空白 */
+/** H5 Safari：键盘 inset → CSS --chat-kb-inset（transform 抬升，bottom 保持 0） */
 const composerBottomPx = ref(0)
-/** uni.onKeyboardHeightChange 备用高度（部分 WebView 无可靠 visualViewport） */
+/** uni.onKeyboardHeightChange 备用高度 */
 const composerKbFallbackPx = ref(0)
+/** 键盘未开时的高视口，防止 innerHeight 随键盘收缩导致 gap=0 */
+let composerKbBaselineH = 0
+let composerDockRaf = null
+let offComposerFocusIn = null
+let offComposerFocusOut = null
 const composerDockStyle = computed(() => {
   // #ifdef H5
   const b = Math.max(0, composerBottomPx.value | 0)
-  // CSS 用 var(--chat-composer-bottom) + !important；键盘升起时去掉 home 条垫高
-  const style = { '--chat-composer-bottom': b + 'px', bottom: b + 'px' }
+  const style = { '--chat-kb-inset': b + 'px' }
   if (b > 80) style.paddingBottom = '0px'
   return style
   // #endif
@@ -1334,26 +1340,97 @@ const chatLayoutProxy = (() => {
   }
 })()
 
+function applyComposerKbInset(px) {
+  const v = Math.max(0, Math.round(Number(px) || 0))
+  composerBottomPx.value = v
+  try {
+    if (typeof document === 'undefined') return
+    const val = v + 'px'
+    document.documentElement.style.setProperty('--chat-kb-inset', val)
+    const el = document.querySelector('.chat-room-page .chat-composer-wrap')
+    if (el && el.style) el.style.setProperty('--chat-kb-inset', val)
+  } catch (e) {}
+}
+
 function syncComposerDockToViewport() {
   // #ifdef H5
   try {
     if (typeof window === 'undefined') return
+    if (composerDockRaf) cancelAnimationFrame(composerDockRaf)
+    composerDockRaf = requestAnimationFrame(() => {
+      composerDockRaf = null
+      doSyncComposerDockToViewport()
+    })
+  } catch (e) {
+    doSyncComposerDockToViewport()
+  }
+  // #endif
+}
+
+function doSyncComposerDockToViewport() {
+  // #ifdef H5
+  try {
+    if (typeof window === 'undefined') return
     const vv = window.visualViewport
-    let gap = 0
-    if (vv) {
-      // layout 视口底边被键盘盖住的高度
-      gap = Math.max(0, Math.round(window.innerHeight - vv.height - (vv.offsetTop || 0)))
-    }
+    const el = document.querySelector('.chat-room-page .chat-composer-wrap')
     const fallback = Math.max(0, composerKbFallbackPx.value | 0)
-    if (fallback > gap) gap = fallback
-    if (gap <= 80) {
-      composerBottomPx.value = 0
-      // 仅在未聚焦输入时清鬼空白，避免抢键盘动画
-      resetSafariViewportAfterKeyboard()
+    if (!vv) {
+      if (fallback > 80) applyComposerKbInset(fallback)
+      else applyComposerKbInset(0)
       scheduleMeasureMsgScroll()
       return
     }
-    composerBottomPx.value = gap
+
+    const layoutH = Math.max(
+      window.innerHeight || 0,
+      document.documentElement ? document.documentElement.clientHeight || 0 : 0
+    )
+    const tallNow = Math.max(layoutH, Math.round(vv.height + (vv.offsetTop || 0)))
+    if (!composerKbBaselineH || tallNow > composerKbBaselineH) {
+      composerKbBaselineH = tallNow
+    }
+
+    // layout 底被挡高度；innerHeight 已缩小时改用冷启动基线
+    let gap = Math.max(0, Math.round(layoutH - vv.height - (vv.offsetTop || 0)))
+    const byBaseline = Math.max(0, Math.round(composerKbBaselineH - vv.height))
+    if (gap <= 80 && byBaseline > 120) gap = byBaseline
+    if (fallback > gap) gap = fallback
+
+    if (gap <= 80) {
+      applyComposerKbInset(0)
+      if (!isEditableFocused()) resetSafariViewportAfterKeyboard()
+      scheduleMeasureMsgScroll()
+      return
+    }
+
+    // 浏览器若已把 fixed 贴到 visualViewport，再抬会飞出屏幕：先看当前是否已可见
+    if ((composerBottomPx.value | 0) === 0 && el) {
+      const rect = el.getBoundingClientRect()
+      if (rect.bottom <= vv.height + 10 && rect.top >= -4) {
+        // 已在可视区内，无需再抬
+        scheduleMeasureMsgScroll()
+        return
+      }
+    }
+
+    applyComposerKbInset(gap)
+
+    // 校正：抬过头则回落
+    requestAnimationFrame(() => {
+      try {
+        const node = el || document.querySelector('.chat-room-page .chat-composer-wrap')
+        if (!node || !window.visualViewport) return
+        const r = node.getBoundingClientRect()
+        const vh = window.visualViewport.height
+        const cur = composerBottomPx.value | 0
+        if (r.top < -2 && cur > 0) {
+          applyComposerKbInset(Math.max(0, cur + Math.round(r.top)))
+        } else if (r.bottom < vh - 24 && cur > 0) {
+          const overshoot = Math.round(vh - r.bottom)
+          applyComposerKbInset(Math.max(0, cur - overshoot))
+        }
+      } catch (e2) {}
+    })
     scheduleMeasureMsgScroll()
   } catch (e) {}
   // #endif
@@ -5947,10 +6024,12 @@ onLoad(async (query) => {
         // #ifdef H5
         composerKbFallbackPx.value = h
         if (h <= 0) {
-          composerBottomPx.value = 0
           composerKbFallbackPx.value = 0
+          applyComposerKbInset(0)
+          setSafariKeyboardGuardPaused(false)
           resetSafariViewportAfterKeyboard()
         } else {
+          setSafariKeyboardGuardPaused(true)
           syncComposerDockToViewport()
         }
         scheduleMeasureMsgScroll()
@@ -5962,6 +6041,12 @@ onLoad(async (query) => {
   // #ifdef H5
   try {
     if (typeof window !== 'undefined') {
+      try {
+        composerKbBaselineH = Math.max(
+          window.innerHeight || 0,
+          document.documentElement ? document.documentElement.clientHeight || 0 : 0
+        )
+      } catch (eBase) {}
       offWinResize = () => {
         syncComposerDockToViewport()
         scheduleMeasureMsgScroll()
@@ -5973,6 +6058,33 @@ onLoad(async (query) => {
         window.visualViewport.addEventListener('resize', offVisualViewport)
         window.visualViewport.addEventListener('scroll', offVisualViewport)
       }
+      offComposerFocusIn = (ev) => {
+        try {
+          const t = ev && ev.target
+          if (!t) return
+          const tag = String(t.tagName || '').toUpperCase()
+          const inComposer =
+            (t.closest && t.closest('.chat-composer-wrap')) ||
+            tag === 'TEXTAREA' ||
+            tag === 'INPUT'
+          if (!inComposer) return
+          setSafariKeyboardGuardPaused(true)
+          syncComposerDockToViewport()
+          setTimeout(syncComposerDockToViewport, 80)
+          setTimeout(syncComposerDockToViewport, 280)
+        } catch (eFi) {}
+      }
+      offComposerFocusOut = () => {
+        setTimeout(() => {
+          if (isEditableFocused()) return
+          setSafariKeyboardGuardPaused(false)
+          applyComposerKbInset(0)
+          resetSafariViewportAfterKeyboard()
+          scheduleMeasureMsgScroll()
+        }, 120)
+      }
+      document.addEventListener('focusin', offComposerFocusIn, true)
+      document.addEventListener('focusout', offComposerFocusOut, true)
       syncComposerDockToViewport()
     }
   } catch (eRs) {}
@@ -6214,7 +6326,21 @@ onUnload(() => {
       window.visualViewport.removeEventListener('scroll', offVisualViewport)
     }
   } catch (eVv) {}
-  composerBottomPx.value = 0
+  try {
+    if (typeof document !== 'undefined') {
+      if (offComposerFocusIn) document.removeEventListener('focusin', offComposerFocusIn, true)
+      if (offComposerFocusOut) document.removeEventListener('focusout', offComposerFocusOut, true)
+    }
+  } catch (eFo) {}
+  offComposerFocusIn = null
+  offComposerFocusOut = null
+  setSafariKeyboardGuardPaused(false)
+  applyComposerKbInset(0)
+  try {
+    if (typeof document !== 'undefined' && document.documentElement) {
+      document.documentElement.style.removeProperty('--chat-kb-inset')
+    }
+  } catch (eCss) {}
   try {
     resetSafariViewportAfterKeyboard()
   } catch (eRst) {}

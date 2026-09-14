@@ -122,7 +122,7 @@ export function applySafeAreaCssVars() {
   return { top, bottom, left, right, overlayTop }
 }
 
-function isEditableFocused() {
+export function isEditableFocused() {
   try {
     if (typeof document === 'undefined') return false
     const ae = document.activeElement
@@ -138,6 +138,12 @@ function isEditableFocused() {
   return false
 }
 
+/** 聊天页输入聚焦时暂停全局 scroll 复位，避免与 composer 抬升互抢 */
+let safariGuardPaused = false
+export function setSafariKeyboardGuardPaused(paused) {
+  safariGuardPaused = !!paused
+}
+
 /**
  * Safari / iOS H5：键盘收起后 fixed 底栏悬空、safe-area 残留。
  * 复位 scroll + 重写 CSS 变量；输入聚焦 / 键盘打开时绝不 scrollTo，避免输入框被顶没。
@@ -145,6 +151,7 @@ function isEditableFocused() {
 export function resetSafariViewportAfterKeyboard() {
   try {
     if (typeof window === 'undefined') return
+    if (safariGuardPaused) return
     // 正在输入：禁止复位（否则键盘弹起瞬间 scrollTo 把输入区滚出可视区）
     if (isEditableFocused()) return
     const vv = window.visualViewport
@@ -181,9 +188,11 @@ export function installSafariViewportGuard() {
   safariGuardInstalled = true
 
   const onVv = () => {
+    if (safariGuardPaused) return
     if (safariVvTimer) clearTimeout(safariVvTimer)
     safariVvTimer = setTimeout(() => {
       safariVvTimer = null
+      if (safariGuardPaused || isEditableFocused()) return
       try {
         const vv = window.visualViewport
         if (!vv) {
@@ -194,7 +203,7 @@ export function installSafariViewportGuard() {
         if (covered <= 80) {
           resetSafariViewportAfterKeyboard()
         } else {
-          // 键盘打开：仍刷新封顶后的 safe-area，避免 inset 被写成键盘高
+          // 键盘打开：仅刷新封顶 safe-area，绝不 scrollTo
           applySafeAreaCssVars()
         }
       } catch (e) {}
@@ -216,10 +225,10 @@ export function installSafariViewportGuard() {
     document.addEventListener('focusout', () => {
       // 失焦后若焦点仍在可编辑控件（切到另一输入）则跳过；否则延迟清鬼空白
       setTimeout(() => {
-        if (!isEditableFocused()) resetSafariViewportAfterKeyboard()
+        if (!safariGuardPaused && !isEditableFocused()) resetSafariViewportAfterKeyboard()
       }, 80)
       setTimeout(() => {
-        if (!isEditableFocused()) resetSafariViewportAfterKeyboard()
+        if (!safariGuardPaused && !isEditableFocused()) resetSafariViewportAfterKeyboard()
       }, 320)
     })
   } catch (e2) {}
