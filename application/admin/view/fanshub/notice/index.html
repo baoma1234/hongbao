@@ -5,6 +5,8 @@
             <a href="javascript:;" class="btn btn-primary btn-refresh" title="{:__('Refresh')}"><i class="fa fa-refresh"></i></a>
             <a href="javascript:;" class="btn btn-success btn-add {:$auth->check('fanshub/notice/add')?'':'hide'}" title="{:__('Add')}"><i class="fa fa-plus"></i> {:__('Add')}</a>
             <a href="javascript:;" class="btn btn-success btn-edit btn-disabled disabled {:$auth->check('fanshub/notice/edit')?'':'hide'}" title="{:__('Edit')}"><i class="fa fa-pencil"></i> {:__('Edit')}</a>
+            <a href="javascript:;" class="btn btn-warning btn-multi btn-disabled disabled {:$auth->check('fanshub/notice/multi')?'':'hide'}" data-params="status=paused" title="暂停展示（保留数据，前台不显示）"><i class="fa fa-pause"></i> 暂停展示</a>
+            <a href="javascript:;" class="btn btn-info btn-multi btn-disabled disabled {:$auth->check('fanshub/notice/multi')?'':'hide'}" data-params="status=published" title="恢复前台展示"><i class="fa fa-play"></i> 恢复展示</a>
             <a href="javascript:;" class="btn btn-danger btn-del btn-disabled disabled {:$auth->check('fanshub/notice/del')?'':'hide'}" title="{:__('Delete')}"><i class="fa fa-trash"></i> {:__('Delete')}</a>
         </div>
         <table id="table" class="table table-striped table-bordered table-hover" width="100%"></table>

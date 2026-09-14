@@ -17,7 +17,7 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS `fa_fans_notice` (
   `action_label` varchar(64) NOT NULL DEFAULT '' COMMENT '主按钮文案',
   `action_url` varchar(512) NOT NULL DEFAULT '' COMMENT '主按钮链接',
   `action_buttons` text COMMENT '多按钮JSON [{label,url}]',
-  `status` enum('draft','published') NOT NULL DEFAULT 'published',
+  `status` enum('draft','published','paused') NOT NULL DEFAULT 'published' COMMENT 'draft草稿 published展示 paused暂停展示',
   `publishtime` int(10) unsigned NOT NULL DEFAULT '0' COMMENT '发布时间',
   `weigh` int(11) NOT NULL DEFAULT '0' COMMENT '排序权重',
   `createtime` int(10) DEFAULT NULL,

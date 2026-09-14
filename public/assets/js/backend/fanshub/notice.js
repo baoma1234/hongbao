@@ -41,8 +41,13 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                     {field: 'weigh', title: '排序', sortable: true},
                     {
                         field: 'status', title: '状态',
-                        searchList: Config.statusList || {draft: '草稿', published: '已发布'},
-                        formatter: Table.api.formatter.status
+                        searchList: Config.statusList || {draft: '草稿', published: '展示中', paused: '暂停展示'},
+                        formatter: function (value) {
+                            var map = Config.statusList || {draft: '草稿', published: '展示中', paused: '暂停展示'};
+                            var label = map[value] || value;
+                            var cls = value === 'published' ? 'success' : (value === 'paused' ? 'warning' : 'default');
+                            return '<span class="label label-' + cls + '">' + label + '</span>';
+                        }
                     },
                     {
                         field: 'publishtime', title: '发布时间', operate: 'RANGE',

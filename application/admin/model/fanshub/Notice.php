@@ -6,7 +6,11 @@ class Notice extends \app\common\model\fanshub\Notice
 {
     public function getStatusList()
     {
-        return ['draft' => '草稿', 'published' => '已发布'];
+        return [
+            'draft'     => '草稿',
+            'published' => '展示中',
+            'paused'    => '暂停展示',
+        ];
     }
 
     public function getCategoryList()

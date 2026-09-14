@@ -143,6 +143,7 @@
         <label class="control-label col-xs-12 col-sm-2">状态:</label>
         <div class="col-xs-12 col-sm-8">
             {:build_radios('row[status]', $statusList, 'published')}
+            <span class="help-block">展示中=前台可见；暂停展示=保留数据但前台不显示；草稿=未就绪</span>
         </div>
     </div>
     <div class="form-group layer-footer">
