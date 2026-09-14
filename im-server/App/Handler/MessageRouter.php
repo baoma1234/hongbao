@@ -1458,6 +1458,13 @@ class MessageRouter
         }
         $this->messages->markConversationRead($uid, $convType, $convId, $lastId);
         $this->send($connection, 'conversation.read.ok', ['ok' => true], $reqId);
+        // 多端登录：一端已读/回复后，其它连接清未读角标
+        $this->pushToUser($uid, 'conversation.read', [
+            'conversation_type' => $convType,
+            'conversation_id'   => $convId,
+            'last_read_msg_id'  => $lastId,
+            'by_user_id'        => $uid,
+        ], (string)$connection->id);
     }
 
     protected function handleConversationPin(TcpConnection $connection, $uid, array $payload, $reqId, $pinned)

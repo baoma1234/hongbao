@@ -124,9 +124,16 @@ export function syncInboxFromServerList(rows) {
     const last = it.last_message
     const lastId = last ? (last.id | 0) || (last.msg_id | 0) : 0
     const readAt = getReadWatermark(type, id)
-    // 刚已读，或最后一条已在本端水位之内 → 强制已读（服务端 Redis 偶发滞后）
-    if (isRecentlyReadKey(key) || (lastId > 0 && readAt >= lastId)) {
+    const fromSelf = myUserId > 0 && last && ((last.from_user_id | 0) === myUserId)
+    // 本端刚已读 / 水位已过最后一条 / 最后一条是自己发的（含其它登录点回复）
+    if (isRecentlyReadKey(key) || (lastId > 0 && readAt >= lastId) || fromSelf) {
       if (server <= 0 && isRecentlyReadKey(key)) delete recentlyRead[key]
+      unreadMap[key] = 0
+      it.unread_count = 0
+      return
+    }
+    // 服务端已清零（其它端已读）：勿用本机旧计数盖回去
+    if (server <= 0) {
       unreadMap[key] = 0
       it.unread_count = 0
       return
@@ -223,30 +230,38 @@ function bumpUnread(msg) {
 function handleIncoming(msg) {
   if (!msg) return
   emitIncoming(msg)
+  const from = (msg.from_user_id | 0) || 0
+  let ex = msg.extra || {}
+  if (typeof ex === 'string') {
+    try {
+      ex = JSON.parse(ex) || {}
+    } catch (e) {
+      ex = {}
+    }
+  }
+  const relayAuto = !!(ex.relay_auto | 0)
+  const fromSelf = !!(from && myUserId && from === myUserId)
   // 自发普通消息不响；接龙续发 / 他人消息响
   try {
-    const from = (msg.from_user_id | 0) || 0
-    let ex = msg.extra || {}
-    if (typeof ex === 'string') {
-      try {
-        ex = JSON.parse(ex) || {}
-      } catch (e) {
-        ex = {}
-      }
-    }
-    const relayAuto = !!(ex.relay_auto | 0)
-    if (!(from && myUserId && from === myUserId && !relayAuto)) {
+    if (!(fromSelf && !relayAuto)) {
       const ctype = msgConvType(msg)
       const cid = msgConvId(msg)
       if (ctype === 2 && cid && isGroupNotifyMuted(cid)) {
         /* 群消息不提醒：不响提示音、不弹本地仿推送 */
       } else {
         playIncomingMessageSound(msg)
-        // 在线且不在会话列表 / 当前聊天室：顶部仿极光横幅（App 另发本地通知）
         maybeShowLocalPush(msg, { myUserId })
       }
     }
   } catch (e) {}
+  // 其它登录点回复/发出 = 本账号已处理该会话，清未读
+  if (fromSelf && !relayAuto) {
+    const type = msgConvType(msg)
+    const id = msgConvId(msg)
+    const lastId = (msg.id | 0) || (msg.msg_id | 0)
+    if (id) noteConversationRead(type, id, lastId)
+    return
+  }
   if (shouldBumpUnread(msg)) bumpUnread(msg)
   else if (matchesActiveChat(msg)) {
     const type = msgConvType(msg)
@@ -263,6 +278,13 @@ export function startImInbox() {
   if (started) return
   started = true
   off = onImEvent((type, data) => {
+    if (type === 'conversation.read') {
+      const t = (data && data.conversation_type) | 0
+      const id = String((data && (data.conversation_id || data.group_id)) || '')
+      const lastId = (data && (data.last_read_msg_id || data.message_id)) | 0
+      if (t && id) noteConversationRead(t, id, lastId)
+      return
+    }
     if (type === 'private.message' || type === 'group.message' || type === 'redpacket.relay_next') {
       const msg = (data && data.message) || data
       handleIncoming(msg)

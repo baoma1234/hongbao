@@ -697,6 +697,8 @@ function unreadOf(item) {
   const last = item.last_message
   const lastId = last ? (last.id | 0) || (last.msg_id | 0) : 0
   if (lastId > 0 && getReadWatermark(item.conversation_type, id) >= lastId) return 0
+  const me = myIdNum() | 0
+  if (me > 0 && last && ((last.from_user_id | 0) === me)) return 0
   const fromInbox = getInboxUnread(item.conversation_type, id)
   if (fromInbox <= 0) return 0
   return fromInbox
