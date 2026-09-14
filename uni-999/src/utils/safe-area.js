@@ -146,7 +146,7 @@ export function setSafariKeyboardGuardPaused(paused) {
 
 /**
  * Safari / iOS H5：键盘收起后 fixed 底栏悬空、safe-area 残留。
- * 复位 scroll + 重写 CSS 变量；输入聚焦 / 键盘打开时绝不 scrollTo，避免输入框被顶没。
+ * 只清键盘残留样式；用户已滚到页面下方时绝不可 scrollTo(0,0)，否则「我的」等长页会弹回顶。
  */
 export function resetSafariViewportAfterKeyboard() {
   try {
@@ -160,16 +160,28 @@ export function resetSafariViewportAfterKeyboard() {
       const covered = Math.max(0, window.innerHeight - vv.height - (vv.offsetTop || 0))
       if (covered > 80) return
     }
-    window.scrollTo(0, 0)
-    if (document.documentElement) document.documentElement.scrollTop = 0
-    if (document.body) {
-      document.body.scrollTop = 0
-      // 清掉部分 WebView 在键盘期写的内联高度
-      if (document.body.style.height === window.innerHeight + 'px') {
-        document.body.style.height = ''
+
+    try {
+      if (document.body) {
+        if (document.body.style.height === window.innerHeight + 'px') {
+          document.body.style.height = ''
+        }
+        document.body.style.paddingBottom = ''
       }
-      document.body.style.paddingBottom = ''
+    } catch (eBody) {}
+
+    // 仅当滚动很小（键盘鬼偏移）时回顶；长页用户滚动保留
+    const y = Math.max(
+      Number(window.pageYOffset) || 0,
+      Number(document.documentElement && document.documentElement.scrollTop) || 0,
+      Number(document.body && document.body.scrollTop) || 0
+    )
+    if (y > 0 && y <= 80) {
+      window.scrollTo(0, 0)
+      if (document.documentElement) document.documentElement.scrollTop = 0
+      if (document.body) document.body.scrollTop = 0
     }
+
     applySafeAreaCssVars()
   } catch (e) {}
 }
@@ -187,38 +199,29 @@ export function installSafariViewportGuard() {
   if (typeof window === 'undefined') return
   safariGuardInstalled = true
 
-  const onVv = () => {
+  // visualViewport / 窗口变化：只刷新 safe-area，绝不 scrollTo
+  // （Safari 滚到底、地址栏显隐都会触发 vv.scroll，误 scrollTo 会把页面弹回顶部）
+  const onVvSoft = () => {
     if (safariGuardPaused) return
     if (safariVvTimer) clearTimeout(safariVvTimer)
     safariVvTimer = setTimeout(() => {
       safariVvTimer = null
       if (safariGuardPaused || isEditableFocused()) return
       try {
-        const vv = window.visualViewport
-        if (!vv) {
-          resetSafariViewportAfterKeyboard()
-          return
-        }
-        const covered = Math.max(0, window.innerHeight - vv.height - (vv.offsetTop || 0))
-        if (covered <= 80) {
-          resetSafariViewportAfterKeyboard()
-        } else {
-          // 键盘打开：仅刷新封顶 safe-area，绝不 scrollTo
-          applySafeAreaCssVars()
-        }
+        applySafeAreaCssVars()
       } catch (e) {}
     }, 60)
   }
 
   try {
     if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', onVv)
-      window.visualViewport.addEventListener('scroll', onVv)
+      window.visualViewport.addEventListener('resize', onVvSoft)
+      window.visualViewport.addEventListener('scroll', onVvSoft)
     }
   } catch (e) {}
   try {
-    window.addEventListener('resize', onVv)
-    window.addEventListener('orientationchange', onVv)
+    window.addEventListener('resize', onVvSoft)
+    window.addEventListener('orientationchange', onVvSoft)
     window.addEventListener('pageshow', () => {
       setTimeout(resetSafariViewportAfterKeyboard, 50)
     })
