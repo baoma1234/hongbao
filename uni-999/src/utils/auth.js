@@ -41,7 +41,10 @@ export function goLoginIfUnauthorized(code, msg) {
     /请登录/.test(m) ||
     /未登录/.test(m) ||
     /Please login/i.test(m) ||
-    /not\s*login/i.test(m)
+    /not\s*login/i.test(m) ||
+    /unauthorized/i.test(m) ||
+    /auth_failed/i.test(m) ||
+    /登录已失效/.test(m)
   if (!need) return false
   logoutLocal()
   const now = Date.now()

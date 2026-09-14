@@ -105,7 +105,7 @@ $http->onMessage = function (TcpConnection $connection, Request $request) use ($
             $api = new UserApi($cfg);
             $uid = $api->userIdByToken($token);
             if ($uid <= 0) {
-                $connection->send(corsJson(401, ['message' => 'unauthorized']));
+                $connection->send(corsJson(401, ['message' => '登录已失效，请重新登录']));
                 return;
             }
             if ($method !== 'POST') {

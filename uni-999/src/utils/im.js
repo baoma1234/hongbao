@@ -141,6 +141,27 @@ function nextReqId() {
   return 'r' + reqSeq + '_' + Date.now().toString(36)
 }
 
+function isAuthErrorMessage(msg) {
+  const m = String(msg || '')
+  const low = m.toLowerCase()
+  return (
+    low === 'unauthorized' ||
+    low === 'auth_failed' ||
+    low.indexOf('unauthorized') >= 0 ||
+    low.indexOf('auth_failed') >= 0 ||
+    /登录已失效/.test(m) ||
+    m === '未登录' ||
+    m === '请登录'
+  )
+}
+
+function friendlyImError(msg) {
+  const raw = String(msg || '')
+  if (raw === 'WS 鉴权超时') return '连接鉴权失败，请重试'
+  if (isAuthErrorMessage(raw)) return '登录已失效，请重新登录'
+  return raw || 'error'
+}
+
 function emit(type, data) {
   listeners.forEach((fn) => {
     try {
@@ -242,8 +263,9 @@ function handlePacket(raw) {
     const p = pending.get(reqId)
     clearTimeout(p.timer)
     pending.delete(reqId)
-    if (packet.type === 'error') p.reject(new Error((packet.data && packet.data.message) || 'error'))
-    else p.resolve(packet)
+    if (packet.type === 'error') {
+      p.reject(new Error(friendlyImError((packet.data && packet.data.message) || 'error')))
+    } else p.resolve(packet)
   }
 
   if (packet.type === 'auth.ok') {
@@ -290,26 +312,62 @@ function handlePacket(raw) {
     return
   }
   if (packet.type === 'error') {
+    const em = (packet.data && packet.data.message) || ''
+    if (isAuthErrorMessage(em)) {
+      authed = false
+      emit('auth.fail', packet.data || {})
+    }
     emit('error', packet.data || {})
     return
   }
   emit(packet.type, packet.data || {})
 }
 
+function sendAuthFrame(task, token) {
+  if (!task || !token) return
+  try {
+    task.send({
+      data: JSON.stringify({
+        type: 'auth',
+        data: { token, device_fp: getDeviceFp() },
+        req_id: nextReqId(),
+      }),
+      fail() {},
+    })
+  } catch (e) {}
+}
+
+function waitAuthOk(timeoutMs) {
+  return new Promise((resolve, reject) => {
+    if (authed) {
+      resolve(true)
+      return
+    }
+    const timer = setTimeout(() => {
+      off()
+      reject(new Error('WS 鉴权超时'))
+    }, timeoutMs)
+    const off = onImEvent((type, data) => {
+      if (type === 'auth.ok') {
+        clearTimeout(timer)
+        off()
+        resolve(true)
+        return
+      }
+      if (type === 'auth.fail' || (type === 'error' && isAuthErrorMessage(data && data.message))) {
+        clearTimeout(timer)
+        off()
+        reject(new Error(friendlyImError((data && data.message) || 'auth_failed')))
+      }
+    })
+  })
+}
+
 function bindSocketHandlers(task, token) {
   task.onOpen(() => {
     if (socketTask !== task) return
     socketOpen = true
-    try {
-      task.send({
-        data: JSON.stringify({
-          type: 'auth',
-          data: { token, device_fp: getDeviceFp() },
-          req_id: nextReqId(),
-        }),
-        fail() {},
-      })
-    } catch (e) {}
+    sendAuthFrame(task, token)
   })
   task.onMessage((msg) => {
     if (socketTask !== task) return
@@ -335,22 +393,6 @@ function bindSocketHandlers(task, token) {
   })
 }
 
-function waitEvent(eventType, timeoutMs) {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      off()
-      reject(new Error('WS 超时'))
-    }, timeoutMs)
-    const off = onImEvent((type) => {
-      if (type === eventType) {
-        clearTimeout(timer)
-        off()
-        resolve(true)
-      }
-    })
-  })
-}
-
 function waitUntil(predicate, timeoutMs, stepMs = 50) {
   return new Promise((resolve, reject) => {
     const start = Date.now()
@@ -369,6 +411,20 @@ function waitUntil(predicate, timeoutMs, stepMs = 50) {
   })
 }
 
+function dropDeadSocket() {
+  if (!socketTask) return
+  const old = socketTask
+  socketTask = null
+  socketOpen = false
+  authed = false
+  stopPingLoop()
+  try {
+    intentionalClose = true
+    old.close({})
+  } catch (e) {}
+  intentionalClose = false
+}
+
 export function imConnect() {
   const token = getToken()
   if (!token) {
@@ -383,10 +439,16 @@ export function imConnect() {
   if (connectingPromise) return connectingPromise
 
   connectingPromise = (async () => {
-    // 已有连接在握手：等 OPEN，禁止 close 重建
+    // 僵尸连接：有 task 但迟迟不开 → 重建，避免干等 10s
     if (socketTask && !socketOpen) {
-      await waitUntil(() => socketOpen && socketTask, 10000)
-    } else if (!socketTask) {
+      try {
+        await waitUntil(() => socketOpen && socketTask, 3000)
+      } catch (e) {
+        dropDeadSocket()
+      }
+    }
+
+    if (!socketTask) {
       const task = uni.connectSocket({
         url: connectUrl(),
         complete() {},
@@ -396,20 +458,20 @@ export function imConnect() {
       authed = false
       bindSocketHandlers(task, token)
       await waitUntil(() => socketOpen && socketTask, 10000)
+    } else if (socketOpen && !authed) {
+      // OPEN 后鉴权丢了 / 上次 auth 失败：补发 auth，勿假装已登录
+      sendAuthFrame(socketTask, token)
     }
 
     if (!authed) {
       try {
-        await waitEvent('auth.ok', 8000)
+        await waitAuthOk(10000)
       } catch (e) {
-        // query token 鉴权时可能不推 auth.ok：OPEN 即可宽松放行
-        if (socketOpen && socketTask) {
-          authed = true
-          reconnectAttempt = 0
-          startPingLoop()
-        } else {
-          throw new Error('WS 鉴权超时')
+        const tip = friendlyImError((e && e.message) || 'WS 鉴权超时')
+        if (isAuthErrorMessage((e && e.message) || '')) {
+          goLoginIfUnauthorized(401, '请登录')
         }
+        throw new Error(tip)
       }
     } else {
       startPingLoop()
@@ -417,7 +479,7 @@ export function imConnect() {
     return true
   })()
     .catch((err) => {
-      throw err
+      throw err instanceof Error ? err : new Error(friendlyImError(err))
     })
     .finally(() => {
       connectingPromise = null
@@ -429,24 +491,45 @@ export function imConnect() {
 export async function ensureImReady() {
   if (!getToken()) throw new Error('未登录')
   await imConnect()
-  if (!isSocketSendable()) throw new Error('WS 未连接')
+  if (!isSocketSendable() || !authed) throw new Error('WS 未连接')
   return true
 }
 
 export function imSend(type, data = {}, waitAck = false) {
   const payload = data || {}
+  const sendWs = () =>
+    ensureImReady().then(() => {
+      const packet = { type, data: payload, req_id: nextReqId() }
+      return doSend(packet, waitAck)
+    })
+
   if (waitAck && HTTP_ROUTES[type]) {
     return sendViaHttp(type, payload).catch((httpErr) => {
-      if (!isHttpNetworkError(httpErr)) throw httpErr
-      return ensureImReady().then(() => {
-        const packet = { type, data: payload, req_id: nextReqId() }
-        return doSend(packet, true)
-      })
+      const hm = (httpErr && httpErr.message) || ''
+      if (isAuthErrorMessage(hm)) {
+        goLoginIfUnauthorized(401, '请登录')
+        return Promise.reject(new Error(friendlyImError(hm)))
+      }
+      if (!isHttpNetworkError(httpErr)) {
+        return Promise.reject(new Error(friendlyImError(hm) || hm))
+      }
+      return sendWs()
     })
   }
-  return ensureImReady().then(() => {
-    const packet = { type, data: payload, req_id: nextReqId() }
-    return doSend(packet, waitAck)
+
+  return sendWs().catch((err) => {
+    const em = (err && err.message) || ''
+    if (!waitAck || !isAuthErrorMessage(em)) {
+      throw new Error(friendlyImError(em) || em || '发送失败')
+    }
+    // WS 未绑定用户：强制重连鉴权后重试一次
+    return imForceReconnect()
+      .then(() => sendWs())
+      .catch((e2) => {
+        const m2 = friendlyImError((e2 && e2.message) || em)
+        goLoginIfUnauthorized(401, '请登录')
+        throw new Error(m2)
+      })
   })
 }
 

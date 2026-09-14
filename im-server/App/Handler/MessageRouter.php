@@ -132,7 +132,7 @@ class MessageRouter
             }
             $uid = ConnMap::userIdOf((string)$connection->id);
             if ($uid <= 0) {
-                $this->error($connection, 'unauthorized', $reqId);
+                $this->error($connection, '登录已失效，请重新登录', $reqId);
                 return;
             }
             switch ($type) {
@@ -475,7 +475,7 @@ class MessageRouter
         $session = $this->auth->authByToken($token);
         $userId = (int)($session['user_id'] ?? 0);
         if ($userId <= 0) {
-            $this->error($connection, 'auth_failed', $reqId);
+            $this->error($connection, '登录已失效，请重新登录', $reqId);
             return;
         }
         $already = ConnMap::userIdOf((string)$connection->id);
