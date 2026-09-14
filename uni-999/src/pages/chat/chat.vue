@@ -283,6 +283,7 @@
         <view
           class="chat-composer-wrap"
           :class="{ 'is-muted': composerLocked, 'is-extras-locked': extrasLocked }"
+          :style="composerDockStyle"
         >
           <scroll-view v-if="pendingMedias.length" scroll-x class="chat-pending-media-row" :show-scrollbar="false">
             <view class="chat-pending-media-inner">
@@ -997,6 +998,7 @@ import {
   applySafeAreaCssVars,
   getSafeAreaInsets,
   measureChatOverlayTop,
+  resetSafariViewportAfterKeyboard,
 } from '../../utils/safe-area.js'
 import { COMMON_EMOJIS, loadEmojiTree, emojiTwemojiUrl } from '../../utils/emoji.js'
 import { setInboxMyId, noteConversationRead } from '../../utils/im-inbox.js'
@@ -1302,9 +1304,21 @@ const msgScrollStyle = computed(() => {
 const appSubPaneStyle = ref({})
 /** App 回到底部按钮用像素 bottom（env(safe-area) 在 APK 常为 0） */
 const jumpLatestStyle = ref({})
+/** H5 Safari：键盘弹起时用 visualViewport 贴底，收起强制 0 清鬼空白 */
+const composerBottomPx = ref(0)
+const composerDockStyle = computed(() => {
+  // #ifdef H5
+  const b = Math.max(0, composerBottomPx.value | 0)
+  return { bottom: b + 'px' }
+  // #endif
+  // #ifndef H5
+  return {}
+  // #endif
+})
 let measureMsgScrollTimer = null
 let offKeyboardHeight = null
 let offWinResize = null
+let offVisualViewport = null
 /** setup 同步捕获，供 setTimeout 测量使用（异步里 getCurrentInstance 为空） */
 const chatLayoutProxy = (() => {
   try {
@@ -1314,6 +1328,29 @@ const chatLayoutProxy = (() => {
     return null
   }
 })()
+
+function syncComposerDockToViewport() {
+  // #ifdef H5
+  try {
+    if (typeof window === 'undefined') return
+    const vv = window.visualViewport
+    if (!vv) {
+      composerBottomPx.value = 0
+      resetSafariViewportAfterKeyboard()
+      return
+    }
+    const gap = Math.max(0, Math.round(window.innerHeight - vv.height - (vv.offsetTop || 0)))
+    if (gap <= 80) {
+      composerBottomPx.value = 0
+      resetSafariViewportAfterKeyboard()
+      scheduleMeasureMsgScroll()
+      return
+    }
+    composerBottomPx.value = gap
+    scheduleMeasureMsgScroll()
+  } catch (e) {}
+  // #endif
+}
 
 function refreshChatSafeLayout() {
   const r = applySafeAreaCssVars()
@@ -5896,7 +5933,17 @@ onLoad(async (query) => {
   try {
     if (typeof uni.onKeyboardHeightChange === 'function') {
       offKeyboardHeight = (res) => {
+        const h = Math.max(0, Number(res && res.height) || 0)
+        // #ifdef APP-PLUS
         scheduleMeasureMsgScroll()
+        // #endif
+        // #ifdef H5
+        if (h <= 0) {
+          composerBottomPx.value = 0
+          resetSafariViewportAfterKeyboard()
+        }
+        scheduleMeasureMsgScroll()
+        // #endif
       }
       uni.onKeyboardHeightChange(offKeyboardHeight)
     }
@@ -5904,9 +5951,18 @@ onLoad(async (query) => {
   // #ifdef H5
   try {
     if (typeof window !== 'undefined') {
-      offWinResize = () => scheduleMeasureMsgScroll()
+      offWinResize = () => {
+        syncComposerDockToViewport()
+        scheduleMeasureMsgScroll()
+      }
       window.addEventListener('resize', offWinResize)
       window.addEventListener('orientationchange', offWinResize)
+      if (window.visualViewport) {
+        offVisualViewport = () => syncComposerDockToViewport()
+        window.visualViewport.addEventListener('resize', offVisualViewport)
+        window.visualViewport.addEventListener('scroll', offVisualViewport)
+      }
+      syncComposerDockToViewport()
     }
   } catch (eRs) {}
   // #endif
@@ -6141,8 +6197,19 @@ onUnload(() => {
       window.removeEventListener('orientationchange', offWinResize)
     }
   } catch (eRs) {}
+  try {
+    if (offVisualViewport && typeof window !== 'undefined' && window.visualViewport) {
+      window.visualViewport.removeEventListener('resize', offVisualViewport)
+      window.visualViewport.removeEventListener('scroll', offVisualViewport)
+    }
+  } catch (eVv) {}
+  composerBottomPx.value = 0
+  try {
+    resetSafariViewportAfterKeyboard()
+  } catch (eRst) {}
   // #endif
   offWinResize = null
+  offVisualViewport = null
   clearTextMsgHold()
   stopNiuniuTick()
   pendingMedias.value = []

@@ -658,7 +658,7 @@
   flex-shrink: 0 !important;
   z-index: 40 !important;
   background: #f7f7f7;
-  padding-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  padding-bottom: min(34px, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
   border-top: 1px solid rgba(0, 0, 0, 0.06);
   box-sizing: border-box !important;
   /* 已 fixed 脱离文档流，勿再被父级 overflow 裁切 */
