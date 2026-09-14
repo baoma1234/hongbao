@@ -292,4 +292,33 @@ class FansHubMobile
         }
         return $rows;
     }
+
+    /**
+     * 导出用：区号 / 国内号拆成两列
+     * @return array{0:string,1:string} [dial, national]
+     */
+    public static function splitDialNational($mobile)
+    {
+        $mobile = trim((string)$mobile);
+        if ($mobile === '') {
+            return ['', ''];
+        }
+        $canonical = self::canonical($mobile);
+        $src = ($canonical !== '' && isset($canonical[0]) && $canonical[0] === '+') ? $canonical : $mobile;
+        if ($src !== '' && isset($src[0]) && $src[0] === '+') {
+            $code = self::matchCountryCodeByE164($src);
+            if ($code !== '') {
+                $dial = (string)self::country($code)['dial'];
+                $national = substr($src, strlen('+' . $dial));
+                return [$dial, (string)$national];
+            }
+            $digits = preg_replace('/\D+/', '', $src);
+            return ['', (string)$digits];
+        }
+        $digits = preg_replace('/\D+/', '', $mobile);
+        if (preg_match('/^1[3-9]\d{9}$/', (string)$digits)) {
+            return ['86', (string)$digits];
+        }
+        return ['', $digits !== '' ? (string)$digits : $mobile];
+    }
 }

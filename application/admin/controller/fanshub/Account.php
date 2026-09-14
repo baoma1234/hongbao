@@ -4,6 +4,7 @@ namespace app\admin\controller\fanshub;
 
 use app\admin\library\traits\FanshubExport;
 use app\common\controller\Backend;
+use app\common\library\FansHubMobile;
 use app\common\library\FansHubPhase2;
 use app\common\library\FansHubService;
 use think\Db;
@@ -636,12 +637,16 @@ class Account extends Backend
             $levelId = (int)($row->member_level ?? 0);
             $levelName = isset($levelList[$levelId]) ? ('VIP' . $levelId . ' ' . $levelList[$levelId]['name']) : ($levelId > 0 ? ('VIP' . $levelId) : '');
             $inv = $inviterMap[(int)$row->user_id] ?? null;
+            list($dial, $national) = FansHubMobile::splitDialNational($row->user ? $row->user->mobile : '');
+            list($invDial, $invNational) = FansHubMobile::splitDialNational($inv ? ($inv['mobile'] ?? '') : '');
             $data[] = [
                 $row->id,
                 $row->user ? ($row->user->nickname ?: '') : '',
-                $row->user ? $row->user->mobile : '',
+                $dial,
+                $national,
                 $inv ? $inv['inviter_user_id'] : '',
-                $inv ? $inv['mobile'] : '',
+                $invDial,
+                $invNational,
                 $row->rights,
                 $row->hongbao ?? 0,
                 $row->main_uid,
@@ -655,7 +660,7 @@ class Account extends Backend
             ];
         }
         $this->exportXlsx('fanshub_account_' . date('Ymd_His'), [
-            '会员ID', '昵称', '手机号', '上线ID', '上线手机', '股份', '红宝', '主站账号', '待审账号', '账号审核', 'VIP等级', '阶段', '状态', '创建时间', '更新时间',
+            '会员ID', '昵称', '区号', '手机号', '上线ID', '上线区号', '上线手机', '股份', '红宝', '主站账号', '待审账号', '账号审核', 'VIP等级', '阶段', '状态', '创建时间', '更新时间',
         ], $data);
     }
 }
