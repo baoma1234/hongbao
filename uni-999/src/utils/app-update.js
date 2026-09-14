@@ -1,11 +1,12 @@
 /**
  * App 内更新检测（仅 APP-PLUS；H5/Safari 跳过）
- * 冷启动拉 config 后比对 versionCode；安卓 / iOS 分端。
+ * 冷启动 / 登录页拉 config 后比对 versionCode；安卓 / iOS 分端。
  */
 import { getAppVersionInfo } from './app-prefs.js'
 
 const DISMISS_KEY = 'hb_app_update_dismissed'
 let checking = false
+/** 已成功弹出过更新框（用户可见），避免同会话重复刷 */
 let prompted = false
 
 function platformKey() {
@@ -58,7 +59,9 @@ function openDownload(url) {
 
 /**
  * @param {object|null} cfg  fetchConfig() 返回体（含 app_update）
- * @param {{ force?: boolean }} [opts] force=true 忽略「稍后」记忆（用于设置页手动检查）
+ * @param {{ force?: boolean, onLogin?: boolean }} [opts]
+ *   force=true 忽略「稍后」记忆（设置页手动检查）
+ *   onLogin=true 登录页触发：若启动时弹窗被冲掉，允许再弹一次
  */
 export async function checkAppUpdate(cfg, opts = {}) {
   // #ifndef APP-PLUS
@@ -66,6 +69,7 @@ export async function checkAppUpdate(cfg, opts = {}) {
   // #endif
   // #ifdef APP-PLUS
   if (checking) return { skipped: true, reason: 'busy' }
+  // 登录页允许在「尚未真正弹过」时重试；已弹过则仍跳过（除非 force）
   if (prompted && !opts.force) return { skipped: true, reason: 'already' }
 
   const update = cfg && cfg.app_update
@@ -111,7 +115,6 @@ export async function checkAppUpdate(cfg, opts = {}) {
   if (note) lines.push('', note)
 
   checking = true
-  prompted = true
   return await new Promise((resolve) => {
     uni.showModal({
       title: force ? '请更新后继续使用' : '发现新版本',
@@ -120,6 +123,8 @@ export async function checkAppUpdate(cfg, opts = {}) {
       cancelText: '稍后',
       confirmText: '立即更新',
       success: (res) => {
+        // 用户已看到弹窗
+        prompted = true
         if (res && res.confirm) {
           openDownload(remote.download_url)
           resolve({ ok: true, updated: true, force, localCode, latestCode })
@@ -137,7 +142,8 @@ export async function checkAppUpdate(cfg, opts = {}) {
         resolve({ ok: true, dismissed: true, force, localCode, latestCode })
       },
       fail: () => {
-        resolve({ ok: false })
+        // 弹窗失败（如闪屏未就绪）不记 prompted，便于登录页重试
+        resolve({ ok: false, reason: 'modal_fail' })
       },
       complete: () => {
         checking = false

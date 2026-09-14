@@ -56,10 +56,12 @@ onLaunch(async () => {
   try {
     bootCfg = await fetchConfig()
   } catch (e) {}
-  // App 冷启动：检测安卓/iOS 是否需更新（H5 跳过）
-  try {
-    await checkAppUpdate(bootCfg)
-  } catch (e) {}
+  // App 冷启动：已登录时检测更新；未登录改由登录页弹出，避免闪屏冲掉弹窗
+  if (getToken()) {
+    try {
+      await checkAppUpdate(bootCfg)
+    } catch (e) {}
+  }
   // 语言：BOOT 即时可用；完整包后台拉取，不挡启动
   initI18n().catch(() => {})
   // 极光等推送：已装原生插件且用户未关推送时初始化

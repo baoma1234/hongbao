@@ -159,6 +159,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import SliderCaptcha from '../../components/SliderCaptcha.vue'
 import { fetchConfig, getToken, login, sendSms } from '../../utils/auth.js'
+import { checkAppUpdate } from '../../utils/app-update.js'
 import {
   applyServerCopy,
   copyState,
@@ -437,7 +438,7 @@ function pickCountry(code) {
 
 async function loadCfg() {
   const cfg = await fetchConfig()
-  if (!cfg) return
+  if (!cfg) return null
   if (cfg.copy) applyServerCopy(cfg.copy)
   if (cfg.register_rights != null && cfg.register_rights !== '') {
     const n = parseInt(cfg.register_rights, 10)
@@ -453,6 +454,21 @@ async function loadCfg() {
   else csEnabled.value = true
   const url = String(cfg.login_cs_url || cfg.customer_service_url || '').trim()
   csUrl.value = url
+  return cfg
+}
+
+/** 登录页弹出 APP 升级（等首屏画完，避免被启动闪屏冲掉） */
+async function checkUpdateOnLoginPage(cfg) {
+  // #ifndef APP-PLUS
+  return
+  // #endif
+  // #ifdef APP-PLUS
+  try {
+    const c = cfg || (await fetchConfig())
+    if (!c) return
+    await checkAppUpdate(c, { onLogin: true })
+  } catch (e) {}
+  // #endif
 }
 
 function openLoginCs() {
@@ -593,7 +609,12 @@ onMounted(() => {
   const insets = applySafeAreaCssVars()
   padTop.value = (insets && insets.top != null) ? insets.top : getSafeAreaInsets().top
   localeId.value = getLocale()
-  loadCfg()
+  loadCfg().then((cfg) => {
+    // 登录页可见后再检测，确保升级弹窗出现在登录界面
+    setTimeout(() => {
+      checkUpdateOnLoginPage(cfg)
+    }, 450)
+  })
   syncCooldownFromStorage()
   offLocale = onLocaleChange((id) => {
     localeId.value = id
