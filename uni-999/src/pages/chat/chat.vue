@@ -1306,10 +1306,15 @@ const appSubPaneStyle = ref({})
 const jumpLatestStyle = ref({})
 /** H5 Safari：键盘弹起时用 visualViewport 贴底，收起强制 0 清鬼空白 */
 const composerBottomPx = ref(0)
+/** uni.onKeyboardHeightChange 备用高度（部分 WebView 无可靠 visualViewport） */
+const composerKbFallbackPx = ref(0)
 const composerDockStyle = computed(() => {
   // #ifdef H5
   const b = Math.max(0, composerBottomPx.value | 0)
-  return { bottom: b + 'px' }
+  // CSS 用 var(--chat-composer-bottom) + !important；键盘升起时去掉 home 条垫高
+  const style = { '--chat-composer-bottom': b + 'px', bottom: b + 'px' }
+  if (b > 80) style.paddingBottom = '0px'
+  return style
   // #endif
   // #ifndef H5
   return {}
@@ -1334,14 +1339,16 @@ function syncComposerDockToViewport() {
   try {
     if (typeof window === 'undefined') return
     const vv = window.visualViewport
-    if (!vv) {
-      composerBottomPx.value = 0
-      resetSafariViewportAfterKeyboard()
-      return
+    let gap = 0
+    if (vv) {
+      // layout 视口底边被键盘盖住的高度
+      gap = Math.max(0, Math.round(window.innerHeight - vv.height - (vv.offsetTop || 0)))
     }
-    const gap = Math.max(0, Math.round(window.innerHeight - vv.height - (vv.offsetTop || 0)))
+    const fallback = Math.max(0, composerKbFallbackPx.value | 0)
+    if (fallback > gap) gap = fallback
     if (gap <= 80) {
       composerBottomPx.value = 0
+      // 仅在未聚焦输入时清鬼空白，避免抢键盘动画
       resetSafariViewportAfterKeyboard()
       scheduleMeasureMsgScroll()
       return
@@ -5938,9 +5945,13 @@ onLoad(async (query) => {
         scheduleMeasureMsgScroll()
         // #endif
         // #ifdef H5
+        composerKbFallbackPx.value = h
         if (h <= 0) {
           composerBottomPx.value = 0
+          composerKbFallbackPx.value = 0
           resetSafariViewportAfterKeyboard()
+        } else {
+          syncComposerDockToViewport()
         }
         scheduleMeasureMsgScroll()
         // #endif

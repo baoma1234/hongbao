@@ -652,7 +652,8 @@
   position: fixed !important;
   left: 0 !important;
   right: 0 !important;
-  bottom: 0 !important;
+  /* H5 键盘：由 --chat-composer-bottom 抬升；勿写死 0 !important 否则盖掉内联 bottom */
+  bottom: var(--chat-composer-bottom, 0px) !important;
   width: 100% !important;
   max-width: 100% !important;
   flex-shrink: 0 !important;

@@ -122,13 +122,31 @@ export function applySafeAreaCssVars() {
   return { top, bottom, left, right, overlayTop }
 }
 
+function isEditableFocused() {
+  try {
+    if (typeof document === 'undefined') return false
+    const ae = document.activeElement
+    if (!ae) return false
+    const tag = String(ae.tagName || '').toUpperCase()
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true
+    if (ae.isContentEditable) return true
+    // uni-app H5：真实 textarea 可能在组件内部
+    if (ae.closest && ae.closest('uni-textarea, .uni-textarea-wrapper, .input-box, .chat-composer-wrap')) {
+      return true
+    }
+  } catch (e) {}
+  return false
+}
+
 /**
  * Safari / iOS H5：键盘收起后 fixed 底栏悬空、safe-area 残留。
- * 复位 scroll + 重写 CSS 变量；键盘打开时不改 bottom（由聊天页自己量高度）。
+ * 复位 scroll + 重写 CSS 变量；输入聚焦 / 键盘打开时绝不 scrollTo，避免输入框被顶没。
  */
 export function resetSafariViewportAfterKeyboard() {
   try {
     if (typeof window === 'undefined') return
+    // 正在输入：禁止复位（否则键盘弹起瞬间 scrollTo 把输入区滚出可视区）
+    if (isEditableFocused()) return
     const vv = window.visualViewport
     // 仍像键盘弹起：不强制清
     if (vv) {
@@ -196,9 +214,13 @@ export function installSafariViewportGuard() {
       setTimeout(resetSafariViewportAfterKeyboard, 50)
     })
     document.addEventListener('focusout', () => {
-      // input 失焦 ≈ 键盘将收起
-      setTimeout(resetSafariViewportAfterKeyboard, 80)
-      setTimeout(resetSafariViewportAfterKeyboard, 320)
+      // 失焦后若焦点仍在可编辑控件（切到另一输入）则跳过；否则延迟清鬼空白
+      setTimeout(() => {
+        if (!isEditableFocused()) resetSafariViewportAfterKeyboard()
+      }, 80)
+      setTimeout(() => {
+        if (!isEditableFocused()) resetSafariViewportAfterKeyboard()
+      }, 320)
     })
   } catch (e2) {}
   // #endif
