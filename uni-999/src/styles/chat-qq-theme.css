@@ -305,8 +305,12 @@
   left: 0 !important;
   right: 0 !important;
   bottom: 0 !important;
-  transform: translate3d(0, calc(var(--chat-kb-inset, 0px) * -1), 0) !important;
   z-index: 40 !important;
+}
+.chat-room-page.is-kb-open .chat-composer-wrap {
+  position: absolute !important;
+  bottom: 0 !important;
+  transform: none !important;
 }
 
 .chat-room-page .chat-composer.chat-footer {

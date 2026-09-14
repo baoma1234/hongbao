@@ -1,5 +1,5 @@
 <template>
-  <view class="chat-room-page" :style="roomSafeStyle">
+  <view class="chat-room-page" :class="{ 'is-kb-open': h5KbOpen }" :style="roomSafeStyle">
     <view class="chat-room-pane open">
       <view class="chat-hero-hd chat-hero-hd--bar-actions chat-hero-hd--qq-nav">
         <view class="chat-hero-back" hover-class="chat-hero-back--active" @click="onHeroBack">
@@ -1306,21 +1306,19 @@ const msgScrollStyle = computed(() => {
 const appSubPaneStyle = ref({})
 /** App 回到底部按钮用像素 bottom（env(safe-area) 在 APK 常为 0） */
 const jumpLatestStyle = ref({})
-/** H5 Safari：键盘 inset → CSS --chat-kb-inset（transform 抬升，bottom 保持 0） */
-const composerBottomPx = ref(0)
+/** H5 Safari：键盘时把整页钉在 visualViewport，避免 translateY 留下大块空白 */
+const h5KbOpen = ref(false)
 /** uni.onKeyboardHeightChange 备用高度 */
 const composerKbFallbackPx = ref(0)
-/** 键盘未开时的高视口，防止 innerHeight 随键盘收缩导致 gap=0 */
+/** 键盘未开时的高视口 */
 let composerKbBaselineH = 0
 let composerDockRaf = null
 let offComposerFocusIn = null
 let offComposerFocusOut = null
 const composerDockStyle = computed(() => {
   // #ifdef H5
-  const b = Math.max(0, composerBottomPx.value | 0)
-  const style = { '--chat-kb-inset': b + 'px' }
-  if (b > 80) style.paddingBottom = '0px'
-  return style
+  // 键盘开启时由 is-kb-open + absolute 贴底；此处不再用 transform inset
+  return h5KbOpen.value ? { paddingBottom: '0px' } : {}
   // #endif
   // #ifndef H5
   return {}
@@ -1340,15 +1338,27 @@ const chatLayoutProxy = (() => {
   }
 })()
 
-function applyComposerKbInset(px) {
-  const v = Math.max(0, Math.round(Number(px) || 0))
-  composerBottomPx.value = v
+function setChatVvCss(topPx, heightPx) {
   try {
     if (typeof document === 'undefined') return
-    const val = v + 'px'
-    document.documentElement.style.setProperty('--chat-kb-inset', val)
-    const el = document.querySelector('.chat-room-page .chat-composer-wrap')
-    if (el && el.style) el.style.setProperty('--chat-kb-inset', val)
+    const root = document.documentElement
+    if (!root || !root.style) return
+    if (heightPx > 0) {
+      root.style.setProperty('--chat-vv-top', Math.max(0, topPx | 0) + 'px')
+      root.style.setProperty('--chat-vv-height', Math.max(200, heightPx | 0) + 'px')
+    } else {
+      root.style.removeProperty('--chat-vv-top')
+      root.style.removeProperty('--chat-vv-height')
+    }
+  } catch (e) {}
+}
+
+function lockWindowScrollTop() {
+  try {
+    if (typeof window === 'undefined') return
+    window.scrollTo(0, 0)
+    if (document.documentElement) document.documentElement.scrollTop = 0
+    if (document.body) document.body.scrollTop = 0
   } catch (e) {}
 }
 
@@ -1372,65 +1382,56 @@ function doSyncComposerDockToViewport() {
   try {
     if (typeof window === 'undefined') return
     const vv = window.visualViewport
-    const el = document.querySelector('.chat-room-page .chat-composer-wrap')
     const fallback = Math.max(0, composerKbFallbackPx.value | 0)
-    if (!vv) {
-      if (fallback > 80) applyComposerKbInset(fallback)
-      else applyComposerKbInset(0)
-      scheduleMeasureMsgScroll()
-      return
-    }
 
     const layoutH = Math.max(
       window.innerHeight || 0,
       document.documentElement ? document.documentElement.clientHeight || 0 : 0
     )
-    const tallNow = Math.max(layoutH, Math.round(vv.height + (vv.offsetTop || 0)))
-    if (!composerKbBaselineH || tallNow > composerKbBaselineH) {
-      composerKbBaselineH = tallNow
+    if (vv) {
+      const tallNow = Math.max(layoutH, Math.round(vv.height + (vv.offsetTop || 0)))
+      if (!composerKbBaselineH || tallNow > composerKbBaselineH) composerKbBaselineH = tallNow
+    } else if (!composerKbBaselineH) {
+      composerKbBaselineH = layoutH
     }
 
-    // layout 底被挡高度；innerHeight 已缩小时改用冷启动基线
-    let gap = Math.max(0, Math.round(layoutH - vv.height - (vv.offsetTop || 0)))
-    const byBaseline = Math.max(0, Math.round(composerKbBaselineH - vv.height))
-    if (gap <= 80 && byBaseline > 120) gap = byBaseline
-    if (fallback > gap) gap = fallback
+    let keyboardOpen = fallback > 80
+    let vvTop = 0
+    let vvH = layoutH
+    if (vv) {
+      vvTop = Math.max(0, Math.round(vv.offsetTop || 0))
+      vvH = Math.max(200, Math.round(vv.height || 0))
+      const shrunk = Math.max(0, Math.round((composerKbBaselineH || layoutH) - vv.height))
+      const covered = Math.max(0, Math.round(layoutH - vv.height - (vv.offsetTop || 0)))
+      keyboardOpen = keyboardOpen || shrunk > 120 || covered > 120
+      if (isEditableFocused() && shrunk > 60) keyboardOpen = true
+    }
 
-    if (gap <= 80) {
-      applyComposerKbInset(0)
-      if (!isEditableFocused()) resetSafariViewportAfterKeyboard()
+    if (keyboardOpen) {
+      setSafariKeyboardGuardPaused(true)
+      setChatVvCss(vvTop, vvH)
+      h5KbOpen.value = true
+      lockWindowScrollTop()
       scheduleMeasureMsgScroll()
+      // Safari 滚动动画中途再钉一次
+      setTimeout(() => {
+        try {
+          const v2 = window.visualViewport
+          if (!v2 || !h5KbOpen.value) return
+          setChatVvCss(Math.max(0, Math.round(v2.offsetTop || 0)), Math.max(200, Math.round(v2.height || 0)))
+          lockWindowScrollTop()
+          scheduleMeasureMsgScroll()
+        } catch (e2) {}
+      }, 100)
       return
     }
 
-    // 浏览器若已把 fixed 贴到 visualViewport，再抬会飞出屏幕：先看当前是否已可见
-    if ((composerBottomPx.value | 0) === 0 && el) {
-      const rect = el.getBoundingClientRect()
-      if (rect.bottom <= vv.height + 10 && rect.top >= -4) {
-        // 已在可视区内，无需再抬
-        scheduleMeasureMsgScroll()
-        return
-      }
+    h5KbOpen.value = false
+    setChatVvCss(0, 0)
+    if (!isEditableFocused()) {
+      setSafariKeyboardGuardPaused(false)
+      resetSafariViewportAfterKeyboard()
     }
-
-    applyComposerKbInset(gap)
-
-    // 校正：抬过头则回落
-    requestAnimationFrame(() => {
-      try {
-        const node = el || document.querySelector('.chat-room-page .chat-composer-wrap')
-        if (!node || !window.visualViewport) return
-        const r = node.getBoundingClientRect()
-        const vh = window.visualViewport.height
-        const cur = composerBottomPx.value | 0
-        if (r.top < -2 && cur > 0) {
-          applyComposerKbInset(Math.max(0, cur + Math.round(r.top)))
-        } else if (r.bottom < vh - 24 && cur > 0) {
-          const overshoot = Math.round(vh - r.bottom)
-          applyComposerKbInset(Math.max(0, cur - overshoot))
-        }
-      } catch (e2) {}
-    })
     scheduleMeasureMsgScroll()
   } catch (e) {}
   // #endif
@@ -1468,7 +1469,20 @@ function scheduleMeasureMsgScroll() {
 function measureMsgScrollHeight() {
   try {
     const sys = uni.getSystemInfoSync() || {}
-    const winH = Math.max(320, Number(sys.windowHeight || sys.screenHeight || 667))
+    let winH = Math.max(320, Number(sys.windowHeight || sys.screenHeight || 667))
+    // #ifdef H5
+    try {
+      if (typeof window !== 'undefined' && window.visualViewport) {
+        const vv = window.visualViewport
+        const vvH = Math.round(vv.height || 0)
+        if (h5KbOpen.value && vvH > 160) {
+          winH = vvH
+        } else if (isEditableFocused() && composerKbBaselineH && vvH < composerKbBaselineH - 80) {
+          winH = Math.max(200, vvH)
+        }
+      }
+    } catch (eH5) {}
+    // #endif
     const proxy = chatLayoutProxy
     const q = uni.createSelectorQuery()
     if (proxy) q.in(proxy)
@@ -1485,7 +1499,7 @@ function measureMsgScrollHeight() {
           Math.max(0, Number(notice && notice.height) || 0)
         let bottom = Math.max(0, Number(composer && composer.height) || 0)
         if (bottom < 40) {
-          const insetB = getSafeAreaInsets().bottom || 0
+          const insetB = h5KbOpen.value ? 0 : getSafeAreaInsets().bottom || 0
           bottom =
             12 +
             insetB +
@@ -1498,7 +1512,7 @@ function measureMsgScrollHeight() {
             if (copiedImageHint.value) bottom += 36
           } catch (e3) {}
         }
-        const h = Math.max(140, Math.floor(winH - top - bottom))
+        const h = Math.max(120, Math.floor(winH - top - bottom))
         if (Math.abs(h - (msgScrollPx.value | 0)) >= 2) {
           msgScrollPx.value = h
           const cur = roomSafeStyle.value || {}
@@ -6025,7 +6039,8 @@ onLoad(async (query) => {
         composerKbFallbackPx.value = h
         if (h <= 0) {
           composerKbFallbackPx.value = 0
-          applyComposerKbInset(0)
+          h5KbOpen.value = false
+          setChatVvCss(0, 0)
           setSafariKeyboardGuardPaused(false)
           resetSafariViewportAfterKeyboard()
         } else {
@@ -6077,8 +6092,9 @@ onLoad(async (query) => {
       offComposerFocusOut = () => {
         setTimeout(() => {
           if (isEditableFocused()) return
+          h5KbOpen.value = false
+          setChatVvCss(0, 0)
           setSafariKeyboardGuardPaused(false)
-          applyComposerKbInset(0)
           resetSafariViewportAfterKeyboard()
           scheduleMeasureMsgScroll()
         }, 120)
@@ -6335,10 +6351,13 @@ onUnload(() => {
   offComposerFocusIn = null
   offComposerFocusOut = null
   setSafariKeyboardGuardPaused(false)
-  applyComposerKbInset(0)
+  h5KbOpen.value = false
+  setChatVvCss(0, 0)
   try {
     if (typeof document !== 'undefined' && document.documentElement) {
       document.documentElement.style.removeProperty('--chat-kb-inset')
+      document.documentElement.style.removeProperty('--chat-vv-top')
+      document.documentElement.style.removeProperty('--chat-vv-height')
     }
   } catch (eCss) {}
   try {
