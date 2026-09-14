@@ -2,7 +2,7 @@
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">平台:</label>
         <div class="col-xs-12 col-sm-8">
-            {:build_radios('row[platform]', $platformList, $row.platform|default='android')}
+            {:build_radios('row[platform]', $platformList, (isset($row['platform']) && $row['platform'] !== '') ? $row['platform'] : 'android')}
         </div>
     </div>
     <div class="form-group">
@@ -47,7 +47,7 @@
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">状态:</label>
         <div class="col-xs-12 col-sm-8">
-            {:build_radios('row[status]', $statusList, $row.status|default='normal')}
+            {:build_radios('row[status]', $statusList, (isset($row['status']) && $row['status'] !== '') ? $row['status'] : 'normal')}
         </div>
     </div>
     <div class="form-group">
