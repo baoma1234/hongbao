@@ -174,7 +174,9 @@
                 <text class="fission-popup-num">{{ fissionPopupPool }}</text>
                 <text class="fission-popup-unit">奖金池</text>
               </view>
-              <text class="fission-popup-cta">点击拆开红包</text>
+              <view class="fission-popup-cta">
+                <text class="fission-popup-cta-txt">点击拆开红包</text>
+              </view>
             </view>
           </view>
           <view class="fission-popup-close" @click="dismissFissionPopup">×</view>
