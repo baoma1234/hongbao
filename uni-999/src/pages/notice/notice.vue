@@ -548,27 +548,44 @@ async function shareNoticeToCommunity(n) {
 function noticeImageMediaExtra(src) {
   const raw = String(src || '').trim()
   if (!raw) return null
-  let path = raw
+  let path = ''
   let full = ''
   if (/^https?:\/\//i.test(raw)) {
-    full = raw
+    full = raw.split('#')[0]
     const m = raw.match(/^https?:\/\/[^/?#]+(\/[^?#]*)/i)
-    path = (m && m[1]) || raw
+    path = (m && m[1]) || ''
   } else if (raw.charAt(0) === '/') {
-    path = raw
-    full = publicUrl(raw) || avatarSrc(raw) || raw
+    path = raw.split('?')[0].split('#')[0]
+    full = publicUrl(path) || avatarSrc(path) || path
+  } else if (raw.indexOf('uploads/') === 0) {
+    path = '/' + raw.replace(/^\/+/, '').split('?')[0].split('#')[0]
+    full = publicUrl(path) || avatarSrc(path) || path
   } else {
-    path = '/' + raw.replace(/^\/+/, '')
+    path = '/' + raw.replace(/^\/+/, '').split('?')[0].split('#')[0]
     full = publicUrl(path) || avatarSrc(path) || path
   }
-  const up = path.match(/(\/uploads\/[^?#]+)/i) || String(full || '').match(/(\/uploads\/[^?#]+)/i)
-  if (up) path = up[1]
-  if (path.indexOf('/uploads/') !== 0) return null
-  path = path.split('?')[0].split('#')[0]
-  const ext = (path.split('.').pop() || '').toLowerCase()
-  if (!['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext)) return null
+  // 优先抽出 /uploads/ 相对路径（IM 入库用）；完整 https 作展示
+  const up =
+    (path && path.match(/(\/uploads\/[^?#]+)/i)) ||
+    String(full || '').match(/(\/uploads\/[^?#]+)/i) ||
+    String(raw || '').match(/(\/uploads\/[^?#]+)/i)
+  if (up) {
+    path = up[1].split('?')[0].split('#')[0]
+  }
+  const absOk = /^https?:\/\//i.test(full || raw)
+  if (path.indexOf('/uploads/') !== 0 && !absOk) return null
+  const checkPath = path.indexOf('/uploads/') === 0 ? path : (full || raw).split('?')[0]
+  const ext = (String(checkPath).split('.').pop() || '').toLowerCase()
+  // 本站上传偶发 .js 伪装图；外链需常见图片后缀
+  if (path.indexOf('/uploads/') === 0) {
+    if (ext && !['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'js'].includes(ext)) return null
+  } else if (!['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext)) {
+    return null
+  }
   if (!full) full = publicUrl(path) || path
-  return { url: path, fullurl: full, name: '' }
+  // url：有 /uploads/ 用相对路径；否则直接用绝对链接（不重新上传）
+  const sendUrl = path.indexOf('/uploads/') === 0 ? path : (full || raw)
+  return { url: sendUrl, fullurl: full || sendUrl, name: '' }
 }
 
 const sharePreviewText = computed(() => {
@@ -695,11 +712,15 @@ async function sendNoticeSharePayload(sendFn) {
   const images = shareImagePayloads.value || []
   for (let i = 0; i < images.length; i++) {
     const ex = images[i]
-    if (!ex || !ex.url) continue
+    if (!ex) continue
+    const url = String(ex.url || ex.fullurl || '').trim()
+    if (!url) continue
+    const full = String(ex.fullurl || ex.url || url).trim() || url
+    // 直接复用帖子图片链接，不重新上传
     await sendFn({
       content: '[图片]',
       msg_type: 4,
-      extra: { url: ex.url, fullurl: ex.fullurl || ex.url, name: ex.name || '' },
+      extra: { url, fullurl: full, name: ex.name || '' },
     })
   }
   const text = String(shareTextPayload.value || '').trim()

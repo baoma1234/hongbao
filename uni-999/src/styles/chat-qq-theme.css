@@ -1948,6 +1948,16 @@
 #tabMessages .chat-promote-earn-row {
   border-bottom: 0.5px solid #e5e5e5 !important;
   background: #ffffff !important;
+  min-height: 36px !important;
+  height: 36px !important;
+  box-sizing: border-box;
+}
+
+#tabNotice .chat-promote-earn-viewport,
+#tabMessages .chat-promote-earn-viewport,
+.notice-page .chat-promote-earn-viewport {
+  height: 288px !important;
+  max-height: 288px !important;
 }
 
 /* ?????????????? QQ ?/? */

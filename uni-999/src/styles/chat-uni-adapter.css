@@ -1035,13 +1035,17 @@ body.tab-messages #tabMessages .chat-list-pane {
   color: #e83b1a !important;
   font-weight: 800 !important;
 }
-/* ???? 4 ??4 * 36 = 144 */
-#tabMessages .chat-promote-earn-viewport {
-  height: 144px !important;
-  max-height: 144px !important;
+/* 推广收益：同时可见 8 行（8 * 36 = 288） */
+#tabMessages .chat-promote-earn-viewport,
+#tabNotice .chat-promote-earn-viewport,
+.notice-page .chat-promote-earn-viewport {
+  height: 288px !important;
+  max-height: 288px !important;
   overflow: hidden !important;
 }
-#tabMessages .chat-promote-earn-row {
+#tabMessages .chat-promote-earn-row,
+#tabNotice .chat-promote-earn-row,
+.notice-page .chat-promote-earn-row {
   min-height: 36px !important;
   height: 36px !important;
   box-sizing: border-box;

@@ -3333,6 +3333,14 @@ class MessageService
                     $path = substr($path, $pos);
                 }
             }
+            // 公告分享：允许 https 绝对图链（不强制 /uploads/）
+            if ((int)$msgType === 4 && ($path === '' || strpos($path, '/uploads/') !== 0)) {
+                $host = strtolower((string)($parts['host'] ?? ''));
+                $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+                if ($host !== '' && in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'], true)) {
+                    return true;
+                }
+            }
         }
         if ($path === '' || $path[0] !== '/') {
             return false;
