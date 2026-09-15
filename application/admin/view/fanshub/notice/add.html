@@ -38,7 +38,32 @@
                 <option value="{$k}" {eq name="k" value="latest"}selected{/eq}>{$vo}</option>
                 {/foreach}
             </select>
-            <span class="help-block">最新发布 / 推广赚钱 / 彩金白嫖 / 游戏规则</span>
+            <span class="help-block">最新发布 / 推广赚钱 / 彩金白嫖 / 游戏规则；用户发帖固定「彩金白嫖」</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">主题标签:</label>
+        <div class="col-xs-12 col-sm-8">
+            <select name="row[theme_id]" class="form-control selectpicker">
+                {foreach name="themeList" item="vo" key="k"}
+                <option value="{$k}">{$vo}</option>
+                {/foreach}
+            </select>
+            <span class="help-block">展示在帖子【标签】；可在「帖子主题」菜单增删</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">浏览量:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input type="number" class="form-control" name="row[views_count]" value="0" min="0">
+            <span class="help-block">前台点开详情 +1；此处可手工调整</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">发帖用户ID:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input type="number" class="form-control" name="row[user_id]" value="0" min="0">
+            <span class="help-block">0=后台官方帖；用户发帖会自动写入</span>
         </div>
     </div>
     <div class="form-group">
@@ -143,7 +168,7 @@
         <label class="control-label col-xs-12 col-sm-2">状态:</label>
         <div class="col-xs-12 col-sm-8">
             {:build_radios('row[status]', $statusList, 'published')}
-            <span class="help-block">展示中=前台可见；暂停展示=保留数据但前台不显示；草稿=未就绪</span>
+            <span class="help-block">展示中=前台可见；待审核=仅作者可见；暂停/草稿/拒绝=前台不展示</span>
         </div>
     </div>
     <div class="form-group layer-footer">

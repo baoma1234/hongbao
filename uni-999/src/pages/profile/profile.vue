@@ -86,6 +86,16 @@
     <view class="profile-section">
       <view class="profile-section-label">{{ tt('profile_section_security', '账号与安全') }}</view>
       <view class="profile-menu-sheet">
+        <view class="profile-menu-row" @click="go('/pages/notice/my-posts')">
+          <view class="profile-menu-ico">
+            <AppGlyph name="posts" size="sm" />
+          </view>
+          <view class="profile-menu-main">
+            <text class="profile-menu-title">{{ tt('profile_menu_my_posts', '我的帖子') }}</text>
+            <text class="profile-menu-sub">{{ tt('profile_menu_my_posts_sub', '查看我发布的社区帖子') }}</text>
+          </view>
+          <text class="profile-menu-arrow">›</text>
+        </view>
         <view class="profile-menu-row" @click="go('/pages/profile/info')">
           <view class="profile-menu-ico">
             <AppGlyph name="info" size="sm" />

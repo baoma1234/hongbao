@@ -36,6 +36,24 @@
                   @click="setNoticeCat('rules')"
                 >游戏规则</view>
               </view>
+              <view class="chat-notice-toolbar">
+                <view class="chat-notice-search">
+                  <text class="chat-notice-search-ico" aria-hidden="true">⌕</text>
+                  <input
+                    class="chat-notice-search-input"
+                    type="search"
+                    confirm-type="search"
+                    :value="noticeKeyword"
+                    :placeholder="tt('notice_search_ph', '搜索帖子、用户或关键词...')"
+                    @input="onNoticeKeywordInput"
+                    @confirm="submitNoticeSearch"
+                  />
+                </view>
+                <view class="chat-notice-post-btn" @click="goNoticeCompose">
+                  <text class="chat-notice-post-ico">✎</text>
+                  <text>{{ tt('notice_post_btn', '发帖') }}</text>
+                </view>
+              </view>
               <view class="chat-notice-pane" :style="noticePaneStyle">
                 <scroll-view
                   class="chat-notice-body-scroll"
@@ -111,6 +129,7 @@
                       v-for="n in notices"
                       :key="n.id || n.publishtime || n.createtime"
                       class="chat-notice-card"
+                      @click="openNoticeDetail(n)"
                     >
                       <view class="chat-notice-hd">
                         <image
@@ -119,16 +138,19 @@
                           mode="aspectFill"
                         />
                         <view class="chat-notice-meta">
+                          <text class="chat-notice-views">{{ formatViews(n) }} 浏览</text>
                           <view class="chat-notice-name-row">
                             <text class="chat-notice-name">{{ n.author_name || '红宝官方公告' }}</text>
                             <text class="chat-notice-day">{{ noticeRelativeDay(n) }}</text>
-                            <text v-if="noticeCatLabel(n)" class="chat-notice-tag">【{{ noticeCatLabel(n) }}】</text>
+                            <text v-if="noticeTagLabel(n)" class="chat-notice-tag">【{{ noticeTagLabel(n) }}】</text>
+                            <text v-if="n.status === 'pending'" class="chat-notice-status pending">待审核</text>
+                            <text v-else-if="n.status === 'rejected'" class="chat-notice-status rejected">已拒绝</text>
                           </view>
                         </view>
                         <view class="chat-notice-time">{{ noticeClock(n) }}</view>
                       </view>
-                      <view class="chat-notice-body">{{ n.content || n.summary || n.title || '' }}</view>
-                      <view v-if="noticeVideo(n)" class="chat-notice-media">
+                      <view class="chat-notice-body chat-notice-body-clamp">{{ n.content || n.summary || n.title || '' }}</view>
+                      <view v-if="noticeVideo(n)" class="chat-notice-media" @click.stop>
                         <video
                           class="chat-notice-video"
                           :src="noticeVideo(n)"
@@ -139,6 +161,7 @@
                       <view
                         v-if="noticeImages(n).length"
                         class="chat-notice-media"
+                        @click.stop
                       >
                         <view
                           class="chat-notice-imgs"
@@ -151,7 +174,7 @@
                             v-for="(src, ii) in noticeImages(n).slice(0, 9)"
                             :key="ii"
                             class="chat-notice-img-wrap"
-                            @click="previewNoticeImages(n, ii)"
+                            @click.stop="previewNoticeImages(n, ii)"
                           >
                             <image
                               class="chat-notice-img"
@@ -161,7 +184,7 @@
                           </view>
                         </view>
                       </view>
-                      <view v-if="noticeActionButtons(n).length" class="chat-notice-actions">
+                      <view v-if="noticeActionButtons(n).length" class="chat-notice-actions" @click.stop>
                         <view
                           v-for="(btn, bi) in noticeActionButtons(n)"
                           :key="bi"
@@ -170,7 +193,7 @@
                           @click="handleNoticeAction(btn.action, btn.url, btn.label)"
                         >{{ btn.label }}</view>
                       </view>
-                      <view class="chat-notice-ft">
+                      <view class="chat-notice-ft" @click.stop>
                         <view class="chat-notice-share-btn" @click="shareNoticeToCommunity(n)">分享到社群</view>
                       </view>
                     </view>
@@ -252,6 +275,8 @@ const panelScrollPx = ref(420)
 const tabRootPx = ref(0)
 const notices = ref([])
 const noticeCat = ref('latest')
+const noticeKeyword = ref('')
+let noticeSearchTimer = null
 const chatFissionCardEnabled = ref(false)
 const promoteEarnRows = ref([])
 const promoteEarnOffset = ref(0)
@@ -284,8 +309,8 @@ const panelHostStyle = computed(() => {
 })
 const noticeScrollStyle = computed(() => {
   let h = Number(panelScrollPx.value) || 420
-  // 仅扣分类 Seg 高度，避免再额外 -72 把列表裁短露出灰底
-  h = Math.max(180, h - 48)
+  // Seg(~48) + 搜索发帖栏(~52)
+  h = Math.max(180, h - 100)
   return {
     height: h + 'px',
     minHeight: h + 'px',
@@ -296,7 +321,7 @@ const noticeScrollStyle = computed(() => {
 })
 const noticePaneStyle = computed(() => {
   const h = Number(panelScrollPx.value) || 420
-  const inner = Math.max(180, h - 48)
+  const inner = Math.max(180, h - 100)
   return {
     height: inner + 'px',
     minHeight: inner + 'px',
@@ -349,6 +374,49 @@ function noticeCatLabel(n) {
   if (c === 'rules') return '游戏规则'
   if (c === 'latest') return '最新发布'
   return c
+}
+
+function noticeTagLabel(n) {
+  const tag = String((n && (n.tag_label || n.theme_title)) || '').trim()
+  if (tag) return tag
+  return noticeCatLabel(n)
+}
+
+function formatViews(n) {
+  const v = Number((n && n.views_count) || 0) || 0
+  if (v >= 10000) return (Math.floor(v / 1000) / 10) + '万'
+  return String(v)
+}
+
+function onNoticeKeywordInput(e) {
+  const v = (e && e.detail && e.detail.value != null) ? e.detail.value : (e && e.target && e.target.value) || ''
+  noticeKeyword.value = String(v)
+  if (noticeSearchTimer) clearTimeout(noticeSearchTimer)
+  noticeSearchTimer = setTimeout(() => {
+    loadNotices()
+  }, 380)
+}
+
+function submitNoticeSearch() {
+  if (noticeSearchTimer) {
+    clearTimeout(noticeSearchTimer)
+    noticeSearchTimer = null
+  }
+  loadNotices()
+}
+
+function goNoticeCompose() {
+  if (!getToken()) {
+    uni.navigateTo({ url: '/pages/login/login' })
+    return
+  }
+  uni.navigateTo({ url: '/pages/notice/compose' })
+}
+
+function openNoticeDetail(n) {
+  const id = (n && n.id) | 0
+  if (!id) return
+  uni.navigateTo({ url: '/pages/notice/detail?id=' + id })
 }
 
 function noticeTs(n) {
@@ -464,7 +532,7 @@ function handleNoticeAction(action, url, label) {
 }
 
 async function shareNoticeToCommunity(n) {
-  const cat = noticeCatLabel(n)
+  const cat = noticeTagLabel(n)
   const text = String((n && (n.content || n.summary || n.title)) || '').trim()
   const shareText = (cat ? ('【' + cat + '】\n') : '') + (text || '')
   const images = noticeImages(n)
@@ -842,7 +910,10 @@ async function loadChatFissionCardFlag() {
 
 async function loadNotices() {
   try {
-    const data = await apiRequest('notices', 'GET', { page: 1, limit: 30, category: noticeCat.value })
+    const params = { page: 1, limit: 30, category: noticeCat.value }
+    const kw = String(noticeKeyword.value || '').trim()
+    if (kw) params.keyword = kw
+    const data = await apiRequest('notices', 'GET', params)
     const rows = (data && (data.list || data.rows || data.items)) || []
     notices.value = Array.isArray(rows) ? rows : []
   } catch (e) {

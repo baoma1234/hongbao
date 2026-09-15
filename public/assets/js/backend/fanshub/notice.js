@@ -30,6 +30,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                         searchList: Config.categoryList || {},
                         formatter: Table.api.formatter.normal
                     },
+                    {field: 'theme_title', title: '主题', operate: 'LIKE'},
                     {
                         field: 'content', title: '正文', operate: 'LIKE',
                         formatter: function (value) {
@@ -37,15 +38,20 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                             return t.length > 48 ? t.slice(0, 48) + '…' : t;
                         }
                     },
-                    {field: 'action_type', title: '按钮类型', operate: 'LIKE'},
+                    {field: 'views_count', title: '浏览', sortable: true, operate: 'BETWEEN'},
+                    {field: 'user_id', title: '用户ID', sortable: true},
+                    {field: 'source', title: '来源', operate: 'LIKE'},
                     {field: 'weigh', title: '排序', sortable: true},
                     {
                         field: 'status', title: '状态',
-                        searchList: Config.statusList || {draft: '草稿', published: '展示中', paused: '暂停展示'},
+                        searchList: Config.statusList || {draft: '草稿', published: '展示中', paused: '暂停展示', pending: '待审核', rejected: '已拒绝'},
                         formatter: function (value) {
-                            var map = Config.statusList || {draft: '草稿', published: '展示中', paused: '暂停展示'};
+                            var map = Config.statusList || {draft: '草稿', published: '展示中', paused: '暂停展示', pending: '待审核', rejected: '已拒绝'};
                             var label = map[value] || value;
-                            var cls = value === 'published' ? 'success' : (value === 'paused' ? 'warning' : 'default');
+                            var cls = 'default';
+                            if (value === 'published') cls = 'success';
+                            else if (value === 'paused' || value === 'pending') cls = 'warning';
+                            else if (value === 'rejected') cls = 'danger';
                             return '<span class="label label-' + cls + '">' + label + '</span>';
                         }
                     },

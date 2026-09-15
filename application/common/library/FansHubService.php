@@ -4562,36 +4562,54 @@ class FansHubService
     /**
      * 红宝公告动态（朋友圈风格，完整展开）
      * @param string $category latest|promote|ads|rules|空=全部
+     * @param string $keyword 搜索关键词
+     * @param int $viewerUserId 当前登录用户（可见自己的待审帖）
      */
-    public static function noticeFeed($page = 1, $limit = 20, $category = '')
+    public static function noticeFeed($page = 1, $limit = 20, $category = '', $keyword = '', $viewerUserId = 0)
     {
         $page = max(1, (int)$page);
         $limit = max(1, min(50, (int)$limit));
         $locale = self::requestLocale();
         $cats = \app\common\model\fanshub\Notice::categoryMap();
         $category = trim((string)$category);
+        $keyword = trim((string)$keyword);
+        $viewerUserId = (int)$viewerUserId;
         if ($category !== '' && !isset($cats[$category])) {
             $legacy = [
                 '规则' => 'rules', '玩法' => 'rules', '推广' => 'promote', '广告' => 'ads',
                 '最新发布' => 'latest', '推广赚钱' => 'promote', '广告发布' => 'ads',
-                '游戏规则' => 'rules', '游戏规划' => 'rules',
+                '游戏规则' => 'rules', '游戏规划' => 'rules', '彩金白嫖' => 'ads',
             ];
             $category = $legacy[$category] ?? '';
         }
 
         $now = time();
-        $query = Notice::where('status', 'published')
-            ->where('publishtime', '<=', $now);
-        if ($category !== '' && isset($cats[$category])) {
-            $query->where('category', $category);
-        }
-        $total = (int)$query->count();
-        $listQuery = Notice::where('status', 'published')
-            ->where('publishtime', '<=', $now);
-        if ($category !== '' && isset($cats[$category])) {
-            $listQuery->where('category', $category);
-        }
-        $rows = $listQuery
+        $applyFilters = function ($query) use ($category, $cats, $keyword, $viewerUserId, $now) {
+            if ($viewerUserId > 0) {
+                $query->where(function ($q) use ($viewerUserId, $now) {
+                    $q->where(function ($q2) use ($now) {
+                        $q2->where('status', 'published')->where('publishtime', '<=', $now);
+                    })->whereOr(function ($q3) use ($viewerUserId) {
+                        $q3->where('user_id', $viewerUserId)->where('status', 'in', ['pending', 'rejected']);
+                    });
+                });
+            } else {
+                $query->where('status', 'published')->where('publishtime', '<=', $now);
+            }
+            if ($category !== '' && isset($cats[$category])) {
+                $query->where('category', $category);
+            }
+            if ($keyword !== '') {
+                $like = '%' . addcslashes($keyword, '%_\\') . '%';
+                $query->where(function ($q) use ($like) {
+                    $q->where('content', 'like', $like)->whereOr('author_name', 'like', $like);
+                });
+            }
+            return $query;
+        };
+
+        $total = (int)$applyFilters(Notice::where('id', '>', 0))->count();
+        $rows = $applyFilters(Notice::where('id', '>', 0))
             ->order('weigh', 'desc')
             ->order('publishtime', 'desc')
             ->order('id', 'desc')
@@ -4599,64 +4617,7 @@ class FansHubService
             ->select();
         $list = [];
         foreach ($rows as $row) {
-            $images = $row->images;
-            if (!is_array($images)) {
-                $images = [];
-            }
-            $images = array_values(array_filter(array_map(function ($u) {
-                $u = trim((string)$u);
-                if ($u === '') {
-                    return '';
-                }
-                return class_exists('\\app\\common\\library\\OssService')
-                    ? \app\common\library\OssService::fullUrl($u, '')
-                    : cdnurl($u, true);
-            }, $images)));
-            $video = trim((string)$row->video);
-            if ($video !== '' && class_exists('\\app\\common\\library\\OssService')) {
-                $video = \app\common\library\OssService::fullUrl($video, '');
-            } elseif ($video !== '') {
-                $video = cdnurl($video, true);
-            } else {
-                $video = '';
-            }
-            $buttons = $row->action_buttons;
-            if (!is_array($buttons)) {
-                $buttons = [];
-            }
-            $normButtons = [];
-            foreach ($buttons as $btn) {
-                if (!is_array($btn)) {
-                    continue;
-                }
-                $label = trim((string)($btn['label'] ?? ''));
-                if ($label === '') {
-                    continue;
-                }
-                $normButtons[] = [
-                    'label' => $label,
-                    'url'   => trim((string)($btn['url'] ?? '')),
-                ];
-            }
-            $catCode = (string)$row->category;
-            if (!isset($cats[$catCode])) {
-                $catCode = 'latest';
-            }
-            $list[] = [
-                'id'             => (int)$row->id,
-                'author_name'    => $row->localized('author_name', $locale) ?: '红宝官方公告',
-                'author_avatar'  => normalize_user_avatar((string)($row->author_avatar ?? ''), true),
-                'category'       => $catCode,
-                'category_label' => \app\common\model\fanshub\Notice::categoryLabel($catCode, $locale),
-                'content'        => $row->localized('content', $locale),
-                'images'         => $images,
-                'video'          => $video,
-                'action_type'    => (string)$row->action_type,
-                'action_label'   => $row->localized('action_label', $locale),
-                'action_url'     => (string)$row->action_url,
-                'action_buttons' => $normButtons,
-                'publishtime'    => (int)$row->publishtime,
-            ];
+            $list[] = self::formatNoticeRow($row, $locale, $cats);
         }
 
         $categories = [];
@@ -4671,11 +4632,264 @@ class FansHubService
             'list'       => $list,
             'categories' => $categories,
             'category'   => $category,
+            'keyword'    => $keyword,
             'locale'     => $locale,
             'total'      => $total,
             'page'       => $page,
             'limit'      => $limit,
             'has_more'   => ($page * $limit) < $total,
+        ];
+    }
+
+    /** @return array */
+    protected static function formatNoticeRow($row, $locale = 'zh-CN', $cats = null)
+    {
+        if ($cats === null) {
+            $cats = \app\common\model\fanshub\Notice::categoryMap();
+        }
+        $images = $row->images;
+        if (!is_array($images)) {
+            $images = [];
+        }
+        $images = array_values(array_filter(array_map(function ($u) {
+            $u = trim((string)$u);
+            if ($u === '') {
+                return '';
+            }
+            return class_exists('\\app\\common\\library\\OssService')
+                ? \app\common\library\OssService::fullUrl($u, '')
+                : cdnurl($u, true);
+        }, $images)));
+        $video = trim((string)$row->video);
+        if ($video !== '' && class_exists('\\app\\common\\library\\OssService')) {
+            $video = \app\common\library\OssService::fullUrl($video, '');
+        } elseif ($video !== '') {
+            $video = cdnurl($video, true);
+        } else {
+            $video = '';
+        }
+        $buttons = $row->action_buttons;
+        if (!is_array($buttons)) {
+            $buttons = [];
+        }
+        $normButtons = [];
+        foreach ($buttons as $btn) {
+            if (!is_array($btn)) {
+                continue;
+            }
+            $label = trim((string)($btn['label'] ?? ''));
+            if ($label === '') {
+                continue;
+            }
+            $normButtons[] = [
+                'label' => $label,
+                'url'   => trim((string)($btn['url'] ?? '')),
+            ];
+        }
+        $catCode = (string)$row->category;
+        if (!isset($cats[$catCode])) {
+            $catCode = 'latest';
+        }
+        $themeTitle = trim((string)($row->theme_title ?? ''));
+        $tagLabel = $themeTitle !== ''
+            ? $themeTitle
+            : \app\common\model\fanshub\Notice::categoryLabel($catCode, $locale);
+        return [
+            'id'             => (int)$row->id,
+            'author_name'    => $row->localized('author_name', $locale) ?: '红宝官方公告',
+            'author_avatar'  => normalize_user_avatar((string)($row->author_avatar ?? ''), true),
+            'category'       => $catCode,
+            'category_label' => \app\common\model\fanshub\Notice::categoryLabel($catCode, $locale),
+            'theme_id'       => (int)($row->theme_id ?? 0),
+            'theme_title'    => $themeTitle,
+            'tag_label'      => $tagLabel,
+            'content'        => $row->localized('content', $locale),
+            'images'         => $images,
+            'video'          => $video,
+            'action_type'    => (string)$row->action_type,
+            'action_label'   => $row->localized('action_label', $locale),
+            'action_url'     => (string)$row->action_url,
+            'action_buttons' => $normButtons,
+            'publishtime'    => (int)$row->publishtime,
+            'views_count'    => (int)($row->views_count ?? 0),
+            'user_id'        => (int)($row->user_id ?? 0),
+            'source'         => (string)($row->source ?? 'admin'),
+            'status'         => (string)($row->status ?? ''),
+        ];
+    }
+
+    /** 启用中的帖子主题 */
+    public static function noticeThemes()
+    {
+        $rows = \app\common\model\fanshub\NoticeTheme::where('status', 'normal')
+            ->order('weigh', 'desc')
+            ->order('id', 'asc')
+            ->select();
+        $list = [];
+        foreach ($rows as $row) {
+            $list[] = [
+                'id'    => (int)$row->id,
+                'code'  => (string)$row->code,
+                'title' => (string)$row->title,
+            ];
+        }
+        return ['list' => $list];
+    }
+
+    /**
+     * 帖子详情（已发布；或本人的待审/拒绝）
+     */
+    public static function noticeDetail($id, $viewerUserId = 0)
+    {
+        $id = (int)$id;
+        $viewerUserId = (int)$viewerUserId;
+        if ($id <= 0) {
+            throw new \InvalidArgumentException('帖子不存在');
+        }
+        $row = Notice::where('id', $id)->find();
+        if (!$row) {
+            throw new \InvalidArgumentException('帖子不存在');
+        }
+        $status = (string)$row->status;
+        $uid = (int)($row->user_id ?? 0);
+        $now = time();
+        $ok = false;
+        if ($status === 'published' && (int)$row->publishtime <= $now) {
+            $ok = true;
+        } elseif ($viewerUserId > 0 && $uid === $viewerUserId && in_array($status, ['pending', 'rejected', 'paused', 'draft'], true)) {
+            $ok = true;
+        }
+        if (!$ok) {
+            throw new \InvalidArgumentException('帖子不存在或未通过审核');
+        }
+        return self::formatNoticeRow($row, self::requestLocale());
+    }
+
+    /** 浏览量 +1（已发布帖） */
+    public static function noticeViewIncrement($id)
+    {
+        $id = (int)$id;
+        if ($id <= 0) {
+            return ['views_count' => 0];
+        }
+        $now = time();
+        $row = Notice::where('id', $id)->where('status', 'published')->where('publishtime', '<=', $now)->find();
+        if (!$row) {
+            return ['views_count' => 0];
+        }
+        try {
+            Notice::where('id', $id)->setInc('views_count', 1);
+        } catch (\Throwable $e) {
+        }
+        $fresh = Notice::where('id', $id)->value('views_count');
+        return ['views_count' => (int)$fresh];
+    }
+
+    /**
+     * 用户发帖 → 固定归类彩金白嫖(ads)，待审
+     */
+    public static function noticeCreate($userId, array $input)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            throw new \InvalidArgumentException('请先登录');
+        }
+        $content = trim((string)($input['content'] ?? ''));
+        if ($content === '') {
+            throw new \InvalidArgumentException('请填写正文');
+        }
+        if (mb_strlen($content) > 5000) {
+            throw new \InvalidArgumentException('正文过长');
+        }
+        $themeId = (int)($input['theme_id'] ?? 0);
+        $theme = null;
+        if ($themeId > 0) {
+            $theme = \app\common\model\fanshub\NoticeTheme::where('id', $themeId)->where('status', 'normal')->find();
+        }
+        if (!$theme) {
+            throw new \InvalidArgumentException('请选择主题');
+        }
+        $images = $input['images'] ?? [];
+        if (is_string($images)) {
+            $decoded = json_decode($images, true);
+            $images = is_array($decoded) ? $decoded : preg_split('/[\r\n,]+/', $images);
+        }
+        if (!is_array($images)) {
+            $images = [];
+        }
+        $normImgs = [];
+        foreach ($images as $u) {
+            $u = trim((string)$u);
+            if ($u === '') {
+                continue;
+            }
+            if (!preg_match('#^(/uploads/|https?://|data:)#i', $u) && strpos($u, '/') !== 0) {
+                continue;
+            }
+            $normImgs[] = $u;
+            if (count($normImgs) >= 9) {
+                break;
+            }
+        }
+        $user = \app\common\model\User::get($userId);
+        $nick = '';
+        $avatar = '';
+        if ($user) {
+            $nick = trim((string)($user->nickname ?? ''));
+            $avatar = trim((string)($user->avatar ?? ''));
+        }
+        if ($nick === '') {
+            $nick = '用户' . $userId;
+        }
+        $now = time();
+        $row = new Notice();
+        $row->author_name = $nick;
+        $row->author_avatar = $avatar;
+        $row->category = 'ads';
+        $row->content = $content;
+        $row->images = $normImgs;
+        $row->video = '';
+        $row->action_type = 'none';
+        $row->action_label = '';
+        $row->action_url = '';
+        $row->action_buttons = [];
+        $row->status = 'pending';
+        $row->publishtime = $now;
+        $row->weigh = 0;
+        $row->views_count = 0;
+        $row->user_id = $userId;
+        $row->theme_id = (int)$theme->id;
+        $row->theme_title = (string)$theme->title;
+        $row->source = 'user';
+        $row->save();
+        return self::formatNoticeRow($row, self::requestLocale());
+    }
+
+    /** 我的帖子 */
+    public static function noticeMyList($userId, $page = 1, $limit = 20)
+    {
+        $userId = (int)$userId;
+        $page = max(1, (int)$page);
+        $limit = max(1, min(50, (int)$limit));
+        if ($userId <= 0) {
+            throw new \InvalidArgumentException('请先登录');
+        }
+        $total = (int)Notice::where('user_id', $userId)->count();
+        $rows = Notice::where('user_id', $userId)
+            ->order('id', 'desc')
+            ->page($page, $limit)
+            ->select();
+        $list = [];
+        $locale = self::requestLocale();
+        foreach ($rows as $row) {
+            $list[] = self::formatNoticeRow($row, $locale);
+        }
+        return [
+            'list'     => $list,
+            'total'    => $total,
+            'page'     => $page,
+            'limit'    => $limit,
+            'has_more' => ($page * $limit) < $total,
         ];
     }
 

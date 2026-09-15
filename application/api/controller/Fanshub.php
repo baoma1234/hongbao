@@ -18,7 +18,7 @@ use think\Validate;
  */
 class Fanshub extends Api
 {
-    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'tgauth', 'tgbind', 'tgsendsms', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail', 'fissionclaims', 'yxxhall', 'yxxtick', 'yxxfair', 'yxxgroupdissolve', 'lobbyhome', 'lobbyguide', 'pushdevicedisable'];
+    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'tgauth', 'tgbind', 'tgsendsms', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'noticedetail', 'noticeview', 'noticethemes', 'communityrecommend', 'fissionentry', 'fissiondetail', 'fissionclaims', 'yxxhall', 'yxxtick', 'yxxfair', 'yxxgroupdissolve', 'lobbyhome', 'lobbyguide', 'pushdevicedisable'];
     protected $noNeedRight = '*';
 
     public function _initialize()
@@ -26,7 +26,7 @@ class Fanshub extends Api
         FansHubSms::boot();
         parent::_initialize();
         $action = strtolower($this->request->action());
-        $exempt = ['config', 'bootstrap', 'comments', 'inviteleaderboard', 'slidercaptcha', 'grabslider', 'jackpot', 'notices', 'communityrecommend', 'fissionentry', 'fissiondetail', 'fissionclaims', 'yxxhall', 'yxxtick', 'yxxfair', 'yxxgroupdissolve', 'tgauth', 'tgbind', 'tgsendsms', 'lobbyhome', 'lobbyguide', 'pushdevicedisable'];
+        $exempt = ['config', 'bootstrap', 'comments', 'inviteleaderboard', 'slidercaptcha', 'grabslider', 'jackpot', 'notices', 'noticedetail', 'noticeview', 'noticethemes', 'communityrecommend', 'fissionentry', 'fissiondetail', 'fissionclaims', 'yxxhall', 'yxxtick', 'yxxfair', 'yxxgroupdissolve', 'tgauth', 'tgbind', 'tgsendsms', 'lobbyhome', 'lobbyguide', 'pushdevicedisable'];
         if (in_array($action, $exempt, true)) {
             return;
         }
@@ -118,7 +118,94 @@ class Fanshub extends Api
         $page = (int)$this->request->get('page', $this->request->post('page', 1));
         $limit = (int)$this->request->get('limit', $this->request->post('limit', 20));
         $category = (string)$this->request->get('category', $this->request->post('category', ''));
-        $this->success('ok', FansHubService::noticeFeed($page, $limit, $category));
+        $keyword = (string)$this->request->get('keyword', $this->request->post('keyword', ''));
+        $uid = 0;
+        try {
+            if ($this->auth && $this->auth->isLogin()) {
+                $uid = (int)$this->auth->id;
+            }
+        } catch (\Throwable $e) {
+            $uid = 0;
+        }
+        $this->success('ok', FansHubService::noticeFeed($page, $limit, $category, $keyword, $uid));
+    }
+
+    /** 帖子主题列表 */
+    public function noticethemes()
+    {
+        $this->success('ok', FansHubService::noticeThemes());
+    }
+
+    /** 帖子详情 */
+    public function noticedetail()
+    {
+        $id = (int)$this->request->get('id', $this->request->post('id', 0));
+        $uid = 0;
+        try {
+            if ($this->auth && $this->auth->isLogin()) {
+                $uid = (int)$this->auth->id;
+            }
+        } catch (\Throwable $e) {
+            $uid = 0;
+        }
+        try {
+            $this->success('ok', FansHubService::noticeDetail($id, $uid));
+        } catch (\InvalidArgumentException $e) {
+            $this->error($e->getMessage());
+        }
+    }
+
+    /** 浏览量 +1 */
+    public function noticeview()
+    {
+        $id = (int)$this->request->get('id', $this->request->post('id', 0));
+        $this->success('ok', FansHubService::noticeViewIncrement($id));
+    }
+
+    /** 用户发帖（待审，归类彩金白嫖） */
+    public function noticecreate()
+    {
+        try {
+            $images = $this->request->post('images/a');
+            if (!is_array($images)) {
+                $images = $this->request->post('images');
+            }
+            if (!is_array($images)) {
+                $raw = $this->request->param('images');
+                if (is_string($raw) && $raw !== '') {
+                    $decoded = json_decode($raw, true);
+                    $images = is_array($decoded) ? $decoded : [];
+                } elseif (is_array($raw)) {
+                    $images = $raw;
+                } else {
+                    $images = [];
+                }
+            }
+            $data = FansHubService::noticeCreate((int)$this->auth->id, [
+                'content'  => $this->request->post('content', $this->request->param('content', '')),
+                'theme_id' => $this->request->post('theme_id', $this->request->param('theme_id', 0)),
+                'images'   => $images,
+            ]);
+            $this->success('已提交，审核通过后展示', $data);
+        } catch (\InvalidArgumentException $e) {
+            $this->error($e->getMessage());
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: '发帖失败');
+        }
+    }
+
+    /** 我的帖子 */
+    public function noticemylist()
+    {
+        $page = (int)$this->request->get('page', $this->request->post('page', 1));
+        $limit = (int)$this->request->get('limit', $this->request->post('limit', 20));
+        try {
+            $this->success('ok', FansHubService::noticeMyList((int)$this->auth->id, $page, $limit));
+        } catch (\InvalidArgumentException $e) {
+            $this->error($e->getMessage());
+        }
     }
 
     /**

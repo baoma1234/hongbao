@@ -15,6 +15,7 @@ const GLYPHS = {
   ledger: '☰',
   fission: '🧧',
   info: '☺',
+  posts: '✎',
   password: '🔑',
   paypassword: '🔐',
   settings: '⚙',

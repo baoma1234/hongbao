@@ -69,6 +69,27 @@
       }
     },
     {
+      "path": "pages/notice/compose",
+      "style": {
+        "navigationBarTitleText": "发帖",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/notice/detail",
+      "style": {
+        "navigationBarTitleText": "帖子详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/notice/my-posts",
+      "style": {
+        "navigationBarTitleText": "我的帖子",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/commission/commission",
       "style": {
         "navigationBarTitleText": "佣金",

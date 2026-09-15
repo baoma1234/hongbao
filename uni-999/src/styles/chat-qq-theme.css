@@ -1669,6 +1669,97 @@
   width: auto !important;
 }
 
+.notice-page .chat-notice-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 12px 8px !important;
+  box-sizing: border-box;
+}
+
+.notice-page .chat-notice-search {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  background: #ffffff !important;
+  border-radius: 18px !important;
+  border: 0.5px solid #e8e8e8 !important;
+  box-sizing: border-box;
+}
+
+.notice-page .chat-notice-search-ico {
+  flex-shrink: 0;
+  font-size: 15px;
+  color: #b0b0b0;
+  line-height: 1;
+}
+
+.notice-page .chat-notice-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 36px;
+  line-height: 36px;
+  font-size: 13px;
+  color: #222;
+  background: transparent !important;
+  border: 0 !important;
+  outline: none;
+  padding: 0;
+}
+
+.notice-page .chat-notice-post-btn {
+  flex: 0 0 auto;
+  height: 36px;
+  min-width: 72px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: #2ecc71 !important;
+  color: #fff !important;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 8px !important;
+  box-sizing: border-box;
+}
+
+.notice-page .chat-notice-views {
+  display: block;
+  font-size: 11px;
+  color: #9a9a9a !important;
+  line-height: 1.2;
+  margin-bottom: 2px;
+}
+
+.notice-page .chat-notice-status.pending {
+  color: #c47a00;
+  background: #fff6e5;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.notice-page .chat-notice-status.rejected {
+  color: #c0392b;
+  background: #fdecea;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.notice-page .chat-notice-body-clamp {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+  overflow: hidden;
+}
+
 #tabNotice .chat-notice-seg .chat-community-seg-btn,
 #tabMessages .chat-notice-seg .chat-community-seg-btn,
 .notice-page .chat-notice-seg .chat-community-seg-btn {

@@ -22,8 +22,27 @@ class Notice extends Backend
         $this->view->assign('statusList', $this->model->getStatusList());
         $this->view->assign('categoryList', $this->model->getCategoryList());
         $this->view->assign('localeList', FansHubService::i18nLocaleCodes());
+        $this->view->assign('themeList', $this->themeSelectList());
         $this->assignconfig('statusList', $this->model->getStatusList());
         $this->assignconfig('categoryList', $this->model->getCategoryList());
+    }
+
+    /** @return array id => title */
+    protected function themeSelectList()
+    {
+        $out = [0 => '无主题标签'];
+        try {
+            $rows = \app\common\model\fanshub\NoticeTheme::order('weigh', 'desc')->order('id', 'asc')->select();
+            foreach ($rows as $row) {
+                $label = (string)$row->title;
+                if ((string)$row->status !== 'normal') {
+                    $label .= ' [停用]';
+                }
+                $out[(int)$row->id] = $label;
+            }
+        } catch (\Throwable $e) {
+        }
+        return $out;
     }
 
     protected function decodeI18nField($raw)
@@ -100,6 +119,24 @@ class Notice extends Backend
         $cats = \app\common\model\fanshub\Notice::categoryMap();
         $cat = (string)($params['category'] ?? 'latest');
         $params['category'] = isset($cats[$cat]) ? $cat : 'latest';
+
+        $themeId = (int)($params['theme_id'] ?? 0);
+        $params['theme_id'] = max(0, $themeId);
+        if ($params['theme_id'] > 0) {
+            $theme = \app\common\model\fanshub\NoticeTheme::where('id', $params['theme_id'])->find();
+            $params['theme_title'] = $theme ? (string)$theme->title : '';
+            if (!$theme) {
+                $params['theme_id'] = 0;
+            }
+        } else {
+            $params['theme_title'] = trim((string)($params['theme_title'] ?? ''));
+        }
+        if (isset($params['views_count'])) {
+            $params['views_count'] = max(0, (int)$params['views_count']);
+        }
+        if (isset($params['user_id'])) {
+            $params['user_id'] = max(0, (int)$params['user_id']);
+        }
 
         $locales = FansHubService::i18nLocaleCodes();
         foreach (['content_i18n', 'action_label_i18n', 'author_name_i18n'] as $field) {
