@@ -29,7 +29,7 @@
                   class="chat-community-seg-btn"
                   :class="{ active: noticeCat === 'ads' }"
                   @click="setNoticeCat('ads')"
-                >广告发布</view>
+                >白嫖曝光</view>
                 <view
                   class="chat-community-seg-btn"
                   :class="{ active: noticeCat === 'rules' }"
@@ -345,7 +345,7 @@ function noticeCatLabel(n) {
   if (label) return label
   const c = String((n && n.category) || noticeCat.value || '')
   if (c === 'promote') return '推广赚钱'
-  if (c === 'ads') return '广告发布'
+  if (c === 'ads') return '白嫖曝光'
   if (c === 'rules') return '游戏规则'
   if (c === 'latest') return '最新发布'
   return c

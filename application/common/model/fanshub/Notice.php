@@ -17,7 +17,7 @@ class Notice extends Model
         return [
             'latest'  => '最新发布',
             'promote' => '推广赚钱',
-            'ads'     => '广告发布',
+            'ads'     => '白嫖曝光',
             'rules'   => '游戏规则',
         ];
     }
@@ -43,7 +43,7 @@ class Notice extends Model
                 'ms-MY' => 'Promosi & Jana',
             ],
             'ads' => [
-                'zh-CN' => '广告发布',
+                'zh-CN' => '白嫖曝光',
                 'en-PH' => 'Ads',
                 'km-KH' => 'ផ្សាយពាណិជ្ជកម្ម',
                 'id-ID' => 'Iklan',
