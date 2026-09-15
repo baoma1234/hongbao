@@ -283,7 +283,35 @@ const tickerGames = ['红宝扫雷', '红宝接龙', '红宝牛牛', '红宝对�
 /** 后台大厅装修（lobbyhome）；未加载前不展示本地占位图 */
 const remoteLobby = ref(null)
 
-const LOBBY_ASSET_VER = '19'
+const LOBBY_ASSET_VER = '20'
+
+/** 大厅分类图：固定本地打包，不读 OSS */
+const LOBBY_CAT_LOCAL = Object.freeze({
+  hot: 'home/lobby/cat-1.png',
+  games: 'home/lobby/cat-2.png',
+  notice: 'home/lobby/fission-hongbao.png',
+  fission: 'home/lobby/fission-hongbao.png',
+  commission: 'home/lobby/cat-4.png',
+})
+
+function resolveLocalCatIcon(cat, index) {
+  if (!cat) return ''
+  const action = String(cat.action || '')
+  const id = String(cat.id || cat.key || '').toLowerCase()
+  if (LOBBY_CAT_LOCAL[action]) return LOBBY_CAT_LOCAL[action]
+  if (LOBBY_CAT_LOCAL[id]) return LOBBY_CAT_LOCAL[id]
+  const raw = String(cat.iconRaw || cat.iconUrl || cat.iconStatic || '')
+  const m = raw.match(/(?:^|\/)(cat-\d+|fission-hongbao|commission)\.(png|jpe?g|webp|gif)/i)
+  if (m) return 'home/lobby/' + m[1].toLowerCase() + '.' + m[2].toLowerCase()
+  const byIdx = [
+    'home/lobby/cat-1.png',
+    'home/lobby/cat-2.png',
+    'home/lobby/fission-hongbao.png',
+    'home/lobby/cat-4.png',
+  ]
+  const i = Math.max(0, Number(index) | 0)
+  return byIdx[i] || byIdx[byIdx.length - 1]
+}
 
 function safeRegExp(pattern) {
   const s = String(pattern || '').trim()
@@ -333,7 +361,7 @@ function mediaUrl(resolved, raw) {
 const lobbyCategories = computed(() => {
   const rows = remoteLobby.value && remoteLobby.value.categories
   if (!Array.isArray(rows) || !rows.length) return []
-  return rows.map((c) => {
+  return rows.map((c, idx) => {
     const action = String(c.action || 'filter')
     const key = String(c.key || c.id || '')
     const title = String(c.title || c.key || '')
@@ -344,12 +372,12 @@ const lobbyCategories = computed(() => {
         label: '裂变红宝',
         iconUrl: '',
         iconRaw: '',
-        iconStatic: 'home/lobby/fission-hongbao.png',
+        iconStatic: LOBBY_CAT_LOCAL.fission,
         action: 'fission',
         actionUrl: '',
       }
     }
-    return {
+    const mapped = {
       id: key,
       label: title,
       iconUrl: String(c.icon || ''),
@@ -358,6 +386,10 @@ const lobbyCategories = computed(() => {
       action,
       actionUrl: String(c.action_url || ''),
     }
+    mapped.iconStatic = resolveLocalCatIcon(mapped, idx)
+    mapped.iconUrl = ''
+    mapped.iconRaw = ''
+    return mapped
   })
 })
 
@@ -445,15 +477,12 @@ function gamePlayersCount(game) {
 
 function catIconSrc(cat) {
   if (!cat) return ''
-  // 优先后台 icon 绝对地址；icon_static 仅当明确配置（如 logo.png）
-  const fromCms = mediaUrl(cat.iconUrl, cat.iconRaw)
-  if (fromCms) return fromCms
-  if (cat.iconStatic) {
-    const p = String(cat.iconStatic || '').replace(/^\/+/, '')
-    if (!p) return ''
-    return packagedStaticUrl(p) + '?v=' + LOBBY_ASSET_VER
-  }
-  return ''
+  // 分类图标一律本地打包（App 不依赖 OSS；H5 走 /999/static）
+  const p = String(cat.iconStatic || resolveLocalCatIcon(cat, 0) || '')
+    .replace(/^\/+/, '')
+    .replace(/^static\//, '')
+  if (!p) return ''
+  return packagedStaticUrl(p) + '?v=' + LOBBY_ASSET_VER
 }
 
 function bannerSrc(b) {
