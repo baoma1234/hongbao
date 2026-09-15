@@ -14,10 +14,10 @@
             <text class="chat-notice-name">{{ notice.author_name || '红宝官方公告' }}</text>
             <text class="chat-notice-day">{{ relativeDay }}</text>
             <text v-if="tagLabel" class="chat-notice-tag">【{{ tagLabel }}】</text>
+            <text class="chat-notice-views">{{ viewsText }} 浏览</text>
             <text v-if="notice.status === 'pending'" class="chat-notice-status pending">待审核</text>
             <text v-else-if="notice.status === 'rejected'" class="chat-notice-status rejected">已拒绝</text>
           </view>
-          <text class="chat-notice-views">{{ viewsText }} 浏览</text>
         </view>
         <view class="chat-notice-time">{{ clock }}</view>
       </view>
@@ -182,9 +182,9 @@ onLoad((q) => {
   background: #fdecea;
 }
 .chat-notice-views {
-  display: block;
+  display: inline;
   font-size: 11px;
   color: #9a9a9a;
-  margin-top: 2px;
+  margin-top: 0;
 }
 </style>

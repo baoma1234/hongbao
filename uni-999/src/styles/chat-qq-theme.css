@@ -1730,11 +1730,11 @@
 }
 
 .notice-page .chat-notice-views {
-  display: block;
+  display: inline;
   font-size: 11px;
   color: #9a9a9a !important;
-  line-height: 1.2;
-  margin-top: 2px;
+  line-height: 1.3;
+  margin-top: 0;
   margin-bottom: 0;
 }
 
