@@ -1110,10 +1110,12 @@ async function clickMsgPopup() {
     const cat = extra || 'latest'
     const allowed = ['latest', 'promote', 'ads', 'rules']
     const c = allowed.indexOf(cat) >= 0 ? cat : 'latest'
-    const url = '/pages/notice/notice?cat=' + encodeURIComponent(c)
-    uni.navigateTo({
-      url,
-      fail: () => uni.reLaunch({ url }),
+    try {
+      uni.setStorageSync('fanshub_notice_cat', c)
+    } catch (e) {}
+    uni.switchTab({
+      url: '/pages/notice/notice',
+      fail: () => uni.reLaunch({ url: '/pages/notice/notice?cat=' + encodeURIComponent(c) }),
     })
     return
   }
@@ -1428,7 +1430,10 @@ onShow(() => {
         return
       }
       if (pendingTab === 'notice') {
-        uni.navigateTo({ url: '/pages/notice/notice' })
+        uni.switchTab({
+          url: '/pages/notice/notice',
+          fail: () => uni.reLaunch({ url: '/pages/notice/notice' }),
+        })
       } else if (pendingTab === 'commission') {
         uni.navigateTo({ url: '/pages/commission/commission' })
       }

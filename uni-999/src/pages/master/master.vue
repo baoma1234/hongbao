@@ -162,7 +162,7 @@
         </template>
       </view>
     </view>
-    <BottomTabBar active="fission" />
+    <BottomTabBar active="home" />
   </view>
 </template>
 

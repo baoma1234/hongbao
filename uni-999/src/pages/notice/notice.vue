@@ -1,6 +1,6 @@
 <template>
   <view class="messages-page notice-page">
-    <TopBar :title="tt('chat_tab_notice', '公告') || '公告'" />
+    <TopBar :title="tt('chat_tab_notice', '社区') || '社区'" />
     <view
       id="tabNotice"
       class="tab-page active msg-tab-root"
@@ -223,7 +223,7 @@
       </view>
     </view>
 
-    <BottomTabBar active="home" />
+    <BottomTabBar active="notice" />
   </view>
 </template>
 
@@ -433,7 +433,10 @@ function handleNoticeAction(action, url, label) {
     return
   }
   if (/裂变/.test(label) || /fission/i.test(url)) {
-    uni.switchTab({ url: '/pages/fission/detail' })
+    uni.navigateTo({
+      url: '/pages/fission/detail',
+      fail: () => uni.reLaunch({ url: '/pages/fission/detail' }),
+    })
     return
   }
   if (/红包|接力/.test(label)) {
@@ -902,7 +905,10 @@ const fissionNoticeRemain = computed(() => {
 })
 
 function goFissionFromNotice() {
-  uni.switchTab({ url: '/pages/fission/detail' })
+  uni.navigateTo({
+    url: '/pages/fission/detail',
+    fail: () => uni.reLaunch({ url: '/pages/fission/detail' }),
+  })
 }
 
 onLoad((q) => {
@@ -912,6 +918,14 @@ onLoad((q) => {
 })
 
 onShow(() => {
+  try {
+    const pending = String(uni.getStorageSync('fanshub_notice_cat') || '').trim()
+    if (pending) {
+      uni.removeStorageSync('fanshub_notice_cat')
+      const allowed = ['latest', 'promote', 'ads', 'rules']
+      if (allowed.indexOf(pending) >= 0) noticeCat.value = pending
+    }
+  } catch (e) {}
   if (!getToken()) {
     uni.reLaunch({ url: '/pages/login/login' })
     return

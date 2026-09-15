@@ -2365,9 +2365,9 @@ function openFissionFromMsg(m) {
     uni.showToast({ title: '活动已结束', icon: 'none' })
     return
   }
-  uni.switchTab({
+  uni.navigateTo({
     url: '/pages/fission/detail',
-    fail: () => uni.navigateTo({ url: '/pages/fission/detail' }),
+    fail: () => uni.reLaunch({ url: '/pages/fission/detail' }),
   })
 }
 function niuniuRound(m) {

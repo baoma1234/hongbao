@@ -283,7 +283,7 @@ const tickerGames = ['红宝扫雷', '红宝接龙', '红宝牛牛', '红宝对�
 /** 后台大厅装修（lobbyhome）；未加载前不展示本地占位图 */
 const remoteLobby = ref(null)
 
-const LOBBY_ASSET_VER = '18'
+const LOBBY_ASSET_VER = '19'
 
 function safeRegExp(pattern) {
   const s = String(pattern || '').trim()
@@ -333,15 +333,32 @@ function mediaUrl(resolved, raw) {
 const lobbyCategories = computed(() => {
   const rows = remoteLobby.value && remoteLobby.value.categories
   if (!Array.isArray(rows) || !rows.length) return []
-  return rows.map((c) => ({
-    id: String(c.key || c.id || ''),
-    label: String(c.title || c.key || ''),
-    iconUrl: String(c.icon || ''),
-    iconRaw: String(c.icon_raw || c.icon || ''),
-    iconStatic: String(c.icon_static || ''),
-    action: String(c.action || 'filter'),
-    actionUrl: String(c.action_url || ''),
-  }))
+  return rows.map((c) => {
+    const action = String(c.action || 'filter')
+    const key = String(c.key || c.id || '')
+    const title = String(c.title || c.key || '')
+    // 原「红宝公告」挪到底栏「社区」；分类位改为裂变红宝入口
+    if (action === 'notice' || key === 'notice' || /公告/.test(title)) {
+      return {
+        id: 'fission',
+        label: '裂变红宝',
+        iconUrl: '',
+        iconRaw: '',
+        iconStatic: 'home/lobby/fission-hongbao.png',
+        action: 'fission',
+        actionUrl: '',
+      }
+    }
+    return {
+      id: key,
+      label: title,
+      iconUrl: String(c.icon || ''),
+      iconRaw: String(c.icon_raw || c.icon || ''),
+      iconStatic: String(c.icon_static || ''),
+      action,
+      actionUrl: String(c.action_url || ''),
+    }
+  })
 })
 
 const lobbyGamesList = computed(() => {
@@ -569,8 +586,18 @@ const visibleGames = computed(() => {
 function onLobbyCat(cat) {
   if (!cat) return
   const action = String(cat.action || '')
+  if (action === 'fission') {
+    uni.navigateTo({
+      url: '/pages/fission/detail',
+      fail: () => uni.reLaunch({ url: '/pages/fission/detail' }),
+    })
+    return
+  }
   if (action === 'notice') {
-    uni.navigateTo({ url: '/pages/notice/notice' })
+    uni.switchTab({
+      url: '/pages/notice/notice',
+      fail: () => uni.reLaunch({ url: '/pages/notice/notice' }),
+    })
     return
   }
   if (action === 'commission') {
@@ -925,7 +952,10 @@ function goTab(url) {
 
 function goFission() {
   if (fissionEntryState.value === 'hidden') return
-  uni.switchTab({ url: '/pages/fission/detail' })
+  uni.navigateTo({
+    url: '/pages/fission/detail',
+    fail: () => uni.reLaunch({ url: '/pages/fission/detail' }),
+  })
 }
 
 function applyFissionEntry(f) {
@@ -981,7 +1011,10 @@ function dismissFissionPopup() {
 
 function openFissionFromPopup() {
   dismissFissionPopup()
-  uni.switchTab({ url: '/pages/fission/detail' })
+  uni.navigateTo({
+    url: '/pages/fission/detail',
+    fail: () => uni.reLaunch({ url: '/pages/fission/detail' }),
+  })
 }
 
 function rankBadge(rank) {

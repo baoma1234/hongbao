@@ -109,7 +109,7 @@
         </view>
       </view>
     </scroll-view>
-    <BottomTabBar active="fission" />
+    <BottomTabBar active="home" />
 
     <!-- 开奖后逐份拆红包：设计稿 1:1 + 拆开动画（H5 / Safari / APK / IPA） -->
     <view

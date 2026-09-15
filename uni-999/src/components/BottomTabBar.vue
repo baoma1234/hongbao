@@ -6,7 +6,7 @@
       class="tab-btn"
       :class="{
         active: selected === item.tab,
-        'tab-master': item.tab === 'fission',
+        'tab-master': item.tab === 'notice',
         'tab-center': idx === centerTabIndex,
         'has-chat-unread': item.tab === 'messages' && unread > 0,
       }"
@@ -45,7 +45,7 @@ const TAB_LABELS = Object.freeze({
   community: '社群',
   home: '红宝',
   yxx: '鱼虾蟹',
-  fission: '裂变',
+  notice: '社区',
   profile: '我的',
 })
 
@@ -67,12 +67,12 @@ const selected = computed(() => {
     const route = (cur && (cur.route || '')) || ''
     if (route.indexOf('pages/community/') >= 0) return 'community'
     if (route.indexOf('pages/exchange/') >= 0) return 'home'
-    if (route.indexOf('pages/notice/') >= 0) return 'home'
+    if (route.indexOf('pages/notice/') >= 0) return 'notice'
     if (route.indexOf('pages/commission/') >= 0) return 'home'
     if (route.indexOf('pages/messages/') >= 0) return 'messages'
     if (route.indexOf('pages/yxx/') >= 0) return 'yxx'
-    if (route.indexOf('pages/fission/') >= 0) return 'fission'
-    if (route.indexOf('pages/master/') >= 0) return 'fission'
+    if (route.indexOf('pages/fission/') >= 0) return 'home'
+    if (route.indexOf('pages/master/') >= 0) return 'home'
     if (route.indexOf('pages/profile/') >= 0) return 'profile'
   } catch (e) {}
   return 'home'
@@ -114,10 +114,10 @@ const tabs = computed(() => {
   }
   list.push(
     {
-      tab: 'fission',
-      path: '/pages/fission/detail',
-      label: TAB_LABELS.fission,
-      icon: packagedStaticUrl('tab/fission.png'),
+      tab: 'notice',
+      path: '/pages/notice/notice',
+      label: TAB_LABELS.notice,
+      icon: packagedStaticUrl('tab/shequ.png'),
       nativeTab: true,
     },
     {

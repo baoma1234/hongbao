@@ -563,8 +563,11 @@ function officialGroupTag(g, idx) {
 }
 
 function openGameRulesFromCommunity() {
-  uni.navigateTo({
-    url: '/pages/notice/notice?cat=rules',
+  try {
+    uni.setStorageSync('fanshub_notice_cat', 'rules')
+  } catch (e) {}
+  uni.switchTab({
+    url: '/pages/notice/notice',
     fail: () => uni.reLaunch({ url: '/pages/notice/notice?cat=rules' }),
   })
 }
