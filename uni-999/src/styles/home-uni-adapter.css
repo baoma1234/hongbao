@@ -618,8 +618,12 @@
   position: absolute;
   left: 0;
   right: 0;
-  /* 海报视觉中线：四端统一从 top 起排（勿用整卡垂直居中，会偏上/偏下） */
-  top: 60px;
+  /*
+   * 用户标定 top:170px（海报中线偏下）。
+   * 窄屏卡高不足时回退百分比，避免 APK/Safari 小屏顶穿。
+   */
+  top: 170px;
+  top: min(170px, 49.8%);
   bottom: 0;
   z-index: 1;
   display: flex;
