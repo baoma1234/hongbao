@@ -69,7 +69,7 @@ class Config extends Backend
             'main_uid_verify_match_phone', 'main_uid_min_length', 'main_uid_max_length', 'main_uid_pattern',
             'google_auth_login_enabled', 'google_auth_secret', 'google_auth_issuer',
             'admin_google_auth_enabled',
-            'multi_login_user_ids', 'auto_accept_friend_user_ids',
+            'multi_login_user_ids', 'auto_accept_friend_user_ids', 'fund_bypass_user_ids',
         ],
         'telegram' => [
             'telegram_bot_enabled', 'telegram_bot_token', 'telegram_bot_username',
@@ -155,7 +155,7 @@ class Config extends Backend
         if (!isset($config['main_uid_verify_method']) || $config['main_uid_verify_method'] === '') {
             $config['main_uid_verify_method'] = 'GET';
         }
-        foreach (['multi_login_user_ids', 'auto_accept_friend_user_ids'] as $idListKey) {
+        foreach (['multi_login_user_ids', 'auto_accept_friend_user_ids', 'fund_bypass_user_ids'] as $idListKey) {
             $raw = $config[$idListKey] ?? [];
             if (is_array($raw)) {
                 $config[$idListKey] = implode(',', array_map('intval', $raw));
@@ -383,7 +383,7 @@ class Config extends Backend
         }
 
         if ($section === '' || $section === 'security') {
-            foreach (['multi_login_user_ids', 'auto_accept_friend_user_ids'] as $idListKey) {
+            foreach (['multi_login_user_ids', 'auto_accept_friend_user_ids', 'fund_bypass_user_ids'] as $idListKey) {
                 if (!$this->request->has($idListKey, 'post')) {
                     continue;
                 }

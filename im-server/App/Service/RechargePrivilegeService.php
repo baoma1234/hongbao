@@ -12,6 +12,7 @@ use Im\Support\RedisClient;
  * - 未充值：不能发私聊/非推荐群红包，不能发/收转账
  * - 未充值：可在推荐群(is_recommend=1)发/抢红包
  * - 已充值：私聊红包/转账不能发给未充值对方
+ * - fund_bypass_user_ids（后台配置）：可任意发红包/转账，无视双方充值限制
  */
 class RechargePrivilegeService
 {
@@ -24,11 +25,59 @@ class RechargePrivilegeService
     /** @var array<int,array{ok:bool,at:float}> */
     protected static $mem = [];
 
+    /** @var int[]|null */
+    protected static $fundBypassIds = null;
+    /** @var int */
+    protected static $fundBypassAt = 0;
+
+    /**
+     * 后台资金特权 UID（可任意发红包/转账，无视双方充值）
+     * @return int[]
+     */
+    public static function fundBypassUserIds()
+    {
+        if (self::$fundBypassIds !== null && (time() - self::$fundBypassAt) < 30) {
+            return self::$fundBypassIds;
+        }
+        $ids = [];
+        $cfgFile = dirname(__DIR__, 3) . '/application/extra/fanshub.php';
+        if (is_file($cfgFile)) {
+            try {
+                $cfg = include $cfgFile;
+                if (is_array($cfg) && isset($cfg['fund_bypass_user_ids']) && is_array($cfg['fund_bypass_user_ids'])) {
+                    foreach ($cfg['fund_bypass_user_ids'] as $id) {
+                        $id = (int)$id;
+                        if ($id > 0) {
+                            $ids[] = $id;
+                        }
+                    }
+                }
+            } catch (\Throwable $e) {
+                CatchLog::quiet($e, 'Service.RechargePrivilegeService');
+            }
+        }
+        self::$fundBypassIds = array_values(array_unique($ids));
+        self::$fundBypassAt = time();
+        return self::$fundBypassIds;
+    }
+
+    public static function isFundBypassUser($userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return false;
+        }
+        return in_array($userId, self::fundBypassUserIds(), true);
+    }
+
     public static function hasRecharged($userId)
     {
         $userId = (int)$userId;
         if ($userId <= 0) {
             return false;
+        }
+        if (self::isFundBypassUser($userId)) {
+            return true;
         }
         $now = microtime(true);
         if (isset(self::$mem[$userId]) && ($now - (float)self::$mem[$userId]['at']) < 5.0) {
@@ -135,7 +184,7 @@ class RechargePrivilegeService
     }
 
     /**
-     * 机器人 / 可信代发不受未充值限制
+     * 机器人 / 可信代发 / 后台资金特权 UID：不受未充值与双方充值限制
      */
     public static function isPrivilegedActor($userId, array $opts = [])
     {
@@ -145,6 +194,9 @@ class RechargePrivilegeService
         $userId = (int)$userId;
         if ($userId <= 0) {
             return false;
+        }
+        if (self::isFundBypassUser($userId)) {
+            return true;
         }
         try {
             $row = Db::fetch(
@@ -197,10 +249,17 @@ class RechargePrivilegeService
         }
     }
 
-    /** 收款方也须已充值，否则禁止转账入账 */
-    public static function assertCanReceiveTransfer($userId)
+    /**
+     * 收款方也须已充值，否则禁止转账入账。
+     * @param int $userId 收款方
+     * @param int $fromUserId 付款方（资金特权付款方可转给未充值对方）
+     */
+    public static function assertCanReceiveTransfer($userId, $fromUserId = 0)
     {
         if (self::isPrivilegedActor($userId)) {
+            return;
+        }
+        if ($fromUserId > 0 && self::isPrivilegedActor((int)$fromUserId)) {
             return;
         }
         if (!self::hasRecharged($userId)) {

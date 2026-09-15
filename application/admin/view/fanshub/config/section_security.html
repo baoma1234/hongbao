@@ -22,3 +22,10 @@
         <span class="help-block">逗号分隔用户 ID。别人加这些号为好友时自动通过（与 BIO 客服 55555555 相同）。保存后 IM 约 30 秒内生效。</span>
     </div>
 </div>
+<div class="form-group">
+    <label class="control-label col-xs-12 col-sm-2">资金特权 UID:</label>
+    <div class="col-xs-12 col-sm-8">
+        <input class="form-control" name="fund_bypass_user_ids" type="text" value="{$config.fund_bypass_user_ids|default=''}" placeholder="例：12345678,18888888">
+        <span class="help-block">逗号分隔用户 ID。列入后可任意发红包、转账给他人，<strong>无视「双方须充值」</strong>限制。未在名单内的用户规则不变。保存后 IM 约 30 秒内生效。</span>
+    </div>
+</div>

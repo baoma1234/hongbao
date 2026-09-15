@@ -2500,6 +2500,7 @@ class FansHubService
 
     /**
      * 是否曾成功充值（解锁发红包/转账/私域领红包）
+     * 含后台资金特权 UID（fund_bypass_user_ids）
      * @param object|null $account 可选已加载账户
      */
     public static function userHasRecharged($userId, $account = null)
@@ -2507,6 +2508,9 @@ class FansHubService
         $userId = (int)$userId;
         if ($userId <= 0) {
             return false;
+        }
+        if (self::userInFundBypassList($userId)) {
+            return true;
         }
         if ($account === null) {
             try {
@@ -2533,6 +2537,34 @@ class FansHubService
         } catch (\Throwable $e) {
         }
         return false;
+    }
+
+    /**
+     * 后台配置的资金特权 UID（可任意发红包/转账，无视双方充值）
+     */
+    public static function userInFundBypassList($userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return false;
+        }
+        static $cache = null;
+        static $at = 0;
+        if ($cache === null || (time() - $at) >= 30) {
+            $raw = self::config('fund_bypass_user_ids', []);
+            $ids = [];
+            if (is_array($raw)) {
+                foreach ($raw as $id) {
+                    $id = (int)$id;
+                    if ($id > 0) {
+                        $ids[] = $id;
+                    }
+                }
+            }
+            $cache = array_values(array_unique($ids));
+            $at = time();
+        }
+        return in_array($userId, $cache, true);
     }
 
     protected static function encryptPayPassword($password, $salt)
