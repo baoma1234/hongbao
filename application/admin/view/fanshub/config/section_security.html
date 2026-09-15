@@ -8,3 +8,17 @@
 <div class="form-group"><label class="control-label col-xs-12 col-sm-2">主站 UID 外部校验地址:</label><div class="col-xs-12 col-sm-8"><input class="form-control" name="main_uid_verify_url" type="text" step="1" value="{$config.main_uid_verify_url|default=''}"></div></div>
 <div class="form-group"><label class="control-label col-xs-12 col-sm-2">外部校验超时(秒):</label><div class="col-xs-12 col-sm-8"><input class="form-control" name="main_uid_verify_timeout" type="number" step="1" value="{$config.main_uid_verify_timeout|default='5'}"></div></div>
 <div class="form-group"><label class="control-label col-xs-12 col-sm-2">API 签名校验:</label><div class="col-xs-12 col-sm-8"><label><input type="checkbox" name="api_sign_enabled" value="1" {if condition="!empty($config.api_sign_enabled)"}checked{/if}> 启用 API 签名校验</label></div></div><div class="form-group"><label class="control-label col-xs-12 col-sm-2">设备指纹限制:</label><div class="col-xs-12 col-sm-8"><label><input type="checkbox" name="device_fp_limit_enabled" value="1" {if condition="!empty($config.device_fp_limit_enabled)"}checked{/if}> 启用设备指纹限制</label></div></div><div class="form-group"><label class="control-label col-xs-12 col-sm-2">主站 UID 外部校验:</label><div class="col-xs-12 col-sm-8"><label><input type="checkbox" name="main_uid_verify_enabled" value="1" {if condition="!empty($config.main_uid_verify_enabled)"}checked{/if}> 启用主站 UID 校验</label><input class="form-control" style="margin-top:8px;" id="test-main-uid" placeholder="测试 UID"><button type="button" class="btn btn-default" id="btn-test-uid-verify">测试校验</button></div></div>
+<div class="form-group">
+    <label class="control-label col-xs-12 col-sm-2">多点登录 UID:</label>
+    <div class="col-xs-12 col-sm-8">
+        <input class="form-control" name="multi_login_user_ids" type="text" value="{$config.multi_login_user_ids|default=''}" placeholder="例：55555555,44444444,18888888">
+        <span class="help-block">逗号分隔用户 ID。列入后可多设备同时在线（不被踢下线）。默认客服 88888888 本身已支持，无需填写。</span>
+    </div>
+</div>
+<div class="form-group">
+    <label class="control-label col-xs-12 col-sm-2">自动通过好友 UID:</label>
+    <div class="col-xs-12 col-sm-8">
+        <input class="form-control" name="auto_accept_friend_user_ids" type="text" value="{$config.auto_accept_friend_user_ids|default=''}" placeholder="例：55555555,44444444,18888888">
+        <span class="help-block">逗号分隔用户 ID。别人加这些号为好友时自动通过（与 BIO 客服 55555555 相同）。保存后 IM 约 30 秒内生效。</span>
+    </div>
+</div>

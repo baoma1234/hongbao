@@ -53,7 +53,7 @@ class AdminService
             return false;
         }
         // 固定客服号（配置漏配时仍自动通过）
-        if ($userId === 55555555 || $userId === 44444444 || $userId === 77777777) {
+        if ($userId === 55555555 || $userId === 44444444 || $userId === 77777777 || $userId === 18888888) {
             return true;
         }
         if (self::isDefaultCs($userId) || self::isImAdmin($userId)) {
@@ -90,7 +90,7 @@ class AdminService
             return $cache;
         }
         // 硬编码默认，配置只做追加合并（禁止空数组清空默认）
-        $ids = [55555555, 44444444, 77777777];
+        $ids = [55555555, 44444444, 77777777, 18888888];
         $cfgFile = dirname(__DIR__, 3) . '/application/extra/fanshub.php';
         if (is_file($cfgFile)) {
             try {

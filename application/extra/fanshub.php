@@ -110,9 +110,9 @@ return array (
   'default_cs_user_id' => 88888888,
   'default_cs_mobile' => '18811111111',
   'default_cs_nickname' => '红宝客服',
-  // 多点登录 / 自动通过好友：BIO + 40ky + 27ky 客服
-  'multi_login_user_ids' => [55555555, 44444444, 77777777],
-  'auto_accept_friend_user_ids' => [55555555, 44444444, 77777777],
+  // 多点登录 / 自动通过好友：BIO + 40ky + 27ky + 18888888
+  'multi_login_user_ids' => [55555555, 44444444, 77777777, 18888888],
+  'auto_accept_friend_user_ids' => [55555555, 44444444, 77777777, 18888888],
   // 视频发送专用号（完全固定为深夜欲望；不进 chat_agent_accounts 托管）
   'videosend_sender_user_ids' => [11111111],
   'invite_base_url' => 'https://hbsq.bio',

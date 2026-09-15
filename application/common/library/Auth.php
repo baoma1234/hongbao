@@ -369,7 +369,7 @@ class Auth
                 }
                 if (!$allowMultiLogin) {
                     try {
-                        $multiIds = FansHubService::config('multi_login_user_ids', [55555555, 44444444, 77777777]);
+                        $multiIds = FansHubService::config('multi_login_user_ids', [55555555, 44444444, 77777777, 18888888]);
                         if (!is_array($multiIds)) {
                             $multiIds = [];
                         }
