@@ -174,10 +174,7 @@
                 <text class="fission-popup-num">{{ fissionPopupPool }}</text>
                 <text class="fission-popup-unit">奖金池</text>
               </view>
-              <text class="fission-popup-progress">当前 {{ fissionPopupQuals }} / {{ fissionPopupCap }} 份资格</text>
-              <text class="fission-popup-remain">剩余 {{ fissionPopupRemain }}</text>
               <text class="fission-popup-cta">点击拆开红包</text>
-              <text class="fission-popup-risk">有资格即可拆包，无需等人数满</text>
             </view>
           </view>
           <view class="fission-popup-close" @click="dismissFissionPopup">×</view>
