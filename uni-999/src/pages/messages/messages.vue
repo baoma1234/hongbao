@@ -126,7 +126,7 @@
                             <view class="chat-conv-title">
                               <view class="chat-conv-title-main">
                                 <text class="chat-conv-name">{{ displayTitle(item) }}</text>
-                                <text v-if="item.is_im_admin" class="chat-admin-tag">客服</text>
+                                <text v-if="item.is_im_admin" class="chat-admin-tag">官方</text>
                               </view>
                               <text v-if="!isPinnedCsOnline(item)" class="chat-conv-time">{{ itemTime(item) }}</text>
                             </view>
@@ -134,7 +134,7 @@
                           </view>
                           <view v-if="isPinnedCsOnline(item)" class="chat-conv-time chat-conv-time--online">
                             <view class="chat-conv-online-ring" aria-hidden="true" />
-                            <text class="chat-conv-online-lab">在线</text>
+                            <text class="chat-conv-online-lab">客服</text>
                           </view>
                         </view>
                       </view>
