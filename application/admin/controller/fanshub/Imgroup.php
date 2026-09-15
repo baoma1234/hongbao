@@ -170,6 +170,7 @@ class Imgroup extends Backend
                     'member_count'  => count($all),
                     'max_members'   => 10000,
                     'is_recommend'  => ((int)($params['is_recommend'] ?? 0) === 1) ? 1 : 0,
+                    'group_type'    => (in_array(($params['group_type'] ?? ''), ['channel', 'group'], true) ? $params['group_type'] : 'group'),
                     'weigh'         => (int)($params['weigh'] ?? 0),
                     'new_member_see_history' => ((int)($params['new_member_see_history'] ?? 0) === 1) ? 1 : 0,
                     'rp_enabled_types' => '1,3,4,5',
@@ -285,6 +286,9 @@ class Imgroup extends Backend
                     'forbid_modes'         => mb_substr($forbidCsv, 0, 64),
                     'forbid_speak_hint'    => mb_substr(trim((string)($params['forbid_speak_hint'] ?? $row['forbid_speak_hint'] ?? '')), 0, 120),
                     'is_recommend'         => ((int)($params['is_recommend'] ?? 0) === 1) ? 1 : 0,
+                    'group_type'           => (in_array(($params['group_type'] ?? ''), ['channel', 'group'], true)
+                        ? $params['group_type']
+                        : ((string)($row['group_type'] ?? 'group') === 'channel' ? 'channel' : 'group')),
                     'weigh'                => (int)($params['weigh'] ?? ($row['weigh'] ?? 0)),
                     'new_member_see_history' => ((int)($params['new_member_see_history'] ?? 0) === 1) ? 1 : 0,
                     'is_vip_group'         => ((int)($params['is_vip_group'] ?? 0) === 1) ? 1 : 0,

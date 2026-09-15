@@ -18,7 +18,7 @@ use think\Validate;
  */
 class Fanshub extends Api
 {
-    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'tgauth', 'tgbind', 'tgsendsms', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'noticedetail', 'noticeview', 'noticethemes', 'communityrecommend', 'fissionentry', 'fissiondetail', 'fissionclaims', 'yxxhall', 'yxxtick', 'yxxfair', 'yxxgroupdissolve', 'lobbyhome', 'lobbyguide', 'pushdevicedisable'];
+    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'tgauth', 'tgbind', 'tgsendsms', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'noticedetail', 'noticeview', 'noticethemes', 'communityrecommend', 'communitychannels', 'fissionentry', 'fissiondetail', 'fissionclaims', 'yxxhall', 'yxxtick', 'yxxfair', 'yxxgroupdissolve', 'lobbyhome', 'lobbyguide', 'pushdevicedisable'];
     protected $noNeedRight = '*';
 
     public function _initialize()
@@ -26,7 +26,7 @@ class Fanshub extends Api
         FansHubSms::boot();
         parent::_initialize();
         $action = strtolower($this->request->action());
-        $exempt = ['config', 'bootstrap', 'comments', 'inviteleaderboard', 'slidercaptcha', 'grabslider', 'jackpot', 'notices', 'noticedetail', 'noticeview', 'noticethemes', 'communityrecommend', 'fissionentry', 'fissiondetail', 'fissionclaims', 'yxxhall', 'yxxtick', 'yxxfair', 'yxxgroupdissolve', 'tgauth', 'tgbind', 'tgsendsms', 'lobbyhome', 'lobbyguide', 'pushdevicedisable'];
+        $exempt = ['config', 'bootstrap', 'comments', 'inviteleaderboard', 'slidercaptcha', 'grabslider', 'jackpot', 'notices', 'noticedetail', 'noticeview', 'noticethemes', 'communityrecommend', 'communitychannels', 'fissionentry', 'fissiondetail', 'fissionclaims', 'yxxhall', 'yxxtick', 'yxxfair', 'yxxgroupdissolve', 'tgauth', 'tgbind', 'tgsendsms', 'lobbyhome', 'lobbyguide', 'pushdevicedisable'];
         if (in_array($action, $exempt, true)) {
             return;
         }
@@ -223,6 +223,23 @@ class Fanshub extends Api
             $uid = 0;
         }
         $this->success('ok', FansHubService::officialCommunities($uid));
+    }
+
+    /**
+     * 频道群组列表（group_type=channel）
+     * GET /api/fanshub/communitychannels
+     */
+    public function communitychannels()
+    {
+        $uid = 0;
+        try {
+            if ($this->auth && $this->auth->isLogin()) {
+                $uid = (int)$this->auth->id;
+            }
+        } catch (\Throwable $e) {
+            $uid = 0;
+        }
+        $this->success('ok', FansHubService::channelCommunities($uid));
     }
 
     /**

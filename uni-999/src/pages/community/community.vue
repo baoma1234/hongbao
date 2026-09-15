@@ -16,8 +16,8 @@
             >
               <view class="chat-community-seg is-4">
                 <view class="chat-community-seg-btn" :class="{ active: communitySub === 'official' }" @click="setCommunitySub('official')">官方社群</view>
+                <view class="chat-community-seg-btn" :class="{ active: communitySub === 'channel' }" @click="setCommunitySub('channel')">频道群组</view>
                 <view class="chat-community-seg-btn" :class="{ active: communitySub === 'mine' }" @click="setCommunitySub('mine')">我的群组</view>
-                <view class="chat-community-seg-btn" :class="{ active: communitySub === 'created' }" @click="setCommunitySub('created')">我创建的</view>
                 <view class="chat-community-seg-btn" :class="{ active: communitySub === 'friends' }" @click="setCommunitySub('friends')">好友列表</view>
               </view>
 
@@ -61,6 +61,45 @@
               </view>
 
               <view
+                v-else-if="communitySub === 'channel'"
+                key="pane-channel"
+                class="chat-community-pane active chat-community-pane--official"
+              >
+                <scroll-view
+                  scroll-y
+                  class="chat-community-body-scroll"
+                  :style="panelScrollStyle"
+                  :show-scrollbar="false"
+                >
+                  <view class="chat-official-list">
+                    <view
+                      v-for="(g, idx) in channelGroups"
+                      :key="'ch-' + (g.id || g.group_id)"
+                      class="chat-official-row"
+                      @click="openGroup(g)"
+                    >
+                      <view class="chat-avatar group">
+                        <image :src="avatarSrc(g.avatar_url || g.avatar)" mode="aspectFill" lazy-load />
+                      </view>
+                      <view class="chat-official-body">
+                        <text class="chat-official-title">{{ g.name || ('#' + (g.id || g.group_id)) }}</text>
+                        <view class="chat-official-sub">
+                          <text class="chat-official-online">{{ groupMembersText(g) }}</text>
+                          <text class="chat-official-tag">频道</text>
+                        </view>
+                      </view>
+                      <view class="chat-official-join" @click.stop="openGroup(g)">立即进群</view>
+                    </view>
+                    <view v-if="!channelGroups.length && channelLoading" class="chat-empty chat-empty-glass">加载中…</view>
+                    <view v-else-if="!channelGroups.length" class="chat-empty chat-empty-glass">暂无频道群组</view>
+                    <view class="chat-list-scroll-pad" aria-hidden="true">
+                      <text class="chat-list-scroll-pad-mark"> </text>
+                    </view>
+                  </view>
+                </scroll-view>
+              </view>
+
+              <view
                 v-else-if="communitySub === 'mine'"
                 key="pane-mine"
                 class="chat-community-pane active chat-community-pane--feed"
@@ -86,51 +125,20 @@
                         </view>
                       </view>
                     </view>
-                    <view v-for="g in myGroups" :key="g.id" class="chat-my-group-item" @click="openGroup(g)">
-                      <view class="chat-my-group-main">
-                        <view class="chat-my-group-avatar">
-                          <image :src="avatarSrc(g.avatar_url || g.avatar)" mode="aspectFill" lazy-load />
-                        </view>
-                        <text class="chat-my-group-name">{{ g.name || ('#' + g.id) }}</text>
-                      </view>
-                      <view class="chat-my-group-count">{{ g.display_member_count || g.member_count || 0 }}<text>人</text></view>
-                    </view>
-                    <view v-if="!myGroups.length && communityExtraLoading" class="chat-empty chat-empty-glass">加载中…</view>
-                    <view v-else-if="!myGroups.length" class="chat-empty chat-empty-glass">暂无已加入社群</view>
-                    <view class="chat-list-scroll-pad" aria-hidden="true">
-                      <text class="chat-list-scroll-pad-mark"> </text>
-                    </view>
-                  </view>
-                </scroll-view>
-              </view>
-
-              <view
-                v-else-if="communitySub === 'created'"
-                key="pane-created"
-                class="chat-community-pane active chat-community-pane--feed"
-              >
-                <scroll-view
-                  scroll-y
-                  class="chat-community-body-scroll"
-                  :style="panelScrollStyle"
-                  :show-scrollbar="false"
-                  :enable-flex="true"
-                >
-                  <view class="chat-my-groups-list">
-                    <view v-for="g in myCreatedGroups" :key="'c-' + g.id" class="chat-my-group-item" @click="openGroup(g)">
+                    <view v-for="g in myGroupsSorted" :key="g.id" class="chat-my-group-item" @click="openGroup(g)">
                       <view class="chat-my-group-main">
                         <view class="chat-my-group-avatar">
                           <image :src="avatarSrc(g.avatar_url || g.avatar)" mode="aspectFill" lazy-load />
                         </view>
                         <view class="chat-my-group-create-text">
                           <text class="chat-my-group-name">{{ g.name || ('#' + g.id) }}</text>
-                          <text class="chat-my-group-sub">{{ (g.my_role | 0) >= 3 ? '群主' : '管理员' }}</text>
+                          <text v-if="groupRoleLabel(g)" class="chat-my-group-sub">{{ groupRoleLabel(g) }}</text>
                         </view>
                       </view>
                       <view class="chat-my-group-count">{{ g.display_member_count || g.member_count || 0 }}<text>人</text></view>
                     </view>
-                    <view v-if="!myCreatedGroups.length && communityExtraLoading" class="chat-empty chat-empty-glass">加载中…</view>
-                    <view v-else-if="!myCreatedGroups.length" class="chat-empty chat-empty-glass">暂无我创建/管理的群</view>
+                    <view v-if="!myGroupsSorted.length && communityExtraLoading" class="chat-empty chat-empty-glass">加载中…</view>
+                    <view v-else-if="!myGroupsSorted.length" class="chat-empty chat-empty-glass">暂无已加入社群</view>
                     <view class="chat-list-scroll-pad" aria-hidden="true">
                       <text class="chat-list-scroll-pad-mark"> </text>
                     </view>
@@ -394,10 +402,22 @@ const createGroupPaneStyle = computed(() => {
 
 const communitySub = ref('official')
 const communityRecs = ref([])
+const channelGroups = ref([])
+const channelLoading = ref(false)
 const myGroups = ref([])
-const myCreatedGroups = computed(() =>
-  (myGroups.value || []).filter((g) => ((g.my_role | 0) || (g.role | 0)) >= 2)
-)
+const myGroupsSorted = computed(() => {
+  const list = (myGroups.value || []).slice()
+  list.sort((a, b) => {
+    const ra = (a.my_role | 0) || (a.role | 0) || 0
+    const rb = (b.my_role | 0) || (b.role | 0) || 0
+    const pa = ra >= 2 ? 1 : 0
+    const pb = rb >= 2 ? 1 : 0
+    if (pb !== pa) return pb - pa
+    if (rb !== ra) return rb - ra
+    return ((b.id | 0) - (a.id | 0))
+  })
+  return list
+})
 const friends = ref([])
 const communityExtraLoading = ref(false)
 const COMMUNITY_EXTRA_TTL_MS = 60000
@@ -756,13 +776,23 @@ function confirmDeleteFriend(f) {
   })
 }
 
+function groupRoleLabel(g) {
+  const role = ((g && g.my_role) | 0) || ((g && g.role) | 0) || 0
+  if (role >= 3) return '群主'
+  if (role >= 2) return '管理员'
+  return ''
+}
+
 function setCommunitySub(sub) {
-  const next = ['official', 'mine', 'created', 'friends'].indexOf(sub) >= 0 ? sub : 'official'
+  const next = ['official', 'channel', 'mine', 'friends'].indexOf(sub) >= 0 ? sub : 'official'
   if (communitySub.value === next) return
   communitySub.value = next
-  if (next === 'mine' || next === 'created' || next === 'friends') {
+  if (next === 'mine' || next === 'friends') {
     stopOfficialCommunityPoll()
     void loadCommunityExtra({ force: false })
+  } else if (next === 'channel') {
+    stopOfficialCommunityPoll()
+    void loadChannelGroups()
   } else {
     startOfficialCommunityPoll()
   }
@@ -797,6 +827,34 @@ async function loadCommunityQuiet() {
   } catch (e) {}
 }
 
+async function loadChannelGroups() {
+  channelLoading.value = true
+  try {
+    const rec = await apiRequest('communitychannels', 'GET', {})
+    const rows = (rec && (rec.list || rec.rows || rec.items)) || rec || []
+    channelGroups.value = Array.isArray(rows) ? rows : []
+    markMineInChannels()
+  } catch (e) {
+    channelGroups.value = []
+  } finally {
+    channelLoading.value = false
+  }
+}
+
+function markMineInChannels() {
+  const mineIds = {}
+  ;(myGroups.value || []).forEach((g) => {
+    const id = (g.id || g.group_id) | 0
+    if (id) mineIds[id] = true
+  })
+  channelGroups.value = (channelGroups.value || []).map((g) => {
+    const id = (g.id || g.group_id) | 0
+    return Object.assign({}, g, {
+      is_member: !!(g.is_member || mineIds[id]),
+    })
+  })
+}
+
 async function loadCommunity() {
   try {
     const rec = await apiRequest('communityrecommend', 'GET', {})
@@ -805,8 +863,12 @@ async function loadCommunity() {
   } catch (e) {
     communityRecs.value = []
   }
-  await loadCommunityExtra({ force: false })
+  await Promise.all([
+    loadCommunityExtra({ force: false }),
+    loadChannelGroups(),
+  ])
   markMineInRecs()
+  markMineInChannels()
   startOfficialCommunityPoll()
   nextTick(() => measureOfficialDockClearance())
 }
@@ -853,6 +915,7 @@ async function loadCommunityExtra(opts) {
       if (communitySub.value === 'official') {
         markMineInRecs()
       }
+      markMineInChannels()
     } finally {
       communityExtraLoading.value = false
       communityExtraInflight = null

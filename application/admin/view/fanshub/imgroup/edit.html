@@ -83,6 +83,13 @@
         </div>
     </div>
     <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">群类型分类:</label>
+        <div class="col-xs-12 col-sm-8">
+            {:build_radios('row[group_type]', ['group'=>'群组', 'channel'=>'频道'], (isset($row['group_type']) && $row['group_type'] === 'channel') ? 'channel' : 'group')}
+            <span class="help-block">频道 → 前台「频道群组」Tab；群组 → 普通群（可勾选推荐进官方社群）</span>
+        </div>
+    </div>
+    <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">新成员看历史:</label>
         <div class="col-xs-12 col-sm-8">
             {:build_radios('row[new_member_see_history]', ['1'=>'可见入群前消息', '0'=>'仅看入群后'], isset($row['new_member_see_history']) ? (string)$row['new_member_see_history'] : '0')}

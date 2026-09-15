@@ -80,6 +80,14 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                             }
                         },
                         {
+                            field: 'group_type',
+                            title: '类型',
+                            searchList: {group: '群组', channel: '频道'},
+                            formatter: function (v) {
+                                return v === 'channel' ? '频道' : '群组';
+                            }
+                        },
+                        {
                             field: 'chat_mode',
                             title: '模式',
                             searchList: {chat: '聊天', grab: '抢红包'},

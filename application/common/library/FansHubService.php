@@ -5126,11 +5126,17 @@ class FansHubService
 
     /** 官方社群列表缓存（后台增删改时清除，不设短 TTL 轮询） */
     const CACHE_OFFICIAL_COMMUNITIES = 'fanshub_official_communities_v1';
+    const CACHE_CHANNEL_COMMUNITIES = 'fanshub_channel_communities_v1';
 
     public static function clearOfficialCommunityCache()
     {
         try {
             \think\Cache::rm(self::CACHE_OFFICIAL_COMMUNITIES);
+        } catch (\Throwable $e) {
+            // ignore
+        }
+        try {
+            \think\Cache::rm(self::CACHE_CHANNEL_COMMUNITIES);
         } catch (\Throwable $e) {
             // ignore
         }
@@ -5147,10 +5153,35 @@ class FansHubService
         $list = \think\Cache::get(self::CACHE_OFFICIAL_COMMUNITIES);
         if (!is_array($list)) {
             $list = self::buildOfficialCommunityList();
-            // 长期缓存；仅后台操作时 rm
             \think\Cache::set(self::CACHE_OFFICIAL_COMMUNITIES, $list, 86400 * 30);
         }
+        return ['list' => self::hydrateCommunityMembership($list, $userId)];
+    }
 
+    /**
+     * H5「频道群组」：group_type=channel
+     * @param int $userId
+     * @return array{list:array}
+     */
+    public static function channelCommunities($userId = 0)
+    {
+        $userId = (int)$userId;
+        $list = \think\Cache::get(self::CACHE_CHANNEL_COMMUNITIES);
+        if (!is_array($list)) {
+            $list = self::buildChannelCommunityList();
+            \think\Cache::set(self::CACHE_CHANNEL_COMMUNITIES, $list, 86400 * 30);
+        }
+        return ['list' => self::hydrateCommunityMembership($list, $userId)];
+    }
+
+    /**
+     * @param array $list
+     * @param int $userId
+     * @return array
+     */
+    protected static function hydrateCommunityMembership(array $list, $userId = 0)
+    {
+        $userId = (int)$userId;
         $joined = [];
         if ($userId > 0 && $list) {
             $ids = array_column($list, 'id');
@@ -5175,14 +5206,20 @@ class FansHubService
             $item['online_count'] = FansHubOfficialStats::onlineCount($gid);
             $out[] = $item;
         }
-        return ['list' => $out];
+        return $out;
     }
 
     protected static function buildOfficialCommunityList()
     {
         $hasRecommend = self::chatGroupsHasColumn('is_recommend');
         $hasWeigh = self::chatGroupsHasColumn('weigh');
+        $hasGroupType = self::chatGroupsHasColumn('group_type');
         $query = Db::name('chat_groups')->where('status', 'in', [1, 3]);
+        if ($hasGroupType) {
+            $query->where(function ($q) {
+                $q->whereNull('group_type')->whereOr('group_type', 'in', ['', 'group']);
+            });
+        }
         if ($hasRecommend) {
             $query->where('is_recommend', 1);
         } else {
@@ -5201,11 +5238,42 @@ class FansHubService
         } else {
             $query->order('id', 'desc');
         }
-        $rows = $query->limit(50)->select();
+        return self::mapCommunityRows($query->limit(50)->select(), 'group');
+    }
+
+    protected static function buildChannelCommunityList()
+    {
+        $hasGroupType = self::chatGroupsHasColumn('group_type');
+        $hasWeigh = self::chatGroupsHasColumn('weigh');
+        $query = Db::name('chat_groups')->where('status', 'in', [1, 3]);
+        if ($hasGroupType) {
+            $query->where('group_type', 'channel');
+        } else {
+            $query->where('id', 'in', [70, 71, 72]);
+        }
+        if ($hasWeigh) {
+            $query->order('weigh', 'desc')->order('id', 'asc');
+        } else {
+            $query->order('id', 'asc');
+        }
+        return self::mapCommunityRows($query->limit(50)->select(), 'channel');
+    }
+
+    /**
+     * @param mixed $rows
+     * @param string $defaultType
+     * @return array
+     */
+    protected static function mapCommunityRows($rows, $defaultType = 'group')
+    {
         $out = [];
         foreach ($rows as $g) {
             $display = (int)($g['display_member_count'] ?? 0);
             $memberCount = $display > 0 ? $display : (int)($g['member_count'] ?? 0);
+            $type = trim((string)($g['group_type'] ?? ''));
+            if ($type === '') {
+                $type = $defaultType;
+            }
             $out[] = [
                 'id'                    => (int)$g['id'],
                 'name'                  => (string)($g['name'] ?? ''),
@@ -5215,8 +5283,9 @@ class FansHubService
                 'display_member_count'  => $display > 0 ? $display : $memberCount,
                 'privacy_mode'          => (string)($g['privacy_mode'] ?? 'private'),
                 'chat_mode'             => (string)($g['chat_mode'] ?? 'chat'),
+                'group_type'            => $type === 'channel' ? 'channel' : 'group',
                 'weigh'                 => (int)($g['weigh'] ?? 0),
-                'is_recommend'          => 1,
+                'is_recommend'          => (int)($g['is_recommend'] ?? ($defaultType === 'group' ? 1 : 0)),
             ];
         }
         return $out;
@@ -5241,8 +5310,7 @@ class FansHubService
             $rows = Db::query('SHOW COLUMNS FROM `' . $table . '` LIKE \'' . $column . '\'');
             $cache[$column] = !empty($rows);
         } catch (\Throwable $e) {
-            // 已知线上已加字段时兜底，避免误判导致官方社群为空
-            if (in_array($column, ['is_recommend', 'weigh'], true)) {
+            if (in_array($column, ['is_recommend', 'weigh', 'group_type'], true)) {
                 $cache[$column] = true;
             } else {
                 $cache[$column] = false;
