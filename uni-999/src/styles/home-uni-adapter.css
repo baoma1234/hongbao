@@ -602,9 +602,7 @@
   overflow: hidden;
   color: #fff;
   pointer-events: auto;
-  box-shadow:
-    0 0 0 2px rgba(255, 196, 67, 0.28),
-    0 14px 32px rgba(0, 0, 0, 0.55);
+  box-shadow: none;
 }
 .home-modal-root .fission-popup-bg {
   position: absolute;
