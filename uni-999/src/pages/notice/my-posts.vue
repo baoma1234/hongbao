@@ -11,7 +11,7 @@
         <view class="my-post-hd">
           <text class="my-post-tag" v-if="tagOf(n)">【{{ tagOf(n) }}】</text>
           <text class="my-post-status" :class="n.status">{{ statusText(n.status) }}</text>
-          <text class="my-post-views">{{ (n.views_count | 0) }} 浏览</text>
+          <text class="my-post-views">{{ formatViews(n) }} 浏览</text>
         </view>
         <text class="my-post-body">{{ n.content || '' }}</text>
         <view v-if="imgsOf(n).length" class="my-post-thumbs">
@@ -46,6 +46,15 @@ const loading = ref(false)
 
 function tagOf(n) {
   return String((n && (n.tag_label || n.theme_title || n.category_label)) || '').trim()
+}
+
+function formatViews(n) {
+  const v = Number((n && n.views_count) || 0) || 0
+  if (v >= 10000) {
+    const w = Math.round(v / 1000) / 10
+    return (Number.isInteger(w) ? String(w) : w.toFixed(1)) + '万'
+  }
+  return String(v)
 }
 
 function imgsOf(n) {

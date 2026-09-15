@@ -10,7 +10,6 @@
           mode="aspectFill"
         />
         <view class="chat-notice-meta">
-          <text class="chat-notice-views">{{ viewsText }} 浏览</text>
           <view class="chat-notice-name-row">
             <text class="chat-notice-name">{{ notice.author_name || '红宝官方公告' }}</text>
             <text class="chat-notice-day">{{ relativeDay }}</text>
@@ -18,6 +17,7 @@
             <text v-if="notice.status === 'pending'" class="chat-notice-status pending">待审核</text>
             <text v-else-if="notice.status === 'rejected'" class="chat-notice-status rejected">已拒绝</text>
           </view>
+          <text class="chat-notice-views">{{ viewsText }} 浏览</text>
         </view>
         <view class="chat-notice-time">{{ clock }}</view>
       </view>
@@ -75,7 +75,10 @@ const images = computed(() => {
 const video = computed(() => String((notice.value && notice.value.video) || '').trim())
 const viewsText = computed(() => {
   const v = viewsLocal.value || Number((notice.value && notice.value.views_count) || 0) || 0
-  if (v >= 10000) return (Math.floor(v / 1000) / 10) + '万'
+  if (v >= 10000) {
+    const w = Math.round(v / 1000) / 10
+    return (Number.isInteger(w) ? String(w) : w.toFixed(1)) + '万'
+  }
   return String(v)
 })
 
@@ -182,6 +185,6 @@ onLoad((q) => {
   display: block;
   font-size: 11px;
   color: #9a9a9a;
-  margin-bottom: 2px;
+  margin-top: 2px;
 }
 </style>

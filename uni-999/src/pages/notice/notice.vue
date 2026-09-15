@@ -138,7 +138,6 @@
                           mode="aspectFill"
                         />
                         <view class="chat-notice-meta">
-                          <text class="chat-notice-views">{{ formatViews(n) }} 浏览</text>
                           <view class="chat-notice-name-row">
                             <text class="chat-notice-name">{{ n.author_name || '红宝官方公告' }}</text>
                             <text class="chat-notice-day">{{ noticeRelativeDay(n) }}</text>
@@ -146,6 +145,7 @@
                             <text v-if="n.status === 'pending'" class="chat-notice-status pending">待审核</text>
                             <text v-else-if="n.status === 'rejected'" class="chat-notice-status rejected">已拒绝</text>
                           </view>
+                          <text class="chat-notice-views">{{ formatViews(n) }} 浏览</text>
                         </view>
                         <view class="chat-notice-time">{{ noticeClock(n) }}</view>
                       </view>
@@ -384,7 +384,10 @@ function noticeTagLabel(n) {
 
 function formatViews(n) {
   const v = Number((n && n.views_count) || 0) || 0
-  if (v >= 10000) return (Math.floor(v / 1000) / 10) + '万'
+  if (v >= 10000) {
+    const w = Math.round(v / 1000) / 10
+    return (Number.isInteger(w) ? String(w) : w.toFixed(1)) + '万'
+  }
   return String(v)
 }
 
