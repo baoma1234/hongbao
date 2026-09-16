@@ -263,7 +263,7 @@ export function mediaVideoPreviewUrls(m) {
   return out
 }
 
-/** 图片消息全部可展示 URL（单图或多图相册，最多 5） */
+/** 图片消息全部可展示 URL（单图或多图相册，最多 9） */
 export function mediaImageUrls(m) {
   const ex = msgExtra(m)
   const out = []
@@ -275,19 +275,19 @@ export function mediaImageUrls(m) {
     out.push(u)
   }
   if (Array.isArray(ex.images)) {
-    for (let i = 0; i < ex.images.length && out.length < 5; i++) {
+    for (let i = 0; i < ex.images.length && out.length < 9; i++) {
       const img = ex.images[i]
       if (typeof img === 'string') push(img)
       else push((img && (img.fullurl || img.url)) || '')
     }
   }
   if (!out.length && Array.isArray(ex.image_fullurls)) {
-    for (let i = 0; i < ex.image_fullurls.length && out.length < 5; i++) {
+    for (let i = 0; i < ex.image_fullurls.length && out.length < 9; i++) {
       push(ex.image_fullurls[i])
     }
   }
   if (!out.length && Array.isArray(ex.image_urls)) {
-    for (let i = 0; i < ex.image_urls.length && out.length < 5; i++) {
+    for (let i = 0; i < ex.image_urls.length && out.length < 9; i++) {
       push(ex.image_urls[i])
     }
   }
