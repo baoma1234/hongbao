@@ -4,7 +4,7 @@
       v-for="(p, i) in parts"
       :key="i"
       :class="p.type === 'link' ? 'notice-http-link' : 'notice-http-plain'"
-      @click.stop="onPartClick(p)"
+      @click="onPartClick($event, p)"
     >{{ p.value }}</text>
   </view>
 </template>
@@ -21,8 +21,14 @@ const props = defineProps({
 
 const parts = computed(() => splitHttpUrlParts(props.text))
 
-function onPartClick(p) {
-  if (!p || p.type !== 'link') return
+function onPartClick(e, p) {
+  if (!p || p.type !== 'link') {
+    // 普通正文不拦截，交给外层卡片跳转详情
+    return
+  }
+  try {
+    if (e && typeof e.stopPropagation === 'function') e.stopPropagation()
+  } catch (err) {}
   openExternalHttpUrl(p.value)
 }
 </script>

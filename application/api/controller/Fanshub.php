@@ -18,7 +18,7 @@ use think\Validate;
  */
 class Fanshub extends Api
 {
-    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'tgauth', 'tgbind', 'tgsendsms', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'noticedetail', 'noticeview', 'noticethemes', 'communityrecommend', 'communitychannels', 'fissionentry', 'fissiondetail', 'fissionclaims', 'yxxhall', 'yxxtick', 'yxxfair', 'yxxgroupdissolve', 'lobbyhome', 'lobbyguide', 'pushdevicedisable'];
+    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'tgauth', 'tgbind', 'tgsendsms', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'noticedetail', 'noticeview', 'noticeviewsbump', 'noticethemes', 'communityrecommend', 'communitychannels', 'fissionentry', 'fissiondetail', 'fissionclaims', 'yxxhall', 'yxxtick', 'yxxfair', 'yxxgroupdissolve', 'lobbyhome', 'lobbyguide', 'pushdevicedisable'];
     protected $noNeedRight = '*';
 
     public function _initialize()
@@ -26,7 +26,7 @@ class Fanshub extends Api
         FansHubSms::boot();
         parent::_initialize();
         $action = strtolower($this->request->action());
-        $exempt = ['config', 'bootstrap', 'comments', 'inviteleaderboard', 'slidercaptcha', 'grabslider', 'jackpot', 'notices', 'noticedetail', 'noticeview', 'noticethemes', 'communityrecommend', 'communitychannels', 'fissionentry', 'fissiondetail', 'fissionclaims', 'yxxhall', 'yxxtick', 'yxxfair', 'yxxgroupdissolve', 'tgauth', 'tgbind', 'tgsendsms', 'lobbyhome', 'lobbyguide', 'pushdevicedisable'];
+        $exempt = ['config', 'bootstrap', 'comments', 'inviteleaderboard', 'slidercaptcha', 'grabslider', 'jackpot', 'notices', 'noticedetail', 'noticeview', 'noticeviewsbump', 'noticethemes', 'communityrecommend', 'communitychannels', 'fissionentry', 'fissiondetail', 'fissionclaims', 'yxxhall', 'yxxtick', 'yxxfair', 'yxxgroupdissolve', 'tgauth', 'tgbind', 'tgsendsms', 'lobbyhome', 'lobbyguide', 'pushdevicedisable'];
         if (in_array($action, $exempt, true)) {
             return;
         }
@@ -160,6 +160,12 @@ class Fanshub extends Api
     {
         $id = (int)$this->request->get('id', $this->request->post('id', 0));
         $this->success('ok', FansHubService::noticeViewIncrement($id));
+    }
+
+    /** 社区帖浏览量分钟跳动（节流，每帖随机 +5～20） */
+    public function noticeviewsbump()
+    {
+        $this->success('ok', FansHubService::noticeViewsMinuteBump(false));
     }
 
     /** 用户发帖（待审，归类彩金白嫖） */

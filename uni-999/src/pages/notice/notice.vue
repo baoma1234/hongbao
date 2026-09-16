@@ -131,7 +131,7 @@
                       class="chat-notice-card"
                       @click="openNoticeDetail(n)"
                     >
-                      <view class="chat-notice-hd">
+                      <view class="chat-notice-hd" @click.stop="openNoticeDetail(n)">
                         <image
                           class="chat-notice-avatar"
                           :src="avatarSrc(n.author_avatar || '')"
@@ -164,7 +164,6 @@
                       <view
                         v-if="noticeImages(n).length"
                         class="chat-notice-media"
-                        @click.stop
                       >
                         <view
                           class="chat-notice-imgs"
@@ -288,6 +287,7 @@ let promoteEarnTimer = null
 const fissionNotice = ref(null)
 const fissionNoticeRemainSec = ref(0)
 let fissionNoticeTick = null
+let noticeViewsBumpTimer = null
 let pageAlive = false
 
 const myGroups = ref([])
@@ -462,7 +462,19 @@ function noticeVideo(n) {
 function noticeImages(n) {
   const imgs = n && n.images
   if (!Array.isArray(imgs)) return []
-  return imgs.filter(Boolean)
+  return imgs.filter((u) => {
+    const s = String(u || '').trim()
+    if (!s) return false
+    if (/^data:image\//i.test(s)) return true
+    const path = s.split('?')[0].split('#')[0]
+    const base = path.split('/').pop() || ''
+    // 伪装成图的 .js 会挡点击且无法预览，列表不展示
+    if (/\.js$/i.test(base)) return false
+    if (/\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(base)) return true
+    // 无后缀的 uploads 路径仍展示
+    if (/\/uploads\//i.test(path) && !/\.[a-z0-9]+$/i.test(base)) return true
+    return !/\.[a-z0-9]+$/i.test(base)
+  })
 }
 
 function noticeImagesFull(n) {
@@ -972,6 +984,37 @@ async function loadNotices() {
   }
 }
 
+async function tickNoticeViewsBump() {
+  if (!pageAlive) return
+  let bumped = false
+  try {
+    const data = await apiRequest('noticeviewsbump', 'POST', {})
+    bumped = !!(data && data.bumped)
+  } catch (e) {
+    bumped = true
+  }
+  if (!bumped) return
+  notices.value = (notices.value || []).map((n) => {
+    if (!n || n.status === 'pending' || n.status === 'rejected') return n
+    const add = 5 + Math.floor(Math.random() * 16)
+    return Object.assign({}, n, { views_count: (Number(n.views_count) || 0) + add })
+  })
+}
+
+function startNoticeViewsBump() {
+  stopNoticeViewsBump()
+  noticeViewsBumpTimer = setInterval(() => {
+    void tickNoticeViewsBump()
+  }, 60000)
+}
+
+function stopNoticeViewsBump() {
+  if (noticeViewsBumpTimer) {
+    clearInterval(noticeViewsBumpTimer)
+    noticeViewsBumpTimer = null
+  }
+}
+
 async function loadFissionNotice() {
   try {
     const data = await apiRequest('fissionentry', 'GET', {})
@@ -1057,16 +1100,19 @@ onShow(() => {
   void loadChatFissionCardFlag()
   syncPromoteEarnPanel()
   void loadNotices()
+  startNoticeViewsBump()
   nextTick(() => measureNoticeLayout())
 })
 
 onHide(() => {
   pageAlive = false
   stopPromoteEarnScroll()
+  stopNoticeViewsBump()
 })
 
 onUnmounted(() => {
   stopPromoteEarnScroll()
+  stopNoticeViewsBump()
   if (fissionNoticeTick) clearInterval(fissionNoticeTick)
 })
 </script>

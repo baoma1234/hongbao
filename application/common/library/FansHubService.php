@@ -4584,6 +4584,11 @@ class FansHubService
         }
 
         $now = time();
+        // 列表请求顺带触发「每分钟涨浏览」，无人逛时靠 fanshub:maintain
+        try {
+            self::noticeViewsMinuteBump(false);
+        } catch (\Throwable $eBump) {
+        }
         $applyFilters = function ($query) use ($category, $cats, $keyword, $viewerUserId, $now) {
             if ($viewerUserId > 0) {
                 $query->where(function ($q) use ($viewerUserId, $now) {
@@ -4783,6 +4788,44 @@ class FansHubService
         }
         $fresh = Notice::where('id', $id)->value('views_count');
         return ['views_count' => (int)$fresh];
+    }
+
+    /**
+     * 已发布帖每分钟自动涨浏览：每帖随机 +5～20
+     * 用 cache 节流，避免并发重复加；支持一次补跑最多 10 个错过的分钟
+     */
+    public static function noticeViewsMinuteBump($force = false)
+    {
+        $cacheKey = 'fanshub_notice_views_minute_bump_at';
+        $now = time();
+        $last = (int)cache($cacheKey);
+        if (!$force && $last > 0 && ($now - $last) < 55) {
+            return ['bumped' => false, 'minutes' => 0, 'rows' => 0];
+        }
+        $minutes = 1;
+        if ($last > 0) {
+            $minutes = (int)floor(($now - $last) / 60);
+            if ($minutes < 1) {
+                $minutes = 1;
+            }
+            if ($minutes > 10) {
+                $minutes = 10;
+            }
+        }
+        $rows = 0;
+        try {
+            $table = (new Notice())->getTable();
+            for ($i = 0; $i < $minutes; $i++) {
+                $n = Db::execute(
+                    "UPDATE `{$table}` SET `views_count` = `views_count` + (5 + FLOOR(RAND() * 16)) WHERE `status` = 'published'"
+                );
+                $rows += (int)$n;
+            }
+            cache($cacheKey, $now, 86400);
+        } catch (\Throwable $e) {
+            return ['bumped' => false, 'minutes' => 0, 'rows' => 0, 'error' => $e->getMessage()];
+        }
+        return ['bumped' => true, 'minutes' => $minutes, 'rows' => $rows];
     }
 
     /**

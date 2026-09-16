@@ -49,6 +49,15 @@ class FanshubMaintain extends Command
         } catch (\Throwable $eFission) {
             $output->writeln('裂变红包维护：失败 ' . $eFission->getMessage());
         }
+        try {
+            $vb = FansHubService::noticeViewsMinuteBump(false);
+            $output->writeln(
+                '社区浏览量跳动：' .
+                (!empty($vb['bumped']) ? ('已加 ' . (int)($vb['minutes'] ?? 0) . ' 分钟 × 行数约 ' . (int)($vb['rows'] ?? 0)) : '节流跳过')
+            );
+        } catch (\Throwable $eViews) {
+            $output->writeln('社区浏览量跳动：失败 ' . $eViews->getMessage());
+        }
         return 0;
     }
 }
