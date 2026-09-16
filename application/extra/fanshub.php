@@ -110,9 +110,11 @@ return array (
   'default_cs_user_id' => 88888888,
   'default_cs_mobile' => '18811111111',
   'default_cs_nickname' => '红宝客服',
-  // 多点登录 / 自动通过好友：BIO + 40ky + 27ky + 18888888
-  'multi_login_user_ids' => [55555555, 44444444, 77777777, 18888888],
+  // 多点登录 / 自动通过好友：BIO + 40ky + 27ky + 18888888 + 红宝官方
+  'multi_login_user_ids' => [55555555, 44444444, 77777777, 18888888, 22222222],
   'auto_accept_friend_user_ids' => [55555555, 44444444, 77777777, 18888888],
+  // 社区发帖免审直发（红宝官方 22222222）
+  'notice_auto_approve_user_ids' => [22222222],
   // 资金特权：可任意发红包/转账，无视双方须充值限制（仅后台配置的 UID）
   'fund_bypass_user_ids' => [],
   // 视频发送专用号（完全固定为深夜欲望；不进 chat_agent_accounts 托管）

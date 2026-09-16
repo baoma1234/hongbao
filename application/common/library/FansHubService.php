@@ -4853,7 +4853,8 @@ class FansHubService
         $row->action_label = '';
         $row->action_url = '';
         $row->action_buttons = [];
-        $row->status = 'pending';
+        $autoApprove = self::isNoticeAutoApproveUser($userId);
+        $row->status = $autoApprove ? 'published' : 'pending';
         $row->publishtime = $now;
         $row->weigh = 0;
         $row->views_count = 0;
@@ -4863,6 +4864,30 @@ class FansHubService
         $row->source = 'user';
         $row->save();
         return self::formatNoticeRow($row, self::requestLocale());
+    }
+
+    /**
+     * 社区发帖免审白名单（如红宝官方）
+     */
+    public static function isNoticeAutoApproveUser($userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return false;
+        }
+        if ($userId === 22222222) {
+            return true;
+        }
+        $raw = self::config('notice_auto_approve_user_ids', [22222222]);
+        if (!is_array($raw)) {
+            return false;
+        }
+        foreach ($raw as $id) {
+            if ((int)$id === $userId) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** 我的帖子 */
