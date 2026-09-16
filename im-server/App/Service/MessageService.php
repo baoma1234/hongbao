@@ -2978,7 +2978,7 @@ class MessageService
                 $normImgs = [];
                 $flatUrls = [];
                 $flatFull = [];
-                foreach (array_slice($extra['images'], 0, 5) as $img) {
+                foreach (array_slice($extra['images'], 0, 9) as $img) {
                     if (is_string($img) && $img !== '') {
                         $u = trim($img);
                         if (!$this->isAllowedMediaUrl($u, 4)) {
@@ -3163,7 +3163,7 @@ class MessageService
             $imgs = [];
             $flatUrls = [];
             $flatFull = [];
-            foreach (array_slice($extra['images'], 0, 5) as $img) {
+            foreach (array_slice($extra['images'], 0, 9) as $img) {
                 if (is_string($img) && $img !== '') {
                     $u = mb_substr(trim($img), 0, 500);
                     $imgs[] = ['url' => $u];

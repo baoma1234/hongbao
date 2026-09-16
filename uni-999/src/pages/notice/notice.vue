@@ -709,21 +709,37 @@ async function openFissionShare() {
 }
 
 async function sendNoticeSharePayload(sendFn) {
-  const images = shareImagePayloads.value || []
-  for (let i = 0; i < images.length; i++) {
-    const ex = images[i]
-    if (!ex) continue
-    const url = String(ex.url || ex.fullurl || '').trim()
-    if (!url) continue
-    const full = String(ex.fullurl || ex.url || url).trim() || url
-    // 直接复用帖子图片链接，不重新上传
-    await sendFn({
-      content: '[图片]',
-      msg_type: 4,
-      extra: { url, fullurl: full, name: ex.name || '' },
+  const images = (shareImagePayloads.value || [])
+    .map((ex) => {
+      if (!ex) return null
+      const url = String(ex.url || ex.fullurl || '').trim()
+      if (!url) return null
+      const full = String(ex.fullurl || ex.url || url).trim() || url
+      return { url, fullurl: full, name: ex.name || '' }
     })
-  }
+    .filter(Boolean)
+    .slice(0, 9)
   const text = String(shareTextPayload.value || '').trim()
+
+  // 图文合并为一条消息：直接复用帖子图片链接，不重新上传
+  if (images.length) {
+    const label = text || (images.length > 1 ? '[图片]x' + images.length : '[图片]')
+    await sendFn({
+      content: label,
+      msg_type: 4,
+      extra: {
+        url: images[0].url,
+        fullurl: images[0].fullurl,
+        name: images[0].name || '',
+        images,
+        image_urls: images.map((x) => x.url),
+        image_fullurls: images.map((x) => x.fullurl).filter(Boolean),
+        count: images.length,
+        ...(text ? { caption: text } : {}),
+      },
+    })
+    return
+  }
   if (text) {
     await sendFn({ content: text, msg_type: 1 })
   }
