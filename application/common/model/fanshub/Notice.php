@@ -34,7 +34,7 @@ class Notice extends Model
             'latest'  => '最新发布',
             'promote' => '推广赚钱',
             'ads'     => '彩金白嫖',
-            'rules'   => '游戏规则',
+            'rules'   => '红宝•海外圈内事',
         ];
     }
 
@@ -67,12 +67,12 @@ class Notice extends Model
                 'ms-MY' => 'Iklan',
             ],
             'rules' => [
-                'zh-CN' => '游戏规则',
-                'en-PH' => 'Game Rules',
-                'km-KH' => 'វិធានហ្គេម',
-                'id-ID' => 'Aturan Game',
-                'vi-VN' => 'Luật chơi',
-                'ms-MY' => 'Peraturan',
+                'zh-CN' => '红宝•海外圈内事',
+                'en-PH' => 'Hongbao Overseas',
+                'km-KH' => '红宝•海外圈内事',
+                'id-ID' => 'Hongbao Overseas',
+                'vi-VN' => 'Hongbao Overseas',
+                'ms-MY' => 'Hongbao Overseas',
             ],
         ];
     }

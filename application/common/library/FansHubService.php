@@ -723,7 +723,7 @@ class FansHubService
                 'chat_notice_latest' => '最新发布',
                 'chat_notice_promote' => '推广赚钱',
                 'chat_notice_ads' => '广告发布',
-                'chat_notice_rules' => '游戏规则',
+                'chat_notice_rules' => '红宝•海外圈内事',
                 'promote_earn_title' => '推广收益表标题',
                 'promote_earn_live' => '实时更新按钮',
                 'promote_earn_col_uid' => '列-用户ID',
@@ -4581,6 +4581,7 @@ class FansHubService
                 '规则' => 'rules', '玩法' => 'rules', '推广' => 'promote', '广告' => 'ads',
                 '最新发布' => 'latest', '推广赚钱' => 'promote', '广告发布' => 'ads',
                 '游戏规则' => 'rules', '游戏规划' => 'rules', '彩金白嫖' => 'ads',
+                '红宝•海外圈内事' => 'rules',
             ];
             $category = $legacy[$category] ?? '';
         }

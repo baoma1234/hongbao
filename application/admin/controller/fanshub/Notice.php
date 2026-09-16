@@ -97,6 +97,7 @@ class Notice extends Backend
                 '规则' => 'rules', '玩法' => 'rules', '推广' => 'promote', '广告' => 'ads',
                 '最新发布' => 'latest', '推广赚钱' => 'promote', '广告发布' => 'ads',
                 '游戏规则' => 'rules', '游戏规划' => 'rules',
+                '红宝•海外圈内事' => 'rules',
             ];
             $data['category'] = $legacy[$cat] ?? 'latest';
         }

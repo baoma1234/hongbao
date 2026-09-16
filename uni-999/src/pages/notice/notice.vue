@@ -34,7 +34,7 @@
                   class="chat-community-seg-btn"
                   :class="{ active: noticeCat === 'rules' }"
                   @click="setNoticeCat('rules')"
-                >游戏规则</view>
+                >红宝•海外圈内事</view>
               </view>
               <view class="chat-notice-toolbar">
                 <view class="chat-notice-search">
@@ -375,7 +375,7 @@ function noticeCatLabel(n) {
   const c = String((n && n.category) || noticeCat.value || '')
   if (c === 'promote') return '推广赚钱'
   if (c === 'ads') return '彩金白嫖'
-  if (c === 'rules') return '游戏规则'
+  if (c === 'rules') return '红宝•海外圈内事'
   if (c === 'latest') return '最新发布'
   return c
 }

@@ -991,7 +991,7 @@ return array (
     'chat_notice_latest' => '最新发布',
     'chat_notice_promote' => '推广赚钱',
     'chat_notice_ads' => '广告发布',
-    'chat_notice_rules' => '游戏规则',
+    'chat_notice_rules' => '红宝•海外圈内事',
     'chat_commission_total' => '累计佣金',
     'chat_commission_withdraw_btn' => '提现',
     'chat_commission_withdrawable' => '可提现',
