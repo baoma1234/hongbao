@@ -72,17 +72,8 @@ const tagLabel = computed(() => {
 const images = computed(() => {
   const imgs = notice.value && notice.value.images
   if (!Array.isArray(imgs)) return []
-  return imgs.filter((u) => {
-    const s = String(u || '').trim()
-    if (!s) return false
-    if (/^data:image\//i.test(s)) return true
-    const path = s.split('?')[0].split('#')[0]
-    const base = path.split('/').pop() || ''
-    if (/\.js$/i.test(base)) return false
-    if (/\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(base)) return true
-    if (/\/uploads\//i.test(path) && !/\.[a-z0-9]+$/i.test(base)) return true
-    return !/\.[a-z0-9]+$/i.test(base)
-  })
+  // 本站上传会把图存成 /uploads/*.js，按图片展示
+  return imgs.filter(Boolean)
 })
 const video = computed(() => String((notice.value && notice.value.video) || '').trim())
 const viewsText = computed(() => {

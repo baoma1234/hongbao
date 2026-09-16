@@ -462,19 +462,8 @@ function noticeVideo(n) {
 function noticeImages(n) {
   const imgs = n && n.images
   if (!Array.isArray(imgs)) return []
-  return imgs.filter((u) => {
-    const s = String(u || '').trim()
-    if (!s) return false
-    if (/^data:image\//i.test(s)) return true
-    const path = s.split('?')[0].split('#')[0]
-    const base = path.split('/').pop() || ''
-    // 伪装成图的 .js 会挡点击且无法预览，列表不展示
-    if (/\.js$/i.test(base)) return false
-    if (/\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(base)) return true
-    // 无后缀的 uploads 路径仍展示
-    if (/\/uploads\//i.test(path) && !/\.[a-z0-9]+$/i.test(base)) return true
-    return !/\.[a-z0-9]+$/i.test(base)
-  })
+  // 本站上传会把图存成 /uploads/*.js，按图片展示
+  return imgs.filter(Boolean)
 }
 
 function noticeImagesFull(n) {
