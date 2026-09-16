@@ -1228,11 +1228,15 @@ body.tab-messages .bottom-action-bar {
   display: block;
   width: 100%;
   max-width: none;
+  min-height: 180px;
+  overflow: hidden;
+  background: #000;
 }
 .chat-media-video {
   display: block;
   width: 100%;
   max-width: none;
+  min-height: 180px;
   max-height: min(72vh, 520px);
   border-radius: 12px;
   background: #000;

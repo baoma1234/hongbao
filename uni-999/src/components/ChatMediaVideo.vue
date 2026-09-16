@@ -10,7 +10,9 @@
       webkit-playsinline
       x5-playsinline
       preload="metadata"
-      :poster="poster || ''"
+      poster=""
+      @play="onPlay"
+      @playing="onPlay"
       @error="onVideoError"
     />
     <!-- #endif -->
@@ -21,10 +23,19 @@
       controls
       playsinline
       object-fit="contain"
-      :poster="poster || ''"
+      poster=""
+      @play="onPlay"
+      @playing="onPlay"
       @error="onVideoError"
     />
     <!-- #endif -->
+    <!-- 用 image 封面代替 video poster，避免 H5/Safari/App 滚动时封面脱层跟着飘 -->
+    <view v-if="showPoster" class="chat-media-video-poster-layer" @click.stop="dismissPoster">
+      <image class="chat-media-video-poster" :src="poster" mode="aspectFit" />
+      <view class="chat-media-video-play">
+        <text class="chat-media-video-play-ico">▶</text>
+      </view>
+    </view>
     <view v-if="errTip" class="chat-media-video-err" @click.stop="retry">
       <text>{{ errTip }}</text>
       <text class="chat-media-video-retry">点击重试</text>
@@ -45,8 +56,11 @@ const uid = ref('v' + Date.now().toString(36) + Math.random().toString(36).slice
 const domId = computed(() => 'chat-hls-' + uid.value)
 const errTip = ref('')
 const h5NativeSrc = ref('')
+const started = ref(false)
 let hlsInst = null
 let destroyed = false
+
+const showPoster = computed(() => !!(String(props.poster || '').trim() && !started.value))
 
 function canNativeHls(videoEl) {
   try {
@@ -118,7 +132,6 @@ async function setupH5() {
     const Hls = mod.default || mod
     if (destroyed) return
     if (!Hls || !Hls.isSupported()) {
-      // 兜底：仍写 src，部分 WebView 可能能播
       h5NativeSrc.value = url
       errTip.value = ''
       return
@@ -150,6 +163,28 @@ async function setupH5() {
   // #endif
 }
 
+function onPlay() {
+  started.value = true
+}
+
+function dismissPoster() {
+  started.value = true
+  nextTick(() => {
+    // #ifdef H5
+    try {
+      const el = resolveVideoEl()
+      if (el && typeof el.play === 'function') {
+        const p = el.play()
+        if (p && typeof p.catch === 'function') p.catch(() => {})
+      }
+    } catch (e) {}
+    // #endif
+    // #ifndef H5
+    // App 端交给原生 controls；去掉封面后用户可点播放
+    // #endif
+  })
+}
+
 function onVideoError() {
   if (isHlsUrl(props.src) && !errTip.value) {
     errTip.value = '无法播放该视频'
@@ -158,6 +193,7 @@ function onVideoError() {
 
 function retry() {
   errTip.value = ''
+  started.value = false
   // #ifdef H5
   setupH5()
   // #endif
@@ -166,9 +202,17 @@ function retry() {
 watch(
   () => props.src,
   () => {
+    started.value = false
     // #ifdef H5
     setupH5()
     // #endif
+  }
+)
+
+watch(
+  () => props.poster,
+  () => {
+    if (!started.value) return
   }
 )
 
@@ -185,30 +229,81 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+/* 必须 relative 文档流：absolute 包 video 会在 scroll-view 里脱层（H5/Safari/App） */
 .chat-media-video-wrap {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
+  position: relative;
+  display: block;
   width: 100%;
   height: 100%;
+  min-height: 180px;
   max-width: none;
+  overflow: hidden;
+  background: #000;
+  box-sizing: border-box;
 }
 .chat-media-video {
+  position: relative;
+  z-index: 0;
+  display: block;
   width: 100%;
   height: 100%;
+  min-height: 180px;
   max-width: none;
-  min-height: 0;
   max-height: none;
   border-radius: 0;
   background: #000;
-  display: block;
   object-fit: contain;
+  box-sizing: border-box;
+  /* 压进同一合成层，减轻滚动时残影/错位 */
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+.chat-media-video-poster-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  overflow: hidden;
+}
+.chat-media-video-poster {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+.chat-media-video-play {
+  position: relative;
+  z-index: 1;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  border: 2px solid rgba(255, 255, 255, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+.chat-media-video-play-ico {
+  color: #fff;
+  font-size: 20px;
+  line-height: 1;
+  margin-left: 3px;
 }
 .chat-media-video-err {
   position: absolute;
-  inset: 0;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
   display: flex;
   flex-direction: column;
   align-items: center;

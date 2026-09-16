@@ -6474,6 +6474,9 @@ uni-page-body {
   overflow: hidden;
   background: #111;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  isolation: isolate;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
 }
 .chat-video-previews {
   display: grid;
@@ -6529,8 +6532,12 @@ uni-page-body {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
+  min-height: 180px;
   background: #000;
   overflow: hidden;
+  isolation: isolate;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
 }
 .chat-video-card.has-previews .chat-video-player-row {
   border-top: 1.5px solid #111;
