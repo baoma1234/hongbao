@@ -149,7 +149,10 @@
                         </view>
                         <view class="chat-notice-time">{{ noticeClock(n) }}</view>
                       </view>
-                      <view class="chat-notice-body chat-notice-body-clamp">{{ n.content || n.summary || n.title || '' }}</view>
+                      <LinkifiedText
+                        class="chat-notice-body chat-notice-body-clamp"
+                        :text="n.content || n.summary || n.title || ''"
+                      />
                       <view v-if="noticeVideo(n)" class="chat-notice-media" @click.stop>
                         <video
                           class="chat-notice-video"
@@ -255,6 +258,7 @@ import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import { onLoad, onShow, onHide } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
 import BottomTabBar from '../../components/BottomTabBar.vue'
+import LinkifiedText from '../../components/LinkifiedText.vue'
 import '../../styles/chat-messages-list.css'
 import '../../styles/chat-uni-adapter.css'
 import '../../styles/chat-messages-parity.css'

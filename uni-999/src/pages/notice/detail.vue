@@ -21,7 +21,7 @@
         </view>
         <view class="chat-notice-time">{{ clock }}</view>
       </view>
-      <view class="chat-notice-body">{{ notice.content || '' }}</view>
+      <LinkifiedText class="chat-notice-body" :text="notice.content || ''" />
       <view v-if="video" class="chat-notice-media">
         <video class="chat-notice-video" :src="video" controls object-fit="contain" />
       </view>
@@ -52,6 +52,7 @@
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import ProfileSubPage from '../../components/ProfileSubPage.vue'
+import LinkifiedText from '../../components/LinkifiedText.vue'
 import { apiRequest } from '../../utils/auth.js'
 import { avatarSrc } from '../../utils/chat.js'
 import '../../styles/hb.css'

@@ -1895,6 +1895,11 @@ body.tab-messages .bottom-action-bar {
   word-break: break-word;
 }
 
+.chat-notice-body .notice-http-link {
+  color: #12b7f5;
+  text-decoration: underline;
+}
+
 .chat-notice-media {
   margin-top: 12px;
 }
