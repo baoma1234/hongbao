@@ -1035,12 +1035,18 @@ body.tab-messages #tabMessages .chat-list-pane {
   color: #e83b1a !important;
   font-weight: 800 !important;
 }
-/* 推广收益：同时可见 8 行（8 * 36 = 288） */
+/* 推广收益：同时可见 8 行（8 * 36 = 288）；卡片勿再设 220 裁切 */
+#tabMessages .chat-promote-earn-card,
+#tabNotice .chat-promote-earn-card,
+.notice-page .chat-promote-earn-card {
+  max-height: none !important;
+}
 #tabMessages .chat-promote-earn-viewport,
 #tabNotice .chat-promote-earn-viewport,
 .notice-page .chat-promote-earn-viewport {
   height: 288px !important;
   max-height: 288px !important;
+  min-height: 288px !important;
   overflow: hidden !important;
 }
 #tabMessages .chat-promote-earn-row,
@@ -1048,6 +1054,8 @@ body.tab-messages #tabMessages .chat-list-pane {
 .notice-page .chat-promote-earn-row {
   min-height: 36px !important;
   height: 36px !important;
+  max-height: 36px !important;
+  overflow: hidden !important;
   box-sizing: border-box;
 }
 

@@ -829,6 +829,9 @@ async function sendShareToGroup(g) {
   }
 }
 
+const PROMOTE_EARN_VISIBLE = 8
+const PROMOTE_EARN_ROW_H = 36
+
 function promoteEarnMaskUid(uid) {
   uid = String(uid == null ? '' : uid).replace(/\D/g, '')
   if (uid.length <= 4) return '****'
@@ -853,7 +856,8 @@ function promoteEarnDetailLabel(key, n) {
 }
 
 function buildPromoteEarnMockRows(count) {
-  count = Math.max(12, Math.min(40, count || 24))
+  // 滚动池至少覆盖「可见 8 行」的数倍，刷新时仍保证视口内始终 8 条
+  count = Math.max(PROMOTE_EARN_VISIBLE * 2, Math.min(40, count || PROMOTE_EARN_VISIBLE * 3))
   const shareDetails = [
     'promote_earn_detail_share_n',
     'promote_earn_detail_multi',
@@ -903,10 +907,10 @@ function startPromoteEarnScroll() {
   stopPromoteEarnScroll()
   if (noticeCat.value !== 'promote') return
   if (!(promoteEarnRows.value && promoteEarnRows.value.length)) return
-  const rowH = 36
+  const rowH = PROMOTE_EARN_ROW_H
   promoteEarnTimer = setInterval(() => {
     const half = (promoteEarnRows.value.length | 0) * rowH
-    if (half < rowH) return
+    if (half < rowH * PROMOTE_EARN_VISIBLE) return
     promoteEarnOffset.value += rowH
     if (promoteEarnOffset.value >= half) {
       setTimeout(() => {
@@ -919,7 +923,7 @@ function startPromoteEarnScroll() {
 function syncPromoteEarnPanel() {
   if (noticeCat.value === 'promote') {
     if (!promoteEarnRows.value.length) {
-      promoteEarnRows.value = buildPromoteEarnMockRows(24)
+      promoteEarnRows.value = buildPromoteEarnMockRows(PROMOTE_EARN_VISIBLE * 3)
     }
     startPromoteEarnScroll()
   } else {
@@ -928,7 +932,7 @@ function syncPromoteEarnPanel() {
 }
 
 function refreshPromoteEarnMock() {
-  promoteEarnRows.value = buildPromoteEarnMockRows(24)
+  promoteEarnRows.value = buildPromoteEarnMockRows(PROMOTE_EARN_VISIBLE * 3)
   startPromoteEarnScroll()
   uni.showToast({ title: '已刷新收益数据', icon: 'none' })
 }

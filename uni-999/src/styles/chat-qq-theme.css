@@ -1909,6 +1909,7 @@
   border-radius: 0 !important;
   box-shadow: none !important;
   border-bottom: 0.5px solid var(--qq-border) !important;
+  max-height: none !important;
 }
 
 #tabNotice .chat-promote-earn-title,
@@ -1950,6 +1951,8 @@
   background: #ffffff !important;
   min-height: 36px !important;
   height: 36px !important;
+  max-height: 36px !important;
+  overflow: hidden !important;
   box-sizing: border-box;
 }
 
@@ -1958,6 +1961,7 @@
 .notice-page .chat-promote-earn-viewport {
   height: 288px !important;
   max-height: 288px !important;
+  min-height: 288px !important;
 }
 
 /* ?????????????? QQ ?/? */

@@ -5605,7 +5605,7 @@ button.chat-rp-fair-link {
   padding: 10px 10px 8px;
   box-sizing: border-box;
   overflow: hidden;
-  max-height: 220px;
+  max-height: none;
 }
 
 .chat-promote-earn-hd {
