@@ -11,7 +11,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { splitHttpUrlParts } from '../utils/linkify.js'
+import { splitHttpUrlParts, toHttpHref } from '../utils/linkify.js'
 import { openExternalHttpUrl } from '../utils/wallet.js'
 
 const props = defineProps({
@@ -29,7 +29,7 @@ function onPartClick(e, p) {
   try {
     if (e && typeof e.stopPropagation === 'function') e.stopPropagation()
   } catch (err) {}
-  openExternalHttpUrl(p.value)
+  openExternalHttpUrl(p.href || toHttpHref(p.value))
 }
 </script>
 
