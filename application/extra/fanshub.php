@@ -115,6 +115,13 @@ return array (
   'auto_accept_friend_user_ids' => [55555555, 44444444, 77777777, 18888888],
   // 社区发帖免审直发（红宝官方 22222222）
   'notice_auto_approve_user_ids' => [22222222],
+  // 发帖活动：需先娱乐发红宝；每天限 N 帖；前 M 帖审核通过奖 A 元，之后奖 B 元
+  'notice_post_campaign_enabled' => true,
+  'notice_post_need_rp' => true,
+  'notice_post_daily_limit' => 10,
+  'notice_post_reward_tier' => 10,
+  'notice_post_reward_first' => 1.0,
+  'notice_post_reward_after' => 2.0,
   // 资金特权：可任意发红包/转账，无视双方须充值限制（仅后台配置的 UID）
   'fund_bypass_user_ids' => [],
   // 视频发送专用号（完全固定为深夜欲望；不进 chat_agent_accounts 托管）
@@ -928,6 +935,7 @@ return array (
     'wallet_ledger_type_niuniu_fee_in' => '牛牛手续费',
     'wallet_ledger_type_niuniu_refund' => '牛牛流局退回',
     'wallet_ledger_type_fission_reward' => '裂变红包',
+    'wallet_ledger_type_notice_post' => '发帖奖励',
     'wallet_ledger_type_red_packet_freeze' => '红宝冻结',
     'wallet_ledger_type_red_packet_unfreeze' => '红宝解冻',
     'wallet_ledger_cat_freeze' => '冻结记录',

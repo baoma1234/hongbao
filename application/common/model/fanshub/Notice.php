@@ -11,6 +11,22 @@ class Notice extends Model
     protected $createTime = 'createtime';
     protected $updateTime = 'updatetime';
 
+    protected static function init()
+    {
+        self::afterInsert(function ($row) {
+            try {
+                \app\common\library\FansHubService::noticeMaybeGrantPostReward($row);
+            } catch (\Throwable $e) {
+            }
+        });
+        self::afterUpdate(function ($row) {
+            try {
+                \app\common\library\FansHubService::noticeMaybeGrantPostReward($row);
+            } catch (\Throwable $e) {
+            }
+        });
+    }
+
     /** @return string[] code => 中文名 */
     public static function categoryMap()
     {

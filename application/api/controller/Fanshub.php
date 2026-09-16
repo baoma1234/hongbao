@@ -192,7 +192,10 @@ class Fanshub extends Api
                 'theme_id' => $this->request->post('theme_id', $this->request->param('theme_id', 0)),
                 'images'   => $images,
             ]);
-            $this->success('已提交，审核通过后展示', $data);
+            $msg = (!empty($data['status']) && $data['status'] === 'published')
+                ? '已发布'
+                : '已提交，审核通过后展示';
+            $this->success($msg, $data);
         } catch (\InvalidArgumentException $e) {
             $this->error($e->getMessage());
         } catch (HttpResponseException $e) {
@@ -200,6 +203,20 @@ class Fanshub extends Api
         } catch (\Throwable $e) {
             $this->error($e->getMessage() ?: '发帖失败');
         }
+    }
+
+    /** 发帖活动规则（门槛 / 每日剩余 / 奖励档） */
+    public function noticepostrules()
+    {
+        $uid = 0;
+        try {
+            if ($this->auth && $this->auth->isLogin()) {
+                $uid = (int)$this->auth->id;
+            }
+        } catch (\Throwable $e) {
+            $uid = 0;
+        }
+        $this->success('ok', FansHubService::noticePostRulesForUser($uid));
     }
 
     /** 我的帖子 */

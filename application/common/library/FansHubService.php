@@ -693,6 +693,7 @@ class FansHubService
                 'wallet_ledger_type_niuniu_fee_in' => '流水类型-牛牛手续费',
                 'wallet_ledger_type_niuniu_refund' => '流水类型-牛牛流局退回',
                 'wallet_ledger_type_fission_reward' => '流水类型-裂变红包',
+                'wallet_ledger_type_notice_post' => '流水类型-发帖奖励',
                 'wallet_load_fail' => '加载失败',
                 'wallet_channel_empty' => '无通道',
                 'wallet_channel_fallback' => '通道兜底（{id}）',
@@ -1544,6 +1545,7 @@ class FansHubService
             'yxx_tab_visible'      => !empty($cfg['yxx_tab_visible']),
             // 红宝公告裂变卡片（默认关，后台开才展示）
             'chat_fission_card_enabled'   => !empty($cfg['chat_fission_card_enabled']),
+            'notice_post_campaign'        => self::noticePostCampaignPublic(),
             'fission_group_id'            => max(0, (int)($cfg['fission_group_id'] ?? 0)),
             'fission_group_join_url'      => self::fissionGroupInvitePayload()['join_url'] ?? '',
             'yxx_stake_min'        => max(1, (int)($cfg['yxx_stake_min'] ?? 50)),
@@ -4885,6 +4887,10 @@ class FansHubService
             $nick = '用户' . $userId;
         }
         $now = time();
+        $autoApprove = self::isNoticeAutoApproveUser($userId);
+        if (!$autoApprove) {
+            self::assertNoticePostAllowed($userId);
+        }
         $row = new Notice();
         $row->author_name = $nick;
         $row->author_avatar = $avatar;
@@ -4896,7 +4902,6 @@ class FansHubService
         $row->action_label = '';
         $row->action_url = '';
         $row->action_buttons = [];
-        $autoApprove = self::isNoticeAutoApproveUser($userId);
         $row->status = $autoApprove ? 'published' : 'pending';
         $row->publishtime = $now;
         $row->weigh = 0;
@@ -4931,6 +4936,206 @@ class FansHubService
             }
         }
         return false;
+    }
+
+    /**
+     * 发帖活动公开配置（H5 / App）
+     */
+    public static function noticePostCampaignPublic()
+    {
+        $enabled = self::config('notice_post_campaign_enabled', true);
+        $enabled = $enabled === null ? true : !empty($enabled);
+        $daily = max(0, (int)self::config('notice_post_daily_limit', 10));
+        $tier = max(0, (int)self::config('notice_post_reward_tier', 10));
+        $first = max(0, round((float)self::config('notice_post_reward_first', 1), 2));
+        $after = max(0, round((float)self::config('notice_post_reward_after', 2), 2));
+        $needRp = !isset(self::config()['notice_post_need_rp']) || !empty(self::config('notice_post_need_rp', true));
+        return [
+            'enabled'       => $enabled,
+            'need_rp'       => $needRp,
+            'daily_limit'   => $daily,
+            'reward_tier'   => $tier,
+            'reward_first'  => $first,
+            'reward_after'  => $after,
+        ];
+    }
+
+    /**
+     * 当前用户发帖资格 + 剩余次数
+     */
+    public static function noticePostRulesForUser($userId)
+    {
+        $userId = (int)$userId;
+        $camp = self::noticePostCampaignPublic();
+        $exempt = self::isNoticeAutoApproveUser($userId);
+        $usedToday = $userId > 0 ? self::noticePostCountToday($userId) : 0;
+        $remain = $camp['daily_limit'] > 0 ? max(0, $camp['daily_limit'] - $usedToday) : 999;
+        $hasRp = $userId > 0 && self::userHasSentEntertainmentHongbao($userId);
+        $approved = $userId > 0 ? self::noticePostApprovedCount($userId) : 0;
+        $canPost = true;
+        if (!$exempt && !empty($camp['enabled'])) {
+            if (!empty($camp['need_rp']) && !$hasRp) {
+                $canPost = false;
+            }
+            if ($camp['daily_limit'] > 0 && $remain <= 0) {
+                $canPost = false;
+            }
+        }
+        return array_merge($camp, [
+            'exempt'           => $exempt,
+            'has_sent_rp'      => $hasRp,
+            'used_today'       => $usedToday,
+            'remain_today'     => $exempt ? $camp['daily_limit'] : $remain,
+            'approved_count'   => $approved,
+            'can_post'         => $canPost,
+        ]);
+    }
+
+    public static function assertNoticePostAllowed($userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            throw new \InvalidArgumentException('请先登录');
+        }
+        if (self::isNoticeAutoApproveUser($userId)) {
+            return;
+        }
+        $camp = self::noticePostCampaignPublic();
+        if (empty($camp['enabled'])) {
+            return;
+        }
+        if (!empty($camp['need_rp']) && !self::userHasSentEntertainmentHongbao($userId)) {
+            throw new \InvalidArgumentException('需要先在娱乐群发过红宝才能发帖');
+        }
+        $limit = (int)$camp['daily_limit'];
+        if ($limit > 0 && self::noticePostCountToday($userId) >= $limit) {
+            throw new \InvalidArgumentException('每天最多发' . $limit . '帖，请明天再来');
+        }
+    }
+
+    public static function userHasSentEntertainmentHongbao($userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return false;
+        }
+        try {
+            $hit = Db::name('chat_red_packets')->where('from_user_id', $userId)->value('id');
+            if ((int)$hit > 0) {
+                return true;
+            }
+        } catch (\Throwable $e) {
+        }
+        try {
+            $hit = Ledger::where('user_id', $userId)
+                ->where('type', 'in', ['red_packet_send', 'niuniu_packet'])
+                ->where('hongbao_change', '<', 0)
+                ->value('id');
+            if ((int)$hit > 0) {
+                return true;
+            }
+        } catch (\Throwable $e) {
+        }
+        return false;
+    }
+
+    public static function noticePostCountToday($userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return 0;
+        }
+        $start = strtotime(date('Y-m-d 00:00:00'));
+        return (int)Notice::where('user_id', $userId)
+            ->where('source', 'user')
+            ->where('createtime', '>=', $start)
+            ->count();
+    }
+
+    public static function noticePostApprovedCount($userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return 0;
+        }
+        return (int)Notice::where('user_id', $userId)
+            ->where('source', 'user')
+            ->where('status', 'published')
+            ->count();
+    }
+
+    /**
+     * 审核通过发奖：前 N 帖 first 元，之后 after 元。免审官方号不发。
+     */
+    public static function noticeMaybeGrantPostReward($row)
+    {
+        if (!$row) {
+            return;
+        }
+        $status = (string)($row->status ?? '');
+        if ($status !== 'published') {
+            return;
+        }
+        $userId = (int)($row->user_id ?? 0);
+        $noticeId = (int)($row->id ?? 0);
+        $source = (string)($row->source ?? '');
+        if ($userId <= 0 || $noticeId <= 0 || $source !== 'user') {
+            return;
+        }
+        if (self::isNoticeAutoApproveUser($userId)) {
+            return;
+        }
+        $camp = self::noticePostCampaignPublic();
+        if (empty($camp['enabled'])) {
+            return;
+        }
+        $tier = (int)$camp['reward_tier'];
+        $approved = self::noticePostApprovedCount($userId);
+        $amount = ($tier <= 0 || $approved > $tier)
+            ? (float)$camp['reward_after']
+            : (float)$camp['reward_first'];
+        $amount = round($amount, 2);
+        if ($amount <= 0) {
+            return;
+        }
+        try {
+            $dup = Ledger::where('user_id', $userId)
+                ->where('type', 'notice_post')
+                ->where('ref_id', $noticeId)
+                ->value('id');
+            if ((int)$dup > 0) {
+                return;
+            }
+        } catch (\Throwable $eDup) {
+            try {
+                $dup = Ledger::where('user_id', $userId)
+                    ->where('type', 'notice_post')
+                    ->where('remark', 'like', '%#' . $noticeId . '%')
+                    ->value('id');
+                if ((int)$dup > 0) {
+                    return;
+                }
+            } catch (\Throwable $e2) {
+            }
+        }
+        $remark = ($tier > 0 && $approved <= $tier)
+            ? ('发帖审核奖励(第' . $approved . '/' . $tier . '帖) #' . $noticeId)
+            : ('发帖审核奖励 #' . $noticeId);
+        try {
+            $meta = [
+                'channel'  => 'notice_post',
+                'ref_type' => 'notice_post',
+                'ref_id'   => $noticeId,
+                'biz_no'   => 'np' . $noticeId,
+            ];
+            try {
+                FansHubHongbaoLedger::credit($userId, $amount, 'notice_post', $remark, $meta);
+            } catch (\Throwable $eCol) {
+                unset($meta['ref_type'], $meta['ref_id'], $meta['biz_no']);
+                FansHubHongbaoLedger::credit($userId, $amount, 'notice_post', $remark, $meta);
+            }
+        } catch (\Throwable $ePay) {
+        }
     }
 
     /** 我的帖子 */

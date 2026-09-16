@@ -5,3 +5,44 @@
 <div class="form-group"><label class="control-label col-xs-12 col-sm-2">IP限制:</label><div class="col-xs-12 col-sm-8"><label><input type="checkbox" name="invite_ip_limit_enabled" value="1" {if condition="!empty($config.invite_ip_limit_enabled)"}checked{/if}> 限制同 IP 邀请注册</label></div></div>
 <div class="form-group"><label class="control-label col-xs-12 col-sm-2">每日分享上限:</label><div class="col-xs-12 col-sm-8"><input class="form-control" name="share_daily_max" type="number" value="{$config.share_daily_max|default='20'}"></div></div>
 <div class="form-group"><label class="control-label col-xs-12 col-sm-2">分享冷却(秒):</label><div class="col-xs-12 col-sm-8"><input class="form-control" name="share_cooldown_seconds" type="number" value="{$config.share_cooldown_seconds|default='300'}"></div></div>
+<div class="form-group">
+    <label class="control-label col-xs-12 col-sm-2">发帖活动:</label>
+    <div class="col-xs-12 col-sm-8">
+        <label><input type="checkbox" name="notice_post_campaign_enabled" value="1" {if condition="!isset($config.notice_post_campaign_enabled) || !empty($config.notice_post_campaign_enabled)"}checked{/if}> 启用发帖审核奖励</label>
+        <span class="help-block">用户发帖审核通过后发放红宝；免审官方号不参与。</span>
+    </div>
+</div>
+<div class="form-group">
+    <label class="control-label col-xs-12 col-sm-2">发帖门槛:</label>
+    <div class="col-xs-12 col-sm-8">
+        <label><input type="checkbox" name="notice_post_need_rp" value="1" {if condition="!isset($config.notice_post_need_rp) || !empty($config.notice_post_need_rp)"}checked{/if}> 须先在娱乐发过红宝才能发帖</label>
+    </div>
+</div>
+<div class="form-group">
+    <label class="control-label col-xs-12 col-sm-2">每天限帖:</label>
+    <div class="col-xs-12 col-sm-8">
+        <input class="form-control" name="notice_post_daily_limit" type="number" min="0" step="1" value="{$config.notice_post_daily_limit|default='10'}">
+        <span class="help-block">每个用户每天最多发帖数（含待审/拒绝）。0=不限制。</span>
+    </div>
+</div>
+<div class="form-group">
+    <label class="control-label col-xs-12 col-sm-2">累计档位(帖):</label>
+    <div class="col-xs-12 col-sm-8">
+        <input class="form-control" name="notice_post_reward_tier" type="number" min="0" step="1" value="{$config.notice_post_reward_tier|default='10'}">
+        <span class="help-block">前 N 条「审核通过」帖用下面第一档奖励，超过后用第二档。</span>
+    </div>
+</div>
+<div class="form-group">
+    <label class="control-label col-xs-12 col-sm-2">前档奖励(元):</label>
+    <div class="col-xs-12 col-sm-8">
+        <input class="form-control" name="notice_post_reward_first" type="number" min="0" step="0.01" value="{$config.notice_post_reward_first|default='1'}">
+        <span class="help-block">累计审核通过未超过档位时，每帖发放红宝。</span>
+    </div>
+</div>
+<div class="form-group">
+    <label class="control-label col-xs-12 col-sm-2">后档奖励(元):</label>
+    <div class="col-xs-12 col-sm-8">
+        <input class="form-control" name="notice_post_reward_after" type="number" min="0" step="0.01" value="{$config.notice_post_reward_after|default='2'}">
+        <span class="help-block">累计审核通过超过档位后，每帖发放红宝。</span>
+    </div>
+</div>

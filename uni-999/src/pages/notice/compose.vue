@@ -40,8 +40,8 @@
         </view>
       </view>
 
-      <text class="compose-tip">发帖归类「彩金白嫖」，审核通过后他人可见；审核前仅自己可见。</text>
-      <button class="compose-submit" :disabled="busy" @click="submit">
+      <text class="compose-tip">{{ campaignTip }}</text>
+      <button class="compose-submit" :disabled="busy || !canPost" @click="submit">
         {{ busy ? '提交中…' : '发布' }}
       </button>
     </view>
@@ -49,10 +49,10 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import ProfileSubPage from '../../components/ProfileSubPage.vue'
-import { apiRequest, getToken, uploadCommonFile } from '../../utils/auth.js'
+import { apiRequest, fetchConfig, getToken, uploadCommonFile } from '../../utils/auth.js'
 import { avatarSrc } from '../../utils/chat.js'
 import '../../styles/hb.css'
 
@@ -61,6 +61,51 @@ const themeId = ref(0)
 const content = ref('')
 const images = ref([])
 const busy = ref(false)
+const rules = ref(null)
+
+const canPost = computed(() => {
+  const r = rules.value
+  if (!r) return true
+  if (r.exempt) return true
+  return r.can_post !== false
+})
+
+const campaignTip = computed(() => {
+  const r = rules.value
+  if (!r || r.enabled === false) {
+    return '发帖归类「彩金白嫖」，审核通过后他人可见；审核前仅自己可见。'
+  }
+  const first = Number(r.reward_first)
+  const after = Number(r.reward_after)
+  const tier = Number(r.reward_tier) || 10
+  const daily = Number(r.daily_limit) || 10
+  const lines = []
+  if (r.need_rp) {
+    lines.push(r.has_sent_rp ? '已满足：娱乐发过红宝' : '需先在娱乐群发过红宝才能发帖')
+  }
+  lines.push('每天限' + daily + '帖（今日剩余' + (r.remain_today != null ? r.remain_today : daily) + '）')
+  const fTxt = Number.isFinite(first) ? first : 1
+  const aTxt = Number.isFinite(after) ? after : 2
+  lines.push('审核通过：前' + tier + '帖各奖' + fTxt + '元红宝，之后每帖' + aTxt + '元')
+  lines.push('归类「彩金白嫖」，审核通过后他人可见。')
+  return lines.join('\n')
+})
+
+async function loadRules() {
+  try {
+    const data = await apiRequest('noticepostrules', 'GET')
+    if (data && typeof data === 'object') {
+      rules.value = data
+      return
+    }
+  } catch (e) {}
+  try {
+    const cfg = await fetchConfig()
+    if (cfg && cfg.notice_post_campaign) {
+      rules.value = Object.assign({ can_post: true, has_sent_rp: false, remain_today: 10 }, cfg.notice_post_campaign)
+    }
+  } catch (e2) {}
+}
 
 async function loadThemes() {
   try {
@@ -141,6 +186,10 @@ async function submit() {
     uni.showToast({ title: '请选择主题', icon: 'none' })
     return
   }
+  if (!canPost.value) {
+    uni.showToast({ title: campaignTip.value.split('\n')[0] || '暂不能发帖', icon: 'none' })
+    return
+  }
   busy.value = true
   try {
     await apiRequest('noticecreate', 'POST', {
@@ -168,6 +217,7 @@ onShow(() => {
     return
   }
   loadThemes()
+  loadRules()
 })
 </script>
 
@@ -270,6 +320,7 @@ onShow(() => {
   font-size: 12px;
   color: #999;
   line-height: 1.5;
+  white-space: pre-wrap;
   margin: 4px 0 14px;
 }
 .compose-submit {

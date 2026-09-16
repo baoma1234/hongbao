@@ -49,6 +49,9 @@ class Config extends Backend
             'invite_base_url', 'invite_code_offset', 'share_text', 'marquee_text',
             'invite_ip_limit_enabled', 'share_daily_max', 'share_cooldown_seconds',
             'comment_auto_approve',
+            'notice_post_campaign_enabled', 'notice_post_need_rp',
+            'notice_post_daily_limit', 'notice_post_reward_tier',
+            'notice_post_reward_first', 'notice_post_reward_after',
         ],
         'copy' => [],
         'market' => [
@@ -285,6 +288,7 @@ class Config extends Backend
         $section = (string)$this->request->post('section', '');
         $allBoolFields = [
             'comment_auto_approve', 'invite_ip_limit_enabled', 'jackpot_auto_grow', 'jackpot_server_sync',
+            'notice_post_campaign_enabled', 'notice_post_need_rp',
             'locale_auto_detect', 'api_sign_enabled', 'device_fp_limit_enabled',
             'main_uid_verify_enabled', 'main_uid_verify_local', 'main_uid_verify_match_phone',
             'google_auth_login_enabled',
@@ -308,6 +312,7 @@ class Config extends Backend
             'market_day_start_hour', 'market_day_end_hour',
             'telegram_init_max_age',
             'fission_group_id',
+            'notice_post_daily_limit', 'notice_post_reward_tier',
             'app_android_version_code',
             'app_ios_version_code',
         ];
@@ -316,6 +321,7 @@ class Config extends Backend
             'invite_reward_rights', 'invite_reward_hongbao',
             'exchange_r2b_min', 'exchange_b2r_min', 'exchange_rb_min', 'exchange_br_min',
             'exchange_rh_min', 'exchange_hr_min', 'exchange_bh_min', 'exchange_hb_min', 'hongbao_unit_value',
+            'notice_post_reward_first', 'notice_post_reward_after',
             'jackpot_base', 'jackpot_ceiling', 'jackpot_grow_min', 'jackpot_grow_max',
             'jackpot_micro_grow_min', 'jackpot_micro_grow_max',
             'market_total_shares_seed', 'market_seed_capital',

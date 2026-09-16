@@ -97,6 +97,8 @@ class FansHubWallet
             'yxx_bet_refund'               => '鱼虾蟹退回',
             'yxx_rain'                     => '鱼虾蟹红包雨',
             'yxx_owner'                    => '鱼虾蟹群主分成',
+            'fission_reward'               => '裂变红包',
+            'notice_post'                  => '发帖奖励',
         ];
     }
 
