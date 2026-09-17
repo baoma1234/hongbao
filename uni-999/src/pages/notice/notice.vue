@@ -357,7 +357,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onUnmounted, reactive, ref, watch } from 'vue'
 import { onLoad, onShow, onHide } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
 import BottomTabBar from '../../components/BottomTabBar.vue'
@@ -368,7 +368,7 @@ import '../../styles/chat-messages-parity.css'
 import '../../styles/chat-qq-theme.css'
 import { apiRequest, fetchConfig, fetchProfile, getToken } from '../../utils/auth.js'
 import { applySafeAreaCssVars, getSafeAreaInsets, getTopBarContentHeight } from '../../utils/safe-area.js'
-import { avatarSrc, publicUrl } from '../../utils/chat.js'
+import { avatarSrc, captureVideoFirstFrame, publicUrl } from '../../utils/chat.js'
 import { tt } from '../../utils/i18n.js'
 import {
   fetchGroupInfo,
@@ -387,6 +387,8 @@ const noticesLoading = ref(false)
 const noticesLoadingMore = ref(false)
 const playingVideoId = ref(0)
 const NOTICE_PAGE_SIZE = 15
+/** 无 video_cover 时客户端截帧缓存（id -> blob/url） */
+const noticeAutoCovers = reactive({})
 const noticeCat = ref('latest')
 const noticeKeyword = ref('')
 let noticeSearchTimer = null
@@ -730,12 +732,33 @@ function noticeVideo(n) {
 }
 
 function noticeVideoCover(n) {
+  const id = (n && n.id) | 0
   if (n && n._videoCover != null) {
     const c = String(n._videoCover || '').trim()
-    return c ? avatarSrc(c) : ''
+    if (c) return avatarSrc(c)
   }
   const c = String((n && (n.video_cover || n.videoCover)) || '').trim()
-  return c ? avatarSrc(c) : ''
+  if (c) return avatarSrc(c)
+  const auto = id ? String(noticeAutoCovers[id] || '').trim() : ''
+  return auto ? avatarSrc(auto) : ''
+}
+
+function scheduleNoticeAutoCover(n) {
+  const id = (n && n.id) | 0
+  if (!id) return
+  if (noticeVideoCover(n)) return
+  const src = publicUrl(noticeVideo(n)) || noticeVideo(n)
+  if (!src) return
+  if (noticeAutoCovers['_' + id + '_busy']) return
+  noticeAutoCovers['_' + id + '_busy'] = '1'
+  captureVideoFirstFrame(src)
+    .then((snap) => {
+      if (snap) noticeAutoCovers[id] = snap
+    })
+    .catch(() => {})
+    .finally(() => {
+      delete noticeAutoCovers['_' + id + '_busy']
+    })
 }
 
 function noticeImages(n) {
@@ -793,6 +816,7 @@ function prepareNoticeRow(n) {
   n._imagesFull = cat === 'latest' || cat === 'promote'
   n._actions = null
   n._actions = noticeActionButtons(n)
+  if (n._video && !n._videoCover) scheduleNoticeAutoCover(n)
   return n
 }
 

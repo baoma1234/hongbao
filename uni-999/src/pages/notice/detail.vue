@@ -80,7 +80,7 @@ import { onLoad } from '@dcloudio/uni-app'
 import ProfileSubPage from '../../components/ProfileSubPage.vue'
 import LinkifiedText from '../../components/LinkifiedText.vue'
 import { apiRequest, fetchConfig, fetchProfile } from '../../utils/auth.js'
-import { avatarSrc } from '../../utils/chat.js'
+import { avatarSrc, captureVideoFirstFrame, publicUrl } from '../../utils/chat.js'
 import '../../styles/hb.css'
 import '../../styles/chat-messages-list.css'
 import '../../styles/chat-uni-adapter.css'
@@ -91,6 +91,7 @@ const loading = ref(true)
 const viewsLocal = ref(0)
 const myUserId = ref(0)
 const noticeManagerIds = ref([88888888, 55555555, 44444444, 77777777, 22222222, 58904307])
+const autoVideoCover = ref('')
 let noticeDeleting = false
 
 const pageTitle = computed(() => (notice.value && notice.value.author_name) || '帖子详情')
@@ -121,8 +122,20 @@ const imageStyle = computed(() => ({ width: '100%' }))
 const video = computed(() => String((notice.value && notice.value.video) || '').trim())
 const videoCover = computed(() => {
   const c = String((notice.value && notice.value.video_cover) || '').trim()
-  return c ? avatarSrc(c) : ''
+  if (c) return avatarSrc(c)
+  const auto = String(autoVideoCover.value || '').trim()
+  return auto ? avatarSrc(auto) : ''
 })
+
+async function fillAutoVideoCover(src) {
+  autoVideoCover.value = ''
+  const url = publicUrl(src) || String(src || '').trim()
+  if (!url) return
+  try {
+    const snap = await captureVideoFirstFrame(url)
+    if (snap) autoVideoCover.value = snap
+  } catch (e) {}
+}
 const canManage = computed(() => {
   const uid = myUserId.value | 0
   if (!uid || !notice.value) return false
@@ -185,6 +198,7 @@ async function bumpViews(id) {
 
 async function loadDetail(id) {
   loading.value = true
+  autoVideoCover.value = ''
   try {
     const data = await apiRequest('noticedetail', 'GET', { id })
     notice.value = data || null
@@ -192,6 +206,9 @@ async function loadDetail(id) {
     if (data && String(data.status) === 'published') {
       bumpViews(id)
     }
+    const cover = String((data && data.video_cover) || '').trim()
+    const vid = String((data && data.video) || '').trim()
+    if (vid && !cover) fillAutoVideoCover(vid)
   } catch (e) {
     notice.value = null
     uni.showToast({ title: (e && e.message) || '加载失败', icon: 'none' })

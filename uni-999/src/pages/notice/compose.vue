@@ -93,7 +93,7 @@ import { computed, ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import ProfileSubPage from '../../components/ProfileSubPage.vue'
 import { apiRequest, fetchConfig, getToken, uploadCommonFile } from '../../utils/auth.js'
-import { avatarSrc } from '../../utils/chat.js'
+import { avatarSrc, captureVideoFirstFrame } from '../../utils/chat.js'
 import '../../styles/hb.css'
 
 const categories = [
@@ -320,12 +320,12 @@ async function pickVideo() {
           coverUrl = normalizeUploadPath(coverData)
           coverPreview = (coverData && (coverData.fullurl || coverData.url)) || avatarSrc(coverUrl) || thumbPath
         } catch (ce) {
-          // 封面失败不阻断发帖，列表会回退黑底播放按钮
           coverUrl = ''
           coverPreview = ''
         }
-      } else {
-        // H5 等无 thumb：用本地视频截一帧再上传
+      }
+      if (!coverUrl) {
+        // H5 无系统 thumb / 上传失败：本地截第一帧再上传
         try {
           const snapped = await captureVideoFirstFrame(filePath)
           if (snapped) {
@@ -371,80 +371,6 @@ function normalizeUploadPath(data) {
     path = '/' + path.replace(/^\/+/, '')
   }
   return path || full
-}
-
-/** H5：从本地视频截取第一帧，返回临时图片路径（blob / dataURL 写文件） */
-function captureVideoFirstFrame(filePath) {
-  return new Promise((resolve) => {
-    // #ifdef H5
-    try {
-      if (typeof document === 'undefined') {
-        resolve('')
-        return
-      }
-      const v = document.createElement('video')
-      v.muted = true
-      v.playsInline = true
-      v.preload = 'auto'
-      v.crossOrigin = 'anonymous'
-      let done = false
-      const finish = (url) => {
-        if (done) return
-        done = true
-        try { v.pause(); v.removeAttribute('src'); v.load() } catch (e0) {}
-        resolve(url || '')
-      }
-      const timer = setTimeout(() => finish(''), 8000)
-      const snap = () => {
-        try {
-          const w = v.videoWidth || 0
-          const h = v.videoHeight || 0
-          if (!w || !h) {
-            clearTimeout(timer)
-            finish('')
-            return
-          }
-          const canvas = document.createElement('canvas')
-          const maxW = 720
-          const scale = w > maxW ? maxW / w : 1
-          canvas.width = Math.max(1, Math.round(w * scale))
-          canvas.height = Math.max(1, Math.round(h * scale))
-          const ctx = canvas.getContext('2d')
-          ctx.drawImage(v, 0, 0, canvas.width, canvas.height)
-          canvas.toBlob((blob) => {
-            clearTimeout(timer)
-            if (!blob) {
-              finish('')
-              return
-            }
-            finish(URL.createObjectURL(blob))
-          }, 'image/jpeg', 0.82)
-        } catch (e1) {
-          clearTimeout(timer)
-          finish('')
-        }
-      }
-      v.onloadeddata = () => {
-        try {
-          v.currentTime = Math.min(0.1, (v.duration || 1) * 0.01)
-        } catch (e2) {
-          snap()
-        }
-      }
-      v.onseeked = () => snap()
-      v.onerror = () => {
-        clearTimeout(timer)
-        finish('')
-      }
-      v.src = filePath
-    } catch (e) {
-      resolve('')
-    }
-    // #endif
-    // #ifndef H5
-    resolve('')
-    // #endif
-  })
 }
 
 async function submit() {

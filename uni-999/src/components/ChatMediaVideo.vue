@@ -23,7 +23,8 @@
       controls
       playsinline
       object-fit="contain"
-      poster=""
+      :poster="effectivePoster || ''"
+      preload="metadata"
       @play="onPlay"
       @playing="onPlay"
       @error="onVideoError"
@@ -31,7 +32,7 @@
     <!-- #endif -->
     <!-- 用 image 封面代替 video poster，避免 H5/Safari/App 滚动时封面脱层跟着飘 -->
     <view v-if="showPoster" class="chat-media-video-poster-layer" @click.stop="dismissPoster">
-      <image class="chat-media-video-poster" :src="poster" mode="aspectFit" />
+      <image class="chat-media-video-poster" :src="effectivePoster" mode="aspectFit" />
       <view class="chat-media-video-play">
         <text class="chat-media-video-play-ico">▶</text>
       </view>
@@ -45,7 +46,7 @@
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { isHlsUrl } from '../utils/chat.js'
+import { captureVideoFirstFrame, isHlsUrl } from '../utils/chat.js'
 
 const props = defineProps({
   src: { type: String, default: '' },
@@ -57,10 +58,18 @@ const domId = computed(() => 'chat-hls-' + uid.value)
 const errTip = ref('')
 const h5NativeSrc = ref('')
 const started = ref(false)
+const autoPoster = ref('')
 let hlsInst = null
 let destroyed = false
+let capturing = false
 
-const showPoster = computed(() => !!(String(props.poster || '').trim() && !started.value))
+const effectivePoster = computed(() => {
+  const p = String(props.poster || '').trim()
+  if (p) return p
+  return String(autoPoster.value || '').trim()
+})
+
+const showPoster = computed(() => !!(effectivePoster.value && !started.value))
 
 function canNativeHls(videoEl) {
   try {
@@ -100,6 +109,24 @@ function resolveVideoEl() {
   return null
 }
 
+async function tryAutoPoster() {
+  if (destroyed || capturing) return
+  if (String(props.poster || '').trim()) return
+  if (autoPoster.value) return
+  const url = String(props.src || '').trim()
+  if (!url || isHlsUrl(url)) return
+  capturing = true
+  try {
+    // #ifdef H5
+    const snapped = await captureVideoFirstFrame(url)
+    if (!destroyed && snapped) autoPoster.value = snapped
+    // #endif
+  } catch (e) {
+  } finally {
+    capturing = false
+  }
+}
+
 async function setupH5() {
   // #ifdef H5
   destroyHls()
@@ -115,6 +142,7 @@ async function setupH5() {
   const el = resolveVideoEl()
   if (!isHlsUrl(url)) {
     h5NativeSrc.value = url
+    tryAutoPoster()
     return
   }
   // Safari / iOS：原生 HLS
@@ -179,9 +207,6 @@ function dismissPoster() {
       }
     } catch (e) {}
     // #endif
-    // #ifndef H5
-    // App 端交给原生 controls；去掉封面后用户可点播放
-    // #endif
   })
 }
 
@@ -203,6 +228,7 @@ watch(
   () => props.src,
   () => {
     started.value = false
+    autoPoster.value = ''
     // #ifdef H5
     setupH5()
     // #endif
@@ -211,8 +237,12 @@ watch(
 
 watch(
   () => props.poster,
-  () => {
-    if (!started.value) return
+  (v) => {
+    if (String(v || '').trim()) {
+      autoPoster.value = ''
+    } else {
+      tryAutoPoster()
+    }
   }
 )
 
@@ -254,7 +284,6 @@ onBeforeUnmount(() => {
   background: #000;
   object-fit: contain;
   box-sizing: border-box;
-  /* 压进同一合成层，减轻滚动时残影/错位 */
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
 }

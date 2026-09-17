@@ -557,7 +557,7 @@ class MessageService
             } elseif ($msgType === 4 || $msgType === 5) {
                 // 会话预览也保留多图字段，避免客户端只剩首张 url
                 $keep = [];
-                foreach (['url', 'fullurl', 'thumb', 'poster', 'cover', 'name', 'images', 'image_urls', 'image_fullurls', 'count', 'caption', 'videos', 'video_count'] as $k) {
+                foreach (['url', 'fullurl', 'thumb', 'poster', 'cover', 'name', 'images', 'image_urls', 'image_fullurls', 'count', 'caption', 'videos', 'video_count', 'fullurl_poster'] as $k) {
                     if (array_key_exists($k, $msg['extra'])) {
                         $keep[$k] = $msg['extra'][$k];
                     }
@@ -3038,6 +3038,9 @@ class MessageService
             if (isset($extra['cover']) && !$this->isAllowedThumbUrl((string)$extra['cover'])) {
                 unset($extra['cover']);
             }
+            if (isset($extra['fullurl_poster']) && !$this->isAllowedThumbUrl((string)$extra['fullurl_poster'])) {
+                unset($extra['fullurl_poster']);
+            }
             // 多视频相册（同一条视频消息，最多 9）
             if ($msgType === 5 && !empty($extra['videos']) && is_array($extra['videos'])) {
                 $normVideos = [];
@@ -3213,7 +3216,7 @@ class MessageService
         } elseif ($file) {
             $keys = ['url', 'fullurl', 'name', 'ext', 'mime'];
         } else {
-            $keys = ['url', 'fullurl', 'thumb', 'name', 'poster', 'cover', 'caption'];
+            $keys = ['url', 'fullurl', 'thumb', 'name', 'poster', 'cover', 'caption', 'fullurl_poster'];
         }
         foreach ($keys as $key) {
             if ($key === 'caption') {

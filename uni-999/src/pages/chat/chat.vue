@@ -491,7 +491,7 @@
               @paste="onComposerPaste"
             />
             <view
-              v-if="attachAllowed"
+              v-if="attachAllowed && !hasComposerSendable"
               id="chatAttachBtn"
               class="btn-plus"
               :class="{ active: showAttach, disabled: mediaSending || textSending }"
@@ -996,7 +996,7 @@ import '../../styles/chat-rp-send-uni-adapter.css'
 import '../../styles/chat-888-parity.css'
 import '../../styles/chat-qq-theme.css'
 import '../../styles/chat-create-group-qq.css'
-import { apiRequest, fetchConfig, fetchProfile, getToken, goLoginIfUnauthorized, notifyProfileUpdated, uploadSticker } from '../../utils/auth.js'
+import { apiRequest, fetchConfig, fetchProfile, getToken, goLoginIfUnauthorized, notifyProfileUpdated, uploadCommonFile as uploadCommonFileApi, uploadSticker } from '../../utils/auth.js'
 import { getApiBase, getImgBase, learnUploadCdnFromUrl, ensureAbsoluteHttpUrl, packagedStaticUrl, resolveStaticRequestUrl } from '../../utils/config.js'
 import { assetBase, applyServerCopy, copyState, localeState, tt } from '../../utils/i18n.js'
 import {
@@ -2810,7 +2810,8 @@ function mediaUrl(m) {
 }
 function mediaPoster(m) {
   const ex = msgExtra(m)
-  const raw = (ex && (ex.thumb || ex.poster || ex.cover)) || ''
+  const raw =
+    (ex && (ex.fullurl_poster || ex.cover || ex.thumb || ex.poster)) || ''
   return raw ? publicUrl(raw) : ''
 }
 function fileName(m) {
@@ -4468,36 +4469,41 @@ async function sendSticker(st) {
 }
 
 async function uploadCommonFile(filePath) {
-  // 上传必须打 API；imgUri 可能是 CDN，没有 /api/common/upload
-  const url = ensureAbsoluteHttpUrl('/api/common/upload', getApiBase())
-  if (!url) throw new Error('接口地址未就绪，请检查网络后重试')
-  const token = getToken()
-  const up = await new Promise((resolve, reject) => {
-    uni.uploadFile({
-      url,
-      filePath,
-      name: 'file',
-      header: token ? { token } : {},
-      // 大视频：拉长超时（H5 / 部分端生效）
-      timeout: 600000,
-      success: (res) => {
-        try {
-          const body = JSON.parse((res && res.data) || '{}')
-          if ((body && body.code) !== 1) {
-            const msg = body.msg || body.message || '上传失败'
-            goLoginIfUnauthorized(body.code, msg)
-            reject(new Error(msg))
-            return
+  // 走 auth.uploadCommonFile：H5 blob: 封面截图可上传；大视频超时由下方兜底再试
+  try {
+    return await uploadCommonFileApi(filePath)
+  } catch (e) {
+    // 兼容旧路径：部分端 blob 失败时再走 uni.uploadFile
+    const path = String(filePath || '')
+    if (path.indexOf('blob:') === 0) throw e
+    const url = ensureAbsoluteHttpUrl('/api/common/upload', getApiBase())
+    if (!url) throw e
+    const token = getToken()
+    return await new Promise((resolve, reject) => {
+      uni.uploadFile({
+        url,
+        filePath: path,
+        name: 'file',
+        header: token ? { token } : {},
+        timeout: 600000,
+        success: (res) => {
+          try {
+            const body = JSON.parse((res && res.data) || '{}')
+            if ((body && body.code) !== 1) {
+              const msg = body.msg || body.message || '上传失败'
+              goLoginIfUnauthorized(body.code, msg)
+              reject(new Error(msg))
+              return
+            }
+            resolve(body.data || {})
+          } catch (err) {
+            reject(new Error('上传失败'))
           }
-          resolve(body.data || {})
-        } catch (e) {
-          reject(new Error('上传失败'))
-        }
-      },
-      fail: (err) => reject(new Error((err && err.errMsg) || '上传失败')),
+        },
+        fail: (err) => reject(new Error((err && err.errMsg) || '上传失败')),
+      })
     })
-  })
-  return up
+  }
 }
 
 /** 上传结果 → IM 允许的 /uploads 相对路径 + 可展示的绝对 fullurl（优先 OSS） */
@@ -4707,6 +4713,7 @@ async function pickVideo() {
       ]
     }
     const next = list.slice()
+    const addedIds = []
     for (let i = 0; i < picked.length; i++) {
       if (next.filter((x) => x && x.kind === 'video').length >= MAX_PENDING_VIDEOS) break
       const item = picked[i]
@@ -4715,31 +4722,40 @@ async function pickVideo() {
         uni.showToast({ title: formatSizeLimitTip(MAX_VIDEO_BYTES, 'video'), icon: 'none' })
         continue
       }
-      let preview = String(item.thumb || '')
-      if (!preview) {
-        try {
-          preview = (await captureVideoFirstFrame(item.filePath)) || ''
-        } catch (ce) {
-          preview = ''
-        }
-      }
+      const nativeThumb = String(item.thumb || '').trim()
       pendingMediaSeq += 1
+      const id = 'pm-' + pendingMediaSeq
       next.push({
-        id: 'pm-' + pendingMediaSeq,
+        id,
         kind: 'video',
         msgType: 5,
-        preview: preview || item.filePath,
-        thumbPath: preview || '',
+        preview: nativeThumb || item.filePath,
+        thumbPath: nativeThumb || '',
         filePath: item.filePath,
         size,
         name: item.name || '',
         fallback: '[视频]',
       })
+      addedIds.push(id)
     }
+    // 先写入草稿，立刻把「＋」换成「发送」；封面异步补
     pendingMedias.value = next
     showAttach.value = false
     showEmoji.value = false
     showSticker.value = false
+    for (let ai = 0; ai < addedIds.length; ai++) {
+      const id = addedIds[ai]
+      const draft = (pendingMedias.value || []).find((x) => x && x.id === id)
+      if (!draft || draft.thumbPath) continue
+      try {
+        const snapped = (await captureVideoFirstFrame(draft.filePath)) || ''
+        if (!snapped) continue
+        pendingMedias.value = (pendingMedias.value || []).map((x) => {
+          if (!x || x.id !== id) return x
+          return { ...x, preview: snapped, thumbPath: snapped }
+        })
+      } catch (ce) {}
+    }
   } catch (e) {
     const msg = (e && e.message) || (e && e.errMsg) || ''
     if (!/cancel|deny|fail chooseVideo|fail chooseMedia/i.test(msg)) {
@@ -5136,6 +5152,11 @@ async function sendPendingMedia() {
     if (videos[0].thumb) {
       vExtra.thumb = videos[0].thumb
       vExtra.poster = videos[0].poster || videos[0].thumb
+      // 优先绝对地址，避免客户端拼 URL 失败导致黑封面
+      if (videos[0].cover) {
+        vExtra.cover = videos[0].cover
+        vExtra.fullurl_poster = videos[0].cover
+      }
     }
     if (covers.length) {
       vExtra.images = covers

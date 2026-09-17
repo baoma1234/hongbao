@@ -395,7 +395,7 @@ export function mediaVideoItems(m) {
         continue
       }
       if (!v || typeof v !== 'object') continue
-      pushItem(v.fullurl || v.url || '', v.poster || v.thumb || v.cover || '')
+      pushItem(v.fullurl || v.url || '', v.cover || v.fullurl_poster || v.poster || v.thumb || '')
     }
   }
   if (!out.length) {
@@ -403,7 +403,8 @@ export function mediaVideoItems(m) {
     if (src) {
       out.push({
         src,
-        poster: publicUrl((ex && (ex.thumb || ex.poster || ex.cover)) || '') || '',
+        poster:
+          publicUrl((ex && (ex.fullurl_poster || ex.cover || ex.thumb || ex.poster)) || '') || '',
       })
     }
   }
@@ -427,8 +428,14 @@ export function captureVideoFirstFrame(filePath) {
       const v = document.createElement('video')
       v.muted = true
       v.playsInline = true
+      v.setAttribute('playsinline', 'true')
+      v.setAttribute('webkit-playsinline', 'true')
       v.preload = 'auto'
-      v.crossOrigin = 'anonymous'
+      // 本地 blob/file 勿设 crossOrigin，否则 canvas 常被污染或加载失败
+      const isRemote = /^https?:\/\//i.test(path)
+      if (isRemote) {
+        v.crossOrigin = 'anonymous'
+      }
       let done = false
       const finish = (url) => {
         if (done) return
@@ -440,15 +447,13 @@ export function captureVideoFirstFrame(filePath) {
         } catch (e0) {}
         resolve(url || '')
       }
-      const timer = setTimeout(() => finish(''), 8000)
+      const timer = setTimeout(() => finish(''), 12000)
       const snap = () => {
         try {
           const w = v.videoWidth || 0
           const h = v.videoHeight || 0
           if (!w || !h) {
-            clearTimeout(timer)
-            finish('')
-            return
+            return false
           }
           const canvas = document.createElement('canvas')
           const maxW = 720
@@ -460,33 +465,73 @@ export function captureVideoFirstFrame(filePath) {
           canvas.toBlob(
             (blob) => {
               clearTimeout(timer)
-              if (!blob) {
+              if (!blob || blob.size < 32) {
                 finish('')
                 return
               }
               finish(URL.createObjectURL(blob))
             },
             'image/jpeg',
-            0.82
+            0.85
           )
+          return true
         } catch (e1) {
-          clearTimeout(timer)
-          finish('')
+          return false
         }
       }
-      v.onloadeddata = () => {
+      const trySeekThenSnap = () => {
+        if (done) return
         try {
-          v.currentTime = Math.min(0.1, (v.duration || 1) * 0.01)
-        } catch (e2) {
-          snap()
+          const d = Number(v.duration)
+          const t = Number.isFinite(d) && d > 0 ? Math.min(0.2, d * 0.02) : 0.05
+          if (v.readyState >= 2 && (v.videoWidth || 0) > 0) {
+            // 已有帧：先直接截，再 seek 补一次
+            if (snap()) return
+          }
+          const onSeeked = () => {
+            v.removeEventListener('seeked', onSeeked)
+            if (!snap()) {
+              clearTimeout(timer)
+              finish('')
+            }
+          }
+          v.addEventListener('seeked', onSeeked)
+          try {
+            v.currentTime = t
+          } catch (e2) {
+            v.removeEventListener('seeked', onSeeked)
+            if (!snap()) {
+              clearTimeout(timer)
+              finish('')
+            }
+          }
+        } catch (e3) {
+          if (!snap()) {
+            clearTimeout(timer)
+            finish('')
+          }
         }
       }
-      v.onseeked = () => snap()
+      v.addEventListener('loadeddata', trySeekThenSnap)
+      v.addEventListener('loadedmetadata', () => {
+        if ((v.videoWidth || 0) > 0) trySeekThenSnap()
+      })
       v.onerror = () => {
         clearTimeout(timer)
         finish('')
       }
       v.src = path
+      try {
+        const p = v.play()
+        if (p && typeof p.then === 'function') {
+          p.then(() => {
+            try {
+              v.pause()
+            } catch (e4) {}
+            trySeekThenSnap()
+          }).catch(() => {})
+        }
+      } catch (e5) {}
     } catch (e) {
       resolve('')
     }
