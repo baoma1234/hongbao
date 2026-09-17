@@ -283,10 +283,19 @@ class Account extends Backend
         $oldHongbao = (float)($row->hongbao ?? 0) + (float)($row->balance ?? 0);
         $newRights = isset($params['rights']) ? round((float)$params['rights'], 2) : $oldRights;
         $newHongbao = isset($params['hongbao']) ? round((float)$params['hongbao'], 2) : $oldHongbao;
-        $rightsDelta = round($newRights - $oldRights, 2);
+        // 打开编辑页时的基线：若客服未改动该字段，则不调账（避免覆盖期间裂变/红包入账）
+        $rightsBaseline = array_key_exists('rights_baseline', $params)
+            ? round((float)$params['rights_baseline'], 2)
+            : null;
+        $hongbaoBaseline = array_key_exists('hongbao_baseline', $params)
+            ? round((float)$params['hongbao_baseline'], 2)
+            : null;
+        $rightsChanged = $rightsBaseline === null || abs($newRights - $rightsBaseline) > 1e-8;
+        $hongbaoChanged = $hongbaoBaseline === null || abs($newHongbao - $hongbaoBaseline) > 1e-8;
+        $rightsDelta = $rightsChanged ? round($newRights - $oldRights, 2) : 0.0;
         $balanceDelta = 0.0;
-        $hongbaoDelta = round($newHongbao - $oldHongbao, 2);
-        unset($params['rights'], $params['balance'], $params['hongbao']);
+        $hongbaoDelta = $hongbaoChanged ? round($newHongbao - $oldHongbao, 2) : 0.0;
+        unset($params['rights'], $params['balance'], $params['hongbao'], $params['rights_baseline'], $params['hongbao_baseline']);
 
         $meta = [];
         foreach (['main_uid', 'flow_stage', 'status', 'member_level', 'turnover', 'admin_remark'] as $field) {
