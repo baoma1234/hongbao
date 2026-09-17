@@ -5247,23 +5247,31 @@ button.chat-rp-fair-link {
   box-sizing: border-box;
 }
 
-.chat-notice-imgs.imgs-1 {
+.chat-notice-imgs.imgs-full {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 100%;
+  grid-template-columns: none;
+}
+
+.chat-notice-imgs:not(.imgs-full).imgs-1 {
   grid-template-columns: 1fr;
   max-width: 280px;
 }
 
-.chat-notice-imgs.imgs-2,
-.chat-notice-imgs.imgs-4 {
+.chat-notice-imgs:not(.imgs-full).imgs-2,
+.chat-notice-imgs:not(.imgs-full).imgs-4 {
   grid-template-columns: 1fr 1fr;
   max-width: 176px;
 }
 
-.chat-notice-imgs.imgs-3,
-.chat-notice-imgs.imgs-5,
-.chat-notice-imgs.imgs-6,
-.chat-notice-imgs.imgs-7,
-.chat-notice-imgs.imgs-8,
-.chat-notice-imgs.imgs-9 {
+.chat-notice-imgs:not(.imgs-full).imgs-3,
+.chat-notice-imgs:not(.imgs-full).imgs-5,
+.chat-notice-imgs:not(.imgs-full).imgs-6,
+.chat-notice-imgs:not(.imgs-full).imgs-7,
+.chat-notice-imgs:not(.imgs-full).imgs-8,
+.chat-notice-imgs:not(.imgs-full).imgs-9 {
   grid-template-columns: 1fr 1fr 1fr;
   max-width: 258px;
 }
@@ -5278,7 +5286,7 @@ button.chat-rp-fair-link {
   box-sizing: border-box;
 }
 
-.chat-notice-imgs:not(.imgs-1) .chat-notice-img-wrap {
+.chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap {
   aspect-ratio: 1 / 1;
   height: auto;
   min-height: 54px;
@@ -5292,13 +5300,14 @@ button.chat-rp-fair-link {
   vertical-align: top;
 }
 
-.chat-notice-imgs:not(.imgs-1) .chat-notice-img {
+.chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.chat-notice-imgs.imgs-1 .chat-notice-img-wrap {
+.chat-notice-imgs.imgs-1 .chat-notice-img-wrap,
+.chat-notice-imgs.imgs-full .chat-notice-img-wrap {
   aspect-ratio: auto;
   height: auto;
   min-height: 0;
@@ -5307,11 +5316,16 @@ button.chat-rp-fair-link {
   background: #f7f3ea;
 }
 
-.chat-notice-imgs.imgs-1 .chat-notice-img {
+.chat-notice-imgs.imgs-1 .chat-notice-img,
+.chat-notice-imgs.imgs-full .chat-notice-img {
   width: 100%;
   height: auto;
-  max-height: 360px;
+  max-height: none;
   border-radius: 10px;
+}
+
+.chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img {
+  max-height: 360px;
 }
 
 .chat-notice-actions {

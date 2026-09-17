@@ -956,47 +956,57 @@ body.tab-messages #tabMessages .chat-list-pane {
   max-width: 100% !important;
   box-sizing: border-box !important;
 }
-#tabMessages .chat-notice-imgs.imgs-1,
-#tabNotice .chat-notice-imgs.imgs-1,
-.notice-page .chat-notice-imgs.imgs-1,
-.notice-detail .chat-notice-imgs.imgs-1 {
+#tabMessages .chat-notice-imgs.imgs-full,
+#tabNotice .chat-notice-imgs.imgs-full,
+.notice-page .chat-notice-imgs.imgs-full,
+.notice-detail .chat-notice-imgs.imgs-full {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  max-width: 100% !important;
+  grid-template-columns: none !important;
+}
+#tabMessages .chat-notice-imgs:not(.imgs-full).imgs-1,
+#tabNotice .chat-notice-imgs:not(.imgs-full).imgs-1,
+.notice-page .chat-notice-imgs:not(.imgs-full).imgs-1,
+.notice-detail .chat-notice-imgs:not(.imgs-full).imgs-1 {
   max-width: 280px !important;
 }
-#tabMessages .chat-notice-imgs.imgs-2,
-#tabMessages .chat-notice-imgs.imgs-4,
-#tabNotice .chat-notice-imgs.imgs-2,
-#tabNotice .chat-notice-imgs.imgs-4,
-.notice-page .chat-notice-imgs.imgs-2,
-.notice-page .chat-notice-imgs.imgs-4,
-.notice-detail .chat-notice-imgs.imgs-2,
-.notice-detail .chat-notice-imgs.imgs-4 {
+#tabMessages .chat-notice-imgs:not(.imgs-full).imgs-2,
+#tabMessages .chat-notice-imgs:not(.imgs-full).imgs-4,
+#tabNotice .chat-notice-imgs:not(.imgs-full).imgs-2,
+#tabNotice .chat-notice-imgs:not(.imgs-full).imgs-4,
+.notice-page .chat-notice-imgs:not(.imgs-full).imgs-2,
+.notice-page .chat-notice-imgs:not(.imgs-full).imgs-4,
+.notice-detail .chat-notice-imgs:not(.imgs-full).imgs-2,
+.notice-detail .chat-notice-imgs:not(.imgs-full).imgs-4 {
   grid-template-columns: 1fr 1fr !important;
   max-width: 176px !important;
 }
-#tabMessages .chat-notice-imgs.imgs-3,
-#tabMessages .chat-notice-imgs.imgs-5,
-#tabMessages .chat-notice-imgs.imgs-6,
-#tabMessages .chat-notice-imgs.imgs-7,
-#tabMessages .chat-notice-imgs.imgs-8,
-#tabMessages .chat-notice-imgs.imgs-9,
-#tabNotice .chat-notice-imgs.imgs-3,
-#tabNotice .chat-notice-imgs.imgs-5,
-#tabNotice .chat-notice-imgs.imgs-6,
-#tabNotice .chat-notice-imgs.imgs-7,
-#tabNotice .chat-notice-imgs.imgs-8,
-#tabNotice .chat-notice-imgs.imgs-9,
-.notice-page .chat-notice-imgs.imgs-3,
-.notice-page .chat-notice-imgs.imgs-5,
-.notice-page .chat-notice-imgs.imgs-6,
-.notice-page .chat-notice-imgs.imgs-7,
-.notice-page .chat-notice-imgs.imgs-8,
-.notice-page .chat-notice-imgs.imgs-9,
-.notice-detail .chat-notice-imgs.imgs-3,
-.notice-detail .chat-notice-imgs.imgs-5,
-.notice-detail .chat-notice-imgs.imgs-6,
-.notice-detail .chat-notice-imgs.imgs-7,
-.notice-detail .chat-notice-imgs.imgs-8,
-.notice-detail .chat-notice-imgs.imgs-9 {
+#tabMessages .chat-notice-imgs:not(.imgs-full).imgs-3,
+#tabMessages .chat-notice-imgs:not(.imgs-full).imgs-5,
+#tabMessages .chat-notice-imgs:not(.imgs-full).imgs-6,
+#tabMessages .chat-notice-imgs:not(.imgs-full).imgs-7,
+#tabMessages .chat-notice-imgs:not(.imgs-full).imgs-8,
+#tabMessages .chat-notice-imgs:not(.imgs-full).imgs-9,
+#tabNotice .chat-notice-imgs:not(.imgs-full).imgs-3,
+#tabNotice .chat-notice-imgs:not(.imgs-full).imgs-5,
+#tabNotice .chat-notice-imgs:not(.imgs-full).imgs-6,
+#tabNotice .chat-notice-imgs:not(.imgs-full).imgs-7,
+#tabNotice .chat-notice-imgs:not(.imgs-full).imgs-8,
+#tabNotice .chat-notice-imgs:not(.imgs-full).imgs-9,
+.notice-page .chat-notice-imgs:not(.imgs-full).imgs-3,
+.notice-page .chat-notice-imgs:not(.imgs-full).imgs-5,
+.notice-page .chat-notice-imgs:not(.imgs-full).imgs-6,
+.notice-page .chat-notice-imgs:not(.imgs-full).imgs-7,
+.notice-page .chat-notice-imgs:not(.imgs-full).imgs-8,
+.notice-page .chat-notice-imgs:not(.imgs-full).imgs-9,
+.notice-detail .chat-notice-imgs:not(.imgs-full).imgs-3,
+.notice-detail .chat-notice-imgs:not(.imgs-full).imgs-5,
+.notice-detail .chat-notice-imgs:not(.imgs-full).imgs-6,
+.notice-detail .chat-notice-imgs:not(.imgs-full).imgs-7,
+.notice-detail .chat-notice-imgs:not(.imgs-full).imgs-8,
+.notice-detail .chat-notice-imgs:not(.imgs-full).imgs-9 {
   grid-template-columns: 1fr 1fr 1fr !important;
   max-width: 258px !important;
 }
@@ -1010,19 +1020,23 @@ body.tab-messages #tabMessages .chat-list-pane {
   overflow: hidden !important;
   box-sizing: border-box !important;
 }
-#tabMessages .chat-notice-imgs:not(.imgs-1) .chat-notice-img-wrap,
-#tabNotice .chat-notice-imgs:not(.imgs-1) .chat-notice-img-wrap,
-.notice-page .chat-notice-imgs:not(.imgs-1) .chat-notice-img-wrap,
-.notice-detail .chat-notice-imgs:not(.imgs-1) .chat-notice-img-wrap {
+#tabMessages .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap,
+#tabNotice .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap,
+.notice-page .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap,
+.notice-detail .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap {
   aspect-ratio: 1 / 1 !important;
   height: auto !important;
   min-height: 54px !important;
   padding-bottom: 0 !important;
 }
 #tabMessages .chat-notice-imgs.imgs-1 .chat-notice-img-wrap,
+#tabMessages .chat-notice-imgs.imgs-full .chat-notice-img-wrap,
 #tabNotice .chat-notice-imgs.imgs-1 .chat-notice-img-wrap,
+#tabNotice .chat-notice-imgs.imgs-full .chat-notice-img-wrap,
 .notice-page .chat-notice-imgs.imgs-1 .chat-notice-img-wrap,
-.notice-detail .chat-notice-imgs.imgs-1 .chat-notice-img-wrap {
+.notice-page .chat-notice-imgs.imgs-full .chat-notice-img-wrap,
+.notice-detail .chat-notice-imgs.imgs-1 .chat-notice-img-wrap,
+.notice-detail .chat-notice-imgs.imgs-full .chat-notice-img-wrap {
   aspect-ratio: auto !important;
   height: auto !important;
   min-height: 0 !important;
@@ -1050,39 +1064,57 @@ body.tab-messages #tabMessages .chat-list-pane {
   right: auto !important;
   bottom: auto !important;
 }
-#tabMessages .chat-notice-imgs:not(.imgs-1) .chat-notice-img,
-#tabMessages .chat-notice-imgs:not(.imgs-1) .chat-notice-img-wrap uni-image,
-#tabMessages .chat-notice-imgs:not(.imgs-1) .chat-notice-img-wrap image,
-#tabMessages .chat-notice-imgs:not(.imgs-1) .chat-notice-img-wrap img,
-#tabNotice .chat-notice-imgs:not(.imgs-1) .chat-notice-img,
-#tabNotice .chat-notice-imgs:not(.imgs-1) .chat-notice-img-wrap uni-image,
-#tabNotice .chat-notice-imgs:not(.imgs-1) .chat-notice-img-wrap image,
-#tabNotice .chat-notice-imgs:not(.imgs-1) .chat-notice-img-wrap img,
-.notice-page .chat-notice-imgs:not(.imgs-1) .chat-notice-img,
-.notice-page .chat-notice-imgs:not(.imgs-1) .chat-notice-img-wrap uni-image,
-.notice-page .chat-notice-imgs:not(.imgs-1) .chat-notice-img-wrap image,
-.notice-page .chat-notice-imgs:not(.imgs-1) .chat-notice-img-wrap img,
-.notice-detail .chat-notice-imgs:not(.imgs-1) .chat-notice-img,
-.notice-detail .chat-notice-imgs:not(.imgs-1) .chat-notice-img-wrap uni-image,
-.notice-detail .chat-notice-imgs:not(.imgs-1) .chat-notice-img-wrap image,
-.notice-detail .chat-notice-imgs:not(.imgs-1) .chat-notice-img-wrap img {
+#tabMessages .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img,
+#tabMessages .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap uni-image,
+#tabMessages .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap image,
+#tabMessages .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap img,
+#tabNotice .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img,
+#tabNotice .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap uni-image,
+#tabNotice .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap image,
+#tabNotice .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap img,
+.notice-page .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img,
+.notice-page .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap uni-image,
+.notice-page .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap image,
+.notice-page .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap img,
+.notice-detail .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img,
+.notice-detail .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap uni-image,
+.notice-detail .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap image,
+.notice-detail .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap img {
   width: 100% !important;
   height: 100% !important;
   object-fit: cover !important;
 }
 #tabMessages .chat-notice-imgs.imgs-1 .chat-notice-img,
+#tabMessages .chat-notice-imgs.imgs-full .chat-notice-img,
 #tabMessages .chat-notice-imgs.imgs-1 .chat-notice-img-wrap uni-image,
+#tabMessages .chat-notice-imgs.imgs-full .chat-notice-img-wrap uni-image,
 #tabMessages .chat-notice-imgs.imgs-1 .chat-notice-img-wrap image,
+#tabMessages .chat-notice-imgs.imgs-full .chat-notice-img-wrap image,
 #tabNotice .chat-notice-imgs.imgs-1 .chat-notice-img,
+#tabNotice .chat-notice-imgs.imgs-full .chat-notice-img,
 #tabNotice .chat-notice-imgs.imgs-1 .chat-notice-img-wrap uni-image,
+#tabNotice .chat-notice-imgs.imgs-full .chat-notice-img-wrap uni-image,
 #tabNotice .chat-notice-imgs.imgs-1 .chat-notice-img-wrap image,
+#tabNotice .chat-notice-imgs.imgs-full .chat-notice-img-wrap image,
 .notice-page .chat-notice-imgs.imgs-1 .chat-notice-img,
+.notice-page .chat-notice-imgs.imgs-full .chat-notice-img,
 .notice-page .chat-notice-imgs.imgs-1 .chat-notice-img-wrap uni-image,
+.notice-page .chat-notice-imgs.imgs-full .chat-notice-img-wrap uni-image,
 .notice-page .chat-notice-imgs.imgs-1 .chat-notice-img-wrap image,
+.notice-page .chat-notice-imgs.imgs-full .chat-notice-img-wrap image,
 .notice-detail .chat-notice-imgs.imgs-1 .chat-notice-img,
+.notice-detail .chat-notice-imgs.imgs-full .chat-notice-img,
 .notice-detail .chat-notice-imgs.imgs-1 .chat-notice-img-wrap uni-image,
-.notice-detail .chat-notice-imgs.imgs-1 .chat-notice-img-wrap image {
+.notice-detail .chat-notice-imgs.imgs-full .chat-notice-img-wrap uni-image,
+.notice-detail .chat-notice-imgs.imgs-1 .chat-notice-img-wrap image,
+.notice-detail .chat-notice-imgs.imgs-full .chat-notice-img-wrap image {
   height: auto !important;
+  max-height: none !important;
+}
+#tabMessages .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img,
+#tabNotice .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img,
+.notice-page .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img,
+.notice-detail .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img {
   max-height: 360px !important;
 }
 

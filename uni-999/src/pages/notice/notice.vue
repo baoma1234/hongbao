@@ -223,7 +223,10 @@
                       >
                         <view
                           class="chat-notice-imgs"
-                          :class="'imgs-' + Math.min(9, noticeImages(n).length)"
+                          :class="[
+                            'imgs-' + Math.min(9, noticeImages(n).length),
+                            { 'imgs-full': noticeImagesFull(n) },
+                          ]"
                         >
                           <view
                             v-for="(src, ii) in noticeImages(n).slice(0, 9)"
@@ -660,7 +663,10 @@ function noticeImages(n) {
 }
 
 function noticeImagesFull(n) {
-  // 多图一律九宫格合在一起；仅单图走大图模式
+  const c = String((n && n.category) || noticeCat.value || '')
+  // 最新发布 / 推广赚钱：全宽长图（多图纵向铺开），与彩金/海外九宫格区分
+  if (c === 'latest' || c === 'promote') return true
+  // 彩金白嫖 / 海外圈内事：仅单图大图，多图合九宫格
   return noticeImages(n).length === 1
 }
 

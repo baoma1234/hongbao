@@ -28,7 +28,10 @@
       <view v-if="images.length" class="chat-notice-media">
         <view
           class="chat-notice-imgs"
-          :class="'imgs-' + Math.min(9, images.length)"
+          :class="[
+            'imgs-' + Math.min(9, images.length),
+            { 'imgs-full': imagesFull },
+          ]"
         >
           <view
             v-for="(src, ii) in images.slice(0, 9)"
@@ -39,7 +42,7 @@
             <image
               class="chat-notice-img"
               :src="avatarSrc(src)"
-              :mode="images.length === 1 ? 'widthFix' : 'aspectFill'"
+              :mode="imagesFull ? 'widthFix' : 'aspectFill'"
             />
           </view>
         </view>
@@ -83,6 +86,12 @@ const images = computed(() => {
   if (!Array.isArray(imgs)) return []
   // 本站上传会把图存成 /uploads/*.js，按图片展示
   return imgs.map((u) => String(u || '').trim()).filter(Boolean)
+})
+const imagesFull = computed(() => {
+  const c = String((notice.value && notice.value.category) || '')
+  // 最新 / 推广：全宽长图；彩金 / 海外：多图九宫格
+  if (c === 'latest' || c === 'promote') return true
+  return images.value.length === 1
 })
 const video = computed(() => String((notice.value && notice.value.video) || '').trim())
 const viewsText = computed(() => {

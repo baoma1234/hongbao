@@ -1968,25 +1968,34 @@ body.tab-messages .bottom-action-bar {
   box-sizing: border-box;
 }
 
-/* 单图：限制最大宽，高度跟图走 */
-.chat-notice-imgs.imgs-1 {
+/* 最新/推广：全宽长图纵向排列 */
+.chat-notice-imgs.imgs-full {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 100%;
+  grid-template-columns: none;
+}
+
+/* 彩金/海外 单图：限制最大宽 */
+.chat-notice-imgs:not(.imgs-full).imgs-1 {
   grid-template-columns: 1fr;
   max-width: 280px;
 }
 
-/* 多图：朋友圈九宫格，限制总宽，不纵向占满 */
-.chat-notice-imgs.imgs-2,
-.chat-notice-imgs.imgs-4 {
+/* 彩金/海外 多图：朋友圈九宫格 */
+.chat-notice-imgs:not(.imgs-full).imgs-2,
+.chat-notice-imgs:not(.imgs-full).imgs-4 {
   grid-template-columns: 1fr 1fr;
   max-width: 176px;
 }
 
-.chat-notice-imgs.imgs-3,
-.chat-notice-imgs.imgs-5,
-.chat-notice-imgs.imgs-6,
-.chat-notice-imgs.imgs-7,
-.chat-notice-imgs.imgs-8,
-.chat-notice-imgs.imgs-9 {
+.chat-notice-imgs:not(.imgs-full).imgs-3,
+.chat-notice-imgs:not(.imgs-full).imgs-5,
+.chat-notice-imgs:not(.imgs-full).imgs-6,
+.chat-notice-imgs:not(.imgs-full).imgs-7,
+.chat-notice-imgs:not(.imgs-full).imgs-8,
+.chat-notice-imgs:not(.imgs-full).imgs-9 {
   grid-template-columns: 1fr 1fr 1fr;
   max-width: 258px;
 }
@@ -2001,8 +2010,7 @@ body.tab-messages .bottom-action-bar {
   box-sizing: border-box;
 }
 
-/* 多图方格：用 aspect-ratio，避免 height:0 在 uni-image 下整图消失 */
-.chat-notice-imgs:not(.imgs-1) .chat-notice-img-wrap {
+.chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap {
   aspect-ratio: 1 / 1;
   height: auto;
   min-height: 54px;
@@ -2016,13 +2024,14 @@ body.tab-messages .bottom-action-bar {
   vertical-align: top;
 }
 
-.chat-notice-imgs:not(.imgs-1) .chat-notice-img {
+.chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.chat-notice-imgs.imgs-1 .chat-notice-img-wrap {
+.chat-notice-imgs.imgs-1 .chat-notice-img-wrap,
+.chat-notice-imgs.imgs-full .chat-notice-img-wrap {
   aspect-ratio: auto;
   height: auto;
   min-height: 0;
@@ -2031,11 +2040,16 @@ body.tab-messages .bottom-action-bar {
   background: #f7f3ea;
 }
 
-.chat-notice-imgs.imgs-1 .chat-notice-img {
+.chat-notice-imgs.imgs-1 .chat-notice-img,
+.chat-notice-imgs.imgs-full .chat-notice-img {
   width: 100%;
   height: auto;
-  max-height: 360px;
+  max-height: none;
   border-radius: 10px;
+}
+
+.chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img {
+  max-height: 360px;
 }
 
 .chat-notice-actions {
