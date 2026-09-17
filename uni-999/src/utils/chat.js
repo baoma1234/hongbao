@@ -220,9 +220,17 @@ export const MSG_TEXT_HEAD_KEEP = 55
 export const MSG_TEXT_TAIL_KEEP = 45
 /** 折叠时中间预览大约字数（约 2～3 行） */
 export const MSG_TEXT_MID_PREVIEW = 96
+/** 这些会员发送的长文不折叠（客服/运营号） */
+export const MSG_FOLD_EXEMPT_USER_IDS = [88888888, 55555555, 44444444, 77777777]
+
+export function isMsgFoldExemptUser(userId) {
+  const id = Number(userId) || 0
+  return id > 0 && MSG_FOLD_EXEMPT_USER_IDS.indexOf(id) >= 0
+}
 
 /**
  * @param {string} raw
+ * @param {{ fromUserId?: number|string }=} opts
  * @returns {{
  *   foldable: boolean,
  *   headParts: {t:string,v:string}[],
@@ -232,7 +240,7 @@ export const MSG_TEXT_MID_PREVIEW = 96
  *   parts: {t:string,v:string}[],
  * }}
  */
-export function buildLongMsgFoldSegments(raw) {
+export function buildLongMsgFoldSegments(raw, opts) {
   const s = String(raw || '')
   const blank = {
     foldable: false,
@@ -243,6 +251,16 @@ export function buildLongMsgFoldSegments(raw) {
     parts: [],
   }
   if (!s) return blank
+  if (isMsgFoldExemptUser(opts && opts.fromUserId)) {
+    return {
+      foldable: false,
+      headParts: [],
+      midParts: [],
+      midPreviewParts: [],
+      tailParts: [],
+      parts: splitTextLinks(s),
+    }
+  }
   const headN = MSG_TEXT_HEAD_KEEP
   const tailN = MSG_TEXT_TAIL_KEEP
   if (s.length <= MSG_TEXT_COLLAPSE_AT || headN + tailN >= s.length) {

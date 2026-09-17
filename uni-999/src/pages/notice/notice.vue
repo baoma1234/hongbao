@@ -291,6 +291,11 @@
                       </view>
                       <view class="chat-notice-ft" @click.stop>
                         <view class="chat-notice-share-btn" @click="shareNoticeToCommunity(n)">分享到社群</view>
+                        <view
+                          v-if="canManageNotice(n)"
+                          class="chat-notice-del-btn"
+                          @click="softDeleteNotice(n)"
+                        >删除</view>
                       </view>
                     </view>
                     <view v-if="!noticesLoading && !notices.length" class="chat-empty chat-empty-glass">暂无公告</view>
@@ -361,7 +366,7 @@ import '../../styles/chat-messages-list.css'
 import '../../styles/chat-uni-adapter.css'
 import '../../styles/chat-messages-parity.css'
 import '../../styles/chat-qq-theme.css'
-import { apiRequest, fetchConfig, getToken } from '../../utils/auth.js'
+import { apiRequest, fetchConfig, fetchProfile, getToken } from '../../utils/auth.js'
 import { applySafeAreaCssVars, getSafeAreaInsets, getTopBarContentHeight } from '../../utils/safe-area.js'
 import { avatarSrc, publicUrl } from '../../utils/chat.js'
 import { tt } from '../../utils/i18n.js'
@@ -396,6 +401,9 @@ let searchThemesCat = ''
 /** 选完主题后回填焦点时，跳过一次「弹出主题」 */
 const searchThemeSkipOnce = ref(false)
 const noticeHeadOffsetPx = ref(100)
+const myUserId = ref(0)
+const noticeManagerIds = ref([88888888, 55555555, 44444444, 77777777, 22222222, 58904307])
+let noticeDeleting = false
 
 const searchModOptions = [
   { code: 'latest', title: '最新发布', short: '最新' },
@@ -792,6 +800,41 @@ function playNoticeVideo(n) {
   const id = (n && n.id) | 0
   if (!id) return
   playingVideoId.value = id
+}
+
+function canManageNotice(n) {
+  const uid = myUserId.value | 0
+  if (!uid || !n) return false
+  if (noticeManagerIds.value.indexOf(uid) < 0) return false
+  const c = String(n.category || noticeCat.value || '')
+  return c === 'ads' || c === 'rules'
+}
+
+async function softDeleteNotice(n) {
+  if (!canManageNotice(n) || noticeDeleting) return
+  const id = (n && n.id) | 0
+  if (!id) return
+  const ok = await new Promise((resolve) => {
+    uni.showModal({
+      title: '下架帖子',
+      content: '下架后前台不再显示（数据保留，可在后台恢复）',
+      confirmText: '下架',
+      cancelText: '取消',
+      success: (res) => resolve(!!(res && res.confirm)),
+      fail: () => resolve(false),
+    })
+  })
+  if (!ok) return
+  noticeDeleting = true
+  try {
+    await apiRequest('noticepause', 'POST', { id })
+    notices.value = (notices.value || []).filter((row) => ((row && row.id) | 0) !== id)
+    uni.showToast({ title: '已下架', icon: 'success' })
+  } catch (e) {
+    uni.showToast({ title: (e && e.message) || '下架失败', icon: 'none' })
+  } finally {
+    noticeDeleting = false
+  }
 }
 
 function previewNoticeImages(n, index) {
@@ -1435,6 +1478,19 @@ onShow(() => {
   }, 50)
   void loadChatFissionCardFlag()
   syncPromoteEarnPanel()
+  void (async () => {
+    try {
+      const p = await fetchProfile()
+      myUserId.value = (p && (p.id || p.user_id)) | 0
+    } catch (e) {}
+    try {
+      const cfg = await fetchConfig()
+      const ids = (cfg && cfg.notice_manager_user_ids) || []
+      if (Array.isArray(ids) && ids.length) {
+        noticeManagerIds.value = ids.map((x) => x | 0).filter((x) => x > 0)
+      }
+    } catch (e2) {}
+  })()
   void loadNotices(true)
   startNoticeViewsBump()
   nextTick(() => measureNoticeLayout())

@@ -67,6 +67,9 @@
           </view>
         </view>
       </view>
+      <view v-if="canManage" class="chat-notice-ft" style="margin-top: 16px">
+        <view class="chat-notice-del-btn" @click="softDelete">删除</view>
+      </view>
     </view>
   </ProfileSubPage>
 </template>
@@ -76,7 +79,7 @@ import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import ProfileSubPage from '../../components/ProfileSubPage.vue'
 import LinkifiedText from '../../components/LinkifiedText.vue'
-import { apiRequest } from '../../utils/auth.js'
+import { apiRequest, fetchConfig, fetchProfile } from '../../utils/auth.js'
 import { avatarSrc } from '../../utils/chat.js'
 import '../../styles/hb.css'
 import '../../styles/chat-messages-list.css'
@@ -86,6 +89,9 @@ const noticeId = ref(0)
 const notice = ref(null)
 const loading = ref(true)
 const viewsLocal = ref(0)
+const myUserId = ref(0)
+const noticeManagerIds = ref([88888888, 55555555, 44444444, 77777777, 22222222, 58904307])
+let noticeDeleting = false
 
 const pageTitle = computed(() => (notice.value && notice.value.author_name) || '帖子详情')
 const tagLabel = computed(() => {
@@ -116,6 +122,13 @@ const video = computed(() => String((notice.value && notice.value.video) || '').
 const videoCover = computed(() => {
   const c = String((notice.value && notice.value.video_cover) || '').trim()
   return c ? avatarSrc(c) : ''
+})
+const canManage = computed(() => {
+  const uid = myUserId.value | 0
+  if (!uid || !notice.value) return false
+  if (noticeManagerIds.value.indexOf(uid) < 0) return false
+  const c = String(notice.value.category || '')
+  return c === 'ads' || c === 'rules'
 })
 const viewsText = computed(() => {
   const v = viewsLocal.value || Number((notice.value && notice.value.views_count) || 0) || 0
@@ -187,9 +200,49 @@ async function loadDetail(id) {
   }
 }
 
-onLoad((q) => {
+async function softDelete() {
+  if (!canManage.value || noticeDeleting) return
+  const id = noticeId.value | 0
+  if (!id) return
+  const ok = await new Promise((resolve) => {
+    uni.showModal({
+      title: '下架帖子',
+      content: '下架后前台不再显示（数据保留，可在后台恢复）',
+      confirmText: '下架',
+      cancelText: '取消',
+      success: (res) => resolve(!!(res && res.confirm)),
+      fail: () => resolve(false),
+    })
+  })
+  if (!ok) return
+  noticeDeleting = true
+  try {
+    await apiRequest('noticepause', 'POST', { id })
+    uni.showToast({ title: '已下架', icon: 'success' })
+    setTimeout(() => {
+      uni.navigateBack({ fail: () => uni.redirectTo({ url: '/pages/notice/notice' }) })
+    }, 400)
+  } catch (e) {
+    uni.showToast({ title: (e && e.message) || '下架失败', icon: 'none' })
+  } finally {
+    noticeDeleting = false
+  }
+}
+
+onLoad(async (q) => {
   const id = (q && q.id) | 0
   noticeId.value = id
+  try {
+    const p = await fetchProfile()
+    myUserId.value = (p && (p.id || p.user_id)) | 0
+  } catch (e) {}
+  try {
+    const cfg = await fetchConfig()
+    const ids = (cfg && cfg.notice_manager_user_ids) || []
+    if (Array.isArray(ids) && ids.length) {
+      noticeManagerIds.value = ids.map((x) => x | 0).filter((x) => x > 0)
+    }
+  } catch (e2) {}
   if (!id) {
     loading.value = false
     notice.value = null

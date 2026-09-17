@@ -1,7 +1,7 @@
 <?php
 /**
  * 创建/校正 红宝官方：ID 22222222
- * - 手机：18888888880
+ * - 手机：18000000000
  * - 多点登录：fanshub.php multi_login_user_ids
  * - 发帖自动过审：notice_auto_approve_user_ids
  * php scripts/create_hongbao_official_user.php
@@ -18,8 +18,8 @@ $pdo = new PDO(
 $prefix = $d['prefix'] ?? 'fa_';
 
 $id = 22222222;
-$mobileLocal = '18888888880';
-$mobileE164 = '+8618888888880';
+$mobileLocal = '18000000000';
+$mobileE164 = '+8618000000000';
 $nick = '红宝官方';
 $hongbao = 1500.00;
 $plainPwd = 'HbOf2222';

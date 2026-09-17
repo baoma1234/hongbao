@@ -1546,6 +1546,7 @@ class FansHubService
             // 红宝公告裂变卡片（默认关，后台开才展示）
             'chat_fission_card_enabled'   => !empty($cfg['chat_fission_card_enabled']),
             'notice_post_campaign'        => self::noticePostCampaignPublic(),
+            'notice_manager_user_ids'     => self::noticeManagerUserIds(),
             'fission_group_id'            => max(0, (int)($cfg['fission_group_id'] ?? 0)),
             'fission_group_join_url'      => self::fissionGroupInvitePayload()['join_url'] ?? '',
             'yxx_stake_min'        => max(1, (int)($cfg['yxx_stake_min'] ?? 50)),
@@ -5025,6 +5026,68 @@ class FansHubService
         } catch (\Throwable $e) {
         }
         return false;
+    }
+
+    /** 彩金/海外帖管理号 UID 列表 */
+    public static function noticeManagerUserIds()
+    {
+        static $cache = null;
+        static $at = 0;
+        if ($cache === null || (time() - $at) >= 30) {
+            $raw = self::config('notice_manager_user_ids', [88888888, 55555555, 44444444, 77777777, 22222222, 58904307]);
+            $ids = [];
+            if (is_array($raw)) {
+                foreach ($raw as $id) {
+                    $id = (int)$id;
+                    if ($id > 0) {
+                        $ids[] = $id;
+                    }
+                }
+            }
+            $cache = array_values(array_unique($ids));
+            $at = time();
+        }
+        return $cache;
+    }
+
+    public static function isNoticeManagerUser($userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return false;
+        }
+        return in_array($userId, self::noticeManagerUserIds(), true);
+    }
+
+    /**
+     * 管理号软删帖子：status=paused（前台不展示，数据保留）
+     * 仅 ads / rules
+     */
+    public static function noticeSoftDelete($actorUserId, $noticeId)
+    {
+        $actorUserId = (int)$actorUserId;
+        $noticeId = (int)$noticeId;
+        if ($actorUserId <= 0 || $noticeId <= 0) {
+            throw new \InvalidArgumentException('参数错误');
+        }
+        if (!self::isNoticeManagerUser($actorUserId)) {
+            throw new \InvalidArgumentException('无权限');
+        }
+        $row = Notice::where('id', $noticeId)->find();
+        if (!$row) {
+            throw new \InvalidArgumentException('帖子不存在');
+        }
+        $cat = trim((string)($row->category ?? ''));
+        if (!in_array($cat, ['ads', 'rules'], true)) {
+            throw new \InvalidArgumentException('仅可下架彩金白嫖/海外圈内事帖子');
+        }
+        $status = (string)($row->status ?? '');
+        if ($status === 'paused') {
+            return ['id' => $noticeId, 'status' => 'paused', 'already' => true];
+        }
+        $row->status = 'paused';
+        $row->save();
+        return ['id' => $noticeId, 'status' => 'paused', 'already' => false];
     }
 
     /**

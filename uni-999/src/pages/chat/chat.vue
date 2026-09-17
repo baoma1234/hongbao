@@ -185,6 +185,7 @@
                   <view v-if="mediaCaption(m)" class="chat-media-caption">
                     <ChatFoldText
                       :text="mediaCaption(m)"
+                      :from-user-id="m.from_user_id"
                       :expanded="isLongMsgExpanded(m)"
                       @toggle="toggleLongMsg(m)"
                       @open-link="openMsgLink"
@@ -222,6 +223,7 @@
                       <view class="chat-media-caption chat-video-caption-row">
                         <ChatFoldText
                           :text="mediaCaption(m)"
+                          :from-user-id="m.from_user_id"
                           :expanded="isLongMsgExpanded(m)"
                           @toggle="toggleLongMsg(m)"
                           @open-link="openMsgLink"
@@ -251,6 +253,7 @@
                   <view class="content content-rich">
                     <ChatFoldText
                       :text="msgText(m)"
+                      :from-user-id="m.from_user_id"
                       :expanded="isLongMsgExpanded(m)"
                       @toggle="toggleLongMsg(m)"
                       @open-link="openMsgLink"

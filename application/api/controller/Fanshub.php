@@ -224,6 +224,22 @@ class Fanshub extends Api
         $this->success('ok', FansHubService::noticePostRulesForUser($uid));
     }
 
+    /** 管理号软删帖子（status=paused，前台不显示，数据保留） */
+    public function noticepause()
+    {
+        try {
+            $id = (int)$this->request->post('id', $this->request->param('id', 0));
+            $data = FansHubService::noticeSoftDelete((int)$this->auth->id, $id);
+            $this->success('已下架', $data);
+        } catch (\InvalidArgumentException $e) {
+            $this->error($e->getMessage());
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: '操作失败');
+        }
+    }
+
     /** 我的帖子 */
     public function noticemylist()
     {

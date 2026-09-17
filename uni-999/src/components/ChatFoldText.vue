@@ -57,11 +57,12 @@ import { buildLongMsgFoldSegments } from '../utils/chat.js'
 const props = defineProps({
   text: { type: String, default: '' },
   expanded: { type: Boolean, default: false },
+  fromUserId: { type: [Number, String], default: 0 },
 })
 
 const emit = defineEmits(['toggle', 'open-link'])
 
-const seg = computed(() => buildLongMsgFoldSegments(props.text))
+const seg = computed(() => buildLongMsgFoldSegments(props.text, { fromUserId: props.fromUserId }))
 
 const midShowParts = computed(() => {
   if (!seg.value.foldable) return []
