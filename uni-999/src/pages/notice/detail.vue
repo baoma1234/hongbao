@@ -43,6 +43,7 @@
               class="chat-notice-img"
               :src="avatarSrc(src)"
               :mode="imagesFull ? 'widthFix' : 'aspectFill'"
+              :style="imagesFull ? { width: '100%', height: 'auto', display: 'block', maxHeight: 'none' } : null"
             />
           </view>
         </view>

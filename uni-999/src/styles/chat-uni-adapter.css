@@ -956,15 +956,63 @@ body.tab-messages #tabMessages .chat-list-pane {
   max-width: 100% !important;
   box-sizing: border-box !important;
 }
+/* 最新/推广全宽长图：block + height:auto，避免 widthFix 高度塌 0 */
 #tabMessages .chat-notice-imgs.imgs-full,
 #tabNotice .chat-notice-imgs.imgs-full,
 .notice-page .chat-notice-imgs.imgs-full,
 .notice-detail .chat-notice-imgs.imgs-full {
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 8px !important;
+  display: block !important;
+  width: 100% !important;
   max-width: 100% !important;
   grid-template-columns: none !important;
+}
+#tabMessages .chat-notice-imgs.imgs-full .chat-notice-img-wrap,
+#tabNotice .chat-notice-imgs.imgs-full .chat-notice-img-wrap,
+.notice-page .chat-notice-imgs.imgs-full .chat-notice-img-wrap,
+.notice-detail .chat-notice-imgs.imgs-full .chat-notice-img-wrap {
+  display: block !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  aspect-ratio: auto !important;
+  padding-bottom: 0 !important;
+  overflow: visible !important;
+  margin-bottom: 8px !important;
+}
+#tabMessages .chat-notice-imgs.imgs-full .chat-notice-img-wrap:last-child,
+#tabNotice .chat-notice-imgs.imgs-full .chat-notice-img-wrap:last-child,
+.notice-page .chat-notice-imgs.imgs-full .chat-notice-img-wrap:last-child,
+.notice-detail .chat-notice-imgs.imgs-full .chat-notice-img-wrap:last-child {
+  margin-bottom: 0 !important;
+}
+#tabMessages .chat-notice-imgs.imgs-full .chat-notice-img,
+#tabMessages .chat-notice-imgs.imgs-full .chat-notice-img-wrap uni-image,
+#tabMessages .chat-notice-imgs.imgs-full .chat-notice-img-wrap image,
+#tabMessages .chat-notice-imgs.imgs-full .chat-notice-img-wrap img,
+#tabNotice .chat-notice-imgs.imgs-full .chat-notice-img,
+#tabNotice .chat-notice-imgs.imgs-full .chat-notice-img-wrap uni-image,
+#tabNotice .chat-notice-imgs.imgs-full .chat-notice-img-wrap image,
+#tabNotice .chat-notice-imgs.imgs-full .chat-notice-img-wrap img,
+.notice-page .chat-notice-imgs.imgs-full .chat-notice-img,
+.notice-page .chat-notice-imgs.imgs-full .chat-notice-img-wrap uni-image,
+.notice-page .chat-notice-imgs.imgs-full .chat-notice-img-wrap image,
+.notice-page .chat-notice-imgs.imgs-full .chat-notice-img-wrap img,
+.notice-detail .chat-notice-imgs.imgs-full .chat-notice-img,
+.notice-detail .chat-notice-imgs.imgs-full .chat-notice-img-wrap uni-image,
+.notice-detail .chat-notice-imgs.imgs-full .chat-notice-img-wrap image,
+.notice-detail .chat-notice-imgs.imgs-full .chat-notice-img-wrap img {
+  display: block !important;
+  width: 100% !important;
+  height: auto !important;
+  max-height: none !important;
+  max-width: 100% !important;
+  position: static !important;
+  left: auto !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  object-fit: contain !important;
 }
 #tabMessages .chat-notice-imgs:not(.imgs-full).imgs-1,
 #tabNotice .chat-notice-imgs:not(.imgs-full).imgs-1,
@@ -1017,8 +1065,13 @@ body.tab-messages #tabMessages .chat-list-pane {
   position: relative !important;
   width: 100% !important;
   min-width: 0 !important;
-  overflow: hidden !important;
   box-sizing: border-box !important;
+}
+#tabMessages .chat-notice-imgs:not(.imgs-full) .chat-notice-img-wrap,
+#tabNotice .chat-notice-imgs:not(.imgs-full) .chat-notice-img-wrap,
+.notice-page .chat-notice-imgs:not(.imgs-full) .chat-notice-img-wrap,
+.notice-detail .chat-notice-imgs:not(.imgs-full) .chat-notice-img-wrap {
+  overflow: hidden !important;
 }
 #tabMessages .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap,
 #tabNotice .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap,
@@ -1029,14 +1082,10 @@ body.tab-messages #tabMessages .chat-list-pane {
   min-height: 54px !important;
   padding-bottom: 0 !important;
 }
-#tabMessages .chat-notice-imgs.imgs-1 .chat-notice-img-wrap,
-#tabMessages .chat-notice-imgs.imgs-full .chat-notice-img-wrap,
-#tabNotice .chat-notice-imgs.imgs-1 .chat-notice-img-wrap,
-#tabNotice .chat-notice-imgs.imgs-full .chat-notice-img-wrap,
-.notice-page .chat-notice-imgs.imgs-1 .chat-notice-img-wrap,
-.notice-page .chat-notice-imgs.imgs-full .chat-notice-img-wrap,
-.notice-detail .chat-notice-imgs.imgs-1 .chat-notice-img-wrap,
-.notice-detail .chat-notice-imgs.imgs-full .chat-notice-img-wrap {
+#tabMessages .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img-wrap,
+#tabNotice .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img-wrap,
+.notice-page .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img-wrap,
+.notice-detail .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img-wrap {
   aspect-ratio: auto !important;
   height: auto !important;
   min-height: 0 !important;
@@ -1084,37 +1133,19 @@ body.tab-messages #tabMessages .chat-list-pane {
   height: 100% !important;
   object-fit: cover !important;
 }
-#tabMessages .chat-notice-imgs.imgs-1 .chat-notice-img,
-#tabMessages .chat-notice-imgs.imgs-full .chat-notice-img,
-#tabMessages .chat-notice-imgs.imgs-1 .chat-notice-img-wrap uni-image,
-#tabMessages .chat-notice-imgs.imgs-full .chat-notice-img-wrap uni-image,
-#tabMessages .chat-notice-imgs.imgs-1 .chat-notice-img-wrap image,
-#tabMessages .chat-notice-imgs.imgs-full .chat-notice-img-wrap image,
-#tabNotice .chat-notice-imgs.imgs-1 .chat-notice-img,
-#tabNotice .chat-notice-imgs.imgs-full .chat-notice-img,
-#tabNotice .chat-notice-imgs.imgs-1 .chat-notice-img-wrap uni-image,
-#tabNotice .chat-notice-imgs.imgs-full .chat-notice-img-wrap uni-image,
-#tabNotice .chat-notice-imgs.imgs-1 .chat-notice-img-wrap image,
-#tabNotice .chat-notice-imgs.imgs-full .chat-notice-img-wrap image,
-.notice-page .chat-notice-imgs.imgs-1 .chat-notice-img,
-.notice-page .chat-notice-imgs.imgs-full .chat-notice-img,
-.notice-page .chat-notice-imgs.imgs-1 .chat-notice-img-wrap uni-image,
-.notice-page .chat-notice-imgs.imgs-full .chat-notice-img-wrap uni-image,
-.notice-page .chat-notice-imgs.imgs-1 .chat-notice-img-wrap image,
-.notice-page .chat-notice-imgs.imgs-full .chat-notice-img-wrap image,
-.notice-detail .chat-notice-imgs.imgs-1 .chat-notice-img,
-.notice-detail .chat-notice-imgs.imgs-full .chat-notice-img,
-.notice-detail .chat-notice-imgs.imgs-1 .chat-notice-img-wrap uni-image,
-.notice-detail .chat-notice-imgs.imgs-full .chat-notice-img-wrap uni-image,
-.notice-detail .chat-notice-imgs.imgs-1 .chat-notice-img-wrap image,
-.notice-detail .chat-notice-imgs.imgs-full .chat-notice-img-wrap image {
-  height: auto !important;
-  max-height: none !important;
-}
 #tabMessages .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img,
+#tabMessages .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img-wrap uni-image,
+#tabMessages .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img-wrap image,
 #tabNotice .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img,
+#tabNotice .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img-wrap uni-image,
+#tabNotice .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img-wrap image,
 .notice-page .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img,
-.notice-detail .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img {
+.notice-page .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img-wrap uni-image,
+.notice-page .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img-wrap image,
+.notice-detail .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img,
+.notice-detail .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img-wrap uni-image,
+.notice-detail .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img-wrap image {
+  height: auto !important;
   max-height: 360px !important;
 }
 

@@ -238,6 +238,7 @@
                               class="chat-notice-img"
                               :src="avatarSrc(src)"
                               :mode="noticeImagesFull(n) ? 'widthFix' : 'aspectFill'"
+                              :style="noticeImagesFull(n) ? fullImgStyle : null"
                             />
                           </view>
                         </view>
@@ -668,6 +669,13 @@ function noticeImagesFull(n) {
   if (c === 'latest' || c === 'promote') return true
   // 彩金白嫖 / 海外圈内事：仅单图大图，多图合九宫格
   return noticeImages(n).length === 1
+}
+
+const fullImgStyle = {
+  width: '100%',
+  height: 'auto',
+  display: 'block',
+  maxHeight: 'none',
 }
 
 function noticeActionButtons(n) {
