@@ -217,6 +217,7 @@
                           v-if="playingVideoId === (n.id | 0)"
                           class="chat-notice-video"
                           :src="noticeVideo(n)"
+                          :poster="noticeVideoCover(n)"
                           controls
                           autoplay
                           :show-center-play-btn="true"
@@ -225,8 +226,16 @@
                         <view
                           v-else
                           class="chat-notice-video-poster"
+                          :class="{ 'has-cover': !!noticeVideoCover(n) }"
                           @click="playNoticeVideo(n)"
                         >
+                          <image
+                            v-if="noticeVideoCover(n)"
+                            class="chat-notice-video-cover"
+                            :src="noticeVideoCover(n)"
+                            mode="aspectFill"
+                            lazy-load
+                          />
                           <text class="chat-notice-video-play">▶ 播放视频</text>
                         </view>
                       </view>
@@ -712,6 +721,15 @@ function noticeVideo(n) {
   return String((n && n.video) || '').trim()
 }
 
+function noticeVideoCover(n) {
+  if (n && n._videoCover != null) {
+    const c = String(n._videoCover || '').trim()
+    return c ? avatarSrc(c) : ''
+  }
+  const c = String((n && (n.video_cover || n.videoCover)) || '').trim()
+  return c ? avatarSrc(c) : ''
+}
+
 function noticeImages(n) {
   if (n && Array.isArray(n._images)) return n._images
   const imgs = n && n.images
@@ -763,6 +781,7 @@ function prepareNoticeRow(n) {
   const cat = String(n.category || noticeCat.value || '')
   n._images = images
   n._video = String(n.video || '').trim()
+  n._videoCover = String(n.video_cover || n.videoCover || '').trim()
   n._imagesFull = cat === 'latest' || cat === 'promote'
   n._actions = null
   n._actions = noticeActionButtons(n)
@@ -1621,12 +1640,30 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
+  position: relative;
+  overflow: hidden;
+}
+.chat-notice-video-poster.has-cover {
+  min-height: 200px;
+}
+.chat-notice-video-cover {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 .chat-notice-video-play {
+  position: relative;
+  z-index: 1;
   color: #fff;
   font-size: 15px;
   font-weight: 700;
   letter-spacing: 0.5px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  background: rgba(0, 0, 0, 0.45);
 }
 .chat-notice-feed-foot {
   padding: 14px 12px 8px;

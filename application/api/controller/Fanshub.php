@@ -195,6 +195,7 @@ class Fanshub extends Api
                 'category' => $this->request->post('category', $this->request->param('category', '')),
                 'images'   => $images,
                 'video'    => $this->request->post('video', $this->request->param('video', '')),
+                'video_cover' => $this->request->post('video_cover', $this->request->param('video_cover', '')),
             ]);
             $msg = (!empty($data['status']) && $data['status'] === 'published')
                 ? '已发布'

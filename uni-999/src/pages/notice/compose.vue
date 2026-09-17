@@ -59,7 +59,14 @@
       <view class="compose-sec">
         <text class="compose-lab">视频（可选，不超过 500MB）</text>
         <view v-if="video" class="compose-video-box">
+          <image
+            v-if="video.coverPreview"
+            class="compose-video-cover"
+            :src="video.coverPreview"
+            mode="aspectFill"
+          />
           <video
+            v-else
             class="compose-video"
             :src="video.preview || avatarSrc(video.url)"
             controls
@@ -303,9 +310,40 @@ async function pickVideo() {
         uni.showToast({ title: '上传失败', icon: 'none' })
         return
       }
+      let coverUrl = ''
+      let coverPreview = ''
+      const thumbPath = String((chosen && chosen.thumbTempFilePath) || '').trim()
+      if (thumbPath) {
+        try {
+          uni.showLoading({ title: '上传封面中…', mask: true })
+          const coverData = await uploadCommonFile(thumbPath)
+          coverUrl = normalizeUploadPath(coverData)
+          coverPreview = (coverData && (coverData.fullurl || coverData.url)) || avatarSrc(coverUrl) || thumbPath
+        } catch (ce) {
+          // 封面失败不阻断发帖，列表会回退黑底播放按钮
+          coverUrl = ''
+          coverPreview = ''
+        }
+      } else {
+        // H5 等无 thumb：用本地视频截一帧再上传
+        try {
+          const snapped = await captureVideoFirstFrame(filePath)
+          if (snapped) {
+            uni.showLoading({ title: '上传封面中…', mask: true })
+            const coverData = await uploadCommonFile(snapped)
+            coverUrl = normalizeUploadPath(coverData)
+            coverPreview = (coverData && (coverData.fullurl || coverData.url)) || avatarSrc(coverUrl) || snapped
+          }
+        } catch (se) {
+          coverUrl = ''
+          coverPreview = ''
+        }
+      }
       video.value = {
         url,
         preview: data.fullurl || avatarSrc(url) || filePath,
+        coverUrl,
+        coverPreview,
         size,
         sizeText: formatVideoSize(size),
       }
@@ -333,6 +371,80 @@ function normalizeUploadPath(data) {
     path = '/' + path.replace(/^\/+/, '')
   }
   return path || full
+}
+
+/** H5：从本地视频截取第一帧，返回临时图片路径（blob / dataURL 写文件） */
+function captureVideoFirstFrame(filePath) {
+  return new Promise((resolve) => {
+    // #ifdef H5
+    try {
+      if (typeof document === 'undefined') {
+        resolve('')
+        return
+      }
+      const v = document.createElement('video')
+      v.muted = true
+      v.playsInline = true
+      v.preload = 'auto'
+      v.crossOrigin = 'anonymous'
+      let done = false
+      const finish = (url) => {
+        if (done) return
+        done = true
+        try { v.pause(); v.removeAttribute('src'); v.load() } catch (e0) {}
+        resolve(url || '')
+      }
+      const timer = setTimeout(() => finish(''), 8000)
+      const snap = () => {
+        try {
+          const w = v.videoWidth || 0
+          const h = v.videoHeight || 0
+          if (!w || !h) {
+            clearTimeout(timer)
+            finish('')
+            return
+          }
+          const canvas = document.createElement('canvas')
+          const maxW = 720
+          const scale = w > maxW ? maxW / w : 1
+          canvas.width = Math.max(1, Math.round(w * scale))
+          canvas.height = Math.max(1, Math.round(h * scale))
+          const ctx = canvas.getContext('2d')
+          ctx.drawImage(v, 0, 0, canvas.width, canvas.height)
+          canvas.toBlob((blob) => {
+            clearTimeout(timer)
+            if (!blob) {
+              finish('')
+              return
+            }
+            finish(URL.createObjectURL(blob))
+          }, 'image/jpeg', 0.82)
+        } catch (e1) {
+          clearTimeout(timer)
+          finish('')
+        }
+      }
+      v.onloadeddata = () => {
+        try {
+          v.currentTime = Math.min(0.1, (v.duration || 1) * 0.01)
+        } catch (e2) {
+          snap()
+        }
+      }
+      v.onseeked = () => snap()
+      v.onerror = () => {
+        clearTimeout(timer)
+        finish('')
+      }
+      v.src = filePath
+    } catch (e) {
+      resolve('')
+    }
+    // #endif
+    // #ifndef H5
+    resolve('')
+    // #endif
+  })
 }
 
 async function submit() {
@@ -367,6 +479,7 @@ async function submit() {
       theme_id: themeId.value | 0,
       images: images.value.map((x) => x.url).filter(Boolean),
       video: (video.value && video.value.url) || '',
+      video_cover: (video.value && video.value.coverUrl) || '',
     })
     uni.showToast({ title: '已提交审核', icon: 'success' })
     setTimeout(() => {
@@ -516,6 +629,12 @@ onShow(() => {
 .compose-video {
   width: 100%;
   max-height: 280px;
+  display: block;
+  background: #111;
+}
+.compose-video-cover {
+  width: 100%;
+  height: 200px;
   display: block;
   background: #111;
 }

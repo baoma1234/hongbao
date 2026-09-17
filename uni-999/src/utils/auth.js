@@ -345,7 +345,9 @@ function uploadFanshubAction(action, filePath) {
   })
 }
 
-/** 通用文件上传（聊天图/群头像等）：/api/common/upload */
+/** 通用文件上传（聊天图/群头像等）：/api/common/upload
+ * H5 支持 blob: 封面截图（canvas.toBlob）
+ */
 export function uploadCommonFile(filePath) {
   // 上传必须打 API 站；imgUri 可能是 CDN/OSS，没有 /api
   const url = ensureAbsoluteHttpUrl('/api/common/upload', getApiBase())
@@ -353,10 +355,39 @@ export function uploadCommonFile(filePath) {
     return Promise.reject(new Error('接口地址未就绪，请检查网络后重试'))
   }
   const token = getToken()
+  const path = String(filePath || '')
+
+  // #ifdef H5
+  if (path.indexOf('blob:') === 0 && typeof fetch === 'function') {
+    return fetch(path)
+      .then((r) => r.blob())
+      .then((blob) => {
+        const fd = new FormData()
+        const ext = (blob.type && blob.type.indexOf('png') >= 0) ? 'png' : 'jpg'
+        fd.append('file', blob, 'cover.' + ext)
+        const headers = {}
+        if (token) headers.token = token
+        return fetch(url, { method: 'POST', headers, body: fd })
+      })
+      .then((r) => r.text())
+      .then((text) => {
+        const body = parseApiPayload(text)
+        if (!body || Number(body.code) !== 1) {
+          const msg = (body && (body.msg || body.message)) || '上传失败'
+          if (body) goLoginIfUnauthorized(body.code, msg)
+          throw new Error(msg)
+        }
+        const data = body.data || {}
+        if (data) learnUploadCdnFromUrl(data.fullurl || '')
+        return data
+      })
+  }
+  // #endif
+
   return new Promise((resolve, reject) => {
     uni.uploadFile({
       url,
-      filePath,
+      filePath: path,
       name: 'file',
       header: token ? { token } : {},
       success(res) {

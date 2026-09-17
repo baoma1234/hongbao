@@ -4694,6 +4694,14 @@ class FansHubService
         } else {
             $video = '';
         }
+        $videoCover = trim((string)($row->video_cover ?? ''));
+        if ($videoCover !== '' && class_exists('\\app\\common\\library\\OssService')) {
+            $videoCover = \app\common\library\OssService::fullUrl($videoCover, '');
+        } elseif ($videoCover !== '') {
+            $videoCover = cdnurl($videoCover, true);
+        } else {
+            $videoCover = '';
+        }
         $buttons = $row->action_buttons;
         if (!is_array($buttons)) {
             $buttons = [];
@@ -4739,6 +4747,7 @@ class FansHubService
             'content'        => $row->localized('content', $locale),
             'images'         => $images,
             'video'          => $video,
+            'video_cover'    => $videoCover,
             'action_type'    => (string)$row->action_type,
             'action_label'   => $row->localized('action_label', $locale),
             'action_url'     => (string)$row->action_url,
@@ -4931,6 +4940,15 @@ class FansHubService
                 $video = '';
             }
         }
+        $videoCover = trim((string)($input['video_cover'] ?? ''));
+        if ($videoCover !== '') {
+            if (!preg_match('#^(/uploads/|https?://)#i', $videoCover) && strpos($videoCover, '/') !== 0) {
+                $videoCover = '';
+            }
+        }
+        if ($video === '') {
+            $videoCover = '';
+        }
         $user = \app\common\model\User::get($userId);
         $nick = '';
         $avatar = '';
@@ -4958,6 +4976,7 @@ class FansHubService
         $row->content = $content;
         $row->images = $normImgs;
         $row->video = $video;
+        $row->video_cover = $videoCover;
         $row->action_type = 'none';
         $row->action_label = '';
         $row->action_url = '';

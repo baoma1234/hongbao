@@ -23,7 +23,13 @@
       </view>
       <LinkifiedText class="chat-notice-body" :text="notice.content || ''" />
       <view v-if="video" class="chat-notice-media">
-        <video class="chat-notice-video" :src="video" controls object-fit="contain" />
+        <video
+          class="chat-notice-video"
+          :src="video"
+          :poster="videoCover || undefined"
+          controls
+          object-fit="contain"
+        />
       </view>
       <view
         v-if="images.length === 1"
@@ -107,6 +113,10 @@ const imagesFull = computed(() => {
 })
 const imageStyle = computed(() => ({ width: '100%' }))
 const video = computed(() => String((notice.value && notice.value.video) || '').trim())
+const videoCover = computed(() => {
+  const c = String((notice.value && notice.value.video_cover) || '').trim()
+  return c ? avatarSrc(c) : ''
+})
 const viewsText = computed(() => {
   const v = viewsLocal.value || Number((notice.value && notice.value.views_count) || 0) || 0
   if (v >= 10000) {
