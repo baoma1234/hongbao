@@ -205,7 +205,7 @@ class Upload
     }
 
     /**
-     * 检测文件大小：图片 ≤5MB，视频 ≤200MB，其它走 upload.maxsize
+     * 检测文件大小：图片 ≤5MB，视频 ≤500MB，其它走 upload.maxsize
      * @throws UploadException
      */
     protected function checkSize()
@@ -217,9 +217,9 @@ class Upload
                 $max = 5242880;
             }
         } elseif ($this->isVideoUpload()) {
-            $max = (int)($this->config['video_maxsize'] ?? 209715200);
+            $max = (int)($this->config['video_maxsize'] ?? 524288000);
             if ($max <= 0) {
-                $max = 209715200;
+                $max = 524288000;
             }
         } else {
             $max = $this->parseMaxsizeBytes($this->config['maxsize'] ?? '10mb');

@@ -15,17 +15,17 @@ return [
      */
     'savekey'   => '/uploads/{year}{mon}{day}/{filemd5}{.suffix}',
     /**
-     * 最大可上传大小（非图/视频兜底；图片/视频在 Upload 内分别限制 5MB / 200MB）
+     * 最大可上传大小（非图/视频兜底；图片/视频在 Upload 内分别限制）
      */
-    'maxsize'   => '200mb',
+    'maxsize'   => '500mb',
     /**
      * 聊天/通用图片上传上限（字节）
      */
     'image_maxsize' => 5242880,
     /**
-     * 视频上传上限（字节）
+     * 视频上传上限（字节）= 500MB
      */
-    'video_maxsize' => 209715200,
+    'video_maxsize' => 524288000,
     /**
      * 服务端图片压缩：最长边像素；0 表示不缩放
      */
@@ -38,7 +38,7 @@ return [
      * 可上传的文件类型
      * 如配置允许 pdf,ppt,docx,svg 等可能含有脚本的文件时，请先从服务器配置此类文件直接下载而不是预览
      */
-    'mimetype'  => 'jpg,png,bmp,jpeg,gif,webp,zip,rar,wav,mp4,mp3,webm',
+    'mimetype'  => 'jpg,png,bmp,jpeg,gif,webp,zip,rar,wav,mp4,mp3,webm,mov,m4v,3gp',
     /**
      * 是否支持批量上传
      */

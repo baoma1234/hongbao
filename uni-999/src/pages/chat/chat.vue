@@ -1161,7 +1161,7 @@ function onComposerEnter(e) {
 /** 待发送媒体草稿（先贴输入区，点发送再上传 OSS） */
 const MAX_PENDING_IMAGES = 5
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024
-const MAX_VIDEO_BYTES = 200 * 1024 * 1024
+const MAX_VIDEO_BYTES = 500 * 1024 * 1024
 const pendingMedias = ref([])
 const hasPendingMedia = computed(() => (pendingMedias.value || []).length > 0)
 const copiedImageHint = ref(false)
@@ -7456,4 +7456,3 @@ uni-page-body {
   opacity: 0.85;
 }
 </style>
-                  

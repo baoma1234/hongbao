@@ -4912,6 +4912,12 @@ class FansHubService
                 break;
             }
         }
+        $video = trim((string)($input['video'] ?? ''));
+        if ($video !== '') {
+            if (!preg_match('#^(/uploads/|https?://)#i', $video) && strpos($video, '/') !== 0) {
+                $video = '';
+            }
+        }
         $user = \app\common\model\User::get($userId);
         $nick = '';
         $avatar = '';
@@ -4937,7 +4943,7 @@ class FansHubService
         $row->category = $category;
         $row->content = $content;
         $row->images = $normImgs;
-        $row->video = '';
+        $row->video = $video;
         $row->action_type = 'none';
         $row->action_label = '';
         $row->action_url = '';

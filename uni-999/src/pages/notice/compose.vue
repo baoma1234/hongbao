@@ -56,6 +56,23 @@
         </view>
       </view>
 
+      <view class="compose-sec">
+        <text class="compose-lab">视频（可选，不超过 500MB）</text>
+        <view v-if="video" class="compose-video-box">
+          <video
+            class="compose-video"
+            :src="video.preview || avatarSrc(video.url)"
+            controls
+            object-fit="contain"
+          />
+          <text class="compose-video-del" @click="removeVideo">删除视频</text>
+          <text v-if="video.sizeText" class="compose-video-size">{{ video.sizeText }}</text>
+        </view>
+        <view v-else class="compose-video-add" @click="pickVideo">
+          <text class="compose-video-add-txt">＋ 选择视频</text>
+        </view>
+      </view>
+
       <text class="compose-tip">{{ campaignTip }}</text>
       <button class="compose-submit" :disabled="busy || !canPost" @click="submit">
         {{ busy ? '提交中…' : '发布' }}
@@ -84,8 +101,10 @@ const themes = ref([])
 const themeId = ref(0)
 const content = ref('')
 const images = ref([])
+const video = ref(null)
 const busy = ref(false)
 const rules = ref(null)
+const MAX_VIDEO_BYTES = 500 * 1024 * 1024
 
 function normalizeUserPostCategory(code) {
   const c = String(code || '').trim()
@@ -178,6 +197,46 @@ function removeImage(i) {
   images.value.splice(i, 1)
 }
 
+function removeVideo() {
+  video.value = null
+}
+
+function formatVideoSize(bytes) {
+  const n = Number(bytes) || 0
+  if (n <= 0) return ''
+  if (n >= 1024 * 1024 * 1024) return (n / (1024 * 1024 * 1024)).toFixed(2) + ' GB'
+  if (n >= 1024 * 1024) return (n / (1024 * 1024)).toFixed(1) + ' MB'
+  return Math.max(1, Math.round(n / 1024)) + ' KB'
+}
+
+function resolveLocalFileSize(filePath, hintSize) {
+  const hint = Number(hintSize) || 0
+  if (hint > 0) return Promise.resolve(hint)
+  return new Promise((resolve) => {
+    try {
+      // #ifdef H5
+      if (typeof fetch === 'function' && filePath && String(filePath).indexOf('blob:') === 0) {
+        fetch(filePath)
+          .then((r) => r.blob())
+          .then((b) => resolve(Number((b && b.size) || 0)))
+          .catch(() => resolve(0))
+        return
+      }
+      // #endif
+      const fs = uni.getFileSystemManager && uni.getFileSystemManager()
+      if (fs && typeof fs.getFileInfo === 'function') {
+        fs.getFileInfo({
+          filePath,
+          success: (res) => resolve(Number((res && res.size) || 0)),
+          fail: () => resolve(0),
+        })
+        return
+      }
+    } catch (e) {}
+    resolve(0)
+  })
+}
+
 function pickImages() {
   const left = 9 - images.value.length
   if (left <= 0) return
@@ -209,6 +268,57 @@ function pickImages() {
       }
     },
   })
+}
+
+async function pickVideo() {
+  if (busy.value) return
+  if (video.value) {
+    uni.showToast({ title: '已有视频，请先删除', icon: 'none' })
+    return
+  }
+  try {
+    const chosen = await new Promise((resolve, reject) => {
+      uni.chooseVideo({
+        sourceType: ['album', 'camera'],
+        // App/部分端相册可选更长；微信小程序会自动压到 60s
+        maxDuration: 300,
+        compressed: true,
+        success: resolve,
+        fail: reject,
+      })
+    })
+    const filePath = String((chosen && chosen.tempFilePath) || '')
+    if (!filePath) return
+    const size = await resolveLocalFileSize(filePath, Number((chosen && chosen.size) || 0))
+    if (size > MAX_VIDEO_BYTES) {
+      uni.showToast({ title: '视频不能超过 500MB', icon: 'none' })
+      return
+    }
+    busy.value = true
+    uni.showLoading({ title: '上传视频中…', mask: true })
+    try {
+      const data = await uploadCommonFile(filePath)
+      const url = normalizeUploadPath(data)
+      if (!url) {
+        uni.showToast({ title: '上传失败', icon: 'none' })
+        return
+      }
+      video.value = {
+        url,
+        preview: data.fullurl || avatarSrc(url) || filePath,
+        size,
+        sizeText: formatVideoSize(size),
+      }
+    } finally {
+      uni.hideLoading()
+      busy.value = false
+    }
+  } catch (e) {
+    const msg = (e && e.message) || (e && e.errMsg) || ''
+    if (!/cancel|deny|fail chooseVideo/i.test(msg)) {
+      uni.showToast({ title: msg || '选择视频失败', icon: 'none' })
+    }
+  }
 }
 
 function normalizeUploadPath(data) {
@@ -256,6 +366,7 @@ async function submit() {
       category: postCat,
       theme_id: themeId.value | 0,
       images: images.value.map((x) => x.url).filter(Boolean),
+      video: (video.value && video.value.url) || '',
     })
     uni.showToast({ title: '已提交审核', icon: 'success' })
     setTimeout(() => {
@@ -394,6 +505,49 @@ onShow(() => {
   font-size: 28px;
   color: #bbb;
   line-height: 1;
+}
+.compose-video-box {
+  position: relative;
+  width: 100%;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #111;
+}
+.compose-video {
+  width: 100%;
+  max-height: 280px;
+  display: block;
+  background: #111;
+}
+.compose-video-del {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 4px 12px;
+  border-radius: 12px;
+  background: #f2f2f2;
+  color: #c0392b;
+  font-size: 13px;
+}
+.compose-video-size {
+  display: inline-block;
+  margin-left: 10px;
+  font-size: 12px;
+  color: #999;
+}
+.compose-video-add {
+  width: 100%;
+  height: 88px;
+  border-radius: 10px;
+  border: 1px dashed #ccc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fafafa;
+  box-sizing: border-box;
+}
+.compose-video-add-txt {
+  font-size: 14px;
+  color: #888;
 }
 .compose-tip {
   display: block;

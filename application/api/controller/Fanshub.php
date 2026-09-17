@@ -192,7 +192,9 @@ class Fanshub extends Api
             $data = FansHubService::noticeCreate((int)$this->auth->id, [
                 'content'  => $this->request->post('content', $this->request->param('content', '')),
                 'theme_id' => $this->request->post('theme_id', $this->request->param('theme_id', 0)),
+                'category' => $this->request->post('category', $this->request->param('category', '')),
                 'images'   => $images,
+                'video'    => $this->request->post('video', $this->request->param('video', '')),
             ]);
             $msg = (!empty($data['status']) && $data['status'] === 'published')
                 ? '已发布'
