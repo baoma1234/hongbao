@@ -119,6 +119,12 @@ return array (
   'notice_manager_user_ids' => [88888888, 55555555, 44444444, 77777777, 22222222, 58904307],
   // 频道类群：普通成员隐藏底部输入栏（仅群主/管理可见可发）
   'chat_composer_hidden_group_ids' => [70, 71, 72, 77],
+  // 聊天/发帖视频大小：普通 200MB；下列会员号 500MB
+  'chat_video_max_bytes' => 209715200,
+  'chat_video_max_bytes_vip' => 524288000,
+  'chat_video_vip_user_ids' => [88888888, 55555555, 44444444, 77777777, 22222222],
+  // 群 77 发送人统一头像（OSS）
+  'group_77_sender_avatar' => '/uploads/20260918/ea7e3dd05a7c8f8ca5452a7b3ab3c5a8.png',
   // 发帖活动：需先娱乐发红宝；每天限 N 帖；前 M 帖审核通过奖 A 元，之后奖 B 元
   'notice_post_campaign_enabled' => true,
   'notice_post_need_rp' => true,

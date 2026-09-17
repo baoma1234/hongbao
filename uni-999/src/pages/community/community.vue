@@ -328,9 +328,9 @@
       <view class="chat-official-rules-ico">📜</view>
       <view class="chat-official-rules-text">
         <text class="chat-official-rules-title">🧧 红宝官方游戏规则</text>
-        <text class="chat-official-rules-desc">新手通关玩法与佣金保障说明</text>
+        <text class="chat-official-rules-desc">点开查看最新发布</text>
       </view>
-      <text class="chat-official-rules-link">点开查看规则图 ›</text>
+      <text class="chat-official-rules-link">最新发布 ›</text>
     </view>
     <BottomTabBar active="community" />
   </view>
@@ -583,11 +583,11 @@ function officialGroupTag(g, idx) {
 
 function openGameRulesFromCommunity() {
   try {
-    uni.setStorageSync('fanshub_notice_cat', 'rules')
+    uni.setStorageSync('fanshub_notice_cat', 'latest')
   } catch (e) {}
   uni.switchTab({
     url: '/pages/notice/notice',
-    fail: () => uni.reLaunch({ url: '/pages/notice/notice?cat=rules' }),
+    fail: () => uni.reLaunch({ url: '/pages/notice/notice?cat=latest' }),
   })
 }
 

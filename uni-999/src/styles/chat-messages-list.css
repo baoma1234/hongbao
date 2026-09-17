@@ -412,6 +412,13 @@ body.tab-messages .bottom-action-bar {
   line-height: 1.1;
 }
 
+.chat-conv-swipe-mute {
+  background: linear-gradient(180deg, #8e8e93 0%, #6d6d72 100%);
+}
+.chat-conv-swipe-mute:active {
+  background: #5c5c60;
+}
+
 .chat-conv-swipe-pin {
   background: linear-gradient(180deg, #b8b6bc 0%, #9e9ca3 100%);
 }
@@ -437,6 +444,7 @@ body.tab-messages .bottom-action-bar {
 }
 
 .chat-conv-swipe.open .chat-conv-item {
+  /* 宽度由 JS swipeFrontStyle 控制；此处仅作私聊两钮兜底 */
   transform: translateX(-128px);
 }
 

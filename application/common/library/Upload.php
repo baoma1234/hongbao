@@ -205,7 +205,7 @@ class Upload
     }
 
     /**
-     * 检测文件大小：图片 ≤5MB，视频 ≤500MB，其它走 upload.maxsize
+     * 检测文件大小：图片 ≤5MB，视频普通 ≤200MB / VIP ≤500MB，其它走 upload.maxsize
      * @throws UploadException
      */
     protected function checkSize()
@@ -217,9 +217,28 @@ class Upload
                 $max = 5242880;
             }
         } elseif ($this->isVideoUpload()) {
-            $max = (int)($this->config['video_maxsize'] ?? 524288000);
+            $max = (int)($this->config['video_maxsize'] ?? 209715200);
             if ($max <= 0) {
-                $max = 524288000;
+                $max = 209715200;
+            }
+            $uid = 0;
+            try {
+                if (class_exists('\\app\\common\\library\\Auth')) {
+                    $auth = \app\common\library\Auth::instance();
+                    if ($auth && $auth->isLogin()) {
+                        $uid = (int)$auth->id;
+                    }
+                }
+            } catch (\Throwable $e) {
+                $uid = 0;
+            }
+            if ($uid > 0 && class_exists('\\app\\common\\library\\FansHubService')
+                && \app\common\library\FansHubService::isChatVideoVipUser($uid)) {
+                $vipMax = (int)($this->config['video_maxsize_vip'] ?? 524288000);
+                if ($vipMax <= 0) {
+                    $vipMax = 524288000;
+                }
+                $max = max($max, $vipMax);
             }
         } else {
             $max = $this->parseMaxsizeBytes($this->config['maxsize'] ?? '10mb');

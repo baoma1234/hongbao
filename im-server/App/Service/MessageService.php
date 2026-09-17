@@ -367,6 +367,18 @@ class MessageService
         $u = $map[$fid] ?? null;
         $nick = $auth->displayNameFromBrief($u, $fid);
         $avatar = is_array($u) ? (string)($u['avatar'] ?? '') : '';
+        // 群 77：发送人头像统一为吃瓜品牌图
+        $ctype = (int)($msg['conversation_type'] ?? 0);
+        $gid = (int)($msg['group_id'] ?? 0);
+        if ($gid <= 0 && $ctype === 2) {
+            $gid = (int)($msg['conversation_id'] ?? 0);
+        }
+        if ($ctype === 2 && $gid === 77) {
+            $fixed = $this->group77SenderAvatarUrl();
+            if ($fixed !== '') {
+                $avatar = $fixed;
+            }
+        }
         $isBot = !empty($botMap[$fid]) ? 1 : 0;
         $msg['from_nickname'] = $nick;
         $msg['from_avatar'] = $avatar;
@@ -379,6 +391,30 @@ class MessageService
             'is_bot'   => $isBot,
         ];
         return $msg;
+    }
+
+    /** 群 77 统一发送人头像（相对或完整 URL） */
+    protected function group77SenderAvatarUrl()
+    {
+        static $url = null;
+        if ($url !== null) {
+            return $url;
+        }
+        $url = '/uploads/20260918/ea7e3dd05a7c8f8ca5452a7b3ab3c5a8.png';
+        try {
+            $path = dirname(__DIR__, 3) . '/application/extra/fanshub.php';
+            if (is_file($path)) {
+                $cfg = include $path;
+                if (is_array($cfg) && !empty($cfg['group_77_sender_avatar'])) {
+                    $raw = trim((string)$cfg['group_77_sender_avatar']);
+                    if ($raw !== '') {
+                        $url = $raw;
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+        return $url;
     }
 
     protected function cacheRecent(array $payload)
@@ -1677,14 +1713,61 @@ class MessageService
 
         $items = array_slice($items, 0, $limit);
         $unreadMap = $this->batchUnreadCounts($userId, $items);
+        $muteMap = $this->batchGroupNotifyMuteMap($userId, $items);
         foreach ($items as &$it) {
             $key = ((int)$it['conversation_type']) . ':' . (string)$it['conversation_id'];
             $it['unread_count'] = (int)($unreadMap[$key] ?? 0);
+            if ((int)($it['conversation_type'] ?? 0) === 2) {
+                $gid = (int)($it['group_id'] ?? $it['conversation_id'] ?? 0);
+                $it['notify_mute'] = !empty($muteMap[$gid]) ? 1 : 0;
+            }
             unset($it['_last_msg_id']);
         }
         unset($it);
 
         return $items;
+    }
+
+    /**
+     * @param int   $userId
+     * @param array $items
+     * @return array<int,int> group_id => 1
+     */
+    protected function batchGroupNotifyMuteMap($userId, array $items)
+    {
+        $userId = (int)$userId;
+        $gids = [];
+        foreach ($items as $it) {
+            if ((int)($it['conversation_type'] ?? 0) !== 2) {
+                continue;
+            }
+            $gid = (int)($it['group_id'] ?? $it['conversation_id'] ?? 0);
+            if ($gid > 0) {
+                $gids[$gid] = true;
+            }
+        }
+        if ($userId <= 0 || !$gids) {
+            return [];
+        }
+        $ids = array_keys($gids);
+        try {
+            $ph = implode(',', array_fill(0, count($ids), '?'));
+            $rows = Db::fetchAll(
+                'SELECT group_id, notify_mute FROM ' . Db::table('chat_group_members')
+                . ' WHERE user_id=? AND status=1 AND group_id IN (' . $ph . ')',
+                array_merge([$userId], $ids)
+            );
+            $out = [];
+            foreach ($rows ?: [] as $row) {
+                if (!empty($row['notify_mute'])) {
+                    $out[(int)$row['group_id']] = 1;
+                }
+            }
+            return $out;
+        } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.MessageService');
+            return [];
+        }
     }
 
     /** @return array<string,int> key => pin_score */

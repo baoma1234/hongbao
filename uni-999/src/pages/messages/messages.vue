@@ -91,7 +91,17 @@
                         'is-dragging': swipeDragKey === itemKey(item),
                       }"
                     >
-                      <view class="chat-conv-swipe-actions">
+                      <view
+                        class="chat-conv-swipe-actions"
+                        :style="{ width: swipeActionsWidth(item) + 'px' }"
+                      >
+                        <view
+                          v-if="(item.conversation_type | 0) === 2"
+                          class="chat-conv-swipe-btn chat-conv-swipe-mute"
+                          @click.stop="onSwipeMute(item)"
+                        >
+                          <text class="chat-conv-swipe-lab">{{ isConvMuted(item) ? '取消静音' : '静音' }}</text>
+                        </view>
                         <view
                           class="chat-conv-swipe-btn chat-conv-swipe-pin"
                           @click.stop="onSwipePin(item)"
@@ -334,6 +344,7 @@ import {
   pinConversation,
   resumeFromBackground,
   bindForegroundResume,
+  setGroupNotifyMute,
 } from '../../utils/im.js'
 import {
   getInboxUnread,
@@ -345,6 +356,7 @@ import {
   syncInboxFromServerList,
 } from '../../utils/im-inbox.js'
 import { setChatUnreadTotal } from '../../utils/tab-badge.js'
+import { isGroupNotifyMuted, setGroupNotifyMuted } from '../../utils/group-notify-mute.js'
 
 const CREATE_GROUP_AVATARS = ['🐵', '🐼', '🦊', '🐯', '🦁', '🐶', '🐱', '🐰', '🐻', '🐨', '🐸', '🐷']
 let chatSubpkgPrefetched = false
@@ -619,8 +631,12 @@ const swipeOpenKey = ref('')
 const swipeDragKey = ref('')
 const swipeOffset = ref(0)
 let swipeState = null
-/** 置顶 + 删除两钮总宽 */
-const SWIPE_ACTIONS_W = 128
+/** 置顶 + 删除；群会话另加静音 → 宽按是否群动态算 */
+const SWIPE_ACTIONS_W_BASE = 128
+const SWIPE_MUTE_W = 64
+function swipeActionsWidth(item) {
+  return (item && (item.conversation_type | 0) === 2) ? SWIPE_ACTIONS_W_BASE + SWIPE_MUTE_W : SWIPE_ACTIONS_W_BASE
+}
 let skipNextConvClick = false
 let off = null
 let loading = false
@@ -860,6 +876,7 @@ function closeAllSwipe(exceptKey) {
 
 function swipeFrontStyle(item) {
   const key = itemKey(item)
+  const w = swipeActionsWidth(item)
   if (swipeDragKey.value === key) {
     const x = Number(swipeOffset.value) || 0
     return {
@@ -869,7 +886,7 @@ function swipeFrontStyle(item) {
   }
   if (swipeOpenKey.value === key) {
     return {
-      transform: 'translateX(-' + SWIPE_ACTIONS_W + 'px)',
+      transform: 'translateX(-' + w + 'px)',
       transition: 'transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1)',
     }
   }
@@ -894,10 +911,12 @@ function onSwipeTouchStart(ev, item) {
     return
   }
   const key = itemKey(item)
-  const baseX = swipeOpenKey.value === key ? -SWIPE_ACTIONS_W : 0
+  const w = swipeActionsWidth(item)
+  const baseX = swipeOpenKey.value === key ? -w : 0
   swipeState = {
     key,
     item,
+    width: w,
     startX: p.x,
     startY: p.y,
     baseX,
@@ -912,6 +931,7 @@ function onSwipeTouchMove(ev, item) {
   if (!p) return
   const dx = p.x - swipeState.startX
   const dy = p.y - swipeState.startY
+  const w = swipeState.width || swipeActionsWidth(item)
   if (!swipeState.horizontal) {
     if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return
     if (Math.abs(dx) <= Math.abs(dy)) {
@@ -923,9 +943,9 @@ function onSwipeTouchMove(ev, item) {
     swipeDragKey.value = swipeState.key
   }
   swipeState.moved = true
-  const nx = Math.max(-SWIPE_ACTIONS_W, Math.min(0, swipeState.baseX + dx))
+  const nx = Math.max(-w, Math.min(0, swipeState.baseX + dx))
   swipeOffset.value = nx
-  if (nx <= -SWIPE_ACTIONS_W / 2) swipeOpenKey.value = swipeState.key
+  if (nx <= -w / 2) swipeOpenKey.value = swipeState.key
   else if (swipeOpenKey.value === swipeState.key) swipeOpenKey.value = ''
 }
 
@@ -940,7 +960,7 @@ function onSwipeTouchEnd(ev, item) {
     swipeDragKey.value = ''
     return
   }
-  const open = swipeOffset.value <= -SWIPE_ACTIONS_W * 0.4
+  const open = swipeOffset.value <= -(st.width || SWIPE_ACTIONS_W_BASE) * 0.4
   swipeDragKey.value = ''
   swipeOffset.value = 0
   swipeOpenKey.value = open ? st.key : ''
@@ -996,6 +1016,48 @@ function confirmDeleteConv(item) {
 function onSwipeDelete(item) {
   closeAllSwipe()
   confirmDeleteConv(item)
+}
+
+function isConvMuted(item) {
+  if (!item || (item.conversation_type | 0) !== 2) return false
+  const gid = (item.group_id | 0) || (resolveConvId(item) | 0)
+  if (!gid) return false
+  if (item.notify_mute != null) return !!(item.notify_mute | 0)
+  return isGroupNotifyMuted(gid)
+}
+
+function hydrateGroupMuteFromList(rows) {
+  ;(rows || []).forEach((it) => {
+    if (!it || (it.conversation_type | 0) !== 2) return
+    if (it.notify_mute == null) return
+    const gid = (it.group_id | 0) || (resolveConvId(it) | 0)
+    if (!gid) return
+    setGroupNotifyMuted(gid, !!(it.notify_mute | 0))
+  })
+}
+
+async function onSwipeMute(item) {
+  if (!item || (item.conversation_type | 0) !== 2) return
+  const gid = (item.group_id | 0) || (resolveConvId(item) | 0)
+  if (!gid) return
+  const next = !isConvMuted(item)
+  closeAllSwipe()
+  try {
+    await setGroupNotifyMute(gid, next)
+    setGroupNotifyMuted(gid, next)
+    const key = itemKey(item)
+    const rows = list.value.slice()
+    for (let i = 0; i < rows.length; i++) {
+      if (itemKey(rows[i]) === key) {
+        rows[i] = Object.assign({}, rows[i], { notify_mute: next ? 1 : 0 })
+        break
+      }
+    }
+    list.value = rows
+    uni.showToast({ title: next ? '已静音，不再提示音/推送' : '已取消静音', icon: 'none' })
+  } catch (e) {
+    uni.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
+  }
 }
 
 async function onSwipePin(item) {
@@ -1329,6 +1391,7 @@ async function loadList(silent = false) {
       return (b.updatetime | 0) - (a.updatetime | 0)
     })
     list.value = rows
+    hydrateGroupMuteFromList(rows)
     syncInboxFromServerList(rows)
     const next = Object.assign({}, localUnread.value)
     rows.forEach((it) => {

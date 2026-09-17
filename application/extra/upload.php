@@ -23,9 +23,13 @@ return [
      */
     'image_maxsize' => 5242880,
     /**
-     * 视频上传上限（字节）= 500MB
+     * 视频上传上限（字节）= 普通用户 200MB；VIP 号另见 video_maxsize_vip
      */
-    'video_maxsize' => 524288000,
+    'video_maxsize' => 209715200,
+    /**
+     * VIP 会员视频上限（字节）= 500MB
+     */
+    'video_maxsize_vip' => 524288000,
     /**
      * 服务端图片压缩：最长边像素；0 表示不缩放
      */

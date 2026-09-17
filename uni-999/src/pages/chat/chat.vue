@@ -229,11 +229,22 @@
                         </view>
                       </view>
                     </view>
-                    <view v-else class="chat-video-player-row">
-                      <ChatMediaVideo
-                        :src="mediaVideoList(m)[0] && mediaVideoList(m)[0].src"
-                        :poster="(mediaVideoList(m)[0] && mediaVideoList(m)[0].poster) || mediaPoster(m)"
+                    <!-- 列表内只用封面图，点开蒙层播：避免 App scroll-view 内原生 video 脱层跟着滚 -->
+                    <view
+                      v-else
+                      class="chat-video-player-row chat-video-single-poster"
+                      @click.stop="openVideoAlbumItem(m, 0)"
+                    >
+                      <image
+                        v-if="(mediaVideoList(m)[0] && mediaVideoList(m)[0].poster) || mediaPoster(m)"
+                        class="chat-video-preview-img"
+                        :src="(mediaVideoList(m)[0] && mediaVideoList(m)[0].poster) || mediaPoster(m)"
+                        mode="aspectFit"
                       />
+                      <view v-else class="chat-video-preview-fallback" />
+                      <view class="chat-video-album-play">
+                        <text class="chat-video-album-play-ico">▶</text>
+                      </view>
                       <view v-if="!mediaCaption(m)" class="chat-video-time-badge">
                         <text>{{ msgTime(m) }}</text>
                       </view>
@@ -1205,10 +1216,23 @@ function onComposerEnter(e) {
 const MAX_PENDING_IMAGES = 5
 const MAX_PENDING_VIDEOS = 9
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024
-const MAX_VIDEO_BYTES = 500 * 1024 * 1024
+const MAX_VIDEO_BYTES_DEFAULT = 200 * 1024 * 1024
+const MAX_VIDEO_BYTES_VIP = 500 * 1024 * 1024
+const VIDEO_VIP_USER_IDS_FALLBACK = [88888888, 55555555, 44444444, 77777777, 22222222]
+const videoVipUserIds = ref(VIDEO_VIP_USER_IDS_FALLBACK.slice())
+const videoMaxBytesDefault = ref(MAX_VIDEO_BYTES_DEFAULT)
+const videoMaxBytesVip = ref(MAX_VIDEO_BYTES_VIP)
+function resolveMaxVideoBytes() {
+  const uid = (myUserId.value | 0) || (myId | 0)
+  const vips = videoVipUserIds.value || []
+  if (uid && vips.indexOf(uid) >= 0) return (videoMaxBytesVip.value | 0) || MAX_VIDEO_BYTES_VIP
+  return (videoMaxBytesDefault.value | 0) || MAX_VIDEO_BYTES_DEFAULT
+}
 const pendingMedias = ref([])
 const hasPendingMedia = computed(() => (pendingMedias.value || []).length > 0)
 const videoAlbumPlayer = ref({ open: false, src: '', poster: '' })
+/** 群 77 发送人头像（配置 / OSS） */
+const group77SenderAvatar = ref('')
 /** 频道类群：普通成员隐藏输入栏（配置 + 兜底） */
 const COMPOSER_HIDDEN_GROUP_IDS_FALLBACK = [70, 71, 72, 77]
 const composerHiddenGroupIds = ref(COMPOSER_HIDDEN_GROUP_IDS_FALLBACK.slice())
@@ -1540,7 +1564,10 @@ function measureMsgScrollHeight() {
           Math.max(0, Number(hero && hero.height) || 0) +
           Math.max(0, Number(notice && notice.height) || 0)
         let bottom = Math.max(0, Number(composer && composer.height) || 0)
-        if (bottom < 40) {
+        // 频道群隐藏输入栏：只留安全区垫高，勿回退成完整 composer 高度（否则底部大片空白）
+        if (composerFullyHidden.value) {
+          bottom = Math.max(8, getSafeAreaInsets().bottom || 0)
+        } else if (bottom < 40) {
           const insetB = h5KbOpen.value ? 0 : getSafeAreaInsets().bottom || 0
           bottom =
             12 +
@@ -2388,6 +2415,11 @@ function isMine(m) {
 }
 
 function msgAvatar(m) {
+  const gid = (meta.value && meta.value.group) | 0
+  if (gid === 77) {
+    const fixed = String(group77SenderAvatar.value || '').trim()
+    if (fixed) return avatarSrc(fixed)
+  }
   if (isMine(m)) return avatarSrc(myAvatar.value)
   const fu = (m && m.from_user) || {}
   return avatarSrc((m && (m.from_avatar || fu.avatar)) || '')
@@ -4718,8 +4750,8 @@ async function pickVideo() {
       if (next.filter((x) => x && x.kind === 'video').length >= MAX_PENDING_VIDEOS) break
       const item = picked[i]
       const size = await resolveLocalFileSize(item.filePath, item.size)
-      if (size > MAX_VIDEO_BYTES) {
-        uni.showToast({ title: formatSizeLimitTip(MAX_VIDEO_BYTES, 'video'), icon: 'none' })
+      if (size > resolveMaxVideoBytes()) {
+        uni.showToast({ title: formatSizeLimitTip(resolveMaxVideoBytes(), 'video'), icon: 'none' })
         continue
       }
       const nativeThumb = String(item.thumb || '').trim()
@@ -6271,6 +6303,16 @@ onLoad(async (query) => {
     if (Array.isArray(ids) && ids.length) {
       composerHiddenGroupIds.value = ids.map((x) => x | 0).filter((x) => x > 0)
     }
+    const vipIds = (cfg && cfg.chat_video_vip_user_ids) || []
+    if (Array.isArray(vipIds) && vipIds.length) {
+      videoVipUserIds.value = vipIds.map((x) => x | 0).filter((x) => x > 0)
+    }
+    const vb = Number(cfg && cfg.chat_video_max_bytes)
+    if (vb > 0) videoMaxBytesDefault.value = vb
+    const vbVip = Number(cfg && cfg.chat_video_max_bytes_vip)
+    if (vbVip > 0) videoMaxBytesVip.value = vbVip
+    const g77 = String((cfg && cfg.group_77_sender_avatar) || '').trim()
+    if (g77) group77SenderAvatar.value = g77
   } catch (eCfg) {}
   try {
     if (typeof uni.onKeyboardHeightChange === 'function') {

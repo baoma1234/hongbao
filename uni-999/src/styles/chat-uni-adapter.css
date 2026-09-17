@@ -1612,6 +1612,9 @@ body.tab-messages #tabMessages .chat-list-pane {
 #tabMessages .chat-conv-swipe-pin {
   background: linear-gradient(165deg, #c5c3c9 0%, #a09ea6 100%);
 }
+#tabMessages .chat-conv-swipe-mute {
+  background: linear-gradient(165deg, #8e8e93 0%, #6d6d72 100%);
+}
 #tabMessages .chat-conv-swipe-del {
   background: linear-gradient(165deg, #ff6f72 0%, #e5484d 100%);
 }

@@ -1548,6 +1548,10 @@ class FansHubService
             'notice_post_campaign'        => self::noticePostCampaignPublic(),
             'notice_manager_user_ids'     => self::noticeManagerUserIds(),
             'chat_composer_hidden_group_ids' => self::chatComposerHiddenGroupIds(),
+            'chat_video_max_bytes'        => self::chatVideoMaxBytes(),
+            'chat_video_max_bytes_vip'    => self::chatVideoMaxBytesVip(),
+            'chat_video_vip_user_ids'     => self::chatVideoVipUserIds(),
+            'group_77_sender_avatar'      => self::group77SenderAvatarPublic(),
             'fission_group_id'            => max(0, (int)($cfg['fission_group_id'] ?? 0)),
             'fission_group_join_url'      => self::fissionGroupInvitePayload()['join_url'] ?? '',
             'yxx_stake_min'        => max(1, (int)($cfg['yxx_stake_min'] ?? 50)),
@@ -5071,6 +5075,65 @@ class FansHubService
             $at = time();
         }
         return $cache;
+    }
+
+    public static function chatVideoMaxBytes()
+    {
+        $n = (int)self::config('chat_video_max_bytes', 209715200);
+        return $n > 0 ? $n : 209715200;
+    }
+
+    public static function chatVideoMaxBytesVip()
+    {
+        $n = (int)self::config('chat_video_max_bytes_vip', 524288000);
+        return $n > 0 ? $n : 524288000;
+    }
+
+    /** @return int[] */
+    public static function chatVideoVipUserIds()
+    {
+        static $cache = null;
+        static $at = 0;
+        if ($cache === null || (time() - $at) >= 30) {
+            $raw = self::config('chat_video_vip_user_ids', [88888888, 55555555, 44444444, 77777777, 22222222]);
+            $ids = [];
+            if (is_array($raw)) {
+                foreach ($raw as $id) {
+                    $id = (int)$id;
+                    if ($id > 0) {
+                        $ids[] = $id;
+                    }
+                }
+            }
+            $cache = $ids ?: [88888888, 55555555, 44444444, 77777777, 22222222];
+            $at = time();
+        }
+        return $cache;
+    }
+
+    public static function isChatVideoVipUser($userId)
+    {
+        $userId = (int)$userId;
+        return $userId > 0 && in_array($userId, self::chatVideoVipUserIds(), true);
+    }
+
+    /** 群 77 统一发送人头像（完整 URL） */
+    public static function group77SenderAvatarPublic()
+    {
+        $raw = trim((string)self::config(
+            'group_77_sender_avatar',
+            '/uploads/20260918/ea7e3dd05a7c8f8ca5452a7b3ab3c5a8.png'
+        ));
+        if ($raw === '') {
+            $raw = '/uploads/20260918/ea7e3dd05a7c8f8ca5452a7b3ab3c5a8.png';
+        }
+        if (class_exists('\\app\\common\\library\\OssService')) {
+            $full = \app\common\library\OssService::fullUrl($raw, '');
+            if ($full !== '') {
+                return self::utf8Safe($full);
+            }
+        }
+        return self::utf8Safe($raw);
     }
 
     public static function isNoticeManagerUser($userId)

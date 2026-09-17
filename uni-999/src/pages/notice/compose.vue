@@ -92,7 +92,7 @@
 import { computed, ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import ProfileSubPage from '../../components/ProfileSubPage.vue'
-import { apiRequest, fetchConfig, getToken, uploadCommonFile } from '../../utils/auth.js'
+import { apiRequest, fetchConfig, fetchProfile, getToken, uploadCommonFile } from '../../utils/auth.js'
 import { avatarSrc, captureVideoFirstFrame } from '../../utils/chat.js'
 import '../../styles/hb.css'
 
@@ -111,7 +111,19 @@ const images = ref([])
 const video = ref(null)
 const busy = ref(false)
 const rules = ref(null)
-const MAX_VIDEO_BYTES = 500 * 1024 * 1024
+const MAX_VIDEO_BYTES_DEFAULT = 200 * 1024 * 1024
+const MAX_VIDEO_BYTES_VIP = 500 * 1024 * 1024
+const VIDEO_VIP_USER_IDS_FALLBACK = [88888888, 55555555, 44444444, 77777777, 22222222]
+let videoVipUserIds = VIDEO_VIP_USER_IDS_FALLBACK.slice()
+let videoMaxBytesDefault = MAX_VIDEO_BYTES_DEFAULT
+let videoMaxBytesVip = MAX_VIDEO_BYTES_VIP
+let myComposeUserId = 0
+
+function resolveComposeMaxVideoBytes() {
+  const uid = myComposeUserId | 0
+  if (uid && videoVipUserIds.indexOf(uid) >= 0) return videoMaxBytesVip || MAX_VIDEO_BYTES_VIP
+  return videoMaxBytesDefault || MAX_VIDEO_BYTES_DEFAULT
+}
 
 function normalizeUserPostCategory(code) {
   const c = String(code || '').trim()
@@ -171,7 +183,19 @@ async function loadRules() {
     if (cfg && cfg.notice_post_campaign) {
       rules.value = Object.assign({ can_post: true, has_sent_rp: false, remain_today: 10 }, cfg.notice_post_campaign)
     }
+    const vipIds = (cfg && cfg.chat_video_vip_user_ids) || []
+    if (Array.isArray(vipIds) && vipIds.length) {
+      videoVipUserIds = vipIds.map((x) => x | 0).filter((x) => x > 0)
+    }
+    const vb = Number(cfg && cfg.chat_video_max_bytes)
+    if (vb > 0) videoMaxBytesDefault = vb
+    const vbVip = Number(cfg && cfg.chat_video_max_bytes_vip)
+    if (vbVip > 0) videoMaxBytesVip = vbVip
   } catch (e2) {}
+  try {
+    const p = await fetchProfile()
+    myComposeUserId = (p && (p.id || p.user_id)) | 0
+  } catch (e3) {}
 }
 
 async function loadThemes() {
@@ -297,8 +321,9 @@ async function pickVideo() {
     const filePath = String((chosen && chosen.tempFilePath) || '')
     if (!filePath) return
     const size = await resolveLocalFileSize(filePath, Number((chosen && chosen.size) || 0))
-    if (size > MAX_VIDEO_BYTES) {
-      uni.showToast({ title: '视频不能超过 500MB', icon: 'none' })
+    if (size > resolveComposeMaxVideoBytes()) {
+      const mb = Math.round(resolveComposeMaxVideoBytes() / (1024 * 1024))
+      uni.showToast({ title: `视频不能超过 ${mb}MB`, icon: 'none' })
       return
     }
     busy.value = true
