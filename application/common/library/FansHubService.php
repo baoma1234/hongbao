@@ -4726,22 +4726,28 @@ class FansHubService
         ];
     }
 
-    /** 启用中的帖子主题 */
-    public static function noticeThemes()
+    /** 启用中的帖子主题（可按大模块过滤） */
+    public static function noticeThemes($category = '')
     {
-        $rows = \app\common\model\fanshub\NoticeTheme::where('status', 'normal')
-            ->order('weigh', 'desc')
-            ->order('id', 'asc')
-            ->select();
+        $category = \app\common\model\fanshub\NoticeTheme::normalizeCategory($category);
+        $q = \app\common\model\fanshub\NoticeTheme::where('status', 'normal');
+        if ($category !== '') {
+            $q->where('category', $category);
+        }
+        $rows = $q->order('weigh', 'desc')->order('id', 'asc')->select();
         $list = [];
+        $cats = Notice::categoryMap();
         foreach ($rows as $row) {
+            $cat = (string)($row->category ?? '');
             $list[] = [
-                'id'    => (int)$row->id,
-                'code'  => (string)$row->code,
-                'title' => (string)$row->title,
+                'id'       => (int)$row->id,
+                'code'     => (string)$row->code,
+                'title'    => (string)$row->title,
+                'category' => $cat,
+                'category_label' => $cats[$cat] ?? $cat,
             ];
         }
-        return ['list' => $list];
+        return ['list' => $list, 'category' => $category];
     }
 
     /**
@@ -4855,6 +4861,19 @@ class FansHubService
         if (!$theme) {
             throw new \InvalidArgumentException('请选择主题');
         }
+        $cats = Notice::categoryMap();
+        $category = trim((string)($input['category'] ?? ''));
+        if ($category === '' || !isset($cats[$category])) {
+            // 兼容旧客户端：未传模块时，跟主题所属模块；无则彩金白嫖
+            $category = trim((string)($theme->category ?? ''));
+            if ($category === '' || !isset($cats[$category])) {
+                $category = 'ads';
+            }
+        }
+        $themeCat = trim((string)($theme->category ?? ''));
+        if ($themeCat !== '' && $themeCat !== $category) {
+            throw new \InvalidArgumentException('主题与所选模块不匹配');
+        }
         $images = $input['images'] ?? [];
         if (is_string($images)) {
             $decoded = json_decode($images, true);
@@ -4895,7 +4914,7 @@ class FansHubService
         $row = new Notice();
         $row->author_name = $nick;
         $row->author_avatar = $avatar;
-        $row->category = 'ads';
+        $row->category = $category;
         $row->content = $content;
         $row->images = $normImgs;
         $row->video = '';

@@ -72,6 +72,40 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
         api: {
             bindevent: function () {
                 Form.api.bindevent($('form[role=form]'));
+                Controller.api.bindThemeFilter();
+            },
+            bindThemeFilter: function () {
+                var $cat = $('select[name="row[category]"]');
+                var $theme = $('#c-theme_id');
+                if (!$cat.length || !$theme.length) return;
+                var meta = Config.themeMeta || [];
+                var keep = String($theme.val() || '0');
+
+                function rebuild(selectedCat, preferredId) {
+                    var html = '<option value="0">无主题标签</option>';
+                    for (var i = 0; i < meta.length; i++) {
+                        var row = meta[i] || {};
+                        if (String(row.category || '') !== String(selectedCat)) continue;
+                        var label = String(row.title || '');
+                        if (String(row.status || '') !== 'normal') label += ' [停用]';
+                        html += '<option value="' + row.id + '">' + label + '</option>';
+                    }
+                    $theme.html(html);
+                    var want = String(preferredId || '0');
+                    if (want !== '0' && $theme.find('option[value="' + want + '"]').length) {
+                        $theme.val(want);
+                    } else {
+                        $theme.val('0');
+                    }
+                    if ($theme.selectpicker) {
+                        $theme.selectpicker('refresh');
+                    }
+                }
+
+                rebuild(String($cat.val() || 'latest'), keep);
+                $cat.on('changed.bs.select change', function () {
+                    rebuild(String($cat.val() || 'latest'), '0');
+                });
             }
         }
     };

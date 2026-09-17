@@ -417,7 +417,8 @@ function goNoticeCompose() {
     uni.navigateTo({ url: '/pages/login/login' })
     return
   }
-  uni.navigateTo({ url: '/pages/notice/compose' })
+  const cat = String(noticeCat.value || 'ads')
+  uni.navigateTo({ url: '/pages/notice/compose?category=' + encodeURIComponent(cat) })
 }
 
 function openNoticeDetail(n) {

@@ -2,6 +2,21 @@
   <ProfileSubPage title="发帖" back-fallback="/pages/notice/notice">
     <view class="notice-compose">
       <view class="compose-sec">
+        <text class="compose-lab">发布到</text>
+        <scroll-view scroll-x class="compose-themes" :show-scrollbar="false">
+          <view class="compose-themes-inner">
+            <view
+              v-for="c in categories"
+              :key="c.code"
+              class="compose-theme-chip"
+              :class="{ active: category === c.code }"
+              @click="setCategory(c.code)"
+            >{{ c.title }}</view>
+          </view>
+        </scroll-view>
+      </view>
+
+      <view class="compose-sec">
         <text class="compose-lab">主题</text>
         <scroll-view scroll-x class="compose-themes" :show-scrollbar="false">
           <view class="compose-themes-inner">
@@ -14,6 +29,7 @@
             >{{ t.title }}</view>
           </view>
         </scroll-view>
+        <text v-if="!themes.length" class="compose-empty-tip">该模块暂无可用主题</text>
       </view>
 
       <view class="compose-sec">
@@ -23,7 +39,7 @@
           v-model="content"
           maxlength="5000"
           :auto-height="true"
-          placeholder="分享彩金、白嫖、交流内容…"
+          :placeholder="contentPlaceholder"
         />
       </view>
 
@@ -50,18 +66,38 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+import { onLoad, onShow } from '@dcloudio/uni-app'
 import ProfileSubPage from '../../components/ProfileSubPage.vue'
 import { apiRequest, fetchConfig, getToken, uploadCommonFile } from '../../utils/auth.js'
 import { avatarSrc } from '../../utils/chat.js'
 import '../../styles/hb.css'
 
+const categories = [
+  { code: 'latest', title: '最新发布' },
+  { code: 'promote', title: '推广赚钱' },
+  { code: 'ads', title: '彩金白嫖' },
+  { code: 'rules', title: '红宝•海外圈内事' },
+]
+
+const category = ref('ads')
 const themes = ref([])
 const themeId = ref(0)
 const content = ref('')
 const images = ref([])
 const busy = ref(false)
 const rules = ref(null)
+
+const categoryTitle = computed(() => {
+  const hit = categories.find((c) => c.code === category.value)
+  return (hit && hit.title) || '彩金白嫖'
+})
+
+const contentPlaceholder = computed(() => {
+  if (category.value === 'rules') return '分享海外快讯、生活故事、求助或吐槽…'
+  if (category.value === 'promote') return '分享推广经验、赚钱信息…'
+  if (category.value === 'latest') return '发布最新动态、规则或通知…'
+  return '分享彩金、白嫖、广告或曝光内容…'
+})
 
 const canPost = computed(() => {
   const r = rules.value
@@ -72,8 +108,9 @@ const canPost = computed(() => {
 
 const campaignTip = computed(() => {
   const r = rules.value
+  const board = categoryTitle.value
   if (!r || r.enabled === false) {
-    return '发帖归类「彩金白嫖」，审核通过后他人可见；审核前仅自己可见。'
+    return '发帖归类「' + board + '」，审核通过后他人可见；审核前仅自己可见。'
   }
   const first = Number(r.reward_first)
   const after = Number(r.reward_after)
@@ -87,7 +124,7 @@ const campaignTip = computed(() => {
   const fTxt = Number.isFinite(first) ? first : 1
   const aTxt = Number.isFinite(after) ? after : 2
   lines.push('审核通过：前' + tier + '帖各奖' + fTxt + '元红宝，之后每帖' + aTxt + '元')
-  lines.push('归类「彩金白嫖」，审核通过后他人可见。')
+  lines.push('归类「' + board + '」，审核通过后他人可见。')
   return lines.join('\n')
 })
 
@@ -109,15 +146,25 @@ async function loadRules() {
 
 async function loadThemes() {
   try {
-    const data = await apiRequest('noticethemes', 'GET')
+    const data = await apiRequest('noticethemes', 'GET', { category: category.value })
     const list = (data && data.list) || []
     themes.value = Array.isArray(list) ? list : []
-    if (!themeId.value && themes.value.length) {
-      themeId.value = themes.value[0].id | 0
+    const still = themes.value.some((t) => (t.id | 0) === (themeId.value | 0))
+    if (!still) {
+      themeId.value = themes.value.length ? themes.value[0].id | 0 : 0
     }
   } catch (e) {
     themes.value = []
+    themeId.value = 0
   }
+}
+
+function setCategory(code) {
+  const next = String(code || 'ads')
+  if (category.value === next) return
+  category.value = next
+  themeId.value = 0
+  loadThemes()
 }
 
 function removeImage(i) {
@@ -194,6 +241,7 @@ async function submit() {
   try {
     await apiRequest('noticecreate', 'POST', {
       content: text,
+      category: category.value,
       theme_id: themeId.value | 0,
       images: images.value.map((x) => x.url).filter(Boolean),
     })
@@ -210,6 +258,13 @@ async function submit() {
     busy.value = false
   }
 }
+
+onLoad((q) => {
+  const cat = String((q && (q.category || q.cat)) || '').trim()
+  if (categories.some((c) => c.code === cat)) {
+    category.value = cat
+  }
+})
 
 onShow(() => {
   if (!getToken()) {
@@ -260,6 +315,12 @@ onShow(() => {
   color: #fff;
   font-weight: 600;
 }
+.compose-empty-tip {
+  display: block;
+  margin-top: 8px;
+  font-size: 12px;
+  color: #999;
+}
 .compose-textarea {
   width: 100%;
   min-height: 140px;
@@ -277,42 +338,43 @@ onShow(() => {
   flex-wrap: wrap;
   gap: 8px;
 }
-.compose-img-item,
-.compose-img-add {
-  width: 88px;
-  height: 88px;
-  border-radius: 8px;
-  overflow: hidden;
+.compose-img-item {
   position: relative;
-  background: #f5f5f5;
-  box-sizing: border-box;
+  width: 72px;
+  height: 72px;
 }
 .compose-img {
-  width: 100%;
-  height: 100%;
+  width: 72px;
+  height: 72px;
+  border-radius: 8px;
+  background: #f5f5f5;
 }
 .compose-img-del {
   position: absolute;
-  top: 2px;
-  right: 4px;
-  width: 22px;
-  height: 22px;
+  top: -6px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
   line-height: 20px;
   text-align: center;
-  border-radius: 11px;
+  border-radius: 10px;
   background: rgba(0, 0, 0, 0.55);
   color: #fff;
-  font-size: 16px;
+  font-size: 14px;
 }
 .compose-img-add {
+  width: 72px;
+  height: 72px;
+  border-radius: 8px;
+  border: 1px dashed #ccc;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 0.5px dashed #ccc;
+  background: #fafafa;
 }
 .compose-img-add-plus {
   font-size: 28px;
-  color: #aaa;
+  color: #bbb;
   line-height: 1;
 }
 .compose-tip {
@@ -327,7 +389,7 @@ onShow(() => {
   width: 100%;
   height: 44px;
   line-height: 44px;
-  border-radius: 10px;
+  border-radius: 22px;
   background: #2ecc71;
   color: #fff;
   font-size: 16px;
@@ -335,6 +397,6 @@ onShow(() => {
   border: none;
 }
 .compose-submit[disabled] {
-  opacity: 0.65;
+  opacity: 0.55;
 }
 </style>

@@ -22,25 +22,46 @@ class Notice extends Backend
         $this->view->assign('statusList', $this->model->getStatusList());
         $this->view->assign('categoryList', $this->model->getCategoryList());
         $this->view->assign('localeList', FansHubService::i18nLocaleCodes());
-        $this->view->assign('themeList', $this->themeSelectList());
+        $themeMeta = $this->themeSelectMeta();
+        $this->view->assign('themeList', $this->themeSelectList($themeMeta));
         $this->assignconfig('statusList', $this->model->getStatusList());
         $this->assignconfig('categoryList', $this->model->getCategoryList());
+        $this->assignconfig('themeMeta', $themeMeta);
     }
 
-    /** @return array id => title */
-    protected function themeSelectList()
+    /** @return array[] */
+    protected function themeSelectMeta()
     {
-        $out = [0 => '无主题标签'];
+        $out = [];
+        $cats = \app\common\model\fanshub\Notice::categoryMap();
         try {
             $rows = \app\common\model\fanshub\NoticeTheme::order('weigh', 'desc')->order('id', 'asc')->select();
             foreach ($rows as $row) {
-                $label = (string)$row->title;
-                if ((string)$row->status !== 'normal') {
-                    $label .= ' [停用]';
-                }
-                $out[(int)$row->id] = $label;
+                $cat = (string)($row->category ?? 'ads');
+                $out[] = [
+                    'id'       => (int)$row->id,
+                    'title'    => (string)$row->title,
+                    'category' => $cat,
+                    'cat_label'=> $cats[$cat] ?? $cat,
+                    'status'   => (string)$row->status,
+                ];
             }
         } catch (\Throwable $e) {
+        }
+        return $out;
+    }
+
+    /** @return array id => title */
+    protected function themeSelectList(array $themeMeta = null)
+    {
+        $out = [0 => '无主题标签'];
+        $meta = $themeMeta !== null ? $themeMeta : $this->themeSelectMeta();
+        foreach ($meta as $row) {
+            $label = ($row['cat_label'] ?? '') . ' / ' . ($row['title'] ?? '');
+            if (($row['status'] ?? '') !== 'normal') {
+                $label .= ' [停用]';
+            }
+            $out[(int)$row['id']] = $label;
         }
         return $out;
     }
@@ -125,9 +146,17 @@ class Notice extends Backend
         $params['theme_id'] = max(0, $themeId);
         if ($params['theme_id'] > 0) {
             $theme = \app\common\model\fanshub\NoticeTheme::where('id', $params['theme_id'])->find();
-            $params['theme_title'] = $theme ? (string)$theme->title : '';
             if (!$theme) {
                 $params['theme_id'] = 0;
+                $params['theme_title'] = '';
+            } else {
+                $themeCat = trim((string)($theme->category ?? ''));
+                if ($themeCat !== '' && $themeCat !== $params['category']) {
+                    $params['theme_id'] = 0;
+                    $params['theme_title'] = '';
+                } else {
+                    $params['theme_title'] = (string)$theme->title;
+                }
             }
         } else {
             $params['theme_title'] = trim((string)($params['theme_title'] ?? ''));

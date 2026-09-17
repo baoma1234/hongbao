@@ -21,6 +21,12 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                     [
                         {checkbox: true},
                         {field: 'id', title: __('Id'), sortable: true},
+                        {
+                            field: 'category',
+                            title: '所属模块',
+                            searchList: Config.categoryList || {},
+                            formatter: Table.api.formatter.normal
+                        },
                         {field: 'code', title: '编码', operate: 'LIKE'},
                         {field: 'title', title: '主题名', operate: 'LIKE'},
                         {field: 'weigh', title: '权重', sortable: true},

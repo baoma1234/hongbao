@@ -11,4 +11,9 @@ class NoticeTheme extends \app\common\model\fanshub\NoticeTheme
             'hidden' => '隐藏',
         ];
     }
+
+    public function getCategoryList()
+    {
+        return self::categoryMap();
+    }
 }

@@ -130,10 +130,11 @@ class Fanshub extends Api
         $this->success('ok', FansHubService::noticeFeed($page, $limit, $category, $keyword, $uid));
     }
 
-    /** 帖子主题列表 */
+    /** 帖子主题列表（?category=latest|promote|ads|rules） */
     public function noticethemes()
     {
-        $this->success('ok', FansHubService::noticeThemes());
+        $category = (string)$this->request->get('category', $this->request->post('category', ''));
+        $this->success('ok', FansHubService::noticeThemes($category));
     }
 
     /** 帖子详情 */

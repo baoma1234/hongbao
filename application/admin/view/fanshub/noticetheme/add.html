@@ -1,9 +1,20 @@
 <form id="add-form" class="form-horizontal" role="form" data-toggle="validator" method="POST" action="">
     <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">所属模块:</label>
+        <div class="col-xs-12 col-sm-8">
+            <select name="row[category]" class="form-control selectpicker" data-rule="required">
+                {foreach name="categoryList" item="vo" key="k"}
+                <option value="{$k}" {eq name="k" value="ads"}selected{/eq}>{$vo}</option>
+                {/foreach}
+            </select>
+            <span class="help-block">对应前台社区四大分类；每个模块主题互相独立</span>
+        </div>
+    </div>
+    <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">编码:</label>
         <div class="col-xs-12 col-sm-8">
-            <input type="text" class="form-control" name="row[code]" value="" data-rule="required" maxlength="32" placeholder="如 general / freebie">
-            <span class="help-block">英文标识，唯一；保存后尽量勿改</span>
+            <input type="text" class="form-control" name="row[code]" value="" data-rule="required" maxlength="32" placeholder="如 overseas_news / freebie">
+            <span class="help-block">英文标识，全局唯一；保存后尽量勿改</span>
         </div>
     </div>
     <div class="form-group">
