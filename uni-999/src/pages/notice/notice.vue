@@ -116,6 +116,8 @@
                   scroll-y
                   :style="noticeScrollStyle"
                   :show-scrollbar="false"
+                  :lower-threshold="140"
+                  @scrolltolower="onNoticeScrollToLower"
                 >
                   <view
                     v-if="fissionNoticeVisible && (noticeCat === 'latest' || noticeCat === 'promote')"
@@ -183,7 +185,7 @@
                   <view class="chat-notice-feed" id="chatNoticeFeed">
                     <view
                       v-for="n in notices"
-                      :key="n.id || n.publishtime || n.createtime"
+                      :key="n.id"
                       class="chat-notice-card"
                       @click="openNoticeDetail(n)"
                     >
@@ -192,6 +194,7 @@
                           class="chat-notice-avatar"
                           :src="avatarSrc(n.author_avatar || '')"
                           mode="aspectFill"
+                          lazy-load
                         />
                         <view class="chat-notice-meta">
                           <view class="chat-notice-name-row">
@@ -211,11 +214,21 @@
                       />
                       <view v-if="noticeVideo(n)" class="chat-notice-media" @click.stop>
                         <video
+                          v-if="playingVideoId === (n.id | 0)"
                           class="chat-notice-video"
                           :src="noticeVideo(n)"
                           controls
+                          autoplay
+                          :show-center-play-btn="true"
                           object-fit="contain"
                         />
+                        <view
+                          v-else
+                          class="chat-notice-video-poster"
+                          @click="playNoticeVideo(n)"
+                        >
+                          <text class="chat-notice-video-play">▶ 播放视频</text>
+                        </view>
                       </view>
                       <view
                         v-if="noticeImages(n).length === 1"
@@ -227,6 +240,7 @@
                           class="chat-notice-one-img"
                           :src="avatarSrc(noticeImages(n)[0])"
                           mode="widthFix"
+                          lazy-load
                           :style="{ width: '100%' }"
                         />
                       </view>
@@ -251,6 +265,7 @@
                               class="chat-notice-img"
                               :src="avatarSrc(src)"
                               :mode="noticeImagesFull(n) ? 'widthFix' : 'aspectFill'"
+                              lazy-load
                               :style="noticeImagesFull(n) ? noticeImageStyle(n) : null"
                             />
                           </view>
@@ -269,7 +284,12 @@
                         <view class="chat-notice-share-btn" @click="shareNoticeToCommunity(n)">分享到社群</view>
                       </view>
                     </view>
-                    <view v-if="!notices.length" class="chat-empty chat-empty-glass">暂无公告</view>
+                    <view v-if="!noticesLoading && !notices.length" class="chat-empty chat-empty-glass">暂无公告</view>
+                    <view v-if="notices.length" class="chat-notice-feed-foot">
+                      <text v-if="noticesLoadingMore">加载中…</text>
+                      <text v-else-if="noticesHasMore">上拉加载更多</text>
+                      <text v-else>没有更多了</text>
+                    </view>
                     <view class="chat-list-scroll-pad" aria-hidden="true">
                       <text class="chat-list-scroll-pad-mark"> </text>
                     </view>
@@ -347,6 +367,12 @@ import {
 const panelScrollPx = ref(420)
 const tabRootPx = ref(0)
 const notices = ref([])
+const noticePage = ref(1)
+const noticesHasMore = ref(false)
+const noticesLoading = ref(false)
+const noticesLoadingMore = ref(false)
+const playingVideoId = ref(0)
+const NOTICE_PAGE_SIZE = 15
 const noticeCat = ref('latest')
 const noticeKeyword = ref('')
 let noticeSearchTimer = null
@@ -360,6 +386,7 @@ const noticeThemeTitle = ref('')
 let searchThemesCat = ''
 /** 选完主题后回填焦点时，跳过一次「弹出主题」 */
 const searchThemeSkipOnce = ref(false)
+const noticeHeadOffsetPx = ref(100)
 
 const searchModOptions = [
   { code: 'latest', title: '最新发布', short: '最新' },
@@ -419,8 +446,8 @@ const panelHostStyle = computed(() => {
 })
 const noticeScrollStyle = computed(() => {
   let h = Number(panelScrollPx.value) || 420
-  // Seg(~48) + 搜索发帖栏(~52)
-  h = Math.max(180, h - 100)
+  const head = Math.max(72, Number(noticeHeadOffsetPx.value) || 100)
+  h = Math.max(180, h - head)
   return {
     height: h + 'px',
     minHeight: h + 'px',
@@ -431,7 +458,8 @@ const noticeScrollStyle = computed(() => {
 })
 const noticePaneStyle = computed(() => {
   const h = Number(panelScrollPx.value) || 420
-  const inner = Math.max(180, h - 100)
+  const head = Math.max(72, Number(noticeHeadOffsetPx.value) || 100)
+  const inner = Math.max(180, h - head)
   return {
     height: inner + 'px',
     minHeight: inner + 'px',
@@ -463,12 +491,26 @@ function measureNoticeLayout() {
     const tabBar = 64 + Number(inset.bottom || 0)
     const shell = Math.max(280, winH - status - topBar - tabBar)
     tabRootPx.value = shell
-    // panel 铺满 tabRoot，Seg 高度在 noticePane 内再扣
     panelScrollPx.value = Math.max(220, shell)
   } catch (e) {
     tabRootPx.value = 0
     panelScrollPx.value = 420
   }
+  try {
+    uni.createSelectorQuery()
+      .select('#chatNoticeCats')
+      .boundingClientRect()
+      .select('.chat-notice-toolbar-wrap')
+      .boundingClientRect()
+      .exec((rects) => {
+        const seg = (rects && rects[0] && rects[0].height) || 0
+        const bar = (rects && rects[1] && rects[1].height) || 0
+        const sum = Math.ceil(seg + bar)
+        if (sum > 60 && sum < 220) {
+          noticeHeadOffsetPx.value = sum
+        }
+      })
+  } catch (e2) {}
 }
 
 function friendName(f) {
@@ -506,7 +548,7 @@ function onNoticeKeywordInput(e) {
   noticeKeyword.value = String(v)
   if (noticeSearchTimer) clearTimeout(noticeSearchTimer)
   noticeSearchTimer = setTimeout(() => {
-    loadNotices()
+    loadNotices(true)
   }, 380)
 }
 
@@ -515,7 +557,7 @@ function submitNoticeSearch() {
     clearTimeout(noticeSearchTimer)
     noticeSearchTimer = null
   }
-  loadNotices()
+  loadNotices(true)
 }
 
 function toggleSearchModMenu() {
@@ -593,7 +635,7 @@ function pickSearchMod(code) {
     searchThemes.value = []
     searchThemesCat = ''
   }
-  loadNotices()
+  loadNotices(true)
   // 选完模块后立刻弹出该模块主题
   nextTick(() => {
     void openSearchThemeMenu()
@@ -610,7 +652,7 @@ function pickSearchTheme(t) {
   }
   searchThemeMenuOpen.value = false
   searchThemeSkipOnce.value = true
-  loadNotices()
+  loadNotices(true)
   searchInputFocus.value = false
   nextTick(() => {
     searchInputFocus.value = true
@@ -666,10 +708,12 @@ function noticeClock(n) {
 }
 
 function noticeVideo(n) {
+  if (n && n._video != null) return String(n._video || '').trim()
   return String((n && n.video) || '').trim()
 }
 
 function noticeImages(n) {
+  if (n && Array.isArray(n._images)) return n._images
   const imgs = n && n.images
   if (!Array.isArray(imgs)) return []
   // 本站上传会把图存成 /uploads/*.js，按图片展示
@@ -677,6 +721,7 @@ function noticeImages(n) {
 }
 
 function noticeImagesFull(n) {
+  if (n && typeof n._imagesFull === 'boolean') return n._imagesFull
   const c = String((n && n.category) || noticeCat.value || '')
   // 仅最新 / 推广走全宽长图；彩金 / 海外用九宫格 / 单图紧凑
   return c === 'latest' || c === 'promote'
@@ -688,6 +733,7 @@ function noticeImageStyle(n) {
 }
 
 function noticeActionButtons(n) {
+  if (n && Array.isArray(n._actions)) return n._actions
   if (!n) return []
   const type = String(n.action_type || '')
   if (type === 'buttons' && Array.isArray(n.action_buttons) && n.action_buttons.length) {
@@ -707,6 +753,26 @@ function noticeActionButtons(n) {
     action: isShare ? 'share' : 'link',
     cls: isShare ? 'primary' : 'wide-soft',
   }]
+}
+
+function prepareNoticeRow(n) {
+  if (!n || typeof n !== 'object') return null
+  const id = (n.id | 0)
+  if (!id) return null
+  const images = Array.isArray(n.images) ? n.images.filter(Boolean) : []
+  const cat = String(n.category || noticeCat.value || '')
+  n._images = images
+  n._video = String(n.video || '').trim()
+  n._imagesFull = cat === 'latest' || cat === 'promote'
+  n._actions = null
+  n._actions = noticeActionButtons(n)
+  return n
+}
+
+function playNoticeVideo(n) {
+  const id = (n && n.id) | 0
+  if (!id) return
+  playingVideoId.value = id
 }
 
 function previewNoticeImages(n, index) {
@@ -1167,8 +1233,9 @@ function setNoticeCat(cat) {
   searchThemesCat = ''
   searchModMenuOpen.value = false
   searchThemeMenuOpen.value = false
+  playingVideoId.value = 0
   syncPromoteEarnPanel()
-  loadNotices()
+  loadNotices(true)
 }
 
 async function loadChatFissionCardFlag() {
@@ -1179,22 +1246,57 @@ async function loadChatFissionCardFlag() {
   } catch (e) {}
 }
 
-async function loadNotices() {
+async function loadNotices(reset) {
+  const isReset = reset !== false
+  if (isReset) {
+    if (noticesLoading.value) return
+    noticesLoading.value = true
+    noticePage.value = 1
+    noticesHasMore.value = false
+    playingVideoId.value = 0
+  } else {
+    if (noticesLoadingMore.value || noticesLoading.value || !noticesHasMore.value) return
+    noticesLoadingMore.value = true
+  }
+  const page = isReset ? 1 : ((noticePage.value | 0) + 1)
   try {
-    const params = { page: 1, limit: 30, category: noticeCat.value }
+    const params = {
+      page,
+      limit: NOTICE_PAGE_SIZE,
+      category: noticeCat.value,
+    }
     const kw = String(noticeKeyword.value || '').trim()
     if (kw) params.keyword = kw
     const tid = noticeThemeId.value | 0
     if (tid > 0) params.theme_id = tid
     const data = await apiRequest('notices', 'GET', params)
     const rows = (data && (data.list || data.rows || data.items)) || []
-    notices.value = Array.isArray(rows) ? rows : []
+    const prepared = (Array.isArray(rows) ? rows : [])
+      .map(prepareNoticeRow)
+      .filter(Boolean)
+    if (isReset) notices.value = prepared
+    else notices.value = (notices.value || []).concat(prepared)
+    noticePage.value = page
+    if (typeof (data && data.has_more) === 'boolean') {
+      noticesHasMore.value = !!data.has_more
+    } else {
+      noticesHasMore.value = prepared.length >= NOTICE_PAGE_SIZE
+    }
   } catch (e) {
-    notices.value = []
+    if (isReset) notices.value = []
+    noticesHasMore.value = false
+  } finally {
+    noticesLoading.value = false
+    noticesLoadingMore.value = false
   }
   if (noticeCat.value === 'promote' || noticeCat.value === 'latest') {
     loadFissionNotice()
   }
+}
+
+function onNoticeScrollToLower() {
+  if (!pageAlive) return
+  loadNotices(false)
 }
 
 async function tickNoticeViewsBump() {
@@ -1207,11 +1309,13 @@ async function tickNoticeViewsBump() {
     bumped = true
   }
   if (!bumped) return
-  notices.value = (notices.value || []).map((n) => {
-    if (!n || n.status === 'pending' || n.status === 'rejected') return n
-    const add = 5 + Math.floor(Math.random() * 16)
-    return Object.assign({}, n, { views_count: (Number(n.views_count) || 0) + add })
-  })
+  // 原地改浏览数，避免 map 新对象导致整表图片重挂载卡顿
+  const list = notices.value || []
+  for (let i = 0; i < list.length; i++) {
+    const n = list[i]
+    if (!n || n.status === 'pending' || n.status === 'rejected') continue
+    n.views_count = (Number(n.views_count) || 0) + (5 + Math.floor(Math.random() * 16))
+  }
 }
 
 function startNoticeViewsBump() {
@@ -1312,13 +1416,14 @@ onShow(() => {
   }, 50)
   void loadChatFissionCardFlag()
   syncPromoteEarnPanel()
-  void loadNotices()
+  void loadNotices(true)
   startNoticeViewsBump()
   nextTick(() => measureNoticeLayout())
 })
 
 onHide(() => {
   pageAlive = false
+  playingVideoId.value = 0
   stopPromoteEarnScroll()
   stopNoticeViewsBump()
 })
@@ -1505,5 +1610,28 @@ onUnmounted(() => {
   display: block !important;
   border-radius: 10px;
   overflow: hidden;
+}
+
+.chat-notice-video-poster {
+  width: 100%;
+  min-height: 160px;
+  border-radius: 14px;
+  background: #1a1a1a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+.chat-notice-video-play {
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+.chat-notice-feed-foot {
+  padding: 14px 12px 8px;
+  text-align: center;
+  color: #9a9a9a;
+  font-size: 12px;
 }
 </style>
