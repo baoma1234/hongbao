@@ -36,22 +36,51 @@
                   @click="setNoticeCat('rules')"
                 >红宝•海外圈内事</view>
               </view>
-              <view class="chat-notice-toolbar">
-                <view class="chat-notice-search">
-                  <text class="chat-notice-search-ico" aria-hidden="true">⌕</text>
-                  <input
-                    class="chat-notice-search-input"
-                    type="search"
-                    confirm-type="search"
-                    :value="noticeKeyword"
-                    :placeholder="tt('notice_search_ph', '搜索帖子、用户或关键词...')"
-                    @input="onNoticeKeywordInput"
-                    @confirm="submitNoticeSearch"
-                  />
+              <view class="chat-notice-toolbar-wrap">
+                <view class="chat-notice-toolbar">
+                  <view class="chat-notice-search">
+                    <view
+                      class="chat-notice-search-mod"
+                      :class="{ open: searchModMenuOpen }"
+                      @click.stop="toggleSearchModMenu"
+                    >
+                      <text class="chat-notice-search-mod-txt">{{ searchModShortLabel }}</text>
+                      <text class="chat-notice-search-mod-caret">{{ searchModMenuOpen ? '▴' : '▾' }}</text>
+                    </view>
+                    <input
+                      class="chat-notice-search-input"
+                      type="search"
+                      confirm-type="search"
+                      :focus="searchInputFocus"
+                      :value="noticeKeyword"
+                      :placeholder="searchPlaceholder"
+                      @focus="onSearchFocus"
+                      @input="onNoticeKeywordInput"
+                      @confirm="submitNoticeSearch"
+                      @blur="onSearchBlur"
+                    />
+                  </view>
+                  <view class="chat-notice-post-btn" @click="goNoticeCompose">
+                    <text class="chat-notice-post-ico">✎</text>
+                    <text>{{ tt('notice_post_btn', '发帖') }}</text>
+                  </view>
                 </view>
-                <view class="chat-notice-post-btn" @click="goNoticeCompose">
-                  <text class="chat-notice-post-ico">✎</text>
-                  <text>{{ tt('notice_post_btn', '发帖') }}</text>
+                <view
+                  v-if="searchModMenuOpen"
+                  class="chat-notice-search-mask"
+                  @click="closeSearchModMenu"
+                />
+                <view v-if="searchModMenuOpen" class="chat-notice-search-drop">
+                  <view
+                    v-for="m in searchModOptions"
+                    :key="m.code"
+                    class="chat-notice-search-drop-item"
+                    :class="{ active: noticeCat === m.code }"
+                    @click.stop="pickSearchMod(m.code)"
+                  >
+                    <text class="chat-notice-search-drop-title">{{ m.title }}</text>
+                    <text v-if="noticeCat === m.code" class="chat-notice-search-drop-check">✓</text>
+                  </view>
                 </view>
               </view>
               <view class="chat-notice-pane" :style="noticePaneStyle">
@@ -280,6 +309,28 @@ const notices = ref([])
 const noticeCat = ref('latest')
 const noticeKeyword = ref('')
 let noticeSearchTimer = null
+const searchModMenuOpen = ref(false)
+const searchInputFocus = ref(false)
+/** 本轮搜索是否已选过模块（输入前先选） */
+const searchModConfirmed = ref(false)
+
+const searchModOptions = [
+  { code: 'latest', title: '最新发布', short: '最新' },
+  { code: 'promote', title: '推广赚钱', short: '推广' },
+  { code: 'ads', title: '彩金白嫖', short: '彩金' },
+  { code: 'rules', title: '红宝•海外圈内事', short: '海外' },
+]
+
+const searchModShortLabel = computed(() => {
+  const hit = searchModOptions.find((m) => m.code === noticeCat.value)
+  return (hit && hit.short) || '最新'
+})
+
+const searchPlaceholder = computed(() => {
+  const hit = searchModOptions.find((m) => m.code === noticeCat.value)
+  const name = (hit && hit.title) || '最新发布'
+  return '在「' + name + '」中搜索…'
+})
 const chatFissionCardEnabled = ref(false)
 const promoteEarnRows = ref([])
 const promoteEarnOffset = ref(0)
@@ -410,6 +461,47 @@ function submitNoticeSearch() {
     noticeSearchTimer = null
   }
   loadNotices()
+}
+
+function toggleSearchModMenu() {
+  searchModMenuOpen.value = !searchModMenuOpen.value
+  if (searchModMenuOpen.value) {
+    searchInputFocus.value = false
+  }
+}
+
+function closeSearchModMenu() {
+  searchModMenuOpen.value = false
+}
+
+function onSearchFocus() {
+  // 输入前先选模块
+  if (!searchModConfirmed.value) {
+    searchInputFocus.value = false
+    searchModMenuOpen.value = true
+    return
+  }
+  searchModMenuOpen.value = false
+}
+
+function onSearchBlur() {
+  // 延迟清 focus，避免点下拉时立刻失焦
+  setTimeout(() => {
+    searchInputFocus.value = false
+  }, 120)
+}
+
+function pickSearchMod(code) {
+  const next = String(code || 'latest')
+  const allowed = searchModOptions.map((m) => m.code)
+  noticeCat.value = allowed.indexOf(next) >= 0 ? next : 'latest'
+  searchModConfirmed.value = true
+  searchModMenuOpen.value = false
+  loadNotices()
+  searchInputFocus.value = false
+  nextTick(() => {
+    searchInputFocus.value = true
+  })
 }
 
 function goNoticeCompose() {
@@ -950,6 +1042,8 @@ watch(noticeCat, () => {
 function setNoticeCat(cat) {
   const allowed = ['latest', 'promote', 'ads', 'rules']
   noticeCat.value = allowed.indexOf(cat) >= 0 ? cat : 'latest'
+  searchModConfirmed.value = true
+  searchModMenuOpen.value = false
   syncPromoteEarnPanel()
   loadNotices()
 }
@@ -1138,6 +1232,92 @@ onUnmounted(() => {
   flex: 1.65 1 0;
   font-size: 11px;
   line-height: 1.15;
+}
+.chat-notice-toolbar-wrap {
+  position: relative;
+  z-index: 20;
+  flex-shrink: 0;
+}
+.chat-notice-search-mod {
+  flex: 0 0 auto;
+  max-width: 78px;
+  height: 26px;
+  padding: 0 6px 0 8px;
+  margin-right: 2px;
+  border-radius: 13px;
+  background: #f0f0f0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  box-sizing: border-box;
+}
+.chat-notice-search-mod.open {
+  background: #e8f5ff;
+}
+.chat-notice-search-mod-txt {
+  font-size: 12px;
+  color: #333;
+  line-height: 1;
+  max-width: 48px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.chat-notice-search-mod-caret {
+  font-size: 10px;
+  color: #888;
+  line-height: 1;
+}
+.chat-notice-search-mask {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 30;
+  background: transparent;
+}
+.chat-notice-search-drop {
+  position: absolute;
+  left: 12px;
+  right: 92px;
+  top: 42px;
+  z-index: 40;
+  background: #fff;
+  border-radius: 10px;
+  border: 0.5px solid #e8e8e8;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+.chat-notice-search-drop-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 42px;
+  padding: 0 14px;
+  border-bottom: 0.5px solid #f0f0f0;
+  box-sizing: border-box;
+}
+.chat-notice-search-drop-item:last-child {
+  border-bottom: none;
+}
+.chat-notice-search-drop-item.active {
+  background: #f7fafc;
+}
+.chat-notice-search-drop-title {
+  font-size: 14px;
+  color: #222;
+  line-height: 1.3;
+}
+.chat-notice-search-drop-item.active .chat-notice-search-drop-title {
+  color: #12b7f5;
+  font-weight: 600;
+}
+.chat-notice-search-drop-check {
+  font-size: 14px;
+  color: #12b7f5;
+  font-weight: 700;
 }
 .chat-notice-body-scroll {
   flex: none;
