@@ -4566,8 +4566,9 @@ class FansHubService
      * @param string $category latest|promote|ads|rules|空=全部
      * @param string $keyword 搜索关键词
      * @param int $viewerUserId 当前登录用户（可见自己的待审帖）
+     * @param int $themeId 主题筛选（0=不限）
      */
-    public static function noticeFeed($page = 1, $limit = 20, $category = '', $keyword = '', $viewerUserId = 0)
+    public static function noticeFeed($page = 1, $limit = 20, $category = '', $keyword = '', $viewerUserId = 0, $themeId = 0)
     {
         $page = max(1, (int)$page);
         $limit = max(1, min(50, (int)$limit));
@@ -4576,6 +4577,7 @@ class FansHubService
         $category = trim((string)$category);
         $keyword = trim((string)$keyword);
         $viewerUserId = (int)$viewerUserId;
+        $themeId = max(0, (int)$themeId);
         if ($category !== '' && !isset($cats[$category])) {
             $legacy = [
                 '规则' => 'rules', '玩法' => 'rules', '推广' => 'promote', '广告' => 'ads',
@@ -4592,7 +4594,7 @@ class FansHubService
             self::noticeViewsMinuteBump(false);
         } catch (\Throwable $eBump) {
         }
-        $applyFilters = function ($query) use ($category, $cats, $keyword, $viewerUserId, $now) {
+        $applyFilters = function ($query) use ($category, $cats, $keyword, $viewerUserId, $now, $themeId) {
             if ($viewerUserId > 0) {
                 $query->where(function ($q) use ($viewerUserId, $now) {
                     $q->where(function ($q2) use ($now) {
@@ -4607,10 +4609,15 @@ class FansHubService
             if ($category !== '' && isset($cats[$category])) {
                 $query->where('category', $category);
             }
+            if ($themeId > 0) {
+                $query->where('theme_id', $themeId);
+            }
             if ($keyword !== '') {
                 $like = '%' . addcslashes($keyword, '%_\\') . '%';
                 $query->where(function ($q) use ($like) {
-                    $q->where('content', 'like', $like)->whereOr('author_name', 'like', $like);
+                    $q->where('content', 'like', $like)
+                        ->whereOr('author_name', 'like', $like)
+                        ->whereOr('theme_title', 'like', $like);
                 });
             }
             return $query;
@@ -4641,6 +4648,7 @@ class FansHubService
             'categories' => $categories,
             'category'   => $category,
             'keyword'    => $keyword,
+            'theme_id'   => $themeId,
             'locale'     => $locale,
             'total'      => $total,
             'page'       => $page,
@@ -4702,9 +4710,9 @@ class FansHubService
         $tagLabel = $themeTitle !== ''
             ? $themeTitle
             : \app\common\model\fanshub\Notice::categoryLabel($catCode, $locale);
-        // 「红宝•海外圈内事」无论谁发，展示名统一为红包发言人
+        // 「红宝•海外圈内事」无论谁发，展示名统一为红宝发言人
         $authorName = $catCode === 'rules'
-            ? '红包发言人'
+            ? '红宝发言人'
             : ($row->localized('author_name', $locale) ?: '红宝官方公告');
         return [
             'id'             => (int)$row->id,
@@ -4916,7 +4924,7 @@ class FansHubService
         }
         // 海外圈内事：入库也统一署名，避免后台列表与旧数据不一致
         if ($category === 'rules') {
-            $nick = '红包发言人';
+            $nick = '红宝发言人';
         }
         $now = time();
         $autoApprove = self::isNoticeAutoApproveUser($userId);

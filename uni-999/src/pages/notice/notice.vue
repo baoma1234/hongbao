@@ -66,9 +66,9 @@
                   </view>
                 </view>
                 <view
-                  v-if="searchModMenuOpen"
+                  v-if="searchModMenuOpen || searchThemeMenuOpen"
                   class="chat-notice-search-mask"
-                  @click="closeSearchModMenu"
+                  @click="closeSearchMenus"
                 />
                 <view v-if="searchModMenuOpen" class="chat-notice-search-drop">
                   <view
@@ -81,6 +81,33 @@
                     <text class="chat-notice-search-drop-title">{{ m.title }}</text>
                     <text v-if="noticeCat === m.code" class="chat-notice-search-drop-check">✓</text>
                   </view>
+                </view>
+                <view v-else-if="searchThemeMenuOpen" class="chat-notice-search-drop chat-notice-theme-drop">
+                  <view class="chat-notice-search-drop-hd">
+                    <text class="chat-notice-search-drop-hd-txt">选择「{{ searchModTitleLabel }}」主题</text>
+                  </view>
+                  <view
+                    class="chat-notice-search-drop-item"
+                    :class="{ active: !noticeThemeId }"
+                    @click.stop="pickSearchTheme(null)"
+                  >
+                    <text class="chat-notice-search-drop-title">全部主题</text>
+                    <text v-if="!noticeThemeId" class="chat-notice-search-drop-check">✓</text>
+                  </view>
+                  <view
+                    v-for="t in searchThemes"
+                    :key="t.id"
+                    class="chat-notice-search-drop-item"
+                    :class="{ active: noticeThemeId === (t.id | 0) }"
+                    @click.stop="pickSearchTheme(t)"
+                  >
+                    <text class="chat-notice-search-drop-title">{{ t.title }}</text>
+                    <text v-if="noticeThemeId === (t.id | 0)" class="chat-notice-search-drop-check">✓</text>
+                  </view>
+                  <view v-if="!searchThemes.length && !searchThemesLoading" class="chat-notice-search-drop-empty">
+                    该模块暂无主题
+                  </view>
+                  <view v-if="searchThemesLoading" class="chat-notice-search-drop-empty">加载中…</view>
                 </view>
               </view>
               <view class="chat-notice-pane" :style="noticePaneStyle">
@@ -307,9 +334,15 @@ const noticeCat = ref('latest')
 const noticeKeyword = ref('')
 let noticeSearchTimer = null
 const searchModMenuOpen = ref(false)
+const searchThemeMenuOpen = ref(false)
 const searchInputFocus = ref(false)
-/** 本轮搜索是否已选过模块（输入前先选） */
-const searchModConfirmed = ref(false)
+const searchThemes = ref([])
+const searchThemesLoading = ref(false)
+const noticeThemeId = ref(0)
+const noticeThemeTitle = ref('')
+let searchThemesCat = ''
+/** 选完主题后回填焦点时，跳过一次「弹出主题」 */
+const searchThemeSkipOnce = ref(false)
 
 const searchModOptions = [
   { code: 'latest', title: '最新发布', short: '最新' },
@@ -323,7 +356,15 @@ const searchModShortLabel = computed(() => {
   return (hit && hit.short) || '最新'
 })
 
+const searchModTitleLabel = computed(() => {
+  const hit = searchModOptions.find((m) => m.code === noticeCat.value)
+  return (hit && hit.title) || '最新发布'
+})
+
 const searchPlaceholder = computed(() => {
+  if (noticeThemeTitle.value) {
+    return '在「' + noticeThemeTitle.value + '」中搜索…'
+  }
   const hit = searchModOptions.find((m) => m.code === noticeCat.value)
   const name = (hit && hit.title) || '最新发布'
   return '在「' + name + '」中搜索…'
@@ -461,24 +502,58 @@ function submitNoticeSearch() {
 }
 
 function toggleSearchModMenu() {
+  searchThemeMenuOpen.value = false
   searchModMenuOpen.value = !searchModMenuOpen.value
   if (searchModMenuOpen.value) {
     searchInputFocus.value = false
   }
 }
 
-function closeSearchModMenu() {
+function closeSearchMenus() {
+  if (searchThemeMenuOpen.value) {
+    searchThemeSkipOnce.value = true
+  }
   searchModMenuOpen.value = false
+  searchThemeMenuOpen.value = false
+}
+
+function closeSearchModMenu() {
+  closeSearchMenus()
+}
+
+async function ensureSearchThemes(force) {
+  const cat = String(noticeCat.value || 'latest')
+  if (!force && searchThemesCat === cat && searchThemes.value.length) {
+    return
+  }
+  searchThemesLoading.value = true
+  searchThemesCat = cat
+  try {
+    const data = await apiRequest('noticethemes', 'GET', { category: cat })
+    const list = (data && (data.list || data.rows)) || []
+    searchThemes.value = Array.isArray(list) ? list : []
+  } catch (e) {
+    searchThemes.value = []
+  } finally {
+    searchThemesLoading.value = false
+  }
+}
+
+async function openSearchThemeMenu() {
+  searchModMenuOpen.value = false
+  searchThemeMenuOpen.value = true
+  searchInputFocus.value = false
+  await ensureSearchThemes(false)
 }
 
 function onSearchFocus() {
-  // 输入前先选模块
-  if (!searchModConfirmed.value) {
-    searchInputFocus.value = false
-    searchModMenuOpen.value = true
+  if (searchThemeSkipOnce.value) {
+    searchThemeSkipOnce.value = false
+    searchThemeMenuOpen.value = false
     return
   }
-  searchModMenuOpen.value = false
+  // 点输入框：先弹出当前模块主题（海外→海外快讯/生活故事…）
+  void openSearchThemeMenu()
 }
 
 function onSearchBlur() {
@@ -491,9 +566,33 @@ function onSearchBlur() {
 function pickSearchMod(code) {
   const next = String(code || 'latest')
   const allowed = searchModOptions.map((m) => m.code)
-  noticeCat.value = allowed.indexOf(next) >= 0 ? next : 'latest'
-  searchModConfirmed.value = true
+  const cat = allowed.indexOf(next) >= 0 ? next : 'latest'
+  const changed = cat !== noticeCat.value
+  noticeCat.value = cat
   searchModMenuOpen.value = false
+  if (changed) {
+    noticeThemeId.value = 0
+    noticeThemeTitle.value = ''
+    searchThemes.value = []
+    searchThemesCat = ''
+  }
+  loadNotices()
+  // 选完模块后立刻弹出该模块主题
+  nextTick(() => {
+    void openSearchThemeMenu()
+  })
+}
+
+function pickSearchTheme(t) {
+  if (!t) {
+    noticeThemeId.value = 0
+    noticeThemeTitle.value = ''
+  } else {
+    noticeThemeId.value = (t.id | 0) || 0
+    noticeThemeTitle.value = String(t.title || '').trim()
+  }
+  searchThemeMenuOpen.value = false
+  searchThemeSkipOnce.value = true
   loadNotices()
   searchInputFocus.value = false
   nextTick(() => {
@@ -1037,9 +1136,14 @@ watch(noticeCat, () => {
 
 function setNoticeCat(cat) {
   const allowed = ['latest', 'promote', 'ads', 'rules']
-  noticeCat.value = allowed.indexOf(cat) >= 0 ? cat : 'latest'
-  searchModConfirmed.value = true
+  const next = allowed.indexOf(cat) >= 0 ? cat : 'latest'
+  noticeCat.value = next
+  noticeThemeId.value = 0
+  noticeThemeTitle.value = ''
+  searchThemes.value = []
+  searchThemesCat = ''
   searchModMenuOpen.value = false
+  searchThemeMenuOpen.value = false
   syncPromoteEarnPanel()
   loadNotices()
 }
@@ -1057,6 +1161,8 @@ async function loadNotices() {
     const params = { page: 1, limit: 30, category: noticeCat.value }
     const kw = String(noticeKeyword.value || '').trim()
     if (kw) params.keyword = kw
+    const tid = noticeThemeId.value | 0
+    if (tid > 0) params.theme_id = tid
     const data = await apiRequest('notices', 'GET', params)
     const rows = (data && (data.list || data.rows || data.items)) || []
     notices.value = Array.isArray(rows) ? rows : []
@@ -1300,6 +1406,26 @@ onUnmounted(() => {
 }
 .chat-notice-search-drop-item.active {
   background: #f7fafc;
+}
+.chat-notice-search-drop-hd {
+  padding: 10px 14px 6px;
+  border-bottom: 0.5px solid #f0f0f0;
+}
+.chat-notice-search-drop-hd-txt {
+  font-size: 12px;
+  color: #888;
+  line-height: 1.3;
+}
+.chat-notice-search-drop-empty {
+  padding: 16px 14px;
+  font-size: 13px;
+  color: #999;
+  text-align: center;
+}
+.chat-notice-theme-drop {
+  max-height: 280px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .chat-notice-search-drop-title {
   font-size: 14px;

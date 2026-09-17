@@ -119,6 +119,7 @@ class Fanshub extends Api
         $limit = (int)$this->request->get('limit', $this->request->post('limit', 20));
         $category = (string)$this->request->get('category', $this->request->post('category', ''));
         $keyword = (string)$this->request->get('keyword', $this->request->post('keyword', ''));
+        $themeId = (int)$this->request->get('theme_id', $this->request->post('theme_id', 0));
         $uid = 0;
         try {
             if ($this->auth && $this->auth->isLogin()) {
@@ -127,7 +128,7 @@ class Fanshub extends Api
         } catch (\Throwable $e) {
             $uid = 0;
         }
-        $this->success('ok', FansHubService::noticeFeed($page, $limit, $category, $keyword, $uid));
+        $this->success('ok', FansHubService::noticeFeed($page, $limit, $category, $keyword, $uid, $themeId));
     }
 
     /** 帖子主题列表（?category=latest|promote|ads|rules） */
