@@ -214,6 +214,30 @@ export function splitTextLinks(raw) {
   return out
 }
 
+/** 聊天气泡长文折叠：超过该字数隐藏中间，保留头尾 */
+export const MSG_TEXT_COLLAPSE_AT = 150
+export const MSG_TEXT_HEAD_KEEP = 55
+export const MSG_TEXT_TAIL_KEEP = 45
+
+/**
+ * 长文折叠拆分。未展开且超长时在中间插入 { t:'fold' } 可点击展开。
+ * @param {string} raw
+ * @param {boolean} expanded
+ * @returns {{ t: string, v: string }[]}
+ */
+export function splitTextLinksMaybeCollapsed(raw, expanded) {
+  const s = String(raw || '')
+  if (!s) return []
+  const headN = MSG_TEXT_HEAD_KEEP
+  const tailN = MSG_TEXT_TAIL_KEEP
+  if (expanded || s.length <= MSG_TEXT_COLLAPSE_AT || headN + tailN >= s.length) {
+    return splitTextLinks(s)
+  }
+  const head = splitTextLinks(s.slice(0, headN))
+  const tail = splitTextLinks(s.slice(s.length - tailN))
+  return head.concat([{ t: 'fold', v: '……展开……' }], tail)
+}
+
 /** 媒体说明：排除默认占位文案 */
 export function mediaCaptionText(m) {
   const mt = msgType(m)
