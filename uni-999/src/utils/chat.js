@@ -214,28 +214,86 @@ export function splitTextLinks(raw) {
   return out
 }
 
-/** 聊天气泡长文折叠：超过该字数隐藏中间，保留头尾 */
+/** 聊天气泡长文：头尾保留，中间 Telegram 式引用块折叠 */
 export const MSG_TEXT_COLLAPSE_AT = 150
 export const MSG_TEXT_HEAD_KEEP = 55
 export const MSG_TEXT_TAIL_KEEP = 45
+/** 折叠时中间预览大约字数（约 2～3 行） */
+export const MSG_TEXT_MID_PREVIEW = 96
 
 /**
- * 长文折叠拆分。未展开且超长时在中间插入 { t:'fold' } 可点击展开。
  * @param {string} raw
- * @param {boolean} expanded
- * @returns {{ t: string, v: string }[]}
+ * @returns {{
+ *   foldable: boolean,
+ *   headParts: {t:string,v:string}[],
+ *   midParts: {t:string,v:string}[],
+ *   midPreviewParts: {t:string,v:string}[],
+ *   tailParts: {t:string,v:string}[],
+ *   parts: {t:string,v:string}[],
+ * }}
  */
-export function splitTextLinksMaybeCollapsed(raw, expanded) {
+export function buildLongMsgFoldSegments(raw) {
   const s = String(raw || '')
-  if (!s) return []
+  const blank = {
+    foldable: false,
+    headParts: [],
+    midParts: [],
+    midPreviewParts: [],
+    tailParts: [],
+    parts: [],
+  }
+  if (!s) return blank
   const headN = MSG_TEXT_HEAD_KEEP
   const tailN = MSG_TEXT_TAIL_KEEP
-  if (expanded || s.length <= MSG_TEXT_COLLAPSE_AT || headN + tailN >= s.length) {
-    return splitTextLinks(s)
+  if (s.length <= MSG_TEXT_COLLAPSE_AT || headN + tailN >= s.length) {
+    return {
+      foldable: false,
+      headParts: [],
+      midParts: [],
+      midPreviewParts: [],
+      tailParts: [],
+      parts: splitTextLinks(s),
+    }
   }
-  const head = splitTextLinks(s.slice(0, headN))
-  const tail = splitTextLinks(s.slice(s.length - tailN))
-  return head.concat([{ t: 'fold', v: '…….....……' }], tail)
+  const head = s.slice(0, headN)
+  const mid = s.slice(headN, s.length - tailN)
+  const tail = s.slice(s.length - tailN)
+  return {
+    foldable: true,
+    headParts: splitTextLinks(head),
+    midParts: splitTextLinks(mid),
+    midPreviewParts: splitTextLinks(midPreviewText(mid)),
+    tailParts: splitTextLinks(tail),
+    parts: splitTextLinks(s),
+  }
+}
+
+function midPreviewText(mid) {
+  const s = String(mid || '')
+  if (s.length <= MSG_TEXT_MID_PREVIEW) return s
+  const lines = s.split(/\r\n|\n|\r/)
+  let out = ''
+  let n = 0
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    const next = out === '' ? line : out + '\n' + line
+    if (n >= 3) break
+    if (next.length > MSG_TEXT_MID_PREVIEW && out !== '') break
+    out = next
+    n++
+    if (out.length >= MSG_TEXT_MID_PREVIEW) break
+  }
+  if (!out) out = s.slice(0, MSG_TEXT_MID_PREVIEW)
+  if (out.length < s.length && !/[.…]$/.test(out)) out += '…'
+  return out
+}
+
+/** @deprecated 兼容旧调用 */
+export function splitTextLinksMaybeCollapsed(raw, expanded) {
+  const seg = buildLongMsgFoldSegments(raw)
+  if (!seg.foldable) return seg.parts
+  if (expanded) return seg.headParts.concat(seg.midParts, seg.tailParts)
+  return seg.headParts.concat([{ t: 'fold', v: '…….....……' }], seg.tailParts)
 }
 
 /** 媒体说明：排除默认占位文案 */

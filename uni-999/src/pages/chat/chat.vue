@@ -183,19 +183,12 @@
                     @click.stop="previewImageMsg(m, 0)"
                   />
                   <view v-if="mediaCaption(m)" class="chat-media-caption">
-                    <template v-for="(p, i) in captionParts(m)" :key="'ic' + msgId(m) + '-' + i">
-                      <view v-if="p.t === 'br'" class="content-br" />
-                      <text
-                        v-else-if="p.t === 'fold'"
-                        class="content-fold-mid"
-                        @click.stop="expandLongMsg(m)"
-                      >{{ p.v }}</text>
-                      <text
-                        v-else
-                        :class="{ 'content-link': p.t === 'link' }"
-                        @click.stop="p.t === 'link' && openMsgLink(p.v)"
-                      >{{ p.v }}</text>
-                    </template>
+                    <ChatFoldText
+                      :text="mediaCaption(m)"
+                      :expanded="isLongMsgExpanded(m)"
+                      @toggle="toggleLongMsg(m)"
+                      @open-link="openMsgLink"
+                    />
                   </view>
                   <text class="meta">{{ msgTime(m) }}</text>
                 </view>
@@ -227,19 +220,12 @@
                     </view>
                     <view v-if="mediaCaption(m)" class="chat-video-footer">
                       <view class="chat-media-caption chat-video-caption-row">
-                        <template v-for="(p, i) in captionParts(m)" :key="'vc' + msgId(m) + '-' + i">
-                          <view v-if="p.t === 'br'" class="content-br" />
-                          <text
-                            v-else-if="p.t === 'fold'"
-                            class="content-fold-mid"
-                            @click.stop="expandLongMsg(m)"
-                          >{{ p.v }}</text>
-                          <text
-                            v-else
-                            :class="{ 'content-link': p.t === 'link' }"
-                            @click.stop="p.t === 'link' && openMsgLink(p.v)"
-                          >{{ p.v }}</text>
-                        </template>
+                        <ChatFoldText
+                          :text="mediaCaption(m)"
+                          :expanded="isLongMsgExpanded(m)"
+                          @toggle="toggleLongMsg(m)"
+                          @open-link="openMsgLink"
+                        />
                       </view>
                       <text class="chat-video-footer-meta">{{ msgTime(m) }}</text>
                     </view>
@@ -263,19 +249,12 @@
                   @mouseleave="onTextMsgHoldEnd"
                 >
                   <view class="content content-rich">
-                    <template v-for="(p, i) in msgTextParts(m)" :key="'t' + msgId(m) + '-' + i">
-                      <view v-if="p.t === 'br'" class="content-br" />
-                      <text
-                        v-else-if="p.t === 'fold'"
-                        class="content-fold-mid"
-                        @click.stop="expandLongMsg(m)"
-                      >{{ p.v }}</text>
-                      <text
-                        v-else
-                        :class="{ 'content-link': p.t === 'link' }"
-                        @click.stop="p.t === 'link' && openMsgLink(p.v)"
-                      >{{ p.v }}</text>
-                    </template>
+                    <ChatFoldText
+                      :text="msgText(m)"
+                      :expanded="isLongMsgExpanded(m)"
+                      @toggle="toggleLongMsg(m)"
+                      @open-link="openMsgLink"
+                    />
                   </view>
                   <text class="meta">{{ msgTime(m) }}</text>
                 </view>
@@ -969,6 +948,7 @@ import { onLoad, onShow, onUnload } from '@dcloudio/uni-app'
 import GrabSlider from '../../components/GrabSlider.vue'
 import ChatNiuniuCard from '../../components/ChatNiuniuCard.vue'
 import ChatMediaVideo from '../../components/ChatMediaVideo.vue'
+import ChatFoldText from '../../components/ChatFoldText.vue'
 import '../../styles/chat.bundle.css'
 import '../../styles/chat-room-uni-adapter.css'
 import '../../styles/chat-rp-send-uni-adapter.css'
@@ -991,8 +971,6 @@ import {
   normalizeMessage,
   publicUrl,
   recallTip,
-  splitTextLinks,
-  splitTextLinksMaybeCollapsed,
 } from '../../utils/chat.js'
 import {
   CHAT_IMG_CLIP_MARKER,
@@ -2692,25 +2670,19 @@ function msgTime(m) {
 function msgText(m) {
   return (m && (m.content || m.text)) || '[消息]'
 }
-/** 长文已展开的消息 id */
+/** 长文折叠展开状态（Telegram 引用块 ∨/∧） */
 const expandedLongMsgIds = reactive({})
 function isLongMsgExpanded(m) {
   const id = msgId(m)
   return !!(id && expandedLongMsgIds[id])
 }
-function expandLongMsg(m) {
+function toggleLongMsg(m) {
   const id = msgId(m)
   if (!id) return
-  expandedLongMsgIds[id] = true
-}
-function msgTextParts(m) {
-  return splitTextLinksMaybeCollapsed(msgText(m), isLongMsgExpanded(m))
+  expandedLongMsgIds[id] = !expandedLongMsgIds[id]
 }
 function mediaCaption(m) {
   return mediaCaptionText(m)
-}
-function captionParts(m) {
-  return splitTextLinksMaybeCollapsed(mediaCaption(m), isLongMsgExpanded(m))
 }
 function mediaVideoPreviews(m) {
   return mediaVideoPreviewUrls(m)
@@ -6487,13 +6459,6 @@ uni-page-body {
   color: #576b95;
   text-decoration: underline;
 }
-.content-fold-mid {
-  color: #3390ec;
-  text-decoration: none;
-  font-weight: 400;
-  letter-spacing: 0.5px;
-  padding: 0 2px;
-}
 .chat-media-caption {
   display: block;
   margin-top: 8px;
@@ -7491,3 +7456,4 @@ uni-page-body {
   opacity: 0.85;
 }
 </style>
+                  
