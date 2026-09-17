@@ -1950,6 +1950,9 @@ body.tab-messages .bottom-action-bar {
 
 .chat-notice-media {
   margin-top: 12px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 /* 单图：只定外层宽度，勿动内部 img/div（H5 靠背景 div 显示，img 默认 opacity:0） */
@@ -2069,21 +2072,23 @@ uni-image.chat-notice-one-img > div {
   overflow: hidden;
 }
 
-/* 彩金/海外 多图：朋友圈九宫格 */
+/* 彩金/海外 多图：铺满内容区；2/3/4 两列，5–9 三列九宫格 */
 .chat-notice-imgs:not(.imgs-full).imgs-2,
+.chat-notice-imgs:not(.imgs-full).imgs-3,
 .chat-notice-imgs:not(.imgs-full).imgs-4 {
   grid-template-columns: 1fr 1fr;
-  max-width: 176px;
+  width: 100%;
+  max-width: 100%;
 }
 
-.chat-notice-imgs:not(.imgs-full).imgs-3,
 .chat-notice-imgs:not(.imgs-full).imgs-5,
 .chat-notice-imgs:not(.imgs-full).imgs-6,
 .chat-notice-imgs:not(.imgs-full).imgs-7,
 .chat-notice-imgs:not(.imgs-full).imgs-8,
 .chat-notice-imgs:not(.imgs-full).imgs-9 {
   grid-template-columns: 1fr 1fr 1fr;
-  max-width: 258px;
+  width: 100%;
+  max-width: 100%;
 }
 
 .chat-notice-img-wrap {
@@ -2099,7 +2104,7 @@ uni-image.chat-notice-one-img > div {
 .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap {
   aspect-ratio: 1 / 1;
   height: auto;
-  min-height: 54px;
+  min-height: 72px;
 }
 
 .chat-notice-img {
@@ -2109,10 +2114,25 @@ uni-image.chat-notice-one-img > div {
   vertical-align: top;
 }
 
-.chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img {
-  width: 100%;
-  height: 100%;
+.chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img,
+.chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap uni-image,
+.chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap image {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 100% !important;
+  height: 100% !important;
   object-fit: cover;
+}
+.chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img > div,
+.chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap uni-image > div {
+  width: 100% !important;
+  height: 100% !important;
+  background-size: cover !important;
+  background-position: center center !important;
+  background-repeat: no-repeat !important;
 }
 
 .chat-notice-actions {

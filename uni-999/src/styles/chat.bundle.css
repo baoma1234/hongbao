@@ -5227,10 +5227,6 @@ button.chat-rp-fair-link {
   word-break: break-word;
 }
 
-.chat-notice-media {
-  margin-top: 12px;
-}
-
 .chat-notice-one {
   margin-top: 12px;
   width: 100%;
@@ -5261,6 +5257,13 @@ uni-image.chat-notice-one-img,
   border-radius: 14px;
   background: #111;
   display: block;
+}
+
+.chat-notice-media {
+  margin-top: 12px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .chat-notice-imgs {
@@ -5330,19 +5333,21 @@ uni-image.chat-notice-one-img,
 }
 
 .chat-notice-imgs:not(.imgs-full).imgs-2,
+.chat-notice-imgs:not(.imgs-full).imgs-3,
 .chat-notice-imgs:not(.imgs-full).imgs-4 {
   grid-template-columns: 1fr 1fr;
-  max-width: 176px;
+  width: 100%;
+  max-width: 100%;
 }
 
-.chat-notice-imgs:not(.imgs-full).imgs-3,
 .chat-notice-imgs:not(.imgs-full).imgs-5,
 .chat-notice-imgs:not(.imgs-full).imgs-6,
 .chat-notice-imgs:not(.imgs-full).imgs-7,
 .chat-notice-imgs:not(.imgs-full).imgs-8,
 .chat-notice-imgs:not(.imgs-full).imgs-9 {
   grid-template-columns: 1fr 1fr 1fr;
-  max-width: 258px;
+  width: 100%;
+  max-width: 100%;
 }
 
 .chat-notice-img-wrap {
@@ -5358,7 +5363,7 @@ uni-image.chat-notice-one-img,
 .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap {
   aspect-ratio: 1 / 1;
   height: auto;
-  min-height: 54px;
+  min-height: 72px;
 }
 
 .chat-notice-img {
@@ -5369,6 +5374,11 @@ uni-image.chat-notice-one-img,
 }
 
 .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
