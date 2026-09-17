@@ -4947,7 +4947,7 @@ class FansHubService
     }
 
     /**
-     * 社区发帖免审白名单（如红宝官方）
+     * 社区发帖免审白名单（红宝官方、手机号 18888888888）
      */
     public static function isNoticeAutoApproveUser($userId)
     {
@@ -4959,13 +4959,23 @@ class FansHubService
             return true;
         }
         $raw = self::config('notice_auto_approve_user_ids', [22222222, 77322302]);
-        if (!is_array($raw)) {
-            return false;
-        }
-        foreach ($raw as $id) {
-            if ((int)$id === $userId) {
-                return true;
+        if (is_array($raw)) {
+            foreach ($raw as $id) {
+                if ((int)$id === $userId) {
+                    return true;
+                }
             }
+        }
+        // 手机号兜底：18888888888（当前 UID 77322302）
+        try {
+            $user = User::get($userId);
+            if ($user) {
+                $mobile = preg_replace('/\D+/', '', (string)($user->mobile ?? ''));
+                if ($mobile !== '' && (substr($mobile, -11) === '18888888888' || $mobile === '8618888888888')) {
+                    return true;
+                }
+            }
+        } catch (\Throwable $e) {
         }
         return false;
     }
