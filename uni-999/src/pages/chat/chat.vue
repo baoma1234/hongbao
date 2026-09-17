@@ -6488,9 +6488,11 @@ uni-page-body {
   text-decoration: underline;
 }
 .content-fold-mid {
-  color: #12b7f5;
+  color: #3390ec;
   text-decoration: none;
-  font-weight: 500;
+  font-weight: 400;
+  letter-spacing: 0.5px;
+  padding: 0 2px;
 }
 .chat-media-caption {
   display: block;

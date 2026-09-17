@@ -235,7 +235,7 @@ export function splitTextLinksMaybeCollapsed(raw, expanded) {
   }
   const head = splitTextLinks(s.slice(0, headN))
   const tail = splitTextLinks(s.slice(s.length - tailN))
-  return head.concat([{ t: 'fold', v: '……展开……' }], tail)
+  return head.concat([{ t: 'fold', v: '…….....……' }], tail)
 }
 
 /** 媒体说明：排除默认占位文案 */
