@@ -1680,6 +1680,8 @@ body.tab-messages .bottom-action-bar {
   flex-shrink: 0;
   margin: 8px 12px 4px;
   width: auto;
+  height: 44px;
+  box-sizing: border-box;
 }
 
 .chat-notice-toolbar {
@@ -1784,9 +1786,22 @@ body.tab-messages .bottom-action-bar {
 }
 
 .chat-notice-seg .chat-community-seg-btn {
-  font-size: 13px;
+  font-size: 12px;
   letter-spacing: 0;
-  padding: 0 2px;
+  padding: 0 3px;
+  white-space: normal;
+  line-height: 1.2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  word-break: keep-all;
+}
+
+.chat-notice-seg .chat-community-seg-btn.is-long {
+  flex: 1.65 1 0;
+  font-size: 11px;
+  line-height: 1.15;
 }
 
 .chat-notice-seg .chat-community-seg-btn.active {

@@ -5084,17 +5084,32 @@ button.chat-rp-fair-link {
   box-sizing: border-box;
 }
 
-/* 复用社群 .chat-community-seg，四等分略缩小字号；固定顶部不随列表滚动 */
+/* 复用社群 .chat-community-seg；末项加长文案可两行完整显示 */
 .chat-notice-seg {
   flex-shrink: 0;
   margin: 0;
   width: 100%;
+  height: 44px;
+  box-sizing: border-box;
 }
 
 .chat-notice-seg .chat-community-seg-btn {
   font-size: 12px;
   letter-spacing: 0;
-  padding: 0 2px 2px;
+  padding: 0 3px;
+  white-space: normal;
+  line-height: 1.2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  word-break: keep-all;
+}
+
+.chat-notice-seg .chat-community-seg-btn.is-long {
+  flex: 1.65 1 0;
+  font-size: 11px;
+  line-height: 1.15;
 }
 
 .chat-notice-seg .chat-community-seg-btn.active {

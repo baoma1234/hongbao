@@ -14,7 +14,7 @@
               class="chat-home-panel chat-notice-feed-panel"
               :style="panelHostStyle"
             >
-              <view class="chat-community-seg chat-notice-seg" id="chatNoticeCats" role="tablist">
+              <view class="chat-community-seg chat-notice-seg is-4" id="chatNoticeCats" role="tablist">
                 <view
                   class="chat-community-seg-btn"
                   :class="{ active: noticeCat === 'latest' }"
@@ -31,7 +31,7 @@
                   @click="setNoticeCat('ads')"
                 >彩金白嫖</view>
                 <view
-                  class="chat-community-seg-btn"
+                  class="chat-community-seg-btn is-long"
                   :class="{ active: noticeCat === 'rules' }"
                   @click="setNoticeCat('rules')"
                 >红宝•海外圈内事</view>
@@ -1112,6 +1112,33 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* 四分类：末项「红宝•海外圈内事」加宽可两行，五端不裁切 */
+.chat-notice-seg {
+  height: 44px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.chat-notice-seg .chat-community-seg-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0 3px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.2;
+  white-space: normal;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  word-break: keep-all;
+  overflow: hidden;
+}
+.chat-notice-seg .chat-community-seg-btn.is-long {
+  flex: 1.65 1 0;
+  font-size: 11px;
+  line-height: 1.15;
+}
 .chat-notice-body-scroll {
   flex: none;
   min-height: 120px;

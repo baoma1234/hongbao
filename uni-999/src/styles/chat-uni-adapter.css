@@ -739,7 +739,20 @@ body.tab-messages #tabMessages .chat-list-pane {
 #tabMessages .chat-notice-seg .chat-community-seg-btn {
   font-size: 12px !important;
   letter-spacing: 0 !important;
-  padding: 0 2px 2px !important;
+  padding: 0 3px !important;
+  white-space: normal !important;
+  line-height: 1.2 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+}
+
+#tabMessages .chat-notice-seg .chat-community-seg-btn.is-long,
+.msg-tab-root .chat-notice-seg .chat-community-seg-btn.is-long {
+  flex: 1.65 1 0 !important;
+  font-size: 11px !important;
+  line-height: 1.15 !important;
 }
 
 /* ?????????? scroll-view ??????/????? */
