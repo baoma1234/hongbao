@@ -28,7 +28,7 @@
       <view v-if="images.length" class="chat-notice-media">
         <view
           class="chat-notice-imgs"
-          :class="['imgs-' + Math.min(9, images.length), { 'imgs-full': images.length === 1 }]"
+          :class="'imgs-' + Math.min(9, images.length)"
         >
           <view
             v-for="(src, ii) in images.slice(0, 9)"
@@ -57,6 +57,7 @@ import { apiRequest } from '../../utils/auth.js'
 import { avatarSrc } from '../../utils/chat.js'
 import '../../styles/hb.css'
 import '../../styles/chat-messages-list.css'
+import '../../styles/chat-uni-adapter.css'
 
 const noticeId = ref(0)
 const notice = ref(null)
@@ -70,10 +71,18 @@ const tagLabel = computed(() => {
   return String(n.tag_label || n.theme_title || n.category_label || '').trim()
 })
 const images = computed(() => {
-  const imgs = notice.value && notice.value.images
+  let imgs = notice.value && notice.value.images
+  if (typeof imgs === 'string' && imgs) {
+    try {
+      const parsed = JSON.parse(imgs)
+      imgs = Array.isArray(parsed) ? parsed : imgs.split(/[\r\n,]+/)
+    } catch (e) {
+      imgs = imgs.split(/[\r\n,]+/)
+    }
+  }
   if (!Array.isArray(imgs)) return []
   // 本站上传会把图存成 /uploads/*.js，按图片展示
-  return imgs.filter(Boolean)
+  return imgs.map((u) => String(u || '').trim()).filter(Boolean)
 })
 const video = computed(() => String((notice.value && notice.value.video) || '').trim())
 const viewsText = computed(() => {

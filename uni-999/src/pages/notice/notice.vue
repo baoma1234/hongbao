@@ -196,10 +196,7 @@
                       >
                         <view
                           class="chat-notice-imgs"
-                          :class="[
-                            'imgs-' + Math.min(9, noticeImages(n).length),
-                            { 'imgs-full': noticeImagesFull(n) },
-                          ]"
+                          :class="'imgs-' + Math.min(9, noticeImages(n).length)"
                         >
                           <view
                             v-for="(src, ii) in noticeImages(n).slice(0, 9)"
@@ -564,8 +561,7 @@ function noticeImages(n) {
 }
 
 function noticeImagesFull(n) {
-  const c = String((n && n.category) || noticeCat.value || '')
-  if (c === 'rules' || c.indexOf('规则') >= 0) return true
+  // 多图一律九宫格合在一起；仅单图走大图模式
   return noticeImages(n).length === 1
 }
 
