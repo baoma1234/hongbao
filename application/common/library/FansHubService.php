@@ -4657,6 +4657,16 @@ class FansHubService
         ];
     }
 
+    /** 「红宝•海外圈内事」统一头像（OSS 相对路径） */
+    public static function noticeRulesAuthorAvatar()
+    {
+        $raw = trim((string)self::config(
+            'notice_rules_author_avatar',
+            '/uploads/20260917/0ad78d8879cc5c8e37b9c73f9a83b3fb.png'
+        ));
+        return $raw !== '' ? $raw : '/uploads/20260917/0ad78d8879cc5c8e37b9c73f9a83b3fb.png';
+    }
+
     /** @return array */
     protected static function formatNoticeRow($row, $locale = 'zh-CN', $cats = null)
     {
@@ -4710,14 +4720,17 @@ class FansHubService
         $tagLabel = $themeTitle !== ''
             ? $themeTitle
             : \app\common\model\fanshub\Notice::categoryLabel($catCode, $locale);
-        // 「红宝•海外圈内事」无论谁发，展示名统一为红宝发言人
+        // 「红宝•海外圈内事」无论谁发，展示名/头像统一为红宝发言人
         $authorName = $catCode === 'rules'
             ? '红宝发言人'
             : ($row->localized('author_name', $locale) ?: '红宝官方公告');
+        $authorAvatar = $catCode === 'rules'
+            ? self::noticeRulesAuthorAvatar()
+            : (string)($row->author_avatar ?? '');
         return [
             'id'             => (int)$row->id,
             'author_name'    => $authorName,
-            'author_avatar'  => normalize_user_avatar((string)($row->author_avatar ?? ''), true),
+            'author_avatar'  => normalize_user_avatar($authorAvatar, true),
             'category'       => $catCode,
             'category_label' => \app\common\model\fanshub\Notice::categoryLabel($catCode, $locale),
             'theme_id'       => (int)($row->theme_id ?? 0),
@@ -4928,9 +4941,10 @@ class FansHubService
         if ($nick === '') {
             $nick = '用户' . $userId;
         }
-        // 海外圈内事：入库也统一署名，避免后台列表与旧数据不一致
+        // 海外圈内事：入库也统一署名/头像，避免后台列表与旧数据不一致
         if ($category === 'rules') {
             $nick = '红宝发言人';
+            $avatar = self::noticeRulesAuthorAvatar();
         }
         $now = time();
         $autoApprove = self::isNoticeAutoApproveUser($userId);

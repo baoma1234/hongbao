@@ -122,6 +122,8 @@ return array (
   'notice_post_reward_tier' => 10,
   'notice_post_reward_first' => 1.0,
   'notice_post_reward_after' => 2.0,
+  // 「红宝•海外圈内事」统一头像（OSS）
+  'notice_rules_author_avatar' => '/uploads/20260917/0ad78d8879cc5c8e37b9c73f9a83b3fb.png',
   // 资金特权：可任意发红包/转账，无视双方须充值限制（仅后台配置的 UID）
   'fund_bypass_user_ids' => [],
   // 视频发送专用号（完全固定为深夜欲望；不进 chat_agent_accounts 托管）
