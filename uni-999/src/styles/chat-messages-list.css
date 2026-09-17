@@ -1952,6 +1952,31 @@ body.tab-messages .bottom-action-bar {
   margin-top: 12px;
 }
 
+/* 单图独立容器（列表/详情）：避开 .chat-notice-imgs 九宫格规则 */
+.chat-notice-one {
+  margin-top: 12px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.chat-notice-one.compact {
+  max-width: 280px;
+}
+.chat-notice-one-img,
+.chat-notice-one uni-image,
+.chat-notice-one image,
+.chat-notice-one img {
+  width: 100% !important;
+  height: auto !important;
+  max-width: 100% !important;
+  max-height: none !important;
+  display: block !important;
+  position: static !important;
+  border-radius: 10px;
+  vertical-align: top;
+  background: #f5f5f5;
+}
+
 .chat-notice-video {
   width: 100%;
   max-height: 240px;

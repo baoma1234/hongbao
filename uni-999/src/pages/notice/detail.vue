@@ -25,7 +25,20 @@
       <view v-if="video" class="chat-notice-media">
         <video class="chat-notice-video" :src="video" controls object-fit="contain" />
       </view>
-      <view v-if="images.length" class="chat-notice-media">
+      <view
+        v-if="images.length === 1"
+        class="chat-notice-one"
+        :class="{ compact: !imagesFull }"
+        @click="preview(0)"
+      >
+        <image
+          class="chat-notice-one-img"
+          :src="avatarSrc(images[0])"
+          mode="widthFix"
+          :style="{ width: '100%', height: 'auto', display: 'block' }"
+        />
+      </view>
+      <view v-else-if="images.length > 1" class="chat-notice-media">
         <view
           class="chat-notice-imgs"
           :class="[
@@ -42,8 +55,8 @@
             <image
               class="chat-notice-img"
               :src="avatarSrc(src)"
-              :mode="imageMode"
-              :style="imageStyle"
+              :mode="imagesFull ? 'widthFix' : 'aspectFill'"
+              :style="imagesFull ? imageStyle : null"
             />
           </view>
         </view>
@@ -90,19 +103,14 @@ const images = computed(() => {
 })
 const imagesFull = computed(() => {
   const c = String((notice.value && notice.value.category) || '')
-  // 仅最新 / 推广走全宽长图
   return c === 'latest' || c === 'promote'
 })
-const imageMode = computed(() => {
-  if (imagesFull.value || images.value.length === 1) return 'widthFix'
-  return 'aspectFill'
-})
-const imageStyle = computed(() => {
-  if (imagesFull.value || images.value.length === 1) {
-    return { width: '100%', height: 'auto', display: 'block', maxHeight: 'none' }
-  }
-  return null
-})
+const imageStyle = computed(() => ({
+  width: '100%',
+  height: 'auto',
+  display: 'block',
+  maxHeight: 'none',
+}))
 const video = computed(() => String((notice.value && notice.value.video) || '').trim())
 const viewsText = computed(() => {
   const v = viewsLocal.value || Number((notice.value && notice.value.views_count) || 0) || 0
@@ -217,5 +225,24 @@ onLoad((q) => {
   font-size: 11px;
   color: #9a9a9a;
   margin-top: 0;
+}
+
+.chat-notice-one {
+  margin-top: 12px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.chat-notice-one.compact {
+  max-width: 280px;
+}
+.chat-notice-one-img {
+  width: 100% !important;
+  height: auto !important;
+  max-width: 100% !important;
+  display: block !important;
+  border-radius: 10px;
+  vertical-align: top;
+  background: #f5f5f5;
 }
 </style>

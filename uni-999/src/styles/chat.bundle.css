@@ -5231,6 +5231,25 @@ button.chat-rp-fair-link {
   margin-top: 12px;
 }
 
+.chat-notice-one {
+  margin-top: 12px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.chat-notice-one.compact {
+  max-width: 280px;
+}
+.chat-notice-one-img {
+  width: 100% !important;
+  height: auto !important;
+  max-width: 100% !important;
+  display: block !important;
+  border-radius: 10px;
+  vertical-align: top;
+  background: #f5f5f5;
+}
+
 .chat-notice-video {
   width: 100%;
   max-height: 240px;

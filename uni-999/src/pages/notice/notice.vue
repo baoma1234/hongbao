@@ -218,7 +218,20 @@
                         />
                       </view>
                       <view
-                        v-if="noticeImages(n).length"
+                        v-if="noticeImages(n).length === 1"
+                        class="chat-notice-one"
+                        :class="{ compact: !noticeImagesFull(n) }"
+                        @click.stop="previewNoticeImages(n, 0)"
+                      >
+                        <image
+                          class="chat-notice-one-img"
+                          :src="avatarSrc(noticeImages(n)[0])"
+                          mode="widthFix"
+                          :style="{ width: '100%', height: 'auto', display: 'block' }"
+                        />
+                      </view>
+                      <view
+                        v-else-if="noticeImages(n).length > 1"
                         class="chat-notice-media"
                       >
                         <view
@@ -237,8 +250,8 @@
                             <image
                               class="chat-notice-img"
                               :src="avatarSrc(src)"
-                              :mode="noticeImageMode(n)"
-                              :style="noticeImageStyle(n)"
+                              :mode="noticeImagesFull(n) ? 'widthFix' : 'aspectFill'"
+                              :style="noticeImagesFull(n) ? noticeImageStyle(n) : null"
                             />
                           </view>
                         </view>
@@ -665,26 +678,17 @@ function noticeImages(n) {
 
 function noticeImagesFull(n) {
   const c = String((n && n.category) || noticeCat.value || '')
-  // 仅最新 / 推广走全宽长图；彩金 / 海外单图不走 imgs-full（否则 widthFix 易塌高度）
+  // 仅最新 / 推广走全宽长图；彩金 / 海外用九宫格 / 单图紧凑
   return c === 'latest' || c === 'promote'
 }
 
-function noticeImageMode(n) {
-  // 单图必须 widthFix（靠内容撑高）；多图九宫格用 aspectFill
-  if (noticeImagesFull(n) || noticeImages(n).length === 1) return 'widthFix'
-  return 'aspectFill'
-}
-
 function noticeImageStyle(n) {
-  if (noticeImagesFull(n) || noticeImages(n).length === 1) {
-    return {
-      width: '100%',
-      height: 'auto',
-      display: 'block',
-      maxHeight: 'none',
-    }
+  return {
+    width: '100%',
+    height: 'auto',
+    display: 'block',
+    maxHeight: 'none',
   }
-  return null
 }
 
 function noticeActionButtons(n) {
@@ -1487,5 +1491,25 @@ onUnmounted(() => {
   line-height: 20px;
   font-size: 20px;
   opacity: 0;
+}
+
+/* 单图独立路径：不走九宫格/imgs-1，避免 height 塌成 0 */
+.chat-notice-one {
+  margin-top: 12px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.chat-notice-one.compact {
+  max-width: 280px;
+}
+.chat-notice-one-img {
+  width: 100% !important;
+  height: auto !important;
+  max-width: 100% !important;
+  display: block !important;
+  border-radius: 10px;
+  vertical-align: top;
+  background: #f5f5f5;
 }
 </style>
