@@ -42,8 +42,8 @@
             <image
               class="chat-notice-img"
               :src="avatarSrc(src)"
-              :mode="imagesFull ? 'widthFix' : 'aspectFill'"
-              :style="imagesFull ? { width: '100%', height: 'auto', display: 'block', maxHeight: 'none' } : null"
+              :mode="imageMode"
+              :style="imageStyle"
             />
           </view>
         </view>
@@ -90,9 +90,18 @@ const images = computed(() => {
 })
 const imagesFull = computed(() => {
   const c = String((notice.value && notice.value.category) || '')
-  // 最新 / 推广：全宽长图；彩金 / 海外：多图九宫格
-  if (c === 'latest' || c === 'promote') return true
-  return images.value.length === 1
+  // 仅最新 / 推广走全宽长图
+  return c === 'latest' || c === 'promote'
+})
+const imageMode = computed(() => {
+  if (imagesFull.value || images.value.length === 1) return 'widthFix'
+  return 'aspectFill'
+})
+const imageStyle = computed(() => {
+  if (imagesFull.value || images.value.length === 1) {
+    return { width: '100%', height: 'auto', display: 'block', maxHeight: 'none' }
+  }
+  return null
 })
 const video = computed(() => String((notice.value && notice.value.video) || '').trim())
 const viewsText = computed(() => {

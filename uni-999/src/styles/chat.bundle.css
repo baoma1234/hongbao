@@ -5280,8 +5280,29 @@ button.chat-rp-fair-link {
 }
 
 .chat-notice-imgs:not(.imgs-full).imgs-1 {
-  grid-template-columns: 1fr;
+  display: block;
+  grid-template-columns: none;
   max-width: 280px;
+}
+
+.chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img-wrap {
+  display: block;
+  width: 100%;
+  aspect-ratio: auto;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  overflow: visible;
+  border-radius: 10px;
+  background: #f7f3ea;
+}
+
+.chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 360px;
+  border-radius: 10px;
 }
 
 .chat-notice-imgs:not(.imgs-full).imgs-2,
@@ -5327,22 +5348,6 @@ button.chat-rp-fair-link {
   width: 100%;
   height: 100%;
   object-fit: cover;
-}
-
-.chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img-wrap {
-  aspect-ratio: auto;
-  height: auto;
-  min-height: 0;
-  max-height: none;
-  border-radius: 10px;
-  background: #f7f3ea;
-}
-
-.chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img {
-  width: 100%;
-  height: auto;
-  max-height: 360px;
-  border-radius: 10px;
 }
 
 .chat-notice-actions {

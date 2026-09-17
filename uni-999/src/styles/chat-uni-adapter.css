@@ -1018,7 +1018,46 @@ body.tab-messages #tabMessages .chat-list-pane {
 #tabNotice .chat-notice-imgs:not(.imgs-full).imgs-1,
 .notice-page .chat-notice-imgs:not(.imgs-full).imgs-1,
 .notice-detail .chat-notice-imgs:not(.imgs-full).imgs-1 {
+  display: block !important;
   max-width: 280px !important;
+  grid-template-columns: none !important;
+}
+#tabMessages .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img-wrap,
+#tabNotice .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img-wrap,
+.notice-page .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img-wrap,
+.notice-detail .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img-wrap {
+  display: block !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  aspect-ratio: auto !important;
+  padding-bottom: 0 !important;
+  overflow: visible !important;
+}
+#tabMessages .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img,
+#tabMessages .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img-wrap uni-image,
+#tabMessages .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img-wrap image,
+#tabMessages .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img-wrap img,
+#tabNotice .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img,
+#tabNotice .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img-wrap uni-image,
+#tabNotice .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img-wrap image,
+#tabNotice .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img-wrap img,
+.notice-page .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img,
+.notice-page .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img-wrap uni-image,
+.notice-page .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img-wrap image,
+.notice-page .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img-wrap img,
+.notice-detail .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img,
+.notice-detail .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img-wrap uni-image,
+.notice-detail .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img-wrap image,
+.notice-detail .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img-wrap img {
+  display: block !important;
+  width: 100% !important;
+  height: auto !important;
+  max-height: 360px !important;
+  max-width: 100% !important;
+  position: static !important;
+  object-fit: contain !important;
 }
 #tabMessages .chat-notice-imgs:not(.imgs-full).imgs-2,
 #tabMessages .chat-notice-imgs:not(.imgs-full).imgs-4,
@@ -1067,10 +1106,10 @@ body.tab-messages #tabMessages .chat-list-pane {
   min-width: 0 !important;
   box-sizing: border-box !important;
 }
-#tabMessages .chat-notice-imgs:not(.imgs-full) .chat-notice-img-wrap,
-#tabNotice .chat-notice-imgs:not(.imgs-full) .chat-notice-img-wrap,
-.notice-page .chat-notice-imgs:not(.imgs-full) .chat-notice-img-wrap,
-.notice-detail .chat-notice-imgs:not(.imgs-full) .chat-notice-img-wrap {
+#tabMessages .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap,
+#tabNotice .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap,
+.notice-page .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap,
+.notice-detail .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap {
   overflow: hidden !important;
 }
 #tabMessages .chat-notice-imgs:not(.imgs-full):not(.imgs-1) .chat-notice-img-wrap,

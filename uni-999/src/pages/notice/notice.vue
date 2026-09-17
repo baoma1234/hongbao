@@ -237,8 +237,8 @@
                             <image
                               class="chat-notice-img"
                               :src="avatarSrc(src)"
-                              :mode="noticeImagesFull(n) ? 'widthFix' : 'aspectFill'"
-                              :style="noticeImagesFull(n) ? fullImgStyle : null"
+                              :mode="noticeImageMode(n)"
+                              :style="noticeImageStyle(n)"
                             />
                           </view>
                         </view>
@@ -665,17 +665,26 @@ function noticeImages(n) {
 
 function noticeImagesFull(n) {
   const c = String((n && n.category) || noticeCat.value || '')
-  // 最新发布 / 推广赚钱：全宽长图（多图纵向铺开），与彩金/海外九宫格区分
-  if (c === 'latest' || c === 'promote') return true
-  // 彩金白嫖 / 海外圈内事：仅单图大图，多图合九宫格
-  return noticeImages(n).length === 1
+  // 仅最新 / 推广走全宽长图；彩金 / 海外单图不走 imgs-full（否则 widthFix 易塌高度）
+  return c === 'latest' || c === 'promote'
 }
 
-const fullImgStyle = {
-  width: '100%',
-  height: 'auto',
-  display: 'block',
-  maxHeight: 'none',
+function noticeImageMode(n) {
+  // 单图必须 widthFix（靠内容撑高）；多图九宫格用 aspectFill
+  if (noticeImagesFull(n) || noticeImages(n).length === 1) return 'widthFix'
+  return 'aspectFill'
+}
+
+function noticeImageStyle(n) {
+  if (noticeImagesFull(n) || noticeImages(n).length === 1) {
+    return {
+      width: '100%',
+      height: 'auto',
+      display: 'block',
+      maxHeight: 'none',
+    }
+  }
+  return null
 }
 
 function noticeActionButtons(n) {
