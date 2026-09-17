@@ -1964,16 +1964,17 @@ body.tab-messages .bottom-action-bar {
   display: grid;
   gap: 4px;
   width: 100%;
+  max-width: 100%;
   box-sizing: border-box;
 }
 
-/* 单图：限制最大宽高，避免竖图占满屏 */
+/* 单图：限制最大宽，高度跟图走 */
 .chat-notice-imgs.imgs-1 {
   grid-template-columns: 1fr;
   max-width: 280px;
 }
 
-/* 多图：朋友圈九宫格，合在一起、限制总宽 */
+/* 多图：朋友圈九宫格，限制总宽，不纵向占满 */
 .chat-notice-imgs.imgs-2,
 .chat-notice-imgs.imgs-4 {
   grid-template-columns: 1fr 1fr;
@@ -1991,6 +1992,7 @@ body.tab-messages .bottom-action-bar {
 }
 
 .chat-notice-img-wrap {
+  position: relative;
   width: 100%;
   min-width: 0;
   overflow: hidden;
@@ -1999,12 +2001,11 @@ body.tab-messages .bottom-action-bar {
   box-sizing: border-box;
 }
 
-/* 多图方格：padding-bottom 兼容 App（aspect-ratio 常失效） */
+/* 多图方格：用 aspect-ratio，避免 height:0 在 uni-image 下整图消失 */
 .chat-notice-imgs:not(.imgs-1) .chat-notice-img-wrap {
-  position: relative;
-  height: 0;
-  padding-bottom: 100%;
-  aspect-ratio: auto;
+  aspect-ratio: 1 / 1;
+  height: auto;
+  min-height: 54px;
 }
 
 .chat-notice-img {
@@ -2016,32 +2017,25 @@ body.tab-messages .bottom-action-bar {
 }
 
 .chat-notice-imgs:not(.imgs-1) .chat-notice-img {
-  position: absolute;
-  left: 0;
-  top: 0;
-  right: 0;
-  bottom: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
 .chat-notice-imgs.imgs-1 .chat-notice-img-wrap {
-  position: relative;
+  aspect-ratio: auto;
   height: auto;
-  padding-bottom: 0;
-  max-height: 320px;
+  min-height: 0;
+  max-height: none;
   border-radius: 10px;
   background: #f7f3ea;
 }
 
 .chat-notice-imgs.imgs-1 .chat-notice-img {
-  position: static;
   width: 100%;
   height: auto;
-  max-height: 320px;
+  max-height: 360px;
   border-radius: 10px;
-  object-fit: cover;
 }
 
 .chat-notice-actions {

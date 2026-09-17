@@ -953,6 +953,7 @@ body.tab-messages #tabMessages .chat-list-pane {
   display: grid !important;
   gap: 4px;
   width: 100% !important;
+  max-width: 100% !important;
   box-sizing: border-box !important;
 }
 #tabMessages .chat-notice-imgs.imgs-1,
@@ -1003,6 +1004,7 @@ body.tab-messages #tabMessages .chat-list-pane {
 #tabNotice .chat-notice-img-wrap,
 .notice-page .chat-notice-img-wrap,
 .notice-detail .chat-notice-img-wrap {
+  position: relative !important;
   width: 100% !important;
   min-width: 0 !important;
   overflow: hidden !important;
@@ -1012,19 +1014,20 @@ body.tab-messages #tabMessages .chat-list-pane {
 #tabNotice .chat-notice-imgs:not(.imgs-1) .chat-notice-img-wrap,
 .notice-page .chat-notice-imgs:not(.imgs-1) .chat-notice-img-wrap,
 .notice-detail .chat-notice-imgs:not(.imgs-1) .chat-notice-img-wrap {
-  position: relative !important;
-  height: 0 !important;
-  padding-bottom: 100% !important;
-  aspect-ratio: auto !important;
+  aspect-ratio: 1 / 1 !important;
+  height: auto !important;
+  min-height: 54px !important;
+  padding-bottom: 0 !important;
 }
 #tabMessages .chat-notice-imgs.imgs-1 .chat-notice-img-wrap,
 #tabNotice .chat-notice-imgs.imgs-1 .chat-notice-img-wrap,
 .notice-page .chat-notice-imgs.imgs-1 .chat-notice-img-wrap,
 .notice-detail .chat-notice-imgs.imgs-1 .chat-notice-img-wrap {
-  position: relative !important;
+  aspect-ratio: auto !important;
   height: auto !important;
+  min-height: 0 !important;
   padding-bottom: 0 !important;
-  max-height: 320px !important;
+  max-height: none !important;
 }
 #tabMessages .chat-notice-img,
 #tabMessages .chat-notice-img-wrap uni-image,
@@ -1041,6 +1044,11 @@ body.tab-messages #tabMessages .chat-list-pane {
   width: 100% !important;
   display: block !important;
   max-width: 100% !important;
+  position: static !important;
+  left: auto !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: auto !important;
 }
 #tabMessages .chat-notice-imgs:not(.imgs-1) .chat-notice-img,
 #tabMessages .chat-notice-imgs:not(.imgs-1) .chat-notice-img-wrap uni-image,
@@ -1058,11 +1066,6 @@ body.tab-messages #tabMessages .chat-list-pane {
 .notice-detail .chat-notice-imgs:not(.imgs-1) .chat-notice-img-wrap uni-image,
 .notice-detail .chat-notice-imgs:not(.imgs-1) .chat-notice-img-wrap image,
 .notice-detail .chat-notice-imgs:not(.imgs-1) .chat-notice-img-wrap img {
-  position: absolute !important;
-  left: 0 !important;
-  top: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
   width: 100% !important;
   height: 100% !important;
   object-fit: cover !important;
@@ -1079,9 +1082,8 @@ body.tab-messages #tabMessages .chat-list-pane {
 .notice-detail .chat-notice-imgs.imgs-1 .chat-notice-img,
 .notice-detail .chat-notice-imgs.imgs-1 .chat-notice-img-wrap uni-image,
 .notice-detail .chat-notice-imgs.imgs-1 .chat-notice-img-wrap image {
-  position: static !important;
   height: auto !important;
-  max-height: 320px !important;
+  max-height: 360px !important;
 }
 
 #tabMessages .chat-promote-earn-wrap {
