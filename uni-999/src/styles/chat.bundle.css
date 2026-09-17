@@ -5240,14 +5240,19 @@ button.chat-rp-fair-link {
 .chat-notice-one.compact {
   max-width: 280px;
 }
+uni-image.chat-notice-one-img,
 .chat-notice-one-img {
   width: 100% !important;
-  height: auto !important;
   max-width: 100% !important;
   display: block !important;
   border-radius: 10px;
-  vertical-align: top;
-  background: #f5f5f5;
+  overflow: hidden;
+}
+.chat-notice-one-img > div {
+  width: 100% !important;
+  height: 100% !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
 }
 
 .chat-notice-video {

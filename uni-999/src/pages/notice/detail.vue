@@ -35,7 +35,7 @@
           class="chat-notice-one-img"
           :src="avatarSrc(images[0])"
           mode="widthFix"
-          :style="{ width: '100%', height: 'auto', display: 'block' }"
+          :style="{ width: '100%' }"
         />
       </view>
       <view v-else-if="images.length > 1" class="chat-notice-media">
@@ -105,12 +105,7 @@ const imagesFull = computed(() => {
   const c = String((notice.value && notice.value.category) || '')
   return c === 'latest' || c === 'promote'
 })
-const imageStyle = computed(() => ({
-  width: '100%',
-  height: 'auto',
-  display: 'block',
-  maxHeight: 'none',
-}))
+const imageStyle = computed(() => ({ width: '100%' }))
 const video = computed(() => String((notice.value && notice.value.video) || '').trim())
 const viewsText = computed(() => {
   const v = viewsLocal.value || Number((notice.value && notice.value.views_count) || 0) || 0
@@ -238,11 +233,9 @@ onLoad((q) => {
 }
 .chat-notice-one-img {
   width: 100% !important;
-  height: auto !important;
   max-width: 100% !important;
   display: block !important;
   border-radius: 10px;
-  vertical-align: top;
-  background: #f5f5f5;
+  overflow: hidden;
 }
 </style>

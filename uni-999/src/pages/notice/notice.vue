@@ -227,7 +227,7 @@
                           class="chat-notice-one-img"
                           :src="avatarSrc(noticeImages(n)[0])"
                           mode="widthFix"
-                          :style="{ width: '100%', height: 'auto', display: 'block' }"
+                          :style="{ width: '100%' }"
                         />
                       </view>
                       <view
@@ -683,12 +683,8 @@ function noticeImagesFull(n) {
 }
 
 function noticeImageStyle(n) {
-  return {
-    width: '100%',
-    height: 'auto',
-    display: 'block',
-    maxHeight: 'none',
-  }
+  // 只设宽度，高度交给 widthFix；勿写 height:auto（会盖掉 uni 算出的像素高）
+  return { width: '100%' }
 }
 
 function noticeActionButtons(n) {
@@ -1505,11 +1501,9 @@ onUnmounted(() => {
 }
 .chat-notice-one-img {
   width: 100% !important;
-  height: auto !important;
   max-width: 100% !important;
   display: block !important;
   border-radius: 10px;
-  vertical-align: top;
-  background: #f5f5f5;
+  overflow: hidden;
 }
 </style>

@@ -1952,7 +1952,7 @@ body.tab-messages .bottom-action-bar {
   margin-top: 12px;
 }
 
-/* 单图独立容器（列表/详情）：避开 .chat-notice-imgs 九宫格规则 */
+/* 单图：只定外层宽度，勿动内部 img/div（H5 靠背景 div 显示，img 默认 opacity:0） */
 .chat-notice-one {
   margin-top: 12px;
   width: 100%;
@@ -1962,19 +1962,24 @@ body.tab-messages .bottom-action-bar {
 .chat-notice-one.compact {
   max-width: 280px;
 }
-.chat-notice-one-img,
-.chat-notice-one uni-image,
-.chat-notice-one image,
-.chat-notice-one img {
+uni-image.chat-notice-one-img,
+image.chat-notice-one-img,
+.chat-notice-one-img {
   width: 100% !important;
-  height: auto !important;
   max-width: 100% !important;
-  max-height: none !important;
   display: block !important;
-  position: static !important;
   border-radius: 10px;
+  overflow: hidden;
   vertical-align: top;
-  background: #f5f5f5;
+  /* 禁止 height:auto !important，否则会盖掉 widthFix 算出的像素高度 */
+}
+.chat-notice-one-img > div,
+uni-image.chat-notice-one-img > div {
+  width: 100% !important;
+  height: 100% !important;
+  background-repeat: no-repeat !important;
+  background-position: center center !important;
+  background-size: 100% 100% !important;
 }
 
 .chat-notice-video {
@@ -2020,15 +2025,19 @@ body.tab-messages .bottom-action-bar {
 
 .chat-notice-imgs.imgs-full .chat-notice-img,
 .chat-notice-imgs.imgs-full .chat-notice-img-wrap uni-image,
-.chat-notice-imgs.imgs-full .chat-notice-img-wrap image,
-.chat-notice-imgs.imgs-full .chat-notice-img-wrap img {
+.chat-notice-imgs.imgs-full .chat-notice-img-wrap image {
   display: block !important;
   width: 100% !important;
-  height: auto !important;
-  max-height: none !important;
   max-width: 100% !important;
-  position: static !important;
   border-radius: 10px;
+  overflow: hidden;
+}
+.chat-notice-imgs.imgs-full .chat-notice-img-wrap uni-image > div,
+.chat-notice-imgs.imgs-full .chat-notice-img-wrap .chat-notice-img > div {
+  width: 100% !important;
+  height: 100% !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
 }
 
 /* 彩金/海外 单图：限制最大宽，widthFix 撑高（勿 height:100%） */
@@ -2052,15 +2061,12 @@ body.tab-messages .bottom-action-bar {
 
 .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img,
 .chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img-wrap uni-image,
-.chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img-wrap image,
-.chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img-wrap img {
+.chat-notice-imgs:not(.imgs-full).imgs-1 .chat-notice-img-wrap image {
   display: block !important;
   width: 100% !important;
-  height: auto !important;
-  max-height: 360px !important;
   max-width: 100% !important;
-  position: static !important;
   border-radius: 10px;
+  overflow: hidden;
 }
 
 /* 彩金/海外 多图：朋友圈九宫格 */
