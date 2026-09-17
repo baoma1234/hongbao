@@ -279,23 +279,16 @@ class Account extends Backend
             $payPwdMeta['pay_salt'] = $paySalt;
         }
 
-        $oldRights = (float)$row->rights;
-        $oldHongbao = (float)($row->hongbao ?? 0) + (float)($row->balance ?? 0);
-        $newRights = isset($params['rights']) ? round((float)$params['rights'], 2) : $oldRights;
-        $newHongbao = isset($params['hongbao']) ? round((float)$params['hongbao'], 2) : $oldHongbao;
-        // 打开编辑页时的基线：若客服未改动该字段，则不调账（避免覆盖期间裂变/红包入账）
-        $rightsBaseline = array_key_exists('rights_baseline', $params)
-            ? round((float)$params['rights_baseline'], 2)
-            : null;
-        $hongbaoBaseline = array_key_exists('hongbao_baseline', $params)
-            ? round((float)$params['hongbao_baseline'], 2)
-            : null;
-        $rightsChanged = $rightsBaseline === null || abs($newRights - $rightsBaseline) > 1e-8;
-        $hongbaoChanged = $hongbaoBaseline === null || abs($newHongbao - $hongbaoBaseline) > 1e-8;
-        $rightsDelta = $rightsChanged ? round($newRights - $oldRights, 2) : 0.0;
-        $balanceDelta = 0.0;
-        $hongbaoDelta = $hongbaoChanged ? round($newHongbao - $oldHongbao, 2) : 0.0;
-        unset($params['rights'], $params['balance'], $params['hongbao'], $params['rights_baseline'], $params['hongbao_baseline']);
+        // 红宝/股份余额禁止在编辑页改写，只能走 adjust 调账
+        unset(
+            $params['rights'],
+            $params['balance'],
+            $params['hongbao'],
+            $params['rights_baseline'],
+            $params['hongbao_baseline'],
+            $params['rights_locked'],
+            $params['rights_lock_day']
+        );
 
         $meta = [];
         foreach (['main_uid', 'flow_stage', 'status', 'member_level', 'turnover', 'admin_remark'] as $field) {
@@ -382,22 +375,6 @@ class Account extends Backend
             if ($inviterRef !== null) {
                 FansHubService::adminSetInviter($row->user_id, $inviterRef);
             }
-            if ($rightsDelta != 0 || $balanceDelta != 0 || $hongbaoDelta != 0) {
-                $remark = trim((string)$this->request->post('adjust_remark', '编辑账户调整'));
-                if ($remark === '') {
-                    $remark = '编辑账户调整';
-                }
-                FansHubService::changeAssets(
-                    $row->user_id,
-                    $rightsDelta,
-                    $balanceDelta,
-                    'admin_adjust',
-                    $remark,
-                    $this->auth->id,
-                    '',
-                    $hongbaoDelta
-                );
-            }
             Db::commit();
         } catch (\Throwable $e) {
             Db::rollback();
@@ -413,16 +390,15 @@ class Account extends Backend
             $this->error(__('No Results were found'));
         }
         if ($this->request->isPost()) {
-            $rightsDelta = (float)$this->request->post('rights_delta', 0);
-            $hongbaoDelta = (float)$this->request->post('hongbao_delta', 0);
+            $hongbaoDelta = round((float)$this->request->post('hongbao_delta', 0), 2);
             // 兼容旧字段 balance_delta → 红宝
-            $hongbaoDelta += (float)$this->request->post('balance_delta', 0);
+            $hongbaoDelta = round($hongbaoDelta + (float)$this->request->post('balance_delta', 0), 2);
             $remark = trim((string)$this->request->post('remark', '人工调账'));
-            if ($rightsDelta == 0 && $hongbaoDelta == 0) {
-                $this->error('请填写调整数值');
+            if ($hongbaoDelta == 0) {
+                $this->error('请填写红宝调整数值');
             }
             try {
-                FansHubService::changeAssets($row->user_id, $rightsDelta, 0, 'admin_adjust', $remark, $this->auth->id, '', $hongbaoDelta);
+                FansHubService::changeAssets($row->user_id, 0, 0, 'admin_adjust', $remark ?: '人工调账', $this->auth->id, '', $hongbaoDelta);
             } catch (\Throwable $e) {
                 $this->error($e->getMessage());
             }
