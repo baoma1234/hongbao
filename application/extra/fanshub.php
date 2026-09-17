@@ -113,8 +113,8 @@ return array (
   // 多点登录 / 自动通过好友：BIO + 40ky + 27ky + 18888888 + 红宝官方
   'multi_login_user_ids' => [55555555, 44444444, 77777777, 18888888, 22222222],
   'auto_accept_friend_user_ids' => [55555555, 44444444, 77777777, 18888888],
-  // 社区发帖免审直发（红宝官方 22222222）
-  'notice_auto_approve_user_ids' => [22222222],
+  // 社区发帖免审直发（红宝官方 22222222；18888888888 → 77322302）
+  'notice_auto_approve_user_ids' => [22222222, 77322302],
   // 发帖活动：需先娱乐发红宝；每天限 N 帖；前 M 帖审核通过奖 A 元，之后奖 B 元
   'notice_post_campaign_enabled' => true,
   'notice_post_need_rp' => true,

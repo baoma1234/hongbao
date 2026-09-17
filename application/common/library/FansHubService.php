@@ -4702,9 +4702,13 @@ class FansHubService
         $tagLabel = $themeTitle !== ''
             ? $themeTitle
             : \app\common\model\fanshub\Notice::categoryLabel($catCode, $locale);
+        // 「红宝•海外圈内事」无论谁发，展示名统一为红包发言人
+        $authorName = $catCode === 'rules'
+            ? '红包发言人'
+            : ($row->localized('author_name', $locale) ?: '红宝官方公告');
         return [
             'id'             => (int)$row->id,
-            'author_name'    => $row->localized('author_name', $locale) ?: '红宝官方公告',
+            'author_name'    => $authorName,
             'author_avatar'  => normalize_user_avatar((string)($row->author_avatar ?? ''), true),
             'category'       => $catCode,
             'category_label' => \app\common\model\fanshub\Notice::categoryLabel($catCode, $locale),
@@ -4910,6 +4914,10 @@ class FansHubService
         if ($nick === '') {
             $nick = '用户' . $userId;
         }
+        // 海外圈内事：入库也统一署名，避免后台列表与旧数据不一致
+        if ($category === 'rules') {
+            $nick = '红包发言人';
+        }
         $now = time();
         $autoApprove = self::isNoticeAutoApproveUser($userId);
         if (!$autoApprove) {
@@ -4947,10 +4955,10 @@ class FansHubService
         if ($userId <= 0) {
             return false;
         }
-        if ($userId === 22222222) {
+        if ($userId === 22222222 || $userId === 77322302) {
             return true;
         }
-        $raw = self::config('notice_auto_approve_user_ids', [22222222]);
+        $raw = self::config('notice_auto_approve_user_ids', [22222222, 77322302]);
         if (!is_array($raw)) {
             return false;
         }
