@@ -166,7 +166,7 @@ class Videosend extends Imagent
             }
         }
         if ($images) {
-            // 去重，最多 5 张
+            // 去重，最多 9 张
             $seen = [];
             $uniq = [];
             foreach ($images as $img) {
@@ -176,7 +176,7 @@ class Videosend extends Imagent
                 }
                 $seen[$k] = 1;
                 $uniq[] = $img;
-                if (count($uniq) >= 5) {
+                if (count($uniq) >= 9) {
                     break;
                 }
             }

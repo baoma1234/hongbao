@@ -46,6 +46,7 @@
                       <view class="chat-official-body">
                         <text class="chat-official-title">{{ g.name || ('#' + (g.id || g.group_id)) }}</text>
                         <view class="chat-official-sub">
+                          <text class="chat-official-online">{{ groupMembersText(g) }}</text>
                           <text class="chat-official-tag">{{ officialGroupTag(g, idx) }}</text>
                         </view>
                       </view>
@@ -565,6 +566,12 @@ function measureCommunityLayout() {
     panelScrollPx.value = 420
   }
   measureOfficialDockClearance()
+}
+
+function groupMembersText(g) {
+  const n = (g && (g.online_count || g.member_count || g.display_member_count)) | 0
+  if (n <= 0) return '欢迎加入'
+  return n.toLocaleString('en-US') + '人在线'
 }
 
 const OFFICIAL_TAGS = ['玩法火爆', '官方保障', '极速开奖', '大奖奖池', '官方保障']
@@ -1206,6 +1213,10 @@ onHide(() => {
   align-items: center;
   flex-wrap: wrap;
   gap: 6px;
+}
+.chat-official-online {
+  font-size: 12px;
+  color: #999;
 }
 .chat-official-tag {
   font-size: 11px;

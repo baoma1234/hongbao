@@ -557,7 +557,7 @@ class MessageService
             } elseif ($msgType === 4 || $msgType === 5) {
                 // 会话预览也保留多图字段，避免客户端只剩首张 url
                 $keep = [];
-                foreach (['url', 'fullurl', 'thumb', 'poster', 'cover', 'name', 'images', 'image_urls', 'image_fullurls', 'count', 'caption'] as $k) {
+                foreach (['url', 'fullurl', 'thumb', 'poster', 'cover', 'name', 'images', 'image_urls', 'image_fullurls', 'count', 'caption', 'videos', 'video_count'] as $k) {
                     if (array_key_exists($k, $msg['extra'])) {
                         $keep[$k] = $msg['extra'][$k];
                     }
@@ -3038,12 +3038,87 @@ class MessageService
             if (isset($extra['cover']) && !$this->isAllowedThumbUrl((string)$extra['cover'])) {
                 unset($extra['cover']);
             }
-            // 视频消息可附带多张预览图（展示在视频上方）
+            // 多视频相册（同一条视频消息，最多 9）
+            if ($msgType === 5 && !empty($extra['videos']) && is_array($extra['videos'])) {
+                $normVideos = [];
+                foreach (array_slice($extra['videos'], 0, 9) as $vid) {
+                    if (is_string($vid) && $vid !== '') {
+                        $u = trim($vid);
+                        if (!$this->isAllowedMediaUrl($u, 5)) {
+                            continue;
+                        }
+                        $normVideos[] = ['url' => $u];
+                        continue;
+                    }
+                    if (!is_array($vid)) {
+                        continue;
+                    }
+                    $u = trim((string)($vid['url'] ?? $vid['fullurl'] ?? ''));
+                    if ($u === '' || !$this->isAllowedMediaUrl($u, 5)) {
+                        continue;
+                    }
+                    $row = ['url' => $u];
+                    $fu = trim((string)($vid['fullurl'] ?? ''));
+                    if ($fu !== '' && $this->isAllowedMediaUrl($fu, 5)) {
+                        $row['fullurl'] = mb_substr($fu, 0, 1200);
+                    }
+                    foreach (['thumb', 'poster', 'cover'] as $tk) {
+                        $tv = trim((string)($vid[$tk] ?? ''));
+                        if ($tv !== '' && $this->isAllowedThumbUrl($tv)) {
+                            $row[$tk] = mb_substr($tv, 0, 500);
+                        }
+                    }
+                    $nm = trim((string)($vid['name'] ?? ''));
+                    if ($nm !== '') {
+                        $row['name'] = mb_substr($nm, 0, 120);
+                    }
+                    $normVideos[] = $row;
+                }
+                if ($normVideos) {
+                    $extra['videos'] = $normVideos;
+                    $extra['video_count'] = count($normVideos);
+                    if (empty($extra['url'])) {
+                        $extra['url'] = $normVideos[0]['url'];
+                    }
+                    if (empty($extra['fullurl']) && !empty($normVideos[0]['fullurl'])) {
+                        $extra['fullurl'] = $normVideos[0]['fullurl'];
+                    }
+                    $firstPoster = (string)($normVideos[0]['poster'] ?? $normVideos[0]['thumb'] ?? $normVideos[0]['cover'] ?? '');
+                    if ($firstPoster !== '') {
+                        if (empty($extra['thumb'])) {
+                            $extra['thumb'] = $firstPoster;
+                        }
+                        if (empty($extra['poster'])) {
+                            $extra['poster'] = $firstPoster;
+                        }
+                    }
+                    // 兼容旧客户端：首帧列表进 images
+                    if (empty($extra['images']) || !is_array($extra['images'])) {
+                        $coverImgs = [];
+                        foreach ($normVideos as $nv) {
+                            $cu = (string)($nv['poster'] ?? $nv['thumb'] ?? $nv['cover'] ?? '');
+                            if ($cu === '') {
+                                continue;
+                            }
+                            $coverImgs[] = ['url' => $cu, 'fullurl' => $cu];
+                        }
+                        if ($coverImgs) {
+                            $extra['images'] = $coverImgs;
+                            $extra['count'] = count($coverImgs);
+                            $extra['image_urls'] = array_column($coverImgs, 'url');
+                            $extra['image_fullurls'] = array_column($coverImgs, 'fullurl');
+                        }
+                    }
+                } else {
+                    unset($extra['videos'], $extra['video_count']);
+                }
+            }
+            // 视频消息可附带多张预览图（展示在视频上方 / 多视频首帧）
             if ($msgType === 5 && !empty($extra['images']) && is_array($extra['images'])) {
                 $normImgs = [];
                 $flatUrls = [];
                 $flatFull = [];
-                foreach (array_slice($extra['images'], 0, 5) as $img) {
+                foreach (array_slice($extra['images'], 0, 9) as $img) {
                     if (is_string($img) && $img !== '') {
                         $u = trim($img);
                         if (!$this->isAllowedThumbUrl($u) && !$this->isAllowedMediaUrl($u, 4)) {
@@ -3084,12 +3159,12 @@ class MessageService
             if ($msgType === 5) {
                 $cap = trim((string)($extra['caption'] ?? ''));
                 $t = trim((string)$content);
-                if ($cap === '' && $t !== '' && $t !== '[视频]' && strcasecmp($t, '[Video]') !== 0) {
+                if ($cap === '' && $t !== '' && $t !== '[视频]' && strcasecmp($t, '[Video]') !== 0 && !preg_match('/^\[视频\]x\d+$/u', $t)) {
                     $cap = mb_substr($t, 0, 500);
                 }
                 if ($cap !== '') {
                     $extra['caption'] = mb_substr($cap, 0, 500);
-                    if ($content === '' || $content === '[视频]' || strcasecmp($content, '[Video]') === 0) {
+                    if ($content === '' || $content === '[视频]' || strcasecmp($content, '[Video]') === 0 || preg_match('/^\[视频\]x\d+$/u', (string)$content)) {
                         $content = $extra['caption'];
                     }
                 } else {
@@ -3104,7 +3179,12 @@ class MessageService
                     $content = $n > 1 ? ('[图片]x' . $n) : '[图片]';
                 } elseif ($msgType === 5) {
                     $cap = trim((string)($extra['caption'] ?? ''));
-                    $content = $cap !== '' ? $cap : '[视频]';
+                    if ($cap !== '') {
+                        $content = $cap;
+                    } else {
+                        $vn = !empty($extra['videos']) && is_array($extra['videos']) ? count($extra['videos']) : 1;
+                        $content = $vn > 1 ? ('[视频]x' . $vn) : '[视频]';
+                    }
                 } else {
                     $name = (string)($extra['name'] ?? '文件');
                     $content = '[文件]' . mb_substr($name, 0, 80);
@@ -3204,7 +3284,7 @@ class MessageService
             // 兼容扁平 urls
             $flatUrls = [];
             $imgs = [];
-            foreach (array_slice($extra['image_urls'], 0, 5) as $u) {
+            foreach (array_slice($extra['image_urls'], 0, 9) as $u) {
                 $u = mb_substr(trim((string)$u), 0, 500);
                 if ($u === '') {
                     continue;
@@ -3218,6 +3298,61 @@ class MessageService
                 $clean['count'] = count($imgs);
                 if (empty($clean['url'])) {
                     $clean['url'] = $imgs[0]['url'];
+                }
+            }
+        }
+        // 多视频相册
+        if (!$sticker && !$file && !empty($extra['videos']) && is_array($extra['videos'])) {
+            $vids = [];
+            foreach (array_slice($extra['videos'], 0, 9) as $vid) {
+                if (is_string($vid) && $vid !== '') {
+                    $u = mb_substr(trim($vid), 0, 1200);
+                    if ($u !== '') {
+                        $vids[] = ['url' => $u];
+                    }
+                    continue;
+                }
+                if (!is_array($vid)) {
+                    continue;
+                }
+                $u = trim((string)($vid['url'] ?? ''));
+                if ($u === '') {
+                    continue;
+                }
+                $row = ['url' => mb_substr($u, 0, 1200)];
+                $fu = trim((string)($vid['fullurl'] ?? ''));
+                if ($fu !== '') {
+                    $row['fullurl'] = mb_substr($fu, 0, 1200);
+                }
+                foreach (['thumb', 'poster', 'cover'] as $tk) {
+                    $tv = trim((string)($vid[$tk] ?? ''));
+                    if ($tv !== '') {
+                        $row[$tk] = mb_substr($tv, 0, 500);
+                    }
+                }
+                $nm = trim((string)($vid['name'] ?? ''));
+                if ($nm !== '') {
+                    $row['name'] = mb_substr($nm, 0, 120);
+                }
+                $vids[] = $row;
+            }
+            if ($vids) {
+                $clean['videos'] = $vids;
+                $clean['video_count'] = count($vids);
+                if (empty($clean['url'])) {
+                    $clean['url'] = $vids[0]['url'];
+                }
+                if (empty($clean['fullurl']) && !empty($vids[0]['fullurl'])) {
+                    $clean['fullurl'] = $vids[0]['fullurl'];
+                }
+                $fp = (string)($vids[0]['poster'] ?? $vids[0]['thumb'] ?? $vids[0]['cover'] ?? '');
+                if ($fp !== '') {
+                    if (empty($clean['thumb'])) {
+                        $clean['thumb'] = $fp;
+                    }
+                    if (empty($clean['poster'])) {
+                        $clean['poster'] = $fp;
+                    }
                 }
             }
         }

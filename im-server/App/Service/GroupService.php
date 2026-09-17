@@ -962,6 +962,47 @@ class GroupService
     }
 
     /**
+     * 普通成员隐藏底部输入栏的群（频道广播类）
+     */
+    public function isComposerHiddenGroup($groupId)
+    {
+        $groupId = (int)$groupId;
+        if ($groupId <= 0) {
+            return false;
+        }
+        return in_array($groupId, $this->composerHiddenGroupIds(), true);
+    }
+
+    protected function composerHiddenGroupIds()
+    {
+        static $ids = null;
+        if ($ids !== null) {
+            return $ids;
+        }
+        $ids = [70, 71, 72, 77];
+        try {
+            $path = dirname(__DIR__, 3) . '/application/extra/fanshub.php';
+            if (is_file($path)) {
+                $cfg = include $path;
+                if (is_array($cfg) && !empty($cfg['chat_composer_hidden_group_ids']) && is_array($cfg['chat_composer_hidden_group_ids'])) {
+                    $parsed = [];
+                    foreach ($cfg['chat_composer_hidden_group_ids'] as $id) {
+                        $id = (int)$id;
+                        if ($id > 0) {
+                            $parsed[] = $id;
+                        }
+                    }
+                    if ($parsed) {
+                        $ids = array_values(array_unique($parsed));
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+        return $ids;
+    }
+
+    /**
      * 是否允许发言/发图/表情/视频（管理员不受禁止模式影响；单人禁言仍生效）
      * @param string $mode text|image|emoji|video
      */
@@ -990,6 +1031,10 @@ class GroupService
         // 群主/管理员不受群禁止模式限制
         if ($role >= 2) {
             return;
+        }
+        // 频道类群：普通成员不可发言（隐藏输入栏）
+        if ($this->isComposerHiddenGroup($groupId)) {
+            throw new \RuntimeException('本群仅管理员可发言');
         }
         // 尾数牛牛购入阶段：全员禁言（管理员除外）
         try {
@@ -1221,6 +1266,7 @@ class GroupService
             'can_send_video'     => $isAdmin || empty($forbids['video']),
             'forbid_modes'       => $forbids,
             'forbid_speak_hint'  => trim((string)($group['forbid_speak_hint'] ?? '')),
+            'composer_hidden'    => false,
             'rp_robot_only'      => $robotOnly,
             'rp_fixed_amount'    => $fixedAmount,
             'rp_min_amount'      => round((float)($group['rp_min_amount'] ?? 0), 2),
@@ -1240,6 +1286,19 @@ class GroupService
             'can_start_yxx'      => false,
             'can_stop_yxx'       => false,
         ];
+        // 频道类群：普通成员隐藏输入栏且不可发任何内容
+        $gid = (int)($group['id'] ?? 0);
+        if (!$isAdmin && $this->isComposerHiddenGroup($gid)) {
+            $ret['composer_hidden'] = true;
+            $ret['can_send_text'] = false;
+            $ret['can_send_image'] = false;
+            $ret['can_send_emoji'] = false;
+            $ret['can_send_video'] = false;
+            $ret['can_send_rp'] = false;
+            if ($ret['forbid_speak_hint'] === '') {
+                $ret['forbid_speak_hint'] = '本群仅管理员可发言';
+            }
+        }
         if ((int)($group['yxx_enabled'] ?? 0) === 1) {
             try {
                 $yxxSt = Db::fetch(

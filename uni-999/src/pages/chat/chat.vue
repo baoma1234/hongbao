@@ -198,23 +198,42 @@
                   class="chat-bubble media is-video-full"
                   @longpress.stop="onMsgLongPress(m, $event)"
                 >
-                  <view class="chat-video-card" :class="{ 'has-previews': mediaVideoPreviews(m).length > 0, 'has-caption': !!mediaCaption(m) }">
+                  <view
+                    class="chat-video-card"
+                    :class="{
+                      'has-previews': mediaVideoList(m).length > 1,
+                      'has-caption': !!mediaCaption(m),
+                      'is-video-album': mediaVideoList(m).length > 1,
+                    }"
+                  >
                     <view
-                      v-if="mediaVideoPreviews(m).length"
-                      class="chat-video-previews"
-                      :class="'vn' + Math.min(mediaVideoPreviews(m).length, 5)"
+                      v-if="mediaVideoList(m).length > 1"
+                      class="chat-video-previews chat-video-album"
+                      :class="'vn' + Math.min(mediaVideoList(m).length, 9)"
                     >
                       <view
-                        v-for="(pu, pi) in mediaVideoPreviews(m)"
-                        :key="'vp' + msgId(m) + '-' + pi"
+                        v-for="(vv, pi) in mediaVideoList(m)"
+                        :key="'vv' + msgId(m) + '-' + pi"
                         class="chat-video-preview-cell"
-                        @click.stop="previewVideoImages(m, pi)"
+                        @click.stop="openVideoAlbumItem(m, pi)"
                       >
-                        <image class="chat-video-preview-img" :src="pu" mode="aspectFill" />
+                        <image
+                          v-if="vv.poster"
+                          class="chat-video-preview-img"
+                          :src="vv.poster"
+                          mode="aspectFill"
+                        />
+                        <view v-else class="chat-video-preview-fallback" />
+                        <view class="chat-video-album-play">
+                          <text class="chat-video-album-play-ico">▶</text>
+                        </view>
                       </view>
                     </view>
-                    <view class="chat-video-player-row">
-                      <ChatMediaVideo :src="mediaUrl(m)" :poster="mediaPoster(m)" />
+                    <view v-else class="chat-video-player-row">
+                      <ChatMediaVideo
+                        :src="mediaVideoList(m)[0] && mediaVideoList(m)[0].src"
+                        :poster="(mediaVideoList(m)[0] && mediaVideoList(m)[0].poster) || mediaPoster(m)"
+                      />
                       <view v-if="!mediaCaption(m)" class="chat-video-time-badge">
                         <text>{{ msgTime(m) }}</text>
                       </view>
@@ -231,6 +250,7 @@
                       </view>
                       <text class="chat-video-footer-meta">{{ msgTime(m) }}</text>
                     </view>
+                    <text v-else-if="mediaVideoList(m).length > 1" class="meta chat-video-album-meta">{{ msgTime(m) }}</text>
                   </view>
                 </view>
                 <view v-else-if="isFile(m)" class="chat-bubble media file" @longpress.stop="onMsgLongPress(m, $event)" @click="openFileMsg(m)">
@@ -278,6 +298,7 @@
         </view>
 
         <view
+          v-if="!composerFullyHidden"
           class="chat-composer-wrap"
           :class="{ 'is-muted': composerLocked, 'is-extras-locked': extrasLocked }"
           :style="composerDockStyle"
@@ -490,6 +511,11 @@
             >{{ textSending || mediaSending ? '…' : '发送' }}</view>
           </view>
         </view>
+        <view
+          v-else
+          class="chat-composer-safe-pad"
+          :style="composerHiddenPadStyle"
+        />
       </view>
     </view>
 
@@ -695,6 +721,18 @@
     </view>
 
     <GrabSlider ref="grabSliderRef" />
+
+    <!-- 多视频相册：点格子全屏播该视频 -->
+    <view v-if="videoAlbumPlayer.open" class="chat-video-album-mask" @click="closeVideoAlbumPlayer">
+      <view class="chat-video-album-player" @click.stop>
+        <view class="chat-video-album-player-close" @click="closeVideoAlbumPlayer">×</view>
+        <ChatMediaVideo
+          :key="'vap-' + videoAlbumPlayer.src"
+          :src="videoAlbumPlayer.src"
+          :poster="videoAlbumPlayer.poster"
+        />
+      </view>
+    </view>
 
     <!-- 牛牛领取：立体描边红包框（无背景图/无领取按钮图） -->
     <view v-if="showNiuniuCover" class="nn-cover-mask" @click="closeNiuniuCover">
@@ -958,7 +996,7 @@ import '../../styles/chat-rp-send-uni-adapter.css'
 import '../../styles/chat-888-parity.css'
 import '../../styles/chat-qq-theme.css'
 import '../../styles/chat-create-group-qq.css'
-import { apiRequest, fetchProfile, getToken, goLoginIfUnauthorized, notifyProfileUpdated, uploadSticker } from '../../utils/auth.js'
+import { apiRequest, fetchConfig, fetchProfile, getToken, goLoginIfUnauthorized, notifyProfileUpdated, uploadSticker } from '../../utils/auth.js'
 import { getApiBase, getImgBase, learnUploadCdnFromUrl, ensureAbsoluteHttpUrl, packagedStaticUrl, resolveStaticRequestUrl } from '../../utils/config.js'
 import { assetBase, applyServerCopy, copyState, localeState, tt } from '../../utils/i18n.js'
 import {
@@ -968,7 +1006,9 @@ import {
   isLeaveGroupTip,
   mediaCaptionText,
   mediaImageUrls,
+  mediaVideoItems,
   mediaVideoPreviewUrls,
+  captureVideoFirstFrame,
   msgExtra,
   msgType,
   normalizeMessage,
@@ -1163,10 +1203,15 @@ function onComposerEnter(e) {
 }
 /** 待发送媒体草稿（先贴输入区，点发送再上传 OSS） */
 const MAX_PENDING_IMAGES = 5
+const MAX_PENDING_VIDEOS = 9
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024
 const MAX_VIDEO_BYTES = 500 * 1024 * 1024
 const pendingMedias = ref([])
 const hasPendingMedia = computed(() => (pendingMedias.value || []).length > 0)
+const videoAlbumPlayer = ref({ open: false, src: '', poster: '' })
+/** 频道类群：普通成员隐藏输入栏（配置 + 兜底） */
+const COMPOSER_HIDDEN_GROUP_IDS_FALLBACK = [70, 71, 72, 77]
+const composerHiddenGroupIds = ref(COMPOSER_HIDDEN_GROUP_IDS_FALLBACK.slice())
 const copiedImageHint = ref(false)
 const hasComposerText = computed(() => String(text.value || '').trim().length > 0)
 /** 输入框有字，或已贴图/视频草稿 */
@@ -1853,6 +1898,26 @@ const composerLocked = computed(() => {
   if (groupMeta.value && groupMeta.value.can_speak === false) return true
   if (groupMeta.value && groupMeta.value.mute_all && ((groupMeta.value.my_role | 0) < 2)) return true
   return !canCap('text')
+})
+
+/** 普通用户完全隐藏底部输入栏（群 70/71/72/77 等） */
+const composerFullyHidden = computed(() => {
+  if (isPrivate.value) return false
+  const role = (groupMeta.value && groupMeta.value.my_role) | 0
+  if (role >= 2) return false
+  const pol = groupPolicy.value || {}
+  if (pol.composer_hidden === true || pol.composer_hidden === 1) return true
+  const gid = (meta.value && meta.value.group) | 0
+  if (!gid) return false
+  const ids = composerHiddenGroupIds.value || []
+  return ids.indexOf(gid) >= 0
+})
+const composerHiddenPadStyle = computed(() => ({
+  height: Math.max(8, getSafeAreaInsets().bottom | 0) + 'px',
+}))
+
+watch(composerFullyHidden, () => {
+  nextTick(() => scheduleMeasureMsgScroll())
 })
 
 const extrasLocked = computed(() => {
@@ -2689,6 +2754,24 @@ function mediaCaption(m) {
 }
 function mediaVideoPreviews(m) {
   return mediaVideoPreviewUrls(m)
+}
+function mediaVideoList(m) {
+  return mediaVideoItems(m)
+}
+function openVideoAlbumItem(m, idx) {
+  const list = mediaVideoList(m)
+  if (!list.length) return
+  const i = Math.max(0, Math.min(list.length - 1, idx | 0))
+  const item = list[i]
+  if (!item || !item.src) return
+  videoAlbumPlayer.value = {
+    open: true,
+    src: item.src,
+    poster: item.poster || '',
+  }
+}
+function closeVideoAlbumPlayer() {
+  videoAlbumPlayer.value = { open: false, src: '', poster: '' }
 }
 function previewVideoImages(m, idx) {
   const urls = mediaVideoPreviews(m)
@@ -4567,46 +4650,99 @@ async function pickVideo() {
     uni.showToast({ title: '请先移除图片再选视频', icon: 'none' })
     return
   }
-  if (list.some((x) => x && x.kind === 'video')) {
-    uni.showToast({ title: '一次只能发一条视频', icon: 'none' })
+  const remain = MAX_PENDING_VIDEOS - list.filter((x) => x && x.kind === 'video').length
+  if (remain <= 0) {
+    uni.showToast({ title: `最多选 ${MAX_PENDING_VIDEOS} 个视频`, icon: 'none' })
     return
   }
   try {
-    const chosen = await new Promise((resolve, reject) => {
-      uni.chooseVideo({
-        sourceType: ['album', 'camera'],
-        maxDuration: 60,
-        compressed: true,
-        success: resolve,
-        fail: reject,
-      })
-    })
-    const filePath = String((chosen && chosen.tempFilePath) || '')
-    if (!filePath) return
-    const size = await resolveLocalFileSize(filePath, Number((chosen && chosen.size) || 0))
-    if (size > MAX_VIDEO_BYTES) {
-      uni.showToast({ title: formatSizeLimitTip(MAX_VIDEO_BYTES, 'video'), icon: 'none' })
-      return
+    let picked = []
+    // 优先 chooseMedia 一次多选（App / 部分端）
+    if (typeof uni.chooseMedia === 'function') {
+      try {
+        const media = await new Promise((resolve, reject) => {
+          uni.chooseMedia({
+            count: remain,
+            mediaType: ['video'],
+            sourceType: ['album', 'camera'],
+            maxDuration: 60,
+            success: resolve,
+            fail: reject,
+          })
+        })
+        const files = (media && media.tempFiles) || []
+        picked = files
+          .map((f) => ({
+            filePath: String((f && (f.tempFilePath || f.path)) || ''),
+            size: Number((f && f.size) || 0),
+            thumb: String((f && f.thumbTempFilePath) || ''),
+            name: String((f && f.name) || ''),
+          }))
+          .filter((x) => x.filePath)
+      } catch (me) {
+        const msg = (me && me.message) || (me && me.errMsg) || ''
+        if (/cancel|deny/i.test(msg)) return
+        picked = []
+      }
     }
-    pendingMediaSeq += 1
-    pendingMedias.value = [
-      {
+    if (!picked.length) {
+      const chosen = await new Promise((resolve, reject) => {
+        uni.chooseVideo({
+          sourceType: ['album', 'camera'],
+          maxDuration: 60,
+          compressed: true,
+          success: resolve,
+          fail: reject,
+        })
+      })
+      const filePath = String((chosen && chosen.tempFilePath) || '')
+      if (!filePath) return
+      picked = [
+        {
+          filePath,
+          size: Number((chosen && chosen.size) || 0),
+          thumb: String((chosen && chosen.thumbTempFilePath) || ''),
+          name: '',
+        },
+      ]
+    }
+    const next = list.slice()
+    for (let i = 0; i < picked.length; i++) {
+      if (next.filter((x) => x && x.kind === 'video').length >= MAX_PENDING_VIDEOS) break
+      const item = picked[i]
+      const size = await resolveLocalFileSize(item.filePath, item.size)
+      if (size > MAX_VIDEO_BYTES) {
+        uni.showToast({ title: formatSizeLimitTip(MAX_VIDEO_BYTES, 'video'), icon: 'none' })
+        continue
+      }
+      let preview = String(item.thumb || '')
+      if (!preview) {
+        try {
+          preview = (await captureVideoFirstFrame(item.filePath)) || ''
+        } catch (ce) {
+          preview = ''
+        }
+      }
+      pendingMediaSeq += 1
+      next.push({
         id: 'pm-' + pendingMediaSeq,
         kind: 'video',
         msgType: 5,
-        preview: String(chosen.thumbTempFilePath || filePath || ''),
-        filePath,
+        preview: preview || item.filePath,
+        thumbPath: preview || '',
+        filePath: item.filePath,
         size,
-        name: '',
+        name: item.name || '',
         fallback: '[视频]',
-      },
-    ]
+      })
+    }
+    pendingMedias.value = next
     showAttach.value = false
     showEmoji.value = false
     showSticker.value = false
   } catch (e) {
     const msg = (e && e.message) || (e && e.errMsg) || ''
-    if (!/cancel|deny|fail chooseVideo/i.test(msg)) {
+    if (!/cancel|deny|fail chooseVideo|fail chooseMedia/i.test(msg)) {
       uni.showToast({ title: msg || '选择视频失败', icon: 'none' })
     }
   }
@@ -4853,6 +4989,10 @@ async function fetchHistory(opts) {
 async function sendPendingMedia() {
   const drafts = (pendingMedias.value || []).slice()
   if (!drafts.length || textSending.value || mediaSending.value) return
+  if (composerFullyHidden.value) {
+    uni.showToast({ title: '本群仅管理员可发言', icon: 'none' })
+    return
+  }
   if (composerLocked.value) {
     uni.showToast({ title: composerPlaceholder.value || '暂不可发言', icon: 'none' })
     return
@@ -4921,21 +5061,92 @@ async function sendPendingMedia() {
       markRead().catch(() => {})
       return
     }
-    // 视频：单条
+    // 视频：全部上传后合成一条视频消息（extra.videos + 首帧 poster）
+    const videos = []
+    const covers = []
     for (let i = 0; i < drafts.length; i++) {
       const draft = drafts[i]
       pendingMedias.value = drafts.slice(i)
-      uni.showLoading({ title: '上传中…', mask: true })
+      uni.showLoading({
+        title: drafts.length > 1 ? `上传视频 ${i + 1}/${drafts.length}…` : '上传中…',
+        mask: true,
+      })
       const up = await uploadCommonFile(draft.filePath)
       const { path, full } = mediaPathsFromUpload(up)
-      const label = captionRaw || draft.fallback || '[视频]'
-      const vExtra = { url: path, fullurl: full, name: draft.name || up.name || '' }
-      if (captionRaw && captionRaw !== '[视频]') {
-        vExtra.caption = captionRaw
+      let thumbPath = ''
+      let thumbFull = ''
+      const localThumb = String(draft.thumbPath || draft.preview || '').trim()
+      // 本地预览若是视频文件本身则不可当封面上传
+      const thumbLooksVideo = /\.(mp4|webm|mov|m4v|m3u8)(\?|$)/i.test(localThumb.split('?')[0] || '')
+      if (localThumb && !thumbLooksVideo && localThumb !== draft.filePath) {
+        try {
+          uni.showLoading({
+            title: drafts.length > 1 ? `上传封面 ${i + 1}/${drafts.length}…` : '上传封面…',
+            mask: true,
+          })
+          const cup = await uploadCommonFile(localThumb)
+          const cp = mediaPathsFromUpload(cup)
+          thumbPath = cp.path
+          thumbFull = cp.full
+        } catch (ce) {
+          thumbPath = ''
+          thumbFull = ''
+        }
       }
-      await sendMediaMessage(draft.msgType, vExtra, label)
-      pendingMedias.value = drafts.slice(i + 1)
+      if (!thumbPath) {
+        try {
+          const snapped = await captureVideoFirstFrame(draft.filePath)
+          if (snapped) {
+            uni.showLoading({ title: '上传封面…', mask: true })
+            const cup = await uploadCommonFile(snapped)
+            const cp = mediaPathsFromUpload(cup)
+            thumbPath = cp.path
+            thumbFull = cp.full
+          }
+        } catch (se) {
+          thumbPath = ''
+          thumbFull = ''
+        }
+      }
+      const row = {
+        url: path,
+        fullurl: full,
+        name: draft.name || up.name || '',
+      }
+      if (thumbPath) {
+        row.thumb = thumbPath
+        row.poster = thumbPath
+        if (thumbFull) {
+          row.cover = thumbFull
+        }
+        covers.push({ url: thumbPath, fullurl: thumbFull || thumbPath })
+      }
+      videos.push(row)
     }
+    const label =
+      captionRaw ||
+      (videos.length > 1 ? '[视频]x' + videos.length : '[视频]')
+    const vExtra = {
+      url: videos[0].url,
+      fullurl: videos[0].fullurl,
+      name: videos[0].name || '',
+      videos,
+      video_count: videos.length,
+    }
+    if (videos[0].thumb) {
+      vExtra.thumb = videos[0].thumb
+      vExtra.poster = videos[0].poster || videos[0].thumb
+    }
+    if (covers.length) {
+      vExtra.images = covers
+      vExtra.image_urls = covers.map((x) => x.url)
+      vExtra.image_fullurls = covers.map((x) => x.fullurl).filter(Boolean)
+      vExtra.count = covers.length
+    }
+    if (captionRaw && captionRaw !== '[视频]' && !/^\[视频\]x\d+$/i.test(captionRaw)) {
+      vExtra.caption = captionRaw
+    }
+    await sendMediaMessage(5, vExtra, label)
     pendingMedias.value = []
     markRead().catch(() => {})
   } catch (e) {
@@ -6033,6 +6244,13 @@ function leaveRoomToList(tip) {
 
 onLoad(async (query) => {
   refreshChatSafeLayout()
+  try {
+    const cfg = await fetchConfig()
+    const ids = (cfg && cfg.chat_composer_hidden_group_ids) || []
+    if (Array.isArray(ids) && ids.length) {
+      composerHiddenGroupIds.value = ids.map((x) => x | 0).filter((x) => x > 0)
+    }
+  } catch (eCfg) {}
   try {
     if (typeof uni.onKeyboardHeightChange === 'function') {
       offKeyboardHeight = (res) => {

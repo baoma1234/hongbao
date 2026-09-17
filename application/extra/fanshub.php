@@ -117,6 +117,8 @@ return array (
   'notice_auto_approve_user_ids' => [22222222, 77322302],
   // 彩金白嫖 / 海外圈内事：可下架帖子（软删 status=paused）的管理号
   'notice_manager_user_ids' => [88888888, 55555555, 44444444, 77777777, 22222222, 58904307],
+  // 频道类群：普通成员隐藏底部输入栏（仅群主/管理可见可发）
+  'chat_composer_hidden_group_ids' => [70, 71, 72, 77],
   // 发帖活动：需先娱乐发红宝；每天限 N 帖；前 M 帖审核通过奖 A 元，之后奖 B 元
   'notice_post_campaign_enabled' => true,
   'notice_post_need_rp' => true,

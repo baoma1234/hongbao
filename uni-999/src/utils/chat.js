@@ -324,11 +324,11 @@ export function mediaCaptionText(m) {
   const raw = fromExtra || c
   if (!raw) return ''
   if (mt === 4 && (raw === '[图片]' || raw === '[Image]' || /^\[图片\]x\d+$/i.test(raw))) return ''
-  if (mt === 5 && (raw === '[视频]' || raw === '[Video]')) return ''
+  if (mt === 5 && (raw === '[视频]' || raw === '[Video]' || /^\[视频\]x\d+$/i.test(raw))) return ''
   return raw
 }
 
-/** 视频消息上方预览图（最多 5；不含视频本身 URL） */
+/** 视频消息上方预览图（最多 9；不含视频本身 URL） */
 export function mediaVideoPreviewUrls(m) {
   if (msgType(m) !== 5) return []
   const ex = msgExtra(m)
@@ -344,23 +344,157 @@ export function mediaVideoPreviewUrls(m) {
     out.push(u)
   }
   if (Array.isArray(ex.images)) {
-    for (let i = 0; i < ex.images.length && out.length < 5; i++) {
+    for (let i = 0; i < ex.images.length && out.length < 9; i++) {
       const img = ex.images[i]
       if (typeof img === 'string') push(img)
       else push((img && (img.fullurl || img.url)) || '')
     }
   }
   if (!out.length && Array.isArray(ex.image_fullurls)) {
-    for (let i = 0; i < ex.image_fullurls.length && out.length < 5; i++) {
+    for (let i = 0; i < ex.image_fullurls.length && out.length < 9; i++) {
       push(ex.image_fullurls[i])
     }
   }
   if (!out.length && Array.isArray(ex.image_urls)) {
-    for (let i = 0; i < ex.image_urls.length && out.length < 5; i++) {
+    for (let i = 0; i < ex.image_urls.length && out.length < 9; i++) {
       push(ex.image_urls[i])
     }
   }
+  // 多视频：用各视频首帧作预览
+  if (!out.length && Array.isArray(ex.videos)) {
+    for (let i = 0; i < ex.videos.length && out.length < 9; i++) {
+      const v = ex.videos[i]
+      if (!v || typeof v !== 'object') continue
+      push(v.poster || v.thumb || v.cover || '')
+    }
+  }
   return out
+}
+
+/**
+ * 视频消息条目（单条或多视频相册，最多 9）
+ * @returns {{ src: string, poster: string }[]}
+ */
+export function mediaVideoItems(m) {
+  if (msgType(m) !== 5) return []
+  const ex = msgExtra(m)
+  const out = []
+  const seen = {}
+  const pushItem = (srcRaw, posterRaw) => {
+    const src = publicUrl(srcRaw)
+    if (!src || seen[src]) return
+    seen[src] = true
+    const poster = publicUrl(posterRaw) || ''
+    out.push({ src, poster })
+  }
+  if (Array.isArray(ex.videos) && ex.videos.length) {
+    for (let i = 0; i < ex.videos.length && out.length < 9; i++) {
+      const v = ex.videos[i]
+      if (typeof v === 'string') {
+        pushItem(v, '')
+        continue
+      }
+      if (!v || typeof v !== 'object') continue
+      pushItem(v.fullurl || v.url || '', v.poster || v.thumb || v.cover || '')
+    }
+  }
+  if (!out.length) {
+    const src = publicUrl((ex && (ex.fullurl || ex.url)) || '')
+    if (src) {
+      out.push({
+        src,
+        poster: publicUrl((ex && (ex.thumb || ex.poster || ex.cover)) || '') || '',
+      })
+    }
+  }
+  return out
+}
+
+/** H5：本地视频截第一帧，返回 blob URL；App 无 thumb 时返回空 */
+export function captureVideoFirstFrame(filePath) {
+  return new Promise((resolve) => {
+    // #ifdef H5
+    try {
+      if (typeof document === 'undefined') {
+        resolve('')
+        return
+      }
+      const path = String(filePath || '')
+      if (!path) {
+        resolve('')
+        return
+      }
+      const v = document.createElement('video')
+      v.muted = true
+      v.playsInline = true
+      v.preload = 'auto'
+      v.crossOrigin = 'anonymous'
+      let done = false
+      const finish = (url) => {
+        if (done) return
+        done = true
+        try {
+          v.pause()
+          v.removeAttribute('src')
+          v.load()
+        } catch (e0) {}
+        resolve(url || '')
+      }
+      const timer = setTimeout(() => finish(''), 8000)
+      const snap = () => {
+        try {
+          const w = v.videoWidth || 0
+          const h = v.videoHeight || 0
+          if (!w || !h) {
+            clearTimeout(timer)
+            finish('')
+            return
+          }
+          const canvas = document.createElement('canvas')
+          const maxW = 720
+          const scale = w > maxW ? maxW / w : 1
+          canvas.width = Math.max(1, Math.round(w * scale))
+          canvas.height = Math.max(1, Math.round(h * scale))
+          const ctx = canvas.getContext('2d')
+          ctx.drawImage(v, 0, 0, canvas.width, canvas.height)
+          canvas.toBlob(
+            (blob) => {
+              clearTimeout(timer)
+              if (!blob) {
+                finish('')
+                return
+              }
+              finish(URL.createObjectURL(blob))
+            },
+            'image/jpeg',
+            0.82
+          )
+        } catch (e1) {
+          clearTimeout(timer)
+          finish('')
+        }
+      }
+      v.onloadeddata = () => {
+        try {
+          v.currentTime = Math.min(0.1, (v.duration || 1) * 0.01)
+        } catch (e2) {
+          snap()
+        }
+      }
+      v.onseeked = () => snap()
+      v.onerror = () => {
+        clearTimeout(timer)
+        finish('')
+      }
+      v.src = path
+    } catch (e) {
+      resolve('')
+    }
+    // #endif
+    // #ifndef H5
+    resolve('')
+    // #endif
+  })
 }
 
 /** 图片消息全部可展示 URL（单图或多图相册，最多 9） */

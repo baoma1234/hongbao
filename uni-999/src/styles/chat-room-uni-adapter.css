@@ -490,6 +490,92 @@
 .chat-room-page .chat-video-previews.vn5 .chat-video-preview-cell:nth-child(5) {
   grid-column: 1 / -1;
 }
+.chat-room-page .chat-video-previews.vn6,
+.chat-room-page .chat-video-previews.vn7,
+.chat-room-page .chat-video-previews.vn8,
+.chat-room-page .chat-video-previews.vn9 {
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-auto-rows: 96px;
+}
+.chat-room-page .chat-video-preview-fallback {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 96px;
+  background: #1c1c1e;
+}
+.chat-room-page .chat-video-album-play {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 1;
+  width: 36px;
+  height: 36px;
+  margin: -18px 0 0 -18px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1.5px solid rgba(255, 255, 255, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  box-sizing: border-box;
+}
+.chat-room-page .chat-video-album-play-ico {
+  color: #fff;
+  font-size: 14px;
+  line-height: 1;
+  margin-left: 2px;
+}
+.chat-room-page .chat-video-album-meta {
+  display: block;
+  text-align: right;
+  padding: 4px 8px 6px;
+  font-size: 11px;
+  color: #999;
+  background: #fff;
+}
+.chat-video-album-mask {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 12000;
+  background: rgba(0, 0, 0, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 12px;
+  box-sizing: border-box;
+}
+.chat-video-album-player {
+  position: relative;
+  width: 100%;
+  max-width: 720px;
+  aspect-ratio: 16 / 9;
+  min-height: 200px;
+  background: #000;
+}
+.chat-video-album-player-close {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  z-index: 3;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-size: 22px;
+  line-height: 30px;
+  text-align: center;
+}
+.chat-composer-safe-pad {
+  flex-shrink: 0;
+  width: 100%;
+  background: transparent;
+}
 .chat-room-page .chat-video-player-row {
   position: relative;
   width: 100%;

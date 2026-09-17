@@ -1547,6 +1547,7 @@ class FansHubService
             'chat_fission_card_enabled'   => !empty($cfg['chat_fission_card_enabled']),
             'notice_post_campaign'        => self::noticePostCampaignPublic(),
             'notice_manager_user_ids'     => self::noticeManagerUserIds(),
+            'chat_composer_hidden_group_ids' => self::chatComposerHiddenGroupIds(),
             'fission_group_id'            => max(0, (int)($cfg['fission_group_id'] ?? 0)),
             'fission_group_join_url'      => self::fissionGroupInvitePayload()['join_url'] ?? '',
             'yxx_stake_min'        => max(1, (int)($cfg['yxx_stake_min'] ?? 50)),
@@ -5035,6 +5036,28 @@ class FansHubService
         static $at = 0;
         if ($cache === null || (time() - $at) >= 30) {
             $raw = self::config('notice_manager_user_ids', [88888888, 55555555, 44444444, 77777777, 22222222, 58904307]);
+            $ids = [];
+            if (is_array($raw)) {
+                foreach ($raw as $id) {
+                    $id = (int)$id;
+                    if ($id > 0) {
+                        $ids[] = $id;
+                    }
+                }
+            }
+            $cache = array_values(array_unique($ids));
+            $at = time();
+        }
+        return $cache;
+    }
+
+    /** 普通成员隐藏聊天输入栏的群 ID */
+    public static function chatComposerHiddenGroupIds()
+    {
+        static $cache = null;
+        static $at = 0;
+        if ($cache === null || (time() - $at) >= 30) {
+            $raw = self::config('chat_composer_hidden_group_ids', [70, 71, 72, 77]);
             $ids = [];
             if (is_array($raw)) {
                 foreach ($raw as $id) {
