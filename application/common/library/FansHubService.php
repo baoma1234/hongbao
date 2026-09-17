@@ -4874,6 +4874,10 @@ class FansHubService
         if ($themeCat !== '' && $themeCat !== $category) {
             throw new \InvalidArgumentException('主题与所选模块不匹配');
         }
+        // 用户发帖暂不开放「最新发布」「推广赚钱」，仅后台可发
+        if (in_array($category, ['latest', 'promote'], true)) {
+            throw new \InvalidArgumentException('该模块暂不开放用户发帖');
+        }
         $images = $input['images'] ?? [];
         if (is_string($images)) {
             $decoded = json_decode($images, true);

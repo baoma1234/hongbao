@@ -417,7 +417,11 @@ function goNoticeCompose() {
     uni.navigateTo({ url: '/pages/login/login' })
     return
   }
-  const cat = String(noticeCat.value || 'ads')
+  let cat = String(noticeCat.value || 'ads')
+  // 最新发布 / 推广赚钱 暂不开放用户发帖
+  if (cat === 'latest' || cat === 'promote') {
+    cat = 'ads'
+  }
   uni.navigateTo({ url: '/pages/notice/compose?category=' + encodeURIComponent(cat) })
 }
 

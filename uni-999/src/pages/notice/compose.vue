@@ -73,11 +73,11 @@ import { avatarSrc } from '../../utils/chat.js'
 import '../../styles/hb.css'
 
 const categories = [
-  { code: 'latest', title: '最新发布' },
-  { code: 'promote', title: '推广赚钱' },
   { code: 'ads', title: '彩金白嫖' },
   { code: 'rules', title: '红宝•海外圈内事' },
 ]
+/** 暂不开放用户发帖的大模块 */
+const BLOCKED_USER_POST_CATS = ['latest', 'promote']
 
 const category = ref('ads')
 const themes = ref([])
@@ -87,6 +87,12 @@ const images = ref([])
 const busy = ref(false)
 const rules = ref(null)
 
+function normalizeUserPostCategory(code) {
+  const c = String(code || '').trim()
+  if (categories.some((x) => x.code === c)) return c
+  return 'ads'
+}
+
 const categoryTitle = computed(() => {
   const hit = categories.find((c) => c.code === category.value)
   return (hit && hit.title) || '彩金白嫖'
@@ -94,8 +100,6 @@ const categoryTitle = computed(() => {
 
 const contentPlaceholder = computed(() => {
   if (category.value === 'rules') return '分享海外快讯、生活故事、求助或吐槽…'
-  if (category.value === 'promote') return '分享推广经验、赚钱信息…'
-  if (category.value === 'latest') return '发布最新动态、规则或通知…'
   return '分享彩金、白嫖、广告或曝光内容…'
 })
 
@@ -160,7 +164,10 @@ async function loadThemes() {
 }
 
 function setCategory(code) {
-  const next = String(code || 'ads')
+  const next = normalizeUserPostCategory(code)
+  if (BLOCKED_USER_POST_CATS.indexOf(String(code || '')) >= 0) {
+    uni.showToast({ title: '该模块暂不开放发帖', icon: 'none' })
+  }
   if (category.value === next) return
   category.value = next
   themeId.value = 0
@@ -237,11 +244,16 @@ async function submit() {
     uni.showToast({ title: campaignTip.value.split('\n')[0] || '暂不能发帖', icon: 'none' })
     return
   }
+  const postCat = normalizeUserPostCategory(category.value)
+  if (BLOCKED_USER_POST_CATS.indexOf(postCat) >= 0) {
+    uni.showToast({ title: '该模块暂不开放发帖', icon: 'none' })
+    return
+  }
   busy.value = true
   try {
     await apiRequest('noticecreate', 'POST', {
       content: text,
-      category: category.value,
+      category: postCat,
       theme_id: themeId.value | 0,
       images: images.value.map((x) => x.url).filter(Boolean),
     })
@@ -261,8 +273,14 @@ async function submit() {
 
 onLoad((q) => {
   const cat = String((q && (q.category || q.cat)) || '').trim()
-  if (categories.some((c) => c.code === cat)) {
-    category.value = cat
+  if (BLOCKED_USER_POST_CATS.indexOf(cat) >= 0) {
+    category.value = 'ads'
+    // 从最新/推广点发帖时落到可发模块，避免误发
+    setTimeout(() => {
+      uni.showToast({ title: '该模块暂不开放发帖，已切换到彩金白嫖', icon: 'none' })
+    }, 300)
+  } else {
+    category.value = normalizeUserPostCategory(cat || 'ads')
   }
 })
 
