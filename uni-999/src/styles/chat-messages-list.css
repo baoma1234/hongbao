@@ -259,7 +259,7 @@ body.tab-messages .bottom-action-bar {
 }
 
 .chat-plus-menu-item .chat-friend-req-badge {
-  margin-left: auto;
+  margin-left: 8px;
   min-width: 18px;
   height: 18px;
   padding: 0 5px;
@@ -271,6 +271,7 @@ body.tab-messages .bottom-action-bar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .chat-home-search-row {

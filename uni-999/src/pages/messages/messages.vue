@@ -1628,6 +1628,12 @@ onHide(() => {
   pointer-events: none;
   box-shadow: 0 0 0 1px rgba(230, 48, 34, 0.25);
 }
+/* 菜单内「好友申请」角标：贴在文字右侧，不要顶到行尾 */
+.chat-plus-menu-item .chat-friend-req-badge {
+  margin-left: 8px !important;
+  margin-right: 0 !important;
+  flex-shrink: 0;
+}
 .qq-msg-search {
   display: flex;
   align-items: center;

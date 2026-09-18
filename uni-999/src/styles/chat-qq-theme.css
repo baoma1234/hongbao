@@ -157,6 +157,14 @@
   background: rgba(255, 255, 255, 0.1) !important;
 }
 
+/* 好友申请数字角标：紧贴文案，勿 margin-left:auto 顶到最右 */
+.chat-plus-menu--qq .chat-plus-menu-item .chat-friend-req-badge,
+.messages-page--qq-me .chat-plus-menu-item .chat-friend-req-badge {
+  margin-left: 8px !important;
+  margin-right: 0 !important;
+  flex-shrink: 0;
+}
+
 /* ========== ??? ========== */
 .chat-room-page .chat-room-pane {
   top: 0 !important;
