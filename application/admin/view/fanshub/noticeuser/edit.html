@@ -1,8 +1,8 @@
-<form id="add-form" class="form-horizontal" role="form" data-toggle="validator" method="POST" action="">
+<form id="edit-form" class="form-horizontal" role="form" data-toggle="validator" method="POST" action="">
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">昵称 (中文):</label>
         <div class="col-xs-12 col-sm-8">
-            <input type="text" class="form-control" name="row[author_name]" value="红宝官方公告" data-rule="required" maxlength="64">
+            <input type="text" class="form-control" name="row[author_name]" value="{$row.author_name|htmlentities}" data-rule="required" maxlength="64">
         </div>
     </div>
     <div class="form-group">
@@ -12,7 +12,7 @@
             {if condition="$locCode != 'zh-CN'"}
             <div style="margin-bottom:6px;">
                 <label class="text-muted" style="font-weight:normal;">{$locLabel} ({$locCode})</label>
-                <input type="text" class="form-control" name="row[author_name_i18n][{$locCode}]" maxlength="64" placeholder="留空则用中文昵称">
+                <input type="text" class="form-control" name="row[author_name_i18n][{$locCode}]" value="{$row.author_name_i18n_map[$locCode]|default=''|htmlentities}" maxlength="64" placeholder="留空则用中文昵称">
             </div>
             {/if}
             {/foreach}
@@ -22,7 +22,7 @@
         <label class="control-label col-xs-12 col-sm-2">头像:</label>
         <div class="col-xs-12 col-sm-8">
             <div class="input-group">
-                <input id="c-author_avatar" class="form-control" name="row[author_avatar]" type="text">
+                <input id="c-author_avatar" class="form-control" name="row[author_avatar]" type="text" value="{$row.author_avatar|htmlentities}">
                 <div class="input-group-addon no-border no-padding">
                     <span><button type="button" id="faupload-author_avatar" class="btn btn-danger faupload" data-input-id="c-author_avatar" data-mimetype="image/gif,image/jpeg,image/png,image/jpg,image/bmp,image/webp" data-multiple="false" data-preview-id="p-author_avatar"><i class="fa fa-upload"></i> {:__('Upload')}</button></span>
                 </div>
@@ -35,10 +35,10 @@
         <div class="col-xs-12 col-sm-8">
             <select name="row[category]" class="form-control selectpicker" data-rule="required">
                 {foreach name="categoryList" item="vo" key="k"}
-                <option value="{$k}" {eq name="k" value="latest"}selected{/eq}>{$vo}</option>
+                <option value="{$k}" {eq name="row.category" value="$k"}selected{/eq}>{$vo}</option>
                 {/foreach}
             </select>
-            <span class="help-block">本菜单仅「最新发布 / 推广赚钱」；用户发帖请到「用户发帖」菜单</span>
+            <span class="help-block">本菜单：彩金白嫖 / 红宝•海外圈内事（含用户发帖）</span>
         </div>
     </div>
     <div class="form-group">
@@ -46,7 +46,7 @@
         <div class="col-xs-12 col-sm-8">
             <select id="c-theme_id" name="row[theme_id]" class="form-control selectpicker">
                 {foreach name="themeList" item="vo" key="k"}
-                <option value="{$k}">{$vo}</option>
+                <option value="{$k}" {eq name="row.theme_id" value="$k"}selected{/eq}>{$vo}</option>
                 {/foreach}
             </select>
             <span class="help-block">仅显示当前大模块下的主题；可在「帖子主题」菜单按模块增删</span>
@@ -55,21 +55,21 @@
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">浏览量:</label>
         <div class="col-xs-12 col-sm-8">
-            <input type="number" class="form-control" name="row[views_count]" value="0" min="0">
+            <input type="number" class="form-control" name="row[views_count]" value="{$row.views_count|default=0}" min="0">
             <span class="help-block">前台点开详情 +1；此处可手工调整</span>
         </div>
     </div>
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">发帖用户ID:</label>
         <div class="col-xs-12 col-sm-8">
-            <input type="number" class="form-control" name="row[user_id]" value="0" min="0">
+            <input type="number" class="form-control" name="row[user_id]" value="{$row.user_id|default=0}" min="0">
             <span class="help-block">0=后台官方帖；用户发帖会自动写入</span>
         </div>
     </div>
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">正文 (中文):</label>
         <div class="col-xs-12 col-sm-8">
-            <textarea class="form-control" name="row[content]" rows="6" data-rule="required" placeholder="完整展示，不折叠"></textarea>
+            <textarea class="form-control" name="row[content]" rows="6" data-rule="required">{$row.content|htmlentities}</textarea>
         </div>
     </div>
     <div class="form-group">
@@ -79,7 +79,7 @@
             {if condition="$locCode != 'zh-CN'"}
             <div style="margin-bottom:10px;">
                 <label class="text-muted" style="font-weight:normal;">{$locLabel} ({$locCode})</label>
-                <textarea class="form-control" name="row[content_i18n][{$locCode}]" rows="4" placeholder="留空则前端回退显示中文正文"></textarea>
+                <textarea class="form-control" name="row[content_i18n][{$locCode}]" rows="4" placeholder="留空则前端回退显示中文正文">{$row.content_i18n_map[$locCode]|default=''|htmlentities}</textarea>
             </div>
             {/if}
             {/foreach}
@@ -89,20 +89,19 @@
         <label class="control-label col-xs-12 col-sm-2">配图:</label>
         <div class="col-xs-12 col-sm-8">
             <div class="input-group">
-                <input id="c-images" class="form-control" name="row[images]" type="text" placeholder="多图用逗号分隔，或上传后自动拼接">
+                <input id="c-images" class="form-control" name="row[images]" type="text" value="{$row.images|htmlentities}">
                 <div class="input-group-addon no-border no-padding">
                     <span><button type="button" id="faupload-images" class="btn btn-danger faupload" data-input-id="c-images" data-mimetype="image/gif,image/jpeg,image/png,image/jpg,image/bmp,image/webp" data-multiple="true" data-preview-id="p-images"><i class="fa fa-upload"></i> {:__('Upload')}</button></span>
                 </div>
             </div>
             <ul class="row list-inline faupload-preview" id="p-images"></ul>
-            <span class="help-block">支持单图 / 多图九宫格</span>
         </div>
     </div>
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">视频:</label>
         <div class="col-xs-12 col-sm-8">
             <div class="input-group">
-                <input id="c-video" class="form-control" name="row[video]" type="text">
+                <input id="c-video" class="form-control" name="row[video]" type="text" value="{$row.video|htmlentities}">
                 <div class="input-group-addon no-border no-padding">
                     <span><button type="button" id="faupload-video" class="btn btn-danger faupload" data-input-id="c-video" data-mimetype="video/mp4,video/webm,video/ogg" data-multiple="false"><i class="fa fa-upload"></i> {:__('Upload')}</button></span>
                 </div>
@@ -113,17 +112,17 @@
         <label class="control-label col-xs-12 col-sm-2">主按钮类型:</label>
         <div class="col-xs-12 col-sm-8">
             <select name="row[action_type]" class="form-control selectpicker">
-                <option value="none">无</option>
-                <option value="link">外链/跳转</option>
-                <option value="share">分享推广</option>
-                <option value="buttons">多按钮</option>
+                <option value="none" {eq name="row.action_type" value="none"}selected{/eq}>无</option>
+                <option value="link" {eq name="row.action_type" value="link"}selected{/eq}>外链/跳转</option>
+                <option value="share" {eq name="row.action_type" value="share"}selected{/eq}>分享推广</option>
+                <option value="buttons" {eq name="row.action_type" value="buttons"}selected{/eq}>多按钮</option>
             </select>
         </div>
     </div>
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">主按钮文案 (中文):</label>
         <div class="col-xs-12 col-sm-8">
-            <input type="text" class="form-control" name="row[action_label]" maxlength="64" placeholder="如：规则更新">
+            <input type="text" class="form-control" name="row[action_label]" value="{$row.action_label|htmlentities}" maxlength="64">
         </div>
     </div>
     <div class="form-group">
@@ -133,7 +132,7 @@
             {if condition="$locCode != 'zh-CN'"}
             <div style="margin-bottom:6px;">
                 <label class="text-muted" style="font-weight:normal;">{$locLabel} ({$locCode})</label>
-                <input type="text" class="form-control" name="row[action_label_i18n][{$locCode}]" maxlength="64" placeholder="留空则用中文按钮文案">
+                <input type="text" class="form-control" name="row[action_label_i18n][{$locCode}]" value="{$row.action_label_i18n_map[$locCode]|default=''|htmlentities}" maxlength="64" placeholder="留空则用中文按钮文案">
             </div>
             {/if}
             {/foreach}
@@ -142,39 +141,38 @@
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">主按钮链接:</label>
         <div class="col-xs-12 col-sm-8">
-            <input type="text" class="form-control" name="row[action_url]" maxlength="512">
+            <input type="text" class="form-control" name="row[action_url]" value="{$row.action_url|htmlentities}" maxlength="512">
         </div>
     </div>
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">多按钮JSON:</label>
         <div class="col-xs-12 col-sm-8">
-            <textarea class="form-control" name="row[action_buttons]" rows="3" placeholder='[{"label":"参与接力","url":""}]'></textarea>
+            <textarea class="form-control" name="row[action_buttons]" rows="3">{$row.action_buttons|htmlentities}</textarea>
         </div>
     </div>
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">发布时间:</label>
         <div class="col-xs-12 col-sm-8">
-            <input type="text" class="form-control datetimepicker" data-date-format="YYYY-MM-DD HH:mm:ss" name="row[publishtime]" value="{:date('Y-m-d H:i:s')}" data-rule="required">
+            <input type="text" class="form-control datetimepicker" data-date-format="YYYY-MM-DD HH:mm:ss" name="row[publishtime]" value="{$row.publishtime|datetime}" data-rule="required">
         </div>
     </div>
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">排序:</label>
         <div class="col-xs-12 col-sm-8">
-            <input type="number" class="form-control" name="row[weigh]" value="0">
-            <span class="help-block">越大越靠前</span>
+            <input type="number" class="form-control" name="row[weigh]" value="{$row.weigh}">
         </div>
     </div>
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">状态:</label>
         <div class="col-xs-12 col-sm-8">
-            {:build_radios('row[status]', $statusList, 'published')}
+            {:build_radios('row[status]', $statusList, $row.status)}
             <span class="help-block">展示中=前台可见；待审核=仅作者可见；暂停/草稿/拒绝=前台不展示</span>
         </div>
     </div>
     <div class="form-group layer-footer">
         <label class="control-label col-xs-12 col-sm-2"></label>
         <div class="col-xs-12 col-sm-8">
-            <button type="submit" class="btn btn-success btn-embossed">{:__('OK')}</button>
+            <button type="submit" class="btn btn-success btn-embossed disabled">{:__('OK')}</button>
             <button type="reset" class="btn btn-default btn-embossed">{:__('Reset')}</button>
         </div>
     </div>

@@ -3,11 +3,11 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
         index: function () {
             Table.api.init({
                 extend: {
-                    index_url: 'fanshub/notice/index',
-                    add_url: 'fanshub/notice/add',
-                    edit_url: 'fanshub/notice/edit',
-                    del_url: 'fanshub/notice/del',
-                    multi_url: 'fanshub/notice/multi',
+                    index_url: 'fanshub/noticeuser/index',
+                    add_url: 'fanshub/noticeuser/add',
+                    edit_url: 'fanshub/noticeuser/edit',
+                    del_url: 'fanshub/noticeuser/del',
+                    multi_url: 'fanshub/noticeuser/multi',
                     table: 'fans_notice'
                 }
             });
@@ -15,7 +15,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
             table.bootstrapTable({
                 url: $.fn.bootstrapTable.defaults.extend.index_url,
                 pk: 'id',
-                sortName: 'weigh',
+                sortName: 'publishtime',
                 sortOrder: 'desc',
                 columns: [[
                     {checkbox: true},
@@ -39,6 +39,12 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                         }
                     },
                     {field: 'views_count', title: '浏览', sortable: true, operate: 'BETWEEN'},
+                    {field: 'user_id', title: '用户ID', sortable: true},
+                    {
+                        field: 'source', title: '来源',
+                        searchList: {admin: '后台', user: '用户发帖'},
+                        formatter: Table.api.formatter.normal
+                    },
                     {field: 'weigh', title: '排序', sortable: true},
                     {
                         field: 'status', title: '状态',
@@ -54,8 +60,12 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                         }
                     },
                     {
-                        field: 'publishtime', title: '发布时间', operate: 'RANGE',
+                        field: 'publishtime', title: '发布时间', operate: 'RANGE', sortable: true,
                         addclass: 'datetimerange', formatter: Table.api.formatter.datetime
+                    },
+                    {
+                        field: 'createtime', title: '创建时间', operate: 'RANGE', sortable: true,
+                        addclass: 'datetimerange', formatter: Table.api.formatter.datetime, visible: false
                     },
                     {
                         field: 'operate', title: __('Operate'), table: table,
@@ -100,9 +110,9 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                     }
                 }
 
-                rebuild(String($cat.val() || 'latest'), keep);
+                rebuild(String($cat.val() || 'ads'), keep);
                 $cat.on('changed.bs.select change', function () {
-                    rebuild(String($cat.val() || 'latest'), '0');
+                    rebuild(String($cat.val() || 'ads'), '0');
                 });
             }
         }
