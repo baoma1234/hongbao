@@ -680,9 +680,13 @@ class GroupService
         }
         $mode = (string)($group['privacy_mode'] ?? '');
         $isOpen = ($mode === 'open') || ($mode === '' && (int)($group['hide_member_list'] ?? 1) === 0);
+        $isFreeJoin = $this->isFreeJoinGroup($groupId);
+        if ($isFreeJoin) {
+            $isOpen = true;
+        }
         $isRecommend = $this->hasRecommendColumn() && (int)($group['is_recommend'] ?? 0) === 1;
         $tokenOk = $inviteToken !== '' && $this->verifyGroupInviteToken($groupId, $inviteToken);
-        // 开放群 / 官方推荐群 / 有效进群链接 可加入
+        // 开放群 / 官方推荐群 / 白名单免审群 / 有效进群链接 可加入
         if (!$isOpen && !$isRecommend && !$tokenOk) {
             throw new \RuntimeException('private group');
         }
@@ -690,8 +694,8 @@ class GroupService
         if ($max <= 0) {
             $max = self::maxMembers();
         }
-        // 推荐群展示人数常远高于历史 max_members(如500)，加群按配置上限放宽，避免“群已满”
-        if ($isRecommend || $tokenOk) {
+        // 推荐群/免审群展示人数常远高于历史 max_members(如500)，加群按配置上限放宽，避免“群已满”
+        if ($isRecommend || $tokenOk || $isFreeJoin) {
             $max = max($max, self::maxMembers());
         }
         $cnt = $this->realMemberCount($groupId, $group);
@@ -987,6 +991,45 @@ class GroupService
                 if (is_array($cfg) && !empty($cfg['chat_composer_hidden_group_ids']) && is_array($cfg['chat_composer_hidden_group_ids'])) {
                     $parsed = [];
                     foreach ($cfg['chat_composer_hidden_group_ids'] as $id) {
+                        $id = (int)$id;
+                        if ($id > 0) {
+                            $parsed[] = $id;
+                        }
+                    }
+                    if ($parsed) {
+                        $ids = array_values(array_unique($parsed));
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+        return $ids;
+    }
+
+    /** 任意登录用户可直接加入（无需开放模式 / 推荐 / 邀请链） */
+    public function isFreeJoinGroup($groupId)
+    {
+        $groupId = (int)$groupId;
+        if ($groupId <= 0) {
+            return false;
+        }
+        return in_array($groupId, $this->freeJoinGroupIds(), true);
+    }
+
+    protected function freeJoinGroupIds()
+    {
+        static $ids = null;
+        if ($ids !== null) {
+            return $ids;
+        }
+        $ids = [70, 71, 72, 77];
+        try {
+            $path = dirname(__DIR__, 3) . '/application/extra/fanshub.php';
+            if (is_file($path)) {
+                $cfg = include $path;
+                if (is_array($cfg) && !empty($cfg['chat_open_join_group_ids']) && is_array($cfg['chat_open_join_group_ids'])) {
+                    $parsed = [];
+                    foreach ($cfg['chat_open_join_group_ids'] as $id) {
                         $id = (int)$id;
                         if ($id > 0) {
                             $parsed[] = $id;

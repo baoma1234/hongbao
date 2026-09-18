@@ -182,6 +182,14 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                             icon: 'fa fa-calculator',
                             url: 'fanshub/account/adjust'
                         }, {
+                            name: 'pnl',
+                            text: '总输赢',
+                            title: '总输赢',
+                            classname: 'btn btn-xs btn-primary btn-dialog',
+                            icon: 'fa fa-line-chart',
+                            url: 'fanshub/account/pnl',
+                            extend: 'data-area=\'["480px","420px"]\''
+                        }, {
                             name: 'chatforbid',
                             text: '禁言',
                             title: '聊天禁言',

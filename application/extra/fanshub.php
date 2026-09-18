@@ -119,6 +119,8 @@ return array (
   'notice_manager_user_ids' => [88888888, 55555555, 44444444, 77777777, 22222222, 58904307, 77322302],
   // 频道类群：普通成员隐藏底部输入栏（仅群主/管理可见可发）
   'chat_composer_hidden_group_ids' => [70, 71, 72, 77],
+  // 任意登录用户可直接进群（免隐私/邀请校验）
+  'chat_open_join_group_ids' => [70, 71, 72, 77],
   // 聊天/发帖视频大小：普通 200MB；下列会员号 500MB
   'chat_video_max_bytes' => 209715200,
   'chat_video_max_bytes_vip' => 524288000,

@@ -70,7 +70,19 @@ function copyTextUni(s) {
     uni.setClipboardData({
       data: s,
       success: () => resolve(true),
-      fail: (err) => reject(err || new Error('copy fail')),
+      fail: (err) => {
+        // #ifdef APP-PLUS
+        try {
+          // eslint-disable-next-line no-undef
+          if (typeof plus !== 'undefined' && plus.clipboard && typeof plus.clipboard.setData === 'function') {
+            plus.clipboard.setData(s)
+            resolve(true)
+            return
+          }
+        } catch (e) {}
+        // #endif
+        reject(err || new Error('copy fail'))
+      },
     })
   })
 }

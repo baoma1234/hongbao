@@ -16,6 +16,7 @@
           <view class="qq-msg-plus" hover-class="qq-msg-plus--hit" @click.stop="plusOpen = !plusOpen">
             <text class="qq-msg-plus-char">+</text>
           </view>
+          <view v-if="friendReqPending > 0" class="chat-plus-req-dot" aria-hidden="true" />
           <view
             v-if="plusOpen"
             class="chat-plus-menu-mask"
@@ -1343,6 +1344,21 @@ async function loadMyIdLine() {
   }
 }
 
+async function loadFriendReqBadge() {
+  if (!getToken()) {
+    friendReqPending.value = 0
+    return
+  }
+  try {
+    await imConnect()
+    const packet = await friendRequests()
+    const data = (packet && packet.data) || packet || {}
+    friendReqPending.value = data.pending_count | 0
+  } catch (e) {
+    /* 保留上次数字，避免闪断清零 */
+  }
+}
+
 async function onPlusAction(kind) {
   plusOpen.value = false
   if (kind === 'search') {
@@ -1597,6 +1613,19 @@ onHide(() => {
   z-index: 60;
   overflow: visible;
   flex-shrink: 0;
+}
+.chat-plus-req-dot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #e63022;
+  border: 1.5px solid #ffffff;
+  box-sizing: border-box;
+  z-index: 3;
+  pointer-events: none;
 }
 .qq-msg-search {
   display: flex;

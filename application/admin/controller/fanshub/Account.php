@@ -411,6 +411,51 @@ class Account extends Backend
     }
 
     /**
+     * 总输赢：总提款 − 当前余额 − 总充值
+     */
+    public function pnl($ids = null)
+    {
+        $row = $this->model->get($ids);
+        if (!$row) {
+            $this->error(__('No Results were found'));
+        }
+        $userId = (int)$row->user_id;
+        $balance = round((float)($row->hongbao ?? 0), 2);
+
+        $sumByType = function ($type) use ($userId) {
+            $sql = 'SELECT SUM(CASE WHEN ABS(IFNULL(hongbao_change,0)) > 1e-8 THEN hongbao_change ELSE IFNULL(balance_change,0) END) AS s'
+                . ' FROM ' . (config('database.prefix') ?: 'fa_') . 'fans_ledger'
+                . ' WHERE user_id=? AND type=?';
+            $one = Db::query($sql, [$userId, $type]);
+            if (!$one) {
+                return 0.0;
+            }
+            $first = is_array($one) ? reset($one) : [];
+            return (float)($first['s'] ?? 0);
+        };
+
+        $rechargeSum = $sumByType('recharge');
+        $withdrawSum = $sumByType('withdraw');
+        $withdrawRefundSum = $sumByType('withdraw_refund');
+
+        // 提现流水一般为负数；退回为正 → 净提款 = |提现| − 退回
+        $totalWithdraw = round(max(0, abs($withdrawSum) - max(0, $withdrawRefundSum)), 2);
+        $totalRecharge = round(max(0, $rechargeSum), 2);
+        $netPnl = round($totalWithdraw - $balance - $totalRecharge, 2);
+
+        $user = \app\common\model\User::get($userId);
+        $this->view->assign('row', $row);
+        $this->view->assign('user', $user ?: []);
+        $this->view->assign('pnl', [
+            'total_withdraw' => number_format($totalWithdraw, 2, '.', ''),
+            'balance'        => number_format($balance, 2, '.', ''),
+            'total_recharge' => number_format($totalRecharge, 2, '.', ''),
+            'net_pnl'        => number_format($netPnl, 2, '.', ''),
+        ]);
+        return $this->view->fetch();
+    }
+
+    /**
      * 晋升团长：用户态=团长，荣誉段位=青铜团长
      */
     public function promotemaster($ids = null)

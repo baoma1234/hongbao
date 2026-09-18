@@ -113,12 +113,31 @@
           v-if="inviteSrc"
           class="game-lobby-invite"
           hover-class="game-lobby-hit"
-          @click="onInviteTap"
+          role="button"
+          @click.stop="onInviteTap"
+          @tap.stop="onInviteTap"
         >
-          <image class="game-lobby-invite-img" :src="inviteSrc" mode="widthFix" />
+          <image
+            class="game-lobby-invite-img"
+            :src="inviteSrc"
+            mode="widthFix"
+            :draggable="false"
+          />
         </view>
         <!-- 末项留白：App/Safari 底栏 + Home 指示条，避免邀请条被挡 -->
         <view class="game-lobby-scroll-pad" aria-hidden="true" />
+      </view>
+    </view>
+
+    <!-- Safari/IPA 剪贴板受限时：可长按复制 -->
+    <view v-if="inviteCopySheet" class="home-invite-copy-sheet" @click="closeInviteCopySheet">
+      <view class="home-invite-copy-panel" @click.stop>
+        <view class="home-invite-copy-title">邀请文案</view>
+        <text class="home-invite-copy-text" selectable user-select>{{ inviteCopyCache || '…' }}</text>
+        <view class="home-invite-copy-actions">
+          <button type="button" class="home-invite-copy-btn" @click="retryInviteCopy">复制</button>
+          <button type="button" class="home-invite-copy-close" @click="closeInviteCopySheet">关闭</button>
+        </view>
       </view>
     </view>
 
@@ -220,6 +239,9 @@ const appDownloadUrl = ref('')
 const mainStationUrl = ref('https://555.bio')
 const lotteryRef = ref(null)
 const shareSubmitting = ref(false)
+const inviteCopyCache = ref('')
+const inviteCopySheet = ref(false)
+let inviteTapLock = false
 const fissionEntry = ref(null)
 const fissionPopupOpen = ref(false)
 const fissionPopupRemainSec = ref(0)
@@ -653,6 +675,12 @@ function onCarnivalBanner() {
 }
 
 function onInviteTap() {
+  // App/Safari：@click + @tap 可能同一次手势双触发，去重
+  if (inviteTapLock) return
+  inviteTapLock = true
+  setTimeout(() => {
+    inviteTapLock = false
+  }, 450)
   const inv = lobbyInvite.value || {}
   const lt = String(inv.linkType || 'share')
   if (lt === 'url' && inv.linkUrl) {
@@ -663,6 +691,32 @@ function onInviteTap() {
   }
   if (lt === 'none') return
   copyShareLink()
+}
+
+function closeInviteCopySheet() {
+  inviteCopySheet.value = false
+}
+
+async function retryInviteCopy() {
+  const s = String(inviteCopyCache.value || '').trim()
+  if (!s) return
+  try {
+    await copyText(s)
+    inviteCopySheet.value = false
+    uni.showToast({ title: '邀请链接已复制', icon: 'success' })
+  } catch (e) {
+    uni.showToast({ title: '请长按上方文字复制', icon: 'none' })
+  }
+}
+
+/** 预取邀请文案：点击时同步 copy，保住 Safari/IPA 手势 */
+async function prefetchInviteCopy() {
+  if (!getToken()) return
+  try {
+    const data = await apiRequest('share', 'POST', { copy_only: true })
+    const out = buildShareCopyText(data)
+    if (out) inviteCopyCache.value = out
+  } catch (e) {}
 }
 
 function onGameTap(game) {
@@ -1412,7 +1466,7 @@ function buildShareCopyText(data) {
   return out
 }
 
-/** iOS Safari：必须在 click 同步栈内启动 clipboard（勿先 await 接口） */
+/** iOS Safari / IPA：优先同步栈 copy 缓存文案；否则 ClipboardItem 异步写入 */
 function copyShareLink() {
   if (shareSubmitting.value) return
   if (!getToken()) {
@@ -1423,19 +1477,42 @@ function copyShareLink() {
     return
   }
   shareSubmitting.value = true
+  const cached = String(inviteCopyCache.value || '').trim()
+  const finishOk = (text) => {
+    if (text) inviteCopyCache.value = text
+    uni.showToast({ title: '邀请链接已复制', icon: 'success' })
+  }
+  const finishFail = (e, text) => {
+    const s = String(text || inviteCopyCache.value || '').trim()
+    if (s) {
+      inviteCopyCache.value = s
+      inviteCopySheet.value = true
+      uni.showToast({ title: '请长按复制邀请文案', icon: 'none' })
+      return
+    }
+    uni.showToast({ title: (e && e.message) || t('alert_share_fail') || '复制失败', icon: 'none' })
+  }
+  if (cached) {
+    copyText(cached)
+      .then(() => finishOk(cached))
+      .catch((e) => finishFail(e, cached))
+      .finally(() => {
+        shareSubmitting.value = false
+      })
+    // 后台刷新缓存，不阻塞本次手势
+    prefetchInviteCopy()
+    return
+  }
   const work = (async () => {
     const data = await apiRequest('share', 'POST', { copy_only: true })
     const out = buildShareCopyText(data)
     if (!out) throw new Error('暂无邀请链接')
+    inviteCopyCache.value = out
     return out
   })()
   copyTextDeferred(work)
-    .then(() => {
-      uni.showToast({ title: '邀请链接已复制', icon: 'success' })
-    })
-    .catch((e) => {
-      uni.showToast({ title: (e && e.message) || t('alert_share_fail') || '复制失败', icon: 'none' })
-    })
+    .then(() => finishOk(inviteCopyCache.value))
+    .catch((e) => finishFail(e, inviteCopyCache.value))
     .finally(() => {
       shareSubmitting.value = false
     })
@@ -1670,6 +1747,7 @@ onShow(async () => {
   } catch (e) {}
   await loadBootstrap()
   await loadLobbyHome()
+  prefetchInviteCopy()
   imConnect().catch(() => {})
   startPoll()
   nextTick(() => {
