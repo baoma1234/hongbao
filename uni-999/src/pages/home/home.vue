@@ -278,8 +278,9 @@ const onlineCountLive = ref(0)
 /** 官方推荐群（与社群页 communityrecommend 同源） */
 const officialGroups = ref([])
 const lobbyBotNicks = ref([])
-const tickerText = ref('')
-const tickerGames = ['红宝扫雷', '红宝接龙', '红宝牛牛', '红宝对战']
+const LOBBY_TICKER_FIXED =
+  '❤️ 欢迎来到【红宝】直营站 ❤️  【红宝全球首创 · 多元体验】 🔥 福利专群｜推广赚钱 📰 新闻资讯｜白嫖曝光 ✨ 更多精彩栏目持续上线  一站汇聚多元内容，打造属于红宝的全新体验！  🌐 易记网址：qhb.app 🔴 【红宝唯一指定官网】'
+const tickerText = ref(LOBBY_TICKER_FIXED)
 /** 后台大厅装修（lobbyhome）；未加载前不展示本地占位图 */
 const remoteLobby = ref(null)
 
@@ -501,38 +502,17 @@ function applyLobbyExtras(data) {
   const nicks = data.lobby_bot_nicks
   if (Array.isArray(nicks) && nicks.length) {
     lobbyBotNicks.value = nicks.map((x) => String(x || '').trim()).filter(Boolean)
-    if (!tickerText.value) {
-      rotateTicker()
-    }
   }
 }
 
-function pickTickerNick() {
-  const list = lobbyBotNicks.value.length ? lobbyBotNicks.value : ['红包玩家88', '幸运星', '财神到']
-  const i = Math.floor(Math.random() * list.length)
-  return list[i] || list[0]
-}
-
 function rotateTicker() {
-  // 一条跑马灯拼入大厅玩法，避免随机轮播长期看不到某款
-  const parts = tickerGames.map((game) => {
-    const amt = (50 + Math.floor(Math.random() * 950)).toFixed(2)
-    const name = pickTickerNick()
-    return (
-      tt('lobby_ticker', '恭喜玩家 {name} 在 {game} 中获得 {amount} 红包!', {
-        name,
-        game,
-        amount: amt,
-      }) || `恭喜玩家 ${name} 在 ${game} 中获得 ${amt} 红包!`
-    )
-  })
-  tickerText.value = parts.join('　　★　　')
+  // 大厅跑马灯固定文案，不再轮播虚假中奖
+  tickerText.value = LOBBY_TICKER_FIXED
 }
 
 function startTicker() {
   stopTicker()
   rotateTicker()
-  tickerTimer = setInterval(rotateTicker, 6000)
 }
 
 function stopTicker() {
