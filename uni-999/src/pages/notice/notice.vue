@@ -236,7 +236,7 @@
                             mode="aspectFill"
                             lazy-load
                           />
-                          <text class="chat-notice-video-play">▶️</text>
+                          <text class="chat-notice-video-play">▶</text>
                         </view>
                       </view>
                       <view

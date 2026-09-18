@@ -1,8 +1,8 @@
 /**
- * 消息提示音
- * - H5：本地 mp3（/999/static）
- * - App：只播打包进 APK/IPA 的本地文件，禁止远程 URL
- *   优先 mp3，失败再 wav；再用 plus.audio / InnerAudio；最后 beep
+ * 消息提示音（私聊 / 群聊 / 红包共用同一套）
+ * - 资源：static/sound/notify.mp3 + notify.wav（H5/Safari/APK/IPA 四端）
+ * - App：只播打包本地文件；优先 mp3，失败再 wav；plus.audio → InnerAudio → beep
+ * - H5/Safari：优先 mp3，失败再 wav，再 WebAudio 兜底
  * 尊重设置页「静音」开关
  */
 import { isMsgMuted } from './app-prefs.js'
@@ -16,16 +16,10 @@ const appInner = {}
 /** @type {Record<string, HTMLAudioElement>} */
 const h5Players = {}
 
-function isGroupScope(scope) {
-  return scope === 'group'
-}
+const SOUND_BASE = 'notify'
 
-function soundBasename(scope) {
-  return isGroupScope(scope) ? 'notify-group' : 'notify'
-}
-
-function soundRel(scope, ext) {
-  return 'sound/' + soundBasename(scope) + '.' + ext
+function soundRel(ext) {
+  return 'sound/' + SOUND_BASE + '.' + ext
 }
 
 function pushUnique(list, item) {
@@ -35,18 +29,18 @@ function pushUnique(list, item) {
 
 /**
  * App 仅本地路径（打进包的 static）：
- * 1) /static/sound/xxx.mp3|wav
+ * 1) /static/sound/notify.mp3|wav
  * 2) _www 转换后的绝对路径（iOS/部分安卓 InnerAudio 需要）
  * 禁止 https 远程，避免未同步/失败时静音
  */
-function appLocalSrcList(scope) {
+function appLocalSrcList() {
   const out = []
   ;['mp3', 'wav'].forEach((ext) => {
-    const rel = soundRel(scope, ext)
+    const rel = soundRel(ext)
     // #ifdef APP-PLUS
     try {
+      // eslint-disable-next-line no-undef
       if (typeof plus !== 'undefined' && plus.io && plus.io.convertLocalFileSystemURL) {
-        // iOS/部分安卓：绝对路径最稳
         pushUnique(out, plus.io.convertLocalFileSystemURL('_www/static/' + rel))
         pushUnique(out, plus.io.convertLocalFileSystemURL('/static/' + rel))
       }
@@ -54,6 +48,14 @@ function appLocalSrcList(scope) {
     // #endif
     pushUnique(out, packagedStaticUrl(rel))
     pushUnique(out, '/static/' + rel)
+  })
+  return out
+}
+
+function h5SrcList() {
+  const out = []
+  ;['mp3', 'wav'].forEach((ext) => {
+    pushUnique(out, packagedStaticUrl(soundRel(ext)))
   })
   return out
 }
@@ -112,6 +114,21 @@ function bindUnlock() {
         }
       })
     } catch (e2) {}
+    // 预热 mp3/wav 双源
+    try {
+      h5SrcList().forEach((src) => {
+        const a = new Audio(src)
+        a.preload = 'auto'
+        a.muted = true
+        const p = a.play()
+        if (p && typeof p.then === 'function') {
+          p.then(() => {
+            a.pause()
+            a.muted = false
+          }).catch(() => {})
+        }
+      })
+    } catch (e3) {}
     document.removeEventListener('pointerdown', unlock, true)
     document.removeEventListener('touchstart', unlock, true)
     document.removeEventListener('keydown', unlock, true)
@@ -144,11 +161,12 @@ function throttleOk(ms) {
 
 function playAppBeep(kind, scope) {
   // #ifdef APP-PLUS
-  const group = isGroupScope(scope)
+  const group = scope === 'group'
   const key = group ? 'group' : 'private'
-  const sources = appLocalSrcList(scope)
+  const sources = appLocalSrcList()
   if (!sources.length) {
     try {
+      // eslint-disable-next-line no-undef
       plus.device.beep(1)
     } catch (e0) {}
     return true
@@ -157,14 +175,16 @@ function playAppBeep(kind, scope) {
   let idx = 0
   const fallbackBeep = () => {
     try {
+      // eslint-disable-next-line no-undef
       plus.device.beep(group ? 1 : kind === 'rp' ? 2 : 1)
     } catch (e) {}
   }
 
-  // 优先 plus.audio（与 H5 同一套 mp3/wav，比 InnerAudio 稳）
   const tryPlusAudio = (src) => {
     try {
+      // eslint-disable-next-line no-undef
       if (typeof plus === 'undefined' || !plus.audio || !plus.audio.createPlayer) return false
+      // eslint-disable-next-line no-undef
       const player = plus.audio.createPlayer(src)
       player.setSessionCategory && player.setSessionCategory('ambient')
       player.play(
@@ -219,29 +239,56 @@ function playAppBeep(kind, scope) {
   // #endif
 }
 
-function playH5Wav(kind, scope) {
+function playH5File(kind, scope) {
   // #ifdef H5
   try {
     if (typeof Audio === 'undefined') return false
-    const group = isGroupScope(scope)
-    const key = group ? 'group' : 'private'
-    if (!h5Players[key]) {
-      const a = new Audio(packagedStaticUrl(soundRel(scope, 'mp3')))
-      a.preload = 'auto'
+    const sources = h5SrcList()
+    if (!sources.length) return false
+    const key = scope === 'group' ? 'group' : 'private'
+
+    const tryAt = (i) => {
+      if (i >= sources.length) {
+        playWebTone(kind, scope)
+        return
+      }
+      const src = sources[i]
+      let a = h5Players[key]
+      if (!a) {
+        a = new Audio()
+        a.preload = 'auto'
+        try {
+          a.setAttribute('playsinline', 'true')
+          a.setAttribute('webkit-playsinline', 'true')
+        } catch (e0) {}
+        h5Players[key] = a
+      }
+      const onFail = () => {
+        try {
+          a.removeEventListener('error', onFail)
+        } catch (e1) {}
+        tryAt(i + 1)
+      }
       try {
-        a.setAttribute('playsinline', 'true')
-      } catch (e0) {}
-      h5Players[key] = a
+        a.removeEventListener('error', onFail)
+      } catch (e2) {}
+      a.addEventListener('error', onFail)
+      a.volume = 1
+      try {
+        if (a.src !== src) a.src = src
+        a.currentTime = 0
+      } catch (e3) {
+        try {
+          a.src = src
+        } catch (e4) {}
+      }
+      const p = a.play()
+      if (p && typeof p.catch === 'function') {
+        p.catch(() => onFail())
+      }
     }
-    const a = h5Players[key]
-    a.volume = 1
-    try {
-      a.currentTime = 0
-    } catch (e1) {}
-    const p = a.play()
-    if (p && typeof p.catch === 'function') {
-      p.catch(() => playWebTone(kind, scope))
-    }
+
+    tryAt(0)
     return true
   } catch (e) {
     return false
@@ -257,7 +304,7 @@ function playWebTone(kind, scope) {
   try {
     const ctx = ensureCtx()
     if (!ctx) return
-    const group = isGroupScope(scope)
+    const group = scope === 'group'
     if (kind === 'open') {
       tone(ctx, 523, 0, 0.08, 0.16)
       tone(ctx, 659, 0.09, 0.09, 0.18)
@@ -289,7 +336,7 @@ function playWebTone(kind, scope) {
 
 function playNotify(kind, scope) {
   if (playAppBeep(kind, scope)) return
-  if (playH5Wav(kind, scope)) return
+  if (playH5File(kind, scope)) return
   playWebTone(kind, scope)
 }
 
