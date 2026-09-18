@@ -77,13 +77,29 @@ class Redpacketsettle extends Backend
 
     protected function buildSummary()
     {
+        $cacheKey = 'admin_rp_settle_summary_v1';
+        $cached = cache($cacheKey);
+        if (is_array($cached) && isset($cached['platform_fee'])) {
+            return $cached;
+        }
+
         $types = ['platform_fee', 'agent_rebate', 'compensate', 'refund'];
         $out = [];
         foreach ($types as $t) {
-            $row = Db::name('chat_red_packet_settlements')
-                ->where(['settle_type' => $t, 'status' => 1])
-                ->field('COUNT(*) AS cnt, IFNULL(SUM(amount),0) AS amount')
-                ->find();
+            $out[$t] = ['count' => 0, 'amount' => 0.0];
+        }
+        // 一次 GROUP BY，避免 4 次全表扫
+        $rows = Db::name('chat_red_packet_settlements')
+            ->where('status', 1)
+            ->where('settle_type', 'in', $types)
+            ->field('settle_type, COUNT(*) AS cnt, IFNULL(SUM(amount),0) AS amount')
+            ->group('settle_type')
+            ->select();
+        foreach ($rows as $row) {
+            $t = (string)($row['settle_type'] ?? '');
+            if (!isset($out[$t])) {
+                continue;
+            }
             $out[$t] = [
                 'count'  => (int)($row['cnt'] ?? 0),
                 'amount' => round((float)($row['amount'] ?? 0), 2),
@@ -97,6 +113,7 @@ class Redpacketsettle extends Backend
             ->count();
         $out['fail_compensate_packets'] = $failCompensate;
         $out['pending_settle_packets'] = $pendingSettle;
+        cache($cacheKey, $out, 60);
         return $out;
     }
 

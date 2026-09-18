@@ -245,9 +245,18 @@ class Auth extends \fast\Auth
         if (!$admin) {
             return false;
         }
-        $my = Admin::get($admin['id']);
-        if (!$my) {
-            return false;
+        // 短缓存管理员行，避免每个 iframe 都打一次 fa_admin（远程库 ~50ms+/次）
+        $cacheKey = 'admin_auth_row_' . (int)$admin['id'];
+        $myData = cache($cacheKey);
+        if (!is_array($myData) || empty($myData['id'])) {
+            $my = Admin::get($admin['id']);
+            if (!$my) {
+                return false;
+            }
+            $myData = $my->toArray();
+            cache($cacheKey, $myData, 30);
+        } else {
+            $my = new Admin($myData);
         }
         //校验安全码，可用于判断关键信息发生了变更需要重新登录
         if (!isset($admin['safecode']) || $this->getEncryptSafecode($my) !== $admin['safecode']) {

@@ -312,4 +312,8 @@ return [
         //API接口地址
         'api_url'               => 'https://api.fastadmin.net',
     ],
+    // 权限认证：2=登录后会话缓存规则（少打 fa_auth_rule）；改权限后需重新登录
+    'auth'                   => [
+        'auth_type' => 2,
+    ],
 ];

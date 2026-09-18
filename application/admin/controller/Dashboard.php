@@ -28,6 +28,16 @@ class Dashboard extends Backend
         } catch (\Exception $e) {
 
         }
+
+        $cacheKey = 'admin_dashboard_stats_v1';
+        $cached = cache($cacheKey);
+        if (is_array($cached) && !empty($cached['assign'])) {
+            $this->view->assign($cached['assign']);
+            $this->assignconfig('column', $cached['column'] ?? []);
+            $this->assignconfig('userdata', $cached['userdata'] ?? []);
+            return $this->view->fetch();
+        }
+
         $column = [];
         $starttime = Date::unixtime('day', -6);
         $endtime = Date::unixtime('day', 0, 'end');
@@ -44,7 +54,14 @@ class Dashboard extends Backend
             $userlist[$v['join_date']] = $v['nums'];
         }
 
-        $dbTableList = Db::query("SHOW TABLE STATUS");
+        // 库大小走 information_schema，避免 SHOW TABLE STATUS 全表元数据扫
+        $dbMeta = Db::query(
+            "SELECT COUNT(*) AS cnt, IFNULL(SUM(DATA_LENGTH+INDEX_LENGTH),0) AS sz
+             FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()"
+        );
+        $dbtablenums = (int)($dbMeta[0]['cnt'] ?? 0);
+        $dbsize = (float)($dbMeta[0]['sz'] ?? 0);
+
         $addonList = get_addon_list();
         $totalworkingaddon = 0;
         $totaladdon = count($addonList);
@@ -53,7 +70,7 @@ class Dashboard extends Backend
                 $totalworkingaddon += 1;
             }
         }
-        $this->view->assign([
+        $assign = [
             'totaluser'         => User::count(),
             'totaladdon'        => $totaladdon,
             'totaladmin'        => Admin::count(),
@@ -64,19 +81,26 @@ class Dashboard extends Backend
             'thirtydau'         => User::whereTime('jointime|logintime|prevtime', '-30 days')->count(),
             'threednu'          => User::whereTime('jointime', '-3 days')->count(),
             'sevendnu'          => User::whereTime('jointime', '-7 days')->count(),
-            'dbtablenums'       => count($dbTableList),
-            'dbsize'            => array_sum(array_map(function ($item) {
-                return $item['Data_length'] + $item['Index_length'];
-            }, $dbTableList)),
+            'dbtablenums'       => $dbtablenums,
+            'dbsize'            => $dbsize,
             'totalworkingaddon' => $totalworkingaddon,
             'attachmentnums'    => Attachment::count(),
             'attachmentsize'    => Attachment::sum('filesize'),
             'picturenums'       => Attachment::where('mimetype', 'like', 'image/%')->count(),
             'picturesize'       => Attachment::where('mimetype', 'like', 'image/%')->sum('filesize'),
-        ]);
+        ];
+        $this->view->assign($assign);
 
-        $this->assignconfig('column', array_keys($userlist));
-        $this->assignconfig('userdata', array_values($userlist));
+        $columnKeys = array_keys($userlist);
+        $userdata = array_values($userlist);
+        $this->assignconfig('column', $columnKeys);
+        $this->assignconfig('userdata', $userdata);
+
+        cache($cacheKey, [
+            'assign'   => $assign,
+            'column'   => $columnKeys,
+            'userdata' => $userdata,
+        ], 120);
 
         return $this->view->fetch();
     }
