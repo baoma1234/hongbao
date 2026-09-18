@@ -23,6 +23,6 @@ class Lobbybanner extends Model
     }
     public function getLinkTypeList()
     {
-        return ['none' => '不跳转', 'fission' => '裂变红包', 'messages' => '消息/社群', 'url' => '外链/路径'];
+        return ['none' => '不跳转', 'fission' => '裂变红包', 'messages' => '消息/社群', 'notice' => '社区帖子', 'url' => '外链/路径'];
     }
 }

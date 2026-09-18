@@ -657,13 +657,49 @@ function onBannerTap(b) {
     goTab('/pages/messages/messages')
     return
   }
-  if (lt === 'url' && b && b.linkUrl) {
-    const u = String(b.linkUrl).trim()
-    if (/^https?:\/\//i.test(u)) openExternalHttpUrl(u)
-    else if (u.indexOf('/pages/') === 0) uni.navigateTo({ url: u, fail: () => uni.reLaunch({ url: u }) })
+  if (lt === 'notice') {
+    goTab('/pages/notice/notice')
     return
   }
+  if (lt === 'url' && b && b.linkUrl) {
+    openLobbyLink(b.linkUrl)
+    return
+  }
+  if (lt === 'none') return
   onCarnivalBanner()
+}
+
+/** 大厅轮播/邀请：兼容 #/pages/...、/pages/...；tab 页走 switchTab */
+function openLobbyLink(raw) {
+  let u = String(raw || '').trim()
+  if (!u) return
+  if (u.charAt(0) === '#') u = u.slice(1)
+  if (/^https?:\/\//i.test(u)) {
+    openExternalHttpUrl(u)
+    return
+  }
+  if (u.charAt(0) !== '/') u = '/' + u
+  const pathOnly = u.split('?')[0]
+  const TAB = {
+    '/pages/home/home': 1,
+    '/pages/messages/messages': 1,
+    '/pages/notice/notice': 1,
+    '/pages/community/community': 1,
+    '/pages/profile/profile': 1,
+  }
+  if (TAB[pathOnly]) {
+    uni.switchTab({
+      url: pathOnly,
+      fail: () => uni.reLaunch({ url: pathOnly }),
+    })
+    return
+  }
+  if (u.indexOf('/pages/') === 0) {
+    uni.navigateTo({
+      url: u,
+      fail: () => uni.reLaunch({ url: u }),
+    })
+  }
 }
 
 function onCarnivalBanner() {
@@ -684,9 +720,7 @@ function onInviteTap() {
   const inv = lobbyInvite.value || {}
   const lt = String(inv.linkType || 'share')
   if (lt === 'url' && inv.linkUrl) {
-    const u = String(inv.linkUrl).trim()
-    if (/^https?:\/\//i.test(u)) openExternalHttpUrl(u)
-    else if (u.indexOf('/pages/') === 0) uni.navigateTo({ url: u, fail: () => uni.reLaunch({ url: u }) })
+    openLobbyLink(inv.linkUrl)
     return
   }
   if (lt === 'none') return
