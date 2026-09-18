@@ -218,12 +218,26 @@
                         @click.stop="openVideoAlbumItem(m, pi)"
                       >
                         <image
-                          v-if="vv.poster"
+                          v-if="resolvedVideoPoster(m, pi)"
                           class="chat-video-preview-img"
-                          :src="vv.poster"
+                          :src="resolvedVideoPoster(m, pi)"
                           mode="aspectFill"
                         />
-                        <view v-else class="chat-video-preview-fallback" />
+                        <view v-else class="chat-video-preview-fallback">
+                          <!-- #ifndef H5 -->
+                          <video
+                            v-if="vv.src"
+                            class="chat-video-poster-fallback-video"
+                            :src="vv.src"
+                            :controls="false"
+                            :show-center-play-btn="false"
+                            :show-play-btn="false"
+                            :autoplay="false"
+                            muted
+                            object-fit="cover"
+                          />
+                          <!-- #endif -->
+                        </view>
                         <view class="chat-video-album-play">
                           <text class="chat-video-album-play-ico">▶</text>
                         </view>
@@ -236,12 +250,26 @@
                       @click.stop="openVideoAlbumItem(m, 0)"
                     >
                       <image
-                        v-if="(mediaVideoList(m)[0] && mediaVideoList(m)[0].poster) || mediaPoster(m)"
+                        v-if="resolvedVideoPoster(m, 0)"
                         class="chat-video-preview-img"
-                        :src="(mediaVideoList(m)[0] && mediaVideoList(m)[0].poster) || mediaPoster(m)"
+                        :src="resolvedVideoPoster(m, 0)"
                         mode="aspectFit"
                       />
-                      <view v-else class="chat-video-preview-fallback" />
+                      <view v-else class="chat-video-preview-fallback">
+                        <!-- #ifndef H5 -->
+                        <video
+                          v-if="mediaVideoList(m)[0] && mediaVideoList(m)[0].src"
+                          class="chat-video-poster-fallback-video"
+                          :src="mediaVideoList(m)[0].src"
+                          :controls="false"
+                          :show-center-play-btn="false"
+                          :show-play-btn="false"
+                          :autoplay="false"
+                          muted
+                          object-fit="contain"
+                        />
+                        <!-- #endif -->
+                      </view>
                       <view class="chat-video-album-play">
                         <text class="chat-video-album-play-ico">▶</text>
                       </view>
@@ -1231,9 +1259,11 @@ function resolveMaxVideoBytes() {
 const pendingMedias = ref([])
 const hasPendingMedia = computed(() => (pendingMedias.value || []).length > 0)
 const videoAlbumPlayer = ref({ open: false, src: '', poster: '' })
-/** 群 77 发送人头像（配置 / OSS） */
+/** 群 77 发送人头像 / 昵称（配置 / OSS） */
 const group77SenderAvatar = ref('')
-/** 频道类群：普通成员隐藏输入栏（配置 + 兜底） */
+const group77SenderNickname = ref('红宝吃瓜社')
+/** 无封面视频：本地截第一帧缓存 key=msgId:idx */
+const videoAutoCovers = reactive({})
 const COMPOSER_HIDDEN_GROUP_IDS_FALLBACK = [70, 71, 72, 77]
 const composerHiddenGroupIds = ref(COMPOSER_HIDDEN_GROUP_IDS_FALLBACK.slice())
 const copiedImageHint = ref(false)
@@ -2799,7 +2829,7 @@ function openVideoAlbumItem(m, idx) {
   videoAlbumPlayer.value = {
     open: true,
     src: item.src,
-    poster: item.poster || '',
+    poster: resolvedVideoPoster(m, i) || item.poster || '',
   }
 }
 function closeVideoAlbumPlayer() {
@@ -2829,10 +2859,23 @@ function openMsgLink(url) {
   }
 }
 function showSender(m) {
-  return (meta.value.type | 0) === 2 && !isMine(m)
+  if ((meta.value.type | 0) !== 2) return false
+  const gid = (meta.value && meta.value.group) | 0
+  // 群 77：所有发送人都显示统一昵称（含自己）
+  if (gid === 77) return true
+  return !isMine(m)
 }
 function senderName(m) {
-  return String((m && (m.nickname || m.from_nickname)) || ('ID' + ((m && m.from_user_id) | 0)))
+  const gid = (meta.value && meta.value.group) | 0
+  if (gid === 77) {
+    const fixed = String(group77SenderNickname.value || '').trim()
+    if (fixed) return fixed
+  }
+  const fu = (m && m.from_user) || {}
+  return String(
+    (m && (m.nickname || m.from_nickname || fu.nickname)) ||
+      ('ID' + ((m && m.from_user_id) | 0))
+  )
 }
 function mediaUrl(m) {
   const ex = msgExtra(m)
@@ -2845,6 +2888,43 @@ function mediaPoster(m) {
   const raw =
     (ex && (ex.fullurl_poster || ex.cover || ex.thumb || ex.poster)) || ''
   return raw ? publicUrl(raw) : ''
+}
+function videoCoverKey(m, idx) {
+  return String(msgId(m) || '') + ':' + ((idx | 0) || 0)
+}
+function resolvedVideoPoster(m, idx) {
+  const list = mediaVideoList(m)
+  const i = Math.max(0, idx | 0)
+  const item = list[i]
+  const fromItem = item && item.poster ? String(item.poster).trim() : ''
+  if (fromItem) return fromItem
+  if (i === 0) {
+    const fromMsg = mediaPoster(m)
+    if (fromMsg) return fromMsg
+  }
+  const auto = String(videoAutoCovers[videoCoverKey(m, i)] || '').trim()
+  if (auto) return auto
+  // 触发异步截帧（H5）；App 走 paused video 兜底
+  scheduleVideoAutoCover(m, i)
+  return ''
+}
+function scheduleVideoAutoCover(m, idx) {
+  const list = mediaVideoList(m)
+  const i = Math.max(0, Math.min(list.length - 1, idx | 0))
+  const item = list[i]
+  if (!item || !item.src) return
+  if (item.poster || (i === 0 && mediaPoster(m))) return
+  const key = videoCoverKey(m, i)
+  if (videoAutoCovers[key] || videoAutoCovers['_' + key + '_busy']) return
+  videoAutoCovers['_' + key + '_busy'] = '1'
+  captureVideoFirstFrame(item.src)
+    .then((snap) => {
+      if (snap) videoAutoCovers[key] = snap
+    })
+    .catch(() => {})
+    .finally(() => {
+      delete videoAutoCovers['_' + key + '_busy']
+    })
 }
 function fileName(m) {
   const ex = msgExtra(m)
@@ -6313,6 +6393,8 @@ onLoad(async (query) => {
     if (vbVip > 0) videoMaxBytesVip.value = vbVip
     const g77 = String((cfg && cfg.group_77_sender_avatar) || '').trim()
     if (g77) group77SenderAvatar.value = g77
+    const g77Nick = String((cfg && cfg.group_77_sender_nickname) || '').trim()
+    if (g77Nick) group77SenderNickname.value = g77Nick
   } catch (eCfg) {}
   try {
     if (typeof uni.onKeyboardHeightChange === 'function') {

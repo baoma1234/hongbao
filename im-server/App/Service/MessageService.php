@@ -378,9 +378,11 @@ class MessageService
             if ($fixed !== '') {
                 $avatar = $fixed;
             }
+            $nick = $this->group77SenderNickname();
         }
         $isBot = !empty($botMap[$fid]) ? 1 : 0;
         $msg['from_nickname'] = $nick;
+        $msg['nickname'] = $nick;
         $msg['from_avatar'] = $avatar;
         $msg['is_bot'] = $isBot;
         $msg['from_user'] = [
@@ -415,6 +417,30 @@ class MessageService
         } catch (\Throwable $e) {
         }
         return $url;
+    }
+
+    /** 群 77 统一发送昵称 */
+    protected function group77SenderNickname()
+    {
+        static $nick = null;
+        if ($nick !== null) {
+            return $nick;
+        }
+        $nick = '红宝吃瓜社';
+        try {
+            $path = dirname(__DIR__, 3) . '/application/extra/fanshub.php';
+            if (is_file($path)) {
+                $cfg = include $path;
+                if (is_array($cfg) && isset($cfg['group_77_sender_nickname'])) {
+                    $raw = trim((string)$cfg['group_77_sender_nickname']);
+                    if ($raw !== '') {
+                        $nick = $raw;
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+        return $nick;
     }
 
     protected function cacheRecent(array $payload)

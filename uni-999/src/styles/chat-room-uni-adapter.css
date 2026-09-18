@@ -593,6 +593,22 @@
   height: 100%;
   min-height: 180px;
 }
+.chat-room-page .chat-video-preview-fallback {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 180px;
+  background: #111;
+  overflow: hidden;
+}
+.chat-room-page .chat-video-poster-fallback-video {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
 .chat-room-page .chat-video-card.has-previews .chat-video-player-row {
   border-top: 1.5px solid #111;
 }

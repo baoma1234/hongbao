@@ -1552,6 +1552,7 @@ class FansHubService
             'chat_video_max_bytes_vip'    => self::chatVideoMaxBytesVip(),
             'chat_video_vip_user_ids'     => self::chatVideoVipUserIds(),
             'group_77_sender_avatar'      => self::group77SenderAvatarPublic(),
+            'group_77_sender_nickname'    => self::group77SenderNickname(),
             'fission_group_id'            => max(0, (int)($cfg['fission_group_id'] ?? 0)),
             'fission_group_join_url'      => self::fissionGroupInvitePayload()['join_url'] ?? '',
             'yxx_stake_min'        => max(1, (int)($cfg['yxx_stake_min'] ?? 50)),
@@ -5039,7 +5040,7 @@ class FansHubService
         static $cache = null;
         static $at = 0;
         if ($cache === null || (time() - $at) >= 30) {
-            $raw = self::config('notice_manager_user_ids', [88888888, 55555555, 44444444, 77777777, 22222222, 58904307]);
+            $raw = self::config('notice_manager_user_ids', [88888888, 55555555, 44444444, 77777777, 22222222, 58904307, 77322302]);
             $ids = [];
             if (is_array($raw)) {
                 foreach ($raw as $id) {
@@ -5134,6 +5135,13 @@ class FansHubService
             }
         }
         return self::utf8Safe($raw);
+    }
+
+    /** 群 77 统一发送昵称 */
+    public static function group77SenderNickname()
+    {
+        $n = trim((string)self::config('group_77_sender_nickname', '红宝吃瓜社'));
+        return self::utf8Safe($n !== '' ? $n : '红宝吃瓜社');
     }
 
     public static function isNoticeManagerUser($userId)
