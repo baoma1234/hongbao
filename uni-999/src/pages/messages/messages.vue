@@ -1616,16 +1616,17 @@ onHide(() => {
 }
 .chat-plus-req-dot {
   position: absolute;
-  top: 2px;
-  right: 2px;
-  width: 9px;
-  height: 9px;
+  top: 0;
+  right: 0;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   background: #e63022;
-  border: 1.5px solid #ffffff;
+  border: 2px solid #ffffff;
   box-sizing: border-box;
   z-index: 3;
   pointer-events: none;
+  box-shadow: 0 0 0 1px rgba(230, 48, 34, 0.25);
 }
 .qq-msg-search {
   display: flex;
