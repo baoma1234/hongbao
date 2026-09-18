@@ -188,7 +188,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                             classname: 'btn btn-xs btn-primary btn-dialog',
                             icon: 'fa fa-line-chart',
                             url: 'fanshub/account/pnl',
-                            extend: 'data-area=\'["480px","420px"]\''
+                            extend: 'data-area=\'["720px","560px"]\''
                         }, {
                             name: 'chatforbid',
                             text: '禁言',

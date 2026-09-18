@@ -1,33 +1,33 @@
-<form class="form-horizontal" role="form">
+<form class="form-horizontal" role="form" style="padding:18px 12px 8px;">
     <div class="form-group">
-        <label class="control-label col-xs-12 col-sm-3">用户</label>
+        <label class="control-label col-xs-12 col-sm-3" style="font-size:15px;">用户</label>
         <div class="col-xs-12 col-sm-8">
-            <p class="form-control-static">ID {$row.user_id|default='-'} / {$user.nickname|default='-'}</p>
+            <p class="form-control-static" style="font-size:16px;">ID {$row.user_id|default='-'} / {$user.nickname|default='-'}</p>
         </div>
     </div>
     <div class="form-group">
-        <label class="control-label col-xs-12 col-sm-3">总提款</label>
+        <label class="control-label col-xs-12 col-sm-3" style="font-size:15px;">总提款</label>
         <div class="col-xs-12 col-sm-8">
-            <p class="form-control-static text-danger" style="font-size:16px;font-weight:700;">{$pnl.total_withdraw|default='0.00'}</p>
+            <p class="form-control-static text-danger" style="font-size:22px;font-weight:700;line-height:1.4;">{$pnl.total_withdraw|default='0.00'}</p>
         </div>
     </div>
     <div class="form-group">
-        <label class="control-label col-xs-12 col-sm-3">当前余额</label>
+        <label class="control-label col-xs-12 col-sm-3" style="font-size:15px;">当前余额</label>
         <div class="col-xs-12 col-sm-8">
-            <p class="form-control-static" style="font-size:16px;font-weight:700;">{$pnl.balance|default='0.00'}</p>
+            <p class="form-control-static" style="font-size:22px;font-weight:700;line-height:1.4;">{$pnl.balance|default='0.00'}</p>
         </div>
     </div>
     <div class="form-group">
-        <label class="control-label col-xs-12 col-sm-3">总充值</label>
+        <label class="control-label col-xs-12 col-sm-3" style="font-size:15px;">总充值</label>
         <div class="col-xs-12 col-sm-8">
-            <p class="form-control-static text-success" style="font-size:16px;font-weight:700;">{$pnl.total_recharge|default='0.00'}</p>
+            <p class="form-control-static text-success" style="font-size:22px;font-weight:700;line-height:1.4;">{$pnl.total_recharge|default='0.00'}</p>
         </div>
     </div>
     <div class="form-group">
-        <label class="control-label col-xs-12 col-sm-3">总输赢</label>
+        <label class="control-label col-xs-12 col-sm-3" style="font-size:15px;">总输赢</label>
         <div class="col-xs-12 col-sm-8">
-            <p class="form-control-static" style="font-size:18px;font-weight:800;color:#6a62cb;">{$pnl.net_pnl|default='0.00'}</p>
-            <span class="help-block">公式：总提款 − 当前余额 − 总充值</span>
+            <p class="form-control-static" style="font-size:28px;font-weight:800;color:#6a62cb;line-height:1.4;">{$pnl.net_pnl|default='0.00'}</p>
+            <span class="help-block" style="font-size:14px;margin-top:8px;">公式：总提款 − 当前余额 − 总充值</span>
         </div>
     </div>
 </form>
