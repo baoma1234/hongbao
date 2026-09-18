@@ -236,7 +236,9 @@
                             mode="aspectFill"
                             lazy-load
                           />
-                          <text class="chat-notice-video-play">▶</text>
+                          <view class="chat-notice-video-play">
+                            <text class="chat-notice-video-play-ico">▶</text>
+                          </view>
                         </view>
                       </view>
                       <view
@@ -1737,14 +1739,26 @@ onUnmounted(() => {
 .chat-notice-video-play {
   position: relative;
   z-index: 1;
-  color: #fff;
-  font-size: 28px;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: 0;
-  padding: 10px 12px;
+  box-sizing: border-box;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  margin: 0;
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.chat-notice-video-play-ico {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 16px;
+  height: 16px;
+  text-align: center;
+  /* ▶ 字形偏左，略右移视觉居中 */
+  padding-left: 2px;
 }
 .chat-notice-feed-foot {
   padding: 14px 12px 8px;
