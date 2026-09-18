@@ -4596,11 +4596,7 @@ class FansHubService
         }
 
         $now = time();
-        // 列表请求顺带触发「每分钟涨浏览」，无人逛时靠 fanshub:maintain
-        try {
-            self::noticeViewsMinuteBump(false);
-        } catch (\Throwable $eBump) {
-        }
+        // 浏览量分钟涨仅由 fanshub:maintain 定时跑，避免列表读路径全表 UPDATE
         $applyFilters = function ($query) use ($category, $cats, $keyword, $viewerUserId, $now, $themeId) {
             if ($viewerUserId > 0) {
                 $query->where(function ($q) use ($viewerUserId, $now) {
@@ -4630,16 +4626,26 @@ class FansHubService
             return $query;
         };
 
-        $total = (int)$applyFilters(Notice::where('id', '>', 0))->count();
+        $total = null;
+        // 列表多用 limit+1 判断 has_more，避免额外 COUNT 全表扫描；仅首页匿名无关键词时算 total 作展示
+        $needTotal = ($page === 1 && $keyword === '' && $viewerUserId <= 0);
+        if ($needTotal) {
+            $total = (int)$applyFilters(Notice::where('id', '>', 0))->count();
+        }
         $rows = $applyFilters(Notice::where('id', '>', 0))
             ->order('weigh', 'desc')
             ->order('publishtime', 'desc')
             ->order('id', 'desc')
-            ->page($page, $limit)
+            ->limit(($page - 1) * $limit, $limit + 1)
             ->select();
+        $rowArr = is_array($rows) ? $rows : (method_exists($rows, 'all') ? $rows->all() : iterator_to_array($rows));
+        $hasMore = count($rowArr) > $limit;
+        if ($hasMore) {
+            $rowArr = array_slice($rowArr, 0, $limit);
+        }
         $list = [];
-        foreach ($rows as $row) {
-            $list[] = self::formatNoticeRow($row, $locale, $cats);
+        foreach ($rowArr as $row) {
+            $list[] = self::formatNoticeRow($row, $locale, $cats, true);
         }
 
         $categories = [];
@@ -4648,6 +4654,11 @@ class FansHubService
                 'code'  => $code,
                 'label' => \app\common\model\fanshub\Notice::categoryLabel($code, $locale),
             ];
+        }
+
+        if ($total === null) {
+            // 无精确 total 时给前端一个可用下界（分页继续用 has_more）
+            $total = ($page - 1) * $limit + count($list) + ($hasMore ? 1 : 0);
         }
 
         return [
@@ -4660,7 +4671,7 @@ class FansHubService
             'total'      => $total,
             'page'       => $page,
             'limit'      => $limit,
-            'has_more'   => ($page * $limit) < $total,
+            'has_more'   => $hasMore,
         ];
     }
 
@@ -4675,7 +4686,7 @@ class FansHubService
     }
 
     /** @return array */
-    protected static function formatNoticeRow($row, $locale = 'zh-CN', $cats = null)
+    protected static function formatNoticeRow($row, $locale = 'zh-CN', $cats = null, $slim = false)
     {
         if ($cats === null) {
             $cats = \app\common\model\fanshub\Notice::categoryMap();
@@ -4683,6 +4694,10 @@ class FansHubService
         $images = $row->images;
         if (!is_array($images)) {
             $images = [];
+        }
+        // 列表最多带 9 张图 URL，与前台九宫格上限一致
+        if ($slim && count($images) > 9) {
+            $images = array_slice($images, 0, 9);
         }
         $images = array_values(array_filter(array_map(function ($u) {
             $u = trim((string)$u);
@@ -4742,7 +4757,20 @@ class FansHubService
         $authorAvatar = $catCode === 'rules'
             ? self::noticeRulesAuthorAvatar()
             : (string)($row->author_avatar ?? '');
-        return [
+        $content = (string)$row->localized('content', $locale);
+        $contentTruncated = false;
+        if ($slim) {
+            // 列表仅 6 行摘要，详情再取全文
+            $max = 360;
+            if (function_exists('mb_strlen') && mb_strlen($content, 'UTF-8') > $max) {
+                $content = mb_substr($content, 0, $max, 'UTF-8') . '…';
+                $contentTruncated = true;
+            } elseif (strlen($content) > $max * 3) {
+                $content = substr($content, 0, $max * 3) . '…';
+                $contentTruncated = true;
+            }
+        }
+        $out = [
             'id'             => (int)$row->id,
             'author_name'    => $authorName,
             'author_avatar'  => normalize_user_avatar($authorAvatar, true),
@@ -4751,7 +4779,7 @@ class FansHubService
             'theme_id'       => (int)($row->theme_id ?? 0),
             'theme_title'    => $themeTitle,
             'tag_label'      => $tagLabel,
-            'content'        => $row->localized('content', $locale),
+            'content'        => $content,
             'images'         => $images,
             'video'          => $video,
             'video_cover'    => $videoCover,
@@ -4765,6 +4793,10 @@ class FansHubService
             'source'         => (string)($row->source ?? 'admin'),
             'status'         => (string)($row->status ?? ''),
         ];
+        if ($slim) {
+            $out['content_truncated'] = $contentTruncated;
+        }
+        return $out;
     }
 
     /** 启用中的帖子主题（可按大模块过滤） */
@@ -4828,21 +4860,25 @@ class FansHubService
             return ['views_count' => 0];
         }
         $now = time();
-        $row = Notice::where('id', $id)->where('status', 'published')->where('publishtime', '<=', $now)->find();
-        if (!$row) {
+        try {
+            $table = (new Notice())->getTable();
+            $n = Db::execute(
+                "UPDATE `{$table}` SET `views_count` = `views_count` + 1 WHERE `id` = ? AND `status` = 'published' AND `publishtime` <= ?",
+                [$id, $now]
+            );
+            if ((int)$n <= 0) {
+                return ['views_count' => 0];
+            }
+            $fresh = (int)Notice::where('id', $id)->value('views_count');
+            return ['views_count' => $fresh];
+        } catch (\Throwable $e) {
             return ['views_count' => 0];
         }
-        try {
-            Notice::where('id', $id)->setInc('views_count', 1);
-        } catch (\Throwable $e) {
-        }
-        $fresh = Notice::where('id', $id)->value('views_count');
-        return ['views_count' => (int)$fresh];
     }
 
     /**
      * 已发布帖每分钟自动涨浏览：每帖随机 +50～60
-     * 用 cache 节流，避免并发重复加；支持一次补跑最多 10 个错过的分钟
+     * 仅定时任务调用（勿挂在列表读路径）；用 cache 节流
      */
     public static function noticeViewsMinuteBump($force = false)
     {

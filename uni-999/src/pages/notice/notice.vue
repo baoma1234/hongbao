@@ -746,21 +746,8 @@ function noticeVideoCover(n) {
 }
 
 function scheduleNoticeAutoCover(n) {
-  const id = (n && n.id) | 0
-  if (!id) return
-  if (noticeVideoCover(n)) return
-  const src = publicUrl(noticeVideo(n)) || noticeVideo(n)
-  if (!src) return
-  if (noticeAutoCovers['_' + id + '_busy']) return
-  noticeAutoCovers['_' + id + '_busy'] = '1'
-  captureVideoFirstFrame(src)
-    .then((snap) => {
-      if (snap) noticeAutoCovers[id] = snap
-    })
-    .catch(() => {})
-    .finally(() => {
-      delete noticeAutoCovers['_' + id + '_busy']
-    })
+  // 列表不再自动拉视频截首帧（H5 很卡）；发帖/后台应带 video_cover，详情页再兜底
+  return
 }
 
 function noticeImages(n) {
@@ -1389,15 +1376,7 @@ function onNoticeScrollToLower() {
 
 async function tickNoticeViewsBump() {
   if (!pageAlive) return
-  let bumped = false
-  try {
-    const data = await apiRequest('noticeviewsbump', 'POST', {})
-    bumped = !!(data && data.bumped)
-  } catch (e) {
-    bumped = true
-  }
-  if (!bumped) return
-  // 原地改浏览数，避免 map 新对象导致整表图片重挂载卡顿
+  // 仅前端假涨，避免每分钟打 noticeviewsbump + 全表 UPDATE；真实涨幅由服务端 cron 写库
   const list = notices.value || []
   for (let i = 0; i < list.length; i++) {
     const n = list[i]

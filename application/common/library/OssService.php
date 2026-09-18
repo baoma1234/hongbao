@@ -42,6 +42,10 @@ class OssService
      */
     public static function publicBase()
     {
+        static $cached = null;
+        if ($cached !== null) {
+            return $cached;
+        }
         $c = self::config();
         $cdn = trim((string)($c['cdn_domain'] ?? ''));
         $bucket = trim((string)($c['bucket'] ?? ''));
@@ -51,21 +55,21 @@ class OssService
 
         if ($cdn !== '') {
             if (preg_match('#^https?://#i', $cdn)) {
-                return rtrim($cdn, '/');
+                return $cached = rtrim($cdn, '/');
             }
             $cdnHost = rtrim($cdn, '/');
             // oss-accelerate.aliyuncs.com → https://{bucket}.oss-accelerate.aliyuncs.com
             if ($bucket !== '' && (stripos($cdnHost, 'aliyuncs.com') !== false || stripos($cdnHost, 'oss-') === 0)) {
                 if (stripos($cdnHost, $bucket . '.') !== 0) {
-                    return 'https://' . $bucket . '.' . $cdnHost;
+                    return $cached = 'https://' . $bucket . '.' . $cdnHost;
                 }
             }
-            return 'https://' . $cdnHost;
+            return $cached = 'https://' . $cdnHost;
         }
         if ($bucket === '' || $endpoint === '') {
-            return '';
+            return $cached = '';
         }
-        return 'https://' . $bucket . '.' . $endpoint;
+        return $cached = 'https://' . $bucket . '.' . $endpoint;
     }
 
     public static function objectKeyFromUrl($url)

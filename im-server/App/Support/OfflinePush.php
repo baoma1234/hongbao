@@ -16,7 +16,8 @@ class OfflinePush
     public static function afterChatPush($type, array $data)
     {
         $type = (string)$type;
-        if ($type !== 'private.message' && $type !== 'group.message') {
+        // 仅私聊离线推极光；群消息只走 WS（在线提示音），不发 JPush
+        if ($type !== 'private.message') {
             return;
         }
         $msg = $data['message'] ?? null;
