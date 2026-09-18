@@ -33,8 +33,10 @@
             </view>
             <view class="chat-plus-menu-item" @click="onPlusAction('request')">
               <image class="chat-plus-menu-ico-img" :src="icoFriendReq" mode="aspectFit" />
-              <text>好友申请</text>
-              <text v-if="friendReqPending > 0" class="chat-friend-req-badge">{{ friendReqPending > 99 ? '99+' : friendReqPending }}</text>
+              <view class="chat-plus-menu-item-label">
+                <text>好友申请</text>
+                <text v-if="friendReqPending > 0" class="chat-friend-req-badge">{{ friendReqPending > 99 ? '99+' : friendReqPending }}</text>
+              </view>
             </view>
             <view class="chat-plus-menu-item" @click="onPlusAction('share')">
               <image class="chat-plus-menu-ico-img" :src="fxIcon" mode="aspectFit" />
@@ -1630,9 +1632,15 @@ onHide(() => {
 }
 /* 菜单内「好友申请」角标：贴在文字右侧，不要顶到行尾 */
 .chat-plus-menu-item .chat-friend-req-badge {
-  margin-left: 8px !important;
+  margin-left: 0 !important;
   margin-right: 0 !important;
   flex-shrink: 0;
+}
+.chat-plus-menu-item-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
 }
 .qq-msg-search {
   display: flex;

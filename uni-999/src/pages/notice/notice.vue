@@ -236,7 +236,7 @@
                             mode="aspectFill"
                             lazy-load
                           />
-                          <text class="chat-notice-video-play">▶ 播放视频</text>
+                          <text class="chat-notice-video-play">▶️</text>
                         </view>
                       </view>
                       <view
@@ -1738,11 +1738,12 @@ onUnmounted(() => {
   position: relative;
   z-index: 1;
   color: #fff;
-  font-size: 15px;
+  font-size: 28px;
   font-weight: 700;
-  letter-spacing: 0.5px;
-  padding: 8px 16px;
-  border-radius: 20px;
+  line-height: 1;
+  letter-spacing: 0;
+  padding: 10px 12px;
+  border-radius: 50%;
   background: rgba(0, 0, 0, 0.45);
 }
 .chat-notice-feed-foot {
