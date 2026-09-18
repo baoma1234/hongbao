@@ -1101,6 +1101,7 @@ class GroupService
             return (int)$r['user_id'];
         }, $rows);
         $users = (new AuthService([]))->usersBriefMap($ids);
+        $botMap = $this->botFlagsMap($ids);
         $kw = mb_strtolower(trim((string)$keyword));
         $now = time();
         $list = [];
@@ -1111,6 +1112,10 @@ class GroupService
                 continue;
             }
             $uid = (int)$row['user_id'];
+            // 机器人管理员不在「查看群成员」中展示（发包/抢包机器人）
+            if ($role === 2 && !empty($botMap[$uid])) {
+                continue;
+            }
             $u = $users[$uid] ?? null;
             $nick = '';
             $mobile = '';
@@ -1168,6 +1173,37 @@ class GroupService
             'staff_only'         => (bool)$hideFullList,
             'policy'             => $policy,
         ];
+    }
+
+    /**
+     * user_id => 0|1（fans_account.is_bot）
+     *
+     * @param int[] $userIds
+     * @return array<int,int>
+     */
+    protected function botFlagsMap(array $userIds)
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $userIds), function ($id) {
+            return $id > 0;
+        })));
+        if (!$ids) {
+            return [];
+        }
+        $out = [];
+        try {
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $rows = Db::fetchAll(
+                'SELECT user_id, is_bot FROM ' . Db::table('fans_account')
+                . " WHERE user_id IN ({$placeholders})",
+                $ids
+            );
+            foreach ($rows ?: [] as $row) {
+                $out[(int)$row['user_id']] = ((int)($row['is_bot'] ?? 0) === 1) ? 1 : 0;
+            }
+        } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.GroupService');
+        }
+        return $out;
     }
 
     public function publicMemberCount(array $group)
