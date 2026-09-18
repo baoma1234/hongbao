@@ -421,11 +421,23 @@ class Upload
         $oldSize = (int)@filesize($absPath);
         // 仅当明显更小或做过缩放时替换
         if ($newSize > 0 && ($scale < 1.0 || $newSize < $oldSize)) {
-            @unlink($absPath);
-            // 若后缀从 png/bmp 改为 jpg，需要改落盘文件名由调用方处理；此处同名覆盖
-            if (!@rename($tmp, $absPath)) {
-                @copy($tmp, $absPath);
+            // 先写入再删原图，避免 Windows 上 unlink 后 rename/copy 失败导致原图与压缩图双丢
+            $replaced = false;
+            if (@copy($tmp, $absPath)) {
+                $replaced = true;
+            } elseif (@rename($tmp, $absPath)) {
+                $replaced = true;
+                $tmp = '';
+            }
+            if ($tmp !== '' && is_file($tmp)) {
                 @unlink($tmp);
+            }
+            if (!$replaced) {
+                // 压缩替换失败：保留原图，后续仍可伪装 .js / 双写 OSS
+                clearstatcache(true, $absPath);
+                $this->fileInfo['imagewidth'] = $srcW;
+                $this->fileInfo['imageheight'] = $srcH;
+                return;
             }
             clearstatcache(true, $absPath);
             $this->fileInfo['size'] = (int)@filesize($absPath);
@@ -700,14 +712,15 @@ class Upload
                     }
                 }
             }
-            if (is_file($absSaved)) {
-                $sha1 = @sha1_file($absSaved) ?: $sha1;
-                $this->fileInfo['size'] = (int)@filesize($absSaved);
-                $imgInfo = @getimagesize($absSaved);
-                if ($imgInfo) {
-                    $this->fileInfo['imagewidth'] = (int)($imgInfo[0] ?? 0);
-                    $this->fileInfo['imageheight'] = (int)($imgInfo[1] ?? 0);
-                }
+            if (!is_file($absSaved)) {
+                throw new UploadException(__('File write error'));
+            }
+            $sha1 = @sha1_file($absSaved) ?: $sha1;
+            $this->fileInfo['size'] = (int)@filesize($absSaved);
+            $imgInfo = @getimagesize($absSaved);
+            if ($imgInfo) {
+                $this->fileInfo['imagewidth'] = (int)($imgInfo[0] ?? 0);
+                $this->fileInfo['imageheight'] = (int)($imgInfo[1] ?? 0);
             }
 
             // 防封：图片落盘/OSS 对象统一用 .js 后缀；MIME 仍为 image/*
