@@ -152,9 +152,23 @@ class Upload
      */
     protected function checkImage($force = false)
     {
+        // 视频勿当图验（H5 blob 曾错报成 cover.jpg；客户端 MIME 也可能错报 image/*）
+        if ($this->isVideoUpload() || $this->sniffIsVideo()) {
+            if ($this->sniffIsVideo()) {
+                $suffix = strtolower((string)($this->fileInfo['suffix'] ?? ''));
+                if (!in_array($suffix, ['mp4', 'webm', 'mov', 'm4v', 'avi', 'mkv', '3gp'], true)) {
+                    $this->fileInfo['suffix'] = 'mp4';
+                }
+                $type = strtolower((string)($this->fileInfo['type'] ?? ''));
+                if ($type === '' || strpos($type, 'image/') === 0 || $type === 'application/octet-stream') {
+                    $this->fileInfo['type'] = 'video/mp4';
+                }
+            }
+            return !$force;
+        }
         //验证是否为图片文件
         if (in_array($this->fileInfo['type'], ['image/gif', 'image/jpg', 'image/jpeg', 'image/bmp', 'image/png', 'image/webp']) || in_array($this->fileInfo['suffix'], ['gif', 'jpg', 'jpeg', 'bmp', 'png', 'webp'])) {
-            $imgInfo = getimagesize($this->fileInfo['tmp_name']);
+            $imgInfo = @getimagesize($this->fileInfo['tmp_name']);
             if (!$imgInfo || !isset($imgInfo[0]) || !isset($imgInfo[1])) {
                 throw new UploadException(__('Uploaded file is not a valid image'));
             }
@@ -167,10 +181,13 @@ class Upload
     }
 
     /**
-     * 是否图片（按 MIME / 后缀）
+     * 是否图片（按 MIME / 后缀）；内容是视频时不当图
      */
     protected function isImageUpload()
     {
+        if ($this->isVideoUpload() || $this->sniffIsVideo()) {
+            return false;
+        }
         $type = strtolower((string)($this->fileInfo['type'] ?? ''));
         $suffix = strtolower((string)($this->fileInfo['suffix'] ?? ''));
         if (in_array($type, ['image/gif', 'image/jpg', 'image/jpeg', 'image/bmp', 'image/png', 'image/webp'], true)) {
@@ -189,7 +206,46 @@ class Upload
         if (strpos($type, 'video/') === 0) {
             return true;
         }
-        return in_array($suffix, ['mp4', 'webm', 'mov', 'm4v', 'avi', 'mkv', '3gp'], true);
+        if (in_array($suffix, ['mp4', 'webm', 'mov', 'm4v', 'avi', 'mkv', '3gp'], true)) {
+            return true;
+        }
+        return $this->sniffIsVideo();
+    }
+
+    /**
+     * 魔数嗅探：mp4/mov (ftyp) / webm
+     */
+    protected function sniffIsVideo()
+    {
+        static $cache = [];
+        $tmp = (string)($this->fileInfo['tmp_name'] ?? '');
+        if ($tmp === '' || !is_file($tmp)) {
+            return false;
+        }
+        if (array_key_exists($tmp, $cache)) {
+            return $cache[$tmp];
+        }
+        $ok = false;
+        try {
+            $fh = @fopen($tmp, 'rb');
+            if ($fh) {
+                $head = @fread($fh, 16);
+                @fclose($fh);
+                if (is_string($head) && strlen($head) >= 8) {
+                    // ISO BMFF: size(4) + 'ftyp'
+                    if (substr($head, 4, 4) === 'ftyp') {
+                        $ok = true;
+                    } elseif (substr($head, 0, 4) === "\x1a\x45\xdf\xa3") {
+                        // EBML / WebM / MKV
+                        $ok = true;
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            $ok = false;
+        }
+        $cache[$tmp] = $ok;
+        return $ok;
     }
 
     /**

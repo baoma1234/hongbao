@@ -363,8 +363,26 @@ export function uploadCommonFile(filePath) {
       .then((r) => r.blob())
       .then((blob) => {
         const fd = new FormData()
-        const ext = (blob.type && blob.type.indexOf('png') >= 0) ? 'png' : 'jpg'
-        fd.append('file', blob, 'cover.' + ext)
+        const type = String((blob && blob.type) || '').toLowerCase()
+        let filename = 'file.bin'
+        if (type.indexOf('video/') === 0) {
+          let ext = 'mp4'
+          if (type.indexOf('webm') >= 0) ext = 'webm'
+          else if (type.indexOf('quicktime') >= 0 || type.indexOf('mov') >= 0) ext = 'mov'
+          else if (type.indexOf('m4v') >= 0) ext = 'm4v'
+          else if (type.indexOf('3gpp') >= 0) ext = '3gp'
+          filename = 'video.' + ext
+        } else if (type.indexOf('image/') === 0) {
+          let ext = 'jpg'
+          if (type.indexOf('png') >= 0) ext = 'png'
+          else if (type.indexOf('webp') >= 0) ext = 'webp'
+          else if (type.indexOf('gif') >= 0) ext = 'gif'
+          else if (type.indexOf('bmp') >= 0) ext = 'bmp'
+          filename = 'image.' + ext
+        } else if (type.indexOf('audio/') === 0) {
+          filename = type.indexOf('wav') >= 0 ? 'audio.wav' : 'audio.mp3'
+        }
+        fd.append('file', blob, filename)
         const headers = {}
         if (token) headers.token = token
         return fetch(url, { method: 'POST', headers, body: fd })
