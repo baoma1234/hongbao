@@ -4841,7 +4841,7 @@ class FansHubService
     }
 
     /**
-     * 已发布帖每分钟自动涨浏览：每帖随机 +5～20
+     * 已发布帖每分钟自动涨浏览：每帖随机 +50～60
      * 用 cache 节流，避免并发重复加；支持一次补跑最多 10 个错过的分钟
      */
     public static function noticeViewsMinuteBump($force = false)
@@ -4867,7 +4867,7 @@ class FansHubService
             $table = (new Notice())->getTable();
             for ($i = 0; $i < $minutes; $i++) {
                 $n = Db::execute(
-                    "UPDATE `{$table}` SET `views_count` = `views_count` + (5 + FLOOR(RAND() * 16)) WHERE `status` = 'published'"
+                    "UPDATE `{$table}` SET `views_count` = `views_count` + (50 + FLOOR(RAND() * 11)) WHERE `status` = 'published'"
                 );
                 $rows += (int)$n;
             }

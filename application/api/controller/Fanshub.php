@@ -164,7 +164,7 @@ class Fanshub extends Api
         $this->success('ok', FansHubService::noticeViewIncrement($id));
     }
 
-    /** 社区帖浏览量分钟跳动（节流，每帖随机 +5～20） */
+    /** 社区帖浏览量分钟跳动（节流，每帖随机 +50～60） */
     public function noticeviewsbump()
     {
         $this->success('ok', FansHubService::noticeViewsMinuteBump(false));

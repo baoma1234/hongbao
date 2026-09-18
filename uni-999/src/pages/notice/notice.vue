@@ -1400,7 +1400,7 @@ async function tickNoticeViewsBump() {
   for (let i = 0; i < list.length; i++) {
     const n = list[i]
     if (!n || n.status === 'pending' || n.status === 'rejected') continue
-    n.views_count = (Number(n.views_count) || 0) + (5 + Math.floor(Math.random() * 16))
+    n.views_count = (Number(n.views_count) || 0) + (50 + Math.floor(Math.random() * 11))
   }
 }
 
