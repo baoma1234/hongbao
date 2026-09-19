@@ -756,7 +756,7 @@
 
     <GrabSlider ref="grabSliderRef" />
 
-    <!-- 多视频相册：H5 页内播；App 走系统 previewMedia，禁止在聊天页挂原生 video（否则切群黑影+返回失效） -->
+    <!-- 多视频相册：H5 页内播；App 进独立 video-play 页（勿 openURL 跳浏览器） -->
     <!-- #ifdef H5 -->
     <view v-if="videoAlbumPlayer.open" class="chat-video-album-mask" @click="closeVideoAlbumPlayer">
       <view class="chat-video-album-player" @click.stop>

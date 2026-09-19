@@ -258,6 +258,18 @@
               "hardwareAccelerated": false
             }
           }
+        },
+        {
+          "path": "video-play",
+          "style": {
+            "navigationBarTitleText": "视频",
+            "navigationStyle": "custom",
+            "disableScroll": true,
+            "app-plus": {
+              "bounce": "none",
+              "popGesture": "close"
+            }
+          }
         }
       ]
     },

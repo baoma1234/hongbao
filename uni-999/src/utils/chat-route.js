@@ -170,7 +170,7 @@ export function openChatPage(url, opts) {
 }
 
 /**
- * App 端播放聊天视频：系统预览器，不在聊天页挂原生 video（杜绝黑影脱层）。
+ * App 端播放聊天视频：进独立播放页（不挂在聊天页，避免黑影；也不 openURL 跳浏览器）。
  * H5 返回 false，由调用方走页面内播放器。
  * @param {{ url: string, poster?: string }[]} sources
  * @param {number} current
@@ -184,30 +184,31 @@ export function openChatVideoPreview(sources, current) {
   const list = (sources || [])
     .map((s) => ({
       url: String((s && (s.url || s.src)) || '').trim(),
-      type: 'video',
       poster: String((s && s.poster) || '').trim(),
     }))
     .filter((s) => !!s.url)
   if (!list.length) return false
   const idx = Math.max(0, Math.min(list.length - 1, current | 0))
+  const item = list[idx]
+  const q =
+    'url=' +
+    encodeURIComponent(item.url) +
+    '&poster=' +
+    encodeURIComponent(item.poster || '')
   try {
-    if (typeof uni.previewMedia === 'function') {
-      uni.previewMedia({
-        sources: list,
-        current: idx,
-        fail() {
-          try {
-            plus.runtime.openURL(list[idx].url)
-          } catch (e2) {}
-        },
-      })
-      return true
-    }
-  } catch (e) {}
-  try {
-    plus.runtime.openURL(list[idx].url)
+    uni.navigateTo({
+      url: '/pages/chat/video-play?' + q,
+      animationType: 'fade-in',
+      animationDuration: 180,
+      fail() {
+        // 禁止 plus.runtime.openURL：三星等机会直接跳系统浏览器
+        try {
+          uni.showToast({ title: '无法打开播放器', icon: 'none' })
+        } catch (e2) {}
+      },
+    })
     return true
-  } catch (e3) {
+  } catch (e) {
     return false
   }
   // #endif
