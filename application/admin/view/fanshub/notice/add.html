@@ -110,6 +110,19 @@
         </div>
     </div>
     <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">视频封面:</label>
+        <div class="col-xs-12 col-sm-8">
+            <div class="input-group">
+                <input id="c-video_cover" class="form-control" name="row[video_cover]" type="text">
+                <div class="input-group-addon no-border no-padding">
+                    <span><button type="button" id="faupload-video_cover" class="btn btn-danger faupload" data-input-id="c-video_cover" data-mimetype="image/gif,image/jpeg,image/png,image/jpg,image/bmp,image/webp" data-multiple="false" data-preview-id="p-video_cover"><i class="fa fa-upload"></i> {:__('Upload')}</button></span>
+                </div>
+            </div>
+            <ul class="row list-inline faupload-preview" id="p-video_cover"></ul>
+            <span class="help-block">列表缩略图；不传则前台黑底，建议上传视频首帧</span>
+        </div>
+    </div>
+    <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">主按钮类型:</label>
         <div class="col-xs-12 col-sm-8">
             <select name="row[action_type]" class="form-control selectpicker">

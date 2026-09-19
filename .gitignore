@@ -23,3 +23,5 @@ im-server/config/local.php
 *.rar
 *.7z
 caijin.com_7111_*.zip
+/tools/ffmpeg/
+/tools/ffmpeg-npm/

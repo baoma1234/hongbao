@@ -391,6 +391,9 @@ const playingVideoId = ref(0)
 const NOTICE_PAGE_SIZE = 15
 /** 无 video_cover 时客户端截帧缓存（id -> blob/url） */
 const noticeAutoCovers = reactive({})
+/** 列表截帧队列：并发 1，避免 H5 同时拉多个视频卡顿 */
+const noticeCoverQueue = []
+let noticeCoverBusy = false
 const noticeCat = ref('latest')
 const noticeKeyword = ref('')
 let noticeSearchTimer = null
@@ -742,12 +745,44 @@ function noticeVideoCover(n) {
   const c = String((n && (n.video_cover || n.videoCover)) || '').trim()
   if (c) return avatarSrc(c)
   const auto = id ? String(noticeAutoCovers[id] || '').trim() : ''
-  return auto ? avatarSrc(auto) : ''
+  if (auto) return avatarSrc(auto)
+  // 无封面时暂用首图垫一下（后台旧帖常缺 video_cover）
+  const imgs = noticeImages(n)
+  if (imgs.length) return avatarSrc(imgs[0])
+  return ''
+}
+
+function pumpNoticeCoverQueue() {
+  if (noticeCoverBusy) return
+  const next = noticeCoverQueue.shift()
+  if (!next) return
+  noticeCoverBusy = true
+  const { id, src } = next
+  captureVideoFirstFrame(src)
+    .then((snap) => {
+      if (snap) noticeAutoCovers[id] = snap
+    })
+    .catch(() => {})
+    .finally(() => {
+      noticeCoverBusy = false
+      delete noticeAutoCovers['_' + id + '_busy']
+      pumpNoticeCoverQueue()
+    })
 }
 
 function scheduleNoticeAutoCover(n) {
-  // 列表不再自动拉视频截首帧（H5 很卡）；发帖/后台应带 video_cover，详情页再兜底
-  return
+  const id = (n && n.id) | 0
+  if (!id) return
+  // 已有服务端封面则不必截帧；仅用首图垫的仍截真实首帧覆盖
+  const stored = String((n && (n._videoCover || n.video_cover || n.videoCover)) || '').trim()
+  if (stored) return
+  if (noticeAutoCovers[id]) return
+  const src = publicUrl(noticeVideo(n)) || noticeVideo(n)
+  if (!src) return
+  if (noticeAutoCovers['_' + id + '_busy']) return
+  noticeAutoCovers['_' + id + '_busy'] = '1'
+  noticeCoverQueue.push({ id, src })
+  pumpNoticeCoverQueue()
 }
 
 function noticeImages(n) {
