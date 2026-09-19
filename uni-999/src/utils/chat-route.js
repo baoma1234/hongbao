@@ -97,7 +97,9 @@ function currentRouteIsChat() {
 }
 
 /**
- * 打开聊天页。频道群 / 已在聊天页时用 redirectTo，避免 APK 双 chat 栈残留原生 video。
+ * 打开聊天页。
+ * 注意：从 Tab 页（社群）redirectTo 会失败，必须 navigateTo；
+ * 频道群在进房前先关掉栈里已有 chat，避免华为等机型残留原生/合成层黑影。
  * @param {string} url
  * @param {{ groupId?: number|string }=} opts
  */
@@ -105,32 +107,61 @@ export function openChatPage(url, opts) {
   const target = String(url || '').trim()
   if (!target) return
   const gid = (opts && opts.groupId) | 0
-  const replace = isChannelVideoGroup(gid) || currentRouteIsChat()
-  if (replace) {
+  const preferReplace = isChannelVideoGroup(gid) || currentRouteIsChat()
+
+  const goNav = () => {
+    uni.navigateTo({
+      url: target,
+      fail() {
+        uni.reLaunch({ url: target })
+      },
+    })
+  }
+  const goReplace = () => {
     uni.redirectTo({
       url: target,
       fail() {
-        uni.navigateTo({
-          url: target,
-          fail() {
-            uni.reLaunch({ url: target })
-          },
-        })
+        goNav()
       },
     })
+  }
+
+  if (!preferReplace) {
+    goNav()
     return
   }
-  uni.navigateTo({
-    url: target,
-    fail() {
-      uni.redirectTo({
-        url: target,
-        fail() {
-          uni.reLaunch({ url: target })
-        },
-      })
-    },
-  })
+
+  try {
+    const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : null
+    const list = pages || []
+    let chatIdx = -1
+    for (let i = list.length - 1; i >= 0; i--) {
+      const r = String((list[i] && list[i].route) || '')
+      if (r.indexOf('pages/chat/chat') >= 0) {
+        chatIdx = i
+        break
+      }
+    }
+    if (chatIdx >= 0) {
+      const delta = list.length - 1 - chatIdx
+      if (delta > 0) {
+        // 栈上已有更早的 chat：先关掉再进新群（华为 WebView 残留层高发）
+        uni.navigateBack({
+          delta,
+          complete() {
+            setTimeout(goNav, 80)
+          },
+        })
+        return
+      }
+      // 当前就是 chat 页：替换
+      goReplace()
+      return
+    }
+  } catch (e) {}
+
+  // Tab 页上 redirectTo 不可用，直接 navigateTo
+  goNav()
 }
 
 /**

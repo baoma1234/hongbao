@@ -41,6 +41,7 @@
           <view class="chat-notice-pin-close" @click.stop="dismissNoticePin">×</view>
         </view>
         <scroll-view
+          :key="'msgsc-' + roomScrollKey"
           scroll-y
           class="chat-msg-scroll"
           :style="msgScrollStyle"
@@ -1051,6 +1052,7 @@ import {
   getActiveChat,
   saveActiveChat,
   openChatVideoPreview,
+  isChannelVideoGroup,
 } from '../../utils/chat-route.js'
 import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
 import {
@@ -1353,6 +1355,12 @@ async function revealOlderMessages() {
 const scrollInto = ref('')
 const scrollTop = ref(0)
 const meta = ref({ type: 1, peer: 0, group: 0, conversationId: '' })
+/** 强制重建消息 scroll-view（华为等机型切群时释放合成层/残留黑影） */
+const roomScrollKey = computed(() => {
+  const m = meta.value || {}
+  if ((m.type | 0) === 2) return 'g' + ((m.group | 0) || String(m.conversationId || ''))
+  return 'p' + ((m.peer | 0) || String(m.conversationId || ''))
+})
 const myAvatar = ref('')
 const myUserId = ref(0)
 const showRp = ref(false)
@@ -6703,10 +6711,21 @@ onShow(() => {
 
 onHide(() => {
   closeVideoAlbumPlayer()
+  // 频道群：离房立刻清空消息列表，逼华为 WebView 释放视频气泡 GPU 合成层
+  try {
+    const gid = (meta.value && meta.value.group) | 0
+    if (isChannelVideoGroup(gid)) {
+      messages.value = []
+      msgRevealCount.value = MSG_RENDER_CAP
+    }
+  } catch (e) {}
 })
 
 onUnload(() => {
   closeVideoAlbumPlayer()
+  try {
+    messages.value = []
+  } catch (e0) {}
   if (measureMsgScrollTimer) {
     clearTimeout(measureMsgScrollTimer)
     measureMsgScrollTimer = null
@@ -6865,10 +6884,46 @@ uni-page-body {
   overflow: hidden;
   background: #111;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+.chat-video-player-row {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  min-height: 180px;
+  background: #000;
+  overflow: hidden;
+}
+/* #ifdef APP-PLUS */
+/* 华为等 Android WebView：translateZ/isolation 会在 scroll-view 切页后留下黑合成层，挡住返回 */
+.chat-video-card,
+.chat-video-player-row {
+  transform: none !important;
+  -webkit-transform: none !important;
+  isolation: auto !important;
+  background: #1a1a1a !important;
+}
+.chat-room-page .chat-room-pane > .chat-hero-hd {
+  z-index: 20050 !important;
+  position: relative !important;
+}
+.chat-room-page .chat-hero-back,
+.chat-room-page .chat-hero-more {
+  position: relative !important;
+  z-index: 20060 !important;
+}
+/* #endif */
+/* #ifndef APP-PLUS */
+.chat-video-card {
   isolation: isolate;
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
 }
+.chat-video-player-row {
+  isolation: isolate;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+/* #endif */
 .chat-video-previews {
   display: grid;
   gap: 1.5px;
@@ -6918,17 +6973,6 @@ uni-page-body {
 }
 .chat-video-previews.vn5 .chat-video-preview-cell:nth-child(5) {
   grid-column: 1 / -1;
-}
-.chat-video-player-row {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  min-height: 180px;
-  background: #000;
-  overflow: hidden;
-  isolation: isolate;
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
 }
 .chat-video-card.has-previews .chat-video-player-row {
   border-top: 1.5px solid #111;

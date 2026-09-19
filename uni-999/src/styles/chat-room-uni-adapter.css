@@ -802,7 +802,6 @@
   padding-bottom: min(34px, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
   border-top: 1px solid rgba(0, 0, 0, 0.06);
   box-sizing: border-box !important;
-  transform: translateZ(0);
 }
 
 /* H5 键盘：整页钉在 visualViewport 内，composer 改为 absolute 贴该盒底（勿再用 translateY，会把消息顶飞） */
