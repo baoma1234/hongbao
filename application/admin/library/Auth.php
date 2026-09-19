@@ -246,17 +246,19 @@ class Auth extends \fast\Auth
             return false;
         }
         // 短缓存管理员行，避免每个 iframe 都打一次 fa_admin（远程库 ~50ms+/次）
+        // 必须用 getData()：toArray() 会丢掉 hidden 的 password，导致 safecode 校验炸
         $cacheKey = 'admin_auth_row_' . (int)$admin['id'];
         $myData = cache($cacheKey);
-        if (!is_array($myData) || empty($myData['id'])) {
+        if (!is_array($myData) || empty($myData['id']) || !isset($myData['password'])) {
             $my = Admin::get($admin['id']);
             if (!$my) {
                 return false;
             }
-            $myData = $my->toArray();
+            $myData = $my->getData();
             cache($cacheKey, $myData, 30);
         } else {
-            $my = new Admin($myData);
+            $my = new Admin();
+            $my->data($myData);
         }
         //校验安全码，可用于判断关键信息发生了变更需要重新登录
         if (!isset($admin['safecode']) || $this->getEncryptSafecode($my) !== $admin['safecode']) {
