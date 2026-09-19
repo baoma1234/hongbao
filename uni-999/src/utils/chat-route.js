@@ -107,11 +107,16 @@ export function openChatPage(url, opts) {
   const target = String(url || '').trim()
   if (!target) return
   const gid = (opts && opts.groupId) | 0
-  const preferReplace = isChannelVideoGroup(gid) || currentRouteIsChat()
+  const channel = isChannelVideoGroup(gid)
+  const preferReplace = channel || currentRouteIsChat()
 
   const goNav = () => {
     uni.navigateTo({
       url: target,
+      // #ifdef APP-PLUS
+      animationType: channel ? 'none' : 'pop-in',
+      animationDuration: channel ? 0 : 300,
+      // #endif
       fail() {
         uni.reLaunch({ url: target })
       },
@@ -149,7 +154,7 @@ export function openChatPage(url, opts) {
         uni.navigateBack({
           delta,
           complete() {
-            setTimeout(goNav, 80)
+            setTimeout(goNav, channel ? 220 : 80)
           },
         })
         return

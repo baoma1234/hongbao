@@ -198,10 +198,26 @@
                 </view>
                 <view
                   v-else-if="isVideo(m)"
-                  class="chat-bubble media is-video-full"
+                  class="chat-bubble media"
+                  :class="{ 'is-video-full': !channelLiteVideo }"
                   @longpress.stop="onMsgLongPress(m, $event)"
                 >
+                  <!-- APP 频道群：禁止大封面/黑底卡，华为 WebView 滚动会把合成层盖住返回 -->
                   <view
+                    v-if="channelLiteVideo"
+                    class="chat-video-lite"
+                    @click.stop="openVideoAlbumItem(m, 0)"
+                  >
+                    <text class="chat-video-lite-ico">▶</text>
+                    <text class="chat-video-lite-lab">{{
+                      mediaVideoList(m).length > 1
+                        ? '视频 ×' + mediaVideoList(m).length
+                        : '视频'
+                    }}</text>
+                    <text class="meta chat-video-lite-meta">{{ msgTime(m) }}</text>
+                  </view>
+                  <view
+                    v-else
                     class="chat-video-card"
                     :class="{
                       'has-previews': mediaVideoList(m).length > 1,
@@ -1355,11 +1371,25 @@ async function revealOlderMessages() {
 const scrollInto = ref('')
 const scrollTop = ref(0)
 const meta = ref({ type: 1, peer: 0, group: 0, conversationId: '' })
+/** 每次进房递增，强制重建 scroll-view，逼华为释放合成层 */
+const roomScrollEpoch = ref(0)
 /** 强制重建消息 scroll-view（华为等机型切群时释放合成层/残留黑影） */
 const roomScrollKey = computed(() => {
   const m = meta.value || {}
-  if ((m.type | 0) === 2) return 'g' + ((m.group | 0) || String(m.conversationId || ''))
-  return 'p' + ((m.peer | 0) || String(m.conversationId || ''))
+  const base =
+    (m.type | 0) === 2
+      ? 'g' + ((m.group | 0) || String(m.conversationId || ''))
+      : 'p' + ((m.peer | 0) || String(m.conversationId || ''))
+  return base + '-e' + (roomScrollEpoch.value | 0)
+})
+/** APP 频道群：视频消息用轻量行，不用封面大图/黑底（未播也会黑影盖返回） */
+const channelLiteVideo = computed(() => {
+  // #ifdef APP-PLUS
+  return isChannelVideoGroup((meta.value && meta.value.group) | 0)
+  // #endif
+  // #ifndef APP-PLUS
+  return false
+  // #endif
 })
 const myAvatar = ref('')
 const myUserId = ref(0)
@@ -4967,8 +4997,16 @@ function openFileMsg(m) {
 async function goBack() {
   closeVideoAlbumPlayer()
   // #ifdef APP-PLUS
-  // 等原生层有机会卸掉，再返回，避免黑影盖住下一页且吞掉返回点击
-  await new Promise((r) => setTimeout(r, 120))
+  try {
+    const gid = (meta.value && meta.value.group) | 0
+    if (isChannelVideoGroup(gid)) {
+      messages.value = []
+      msgRevealCount.value = MSG_RENDER_CAP
+      roomScrollEpoch.value = (roomScrollEpoch.value | 0) + 1
+    }
+  } catch (eClr) {}
+  // 等列表卸掉后再返回，避免黑影盖住下一页且吞掉返回点击
+  await new Promise((r) => setTimeout(r, 160))
   // #endif
   // 先落已读水位，再清 activeChat，避免返回瞬间延迟推送又把未读加回
   try {
@@ -6697,6 +6735,14 @@ onLoad(async (query) => {
 onShow(() => {
   refreshChatSafeLayout()
   scheduleMeasureMsgScroll()
+  // #ifdef APP-PLUS
+  try {
+    const gid = (meta.value && meta.value.group) | 0
+    if (isChannelVideoGroup(gid)) {
+      roomScrollEpoch.value = (roomScrollEpoch.value | 0) + 1
+    }
+  } catch (eEp) {}
+  // #endif
   if (!getToken() || !roomAlive) return
   bindForegroundResume()
   resumeFromBackground('chat-onShow')
@@ -6717,6 +6763,7 @@ onHide(() => {
     if (isChannelVideoGroup(gid)) {
       messages.value = []
       msgRevealCount.value = MSG_RENDER_CAP
+      roomScrollEpoch.value = (roomScrollEpoch.value | 0) + 1
     }
   } catch (e) {}
 })
@@ -6896,20 +6943,87 @@ uni-page-body {
 /* #ifdef APP-PLUS */
 /* 华为等 Android WebView：translateZ/isolation 会在 scroll-view 切页后留下黑合成层，挡住返回 */
 .chat-video-card,
-.chat-video-player-row {
+.chat-video-player-row,
+.chat-video-previews,
+.chat-video-preview-cell,
+.chat-video-preview-img {
   transform: none !important;
   -webkit-transform: none !important;
   isolation: auto !important;
-  background: #1a1a1a !important;
+  will-change: auto !important;
+  backface-visibility: visible !important;
+  -webkit-backface-visibility: visible !important;
+  filter: none !important;
+}
+.chat-video-card,
+.chat-video-player-row {
+  background: #f2f2f2 !important;
+}
+.chat-room-page .chat-msg-scroll,
+.chat-room-page .chat-room-main,
+.chat-room-page .chat-msg-row,
+.chat-room-page .chat-bubble.media {
+  transform: none !important;
+  -webkit-transform: none !important;
+  isolation: auto !important;
+  will-change: auto !important;
+  filter: none !important;
 }
 .chat-room-page .chat-room-pane > .chat-hero-hd {
-  z-index: 20050 !important;
+  z-index: 2147483000 !important;
   position: relative !important;
+  transform: none !important;
+  -webkit-transform: none !important;
 }
 .chat-room-page .chat-hero-back,
 .chat-room-page .chat-hero-more {
   position: relative !important;
-  z-index: 20060 !important;
+  z-index: 2147483001 !important;
+  pointer-events: auto !important;
+}
+.chat-room-page .chat-room-main {
+  z-index: 0 !important;
+  position: relative !important;
+}
+.chat-video-lite {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  min-width: 148px;
+  max-width: 78vw;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+.chat-video-lite-ico {
+  width: 28px;
+  height: 28px;
+  border-radius: 14px;
+  background: #07c160;
+  color: #fff;
+  font-size: 12px;
+  line-height: 28px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.chat-video-lite-lab {
+  flex: 1;
+  font-size: 15px;
+  color: #191919;
+  line-height: 1.3;
+}
+.chat-video-lite-meta {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: #b2b2b2;
+}
+.chat-msg-row.me .chat-video-lite {
+  background: #95ec69;
+}
+.chat-msg-row.me .chat-video-lite-meta {
+  color: rgba(0, 0, 0, 0.45);
 }
 /* #endif */
 /* #ifndef APP-PLUS */

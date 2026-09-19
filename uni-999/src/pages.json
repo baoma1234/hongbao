@@ -254,7 +254,8 @@
             "disableScroll": true,
             "app-plus": {
               "bounce": "none",
-              "softinputMode": "adjustResize"
+              "softinputMode": "adjustResize",
+              "hardwareAccelerated": false
             }
           }
         }
