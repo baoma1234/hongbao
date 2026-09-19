@@ -349,6 +349,7 @@ import '../../styles/chat-create-group-qq.css'
 import { apiRequest, getToken } from '../../utils/auth.js'
 import { applySafeAreaCssVars, getSafeAreaInsets, getTopBarContentHeight } from '../../utils/safe-area.js'
 import { avatarSrc } from '../../utils/chat.js'
+import { openChatPage } from '../../utils/chat-route.js'
 import {
   canCreateGroupFromAuth,
   createGroup,
@@ -959,15 +960,15 @@ async function openGroup(g) {
       await loadCommunityExtra({ force: true })
       await loadCommunity()
     }
-    uni.navigateTo({
-      url:
-        '/pages/chat/chat?type=2&id=' +
+    openChatPage(
+      '/pages/chat/chat?type=2&id=' +
         encodeURIComponent(groupId) +
         '&group=' +
         encodeURIComponent(groupId) +
         '&title=' +
         encodeURIComponent(g.name || ('群' + groupId)),
-    })
+      { groupId }
+    )
   } catch (e) {
     uni.showToast({ title: (e && e.message) || '进入社群失败', icon: 'none' })
   }
@@ -1035,15 +1036,15 @@ async function submitCreateGroup() {
     await loadMyGroupsSafe()
     uni.showToast({ title: '群聊已创建', icon: 'none' })
     setTimeout(() => {
-      uni.navigateTo({
-        url:
-          '/pages/chat/chat?type=2&id=' +
+      openChatPage(
+        '/pages/chat/chat?type=2&id=' +
           encodeURIComponent(g.id) +
           '&group=' +
           encodeURIComponent(g.id) +
           '&title=' +
           encodeURIComponent(g.name || name || '群聊'),
-      })
+        { groupId: g.id }
+      )
     }, 200)
   } catch (e) {
     uni.showToast({ title: (e && e.message) || '创建失败', icon: 'none' })

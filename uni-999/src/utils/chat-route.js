@@ -77,6 +77,106 @@ export function buildChatUrl(data) {
   return '/pages/chat/chat?' + q
 }
 
+/** 影音/频道群：APK 上易残留原生 video 层，进房用 redirectTo 避免叠栈 */
+export const CHANNEL_VIDEO_GROUP_IDS = [70, 71, 72, 77]
+
+export function isChannelVideoGroup(groupId) {
+  const gid = groupId | 0
+  return gid > 0 && CHANNEL_VIDEO_GROUP_IDS.indexOf(gid) >= 0
+}
+
+function currentRouteIsChat() {
+  try {
+    const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : null
+    const cur = pages && pages.length ? pages[pages.length - 1] : null
+    const route = String((cur && (cur.route || cur.$page && cur.$page.fullPath)) || '')
+    return route.indexOf('pages/chat/chat') >= 0
+  } catch (e) {
+    return false
+  }
+}
+
+/**
+ * 打开聊天页。频道群 / 已在聊天页时用 redirectTo，避免 APK 双 chat 栈残留原生 video。
+ * @param {string} url
+ * @param {{ groupId?: number|string }=} opts
+ */
+export function openChatPage(url, opts) {
+  const target = String(url || '').trim()
+  if (!target) return
+  const gid = (opts && opts.groupId) | 0
+  const replace = isChannelVideoGroup(gid) || currentRouteIsChat()
+  if (replace) {
+    uni.redirectTo({
+      url: target,
+      fail() {
+        uni.navigateTo({
+          url: target,
+          fail() {
+            uni.reLaunch({ url: target })
+          },
+        })
+      },
+    })
+    return
+  }
+  uni.navigateTo({
+    url: target,
+    fail() {
+      uni.redirectTo({
+        url: target,
+        fail() {
+          uni.reLaunch({ url: target })
+        },
+      })
+    },
+  })
+}
+
+/**
+ * App 端播放聊天视频：系统预览器，不在聊天页挂原生 video（杜绝黑影脱层）。
+ * H5 返回 false，由调用方走页面内播放器。
+ * @param {{ url: string, poster?: string }[]} sources
+ * @param {number} current
+ * @returns {boolean}
+ */
+export function openChatVideoPreview(sources, current) {
+  // #ifndef APP-PLUS
+  return false
+  // #endif
+  // #ifdef APP-PLUS
+  const list = (sources || [])
+    .map((s) => ({
+      url: String((s && (s.url || s.src)) || '').trim(),
+      type: 'video',
+      poster: String((s && s.poster) || '').trim(),
+    }))
+    .filter((s) => !!s.url)
+  if (!list.length) return false
+  const idx = Math.max(0, Math.min(list.length - 1, current | 0))
+  try {
+    if (typeof uni.previewMedia === 'function') {
+      uni.previewMedia({
+        sources: list,
+        current: idx,
+        fail() {
+          try {
+            plus.runtime.openURL(list[idx].url)
+          } catch (e2) {}
+        },
+      })
+      return true
+    }
+  } catch (e) {}
+  try {
+    plus.runtime.openURL(list[idx].url)
+    return true
+  } catch (e3) {
+    return false
+  }
+  // #endif
+}
+
 /** H5：从 hash 解析当前页 path（不含 query） */
 export function getHashRoutePath() {
   // #ifdef H5

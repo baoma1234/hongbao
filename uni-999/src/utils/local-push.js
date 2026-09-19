@@ -4,7 +4,7 @@
  * - 离线系统推送走极光原生插件 luanqing-jgpush
  */
 import { previewText } from './chat.js'
-import { buildChatUrl, getActiveChat, getHashRoutePath } from './chat-route.js'
+import { buildChatUrl, getActiveChat, getHashRoutePath, openChatPage } from './chat-route.js'
 import { isGroupNotifyMuted } from './group-notify-mute.js'
 import { isMsgMuted } from './app-prefs.js'
 import { getSafeAreaInsets } from './safe-area.js'
@@ -197,8 +197,9 @@ export function maybeShowLocalPush(msg, opts = {}) {
 export function openLocalPushChat(chat) {
   const url = buildChatUrl(chat)
   if (!url) return
+  const groupId = (chat && (chat.group || chat.group_id)) | 0
   try {
-    uni.navigateTo({ url })
+    openChatPage(url, { groupId })
   } catch (e) {
     try {
       uni.reLaunch({ url })

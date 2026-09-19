@@ -46,7 +46,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, getCurrentInstance, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { captureVideoFirstFrame, isHlsUrl } from '../utils/chat.js'
 
 const props = defineProps({
@@ -259,7 +259,8 @@ onBeforeUnmount(() => {
   // App 原生 video 层：离开时 pause/stop，避免切群后黑影悬浮跟着滚
   // #ifndef H5
   try {
-    const ctx = uni.createVideoContext(domId.value)
+    const proxy = getCurrentInstance() && getCurrentInstance().proxy
+    const ctx = proxy ? uni.createVideoContext(domId.value, proxy) : uni.createVideoContext(domId.value)
     if (ctx) {
       if (typeof ctx.pause === 'function') ctx.pause()
       if (typeof ctx.stop === 'function') ctx.stop()

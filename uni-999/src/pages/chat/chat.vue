@@ -739,7 +739,8 @@
 
     <GrabSlider ref="grabSliderRef" />
 
-    <!-- 多视频相册：点格子全屏播该视频 -->
+    <!-- 多视频相册：H5 页内播；App 走系统 previewMedia，禁止在聊天页挂原生 video（否则切群黑影+返回失效） -->
+    <!-- #ifdef H5 -->
     <view v-if="videoAlbumPlayer.open" class="chat-video-album-mask" @click="closeVideoAlbumPlayer">
       <view class="chat-video-album-player" @click.stop>
         <view class="chat-video-album-player-close" @click="closeVideoAlbumPlayer">×</view>
@@ -750,6 +751,7 @@
         />
       </view>
     </view>
+    <!-- #endif -->
 
     <!-- 牛牛领取：立体描边红包框（无背景图/无领取按钮图） -->
     <view v-if="showNiuniuCover" class="nn-cover-mask" @click="closeNiuniuCover">
@@ -1005,7 +1007,9 @@ import { computed, getCurrentInstance, nextTick, reactive, ref, watch } from 'vu
 import { onLoad, onShow, onHide, onUnload } from '@dcloudio/uni-app'
 import GrabSlider from '../../components/GrabSlider.vue'
 import ChatNiuniuCard from '../../components/ChatNiuniuCard.vue'
+// #ifdef H5
 import ChatMediaVideo from '../../components/ChatMediaVideo.vue'
+// #endif
 import ChatFoldText from '../../components/ChatFoldText.vue'
 import '../../styles/chat.bundle.css'
 import '../../styles/chat-room-uni-adapter.css'
@@ -1046,6 +1050,7 @@ import {
   clearActiveChat,
   getActiveChat,
   saveActiveChat,
+  openChatVideoPreview,
 } from '../../utils/chat-route.js'
 import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
 import {
@@ -2817,6 +2822,16 @@ function openVideoAlbumItem(m, idx) {
   const i = Math.max(0, Math.min(list.length - 1, idx | 0))
   const item = list[i]
   if (!item || !item.src) return
+  // App：系统预览器，聊天页零原生 video 层
+  const previewOk = openChatVideoPreview(
+    list.map((v, j) => ({
+      url: v && v.src,
+      poster: resolvedVideoPoster(m, j) || (v && v.poster) || '',
+    })),
+    i
+  )
+  if (previewOk) return
+  // H5 / 兜底：页内蒙层
   videoAlbumPlayer.value = {
     open: true,
     src: item.src,
@@ -2824,11 +2839,13 @@ function openVideoAlbumItem(m, idx) {
   }
 }
 function closeVideoAlbumPlayer() {
-  // 先清 src 再关蒙层，逼原生 video 立刻销毁，避免切群后黑影脱层跟着滚
   const cur = videoAlbumPlayer.value || {}
-  if (cur.open || cur.src) {
+  if (!cur.open && !cur.src) return
+  // 两阶段：先卸 src 再关蒙层，给原生层销毁时间
+  videoAlbumPlayer.value = { open: true, src: '', poster: '' }
+  setTimeout(() => {
     videoAlbumPlayer.value = { open: false, src: '', poster: '' }
-  }
+  }, 80)
 }
 function previewVideoImages(m, idx) {
   const urls = mediaVideoPreviews(m)
@@ -4940,6 +4957,11 @@ function openFileMsg(m) {
 }
 
 async function goBack() {
+  closeVideoAlbumPlayer()
+  // #ifdef APP-PLUS
+  // 等原生层有机会卸掉，再返回，避免黑影盖住下一页且吞掉返回点击
+  await new Promise((r) => setTimeout(r, 120))
+  // #endif
   // 先落已读水位，再清 activeChat，避免返回瞬间延迟推送又把未读加回
   try {
     await markRead()

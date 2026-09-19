@@ -4,6 +4,7 @@
  */
 import { getToken } from './auth.js'
 import { joinGroup, imConnect } from './im.js'
+import { openChatPage } from './chat-route.js'
 
 export const GROUP_JOIN_STORAGE_KEY = 'fanshub_pending_join_group'
 
@@ -174,18 +175,14 @@ export async function tryConsumeGroupJoin(opts = {}) {
     if (!silent) {
       uni.showToast({ title: '已加入群聊', icon: 'none' })
     }
-    uni.navigateTo({
-      url: inviteChatUrl(gid, groupNameFromJoinPacket(packet)),
-    })
+    openChatPage(inviteChatUrl(gid, groupNameFromJoinPacket(packet)), { groupId: gid })
     return true
   } catch (e) {
     // 已在群内也算成功：进房后由 chat 拉 group.info 显示真实群名
     const msg = String((e && e.message) || '')
     if (/already|已在|member/i.test(msg) || msg === '') {
       clearPendingGroupJoin()
-      uni.navigateTo({
-        url: inviteChatUrl(gid),
-      })
+      openChatPage(inviteChatUrl(gid), { groupId: gid })
       return true
     }
     if (!silent) {

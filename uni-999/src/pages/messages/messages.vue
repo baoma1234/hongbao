@@ -331,7 +331,7 @@ import {
 } from '../../utils/chat.js'
 import { packagedStaticUrl } from '../../utils/config.js'
 import { openFriendScanSheet } from '../../utils/friend-scan.js'
-import { saveActiveChat } from '../../utils/chat-route.js'
+import { saveActiveChat, openChatPage } from '../../utils/chat-route.js'
 import { captureGroupJoinFromUrl, tryConsumeGroupJoin } from '../../utils/group-invite.js'
 import {
   canCreateGroupFromAuth,
@@ -785,7 +785,7 @@ function openChat(item) {
     'nickname=' + encodeURIComponent(item.peer_nickname || ''),
     'remark=' + encodeURIComponent(item.remark || ''),
   ].join('&')
-  uni.navigateTo({ url: '/pages/chat/chat?' + q })
+  openChatPage('/pages/chat/chat?' + q, { groupId: group })
 }
 
 function bumpUnread(msg) {
