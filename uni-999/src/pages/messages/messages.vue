@@ -270,7 +270,7 @@
 
     <FriendScanSheet />
 
-    <!-- 红宝页运营弹窗：仅海报图 + 下方关闭（H5 / Safari / APK / IPA） -->
+    <!-- 红宝页运营弹窗：海报图 + 右上角关闭（H5 / Safari / APK / IPA） -->
     <view
       v-if="msgPopupOpen && msgPopup && msgPopupImage"
       class="msg-popup-mask"
@@ -278,19 +278,21 @@
       @touchmove.stop.prevent="noopPopup"
     >
       <view class="msg-popup-wrap" @click.stop>
-        <image
-          class="msg-popup-img"
-          :src="msgPopupImage"
-          mode="widthFix"
-          :show-menu-by-longpress="true"
-          @click="clickMsgPopup"
-        />
-        <view
-          class="msg-popup-close"
-          hover-class="msg-popup-close--active"
-          :hover-stay-time="80"
-          @click="dismissMsgPopup('dismiss_day')"
-        >×</view>
+        <view class="msg-popup-card">
+          <image
+            class="msg-popup-img"
+            :src="msgPopupImage"
+            mode="widthFix"
+            :show-menu-by-longpress="true"
+            @click="clickMsgPopup"
+          />
+          <view
+            class="msg-popup-close"
+            hover-class="msg-popup-close--active"
+            :hover-stay-time="80"
+            @click.stop="dismissMsgPopup('dismiss_day')"
+          >×</view>
+        </view>
         <view
           v-if="msgPopup.show_mode !== 'once'"
           class="msg-popup-mute"
@@ -2052,34 +2054,44 @@ onHide(() => {
   box-sizing: border-box;
   max-height: 100%;
 }
+.msg-popup-card {
+  position: relative;
+  width: 85%;
+  max-height: min(61.2vh, 544px);
+  box-sizing: border-box;
+}
 .msg-popup-img {
   display: block;
-  width: 85%;
+  width: 100%;
   height: auto;
   max-height: min(61.2vh, 544px);
   border-radius: 12px;
   background: transparent;
 }
 .msg-popup-close {
-  width: 40px;
-  height: 40px;
-  line-height: 38px;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  width: 32px;
+  height: 32px;
+  line-height: 30px;
   text-align: center;
   border-radius: 50%;
-  font-size: 28px;
+  font-size: 22px;
   font-weight: 300;
   color: #fff;
-  background: rgba(255, 255, 255, 0.18);
-  border: 1.5px solid rgba(255, 255, 255, 0.55);
+  background: rgba(0, 0, 0, 0.45);
+  border: 1.5px solid rgba(255, 255, 255, 0.65);
   box-sizing: border-box;
   flex-shrink: 0;
 }
 .msg-popup-close--active {
   opacity: 0.75;
-  background: rgba(255, 255, 255, 0.28);
+  background: rgba(0, 0, 0, 0.6);
 }
 .msg-popup-mute {
-  margin-top: -6px;
+  margin-top: 0;
   padding: 6px 12px 2px;
   font-size: 13px;
   font-weight: 600;
