@@ -18,6 +18,7 @@
     <!-- #endif -->
     <!-- #ifndef H5 -->
     <video
+      :id="domId"
       class="chat-media-video"
       :src="src"
       controls
@@ -255,6 +256,26 @@ onMounted(() => {
 onBeforeUnmount(() => {
   destroyed = true
   destroyHls()
+  // App 原生 video 层：离开时 pause/stop，避免切群后黑影悬浮跟着滚
+  // #ifndef H5
+  try {
+    const ctx = uni.createVideoContext(domId.value)
+    if (ctx) {
+      if (typeof ctx.pause === 'function') ctx.pause()
+      if (typeof ctx.stop === 'function') ctx.stop()
+    }
+  } catch (e) {}
+  // #endif
+  // #ifdef H5
+  try {
+    const el = resolveVideoEl()
+    if (el) {
+      el.pause && el.pause()
+      el.removeAttribute && el.removeAttribute('src')
+      el.load && el.load()
+    }
+  } catch (e2) {}
+  // #endif
 })
 </script>
 

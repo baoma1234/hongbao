@@ -225,21 +225,7 @@
                           :src="resolvedVideoPoster(m, pi)"
                           mode="aspectFill"
                         />
-                        <view v-else class="chat-video-preview-fallback">
-                          <!-- #ifndef H5 -->
-                          <video
-                            v-if="vv.src"
-                            class="chat-video-poster-fallback-video"
-                            :src="vv.src"
-                            :controls="false"
-                            :show-center-play-btn="false"
-                            :show-play-btn="false"
-                            :autoplay="false"
-                            muted
-                            object-fit="cover"
-                          />
-                          <!-- #endif -->
-                        </view>
+                        <view v-else class="chat-video-preview-fallback chat-video-preview-fallback--blank" />
                         <view class="chat-video-album-play">
                           <text class="chat-video-album-play-ico">▶</text>
                         </view>
@@ -257,21 +243,7 @@
                         :src="resolvedVideoPoster(m, 0)"
                         mode="aspectFit"
                       />
-                      <view v-else class="chat-video-preview-fallback">
-                        <!-- #ifndef H5 -->
-                        <video
-                          v-if="mediaVideoList(m)[0] && mediaVideoList(m)[0].src"
-                          class="chat-video-poster-fallback-video"
-                          :src="mediaVideoList(m)[0].src"
-                          :controls="false"
-                          :show-center-play-btn="false"
-                          :show-play-btn="false"
-                          :autoplay="false"
-                          muted
-                          object-fit="contain"
-                        />
-                        <!-- #endif -->
-                      </view>
+                      <view v-else class="chat-video-preview-fallback chat-video-preview-fallback--blank" />
                       <view class="chat-video-album-play">
                         <text class="chat-video-album-play-ico">▶</text>
                       </view>
@@ -1030,7 +1002,7 @@
 
 <script setup>
 import { computed, getCurrentInstance, nextTick, reactive, ref, watch } from 'vue'
-import { onLoad, onShow, onUnload } from '@dcloudio/uni-app'
+import { onLoad, onShow, onHide, onUnload } from '@dcloudio/uni-app'
 import GrabSlider from '../../components/GrabSlider.vue'
 import ChatNiuniuCard from '../../components/ChatNiuniuCard.vue'
 import ChatMediaVideo from '../../components/ChatMediaVideo.vue'
@@ -2852,7 +2824,11 @@ function openVideoAlbumItem(m, idx) {
   }
 }
 function closeVideoAlbumPlayer() {
-  videoAlbumPlayer.value = { open: false, src: '', poster: '' }
+  // 先清 src 再关蒙层，逼原生 video 立刻销毁，避免切群后黑影脱层跟着滚
+  const cur = videoAlbumPlayer.value || {}
+  if (cur.open || cur.src) {
+    videoAlbumPlayer.value = { open: false, src: '', poster: '' }
+  }
 }
 function previewVideoImages(m, idx) {
   const urls = mediaVideoPreviews(m)
@@ -6395,6 +6371,7 @@ function leaveRoomToList(tip) {
 }
 
 onLoad(async (query) => {
+  closeVideoAlbumPlayer()
   refreshChatSafeLayout()
   try {
     const cfg = await fetchConfig()
@@ -6702,7 +6679,12 @@ onShow(() => {
   if (!isPrivate.value) loadGroupMeta().catch(() => {})
 })
 
+onHide(() => {
+  closeVideoAlbumPlayer()
+})
+
 onUnload(() => {
+  closeVideoAlbumPlayer()
   if (measureMsgScrollTimer) {
     clearTimeout(measureMsgScrollTimer)
     measureMsgScrollTimer = null
