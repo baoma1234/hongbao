@@ -198,26 +198,10 @@
                 </view>
                 <view
                   v-else-if="isVideo(m)"
-                  class="chat-bubble media"
-                  :class="{ 'is-video-full': !channelLiteVideo }"
+                  class="chat-bubble media is-video-full"
                   @longpress.stop="onMsgLongPress(m, $event)"
                 >
-                  <!-- APP 频道群：禁止大封面/黑底卡，华为 WebView 滚动会把合成层盖住返回 -->
                   <view
-                    v-if="channelLiteVideo"
-                    class="chat-video-lite"
-                    @click.stop="openVideoAlbumItem(m, 0)"
-                  >
-                    <text class="chat-video-lite-ico">▶</text>
-                    <text class="chat-video-lite-lab">{{
-                      mediaVideoList(m).length > 1
-                        ? '视频 ×' + mediaVideoList(m).length
-                        : '视频'
-                    }}</text>
-                    <text class="meta chat-video-lite-meta">{{ msgTime(m) }}</text>
-                  </view>
-                  <view
-                    v-else
                     class="chat-video-card"
                     :class="{
                       'has-previews': mediaVideoList(m).length > 1,
@@ -756,8 +740,7 @@
 
     <GrabSlider ref="grabSliderRef" />
 
-    <!-- 多视频相册：H5 页内播；App 进独立 video-play 页（勿 openURL 跳浏览器） -->
-    <!-- #ifdef H5 -->
+    <!-- 群视频：H5 / App 同一页内蒙层播放（与网页一致，不跳浏览器） -->
     <view v-if="videoAlbumPlayer.open" class="chat-video-album-mask" @click="closeVideoAlbumPlayer">
       <view class="chat-video-album-player" @click.stop>
         <view class="chat-video-album-player-close" @click="closeVideoAlbumPlayer">×</view>
@@ -768,7 +751,6 @@
         />
       </view>
     </view>
-    <!-- #endif -->
 
     <!-- 牛牛领取：立体描边红包框（无背景图/无领取按钮图） -->
     <view v-if="showNiuniuCover" class="nn-cover-mask" @click="closeNiuniuCover">
@@ -1067,7 +1049,6 @@ import {
   clearActiveChat,
   getActiveChat,
   saveActiveChat,
-  openChatVideoPreview,
   isChannelVideoGroup,
 } from '../../utils/chat-route.js'
 import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
@@ -1381,15 +1362,6 @@ const roomScrollKey = computed(() => {
       ? 'g' + ((m.group | 0) || String(m.conversationId || ''))
       : 'p' + ((m.peer | 0) || String(m.conversationId || ''))
   return base + '-e' + (roomScrollEpoch.value | 0)
-})
-/** APP 频道群：视频消息用轻量行，不用封面大图/黑底（未播也会黑影盖返回） */
-const channelLiteVideo = computed(() => {
-  // #ifdef APP-PLUS
-  return isChannelVideoGroup((meta.value && meta.value.group) | 0)
-  // #endif
-  // #ifndef APP-PLUS
-  return false
-  // #endif
 })
 const myAvatar = ref('')
 const myUserId = ref(0)
@@ -2860,16 +2832,7 @@ function openVideoAlbumItem(m, idx) {
   const i = Math.max(0, Math.min(list.length - 1, idx | 0))
   const item = list[i]
   if (!item || !item.src) return
-  // App：系统预览器，聊天页零原生 video 层
-  const previewOk = openChatVideoPreview(
-    list.map((v, j) => ({
-      url: v && v.src,
-      poster: resolvedVideoPoster(m, j) || (v && v.poster) || '',
-    })),
-    i
-  )
-  if (previewOk) return
-  // H5 / 兜底：页内蒙层
+  // 与网页一致：页内蒙层播放，不跳独立页 / 浏览器
   videoAlbumPlayer.value = {
     open: true,
     src: item.src,
@@ -6955,10 +6918,6 @@ uni-page-body {
   -webkit-backface-visibility: visible !important;
   filter: none !important;
 }
-.chat-video-card,
-.chat-video-player-row {
-  background: #f2f2f2 !important;
-}
 .chat-room-page .chat-msg-scroll,
 .chat-room-page .chat-room-main,
 .chat-room-page .chat-msg-row,
@@ -6984,46 +6943,6 @@ uni-page-body {
 .chat-room-page .chat-room-main {
   z-index: 0 !important;
   position: relative !important;
-}
-.chat-video-lite {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-  min-width: 148px;
-  max-width: 78vw;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: #ffffff;
-  box-sizing: border-box;
-}
-.chat-video-lite-ico {
-  width: 28px;
-  height: 28px;
-  border-radius: 14px;
-  background: #07c160;
-  color: #fff;
-  font-size: 12px;
-  line-height: 28px;
-  text-align: center;
-  flex-shrink: 0;
-}
-.chat-video-lite-lab {
-  flex: 1;
-  font-size: 15px;
-  color: #191919;
-  line-height: 1.3;
-}
-.chat-video-lite-meta {
-  flex-shrink: 0;
-  font-size: 11px;
-  color: #b2b2b2;
-}
-.chat-msg-row.me .chat-video-lite {
-  background: #95ec69;
-}
-.chat-msg-row.me .chat-video-lite-meta {
-  color: rgba(0, 0, 0, 0.45);
 }
 /* #endif */
 /* #ifndef APP-PLUS */
