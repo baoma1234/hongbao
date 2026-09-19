@@ -1,0 +1,163 @@
+<form id="edit-form" class="form-horizontal" role="form" data-toggle="validator" method="POST" action="">
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">任务名:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[name]" type="text" data-rule="required" value="{$row.name|htmlentities}">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">群ID:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[group_id]" type="number" data-rule="required" min="1" value="{$row.group_id}">
+            <span class="help-block">群需已开启对应红包类型（普通红宝 / 随机红包）</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">自动发包:</label>
+        <div class="col-xs-12 col-sm-8">
+            <label class="checkbox-inline"><input type="checkbox" name="row[auto_send]" value="1" {eq name="row.auto_send" value="1"}checked{/eq}> 开启</label>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">发抢模式:</label>
+        <div class="col-xs-12 col-sm-8">
+            <label class="radio-inline"><input type="radio" name="row[actor_mode]" value="1" {if condition='!isset($row.actor_mode) || $row.actor_mode != 2'}checked{/if}> 模式一：发包/抢包 UID 池</label>
+            <label class="radio-inline"><input type="radio" name="row[actor_mode]" value="2" {eq name="row.actor_mode" value="2"}checked{/eq}> 模式二：机器人账户随机发抢</label>
+            <span class="help-block">模式二从机器人账户（is_bot=1）随机发/抢，可不填下方 UID</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">发包用户ID:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[send_user_ids]" type="text" value="{if condition='$row.send_user_ids'}{$row.send_user_ids|htmlentities}{else /}{$row.send_user_id|default=''}{/if}" placeholder="多个用逗号分隔">
+            <span class="help-block">模式一时必填；多个 UID 每次<strong>随机选一个</strong>发包</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">红包类型:</label>
+        <div class="col-xs-12 col-sm-8">
+            <select name="row[packet_type]" class="form-control selectpicker">
+                {foreach name="packetTypeList" item="vo"}
+                <option value="{$key}" {eq name="key" value="$row.packet_type"}selected{/eq}>{$vo}</option>
+                {/foreach}
+            </select>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">金额范围:</label>
+        <div class="col-xs-12 col-sm-8">
+            <div class="row" style="margin-left:0;margin-right:0">
+                <div class="col-xs-4" style="padding-left:0;padding-right:6px;margin-bottom:8px">
+                    <input class="form-control" name="row[amount_min]" type="number" step="10" min="10" value="{if condition='$row.amount_min gt 0'}{$row.amount_min|round=0}{else /}{$row.total_amount|round=0}{/if}">
+                </div>
+                <div class="col-xs-4" style="padding-left:6px;padding-right:6px;margin-bottom:8px">
+                    <input class="form-control" name="row[amount_max]" type="number" step="10" min="10" value="{if condition='$row.amount_max gt 0'}{$row.amount_max|round=0}{else /}{$row.total_amount|round=0}{/if}">
+                </div>
+                <div class="col-xs-4" style="padding-left:6px;padding-right:0;margin-bottom:8px">
+                    <input class="form-control" name="row[total_count]" type="number" min="1" value="{$row.total_count}">
+                </div>
+            </div>
+            <span class="help-block">每包总金额，须为 <strong>10 的整数倍</strong>。最小=最大则固定，否则该范围内随机。个数=每包份数。</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">祝福语:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[blessing]" type="text" value="{$row.blessing|htmlentities}">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">开启时间:</label>
+        <div class="col-xs-12 col-sm-8">
+            {volist name="rainSlots" id="slot"}
+            <div class="row" style="margin:0 0 8px">
+                <div class="col-xs-6" style="padding-left:0;padding-right:6px">
+                    <div class="input-group">
+                        <span class="input-group-addon">时间</span>
+                        <input class="form-control" name="row[slots][{$slot.i}][time]" type="time" value="{$slot.time|htmlentities}" step="60">
+                    </div>
+                </div>
+                <div class="col-xs-6" style="padding-left:6px;padding-right:0">
+                    <div class="input-group">
+                        <span class="input-group-addon">发包次数</span>
+                        <input class="form-control" name="row[slots][{$slot.i}][count]" type="number" min="1" max="100" value="{$slot.count}" placeholder="本分钟发几个包">
+                    </div>
+                </div>
+            </div>
+            {/volist}
+            <span class="help-block">可配多段，精确到<strong>分</strong>。到点只发一轮。空行忽略。</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">自动抢包:</label>
+        <div class="col-xs-12 col-sm-8">
+            <label class="checkbox-inline"><input type="checkbox" name="row[auto_grab]" value="1" {eq name="row.auto_grab" value="1"}checked{/eq}> 开启</label>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">抢包用户ID:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[grab_user_ids]" type="text" value="{$row.grab_user_ids|htmlentities}">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">每人抢上限:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[bot_grab_cap]" type="number" min="0" value="{$row.bot_grab_cap|default=1}">
+            <span class="help-block">本轮每个机器人最多抢几个包。0=不限</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">超时全领:</label>
+        <div class="col-xs-12 col-sm-8">
+            <div class="input-group">
+                <input class="form-control" name="row[sweep_minutes]" type="number" min="1" max="180" value="{$row.sweep_minutes|default=3}">
+                <span class="input-group-addon">分钟</span>
+            </div>
+            <span class="help-block">开包超过该分钟后，机器人把本轮剩余包领完（不再受每人上限限制）</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">抢包延迟ms:</label>
+        <div class="col-xs-12 col-sm-8">
+            <div class="row" style="margin-left:0;margin-right:0">
+                <div class="col-xs-12 col-sm-6" style="padding-left:0;padding-right:6px;margin-bottom:8px">
+                    <div class="input-group">
+                        <span class="input-group-addon">最小</span>
+                        <input class="form-control" name="row[grab_delay_min_ms]" type="number" min="1000" value="{$row.grab_delay_min_ms|default=5000}">
+                        <span class="input-group-addon">ms</span>
+                    </div>
+                </div>
+                <div class="col-xs-12 col-sm-6" style="padding-left:6px;padding-right:0;margin-bottom:8px">
+                    <div class="input-group">
+                        <span class="input-group-addon">最大</span>
+                        <input class="form-control" name="row[grab_delay_max_ms]" type="number" min="1000" value="{$row.grab_delay_max_ms|default=15000}">
+                        <span class="input-group-addon">ms</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">状态:</label>
+        <div class="col-xs-12 col-sm-8">
+            <select name="row[status]" class="form-control selectpicker">
+                {foreach name="statusList" item="vo"}
+                <option value="{$key}" {eq name="key" value="$row.status"}selected{/eq}>{$vo}</option>
+                {/foreach}
+            </select>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">备注:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[remark]" type="text" value="{$row.remark|htmlentities}">
+        </div>
+    </div>
+    <div class="form-group layer-footer">
+        <label class="control-label col-xs-12 col-sm-2"></label>
+        <div class="col-xs-12 col-sm-8">
+            <button type="submit" class="btn btn-primary btn-embossed disabled">{:__('OK')}</button>
+        </div>
+    </div>
+</form>

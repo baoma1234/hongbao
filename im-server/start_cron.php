@@ -19,6 +19,7 @@ use Im\Service\NiuniuAutoBotService;
 use Im\Service\YxxHallTickService;
 use Im\Service\RedPacketService;
 use Im\Service\RpAutoBotService;
+use Im\Service\RpRainBotService;
 use Im\Support\Db;
 use Im\Support\HealthProbe;
 use Im\Support\NoticeViewsBump;
@@ -59,6 +60,7 @@ $worker->onWorkerStart = function () use ($cfg, $cronCfg) {
     $groups = new GroupService();
     $redPackets = new RedPacketService($cfg, $messages, $groups);
     $rpAuto = new RpAutoBotService($redPackets, $groups);
+    $rpRain = new RpRainBotService($redPackets, $groups);
     $niuniu = new NiuniuService($cfg, $messages, $groups);
     $nnAuto = new NiuniuAutoBotService($niuniu, $groups);
 
@@ -66,6 +68,7 @@ $worker->onWorkerStart = function () use ($cfg, $cronCfg) {
     $refundBusy = false;
     $settleBusy = false;
     $autoBusy = false;
+    $rainBusy = false;
     $niuniuBusy = false;
     $nnAutoBusy = false;
     $yxxBusy = false;
@@ -149,6 +152,20 @@ $worker->onWorkerStart = function () use ($cfg, $cronCfg) {
             error_log('[CRON][RP_AUTO] ' . $e->getMessage());
         } finally {
             $autoBusy = false;
+        }
+    });
+
+    Timer::add($autoEvery, function () use ($rpRain, &$rainBusy) {
+        if ($rainBusy) {
+            return;
+        }
+        $rainBusy = true;
+        try {
+            $rpRain->tick();
+        } catch (\Throwable $e) {
+            error_log('[CRON][RP_RAIN] ' . $e->getMessage());
+        } finally {
+            $rainBusy = false;
         }
     });
 
