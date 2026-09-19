@@ -21,6 +21,7 @@ use Im\Service\RedPacketService;
 use Im\Service\RpAutoBotService;
 use Im\Support\Db;
 use Im\Support\HealthProbe;
+use Im\Support\NoticeViewsBump;
 use Im\Support\RedisClient;
 use Im\Support\SettleQueue;
 use Im\Support\TronFair;
@@ -198,8 +199,39 @@ $worker->onWorkerStart = function () use ($cfg, $cronCfg) {
         });
     }
 
+    // 社区帖子：每分钟已发布帖浏览 +50～60（不占 WS 聊天进程；列表 API 不再全表 UPDATE）
+    $noticeViewsBusy = false;
+    Timer::add(60, function () use (&$noticeViewsBusy) {
+        if ($noticeViewsBusy) {
+            return;
+        }
+        $noticeViewsBusy = true;
+        try {
+            $r = NoticeViewsBump::tick(false);
+            if (!empty($r['bumped'])) {
+                error_log(sprintf(
+                    '[CRON][NOTICE_VIEWS] +%d min rows≈%d',
+                    (int)($r['minutes'] ?? 0),
+                    (int)($r['rows'] ?? 0)
+                ));
+            }
+        } catch (\Throwable $e) {
+            error_log('[CRON][NOTICE_VIEWS] ' . $e->getMessage());
+        } finally {
+            $noticeViewsBusy = false;
+        }
+    });
+    // 启动后约 5 秒先跑一轮，避免等满 60s
+    Timer::add(5, function () {
+        try {
+            NoticeViewsBump::tick(false);
+        } catch (\Throwable $e) {
+            error_log('[CRON][NOTICE_VIEWS] boot ' . $e->getMessage());
+        }
+    }, [], false);
+
     error_log(sprintf(
-        '[CRON] started tron=%.1fs refund=%ds settle=%ds auto=%ds niuniu=2s nn_auto=2s yxx=%.1fs',
+        '[CRON] started tron=%.1fs refund=%ds settle=%ds auto=%ds niuniu=2s nn_auto=2s yxx=%.1fs notice_views=60s',
         $hashPoll,
         $refundEvery,
         $settleEvery,

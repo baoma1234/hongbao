@@ -4596,7 +4596,7 @@ class FansHubService
         }
 
         $now = time();
-        // 浏览量分钟涨仅由 fanshub:maintain 定时跑，避免列表读路径全表 UPDATE
+        // 浏览量分钟涨由 im-server Cron（NoticeViewsBump）负责，列表读路径不写库
         $applyFilters = function ($query) use ($category, $cats, $keyword, $viewerUserId, $now, $themeId) {
             if ($viewerUserId > 0) {
                 $query->where(function ($q) use ($viewerUserId, $now) {

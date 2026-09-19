@@ -164,10 +164,10 @@ class Fanshub extends Api
         $this->success('ok', FansHubService::noticeViewIncrement($id));
     }
 
-    /** 社区帖浏览量分钟跳动（节流，每帖随机 +50～60） */
+    /** 社区帖浏览量分钟跳动：写库已迁到 im-server Cron，此接口仅兼容旧客户端（不写库） */
     public function noticeviewsbump()
     {
-        $this->success('ok', FansHubService::noticeViewsMinuteBump(false));
+        $this->success('ok', ['bumped' => false, 'minutes' => 0, 'rows' => 0, 'via' => 'im-cron']);
     }
 
     /** 用户发帖（待审，归类彩金白嫖） */

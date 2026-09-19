@@ -49,15 +49,8 @@ class FanshubMaintain extends Command
         } catch (\Throwable $eFission) {
             $output->writeln('裂变红包维护：失败 ' . $eFission->getMessage());
         }
-        try {
-            $vb = FansHubService::noticeViewsMinuteBump(false);
-            $output->writeln(
-                '社区浏览量跳动：' .
-                (!empty($vb['bumped']) ? ('已加 ' . (int)($vb['minutes'] ?? 0) . ' 分钟 × 行数约 ' . (int)($vb['rows'] ?? 0)) : '节流跳过')
-            );
-        } catch (\Throwable $eViews) {
-            $output->writeln('社区浏览量跳动：失败 ' . $eViews->getMessage());
-        }
+        // 社区浏览量 +50～60 已改由 im-server Cron（NoticeViewsBump）每分钟执行，此处不再全表 UPDATE
+        $output->writeln('社区浏览量跳动：由 im-server Cron 负责（fanshub:maintain 已跳过）');
         return 0;
     }
 }
