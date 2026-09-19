@@ -5710,11 +5710,11 @@ class FansHubService
             $list = self::buildOfficialCommunityList();
             \think\Cache::set(self::CACHE_OFFICIAL_COMMUNITIES, $list, 86400 * 30);
         }
-        return ['list' => self::hydrateCommunityMembership($list, $userId)];
+        return ['list' => self::hydrateCommunityMembership($list, $userId), 'online_total' => FansHubOfficialStats::onlineTotalForBucket()];
     }
 
     /**
-     * H5「频道群组」：group_type=channel
+     * H5「官方频道」列表：与官方社群分离；登录后批量标记 is_member
      * @param int $userId
      * @return array{list:array}
      */

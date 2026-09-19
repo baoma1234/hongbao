@@ -297,6 +297,8 @@ const lobbyPageStyle = computed(() => {
 
 const activeCat = ref('hot')
 const onlineCountLive = ref(0)
+/** 服务端官方在线合计（与七群分摊同源，每分钟游走） */
+const lobbyOnlineTotal = ref(0)
 /** 官方推荐群（与社群页 communityrecommend 同源） */
 const officialGroups = ref([])
 const lobbyBotNicks = ref([])
@@ -464,9 +466,13 @@ const inviteSrc = computed(() => {
   return mediaUrl(inv.image, inv.imageRaw)
 })
 
-/** 与社群页 groupMembersText 同一口径 */
+/** 与社群页 groupMembersText 同一口径：优先 online_count */
 function groupDisplayOnline(g) {
-  return (g && (g.online_count || g.member_count || g.display_member_count)) | 0
+  if (!g) return 0
+  const o = Number(g.online_count)
+  if (!isNaN(o) && o > 0) return Math.floor(o)
+  const m = Number(g.member_count != null ? g.member_count : g.display_member_count)
+  return !isNaN(m) && m > 0 ? Math.floor(m) : 0
 }
 
 function findOfficialGroup(matcher) {
@@ -545,6 +551,8 @@ function stopTicker() {
 }
 
 const onlineCount = computed(() => {
+  const total = Number(lobbyOnlineTotal.value) || 0
+  if (total > 0) return Math.floor(total)
   const rows = officialGroups.value || []
   let sum = 0
   for (let i = 0; i < rows.length; i++) {
@@ -582,7 +590,8 @@ function tickOnlineJitter() {
 function startOnlineJitter() {
   stopOnlineJitter()
   tickOnlineJitter()
-  onlineJitterTimer = setInterval(tickOnlineJitter, 60000)
+  // 20s 微动一次，配合服务端每分钟合计游走，大厅数字会持续变化
+  onlineJitterTimer = setInterval(tickOnlineJitter, 20000)
 }
 
 function stopOnlineJitter() {
@@ -1351,6 +1360,14 @@ async function pollOnlineLive() {
     const rows = (rec && (rec.list || rec.rows || rec.items)) || rec || []
     if (Array.isArray(rows)) {
       officialGroups.value = rows
+    }
+    const ot = Number(rec && rec.online_total)
+    if (!isNaN(ot) && ot > 0) {
+      lobbyOnlineTotal.value = Math.floor(ot)
+    } else if (Array.isArray(rows) && rows.length) {
+      let sum = 0
+      for (let i = 0; i < rows.length; i++) sum += groupDisplayOnline(rows[i])
+      if (sum > 0) lobbyOnlineTotal.value = sum
     }
   } catch (e) {}
   try {

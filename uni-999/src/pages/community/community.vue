@@ -569,7 +569,13 @@ function measureCommunityLayout() {
 }
 
 function groupMembersText(g) {
-  const n = (g && (g.online_count || g.member_count || g.display_member_count)) | 0
+  const n = (() => {
+    if (!g) return 0
+    const o = Number(g.online_count)
+    if (!isNaN(o) && o > 0) return Math.floor(o)
+    const m = Number(g.member_count != null ? g.member_count : g.display_member_count)
+    return !isNaN(m) && m > 0 ? Math.floor(m) : 0
+  })()
   if (n <= 0) return '欢迎加入'
   return n.toLocaleString('en-US') + '人在线'
 }

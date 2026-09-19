@@ -29,6 +29,10 @@ class OfficialStatsService
     const ONLINE_MAX_GROUP_DIFF = 500;
     const ONLINE_BUCKET_SEC = 60;
     const ONLINE_RAMP_MINUTES = 90;
+    const ONLINE_FOCUS_SHARE = 0.40;
+    const ONLINE_FOCUS_GROUP_IDS = [11, 17];
+    const ONLINE_OTHER_JITTER_RATIO = 0.12;
+    const ONLINE_EXCLUDE_GROUP_IDS = [70, 71, 72, 77];
 
     /** @var array|null */
     protected static $officialIdsCache;
@@ -222,20 +226,41 @@ class OfficialStatsService
             return self::$officialIdsCache;
         }
         $ids = [];
+        $exclude = array_fill_keys(self::ONLINE_EXCLUDE_GROUP_IDS, true);
         try {
+            $table = Db::table('chat_groups');
             $rows = Db::fetchAll(
-                'SELECT id FROM ' . Db::table('chat_groups')
+                'SELECT id, group_type FROM ' . $table
                 . ' WHERE status IN (1,3) AND is_recommend=1 ORDER BY weigh DESC, id ASC'
             );
             foreach ((array)$rows as $row) {
                 $id = (int)($row['id'] ?? 0);
-                if ($id > 0) {
-                    $ids[] = $id;
+                if ($id <= 0 || !empty($exclude[$id])) {
+                    continue;
                 }
+                $gt = strtolower(trim((string)($row['group_type'] ?? '')));
+                if ($gt === 'channel') {
+                    continue;
+                }
+                $ids[] = $id;
             }
         } catch (\Throwable $e) {
-            CatchLog::quiet($e, 'Service.OfficialStatsService');
-            $ids = [];
+            // 无 group_type 列时回退
+            try {
+                $rows = Db::fetchAll(
+                    'SELECT id FROM ' . Db::table('chat_groups')
+                    . ' WHERE status IN (1,3) AND is_recommend=1 ORDER BY weigh DESC, id ASC'
+                );
+                foreach ((array)$rows as $row) {
+                    $id = (int)($row['id'] ?? 0);
+                    if ($id > 0 && empty($exclude[$id])) {
+                        $ids[] = $id;
+                    }
+                }
+            } catch (\Throwable $e2) {
+                CatchLog::quiet($e2, 'Service.OfficialStatsService');
+                $ids = [];
+            }
         }
         $ids = array_values(array_unique($ids));
         sort($ids);
@@ -260,34 +285,38 @@ class OfficialStatsService
         }
 
         $total = self::onlineTotalForBucket($bucket);
-        $half = (int)floor(self::ONLINE_MAX_GROUP_DIFF / 2);
-        $base = (int)floor($total / $n);
-        $rem = (int)($total % $n);
+        $focusWant = self::ONLINE_FOCUS_GROUP_IDS;
+        $focus = [];
+        $others = [];
+        foreach ($ids as $gid) {
+            if (in_array($gid, $focusWant, true)) {
+                $focus[] = $gid;
+            } else {
+                $others[] = $gid;
+            }
+        }
 
         $raw = [];
-        foreach ($ids as $i => $gid) {
-            $h = crc32('og:' . $gid);
-            if ($h < 0) {
-                $h = -$h;
+        if (!$focus) {
+            $raw = self::splitWithJitter($ids, $total, $bucket, 'all');
+        } else {
+            $focusBudget = (int)round($total * self::ONLINE_FOCUS_SHARE);
+            if ($focusBudget < count($focus) * 80) {
+                $focusBudget = count($focus) * 80;
             }
-            $off = ($h % (self::ONLINE_MAX_GROUP_DIFF + 1)) - $half;
-            $raw[$gid] = $base + $off + ($i < $rem ? 1 : 0);
-        }
-
-        $sum = 0;
-        foreach ($raw as $v) {
-            $sum += (int)$v;
-        }
-        $diff = $sum - $total;
-        if ($diff !== 0) {
-            $i = 0;
-            $step = $diff > 0 ? 1 : -1;
-            $left = abs($diff);
-            while ($left > 0) {
-                $gid = $ids[$i % $n];
-                $raw[$gid] -= $step;
-                $left--;
-                $i++;
+            if ($focusBudget > $total - max(0, count($others)) * 80) {
+                $focusBudget = max(0, $total - max(0, count($others)) * 80);
+            }
+            $otherBudget = $total - $focusBudget;
+            foreach (self::splitWithJitter($focus, $focusBudget, $bucket, 'focus') as $gid => $v) {
+                $raw[$gid] = $v;
+            }
+            if ($others) {
+                foreach (self::splitWithJitter($others, $otherBudget, $bucket, 'other') as $gid => $v) {
+                    $raw[$gid] = $v;
+                }
+            } elseif ($otherBudget !== 0 && $focus) {
+                $raw[$focus[0]] = (int)$raw[$focus[0]] + $otherBudget;
             }
         }
 
@@ -295,33 +324,25 @@ class OfficialStatsService
             $raw[$gid] = max(80, (int)$v);
         }
 
-        $min = min($raw);
-        $max = max($raw);
-        if (($max - $min) > self::ONLINE_MAX_GROUP_DIFF) {
-            $mid = (int)round(($min + $max) / 2);
-            foreach ($raw as $gid => $v) {
-                $raw[$gid] = max($mid - $half, min($mid + $half, (int)$v));
-            }
-            $sum2 = 0;
-            foreach ($raw as $v) {
-                $sum2 += (int)$v;
-            }
-            $diff2 = $sum2 - $total;
-            if ($diff2 !== 0) {
-                $i = 0;
-                $step = $diff2 > 0 ? 1 : -1;
-                $left = abs($diff2);
-                while ($left > 0) {
-                    $gid = $ids[$i % $n];
-                    $next = (int)$raw[$gid] - $step;
-                    if ($next >= ($mid - $half) && $next <= ($mid + $half)) {
-                        $raw[$gid] = $next;
-                        $left--;
-                    }
-                    $i++;
-                    if ($i > $n * self::ONLINE_MAX_GROUP_DIFF + 10) {
-                        break;
-                    }
+        $sum = 0;
+        foreach ($raw as $v) {
+            $sum += (int)$v;
+        }
+        $diff = $sum - $total;
+        if ($diff !== 0 && $ids) {
+            $i = 0;
+            $step = $diff > 0 ? 1 : -1;
+            $left = abs($diff);
+            while ($left > 0) {
+                $gid = $ids[$i % $n];
+                $next = (int)$raw[$gid] - $step;
+                if ($next >= 80) {
+                    $raw[$gid] = $next;
+                    $left--;
+                }
+                $i++;
+                if ($i > $n * 200 + 10) {
+                    break;
                 }
             }
         }
@@ -330,6 +351,71 @@ class OfficialStatsService
             self::$onlineMapMemo = [];
         }
         self::$onlineMapMemo[$bucket] = $raw;
+        return $raw;
+    }
+
+    /**
+     * @param int[] $ids
+     * @return array<int,int>
+     */
+    protected static function splitWithJitter(array $ids, $budget, $bucket, $tag)
+    {
+        $ids = array_values($ids);
+        $n = count($ids);
+        $budget = (int)$budget;
+        if ($n <= 0) {
+            return [];
+        }
+        if ($n === 1) {
+            return [$ids[0] => max(80, $budget)];
+        }
+
+        $raw = [];
+        $weights = [];
+        $wSum = 0.0;
+        foreach ($ids as $gid) {
+            $h = crc32($tag . ':ogj:' . (int)$gid . ':' . (int)$bucket);
+            if ($h < 0) {
+                $h = -$h;
+            }
+            $ratio = 1.0 + ((((int)($h % 1000)) / 1000.0) * 2.0 - 1.0) * self::ONLINE_OTHER_JITTER_RATIO;
+            if ($ratio < 0.5) {
+                $ratio = 0.5;
+            }
+            $weights[$gid] = $ratio;
+            $wSum += $ratio;
+        }
+        $assigned = 0;
+        $last = $ids[$n - 1];
+        foreach ($ids as $gid) {
+            if ($gid === $last) {
+                continue;
+            }
+            $v = (int)round($budget * ($weights[$gid] / $wSum));
+            $v = max(80, $v);
+            $raw[$gid] = $v;
+            $assigned += $v;
+        }
+        $raw[$last] = max(80, $budget - $assigned);
+        $sum = 0;
+        foreach ($raw as $v) {
+            $sum += (int)$v;
+        }
+        $diff = $sum - $budget;
+        if ($diff !== 0) {
+            arsort($raw);
+            foreach ($raw as $gid => $v) {
+                if ($diff === 0) {
+                    break;
+                }
+                $step = $diff > 0 ? 1 : -1;
+                $next = (int)$v - $step;
+                if ($next >= 80) {
+                    $raw[$gid] = $next;
+                    $diff -= $step;
+                }
+            }
+        }
         return $raw;
     }
 
