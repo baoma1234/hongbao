@@ -247,7 +247,7 @@ class Redpacketauto extends Backend
         $params['send_user_id'] = $sendIds ? (int)$sendIds[0] : 0;
 
         $params['packet_type'] = (int)($params['packet_type'] ?? 2);
-        if (!in_array($params['packet_type'], [1, 2, 3, 5], true)) {
+        if (!in_array($params['packet_type'], [1, 2, 3, 4, 5], true)) {
             $params['packet_type'] = 2;
         }
         $params['amount_mode'] = ((int)($params['amount_mode'] ?? 1) === 2) ? 2 : 1;

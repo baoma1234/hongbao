@@ -265,9 +265,9 @@ class RpAutoBotService
         }
 
         $group = $this->groups->get($groupId) ?: [];
-        // 1普通 2拼手气 3扫雷 5接龙（接龙群常见仅开放 type=5）
+        // 1普通 2拼手气 3扫雷 4随机红宝 5接龙（接龙群常见仅开放 type=5）
         $packetType = (int)($task['packet_type'] ?? 2);
-        if (!in_array($packetType, [1, 2, 3, 5], true)) {
+        if (!in_array($packetType, [1, 2, 3, 4, 5], true)) {
             $packetType = 2;
         }
         // 任务类型与群允许玩法不一致时：若群仅开放一种玩法则自动对齐
@@ -950,8 +950,8 @@ class RpAutoBotService
         if (!$row || (int)($row['status'] ?? 0) !== 1 || (int)($row['remain_count'] ?? 0) <= 0) {
             return null;
         }
-        // 拼手气(2) / 埋雷(3) / 接龙(5) 可自动抢；普通包(1)仍不自动抢
-        if (!in_array((int)($row['packet_type'] ?? 0), [2, 3, 5], true)) {
+        // 拼手气(2) / 埋雷(3) / 随机红宝(4) / 接龙(5) 可自动抢；普通包(1)仍不自动抢
+        if (!in_array((int)($row['packet_type'] ?? 0), [2, 3, 4, 5], true)) {
             return null;
         }
         return $row;
@@ -1151,7 +1151,7 @@ class RpAutoBotService
     {
         $row = Db::fetch(
             'SELECT COUNT(*) AS c FROM ' . Db::table('chat_red_packets')
-            . ' WHERE group_id=? AND scope_type=2 AND packet_type IN (2,3,5)'
+            . ' WHERE group_id=? AND scope_type=2 AND packet_type IN (2,3,4,5)'
             . ' AND (status=2 OR (status=1 AND remain_count>0))',
             [(int)$groupId]
         );
@@ -1198,7 +1198,7 @@ class RpAutoBotService
         $rows = Db::fetchAll(
             'SELECT id, createtime, remain_count, status, packet_type FROM ' . Db::table('chat_red_packets')
             . ' WHERE group_id=? AND scope_type=2 AND status=1 AND remain_count>0'
-            . ' AND packet_type IN (2,3,5)'
+            . ' AND packet_type IN (2,3,4,5)'
             . ' ORDER BY id DESC LIMIT ' . $limit,
             [(int)$groupId]
         );
