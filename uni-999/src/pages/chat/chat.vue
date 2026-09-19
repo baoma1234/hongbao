@@ -186,6 +186,8 @@
                     <ChatFoldText
                       :text="mediaCaption(m)"
                       :from-user-id="m.from_user_id"
+                      :group-id="foldGroupId(m)"
+                      :no-fold="msgNoFold(m)"
                       :expanded="isLongMsgExpanded(m)"
                       @toggle="toggleLongMsg(m)"
                       @open-link="openMsgLink"
@@ -282,6 +284,8 @@
                         <ChatFoldText
                           :text="mediaCaption(m)"
                           :from-user-id="m.from_user_id"
+                          :group-id="foldGroupId(m)"
+                          :no-fold="msgNoFold(m)"
                           :expanded="isLongMsgExpanded(m)"
                           @toggle="toggleLongMsg(m)"
                           @open-link="openMsgLink"
@@ -313,6 +317,8 @@
                     <ChatFoldText
                       :text="msgText(m)"
                       :from-user-id="m.from_user_id"
+                      :group-id="foldGroupId(m)"
+                      :no-fold="msgNoFold(m)"
                       :expanded="isLongMsgExpanded(m)"
                       @toggle="toggleLongMsg(m)"
                       @open-link="openMsgLink"
@@ -2442,6 +2448,19 @@ function isMine(m) {
   const uid = (myUserId.value | 0) || (myId | 0)
   if (uid && m && (m.from_user_id | 0) === uid) return true
   return !!(m && m.is_mine)
+}
+
+function foldGroupId(m) {
+  const fromMsg = (m && (m.group_id | 0)) || 0
+  if (fromMsg > 0) return fromMsg
+  return (meta.value && meta.value.group) | 0
+}
+
+function msgNoFold(m) {
+  if (!m) return false
+  if (m.no_fold) return true
+  const ex = msgExtra(m)
+  return !!(ex && ex.no_fold)
 }
 
 function msgAvatar(m) {

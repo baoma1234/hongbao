@@ -58,11 +58,19 @@ const props = defineProps({
   text: { type: String, default: '' },
   expanded: { type: Boolean, default: false },
   fromUserId: { type: [Number, String], default: 0 },
+  groupId: { type: [Number, String], default: 0 },
+  noFold: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['toggle', 'open-link'])
 
-const seg = computed(() => buildLongMsgFoldSegments(props.text, { fromUserId: props.fromUserId }))
+const seg = computed(() =>
+  buildLongMsgFoldSegments(props.text, {
+    fromUserId: props.fromUserId,
+    groupId: props.groupId,
+    noFold: !!props.noFold,
+  })
+)
 
 const midShowParts = computed(() => {
   if (!seg.value.foldable) return []

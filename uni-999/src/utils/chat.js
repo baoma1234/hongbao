@@ -222,15 +222,22 @@ export const MSG_TEXT_TAIL_KEEP = 45
 export const MSG_TEXT_MID_PREVIEW = 96
 /** 这些会员发送的长文不折叠（客服/运营号） */
 export const MSG_FOLD_EXEMPT_USER_IDS = [88888888, 55555555, 44444444, 77777777]
+/** 这些群内长文不折叠（频道/影音） */
+export const MSG_FOLD_EXEMPT_GROUP_IDS = [70, 71, 72, 77]
 
 export function isMsgFoldExemptUser(userId) {
   const id = Number(userId) || 0
   return id > 0 && MSG_FOLD_EXEMPT_USER_IDS.indexOf(id) >= 0
 }
 
+export function isMsgFoldExemptGroup(groupId) {
+  const id = Number(groupId) || 0
+  return id > 0 && MSG_FOLD_EXEMPT_GROUP_IDS.indexOf(id) >= 0
+}
+
 /**
  * @param {string} raw
- * @param {{ fromUserId?: number|string }=} opts
+ * @param {{ fromUserId?: number|string, groupId?: number|string, noFold?: boolean }=} opts
  * @returns {{
  *   foldable: boolean,
  *   headParts: {t:string,v:string}[],
@@ -251,7 +258,11 @@ export function buildLongMsgFoldSegments(raw, opts) {
     parts: [],
   }
   if (!s) return blank
-  if (isMsgFoldExemptUser(opts && opts.fromUserId)) {
+  if (
+    (opts && opts.noFold) ||
+    isMsgFoldExemptGroup(opts && opts.groupId) ||
+    isMsgFoldExemptUser(opts && opts.fromUserId)
+  ) {
     return {
       foldable: false,
       headParts: [],

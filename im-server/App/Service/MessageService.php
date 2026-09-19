@@ -284,6 +284,11 @@ class MessageService
         return $this->attachSenderFields($payload);
     }
 
+    /** 影音频道群：统一展示为该会员的头像/昵称 */
+    const CHANNEL_MASK_SENDER_USER_ID = 11111111;
+    /** @var int[] */
+    const CHANNEL_MASK_GROUP_IDS = [70, 71, 72];
+
     /**
      * 批量为历史消息附带 from_nickname / from_avatar / from_user / is_bot
      */
@@ -293,11 +298,23 @@ class MessageService
             return $list;
         }
         $ids = [];
+        $needMask = false;
         foreach ($list as $m) {
             $fid = (int)($m['from_user_id'] ?? 0);
             if ($fid > 0) {
                 $ids[] = $fid;
             }
+            $ctype = (int)($m['conversation_type'] ?? 0);
+            $gid = (int)($m['group_id'] ?? 0);
+            if ($gid <= 0 && $ctype === 2) {
+                $gid = (int)($m['conversation_id'] ?? 0);
+            }
+            if ($ctype === 2 && in_array($gid, self::CHANNEL_MASK_GROUP_IDS, true)) {
+                $needMask = true;
+            }
+        }
+        if ($needMask) {
+            $ids[] = self::CHANNEL_MASK_SENDER_USER_ID;
         }
         if (!$ids) {
             return $list;
@@ -367,12 +384,22 @@ class MessageService
         $u = $map[$fid] ?? null;
         $nick = $auth->displayNameFromBrief($u, $fid);
         $avatar = is_array($u) ? (string)($u['avatar'] ?? '') : '';
-        // 群 77：发送人头像统一为吃瓜品牌图
         $ctype = (int)($msg['conversation_type'] ?? 0);
         $gid = (int)($msg['group_id'] ?? 0);
         if ($gid <= 0 && $ctype === 2) {
             $gid = (int)($msg['conversation_id'] ?? 0);
         }
+        // 群 70/71/72：统一展示为会员 11111111 的头像与昵称（不改库内 from_user_id）
+        if ($ctype === 2 && in_array($gid, self::CHANNEL_MASK_GROUP_IDS, true)) {
+            $maskId = self::CHANNEL_MASK_SENDER_USER_ID;
+            if (!isset($map[$maskId])) {
+                $map = $map + $auth->usersBriefMap([$maskId]);
+            }
+            $uMask = $map[$maskId] ?? null;
+            $nick = $auth->displayNameFromBrief($uMask, $maskId);
+            $avatar = is_array($uMask) ? (string)($uMask['avatar'] ?? '') : '';
+        }
+        // 群 77：发送人头像统一为吃瓜品牌图
         if ($ctype === 2 && $gid === 77) {
             $fixed = $this->group77SenderAvatarUrl();
             if ($fixed !== '') {
@@ -392,6 +419,21 @@ class MessageService
             'avatar'   => $avatar,
             'is_bot'   => $isBot,
         ];
+        // 频道群：标记不折叠（旧端忽略；新端 / 配置可读）
+        if ($ctype === 2 && in_array($gid, [70, 71, 72, 77], true)) {
+            $msg['no_fold'] = 1;
+            if (!is_array($msg['extra'] ?? null)) {
+                $extra = [];
+                if (!empty($msg['extra']) && is_string($msg['extra'])) {
+                    $decoded = json_decode($msg['extra'], true);
+                    if (is_array($decoded)) {
+                        $extra = $decoded;
+                    }
+                }
+                $msg['extra'] = $extra;
+            }
+            $msg['extra']['no_fold'] = 1;
+        }
         return $msg;
     }
 
