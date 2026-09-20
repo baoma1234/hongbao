@@ -1,0 +1,79 @@
+<form id="edit-form" class="form-horizontal" role="form" data-toggle="validator" method="POST" action="">
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">任务名:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[name]" type="text" data-rule="required" value="{$row.name|htmlentities}">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">采集地址:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[api_url]" type="text" data-rule="required" value="{$row.api_url|htmlentities}">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">发送群:</label>
+        <div class="col-xs-12 col-sm-8">
+            <select name="row[group_id]" class="form-control selectpicker" data-live-search="true" data-rule="required">
+                <option value="">请选择</option>
+                {volist name="groups" id="g"}
+                <option value="{$g.id}" {eq name="g.id" value="$row.group_id"}selected{/eq}>#{$g.id} {$g.name|htmlentities}</option>
+                {/volist}
+            </select>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">发送UID:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[send_user_id]" type="number" min="1" value="{$row.send_user_id|default=11111111}">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">倒序起始页:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[start_page]" type="number" min="1" value="{$row.start_page|default=100}">
+            <span class="help-block">当前进度：下一页 {$row.current_page|default=0}，已采 {$row.pages_done|default=0} 页，接口总页 {$row.pagecount|default=0}</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">下一页待采:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[current_page]" type="number" min="0" value="{$row.current_page|default=0}">
+            <span class="help-block">可手工改进度。0 且已采过页表示已结束。</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">每页条数上限:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[page_limit]" type="number" min="0" value="{$row.page_limit|default=0}">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">定时自动采:</label>
+        <div class="col-xs-12 col-sm-8">
+            <label class="checkbox-inline"><input type="checkbox" name="row[auto_run]" value="1" {eq name="row.auto_run" value="1"}checked{/eq}> 开启</label>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">状态:</label>
+        <div class="col-xs-12 col-sm-8">
+            <select name="row[status]" class="form-control selectpicker">
+                {foreach name="statusList" item="vo"}
+                <option value="{$key}" {eq name="key" value="$row.status"}selected{/eq}>{$vo}</option>
+                {/foreach}
+            </select>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">备注:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[remark]" type="text" value="{$row.remark|htmlentities}">
+        </div>
+    </div>
+    <div class="form-group layer-footer">
+        <label class="control-label col-xs-12 col-sm-2"></label>
+        <div class="col-xs-12 col-sm-8">
+            <button type="submit" class="btn btn-primary btn-embossed disabled">{:__('OK')}</button>
+        </div>
+    </div>
+</form>

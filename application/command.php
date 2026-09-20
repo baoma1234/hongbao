@@ -24,4 +24,5 @@ return [
     'app\command\RedpacketTronReveal',
     'app\command\RedpacketAuto',
     'app\command\FissionMaintain',
+    'app\command\VideocrawlRun',
 ];
