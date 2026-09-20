@@ -35,6 +35,18 @@ if (is_dir($cacheDir)) {
     echo "OK runtime/cache removed={$n}\n";
 }
 
+$sessionDir = $root . '/runtime/session';
+if (is_dir($sessionDir)) {
+    $n = 0;
+    foreach (glob($sessionDir . '/*') as $f) {
+        if (is_file($f)) {
+            @unlink($f);
+            $n++;
+        }
+    }
+    echo "OK runtime/session removed={$n} (强制重新登录才能看到新菜单)\n";
+}
+
 // 确认大厅菜单仍在
 $env = @parse_ini_file($root . '/.env', true);
 $d = $env['database'] ?? [];
@@ -58,3 +70,5 @@ foreach ($rows as $r) {
     echo "  #{$r['id']} pid={$r['pid']} {$r['name']} {$r['title']}\n";
 }
 echo "DONE\n";
+echo "IMPORTANT: auth_type=2 时权限缓存在登录 Session。\n";
+echo "清菜单后必须：退出后台再重新登录（或删 runtime/session/*）。\n";

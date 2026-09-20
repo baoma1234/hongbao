@@ -479,6 +479,7 @@ class Auth extends \fast\Auth
 
         // 读取管理员当前拥有的权限节点
         $userRule = $this->getRuleList();
+        $isSuper = in_array('*', $userRule, true);
         $selected = $referer = [];
         $refererUrl = Session::get('referer');
         // 必须将结果集转换为数组
@@ -493,12 +494,12 @@ class Auth extends \fast\Auth
             ->column('name,pid');
         $pidArr = array_unique(array_filter(array_column($ruleList, 'pid')));
         foreach ($ruleList as $k => &$v) {
-            if (!in_array(strtolower($v['name']), $userRule)) {
+            if (!$isSuper && !in_array(strtolower($v['name']), $userRule)) {
                 unset($ruleList[$k]);
                 continue;
             }
             $indexRuleName = $v['name'] . '/index';
-            if (isset($indexRuleList[$indexRuleName]) && !in_array($indexRuleName, $userRule)) {
+            if (!$isSuper && isset($indexRuleList[$indexRuleName]) && !in_array($indexRuleName, $userRule)) {
                 unset($ruleList[$k]);
                 continue;
             }
