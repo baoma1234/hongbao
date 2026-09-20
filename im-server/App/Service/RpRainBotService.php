@@ -357,10 +357,7 @@ class RpRainBotService
             $this->touchError($taskId, '没有可抢包的机器人');
             return;
         }
-        $start = (int)$task['last_round_start'];
-        $sweepMin = max(1, (int)($task['sweep_minutes'] ?? 3));
-        $sweep = (time() - $start) >= ($sweepMin * 60);
-        $cap = (int)($task['bot_grab_cap'] ?? 1);
+
         $pct = (int)($task['bot_grab_pct'] ?? 80);
         if ($pct < 0) {
             $pct = 0;
@@ -368,37 +365,51 @@ class RpRainBotService
         if ($pct > 100) {
             $pct = 100;
         }
-        // 超时前：只抢本轮计划包数的前 N%（例 20 包×80%=16）；超时后全部可抢
-        $roundTarget = max(count($packetIds), (int)($task['round_target'] ?? 0));
-        $allowN = $sweep ? count($packetIds) : (int)floor($roundTarget * $pct / 100);
-        if (!$sweep && $pct > 0 && $allowN < 1 && $roundTarget > 0) {
-            // 比例很小但 >0 时至少留到有足够包再动；此处保持 0 表示暂不抢
+        $cap = (int)($task['bot_grab_cap'] ?? 1);
+        $sweepMin = max(1, (int)($task['sweep_minutes'] ?? 3));
+        $sweepSec = $sweepMin * 60;
+        $now = time();
+
+        // 本轮计划发包数：机器人最多抢其中前 N%（按发包顺序）
+        $roundTarget = (int)($task['round_target'] ?? 0);
+        if ($roundTarget < 1) {
+            $roundTarget = count($packetIds);
+        }
+        $allowN = (int)floor($roundTarget * $pct / 100);
+        if ($pct <= 0) {
             $allowN = 0;
         }
-        $allowedSet = [];
-        if ($sweep) {
-            foreach ($packetIds as $pid) {
-                $allowedSet[(int)$pid] = 1;
-            }
-        } else {
-            foreach (array_slice($packetIds, 0, $allowN) as $pid) {
-                $allowedSet[(int)$pid] = 1;
-            }
+
+        // packet_id => 本轮第几包（0 起）
+        $indexById = [];
+        foreach ($packetIds as $i => $pid) {
+            $indexById[(int)$pid] = (int)$i;
         }
+
         $counts = $this->grabCounts($packetIds);
         $taken = $this->takenMap($packetIds);
         $scheduled = 0;
 
         foreach ($open as $packet) {
             $pid = (int)$packet['id'];
-            if (!$sweep && !isset($allowedSet[$pid])) {
+            $idx = array_key_exists($pid, $indexById) ? $indexById[$pid] : 999999;
+            $created = (int)($packet['createtime'] ?? 0);
+            if ($created <= 0) {
+                $created = (int)($task['last_round_start'] ?? $now);
+            }
+            // 超时按「该包发出时间」算，不是整轮开始时间（避免一轮还没发完就全领、比例失效）
+            $packetSweep = ($now - $created) >= $sweepSec;
+
+            // 未超时：只抢序号 < allowN 的包（例 20 包×80% → 前 16 包）；后 4 包留给真人
+            // 该包超时后：才允许机器人领完剩余（含留给真人的包）
+            if (!$packetSweep && $idx >= $allowN) {
                 continue;
             }
+
             $remain = max(0, (int)($packet['remain_count'] ?? 0));
             $have = $taken[$pid] ?? [];
-            $need = $remain;
-            for ($n = 0; $n < $need; $n++) {
-                $uid = $this->pickGrabber($uids, $have, $counts, $cap, $sweep);
+            for ($n = 0; $n < $remain; $n++) {
+                $uid = $this->pickGrabber($uids, $have, $counts, $cap, $packetSweep);
                 if ($uid <= 0) {
                     break;
                 }
@@ -407,7 +418,7 @@ class RpRainBotService
                     $have[$uid] = 1;
                     continue;
                 }
-                $delayMs = $this->delayMs($task, $sweep);
+                $delayMs = $this->delayMs($task, $packetSweep);
                 if (!$this->tryMarkGrabBusy($taskId, $pid, $uid, (int)ceil($delayMs / 1000) + 20)) {
                     continue;
                 }
@@ -573,7 +584,7 @@ class RpRainBotService
         }
         $in = implode(',', $packetIds);
         $rows = Db::fetchAll(
-            'SELECT id, remain_count, status FROM ' . Db::table('chat_red_packets')
+            'SELECT id, remain_count, status, createtime FROM ' . Db::table('chat_red_packets')
             . " WHERE id IN ({$in}) AND status=1 AND remain_count>0"
         );
         return is_array($rows) ? $rows : [];

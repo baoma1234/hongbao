@@ -133,7 +133,7 @@
                 <input class="form-control" name="row[bot_grab_pct]" type="number" min="0" max="100" value="80">
                 <span class="input-group-addon">%</span>
             </div>
-            <span class="help-block">超时前机器人最多抢本轮包数的百分比。例：80%、本轮 20 包 → 机器人抢前 16 包，后 4 包留给真人；超时后全部领完</span>
+            <span class="help-block">超时前机器人最多抢本轮<strong>发包顺序的前 N%</strong>。例：80%、本轮 20 包 → 机器人只抢第 1～16 包，第 17～20 包留给真人。超时按<strong>每个包发出后</strong>计时，到期才领完该包剩余</span>
         </div>
     </div>
     <div class="form-group">
@@ -150,7 +150,7 @@
                 <input class="form-control" name="row[sweep_minutes]" type="number" min="1" max="180" value="3">
                 <span class="input-group-addon">分钟</span>
             </div>
-            <span class="help-block">本轮开始超过该分钟后，机器人把剩余包全部领完（不受比例/每人上限限制）</span>
+            <span class="help-block">按<strong>每个红包发出后</strong>计时。该包超时后机器人领完其剩余（含留给真人的包）；未超时的真人包机器人不抢</span>
         </div>
     </div>
     <div class="form-group">
