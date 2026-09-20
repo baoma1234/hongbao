@@ -144,13 +144,17 @@
   box-sizing: border-box !important;
 }
 
-.chat-room-page #chatRpDetailPane #chatRpDetailBody {
-  display: flex !important;
-  flex-direction: column !important;
+.chat-room-page #chatRpDetailPane #chatRpDetailBody,
+.chat-room-page #chatRpDetailPane .chat-rp-detail-scroll,
+.chat-room-page #chatRpDetailPane scroll-view.chat-rp-detail-scroll {
+  display: block !important;
   flex: 1 1 auto !important;
+  width: 100% !important;
   min-height: 0 !important;
-  overflow-x: hidden !important;
-  overflow-y: auto !important;
+  /* 无内联高度时 flex+0 兜底；有像素高度时内联优先（勿用 !important 盖掉） */
+  height: 0;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
   -webkit-overflow-scrolling: touch !important;
 }
 
@@ -172,6 +176,12 @@
 .chat-room-page #chatRpDetailPane .chat-rp-detail-grab-btn {
   flex-shrink: 0 !important;
   margin-top: 12px !important;
+}
+
+.chat-room-page #chatRpDetailPane .chat-rp-detail-scroll-pad {
+  height: 24px;
+  width: 100%;
+  flex-shrink: 0;
 }
 
 .chat-room-page #chatRpDetailPane .chat-rp-record-avatar image,

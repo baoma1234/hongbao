@@ -3243,22 +3243,23 @@ body.chat-room-open .bottom-action-bar {
   margin-bottom: 14px;
 }
 
-/* Red packet detail — 整页滚动，领取人全部展开（不再嵌套 scroll-view） */
+/* Red packet detail — scroll-view 整页滚（App/iOS 不能依赖 view overflow） */
 #chatRpDetailPane .chat-sub-main {
   display: flex;
   flex-direction: column;
   overflow: hidden;
   padding-bottom: calc(12px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
 }
-#chatRpDetailPane #chatRpDetailBody {
-  display: flex;
-  flex-direction: column;
+#chatRpDetailPane #chatRpDetailBody,
+#chatRpDetailPane .chat-rp-detail-scroll,
+#chatRpDetailPane scroll-view.chat-rp-detail-scroll {
+  display: block;
   flex: 1 1 auto;
   min-height: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
+  height: 0;
+  width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 #chatRpDetailPane #chatRpDetailBody[hidden] {
   display: none !important;
@@ -3276,6 +3277,10 @@ body.chat-room-open .bottom-action-bar {
 #chatRpDetailPane .chat-rp-detail-grab-btn {
   flex-shrink: 0;
   margin-top: 12px;
+}
+#chatRpDetailPane .chat-rp-detail-scroll-pad {
+  height: 24px;
+  width: 100%;
 }
 
 /* 内嵌波场验证：与红包详情切换显示 */

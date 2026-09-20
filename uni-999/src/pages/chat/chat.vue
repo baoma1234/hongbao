@@ -875,7 +875,15 @@
       :style="appSubPaneStyle"
     >
       <view class="chat-sub-main">
-        <view id="chatRpDetailBody">
+        <!-- App/iOS：须用 scroll-view；纯 overflow 在 IPA 上无法滚动。H5/安卓同样可用。 -->
+        <scroll-view
+          id="chatRpDetailBody"
+          scroll-y
+          class="chat-rp-detail-scroll"
+          :show-scrollbar="true"
+          :enable-flex="true"
+          :style="detailScrollStyle"
+        >
           <view
             v-if="grabErrorTip"
             class="chat-rp-grab-error"
@@ -971,7 +979,8 @@
             :disabled="grabbing"
             @click="grabFromDetail"
           >{{ grabbing ? '领取中…' : '开红包' }}</button>
-        </view>
+          <view class="chat-rp-detail-scroll-pad" aria-hidden="true" />
+        </scroll-view>
       </view>
     </view>
 
@@ -1417,6 +1426,12 @@ const msgScrollStyle = computed(() => {
 })
 /** App 详情浮层内联 top（H5 为空，走 CSS，避免网页多垫） */
 const appSubPaneStyle = ref({})
+/** 红宝详情 scroll-view 像素高度（App/iOS 必须有明确高度才能滚） */
+const detailScrollPx = ref(0)
+const detailScrollStyle = computed(() => {
+  const h = detailScrollPx.value | 0
+  return h > 0 ? { height: h + 'px' } : {}
+})
 /** App 回到底部按钮用像素 bottom（env(safe-area) 在 APK 常为 0） */
 const jumpLatestStyle = ref({})
 /** H5 Safari：键盘时把整页钉在 visualViewport，避免 translateY 留下大块空白 */
@@ -1569,6 +1584,7 @@ function refreshChatSafeLayout() {
   appSubPaneStyle.value = {}
   // #endif
   scheduleMeasureMsgScroll()
+  scheduleMeasureDetailScroll()
 }
 
 function scheduleMeasureMsgScroll() {
@@ -1577,6 +1593,45 @@ function scheduleMeasureMsgScroll() {
     measureMsgScrollTimer = null
     measureMsgScrollHeight()
   }, 32)
+}
+
+let measureDetailScrollTimer = null
+function scheduleMeasureDetailScroll() {
+  if (measureDetailScrollTimer) clearTimeout(measureDetailScrollTimer)
+  measureDetailScrollTimer = setTimeout(() => {
+    measureDetailScrollTimer = null
+    measureDetailScrollHeight()
+  }, 40)
+}
+
+/** 红宝详情：四端统一给 scroll-view 像素高度（App/iOS 尤其依赖） */
+function measureDetailScrollHeight() {
+  if (!detailVisible.value) {
+    detailScrollPx.value = 0
+    return
+  }
+  try {
+    const sys = uni.getSystemInfoSync() || {}
+    let winH = Math.max(320, Number(sys.windowHeight || sys.screenHeight || 667))
+    // #ifdef H5
+    try {
+      if (typeof window !== 'undefined' && window.visualViewport) {
+        const vvH = Math.round(window.visualViewport.height || 0)
+        if (vvH > 200) winH = vvH
+      }
+    } catch (eH5) {}
+    // #endif
+    const overlayTop = measureChatOverlayTop()
+    const insetB = getSafeAreaInsets().bottom || 0
+    // chat-sub-main 上下 padding 约 12+12 + 底安全区
+    const pad = 24 + Math.max(0, insetB)
+    const h = Math.max(180, Math.floor(winH - overlayTop - pad))
+    if (Math.abs(h - (detailScrollPx.value | 0)) >= 2) {
+      detailScrollPx.value = h
+    }
+  } catch (e) {
+    detailScrollPx.value = 400
+  }
 }
 
 function measureMsgScrollHeight() {
@@ -6332,6 +6387,8 @@ async function openDetail(packetId) {
     if (mine && mine.amount != null) myGrabAmount.value = formatAmt(mine.amount)
     refreshChatSafeLayout()
     detailVisible.value = true
+    scheduleMeasureDetailScroll()
+    setTimeout(scheduleMeasureDetailScroll, 120)
   } catch (e) {
     uni.showToast({ title: (e && e.message) || '详情失败', icon: 'none' })
   }
@@ -6976,6 +7033,7 @@ onUnload(() => {
 function closeRpDetail() {
   detailVisible.value = false
   grabErrorTip.value = ''
+  detailScrollPx.value = 0
 }
 </script>
 
