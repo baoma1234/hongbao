@@ -114,4 +114,26 @@ if (is_dir($cacheDir)) {
     echo "CLEARED runtime/cache\n";
 }
 
+// FastAdmin 侧栏用 Redis 缓存 __menu__；PDO 直写 auth_rule 不会触发 AuthRule::afterWrite
+try {
+    $redisCfg = $env['redis'] ?? [];
+    $cacheCfg = $env['cache'] ?? [];
+    if (class_exists('Redis')) {
+        $rr = new Redis();
+        $rr->connect((string)($redisCfg['host'] ?? '127.0.0.1'), (int)($redisCfg['port'] ?? 6379), 2);
+        $pass = (string)($redisCfg['password'] ?? '');
+        if ($pass !== '') {
+            $rr->auth($pass);
+        }
+        $select = (int)($cacheCfg['select'] ?? 1);
+        $prefix = (string)($cacheCfg['prefix'] ?? 'tp:');
+        $rr->select($select);
+        $key = $prefix . '__menu__';
+        $n = (int)$rr->del($key);
+        echo "CLEARED redis {$key} (db={$select}) del={$n}\n";
+    }
+} catch (Throwable $e) {
+    echo "WARN clear menu redis: " . $e->getMessage() . "\n";
+}
+
 echo "DONE rain menu under pid={$pid} weigh={$weigh} (auto weigh=" . ($auto['weigh'] ?? '?') . ")\n";
