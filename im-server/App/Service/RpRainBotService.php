@@ -369,46 +369,49 @@ class RpRainBotService
         $sweepMin = max(1, (int)($task['sweep_minutes'] ?? 3));
         $sweepSec = $sweepMin * 60;
         $now = time();
-
-        // 本轮计划发包数：机器人最多抢其中前 N%（按发包顺序）
-        $roundTarget = (int)($task['round_target'] ?? 0);
-        if ($roundTarget < 1) {
-            $roundTarget = count($packetIds);
-        }
-        $allowN = (int)floor($roundTarget * $pct / 100);
-        if ($pct <= 0) {
-            $allowN = 0;
+        $botUidSet = [];
+        foreach ($uids as $u) {
+            $botUidSet[(int)$u] = 1;
         }
 
-        // packet_id => 本轮第几包（0 起）
-        $indexById = [];
-        foreach ($packetIds as $i => $pid) {
-            $indexById[(int)$pid] = (int)$i;
-        }
-
+        $botTakenByPacket = $this->botGrabShareCounts($packetIds, $botUidSet);
         $counts = $this->grabCounts($packetIds);
         $taken = $this->takenMap($packetIds);
         $scheduled = 0;
 
         foreach ($open as $packet) {
             $pid = (int)$packet['id'];
-            $idx = array_key_exists($pid, $indexById) ? $indexById[$pid] : 999999;
             $created = (int)($packet['createtime'] ?? 0);
             if ($created <= 0) {
                 $created = (int)($task['last_round_start'] ?? $now);
             }
-            // 超时按「该包发出时间」算，不是整轮开始时间（避免一轮还没发完就全领、比例失效）
+            // 超时按该包发出时间
             $packetSweep = ($now - $created) >= $sweepSec;
-
-            // 未超时：只抢序号 < allowN 的包（例 20 包×80% → 前 16 包）；后 4 包留给真人
-            // 该包超时后：才允许机器人领完剩余（含留给真人的包）
-            if (!$packetSweep && $idx >= $allowN) {
+            $remain = max(0, (int)($packet['remain_count'] ?? 0));
+            if ($remain <= 0) {
                 continue;
             }
+            $total = max(1, (int)($packet['total_count'] ?? $remain));
+            $botTaken = (int)($botTakenByPacket[$pid] ?? 0);
+            // 比例按「每个红包的份数」：80%、20 份 → 超时前机器人最多抢 16 份，留 4 份给真人
+            $botShareMax = (int)floor($total * $pct / 100);
+            if ($pct <= 0) {
+                $botShareMax = 0;
+            }
+            if (!$packetSweep) {
+                $left = $botShareMax - $botTaken;
+                if ($left <= 0) {
+                    continue;
+                }
+                // 每次 tick 只排 1 份，避免一次排满导致「一秒连抢」
+                $need = 1;
+            } else {
+                // 超时后领完剩余，仍每次只排 1 份，延迟走后台配置
+                $need = 1;
+            }
 
-            $remain = max(0, (int)($packet['remain_count'] ?? 0));
             $have = $taken[$pid] ?? [];
-            for ($n = 0; $n < $remain; $n++) {
+            for ($n = 0; $n < $need; $n++) {
                 $uid = $this->pickGrabber($uids, $have, $counts, $cap, $packetSweep);
                 if ($uid <= 0) {
                     break;
@@ -425,16 +428,46 @@ class RpRainBotService
                 $this->pending[$key] = 1;
                 $have[$uid] = 1;
                 $counts[$uid] = (int)($counts[$uid] ?? 0) + 1;
+                $botTakenByPacket[$pid] = $botTaken + 1;
                 $scheduled++;
                 $svc = $this;
                 Timer::add($delayMs / 1000, function () use ($svc, $taskId, $groupId, $pid, $uid, $key) {
                     $svc->finishGrab($key, $taskId, $groupId, $pid, $uid);
                 }, [], false);
-                if ($scheduled >= 40) {
+                if ($scheduled >= 20) {
                     return;
                 }
             }
         }
+    }
+
+    /**
+     * 本轮各红包中，机器人已抢份数。
+     *
+     * @param int[] $packetIds
+     * @param array<int,int> $botUidSet
+     * @return array<int,int> packet_id => count
+     */
+    protected function botGrabShareCounts(array $packetIds, array $botUidSet)
+    {
+        $packetIds = array_values(array_unique(array_filter(array_map('intval', $packetIds))));
+        if (!$packetIds || !$botUidSet) {
+            return [];
+        }
+        $in = implode(',', $packetIds);
+        $rows = Db::fetchAll(
+            'SELECT packet_id, user_id FROM ' . Db::table('chat_red_packet_records')
+            . " WHERE packet_id IN ({$in})"
+        ) ?: [];
+        $out = [];
+        foreach ($rows as $row) {
+            $pid = (int)($row['packet_id'] ?? 0);
+            $uid = (int)($row['user_id'] ?? 0);
+            if ($pid > 0 && $uid > 0 && isset($botUidSet[$uid])) {
+                $out[$pid] = (int)($out[$pid] ?? 0) + 1;
+            }
+        }
+        return $out;
     }
 
     public function finishGrab($key, $taskId, $groupId, $packetId, $userId)
@@ -490,11 +523,13 @@ class RpRainBotService
 
     protected function delayMs(array $task, $sweep)
     {
-        if ($sweep) {
-            return random_int(200, 900);
-        }
+        // 始终使用后台配置的抢包延迟；超时全领阶段可略快，但绝不短于 1 秒
         $min = max(1000, (int)($task['grab_delay_min_ms'] ?? 5000));
         $max = max($min, (int)($task['grab_delay_max_ms'] ?? 15000));
+        if ($sweep) {
+            $min = max(1000, (int)floor($min * 0.7));
+            $max = max($min, (int)floor($max * 0.7));
+        }
         return random_int($min, $max);
     }
 
@@ -584,7 +619,7 @@ class RpRainBotService
         }
         $in = implode(',', $packetIds);
         $rows = Db::fetchAll(
-            'SELECT id, remain_count, status, createtime FROM ' . Db::table('chat_red_packets')
+            'SELECT id, remain_count, total_count, status, createtime FROM ' . Db::table('chat_red_packets')
             . " WHERE id IN ({$in}) AND status=1 AND remain_count>0"
         );
         return is_array($rows) ? $rows : [];
