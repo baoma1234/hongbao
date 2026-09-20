@@ -110,7 +110,7 @@ class RpRainBotService
         } elseif ($force) {
             $use = $matched ?: ($slots[0] ?? null);
             $count = (int)($use['count'] ?? 1);
-            $markKey = 'force ' . date('Y-m-d H:i:s');
+            $markKey = '手动 ' . date('Y-m-d H:i:s');
         }
         if ($count <= 0) {
             if ($force) {
@@ -132,7 +132,7 @@ class RpRainBotService
     {
         $taskId = (int)$task['id'];
         $target = max(1, min(100, (int)$target));
-        $roundKey = $markKey !== '' ? $markKey : ('force ' . date('Y-m-d H:i:s'));
+        $roundKey = $markKey !== '' ? $markKey : ('手动 ' . date('Y-m-d H:i:s'));
         $now = time();
         $err = '';
         $pid = 0;
@@ -165,6 +165,7 @@ class RpRainBotService
                 $taskId,
             ]
         );
+        $task['round_target'] = $target;
         $this->pushRound($task, $roundKey, [$pid]);
         error_log('[CRON][RP_RAIN] task ' . $taskId . ' begin round target=' . $target . ' first=' . $pid . ' key=' . $markKey);
         return true;

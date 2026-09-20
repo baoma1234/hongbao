@@ -45,7 +45,13 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                     {field: 'auto_send', title: '自动发', formatter: function (v) { return parseInt(v, 10) === 1 ? '是' : '否'; }},
                     {field: 'auto_grab', title: '自动抢', formatter: function (v) { return parseInt(v, 10) === 1 ? '是' : '否'; }},
                     {field: 'actor_mode', title: '发抢模式', searchList: {"1":"UID池","2":"机器人账户"}, formatter: Table.api.formatter.normal},
-                    {field: 'last_slot_key', title: '最近轮次', operate: 'LIKE'},
+                    {field: 'last_slot_key', title: '最近轮次', operate: 'LIKE', formatter: function (v) {
+                        var s = (v == null || v === '') ? '' : String(v);
+                        if (!s) return '-';
+                        // 兼容旧标记 force → 手动
+                        if (s.indexOf('force ') === 0) return '手动 ' + s.slice(6);
+                        return s;
+                    }},
                     {field: 'last_packet_id', title: '最近包ID'},
                     {field: 'last_error', title: '最近错误', operate: false},
                     {field: 'status', title: '状态', searchList: Config.statusList, formatter: Table.api.formatter.status},
