@@ -139,6 +139,14 @@ class Redpacketrain extends Backend
         $params['grab_delay_max_ms'] = $maxMs;
 
         $params['bot_grab_cap'] = max(0, min(500, (int)($params['bot_grab_cap'] ?? 1)));
+        $pct = (int)($params['bot_grab_pct'] ?? 80);
+        if ($pct < 0) {
+            $pct = 0;
+        }
+        if ($pct > 100) {
+            $pct = 100;
+        }
+        $params['bot_grab_pct'] = $pct;
         $sweep = (int)($params['sweep_minutes'] ?? 3);
         if ($sweep < 1) {
             $sweep = 1;

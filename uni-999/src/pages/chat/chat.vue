@@ -842,7 +842,7 @@
       </view>
     </view>
 
-    <!-- 红宝雨特效：点击打开本轮最新未领完红宝 -->
+    <!-- 红宝雨弹窗：复用裂变红包海报图 -->
     <view
       v-if="rainVisible && !detailVisible"
       class="chat-rp-rain-mask"
@@ -857,13 +857,22 @@
           :class="'d' + n"
         >🧧</text>
       </view>
-      <view class="chat-rp-rain-card" hover-class="chat-rp-rain-hit" @click.stop="onRainTap">
-        <text class="chat-rp-rain-ico">🧧</text>
-        <text class="chat-rp-rain-title">红宝雨</text>
-        <text class="chat-rp-rain-body">点击打开最新未领完的红宝</text>
-        <view class="chat-rp-rain-btn">立即开抢</view>
+      <view class="chat-rp-rain-wrap" @click.stop>
+        <view class="chat-rp-rain-card" hover-class="chat-rp-rain-hit" @click.stop="onRainTap">
+          <image class="chat-rp-rain-bg" src="/static/fission/popup-poster.png" mode="aspectFill" />
+          <view class="chat-rp-rain-body">
+            <view class="chat-rp-rain-pool-row">
+              <text class="chat-rp-rain-yen">红宝雨</text>
+              <text v-if="rainPacketIds.length" class="chat-rp-rain-num">{{ rainPacketIds.length }}</text>
+              <text v-if="rainPacketIds.length" class="chat-rp-rain-unit">包进行中</text>
+            </view>
+            <view class="chat-rp-rain-cta">
+              <text class="chat-rp-rain-cta-txt">点击拆开红包</text>
+            </view>
+          </view>
+        </view>
+        <view class="chat-rp-rain-close" @click.stop="hideRainEffect">×</view>
       </view>
-      <view class="chat-rp-rain-close" @click.stop="hideRainEffect">关闭</view>
     </view>
 
     <!-- 红包详情：对齐 888 #chatRpDetailPane（顶栏复用 QQ nav） -->
@@ -8153,7 +8162,7 @@ uni-page-body {
   opacity: 0.85;
 }
 
-/* 红宝雨特效 */
+/* 红宝雨弹窗：裂变海报样式 */
 .chat-rp-rain-mask {
   position: fixed;
   left: 0;
@@ -8164,10 +8173,10 @@ uni-page-body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 16px;
+  padding: 20px 16px;
   box-sizing: border-box;
   overflow: hidden;
-  background: rgba(20, 0, 0, 0.28);
+  background: rgba(4, 10, 24, 0.82);
 }
 .chat-rp-rain-fall {
   position: absolute;
@@ -8177,6 +8186,7 @@ uni-page-body {
   bottom: 0;
   overflow: hidden;
   pointer-events: none;
+  opacity: 0.55;
 }
 .chat-rp-rain-drop {
   position: absolute;
@@ -8205,60 +8215,115 @@ uni-page-body {
   12% { opacity: 0.95; }
   100% { transform: translateY(118%); opacity: 0.75; }
 }
-.chat-rp-rain-card {
+.chat-rp-rain-wrap {
   position: relative;
   z-index: 2;
-  width: 86%;
-  max-width: 320px;
-  margin: 0;
-  padding: 24px 18px 18px;
-  border-radius: 18px;
-  background: linear-gradient(180deg, #8f1212, #4a0608);
-  border: 2px solid #f0c14b;
-  text-align: center;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+  width: min(65.6vw, 256px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.chat-rp-rain-card {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  border-radius: 14px;
+  overflow: hidden;
+  color: #fff;
+  box-shadow: none;
 }
 .chat-rp-rain-hit {
   opacity: 0.92;
   transform: scale(0.98);
 }
-.chat-rp-rain-ico {
-  font-size: 42px;
-  line-height: 1.2;
-}
-.chat-rp-rain-title {
+.chat-rp-rain-bg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
   display: block;
-  margin-top: 6px;
-  font-size: 20px;
-  font-weight: 900;
-  color: #ffd56a;
+  z-index: 0;
 }
 .chat-rp-rain-body {
-  display: block;
-  margin: 10px 0 14px;
-  font-size: 13px;
-  line-height: 1.5;
-  color: rgba(255, 255, 255, 0.88);
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: min(170px, 49.8%);
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0 14px 16px;
+  text-align: center;
+  background: linear-gradient(180deg, transparent 0%, rgba(140, 10, 16, 0.1) 28%, rgba(90, 0, 8, 0.52) 100%);
+  box-sizing: border-box;
+  pointer-events: none;
 }
-.chat-rp-rain-btn {
-  display: inline-block;
-  min-width: 140px;
-  padding: 10px 18px;
-  border-radius: 999px;
-  background: linear-gradient(180deg, #ffd56a, #e8a317);
-  color: #5a1208;
-  font-size: 15px;
+.chat-rp-rain-pool-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin: 0 0 12px;
+}
+.chat-rp-rain-yen {
+  font-size: 16px;
   font-weight: 800;
+  color: #ffe082;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+.chat-rp-rain-num {
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.45);
+}
+.chat-rp-rain-unit {
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffe082;
+  margin-left: 2px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+.chat-rp-rain-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  padding: 4px 8px;
+  transform-origin: center center;
+  animation: chatRpRainCtaBreath 1.7s ease-in-out infinite;
+}
+.chat-rp-rain-cta-txt {
+  display: block;
+  font-size: 16px;
+  line-height: 1.3;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #ffe082;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+@keyframes chatRpRainCtaBreath {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.14); }
 }
 .chat-rp-rain-close {
-  position: absolute;
-  z-index: 3;
-  right: 16px;
-  bottom: calc(18px + env(safe-area-inset-bottom));
-  padding: 8px 14px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.45);
+  margin-top: 14px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.75);
   color: #fff;
-  font-size: 12px;
+  font-size: 22px;
+  line-height: 28px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.2);
 }
 </style>

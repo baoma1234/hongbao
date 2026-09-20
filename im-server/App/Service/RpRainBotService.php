@@ -361,12 +361,39 @@ class RpRainBotService
         $sweepMin = max(1, (int)($task['sweep_minutes'] ?? 3));
         $sweep = (time() - $start) >= ($sweepMin * 60);
         $cap = (int)($task['bot_grab_cap'] ?? 1);
+        $pct = (int)($task['bot_grab_pct'] ?? 80);
+        if ($pct < 0) {
+            $pct = 0;
+        }
+        if ($pct > 100) {
+            $pct = 100;
+        }
+        // 超时前：只抢本轮计划包数的前 N%（例 20 包×80%=16）；超时后全部可抢
+        $roundTarget = max(count($packetIds), (int)($task['round_target'] ?? 0));
+        $allowN = $sweep ? count($packetIds) : (int)floor($roundTarget * $pct / 100);
+        if (!$sweep && $pct > 0 && $allowN < 1 && $roundTarget > 0) {
+            // 比例很小但 >0 时至少留到有足够包再动；此处保持 0 表示暂不抢
+            $allowN = 0;
+        }
+        $allowedSet = [];
+        if ($sweep) {
+            foreach ($packetIds as $pid) {
+                $allowedSet[(int)$pid] = 1;
+            }
+        } else {
+            foreach (array_slice($packetIds, 0, $allowN) as $pid) {
+                $allowedSet[(int)$pid] = 1;
+            }
+        }
         $counts = $this->grabCounts($packetIds);
         $taken = $this->takenMap($packetIds);
         $scheduled = 0;
 
         foreach ($open as $packet) {
             $pid = (int)$packet['id'];
+            if (!$sweep && !isset($allowedSet[$pid])) {
+                continue;
+            }
             $remain = max(0, (int)($packet['remain_count'] ?? 0));
             $have = $taken[$pid] ?? [];
             $need = $remain;

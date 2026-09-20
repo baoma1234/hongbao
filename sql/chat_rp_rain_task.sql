@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS `fa_chat_rp_rain_task` (
   `interval_minutes` int(10) unsigned NOT NULL DEFAULT '5' COMMENT '模式2:每隔多少分钟',
   `interval_count` int(10) unsigned NOT NULL DEFAULT '1' COMMENT '模式2:每轮发包数',
   `bot_grab_cap` int(10) unsigned NOT NULL DEFAULT '1' COMMENT '每机器人每轮最多抢几个包,0不限',
+  `bot_grab_pct` tinyint(3) unsigned NOT NULL DEFAULT '80' COMMENT '超时前机器人最多抢本轮包数的百分比',
   `sweep_minutes` int(10) unsigned NOT NULL DEFAULT '3' COMMENT '超过N分钟后机器人领完剩余',
   `last_slot_key` varchar(64) NOT NULL DEFAULT '' COMMENT '已触发轮次标记',
   `last_round_start` int(10) unsigned NOT NULL DEFAULT '0',

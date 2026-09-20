@@ -11,6 +11,7 @@ $root = dirname(__DIR__);
 passthru('php ' . escapeshellarg($root . '/scripts/install_rp_rain.php'), $code1);
 passthru('php ' . escapeshellarg($root . '/scripts/migrate_rp_rain_sequential.php'), $codeSeq);
 passthru('php ' . escapeshellarg($root . '/scripts/migrate_rp_rain_schedule_mode.php'), $codeMode);
+passthru('php ' . escapeshellarg($root . '/scripts/migrate_rp_rain_bot_grab_pct.php'), $codePct);
 passthru('php ' . escapeshellarg($root . '/scripts/clear_admin_menu_cache.php'), $code2);
 
 $need = [
@@ -38,4 +39,4 @@ echo "1) 强制刷新后台或重新登录，玩法大全下应见「红宝雨�
 echo "2) 重启聊天服务以加载 RpRainBotService\n";
 echo "   Linux: bash im-server/scripts/restart-all.sh\n";
 echo "   Win:   powershell -File im-server/scripts/restart-all.ps1\n";
-exit(($code1 === 0 && $codeSeq === 0 && $codeMode === 0 && $code2 === 0) ? 0 : 1);
+exit(($code1 === 0 && $codeSeq === 0 && $codeMode === 0 && $codePct === 0 && $code2 === 0) ? 0 : 1);
