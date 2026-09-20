@@ -2851,7 +2851,17 @@ function rpMineDigit(m) {
   if (!isFinite(mine) || mine < 0 || mine > 9) mine = 0
   return mine
 }
+function rpFinished(m) {
+  const ex = msgExtra(m)
+  if (ex.cover_finished) return true
+  const st = (ex.packet_status | 0) || 0
+  if (st === 2 || st === 5) return true
+  if (ex.remain_count != null && (ex.remain_count | 0) <= 0) return true
+  return false
+}
 function rpExpired(m) {
+  // 已领完不算过期：到期后仍显示「已领完」
+  if (rpFinished(m)) return false
   const ex = msgExtra(m)
   if (ex.cover_expired) return true
   const exp = ex.expiretime | 0
@@ -2863,13 +2873,14 @@ function rpGrabbed(m) {
 }
 function rpFaded(m) {
   const ex = msgExtra(m)
-  return !!(ex.cover_faded || ex.cover_expired || ex.cover_grabbed || rpExpired(m))
+  return !!(ex.cover_faded || ex.cover_expired || ex.cover_grabbed || rpFinished(m) || rpExpired(m))
 }
 function rpBottomLab(m) {
   const ex = msgExtra(m)
   const ptype = ex.packet_type != null ? (ex.packet_type | 0) : 2
   const pending = !!ex.mine_pending
   if (rpGrabbed(m)) return '已领取'
+  if (rpFinished(m)) return '已领完'
   if (rpExpired(m)) return '已过期'
   if (ptype === 3) return pending ? '红宝扫雷 · 匹配中' : '红宝扫雷'
   if (ptype === 5) return '红宝接龙'
@@ -6581,8 +6592,15 @@ function applyRedPacketUpdateLocal(data) {
     }
     if (remain !== null && remain <= 0) {
       nextEx.cover_faded = true
+      nextEx.cover_finished = true
+      nextEx.cover_expired = false
     }
-    if (status === 3 || status === 4) {
+    if (status === 2 || status === 5) {
+      nextEx.cover_finished = true
+      nextEx.cover_expired = false
+      nextEx.cover_faded = true
+    }
+    if ((status === 3 || status === 4) && !(remain !== null && remain <= 0)) {
       nextEx.cover_expired = true
       nextEx.cover_faded = true
     }

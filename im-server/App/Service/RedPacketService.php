@@ -4023,14 +4023,20 @@ class RedPacketService
             $isGrabbed = $pid > 0 && !empty($grabbed[$pid]);
             $status = (int)($ex['packet_status'] ?? 0);
             $expireAt = (int)($ex['expiretime'] ?? 0);
-            $isExpired = $status === 3 || ($expireAt > 0 && $now >= $expireAt && $status !== 2 && $status !== 5);
+            $remainCnt = (int)($ex['remain_count'] ?? -1);
+            $isFinished = in_array($status, [2, 5], true) || ($remainCnt === 0);
             // status: 1进行中 2已抢完 3已过期 4已关闭 5已结算
-            if (in_array($status, [3, 4], true)) {
-                $isExpired = true;
+            // 已领完的包即使过了 expiretime 也不标过期（前端显示「已领完」）
+            $isExpired = false;
+            if (!$isFinished) {
+                $isExpired = $status === 3
+                    || $status === 4
+                    || ($expireAt > 0 && $now >= $expireAt);
             }
             $ex['cover_grabbed'] = $isGrabbed;
+            $ex['cover_finished'] = $isFinished;
             $ex['cover_expired'] = $isExpired;
-            $ex['cover_faded'] = $isGrabbed || $isExpired;
+            $ex['cover_faded'] = $isGrabbed || $isFinished || $isExpired;
             $m['extra'] = $ex;
         }
         unset($m);
