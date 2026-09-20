@@ -842,6 +842,30 @@
       </view>
     </view>
 
+    <!-- 红宝雨特效：点击打开本轮最新未领完红宝 -->
+    <view
+      v-if="rainVisible && !detailVisible"
+      class="chat-rp-rain-mask"
+      :style="appSubPaneStyle"
+      @click.stop="onRainTap"
+    >
+      <view class="chat-rp-rain-fall" aria-hidden="true">
+        <text
+          v-for="n in 12"
+          :key="'rd' + n"
+          class="chat-rp-rain-drop"
+          :class="'d' + n"
+        >🧧</text>
+      </view>
+      <view class="chat-rp-rain-card" hover-class="chat-rp-rain-hit" @click.stop="onRainTap">
+        <text class="chat-rp-rain-ico">🧧</text>
+        <text class="chat-rp-rain-title">红宝雨</text>
+        <text class="chat-rp-rain-body">点击打开最新未领完的红宝</text>
+        <view class="chat-rp-rain-btn">立即开抢</view>
+      </view>
+      <view class="chat-rp-rain-close" @click.stop="hideRainEffect">关闭</view>
+    </view>
+
     <!-- 红包详情：对齐 888 #chatRpDetailPane（顶栏复用 QQ nav） -->
     <view
       v-if="detailVisible"
@@ -1675,6 +1699,12 @@ const grabbing = ref(false)
 const detailVisible = ref(false)
 const detail = ref(null)
 const grabErrorTip = ref('')
+/** 红宝雨特效 */
+const rainVisible = ref(false)
+const rainRound = ref('')
+const rainPacketIds = ref([])
+const rainOpening = ref(false)
+let rainHideTimer = 0
 const heroTitleText = computed(() => {
   if (detailVisible.value) return '红宝详情'
   return title.value || '聊天'
@@ -6017,6 +6047,137 @@ async function onRpTap(m) {
   await openDetail(pid)
 }
 
+function clearRainHideTimer() {
+  if (rainHideTimer) {
+    clearTimeout(rainHideTimer)
+    rainHideTimer = 0
+  }
+}
+
+function hideRainEffect() {
+  clearRainHideTimer()
+  rainVisible.value = false
+}
+
+function scheduleRainHide() {
+  clearRainHideTimer()
+  rainHideTimer = setTimeout(() => {
+    rainVisible.value = false
+    rainHideTimer = 0
+  }, 45000)
+}
+
+function noteRainPacket(packetId, roundKey) {
+  const pid = (packetId | 0) || 0
+  if (pid <= 0) return
+  const round = String(roundKey || '')
+  if (round && rainRound.value && rainRound.value !== round) {
+    rainPacketIds.value = []
+  }
+  if (round) rainRound.value = round
+  const list = rainPacketIds.value.slice()
+  if (list.indexOf(pid) < 0) list.push(pid)
+  rainPacketIds.value = list
+  rainVisible.value = true
+  scheduleRainHide()
+}
+
+function noteRainRound(data) {
+  if (!data) return
+  const gid = (data.group_id | 0) || 0
+  if (isPrivate.value || !gid || gid !== (meta.value.group | 0)) return
+  const round = String(data.rain_round || '')
+  const ids = Array.isArray(data.packet_ids)
+    ? data.packet_ids.map((x) => x | 0).filter((x) => x > 0)
+    : []
+  if (round && rainRound.value && rainRound.value !== round) {
+    rainPacketIds.value = []
+  }
+  if (round) rainRound.value = round
+  const map = {}
+  rainPacketIds.value.forEach((id) => {
+    map[id] = 1
+  })
+  ids.forEach((id) => {
+    map[id] = 1
+  })
+  rainPacketIds.value = Object.keys(map)
+    .map((k) => k | 0)
+    .filter((x) => x > 0)
+    .sort((a, b) => a - b)
+  if (rainPacketIds.value.length) {
+    rainVisible.value = true
+    scheduleRainHide()
+  }
+}
+
+function rainCandidateIds() {
+  const set = {}
+  ;(rainPacketIds.value || []).forEach((id) => {
+    if ((id | 0) > 0) set[id | 0] = 1
+  })
+  const round = String(rainRound.value || '')
+  ;(messages.value || []).forEach((m) => {
+    if (!isRp(m)) return
+    const ex = msgExtra(m)
+    if (!ex || !ex.rain) return
+    if (round && String(ex.rain_round || '') && String(ex.rain_round) !== round) return
+    const pid = (ex.packet_id | 0) || 0
+    if (pid > 0) set[pid] = 1
+  })
+  return Object.keys(set)
+    .map((k) => k | 0)
+    .filter((x) => x > 0)
+    .sort((a, b) => b - a)
+}
+
+function localRainStillOpen(pid) {
+  const rows = messages.value || []
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const m = rows[i]
+    if (!isRp(m)) continue
+    const ex = msgExtra(m)
+    if (((ex.packet_id | 0) || 0) !== pid) continue
+    if (ex.cover_grabbed || ex.cover_expired) return false
+    if (ex.remain_count != null && (ex.remain_count | 0) <= 0) return false
+    if (ex.packet_status != null) {
+      const st = ex.packet_status | 0
+      if (st !== 0 && st !== 1) return false
+    }
+    return true
+  }
+  return true
+}
+
+async function onRainTap() {
+  if (rainOpening.value) return
+  const ids = rainCandidateIds()
+  if (!ids.length) {
+    uni.showToast({ title: '暂无可抢红宝', icon: 'none' })
+    hideRainEffect()
+    return
+  }
+  rainOpening.value = true
+  try {
+    for (let i = 0; i < ids.length; i++) {
+      const pid = ids[i]
+      if (!localRainStillOpen(pid)) continue
+      activePacketId = pid
+      await openDetail(pid)
+      if (canGrabDetail.value) {
+        hideRainEffect()
+        return
+      }
+      // 详情已开但不可抢：关掉再试下一个
+      detailVisible.value = false
+    }
+    uni.showToast({ title: '红宝已被抢完', icon: 'none' })
+    hideRainEffect()
+  } finally {
+    rainOpening.value = false
+  }
+}
+
 function mapGrabError(msg) {
   const s = String(msg || '')
   const mNeed = s.match(/balance_not_enough_for_compensate\s*:\s*([0-9.]+)/i)
@@ -6391,6 +6552,7 @@ function applyRedPacketUpdateLocal(data) {
 function leaveRoomToList(tip) {
   if (tip) uni.showToast({ title: tip, icon: 'none' })
   roomAlive = false
+  hideRainEffect()
   markRead()
     .catch(() => {})
     .finally(() => {
@@ -6593,7 +6755,17 @@ onLoad(async (query) => {
           }
         }
         if (appendLocalMessage(msg)) markRead().catch(() => {})
+        if (type === 'group.message' && isRp(msg)) {
+          const ex = msgExtra(msg)
+          if (ex && ex.rain) {
+            noteRainPacket((ex.packet_id | 0) || 0, ex.rain_round || '')
+          }
+        }
       }
+      return
+    }
+    if (type === 'rp_rain.round') {
+      noteRainRound(data)
       return
     }
     if (type === 'redpacket.relay_next') {
@@ -6733,6 +6905,7 @@ onHide(() => {
 
 onUnload(() => {
   closeVideoAlbumPlayer()
+  hideRainEffect()
   try {
     messages.value = []
   } catch (e0) {}
@@ -7920,5 +8093,114 @@ uni-page-body {
 }
 .chat-pending-remove--on {
   opacity: 0.85;
+}
+
+/* 红宝雨特效 */
+.chat-rp-rain-mask {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: var(--chat-overlay-top, 0px);
+  bottom: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  box-sizing: border-box;
+  overflow: hidden;
+  background: rgba(20, 0, 0, 0.28);
+}
+.chat-rp-rain-fall {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.chat-rp-rain-drop {
+  position: absolute;
+  top: -8%;
+  font-size: 22px;
+  line-height: 1;
+  opacity: 0.92;
+  animation-name: chat-rp-rain-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+.chat-rp-rain-drop.d1 { left: 6%; animation-duration: 1.6s; animation-delay: 0s; }
+.chat-rp-rain-drop.d2 { left: 14%; animation-duration: 1.9s; animation-delay: 0.2s; font-size: 18px; }
+.chat-rp-rain-drop.d3 { left: 22%; animation-duration: 1.5s; animation-delay: 0.45s; }
+.chat-rp-rain-drop.d4 { left: 31%; animation-duration: 2.1s; animation-delay: 0.1s; font-size: 20px; }
+.chat-rp-rain-drop.d5 { left: 39%; animation-duration: 1.7s; animation-delay: 0.55s; }
+.chat-rp-rain-drop.d6 { left: 48%; animation-duration: 1.8s; animation-delay: 0.3s; font-size: 24px; }
+.chat-rp-rain-drop.d7 { left: 56%; animation-duration: 2s; animation-delay: 0.15s; }
+.chat-rp-rain-drop.d8 { left: 64%; animation-duration: 1.55s; animation-delay: 0.7s; font-size: 18px; }
+.chat-rp-rain-drop.d9 { left: 72%; animation-duration: 1.85s; animation-delay: 0.25s; }
+.chat-rp-rain-drop.d10 { left: 80%; animation-duration: 1.65s; animation-delay: 0.5s; }
+.chat-rp-rain-drop.d11 { left: 88%; animation-duration: 2.05s; animation-delay: 0.05s; font-size: 20px; }
+.chat-rp-rain-drop.d12 { left: 93%; animation-duration: 1.75s; animation-delay: 0.4s; }
+@keyframes chat-rp-rain-fall {
+  0% { transform: translateY(0); opacity: 0; }
+  12% { opacity: 0.95; }
+  100% { transform: translateY(118%); opacity: 0.75; }
+}
+.chat-rp-rain-card {
+  position: relative;
+  z-index: 2;
+  width: 86%;
+  max-width: 320px;
+  margin: 0;
+  padding: 24px 18px 18px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #8f1212, #4a0608);
+  border: 2px solid #f0c14b;
+  text-align: center;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+}
+.chat-rp-rain-hit {
+  opacity: 0.92;
+  transform: scale(0.98);
+}
+.chat-rp-rain-ico {
+  font-size: 42px;
+  line-height: 1.2;
+}
+.chat-rp-rain-title {
+  display: block;
+  margin-top: 6px;
+  font-size: 20px;
+  font-weight: 900;
+  color: #ffd56a;
+}
+.chat-rp-rain-body {
+  display: block;
+  margin: 10px 0 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.88);
+}
+.chat-rp-rain-btn {
+  display: inline-block;
+  min-width: 140px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffd56a, #e8a317);
+  color: #5a1208;
+  font-size: 15px;
+  font-weight: 800;
+}
+.chat-rp-rain-close {
+  position: absolute;
+  z-index: 3;
+  right: 16px;
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 12px;
 }
 </style>

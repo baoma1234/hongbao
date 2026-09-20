@@ -4,6 +4,8 @@ namespace Im\Service;
 
 use Im\Support\CatchLog;
 use Im\Support\Db;
+use Im\Support\PushBus;
+use Im\Support\RedPacketUpdateBus;
 use Im\Support\RedisClient;
 use Workerman\Timer;
 
@@ -110,9 +112,10 @@ class RpRainBotService
         $ids = [];
         $err = '';
         $count = min(100, $count);
+        $roundKey = $markKey !== '' ? $markKey : ('force ' . date('Y-m-d H:i:s'));
         for ($i = 0; $i < $count; $i++) {
             try {
-                $pid = $this->sendOne($task);
+                $pid = $this->sendOne($task, $roundKey);
                 if ($pid > 0) {
                     $ids[] = $pid;
                 }
@@ -137,6 +140,17 @@ class RpRainBotService
                     $taskId,
                 ]
             );
+            $groupId = (int)$task['group_id'];
+            try {
+                PushBus::toGroup($groupId, 'rp_rain.round', [
+                    'group_id'     => $groupId,
+                    'rain_task_id' => $taskId,
+                    'rain_round'   => $roundKey,
+                    'packet_ids'   => $ids,
+                ]);
+            } catch (\Throwable $e) {
+                CatchLog::quiet($e, 'Service.RpRainBotService');
+            }
             error_log('[CRON][RP_RAIN] task ' . $taskId . ' sent ' . count($ids) . ' key=' . $markKey);
             return true;
         }
@@ -149,7 +163,7 @@ class RpRainBotService
         return false;
     }
 
-    protected function sendOne(array $task)
+    protected function sendOne(array $task, $roundKey = '')
     {
         $groupId = (int)$task['group_id'];
         $uid = $this->pickUid($task, 'send');
@@ -178,10 +192,14 @@ class RpRainBotService
             'mine_digit'    => 0,
             'robot_send'    => true,
             'trusted_robot' => true,
+            'rain'          => 1,
+            'rain_task_id'  => (int)($task['id'] ?? 0),
+            'rain_round'    => (string)$roundKey,
         ]);
+        $msg = $result['message'] ?? null;
         $packetId = (int)($result['packet_id'] ?? ($result['packet']['id'] ?? 0));
-        if ($packetId <= 0 && is_array($result['message'] ?? null)) {
-            $extra = $result['message']['extra'] ?? [];
+        if ($packetId <= 0 && is_array($msg) && !empty($msg['extra'])) {
+            $extra = $msg['extra'];
             if (is_string($extra)) {
                 $extra = json_decode($extra, true) ?: [];
             }
@@ -189,6 +207,13 @@ class RpRainBotService
         }
         if ($packetId <= 0) {
             throw new \RuntimeException('发包无包ID');
+        }
+        if (is_array($msg)) {
+            try {
+                PushBus::toGroup($groupId, 'group.message', ['message' => $msg]);
+            } catch (\Throwable $e) {
+                CatchLog::quiet($e, 'Service.RpRainBotService');
+            }
         }
         return $packetId;
     }
@@ -257,7 +282,22 @@ class RpRainBotService
         unset($this->pending[$key]);
         try {
             $this->ensureGrabber($groupId, $userId);
-            $this->redPackets->grab($packetId, $userId, ['robot_send' => true, 'trusted_robot' => true]);
+            $result = $this->redPackets->grab($packetId, $userId, ['robot_send' => true, 'trusted_robot' => true]);
+            $packet = is_array($result) ? ($result['packet'] ?? null) : null;
+            if (is_array($packet)) {
+                try {
+                    RedPacketUpdateBus::publish(
+                        [
+                            'packet_id'  => (int)$packetId,
+                            'grab'       => $result,
+                            'by_user_id' => (int)$userId,
+                        ],
+                        ['group_id' => (int)($packet['group_id'] ?? $groupId)]
+                    );
+                } catch (\Throwable $e) {
+                    CatchLog::quiet($e, 'Service.RpRainBotService');
+                }
+            }
         } catch (\Throwable $e) {
             $msg = $e->getMessage();
             if ($msg !== '' && strpos($msg, 'packet closed') === false && strpos($msg, 'already') === false) {

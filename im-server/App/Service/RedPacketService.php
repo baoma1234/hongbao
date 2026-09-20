@@ -454,6 +454,12 @@ class RedPacketService
         if (!empty($params['robot_relay']) || ($packetType === 5 && !empty($params['robot_send']))) {
             $extra['relay_auto'] = 1;
         }
+        // 红宝雨：前端特效 + 点击打开本轮未领完包
+        if (!empty($params['rain']) || !empty($params['rain_round'])) {
+            $extra['rain'] = 1;
+            $extra['rain_task_id'] = (int)($params['rain_task_id'] ?? 0);
+            $extra['rain_round'] = (string)($params['rain_round'] ?? '');
+        }
         if ($scopeType === 2) {
             try {
             $msg = $this->messages->sendGroup($fromUserId, $groupId, '[红包]' . $blessing, 2, $extra);
