@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS `fa_chat_rp_rain_task` (
   `last_slot_key` varchar(32) NOT NULL DEFAULT '' COMMENT '已触发轮次 Y-m-d HH:MM',
   `last_round_start` int(10) unsigned NOT NULL DEFAULT '0',
   `round_packet_ids` text COMMENT '本轮红包ID逗号分隔',
+  `round_target` int(10) unsigned NOT NULL DEFAULT '0' COMMENT '本轮计划发包数',
+  `round_sent` int(10) unsigned NOT NULL DEFAULT '0' COMMENT '本轮已发包数(抢完再发下一包)',
   `force_send` tinyint(1) NOT NULL DEFAULT '0' COMMENT '1=下一次tick立即发一轮',
   `last_packet_id` int(10) unsigned NOT NULL DEFAULT '0',
   `last_error` varchar(255) NOT NULL DEFAULT '',

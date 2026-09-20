@@ -89,6 +89,19 @@ class RpRainBotService
             }
         }
 
+        $roundTarget = (int)($task['round_target'] ?? 0);
+        $roundSent = (int)($task['round_sent'] ?? 0);
+        // 本轮还在进行：上一包抢完再发下一包（不要求再撞开启时间）
+        if ($roundTarget > 0 && $roundSent < $roundTarget) {
+            if ($force) {
+                Db::exec(
+                    'UPDATE ' . Db::table('chat_rp_rain_task') . ' SET force_send=0, updatetime=? WHERE id=?',
+                    [time(), $taskId]
+                );
+            }
+            return $this->continueRound($task);
+        }
+
         $count = 0;
         $markKey = '';
         if ($autoSend && $matched && (string)($task['last_slot_key'] ?? '') !== $slotKey) {
@@ -109,58 +122,149 @@ class RpRainBotService
             return false;
         }
 
-        $ids = [];
-        $err = '';
-        $count = min(100, $count);
-        $roundKey = $markKey !== '' ? $markKey : ('force ' . date('Y-m-d H:i:s'));
-        for ($i = 0; $i < $count; $i++) {
-            try {
-                $pid = $this->sendOne($task, $roundKey);
-                if ($pid > 0) {
-                    $ids[] = $pid;
-                }
-            } catch (\Throwable $e) {
-                $err = $e->getMessage();
-                break;
-            }
-        }
+        return $this->beginRound($task, min(100, $count), $markKey);
+    }
 
+    /**
+     * 开启新一轮：只发第 1 包，其余等抢完再发。
+     */
+    protected function beginRound(array $task, $target, $markKey)
+    {
+        $taskId = (int)$task['id'];
+        $target = max(1, min(100, (int)$target));
+        $roundKey = $markKey !== '' ? $markKey : ('force ' . date('Y-m-d H:i:s'));
         $now = time();
-        if ($ids) {
+        $err = '';
+        $pid = 0;
+        try {
+            $pid = $this->sendOne($task, $roundKey);
+        } catch (\Throwable $e) {
+            $err = $e->getMessage();
+        }
+        if ($pid <= 0) {
             Db::exec(
                 'UPDATE ' . Db::table('chat_rp_rain_task')
-                . ' SET force_send=0, last_slot_key=?, last_round_start=?, round_packet_ids=?, last_packet_id=?, last_error=?, updatetime=? WHERE id=?',
-                [
-                    $markKey,
-                    $now,
-                    implode(',', $ids),
-                    (int)$ids[count($ids) - 1],
-                    $err !== '' ? mb_substr($err, 0, 250) : '',
-                    $now,
-                    $taskId,
-                ]
+                . ' SET force_send=0, last_error=?, updatetime=? WHERE id=?',
+                [mb_substr($err !== '' ? $err : '未发出红包', 0, 250), $now, $taskId]
             );
-            $groupId = (int)$task['group_id'];
-            try {
-                PushBus::toGroup($groupId, 'rp_rain.round', [
-                    'group_id'     => $groupId,
-                    'rain_task_id' => $taskId,
-                    'rain_round'   => $roundKey,
-                    'packet_ids'   => $ids,
-                ]);
-            } catch (\Throwable $e) {
-                CatchLog::quiet($e, 'Service.RpRainBotService');
-            }
-            error_log('[CRON][RP_RAIN] task ' . $taskId . ' sent ' . count($ids) . ' key=' . $markKey);
-            return true;
+            return false;
         }
 
         Db::exec(
             'UPDATE ' . Db::table('chat_rp_rain_task')
-            . ' SET force_send=0, last_error=?, updatetime=? WHERE id=?',
-            [mb_substr($err !== '' ? $err : '未发出红包', 0, 250), $now, $taskId]
+            . ' SET force_send=0, last_slot_key=?, last_round_start=?, round_packet_ids=?, round_target=?, round_sent=1,'
+            . ' last_packet_id=?, last_error=?, updatetime=? WHERE id=?',
+            [
+                $markKey,
+                $now,
+                (string)$pid,
+                $target,
+                $pid,
+                '',
+                $now,
+                $taskId,
+            ]
         );
-        return false;
+        $this->pushRound($task, $roundKey, [$pid]);
+        error_log('[CRON][RP_RAIN] task ' . $taskId . ' begin round target=' . $target . ' first=' . $pid . ' key=' . $markKey);
+        return true;
+    }
+
+    /**
+     * 本轮未发满：仅当上一包已抢完才发下一包。
+     */
+    protected function continueRound(array $task)
+    {
+        $taskId = (int)$task['id'];
+        $target = (int)($task['round_target'] ?? 0);
+        $sent = (int)($task['round_sent'] ?? 0);
+        if ($target <= 0 || $sent >= $target) {
+            return false;
+        }
+        $ids = $this->parseUserIds((string)($task['round_packet_ids'] ?? ''));
+        $lastId = $ids ? (int)$ids[count($ids) - 1] : (int)($task['last_packet_id'] ?? 0);
+        if ($lastId > 0 && !$this->isPacketFinished($lastId)) {
+            return false;
+        }
+
+        $roundKey = (string)($task['last_slot_key'] ?? '');
+        if ($roundKey === '') {
+            $roundKey = 'round-' . $taskId;
+        }
+        $err = '';
+        $pid = 0;
+        try {
+            $pid = $this->sendOne($task, $roundKey);
+        } catch (\Throwable $e) {
+            $err = $e->getMessage();
+        }
+        $now = time();
+        if ($pid <= 0) {
+            Db::exec(
+                'UPDATE ' . Db::table('chat_rp_rain_task') . ' SET last_error=?, updatetime=? WHERE id=?',
+                [mb_substr($err !== '' ? $err : '续发包失败', 0, 250), $now, $taskId]
+            );
+            return false;
+        }
+
+        $ids[] = $pid;
+        $sent++;
+        Db::exec(
+            'UPDATE ' . Db::table('chat_rp_rain_task')
+            . ' SET round_packet_ids=?, round_sent=?, last_packet_id=?, last_error=?, updatetime=? WHERE id=?',
+            [implode(',', $ids), $sent, $pid, '', $now, $taskId]
+        );
+        $task['round_target'] = $target;
+        $this->pushRound($task, $roundKey, $ids);
+        error_log('[CRON][RP_RAIN] task ' . $taskId . ' continue ' . $sent . '/' . $target . ' packet=' . $pid);
+        return true;
+    }
+
+    protected function isPacketFinished($packetId)
+    {
+        $packetId = (int)$packetId;
+        if ($packetId <= 0) {
+            return true;
+        }
+        try {
+            $row = Db::fetch(
+                'SELECT status, remain_count FROM ' . Db::table('chat_red_packets') . ' WHERE id=? LIMIT 1',
+                [$packetId]
+            );
+        } catch (\Throwable $e) {
+            return false;
+        }
+        if (!$row) {
+            return true;
+        }
+        $remain = (int)($row['remain_count'] ?? 0);
+        $status = (int)($row['status'] ?? 0);
+        if ($remain <= 0) {
+            return true;
+        }
+        // 1=可抢；其它状态视为已结束
+        return $status !== 1 && $status !== 0;
+    }
+
+    protected function pushRound(array $task, $roundKey, array $ids)
+    {
+        $groupId = (int)($task['group_id'] ?? 0);
+        $taskId = (int)($task['id'] ?? 0);
+        if ($groupId <= 0 || !$ids) {
+            return;
+        }
+        try {
+            PushBus::toGroup($groupId, 'rp_rain.round', [
+                'group_id'     => $groupId,
+                'rain_task_id' => $taskId,
+                'rain_round'   => (string)$roundKey,
+                'packet_ids'   => array_values(array_map('intval', $ids)),
+                'round_target' => (int)($task['round_target'] ?? 0),
+                'round_sent'   => count($ids),
+            ]);
+        } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.RpRainBotService');
+        }
     }
 
     protected function sendOne(array $task, $roundKey = '')

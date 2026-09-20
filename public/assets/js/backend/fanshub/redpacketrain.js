@@ -35,6 +35,11 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                             return (s.time || '') + '×' + (s.count || 0);
                         }).join('；');
                     }},
+                    {field: 'round_sent', title: '本轮进度', operate: false, formatter: function (v, row) {
+                        var s = parseInt(v, 10) || 0;
+                        var t = parseInt(row.round_target, 10) || 0;
+                        return t > 0 ? (s + '/' + t) : '-';
+                    }},
                     {field: 'bot_grab_cap', title: '每人上限'},
                     {field: 'sweep_minutes', title: '超时分钟'},
                     {field: 'auto_send', title: '自动发', formatter: function (v) { return parseInt(v, 10) === 1 ? '是' : '否'; }},
