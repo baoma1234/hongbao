@@ -3077,6 +3077,16 @@ class MessageService
             if (!empty($extra['relay_auto'])) {
                 $clean['relay_auto'] = 1;
             }
+            // 红宝雨标记须落库，供前端特效 / 自动抢任务识别
+            if (!empty($extra['rain'])) {
+                $clean['rain'] = 1;
+            }
+            if (!empty($extra['rain_task_id'])) {
+                $clean['rain_task_id'] = (int)$extra['rain_task_id'];
+            }
+            if (isset($extra['rain_round']) && $extra['rain_round'] !== '') {
+                $clean['rain_round'] = mb_substr(trim((string)$extra['rain_round']), 0, 64);
+            }
             if (isset($extra['tron_status'])) {
                 $clean['tron_status'] = (int)$extra['tron_status'];
             }

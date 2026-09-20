@@ -23,6 +23,7 @@ use Workerman\Timer;
  * - 抢包延迟：对每个待领包独立随机 delay，多包可同时排 Timer 并行抢（不串行等上一包）
  * - actor_mode：1=发包/抢包 UID 池；2=从 is_bot=1 机器人账户随机发/抢
  * - 多 UID：每个包随机选一个尚未领过该包的 UID 去抢（含拼手气/埋雷/接龙）
+ * - 红宝雨包：由 RpRainBotService 按比例/延迟/超时全领，本服务绝不抢（同群 auto_grab 也跳过）
  */
 class RpAutoBotService
 {
@@ -503,16 +504,25 @@ class RpAutoBotService
             }
         }
 
+        $rainSkip = $this->rainPacketIdSet($groupId);
         $packets = [];
         if ((int)$preferPacketId > 0) {
-            $meta = $this->packetMeta((int)$preferPacketId);
-            if ($meta) {
-                $packets[(int)$preferPacketId] = $meta;
+            $preferPacketId = (int)$preferPacketId;
+            if (!isset($rainSkip[$preferPacketId])) {
+                $meta = $this->packetMeta($preferPacketId);
+                if ($meta) {
+                    $packets[$preferPacketId] = $meta;
+                }
+            } else {
+                $this->taskLogThrottled($taskId, 'grab_rain', 'skip', 'grab: skip rain packet', [
+                    'group_id'  => $groupId,
+                    'packet_id' => $preferPacketId,
+                ], 30);
             }
         }
         foreach ($this->listOpenPackets($groupId, 15) as $row) {
             $pid = (int)($row['id'] ?? 0);
-            if ($pid > 0 && !isset($packets[$pid])) {
+            if ($pid > 0 && !isset($packets[$pid]) && !isset($rainSkip[$pid])) {
                 $packets[$pid] = $row;
             }
         }
@@ -983,6 +993,14 @@ class RpAutoBotService
         if (!$open || (int)$open['status'] !== 1 || (int)$open['remain_count'] <= 0) {
             return false;
         }
+        $gidForRain = (int)($open['group_id'] ?? $groupId);
+        if ($gidForRain > 0 && isset($this->rainPacketIdSet($gidForRain)[$packetId])) {
+            $this->taskLogThrottled($taskId, 'grab_rain_once', 'skip', 'grab: rain packet blocked', [
+                'packet_id' => $packetId,
+                'group_id'  => $gidForRain,
+            ], 30);
+            return false;
+        }
         if ($robotSelfGrab && $uid !== (int)($open['from_user_id'] ?? 0)) {
             $robotSelfGrab = false;
             $opts['robot_self_grab'] = false;
@@ -1191,6 +1209,52 @@ class RpAutoBotService
         return false;
     }
 
+    /**
+     * 当前群红宝雨任务追踪中的包 ID（round_packet_ids / last_packet_id）。
+     * 这些包只能由红宝雨机器人按 bot_grab_pct / 延迟 / 超时全领处理。
+     *
+     * @return array<int,int> packetId => 1
+     */
+    protected function rainPacketIdSet($groupId)
+    {
+        static $cache = [];
+        static $cacheAt = 0;
+        $groupId = (int)$groupId;
+        $now = time();
+        if ($groupId <= 0) {
+            return [];
+        }
+        if (isset($cache[$groupId]) && ($now - $cacheAt) < 2) {
+            return $cache[$groupId];
+        }
+        $set = [];
+        try {
+            $rows = Db::fetchAll(
+                'SELECT round_packet_ids, last_packet_id FROM ' . Db::table('chat_rp_rain_task')
+                . " WHERE status='normal' AND group_id=?"
+                . " AND (IFNULL(round_packet_ids,'')<>'' OR IFNULL(last_packet_id,0)>0)",
+                [$groupId]
+            ) ?: [];
+            foreach ($rows as $row) {
+                foreach ($this->parseUserIds((string)($row['round_packet_ids'] ?? '')) as $id) {
+                    $id = (int)$id;
+                    if ($id > 0) {
+                        $set[$id] = 1;
+                    }
+                }
+                $last = (int)($row['last_packet_id'] ?? 0);
+                if ($last > 0) {
+                    $set[$last] = 1;
+                }
+            }
+        } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.RpAutoBotService');
+        }
+        $cache[$groupId] = $set;
+        $cacheAt = $now;
+        return $set;
+    }
+
     /** @return array[] */
     protected function listOpenPackets($groupId, $limit = 8)
     {
@@ -1202,7 +1266,21 @@ class RpAutoBotService
             . ' ORDER BY id DESC LIMIT ' . $limit,
             [(int)$groupId]
         );
-        return is_array($rows) ? $rows : [];
+        if (!is_array($rows) || !$rows) {
+            return [];
+        }
+        $rainSkip = $this->rainPacketIdSet($groupId);
+        if (!$rainSkip) {
+            return $rows;
+        }
+        $out = [];
+        foreach ($rows as $row) {
+            $pid = (int)($row['id'] ?? 0);
+            if ($pid > 0 && !isset($rainSkip[$pid])) {
+                $out[] = $row;
+            }
+        }
+        return $out;
     }
 
     /** @return int[] */
