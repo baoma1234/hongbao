@@ -148,11 +148,37 @@ class Redpacketrain extends Backend
         }
         $params['sweep_minutes'] = $sweep;
 
-        $slots = $this->normalizeSlots($params['slots'] ?? null);
-        if (!$slots) {
-            $this->error('请至少配置一个开启时间（精确到分）和发包次数');
+        $scheduleMode = ((int)($params['schedule_mode'] ?? 1) === 2) ? 2 : 1;
+        $params['schedule_mode'] = $scheduleMode;
+        if ($scheduleMode === 2) {
+            $intervalMin = (int)($params['interval_minutes'] ?? 5);
+            if ($intervalMin < 1) {
+                $intervalMin = 1;
+            }
+            if ($intervalMin > 1440) {
+                $intervalMin = 1440;
+            }
+            $intervalCount = (int)($params['interval_count'] ?? 1);
+            if ($intervalCount < 1) {
+                $this->error('模式2：每轮发包数至少为 1');
+            }
+            if ($intervalCount > 100) {
+                $intervalCount = 100;
+            }
+            $params['interval_minutes'] = $intervalMin;
+            $params['interval_count'] = $intervalCount;
+            // 保留已有定点配置，便于切回模式1；未填则存空数组
+            $slots = $this->normalizeSlots($params['slots'] ?? null, false);
+            $params['time_slots'] = json_encode($slots, JSON_UNESCAPED_UNICODE);
+        } else {
+            $slots = $this->normalizeSlots($params['slots'] ?? null, true);
+            if (!$slots) {
+                $this->error('模式1：请至少配置一个开启时间（精确到分）和发包次数');
+            }
+            $params['time_slots'] = json_encode($slots, JSON_UNESCAPED_UNICODE);
+            $params['interval_minutes'] = max(1, min(1440, (int)($params['interval_minutes'] ?? 5)));
+            $params['interval_count'] = max(1, min(100, (int)($params['interval_count'] ?? 1)));
         }
-        $params['time_slots'] = json_encode($slots, JSON_UNESCAPED_UNICODE);
         unset($params['slots']);
 
         $status = (string)($params['status'] ?? 'hidden');
@@ -176,7 +202,10 @@ class Redpacketrain extends Backend
         return array_values($ids);
     }
 
-    protected function normalizeSlots($raw)
+    /**
+     * @param bool $required 为 true 时非法行直接报错；false 时跳过空行/非法行
+     */
+    protected function normalizeSlots($raw, $required = true)
     {
         if (!is_array($raw)) {
             return [];
@@ -192,16 +221,25 @@ class Redpacketrain extends Backend
                 continue;
             }
             if (!preg_match('/^(\d{1,2}):(\d{2})$/', $time, $m)) {
-                $this->error('开启时间须为时:分，例如 20:30');
+                if ($required) {
+                    $this->error('开启时间须为时:分，例如 20:30');
+                }
+                continue;
             }
             $h = (int)$m[1];
             $min = (int)$m[2];
             if ($h > 23 || $min > 59) {
-                $this->error('开启时间超出范围');
+                if ($required) {
+                    $this->error('开启时间超出范围');
+                }
+                continue;
             }
             $count = (int)$countRaw;
             if ($count < 1) {
-                $this->error(sprintf('%02d:%02d 的发包次数至少为 1', $h, $min));
+                if ($required) {
+                    $this->error(sprintf('%02d:%02d 的发包次数至少为 1', $h, $min));
+                }
+                continue;
             }
             $key = sprintf('%02d:%02d', $h, $min);
             $out[$key] = [

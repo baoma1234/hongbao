@@ -69,23 +69,48 @@
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">开启时间:</label>
         <div class="col-xs-12 col-sm-8">
-            {volist name="rainSlots" id="slot"}
-            <div class="row" style="margin:0 0 8px">
-                <div class="col-xs-6" style="padding-left:0;padding-right:6px">
-                    <div class="input-group">
-                        <span class="input-group-addon">时间</span>
-                        <input class="form-control" name="row[slots][{$slot.i}][time]" type="time" value="{$slot.time|htmlentities}" step="60">
-                    </div>
-                </div>
-                <div class="col-xs-6" style="padding-left:6px;padding-right:0">
-                    <div class="input-group">
-                        <span class="input-group-addon">发包次数</span>
-                        <input class="form-control" name="row[slots][{$slot.i}][count]" type="number" min="1" max="100" value="{$slot.count}" placeholder="本分钟发几个包">
-                    </div>
-                </div>
+            <div style="margin-bottom:10px">
+                <label class="radio-inline"><input type="radio" name="row[schedule_mode]" value="1" checked class="rain-schedule-mode"> 模式1：定点时刻</label>
+                <label class="radio-inline"><input type="radio" name="row[schedule_mode]" value="2" class="rain-schedule-mode"> 模式2：每隔 N 分钟</label>
             </div>
-            {/volist}
-            <span class="help-block">可配多段，精确到<strong>分</strong>。到点开启一轮：先发第 1 包，<strong>抢完再发下一包</strong>，直到填的次数（例如 10）。空行忽略。同一分钟只保留最后一段。</span>
+            <div class="rain-schedule-panel" data-mode="1">
+                {volist name="rainSlots" id="slot"}
+                <div class="row" style="margin:0 0 8px">
+                    <div class="col-xs-6" style="padding-left:0;padding-right:6px">
+                        <div class="input-group">
+                            <span class="input-group-addon">时间</span>
+                            <input class="form-control" name="row[slots][{$slot.i}][time]" type="time" value="{$slot.time|htmlentities}" step="60">
+                        </div>
+                    </div>
+                    <div class="col-xs-6" style="padding-left:6px;padding-right:0">
+                        <div class="input-group">
+                            <span class="input-group-addon">发包次数</span>
+                            <input class="form-control" name="row[slots][{$slot.i}][count]" type="number" min="1" max="100" value="{$slot.count}" placeholder="本分钟发几个包">
+                        </div>
+                    </div>
+                </div>
+                {/volist}
+                <span class="help-block">可配多段，精确到<strong>分</strong>。到点开启一轮：先发第 1 包，<strong>抢完再发下一包</strong>，直到填的次数。空行忽略。</span>
+            </div>
+            <div class="rain-schedule-panel" data-mode="2" style="display:none">
+                <div class="row" style="margin:0 0 8px">
+                    <div class="col-xs-6" style="padding-left:0;padding-right:6px">
+                        <div class="input-group">
+                            <span class="input-group-addon">每隔</span>
+                            <input class="form-control" name="row[interval_minutes]" type="number" min="1" max="1440" value="5">
+                            <span class="input-group-addon">分钟</span>
+                        </div>
+                    </div>
+                    <div class="col-xs-6" style="padding-left:6px;padding-right:0">
+                        <div class="input-group">
+                            <span class="input-group-addon">发</span>
+                            <input class="form-control" name="row[interval_count]" type="number" min="1" max="100" value="10">
+                            <span class="input-group-addon">包</span>
+                        </div>
+                    </div>
+                </div>
+                <span class="help-block">按自然时间分桶循环：例如每隔 5 分钟，则在 :00/:05/:10… 各开一轮，每轮发填的包数（抢完再发下一包）。上一轮未发完时不会叠开新一轮。</span>
+            </div>
         </div>
     </div>
     <div class="form-group">

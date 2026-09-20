@@ -27,11 +27,17 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                     {field: 'amount_min', title: '金额最小'},
                     {field: 'amount_max', title: '金额最大'},
                     {field: 'total_count', title: '每包份数'},
-                    {field: 'time_slots', title: '开启时间', operate: false, formatter: function (v) {
+                    {field: 'time_slots', title: '开启时间', operate: false, formatter: function (v, row) {
+                        var mode = parseInt(row.schedule_mode, 10) || 1;
+                        if (mode === 2) {
+                            var m = parseInt(row.interval_minutes, 10) || 0;
+                            var c = parseInt(row.interval_count, 10) || 0;
+                            return '模式2：每' + m + '分钟×' + c + '包';
+                        }
                         var arr = [];
                         try { arr = typeof v === 'string' ? JSON.parse(v || '[]') : (v || []); } catch (e) { arr = []; }
-                        if (!arr || !arr.length) return '-';
-                        return arr.map(function (s) {
+                        if (!arr || !arr.length) return '模式1：-';
+                        return '模式1：' + arr.map(function (s) {
                             return (s.time || '') + '×' + (s.count || 0);
                         }).join('；');
                     }},
@@ -102,6 +108,14 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
         api: {
             bindevent: function () {
                 Form.api.bindevent($("form[role=form]"));
+                var syncSchedule = function () {
+                    var mode = $('input[name="row[schedule_mode]"]:checked').val() || '1';
+                    $('.rain-schedule-panel').each(function () {
+                        $(this).toggle(String($(this).data('mode')) === String(mode));
+                    });
+                };
+                $(document).off('change.rainSchedule', '.rain-schedule-mode').on('change.rainSchedule', '.rain-schedule-mode', syncSchedule);
+                syncSchedule();
             }
         }
     };

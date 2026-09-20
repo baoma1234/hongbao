@@ -78,16 +78,7 @@ class RpRainBotService
         $taskId = (int)$task['id'];
         $force = (int)($task['force_send'] ?? 0) === 1;
         $autoSend = (int)($task['auto_send'] ?? 0) === 1;
-        $slots = $this->slots($task);
-        $hm = date('H:i');
-        $slotKey = date('Y-m-d') . ' ' . $hm;
-        $matched = null;
-        foreach ($slots as $slot) {
-            if (($slot['time'] ?? '') === $hm) {
-                $matched = $slot;
-                break;
-            }
-        }
+        $scheduleMode = ((int)($task['schedule_mode'] ?? 1) === 2) ? 2 : 1;
 
         $roundTarget = (int)($task['round_target'] ?? 0);
         $roundSent = (int)($task['round_sent'] ?? 0);
@@ -104,13 +95,39 @@ class RpRainBotService
 
         $count = 0;
         $markKey = '';
-        if ($autoSend && $matched && (string)($task['last_slot_key'] ?? '') !== $slotKey) {
-            $count = (int)$matched['count'];
-            $markKey = $slotKey;
-        } elseif ($force) {
-            $use = $matched ?: ($slots[0] ?? null);
-            $count = (int)($use['count'] ?? 1);
-            $markKey = '手动 ' . date('Y-m-d H:i:s');
+        if ($scheduleMode === 2) {
+            $intervalMin = max(1, min(1440, (int)($task['interval_minutes'] ?? 5)));
+            $intervalCount = max(1, min(100, (int)($task['interval_count'] ?? 1)));
+            $bucketSec = (int)(floor(time() / ($intervalMin * 60)) * ($intervalMin * 60));
+            $slotKey = '每' . $intervalMin . '分 ' . date('Y-m-d H:i', $bucketSec);
+            $lastStart = (int)($task['last_round_start'] ?? 0);
+            // 本时间桶已开过一轮（含手动）则不再自动叠开
+            if ($autoSend && (string)($task['last_slot_key'] ?? '') !== $slotKey && $lastStart < $bucketSec) {
+                $count = $intervalCount;
+                $markKey = $slotKey;
+            } elseif ($force) {
+                $count = $intervalCount;
+                $markKey = '手动 ' . date('Y-m-d H:i:s');
+            }
+        } else {
+            $slots = $this->slots($task);
+            $hm = date('H:i');
+            $slotKey = date('Y-m-d') . ' ' . $hm;
+            $matched = null;
+            foreach ($slots as $slot) {
+                if (($slot['time'] ?? '') === $hm) {
+                    $matched = $slot;
+                    break;
+                }
+            }
+            if ($autoSend && $matched && (string)($task['last_slot_key'] ?? '') !== $slotKey) {
+                $count = (int)$matched['count'];
+                $markKey = $slotKey;
+            } elseif ($force) {
+                $use = $matched ?: ($slots[0] ?? null);
+                $count = (int)($use['count'] ?? 1);
+                $markKey = '手动 ' . date('Y-m-d H:i:s');
+            }
         }
         if ($count <= 0) {
             if ($force) {
