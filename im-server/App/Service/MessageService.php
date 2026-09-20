@@ -3359,7 +3359,71 @@ class MessageService
         if ($content === '') {
             throw new \InvalidArgumentException('empty content');
         }
-        return [$content, 1, null];
+        // 文本消息可带引用回复 / @成员（微信群同款）；无私聊 @ 全体
+        $meta = $this->extractChatMetaExtra($extra);
+        return [$content, 1, $meta ?: null];
+    }
+
+    /**
+     * 引用回复 + @ 元数据（文本/图/视频/表情等均可附带）
+     *
+     * @param mixed $extra
+     * @return array
+     */
+    protected function extractChatMetaExtra($extra)
+    {
+        if (is_string($extra) && $extra !== '') {
+            $decoded = json_decode($extra, true);
+            $extra = is_array($decoded) ? $decoded : [];
+        }
+        if (!is_array($extra)) {
+            return [];
+        }
+        $out = [];
+        if (!empty($extra['reply_to']) && is_array($extra['reply_to'])) {
+            $rt = $extra['reply_to'];
+            $reply = [
+                'id'           => (int)($rt['id'] ?? 0),
+                'msg_id'       => mb_substr(trim((string)($rt['msg_id'] ?? '')), 0, 64),
+                'from_user_id' => (int)($rt['from_user_id'] ?? 0),
+                'nickname'     => mb_substr(trim((string)($rt['nickname'] ?? '')), 0, 64),
+                'content'      => mb_substr(trim((string)($rt['content'] ?? $rt['preview'] ?? '')), 0, 200),
+                'msg_type'     => max(0, (int)($rt['msg_type'] ?? 1)),
+            ];
+            if ($reply['id'] > 0 || $reply['msg_id'] !== '') {
+                $out['reply_to'] = $reply;
+            }
+        }
+        if (!empty($extra['at_all'])) {
+            $out['at_all'] = 1;
+        }
+        if (!empty($extra['at_users']) && is_array($extra['at_users'])) {
+            $users = [];
+            $seen = [];
+            foreach (array_slice($extra['at_users'], 0, 50) as $u) {
+                if (is_numeric($u)) {
+                    $uid = (int)$u;
+                    $nick = '';
+                } elseif (is_array($u)) {
+                    $uid = (int)($u['user_id'] ?? $u['id'] ?? 0);
+                    $nick = mb_substr(trim((string)($u['nickname'] ?? '')), 0, 64);
+                } else {
+                    continue;
+                }
+                if ($uid <= 0 || isset($seen[$uid])) {
+                    continue;
+                }
+                $seen[$uid] = 1;
+                $users[] = [
+                    'user_id'  => $uid,
+                    'nickname' => $nick,
+                ];
+            }
+            if ($users) {
+                $out['at_users'] = $users;
+            }
+        }
+        return $out;
     }
 
     protected function normalizeExtra($extra, $sticker = false, $file = false)
@@ -3519,6 +3583,10 @@ class MessageService
                     }
                 }
             }
+        }
+        // 媒体消息也可附带引用回复
+        foreach ($this->extractChatMetaExtra($extra) as $k => $v) {
+            $clean[$k] = $v;
         }
         return $clean;
     }

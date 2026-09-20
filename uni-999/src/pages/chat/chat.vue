@@ -69,10 +69,17 @@
               <view class="notice-inner">{{ sysText(m) }}</view>
             </view>
             <template v-else>
-              <view class="chat-msg-avatar locked">
+              <view class="chat-msg-avatar locked" @longpress.stop="onAvatarLongPress(m)">
                 <image :src="msgAvatar(m)" mode="aspectFill" lazy-load />
               </view>
-              <view class="chat-msg-main" :class="{ 'has-niuniu': isNiuniu(m) || isFissionShare(m) }">
+              <view
+                class="chat-msg-main"
+                :class="{
+                  'has-niuniu': isNiuniu(m) || isFissionShare(m),
+                  'is-at-me': isAtMeMsg(m),
+                  'is-jump-flash': jumpFlashId === msgId(m),
+                }"
+              >
                 <view v-if="showSender(m)" class="chat-msg-nick locked">{{ senderName(m) }}</view>
 
                 <!-- 红宝：对齐 888 bubble-rp；信封用 CSS 代替内联 SVG，减轻列表主线程 -->
@@ -157,10 +164,22 @@
                 </view>
 
                 <view v-else-if="isSticker(m)" class="chat-bubble sticker" @longpress.stop="onMsgLongPress(m, $event)">
+                  <ChatReplyQuote
+                    v-if="msgReplyTo(m)"
+                    :reply="msgReplyTo(m)"
+                    :is-me="isMine(m)"
+                    @jump="jumpToQuoted"
+                  />
                   <image class="chat-sticker-img" :src="stickerUrl(m)" mode="aspectFit" lazy-load />
                   <text class="meta">{{ msgTime(m) }}</text>
                 </view>
                 <view v-else-if="isImage(m)" class="chat-bubble media" :class="{ 'is-album': mediaImageList(m).length > 1 }" @longpress.stop="onMsgLongPress(m, $event)">
+                  <ChatReplyQuote
+                    v-if="msgReplyTo(m)"
+                    :reply="msgReplyTo(m)"
+                    :is-me="isMine(m)"
+                    @jump="jumpToQuoted"
+                  />
                   <view
                     v-if="mediaImageList(m).length > 1"
                     class="chat-tg-album"
@@ -190,6 +209,9 @@
                       :group-id="foldGroupId(m)"
                       :no-fold="msgNoFold(m)"
                       :expanded="isLongMsgExpanded(m)"
+                      :mentions="msgAtUsers(m)"
+                      :at-all="msgAtAll(m)"
+                      :my-user-id="myUserId"
                       @toggle="toggleLongMsg(m)"
                       @open-link="openMsgLink"
                     />
@@ -201,6 +223,12 @@
                   class="chat-bubble media is-video-full"
                   @longpress.stop="onMsgLongPress(m, $event)"
                 >
+                  <ChatReplyQuote
+                    v-if="msgReplyTo(m)"
+                    :reply="msgReplyTo(m)"
+                    :is-me="isMine(m)"
+                    @jump="jumpToQuoted"
+                  />
                   <view
                     class="chat-video-card"
                     :class="{
@@ -260,6 +288,9 @@
                           :group-id="foldGroupId(m)"
                           :no-fold="msgNoFold(m)"
                           :expanded="isLongMsgExpanded(m)"
+                          :mentions="msgAtUsers(m)"
+                          :at-all="msgAtAll(m)"
+                          :my-user-id="myUserId"
                           @toggle="toggleLongMsg(m)"
                           @open-link="openMsgLink"
                         />
@@ -270,6 +301,12 @@
                   </view>
                 </view>
                 <view v-else-if="isFile(m)" class="chat-bubble media file" @longpress.stop="onMsgLongPress(m, $event)" @click="openFileMsg(m)">
+                  <ChatReplyQuote
+                    v-if="msgReplyTo(m)"
+                    :reply="msgReplyTo(m)"
+                    :is-me="isMine(m)"
+                    @jump="jumpToQuoted"
+                  />
                   <text class="file-name">{{ fileName(m) }}</text>
                   <text class="file-ext">{{ fileMeta(m) }}</text>
                   <text class="meta">{{ msgTime(m) }}</text>
@@ -286,6 +323,12 @@
                   @mouseup="onTextMsgHoldEnd"
                   @mouseleave="onTextMsgHoldEnd"
                 >
+                  <ChatReplyQuote
+                    v-if="msgReplyTo(m)"
+                    :reply="msgReplyTo(m)"
+                    :is-me="isMine(m)"
+                    @jump="jumpToQuoted"
+                  />
                   <view class="content content-rich">
                     <ChatFoldText
                       :text="msgText(m)"
@@ -293,6 +336,9 @@
                       :group-id="foldGroupId(m)"
                       :no-fold="msgNoFold(m)"
                       :expanded="isLongMsgExpanded(m)"
+                      :mentions="msgAtUsers(m)"
+                      :at-all="msgAtAll(m)"
+                      :my-user-id="myUserId"
                       @toggle="toggleLongMsg(m)"
                       @open-link="openMsgLink"
                     />
@@ -315,12 +361,57 @@
           <text class="chat-jump-latest-ico chat-tool-glyph">↓</text>
         </view>
 
-        <view
-          v-if="!composerFullyHidden"
-          class="chat-composer-wrap"
-          :class="{ 'is-muted': composerLocked, 'is-extras-locked': extrasLocked }"
-          :style="composerDockStyle"
-        >
+          <view
+            v-if="!composerFullyHidden"
+            class="chat-composer-wrap"
+            :class="{ 'is-muted': composerLocked, 'is-extras-locked': extrasLocked }"
+            :style="composerDockStyle"
+          >
+            <!-- 引用回复条（微信群同款） -->
+            <view v-if="replyTarget" class="chat-reply-bar">
+              <view class="chat-reply-bar-accent" aria-hidden="true" />
+              <view class="chat-reply-bar-body">
+                <text class="chat-reply-bar-title">回复 {{ replyTarget.nickname || '用户' }}</text>
+                <text class="chat-reply-bar-preview">{{ replyTarget.content || '[消息]' }}</text>
+              </view>
+              <view class="chat-reply-bar-close" hover-class="chat-reply-bar-close--on" @click.stop="clearReplyTarget">×</view>
+            </view>
+
+            <!-- @ 成员选择（输入 @ 弹出） -->
+            <view v-if="atPickerVisible" class="chat-at-picker">
+              <view
+                v-if="canAtAll"
+                class="chat-at-item chat-at-item--all"
+                hover-class="chat-at-item--on"
+                @click.stop="pickAtAll"
+              >
+                <view class="chat-at-all-ico" aria-hidden="true">全</view>
+                <view class="chat-at-main">
+                  <text class="chat-at-name">全体成员</text>
+                  <text class="chat-at-sub">通知群内所有人</text>
+                </view>
+              </view>
+              <scroll-view scroll-y class="chat-at-list" :show-scrollbar="true">
+                <view
+                  v-for="m in atFilteredMembers"
+                  :key="'at' + m.user_id"
+                  class="chat-at-item"
+                  hover-class="chat-at-item--on"
+                  @click.stop="pickAtMember(m)"
+                >
+                  <image class="chat-at-avatar" :src="avatarSrc(m.avatar_url || m.avatar || '')" mode="aspectFill" />
+                  <view class="chat-at-main">
+                    <text class="chat-at-name">{{ m.nickname || ('ID' + m.user_id) }}</text>
+                    <text class="chat-at-sub">ID {{ m.user_id }}</text>
+                  </view>
+                  <text v-if="(m.role | 0) === 3" class="chat-at-tag">群主</text>
+                  <text v-else-if="(m.role | 0) === 2" class="chat-at-tag">管理</text>
+                </view>
+                <view v-if="atMembersLoading" class="chat-at-empty">加载中…</view>
+                <view v-else-if="!atFilteredMembers.length && !canAtAll" class="chat-at-empty">无匹配成员</view>
+              </scroll-view>
+            </view>
+
           <scroll-view v-if="pendingMedias.length" scroll-x class="chat-pending-media-row" :show-scrollbar="false">
             <view class="chat-pending-media-inner">
               <view
@@ -1031,6 +1122,7 @@
           >
             <view class="chat-wx-msg-menu-ico-wrap" aria-hidden="true">
               <view v-if="it.action === 'copy'" class="chat-wx-ico chat-wx-ico-copy" />
+              <view v-else-if="it.action === 'reply'" class="chat-wx-ico chat-wx-ico-reply" />
               <view v-else-if="it.action === 'recall'" class="chat-wx-ico chat-wx-ico-recall" />
               <view v-else-if="it.action === 'save'" class="chat-wx-ico chat-wx-ico-save" />
               <text v-else class="chat-wx-msg-menu-ico">·</text>
@@ -1052,6 +1144,7 @@ import ChatNiuniuCard from '../../components/ChatNiuniuCard.vue'
 import ChatMediaVideo from '../../components/ChatMediaVideo.vue'
 // #endif
 import ChatFoldText from '../../components/ChatFoldText.vue'
+import ChatReplyQuote from '../../components/ChatReplyQuote.vue'
 import '../../styles/chat.bundle.css'
 import '../../styles/chat-room-uni-adapter.css'
 import '../../styles/chat-rp-send-uni-adapter.css'
@@ -1111,6 +1204,7 @@ import stickerAsciiAlias from '../../static/data/sticker-ascii-alias.json'
 import {
   bindForegroundResume,
   fetchGroupInfo,
+  fetchGroupMembers,
   grabRedPacket,
   imConnect,
   imSend,
@@ -1129,11 +1223,33 @@ import {
   sendTransfer,
   setPeerRemark,
 } from '../../utils/im.js'
+import {
+  applyAtPick,
+  buildReplySnapshot,
+  detectAtTrigger,
+  messageMentionsMe,
+  msgAtAll,
+  msgAtUsers,
+  msgReplyTo,
+} from '../../utils/chat-mention.js'
 
 const title = ref('聊天')
 const peerNickname = ref('')
 const remark = ref('')
 const text = ref('')
+/** 引用回复目标（微信群同款） */
+const replyTarget = ref(null)
+/** 本条待发送的 @ 列表 */
+const pendingAtUsers = ref([])
+const pendingAtAll = ref(false)
+const atPickerVisible = ref(false)
+const atTrigger = ref(null)
+const atMembers = ref([])
+const atMembersLoading = ref(false)
+const atQuery = ref('')
+const jumpFlashId = ref('')
+let jumpFlashTimer = 0
+let atSearchTimer = 0
 /** 输入栏表情按钮图标（四端 static） */
 const composerEmojiIcon = packagedStaticUrl('chat/composer-emoji.png')
 /** Telegram 风格：单行不起滚；文字多了向上加高并全显；约 6～7 行后再内滚 */
@@ -1247,6 +1363,7 @@ function onComposerInput() {
     composerLineCount.value = 1
     composerHeightPx.value = COMPOSER_MIN_H
     composerAtMax.value = false
+    closeAtPicker()
     scheduleMeasureMsgScroll()
     return
   }
@@ -1256,7 +1373,9 @@ function onComposerInput() {
       applyComposerLines(n)
     }
   })
+  maybeOpenAtPicker(s)
 }
+
 function onComposerEnter(e) {
   // H5：Enter 发送；Shift+Enter 换行（浏览器默认）
   try {
@@ -4024,6 +4143,7 @@ function onMsgLongPress(m, e) {
   clearTextMsgHold()
 
   const items = []
+  items.push({ action: 'reply', label: rpT('chat_msg_reply', '回复') })
   if (isImage(m)) {
     items.push({ action: 'save', label: rpT('chat_msg_save', '保存') })
     if (canCopyImageMsg(m)) {
@@ -4131,6 +4251,10 @@ async function onMsgMenuAction(action) {
   const m = msgMenu.value.msg
   closeMsgMenu()
   if (!m) return
+  if (action === 'reply') {
+    startReplyTo(m)
+    return
+  }
   if (action === 'copy') {
     if (isImage(m)) {
       await copyChatImageMsg(m)
@@ -4158,6 +4282,222 @@ async function onMsgMenuAction(action) {
   }
 }
 
+const canMention = computed(() => {
+  if (isPrivate.value) return false
+  const pol = groupPolicy.value || {}
+  if (pol.can_mention == null) return true
+  return !!pol.can_mention
+})
+
+const canAtAll = computed(() => {
+  if (!canMention.value) return false
+  const role = ((groupMeta.value && groupMeta.value.my_role) | 0) || 0
+  return role >= 2
+})
+
+const atFilteredMembers = computed(() => {
+  const q = String(atQuery.value || '').trim().toLowerCase()
+  const my = (myUserId.value | 0) || (myId | 0)
+  let list = (atMembers.value || []).filter((m) => ((m.user_id | 0) || 0) !== my)
+  if (!q) return list.slice(0, 80)
+  return list
+    .filter((m) => {
+      const name = String(m.nickname || '').toLowerCase()
+      const id = String(m.user_id || '')
+      return name.indexOf(q) >= 0 || id.indexOf(q) >= 0
+    })
+    .slice(0, 80)
+})
+
+function isAtMeMsg(m) {
+  const uid = (myUserId.value | 0) || (myId | 0)
+  return messageMentionsMe(m, uid)
+}
+
+function startReplyTo(m) {
+  const snap = buildReplySnapshot(m)
+  if (!snap) return
+  replyTarget.value = snap
+  closeAtPicker()
+  showEmoji.value = false
+  showSticker.value = false
+  showAttach.value = false
+  nextTick(() => {
+    scheduleMeasureMsgScroll()
+    tryFocusComposer()
+  })
+}
+
+function clearReplyTarget() {
+  replyTarget.value = null
+  scheduleMeasureMsgScroll()
+}
+
+function clearPendingAts() {
+  pendingAtUsers.value = []
+  pendingAtAll.value = false
+}
+
+function buildOutgoingChatExtra() {
+  const extra = {}
+  if (replyTarget.value) {
+    extra.reply_to = Object.assign({}, replyTarget.value)
+  }
+  if (!isPrivate.value) {
+    if (pendingAtAll.value) extra.at_all = 1
+    const users = (pendingAtUsers.value || [])
+      .map((u) => ({
+        user_id: (u.user_id | 0) || 0,
+        nickname: String(u.nickname || '').slice(0, 64),
+      }))
+      .filter((u) => u.user_id > 0)
+    if (users.length) extra.at_users = users
+  }
+  return Object.keys(extra).length ? extra : null
+}
+
+function tryFocusComposer() {
+  // #ifdef H5
+  try {
+    const el =
+      document.querySelector('#chatInput textarea') ||
+      document.querySelector('#chatInput .uni-textarea-textarea') ||
+      document.querySelector('#chatInput')
+    if (el && typeof el.focus === 'function') el.focus()
+  } catch (e) {}
+  // #endif
+}
+
+function closeAtPicker() {
+  atPickerVisible.value = false
+  atTrigger.value = null
+  atQuery.value = ''
+}
+
+function maybeOpenAtPicker(raw) {
+  if (isPrivate.value || !canMention.value) {
+    closeAtPicker()
+    return
+  }
+  const trig = detectAtTrigger(raw)
+  if (!trig) {
+    closeAtPicker()
+    return
+  }
+  atTrigger.value = trig
+  atQuery.value = trig.query || ''
+  atPickerVisible.value = true
+  scheduleAtMembersLoad(trig.query || '')
+}
+
+function scheduleAtMembersLoad(keyword) {
+  if (atSearchTimer) clearTimeout(atSearchTimer)
+  atSearchTimer = setTimeout(() => {
+    atSearchTimer = 0
+    loadAtMembers(keyword)
+  }, 120)
+}
+
+async function loadAtMembers(keyword) {
+  const gid = meta.value.group | 0
+  if (!gid) return
+  atMembersLoading.value = true
+  try {
+    const packet = await fetchGroupMembers(gid, String(keyword || ''))
+    const data = (packet && packet.data) || {}
+    atMembers.value = Array.isArray(data.list) ? data.list : []
+  } catch (e) {
+    atMembers.value = []
+  } finally {
+    atMembersLoading.value = false
+  }
+}
+
+function pickAtMember(m) {
+  if (!m) return
+  if (!canMention.value) {
+    uni.showToast({ title: '本群不可@成员', icon: 'none' })
+    return
+  }
+  const nick = String(m.nickname || '').trim() || ('用户' + (m.user_id | 0))
+  const uid = m.user_id | 0
+  text.value = applyAtPick(text.value, atTrigger.value, nick)
+  const list = pendingAtUsers.value.slice()
+  if (uid > 0 && !list.some((x) => (x.user_id | 0) === uid)) {
+    list.push({ user_id: uid, nickname: nick })
+    pendingAtUsers.value = list
+  }
+  closeAtPicker()
+  nextTick(() => {
+    onComposerInput()
+    tryFocusComposer()
+  })
+}
+
+function pickAtAll() {
+  if (!canAtAll.value) {
+    uni.showToast({ title: '仅群主/管理员可@全体成员', icon: 'none' })
+    return
+  }
+  text.value = applyAtPick(text.value, atTrigger.value, '全体成员')
+  pendingAtAll.value = true
+  closeAtPicker()
+  nextTick(() => {
+    onComposerInput()
+    tryFocusComposer()
+  })
+}
+
+function onAvatarLongPress(m) {
+  if (!m || isPrivate.value || isMine(m) || isSystemMsg(m)) return
+  if (!canMention.value) {
+    uni.showToast({ title: '本群不可@成员', icon: 'none' })
+    return
+  }
+  const nick = senderName(m)
+  const uid = m.from_user_id | 0
+  const cur = String(text.value || '')
+  const insert = (cur && !/\s$/.test(cur) ? ' ' : '') + '@' + nick + ' '
+  text.value = cur + insert
+  if (uid > 0 && !pendingAtUsers.value.some((x) => (x.user_id | 0) === uid)) {
+    pendingAtUsers.value = pendingAtUsers.value.concat([{ user_id: uid, nickname: nick }])
+  }
+  try {
+    uni.vibrateShort({ type: 'light' })
+  } catch (e) {}
+  nextTick(() => {
+    onComposerInput()
+    tryFocusComposer()
+  })
+}
+
+function jumpToQuoted(reply) {
+  if (!reply) return
+  const id = (reply.id | 0) || 0
+  const mid = String(reply.msg_id || '')
+  const list = messages.value || []
+  let target = null
+  if (id > 0) target = list.find((x) => (x.id | 0) === id)
+  if (!target && mid) target = list.find((x) => String(x.msg_id || '') === mid)
+  if (!target) {
+    uni.showToast({ title: '原消息不在当前列表', icon: 'none' })
+    return
+  }
+  const key = msgId(target)
+  stickToBottom = false
+  showJumpLatest.value = true
+  scrollInto.value = ''
+  nextTick(() => {
+    scrollInto.value = 'm' + key
+    jumpFlashId.value = key
+    if (jumpFlashTimer) clearTimeout(jumpFlashTimer)
+    jumpFlashTimer = setTimeout(() => {
+      jumpFlashId.value = ''
+      jumpFlashTimer = 0
+    }, 1600)
+  })
+}
+
 function closePanels() {
   showEmoji.value = false
   showSticker.value = false
@@ -4168,6 +4508,8 @@ function onInputFocus() {
   showEmoji.value = false
   showSticker.value = false
   showAttach.value = false
+  // 保留 @ 选择器：焦点回来时若仍在输入 @ 则继续显示
+  maybeOpenAtPicker(String(text.value || ''))
 }
 
 /** 文本里出现复制标记时转为待发图（免上传） */
@@ -4682,6 +5024,8 @@ async function sendSticker(st) {
       fullurl: displayUrl || sendUrl,
     },
   }
+  const chatExtra = buildOutgoingChatExtra()
+  if (chatExtra) Object.assign(payload.extra, chatExtra)
   try {
     let packet
     if (meta.value.type == 2) {
@@ -4690,6 +5034,8 @@ async function sendSticker(st) {
       packet = await imSend('private.send', Object.assign({ to_user_id: meta.value.peer | 0 }, payload), true)
     }
     showSticker.value = false
+    clearReplyTarget()
+    clearPendingAts()
     const msg = packet && packet.data && packet.data.message
     if (msg) appendLocalMessage(msg)
     else await fetchHistory({ forceScroll: true })
@@ -4765,20 +5111,25 @@ function mediaPathsFromUpload(up) {
 }
 
 async function sendMediaMessage(msgType, extra, label) {
+  const chatExtra = buildOutgoingChatExtra()
+  const merged = Object.assign({}, extra || {})
+  if (chatExtra) Object.assign(merged, chatExtra)
   let packet
   if (meta.value.type == 2) {
     packet = await imSend(
       'group.send',
-      { group_id: meta.value.group | 0, msg_type: msgType, content: label, extra: extra || {} },
+      { group_id: meta.value.group | 0, msg_type: msgType, content: label, extra: merged },
       true
     )
   } else {
     packet = await imSend(
       'private.send',
-      { to_user_id: meta.value.peer | 0, msg_type: msgType, content: label, extra: extra || {} },
+      { to_user_id: meta.value.peer | 0, msg_type: msgType, content: label, extra: merged },
       true
     )
   }
+  clearReplyTarget()
+  clearPendingAts()
   const msg = packet && packet.data && packet.data.message
   if (msg) appendLocalMessage(msg)
   return packet
@@ -5435,9 +5786,12 @@ async function sendText() {
     return
   }
   const content = String(text.value || '').trim()
+  if (!content && !replyTarget.value) return
   if (!content) return
   // 立刻上锁并清空，避免连点/回车重复发送同一条
   textSending.value = true
+  const sentContent = content
+  const extra = buildOutgoingChatExtra()
   text.value = ''
   composerLineCount.value = 1
   composerHeightPx.value = COMPOSER_MIN_H
@@ -5445,12 +5799,18 @@ async function sendText() {
   showEmoji.value = false
   showSticker.value = false
   showAttach.value = false
+  closeAtPicker()
+  const replySnap = replyTarget.value
+  clearReplyTarget()
+  clearPendingAts()
   try {
     let packet
+    const payload = { content: sentContent, msg_type: 1 }
+    if (extra) payload.extra = extra
     if (meta.value.type == 2) {
-      packet = await imSend('group.send', { group_id: meta.value.group | 0, content, msg_type: 1 }, true)
+      packet = await imSend('group.send', Object.assign({ group_id: meta.value.group | 0 }, payload), true)
     } else {
-      packet = await imSend('private.send', { to_user_id: meta.value.peer | 0, content, msg_type: 1 }, true)
+      packet = await imSend('private.send', Object.assign({ to_user_id: meta.value.peer | 0 }, payload), true)
     }
     const msg = (packet && packet.data && packet.data.message) || null
     if (msg) appendLocalMessage(msg)
@@ -5458,7 +5818,8 @@ async function sendText() {
     markRead().catch(() => {})
   } catch (e) {
     // 失败时若输入框仍空则还原，方便重发
-    if (!String(text.value || '').trim()) text.value = content
+    if (!String(text.value || '').trim()) text.value = sentContent
+    if (replySnap) replyTarget.value = replySnap
     uni.showToast({ title: e.message || '发送失败', icon: 'none' })
   } finally {
     textSending.value = false
@@ -7581,6 +7942,29 @@ uni-page-body {
   transform: rotate(45deg);
   box-sizing: border-box;
 }
+/* 回复：左弯箭头 */
+.chat-wx-ico-reply::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 4px;
+  width: 11px;
+  height: 9px;
+  border: 1.5px solid #fff;
+  border-left: 0;
+  border-top: 0;
+  border-radius: 0 0 10px 0;
+  box-sizing: border-box;
+}
+.chat-wx-ico-reply::after {
+  content: '';
+  position: absolute;
+  left: 1px;
+  top: 1px;
+  border: 4px solid transparent;
+  border-right-color: #fff;
+  border-left: 0;
+}
 .chat-wx-msg-menu-lab {
   color: #fff;
   font-size: 11px;
@@ -8344,4 +8728,159 @@ uni-page-body {
   text-align: center;
   background: rgba(0, 0, 0, 0.2);
 }
+
+/* —— 微信群同款：引用条 / @选择 / @我高亮（四端） —— */
+.chat-reply-bar {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  margin: 0 10px 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #f3f3f3;
+  box-sizing: border-box;
+}
+.chat-reply-bar-accent {
+  width: 3px;
+  border-radius: 2px;
+  background: #07c160;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+.chat-reply-bar-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.chat-reply-bar-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #07c160;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-reply-bar-preview {
+  font-size: 12px;
+  color: #888;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-reply-bar-close {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  margin-left: 4px;
+  border-radius: 50%;
+  text-align: center;
+  line-height: 26px;
+  font-size: 20px;
+  color: #999;
+  background: transparent;
+}
+.chat-reply-bar-close--on {
+  background: rgba(0, 0, 0, 0.06);
+  color: #666;
+}
+.chat-at-picker {
+  margin: 0 10px 6px;
+  max-height: 220px;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  /* App / Safari：避免被键盘顶出视口时点不中 */
+  position: relative;
+  z-index: 20;
+}
+.chat-at-list {
+  max-height: 180px;
+  height: 180px;
+}
+.chat-at-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 10px 12px;
+  box-sizing: border-box;
+}
+.chat-at-item--on {
+  background: #f5f5f5;
+}
+.chat-at-item--all {
+  border-bottom: 1px solid #f0f0f0;
+}
+.chat-at-all-ico {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  background: #07c160;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+  line-height: 36px;
+  margin-right: 10px;
+  flex-shrink: 0;
+}
+.chat-at-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  margin-right: 10px;
+  flex-shrink: 0;
+  background: #eee;
+}
+.chat-at-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.chat-at-name {
+  font-size: 15px;
+  color: #111;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-at-sub {
+  font-size: 11px;
+  color: #999;
+}
+.chat-at-tag {
+  font-size: 10px;
+  color: #07c160;
+  border: 1px solid rgba(7, 193, 96, 0.35);
+  border-radius: 4px;
+  padding: 1px 4px;
+  margin-left: 6px;
+  flex-shrink: 0;
+}
+.chat-at-empty {
+  padding: 16px;
+  text-align: center;
+  color: #999;
+  font-size: 13px;
+}
+.chat-msg-main.is-at-me .chat-bubble.text-msg {
+  box-shadow: inset 3px 0 0 #07c160;
+}
+.chat-msg-main.is-jump-flash .chat-bubble {
+  animation: chatJumpFlash 1.4s ease;
+}
+@keyframes chatJumpFlash {
+  0%, 100% { background-color: inherit; }
+  25%, 55% { filter: brightness(0.94); }
+  40% { filter: brightness(0.88); }
+}
 </style>
+

@@ -325,7 +325,7 @@ import {
   convKey,
   displayTitle,
   formatConvTime,
-  previewText,
+  inboxPreviewText,
   publicUrl,
   resolveConvId,
 } from '../../utils/chat.js'
@@ -734,7 +734,7 @@ function clearSearch() {
 }
 
 function itemPreview(item) {
-  const prev = previewText(item.last_message)
+  const prev = inboxPreviewText(item.last_message, myIdNum())
   if (prev && prev !== '暂无消息') return prev
   return item.is_im_admin ? '点击开始咨询' : '暂无消息'
 }

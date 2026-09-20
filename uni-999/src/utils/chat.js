@@ -144,6 +144,20 @@ export function previewText(last) {
   return last.content || last.text || '暂无消息'
 }
 
+/** 会话列表预览：带 @我 / 回复 前缀 */
+export function inboxPreviewText(last, myUserId) {
+  const base = previewText(last)
+  if (!last || typeof last === 'string') return base
+  const ex = msgExtra(last)
+  const uid = myUserId | 0
+  if (ex.at_all && uid) return '[有人@我] ' + base
+  if (uid && Array.isArray(ex.at_users) && ex.at_users.some((u) => ((u && (u.user_id || u.id)) | 0) === uid)) {
+    return '[有人@我] ' + base
+  }
+  if (ex.reply_to) return '[回复] ' + base
+  return base
+}
+
 export function formatConvTime(ts) {
   const t = Number(ts) || 0
   if (!t) return ''

@@ -3,7 +3,8 @@
  * - 不调用 plus.push，避免未勾选 Push 模块时弹出 HTML5+ Runtime 提示
  * - 离线系统推送走极光原生插件 luanqing-jgpush
  */
-import { previewText } from './chat.js'
+import { inboxPreviewText } from './chat.js'
+import { messageMentionsMe } from './chat-mention.js'
 import { buildChatUrl, getActiveChat, getHashRoutePath, openChatPage } from './chat-route.js'
 import { isGroupNotifyMuted } from './group-notify-mute.js'
 import { isMsgMuted } from './app-prefs.js'
@@ -101,9 +102,9 @@ function pushTitle(msg) {
   return uid ? 'ID' + uid : '新消息'
 }
 
-function pushBody(msg) {
+function pushBody(msg, myUserId) {
   const type = msgConvType(msg)
-  const text = previewText(msg)
+  const text = inboxPreviewText(msg, myUserId)
   if (type === 2) {
     const nick = String((msg && (msg.nickname || msg.from_nickname)) || '').trim()
     if (nick && text && text.indexOf(nick) !== 0) return nick + ': ' + text
@@ -160,7 +161,9 @@ export function maybeShowLocalPush(msg, opts = {}) {
 
   const type = msgConvType(msg)
   const gid = type === 2 ? String(msg.group_id || msg.conversation_id || '') : ''
-  if (type === 2 && gid && isGroupNotifyMuted(gid)) return false
+  const mentioned = messageMentionsMe(msg, myUserId)
+  // 群免打扰时仍提醒 @我 / @全体（对齐微信）
+  if (type === 2 && gid && isGroupNotifyMuted(gid) && !mentioned) return false
 
   if (matchesActiveChat(msg)) return false
   if (isOnConversationListPage()) return false
@@ -170,7 +173,7 @@ export function maybeShowLocalPush(msg, opts = {}) {
   lastShowAt = now
 
   const title = pushTitle(msg)
-  const body = pushBody(msg)
+  const body = pushBody(msg, myUserId)
   const chat = buildChatPayload(msg)
   const inset = getSafeAreaInsets()
   const payload = {

@@ -377,6 +377,9 @@ class MessageRouter
         if ($msg === 'private group: mention disabled') {
             return '隐私群禁止 @ 其他成员';
         }
+        if ($msg === 'only admin can at all') {
+            return '仅群主/管理员可@全体成员';
+        }
         if ($msg === 'grab mode: only admin can send red packets') {
             return '红宝模式下仅管理员/机器人可发红包';
         }
@@ -561,6 +564,21 @@ class MessageRouter
             $group = $this->groups->get($groupId) ?: [];
             $role = $this->groups->memberRole($groupId, $uid);
             if (!$this->groups->buildPolicy($group, $role)['can_mention']) {
+                throw new \RuntimeException('private group: mention disabled');
+            }
+        }
+        // @全体成员：仅群主/管理员
+        if (is_array($extra) && !empty($extra['at_all'])) {
+            $roleAt = isset($role) ? $role : $this->groups->memberRole($groupId, $uid);
+            if ((int)$roleAt < 2) {
+                throw new \RuntimeException('only admin can at all');
+            }
+        }
+        // 结构化 @ 也走 can_mention（即使正文暂时没写 @）
+        if (is_array($extra) && (!empty($extra['at_users']) || !empty($extra['at_all']))) {
+            $group = isset($group) ? $group : ($this->groups->get($groupId) ?: []);
+            $roleM = isset($role) ? $role : $this->groups->memberRole($groupId, $uid);
+            if (!$this->groups->buildPolicy($group, $roleM)['can_mention']) {
                 throw new \RuntimeException('private group: mention disabled');
             }
         }
