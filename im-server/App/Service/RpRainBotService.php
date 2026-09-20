@@ -492,16 +492,28 @@ class RpRainBotService
         if (!$uids) {
             return 0;
         }
+        // 发包：固定用配置的第一个 UID（可后台编辑），不随机
+        if ($which === 'send') {
+            return (int)$uids[0];
+        }
         return (int)$uids[random_int(0, count($uids) - 1)];
     }
 
     protected function actorUids(array $task, $which)
     {
+        // 发包永远走配置的 send_user_ids，不用机器人账户随机发
+        if ($which === 'send') {
+            $ids = $this->parseUserIds((string)($task['send_user_ids'] ?? ''));
+            if ($ids) {
+                return $ids;
+            }
+            $one = (int)($task['send_user_id'] ?? 0);
+            return $one > 0 ? [$one] : [];
+        }
         if ((int)($task['actor_mode'] ?? 1) === 2) {
             return $this->listBotUserIds();
         }
-        $field = $which === 'send' ? 'send_user_ids' : 'grab_user_ids';
-        return $this->parseUserIds((string)($task[$field] ?? ''));
+        return $this->parseUserIds((string)($task['grab_user_ids'] ?? ''));
     }
 
     protected function slots(array $task)

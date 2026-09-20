@@ -21,16 +21,16 @@
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">发抢模式:</label>
         <div class="col-xs-12 col-sm-8">
-            <label class="radio-inline"><input type="radio" name="row[actor_mode]" value="1" checked> 模式一：发包/抢包 UID 池</label>
-            <label class="radio-inline"><input type="radio" name="row[actor_mode]" value="2"> 模式二：机器人账户随机发抢</label>
-            <span class="help-block">模式二从机器人账户（is_bot=1）随机发/抢，可不填下方 UID</span>
+            <label class="radio-inline"><input type="radio" name="row[actor_mode]" value="1"> 模式一：抢包用 UID 池</label>
+            <label class="radio-inline"><input type="radio" name="row[actor_mode]" value="2" checked> 模式二：机器人账户随机抢</label>
+            <span class="help-block">仅影响<strong>抢包</strong>。发包始终用下方固定发送人，不会用机器人账户随机发</span>
         </div>
     </div>
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">发包用户ID:</label>
         <div class="col-xs-12 col-sm-8">
-            <input class="form-control" name="row[send_user_ids]" type="text" placeholder="多个用逗号分隔，如 1001,1002">
-            <span class="help-block">模式一时必填；多个 UID 每次<strong>随机选一个</strong>发包。发包人须有足够红宝</span>
+            <input class="form-control" name="row[send_user_ids]" type="text" value="74282747" placeholder="固定发送人UID">
+            <span class="help-block">固定发送人，可改。填多个时只用<strong>第一个</strong>发包（不会随机）。发包人须有足够红宝</span>
         </div>
     </div>
     <div class="form-group">

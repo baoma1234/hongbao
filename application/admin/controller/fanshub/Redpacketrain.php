@@ -94,14 +94,14 @@ class Redpacketrain extends Backend
         $sendIds = $this->parseIds($params['send_user_ids'] ?? ($params['send_user_id'] ?? ''));
         $params['send_user_ids'] = implode(',', $sendIds);
         $params['send_user_id'] = $sendIds ? (int)$sendIds[0] : 0;
-        if ($params['actor_mode'] === 1 && $params['auto_send'] === 1 && !$sendIds) {
-            $this->error('模式一请填写发包用户ID');
+        if ($params['auto_send'] === 1 && !$sendIds) {
+            $this->error('请填写发包用户ID（固定发送人，可改）');
         }
 
         $grabIds = $this->parseIds($params['grab_user_ids'] ?? '');
         $params['grab_user_ids'] = implode(',', $grabIds);
         if ($params['actor_mode'] === 1 && $params['auto_grab'] === 1 && !$grabIds) {
-            $this->error('模式一请填写抢包用户ID');
+            $this->error('抢包模式一请填写抢包用户ID');
         }
 
         $params['packet_type'] = (int)($params['packet_type'] ?? 1);
