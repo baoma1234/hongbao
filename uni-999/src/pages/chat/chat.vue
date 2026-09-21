@@ -831,7 +831,8 @@
 
     <GrabSlider ref="grabSliderRef" />
 
-    <!-- 群视频：H5 / App 同一页内蒙层播放（与网页一致，不跳浏览器） -->
+    <!-- 群视频：仅 H5 / Safari 页内蒙层；App 走独立 video-play 页，避免安卓原生层残留 -->
+    <!-- #ifdef H5 -->
     <view v-if="videoAlbumPlayer.open" class="chat-video-album-mask" @click="closeVideoAlbumPlayer">
       <view class="chat-video-album-player" @click.stop>
         <view class="chat-video-album-player-close" @click="closeVideoAlbumPlayer">×</view>
@@ -842,6 +843,7 @@
         />
       </view>
     </view>
+    <!-- #endif -->
 
     <!-- 牛牛领取：立体描边红包框（无背景图/无领取按钮图） -->
     <view v-if="showNiuniuCover" class="nn-cover-mask" @click="closeNiuniuCover">
@@ -1142,7 +1144,9 @@ import GrabSlider from '../../components/GrabSlider.vue'
 import ChatNiuniuCard from '../../components/ChatNiuniuCard.vue'
 import ChatFoldText from '../../components/ChatFoldText.vue'
 import ChatReplyQuote from '../../components/ChatReplyQuote.vue'
+// #ifdef H5
 import ChatMediaVideo from '../../components/ChatMediaVideo.vue'
+// #endif
 import '../../styles/chat.bundle.css'
 import '../../styles/chat-room-uni-adapter.css'
 import '../../styles/chat-rp-send-uni-adapter.css'
@@ -3114,7 +3118,12 @@ function openVideoAlbumItem(m, idx) {
 function closeVideoAlbumPlayer() {
   const cur = videoAlbumPlayer.value || {}
   if (!cur.open && !cur.src) return
-  // 两阶段：先卸 src 再关蒙层，给原生层销毁时间
+  // #ifdef APP-PLUS
+  // App 不应走页内蒙层；若残留则立即关掉，勿保留 open:true + 空 src（会占原生层）
+  videoAlbumPlayer.value = { open: false, src: '', poster: '' }
+  return
+  // #endif
+  // H5 两阶段：先卸 src 再关蒙层
   videoAlbumPlayer.value = { open: true, src: '', poster: '' }
   setTimeout(() => {
     videoAlbumPlayer.value = { open: false, src: '', poster: '' }

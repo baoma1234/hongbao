@@ -80,17 +80,43 @@ export function buildChatUrl(data) {
 /** 影音/频道群：APK 上易残留原生 video 层，进房用 redirectTo 避免叠栈 */
 export const CHANNEL_VIDEO_GROUP_IDS = [70, 71, 72, 77]
 
+/** App 视频播放页：用 storage 传长 OSS URL，避免 navigateTo query 被截断导致无法播放 */
+export const CHAT_VIDEO_PLAY_STORAGE_KEY = 'fans_hub_chat_video_play'
+
 export function isChannelVideoGroup(groupId) {
   const gid = groupId | 0
   return gid > 0 && CHANNEL_VIDEO_GROUP_IDS.indexOf(gid) >= 0
+}
+
+function isAndroidApp() {
+  // #ifdef APP-PLUS
+  try {
+    const p = String((uni.getSystemInfoSync() || {}).platform || '').toLowerCase()
+    return p === 'android'
+  } catch (e) {
+    return false
+  }
+  // #endif
+  return false
 }
 
 function currentRouteIsChat() {
   try {
     const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : null
     const cur = pages && pages.length ? pages[pages.length - 1] : null
-    const route = String((cur && (cur.route || cur.$page && cur.$page.fullPath)) || '')
+    const route = String((cur && (cur.route || (cur.$page && cur.$page.fullPath))) || '')
     return route.indexOf('pages/chat/chat') >= 0
+  } catch (e) {
+    return false
+  }
+}
+
+function topRouteIsVideoPlay() {
+  try {
+    const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : null
+    const cur = pages && pages.length ? pages[pages.length - 1] : null
+    const route = String((cur && cur.route) || '')
+    return route.indexOf('pages/chat/video-play') >= 0
   } catch (e) {
     return false
   }
@@ -109,6 +135,9 @@ export function openChatPage(url, opts) {
   const gid = (opts && opts.groupId) | 0
   const channel = isChannelVideoGroup(gid)
   const preferReplace = channel || currentRouteIsChat()
+  const android = isAndroidApp()
+  // 安卓频道群：原生 video 层销毁更慢，切群前多等一会
+  const afterPopMs = channel ? (android ? 480 : 220) : android ? 160 : 80
 
   const goNav = () => {
     uni.navigateTo({
@@ -140,12 +169,33 @@ export function openChatPage(url, opts) {
     const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : null
     const list = pages || []
     let chatIdx = -1
+    let videoIdx = -1
     for (let i = list.length - 1; i >= 0; i--) {
       const r = String((list[i] && list[i].route) || '')
+      if (videoIdx < 0 && r.indexOf('pages/chat/video-play') >= 0) {
+        videoIdx = i
+      }
       if (r.indexOf('pages/chat/chat') >= 0) {
         chatIdx = i
         break
       }
+    }
+    // 栈顶是播放页：先关掉，再进目标群（否则安卓残留层挡住点击/返回）
+    if (topRouteIsVideoPlay() || videoIdx >= 0) {
+      const delta = videoIdx >= 0 ? list.length - videoIdx : 1
+      uni.navigateBack({
+        delta: Math.max(1, delta),
+        complete() {
+          setTimeout(() => {
+            if (preferReplace && currentRouteIsChat()) {
+              goReplace()
+            } else {
+              goNav()
+            }
+          }, afterPopMs)
+        },
+      })
+      return
     }
     if (chatIdx >= 0) {
       const delta = list.length - 1 - chatIdx
@@ -154,7 +204,7 @@ export function openChatPage(url, opts) {
         uni.navigateBack({
           delta,
           complete() {
-            setTimeout(goNav, channel ? 220 : 80)
+            setTimeout(goNav, afterPopMs)
           },
         })
         return
@@ -186,18 +236,29 @@ export function openChatVideoPreview(sources, current) {
       url: String((s && (s.url || s.src)) || '').trim(),
       poster: String((s && s.poster) || '').trim(),
     }))
-    .filter((s) => !!s.url)
+    .filter((s) => !!s.url && /^https?:\/\//i.test(s.url))
   if (!list.length) return false
   const idx = Math.max(0, Math.min(list.length - 1, current | 0))
   const item = list[idx]
-  const q =
-    'url=' +
-    encodeURIComponent(item.url) +
-    '&poster=' +
-    encodeURIComponent(item.poster || '')
+  try {
+    uni.setStorageSync(
+      CHAT_VIDEO_PLAY_STORAGE_KEY,
+      JSON.stringify({
+        url: item.url,
+        poster: /^https?:\/\//i.test(item.poster) ? item.poster : '',
+        ts: Date.now(),
+      })
+    )
+  } catch (e0) {
+    try {
+      uni.showToast({ title: '无法打开播放器', icon: 'none' })
+    } catch (e1) {}
+    return false
+  }
   try {
     uni.navigateTo({
-      url: '/pages/chat/video-play?' + q,
+      // 不把长 URL 塞进 query，避免安卓截断后黑屏无法播
+      url: '/pages/chat/video-play',
       animationType: 'fade-in',
       animationDuration: 180,
       fail() {
