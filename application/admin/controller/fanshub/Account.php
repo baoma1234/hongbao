@@ -139,10 +139,16 @@ class Account extends Backend
                 $row->logintime = $u && !empty($u->logintime) ? (int)$u->logintime : 0;
             }
             $inviterMap = FansHubService::getInviterInfoMap($userIds);
+            $pnlMap = $this->batchUserPnlMap($userIds, $list);
             foreach ($list as $row) {
                 $info = $inviterMap[(int)$row->user_id] ?? null;
                 $row->inviter_user_id = $info ? (int)$info['inviter_user_id'] : 0;
                 $row->inviter_mobile = $info ? (string)$info['mobile'] : '';
+                $pnl = $pnlMap[(int)$row->user_id] ?? null;
+                $row->pnl_total_withdraw = $pnl ? $pnl['total_withdraw'] : '0.00';
+                $row->pnl_balance = $pnl ? $pnl['balance'] : number_format(round((float)($row->hongbao ?? 0), 2), 2, '.', '');
+                $row->pnl_total_recharge = $pnl ? $pnl['total_recharge'] : '0.00';
+                $row->pnl_net = $pnl ? $pnl['net_pnl'] : '0.00';
             }
             $result = ['total' => $list->total(), 'rows' => $list->items()];
             return json($result);
@@ -420,39 +426,94 @@ class Account extends Backend
             $this->error(__('No Results were found'));
         }
         $userId = (int)$row->user_id;
-        $balance = round((float)($row->hongbao ?? 0), 2);
-
-        $sumByType = function ($type) use ($userId) {
-            $sql = 'SELECT SUM(CASE WHEN ABS(IFNULL(hongbao_change,0)) > 1e-8 THEN hongbao_change ELSE IFNULL(balance_change,0) END) AS s'
-                . ' FROM ' . (config('database.prefix') ?: 'fa_') . 'fans_ledger'
-                . ' WHERE user_id=? AND type=?';
-            $one = Db::query($sql, [$userId, $type]);
-            if (!$one) {
-                return 0.0;
-            }
-            $first = is_array($one) ? reset($one) : [];
-            return (float)($first['s'] ?? 0);
-        };
-
-        $rechargeSum = $sumByType('recharge');
-        $withdrawSum = $sumByType('withdraw');
-        $withdrawRefundSum = $sumByType('withdraw_refund');
-
-        // 提现流水一般为负数；退回为正 → 净提款 = |提现| − 退回
-        $totalWithdraw = round(max(0, abs($withdrawSum) - max(0, $withdrawRefundSum)), 2);
-        $totalRecharge = round(max(0, $rechargeSum), 2);
-        $netPnl = round($totalWithdraw - $balance - $totalRecharge, 2);
+        $map = $this->batchUserPnlMap([$userId], [$row]);
+        $pnl = $map[$userId] ?? [
+            'total_withdraw' => '0.00',
+            'balance'        => number_format(round((float)($row->hongbao ?? 0), 2), 2, '.', ''),
+            'total_recharge' => '0.00',
+            'net_pnl'        => '0.00',
+        ];
 
         $user = \app\common\model\User::get($userId);
         $this->view->assign('row', $row);
         $this->view->assign('user', $user ?: []);
-        $this->view->assign('pnl', [
-            'total_withdraw' => number_format($totalWithdraw, 2, '.', ''),
-            'balance'        => number_format($balance, 2, '.', ''),
-            'total_recharge' => number_format($totalRecharge, 2, '.', ''),
-            'net_pnl'        => number_format($netPnl, 2, '.', ''),
-        ]);
+        $this->view->assign('pnl', $pnl);
         return $this->view->fetch();
+    }
+
+    /**
+     * 批量计算用户总输赢（与 pnl 弹窗公式一致）
+     * @param int[] $userIds
+     * @param iterable $accountRows 含 user_id、hongbao 的账户行（当前页余额）
+     * @return array<int,array{total_withdraw:string,balance:string,total_recharge:string,net_pnl:string}>
+     */
+    protected function batchUserPnlMap(array $userIds, $accountRows = [])
+    {
+        $userIds = array_values(array_unique(array_filter(array_map('intval', $userIds))));
+        $balanceMap = [];
+        foreach ($accountRows as $row) {
+            $uid = (int)(is_array($row) ? ($row['user_id'] ?? 0) : ($row->user_id ?? 0));
+            if ($uid <= 0) {
+                continue;
+            }
+            $hb = is_array($row) ? ($row['hongbao'] ?? 0) : ($row->hongbao ?? 0);
+            $balanceMap[$uid] = round((float)$hb, 2);
+        }
+        $out = [];
+        foreach ($userIds as $uid) {
+            $bal = $balanceMap[$uid] ?? 0.0;
+            $out[$uid] = [
+                'total_withdraw' => '0.00',
+                'balance'        => number_format($bal, 2, '.', ''),
+                'total_recharge' => '0.00',
+                'net_pnl'        => number_format(round(0 - $bal - 0, 2), 2, '.', ''),
+            ];
+        }
+        if (!$userIds) {
+            return $out;
+        }
+
+        $prefix = config('database.prefix') ?: 'fa_';
+        $placeholders = implode(',', array_fill(0, count($userIds), '?'));
+        $sql = 'SELECT user_id, type,'
+            . ' SUM(CASE WHEN ABS(IFNULL(hongbao_change,0)) > 1e-8 THEN hongbao_change ELSE IFNULL(balance_change,0) END) AS s'
+            . ' FROM ' . $prefix . 'fans_ledger'
+            . ' WHERE user_id IN (' . $placeholders . ')'
+            . " AND type IN ('recharge','withdraw','withdraw_refund')"
+            . ' GROUP BY user_id, type';
+        try {
+            $rows = Db::query($sql, $userIds);
+        } catch (\Throwable $e) {
+            return $out;
+        }
+        $sums = [];
+        foreach ($rows ?: [] as $r) {
+            $uid = (int)($r['user_id'] ?? 0);
+            $type = (string)($r['type'] ?? '');
+            if ($uid <= 0 || $type === '') {
+                continue;
+            }
+            if (!isset($sums[$uid])) {
+                $sums[$uid] = ['recharge' => 0.0, 'withdraw' => 0.0, 'withdraw_refund' => 0.0];
+            }
+            if (isset($sums[$uid][$type])) {
+                $sums[$uid][$type] = (float)($r['s'] ?? 0);
+            }
+        }
+        foreach ($userIds as $uid) {
+            $s = $sums[$uid] ?? ['recharge' => 0.0, 'withdraw' => 0.0, 'withdraw_refund' => 0.0];
+            $bal = $balanceMap[$uid] ?? 0.0;
+            $totalWithdraw = round(max(0, abs((float)$s['withdraw']) - max(0, (float)$s['withdraw_refund'])), 2);
+            $totalRecharge = round(max(0, (float)$s['recharge']), 2);
+            $netPnl = round($totalWithdraw - $bal - $totalRecharge, 2);
+            $out[$uid] = [
+                'total_withdraw' => number_format($totalWithdraw, 2, '.', ''),
+                'balance'        => number_format($bal, 2, '.', ''),
+                'total_recharge' => number_format($totalRecharge, 2, '.', ''),
+                'net_pnl'        => number_format($netPnl, 2, '.', ''),
+            ];
+        }
+        return $out;
     }
 
     /**

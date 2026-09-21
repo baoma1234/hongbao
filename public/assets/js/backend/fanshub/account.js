@@ -123,18 +123,28 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                     {field: 'inviter_mobile', title: '上线手机', visible: false, operate: 'LIKE'},
                     {field: 'sub_withdrawn_count', title: '下线提现', visible: false, operate: 'BETWEEN'},
                     {field: 'user_status', title: '用户状态', operate: false, formatter: function (value, row) {
-                        var pnlUrl = 'fanshub/account/pnl?ids=' + encodeURIComponent(row.id || '');
-                        var pnlBtn = '<a href="' + pnlUrl + '" class="btn btn-xs btn-primary btn-dialog" title="总输赢" data-area=\'["720px","560px"]\'><i class="fa fa-line-chart"></i> 总输赢</a>';
                         return '<div class="fanshub-acc-cell">'
                             + infoLine('红宝', escCell(row.hongbao != null ? row.hongbao : '-'))
                             + infoLine('累计流水', escCell(row.turnover != null ? row.turnover : '0'))
                             + infoLine('VIP等级', fmtVip(row))
-                            + infoLine('总输赢', pnlBtn)
                             + infoLine('支付密码', fmtPayPwd(row))
                             + infoLine('聊天禁言', fmtChatForbid(row))
                             + infoLine('登录封禁', (row.user && row.user.status === 'hidden')
                                 ? '<span class="text-danger">已封禁</span>'
                                 : '<span class="text-success">正常</span>')
+                            + '</div>';
+                    }},
+                    {field: 'pnl_stats', title: '统计', operate: false, formatter: function (value, row) {
+                        var net = row.pnl_net != null ? String(row.pnl_net) : '0.00';
+                        var netNum = parseFloat(net);
+                        var netHtml = isNaN(netNum)
+                            ? escCell(net)
+                            : ('<span style="font-weight:700;color:' + (netNum >= 0 ? '#6a62cb' : '#d9534f') + '">' + escCell(net) + '</span>');
+                        return '<div class="fanshub-acc-cell">'
+                            + infoLine('总提款', '<span class="text-danger">' + escCell(row.pnl_total_withdraw != null ? row.pnl_total_withdraw : '0.00') + '</span>')
+                            + infoLine('当前余额', escCell(row.pnl_balance != null ? row.pnl_balance : (row.hongbao != null ? row.hongbao : '0.00')))
+                            + infoLine('总充值', '<span class="text-success">' + escCell(row.pnl_total_recharge != null ? row.pnl_total_recharge : '0.00') + '</span>')
+                            + infoLine('总输赢', netHtml)
                             + '</div>';
                     }},
                     {field: 'rights', title: '股份', visible: false, operate: 'BETWEEN'},
