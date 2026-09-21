@@ -123,12 +123,13 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                     {field: 'inviter_mobile', title: '上线手机', visible: false, operate: 'LIKE'},
                     {field: 'sub_withdrawn_count', title: '下线提现', visible: false, operate: 'BETWEEN'},
                     {field: 'user_status', title: '用户状态', operate: false, formatter: function (value, row) {
+                        var pnlUrl = 'fanshub/account/pnl?ids=' + encodeURIComponent(row.id || '');
+                        var pnlBtn = '<a href="' + pnlUrl + '" class="btn btn-xs btn-primary btn-dialog" title="总输赢" data-area=\'["720px","560px"]\'><i class="fa fa-line-chart"></i> 总输赢</a>';
                         return '<div class="fanshub-acc-cell">'
-                            + infoLine('股份', escCell(row.rights != null ? row.rights : '-'))
                             + infoLine('红宝', escCell(row.hongbao != null ? row.hongbao : '-'))
                             + infoLine('累计流水', escCell(row.turnover != null ? row.turnover : '0'))
                             + infoLine('VIP等级', fmtVip(row))
-                            + infoLine('阶段', escCell(fmtStage(row)))
+                            + infoLine('总输赢', pnlBtn)
                             + infoLine('支付密码', fmtPayPwd(row))
                             + infoLine('聊天禁言', fmtChatForbid(row))
                             + infoLine('登录封禁', (row.user && row.user.status === 'hidden')
@@ -181,14 +182,6 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                             classname: 'btn btn-xs btn-warning btn-dialog',
                             icon: 'fa fa-calculator',
                             url: 'fanshub/account/adjust'
-                        }, {
-                            name: 'pnl',
-                            text: '总输赢',
-                            title: '总输赢',
-                            classname: 'btn btn-xs btn-primary btn-dialog',
-                            icon: 'fa fa-line-chart',
-                            url: 'fanshub/account/pnl',
-                            extend: 'data-area=\'["720px","560px"]\''
                         }, {
                             name: 'chatforbid',
                             text: '禁言',
