@@ -1140,11 +1140,9 @@ import { computed, getCurrentInstance, nextTick, reactive, ref, watch } from 'vu
 import { onLoad, onShow, onHide, onUnload } from '@dcloudio/uni-app'
 import GrabSlider from '../../components/GrabSlider.vue'
 import ChatNiuniuCard from '../../components/ChatNiuniuCard.vue'
-// #ifdef H5
-import ChatMediaVideo from '../../components/ChatMediaVideo.vue'
-// #endif
 import ChatFoldText from '../../components/ChatFoldText.vue'
 import ChatReplyQuote from '../../components/ChatReplyQuote.vue'
+import ChatMediaVideo from '../../components/ChatMediaVideo.vue'
 import '../../styles/chat.bundle.css'
 import '../../styles/chat-room-uni-adapter.css'
 import '../../styles/chat-rp-send-uni-adapter.css'
@@ -1181,10 +1179,12 @@ import {
 } from '../../utils/chat-image-clipboard.js'
 import { tryOpenGroupInviteFromUrl } from '../../utils/group-invite.js'
 import {
+  buildChatUrl,
   clearActiveChat,
   getActiveChat,
-  saveActiveChat,
   isChannelVideoGroup,
+  openChatVideoPreview,
+  saveActiveChat,
 } from '../../utils/chat-route.js'
 import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
 import {
@@ -3055,12 +3055,36 @@ function openVideoAlbumItem(m, idx) {
   if (!list.length) return
   const i = Math.max(0, Math.min(list.length - 1, idx | 0))
   const item = list[i]
-  if (!item || !item.src) return
-  // 与网页一致：页内蒙层播放，不跳独立页 / 浏览器
+  if (!item || !item.src) {
+    uni.showToast({ title: '视频地址无效', icon: 'none' })
+    return
+  }
+  // 必须是绝对 http(s)，避免相对路径被解析成 /999/pages/chat/... 从而 404
+  const src = String(publicUrl(item.src) || item.src || '').trim()
+  if (!src || !/^https?:\/\//i.test(src)) {
+    uni.showToast({ title: '视频地址无效', icon: 'none' })
+    return
+  }
+  const posterRaw =
+    resolvedVideoPoster(m, i) || item.poster || mediaPoster(m) || ''
+  const poster = String(publicUrl(posterRaw) || posterRaw || '').trim()
+  // App：独立播放页（不挂在聊天 scroll-view 内，避免黑影/脱层）
+  if (
+    openChatVideoPreview(
+      list.map((v) => ({
+        url: publicUrl(v.src) || v.src,
+        poster: publicUrl(v.poster) || v.poster || '',
+      })),
+      i
+    )
+  ) {
+    return
+  }
+  // H5 / Safari：页内蒙层播放
   videoAlbumPlayer.value = {
     open: true,
-    src: item.src,
-    poster: resolvedVideoPoster(m, i) || item.poster || '',
+    src,
+    poster: /^https?:\/\//i.test(poster) ? poster : '',
   }
 }
 function closeVideoAlbumPlayer() {

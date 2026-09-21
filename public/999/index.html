@@ -1,6 +1,23 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
   <head>
+    <script data-spa-path-guard="1">
+      (function () {
+        try {
+          var p = String(location.pathname || "")
+          // /999/pages/xxx → /999/#/pages/xxx （避免 Nginx/PHP 把分包路径当真实目录 404）
+          var m = p.match(/^\/999\/(pages\/.+)$/)
+          if (!m) return
+          var rest = m[1].replace(/\/+$/, "")
+          if (!rest) return
+          var q = String(location.search || "")
+          var h = String(location.hash || "")
+          if (h && h.indexOf("#/") === 0) return
+          location.replace("/999/#/" + rest + q)
+        } catch (e) {}
+      })()
+    </script>
+
     <link rel="stylesheet" href="/999/assets/uni.f10bc9d9.css">
 
     <meta charset="UTF-8" />
@@ -128,7 +145,7 @@
     </script>
     <!--preload-links-->
     <!--app-context-->
-    <script type="module" crossorigin src="/999/assets/index-BOziWdb7.js"></script>
+    <script type="module" crossorigin src="/999/assets/index-LRYzhcQ9.js"></script>
     <link rel="stylesheet" crossorigin href="/999/assets/index-C7ufyHNx.css">
   </head>
   <body>

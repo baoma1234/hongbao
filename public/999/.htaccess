@@ -9,3 +9,13 @@
     Header set Cache-Control "public, max-age=31536000, immutable"
   </FilesMatch>
 </IfModule>
+
+# uni-app hash 路由：真实目录不存在的 /999/pages/* 回退到 index.html
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /999/
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /999/index.html [L]
+</IfModule>

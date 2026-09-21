@@ -83,8 +83,9 @@ if (fs.existsSync(localeSrc)) {
 }
 
 ensureAppleTouchIcon(path.join(dest, 'index.html'))
+injectSpaPathGuard(path.join(dest, 'index.html'))
 
-// index.html 禁止缓存，避免新旧 CSS hash 混用（建群页旧奶油样式）
+// index.html 禁止缓存；/999 SPA：假路径回退，避免 /999/pages/chat/ 被 PHP 404
 fs.writeFileSync(
   path.join(dest, '.htaccess'),
   '# Prevent index.html cache mixing old/new CSS hashes\n' +
@@ -97,7 +98,46 @@ fs.writeFileSync(
     '  <FilesMatch "\\.(js|css|png|jpg|jpeg|gif|svg|woff2?|ttf|ico)$">\n' +
     '    Header set Cache-Control "public, max-age=31536000, immutable"\n' +
     '  </FilesMatch>\n' +
+    '</IfModule>\n' +
+    '\n' +
+    '# uni-app hash 路由：真实目录不存在的 /999/pages/* 回退到 index.html\n' +
+    '<IfModule mod_rewrite.c>\n' +
+    '  RewriteEngine On\n' +
+    '  RewriteBase /999/\n' +
+    '  RewriteRule ^index\\.html$ - [L]\n' +
+    '  RewriteCond %{REQUEST_FILENAME} !-f\n' +
+    '  RewriteCond %{REQUEST_FILENAME} !-d\n' +
+    '  RewriteRule . /999/index.html [L]\n' +
     '</IfModule>\n'
 )
 
 console.log('OK copied to', dest)
+
+function injectSpaPathGuard(htmlPath) {
+  if (!fs.existsSync(htmlPath)) return
+  let html = fs.readFileSync(htmlPath, 'utf8')
+  if (html.indexOf('data-spa-path-guard') >= 0) return
+  const snip =
+    '\n    <script data-spa-path-guard="1">\n' +
+    '      (function () {\n' +
+    '        try {\n' +
+    '          var p = String(location.pathname || "")\n' +
+    '          // /999/pages/xxx → /999/#/pages/xxx （避免 Nginx/PHP 把分包路径当真实目录 404）\n' +
+    '          var m = p.match(/^\\/999\\/(pages\\/.+)$/)\n' +
+    '          if (!m) return\n' +
+    '          var rest = m[1].replace(/\\/+$/, "")\n' +
+    '          if (!rest) return\n' +
+    '          var q = String(location.search || "")\n' +
+    '          var h = String(location.hash || "")\n' +
+    '          if (h && h.indexOf("#/") === 0) return\n' +
+    '          location.replace("/999/#/" + rest + q)\n' +
+    '        } catch (e) {}\n' +
+    '      })()\n' +
+    '    </script>\n'
+  if (html.indexOf('<head>') >= 0) {
+    html = html.replace('<head>', '<head>' + snip)
+  } else {
+    html = snip + html
+  }
+  fs.writeFileSync(htmlPath, html)
+}

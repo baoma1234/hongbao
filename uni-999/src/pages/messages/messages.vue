@@ -369,6 +369,14 @@ let chatSubpkgPrefetched = false
 function prefetchChatSubpackages() {
   if (chatSubpkgPrefetched) return
   chatSubpkgPrefetched = true
+  // #ifdef H5
+  // 仅预热 Vite chunk；勿 uni.preloadPage('/pages/chat/...')，
+  // 否则部分环境会请求真实路径 /999/pages/chat/ → Nginx/PHP 404
+  try {
+    import('../chat/chat.vue').catch(() => {})
+  } catch (e) {}
+  // #endif
+  // #ifndef H5
   const urls = ['/pages/chat/chat', '/pages/friend/add', '/pages/friend/requests']
   urls.forEach((url) => {
     try {
@@ -377,11 +385,6 @@ function prefetchChatSubpackages() {
       }
     } catch (e) {}
   })
-  // #ifdef H5
-  // Vite 异步 chunk 预热（与 preloadPage 互补）
-  try {
-    import('../chat/chat.vue').catch(() => {})
-  } catch (e) {}
   // #endif
 }
 
