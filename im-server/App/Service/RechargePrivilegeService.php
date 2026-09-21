@@ -11,6 +11,7 @@ use Im\Support\RedisClient;
  * - 可社交
  * - 未充值：不能发私聊/非推荐群红包，不能发/收转账
  * - 未充值：可在推荐群(is_recommend=1)发/抢红包
+ * - 未充值：可领取 recharge_free_claim_* 指定群内指定 UID 发的红包；可收这些 UID 的私聊转账
  * - 已充值：私聊红包/转账不能发给未充值对方
  * - fund_bypass_user_ids（后台配置）：可任意发红包/转账，无视双方充值限制
  */
@@ -29,6 +30,13 @@ class RechargePrivilegeService
     protected static $fundBypassIds = null;
     /** @var int */
     protected static $fundBypassAt = 0;
+
+    /** @var int[]|null */
+    protected static $freeClaimSenderIds = null;
+    /** @var int[]|null */
+    protected static $freeClaimGroupIds = null;
+    /** @var int */
+    protected static $freeClaimAt = 0;
 
     /**
      * 后台资金特权 UID（可任意发红包/转账，无视双方充值）
@@ -68,6 +76,87 @@ class RechargePrivilegeService
             return false;
         }
         return in_array($userId, self::fundBypassUserIds(), true);
+    }
+
+    /**
+     * 未充值可免费领取的发包/转账 UID 与群
+     * @return array{senders:int[],groups:int[]}
+     */
+    public static function freeClaimConfig()
+    {
+        if (self::$freeClaimSenderIds !== null && (time() - self::$freeClaimAt) < 30) {
+            return [
+                'senders' => self::$freeClaimSenderIds,
+                'groups'  => self::$freeClaimGroupIds ?: [],
+            ];
+        }
+        $senders = [];
+        $groups = [];
+        $cfgFile = dirname(__DIR__, 3) . '/application/extra/fanshub.php';
+        if (is_file($cfgFile)) {
+            try {
+                $cfg = include $cfgFile;
+                if (is_array($cfg)) {
+                    if (!empty($cfg['recharge_free_claim_sender_ids']) && is_array($cfg['recharge_free_claim_sender_ids'])) {
+                        foreach ($cfg['recharge_free_claim_sender_ids'] as $id) {
+                            $id = (int)$id;
+                            if ($id > 0) {
+                                $senders[] = $id;
+                            }
+                        }
+                    }
+                    if (!empty($cfg['recharge_free_claim_group_ids']) && is_array($cfg['recharge_free_claim_group_ids'])) {
+                        foreach ($cfg['recharge_free_claim_group_ids'] as $id) {
+                            $id = (int)$id;
+                            if ($id > 0) {
+                                $groups[] = $id;
+                            }
+                        }
+                    }
+                }
+            } catch (\Throwable $e) {
+                CatchLog::quiet($e, 'Service.RechargePrivilegeService');
+            }
+        }
+        self::$freeClaimSenderIds = array_values(array_unique($senders));
+        self::$freeClaimGroupIds = array_values(array_unique($groups));
+        self::$freeClaimAt = time();
+        return [
+            'senders' => self::$freeClaimSenderIds,
+            'groups'  => self::$freeClaimGroupIds,
+        ];
+    }
+
+    public static function isFreeClaimSender($userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return false;
+        }
+        $cfg = self::freeClaimConfig();
+        return in_array($userId, $cfg['senders'], true);
+    }
+
+    /**
+     * 指定群内、指定 UID 发出的红包：未充值也可领
+     * @param array $packet
+     */
+    public static function isFreeClaimRedPacket(array $packet)
+    {
+        $from = (int)($packet['from_user_id'] ?? 0);
+        $groupId = (int)($packet['group_id'] ?? 0);
+        $scope = (int)($packet['scope_type'] ?? 0);
+        if ($from <= 0 || $groupId <= 0) {
+            return false;
+        }
+        if ($scope !== 0 && $scope !== 2) {
+            return false;
+        }
+        $cfg = self::freeClaimConfig();
+        if (!$cfg['senders'] || !$cfg['groups']) {
+            return false;
+        }
+        return in_array($from, $cfg['senders'], true) && in_array($groupId, $cfg['groups'], true);
     }
 
     public static function hasRecharged($userId)
@@ -262,13 +351,17 @@ class RechargePrivilegeService
         if ($fromUserId > 0 && self::isPrivilegedActor((int)$fromUserId)) {
             return;
         }
+        // 指定客服 UID 转出：未充值对方也可收款
+        if ($fromUserId > 0 && self::isFreeClaimSender((int)$fromUserId)) {
+            return;
+        }
         if (!self::hasRecharged($userId)) {
             throw new \RuntimeException(self::MSG_NEED_RECHARGE_RECEIVE_TRANSFER);
         }
     }
 
     /**
-     * @param array $packet chat_red_packets row or redis meta (scope_type, group_id)
+     * @param array $packet chat_red_packets row or redis meta (scope_type, group_id, from_user_id)
      */
     public static function assertCanGrabRedPacket($userId, array $packet, GroupService $groups = null)
     {
@@ -276,6 +369,10 @@ class RechargePrivilegeService
             return;
         }
         if (self::hasRecharged($userId)) {
+            return;
+        }
+        // 未充值：指定群内指定 UID 发的红包可领
+        if (self::isFreeClaimRedPacket($packet)) {
             return;
         }
         // 未充值：仅可抢推荐群红包

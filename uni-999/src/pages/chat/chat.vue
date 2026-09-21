@@ -1409,6 +1409,11 @@ const group77SenderNickname = ref('红宝吃瓜社')
 const videoAutoCovers = reactive({})
 const COMPOSER_HIDDEN_GROUP_IDS_FALLBACK = [70, 71, 72, 77]
 const composerHiddenGroupIds = ref(COMPOSER_HIDDEN_GROUP_IDS_FALLBACK.slice())
+/** 未充值可领：指定群 + 指定 UID 发的红包；这些 UID 的私聊转账后端已放行 */
+const FREE_CLAIM_GROUP_IDS_FALLBACK = [80]
+const FREE_CLAIM_SENDER_IDS_FALLBACK = [77777777, 44444444, 55555555, 88888888]
+const freeClaimGroupIds = ref(FREE_CLAIM_GROUP_IDS_FALLBACK.slice())
+const freeClaimSenderIds = ref(FREE_CLAIM_SENDER_IDS_FALLBACK.slice())
 const copiedImageHint = ref(false)
 const hasComposerText = computed(() => String(text.value || '').trim().length > 0)
 /** 输入框有字，或已贴图/视频草稿 */
@@ -2147,6 +2152,13 @@ function canCap(cap) {
 
 function canGrabInCurrentScene(packet) {
   if (hasRecharged.value) return true
+  if (isFreeClaimRedPacket(packet)) return true
+  // 无 packet 时：当前会话若在免充值领取群，允许尝试（后端再校验发包人）
+  if (!packet && !isPrivate.value) {
+    const gid = ((meta.value && meta.value.group) | 0) || 0
+    const gids = freeClaimGroupIds.value || []
+    if (gid > 0 && gids.indexOf(gid) >= 0) return true
+  }
   const scope = packet ? (packet.scope_type | 0) : (isPrivate.value ? 1 : 2)
   if (scope === 1) return false
   if (packet && (packet.group_id | 0) > 0) {
@@ -2154,6 +2166,18 @@ function canGrabInCurrentScene(packet) {
     return isOfficialGroup.value
   }
   return isOfficialGroup.value
+}
+
+function isFreeClaimRedPacket(packet) {
+  if (!packet) return false
+  const from = (packet.from_user_id | 0) || 0
+  const gid = (packet.group_id | 0) || 0
+  if (!from || !gid) return false
+  const scope = packet.scope_type | 0
+  if (scope === 1) return false
+  const senders = freeClaimSenderIds.value || []
+  const gids = freeClaimGroupIds.value || []
+  return senders.indexOf(from) >= 0 && gids.indexOf(gid) >= 0
 }
 
 const composerLocked = computed(() => {
@@ -6714,7 +6738,11 @@ function showGrabFailTip(rawMsg) {
 async function tryGrab(packetId, sliderPayload = null) {
   grabbing.value = true
   try {
-    if (!canGrabInCurrentScene()) {
+    const hint =
+      (detail.value && detail.value.packet) ||
+      (detail.value && detail.value.data && detail.value.data.packet) ||
+      null
+    if (!canGrabInCurrentScene(hint)) {
       showGrabFailTip(rechargeGateTip('grab'))
       return null
     }
@@ -7044,6 +7072,14 @@ onLoad(async (query) => {
     const vipIds = (cfg && cfg.chat_video_vip_user_ids) || []
     if (Array.isArray(vipIds) && vipIds.length) {
       videoVipUserIds.value = vipIds.map((x) => x | 0).filter((x) => x > 0)
+    }
+    const freeGids = (cfg && cfg.recharge_free_claim_group_ids) || []
+    if (Array.isArray(freeGids) && freeGids.length) {
+      freeClaimGroupIds.value = freeGids.map((x) => x | 0).filter((x) => x > 0)
+    }
+    const freeSenders = (cfg && cfg.recharge_free_claim_sender_ids) || []
+    if (Array.isArray(freeSenders) && freeSenders.length) {
+      freeClaimSenderIds.value = freeSenders.map((x) => x | 0).filter((x) => x > 0)
     }
     const vb = Number(cfg && cfg.chat_video_max_bytes)
     if (vb > 0) videoMaxBytesDefault.value = vb

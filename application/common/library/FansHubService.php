@@ -1551,6 +1551,8 @@ class FansHubService
             'chat_video_max_bytes'        => self::chatVideoMaxBytes(),
             'chat_video_max_bytes_vip'    => self::chatVideoMaxBytesVip(),
             'chat_video_vip_user_ids'     => self::chatVideoVipUserIds(),
+            'recharge_free_claim_group_ids'  => self::rechargeFreeClaimGroupIds(),
+            'recharge_free_claim_sender_ids' => self::rechargeFreeClaimSenderIds(),
             'group_77_sender_avatar'      => self::group77SenderAvatarPublic(),
             'group_77_sender_nickname'    => self::group77SenderNickname(),
             'fission_group_id'            => max(0, (int)($cfg['fission_group_id'] ?? 0)),
@@ -5152,6 +5154,50 @@ class FansHubService
     {
         $userId = (int)$userId;
         return $userId > 0 && in_array($userId, self::chatVideoVipUserIds(), true);
+    }
+
+    /** 未充值可领红包的群 ID */
+    public static function rechargeFreeClaimGroupIds()
+    {
+        static $cache = null;
+        static $at = 0;
+        if ($cache === null || (time() - $at) >= 30) {
+            $raw = self::config('recharge_free_claim_group_ids', [80]);
+            $ids = [];
+            if (is_array($raw)) {
+                foreach ($raw as $id) {
+                    $id = (int)$id;
+                    if ($id > 0) {
+                        $ids[] = $id;
+                    }
+                }
+            }
+            $cache = array_values(array_unique($ids));
+            $at = time();
+        }
+        return $cache;
+    }
+
+    /** 未充值可领其红包/转账的发送 UID */
+    public static function rechargeFreeClaimSenderIds()
+    {
+        static $cache = null;
+        static $at = 0;
+        if ($cache === null || (time() - $at) >= 30) {
+            $raw = self::config('recharge_free_claim_sender_ids', [77777777, 44444444, 55555555, 88888888]);
+            $ids = [];
+            if (is_array($raw)) {
+                foreach ($raw as $id) {
+                    $id = (int)$id;
+                    if ($id > 0) {
+                        $ids[] = $id;
+                    }
+                }
+            }
+            $cache = array_values(array_unique($ids));
+            $at = time();
+        }
+        return $cache;
     }
 
     /** 群 77 统一发送人头像（完整 URL） */
