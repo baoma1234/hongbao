@@ -16,25 +16,25 @@
         :poster="poster || undefined"
         controls
         autoplay
+        :show-fullscreen-btn="false"
         show-center-play-btn
         object-fit="contain"
         playsinline
         @error="onVideoError"
-      />
+        @fullscreenchange="onFullscreenChange"
+      >
+        <!-- cover-view 必须写在 video 内部，才能盖住安卓原生层，返回才点得着 -->
+        <!-- #ifdef APP-PLUS -->
+        <cover-view class="vp-cover-bar" @tap="goBack">
+          <cover-view class="vp-cover-back-char">‹</cover-view>
+          <cover-view class="vp-cover-title">返回</cover-view>
+        </cover-view>
+        <!-- #endif -->
+      </video>
       <view v-else class="vp-empty">
         <text>{{ emptyTip }}</text>
       </view>
     </view>
-    <!-- 安卓：原生 video 会盖住普通 view，用 cover-view 保证返回可点 -->
-    <!-- #ifdef APP-PLUS -->
-    <cover-view v-if="androidCover" class="vp-cover-bar" :style="coverBarStyle">
-      <cover-view class="vp-cover-back" @tap="goBack">
-        <cover-view class="vp-cover-back-char">‹</cover-view>
-      </cover-view>
-      <cover-view class="vp-cover-title">视频</cover-view>
-      <cover-view class="vp-cover-spacer" />
-    </cover-view>
-    <!-- #endif -->
   </view>
 </template>
 
@@ -51,8 +51,6 @@ const poster = ref('')
 const emptyTip = ref('无法播放')
 const pageStyle = ref({})
 const barStyle = ref({})
-const coverBarStyle = ref({})
-const androidCover = ref(false)
 let tearingDown = false
 let leaveDelayMs = 40
 
@@ -74,10 +72,6 @@ function refreshSafe() {
   }
   barStyle.value = {
     height: barH + 'px',
-  }
-  coverBarStyle.value = {
-    paddingTop: top + 'px',
-    height: top + barH + 'px',
   }
 }
 
@@ -105,13 +99,31 @@ function destroyNativeVideo() {
   poster.value = ''
 }
 
+function exitFullscreen() {
+  // #ifdef APP-PLUS
+  try {
+    const ctx = uni.createVideoContext(VIDEO_CTX_ID)
+    if (ctx && typeof ctx.exitFullScreen === 'function') ctx.exitFullScreen()
+  } catch (e) {}
+  // #endif
+}
+
+function onFullscreenChange(e) {
+  const full = !!(e && e.detail && (e.detail.fullScreen || e.detail.fullscreen))
+  if (full) exitFullscreen()
+}
+
 function goBack() {
   if (tearingDown) return
   tearingDown = true
+  exitFullscreen()
   destroyNativeVideo()
   clearStorage()
   setTimeout(() => {
     safeNavigateBack(HOME_TAB)
+    setTimeout(() => {
+      tearingDown = false
+    }, 400)
   }, leaveDelayMs)
 }
 
@@ -156,9 +168,7 @@ function readPayload(q) {
 
 onLoad((q) => {
   refreshSafe()
-  const android = isAndroid()
-  androidCover.value = android
-  leaveDelayMs = android ? 160 : 40
+  leaveDelayMs = isAndroid() ? 160 : 40
   const { url, posterUrl } = readPayload(q)
   src.value = url
   poster.value = posterUrl
@@ -179,7 +189,12 @@ onUnload(() => {
 })
 
 // #ifdef APP-PLUS
-onBackPress(() => {
+onBackPress((e) => {
+  // 自己调用的 navigateBack 必须放行，否则 return true 会把返回取消，页面永远出不去
+  if (e && e.from === 'navigateBack') {
+    destroyNativeVideo()
+    return false
+  }
   goBack()
   return true
 })
@@ -254,39 +269,27 @@ onBackPress(() => {
 .vp-cover-bar {
   position: absolute;
   left: 0;
-  right: 0;
   top: 0;
-  z-index: 99;
+  width: 120px;
+  height: 48px;
   display: flex;
   flex-direction: row;
-  align-items: flex-end;
-  justify-content: space-between;
-  background-color: rgba(17, 17, 17, 0.92);
-  box-sizing: border-box;
-}
-.vp-cover-back {
-  width: 44px;
-  height: 44px;
-  display: flex;
   align-items: center;
-  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.55);
 }
 .vp-cover-back-char {
+  width: 36px;
+  height: 48px;
   color: #ffffff;
   font-size: 32px;
-  line-height: 44px;
+  line-height: 48px;
   text-align: center;
 }
 .vp-cover-title {
-  flex: 1;
+  width: 72px;
+  height: 48px;
   color: #ffffff;
-  font-size: 17px;
-  font-weight: 600;
-  line-height: 44px;
-  text-align: center;
-}
-.vp-cover-spacer {
-  width: 44px;
-  height: 44px;
+  font-size: 16px;
+  line-height: 48px;
 }
 </style>

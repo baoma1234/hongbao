@@ -5481,15 +5481,16 @@ async function goBack() {
       roomScrollEpoch.value = (roomScrollEpoch.value | 0) + 1
     }
   } catch (eClr) {}
-  // 等列表卸掉后再返回，避免黑影盖住下一页且吞掉返回点击
-  await new Promise((r) => setTimeout(r, 160))
+  await new Promise((r) => setTimeout(r, 80))
   // #endif
-  // 先落已读水位，再清 activeChat，避免返回瞬间延迟推送又把未读加回
+  // 已读不能卡住返回：超时也离开
   try {
-    await markRead()
+    await Promise.race([
+      markRead().catch(() => {}),
+      new Promise((r) => setTimeout(r, 400)),
+    ])
   } catch (e) {}
   clearActiveChat()
-  // 有历史则返回上一级；刷新后无栈则回首页
   safeNavigateBack(HOME_TAB)
 }
 
