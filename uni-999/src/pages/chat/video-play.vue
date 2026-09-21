@@ -1,6 +1,7 @@
 <template>
   <view class="vp-page" :style="pageStyle">
-    <view class="vp-bar" :style="barStyle">
+    <!-- 安卓播放中用 video 内 cover-view 顶栏，避免与原生层叠出两个返回 -->
+    <view v-if="showHtmlBar" class="vp-bar" :style="barStyle">
       <view class="vp-back" hover-class="vp-back--on" @click="goBack">
         <text class="vp-back-char">‹</text>
       </view>
@@ -23,11 +24,11 @@
         @error="onVideoError"
         @fullscreenchange="onFullscreenChange"
       >
-        <!-- cover-view 必须写在 video 内部，才能盖住安卓原生层，返回才点得着 -->
         <!-- #ifdef APP-PLUS -->
-        <cover-view class="vp-cover-bar" @tap="goBack">
+        <cover-view v-if="useCoverBar" class="vp-cover-bar" @tap="goBack">
           <cover-view class="vp-cover-back-char">‹</cover-view>
-          <cover-view class="vp-cover-title">返回</cover-view>
+          <cover-view class="vp-cover-title">视频</cover-view>
+          <cover-view class="vp-cover-spacer" />
         </cover-view>
         <!-- #endif -->
       </video>
@@ -40,7 +41,7 @@
 
 <script setup>
 import { onLoad, onHide, onUnload, onBackPress } from '@dcloudio/uni-app'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { getSafeAreaInsets, getTopBarContentHeight } from '../../utils/safe-area.js'
 import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
 import { CHAT_VIDEO_PLAY_STORAGE_KEY } from '../../utils/chat-route.js'
@@ -51,8 +52,15 @@ const poster = ref('')
 const emptyTip = ref('无法播放')
 const pageStyle = ref({})
 const barStyle = ref({})
+const useCoverBar = ref(false)
 let tearingDown = false
 let leaveDelayMs = 40
+
+const showHtmlBar = computed(() => {
+  // 安卓正在播：只留 cover-view 顶栏，不显示网页顶栏（否则会看到两个返回）
+  if (useCoverBar.value && src.value) return false
+  return true
+})
 
 function isAndroid() {
   try {
@@ -146,7 +154,6 @@ function readPayload(q) {
       posterUrl = String(data.poster || '').trim()
     }
   } catch (e) {}
-  // 兼容旧：query 传址（短 URL）；优先 storage，避免长 OSS 链被截断
   if (!url && q && q.url) {
     try {
       url = decodeURIComponent(String(q.url || '').trim())
@@ -168,7 +175,11 @@ function readPayload(q) {
 
 onLoad((q) => {
   refreshSafe()
-  leaveDelayMs = isAndroid() ? 160 : 40
+  const android = isAndroid()
+  // #ifdef APP-PLUS
+  useCoverBar.value = android
+  // #endif
+  leaveDelayMs = android ? 160 : 40
   const { url, posterUrl } = readPayload(q)
   src.value = url
   poster.value = posterUrl
@@ -179,7 +190,6 @@ onLoad((q) => {
 })
 
 onHide(() => {
-  // 系统返回 / navigateBack 都会走这里：必须卸掉原生层，否则切群后点不动
   destroyNativeVideo()
 })
 
@@ -190,7 +200,6 @@ onUnload(() => {
 
 // #ifdef APP-PLUS
 onBackPress((e) => {
-  // 自己调用的 navigateBack 必须放行，否则 return true 会把返回取消，页面永远出不去
   if (e && e.from === 'navigateBack') {
     destroyNativeVideo()
     return false
@@ -266,30 +275,38 @@ onBackPress((e) => {
   color: rgba(255, 255, 255, 0.7);
   font-size: 15px;
 }
+/* 与普通顶栏同款：‹ + 视频，只此一处返回 */
 .vp-cover-bar {
   position: absolute;
   left: 0;
+  right: 0;
   top: 0;
-  width: 120px;
-  height: 48px;
+  height: 44px;
   display: flex;
   flex-direction: row;
   align-items: center;
-  background-color: rgba(0, 0, 0, 0.55);
+  justify-content: space-between;
+  background-color: #111111;
 }
 .vp-cover-back-char {
-  width: 36px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
   color: #ffffff;
   font-size: 32px;
-  line-height: 48px;
+  line-height: 44px;
   text-align: center;
 }
 .vp-cover-title {
-  width: 72px;
-  height: 48px;
+  flex: 1;
+  height: 44px;
   color: #ffffff;
-  font-size: 16px;
-  line-height: 48px;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 44px;
+  text-align: center;
+}
+.vp-cover-spacer {
+  width: 44px;
+  height: 44px;
 }
 </style>
