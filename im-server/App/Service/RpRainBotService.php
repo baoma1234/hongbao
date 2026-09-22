@@ -523,14 +523,24 @@ class RpRainBotService
 
     protected function delayMs(array $task, $sweep)
     {
-        // 始终使用后台配置的抢包延迟；超时全领阶段可略快，但绝不短于 1 秒
         $min = max(1000, (int)($task['grab_delay_min_ms'] ?? 5000));
         $max = max($min, (int)($task['grab_delay_max_ms'] ?? 15000));
-        if ($sweep) {
-            $min = max(1000, (int)floor($min * 0.7));
-            $max = max($min, (int)floor($max * 0.7));
+        if (!$sweep) {
+            return random_int($min, $max);
         }
-        return random_int($min, $max);
+        // 超时全领收尾：随机取 [发包延迟中间, 超时时间ms + 发包延迟中间]
+        $mid = (int)floor(($min + $max) / 2);
+        if ($mid < 1000) {
+            $mid = 1000;
+        }
+        $sweepMin = max(1, (int)($task['sweep_minutes'] ?? 3));
+        $timeoutMs = $sweepMin * 60 * 1000;
+        $lo = $mid;
+        $hi = $timeoutMs + $mid;
+        if ($hi < $lo) {
+            $hi = $lo;
+        }
+        return random_int($lo, $hi);
     }
 
     protected function pickAmount(array $task)

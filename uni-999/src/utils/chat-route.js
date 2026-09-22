@@ -83,6 +83,9 @@ export const CHANNEL_VIDEO_GROUP_IDS = [70, 71, 72, 77]
 /** App 视频播放页：用 storage 传长 OSS URL，避免 navigateTo query 被截断导致无法播放 */
 export const CHAT_VIDEO_PLAY_STORAGE_KEY = 'fans_hub_chat_video_play'
 
+/** 安卓频道切群锁：避免 70→71 叠栈 + 原生层未死就进新房 */
+let androidChannelNavLock = false
+
 export function isChannelVideoGroup(groupId) {
   const gid = groupId | 0
   return gid > 0 && CHANNEL_VIDEO_GROUP_IDS.indexOf(gid) >= 0
@@ -122,10 +125,96 @@ function topRouteIsVideoPlay() {
   }
 }
 
+function purgeVideoPlayStorage() {
+  try {
+    uni.removeStorageSync(CHAT_VIDEO_PLAY_STORAGE_KEY)
+  } catch (e) {}
+}
+
+/** 栈里最早的 chat 或 video-play 下标（从底往上找） */
+function findFirstChatOrVideoIndex(list) {
+  for (let i = 0; i < list.length; i++) {
+    const r = String((list[i] && list[i].route) || '')
+    if (r.indexOf('pages/chat/video-play') >= 0 || r.indexOf('pages/chat/chat') >= 0) {
+      return i
+    }
+  }
+  return -1
+}
+
+/**
+ * 安卓频道群专用：先杀掉栈上所有 chat/video-play（含自身），等原生层死透，再只进一次目标群。
+ * 禁止在旧 chat 上再 navigateTo（叠栈 = 黑影吞点击/返回）。
+ */
+function openAndroidChannelChat(target) {
+  if (androidChannelNavLock) return
+  androidChannelNavLock = true
+  const afterKillMs = 720
+  const unlockMs = 1000
+  const unlock = () => {
+    setTimeout(() => {
+      androidChannelNavLock = false
+    }, unlockMs)
+  }
+
+  purgeVideoPlayStorage()
+
+  const enterOnce = () => {
+    setTimeout(() => {
+      try {
+        const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : null
+        const list = pages || []
+        const top = list.length ? String((list[list.length - 1] && list[list.length - 1].route) || '') : ''
+        const onChatOrVideo =
+          top.indexOf('pages/chat/chat') >= 0 || top.indexOf('pages/chat/video-play') >= 0
+        if (onChatOrVideo) {
+          uni.redirectTo({
+            url: target,
+            fail() {
+              uni.reLaunch({ url: target, complete: unlock })
+            },
+            complete: unlock,
+          })
+          return
+        }
+      } catch (e) {}
+      uni.navigateTo({
+        url: target,
+        animationType: 'none',
+        animationDuration: 0,
+        fail() {
+          uni.reLaunch({ url: target, complete: unlock })
+        },
+        complete: unlock,
+      })
+    }, afterKillMs)
+  }
+
+  try {
+    const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : null
+    const list = pages || []
+    const killFrom = findFirstChatOrVideoIndex(list)
+    if (killFrom >= 0) {
+      // 关键：含 chat/video 自身一起 pop，不留下旧 chat70
+      const delta = Math.max(1, list.length - killFrom)
+      uni.navigateBack({
+        delta,
+        complete: enterOnce,
+        fail() {
+          uni.reLaunch({ url: target, complete: unlock })
+        },
+      })
+      return
+    }
+  } catch (e) {}
+
+  enterOnce()
+}
+
 /**
  * 打开聊天页。
  * 注意：从 Tab 页（社群）redirectTo 会失败，必须 navigateTo；
- * 频道群在进房前先关掉栈里已有 chat，避免华为等机型残留原生/合成层黑影。
+ * 安卓频道群走核切开房，禁止叠两个 chat。
  * @param {string} url
  * @param {{ groupId?: number|string }=} opts
  */
@@ -134,15 +223,20 @@ export function openChatPage(url, opts) {
   if (!target) return
   const gid = (opts && opts.groupId) | 0
   const channel = isChannelVideoGroup(gid)
-  const preferReplace = channel || currentRouteIsChat()
   const android = isAndroidApp()
-  // 安卓频道群：原生 video 层销毁更慢，切群前多等一会
-  const afterPopMs = channel ? (android ? 650 : 220) : android ? 200 : 80
+
+  // #ifdef APP-PLUS
+  if (android && channel) {
+    openAndroidChannelChat(target)
+    return
+  }
+  // #endif
+
+  const preferReplace = channel || currentRouteIsChat()
+  const afterPopMs = channel ? 220 : 80
 
   const goNav = () => {
-    try {
-      uni.removeStorageSync(CHAT_VIDEO_PLAY_STORAGE_KEY)
-    } catch (e0) {}
+    purgeVideoPlayStorage()
     uni.navigateTo({
       url: target,
       // #ifdef APP-PLUS
@@ -155,9 +249,7 @@ export function openChatPage(url, opts) {
     })
   }
   const goReplace = () => {
-    try {
-      uni.removeStorageSync(CHAT_VIDEO_PLAY_STORAGE_KEY)
-    } catch (e0) {}
+    purgeVideoPlayStorage()
     uni.redirectTo({
       url: target,
       fail() {
@@ -186,18 +278,17 @@ export function openChatPage(url, opts) {
         break
       }
     }
-    // 栈顶是播放页：先关掉，再进目标群（否则安卓残留层挡住点击/返回）
     if (topRouteIsVideoPlay() || videoIdx >= 0) {
-      const delta = videoIdx >= 0 ? list.length - videoIdx : 1
+      const killFrom = videoIdx >= 0 ? videoIdx : list.length - 1
+      // iOS/非安卓：同样尽量把 chat 一并 pop，避免叠栈
+      const chatUnder = chatIdx >= 0 && chatIdx < killFrom ? chatIdx : killFrom
+      const delta = Math.max(1, list.length - chatUnder)
       uni.navigateBack({
-        delta: Math.max(1, delta),
+        delta,
         complete() {
           setTimeout(() => {
-            if (preferReplace && currentRouteIsChat()) {
-              goReplace()
-            } else {
-              goNav()
-            }
+            if (currentRouteIsChat()) goReplace()
+            else goNav()
           }, afterPopMs)
         },
       })
@@ -206,22 +297,23 @@ export function openChatPage(url, opts) {
     if (chatIdx >= 0) {
       const delta = list.length - 1 - chatIdx
       if (delta > 0) {
-        // 栈上已有更早的 chat：先关掉再进新群（华为 WebView 残留层高发）
+        // 非安卓保留旧逻辑；但进频道时也 pop 到 chat 再 replace
         uni.navigateBack({
           delta,
           complete() {
-            setTimeout(goNav, afterPopMs)
+            setTimeout(() => {
+              if (channel && currentRouteIsChat()) goReplace()
+              else goNav()
+            }, afterPopMs)
           },
         })
         return
       }
-      // 当前就是 chat 页：替换
       goReplace()
       return
     }
   } catch (e) {}
 
-  // Tab 页上 redirectTo 不可用，直接 navigateTo
   goNav()
 }
 
@@ -269,8 +361,7 @@ export function openChatVideoPreview(sources, current) {
       uni.showToast({ title: '无法打开播放器', icon: 'none' })
     } catch (e2) {}
   }
-  try {
-    // 栈顶已是播放页（或残留）：redirect 强制重建，避免 70 播完后 71 打不开
+  const tryOpen = () => {
     if (topRouteIsVideoPlay()) {
       uni.redirectTo({
         url: playUrl,
@@ -278,21 +369,24 @@ export function openChatVideoPreview(sources, current) {
           uni.navigateTo({ url: playUrl, fail: openFail })
         },
       })
-      return true
+      return
     }
     uni.navigateTo({
       url: playUrl,
       animationType: 'fade-in',
       animationDuration: 180,
       fail() {
-        // 禁止 plus.runtime.openURL：三星等机会直接跳系统浏览器
-        openFail()
+        uni.redirectTo({ url: playUrl, fail: openFail })
       },
     })
-    return true
-  } catch (e) {
-    return false
   }
+  // 切群锁未释放时稍后再开，避免和新 chat 抢原生层
+  if (isAndroidApp() && androidChannelNavLock) {
+    setTimeout(tryOpen, 800)
+  } else {
+    tryOpen()
+  }
+  return true
   // #endif
 }
 
@@ -302,7 +396,6 @@ export function getHashRoutePath() {
   try {
     if (typeof location === 'undefined') return ''
     const hash = String(location.hash || '')
-    // #/pages/chat/chat?x=1  or #/pages/chat/chat
     const m = hash.match(/^#\/?([^?]+)/)
     if (!m) return ''
     return String(m[1] || '').replace(/^\//, '')

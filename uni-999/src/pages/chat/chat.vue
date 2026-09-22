@@ -1185,6 +1185,7 @@ import { tryOpenGroupInviteFromUrl } from '../../utils/group-invite.js'
 import {
   buildChatUrl,
   clearActiveChat,
+  CHAT_VIDEO_PLAY_STORAGE_KEY,
   getActiveChat,
   isChannelVideoGroup,
   openChatVideoPreview,
@@ -5476,20 +5477,22 @@ async function goBack() {
   try {
     const gid = (meta.value && meta.value.group) | 0
     if (isChannelVideoGroup(gid)) {
+      try {
+        uni.removeStorageSync(CHAT_VIDEO_PLAY_STORAGE_KEY)
+      } catch (eS) {}
       messages.value = []
       msgRevealCount.value = MSG_RENDER_CAP
       roomScrollEpoch.value = (roomScrollEpoch.value | 0) + 1
+      await new Promise((r) => setTimeout(r, 120))
+    } else {
+      await new Promise((r) => setTimeout(r, 40))
     }
   } catch (eClr) {}
   // #endif
   clearActiveChat()
-  // 已读后台跑，绝不阻塞返回
   try {
     markRead().catch(() => {})
   } catch (e) {}
-  // #ifdef APP-PLUS
-  await new Promise((r) => setTimeout(r, 40))
-  // #endif
   safeNavigateBack(HOME_TAB)
 }
 
