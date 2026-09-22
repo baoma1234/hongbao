@@ -10,8 +10,8 @@ use Im\Support\RedisClient;
  * 未充值账号资金权限：
  * - 可社交
  * - 未充值：不能发私聊/非推荐群红包，不能发/收转账
- * - 未充值：可在推荐群(is_recommend=1)发/抢红包
- * - 未充值：可领取 recharge_free_claim_group_ids 指定群内任意红包；可收 recharge_free_claim_sender_ids 的私聊转账
+ * - 未充值：可在推荐群(is_recommend=1)发红包
+ * - 未充值：仅可领取 recharge_free_claim_group_ids 指定群（默认 80）内任意红包；可收 recharge_free_claim_sender_ids 的私聊转账
  * - 已充值：私聊红包/转账不能发给未充值对方
  * - fund_bypass_user_ids（后台配置）：可任意发红包/转账，无视双方充值限制
  */
@@ -21,7 +21,7 @@ class RechargePrivilegeService
     const MSG_NEED_RECHARGE_SEND_RP_TO = '对方未充值，无法发红包';
     const MSG_NEED_RECHARGE_TRANSFER = '未充值账号不能转账，请先充值';
     const MSG_NEED_RECHARGE_RECEIVE_TRANSFER = '对方未充值，无法收款';
-    const MSG_NEED_RECHARGE_GRAB = '未充值账号仅可领取推荐群红包，请先充值';
+    const MSG_NEED_RECHARGE_GRAB = '未充值账号仅可在福利群领取红包，请先充值';
 
     /** @var array<int,array{ok:bool,at:float}> */
     protected static $mem = [];
@@ -370,14 +370,8 @@ class RechargePrivilegeService
         if (self::hasRecharged($userId)) {
             return;
         }
-        // 未充值：指定福利群内任意红包可领
+        // 未充值：仅 recharge_free_claim_group_ids（默认群 80）内可领，其它群一律不可
         if (self::isFreeClaimRedPacket($packet)) {
-            return;
-        }
-        // 未充值：仅可抢推荐群红包
-        $scope = (int)($packet['scope_type'] ?? 0);
-        $groupId = (int)($packet['group_id'] ?? 0);
-        if ($scope === 2 && $groupId > 0 && self::isRecommendGroup($groupId, $groups)) {
             return;
         }
         throw new \RuntimeException(self::MSG_NEED_RECHARGE_GRAB);

@@ -1881,7 +1881,7 @@ const showSticker = ref(false)
 const showAttach = ref(false)
 const walletBalance = ref(0)
 const walletFrozen = ref(0)
-/** 曾成功充值：解锁私聊/非官方群发抢与转账；未充值仍可在官方群发/抢（默认 false，等 profile 回填） */
+/** 曾成功充值：解锁私聊/非官方群发抢与转账；未充值仅可在福利群(默认80)领红包 */
 const hasRecharged = ref(false)
 const rpSending = ref(false)
 const transferSending = ref(false)
@@ -2124,7 +2124,7 @@ const isOfficialGroup = computed(() => {
 
 function rechargeGateTip(kind) {
   if (kind === 'transfer') return '未充值账号不能转账，请先充值'
-  if (kind === 'grab') return '未充值账号仅可在官方群领取红包'
+  if (kind === 'grab') return '未充值账号仅可在福利群领取红包'
   return '未充值账号仅可在官方群发红包，请先充值'
 }
 
@@ -2158,19 +2158,14 @@ function canCap(cap) {
 function canGrabInCurrentScene(packet) {
   if (hasRecharged.value) return true
   if (isFreeClaimRedPacket(packet)) return true
-  // 无 packet 时：当前会话若在免充值领取群，允许尝试（后端再校验发包人）
+  // 无 packet 时：当前会话若在免充值领取群（仅配置的群，默认 80）
   if (!packet && !isPrivate.value) {
     const gid = ((meta.value && meta.value.group) | 0) || 0
     const gids = freeClaimGroupIds.value || []
     if (gid > 0 && gids.indexOf(gid) >= 0) return true
   }
-  const scope = packet ? (packet.scope_type | 0) : (isPrivate.value ? 1 : 2)
-  if (scope === 1) return false
-  if (packet && (packet.group_id | 0) > 0) {
-    // 详情里若无群标记，回退当前会话官方判定
-    return isOfficialGroup.value
-  }
-  return isOfficialGroup.value
+  // 未充值：其它群（含官方推荐群）一律不可领
+  return false
 }
 
 function isFreeClaimRedPacket(packet) {
