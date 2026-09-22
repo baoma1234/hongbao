@@ -85,6 +85,8 @@ export const CHAT_VIDEO_PLAY_STORAGE_KEY = 'fans_hub_chat_video_play'
 
 /** 安卓频道切群锁：避免 70→71 叠栈 + 原生层未死就进新房 */
 let androidChannelNavLock = false
+/** 锁期间再次点开频道：记下目标，解锁后立刻进 */
+let androidChannelNavPending = ''
 
 export function isChannelVideoGroup(groupId) {
   const gid = groupId | 0
@@ -142,18 +144,37 @@ function findFirstChatOrVideoIndex(list) {
   return -1
 }
 
+function releaseAndroidChannelLock() {
+  androidChannelNavLock = false
+  const next = androidChannelNavPending
+  androidChannelNavPending = ''
+  if (next) {
+    // 下一帧再开，避免与本次 unlock 竞态
+    setTimeout(() => {
+      openAndroidChannelChat(next)
+    }, 80)
+  }
+}
+
 /**
  * 安卓频道群专用：先杀掉栈上所有 chat/video-play（含自身），等原生层死透，再只进一次目标群。
  * 禁止在旧 chat 上再 navigateTo（叠栈 = 黑影吞点击/返回）。
+ * 从社群 Tab 进房：无 chat 可杀时直接 navigateTo（redirectTo Tab 会失败）。
  */
 function openAndroidChannelChat(target) {
-  if (androidChannelNavLock) return
+  target = String(target || '').trim()
+  if (!target) return
+  if (androidChannelNavLock) {
+    androidChannelNavPending = target
+    return
+  }
   androidChannelNavLock = true
-  const afterKillMs = 900
-  const unlockMs = 1200
+  androidChannelNavPending = ''
+  const afterKillMs = 1000
+  const unlockMs = 400
   const unlock = () => {
     setTimeout(() => {
-      androidChannelNavLock = false
+      releaseAndroidChannelLock()
     }, unlockMs)
   }
 
@@ -167,11 +188,20 @@ function openAndroidChannelChat(target) {
         const top = list.length ? String((list[list.length - 1] && list[list.length - 1].route) || '') : ''
         const onChatOrVideo =
           top.indexOf('pages/chat/chat') >= 0 || top.indexOf('pages/chat/video-play') >= 0
+        // 顶层已是 chat/video：redirect 换房；顶层是社群 Tab：只能 navigateTo
         if (onChatOrVideo) {
           uni.redirectTo({
             url: target,
             fail() {
-              uni.reLaunch({ url: target, complete: unlock })
+              uni.navigateTo({
+                url: target,
+                animationType: 'none',
+                animationDuration: 0,
+                fail() {
+                  uni.reLaunch({ url: target, complete: unlock })
+                },
+                complete: unlock,
+              })
             },
             complete: unlock,
           })
@@ -195,20 +225,31 @@ function openAndroidChannelChat(target) {
     const list = pages || []
     const killFrom = findFirstChatOrVideoIndex(list)
     if (killFrom >= 0) {
-      // 关键：含 chat/video 自身一起 pop，不留下旧 chat70
       const delta = Math.max(1, list.length - killFrom)
       uni.navigateBack({
         delta,
         complete: enterOnce,
         fail() {
-          uni.reLaunch({ url: target, complete: unlock })
+          // pop 失败：仍尝试进目标房
+          enterOnce()
         },
       })
       return
     }
   } catch (e) {}
 
-  enterOnce()
+  // 已在社群等非 chat 页：稍等原生层空闲再进（短延迟即可）
+  setTimeout(() => {
+    uni.navigateTo({
+      url: target,
+      animationType: 'none',
+      animationDuration: 0,
+      fail() {
+        uni.reLaunch({ url: target, complete: unlock })
+      },
+      complete: unlock,
+    })
+  }, 280)
 }
 
 /**
@@ -361,8 +402,7 @@ export function openChatVideoPreview(sources, current) {
       uni.showToast({ title: '无法打开播放器', icon: 'none' })
     } catch (e2) {}
   }
-  const tryOpen = () => {
-    // 安卓：栈上已有 video-play 或刚切过频道，一律 redirectTo / 先杀再进，禁止叠两个原生 VideoView
+  const openNav = () => {
     let hasVideoPage = topRouteIsVideoPlay()
     if (!hasVideoPage) {
       try {
@@ -377,7 +417,8 @@ export function openChatVideoPreview(sources, current) {
         }
       } catch (e3) {}
     }
-    if (hasVideoPage || (isAndroidApp() && androidChannelNavLock)) {
+    if (hasVideoPage) {
+      // 已在播放页：替换，避免双 VideoView
       uni.redirectTo({
         url: playUrl,
         fail() {
@@ -386,33 +427,31 @@ export function openChatVideoPreview(sources, current) {
       })
       return
     }
-    if (isAndroidApp()) {
-      // 安卓首次从 chat 进播放：redirectTo 替换当前 chat 也可，但会丢返回栈；
-      // 用 navigateTo，返回时回到同一群；切群已由 openAndroidChannelChat 清栈。
-      uni.navigateTo({
-        url: playUrl,
-        animationType: 'none',
-        animationDuration: 0,
-        fail() {
-          uni.redirectTo({ url: playUrl, fail: openFail })
-        },
-      })
-      return
-    }
     uni.navigateTo({
       url: playUrl,
-      animationType: 'fade-in',
-      animationDuration: 180,
+      // #ifdef APP-PLUS
+      animationType: isAndroidApp() ? 'none' : 'fade-in',
+      animationDuration: isAndroidApp() ? 0 : 180,
+      // #endif
       fail() {
         uni.redirectTo({ url: playUrl, fail: openFail })
       },
     })
   }
-  // 切群锁未释放：等原生层死透再开（安卓略加长）
+  // 切群锁未释放：等到解锁再开（勿 redirectTo 顶掉刚进的 chat71）
   if (isAndroidApp() && androidChannelNavLock) {
-    setTimeout(tryOpen, 1100)
+    let tries = 0
+    const wait = () => {
+      tries++
+      if (!androidChannelNavLock || tries > 25) {
+        openNav()
+        return
+      }
+      setTimeout(wait, 120)
+    }
+    setTimeout(wait, 200)
   } else {
-    tryOpen()
+    openNav()
   }
   return true
   // #endif
