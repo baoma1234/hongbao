@@ -3,11 +3,12 @@
 namespace app\admin\controller\fanshub;
 
 use app\common\controller\Backend;
+use app\common\library\FansHubOgGateway;
 use app\common\library\FansHubService;
 use think\Config as ThinkConfig;
 
 /**
- * OG视讯商户配置（三方游戏）
+ * OG视讯商户配置（三方游戏 · 转账钱包）
  *
  * @icon fa fa-video-camera
  */
@@ -21,6 +22,63 @@ class Ogmerchant extends Backend
         $this->view->assign('suggested_callback', $this->suggestedCallbackUrl());
         $this->view->assign('suggested_return', $this->suggestedReturnUrl());
         return $this->view->fetch();
+    }
+
+    /**
+     * 测试：注册玩家（转账钱包）
+     */
+    public function testregister()
+    {
+        if (!$this->request->isPost()) {
+            $this->error('非法请求');
+        }
+        $playerId = trim((string)$this->request->post('player_id', ''));
+        $nickname = trim((string)$this->request->post('nickname', ''));
+        if ($playerId === '') {
+            $this->error('请填写 player_id');
+        }
+
+        $backup = ThinkConfig::get('fanshub') ?: [];
+        $cfg = is_array($backup) ? $backup : [];
+        foreach ($this->ogFields() as $field) {
+            if ($this->request->has($field, 'post')) {
+                $val = $this->request->post($field);
+                if (in_array($field, ['og_enabled', 'og_sandbox'], true)) {
+                    $cfg[$field] = $val ? true : false;
+                } elseif ($field === 'og_timeout') {
+                    $cfg[$field] = max(3, min(120, (int)$val));
+                } else {
+                    $cfg[$field] = trim((string)$val);
+                }
+            }
+        }
+        $cfg['og_enabled'] = true;
+        ThinkConfig::set('fanshub', $cfg);
+        try {
+            $ret = FansHubOgGateway::registerPlayer($playerId, $nickname !== '' ? $nickname : null);
+            $extra = [
+                'request'  => FansHubOgGateway::getLastRequest(),
+                'response' => FansHubOgGateway::getLastResponse(),
+            ];
+            if (!empty($ret['ok'])) {
+                $this->success(
+                    '注册结果：' . ($ret['rs_code'] ?? '') . ' ' . ($ret['rs_message'] ?? '')
+                    . '（player_id=' . ($ret['player_id'] ?? '') . '）',
+                    null,
+                    $extra
+                );
+            }
+            $this->error(
+                '注册失败：' . (($ret['rs_code'] ?? '') !== '' ? ($ret['rs_code'] . ' ') : '')
+                . ($ret['rs_message'] ?? FansHubOgGateway::getLastError() ?: 'unknown'),
+                null,
+                $extra
+            );
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage());
+        } finally {
+            ThinkConfig::set('fanshub', $backup);
+        }
     }
 
     public function save()

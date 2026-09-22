@@ -1,6 +1,6 @@
 <div class="panel panel-default panel-intro">
     <div class="panel-heading">
-        <div class="panel-lead"><em>OG视讯 · 商户配置</em> 先填商户凭证与网关，后续再接登录/转账/回调接口。</div>
+        <div class="panel-lead"><em>OG视讯 · 转账钱包商户配置</em> 公匙走 Header <code>key</code>，运营商名称走 <code>operator-name</code>；业务参数按 a→z 排序后 <code>key=value&amp;…</code> 拼私钥 MD5 得 <code>signature</code>。</div>
     </div>
     <div class="panel-body">
         <form id="og-form" class="form-horizontal" role="form" data-toggle="validator" method="POST" action="{:url('fanshub.ogmerchant/save')}">
@@ -25,30 +25,32 @@
             </fieldset>
 
             <fieldset>
-                <legend>商户凭证</legend>
+                <legend>商户凭证（转账钱包）</legend>
                 <div class="form-group">
-                    <label class="control-label col-xs-12 col-sm-2">商户号</label>
+                    <label class="control-label col-xs-12 col-sm-2">运营商名称</label>
                     <div class="col-xs-12 col-sm-6">
-                        <input type="text" class="form-control" name="og_merchant_code" value="{$config.og_merchant_code|default=''|htmlentities}" placeholder="Merchant / Operator Code" autocomplete="off">
+                        <input type="text" class="form-control" name="og_merchant_code" value="{$config.og_merchant_code|default=''|htmlentities}" placeholder="operator-name" autocomplete="off">
+                        <span class="help-block">Header：<code>operator-name</code></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">公匙</label>
+                    <div class="col-xs-12 col-sm-6">
+                        <input type="text" class="form-control" name="og_api_key" value="{$config.og_api_key|default=''|htmlentities}" placeholder="public key" autocomplete="off">
+                        <span class="help-block">Header：<code>key</code></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">私钥</label>
+                    <div class="col-xs-12 col-sm-6">
+                        <input type="password" class="form-control" name="og_api_secret" value="{$config.og_api_secret|default=''|htmlentities}" placeholder="private key（签名用）" autocomplete="new-password">
+                        <span class="help-block">signature = MD5( 排序后的 key=value&amp;… + 私钥 )</span>
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="control-label col-xs-12 col-sm-2">代理号</label>
                     <div class="col-xs-12 col-sm-6">
-                        <input type="text" class="form-control" name="og_agent_id" value="{$config.og_agent_id|default=''|htmlentities}" placeholder="Agent ID（若无则留空）" autocomplete="off">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label class="control-label col-xs-12 col-sm-2">API Key</label>
-                    <div class="col-xs-12 col-sm-6">
-                        <input type="text" class="form-control" name="og_api_key" value="{$config.og_api_key|default=''|htmlentities}" autocomplete="off">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label class="control-label col-xs-12 col-sm-2">API Secret</label>
-                    <div class="col-xs-12 col-sm-6">
-                        <input type="password" class="form-control" name="og_api_secret" value="{$config.og_api_secret|default=''|htmlentities}" autocomplete="new-password">
-                        <span class="help-block">保存后明文写入私有配置（与短信 Token 同策略）</span>
+                        <input type="text" class="form-control" name="og_agent_id" value="{$config.og_agent_id|default=''|htmlentities}" placeholder="可选，部分环境需要" autocomplete="off">
                     </div>
                 </div>
             </fieldset>
@@ -58,13 +60,13 @@
                 <div class="form-group">
                     <label class="control-label col-xs-12 col-sm-2">正式网关</label>
                     <div class="col-xs-12 col-sm-8">
-                        <input type="text" class="form-control" name="og_api_base_url" value="{$config.og_api_base_url|default=''|htmlentities}" placeholder="https://api.example.com">
+                        <input type="text" class="form-control" name="og_api_base_url" value="{$config.og_api_base_url|default=''|htmlentities}" placeholder="https://…（OG_Host，不含末尾路径）">
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="control-label col-xs-12 col-sm-2">沙箱网关</label>
                     <div class="col-xs-12 col-sm-8">
-                        <input type="text" class="form-control" name="og_sandbox_base_url" value="{$config.og_sandbox_base_url|default=''|htmlentities}" placeholder="https://sandbox-api.example.com">
+                        <input type="text" class="form-control" name="og_sandbox_base_url" value="{$config.og_sandbox_base_url|default=''|htmlentities}" placeholder="https://sandbox-…">
                     </div>
                 </div>
                 <div class="form-group">
@@ -102,7 +104,7 @@
                     <label class="control-label col-xs-12 col-sm-2">钱包回调 URL</label>
                     <div class="col-xs-12 col-sm-8">
                         <input type="text" class="form-control" name="og_callback_url" value="{$config.og_callback_url|default=''|htmlentities}" placeholder="{$suggested_callback|htmlentities}">
-                        <span class="help-block">建议：<code>{$suggested_callback|htmlentities}</code>（对接接口时实现）</span>
+                        <span class="help-block">建议：<code>{$suggested_callback|htmlentities}</code></span>
                     </div>
                 </div>
                 <div class="form-group">
@@ -126,6 +128,32 @@
                     <button type="submit" class="btn btn-primary btn-embossed">保存商户配置</button>
                 </div>
             </div>
+        </form>
+
+        <hr>
+        <form id="og-test-register" class="form-horizontal" role="form" method="POST" action="{:url('fanshub.ogmerchant/testregister')}">
+            <fieldset>
+                <legend>联调：注册玩家</legend>
+                <p class="help-block" style="padding-left:15px;">调用 <code>POST /api/v2/platform/transfer-wallet/register</code>；S-100 成功，S-121 已存在也算成功。未保存的表单凭证会临时用于本次请求。</p>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">player_id</label>
+                    <div class="col-xs-12 col-sm-6">
+                        <input type="text" class="form-control" name="player_id" placeholder="字母数字下划线，8–64 位" autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">nickname</label>
+                    <div class="col-xs-12 col-sm-6">
+                        <input type="text" class="form-control" name="nickname" placeholder="可选，默认与 player_id 同规则" autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2"></label>
+                    <div class="col-xs-12 col-sm-8">
+                        <button type="submit" class="btn btn-success btn-embossed">测试注册</button>
+                    </div>
+                </div>
+            </fieldset>
         </form>
     </div>
 </div>
