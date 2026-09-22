@@ -1139,7 +1139,7 @@
 
 <script setup>
 import { computed, getCurrentInstance, nextTick, reactive, ref, watch } from 'vue'
-import { onLoad, onShow, onHide, onUnload } from '@dcloudio/uni-app'
+import { onLoad, onShow, onHide, onUnload, onBackPress } from '@dcloudio/uni-app'
 import GrabSlider from '../../components/GrabSlider.vue'
 import ChatNiuniuCard from '../../components/ChatNiuniuCard.vue'
 import ChatFoldText from '../../components/ChatFoldText.vue'
@@ -5481,16 +5481,15 @@ async function goBack() {
       roomScrollEpoch.value = (roomScrollEpoch.value | 0) + 1
     }
   } catch (eClr) {}
-  await new Promise((r) => setTimeout(r, 80))
   // #endif
-  // 已读不能卡住返回：超时也离开
-  try {
-    await Promise.race([
-      markRead().catch(() => {}),
-      new Promise((r) => setTimeout(r, 400)),
-    ])
-  } catch (e) {}
   clearActiveChat()
+  // 已读后台跑，绝不阻塞返回
+  try {
+    markRead().catch(() => {})
+  } catch (e) {}
+  // #ifdef APP-PLUS
+  await new Promise((r) => setTimeout(r, 40))
+  // #endif
   safeNavigateBack(HOME_TAB)
 }
 
@@ -7488,6 +7487,18 @@ onUnload(() => {
   cancelScrollToLatest()
   if (off) off()
 })
+
+// #ifdef APP-PLUS
+onBackPress((e) => {
+  if (e && e.from === 'navigateBack') return false
+  if (detailVisible.value) {
+    closeRpDetail()
+    return true
+  }
+  goBack()
+  return true
+})
+// #endif
 function closeRpDetail() {
   detailVisible.value = false
   grabErrorTip.value = ''

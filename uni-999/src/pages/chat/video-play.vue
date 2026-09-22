@@ -1,17 +1,19 @@
 <template>
   <view class="vp-page" :style="pageStyle">
-    <!-- 安卓播放中用 video 内 cover-view 顶栏，避免与原生层叠出两个返回 -->
-    <view v-if="showHtmlBar" class="vp-bar" :style="barStyle">
+    <!-- 顶栏永远在 video 上方（同级列布局），避免原生层盖住返回；标题绝对居中 -->
+    <view class="vp-bar" :style="barStyle">
       <view class="vp-back" hover-class="vp-back--on" @click="goBack">
         <text class="vp-back-char">‹</text>
       </view>
       <text class="vp-title">视频</text>
-      <view class="vp-back vp-back--spacer" aria-hidden="true" />
+      <view class="vp-close" hover-class="vp-back--on" @click="goBack">
+        <text class="vp-close-text">关闭</text>
+      </view>
     </view>
     <view class="vp-body">
       <video
         v-if="src"
-        id="chatVpVideo"
+        :id="videoDomId"
         class="vp-video"
         :src="src"
         :poster="poster || undefined"
@@ -24,16 +26,18 @@
         @error="onVideoError"
         @fullscreenchange="onFullscreenChange"
       >
+        <!-- 安卓保险：原生层若画出边界，仍能点到关闭 -->
         <!-- #ifdef APP-PLUS -->
-        <cover-view v-if="useCoverBar" class="vp-cover-bar" @tap="goBack">
-          <cover-view class="vp-cover-back-char">‹</cover-view>
-          <cover-view class="vp-cover-title">视频</cover-view>
-          <cover-view class="vp-cover-spacer" />
+        <cover-view v-if="androidSafeClose" class="vp-cover-close" @tap="goBack">
+          <cover-view class="vp-cover-close-text">关闭</cover-view>
         </cover-view>
         <!-- #endif -->
       </video>
       <view v-else class="vp-empty">
         <text>{{ emptyTip }}</text>
+        <view class="vp-empty-close" @click="goBack">
+          <text>关闭</text>
+        </view>
       </view>
     </view>
   </view>
@@ -41,26 +45,21 @@
 
 <script setup>
 import { onLoad, onHide, onUnload, onBackPress } from '@dcloudio/uni-app'
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import { getSafeAreaInsets, getTopBarContentHeight } from '../../utils/safe-area.js'
 import { safeNavigateBack, HOME_TAB } from '../../utils/nav.js'
 import { CHAT_VIDEO_PLAY_STORAGE_KEY } from '../../utils/chat-route.js'
 
-const VIDEO_CTX_ID = 'chatVpVideo'
 const src = ref('')
 const poster = ref('')
 const emptyTip = ref('无法播放')
 const pageStyle = ref({})
 const barStyle = ref({})
-const useCoverBar = ref(false)
+const androidSafeClose = ref(false)
+const videoDomId = ref('chatVpVideo')
 let tearingDown = false
 let leaveDelayMs = 40
-
-const showHtmlBar = computed(() => {
-  // 安卓正在播：只留 cover-view 顶栏，不显示网页顶栏（否则会看到两个返回）
-  if (useCoverBar.value && src.value) return false
-  return true
-})
+let sessionToken = ''
 
 function isAndroid() {
   try {
@@ -92,7 +91,7 @@ function clearStorage() {
 function destroyNativeVideo() {
   // #ifdef APP-PLUS
   try {
-    const ctx = uni.createVideoContext(VIDEO_CTX_ID)
+    const ctx = uni.createVideoContext(videoDomId.value)
     if (ctx) {
       try {
         if (typeof ctx.pause === 'function') ctx.pause()
@@ -110,7 +109,7 @@ function destroyNativeVideo() {
 function exitFullscreen() {
   // #ifdef APP-PLUS
   try {
-    const ctx = uni.createVideoContext(VIDEO_CTX_ID)
+    const ctx = uni.createVideoContext(videoDomId.value)
     if (ctx && typeof ctx.exitFullScreen === 'function') ctx.exitFullScreen()
   } catch (e) {}
   // #endif
@@ -131,7 +130,7 @@ function goBack() {
     safeNavigateBack(HOME_TAB)
     setTimeout(() => {
       tearingDown = false
-    }, 400)
+    }, 500)
   }, leaveDelayMs)
 }
 
@@ -146,12 +145,14 @@ function onVideoError() {
 function readPayload(q) {
   let url = ''
   let posterUrl = ''
+  let token = ''
   try {
     const raw = uni.getStorageSync(CHAT_VIDEO_PLAY_STORAGE_KEY)
     const data = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : null
     if (data && typeof data === 'object') {
       url = String(data.url || '').trim()
       posterUrl = String(data.poster || '').trim()
+      token = String(data.token || data.ts || '').trim()
     }
   } catch (e) {}
   if (!url && q && q.url) {
@@ -168,25 +169,34 @@ function readPayload(q) {
       posterUrl = String(q.poster || '').trim()
     }
   }
+  if (!token && q && q.t) token = String(q.t || '')
   if (url && !/^https?:\/\//i.test(url)) url = ''
   if (posterUrl && !/^https?:\/\//i.test(posterUrl)) posterUrl = ''
-  return { url, posterUrl }
+  return { url, posterUrl, token }
+}
+
+function applyPayload(q) {
+  const { url, posterUrl, token } = readPayload(q)
+  sessionToken = token || String(Date.now())
+  // 换 id 强制重建原生 video，避免 70→71 仍挂着旧实例
+  videoDomId.value = 'chatVpVideo_' + sessionToken.replace(/\W/g, '').slice(-10)
+  src.value = url
+  poster.value = posterUrl
+  if (!src.value) {
+    emptyTip.value = '视频地址无效'
+    try {
+      uni.showToast({ title: '视频地址无效', icon: 'none' })
+    } catch (e) {}
+  }
 }
 
 onLoad((q) => {
   refreshSafe()
   const android = isAndroid()
-  // #ifdef APP-PLUS
-  useCoverBar.value = android
-  // #endif
-  leaveDelayMs = android ? 160 : 40
-  const { url, posterUrl } = readPayload(q)
-  src.value = url
-  poster.value = posterUrl
-  if (!src.value) {
-    emptyTip.value = '视频地址无效'
-    uni.showToast({ title: '视频地址无效', icon: 'none' })
-  }
+  androidSafeClose.value = android
+  leaveDelayMs = android ? 220 : 40
+  tearingDown = false
+  applyPayload(q)
 })
 
 onHide(() => {
@@ -196,6 +206,7 @@ onHide(() => {
 onUnload(() => {
   destroyNativeVideo()
   clearStorage()
+  tearingDown = false
 })
 
 // #ifdef APP-PLUS
@@ -223,29 +234,36 @@ onBackPress((e) => {
   position: relative;
 }
 .vp-bar {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
+  position: relative;
   flex-shrink: 0;
+  width: 100%;
   padding: 0 4px;
   background: #111;
   box-sizing: border-box;
-  z-index: 2;
+  z-index: 20;
 }
-.vp-back {
-  width: 44px;
-  height: 44px;
+.vp-back,
+.vp-close {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  min-height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 2;
+}
+.vp-back {
+  left: 0;
+  width: 44px;
+}
+.vp-close {
+  right: 0;
+  min-width: 56px;
+  padding: 0 10px;
 }
 .vp-back--on {
   opacity: 0.65;
-}
-.vp-back--spacer {
-  pointer-events: none;
-  opacity: 0;
 }
 .vp-back-char {
   color: #fff;
@@ -253,18 +271,36 @@ onBackPress((e) => {
   line-height: 1;
   font-weight: 300;
 }
+.vp-close-text {
+  color: #fff;
+  font-size: 15px;
+  line-height: 44px;
+}
 .vp-title {
+  position: absolute;
+  left: 56px;
+  right: 56px;
+  top: 0;
+  bottom: 0;
   color: #fff;
   font-size: 17px;
   font-weight: 600;
+  line-height: 44px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
 }
 .vp-body {
   flex: 1;
   min-height: 0;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   background: #000;
+  z-index: 1;
 }
 .vp-video {
   width: 100%;
@@ -272,41 +308,34 @@ onBackPress((e) => {
   background: #000;
 }
 .vp-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
   color: rgba(255, 255, 255, 0.7);
   font-size: 15px;
 }
-/* 与普通顶栏同款：‹ + 视频，只此一处返回 */
-.vp-cover-bar {
+.vp-empty-close {
+  padding: 8px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 6px;
+  color: #fff;
+}
+.vp-cover-close {
   position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: 44px;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  background-color: #111111;
+  right: 8px;
+  top: 8px;
+  width: 64px;
+  height: 36px;
+  background-color: rgba(0, 0, 0, 0.6);
+  border-radius: 6px;
 }
-.vp-cover-back-char {
-  width: 44px;
-  height: 44px;
+.vp-cover-close-text {
+  width: 64px;
+  height: 36px;
   color: #ffffff;
-  font-size: 32px;
-  line-height: 44px;
+  font-size: 14px;
+  line-height: 36px;
   text-align: center;
-}
-.vp-cover-title {
-  flex: 1;
-  height: 44px;
-  color: #ffffff;
-  font-size: 17px;
-  font-weight: 600;
-  line-height: 44px;
-  text-align: center;
-}
-.vp-cover-spacer {
-  width: 44px;
-  height: 44px;
 }
 </style>

@@ -137,9 +137,12 @@ export function openChatPage(url, opts) {
   const preferReplace = channel || currentRouteIsChat()
   const android = isAndroidApp()
   // 安卓频道群：原生 video 层销毁更慢，切群前多等一会
-  const afterPopMs = channel ? (android ? 480 : 220) : android ? 160 : 80
+  const afterPopMs = channel ? (android ? 650 : 220) : android ? 200 : 80
 
   const goNav = () => {
+    try {
+      uni.removeStorageSync(CHAT_VIDEO_PLAY_STORAGE_KEY)
+    } catch (e0) {}
     uni.navigateTo({
       url: target,
       // #ifdef APP-PLUS
@@ -152,6 +155,9 @@ export function openChatPage(url, opts) {
     })
   }
   const goReplace = () => {
+    try {
+      uni.removeStorageSync(CHAT_VIDEO_PLAY_STORAGE_KEY)
+    } catch (e0) {}
     uni.redirectTo({
       url: target,
       fail() {
@@ -240,6 +246,7 @@ export function openChatVideoPreview(sources, current) {
   if (!list.length) return false
   const idx = Math.max(0, Math.min(list.length - 1, current | 0))
   const item = list[idx]
+  const token = String(Date.now()) + '_' + Math.random().toString(36).slice(2, 8)
   try {
     uni.setStorageSync(
       CHAT_VIDEO_PLAY_STORAGE_KEY,
@@ -247,6 +254,7 @@ export function openChatVideoPreview(sources, current) {
         url: item.url,
         poster: /^https?:\/\//i.test(item.poster) ? item.poster : '',
         ts: Date.now(),
+        token,
       })
     )
   } catch (e0) {
@@ -255,17 +263,30 @@ export function openChatVideoPreview(sources, current) {
     } catch (e1) {}
     return false
   }
+  const playUrl = '/pages/chat/video-play?t=' + encodeURIComponent(token)
+  const openFail = () => {
+    try {
+      uni.showToast({ title: '无法打开播放器', icon: 'none' })
+    } catch (e2) {}
+  }
   try {
+    // 栈顶已是播放页（或残留）：redirect 强制重建，避免 70 播完后 71 打不开
+    if (topRouteIsVideoPlay()) {
+      uni.redirectTo({
+        url: playUrl,
+        fail() {
+          uni.navigateTo({ url: playUrl, fail: openFail })
+        },
+      })
+      return true
+    }
     uni.navigateTo({
-      // 不把长 URL 塞进 query，避免安卓截断后黑屏无法播
-      url: '/pages/chat/video-play',
+      url: playUrl,
       animationType: 'fade-in',
       animationDuration: 180,
       fail() {
         // 禁止 plus.runtime.openURL：三星等机会直接跳系统浏览器
-        try {
-          uni.showToast({ title: '无法打开播放器', icon: 'none' })
-        } catch (e2) {}
+        openFail()
       },
     })
     return true
