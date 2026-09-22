@@ -1407,6 +1407,22 @@ class RedPacketService
         $tailDigit = $amountCent % 10;
         $remain = (int)$result['remain'];
         $now = time();
+        // 可信机器人可自定义领取明细 createtime（红包雨超时全领），资金流水仍用真实 now
+        $recordTime = $now;
+        $forcedAt = (int)($opts['record_createtime'] ?? 0);
+        if (
+            $forcedAt > 0
+            && (!empty($opts['trusted_robot']) || !empty($opts['robot_send']) || !empty($opts['robot_self_grab']))
+        ) {
+            $packetCreated = (int)($packet['createtime'] ?? 0);
+            if ($packetCreated > 0 && $forcedAt < $packetCreated) {
+                $forcedAt = $packetCreated;
+            }
+            if ($forcedAt > $now) {
+                $forcedAt = $now;
+            }
+            $recordTime = $forcedAt;
+        }
 
         $status = $remain <= 0 ? 2 : 1;
         $walletChange = null;
@@ -1434,7 +1450,7 @@ class RedPacketService
                 'INSERT INTO ' . Db::table('chat_red_packet_records')
                 . ' (packet_id,packet_no,user_id,amount,amount_cent,tail_digit,is_best,is_worst,is_mine_hit,createtime)'
                 . ' VALUES (?,?,?,?,?,?,0,0,0,?)',
-                [$packetId, $packetNo, $userId, sprintf('%.2f', $amount), $amountCent, $tailDigit, $now]
+                [$packetId, $packetNo, $userId, sprintf('%.2f', $amount), $amountCent, $tailDigit, $recordTime]
             );
             $recordId = (int)Db::lastId();
 

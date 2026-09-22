@@ -408,13 +408,20 @@ class RpRainBotService
                 // 超时前：每次 tick 只排 1 份
                 $need = 1;
                 $delayList = null;
+                $recordAtList = null;
             } else {
-                // 超时全领：本包剩余一次排完，延迟互不撞秒（避免插库同一 createtime）
+                // 超时全领：本包剩余一次排完；插库 createtime 自定义落在
+                // [发包时间+发包延迟中间, 发包时间+超时+发包延迟中间]，互不撞秒
                 if ($this->isSweepScheduled($taskId, $pid)) {
                     continue;
                 }
                 $need = $remain;
-                $delayList = $this->sweepDelayMsList($task, $need);
+                $recordAtList = $this->sweepRecordCreatetimeList($task, $created, $need);
+                // 实际抢包仍短间隔执行，避免堵 cron；展示时间用上面自定义 createtime
+                $delayList = [];
+                for ($i = 0; $i < $need; $i++) {
+                    $delayList[] = 200 + $i * random_int(180, 420);
+                }
                 if (!$this->tryMarkSweepScheduled($taskId, $pid, $task)) {
                     continue;
                 }
@@ -437,8 +444,12 @@ class RpRainBotService
                 } else {
                     $delayMs = $this->delayMs($task, $packetSweep);
                 }
-                if ($delayMs < 1000) {
-                    $delayMs = 1000;
+                if ($delayMs < 100) {
+                    $delayMs = 100;
+                }
+                $recordAt = 0;
+                if (is_array($recordAtList) && isset($recordAtList[$planned])) {
+                    $recordAt = (int)$recordAtList[$planned];
                 }
                 if (!$this->tryMarkGrabBusy($taskId, $pid, $uid, (int)ceil($delayMs / 1000) + 30)) {
                     continue;
@@ -450,8 +461,8 @@ class RpRainBotService
                 $scheduled++;
                 $planned++;
                 $svc = $this;
-                Timer::add($delayMs / 1000, function () use ($svc, $taskId, $groupId, $pid, $uid, $key) {
-                    $svc->finishGrab($key, $taskId, $groupId, $pid, $uid);
+                Timer::add($delayMs / 1000, function () use ($svc, $taskId, $groupId, $pid, $uid, $key, $recordAt) {
+                    $svc->finishGrab($key, $taskId, $groupId, $pid, $uid, $recordAt);
                 }, [], false);
                 if (!$packetSweep && $scheduled >= 20) {
                     return;
@@ -489,12 +500,17 @@ class RpRainBotService
         return $out;
     }
 
-    public function finishGrab($key, $taskId, $groupId, $packetId, $userId)
+    public function finishGrab($key, $taskId, $groupId, $packetId, $userId, $recordCreatetime = 0)
     {
         unset($this->pending[$key]);
         try {
             $this->ensureGrabber($groupId, $userId);
-            $result = $this->redPackets->grab($packetId, $userId, ['robot_send' => true, 'trusted_robot' => true]);
+            $opts = ['robot_send' => true, 'trusted_robot' => true];
+            $recordCreatetime = (int)$recordCreatetime;
+            if ($recordCreatetime > 0) {
+                $opts['record_createtime'] = $recordCreatetime;
+            }
+            $result = $this->redPackets->grab($packetId, $userId, $opts);
             $packet = is_array($result) ? ($result['packet'] ?? null) : null;
             if (is_array($packet)) {
                 try {
@@ -574,6 +590,70 @@ class RpRainBotService
     }
 
     /**
+     * 超时全领：领取明细 createtime = 发包时间 + 偏移秒。
+     * 偏移随机取 [发包延迟中间秒, 超时秒+发包延迟中间秒]，互不撞秒，且不超过当前时间。
+     *
+     * @return int[] unix timestamps, sorted
+     */
+    protected function sweepRecordCreatetimeList(array $task, $packetCreated, $count)
+    {
+        $count = max(1, (int)$count);
+        $packetCreated = (int)$packetCreated;
+        if ($packetCreated <= 0) {
+            $packetCreated = time();
+        }
+        $range = $this->sweepDelayRange($task);
+        $loOff = max(1, (int)ceil(((int)$range['lo']) / 1000));
+        $hiOff = max($loOff, (int)ceil(((int)$range['hi']) / 1000));
+        $minGap = 1;
+        $needSpan = ($count - 1) * $minGap;
+        if ($hiOff - $loOff < $needSpan) {
+            $hiOff = $loOff + $needSpan;
+        }
+        $times = [];
+        for ($i = 0; $i < $count; $i++) {
+            $times[] = $packetCreated + random_int($loOff, $hiOff);
+        }
+        sort($times);
+        for ($i = 1; $i < $count; $i++) {
+            if ($times[$i] <= $times[$i - 1]) {
+                $times[$i] = $times[$i - 1] + $minGap + (random_int(0, 1) ? 1 : 0);
+            }
+        }
+        $now = time();
+        if ($times[$count - 1] > $now) {
+            $shift = $times[$count - 1] - $now;
+            for ($i = 0; $i < $count; $i++) {
+                $times[$i] -= $shift;
+            }
+        }
+        $floor = $packetCreated + 1;
+        if ($times[0] < $floor) {
+            $bump = $floor - $times[0];
+            for ($i = 0; $i < $count; $i++) {
+                $times[$i] += $bump;
+            }
+            if ($times[$count - 1] > $now) {
+                // 空间不够时压缩到 [floor, now]，仍尽量错开
+                $span = max(0, $now - $floor);
+                for ($i = 0; $i < $count; $i++) {
+                    if ($count === 1) {
+                        $times[$i] = min($now, max($floor, $packetCreated + $loOff));
+                    } else {
+                        $times[$i] = $floor + (int)floor($span * $i / ($count - 1));
+                    }
+                }
+                for ($i = 1; $i < $count; $i++) {
+                    if ($times[$i] <= $times[$i - 1]) {
+                        $times[$i] = min($now, $times[$i - 1] + 1);
+                    }
+                }
+            }
+        }
+        return $times;
+    }
+
+    /**
      * 为本包剩余份数生成互不撞秒的延迟列表（已排序，单位 ms）。
      * @return int[]
      */
@@ -583,7 +663,6 @@ class RpRainBotService
         $range = $this->sweepDelayRange($task);
         $lo = (int)$range['lo'];
         $hi = (int)$range['hi'];
-        // 连续领取至少隔 1 秒，避免 createtime 同一秒
         $minGap = 1000 + random_int(200, 1800);
         $needSpan = ($count - 1) * $minGap;
         if ($hi - $lo < $needSpan) {
