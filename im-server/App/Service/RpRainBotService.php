@@ -16,6 +16,8 @@ class RpRainBotService
 {
     const TASK_LOCK_PREFIX = 'rp_rain:lock:';
     const GRAB_BUSY_PREFIX = 'rp_rain:grab:';
+    /** 某包超时全领已排程，避免 tick 重复排导致同一秒连抢 */
+    const SWEEP_SCHED_PREFIX = 'rp_rain:sweep_sched:';
 
     /** @var RedPacketService */
     protected $redPackets;
@@ -403,14 +405,23 @@ class RpRainBotService
                 if ($left <= 0) {
                     continue;
                 }
-                // 每次 tick 只排 1 份，避免一次排满导致「一秒连抢」
+                // 超时前：每次 tick 只排 1 份
                 $need = 1;
+                $delayList = null;
             } else {
-                // 超时后领完剩余，仍每次只排 1 份，延迟走后台配置
-                $need = 1;
+                // 超时全领：本包剩余一次排完，延迟互不撞秒（避免插库同一 createtime）
+                if ($this->isSweepScheduled($taskId, $pid)) {
+                    continue;
+                }
+                $need = $remain;
+                $delayList = $this->sweepDelayMsList($task, $need);
+                if (!$this->tryMarkSweepScheduled($taskId, $pid, $task)) {
+                    continue;
+                }
             }
 
             $have = $taken[$pid] ?? [];
+            $planned = 0;
             for ($n = 0; $n < $need; $n++) {
                 $uid = $this->pickGrabber($uids, $have, $counts, $cap, $packetSweep);
                 if ($uid <= 0) {
@@ -421,8 +432,15 @@ class RpRainBotService
                     $have[$uid] = 1;
                     continue;
                 }
-                $delayMs = $this->delayMs($task, $packetSweep);
-                if (!$this->tryMarkGrabBusy($taskId, $pid, $uid, (int)ceil($delayMs / 1000) + 20)) {
+                if (is_array($delayList) && isset($delayList[$planned])) {
+                    $delayMs = (int)$delayList[$planned];
+                } else {
+                    $delayMs = $this->delayMs($task, $packetSweep);
+                }
+                if ($delayMs < 1000) {
+                    $delayMs = 1000;
+                }
+                if (!$this->tryMarkGrabBusy($taskId, $pid, $uid, (int)ceil($delayMs / 1000) + 30)) {
                     continue;
                 }
                 $this->pending[$key] = 1;
@@ -430,11 +448,12 @@ class RpRainBotService
                 $counts[$uid] = (int)($counts[$uid] ?? 0) + 1;
                 $botTakenByPacket[$pid] = $botTaken + 1;
                 $scheduled++;
+                $planned++;
                 $svc = $this;
                 Timer::add($delayMs / 1000, function () use ($svc, $taskId, $groupId, $pid, $uid, $key) {
                     $svc->finishGrab($key, $taskId, $groupId, $pid, $uid);
                 }, [], false);
-                if ($scheduled >= 20) {
+                if (!$packetSweep && $scheduled >= 20) {
                     return;
                 }
             }
@@ -528,7 +547,18 @@ class RpRainBotService
         if (!$sweep) {
             return random_int($min, $max);
         }
-        // 超时全领收尾：随机取 [发包延迟中间, 超时时间ms + 发包延迟中间]
+        $range = $this->sweepDelayRange($task);
+        return random_int($range['lo'], $range['hi']);
+    }
+
+    /**
+     * 超时全领延迟区间：[发包延迟中间, 超时ms + 发包延迟中间]
+     * @return array{lo:int,hi:int,mid:int,timeout_ms:int}
+     */
+    protected function sweepDelayRange(array $task)
+    {
+        $min = max(1000, (int)($task['grab_delay_min_ms'] ?? 5000));
+        $max = max($min, (int)($task['grab_delay_max_ms'] ?? 15000));
         $mid = (int)floor(($min + $max) / 2);
         if ($mid < 1000) {
             $mid = 1000;
@@ -540,7 +570,78 @@ class RpRainBotService
         if ($hi < $lo) {
             $hi = $lo;
         }
-        return random_int($lo, $hi);
+        return ['lo' => $lo, 'hi' => $hi, 'mid' => $mid, 'timeout_ms' => $timeoutMs];
+    }
+
+    /**
+     * 为本包剩余份数生成互不撞秒的延迟列表（已排序，单位 ms）。
+     * @return int[]
+     */
+    protected function sweepDelayMsList(array $task, $count)
+    {
+        $count = max(1, (int)$count);
+        $range = $this->sweepDelayRange($task);
+        $lo = (int)$range['lo'];
+        $hi = (int)$range['hi'];
+        // 连续领取至少隔 1 秒，避免 createtime 同一秒
+        $minGap = 1000 + random_int(200, 1800);
+        $needSpan = ($count - 1) * $minGap;
+        if ($hi - $lo < $needSpan) {
+            $hi = $lo + $needSpan;
+        }
+        $delays = [];
+        for ($i = 0; $i < $count; $i++) {
+            $delays[] = random_int($lo, $hi);
+        }
+        sort($delays);
+        for ($i = 1; $i < $count; $i++) {
+            $floor = $delays[$i - 1] + $minGap;
+            if ($delays[$i] < $floor) {
+                $delays[$i] = $floor + random_int(0, 900);
+            }
+        }
+        return $delays;
+    }
+
+    protected function isSweepScheduled($taskId, $packetId)
+    {
+        $taskId = (int)$taskId;
+        $packetId = (int)$packetId;
+        if ($taskId <= 0 || $packetId <= 0) {
+            return false;
+        }
+        try {
+            $raw = RedisClient::conn()->get(RedisClient::key(self::SWEEP_SCHED_PREFIX . $taskId . ':' . $packetId));
+            return $raw !== false && $raw !== null && $raw !== '';
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    protected function tryMarkSweepScheduled($taskId, $packetId, array $task)
+    {
+        $taskId = (int)$taskId;
+        $packetId = (int)$packetId;
+        if ($taskId <= 0 || $packetId <= 0) {
+            return false;
+        }
+        $range = $this->sweepDelayRange($task);
+        // TTL 覆盖最长延迟 + 缓冲
+        $ttl = (int)ceil(((int)$range['hi'] + 60000) / 1000);
+        if ($ttl < 120) {
+            $ttl = 120;
+        }
+        try {
+            $ok = RedisClient::conn()->set(
+                RedisClient::key(self::SWEEP_SCHED_PREFIX . $taskId . ':' . $packetId),
+                '1',
+                ['nx', 'ex' => $ttl]
+            );
+            return (bool)$ok;
+        } catch (\Throwable $e) {
+            // Redis 异常时仍允许排一次，靠 pending/busy 兜底
+            return true;
+        }
     }
 
     protected function pickAmount(array $task)

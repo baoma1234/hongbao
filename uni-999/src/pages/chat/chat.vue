@@ -1414,7 +1414,7 @@ const group77SenderNickname = ref('红宝吃瓜社')
 const videoAutoCovers = reactive({})
 const COMPOSER_HIDDEN_GROUP_IDS_FALLBACK = [70, 71, 72, 77]
 const composerHiddenGroupIds = ref(COMPOSER_HIDDEN_GROUP_IDS_FALLBACK.slice())
-/** 未充值可领：指定群 + 指定 UID 发的红包；这些 UID 的私聊转账后端已放行 */
+/** 未充值可领：指定群内任意红包；指定 UID 的私聊转账后端已放行 */
 const FREE_CLAIM_GROUP_IDS_FALLBACK = [80]
 const FREE_CLAIM_SENDER_IDS_FALLBACK = [77777777, 44444444, 55555555, 88888888]
 const freeClaimGroupIds = ref(FREE_CLAIM_GROUP_IDS_FALLBACK.slice())
@@ -2175,14 +2175,12 @@ function canGrabInCurrentScene(packet) {
 
 function isFreeClaimRedPacket(packet) {
   if (!packet) return false
-  const from = (packet.from_user_id | 0) || 0
   const gid = (packet.group_id | 0) || 0
-  if (!from || !gid) return false
+  if (!gid) return false
   const scope = packet.scope_type | 0
   if (scope === 1) return false
-  const senders = freeClaimSenderIds.value || []
   const gids = freeClaimGroupIds.value || []
-  return senders.indexOf(from) >= 0 && gids.indexOf(gid) >= 0
+  return gids.indexOf(gid) >= 0
 }
 
 const composerLocked = computed(() => {

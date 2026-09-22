@@ -11,7 +11,7 @@ use Im\Support\RedisClient;
  * - 可社交
  * - 未充值：不能发私聊/非推荐群红包，不能发/收转账
  * - 未充值：可在推荐群(is_recommend=1)发/抢红包
- * - 未充值：可领取 recharge_free_claim_* 指定群内指定 UID 发的红包；可收这些 UID 的私聊转账
+ * - 未充值：可领取 recharge_free_claim_group_ids 指定群内任意红包；可收 recharge_free_claim_sender_ids 的私聊转账
  * - 已充值：私聊红包/转账不能发给未充值对方
  * - fund_bypass_user_ids（后台配置）：可任意发红包/转账，无视双方充值限制
  */
@@ -79,7 +79,7 @@ class RechargePrivilegeService
     }
 
     /**
-     * 未充值可免费领取的发包/转账 UID 与群
+     * 未充值可免费领取的群，以及可收其私聊转账的 UID
      * @return array{senders:int[],groups:int[]}
      */
     public static function freeClaimConfig()
@@ -138,25 +138,24 @@ class RechargePrivilegeService
     }
 
     /**
-     * 指定群内、指定 UID 发出的红包：未充值也可领
+     * 指定群内任意红包：未充值也可领（不限发包人）
      * @param array $packet
      */
     public static function isFreeClaimRedPacket(array $packet)
     {
-        $from = (int)($packet['from_user_id'] ?? 0);
         $groupId = (int)($packet['group_id'] ?? 0);
         $scope = (int)($packet['scope_type'] ?? 0);
-        if ($from <= 0 || $groupId <= 0) {
+        if ($groupId <= 0) {
             return false;
         }
         if ($scope !== 0 && $scope !== 2) {
             return false;
         }
         $cfg = self::freeClaimConfig();
-        if (!$cfg['senders'] || !$cfg['groups']) {
+        if (!$cfg['groups']) {
             return false;
         }
-        return in_array($from, $cfg['senders'], true) && in_array($groupId, $cfg['groups'], true);
+        return in_array($groupId, $cfg['groups'], true);
     }
 
     public static function hasRecharged($userId)
@@ -371,7 +370,7 @@ class RechargePrivilegeService
         if (self::hasRecharged($userId)) {
             return;
         }
-        // 未充值：指定群内指定 UID 发的红包可领
+        // 未充值：指定福利群内任意红包可领
         if (self::isFreeClaimRedPacket($packet)) {
             return;
         }

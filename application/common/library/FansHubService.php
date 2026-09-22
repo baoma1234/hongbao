@@ -5156,7 +5156,7 @@ class FansHubService
         return $userId > 0 && in_array($userId, self::chatVideoVipUserIds(), true);
     }
 
-    /** 未充值可领红包的群 ID */
+    /** 未充值可领红包的群 ID（群内任意红包，不限发包人） */
     public static function rechargeFreeClaimGroupIds()
     {
         static $cache = null;

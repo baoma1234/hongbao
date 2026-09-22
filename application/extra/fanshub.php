@@ -139,7 +139,7 @@ return array (
   'notice_rules_author_avatar' => '/uploads/20260917/0ad78d8879cc5c8e37b9c73f9a83b3fb.png',
   // 资金特权：可任意发红包/转账，无视双方须充值限制（仅后台配置的 UID）
   'fund_bypass_user_ids' => [],
-  // 未充值可领取：下列 UID 在指定群发的红包，以及这些 UID 发出的私聊转账
+  // 未充值可领取：下列群内任意红包；下列 UID 发出的私聊转账也可收
   'recharge_free_claim_group_ids' => [80],
   'recharge_free_claim_sender_ids' => [77777777, 44444444, 55555555, 88888888],
   // 视频发送专用号（完全固定为深夜欲望；不进 chat_agent_accounts 托管）
