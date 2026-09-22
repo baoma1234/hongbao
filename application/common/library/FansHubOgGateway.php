@@ -166,7 +166,8 @@ class FansHubOgGateway
             $s = $prefix . 'guest';
         }
         if (strlen($s) < 8) {
-            $s = $prefix . str_pad($s, 7, '0', STR_PAD_LEFT);
+            // 左侧补 0，不再重复加前缀（避免 u12 → u0000u12）
+            $s = str_pad($s, 8, '0', STR_PAD_LEFT);
         }
         if (strlen($s) > 64) {
             $s = substr($s, 0, 64);

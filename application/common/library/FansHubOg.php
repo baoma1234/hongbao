@@ -12,12 +12,12 @@ class FansHubOg
 {
     /**
      * 与前端 profile.user_id 一一对应的 OG player_id
-     * 规则：u{userId}，不足 8 位左侧补 0（经 formatPlayerToken）
+     * 规则：u + userId（不足 7 位数字左侧补 0，总长 ≥ 8）
      */
     public static function playerIdForUser($userId)
     {
-        $uid = (int)$userId;
-        return FansHubOgGateway::formatPlayerToken('u' . $uid);
+        $uid = max(0, (int)$userId);
+        return 'u' . str_pad((string)$uid, 7, '0', STR_PAD_LEFT);
     }
 
     /**
@@ -26,7 +26,7 @@ class FansHubOg
      */
     public static function nicknameForUser($userId, $nickname = null)
     {
-        $uid = (int)$userId;
+        $uid = max(0, (int)$userId);
         if ($nickname === null) {
             $user = User::get($uid);
             $nickname = $user ? (string)($user->nickname ?? '') : '';
@@ -35,7 +35,7 @@ class FansHubOg
         if (strlen($s) >= 8) {
             return substr($s, 0, 64);
         }
-        return FansHubOgGateway::formatPlayerToken('n' . $uid, 'n');
+        return 'n' . str_pad((string)$uid, 7, '0', STR_PAD_LEFT);
     }
 
     /**
