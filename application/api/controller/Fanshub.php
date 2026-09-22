@@ -1097,6 +1097,53 @@ class Fanshub extends Api
     }
 
     /**
+     * OG视讯：与前端 profile 对齐的玩家快照（user_id→player_id）
+     * GET/POST /api/fanshub/ogplayer
+     */
+    public function ogplayer()
+    {
+        try {
+            $this->success('ok', \app\common\library\FansHubOg::playerSnapshot($this->auth->id));
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: 'OG玩家信息失败');
+        }
+    }
+
+    /**
+     * OG视讯：注册玩家（对齐当前登录用户）
+     * POST /api/fanshub/ogregister
+     */
+    public function ogregister()
+    {
+        try {
+            $this->success('ok', \app\common\library\FansHubOg::ensureRegistered($this->auth->id));
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: 'OG注册失败');
+        }
+    }
+
+    /**
+     * OG视讯：玩家转账·存入（扣红宝 → OG deposit）
+     * POST /api/fanshub/ogdeposit  body: { amount }
+     */
+    public function ogdeposit()
+    {
+        $amount = $this->request->post('amount', $this->request->post('transfer_amount', 0));
+        try {
+            $data = \app\common\library\FansHubOg::depositForUser($this->auth->id, $amount);
+            $this->success('ok', $data);
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: 'OG存入失败');
+        }
+    }
+
+    /**
      * 资金流水列表
      */
     public function walletledger()

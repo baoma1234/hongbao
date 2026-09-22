@@ -99,6 +99,8 @@ class FansHubWallet
             'yxx_owner'                    => '鱼虾蟹群主分成',
             'fission_reward'               => '裂变红包',
             'notice_post'                  => '发帖奖励',
+            'og_deposit'                   => 'OG视讯存入',
+            'og_deposit_refund'            => 'OG存入退回',
         ];
     }
 

@@ -5,13 +5,10 @@ namespace app\common\library;
 /**
  * OG视讯 · 转账钱包模式网关
  *
- * 签名规则（官方）：
- * 1. 请求参数键按 a→z 排序（不含 signature）
- * 2. 按 key=value 用 & 拼接
- * 3. 字符串末尾直接拼接私钥，MD5（小写 hex）→ signature
- *
+ * 签名：参数键 a→z → key=value&… → md5(串+私钥) → signature
  * Header：key=公匙，operator-name=运营商名称
- * Content-Type：application/x-www-form-urlencoded
+ * register：form-urlencoded（官方 curl）
+ * deposit：application/json（官方 curl）
  */
 class FansHubOgGateway
 {
@@ -36,12 +33,9 @@ class FansHubOgGateway
         return [
             'enabled'          => !empty($cfg['og_enabled']),
             'sandbox'          => !empty($cfg['og_sandbox']),
-            // operator-name
             'merchant_code'    => trim((string)($cfg['og_merchant_code'] ?? '')),
             'agent_id'         => trim((string)($cfg['og_agent_id'] ?? '')),
-            // public key → header key
             'api_key'          => trim((string)($cfg['og_api_key'] ?? '')),
-            // private key → signature
             'api_secret'       => trim((string)($cfg['og_api_secret'] ?? '')),
             'api_base_url'     => rtrim(trim((string)($cfg['og_api_base_url'] ?? '')), '/'),
             'sandbox_base_url' => rtrim(trim((string)($cfg['og_sandbox_base_url'] ?? '')), '/'),
@@ -93,8 +87,6 @@ class FansHubOgGateway
     }
 
     /**
-     * 拼接待签字符串：键 a→z，key=value&key=value（不含 signature）
-     *
      * @param array<string,mixed> $params
      */
     public static function buildSignString(array $params)
@@ -125,8 +117,6 @@ class FansHubOgGateway
     }
 
     /**
-     * 生成 signature = md5(signString + privateKey)
-     *
      * @param array<string,mixed> $params
      */
     public static function sign(array $params, $privateKey = null)
@@ -134,14 +124,11 @@ class FansHubOgGateway
         $secret = $privateKey !== null
             ? (string)$privateKey
             : (string)(self::config()['api_secret'] ?? '');
-        $base = self::buildSignString($params);
-        return md5($base . $secret);
+        return md5(self::buildSignString($params) . $secret);
     }
 
     /**
-     * 校验对方回调/通知中的 signature
-     *
-     * @param array<string,mixed> $params 含 signature
+     * @param array<string,mixed> $params
      */
     public static function verifySign(array $params, $privateKey = null)
     {
@@ -155,13 +142,10 @@ class FansHubOgGateway
         if ($got === '') {
             return false;
         }
-        $expect = self::sign($params, $privateKey);
-        return hash_equals(strtolower($expect), strtolower($got));
+        return hash_equals(strtolower(self::sign($params, $privateKey)), strtolower($got));
     }
 
     /**
-     * 给参数补上 signature
-     *
      * @param array<string,mixed> $params
      * @return array<string,mixed>
      */
@@ -173,7 +157,7 @@ class FansHubOgGateway
     }
 
     /**
-     * 规范 player_id / nickname：字母数字下划线，8–64
+     * player_id / nickname：字母数字下划线，8–64
      */
     public static function formatPlayerToken($raw, $prefix = 'u')
     {
@@ -191,11 +175,33 @@ class FansHubOgGateway
     }
 
     /**
-     * 注册玩家 POST /api/v2/platform/transfer-wallet/register
-     * 官方示例 body：player_id / nickname / timestamp（无 signature）
-     * S-100 成功；S-121 已存在 → 视为成功
+     * transaction_id：小写字母+数字，8–64，全局唯一
+     */
+    public static function formatTransactionId($raw)
+    {
+        $s = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', (string)$raw));
+        if (strlen($s) < 8) {
+            $s = $s . substr(md5($s . microtime(true)), 0, 8);
+        }
+        if (strlen($s) > 64) {
+            $s = substr($s, 0, 64);
+        }
+        return $s;
+    }
+
+    /**
+     * 金额格式 (34,2) 字符串，用于签名与展示
+     */
+    public static function formatAmount($amount)
+    {
+        return number_format(round((float)$amount, 2), 2, '.', '');
+    }
+
+    /**
+     * 注册玩家（form-urlencoded，官方示例无 signature）
+     * S-100 成功；S-121 已存在 → 成功
      *
-     * @return array{ok:bool,rs_code:string,rs_message:string,raw?:mixed}
+     * @return array{ok:bool,rs_code:string,rs_message:string,player_id?:string,nickname?:string,raw?:mixed}
      */
     public static function registerPlayer($playerId, $nickname = null)
     {
@@ -216,9 +222,11 @@ class FansHubOgGateway
             'nickname'  => $nick,
             'timestamp' => (string)time(),
         ];
-        // 注册接口官方 curl 未带 signature；若后续文档要求可改为 withSignature($body)
 
-        $ret = self::request('POST', '/api/v2/platform/transfer-wallet/register', $body, false);
+        $ret = self::request('POST', '/api/v2/platform/transfer-wallet/register', $body, [
+            'sign'         => false,
+            'content_type' => 'form',
+        ]);
         $code = (string)($ret['rs_code'] ?? '');
         $msg = (string)($ret['rs_message'] ?? '');
         $ok = ($code === 'S-100' || $code === 'S-121');
@@ -236,12 +244,77 @@ class FansHubOgGateway
     }
 
     /**
-     * 通用 form 请求；$signBody=true 时自动附加 signature
+     * 玩家转账 · 存入（JSON + signature）
      *
+     * @return array{ok:bool,rs_code:string,rs_message:string,transaction_id?:string,transfer_amount?:string,raw?:mixed}
+     */
+    public static function deposit($playerId, $amount, $transactionId)
+    {
+        self::$lastError = '';
+        self::$lastResponse = null;
+        self::$lastRequest = null;
+
+        if (!self::credentialsReady()) {
+            self::$lastError = 'OG 商户配置不完整（运营商名称/公匙/私钥/网关）';
+            return ['ok' => false, 'rs_code' => '', 'rs_message' => self::$lastError];
+        }
+
+        $amt = round((float)$amount, 2);
+        if ($amt <= 0) {
+            self::$lastError = 'transfer_amount 必须大于 0';
+            return ['ok' => false, 'rs_code' => '', 'rs_message' => self::$lastError];
+        }
+
+        $pid = self::formatPlayerToken($playerId);
+        $txid = self::formatTransactionId($transactionId);
+        $amtStr = self::formatAmount($amt);
+        $ts = (string)time();
+
+        // 签名用全字符串；JSON 体里 timestamp/transfer_amount 按官方示例用数字
+        $signParams = [
+            'player_id'       => $pid,
+            'timestamp'       => $ts,
+            'transaction_id'  => $txid,
+            'transfer_amount' => $amtStr,
+        ];
+        $signParams = self::withSignature($signParams);
+
+        $jsonBody = [
+            'player_id'       => $pid,
+            'timestamp'       => (int)$ts,
+            'transaction_id'  => $txid,
+            'transfer_amount' => (float)$amtStr,
+            'signature'       => $signParams['signature'],
+        ];
+
+        $ret = self::request('POST', '/api/v2/platform/transfer-wallet/deposit', $jsonBody, [
+            'sign'         => false, // 已签好
+            'content_type' => 'json',
+            'sign_params'  => $signParams,
+        ]);
+        $code = (string)($ret['rs_code'] ?? '');
+        $msg = (string)($ret['rs_message'] ?? '');
+        $ok = ($code === 'S-100');
+        if (!$ok && $msg === '' && self::$lastError !== '') {
+            $msg = self::$lastError;
+        }
+        return [
+            'ok'              => $ok,
+            'rs_code'         => $code,
+            'rs_message'      => $msg !== '' ? $msg : ($ok ? 'success' : 'deposit failed'),
+            'player_id'       => $pid,
+            'transaction_id'  => $txid,
+            'transfer_amount' => $amtStr,
+            'raw'             => $ret,
+        ];
+    }
+
+    /**
      * @param array<string,mixed> $body
+     * @param array{sign?:bool,content_type?:string,sign_params?:array} $opts
      * @return array<string,mixed>
      */
-    public static function request($method, $path, array $body = [], $signBody = true)
+    public static function request($method, $path, array $body = [], array $opts = [])
     {
         self::$lastError = '';
         self::$lastResponse = null;
@@ -254,7 +327,9 @@ class FansHubOgGateway
             return [];
         }
 
-        if ($signBody) {
+        $sign = !array_key_exists('sign', $opts) || !empty($opts['sign']);
+        $contentType = strtolower((string)($opts['content_type'] ?? 'form'));
+        if ($sign) {
             $body = self::withSignature($body, $c['api_secret']);
         }
 
@@ -262,23 +337,33 @@ class FansHubOgGateway
         $headers = [
             'key: ' . $c['api_key'],
             'operator-name: ' . $c['merchant_code'],
-            'Content-Type: application/x-www-form-urlencoded',
             'Accept: application/json',
         ];
 
+        $payload = '';
+        if ($contentType === 'json') {
+            $headers[] = 'Content-Type: application/json';
+            $payload = json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        } else {
+            $headers[] = 'Content-Type: application/x-www-form-urlencoded';
+            $payload = http_build_query($body);
+        }
+
         self::$lastRequest = [
-            'method'  => strtoupper((string)$method),
-            'url'     => $url,
-            'headers' => [
+            'method'       => strtoupper((string)$method),
+            'url'          => $url,
+            'content_type' => $contentType,
+            'headers'      => [
                 'key'           => $c['api_key'],
                 'operator-name' => $c['merchant_code'],
             ],
-            'body'    => $body,
+            'body'         => $body,
+            'sign_params'  => $opts['sign_params'] ?? null,
         ];
 
         $timeout = (int)$c['timeout'];
         $ch = curl_init();
-        $opts = [
+        $curlOpts = [
             CURLOPT_URL            => $url,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT        => $timeout,
@@ -288,15 +373,15 @@ class FansHubOgGateway
             CURLOPT_HTTPHEADER     => $headers,
         ];
         if (strtoupper((string)$method) === 'POST') {
-            $opts[CURLOPT_POST] = true;
-            $opts[CURLOPT_POSTFIELDS] = http_build_query($body);
+            $curlOpts[CURLOPT_POST] = true;
+            $curlOpts[CURLOPT_POSTFIELDS] = $payload;
         } else {
-            $opts[CURLOPT_CUSTOMREQUEST] = strtoupper((string)$method);
-            if ($body) {
-                $opts[CURLOPT_POSTFIELDS] = http_build_query($body);
+            $curlOpts[CURLOPT_CUSTOMREQUEST] = strtoupper((string)$method);
+            if ($payload !== '') {
+                $curlOpts[CURLOPT_POSTFIELDS] = $payload;
             }
         }
-        curl_setopt_array($ch, $opts);
+        curl_setopt_array($ch, $curlOpts);
         $raw = curl_exec($ch);
         $errno = curl_errno($ch);
         $err = curl_error($ch);

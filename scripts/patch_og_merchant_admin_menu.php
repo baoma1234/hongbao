@@ -68,6 +68,7 @@ $ogId = ensureMenu(
 ensureMenu($pdo, $insert, $rule, $ogId, 'fanshub/ogmerchant/index', '查看', 'fa fa-circle-o', 0, 0, $now);
 ensureMenu($pdo, $insert, $rule, $ogId, 'fanshub/ogmerchant/save', '保存', 'fa fa-circle-o', 0, 0, $now);
 ensureMenu($pdo, $insert, $rule, $ogId, 'fanshub/ogmerchant/testregister', '测试注册', 'fa fa-circle-o', 0, 0, $now);
+ensureMenu($pdo, $insert, $rule, $ogId, 'fanshub/ogmerchant/testdeposit', '测试存入', 'fa fa-circle-o', 0, 0, $now);
 
 $group = $pdo->query("SELECT id,rules FROM {$prefix}auth_group WHERE id=1 LIMIT 1")->fetch(PDO::FETCH_ASSOC);
 if ($group) {
@@ -76,7 +77,7 @@ if ($group) {
         "SELECT id FROM {$rule} WHERE name IN (
             'fanshub_thirdgame',
             'fanshub/ogmerchant','fanshub/ogmerchant/index','fanshub/ogmerchant/save',
-            'fanshub/ogmerchant/testregister'
+            'fanshub/ogmerchant/testregister','fanshub/ogmerchant/testdeposit'
         )"
     )->fetchAll(PDO::FETCH_COLUMN);
     $changed = false;

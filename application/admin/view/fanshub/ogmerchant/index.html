@@ -134,23 +134,55 @@
         <form id="og-test-register" class="form-horizontal" role="form" method="POST" action="{:url('fanshub.ogmerchant/testregister')}">
             <fieldset>
                 <legend>联调：注册玩家</legend>
-                <p class="help-block" style="padding-left:15px;">调用 <code>POST /api/v2/platform/transfer-wallet/register</code>；S-100 成功，S-121 已存在也算成功。未保存的表单凭证会临时用于本次请求。</p>
+                <p class="help-block" style="padding-left:15px;">调用 <code>POST /api/v2/platform/transfer-wallet/register</code>（form）；S-100 / S-121 成功。前端对齐：<code>player_id = u{user_id}</code>。</p>
                 <div class="form-group">
                     <label class="control-label col-xs-12 col-sm-2">player_id</label>
                     <div class="col-xs-12 col-sm-6">
-                        <input type="text" class="form-control" name="player_id" placeholder="字母数字下划线，8–64 位" autocomplete="off">
+                        <input type="text" class="form-control" name="player_id" placeholder="如 u54294525" autocomplete="off">
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="control-label col-xs-12 col-sm-2">nickname</label>
                     <div class="col-xs-12 col-sm-6">
-                        <input type="text" class="form-control" name="nickname" placeholder="可选，默认与 player_id 同规则" autocomplete="off">
+                        <input type="text" class="form-control" name="nickname" placeholder="可选；中文昵称前端会回退 n{user_id}" autocomplete="off">
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="control-label col-xs-12 col-sm-2"></label>
                     <div class="col-xs-12 col-sm-8">
                         <button type="submit" class="btn btn-success btn-embossed">测试注册</button>
+                    </div>
+                </div>
+            </fieldset>
+        </form>
+
+        <hr>
+        <form id="og-test-deposit" class="form-horizontal" role="form" method="POST" action="{:url('fanshub.ogmerchant/testdeposit')}">
+            <fieldset>
+                <legend>联调：玩家转账 · 存入</legend>
+                <p class="help-block" style="padding-left:15px;">调用 <code>POST /api/v2/platform/transfer-wallet/deposit</code>（JSON + signature）。此处仅打 OG，不扣本站红宝；正式走前端 <code>/api/fanshub/ogdeposit</code>。</p>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">player_id</label>
+                    <div class="col-xs-12 col-sm-6">
+                        <input type="text" class="form-control" name="player_id" placeholder="须已注册" autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">transfer_amount</label>
+                    <div class="col-xs-12 col-sm-4">
+                        <input type="number" step="0.01" min="0.01" class="form-control" name="transfer_amount" placeholder="99.99" autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">transaction_id</label>
+                    <div class="col-xs-12 col-sm-6">
+                        <input type="text" class="form-control" name="transaction_id" placeholder="可选，留空自动生成（小写字母数字 8–64）" autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2"></label>
+                    <div class="col-xs-12 col-sm-8">
+                        <button type="submit" class="btn btn-warning btn-embossed">测试存入</button>
                     </div>
                 </div>
             </fieldset>
