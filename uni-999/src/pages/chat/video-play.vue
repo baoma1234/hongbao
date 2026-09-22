@@ -1,19 +1,25 @@
 <template>
   <view class="vp-page" :style="pageStyle">
-    <!-- 顶栏永远在 video 上方（同级列布局），避免原生层盖住返回；标题绝对居中 -->
-    <view class="vp-bar" :style="barStyle">
+    <!--
+      安卓：不要 webview 顶栏（会被原生 VideoView 盖住且会和 cover 关闭重复）。
+      整页只留 video，顶栏用 cover-view 画在原生层上（‹ / 视频 / 关闭 各一个）。
+      H5 / iOS：普通顶栏即可。
+    -->
+    <view v-if="!androidNativeBar" class="vp-bar" :style="barStyle">
       <view class="vp-back" hover-class="vp-back--on" @click="goBack">
         <text class="vp-back-char">‹</text>
       </view>
-      <text class="vp-title">视频</text>
+      <text class="vp-title" :style="titleStyle">视频</text>
       <view class="vp-close" hover-class="vp-back--on" @click="goBack">
-        <text class="vp-close-text">关闭</text>
+        <text class="vp-close-text" :style="titleStyle">关闭</text>
       </view>
     </view>
+
     <view class="vp-body">
       <video
         v-if="src"
         :id="videoDomId"
+        :key="videoDomId"
         class="vp-video"
         :src="src"
         :poster="poster || undefined"
@@ -26,10 +32,15 @@
         @error="onVideoError"
         @fullscreenchange="onFullscreenChange"
       >
-        <!-- 安卓保险：原生层若画出边界，仍能点到关闭 -->
         <!-- #ifdef APP-PLUS -->
-        <cover-view v-if="androidSafeClose" class="vp-cover-close" @tap="goBack">
-          <cover-view class="vp-cover-close-text">关闭</cover-view>
+        <cover-view v-if="androidNativeBar" class="vp-cover-bar" :style="coverBarStyle">
+          <cover-view class="vp-cover-back" @tap="goBack">
+            <cover-view class="vp-cover-back-char" :style="coverTitleStyle">‹</cover-view>
+          </cover-view>
+          <cover-view class="vp-cover-title" :style="coverTitleStyle">视频</cover-view>
+          <cover-view class="vp-cover-close" @tap="goBack">
+            <cover-view class="vp-cover-close-text" :style="coverTitleStyle">关闭</cover-view>
+          </cover-view>
         </cover-view>
         <!-- #endif -->
       </video>
@@ -55,11 +66,17 @@ const poster = ref('')
 const emptyTip = ref('无法播放')
 const pageStyle = ref({})
 const barStyle = ref({})
-const androidSafeClose = ref(false)
+const titleStyle = ref({})
+const coverBarStyle = ref({})
+const coverTitleStyle = ref({})
+/** 安卓：顶栏交互全部走 cover-view */
+const androidNativeBar = ref(false)
 const videoDomId = ref('chatVpVideo')
 let tearingDown = false
 let leaveDelayMs = 40
 let sessionToken = ''
+let applyTimer = null
+let barHPx = 60
 
 function isAndroid() {
   try {
@@ -73,12 +90,23 @@ function isAndroid() {
 function refreshSafe() {
   const inset = getSafeAreaInsets() || {}
   const top = Math.max(0, inset.top | 0)
-  const barH = Math.max(44, getTopBarContentHeight() | 0)
+  barHPx = Math.max(44, getTopBarContentHeight() | 0)
   pageStyle.value = {
     paddingTop: top + 'px',
   }
   barStyle.value = {
-    height: barH + 'px',
+    height: barHPx + 'px',
+  }
+  // 标题/关闭行高与栏高一致，避免 44 vs 60/64 错位
+  titleStyle.value = {
+    lineHeight: barHPx + 'px',
+  }
+  coverBarStyle.value = {
+    height: barHPx + 'px',
+  }
+  coverTitleStyle.value = {
+    lineHeight: barHPx + 'px',
+    height: barHPx + 'px',
   }
 }
 
@@ -89,6 +117,10 @@ function clearStorage() {
 }
 
 function destroyNativeVideo() {
+  if (applyTimer) {
+    clearTimeout(applyTimer)
+    applyTimer = null
+  }
   // #ifdef APP-PLUS
   try {
     const ctx = uni.createVideoContext(videoDomId.value)
@@ -130,7 +162,7 @@ function goBack() {
     safeNavigateBack(HOME_TAB)
     setTimeout(() => {
       tearingDown = false
-    }, 500)
+    }, 600)
   }, leaveDelayMs)
 }
 
@@ -178,28 +210,40 @@ function readPayload(q) {
 function applyPayload(q) {
   const { url, posterUrl, token } = readPayload(q)
   sessionToken = token || String(Date.now())
-  // 换 id 强制重建原生 video，避免 70→71 仍挂着旧实例
-  videoDomId.value = 'chatVpVideo_' + sessionToken.replace(/\W/g, '').slice(-10)
-  src.value = url
-  poster.value = posterUrl
-  if (!src.value) {
-    emptyTip.value = '视频地址无效'
-    try {
-      uni.showToast({ title: '视频地址无效', icon: 'none' })
-    } catch (e) {}
+  if (applyTimer) {
+    clearTimeout(applyTimer)
+    applyTimer = null
   }
+  // 先卸掉旧原生实例，再换 id + 赋 src，避免 70→71 黑屏/无法播
+  destroyNativeVideo()
+  tearingDown = false
+  videoDomId.value = 'chatVpVideo_' + sessionToken.replace(/\W/g, '').slice(-12)
+  const delay = androidNativeBar.value ? 120 : 0
+  applyTimer = setTimeout(() => {
+    applyTimer = null
+    if (tearingDown) return
+    src.value = url
+    poster.value = posterUrl
+    if (!src.value) {
+      emptyTip.value = '视频地址无效'
+      try {
+        uni.showToast({ title: '视频地址无效', icon: 'none' })
+      } catch (e) {}
+    }
+  }, delay)
 }
 
 onLoad((q) => {
   refreshSafe()
   const android = isAndroid()
-  androidSafeClose.value = android
-  leaveDelayMs = android ? 220 : 40
+  androidNativeBar.value = android
+  leaveDelayMs = android ? 280 : 40
   tearingDown = false
   applyPayload(q)
 })
 
 onHide(() => {
+  // 离开页即拆原生层，避免叠到下一个群的 chat / video
   destroyNativeVideo()
 })
 
@@ -274,7 +318,6 @@ onBackPress((e) => {
 .vp-close-text {
   color: #fff;
   font-size: 15px;
-  line-height: 44px;
 }
 .vp-title {
   position: absolute;
@@ -285,7 +328,6 @@ onBackPress((e) => {
   color: #fff;
   font-size: 17px;
   font-weight: 600;
-  line-height: 44px;
   text-align: center;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -321,21 +363,49 @@ onBackPress((e) => {
   border-radius: 6px;
   color: #fff;
 }
+/* 安卓 cover-view 顶栏：贴在 video 顶部，盖住原生层 */
+.vp-cover-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  background-color: #111111;
+}
+.vp-cover-back {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 48px;
+  height: 100%;
+}
+.vp-cover-back-char {
+  width: 48px;
+  color: #ffffff;
+  font-size: 32px;
+  font-weight: 300;
+  text-align: center;
+}
+.vp-cover-title {
+  position: absolute;
+  left: 56px;
+  right: 56px;
+  top: 0;
+  color: #ffffff;
+  font-size: 17px;
+  font-weight: 600;
+  text-align: center;
+}
 .vp-cover-close {
   position: absolute;
-  right: 8px;
-  top: 8px;
+  right: 0;
+  top: 0;
   width: 64px;
-  height: 36px;
-  background-color: rgba(0, 0, 0, 0.6);
-  border-radius: 6px;
+  height: 100%;
 }
 .vp-cover-close-text {
   width: 64px;
-  height: 36px;
   color: #ffffff;
-  font-size: 14px;
-  line-height: 36px;
+  font-size: 15px;
   text-align: center;
 }
 </style>

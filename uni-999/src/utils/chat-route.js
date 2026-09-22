@@ -149,8 +149,8 @@ function findFirstChatOrVideoIndex(list) {
 function openAndroidChannelChat(target) {
   if (androidChannelNavLock) return
   androidChannelNavLock = true
-  const afterKillMs = 720
-  const unlockMs = 1000
+  const afterKillMs = 900
+  const unlockMs = 1200
   const unlock = () => {
     setTimeout(() => {
       androidChannelNavLock = false
@@ -362,11 +362,39 @@ export function openChatVideoPreview(sources, current) {
     } catch (e2) {}
   }
   const tryOpen = () => {
-    if (topRouteIsVideoPlay()) {
+    // 安卓：栈上已有 video-play 或刚切过频道，一律 redirectTo / 先杀再进，禁止叠两个原生 VideoView
+    let hasVideoPage = topRouteIsVideoPlay()
+    if (!hasVideoPage) {
+      try {
+        const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : null
+        const list = pages || []
+        for (let i = 0; i < list.length; i++) {
+          const r = String((list[i] && list[i].route) || '')
+          if (r.indexOf('pages/chat/video-play') >= 0) {
+            hasVideoPage = true
+            break
+          }
+        }
+      } catch (e3) {}
+    }
+    if (hasVideoPage || (isAndroidApp() && androidChannelNavLock)) {
       uni.redirectTo({
         url: playUrl,
         fail() {
-          uni.navigateTo({ url: playUrl, fail: openFail })
+          uni.reLaunch({ url: playUrl, fail: openFail })
+        },
+      })
+      return
+    }
+    if (isAndroidApp()) {
+      // 安卓首次从 chat 进播放：redirectTo 替换当前 chat 也可，但会丢返回栈；
+      // 用 navigateTo，返回时回到同一群；切群已由 openAndroidChannelChat 清栈。
+      uni.navigateTo({
+        url: playUrl,
+        animationType: 'none',
+        animationDuration: 0,
+        fail() {
+          uni.redirectTo({ url: playUrl, fail: openFail })
         },
       })
       return
@@ -380,9 +408,9 @@ export function openChatVideoPreview(sources, current) {
       },
     })
   }
-  // 切群锁未释放时稍后再开，避免和新 chat 抢原生层
+  // 切群锁未释放：等原生层死透再开（安卓略加长）
   if (isAndroidApp() && androidChannelNavLock) {
-    setTimeout(tryOpen, 800)
+    setTimeout(tryOpen, 1100)
   } else {
     tryOpen()
   }

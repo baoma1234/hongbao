@@ -267,7 +267,8 @@
             "disableScroll": true,
             "app-plus": {
               "bounce": "none",
-              "popGesture": "close"
+              "popGesture": "close",
+              "hardwareAccelerated": false
             }
           }
         }
