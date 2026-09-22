@@ -142,6 +142,21 @@ return array (
   // 未充值可领取：下列群内任意红包；下列 UID 发出的私聊转账也可收
   'recharge_free_claim_group_ids' => [80],
   'recharge_free_claim_sender_ids' => [77777777, 44444444, 55555555, 88888888],
+  // —— OG视讯（三方游戏商户，后台「三方游戏→OG视讯商户配置」）——
+  'og_enabled' => false,
+  'og_sandbox' => true,
+  'og_merchant_code' => '',
+  'og_agent_id' => '',
+  'og_api_key' => '',
+  'og_api_secret' => '',
+  'og_api_base_url' => '',
+  'og_sandbox_base_url' => '',
+  'og_currency' => 'CNY',
+  'og_language' => 'zh',
+  'og_callback_url' => '',
+  'og_return_url' => '',
+  'og_timeout' => 15,
+  'og_remark' => '',
   // 视频发送专用号（完全固定为深夜欲望；不进 chat_agent_accounts 托管）
   'videosend_sender_user_ids' => [11111111],
   'invite_base_url' => 'https://hbsq.bio',
