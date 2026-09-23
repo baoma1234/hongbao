@@ -187,5 +187,37 @@
                 </div>
             </fieldset>
         </form>
+
+        <hr>
+        <form id="og-test-withdraw" class="form-horizontal" role="form" method="POST" action="{:url('fanshub.ogmerchant/testwithdraw')}">
+            <fieldset>
+                <legend>联调：玩家转账 · 提出</legend>
+                <p class="help-block" style="padding-left:15px;">调用 <code>POST /api/v2/platform/transfer-wallet/withdraw</code>（JSON + signature）。S-100 成功（含剩余 balance）；S-101 流水重复视为已提出；S-103 余额不足。后台联调仅打 OG，不加本站红宝；正式走 <code>/api/fanshub/ogwithdraw</code>。</p>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">player_id</label>
+                    <div class="col-xs-12 col-sm-6">
+                        <input type="text" class="form-control" name="player_id" placeholder="须已注册且 OG 有余额" autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">transfer_amount</label>
+                    <div class="col-xs-12 col-sm-4">
+                        <input type="number" step="0.01" min="0.01" class="form-control" name="transfer_amount" placeholder="99" autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">transaction_id</label>
+                    <div class="col-xs-12 col-sm-6">
+                        <input type="text" class="form-control" name="transaction_id" placeholder="可选，留空自动生成" autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2"></label>
+                    <div class="col-xs-12 col-sm-8">
+                        <button type="submit" class="btn btn-info btn-embossed">测试提出</button>
+                    </div>
+                </div>
+            </fieldset>
+        </form>
     </div>
 </div>

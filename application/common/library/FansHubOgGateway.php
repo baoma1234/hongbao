@@ -324,6 +324,85 @@ class FansHubOgGateway
     }
 
     /**
+     * 玩家转账 · 提出（JSON + signature）
+     * POST /api/v2/platform/transfer-wallet/withdraw
+     *
+     * - S-100 success + balance（OG 剩余余额）
+     * - S-101 transaction is duplicated（视为已提出成功）
+     * - S-103 insufficient balance
+     * - S-104 player not available
+     *
+     * @return array{ok:bool,rs_code:string,rs_message:string,balance?:string,insufficient?:bool,duplicate?:bool,player_missing?:bool,raw?:mixed}
+     */
+    public static function withdraw($playerId, $amount, $transactionId)
+    {
+        self::$lastError = '';
+        self::$lastResponse = null;
+        self::$lastRequest = null;
+
+        if (!self::credentialsReady()) {
+            self::$lastError = 'OG 商户配置不完整（运营商名称/公匙/私钥/网关）';
+            return ['ok' => false, 'rs_code' => '', 'rs_message' => self::$lastError];
+        }
+
+        $amt = round((float)$amount, 2);
+        if ($amt <= 0) {
+            self::$lastError = 'transfer_amount 必须大于 0';
+            return ['ok' => false, 'rs_code' => '', 'rs_message' => self::$lastError];
+        }
+
+        $pid = self::formatPlayerToken($playerId);
+        $txid = self::formatTransactionId($transactionId);
+        $amtStr = self::formatAmount($amt);
+        $ts = (string)time();
+
+        $signParams = [
+            'player_id'       => $pid,
+            'timestamp'       => $ts,
+            'transaction_id'  => $txid,
+            'transfer_amount' => $amtStr,
+        ];
+        $signParams = self::withSignature($signParams);
+
+        $jsonBody = [
+            'player_id'       => $pid,
+            'timestamp'       => (int)$ts,
+            'transaction_id'  => $txid,
+            'transfer_amount' => (float)$amtStr,
+            'signature'       => $signParams['signature'],
+        ];
+
+        $ret = self::request('POST', '/api/v2/platform/transfer-wallet/withdraw', $jsonBody, [
+            'sign'         => false,
+            'content_type' => 'json',
+            'sign_params'  => $signParams,
+        ]);
+        $code = (string)($ret['rs_code'] ?? '');
+        $msg = (string)($ret['rs_message'] ?? '');
+        $balance = isset($ret['balance']) ? (string)$ret['balance'] : '';
+        $ok = ($code === 'S-100' || $code === 'S-101');
+        if (!$ok && $msg === '' && self::$lastError !== '') {
+            $msg = self::$lastError;
+        }
+        if ($msg === '' && $ok) {
+            $msg = $code === 'S-101' ? 'transaction is duplicated' : 'success';
+        }
+        return [
+            'ok'              => $ok,
+            'rs_code'         => $code,
+            'rs_message'      => $msg !== '' ? $msg : 'withdraw failed',
+            'balance'         => $balance,
+            'player_id'       => $pid,
+            'transaction_id'  => $txid,
+            'transfer_amount' => $amtStr,
+            'duplicate'       => $code === 'S-101',
+            'insufficient'    => $code === 'S-103',
+            'player_missing'  => $code === 'S-104',
+            'raw'             => $ret,
+        ];
+    }
+
+    /**
      * @param array<string,mixed> $body
      * @param array{sign?:bool,content_type?:string,sign_params?:array} $opts
      * @return array<string,mixed>

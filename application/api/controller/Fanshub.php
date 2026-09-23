@@ -1144,6 +1144,23 @@ class Fanshub extends Api
     }
 
     /**
+     * OG视讯：玩家转账·提出（OG withdraw → 加红宝）
+     * POST /api/fanshub/ogwithdraw  body: { amount }
+     */
+    public function ogwithdraw()
+    {
+        $amount = $this->request->post('amount', $this->request->post('transfer_amount', 0));
+        try {
+            $data = \app\common\library\FansHubOg::withdrawForUser($this->auth->id, $amount);
+            $this->success('ok', $data);
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: 'OG提出失败');
+        }
+    }
+
+    /**
      * 资金流水列表
      */
     public function walletledger()

@@ -250,6 +250,132 @@ class FansHubOg
         ];
     }
 
+    /**
+     * 玩家转账 · 提出：OG withdraw → 成功后再加本站红宝
+     *
+     * - S-100 成功（含 OG 剩余 balance）
+     * - S-101 流水重复 → 视为已提出，补加红宝（仅 pending 时）
+     * - S-103 余额不足 → 不加款
+     * - S-104 玩家不可用 → 强制重注册后重试一次
+     *
+     * @return array<string,mixed>
+     */
+    public static function withdrawForUser($userId, $amount)
+    {
+        if (!FansHubOgGateway::isEnabled()) {
+            throw new \RuntimeException('OG视讯未开启');
+        }
+        if (!FansHubOgGateway::credentialsReady()) {
+            throw new \RuntimeException('OG商户配置不完整');
+        }
+
+        $uid = (int)$userId;
+        $amt = round((float)$amount, 2);
+        if ($amt <= 0) {
+            throw new \RuntimeException('提出金额必须大于 0');
+        }
+        if ($amt > 99999999999999999999999999999999.99) {
+            throw new \RuntimeException('提出金额超出限制');
+        }
+
+        $snap = self::ensureRegistered($uid);
+        $playerId = (string)$snap['player_id'];
+        $txid = self::newTransactionId($uid, 'w');
+
+        $now = time();
+        $transferId = 0;
+        try {
+            $transferId = (int)Db::name('fans_og_transfer')->insertGetId([
+                'user_id'         => $uid,
+                'player_id'       => $playerId,
+                'direction'       => 'withdraw',
+                'transaction_id'  => $txid,
+                'amount'          => $amt,
+                'status'          => 'pending',
+                'rs_code'         => '',
+                'rs_message'      => '',
+                'createtime'      => $now,
+                'updatetime'      => $now,
+            ]);
+        } catch (\Throwable $e) {
+            throw new \RuntimeException('创建提出流水失败：' . $e->getMessage());
+        }
+
+        $ret = FansHubOgGateway::withdraw($playerId, $amt, $txid);
+
+        if (!empty($ret['player_missing']) || (string)($ret['rs_code'] ?? '') === 'S-104') {
+            self::clearPlayerRegistered($uid);
+            try {
+                self::ensureRegistered($uid, true);
+                $ret = FansHubOgGateway::withdraw($playerId, $amt, $txid);
+            } catch (\Throwable $e) {
+                $ret = [
+                    'ok'         => false,
+                    'rs_code'    => 'S-104',
+                    'rs_message' => $e->getMessage() ?: 'player not available',
+                    'balance'    => '',
+                ];
+            }
+        }
+
+        $ok = !empty($ret['ok']);
+        $code = (string)($ret['rs_code'] ?? '');
+        $msg = (string)($ret['rs_message'] ?? '');
+        $ogBalance = isset($ret['balance']) ? (string)$ret['balance'] : '';
+
+        if ($ok) {
+            try {
+                FansHubService::changeAssets(
+                    $uid,
+                    0,
+                    0,
+                    'og_withdraw',
+                    'OG视讯提出 ' . $txid,
+                    0,
+                    'og',
+                    $amt
+                );
+            } catch (\Throwable $e) {
+                Db::name('fans_og_transfer')->where('id', $transferId)->update([
+                    'status'     => 'fail',
+                    'rs_code'    => $code,
+                    'rs_message' => 'OG已扣但本站入账失败：' . $e->getMessage(),
+                    'updatetime' => time(),
+                ]);
+                throw new \RuntimeException('OG已提出但本站入账失败，请联系客服（' . $txid . '）');
+            }
+            Db::name('fans_og_transfer')->where('id', $transferId)->update([
+                'status'     => 'success',
+                'rs_code'    => $code,
+                'rs_message' => $msg . ($ogBalance !== '' ? (' balance=' . $ogBalance) : ''),
+                'updatetime' => time(),
+            ]);
+        } else {
+            Db::name('fans_og_transfer')->where('id', $transferId)->update([
+                'status'     => 'fail',
+                'rs_code'    => $code,
+                'rs_message' => $msg !== '' ? $msg : FansHubOgGateway::getLastError(),
+                'updatetime' => time(),
+            ]);
+            throw new \RuntimeException(self::withdrawErrorText($code, $msg));
+        }
+
+        $account = FansHubService::getOrCreateAccount($uid);
+        return [
+            'user_id'         => $uid,
+            'player_id'       => $playerId,
+            'transaction_id'  => $txid,
+            'transfer_amount' => FansHubOgGateway::formatAmount($amt),
+            'rs_code'         => $code,
+            'rs_message'      => $msg,
+            'balance'         => $ogBalance,
+            'og_balance'      => $ogBalance,
+            'hongbao'         => round((float)($account->hongbao ?? 0), 2),
+            'transfer_id'     => $transferId,
+            'duplicate'       => !empty($ret['duplicate']) || $code === 'S-101',
+        ];
+    }
+
     protected static function depositErrorText($code, $msg)
     {
         $code = (string)$code;
@@ -262,6 +388,23 @@ class FansHubOg
         }
         $tail = ($code !== '' ? $code . ' ' : '') . ($msg !== '' ? $msg : FansHubOgGateway::getLastError());
         return 'OG存入失败：' . trim($tail);
+    }
+
+    protected static function withdrawErrorText($code, $msg)
+    {
+        $code = (string)$code;
+        $msg = trim((string)$msg);
+        if ($code === 'S-103') {
+            return 'OG提出失败：余额不足（S-103）';
+        }
+        if ($code === 'S-104') {
+            return 'OG提出失败：玩家不可用（S-104），请稍后重试';
+        }
+        if ($code === 'S-101') {
+            return 'OG提出失败：流水号重复（S-101）';
+        }
+        $tail = ($code !== '' ? $code . ' ' : '') . ($msg !== '' ? $msg : FansHubOgGateway::getLastError());
+        return 'OG提出失败：' . trim($tail);
     }
 
     protected static function clearPlayerRegistered($userId)

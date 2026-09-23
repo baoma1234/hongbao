@@ -27,6 +27,7 @@ define(['jquery', 'bootstrap', 'backend', 'form'], function ($, undefined, Backe
 
             bindTest($('#og-test-register'), 'register');
             bindTest($('#og-test-deposit'), 'deposit');
+            bindTest($('#og-test-withdraw'), 'withdraw');
         }
     };
     return Controller;

@@ -31,3 +31,17 @@ export function ogDeposit(amount) {
   }
   return apiRequest('ogdeposit', 'POST', { amount: n })
 }
+
+/**
+ * 从 OG 提出到本站红宝
+ * @param {number|string} amount
+ * @returns {Promise<{transaction_id:string,transfer_amount:string,balance:string,hongbao:number,rs_code:string}>}
+ * 成功 S-100/S-101；S-103 余额不足会抛错
+ */
+export function ogWithdraw(amount) {
+  const n = Number(amount)
+  if (!(n > 0)) {
+    return Promise.reject(new Error('请输入有效提出金额'))
+  }
+  return apiRequest('ogwithdraw', 'POST', { amount: n })
+}

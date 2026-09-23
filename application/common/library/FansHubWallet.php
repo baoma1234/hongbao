@@ -101,6 +101,7 @@ class FansHubWallet
             'notice_post'                  => '发帖奖励',
             'og_deposit'                   => 'OG视讯存入',
             'og_deposit_refund'            => 'OG存入退回',
+            'og_withdraw'                  => 'OG视讯提出',
         ];
     }
 

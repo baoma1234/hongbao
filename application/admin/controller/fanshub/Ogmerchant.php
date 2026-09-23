@@ -145,6 +145,72 @@ class Ogmerchant extends Backend
         }
     }
 
+    /**
+     * 测试：玩家转账·提出（不加本站红宝，仅调 OG）
+     */
+    public function testwithdraw()
+    {
+        if (!$this->request->isPost()) {
+            $this->error('非法请求');
+        }
+        $playerId = trim((string)$this->request->post('player_id', ''));
+        $amount = $this->request->post('transfer_amount', $this->request->post('amount', 0));
+        $txid = trim((string)$this->request->post('transaction_id', ''));
+        if ($playerId === '') {
+            $this->error('请填写 player_id');
+        }
+        if ((float)$amount <= 0) {
+            $this->error('请填写 transfer_amount');
+        }
+        if ($txid === '') {
+            $txid = 'w' . time() . substr(md5(uniqid('', true)), 0, 8);
+        }
+
+        $backup = ThinkConfig::get('fanshub') ?: [];
+        $cfg = is_array($backup) ? $backup : [];
+        foreach ($this->ogFields() as $field) {
+            if ($this->request->has($field, 'post')) {
+                $val = $this->request->post($field);
+                if (in_array($field, ['og_enabled', 'og_sandbox'], true)) {
+                    $cfg[$field] = $val ? true : false;
+                } elseif ($field === 'og_timeout') {
+                    $cfg[$field] = max(3, min(120, (int)$val));
+                } else {
+                    $cfg[$field] = trim((string)$val);
+                }
+            }
+        }
+        $cfg['og_enabled'] = true;
+        ThinkConfig::set('fanshub', $cfg);
+        try {
+            $ret = FansHubOgGateway::withdraw($playerId, $amount, $txid);
+            $extra = [
+                'request'  => FansHubOgGateway::getLastRequest(),
+                'response' => FansHubOgGateway::getLastResponse(),
+            ];
+            if (!empty($ret['ok'])) {
+                $this->success(
+                    '提出结果：' . ($ret['rs_code'] ?? '') . ' ' . ($ret['rs_message'] ?? '')
+                    . '（txid=' . ($ret['transaction_id'] ?? '')
+                    . ' amount=' . ($ret['transfer_amount'] ?? '')
+                    . ' balance=' . ($ret['balance'] ?? '') . '）',
+                    null,
+                    $extra
+                );
+            }
+            $this->error(
+                '提出失败：' . (($ret['rs_code'] ?? '') !== '' ? ($ret['rs_code'] . ' ') : '')
+                . ($ret['rs_message'] ?? FansHubOgGateway::getLastError() ?: 'unknown'),
+                null,
+                $extra
+            );
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage());
+        } finally {
+            ThinkConfig::set('fanshub', $backup);
+        }
+    }
+
     public function save()
     {
         if (!$this->request->isPost()) {
