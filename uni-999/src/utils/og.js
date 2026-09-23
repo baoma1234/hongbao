@@ -45,3 +45,19 @@ export function ogWithdraw(amount) {
   }
   return apiRequest('ogwithdraw', 'POST', { amount: n })
 }
+
+/**
+ * OG 转账历史（自动带当前用户 player_id，并同步本站流水）
+ * @param {{ fetch_id?: number, limit?: number, transaction_id?: string, sync?: boolean }} [opts]
+ * @returns {Promise<{records:Array,local:Array,last_fetch_id:number,player_id:string,synced:number}>}
+ */
+export function ogTransferHistory(opts = {}) {
+  const body = {
+    fetch_id: opts.fetch_id != null ? Number(opts.fetch_id) || 1 : 1,
+    limit: opts.limit != null ? Number(opts.limit) || 100 : 100,
+    sync: opts.sync === false ? 0 : 1,
+  }
+  const txid = String(opts.transaction_id || '').trim()
+  if (txid) body.transaction_id = txid
+  return apiRequest('ogtransferhistory', 'POST', body)
+}

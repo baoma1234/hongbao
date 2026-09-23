@@ -407,6 +407,160 @@ class FansHubOg
         return 'OG提出失败：' . trim($tail);
     }
 
+    /**
+     * 拉取 OG 转账历史并与本站 fans_og_transfer 同步
+     *
+     * @param array{fetch_id?:int,limit?:int,transaction_id?:string,sync?:bool} $opts
+     * @return array<string,mixed>
+     */
+    public static function transferHistoryForUser($userId, array $opts = [])
+    {
+        if (!FansHubOgGateway::isEnabled()) {
+            throw new \RuntimeException('OG视讯未开启');
+        }
+        if (!FansHubOgGateway::credentialsReady()) {
+            throw new \RuntimeException('OG商户配置不完整');
+        }
+
+        $uid = (int)$userId;
+        $playerId = self::playerIdForUser($uid);
+        $fetchId = max(1, (int)($opts['fetch_id'] ?? 1));
+        $limit = (int)($opts['limit'] ?? 100);
+        if ($limit < 1) {
+            $limit = 100;
+        }
+        if ($limit > 8000) {
+            $limit = 8000;
+        }
+        $txid = trim((string)($opts['transaction_id'] ?? ''));
+        $doSync = !isset($opts['sync']) || !empty($opts['sync']);
+
+        $query = [
+            'fetch_id'  => $fetchId,
+            'limit'     => $limit,
+            'player_id' => $playerId,
+        ];
+        if ($txid !== '') {
+            $query['transaction_id'] = $txid;
+        }
+
+        $ret = FansHubOgGateway::transferHistory($query);
+        if (empty($ret['ok'])) {
+            $code = (string)($ret['rs_code'] ?? '');
+            $msg = (string)($ret['rs_message'] ?? FansHubOgGateway::getLastError());
+            throw new \RuntimeException(
+                'OG转账历史失败：' . trim(($code !== '' ? $code . ' ' : '') . $msg)
+            );
+        }
+
+        $records = is_array($ret['records'] ?? null) ? $ret['records'] : [];
+        $synced = 0;
+        if ($doSync && $records) {
+            $synced = self::syncTransferRecords($uid, $playerId, $records);
+        }
+
+        // 本站本地流水（同 player），便于前端一次展示
+        $local = [];
+        try {
+            $rows = Db::name('fans_og_transfer')
+                ->where('user_id', $uid)
+                ->order('id', 'desc')
+                ->limit(min(200, max(20, $limit)))
+                ->select();
+            foreach ((array)$rows as $row) {
+                $local[] = [
+                    'id'              => (int)($row['id'] ?? 0),
+                    'transaction_id'  => (string)($row['transaction_id'] ?? ''),
+                    'direction'       => (string)($row['direction'] ?? ''),
+                    'amount'          => FansHubOgGateway::formatAmount($row['amount'] ?? 0),
+                    'status'          => (string)($row['status'] ?? ''),
+                    'rs_code'         => (string)($row['rs_code'] ?? ''),
+                    'rs_message'      => (string)($row['rs_message'] ?? ''),
+                    'createtime'      => (int)($row['createtime'] ?? 0),
+                    'updatetime'      => (int)($row['updatetime'] ?? 0),
+                ];
+            }
+        } catch (\Throwable $e) {
+            $local = [];
+        }
+
+        return [
+            'user_id'       => $uid,
+            'player_id'     => $playerId,
+            'rs_code'       => (string)($ret['rs_code'] ?? ''),
+            'rs_message'    => (string)($ret['rs_message'] ?? ''),
+            'last_fetch_id' => (int)($ret['last_fetch_id'] ?? 0),
+            'fetch_id'      => $fetchId,
+            'limit'         => $limit,
+            'synced'        => $synced,
+            'records'       => $records,
+            'local'         => $local,
+        ];
+    }
+
+    /**
+     * 把 OG records 写入/更新 fans_og_transfer
+     *
+     * @param array<int,array<string,mixed>> $records
+     */
+    protected static function syncTransferRecords($userId, $playerId, array $records)
+    {
+        $n = 0;
+        $uid = (int)$userId;
+        $now = time();
+        foreach ($records as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $txid = trim((string)($row['transaction_id'] ?? ''));
+            if ($txid === '') {
+                continue;
+            }
+            $type = strtolower(trim((string)($row['transaction_type'] ?? '')));
+            $direction = ($type === 'withdraw') ? 'withdraw' : 'deposit';
+            $amount = round((float)($row['transfer_amount'] ?? 0), 2);
+            $ts = (int)($row['transaction_time'] ?? 0);
+            if ($ts <= 0) {
+                $ts = $now;
+            }
+            $fetchId = (int)($row['fetch_id'] ?? 0);
+            $data = [
+                'user_id'        => $uid,
+                'player_id'      => (string)($row['player_id'] ?? $playerId),
+                'direction'      => $direction,
+                'transaction_id' => $txid,
+                'amount'         => $amount,
+                'status'         => 'success',
+                'rs_code'        => 'S-100',
+                'rs_message'     => 'sync fetch_id=' . $fetchId,
+                'updatetime'     => $now,
+            ];
+            try {
+                $exist = Db::name('fans_og_transfer')->where('transaction_id', $txid)->find();
+                if ($exist) {
+                    // 已有本地单：只补状态，不改金额方向（以本地记账为准）
+                    $upd = [
+                        'status'     => ((string)($exist['status'] ?? '') === 'success')
+                            ? 'success'
+                            : 'success',
+                        'updatetime' => $now,
+                    ];
+                    if (trim((string)($exist['rs_message'] ?? '')) === '') {
+                        $upd['rs_message'] = $data['rs_message'];
+                    }
+                    Db::name('fans_og_transfer')->where('id', (int)$exist['id'])->update($upd);
+                } else {
+                    $data['createtime'] = $ts;
+                    Db::name('fans_og_transfer')->insert($data);
+                }
+                $n++;
+            } catch (\Throwable $e) {
+                // 表未装或唯一冲突时跳过
+            }
+        }
+        return $n;
+    }
+
     protected static function clearPlayerRegistered($userId)
     {
         try {

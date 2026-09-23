@@ -211,6 +211,74 @@ class Ogmerchant extends Backend
         }
     }
 
+    /**
+     * 测试：转账历史（仅打 OG）
+     */
+    public function testhistory()
+    {
+        if (!$this->request->isPost()) {
+            $this->error('非法请求');
+        }
+        $playerId = trim((string)$this->request->post('player_id', ''));
+        $fetchId = (int)$this->request->post('fetch_id', 1);
+        $limit = (int)$this->request->post('limit', 100);
+        $txid = trim((string)$this->request->post('transaction_id', ''));
+
+        $backup = ThinkConfig::get('fanshub') ?: [];
+        $cfg = is_array($backup) ? $backup : [];
+        foreach ($this->ogFields() as $field) {
+            if ($this->request->has($field, 'post')) {
+                $val = $this->request->post($field);
+                if (in_array($field, ['og_enabled', 'og_sandbox'], true)) {
+                    $cfg[$field] = $val ? true : false;
+                } elseif ($field === 'og_timeout') {
+                    $cfg[$field] = max(3, min(120, (int)$val));
+                } else {
+                    $cfg[$field] = trim((string)$val);
+                }
+            }
+        }
+        $cfg['og_enabled'] = true;
+        ThinkConfig::set('fanshub', $cfg);
+        try {
+            $query = [
+                'fetch_id' => $fetchId > 0 ? $fetchId : 1,
+                'limit'    => $limit > 0 ? $limit : 100,
+            ];
+            if ($playerId !== '') {
+                $query['player_id'] = $playerId;
+            }
+            if ($txid !== '') {
+                $query['transaction_id'] = $txid;
+            }
+            $ret = FansHubOgGateway::transferHistory($query);
+            $extra = [
+                'request'  => FansHubOgGateway::getLastRequest(),
+                'response' => FansHubOgGateway::getLastResponse(),
+                'data'     => $ret,
+            ];
+            if (!empty($ret['ok'])) {
+                $cnt = is_array($ret['records'] ?? null) ? count($ret['records']) : 0;
+                $this->success(
+                    '历史：' . ($ret['rs_code'] ?? '') . ' ' . ($ret['rs_message'] ?? '')
+                    . '（records=' . $cnt . ' last_fetch_id=' . ($ret['last_fetch_id'] ?? 0) . '）',
+                    null,
+                    $extra
+                );
+            }
+            $this->error(
+                '历史失败：' . (($ret['rs_code'] ?? '') !== '' ? ($ret['rs_code'] . ' ') : '')
+                . ($ret['rs_message'] ?? FansHubOgGateway::getLastError() ?: 'unknown'),
+                null,
+                $extra
+            );
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage());
+        } finally {
+            ThinkConfig::set('fanshub', $backup);
+        }
+    }
+
     public function save()
     {
         if (!$this->request->isPost()) {

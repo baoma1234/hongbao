@@ -1161,6 +1161,33 @@ class Fanshub extends Api
     }
 
     /**
+     * OG视讯：转账历史（拉 OG + 同步本站）
+     * GET/POST /api/fanshub/ogtransferhistory
+     * params: fetch_id, limit, transaction_id, sync(0/1)
+     */
+    public function ogtransferhistory()
+    {
+        $fetchId = (int)$this->request->param('fetch_id', 1);
+        $limit = (int)$this->request->param('limit', 100);
+        $txid = trim((string)$this->request->param('transaction_id', ''));
+        $syncRaw = $this->request->param('sync', 1);
+        $sync = !in_array(strtolower((string)$syncRaw), ['0', 'false', 'no'], true);
+        try {
+            $data = \app\common\library\FansHubOg::transferHistoryForUser($this->auth->id, [
+                'fetch_id'       => $fetchId > 0 ? $fetchId : 1,
+                'limit'          => $limit,
+                'transaction_id' => $txid,
+                'sync'           => $sync,
+            ]);
+            $this->success('ok', $data);
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: 'OG转账历史失败');
+        }
+    }
+
+    /**
      * 资金流水列表
      */
     public function walletledger()

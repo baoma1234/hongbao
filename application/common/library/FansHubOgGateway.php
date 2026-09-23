@@ -403,6 +403,102 @@ class FansHubOgGateway
     }
 
     /**
+     * 转账历史 GET /api/v2/platform/transaction/transfer-history
+     *
+     * - S-100 success + records + last_fetch_id
+     * - S-115 no data found → 空列表视为成功
+     *
+     * @param array{fetch_id?:int|string,limit?:int|string,transaction_id?:string,player_id?:string} $query
+     * @return array{ok:bool,rs_code:string,rs_message:string,last_fetch_id:int,records:array,raw?:mixed}
+     */
+    public static function transferHistory(array $query = [])
+    {
+        self::$lastError = '';
+        self::$lastResponse = null;
+        self::$lastRequest = null;
+
+        if (!self::credentialsReady()) {
+            self::$lastError = 'OG 商户配置不完整（运营商名称/公匙/私钥/网关）';
+            return [
+                'ok'            => false,
+                'rs_code'       => '',
+                'rs_message'    => self::$lastError,
+                'last_fetch_id' => 0,
+                'records'       => [],
+            ];
+        }
+
+        $params = [];
+        if (array_key_exists('fetch_id', $query) && $query['fetch_id'] !== '' && $query['fetch_id'] !== null) {
+            $params['fetch_id'] = max(1, (int)$query['fetch_id']);
+        }
+        if (array_key_exists('limit', $query) && $query['limit'] !== '' && $query['limit'] !== null) {
+            $lim = (int)$query['limit'];
+            if ($lim < 1) {
+                $lim = 1;
+            }
+            if ($lim > 8000) {
+                $lim = 8000;
+            }
+            $params['limit'] = (string)$lim;
+        }
+        $txid = trim((string)($query['transaction_id'] ?? ''));
+        if ($txid !== '') {
+            $params['transaction_id'] = self::formatTransactionId($txid);
+        }
+        $pid = trim((string)($query['player_id'] ?? ''));
+        if ($pid !== '') {
+            $params['player_id'] = self::formatPlayerToken($pid);
+        }
+
+        $ret = self::request('GET', '/api/v2/platform/transaction/transfer-history', $params, [
+            'sign'         => false,
+            'content_type' => 'query',
+        ]);
+        $code = (string)($ret['rs_code'] ?? '');
+        $msg = (string)($ret['rs_message'] ?? '');
+        $records = [];
+        if (!empty($ret['records']) && is_array($ret['records'])) {
+            foreach ($ret['records'] as $row) {
+                if (!is_array($row)) {
+                    continue;
+                }
+                $records[] = [
+                    'fetch_id'          => (int)($row['fetch_id'] ?? 0),
+                    'player_id'         => (string)($row['player_id'] ?? ''),
+                    'transaction_id'    => (string)($row['transaction_id'] ?? ''),
+                    'transaction_time'  => (int)($row['transaction_time'] ?? 0),
+                    'transaction_type'  => strtolower(trim((string)($row['transaction_type'] ?? ''))),
+                    'currency'          => (string)($row['currency'] ?? ''),
+                    'transfer_amount'   => (string)($row['transfer_amount'] ?? ''),
+                    'operator_name'     => (string)($row['operator_name'] ?? ''),
+                ];
+            }
+        }
+        $lastFetch = (int)($ret['last_fetch_id'] ?? 0);
+        if ($lastFetch <= 0 && $records) {
+            $ids = array_column($records, 'fetch_id');
+            $lastFetch = $ids ? (int)max($ids) : 0;
+        }
+        // S-115 无数据：当成功空列表，方便前端分页
+        $ok = ($code === 'S-100' || $code === 'S-115');
+        if (!$ok && $msg === '' && self::$lastError !== '') {
+            $msg = self::$lastError;
+        }
+        if ($msg === '' && $ok) {
+            $msg = $code === 'S-115' ? 'no data found' : 'success';
+        }
+        return [
+            'ok'            => $ok,
+            'rs_code'       => $code,
+            'rs_message'    => $msg !== '' ? $msg : 'transfer-history failed',
+            'last_fetch_id' => $lastFetch,
+            'records'       => $records,
+            'raw'           => $ret,
+        ];
+    }
+
+    /**
      * @param array<string,mixed> $body
      * @param array{sign?:bool,content_type?:string,sign_params?:array} $opts
      * @return array<string,mixed>
@@ -427,6 +523,7 @@ class FansHubOgGateway
         }
 
         $url = $base . '/' . ltrim((string)$path, '/');
+        $methodUp = strtoupper((string)$method);
         $headers = [
             'key: ' . $c['api_key'],
             'operator-name: ' . $c['merchant_code'],
@@ -434,7 +531,12 @@ class FansHubOgGateway
         ];
 
         $payload = '';
-        if ($contentType === 'json') {
+        if ($methodUp === 'GET' || $contentType === 'query') {
+            if ($body) {
+                $qs = http_build_query($body);
+                $url .= (strpos($url, '?') !== false ? '&' : '?') . $qs;
+            }
+        } elseif ($contentType === 'json') {
             $headers[] = 'Content-Type: application/json';
             $payload = json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         } else {
@@ -443,7 +545,7 @@ class FansHubOgGateway
         }
 
         self::$lastRequest = [
-            'method'       => strtoupper((string)$method),
+            'method'       => $methodUp,
             'url'          => $url,
             'content_type' => $contentType,
             'headers'      => [
@@ -465,11 +567,13 @@ class FansHubOgGateway
             CURLOPT_SSL_VERIFYHOST => false,
             CURLOPT_HTTPHEADER     => $headers,
         ];
-        if (strtoupper((string)$method) === 'POST') {
+        if ($methodUp === 'POST') {
             $curlOpts[CURLOPT_POST] = true;
             $curlOpts[CURLOPT_POSTFIELDS] = $payload;
+        } elseif ($methodUp === 'GET') {
+            $curlOpts[CURLOPT_HTTPGET] = true;
         } else {
-            $curlOpts[CURLOPT_CUSTOMREQUEST] = strtoupper((string)$method);
+            $curlOpts[CURLOPT_CUSTOMREQUEST] = $methodUp;
             if ($payload !== '') {
                 $curlOpts[CURLOPT_POSTFIELDS] = $payload;
             }
