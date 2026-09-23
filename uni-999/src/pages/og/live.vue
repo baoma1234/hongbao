@@ -1,6 +1,42 @@
 <template>
-  <ProfileSubPage title="OG视讯（内测）" body-class="hb-sub og-live-body">
-    <view class="og-tip">内测页，未挂大厅。进入前先探测是否已注册；进入会自动转入全部红宝；提出会全部提回。</view>
+  <!-- 游戏层：H5/Safari = TopBar+iframe；App = web-view 全屏 + cover-view 退出 -->
+  <view v-if="gameUrl" class="hb-page og-game-page" :style="profileSubPageStyle">
+    <!-- #ifdef H5 -->
+    <TopBar title="OG视讯" />
+    <view class="profile-sub-hd profile-sub-hd--back-only" :style="profileSubHdStyle">
+      <text class="profile-back-btn" @click="closeGame">‹</text>
+      <text class="og-game-exit" @click="closeGame">退出</text>
+    </view>
+    <view class="og-game-frame-wrap">
+      <iframe
+        class="og-game-frame"
+        :src="gameUrl"
+        title="OG视讯"
+        allow="fullscreen; autoplay; payment"
+        referrerpolicy="no-referrer-when-downgrade"
+      />
+    </view>
+    <view class="og-game-fallback">
+      <text class="og-game-fallback-link" @click="openExternal">外部打开</text>
+    </view>
+    <!-- #endif -->
+
+    <!-- #ifndef H5 -->
+    <web-view :src="gameUrl">
+      <cover-view class="og-game-cover-bar" :style="coverBarStyle">
+        <cover-view class="og-game-cover-btn" @tap="closeGame">‹ 退出视讯</cover-view>
+      </cover-view>
+    </web-view>
+    <!-- #endif -->
+  </view>
+
+  <ProfileSubPage
+    v-else
+    title="OG视讯（内测）"
+    body-class="hb-sub og-live-body"
+    page-class="og-live-page"
+  >
+    <view class="og-tip">内测页。进入游戏后本页内嵌打开（网页 iframe / App web-view）。</view>
 
     <view class="og-card" @click="openSheet">
       <view class="og-card-badge">LIVE</view>
@@ -47,11 +83,13 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+import { computed, nextTick, ref } from 'vue'
+import { onBackPress, onShow } from '@dcloudio/uni-app'
+import TopBar from '../../components/TopBar.vue'
 import ProfileSubPage from '../../components/ProfileSubPage.vue'
 import { getToken, notifyProfileUpdated } from '../../utils/auth.js'
 import { openExternalHttpUrl } from '../../utils/wallet.js'
+import { useProfileSubHdStyle } from '../../utils/profile-sub-layout.js'
 import {
   ogBalance,
   ogDeposit,
@@ -64,11 +102,15 @@ import {
 import '../../styles/hb.css'
 
 const sheetOpen = ref(false)
+const gameUrl = ref('')
+const coverBarStyle = ref({})
 const ogBal = ref('0.00')
 const hongbao = ref(0)
 const registered = ref(false)
 const busyLaunch = ref(false)
 const busyWithdraw = ref(false)
+
+const { profileSubHdStyle, profileSubPageStyle, refreshProfileSubLayout } = useProfileSubHdStyle()
 
 const busy = computed(() => busyLaunch.value || busyWithdraw.value)
 const ogBalText = computed(() => money2(ogBal.value))
@@ -83,8 +125,7 @@ function round2(v) {
 }
 
 function money2(v) {
-  const n = round2(v)
-  return n.toFixed(2)
+  return round2(v).toFixed(2)
 }
 
 function ensureLogin() {
@@ -104,7 +145,6 @@ async function refreshAll() {
     hongbao.value = Number(data?.hongbao ?? 0) || 0
     registered.value = true
   } catch (e) {
-    // 未注册时 ogbalance 可能失败，再拉快照
     try {
       const snap = await ogPlayer()
       registered.value = !!snap?.registered
@@ -119,17 +159,14 @@ async function refreshAll() {
   }
 }
 
-/** 进入前：本地/远程探测已注册则跳过 register */
 async function ensureOgReady() {
   try {
     const snap = await ogPlayer()
     registered.value = !!snap?.registered
     if (snap?.hongbao != null) hongbao.value = Number(snap.hongbao) || 0
-    if (snap?.registered) {
-      return snap
-    }
+    if (snap?.registered) return snap
   } catch (e) {
-    // continue register
+    // continue
   }
   const ret = await ogRegister()
   registered.value = true
@@ -147,6 +184,39 @@ function closeSheet() {
   sheetOpen.value = false
 }
 
+function measureGameChrome() {
+  refreshProfileSubLayout()
+  // #ifdef APP-PLUS
+  try {
+    const sys = uni.getSystemInfoSync() || {}
+    const status = Number(sys.statusBarHeight) || 0
+    coverBarStyle.value = { paddingTop: status + 8 + 'px' }
+  } catch (e) {
+    coverBarStyle.value = { paddingTop: '36px' }
+  }
+  // #endif
+}
+
+function openGameInPage(link) {
+  gameUrl.value = link
+  sheetOpen.value = false
+  nextTick(() => {
+    measureGameChrome()
+  })
+}
+
+function closeGame() {
+  gameUrl.value = ''
+  refreshAll()
+  nextTick(() => refreshProfileSubLayout())
+}
+
+function openExternal() {
+  const u = String(gameUrl.value || '').trim()
+  if (!u) return
+  openExternalHttpUrl(u)
+}
+
 async function resolveGameId() {
   try {
     const list = await ogGameList({ refresh: false })
@@ -159,7 +229,6 @@ async function resolveGameId() {
   }
 }
 
-/** 进入游戏：先确认注册 → 红宝全部转入 → 开游戏 */
 async function onEnterGame() {
   if (!ensureLogin() || busy.value) return
   busyLaunch.value = true
@@ -176,29 +245,17 @@ async function onEnterGame() {
     const gameId = await resolveGameId()
     const ret = await ogLaunch(gameId > 0 ? { game_id: gameId } : {})
     const link = String(ret?.game_link || '').trim()
-    if (!link) {
-      throw new Error('未返回游戏链接')
-    }
-    sheetOpen.value = false
-    const opened = openExternalHttpUrl(link)
-    if (!opened) {
-      uni.navigateTo({
-        url:
-          '/pages/common/webview?url=' +
-          encodeURIComponent(link) +
-          '&title=' +
-          encodeURIComponent('OG视讯'),
-      })
-    }
+    if (!link) throw new Error('未返回游戏链接')
+    if (!/^https?:\/\//i.test(link)) throw new Error('游戏链接无效')
+    openGameInPage(link)
   } catch (e) {
     uni.showToast({ title: (e && e.message) || '进入游戏失败', icon: 'none' })
   } finally {
     busyLaunch.value = false
-    refreshAll()
+    if (!gameUrl.value) refreshAll()
   }
 }
 
-/** 提出：OG 余额全部提回本站红宝 */
 async function onWithdraw() {
   if (!ensureLogin() || busy.value) return
   busyWithdraw.value = true
@@ -224,7 +281,17 @@ async function onWithdraw() {
 }
 
 onShow(() => {
-  if (getToken()) refreshAll()
+  refreshProfileSubLayout()
+  if (getToken() && !gameUrl.value) refreshAll()
+  if (gameUrl.value) measureGameChrome()
+})
+
+onBackPress(() => {
+  if (gameUrl.value) {
+    closeGame()
+    return true
+  }
+  return false
 })
 </script>
 
@@ -372,5 +439,68 @@ onShow(() => {
 }
 .og-btn[disabled] {
   opacity: 0.55;
+}
+
+/* —— 游戏内嵌层 —— */
+.og-game-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  background: #0d1528;
+  overflow: hidden;
+}
+.og-game-exit {
+  margin-left: auto;
+  padding: 0 24rpx;
+  font-size: 28rpx;
+  color: #d4af37;
+  line-height: 44px;
+}
+.og-game-frame-wrap {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  background: #000;
+  /* #ifdef H5 */
+  /* Safari：flex 子项高度用百分比时偶发塌陷，补一层 */
+  position: relative;
+  /* #endif */
+}
+.og-game-frame {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+  background: #000;
+}
+.og-game-fallback {
+  flex-shrink: 0;
+  text-align: center;
+  padding: 12rpx 0 calc(12rpx + env(safe-area-inset-bottom, 0px));
+  background: #141820;
+}
+.og-game-fallback-link {
+  font-size: 24rpx;
+  color: rgba(212, 175, 55, 0.85);
+  text-decoration: underline;
+}
+.og-game-cover-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 9999;
+  padding-left: 16px;
+  padding-bottom: 8px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.55), transparent);
+}
+.og-game-cover-btn {
+  display: inline-block;
+  padding: 8px 14px;
+  color: #fff;
+  font-size: 15px;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 16px;
 }
 </style>
