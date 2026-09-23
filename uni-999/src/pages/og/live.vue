@@ -1,5 +1,5 @@
 <template>
-  <!-- 游戏层：仅 TopBar + 底栏，中间尽量铺满 -->
+  <!-- 游戏层：仅 TopBar，其下尽量铺满 -->
   <view v-if="gameUrl" class="hb-page webview-page og-game-page" :style="profileSubPageStyle">
     <TopBar title="OG视讯" />
     <view class="og-game-frame-wrap" :style="frameWrapStyle">
@@ -13,7 +13,6 @@
       />
       <!-- #endif -->
     </view>
-    <BottomTabBar active="home" />
   </view>
 
   <ProfileSubPage
@@ -72,7 +71,6 @@
 import { computed, nextTick, ref } from 'vue'
 import { onBackPress, onHide, onShow, onUnload } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
-import BottomTabBar from '../../components/BottomTabBar.vue'
 import ProfileSubPage from '../../components/ProfileSubPage.vue'
 import { getToken, notifyProfileUpdated } from '../../utils/auth.js'
 import { useProfileSubHdStyle } from '../../utils/profile-sub-layout.js'
@@ -88,7 +86,6 @@ import {
 } from '../../utils/og.js'
 import '../../styles/hb.css'
 
-const TAB_BASE = 56
 const APP_WV_ID = 'og-live-game'
 
 const sheetOpen = ref(false)
@@ -174,7 +171,7 @@ function closeSheet() {
   sheetOpen.value = false
 }
 
-/** TopBar 底边之下、底栏之上：中间区域尽量铺满 */
+/** TopBar 底边之下铺满（含底部安全区） */
 function measureFrameMetrics() {
   refreshProfileSubLayout()
   applySafeAreaCssVars()
@@ -182,14 +179,14 @@ function measureFrameMetrics() {
   const sys = uni.getSystemInfoSync() || {}
   const top =
     measureChatOverlayTop() || Number(inset.top || sys.statusBarHeight || 0) + 48
-  const tab = TAB_BASE + Number(inset.bottom || 0)
+  const bottom = Number(inset.bottom || 0)
   const winH = Number(sys.windowHeight) || 667
-  const height = Math.max(200, winH - top - tab)
+  const height = Math.max(200, winH - top - bottom)
   frameWrapStyle.value = {
     height: height + 'px',
     flex: 'none',
   }
-  return { top, height, tab }
+  return { top, height, bottom }
 }
 
 function closeAppGameWebview() {
@@ -498,7 +495,7 @@ onBackPress(() => {
   opacity: 0.55;
 }
 
-/* —— 游戏内嵌：TopBar / 底栏保留，中间铺满 —— */
+/* —— 游戏内嵌：仅保留 TopBar，其余铺满 —— */
 .og-game-page.hb-page,
 .og-game-page {
   padding: 0 !important;
