@@ -91,3 +91,23 @@ export function ogBetLimit(opts = {}) {
   if (opts.id != null && opts.id !== '') body.id = Number(opts.id) || 0
   return apiRequest('ogbetlimit', 'POST', body)
 }
+
+/**
+ * 进入 OG 游戏，返回 game_link（前端自行打开 webview / 外链）
+ * @param {{ game_id: number, betlimit?: number, lang?: string, extra?: string }} opts
+ * @returns {Promise<{game_link:string,game_id:number,betlimit:number,player_id:string,token:string}>}
+ */
+export function ogLaunch(opts = {}) {
+  const gameId = Number(opts.game_id) || 0
+  if (gameId <= 0) {
+    return Promise.reject(new Error('请选择游戏'))
+  }
+  const body = { game_id: gameId }
+  const bet = Number(opts.betlimit) || 0
+  if (bet > 0) body.betlimit = bet
+  const lang = String(opts.lang || '').trim()
+  if (lang) body.lang = lang
+  const extra = String(opts.extra || '').trim()
+  if (extra) body.extra = extra
+  return apiRequest('oglaunch', 'POST', body)
+}

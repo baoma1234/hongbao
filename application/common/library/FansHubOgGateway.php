@@ -41,6 +41,8 @@ class FansHubOgGateway
             'sandbox_base_url' => rtrim(trim((string)($cfg['og_sandbox_base_url'] ?? '')), '/'),
             'currency'         => strtoupper(trim((string)($cfg['og_currency'] ?? 'CNY'))) ?: 'CNY',
             'language'         => trim((string)($cfg['og_language'] ?? 'zh')) ?: 'zh',
+            'default_game_id'  => (int)($cfg['og_default_game_id'] ?? 0),
+            'default_betlimit' => (int)($cfg['og_default_betlimit'] ?? 0),
             'callback_url'     => trim((string)($cfg['og_callback_url'] ?? '')),
             'return_url'       => trim((string)($cfg['og_return_url'] ?? '')),
             'timeout'          => max(3, min(120, (int)($cfg['og_timeout'] ?? 15))),
@@ -633,6 +635,112 @@ class FansHubOgGateway
             'rs_message' => $msg !== '' ? $msg : 'betlimit failed',
             'records'    => $records,
             'sandbox'    => !empty(self::config()['sandbox']),
+            'raw'        => $ret,
+        ];
+    }
+
+    /**
+     * 进入游戏 GET /api/v2/platform/games/launch
+     *
+     * 官方 curl 时间戳为毫秒；参数均在 query，含 signature。
+     *
+     * @param array{
+     *   player_id:string,nickname:string,token:string,game_id:int,
+     *   betlimit:int,lang?:string,timestamp?:int|string,extra?:string
+     * } $params
+     * @return array{ok:bool,rs_code:string,rs_message:string,game_link:string,raw?:mixed}
+     */
+    public static function launchGame(array $params)
+    {
+        self::$lastError = '';
+        self::$lastResponse = null;
+        self::$lastRequest = null;
+
+        if (!self::credentialsReady()) {
+            self::$lastError = 'OG 商户配置不完整（运营商名称/公匙/私钥/网关）';
+            return [
+                'ok'         => false,
+                'rs_code'    => '',
+                'rs_message' => self::$lastError,
+                'game_link'  => '',
+            ];
+        }
+
+        $playerId = self::formatPlayerToken((string)($params['player_id'] ?? ''));
+        $nickname = self::formatPlayerToken(
+            (string)($params['nickname'] ?? '') !== '' ? (string)$params['nickname'] : $playerId,
+            'n'
+        );
+        $token = preg_replace('/[^a-zA-Z0-9]/', '', (string)($params['token'] ?? ''));
+        if (strlen($token) < 8) {
+            $token = strtolower(substr(md5(uniqid((string)mt_rand(), true)), 0, 20));
+        }
+        if (strlen($token) > 64) {
+            $token = substr($token, 0, 64);
+        }
+        $gameId = (int)($params['game_id'] ?? 0);
+        $betlimit = (int)($params['betlimit'] ?? 0);
+        if ($gameId <= 0) {
+            self::$lastError = 'game_id 必填';
+            return ['ok' => false, 'rs_code' => '', 'rs_message' => self::$lastError, 'game_link' => ''];
+        }
+        if ($betlimit <= 0) {
+            self::$lastError = 'betlimit 必填';
+            return ['ok' => false, 'rs_code' => '', 'rs_message' => self::$lastError, 'game_link' => ''];
+        }
+
+        $lang = trim((string)($params['lang'] ?? ''));
+        if ($lang === '') {
+            $lang = (string)(self::config()['language'] ?? 'zh') ?: 'zh';
+        }
+        // 官方示例为毫秒时间戳
+        if (isset($params['timestamp']) && (string)$params['timestamp'] !== '') {
+            $ts = (string)((int)$params['timestamp']);
+        } else {
+            $ts = (string)(int)round(microtime(true) * 1000);
+        }
+
+        $signParams = [
+            'player_id' => $playerId,
+            'nickname'  => $nickname,
+            'timestamp' => $ts,
+            'lang'      => $lang,
+            'token'     => $token,
+            'game_id'   => (string)$gameId,
+            'betlimit'  => (string)$betlimit,
+        ];
+        $extra = trim((string)($params['extra'] ?? ''));
+        if ($extra !== '') {
+            $signParams['extra'] = $extra;
+        }
+        $signParams = self::withSignature($signParams);
+
+        $ret = self::request('GET', '/api/v2/platform/games/launch', $signParams, [
+            'sign'         => false,
+            'content_type' => 'query',
+        ]);
+        $code = (string)($ret['rs_code'] ?? '');
+        $msg = (string)($ret['rs_message'] ?? '');
+        $link = trim((string)($ret['game_link'] ?? ''));
+        $ok = ($code === 'S-100' && $link !== '');
+        if (!$ok && $msg === '' && self::$lastError !== '') {
+            $msg = self::$lastError;
+        }
+        if ($msg === '' && $ok) {
+            $msg = 'success';
+        }
+        return [
+            'ok'         => $ok,
+            'rs_code'    => $code,
+            'rs_message' => $msg !== '' ? $msg : 'launch failed',
+            'game_link'  => $link,
+            'player_id'  => $playerId,
+            'nickname'   => $nickname,
+            'token'      => $token,
+            'game_id'    => $gameId,
+            'betlimit'   => $betlimit,
+            'lang'       => $lang,
+            'timestamp'  => $ts,
             'raw'        => $ret,
         ];
     }

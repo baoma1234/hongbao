@@ -153,6 +153,8 @@ return array (
   'og_sandbox_base_url' => '',
   'og_currency' => 'CNY',
   'og_language' => 'zh',
+  'og_default_game_id' => 0,
+  'og_default_betlimit' => 0,
   'og_callback_url' => '',
   'og_return_url' => '',
   'og_timeout' => 15,

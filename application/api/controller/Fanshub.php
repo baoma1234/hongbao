@@ -1240,6 +1240,31 @@ class Fanshub extends Api
     }
 
     /**
+     * OG视讯：进入游戏
+     * POST /api/fanshub/oglaunch  body: { game_id, betlimit?, lang?, extra? }
+     */
+    public function oglaunch()
+    {
+        $gameId = (int)$this->request->param('game_id', 0);
+        $betlimit = (int)$this->request->param('betlimit', 0);
+        $lang = trim((string)$this->request->param('lang', ''));
+        $extra = trim((string)$this->request->param('extra', ''));
+        try {
+            $data = \app\common\library\FansHubOg::launchForUser($this->auth->id, [
+                'game_id'  => $gameId,
+                'betlimit' => $betlimit,
+                'lang'     => $lang,
+                'extra'    => $extra,
+            ]);
+            $this->success('ok', $data);
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: 'OG进游戏失败');
+        }
+    }
+
+    /**
      * 资金流水列表
      */
     public function walletledger()

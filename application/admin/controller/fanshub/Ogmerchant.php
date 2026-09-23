@@ -416,6 +416,80 @@ class Ogmerchant extends Backend
         }
     }
 
+    /**
+     * 测试：进入游戏
+     */
+    public function testlaunch()
+    {
+        if (!$this->request->isPost()) {
+            $this->error('非法请求');
+        }
+        $playerId = trim((string)$this->request->post('player_id', ''));
+        $nickname = trim((string)$this->request->post('nickname', ''));
+        $gameId = (int)$this->request->post('game_id', 0);
+        $betlimit = (int)$this->request->post('betlimit', 0);
+        $lang = trim((string)$this->request->post('lang', 'zh'));
+        if ($playerId === '') {
+            $this->error('请填写 player_id');
+        }
+        if ($gameId <= 0) {
+            $this->error('请填写 game_id');
+        }
+        if ($betlimit <= 0) {
+            $this->error('请填写 betlimit');
+        }
+
+        $backup = ThinkConfig::get('fanshub') ?: [];
+        $cfg = is_array($backup) ? $backup : [];
+        foreach ($this->ogFields() as $field) {
+            if ($this->request->has($field, 'post')) {
+                $val = $this->request->post($field);
+                if (in_array($field, ['og_enabled', 'og_sandbox'], true)) {
+                    $cfg[$field] = $val ? true : false;
+                } elseif (in_array($field, ['og_timeout', 'og_default_game_id', 'og_default_betlimit'], true)) {
+                    $cfg[$field] = (int)$val;
+                } else {
+                    $cfg[$field] = trim((string)$val);
+                }
+            }
+        }
+        $cfg['og_enabled'] = true;
+        ThinkConfig::set('fanshub', $cfg);
+        try {
+            $token = 't' . time() . substr(md5(uniqid('', true)), 0, 10);
+            $ret = FansHubOgGateway::launchGame([
+                'player_id' => $playerId,
+                'nickname'  => $nickname !== '' ? $nickname : $playerId,
+                'token'     => $token,
+                'game_id'   => $gameId,
+                'betlimit'  => $betlimit,
+                'lang'      => $lang !== '' ? $lang : 'zh',
+            ]);
+            $extra = [
+                'request'  => FansHubOgGateway::getLastRequest(),
+                'response' => FansHubOgGateway::getLastResponse(),
+                'data'     => $ret,
+            ];
+            if (!empty($ret['ok']) && !empty($ret['game_link'])) {
+                $this->success(
+                    '进游戏成功：' . ($ret['rs_code'] ?? '') . ' → ' . mb_substr((string)$ret['game_link'], 0, 120) . '…',
+                    null,
+                    $extra
+                );
+            }
+            $this->error(
+                '进游戏失败：' . (($ret['rs_code'] ?? '') !== '' ? ($ret['rs_code'] . ' ') : '')
+                . ($ret['rs_message'] ?? FansHubOgGateway::getLastError() ?: 'unknown'),
+                null,
+                $extra
+            );
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage());
+        } finally {
+            ThinkConfig::set('fanshub', $backup);
+        }
+    }
+
     public function save()
     {
         if (!$this->request->isPost()) {
@@ -437,11 +511,13 @@ class Ogmerchant extends Backend
             $value = $this->request->post($field);
             if (in_array($field, ['og_enabled', 'og_sandbox'], true)) {
                 $data[$field] = $value ? true : false;
-            } elseif ($field === 'og_timeout') {
-                $data[$field] = max(3, min(120, (int)$value));
-            } else {
-                $data[$field] = trim((string)$value);
-            }
+                } elseif ($field === 'og_timeout') {
+                    $data[$field] = max(3, min(120, (int)$value));
+                } elseif (in_array($field, ['og_default_game_id', 'og_default_betlimit'], true)) {
+                    $data[$field] = max(0, (int)$value);
+                } else {
+                    $data[$field] = trim((string)$value);
+                }
         }
 
         // 生产短信开关不可被本页改坏（本页只写 og_*，但整文件回写）
@@ -475,6 +551,8 @@ class Ogmerchant extends Backend
             'og_sandbox_base_url',
             'og_currency',
             'og_language',
+            'og_default_game_id',
+            'og_default_betlimit',
             'og_callback_url',
             'og_return_url',
             'og_timeout',
@@ -499,6 +577,8 @@ class Ogmerchant extends Backend
             'og_sandbox_base_url' => '',
             'og_currency'         => 'CNY',
             'og_language'         => 'zh',
+            'og_default_game_id'  => 0,
+            'og_default_betlimit' => 0,
             'og_callback_url'     => '',
             'og_return_url'       => '',
             'og_timeout'          => 15,

@@ -91,6 +91,19 @@
                     </div>
                 </div>
                 <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">默认游戏 ID</label>
+                    <div class="col-xs-12 col-sm-4">
+                        <input type="number" min="0" class="form-control" name="og_default_game_id" value="{$config.og_default_game_id|default=0|htmlentities}" placeholder="来自游戏列表；0=进游戏时必传">
+                        <span class="help-block">正式/沙箱 game_id 不同</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">默认限红组</label>
+                    <div class="col-xs-12 col-sm-4">
+                        <input type="number" min="0" class="form-control" name="og_default_betlimit" value="{$config.og_default_betlimit|default=0|htmlentities}" placeholder="来自限红列表；0=自动取第一组">
+                    </div>
+                </div>
+                <div class="form-group">
                     <label class="control-label col-xs-12 col-sm-2">超时（秒）</label>
                     <div class="col-xs-12 col-sm-4">
                         <input type="number" min="3" max="120" class="form-control" name="og_timeout" value="{$config.og_timeout|default=15|htmlentities}">
@@ -305,6 +318,50 @@
                     <label class="control-label col-xs-12 col-sm-2"></label>
                     <div class="col-xs-12 col-sm-8">
                         <button type="submit" class="btn btn-primary btn-embossed">获取限红列表</button>
+                    </div>
+                </div>
+            </fieldset>
+        </form>
+
+        <hr>
+        <form id="og-test-launch" class="form-horizontal" role="form" method="POST" action="{:url('fanshub.ogmerchant/testlaunch')}">
+            <fieldset>
+                <legend>联调：进入游戏</legend>
+                <p class="help-block" style="padding-left:15px;">调用 <code>GET /api/v2/platform/games/launch</code>（query + signature，时间戳毫秒）。正式前端：<code>/api/fanshub/oglaunch</code>。</p>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">player_id</label>
+                    <div class="col-xs-12 col-sm-6">
+                        <input type="text" class="form-control" name="player_id" placeholder="须已注册" autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">nickname</label>
+                    <div class="col-xs-12 col-sm-6">
+                        <input type="text" class="form-control" name="nickname" placeholder="可选" autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">game_id</label>
+                    <div class="col-xs-12 col-sm-4">
+                        <input type="number" min="1" class="form-control" name="game_id" placeholder="必填" autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">betlimit</label>
+                    <div class="col-xs-12 col-sm-4">
+                        <input type="number" min="1" class="form-control" name="betlimit" placeholder="限红组 id" autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">lang</label>
+                    <div class="col-xs-12 col-sm-4">
+                        <input type="text" class="form-control" name="lang" value="zh" autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2"></label>
+                    <div class="col-xs-12 col-sm-8">
+                        <button type="submit" class="btn btn-danger btn-embossed">获取 game_link</button>
                     </div>
                 </div>
             </fieldset>

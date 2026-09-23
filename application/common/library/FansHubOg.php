@@ -554,6 +554,111 @@ class FansHubOg
     }
 
     /**
+     * 进入游戏：确保已注册 → launch → 返回 game_link
+     *
+     * @param array{game_id?:int,betlimit?:int,lang?:string,extra?:string} $opts
+     * @return array<string,mixed>
+     */
+    public static function launchForUser($userId, array $opts = [])
+    {
+        if (!FansHubOgGateway::isEnabled()) {
+            throw new \RuntimeException('OG视讯未开启');
+        }
+        if (!FansHubOgGateway::credentialsReady()) {
+            throw new \RuntimeException('OG商户配置不完整');
+        }
+
+        $uid = (int)$userId;
+        $snap = self::ensureRegistered($uid);
+        $cfg = FansHubOgGateway::config();
+
+        $gameId = (int)($opts['game_id'] ?? 0);
+        if ($gameId <= 0) {
+            $gameId = (int)($cfg['default_game_id'] ?? 0);
+        }
+        $betlimit = (int)($opts['betlimit'] ?? 0);
+        if ($betlimit <= 0) {
+            $betlimit = (int)($cfg['default_betlimit'] ?? 0);
+        }
+        if ($betlimit <= 0) {
+            // 未配置时取限红列表第一组
+            try {
+                $bl = self::betLimitList(['refresh' => false]);
+                $rows = is_array($bl['records'] ?? null) ? $bl['records'] : [];
+                if ($rows) {
+                    $betlimit = (int)($rows[0]['id'] ?? 0);
+                }
+            } catch (\Throwable $e) {
+                // ignore
+            }
+        }
+        if ($gameId <= 0) {
+            throw new \RuntimeException('请指定 game_id（或后台配置默认游戏）');
+        }
+        if ($betlimit <= 0) {
+            throw new \RuntimeException('请指定 betlimit（或后台配置默认限红组）');
+        }
+
+        $lang = trim((string)($opts['lang'] ?? ''));
+        if ($lang === '') {
+            $lang = (string)($cfg['language'] ?? 'zh') ?: 'zh';
+        }
+        $token = self::newLaunchToken($uid);
+
+        $ret = FansHubOgGateway::launchGame([
+            'player_id' => (string)$snap['player_id'],
+            'nickname'  => (string)$snap['og_nickname'],
+            'token'     => $token,
+            'game_id'   => $gameId,
+            'betlimit'  => $betlimit,
+            'lang'      => $lang,
+            'extra'     => trim((string)($opts['extra'] ?? '')),
+        ]);
+
+        if (empty($ret['ok']) || trim((string)($ret['game_link'] ?? '')) === '') {
+            $code = (string)($ret['rs_code'] ?? '');
+            $msg = (string)($ret['rs_message'] ?? FansHubOgGateway::getLastError());
+            throw new \RuntimeException(
+                'OG进游戏失败：' . trim(($code !== '' ? $code . ' ' : '') . $msg)
+            );
+        }
+
+        // 短期缓存 token，便于排查
+        try {
+            \think\Cache::set('fanshub_og_launch_token_' . $token, [
+                'user_id'   => $uid,
+                'player_id' => (string)$snap['player_id'],
+                'game_id'   => $gameId,
+                'betlimit'  => $betlimit,
+                'at'        => time(),
+            ], 3600);
+        } catch (\Throwable $e) {
+            // ignore
+        }
+
+        return [
+            'user_id'    => $uid,
+            'player_id'  => (string)$snap['player_id'],
+            'og_nickname'=> (string)$snap['og_nickname'],
+            'game_id'    => $gameId,
+            'betlimit'   => $betlimit,
+            'lang'       => $lang,
+            'token'      => $token,
+            'game_link'  => (string)$ret['game_link'],
+            'rs_code'    => (string)($ret['rs_code'] ?? ''),
+            'rs_message' => (string)($ret['rs_message'] ?? ''),
+            'sandbox'    => !empty($cfg['sandbox']),
+        ];
+    }
+
+    /** 运营商侧玩家识别 token（小写字母数字） */
+    public static function newLaunchToken($userId)
+    {
+        $raw = 't' . (int)$userId . 'x' . strtolower(bin2hex(random_bytes(8)));
+        return FansHubOgGateway::formatTransactionId($raw);
+    }
+
+    /**
      * 拉取 OG 转账历史并与本站 fans_og_transfer 同步
      *
      * @param array{fetch_id?:int,limit?:int,transaction_id?:string,sync?:bool} $opts

@@ -31,6 +31,7 @@ define(['jquery', 'bootstrap', 'backend', 'form'], function ($, undefined, Backe
             bindTest($('#og-test-history'), 'history');
             bindTest($('#og-test-gamelist'), 'gamelist');
             bindTest($('#og-test-betlimit'), 'betlimit');
+            bindTest($('#og-test-launch'), 'launch');
         }
     };
     return Controller;
