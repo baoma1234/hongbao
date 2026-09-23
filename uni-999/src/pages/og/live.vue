@@ -1,6 +1,6 @@
 <template>
   <ProfileSubPage title="OG视讯（内测）" body-class="hb-sub og-live-body">
-    <view class="og-tip">内测页，未挂大厅。点「视讯」后可选进入游戏或提出金额。</view>
+    <view class="og-tip">内测页，未挂大厅。进入游戏会自动转入全部红宝；提出会全部提回本站。</view>
 
     <view class="og-card" @click="openSheet">
       <view class="og-card-badge">LIVE</view>
@@ -15,7 +15,6 @@
 
     <view class="og-refresh" @click="refreshAll">刷新余额</view>
 
-    <!-- 操作弹层 -->
     <view class="og-mask" :class="{ 'is-open': sheetOpen }" @click="closeSheet">
       <view class="og-sheet" @click.stop>
         <view class="og-sheet-title">OG 视讯</view>
@@ -24,22 +23,14 @@
           <text class="og-sheet-sep">｜</text>
           <text>本站红宝 <strong>{{ hbText }}</strong></text>
         </view>
-        <view class="og-sheet-field">
-          <text class="og-lab">金额（提出 / 存入）</text>
-          <input
-            class="hb-input og-input"
-            type="digit"
-            v-model="amount"
-            placeholder="请输入金额"
-          />
-        </view>
+        <view class="og-sheet-hint">进入：全部红宝自动转入 OG 再开游戏<br />提出：OG 余额全部提回红宝</view>
         <button
           type="button"
           class="og-btn primary"
           :disabled="busy"
           @click="onEnterGame"
         >
-          {{ busyLaunch ? '进入中…' : '进入游戏' }}
+          {{ busyLaunch ? '进入中…' : ('进入游戏' + (hbNum > 0 ? '（转入 ' + hbText + '）' : '')) }}
         </button>
         <button
           type="button"
@@ -47,15 +38,7 @@
           :disabled="busy"
           @click="onWithdraw"
         >
-          {{ busyWithdraw ? '提出中…' : '提出金额' }}
-        </button>
-        <button
-          type="button"
-          class="og-btn ghost"
-          :disabled="busy"
-          @click="onDeposit"
-        >
-          {{ busyDeposit ? '存入中…' : '存入 OG（红宝→视讯）' }}
+          {{ busyWithdraw ? '提出中…' : ('提出全部' + (ogNum > 0 ? '（' + ogBalText + '）' : '')) }}
         </button>
         <button type="button" class="og-btn close" :disabled="busy" @click="closeSheet">关闭</button>
       </view>
@@ -80,22 +63,27 @@ import {
 import '../../styles/hb.css'
 
 const sheetOpen = ref(false)
-const amount = ref('')
 const ogBal = ref('0.00')
 const hongbao = ref(0)
-const playerId = ref('')
 const busyLaunch = ref(false)
 const busyWithdraw = ref(false)
-const busyDeposit = ref(false)
 
-const busy = computed(
-  () => busyLaunch.value || busyWithdraw.value || busyDeposit.value
-)
-const ogBalText = computed(() => String(ogBal.value || '0.00'))
-const hbText = computed(() => {
-  const n = Number(hongbao.value)
-  return Number.isFinite(n) ? n.toFixed(2) : '0.00'
-})
+const busy = computed(() => busyLaunch.value || busyWithdraw.value)
+const ogBalText = computed(() => money2(ogBal.value))
+const hbText = computed(() => money2(hongbao.value))
+const ogNum = computed(() => round2(ogBal.value))
+const hbNum = computed(() => round2(hongbao.value))
+
+function round2(v) {
+  const n = Number(v)
+  if (!Number.isFinite(n) || n <= 0) return 0
+  return Math.floor(n * 100 + 1e-8) / 100
+}
+
+function money2(v) {
+  const n = round2(v)
+  return n.toFixed(2)
+}
 
 function ensureLogin() {
   if (getToken()) return true
@@ -112,7 +100,6 @@ async function refreshAll() {
     const data = await ogBalance()
     ogBal.value = String(data?.current_balance ?? data?.og_balance ?? '0.00')
     hongbao.value = Number(data?.hongbao ?? 0) || 0
-    playerId.value = String(data?.player_id || '')
   } catch (e) {
     uni.showToast({ title: (e && e.message) || '余额查询失败', icon: 'none' })
   }
@@ -129,15 +116,6 @@ function closeSheet() {
   sheetOpen.value = false
 }
 
-function parseAmount() {
-  const n = Number(amount.value)
-  if (!(n > 0)) {
-    uni.showToast({ title: '请输入有效金额', icon: 'none' })
-    return 0
-  }
-  return n
-}
-
 async function resolveGameId() {
   try {
     const list = await ogGameList({ refresh: false })
@@ -150,12 +128,21 @@ async function resolveGameId() {
   }
 }
 
+/** 进入游戏：红宝有余额则全部转入 OG，再开游戏 */
 async function onEnterGame() {
   if (!ensureLogin() || busy.value) return
   busyLaunch.value = true
   try {
     await ogRegister()
-    let gameId = await resolveGameId()
+    await refreshAll()
+    const dep = hbNum.value
+    if (dep > 0) {
+      const ret = await ogDeposit(dep)
+      ogBal.value = String(ret?.balance ?? ogBal.value)
+      if (ret?.hongbao != null) hongbao.value = Number(ret.hongbao) || 0
+      notifyProfileUpdated()
+    }
+    const gameId = await resolveGameId()
     const ret = await ogLaunch(gameId > 0 ? { game_id: gameId } : {})
     const link = String(ret?.game_link || '').trim()
     if (!link) {
@@ -180,44 +167,27 @@ async function onEnterGame() {
   }
 }
 
+/** 提出：OG 余额全部提回本站红宝 */
 async function onWithdraw() {
   if (!ensureLogin() || busy.value) return
-  const n = parseAmount()
-  if (!n) return
   busyWithdraw.value = true
   try {
-    const ret = await ogWithdraw(n)
-    ogBal.value = String(ret?.balance ?? ogBal.value)
+    await refreshAll()
+    const amt = ogNum.value
+    if (!(amt > 0)) {
+      uni.showToast({ title: 'OG 无可提出余额', icon: 'none' })
+      return
+    }
+    const ret = await ogWithdraw(amt)
+    ogBal.value = String(ret?.balance ?? '0.00')
     if (ret?.hongbao != null) hongbao.value = Number(ret.hongbao) || 0
     notifyProfileUpdated()
-    amount.value = ''
-    uni.showToast({ title: '提出成功', icon: 'success' })
+    uni.showToast({ title: '已全部提出', icon: 'success' })
     await refreshAll()
   } catch (e) {
     uni.showToast({ title: (e && e.message) || '提出失败', icon: 'none' })
   } finally {
     busyWithdraw.value = false
-  }
-}
-
-async function onDeposit() {
-  if (!ensureLogin() || busy.value) return
-  const n = parseAmount()
-  if (!n) return
-  busyDeposit.value = true
-  try {
-    await ogRegister()
-    const ret = await ogDeposit(n)
-    ogBal.value = String(ret?.balance ?? ogBal.value)
-    if (ret?.hongbao != null) hongbao.value = Number(ret.hongbao) || 0
-    notifyProfileUpdated()
-    amount.value = ''
-    uni.showToast({ title: '存入成功', icon: 'success' })
-    await refreshAll()
-  } catch (e) {
-    uni.showToast({ title: (e && e.message) || '存入失败', icon: 'none' })
-  } finally {
-    busyDeposit.value = false
   }
 }
 
@@ -322,7 +292,7 @@ onShow(() => {
   text-align: center;
   font-size: 24rpx;
   color: rgba(255, 255, 255, 0.7);
-  margin-bottom: 28rpx;
+  margin-bottom: 16rpx;
 }
 .og-sheet-bal strong {
   color: #d4af37;
@@ -332,18 +302,12 @@ onShow(() => {
   margin: 0 8rpx;
   opacity: 0.4;
 }
-.og-sheet-field {
+.og-sheet-hint {
+  text-align: center;
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.55;
   margin-bottom: 24rpx;
-}
-.og-lab {
-  display: block;
-  font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.55);
-  margin-bottom: 10rpx;
-}
-.og-input {
-  width: 100%;
-  box-sizing: border-box;
 }
 .og-btn {
   width: 100%;
@@ -366,13 +330,6 @@ onShow(() => {
   background: #2a3548;
   color: #f5e6c8;
   border: 1px solid rgba(212, 175, 55, 0.45);
-}
-.og-btn.ghost {
-  background: transparent;
-  color: rgba(255, 255, 255, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  font-weight: 500;
-  font-size: 26rpx;
 }
 .og-btn.close {
   background: transparent;
