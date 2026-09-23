@@ -21,6 +21,70 @@ class FansHubOg
     }
 
     /**
+     * 从 OG player_id 反查本站 user_id
+     * 优先 fans_og_player；否则解析约定格式 u + 补零 UID
+     */
+    public static function userIdFromPlayerId($playerId)
+    {
+        $pid = trim((string)$playerId);
+        if ($pid === '') {
+            return 0;
+        }
+        static $cache = [];
+        $key = strtolower($pid);
+        if (array_key_exists($key, $cache)) {
+            return $cache[$key];
+        }
+
+        $uid = 0;
+        try {
+            $row = Db::name('fans_og_player')->where('player_id', $pid)->find();
+            if (!$row) {
+                $row = Db::name('fans_og_player')
+                    ->whereRaw('LOWER(player_id) = ?', [$key])
+                    ->find();
+            }
+            if ($row) {
+                $uid = (int)($row['user_id'] ?? 0);
+            }
+        } catch (\Throwable $e) {
+            $uid = 0;
+        }
+
+        if ($uid <= 0 && preg_match('/^u0*([1-9]\d*)$/i', $pid, $m)) {
+            $cand = (int)$m[1];
+            if ($cand > 0 && strcasecmp(self::playerIdForUser($cand), $pid) === 0) {
+                try {
+                    $exists = (int)Db::name('user')->where('id', $cand)->value('id');
+                    if ($exists > 0) {
+                        $uid = $cand;
+                    }
+                } catch (\Throwable $e) {
+                    // ignore
+                }
+            }
+        }
+
+        // 宽松：u + 数字（无严格补零），且本站确有该用户
+        if ($uid <= 0 && preg_match('/^u(\d+)$/i', $pid, $m)) {
+            $cand = (int)$m[1];
+            if ($cand > 0) {
+                try {
+                    $exists = (int)Db::name('user')->where('id', $cand)->value('id');
+                    if ($exists > 0) {
+                        $uid = $cand;
+                    }
+                } catch (\Throwable $e) {
+                    // ignore
+                }
+            }
+        }
+
+        $cache[$key] = $uid;
+        return $uid;
+    }
+
+    /**
      * 与前端 profile.nickname 对齐：仅保留字母数字下划线；
      * 中文昵称无法直接用时回退 n{userId}
      */
@@ -990,6 +1054,8 @@ class FansHubOg
             self::setSyncValue('bet_fetch_id', (string)$finalCursor);
         }
 
+        $relinked = self::relinkUnmappedBets(5000);
+
         return [
             'ok'            => true,
             'rs_code'       => $lastCode,
@@ -997,6 +1063,7 @@ class FansHubOg
             'pages'         => $pages,
             'fetched'       => $fetched,
             'upserted'      => $upserted,
+            'relinked'      => $relinked,
             'fetch_id'      => (int)$cursorBefore,
             'last_fetch_id' => $finalCursor,
             'game_type_id'  => $gameTypeId,
@@ -1050,13 +1117,12 @@ class FansHubOg
             }
         }
         $uidMap = [];
-        if ($playerIds) {
-            try {
-                $uidMap = Db::name('fans_og_player')
-                    ->where('player_id', 'in', array_values($playerIds))
-                    ->column('user_id', 'player_id');
-            } catch (\Throwable $e) {
-                $uidMap = [];
+        foreach ($playerIds as $pid) {
+            $uid = self::userIdFromPlayerId($pid);
+            if ($uid > 0) {
+                $uidMap[strtolower($pid)] = $uid;
+                // 补映射，便于后台关联与后续精确匹配
+                self::ensurePlayerMap($uid, $pid);
             }
         }
 
@@ -1069,7 +1135,10 @@ class FansHubOg
                 continue;
             }
             $pid = trim((string)($row['player_id'] ?? ''));
-            $uid = (int)($uidMap[$pid] ?? 0);
+            $uid = (int)($uidMap[strtolower($pid)] ?? 0);
+            if ($uid <= 0 && $pid !== '') {
+                $uid = self::userIdFromPlayerId($pid);
+            }
             $secondary = $row['secondary_info'] ?? [];
             $other = $row['other_info'] ?? [];
             $remark = $row['remark'] ?? '';
@@ -1110,6 +1179,10 @@ class FansHubOg
             try {
                 $exist = Db::name('fans_og_bet')->where('transaction_id', $txid)->find();
                 if ($exist) {
+                    // 已有单：若原先未挂上账号则补 user_id
+                    if ((int)($exist['user_id'] ?? 0) > 0 && $uid <= 0) {
+                        unset($data['user_id']);
+                    }
                     Db::name('fans_og_bet')->where('id', (int)$exist['id'])->update($data);
                 } else {
                     $data['createtime'] = $debitAt > 0 ? $debitAt : $now;
@@ -1121,6 +1194,98 @@ class FansHubOg
             }
         }
         return $n;
+    }
+
+    /**
+     * 把 user_id=0 的历史注单按 player_id 挂回本站账号
+     */
+    public static function relinkUnmappedBets($limit = 5000)
+    {
+        $limit = max(1, min(20000, (int)$limit));
+        $n = 0;
+        try {
+            $rows = Db::name('fans_og_bet')
+                ->where('user_id', 0)
+                ->where('player_id', '<>', '')
+                ->order('id', 'asc')
+                ->limit($limit)
+                ->select();
+        } catch (\Throwable $e) {
+            return 0;
+        }
+        $now = time();
+        foreach ((array)$rows as $row) {
+            $id = (int)($row['id'] ?? 0);
+            $pid = trim((string)($row['player_id'] ?? ''));
+            if ($id <= 0 || $pid === '') {
+                continue;
+            }
+            $uid = self::userIdFromPlayerId($pid);
+            if ($uid <= 0) {
+                continue;
+            }
+            try {
+                Db::name('fans_og_bet')->where('id', $id)->update([
+                    'user_id'    => $uid,
+                    'updatetime' => $now,
+                ]);
+                self::ensurePlayerMap($uid, $pid);
+                $n++;
+            } catch (\Throwable $e) {
+                // ignore
+            }
+        }
+        return $n;
+    }
+
+    /**
+     * 确保 fans_og_player 有映射（投注回填时可补）
+     */
+    protected static function ensurePlayerMap($userId, $playerId)
+    {
+        $uid = (int)$userId;
+        $pid = trim((string)$playerId);
+        if ($uid <= 0 || $pid === '') {
+            return;
+        }
+        $now = time();
+        try {
+            $byUser = Db::name('fans_og_player')->where('user_id', $uid)->find();
+            if ($byUser) {
+                $upd = ['updatetime' => $now];
+                if (trim((string)($byUser['player_id'] ?? '')) === '') {
+                    $upd['player_id'] = $pid;
+                }
+                if ((string)($byUser['status'] ?? '') === '') {
+                    $upd['status'] = 'registered';
+                }
+                Db::name('fans_og_player')->where('user_id', $uid)->update($upd);
+                return;
+            }
+            $byPid = Db::name('fans_og_player')->where('player_id', $pid)->find();
+            if ($byPid) {
+                if ((int)($byPid['user_id'] ?? 0) <= 0) {
+                    Db::name('fans_og_player')->where('id', (int)$byPid['id'])->update([
+                        'user_id'    => $uid,
+                        'updatetime' => $now,
+                    ]);
+                }
+                return;
+            }
+            Db::name('fans_og_player')->insert([
+                'user_id'        => $uid,
+                'player_id'      => $pid,
+                'og_nickname'    => self::nicknameForUser($uid),
+                'status'         => 'registered',
+                'last_rs_code'   => 'S-100',
+                'last_rs_message'=> 'bet-sync map',
+                'registered_at'  => $now,
+                'createtime'     => $now,
+                'updatetime'     => $now,
+            ]);
+        } catch (\Throwable $e) {
+            // ignore unique conflicts
+        }
     }
 
     protected static function getSyncValue($name, $default = '')

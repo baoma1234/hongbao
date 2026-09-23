@@ -18,6 +18,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                     {field: 'id', title: 'ID', operate: false},
                     {field: 'fetch_id', title: 'fetch_id', operate: 'BETWEEN'},
                     {field: 'user_id', title: 'UID', operate: '='},
+                    {field: 'user.nickname', title: '昵称', operate: 'LIKE'},
                     {field: 'user.mobile', title: '手机', operate: 'LIKE'},
                     {field: 'player_id', title: 'player_id', operate: 'LIKE'},
                     {field: 'transaction_id', title: '注单号', operate: 'LIKE', formatter: Table.api.formatter.search},
@@ -56,6 +57,20 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                 Backend.api.ajax({
                     url: 'fanshub/ogbet/syncnow',
                     data: {max_pages: 3}
+                }, function () {
+                    Layer.close(loadIdx);
+                    table.bootstrapTable('refresh');
+                    return true;
+                }, function () {
+                    Layer.close(loadIdx);
+                });
+            });
+
+            $(document).on('click', '.btn-relink', function () {
+                var loadIdx = Layer.load(1);
+                Backend.api.ajax({
+                    url: 'fanshub/ogbet/relink',
+                    data: {}
                 }, function () {
                     Layer.close(loadIdx);
                     table.bootstrapTable('refresh');

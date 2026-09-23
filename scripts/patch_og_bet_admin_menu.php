@@ -49,6 +49,7 @@ $betId = ensureMenu(
 ensureMenu($pdo, $insert, $rule, $betId, 'fanshub/ogbet/index', '查看', 'fa fa-circle-o', 0, 0, $now);
 ensureMenu($pdo, $insert, $rule, $betId, 'fanshub/ogbet/detail', '详情', 'fa fa-circle-o', 0, 0, $now);
 ensureMenu($pdo, $insert, $rule, $betId, 'fanshub/ogbet/syncnow', '立即同步', 'fa fa-circle-o', 0, 0, $now);
+ensureMenu($pdo, $insert, $rule, $betId, 'fanshub/ogbet/relink', '回填账号', 'fa fa-circle-o', 0, 0, $now);
 
 $group = $pdo->query("SELECT id,rules FROM {$prefix}auth_group WHERE id=1 LIMIT 1")->fetch(PDO::FETCH_ASSOC);
 if ($group) {
@@ -56,7 +57,7 @@ if ($group) {
     $need = $pdo->query(
         "SELECT id FROM {$rule} WHERE name IN (
             'fanshub_thirdgame',
-            'fanshub/ogbet','fanshub/ogbet/index','fanshub/ogbet/detail','fanshub/ogbet/syncnow'
+            'fanshub/ogbet','fanshub/ogbet/index','fanshub/ogbet/detail','fanshub/ogbet/syncnow','fanshub/ogbet/relink'
         )"
     )->fetchAll(PDO::FETCH_COLUMN);
     $changed = false;

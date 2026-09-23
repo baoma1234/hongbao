@@ -97,10 +97,27 @@ class Ogbet extends Backend
         $this->success(
             '同步完成：抓取 ' . (int)($ret['fetched'] ?? 0)
             . ' / 写入 ' . (int)($ret['upserted'] ?? 0)
+            . ' / 挂账号 ' . (int)($ret['relinked'] ?? 0)
             . ' / 游标 ' . (string)($ret['last_fetch_id'] ?? ''),
             null,
             $ret
         );
+    }
+
+    /**
+     * 仅把未挂账号的注单按 player_id 回填 user_id
+     */
+    public function relink()
+    {
+        if (!$this->request->isPost()) {
+            $this->error('非法请求');
+        }
+        try {
+            $n = FansHubOg::relinkUnmappedBets(10000);
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: '回填失败');
+        }
+        $this->success('已挂回账号 ' . (int)$n . ' 条', null, ['relinked' => $n]);
     }
 
     public function detail($ids = null)
