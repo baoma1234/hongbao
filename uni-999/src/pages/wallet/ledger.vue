@@ -48,6 +48,16 @@
             {{ typeTitle(item) }}
           </view>
           <view class="wallet-ledger-sub" v-if="item.remark && item.remark !== typeTitle(item)">{{ item.remark }}</view>
+          <view
+            v-if="copyableOf(item)"
+            class="wallet-ledger-copy"
+            hover-class="wallet-ledger-copy-hit"
+            @click.stop="onCopyLedgerNo(item)"
+          >
+            <text class="wallet-ledger-copy-lab">{{ copyableOf(item).label }}</text>
+            <text class="wallet-ledger-copy-no" selectable>{{ copyableOf(item).value }}</text>
+            <text class="wallet-ledger-copy-btn">复制</text>
+          </view>
           <view class="wallet-ledger-time">
             {{ formatLedgerTime(item) }}
           </view>
@@ -93,12 +103,9 @@ import { ref, computed } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { getToken } from '../../utils/auth.js'
 import { fetchLedger, ledgerAmountText, money } from '../../utils/wallet.js'
+import { copyText } from '../../utils/master.js'
 import { tt } from '../../utils/i18n.js'
 import '../../styles/hb.css'
-
-function goBack() {
-  safeNavigateBack(HOME_TAB)
-}
 
 function typeTitle(item) {
   const type = String((item && item.type) || '')
@@ -224,6 +231,52 @@ function amountText(item) {
 function amountCls(item) {
   return ledgerAmountText(item, { category: category.value }).cls
 }
+
+/** 从流水项提取可复制的订单号 / 红宝号（有则显示复制钮） */
+function copyableOf(item) {
+  if (!item) return null
+  const packetNo = String(item.packet_no || '').trim()
+  if (packetNo) return { value: packetNo, label: '红宝号' }
+
+  const remark = String(item.remark || '')
+  let m = remark.match(/红宝号\s*[:：]\s*([A-Za-z0-9_\-]+)/)
+  if (m && m[1]) return { value: String(m[1]).trim(), label: '红宝号' }
+
+  m = remark.match(/订单号\s*[:：]?\s*([A-Za-z0-9_\-]+)/)
+  if (m && m[1]) return { value: String(m[1]).trim(), label: '订单号' }
+
+  m = remark.match(/(?:order[_-]?no|OrderNo)\s*[:：=]?\s*([A-Za-z0-9_\-]+)/i)
+  if (m && m[1]) return { value: String(m[1]).trim(), label: '订单号' }
+
+  const biz = String(item.biz_no || '').trim()
+  if (!biz || biz.length < 4) return null
+  const typ = String(item.type || '')
+  if (typ.indexOf('red_packet') === 0) return { value: biz, label: '红宝号' }
+  if (
+    typ === 'recharge' ||
+    typ === 'withdraw' ||
+    typ === 'withdraw_refund' ||
+    typ.indexOf('og_') === 0
+  ) {
+    return { value: biz, label: '订单号' }
+  }
+  // 其它带 biz_no 的流水一律可复制
+  return { value: biz, label: /红宝|packet/i.test(remark) ? '红宝号' : '订单号' }
+}
+
+function onCopyLedgerNo(item) {
+  const meta = copyableOf(item)
+  if (!meta || !meta.value) return
+  // 同步手势内复制（Safari / IPA H5 书签要求）
+  copyText(meta.value)
+    .then(() => {
+      uni.showToast({ title: meta.label + '已复制', icon: 'none' })
+    })
+    .catch(() => {
+      uni.showToast({ title: '复制失败，请长按号码复制', icon: 'none' })
+    })
+}
+
 function afterText(item) {
   const rights = parseFloat(item && item.rights_change) || 0
   // 股份 Tab：结余只看股份
@@ -462,5 +515,48 @@ onShow(() => {
   color: #c62828;
   line-height: 1.2;
   white-space: nowrap;
+}
+.wallet-ledger-copy {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.wallet-ledger-copy-hit {
+  opacity: 0.72;
+}
+.wallet-ledger-copy-lab {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: #8a94a6;
+  line-height: 1.2;
+}
+.wallet-ledger-copy-no {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #2c3340;
+  line-height: 1.3;
+  word-break: break-all;
+  /* H5 / Safari 长按选中兜底 */
+  -webkit-user-select: text;
+  user-select: text;
+}
+.wallet-ledger-copy-btn {
+  flex-shrink: 0;
+  padding: 2px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(198, 40, 40, 0.35);
+  background: rgba(198, 40, 40, 0.08);
+  color: #c62828;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.4;
 }
 </style>
