@@ -659,6 +659,64 @@ class FansHubOg
     }
 
     /**
+     * 查询当前用户 OG 筹码余额（可先 ensureRegistered）
+     *
+     * @param array{ensure_register?:bool} $opts
+     * @return array<string,mixed>
+     */
+    public static function balanceForUser($userId, array $opts = [])
+    {
+        if (!FansHubOgGateway::isEnabled()) {
+            throw new \RuntimeException('OG视讯未开启');
+        }
+        if (!FansHubOgGateway::credentialsReady()) {
+            throw new \RuntimeException('OG商户配置不完整');
+        }
+
+        $uid = (int)$userId;
+        $ensure = !isset($opts['ensure_register']) || !empty($opts['ensure_register']);
+        if ($ensure) {
+            $snap = self::ensureRegistered($uid);
+            $playerId = (string)$snap['player_id'];
+        } else {
+            $playerId = self::playerIdForUser($uid);
+        }
+
+        $ret = FansHubOgGateway::getBalance($playerId);
+
+        // S-104：强制注册后再查一次
+        if (!empty($ret['player_missing']) || (string)($ret['rs_code'] ?? '') === 'S-104') {
+            self::clearPlayerRegistered($uid);
+            try {
+                $snap = self::ensureRegistered($uid, true);
+                $playerId = (string)$snap['player_id'];
+                $ret = FansHubOgGateway::getBalance($playerId);
+            } catch (\Throwable $e) {
+                throw new \RuntimeException('OG余额查询失败：玩家不可用（S-104）');
+            }
+        }
+
+        if (empty($ret['ok'])) {
+            $code = (string)($ret['rs_code'] ?? '');
+            $msg = (string)($ret['rs_message'] ?? FansHubOgGateway::getLastError());
+            throw new \RuntimeException(
+                'OG余额查询失败：' . trim(($code !== '' ? $code . ' ' : '') . $msg)
+            );
+        }
+
+        $account = FansHubService::getOrCreateAccount($uid);
+        return [
+            'user_id'         => $uid,
+            'player_id'       => (string)($ret['player_id'] ?? $playerId),
+            'current_balance' => (string)($ret['current_balance'] ?? '0'),
+            'og_balance'      => (string)($ret['current_balance'] ?? '0'),
+            'hongbao'         => round((float)($account->hongbao ?? 0), 2),
+            'rs_code'         => (string)($ret['rs_code'] ?? ''),
+            'rs_message'      => (string)($ret['rs_message'] ?? ''),
+        ];
+    }
+
+    /**
      * 拉取 OG 转账历史并与本站 fans_og_transfer 同步
      *
      * @param array{fetch_id?:int,limit?:int,transaction_id?:string,sync?:bool} $opts

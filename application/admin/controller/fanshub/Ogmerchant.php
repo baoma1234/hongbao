@@ -490,6 +490,63 @@ class Ogmerchant extends Backend
         }
     }
 
+    /**
+     * 测试：玩家余额
+     */
+    public function testbalance()
+    {
+        if (!$this->request->isPost()) {
+            $this->error('非法请求');
+        }
+        $playerId = trim((string)$this->request->post('player_id', ''));
+        if ($playerId === '') {
+            $this->error('请填写 player_id');
+        }
+
+        $backup = ThinkConfig::get('fanshub') ?: [];
+        $cfg = is_array($backup) ? $backup : [];
+        foreach ($this->ogFields() as $field) {
+            if ($this->request->has($field, 'post')) {
+                $val = $this->request->post($field);
+                if (in_array($field, ['og_enabled', 'og_sandbox'], true)) {
+                    $cfg[$field] = $val ? true : false;
+                } elseif (in_array($field, ['og_timeout', 'og_default_game_id', 'og_default_betlimit'], true)) {
+                    $cfg[$field] = (int)$val;
+                } else {
+                    $cfg[$field] = trim((string)$val);
+                }
+            }
+        }
+        $cfg['og_enabled'] = true;
+        ThinkConfig::set('fanshub', $cfg);
+        try {
+            $ret = FansHubOgGateway::getBalance($playerId);
+            $extra = [
+                'request'  => FansHubOgGateway::getLastRequest(),
+                'response' => FansHubOgGateway::getLastResponse(),
+                'data'     => $ret,
+            ];
+            if (!empty($ret['ok'])) {
+                $this->success(
+                    '余额：' . ($ret['rs_code'] ?? '') . ' player=' . ($ret['player_id'] ?? '')
+                    . ' current_balance=' . ($ret['current_balance'] ?? ''),
+                    null,
+                    $extra
+                );
+            }
+            $this->error(
+                '余额失败：' . (($ret['rs_code'] ?? '') !== '' ? ($ret['rs_code'] . ' ') : '')
+                . ($ret['rs_message'] ?? FansHubOgGateway::getLastError() ?: 'unknown'),
+                null,
+                $extra
+            );
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage());
+        } finally {
+            ThinkConfig::set('fanshub', $backup);
+        }
+    }
+
     public function save()
     {
         if (!$this->request->isPost()) {

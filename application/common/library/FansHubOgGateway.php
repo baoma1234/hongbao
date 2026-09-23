@@ -746,6 +746,59 @@ class FansHubOgGateway
     }
 
     /**
+     * 玩家余额 GET /api/v2/platform/transfer-wallet/get-balance
+     *
+     * - S-100 success + current_balance
+     * - S-104 player not available
+     *
+     * @return array{ok:bool,rs_code:string,rs_message:string,player_id:string,current_balance:string,player_missing?:bool,raw?:mixed}
+     */
+    public static function getBalance($playerId)
+    {
+        self::$lastError = '';
+        self::$lastResponse = null;
+        self::$lastRequest = null;
+
+        if (!self::credentialsReady()) {
+            self::$lastError = 'OG 商户配置不完整（运营商名称/公匙/私钥/网关）';
+            return [
+                'ok'              => false,
+                'rs_code'         => '',
+                'rs_message'      => self::$lastError,
+                'player_id'       => '',
+                'current_balance' => '',
+            ];
+        }
+
+        $pid = self::formatPlayerToken($playerId);
+        $ret = self::request('GET', '/api/v2/platform/transfer-wallet/get-balance', [
+            'player_id' => $pid,
+        ], [
+            'sign'         => false,
+            'content_type' => 'query',
+        ]);
+        $code = (string)($ret['rs_code'] ?? '');
+        $msg = (string)($ret['rs_message'] ?? '');
+        $balance = isset($ret['current_balance']) ? (string)$ret['current_balance'] : '';
+        $ok = ($code === 'S-100');
+        if (!$ok && $msg === '' && self::$lastError !== '') {
+            $msg = self::$lastError;
+        }
+        if ($msg === '' && $ok) {
+            $msg = 'success';
+        }
+        return [
+            'ok'              => $ok,
+            'rs_code'         => $code,
+            'rs_message'      => $msg !== '' ? $msg : 'get-balance failed',
+            'player_id'       => (string)($ret['player_id'] ?? $pid),
+            'current_balance' => $balance,
+            'player_missing'  => $code === 'S-104',
+            'raw'             => $ret,
+        ];
+    }
+
+    /**
      * @param array<string,mixed> $body
      * @param array{sign?:bool,content_type?:string,sign_params?:array} $opts
      * @return array<string,mixed>

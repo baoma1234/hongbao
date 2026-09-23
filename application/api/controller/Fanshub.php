@@ -1265,6 +1265,21 @@ class Fanshub extends Api
     }
 
     /**
+     * OG视讯：玩家 OG 筹码余额
+     * GET/POST /api/fanshub/ogbalance
+     */
+    public function ogbalance()
+    {
+        try {
+            $this->success('ok', \app\common\library\FansHubOg::balanceForUser($this->auth->id));
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: 'OG余额查询失败');
+        }
+    }
+
+    /**
      * 资金流水列表
      */
     public function walletledger()

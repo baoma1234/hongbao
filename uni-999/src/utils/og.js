@@ -111,3 +111,11 @@ export function ogLaunch(opts = {}) {
   if (extra) body.extra = extra
   return apiRequest('oglaunch', 'POST', body)
 }
+
+/**
+ * 查询当前用户 OG 筹码余额（顺带返回本站 hongbao）
+ * @returns {Promise<{player_id:string,current_balance:string,og_balance:string,hongbao:number}>}
+ */
+export function ogBalance() {
+  return apiRequest('ogbalance', 'POST', {})
+}

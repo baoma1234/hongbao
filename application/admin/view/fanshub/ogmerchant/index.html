@@ -366,5 +366,25 @@
                 </div>
             </fieldset>
         </form>
+
+        <hr>
+        <form id="og-test-balance" class="form-horizontal" role="form" method="POST" action="{:url('fanshub.ogmerchant/testbalance')}">
+            <fieldset>
+                <legend>联调：玩家余额</legend>
+                <p class="help-block" style="padding-left:15px;">调用 <code>GET /api/v2/platform/transfer-wallet/get-balance</code>。S-100 返回 <code>current_balance</code>；S-104 玩家不可用。正式：<code>/api/fanshub/ogbalance</code>。</p>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">player_id</label>
+                    <div class="col-xs-12 col-sm-6">
+                        <input type="text" class="form-control" name="player_id" placeholder="须已注册" autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2"></label>
+                    <div class="col-xs-12 col-sm-8">
+                        <button type="submit" class="btn btn-success btn-embossed">查询余额</button>
+                    </div>
+                </div>
+            </fieldset>
+        </form>
     </div>
 </div>
