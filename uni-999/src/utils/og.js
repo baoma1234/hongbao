@@ -21,6 +21,8 @@ export function ogRegister() {
 /**
  * 从本站红宝存入 OG
  * @param {number|string} amount
+ * @returns {Promise<{transaction_id:string,transfer_amount:string,balance:string,hongbao:number,rs_code:string}>}
+ * 成功 rs_code=S-100（或 S-101 重复已入账）；失败抛错（含 S-104 等）
  */
 export function ogDeposit(amount) {
   const n = Number(amount)

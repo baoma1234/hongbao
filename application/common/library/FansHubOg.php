@@ -73,9 +73,10 @@ class FansHubOg
     /**
      * 确保已在 OG 注册（对齐前端当前用户）
      *
+     * @param bool $force 忽略本地已注册缓存，重新调 register
      * @return array<string,mixed>
      */
-    public static function ensureRegistered($userId)
+    public static function ensureRegistered($userId, $force = false)
     {
         if (!FansHubOgGateway::isEnabled()) {
             throw new \RuntimeException('OG视讯未开启');
@@ -85,7 +86,7 @@ class FansHubOg
         }
 
         $snap = self::playerSnapshot($userId);
-        if (!empty($snap['registered'])) {
+        if (!$force && !empty($snap['registered'])) {
             $snap['just_registered'] = false;
             $snap['rs_code'] = 'S-121';
             $snap['rs_message'] = 'already registered locally';
@@ -109,7 +110,12 @@ class FansHubOg
 
     /**
      * 玩家转账 · 存入：扣本站红宝 → OG deposit
-     * 失败自动退回红宝
+     *
+     * 响应码：
+     * - S-100 成功（含 balance）
+     * - S-101 流水重复 → 视为已入账，不退款
+     * - S-104 玩家不可用 → 强制重注册后重试一次；仍失败则退款
+     * - 其它失败 → 退回红宝
      *
      * @return array<string,mixed>
      */
@@ -145,7 +151,6 @@ class FansHubOg
         $transferId = 0;
         Db::startTrans();
         try {
-            // 占位流水（唯一 transaction_id）
             $transferId = (int)Db::name('fans_og_transfer')->insertGetId([
                 'user_id'         => $uid,
                 'player_id'       => $playerId,
@@ -158,7 +163,16 @@ class FansHubOg
                 'createtime'      => $now,
                 'updatetime'      => $now,
             ]);
-            FansHubService::changeAssets($uid, 0, 0, 'og_deposit', 'OG视讯存入 ' . $txid, 0, 'og', -$amt);
+            FansHubService::changeAssets(
+                $uid,
+                0,
+                0,
+                'og_deposit',
+                'OG视讯存入 ' . $txid,
+                0,
+                'og',
+                -$amt
+            );
             Db::commit();
         } catch (\Throwable $e) {
             Db::rollback();
@@ -166,33 +180,58 @@ class FansHubOg
         }
 
         $ret = FansHubOgGateway::deposit($playerId, $amt, $txid);
+
+        // S-104：玩家不可用 → 强制注册后同 transaction_id 重试一次
+        if (!empty($ret['player_missing']) || (string)($ret['rs_code'] ?? '') === 'S-104') {
+            self::clearPlayerRegistered($uid);
+            try {
+                self::ensureRegistered($uid, true);
+                $ret = FansHubOgGateway::deposit($playerId, $amt, $txid);
+            } catch (\Throwable $e) {
+                $ret = [
+                    'ok'         => false,
+                    'rs_code'    => 'S-104',
+                    'rs_message' => $e->getMessage() ?: 'player not available',
+                    'balance'    => '',
+                ];
+            }
+        }
+
         $ok = !empty($ret['ok']);
         $code = (string)($ret['rs_code'] ?? '');
         $msg = (string)($ret['rs_message'] ?? '');
+        $ogBalance = isset($ret['balance']) ? (string)$ret['balance'] : '';
 
         if ($ok) {
             Db::name('fans_og_transfer')->where('id', $transferId)->update([
                 'status'     => 'success',
                 'rs_code'    => $code,
-                'rs_message' => $msg,
+                'rs_message' => $msg . ($ogBalance !== '' ? (' balance=' . $ogBalance) : ''),
                 'updatetime' => time(),
             ]);
         } else {
-            // OG 失败：退回红宝
             try {
-                FansHubService::changeAssets($uid, 0, 0, 'og_deposit_refund', 'OG存入失败退回 ' . $txid, 0, 'og', $amt);
+                FansHubService::changeAssets(
+                    $uid,
+                    0,
+                    0,
+                    'og_deposit_refund',
+                    'OG存入失败退回 ' . $txid,
+                    0,
+                    'og',
+                    $amt
+                );
             } catch (\Throwable $e) {
-                // 退款失败记日志，仍标记 fail
+                // 退款失败仍标记 fail
             }
+            $friendly = self::depositErrorText($code, $msg);
             Db::name('fans_og_transfer')->where('id', $transferId)->update([
                 'status'     => 'fail',
                 'rs_code'    => $code,
                 'rs_message' => $msg !== '' ? $msg : FansHubOgGateway::getLastError(),
                 'updatetime' => time(),
             ]);
-            throw new \RuntimeException(
-                'OG存入失败：' . ($code !== '' ? $code . ' ' : '') . ($msg !== '' ? $msg : FansHubOgGateway::getLastError())
-            );
+            throw new \RuntimeException($friendly);
         }
 
         $account = FansHubService::getOrCreateAccount($uid);
@@ -203,9 +242,38 @@ class FansHubOg
             'transfer_amount' => FansHubOgGateway::formatAmount($amt),
             'rs_code'         => $code,
             'rs_message'      => $msg,
+            'balance'         => $ogBalance,
+            'og_balance'      => $ogBalance,
             'hongbao'         => round((float)($account->hongbao ?? 0), 2),
             'transfer_id'     => $transferId,
+            'duplicate'       => !empty($ret['duplicate']) || $code === 'S-101',
         ];
+    }
+
+    protected static function depositErrorText($code, $msg)
+    {
+        $code = (string)$code;
+        $msg = trim((string)$msg);
+        if ($code === 'S-104') {
+            return 'OG存入失败：玩家不可用（S-104），请稍后重试';
+        }
+        if ($code === 'S-101') {
+            return 'OG存入失败：流水号重复（S-101）';
+        }
+        $tail = ($code !== '' ? $code . ' ' : '') . ($msg !== '' ? $msg : FansHubOgGateway::getLastError());
+        return 'OG存入失败：' . trim($tail);
+    }
+
+    protected static function clearPlayerRegistered($userId)
+    {
+        try {
+            Db::name('fans_og_player')->where('user_id', (int)$userId)->update([
+                'status'     => 'fail',
+                'updatetime' => time(),
+            ]);
+        } catch (\Throwable $e) {
+            // ignore
+        }
     }
 
     public static function newTransactionId($userId, $prefix = 'd')

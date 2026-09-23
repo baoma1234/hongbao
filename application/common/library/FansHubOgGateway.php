@@ -247,7 +247,12 @@ class FansHubOgGateway
     /**
      * 玩家转账 · 存入（JSON + signature）
      *
-     * @return array{ok:bool,rs_code:string,rs_message:string,transaction_id?:string,transfer_amount?:string,raw?:mixed}
+     * 官方：
+     * - S-100 success + balance
+     * - S-101 transaction is duplicated（同 transaction_id 已成功过）
+     * - S-104 player not available（需先注册）
+     *
+     * @return array{ok:bool,rs_code:string,rs_message:string,balance?:string,transaction_id?:string,transfer_amount?:string,raw?:mixed,duplicate?:bool,player_missing?:bool}
      */
     public static function deposit($playerId, $amount, $transactionId)
     {
@@ -295,17 +300,25 @@ class FansHubOgGateway
         ]);
         $code = (string)($ret['rs_code'] ?? '');
         $msg = (string)($ret['rs_message'] ?? '');
-        $ok = ($code === 'S-100');
+        $balance = isset($ret['balance']) ? (string)$ret['balance'] : '';
+        // S-100 成功；S-101 流水号已存在（视为已入账，勿退款）
+        $ok = ($code === 'S-100' || $code === 'S-101');
         if (!$ok && $msg === '' && self::$lastError !== '') {
             $msg = self::$lastError;
+        }
+        if ($msg === '' && $ok) {
+            $msg = $code === 'S-101' ? 'transaction is duplicated' : 'success';
         }
         return [
             'ok'              => $ok,
             'rs_code'         => $code,
-            'rs_message'      => $msg !== '' ? $msg : ($ok ? 'success' : 'deposit failed'),
+            'rs_message'      => $msg !== '' ? $msg : 'deposit failed',
+            'balance'         => $balance,
             'player_id'       => $pid,
             'transaction_id'  => $txid,
             'transfer_amount' => $amtStr,
+            'duplicate'       => $code === 'S-101',
+            'player_missing'  => $code === 'S-104',
             'raw'             => $ret,
         ];
     }

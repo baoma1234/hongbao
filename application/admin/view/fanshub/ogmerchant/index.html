@@ -160,7 +160,7 @@
         <form id="og-test-deposit" class="form-horizontal" role="form" method="POST" action="{:url('fanshub.ogmerchant/testdeposit')}">
             <fieldset>
                 <legend>联调：玩家转账 · 存入</legend>
-                <p class="help-block" style="padding-left:15px;">调用 <code>POST /api/v2/platform/transfer-wallet/deposit</code>（JSON + signature）。此处仅打 OG，不扣本站红宝；正式走前端 <code>/api/fanshub/ogdeposit</code>。</p>
+                <p class="help-block" style="padding-left:15px;">调用 <code>POST /api/v2/platform/transfer-wallet/deposit</code>（JSON + signature）。S-100 成功（含 balance）；S-101 流水重复视为已入账；S-104 玩家不可用会先重注册再试。后台联调仅打 OG，不扣本站红宝；正式走 <code>/api/fanshub/ogdeposit</code>。</p>
                 <div class="form-group">
                     <label class="control-label col-xs-12 col-sm-2">player_id</label>
                     <div class="col-xs-12 col-sm-6">
