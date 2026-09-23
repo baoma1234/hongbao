@@ -145,7 +145,7 @@ return array (
   // —— OG视讯（三方游戏商户，后台「三方游戏→OG视讯商户配置」）——
   'og_enabled' => true,
   'og_sandbox' => false,
-  'og_merchant_code' => 'ogtestcny',
+  'og_merchant_code' => 'og:cny',
   'og_agent_id' => '',
   'og_api_key' => 'JZFZrerilrHs0Atx05MFdNre9whPuPuf',
   'og_api_secret' => 'U30XdkBiPClDzxe64iedQy0258rzAkns',
@@ -158,7 +158,7 @@ return array (
   'og_callback_url' => 'https://hbsq.bio/api/og/callback',
   'og_return_url' => 'https://hbsq.bio/999/',
   'og_timeout' => 15,
-  'og_remark' => 'operator-name=ogtestcny（og+test+cny；网关不允许冒号/下划线）',
+  'og_remark' => 'operator-name=og:cny（按商户提供；网关对冒号返回 E-104 需对方确认）',
   'og_bet_sync_enabled' => true,
   'og_bet_game_type_id' => 1,
   'og_bet_limit' => 5000,
