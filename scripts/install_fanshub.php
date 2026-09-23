@@ -128,6 +128,7 @@ function installMenus(PDO $pdo, string $prefix): void
         ['pid' => $accountId, 'name' => 'fanshub/account/index', 'title' => '查看'],
         ['pid' => $accountId, 'name' => 'fanshub/account/edit', 'title' => '编辑'],
         ['pid' => $accountId, 'name' => 'fanshub/account/adjust', 'title' => '人工调账'],
+        ['pid' => $accountId, 'name' => 'fanshub/account/ogbalance', 'title' => 'OG余额'],
         ['pid' => $accountId, 'name' => 'fanshub/account/promotemaster', 'title' => '晋升团长'],
         ['pid' => $accountId, 'name' => 'fanshub/account/detail', 'title' => '详情'],
         ['pid' => $ledgerId, 'name' => 'fanshub/ledger/index', 'title' => '查看'],

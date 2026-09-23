@@ -193,6 +193,13 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                             icon: 'fa fa-calculator',
                             url: 'fanshub/account/adjust'
                         }, {
+                            name: 'ogbalance',
+                            text: 'OG余额',
+                            title: '查询 OG 筹码余额',
+                            classname: 'btn btn-xs btn-primary btn-ajax',
+                            icon: 'fa fa-money',
+                            url: 'fanshub/account/ogbalance'
+                        }, {
                             name: 'chatforbid',
                             text: '禁言',
                             title: '聊天禁言',

@@ -5,6 +5,7 @@ namespace app\admin\controller\fanshub;
 use app\admin\library\traits\FanshubExport;
 use app\common\controller\Backend;
 use app\common\library\FansHubMobile;
+use app\common\library\FansHubOg;
 use app\common\library\FansHubPhase2;
 use app\common\library\FansHubService;
 use think\Db;
@@ -514,6 +515,30 @@ class Account extends Backend
             ];
         }
         return $out;
+    }
+
+    /**
+     * 查询用户 OG 视讯筹码余额
+     */
+    public function ogbalance($ids = null)
+    {
+        $row = $this->model->get($ids);
+        if (!$row) {
+            $this->error(__('No Results were found'));
+        }
+        try {
+            $data = FansHubOg::balanceForUser((int)$row->user_id);
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: 'OG余额查询失败');
+        }
+        $bal = (string)($data['current_balance'] ?? '0');
+        $pid = (string)($data['player_id'] ?? '');
+        $hb = isset($data['hongbao']) ? (string)$data['hongbao'] : '';
+        $this->success(
+            'OG余额 ' . $bal . '（player_id=' . $pid . ($hb !== '' ? '，本站红宝=' . $hb : '') . '）',
+            null,
+            $data
+        );
     }
 
     /**
