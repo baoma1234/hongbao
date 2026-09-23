@@ -1,11 +1,7 @@
 <template>
-  <!-- 游戏层：顶栏 + ‹ 返回 + 中间铺满 + 底部导航（H5 iframe / App 子 webview） -->
+  <!-- 游戏层：仅 TopBar + 底栏，中间尽量铺满 -->
   <view v-if="gameUrl" class="hb-page webview-page og-game-page" :style="profileSubPageStyle">
     <TopBar title="OG视讯" />
-    <view class="profile-sub-hd profile-sub-hd--back-only" :style="profileSubHdStyle">
-      <text class="profile-back-btn" @click="closeGame">‹</text>
-      <text class="profile-sub-spacer" />
-    </view>
     <view class="og-game-frame-wrap" :style="frameWrapStyle">
       <!-- #ifdef H5 -->
       <iframe
@@ -92,7 +88,6 @@ import {
 } from '../../utils/og.js'
 import '../../styles/hb.css'
 
-const HD_H = 44
 const TAB_BASE = 56
 const APP_WV_ID = 'og-live-game'
 
@@ -105,7 +100,7 @@ const registered = ref(false)
 const busyLaunch = ref(false)
 const busyWithdraw = ref(false)
 
-const { profileSubHdStyle, profileSubPageStyle, refreshProfileSubLayout } = useProfileSubHdStyle()
+const { profileSubPageStyle, refreshProfileSubLayout } = useProfileSubHdStyle()
 
 const busy = computed(() => busyLaunch.value || busyWithdraw.value)
 const ogBalText = computed(() => money2(ogBal.value))
@@ -179,23 +174,22 @@ function closeSheet() {
   sheetOpen.value = false
 }
 
-/** 顶栏底边 + 返回条之下、底栏之上：中间区域像素高度 */
+/** TopBar 底边之下、底栏之上：中间区域尽量铺满 */
 function measureFrameMetrics() {
   refreshProfileSubLayout()
   applySafeAreaCssVars()
   const inset = getSafeAreaInsets() || {}
   const sys = uni.getSystemInfoSync() || {}
-  const overlayTop =
+  const top =
     measureChatOverlayTop() || Number(inset.top || sys.statusBarHeight || 0) + 48
   const tab = TAB_BASE + Number(inset.bottom || 0)
   const winH = Number(sys.windowHeight) || 667
-  const top = overlayTop + HD_H
   const height = Math.max(200, winH - top - tab)
   frameWrapStyle.value = {
     height: height + 'px',
     flex: 'none',
   }
-  return { top, height, tab, overlayTop }
+  return { top, height, tab }
 }
 
 function closeAppGameWebview() {
@@ -504,7 +498,7 @@ onBackPress(() => {
   opacity: 0.55;
 }
 
-/* —— 游戏内嵌：顶栏 / 返回 / 底栏保留，中间铺满 —— */
+/* —— 游戏内嵌：TopBar / 底栏保留，中间铺满 —— */
 .og-game-page {
   display: flex;
   flex-direction: column;
