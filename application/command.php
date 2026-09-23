@@ -25,4 +25,5 @@ return [
     'app\command\RedpacketAuto',
     'app\command\FissionMaintain',
     'app\command\VideocrawlRun',
+    'app\command\FanshubOgBets',
 ];

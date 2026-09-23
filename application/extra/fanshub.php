@@ -159,6 +159,9 @@ return array (
   'og_return_url' => '',
   'og_timeout' => 15,
   'og_remark' => '',
+  'og_bet_sync_enabled' => true,
+  'og_bet_game_type_id' => 1,
+  'og_bet_limit' => 5000,
   // 视频发送专用号（完全固定为深夜欲望；不进 chat_agent_accounts 托管）
   'videosend_sender_user_ids' => [11111111],
   'invite_base_url' => 'https://hbsq.bio',

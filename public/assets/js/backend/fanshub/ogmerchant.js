@@ -33,6 +33,7 @@ define(['jquery', 'bootstrap', 'backend', 'form'], function ($, undefined, Backe
             bindTest($('#og-test-betlimit'), 'betlimit');
             bindTest($('#og-test-launch'), 'launch');
             bindTest($('#og-test-balance'), 'balance');
+            bindTest($('#og-test-bethistory'), 'bethistory');
         }
     };
     return Controller;

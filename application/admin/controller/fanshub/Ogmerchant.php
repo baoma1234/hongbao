@@ -547,6 +547,111 @@ class Ogmerchant extends Backend
         }
     }
 
+    /**
+     * 测试：投注记录（仅打 OG，可选落库）
+     */
+    public function testbethistory()
+    {
+        if (!$this->request->isPost()) {
+            $this->error('非法请求');
+        }
+        $playerId = trim((string)$this->request->post('player_id', ''));
+        $fetchId = (int)$this->request->post('fetch_id', 1);
+        $limit = (int)$this->request->post('limit', 100);
+        $txid = trim((string)$this->request->post('transaction_id', ''));
+        $gameId = trim((string)$this->request->post('game_id', ''));
+        $roundId = (int)$this->request->post('round_id', 0);
+        $gameTypeId = (int)$this->request->post('game_type_id', 1);
+        $doSync = (int)$this->request->post('do_sync', 0) === 1;
+
+        $backup = ThinkConfig::get('fanshub') ?: [];
+        $cfg = is_array($backup) ? $backup : [];
+        foreach ($this->ogFields() as $field) {
+            if ($this->request->has($field, 'post')) {
+                $val = $this->request->post($field);
+                if (in_array($field, ['og_enabled', 'og_sandbox', 'og_bet_sync_enabled'], true)) {
+                    $cfg[$field] = $val ? true : false;
+                } elseif (in_array($field, ['og_timeout', 'og_default_game_id', 'og_default_betlimit', 'og_bet_game_type_id', 'og_bet_limit'], true)) {
+                    $cfg[$field] = (int)$val;
+                } else {
+                    $cfg[$field] = trim((string)$val);
+                }
+            }
+        }
+        $cfg['og_enabled'] = true;
+        ThinkConfig::set('fanshub', $cfg);
+        try {
+            if ($doSync) {
+                $ret = \app\common\library\FansHubOg::syncBetHistory([
+                    'fetch_id'        => $fetchId > 0 ? $fetchId : 1,
+                    'limit'           => $limit > 0 ? $limit : 100,
+                    'game_type_id'    => $gameTypeId > 0 ? $gameTypeId : 1,
+                    'player_id'       => $playerId,
+                    'transaction_id'  => $txid,
+                    'game_id'         => $gameId,
+                    'round_id'        => $roundId,
+                    'max_pages'       => 1,
+                    'advance_cursor'  => false,
+                ]);
+                $extra = [
+                    'request'  => FansHubOgGateway::getLastRequest(),
+                    'response' => FansHubOgGateway::getLastResponse(),
+                    'data'     => $ret,
+                ];
+                $this->success(
+                    '投注同步：fetched=' . (int)($ret['fetched'] ?? 0)
+                    . ' upserted=' . (int)($ret['upserted'] ?? 0)
+                    . ' last_fetch_id=' . (string)($ret['last_fetch_id'] ?? ''),
+                    null,
+                    $extra
+                );
+            }
+
+            $query = [
+                'fetch_id'     => $fetchId > 0 ? $fetchId : 1,
+                'limit'        => $limit > 0 ? $limit : 100,
+                'game_type_id' => $gameTypeId > 0 ? $gameTypeId : 1,
+            ];
+            if ($playerId !== '') {
+                $query['player_id'] = $playerId;
+            }
+            if ($txid !== '') {
+                $query['transaction_id'] = $txid;
+            }
+            if ($gameId !== '') {
+                $query['game_id'] = $gameId;
+            }
+            if ($roundId > 0) {
+                $query['round_id'] = $roundId;
+            }
+            $ret = FansHubOgGateway::betHistory($query);
+            $extra = [
+                'request'  => FansHubOgGateway::getLastRequest(),
+                'response' => FansHubOgGateway::getLastResponse(),
+                'data'     => $ret,
+            ];
+            if (!empty($ret['ok'])) {
+                $cnt = is_array($ret['records'] ?? null) ? count($ret['records']) : 0;
+                $this->success(
+                    '投注历史：' . ($ret['rs_code'] ?? '') . ' ' . ($ret['rs_message'] ?? '')
+                    . '（records=' . $cnt . ' last_fetch_id=' . ($ret['last_fetch_id'] ?? 0) . '）',
+                    null,
+                    $extra
+                );
+            }
+            $this->error(
+                '投注历史失败：' . (($ret['rs_code'] ?? '') !== '' ? ($ret['rs_code'] . ' ') : '')
+                . ($ret['rs_message'] ?? FansHubOgGateway::getLastError() ?: 'unknown'),
+                null,
+                $extra
+            );
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage());
+        } finally {
+            ThinkConfig::set('fanshub', $backup);
+        }
+    }
+
     public function save()
     {
         if (!$this->request->isPost()) {
@@ -560,17 +665,18 @@ class Ogmerchant extends Backend
         // 复选框未勾选时 POST 无字段，先置默认再读
         $data['og_enabled'] = false;
         $data['og_sandbox'] = false;
+        $data['og_bet_sync_enabled'] = false;
 
         foreach ($this->ogFields() as $field) {
             if (!$this->request->has($field, 'post')) {
                 continue;
             }
             $value = $this->request->post($field);
-            if (in_array($field, ['og_enabled', 'og_sandbox'], true)) {
+            if (in_array($field, ['og_enabled', 'og_sandbox', 'og_bet_sync_enabled'], true)) {
                 $data[$field] = $value ? true : false;
                 } elseif ($field === 'og_timeout') {
                     $data[$field] = max(3, min(120, (int)$value));
-                } elseif (in_array($field, ['og_default_game_id', 'og_default_betlimit'], true)) {
+                } elseif (in_array($field, ['og_default_game_id', 'og_default_betlimit', 'og_bet_game_type_id', 'og_bet_limit'], true)) {
                     $data[$field] = max(0, (int)$value);
                 } else {
                     $data[$field] = trim((string)$value);
@@ -614,6 +720,9 @@ class Ogmerchant extends Backend
             'og_return_url',
             'og_timeout',
             'og_remark',
+            'og_bet_sync_enabled',
+            'og_bet_game_type_id',
+            'og_bet_limit',
         ];
     }
 
@@ -640,6 +749,9 @@ class Ogmerchant extends Backend
             'og_return_url'       => '',
             'og_timeout'          => 15,
             'og_remark'           => '',
+            'og_bet_sync_enabled' => true,
+            'og_bet_game_type_id' => 1,
+            'og_bet_limit'        => 5000,
         ];
         foreach ($defaults as $k => $v) {
             if (!array_key_exists($k, $config)) {

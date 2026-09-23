@@ -870,6 +870,296 @@ class FansHubOg
         return $n;
     }
 
+    /**
+     * 定时 / 手工拉取 OG 投注记录并落库
+     *
+     * @param array{fetch_id?:int,limit?:int,game_type_id?:int,player_id?:string,transaction_id?:string,game_id?:string,round_id?:int,max_pages?:int,advance_cursor?:bool} $opts
+     * @return array<string,mixed>
+     */
+    public static function syncBetHistory(array $opts = [])
+    {
+        if (!FansHubOgGateway::isEnabled()) {
+            throw new \RuntimeException('OG视讯未开启');
+        }
+        if (!FansHubOgGateway::credentialsReady()) {
+            throw new \RuntimeException('OG商户配置不完整');
+        }
+
+        $cfg = FansHubOgGateway::config();
+        $fans = FansHubService::config();
+        if (!is_array($fans)) {
+            $fans = [];
+        }
+        $limit = (int)($opts['limit'] ?? ($fans['og_bet_limit'] ?? 5000));
+        if ($limit < 1) {
+            $limit = 5000;
+        }
+        if ($limit > 8000) {
+            $limit = 8000;
+        }
+        $gameTypeId = (int)($opts['game_type_id'] ?? ($fans['og_bet_game_type_id'] ?? 1));
+        if ($gameTypeId < 1) {
+            $gameTypeId = 1;
+        }
+        $maxPages = (int)($opts['max_pages'] ?? 5);
+        if ($maxPages < 1) {
+            $maxPages = 1;
+        }
+        if ($maxPages > 20) {
+            $maxPages = 20;
+        }
+        $advance = !isset($opts['advance_cursor']) || !empty($opts['advance_cursor']);
+        $fixedFetch = array_key_exists('fetch_id', $opts) ? max(1, (int)$opts['fetch_id']) : 0;
+        $playerId = trim((string)($opts['player_id'] ?? ''));
+        $txid = trim((string)($opts['transaction_id'] ?? ''));
+        $gameId = trim((string)($opts['game_id'] ?? ''));
+        $roundId = isset($opts['round_id']) ? (int)$opts['round_id'] : 0;
+
+        $pages = 0;
+        $fetched = 0;
+        $upserted = 0;
+        $lastCode = '';
+        $lastMsg = '';
+        $cursorBefore = self::getSyncValue('bet_fetch_id', '1');
+        $cursor = $fixedFetch > 0 ? $fixedFetch : max(1, (int)$cursorBefore);
+        $finalCursor = $cursor;
+
+        while ($pages < $maxPages) {
+            $pages++;
+            $query = [
+                'fetch_id'     => $cursor,
+                'limit'        => $limit,
+                'game_type_id' => $gameTypeId,
+            ];
+            if ($playerId !== '') {
+                $query['player_id'] = $playerId;
+            }
+            if ($txid !== '') {
+                $query['transaction_id'] = $txid;
+            }
+            if ($gameId !== '') {
+                $query['game_id'] = $gameId;
+            }
+            if ($roundId > 0) {
+                $query['round_id'] = $roundId;
+            }
+
+            $ret = FansHubOgGateway::betHistory($query);
+            $lastCode = (string)($ret['rs_code'] ?? '');
+            $lastMsg = (string)($ret['rs_message'] ?? '');
+            if (empty($ret['ok'])) {
+                throw new \RuntimeException(
+                    'OG投注记录失败：' . trim(($lastCode !== '' ? $lastCode . ' ' : '') . ($lastMsg ?: FansHubOgGateway::getLastError()))
+                );
+            }
+
+            $records = is_array($ret['records'] ?? null) ? $ret['records'] : [];
+            $cnt = count($records);
+            $fetched += $cnt;
+            if ($cnt > 0) {
+                $upserted += self::upsertBetRecords($records, $gameTypeId);
+            }
+
+            $apiLast = (int)($ret['last_fetch_id'] ?? 0);
+            $maxInBatch = 0;
+            if ($records) {
+                $ids = array_column($records, 'fetch_id');
+                $maxInBatch = $ids ? (int)max($ids) : 0;
+            }
+            $next = max($cursor, $apiLast, $maxInBatch);
+
+            // 无新数据或游标不前进：结束
+            if ($cnt === 0 || $lastCode === 'S-115' || $next <= $cursor) {
+                if ($next > $finalCursor) {
+                    $finalCursor = $next;
+                }
+                break;
+            }
+            $finalCursor = $next;
+            $cursor = $next;
+            // 指定条件查询（单笔/玩家）不翻页刷全站
+            if ($txid !== '' || $playerId !== '' || $gameId !== '' || $roundId > 0 || $fixedFetch > 0) {
+                break;
+            }
+            if ($cnt < $limit) {
+                break;
+            }
+        }
+
+        if ($advance && $finalCursor > 0 && $playerId === '' && $txid === '' && $fixedFetch <= 0) {
+            self::setSyncValue('bet_fetch_id', (string)$finalCursor);
+        }
+
+        return [
+            'ok'            => true,
+            'rs_code'       => $lastCode,
+            'rs_message'    => $lastMsg,
+            'pages'         => $pages,
+            'fetched'       => $fetched,
+            'upserted'      => $upserted,
+            'fetch_id'      => (int)$cursorBefore,
+            'last_fetch_id' => $finalCursor,
+            'game_type_id'  => $gameTypeId,
+            'limit'         => $limit,
+            'currency'      => (string)($cfg['currency'] ?? ''),
+        ];
+    }
+
+    /**
+     * crontab 入口：OG 开启时增量抓投注
+     *
+     * @return array<string,mixed>
+     */
+    public static function tickBetHistoryCron()
+    {
+        if (!FansHubOgGateway::isEnabled()) {
+            return ['ok' => true, 'skipped' => true, 'msg' => 'og disabled'];
+        }
+        if (!FansHubOgGateway::credentialsReady()) {
+            return ['ok' => false, 'skipped' => true, 'msg' => 'og credentials incomplete'];
+        }
+        $fans = FansHubService::config();
+        if (is_array($fans) && array_key_exists('og_bet_sync_enabled', $fans) && empty($fans['og_bet_sync_enabled'])) {
+            return ['ok' => true, 'skipped' => true, 'msg' => 'bet sync disabled'];
+        }
+        try {
+            $ret = self::syncBetHistory(['max_pages' => 5]);
+            $ret['skipped'] = false;
+            return $ret;
+        } catch (\Throwable $e) {
+            return ['ok' => false, 'skipped' => false, 'msg' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * @param array<int,array<string,mixed>> $records
+     */
+    protected static function upsertBetRecords(array $records, $gameTypeId = 1)
+    {
+        $n = 0;
+        $now = time();
+        $gameTypeId = max(1, (int)$gameTypeId);
+        $playerIds = [];
+        foreach ($records as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $pid = trim((string)($row['player_id'] ?? ''));
+            if ($pid !== '') {
+                $playerIds[$pid] = $pid;
+            }
+        }
+        $uidMap = [];
+        if ($playerIds) {
+            try {
+                $uidMap = Db::name('fans_og_player')
+                    ->where('player_id', 'in', array_values($playerIds))
+                    ->column('user_id', 'player_id');
+            } catch (\Throwable $e) {
+                $uidMap = [];
+            }
+        }
+
+        foreach ($records as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $txid = trim((string)($row['transaction_id'] ?? ''));
+            if ($txid === '') {
+                continue;
+            }
+            $pid = trim((string)($row['player_id'] ?? ''));
+            $uid = (int)($uidMap[$pid] ?? 0);
+            $secondary = $row['secondary_info'] ?? [];
+            $other = $row['other_info'] ?? [];
+            $remark = $row['remark'] ?? '';
+            $debitAt = (int)($row['debit_at'] ?? 0);
+            $data = [
+                'fetch_id'         => (int)($row['fetch_id'] ?? 0),
+                'user_id'          => $uid,
+                'player_id'        => $pid,
+                'transaction_id'   => $txid,
+                'game_id'          => (string)($row['game_id'] ?? ''),
+                'round_id'         => (int)($row['round_id'] ?? 0),
+                'game_type_id'     => $gameTypeId,
+                'game_name'        => (string)($row['game_name'] ?? ''),
+                'bet_place'        => (string)($row['bet_place'] ?? ''),
+                'result_url'       => (string)($row['result_url'] ?? ''),
+                'debit_amount'     => round((float)($row['debit_amount'] ?? 0), 2),
+                'credit_amount'    => round((float)($row['credit_amount'] ?? 0), 2),
+                'winlose_amount'   => round((float)($row['winlose_amount'] ?? 0), 2),
+                'effective_amount' => round((float)($row['effective_amount'] ?? 0), 2),
+                'currency'         => (string)($row['currency'] ?? ''),
+                'transaction_type' => (string)($row['transaction_type'] ?? ''),
+                'secondary_info'   => is_array($secondary)
+                    ? json_encode($secondary, JSON_UNESCAPED_UNICODE)
+                    : (string)$secondary,
+                'other_info'       => is_array($other)
+                    ? json_encode($other, JSON_UNESCAPED_UNICODE)
+                    : (string)$other,
+                'remark'           => is_array($remark)
+                    ? json_encode($remark, JSON_UNESCAPED_UNICODE)
+                    : (string)$remark,
+                'debit_at'         => $debitAt,
+                'credit_at'        => (int)($row['credit_at'] ?? 0),
+                'rollback_at'      => (int)($row['rollback_at'] ?? 0),
+                'cancel_at'        => (int)($row['cancel_at'] ?? 0),
+                'resettled_at'     => (int)($row['resettled_at'] ?? 0),
+                'updatetime'       => $now,
+            ];
+            try {
+                $exist = Db::name('fans_og_bet')->where('transaction_id', $txid)->find();
+                if ($exist) {
+                    Db::name('fans_og_bet')->where('id', (int)$exist['id'])->update($data);
+                } else {
+                    $data['createtime'] = $debitAt > 0 ? $debitAt : $now;
+                    Db::name('fans_og_bet')->insert($data);
+                }
+                $n++;
+            } catch (\Throwable $e) {
+                // 表未装或唯一冲突时跳过
+            }
+        }
+        return $n;
+    }
+
+    protected static function getSyncValue($name, $default = '')
+    {
+        try {
+            $v = Db::name('fans_og_sync')->where('name', (string)$name)->value('value');
+            if ($v === null || $v === false) {
+                return (string)$default;
+            }
+            return (string)$v;
+        } catch (\Throwable $e) {
+            return (string)$default;
+        }
+    }
+
+    protected static function setSyncValue($name, $value)
+    {
+        $now = time();
+        $name = (string)$name;
+        $value = (string)$value;
+        try {
+            $exist = Db::name('fans_og_sync')->where('name', $name)->find();
+            if ($exist) {
+                Db::name('fans_og_sync')->where('name', $name)->update([
+                    'value'      => $value,
+                    'updatetime' => $now,
+                ]);
+            } else {
+                Db::name('fans_og_sync')->insert([
+                    'name'       => $name,
+                    'value'      => $value,
+                    'updatetime' => $now,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
+    }
+
     protected static function clearPlayerRegistered($userId)
     {
         try {

@@ -112,6 +112,36 @@
             </fieldset>
 
             <fieldset>
+                <legend>投注记录同步</legend>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">定时抓取</label>
+                    <div class="col-xs-12 col-sm-8">
+                        <label class="radio-inline"><input type="radio" name="og_bet_sync_enabled" value="1" {if !isset($config.og_bet_sync_enabled) || !empty($config.og_bet_sync_enabled)}checked{/if}> 开启</label>
+                        <label class="radio-inline"><input type="radio" name="og_bet_sync_enabled" value="0" {if isset($config.og_bet_sync_enabled) && empty($config.og_bet_sync_enabled)}checked{/if}> 关闭</label>
+                        <span class="help-block">命令 <code>php think fanshub:og-bets</code>；后台「三方游戏 → OG投注记录」可查可搜</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">游戏类型</label>
+                    <div class="col-xs-12 col-sm-4">
+                        <select class="form-control" name="og_bet_game_type_id">
+                            <option value="1" {if intval($config.og_bet_game_type_id|default=1)==1}selected{/if}>1 真人</option>
+                            <option value="2" {if intval($config.og_bet_game_type_id|default=1)==2}selected{/if}>2 老虎机</option>
+                            <option value="3" {if intval($config.og_bet_game_type_id|default=1)==3}selected{/if}>3 棋牌</option>
+                            <option value="4" {if intval($config.og_bet_game_type_id|default=1)==4}selected{/if}>4 彩票</option>
+                            <option value="5" {if intval($config.og_bet_game_type_id|default=1)==5}selected{/if}>5 体育</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">每批条数</label>
+                    <div class="col-xs-12 col-sm-4">
+                        <input type="number" min="1" max="8000" class="form-control" name="og_bet_limit" value="{$config.og_bet_limit|default=5000|htmlentities}">
+                    </div>
+                </div>
+            </fieldset>
+
+            <fieldset>
                 <legend>回调与返回</legend>
                 <div class="form-group">
                     <label class="control-label col-xs-12 col-sm-2">钱包回调 URL</label>
@@ -382,6 +412,65 @@
                     <label class="control-label col-xs-12 col-sm-2"></label>
                     <div class="col-xs-12 col-sm-8">
                         <button type="submit" class="btn btn-success btn-embossed">查询余额</button>
+                    </div>
+                </div>
+            </fieldset>
+        </form>
+
+        <hr>
+        <form id="og-test-bethistory" class="form-horizontal" role="form" method="POST" action="{:url('fanshub.ogmerchant/testbethistory')}">
+            <fieldset>
+                <legend>联调：投注记录</legend>
+                <p class="help-block" style="padding-left:15px;">调用 <code>GET /api/v2/platform/transaction/history</code>。S-100 返回 records；S-115 无数据。勾选落库会写入本地并供后台搜索。</p>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">fetch_id</label>
+                    <div class="col-xs-12 col-sm-4">
+                        <input type="number" min="1" class="form-control" name="fetch_id" value="1" autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">limit</label>
+                    <div class="col-xs-12 col-sm-4">
+                        <input type="number" min="1" max="8000" class="form-control" name="limit" value="100" autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">game_type_id</label>
+                    <div class="col-xs-12 col-sm-4">
+                        <input type="number" min="1" max="5" class="form-control" name="game_type_id" value="1" autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">player_id</label>
+                    <div class="col-xs-12 col-sm-6">
+                        <input type="text" class="form-control" name="player_id" placeholder="可选" autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">transaction_id</label>
+                    <div class="col-xs-12 col-sm-6">
+                        <input type="text" class="form-control" name="transaction_id" placeholder="可选" autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">game_id / round_id</label>
+                    <div class="col-xs-12 col-sm-3">
+                        <input type="text" class="form-control" name="game_id" placeholder="game_id" autocomplete="off">
+                    </div>
+                    <div class="col-xs-12 col-sm-3">
+                        <input type="number" class="form-control" name="round_id" placeholder="round_id" autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2">落库</label>
+                    <div class="col-xs-12 col-sm-8">
+                        <label class="checkbox-inline"><input type="checkbox" name="do_sync" value="1"> 写入 fans_og_bet（不推进定时游标）</label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-xs-12 col-sm-2"></label>
+                    <div class="col-xs-12 col-sm-8">
+                        <button type="submit" class="btn btn-info btn-embossed">拉取投注记录</button>
                     </div>
                 </div>
             </fieldset>

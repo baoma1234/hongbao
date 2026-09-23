@@ -799,6 +799,163 @@ class FansHubOgGateway
     }
 
     /**
+     * 投注记录 GET /api/v2/platform/transaction/history
+     *
+     * - S-100 success + records + last_fetch_id
+     * - S-115 no data found → 空列表视为成功
+     *
+     * @param array{
+     *   fetch_id?:int|string,
+     *   limit?:int|string,
+     *   transaction_id?:string,
+     *   player_id?:string,
+     *   game_id?:int|string,
+     *   round_id?:int|string,
+     *   game_type_id?:int|string
+     * } $query
+     * @return array{ok:bool,rs_code:string,rs_message:string,last_fetch_id:int,records:array,raw?:mixed}
+     */
+    public static function betHistory(array $query = [])
+    {
+        self::$lastError = '';
+        self::$lastResponse = null;
+        self::$lastRequest = null;
+
+        if (!self::credentialsReady()) {
+            self::$lastError = 'OG 商户配置不完整（运营商名称/公匙/私钥/网关）';
+            return [
+                'ok'            => false,
+                'rs_code'       => '',
+                'rs_message'    => self::$lastError,
+                'last_fetch_id' => 0,
+                'records'       => [],
+            ];
+        }
+
+        $params = [];
+        if (array_key_exists('fetch_id', $query) && $query['fetch_id'] !== '' && $query['fetch_id'] !== null) {
+            $params['fetch_id'] = max(1, (int)$query['fetch_id']);
+        }
+        if (array_key_exists('limit', $query) && $query['limit'] !== '' && $query['limit'] !== null) {
+            $lim = (int)$query['limit'];
+            if ($lim < 1) {
+                $lim = 1;
+            }
+            if ($lim > 8000) {
+                $lim = 8000;
+            }
+            $params['limit'] = (string)$lim;
+        }
+        $txid = trim((string)($query['transaction_id'] ?? ''));
+        if ($txid !== '') {
+            $params['transaction_id'] = $txid;
+        }
+        $pid = trim((string)($query['player_id'] ?? ''));
+        if ($pid !== '') {
+            $params['player_id'] = self::formatPlayerToken($pid);
+        }
+        if (array_key_exists('game_id', $query) && $query['game_id'] !== '' && $query['game_id'] !== null) {
+            $params['game_id'] = (string)$query['game_id'];
+        }
+        if (array_key_exists('round_id', $query) && $query['round_id'] !== '' && $query['round_id'] !== null) {
+            $params['round_id'] = (int)$query['round_id'];
+        }
+        if (array_key_exists('game_type_id', $query) && $query['game_type_id'] !== '' && $query['game_type_id'] !== null) {
+            $params['game_type_id'] = max(1, (int)$query['game_type_id']);
+        }
+
+        $ret = self::request('GET', '/api/v2/platform/transaction/history', $params, [
+            'sign'         => false,
+            'content_type' => 'query',
+        ]);
+        $code = (string)($ret['rs_code'] ?? '');
+        $msg = (string)($ret['rs_message'] ?? '');
+        $records = [];
+        if (!empty($ret['records']) && is_array($ret['records'])) {
+            foreach ($ret['records'] as $row) {
+                if (!is_array($row)) {
+                    continue;
+                }
+                $records[] = self::normalizeBetRecord($row);
+            }
+        }
+        $lastFetch = (int)($ret['last_fetch_id'] ?? 0);
+        if ($lastFetch <= 0 && $records) {
+            $ids = array_column($records, 'fetch_id');
+            $lastFetch = $ids ? (int)max($ids) : 0;
+        }
+        $ok = ($code === 'S-100' || $code === 'S-115');
+        if (!$ok && $msg === '' && self::$lastError !== '') {
+            $msg = self::$lastError;
+        }
+        if ($msg === '' && $ok) {
+            $msg = $code === 'S-115' ? 'no data found' : 'success';
+        }
+        return [
+            'ok'            => $ok,
+            'rs_code'       => $code,
+            'rs_message'    => $msg !== '' ? $msg : 'bet-history failed',
+            'last_fetch_id' => $lastFetch,
+            'records'       => $records,
+            'raw'           => $ret,
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $row
+     * @return array<string,mixed>
+     */
+    protected static function normalizeBetRecord(array $row)
+    {
+        $secondary = $row['secondary_info'] ?? null;
+        $other = $row['other_info'] ?? null;
+        $remark = $row['remark'] ?? null;
+        return [
+            'fetch_id'         => (int)($row['fetch_id'] ?? 0),
+            'player_id'        => (string)($row['player_id'] ?? ''),
+            'transaction_id'   => (string)($row['transaction_id'] ?? ''),
+            'game_id'          => (string)($row['game_id'] ?? ''),
+            'round_id'         => (int)($row['round_id'] ?? 0),
+            'bet_place'        => (string)($row['bet_place'] ?? ''),
+            'result_url'       => (string)($row['result_url'] ?? ''),
+            'debit_amount'     => (string)($row['debit_amount'] ?? '0'),
+            'credit_amount'    => (string)($row['credit_amount'] ?? '0'),
+            'winlose_amount'   => (string)($row['winlose_amount'] ?? '0'),
+            'effective_amount' => (string)($row['effective_amount'] ?? '0'),
+            'currency'         => (string)($row['currency'] ?? ''),
+            'secondary_info'   => is_array($secondary) ? $secondary : [],
+            'other_info'       => is_array($other) ? $other : [],
+            'debit_at'         => self::parseOgTime($row['debit_at'] ?? 0),
+            'rollback_at'      => self::parseOgTime($row['rollback_at'] ?? ''),
+            'credit_at'        => self::parseOgTime($row['credit_at'] ?? 0),
+            'cancel_at'        => self::parseOgTime($row['cancel_at'] ?? ''),
+            'resettled_at'     => self::parseOgTime($row['resettled_at'] ?? ''),
+            'game_name'        => (string)($row['game_name'] ?? ''),
+            'transaction_type' => strtolower(trim((string)($row['transaction_type'] ?? ''))),
+            'remark'           => is_array($remark) ? $remark : (is_string($remark) ? $remark : ''),
+        ];
+    }
+
+    /**
+     * @param mixed $v
+     */
+    protected static function parseOgTime($v)
+    {
+        if ($v === null || $v === '') {
+            return 0;
+        }
+        if (is_numeric($v)) {
+            return (int)$v;
+        }
+        $s = trim((string)$v);
+        if ($s === '' || $s === '0') {
+            return 0;
+        }
+        $ts = strtotime($s);
+        return $ts !== false ? (int)$ts : 0;
+    }
+
+    /**
      * @param array<string,mixed> $body
      * @param array{sign?:bool,content_type?:string,sign_params?:array} $opts
      * @return array<string,mixed>

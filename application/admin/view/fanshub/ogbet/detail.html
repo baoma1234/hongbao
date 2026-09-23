@@ -1,0 +1,34 @@
+<div class="panel panel-default">
+    <div class="panel-heading"><em>注单详情</em> {$row.transaction_id|htmlentities}</div>
+    <div class="panel-body">
+        <table class="table table-bordered table-striped">
+            <tr><th width="140">会员</th><td>
+                {if $row.user_id}
+                UID {$row.user_id}
+                {if !empty($user.mobile)} / {$user.mobile|htmlentities}{/if}
+                {if !empty($user.nickname)} / {$user.nickname|htmlentities}{/if}
+                {else}-{/if}
+            </td></tr>
+            <tr><th>player_id</th><td>{$row.player_id|htmlentities}</td></tr>
+            <tr><th>fetch_id</th><td>{$row.fetch_id}</td></tr>
+            <tr><th>game</th><td>{$row.game_name|htmlentities}（id={$row.game_id|htmlentities} / round={$row.round_id} / type={$gameTypeList[$row.game_type_id]|default=$row.game_type_id}）</td></tr>
+            <tr><th>下注</th><td>{$row.bet_place|htmlentities} / {$row.transaction_type|htmlentities}</td></tr>
+            <tr><th>金额</th><td>
+                扣 {$row.debit_amount} / 返 {$row.credit_amount} / 输赢 {$row.winlose_amount} / 有效 {$row.effective_amount}
+                {$row.currency|htmlentities}
+            </td></tr>
+            <tr><th>时间</th><td>
+                debit {if $row.debit_at}{:date('Y-m-d H:i:s',$row.debit_at)}{else}-{/if}
+                /
+                credit {if $row.credit_at}{:date('Y-m-d H:i:s',$row.credit_at)}{else}-{/if}
+            </td></tr>
+            <tr><th>结果页</th><td>
+                {if $row.result_url}
+                <a href="{$row.result_url|htmlentities}" target="_blank" rel="noopener">打开</a>
+                {else}-{/if}
+            </td></tr>
+            <tr><th>secondary_info</th><td><pre style="white-space:pre-wrap;margin:0;max-height:240px;overflow:auto;">{:json_encode($secondary, JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT)}</pre></td></tr>
+            <tr><th>other_info</th><td><pre style="white-space:pre-wrap;margin:0;max-height:320px;overflow:auto;">{:json_encode($other, JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT)}</pre></td></tr>
+        </table>
+    </div>
+</div>
