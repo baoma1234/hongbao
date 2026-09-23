@@ -1,13 +1,13 @@
 <template>
-  <!-- 游戏层：H5/Safari = TopBar+iframe；App = web-view 全屏 + cover-view 退出 -->
-  <view v-if="gameUrl" class="hb-page og-game-page" :style="profileSubPageStyle">
-    <!-- #ifdef H5 -->
+  <!-- 游戏层：顶栏 + ‹ 返回 + 中间铺满 + 底部导航（H5 iframe / App 子 webview） -->
+  <view v-if="gameUrl" class="hb-page webview-page og-game-page" :style="profileSubPageStyle">
     <TopBar title="OG视讯" />
     <view class="profile-sub-hd profile-sub-hd--back-only" :style="profileSubHdStyle">
       <text class="profile-back-btn" @click="closeGame">‹</text>
-      <text class="og-game-exit" @click="closeGame">退出</text>
+      <text class="profile-sub-spacer" />
     </view>
-    <view class="og-game-frame-wrap">
+    <view class="og-game-frame-wrap" :style="frameWrapStyle">
+      <!-- #ifdef H5 -->
       <iframe
         class="og-game-frame"
         :src="gameUrl"
@@ -15,19 +15,9 @@
         allow="fullscreen; autoplay; payment"
         referrerpolicy="no-referrer-when-downgrade"
       />
+      <!-- #endif -->
     </view>
-    <view class="og-game-fallback">
-      <text class="og-game-fallback-link" @click="openExternal">外部打开</text>
-    </view>
-    <!-- #endif -->
-
-    <!-- #ifndef H5 -->
-    <web-view :src="gameUrl">
-      <cover-view class="og-game-cover-bar" :style="coverBarStyle">
-        <cover-view class="og-game-cover-btn" @tap="closeGame">‹ 退出视讯</cover-view>
-      </cover-view>
-    </web-view>
-    <!-- #endif -->
+    <BottomTabBar active="home" />
   </view>
 
   <ProfileSubPage
@@ -36,7 +26,7 @@
     body-class="hb-sub og-live-body"
     page-class="og-live-page"
   >
-    <view class="og-tip">内测页。进入游戏后本页内嵌打开（网页 iframe / App web-view）。</view>
+    <view class="og-tip">内测页。进入游戏后本页内嵌打开。</view>
 
     <view class="og-card" @click="openSheet">
       <view class="og-card-badge">LIVE</view>
@@ -84,12 +74,13 @@
 
 <script setup>
 import { computed, nextTick, ref } from 'vue'
-import { onBackPress, onShow } from '@dcloudio/uni-app'
+import { onBackPress, onHide, onShow, onUnload } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
+import BottomTabBar from '../../components/BottomTabBar.vue'
 import ProfileSubPage from '../../components/ProfileSubPage.vue'
 import { getToken, notifyProfileUpdated } from '../../utils/auth.js'
-import { openExternalHttpUrl } from '../../utils/wallet.js'
 import { useProfileSubHdStyle } from '../../utils/profile-sub-layout.js'
+import { applySafeAreaCssVars, getSafeAreaInsets, measureChatOverlayTop } from '../../utils/safe-area.js'
 import {
   ogBalance,
   ogDeposit,
@@ -101,9 +92,13 @@ import {
 } from '../../utils/og.js'
 import '../../styles/hb.css'
 
+const HD_H = 44
+const TAB_BASE = 56
+const APP_WV_ID = 'og-live-game'
+
 const sheetOpen = ref(false)
 const gameUrl = ref('')
-const coverBarStyle = ref({})
+const frameWrapStyle = ref({ height: '60vh' })
 const ogBal = ref('0.00')
 const hongbao = ref(0)
 const registered = ref(false)
@@ -184,16 +179,65 @@ function closeSheet() {
   sheetOpen.value = false
 }
 
-function measureGameChrome() {
+/** 顶栏底边 + 返回条之下、底栏之上：中间区域像素高度 */
+function measureFrameMetrics() {
   refreshProfileSubLayout()
+  applySafeAreaCssVars()
+  const inset = getSafeAreaInsets() || {}
+  const sys = uni.getSystemInfoSync() || {}
+  const overlayTop =
+    measureChatOverlayTop() || Number(inset.top || sys.statusBarHeight || 0) + 48
+  const tab = TAB_BASE + Number(inset.bottom || 0)
+  const winH = Number(sys.windowHeight) || 667
+  const top = overlayTop + HD_H
+  const height = Math.max(200, winH - top - tab)
+  frameWrapStyle.value = {
+    height: height + 'px',
+    flex: 'none',
+  }
+  return { top, height, tab, overlayTop }
+}
+
+function closeAppGameWebview() {
   // #ifdef APP-PLUS
   try {
-    const sys = uni.getSystemInfoSync() || {}
-    const status = Number(sys.statusBarHeight) || 0
-    coverBarStyle.value = { paddingTop: status + 8 + 'px' }
+    // eslint-disable-next-line no-undef
+    const w = plus.webview.getWebviewById(APP_WV_ID)
+    if (w) w.close()
   } catch (e) {
-    coverBarStyle.value = { paddingTop: '36px' }
+    // ignore
   }
+  // #endif
+}
+
+function openAppGameWebview(url) {
+  // #ifdef APP-PLUS
+  closeAppGameWebview()
+  const metrics = measureFrameMetrics()
+  setTimeout(() => {
+    try {
+      // eslint-disable-next-line no-undef
+      if (typeof plus === 'undefined' || !plus.webview) return
+      const pages = getCurrentPages()
+      const cur = pages && pages.length ? pages[pages.length - 1] : null
+      const cw =
+        (cur && typeof cur.$getAppWebview === 'function' && cur.$getAppWebview()) ||
+        (cur && cur.$scope && typeof cur.$scope.$getAppWebview === 'function' && cur.$scope.$getAppWebview())
+      if (!cw) return
+      // eslint-disable-next-line no-undef
+      const wv = plus.webview.create(url, APP_WV_ID, {
+        top: metrics.top + 'px',
+        height: metrics.height + 'px',
+        left: '0px',
+        width: '100%',
+        position: 'absolute',
+        kernel: 'WKWebview',
+      })
+      cw.append(wv)
+    } catch (e) {
+      // ignore
+    }
+  }, 80)
   // #endif
 }
 
@@ -201,20 +245,18 @@ function openGameInPage(link) {
   gameUrl.value = link
   sheetOpen.value = false
   nextTick(() => {
-    measureGameChrome()
+    measureFrameMetrics()
+    // #ifdef APP-PLUS
+    openAppGameWebview(link)
+    // #endif
   })
 }
 
 function closeGame() {
+  closeAppGameWebview()
   gameUrl.value = ''
   refreshAll()
   nextTick(() => refreshProfileSubLayout())
-}
-
-function openExternal() {
-  const u = String(gameUrl.value || '').trim()
-  if (!u) return
-  openExternalHttpUrl(u)
 }
 
 async function resolveGameId() {
@@ -283,7 +325,28 @@ async function onWithdraw() {
 onShow(() => {
   refreshProfileSubLayout()
   if (getToken() && !gameUrl.value) refreshAll()
-  if (gameUrl.value) measureGameChrome()
+  if (gameUrl.value) {
+    measureFrameMetrics()
+    // #ifdef APP-PLUS
+    // 从其它页返回时若已关子 webview，按当前 url 重建
+    try {
+      // eslint-disable-next-line no-undef
+      const w = plus.webview.getWebviewById(APP_WV_ID)
+      if (!w) openAppGameWebview(gameUrl.value)
+    } catch (e) {
+      openAppGameWebview(gameUrl.value)
+    }
+    // #endif
+  }
+})
+
+onHide(() => {
+  // 离开页时关掉原生层，避免盖住其它页
+  closeAppGameWebview()
+})
+
+onUnload(() => {
+  closeAppGameWebview()
 })
 
 onBackPress(() => {
@@ -441,7 +504,7 @@ onBackPress(() => {
   opacity: 0.55;
 }
 
-/* —— 游戏内嵌层 —— */
+/* —— 游戏内嵌：顶栏 / 返回 / 底栏保留，中间铺满 —— */
 .og-game-page {
   display: flex;
   flex-direction: column;
@@ -449,23 +512,14 @@ onBackPress(() => {
   height: 100dvh;
   background: #0d1528;
   overflow: hidden;
-}
-.og-game-exit {
-  margin-left: auto;
-  padding: 0 24rpx;
-  font-size: 28rpx;
-  color: #d4af37;
-  line-height: 44px;
+  box-sizing: border-box;
 }
 .og-game-frame-wrap {
-  flex: 1;
-  min-height: 0;
   width: 100%;
+  min-height: 0;
   background: #000;
-  /* #ifdef H5 */
-  /* Safari：flex 子项高度用百分比时偶发塌陷，补一层 */
   position: relative;
-  /* #endif */
+  overflow: hidden;
 }
 .og-game-frame {
   width: 100%;
@@ -473,34 +527,5 @@ onBackPress(() => {
   border: 0;
   display: block;
   background: #000;
-}
-.og-game-fallback {
-  flex-shrink: 0;
-  text-align: center;
-  padding: 12rpx 0 calc(12rpx + env(safe-area-inset-bottom, 0px));
-  background: #141820;
-}
-.og-game-fallback-link {
-  font-size: 24rpx;
-  color: rgba(212, 175, 55, 0.85);
-  text-decoration: underline;
-}
-.og-game-cover-bar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  top: 0;
-  z-index: 9999;
-  padding-left: 16px;
-  padding-bottom: 8px;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.55), transparent);
-}
-.og-game-cover-btn {
-  display: inline-block;
-  padding: 8px 14px;
-  color: #fff;
-  font-size: 15px;
-  background: rgba(0, 0, 0, 0.45);
-  border-radius: 16px;
 }
 </style>
