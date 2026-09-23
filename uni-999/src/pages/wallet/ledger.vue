@@ -47,7 +47,7 @@
           <view class="wallet-ledger-title">
             {{ typeTitle(item) }}
           </view>
-          <view class="wallet-ledger-sub" v-if="item.remark && item.remark !== typeTitle(item)">{{ item.remark }}</view>
+          <view class="wallet-ledger-sub" v-if="remarkDisplay(item)">{{ remarkDisplay(item) }}</view>
           <view
             v-if="copyableOf(item)"
             class="wallet-ledger-copy"
@@ -230,6 +230,23 @@ function amountText(item) {
 }
 function amountCls(item) {
   return ledgerAmountText(item, { category: category.value }).cls
+}
+
+/** 备注行去掉订单号/红宝号（改由下方复制行展示） */
+function remarkDisplay(item) {
+  let s = String((item && item.remark) || '').trim()
+  if (!s) return ''
+  s = s
+    .replace(/红宝号\s*[:：]\s*[A-Za-z0-9_\-]+/g, '')
+    .replace(/订单号\s*[:：]?\s*[A-Za-z0-9_\-]+/g, '')
+    .replace(/(?:order[_-]?no|OrderNo)\s*[:：=]?\s*[A-Za-z0-9_\-]+/gi, '')
+    .replace(/[|｜]\s*/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/^[\s,，;；|｜\-–—]+|[\s,，;；|｜\-–—]+$/g, '')
+    .trim()
+  if (!s) return ''
+  if (s === typeTitle(item)) return ''
+  return s
 }
 
 /** 从流水项提取可复制的订单号 / 红宝号（有则显示复制钮） */
