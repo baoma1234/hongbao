@@ -137,6 +137,8 @@ class FansHubOg
     /**
      * 确保已在 OG 注册（对齐前端当前用户）
      *
+     * 顺序：本地已注册 → 远程 get-balance 探测 → 再调 register
+     *
      * @param bool $force 忽略本地已注册缓存，重新调 register
      * @return array<string,mixed>
      */
@@ -157,6 +159,14 @@ class FansHubOg
             return $snap;
         }
 
+        // 首次 / 本地无记录：先探测 OG 是否已有该玩家，避免无谓 register
+        if (!$force) {
+            $probed = self::probeRemoteRegistered($snap['player_id'], $snap['og_nickname'], $userId);
+            if ($probed !== null) {
+                return $probed;
+            }
+        }
+
         $ret = FansHubOgGateway::registerPlayer($snap['player_id'], $snap['og_nickname']);
         self::upsertPlayer($userId, $snap['player_id'], $snap['og_nickname'], $ret);
 
@@ -165,11 +175,68 @@ class FansHubOg
         $snap['rs_code'] = (string)($ret['rs_code'] ?? '');
         $snap['rs_message'] = (string)($ret['rs_message'] ?? '');
         if (empty($ret['ok'])) {
+            $code = $snap['rs_code'];
+            $msg = $snap['rs_message'];
+            if ($code === 'E-104') {
+                throw new \RuntimeException(
+                    'OG注册失败：E-104 invalid parameter（请检查运营商名称 operator-name 与密钥；名称勿含非法字符）'
+                );
+            }
             throw new \RuntimeException(
-                'OG注册失败：' . ($snap['rs_code'] !== '' ? $snap['rs_code'] . ' ' : '') . $snap['rs_message']
+                'OG注册失败：' . ($code !== '' ? $code . ' ' : '') . $msg
             );
         }
         return $snap;
+    }
+
+    /**
+     * 用 get-balance 探测玩家是否已在 OG 侧存在
+     *
+     * @return array<string,mixed>|null 已存在则返回快照；需注册返回 null；配置类错误直接抛
+     */
+    protected static function probeRemoteRegistered($playerId, $ogNickname, $userId)
+    {
+        $bal = FansHubOgGateway::getBalance($playerId);
+        $code = (string)($bal['rs_code'] ?? '');
+        $msg = (string)($bal['rs_message'] ?? '');
+
+        // 已有钱包：记本地 registered，不再调 register
+        if (!empty($bal['ok']) && $code === 'S-100') {
+            self::upsertPlayer($userId, $playerId, $ogNickname, [
+                'ok'         => true,
+                'rs_code'    => 'S-121',
+                'rs_message' => 'detected via get-balance',
+            ]);
+            $snap = self::playerSnapshot($userId);
+            $snap['just_registered'] = false;
+            $snap['rs_code'] = 'S-121';
+            $snap['rs_message'] = 'already registered on OG';
+            $snap['og_balance'] = (string)($bal['current_balance'] ?? '');
+            return $snap;
+        }
+
+        // 玩家不存在：走后续 register
+        if ($code === 'S-104' || !empty($bal['player_missing'])) {
+            return null;
+        }
+
+        // 配置 / 运营商问题：提前失败，避免再打一次同样的 E-104 register
+        if ($code === 'E-104') {
+            throw new \RuntimeException(
+                'OG探测失败：E-104 invalid parameter（请检查运营商名称 operator-name，当前配置含非法字符时会失败）'
+            );
+        }
+        if ($code === 'S-109') {
+            throw new \RuntimeException('OG运营商不可用（S-109），请核对运营商名称与公匙/私钥');
+        }
+        // 其它错误：仍尝试 register（兼容网关差异）
+        if ($code !== '' && $code !== 'S-115') {
+            // 网络/未知：不阻断，继续 register
+            if ($msg !== '' && stripos($msg, 'not available') !== false && $code[0] === 'S') {
+                return null;
+            }
+        }
+        return null;
     }
 
     /**

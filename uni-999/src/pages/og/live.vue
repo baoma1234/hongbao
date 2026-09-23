@@ -1,6 +1,6 @@
 <template>
   <ProfileSubPage title="OG视讯（内测）" body-class="hb-sub og-live-body">
-    <view class="og-tip">内测页，未挂大厅。进入游戏会自动转入全部红宝；提出会全部提回本站。</view>
+    <view class="og-tip">内测页，未挂大厅。进入前先探测是否已注册；进入会自动转入全部红宝；提出会全部提回。</view>
 
     <view class="og-card" @click="openSheet">
       <view class="og-card-badge">LIVE</view>
@@ -57,6 +57,7 @@ import {
   ogDeposit,
   ogGameList,
   ogLaunch,
+  ogPlayer,
   ogRegister,
   ogWithdraw,
 } from '../../utils/og.js'
@@ -65,6 +66,7 @@ import '../../styles/hb.css'
 const sheetOpen = ref(false)
 const ogBal = ref('0.00')
 const hongbao = ref(0)
+const registered = ref(false)
 const busyLaunch = ref(false)
 const busyWithdraw = ref(false)
 
@@ -100,9 +102,38 @@ async function refreshAll() {
     const data = await ogBalance()
     ogBal.value = String(data?.current_balance ?? data?.og_balance ?? '0.00')
     hongbao.value = Number(data?.hongbao ?? 0) || 0
+    registered.value = true
   } catch (e) {
-    uni.showToast({ title: (e && e.message) || '余额查询失败', icon: 'none' })
+    // 未注册时 ogbalance 可能失败，再拉快照
+    try {
+      const snap = await ogPlayer()
+      registered.value = !!snap?.registered
+      hongbao.value = Number(snap?.hongbao ?? hongbao.value) || 0
+    } catch (e2) {
+      // ignore
+    }
+    const msg = (e && e.message) || '余额查询失败'
+    if (!/未注册|not available|S-104/i.test(msg)) {
+      uni.showToast({ title: msg, icon: 'none' })
+    }
   }
+}
+
+/** 进入前：本地/远程探测已注册则跳过 register */
+async function ensureOgReady() {
+  try {
+    const snap = await ogPlayer()
+    registered.value = !!snap?.registered
+    if (snap?.hongbao != null) hongbao.value = Number(snap.hongbao) || 0
+    if (snap?.registered) {
+      return snap
+    }
+  } catch (e) {
+    // continue register
+  }
+  const ret = await ogRegister()
+  registered.value = true
+  return ret
 }
 
 function openSheet() {
@@ -128,12 +159,12 @@ async function resolveGameId() {
   }
 }
 
-/** 进入游戏：红宝有余额则全部转入 OG，再开游戏 */
+/** 进入游戏：先确认注册 → 红宝全部转入 → 开游戏 */
 async function onEnterGame() {
   if (!ensureLogin() || busy.value) return
   busyLaunch.value = true
   try {
-    await ogRegister()
+    await ensureOgReady()
     await refreshAll()
     const dep = hbNum.value
     if (dep > 0) {
@@ -172,6 +203,7 @@ async function onWithdraw() {
   if (!ensureLogin() || busy.value) return
   busyWithdraw.value = true
   try {
+    await ensureOgReady()
     await refreshAll()
     const amt = ogNum.value
     if (!(amt > 0)) {
