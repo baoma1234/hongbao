@@ -240,6 +240,13 @@
           "softinputMode": "adjustPan"
         }
       }
+    },
+    {
+      "path": "pages/og/live",
+      "style": {
+        "navigationBarTitleText": "OG视讯",
+        "navigationStyle": "custom"
+      }
     }
   ],
   "subPackages": [

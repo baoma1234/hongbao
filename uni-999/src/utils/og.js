@@ -94,15 +94,14 @@ export function ogBetLimit(opts = {}) {
 
 /**
  * 进入 OG 游戏，返回 game_link（前端自行打开 webview / 外链）
- * @param {{ game_id: number, betlimit?: number, lang?: string, extra?: string }} opts
+ * game_id 可省略：后端用默认游戏 / 限红
+ * @param {{ game_id?: number, betlimit?: number, lang?: string, extra?: string }} [opts]
  * @returns {Promise<{game_link:string,game_id:number,betlimit:number,player_id:string,token:string}>}
  */
 export function ogLaunch(opts = {}) {
+  const body = {}
   const gameId = Number(opts.game_id) || 0
-  if (gameId <= 0) {
-    return Promise.reject(new Error('请选择游戏'))
-  }
-  const body = { game_id: gameId }
+  if (gameId > 0) body.game_id = gameId
   const bet = Number(opts.betlimit) || 0
   if (bet > 0) body.betlimit = bet
   const lang = String(opts.lang || '').trim()
