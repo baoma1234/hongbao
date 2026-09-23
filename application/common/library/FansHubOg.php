@@ -486,6 +486,74 @@ class FansHubOg
     }
 
     /**
+     * OG 投注限红组列表（短缓存；正式/沙箱 id 不同）
+     *
+     * @param array{id?:int,refresh?:bool} $opts
+     * @return array<string,mixed>
+     */
+    public static function betLimitList(array $opts = [])
+    {
+        if (!FansHubOgGateway::isEnabled()) {
+            throw new \RuntimeException('OG视讯未开启');
+        }
+        if (!FansHubOgGateway::credentialsReady()) {
+            throw new \RuntimeException('OG商户配置不完整');
+        }
+
+        $query = [];
+        if (isset($opts['id']) && $opts['id'] !== '' && $opts['id'] !== null) {
+            $query['id'] = (int)$opts['id'];
+        }
+        $refresh = !empty($opts['refresh']);
+        $cfg = FansHubOgGateway::config();
+        $cacheKey = 'fanshub_og_betlimit_' . md5(json_encode([
+            !empty($cfg['sandbox']) ? 'sb' : 'live',
+            $cfg['merchant_code'] ?? '',
+            $query,
+        ], JSON_UNESCAPED_UNICODE));
+
+        if (!$refresh && !$query) {
+            try {
+                $cached = \think\Cache::get($cacheKey);
+                if (is_array($cached) && isset($cached['records'])) {
+                    $cached['cached'] = true;
+                    return $cached;
+                }
+            } catch (\Throwable $e) {
+                // ignore
+            }
+        }
+
+        $ret = FansHubOgGateway::betLimit($query);
+        if (empty($ret['ok'])) {
+            $code = (string)($ret['rs_code'] ?? '');
+            $msg = (string)($ret['rs_message'] ?? FansHubOgGateway::getLastError());
+            throw new \RuntimeException(
+                'OG限红列表失败：' . trim(($code !== '' ? $code . ' ' : '') . $msg)
+            );
+        }
+
+        $payload = [
+            'rs_code'    => (string)($ret['rs_code'] ?? ''),
+            'rs_message' => (string)($ret['rs_message'] ?? ''),
+            'sandbox'    => !empty($ret['sandbox']),
+            'records'    => is_array($ret['records'] ?? null) ? $ret['records'] : [],
+            'fetched_at' => time(),
+            'cached'     => false,
+        ];
+
+        if (!$query) {
+            try {
+                \think\Cache::set($cacheKey, $payload, 300);
+            } catch (\Throwable $e) {
+                // ignore
+            }
+        }
+
+        return $payload;
+    }
+
+    /**
      * 拉取 OG 转账历史并与本站 fans_og_transfer 同步
      *
      * @param array{fetch_id?:int,limit?:int,transaction_id?:string,sync?:bool} $opts

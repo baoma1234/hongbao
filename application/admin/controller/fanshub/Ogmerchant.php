@@ -347,6 +347,75 @@ class Ogmerchant extends Backend
         }
     }
 
+    /**
+     * 测试：限红列表
+     */
+    public function testbetlimit()
+    {
+        if (!$this->request->isPost()) {
+            $this->error('非法请求');
+        }
+        $id = trim((string)$this->request->post('id', ''));
+
+        $backup = ThinkConfig::get('fanshub') ?: [];
+        $cfg = is_array($backup) ? $backup : [];
+        foreach ($this->ogFields() as $field) {
+            if ($this->request->has($field, 'post')) {
+                $val = $this->request->post($field);
+                if (in_array($field, ['og_enabled', 'og_sandbox'], true)) {
+                    $cfg[$field] = $val ? true : false;
+                } elseif ($field === 'og_timeout') {
+                    $cfg[$field] = max(3, min(120, (int)$val));
+                } else {
+                    $cfg[$field] = trim((string)$val);
+                }
+            }
+        }
+        $cfg['og_enabled'] = true;
+        ThinkConfig::set('fanshub', $cfg);
+        try {
+            $query = [];
+            if ($id !== '') {
+                $query['id'] = (int)$id;
+            }
+            $ret = FansHubOgGateway::betLimit($query);
+            $extra = [
+                'request'  => FansHubOgGateway::getLastRequest(),
+                'response' => FansHubOgGateway::getLastResponse(),
+                'data'     => $ret,
+            ];
+            if (!empty($ret['ok'])) {
+                $cnt = is_array($ret['records'] ?? null) ? count($ret['records']) : 0;
+                $env = !empty($ret['sandbox']) ? '沙箱' : '正式';
+                $lines = [];
+                foreach ((array)($ret['records'] ?? []) as $row) {
+                    if (!is_array($row)) {
+                        continue;
+                    }
+                    $lines[] = '#' . ($row['id'] ?? '') . ' ' . ($row['min_limit'] ?? '') . '~' . ($row['max_limit'] ?? '');
+                }
+                $summary = $lines ? implode('；', array_slice($lines, 0, 8)) : '';
+                $this->success(
+                    '限红列表：' . ($ret['rs_code'] ?? '') . ' ' . ($ret['rs_message'] ?? '')
+                    . '（' . $env . ' records=' . $cnt . '；正式/沙箱 id 不同）'
+                    . ($summary !== '' ? ' → ' . $summary : ''),
+                    null,
+                    $extra
+                );
+            }
+            $this->error(
+                '限红列表失败：' . (($ret['rs_code'] ?? '') !== '' ? ($ret['rs_code'] . ' ') : '')
+                . ($ret['rs_message'] ?? FansHubOgGateway::getLastError() ?: 'unknown'),
+                null,
+                $extra
+            );
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage());
+        } finally {
+            ThinkConfig::set('fanshub', $backup);
+        }
+    }
+
     public function save()
     {
         if (!$this->request->isPost()) {

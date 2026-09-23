@@ -78,3 +78,16 @@ export function ogGameList(opts = {}) {
   if (type) body.game_type = type
   return apiRequest('oggamelist', 'POST', body)
 }
+
+/**
+ * OG 限红组列表（正式/沙箱 id 不同；全量缓存约 5 分钟）
+ * @param {{ id?: number, refresh?: boolean }} [opts]
+ * @returns {Promise<{records:Array<{id:number,min_limit:string,max_limit:string}>,sandbox:boolean,fetched_at:number}>}
+ */
+export function ogBetLimit(opts = {}) {
+  const body = {
+    refresh: opts.refresh ? 1 : 0,
+  }
+  if (opts.id != null && opts.id !== '') body.id = Number(opts.id) || 0
+  return apiRequest('ogbetlimit', 'POST', body)
+}

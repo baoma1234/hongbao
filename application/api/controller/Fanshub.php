@@ -1217,6 +1217,29 @@ class Fanshub extends Api
     }
 
     /**
+     * OG视讯：限红组列表
+     * GET/POST /api/fanshub/ogbetlimit
+     * params: id, refresh(0/1)
+     */
+    public function ogbetlimit()
+    {
+        $id = $this->request->param('id', '');
+        $refreshRaw = $this->request->param('refresh', 0);
+        $refresh = in_array(strtolower((string)$refreshRaw), ['1', 'true', 'yes'], true);
+        try {
+            $opts = ['refresh' => $refresh];
+            if ($id !== '' && $id !== null) {
+                $opts['id'] = (int)$id;
+            }
+            $this->success('ok', \app\common\library\FansHubOg::betLimitList($opts));
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: 'OG限红列表失败');
+        }
+    }
+
+    /**
      * 资金流水列表
      */
     public function walletledger()

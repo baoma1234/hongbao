@@ -573,6 +573,71 @@ class FansHubOgGateway
     }
 
     /**
+     * 限红列表 GET /api/v2/platform/operator/betlimit
+     *
+     * 正式/沙箱限额组 id 不同；可按玩家分配不同组。
+     *
+     * @param array{id?:int|string} $query
+     * @return array{ok:bool,rs_code:string,rs_message:string,records:array,sandbox?:bool,raw?:mixed}
+     */
+    public static function betLimit(array $query = [])
+    {
+        self::$lastError = '';
+        self::$lastResponse = null;
+        self::$lastRequest = null;
+
+        if (!self::credentialsReady()) {
+            self::$lastError = 'OG 商户配置不完整（运营商名称/公匙/私钥/网关）';
+            return [
+                'ok'         => false,
+                'rs_code'    => '',
+                'rs_message' => self::$lastError,
+                'records'    => [],
+            ];
+        }
+
+        $params = [];
+        if (array_key_exists('id', $query) && $query['id'] !== '' && $query['id'] !== null) {
+            $params['id'] = (int)$query['id'];
+        }
+
+        $ret = self::request('GET', '/api/v2/platform/operator/betlimit', $params, [
+            'sign'         => false,
+            'content_type' => 'query',
+        ]);
+        $code = (string)($ret['rs_code'] ?? '');
+        $msg = (string)($ret['rs_message'] ?? '');
+        $records = [];
+        if (!empty($ret['records']) && is_array($ret['records'])) {
+            foreach ($ret['records'] as $row) {
+                if (!is_array($row)) {
+                    continue;
+                }
+                $records[] = [
+                    'id'        => (int)($row['id'] ?? 0),
+                    'min_limit' => (string)($row['min_limit'] ?? ''),
+                    'max_limit' => (string)($row['max_limit'] ?? ''),
+                ];
+            }
+        }
+        $ok = ($code === 'S-100');
+        if (!$ok && $msg === '' && self::$lastError !== '') {
+            $msg = self::$lastError;
+        }
+        if ($msg === '' && $ok) {
+            $msg = 'success';
+        }
+        return [
+            'ok'         => $ok,
+            'rs_code'    => $code,
+            'rs_message' => $msg !== '' ? $msg : 'betlimit failed',
+            'records'    => $records,
+            'sandbox'    => !empty(self::config()['sandbox']),
+            'raw'        => $ret,
+        ];
+    }
+
+    /**
      * @param array<string,mixed> $body
      * @param array{sign?:bool,content_type?:string,sign_params?:array} $opts
      * @return array<string,mixed>
