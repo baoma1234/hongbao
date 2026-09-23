@@ -61,3 +61,20 @@ export function ogTransferHistory(opts = {}) {
   if (txid) body.transaction_id = txid
   return apiRequest('ogtransferhistory', 'POST', body)
 }
+
+/**
+ * OG 可用游戏列表（正式/沙箱 game_id 不同，列表会缓存约 5 分钟）
+ * @param {{ game_id?: number, game_name?: string, game_type?: string, refresh?: boolean }} [opts]
+ * @returns {Promise<{records:Array<{game_id:number,game_type:string,game_name:string,image:string}>,sandbox:boolean,fetched_at:number}>}
+ */
+export function ogGameList(opts = {}) {
+  const body = {
+    refresh: opts.refresh ? 1 : 0,
+  }
+  if (opts.game_id != null && opts.game_id !== '') body.game_id = Number(opts.game_id) || 0
+  const name = String(opts.game_name || '').trim()
+  if (name) body.game_name = name
+  const type = String(opts.game_type || '').trim()
+  if (type) body.game_type = type
+  return apiRequest('oggamelist', 'POST', body)
+}

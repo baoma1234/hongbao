@@ -408,6 +408,84 @@ class FansHubOg
     }
 
     /**
+     * OG 可用游戏列表（带短缓存；正式/沙箱 game_id 不同）
+     *
+     * @param array{game_id?:int,game_name?:string,game_type?:string,refresh?:bool} $opts
+     * @return array<string,mixed>
+     */
+    public static function gameList(array $opts = [])
+    {
+        if (!FansHubOgGateway::isEnabled()) {
+            throw new \RuntimeException('OG视讯未开启');
+        }
+        if (!FansHubOgGateway::credentialsReady()) {
+            throw new \RuntimeException('OG商户配置不完整');
+        }
+
+        $query = [];
+        if (isset($opts['game_id']) && $opts['game_id'] !== '' && $opts['game_id'] !== null) {
+            $query['game_id'] = (int)$opts['game_id'];
+        }
+        $gname = trim((string)($opts['game_name'] ?? ''));
+        if ($gname !== '') {
+            $query['game_name'] = $gname;
+        }
+        $gtype = trim((string)($opts['game_type'] ?? ''));
+        if ($gtype !== '') {
+            $query['game_type'] = $gtype;
+        }
+
+        $refresh = !empty($opts['refresh']);
+        $cfg = FansHubOgGateway::config();
+        $cacheKey = 'fanshub_og_game_list_' . md5(json_encode([
+            !empty($cfg['sandbox']) ? 'sb' : 'live',
+            $cfg['merchant_code'] ?? '',
+            $query,
+        ], JSON_UNESCAPED_UNICODE));
+
+        if (!$refresh && !$query) {
+            try {
+                $cached = \think\Cache::get($cacheKey);
+                if (is_array($cached) && !empty($cached['records'])) {
+                    $cached['cached'] = true;
+                    return $cached;
+                }
+            } catch (\Throwable $e) {
+                // ignore
+            }
+        }
+
+        $ret = FansHubOgGateway::gameList($query);
+        if (empty($ret['ok'])) {
+            $code = (string)($ret['rs_code'] ?? '');
+            $msg = (string)($ret['rs_message'] ?? FansHubOgGateway::getLastError());
+            throw new \RuntimeException(
+                'OG游戏列表失败：' . trim(($code !== '' ? $code . ' ' : '') . $msg)
+            );
+        }
+
+        $payload = [
+            'rs_code'    => (string)($ret['rs_code'] ?? ''),
+            'rs_message' => (string)($ret['rs_message'] ?? ''),
+            'sandbox'    => !empty($ret['sandbox']),
+            'records'    => is_array($ret['records'] ?? null) ? $ret['records'] : [],
+            'fetched_at' => time(),
+            'cached'     => false,
+        ];
+
+        // 全量列表缓存 5 分钟，方便大厅定期刷新
+        if (!$query) {
+            try {
+                \think\Cache::set($cacheKey, $payload, 300);
+            } catch (\Throwable $e) {
+                // ignore
+            }
+        }
+
+        return $payload;
+    }
+
+    /**
      * 拉取 OG 转账历史并与本站 fans_og_transfer 同步
      *
      * @param array{fetch_id?:int,limit?:int,transaction_id?:string,sync?:bool} $opts

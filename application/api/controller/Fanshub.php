@@ -1188,6 +1188,35 @@ class Fanshub extends Api
     }
 
     /**
+     * OG视讯：可用游戏列表
+     * GET/POST /api/fanshub/oggamelist
+     * params: game_id, game_name, game_type, refresh(0/1)
+     */
+    public function oggamelist()
+    {
+        $gameId = $this->request->param('game_id', '');
+        $gameName = trim((string)$this->request->param('game_name', ''));
+        $gameType = trim((string)$this->request->param('game_type', ''));
+        $refreshRaw = $this->request->param('refresh', 0);
+        $refresh = in_array(strtolower((string)$refreshRaw), ['1', 'true', 'yes'], true);
+        try {
+            $opts = [
+                'game_name' => $gameName,
+                'game_type' => $gameType,
+                'refresh'   => $refresh,
+            ];
+            if ($gameId !== '' && $gameId !== null) {
+                $opts['game_id'] = (int)$gameId;
+            }
+            $this->success('ok', \app\common\library\FansHubOg::gameList($opts));
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: 'OG游戏列表失败');
+        }
+    }
+
+    /**
      * 资金流水列表
      */
     public function walletledger()

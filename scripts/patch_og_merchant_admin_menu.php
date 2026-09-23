@@ -71,6 +71,7 @@ ensureMenu($pdo, $insert, $rule, $ogId, 'fanshub/ogmerchant/testregister', '测�
 ensureMenu($pdo, $insert, $rule, $ogId, 'fanshub/ogmerchant/testdeposit', '测试存入', 'fa fa-circle-o', 0, 0, $now);
 ensureMenu($pdo, $insert, $rule, $ogId, 'fanshub/ogmerchant/testwithdraw', '测试提出', 'fa fa-circle-o', 0, 0, $now);
 ensureMenu($pdo, $insert, $rule, $ogId, 'fanshub/ogmerchant/testhistory', '转账历史', 'fa fa-circle-o', 0, 0, $now);
+ensureMenu($pdo, $insert, $rule, $ogId, 'fanshub/ogmerchant/testgamelist', '游戏列表', 'fa fa-circle-o', 0, 0, $now);
 
 $group = $pdo->query("SELECT id,rules FROM {$prefix}auth_group WHERE id=1 LIMIT 1")->fetch(PDO::FETCH_ASSOC);
 if ($group) {
@@ -80,7 +81,8 @@ if ($group) {
             'fanshub_thirdgame',
             'fanshub/ogmerchant','fanshub/ogmerchant/index','fanshub/ogmerchant/save',
             'fanshub/ogmerchant/testregister','fanshub/ogmerchant/testdeposit',
-            'fanshub/ogmerchant/testwithdraw','fanshub/ogmerchant/testhistory'
+            'fanshub/ogmerchant/testwithdraw','fanshub/ogmerchant/testhistory',
+            'fanshub/ogmerchant/testgamelist'
         )"
     )->fetchAll(PDO::FETCH_COLUMN);
     $changed = false;
