@@ -499,7 +499,9 @@ onBackPress(() => {
 }
 
 /* —— 游戏内嵌：TopBar / 底栏保留，中间铺满 —— */
+.og-game-page.hb-page,
 .og-game-page {
+  padding: 0 !important;
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -507,6 +509,11 @@ onBackPress(() => {
   background: #0d1528;
   overflow: hidden;
   box-sizing: border-box;
+}
+/* 大厅 ProfileSubPage 根节点也去掉 hb-page 垫白 */
+:deep(.og-live-page.hb-page),
+:deep(.og-live-page) {
+  padding: 0 !important;
 }
 .og-game-frame-wrap {
   width: 100%;
