@@ -1,12 +1,23 @@
 <template>
   <!-- 游戏层：仅 TopBar，其下尽量铺满 -->
   <view v-if="gameUrl" class="hb-page webview-page og-game-page" :style="profileSubPageStyle">
-    <TopBar title="OG视讯" />
+    <TopBar
+      title="OG视讯"
+      hide-lang
+      hide-cs
+      show-recycle
+      show-refresh
+      show-close
+      @recycle="onWithdraw"
+      @refresh="onTopRefresh"
+      @close="onTopClose"
+    />
     <view class="og-game-frame-wrap" :style="frameWrapStyle">
       <!-- #ifdef H5 -->
       <iframe
         class="og-game-frame"
         :src="gameUrl"
+        :key="frameKey"
         title="OG视讯"
         allow="fullscreen; autoplay; payment"
         referrerpolicy="no-referrer-when-downgrade"
@@ -20,6 +31,14 @@
     title="OG视讯（内测）"
     body-class="hb-sub og-live-body"
     page-class="og-live-page"
+    hide-lang
+    hide-cs
+    show-recycle
+    show-refresh
+    show-close
+    @recycle="onWithdraw"
+    @refresh="onTopRefresh"
+    @close="onTopClose"
   >
     <view class="og-tip">内测页。进入游戏后本页内嵌打开。</view>
 
@@ -74,6 +93,7 @@ import TopBar from '../../components/TopBar.vue'
 import ProfileSubPage from '../../components/ProfileSubPage.vue'
 import { getToken, notifyProfileUpdated } from '../../utils/auth.js'
 import { useProfileSubHdStyle } from '../../utils/profile-sub-layout.js'
+import { HOME_TAB, safeNavigateBack } from '../../utils/nav.js'
 import { applySafeAreaCssVars, getSafeAreaInsets, measureChatOverlayTop } from '../../utils/safe-area.js'
 import {
   ogBalance,
@@ -90,6 +110,7 @@ const APP_WV_ID = 'og-live-game'
 
 const sheetOpen = ref(false)
 const gameUrl = ref('')
+const frameKey = ref(0)
 const frameWrapStyle = ref({ height: '60vh' })
 const ogBal = ref('0.00')
 const hongbao = ref(0)
@@ -248,6 +269,38 @@ function closeGame() {
   gameUrl.value = ''
   refreshAll()
   nextTick(() => refreshProfileSubLayout())
+}
+
+async function onTopRefresh() {
+  await refreshAll()
+  if (!gameUrl.value) {
+    uni.showToast({ title: '已刷新', icon: 'none' })
+    return
+  }
+  frameKey.value += 1
+  // #ifdef APP-PLUS
+  try {
+    // eslint-disable-next-line no-undef
+    const w = plus.webview.getWebviewById(APP_WV_ID)
+    if (w && typeof w.reload === 'function') {
+      w.reload()
+    } else if (gameUrl.value) {
+      openAppGameWebview(gameUrl.value)
+    }
+  } catch (e) {
+    if (gameUrl.value) openAppGameWebview(gameUrl.value)
+  }
+  // #endif
+  uni.showToast({ title: '已刷新', icon: 'none' })
+}
+
+function onTopClose() {
+  if (busy.value) return
+  if (gameUrl.value) {
+    closeGame()
+    return
+  }
+  safeNavigateBack(HOME_TAB)
 }
 
 async function resolveGameId() {

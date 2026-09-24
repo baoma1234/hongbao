@@ -5,7 +5,17 @@
     :style="profileSubPageStyle"
     :key="pageKey === '' || pageKey == null ? undefined : pageKey"
   >
-    <TopBar :title="String(title || '').trim()" />
+    <TopBar
+      :title="String(title || '').trim()"
+      :hide-lang="hideLang"
+      :hide-cs="hideCs"
+      :show-recycle="showRecycle"
+      :show-refresh="showRefresh"
+      :show-close="showClose"
+      @recycle="emit('recycle')"
+      @refresh="emit('refresh')"
+      @close="emit('close')"
+    />
     <view class="profile-sub-hd profile-sub-hd--back-only" :style="profileSubHdStyle">
       <text class="profile-back-btn" @click="handleBack">‹</text>
       <text class="profile-sub-spacer" />
@@ -30,7 +40,14 @@ const props = defineProps({
   pageKey: { type: [String, Number], default: '' },
   /** safeNavigateBack 无历史时的回退页 */
   backFallback: { type: String, default: HOME_TAB },
+  hideLang: { type: Boolean, default: false },
+  hideCs: { type: Boolean, default: false },
+  showRecycle: { type: Boolean, default: false },
+  showRefresh: { type: Boolean, default: false },
+  showClose: { type: Boolean, default: false },
 })
+
+const emit = defineEmits(['recycle', 'refresh', 'close'])
 
 const { profileSubHdStyle, profileSubPageStyle, refreshProfileSubLayout } = useProfileSubHdStyle()
 

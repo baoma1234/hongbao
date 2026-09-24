@@ -16,12 +16,37 @@
         <view class="act-btn act-btn--recharge" hover-class="btn-hit" @click.stop="goRecharge">
           <text>{{ rechargeLab }}</text>
         </view>
-        <view class="act-btn act-btn--cs" hover-class="btn-hit" @click.stop="openCs">
+        <view
+          v-if="showRecycle"
+          class="act-btn act-btn--recycle"
+          hover-class="btn-hit"
+          @click.stop="onRecycle"
+        >
+          <text>回收</text>
+        </view>
+        <view v-if="!hideCs" class="act-btn act-btn--cs" hover-class="btn-hit" @click.stop="openCs">
           <text>{{ csLab }}</text>
         </view>
       </template>
-      <!-- 语言：登录页也显示；登录后收紧放右侧 -->
       <view
+        v-if="showRefresh"
+        class="act-btn act-btn--tool"
+        hover-class="btn-hit"
+        @click.stop="onRefresh"
+      >
+        <text>刷新</text>
+      </view>
+      <view
+        v-if="showClose"
+        class="act-btn act-btn--close"
+        hover-class="btn-hit"
+        @click.stop="onClose"
+      >
+        <text>×</text>
+      </view>
+      <!-- 语言：登录页也显示；登录后收紧放右侧（可单页关闭） -->
+      <view
+        v-if="!hideLang"
         class="lang-wrap"
         hover-class="lang-wrap-hover"
         :hover-stay-time="80"
@@ -36,12 +61,12 @@
   </view>
 
   <view
-    v-if="langOpen"
+    v-if="langOpen && !hideLang"
     class="lang-mask"
     @click="closePanels"
     @touchmove.stop.prevent="noop"
   />
-  <view v-if="langOpen" class="lang-panel" :style="langPanelStyle" @click.stop>
+  <view v-if="langOpen && !hideLang" class="lang-panel" :style="langPanelStyle" @click.stop>
     <view
       v-for="opt in locales"
       :key="opt.id"
@@ -83,7 +108,19 @@ defineProps({
   fissionLink: { type: Boolean, default: true },
   /** @deprecated 顶栏标题已隐藏 */
   title: { type: String, default: '' },
+  /** 单页关闭语言切换（如 OG 视讯） */
+  hideLang: { type: Boolean, default: false },
+  /** 隐藏客服按钮 */
+  hideCs: { type: Boolean, default: false },
+  /** 充值旁「回收」（OG 余额提回） */
+  showRecycle: { type: Boolean, default: false },
+  /** 右侧「刷新」 */
+  showRefresh: { type: Boolean, default: false },
+  /** 右侧「×」关闭 */
+  showClose: { type: Boolean, default: false },
 })
+
+const emit = defineEmits(['recycle', 'refresh', 'close'])
 
 const locale = ref(getLocale())
 const langOpen = ref(false)
@@ -221,6 +258,21 @@ function goRecharge() {
         fail: () => uni.switchTab({ url: '/pages/home/home' }),
       }),
   })
+}
+
+function onRecycle() {
+  closePanels()
+  emit('recycle')
+}
+
+function onRefresh() {
+  closePanels()
+  emit('refresh')
+}
+
+function onClose() {
+  closePanels()
+  emit('close')
 }
 
 function openCs() {
@@ -461,6 +513,26 @@ onUnmounted(() => {
   color: #ffffff;
   border: 1px solid #07c160;
   box-shadow: none;
+}
+.act-btn--recycle {
+  background: #ff9f0a;
+  color: #ffffff;
+  border: 1px solid #ff9f0a;
+}
+.act-btn--tool {
+  background: #f7f7f7;
+  border: 1px solid #e5e5e5;
+  color: #191919;
+}
+.act-btn--close {
+  background: #f7f7f7;
+  border: 1px solid #e5e5e5;
+  color: #191919;
+  min-width: 32px;
+  padding: 0 8px;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1;
 }
 .act-btn--cs {
   background: #f7f7f7;
