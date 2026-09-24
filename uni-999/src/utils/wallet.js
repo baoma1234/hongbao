@@ -729,8 +729,8 @@ export function fxHintText(ch, amount, opts) {
 export function turnoverHint(info) {
   if (!info) return ''
   const t = Math.max(0, Number(info.turnover) || 0)
-  if (t <= 0.00000001) return '流水需=0，可申请提现'
-  return '流水需=' + money(t) + '（发红包可扣流水，降至 0 才可提现）'
+  if (t <= 0.00000001) return '出款所需流水为：0，可申请提现'
+  return '出款所需流水为：' + money(t)
 }
 
 export function ledgerAmountText(item, opts = {}) {

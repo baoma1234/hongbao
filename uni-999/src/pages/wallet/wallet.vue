@@ -2,7 +2,7 @@
   <ProfileSubPage title="钱包">
       <view class="match-card" style="margin-bottom:14px">
         <view class="wallet-bal-line">红宝余额 <strong>{{ balanceText }}</strong></view>
-        <view class="profile-meta-line">流水需={{ turnoverNeedText }}</view>
+        <view class="profile-meta-line">出款所需流水为：{{ turnoverNeedText }}</view>
         <view class="profile-meta-line" v-if="frozenText">冻结金额：{{ frozenText }}</view>
       </view>
 

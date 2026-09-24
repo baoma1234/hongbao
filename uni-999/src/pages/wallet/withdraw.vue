@@ -1,8 +1,8 @@
 ﻿<template>
   <ProfileSubPage title="提现" body-class="hb-sub">
     <view class="match-card profile-card">
-      <view class="profile-meta-line">可提现红宝：<strong>￥{{ balanceText }}</strong></view>
-      <view class="profile-meta-line">流水需={{ turnoverNeedText }}</view>
+      <view class="profile-meta-line">可提现金额：<strong>￥{{ balanceText }}</strong></view>
+      <view class="profile-meta-line">出款所需流水为：{{ turnoverNeedText }}</view>
       <view class="profile-meta-line" v-if="frozenText">冻结金额：<strong>￥{{ frozenText }}</strong></view>
 
       <view class="profile-field">
@@ -245,7 +245,7 @@ const turnoverNeed = computed(() => {
   if (!isFinite(n) || n <= 0) return 0
   return Math.round(n * 100) / 100
 })
-/** 流水需>0 时不可提现，可提现红宝显示 0 */
+/** 流水≠0 时不可提现，可提现金额显示 0 */
 const balanceText = computed(() => {
   if (turnoverNeed.value > 0) return money(0)
   const i = info.value || {}
