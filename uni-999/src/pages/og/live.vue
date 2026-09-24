@@ -52,7 +52,7 @@ import TopBar from '../../components/TopBar.vue'
 import ProfileSubPage from '../../components/ProfileSubPage.vue'
 import { getToken, notifyProfileUpdated } from '../../utils/auth.js'
 import { useProfileSubHdStyle } from '../../utils/profile-sub-layout.js'
-import { HOME_TAB, safeNavigateBack } from '../../utils/nav.js'
+import { goHomeTab } from '../../utils/nav.js'
 import { applySafeAreaCssVars, getSafeAreaInsets, measureChatOverlayTop } from '../../utils/safe-area.js'
 import {
   ogBalance,
@@ -211,7 +211,7 @@ function openGameInPage(link) {
 function closeGame() {
   closeAppGameWebview()
   gameUrl.value = ''
-  safeNavigateBack(HOME_TAB)
+  goHomeTab()
 }
 
 function onTopRefresh() {
@@ -238,11 +238,9 @@ function onTopRefresh() {
 
 function onTopClose() {
   if (busy.value) return
-  if (gameUrl.value) {
-    closeGame()
-    return
-  }
-  safeNavigateBack(HOME_TAB)
+  closeAppGameWebview()
+  gameUrl.value = ''
+  goHomeTab()
 }
 
 onLoad((q) => {

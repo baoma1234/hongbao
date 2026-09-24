@@ -18,6 +18,11 @@ function goFallback(url) {
   uni.reLaunch({ url: target })
 }
 
+/** 强制回到大厅 Tab（不走 navigateBack） */
+export function goHomeTab() {
+  goFallback(HOME_TAB)
+}
+
 /**
  * 安全返回上一页。
  * 刷新后 H5 常只剩单页栈，navigateBack 会 history.back 原地刷新；
