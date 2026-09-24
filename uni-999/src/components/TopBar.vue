@@ -34,7 +34,7 @@
         hover-class="btn-hit"
         @click.stop="onRefresh"
       >
-        <text>刷新</text>
+        <image class="act-ico" :src="refreshIcoSrc" mode="aspectFit" />
       </view>
       <view
         v-if="showClose"
@@ -95,6 +95,7 @@ import {
   setLocale,
   tt,
 } from '../utils/i18n.js'
+import { packagedStaticUrl } from '../utils/config.js'
 import {
   applySafeAreaCssVars,
   getSafeAreaInsets,
@@ -133,6 +134,7 @@ let lastToggleAt = 0
 let pickingLang = false
 
 const logoSrc = logoUrl()
+const refreshIcoSrc = packagedStaticUrl('og/refresh.png')
 const locales = computed(() => {
   void locale.value
   return localeOptions()
@@ -523,6 +525,14 @@ onUnmounted(() => {
   background: #f7f7f7;
   border: 1px solid #e5e5e5;
   color: #191919;
+  min-width: 32px;
+  padding: 0 8px;
+}
+.act-ico {
+  width: 16px;
+  height: 16px;
+  display: block;
+  pointer-events: none;
 }
 .act-btn--close {
   background: #f7f7f7;
