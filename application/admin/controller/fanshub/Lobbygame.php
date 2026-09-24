@@ -19,6 +19,7 @@ class Lobbygame extends Backend
     public function _initialize()
     {
         parent::_initialize();
+        FansHubLobby::ensureOgLobby();
         $this->model = new \app\admin\model\fanshub\Lobbygame;
         $catList = [];
         try {
@@ -32,7 +33,7 @@ class Lobbygame extends Backend
         } catch (\Throwable $e) {
         }
         if (!$catList) {
-            $catList = ['hot' => '热门推荐', 'games' => '红宝游戏'];
+            $catList = ['games' => '红宝游戏', 'live' => '真人视讯'];
         }
         $this->view->assign('statusList', $this->model->getStatusList());
         $this->view->assign('catList', $catList);
@@ -50,6 +51,7 @@ class Lobbygame extends Backend
         if ($p['title'] === '') {
             $this->error('请填写游戏名');
         }
+        $p['og_game_id'] = max(0, (int)($p['og_game_id'] ?? 0));
         $p['cover'] = FansHubLobby::normalizeStoredPath($p['cover'] ?? '');
         if ($p['cover'] === '') {
             $this->error('请上传封面图');
@@ -101,7 +103,8 @@ class Lobbygame extends Backend
             return $ret;
         }
         $this->view->assign('row', [
-            'cats' => 'hot,games',
+            'cats' => 'games',
+            'og_game_id' => 0,
             'status' => 'normal',
             'weigh' => 0,
             'coming_soon' => 0,

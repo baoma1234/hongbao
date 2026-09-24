@@ -19,6 +19,6 @@ class Lobbygame extends Model
 
     public function getStatusList()
     {
-        return ['normal' => '显示', 'hidden' => '暂停显示'];
+        return ['normal' => '上架', 'hidden' => '下架'];
     }
 }

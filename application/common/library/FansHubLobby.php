@@ -9,13 +9,140 @@ use think\Db;
  */
 class FansHubLobby
 {
-    const CACHE_KEY = 'fanshub_lobby_home_v1';
+    const CACHE_KEY = 'fanshub_lobby_home_v2';
+    const OG_READY_KEY = 'fanshub_lobby_og_ready_v1';
 
     public static function clearCache()
     {
         try {
             \think\Cache::rm(self::CACHE_KEY);
         } catch (\Throwable $e) {
+        }
+    }
+
+    /**
+     * 热门推荐改为真人视讯，并补上 OG GameID 列与四款视讯游戏。只跑一次。
+     */
+    public static function ensureOgLobby()
+    {
+        static $done = false;
+        if ($done) {
+            return;
+        }
+        $done = true;
+        try {
+            if (\think\Cache::get(self::OG_READY_KEY)) {
+                return;
+            }
+        } catch (\Throwable $e) {
+        }
+
+        try {
+            $prefix = (string)\think\Config::get('database.prefix');
+            if ($prefix === '') {
+                $prefix = 'fa_';
+            }
+            $gamesTable = $prefix . 'fans_lobby_games';
+            $col = Db::query("SHOW COLUMNS FROM `{$gamesTable}` LIKE 'og_game_id'");
+            if (!$col) {
+                Db::execute("ALTER TABLE `{$gamesTable}` ADD COLUMN `og_game_id` int(10) unsigned NOT NULL DEFAULT 0 COMMENT 'OG GameID，0 表示非视讯' AFTER `title`");
+            }
+
+            $now = time();
+            $live = Db::name('fans_lobby_categories')->where('cat_key', 'live')->find();
+            $hot = Db::name('fans_lobby_categories')->where('cat_key', 'hot')->find();
+            if (!$live && $hot) {
+                Db::name('fans_lobby_categories')->where('id', (int)$hot['id'])->update([
+                    'cat_key'     => 'live',
+                    'title'       => '真人视讯',
+                    'icon'        => 'home/lobby/cat-live.png',
+                    'icon_static' => '',
+                    'action'      => 'filter',
+                    'weigh'       => 190,
+                    'status'      => 'normal',
+                    'updatetime'  => $now,
+                ]);
+            } elseif (!$live) {
+                Db::name('fans_lobby_categories')->insert([
+                    'cat_key'     => 'live',
+                    'title'       => '真人视讯',
+                    'icon'        => 'home/lobby/cat-live.png',
+                    'icon_static' => '',
+                    'action'      => 'filter',
+                    'action_url'  => '',
+                    'weigh'       => 190,
+                    'status'      => 'normal',
+                    'createtime'  => $now,
+                    'updatetime'  => $now,
+                ]);
+            }
+
+            $gamesCat = Db::name('fans_lobby_categories')->where('cat_key', 'games')->find();
+            $top = Db::name('fans_lobby_categories')->order('weigh', 'desc')->order('id', 'asc')->find();
+            if ($gamesCat && (!$top || (string)$top['cat_key'] !== 'games')) {
+                $max = (int)Db::name('fans_lobby_categories')->max('weigh');
+                Db::name('fans_lobby_categories')->where('id', (int)$gamesCat['id'])->update([
+                    'weigh'      => $max + 10,
+                    'updatetime' => $now,
+                ]);
+            }
+
+            $tagged = Db::name('fans_lobby_games')->where('cats', 'like', '%hot%')->select();
+            foreach ((array)$tagged as $row) {
+                $parts = preg_split('/\s*,\s*/', trim((string)($row['cats'] ?? '')), -1, PREG_SPLIT_NO_EMPTY);
+                $parts = array_values(array_filter($parts, function ($x) {
+                    return $x !== 'hot';
+                }));
+                if (!$parts) {
+                    $parts = ['games'];
+                }
+                Db::name('fans_lobby_games')->where('id', (int)$row['id'])->update([
+                    'cats'       => implode(',', $parts),
+                    'updatetime' => $now,
+                ]);
+            }
+
+            $seed = [
+                ['og_baccarat', '百家乐', 35, 'home/lobby/og-baccarat.png', 40],
+                ['og_dragon', '经典龙虎', 32, 'home/lobby/og-dragon.png', 30],
+                ['og_roulette', '轮盘', 34, 'home/lobby/og-roulette.png', 20],
+                ['og_niuniu', '牛牛', 30, 'home/lobby/og-niuniu.png', 10],
+            ];
+            foreach ($seed as $g) {
+                $exists = Db::name('fans_lobby_games')->where('game_key', $g[0])->find();
+                if ($exists) {
+                    if ((int)($exists['og_game_id'] ?? 0) <= 0) {
+                        Db::name('fans_lobby_games')->where('id', (int)$exists['id'])->update([
+                            'og_game_id' => (int)$g[2],
+                            'updatetime' => $now,
+                        ]);
+                    }
+                    continue;
+                }
+                Db::name('fans_lobby_games')->insert([
+                    'game_key'        => $g[0],
+                    'title'           => $g[1],
+                    'og_game_id'      => (int)$g[2],
+                    'cover'           => $g[3],
+                    'badge'           => '',
+                    'cats'            => 'live',
+                    'group_match'     => '',
+                    'sum_group_match' => '',
+                    'coming_soon'     => 0,
+                    'weigh'           => (int)$g[4],
+                    'status'          => 'normal',
+                    'createtime'      => $now,
+                    'updatetime'      => $now,
+                ]);
+            }
+
+            self::clearCache();
+            try {
+                \think\Cache::set(self::OG_READY_KEY, 1, 86400 * 365);
+            } catch (\Throwable $e) {
+            }
+        } catch (\Throwable $e) {
+            $done = false;
         }
     }
 
@@ -189,6 +316,7 @@ class FansHubLobby
     /** @return array{banners:array,categories:array,games:array,invites:array} */
     public static function homePayload()
     {
+        self::ensureOgLobby();
         $cached = null;
         try {
             $cached = \think\Cache::get(self::CACHE_KEY);
@@ -259,6 +387,7 @@ class FansHubLobby
                     'id'              => (int)$r['id'],
                     'key'             => (string)($r['game_key'] ?? ''),
                     'title'           => (string)($r['title'] ?? ''),
+                    'og_game_id'      => (int)($r['og_game_id'] ?? 0),
                     'cover'           => self::resolveImage($r['cover'] ?? ''),
                     'cover_raw'       => (string)($r['cover'] ?? ''),
                     'badge'           => (string)($r['badge'] ?? ''),

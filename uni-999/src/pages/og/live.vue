@@ -2,7 +2,7 @@
   <!-- 游戏层：仅 TopBar，其下尽量铺满 -->
   <view v-if="gameUrl" class="hb-page webview-page og-game-page" :style="profileSubPageStyle">
     <TopBar
-      title="OG视讯"
+      :title="pageTitle"
       hide-lang
       hide-cs
       show-recycle
@@ -28,7 +28,7 @@
 
   <ProfileSubPage
     v-else
-    title="OG视讯（内测）"
+    :title="pageTitle"
     body-class="hb-sub og-live-body"
     page-class="og-live-page"
     hide-lang
@@ -88,7 +88,7 @@
 
 <script setup>
 import { computed, nextTick, ref } from 'vue'
-import { onBackPress, onHide, onShow, onUnload } from '@dcloudio/uni-app'
+import { onBackPress, onHide, onLoad, onShow, onUnload } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
 import ProfileSubPage from '../../components/ProfileSubPage.vue'
 import { getToken, notifyProfileUpdated } from '../../utils/auth.js'
@@ -108,6 +108,8 @@ import '../../styles/hb.css'
 
 const APP_WV_ID = 'og-live-game'
 
+const preferredGameId = ref(0)
+const pageTitle = ref('真人视讯')
 const sheetOpen = ref(false)
 const gameUrl = ref('')
 const frameKey = ref(0)
@@ -303,7 +305,16 @@ function onTopClose() {
   safeNavigateBack(HOME_TAB)
 }
 
+onLoad((q) => {
+  const n = parseInt(q && q.game_id, 10)
+  if (n > 0) preferredGameId.value = n
+  const t = q && q.title ? String(q.title) : ''
+  if (t) pageTitle.value = t
+})
+
 async function resolveGameId() {
+  const prefer = Number(preferredGameId.value) || 0
+  if (prefer > 0) return prefer
   try {
     const list = await ogGameList({ refresh: false })
     const rows = Array.isArray(list?.records) ? list.records : []

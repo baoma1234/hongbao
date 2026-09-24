@@ -68,7 +68,7 @@
         </view>
 
         <view class="game-lobby-section-hd">
-          <text class="game-lobby-section-title">{{ tt('lobby_hot_games', '热门游戏') }}</text>
+          <text class="game-lobby-section-title">{{ lobbySectionTitle }}</text>
           <text class="game-lobby-section-more" @click="goTab('/pages/messages/messages')">
             {{ tt('lobby_all_games', '全部游戏') }} ›
           </text>
@@ -295,7 +295,7 @@ const lobbyPageStyle = computed(() => {
   }
 })
 
-const activeCat = ref('hot')
+const activeCat = ref('games')
 const onlineCountLive = ref(0)
 /** 服务端官方在线合计（与七群分摊同源，每分钟游走） */
 const lobbyOnlineTotal = ref(0)
@@ -308,11 +308,12 @@ const tickerText = ref(LOBBY_TICKER_FIXED)
 /** 后台大厅装修（lobbyhome）；未加载前不展示本地占位图 */
 const remoteLobby = ref(null)
 
-const LOBBY_ASSET_VER = '20'
+const LOBBY_ASSET_VER = '21'
 
-/** 大厅分类图：固定本地打包，不读 OSS */
+/** 红宝分类图走本地打包；真人视讯走后台/OSS */
 const LOBBY_CAT_LOCAL = Object.freeze({
   hot: 'home/lobby/cat-1.png',
+  live: 'home/lobby/cat-live.png',
   games: 'home/lobby/cat-2.png',
   notice: 'home/lobby/fission-hongbao.png',
   fission: 'home/lobby/fission-hongbao.png',
@@ -405,15 +406,21 @@ const lobbyCategories = computed(() => {
     const mapped = {
       id: key,
       label: title,
-      iconUrl: String(c.icon || ''),
+      iconUrl: '',
       iconRaw: String(c.icon_raw || c.icon || ''),
       iconStatic: String(c.icon_static || ''),
       action,
       actionUrl: String(c.action_url || ''),
     }
-    mapped.iconStatic = resolveLocalCatIcon(mapped, idx)
-    mapped.iconUrl = ''
-    mapped.iconRaw = ''
+    const remoteIcon = String(c.icon || '')
+    if (key === 'live' && /^https?:\/\//i.test(remoteIcon)) {
+      mapped.iconUrl = remoteIcon
+      mapped.iconStatic = ''
+    } else {
+      mapped.iconStatic = resolveLocalCatIcon(mapped, idx)
+      mapped.iconUrl = ''
+      mapped.iconRaw = ''
+    }
     return mapped
   })
 })
@@ -423,6 +430,8 @@ const lobbyGamesList = computed(() => {
   if (!Array.isArray(rows) || !rows.length) return []
   return rows.map((g) => ({
     id: String(g.key || g.id || ''),
+    title: String(g.title || ''),
+    ogGameId: Number(g.og_game_id) || 0,
     cover: normalizeRemotePath(g.cover_raw || g.cover || ''),
     coverUrl: String(g.cover || ''),
     badge: String(g.badge || ''),
@@ -504,9 +513,15 @@ function gamePlayersCount(game) {
   return row ? groupDisplayOnline(row) : 0
 }
 
+const lobbySectionTitle = computed(() => {
+  const cat = lobbyCategories.value.find((c) => c.id === activeCat.value)
+  return (cat && cat.label) || '红宝游戏'
+})
+
 function catIconSrc(cat) {
   if (!cat) return ''
-  // 分类图标一律本地打包（App 不依赖 OSS；H5 走 /999/static）
+  const remote = String(cat.iconUrl || '')
+  if (/^https?:\/\//i.test(remote)) return remote
   const p = String(cat.iconStatic || resolveLocalCatIcon(cat, 0) || '')
     .replace(/^\/+/, '')
     .replace(/^static\//, '')
@@ -766,6 +781,12 @@ function onGameTap(game) {
   if (!game) return
   if (game.comingSoon) {
     uni.showToast({ title: tt('lobby_coming_soon', '敬请期待'), icon: 'none' })
+    return
+  }
+  const ogId = Number(game.ogGameId) || 0
+  if (ogId > 0) {
+    const title = encodeURIComponent(String(game.title || '真人视讯'))
+    uni.navigateTo({ url: '/pages/og/live?game_id=' + ogId + '&title=' + title })
     return
   }
   uni.navigateTo({ url: '/pages/home/game-detail?game=' + encodeURIComponent(game.id) })

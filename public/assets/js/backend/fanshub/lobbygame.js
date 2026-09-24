@@ -22,6 +22,7 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './lobby-common'], fu
                     {field: 'id', title: 'ID'},
                     {field: 'game_key', title: 'Key', operate: 'LIKE'},
                     {field: 'title', title: '标题', operate: 'LIKE'},
+                    {field: 'og_game_id', title: 'GameID', operate: '='},
                     {field: 'cover', title: '封面', operate: false, formatter: Lobby.imageFormatter, events: Table.api.events.image},
                     {field: 'badge', title: '角标', operate: 'LIKE'},
                     {field: 'cats', title: '分类', operate: 'LIKE'},

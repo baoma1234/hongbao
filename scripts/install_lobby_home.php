@@ -113,15 +113,14 @@ if ($cnt === 0) {
 $cnt = (int)$pdo->query("SELECT COUNT(*) FROM `{$prefix}fans_lobby_categories`")->fetchColumn();
 if ($cnt === 0) {
     $ins = $pdo->prepare("INSERT INTO `{$prefix}fans_lobby_categories` (cat_key,title,icon,icon_static,action,action_url,weigh,status,createtime,updatetime) VALUES (?,?,?,?,?,?,?,?,?,?)");
-    $ins->execute(['hot', '热门推荐', 'home/lobby/cat-1.png', '', 'filter', '', 100, 'normal', $now, $now]);
-    $ins->execute(['games', '红宝游戏', 'home/lobby/cat-2.png', '', 'filter', '', 90, 'normal', $now, $now]);
+    $ins->execute(['games', '红宝游戏', 'home/lobby/cat-2.png', '', 'filter', '', 200, 'normal', $now, $now]);
+    $ins->execute(['live', '真人视讯', 'home/lobby/cat-live.png', '', 'filter', '', 190, 'normal', $now, $now]);
     $ins->execute(['notice', '红宝公告', 'home/lobby/cat-3.png', '', 'notice', '', 80, 'normal', $now, $now]);
     $ins->execute(['commission', '红宝佣金', 'home/lobby/cat-4.png', '', 'commission', '', 70, 'normal', $now, $now]);
     echo "OK seed categories\n";
 } else {
     // 已有数据：同步四格整图路径（前端也会强制 cat-1~4）
     $upd = $pdo->prepare("UPDATE `{$prefix}fans_lobby_categories` SET icon=?, icon_static='', updatetime=? WHERE cat_key=?");
-    $upd->execute(['home/lobby/cat-1.png', $now, 'hot']);
     $upd->execute(['home/lobby/cat-2.png', $now, 'games']);
     $upd->execute(['home/lobby/cat-3.png', $now, 'notice']);
     $upd->execute(['home/lobby/cat-4.png', $now, 'commission']);
@@ -131,10 +130,10 @@ if ($cnt === 0) {
 $cnt = (int)$pdo->query("SELECT COUNT(*) FROM `{$prefix}fans_lobby_games`")->fetchColumn();
 if ($cnt === 0) {
     $ins = $pdo->prepare("INSERT INTO `{$prefix}fans_lobby_games` (game_key,title,cover,badge,cats,group_match,sum_group_match,coming_soon,weigh,status,createtime,updatetime) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)");
-    $ins->execute(['jielong', '红宝接龙', 'home/lobby/01.png', 'hot', 'hot,games', '', '红宝接龙\\s*(20|50|100|500)群', 0, 100, 'normal', $now, $now]);
-    $ins->execute(['saolei', '红宝扫雷', 'home/lobby/02.png', '', 'hot,games', '扫雷', '', 0, 90, 'normal', $now, $now]);
-    $ins->execute(['niuniu', '红宝牛牛', 'home/lobby/03.png', '', 'hot,games', '牛牛', '', 0, 80, 'normal', $now, $now]);
-    $ins->execute(['battle', '红宝对战', 'home/lobby/04.png', '', 'hot,games', '全员自由发宝|全员自动发包', '', 0, 70, 'normal', $now, $now]);
+    $ins->execute(['jielong', '红宝接龙', 'home/lobby/01.png', 'hot', 'games', '', '红宝接龙\\s*(20|50|100|500)群', 0, 100, 'normal', $now, $now]);
+    $ins->execute(['saolei', '红宝扫雷', 'home/lobby/02.png', '', 'games', '扫雷', '', 0, 90, 'normal', $now, $now]);
+    $ins->execute(['niuniu', '红宝牛牛', 'home/lobby/03.png', '', 'games', '牛牛', '', 0, 80, 'normal', $now, $now]);
+    $ins->execute(['battle', '红宝对战', 'home/lobby/04.png', '', 'games', '全员自由发宝|全员自动发包', '', 0, 70, 'normal', $now, $now]);
     $ins->execute(['blindbox', '幸运盲盒', 'home/lobby/05.png', 'new', 'hot,event', '', '', 1, 60, 'hidden', $now, $now]);
     $ins->execute(['yxx', '趣味鱼虾蟹', 'home/lobby/06.png', '', 'hot,card', '', '', 1, 50, 'hidden', $now, $now]);
     echo "OK seed games (blindbox/yxx hidden)\n";
