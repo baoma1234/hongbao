@@ -23,7 +23,7 @@ require $imRoot . '/vendor/autoload.php';
 
 $opts = [
     'days'            => 3,
-    'batch'           => 20000,
+    'batch'           => 50000,
     'execute'         => false,
     'sleep_ms'        => 5,
     'use_project_env' => true,
@@ -49,7 +49,7 @@ foreach ($argv as $i => $arg) {
         continue;
     }
     if (preg_match('/^--batch=(\d+)$/', $arg, $m)) {
-        $opts['batch'] = max(500, min(20000, (int)$m[1]));
+        $opts['batch'] = max(500, min(100000, (int)$m[1]));
         continue;
     }
     if (preg_match('/^--sleep-ms=(\d+)$/', $arg, $m)) {
@@ -161,28 +161,31 @@ if (!$execute) {
 $deleted = 0;
 $rounds = 0;
 $t0 = microtime(true);
-while (true) {
-    // 单表 DELETE + LIMIT：比 JOIN 快；bot UID 仅约数百个
-    $n = (int)Im\Support\Db::exec(
-        "DELETE FROM {$ledger}
-         WHERE user_id IN ({$botIn}) AND createtime < ?
-         ORDER BY id ASC
-         LIMIT {$batch}",
-        [$cutoff]
-    );
-    $rounds++;
-    $deleted += $n;
-    if ($rounds === 1 || $rounds % 10 === 0 || $n < $batch) {
-        $elapsed = round(microtime(true) - $t0, 1);
-        echo '[' . date('H:i:s') . "] round={$rounds} deleted={$deleted} last_batch={$n} elapsed={$elapsed}s\n";
-    }
-    if ($n <= 0) {
-        break;
-    }
-    if ($sleepUs > 0) {
-        usleep($sleepUs);
+foreach ($botUidList as $uid) {
+    while (true) {
+        // 按 user_id 走 idx_user_id，比大 IN + ORDER BY 快得多
+        $n = (int)Im\Support\Db::exec(
+            "DELETE FROM {$ledger}
+             WHERE user_id = ? AND createtime < ?
+             LIMIT {$batch}",
+            [$uid, $cutoff]
+        );
+        if ($n <= 0) {
+            break;
+        }
+        $rounds++;
+        $deleted += $n;
+        if ($rounds === 1 || $rounds % 10 === 0) {
+            $elapsed = round(microtime(true) - $t0, 1);
+            echo '[' . date('H:i:s') . "] uid={$uid} round={$rounds} deleted={$deleted} last_batch={$n} elapsed={$elapsed}s\n";
+        }
+        if ($sleepUs > 0) {
+            usleep($sleepUs);
+        }
     }
 }
+$elapsed = round(microtime(true) - $t0, 1);
+echo '[' . date('H:i:s') . "] all_bots_done deleted={$deleted} rounds={$rounds} elapsed={$elapsed}s\n";
 
 $left = (int)(Im\Support\Db::fetch(
     "SELECT COUNT(*) AS c FROM {$ledger} WHERE user_id IN ({$botIn}) AND createtime < ?",
