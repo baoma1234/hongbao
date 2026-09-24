@@ -40,49 +40,8 @@
     @refresh="onTopRefresh"
     @close="onTopClose"
   >
-    <view class="og-tip">内测页。进入游戏后本页内嵌打开。</view>
-
-    <view class="og-card" @click="openSheet">
-      <view class="og-card-badge">LIVE</view>
-      <view class="og-card-title">视讯</view>
-      <view class="og-card-sub">OG 真人 · 点此打开</view>
-      <view class="og-card-bal">
-        <text>OG {{ ogBalText }}</text>
-        <text class="og-card-sep">·</text>
-        <text>红宝 {{ hbText }}</text>
-      </view>
-    </view>
-
-    <view class="og-refresh" @click="refreshAll">刷新余额</view>
-
-    <view class="og-mask" :class="{ 'is-open': sheetOpen }" @click="closeSheet">
-      <view class="og-sheet" @click.stop>
-        <view class="og-sheet-title">OG 视讯</view>
-        <view class="og-sheet-bal">
-          <text>OG余额 <strong>{{ ogBalText }}</strong></text>
-          <text class="og-sheet-sep">｜</text>
-          <text>本站红宝 <strong>{{ hbText }}</strong></text>
-        </view>
-        <view class="og-sheet-hint">进入：全部红宝自动转入 OG 再开游戏<br />提出：OG 余额全部提回红宝</view>
-        <button
-          type="button"
-          class="og-btn primary"
-          :disabled="busy"
-          @click="onEnterGame"
-        >
-          {{ busyLaunch ? '进入中…' : ('进入游戏' + (hbNum > 0 ? '（转入 ' + hbText + '）' : '')) }}
-        </button>
-        <button
-          type="button"
-          class="og-btn warn"
-          :disabled="busy"
-          @click="onWithdraw"
-        >
-          {{ busyWithdraw ? '提出中…' : ('提出全部' + (ogNum > 0 ? '（' + ogBalText + '）' : '')) }}
-        </button>
-        <button type="button" class="og-btn close" :disabled="busy" @click="closeSheet">关闭</button>
-      </view>
-    </view>
+    <view v-if="busyLaunch" class="og-entering">正在进入游戏…</view>
+    <view v-else class="og-entering">加载中…</view>
   </ProfileSubPage>
 </template>
 
@@ -111,7 +70,6 @@ const APP_WV_ID = 'og-live-game'
 const preferredGameId = ref(0)
 const pageTitle = ref('真人视讯')
 const autoLaunchPending = ref(false)
-const sheetOpen = ref(false)
 const gameUrl = ref('')
 const frameKey = ref(0)
 const frameWrapStyle = ref({ height: '60vh' })
@@ -184,17 +142,6 @@ async function ensureOgReady() {
   return ret
 }
 
-function openSheet() {
-  if (!ensureLogin()) return
-  sheetOpen.value = true
-  refreshAll()
-}
-
-function closeSheet() {
-  if (busy.value) return
-  sheetOpen.value = false
-}
-
 /** TopBar 底边之下铺满（含底部安全区） */
 function measureFrameMetrics() {
   refreshProfileSubLayout()
@@ -218,47 +165,41 @@ function closeAppGameWebview() {
   try {
     // eslint-disable-next-line no-undef
     const w = plus.webview.getWebviewById(APP_WV_ID)
-    if (w) w.close()
-  } catch (e) {
-    // ignore
-  }
+    if (w) w.close('none')
+  } catch (e) {}
   // #endif
 }
 
 function openAppGameWebview(url) {
   // #ifdef APP-PLUS
   closeAppGameWebview()
-  const metrics = measureFrameMetrics()
-  setTimeout(() => {
-    try {
-      // eslint-disable-next-line no-undef
-      if (typeof plus === 'undefined' || !plus.webview) return
-      const pages = getCurrentPages()
-      const cur = pages && pages.length ? pages[pages.length - 1] : null
-      const cw =
-        (cur && typeof cur.$getAppWebview === 'function' && cur.$getAppWebview()) ||
-        (cur && cur.$scope && typeof cur.$scope.$getAppWebview === 'function' && cur.$scope.$getAppWebview())
-      if (!cw) return
-      // eslint-disable-next-line no-undef
-      const wv = plus.webview.create(url, APP_WV_ID, {
-        top: metrics.top + 'px',
-        height: metrics.height + 'px',
-        left: '0px',
-        width: '100%',
-        position: 'absolute',
+  try {
+    const m = measureFrameMetrics()
+    // eslint-disable-next-line no-undef
+    const wv = plus.webview.create(
+      url,
+      APP_WV_ID,
+      {
+        top: m.top + 'px',
+        height: m.height + 'px',
+        bottom: m.bottom + 'px',
+        scalable: false,
         kernel: 'WKWebview',
-      })
-      cw.append(wv)
-    } catch (e) {
-      // ignore
-    }
-  }, 80)
+      },
+      { preload: 'none' }
+    )
+    // eslint-disable-next-line no-undef
+    const cur = plus.webview.currentWebview()
+    cur.append(wv)
+  } catch (e) {
+    uni.showToast({ title: '打开游戏失败', icon: 'none' })
+  }
   // #endif
 }
 
 function openGameInPage(link) {
   gameUrl.value = link
-  sheetOpen.value = false
+  frameKey.value += 1
   nextTick(() => {
     measureFrameMetrics()
     // #ifdef APP-PLUS
@@ -270,14 +211,12 @@ function openGameInPage(link) {
 function closeGame() {
   closeAppGameWebview()
   gameUrl.value = ''
-  refreshAll()
-  nextTick(() => refreshProfileSubLayout())
+  safeNavigateBack(HOME_TAB)
 }
 
-async function onTopRefresh() {
-  await refreshAll()
+function onTopRefresh() {
   if (!gameUrl.value) {
-    uni.showToast({ title: '已刷新', icon: 'none' })
+    refreshAll()
     return
   }
   frameKey.value += 1
@@ -308,15 +247,16 @@ function onTopClose() {
 
 onLoad((q) => {
   const n = parseInt(q && q.game_id, 10)
-  if (n > 0) {
-    preferredGameId.value = n
-    autoLaunchPending.value = true
-  }
+  if (n > 0) preferredGameId.value = n
   let t = q && q.title ? String(q.title) : ''
   try {
     if (t) t = decodeURIComponent(t)
   } catch (e) {}
   if (t) pageTitle.value = t
+  const auto = String((q && (q.auto || q.autolaunch)) || '')
+  if (n > 0 && (auto === '1' || auto === 'true')) {
+    autoLaunchPending.value = true
+  }
 })
 
 async function resolveGameId() {
@@ -390,7 +330,6 @@ onShow(() => {
   if (gameUrl.value) {
     measureFrameMetrics()
     // #ifdef APP-PLUS
-    // 从其它页返回时若已关子 webview，按当前 url 重建
     try {
       // eslint-disable-next-line no-undef
       const w = plus.webview.getWebviewById(APP_WV_ID)
@@ -399,13 +338,12 @@ onShow(() => {
       openAppGameWebview(gameUrl.value)
     }
     // #endif
-  } else if (autoLaunchPending.value && preferredGameId.value > 0) {
+  } else if (autoLaunchPending.value) {
     autoLaunchPending.value = false
     if (!getToken()) {
       uni.showToast({ title: '请先登录', icon: 'none' })
       return
     }
-    sheetOpen.value = true
     nextTick(() => {
       onEnterGame()
     })
@@ -413,7 +351,6 @@ onShow(() => {
 })
 
 onHide(() => {
-  // 离开页时关掉原生层，避免盖住其它页
   closeAppGameWebview()
 })
 
@@ -432,151 +369,18 @@ onBackPress(() => {
 
 <style scoped>
 .og-live-body {
-  padding: 24rpx 28rpx 80rpx;
-}
-.og-tip {
-  font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.55);
-  line-height: 1.5;
-  margin-bottom: 24rpx;
-}
-.og-card {
-  position: relative;
-  border-radius: 24rpx;
-  padding: 48rpx 36rpx 40rpx;
-  background: linear-gradient(145deg, #1a2a4a 0%, #0d1528 55%, #1c1430 100%);
-  border: 1px solid rgba(212, 175, 55, 0.35);
-  box-shadow: 0 12rpx 40rpx rgba(0, 0, 0, 0.35);
-}
-.og-card-badge {
-  position: absolute;
-  top: 20rpx;
-  right: 24rpx;
-  font-size: 20rpx;
-  letter-spacing: 2rpx;
-  color: #1a1208;
-  background: #d4af37;
-  padding: 4rpx 14rpx;
-  border-radius: 999rpx;
-  font-weight: 700;
-}
-.og-card-title {
-  font-size: 56rpx;
-  font-weight: 700;
-  color: #f5e6c8;
-  letter-spacing: 8rpx;
-}
-.og-card-sub {
-  margin-top: 8rpx;
-  font-size: 26rpx;
-  color: rgba(245, 230, 200, 0.65);
-}
-.og-card-bal {
-  margin-top: 28rpx;
-  font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.7);
+  padding: 48rpx 28rpx 80rpx;
   display: flex;
-  flex-wrap: wrap;
-  gap: 8rpx;
-}
-.og-card-sep {
-  opacity: 0.4;
-}
-.og-refresh {
-  margin-top: 28rpx;
-  text-align: center;
-  font-size: 26rpx;
-  color: #d4af37;
-  padding: 16rpx;
-}
-
-.og-mask {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  background: rgba(0, 0, 0, 0.62);
-  display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s ease;
+  min-height: 40vh;
 }
-.og-mask.is-open {
-  opacity: 1;
-  pointer-events: auto;
-}
-.og-sheet {
-  width: 100%;
-  max-width: 720rpx;
-  background: #141820;
-  border-radius: 28rpx 28rpx 0 0;
-  padding: 36rpx 32rpx calc(36rpx + env(safe-area-inset-bottom, 0px));
-  border-top: 1px solid rgba(212, 175, 55, 0.25);
-  box-sizing: border-box;
-}
-.og-sheet-title {
-  font-size: 34rpx;
-  font-weight: 700;
-  color: #f5e6c8;
+.og-entering {
+  font-size: 28rpx;
+  color: rgba(255, 255, 255, 0.55);
   text-align: center;
-  margin-bottom: 16rpx;
-}
-.og-sheet-bal {
-  text-align: center;
-  font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.7);
-  margin-bottom: 16rpx;
-}
-.og-sheet-bal strong {
-  color: #d4af37;
-  font-weight: 600;
-}
-.og-sheet-sep {
-  margin: 0 8rpx;
-  opacity: 0.4;
-}
-.og-sheet-hint {
-  text-align: center;
-  font-size: 22rpx;
-  color: rgba(255, 255, 255, 0.45);
-  line-height: 1.55;
-  margin-bottom: 24rpx;
-}
-.og-btn {
-  width: 100%;
-  margin-top: 16rpx;
-  border-radius: 16rpx;
-  font-size: 30rpx;
-  font-weight: 600;
-  padding: 22rpx 0;
-  border: none;
-  line-height: 1.2;
-}
-.og-btn::after {
-  border: none;
-}
-.og-btn.primary {
-  background: linear-gradient(90deg, #c9a227, #e8c85a);
-  color: #1a1208;
-}
-.og-btn.warn {
-  background: #2a3548;
-  color: #f5e6c8;
-  border: 1px solid rgba(212, 175, 55, 0.45);
-}
-.og-btn.close {
-  background: transparent;
-  color: rgba(255, 255, 255, 0.45);
-  font-weight: 400;
-  font-size: 26rpx;
-  margin-top: 8rpx;
-}
-.og-btn[disabled] {
-  opacity: 0.55;
 }
 
-/* —— 游戏内嵌：仅保留 TopBar，其余铺满 —— */
 .og-game-page.hb-page,
 .og-game-page {
   padding: 0 !important;
@@ -588,7 +392,6 @@ onBackPress(() => {
   overflow: hidden;
   box-sizing: border-box;
 }
-/* 大厅 ProfileSubPage 根节点也去掉 hb-page 垫白 */
 :deep(.og-live-page.hb-page),
 :deep(.og-live-page) {
   padding: 0 !important;
@@ -597,8 +400,7 @@ onBackPress(() => {
   width: 100%;
   min-height: 0;
   background: #000;
-  position: relative;
-  overflow: hidden;
+  flex: 1;
 }
 .og-game-frame {
   width: 100%;

@@ -141,6 +141,26 @@
       </view>
     </view>
 
+    <!-- 真人视讯：先弹余额 sheet，确认后再进 live -->
+    <view class="og-mask" :class="{ 'is-open': ogSheetOpen }" @click="closeOgSheet">
+      <view class="og-sheet" @click.stop>
+        <view class="og-sheet-title">{{ ogSheetTitle || 'OG 视讯' }}</view>
+        <view class="og-sheet-bal">
+          <text>OG余额 <strong>{{ ogBalText }}</strong></text>
+          <text class="og-sheet-sep">｜</text>
+          <text>本站红宝 <strong>{{ ogHbText }}</strong></text>
+        </view>
+        <view class="og-sheet-hint">进入：全部红宝自动转入 OG 再开游戏<br />提出：OG 余额全部提回红宝</view>
+        <button type="button" class="og-btn primary" :disabled="ogBusy" @click="onOgEnterPrimary">
+          {{ ogBusyLaunch ? '进入中…' : ('进入游戏' + (ogHbNum > 0 ? '（转入 ' + ogHbText + '）' : '')) }}
+        </button>
+        <button type="button" class="og-btn warn" :disabled="ogBusy" @click="onOgWithdraw">
+          {{ ogBusyWithdraw ? '提出中…' : ('提出全部' + (ogNum > 0 ? '（' + ogBalText + '）' : '')) }}
+        </button>
+        <button type="button" class="og-btn close" :disabled="ogBusy" @click="closeOgSheet">关闭</button>
+      </view>
+    </view>
+
     <!-- VIP 密令弹层（挂在页外避免滚动裁剪） -->
     <view class="home-modal-root">
       <view class="modal-mask" :class="{ 'is-open': withdrawOpen }" @click="closeWithdrawModal">
@@ -220,6 +240,12 @@ import { copyText, copyTextDeferred } from '../../utils/master.js'
 import { openExternalHttpUrl } from '../../utils/wallet.js'
 import { getUploadsBase, packagedStaticUrl } from '../../utils/config.js'
 import { applySafeAreaCssVars, getSafeAreaInsets } from '../../utils/safe-area.js'
+import {
+  ogBalance,
+  ogPlayer,
+  ogRegister,
+  ogWithdraw,
+} from '../../utils/og.js'
 import '../../styles/home-lobby.css'
 import '../../styles/social-modals.css'
 import '../../styles/home-uni-adapter.css'
@@ -242,6 +268,29 @@ const shareSubmitting = ref(false)
 const inviteCopyCache = ref('')
 const inviteCopySheet = ref(false)
 let inviteTapLock = false
+
+const ogSheetOpen = ref(false)
+const ogSheetTitle = ref('OG 视讯')
+const ogPendingGameId = ref(0)
+const ogBal = ref('0.00')
+const ogHongbao = ref(0)
+const ogBusyLaunch = ref(false)
+const ogBusyWithdraw = ref(false)
+const ogBusy = computed(() => ogBusyLaunch.value || ogBusyWithdraw.value)
+
+function ogRound2(v) {
+  const n = Number(v)
+  if (!Number.isFinite(n) || n <= 0) return 0
+  return Math.floor(n * 100 + 1e-8) / 100
+}
+function ogMoney2(v) {
+  return ogRound2(v).toFixed(2)
+}
+const ogBalText = computed(() => ogMoney2(ogBal.value))
+const ogHbText = computed(() => ogMoney2(ogHongbao.value))
+const ogNum = computed(() => ogRound2(ogBal.value))
+const ogHbNum = computed(() => ogRound2(ogHongbao.value))
+
 const fissionEntry = ref(null)
 const fissionPopupOpen = ref(false)
 const fissionPopupRemainSec = ref(0)
@@ -789,21 +838,92 @@ function onGameTap(game) {
     (Array.isArray(game.cats) && game.cats.indexOf('live') >= 0) ||
     /^og[_-]/i.test(String(game.id || ''))
   if (isLive) {
-    let url = '/pages/og/live'
-    const q = []
-    if (ogId > 0) q.push('game_id=' + ogId)
-    const title = String(game.title || '').trim()
-    if (title) q.push('title=' + encodeURIComponent(title))
-    if (q.length) url += '?' + q.join('&')
-    uni.navigateTo({
-      url,
-      fail: () => {
-        uni.redirectTo({ url })
-      },
-    })
+    openOgSheet(game, ogId)
     return
   }
   uni.navigateTo({ url: '/pages/home/game-detail?game=' + encodeURIComponent(game.id) })
+}
+
+function openOgSheet(game, ogId) {
+  if (!getToken()) {
+    uni.showToast({ title: '请先登录', icon: 'none' })
+    setTimeout(() => uni.reLaunch({ url: '/pages/login/login' }), 400)
+    return
+  }
+  ogPendingGameId.value = ogId > 0 ? ogId : 0
+  ogSheetTitle.value = String((game && game.title) || 'OG 视讯')
+  const p = profile.value || {}
+  const hb = p.hongbao != null ? p.hongbao : p.account?.hongbao
+  if (hb != null) ogHongbao.value = Number(hb) || 0
+  ogSheetOpen.value = true
+  refreshOgSheetBal()
+}
+
+function closeOgSheet() {
+  if (ogBusy.value) return
+  ogSheetOpen.value = false
+}
+
+async function refreshOgSheetBal() {
+  try {
+    const data = await ogBalance()
+    ogBal.value = String(data?.current_balance ?? data?.og_balance ?? '0.00')
+    ogHongbao.value = Number(data?.hongbao ?? ogHongbao.value) || 0
+  } catch (e) {
+    try {
+      const snap = await ogPlayer()
+      if (snap?.hongbao != null) ogHongbao.value = Number(snap.hongbao) || 0
+    } catch (e2) {}
+  }
+}
+
+async function ensureHomeOgReady() {
+  try {
+    const snap = await ogPlayer()
+    if (snap?.hongbao != null) ogHongbao.value = Number(snap.hongbao) || 0
+    if (snap?.registered) return snap
+  } catch (e) {}
+  return ogRegister()
+}
+
+function onOgEnterPrimary() {
+  if (!getToken() || ogBusy.value) return
+  const ogId = Number(ogPendingGameId.value) || 0
+  if (!(ogId > 0)) {
+    uni.showToast({ title: '未配置 GameID', icon: 'none' })
+    return
+  }
+  const title = encodeURIComponent(String(ogSheetTitle.value || '真人视讯'))
+  const url = '/pages/og/live?game_id=' + ogId + '&title=' + title + '&auto=1'
+  ogSheetOpen.value = false
+  uni.navigateTo({
+    url,
+    fail: () => uni.redirectTo({ url }),
+  })
+}
+
+async function onOgWithdraw() {
+  if (!getToken() || ogBusy.value) return
+  ogBusyWithdraw.value = true
+  try {
+    await ensureHomeOgReady()
+    await refreshOgSheetBal()
+    const amt = ogNum.value
+    if (!(amt > 0)) {
+      uni.showToast({ title: 'OG 无可提出余额', icon: 'none' })
+      return
+    }
+    const ret = await ogWithdraw(amt)
+    ogBal.value = String(ret?.balance ?? '0.00')
+    if (ret?.hongbao != null) ogHongbao.value = Number(ret.hongbao) || 0
+    notifyProfileUpdated()
+    uni.showToast({ title: '已全部提出', icon: 'success' })
+    await refreshOgSheetBal()
+  } catch (e) {
+    uni.showToast({ title: (e && e.message) || '提出失败', icon: 'none' })
+  } finally {
+    ogBusyWithdraw.value = false
+  }
 }
 
 const withdrawThreshold = computed(() => {
