@@ -1,0 +1,48 @@
+<form id="add-form" class="form-horizontal" role="form" data-toggle="validator" method="POST" action="">
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">用户UID:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[user_id]" type="number" value="" data-rule="required">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">日期:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control datetimepicker" data-date-format="YYYYMMDD" name="row[quota_date]" type="text" value="{:date('Ymd')}" data-rule="required">
+            <span class="help-block">格式 Ymd，如 {:date('Ymd')}</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">已领次数:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[claim_count]" type="number" value="0">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">娱乐次数:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[entertain_count]" type="number" value="0">
+            <span class="help-block">发+抢累计；满全局 N 次自动 +1 领取机会</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">后台加减:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[admin_extra]" type="number" value="0">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">个人免费额度:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input class="form-control" name="row[free_limit]" type="number" value="0">
+            <span class="help-block">0=用全局免费次数</span>
+        </div>
+    </div>
+    <div class="form-group layer-footer">
+        <label class="control-label col-xs-12 col-sm-2"></label>
+        <div class="col-xs-12 col-sm-8">
+            <button type="submit" class="btn btn-success btn-embossed">{:__('OK')}</button>
+            <button type="reset" class="btn btn-default btn-embossed">{:__('Reset')}</button>
+        </div>
+    </div>
+</form>

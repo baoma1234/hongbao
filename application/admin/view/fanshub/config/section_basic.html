@@ -42,6 +42,29 @@
         <span class="help-block">填 IM 群 ID；裂变页显示进群链接，打开后自动加入（群需为开放群或官方推荐群，或带邀请签名）。填 0 关闭。</span>
     </div>
 </div>
+<div class="form-group">
+    <label class="control-label col-xs-12 col-sm-2">福利群领红包上限:</label>
+    <div class="col-xs-12 col-sm-8">
+        <label class="checkbox-inline" style="padding-left:0;margin-right:16px;">
+            <input type="checkbox" name="welfare_rp_quota_enabled" value="1" {if condition="!isset($config.welfare_rp_quota_enabled) || $config.welfare_rp_quota_enabled"}checked{/if}> 开启每日领取上限
+        </label>
+        <div class="row" style="margin-top:8px;">
+            <div class="col-sm-4">
+                <label>每日免费次数</label>
+                <input class="form-control" name="welfare_rp_daily_free" type="number" min="0" value="{$config.welfare_rp_daily_free|default='10'}">
+            </div>
+            <div class="col-sm-4">
+                <label>娱乐每N次+1机会</label>
+                <input class="form-control" name="welfare_rp_entertain_per_bonus" type="number" min="1" value="{$config.welfare_rp_entertain_per_bonus|default='5'}">
+            </div>
+            <div class="col-sm-4">
+                <label>福利群ID（逗号）</label>
+                <input class="form-control" name="welfare_rp_group_ids" type="text" value="{:isset($config.welfare_rp_group_ids) ? (is_array($config.welfare_rp_group_ids) ? implode(',', $config.welfare_rp_group_ids) : $config.welfare_rp_group_ids) : '80'}">
+            </div>
+        </div>
+        <span class="help-block">独立表计数，不读旧领取明细；每日 00:00 按自然日重置。超额提示「今日福利红包领取上限」。明细编辑见菜单「福利群领红包」。</span>
+    </div>
+</div>
 <div class="form-group"><label class="control-label col-xs-12 col-sm-2">App下载链接:</label><div class="col-xs-12 col-sm-8"><input class="form-control" name="app_download_url" type="text" value="{$config.app_download_url|default=''|htmlentities}"><span class="help-block">通用下载页兜底；版本与平台下载请到 <strong>会员运营 → APP升级</strong> 管理（每次发布保留历史）。</span></div></div>
 
 <div class="form-group"><label class="control-label col-xs-12 col-sm-2">主站链接:</label><div class="col-xs-12 col-sm-8"><input class="form-control" name="main_station_url" type="text" value="{$config.main_station_url|default=''|htmlentities}"></div></div>

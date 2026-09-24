@@ -34,6 +34,7 @@ class Config extends Backend
             'login_cs_enabled', 'login_cs_url', 'login_cs_icon',
             'chat_fission_card_enabled',
             'fission_group_id',
+            'welfare_rp_quota_enabled', 'welfare_rp_daily_free', 'welfare_rp_entertain_per_bonus', 'welfare_rp_group_ids',
             'h5_entry_path', 'default_locale', 'locale_auto_detect',
         ],
         'exchange' => [
@@ -158,7 +159,7 @@ class Config extends Backend
         if (!isset($config['main_uid_verify_method']) || $config['main_uid_verify_method'] === '') {
             $config['main_uid_verify_method'] = 'GET';
         }
-        foreach (['multi_login_user_ids', 'auto_accept_friend_user_ids', 'fund_bypass_user_ids', 'notice_auto_approve_user_ids'] as $idListKey) {
+        foreach (['multi_login_user_ids', 'auto_accept_friend_user_ids', 'fund_bypass_user_ids', 'notice_auto_approve_user_ids', 'welfare_rp_group_ids'] as $idListKey) {
             $raw = $config[$idListKey] ?? [];
             if (is_array($raw)) {
                 $config[$idListKey] = implode(',', array_map('intval', $raw));
@@ -295,6 +296,7 @@ class Config extends Backend
             'admin_google_auth_enabled',
             'login_cs_enabled',
             'chat_fission_card_enabled',
+            'welfare_rp_quota_enabled',
             'app_update_enabled',
             'app_android_force_update',
             'app_ios_force_update',
@@ -312,6 +314,7 @@ class Config extends Backend
             'market_day_start_hour', 'market_day_end_hour',
             'telegram_init_max_age',
             'fission_group_id',
+            'welfare_rp_daily_free', 'welfare_rp_entertain_per_bonus',
             'notice_post_daily_limit', 'notice_post_reward_tier',
             'app_android_version_code',
             'app_ios_version_code',
@@ -370,6 +373,23 @@ class Config extends Backend
             }
             if (!isset($data['invite_reward_hongbao'])) {
                 $data['invite_reward_hongbao'] = 3;
+            }
+            if ($this->request->has('welfare_rp_group_ids', 'post')) {
+                $raw = (string)$this->request->post('welfare_rp_group_ids', '');
+                $ids = [];
+                foreach (preg_split('/[\s,，;；]+/', $raw) as $part) {
+                    $id = (int)trim($part);
+                    if ($id > 0) {
+                        $ids[] = $id;
+                    }
+                }
+                $data['welfare_rp_group_ids'] = $ids ?: [80];
+            }
+            if (isset($data['welfare_rp_daily_free'])) {
+                $data['welfare_rp_daily_free'] = max(0, (int)$data['welfare_rp_daily_free']);
+            }
+            if (isset($data['welfare_rp_entertain_per_bonus'])) {
+                $data['welfare_rp_entertain_per_bonus'] = max(1, (int)$data['welfare_rp_entertain_per_bonus']);
             }
         }
 

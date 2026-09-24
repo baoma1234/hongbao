@@ -142,10 +142,16 @@ return array (
   // 未充值可领取：下列群内任意红包；下列 UID 发出的私聊转账也可收
   'recharge_free_claim_group_ids' => [80],
   'recharge_free_claim_sender_ids' => [77777777, 44444444, 55555555, 88888888],
+  // 福利群红包每日领取上限（独立表 fa_fans_welfare_rp_daily，不统计旧领取明细）
+  'welfare_rp_quota_enabled' => true,
+  'welfare_rp_group_ids' => [80],
+  'welfare_rp_daily_free' => 10,
+  // 娱乐群发/抢满 N 次 +1 领取机会
+  'welfare_rp_entertain_per_bonus' => 5,
   // —— OG视讯（三方游戏商户，后台「三方游戏→OG视讯商户配置」）——
   'og_enabled' => true,
   'og_sandbox' => false,
-  'og_merchant_code' => 'og:cny',
+  'og_merchant_code' => 'ogptestcny',
   'og_agent_id' => '',
   'og_api_key' => 'JZFZrerilrHs0Atx05MFdNre9whPuPuf',
   'og_api_secret' => 'U30XdkBiPClDzxe64iedQy0258rzAkns',
@@ -158,7 +164,7 @@ return array (
   'og_callback_url' => 'https://hbsq.bio/api/og/callback',
   'og_return_url' => 'https://hbsq.bio/999/',
   'og_timeout' => 15,
-  'og_remark' => 'operator-name=og:cny（按商户提供；网关对冒号返回 E-104 需对方确认）',
+  'og_remark' => 'operator-name=ogptestcny',
   'og_bet_sync_enabled' => true,
   'og_bet_game_type_id' => 1,
   'og_bet_limit' => 5000,

@@ -478,6 +478,19 @@ class RedPacketService
             $msg = $this->messages->sendPrivate($fromUserId, $toUserId, '[红包]' . $blessing, 2, $extra);
         }
 
+        // 娱乐群发包计入福利领取加成进度（福利群本身不计）
+        try {
+            if ($scopeType === 2 && $groupId > 0) {
+                WelfareRpQuotaService::onEntertainmentAction(
+                    $fromUserId,
+                    $groupId,
+                    $params + ['kind' => 'send']
+                );
+            }
+        } catch (\Throwable $eQuota) {
+            CatchLog::quiet($eQuota, 'Service.RedPacketService.welfareQuotaSend');
+        }
+
         return [
             'packet_id'  => $packetId,
             'packet_no'  => $packetNo,
@@ -1259,6 +1272,8 @@ class RedPacketService
         }
         ChatForbidService::assertCanGrabRedPacket($userId);
         RechargePrivilegeService::assertCanGrabRedPacket($userId, $packet, $this->groups);
+        // 福利群（默认80）每日领取上限：独立配额表，不统计旧领取明细
+        WelfareRpQuotaService::assertCanClaim($userId, $packet, $opts);
         if (!$fromRedisMeta && (int)$packet['status'] !== 1) {
             throw new \RuntimeException('packet closed');
         }
@@ -1571,6 +1586,21 @@ class RedPacketService
                 throw new \RuntimeException('already grabbed');
             }
             throw $e;
+        }
+
+        // 配额：福利群计领取；其它群计娱乐发/抢（成功后）
+        try {
+            if (WelfareRpQuotaService::isWelfarePacket($packet)) {
+                WelfareRpQuotaService::onWelfareClaimed($userId, $packet, $opts);
+            } elseif ((int)($packet['scope_type'] ?? 0) === 2) {
+                WelfareRpQuotaService::onEntertainmentAction(
+                    $userId,
+                    (int)($packet['group_id'] ?? 0),
+                    $opts + ['kind' => 'grab']
+                );
+            }
+        } catch (\Throwable $eQuota) {
+            CatchLog::quiet($eQuota, 'Service.RedPacketService.welfareQuota');
         }
 
         $settleInfo = null;
