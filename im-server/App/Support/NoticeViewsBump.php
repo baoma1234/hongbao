@@ -6,7 +6,7 @@ use PDO;
 
 /**
  * 社区帖子自动浏览：
- * - views_count < 100000：每分钟 +50～60（冲到 10 万）
+ * - views_count < 100000：每分钟 +40～60（冲到 10 万）
  * - views_count >= 100000：每天只加 200～500（不再按分钟猛涨）
  *
  * 由 im-server Cron 定时写库；列表 API / 前端假涨仅作展示。
@@ -62,7 +62,7 @@ class NoticeViewsBump
             // 未满 10 万：按分钟涨；已满 10 万不走分钟涨
             for ($i = 0; $i < $minutes; $i++) {
                 $n = $pdo->exec(
-                    "UPDATE `{$table}` SET `views_count` = `views_count` + (50 + FLOOR(RAND() * 11))"
+                    "UPDATE `{$table}` SET `views_count` = `views_count` + (40 + FLOOR(RAND() * 21))"
                     . " WHERE `status` = 'published' AND `views_count` < {$thr}"
                 );
                 $rows += (int)$n;

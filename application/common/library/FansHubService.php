@@ -4907,7 +4907,7 @@ class FansHubService
             $table = (new Notice())->getTable();
             for ($i = 0; $i < $minutes; $i++) {
                 $n = Db::execute(
-                    "UPDATE `{$table}` SET `views_count` = `views_count` + (50 + FLOOR(RAND() * 11))"
+                    "UPDATE `{$table}` SET `views_count` = `views_count` + (40 + FLOOR(RAND() * 21))"
                     . " WHERE `status` = 'published' AND `views_count` < 100000"
                 );
                 $rows += (int)$n;
