@@ -699,9 +699,10 @@ class FansHubService
                 'wallet_channel_fallback' => '通道兜底（{id}）',
                 'wallet_channel_more' => '更多钱包',
                 'wallet_channel_less' => '收起',
-                'wallet_turnover_need' => '流水不足（{need}）',
-                'wallet_turnover_ratio_suffix' => '流水倍数后缀（{ratio}）',
-                'wallet_turnover_line' => '累计流水行（{amount}）',
+                'wallet_turnover_need' => '待打流水（{need}）',
+                'wallet_turnover_ratio_suffix' => '',
+                'wallet_turnover_line' => '待打流水行（{amount}）',
+                'wallet_turnover_ok' => '待打流水已清零',
                 'wallet_loading' => '加载中',
                 'wallet_module_fail' => '模块失败',
                 'wallet_need_channel_amount' => '需通道与金额',
@@ -1478,8 +1479,9 @@ class FansHubService
             'market_daily_grow_min'=> FansHubMarket::dailyGrowMin(),
             'market_daily_grow_max'=> FansHubMarket::dailyGrowMax(),
             'withdraw_threshold'   => (float)($cfg['withdraw_threshold'] ?? 50),
-            'withdraw_turnover_min'   => (float)($cfg['withdraw_turnover_min'] ?? 0),
-            'withdraw_turnover_ratio' => max(0, (float)($cfg['withdraw_turnover_ratio'] ?? 1)),
+            // 新规则：待打流水 ≤ 0 可提现；min/ratio 仅兼容旧前端字段
+            'withdraw_turnover_min'   => 0,
+            'withdraw_turnover_ratio' => 0,
             'im_member_can_create_group' => !isset($cfg['im_member_can_create_group']) || !empty($cfg['im_member_can_create_group']),
             'max_vote_percent'     => (float)($cfg['max_vote_percent'] ?? 1),
             'exchange_rights_to_balance_enabled' => self::exchangePairEnabled('rights', 'hongbao'),
@@ -2291,17 +2293,17 @@ class FansHubService
                 'updatetime'             => $now,
             ]);
             if ($rights > 0) {
-                Ledger::create([
-                    'user_id'        => $userId,
-                    'type'           => 'register',
-                    'rights_change'  => $rights,
-                    'balance_change' => 0,
-                    'rights_after'   => $rights,
-                    'balance_after'  => 0,
-                    'remark'         => '新用户注册赠送',
-                    'admin_id'       => 0,
-                    'createtime'     => $now,
-                ]);
+            Ledger::create([
+                'user_id'        => $userId,
+                'type'           => 'register',
+                'rights_change'  => $rights,
+                'balance_change' => 0,
+                'rights_after'   => $rights,
+                'balance_after'  => 0,
+                'remark'         => '新用户注册赠送',
+                'admin_id'       => 0,
+                'createtime'     => $now,
+            ]);
             }
             Db::commit();
             FansHubMarket::onRealUserJoined();
@@ -3086,8 +3088,8 @@ class FansHubService
             ]);
             // 邀请奖励：默认仅红宝 +3（股份可配为 0）
             if ($shareRights != 0 || $hongbaoReward != 0) {
-                self::changeAssets($inviterUserId, $shareRights, $hongbaoReward, 'invite', '邀请奖励', 0, '');
-                self::recordTask($inviterUserId, 'invite', $shareRights, $hongbaoReward, '', 'invitee:' . $inviteeUserId);
+            self::changeAssets($inviterUserId, $shareRights, $hongbaoReward, 'invite', '邀请奖励', 0, '');
+            self::recordTask($inviterUserId, 'invite', $shareRights, $hongbaoReward, '', 'invitee:' . $inviteeUserId);
             }
             FansHubPhase2::onInviteRegistered($inviterUserId);
             Db::commit();
@@ -4611,9 +4613,9 @@ class FansHubService
             } else {
                 $query->where('status', 'published')->where('publishtime', '<=', $now);
             }
-            if ($category !== '' && isset($cats[$category])) {
-                $query->where('category', $category);
-            }
+        if ($category !== '' && isset($cats[$category])) {
+            $query->where('category', $category);
+        }
             if ($themeId > 0) {
                 $query->where('theme_id', $themeId);
             }
@@ -4693,31 +4695,31 @@ class FansHubService
         if ($cats === null) {
             $cats = \app\common\model\fanshub\Notice::categoryMap();
         }
-        $images = $row->images;
-        if (!is_array($images)) {
-            $images = [];
-        }
+            $images = $row->images;
+            if (!is_array($images)) {
+                $images = [];
+            }
         // 列表最多带 9 张图 URL，与前台九宫格上限一致
         if ($slim && count($images) > 9) {
             $images = array_slice($images, 0, 9);
         }
-        $images = array_values(array_filter(array_map(function ($u) {
-            $u = trim((string)$u);
-            if ($u === '') {
-                return '';
+            $images = array_values(array_filter(array_map(function ($u) {
+                $u = trim((string)$u);
+                if ($u === '') {
+                    return '';
+                }
+                return class_exists('\\app\\common\\library\\OssService')
+                    ? \app\common\library\OssService::fullUrl($u, '')
+                    : cdnurl($u, true);
+            }, $images)));
+            $video = trim((string)$row->video);
+            if ($video !== '' && class_exists('\\app\\common\\library\\OssService')) {
+                $video = \app\common\library\OssService::fullUrl($video, '');
+            } elseif ($video !== '') {
+                $video = cdnurl($video, true);
+            } else {
+                $video = '';
             }
-            return class_exists('\\app\\common\\library\\OssService')
-                ? \app\common\library\OssService::fullUrl($u, '')
-                : cdnurl($u, true);
-        }, $images)));
-        $video = trim((string)$row->video);
-        if ($video !== '' && class_exists('\\app\\common\\library\\OssService')) {
-            $video = \app\common\library\OssService::fullUrl($video, '');
-        } elseif ($video !== '') {
-            $video = cdnurl($video, true);
-        } else {
-            $video = '';
-        }
         $videoCover = trim((string)($row->video_cover ?? ''));
         if ($videoCover !== '' && class_exists('\\app\\common\\library\\OssService')) {
             $videoCover = \app\common\library\OssService::fullUrl($videoCover, '');
@@ -4726,28 +4728,28 @@ class FansHubService
         } else {
             $videoCover = '';
         }
-        $buttons = $row->action_buttons;
-        if (!is_array($buttons)) {
-            $buttons = [];
-        }
-        $normButtons = [];
-        foreach ($buttons as $btn) {
-            if (!is_array($btn)) {
-                continue;
+            $buttons = $row->action_buttons;
+            if (!is_array($buttons)) {
+                $buttons = [];
             }
-            $label = trim((string)($btn['label'] ?? ''));
-            if ($label === '') {
-                continue;
+            $normButtons = [];
+            foreach ($buttons as $btn) {
+                if (!is_array($btn)) {
+                    continue;
+                }
+                $label = trim((string)($btn['label'] ?? ''));
+                if ($label === '') {
+                    continue;
+                }
+                $normButtons[] = [
+                    'label' => $label,
+                    'url'   => trim((string)($btn['url'] ?? '')),
+                ];
             }
-            $normButtons[] = [
-                'label' => $label,
-                'url'   => trim((string)($btn['url'] ?? '')),
-            ];
-        }
-        $catCode = (string)$row->category;
-        if (!isset($cats[$catCode])) {
-            $catCode = 'latest';
-        }
+            $catCode = (string)$row->category;
+            if (!isset($cats[$catCode])) {
+                $catCode = 'latest';
+            }
         $themeTitle = trim((string)($row->theme_title ?? ''));
         $tagLabel = $themeTitle !== ''
             ? $themeTitle
@@ -4773,23 +4775,23 @@ class FansHubService
             }
         }
         $out = [
-            'id'             => (int)$row->id,
+                'id'             => (int)$row->id,
             'author_name'    => $authorName,
             'author_avatar'  => normalize_user_avatar($authorAvatar, true),
-            'category'       => $catCode,
-            'category_label' => \app\common\model\fanshub\Notice::categoryLabel($catCode, $locale),
+                'category'       => $catCode,
+                'category_label' => \app\common\model\fanshub\Notice::categoryLabel($catCode, $locale),
             'theme_id'       => (int)($row->theme_id ?? 0),
             'theme_title'    => $themeTitle,
             'tag_label'      => $tagLabel,
             'content'        => $content,
-            'images'         => $images,
-            'video'          => $video,
+                'images'         => $images,
+                'video'          => $video,
             'video_cover'    => $videoCover,
-            'action_type'    => (string)$row->action_type,
-            'action_label'   => $row->localized('action_label', $locale),
-            'action_url'     => (string)$row->action_url,
-            'action_buttons' => $normButtons,
-            'publishtime'    => (int)$row->publishtime,
+                'action_type'    => (string)$row->action_type,
+                'action_label'   => $row->localized('action_label', $locale),
+                'action_url'     => (string)$row->action_url,
+                'action_buttons' => $normButtons,
+                'publishtime'    => (int)$row->publishtime,
             'views_count'    => (int)($row->views_count ?? 0),
             'user_id'        => (int)($row->user_id ?? 0),
             'source'         => (string)($row->source ?? 'admin'),

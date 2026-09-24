@@ -31,7 +31,7 @@ class FansHubHongbaoLedger
                     ->where('user_id', $userId)
                     ->where('status', 'normal')
                     ->inc('hongbao', $amount);
-                // 入账同步累计流水（提现门槛）：充值 + 裂变/邀请/发帖等赠送；meta.count_turnover 可强制
+                // 入账增加待打流水（充值/赠送/群80领取等）；发包等扣款减少流水
                 if (self::shouldCountTurnoverOnCredit((string)$type, $meta)) {
                     $q->inc('turnover', $amount);
                 }
@@ -77,6 +77,10 @@ class FansHubHongbaoLedger
         if ($userId <= 0 || $amount <= 0) {
             throw new \InvalidArgumentException('invalid debit');
         }
+        // 发红包/中雷赔付/牛牛买入：扣待打流水（与 IM WalletService 对齐）
+        if (!$countTurnover) {
+            $countTurnover = self::shouldCountTurnoverOnDebit((string)$type, $meta);
+        }
         $now = time();
         $ownTrans = !self::inTrans();
         if ($ownTrans) {
@@ -88,7 +92,7 @@ class FansHubHongbaoLedger
                 ->where('status', 'normal')
                 ->where('hongbao', '>=', $amount);
             if ($countTurnover) {
-                $aff = $q->dec('hongbao', $amount)->inc('turnover', $amount)->update(['updatetime' => $now]);
+                $aff = $q->dec('hongbao', $amount)->dec('turnover', $amount)->update(['updatetime' => $now]);
             } else {
                 $aff = $q->dec('hongbao', $amount)->update(['updatetime' => $now]);
             }
@@ -152,7 +156,7 @@ class FansHubHongbaoLedger
     }
 
     /**
-     * 入账是否同步累计流水（与加款金额相同）
+     * 入账是否增加待打流水（提现要求流水≤0）
      * - recharge / 裂变 / 邀请奖励 / 发帖奖励：默认计入
      * - meta.count_turnover：强制计入（如群 80 红包领取）
      */
@@ -166,6 +170,22 @@ class FansHubHongbaoLedger
             'fission_reward',
             'invite',
             'notice_post',
+        ], true);
+    }
+
+    /**
+     * 扣款是否减少待打流水（发红包等打流水）
+     */
+    protected static function shouldCountTurnoverOnDebit($type, array $meta)
+    {
+        if (array_key_exists('count_turnover', $meta)) {
+            return !empty($meta['count_turnover']);
+        }
+        return in_array((string)$type, [
+            'red_packet_send',
+            'red_packet_mine_pay',
+            'red_packet_worst_pay',
+            'niuniu_buy',
         ], true);
     }
 

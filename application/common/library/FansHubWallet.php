@@ -31,8 +31,8 @@ class FansHubWallet
         // 充值/提现资产：红宝
         $hongbao = (float)($account->hongbao ?? 0);
         $hongbaoFrozen = (float)($account->hongbao_frozen ?? 0);
-        $minTurnover = (float)($cfg['withdraw_turnover_min'] ?? 0);
-        $ratio = max(0, (float)($cfg['withdraw_turnover_ratio'] ?? 1));
+        // 新规则：待打流水 ≤ 0 才可提现（发红包等会扣流水）
+        $canWithdraw = $turnover <= 1e-8;
         return [
             'hongbao'                  => $hongbao,
             'hongbao_frozen'           => $hongbaoFrozen,
@@ -40,9 +40,9 @@ class FansHubWallet
             // 兼容旧字段：可提现额 = 可用红宝（不含冻结）
             'balance'                  => $hongbao,
             'turnover'                 => $turnover,
-            'withdraw_turnover_min'    => $minTurnover,
-            'withdraw_turnover_ratio'  => $ratio,
-            'can_withdraw'             => $turnover >= $minTurnover,
+            'withdraw_turnover_min'    => 0,
+            'withdraw_turnover_ratio'  => 0,
+            'can_withdraw'             => $canWithdraw,
             'withdraw_threshold'       => (float)($cfg['withdraw_threshold'] ?? 50),
             'wallet_asset'             => 'hongbao',
             'has_pay_password'         => FansHubService::hasPayPassword($userId),
@@ -64,6 +64,7 @@ class FansHubWallet
             'exchange'          => '闪兑',
             'exchange_swap'     => '股份兑换',
             'admin_adjust'      => '人工调整',
+            'admin_turnover'    => '加减流水',
             'checkin'           => '星火签到',
             'checkin_bonus'     => '暴力对账',
             'checkin_day7'      => '7天暴击',
@@ -875,14 +876,11 @@ class FansHubWallet
         }
         $cfg = FansHubService::config();
         $turnover = (float)($account->turnover ?? 0);
-        $minTurnover = (float)($cfg['withdraw_turnover_min'] ?? 0);
-        $ratio = max(0, (float)($cfg['withdraw_turnover_ratio'] ?? 1));
-        $needTurnover = max($minTurnover, $amount * $ratio);
-        if ($turnover < $needTurnover) {
+        // 待打流水须 ≤ 0（发红包等会扣流水）才可提现
+        if ($turnover > 1e-8) {
             throw new \RuntimeException(sprintf(
-                '流水未达标：当前流水 ￥%.2f，需达到 ￥%.2f 才可提现',
-                $turnover,
-                $needTurnover
+                '流水未打完：当前待打流水 ￥%.2f，需降至 0 或以下才可提现（发红包可扣流水）',
+                $turnover
             ));
         }
         $orderNo = self::genOrderNo('WD');

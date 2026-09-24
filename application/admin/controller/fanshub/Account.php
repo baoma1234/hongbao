@@ -316,7 +316,8 @@ class Account extends Backend
             $meta['google_secret'] = $gaSecret;
         }
         if (array_key_exists('turnover', $meta)) {
-            $meta['turnover'] = max(0, round((float)$meta['turnover'], 2));
+            // 允许负数：待打流水可为负（超额打完）
+            $meta['turnover'] = round((float)$meta['turnover'], 2);
         }
         if (FansHubPhase2::enabled()) {
             foreach (['user_mode', 'fission_streak_days', 'fission_last_checkin_date', 'sub_withdrawn_count', 'honor_tier_claimed'] as $field) {
@@ -410,6 +411,78 @@ class Account extends Backend
                 $this->error($e->getMessage());
             }
             $this->success('调账成功');
+        }
+        $user = \app\common\model\User::get($row->user_id);
+        $this->view->assign('row', $row);
+        $this->view->assign('user', $user);
+        return $this->view->fetch();
+    }
+
+    /**
+     * 单独加减待打流水（不改红宝余额）
+     */
+    public function adjustturnover($ids = null)
+    {
+        $row = $this->model->get($ids);
+        if (!$row) {
+            $this->error(__('No Results were found'));
+        }
+        if ($this->request->isPost()) {
+            $delta = round((float)$this->request->post('turnover_delta', 0), 2);
+            $remark = trim((string)$this->request->post('remark', '人工加减流水'));
+            if (abs($delta) < 0.005) {
+                $this->error('请填写流水调整数值（正数增加待打流水，负数减少）');
+            }
+            $userId = (int)$row->user_id;
+            $before = round((float)($row->turnover ?? 0), 2);
+            $after = round($before + $delta, 2);
+            $now = time();
+            $adminId = (int)$this->auth->id;
+            $ledgerRemark = sprintf(
+                '加减流水 %+.2f（%.2f→%.2f）%s',
+                $delta,
+                $before,
+                $after,
+                $remark !== '' ? '；' . $remark : ''
+            );
+            Db::startTrans();
+            try {
+                $aff = Db::name('fans_account')
+                    ->where('id', (int)$row->id)
+                    ->where('user_id', $userId)
+                    ->update([
+                        'turnover'   => $after,
+                        'updatetime' => $now,
+                    ]);
+                if ($aff <= 0) {
+                    throw new \RuntimeException('更新流水失败');
+                }
+                $acc = Db::name('fans_account')->where('user_id', $userId)->find();
+                Db::name('fans_ledger')->insert([
+                    'user_id'         => $userId,
+                    'type'            => 'admin_turnover',
+                    'rights_change'   => 0,
+                    'balance_change'  => 0,
+                    'hongbao_change'  => 0,
+                    'rights_after'    => (float)($acc['rights'] ?? 0),
+                    'balance_after'   => (float)($acc['balance'] ?? 0),
+                    'hongbao_after'   => (float)($acc['hongbao'] ?? 0),
+                    'remark'          => mb_substr($ledgerRemark, 0, 255),
+                    'channel'         => 'admin',
+                    'admin_id'        => $adminId,
+                    'createtime'      => $now,
+                ]);
+                Db::commit();
+            } catch (\Throwable $e) {
+                Db::rollback();
+                $this->error($e->getMessage());
+            }
+            try {
+                \app\common\library\FansHubImCache::bustWallet($userId);
+            } catch (\Throwable $e) {
+                // ignore cache
+            }
+            $this->success(sprintf('流水已调整：%.2f → %.2f', $before, $after));
         }
         $user = \app\common\model\User::get($row->user_id);
         $this->view->assign('row', $row);

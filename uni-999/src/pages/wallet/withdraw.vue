@@ -3,7 +3,7 @@
     <view class="match-card profile-card">
       <view class="profile-meta-line">可提现红宝：<strong>￥{{ balanceText }}</strong></view>
       <view class="profile-meta-line" v-if="frozenText">冻结金额：<strong>￥{{ frozenText }}</strong></view>
-      <view class="profile-meta-line" v-if="turnoverText">累计流水：￥{{ turnoverText }}</view>
+      <view class="profile-meta-line" v-if="turnoverText">待打流水：￥{{ turnoverText }}</view>
       <view class="profile-meta-line" v-if="turnHint">{{ turnHint }}</view>
 
       <view class="profile-field">

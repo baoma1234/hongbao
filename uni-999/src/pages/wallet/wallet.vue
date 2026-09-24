@@ -3,7 +3,7 @@
       <view class="match-card" style="margin-bottom:14px">
         <view class="wallet-bal-line">红宝余额 <strong>{{ balanceText }}</strong></view>
         <view class="profile-meta-line" v-if="frozenText">冻结金额：{{ frozenText }}</view>
-        <view class="profile-meta-line">累计流水：{{ turnoverText }}</view>
+        <view class="profile-meta-line">待打流水：{{ turnoverText }}</view>
         <view class="profile-meta-line" v-if="turnHint">{{ turnHint }}</view>
       </view>
 
