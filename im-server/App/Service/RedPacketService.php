@@ -1463,6 +1463,10 @@ class RedPacketService
                 $grabRemark = '红包接龙入账';
             }
             $bizMeta = ['biz_no' => $packetNo, 'ref_type' => 'red_packet', 'ref_id' => $packetId];
+            // 群 80（及配置的免费可领群）：领取加款同步加等额累计流水
+            if (RechargePrivilegeService::isFreeClaimRedPacket($packet)) {
+                $bizMeta['count_turnover'] = 1;
+            }
             $frozenAmt = 0.0;
             $walletAvail = null;
             $walletFrozen = null;

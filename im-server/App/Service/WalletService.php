@@ -272,14 +272,27 @@ class WalletService
         $fAbs = sprintf('%.2f', $freezeAmt);
         $table = Db::table($this->cfg['account_table']);
         // hongbao 先加领取额再扣冻结；条件保证冻结不超过「领取后」可用余额
-        $affected = Db::exec(
-            "UPDATE {$table} SET"
-            . " `{$field}`=`{$field}`+(?)-(?),"
-            . " hongbao_frozen=hongbao_frozen+(?),"
-            . " updatetime=?"
-            . " WHERE user_id=? AND status='normal' AND (`{$field}`+(?))>=?",
-            [$cAbs, $fAbs, $fAbs, $now, $userId, $cAbs, $fAbs]
-        );
+        $countTurnoverIn = !empty($meta['count_turnover']);
+        if ($countTurnoverIn) {
+            $affected = Db::exec(
+                "UPDATE {$table} SET"
+                . " `{$field}`=`{$field}`+(?)-(?),"
+                . " hongbao_frozen=hongbao_frozen+(?),"
+                . " turnover=turnover+(?),"
+                . " updatetime=?"
+                . " WHERE user_id=? AND status='normal' AND (`{$field}`+(?))>=?",
+                [$cAbs, $fAbs, $fAbs, $cAbs, $now, $userId, $cAbs, $fAbs]
+            );
+        } else {
+            $affected = Db::exec(
+                "UPDATE {$table} SET"
+                . " `{$field}`=`{$field}`+(?)-(?),"
+                . " hongbao_frozen=hongbao_frozen+(?),"
+                . " updatetime=?"
+                . " WHERE user_id=? AND status='normal' AND (`{$field}`+(?))>=?",
+                [$cAbs, $fAbs, $fAbs, $now, $userId, $cAbs, $fAbs]
+            );
+        }
         if ($affected <= 0) {
             // 回退分步，保留原错误语义
             $chg = $this->change($userId, $credit, $creditType, $creditRemark, $meta);
@@ -571,17 +584,34 @@ class WalletService
         $table = Db::table($this->cfg['account_table']);
 
         if ($delta > 0) {
-            $affected = Db::exec(
-                "UPDATE {$table} SET `{$field}`=`{$field}`+(?), updatetime=? WHERE user_id=? AND status='normal'",
-                [$abs, $now, $userId]
-            );
-            if ($affected <= 0) {
-                $this->ensureAccountForCredit($userId);
-        $affected = Db::exec(
+            // 入账同步累计流水：meta.count_turnover（群80等）或指定赠送类型
+            $countTurnoverIn = !empty($meta['count_turnover'])
+                || in_array((string)$type, ['fission_reward', 'invite', 'notice_post', 'recharge'], true);
+            if ($countTurnoverIn) {
+                $affected = Db::exec(
+                    "UPDATE {$table} SET `{$field}`=`{$field}`+(?), turnover=turnover+(?), updatetime=? WHERE user_id=? AND status='normal'",
+                    [$abs, $abs, $now, $userId]
+                );
+            } else {
+                $affected = Db::exec(
                     "UPDATE {$table} SET `{$field}`=`{$field}`+(?), updatetime=? WHERE user_id=? AND status='normal'",
                     [$abs, $now, $userId]
-        );
-        if ($affected <= 0) {
+                );
+            }
+            if ($affected <= 0) {
+                $this->ensureAccountForCredit($userId);
+                if ($countTurnoverIn) {
+                    $affected = Db::exec(
+                        "UPDATE {$table} SET `{$field}`=`{$field}`+(?), turnover=turnover+(?), updatetime=? WHERE user_id=? AND status='normal'",
+                        [$abs, $abs, $now, $userId]
+                    );
+                } else {
+                    $affected = Db::exec(
+                        "UPDATE {$table} SET `{$field}`=`{$field}`+(?), updatetime=? WHERE user_id=? AND status='normal'",
+                        [$abs, $now, $userId]
+                    );
+                }
+                if ($affected <= 0) {
                     throw new \RuntimeException('account frozen');
                 }
             }

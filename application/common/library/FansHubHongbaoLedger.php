@@ -31,8 +31,8 @@ class FansHubHongbaoLedger
                     ->where('user_id', $userId)
                     ->where('status', 'normal')
                     ->inc('hongbao', $amount);
-                // 充值红宝同步计入累计流水（提现门槛用）
-                if ((string)$type === 'recharge') {
+                // 入账同步累计流水（提现门槛）：充值 + 裂变/邀请/发帖等赠送；meta.count_turnover 可强制
+                if (self::shouldCountTurnoverOnCredit((string)$type, $meta)) {
                     $q->inc('turnover', $amount);
                 }
                 $aff = $q->update(['updatetime' => $now]);
@@ -149,6 +149,24 @@ class FansHubHongbaoLedger
             $data['admin_id'] = (int)$meta['admin_id'];
         }
         Db::name('fans_ledger')->insert($data);
+    }
+
+    /**
+     * 入账是否同步累计流水（与加款金额相同）
+     * - recharge / 裂变 / 邀请奖励 / 发帖奖励：默认计入
+     * - meta.count_turnover：强制计入（如群 80 红包领取）
+     */
+    protected static function shouldCountTurnoverOnCredit($type, array $meta)
+    {
+        if (!empty($meta['count_turnover'])) {
+            return true;
+        }
+        return in_array((string)$type, [
+            'recharge',
+            'fission_reward',
+            'invite',
+            'notice_post',
+        ], true);
     }
 
     protected static function inTrans()
