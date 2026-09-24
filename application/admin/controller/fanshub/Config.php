@@ -35,6 +35,7 @@ class Config extends Backend
             'chat_fission_card_enabled',
             'fission_group_id',
             'welfare_rp_quota_enabled', 'welfare_rp_daily_free', 'welfare_rp_entertain_per_bonus', 'welfare_rp_group_ids',
+            'withdraw_realname_bind_enabled',
             'h5_entry_path', 'default_locale', 'locale_auto_detect',
         ],
         'exchange' => [
@@ -297,6 +298,7 @@ class Config extends Backend
             'login_cs_enabled',
             'chat_fission_card_enabled',
             'welfare_rp_quota_enabled',
+            'withdraw_realname_bind_enabled',
             'app_update_enabled',
             'app_android_force_update',
             'app_ios_force_update',

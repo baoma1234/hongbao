@@ -4,6 +4,13 @@
       <view class="profile-meta-line">可提现金额：<strong>￥{{ balanceText }}</strong></view>
       <view class="profile-meta-line">出款所需流水为：{{ turnoverNeedText }}</view>
       <view class="profile-meta-line" v-if="frozenText">冻结金额：<strong>￥{{ frozenText }}</strong></view>
+      <view class="profile-meta-line" v-if="showRealNameLine">
+        <template v-if="payoutRealName">真实姓名：<strong>{{ payoutRealName }}</strong></template>
+        <template v-else>
+          非 USDT 出款需先绑定真实姓名
+          <text class="wallet-go-payee-btn" @click="goRealname">去绑定</text>
+        </template>
+      </view>
 
       <view class="profile-field">
         <text class="lab">选择提现通道</text>
@@ -80,7 +87,7 @@
         </view>
 
         <view v-else class="wallet-conventional-panel">
-          <view class="profile-field" v-if="!isUsdt">
+          <view class="profile-field" v-if="!isUsdt && !realnameRequired">
             <text class="lab">收款人姓名</text>
             <input class="hb-input" v-model="payeeName" placeholder="真实姓名 / 支付宝实名" />
           </view>
@@ -225,9 +232,13 @@ const isWalletBind = computed(
     selected.value &&
     String(selected.value.bind_mode || '') === 'wallet'
 )
-const isUsdt = computed(
-  () => selected.value && String(selected.value.handler || '').toLowerCase() === 'bs'
-)
+const isUsdt = computed(() => {
+  const ch = selected.value
+  if (!ch) return false
+  if (String(ch.handler || '').toLowerCase() === 'bs') return true
+  const blob = [ch.wallet_type, ch.payment_channel, ch.pay_channel, ch.name].join(' ').toUpperCase()
+  return blob.indexOf('USDT') >= 0
+})
 const walletType = computed(() => {
   const ch = selected.value
   if (!ch) return ''
@@ -237,6 +248,10 @@ const bind = computed(() => {
   if (!isWalletBind.value) return null
   return (binds.value && binds.value[walletType.value]) || null
 })
+const payoutRealName = computed(() => String((info.value && info.value.payout_real_name) || '').trim())
+const realnameRequired = computed(() => !!(info.value && info.value.withdraw_realname_bind_enabled))
+const showRealNameLine = computed(() => realnameRequired.value && selected.value && !isUsdt.value && !isCoop.value)
+const needRealNameBind = computed(() => showRealNameLine.value && !payoutRealName.value)
 const mainUid = computed(() => getApprovedMainUid(profile.value))
 const turnoverNeed = computed(() => {
   const i = info.value || {}
@@ -270,6 +285,7 @@ const amountPh = computed(() => {
 const fxText = computed(() => fxHintText(selected.value, amount.value, { forWithdraw: true }))
 const canEnterAmount = computed(() => {
   if (!selected.value) return false
+  if (needRealNameBind.value) return false
   if (isCoop.value) return !!mainUid.value
   if (isWalletBind.value) return !!bind.value
   if (isUsdt.value) return !!String(payeeAccount.value || '').trim()
@@ -337,6 +353,9 @@ function goPayee() {
   let url = '/pages/wallet/payee?tab=wallet'
   if (t) url += '&type=' + encodeURIComponent(t)
   uni.navigateTo({ url })
+}
+function goRealname() {
+  uni.navigateTo({ url: '/pages/wallet/realname' })
 }
 
 function promptPayPassword() {
@@ -414,6 +433,7 @@ function buildAccountInfo() {
   let accountname = String(payeeName.value || '').trim()
   const cardnumber = String(payeeAccount.value || '').trim()
   let bankname = String(payeeBank.value || '').trim()
+  if (realnameRequired.value && payoutRealName.value) accountname = payoutRealName.value
   if (isUsdt.value && !accountname) accountname = 'USDT'
   if (!bankname) {
     bankname = ch && ch.name ? String(ch.name).replace(/(充值|代付|提现)$/, '') : '钱包'
@@ -443,12 +463,22 @@ async function onSubmit() {
     uni.showToast({ title: '请先绑定该钱包地址', icon: 'none' })
     return
   }
+  if (needRealNameBind.value) {
+    uni.showToast({ title: '请先绑定真实姓名', icon: 'none' })
+    goRealname()
+    return
+  }
   if (!isCoop.value && !isWalletBind.value) {
     const cardnumber = String(payeeAccount.value || '').trim()
     const accountname = String(payeeName.value || '').trim()
     if (isUsdt.value) {
       if (!cardnumber) {
         uni.showToast({ title: '请填写 USDT 收款地址', icon: 'none' })
+        return
+      }
+    } else if (realnameRequired.value) {
+      if (!cardnumber) {
+        uni.showToast({ title: '请填写收款账号', icon: 'none' })
         return
       }
     } else if (!accountname || !cardnumber) {

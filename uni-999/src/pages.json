@@ -194,10 +194,17 @@
         "navigationStyle": "custom"
       }
     },
-    {
+      {
       "path": "pages/wallet/payee",
       "style": {
         "navigationBarTitleText": "收款地址",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/wallet/realname",
+      "style": {
+        "navigationBarTitleText": "真实姓名",
         "navigationStyle": "custom"
       }
     },

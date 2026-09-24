@@ -1482,6 +1482,7 @@ class FansHubService
             // 新规则：待打流水 ≤ 0 可提现；min/ratio 仅兼容旧前端字段
             'withdraw_turnover_min'   => 0,
             'withdraw_turnover_ratio' => 0,
+            'withdraw_realname_bind_enabled' => !empty($cfg['withdraw_realname_bind_enabled']),
             'im_member_can_create_group' => !isset($cfg['im_member_can_create_group']) || !empty($cfg['im_member_can_create_group']),
             'max_vote_percent'     => (float)($cfg['max_vote_percent'] ?? 1),
             'exchange_rights_to_balance_enabled' => self::exchangePairEnabled('rights', 'hongbao'),

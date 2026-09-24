@@ -36,6 +36,16 @@
       <view class="profile-section">
         <view class="profile-section-label">资产服务</view>
         <view class="profile-menu-sheet">
+          <view class="profile-menu-row" v-if="realnameRequired" @click="go('realname')">
+            <view class="profile-menu-ico">
+              <AppGlyph name="payee" size="sm" />
+            </view>
+            <view class="profile-menu-main">
+              <text class="profile-menu-title">真实姓名</text>
+              <text class="profile-menu-sub">{{ payoutRealName ? ('已绑定 ' + payoutRealName) : '非 USDT 出款需绑定' }}</text>
+            </view>
+            <text class="profile-menu-arrow">›</text>
+          </view>
           <view class="profile-menu-row" @click="go('payee')">
             <view class="profile-menu-ico">
               <AppGlyph name="payee" size="sm" />
@@ -94,6 +104,8 @@ const frozenText = computed(() => {
   return n > 0.00001 ? money(n) : ''
 })
 const turnoverNeedText = computed(() => money(turnoverNeed.value))
+const realnameRequired = computed(() => !!(info.value && info.value.withdraw_realname_bind_enabled))
+const payoutRealName = computed(() => String((info.value && info.value.payout_real_name) || '').trim())
 
 function go(which) {
   uni.navigateTo({ url: '/pages/wallet/' + which })

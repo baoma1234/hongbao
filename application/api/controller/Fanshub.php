@@ -1381,6 +1381,25 @@ class Fanshub extends Api
     }
 
     /**
+     * 绑定出款真实姓名（非 USDT；开关关闭时也可先绑定）
+     */
+    public function bindpayoutrealname()
+    {
+        $name = trim((string)$this->request->post('real_name', $this->request->post('name', '')));
+        try {
+            FansHubService::assertPayPassword($this->auth->id, (string)$this->request->post('pay_password', ''));
+            $saved = \app\common\library\FansHubWallet::bindPayoutRealName($this->auth->id, $name);
+            $this->success('真实姓名已绑定', [
+                'payout_real_name' => $saved,
+            ]);
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: FansHubService::h5CopyText('api_operation_fail'));
+        }
+    }
+
+    /**
      * 首次设置支付密码（无需短信）
      */
     public function setpaypassword()

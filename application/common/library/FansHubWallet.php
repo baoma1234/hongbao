@@ -44,10 +44,88 @@ class FansHubWallet
             'withdraw_turnover_ratio'  => 0,
             'can_withdraw'             => $canWithdraw,
             'withdraw_threshold'       => (float)($cfg['withdraw_threshold'] ?? 50),
+            'withdraw_realname_bind_enabled' => !empty($cfg['withdraw_realname_bind_enabled']),
+            'payout_real_name'         => self::payoutRealName($userId),
             'wallet_asset'             => 'hongbao',
             'has_pay_password'         => FansHubService::hasPayPassword($userId),
             'has_recharged'            => FansHubService::userHasRecharged($userId, $account),
         ];
+    }
+
+    public static function isUsdtWithdrawChannel(array $channel)
+    {
+        $handler = strtolower((string)($channel['handler'] ?? ''));
+        if ($handler === 'bs') {
+            return true;
+        }
+        $blob = strtoupper(implode(' ', [
+            (string)($channel['name'] ?? ''),
+            (string)($channel['pay_channel'] ?? ''),
+            (string)self::resolveWalletType($channel),
+        ]));
+        return strpos($blob, 'USDT') !== false;
+    }
+
+    public static function ensurePayoutRealNameColumn()
+    {
+        static $ok = false;
+        if ($ok) {
+            return;
+        }
+        try {
+            $cols = Db::query("SHOW COLUMNS FROM `fa_fans_account` LIKE 'payout_real_name'");
+            if (!$cols) {
+                Db::execute(
+                    "ALTER TABLE `fa_fans_account` ADD COLUMN `payout_real_name` varchar(32) NOT NULL DEFAULT '' COMMENT '出款真实姓名'"
+                );
+            }
+            $ok = true;
+        } catch (\Throwable $e) {
+            $ok = false;
+        }
+    }
+
+    public static function payoutRealName($userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return '';
+        }
+        self::ensurePayoutRealNameColumn();
+        try {
+            $name = Db::name('fans_account')->where('user_id', $userId)->value('payout_real_name');
+        } catch (\Throwable $e) {
+            return '';
+        }
+        return trim((string)$name);
+    }
+
+    /**
+     * 绑定出款真实姓名（2-20 个汉字，或 2-32 位英文名）
+     */
+    public static function bindPayoutRealName($userId, $name)
+    {
+        $userId = (int)$userId;
+        $name = trim((string)$name);
+        $name = preg_replace('/\s+/u', ' ', $name);
+        if ($userId <= 0 || $name === '') {
+            FansHubService::throwCopy('api_params_incomplete');
+        }
+        $okCn = (bool)preg_match('/^[\x{4e00}-\x{9fa5}·]{2,20}$/u', $name);
+        $okEn = (bool)preg_match('/^[A-Za-z][A-Za-z .\-]{1,31}$/', $name);
+        if (!$okCn && !$okEn) {
+            throw new \RuntimeException('请填写真实姓名（2-20个汉字，或英文名）');
+        }
+        self::ensurePayoutRealNameColumn();
+        FansHubService::getOrCreateAccount($userId);
+        $aff = Db::name('fans_account')->where('user_id', $userId)->update([
+            'payout_real_name' => mb_substr($name, 0, 32),
+            'updatetime'       => time(),
+        ]);
+        if ($aff === false) {
+            throw new \RuntimeException('绑定失败');
+        }
+        return self::payoutRealName($userId);
     }
 
     /**
@@ -865,6 +943,18 @@ class FansHubWallet
                 'wallet_type'         => $walletType,
                 'bind_id'             => (int)$bind['id'],
             ]);
+        }
+        $cfg = FansHubService::config();
+        if (!empty($cfg['withdraw_realname_bind_enabled'])
+            && $withdrawMode !== 'online_coop'
+            && !self::isUsdtWithdrawChannel($channel)
+        ) {
+            $realName = self::payoutRealName($userId);
+            if ($realName === '') {
+                throw new \RuntimeException('请先绑定真实姓名后再出款');
+            }
+            $accountInfo['accountname'] = $realName;
+            $accountInfo['payout_real_name'] = $realName;
         }
         $account = FansHubService::getOrCreateAccount($userId);
         if ((string)$account->status === 'frozen') {

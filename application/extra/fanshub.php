@@ -148,6 +148,8 @@ return array (
   'welfare_rp_daily_free' => 10,
   // 娱乐群发/抢满 N 次 +1 领取机会
   'welfare_rp_entertain_per_bonus' => 5,
+  // 非 USDT 出款须先绑定真实姓名（默认关，打开后提现页才会跳转绑定）
+  'withdraw_realname_bind_enabled' => false,
   // —— OG视讯（三方游戏商户，后台「三方游戏→OG视讯商户配置」）——
   'og_enabled' => true,
   
