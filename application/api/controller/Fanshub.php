@@ -18,7 +18,7 @@ use think\Validate;
  */
 class Fanshub extends Api
 {
-    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'tgauth', 'tgbind', 'tgsendsms', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'noticedetail', 'noticeview', 'noticeviewsbump', 'noticethemes', 'communityrecommend', 'communitychannels', 'fissionentry', 'fissiondetail', 'fissionclaims', 'yxxhall', 'yxxtick', 'yxxfair', 'yxxgroupdissolve', 'lobbyhome', 'lobbyguide', 'pushdevicedisable'];
+    protected $noNeedLogin = ['config', 'bootstrap', 'sendsms', 'slidercaptcha', 'grabslider', 'login', 'tgauth', 'tgbind', 'tgsendsms', 'comments', 'inviteleaderboard', 'jackpot', 'notices', 'noticedetail', 'noticeview', 'noticeviewsbump', 'noticethemes', 'communityrecommend', 'communitychannels', 'fissionentry', 'fissiondetail', 'fissionclaims', 'yxxhall', 'yxxtick', 'yxxfair', 'yxxgroupdissolve', 'lobbyhome', 'lobbyhometest', 'lobbyguide', 'pushdevicedisable'];
     protected $noNeedRight = '*';
 
     public function _initialize()
@@ -26,7 +26,7 @@ class Fanshub extends Api
         FansHubSms::boot();
         parent::_initialize();
         $action = strtolower($this->request->action());
-        $exempt = ['config', 'bootstrap', 'comments', 'inviteleaderboard', 'slidercaptcha', 'grabslider', 'jackpot', 'notices', 'noticedetail', 'noticeview', 'noticeviewsbump', 'noticethemes', 'communityrecommend', 'communitychannels', 'fissionentry', 'fissiondetail', 'fissionclaims', 'yxxhall', 'yxxtick', 'yxxfair', 'yxxgroupdissolve', 'tgauth', 'tgbind', 'tgsendsms', 'lobbyhome', 'lobbyguide', 'pushdevicedisable'];
+        $exempt = ['config', 'bootstrap', 'comments', 'inviteleaderboard', 'slidercaptcha', 'grabslider', 'jackpot', 'notices', 'noticedetail', 'noticeview', 'noticeviewsbump', 'noticethemes', 'communityrecommend', 'communitychannels', 'fissionentry', 'fissiondetail', 'fissionclaims', 'yxxhall', 'yxxtick', 'yxxfair', 'yxxgroupdissolve', 'tgauth', 'tgbind', 'tgsendsms', 'lobbyhome', 'lobbyhometest', 'lobbyguide', 'pushdevicedisable'];
         if (in_array($action, $exempt, true)) {
             return;
         }
@@ -54,6 +54,20 @@ class Fanshub extends Api
     public function lobbyhome()
     {
         $this->success('ok', \app\common\library\FansHubLobby::homePayload());
+    }
+
+    /**
+     * 大厅真人视讯测试：带 token 才返回含真人视讯的装修数据
+     * GET /api/fanshub/lobbyhometest?token=hb_live_test
+     */
+    public function lobbyhometest()
+    {
+        $token = trim((string)$this->request->param('token', ''));
+        $expect = \app\common\library\FansHubLobby::liveTestToken();
+        if ($expect === '' || $token === '' || !hash_equals($expect, $token)) {
+            $this->error('测试口令无效');
+        }
+        $this->success('ok', \app\common\library\FansHubLobby::homePayload(true));
     }
 
     /**

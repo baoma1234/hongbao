@@ -9,14 +9,35 @@ use think\Db;
  */
 class FansHubLobby
 {
-    const CACHE_KEY = 'fanshub_lobby_home_v3';
+    const CACHE_KEY = 'fanshub_lobby_home_v4';
     const OG_READY_KEY = 'fanshub_lobby_og_ready_v1';
+    const HOT_READY_KEY = 'fanshub_lobby_hot_ready_v1';
 
     public static function clearCache()
     {
         try {
             \think\Cache::rm(self::CACHE_KEY);
+            \think\Cache::rm(self::CACHE_KEY . '_live');
+            \think\Cache::rm(self::CACHE_KEY . '_hot');
         } catch (\Throwable $e) {
+        }
+    }
+
+    public static function isLiveEnabled()
+    {
+        try {
+            return !empty(\think\Config::get('fanshub.lobby_live_enabled'));
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    public static function liveTestToken()
+    {
+        try {
+            return trim((string)\think\Config::get('fanshub.lobby_live_test_token'));
+        } catch (\Throwable $e) {
+            return '';
         }
     }
 
@@ -140,6 +161,81 @@ class FansHubLobby
             try {
                 \think\Cache::set(self::OG_READY_KEY, 1, 86400 * 365);
             } catch (\Throwable $e) {
+            }
+        } catch (\Throwable $e) {
+            $done = false;
+        }
+    }
+
+    /**
+     * 暂停真人视讯时：补回「热门推荐」，红宝游戏打回 hot,games 标签。
+     */
+    public static function ensureHotLobby()
+    {
+        static $done = false;
+        if ($done) {
+            return;
+        }
+        $done = true;
+        try {
+            if (\think\Cache::get(self::HOT_READY_KEY)) {
+                return;
+            }
+        } catch (\Throwable $e) {
+        }
+
+        try {
+            $now = time();
+            $hot = Db::name('fans_lobby_categories')->where('cat_key', 'hot')->find();
+            $maxWeigh = (int)Db::name('fans_lobby_categories')->max('weigh');
+            $hotWeigh = max(210, $maxWeigh + 10);
+            if (!$hot) {
+                Db::name('fans_lobby_categories')->insert([
+                    'cat_key'     => 'hot',
+                    'title'       => '热门推荐',
+                    'icon'        => 'home/lobby/cat-1.png',
+                    'icon_static' => '',
+                    'action'      => 'filter',
+                    'action_url'  => '',
+                    'weigh'       => $hotWeigh,
+                    'status'      => 'normal',
+                    'createtime'  => $now,
+                    'updatetime'  => $now,
+                ]);
+            } else {
+                Db::name('fans_lobby_categories')->where('id', (int)$hot['id'])->update([
+                    'title'      => '热门推荐',
+                    'icon'       => 'home/lobby/cat-1.png',
+                    'action'     => 'filter',
+                    'status'     => 'normal',
+                    'weigh'      => $hotWeigh,
+                    'updatetime' => $now,
+                ]);
+            }
+
+            $rows = Db::name('fans_lobby_games')
+                ->where('status', 'normal')
+                ->where('cats', 'like', '%games%')
+                ->select();
+            foreach ((array)$rows as $row) {
+                if ((int)($row['og_game_id'] ?? 0) > 0) {
+                    continue;
+                }
+                $parts = preg_split('/\s*,\s*/', trim((string)($row['cats'] ?? '')), -1, PREG_SPLIT_NO_EMPTY);
+                if (!in_array('hot', $parts, true)) {
+                    array_unshift($parts, 'hot');
+                    $parts = array_values(array_unique($parts));
+                    Db::name('fans_lobby_games')->where('id', (int)$row['id'])->update([
+                        'cats'       => implode(',', $parts),
+                        'updatetime' => $now,
+                    ]);
+                }
+            }
+
+            self::clearCache();
+            try {
+                \think\Cache::set(self::HOT_READY_KEY, 1, 86400 * 365);
+            } catch (\Throwable $e2) {
             }
         } catch (\Throwable $e) {
             $done = false;
@@ -314,16 +410,28 @@ class FansHubLobby
     }
 
     /** @return array{banners:array,categories:array,games:array,invites:array} */
-    public static function homePayload()
+    /** @param bool|null $includeLive null=跟配置；true=强制含真人视讯（测试接口） */
+    public static function homePayload($includeLive = null)
     {
         self::ensureOgLobby();
+        if ($includeLive === null) {
+            $includeLive = self::isLiveEnabled();
+        } else {
+            $includeLive = (bool)$includeLive;
+        }
+        if (!$includeLive) {
+            self::ensureHotLobby();
+        }
+
+        $cacheKey = self::CACHE_KEY . ($includeLive ? '_live' : '_hot');
         $cached = null;
         try {
-            $cached = \think\Cache::get(self::CACHE_KEY);
+            $cached = \think\Cache::get($cacheKey);
         } catch (\Throwable $e) {
         }
         if (is_array($cached) && isset($cached['banners'], $cached['categories'], $cached['games'])) {
-            return self::withLiveOnline($cached);
+            $cached['live_enabled'] = $includeLive ? 1 : 0;
+            return $includeLive ? self::withLiveOnline($cached) : self::stripLive($cached);
         }
 
         $banners = [];
@@ -429,24 +537,73 @@ class FansHubLobby
         }
 
         $payload = [
-            'banners'    => $banners,
-            'categories' => $categories,
-            'games'      => $games,
-            'invites'    => $invites,
+            'banners'      => $banners,
+            'categories'   => $categories,
+            'games'        => $games,
+            'invites'      => $invites,
+            'live_enabled' => $includeLive ? 1 : 0,
         ];
         try {
-            \think\Cache::set(self::CACHE_KEY, $payload, 60);
+            \think\Cache::set($cacheKey, $payload, 60);
         } catch (\Throwable $e2) {
         }
-        return self::withLiveOnline($payload);
+        return $includeLive ? self::withLiveOnline($payload) : self::stripLive($payload);
+    }
+
+    /** 正式大厅：去掉真人视讯分类与 OG 游戏，保留热门 */
+    protected static function stripLive(array $payload)
+    {
+        $cats = [];
+        foreach ((array)($payload['categories'] ?? []) as $c) {
+            if (!is_array($c)) {
+                continue;
+            }
+            $key = strtolower(trim((string)($c['key'] ?? '')));
+            if ($key === 'live') {
+                continue;
+            }
+            $cats[] = $c;
+        }
+        $payload['categories'] = array_values($cats);
+
+        $games = [];
+        foreach ((array)($payload['games'] ?? []) as $g) {
+            if (!is_array($g)) {
+                continue;
+            }
+            $key = strtolower(trim((string)($g['key'] ?? '')));
+            $ogId = (int)($g['og_game_id'] ?? 0);
+            $gCats = isset($g['cats']) && is_array($g['cats']) ? $g['cats'] : [];
+            if ($ogId > 0 || in_array('live', $gCats, true) || strpos($key, 'og_') === 0) {
+                continue;
+            }
+            $games[] = $g;
+        }
+        $payload['games'] = array_values($games);
+        $payload['live_enabled'] = 0;
+        return $payload;
     }
 
     /** 每次请求刷新真人视讯在线分摊（不进缓存，按分钟桶变化） */
     protected static function withLiveOnline(array $payload)
     {
         if (empty($payload['games']) || !is_array($payload['games'])) {
+            $payload['live_enabled'] = 1;
             return $payload;
         }
+        // 测试/开启时：隐藏「热门推荐」，只留真人视讯 + 红宝等
+        $cats = [];
+        foreach ((array)($payload['categories'] ?? []) as $c) {
+            if (!is_array($c)) {
+                continue;
+            }
+            if (strtolower(trim((string)($c['key'] ?? ''))) === 'hot') {
+                continue;
+            }
+            $cats[] = $c;
+        }
+        $payload['categories'] = array_values($cats);
+
         $map = [];
         try {
             $map = FansHubOfficialStats::liveOnlineMap();
@@ -459,12 +616,13 @@ class FansHubLobby
             }
             $key = strtolower(trim((string)($g['key'] ?? '')));
             $ogId = (int)($g['og_game_id'] ?? 0);
-            $cats = isset($g['cats']) && is_array($g['cats']) ? $g['cats'] : [];
-            $isLive = $ogId > 0 || in_array('live', $cats, true) || strpos($key, 'og_') === 0;
+            $gCats = isset($g['cats']) && is_array($g['cats']) ? $g['cats'] : [];
+            $isLive = $ogId > 0 || in_array('live', $gCats, true) || strpos($key, 'og_') === 0;
             if ($isLive && $key !== '' && isset($map[$key])) {
                 $payload['games'][$i]['online_count'] = (int)$map[$key];
             }
         }
+        $payload['live_enabled'] = 1;
         return $payload;
     }
 }

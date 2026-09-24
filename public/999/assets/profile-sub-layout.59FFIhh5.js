@@ -1,1 +1,0 @@
-import{r as o,f as e,ak as r}from"./index-BS1SUNqQ.js";function t(){const t=o({}),a=o({});return{profileSubHdStyle:t,profileSubPageStyle:a,refreshProfileSubLayout:function(){const o=e(),u=o&&o.overlayTop||r();t.value={top:u+"px"},a.value={"--chat-overlay-top":u+"px"}}}}export{t as u};

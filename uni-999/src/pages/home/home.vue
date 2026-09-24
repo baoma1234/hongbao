@@ -229,7 +229,7 @@
 
 <script setup>
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
-import { onShow, onHide } from '@dcloudio/uni-app'
+import { onShow, onHide, onLoad } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
 import BottomTabBar from '../../components/BottomTabBar.vue'
 import WelcomeLottery from '../../components/WelcomeLottery.vue'
@@ -344,7 +344,9 @@ const lobbyPageStyle = computed(() => {
   }
 })
 
-const activeCat = ref('games')
+const activeCat = ref('hot')
+const lobbyLiveTestToken = ref('')
+const lobbyLiveEnabled = ref(false)
 const onlineCountLive = ref(0)
 /** 服务端官方在线合计（与七群分摊同源，每分钟游走） */
 const lobbyOnlineTotal = ref(0)
@@ -610,8 +612,9 @@ function liveOnlineByKey(key) {
 }
 
 const lobbySectionTitle = computed(() => {
+  if (activeCat.value === 'hot') return tt('lobby_hot_games', '热门游戏')
   const cat = lobbyCategories.value.find((c) => c.id === activeCat.value)
-  return (cat && cat.label) || '红宝游戏'
+  return (cat && cat.label) || tt('lobby_hot_games', '热门游戏')
 })
 
 function catIconSrc(cat) {
@@ -1390,12 +1393,17 @@ watch(
 
 async function loadLobbyHome() {
   try {
-    const data = await apiRequest('lobbyhome', 'GET', {})
+    const token = String(lobbyLiveTestToken.value || '').trim()
+    const data = token
+      ? await apiRequest('lobbyhometest', 'GET', { token })
+      : await apiRequest('lobbyhome', 'GET', {})
     if (data && typeof data === 'object') {
       remoteLobby.value = data
+      lobbyLiveEnabled.value = !!data.live_enabled
       const cats = lobbyCategories.value
       if (cats.length && !cats.some((c) => c.id === activeCat.value && (!c.action || c.action === 'filter'))) {
-        const first = cats.find((c) => !c.action || c.action === 'filter')
+        const prefer = cats.find((c) => c.id === 'hot' || c.id === 'games')
+        const first = prefer || cats.find((c) => !c.action || c.action === 'filter')
         if (first) activeCat.value = first.id
       }
     }
@@ -1403,6 +1411,24 @@ async function loadLobbyHome() {
     /* keep defaults */
   }
 }
+
+function readLiveTestTokenFromQuery(q) {
+  const raw = (q && (q.live_test || q.liveTest || q.token)) || ''
+  return String(raw || '').trim()
+}
+
+onLoad((q) => {
+  const t = readLiveTestTokenFromQuery(q)
+  if (t) lobbyLiveTestToken.value = t
+  // #ifdef H5
+  try {
+    if (!lobbyLiveTestToken.value && typeof location !== 'undefined') {
+      const m = String(location.hash || location.search || '').match(/[?&]live_test=([^&]+)/i)
+      if (m && m[1]) lobbyLiveTestToken.value = decodeURIComponent(m[1])
+    }
+  } catch (e) {}
+  // #endif
+})
 
 async function loadBootstrap() {
   try {

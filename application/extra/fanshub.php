@@ -150,6 +150,9 @@ return array (
   'welfare_rp_entertain_per_bonus' => 5,
   // 非 USDT 出款须先绑定真实姓名（默认关，打开后提现页才会跳转绑定）
   'withdraw_realname_bind_enabled' => false,
+  // 大厅真人视讯（默认关：正式大厅仍显示热门；测试用 lobbyhometest + token）
+  'lobby_live_enabled' => false,
+  'lobby_live_test_token' => 'hb_live_test',
   // —— OG视讯（三方游戏商户，后台「三方游戏→OG视讯商户配置」）——
   'og_enabled' => true,
   
