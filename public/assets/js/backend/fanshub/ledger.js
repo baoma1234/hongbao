@@ -24,6 +24,13 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                     {field: 'id', title: 'ID'},
                     {field: 'user_id', title: '会员ID', defaultValue: forceUid},
                     {field: 'user.mobile', title: '手机号', operate: 'LIKE'},
+                    {
+                        field: 'user_kind',
+                        title: '用户类型',
+                        searchList: {"0": "普通用户", "1": "机器人"},
+                        formatter: Table.api.formatter.normal,
+                        operate: '='
+                    },
                     {field: 'type', title: '类型', searchList: (function () {
                         // 与 FansHubWallet::ledgerTypeLabels 对齐；缺失类型也能筛到冻结/返佣
                         return {
