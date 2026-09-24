@@ -141,23 +141,40 @@
       </view>
     </view>
 
-    <!-- 真人视讯：先弹余额 sheet，确认后再进 live -->
-    <view class="og-mask" :class="{ 'is-open': ogSheetOpen }" @click="closeOgSheet">
+    <!-- 真人视讯：先弹余额 sheet，确认后再进 live（样式对齐大厅白底弹层，四端安全区） -->
+    <view
+      class="og-mask"
+      :class="{ 'is-open': ogSheetOpen }"
+      :style="ogMaskStyle"
+      @click="closeOgSheet"
+      @touchmove.stop.prevent="noopTouch"
+    >
       <view class="og-sheet" @click.stop>
-        <view class="og-sheet-title">{{ ogSheetTitle || 'OG 视讯' }}</view>
-        <view class="og-sheet-bal">
-          <text>OG余额 <strong>{{ ogBalText }}</strong></text>
-          <text class="og-sheet-sep">｜</text>
-          <text>本站红宝 <strong>{{ ogHbText }}</strong></text>
+        <view class="og-sheet-handle" aria-hidden="true" />
+        <text class="og-sheet-title">{{ ogSheetTitle || 'OG 视讯' }}</text>
+        <view class="og-sheet-bal-row">
+          <view class="og-sheet-bal-card">
+            <text class="og-sheet-bal-label">OG余额</text>
+            <text class="og-sheet-bal-num">{{ ogBalText }}</text>
+          </view>
+          <view class="og-sheet-bal-card">
+            <text class="og-sheet-bal-label">本站红宝</text>
+            <text class="og-sheet-bal-num is-hot">{{ ogHbText }}</text>
+          </view>
         </view>
-        <view class="og-sheet-hint">进入：全部红宝自动转入 OG 再开游戏<br />提出：OG 余额全部提回红宝</view>
-        <button type="button" class="og-btn primary" :disabled="ogBusy" @click="onOgEnterPrimary">
+        <view class="og-sheet-hint">
+          <text class="og-sheet-hint-line">进入：全部红宝自动转入 OG 再开游戏</text>
+          <text class="og-sheet-hint-line">提出：OG 余额全部提回红宝</text>
+        </view>
+        <button type="button" class="og-btn primary" :disabled="ogBusy" hover-class="og-btn-hit" @click="onOgEnterPrimary">
           {{ ogBusyLaunch ? '进入中…' : ('进入游戏' + (ogHbNum > 0 ? '（转入 ' + ogHbText + '）' : '')) }}
         </button>
-        <button type="button" class="og-btn warn" :disabled="ogBusy" @click="onOgWithdraw">
+        <button type="button" class="og-btn warn" :disabled="ogBusy" hover-class="og-btn-hit" @click="onOgWithdraw">
           {{ ogBusyWithdraw ? '提出中…' : ('提出全部' + (ogNum > 0 ? '（' + ogBalText + '）' : '')) }}
         </button>
-        <button type="button" class="og-btn close" :disabled="ogBusy" @click="closeOgSheet">关闭</button>
+        <button type="button" class="og-btn close" :disabled="ogBusy" hover-class="og-btn-hit" @click="closeOgSheet">
+          关闭
+        </button>
       </view>
     </view>
 
@@ -278,6 +295,8 @@ const ogBusyLaunch = ref(false)
 const ogBusyWithdraw = ref(false)
 const ogBusy = computed(() => ogBusyLaunch.value || ogBusyWithdraw.value)
 
+function noopTouch() {}
+
 function ogRound2(v) {
   const n = Number(v)
   if (!Number.isFinite(n) || n <= 0) return 0
@@ -341,6 +360,15 @@ const lobbyPageStyle = computed(() => {
     paddingBottom: pad + 'px',
     '--lobby-safe-bottom': (Number(lobbySafeBottom.value) || 0) + 'px',
     '--lobby-tab-pad': pad + 'px',
+  }
+})
+
+/** App 上 env(safe-area) 常为 0，用已测的 lobbySafeBottom 垫底 */
+const ogMaskStyle = computed(() => {
+  const safe = Math.max(0, Number(lobbySafeBottom.value) || 0)
+  return {
+    paddingBottom: 12 + safe + 'px',
+    '--og-sheet-safe': safe + 'px',
   }
 })
 
@@ -906,6 +934,9 @@ function openOgSheet(game, ogId) {
   const hb = p.hongbao != null ? p.hongbao : p.account?.hongbao
   if (hb != null) ogHongbao.value = Number(hb) || 0
   ogSheetOpen.value = true
+  nextTick(() => {
+    measureLobbySafeBottom()
+  })
   refreshOgSheetBal()
 }
 
