@@ -2,9 +2,8 @@
   <ProfileSubPage title="提现" body-class="hb-sub">
     <view class="match-card profile-card">
       <view class="profile-meta-line">可提现红宝：<strong>￥{{ balanceText }}</strong></view>
+      <view class="profile-meta-line">流水需={{ turnoverNeedText }}</view>
       <view class="profile-meta-line" v-if="frozenText">冻结金额：<strong>￥{{ frozenText }}</strong></view>
-      <view class="profile-meta-line" v-if="turnoverText">待打流水：￥{{ turnoverText }}</view>
-      <view class="profile-meta-line" v-if="turnHint">{{ turnHint }}</view>
 
       <view class="profile-field">
         <text class="lab">选择提现通道</text>
@@ -164,7 +163,6 @@ import {
   sanitizePayMessage,
   shortChannelName,
   submitWithdraw,
-  turnoverHint,
   validateChannelAmount,
 } from '../../utils/wallet.js'
 import '../../styles/hb.css'
@@ -240,7 +238,16 @@ const bind = computed(() => {
   return (binds.value && binds.value[walletType.value]) || null
 })
 const mainUid = computed(() => getApprovedMainUid(profile.value))
+const turnoverNeed = computed(() => {
+  const i = info.value || {}
+  const raw = i.turnover != null ? i.turnover : i.total_turnover
+  const n = Number(raw)
+  if (!isFinite(n) || n <= 0) return 0
+  return Math.round(n * 100) / 100
+})
+/** 流水需>0 时不可提现，可提现红宝显示 0 */
 const balanceText = computed(() => {
+  if (turnoverNeed.value > 0) return money(0)
   const i = info.value || {}
   const n = i.hongbao != null ? i.hongbao : i.balance
   return money(n || 0)
@@ -250,12 +257,7 @@ const frozenText = computed(() => {
   const n = Number(i.hongbao_frozen != null ? i.hongbao_frozen : i.frozen || 0)
   return n > 0 ? money(n) : ''
 })
-const turnoverText = computed(() => {
-  const i = info.value || {}
-  if (i.turnover == null && i.total_turnover == null) return ''
-  return money(i.turnover != null ? i.turnover : i.total_turnover)
-})
-const turnHint = computed(() => turnoverHint(info.value))
+const turnoverNeedText = computed(() => money(turnoverNeed.value))
 const amountPh = computed(() => {
   const ch = selected.value
   if (!ch) return '请输入金额'

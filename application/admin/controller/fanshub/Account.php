@@ -316,8 +316,8 @@ class Account extends Backend
             $meta['google_secret'] = $gaSecret;
         }
         if (array_key_exists('turnover', $meta)) {
-            // 允许负数：待打流水可为负（超额打完）
-            $meta['turnover'] = round((float)$meta['turnover'], 2);
+            // 流水不能低于 0
+            $meta['turnover'] = max(0, round((float)$meta['turnover'], 2));
         }
         if (FansHubPhase2::enabled()) {
             foreach (['user_mode', 'fission_streak_days', 'fission_last_checkin_date', 'sub_withdrawn_count', 'honor_tier_claimed'] as $field) {
@@ -434,8 +434,8 @@ class Account extends Backend
                 $this->error('请填写流水调整数值（正数增加待打流水，负数减少）');
             }
             $userId = (int)$row->user_id;
-            $before = round((float)($row->turnover ?? 0), 2);
-            $after = round($before + $delta, 2);
+            $before = max(0, round((float)($row->turnover ?? 0), 2));
+            $after = max(0, round($before + $delta, 2));
             $now = time();
             $adminId = (int)$this->auth->id;
             $ledgerRemark = sprintf(

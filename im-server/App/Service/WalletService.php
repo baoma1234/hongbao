@@ -624,8 +624,9 @@ class WalletService
                 'niuniu_buy',
             ], true);
             if ($countTurnover) {
+                // 流水不能低于 0：扣至 0 为止
                 $affected = Db::exec(
-                    "UPDATE {$table} SET `{$field}`=`{$field}`-(?), turnover=turnover-(?), updatetime=? WHERE user_id=? AND status='normal' AND `{$field}`>=?",
+                    "UPDATE {$table} SET `{$field}`=`{$field}`-(?), turnover=GREATEST(0, turnover-(?)), updatetime=? WHERE user_id=? AND status='normal' AND `{$field}`>=?",
                     [$abs, $abs, $now, $userId, $abs]
                 );
             } else {

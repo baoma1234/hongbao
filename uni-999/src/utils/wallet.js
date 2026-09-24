@@ -728,10 +728,9 @@ export function fxHintText(ch, amount, opts) {
 
 export function turnoverHint(info) {
   if (!info) return ''
-  const t = Number(info.turnover)
-  if (!isFinite(t)) return ''
-  if (t <= 0.00000001) return '待打流水已清零，可申请提现'
-  return '待打流水 ￥' + money(t) + '（发红包可扣流水，降至 0 或以下才可提现）'
+  const t = Math.max(0, Number(info.turnover) || 0)
+  if (t <= 0.00000001) return '流水需=0，可申请提现'
+  return '流水需=' + money(t) + '（发红包可扣流水，降至 0 才可提现）'
 }
 
 export function ledgerAmountText(item, opts = {}) {

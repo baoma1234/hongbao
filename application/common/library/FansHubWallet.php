@@ -27,18 +27,18 @@ class FansHubWallet
     {
         $account = FansHubService::getOrCreateAccount($userId);
         $cfg = FansHubService::config();
-        $turnover = (float)($account->turnover ?? 0);
+        // 流水不能低于 0；流水需=0 才可提现
+        $turnover = max(0, round((float)($account->turnover ?? 0), 2));
         // 充值/提现资产：红宝
         $hongbao = (float)($account->hongbao ?? 0);
         $hongbaoFrozen = (float)($account->hongbao_frozen ?? 0);
-        // 新规则：待打流水 ≤ 0 才可提现（发红包等会扣流水）
         $canWithdraw = $turnover <= 1e-8;
         return [
             'hongbao'                  => $hongbao,
             'hongbao_frozen'           => $hongbaoFrozen,
             'hongbao_total'            => round($hongbao + $hongbaoFrozen, 2),
-            // 兼容旧字段：可提现额 = 可用红宝（不含冻结）
-            'balance'                  => $hongbao,
+            // 兼容旧字段：可提现额 = 流水需=0 时的可用红宝，否则 0
+            'balance'                  => $canWithdraw ? $hongbao : 0,
             'turnover'                 => $turnover,
             'withdraw_turnover_min'    => 0,
             'withdraw_turnover_ratio'  => 0,
@@ -875,11 +875,11 @@ class FansHubWallet
             FansHubService::throwCopy('srv_insufficient_hongbao');
         }
         $cfg = FansHubService::config();
-        $turnover = (float)($account->turnover ?? 0);
-        // 待打流水须 ≤ 0（发红包等会扣流水）才可提现
+        $turnover = max(0, round((float)($account->turnover ?? 0), 2));
+        // 流水需须 = 0 才可提现
         if ($turnover > 1e-8) {
             throw new \RuntimeException(sprintf(
-                '流水未打完：当前待打流水 ￥%.2f，需降至 0 或以下才可提现（发红包可扣流水）',
+                '流水未打完：流水需=%.2f，降至 0 才可提现（发红包可扣流水）',
                 $turnover
             ));
         }

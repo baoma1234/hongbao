@@ -2,9 +2,8 @@
   <ProfileSubPage title="钱包">
       <view class="match-card" style="margin-bottom:14px">
         <view class="wallet-bal-line">红宝余额 <strong>{{ balanceText }}</strong></view>
+        <view class="profile-meta-line">流水需={{ turnoverNeedText }}</view>
         <view class="profile-meta-line" v-if="frozenText">冻结金额：{{ frozenText }}</view>
-        <view class="profile-meta-line">待打流水：{{ turnoverText }}</view>
-        <view class="profile-meta-line" v-if="turnHint">{{ turnHint }}</view>
       </view>
 
       <view class="profile-quick-sheet">
@@ -71,14 +70,20 @@ import ProfileSubPage from '../../components/ProfileSubPage.vue'
 import AppGlyph from '../../components/AppGlyph.vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getToken } from '../../utils/auth.js'
-import { loadWalletBootstrap, money, turnoverHint } from '../../utils/wallet.js'
+import { loadWalletBootstrap, money } from '../../utils/wallet.js'
 import '../../styles/hb.css'
 
 const info = ref(null)
 const loading = ref(false)
 const error = ref('')
 
+const turnoverNeed = computed(() => {
+  const n = Number((info.value && info.value.turnover) || 0)
+  if (!isFinite(n) || n <= 0) return 0
+  return Math.round(n * 100) / 100
+})
 const balanceText = computed(() => {
+  if (turnoverNeed.value > 0) return money(0)
   const i = info.value || {}
   const n = i.hongbao != null ? i.hongbao : i.balance
   return n != null ? money(n) : '—'
@@ -88,8 +93,7 @@ const frozenText = computed(() => {
   const n = Math.max(0, Number(i.hongbao_frozen) || 0)
   return n > 0.00001 ? money(n) : ''
 })
-const turnoverText = computed(() => money((info.value && info.value.turnover) || 0))
-const turnHint = computed(() => turnoverHint(info.value))
+const turnoverNeedText = computed(() => money(turnoverNeed.value))
 
 function go(which) {
   uni.navigateTo({ url: '/pages/wallet/' + which })

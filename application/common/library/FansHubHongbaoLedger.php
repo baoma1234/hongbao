@@ -92,7 +92,11 @@ class FansHubHongbaoLedger
                 ->where('status', 'normal')
                 ->where('hongbao', '>=', $amount);
             if ($countTurnover) {
-                $aff = $q->dec('hongbao', $amount)->dec('turnover', $amount)->update(['updatetime' => $now]);
+                // 流水不能低于 0：扣至 0 为止（GREATEST，避免负流水）
+                $amtSql = sprintf('%.2f', $amount);
+                $aff = $q->dec('hongbao', $amount)
+                    ->exp('turnover', "GREATEST(0, turnover-{$amtSql})")
+                    ->update(['updatetime' => $now]);
             } else {
                 $aff = $q->dec('hongbao', $amount)->update(['updatetime' => $now]);
             }
