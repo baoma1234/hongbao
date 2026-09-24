@@ -110,6 +110,7 @@ const APP_WV_ID = 'og-live-game'
 
 const preferredGameId = ref(0)
 const pageTitle = ref('真人视讯')
+const autoLaunchPending = ref(false)
 const sheetOpen = ref(false)
 const gameUrl = ref('')
 const frameKey = ref(0)
@@ -307,8 +308,14 @@ function onTopClose() {
 
 onLoad((q) => {
   const n = parseInt(q && q.game_id, 10)
-  if (n > 0) preferredGameId.value = n
-  const t = q && q.title ? String(q.title) : ''
+  if (n > 0) {
+    preferredGameId.value = n
+    autoLaunchPending.value = true
+  }
+  let t = q && q.title ? String(q.title) : ''
+  try {
+    if (t) t = decodeURIComponent(t)
+  } catch (e) {}
   if (t) pageTitle.value = t
 })
 
@@ -392,6 +399,16 @@ onShow(() => {
       openAppGameWebview(gameUrl.value)
     }
     // #endif
+  } else if (autoLaunchPending.value && preferredGameId.value > 0) {
+    autoLaunchPending.value = false
+    if (!getToken()) {
+      uni.showToast({ title: '请先登录', icon: 'none' })
+      return
+    }
+    sheetOpen.value = true
+    nextTick(() => {
+      onEnterGame()
+    })
   }
 })
 

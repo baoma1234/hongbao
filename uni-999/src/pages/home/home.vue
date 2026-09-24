@@ -784,9 +784,23 @@ function onGameTap(game) {
     return
   }
   const ogId = Number(game.ogGameId) || 0
-  if (ogId > 0) {
-    const title = encodeURIComponent(String(game.title || '真人视讯'))
-    uni.navigateTo({ url: '/pages/og/live?game_id=' + ogId + '&title=' + title })
+  const isLive =
+    ogId > 0 ||
+    (Array.isArray(game.cats) && game.cats.indexOf('live') >= 0) ||
+    /^og[_-]/i.test(String(game.id || ''))
+  if (isLive) {
+    let url = '/pages/og/live'
+    const q = []
+    if (ogId > 0) q.push('game_id=' + ogId)
+    const title = String(game.title || '').trim()
+    if (title) q.push('title=' + encodeURIComponent(title))
+    if (q.length) url += '?' + q.join('&')
+    uni.navigateTo({
+      url,
+      fail: () => {
+        uni.redirectTo({ url })
+      },
+    })
     return
   }
   uni.navigateTo({ url: '/pages/home/game-detail?game=' + encodeURIComponent(game.id) })
