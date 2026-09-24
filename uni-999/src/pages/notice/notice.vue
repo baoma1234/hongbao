@@ -1411,12 +1411,14 @@ function onNoticeScrollToLower() {
 
 async function tickNoticeViewsBump() {
   if (!pageAlive) return
-  // 仅前端假涨，避免每分钟打 noticeviewsbump + 全表 UPDATE；真实涨幅由服务端 cron 写库
+  // 仅前端假涨：未满 10 万按分钟 +50～60；已满 10 万由服务端每天加几百，列表不再猛涨
   const list = notices.value || []
   for (let i = 0; i < list.length; i++) {
     const n = list[i]
     if (!n || n.status === 'pending' || n.status === 'rejected') continue
-    n.views_count = (Number(n.views_count) || 0) + (50 + Math.floor(Math.random() * 11))
+    const cur = Number(n.views_count) || 0
+    if (cur >= 100000) continue
+    n.views_count = cur + (50 + Math.floor(Math.random() * 11))
   }
 }
 

@@ -5,22 +5,25 @@ namespace Im\Support;
 use PDO;
 
 /**
- * 社区帖子浏览量：每分钟已发布帖 +50～60
- * 由 im-server Cron（与 WS 同套）定时写库；列表 API / 前端不再触发全表 UPDATE。
+ * 社区帖子自动浏览：
+ * - views_count < 100000：每分钟 +50～60（冲到 10 万）
+ * - views_count >= 100000：每天只加 200～500（不再按分钟猛涨）
  *
- * 写库连接优先读项目根 .env（与 ThinkPHP / 前台同一库），避免 im-server local.php
- * 指向本机旧库时涨浏览不生效。
+ * 由 im-server Cron 定时写库；列表 API / 前端假涨仅作展示。
  */
 class NoticeViewsBump
 {
     const REDIS_KEY = 'notice:views_bump_at';
+    const REDIS_DAILY_KEY = 'notice:views_daily_hot';
     const MIN_INTERVAL = 55;
+    /** 超过此浏览量后改走「每天几百」 */
+    const HOT_THRESHOLD = 100000;
 
     /** @var PDO|null */
     protected static $pdo;
 
     /**
-     * @return array{bumped:bool,minutes:int,rows:int,error?:string}
+     * @return array{bumped:bool,minutes:int,rows:int,daily_rows?:int,error?:string}
      */
     public static function tick($force = false)
     {
@@ -54,22 +57,64 @@ class NoticeViewsBump
             $pdo = self::webPdo();
             $table = self::noticeTable();
             self::ensureViewsColumn($pdo, $table);
+            $thr = (int)self::HOT_THRESHOLD;
             $rows = 0;
+            // 未满 10 万：按分钟涨；已满 10 万不走分钟涨
             for ($i = 0; $i < $minutes; $i++) {
                 $n = $pdo->exec(
-                    "UPDATE `{$table}` SET `views_count` = `views_count` + (50 + FLOOR(RAND() * 11)) WHERE `status` = 'published'"
+                    "UPDATE `{$table}` SET `views_count` = `views_count` + (50 + FLOOR(RAND() * 11))"
+                    . " WHERE `status` = 'published' AND `views_count` < {$thr}"
                 );
                 $rows += (int)$n;
             }
+            $dailyRows = self::dailyHotBoost($pdo, $table, $force);
             try {
                 RedisClient::conn()->setex(RedisClient::key(self::REDIS_KEY), 86400, (string)$now);
             } catch (\Throwable $e) {
             }
-            return ['bumped' => true, 'minutes' => $minutes, 'rows' => $rows];
+            return [
+                'bumped'     => true,
+                'minutes'    => $minutes,
+                'rows'       => $rows,
+                'daily_rows' => $dailyRows,
+            ];
         } catch (\Throwable $e) {
             error_log('[CRON][NOTICE_VIEWS] ' . $e->getMessage());
             return ['bumped' => false, 'minutes' => 0, 'rows' => 0, 'error' => $e->getMessage()];
         }
+    }
+
+    /**
+     * 已满 10 万的帖：每个自然日只加一次 200～500
+     * @return int 影响行数
+     */
+    protected static function dailyHotBoost(PDO $pdo, $table, $force = false)
+    {
+        $ymd = date('Y-m-d');
+        $rkey = RedisClient::key(self::REDIS_DAILY_KEY);
+        if (!$force) {
+            try {
+                $done = (string)RedisClient::conn()->get($rkey);
+                if ($done === $ymd) {
+                    return 0;
+                }
+            } catch (\Throwable $e) {
+                // Redis 不可用时仍尝试写库（依赖幂等：按日最多多涨一次可接受）
+            }
+        }
+        $thr = (int)self::HOT_THRESHOLD;
+        // 200～500
+        $n = (int)$pdo->exec(
+            "UPDATE `{$table}` SET `views_count` = `views_count` + (200 + FLOOR(RAND() * 301))"
+            . " WHERE `status` = 'published' AND `views_count` >= {$thr}"
+        );
+        try {
+            // 存到次日凌晨过期，避免跨日误判
+            $ttl = max(3600, strtotime('tomorrow') - time() + 3600);
+            RedisClient::conn()->setex($rkey, $ttl, $ymd);
+        } catch (\Throwable $e) {
+        }
+        return $n;
     }
 
     protected static function webPdo()
@@ -124,7 +169,6 @@ class NoticeViewsBump
                 $out['prefix'] = (string)($d['prefix'] ?? $out['prefix']);
             }
         }
-        // 回退：im-server config（含 local.php），与聊天库一致
         if ($out['password'] === '' && $out['username'] === 'root') {
             try {
                 $cfg = require dirname(__DIR__, 2) . '/config/app.php';
