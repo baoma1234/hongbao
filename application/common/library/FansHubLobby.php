@@ -9,7 +9,7 @@ use think\Db;
  */
 class FansHubLobby
 {
-    const CACHE_KEY = 'fanshub_lobby_home_v2';
+    const CACHE_KEY = 'fanshub_lobby_home_v3';
     const OG_READY_KEY = 'fanshub_lobby_og_ready_v1';
 
     public static function clearCache()
@@ -323,7 +323,7 @@ class FansHubLobby
         } catch (\Throwable $e) {
         }
         if (is_array($cached) && isset($cached['banners'], $cached['categories'], $cached['games'])) {
-            return $cached;
+            return self::withLiveOnline($cached);
         }
 
         $banners = [];
@@ -397,6 +397,7 @@ class FansHubLobby
                     'coming_soon'     => !empty($r['coming_soon']),
                     'packaged'        => self::isPackagedStatic($r['cover'] ?? ''),
                     'order'           => (int)($r['weigh'] ?? 0),
+                    'online_count'    => 0,
                 ];
             }
         } catch (\Throwable $e) {
@@ -436,6 +437,33 @@ class FansHubLobby
         try {
             \think\Cache::set(self::CACHE_KEY, $payload, 60);
         } catch (\Throwable $e2) {
+        }
+        return self::withLiveOnline($payload);
+    }
+
+    /** 每次请求刷新真人视讯在线分摊（不进缓存，按分钟桶变化） */
+    protected static function withLiveOnline(array $payload)
+    {
+        if (empty($payload['games']) || !is_array($payload['games'])) {
+            return $payload;
+        }
+        $map = [];
+        try {
+            $map = FansHubOfficialStats::liveOnlineMap();
+        } catch (\Throwable $e) {
+            $map = [];
+        }
+        foreach ($payload['games'] as $i => $g) {
+            if (!is_array($g)) {
+                continue;
+            }
+            $key = strtolower(trim((string)($g['key'] ?? '')));
+            $ogId = (int)($g['og_game_id'] ?? 0);
+            $cats = isset($g['cats']) && is_array($g['cats']) ? $g['cats'] : [];
+            $isLive = $ogId > 0 || in_array('live', $cats, true) || strpos($key, 'og_') === 0;
+            if ($isLive && $key !== '' && isset($map[$key])) {
+                $payload['games'][$i]['online_count'] = (int)$map[$key];
+            }
         }
         return $payload;
     }

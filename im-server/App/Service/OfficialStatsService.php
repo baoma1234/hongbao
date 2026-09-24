@@ -10,7 +10,7 @@ use Im\Support\RedisClient;
 /**
  * 官方社群展示人数（与 PHP FansHubOfficialStats 一致）
  * - 成员：持久化基数，无秒级抖动
- * - 在线：全站合计 11500～16500；08:00–22:00 中枢约 16500，22:00–08:00 中枢约 11500
+ * - 在线：全站合计 16000～20000；08:00–22:00 中枢约 20000，22:00–08:00 中枢约 16000；约 20% 分给真人视讯
  */
 class OfficialStatsService
 {
@@ -20,10 +20,10 @@ class OfficialStatsService
     const FLOAT_BUCKET_SEC = 2;
     const FLOAT_MAX = 10;
 
-    const ONLINE_MIN = 11500;
-    const ONLINE_MAX = 16500;
-    const ONLINE_NIGHT_CENTER = 11500;
-    const ONLINE_DAY_CENTER = 16500;
+    const ONLINE_MIN = 16000;
+    const ONLINE_MAX = 20000;
+    const ONLINE_NIGHT_CENTER = 16000;
+    const ONLINE_DAY_CENTER = 20000;
     const ONLINE_STEP_MIN = 10;
     const ONLINE_STEP_MAX = 30;
     const ONLINE_MAX_GROUP_DIFF = 500;
@@ -33,6 +33,7 @@ class OfficialStatsService
     const ONLINE_FOCUS_GROUP_IDS = [11, 17];
     const ONLINE_OTHER_JITTER_RATIO = 0.12;
     const ONLINE_EXCLUDE_GROUP_IDS = [70, 71, 72, 77];
+    const ONLINE_LIVE_SHARE = 0.20;
 
     /** @var array|null */
     protected static $officialIdsCache;
@@ -284,7 +285,15 @@ class OfficialStatsService
             return [];
         }
 
-        $total = self::onlineTotalForBucket($bucket);
+        $totalAll = self::onlineTotalForBucket($bucket);
+        $liveBudget = (int)round($totalAll * self::ONLINE_LIVE_SHARE);
+        if ($liveBudget < 400) {
+            $liveBudget = 400;
+        }
+        if ($liveBudget > (int)floor($totalAll * 0.35)) {
+            $liveBudget = (int)floor($totalAll * 0.35);
+        }
+        $total = max(0, $totalAll - $liveBudget);
         $focusWant = self::ONLINE_FOCUS_GROUP_IDS;
         $focus = [];
         $others = [];

@@ -305,7 +305,7 @@ let secretRequestId = ''
 let tickerTimer = null
 let onlinePollTimer = null
 let onlineJitterTimer = null
-/** 在线人数相对基数的氛围浮动（每分钟 ±10～30；展示硬夹在 11500～16500） */
+/** 在线人数相对基数的氛围浮动（每分钟 ±10～30；展示硬夹在 16000～20000） */
 const onlineCountJitter = ref(0)
 
 const TAB_BAR_CONTENT_PX = 64
@@ -481,6 +481,7 @@ const lobbyGamesList = computed(() => {
     id: String(g.key || g.id || ''),
     title: String(g.title || ''),
     ogGameId: Number(g.og_game_id) || 0,
+    onlineCount: Number(g.online_count) || 0,
     cover: normalizeRemotePath(g.cover_raw || g.cover || ''),
     coverUrl: String(g.cover || ''),
     badge: String(g.badge || ''),
@@ -557,9 +558,55 @@ function sumOfficialByMatch(matcher) {
 
 function gamePlayersCount(game) {
   if (!game || game.comingSoon) return 0
+  const isLive =
+    (Number(game.ogGameId) || 0) > 0 ||
+    (Array.isArray(game.cats) && game.cats.indexOf('live') >= 0) ||
+    /^og[_-]/i.test(String(game.id || ''))
+  if (isLive) {
+    const n = liveOnlineByKey(String(game.id || ''))
+    if (n > 0) return n
+    const fixed = Number(game.onlineCount) || 0
+    if (fixed > 0) return Math.floor(fixed)
+  }
   if (game.sumGroupMatch) return sumOfficialByMatch(game.sumGroupMatch)
   const row = findOfficialGroup(game.groupMatch)
   return row ? groupDisplayOnline(row) : 0
+}
+
+/** 全站在线约 20% 分给真人视讯四款，与横幅合计同步游走 */
+function liveOnlineByKey(key) {
+  const keys = ['og_baccarat', 'og_dragon', 'og_roulette', 'og_niuniu']
+  const k = String(key || '').toLowerCase()
+  if (keys.indexOf(k) < 0) return 0
+  let total = Math.max(0, Number(onlineCountDisplay.value) || 0)
+  if (total < 10000) total = 18000
+  total = Math.max(16000, Math.min(20000, total))
+  const budget = Math.max(400, Math.round(total * 0.2))
+  const minute = Math.floor(Date.now() / 60000)
+  const weights = {}
+  let wSum = 0
+  for (let i = 0; i < keys.length; i++) {
+    const salt = 'live:' + keys[i] + ':' + minute
+    let h = 0
+    for (let j = 0; j < salt.length; j++) h = (Math.imul(31, h) + salt.charCodeAt(j)) | 0
+    h = Math.abs(h)
+    const ratio = 0.88 + ((h % 1000) / 1000) * 0.24
+    weights[keys[i]] = ratio
+    wSum += ratio
+  }
+  let assigned = 0
+  const out = {}
+  for (let i = 0; i < keys.length; i++) {
+    const id = keys[i]
+    if (i === keys.length - 1) {
+      out[id] = Math.max(80, budget - assigned)
+    } else {
+      const v = Math.max(80, Math.round(budget * (weights[id] / wSum)))
+      out[id] = v
+      assigned += v
+    }
+  }
+  return out[k] || 0
 }
 
 const lobbySectionTitle = computed(() => {
@@ -628,12 +675,12 @@ const onlineCount = computed(() => {
   return marketVirtualBase()
 })
 
-/** 展示用：基数 + 每分钟 ±10～30 浮动，夹在 11500～16500 */
+/** 展示用：基数 + 每分钟 ±10～30 浮动，夹在 16000～20000 */
 const onlineCountDisplay = computed(() => {
   const base = Math.max(0, Number(onlineCount.value) || 0)
   const n = Math.max(1, base + (onlineCountJitter.value | 0))
   if (base >= 10000) {
-    return Math.max(11500, Math.min(16500, n))
+    return Math.max(16000, Math.min(20000, n))
   }
   return n
 })

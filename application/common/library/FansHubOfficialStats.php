@@ -8,8 +8,8 @@ use think\Db;
  * 官方社群展示人数（全端一致）
  * - 每个群各自成员基数（约 1.7万～1.8万；注册时各群 +1）
  * - 展示值 = 持久化基数（无秒级抖动）；定时任务每日小幅上浮，偶尔 -1/-2
- * - 在线人数：全站合计 11500～16500；08:00–22:00 中枢约 16500，22:00–08:00 中枢约 11500；
- *   每分钟 ±10～30 游走并缓缓拉向当前时段中枢，再分到各官方群
+ * - 在线人数：全站合计 16000～20000；08:00–22:00 中枢约 20000，22:00–08:00 中枢约 16000；
+ *   每分钟 ±10～30 游走并缓缓拉向当前时段中枢；约 20% 分给真人视讯，其余分到各官方群
  */
 class FansHubOfficialStats
 {
@@ -23,12 +23,12 @@ class FansHubOfficialStats
     const FLOAT_MAX = 10;
 
     /** 在线合计：夜间中枢 / 日间中枢 / 硬上下限 */
-    const ONLINE_MIN = 11500;
-    const ONLINE_MAX = 16500;
-    const ONLINE_NIGHT_CENTER = 11500;
-    const ONLINE_DAY_CENTER = 16500;
+    const ONLINE_MIN = 16000;
+    const ONLINE_MAX = 20000;
+    const ONLINE_NIGHT_CENTER = 16000;
+    const ONLINE_DAY_CENTER = 20000;
     /** 兼容旧常量名（取日夜中点） */
-    const ONLINE_TOTAL_BASE = 14000;
+    const ONLINE_TOTAL_BASE = 18000;
     const ONLINE_STEP_MIN = 10;
     const ONLINE_STEP_MAX = 30;
     /** @deprecated 改用 ONLINE_MIN/MAX；保留避免外部引用报错 */
@@ -39,7 +39,7 @@ class FansHubOfficialStats
     const ONLINE_BUCKET_SEC = 60;
     /** 早晚过渡时长（分钟）：08:00 起升、22:00 前降 */
     const ONLINE_RAMP_MINUTES = 90;
-    /** 在线合计中「头部群」占比（群 11 + 17 合计约 40%） */
+    /** 在线合计中「头部群」占比（群 11 + 17 合计约 40%，相对群侧预算） */
     const ONLINE_FOCUS_SHARE = 0.40;
     /** 头部群 id：扫雷 11、指定 17（不在列表则由其余头部均分） */
     const ONLINE_FOCUS_GROUP_IDS = [11, 17];
@@ -47,6 +47,10 @@ class FansHubOfficialStats
     const ONLINE_OTHER_JITTER_RATIO = 0.12;
     /** 频道/影音群不参与大厅在线分摊 */
     const ONLINE_EXCLUDE_GROUP_IDS = [70, 71, 72, 77];
+    /** 全站在线中划给真人视讯的比例 */
+    const ONLINE_LIVE_SHARE = 0.20;
+    /** 真人视讯大厅游戏 key（与 fa_fans_lobby_games.game_key 一致） */
+    const ONLINE_LIVE_GAME_KEYS = ['og_baccarat', 'og_dragon', 'og_roulette', 'og_niuniu'];
 
     /** @var \Redis|null */
     protected static $redis;
@@ -290,7 +294,7 @@ class FansHubOfficialStats
     }
 
     /**
-     * 按时段给出在线中枢：08:00–22:00 → 16500，22:00–08:00 → 11500（边界 90 分钟平滑过渡）
+     * 按时段给出在线中枢：08:00–22:00 → 20000，22:00–08:00 → 16000（边界 90 分钟平滑过渡）
      */
     public static function onlineCenterForBucket($bucket)
     {
@@ -317,7 +321,7 @@ class FansHubOfficialStats
     }
 
     /**
-     * 当前分钟的在线合计：围绕时段中枢做 ±10～30 游走，并缓缓拉回中枢；硬夹在 11500～16500
+     * 当前分钟的在线合计：围绕时段中枢做 ±10～30 游走，并缓缓拉回中枢；硬夹在 16000～20000
      */
     public static function onlineTotalForBucket($bucket = null)
     {
@@ -432,7 +436,15 @@ class FansHubOfficialStats
             return [];
         }
 
-        $total = self::onlineTotalForBucket($bucket);
+        $totalAll = self::onlineTotalForBucket($bucket);
+        $liveBudget = (int)round($totalAll * self::ONLINE_LIVE_SHARE);
+        if ($liveBudget < 400) {
+            $liveBudget = 400;
+        }
+        if ($liveBudget > (int)floor($totalAll * 0.35)) {
+            $liveBudget = (int)floor($totalAll * 0.35);
+        }
+        $total = max(0, $totalAll - $liveBudget);
         $focusWant = self::ONLINE_FOCUS_GROUP_IDS;
         $focus = [];
         $others = [];
@@ -503,6 +515,90 @@ class FansHubOfficialStats
         }
         self::$onlineMapMemo[$bucket] = $raw;
         return $raw;
+    }
+
+    /** 真人视讯侧预算（全站合计 × ONLINE_LIVE_SHARE） */
+    public static function liveOnlineBudget($bucket = null)
+    {
+        $bucket = $bucket !== null ? (int)$bucket : self::onlineBucket();
+        $total = self::onlineTotalForBucket($bucket);
+        $budget = (int)round($total * self::ONLINE_LIVE_SHARE);
+        if ($budget < 400) {
+            $budget = 400;
+        }
+        if ($budget > (int)floor($total * 0.35)) {
+            $budget = (int)floor($total * 0.35);
+        }
+        return max(0, $budget);
+    }
+
+    /**
+     * 真人视讯各游戏在线人数（game_key => count），求和 = liveOnlineBudget
+     * @return array<string,int>
+     */
+    public static function liveOnlineMap($bucket = null)
+    {
+        $bucket = $bucket !== null ? (int)$bucket : self::onlineBucket();
+        static $memo = [];
+        if (isset($memo[$bucket])) {
+            return $memo[$bucket];
+        }
+        $keys = self::ONLINE_LIVE_GAME_KEYS;
+        $n = count($keys);
+        if ($n <= 0) {
+            $memo[$bucket] = [];
+            return [];
+        }
+        $budget = self::liveOnlineBudget($bucket);
+        $fakeIds = [];
+        $idToKey = [];
+        foreach ($keys as $i => $key) {
+            $fid = $i + 1;
+            $fakeIds[] = $fid;
+            $idToKey[$fid] = $key;
+        }
+        $parts = self::splitWithJitter($fakeIds, $budget, $bucket, 'live');
+        $out = [];
+        foreach ($parts as $fid => $v) {
+            $out[$idToKey[(int)$fid]] = max(80, (int)$v);
+        }
+        $sum = 0;
+        foreach ($out as $v) {
+            $sum += (int)$v;
+        }
+        $diff = $sum - $budget;
+        if ($diff !== 0 && $keys) {
+            $i = 0;
+            $step = $diff > 0 ? 1 : -1;
+            $left = abs($diff);
+            while ($left > 0) {
+                $k = $keys[$i % $n];
+                $next = (int)$out[$k] - $step;
+                if ($next >= 80) {
+                    $out[$k] = $next;
+                    $left--;
+                }
+                $i++;
+                if ($i > $n * 200 + 10) {
+                    break;
+                }
+            }
+        }
+        if (count($memo) > 4) {
+            $memo = [];
+        }
+        $memo[$bucket] = $out;
+        return $out;
+    }
+
+    public static function liveOnlineCount($gameKey)
+    {
+        $gameKey = strtolower(trim((string)$gameKey));
+        if ($gameKey === '') {
+            return 0;
+        }
+        $map = self::liveOnlineMap();
+        return isset($map[$gameKey]) ? (int)$map[$gameKey] : 0;
     }
 
     /**
