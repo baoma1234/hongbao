@@ -14,7 +14,16 @@ use Im\Support\Db;
 
 class WelfareRpQuotaService
 {
-    const MSG_LIMIT = '今日福利红包领取上限';
+    public static function limitMessage()
+    {
+        $free = (int)self::dailyFreeLimit();
+        $per = (int)self::entertainPerBonus();
+        return sprintf(
+            '今日福利红包领取已达%d包上限，发包或抢包达到%d次红宝娱乐增加1次领取机会，以此类推',
+            $free,
+            $per
+        );
+    }
 
     /** @var array|null */
     protected static $cfgCache = null;
@@ -129,7 +138,7 @@ class WelfareRpQuotaService
         }
         $snap = self::ensureRow($userId);
         if ((int)$snap['claim_count'] >= (int)$snap['effective_limit']) {
-            throw new \RuntimeException(self::MSG_LIMIT);
+            throw new \RuntimeException(self::limitMessage());
         }
     }
 
