@@ -52,6 +52,14 @@ class Ledger extends Backend
     }
 
     /**
+     * relationSearch 下主表别名（与 Backend::buildparams 一致）
+     */
+    protected function ledgerAlias()
+    {
+        return \think\Loader::parseName(basename(str_replace('\\', '/', get_class($this->model))));
+    }
+
+    /**
      * @param \think\db\Query|\think\Model $query
      * @param int|null                     $userKind
      */
@@ -60,11 +68,12 @@ class Ledger extends Backend
         if ($userKind === null) {
             return;
         }
-        $ledgerTable = $this->model->getTable();
+        // relationSearch 会 alias 成 ledger，不能写物理表名 fa_fans_ledger.user_id
+        $alias = $this->ledgerAlias();
         $accountTable = Db::name('fans_account')->getTable();
         $flag = (int)$userKind;
         $query->whereRaw(
-            "`{$ledgerTable}`.`user_id` IN (SELECT `user_id` FROM `{$accountTable}` WHERE IFNULL(`is_bot`,0)={$flag})"
+            "`{$alias}`.`user_id` IN (SELECT `user_id` FROM `{$accountTable}` WHERE IFNULL(`is_bot`,0)={$flag})"
         );
     }
 
@@ -116,7 +125,7 @@ class Ledger extends Backend
                 ->with(['user'])
                 ->where($where);
             if ($forceUserId > 0) {
-                $query->where($this->model->getTable() . '.user_id', $forceUserId);
+                $query->where($this->ledgerAlias() . '.user_id', $forceUserId);
             }
             $this->applyUserKindFilter($query, $userKind);
             $list = $query
