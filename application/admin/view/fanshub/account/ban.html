@@ -15,17 +15,26 @@
         <div class="col-xs-12 col-sm-8">
             <div class="radio">
                 <label>
-                    <input type="radio" name="scope" value="self" checked> 禁止当前账号
+                    <input type="radio" name="scope" value="self" checked> 单独封禁
                 </label>
             </div>
             <div class="radio">
                 <label>
-                    <input type="radio" name="scope" value="team"> 禁止账号及其团队所有人
+                    <input type="radio" name="scope" value="direct"> 封禁下级
+                    <span class="text-muted">（本人 + 直属一级，约 {$direct_total} 人）</span>
+                </label>
+            </div>
+            <div class="radio">
+                <label>
+                    <input type="radio" name="scope" value="all"> 封禁所有下级
+                    <span class="text-muted">（本人 + 全部下级，约 {$team_total} 人）</span>
                 </label>
             </div>
             <span class="help-block" style="margin:6px 0 0;">
-                封禁后立即踢下线且无法再登录。选择「及其团队」时，会按邀请关系向下封禁全部下级（不含上级）。
-                {if $team_count > 0}<br>当前直属及下级合计约 <strong>{$team_count}</strong> 人（含本人共 {$team_total} 人）。{/if}
+                封禁后立即踢下线且无法再登录。按邀请关系向下处理，不含上级。
+                {if $direct_count > 0 || $team_count > 0}
+                <br>直属下级 <strong>{$direct_count}</strong> 人；全部下级 <strong>{$team_count}</strong> 人。
+                {/if}
             </span>
         </div>
     </div>

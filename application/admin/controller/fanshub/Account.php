@@ -801,20 +801,29 @@ class Account extends Backend
 
         // 封禁：GET 弹窗选范围；POST 执行
         if (!$this->request->isPost()) {
+            $directIds = $this->collectInviteDirectIds($uid);
             $teamIds = $this->collectInviteDownlineIds($uid);
             $this->view->assign('row', $row);
             $this->view->assign('user', $user);
+            $this->view->assign('direct_count', count($directIds));
+            $this->view->assign('direct_total', count($directIds) + 1);
             $this->view->assign('team_count', count($teamIds));
             $this->view->assign('team_total', count($teamIds) + 1);
             return $this->view->fetch();
         }
 
         $scope = strtolower(trim((string)$this->request->post('scope', 'self')));
-        if (!in_array($scope, ['self', 'team'], true)) {
+        // team 兼容旧表单
+        if ($scope === 'team') {
+            $scope = 'all';
+        }
+        if (!in_array($scope, ['self', 'direct', 'all'], true)) {
             $scope = 'self';
         }
         $targets = [$uid];
-        if ($scope === 'team') {
+        if ($scope === 'direct') {
+            $targets = array_values(array_unique(array_merge([$uid], $this->collectInviteDirectIds($uid))));
+        } elseif ($scope === 'all') {
             $targets = array_values(array_unique(array_merge([$uid], $this->collectInviteDownlineIds($uid))));
         }
         $banned = 0;
@@ -861,13 +870,43 @@ class Account extends Backend
         if ($banned <= 0) {
             $this->error($skippedCs > 0 ? '无可封禁账号（默认客服已跳过）' : '无可封禁账号');
         }
-        $msg = $scope === 'team'
-            ? ('已封禁 ' . $banned . ' 个账号（含本人及团队）并踢下线')
-            : '已封禁并踢下线，该账号无法再登录';
+        if ($scope === 'all') {
+            $msg = '已封禁 ' . $banned . ' 个账号（本人及所有下级）并踢下线';
+        } elseif ($scope === 'direct') {
+            $msg = '已封禁 ' . $banned . ' 个账号（本人及直属下级）并踢下线';
+        } else {
+            $msg = '已单独封禁并踢下线，该账号无法再登录';
+        }
         if ($skippedCs > 0) {
             $msg .= '；跳过默认客服 ' . $skippedCs . ' 个';
         }
         $this->success($msg);
+    }
+
+    /**
+     * 直属一级下级 user_id（不含本人）
+     * @return int[]
+     */
+    protected function collectInviteDirectIds($rootUserId)
+    {
+        $rootUserId = (int)$rootUserId;
+        if ($rootUserId <= 0) {
+            return [];
+        }
+        $ids = Db::name('fans_invite')
+            ->where('inviter_user_id', $rootUserId)
+            ->column('invitee_user_id');
+        if (!is_array($ids) || !$ids) {
+            return [];
+        }
+        $out = [];
+        foreach ($ids as $id) {
+            $id = (int)$id;
+            if ($id > 0) {
+                $out[$id] = $id;
+            }
+        }
+        return array_values($out);
     }
 
     /**
