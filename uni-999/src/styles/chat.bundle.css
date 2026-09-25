@@ -738,93 +738,84 @@ body.tab-messages .bottom-action-bar {
 
 /* Notice pin：进群默认一行，点击展开全文（文案由 JS 截断，CSS 再兜底） */
 .chat-notice-pin {
+  display: none !important;
+}
+
+/* Telegram 风格置顶条 */
+.chat-tg-pin {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
-  background: #fff8e8;
-  border-bottom: 1px solid var(--color-border-warm);
+  align-items: stretch;
+  gap: 10px;
+  padding: 8px 12px 8px 10px;
+  background: #fff;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   flex-shrink: 0;
   cursor: pointer;
-  max-height: 40px;
-  overflow: hidden;
   box-sizing: border-box;
+  min-height: 44px;
 }
-.chat-notice-pin.is-expanded {
-  align-items: flex-start;
-  max-height: none;
-  overflow: visible;
+.chat-tg-pin-rails {
+  display: flex;
+  flex-direction: column;
+  justify-content: stretch;
+  gap: 2px;
+  width: 3px;
+  flex-shrink: 0;
+  padding: 2px 0;
+  align-self: stretch;
 }
-.chat-notice-pin-icon { flex-shrink: 0; font-size: 14px; line-height: 1.4; }
-.chat-notice-pin-body { flex: 1; min-width: 0; overflow: hidden; }
-.chat-notice-pin.is-expanded .chat-notice-pin-body { overflow: visible; }
-.chat-notice-pin-label {
-  font-size: 11px;
-  font-weight: 800;
-  color: #c87800;
-  margin-bottom: 2px;
+.chat-tg-pin-rail {
+  flex: 1 1 0;
+  min-height: 6px;
+  border-radius: 2px;
+  background: rgba(64, 158, 255, 0.25);
 }
-.chat-notice-pin-prefix {
-  font-weight: 800;
-  color: #c87800;
+.chat-tg-pin-rail.on {
+  background: #409eff;
 }
-.chat-notice-pin-text {
+.chat-tg-pin-ico {
+  flex-shrink: 0;
+  width: 18px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 28px;
+  color: #409eff;
+}
+.chat-tg-pin-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  overflow: hidden;
+}
+.chat-tg-pin-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #409eff;
+  line-height: 1.2;
+}
+.chat-tg-pin-text {
   font-size: 13px;
-  line-height: 24px;
-  height: 24px;
-  color: var(--color-text-main);
+  line-height: 1.35;
+  color: #1a1a1a;
   white-space: nowrap !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
-  word-break: keep-all;
   display: block;
   width: 100%;
-  max-width: 100%;
 }
-.chat-notice-pin.is-expanded .chat-notice-pin-text {
-  height: auto;
-  line-height: 1.45;
-  white-space: pre-wrap !important;
-  word-break: break-word;
-  overflow: visible !important;
-  text-overflow: clip !important;
-}
-.chat-notice-pin-imgs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
-}
-.chat-notice-pin-imgs[hidden] { display: none !important; }
-.chat-notice-pin-img {
-  border: none;
-  padding: 0;
-  margin: 0;
-  background: transparent;
-  border-radius: 8px;
-  overflow: hidden;
-  width: 64px;
-  height: 64px;
-  cursor: zoom-in;
+.chat-tg-pin-close {
   flex-shrink: 0;
-}
-.chat-notice-pin-img img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-  pointer-events: none;
-}
-.chat-notice-pin-close {
-  flex-shrink: 0;
-  border: none;
-  background: transparent;
-  color: #c87800;
+  width: 28px;
+  height: 28px;
+  margin: auto 0;
+  border-radius: 14px;
+  text-align: center;
+  line-height: 26px;
   font-size: 18px;
-  line-height: 1;
-  cursor: pointer;
-  padding: 0 2px;
-  opacity: .75;
+  color: #999;
 }
 
 .chat-msg-row {
@@ -6365,12 +6356,10 @@ body.tab-messages {
   opacity: 1 !important;
 }
 
-#tabMessages .chat-notice-pin {
-  border: 1.5px solid transparent !important;
-  background:
-    linear-gradient(180deg, #fff 0%, #fff6ec 100%) padding-box,
-    var(--hg-border-grad) border-box !important;
-  box-shadow: var(--hg-lift-sm), var(--hg-inset-sm) !important;
+#tabMessages .chat-tg-pin {
+  background: #fff !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
+  box-shadow: none !important;
 }
 
 /* ---------- 建群页 QQ（压过本文件旧奶油 !important） ---------- */

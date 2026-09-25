@@ -266,6 +266,7 @@ class GroupService
             'can_speak'          => $isMaint ? false : $canSpeak,
             'policy'             => $policy,
             'my_user_id'         => $uid,
+            'pinned_messages'    => $this->pinnedMessagesPayload($groupId),
         ];
         try {
             RedisClient::conn()->setex($cacheKey, 20, json_encode($payload, JSON_UNESCAPED_UNICODE));
@@ -2228,5 +2229,224 @@ class GroupService
         }
         $parts = preg_split('/[\r\n,]+/', $raw);
         return array_values(array_filter(array_map('trim', $parts ?: [])));
+    }
+
+    protected function hasPinnedMsgIdsColumn()
+    {
+        static $cached = null;
+        if ($cached !== null) {
+            return $cached;
+        }
+        try {
+            $row = Db::fetch('SHOW COLUMNS FROM ' . Db::table('chat_groups') . " LIKE 'pinned_msg_ids'");
+            $cached = (bool)$row;
+        } catch (\Throwable $e) {
+            $cached = false;
+        }
+        return $cached;
+    }
+
+    /**
+     * @return int[] 新→旧
+     */
+    public function pinnedMsgIds($groupId)
+    {
+        $groupId = (int)$groupId;
+        if ($groupId <= 0 || !$this->hasPinnedMsgIdsColumn()) {
+            return [];
+        }
+        $group = $this->get($groupId);
+        $raw = $group['pinned_msg_ids'] ?? '';
+        if (is_array($raw)) {
+            $ids = $raw;
+        } else {
+            $raw = trim((string)$raw);
+            if ($raw === '') {
+                return [];
+            }
+            $ids = json_decode($raw, true);
+            if (!is_array($ids)) {
+                return [];
+            }
+        }
+        $out = [];
+        foreach ($ids as $id) {
+            $id = (int)$id;
+            if ($id > 0 && !in_array($id, $out, true)) {
+                $out[] = $id;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * @param int[] $ids
+     */
+    protected function savePinnedMsgIds($groupId, array $ids)
+    {
+        $groupId = (int)$groupId;
+        if ($groupId <= 0 || !$this->hasPinnedMsgIdsColumn()) {
+            return;
+        }
+        $clean = [];
+        foreach ($ids as $id) {
+            $id = (int)$id;
+            if ($id > 0 && !in_array($id, $clean, true)) {
+                $clean[] = $id;
+            }
+        }
+        // 最多保留 50 条置顶（新→旧）
+        if (count($clean) > 50) {
+            $clean = array_slice($clean, 0, 50);
+        }
+        Db::exec(
+            'UPDATE ' . Db::table('chat_groups') . ' SET pinned_msg_ids=?, updatetime=? WHERE id=?',
+            [json_encode($clean, JSON_UNESCAPED_UNICODE), time(), $groupId]
+        );
+        $this->bumpViewerInfoCache($groupId);
+        try {
+            $ver = $this->viewerInfoVer($groupId);
+            RedisClient::conn()->del(RedisClient::key('gmeta:' . $groupId . ':v' . $ver));
+        } catch (\Throwable $e) {
+            CatchLog::quiet($e, 'Service.GroupService');
+        }
+    }
+
+    /**
+     * 置顶消息列表（含预览，供顶栏展示）
+     * @return array<int,array>
+     */
+    public function pinnedMessagesPayload($groupId)
+    {
+        $groupId = (int)$groupId;
+        $ids = $this->pinnedMsgIds($groupId);
+        if (!$ids) {
+            return [];
+        }
+        $group = $this->get($groupId) ?: [];
+        $notice = trim((string)($group['notice'] ?? ''));
+        $ph = implode(',', array_fill(0, count($ids), '?'));
+        try {
+            $rows = Db::fetchAll(
+                'SELECT id, msg_id, from_user_id, msg_type, content, extra, status, createtime'
+                . ' FROM ' . Db::table('chat_messages')
+                . ' WHERE group_id=? AND id IN (' . $ph . ') AND status IN (1,2)',
+                array_merge([$groupId], $ids)
+            );
+        } catch (\Throwable $e) {
+            return [];
+        }
+        $byId = [];
+        foreach ((array)$rows as $row) {
+            $byId[(int)$row['id']] = $row;
+        }
+        $out = [];
+        $alive = [];
+        foreach ($ids as $id) {
+            if (empty($byId[$id])) {
+                continue;
+            }
+            $row = $byId[$id];
+            if ((int)($row['status'] ?? 0) === 2) {
+                // 已撤回：从置顶剔除
+                continue;
+            }
+            $alive[] = $id;
+            $content = (string)($row['content'] ?? '');
+            $msgType = (int)($row['msg_type'] ?? 0);
+            $preview = $content;
+            // 系统「更新了群公告」：预览用公告正文
+            if ($msgType === 3 || $msgType === 0) {
+                if ($notice !== '' && (strpos($content, '群公告') !== false || strpos($content, '公告') !== false)) {
+                    $preview = $notice;
+                }
+            }
+            if ($msgType === 4) {
+                $preview = '[图片]';
+            } elseif ($msgType === 5) {
+                $preview = '[视频]';
+            } elseif ($msgType === 6) {
+                $preview = '[表情]';
+            } elseif ($msgType === 2 || strpos($content, '[红包') === 0) {
+                $preview = $preview !== '' ? $preview : '[红包]';
+            }
+            $preview = preg_replace('/\s+/u', ' ', trim($preview));
+            if (mb_strlen($preview) > 80) {
+                $preview = mb_substr($preview, 0, 80) . '…';
+            }
+            $out[] = [
+                'id'           => $id,
+                'msg_id'       => (string)($row['msg_id'] ?? $id),
+                'from_user_id' => (int)($row['from_user_id'] ?? 0),
+                'msg_type'     => $msgType,
+                'content'      => $content,
+                'preview'      => $preview !== '' ? $preview : '置顶消息',
+                'createtime'   => (int)($row['createtime'] ?? 0),
+            ];
+        }
+        if (count($alive) !== count($ids)) {
+            $this->savePinnedMsgIds($groupId, $alive);
+        }
+        return $out;
+    }
+
+    /**
+     * 置顶一条消息（群主/管理员）；新置顶排最前
+     */
+    public function pinMessage($groupId, $messageId, $operatorId)
+    {
+        $groupId = (int)$groupId;
+        $messageId = (int)$messageId;
+        $operatorId = (int)$operatorId;
+        if ($groupId <= 0 || $messageId <= 0 || $operatorId <= 0) {
+            throw new \InvalidArgumentException('invalid params');
+        }
+        if (!$this->hasPinnedMsgIdsColumn()) {
+            throw new \RuntimeException('pin not supported');
+        }
+        $role = $this->memberRole($groupId, $operatorId);
+        if ($role < 2) {
+            throw new \RuntimeException('no permission');
+        }
+        $row = Db::fetch(
+            'SELECT id, group_id, status FROM ' . Db::table('chat_messages') . ' WHERE id=? LIMIT 1',
+            [$messageId]
+        );
+        if (!$row || (int)$row['group_id'] !== $groupId) {
+            throw new \RuntimeException('message not found');
+        }
+        if ((int)$row['status'] !== 1) {
+            throw new \RuntimeException('cannot pin');
+        }
+        $ids = $this->pinnedMsgIds($groupId);
+        $ids = array_values(array_filter($ids, function ($id) use ($messageId) {
+            return (int)$id !== $messageId;
+        }));
+        array_unshift($ids, $messageId);
+        $this->savePinnedMsgIds($groupId, $ids);
+        return $this->pinnedMessagesPayload($groupId);
+    }
+
+    /**
+     * 取消置顶（群主/管理员）
+     */
+    public function unpinMessage($groupId, $messageId, $operatorId)
+    {
+        $groupId = (int)$groupId;
+        $messageId = (int)$messageId;
+        $operatorId = (int)$operatorId;
+        if ($groupId <= 0 || $messageId <= 0 || $operatorId <= 0) {
+            throw new \InvalidArgumentException('invalid params');
+        }
+        $role = $this->memberRole($groupId, $operatorId);
+        if ($role < 2) {
+            throw new \RuntimeException('no permission');
+        }
+        $ids = $this->pinnedMsgIds($groupId);
+        $ids = array_values(array_filter($ids, function ($id) use ($messageId) {
+            return (int)$id !== $messageId;
+        }));
+        $this->savePinnedMsgIds($groupId, $ids);
+        return $this->pinnedMessagesPayload($groupId);
     }
 }

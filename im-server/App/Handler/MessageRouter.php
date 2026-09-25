@@ -215,6 +215,12 @@ class MessageRouter
                 case 'group.update':
                     $this->handleGroupUpdate($connection, $uid, $payload, $reqId);
                     break;
+                case 'group.pin_message':
+                    $this->handleGroupPinMessage($connection, $uid, $payload, $reqId, true);
+                    break;
+                case 'group.unpin_message':
+                    $this->handleGroupPinMessage($connection, $uid, $payload, $reqId, false);
+                    break;
                 case 'conversation.list':
                     $this->handleConversationList($connection, $uid, $payload, $reqId);
                     break;
@@ -854,13 +860,54 @@ class MessageRouter
                 'fields' => array_keys($data),
             ]);
             $this->pushToGroup($groupId, 'group.message', ['message' => $sys]);
+            // 更新群公告时自动置顶该系统消息，便于顶栏跳转循环
+            if (isset($data['notice']) && is_array($sys) && !empty($sys['id'])) {
+                try {
+                    $pins = $this->groups->pinMessage($groupId, (int)$sys['id'], $uid);
+                    $group = $this->groups->get($groupId) ?: $group;
+                    $this->pushToGroup($groupId, 'group.pins', [
+                        'group_id'         => $groupId,
+                        'pinned_messages'  => $pins,
+                    ]);
+                } catch (\Throwable $ePin) {
+                }
+            }
         }
-        $this->send($connection, 'group.update', ['group' => $group], $reqId);
+        $info = $this->buildGroupInfoPayload($groupId, $uid);
+        $this->send($connection, 'group.update', array_merge(['group' => $group], [
+            'pinned_messages' => $info['pinned_messages'] ?? [],
+        ]), $reqId);
         $this->pushToGroup($groupId, 'group.updated', [
-            'group_id' => $groupId,
-            'group'    => $group,
-            'policy'   => $this->groups->buildPolicy($group ?: [], $this->groups->memberRole($groupId, $uid)),
+            'group_id'         => $groupId,
+            'group'            => $group,
+            'policy'           => $this->groups->buildPolicy($group ?: [], $this->groups->memberRole($groupId, $uid)),
+            'pinned_messages'  => $info['pinned_messages'] ?? [],
         ]);
+    }
+
+    protected function handleGroupPinMessage(TcpConnection $connection, $uid, array $payload, $reqId, $pin)
+    {
+        $groupId = (int)($payload['group_id'] ?? 0);
+        $messageId = (int)($payload['message_id'] ?? $payload['msg_id'] ?? $payload['id'] ?? 0);
+        try {
+            if ($groupId <= 0 || $messageId <= 0) {
+                throw new \InvalidArgumentException('invalid params');
+            }
+            if (!$this->groups->isMember($groupId, $uid)) {
+                throw new \RuntimeException('not in group');
+            }
+            $pins = $pin
+                ? $this->groups->pinMessage($groupId, $messageId, $uid)
+                : $this->groups->unpinMessage($groupId, $messageId, $uid);
+            $data = [
+                'group_id'        => $groupId,
+                'pinned_messages' => $pins,
+            ];
+            $this->send($connection, $pin ? 'group.pin_message' : 'group.unpin_message', $data, $reqId);
+            $this->pushToGroup($groupId, 'group.pins', $data);
+        } catch (\Throwable $e) {
+            $this->error($connection, $e->getMessage() ?: 'failed', $reqId);
+        }
     }
 
     protected function canSpeakSafe($groupId, $uid)

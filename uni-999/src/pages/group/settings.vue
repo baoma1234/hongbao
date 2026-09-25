@@ -36,12 +36,12 @@
       <view v-if="canEdit" class="chat-setting-edit">
         <text class="chat-setting-label">群名称</text>
         <input class="chat-setting-input" v-model="editNameVal" maxlength="64" placeholder="输入群名称" />
-        <text class="chat-setting-label">群公告（聊天页置顶）</text>
+        <text class="chat-setting-label">群公告（更新后自动置顶）</text>
         <textarea
           class="chat-setting-textarea"
           v-model="editNoticeVal"
           maxlength="500"
-          placeholder="输入群公告，成员进入聊天可见"
+          placeholder="输入群公告；保存后聊天顶栏可跳转该系统消息"
         />
         <button type="button" class="chat-setting-save-btn" @click="saveProfile">保存修改</button>
       </view>

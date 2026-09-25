@@ -765,6 +765,22 @@ export function recallMessage(messageId) {
   return imSend('message.recall', { message_id: messageId | 0 }, true)
 }
 
+export function pinGroupMessage(groupId, messageId) {
+  return imSend(
+    'group.pin_message',
+    { group_id: groupId | 0, message_id: messageId | 0 },
+    true
+  )
+}
+
+export function unpinGroupMessage(groupId, messageId) {
+  return imSend(
+    'group.unpin_message',
+    { group_id: groupId | 0, message_id: messageId | 0 },
+    true
+  )
+}
+
 export function fetchGroupInfo(groupId) {
   return imSend('group.info', { group_id: groupId | 0 }, true)
 }

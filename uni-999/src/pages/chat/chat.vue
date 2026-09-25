@@ -19,26 +19,24 @@
 
       <view class="chat-room-main">
         <view
-          v-if="noticePinVisible"
-          class="chat-notice-pin"
-          :class="{ 'is-expanded': noticePinExpanded }"
-          @click="toggleNoticePinExpand"
+          v-if="pinBarVisible"
+          class="chat-tg-pin"
+          @click="onPinBarTap"
         >
-          <text class="chat-notice-pin-icon">📢</text>
-          <view class="chat-notice-pin-body">
-            <view class="chat-notice-pin-text">{{ noticePinDisplay }}</view>
-            <view v-if="noticePinExpanded && noticePinImages.length" class="chat-notice-pin-imgs">
-              <view
-                v-for="(src, idx) in noticePinImages"
-                :key="'np' + idx"
-                class="chat-notice-pin-img"
-                @click.stop="previewNoticeImage(src)"
-              >
-                <image :src="src" mode="aspectFill" />
-              </view>
-            </view>
+          <view v-if="pinBarList.length > 1" class="chat-tg-pin-rails" aria-hidden="true">
+            <view
+              v-for="(p, i) in pinBarList"
+              :key="'pr' + (p.id || i)"
+              class="chat-tg-pin-rail"
+              :class="{ on: i === pinBarIndex }"
+            />
           </view>
-          <view class="chat-notice-pin-close" @click.stop="dismissNoticePin">×</view>
+          <view v-else class="chat-tg-pin-ico" aria-hidden="true">📌</view>
+          <view class="chat-tg-pin-body">
+            <text class="chat-tg-pin-label">置顶消息</text>
+            <text class="chat-tg-pin-text">{{ pinBarPreview }}</text>
+          </view>
+          <view class="chat-tg-pin-close" @click.stop="dismissPinBar">×</view>
         </view>
         <scroll-view
           :key="'msgsc-' + roomScrollKey"
@@ -65,7 +63,12 @@
             class="chat-msg-row"
             :class="{ me: isMine(m), system: isSysRow(m), 'group-msg': showSender(m), 'is-video-full': isVideo(m) }"
           >
-            <view v-if="isSysRow(m)" class="sys-notice">
+            <view
+              v-if="isSysRow(m)"
+              class="sys-notice"
+              :class="{ 'is-jump-flash': jumpFlashId === msgId(m) }"
+              @longpress.stop="onMsgLongPress(m, $event)"
+            >
               <view class="notice-inner">{{ sysText(m) }}</view>
             </view>
             <template v-else>
@@ -1221,12 +1224,14 @@ import {
   niuniuStart,
   niuniuStop,
   onImEvent,
+  pinGroupMessage,
   recallMessage,
   redPacketDetail,
   resumeFromBackground,
   sendRedPacket,
   sendTransfer,
   setPeerRemark,
+  unpinGroupMessage,
 } from '../../utils/im.js'
 import {
   applyAtPick,
@@ -1793,7 +1798,7 @@ function measureMsgScrollHeight() {
     const q = uni.createSelectorQuery()
     if (proxy) q.in(proxy)
     q.select('.chat-room-page .chat-hero-hd').boundingClientRect()
-    q.select('.chat-room-page .chat-notice-pin').boundingClientRect()
+    q.select('.chat-room-page .chat-tg-pin').boundingClientRect()
     q.select('.chat-room-page .chat-composer-wrap').boundingClientRect()
     q.exec((rects) => {
       try {
@@ -1932,8 +1937,10 @@ const stickerQuotaText = computed(() => {
 })
 const groupMeta = ref(null)
 const noticePinClosed = ref(false)
-const noticePinExpanded = ref(false)
-const noticeDismissedText = ref('')
+const pinnedMessages = ref([])
+const pinBarIndex = ref(0)
+const pinBarClosed = ref(false)
+let pinJumpBusy = false
 let myId = 0
 let off = null
 let activePacketId = 0
@@ -1976,92 +1983,137 @@ function resolveGroupNotice(g) {
   return local || base
 }
 
-function resolveNoticeImages(g) {
-  g = g || {}
-  const raw = g.notice_images
-  if (Array.isArray(raw)) {
-    return raw.map((s) => String(s || '').trim()).filter(Boolean)
-  }
-  if (typeof raw === 'string') {
-    const t = raw.trim()
-    if (!t) return []
-    if (t.charAt(0) === '[') {
-      try {
-        const arr = JSON.parse(t)
-        if (Array.isArray(arr)) {
-          return arr.map((s) => String(s || '').trim()).filter(Boolean)
-        }
-      } catch (e2) {}
-    }
-    return t.split(/[\r\n,]+/).map((s) => s.trim()).filter(Boolean)
-  }
-  return []
+function applyPinnedMessages(list) {
+  const rows = Array.isArray(list) ? list : []
+  pinnedMessages.value = rows
+    .map((p) => ({
+      id: (p && (p.id || p.msg_id)) | 0,
+      msg_id: String((p && (p.msg_id || p.id)) || ''),
+      preview: String((p && (p.preview || p.content)) || '').trim() || '置顶消息',
+      content: String((p && p.content) || ''),
+      msg_type: (p && p.msg_type) | 0,
+      createtime: (p && p.createtime) | 0,
+    }))
+    .filter((p) => p.id > 0)
+  if (pinBarIndex.value >= pinnedMessages.value.length) pinBarIndex.value = 0
 }
 
-function publicAssetUrl(src) {
-  const s = String(src || '').trim()
-  if (!s) return ''
-  if (/^https?:\/\//i.test(s) || s.indexOf('//') === 0) return s
-  if (s.charAt(0) === '/') return s
-  const base = getApiBase() || ''
-  return (base.replace(/\/+$/, '') + '/' + s.replace(/^\/+/, ''))
-}
-
-const noticePinText = computed(() => {
-  if (isPrivate.value) return ''
-  const g = (groupMeta.value && groupMeta.value.group) || {}
-  const notice = resolveGroupNotice(g)
-  if (!notice) return ''
-  if (noticeDismissedText.value && noticeDismissedText.value === notice) return ''
-  return notice
-})
-
-/** 折叠只展示一行预览（去换行+截断），展开才出全文；勿依赖 CSS 对 uni-text 省略 */
-const noticePinDisplay = computed(() => {
-  const raw = String(noticePinText.value || '').trim()
-  if (!raw) return '群公告'
-  if (noticePinExpanded.value) return '群公告: ' + raw
-  const one = raw.replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim()
-  const max = 22
-  const preview = one.length > max ? one.slice(0, max) + '.....' : one
-  return '群公告: ' + preview
-})
-
-const noticePinImages = computed(() => {
+/** 服务端置顶；若无则用群公告合成虚拟条（尽量跳到「更新了群公告」系统消息） */
+const pinBarList = computed(() => {
   if (isPrivate.value) return []
-  const g = (groupMeta.value && groupMeta.value.group) || {}
-  return resolveNoticeImages(g).map(publicAssetUrl).filter(Boolean)
+  if (pinnedMessages.value.length) return pinnedMessages.value
+  const notice = resolveGroupNotice((groupMeta.value && groupMeta.value.group) || {})
+  if (!notice) return []
+  let hitId = 0
+  const rows = messages.value || []
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const m = rows[i]
+    if (!(isSysRow(m) || isSystemMsg(m))) continue
+    const t = String((m && m.content) || '')
+    if (t.indexOf('群公告') >= 0) {
+      hitId = (m.id || m.msg_id) | 0
+      break
+    }
+  }
+  return [
+    {
+      id: hitId,
+      msg_id: String(hitId || ''),
+      preview: notice.replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim(),
+      content: notice,
+      msg_type: 3,
+      createtime: 0,
+      virtual: true,
+    },
+  ]
 })
 
-const noticePinVisible = computed(() => {
-  if (isPrivate.value || noticePinClosed.value) return false
-  return !!(noticePinText.value || noticePinImages.value.length)
+const pinBarVisible = computed(() => {
+  if (isPrivate.value || pinBarClosed.value || noticePinClosed.value) return false
+  return pinBarList.value.length > 0
 })
+
+const pinBarPreview = computed(() => {
+  const list = pinBarList.value
+  if (!list.length) return ''
+  const idx = Math.max(0, Math.min(pinBarIndex.value | 0, list.length - 1))
+  const one = list[idx]
+  const raw = String((one && one.preview) || '').trim() || '置顶消息'
+  const s = raw.replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim()
+  return s.length > 36 ? s.slice(0, 36) + '…' : s
+})
+
+function dismissPinBar() {
+  pinBarClosed.value = true
+  noticePinClosed.value = true
+}
+
+async function jumpToMessageId(targetId) {
+  const tid = targetId | 0
+  if (!tid) {
+    uni.showToast({ title: '消息不在当前列表', icon: 'none' })
+    return false
+  }
+  const findLocal = () => (messages.value || []).find((m) => ((m.id || m.msg_id) | 0) === tid)
+  let target = findLocal()
+  let tries = 0
+  while (!target && !historyExhausted.value && tries < 12) {
+    tries += 1
+    const beforeLen = (messages.value || []).length
+    await revealOlderMessages()
+    target = findLocal()
+    if (!target && (messages.value || []).length <= beforeLen) break
+  }
+  if (target) {
+    const idx = (messages.value || []).findIndex((m) => ((m.id || m.msg_id) | 0) === tid)
+    if (idx >= 0) {
+      const fromEnd = (messages.value || []).length - idx
+      if ((msgRevealCount.value | 0) < fromEnd) {
+        msgRevealCount.value = Math.max(MSG_RENDER_CAP, fromEnd + 5)
+      }
+    }
+  }
+  target = findLocal()
+  if (!target) {
+    uni.showToast({ title: '原消息不在当前列表', icon: 'none' })
+    return false
+  }
+  const key = msgId(target)
+  jumpFlashId.value = key
+  setTimeout(() => {
+    if (jumpFlashId.value === key) jumpFlashId.value = ''
+  }, 1600)
+  scrollInto.value = ''
+  await nextTick()
+  scrollInto.value = 'm' + key
+  return true
+}
+
+async function onPinBarTap() {
+  if (pinJumpBusy) return
+  const list = pinBarList.value
+  if (!list.length) return
+  const idx = Math.max(0, Math.min(pinBarIndex.value | 0, list.length - 1))
+  const cur = list[idx]
+  const mid = (cur && cur.id) | 0
+  pinJumpBusy = true
+  try {
+    if (mid) await jumpToMessageId(mid)
+  } finally {
+    pinJumpBusy = false
+  }
+  // 点完当前条后顶栏切到「上一条」置顶，循环浏览
+  if (list.length > 1) {
+    pinBarIndex.value = (idx + 1) % list.length
+  }
+}
 
 watch(
-  [showEmoji, showSticker, showAttach, hasPendingMedia, copiedImageHint, noticePinVisible, noticePinExpanded, composerHeightPx],
+  [showEmoji, showSticker, showAttach, hasPendingMedia, copiedImageHint, pinBarVisible, composerHeightPx],
   () => {
     scheduleMeasureMsgScroll()
   }
 )
-
-function toggleNoticePinExpand() {
-  noticePinExpanded.value = !noticePinExpanded.value
-}
-
-function dismissNoticePin() {
-  const g = (groupMeta.value && groupMeta.value.group) || {}
-  const notice = resolveGroupNotice(g)
-  if (notice) noticeDismissedText.value = notice
-  noticePinClosed.value = true
-  noticePinExpanded.value = false
-}
-
-function previewNoticeImage(src) {
-  const urls = noticePinImages.value
-  if (!urls.length) return
-  uni.previewImage({ urls, current: src })
-}
 
 const groupPolicy = computed(() => {
   const m = groupMeta.value || {}
@@ -4187,25 +4239,41 @@ function placeMsgMenuBelowBubble(m, items) {
 }
 
 function onMsgLongPress(m, e) {
-  if (!m || isRecalled(m) || isSystemMsg(m)) return
+  if (!m || isRecalled(m)) return
+  const isSys = isSystemMsg(m)
+  const canPin =
+    !isPrivate.value && ((groupMeta.value && groupMeta.value.my_role) | 0) >= 2
+  // 系统消息：仅管理员可置顶/取消置顶
+  if (isSys && !canPin) return
   const now = Date.now()
   if (now - msgMenuOpenedAt < 450) return
   msgMenuOpenedAt = now
   clearTextMsgHold()
 
   const items = []
-  items.push({ action: 'reply', label: rpT('chat_msg_reply', '回复') })
-  if (isImage(m)) {
-    items.push({ action: 'save', label: rpT('chat_msg_save', '保存') })
-    if (canCopyImageMsg(m)) {
+  if (!isSys) {
+    items.push({ action: 'reply', label: rpT('chat_msg_reply', '回复') })
+    if (isImage(m)) {
+      items.push({ action: 'save', label: rpT('chat_msg_save', '保存') })
+      if (canCopyImageMsg(m)) {
+        items.push({ action: 'copy', label: rpT('chat_msg_copy', '复制') })
+      }
+    }
+    if (canCopyMsg(m)) {
       items.push({ action: 'copy', label: rpT('chat_msg_copy', '复制') })
     }
+    if (canRecallLocal(m)) {
+      items.push({ action: 'recall', label: rpT('chat_msg_recall', '撤回') })
+    }
   }
-  if (canCopyMsg(m)) {
-    items.push({ action: 'copy', label: rpT('chat_msg_copy', '复制') })
-  }
-  if (canRecallLocal(m)) {
-    items.push({ action: 'recall', label: rpT('chat_msg_recall', '撤回') })
+  // 群主/管理员：置顶 / 取消置顶
+  if (canPin) {
+    const mid = (m.id || m.msg_id) | 0
+    const pinned = (pinnedMessages.value || []).some((p) => (p.id | 0) === mid)
+    items.push({
+      action: pinned ? 'unpin' : 'pin',
+      label: pinned ? '取消置顶' : '置顶',
+    })
   }
   if (!items.length) return
 
@@ -4316,6 +4384,25 @@ async function onMsgMenuAction(action) {
   }
   if (action === 'save') {
     await saveChatImage(m)
+    return
+  }
+  if (action === 'pin' || action === 'unpin') {
+    const gid = meta.value.group | 0
+    const mid = (m.id || m.msg_id) | 0
+    if (!gid || !mid) return
+    try {
+      const packet =
+        action === 'pin' ? await pinGroupMessage(gid, mid) : await unpinGroupMessage(gid, mid)
+      const body = (packet && packet.data) || packet || {}
+      applyPinnedMessages(body.pinned_messages)
+      pinBarClosed.value = false
+      uni.showToast({
+        title: action === 'pin' ? '已置顶' : '已取消置顶',
+        icon: 'none',
+      })
+    } catch (err) {
+      uni.showToast({ title: (err && err.message) || '操作失败', icon: 'none' })
+    }
     return
   }
   if (action !== 'recall') return
@@ -5647,6 +5734,10 @@ async function fetchHistory(opts) {
   await markRead()
   // 上翻看历史时不强制回底；进房 / 自己操作可 forceScroll
   if (forceScroll || stickToBottom) scrollToLatest(forceScroll)
+  // 群聊 history 首屏会附带 group.info（含置顶）
+  if (!isPrivate.value && (body.group || body.pinned_messages || body.my_role != null)) {
+    mergeGroupMeta(body)
+  }
 }
 
 async function sendPendingMedia() {
@@ -6931,8 +7022,11 @@ function mergeGroupMeta(data) {
   const nextNotice = resolveGroupNotice(next.group || {})
   if (nextNotice && nextNotice !== prevNotice) {
     noticePinClosed.value = false
-    noticeDismissedText.value = ''
-    noticePinExpanded.value = false
+    pinBarClosed.value = false
+  }
+  if (Array.isArray(data.pinned_messages)) {
+    applyPinnedMessages(data.pinned_messages)
+    pinBarClosed.value = false
   }
 }
 
@@ -7212,8 +7306,9 @@ onLoad(async (query) => {
     conversationId: decodeURIComponent(q.id || ''),
   }
   noticePinClosed.value = false
-  noticePinExpanded.value = false
-  noticeDismissedText.value = ''
+  pinBarClosed.value = false
+  pinBarIndex.value = 0
+  pinnedMessages.value = []
   groupMeta.value = null
   {
     let rawTitle = String(q.title || '')
@@ -7358,11 +7453,25 @@ onLoad(async (query) => {
       }
       return
     }
-    if (type === 'group.mute_all_changed' || type === 'group.forbid_changed' || type === 'group.updated') {
+    if (
+      type === 'group.mute_all_changed' ||
+      type === 'group.forbid_changed' ||
+      type === 'group.updated' ||
+      type === 'group.pins'
+    ) {
       const gid = (data && (data.group_id || (data.group && data.group.id))) | 0
       if (!isPrivate.value && gid && gid === (meta.value.group | 0)) {
-        if (type === 'group.forbid_changed' && data) mergeGroupMeta(data)
-        else loadGroupMeta().catch(() => {})
+        if (type === 'group.pins' && data) {
+          applyPinnedMessages(data.pinned_messages)
+          pinBarClosed.value = false
+        } else if (type === 'group.forbid_changed' && data) mergeGroupMeta(data)
+        else {
+          if (data && Array.isArray(data.pinned_messages)) {
+            applyPinnedMessages(data.pinned_messages)
+            pinBarClosed.value = false
+          }
+          loadGroupMeta().catch(() => {})
+        }
       }
     }
   })
@@ -8967,10 +9076,17 @@ uni-page-body {
 .chat-msg-main.is-jump-flash .chat-bubble {
   animation: chatJumpFlash 1.4s ease;
 }
+.sys-notice.is-jump-flash .notice-inner {
+  animation: chatJumpFlashSys 1.4s ease;
+}
 @keyframes chatJumpFlash {
   0%, 100% { background-color: inherit; }
   25%, 55% { filter: brightness(0.94); }
   40% { filter: brightness(0.88); }
+}
+@keyframes chatJumpFlashSys {
+  0%, 100% { background-color: rgba(0, 0, 0, 0.06); }
+  40% { background-color: rgba(64, 158, 255, 0.28); }
 }
 </style>
 
