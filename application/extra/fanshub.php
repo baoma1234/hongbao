@@ -964,6 +964,7 @@ return array (
     'wallet_ledger_type_checkin_day7' => '7天暴击',
     'wallet_ledger_type_honor_tier' => '荣誉晋升',
     'wallet_ledger_type_recharge' => '充值入账',
+    'wallet_ledger_type_recharge_fail' => '充值失败',
     'wallet_ledger_type_withdraw' => '提现扣款',
     'wallet_ledger_type_withdraw_refund' => '提现退回',
     'wallet_ledger_type_red_packet_send' => '发红包',

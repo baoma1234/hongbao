@@ -712,6 +712,9 @@ class FansHubBsGateway
                 'remark'     => 'bs failed',
                 'updatetime' => time(),
             ]);
+            $order['status'] = 'failed';
+            $order['remark'] = 'bs failed';
+            FansHubWallet::ensureRechargeFailLedger($order);
             return self::NOTIFY_ACK;
         }
         if ($status !== '1') {
@@ -989,6 +992,9 @@ class FansHubBsGateway
                 'remark'     => 'bs query status=2',
                 'updatetime' => time(),
             ]);
+            $order['status'] = 'failed';
+            $order['remark'] = 'bs query status=2';
+            FansHubWallet::ensureRechargeFailLedger($order);
             return 'failed';
         }
         if ($status !== '1') {

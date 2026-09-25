@@ -124,6 +124,7 @@ function typeTitle(item) {
     og_deposit: '真人视讯转入',
     og_deposit_refund: '真人视讯退回',
     og_withdraw: '真人视讯转出',
+    recharge_fail: '充值失败',
   }
   const fb = lab && lab !== type ? lab : (localFallback[type] || '变动')
   if (type) {
@@ -277,6 +278,7 @@ function copyableOf(item) {
   if (typ.indexOf('red_packet') === 0) return { value: biz, label: '红宝号' }
   if (
     typ === 'recharge' ||
+    typ === 'recharge_fail' ||
     typ === 'withdraw' ||
     typ === 'withdraw_refund' ||
     typ.indexOf('og_') === 0

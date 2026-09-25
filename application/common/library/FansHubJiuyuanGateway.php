@@ -280,11 +280,15 @@ class FansHubJiuyuanGateway
             throw new \RuntimeException('amount mismatch');
         }
         if ($returncode !== '00') {
+            $failRemark = 'returncode=' . $returncode;
             Db::name('fans_recharge_order')->where('id', $order['id'])->update([
                 'status'     => 'failed',
-                'remark'     => 'returncode=' . $returncode,
+                'remark'     => $failRemark,
                 'updatetime' => time(),
             ]);
+            $order['status'] = 'failed';
+            $order['remark'] = $failRemark;
+            FansHubWallet::ensureRechargeFailLedger($order);
             return 'OK';
         }
         $now = time();

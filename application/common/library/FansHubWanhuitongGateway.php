@@ -585,6 +585,9 @@ class FansHubWanhuitongGateway
                 'remark'     => 'wanhuipay query status=2',
                 'updatetime' => time(),
             ]);
+            $order['status'] = 'failed';
+            $order['remark'] = 'wanhuipay query status=2';
+            FansHubWallet::ensureRechargeFailLedger($order);
             return 'failed';
         }
         return 'pending';
@@ -965,13 +968,17 @@ class FansHubWanhuitongGateway
         }
         // 2=失败
         if ($status === 2) {
+            $failRemark = $platformOrderNo !== ''
+                ? ('wanhuipay:' . $platformOrderNo . ' failed')
+                : 'wanhuipay status=2';
             Db::name('fans_recharge_order')->where('id', $order['id'])->update([
                 'status'     => 'failed',
-                'remark'     => $platformOrderNo !== ''
-                    ? ('wanhuipay:' . $platformOrderNo . ' failed')
-                    : 'wanhuipay status=2',
+                'remark'     => $failRemark,
                 'updatetime' => time(),
             ]);
+            $order['status'] = 'failed';
+            $order['remark'] = $failRemark;
+            FansHubWallet::ensureRechargeFailLedger($order);
             return $ack;
         }
         if ($status !== 1) {

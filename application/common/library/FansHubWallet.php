@@ -148,6 +148,7 @@ class FansHubWallet
             'checkin_day7'      => '7天暴击',
             'honor_tier'        => '荣誉晋升',
             'recharge'          => '充值入账',
+            'recharge_fail'     => '充值失败',
             'withdraw'          => '提现扣款',
             'withdraw_refund'   => '提现退回',
             'red_packet_send'              => '红宝发包扣款',
@@ -229,6 +230,7 @@ class FansHubWallet
             ],
             'recharge' => [
                 'recharge',
+                'recharge_fail',
             ],
             'withdraw' => [
                 'withdraw',
@@ -303,6 +305,13 @@ class FansHubWallet
         }
         $category = trim((string)($opts['category'] ?? ''));
         $beforeId = (int)($opts['before_id'] ?? 0);
+        // 失败充值单补写流水（含历史），保证资金流水「充值」分类可查
+        if ($category === '' || $category === 'all' || $category === 'recharge') {
+            try {
+                self::syncUserRechargeFailLedgers($userId);
+            } catch (\Throwable $eSync) {
+            }
+        }
         $typeMap = self::ledgerCategoryTypes();
         $filterTypes = ($category !== '' && $category !== 'all' && !empty($typeMap[$category]))
             ? $typeMap[$category]
@@ -847,7 +856,22 @@ class FansHubWallet
                 'updatetime' => time(),
             ]);
             if ($status === 'paid') {
-                self::creditHongbao($userId, $amount, 'recharge', '充值红宝到账 ' . $orderNo, (string)$channel['name']);
+                self::creditHongbao(
+                    $userId,
+                    $amount,
+                    'recharge',
+                    '充值红宝到账 ' . $orderNo,
+                    (string)$channel['name'],
+                    [
+                        'biz_no'   => $orderNo,
+                        'ref_type' => 'recharge_order',
+                    ]
+                );
+            } elseif ($status === 'failed') {
+                $failOrder = Db::name('fans_recharge_order')->where('order_no', $orderNo)->find();
+                if ($failOrder) {
+                    self::ensureRechargeFailLedger($failOrder);
+                }
             }
         } catch (\Throwable $e) {
             $errPay = [
@@ -863,6 +887,10 @@ class FansHubWallet
                     'remark'     => mb_substr('通道拉起失败：' . $e->getMessage(), 0, 250),
                     'updatetime' => time(),
                 ]);
+                $failOrder = Db::name('fans_recharge_order')->where('order_no', $orderNo)->find();
+                if ($failOrder) {
+                    self::ensureRechargeFailLedger($failOrder);
+                }
             } catch (\Throwable $e2) {
             }
             throw $e;
@@ -1303,7 +1331,12 @@ class FansHubWallet
                 (float)$order['amount'],
                 'recharge',
                 '充值红宝到账 ' . $order['order_no'],
-                $channelName
+                $channelName,
+                [
+                    'biz_no'   => (string)$order['order_no'],
+                    'ref_type' => 'recharge_order',
+                    'ref_id'   => (int)$order['id'],
+                ]
             );
             Db::commit();
             FansHubImCache::bustWallet((int)$order['user_id']);
@@ -1327,11 +1360,15 @@ class FansHubWallet
         if ($order['status'] === 'paid') {
             throw new \RuntimeException('已到账订单不可作废');
         }
+        $failRemark = $remark !== '' ? $remark : ('后台作废 ' . date('Y-m-d H:i:s'));
         Db::name('fans_recharge_order')->where('id', $orderId)->update([
             'status'     => 'failed',
-            'remark'     => $remark !== '' ? $remark : ('后台作废 ' . date('Y-m-d H:i:s')),
+            'remark'     => $failRemark,
             'updatetime' => time(),
         ]);
+        $order['status'] = 'failed';
+        $order['remark'] = $failRemark;
+        self::ensureRechargeFailLedger($order);
         return true;
     }
 
@@ -1513,19 +1550,128 @@ class FansHubWallet
 
     /**
      * 入账到红宝（充值到账等）
+     * @param array $extraMeta 追加到 ledger meta（biz_no / ref_type / ref_id）
      */
-    protected static function creditHongbao($userId, $amount, $type, $remark, $channel = '')
+    protected static function creditHongbao($userId, $amount, $type, $remark, $channel = '', array $extraMeta = [])
     {
         $amount = round((float)$amount, 2);
         if ($amount <= 0) {
             return;
         }
-        FansHubHongbaoLedger::credit($userId, $amount, $type, $remark, [
+        $meta = array_merge([
             'channel' => (string)$channel,
-        ]);
+        ], $extraMeta);
+        FansHubHongbaoLedger::credit($userId, $amount, $type, $remark, $meta);
         if ((string)$type === 'recharge') {
             self::markAccountHasRecharged((int)$userId);
         }
+    }
+
+    /**
+     * 失败充值写入资金流水（幂等：同订单只记一次）
+     * @param array $order fans_recharge_order 行
+     */
+    public static function ensureRechargeFailLedger($order)
+    {
+        if (!is_array($order) || empty($order)) {
+            return false;
+        }
+        $userId = (int)($order['user_id'] ?? 0);
+        $orderNo = trim((string)($order['order_no'] ?? ''));
+        if ($userId <= 0 || $orderNo === '') {
+            return false;
+        }
+        if ((string)($order['status'] ?? '') !== 'failed') {
+            return false;
+        }
+        $exists = Db::name('fans_ledger')
+            ->where('user_id', $userId)
+            ->where('type', 'recharge_fail')
+            ->where('biz_no', $orderNo)
+            ->value('id');
+        if ($exists) {
+            return false;
+        }
+        $amount = round((float)($order['amount'] ?? 0), 2);
+        $rawRemark = trim((string)($order['remark'] ?? ''));
+        $remark = '充值失败 ¥' . number_format($amount, 2, '.', '');
+        if ($rawRemark !== '' && stripos($rawRemark, '充值失败') === false) {
+            $remark .= ' ' . mb_substr($rawRemark, 0, 180);
+        }
+        $channelName = '';
+        $channelId = (int)($order['channel_id'] ?? 0);
+        if ($channelId > 0) {
+            try {
+                $channelName = (string)(Db::name('fans_pay_channel')->where('id', $channelId)->value('name') ?: '');
+            } catch (\Throwable $e) {
+            }
+        }
+        $createtime = (int)($order['updatetime'] ?? 0);
+        if ($createtime <= 0) {
+            $createtime = (int)($order['createtime'] ?? time());
+        }
+        FansHubHongbaoLedger::recordNote($userId, 'recharge_fail', $remark, [
+            'channel'    => $channelName,
+            'biz_no'     => $orderNo,
+            'ref_type'   => 'recharge_order',
+            'ref_id'     => (int)($order['id'] ?? 0),
+            'createtime' => $createtime,
+        ]);
+        return true;
+    }
+
+    /**
+     * 将用户历史失败充值单补进资金流水
+     */
+    public static function syncUserRechargeFailLedgers($userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return 0;
+        }
+        $orders = Db::name('fans_recharge_order')
+            ->where('user_id', $userId)
+            ->where('status', 'failed')
+            ->order('id', 'asc')
+            ->limit(200)
+            ->select();
+        if (!is_array($orders)) {
+            $orders = $orders ? $orders->toArray() : [];
+        }
+        if (!$orders) {
+            return 0;
+        }
+        $orderNos = [];
+        foreach ($orders as $o) {
+            $no = trim((string)($o['order_no'] ?? ''));
+            if ($no !== '') {
+                $orderNos[] = $no;
+            }
+        }
+        $existing = [];
+        if ($orderNos) {
+            $existing = Db::name('fans_ledger')
+                ->where('user_id', $userId)
+                ->where('type', 'recharge_fail')
+                ->where('biz_no', 'in', $orderNos)
+                ->column('biz_no');
+            if (!is_array($existing)) {
+                $existing = [];
+            }
+            $existing = array_flip($existing);
+        }
+        $n = 0;
+        foreach ($orders as $order) {
+            $no = trim((string)($order['order_no'] ?? ''));
+            if ($no === '' || isset($existing[$no])) {
+                continue;
+            }
+            if (self::ensureRechargeFailLedger($order)) {
+                $n++;
+                $existing[$no] = true;
+            }
+        }
+        return $n;
     }
 
     /**

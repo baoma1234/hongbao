@@ -244,11 +244,15 @@ class FansHubPayGateway
             throw new \RuntimeException('amount mismatch');
         }
         if (!in_array($status, ['success', 'paid', '1'], true)) {
+            $failRemark = (string)($params['message'] ?? '支付失败');
             Db::name('fans_recharge_order')->where('id', $order['id'])->update([
                 'status'     => 'failed',
-                'remark'     => (string)($params['message'] ?? '支付失败'),
+                'remark'     => $failRemark,
                 'updatetime' => time(),
             ]);
+            $order['status'] = 'failed';
+            $order['remark'] = $failRemark;
+            FansHubWallet::ensureRechargeFailLedger($order);
             return 'SUCCESS';
         }
         $now = time();

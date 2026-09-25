@@ -160,6 +160,33 @@ class FansHubHongbaoLedger
     }
 
     /**
+     * 零变动流水（如充值失败记录，不影响余额）
+     * @param array $meta channel/biz_no/ref_type/ref_id/admin_id/createtime
+     */
+    public static function recordNote($userId, $type, $remark = '', array $meta = [])
+    {
+        $userId = (int)$userId;
+        $type = trim((string)$type);
+        if ($userId <= 0 || $type === '') {
+            throw new \InvalidArgumentException('invalid note');
+        }
+        $now = (int)($meta['createtime'] ?? 0);
+        if ($now <= 0) {
+            $now = time();
+        }
+        $row = Db::name('fans_account')->where('user_id', $userId)->find();
+        if (!$row) {
+            $row = [
+                'rights'  => 0,
+                'balance' => 0,
+                'hongbao' => 0,
+            ];
+        }
+        $after = round((float)($row['hongbao'] ?? 0), 2);
+        self::insertLedger($userId, $type, 0, $after, $row, $remark, $meta, $now);
+    }
+
+    /**
      * 入账是否增加待打流水（提现要求流水≤0）
      * - recharge / 裂变 / 邀请奖励 / 发帖奖励：默认计入
      * - meta.count_turnover：强制计入（如群 80 红包领取）
