@@ -387,13 +387,13 @@ const tickerText = ref(LOBBY_TICKER_FIXED)
 /** 后台大厅装修（lobbyhome）；未加载前不展示本地占位图 */
 const remoteLobby = ref(null)
 
-const LOBBY_ASSET_VER = '21'
+const LOBBY_ASSET_VER = '22'
 
-/** 红宝分类图走本地打包；真人视讯走后台/OSS */
+/** 红宝分类图：本地路径名；实际加载优先 OSS 加速 */
 const LOBBY_CAT_LOCAL = Object.freeze({
   hot: 'home/lobby/cat-1.png',
+  games: 'home/lobby/cat-1.png',
   live: 'home/lobby/cat-live.png',
-  games: 'home/lobby/cat-2.png',
   notice: 'home/lobby/fission-hongbao.png',
   fission: 'home/lobby/fission-hongbao.png',
   commission: 'home/lobby/cat-4.png',
@@ -406,11 +406,11 @@ function resolveLocalCatIcon(cat, index) {
   if (LOBBY_CAT_LOCAL[action]) return LOBBY_CAT_LOCAL[action]
   if (LOBBY_CAT_LOCAL[id]) return LOBBY_CAT_LOCAL[id]
   const raw = String(cat.iconRaw || cat.iconUrl || cat.iconStatic || '')
-  const m = raw.match(/(?:^|\/)(cat-\d+|fission-hongbao|commission)\.(png|jpe?g|webp|gif)/i)
+  const m = raw.match(/(?:^|\/)(cat-\d+|cat-live|fission-hongbao|commission|[1-4])\.(png|jpe?g|webp|gif)/i)
   if (m) return 'home/lobby/' + m[1].toLowerCase() + '.' + m[2].toLowerCase()
   const byIdx = [
     'home/lobby/cat-1.png',
-    'home/lobby/cat-2.png',
+    'home/lobby/cat-live.png',
     'home/lobby/fission-hongbao.png',
     'home/lobby/cat-4.png',
   ]
@@ -491,15 +491,10 @@ const lobbyCategories = computed(() => {
       action,
       actionUrl: String(c.action_url || ''),
     }
-    const remoteIcon = String(c.icon || '')
-    if (key === 'live' && /^https?:\/\//i.test(remoteIcon)) {
-      mapped.iconUrl = remoteIcon
-      mapped.iconStatic = ''
-    } else {
-      mapped.iconStatic = resolveLocalCatIcon(mapped, idx)
-      mapped.iconUrl = ''
-      mapped.iconRaw = ''
-    }
+    // 四分类统一走本地种子名 → OSS 加速（不再单独依赖后台绝对 URL）
+    mapped.iconStatic = resolveLocalCatIcon(mapped, idx)
+    mapped.iconUrl = ''
+    mapped.iconRaw = ''
     return mapped
   })
 })
@@ -648,11 +643,18 @@ const lobbySectionTitle = computed(() => {
 function catIconSrc(cat) {
   if (!cat) return ''
   const remote = String(cat.iconUrl || '')
-  if (/^https?:\/\//i.test(remote)) return remote
-  const p = String(cat.iconStatic || resolveLocalCatIcon(cat, 0) || '')
+  if (/^https?:\/\//i.test(remote)) {
+    return remote.indexOf('?') >= 0 ? remote : remote + '?v=' + LOBBY_ASSET_VER
+  }
+  let p = String(cat.iconStatic || resolveLocalCatIcon(cat, 0) || '')
     .replace(/^\/+/, '')
     .replace(/^static\//, '')
   if (!p) return ''
+  if (p.indexOf('home/lobby/') !== 0) {
+    p = 'home/lobby/' + p.replace(/^home\/lobby\//, '')
+  }
+  const oss = mediaUrl('', p)
+  if (oss) return oss
   return packagedStaticUrl(p) + '?v=' + LOBBY_ASSET_VER
 }
 
