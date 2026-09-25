@@ -148,6 +148,7 @@ class FansHubWallet
             'checkin_day7'      => '7天暴击',
             'honor_tier'        => '荣誉晋升',
             'recharge'          => '充值入账',
+            'recharge_pending'  => '充值中',
             'recharge_fail'     => '充值失败',
             'withdraw'          => '提现扣款',
             'withdraw_refund'   => '提现退回',
@@ -230,6 +231,7 @@ class FansHubWallet
             ],
             'recharge' => [
                 'recharge',
+                'recharge_pending',
                 'recharge_fail',
             ],
             'withdraw' => [
@@ -305,10 +307,10 @@ class FansHubWallet
         }
         $category = trim((string)($opts['category'] ?? ''));
         $beforeId = (int)($opts['before_id'] ?? 0);
-        // 失败充值单补写流水（含历史），保证资金流水「充值」分类可查
+        // 充值中/失败单补写流水（含历史），保证资金流水「充值」分类可查
         if ($category === '' || $category === 'all' || $category === 'recharge') {
             try {
-                self::syncUserRechargeFailLedgers($userId);
+                self::syncUserRechargeOrderLedgers($userId);
             } catch (\Throwable $eSync) {
             }
         }
@@ -835,6 +837,18 @@ class FansHubWallet
             'createtime' => $now,
             'updatetime' => $now,
         ]);
+        $pendingOrder = [
+            'id'         => (int)Db::name('fans_recharge_order')->where('order_no', $orderNo)->value('id'),
+            'order_no'   => $orderNo,
+            'user_id'    => $userId,
+            'channel_id' => $channelId,
+            'amount'     => $amount,
+            'status'     => 'pending',
+            'remark'     => '',
+            'createtime' => $now,
+            'updatetime' => $now,
+        ];
+        self::ensureRechargePendingLedger($pendingOrder);
 
         $payInfo = [];
         $status = 'pending';
@@ -856,6 +870,7 @@ class FansHubWallet
                 'updatetime' => time(),
             ]);
             if ($status === 'paid') {
+                self::clearRechargePendingLedger($userId, $orderNo);
                 self::creditHongbao(
                     $userId,
                     $amount,
@@ -868,6 +883,7 @@ class FansHubWallet
                     ]
                 );
             } elseif ($status === 'failed') {
+                self::clearRechargePendingLedger($userId, $orderNo);
                 $failOrder = Db::name('fans_recharge_order')->where('order_no', $orderNo)->find();
                 if ($failOrder) {
                     self::ensureRechargeFailLedger($failOrder);
@@ -887,6 +903,7 @@ class FansHubWallet
                     'remark'     => mb_substr('通道拉起失败：' . $e->getMessage(), 0, 250),
                     'updatetime' => time(),
                 ]);
+                self::clearRechargePendingLedger($userId, $orderNo);
                 $failOrder = Db::name('fans_recharge_order')->where('order_no', $orderNo)->find();
                 if ($failOrder) {
                     self::ensureRechargeFailLedger($failOrder);
@@ -1326,6 +1343,7 @@ class FansHubWallet
                 'remark'     => $remark !== '' ? $remark : ('后台确认 ' . date('Y-m-d H:i:s')),
                 'updatetime' => $now,
             ]);
+            self::clearRechargePendingLedger((int)$order['user_id'], (string)$order['order_no']);
             self::creditHongbao(
                 (int)$order['user_id'],
                 (float)$order['amount'],
@@ -1368,6 +1386,7 @@ class FansHubWallet
         ]);
         $order['status'] = 'failed';
         $order['remark'] = $failRemark;
+        self::clearRechargePendingLedger((int)$order['user_id'], (string)$order['order_no']);
         self::ensureRechargeFailLedger($order);
         return true;
     }
@@ -1561,6 +1580,19 @@ class FansHubWallet
         $meta = array_merge([
             'channel' => (string)$channel,
         ], $extraMeta);
+        if ((string)$type === 'recharge') {
+            $bizNo = trim((string)($meta['biz_no'] ?? ''));
+            if ($bizNo === '' && preg_match('/\b(RC[A-Za-z0-9_\-]+)\b/', (string)$remark, $m)) {
+                $bizNo = $m[1];
+                $meta['biz_no'] = $bizNo;
+                if (empty($meta['ref_type'])) {
+                    $meta['ref_type'] = 'recharge_order';
+                }
+            }
+            if ($bizNo !== '') {
+                self::clearRechargePendingLedger((int)$userId, $bizNo);
+            }
+        }
         FansHubHongbaoLedger::credit($userId, $amount, $type, $remark, $meta);
         if ((string)$type === 'recharge') {
             self::markAccountHasRecharged((int)$userId);
@@ -1584,6 +1616,7 @@ class FansHubWallet
         if ((string)($order['status'] ?? '') !== 'failed') {
             return false;
         }
+        self::clearRechargePendingLedger($userId, $orderNo);
         $exists = Db::name('fans_ledger')
             ->where('user_id', $userId)
             ->where('type', 'recharge_fail')
@@ -1618,6 +1651,182 @@ class FansHubWallet
             'createtime' => $createtime,
         ]);
         return true;
+    }
+
+    /**
+     * 充值中写入资金流水（幂等）
+     * @param array $order fans_recharge_order 行
+     */
+    public static function ensureRechargePendingLedger($order)
+    {
+        if (!is_array($order) || empty($order)) {
+            return false;
+        }
+        $userId = (int)($order['user_id'] ?? 0);
+        $orderNo = trim((string)($order['order_no'] ?? ''));
+        if ($userId <= 0 || $orderNo === '') {
+            return false;
+        }
+        if ((string)($order['status'] ?? '') !== 'pending') {
+            return false;
+        }
+        $exists = Db::name('fans_ledger')
+            ->where('user_id', $userId)
+            ->where('type', 'recharge_pending')
+            ->where('biz_no', $orderNo)
+            ->value('id');
+        if ($exists) {
+            return false;
+        }
+        $amount = round((float)($order['amount'] ?? 0), 2);
+        $remark = '充值中 ¥' . number_format($amount, 2, '.', '');
+        $channelName = '';
+        $channelId = (int)($order['channel_id'] ?? 0);
+        if ($channelId > 0) {
+            try {
+                $channelName = (string)(Db::name('fans_pay_channel')->where('id', $channelId)->value('name') ?: '');
+            } catch (\Throwable $e) {
+            }
+        }
+        $createtime = (int)($order['createtime'] ?? 0);
+        if ($createtime <= 0) {
+            $createtime = time();
+        }
+        FansHubHongbaoLedger::recordNote($userId, 'recharge_pending', $remark, [
+            'channel'    => $channelName,
+            'biz_no'     => $orderNo,
+            'ref_type'   => 'recharge_order',
+            'ref_id'     => (int)($order['id'] ?? 0),
+            'createtime' => $createtime,
+        ]);
+        return true;
+    }
+
+    /**
+     * 订单结束（成功/失败）后移除「充值中」流水，避免重复展示
+     */
+    public static function clearRechargePendingLedger($userId, $orderNo)
+    {
+        $userId = (int)$userId;
+        $orderNo = trim((string)$orderNo);
+        if ($userId <= 0 || $orderNo === '') {
+            return;
+        }
+        try {
+            Db::name('fans_ledger')
+                ->where('user_id', $userId)
+                ->where('type', 'recharge_pending')
+                ->where('biz_no', $orderNo)
+                ->delete();
+        } catch (\Throwable $e) {
+        }
+    }
+
+    /**
+     * 同步用户充值相关零变动流水（充值中 / 失败）
+     */
+    public static function syncUserRechargeOrderLedgers($userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return;
+        }
+        self::syncUserRechargePendingLedgers($userId);
+        self::syncUserRechargeFailLedgers($userId);
+        self::pruneStaleRechargePendingLedgers($userId);
+    }
+
+    /**
+     * 将用户历史「充值中」单补进资金流水
+     */
+    public static function syncUserRechargePendingLedgers($userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return 0;
+        }
+        $orders = Db::name('fans_recharge_order')
+            ->where('user_id', $userId)
+            ->where('status', 'pending')
+            ->order('id', 'asc')
+            ->limit(200)
+            ->select();
+        if (!is_array($orders)) {
+            $orders = $orders ? $orders->toArray() : [];
+        }
+        if (!$orders) {
+            return 0;
+        }
+        $orderNos = [];
+        foreach ($orders as $o) {
+            $no = trim((string)($o['order_no'] ?? ''));
+            if ($no !== '') {
+                $orderNos[] = $no;
+            }
+        }
+        $existing = [];
+        if ($orderNos) {
+            $existing = Db::name('fans_ledger')
+                ->where('user_id', $userId)
+                ->where('type', 'recharge_pending')
+                ->where('biz_no', 'in', $orderNos)
+                ->column('biz_no');
+            if (!is_array($existing)) {
+                $existing = [];
+            }
+            $existing = array_flip($existing);
+        }
+        $n = 0;
+        foreach ($orders as $order) {
+            $no = trim((string)($order['order_no'] ?? ''));
+            if ($no === '' || isset($existing[$no])) {
+                continue;
+            }
+            if (self::ensureRechargePendingLedger($order)) {
+                $n++;
+                $existing[$no] = true;
+            }
+        }
+        return $n;
+    }
+
+    /**
+     * 订单已非 pending 时清掉残留「充值中」流水
+     */
+    public static function pruneStaleRechargePendingLedgers($userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return 0;
+        }
+        $rows = Db::name('fans_ledger')
+            ->where('user_id', $userId)
+            ->where('type', 'recharge_pending')
+            ->field('id,biz_no')
+            ->limit(200)
+            ->select();
+        if (!is_array($rows)) {
+            $rows = $rows ? $rows->toArray() : [];
+        }
+        if (!$rows) {
+            return 0;
+        }
+        $n = 0;
+        foreach ($rows as $row) {
+            $bizNo = trim((string)($row['biz_no'] ?? ''));
+            if ($bizNo === '') {
+                continue;
+            }
+            $st = (string)(Db::name('fans_recharge_order')
+                ->where('user_id', $userId)
+                ->where('order_no', $bizNo)
+                ->value('status') ?: '');
+            if ($st !== '' && $st !== 'pending') {
+                Db::name('fans_ledger')->where('id', (int)$row['id'])->delete();
+                $n++;
+            }
+        }
+        return $n;
     }
 
     /**
