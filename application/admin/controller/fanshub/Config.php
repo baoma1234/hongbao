@@ -32,6 +32,7 @@ class Config extends Backend
             'app_ios_version_name', 'app_ios_version_code', 'app_ios_download_url',
             'app_ios_force_update', 'app_ios_update_note',
             'login_cs_enabled', 'login_cs_url', 'login_cs_icon',
+            'brand_logo_url',
             'chat_fission_card_enabled',
             'fission_group_id',
             'welfare_rp_quota_enabled', 'welfare_rp_daily_free', 'welfare_rp_entertain_per_bonus', 'welfare_rp_group_ids',

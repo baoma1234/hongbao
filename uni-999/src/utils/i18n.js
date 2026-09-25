@@ -732,7 +732,30 @@ export function flagUrl(iso) {
 }
 
 export function logoUrl() {
+  try {
+    const override = uni.getStorageSync('fanshub_brand_logo')
+    if (override && String(override).trim()) {
+      return String(override).trim()
+    }
+  } catch (e) {
+    /* ignore */
+  }
   return packagedStaticUrl('logo.png')
+}
+
+/** 后台 brand_logo_url；空字符串则清除覆盖，回退 static/logo.png */
+export function setBrandLogoUrl(url) {
+  const v = String(url || '').trim()
+  try {
+    if (v) {
+      uni.setStorageSync('fanshub_brand_logo', v)
+    } else {
+      uni.removeStorageSync('fanshub_brand_logo')
+    }
+  } catch (e) {
+    /* ignore */
+  }
+  return logoUrl()
 }
 
 export function localeOptions() {

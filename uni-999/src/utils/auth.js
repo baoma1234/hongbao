@@ -176,7 +176,17 @@ export function apiRequest(action, method = 'POST', body = null, opts = null) {
 
 export async function fetchConfig() {
   try {
-    return await apiRequest('config', 'GET')
+    const cfg = await apiRequest('config', 'GET')
+    if (cfg && Object.prototype.hasOwnProperty.call(cfg, 'brand_logo_url')) {
+      const v = String(cfg.brand_logo_url || '').trim()
+      try {
+        if (v) uni.setStorageSync('fanshub_brand_logo', v)
+        else uni.removeStorageSync('fanshub_brand_logo')
+      } catch (e) {
+        /* ignore */
+      }
+    }
+    return cfg
   } catch (e) {
     return null
   }

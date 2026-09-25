@@ -112,7 +112,7 @@ const FIXED_CAPTCHA = '465174'
 
 const locale = localeState()
 const copyTick = copyState()
-const logo = logoUrl()
+const logo = ref(logoUrl())
 const countries = LOGIN_COUNTRIES
 const country = ref(readStoredCountry())
 const countryOpen = ref(false)
@@ -141,7 +141,7 @@ const loginSubmitText = computed(() => {
 })
 
 if (getToken()) {
-  uni.reLaunch({ url: '/pages/messages/messages' })
+  uni.reLaunch({ url: '/pages/home/home' })
 }
 
 onLoad((q) => {
@@ -187,6 +187,7 @@ function onFillCaptcha() {
 
 async function loadCfg() {
   const cfg = await fetchConfig()
+  logo.value = logoUrl()
   if (!cfg) return
   if (cfg.copy) applyServerCopy(cfg.copy)
   if (cfg.register_rights != null && cfg.register_rights !== '') {
@@ -234,7 +235,7 @@ async function onLogin() {
     } catch (e) {
       console.warn('im connect', e)
     }
-    uni.reLaunch({ url: '/pages/messages/messages' })
+    uni.reLaunch({ url: '/pages/home/home' })
   } catch (e) {
     uni.showToast({ title: e.message || t('alert_login_fail') || '登录失败', icon: 'none' })
   } finally {

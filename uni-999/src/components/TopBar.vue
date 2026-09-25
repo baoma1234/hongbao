@@ -133,7 +133,7 @@ let offLocale = null
 let lastToggleAt = 0
 let pickingLang = false
 
-const logoSrc = logoUrl()
+const logoSrc = ref(logoUrl())
 const refreshIcoSrc = packagedStaticUrl('og/refresh.png')
 const locales = computed(() => {
   void locale.value
@@ -321,6 +321,16 @@ function hydrateFromSnap() {
 }
 
 async function hydrateUser() {
+  try {
+    const cfg = await fetchConfig()
+    logoSrc.value = logoUrl()
+    if (cfg) {
+      const id = parseInt(cfg.default_cs_user_id, 10)
+      if (!isNaN(id) && id > 0) csPeerId.value = id
+      const nick = String(cfg.default_cs_nickname || '').trim()
+      if (nick) csNick.value = nick
+    }
+  } catch (e2) {}
   if (!getToken() || isLoginRoute()) {
     profile.value = null
     return
@@ -333,15 +343,6 @@ async function hydrateUser() {
       uni.setStorageSync('fanshub_profile_snap', JSON.stringify(p))
     } catch (e0) {}
   } catch (e) {}
-  try {
-    const cfg = await fetchConfig()
-    if (cfg) {
-      const id = parseInt(cfg.default_cs_user_id, 10)
-      if (!isNaN(id) && id > 0) csPeerId.value = id
-      const nick = String(cfg.default_cs_nickname || '').trim()
-      if (nick) csNick.value = nick
-    }
-  } catch (e2) {}
 }
 
 function refreshPad() {

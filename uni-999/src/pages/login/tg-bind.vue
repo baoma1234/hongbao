@@ -84,7 +84,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
-import { apiRequest, getDeviceFp, getToken, setToken } from '../../utils/auth.js'
+import { apiRequest, fetchConfig, getDeviceFp, getToken, setToken } from '../../utils/auth.js'
 import {
   flagUrl,
   localeState,
@@ -105,7 +105,7 @@ import {
 } from '../../utils/login-country.js'
 import { hydrateInviteCode, saveInviteCode } from '../../utils/openinstall.js'
 
-const logo = logoUrl()
+const logo = ref(logoUrl())
 const locale = localeState()
 const countries = LOGIN_COUNTRIES
 const country = ref(readStoredCountry())
@@ -583,7 +583,11 @@ onLoad((q) => {
   } catch (e) {}
 })
 
-onMounted(() => {
+onMounted(async () => {
+  try {
+    await fetchConfig()
+    logo.value = logoUrl()
+  } catch (e) {}
   runAuth()
 })
 

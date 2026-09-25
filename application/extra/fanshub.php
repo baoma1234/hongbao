@@ -57,6 +57,8 @@ return array (
   'login_cs_enabled' => true,
   'login_cs_url' => '',
   'login_cs_icon' => 'https://888jhdhifhbchashjdl.oss-accelerate.aliyuncs.com/uploads/20260813/afe179a5f27ce0b94bf8a0f65af3d291.png',
+  // 顶部品牌 Logo（TopBar / 登录页）；空则用打包 static/logo.png
+  'brand_logo_url' => '',
   'app_download_url' => 'https://6r1ihgq.baibohaidun.com:1008/d/3rd7ddc9ic5rr2b',
   'app_update_enabled' => true,
   'app_android_version_name' => '4.8.0',

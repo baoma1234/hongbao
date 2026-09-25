@@ -228,7 +228,9 @@ const heroBg = computed(() => {
   }
   return packagedStaticUrl('login/bj.jpg') + '?v=' + LOGIN_BG_VER
 })
+const brandLogoSrc = ref('')
 const brandLogo = computed(() => {
+  if (brandLogoSrc.value) return brandLogoSrc.value
   const oss = String(getUploadsBase() || '').replace(/\/+$/, '')
   if (oss) {
     return oss + '/999/static/login/logo-l.png?v=' + LOGIN_BG_VER
@@ -439,6 +441,7 @@ function pickCountry(code) {
 async function loadCfg() {
   const cfg = await fetchConfig()
   if (!cfg) return null
+  brandLogoSrc.value = String(cfg.brand_logo_url || '').trim()
   if (cfg.copy) applyServerCopy(cfg.copy)
   if (cfg.register_rights != null && cfg.register_rights !== '') {
     const n = parseInt(cfg.register_rights, 10)

@@ -1540,6 +1540,19 @@ class FansHubService
                 }
                 return self::utf8Safe($raw);
             })(),
+            'brand_logo_url'       => (function () use ($cfg) {
+                $raw = trim((string)($cfg['brand_logo_url'] ?? ''));
+                if ($raw === '') {
+                    return '';
+                }
+                if (class_exists('\\app\\common\\library\\OssService')) {
+                    $full = \app\common\library\OssService::fullUrl($raw, '');
+                    if ($full !== '') {
+                        return self::utf8Safe($full);
+                    }
+                }
+                return self::utf8Safe($raw);
+            })(),
             'app_download_url'     => self::utf8Safe($cfg['app_download_url'] ?? ''),
             'app_update'           => self::publicAppUpdatePayload($cfg),
             'main_station_url'     => self::utf8Safe($cfg['main_station_url'] ?? ''),
