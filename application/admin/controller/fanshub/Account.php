@@ -303,6 +303,9 @@ class Account extends Backend
                 $meta[$field] = $params[$field];
             }
         }
+        foreach (['deny_rebate', 'deny_rp_rain'] as $flagField) {
+            $meta[$flagField] = !empty($params[$flagField]) ? 1 : 0;
+        }
         if (array_key_exists('admin_remark', $meta)) {
             $meta['admin_remark'] = mb_substr(trim((string)$meta['admin_remark']), 0, 500);
         }
@@ -387,6 +390,13 @@ class Account extends Backend
         } catch (\Throwable $e) {
             Db::rollback();
             $this->error($e->getMessage());
+        }
+        if (isset($meta['deny_rebate']) || isset($meta['deny_rp_rain'])) {
+            \app\common\library\FansHubAccountRestrict::syncRedis(
+                (int)$row->user_id,
+                !empty($meta['deny_rebate']),
+                !empty($meta['deny_rp_rain'])
+            );
         }
         $this->success();
     }
@@ -693,7 +703,48 @@ class Account extends Backend
     }
 
     /**
+     * 切换禁止返佣
+     */
+    public function denyrebate($ids = null)
+    {
+        $row = $this->model->get($ids);
+        if (!$row) {
+            $this->error(__('No Results were found'));
+        }
+        $uid = (int)$row->user_id;
+        $next = empty($row->deny_rebate) ? 1 : 0;
+        Db::name('fans_account')->where('id', $row->id)->update([
+            'deny_rebate' => $next,
+            'updatetime'  => time(),
+        ]);
+        $flags = \app\common\library\FansHubAccountRestrict::getFlags($uid);
+        \app\common\library\FansHubAccountRestrict::syncRedis($uid, $next, !empty($flags['deny_rp_rain']));
+        $this->success($next ? '已禁止该账号收取返佣' : '已恢复该账号返佣');
+    }
+
+    /**
+     * 切换禁止领取红包雨（含福利群红宝雨 / 任意红包雨 / 鱼虾蟹红包雨）
+     */
+    public function denyrprain($ids = null)
+    {
+        $row = $this->model->get($ids);
+        if (!$row) {
+            $this->error(__('No Results were found'));
+        }
+        $uid = (int)$row->user_id;
+        $next = empty($row->deny_rp_rain) ? 1 : 0;
+        Db::name('fans_account')->where('id', $row->id)->update([
+            'deny_rp_rain' => $next,
+            'updatetime'   => time(),
+        ]);
+        $flags = \app\common\library\FansHubAccountRestrict::getFlags($uid);
+        \app\common\library\FansHubAccountRestrict::syncRedis($uid, !empty($flags['deny_rebate']), $next);
+        $this->success($next ? '已禁止该账号领取红包雨' : '已恢复该账号领取红包雨');
+    }
+
+    /**
      * 封禁 / 解封登录：封禁后立即踢下线且不可再登录
+     * GET 封禁弹窗：可选「当前账号」或「账号及其团队」；解封仍走 POST 直调
      */
     public function ban($ids = null)
     {
@@ -721,30 +772,124 @@ class Account extends Backend
         }
         $now = time();
         $cur = (string)($user->status ?? '');
-        if ($cur === 'normal') {
-            $oldTokens = Db::name('user_token')->where('user_id', $uid)->column('token');
+
+        // 解封：不弹窗，直接 POST / ajax
+        if ($cur === 'hidden') {
+            if (!$this->request->isPost()) {
+                $this->error('请使用解封操作');
+            }
+            Db::name('user')->where('id', $uid)->update([
+                'status'     => 'normal',
+                'updatetime' => $now,
+            ]);
+            $this->success('已解除封禁，可重新登录');
+        }
+
+        // 封禁：GET 弹窗选范围；POST 执行
+        if (!$this->request->isPost()) {
+            $teamIds = $this->collectInviteDownlineIds($uid);
+            $this->view->assign('row', $row);
+            $this->view->assign('user', $user);
+            $this->view->assign('team_count', count($teamIds));
+            $this->view->assign('team_total', count($teamIds) + 1);
+            return $this->view->fetch();
+        }
+
+        $scope = strtolower(trim((string)$this->request->post('scope', 'self')));
+        if (!in_array($scope, ['self', 'team'], true)) {
+            $scope = 'self';
+        }
+        $targets = [$uid];
+        if ($scope === 'team') {
+            $targets = array_values(array_unique(array_merge([$uid], $this->collectInviteDownlineIds($uid))));
+        }
+        $banned = 0;
+        $skippedCs = 0;
+        foreach ($targets as $tid) {
+            $tid = (int)$tid;
+            if ($tid <= 0) {
+                continue;
+            }
+            try {
+                if (class_exists('\app\common\library\FansHubDefaultCs')
+                    && \app\common\library\FansHubDefaultCs::isDefaultCs($tid)) {
+                    $skippedCs++;
+                    continue;
+                }
+            } catch (\Throwable $e) {
+                if ($tid === 88888888) {
+                    $skippedCs++;
+                    continue;
+                }
+            }
+            $tUser = \app\common\model\User::get($tid);
+            if (!$tUser || (string)($tUser->status ?? '') === 'hidden') {
+                continue;
+            }
+            $oldTokens = Db::name('user_token')->where('user_id', $tid)->column('token');
             if (!is_array($oldTokens)) {
                 $oldTokens = [];
             }
-            Db::name('user')->where('id', $uid)->update([
+            Db::name('user')->where('id', $tid)->update([
                 'status'     => 'hidden',
                 'updatetime' => $now,
             ]);
             try {
-                \app\common\library\Token::clear($uid);
+                \app\common\library\Token::clear($tid);
             } catch (\Throwable $e) {
             }
             try {
-                FansHubService::forceKickOffline($uid, array_values($oldTokens), '账号已被封禁', 'banned');
+                FansHubService::forceKickOffline($tid, array_values($oldTokens), '账号已被封禁', 'banned');
             } catch (\Throwable $e) {
             }
-            $this->success('已封禁并踢下线，该账号无法再登录');
+            $banned++;
         }
-        Db::name('user')->where('id', $uid)->update([
-            'status'     => 'normal',
-            'updatetime' => $now,
-        ]);
-        $this->success('已解除封禁，可重新登录');
+        if ($banned <= 0) {
+            $this->error($skippedCs > 0 ? '无可封禁账号（默认客服已跳过）' : '无可封禁账号');
+        }
+        $msg = $scope === 'team'
+            ? ('已封禁 ' . $banned . ' 个账号（含本人及团队）并踢下线')
+            : '已封禁并踢下线，该账号无法再登录';
+        if ($skippedCs > 0) {
+            $msg .= '；跳过默认客服 ' . $skippedCs . ' 个';
+        }
+        $this->success($msg);
+    }
+
+    /**
+     * 邀请树全部下级 user_id（不含本人）
+     * @return int[]
+     */
+    protected function collectInviteDownlineIds($rootUserId)
+    {
+        $rootUserId = (int)$rootUserId;
+        if ($rootUserId <= 0) {
+            return [];
+        }
+        $all = [];
+        $frontier = [$rootUserId];
+        $seen = [$rootUserId => true];
+        $guard = 0;
+        while ($frontier && $guard < 50) {
+            $guard++;
+            $ids = Db::name('fans_invite')
+                ->where('inviter_user_id', 'in', $frontier)
+                ->column('invitee_user_id');
+            if (!is_array($ids) || !$ids) {
+                break;
+            }
+            $frontier = [];
+            foreach ($ids as $id) {
+                $id = (int)$id;
+                if ($id <= 0 || isset($seen[$id])) {
+                    continue;
+                }
+                $seen[$id] = true;
+                $all[] = $id;
+                $frontier[] = $id;
+            }
+        }
+        return $all;
     }
 
     /**

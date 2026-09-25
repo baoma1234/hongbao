@@ -138,6 +138,18 @@
             <span class="help-block">运营内部备注，最多 500 字。</span>
         </div>
     </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">业务限制:</label>
+        <div class="col-xs-12 col-sm-8">
+            <label class="checkbox-inline">
+                <input type="checkbox" name="row[deny_rebate]" value="1" {if !empty($row.deny_rebate)}checked{/if}> 禁止返佣
+            </label>
+            <label class="checkbox-inline">
+                <input type="checkbox" name="row[deny_rp_rain]" value="1" {if !empty($row.deny_rp_rain)}checked{/if}> 禁止领取红包雨
+            </label>
+            <span class="help-block">禁止返佣：发包手续费中的群主/推荐返佣不再打给该用户。禁止红包雨：不可领取福利群红宝雨、任意红包雨及鱼虾蟹红包雨。</span>
+        </div>
+    </div>
     {if $phase2Enabled}
     <div class="form-group">
         <label class="control-label col-xs-12 col-sm-2">7天暴击资格:</label>

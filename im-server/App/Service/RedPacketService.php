@@ -410,6 +410,7 @@ class RedPacketService
             'mine_digit'   => $mineDigit,
             'tron_status'  => (string)$tronStatus,
             'mine_pending' => $minePending ? '1' : '0',
+            'is_rain'      => (!empty($params['rain']) || !empty($params['rain_round']) || !empty($params['rain_task_id'])) ? '1' : '0',
         ]);
 
         if ($tronStatus === TronFair::STATUS_DONE && $tronBlockId !== '') {
@@ -770,6 +771,10 @@ class RedPacketService
             if ($dualPay > $platformFee) {
                 $dualPay = $platformFee;
             }
+            if ($dualPay > 0 && AccountRestrictService::isDenyRebate($agentUserId)) {
+                // 禁止返佣：手续费留平台，不划转
+                $dualPay = 0.0;
+            }
             if ($dualPay > 0) {
                 $out = $this->wallet->change(
                     $platformUserId,
@@ -801,6 +806,12 @@ class RedPacketService
             }
             if ($inviteUserId > 0 && $inviteRate > 0) {
                 $invitePay = round($totalAmount * $inviteRate, 2);
+            }
+            if ($agentPay > 0 && AccountRestrictService::isDenyRebate($agentUserId)) {
+                $agentPay = 0.0;
+            }
+            if ($invitePay > 0 && AccountRestrictService::isDenyRebate($inviteUserId)) {
+                $invitePay = 0.0;
             }
             $need = round($agentPay + $invitePay, 2);
             if ($need > $platformFee && $need > 0) {
@@ -1274,6 +1285,11 @@ class RedPacketService
         RechargePrivilegeService::assertCanGrabRedPacket($userId, $packet, $this->groups);
         // 福利群（默认80）每日领取上限：独立配额表，不统计旧领取明细
         WelfareRpQuotaService::assertCanClaim($userId, $packet, $opts);
+        // 禁止领红包雨：福利群红宝雨 / 任意 rain 包
+        if (AccountRestrictService::isDenyRpRain($userId)
+            && AccountRestrictService::isRainPacket($packetId, (int)($packet['group_id'] ?? 0))) {
+            throw new \RuntimeException('账号已被禁止领取红包雨');
+        }
         if (!$fromRedisMeta && (int)$packet['status'] !== 1) {
             throw new \RuntimeException('packet closed');
         }

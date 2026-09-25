@@ -469,6 +469,9 @@ class RedPacketSettlementService
                 $agentRebate = 0.0;
                 if ($agentUserId > 0 && $agentRate > 0) {
                     $agentRebate = round($totalAmount * $agentRate, 2);
+                    if ($agentRebate > 0 && AccountRestrictService::isDenyRebate($agentUserId)) {
+                        $agentRebate = 0.0;
+                    }
                     if ($agentRebate > 0) {
                         if ($platformUserId <= 0) {
                             throw new \RuntimeException('platform_user_id not configured');

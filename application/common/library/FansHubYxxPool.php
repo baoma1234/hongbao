@@ -704,6 +704,7 @@ class FansHubYxxPool
         if ($uid <= 0) {
             throw new \RuntimeException(FansHubService::h5CopyText('yxx_err_login') ?: '请先登录');
         }
+        FansHubAccountRestrict::assertCanClaimRpRain($uid);
         $lockName = 'fh:yxx:raingrab:' . $uid;
         if (!FansHubYxxStore::acquireLock($lockName, 12)) {
             throw new \RuntimeException(FansHubService::h5CopyText('yxx_err_fast') ?: '操作太快，请稍后再试');

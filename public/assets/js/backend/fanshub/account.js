@@ -129,6 +129,12 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                             + infoLine('VIP等级', fmtVip(row))
                             + infoLine('支付密码', fmtPayPwd(row))
                             + infoLine('聊天禁言', fmtChatForbid(row))
+                            + infoLine('禁止返佣', parseInt(row.deny_rebate, 10) === 1
+                                ? '<span class="text-danger">已禁止</span>'
+                                : '<span class="text-success">正常</span>')
+                            + infoLine('禁止红包雨', parseInt(row.deny_rp_rain, 10) === 1
+                                ? '<span class="text-danger">已禁止</span>'
+                                : '<span class="text-success">正常</span>')
                             + infoLine('登录封禁', (row.user && row.user.status === 'hidden')
                                 ? '<span class="text-danger">已封禁</span>'
                                 : '<span class="text-success">正常</span>')
@@ -217,18 +223,70 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                                 return true;
                             }
                         }, {
-                            name: 'ban',
-                            text: '封禁',
-                            title: '封禁登录',
-                            classname: 'btn btn-xs btn-danger btn-ajax',
-                            icon: 'fa fa-lock',
-                            url: 'fanshub/account/ban',
-                            confirm: '确认封禁该用户？将立即踢下线，且无法再登录。',
+                            name: 'denyrebate',
+                            text: '禁止返佣',
+                            title: '禁止收取返佣',
+                            classname: 'btn btn-xs btn-warning btn-ajax',
+                            icon: 'fa fa-minus-circle',
+                            url: 'fanshub/account/denyrebate',
+                            confirm: '确认禁止该账号收取返佣？发包手续费中的返佣将不再打给该用户。',
                             visible: function (row) {
-                                return !(row.user && row.user.status === 'hidden');
+                                return parseInt(row.deny_rebate, 10) !== 1;
                             },
                             success: function () {
                                 table.bootstrapTable('refresh');
+                            }
+                        }, {
+                            name: 'allowrebate',
+                            text: '恢复返佣',
+                            title: '恢复收取返佣',
+                            classname: 'btn btn-xs btn-success btn-ajax',
+                            icon: 'fa fa-check-circle',
+                            url: 'fanshub/account/denyrebate',
+                            confirm: '确认恢复该账号收取返佣？',
+                            visible: function (row) {
+                                return parseInt(row.deny_rebate, 10) === 1;
+                            },
+                            success: function () {
+                                table.bootstrapTable('refresh');
+                            }
+                        }, {
+                            name: 'denyrprain',
+                            text: '禁止红包雨',
+                            title: '禁止领取红包雨',
+                            classname: 'btn btn-xs btn-warning btn-ajax',
+                            icon: 'fa fa-tint',
+                            url: 'fanshub/account/denyrprain',
+                            confirm: '确认禁止该账号领取任何红包雨（含福利群红宝雨、鱼虾蟹红包雨）？',
+                            visible: function (row) {
+                                return parseInt(row.deny_rp_rain, 10) !== 1;
+                            },
+                            success: function () {
+                                table.bootstrapTable('refresh');
+                            }
+                        }, {
+                            name: 'allowrprain',
+                            text: '恢复红包雨',
+                            title: '恢复领取红包雨',
+                            classname: 'btn btn-xs btn-success btn-ajax',
+                            icon: 'fa fa-tint',
+                            url: 'fanshub/account/denyrprain',
+                            confirm: '确认恢复该账号领取红包雨？',
+                            visible: function (row) {
+                                return parseInt(row.deny_rp_rain, 10) === 1;
+                            },
+                            success: function () {
+                                table.bootstrapTable('refresh');
+                            }
+                        }, {
+                            name: 'ban',
+                            text: '封禁',
+                            title: '封禁登录',
+                            classname: 'btn btn-xs btn-danger btn-dialog',
+                            icon: 'fa fa-lock',
+                            url: 'fanshub/account/ban',
+                            visible: function (row) {
+                                return !(row.user && row.user.status === 'hidden');
                             }
                         }, {
                             name: 'unban',
@@ -334,6 +392,9 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
         },
         chatforbid: function () {
             Form.api.bindevent($("#chatforbid-form"));
+        },
+        ban: function () {
+            Form.api.bindevent($("#ban-form"));
         },
         detail: function () {},
         api: {

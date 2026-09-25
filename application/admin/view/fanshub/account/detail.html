@@ -42,6 +42,8 @@
             </td></tr>
             <tr><th>流程阶段</th><td>{$detail.account.flow_stage}</td></tr>
             <tr><th>账户状态</th><td>{$detail.account.status}</td></tr>
+            <tr><th>禁止返佣</th><td>{if !empty($row.deny_rebate)}<span class="label label-danger">已禁止</span>{else/}<span class="text-success">正常</span>{/if}</td></tr>
+            <tr><th>禁止红包雨</th><td>{if !empty($row.deny_rp_rain)}<span class="label label-danger">已禁止</span>{else/}<span class="text-success">正常</span>{/if}</td></tr>
             <tr><th>用户信息备注</th><td>{$row.admin_remark|default='-'|htmlentities}</td></tr>
             <tr><th>谷歌验证器</th><td>
                 {if condition="!empty($row.google_secret)"}

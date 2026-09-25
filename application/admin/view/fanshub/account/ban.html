@@ -1,0 +1,39 @@
+<form id="ban-form" class="form-horizontal" role="form" method="POST" action="">
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-3">会员</label>
+        <div class="col-xs-12 col-sm-8">
+            <p class="form-control-static">ID {$row.id}
+                {if $user}
+                / {$user.nickname|default=''|htmlentities}
+                {if $user.mobile} / {$user.mobile|htmlentities}{/if}
+                {/if}
+            </p>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-3">封禁范围</label>
+        <div class="col-xs-12 col-sm-8">
+            <div class="radio">
+                <label>
+                    <input type="radio" name="scope" value="self" checked> 禁止当前账号
+                </label>
+            </div>
+            <div class="radio">
+                <label>
+                    <input type="radio" name="scope" value="team"> 禁止账号及其团队所有人
+                </label>
+            </div>
+            <span class="help-block" style="margin:6px 0 0;">
+                封禁后立即踢下线且无法再登录。选择「及其团队」时，会按邀请关系向下封禁全部下级（不含上级）。
+                {if $team_count > 0}<br>当前直属及下级合计约 <strong>{$team_count}</strong> 人（含本人共 {$team_total} 人）。{/if}
+            </span>
+        </div>
+    </div>
+    <div class="form-group layer-footer">
+        <label class="control-label col-xs-12 col-sm-3"></label>
+        <div class="col-xs-12 col-sm-8">
+            <button type="submit" class="btn btn-danger btn-embossed">确认封禁</button>
+            <button type="reset" class="btn btn-default btn-embossed">取消</button>
+        </div>
+    </div>
+</form>
