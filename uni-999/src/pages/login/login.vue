@@ -5,7 +5,7 @@
 
     <!-- 顶栏：左 logo-l，右语言切换，同一行对齐 -->
     <view class="login-chrome" :style="chromeStyle">
-      <image class="login-brand-logo" :src="brandLogo" mode="heightFix" aria-hidden="true" />
+      <image class="login-brand-logo brand-logo-img" :src="brandLogo" mode="heightFix" aria-hidden="true" />
       <view
         class="login-lang-wrap"
         hover-class="login-lang-wrap--hover"
@@ -441,7 +441,7 @@ function pickCountry(code) {
 async function loadCfg() {
   const cfg = await fetchConfig()
   if (!cfg) return null
-  brandLogoSrc.value = String(cfg.brand_logo_url || '').trim()
+  brandLogoSrc.value = String(cfg.login_brand_logo_url || '').trim()
   if (cfg.copy) applyServerCopy(cfg.copy)
   if (cfg.register_rights != null && cfg.register_rights !== '') {
     const n = parseInt(cfg.register_rights, 10)

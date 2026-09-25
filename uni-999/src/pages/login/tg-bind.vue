@@ -3,7 +3,7 @@
     <TopBar :title="tt('login_tg_bind_title', '绑定 Telegram')" />
     <view class="login-wrapper">
       <view class="login-brand">
-        <image class="login-logo-img" :src="logo" mode="aspectFit" />
+        <image class="login-logo-img brand-logo-img" :src="logo" mode="aspectFit" />
         <view class="login-logo">{{ t('brand_name') }}</view>
       </view>
       <view class="login-subtitle">

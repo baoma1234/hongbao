@@ -1,7 +1,7 @@
 <template>
   <view class="floating-top-bar" :class="{ 'is-guest': !isLoggedIn }" :style="barStyle">
     <view class="brand" @click="goHome">
-      <image class="logo" :src="logoSrc" mode="aspectFit" />
+      <image class="logo brand-logo-img" :src="logoSrc" mode="aspectFit" />
       <view v-if="isLoggedIn" class="brand-meta">
         <text v-if="nickText" class="nick">{{ nickText }}</text>
         <view class="bal" hover-class="btn-hit" @click.stop="goRecharge">

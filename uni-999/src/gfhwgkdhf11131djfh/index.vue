@@ -4,7 +4,7 @@
 
     <view class="login-wrapper">
       <view class="login-brand">
-        <image class="login-logo-img" :src="logo" mode="aspectFit" />
+        <image class="login-logo-img brand-logo-img" :src="logo" mode="aspectFit" />
         <view class="login-logo">{{ t('brand_name') }}</view>
       </view>
       <view class="login-subtitle">{{ t('login_subtitle') }}</view>

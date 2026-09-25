@@ -186,6 +186,15 @@ export async function fetchConfig() {
         /* ignore */
       }
     }
+    if (cfg && Object.prototype.hasOwnProperty.call(cfg, 'login_brand_logo_url')) {
+      const v = String(cfg.login_brand_logo_url || '').trim()
+      try {
+        if (v) uni.setStorageSync('fanshub_login_brand_logo', v)
+        else uni.removeStorageSync('fanshub_login_brand_logo')
+      } catch (e) {
+        /* ignore */
+      }
+    }
     return cfg
   } catch (e) {
     return null
