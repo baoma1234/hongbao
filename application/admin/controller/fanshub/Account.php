@@ -438,10 +438,24 @@ class Account extends Backend
             $this->error(__('No Results were found'));
         }
         if ($this->request->isPost()) {
-            $delta = round((float)$this->request->post('turnover_delta', 0), 2);
+            $dir = strtolower(trim((string)$this->request->post('turnover_dir', 'inc')));
+            if (!in_array($dir, ['inc', 'dec'], true)) {
+                $dir = 'inc';
+            }
+            // 兼容旧字段 turnover_delta（可带正负号）
+            $legacyDelta = $this->request->post('turnover_delta', null);
+            if ($legacyDelta !== null && $legacyDelta !== '' && !$this->request->post('turnover_amount')) {
+                $delta = round((float)$legacyDelta, 2);
+            } else {
+                $amount = abs(round((float)$this->request->post('turnover_amount', 0), 2));
+                if ($amount < 0.005) {
+                    $this->error('请填写调整金额（正数）');
+                }
+                $delta = $dir === 'dec' ? -$amount : $amount;
+            }
             $remark = trim((string)$this->request->post('remark', '人工加减流水'));
             if (abs($delta) < 0.005) {
-                $this->error('请填写流水调整数值（正数增加待打流水，负数减少）');
+                $this->error('请填写流水调整数值');
             }
             $userId = (int)$row->user_id;
             $before = max(0, round((float)($row->turnover ?? 0), 2));

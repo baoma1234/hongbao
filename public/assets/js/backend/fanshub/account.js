@@ -5,7 +5,10 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                 $('<style id="fanshub-account-promote-style">')
                     .text('.btn-promote-master{background-color:#6a62cb!important;border-color:#6a62cb!important;color:#fff!important;}.btn-promote-master:hover,.btn-promote-master:focus{background-color:#5a52b8!important;border-color:#5a52b8!important;color:#fff!important;}'
                         + '.fanshub-acc-cell{line-height:1.55;white-space:normal;text-align:left;min-width:150px;}'
-                        + '.fanshub-acc-cell .fanshub-acc-line+.fanshub-acc-line{margin-top:2px;}')
+                        + '.fanshub-acc-cell .fanshub-acc-line+.fanshub-acc-line{margin-top:2px;}'
+                        + '.fanshub-acc-ops{display:flex;flex-wrap:wrap;gap:4px;align-items:center;max-width:260px;white-space:normal;}'
+                        + '.fanshub-acc-ops>a{margin:0!important;white-space:nowrap;}'
+                        + '#table td .fanshub-acc-ops,#table td:has(.fanshub-acc-ops){white-space:normal!important;}')
                     .appendTo('head');
             }
             function escCell(v) {
@@ -184,6 +187,10 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                     {
                         field: 'operate', title: '操作', table: table,
                         events: Table.api.events.operate,
+                        width: '260px',
+                        cellStyle: function () {
+                            return {css: {'white-space': 'normal', 'vertical-align': 'middle'}};
+                        },
                         buttons: [{
                             name: 'detail',
                             text: '详情',
@@ -331,7 +338,10 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form', './common'], function
                                 table.bootstrapTable('refresh');
                             }
                         }],
-                        formatter: Table.api.formatter.operate
+                        formatter: function (value, row, index) {
+                            var html = Table.api.formatter.operate.call(this, value, row, index);
+                            return '<div class="fanshub-acc-ops">' + html + '</div>';
+                        }
                     }
                 ]]
             });
