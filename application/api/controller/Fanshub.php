@@ -1294,6 +1294,36 @@ class Fanshub extends Api
     }
 
     /**
+     * OG视讯：昨日返水信息
+     * GET/POST /api/fanshub/ogrebateinfo
+     */
+    public function ogrebateinfo()
+    {
+        try {
+            $this->success('ok', \app\common\library\FansHubOgRebate::infoForUser($this->auth->id));
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: '查询失败');
+        }
+    }
+
+    /**
+     * OG视讯：领取昨日返水（入账红宝 + 等额待打流水）
+     * POST /api/fanshub/ogrebateclaim
+     */
+    public function ogrebateclaim()
+    {
+        try {
+            $this->success('ok', \app\common\library\FansHubOgRebate::claimYesterday($this->auth->id));
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage() ?: '领取失败');
+        }
+    }
+
+    /**
      * 资金流水列表
      */
     public function walletledger()

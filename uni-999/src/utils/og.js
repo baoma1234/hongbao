@@ -118,3 +118,13 @@ export function ogLaunch(opts = {}) {
 export function ogBalance() {
   return apiRequest('ogbalance', 'POST', {})
 }
+
+/** 昨日返水信息 */
+export function ogRebateInfo() {
+  return apiRequest('ogrebateinfo', 'POST', {})
+}
+
+/** 领取昨日返水 */
+export function ogRebateClaim() {
+  return apiRequest('ogrebateclaim', 'POST', {})
+}

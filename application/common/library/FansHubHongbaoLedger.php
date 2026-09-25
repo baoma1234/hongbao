@@ -201,6 +201,7 @@ class FansHubHongbaoLedger
             'fission_reward',
             'invite',
             'notice_post',
+            'og_rebate',
         ], true);
     }
 

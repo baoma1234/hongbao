@@ -762,6 +762,7 @@ return array (
   'wallet_ledger_type_og_deposit' => '真人视讯转入',
   'wallet_ledger_type_og_deposit_refund' => '真人视讯退回',
   'wallet_ledger_type_og_withdraw' => '真人视讯转出',
+  'wallet_ledger_type_og_rebate' => '真人视讯返水',
   'wallet_ledger_type_og_live' => '真人视讯',
   'wallet_ledger_cat_og_live' => '真人视讯',
   'wallet_ledger_empty_og_live' => '暂无真人视讯流水',

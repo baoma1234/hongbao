@@ -214,6 +214,55 @@
   box-sizing: border-box;
 }
 
+.game-lobby-rebate {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 10px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #fff7e8 0%, #ffffff 55%);
+  border: 1px solid rgba(230, 162, 60, 0.35);
+  box-sizing: border-box;
+}
+.game-lobby-rebate-left {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.game-lobby-rebate-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a1a;
+  line-height: 1.3;
+}
+.game-lobby-rebate-sub {
+  font-size: 12px;
+  color: #8a8a8a;
+  line-height: 1.35;
+}
+.game-lobby-rebate-btn {
+  flex-shrink: 0;
+  min-width: 76px;
+  padding: 8px 12px;
+  border-radius: 18px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  background: #c9a06a;
+}
+.game-lobby-rebate.is-claimable .game-lobby-rebate-btn {
+  background: #e6a23c;
+}
+.game-lobby-rebate.is-claimed .game-lobby-rebate-btn,
+.game-lobby-rebate.is-busy .game-lobby-rebate-btn {
+  background: #b0b0b0;
+}
+
 .game-lobby-cats-row {
   display: flex !important;
   flex-direction: row !important;

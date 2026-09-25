@@ -44,6 +44,23 @@
 
       <!-- 跑马灯以下：QQ 灰底区（分类 / 热门游戏 / 邀请条） -->
       <view class="game-lobby-main">
+        <view
+          v-if="ogRebate.enabled"
+          class="game-lobby-rebate"
+          :class="{
+            'is-claimable': ogRebate.claimable,
+            'is-claimed': ogRebate.claimed,
+            'is-busy': ogRebateBusy,
+          }"
+          hover-class="game-lobby-hit"
+          @click="onClaimOgRebate"
+        >
+          <view class="game-lobby-rebate-left">
+            <text class="game-lobby-rebate-title">领取昨日的返水</text>
+            <text class="game-lobby-rebate-sub">{{ ogRebateSubText }}</text>
+          </view>
+          <view class="game-lobby-rebate-btn">{{ ogRebateBtnText }}</view>
+        </view>
         <view class="game-lobby-cats">
           <view class="game-lobby-cats-row">
             <view
@@ -262,6 +279,8 @@ import {
   ogPlayer,
   ogRegister,
   ogWithdraw,
+  ogRebateInfo,
+  ogRebateClaim,
 } from '../../utils/og.js'
 import '../../styles/home-lobby.css'
 import '../../styles/social-modals.css'
@@ -294,6 +313,95 @@ const ogHongbao = ref(0)
 const ogBusyLaunch = ref(false)
 const ogBusyWithdraw = ref(false)
 const ogBusy = computed(() => ogBusyLaunch.value || ogBusyWithdraw.value)
+
+const ogRebate = ref({
+  enabled: false,
+  claimable: false,
+  claimed: false,
+  rebate_amount: 0,
+  bet_amount: 0,
+  rate_percent: 1,
+  biz_date: '',
+})
+const ogRebateBusy = ref(false)
+const ogRebateSubText = computed(() => {
+  const r = ogRebate.value || {}
+  if (r.claimed) return '昨日返水已领取'
+  const amt = Number(r.rebate_amount) || 0
+  const bet = Number(r.bet_amount) || 0
+  const pct = Number(r.rate_percent) || 0
+  const fmt = (n) => (Math.max(0, Number(n) || 0)).toFixed(2)
+  if (amt >= 0.01) {
+    return '有效投注 ¥' + fmt(bet) + ' · ' + pct + '% = ¥' + fmt(amt)
+  }
+  return '昨日暂无有效投注返水'
+})
+const ogRebateBtnText = computed(() => {
+  const r = ogRebate.value || {}
+  if (ogRebateBusy.value) return '领取中…'
+  if (r.claimed) return '已领取'
+  const amt = Number(r.rebate_amount) || 0
+  if (r.claimable && amt >= 0.01) return '领取 ¥' + amt.toFixed(2)
+  return '暂无'
+})
+
+async function loadOgRebate() {
+  if (!getToken()) {
+    ogRebate.value = { enabled: false, claimable: false, claimed: false, rebate_amount: 0, bet_amount: 0, rate_percent: 1, biz_date: '' }
+    return
+  }
+  try {
+    const data = await ogRebateInfo()
+    if (data && typeof data === 'object') {
+      ogRebate.value = {
+        enabled: !!data.enabled,
+        claimable: !!data.claimable,
+        claimed: !!data.claimed,
+        rebate_amount: Number(data.rebate_amount) || 0,
+        bet_amount: Number(data.bet_amount) || 0,
+        rate_percent: Number(data.rate_percent) || 0,
+        biz_date: String(data.biz_date || ''),
+      }
+    }
+  } catch (e) {
+    // 未登录/接口失败时隐藏条
+    ogRebate.value = Object.assign({}, ogRebate.value, { enabled: false })
+  }
+}
+
+async function onClaimOgRebate() {
+  if (ogRebateBusy.value) return
+  const r = ogRebate.value || {}
+  if (!r.enabled) return
+  if (r.claimed) {
+    uni.showToast({ title: '昨日返水已领取', icon: 'none' })
+    return
+  }
+  if (!r.claimable) {
+    uni.showToast({ title: '昨日暂无返水可领', icon: 'none' })
+    return
+  }
+  ogRebateBusy.value = true
+  try {
+    const data = await ogRebateClaim()
+    const amt = Number(data && data.rebate_amount) || Number(r.rebate_amount) || 0
+    ogRebate.value = Object.assign({}, ogRebate.value, {
+      claimed: true,
+      claimable: false,
+      rebate_amount: amt,
+      bet_amount: Number(data && data.bet_amount) || r.bet_amount,
+    })
+    uni.showToast({ title: '已领取 ¥' + amt.toFixed(2), icon: 'none' })
+    try {
+      notifyProfileUpdated()
+    } catch (eN) {}
+  } catch (e) {
+    uni.showToast({ title: (e && e.message) || '领取失败', icon: 'none' })
+    loadOgRebate().catch(() => {})
+  } finally {
+    ogRebateBusy.value = false
+  }
+}
 
 function noopTouch() {}
 
@@ -2061,6 +2169,7 @@ onShow(async () => {
   } catch (e) {}
   await loadBootstrap()
   await loadLobbyHome()
+  loadOgRebate().catch(() => {})
   prefetchInviteCopy()
   imConnect().catch(() => {})
   startPoll()

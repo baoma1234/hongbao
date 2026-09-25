@@ -666,22 +666,27 @@ class Ogmerchant extends Backend
         $data['og_enabled'] = false;
         $data['og_sandbox'] = false;
         $data['og_bet_sync_enabled'] = false;
+        $data['og_rebate_enabled'] = false;
 
         foreach ($this->ogFields() as $field) {
             if (!$this->request->has($field, 'post')) {
                 continue;
             }
             $value = $this->request->post($field);
-            if (in_array($field, ['og_enabled', 'og_sandbox', 'og_bet_sync_enabled'], true)) {
+            if (in_array($field, ['og_enabled', 'og_sandbox', 'og_bet_sync_enabled', 'og_rebate_enabled'], true)) {
                 $data[$field] = $value ? true : false;
                 } elseif ($field === 'og_timeout') {
                     $data[$field] = max(3, min(120, (int)$value));
                 } elseif (in_array($field, ['og_default_game_id', 'og_default_betlimit', 'og_bet_game_type_id', 'og_bet_limit'], true)) {
                     $data[$field] = max(0, (int)$value);
+                } elseif ($field === 'og_rebate_rate_percent') {
+                    $pct = max(0, min(100, (float)$value));
+                    $data['og_rebate_rate'] = round($pct / 100, 4);
                 } else {
                     $data[$field] = trim((string)$value);
                 }
         }
+        unset($data['og_rebate_rate_percent']);
 
         // 生产短信开关不可被本页改坏（本页只写 og_*，但整文件回写）
         $data['sms_mock_enabled'] = false;
@@ -723,6 +728,8 @@ class Ogmerchant extends Backend
             'og_bet_sync_enabled',
             'og_bet_game_type_id',
             'og_bet_limit',
+            'og_rebate_enabled',
+            'og_rebate_rate_percent',
         ];
     }
 
@@ -752,12 +759,19 @@ class Ogmerchant extends Backend
             'og_bet_sync_enabled' => true,
             'og_bet_game_type_id' => 1,
             'og_bet_limit'        => 5000,
+            'og_rebate_enabled'   => true,
+            'og_rebate_rate'      => 0.01,
         ];
         foreach ($defaults as $k => $v) {
             if (!array_key_exists($k, $config)) {
                 $config[$k] = $v;
             }
         }
+        $rate = (float)($config['og_rebate_rate'] ?? 0.01);
+        if ($rate > 1 && $rate <= 100) {
+            $rate = $rate / 100;
+        }
+        $config['og_rebate_rate_percent'] = rtrim(rtrim(number_format(max(0, $rate) * 100, 2, '.', ''), '0'), '.') ?: '0';
         return $config;
     }
 

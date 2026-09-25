@@ -178,6 +178,9 @@ return array (
   'og_bet_sync_enabled' => true,
   'og_bet_game_type_id' => 1,
   'og_bet_limit' => 5000,
+  // OG 投注返水：有效投注（非平局退本）日累计 × 比例；大厅领取昨日返水
+  'og_rebate_enabled' => true,
+  'og_rebate_rate' => 0.01,
   // 视频发送专用号（完全固定为深夜欲望；不进 chat_agent_accounts 托管）
   'videosend_sender_user_ids' => [11111111],
   'invite_base_url' => 'https://hbsq.bio',
@@ -991,6 +994,7 @@ return array (
     'wallet_ledger_type_og_deposit' => '真人视讯转入',
     'wallet_ledger_type_og_deposit_refund' => '真人视讯退回',
     'wallet_ledger_type_og_withdraw' => '真人视讯转出',
+    'wallet_ledger_type_og_rebate' => '真人视讯返水',
     'wallet_ledger_type_og_live' => '真人视讯',
     'wallet_ledger_cat_og_live' => '真人视讯',
     'wallet_ledger_empty_og_live' => '暂无真人视讯流水',

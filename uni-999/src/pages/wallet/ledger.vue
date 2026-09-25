@@ -138,6 +138,7 @@ function typeTitle(item) {
     og_deposit: '真人视讯转入',
     og_deposit_refund: '真人视讯退回',
     og_withdraw: '真人视讯转出',
+    og_rebate: '真人视讯返水',
     recharge_fail: '充值失败',
     recharge_pending: '充值中',
   }

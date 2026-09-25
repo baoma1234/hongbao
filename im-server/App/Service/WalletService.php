@@ -586,7 +586,7 @@ class WalletService
         if ($delta > 0) {
             // 入账同步累计流水：meta.count_turnover（群80等）或指定赠送类型
             $countTurnoverIn = !empty($meta['count_turnover'])
-                || in_array((string)$type, ['fission_reward', 'invite', 'notice_post', 'recharge'], true);
+                || in_array((string)$type, ['fission_reward', 'invite', 'notice_post', 'recharge', 'og_rebate'], true);
             if ($countTurnoverIn) {
                 $affected = Db::exec(
                     "UPDATE {$table} SET `{$field}`=`{$field}`+(?), turnover=turnover+(?), updatetime=? WHERE user_id=? AND status='normal'",
