@@ -159,7 +159,13 @@ const gemLabel = computed(() => tt('game_detail_gem', '红宝'))
 const defaultAvatar = computed(() => packagedStaticUrl('default-avatar.png'))
 
 function groupDisplayOnline(g) {
-  return (g && (g.online_count || g.member_count || g.display_member_count)) | 0
+  if (!g) return 0
+  const maint = g.maintenance
+  if (maint === true || maint === 1 || maint === '1') return 0
+  const o = Number(g.online_count)
+  if (!isNaN(o) && o > 0) return Math.floor(o)
+  const m = Number(g.member_count != null ? g.member_count : g.display_member_count)
+  return !isNaN(m) && m > 0 ? Math.floor(m) : 0
 }
 
 function findOfficialGroup(matcher) {

@@ -550,9 +550,11 @@ const inviteSrc = computed(() => {
   return mediaUrl(inv.image, inv.imageRaw)
 })
 
-/** 与社群页 groupMembersText 同一口径：优先 online_count */
+/** 与社群页 groupMembersText 同一口径：优先 online_count；维护中强制 0 */
 function groupDisplayOnline(g) {
   if (!g) return 0
+  const maint = g.maintenance
+  if (maint === true || maint === 1 || maint === '1') return 0
   const o = Number(g.online_count)
   if (!isNaN(o) && o > 0) return Math.floor(o)
   const m = Number(g.member_count != null ? g.member_count : g.display_member_count)
