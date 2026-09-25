@@ -4,6 +4,7 @@
       <view class="profile-meta-line">可提现金额：<strong>￥{{ balanceText }}</strong></view>
       <view class="profile-meta-line">出款所需流水为：{{ turnoverNeedText }}</view>
       <view class="profile-meta-line" v-if="frozenText">冻结金额：<strong>￥{{ frozenText }}</strong></view>
+      <view class="profile-meta-line wallet-withdraw-tip">温馨提示：发包将产生对应流水，待流水归零后即可提现。</view>
       <view class="profile-meta-line" v-if="showRealNameLine">
         <template v-if="payoutRealName">真实姓名：<strong>{{ payoutRealName }}</strong></template>
         <template v-else>
