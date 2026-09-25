@@ -1302,9 +1302,11 @@ class Fanshub extends Api
         $limit = (int)$this->request->post('limit', 20);
         $category = trim((string)$this->request->post('category', ''));
         $beforeId = (int)$this->request->post('before_id', 0);
+        $beforeCreatetime = (int)$this->request->post('before_createtime', 0);
         $this->success('ok', \app\common\library\FansHubWallet::ledgerList($this->auth->id, $page, $limit, [
-            'category'  => $category,
-            'before_id' => $beforeId,
+            'category'          => $category,
+            'before_id'         => $beforeId,
+            'before_createtime' => $beforeCreatetime,
         ]));
     }
 

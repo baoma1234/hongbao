@@ -183,10 +183,11 @@ export function getApprovedMainUid(profile) {
   return ''
 }
 
-export async function fetchLedger(page = 1, limit = 20, category = 'all', beforeId = 0) {
+export async function fetchLedger(page = 1, limit = 20, category = 'all', beforeId = 0, beforeCreatetime = 0) {
   const body = { page, limit }
   if (category && category !== 'all') body.category = category
   if (beforeId > 0) body.before_id = beforeId
+  if (beforeCreatetime > 0) body.before_createtime = beforeCreatetime
   return apiRequest('walletledger', 'POST', body)
 }
 

@@ -35,6 +35,20 @@
       </view>
     </view>
 
+    <view
+      v-if="category === 'recharge' || category === 'withdraw'"
+      class="wallet-ledger-summary"
+    >
+      <view v-if="category === 'recharge'" class="wallet-ledger-summary-row">
+        <text class="wallet-ledger-summary-lab">总充值</text>
+        <text class="wallet-ledger-summary-val is-in">¥{{ money(summaryRecharge) }}</text>
+      </view>
+      <view v-if="category === 'withdraw'" class="wallet-ledger-summary-row">
+        <text class="wallet-ledger-summary-lab">总提现</text>
+        <text class="wallet-ledger-summary-val is-out">¥{{ money(summaryWithdraw) }}</text>
+      </view>
+    </view>
+
     <view class="wallet-ledger-list" v-if="list.length">
       <view
         v-for="item in list"
@@ -149,6 +163,8 @@ const loading = ref(false)
 const error = ref('')
 const category = ref('all')
 const filtersExpanded = ref(false)
+const summaryRecharge = ref(0)
+const summaryWithdraw = ref(0)
 /** 鱼虾蟹流水筛选：待产品通知后再开放 */
 const YXX_LEDGER_VISIBLE = false
 
@@ -379,9 +395,10 @@ async function load(p, append) {
   loading.value = true
   error.value = ''
   try {
-    const beforeId =
-      append && list.value.length ? Number(list.value[list.value.length - 1].id) || 0 : 0
-    const data = await fetchLedger(p, 20, category.value, beforeId)
+    const last = append && list.value.length ? list.value[list.value.length - 1] : null
+    const beforeId = last ? Number(last.id) || 0 : 0
+    const beforeCreatetime = last ? Number(last.createtime) || 0 : 0
+    const data = await fetchLedger(p, 20, category.value, beforeId, beforeCreatetime)
     const rows = ((data && data.list) || []).filter((row) => {
       if (category.value !== 'rights') return true
       const r = Math.abs(parseFloat(row && row.rights_change) || 0)
@@ -390,8 +407,17 @@ async function load(p, append) {
     page.value = (data && data.page) || p
     hasMore.value = !!(data && data.has_more)
     list.value = append ? list.value.concat(rows) : rows
+    if (!append) {
+      const sum = (data && data.summary) || {}
+      summaryRecharge.value = Number(sum.recharge_total) || 0
+      summaryWithdraw.value = Number(sum.withdraw_total) || 0
+    }
   } catch (e) {
-    if (!append) list.value = []
+    if (!append) {
+      list.value = []
+      summaryRecharge.value = 0
+      summaryWithdraw.value = 0
+    }
     error.value = (e && e.message) || '加载失败'
   } finally {
     loading.value = false
@@ -408,6 +434,8 @@ function setCategory(cat) {
   if (category.value === cat) return
   category.value = cat
   list.value = []
+  summaryRecharge.value = 0
+  summaryWithdraw.value = 0
   load(1, false)
 }
 
@@ -436,6 +464,37 @@ onShow(() => {
   margin: 0 0 14px;
   padding: 0;
   overflow: visible;
+}
+.wallet-ledger-summary {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #e8ecf1;
+  box-shadow: 0 2px 8px rgba(26, 33, 45, 0.04);
+  box-sizing: border-box;
+}
+.wallet-ledger-summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.wallet-ledger-summary-lab {
+  font-size: 14px;
+  font-weight: 700;
+  color: #5a6573;
+}
+.wallet-ledger-summary-val {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+.wallet-ledger-summary-val.is-in {
+  color: #147a3d;
+}
+.wallet-ledger-summary-val.is-out {
+  color: #c62828;
 }
 .wallet-ledger-filters-row {
   display: grid;

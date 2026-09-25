@@ -307,6 +307,7 @@ class FansHubWallet
         }
         $category = trim((string)($opts['category'] ?? ''));
         $beforeId = (int)($opts['before_id'] ?? 0);
+        $beforeCreatetime = (int)($opts['before_createtime'] ?? 0);
         // 充值中/失败单补写流水（含历史），保证资金流水「充值」分类可查
         if ($category === '' || $category === 'all' || $category === 'recharge') {
             try {
@@ -318,8 +319,7 @@ class FansHubWallet
         $filterTypes = ($category !== '' && $category !== 'all' && !empty($typeMap[$category]))
             ? $typeMap[$category]
             : null;
-        // 仅用 limit+1 判断 has_more，避免大表二次 COUNT（前台不依赖精确 total）
-        // before_id：游标翻页（id < before_id），避免深 page OFFSET
+        // 按时间倒序（最新在前）；同秒再按 id 倒序。before_* 为游标翻页
         $rowsQuery = Db::name('fans_ledger')->where('user_id', $userId);
         if ($category === 'rights') {
             // 股份流水：四舍五入到分后仍有增减（过滤 0.00 脏数据）
@@ -328,13 +328,23 @@ class FansHubWallet
             $rowsQuery->where('type', 'in', $filterTypes);
         }
         if ($beforeId > 0) {
-            $rowsQuery->where('id', '<', $beforeId);
+            $bt = $beforeCreatetime > 0 ? $beforeCreatetime : 0;
+            if ($bt > 0) {
+                $rowsQuery->whereRaw(
+                    '(createtime < ? OR (createtime = ? AND id < ?))',
+                    [$bt, $bt, $beforeId]
+                );
+            } else {
+                $rowsQuery->where('id', '<', $beforeId);
+            }
             $rows = $rowsQuery
-            ->order('id', 'desc')
+                ->order('createtime', 'desc')
+                ->order('id', 'desc')
                 ->limit($limit + 1)
-            ->select();
+                ->select();
         } else {
             $rows = $rowsQuery
+                ->order('createtime', 'desc')
                 ->order('id', 'desc')
                 ->limit(($page - 1) * $limit, $limit + 1)
                 ->select();
@@ -463,16 +473,64 @@ class FansHubWallet
         }
         $n = count($list);
         $nextBeforeId = $n > 0 ? (int)$list[$n - 1]['id'] : 0;
+        $nextBeforeCreatetime = $n > 0 ? (int)$list[$n - 1]['createtime'] : 0;
+        $summary = null;
+        // 充值/提现 Tab：列表上方展示合计（仅成功入账/成功扣款）
+        if ($category === 'recharge' || $category === 'withdraw') {
+            try {
+                $summary = self::ledgerCategorySummary($userId, $category);
+            } catch (\Throwable $eSum) {
+                $summary = [
+                    'recharge_total' => 0,
+                    'withdraw_total' => 0,
+                ];
+            }
+        }
         return [
-            'list'            => $list,
+            'list'                   => $list,
             // 兼容旧字段：非精确总数，仅用于展示/翻页估算
-            'total'           => $hasMore ? (($page * $limit) + 1) : ((($page - 1) * $limit) + $n),
-            'page'            => $page,
-            'limit'           => $limit,
-            'has_more'        => $hasMore,
-            'category'        => ($category !== '' ? $category : 'all'),
-            'next_before_id'  => $nextBeforeId,
+            'total'                  => $hasMore ? (($page * $limit) + 1) : ((($page - 1) * $limit) + $n),
+            'page'                   => $page,
+            'limit'                  => $limit,
+            'has_more'               => $hasMore,
+            'category'               => ($category !== '' ? $category : 'all'),
+            'next_before_id'         => $nextBeforeId,
+            'next_before_createtime' => $nextBeforeCreatetime,
+            'summary'                => $summary,
         ];
+    }
+
+    /**
+     * 充值/提现分类合计（成功入账 / 成功提现扣款）
+     * @return array{recharge_total:float,withdraw_total:float}
+     */
+    public static function ledgerCategorySummary($userId, $category = '')
+    {
+        $userId = (int)$userId;
+        $out = [
+            'recharge_total' => 0.0,
+            'withdraw_total' => 0.0,
+        ];
+        if ($userId <= 0) {
+            return $out;
+        }
+        $category = trim((string)$category);
+        if ($category === '' || $category === 'recharge' || $category === 'all') {
+            $sum = Db::name('fans_ledger')
+                ->where('user_id', $userId)
+                ->where('type', 'recharge')
+                ->sum('hongbao_change');
+            $out['recharge_total'] = round((float)$sum, 2);
+        }
+        if ($category === '' || $category === 'withdraw' || $category === 'all') {
+            // 提现扣款为负；合计展示为正数金额
+            $sum = Db::name('fans_ledger')
+                ->where('user_id', $userId)
+                ->where('type', 'withdraw')
+                ->sum('hongbao_change');
+            $out['withdraw_total'] = round(abs((float)$sum), 2);
+        }
+        return $out;
     }
 
     public static function listChannels($type)
