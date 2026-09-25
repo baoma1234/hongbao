@@ -1122,6 +1122,7 @@ class FansHubOg
         }
 
         $relinked = self::relinkUnmappedBets(5000);
+        $ledgered = self::backfillBetsToLedger(2000);
 
         return [
             'ok'            => true,
@@ -1131,6 +1132,7 @@ class FansHubOg
             'fetched'       => $fetched,
             'upserted'      => $upserted,
             'relinked'      => $relinked,
+            'ledgered'      => $ledgered,
             'fetch_id'      => (int)$cursorBefore,
             'last_fetch_id' => $finalCursor,
             'game_type_id'  => $gameTypeId,
@@ -1245,19 +1247,149 @@ class FansHubOg
             ];
             try {
                 $exist = Db::name('fans_og_bet')->where('transaction_id', $txid)->find();
+                $betId = 0;
                 if ($exist) {
                     // 已有单：若原先未挂上账号则补 user_id
                     if ((int)($exist['user_id'] ?? 0) > 0 && $uid <= 0) {
                         unset($data['user_id']);
+                        $uid = (int)$exist['user_id'];
                     }
                     Db::name('fans_og_bet')->where('id', (int)$exist['id'])->update($data);
+                    $betId = (int)$exist['id'];
                 } else {
+                    // 仅落库本站已对齐用户的注单，避免商户共享号其它玩家污染
+                    if ($uid <= 0) {
+                        continue;
+                    }
                     $data['createtime'] = $debitAt > 0 ? $debitAt : $now;
-                    Db::name('fans_og_bet')->insert($data);
+                    $betId = (int)Db::name('fans_og_bet')->insertGetId($data);
                 }
                 $n++;
+                if ($uid > 0 && $betId > 0) {
+                    $rowForLedger = array_merge($data, [
+                        'id'      => $betId,
+                        'user_id' => $uid,
+                    ]);
+                    self::syncBetToWalletLedger($rowForLedger);
+                }
             } catch (\Throwable $e) {
                 // 表未装或唯一冲突时跳过
+            }
+        }
+        return $n;
+    }
+
+    /**
+     * 已对齐本站用户的 OG 注单 → 写入资金流水（类型 og_live / 文案「真人视讯」）
+     * 仅记账展示，不改红宝余额（筹码变动已在 OG 侧完成）。
+     */
+    public static function syncBetToWalletLedger(array $bet)
+    {
+        $uid = (int)($bet['user_id'] ?? 0);
+        $betId = (int)($bet['id'] ?? 0);
+        $txid = trim((string)($bet['transaction_id'] ?? ''));
+        if ($uid <= 0 || ($betId <= 0 && $txid === '')) {
+            return false;
+        }
+        $winlose = round((float)($bet['winlose_amount'] ?? 0), 2);
+        $debit = round((float)($bet['debit_amount'] ?? 0), 2);
+        $credit = round((float)($bet['credit_amount'] ?? 0), 2);
+        $gameName = trim((string)($bet['game_name'] ?? ''));
+        $betPlace = trim((string)($bet['bet_place'] ?? ''));
+        $roundId = (int)($bet['round_id'] ?? 0);
+        $debitAt = (int)($bet['debit_at'] ?? 0);
+        $parts = ['真人视讯'];
+        if ($gameName !== '') {
+            $parts[] = $gameName;
+        }
+        if ($betPlace !== '') {
+            $parts[] = $betPlace;
+        }
+        if ($roundId > 0) {
+            $parts[] = '局#' . $roundId;
+        }
+        if ($debit > 0.00001 || $credit > 0.00001) {
+            $parts[] = sprintf('投%.2f/派%.2f', $debit, $credit);
+        }
+        $remark = mb_substr(implode(' · ', $parts), 0, 250);
+        $bizNo = $txid !== '' ? mb_substr($txid, 0, 40) : ('ogbet' . $betId);
+        $createtime = $debitAt > 0 ? $debitAt : (int)($bet['createtime'] ?? time());
+
+        try {
+            $acc = Db::name('fans_account')->where('user_id', $uid)->field('hongbao,rights,balance')->find();
+            $hongbaoAfter = round((float)($acc['hongbao'] ?? 0), 2);
+            $rightsAfter = round((float)($acc['rights'] ?? 0), 2);
+            $balanceAfter = round((float)($acc['balance'] ?? 0), 2);
+
+            $exist = null;
+            if ($betId > 0) {
+                $exist = Db::name('fans_ledger')
+                    ->where('user_id', $uid)
+                    ->where('type', 'og_live')
+                    ->where('ref_type', 'og_bet')
+                    ->where('ref_id', $betId)
+                    ->find();
+            }
+            if (!$exist && $bizNo !== '') {
+                $exist = Db::name('fans_ledger')
+                    ->where('user_id', $uid)
+                    ->where('type', 'og_live')
+                    ->where('biz_no', $bizNo)
+                    ->find();
+            }
+
+            $payload = [
+                'user_id'         => $uid,
+                'type'            => 'og_live',
+                'rights_change'   => 0,
+                'balance_change'  => 0,
+                'hongbao_change'  => $winlose,
+                'rights_after'    => $rightsAfter,
+                'balance_after'   => $balanceAfter,
+                'hongbao_after'   => $hongbaoAfter,
+                'remark'          => $remark,
+                'channel'         => 'og_live',
+                'biz_no'          => $bizNo,
+                'ref_type'        => 'og_bet',
+                'ref_id'          => $betId,
+                'admin_id'        => 0,
+                'createtime'      => $createtime,
+            ];
+
+            if ($exist) {
+                unset($payload['createtime']);
+                Db::name('fans_ledger')->where('id', (int)$exist['id'])->update($payload);
+            } else {
+                Db::name('fans_ledger')->insert($payload);
+            }
+            return true;
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    /**
+     * 回填：已映射 user_id 的 OG 注单写入会员资金流水
+     */
+    public static function backfillBetsToLedger($limit = 2000)
+    {
+        $limit = max(1, min(20000, (int)$limit));
+        $n = 0;
+        try {
+            $rows = Db::name('fans_og_bet')
+                ->where('user_id', '>', 0)
+                ->order('id', 'asc')
+                ->limit($limit)
+                ->select();
+        } catch (\Throwable $e) {
+            return 0;
+        }
+        foreach ((array)$rows as $row) {
+            if (!is_array($row)) {
+                $row = (array)$row;
+            }
+            if (self::syncBetToWalletLedger($row)) {
+                $n++;
             }
         }
         return $n;
@@ -1297,6 +1429,10 @@ class FansHubOg
                     'updatetime' => $now,
                 ]);
                 self::ensurePlayerMap($uid, $pid);
+                $fresh = Db::name('fans_og_bet')->where('id', $id)->find();
+                if ($fresh) {
+                    self::syncBetToWalletLedger(is_array($fresh) ? $fresh : (array)$fresh);
+                }
                 $n++;
             } catch (\Throwable $e) {
                 // ignore

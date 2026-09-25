@@ -178,9 +178,10 @@ class FansHubWallet
             'yxx_owner'                    => '鱼虾蟹群主分成',
             'fission_reward'               => '裂变红包',
             'notice_post'                  => '发帖奖励',
-            'og_deposit'                   => 'OG视讯存入',
-            'og_deposit_refund'            => 'OG存入退回',
-            'og_withdraw'                  => 'OG视讯提出',
+            'og_deposit'                   => '真人视讯转入',
+            'og_deposit_refund'            => '真人视讯退回',
+            'og_withdraw'                  => '真人视讯转出',
+            'og_live'                      => '真人视讯',
         ];
     }
 
@@ -232,6 +233,12 @@ class FansHubWallet
             'withdraw' => [
                 'withdraw',
                 'withdraw_refund',
+            ],
+            'og_live' => [
+                'og_live',
+                'og_deposit',
+                'og_deposit_refund',
+                'og_withdraw',
             ],
             // 股份变动：增加/减少/兑换（实际列表以 rights_change≠0 为准，此列表作兜底）
             'rights' => [

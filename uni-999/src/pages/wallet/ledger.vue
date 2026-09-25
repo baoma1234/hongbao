@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <ProfileSubPage title="资金流水" body-class="hb-sub">
     <view class="wallet-ledger-filters">
       <view class="wallet-ledger-filters-row">
@@ -120,6 +120,10 @@ function typeTitle(item) {
     open_account: '开户奖励',
     admin_adjust: '人工调整',
     honor_tier: '荣誉晋升',
+    og_live: '真人视讯',
+    og_deposit: '真人视讯转入',
+    og_deposit_refund: '真人视讯退回',
+    og_withdraw: '真人视讯转出',
   }
   const fb = lab && lab !== type ? lab : (localFallback[type] || '变动')
   if (type) {
@@ -156,6 +160,7 @@ const moreTabs = [
   { key: 'hongbao_in', label: '红宝入账', ico: '🧧', tone: 'hb' },
   { key: 'hongbao_niuniu', label: '红宝牛牛', ico: '🐂', tone: 'nn' },
   { key: 'hongbao_yxx', label: tt('wallet_ledger_cat_yxx', '鱼虾蟹'), ico: '🦐', tone: 'yxx' },
+  { key: 'og_live', label: tt('wallet_ledger_cat_og_live', '真人视讯'), ico: '🎬', tone: 'og' },
   { key: 'refund', label: '红宝退回', ico: '↩', tone: 'back' },
   { key: 'rebate', label: '红宝返佣', ico: '%', tone: 'rebate' },
 ].filter((t) => YXX_LEDGER_VISIBLE || t.key !== 'hongbao_yxx')
@@ -171,6 +176,7 @@ const emptyText = computed(() => {
   if (category.value === 'hongbao_in') return '暂无红宝入账流水'
   if (category.value === 'hongbao_niuniu') return '暂无红宝牛牛流水'
   if (category.value === 'hongbao_yxx') return tt('wallet_ledger_empty_yxx', '暂无鱼虾蟹流水')
+  if (category.value === 'og_live') return tt('wallet_ledger_empty_og_live', '暂无真人视讯流水')
   if (category.value === 'refund') return '暂无红宝退回流水'
   if (category.value === 'freeze') return '暂无冻结记录'
   if (category.value === 'recharge') return '暂无充值流水'
