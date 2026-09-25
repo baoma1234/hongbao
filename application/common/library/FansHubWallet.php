@@ -824,7 +824,15 @@ class FansHubWallet
         $status = 'pending';
         try {
             $payInfo = self::dispatchRecharge($handler, $channel, $userId, $amount, $orderNo);
-            $status = !empty($payInfo['paid']) ? 'paid' : 'pending';
+            if (!empty($payInfo['paid'])) {
+                $status = 'paid';
+            } elseif (!empty($payInfo['failed'])
+                || (string)($payInfo['action'] ?? '') === 'error'
+                || (string)($payInfo['status'] ?? '') === 'failed') {
+                $status = 'failed';
+            } else {
+                $status = 'pending';
+            }
             Db::name('fans_recharge_order')->where('order_no', $orderNo)->update([
                 'status'     => $status,
                 'pay_info'   => json_encode($payInfo, JSON_UNESCAPED_UNICODE),
@@ -841,7 +849,9 @@ class FansHubWallet
                 'order_no'=> $orderNo,
             ];
             try {
+                // 拉起失败也保留在充值订单列表，状态记为 failed（非 pending）
                 Db::name('fans_recharge_order')->where('order_no', $orderNo)->update([
+                    'status'     => 'failed',
                     'pay_info'   => json_encode($errPay, JSON_UNESCAPED_UNICODE),
                     'remark'     => mb_substr('通道拉起失败：' . $e->getMessage(), 0, 250),
                     'updatetime' => time(),

@@ -8,11 +8,33 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                 }
             });
             var table = $("#table");
+            var statusFilter = '';
             table.bootstrapTable({
                 url: $.fn.bootstrapTable.defaults.extend.index_url,
                 pk: 'id',
                 sortName: 'id',
                 sortOrder: 'desc',
+                queryParams: function (params) {
+                    var filter = {};
+                    var op = {};
+                    try {
+                        filter = params.filter ? JSON.parse(params.filter) : {};
+                        op = params.op ? JSON.parse(params.op) : {};
+                    } catch (e) {
+                        filter = {};
+                        op = {};
+                    }
+                    if (statusFilter) {
+                        filter.status = statusFilter;
+                        op.status = '=';
+                    } else {
+                        delete filter.status;
+                        delete op.status;
+                    }
+                    params.filter = JSON.stringify(filter);
+                    params.op = JSON.stringify(op);
+                    return params;
+                },
                 columns: [[
                     {checkbox: true},
                     {field: 'id', title: 'ID', sortable: true},
@@ -26,9 +48,10 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                         field: 'status',
                         title: '状态',
                         searchList: {"pending": "待支付", "paid": "已到账", "failed": "失败", "cancelled": "已取消"},
+                        custom: {pending: 'warning', paid: 'success', failed: 'danger', cancelled: 'gray'},
                         formatter: Table.api.formatter.status
                     },
-                    {field: 'remark', title: '备注', operate: 'LIKE'},
+                    {field: 'remark', title: '备注', operate: 'LIKE', formatter: Table.api.formatter.content},
                     {field: 'createtime', title: '创建时间', operate: 'RANGE', addclass: 'datetimerange', formatter: Table.api.formatter.datetime, sortable: true},
                     {field: 'updatetime', title: '更新时间', operate: 'RANGE', addclass: 'datetimerange', formatter: Table.api.formatter.datetime},
                     {
@@ -91,6 +114,13 @@ define(['jquery', 'bootstrap', 'backend', 'table', 'form'], function ($, undefin
                 ]]
             });
             Table.api.bindevent(table);
+            $(document).on('click', '.btn-status-filter', function () {
+                var $btn = $(this);
+                statusFilter = String($btn.data('status') || '');
+                $('.btn-status-filter').removeClass('active btn-primary').addClass('btn-default');
+                $btn.removeClass('btn-default').addClass('active btn-primary');
+                table.bootstrapTable('refresh', {pageNumber: 1});
+            });
         }
     };
     return Controller;
