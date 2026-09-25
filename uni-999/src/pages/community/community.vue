@@ -50,7 +50,11 @@
                           <text class="chat-official-tag">{{ officialGroupTag(g, idx) }}</text>
                         </view>
                       </view>
-                      <view class="chat-official-join" @click.stop="openGroup(g)">立即进群</view>
+                      <view
+                        class="chat-official-join"
+                        :class="{ 'is-maint': isGroupMaintenance(g) }"
+                        @click.stop="openGroup(g)"
+                      >{{ isGroupMaintenance(g) ? '维护中' : '立即进群' }}</view>
                     </view>
                     <view v-if="!communityRecs.length" class="chat-empty chat-empty-glass">暂无推荐社群</view>
                     <view class="chat-list-scroll-pad chat-list-scroll-pad--official" aria-hidden="true">
@@ -87,7 +91,11 @@
                           <text class="chat-official-tag">频道</text>
                         </view>
                       </view>
-                      <view class="chat-official-join" @click.stop="openGroup(g)">立即进群</view>
+                      <view
+                        class="chat-official-join"
+                        :class="{ 'is-maint': isGroupMaintenance(g) }"
+                        @click.stop="openGroup(g)"
+                      >{{ isGroupMaintenance(g) ? '维护中' : '立即进群' }}</view>
                     </view>
                     <view v-if="!channelGroups.length && channelLoading" class="chat-empty chat-empty-glass">加载中…</view>
                     <view v-else-if="!channelGroups.length" class="chat-empty chat-empty-glass">暂无频道群组</view>
@@ -569,7 +577,14 @@ function measureCommunityLayout() {
   measureOfficialDockClearance()
 }
 
+function isGroupMaintenance(g) {
+  if (!g) return false
+  const v = g.maintenance
+  return v === true || v === 1 || v === '1'
+}
+
 function groupMembersText(g) {
+  if (isGroupMaintenance(g)) return '0人在线'
   const n = (() => {
     if (!g) return 0
     const o = Number(g.online_count)
@@ -950,6 +965,10 @@ function isMyGroupMember(groupId) {
 async function openGroup(g) {
   const groupId = (g && (g.id || g.group_id)) | 0
   if (!groupId) return
+  if (isGroupMaintenance(g)) {
+    uni.showToast({ title: '维护中', icon: 'none' })
+    return
+  }
   const alreadyMember = !!(g && g.is_member) || isMyGroupMember(groupId)
   try {
     if (!alreadyMember) {
@@ -970,7 +989,12 @@ async function openGroup(g) {
       { groupId }
     )
   } catch (e) {
-    uni.showToast({ title: (e && e.message) || '进入社群失败', icon: 'none' })
+    const msg = String((e && e.message) || '')
+    if (/维护/.test(msg)) {
+      uni.showToast({ title: '维护中', icon: 'none' })
+      return
+    }
+    uni.showToast({ title: msg || '进入社群失败', icon: 'none' })
   }
 }
 
@@ -1242,6 +1266,10 @@ onHide(() => {
   font-size: 13px;
   font-weight: 500;
   background: #12b7f5;
+}
+.chat-official-join.is-maint {
+  background: #9aa3af;
+  color: #fff;
 }
 .chat-community-pane--official,
 .chat-community-pane--feed {

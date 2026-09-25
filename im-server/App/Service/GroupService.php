@@ -251,6 +251,7 @@ class GroupService
             $canSpeak = false;
         }
         $isOfficial = $group && OfficialStatsService::isOfficialRecommend($group);
+        $isMaint = $group && $this->isMaintenanceGroup($group);
         $payload = [
             'group'              => $group,
             'my_role'            => $myRole,
@@ -258,10 +259,11 @@ class GroupService
             'notify_mute'        => $this->isNotifyMute($groupId, $uid),
             'forbid_modes'       => $this->parseForbidModes($group ?: []),
             'member_count'       => $this->publicMemberCount($group ?: []),
-            'online_count'       => $isOfficial ? OfficialStatsService::onlineCount($groupId) : 0,
+            'online_count'       => ($isMaint || !$isOfficial) ? 0 : OfficialStatsService::onlineCount($groupId),
+            'maintenance'        => $isMaint,
             'member_list_hidden' => false,
             'staff_only'         => !empty($policy['member_list_hidden']),
-            'can_speak'          => $canSpeak,
+            'can_speak'          => $isMaint ? false : $canSpeak,
             'policy'             => $policy,
             'my_user_id'         => $uid,
         ];
@@ -651,7 +653,8 @@ class GroupService
                 'notice'        => (string)($g['notice'] ?? ''),
                 'notice_images' => $this->decodeNoticeImages($g['notice_images'] ?? ''),
                 'member_count'  => OfficialStatsService::memberCount($gid, $display),
-                'online_count'  => OfficialStatsService::onlineCount($gid),
+                'online_count'  => $this->isMaintenanceGroup($g) ? 0 : OfficialStatsService::onlineCount($gid),
+                'maintenance'   => $this->isMaintenanceGroup($g) ? 1 : 0,
                 'is_member'     => !empty($joined[$gid]),
                 'privacy_mode'  => (string)($g['privacy_mode'] ?? 'private'),
                 'chat_mode'     => (string)($g['chat_mode'] ?? 'chat'),
@@ -673,6 +676,9 @@ class GroupService
         $group = $this->get($groupId);
         if (!$group || !in_array((int)$group['status'], [1, 3], true)) {
             throw new \RuntimeException('group unavailable');
+        }
+        if ($this->isMaintenanceGroup($group)) {
+            throw new \RuntimeException('群维护中');
         }
         // 已是成员直接返回（隐私群从「我的群组」重进时也会打到 join）
         if ($this->isMember($groupId, $userId)) {
@@ -793,6 +799,36 @@ class GroupService
             $cached = false;
         }
         return $cached;
+    }
+
+    protected function hasMaintenanceColumn()
+    {
+        static $cached = null;
+        if ($cached !== null) {
+            return $cached;
+        }
+        try {
+            $row = Db::fetch('SHOW COLUMNS FROM ' . Db::table('chat_groups') . " LIKE 'maintenance'");
+            $cached = (bool)$row;
+        } catch (\Throwable $e) {
+            $cached = false;
+        }
+        return $cached;
+    }
+
+    /** @param array|mixed $group */
+    public function isMaintenanceGroup($group)
+    {
+        if (!$this->hasMaintenanceColumn()) {
+            return false;
+        }
+        if (is_numeric($group)) {
+            $group = $this->get((int)$group);
+        }
+        if (!is_array($group) || !$group) {
+            return false;
+        }
+        return (int)($group['maintenance'] ?? 0) === 1;
     }
 
     public function getMember($groupId, $userId)

@@ -396,6 +396,11 @@ class FansHubOfficialStats
             $query = Db::name('chat_groups')
                 ->where('status', 'in', [1, 3])
                 ->where('is_recommend', 1);
+            if (self::hasMaintenanceColumn()) {
+                $query->where(function ($q) {
+                    $q->whereNull('maintenance')->whereOr('maintenance', 0);
+                });
+            }
             if ($hasType) {
                 $query->where(function ($q) {
                     $q->whereNull('group_type')->whereOr('group_type', 'in', ['', 'group']);
@@ -676,12 +681,54 @@ class FansHubOfficialStats
         if ($groupId <= 0) {
             return 0;
         }
+        if (self::isMaintenanceGroup($groupId)) {
+            return 0;
+        }
         $map = self::onlineCountMap();
         if (isset($map[$groupId])) {
             return (int)$map[$groupId];
         }
         // 非官方推荐群：沿用旧兜底（按分钟桶小幅浮动，避免秒级乱跳）
         return max(0, self::onlineBase($groupId) + self::floatDelta('oo:' . $groupId, self::onlineBucket()));
+    }
+
+    public static function hasMaintenanceColumn()
+    {
+        static $cached = null;
+        if ($cached !== null) {
+            return $cached;
+        }
+        try {
+            $cached = !empty(Db::query("SHOW COLUMNS FROM `fa_chat_groups` LIKE 'maintenance'"));
+        } catch (\Throwable $e) {
+            $cached = false;
+        }
+        return $cached;
+    }
+
+    public static function isMaintenanceGroup($groupId)
+    {
+        $groupId = (int)$groupId;
+        if ($groupId <= 0 || !self::hasMaintenanceColumn()) {
+            return false;
+        }
+        static $memo = [];
+        static $memoAt = 0;
+        $now = time();
+        if (($now - $memoAt) > 30) {
+            $memo = [];
+            $memoAt = $now;
+        }
+        if (array_key_exists($groupId, $memo)) {
+            return $memo[$groupId];
+        }
+        try {
+            $v = (int)Db::name('chat_groups')->where('id', $groupId)->value('maintenance');
+            $memo[$groupId] = ($v === 1);
+        } catch (\Throwable $e) {
+            $memo[$groupId] = false;
+        }
+        return $memo[$groupId];
     }
 
     public static function viewerCount($groupId)

@@ -180,6 +180,12 @@ export async function tryConsumeGroupJoin(opts = {}) {
   } catch (e) {
     // 已在群内也算成功：进房后由 chat 拉 group.info 显示真实群名
     const msg = String((e && e.message) || '')
+    if (/维护/.test(msg)) {
+      if (!silent) {
+        uni.showToast({ title: '维护中', icon: 'none' })
+      }
+      return false
+    }
     if (/already|已在|member/i.test(msg) || msg === '') {
       clearPendingGroupJoin()
       openChatPage(inviteChatUrl(gid), { groupId: gid })

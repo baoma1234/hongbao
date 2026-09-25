@@ -231,12 +231,15 @@ class OfficialStatsService
         try {
             $table = Db::table('chat_groups');
             $rows = Db::fetchAll(
-                'SELECT id, group_type FROM ' . $table
+                'SELECT id, group_type, IFNULL(maintenance,0) AS maintenance FROM ' . $table
                 . ' WHERE status IN (1,3) AND is_recommend=1 ORDER BY weigh DESC, id ASC'
             );
             foreach ((array)$rows as $row) {
                 $id = (int)($row['id'] ?? 0);
                 if ($id <= 0 || !empty($exclude[$id])) {
+                    continue;
+                }
+                if ((int)($row['maintenance'] ?? 0) === 1) {
                     continue;
                 }
                 $gt = strtolower(trim((string)($row['group_type'] ?? '')));
@@ -434,11 +437,42 @@ class OfficialStatsService
         if ($groupId <= 0) {
             return 0;
         }
+        if (self::isMaintenanceGroup($groupId)) {
+            return 0;
+        }
         $map = self::onlineCountMap();
         if (isset($map[$groupId])) {
             return (int)$map[$groupId];
         }
         return max(0, self::onlineBase($groupId) + self::floatDelta('oo:' . $groupId, self::onlineBucket()));
+    }
+
+    public static function isMaintenanceGroup($groupId)
+    {
+        $groupId = (int)$groupId;
+        if ($groupId <= 0) {
+            return false;
+        }
+        static $memo = [];
+        static $memoAt = 0;
+        $now = time();
+        if (($now - $memoAt) > 30) {
+            $memo = [];
+            $memoAt = $now;
+        }
+        if (array_key_exists($groupId, $memo)) {
+            return $memo[$groupId];
+        }
+        try {
+            $row = Db::fetch(
+                'SELECT IFNULL(maintenance,0) AS maintenance FROM ' . Db::table('chat_groups') . ' WHERE id=? LIMIT 1',
+                [$groupId]
+            );
+            $memo[$groupId] = ((int)($row['maintenance'] ?? 0) === 1);
+        } catch (\Throwable $e) {
+            $memo[$groupId] = false;
+        }
+        return $memo[$groupId];
     }
 
     public static function viewerCount($groupId)

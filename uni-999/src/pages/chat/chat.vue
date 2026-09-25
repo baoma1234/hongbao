@@ -6944,6 +6944,19 @@ async function loadGroupMeta() {
   try {
     const packet = await fetchGroupInfo(meta.value.group | 0)
     const data = (packet && packet.data) || packet || {}
+    const maint =
+      data.maintenance === true ||
+      data.maintenance === 1 ||
+      data.maintenance === '1' ||
+      (data.group &&
+        (data.group.maintenance === true ||
+          data.group.maintenance === 1 ||
+          data.group.maintenance === '1'))
+    if (maint) {
+      uni.showToast({ title: '维护中', icon: 'none' })
+      goBack()
+      return
+    }
     mergeGroupMeta(data)
     applyRpFormDefaults()
   } catch (e) {}

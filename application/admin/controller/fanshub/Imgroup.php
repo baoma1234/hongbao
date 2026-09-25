@@ -18,7 +18,32 @@ class Imgroup extends Backend
     public function _initialize()
     {
         parent::_initialize();
+        $this->ensureMaintenanceColumn();
         $this->view->assign('localeList', FansHubService::i18nLocaleCodes());
+    }
+
+    protected function ensureMaintenanceColumn()
+    {
+        static $done = false;
+        if ($done) {
+            return;
+        }
+        $done = true;
+        try {
+            $prefix = (string)\think\Config::get('database.prefix');
+            if ($prefix === '') {
+                $prefix = 'fa_';
+            }
+            $table = $prefix . 'chat_groups';
+            $col = Db::query("SHOW COLUMNS FROM `{$table}` LIKE 'maintenance'");
+            if (!$col) {
+                Db::execute(
+                    "ALTER TABLE `{$table}` ADD COLUMN `maintenance` tinyint(1) unsigned NOT NULL DEFAULT 0 "
+                    . "COMMENT '1=维护中：禁进群、在线显示0' AFTER `status`"
+                );
+            }
+        } catch (\Throwable $e) {
+        }
     }
 
     protected function decodeNoticeI18n($raw)
@@ -286,6 +311,7 @@ class Imgroup extends Backend
                     'forbid_modes'         => mb_substr($forbidCsv, 0, 64),
                     'forbid_speak_hint'    => mb_substr(trim((string)($params['forbid_speak_hint'] ?? $row['forbid_speak_hint'] ?? '')), 0, 120),
                     'is_recommend'         => ((int)($params['is_recommend'] ?? 0) === 1) ? 1 : 0,
+                    'maintenance'          => ((int)($params['maintenance'] ?? 0) === 1) ? 1 : 0,
                     'group_type'           => (in_array(($params['group_type'] ?? ''), ['channel', 'group'], true)
                         ? $params['group_type']
                         : ((string)($row['group_type'] ?? 'group') === 'channel' ? 'channel' : 'group')),

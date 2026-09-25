@@ -5834,7 +5834,9 @@ class FansHubService
             $item['is_member'] = !empty($joined[$gid]);
             $base = (int)($g['display_member_count'] ?? $g['member_count'] ?? 0);
             $item['member_count'] = FansHubOfficialStats::memberCount($gid, $base);
-            $item['online_count'] = FansHubOfficialStats::onlineCount($gid);
+            $maint = !empty($g['maintenance']) || FansHubOfficialStats::isMaintenanceGroup($gid);
+            $item['maintenance'] = $maint ? 1 : 0;
+            $item['online_count'] = $maint ? 0 : FansHubOfficialStats::onlineCount($gid);
             $out[] = $item;
         }
         return $out;
@@ -5917,6 +5919,7 @@ class FansHubService
                 'group_type'            => $type === 'channel' ? 'channel' : 'group',
                 'weigh'                 => (int)($g['weigh'] ?? 0),
                 'is_recommend'          => (int)($g['is_recommend'] ?? ($defaultType === 'group' ? 1 : 0)),
+                'maintenance'           => (int)($g['maintenance'] ?? 0) === 1 ? 1 : 0,
             ];
         }
         return $out;
