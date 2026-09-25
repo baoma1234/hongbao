@@ -516,19 +516,23 @@ class FansHubWallet
         }
         $category = trim((string)$category);
         if ($category === '' || $category === 'recharge' || $category === 'all') {
-            $sum = Db::name('fans_ledger')
-                ->where('user_id', $userId)
-                ->where('type', 'recharge')
-                ->sum('hongbao_change');
-            $out['recharge_total'] = round((float)$sum, 2);
+            // 成功充值：以入账流水为准（pending/fail 不计入）；兼容旧 balance_change
+            $row = Db::query(
+                'SELECT SUM(CASE WHEN ABS(IFNULL(hongbao_change,0)) > 1e-8'
+                . ' THEN hongbao_change ELSE IFNULL(balance_change,0) END) AS s'
+                . ' FROM ' . (config('database.prefix') ?: 'fa_') . 'fans_ledger'
+                . ' WHERE user_id=? AND type=?',
+                [$userId, 'recharge']
+            );
+            $out['recharge_total'] = round(max(0, (float)($row[0]['s'] ?? 0)), 2);
         }
         if ($category === '' || $category === 'withdraw' || $category === 'all') {
-            // 提现扣款为负；合计展示为正数金额
-            $sum = Db::name('fans_ledger')
+            // 成功提现：仅已出款订单；申请扣款后驳回退回的不计入
+            $sum = Db::name('fans_withdraw_order')
                 ->where('user_id', $userId)
-                ->where('type', 'withdraw')
-                ->sum('hongbao_change');
-            $out['withdraw_total'] = round(abs((float)$sum), 2);
+                ->where('status', 'paid')
+                ->sum('amount');
+            $out['withdraw_total'] = round(max(0, (float)$sum), 2);
         }
         return $out;
     }

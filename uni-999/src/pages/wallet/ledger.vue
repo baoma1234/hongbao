@@ -44,7 +44,7 @@
         <text class="wallet-ledger-summary-val is-in">¥{{ money(summaryRecharge) }}</text>
       </view>
       <view v-if="category === 'withdraw'" class="wallet-ledger-summary-row">
-        <text class="wallet-ledger-summary-lab">总提现</text>
+        <text class="wallet-ledger-summary-lab">成功提现</text>
         <text class="wallet-ledger-summary-val is-out">¥{{ money(summaryWithdraw) }}</text>
       </view>
     </view>
