@@ -36,7 +36,7 @@
     </view>
 
     <view
-      v-if="category === 'recharge' || category === 'withdraw'"
+      v-if="category === 'recharge' || category === 'withdraw' || category === 'og_live'"
       class="wallet-ledger-summary"
     >
       <view v-if="category === 'recharge'" class="wallet-ledger-summary-row">
@@ -47,6 +47,16 @@
         <text class="wallet-ledger-summary-lab">成功提现</text>
         <text class="wallet-ledger-summary-val is-out">¥{{ money(summaryWithdraw) }}</text>
       </view>
+      <template v-if="category === 'og_live'">
+        <view class="wallet-ledger-summary-row">
+          <text class="wallet-ledger-summary-lab">今日总有效投注</text>
+          <text class="wallet-ledger-summary-val is-og">¥{{ money(summaryOgBetToday) }}</text>
+        </view>
+        <view class="wallet-ledger-summary-row is-gap">
+          <text class="wallet-ledger-summary-lab">昨日总有效投注</text>
+          <text class="wallet-ledger-summary-val is-og">¥{{ money(summaryOgBetYesterday) }}</text>
+        </view>
+      </template>
     </view>
 
     <view class="wallet-ledger-list" v-if="list.length">
@@ -166,6 +176,8 @@ const category = ref('all')
 const filtersExpanded = ref(false)
 const summaryRecharge = ref(0)
 const summaryWithdraw = ref(0)
+const summaryOgBetToday = ref(0)
+const summaryOgBetYesterday = ref(0)
 /** 鱼虾蟹流水筛选：待产品通知后再开放 */
 const YXX_LEDGER_VISIBLE = false
 
@@ -412,12 +424,16 @@ async function load(p, append) {
       const sum = (data && data.summary) || {}
       summaryRecharge.value = Number(sum.recharge_total) || 0
       summaryWithdraw.value = Number(sum.withdraw_total) || 0
+      summaryOgBetToday.value = Number(sum.og_valid_bet_today) || 0
+      summaryOgBetYesterday.value = Number(sum.og_valid_bet_yesterday) || 0
     }
   } catch (e) {
     if (!append) {
       list.value = []
       summaryRecharge.value = 0
       summaryWithdraw.value = 0
+      summaryOgBetToday.value = 0
+      summaryOgBetYesterday.value = 0
     }
     error.value = (e && e.message) || '加载失败'
   } finally {
@@ -437,6 +453,8 @@ function setCategory(cat) {
   list.value = []
   summaryRecharge.value = 0
   summaryWithdraw.value = 0
+  summaryOgBetToday.value = 0
+  summaryOgBetYesterday.value = 0
   load(1, false)
 }
 
@@ -491,11 +509,19 @@ onShow(() => {
   font-weight: 800;
   letter-spacing: 0.2px;
 }
+.wallet-ledger-summary-row.is-gap {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #eef1f5;
+}
 .wallet-ledger-summary-val.is-in {
   color: #147a3d;
 }
 .wallet-ledger-summary-val.is-out {
   color: #c62828;
+}
+.wallet-ledger-summary-val.is-og {
+  color: #1a56c4;
 }
 .wallet-ledger-filters-row {
   display: grid;

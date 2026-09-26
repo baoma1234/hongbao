@@ -477,14 +477,16 @@ class FansHubWallet
         $nextBeforeId = $n > 0 ? (int)$list[$n - 1]['id'] : 0;
         $nextBeforeCreatetime = $n > 0 ? (int)$list[$n - 1]['createtime'] : 0;
         $summary = null;
-        // 充值/提现 Tab：列表上方展示合计（仅成功入账/成功扣款）
-        if ($category === 'recharge' || $category === 'withdraw') {
+        // 充值/提现 Tab：列表上方展示合计；真人视讯：今日/昨日有效投注
+        if ($category === 'recharge' || $category === 'withdraw' || $category === 'og_live') {
             try {
                 $summary = self::ledgerCategorySummary($userId, $category);
             } catch (\Throwable $eSum) {
                 $summary = [
-                    'recharge_total' => 0,
-                    'withdraw_total' => 0,
+                    'recharge_total'         => 0,
+                    'withdraw_total'         => 0,
+                    'og_valid_bet_today'     => 0,
+                    'og_valid_bet_yesterday' => 0,
                 ];
             }
         }
@@ -503,20 +505,27 @@ class FansHubWallet
     }
 
     /**
-     * 充值/提现分类合计（成功入账 / 成功提现扣款）
-     * @return array{recharge_total:float,withdraw_total:float}
+     * 分类合计：充值/提现成功额，或真人视讯今日/昨日有效投注
+     * @return array{recharge_total:float,withdraw_total:float,og_valid_bet_today:float,og_valid_bet_yesterday:float}
      */
     public static function ledgerCategorySummary($userId, $category = '')
     {
         $userId = (int)$userId;
         $out = [
-            'recharge_total' => 0.0,
-            'withdraw_total' => 0.0,
+            'recharge_total'         => 0.0,
+            'withdraw_total'         => 0.0,
+            'og_valid_bet_today'     => 0.0,
+            'og_valid_bet_yesterday' => 0.0,
         ];
         if ($userId <= 0) {
             return $out;
         }
         $category = trim((string)$category);
+        if ($category === 'og_live') {
+            $out['og_valid_bet_today'] = FansHubOgRebate::sumEligibleBets($userId, date('Y-m-d'));
+            $out['og_valid_bet_yesterday'] = FansHubOgRebate::sumEligibleBets($userId, FansHubOgRebate::yesterdayYmd());
+            return $out;
+        }
         if ($category === '' || $category === 'recharge' || $category === 'all') {
             // 成功充值：以入账流水为准（pending/fail 不计入）；兼容旧 balance_change
             $row = Db::query(
