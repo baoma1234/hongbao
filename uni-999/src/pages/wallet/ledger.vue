@@ -538,6 +538,9 @@ onShow(() => {
   width: 100%;
   box-sizing: border-box;
 }
+.wallet-ledger-filters-primary {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
 .wallet-ledger-filter {
   display: flex;
   flex-direction: column;
