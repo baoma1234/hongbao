@@ -1,5 +1,5 @@
 <template>
-  <view class="game-lobby-page">
+  <view class="game-lobby-page" :style="lobbyCssVars">
     <TopBar />
     <view class="game-lobby" :style="lobbyPageStyle">
       <view class="game-lobby-inner">
@@ -256,6 +256,31 @@
         </view>
       </view>
     </view>
+
+    <!-- 左右浮标：固定层，不随大厅滚动 -->
+    <view v-if="lobbyFloatsLeft.length" class="home-lobby-floats is-left">
+      <view
+        v-for="f in lobbyFloatsLeft"
+        :key="'fl' + f.id"
+        class="home-lobby-float"
+        hover-class="home-lobby-float--active"
+        @click="onFloatTap(f)"
+      >
+        <image class="home-lobby-float-img" :src="f.src" mode="aspectFit" />
+      </view>
+    </view>
+    <view v-if="lobbyFloatsRight.length" class="home-lobby-floats is-right">
+      <view
+        v-for="f in lobbyFloatsRight"
+        :key="'fr' + f.id"
+        class="home-lobby-float"
+        hover-class="home-lobby-float--active"
+        @click="onFloatTap(f)"
+      >
+        <image class="home-lobby-float-img" :src="f.src" mode="aspectFit" />
+      </view>
+    </view>
+
     <WelcomeLottery ref="lotteryRef" :share-price="sharePrice" @done="onLotteryDone" />
     <BottomTabBar active="home" />
   </view>
@@ -466,6 +491,13 @@ const lobbyPageStyle = computed(() => {
   const pad = TAB_BAR_CONTENT_PX + Math.max(0, Number(lobbySafeBottom.value) || 0) + 16
   return {
     paddingBottom: pad + 'px',
+  }
+})
+
+/** 浮标等固定层也要用底栏安全距，变量挂在 page 根上 */
+const lobbyCssVars = computed(() => {
+  const pad = TAB_BAR_CONTENT_PX + Math.max(0, Number(lobbySafeBottom.value) || 0) + 16
+  return {
     '--lobby-safe-bottom': (Number(lobbySafeBottom.value) || 0) + 'px',
     '--lobby-tab-pad': pad + 'px',
   }
@@ -657,6 +689,28 @@ const inviteSrc = computed(() => {
   if (!inv) return ''
   return mediaUrl(inv.image, inv.imageRaw)
 })
+
+const lobbyFloats = computed(() => {
+  const rows = remoteLobby.value && remoteLobby.value.floats
+  if (!Array.isArray(rows) || !rows.length) return []
+  return rows
+    .map((f, i) => {
+      const src = mediaUrl(String(f.image || ''), String(f.image_raw || f.image || ''))
+      if (!src) return null
+      const side = String(f.side || 'right').toLowerCase() === 'left' ? 'left' : 'right'
+      return {
+        id: f.id || 'f' + i,
+        side,
+        linkType: String(f.link_type || 'internal'),
+        linkUrl: String(f.link_url || ''),
+        src,
+      }
+    })
+    .filter(Boolean)
+})
+
+const lobbyFloatsLeft = computed(() => lobbyFloats.value.filter((f) => f.side === 'left'))
+const lobbyFloatsRight = computed(() => lobbyFloats.value.filter((f) => f.side === 'right'))
 
 /** 与社群页 groupMembersText 同一口径：优先 online_count；维护中强制 0 */
 function groupDisplayOnline(g) {
@@ -963,6 +1017,24 @@ function openLobbyLink(raw) {
       fail: () => uni.reLaunch({ url: u }),
     })
   }
+}
+
+function onFloatTap(f) {
+  if (!f) return
+  const lt = String(f.linkType || 'internal')
+  if (lt === 'none') return
+  const url = String(f.linkUrl || '').trim()
+  if (!url) return
+  if (lt === 'external') {
+    if (/^https?:\/\//i.test(url)) {
+      openExternalHttpUrl(url)
+    } else {
+      uni.showToast({ title: '外链无效', icon: 'none' })
+    }
+    return
+  }
+  // internal（及兼容旧值）
+  openLobbyLink(url)
 }
 
 function onCarnivalBanner() {

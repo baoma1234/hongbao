@@ -1,0 +1,60 @@
+<form id="edit-form" class="form-horizontal" role="form" data-toggle="validator" method="POST" action="">
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">备注名:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input type="text" class="form-control" name="row[title]" value="{$row.title|default=''|htmlentities}" maxlength="64" placeholder="后台识别用">
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">悬浮图标:</label>
+        <div class="col-xs-12 col-sm-8">
+            <div class="input-group">
+                <input id="c-image" class="form-control" size="50" name="row[image]" type="text" value="{$row.image|default=''|htmlentities}" data-rule="required">
+                <div class="input-group-addon no-border no-padding">
+                    <span><button type="button" id="faupload-image" class="btn btn-danger faupload" data-input-id="c-image" data-mimetype="image/gif,image/jpeg,image/png,image/jpg,image/bmp,image/webp" data-multiple="false" data-preview-id="p-image"><i class="fa fa-upload"></i> {:__('Upload')}</button></span>
+                </div>
+            </div>
+            <ul class="row list-inline faupload-preview" id="p-image"></ul>
+            <span class="help-block">建议透明底 PNG，约 120×120</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">左右位置:</label>
+        <div class="col-xs-12 col-sm-8">
+            {:build_radios('row[side]', $sideList, (isset($row['side']) ? $row['side'] : 'right'))}
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">跳转类型:</label>
+        <div class="col-xs-12 col-sm-8">
+            {:build_radios('row[link_type]', $linkTypeList, (isset($row['link_type']) ? $row['link_type'] : 'internal'))}
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">跳转地址:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input type="text" class="form-control" name="row[link_url]" value="{$row.link_url|default=''|htmlentities}" placeholder="站内如 pages/notice/notice；站外如 https://example.com">
+            <span class="help-block">站内填 uni 路径（可带 query）；站外须 http:// 或 https://</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">排序:</label>
+        <div class="col-xs-12 col-sm-8">
+            <input type="number" class="form-control" name="row[weigh]" value="{$row.weigh|default=0}">
+            <span class="help-block">同侧越大越靠上</span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="control-label col-xs-12 col-sm-2">状态:</label>
+        <div class="col-xs-12 col-sm-8">
+            {:build_radios('row[status]', $statusList, (isset($row['status']) ? $row['status'] : 'normal'))}
+        </div>
+    </div>
+    <div class="form-group layer-footer">
+        <label class="control-label col-xs-12 col-sm-2"></label>
+        <div class="col-xs-12 col-sm-8">
+            <button type="submit" class="btn btn-success btn-embossed">{:__('OK')}</button>
+            <button type="reset" class="btn btn-default btn-embossed">{:__('Reset')}</button>
+        </div>
+    </div>
+</form>

@@ -9,7 +9,7 @@ use think\Db;
  */
 class FansHubLobby
 {
-    const CACHE_KEY = 'fanshub_lobby_home_v4';
+    const CACHE_KEY = 'fanshub_lobby_home_v5';
     const OG_READY_KEY = 'fanshub_lobby_og_ready_v1';
     const HOT_READY_KEY = 'fanshub_lobby_hot_ready_v1';
 
@@ -429,7 +429,7 @@ class FansHubLobby
             $cached = \think\Cache::get($cacheKey);
         } catch (\Throwable $e) {
         }
-        if (is_array($cached) && isset($cached['banners'], $cached['categories'], $cached['games'])) {
+        if (is_array($cached) && isset($cached['banners'], $cached['categories'], $cached['games'], $cached['floats'])) {
             $cached['live_enabled'] = $includeLive ? 1 : 0;
             return $includeLive ? self::withLiveOnline($cached) : self::stripLive($cached);
         }
@@ -536,11 +536,46 @@ class FansHubLobby
         } catch (\Throwable $e) {
         }
 
+        $floats = [];
+        try {
+            $rows = Db::name('fans_lobby_floats')
+                ->where('status', 'normal')
+                ->order('weigh', 'desc')
+                ->order('id', 'desc')
+                ->select();
+            foreach ((array)$rows as $r) {
+                $img = self::resolveImage($r['image'] ?? '');
+                if ($img === '') {
+                    continue;
+                }
+                $side = strtolower(trim((string)($r['side'] ?? 'right')));
+                if ($side !== 'left') {
+                    $side = 'right';
+                }
+                $lt = strtolower(trim((string)($r['link_type'] ?? 'internal')));
+                if (!in_array($lt, ['none', 'internal', 'external'], true)) {
+                    $lt = 'internal';
+                }
+                $floats[] = [
+                    'id'        => (int)$r['id'],
+                    'title'     => (string)($r['title'] ?? ''),
+                    'image'     => $img,
+                    'image_raw' => (string)($r['image'] ?? ''),
+                    'side'      => $side,
+                    'link_type' => $lt,
+                    'link_url'  => (string)($r['link_url'] ?? ''),
+                    'packaged'  => self::isPackagedStatic($r['image'] ?? ''),
+                ];
+            }
+        } catch (\Throwable $e) {
+        }
+
         $payload = [
             'banners'      => $banners,
             'categories'   => $categories,
             'games'        => $games,
             'invites'      => $invites,
+            'floats'       => $floats,
             'live_enabled' => $includeLive ? 1 : 0,
         ];
         try {

@@ -511,6 +511,49 @@
   transform: scale(0.985);
 }
 
+/* ?????????????????? */
+.home-lobby-floats {
+  position: fixed;
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+  /* ?????App ? --lobby-tab-pad?H5/Safari ?? env */
+  bottom: calc(var(--lobby-tab-pad, 70px) + 12px);
+  max-height: 46vh;
+}
+.home-lobby-floats.is-left {
+  left: 8px;
+  left: max(8px, env(safe-area-inset-left, 0px));
+}
+.home-lobby-floats.is-right {
+  right: 8px;
+  right: max(8px, env(safe-area-inset-right, 0px));
+}
+.home-lobby-float {
+  pointer-events: auto;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: transparent;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+}
+.home-lobby-float--active {
+  opacity: 0.86;
+  transform: scale(0.96);
+}
+.home-lobby-float-img,
+.home-lobby-float image,
+.home-lobby-float uni-image {
+  width: 56px !important;
+  height: 56px !important;
+  display: block;
+  pointer-events: none;
+}
+
 .home-invite-copy-sheet {
   position: fixed;
   left: 0;
