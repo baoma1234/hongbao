@@ -10,6 +10,13 @@ export function setToken(token) {
   else uni.removeStorageSync(getTokenKey())
 }
 
+/** 登录成功后调用：浮标关闭态重置，下次登录重新显示 */
+export function clearLobbyFloatDismissals() {
+  try {
+    uni.removeStorageSync('fanshub_lobby_floats_dismissed')
+  } catch (e) {}
+}
+
 export function getDeviceFp() {
   let fp = uni.getStorageSync(getDeviceFpKey()) || ''
   if (!fp) {
@@ -222,7 +229,10 @@ export async function login(mobile, captcha, inviteCode = '', extra = {}) {
     country_code: (extra && extra.country_code) || 'CN',
     device_fp: getDeviceFp(),
   })
-  if (data && data.token) setToken(data.token)
+  if (data && data.token) {
+    setToken(data.token)
+    clearLobbyFloatDismissals()
+  }
   if (data && data.is_new) reportOpenInstallRegister()
   return data
 }

@@ -537,6 +537,7 @@
   right: max(8px, env(safe-area-inset-right, 0px));
 }
 .home-lobby-float {
+  position: relative;
   pointer-events: auto;
   width: 64px;
   height: 64px;
@@ -556,6 +557,28 @@
   height: 64px !important;
   display: block;
   pointer-events: none;
+}
+.home-lobby-float-close {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  z-index: 2;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  box-sizing: border-box;
+  pointer-events: auto;
+}
+.home-lobby-float-close--active {
+  opacity: 0.75;
+  transform: scale(0.92);
 }
 
 .home-invite-copy-sheet {

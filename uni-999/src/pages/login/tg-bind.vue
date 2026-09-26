@@ -84,7 +84,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
-import { apiRequest, fetchConfig, getDeviceFp, getToken, setToken } from '../../utils/auth.js'
+import { apiRequest, fetchConfig, getDeviceFp, getToken, setToken, clearLobbyFloatDismissals } from '../../utils/auth.js'
 import {
   flagUrl,
   localeState,
@@ -409,7 +409,10 @@ function tgInitPayload(tg) {
 }
 
 async function enterWithToken(data) {
-  if (data && data.token) setToken(data.token)
+  if (data && data.token) {
+    setToken(data.token)
+    clearLobbyFloatDismissals()
+  }
   try {
     if (typeof sessionStorage !== 'undefined') {
       sessionStorage.removeItem('__tg_bind')

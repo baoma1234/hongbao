@@ -257,7 +257,7 @@
       </view>
     </view>
 
-    <!-- 左右浮标：固定层，不随大厅滚动 -->
+    <!-- 左右浮标：固定层，不随大厅滚动；× 关闭至下次登录 -->
     <view v-if="lobbyFloatsLeft.length" class="home-lobby-floats is-left">
       <view
         v-for="f in lobbyFloatsLeft"
@@ -267,6 +267,11 @@
         @click="onFloatTap(f)"
       >
         <image class="home-lobby-float-img" :src="f.src" mode="aspectFit" />
+        <view
+          class="home-lobby-float-close"
+          hover-class="home-lobby-float-close--active"
+          @click.stop="onFloatDismiss(f)"
+        >×</view>
       </view>
     </view>
     <view v-if="lobbyFloatsRight.length" class="home-lobby-floats is-right">
@@ -278,6 +283,11 @@
         @click="onFloatTap(f)"
       >
         <image class="home-lobby-float-img" :src="f.src" mode="aspectFit" />
+        <view
+          class="home-lobby-float-close"
+          hover-class="home-lobby-float-close--active"
+          @click.stop="onFloatDismiss(f)"
+        >×</view>
       </view>
     </view>
 
@@ -690,16 +700,65 @@ const inviteSrc = computed(() => {
   return mediaUrl(inv.image, inv.imageRaw)
 })
 
+/** 浮标关闭态绑定当前登录 token：换号/重新登录后自动再显示 */
+const FLOAT_DISMISS_KEY = 'fanshub_lobby_floats_dismissed'
+
+function floatDismissSession() {
+  const tok = String(getToken() || '')
+  return tok ? tok.slice(-32) : ''
+}
+
+function loadDismissedFloatIds() {
+  try {
+    const raw = uni.getStorageSync(FLOAT_DISMISS_KEY)
+    const o = typeof raw === 'string' ? JSON.parse(raw || '{}') : raw && typeof raw === 'object' ? raw : null
+    const session = floatDismissSession()
+    if (!o || !session || String(o.session || '') !== session) return new Set()
+    const ids = Array.isArray(o.ids) ? o.ids : []
+    return new Set(ids.map((x) => String(x)))
+  } catch (e) {
+    return new Set()
+  }
+}
+
+function persistDismissedFloatIds(ids) {
+  const session = floatDismissSession()
+  if (!session) return
+  try {
+    uni.setStorageSync(
+      FLOAT_DISMISS_KEY,
+      JSON.stringify({ session, ids: Array.from(ids) })
+    )
+  } catch (e) {}
+}
+
+const dismissedFloatIds = ref(loadDismissedFloatIds())
+
+function onFloatDismiss(f) {
+  if (!f || f.id == null) return
+  const next = new Set(dismissedFloatIds.value)
+  next.add(String(f.id))
+  dismissedFloatIds.value = next
+  persistDismissedFloatIds(next)
+}
+
+function syncFloatDismissForLogin() {
+  dismissedFloatIds.value = loadDismissedFloatIds()
+}
+
 const lobbyFloats = computed(() => {
   const rows = remoteLobby.value && remoteLobby.value.floats
   if (!Array.isArray(rows) || !rows.length) return []
+  const dismissed = dismissedFloatIds.value
   return rows
     .map((f, i) => {
       const src = mediaUrl(String(f.image || ''), String(f.image_raw || f.image || ''))
       if (!src) return null
+      const id = String(f.id != null ? f.id : 'f' + i)
+      if (dismissed.has(id)) return null
       const side = String(f.side || 'right').toLowerCase() === 'left' ? 'left' : 'right'
       return {
-        id: f.id || 'f' + i,
+        id,
         side,
         linkType: String(f.link_type || 'internal'),
         linkUrl: String(f.link_url || ''),
@@ -2276,6 +2335,7 @@ onShow(async () => {
     uni.reLaunch({ url: '/pages/login/login' })
     return
   }
+  syncFloatDismissForLogin()
   measureLobbySafeBottom()
   try {
     uni.$on && uni.$on('fanshub-profile-updated', onProfileUpdated)
