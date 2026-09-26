@@ -44,23 +44,6 @@
 
       <!-- 跑马灯以下：QQ 灰底区（分类 / 热门游戏 / 邀请条） -->
       <view class="game-lobby-main">
-        <view
-          v-if="ogRebate.enabled"
-          class="game-lobby-rebate"
-          :class="{
-            'is-claimable': ogRebate.claimable,
-            'is-claimed': ogRebate.claimed,
-            'is-busy': ogRebateBusy,
-          }"
-          hover-class="game-lobby-hit"
-          @click="onClaimOgRebate"
-        >
-          <view class="game-lobby-rebate-left">
-            <text class="game-lobby-rebate-title">领取昨日的返水</text>
-            <text class="game-lobby-rebate-sub">{{ ogRebateSubText }}</text>
-          </view>
-          <view class="game-lobby-rebate-btn">{{ ogRebateBtnText }}</view>
-        </view>
         <view class="game-lobby-cats">
           <view class="game-lobby-cats-row">
             <view
@@ -182,6 +165,23 @@
         <view class="og-sheet-hint">
           <text class="og-sheet-hint-line">进入：全部红宝自动转入 OG 再开游戏</text>
           <text class="og-sheet-hint-line">提出：OG 余额全部提回红宝</text>
+        </view>
+        <view
+          v-if="ogRebate.enabled"
+          class="game-lobby-rebate og-sheet-rebate"
+          :class="{
+            'is-claimable': ogRebate.claimable,
+            'is-claimed': ogRebate.claimed,
+            'is-busy': ogRebateBusy,
+          }"
+          hover-class="game-lobby-hit"
+          @click="onClaimOgRebate"
+        >
+          <view class="game-lobby-rebate-left">
+            <text class="game-lobby-rebate-title">领取昨日的返水</text>
+            <text class="game-lobby-rebate-sub">{{ ogRebateSubText }}</text>
+          </view>
+          <view class="game-lobby-rebate-btn">{{ ogRebateBtnText }}</view>
         </view>
         <button type="button" class="og-btn primary" :disabled="ogBusy" hover-class="og-btn-hit" @click="onOgEnterPrimary">
           {{ ogBusyLaunch ? '进入中…' : ('进入游戏' + (ogHbNum > 0 ? '（转入 ' + ogHbText + '）' : '')) }}
@@ -1122,6 +1122,7 @@ function openOgSheet(game, ogId) {
     measureLobbySafeBottom()
   })
   refreshOgSheetBal()
+  loadOgRebate().catch(() => {})
 }
 
 function closeOgSheet() {
