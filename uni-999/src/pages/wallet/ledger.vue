@@ -1,7 +1,7 @@
 <template>
   <ProfileSubPage title="资金流水" body-class="hb-sub">
     <view class="wallet-ledger-filters">
-      <view class="wallet-ledger-filters-row">
+      <view class="wallet-ledger-filters-row wallet-ledger-filters-primary">
         <view
           v-for="tab in primaryTabs"
           :key="tab.key"
@@ -190,9 +190,9 @@ const primaryTabs = [
   { key: 'all', label: '全部', ico: '☰', tone: 'all' },
   { key: 'recharge', label: '充值', ico: '↓', tone: 'in' },
   { key: 'withdraw', label: '提现', ico: '↑', tone: 'out' },
+  { key: 'rights', label: '股份', ico: '股', tone: 'rights' },
 ]
 const moreTabs = [
-  { key: 'rights', label: '股份', ico: '股', tone: 'rights' },
   { key: 'hongbao_in', label: '红宝入账', ico: '🧧', tone: 'hb' },
   { key: 'hongbao_niuniu', label: '红宝牛牛', ico: '🐂', tone: 'nn' },
   { key: 'hongbao_yxx', label: tt('wallet_ledger_cat_yxx', '鱼虾蟹'), ico: '🦐', tone: 'yxx' },
