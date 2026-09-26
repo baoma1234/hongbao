@@ -797,6 +797,19 @@ class FansHubPhase2
         if (!self::enabled()) {
             return [];
         }
+        // 股份大盘关闭且段位奖励全 0：跳过重 JOIN recountSubWithdrawn
+        if (!FansHubMarket::isEnabled()) {
+            $hasReward = false;
+            foreach (self::honorTiers() as $tier) {
+                if ((float)$tier['rights'] > 0 || (float)$tier['balance'] > 0) {
+                    $hasReward = true;
+                    break;
+                }
+            }
+            if (!$hasReward) {
+                return [];
+            }
+        }
         $account = FansHubService::getOrCreateAccount($userId);
         if ((string)$account->user_mode !== 'master') {
             return [];

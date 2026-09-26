@@ -24,13 +24,17 @@ class FanshubMaintain extends Command
         $output->writeln('密令过期处理：' . $expired . ' 条');
         $uidStat = FansHubService::pollPendingUidViaSugarCrm(80);
         $output->writeln('SugarCRM 待核销扫描：' . $uidStat['scanned'] . '，自动通过：' . $uidStat['approved']);
-        $issued = \app\common\library\FansHubMarket::totalSharesIssued(true);
-        $partners = \app\common\library\FansHubMarket::partnerCount(true);
-        $price = \app\common\library\FansHubMarket::getSharePrice(false);
-        $todayUp = \app\common\library\FansHubMarket::todayPartnerUp();
-        $pct = \app\common\library\FansHubMarket::priceUpPercent();
-        $output->writeln('已送出股份：' . $issued);
-        $output->writeln('虚拟股份人数：' . $partners . '（今日+' . $todayUp . '）；股价：' . number_format($price, 2, '.', '') . '（较昨日+' . $pct . '%）');
+        if (\app\common\library\FansHubMarket::isEnabled()) {
+            $issued = \app\common\library\FansHubMarket::totalSharesIssued(true);
+            $partners = \app\common\library\FansHubMarket::partnerCount(true);
+            $price = \app\common\library\FansHubMarket::getSharePrice(false);
+            $todayUp = \app\common\library\FansHubMarket::todayPartnerUp();
+            $pct = \app\common\library\FansHubMarket::priceUpPercent();
+            $output->writeln('已送出股份：' . $issued);
+            $output->writeln('虚拟股份人数：' . $partners . '（今日+' . $todayUp . '）；股价：' . number_format($price, 2, '.', '') . '（较昨日+' . $pct . '%）');
+        } else {
+            $output->writeln('股份大盘已关闭（rights_market_enabled=0），跳过股份重算');
+        }
         try {
             $csId = \app\common\library\FansHubDefaultCs::ensureAccount();
             $output->writeln('默认客服账号：' . $csId);

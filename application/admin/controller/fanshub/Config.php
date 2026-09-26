@@ -60,6 +60,7 @@ class Config extends Backend
         'copy' => [],
         'market' => [
             'jackpot_base', 'jackpot_ceiling', 'jackpot_auto_grow', 'jackpot_grow_min', 'jackpot_grow_max',
+            'jackpot_server_sync', 'rights_market_enabled',
             'jackpot_micro_grow_min', 'jackpot_micro_grow_max', 'jackpot_server_sync',
             'market_virtual_base', 'market_virtual_per_real', 'market_daily_grow_min', 'market_daily_grow_max',
             'market_total_shares_seed', 'market_seed_capital',
@@ -292,6 +293,7 @@ class Config extends Backend
         $section = (string)$this->request->post('section', '');
         $allBoolFields = [
             'comment_auto_approve', 'invite_ip_limit_enabled', 'jackpot_auto_grow', 'jackpot_server_sync',
+            'rights_market_enabled',
             'notice_post_campaign_enabled', 'notice_post_need_rp',
             'locale_auto_detect', 'api_sign_enabled', 'device_fp_limit_enabled',
             'main_uid_verify_enabled', 'main_uid_verify_local', 'main_uid_verify_match_phone',

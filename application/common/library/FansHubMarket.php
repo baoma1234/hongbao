@@ -44,6 +44,12 @@ class FansHubMarket
         return FansHubService::config($key, $default);
     }
 
+    /** 股份大盘是否启用（关闭则禁止重 SQL / 日增长 / 送股刷缓存） */
+    public static function isEnabled()
+    {
+        return !empty(self::cfg('rights_market_enabled'));
+    }
+
     /** 初期虚拟合伙人基数（建议 5000~10000，默认 8000） */
     public static function virtualBase()
     {
@@ -138,18 +144,23 @@ class FansHubMarket
         if ($cached !== false && $cached !== null) {
             return max(0, (int)$cached);
         }
+        // 股份大盘关闭：拉长缓存，减少 Account::count
+        $ttl = self::isEnabled() ? 2 : 3600;
         try {
             $n = (int)Account::count();
         } catch (\Throwable $e) {
             $n = 0;
         }
-        \think\Cache::set(self::CACHE_REAL_COUNT, $n, 2);
+        \think\Cache::set(self::CACHE_REAL_COUNT, $n, $ttl);
         return $n;
     }
 
     /** 新真人注册后立刻刷新大盘人数缓存 */
     public static function onRealUserJoined()
     {
+        if (!self::isEnabled()) {
+            return;
+        }
         \think\Cache::rm(self::CACHE_REAL_COUNT);
         try {
             $n = (int)Account::count();
@@ -163,6 +174,9 @@ class FansHubMarket
      */
     public static function tickDailyGrowth()
     {
+        if (!self::isEnabled()) {
+            return self::smoothCount();
+        }
         $today = date('Ymd');
         $last = (string)\think\Cache::get(self::CACHE_DAILY_DATE);
         if ($last === $today) {
@@ -318,6 +332,9 @@ class FansHubMarket
      */
     public static function partnerCount($tickSmooth = false)
     {
+        if (!self::isEnabled()) {
+            return self::partnerCountRaw();
+        }
         if ($tickSmooth) {
             self::tickVirtualSmooth();
         } else {
@@ -409,6 +426,14 @@ class FansHubMarket
      */
     public static function totalSharesIssued($forceRebuild = false)
     {
+        // 关闭大盘：只用缓存，禁止全表 SUM(rights_change)
+        if (!self::isEnabled()) {
+            $cached = \think\Cache::get(self::CACHE_ISSUED_SHARES);
+            if ($cached !== false && $cached !== null) {
+                return max(0.0, (float)$cached);
+            }
+            return 0.0;
+        }
         if (!$forceRebuild) {
             $cached = \think\Cache::get(self::CACHE_ISSUED_SHARES);
             if ($cached !== false && $cached !== null) {
@@ -431,7 +456,7 @@ class FansHubMarket
      */
     public static function onSharesGranted($shares)
     {
-        if ((float)$shares <= 0) {
+        if (!self::isEnabled() || (float)$shares <= 0) {
             return self::getSharePrice(false);
         }
         \think\Cache::rm(self::CACHE_ISSUED_SHARES);
@@ -455,6 +480,13 @@ class FansHubMarket
     public static function getSharePrice($tick = false)
     {
         unset($tick);
+        if (!self::isEnabled()) {
+            $floor = \think\Cache::get(self::CACHE_PRICE_FLOOR);
+            if ($floor !== false && $floor !== null) {
+                return round(max(self::priceMin(), min(self::priceMax(), (float)$floor)), 2);
+            }
+            return round(max(self::priceMin(), min(self::priceMax(), (float)self::cfg('market_share_price_base', 5))), 2);
+        }
         $num = self::seedCapital() + self::totalVirtualInject();
         $den = self::seedTotalShares() + self::totalSharesIssued();
         if ($den <= 0) {
@@ -484,11 +516,21 @@ class FansHubMarket
      */
     public static function tickDailyCumulative()
     {
-        $today = date('Ymd');
-        $last = (string)\think\Cache::get(self::CACHE_CUMULATIVE_DATE);
         $base = self::cumulativeBase();
         $ceiling = self::cumulativeCeiling();
         $cached = \think\Cache::get(self::CACHE_CUMULATIVE);
+
+        // 关闭大盘：只用缓存/基数，禁止 ledger 重建
+        if (!self::isEnabled()) {
+            if ($cached === false || $cached === null) {
+                $cached = $base;
+                \think\Cache::set(self::CACHE_CUMULATIVE, $cached, 86400 * 3650);
+            }
+            return (float)$cached;
+        }
+
+        $today = date('Ymd');
+        $last = (string)\think\Cache::get(self::CACHE_CUMULATIVE_DATE);
 
         if ($last === $today) {
             if ($cached === false || $cached === null) {
@@ -565,7 +607,12 @@ class FansHubMarket
             \think\Cache::set(self::CACHE_CUMULATIVE, $cached, 86400 * 3650);
         }
 
-        if ($tick && !empty(self::cfg('jackpot_auto_grow')) && $cached < $ceiling) {
+        if (
+            $tick
+            && self::isEnabled()
+            && !empty(self::cfg('jackpot_auto_grow'))
+            && $cached < $ceiling
+        ) {
             $interval = max(1, (int)self::cfg('jackpot_tick_seconds', 2));
             $now = time();
             $lastTick = (int)\think\Cache::get(self::CACHE_CUMULATIVE_TICK_AT);
@@ -682,6 +729,60 @@ class FansHubMarket
         // 同请求内 memo，避免 totalSharesIssued / inject 重复算
         static $issuedMemo = null;
         static $injectMemo = null;
+        static $offLiteMemo = null;
+
+        $enabled = self::isEnabled();
+        // 大盘关闭：纯缓存快照，禁止 Account::count / ledger SUM / 日增长写缓存
+        if (!$enabled) {
+            if ($lite && is_array($offLiteMemo)) {
+                return $offLiteMemo;
+            }
+            $price = self::getSharePrice(false);
+            $amountCached = \think\Cache::get(self::CACHE_CUMULATIVE);
+            if ($amountCached === false || $amountCached === null) {
+                $amountCached = self::cumulativeBase();
+            }
+            $amount = self::ratchetFloat(self::CACHE_AMOUNT_FLOOR, (float)$amountCached);
+            $partnersCached = \think\Cache::get(self::CACHE_PARTNER_FLOOR);
+            if ($partnersCached === false || $partnersCached === null) {
+                $partnersCached = self::virtualBase() + self::smoothCount();
+            }
+            $partners = max(0, (int)$partnersCached);
+            $seedShares = self::seedTotalShares();
+            $payload = [
+                'amount'              => $amount,
+                'cumulative_payout'   => $amount,
+                'share_price'         => $price,
+                'partner_count'       => $partners,
+                'fission_user_count'  => $partners,
+                'partner_today_up'    => 0,
+                'price_up_pct'        => 0,
+                'seed_total_shares'   => $seedShares,
+                'auto_grow'           => false,
+                'server_sync'         => false,
+                'rights_market'       => 0,
+            ];
+            if ($lite) {
+                $offLiteMemo = $payload;
+                return $payload;
+            }
+            if ($issuedMemo === null) {
+                $issuedMemo = self::totalSharesIssued();
+            }
+            return $payload + [
+                'yesterday_partner_count' => $partners,
+                'yesterday_share_price'   => $price,
+                'real_user_count'         => 0,
+                'shares_issued'           => $issuedMemo,
+                'virtual_inject'          => 0,
+                'formula_numerator'       => 0,
+                'formula_denominator'     => $seedShares,
+                'avg_shares_display'      => 0,
+                'withdraw_n'              => 0,
+                'price_min'               => self::priceMin(),
+                'price_max'               => self::priceMax(),
+            ];
+        }
 
         if ($tick) {
             self::tickVirtualSmooth();
@@ -697,11 +798,8 @@ class FansHubMarket
             $issuedMemo = self::totalSharesIssued();
         }
         $issued = $issuedMemo;
-        $todayUp = self::todayPartnerUp();
-        $priceUpPct = self::priceUpPercent();
-        // 涨幅展示不为负
-        $priceUpPct = max(0, (float)$priceUpPct);
-        $todayUp = max(0, (int)$todayUp);
+        $todayUp = max(0, (int)self::todayPartnerUp());
+        $priceUpPct = max(0, (float)self::priceUpPercent());
 
         $payload = [
             'amount'              => $amount,
@@ -714,6 +812,7 @@ class FansHubMarket
             'seed_total_shares'   => $seedShares,
             'auto_grow'           => !empty(self::cfg('jackpot_auto_grow')),
             'server_sync'         => !empty(self::cfg('jackpot_server_sync')),
+            'rights_market'       => 1,
         ];
 
         if ($lite) {

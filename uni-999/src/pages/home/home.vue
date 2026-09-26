@@ -1691,7 +1691,7 @@ async function loadBootstrap() {
       applyConfig(cfg)
     } catch (e3) {}
   }
-  if (!jackpot.value) await pollJackpot()
+  if (!jackpot.value && isRightsMarketOn()) await pollJackpot()
   await loadLeaderboard()
 }
 
@@ -1789,6 +1789,7 @@ async function loadLeaderboard() {
 }
 
 async function pollJackpot() {
+  if (!isRightsMarketOn()) return
   try {
     const data = await apiRequest('jackpot', 'GET')
     if (data) {
@@ -1814,6 +1815,7 @@ async function pollOnlineLive() {
       if (sum > 0) lobbyOnlineTotal.value = sum
     }
   } catch (e) {}
+  if (!isRightsMarketOn()) return
   try {
     const data = await apiRequest('jackpot', 'GET')
     if (data) applyLobbyExtras(data)
@@ -1824,6 +1826,19 @@ function marketVirtualBase() {
   const cfg = config.value || {}
   const n = parseInt(cfg.market_virtual_base != null ? cfg.market_virtual_base : cfg.partner_count, 10)
   return !isNaN(n) && n > 0 ? n : 8000
+}
+
+/** 股份大盘是否启用（关闭后不再轮询 jackpot / 本地氛围） */
+function isRightsMarketOn() {
+  const cfg = config.value || {}
+  if (Object.prototype.hasOwnProperty.call(cfg, 'rights_market_enabled')) {
+    return !!cfg.rights_market_enabled
+  }
+  const j = jackpot.value || {}
+  if (Object.prototype.hasOwnProperty.call(j, 'rights_market')) {
+    return !!j.rights_market
+  }
+  return cfg.jackpot_server_sync !== false
 }
 
 function applyMarketScreen(data) {
@@ -1878,6 +1893,7 @@ function applyMarketScreen(data) {
 }
 
 function tickMarketLocal() {
+  if (!isRightsMarketOn()) return
   const cfg = config.value || {}
   if (cfg.jackpot_server_sync !== false) return
   const prev = jackpot.value && typeof jackpot.value === 'object' ? { ...jackpot.value } : {}
@@ -1902,21 +1918,23 @@ function tickMarketLocal() {
 
 function startPoll() {
   stopPoll()
-  pollJackpot()
   pollOnlineLive()
   loadLeaderboard()
   startTicker()
   startOnlineJitter()
-  pollTimer = setInterval(() => {
+  if (isRightsMarketOn()) {
     pollJackpot()
-  }, 20000)
+    pollTimer = setInterval(() => {
+      pollJackpot()
+    }, 20000)
+    // 本地氛围：金额/人数微动（仅非服务端同步时）
+    if (!pollLocalTimer) {
+      pollLocalTimer = setInterval(tickMarketLocal, 60000)
+    }
+  }
   onlinePollTimer = setInterval(() => {
     pollOnlineLive()
   }, 20000)
-  // 本地氛围：金额/人数微动（仅非服务端同步时）
-  if (!pollLocalTimer) {
-    pollLocalTimer = setInterval(tickMarketLocal, 60000)
-  }
   // 排行榜每分钟刷新一次（虚拟榜 minuteBoost + 真实合并）
   if (!lbTimer) {
     lbTimer = setInterval(() => {

@@ -1246,7 +1246,8 @@ class FansHubService
     public static function jackpotPayload($tick = true, $lite = false)
     {
         $data = FansHubMarket::screenPayload($tick, $lite);
-        if ($lite) {
+        // 大盘关闭：不附带机器人昵称查询，避免轮询打库
+        if ($lite && FansHubMarket::isEnabled()) {
             $players = self::lobbyBotPlayers();
             $data['lobby_bot_players'] = $players;
             $data['lobby_bot_nicks'] = array_values(array_map(static function ($p) {
@@ -1463,16 +1464,29 @@ class FansHubService
     public static function publicConfig()
     {
         $cfg = self::config();
-        $sharePrice = self::getSharePrice(false);
-        $partnerCount = FansHubMarket::partnerCount(false);
+        $marketOn = FansHubMarket::isEnabled();
+        if ($marketOn) {
+            $sharePrice = self::getSharePrice(false);
+            $partnerCount = FansHubMarket::partnerCount(false);
+            $partnerTodayUp = FansHubMarket::todayPartnerUp();
+            $priceUpPct = FansHubMarket::priceUpPercent();
+        } else {
+            // 关闭大盘：不下发活算字段，避免 config 接口触发 Account::count
+            $screen = FansHubMarket::screenPayload(false, true);
+            $sharePrice = (float)($screen['share_price'] ?? ($cfg['market_share_price_base'] ?? 5));
+            $partnerCount = (int)($screen['partner_count'] ?? FansHubMarket::virtualBase());
+            $partnerTodayUp = 0;
+            $priceUpPct = 0;
+        }
         return [
+            'rights_market_enabled'=> $marketOn,
             'single_ticket_value'  => $sharePrice,
             'current_share_price'  => $sharePrice,
             'share_price_max'      => (float)($cfg['share_price_max'] ?? 99.99),
             'partner_count'        => $partnerCount,
             'fission_user_count'   => $partnerCount,
-            'partner_today_up'     => FansHubMarket::todayPartnerUp(),
-            'price_up_pct'         => FansHubMarket::priceUpPercent(),
+            'partner_today_up'     => $partnerTodayUp,
+            'price_up_pct'         => $priceUpPct,
             'seed_total_shares'    => FansHubMarket::seedTotalShares(),
             'market_virtual_base'  => FansHubMarket::virtualBase(),
             'market_virtual_per_real' => FansHubMarket::virtualPerReal(),
@@ -1623,8 +1637,8 @@ class FansHubService
             'marquee_items'        => self::parseMarqueeItems(self::utf8Safe($cfg['marquee_text'] ?? '')),
             'jackpot_base'         => (float)($cfg['jackpot_base'] ?? 1000000),
             'jackpot_current'      => self::getJackpotAmount(false),
-            'jackpot_auto_grow'    => !empty($cfg['jackpot_auto_grow']),
-            'jackpot_server_sync'  => !empty($cfg['jackpot_server_sync']),
+            'jackpot_auto_grow'    => $marketOn && !empty($cfg['jackpot_auto_grow']),
+            'jackpot_server_sync'  => $marketOn && !empty($cfg['jackpot_server_sync']),
             'jackpot_grow_min'     => (float)($cfg['jackpot_grow_min'] ?? 1000),
             'jackpot_grow_max'     => (float)($cfg['jackpot_grow_max'] ?? 20000),
             'jackpot_ceiling'      => (float)($cfg['jackpot_ceiling'] ?? 100000000),
@@ -1690,10 +1704,14 @@ class FansHubService
         $inviteTotal = $inviteQuery->count();
 
         // 股份 / 闪兑 / 生成密令 / 团长签到：运营总览暂不展示、不统计
-        $ledgerTable = $prefix . 'fans_ledger';
-        $timeSql = ($start > 0 && $end > 0) ? ' AND createtime BETWEEN ' . (int)$start . ' AND ' . (int)$end : '';
-        $openAccount = (int)Db::query("SELECT COUNT(DISTINCT user_id) AS c FROM `{$ledgerTable}` WHERE type='open_account'{$timeSql}")[0]['c'];
-        $shared = (int)Db::query("SELECT COUNT(DISTINCT user_id) AS c FROM `{$ledgerTable}` WHERE type IN ('share','invite'){$timeSql}")[0]['c'];
+        $openAccount = 0;
+        $shared = 0;
+        if (\app\common\library\FansHubMarket::isEnabled()) {
+            $ledgerTable = $prefix . 'fans_ledger';
+            $timeSql = ($start > 0 && $end > 0) ? ' AND createtime BETWEEN ' . (int)$start . ' AND ' . (int)$end : '';
+            $openAccount = (int)Db::query("SELECT COUNT(DISTINCT user_id) AS c FROM `{$ledgerTable}` WHERE type='open_account'{$timeSql}")[0]['c'];
+            $shared = (int)Db::query("SELECT COUNT(DISTINCT user_id) AS c FROM `{$ledgerTable}` WHERE type IN ('share','invite'){$timeSql}")[0]['c'];
+        }
 
         $todayStart = strtotime(date('Y-m-d 00:00:00'));
         $loginToday = LoginLog::where('createtime', '>=', $todayStart)->count();
@@ -3882,7 +3900,9 @@ class FansHubService
             $push('default_locale', 'H5 默认语言', 'ok', '默认语言：' . $defaultLocale, 'default_locale');
         }
 
-        if (empty($cfg['jackpot_server_sync'])) {
+        if (empty($cfg['rights_market_enabled'])) {
+            $push('rights_market_enabled', '股份大盘', 'ok', '已关闭：停止股份统计/轮询/日增长，降低 MySQL 与内存压力。', 'rights_market_enabled');
+        } elseif (empty($cfg['jackpot_server_sync'])) {
             $push('jackpot_server_sync', '服务端奖池同步', 'warn', '建议开启：全用户看到一致的实时大盘金额。', 'jackpot_server_sync');
         } else {
             $push('jackpot_server_sync', '服务端奖池同步', 'ok', '已开启服务端奖池同步。', 'jackpot_server_sync');
