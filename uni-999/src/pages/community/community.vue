@@ -346,7 +346,7 @@
 
 <script setup>
 import { computed, nextTick, ref } from 'vue'
-import { onShow, onHide } from '@dcloudio/uni-app'
+import { onShow, onHide, onLoad } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
 import BottomTabBar from '../../components/BottomTabBar.vue'
 import '../../styles/chat-messages-list.css'
@@ -1091,7 +1091,25 @@ async function refreshAuthFlags() {
   canCreateGroup.value = canCreateGroupFromAuth()
 }
 
+function applyCommunitySubFromQuery(q) {
+  const sub = String((q && (q.sub || q.tab)) || '').trim()
+  if (['official', 'channel', 'mine', 'friends'].indexOf(sub) >= 0) {
+    setCommunitySub(sub)
+  }
+}
+
+onLoad((q) => {
+  applyCommunitySubFromQuery(q)
+})
+
 onShow(() => {
+  try {
+    const pending = String(uni.getStorageSync('fanshub_community_sub') || '').trim()
+    if (pending) {
+      uni.removeStorageSync('fanshub_community_sub')
+      applyCommunitySubFromQuery({ sub: pending })
+    }
+  } catch (e0) {}
   if (!getToken()) {
     uni.reLaunch({ url: '/pages/login/login' })
     return

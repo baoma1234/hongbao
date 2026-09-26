@@ -538,12 +538,12 @@
 }
 .home-lobby-float {
   pointer-events: auto;
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
-  overflow: hidden;
+  width: 64px;
+  height: 64px;
+  border-radius: 0;
+  overflow: visible;
   background: transparent;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  box-shadow: none;
 }
 .home-lobby-float--active {
   opacity: 0.86;
@@ -552,8 +552,8 @@
 .home-lobby-float-img,
 .home-lobby-float image,
 .home-lobby-float uni-image {
-  width: 56px !important;
-  height: 56px !important;
+  width: 64px !important;
+  height: 64px !important;
   display: block;
   pointer-events: none;
 }

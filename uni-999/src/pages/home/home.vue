@@ -527,7 +527,7 @@ const tickerText = ref(LOBBY_TICKER_FIXED)
 /** 后台大厅装修（lobbyhome）；未加载前不展示本地占位图 */
 const remoteLobby = ref(null)
 
-const LOBBY_ASSET_VER = '22'
+const LOBBY_ASSET_VER = '23'
 
 /** 红宝分类图：本地路径名；实际加载优先 OSS 加速 */
 const LOBBY_CAT_LOCAL = Object.freeze({
@@ -596,9 +596,9 @@ function mediaUrl(resolved, raw) {
   if (p.indexOf('home/lobby/') === 0) lobbyFile = p.slice('home/lobby/'.length)
   else if (p.indexOf('/') < 0 && /\.(png|jpe?g|webp|gif)$/i.test(p)) lobbyFile = p
   if (lobbyFile) {
-    // 后台仍存种子路径时，读 OSS 上的同名图，不回退本地打包文件
+    // 后台仍存种子路径时，读 OSS 上的同名图；无 CDN 时回退打包 static（App/本地）
     if (base) return base + '/999/static/home/lobby/' + lobbyFile + '?v=' + LOBBY_ASSET_VER
-    return ''
+    return packagedStaticUrl('home/lobby/' + lobbyFile) + '?v=' + LOBBY_ASSET_VER
   }
   return ''
 }
@@ -986,7 +986,7 @@ function onBannerTap(b) {
   onCarnivalBanner()
 }
 
-/** 大厅轮播/邀请：兼容 #/pages/...、/pages/...；tab 页走 switchTab */
+/** 大厅轮播/邀请/浮标：兼容 #/pages/...、/pages/...；tab 页走 switchTab，query 用本地缓存透传 */
 function openLobbyLink(raw) {
   let u = String(raw || '').trim()
   if (!u) return
@@ -996,7 +996,29 @@ function openLobbyLink(raw) {
     return
   }
   if (u.charAt(0) !== '/') u = '/' + u
-  const pathOnly = u.split('?')[0]
+  const qIdx = u.indexOf('?')
+  const pathOnly = qIdx >= 0 ? u.slice(0, qIdx) : u
+  const qs = qIdx >= 0 ? u.slice(qIdx + 1) : ''
+  const params = {}
+  if (qs) {
+    qs.split('&').forEach((pair) => {
+      const i = pair.indexOf('=')
+      const k = decodeURIComponent(i >= 0 ? pair.slice(0, i) : pair)
+      const v = decodeURIComponent(i >= 0 ? pair.slice(i + 1) : '')
+      if (k) params[k] = v
+    })
+  }
+  // switchTab 无法带 query：社区分类 / 社群子 Tab 写入本地后再跳
+  if (pathOnly === '/pages/notice/notice' && params.cat) {
+    try {
+      uni.setStorageSync('fanshub_notice_cat', String(params.cat))
+    } catch (e) {}
+  }
+  if (pathOnly === '/pages/community/community' && params.sub) {
+    try {
+      uni.setStorageSync('fanshub_community_sub', String(params.sub))
+    } catch (e2) {}
+  }
   const TAB = {
     '/pages/home/home': 1,
     '/pages/messages/messages': 1,
