@@ -62,7 +62,7 @@ $pdo = new PDO(
 );
 $rows = $pdo->query(
     "SELECT id,pid,name,title FROM fa_auth_rule
-     WHERE name IN ('fanshub_lobby','fanshub/lobbybanner','fanshub/lobbycategory','fanshub/lobbygame','fanshub/lobbyguide','fanshub/lobbyinvite')
+     WHERE name IN ('fanshub_lobby','fanshub/lobbybanner','fanshub/lobbycategory','fanshub/lobbygame','fanshub/lobbyguide','fanshub/lobbyinvite','fanshub/lobbyfloat')
      ORDER BY weigh DESC"
 )->fetchAll(PDO::FETCH_ASSOC);
 echo "menus:\n";
