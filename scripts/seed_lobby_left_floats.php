@@ -1,6 +1,6 @@
 <?php
 /**
- * 首页左侧三浮标：彩金白嫖→频道群组 / 福利视频→群80 / 海外圈内事→社区
+ * 首页右侧三浮标：彩金白嫖→社区彩金 / 福利视频→频道群组 / 海外圈内事→社区
  * php scripts/seed_lobby_left_floats.php
  */
 $root = dirname(__DIR__);
@@ -87,7 +87,7 @@ $rows = [
         'title'     => '彩金白嫖',
         'image'     => 'home/lobby/float-caijin.png',
         'file'      => 'float-caijin.png',
-        'side'      => 'left',
+        'side'      => 'right',
         'link_type' => 'internal',
         'link_url'  => 'pages/notice/notice?cat=ads',
         'weigh'     => 300,
@@ -96,7 +96,7 @@ $rows = [
         'title'     => '福利视频',
         'image'     => 'home/lobby/float-video.png',
         'file'      => 'float-video.png',
-        'side'      => 'left',
+        'side'      => 'right',
         'link_type' => 'internal',
         'link_url'  => 'pages/community/community?sub=channel',
         'weigh'     => 200,
@@ -105,7 +105,7 @@ $rows = [
         'title'     => '红宝·海外圈内事',
         'image'     => 'home/lobby/float-haiwai.png',
         'file'      => 'float-haiwai.png',
-        'side'      => 'left',
+        'side'      => 'right',
         'link_type' => 'internal',
         'link_url'  => 'pages/notice/notice?cat=rules',
         'weigh'     => 100,
@@ -121,12 +121,12 @@ foreach ($rows as $r) {
     floatMakeTransparent($src, $src);
     copy($src, $publicDir . '/' . $r['file']);
 
-    $exists = $pdo->prepare("SELECT id FROM `{$table}` WHERE title=? AND side='left' LIMIT 1");
+    $exists = $pdo->prepare("SELECT id FROM `{$table}` WHERE title=? LIMIT 1");
     $exists->execute([$r['title']]);
     $id = (int)$exists->fetchColumn();
     if ($id > 0) {
-        $pdo->prepare("UPDATE `{$table}` SET image=?, link_type=?, link_url=?, weigh=?, status='normal', updatetime=? WHERE id=?")
-            ->execute([$r['image'], $r['link_type'], $r['link_url'], $r['weigh'], $now, $id]);
+        $pdo->prepare("UPDATE `{$table}` SET image=?, side=?, link_type=?, link_url=?, weigh=?, status='normal', updatetime=? WHERE id=?")
+            ->execute([$r['image'], $r['side'], $r['link_type'], $r['link_url'], $r['weigh'], $now, $id]);
         echo "UPD #{$id} {$r['title']}\n";
     } else {
         $pdo->prepare("INSERT INTO `{$table}` (title,image,side,link_type,link_url,weigh,status,createtime,updatetime) VALUES (?,?,?,?,?,?,?,?,?)")
