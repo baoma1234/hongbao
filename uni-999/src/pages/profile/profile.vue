@@ -132,6 +132,7 @@
     <button class="profile-logout-btn" @click="onLogout">{{ tt('profile_logout_btn', '退出登录') }}</button>
     <view class="profile-foot-note">{{ tt('profile_foot_note', '红宝官方 · 会员中心') }}</view>
     <FriendScanSheet />
+    <LobbyFloats />
     <BottomTabBar active="profile" />
   </view>
 </template>
@@ -141,6 +142,7 @@ import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
 import BottomTabBar from '../../components/BottomTabBar.vue'
+import LobbyFloats from '../../components/LobbyFloats.vue'
 import FriendScanSheet from '../../components/FriendScanSheet.vue'
 import AppGlyph from '../../components/AppGlyph.vue'
 import { fetchProfile, getToken, logoutLocal, logoutRemote } from '../../utils/auth.js'

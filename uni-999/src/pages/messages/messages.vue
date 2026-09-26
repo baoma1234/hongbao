@@ -303,6 +303,7 @@
       </view>
     </view>
 
+    <LobbyFloats />
     <BottomTabBar active="messages" />
   </view>
 </template>
@@ -312,6 +313,7 @@ import { computed, nextTick, ref } from 'vue'
 import { onShow, onHide } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
 import BottomTabBar from '../../components/BottomTabBar.vue'
+import LobbyFloats from '../../components/LobbyFloats.vue'
 import FriendScanSheet from '../../components/FriendScanSheet.vue'
 import '../../styles/chat-messages-list.css'
 import '../../styles/chat-uni-adapter.css'

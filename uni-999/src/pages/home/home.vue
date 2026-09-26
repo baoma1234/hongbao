@@ -257,39 +257,7 @@
       </view>
     </view>
 
-    <!-- 左右浮标：固定层，不随大厅滚动；× 关闭至下次登录 -->
-    <view v-if="lobbyFloatsLeft.length" class="home-lobby-floats is-left">
-      <view
-        v-for="f in lobbyFloatsLeft"
-        :key="'fl' + f.id"
-        class="home-lobby-float"
-        hover-class="home-lobby-float--active"
-        @click="onFloatTap(f)"
-      >
-        <image class="home-lobby-float-img" :src="f.src" mode="aspectFit" />
-        <view
-          class="home-lobby-float-close"
-          hover-class="home-lobby-float-close--active"
-          @click.stop="onFloatDismiss(f)"
-        >×</view>
-      </view>
-    </view>
-    <view v-if="lobbyFloatsRight.length" class="home-lobby-floats is-right">
-      <view
-        v-for="f in lobbyFloatsRight"
-        :key="'fr' + f.id"
-        class="home-lobby-float"
-        hover-class="home-lobby-float--active"
-        @click="onFloatTap(f)"
-      >
-        <image class="home-lobby-float-img" :src="f.src" mode="aspectFit" />
-        <view
-          class="home-lobby-float-close"
-          hover-class="home-lobby-float-close--active"
-          @click.stop="onFloatDismiss(f)"
-        >×</view>
-      </view>
-    </view>
+    <LobbyFloats :rows="remoteLobbyFloatRows" />
 
     <WelcomeLottery ref="lotteryRef" :share-price="sharePrice" @done="onLotteryDone" />
     <BottomTabBar active="home" />
@@ -301,12 +269,14 @@ import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import { onShow, onHide, onLoad } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
 import BottomTabBar from '../../components/BottomTabBar.vue'
+import LobbyFloats from '../../components/LobbyFloats.vue'
 import WelcomeLottery from '../../components/WelcomeLottery.vue'
 import { apiRequest, fetchProfile, getToken, notifyProfileUpdated } from '../../utils/auth.js'
 import { localeState, t, tt, applyServerCopy } from '../../utils/i18n.js'
 import { imConnect } from '../../utils/im.js'
 import { copyText, copyTextDeferred } from '../../utils/master.js'
 import { openExternalHttpUrl } from '../../utils/wallet.js'
+import { openLobbyLink } from '../../utils/lobby-nav.js'
 import { getUploadsBase, packagedStaticUrl } from '../../utils/config.js'
 import { applySafeAreaCssVars, getSafeAreaInsets } from '../../utils/safe-area.js'
 import {
@@ -700,76 +670,11 @@ const inviteSrc = computed(() => {
   return mediaUrl(inv.image, inv.imageRaw)
 })
 
-/** 浮标关闭态绑定当前登录 token：换号/重新登录后自动再显示 */
-const FLOAT_DISMISS_KEY = 'fanshub_lobby_floats_dismissed'
-
-function floatDismissSession() {
-  const tok = String(getToken() || '')
-  return tok ? tok.slice(-32) : ''
-}
-
-function loadDismissedFloatIds() {
-  try {
-    const raw = uni.getStorageSync(FLOAT_DISMISS_KEY)
-    const o = typeof raw === 'string' ? JSON.parse(raw || '{}') : raw && typeof raw === 'object' ? raw : null
-    const session = floatDismissSession()
-    if (!o || !session || String(o.session || '') !== session) return new Set()
-    const ids = Array.isArray(o.ids) ? o.ids : []
-    return new Set(ids.map((x) => String(x)))
-  } catch (e) {
-    return new Set()
-  }
-}
-
-function persistDismissedFloatIds(ids) {
-  const session = floatDismissSession()
-  if (!session) return
-  try {
-    uni.setStorageSync(
-      FLOAT_DISMISS_KEY,
-      JSON.stringify({ session, ids: Array.from(ids) })
-    )
-  } catch (e) {}
-}
-
-const dismissedFloatIds = ref(loadDismissedFloatIds())
-
-function onFloatDismiss(f) {
-  if (!f || f.id == null) return
-  const next = new Set(dismissedFloatIds.value)
-  next.add(String(f.id))
-  dismissedFloatIds.value = next
-  persistDismissedFloatIds(next)
-}
-
-function syncFloatDismissForLogin() {
-  dismissedFloatIds.value = loadDismissedFloatIds()
-}
-
-const lobbyFloats = computed(() => {
+/** 传给 LobbyFloats，有数据时组件不再重复拉 lobbyhome */
+const remoteLobbyFloatRows = computed(() => {
   const rows = remoteLobby.value && remoteLobby.value.floats
-  if (!Array.isArray(rows) || !rows.length) return []
-  const dismissed = dismissedFloatIds.value
-  return rows
-    .map((f, i) => {
-      const src = mediaUrl(String(f.image || ''), String(f.image_raw || f.image || ''))
-      if (!src) return null
-      const id = String(f.id != null ? f.id : 'f' + i)
-      if (dismissed.has(id)) return null
-      const side = String(f.side || 'right').toLowerCase() === 'left' ? 'left' : 'right'
-      return {
-        id,
-        side,
-        linkType: String(f.link_type || 'internal'),
-        linkUrl: String(f.link_url || ''),
-        src,
-      }
-    })
-    .filter(Boolean)
+  return Array.isArray(rows) ? rows : null
 })
-
-const lobbyFloatsLeft = computed(() => lobbyFloats.value.filter((f) => f.side === 'left'))
-const lobbyFloatsRight = computed(() => lobbyFloats.value.filter((f) => f.side === 'right'))
 
 /** 与社群页 groupMembersText 同一口径：优先 online_count；维护中强制 0 */
 function groupDisplayOnline(g) {
@@ -1043,79 +948,6 @@ function onBannerTap(b) {
   }
   if (lt === 'none') return
   onCarnivalBanner()
-}
-
-/** 大厅轮播/邀请/浮标：兼容 #/pages/...、/pages/...；tab 页走 switchTab，query 用本地缓存透传 */
-function openLobbyLink(raw) {
-  let u = String(raw || '').trim()
-  if (!u) return
-  if (u.charAt(0) === '#') u = u.slice(1)
-  if (/^https?:\/\//i.test(u)) {
-    openExternalHttpUrl(u)
-    return
-  }
-  if (u.charAt(0) !== '/') u = '/' + u
-  const qIdx = u.indexOf('?')
-  const pathOnly = qIdx >= 0 ? u.slice(0, qIdx) : u
-  const qs = qIdx >= 0 ? u.slice(qIdx + 1) : ''
-  const params = {}
-  if (qs) {
-    qs.split('&').forEach((pair) => {
-      const i = pair.indexOf('=')
-      const k = decodeURIComponent(i >= 0 ? pair.slice(0, i) : pair)
-      const v = decodeURIComponent(i >= 0 ? pair.slice(i + 1) : '')
-      if (k) params[k] = v
-    })
-  }
-  // switchTab 无法带 query：社区分类 / 社群子 Tab 写入本地后再跳
-  if (pathOnly === '/pages/notice/notice' && params.cat) {
-    try {
-      uni.setStorageSync('fanshub_notice_cat', String(params.cat))
-    } catch (e) {}
-  }
-  if (pathOnly === '/pages/community/community' && params.sub) {
-    try {
-      uni.setStorageSync('fanshub_community_sub', String(params.sub))
-    } catch (e2) {}
-  }
-  const TAB = {
-    '/pages/home/home': 1,
-    '/pages/messages/messages': 1,
-    '/pages/notice/notice': 1,
-    '/pages/community/community': 1,
-    '/pages/profile/profile': 1,
-  }
-  if (TAB[pathOnly]) {
-    uni.switchTab({
-      url: pathOnly,
-      fail: () => uni.reLaunch({ url: pathOnly }),
-    })
-    return
-  }
-  if (u.indexOf('/pages/') === 0) {
-    uni.navigateTo({
-      url: u,
-      fail: () => uni.reLaunch({ url: u }),
-    })
-  }
-}
-
-function onFloatTap(f) {
-  if (!f) return
-  const lt = String(f.linkType || 'internal')
-  if (lt === 'none') return
-  const url = String(f.linkUrl || '').trim()
-  if (!url) return
-  if (lt === 'external') {
-    if (/^https?:\/\//i.test(url)) {
-      openExternalHttpUrl(url)
-    } else {
-      uni.showToast({ title: '外链无效', icon: 'none' })
-    }
-    return
-  }
-  // internal（及兼容旧值）
-  openLobbyLink(url)
 }
 
 function onCarnivalBanner() {
@@ -2335,7 +2167,6 @@ onShow(async () => {
     uni.reLaunch({ url: '/pages/login/login' })
     return
   }
-  syncFloatDismissForLogin()
   measureLobbySafeBottom()
   try {
     uni.$on && uni.$on('fanshub-profile-updated', onProfileUpdated)

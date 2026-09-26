@@ -354,6 +354,7 @@
       </view>
     </view>
 
+    <LobbyFloats />
     <BottomTabBar active="notice" />
   </view>
 </template>
@@ -363,6 +364,7 @@ import { computed, nextTick, onUnmounted, reactive, ref, watch } from 'vue'
 import { onLoad, onShow, onHide } from '@dcloudio/uni-app'
 import TopBar from '../../components/TopBar.vue'
 import BottomTabBar from '../../components/BottomTabBar.vue'
+import LobbyFloats from '../../components/LobbyFloats.vue'
 import LinkifiedText from '../../components/LinkifiedText.vue'
 import '../../styles/chat-messages-list.css'
 import '../../styles/chat-uni-adapter.css'
