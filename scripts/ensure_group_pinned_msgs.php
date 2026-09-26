@@ -4,10 +4,9 @@
  * php scripts/ensure_group_pinned_msgs.php
  */
 $root = dirname(__DIR__);
-define('APP_PATH', $root . '/application/');
-define('ROOT_PATH', $root . '/');
-define('RUNTIME_PATH', $root . '/runtime/');
-define('DS', DIRECTORY_SEPARATOR);
+defined('APP_PATH') or define('APP_PATH', $root . '/application/');
+defined('ROOT_PATH') or define('ROOT_PATH', $root . DIRECTORY_SEPARATOR);
+defined('RUNTIME_PATH') or define('RUNTIME_PATH', $root . '/runtime/');
 require $root . '/thinkphp/base.php';
 \think\App::initCommon();
 
