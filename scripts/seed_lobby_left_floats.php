@@ -89,7 +89,7 @@ $rows = [
         'file'      => 'float-caijin.png',
         'side'      => 'left',
         'link_type' => 'internal',
-        'link_url'  => 'pages/community/community?sub=channel',
+        'link_url'  => 'pages/notice/notice?cat=ads',
         'weigh'     => 300,
     ],
     [
@@ -98,7 +98,7 @@ $rows = [
         'file'      => 'float-video.png',
         'side'      => 'left',
         'link_type' => 'internal',
-        'link_url'  => 'pages/chat/chat?type=2&id=80',
+        'link_url'  => 'pages/community/community?sub=channel',
         'weigh'     => 200,
     ],
     [
