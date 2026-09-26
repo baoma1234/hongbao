@@ -56,6 +56,10 @@
           <text class="wallet-ledger-summary-lab">昨日总有效投注</text>
           <text class="wallet-ledger-summary-val is-og">¥{{ money(summaryOgBetYesterday) }}</text>
         </view>
+        <view class="wallet-ledger-summary-row is-gap">
+          <text class="wallet-ledger-summary-lab">总有效投注</text>
+          <text class="wallet-ledger-summary-val is-og">¥{{ money(summaryOgBetTotal) }}</text>
+        </view>
       </template>
     </view>
 
@@ -178,6 +182,7 @@ const summaryRecharge = ref(0)
 const summaryWithdraw = ref(0)
 const summaryOgBetToday = ref(0)
 const summaryOgBetYesterday = ref(0)
+const summaryOgBetTotal = ref(0)
 /** 鱼虾蟹流水筛选：待产品通知后再开放 */
 const YXX_LEDGER_VISIBLE = false
 
@@ -426,6 +431,7 @@ async function load(p, append) {
       summaryWithdraw.value = Number(sum.withdraw_total) || 0
       summaryOgBetToday.value = Number(sum.og_valid_bet_today) || 0
       summaryOgBetYesterday.value = Number(sum.og_valid_bet_yesterday) || 0
+      summaryOgBetTotal.value = Number(sum.og_valid_bet_total) || 0
     }
   } catch (e) {
     if (!append) {
@@ -434,6 +440,7 @@ async function load(p, append) {
       summaryWithdraw.value = 0
       summaryOgBetToday.value = 0
       summaryOgBetYesterday.value = 0
+      summaryOgBetTotal.value = 0
     }
     error.value = (e && e.message) || '加载失败'
   } finally {
@@ -455,6 +462,7 @@ function setCategory(cat) {
   summaryWithdraw.value = 0
   summaryOgBetToday.value = 0
   summaryOgBetYesterday.value = 0
+  summaryOgBetTotal.value = 0
   load(1, false)
 }
 

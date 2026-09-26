@@ -128,6 +128,28 @@ class FansHubOgRebate
         }
     }
 
+    /** 历史总有效投注（不限日期） */
+    public static function sumEligibleBetsTotal($userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return 0.0;
+        }
+        try {
+            $row = Db::query(
+                'SELECT SUM(effective_amount) AS s FROM ' . (config('database.prefix') ?: 'fa_') . 'fans_og_bet'
+                . ' WHERE user_id=?'
+                . ' AND effective_amount > 0.005'
+                . ' AND IFNULL(rollback_at,0)=0'
+                . ' AND IFNULL(cancel_at,0)=0',
+                [$userId]
+            );
+            return round(max(0, (float)($row[0]['s'] ?? 0)), 2);
+        } catch (\Throwable $e) {
+            return 0.0;
+        }
+    }
+
     /**
      * @return array{biz_date:string,bet_amount:float,rate:float,rate_percent:float,rebate_amount:float,claimed:bool,claimable:bool,enabled:bool}
      */

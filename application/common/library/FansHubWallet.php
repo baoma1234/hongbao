@@ -487,6 +487,7 @@ class FansHubWallet
                     'withdraw_total'         => 0,
                     'og_valid_bet_today'     => 0,
                     'og_valid_bet_yesterday' => 0,
+                    'og_valid_bet_total'     => 0,
                 ];
             }
         }
@@ -506,7 +507,7 @@ class FansHubWallet
 
     /**
      * 分类合计：充值/提现成功额，或真人视讯今日/昨日有效投注
-     * @return array{recharge_total:float,withdraw_total:float,og_valid_bet_today:float,og_valid_bet_yesterday:float}
+     * @return array{recharge_total:float,withdraw_total:float,og_valid_bet_today:float,og_valid_bet_yesterday:float,og_valid_bet_total:float}
      */
     public static function ledgerCategorySummary($userId, $category = '')
     {
@@ -516,6 +517,7 @@ class FansHubWallet
             'withdraw_total'         => 0.0,
             'og_valid_bet_today'     => 0.0,
             'og_valid_bet_yesterday' => 0.0,
+            'og_valid_bet_total'     => 0.0,
         ];
         if ($userId <= 0) {
             return $out;
@@ -524,6 +526,7 @@ class FansHubWallet
         if ($category === 'og_live') {
             $out['og_valid_bet_today'] = FansHubOgRebate::sumEligibleBets($userId, date('Y-m-d'));
             $out['og_valid_bet_yesterday'] = FansHubOgRebate::sumEligibleBets($userId, FansHubOgRebate::yesterdayYmd());
+            $out['og_valid_bet_total'] = FansHubOgRebate::sumEligibleBetsTotal($userId);
             return $out;
         }
         if ($category === '' || $category === 'recharge' || $category === 'all') {
